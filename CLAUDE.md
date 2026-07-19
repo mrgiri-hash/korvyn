@@ -1,14 +1,34 @@
-# CLAUDE.md — LocusOS dashboard
+# CLAUDE.md — KORVYN dashboard
 
 Guidance for Claude Code working in this repo. Read this fully before editing.
 
 ## What this is
 
-`locusos_dashboard_v12.html` is a **single self-contained HTML file** (~6,100 lines): an
-illustrative prototype of a capital-accounting dashboard for a fictional data-center / CRE
-REIT ("Meridian Global Portfolio"). No backend, no build step, no dependencies at runtime.
+`locusos_dashboard_v12.html` is a **single self-contained HTML file** (~8,100 lines): an
+illustrative prototype of **KORVYN**, an enterprise finance / accounting / capital
+intelligence layer sitting on top of an ERP, for a fictional data-center / CRE REIT
+("Meridian Global Portfolio"). No backend, no build step, no dependencies at runtime.
 All data is hardcoded. It runs by opening the file in a browser. Dark/light mode via CSS
-variables.
+variables. (The filename still carries the old product name; the brand is KORVYN.)
+
+**The ERP is the system of record.** Korvyn reads it and adds visibility, workflow,
+controls, close, reconciliation, analytics and AI. Do **not** build journal-entry posting
+or other routine ERP transaction processing.
+
+## Navigation architecture (read before touching nav)
+
+- **KORVYN wordmark = Home.** It is a `<button class="ribbon-brand">` that calls
+  `pickLens('portfolio')`. There is deliberately **no Home tab** in the top nav;
+  `paintRailRoles` filters `portfolio` out of the ribbon.
+- **Top ribbon = enterprise domains** (`#ribbonSections`, from `LENS_ORDER`):
+  Accounting · Fixed Assets · Procurement · FP&A · Treasury · Reporting · ⋯
+  The `⋯` menu (`#moreMenu`) holds Data & Controls / Integrations / Administration.
+- **Left rail = functions within the active domain** (`#railTabs`, from `RAIL_SPEC`).
+- **Ask Korvyn** = persistent contextual AI, four states (docked / rail / full screen /
+  closed). Do not redesign it without being asked.
+
+Lens ids kept their original names through relabelling: `ledger` renders as
+**Accounting**, `filings` as **Reporting** (SEC filings is a group inside its rail).
 
 **Product thesis (keep edits in this lane):** own the construction-in-progress →
 placed-in-service (CIP → PIS) determination-and-defense layer — the ASC 360 / 835-20
@@ -20,7 +40,7 @@ Features should serve that spine. Deliberate non-scope: it is **not** a Workiva 
 
 Everything is in the one HTML file, in three parts:
 1. `<style>` — all CSS, including `:root` (light) and `[data-theme=dark]` variable blocks.
-2. `<body>` — the shell: top ribbon (`#ribbonSections`), left rail (`#railTabs` + `#railUtil`),
+2. `<body>` — the shell: top ribbon (`#ribbonSections`), left rail (`#railTabs`),
    filter bar (`#filterCtrls`), nav strips (`#secnav`, `#subnav`, `#subnav2`), and one
    `<div class="view" id="view-{tabid}">` per tab.
 3. `<script>` — all logic (data, render functions, nav, state).
@@ -29,31 +49,36 @@ There is no separate CSS/JS file. Edits happen in place.
 
 ## Core architecture
 
-- **Sections** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
-  `portfolio` (Home), `assets` (Fixed Assets), `procure` (Procurement), `fpa` (FP&A),
-  `ledger` (General Ledger), `filings` (SEC filings). Each lists its `tabs`.
+- **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
+  `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
+  (Fixed Assets), `procure` (Procurement), `fpa` (FP&A), `treasury` (Treasury),
+  `filings` (**Reporting**). Each lists its `tabs`.
 - **Workspace destinations** live in the same `LENSES` map but are listed in `UTIL_ORDER`,
-  **not** `LENS_ORDER`: `tasks`, `issues`, `archives`, `admin`. They are single-tab lenses.
-  Keeping them out of `LENS_ORDER` is deliberate — the top ribbon and any `LENS_ORDER`
-  sweep stay limited to the six real sections. Iterate `[...LENS_ORDER,...UTIL_ORDER]`
-  when you want every destination.
+  **not** `LENS_ORDER`: `tasks`, `issues`, `archives`, `admin`. They are single-tab lenses
+  reached from Home's left nav. Iterate `[...LENS_ORDER,...UTIL_ORDER]` when you want
+  every destination — that is what the verification sweep does.
 - **Tabs** are defined in the `TABS` catalog array (id, label, icon path). Each section's
   `tabs` array references these ids.
 - **Render dispatch:** a series of `if(TAB==='x')renderX();` calls (search `if(TAB===`).
-  There are 34 `renderX()` functions, one per view (e.g. `renderFinRep`, `renderFiling`,
+  There are 62 `renderX()` functions, one per view (e.g. `renderFinRep`, `renderFiling`,
   `renderFIndex`, `renderFDetail`). Each writes into its `#view-{tab}` container's `innerHTML`.
   (The filing workspace additionally has nine `fdXxx(f)` sub-renderers that **return HTML
   strings** rather than writing to the DOM — `renderFDetail` composes them, along with
   `fdTree()` / `fdItemPane()` / `fdCommentBlock()` for the two-column work area.)
 - **Rail structure:** `RAIL_SPEC[lens]` optionally overrides the plain tab list with a
-  structured rail (`kids` for an expandable group, `badge:()=>n` read live, `sub` to land on
-  a specific `fDetailTab`). Only `filings` has one; every other section falls back to its
-  tab list. `railExpanded` holds group open/closed state.
+  structured rail. Entry forms: `{head:'…'}` renders a group heading; `kids` an expandable
+  group; `badge:()=>n` a live count; `act`/`on` let an entry target existing state instead
+  of forcing a new tab (that is how Flux review reaches `finrep`+`finRepSub`, and how
+  Treasury reuses the Cash & Liquidity component). Specs exist for `portfolio`, `treasury`,
+  `fpa`, `ledger`, `filings`; other domains fall back to their tab list. `railExpanded`
+  holds group open/closed state.
 - **Per-tab titles/crumbs:** `VIEW_META`.
 - **Two-level nav (this is the important bit):**
-  - **Top ribbon** `#ribbonSections` = the six *sections*.
-  - **Left rail** `#railTabs` = the **active section's** destinations, labelled with the
-    section name (`#railTabsLbl`); `#railUtil` = the cross-cutting Workspace group.
+  - **Top ribbon** `#ribbonSections` = the *domains*, with `portfolio` filtered out
+    (the wordmark is Home).
+  - **Left rail** `#railTabs` = the **active domain's** functions. A spec carrying its own
+    `head` entries suppresses the generic `#railTabsLbl`. There is no global Workspace
+    group any more — Workspace and System live in Home's left nav.
   - Both are painted by `paintRailRoles()`. `paintRailNav` is wrapped so the rail
     highlight follows `pickTab`, not just `pickLens`.
   - `#secnav` (the old row-1 section strip) is **force-hidden** — its content moved to the
@@ -114,6 +139,16 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   orphaned body and a syntax error at the next `}`. **After replacing any render function,
   verify:** `grep -c "function renderY(){" file` equals the expected count, and re-check the
   junction. This has happened repeatedly (renderCIP, renderBudget, renderFinRep, renderFiling).
+- **Never anchor an edit on a string you have not proved is unique.** This file repeats
+  key names across unrelated structures — `ledger:` appears in both `KPI_SETS` and
+  `RAIL_SPEC`, `.railrole` is shared by the ribbon nav and the left rail. A slice taken
+  from the *first* match of `  ledger:[` once deleted 104KB (the rest of `KPI_SETS`,
+  `renderConsol`, and the whole `RAIL_SPEC` declaration) and the page stopped executing.
+  Assert `count(anchor) == 1` before every replacement, and prefer a longer anchor that
+  includes surrounding context.
+- **Shared class names cut both ways.** `body.rail-collapsed .railrole .lbl{display:none}`
+  looked rail-scoped but also stripped the ribbon nav's labels. Scope state rules to their
+  container (`.rail .railrole`).
 - **Template-literal escaping:** these render functions are giant template strings. Don't use
   `\\'` inside them for apostrophes — use a plain word or `&#39;`. A stray backslash-escape
   breaks the whole script.
