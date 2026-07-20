@@ -15,6 +15,42 @@ variables.
 controls, close, reconciliation, analytics and AI. Do **not** build journal-entry posting
 or other routine ERP transaction processing.
 
+## Where the build currently stands
+
+Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch `main`.
+
+**Built and verified**
+
+| Module | State |
+|---|---|
+| Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
+| Accounting | Overview, Close, General Ledger — all three built to their written specs |
+| Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
+| Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
+| FP&A | Eight functions, Executive Overview through Management Reporting |
+| Treasury | Reuses the Cash & Liquidity component (five sub-tabs) |
+| Reporting | SEC filings group: dashboard, index, filing workspace, XBRL, reports |
+
+**Not yet built to standard** — these are the obvious next pieces:
+
+- **Accounting > Reconciliations** — still the older `glrecon` page. Referenced from both
+  Accounting > Overview and the GL workspace, so building it completes several drill-downs.
+- **Accounting > Intercompany** and **Continuous Close** — routing summaries (`acctStub`),
+  not full workspaces.
+- **Accounting > Consolidation** — older `consol` page.
+- Fixed Assets, Procurement, FP&A and Reporting have not had a written spec pass like
+  Accounting did; their pages predate the current design standard.
+
+**Working agreements established with the user**
+
+- Work incrementally. Never rebuild or redesign an existing page unless asked.
+- Home > Overview is off-limits; it renders 3,374 characters and that is the regression check.
+- The ERP is the system of record. Never build journal-entry creation, approval or posting.
+- Numbers must derive, never duplicate. Statements derive from `COA` + `FINREP_SUPP`;
+  close roll-ups derive from `CLOSE_TASKS`; the GL ledger derives from `COA`. If a figure
+  appears in two places, derive it once.
+- No dead controls. If an affordance cannot act, do not add it.
+
 ## Navigation architecture (read before touching nav)
 
 - **KORVYN wordmark = Home.** It is a `<button class="ribbon-brand">` that calls
