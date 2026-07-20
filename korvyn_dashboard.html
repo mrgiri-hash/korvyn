@@ -882,6 +882,39 @@ footer b{color:var(--muted)}
 .ic-rank.p1{background:var(--neg-bg);color:var(--neg)}
 .ic-rank.p2{background:var(--warn-bg);color:var(--warn)}
 
+/* ---- CONTINUOUS CLOSE: the "if we closed today" hero, measured/estimate tags, trend ---- */
+.cc-hero{padding:0;overflow:hidden}
+.cc-hero-in{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.35fr);gap:0;align-items:stretch}
+@media(max-width:940px){.cc-hero-in{grid-template-columns:1fr}}
+.cc-hero-l{padding:26px 28px;background:var(--surface2);border-right:1px solid var(--line);min-width:0}
+@media(max-width:940px){.cc-hero-l{border-right:none;border-bottom:1px solid var(--line)}}
+.cc-hero-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.cc-hero-v{font-family:var(--num);font-size:62px;font-weight:600;letter-spacing:-.03em;line-height:1.02;
+  margin-top:8px;color:var(--accent);font-variant-numeric:tabular-nums}
+.cc-hero-v .pc{font-size:28px;margin-left:3px;color:var(--muted)}
+.cc-hero-sub{font-size:12.5px;color:var(--hint);margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* the five counters, as a responsive strip so they never squash the hero number */
+.cc-hero-r{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:0;min-width:0}
+.cc-stat{padding:18px 18px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.cc-stat:hover{background:var(--bg2)}
+.cc-hero-r>.cc-stat:first-child{border-left:none}
+@media(max-width:940px){.cc-stat{border-left:none;border-right:1px solid var(--line)}}
+.cc-stat-l{font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.cc-stat-v{font-family:var(--num);font-size:23px;font-weight:600;letter-spacing:-.02em;margin-top:7px;
+  font-variant-numeric:tabular-nums}
+.cc-stat-d{font-size:11px;color:var(--hint);margin-top:3px}
+
+/* measured vs Korvyn estimate — the distinction the page is built on */
+.cc-tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 7px;border-radius:var(--radius-pill);white-space:nowrap;vertical-align:middle}
+.cc-tag.meas{background:var(--pos-bg);color:var(--pos)}
+.cc-tag.est{background:var(--accent-bg);color:var(--accent-ink)}
+
+.cc-trend{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.cc-spark{flex:1 1 300px;min-width:0;height:132px}
+.cc-trend-side{flex:0 0 190px;min-width:0}
+@media(max-width:640px){.cc-trend-side{flex:1 1 100%}}
+
 
 
 
@@ -3343,7 +3376,7 @@ function csxTie(){
 // ---- page state ----
 let csSub='status', csEnt=null,
     csfReg='all', csfCtry='all', csfCcy='all', csfBu='all', csfSt='all', csStmt='bs', csCmp='prior';
-function setCsSub(v){ csSub=v; csEnt=null; renderAll(); }
+function setCsSub(v){ csSub=v; csEnt=null; renderAll(); navRepaint(); }
 function setCsEnt(v){ csEnt=v; renderAll(); }
 function csBack(){ csEnt=null; renderAll(); }
 function setCsStmt(v){ csStmt=v; renderAll(); }
@@ -3354,7 +3387,7 @@ function setCsF(k,v){
   renderAll();
 }
 function csResetF(){ csfReg=csfCtry=csfCcy=csfBu=csfSt='all'; renderAll(); }
-function csDrill(sub,st){ csSub=sub; csEnt=null; if(st) csfSt=st; renderAll(); }
+function csDrill(sub,st){ csSub=sub; csEnt=null; if(st) csfSt=st; renderAll(); navRepaint(); }
 const csxFiltered=()=>csfReg!=='all'||csfCtry!=='all'||csfCcy!=='all'||csfBu!=='all'||csfSt!=='all';
 function csxScope(){
   return csxEntities().filter(e=>
@@ -6624,15 +6657,6 @@ function renderAcctOver(){
 }
 
 // ---- routing destinations for sections not yet built ----
-function acctStub(el,title,blurb,rows,link,linkLabel){
-  if(!el)return;
-  el.innerHTML=glHead(title,blurb,'')+
-   `<div class="card"><h2>${title}<span class="note">summary view</span></h2>
-      <div class="subhead">The full ${title.toLowerCase()} workspace is not built yet. What it will hold is
-        summarised here from live records so the route is real rather than empty.</div>
-      <table class="tbl"><tbody>${rows}</tbody></table>
-      <div class="cardfoot"><span class="extlink" onclick="${link}">${linkLabel}</span></div></div>`;
-}
 /* ==================== INTERCOMPANY COMMAND CENTRE ====================
    Korvyn sits on top of the ERP. The ERP posts; Korvyn orchestrates, matches,
    reconciles, settles and clears eliminations. Nothing on this page posts a journal —
@@ -7013,7 +7037,10 @@ function icxTie(){
 // ---- page state ----
 let icSub='net', icPairSel=null, icEvSel=null,
     icfEnt='all', icfCp='all', icfTy='all', icfMs='all', icfAge='all', icfCcy='all';
-function setIcSub(v){ icSub=v; icPairSel=null; icEvSel=null; renderAll(); }
+// Sub-view setters MUST repaint the nav strip — renderAll() does not do it.
+// Same convention as setCipSub / setFinRepSub; omitting it leaves the #subnav
+// highlight stuck on whichever step was active when the tab was opened.
+function setIcSub(v){ icSub=v; icPairSel=null; icEvSel=null; renderAll(); navRepaint(); }
 function setIcPairSel(v){ icPairSel=v; icEvSel=null; renderAll(); }
 function setIcEvSel(v){ icEvSel=v; renderAll(); }
 function icBack(){ if(icEvSel){icEvSel=null;} else {icPairSel=null;} renderAll(); }
@@ -7024,7 +7051,7 @@ function setIcF(k,v){
 }
 function icResetF(){ icfEnt=icfCp=icfTy=icfMs=icfAge=icfCcy='all'; renderAll(); }
 // A KPI card is a real control: it moves the user to the population it counts.
-function icDrill(sub,ms){ icSub=sub; icPairSel=null; icEvSel=null; if(ms) icfMs=ms; renderAll(); }
+function icDrill(sub,ms){ icSub=sub; icPairSel=null; icEvSel=null; if(ms) icfMs=ms; renderAll(); navRepaint(); }
 
 const icxAgeBk=a=>a<=30?'0-30':a<=60?'31-60':a<=90?'61-90':'90+';
 function icxScope(){
@@ -7634,16 +7661,679 @@ function renderIcomp(){
        settle:icvSettle, elim:icvElim, excep:icvExcep, audit:icvAudit}[icSub]||icvNet)();
   el.innerHTML=o;
 }
+/* ==================== CONTINUOUS CLOSE ====================
+   Accounting > Close executes the formal period-end close. This page is the other half:
+   it continuously assesses whether the books COULD be closed today, and surfaces work that
+   can be pulled forward instead of piling up at period-end. It creates no close tasks and
+   posts nothing — the ERP remains the system of record and Close remains the execution page.
+
+   MEASURED vs ESTIMATED is a first-class distinction here. Everything on this page is one
+   of two things and is labelled as such:
+     measured  — derived from live module data (GL_CLOSE_FN, GL_RECON, icxPairs, csxEntities,
+                 CIP_PROJECTS, GL_ERP, GL_ACT, CLOSE_TASKS). Cannot drift.
+     estimated — a Korvyn assessment (emerging risks, days-to-close, time saved). Always
+                 carries a confidence and is never presented as fact. See ccxEst().
+
+   The one thing that genuinely cannot be derived from current state is DETECTION HISTORY —
+   "this was validated, then something changed". That is CC_SIGNALS, an observation feed,
+   the same justification as IC_EVENTS.aud and CONS_DELTA.                               */
+
+const CC_ASOF='2026-06-30', CC_DAY=18;          // day 18 of the period at the as-of date
+const CC_WS=[
+  {id:'gl',   nm:'General Ledger',  own:'A. Okafor',    go:"pickTab('glintel')", lk:'GL intelligence'},
+  {id:'recs', nm:'Reconciliations', own:'S. Lee',       go:"pickTab('glrecon')", lk:'Reconciliations'},
+  {id:'ic',   nm:'Intercompany',    own:'M. Giri',      go:"pickTab('icomp')",   lk:'Intercompany'},
+  {id:'cons', nm:'Consolidation',   own:'A. Okafor',    go:"pickTab('consol')",  lk:'Consolidation'},
+  {id:'fa',   nm:'Fixed Assets',    own:'L. Tan',       go:"pickLens('assets')", lk:'Fixed Assets'},
+  {id:'accr', nm:'Accruals',        own:'J. Park',      go:"pickTab('acctclose')",lk:'Close'},
+  {id:'ap',   nm:'AP / Cutoff',     own:'M. Reyes',     go:"pickLens('procure')",lk:'Procurement'},
+  {id:'ar',   nm:'AR / Revenue',    own:'J. Lindqvist', go:"pickTab('glact')",   lk:'GL activity'},
+  {id:'cash', nm:'Cash',            own:'A. Johnson',   go:"pickLens('treasury')",lk:'Treasury'},
+];
+const CC_WSN=Object.fromEntries(CC_WS.map(w=>[w.id,w.nm]));
+
+/* Detection feed: work that was previously complete and has since been disturbed.
+   This is the differentiating signal — it is why the user does not have to re-check
+   finished work by hand. Materiality in $M. */
+const CC_SIGNALS=[
+  {id:'CS-1181', item:'Accounts Payable — 20000', ent:'Meridian DC Holdco', ws:'recs',
+   ch:'Late journal posted after the account was reconciled', prev:'Reconciled', cur:'Reconciliation no longer valid',
+   mat:1.25, at:'Jul 19, 2026 09:05', own:'J. Park', ref:'JE-004821', src:'NetSuite', sev:'crit'},
+  {id:'CS-1180', item:'Meridian Property Co — intercompany', ent:'Meridian Property Co', ws:'ic',
+   ch:'Counterparty entry still not posted', prev:'Awaiting counterparty', cur:'Difference aged past 90 days',
+   mat:2.30, at:'Jul 19, 2026 16:55', own:'M. Giri', ref:'ICE-2603-0204', src:'Korvyn', sev:'crit'},
+  {id:'CS-1179', item:'CIP — Equipment 15000', ent:'Meridian DC Holdco', ws:'fa',
+   ch:'New capital addition posted', prev:'Validated', cur:'CIP balance changed — reclassification review needed',
+   mat:4.80, at:'Jul 19, 2026 14:02', own:'L. Tan', ref:'AP-019284', src:'NetSuite', sev:'warn'},
+  {id:'CS-1178', item:'Prepaid Expenses — 15000', ent:'Meridian DC Holdco', ws:'recs',
+   ch:'New invoice received against a reconciled balance', prev:'Reconciled', cur:'Roll-forward requires re-validation',
+   mat:0.49, at:'Jul 19, 2026 11:20', own:'M. Giri', ref:'BILL-55612', src:'NetSuite', sev:'warn'},
+  {id:'CS-1177', item:'GBP translation rate', ent:'Meridian Management Co', ws:'cons',
+   ch:'Rate not refreshed since Jun 12', prev:'Current', cur:'Stale rate — translation blocked',
+   mat:1.90, at:'Jul 20, 2026 08:12', own:'S. Lee', ref:'FX-GBP', src:'Korvyn', sev:'warn'},
+  {id:'CS-1176', item:'Retention Payable — 22000', ent:'Fleet DC OpCo', ws:'recs',
+   ch:'PO commitment revised upward', prev:'In progress', cur:'Supporting schedule superseded',
+   mat:0.31, at:'Jul 18, 2026 15:44', own:'M. Giri', ref:'PO-1006', src:'Procore', sev:'info'},
+  {id:'CS-1175', item:'Cash — Operating 10000', ent:'Meridian DC Holdco', ws:'cash',
+   ch:'Bank activity posted after reconciliation cut-off', prev:'Reconciled', cur:'Two items to clear — immaterial',
+   mat:0.08, at:'Jul 18, 2026 07:30', own:'A. Johnson', ref:'BANK-0718', src:'NetSuite', sev:'info'},
+  {id:'CS-1174', item:'JD Edwards feed', ent:'Group', ws:'gl',
+   ch:'Source system sync delayed', prev:'Synced through Jun 30', cur:'Data only through Jun 29',
+   mat:0, at:'Jul 20, 2026 06:15', own:'A. Okafor', ref:'JDE', src:'Korvyn', sev:'crit'},
+];
+const CC_SEV={crit:{l:'Material',c:'flag',d:'bad'}, warn:{l:'Review',c:'ready',d:'warn'}, info:{l:'Monitor',c:'info',d:'idle'}};
+
+/* Readiness trajectory. A historical series cannot be derived from current state, so the
+   shape is stored — but the FINAL current-period point is overwritten at render time with
+   the live computed score, so the chart and the hero number can never disagree. */
+const CC_TREND={cur:[[1,41],[3,48],[5,56],[8,63],[10,69],[12,74],[15,79],[18,87]],
+                pri:[[1,38],[3,44],[5,51],[8,58],[10,63],[12,67],[15,72],[18,76]]};
+
+// Close dependency map. Status derives; only the shape and owners are declared.
+const CC_DEPS=[
+  {gp:'Core close path', ch:[
+    {id:'po',    nm:'Procurement / PO activity', src:'ap'},
+    {id:'apinv', nm:'AP / invoice processing',   src:'ap'},
+    {id:'accr',  nm:'Accrual completeness',      src:'accr'},
+    {id:'glc',   nm:'GL completeness',           src:'gl'},
+    {id:'rec',   nm:'Reconciliation',            src:'recs'},
+    {id:'cons',  nm:'Consolidation',             src:'cons'},
+    {id:'rep',   nm:'Reporting',                 src:'rep'}]},
+  {gp:'Fixed assets', ch:[
+    {id:'cip',   nm:'CIP review',                src:'cipr'},
+    {id:'pis',   nm:'Placed-in-service',         src:'pisd'},
+    {id:'dep',   nm:'Depreciation',              src:'fa'},
+    {id:'fagl',  nm:'GL',                        src:'gl'},
+    {id:'farec', nm:'Reconciliation',            src:'recs'}]},
+  {gp:'Intercompany', ch:[
+    {id:'icm',   nm:'Matching',                  src:'ic'},
+    {id:'icd',   nm:'Difference resolution',     src:'icdiff'},
+    {id:'ice',   nm:'Elimination',               src:'icelim'},
+    {id:'icc',   nm:'Consolidation',             src:'cons'}]},
+];
+
+// ---- derivations (memoised) ----
+const ccxDays=d=>Math.round((new Date(CC_ASOF+'T00:00:00')-new Date(d+'T00:00:00'))/864e5);
+const ccxFn=n=>{const f=GL_CLOSE_FN.find(x=>x.fn===n); return f?Math.round(f.done/f.tot*100):0;};
+const ccxTasks=p=>{const t=CLOSE_TASKS.filter(x=>p(x));
+  return {pct:t.length?Math.round(t.filter(x=>x.st==='done').length/t.length*100):100,
+          open:t.filter(x=>x.st!=='done').length, blk:t.filter(x=>x.st==='blk').length};};
+
+let _ccW=null;
+function ccxWorkstreams(){
+  if(_ccW) return _ccW;
+  const rec=GL_RECON, recDone=rec.filter(r=>r.st==='done').length;
+  const K=icxKpi(), C=csxKpi(), t=closeTotals();
+  const accrT=ccxTasks(x=>/accrual|grni|goods-received/i.test(x.nm));
+  const apT  =ccxTasks(x=>x.fn==='Payables & accruals' && !/accrual/i.test(x.nm));
+  const arT  =ccxTasks(x=>x.fn==='Revenue & billing');
+  const cashT=ccxTasks(x=>x.fn==='Cash & banking');
+  const cip=CIP_PROJECTS;
+  const sigBy=w=>CC_SIGNALS.filter(s=>s.ws===w);
+  const M={
+    gl:  {pct:closePct(), open:t.prog+t.not, risk:t.blk+GL_ERP.filter(e=>e.st!=='ok').length,
+          basis:'close tasks complete, across all functions'},
+    recs:{pct:Math.round(recDone/rec.length*100), open:rec.length-recDone, risk:rec.filter(r=>r.st==='over').length,
+          basis:'reconciliations complete'},
+    ic:  {pct:Math.round(K.matchRate), open:K.openEv.length, risk:K.oob.length,
+          basis:'intercompany matched by value'},
+    cons:{pct:C.score, open:C.E.filter(e=>e.st!=='ready').length, risk:C.blocked.length,
+          basis:'consolidation readiness score'},
+    fa:  {pct:ccxFn('Fixed assets & CIP'), open:cip.filter(p=>p.status!=='posted').length,
+          risk:cip.filter(p=>p.scrub>0).length, basis:'fixed asset close tasks complete'},
+    accr:{pct:accrT.pct, open:accrT.open, risk:accrT.blk, basis:'accrual tasks complete'},
+    ap:  {pct:apT.pct,   open:apT.open,   risk:apT.blk,   basis:'payables and cut-off tasks complete'},
+    ar:  {pct:arT.pct,   open:arT.open,   risk:arT.blk,   basis:'revenue and billing tasks complete'},
+    cash:{pct:cashT.pct, open:cashT.open, risk:cashT.blk, basis:'cash and banking tasks complete'},
+  };
+  _ccW=CC_WS.map(w=>{
+    const m=M[w.id], sig=sigBy(w.id);
+    const st = m.risk ? 'attn' : m.pct>=95 ? 'clean' : m.pct>=70 ? 'prog' : 'attn';
+    // trend: prior-period trajectory at the same day, from the stored shape
+    const priorAtDay=(CC_TREND.pri.find(p=>p[0]===CC_DAY)||[0,0])[1];
+    return {...w, ...m, sig, st, trend:m.pct-priorAtDay};
+  });
+  return _ccW;
+}
+
+function ccxReadiness(){
+  const W=ccxWorkstreams();
+  return Math.round(W.reduce((s,w)=>s+w.pct,0)/W.length);
+}
+
+/* Work that is genuinely finishable now, derived from live module state.
+   Nothing here posts — every recommended action is review / validate / assign / open. */
+function ccxReadyNow(){
+  const out=[];
+  const changed=new Set(CC_SIGNALS.map(s=>s.item));
+  GL_RECON.forEach(r=>{
+    const item=r.nm+' — '+r.acct;
+    if(r.st==='done' && !changed.has(item))
+      out.push({item, ent:r.ent, ws:'recs', cur:'Reconciled', last:r.due, own:r.own,
+                act:'Validate roll-forward', why:'Complete and undisturbed since reconciliation.', go:"pickTab('glrecon')"});
+    if(r.st==='prog' && !r.diff)
+      out.push({item, ent:r.ent, ws:'recs', cur:'In progress', last:r.due, own:r.own,
+                act:'Complete now', why:'No difference outstanding — only sign-off remains.', go:"pickTab('glrecon')"});
+  });
+  icxPairs().filter(p=>Math.abs(p.diff)<=0.05).forEach(p=>
+    out.push({item:icxEnt(p.a).nm+' ↔ '+icxEnt(p.b).nm, ent:icxEnt(p.a).nm, ws:'ic', cur:'Matched',
+              last:'Jun 30, 2026', own:'M. Giri', act:'Lock for elimination',
+              why:'Both sides agree; nothing outstanding on the pair.', go:"pickTab('icomp')"}));
+  CIP_PROJECTS.filter(p=>p.evid&&p.evid.coo&&p.evid.ready).forEach(p=>
+    out.push({item:p.name+' — CIP '+glB(p.cip), ent:p.entity, ws:'fa', cur:'Ready for PIS',
+              last:p.days+' days since COO', own:'L. Tan', act:'Review determination',
+              why:'COO issued and operational readiness signed off.', go:"pickLens('assets')"}));
+  return out;
+}
+
+/* Emerging risks — Korvyn ESTIMATES. Each rule fires off measured data but the probability
+   and the close impact are assessments, not facts, and are labelled that way in the UI. */
+function ccxRisks(){
+  const out=[], K=icxKpi(), rec=GL_RECON, W=ccxWorkstreams();
+  IC_EVENTS.filter(e=>e.dty==='missing').forEach(e=>out.push({
+    r:'Intercompany counterparty entry still missing', ws:'ic', ent:icxEnt(e.cp).nm,
+    imp:Math.abs(icxEvDiff(e)), conf:92, exp:'Will block elimination at close',
+    act:'Chase the counterparty posting or book the drafted instruction', own:e.own, go:"pickTab('icomp')"}));
+  const openRec=rec.filter(r=>r.st!=='done').length;
+  if(openRec) out.push({r:'Reconciliation volume trending behind', ws:'recs', ent:'Group',
+    imp:+rec.filter(r=>r.st!=='done').reduce((s,r)=>s+Math.abs(r.diff),0).toFixed(2), conf:74,
+    exp:'Likely to compress the final close days', act:'Pull low-activity accounts forward this week',
+    own:'S. Lee', go:"setCcSub('pull')"});
+  CIP_PROJECTS.filter(p=>p.status==='ready'&&p.days>30).forEach(p=>out.push({
+    r:'CIP awaiting placed-in-service determination', ws:'fa', ent:p.entity, imp:p.cip, conf:81,
+    exp:'Depreciation understated if not transferred this period',
+    act:'Complete the PIS determination', own:'L. Tan', go:"pickLens('assets')"}));
+  CIP_PROJECTS.filter(p=>p.scrub>0).forEach(p=>out.push({
+    r:'Operating cost mis-coded to CIP', ws:'fa', ent:p.entity, imp:p.scrub, conf:68,
+    exp:'Capitalisation error if not scrubbed before close',
+    act:'Run the cost scrub', own:'L. Tan', go:"pickLens('assets')"}));
+  GL_ERP.filter(e=>e.st!=='ok').forEach(e=>out.push({
+    r:e.nm+' feed behind — data only through '+e.thru, ws:'gl', ent:e.ent+' entities', imp:0, conf:95,
+    exp:'GL completeness cannot be asserted for those entities',
+    act:'Resolve the integration before cut-off', own:'A. Okafor', go:"pickTab('glsync')"}));
+  rec.filter(r=>r.st==='over').forEach(r=>out.push({
+    r:'High-risk account past due and unvalidated', ws:'recs', ent:r.ent, imp:Math.abs(r.diff), conf:88,
+    exp:'Recurring finding — this account was late last period too',
+    act:'Assign and clear the difference', own:r.own, go:"pickTab('glrecon')"}));
+  W.filter(w=>w.risk>0&&w.pct<70).forEach(w=>out.push({
+    r:w.nm+' trending materially behind plan', ws:w.id, ent:'Group', imp:0, conf:70,
+    exp:'Historically a repeat close blocker at this readiness level',
+    act:'Rebalance owners onto '+w.nm.toLowerCase(), own:w.own, go:w.go}));
+  return out.sort((a,b)=>(b.imp*b.conf)-(a.imp*a.conf));
+}
+
+// Blockers — only things materially preventing close readiness. Derived, not listed.
+function ccxBlockers(){
+  const out=[];
+  csxEntities().forEach(e=>e.blk.filter(b=>b.sev==='crit').forEach(b=>out.push({
+    t:b.t, ent:e.nm, ws:b.lk==='Intercompany'?'ic':b.lk==='Close'?'gl':'recs',
+    imp:0, own:e.rev, age:0, exp:'Before cut-off', esc:e.score<50?'Escalated':'Owner', go:b.go})));
+  IC_EVENTS.filter(e=>e.ms==='un'||e.ms==='disp').forEach(e=>out.push({
+    t:(e.dty==='missing'?'Missing intercompany counterparty entry':'Unresolved intercompany difference')+' — '+e.id,
+    ent:icxEnt(e.cp).nm, ws:'ic', imp:Math.abs(icxEvDiff(e)), own:e.own, age:icxDays(e.dt),
+    exp:icxDays(e.dt)>90?'Overdue':'Before cut-off', esc:icxDays(e.dt)>90?'Escalated':'Owner', go:"pickTab('icomp')"}));
+  GL_RECON.filter(r=>r.st==='over').forEach(r=>out.push({
+    t:'Unresolved reconciliation difference — '+r.nm+' ('+r.acct+')', ent:r.ent, ws:'recs',
+    imp:Math.abs(r.diff), own:r.own, age:ccxDays('2026-06-25'), exp:'Overdue', esc:'Escalated', go:"pickTab('glrecon')"}));
+  GL_ERP.filter(e=>e.st!=='ok').forEach(e=>out.push({
+    t:'Source-system integration failure — '+e.nm, ent:e.ent+' entities', ws:'gl', imp:0,
+    own:'A. Okafor', age:1, exp:'Same day', esc:'Escalated', go:"pickTab('glsync')"}));
+  CIP_PROJECTS.filter(p=>p.status==='ready'&&p.days>40).forEach(p=>out.push({
+    t:'Incomplete placed-in-service determination — '+p.name, ent:p.entity, ws:'fa',
+    imp:p.cip, own:'L. Tan', age:p.days, exp:'This period', esc:'Owner', go:"pickLens('assets')"}));
+  return out.sort((a,b)=>(b.imp-a.imp)||(b.age-a.age));
+}
+
+/* Work to pull forward. Time saved is an ESTIMATE, expressed in ranges, never a
+   single false-precision figure. */
+function ccxPullForward(){
+  const out=[];
+  GL_RECON.filter(r=>r.st!=='done'&&!r.diff).forEach(r=>out.push({
+    t:'Reconcile '+r.nm+' ('+r.acct+')', ws:'recs', ent:r.ent, dep:'None — activity is low and settled',
+    earliest:'Now', save:'0.5–1 day', own:r.own, go:"pickTab('glrecon')"}));
+  icxPairs().filter(p=>Math.abs(p.diff)<=0.05).forEach(p=>out.push({
+    t:'Lock '+icxEnt(p.a).ini+' ↔ '+icxEnt(p.b).ini+' for elimination', ws:'ic', ent:icxEnt(p.a).nm,
+    dep:'None — pair already agrees', earliest:'Now', save:'0.5 day', own:'M. Giri', go:"pickTab('icomp')"}));
+  CIP_PROJECTS.filter(p=>p.evid&&p.evid.coo).forEach(p=>out.push({
+    t:'Classification review — '+p.name, ws:'fa', ent:p.entity,
+    dep:p.evid.ready?'None — evidence complete':'Operational readiness sign-off',
+    earliest:p.evid.ready?'Now':'On sign-off', save:'1–2 days', own:'L. Tan', go:"pickLens('assets')"}));
+  CLOSE_TASKS.filter(x=>x.st==='not'&&!x.dep).slice(0,6).forEach(x=>out.push({
+    t:x.nm, ws:'accr', ent:x.ent, dep:'None — no upstream dependency', earliest:'Now',
+    save:'0.5 day', own:x.own, go:"pickTab('acctclose')"}));
+  return out;
+}
+
+// Dependency map status, derived from the workstream readiness above.
+function ccxDepStatus(){
+  const W=ccxWorkstreams(), by=Object.fromEntries(W.map(w=>[w.id,w]));
+  const K=icxKpi();
+  const cip=CIP_PROJECTS;
+  // Each node reads its OWN measure. Pointing several nodes at one workstream would make
+  // the chain show the same number three times and say nothing about where the break is.
+  const src=id=>{
+    if(id==='rep')    return {pct:0, risk:0};                     // reporting cannot start yet
+    if(id==='icelim') return {pct:Math.round((K.pairs.length-K.elimEx.length)/K.pairs.length*100), risk:K.elimEx.length};
+    if(id==='icdiff'){ const res=IC_EVENTS.filter(e=>e.ms==='exact').length;
+      return {pct:Math.round(res/IC_EVENTS.length*100), risk:IC_EVENTS.filter(e=>e.ms==='un'||e.ms==='disp').length}; }
+    if(id==='cipr')   return {pct:Math.round(cip.filter(p=>p.status!=='review').length/cip.length*100),
+                              risk:cip.filter(p=>p.scrub>0).length};
+    if(id==='pisd')   return {pct:Math.round(cip.filter(p=>p.evid&&p.evid.coo&&p.evid.ready&&p.evid.final).length/cip.length*100),
+                              risk:cip.filter(p=>p.status==='ready'&&p.days>40).length};
+    return by[id]||{pct:0,risk:0};
+  };
+  return CC_DEPS.map(g=>({...g, ch:g.ch.map(c=>{const s=src(c.src);
+    const st = s.risk ? (s.pct<70?'blocked':'risk') : s.pct>=95 ? 'done' : s.pct>0 ? 'prog' : 'not';
+    return {...c, pct:s.pct, st};})}));
+}
+
+/* Korvyn estimates. Kept in one place and always rendered with the estimate treatment,
+   so nothing on this page can present an assessment as a measurement. */
+function ccxEst(){
+  const W=ccxWorkstreams(), r=ccxReadiness();
+  const openItems=W.reduce((s,w)=>s+w.open,0);
+  const blockers=ccxBlockers().length;
+  // effort: open items scaled by an assumed per-item effort band
+  const loDays=Math.max(1,Math.round(openItems*0.06)), hiDays=Math.max(loDays+1,Math.round(openItems*0.12));
+  return {openItems, blockers,
+    effortLo:Math.round(openItems*0.6), effortHi:Math.round(openItems*1.2),
+    daysLo:loDays, daysHi:hiDays,
+    conf: blockers>4?'Low':blockers>1?'Moderate':'High',
+    note:'Estimated from '+openItems+' open items and '+blockers+' blocker'+(blockers===1?'':'s')+
+         '. This is a Korvyn assessment, not a measured figure.'};
+}
+
+// ---- page state ----
+let ccSub='now', ccfEnt='all', ccfWs='all', ccfOwn='all', ccfRisk='all', ccfSt='all', ccTrendEnt='all';
+function setCcSub(v){ ccSub=v; renderAll(); navRepaint(); }
+function setCcF(k,v){
+  if(k==='ent')ccfEnt=v; else if(k==='ws')ccfWs=v; else if(k==='own')ccfOwn=v;
+  else if(k==='risk')ccfRisk=v; else if(k==='st')ccfSt=v; else if(k==='tent')ccTrendEnt=v;
+  renderAll();
+}
+function ccResetF(){ ccfEnt=ccfWs=ccfOwn=ccfRisk=ccfSt='all'; renderAll(); }
+function ccDrill(sub,ws){ ccSub=sub; if(ws) ccfWs=ws; renderAll(); navRepaint(); }
+const ccxFiltered=()=>ccfEnt!=='all'||ccfWs!=='all'||ccfOwn!=='all'||ccfRisk!=='all'||ccfSt!=='all';
+// shared row filter: everything on this page carries {ent, ws, own} where it makes sense
+const ccxKeep=r=>(ccfEnt==='all'||r.ent===ccfEnt)&&(ccfWs==='all'||r.ws===ccfWs)&&(ccfOwn==='all'||r.own===ccfOwn);
+
+const ccxEnts=()=>[...new Set([...GL_RECON.map(r=>r.ent), ...CONS_ORDER])].sort();
+const ccxOwners=()=>[...new Set([...GL_RECON.map(r=>r.own), ...CC_WS.map(w=>w.own)])].sort();
+// measured vs estimated badge — used everywhere a number appears
+const ccxM=`<span class="cc-tag meas">Measured</span>`;
+const ccxE=`<span class="cc-tag est">Korvyn estimate</span>`;
+
+function ccxFilterBar(){
+  const sel=(k,cur,rows)=>`<select onchange="setCcF('${k}',this.value)">${rows.map(r=>
+    `<option value="${r[0]}" ${r[0]===cur?'selected':''}>${r[1]}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Entity</label>${sel('ent',ccfEnt,[['all','All entities'],...ccxEnts().map(e=>[e,e])])}</div>
+    <div class="grp"><label>Workstream</label>${sel('ws',ccfWs,[['all','All workstreams'],...CC_WS.map(w=>[w.id,w.nm])])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',ccfOwn,[['all','All owners'],...ccxOwners().map(o=>[o,o])])}</div>
+    <div class="grp"><label>Risk</label>${sel('risk',ccfRisk,[['all','All risk'],['crit','Material'],['warn','Review'],['info','Monitor']])}</div>
+    <div class="grp"><label>Period</label><select disabled><option>Jun 2026 · day ${CC_DAY}</option></select></div>
+    <div class="grp"><label>As-of</label><select disabled><option>Jun 30, 2026</option></select></div>
+    ${ccxFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="ccResetF()">Reset</button></div>`:''}
+  </div></div>`;
+}
+
+// ---------------- 1. Readiness now ----------------
+function ccvNow(){
+  const W=ccxWorkstreams(), r=ccxReadiness(), E=ccxEst();
+  const ready=W.filter(w=>w.st==='clean'), attn=W.filter(w=>w.st==='attn');
+  const rn=ccxReadyNow(), risks=ccxRisks(), blk=ccxBlockers();
+
+  // hero
+  let o=`<div class="card cc-hero"><div class="cc-hero-in">
+    <div class="cc-hero-l">
+      <div class="cc-hero-lbl">If we closed today</div>
+      <div class="cc-hero-v">${r}<span class="pc">%</span></div>
+      <div class="cc-hero-sub">ready &#183; day ${CC_DAY} of the Jun 2026 period ${ccxM}</div>
+      <div class="progline" style="margin-top:12px;max-width:320px">
+        <span class="mini-bar" style="height:8px"><i style="width:${r}%"></i></span></div>
+      <div class="ic-mini" style="margin-top:8px">Readiness is the mean of the nine workstreams below,
+        each measured from its own module. It moves on its own as those modules move.</div>
+    </div>
+    <div class="cc-hero-r">
+      ${[['Ready / validated',ready.length+' of '+W.length,'ok',"ccDrill('ready')",'workstreams clean'],
+         ['Can be completed now',rn.length,'ok',"ccDrill('ready')",'items finishable today'],
+         ['Requires attention',attn.length,'warn',"ccDrill('risks')",'workstreams off track'],
+         ['Blocked',blk.length,'bad',"ccDrill('block')",'material blockers'],
+         ['Emerging risks',risks.length,'warn',"ccDrill('risks')",'predicted issues']].map(k=>
+        `<div class="cc-stat row-click" onclick="${k[3]}">
+          <div class="cc-stat-l"><span class="ic-dot ${k[2]}"></span>${k[0]}</div>
+          <div class="cc-stat-v">${k[1]}</div>
+          <div class="cc-stat-d">${k[4]}</div></div>`).join('')}
+    </div></div></div>`;
+
+  // estimates, clearly fenced off from the measured numbers
+  o+=`<div class="card"><h2>Close effort remaining ${ccxE}</h2>
+    <div class="subhead">These are assessments, not measurements. They are derived from open item
+      counts and blockers, and are deliberately shown as ranges — a single number here would be
+      false precision.</div>
+    <div class="statrow" style="margin-bottom:0">
+      <div class="stat"><div class="sl">Estimated effort remaining</div>
+        <div class="sv">${E.effortLo}–${E.effortHi}<span style="font-size:13px;color:var(--hint)"> hrs</span></div>
+        <div class="sd">across ${E.openItems} open items</div></div>
+      <div class="stat"><div class="sl">Estimated days to close</div>
+        <div class="sv">${E.daysLo}–${E.daysHi}<span style="font-size:13px;color:var(--hint)"> days</span></div>
+        <div class="sd">if starting today</div></div>
+      <div class="stat"><div class="sl">Estimate confidence</div>
+        <div class="sv" style="font-size:15px;padding-top:4px">
+          <span class="pill ${E.conf==='High'?'good':E.conf==='Moderate'?'ready':'flag'}">${E.conf}</span></div>
+        <div class="sd">${E.blockers} open blocker${E.blockers===1?'':'s'}</div></div>
+      <div class="stat"><div class="sl">Measured readiness</div>
+        <div class="sv">${r}%</div><div class="sd">not an estimate</div></div>
+    </div>
+    <div class="note">${E.note}</div></div>`;
+
+  // workstreams
+  o+=`<div class="card"><h2>Readiness by workstream<span class="note">${W.length} workstreams ${ccxM}</span></h2>
+    <div class="subhead">Each row is read from the module that owns it — Korvyn does not keep its own
+      copy of any of these. Click through to work the item where it actually lives.</div>
+    <table class="tbl"><thead><tr><th>Workstream</th><th>Readiness</th><th class="num">Open</th>
+      <th class="num">High risk</th><th>Trend vs prior</th><th>Status</th><th>Owner</th><th></th></tr></thead><tbody>
+    ${W.map(w=>`<tr class="row-click" onclick="${w.go}">
+      <td><b>${w.nm}</b><div class="note" style="margin:0">${w.basis}</div></td>
+      <td style="width:160px">${csxBar(w.pct,80)}</td>
+      <td class="num">${w.open||'&#8211;'}</td>
+      <td class="num" ${w.risk?'style="color:var(--neg);font-weight:600"':''}>${w.risk||'&#8211;'}</td>
+      <td><span class="delta ${w.trend>=0?'up':'dn'}">${w.trend>=0?'&#9650;':'&#9660;'} ${Math.abs(w.trend)} pts</span>
+        <div class="ic-mini">vs prior at day ${CC_DAY}</div></td>
+      <td>${w.st==='clean'?csxDot('ready','Clean'):w.st==='prog'?csxDot('prog','In progress'):csxDot('blocked','Attention')}</td>
+      <td class="ic-mini">${w.own}</td>
+      <td style="text-align:right"><span class="extlink">${w.lk}</span></td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  o+=ccvTrend();
+
+  // close integration
+  o+=`<div class="card"><h2>Feeding the formal close
+      <span class="cardlink" onclick="pickTab('acctclose')">Accounting &gt; Close</span></h2>
+    <div class="subhead">Continuous Close prepares and validates; Close executes and certifies.
+      Work validated here reduces what the formal close has to carry — it does not create close tasks,
+      and nothing on this page posts to the ERP.</div>
+    <div class="statrow" style="margin-bottom:0">
+      <div class="stat"><div class="sl">Formal close progress</div><div class="sv">${closePct()}%</div>
+        <div class="sd">${closeTotals().done} of ${closeTotal()} tasks</div></div>
+      <div class="stat"><div class="sl">Continuous readiness</div><div class="sv">${r}%</div>
+        <div class="sd">if we closed today</div></div>
+      <div class="stat"><div class="sl">Validated ahead of close</div><div class="sv">${rn.length}</div>
+        <div class="sd">items ready now</div></div>
+      <div class="stat"><div class="sl">Would still block</div>
+        <div class="sv ${blk.length?'neg':''}">${blk.length}</div><div class="sd">material blockers</div></div>
+    </div></div>`;
+  return o;
+}
+
+// ---------------- 9. Trend (also embedded in Now) ----------------
+function ccvTrend(){
+  const r=ccxReadiness();
+  // the final current-period point IS the live score, so chart and hero cannot disagree
+  const cur=CC_TREND.cur.map((p,i)=>i===CC_TREND.cur.length-1?[p[0],r]:p);
+  const pri=CC_TREND.pri;
+  const W=380, H=132, PAD=4;
+  const x=d=>PAD+(d-1)/(CC_DAY-1)*(W-PAD*2), y=v=>H-PAD-(v/100)*(H-PAD*2);
+  const path=pts=>pts.map((p,i)=>(i?'L':'M')+x(p[0]).toFixed(1)+' '+y(p[1]).toFixed(1)).join(' ');
+  const last=cur[cur.length-1][1], lastP=pri[pri.length-1][1], ahead=last-lastP;
+  return `<div class="card"><h2>Close readiness trend<span class="note">current vs prior period ${ccxM}</span></h2>
+    <div class="subhead">Where readiness sits against the same day of the prior period. Ahead of the
+      prior trajectory means the month-end bottleneck is smaller than last time.</div>
+    <div class="cc-trend">
+      <svg viewBox="0 0 ${W} ${H}" class="cc-spark" preserveAspectRatio="none">
+        ${[25,50,75].map(g=>`<line x1="${PAD}" x2="${W-PAD}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/>`).join('')}
+        <path d="${path(pri)}" fill="none" stroke="var(--faint)" stroke-width="2" stroke-dasharray="4 3"/>
+        <path d="${path(cur)}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        ${cur.map(p=>`<circle cx="${x(p[0]).toFixed(1)}" cy="${y(p[1]).toFixed(1)}" r="2.6" fill="var(--accent)"/>`).join('')}
+      </svg>
+      <div class="cc-trend-side">
+        ${glLegend([['Current period',last+'%','var(--accent)'],['Prior period',lastP+'%','var(--faint)']])}
+        <div class="stat" style="margin-top:10px">
+          <div class="sl">vs prior at day ${CC_DAY}</div>
+          <div class="sv" style="color:${ahead>=0?'var(--pos)':'var(--neg)'}">${ahead>=0?'+':''}${ahead} pts</div>
+          <div class="sd">${ahead>=0?'ahead of the normal trajectory':'behind the normal trajectory'}</div></div>
+      </div></div>
+    <div class="cardfoot">Day 1 through day ${CC_DAY} &#183; the final point is the live measured score
+      <span class="cardlink" onclick="pickTab('acctclose')">Formal close</span></div></div>`;
+}
+
+// ---------------- 3 + 6. Ready now, and continuous reconciliation ----------------
+function ccvReady(){
+  const rows=ccxReadyNow().filter(ccxKeep);
+  const rec=GL_RECON, changed=new Set(CC_SIGNALS.filter(s=>s.ws==='recs').map(s=>s.item));
+  const buckets=[
+    ['Reconciled and still valid', rec.filter(r=>r.st==='done'&&!changed.has(r.nm+' — '+r.acct)).length,'var(--pos)'],
+    ['Changed since reconciliation', rec.filter(r=>changed.has(r.nm+' — '+r.acct)).length,'var(--warn)'],
+    ['Eligible for auto-validation', rec.filter(r=>r.st==='prog'&&!r.diff).length,'var(--accent)'],
+    ['Requires review', rec.filter(r=>r.st==='over'||r.diff).length,'var(--neg)'],
+    ['Not yet reconciled', rec.filter(r=>r.st==='none').length,'var(--faint)'],
+  ];
+  let o=ccxFilterBar();
+  o+=`<div class="card"><h2>Continuous reconciliation
+      <span class="cardlink" onclick="pickTab('glrecon')">Reconciliations</span></h2>
+    <div class="subhead">A standing read on the reconciliation book — not a second copy of it.
+      The full workspace stays in Accounting &gt; Reconciliations.</div>
+    <div class="statrow" style="margin-bottom:0">
+      ${buckets.map(b=>`<div class="stat"><div class="sl"><span class="ic-dot" style="background:${b[2]}"></span>${b[0]}</div>
+        <div class="sv">${b[1]}</div><div class="sd">of ${rec.length} accounts</div></div>`).join('')}
+    </div></div>`;
+  o+=`<div class="card"><h2>Ready now<span class="note">${rows.length} items ${ccxM}</span></h2>
+    <div class="subhead">Accounting work that can be completed or validated today rather than at
+      period-end. Every action here is review, validate or assign — nothing on this page posts.</div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Entity</th><th>Workstream</th><th>Current status</th>
+      <th>Last activity</th><th>Owner</th><th>Recommended action</th><th></th></tr></thead><tbody>
+    ${rows.map(x=>`<tr class="row-click" onclick="${x.go}">
+      <td><b>${x.item}</b><div class="note" style="margin:0">${x.why}</div></td>
+      <td class="ic-mini">${x.ent}</td>
+      <td>${CC_WSN[x.ws]}</td>
+      <td><span class="pill ${x.cur==='Reconciled'||x.cur==='Matched'?'good':'info'} sm">${x.cur}</span></td>
+      <td class="ic-mini">${x.last}</td>
+      <td class="ic-mini">${x.own}</td>
+      <td><b style="color:var(--accent)">${x.act}</b></td>
+      <td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="8" class="note">Nothing ready under the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Completing these now removes them from the month-end queue
+      <span class="cardlink" onclick="ccDrill('pull')">Work to pull forward</span></div></div>`;
+  return o;
+}
+
+// ---------------- 4. What changed since validation ----------------
+function ccvChanged(){
+  const rows=CC_SIGNALS.filter(s=>ccxKeep(s)&&(ccfRisk==='all'||s.sev===ccfRisk));
+  const bySev=k=>CC_SIGNALS.filter(s=>s.sev===k).length;
+  let o=ccxFilterBar();
+  o+=`<div class="statrow">
+    ${['crit','warn','info'].map(k=>`<div class="stat"><div class="sl">
+      <span class="ic-dot ${CC_SEV[k].d}"></span>${CC_SEV[k].l}</div>
+      <div class="sv">${bySev(k)}</div><div class="sd">signals detected</div></div>`).join('')}
+    <div class="stat"><div class="sl">Value affected</div>
+      <div class="sv">${glB(+CC_SIGNALS.reduce((s,x)=>s+x.mat,0).toFixed(2))}</div>
+      <div class="sd">across all signals</div></div>
+  </div>`;
+  o+=`<div class="card"><h2>What changed since validation<span class="note">${rows.length} of ${CC_SIGNALS.length}</span></h2>
+    <div class="subhead">Korvyn watches work that was already complete and tells you when something
+      disturbs it. This is the point of the page: you should not have to re-check finished work by hand.</div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Entity</th><th>Change detected</th>
+      <th>Previous status</th><th>Current impact</th><th class="num">Materiality</th>
+      <th>Detected</th><th>Owner</th><th></th></tr></thead><tbody>
+    ${rows.map(s=>`<tr class="row-click" onclick="pickTab('glact')">
+      <td><b>${s.item}</b><div class="note" style="margin:0">${s.ref} &#183; ${s.src}</div></td>
+      <td class="ic-mini">${s.ent}</td>
+      <td>${s.ch}</td>
+      <td class="ic-mini">${s.prev}</td>
+      <td ${s.sev==='crit'?'style="color:var(--neg);font-weight:600"':''}>${s.cur}</td>
+      <td class="num">${s.mat?glB(s.mat):'&#8211;'}</td>
+      <td class="ic-mini" style="white-space:nowrap">${s.at}</td>
+      <td class="ic-mini">${s.own}</td>
+      <td style="text-align:right"><span class="extlink" onclick="event.stopPropagation();pickTab('glact')">GL activity</span></td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="9" class="note">No changes detected under the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Detected continuously from ERP and source-system feeds &#183;
+      last sweep Jul 20, 2026 08:12
+      <span class="cardlink" onclick="pickTab('glsync')">Source systems</span></div></div>`;
+  return o;
+}
+
+// ---------------- 5. Emerging close risks ----------------
+function ccvRisks(){
+  const rows=ccxRisks().filter(r=>(ccfWs==='all'||r.ws===ccfWs));
+  let o=ccxFilterBar();
+  o+=`<div class="card"><h2>Emerging close risks ${ccxE}<span class="note">${rows.length} identified</span></h2>
+    <div class="subhead">Issues that are not blockers yet but are likely to become month-end problems.
+      Each one is triggered by measured data, but the probability and close impact are Korvyn
+      assessments — treat them as a prioritisation aid, not as fact.</div>
+    <table class="tbl"><thead><tr><th>Risk</th><th>Workstream</th><th>Entity</th>
+      <th class="num">Potential impact</th><th>Confidence</th><th>Expected close impact</th>
+      <th>Recommended action</th><th>Owner</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr class="row-click" onclick="${r.go}">
+      <td><b>${r.r}</b></td>
+      <td>${CC_WSN[r.ws]||r.ws}</td>
+      <td class="ic-mini">${r.ent}</td>
+      <td class="num">${r.imp?glB(r.imp):'&#8211;'}</td>
+      <td><div class="progline"><span class="mini-bar" style="min-width:48px"><i style="width:${r.conf}%"></i></span>
+        <span class="ic-mini">${r.conf}%</span></div></td>
+      <td class="ic-mini">${r.exp}</td>
+      <td style="color:var(--accent);font-weight:600">${r.act}</td>
+      <td class="ic-mini">${r.own}</td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="8" class="note">No emerging risks under the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Korvyn-generated assessments &#183; ranked by impact weighted by confidence</div></div>`;
+  return o;
+}
+
+// ---------------- 7. Period activity monitor ----------------
+function ccvActivity(){
+  const kind={adj:{l:'Adjustment',c:'ready'}, high:{l:'Material',c:'flag'}, rec:{l:'Routine',c:''}};
+  const impact=a=>a.k==='high'?'Affects GL completeness and reconciliation':
+                  a.k==='adj' ?'May invalidate a completed reconciliation':'No readiness impact';
+  const rows=GL_ACT.filter(a=>(ccfEnt==='all'||a.ent===ccfEnt));
+  let o=ccxFilterBar();
+  o+=`<div class="card"><h2>Period activity monitor<span class="note">${rows.length} material items ${ccxM}</span></h2>
+    <div class="subhead">Live accounting activity that can move close readiness — material postings,
+      manual journals, intercompany, capital additions, cash movement, reversals and adjustments.
+      Read from the ERP feeds; every row links to its source transaction.</div>
+    <table class="tbl"><thead><tr><th>Date</th><th>Activity</th><th>Entity</th><th>Account</th>
+      <th class="num">Amount</th><th>Source</th><th>Type</th><th>Close impact</th><th></th></tr></thead><tbody>
+    ${rows.map(a=>`<tr class="row-click" onclick="pickTab('glact')">
+      <td class="ic-mini" style="white-space:nowrap">${a.dt}</td>
+      <td><b>${a.desc}</b><div class="note" style="margin:0">${a.ref}</div></td>
+      <td class="ic-mini">${a.ent}</td>
+      <td class="ic-mini">${a.acct} &#183; ${a.nm}</td>
+      <td class="num">${glK(a.dr||a.cr)}</td>
+      <td><span class="erp-ini">${a.erp.slice(0,3).toUpperCase()}</span> <span class="ic-mini">${a.erp}</span></td>
+      <td><span class="pill ${(kind[a.k]||{}).c} sm">${(kind[a.k]||{l:a.k}).l}</span></td>
+      <td class="ic-mini" ${a.k==='high'?'style="color:var(--neg)"':a.k==='adj'?'style="color:var(--warn)"':''}>${impact(a)}</td>
+      <td style="text-align:right">${erpLink(a.ref,a.erp)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  return o;
+}
+
+// ---------------- 8. Dependency map ----------------
+function ccvDeps(){
+  const G=ccxDepStatus();
+  const cls={done:'done', prog:'open', risk:'open', blocked:'blocked', not:'blocked'};
+  const lbl={done:'Complete', prog:'In progress', risk:'At risk', blocked:'Blocked', not:'Not started'};
+  let o=`<div class="card"><h2>Close dependency map<span class="note">${ccxM}</span></h2>
+    <div class="subhead">Upstream problems become downstream close delays. Each node reads its status
+      from the workstream that owns it, so the first amber node on a chain is where the delay starts.</div>
+    ${G.map(g=>`<div style="margin-bottom:18px">
+      <div class="subhead" style="font-weight:600;color:var(--ink);margin-bottom:8px">${g.gp}</div>
+      <div class="ic-spine">
+        ${g.ch.map(c=>`<div class="ic-stg ${cls[c.st]}">
+          <div class="sl">${c.nm}</div><div class="sv">${c.pct}%</div>
+          <div class="ic-mini" style="margin-top:4px">${lbl[c.st]}</div></div>`).join('')}
+      </div></div>`).join('')}
+    <div class="cardfoot">Nodes read from the same workstream measurements as the readiness table
+      <span class="cardlink" onclick="ccDrill('now')">Readiness by workstream</span></div></div>`;
+
+  const firstBad=[];
+  G.forEach(g=>{const f=g.ch.find(c=>c.st!=='done'); if(f) firstBad.push({gp:g.gp,...f});});
+  o+=`<div class="card"><h2>Where each chain first breaks</h2>
+    <table class="tbl"><thead><tr><th>Chain</th><th>First incomplete step</th><th>Readiness</th>
+      <th>Status</th><th>Downstream at risk</th></tr></thead><tbody>
+    ${firstBad.map(f=>{const g=G.find(x=>x.gp===f.gp), i=g.ch.findIndex(c=>c.id===f.id);
+      return `<tr><td><b>${f.gp}</b></td><td>${f.nm}</td>
+        <td style="width:150px">${csxBar(f.pct,70)}</td>
+        <td>${f.st==='blocked'?csxDot('blocked',lbl[f.st]):csxDot('prog',lbl[f.st])}</td>
+        <td class="ic-mini">${g.ch.slice(i+1).map(c=>c.nm).join(' &#8594; ')||'none'}</td></tr>`;}).join('')}
+    ${firstBad.length?'':'<tr><td colspan="5" class="note">Every chain is complete.</td></tr>'}
+    </tbody></table></div>`;
+  return o;
+}
+
+// ---------------- 10. Work to pull forward ----------------
+function ccvPull(){
+  const rows=ccxPullForward().filter(ccxKeep);
+  let o=ccxFilterBar();
+  o+=`<div class="card"><h2>Work to pull forward ${ccxE}<span class="note">${rows.length} candidates</span></h2>
+    <div class="subhead">Work traditionally done at month-end that could reasonably start now.
+      Time saved is an estimate shown as a range — the point is to move work out of the bottleneck,
+      not to claim a precise saving.</div>
+    <table class="tbl"><thead><tr><th>Recommended task</th><th>Workstream</th><th>Entity</th>
+      <th>Current dependency</th><th>Earliest action</th><th>Potential time saved</th><th>Owner</th><th></th></tr></thead><tbody>
+    ${rows.map(x=>`<tr class="row-click" onclick="${x.go}">
+      <td><b>${x.t}</b></td>
+      <td>${CC_WSN[x.ws]||x.ws}</td>
+      <td class="ic-mini">${x.ent}</td>
+      <td class="ic-mini">${x.dep}</td>
+      <td>${x.earliest==='Now'?'<span class="pill good sm">Now</span>':`<span class="pill ready sm">${x.earliest}</span>`}</td>
+      <td class="ic-mini">${x.save}</td>
+      <td class="ic-mini">${x.own}</td>
+      <td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="8" class="note">Nothing to pull forward under the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">${rows.filter(x=>x.earliest==='Now').length} of ${rows.length} can start today
+      with no upstream dependency</div></div>`;
+  return o;
+}
+
+// ---------------- 11. Blockers ----------------
+function ccvBlock(){
+  const rows=ccxBlockers().filter(b=>(ccfEnt==='all'||b.ent===ccfEnt)&&(ccfWs==='all'||b.ws===ccfWs));
+  let o=ccxFilterBar();
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Open blockers</div><div class="sv ${rows.length?'neg':''}">${rows.length}</div>
+      <div class="sd">materially preventing close</div></div>
+    <div class="stat"><div class="sl">Value at risk</div>
+      <div class="sv">${glB(+rows.reduce((s,b)=>s+b.imp,0).toFixed(2))}</div><div class="sd">across all blockers</div></div>
+    <div class="stat"><div class="sl">Escalated</div>
+      <div class="sv">${rows.filter(b=>b.esc==='Escalated').length}</div><div class="sd">past owner level</div></div>
+    <div class="stat"><div class="sl">Oldest</div>
+      <div class="sv ${Math.max(0,...rows.map(b=>b.age))>90?'neg':''}">${Math.max(0,...rows.map(b=>b.age))} d</div>
+      <div class="sd">days outstanding</div></div>
+  </div>`;
+  o+=`<div class="card"><h2>Blockers<span class="note">${rows.length} open ${ccxM}</span></h2>
+    <div class="subhead">Only items materially preventing close readiness. Everything softer than this
+      lives under emerging risks. Each row links to the module that can actually resolve it.</div>
+    <table class="tbl"><thead><tr><th>Blocker</th><th>Entity</th><th>Workstream</th>
+      <th class="num">Financial impact</th><th>Owner</th><th>Age</th><th>Expected resolution</th>
+      <th>Escalation</th><th></th></tr></thead><tbody>
+    ${rows.map(b=>`<tr class="row-click" onclick="${b.go}">
+      <td><b>${b.t}</b></td>
+      <td class="ic-mini">${b.ent}</td>
+      <td>${CC_WSN[b.ws]||b.ws}</td>
+      <td class="num" ${b.imp?'style="color:var(--neg);font-weight:600"':''}>${b.imp?glB(b.imp):'&#8211;'}</td>
+      <td class="ic-mini">${b.own}</td>
+      <td ${b.age>90?'style="color:var(--neg);font-weight:600"':''}>${b.age?b.age+' d':'&#8211;'}</td>
+      <td class="ic-mini">${b.exp}</td>
+      <td><span class="pill ${b.esc==='Escalated'?'flag':''} sm">${b.esc}</span></td>
+      <td style="text-align:right"><span class="extlink">Resolve</span></td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="9" class="note">No blockers under the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Derived from entity gates, intercompany, reconciliations, source systems and
+      fixed assets &#183; cannot drift from those modules</div></div>`;
+  return o;
+}
+
 function renderContClose(){
-  const rows=GL_CLOSE_FN.map(f=>{const p=Math.round(f.done/f.tot*100);
-    return `<tr><td><b>${f.fn}</b></td>
-      <td><div class="progline"><span class="mini-bar"><i style="width:${p}%"></i></span>
-        <span style="font-size:11.5px;color:var(--hint)">${p}%</span></div></td>
-      <td class="num">${f.done}/${f.tot}</td></tr>`;}).join('');
-  acctStub($('view-contclose'),'Continuous close',
-    'Move close activity out of the period-end window by running it continuously.',
-    `<tr><th>Function</th><th>Progress</th><th class="num">Complete</th></tr>`+rows,
-    "pickTab('glclose')",'Go to Close status');
+  const el=$('view-contclose'); if(!el) return;
+  let o=glHead('Continuous close',
+    'If we closed the books today, how ready would we be? Korvyn watches continuously so work moves forward through the month instead of piling up at period-end.',
+    glActions);
+  o+=({now:ccvNow, ready:ccvReady, changed:ccvChanged, risks:ccvRisks,
+       activity:ccvActivity, deps:ccvDeps, pull:ccvPull, block:ccvBlock}[ccSub]||ccvNow)();
+  el.innerHTML=o;
 }
 
 // ============================ GENERAL LEDGER ============================
@@ -9544,6 +10234,9 @@ function toggleRail(){
 // Steps that live INSIDE a section tab and now render inline in the unified strip.
 // Ordered = a real process pipeline; the bar shows position, not just destinations.
 // n()/q() are read live so badges (ready count, scrub flag) surface in the top bar.
+// renderAll() does not repaint #subnav, so any setter that changes a pipeline step
+// must call this afterwards or the highlight goes stale.
+function navRepaint(){ if(typeof paintRailNav==='function') paintRailNav(); }
 const TAB_PIPELINES={
   cip:{ steps:[
     {id:'radar',    label:'Readiness',  n:()=>cipScope().filter(p=>p.status==='ready').length, q:false},
@@ -9588,6 +10281,16 @@ const TAB_PIPELINES={
     {id:'excep',    label:'Exceptions', n:()=>csxExcep().filter(x=>x.sev==='crit').length, q:true},
     {id:'timeline', label:'Timeline'},
   ], get:()=>csSub, set:'setCsSub' },
+  contclose:{ steps:[
+    {id:'now',      label:'Readiness now'},
+    {id:'ready',    label:'Ready now',      n:()=>ccxReadyNow().length, q:false},
+    {id:'changed',  label:'What changed',   n:()=>CC_SIGNALS.filter(s=>s.sev==='crit').length, q:true},
+    {id:'risks',    label:'Emerging risks', n:()=>ccxRisks().length, q:false},
+    {id:'activity', label:'Activity monitor'},
+    {id:'deps',     label:'Dependencies'},
+    {id:'pull',     label:'Pull forward',   n:()=>ccxPullForward().filter(x=>x.earliest==='Now').length, q:false},
+    {id:'block',    label:'Blockers',       n:()=>ccxBlockers().length, q:true},
+  ], get:()=>ccSub, set:'setCcSub' },
 };
 
 function paintRailNav(){
@@ -9643,7 +10346,7 @@ const VIEW_META={
   acctclose:{t:'Close',c:'Close orchestration \u00b7 checklist \u00b7 dependencies \u00b7 blockers',depth:4},
   acctover:{t:'Accounting overview',c:'Close \u00b7 reconciliations \u00b7 intercompany \u00b7 consolidation',depth:4},
   icomp:{t:'Intercompany',c:'Connected events · matching · differences · settlement · elimination',depth:4},
-  contclose:{t:'Continuous close',c:'Close activity run continuously, not at period end',depth:3},
+  contclose:{t:'Continuous close',c:'Readiness now · what changed · emerging risks · work to pull forward',depth:4},
   mywork:{t:'My Work',c:'Everything assigned to me across modules',depth:3},
   approvals:{t:'Approvals',c:'Sign-off queue and audit trail',depth:3},
   exceptions:{t:'Exceptions',c:'Control tests failing right now',depth:3},
@@ -10135,6 +10838,31 @@ const CP_CARDS={
                timeline:['block','fell','all'] };
     return (by[csSub]||by.status).map(k=>base[k]);
   },
+  // Continuous close: the prompts follow the sub-view, and every count is live.
+  contclose: ()=>{
+    const W=ccxWorkstreams(), r=ccxReadiness(), blk=ccxBlockers(), rn=ccxReadyNow(), rk=ccxRisks();
+    const worst=[...csxEntities()].sort((a,b)=>a.score-b.score)[0];
+    const behind=[...W].sort((a,b)=>a.pct-b.pct)[0];
+    const base={
+      stop  :{t:'If we closed today, what would stop us?', s:blk.length+' blocker'+(blk.length===1?'':'s')+' at '+r+'% ready', i:'warn'},
+      now   :{t:'What can we complete before month-end?', s:rn.length+' items ready now', i:'list'},
+      chg   :{t:'What changed since yesterday?', s:CC_SIGNALS.length+' signals detected', i:'clock'},
+      invalid:{t:'Which reconciliations are no longer valid?', s:CC_SIGNALS.filter(s=>s.ws==='recs').length+' disturbed since validation', i:'warn'},
+      risk  :{t:'What are our biggest emerging close risks?', s:rk.length+' identified', i:'chart'},
+      least :{t:'Which entity is least prepared to close?', s:worst?worst.nm.replace('Meridian ','')+' at '+worst.score+'%':'—', i:'search'},
+      why   :{t:'Why did our readiness score decrease?', s:behind?behind.nm+' is furthest behind':'—', i:'delta'},
+      pull  :{t:'Show work we can pull forward this week', s:ccxPullForward().filter(x=>x.earliest==='Now').length+' with no dependency', i:'list'},
+      cons  :{t:'What is blocking consolidation readiness?', s:csxKpi().blocked.length+' entities blocked', i:'warn'},
+      hirisk:{t:'Which high-risk accounts need attention?', s:GL_RECON.filter(x=>x.st==='over').length+' past due', i:'warn'},
+      ahead :{t:'Are we ahead or behind last month&#39;s close?', s:(r-76>=0?'+':'')+(r-76)+' pts vs prior at day '+CC_DAY, i:'chart'},
+      today :{t:'What should the accounting team prioritize today?', s:'ranked by impact and confidence', i:'list'},
+    };
+    const by={ now:['stop','ahead','today'], ready:['now','pull','today'],
+               changed:['chg','invalid','stop'], risks:['risk','why','hirisk'],
+               activity:['chg','invalid','risk'], deps:['stop','cons','why'],
+               pull:['pull','now','today'], block:['stop','least','cons'] };
+    return (by[ccSub]||by.now).map(k=>base[k]);
+  },
   glsync: [{t:'Why is JD Edwards sync delayed?',s:'Investigate the issue',i:'warn'},
            {t:'When did each source last sync?',s:'across 4 integrations',i:'clock'} ],
   fpexec: [{t:'Why is revenue below plan?',s:'2.1% under budget YTD',i:'delta'},
@@ -10153,6 +10881,17 @@ const CP_CARDS={
 };
 // Context line: what the assistant is looking at right now, including page filters.
 function cpContext(){
+  // Continuous close: which view, which filters, and the live readiness reading.
+  if(TAB==='contclose'){
+    const f=[({now:'readiness now',ready:'ready now',changed:'what changed',risks:'emerging risks',
+               activity:'activity monitor',deps:'dependency map',pull:'work to pull forward',
+               block:'blockers'})[ccSub]||'readiness now'];
+    if(ccfEnt !=='all') f.push(ccfEnt);
+    if(ccfWs  !=='all') f.push(CC_WSN[ccfWs]);
+    if(ccfOwn !=='all') f.push(ccfOwn);
+    if(ccfRisk!=='all') f.push((CC_SEV[ccfRisk]||{}).l);
+    return 'Looking at: '+f.join(' · ')+' · '+ccxReadiness()+'% ready · day '+CC_DAY+' of Jun 2026';
+  }
   // Consolidation: which entity and which readiness view is on screen.
   if(TAB==='consol'){
     const f=[];
