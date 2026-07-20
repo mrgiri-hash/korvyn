@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close — every page built to its written spec (Reconciliations excepted, see the defect below) |
+| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close — every page built to its written spec, no known defects |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -33,26 +33,23 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 
 **Not yet built to standard** — these are the obvious next pieces:
 
-- **Accounting > Reconciliations** — still the older `glrecon` page, and it carries a known
-  integrity defect (see below). Referenced from both Accounting > Overview and the GL
-  workspace, so building it completes several drill-downs.
+- Nothing outstanding in Accounting. Reconciliations' `RECON_SCALE` defect is **fixed** —
+  see the note under `GL_RECON`.
 - Accounting has no routing stubs left. `acctStub` itself has been **deleted** — Continuous
   Close was its last caller. If a future page needs a placeholder, write it fresh rather than
   resurrecting that helper.
 - Fixed Assets, Procurement, FP&A and Reporting have not had a written spec pass like
   Accounting did; their pages predate the current design standard.
 
-**Known defect — Reconciliations headline counts do not tie.** `RECON_SCALE=35` multiplies
-the 7 `GL_RECON` rows to fabricate portfolio-sized headline counts, so `renderGLRecon` shows
-"Total reconciliations 245" above a 7-row table footed "Showing 1 to 7 of 245". Accounting >
-Overview compounds it: "Open reconciliations 140" (scaled) sits beside "Unreconciled balance
-1,250.00 — 1 account with a difference" (unscaled), claiming a 245-reconciliation book with
-exactly one open variance. Fix by expanding `GL_RECON` to a real book and deleting
-`RECON_SCALE` — copy the Intercompany approach: derive the roll-ups, assert the tie, drop the
-multiplier. Do not fix it by scaling the differences too; that keeps the lie and adds a
-second one. The page also has three inert `<select>`s (Entity / Account / Period) wired to
-`renderAll()`, a "New reconciliation" button calling `toggleFilters()`, and every row's
-`onclick` going to `glact` regardless of which account was clicked.
+**Fixed defect, kept as a cautionary tale — never scale sample data into a headline.**
+Reconciliations used to keep 7 `GL_RECON` rows and multiply the headline counts by
+`RECON_SCALE=35`, so the page showed "Total reconciliations 245" above a 7-row table footed
+"Showing 1 to 7 of 245", and Accounting > Overview paired a scaled open count (140) with an
+*unscaled* difference ("1,250.00 — 1 account with a difference"), asserting a 245-account book
+with exactly one open variance. It survived a long time because every view rendered fine.
+`GL_RECON` is now the real 45-row book and the multiplier is gone. If a page looks too small,
+add rows — never a scale factor, and never scale the differences to match the counts (that
+keeps the original lie and adds a second one).
 
 **Working agreements established with the user**
 
@@ -189,6 +186,19 @@ There is no separate CSS/JS file. Edits happen in place.
   pages silently disagree, which is exactly the failure `RECON_SCALE` represents.
   Naming: everything new is prefixed `icx`/`icv` specifically to avoid colliding with the
   pre-existing `icDiff` / `icUnmatched` / `icTotalDiff` / `icReady` helpers that Overview uses.
+- `GL_RECON` — the reconciliation book, 45 rows, one per account per entity across the four
+  entities. **Headline counts are row counts** (`reconCount` / `reconTotal` no longer scale
+  anything). Account numbers and names follow `COA` so the recon book and the trial balance
+  share a vocabulary; `reconOffTB()` marks the four accounts outside the illustrative
+  capital-only TB (10000, 10100, 11000, 13500/23500) rather than letting them mismatch
+  silently. Two differences deliberately tie to other modules — 13500 at Meridian DC Holdco
+  carries the 2,300.000 intercompany difference, and 20000 keeps its -1.250 AP variance — so
+  Intercompany's Traceability link lands on something real. `bal` is thousands, rendered by
+  `glK(bal*1000)`.
+  Consumers that derive from it: Accounting > Overview, `glAccounts()` (`recSt` override),
+  Consolidation (`csxEntity`), and Continuous Close (workstream readiness, ready-now,
+  pull-forward, blockers, `ccvReady` buckets). Adding or restatusing rows moves all of them —
+  that is intended, but re-run the sweep.
 - `CONS_ENT` / `CONS_FX` / `CONS_STAGES` — Consolidation's own data, deliberately thin.
   Entity **status is not stored**: `csxEntity()` rolls it up from `GL_CLOSE`, `GL_RECON`,
   `icxPairs()` and `GL_CONSOL`, so Consolidation cannot disagree with Close, Reconciliations
