@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repo. Read this fully before editing.
 
 ## What this is
 
-`locusos_dashboard_v12.html` is a **single self-contained HTML file** (~8,100 lines): an
+`locusos_dashboard_v12.html` is a **single self-contained HTML file** (~8,700 lines): an
 illustrative prototype of **KORVYN**, an enterprise finance / accounting / capital
 intelligence layer sitting on top of an ERP, for a fictional data-center / CRE REIT
 ("Meridian Global Portfolio"). No backend, no build step, no dependencies at runtime.
@@ -60,7 +60,7 @@ There is no separate CSS/JS file. Edits happen in place.
 - **Tabs** are defined in the `TABS` catalog array (id, label, icon path). Each section's
   `tabs` array references these ids.
 - **Render dispatch:** a series of `if(TAB==='x')renderX();` calls (search `if(TAB===`).
-  There are 62 `renderX()` functions, one per view (e.g. `renderFinRep`, `renderFiling`,
+  There are 64 `renderX()` functions, one per view (e.g. `renderFinRep`, `renderFiling`,
   `renderFIndex`, `renderFDetail`). Each writes into its `#view-{tab}` container's `innerHTML`.
   (The filing workspace additionally has nine `fdXxx(f)` sub-renderers that **return HTML
   strings** rather than writing to the DOM — `renderFDetail` composes them, along with
@@ -104,6 +104,14 @@ There is no separate CSS/JS file. Edits happen in place.
   **Filing progress is derived, never stored:** `filingSections(f)` / `filingProgress(f)`
   compute it from the section rows, so the index bar, the Overview donut and the section
   counts cannot drift. Do not reintroduce a `progress:` field on a filing record.
+- `CLOSE_TASKS` — the 76 close tasks. **`GL_CLOSE` and `GL_CLOSE_FN` derive from it**, so
+  the Close checklist and Accounting > Overview cannot disagree. The list was fitted to
+  reproduce the previously hand-written entity and function totals exactly; if you edit it,
+  re-check those roll-ups.
+- `glAccounts()` — the GL ledger, derived from `COA` so ending balances equal the trial
+  balance and debits − credits equals period activity. `glTxns(acct)` synthesises the
+  postings behind an account's movement; `glUnusual()` runs the anomaly rules over them.
+  Korvyn never posts: transaction rows link out via `erpLink()` ("View in ERP").
 - `FILING_TEAM`, `FILING_COMMENTS`, `FILING_NOTES`, `FILING_DISCLOSURES`,
   `FILING_APPROVALS`, `FILING_ACTIVITY` — the filing workspace's supporting data.
 - Workspace views (`renderTasks`/`renderIssues`) derive from `CIP_PROJECTS`; `renderArchives`
@@ -146,6 +154,20 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   `renderConsol`, and the whole `RAIL_SPEC` declaration) and the page stopped executing.
   Assert `count(anchor) == 1` before every replacement, and prefer a longer anchor that
   includes surrounding context.
+- **Derived data must be lazily evaluated, not eagerly.** `const X = (()=>…)()` runs at
+  parse time. Twice now a derived structure referenced a `const` declared hundreds of
+  lines lower and hit the temporal dead zone, throwing before any view rendered — with
+  no console error surfaced by the preview pane. Prefer a memoised accessor
+  (`let _x=null; function xs(){ if(!_x) _x=…; return _x; }`) so declaration order stops
+  mattering. `glAccounts()` is the pattern to copy.
+- **Grid items need `min-width:0` or they set the track's minimum.** `.ribbon` shares a
+  column with `.main`; without it, the ribbon's intrinsic width (brand + nav + utilities,
+  ~1240px) forced every page wider than the viewport. Same class of bug hit `.main`,
+  `.content` and the card grids. Any new flex/grid child holding wide content needs it.
+- **Test responsive at the band boundaries, not just desktop and mobile.** The rail was
+  unreachable between 861px and 1200px for several commits because the sweep only ran at
+  one width. The shell has three bands — ≥1201 (full grid), 861–1200 (assistant floats,
+  rail stays), ≤860 (rail off-canvas + hamburger) — and each needs checking.
 - **Shared class names cut both ways.** `body.rail-collapsed .railrole .lbl{display:none}`
   looked rail-scoped but also stripped the ribbon nav's labels. Scope state rules to their
   container (`.rail .railrole`).

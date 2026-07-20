@@ -111,7 +111,7 @@ body{
 .ribbon{
   grid-area:ribbon;position:sticky;top:0;z-index:30;
   background:var(--rail);color:var(--rail-ink);
-  display:flex;align-items:center;gap:22px;padding:0 20px;height:56px;
+  display:flex;align-items:center;gap:22px;padding:0 20px;height:56px;min-width:0;
   /* no bottom shadow: it would score a seam across the rail, which shares this surface */
 }
 /* The wordmark is the Home control, so Home is not repeated in the section nav. */
@@ -233,6 +233,7 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
 
 /* ============================ MAIN COLUMN ============================ */
 .main{grid-area:main;min-width:0;display:flex;flex-direction:column}
+.content{min-width:0}
 .topbar{position:sticky;top:56px;z-index:15;background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:saturate(1.2) blur(10px);border-bottom:1px solid var(--line);
   padding:12px 26px;display:flex;align-items:center;gap:16px}
@@ -368,6 +369,12 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 
 /* ---- tables ---- */
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
+/* Wide tables (transaction drill-down, account explorer) scroll inside their card
+   rather than pushing the page sideways. */
+.tblwrap{overflow-x:auto;margin:0 -2px}
+.card:has(> .tbl){overflow-x:auto}
+.card:has(> .tblwrap){overflow-x:visible}
+.tblwrap .tbl{min-width:960px}
 .tbl th{text-align:left;color:var(--muted);font-weight:600;padding:9px 11px;border-bottom:1px solid var(--line2);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
 .tbl td{padding:10px 11px;border-bottom:1px solid var(--line)}
 .tbl tr:last-child td{border-bottom:none}
@@ -687,6 +694,72 @@ footer b{color:var(--muted)}
 .spark{width:100%;height:170px}
 .progline{display:flex;align-items:center;gap:9px}
 .progline .mini-bar{flex:1;min-width:60px}
+
+/* ---- close orchestration ---- */
+.cl-timeline{display:flex;gap:0;margin:6px 0 4px;border-radius:8px;overflow:hidden;height:34px}
+.cl-tl-seg{flex:1;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;
+  color:var(--on-accent);position:relative;white-space:nowrap;overflow:hidden}
+.cl-tl-axis{display:flex;margin-top:5px}
+.cl-tl-axis span{flex:1;text-align:center;font-size:10px;color:var(--hint)}
+.cl-today{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--neg);z-index:3}
+.cl-today::after{content:'today';position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+  font-size:9px;font-weight:700;color:var(--neg);white-space:nowrap}
+.cl-lane{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:12px;margin-bottom:7px}
+.cl-lane .ln{font-size:12px;color:var(--muted)}
+.cl-bar{height:16px;border-radius:4px;background:var(--bg2);overflow:hidden;display:flex}
+.cl-bar i{display:block;height:100%}
+.cl-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:12px}
+.cl-legend span{display:flex;align-items:center;gap:6px}
+.cl-legend i{width:9px;height:9px;border-radius:2px;display:block}
+.cl-task-open{background:var(--accent-bg)!important}
+.cl-detail{background:var(--surface2);border:1px solid var(--accent-line);border-radius:var(--radius-sm);
+  padding:14px 16px;margin:2px 0 10px}
+.cl-detail dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 18px;margin-bottom:12px}
+.cl-detail dt{font-size:10.5px;color:var(--hint);text-transform:uppercase;letter-spacing:.05em}
+.cl-detail dd{font-size:12.5px;font-weight:600;margin-top:3px}
+.cl-doc{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.cl-doc:last-child{border-bottom:none}
+.cl-doc svg{width:14px;height:14px;color:var(--hint);flex:none}
+
+/* ---- GL intelligence ---- */
+.gli-crumb{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;margin-bottom:14px;
+  padding:9px 13px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-sm)}
+.gli-crumb .step{color:var(--hint)}
+.gli-crumb .step.on{color:var(--accent);font-weight:600}
+.gli-crumb .sep{color:var(--faint);font-size:10px}
+.gli-kpi{cursor:pointer;transition:.13s}
+.gli-kpi:hover{border-color:var(--accent-line);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.gli-kpi.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+.gli-bars{display:flex;align-items:flex-end;gap:6px;height:150px;margin:8px 0 4px}
+.gli-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;min-width:0}
+.gli-bar i{display:block;border-radius:3px 3px 0 0;transition:.15s}
+.gli-bar:hover i{filter:brightness(1.12)}
+.gli-bar .bl{font-size:9.5px;color:var(--hint);text-align:center;margin-top:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gli-flag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;
+  background:var(--warn-bg);color:var(--warn);margin:2px 4px 2px 0;white-space:nowrap}
+.gli-flag.hi{background:var(--neg-bg);color:var(--neg)}
+.erp-link{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  color:var(--accent);cursor:pointer;white-space:nowrap}
+.erp-link:hover{text-decoration:underline}
+.erp-link svg{width:11px;height:11px}
+.gli-detail{background:var(--surface2);border:1px solid var(--accent-line);
+  border-radius:var(--radius-sm);padding:16px 18px;margin:0 0 16px}
+.gli-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:12px;margin-bottom:14px}
+.gli-mini .m{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+.gli-mini .ml{font-size:10.5px;color:var(--hint);margin-bottom:4px}
+.gli-mini .mv{font-family:var(--num);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.gli-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}
+.gli-srow{display:flex;align-items:center;gap:9px;font-size:12px;margin-bottom:7px}
+.gli-srow .sn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gli-srow .sv{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600}
+.seg-sm{display:inline-flex;border:1px solid var(--line2);border-radius:var(--radius-sm);overflow:hidden}
+.seg-sm button{font:inherit;font-size:11.5px;padding:6px 12px;border:none;background:var(--surface);
+  color:var(--muted);cursor:pointer;border-right:1px solid var(--line2);transition:.13s}
+.seg-sm button:last-child{border-right:none}
+.seg-sm button.on{background:var(--accent-fill);color:var(--on-accent);font-weight:600}
+
+
 
 /* ---- FP&A ---- */
 .fp-hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
@@ -1132,8 +1205,9 @@ body.copilot-collapsed .cp-reopen{display:flex}
 .pinned-card .ph .unpin{margin-left:auto;cursor:pointer;color:var(--accent-ink);opacity:.6;border:none;background:none;font-size:16px}
 .pinned-card .ph .unpin:hover{opacity:1}
 
-@media(max-width:1200px){
-  body{grid-template-columns:1fr!important;grid-template-areas:"ribbon" "main"!important}
+@media(min-width:861px) and (max-width:1200px){
+  body{grid-template-columns:var(--rail-w) 1fr!important;
+       grid-template-areas:"ribbon ribbon" "rail main"!important}
   .copilot{position:fixed;right:0;top:0;bottom:0;width:380px;box-shadow:var(--shadow-md);transform:translateX(100%);transition:transform .22s;z-index:40}
   body:not(.copilot-collapsed) .copilot{transform:none}
   body.copilot-collapsed{--copilot-w:0px!important}
@@ -1518,6 +1592,8 @@ body.copilot-collapsed .cp-reopen{display:flex}
 <div class="view" id="view-fpwork"></div>
 <div class="view" id="view-fpdriver"></div>
 <div class="view" id="view-fpmgmt"></div>
+<div class="view" id="view-glintel"></div>
+<div class="view" id="view-acctclose"></div>
 <div class="view" id="view-acctover"></div>
 <div class="view" id="view-icomp"></div>
 <div class="view" id="view-contclose"></div>
@@ -2194,7 +2270,7 @@ const LENSES={
     q:'From the trial balance to the consolidated statements — does it tie, and where is the entry behind it?',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'full portfolio · USD · ties to TB',
-    tabs:['acctover','glclose','glover','glfin','tb','glact','finrep','gltrend',
+    tabs:['acctover','acctclose','glintel','glclose','glover','glfin','tb','glact','finrep','gltrend',
           'glrecon','icomp','consol','contclose','exceptions','issues','admin',
           'glreports','glsync'] },
   tasks:{ id:'tasks', label:'Tasks', icon:'tasks',
@@ -2236,6 +2312,8 @@ let LENS='portfolio';
 // Full catalog. Each role (lens) exposes only its own subset — see LENSES[x].tabs.
 // Shared tabs (trend, tb, ppe, pivot) are simply listed in more than one role's set.
 const TABS=[
+  {id:'glintel',label:'General Ledger',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6'},
+  {id:'acctclose',label:'Close',ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5'},
   {id:'acctover',label:'Overview',ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
   {id:'icomp',label:'Intercompany',ic:'M8 2v12M3 5h10M3 11h10'},
   {id:'contclose',label:'Continuous Close',ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2'},
@@ -4164,9 +4242,9 @@ const RAIL_SPEC={
   ledger:[
     {head:'Accounting'},
     {tab:'acctover', label:'Overview',        ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
-    {tab:'glclose',  label:'Close',           ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
-      badge:()=>closeTotals().blk},
-    {tab:'tb',       label:'General Ledger',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6',
+    {tab:'acctclose',label:'Close',           ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
+      badge:()=>clBlocked().length},
+    {tab:'glintel',  label:'General Ledger',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6',
       kids:[{label:'GL overview',        sub:null, tab:'glover'},
             {label:'Trial balance',      sub:null, tab:'tb'},
             {label:'Account activity',   sub:null, tab:'glact'},
@@ -4218,20 +4296,194 @@ function notifCount(){ return FILING_COMMENTS.filter(c=>c.st==='open').length
 let railExpanded={};   // label -> bool
 function toggleRailGroup(k){ railExpanded[k]=!railExpanded[k]; paintRailRoles(); }
 
+// ==================== GENERAL LEDGER INTELLIGENCE ====================
+// Korvyn reads the ERP; it does not post to it. Every figure below derives from COA
+// (the trial balance) so this page ties to Accounting > Overview and the statements.
+const GL_GROUPS=[
+  {id:'ca', nm:'Current assets',        lo:10000,hi:14999},
+  {id:'ppe',nm:'Property & equipment',  lo:15000,hi:15899},
+  {id:'cad',nm:'Accumulated depreciation',lo:15900,hi:15999},
+  {id:'oa', nm:'Other assets',          lo:16000,hi:19999},
+  {id:'cl', nm:'Current liabilities',   lo:20000,hi:24999},
+  {id:'ltl',nm:'Long-term liabilities', lo:25000,hi:29999},
+  {id:'eq', nm:'Equity',                lo:30000,hi:39999},
+  {id:'rev',nm:'Revenue',               lo:40000,hi:49999},
+  {id:'opx',nm:'Operating expenses',    lo:50000,hi:69999},
+  {id:'oth',nm:'Other income & expense',lo:70000,hi:99999},
+];
+const glGroupOf=a=>{const n=+a; const g=GL_GROUPS.find(x=>n>=x.lo&&n<=x.hi); return g?g:GL_GROUPS[GL_GROUPS.length-1];};
+const GL_DEPTS=['Operations','Engineering','Finance & Accounting','Facilities','Corporate'];
+const GL_PROJECTS=['Ashburn Hall C','Dallas Hall A','Dublin DUB-01','Singapore SG-02','Non-project'];
+const GL_GEOS={'Meridian DC Holdco':'Americas','Fleet DC OpCo':'Americas',
+               'Meridian Property Co':'EMEA','Meridian Management Co':'APAC'};
+const GL_SOURCES=['NetSuite','Oracle ERP Cloud','SAP S/4HANA','JD Edwards'];
+const GL_TYPES=['Journal','Invoice','Bill','Payment','Accrual','Reclass','Reversal'];
+const GL_POSTERS=['A. Okafor','M. Reyes','S. Weber','J. Lindqvist','L. Tan','M. Giri','Integration'];
+
+// Deterministic pseudo-random so the ledger is stable across renders.
+const glSeed=(s,i)=>{let x=0; const t=String(s)+':'+i;
+  for(let k=0;k<t.length;k++) x=(x*31+t.charCodeAt(k))>>>0; return x;};
+const glPick=(arr,s,i)=>arr[glSeed(s,i)%arr.length];
+const glFrac=(s,i)=>((glSeed(s,i)%1000)/1000);
+
+// ---- account-level ledger, derived from COA ----
+// Lazily memoised: this derives from COA, GL_RECON and CLOSE_ENTITIES, which are declared
+// further down the file. Computing it eagerly would hit the temporal dead zone.
+let _glAccts=null;
+function glAccounts(){ if(_glAccts) return _glAccts; _glAccts=COA.map((c,i)=>{
+  const end=c.tb;                                   // ending balance IS the trial balance
+  const actPct=0.04+glFrac(c.acct,1)*0.20;
+  const act=+(end*actPct).toFixed(2);               // signed period activity
+  const beg=+(end-act).toFixed(2);
+  const gross=Math.abs(act)*(1.4+glFrac(c.acct,2)*0.8);
+  const dr=+((gross+act)/2).toFixed(2), cr=+((gross-act)/2).toFixed(2);
+  const prior=+(act*(0.55+glFrac(c.acct,3)*0.9)).toFixed(2);
+  const py=+(act*(0.5+glFrac(c.acct,4)*1.1)).toFixed(2);
+  const budget=+(act*(0.85+glFrac(c.acct,5)*0.4)).toFixed(2);
+  const fcast=+(act*(0.9+glFrac(c.acct,6)*0.3)).toFixed(2);
+  const ent=glPick(CLOSE_ENTITIES,c.acct,7);
+  const rec=GL_RECON.find(r=>r.acct===c.acct);
+  return {acct:c.acct,nm:c.name,type:c.type,grp:glGroupOf(c.acct),
+          ent,geo:GL_GEOS[ent],dept:glPick(GL_DEPTS,c.acct,8),prj:glPick(GL_PROJECTS,c.acct,9),
+          beg,dr,cr,end,act,prior,py,budget,fcast,
+          recSt:rec?rec.st:(glFrac(c.acct,10)>0.82?'prog':'done')};
+}); return _glAccts; }
+const glVarAmt=a=>a.act-a.prior;
+const glVarPct=a=>a.prior?((a.act-a.prior)/Math.abs(a.prior))*100:0;
+// Materiality: the larger of an absolute floor and a share of the account balance.
+const GL_MATERIALITY=2.0;
+const glMaterial=a=>Math.abs(glVarAmt(a))>=GL_MATERIALITY||Math.abs(glVarPct(a))>=35;
+const glNeedsReview=a=>glMaterial(a)||a.recSt!=='done';
+const glTotalActivity=()=>glAccounts().reduce((s,a)=>s+Math.abs(a.act),0);
+const glMaterialAccts=()=>glAccounts().filter(glMaterial)
+  .sort((x,y)=>Math.abs(glVarAmt(y))-Math.abs(glVarAmt(x)));
+const glUnreconciled=()=>glAccounts().filter(a=>a.recSt!=='done');
+
+// ---- transactions behind an account's period activity ----
+const GL_DAYS=['Jun 01','Jun 03','Jun 06','Jun 07','Jun 09','Jun 12','Jun 14','Jun 16','Jun 19',
+               'Jun 21','Jun 23','Jun 26','Jun 27','Jun 28','Jun 29','Jun 30'];
+const GL_WEEKEND=['Jun 07','Jun 14','Jun 21','Jun 28'];   // treated as weekend dates
+const GL_LATE=['Jun 28','Jun 29','Jun 30'];
+function glTxns(acct){
+  const a=glAccounts().find(x=>x.acct===acct); if(!a)return [];
+  const n=6+glSeed(acct,11)%8;
+  const raw=[]; let sum=0;
+  for(let i=0;i<n;i++){ const w=0.4+glFrac(acct,20+i)*1.6; raw.push(w); sum+=w; }
+  return raw.map((w,i)=>{
+    const amt=+(a.act*w/sum).toFixed(2);
+    const ty=glPick(GL_TYPES,acct,30+i);
+    const dt=glPick(GL_DAYS,acct,40+i);
+    const src=glPick(GL_SOURCES,acct,50+i);
+    const by=glPick(GL_POSTERS,acct,60+i);
+    return {id:(ty==='Journal'?'JE-':ty==='Invoice'?'INV-':ty==='Bill'?'BILL-':'TXN-')+
+              (10000+glSeed(acct,70+i)%89999),
+      dt,ty,desc:glTxnDesc(a,ty,i),ent:a.ent,dept:glPick(GL_DEPTS,acct,80+i),
+      prj:glPick(GL_PROJECTS,acct,90+i),
+      dr:amt>=0?Math.abs(amt):0, cr:amt<0?Math.abs(amt):0, net:amt,
+      src,by,posted:dt+', 2026', acct:a.acct, acctNm:a.nm};
+  });
+}
+function glTxnDesc(a,ty,i){
+  const D={Journal:'Period adjustment',Invoice:'Customer billing',Bill:'Vendor invoice',
+           Payment:'Settlement',Accrual:'Month-end accrual',Reclass:'Reclassification',
+           Reversal:'Prior accrual reversal'};
+  return (D[ty]||'Posting')+' — '+a.nm.split('(')[0].trim();
+}
+
+// ---- unusual-activity detection over the transaction population ----
+function glUnusual(){
+  const out=[];
+  glMaterialAccts().slice(0,14).forEach(a=>{
+    glTxns(a.acct).forEach(t=>{
+      const flags=[];
+      if(GL_WEEKEND.includes(t.dt)) flags.push('Weekend posting');
+      if(t.ty==='Journal'&&Math.abs(t.net)>=1.5&&t.by!=='Integration') flags.push('Large manual journal');
+      if(GL_LATE.includes(t.dt)&&Math.abs(t.net)>=0.8) flags.push('Late-period entry');
+      if(t.ty==='Reversal') flags.push('Reversal');
+      if(a.geo!==GL_GEOS[t.ent]) flags.push('Unexpected entity combination');
+      if(Math.abs(t.net)>Math.abs(a.act)*0.55) flags.push('Outsized single entry');
+      if(flags.length) out.push({...t,flags,acctNm:a.nm,acct:a.acct,
+        sev:flags.some(f=>f==='Large manual journal'||f==='Outsized single entry')?'high'
+           :flags.length>1?'high':'medium'});
+    });
+  });
+  // near-duplicates: same account, same amount to the cent
+  const seen={};
+  out.forEach(t=>{const k=t.acct+':'+Math.abs(t.net).toFixed(2);
+    if(seen[k]&&!t.flags.includes('Possible duplicate')){t.flags.push('Possible duplicate');t.sev='high';}
+    seen[k]=true;});
+  return out.sort((x,y)=>(y.sev==='high')-(x.sev==='high')||Math.abs(y.net)-Math.abs(x.net));
+}
+
+// ---- page state ----
+let gliTrend='monthly', gliDim='grp', gliSearch='', gliSort={col:'acct',dir:'asc'},
+    gliAcct=null, gliTxnAcct=null, gliGrp='all', gliEnt='all', gliDept='all', gliPrj='all',
+    gliGeo='all', gliRec='all';
+function setGliTrend(v){ gliTrend=v; renderAll(); }
+function setGliDim(v){ gliDim=v; renderAll(); }
+function setGliSearch(v){ gliSearch=v; renderAll(); }
+function setGliSort(c){ if(gliSort.col===c) gliSort.dir=gliSort.dir==='asc'?'desc':'asc';
+  else gliSort={col:c,dir:'asc'}; renderAll(); }
+function setGliF(k,v){ ({grp:()=>gliGrp=v,ent:()=>gliEnt=v,dept:()=>gliDept=v,
+  prj:()=>gliPrj=v,geo:()=>gliGeo=v,rec:()=>gliRec=v})[k](); renderAll(); }
+function gliReset(){ gliGrp=gliEnt=gliDept=gliPrj=gliGeo=gliRec='all'; gliSearch=''; renderAll(); }
+function openGliAcct(a){ gliAcct=(gliAcct===a?null:a); gliTxnAcct=null; renderAll();
+  const el=$('view-glintel'); if(el&&gliAcct) setTimeout(()=>{const n=document.getElementById('gli-detail'); if(n)n.scrollIntoView({block:'nearest'});},0); }
+function openGliTxns(a){ gliTxnAcct=(gliTxnAcct===a?null:a); renderAll(); }
+function gliRows(){
+  const q=gliSearch.trim().toLowerCase();
+  let r=glAccounts().filter(a=>
+    (gliGrp==='all'||a.grp.id===gliGrp)&&(gliEnt==='all'||a.ent===gliEnt)&&
+    (gliDept==='all'||a.dept===gliDept)&&(gliPrj==='all'||a.prj===gliPrj)&&
+    (gliGeo==='all'||a.geo===gliGeo)&&
+    (gliRec==='all'||(gliRec==='open'?a.recSt!=='done':a.recSt==='done'))&&
+    (!q||a.acct.includes(q)||a.nm.toLowerCase().includes(q)||a.grp.nm.toLowerCase().includes(q)));
+  const k=gliSort.col, d=gliSort.dir==='asc'?1:-1;
+  r.sort((x,y)=>{
+    const xv=k==='acct'?x.acct:k==='nm'?x.nm:k==='grp'?x.grp.nm:k==='ent'?x.ent:x[k];
+    const yv=k==='acct'?y.acct:k==='nm'?y.nm:k==='grp'?y.grp.nm:k==='ent'?y.ent:y[k];
+    if(typeof xv==='number') return (xv-yv)*d;
+    return String(xv).localeCompare(String(yv))*d;
+  });
+  return r;
+}
+
 // ==================== ACCOUNTING: close, intercompany, consolidation ====================
 // New domain data. Close-by-entity already exists as GL_CLOSE and is not restated here;
 // these add the function and consolidation dimensions the Controller view needs.
-const GL_CLOSE_FN=[
-  {fn:'Cash & banking',        done:10, tot:10},
-  {fn:'Revenue & billing',     done:8,  tot:10},
-  {fn:'Payables & accruals',   done:9,  tot:12},
-  {fn:'Fixed assets & CIP',    done:6,  tot:11},
-  {fn:'Intercompany',          done:5,  tot:9},
-  {fn:'Payroll',               done:8,  tot:8},
-  {fn:'Tax',                   done:4,  tot:8},
-  {fn:'Consolidation & FX',    done:4,  tot:8},
-];
-const CLOSE_DAYS={actual:6, target:5, priorAvg:8};
+const CLOSE_DAYS={actual:6, target:5, priorAvg:8, period:'Jun 2026',
+  opened:'Jul 1, 2026', due:'Jul 8, 2026', remaining:2};
+const CLOSE_ST={done:{l:'Complete',c:'good'},prog:{l:'In progress',c:'info'},
+                not:{l:'Not started',c:''},blk:{l:'Blocked',c:'flag'}};
+// close-workspace filters + drill-down
+let clFilter={ent:'all',fn:'all',own:'all',st:'all',due:'all'};
+let clOpen=null;
+function setClFilter(k,v){ clFilter[k]=v; renderAll(); }
+function clResetFilters(){ clFilter={ent:'all',fn:'all',own:'all',st:'all',due:'all'}; renderAll(); }
+function openCloseTask(id){ clOpen=(clOpen===id?null:id); renderAll(); }
+const clOwners=()=>[...new Set(CLOSE_TASKS.map(t=>t.own))].sort();
+const clDues=()=>[...new Set(CLOSE_TASKS.map(t=>t.due))];
+function clRows(){
+  return CLOSE_TASKS.filter(t=>
+    (clFilter.ent==='all'||t.ent===clFilter.ent)&&
+    (clFilter.fn==='all'||t.fn===clFilter.fn)&&
+    (clFilter.own==='all'||t.own===clFilter.own)&&
+    (clFilter.st==='all'||t.st===clFilter.st)&&
+    (clFilter.due==='all'||t.due===clFilter.due));
+}
+const clBlocked=()=>CLOSE_TASKS.filter(t=>t.st==='blk');
+const clOverdue=()=>CLOSE_TASKS.filter(t=>t.st!=='done'&&['Jul 1','Jul 2','Jul 3','Jul 5'].includes(t.due));
+// supporting documentation, keyed by function
+const CLOSE_DOCS={
+  'Cash & banking':      ['Bank statement (PDF)','Reconciliation working paper','Sweep confirmation'],
+  'Revenue & billing':   ['Billing register','Cut-off testing sheet','Lease schedule extract'],
+  'Payables & accruals': ['Vendor statement','GRNI listing','Accrual support'],
+  'Fixed assets & CIP':  ['CIP roll-forward','Certificate of occupancy','Depreciation register'],
+  'Intercompany':        ['IC confirmation','Matching report','Elimination schedule'],
+  'Payroll':             ['Payroll register','Headcount reconciliation','Benefits accrual support'],
+  'Tax':                 ['Provision workbook','Deferred tax schedule','Filing acknowledgement'],
+  'Consolidation & FX':  ['FX rate table','Translation working paper','Consolidated TB'],
+};
 
 // Intercompany pairs: `due` is the payable side, `rec` the receivable side.
 const GL_IC=[
@@ -4387,12 +4639,98 @@ const ERP_ST={ok:{l:'Synced',c:'good'},warn:{l:'Sync delayed',c:'ready'},err:{l:
 const ERP_HEALTH={ok:{l:'Healthy',c:'good'},warn:{l:'Warning',c:'ready'},err:{l:'Error',c:'flag'}};
 
 // close tasks per entity -> the donut and every close count derive from this one list
-const GL_CLOSE=[
-  {ent:'Meridian DC Holdco',    done:18, prog:2, not:1, blk:0},
-  {ent:'Fleet DC OpCo',         done:16, prog:5, not:1, blk:1},
-  {ent:'Meridian Property Co',  done:12, prog:3, not:2, blk:1},
-  {ent:'Meridian Management Co',done:8,  prog:3, not:1, blk:2},
+const CLOSE_TASKS=[
+  {id:'CT-001',nm:'Bank statement import',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'A. Okafor',rev:'A. Okafor',due:'Jul 1',st:'done',dep:'Currency translation'},
+  {id:'CT-002',nm:'Cash sweep confirmation',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'J. Lindqvist',rev:'S. Lee',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-003',nm:'Petty cash count',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'A. Okafor',rev:'M. Giri',due:'Jul 3',st:'done',dep:''},
+  {id:'CT-004',nm:'Bank reconciliation',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'J. Lindqvist',rev:'J. Park',due:'Jul 5',st:'done',dep:'Minority interest calc'},
+  {id:'CT-005',nm:'Outstanding cheque review',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'A. Okafor',rev:'A. Okafor',due:'Jul 6',st:'done',dep:''},
+  {id:'CT-006',nm:'Bank statement import',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'J. Lindqvist',rev:'S. Lee',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-007',nm:'Cash sweep confirmation',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'A. Okafor',rev:'M. Giri',due:'Jul 8',st:'done',dep:'Elimination entries'},
+  {id:'CT-008',nm:'Petty cash count',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'J. Lindqvist',rev:'J. Park',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-009',nm:'Bank reconciliation',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'A. Okafor',rev:'A. Okafor',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-010',nm:'Outstanding cheque review',ent:'Meridian DC Holdco',fn:'Cash & banking',own:'J. Lindqvist',rev:'S. Lee',due:'Jul 3',st:'done',dep:'FX rate load'},
+  {id:'CT-011',nm:'Tenant billing run',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'A. Okafor',rev:'J. Park',due:'Jul 6',st:'done',dep:''},
+  {id:'CT-012',nm:'Recoveries true-up',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'J. Lindqvist',rev:'A. Okafor',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-013',nm:'Unbilled revenue review',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'A. Okafor',rev:'S. Lee',due:'Jul 8',st:'done',dep:'Outstanding cheque review'},
+  {id:'CT-014',nm:'Revenue cut-off test',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'J. Lindqvist',rev:'M. Giri',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-015',nm:'Straight-line rent schedule',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'A. Okafor',rev:'J. Park',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-016',nm:'Tenant billing run',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'J. Lindqvist',rev:'A. Okafor',due:'Jul 3',st:'done',dep:'Bank reconciliation'},
+  {id:'CT-017',nm:'Recoveries true-up',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'A. Okafor',rev:'S. Lee',due:'Jul 5',st:'done',dep:''},
+  {id:'CT-018',nm:'Unbilled revenue review',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'J. Lindqvist',rev:'M. Giri',due:'Jul 6',st:'done',dep:''},
+  {id:'CT-019',nm:'Revenue cut-off test',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'A. Okafor',rev:'J. Park',due:'Jul 7',st:'prog',dep:'Petty cash count'},
+  {id:'CT-020',nm:'Straight-line rent schedule',ent:'Meridian DC Holdco',fn:'Revenue & billing',own:'J. Lindqvist',rev:'A. Okafor',due:'Jul 8',st:'prog',dep:''},
+  {id:'CT-021',nm:'AP cut-off test',ent:'Meridian DC Holdco',fn:'Payables & accruals',own:'A. Okafor',rev:'M. Giri',due:'Jul 2',st:'not',dep:''},
+  {id:'CT-022',nm:'Goods-received-not-invoiced',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'L. Tan',rev:'J. Park',due:'Jul 3',st:'done',dep:'Recoveries true-up'},
+  {id:'CT-023',nm:'Vendor statement reconciliation',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'M. Reyes',rev:'A. Okafor',due:'Jul 5',st:'done',dep:''},
+  {id:'CT-024',nm:'AP cut-off test',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'L. Tan',rev:'S. Lee',due:'Jul 6',st:'done',dep:''},
+  {id:'CT-025',nm:'Accrual roll-forward',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'M. Reyes',rev:'M. Giri',due:'Jul 7',st:'done',dep:'Tenant billing run'},
+  {id:'CT-026',nm:'Retention schedule',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'L. Tan',rev:'J. Park',due:'Jul 8',st:'done',dep:''},
+  {id:'CT-027',nm:'Goods-received-not-invoiced',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'M. Reyes',rev:'A. Okafor',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-028',nm:'Vendor statement reconciliation',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'L. Tan',rev:'S. Lee',due:'Jul 2',st:'done',dep:'Straight-line rent schedule'},
+  {id:'CT-029',nm:'AP cut-off test',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'M. Reyes',rev:'M. Giri',due:'Jul 3',st:'done',dep:''},
+  {id:'CT-030',nm:'Accrual roll-forward',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'L. Tan',rev:'J. Park',due:'Jul 5',st:'done',dep:''},
+  {id:'CT-031',nm:'Retention schedule',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'M. Reyes',rev:'A. Okafor',due:'Jul 6',st:'prog',dep:'Revenue cut-off test'},
+  {id:'CT-032',nm:'Goods-received-not-invoiced',ent:'Fleet DC OpCo',fn:'Payables & accruals',own:'L. Tan',rev:'S. Lee',due:'Jul 7',st:'prog',dep:''},
+  {id:'CT-033',nm:'PIS determination review',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'M. Reyes',rev:'J. Park',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-034',nm:'Asset impairment scan',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'L. Tan',rev:'A. Okafor',due:'Jul 2',st:'done',dep:'Retention schedule'},
+  {id:'CT-035',nm:'Depreciation run',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'M. Reyes',rev:'S. Lee',due:'Jul 3',st:'done',dep:''},
+  {id:'CT-036',nm:'Capitalised interest calc',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'L. Tan',rev:'M. Giri',due:'Jul 5',st:'done',dep:''},
+  {id:'CT-037',nm:'CIP roll-forward',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'M. Reyes',rev:'J. Park',due:'Jul 6',st:'done',dep:'Accrual roll-forward'},
+  {id:'CT-038',nm:'PIS determination review',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'L. Tan',rev:'A. Okafor',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-039',nm:'Asset impairment scan',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'M. Reyes',rev:'S. Lee',due:'Jul 8',st:'prog',dep:''},
+  {id:'CT-040',nm:'Depreciation run',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'L. Tan',rev:'M. Giri',due:'Jul 1',st:'prog',dep:'AP cut-off test'},
+  {id:'CT-041',nm:'Capitalised interest calc',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'M. Reyes',rev:'J. Park',due:'Jul 2',st:'prog',dep:''},
+  {id:'CT-042',nm:'CIP roll-forward',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'L. Tan',rev:'A. Okafor',due:'Jul 3',st:'not',dep:''},
+  {id:'CT-043',nm:'PIS determination review',ent:'Fleet DC OpCo',fn:'Fixed assets & CIP',own:'M. Reyes',rev:'S. Lee',due:'Jul 5',st:'blk',dep:'Vendor statement reconciliation'},
+  {id:'CT-044',nm:'IC interest accrual',ent:'Fleet DC OpCo',fn:'Intercompany',own:'L. Tan',rev:'J. Park',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-045',nm:'IC settlement',ent:'Meridian Property Co',fn:'Intercompany',own:'S. Weber',rev:'A. Okafor',due:'Jul 8',st:'done',dep:''},
+  {id:'CT-046',nm:'IC matching',ent:'Meridian Property Co',fn:'Intercompany',own:'M. Giri',rev:'S. Lee',due:'Jul 1',st:'done',dep:'Depreciation run'},
+  {id:'CT-047',nm:'IC interest accrual',ent:'Meridian Property Co',fn:'Intercompany',own:'S. Weber',rev:'M. Giri',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-048',nm:'IC balance confirmation',ent:'Meridian Property Co',fn:'Intercompany',own:'M. Giri',rev:'J. Park',due:'Jul 3',st:'done',dep:''},
+  {id:'CT-049',nm:'IC elimination prep',ent:'Meridian Property Co',fn:'Intercompany',own:'S. Weber',rev:'A. Okafor',due:'Jul 5',st:'prog',dep:'Asset impairment scan'},
+  {id:'CT-050',nm:'IC settlement',ent:'Meridian Property Co',fn:'Intercompany',own:'M. Giri',rev:'S. Lee',due:'Jul 6',st:'prog',dep:''},
+  {id:'CT-051',nm:'IC matching',ent:'Meridian Property Co',fn:'Intercompany',own:'S. Weber',rev:'M. Giri',due:'Jul 7',st:'prog',dep:''},
+  {id:'CT-052',nm:'IC interest accrual',ent:'Meridian Property Co',fn:'Intercompany',own:'M. Giri',rev:'J. Park',due:'Jul 8',st:'not',dep:'PIS determination review'},
+  {id:'CT-053',nm:'Headcount reconciliation',ent:'Meridian Property Co',fn:'Payroll',own:'S. Weber',rev:'S. Lee',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-054',nm:'Payroll tax review',ent:'Meridian Property Co',fn:'Payroll',own:'M. Giri',rev:'M. Giri',due:'Jul 3',st:'done',dep:''},
+  {id:'CT-055',nm:'Bonus provision',ent:'Meridian Property Co',fn:'Payroll',own:'S. Weber',rev:'J. Park',due:'Jul 5',st:'done',dep:'IC balance confirmation'},
+  {id:'CT-056',nm:'Benefits accrual',ent:'Meridian Property Co',fn:'Payroll',own:'M. Giri',rev:'A. Okafor',due:'Jul 6',st:'done',dep:''},
+  {id:'CT-057',nm:'Payroll accrual',ent:'Meridian Property Co',fn:'Payroll',own:'S. Weber',rev:'S. Lee',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-058',nm:'Headcount reconciliation',ent:'Meridian Property Co',fn:'Payroll',own:'M. Giri',rev:'M. Giri',due:'Jul 8',st:'done',dep:'IC interest accrual'},
+  {id:'CT-059',nm:'Payroll tax review',ent:'Meridian Property Co',fn:'Payroll',own:'S. Weber',rev:'J. Park',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-060',nm:'Bonus provision',ent:'Meridian Property Co',fn:'Payroll',own:'M. Giri',rev:'A. Okafor',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-061',nm:'Current tax provision',ent:'Meridian Property Co',fn:'Tax',own:'S. Weber',rev:'M. Giri',due:'Jul 5',st:'not',dep:'Bonus provision'},
+  {id:'CT-062',nm:'VAT/GST return prep',ent:'Meridian Property Co',fn:'Tax',own:'M. Giri',rev:'J. Park',due:'Jul 6',st:'blk',dep:''},
+  {id:'CT-063',nm:'VAT/GST return prep',ent:'Meridian Management Co',fn:'Tax',own:'J. Lindqvist',rev:'A. Okafor',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-064',nm:'Transfer pricing check',ent:'Meridian Management Co',fn:'Tax',own:'A. Okafor',rev:'S. Lee',due:'Jul 8',st:'done',dep:'Payroll tax review'},
+  {id:'CT-065',nm:'Deferred tax roll-forward',ent:'Meridian Management Co',fn:'Tax',own:'J. Lindqvist',rev:'M. Giri',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-066',nm:'Tax account reconciliation',ent:'Meridian Management Co',fn:'Tax',own:'A. Okafor',rev:'J. Park',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-067',nm:'Current tax provision',ent:'Meridian Management Co',fn:'Tax',own:'J. Lindqvist',rev:'A. Okafor',due:'Jul 3',st:'prog',dep:'Headcount reconciliation'},
+  {id:'CT-068',nm:'VAT/GST return prep',ent:'Meridian Management Co',fn:'Tax',own:'A. Okafor',rev:'S. Lee',due:'Jul 5',st:'prog',dep:''},
+  {id:'CT-069',nm:'Consolidated TB review',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'J. Lindqvist',rev:'J. Park',due:'Jul 7',st:'done',dep:''},
+  {id:'CT-070',nm:'FX rate load',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'A. Okafor',rev:'A. Okafor',due:'Jul 8',st:'done',dep:'Current tax provision'},
+  {id:'CT-071',nm:'Elimination entries',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'J. Lindqvist',rev:'S. Lee',due:'Jul 1',st:'done',dep:''},
+  {id:'CT-072',nm:'Minority interest calc',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'A. Okafor',rev:'M. Giri',due:'Jul 2',st:'done',dep:''},
+  {id:'CT-073',nm:'Currency translation',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'J. Lindqvist',rev:'J. Park',due:'Jul 3',st:'prog',dep:'Tax account reconciliation'},
+  {id:'CT-074',nm:'Consolidated TB review',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'A. Okafor',rev:'A. Okafor',due:'Jul 5',st:'not',dep:''},
+  {id:'CT-075',nm:'FX rate load',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'J. Lindqvist',rev:'S. Lee',due:'Jul 6',st:'blk',dep:''},
+  {id:'CT-076',nm:'Elimination entries',ent:'Meridian Management Co',fn:'Consolidation & FX',own:'A. Okafor',rev:'M. Giri',due:'Jul 7',st:'blk',dep:'Deferred tax roll-forward'},
 ];
+const CLOSE_ENTITIES=['Meridian DC Holdco','Fleet DC OpCo','Meridian Property Co','Meridian Management Co'];
+const CLOSE_FUNCS=['Cash & banking','Revenue & billing','Payables & accruals','Fixed assets & CIP',
+                   'Intercompany','Payroll','Tax','Consolidation & FX'];
+// Entity and function roll-ups DERIVE from CLOSE_TASKS, so the checklist, the Close
+// workspace and Accounting > Overview cannot disagree.
+const GL_CLOSE=CLOSE_ENTITIES.map(e=>{
+  const t=CLOSE_TASKS.filter(x=>x.ent===e);
+  return {ent:e, done:t.filter(x=>x.st==='done').length, prog:t.filter(x=>x.st==='prog').length,
+          not:t.filter(x=>x.st==='not').length, blk:t.filter(x=>x.st==='blk').length};
+});
+const GL_CLOSE_FN=CLOSE_FUNCS.map(f=>{
+  const t=CLOSE_TASKS.filter(x=>x.fn===f);
+  return {fn:f, done:t.filter(x=>x.st==='done').length, tot:t.length};
+});
 const closeTotals=()=>GL_CLOSE.reduce((a,e)=>({done:a.done+e.done,prog:a.prog+e.prog,
   not:a.not+e.not,blk:a.blk+e.blk}),{done:0,prog:0,not:0,blk:0});
 const closeTotal=()=>{const t=closeTotals();return t.done+t.prog+t.not+t.blk;};
@@ -4988,6 +5326,425 @@ function renderFpMgmt(){
         balance sheet, cash flow and KPIs.</div>
       <button class="btn-primary" style="width:100%;justify-content:center" onclick="toggleFilters()">Run Report</button>
     </div></div>`;
+  el.innerHTML=o;
+}
+
+// ============================ ACCOUNTING > GENERAL LEDGER ============================
+// GL intelligence workspace. Korvyn reads the ERP and explains it; the ERP posts it.
+// The page reads signal -> variance -> account -> transaction -> source.
+const erpLink=(id,src)=>`<span class="erp-link" title="Open ${id} in ${src}"
+  onclick="event.stopPropagation();askAI('Show me ${id} and its source record in ${src}')">
+  View in ERP <svg viewBox="0 0 16 16" fill="none"><path d="M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+const glM=v=>(v<0?'(':'')+'$'+Math.abs(v).toFixed(1)+'M'+(v<0?')':'');
+const glPctS=v=>`<span class="${v>=0?'pos':'neg'}">${v>=0?'+':''}${v.toFixed(1)}%</span>`;
+
+function renderGlIntel(){
+  const el=$('view-glintel'); if(!el)return;
+  const rows=gliRows(), mat=glMaterialAccts(), unus=glUnusual(), unrec=glUnreconciled();
+  const review=glAccounts().filter(glNeedsReview);
+  const openAcct=gliAcct?glAccounts().find(a=>a.acct===gliAcct):null;
+
+  let o=glHead('General Ledger',
+    'Enterprise GL intelligence across every entity. Korvyn analyses and traces; the ERP remains the system of record.',
+    glExport);
+
+  // ---------- drill path ----------
+  const steps=[['Consolidated',true],['Entity',gliEnt!=='all'],['Account group',gliGrp!=='all'],
+               ['Account',!!openAcct],['Transaction',!!gliTxnAcct],['Source',false]];
+  o+=`<div class="gli-crumb"><span class="step on">Drill path</span><span class="sep">&#9656;</span>`
+    +steps.map(s=>`<span class="step ${s[1]?'on':''}">${s[0]}</span>`).join('<span class="sep">&#9656;</span>')
+    +`</div>`;
+
+  // ---------- SECTION 1: KPIs ----------
+  const kpi=(on,click,chip,icon,label,val,sub)=>`
+    <div class="kpi gli-kpi ${on?'on':''}" onclick="${click}">
+      <div class="kpi-ic"><span class="kpi-chip ${chip}">${glIc(icon)}</span>
+        <div><div class="k" style="margin:0">${label}</div><div class="v">${val}</div></div></div>
+      <div class="d">${sub}</div></div>`;
+  o+=`<div class="kpis">
+    ${kpi(false,"gliReset()",'chip-blue','M3 13V7M7 13V4M11 13V9','Total GL activity',
+      glM(glTotalActivity()),`${glAccounts().length} accounts · period movement`)}
+    ${kpi(gliRec==='all'&&gliGrp==='all'&&gliSearch==='mat',"setGliSearch('');setGliF('rec','all');document.getElementById('gli-material').scrollIntoView({block:'start'})",
+      'chip-amber','M8 2.5L14.5 13.5h-13zM8 6.5v3','Material variances',mat.length,
+      `above $${GL_MATERIALITY.toFixed(1)}M or 35%`)}
+    ${kpi(false,"setGliF('rec','open')",'chip-purple','M3 4.5h10v9H3zM6 8h4M6 10.5h2','Requiring review',
+      review.length,'material or unreconciled')}
+    ${kpi(false,"document.getElementById('gli-unusual').scrollIntoView({block:'start'})",
+      'chip-teal','M2 8h3l2-4 2 8 2-6 1 2h2','Unusual activity',unus.length,
+      `${unus.filter(u=>u.sev==='high').length} high severity`)}
+    ${kpi(gliRec==='open',"setGliF('rec',gliRec==='open'?'all':'open')",'chip-green',
+      'M3 5.5h7l-2-2M13 10.5H6l2 2','Unreconciled accounts',unrec.length,'not yet reconciled')}
+  </div>`;
+
+  // ---------- page filters ----------
+  const sel=(k,label,opts,cur)=>`<div class="grp"><label>${label}</label>
+    <select onchange="setGliF('${k}',this.value)">
+      <option value="all"${cur==='all'?' selected':''}>All ${label.toLowerCase()}</option>
+      ${opts.map(o2=>`<option value="${o2[0]}"${cur===o2[0]?' selected':''}>${o2[1]}</option>`).join('')}
+    </select></div>`;
+  o+=`<div class="card"><div class="ctrls" style="margin-bottom:6px">
+      ${sel('ent','Entity',CLOSE_ENTITIES.map(e=>[e,e]),gliEnt)}
+      ${sel('grp','Account group',GL_GROUPS.map(g=>[g.id,g.nm]),gliGrp)}
+      ${sel('dept','Department',GL_DEPTS.map(d=>[d,d]),gliDept)}
+      ${sel('prj','Project',GL_PROJECTS.map(p=>[p,p]),gliPrj)}
+      ${sel('geo','Geography',[...new Set(Object.values(GL_GEOS))].map(g=>[g,g]),gliGeo)}
+      ${sel('rec','Reconciliation',[['open','Open'],['done','Reconciled']],gliRec)}
+    </div>
+    <div class="filter-foot" style="margin-top:12px">
+      <div class="lenshint">Fund, currency, period and as-of date come from the global filter bar above.</div>
+      <div class="spacer"></div>
+      <button class="btn-ghost" onclick="gliReset()">Reset</button></div></div>`;
+
+  // ---------- SECTION 2: balance & trend ----------
+  const DIMS=[['grp','Account group'],['acct','Account'],['ent','Entity'],['dept','Department'],['prj','Project']];
+  const keyOf=a=>gliDim==='grp'?a.grp.nm:gliDim==='acct'?a.acct+' · '+a.nm:a[gliDim];
+  const agg={};
+  rows.forEach(a=>{const k=keyOf(a);
+    (agg[k]=agg[k]||{k,beg:0,act:0,end:0,prior:0,py:0,budget:0,fcast:0});
+    const g=agg[k]; g.beg+=a.beg; g.act+=a.act; g.end+=a.end; g.prior+=a.prior;
+    g.py+=a.py; g.budget+=a.budget; g.fcast+=a.fcast;});
+  const scale=gliTrend==='monthly'?1:gliTrend==='quarterly'?3:6;
+  const series=Object.values(agg).sort((x,y)=>Math.abs(y.act)-Math.abs(x.act)).slice(0,10);
+  const peak=Math.max(...series.map(s=>Math.abs(s.act*scale)),1);
+  o+=`<div class="card"><h2>Account balance &amp; trend
+      <span style="margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="seg-sm">${[['monthly','Monthly'],['quarterly','Quarterly'],['ytd','Year-to-date']]
+          .map(t=>`<button class="${gliTrend===t[0]?'on':''}" onclick="setGliTrend('${t[0]}')">${t[1]}</button>`).join('')}</span>
+        <select onchange="setGliDim(this.value)" style="width:auto">
+          ${DIMS.map(d=>`<option value="${d[0]}"${gliDim===d[0]?' selected':''}>By ${d[1].toLowerCase()}</option>`).join('')}
+        </select></span></h2>
+    <div class="subhead">Period activity by ${DIMS.find(d=>d[0]===gliDim)[1].toLowerCase()},
+      largest movement first. ${gliTrend==='monthly'?'Single period.':gliTrend==='quarterly'?'Three periods.':'Six periods, year-to-date.'}</div>
+    <div class="gli-bars">${series.map(s=>{const v=s.act*scale;
+      const hh=Math.max(3,Math.abs(v)/peak*118);
+      return `<div class="gli-bar" title="${s.k}: ${glM(v)}">
+        <i style="height:${hh}px;background:${v>=0?'var(--accent)':'var(--neg)'}"></i>
+        <span class="bl">${String(s.k).split(' · ')[0]}</span></div>`;}).join('')}</div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>${DIMS.find(d=>d[0]===gliDim)[1]}</th>
+      <th class="num">Beginning</th><th class="num">Activity</th><th class="num">Ending</th>
+      <th class="num">Prior period</th><th class="num">Prior year</th>
+      <th class="num">Budget</th><th class="num">Forecast</th></tr></thead><tbody>
+    ${series.map(s=>`<tr class="row-click" onclick="setGliDim('acct')">
+      <td><b>${s.k}</b></td><td class="num">${glM(s.beg)}</td>
+      <td class="num">${glM(s.act*scale)}</td><td class="num">${glM(s.end)}</td>
+      <td class="num">${glM(s.prior*scale)}</td><td class="num">${glM(s.py*scale)}</td>
+      <td class="num">${glM(s.budget*scale)}</td><td class="num">${glM(s.fcast*scale)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+
+  // ---------- SECTION 3: material movements ----------
+  o+=`<div class="card" id="gli-material"><h2>Material movements
+      <span class="note">${mat.length} accounts above materiality</span></h2>
+    <div class="subhead">Period-over-period movements beyond $${GL_MATERIALITY.toFixed(1)}M or 35%.
+      Click an account to see the transactions driving it.</div>
+    <table class="tbl"><thead><tr><th>Account</th><th>Entity</th><th class="num">Current</th>
+      <th class="num">Prior</th><th class="num">$ Variance</th><th class="num">% Variance</th>
+      <th>Materiality</th><th>Status</th></tr></thead><tbody>
+    ${mat.slice(0,12).map(a=>{const va=glVarAmt(a),vp=glVarPct(a);
+      const sev=Math.abs(va)>=GL_MATERIALITY*2?'flag':'ready';
+      return `<tr class="row-click" onclick="openGliTxns('${a.acct}')">
+      <td>${a.acct}<div class="note" style="margin:0">${a.nm}</div></td>
+      <td>${a.ent}</td><td class="num">${glM(a.act)}</td><td class="num">${glM(a.prior)}</td>
+      <td class="num ${va>=0?'pos':'neg'}">${glM(va)}</td><td class="num">${glPctS(vp)}</td>
+      <td><span class="pill ${sev}">${Math.abs(va)>=GL_MATERIALITY*2?'High':'Above threshold'}</span></td>
+      <td><span class="pill ${a.recSt==='done'?'good':'ready'}">${a.recSt==='done'?'Reconciled':'Open'}</span></td></tr>`
+      + (gliTxnAcct===a.acct?`<tr><td colspan="8" style="padding:0 11px 12px">${glTxnTable(a)}</td></tr>`:'');
+    }).join('')}
+    </tbody></table></div>`;
+
+  // ---------- SECTION 4: unusual activity ----------
+  o+=`<div class="card" id="gli-unusual"><h2>Unusual activity
+      <span class="note">${unus.length} flagged · ${unus.filter(u=>u.sev==='high').length} high severity</span></h2>
+    <div class="subhead">Pattern detection across imported ERP postings. Korvyn surfaces and explains;
+      it never edits or posts. Use <b>View in ERP</b> to open the source record.</div>
+    <table class="tbl"><thead><tr><th>Document</th><th>Account</th><th>Date</th><th>Type</th>
+      <th class="num">Amount</th><th>Posted by</th><th>Flags</th><th></th></tr></thead><tbody>
+    ${unus.slice(0,14).map(t=>`<tr>
+      <td><b>${t.id}</b><div class="note" style="margin:0">${t.src}</div></td>
+      <td>${t.acct}<div class="note" style="margin:0">${t.acctNm}</div></td>
+      <td>${t.dt}</td><td>${t.ty}</td>
+      <td class="num">${glM(t.net)}</td><td>${t.by}</td>
+      <td>${t.flags.map(f=>`<span class="gli-flag ${t.sev==='high'?'hi':''}">${f}</span>`).join('')}</td>
+      <td>${erpLink(t.id,t.src)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // ---------- SECTION 5: account explorer ----------
+  const car=c=>gliSort.col===c?(gliSort.dir==='asc'?'&#9652;':'&#9662;'):'&#8693;';
+  const th=(c,l,cls)=>`<th class="sortable ${gliSort.col===c?'act':''} ${cls||''}" onclick="setGliSort('${c}')">${l}<span class="caret">${car(c)}</span></th>`;
+  o+=`<div class="card"><h2>Account explorer<span class="note">${rows.length} of ${glAccounts().length} accounts</span></h2>
+    <div class="ctoolbar">
+      <div class="searchbox">${glIc('M7 11.4A4.4 4.4 0 107 2.6a4.4 4.4 0 000 8.8zM10.4 10.4L14 14')}
+        <input placeholder="Search account number, name or group…" value="${gliSearch}"
+          oninput="setGliSearch(this.value)"></div>
+      <span class="sp"></span>${glExport}
+    </div>`;
+  if(openAcct) o+=glAcctDetail(openAcct);
+  o+=`<div class="tblwrap"><table class="tbl"><thead><tr>
+      ${th('acct','Account')}${th('nm','Name')}${th('grp','Group')}${th('ent','Entity')}
+      ${th('beg','Beginning','num')}${th('dr','Debits','num')}${th('cr','Credits','num')}
+      ${th('end','Ending','num')}${th('act','Change','num')}
+      <th>Reconciliation</th><th>Exception</th></tr></thead><tbody>
+    ${rows.slice(0,26).map(a=>`<tr class="row-click ${gliAcct===a.acct?'cl-task-open':''}" onclick="openGliAcct('${a.acct}')">
+      <td><b>${a.acct}</b></td><td>${a.nm}</td><td>${a.grp.nm}</td><td>${a.ent}</td>
+      <td class="num">${glM(a.beg)}</td><td class="num">${glM(a.dr)}</td>
+      <td class="num">${glM(a.cr)}</td><td class="num">${glM(a.end)}</td>
+      <td class="num ${a.act>=0?'pos':'neg'}">${glM(a.act)}</td>
+      <td><span class="pill ${a.recSt==='done'?'good':(a.recSt==='over'?'flag':'ready')}">${RECON_ST[a.recSt]?RECON_ST[a.recSt].l:'Open'}</span></td>
+      <td>${glMaterial(a)?'<span class="pill flag">Material</span>':'<span class="note" style="margin:0">&#8211;</span>'}</td>
+    </tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="11" class="note">No accounts match these filters.</td></tr>'}
+    </tbody></table></div>
+    ${rows.length>26?`<div class="cardfoot">Showing 26 of ${rows.length} — narrow the filters to see more.</div>`:''}
+  </div>`;
+
+  o+=`<div class="note" style="text-align:center;margin-top:6px">Korvyn analyses ledger data imported from
+     the ERP. Journal creation, approval and posting remain in the ERP.</div>`;
+  el.innerHTML=o;
+}
+
+// ---------- account detail ----------
+function glAcctDetail(a){
+  const txns=glTxns(a.acct);
+  const byDim=(dim)=>{const m={};txns.forEach(t=>{m[t[dim]]=(m[t[dim]]||0)+t.net;});
+    return Object.entries(m).sort((x,y)=>Math.abs(y[1])-Math.abs(x[1]));};
+  const bar=(rows2)=>{const pk=Math.max(...rows2.map(r=>Math.abs(r[1])),0.01);
+    return rows2.map(r=>`<div class="gli-srow"><span class="sn">${r[0]}</span>
+      <span class="mbar" style="max-width:90px"><i style="width:${Math.abs(r[1])/pk*100}%"></i></span>
+      <span class="sv">${glM(r[1])}</span></div>`).join('');};
+  const rec=GL_RECON.find(r=>r.acct===a.acct);
+  const exs=glUnusual().filter(u=>u.acct===a.acct);
+  const trend=[a.py,a.prior,a.act,a.fcast];
+  const tpk=Math.max(...trend.map(Math.abs),0.01);
+  return `<div class="gli-detail" id="gli-detail">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:600">${a.acct} · ${a.nm}</div>
+      <span class="pill info">${a.grp.nm}</span>
+      ${glMaterial(a)?'<span class="pill flag">Material movement</span>':''}
+      <span style="margin-left:auto"><span class="extlink" onclick="event.stopPropagation();openGliTxns('${a.acct}')">
+        ${gliTxnAcct===a.acct?'Hide':'View'} transactions</span></span>
+    </div>
+    <div class="gli-mini">
+      <div class="m"><div class="ml">Beginning</div><div class="mv">${glM(a.beg)}</div></div>
+      <div class="m"><div class="ml">Debits</div><div class="mv">${glM(a.dr)}</div></div>
+      <div class="m"><div class="ml">Credits</div><div class="mv">${glM(a.cr)}</div></div>
+      <div class="m"><div class="ml">Ending</div><div class="mv">${glM(a.end)}</div></div>
+      <div class="m"><div class="ml">Change</div><div class="mv ${a.act>=0?'pos':'neg'}">${glM(a.act)}</div></div>
+      <div class="m"><div class="ml">vs prior</div><div class="mv">${glPctS(glVarPct(a))}</div></div>
+    </div>
+    <div class="subhead" style="margin:0 0 8px">Balance trend</div>
+    <div class="gli-bars" style="height:96px;margin-bottom:16px">
+      ${[['Prior year',a.py],['Prior period',a.prior],['Current',a.act],['Forecast',a.fcast]]
+        .map(t=>`<div class="gli-bar" title="${t[0]}: ${glM(t[1])}">
+          <i style="height:${Math.max(3,Math.abs(t[1])/tpk*70)}px;background:${t[0]==='Current'?'var(--accent)':'var(--line2)'}"></i>
+          <span class="bl">${t[0]}</span></div>`).join('')}
+    </div>
+    <div class="gli-split">
+      <div><div class="subhead" style="margin:0 0 8px">By entity</div>${bar(byDim('ent'))}</div>
+      <div><div class="subhead" style="margin:0 0 8px">By department</div>${bar(byDim('dept'))}</div>
+      <div><div class="subhead" style="margin:0 0 8px">By project</div>${bar(byDim('prj'))}</div>
+    </div>
+    <div class="gli-split" style="margin-top:14px">
+      <div><div class="subhead" style="margin:0 0 8px">Related reconciliation</div>
+        ${rec?`<div class="gli-srow"><span class="sn">${rec.nm} · due ${rec.due}</span>
+          <span class="pill ${RECON_ST[rec.st].c}">${RECON_ST[rec.st].l}</span></div>
+          <div class="gli-srow"><span class="sn">Owner</span><span class="sv">${rec.own}</span></div>`
+         :`<div class="note">No reconciliation scheduled for this account.</div>`}</div>
+      <div><div class="subhead" style="margin:0 0 8px">Related exceptions</div>
+        ${exs.length?exs.slice(0,4).map(e=>`<div class="gli-srow">
+          <span class="sn">${e.id} · ${e.flags[0]}</span>${erpLink(e.id,e.src)}</div>`).join('')
+         :`<div class="note">No exceptions flagged.</div>`}</div>
+    </div>
+    ${gliTxnAcct===a.acct?glTxnTable(a):''}
+  </div>`;
+}
+
+// ---------- SECTION 6: transaction drill-down ----------
+function glTxnTable(a){
+  const txns=glTxns(a.acct);
+  return `<div style="margin-top:14px">
+    <div class="subhead" style="margin:0 0 8px">Transactions behind ${a.acct} · ${a.nm}
+      <span class="note">${txns.length} postings · net ${glM(a.act)}</span></div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>Date</th><th>Document</th><th>Type</th><th>Description</th>
+      <th>Entity</th><th>Department</th><th>Project</th>
+      <th class="num">Debit</th><th class="num">Credit</th><th class="num">Net</th>
+      <th>Source</th><th>Posted by</th><th></th></tr></thead><tbody>
+    ${txns.map(t=>`<tr>
+      <td>${t.dt}</td><td><b>${t.id}</b></td><td>${t.ty}</td><td>${t.desc}</td>
+      <td>${t.ent}</td><td>${t.dept}</td><td>${t.prj}</td>
+      <td class="num">${t.dr?glM(t.dr):'&#8211;'}</td>
+      <td class="num">${t.cr?glM(t.cr):'&#8211;'}</td>
+      <td class="num ${t.net>=0?'pos':'neg'}">${glM(t.net)}</td>
+      <td>${t.src}</td><td>${t.by}<div class="note" style="margin:0">${t.posted}</div></td>
+      <td>${erpLink(t.id,t.src)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+// ============================ ACCOUNTING > CLOSE ============================
+// Close orchestration: schedule, checklist, dependencies, blockers, evidence.
+// Korvyn tracks and sequences the work; the ERP still posts it.
+function renderAcctClose(){
+  const el=$('view-acctclose'); if(!el)return;
+  const t=closeTotals(), tot=closeTotal(), pct=closePct();
+  const blocked=clBlocked(), overdue=clOverdue();
+  const entDone=GL_CLOSE.filter(e=>entPct(e)===100).length;
+  const rows=clRows();
+  const sel=(k,label,opts)=>`<div class="grp"><label>${label}</label>
+    <select onchange="setClFilter('${k}',this.value)">
+      <option value="all"${clFilter[k]==='all'?' selected':''}>All ${label.toLowerCase()}</option>
+      ${opts.map(o=>`<option value="${o[0]}"${clFilter[k]===o[0]?' selected':''}>${o[1]}</option>`).join('')}
+    </select></div>`;
+
+  // ---------- KPIs ----------
+  let o=glHead('Close',
+    'Orchestrate the period close across every entity and function. Korvyn sequences the work; the ERP posts it.',
+    glExport);
+  o+=`<div class="kpis">
+    <div class="kpi lenshi"><div class="kpi-ic"><span class="kpi-chip chip-blue">${glIc('M3 4.5h10v9H3zM3 7h10M5.5 2.5v2M10.5 2.5v2')}</span>
+      <div><div class="k" style="margin:0">Close period</div><div class="v">${CLOSE_DAYS.period}</div></div></div>
+      <div class="d">opened ${CLOSE_DAYS.opened} · due ${CLOSE_DAYS.due}</div>
+      <div class="lenstag">&#9656; in progress</div></div>
+
+    <div class="kpi"><div class="kpi-ic"><span class="kpi-chip chip-green">${glIc('M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5')}</span>
+      <div><div class="k" style="margin:0">Close completion</div><div class="v">${pct}%</div></div></div>
+      <div class="d">${t.done} of ${tot} tasks complete</div></div>
+
+    <div class="kpi ${CLOSE_DAYS.remaining<=2?'flag':''}"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M8 4.5V8l2.4 1.4M8 14A6 6 0 108 2a6 6 0 000 12z')}</span>
+      <div><div class="k" style="margin:0">Days remaining</div><div class="v">${CLOSE_DAYS.remaining}</div></div></div>
+      <div class="d">day ${CLOSE_DAYS.actual} of ${CLOSE_DAYS.actual+CLOSE_DAYS.remaining} · target ${CLOSE_DAYS.target}</div></div>
+
+    <div class="kpi"><div class="kpi-ic"><span class="kpi-chip chip-teal">${glIc('M3 8.5l3 3 7-7')}</span>
+      <div><div class="k" style="margin:0">Tasks completed</div><div class="v">${t.done}</div></div></div>
+      <div class="d">${t.prog} in progress · ${t.not} not started</div></div>
+
+    <div class="kpi ${overdue.length?'flag':''}"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M8 2.5L14.5 13.5h-13zM8 6.5v3')}</span>
+      <div><div class="k" style="margin:0">Tasks overdue</div><div class="v">${overdue.length}</div></div></div>
+      <div class="d">past their due date</div></div>
+
+    <div class="kpi ${blocked.length?'flag':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-purple">${glIc('M4 4l8 8M12 4l-8 8')}</span>
+      <div><div class="k" style="margin:0">Blockers</div><div class="v">${blocked.length}</div></div></div>
+      <div class="d">stopping downstream work</div></div>
+
+    <div class="kpi"><div class="kpi-ic"><span class="kpi-chip chip-blue">${glIc('M2.5 13h11M4 13V6l4-3 4 3v7')}</span>
+      <div><div class="k" style="margin:0">Entity completion</div><div class="v">${entDone}/${GL_CLOSE.length}</div></div></div>
+      <div class="d">entities fully closed</div></div>
+  </div>`;
+
+  // ---------- timeline ----------
+  const PHASES=[['Pre-close','var(--accent)',18],['Sub-ledger close','var(--teal)',22],
+                ['Reconciliation','var(--purple)',24],['Review & sign-off','var(--warn)',20],
+                ['Consolidation','var(--pos)',16]];
+  const DAYS=['Jul 1','Jul 2','Jul 3','Jul 5','Jul 6','Jul 7','Jul 8'];
+  const todayPct=CLOSE_DAYS.actual/(CLOSE_DAYS.actual+CLOSE_DAYS.remaining)*100;
+  o+=`<div class="card"><h2>Close timeline<span class="note">${CLOSE_DAYS.period} · day ${CLOSE_DAYS.actual} of ${CLOSE_DAYS.actual+CLOSE_DAYS.remaining}</span></h2>
+    <div style="position:relative">
+      <div class="cl-timeline">${PHASES.map(p=>
+        `<div class="cl-tl-seg" style="flex:${p[2]};background:${p[1]}">${p[0]}</div>`).join('')}</div>
+      <div class="cl-today" style="left:${todayPct}%"></div>
+    </div>
+    <div class="cl-tl-axis">${DAYS.map(d=>`<span>${d}</span>`).join('')}</div>
+    <div class="subhead" style="margin:18px 0 10px">Progress by function</div>
+    ${GL_CLOSE_FN.map(f=>{const done=f.done/f.tot*100;
+      const fnTasks=CLOSE_TASKS.filter(x=>x.fn===f.fn);
+      const pg=fnTasks.filter(x=>x.st==='prog').length/f.tot*100;
+      const bk=fnTasks.filter(x=>x.st==='blk').length/f.tot*100;
+      return `<div class="cl-lane"><span class="ln">${f.fn}</span>
+        <div class="cl-bar">
+          <i style="width:${done}%;background:var(--pos)"></i>
+          <i style="width:${pg}%;background:var(--warn)"></i>
+          <i style="width:${bk}%;background:var(--neg)"></i>
+        </div></div>`;}).join('')}
+    <div class="cl-legend">
+      <span><i style="background:var(--pos)"></i>Complete</span>
+      <span><i style="background:var(--warn)"></i>In progress</span>
+      <span><i style="background:var(--neg)"></i>Blocked</span>
+      <span><i style="background:var(--bg2)"></i>Not started</span></div>
+  </div>`;
+
+  // ---------- blockers / exceptions ----------
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Blockers &amp; exceptions
+      <span class="cardlink" onclick="pickTab('exceptions')">All exceptions</span></h2>
+      <div class="subhead">${blocked.length} blocked, ${overdue.length} overdue. A blocked task holds every
+        task that depends on it.</div>
+      ${blocked.map(b=>`<div class="cp-ins" onclick="openCloseTask('${b.id}')" style="margin-bottom:8px">
+        <div class="ih"><span class="idot" style="background:var(--neg)"></span>
+          <span class="it">${b.nm}</span>
+          <span style="margin-left:auto"><span class="pill flag">Blocked</span></span></div>
+        <div class="id2">${b.ent} · ${b.fn} · owner ${b.own}${b.dep?` · waiting on <b>${b.dep}</b>`:''}</div>
+      </div>`).join('')||'<div class="note">No blocked tasks.</div>'}
+      ${overdue.filter(x=>x.st!=='blk').slice(0,3).map(b=>`<div class="cp-ins" onclick="openCloseTask('${b.id}')" style="margin-bottom:8px">
+        <div class="ih"><span class="idot" style="background:var(--warn)"></span>
+          <span class="it">${b.nm}</span>
+          <span style="margin-left:auto"><span class="pill ready">Overdue</span></span></div>
+        <div class="id2">${b.ent} · ${b.fn} · due ${b.due} · owner ${b.own}</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="card" style="margin:0"><h2>Entity completion</h2>
+      <table class="tbl"><thead><tr><th>Entity</th><th>Progress</th><th class="num">Done</th>
+        <th class="num">Blocked</th><th>Status</th></tr></thead><tbody>
+      ${GL_CLOSE.map(e=>{const s=entSt(e);return `<tr class="row-click" onclick="setClFilter('ent','${e.ent}')">
+        <td><b>${e.ent}</b></td>
+        <td><div class="progline"><span class="mini-bar"><i style="width:${entPct(e)}%"></i></span>
+          <span style="font-size:11.5px;color:var(--hint)">${entPct(e)}%</span></div></td>
+        <td class="num">${e.done}/${e.done+e.prog+e.not+e.blk}</td>
+        <td class="num" ${e.blk?'style="color:var(--neg);font-weight:600"':''}>${e.blk}</td>
+        <td><span class="pill ${s.c}">${s.l}</span></td></tr>`;}).join('')}
+      </tbody></table>
+      <div class="cardfoot">Click an entity to filter the checklist below.</div></div>
+  </div>`;
+
+  // ---------- checklist ----------
+  o+=`<div class="card"><h2>Close checklist<span class="note">${rows.length} of ${tot} tasks shown</span></h2>
+    <div class="ctrls" style="margin-bottom:14px">
+      ${sel('ent','Entity',CLOSE_ENTITIES.map(e=>[e,e]))}
+      ${sel('fn','Function',CLOSE_FUNCS.map(f=>[f,f]))}
+      ${sel('own','Owner',clOwners().map(o2=>[o2,o2]))}
+      ${sel('st','Status',Object.keys(CLOSE_ST).map(k=>[k,CLOSE_ST[k].l]))}
+      ${sel('due','Due date',clDues().map(d=>[d,d]))}
+    </div>
+    <div class="filter-foot" style="margin:0 0 14px;padding-top:0;border-top:none">
+      <div class="lenshint">Filters narrow the checklist only; the figures above stay period-wide.</div>
+      <div class="spacer"></div>
+      <button class="btn-ghost" onclick="clResetFilters()">Reset filters</button>
+    </div>
+    <table class="tbl"><thead><tr><th>Task</th><th>Entity</th><th>Function</th><th>Owner</th>
+      <th>Due</th><th>Status</th><th>Dependency</th><th>Reviewer</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const s=CLOSE_ST[r.st];
+    const isOpen=clOpen===r.id;
+    o+=`<tr class="row-click ${isOpen?'cl-task-open':''}" onclick="openCloseTask('${r.id}')">
+      <td><b>${r.nm}</b><div class="note" style="margin:0">${r.id}</div></td>
+      <td>${r.ent}</td><td>${r.fn}</td><td>${r.own}</td>
+      <td>${r.due}</td>
+      <td><span class="pill ${s.c}">${s.l}</span></td>
+      <td>${r.dep?`<span class="note" style="margin:0">${r.dep}</span>`:'<span class="note" style="margin:0">&#8211;</span>'}</td>
+      <td>${r.rev}</td></tr>`;
+    if(isOpen){
+      const docs=CLOSE_DOCS[r.fn]||[];
+      o+=`<tr><td colspan="8" style="padding:0 11px 12px"><div class="cl-detail">
+        <dl>
+          <div><dt>Task</dt><dd>${r.nm}</dd></div>
+          <div><dt>Reference</dt><dd>${r.id}</dd></div>
+          <div><dt>Entity</dt><dd>${r.ent}</dd></div>
+          <div><dt>Function</dt><dd>${r.fn}</dd></div>
+          <div><dt>Owner</dt><dd>${r.own}</dd></div>
+          <div><dt>Reviewer</dt><dd>${r.rev}</dd></div>
+          <div><dt>Due</dt><dd>${r.due}</dd></div>
+          <div><dt>Status</dt><dd><span class="pill ${s.c}">${s.l}</span></dd></div>
+          <div><dt>Depends on</dt><dd>${r.dep||'&#8211;'}</dd></div>
+        </dl>
+        <div class="subhead" style="margin:0 0 6px">Supporting documentation</div>
+        ${docs.map(d=>`<div class="cl-doc">
+          ${glIc('M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3')}<span>${d}</span>
+          <span style="margin-left:auto"><span class="extlink" onclick="event.stopPropagation();pickLens('portfolio');pickTab('documents')">Open</span></span>
+        </div>`).join('')}
+        <div class="cardfoot"><span class="note" style="margin:0">Korvyn tracks completion and evidence.
+          Postings remain in the ERP.</span></div>
+      </div></td></tr>`;
+    }
+  });
+  if(!rows.length) o+=`<tr><td colspan="8" class="note">No tasks match these filters.</td></tr>`;
+  o+=`</tbody></table></div>`;
   el.innerHTML=o;
 }
 
@@ -6890,6 +7647,8 @@ function renderAll(){
   if(TAB==='fpwork')renderFpWork();
   if(TAB==='fpdriver')renderFpDriver();
   if(TAB==='fpmgmt')renderFpMgmt();
+  if(TAB==='glintel')renderGlIntel();
+  if(TAB==='acctclose')renderAcctClose();
   if(TAB==='acctover')renderAcctOver();
   if(TAB==='icomp')renderIcomp();
   if(TAB==='contclose')renderContClose();
@@ -7132,6 +7891,8 @@ function paintSubnav2(){
 
 // top bar title + crumb + spine ribbon depth per view
 const VIEW_META={
+  glintel:{t:'General Ledger',c:'GL intelligence \u00b7 variance \u00b7 anomaly \u00b7 traceability',depth:5},
+  acctclose:{t:'Close',c:'Close orchestration \u00b7 checklist \u00b7 dependencies \u00b7 blockers',depth:4},
   acctover:{t:'Accounting overview',c:'Close \u00b7 reconciliations \u00b7 intercompany \u00b7 consolidation',depth:4},
   icomp:{t:'Intercompany',c:'Balance matching and elimination readiness',depth:3},
   contclose:{t:'Continuous close',c:'Close activity run continuously, not at period end',depth:3},
@@ -7568,6 +8329,12 @@ const CP_ICON={
 };
 // Page-contextual prompt cards. Falls back to the generic CP_SUGS strings.
 const CP_CARDS={
+  glintel:[{t:'Explain the largest GL movements this month',s:'ranked by variance',i:'chart'},
+           {t:'Why did Repairs & Maintenance increase?',s:'account 61000',i:'delta'},
+           {t:'Show unusual entries posted in the last 5 days',s:'late-period activity',i:'warn'},
+           {t:'Find accounts with unexpected activity',s:'against historical trend',i:'search'},
+           {t:'Show late-period journal entries',s:'Jun 28-30',i:'clock'},
+           {t:'Compare this account across entities',s:'entity breakdown',i:'list'}],
   glover:[ {t:'Explain the change in Net Income (YTD)',s:'vs May 2026',i:'chart'},
            {t:'What are the top variance drivers',s:'for Jun 2026?',i:'delta'},
            {t:'Show me accounts with unusual activity',s:'in the last 30 days',i:'search'},
@@ -7594,6 +8361,19 @@ const CP_CARDS={
   cip:    [{t:'Which projects are ready for PIS?',s:'COO issued, not transferred',i:'list'},
            {t:'Show me mis-coded cost in CIP',s:'operating cost to scrub',i:'warn'} ],
 };
+// Context line: what the assistant is looking at right now, including page filters.
+function cpContext(){
+  if(TAB!=='glintel') return '';
+  const f=[];
+  if(gliEnt!=='all')  f.push(gliEnt);
+  if(gliGrp!=='all')  f.push((GL_GROUPS.find(g=>g.id===gliGrp)||{}).nm);
+  if(gliDept!=='all') f.push(gliDept);
+  if(gliPrj!=='all')  f.push(gliPrj);
+  if(gliGeo!=='all')  f.push(gliGeo);
+  if(gliRec!=='all')  f.push(gliRec==='open'?'unreconciled only':'reconciled only');
+  if(gliAcct) f.push('account '+gliAcct);
+  return f.length?('Scoped to '+f.join(' · ')):'';
+}
 function cpCards(){
   const c=CP_CARDS[TAB];
   if(c)return c;
@@ -7648,7 +8428,8 @@ function renderCpHome(){
   if(talking){ box.innerHTML=''; return; }   // conversation takes over the panel
   const cards=cpCards();
   const rec=CP.recent||[];
-  box.innerHTML=`<div class="cp-hello">I&#39;m here to help you analyze and understand your financials.</div>
+  const ctx=cpContext();
+  box.innerHTML=`<div class="cp-hello">I&#39;m here to help you analyze and understand your financials.${ctx?`<div style="margin-top:7px;font-size:11.5px;opacity:.85">${ctx}</div>`:''}</div>
     <div class="cp-lbl">Suggested for this page<span class="sp"></span></div>
     ${cards.map(c=>`<button class="cp-card" onclick="cpSend('${c.t.replace(/'/g,"\\'")}')">
       <span class="ci"><svg viewBox="0 0 16 16" fill="none"><path d="${CP_ICON[c.i]||CP_ICON.search}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
