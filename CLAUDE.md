@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close — every page built to its written spec, no known defects |
+| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close, Exceptions — every page built to its written spec, no known defects |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -130,6 +130,14 @@ There is no separate CSS/JS file. Edits happen in place.
   - `#secnav` (the old row-1 section strip) is **force-hidden** — its content moved to the
     rail and rendering it would duplicate the list. `#subnav` / `#subnav2` remain, and are
     the *within-record* tab strips (flux statement picker, filing workspace tabs).
+  - **A tab id can be shared by two lenses.** `exceptions` belongs to *both* Home and
+    Accounting — same id, same `#view-exceptions` div, same `renderExceptions()`. Rebuilding
+    it for one lens silently replaces the other. The fix already in place: `renderExceptions()`
+    branches on `LENS`, and the TAB-keyed registries accept a **lens-scoped key** —
+    `TAB_PIPELINES[LENS+':'+TAB]`, `VIEW_META[LENS+':'+TAB]`, and a `LENS` check inside the
+    `CP_CARDS` function (returning nothing falls through to the other lens's defaults). Look
+    for `'ledger:exceptions'`. Before touching any shared-looking tab, grep its id in `LENSES`
+    and count how many lenses list it.
   - **Any setter that changes a pipeline step must call `navRepaint()`.** `renderAll()` does
     *not* repaint `#subnav`, so a setter that only re-renders leaves the highlight stuck on
     whichever step was active when the tab was opened. The page still works and every view
@@ -216,6 +224,22 @@ There is no separate CSS/JS file. Edits happen in place.
   Calibration: an overdue reconciliation degrades the score and raises an exception but does
   **not** mark an entity Blocked — Blocked is reserved for things that actually stop
   consolidation (blocked close tasks, out-of-balance eliminations, missing submission).
+- `AX_STATE` / `AX_RECUR` / `AX_TREND` — Accounting > Exceptions. The exceptions themselves
+  are **not stored**: `axExceptions()` derives all 25 from `GL_RECON`, `IC_EVENTS`,
+  `csxEntities()`, `CC_SIGNALS`, `CIP_PROJECTS`, `GL_ERP` and `CLOSE_TASKS`, and every row
+  links back to its source. Only workflow lives in `AX_STATE` (status, assignment, validation
+  result, root cause, comments), keyed by exception id and merged on — same facts/workflow
+  split as `IC_SETTLE` and `CONS_FX`. Owners are inherited from the underlying item via
+  `srcOwn`; the meaningful backlog signal is `untriaged` (status still `det`), not "no owner".
+  `axScore()` holds **all** the weights and returns its own `drivers` array, which the detail
+  view renders line by line — if you change a weight, the explanation follows automatically.
+  Do not add a weighting that is not in that function.
+  **`amt` and `mis` are different things on purpose:** `amt` is the balance or transaction an
+  exception touches, `mis` is the part that could actually misstate. An overdue reconciliation
+  on a $78M payable is a control issue, not a $78M error. Never collapse the two.
+  Validation is a gate, not a status field: a resolution that does not verify against source
+  comes back as `val:'fail'`, still ranks as unresolved, and must never render a green
+  "Resolved" pill (that regression was caught in review once already).
 - `CC_SIGNALS` / `CC_TREND` / `CC_WS` / `CC_DEPS` — Continuous Close, also deliberately thin.
   The nine workstream readiness figures are **measured** by `ccxWorkstreams()` from
   `GL_CLOSE_FN`, `GL_RECON`, `icxPairs()`, `csxEntities()`, `CIP_PROJECTS`, `GL_ERP` and
@@ -390,6 +414,10 @@ and re-copy after every edit or you will be validating a stale file.
 #     setCsStmt x setCsCmp across the results grid.
 #     Continuous Close: drive setCcSub over
 #     now/ready/changed/risks/activity/deps/pull/block.
+#     Exceptions: drive setAxSub over queue/exposure/aging/recur/close/valid/trend and
+#     setAxSel over axExceptions(). ALSO assert Home > Exceptions is unchanged —
+#     pickLens('portfolio');pickTab('exceptions') must still render the old
+#     control-test page (~3,395 chars, no #subnav), since the tab id is shared.
 #     Tie assertions: icxTie() -> {ok:true,pairs:5}; csxTie() -> {ok:true,entities:4,submitted:2}.
 
 # 2d. Sub-nav highlight: after each setXSub, assert
