@@ -5464,22 +5464,81 @@ const closePct=()=>Math.round(closeTotals().done/closeTotal()*100);
 const entPct=e=>Math.round(e.done/(e.done+e.prog+e.not+e.blk)*100);
 const entSt=e=>e.blk>1?{l:'Delayed',c:'flag'}:{l:'In progress',c:'info'};
 
-// account reconciliations
+/* Account reconciliations — the real book, one row per account per entity.
+   THERE IS NO SCALE FACTOR. An earlier version kept 7 sample rows and multiplied the
+   headline counts by 35, so the stat row claimed 245 reconciliations above a 7-row table
+   footed "Showing 1 to 7 of 245", and Accounting > Overview paired a scaled open count with
+   an unscaled difference. Every count on the page is now a count of these rows. If you add
+   rows, the headlines move on their own — do not reintroduce a multiplier.
+
+   Account numbers and names follow COA so the recon book and the trial balance share one
+   vocabulary. Four accounts sit outside the illustrative capital-only TB (cash, receivables
+   and the two intercompany control accounts); that is called out on the page rather than
+   hidden. `bal` is in thousands, rendered as dollars by glK(bal*1000).
+
+   Two differences deliberately tie to other modules:
+     13500 / Meridian DC Holdco  2,300.000  = the Intercompany difference with Property Co
+     20000 / Meridian DC Holdco     -1.250  = the long-standing AP variance                */
 const GL_RECON=[
-  {acct:'10000',nm:'Cash — Operating',    ent:'Meridian DC Holdco',bal:16245.812,diff:0,      st:'done', due:'Jun 30, 2026',own:'A. Johnson'},
-  {acct:'11000',nm:'Accounts Receivable', ent:'Meridian DC Holdco',bal:97245.612,diff:0,      st:'prog', due:'Jul 5, 2026', own:'S. Lee'},
-  {acct:'20000',nm:'Accounts Payable',    ent:'Meridian DC Holdco',bal:-78245.612,diff:-1.250,st:'over', due:'Jun 25, 2026',own:'J. Park'},
-  {acct:'15000',nm:'Prepaid Expenses',    ent:'Meridian DC Holdco',bal:12345.300,diff:0,      st:'done', due:'Jun 30, 2026',own:'M. Giri'},
-  {acct:'21000',nm:'Accrued Expenses',    ent:'Fleet DC OpCo',     bal:-15245.300,diff:0,     st:'done', due:'Jun 30, 2026',own:'A. Johnson'},
-  {acct:'22000',nm:'Retention Payable',   ent:'Fleet DC OpCo',     bal:-10400.000,diff:0,     st:'prog', due:'Jul 8, 2026', own:'M. Giri'},
-  {acct:'25000',nm:'Lease Liability',     ent:'Meridian Property Co',bal:-8900.000,diff:0,    st:'none',due:'Jul 12, 2026',own:'S. Lee'},
+  // ---- Meridian DC Holdco ----
+  {acct:'10000',nm:'Cash — operating',              ent:'Meridian DC Holdco',bal:16245.812, diff:0,       st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'10100',nm:'Cash — restricted',             ent:'Meridian DC Holdco',bal:4820.400,  diff:0,       st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'11000',nm:'Accounts receivable',           ent:'Meridian DC Holdco',bal:97245.612, diff:0,       st:'prog',due:'Jul 5, 2026', own:'S. Lee'},
+  {acct:'13500',nm:'Due from affiliates',           ent:'Meridian DC Holdco',bal:88400.000, diff:2300.000,st:'over',due:'Jun 28, 2026',own:'M. Giri'},
+  {acct:'15000',nm:'Construction in progress (CIP)',ent:'Meridian DC Holdco',bal:41000.000, diff:0,       st:'prog',due:'Jul 6, 2026', own:'L. Tan'},
+  {acct:'15100',nm:'Land',                          ent:'Meridian DC Holdco',bal:15600.000, diff:0,       st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'15200',nm:'Building / shell',              ent:'Meridian DC Holdco',bal:56200.000, diff:0,       st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'15900',nm:'Accumulated depreciation',      ent:'Meridian DC Holdco',bal:-28400.000,diff:0,       st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'20000',nm:'Accounts payable',              ent:'Meridian DC Holdco',bal:-78245.612,diff:-1.250,  st:'over',due:'Jun 25, 2026',own:'J. Park'},
+  {acct:'21000',nm:'Accrued capital costs',         ent:'Meridian DC Holdco',bal:-40500.000,diff:0,       st:'prog',due:'Jul 7, 2026', own:'M. Reyes'},
+  {acct:'25000',nm:'Lease liability',               ent:'Meridian DC Holdco',bal:-51000.000,diff:0,       st:'done',due:'Jun 30, 2026',own:'J. Park'},
+  {acct:'27000',nm:'Construction loan facility',    ent:'Meridian DC Holdco',bal:-58400.000,diff:0,       st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'30000',nm:'Intercompany capital contribution',ent:'Meridian DC Holdco',bal:-8200.000,diff:0,     st:'done',due:'Jun 30, 2026',own:'M. Giri'},
+  {acct:'31000',nm:'Contributed capital / LP equity',ent:'Meridian DC Holdco',bal:-92600.000,diff:0,      st:'none',due:'Jul 10, 2026',own:'S. Lee'},
+  // ---- Fleet DC OpCo ----
+  {acct:'10000',nm:'Cash — operating',              ent:'Fleet DC OpCo',bal:9140.220,  diff:0,      st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'11000',nm:'Accounts receivable',           ent:'Fleet DC OpCo',bal:31480.900, diff:0.480,  st:'prog',due:'Jul 5, 2026', own:'J. Lindqvist'},
+  {acct:'23500',nm:'Due to affiliates',             ent:'Fleet DC OpCo',bal:-145000.000,diff:0,     st:'done',due:'Jun 30, 2026',own:'M. Giri'},
+  {acct:'15000',nm:'Construction in progress (CIP)',ent:'Fleet DC OpCo',bal:18300.000, diff:0,      st:'prog',due:'Jul 6, 2026', own:'L. Tan'},
+  {acct:'15300',nm:'M&E / fit-out',                 ent:'Fleet DC OpCo',bal:44800.000, diff:0,      st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'15400',nm:'Software',                      ent:'Fleet DC OpCo',bal:6800.000,  diff:0,      st:'done',due:'Jun 30, 2026',own:'M. Reyes'},
+  {acct:'15900',nm:'Accumulated depreciation',      ent:'Fleet DC OpCo',bal:-12100.000,diff:0,      st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'20000',nm:'Accounts payable',              ent:'Fleet DC OpCo',bal:-22380.400,diff:0,      st:'prog',due:'Jul 7, 2026', own:'M. Reyes'},
+  {acct:'21000',nm:'Accrued capital costs',         ent:'Fleet DC OpCo',bal:-15245.300,diff:0,      st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'22000',nm:'Retention payable',             ent:'Fleet DC OpCo',bal:-10400.000,diff:0,      st:'prog',due:'Jul 8, 2026', own:'M. Giri'},
+  {acct:'25000',nm:'Lease liability',               ent:'Fleet DC OpCo',bal:-14200.000,diff:0,      st:'done',due:'Jun 30, 2026',own:'J. Park'},
+  {acct:'31000',nm:'Contributed capital / LP equity',ent:'Fleet DC OpCo',bal:-38400.000,diff:0,     st:'none',due:'Jul 10, 2026',own:'S. Lee'},
+  // ---- Meridian Property Co ----
+  {acct:'10000',nm:'Cash — operating',              ent:'Meridian Property Co',bal:6320.180, diff:0,     st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'11000',nm:'Accounts receivable',           ent:'Meridian Property Co',bal:18940.500,diff:0,     st:'prog',due:'Jul 5, 2026', own:'J. Lindqvist'},
+  {acct:'13500',nm:'Due from affiliates',           ent:'Meridian Property Co',bal:31200.000,diff:0,     st:'prog',due:'Jul 8, 2026', own:'M. Giri'},
+  {acct:'23500',nm:'Due to affiliates',             ent:'Meridian Property Co',bal:-86100.000,diff:0,    st:'prog',due:'Jul 8, 2026', own:'M. Giri'},
+  {acct:'15000',nm:'Construction in progress (CIP)',ent:'Meridian Property Co',bal:22700.000,diff:0,     st:'prog',due:'Jul 6, 2026', own:'L. Tan'},
+  {acct:'15500',nm:'Leasehold improvements',        ent:'Meridian Property Co',bal:44600.000,diff:0,     st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'15600',nm:'ROU assets',                    ent:'Meridian Property Co',bal:53300.000,diff:0,     st:'done',due:'Jun 30, 2026',own:'J. Park'},
+  {acct:'15900',nm:'Accumulated depreciation',      ent:'Meridian Property Co',bal:-9800.000, diff:0,    st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'20000',nm:'Accounts payable',              ent:'Meridian Property Co',bal:-19640.700,diff:0,    st:'done',due:'Jun 30, 2026',own:'M. Reyes'},
+  {acct:'25000',nm:'Lease liability',               ent:'Meridian Property Co',bal:-8900.000, diff:0,    st:'none',due:'Jul 12, 2026',own:'S. Lee'},
+  {acct:'31000',nm:'Contributed capital / LP equity',ent:'Meridian Property Co',bal:-41200.000,diff:0,   st:'none',due:'Jul 10, 2026',own:'S. Lee'},
+  // ---- Meridian Management Co ----
+  {acct:'10000',nm:'Cash — operating',              ent:'Meridian Management Co',bal:2410.640, diff:0,      st:'done',due:'Jun 30, 2026',own:'A. Johnson'},
+  {acct:'11000',nm:'Accounts receivable',           ent:'Meridian Management Co',bal:7860.300, diff:0,      st:'prog',due:'Jul 5, 2026', own:'J. Lindqvist'},
+  {acct:'23500',nm:'Due to affiliates',             ent:'Meridian Management Co',bal:-91200.000,diff:0,     st:'prog',due:'Jul 8, 2026', own:'M. Giri'},
+  {acct:'15400',nm:'Software',                      ent:'Meridian Management Co',bal:3100.000, diff:0,      st:'done',due:'Jun 30, 2026',own:'M. Reyes'},
+  {acct:'15900',nm:'Accumulated depreciation',      ent:'Meridian Management Co',bal:-2300.000,diff:0,      st:'done',due:'Jun 30, 2026',own:'L. Tan'},
+  {acct:'20000',nm:'Accounts payable',              ent:'Meridian Management Co',bal:-6840.200,diff:0,      st:'prog',due:'Jul 7, 2026', own:'M. Reyes'},
+  {acct:'21000',nm:'Accrued capital costs',         ent:'Meridian Management Co',bal:-4120.900,diff:-0.310, st:'over',due:'Jun 26, 2026',own:'J. Park'},
+  {acct:'31000',nm:'Contributed capital / LP equity',ent:'Meridian Management Co',bal:-18600.000,diff:0,    st:'none',due:'Jul 10, 2026',own:'S. Lee'},
 ];
 const RECON_ST={done:{l:'Complete',c:'good'},prog:{l:'In progress',c:'info'},
                 over:{l:'Overdue',c:'flag'},none:{l:'Not started',c:''}};
-// headline recon counts scale the sample rows to a portfolio-sized book
-const RECON_SCALE=35;
-const reconCount=k=>GL_RECON.filter(r=>r.st===k).length*RECON_SCALE;
-const reconTotal=()=>GL_RECON.length*RECON_SCALE;
+// Headline counts ARE row counts. No scaling — see the note on GL_RECON.
+const reconCount=k=>GL_RECON.filter(r=>r.st===k).length;
+const reconTotal=()=>GL_RECON.length;
+// Account grouping, derived from the account number rather than stored per row.
+const reconGrp=a=>a<'20000'?'Assets':a<'30000'?'Liabilities':'Equity';
+// Accounts outside the illustrative capital-only trial balance, flagged rather than hidden.
+const reconOffTB=a=>!COA.some(c=>c.acct===a);
 
 // transaction-level ledger activity
 const GL_ACT=[
@@ -5504,11 +5563,23 @@ const TREND_MONTHS=(()=>{const M=['Jan','Mar','May','Jul','Sep','Nov'];const out
   for(let y=2024;y<=2026;y++) M.forEach(m=>out.push(m+' '+y)); return out;})();
 
 // ---- GL view state ----
-let glActTab='all', glActPage=1, glFinStmt='is', glReconFilter='all';
+let glActTab='all', glActPage=1, glFinStmt='is', glReconFilter='all',
+    glReconEnt='all', glReconGrp='all', glReconOwn='all';
 function setGlActTab(v){ glActTab=v; glActPage=1; renderAll(); }
 function setGlActPage(n){ glActPage=n; renderAll(); }
 function setGlFinStmt(v){ glFinStmt=v; renderAll(); }
 function setGlReconFilter(v){ glReconFilter=v; renderAll(); }
+function setGlReconEnt(v){ glReconEnt=v; renderAll(); }
+function setGlReconGrp(v){ glReconGrp=v; renderAll(); }
+function setGlReconOwn(v){ glReconOwn=v; renderAll(); }
+function glReconReset(){ glReconEnt=glReconGrp=glReconOwn=glReconFilter='all'; renderAll(); }
+// Row click lands on THAT account, not on an undifferentiated activity list. Accounts inside
+// the trial balance open in GL intelligence with their transactions expanded; the four
+// off-TB accounts have no COA row to open, so they fall back to GL activity.
+function reconDrill(acct){
+  if(COA.some(c=>c.acct===acct)){ gliAcct=acct; gliTxnAcct=acct; pickTab('glintel'); }
+  else pickTab('glact');
+}
 
 // ==================== SEC FILINGS WORKFLOW (index + filing workspace) ====================
 // Illustrative filing book. Amounts intentionally absent here: dollar figures come from
@@ -7696,7 +7767,7 @@ const CC_WSN=Object.fromEntries(CC_WS.map(w=>[w.id,w.nm]));
    This is the differentiating signal — it is why the user does not have to re-check
    finished work by hand. Materiality in $M. */
 const CC_SIGNALS=[
-  {id:'CS-1181', item:'Accounts Payable — 20000', ent:'Meridian DC Holdco', ws:'recs',
+  {id:'CS-1181', item:'Accounts payable — 20000', ent:'Meridian DC Holdco', ws:'recs',
    ch:'Late journal posted after the account was reconciled', prev:'Reconciled', cur:'Reconciliation no longer valid',
    mat:1.25, at:'Jul 19, 2026 09:05', own:'J. Park', ref:'JE-004821', src:'NetSuite', sev:'crit'},
   {id:'CS-1180', item:'Meridian Property Co — intercompany', ent:'Meridian Property Co', ws:'ic',
@@ -7705,16 +7776,16 @@ const CC_SIGNALS=[
   {id:'CS-1179', item:'CIP — Equipment 15000', ent:'Meridian DC Holdco', ws:'fa',
    ch:'New capital addition posted', prev:'Validated', cur:'CIP balance changed — reclassification review needed',
    mat:4.80, at:'Jul 19, 2026 14:02', own:'L. Tan', ref:'AP-019284', src:'NetSuite', sev:'warn'},
-  {id:'CS-1178', item:'Prepaid Expenses — 15000', ent:'Meridian DC Holdco', ws:'recs',
+  {id:'CS-1178', item:'Accrued capital costs — 21000', ent:'Meridian DC Holdco', ws:'recs',
    ch:'New invoice received against a reconciled balance', prev:'Reconciled', cur:'Roll-forward requires re-validation',
    mat:0.49, at:'Jul 19, 2026 11:20', own:'M. Giri', ref:'BILL-55612', src:'NetSuite', sev:'warn'},
   {id:'CS-1177', item:'GBP translation rate', ent:'Meridian Management Co', ws:'cons',
    ch:'Rate not refreshed since Jun 12', prev:'Current', cur:'Stale rate — translation blocked',
    mat:1.90, at:'Jul 20, 2026 08:12', own:'S. Lee', ref:'FX-GBP', src:'Korvyn', sev:'warn'},
-  {id:'CS-1176', item:'Retention Payable — 22000', ent:'Fleet DC OpCo', ws:'recs',
+  {id:'CS-1176', item:'Retention payable — 22000', ent:'Fleet DC OpCo', ws:'recs',
    ch:'PO commitment revised upward', prev:'In progress', cur:'Supporting schedule superseded',
    mat:0.31, at:'Jul 18, 2026 15:44', own:'M. Giri', ref:'PO-1006', src:'Procore', sev:'info'},
-  {id:'CS-1175', item:'Cash — Operating 10000', ent:'Meridian DC Holdco', ws:'cash',
+  {id:'CS-1175', item:'Cash — operating — 10000', ent:'Meridian DC Holdco', ws:'cash',
    ch:'Bank activity posted after reconciliation cut-off', prev:'Reconciled', cur:'Two items to clear — immaterial',
    mat:0.08, at:'Jul 18, 2026 07:30', own:'A. Johnson', ref:'BANK-0718', src:'NetSuite', sev:'info'},
   {id:'CS-1174', item:'JD Edwards feed', ent:'Group', ws:'gl',
@@ -8586,39 +8657,59 @@ function renderGLTrend(){
 function renderGLRecon(){
   const el=$('view-glrecon'); if(!el)return;
   const tot=reconTotal();
-  const pc=n=>Math.round(n/tot*100)+'%';
-  let o=glHead('Reconciliations','Manage account reconciliations and review status.',
-    `<button class="btn-primary" onclick="toggleFilters()">New reconciliation</button>`+glExport);
-  o+=`<div class="card"><div class="ctrls" style="margin-bottom:6px">
-      <div class="grp"><label>Entity</label><select onchange="renderAll()"><option>All entities</option></select></div>
-      <div class="grp"><label>Account</label><select onchange="renderAll()"><option>All accounts</option></select></div>
-      <div class="grp"><label>Reconciliation status</label>
-        <select onchange="setGlReconFilter(this.value)">
-          <option value="all">All statuses</option><option value="done">Complete</option>
-          <option value="prog">In progress</option><option value="over">Overdue</option><option value="none">Not started</option>
-        </select></div>
-      <div class="grp"><label>Period</label><select onchange="renderAll()"><option>Jun 2026</option></select></div>
+  const pc=n=>tot?Math.round(n/tot*100)+'%':'0%';
+  // every control below actually filters; none of them are decorative
+  const rows=GL_RECON.filter(r=>
+      (glReconEnt==='all'  || r.ent===glReconEnt)
+   && (glReconGrp==='all'  || reconGrp(r.acct)===glReconGrp)
+   && (glReconOwn==='all'  || r.own===glReconOwn)
+   && (glReconFilter==='all'|| r.st===glReconFilter));
+  const ents=[...new Set(GL_RECON.map(r=>r.ent))];
+  const owns=[...new Set(GL_RECON.map(r=>r.own))].sort();
+  const filtered=glReconEnt!=='all'||glReconGrp!=='all'||glReconOwn!=='all'||glReconFilter!=='all';
+  const sel=(fn,cur,opts)=>`<select onchange="${fn}(this.value)">${opts.map(o=>
+    `<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+
+  let o=glHead('Reconciliations','Manage account reconciliations and review status.',glExport);
+  o+=`<div class="card"><div class="ctrls" style="margin-bottom:0">
+      <div class="grp"><label>Entity</label>${sel('setGlReconEnt',glReconEnt,[['all','All entities'],...ents.map(e=>[e,e])])}</div>
+      <div class="grp"><label>Account group</label>${sel('setGlReconGrp',glReconGrp,[['all','All accounts'],['Assets','Assets'],['Liabilities','Liabilities'],['Equity','Equity']])}</div>
+      <div class="grp"><label>Owner</label>${sel('setGlReconOwn',glReconOwn,[['all','All owners'],...owns.map(w=>[w,w])])}</div>
+      <div class="grp"><label>Reconciliation status</label>${sel('setGlReconFilter',glReconFilter,
+        [['all','All statuses'],...Object.keys(RECON_ST).map(k=>[k,RECON_ST[k].l])])}</div>
+      <div class="grp"><label>Period</label><select disabled><option>Jun 2026</option></select></div>
+      ${filtered?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="glReconReset()">Reset</button></div>`:''}
     </div></div>`;
+
   o+=`<div class="statrow">
-    <div class="stat"><div class="sl">Total reconciliations</div><div class="sv">${tot}</div></div>
+    <div class="stat"><div class="sl">Total reconciliations</div><div class="sv">${tot}</div>
+      <div class="sd">accounts across ${ents.length} entities</div></div>
     ${[['done','Complete','var(--pos)'],['prog','In progress','var(--warn)'],
        ['over','Overdue','var(--neg)'],['none','Not started','var(--faint)']].map(k=>
       `<div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:${k[2]}"></span>${k[1]}</div>
        <div class="sv">${reconCount(k[0])}</div><div class="sd">${pc(reconCount(k[0]))}</div></div>`).join('')}
   </div>`;
-  const rows=glReconFilter==='all'?GL_RECON:GL_RECON.filter(r=>r.st===glReconFilter);
-  o+=`<div class="card"><h2>Account reconciliations<span class="note">${rows.length} shown</span></h2>
-    <table class="tbl"><thead><tr><th>Account #</th><th>Account name</th><th>Entity</th>
+
+  const unrec=+rows.filter(r=>r.diff).reduce((a,r)=>a+Math.abs(r.diff),0).toFixed(3);
+  o+=`<div class="card"><h2>Account reconciliations<span class="note">${rows.length} of ${tot} shown</span>
+      ${filtered?`<span class="cardlink" onclick="glReconReset()">Clear filters</span>`:''}</h2>
+    <div class="subhead">One row per account per entity. Every headline above is a count of these rows —
+      there is no sampling or scaling. Accounts marked <span class="pill sm">off TB</span> sit outside the
+      illustrative capital-only trial balance.</div>
+    <table class="tbl"><thead><tr><th>Account #</th><th>Account name</th><th>Entity</th><th>Group</th>
       <th class="num">Reconciled balance (USD)</th><th class="num">Difference (USD)</th>
       <th>Status</th><th>Due date</th><th>Owner</th></tr></thead><tbody>
-    ${rows.map(r=>{const s=RECON_ST[r.st];return `<tr class="row-click" onclick="pickTab('glact')">
-      <td>${r.acct}</td><td><b>${r.nm}</b></td><td>${r.ent}</td>
+    ${rows.map(r=>{const s=RECON_ST[r.st];return `<tr class="row-click" onclick="reconDrill('${r.acct}')">
+      <td>${r.acct}${reconOffTB(r.acct)?' <span class="pill sm">off TB</span>':''}</td>
+      <td><b>${r.nm}</b></td><td>${r.ent}</td><td class="ic-mini">${reconGrp(r.acct)}</td>
       <td class="num">${glK(r.bal*1000)}</td>
       <td class="num" ${r.diff?'style="color:var(--neg);font-weight:600"':''}>${r.diff?glK(r.diff*1000):'0.00'}</td>
       <td><span class="pill ${s.c}">${s.l}</span></td><td>${r.due}</td><td>${r.own}</td></tr>`;}).join('')}
-    ${rows.length?'':'<tr><td colspan="8" class="note">No reconciliations in this status.</td></tr>'}
+    ${rows.length?'':'<tr><td colspan="9" class="note">No reconciliations match the current filters.</td></tr>'}
     </tbody></table>
-    <div class="cardfoot">Showing 1 to ${rows.length} of ${tot} reconciliations</div></div>`;
+    <div class="cardfoot">Showing ${rows.length} of ${tot} reconciliations
+      ${unrec?`&#183; unreconciled difference in view ${glK(unrec*1000)}`:''}
+      <span class="cardlink" onclick="pickTab('glact')">GL activity</span></div></div>`;
   el.innerHTML=o;
 }
 
