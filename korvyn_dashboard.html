@@ -4364,7 +4364,7 @@ const GL_DAYS=['Jun 01','Jun 03','Jun 06','Jun 07','Jun 09','Jun 12','Jun 14','J
                'Jun 21','Jun 23','Jun 26','Jun 27','Jun 28','Jun 29','Jun 30'];
 const GL_WEEKEND=['Jun 07','Jun 14','Jun 21','Jun 28'];   // treated as weekend dates
 const GL_LATE=['Jun 28','Jun 29','Jun 30'];
-function glTxns(acct){
+function glTxns(acct,ignoreAsOf){
   const a=glAccounts().find(x=>x.acct===acct); if(!a)return [];
   const n=6+glSeed(acct,11)%8;
   const raw=[]; let sum=0;
@@ -4381,7 +4381,7 @@ function glTxns(acct){
       prj:glPick(GL_PROJECTS,acct,90+i),
       dr:amt>=0?Math.abs(amt):0, cr:amt<0?Math.abs(amt):0, net:amt,
       src,by,posted:dt+', 2026', acct:a.acct, acctNm:a.nm};
-  });
+  }).filter(t=>ignoreAsOf||typeof gliAsOf==='undefined'||gliAsOfCut(t));
 }
 function glTxnDesc(a,ty,i){
   const D={Journal:'Period adjustment',Invoice:'Customer billing',Bill:'Vendor invoice',
@@ -4418,15 +4418,22 @@ function glUnusual(){
 // ---- page state ----
 let gliTrend='monthly', gliDim='grp', gliSearch='', gliSort={col:'acct',dir:'asc'},
     gliAcct=null, gliTxnAcct=null, gliGrp='all', gliEnt='all', gliDept='all', gliPrj='all',
-    gliGeo='all', gliRec='all';
+    gliGeo='all', gliRec='all', gliAcctF='all', gliAsOf='all', gliGroupBy='none';
 function setGliTrend(v){ gliTrend=v; renderAll(); }
 function setGliDim(v){ gliDim=v; renderAll(); }
 function setGliSearch(v){ gliSearch=v; renderAll(); }
 function setGliSort(c){ if(gliSort.col===c) gliSort.dir=gliSort.dir==='asc'?'desc':'asc';
   else gliSort={col:c,dir:'asc'}; renderAll(); }
 function setGliF(k,v){ ({grp:()=>gliGrp=v,ent:()=>gliEnt=v,dept:()=>gliDept=v,
-  prj:()=>gliPrj=v,geo:()=>gliGeo=v,rec:()=>gliRec=v})[k](); renderAll(); }
-function gliReset(){ gliGrp=gliEnt=gliDept=gliPrj=gliGeo=gliRec='all'; gliSearch=''; renderAll(); }
+  prj:()=>gliPrj=v,geo:()=>gliGeo=v,rec:()=>gliRec=v,acct:()=>gliAcctF=v,
+  asof:()=>gliAsOf=v})[k](); renderAll(); }
+function setGliGroupBy(v){ gliGroupBy=v; renderAll(); }
+// As-of date: transactions on or before the chosen day. GL_DAYS is ordered, so an
+// index comparison is enough; 'all' means the full period.
+const gliAsOfIdx=()=>gliAsOf==='all'?GL_DAYS.length-1:GL_DAYS.indexOf(gliAsOf);
+const gliAsOfCut=t=>GL_DAYS.indexOf(t.dt)<=gliAsOfIdx();
+function gliReset(){ gliGrp=gliEnt=gliDept=gliPrj=gliGeo=gliRec=gliAcctF=gliAsOf='all';
+  gliSearch=''; gliGroupBy='none'; renderAll(); }
 function openGliAcct(a){ gliAcct=(gliAcct===a?null:a); gliTxnAcct=null; renderAll();
   const el=$('view-glintel'); if(el&&gliAcct) setTimeout(()=>{const n=document.getElementById('gli-detail'); if(n)n.scrollIntoView({block:'nearest'});},0); }
 function openGliTxns(a){ gliTxnAcct=(gliTxnAcct===a?null:a); renderAll(); }
@@ -4435,7 +4442,7 @@ function gliRows(){
   let r=glAccounts().filter(a=>
     (gliGrp==='all'||a.grp.id===gliGrp)&&(gliEnt==='all'||a.ent===gliEnt)&&
     (gliDept==='all'||a.dept===gliDept)&&(gliPrj==='all'||a.prj===gliPrj)&&
-    (gliGeo==='all'||a.geo===gliGeo)&&
+    (gliGeo==='all'||a.geo===gliGeo)&&(gliAcctF==='all'||a.acct===gliAcctF)&&
     (gliRec==='all'||(gliRec==='open'?a.recSt!=='done':a.recSt==='done'))&&
     (!q||a.acct.includes(q)||a.nm.toLowerCase().includes(q)||a.grp.nm.toLowerCase().includes(q)));
   const k=gliSort.col, d=gliSort.dir==='asc'?1:-1;
@@ -5388,10 +5395,17 @@ function renderGlIntel(){
       ${sel('dept','Department',GL_DEPTS.map(d=>[d,d]),gliDept)}
       ${sel('prj','Project',GL_PROJECTS.map(p=>[p,p]),gliPrj)}
       ${sel('geo','Geography',[...new Set(Object.values(GL_GEOS))].map(g=>[g,g]),gliGeo)}
+      ${sel('acct','Account',glAccounts().map(a=>[a.acct,a.acct+' · '+a.nm]),gliAcctF)}
       ${sel('rec','Reconciliation',[['open','Open'],['done','Reconciled']],gliRec)}
+      <div class="grp"><label>As-of date</label>
+        <select onchange="setGliF('asof',this.value)">
+          <option value="all"${gliAsOf==='all'?' selected':''}>Full period · Jun 30</option>
+          ${GL_DAYS.slice().reverse().map(d=>`<option value="${d}"${gliAsOf===d?' selected':''}>${d}, 2026</option>`).join('')}
+        </select></div>
     </div>
     <div class="filter-foot" style="margin-top:12px">
-      <div class="lenshint">Fund, currency, period and as-of date come from the global filter bar above.</div>
+      <div class="lenshint">Fund, currency and period come from the global filter bar above.
+        As-of date trims transaction-level views${gliAsOf!=='all'?` — showing postings through <b>${gliAsOf}</b>`:''}.</div>
       <div class="spacer"></div>
       <button class="btn-ghost" onclick="gliReset()">Reset</button></div></div>`;
 
@@ -5475,6 +5489,11 @@ function renderGlIntel(){
       <div class="searchbox">${glIc('M7 11.4A4.4 4.4 0 107 2.6a4.4 4.4 0 000 8.8zM10.4 10.4L14 14')}
         <input placeholder="Search account number, name or group…" value="${gliSearch}"
           oninput="setGliSearch(this.value)"></div>
+      <select onchange="setGliGroupBy(this.value)" style="width:auto" title="Group rows">
+        ${[['none','No grouping'],['grp','Group by account group'],['ent','Group by entity'],
+           ['dept','Group by department'],['prj','Group by project']]
+          .map(g=>`<option value="${g[0]}"${gliGroupBy===g[0]?' selected':''}>${g[1]}</option>`).join('')}
+      </select>
       <span class="sp"></span>${glExport}
     </div>`;
   if(openAcct) o+=glAcctDetail(openAcct);
@@ -5483,22 +5502,46 @@ function renderGlIntel(){
       ${th('beg','Beginning','num')}${th('dr','Debits','num')}${th('cr','Credits','num')}
       ${th('end','Ending','num')}${th('act','Change','num')}
       <th>Reconciliation</th><th>Exception</th></tr></thead><tbody>
-    ${rows.slice(0,26).map(a=>`<tr class="row-click ${gliAcct===a.acct?'cl-task-open':''}" onclick="openGliAcct('${a.acct}')">
-      <td><b>${a.acct}</b></td><td>${a.nm}</td><td>${a.grp.nm}</td><td>${a.ent}</td>
-      <td class="num">${glM(a.beg)}</td><td class="num">${glM(a.dr)}</td>
-      <td class="num">${glM(a.cr)}</td><td class="num">${glM(a.end)}</td>
-      <td class="num ${a.act>=0?'pos':'neg'}">${glM(a.act)}</td>
-      <td><span class="pill ${a.recSt==='done'?'good':(a.recSt==='over'?'flag':'ready')}">${RECON_ST[a.recSt]?RECON_ST[a.recSt].l:'Open'}</span></td>
-      <td>${glMaterial(a)?'<span class="pill flag">Material</span>':'<span class="note" style="margin:0">&#8211;</span>'}</td>
-    </tr>`).join('')}
+    ${glExplorerRows(rows)}
     ${rows.length?'':'<tr><td colspan="11" class="note">No accounts match these filters.</td></tr>'}
     </tbody></table></div>
-    ${rows.length>26?`<div class="cardfoot">Showing 26 of ${rows.length} — narrow the filters to see more.</div>`:''}
+    ${gliGroupBy==='none'&&rows.length>26
+      ?`<div class="cardfoot">Showing 26 of ${rows.length} — narrow the filters, or group rows, to see more.</div>`
+      :(gliGroupBy!=='none'?`<div class="cardfoot">Grouped by ${({grp:'account group',ent:'entity',dept:'department',prj:'project'})[gliGroupBy]} · all ${rows.length} accounts shown with subtotals.</div>`:'')}
   </div>`;
 
   o+=`<div class="note" style="text-align:center;margin-top:6px">Korvyn analyses ledger data imported from
      the ERP. Journal creation, approval and posting remain in the ERP.</div>`;
   el.innerHTML=o;
+}
+
+// ---------- explorer rows, optionally grouped with subtotals ----------
+function glExplorerRow(a){
+  return `<tr class="row-click ${gliAcct===a.acct?'cl-task-open':''}" onclick="openGliAcct('${a.acct}')">
+    <td><b>${a.acct}</b></td><td>${a.nm}</td><td>${a.grp.nm}</td><td>${a.ent}</td>
+    <td class="num">${glM(a.beg)}</td><td class="num">${glM(a.dr)}</td>
+    <td class="num">${glM(a.cr)}</td><td class="num">${glM(a.end)}</td>
+    <td class="num ${a.act>=0?'pos':'neg'}">${glM(a.act)}</td>
+    <td><span class="pill ${a.recSt==='done'?'good':(a.recSt==='over'?'flag':'ready')}">${RECON_ST[a.recSt]?RECON_ST[a.recSt].l:'Open'}</span></td>
+    <td>${glMaterial(a)?'<span class="pill flag">Material</span>':'<span class="note" style="margin:0">&#8211;</span>'}</td>
+  </tr>`;
+}
+function glExplorerRows(rows){
+  if(gliGroupBy==='none') return rows.slice(0,26).map(glExplorerRow).join('');
+  const keyOf=a=>gliGroupBy==='grp'?a.grp.nm:a[gliGroupBy];
+  const groups={};
+  rows.forEach(a=>{(groups[keyOf(a)]=groups[keyOf(a)]||[]).push(a);});
+  return Object.keys(groups).sort().map(k=>{
+    const g=groups[k];
+    const sum=f=>g.reduce((s,a)=>s+a[f],0);
+    return `<tr style="background:var(--surface2)">
+        <td colspan="4"><b>${k}</b> <span class="note" style="margin:0">${g.length} account${g.length===1?'':'s'}</span></td>
+        <td class="num"><b>${glM(sum('beg'))}</b></td><td class="num"><b>${glM(sum('dr'))}</b></td>
+        <td class="num"><b>${glM(sum('cr'))}</b></td><td class="num"><b>${glM(sum('end'))}</b></td>
+        <td class="num"><b>${glM(sum('act'))}</b></td>
+        <td colspan="2" class="note" style="margin:0">${g.filter(glMaterial).length} material</td>
+      </tr>` + g.map(glExplorerRow).join('');
+  }).join('');
 }
 
 // ---------- account detail ----------
