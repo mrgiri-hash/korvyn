@@ -10760,6 +10760,67 @@ function amFilterBar(){
   </div></div>`;
 }
 
+/* ===== Phase 2 intelligence — all DERIVED from the matter book ===== */
+// A closed matter with an approved conclusion is a designated precedent.
+const amIsPrecedent=m=>m.st==='closed'&&!!m.conc;
+const amPrecedentBook=()=>AM_MATTERS.filter(amIsPrecedent);
+
+/* Similarity intelligence. Reuses what the matter already records: a prior-precedent
+   research entry (res.k==='prec') names the prior matter and states the key difference in
+   its note. That IS the AI similarity assessment. Topic-only matches fall in behind them.
+   Everything here is Korvyn AI analysis, never a conclusion. */
+function amSimilar(m){
+  const out=[], seen=new Set();
+  (m.res||[]).filter(r=>r.k==='prec').forEach(r=>{
+    const p=amMatById(r.src); if(!p) return; seen.add(p.id);
+    out.push({p, reason:'Cited as prior precedent — '+r.cite,
+      facts:p.sum.evt, diff:r.note, strong:true});
+  });
+  amPrecedentBook().forEach(p=>{
+    if(seen.has(p.id)||p.id===m.id||p.top!==m.top) return;
+    const sharedEnt=p.ents.find(e=>m.ents.includes(e));
+    out.push({p, reason:'Same accounting topic ('+AM_TOPN[m.top]+')'+(sharedEnt?', same entity':''),
+      facts:p.sum.evt, diff:'Facts and circumstances differ — compare before relying on this conclusion.', strong:false});
+  });
+  return out;
+}
+
+/* Implementation validation — Korvyn confirms the treatment actually landed in the source
+   system. Validated ONLY where supporting evidence exists; never assumed successful. */
+function amImplVal(i){
+  if(i.st!=='done') return 'ns';                 // not started / in progress
+  if(i.ev&&i.ev!=='—') return 'ok';              // done AND evidence in the source system
+  return 'pend';                                 // marked done but nothing to verify against
+}
+const AM_IVAL={ns:{l:'Not started',c:''}, pend:{l:'Pending validation',c:'ready'},
+               ok:{l:'Validated',c:'good'}, fail:{l:'Validation failed',c:'flag'}};
+
+/* Recurring accounting questions — same topic arising repeatedly. Recommendations only. */
+function amRecurring(){
+  const byTop={};
+  AM_MATTERS.forEach(m=>{ (byTop[m.top]=byTop[m.top]||[]).push(m); });
+  return Object.entries(byTop).filter(([,ms])=>ms.length>1).map(([top,ms])=>{
+    const open=ms.filter(amIsOpen), ents=[...new Set(ms.flatMap(m=>m.ents))];
+    const prec=ms.filter(amIsPrecedent);
+    const recent=ms.slice().sort((a,b)=>new Date(b.opened)-new Date(a.opened))[0];
+    const policy=ms.find(m=>m.pol==='follows')?'Existing policy applies':
+                 ms.some(m=>m.pol==='update'||m.pol==='create'||m.pol==='clarify')?'Policy action flagged':'No formal policy';
+    const rec = open.length>1 ? 'Consider standardized accounting treatment'
+              : prec.length&&open.length ? 'Consider policy clarification' : 'Monitor';
+    return {top, ms, n:ms.length, open:open.length, ents, prec, recent, policy, rec};
+  }).sort((a,b)=>b.n-a.n);
+}
+
+// ---- Phase 2 sub-nav state ----
+let amSub='matters';
+function setAmSub(v){ amSub=v; amSel=null; renderAll(); navRepaint(); }
+// precedent library filters
+let plfTopic='all', plfEnt='all', plQuery='';
+function setPlF(k,v){ if(k==='topic')plfTopic=v; else if(k==='ent')plfEnt=v; renderAll(); }
+function setPlQuery(v){ plQuery=v; renderAll(); }
+function plReset(){ plfTopic=plfEnt='all'; plQuery=''; renderAll(); }
+const plFiltered=()=>plfTopic!=='all'||plfEnt!=='all'||plQuery;
+
 // ---------------- matters queue (KPIs + topics + table) ----------------
 function amvQueue(){
   const K=amKpi(), rows=amSorted();
@@ -10934,12 +10995,37 @@ function amvDetail(){
         ${kv('Control considerations',C.ctl)}
         ${kv('System / ERP impact',C.erp+' <span class="ic-mini">— final entries post in the ERP, not Korvyn</span>')}
       </tbody></table>
-      <div class="cardfoot">Version history:
-        ${C.ver.map(v=>`<span class="ic-mini">${v.v} (${v.d}, ${v.who})</span>`).join(' &#183; ')}</div></div>`;
+      <div class="subhead" style="font-weight:600;color:var(--ink);margin:14px 0 6px">Version history</div>
+      <table class="tbl"><thead><tr><th>Version</th><th>Changed by</th><th>Date</th><th>Change summary</th><th></th></tr></thead><tbody>
+      ${C.ver.map((v,i)=>{const isCur=i===C.ver.length-1;const approved=isCur&&(m.st==='closed'||m.st==='done');
+        return `<tr ${isCur?'style="background:var(--pos-bg)"':''}><td><b>${v.v}</b></td>
+        <td class="ic-mini">${v.who}</td><td class="ic-mini">${v.d}</td><td class="ic-mini">${v.n}</td>
+        <td>${approved?'<span class="pill good sm">Currently approved</span>':isCur?'<span class="pill ready sm">Current draft</span>':'<span class="ic-mini">superseded</span>'}</td></tr>`;}).join('')}
+      </tbody></table>
+      <div class="cardfoot">Prior approved versions remain accessible for audit history.</div></div>`;
   } else {
     o+=`<div class="card"><h2>Accounting conclusion</h2>
       <div class="subhead" style="margin:0">No conclusion has been reached yet. The matter is at
         <b>${AM_ST[m.st].l}</b>. The proposed treatment under analysis is: ${A.prop}</div></div>`;
+  }
+
+  // Financial statement impact — estimated vs recorded actual
+  if(m.fsi){ const F=m.fsi, hasAct=!!F.act;
+    const rowFs=(l,k)=>`<tr><td class="note" style="margin:0;width:150px">${l}</td>
+      <td class="ic-mini">${F.est[k]||'&#8211;'}</td>
+      <td class="ic-mini" ${hasAct?'':'style="color:var(--faint)"'}>${hasAct?(F.act[k]||'&#8211;'):'pending implementation'}</td></tr>`;
+    o+=`<div class="card"><h2>Financial statement impact ${hasAct?amDoc:amAI}</h2>
+      <div class="subhead">Estimated impact is management's projection; recorded actual is what has posted in
+        the ERP. They are kept distinct — an estimate is not a recorded amount.</div>
+      <table class="tbl"><thead><tr><th></th><th>Estimated impact</th>
+        <th>Recorded actual ${hasAct?'<span class="ic-mini">(ERP)</span>':''}</th></tr></thead><tbody>
+        ${rowFs('Balance sheet','bs')}${rowFs('Income statement','is')}${rowFs('Cash flow','cf')}
+        ${rowFs('Equity','eq')}${rowFs('Disclosures','disc')}
+      </tbody></table>
+      <div class="cardfoot">${hasAct
+        ?`Recorded amounts trace to the ERP &#183; <span class="extlink" onclick="pickTab('glact')">GL activity</span>`
+        :`No recorded actual yet — the conclusion has not been fully implemented.`}
+        &#183; Korvyn does not post entries; the ERP remains the system of record.</div></div>`;
   }
 
   // Review workflow
@@ -10964,42 +11050,58 @@ function amvDetail(){
       </tbody></table></div>`;
   }
 
-  // Implementation
+  // Implementation — conclusion -> action -> system -> validation
   if(m.impl.length){
-    o+=`<div class="card"><h2>Implementation<span class="note">${m.impl.length} actions</span></h2>
-      <div class="subhead">Korvyn tracks implementation; final accounting entries post through the ERP.</div>
+    const nVal=m.impl.filter(i=>amImplVal(i)==='ok').length;
+    o+=`<div class="card"><h2>Implementation &amp; validation<span class="note">${nVal} of ${m.impl.length} validated</span></h2>
+      <div class="subhead">Approved conclusion &#8594; required action &#8594; source system &#8594; validation.
+        Korvyn confirms the treatment actually landed in the connected system — an item is marked
+        <b>Validated</b> only where supporting source evidence exists, never assumed.</div>
       <table class="tbl"><thead><tr><th>Required action</th><th>Owner</th><th>Target date</th>
-        <th>System</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
-      ${m.impl.map(i=>`<tr><td><b>${i.a}</b></td><td class="ic-mini">${i.own}</td><td class="ic-mini">${i.due}</td>
+        <th>System</th><th>Status</th><th>Evidence</th><th>Validation</th></tr></thead><tbody>
+      ${m.impl.map(i=>{const v=amImplVal(i);return `<tr><td><b>${i.a}</b></td><td class="ic-mini">${i.own}</td><td class="ic-mini">${i.due}</td>
         <td class="ic-mini">${i.sys}</td>
         <td>${i.st==='done'?'<span class="pill good sm">Done</span>':'<span class="pill ready sm">Pending</span>'}</td>
-        <td class="ic-mini">${i.ev}</td></tr>`).join('')}
-      </tbody></table></div>`;
+        <td class="ic-mini">${i.ev&&i.ev!=='—'?`<span class="extlink" onclick="pickTab('glact')">${i.ev}</span>`:'&#8211;'}</td>
+        <td>${amPill(AM_IVAL,v)}</td></tr>`;}).join('')}
+      </tbody></table>
+      <div class="cardfoot">${nVal?`Korvyn confirmed ${nVal} action(s) in the source system`:'Nothing validated yet — no supporting source evidence'}
+        &#183; final accounting entries post through the ERP, not Korvyn</div></div>`;
   }
 
-  // Similar prior matters + policy
-  const pre=amPrecedents(m);
-  o+=`<div class="grid2gl">
-    <div class="card" style="margin:0"><h2>Similar prior matters<span class="note">${pre.length}</span></h2>
-      ${pre.length?`<div class="subhead">Korvyn found ${pre.length} prior conclusion${pre.length===1?'':'s'} on this topic.
-        Review them — the prior conclusion does not automatically apply; facts and circumstances may differ.</div>
-        <table class="tbl"><tbody>
-        ${pre.map(p=>`<tr class="row-click" onclick="setAmSel('${p.id}')">
-          <td><b>${p.id}</b><div class="note" style="margin:0">${p.t}</div></td>
-          <td class="ic-mini">${p.ents[0]}<div style="color:var(--faint)">${p.approved}</div></td>
-          <td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
-        </tbody></table>`
-        :'<div class="subhead" style="margin:0">No prior matters on this topic in the precedent library.</div>'}</div>
-    <div class="card" style="margin:0"><h2>Policy connection</h2>
-      <div class="subhead">Whether this conclusion follows, clarifies, updates or creates policy.</div>
-      <table class="tbl"><tbody>
-        <tr><td class="note" style="margin:0;width:170px">Policy outcome</td><td>${amPill(AM_POL,m.pol)}</td></tr>
-        <tr><td class="note" style="margin:0">Note</td><td>${m.polNote}</td></tr>
-      </tbody></table>
-      <div class="cardfoot">
-        ${m.pol==='update'||m.pol==='create'||m.pol==='clarify'?`<span class="pill flag sm">Policy update required</span>`:''}
-        <span class="extlink" onclick="pickTab('admin')">Accounting policies</span></div></div>
-  </div>`;
+  // Similarity intelligence — Korvyn AI analysis, never a conclusion
+  const sim=amSimilar(m);
+  o+=`<div class="card"><h2>Similar prior matters ${amAI}
+      <span class="note">Korvyn found ${sim.length} potentially similar prior matter${sim.length===1?'':'s'}</span></h2>
+    <div class="subhead">A Korvyn AI similarity assessment, not an accounting conclusion. Review each prior
+      matter and evaluate the differences — the prior conclusion does not automatically apply.</div>
+    ${sim.length?`<table class="tbl"><thead><tr><th>Prior matter</th><th>Topic</th><th>Similarity reason</th>
+      <th>Key differences</th><th>Prior conclusion</th><th></th></tr></thead><tbody>
+    ${sim.map(s=>`<tr class="row-click" onclick="setAmSel('${s.p.id}')">
+      <td><b>${s.p.id}</b><div class="note" style="margin:0">${s.p.t}</div>
+        <div class="ic-mini" style="color:var(--faint)">${s.p.approved||''}</div></td>
+      <td class="ic-mini">${AM_TOPN[s.p.top]}</td>
+      <td class="ic-mini">${s.strong?'<span class="pill info sm">cited</span> ':''}${s.reason}</td>
+      <td class="ic-mini" style="color:var(--warn)">${s.diff}</td>
+      <td class="ic-mini">${s.p.conc?s.p.conc.txt.slice(0,90)+'…':'&#8211;'}</td>
+      <td style="text-align:right"><span class="extlink">Review</span></td></tr>`).join('')}
+    </tbody></table>`:'<div class="subhead" style="margin:0">No similar prior matters in the precedent library.</div>'}
+    </div>`;
+
+  // Policy impact + Create Policy Action
+  const needsPol=m.pol==='update'||m.pol==='create'||m.pol==='clarify';
+  o+=`<div class="card"><h2>Policy impact</h2>
+    <div class="subhead">How this conclusion relates to accounting policy. Korvyn does not change an approved
+      policy — where an action is needed it prepares a linked item for Accounting &gt; Policies.</div>
+    <table class="tbl"><tbody>
+      <tr><td class="note" style="margin:0;width:170px">Policy impact</td><td>${amPill(AM_POL,m.pol)}</td></tr>
+      <tr><td class="note" style="margin:0">Assessment</td><td>${m.polNote}</td></tr>
+      <tr><td class="note" style="margin:0">Traceability</td><td class="ic-mini">${m.id} &#8594; approved conclusion &#8594; ${AM_POL[m.pol].l} &#8594; Accounting policies</td></tr>
+    </tbody></table>
+    <div class="cardfoot">
+      ${needsPol?`<button class="btn-primary" onclick="pickTab('admin')">Create policy action</button>
+        <span class="ic-mini">prepares a linked item in Accounting &gt; Policies</span>`
+        :`<span class="extlink" onclick="pickTab('admin')">Accounting policies</span>`}</div></div>`;
 
   // Decision timeline
   o+=`<div class="card"><h2>Decision timeline</h2>
@@ -11011,17 +11113,124 @@ function amvDetail(){
     </tbody></table>
     <div class="cardfoot">This working file preserves why the decision was made, what guidance was considered,
       who approved it, and how it was implemented &#183; institutional accounting knowledge, retained.</div></div>`;
+
+  // Knowledge graph — how this decision connects, collapsed by default (progressive disclosure)
+  const topAuth=(m.res||[]).find(r=>r.k==='auth');
+  const nOk=m.impl.filter(i=>amImplVal(i)==='ok').length, nImpl=m.impl.length;
+  const closed=m.st==='closed'||m.st==='done';
+  const node=(l,v,cls,go)=>`<div class="ic-stg ${cls}" ${go?`onclick="${go}" style="cursor:pointer"`:''}>
+    <div class="sl">${l}</div><div class="sv">${v}</div></div>`;
+  o+=`<details class="card"><summary style="cursor:pointer;font-weight:600;font-size:14px;list-style:revert">
+      Accounting knowledge graph <span class="note">how this matter connects</span></summary>
+    <div class="subhead" style="margin-top:10px">The knowledge loop: exception or transaction &#8594; issue &#8594;
+      guidance &#8594; precedent &#8594; conclusion &#8594; policy &#8594; implementation &#8594; ERP evidence.
+      Each link preserves how the decision connects to the rest of the accounting record.</div>
+    <div class="ic-spine">
+      ${node('Related exception', m.fromExc||'raised in review', m.fromExc?'done':'', m.fromExc?"pickTab('exceptions')":'')}
+      ${node('Accounting issue', m.id, 'done')}
+      ${node('Guidance', topAuth?topAuth.src:AM_TOPA[m.top], 'done')}
+      ${node('Prior precedent', sim.length?sim[0].p.id:'none', sim.length?'done':'', sim.length?`setAmSel('${sim[0]?sim[0].p.id:''}')`:'')}
+      ${node('Conclusion', m.conc?(closed?'Approved':'Proposed'):'Pending', m.conc?(closed?'done':'open'):'blocked')}
+      ${node('Policy', needsPol?'Action needed':AM_POL[m.pol].l.split(' ')[0], needsPol?'open':'done', "pickTab('admin')")}
+      ${node('Implementation', nImpl?nOk+'/'+nImpl+' validated':'none', nImpl?(nOk===nImpl?'done':'open'):'')}
+      ${node('ERP evidence', m.impl.some(i=>i.ev&&i.ev!=='—')?'Confirmed':'Pending', m.impl.some(i=>i.ev&&i.ev!=='—')?'done':'open', "pickTab('glact')")}
+    </div>
+    <div class="cardfoot">Nodes are clickable where they lead somewhere &#183; this is the institutional
+      accounting knowledge loop, made traceable.</div></details>`;
+  return o;
+}
+
+// ---------------- Phase 2: precedent library ----------------
+function amvPrecedents(){
+  const book=amPrecedentBook();
+  const q=plQuery.trim().toLowerCase();
+  const rows=book.filter(m=>
+    (plfTopic==='all'||m.top===plfTopic) &&
+    (plfEnt==='all'||m.ents.includes(plfEnt)) &&
+    (!q || (m.t+' '+m.id+' '+AM_TOPN[m.top]+' '+AM_TOPA[m.top]+' '+m.sum.evt+' '+m.conc.txt+' '+
+            (m.res||[]).map(r=>r.src).join(' ')).toLowerCase().includes(q)));
+  const ents=[...new Set(book.flatMap(m=>m.ents))].sort();
+  const sel=(k,cur,opts)=>`<select onchange="setPlF('${k}',this.value)">${opts.map(o=>
+    `<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+
+  let o=`<div class="card"><h2>Accounting precedent library<span class="note">${book.length} approved precedents</span></h2>
+    <div class="subhead">Approved conclusions, retained and searchable, so a decision made once is not
+      re-litigated from scratch. A precedent informs a new matter; it is never applied automatically —
+      differences in facts and circumstances must be evaluated.</div>
+    <div class="ctrls" style="margin-bottom:0">
+      <div class="grp"><label>Search</label><input type="text" value="${plQuery.replace(/"/g,'&quot;')}"
+        placeholder="Topic, standard, facts, keyword" oninput="setPlQuery(this.value)" style="min-width:200px"></div>
+      <div class="grp"><label>Accounting topic</label>${sel('topic',plfTopic,[['all','All topics'],...[...new Set(book.map(m=>m.top))].map(t=>[t,AM_TOPN[t]])])}</div>
+      <div class="grp"><label>Entity</label>${sel('ent',plfEnt,[['all','All entities'],...ents.map(e=>[e,e])])}</div>
+      ${plFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="plReset()">Reset</button></div>`:''}
+    </div></div>`;
+
+  o+=rows.map(m=>{const guide=(m.res||[]).filter(r=>r.k==='auth').map(r=>r.src);
+    return `<div class="card"><h2>${m.t}
+      <span class="note">${m.id} &#183; ${AM_TOPN[m.top]} (${AM_TOPA[m.top]})</span>
+      <span class="cardlink" onclick="setAmSel('${m.id}')">Open full matter</span></h2>
+    <div class="grid2gl">
+      <div>
+        <div class="note" style="font-weight:600;margin:0 0 3px">Issue summary</div>
+        <div class="ic-mini" style="margin-bottom:10px">${m.sum.bg}</div>
+        <div class="note" style="font-weight:600;margin:0 0 3px">Key facts</div>
+        <ul class="ic-mini" style="margin:0 0 10px;padding-left:18px;line-height:1.6">${(m.ana.facts||[]).slice(0,3).map(f=>`<li>${f}</li>`).join('')}</ul>
+        <div class="note" style="font-weight:600;margin:0 0 3px">Key judgments</div>
+        <ul class="ic-mini" style="margin:0;padding-left:18px;line-height:1.6">${(m.ana.judg||[]).map(j=>`<li>${j}</li>`).join('')}</ul>
+      </div>
+      <div>
+        <div class="note" style="font-weight:600;margin:0 0 3px">Approved conclusion</div>
+        <div class="note" style="font-size:12px;color:var(--ink);background:var(--pos-bg);padding:10px 12px;border-radius:var(--radius);margin-bottom:10px">${m.conc.txt}</div>
+        <table class="tbl"><tbody>
+          <tr><td class="note" style="margin:0;width:140px">Accounting treatment</td><td class="ic-mini">${m.conc.treat}</td></tr>
+          <tr><td class="note" style="margin:0">Guidance applied</td><td>${guide.map(g=>`<span class="pill sm">${g}</span>`).join(' ')||'&#8211;'}</td></tr>
+          <tr><td class="note" style="margin:0">Approval date</td><td class="ic-mini">${m.approved||'&#8211;'}</td></tr>
+          <tr><td class="note" style="margin:0">Entities / context</td><td class="ic-mini">${m.ents.join(', ')}</td></tr>
+          <tr><td class="note" style="margin:0">Related policy</td><td class="ic-mini">${amPill(AM_POL,m.pol)} ${m.polNote}</td></tr>
+        </tbody></table>
+      </div>
+    </div></div>`;}).join('');
+  if(!rows.length) o+=`<div class="card"><div class="note" style="margin:0">No precedents match the current filters.</div></div>`;
+  o+=`<div class="cardfoot" style="padding:0 4px">A precedent is created when a matter reaches an approved
+    conclusion and is closed &#183; open matters become eligible on approval.</div>`;
+  return o;
+}
+
+// ---------------- Phase 2: recurring / similar matters ----------------
+function amvRecurring(){
+  const pats=amRecurring();
+  let o=`<div class="card"><h2>Recurring &amp; similar accounting questions<span class="note">${pats.length} patterns</span></h2>
+    <div class="subhead">Where the same accounting question keeps arising — across projects, customers or
+      entities. A pattern that recurs is a candidate for a standing policy rather than a fresh judgment each
+      time. These are recommendations only; Korvyn does not create or change policy.</div>
+    <table class="tbl"><thead><tr><th>Pattern</th><th class="num">Matters</th><th class="num">Open</th>
+      <th>Entities</th><th>Existing precedent</th><th>Policy</th><th>Most recent</th><th>Recommendation</th></tr></thead><tbody>
+    ${pats.map(p=>`<tr class="row-click" onclick="setAmF('topic','${p.top}');setAmSub('matters')">
+      <td><b>${AM_TOPN[p.top]}</b><div class="note" style="margin:0">${AM_TOPA[p.top]}</div></td>
+      <td class="num">${p.n}</td>
+      <td class="num" ${p.open>1?'style="color:var(--warn);font-weight:600"':''}>${p.open}</td>
+      <td class="ic-mini">${p.ents.length} &#183; ${p.ents.map(e=>(CONS_ENT[e]||{ini:e.split(' ')[0]}).ini).join(', ')}</td>
+      <td class="ic-mini">${p.prec.length?p.prec.map(x=>x.id).join(', '):'<span style="color:var(--faint)">none yet</span>'}</td>
+      <td class="ic-mini">${p.policy}</td>
+      <td class="ic-mini">${p.recent.id}<div style="color:var(--faint)">${p.recent.opened}</div></td>
+      <td>${p.rec==='Monitor'?'<span class="ic-mini">Monitor</span>':`<span class="pill ready sm">${p.rec}</span>`}</td></tr>`).join('')}
+    ${pats.length?'':'<tr><td colspan="8" class="note">No recurring patterns yet.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Click a pattern to see its matters in the queue &#183;
+      ${pats.filter(p=>p.rec!=='Monitor').length} pattern(s) suggest a policy action</div></div>`;
   return o;
 }
 
 // Accounting > Accounting Issues. Renders into the new decision workspace.
 // (see CLAUDE.md > AM_MATTERS for the authored-not-derived rationale)
 function renderAcctIssues(el){
+  // A selected matter always shows its detail workspace, whatever sub-tab is active —
+  // same drill-down short-circuit the other Accounting pages use.
   if(amSel){ el.innerHTML=amvDetail(); return; }
   let o=glHead('Accounting Issues',
     'Institutional accounting decision layer — matters requiring judgment, research, a documented conclusion and approval.',
     glActions);
-  o+=amvQueue();
+  o+=({matters:amvQueue, precedents:amvPrecedents, recurring:amvRecurring}[amSub]||amvQueue)();
   el.innerHTML=o;
 }
 
@@ -11963,6 +12172,13 @@ const TAB_PIPELINES={
     {id:'pull',     label:'Pull forward',   n:()=>ccxPullForward().filter(x=>x.earliest==='Now').length, q:false},
     {id:'block',    label:'Blockers',       n:()=>ccxBlockers().length, q:true},
   ], get:()=>ccSub, set:'setCcSub' },
+  // Accounting Issues (ledger lens only) gains a light 3-tab strip in Phase 2 so the
+  // precedent library and recurring patterns don't clutter the matters queue.
+  'ledger:issues':{ steps:[
+    {id:'matters',   label:'Accounting matters', n:()=>amKpi().open.length, q:false},
+    {id:'precedents',label:'Precedent library',  n:()=>amPrecedentBook().length, q:false},
+    {id:'recurring', label:'Recurring',          n:()=>amRecurring().length, q:false},
+  ], get:()=>amSub, set:'setAmSub' },
   // Lens-scoped: only Accounting's Exceptions gets a pipeline. Home > Exceptions,
   // which shares this tab id, keeps no sub-nav and is untouched.
   'ledger:exceptions':{ steps:[
@@ -12584,18 +12800,31 @@ const CP_CARDS={
   issues: ()=>{
     if(LENS!=='ledger') return null;
     const K=amKpi(), m=amSel?amMatById(amSel):null;
-    if(m){ const pre=amPrecedents(m);
-      return [
-        {t:'Summarize this accounting issue', s:m.id+' · '+AM_TOPN[m.top], i:'list'},
-        {t:'What are the key accounting judgments?', s:(m.ana?m.ana.judg.length:0)+' judgments', i:'search'},
-        pre.length?{t:'Compare this to prior precedents', s:pre.length+' similar prior matter'+(pre.length===1?'':'s'), i:'delta'}
-                  :{t:'What guidance is linked to this issue?', s:m.res.length+' references', i:'search'}];
+    // In a matter: Phase 2 prompts distinguish facts, conclusions, precedent, external and AI.
+    if(m){ const sim=amSimilar(m), nImpl=m.impl.length, nOk=m.impl.filter(i=>amImplVal(i)==='ok').length;
+      const cards=[];
+      cards.push(sim.length
+        ? {t:'How is this different from the prior precedent?', s:sim[0].p.id+' · '+sim[0].diff.slice(0,30)+'…', i:'delta'}
+        : {t:'What guidance is linked to this issue?', s:m.res.length+' references', i:'search'});
+      cards.push({t:'What are the key accounting judgments?', s:(m.ana?m.ana.judg.length:0)+' judgments', i:'search'});
+      if(m.ext&&m.ext.length) cards.push({t:'Summarize external auditor feedback', s:m.ext.length+' consultation'+(m.ext.length===1?'':'s'), i:'list'});
+      else if(m.conc) cards.push({t:'Has the approved conclusion been fully implemented?', s:nImpl?nOk+' of '+nImpl+' validated':'no actions yet', i:'chart'});
+      else cards.push({t:'What changed between conclusion versions?', s:(m.conc?m.conc.ver.length:0)+' versions', i:'delta'});
+      return cards;
     }
-    const mat=K.material.length, dec=K.decision.length;
+    // Precedent library / recurring sub-tabs get their own prompts.
+    if(amSub==='precedents') return [
+      {t:'Show the most relevant prior precedent', s:amPrecedentBook().length+' in the library', i:'search'},
+      {t:'What guidance was used in similar conclusions?', s:'across the precedent library', i:'list'},
+      {t:'Which accounting topics lack a formal policy?', s:'gaps in coverage', i:'warn'}];
+    if(amSub==='recurring') return [
+      {t:'Show recurring accounting questions across projects', s:amRecurring().length+' patterns', i:'search'},
+      {t:'Where should we standardize accounting treatment?', s:amRecurring().filter(p=>p.rec!=='Monitor').length+' candidates', i:'list'},
+      {t:'Which accounting topics lack a formal policy?', s:'recurring without policy', i:'warn'}];
     return [
-      {t:'Which material issues are awaiting decisions?', s:mat+' material · '+dec+' pending', i:'warn'},
-      {t:'Have we addressed a similar issue before?', s:AM_MATTERS.filter(x=>x.st==='closed').length+' in the precedent library', i:'search'},
-      {t:'Which issues require policy updates?', s:AM_MATTERS.filter(x=>amIsOpen(x)&&(x.pol==='update'||x.pol==='create')).length+' flagged', i:'list'}];
+      {t:'Summarize unresolved material accounting matters', s:K.material.length+' material · '+K.decision.length+' pending', i:'warn'},
+      {t:'Have we addressed a similar issue before?', s:amPrecedentBook().length+' approved precedents', i:'search'},
+      {t:'Which accounting issues require policy updates?', s:AM_MATTERS.filter(x=>amIsOpen(x)&&(x.pol==='update'||x.pol==='create'||x.pol==='clarify')).length+' flagged', i:'list'}];
   },
   glsync: [{t:'Why is JD Edwards sync delayed?',s:'Investigate the issue',i:'warn'},
            {t:'When did each source last sync?',s:'across 4 integrations',i:'clock'} ],
@@ -12620,6 +12849,8 @@ function cpContext(){
   if(TAB==='issues' && LENS==='ledger'){
     const f=[];
     if(amSel){ const m=amMatById(amSel); if(m) f.push(m.id+' · '+AM_TOPN[m.top]); }
+    else if(amSub==='precedents'){ f.push('precedent library'); if(plfTopic!=='all') f.push(AM_TOPN[plfTopic]); if(plQuery) f.push('search "'+plQuery+'"'); }
+    else if(amSub==='recurring'){ f.push('recurring accounting questions'); }
     else {
       f.push('accounting matters');
       if(amfTopic!=='all') f.push(AM_TOPN[amfTopic]);
