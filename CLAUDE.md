@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | Overview, Close, General Ledger — all three built to their written specs |
+| Accounting | Overview, Close, General Ledger, Intercompany — all four built to their written specs |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -33,13 +33,27 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 
 **Not yet built to standard** — these are the obvious next pieces:
 
-- **Accounting > Reconciliations** — still the older `glrecon` page. Referenced from both
-  Accounting > Overview and the GL workspace, so building it completes several drill-downs.
-- **Accounting > Intercompany** and **Continuous Close** — routing summaries (`acctStub`),
-  not full workspaces.
-- **Accounting > Consolidation** — older `consol` page.
+- **Accounting > Reconciliations** — still the older `glrecon` page, and it carries a known
+  integrity defect (see below). Referenced from both Accounting > Overview and the GL
+  workspace, so building it completes several drill-downs.
+- **Accounting > Continuous Close** — a routing summary (`acctStub`), not a full workspace.
+- **Accounting > Consolidation** — older `consol` page. Intercompany > Elimination now links
+  into it and treats it as the place elimination entries are produced, so it has an
+  established contract to honour when it gets built.
 - Fixed Assets, Procurement, FP&A and Reporting have not had a written spec pass like
   Accounting did; their pages predate the current design standard.
+
+**Known defect — Reconciliations headline counts do not tie.** `RECON_SCALE=35` multiplies
+the 7 `GL_RECON` rows to fabricate portfolio-sized headline counts, so `renderGLRecon` shows
+"Total reconciliations 245" above a 7-row table footed "Showing 1 to 7 of 245". Accounting >
+Overview compounds it: "Open reconciliations 140" (scaled) sits beside "Unreconciled balance
+1,250.00 — 1 account with a difference" (unscaled), claiming a 245-reconciliation book with
+exactly one open variance. Fix by expanding `GL_RECON` to a real book and deleting
+`RECON_SCALE` — copy the Intercompany approach: derive the roll-ups, assert the tie, drop the
+multiplier. Do not fix it by scaling the differences too; that keeps the lie and adds a
+second one. The page also has three inert `<select>`s (Entity / Account / Period) wired to
+`renderAll()`, a "New reconciliation" button calling `toggleFilters()`, and every row's
+`onclick` going to `glact` regardless of which account was clicked.
 
 **Working agreements established with the user**
 
@@ -120,6 +134,12 @@ There is no separate CSS/JS file. Edits happen in place.
   - `#secnav` (the old row-1 section strip) is **force-hidden** — its content moved to the
     rail and rendering it would duplicate the list. `#subnav` / `#subnav2` remain, and are
     the *within-record* tab strips (flux statement picker, filing workspace tabs).
+  - `#subnav` is painted from `TAB_PIPELINES[TAB]`: `{steps:[{id,label,n,q}], get, set}`,
+    where `n` is a live count and `q` picks the quiet badge style. This is how a tab gets
+    sub-views **without adding tabs or touching navigation** — `icomp` uses it for all eight
+    Intercompany views, and it is the right mechanism for any future multi-view workspace.
+    Drill-down state (`icPairSel`, `icEvSel`) lives outside the pipeline and short-circuits
+    the renderer before the sub-view dispatch.
   - Procurement is special-cased: it is a single-tab section whose `PROC_SUBS` render in
     the rail.
   - The rail collapses (212px ↔ 60px, `body.rail-collapsed`, persisted to `localStorage`)
@@ -148,6 +168,21 @@ There is no separate CSS/JS file. Edits happen in place.
   balance and debits − credits equals period activity. `glTxns(acct)` synthesises the
   postings behind an account's movement; `glUnusual()` runs the anomaly rules over them.
   Korvyn never posts: transaction rows link out via `erpLink()` ("View in ERP").
+- `IC_EVENTS` — the intercompany event book, and the single source of truth for the whole
+  Intercompany module. Each entry is one connected economic event carrying the accounting
+  `legs[]` recorded in **every** entity it touches (within an entity `dr` must equal `cr`, or
+  the ERP would reject the journal). An event with legs for only one entity is a
+  missing-counterparty exception; `inst[]` holds Korvyn's draft instruction for the absent
+  side. Pair balances, match rate, differences, aging, settlement amounts, elimination
+  readiness and the exception ranking **all derive from those legs** via memoised accessors
+  (`icxPairs`, `icxKpi`, `icxExcep`) — nothing is stored twice.
+  **`icxTie()` is the guard rail:** the derived pair roll-ups are fitted to reproduce `GL_IC`
+  exactly, because Accounting > Overview reads `GL_IC`. Run `icxTie()` in the console after
+  any edit to `IC_EVENTS`; it must return `{ok:true, pairs:5}`. If you change a leg amount,
+  either keep the pair total intact or update `GL_IC` in the same commit — otherwise the two
+  pages silently disagree, which is exactly the failure `RECON_SCALE` represents.
+  Naming: everything new is prefixed `icx`/`icv` specifically to avoid colliding with the
+  pre-existing `icDiff` / `icUnmatched` / `icTotalDiff` / `icReady` helpers that Overview uses.
 - `FILING_TEAM`, `FILING_COMMENTS`, `FILING_NOTES`, `FILING_DISCLOSURES`,
   `FILING_APPROVALS`, `FILING_ACTIVITY` — the filing workspace's supporting data.
 - Workspace views (`renderTasks`/`renderIssues`) derive from `CIP_PROJECTS`; `renderArchives`
@@ -207,6 +242,15 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
 - **Shared class names cut both ways.** `body.rail-collapsed .railrole .lbl{display:none}`
   looked rail-scoped but also stripped the ribbon nav's labels. Scope state rules to their
   container (`.rail .railrole`).
+- **Light mode is an inert attribute — never set `data-theme` on `<html>`.** The stylesheet
+  defines `[data-theme="dark"]` but there is no `[data-theme="light"]` rule; light values live
+  in `:root`. So `<body data-theme="light">` declares nothing, and a `data-theme="dark"` on any
+  ancestor cascades down uncontested — the in-app toggle cannot undo it. This bit a debugging
+  session: setting dark on `documentElement` to test dark mode left the page stuck dark through
+  every subsequent reload, because navigating to the same file URL does not hard-reload the DOM.
+  If you set it for a test, remove it afterwards. A robustness fix would be to give
+  `[data-theme="light"]` the same variable block as `:root` so light re-declares rather than
+  inherits — not done, as it touches the design system.
 - **Template-literal escaping:** these render functions are giant template strings. Don't use
   `\\'` inside them for apostrophes — use a plain word or `&#39;`. A stray backslash-escape
   breaks the whole script.
@@ -244,7 +288,13 @@ The file has no test runner, so validation is manual but fast:
 
 **Note: Node is not installed on this machine** (Python is). The `node --check` / jsdom route
 below is therefore unavailable; use the browser-preview sweep, which is a better end-to-end
-check anyway. The file lives in this directory, so the preview pane runs its JS.
+check anyway.
+
+**Preview sandbox:** the preview pane only serves files from the *session's* working directory.
+If the session is rooted at `C:\Korvyn` this file loads directly. If it is rooted elsewhere
+(older sessions ran from the iCloud path), `file:///C:/Korvyn/...` is refused and you need a
+copy of the HTML in the session directory instead — compare hashes before trusting what you see,
+and re-copy after every edit or you will be validating a stale file.
 
 ```
 # 1. Load it in the preview pane and confirm the console is clean
@@ -252,12 +302,24 @@ check anyway. The file lives in this directory, so the preview pane runs its JS.
 #    read_console_messages(onlyErrors: true)   -> must be empty
 
 # 2. Behavior sweep: drive every tab and assert each view rendered.
-#    Run in the page via javascript_tool:
-#      for (const L of LENS_ORDER) { pickLens(L);
-#        for (const t of LENSES[L].tabs) { pickTab(t);
-#          document.getElementById('view-'+t).innerHTML.length } }
-#    All 17 tabs should return a substantial length (~2.3k-9.4k chars), none throw.
-#    Re-check the console for errors afterward, then reset to portfolio/overview.
+#    Run in the page via javascript_tool, wrapped in an IIFE — the tool reuses one
+#    JS context, so bare `const` redeclarations throw on the second run:
+#      (function(){ const res={};
+#        for (const L of [...LENS_ORDER,...UTIL_ORDER]) { pickLens(L);
+#          for (const t of LENSES[L].tabs) { pickTab(t);
+#            res[t]=document.getElementById('view-'+t).innerHTML.length; } }
+#        return JSON.stringify(Object.entries(res).filter(([k,v])=>!v||v<500)); })()
+#    52 tabs, none under 500 chars, none throwing. Then reset to portfolio/overview
+#    and confirm view-overview is exactly 3374 chars (the regression check).
+
+# 2a. Tabs with sub-views need their own sweep — the tab-level check only renders the
+#     default sub-view. Intercompany: drive setIcSub over
+#     net/events/match/diff/settle/elim/excep/audit, then setIcPairSel over icxPairs()
+#     and setIcEvSel over IC_EVENTS. Also run icxTie() -> must be {ok:true,pairs:5}.
+
+# 2b. Responsive: check ≥1201, 861-1200 and ≤860 separately by asserting
+#     documentElement.scrollWidth <= clientWidth. Known: at 375px every page reports
+#     552>375 — a pre-existing shell floor, not a per-page regression.
 
 # 3. If Node is ever installed, the old route still works:
 #    extract <script>...</script> to a .js and run `node --check` on it.
