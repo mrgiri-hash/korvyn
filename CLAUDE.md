@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close, Exceptions — every page built to its written spec, no known defects |
+| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close, Exceptions, Accounting Issues — every page built to its written spec, no known defects |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -224,6 +224,19 @@ There is no separate CSS/JS file. Edits happen in place.
   Calibration: an overdue reconciliation degrades the score and raises an exception but does
   **not** mark an entity Blocked — Blocked is reserved for things that actually stop
   consolidation (blocked close tasks, out-of-balance eliminations, missing submission).
+- `AM_MATTERS` / `AM_TOPICS` — Accounting > Accounting Issues (`renderAcctIssues`, the
+  `LENS==='ledger'` branch of `renderIssues`). **This one is authored, not derived** — the
+  deliberate opposite of Exceptions. An accounting matter is a judgment record, so the
+  research, analysis, conclusion and approvals ARE the content and live in `AM_MATTERS`
+  (8 matters: 4 open, 4 resolved). Only the roll-ups compute over them: `amKpi`,
+  `amTopicRoll`, and `amPrecedents(m)` (prior CLOSED matters on the same topic — Korvyn
+  surfaces them but never assumes the prior applies; the facts-differ note is intentional).
+  The 4 resolved matters ARE the precedent library; two are the exact priors the open matters
+  cite (AI-2025-031, AI-2025-018), so don't renumber them without updating the `res[].src`
+  citations that reference them. `AM_TOPICS` is the configurable taxonomy. Same shared-tab-id
+  split as Exceptions (`'ledger:issues'` in VIEW_META; the Accounting rail badge is
+  `amKpi().open.length`, the standalone Issues lens keeps `wsIssueCount()`). No sub-nav
+  pipeline — it is a queue + detail, kept deliberately simple.
 - `AX_STATE` / `AX_RECUR` / `AX_TREND` — Accounting > Exceptions. The exceptions themselves
   are **not stored**: `axExceptions()` derives all 25 from `GL_RECON`, `IC_EVENTS`,
   `csxEntities()`, `CC_SIGNALS`, `CIP_PROJECTS`, `GL_ERP` and `CLOSE_TASKS`, and every row
