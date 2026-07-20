@@ -4996,7 +4996,7 @@ const RAIL_SPEC={
     {head:'Governance'},
     {tab:'exceptions',label:'Exceptions',     ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3', badge:()=>cpInsights().length},
     {tab:'issues',   label:'Accounting Issues',ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01',
-      badge:()=>wsIssueCount()},
+      badge:()=>amKpi().open.length},
     {tab:'admin',    label:'Policies',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
     {head:'Reports'},
     {tab:'glreports',label:'Reports',         ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
@@ -10527,11 +10527,508 @@ const AM_MATTERS=[
       {d:'2026-04-14',ev:'Research started',who:'J. Park',dec:'ASC 842 modification analysis',doc:'Research file'},
       {d:'2026-05-19',ev:'External consultation',who:'Legal counsel',dec:'Escalator enforceable',doc:'Legal opinion'},
       {d:'2026-06-12',ev:'External consultation',who:'Valuation specialist',dec:'IBR engagement started',doc:'Engagement letter'}] },
-/* AM_MATTERS_MORE */
+/* ---- resolved matters: the precedent library. Approved conclusions become
+   searchable priors. Two are directly cited by the open matters above. ---- */
+{ id:'AI-2025-031', t:'Santa Clara tenant fit-out — control assessment', top:'rev',
+  ents:['Meridian DC Holdco'], amt:14.2, mat:'mat', pri:'p1', own:'M. Giri',
+  st:'closed', opened:'2025-08-14', due:'—', approved:'2025-11-20', next:'—',
+  proj:'Santa Clara', txn:'MSA-2025-0088',
+  sum:{ bg:'A tenant funded a generic fit-out of leased data-centre space with no bespoke specification and no removal option.',
+        evt:'Tenant-funded generic fit-out — $14.2M.',
+        q:'Does control of the fit-out transfer to the tenant?',
+        sig:'$14.2M of construction cost.', per:'FY2025',
+        fs:['Property, plant and equipment','Rental revenue'] },
+  objs:[{k:'Project',v:'Santa Clara',go:"pickLens('assets')"},
+        {k:'Account',v:'15300 · M&E / fit-out',go:"pickTab('glintel')"}],
+  res:[{k:'auth',src:'ASC 606-10-25-27',cite:'Over-time transfer of control',note:'Assessed; control did not transfer.'},
+       {k:'auth',src:'ASC 360-10-30-1',cite:'Self-constructed asset',note:'Applied — landlord retained control.'},
+       {k:'pol',src:'Korvyn policy ACC-14',cite:'Tenant improvement allowances',note:'Directly on point.'}],
+  ana:{ facts:['Generic specification usable by any tenant.','No removal option.','Landlord retained title.'],
+        alts:[{nm:'Capitalise as landlord asset',rat:'Landlord controls a generic, reusable asset.',contra:'None.',imp:'$14.2M capitalised.',pol:'Consistent with ACC-14.',aud:'Uncontroversial.'},
+              {nm:'Revenue under ASC 606',rat:'Consideration for a construction service.',contra:'No transfer of control.',imp:'$14.2M revenue.',pol:'Departs from ACC-14.',aud:'Not supported.'}],
+        judg:['Whether a generic specification indicates landlord control.'], assum:['Fit-out is reusable.'],
+        risks:['Minimal — facts clearly favour capitalisation.'],
+        prop:'Capitalise as a landlord asset.' },
+  conc:{ txt:'Control of the generic fit-out did not transfer to the tenant. Meridian capitalised the $14.2M as a landlord asset and depreciates it over the shorter of useful life and lease term.',
+         treat:'Capitalise to 15300; depreciate over the lease term.', eff:'Q4 2025',
+         accts:['15300 · M&E / fit-out','62000 · Depreciation expense'],
+         disc:'None required.', tax:'No book-tax difference.', ctl:'Standard capitalisation control.',
+         erp:'Standard fixed-asset setup in NetSuite.',
+         ver:[{v:'v1.0',d:'Nov 20, 2025',who:'M. Giri',n:'Approved final conclusion.'}] },
+  appr:[{r:'prep',who:'M. Giri',st:'done',d:'Oct 30, 2025',cm:'Prepared.'},
+        {r:'mgr',who:'J. Park',st:'done',d:'Nov 06, 2025',cm:'Agree.'},
+        {r:'ctrl',who:'A. Okafor',st:'done',d:'Nov 14, 2025',cm:'Approved.'},
+        {r:'cao',who:'S. Lee',st:'done',d:'Nov 20, 2025',cm:'Approved.'}],
+  ext:[{p:'External auditor',ty:'External Auditor',top:'Control assessment',req:'2025-10-10',st:'Responded',resp:'2025-10-28',fb:'Concurred with capitalisation.',doc:'Auditor memo Oct 2025.pdf'}],
+  impl:[{a:'Fixed-asset setup',own:'L. Tan',due:'Dec 15, 2025',st:'done',sys:'NetSuite',ev:'FA-2025-0442'}],
+  fsi:{ est:{bs:'+14.2 PP&E',is:'Depreciation over term',cf:'None',eq:'None',disc:'None'},
+        act:{bs:'+14.2 PP&E',is:'-0.9/yr depreciation',cf:'None',eq:'None',disc:'None'} },
+  pol:'follows', polNote:'Applied ACC-14 as drafted.', fromExc:null,
+  tl:[{d:'2025-08-14',ev:'Issue identified',who:'M. Giri',dec:'Contract review',doc:'MSA-2025-0088'},
+      {d:'2025-10-28',ev:'External consultation',who:'External auditor',dec:'Concurred',doc:'Auditor memo'},
+      {d:'2025-11-20',ev:'CAO approval',who:'S. Lee',dec:'Approved',doc:'Conclusion v1.0'}] },
+
+{ id:'AI-2025-018', t:'Dallas owner engineering — capitalisation cut-off', top:'cap',
+  ents:['Dallas US-III'], amt:9.6, mat:'sig', pri:'p2', own:'L. Tan',
+  st:'closed', opened:'2025-06-02', due:'—', approved:'2025-09-15', next:'—',
+  proj:'Dallas Hall A', txn:'PO-0904',
+  sum:{ bg:'Internal engineering cost on the Dallas project included feasibility work performed before project approval.',
+        evt:'$9.6M owner engineering charged to CIP.',
+        q:'From what date does capitalisation of owner engineering begin?',
+        sig:'$2.4M of pre-approval feasibility potentially requires expensing.', per:'FY2025',
+        fs:['Construction in progress','Operating expense'] },
+  objs:[{k:'Project',v:'Dallas Hall A',go:"pickLens('assets')"},
+        {k:'Account',v:'15000 · Construction in progress',go:"pickTab('glintel')"}],
+  res:[{k:'auth',src:'ASC 360-10-30-1',cite:'Self-constructed asset',note:'Directly-attributable test applied.'},
+       {k:'auth',src:'ASC 970-360-25',cite:'Pre-acquisition costs',note:'Capitalised only when probable.'},
+       {k:'pol',src:'Korvyn policy ACC-06',cite:'Capitalised labour',note:'Requires attribution to a probable project.'}],
+  ana:{ facts:['$7.2M after board approval.','$2.4M feasibility before approval.','Time records available.'],
+        alts:[{nm:'Capitalise $7.2M, expense $2.4M',rat:'Splits on the probable date.',contra:'Requires probable-date evidence.',imp:'$2.4M expensed.',pol:'Consistent with ACC-06.',aud:'Supported.'},
+              {nm:'Capitalise full $9.6M',rat:'All relates to the asset.',contra:'Pre-probable fails ASC 970.',imp:'CIP overstated.',pol:'Inconsistent.',aud:'Challenged.'}],
+        judg:['The date the project became probable.'], assum:['Board approval is the probable date.'],
+        risks:['Immaterial if the split is well-supported.'],
+        prop:'Capitalise $7.2M, expense $2.4M.' },
+  conc:{ txt:'Capitalisation begins at board approval. $7.2M capitalised, $2.4M of pre-approval feasibility expensed in FY2025. This matter established the company approach to owner-engineering cut-off.',
+         treat:'Reclassify $2.4M from 15000 to operating expense.', eff:'Sep 2025',
+         accts:['15000 · Construction in progress','61000 · Repairs and maintenance'],
+         disc:'None required.', tax:'Accelerated deduction.', ctl:'Capitalisation review references the probable date.',
+         erp:'Reclass entry posted in NetSuite.',
+         ver:[{v:'v1.0',d:'Sep 15, 2025',who:'L. Tan',n:'Approved. Established precedent for owner-engineering cut-off.'}] },
+  appr:[{r:'prep',who:'L. Tan',st:'done',d:'Aug 28, 2025',cm:'Prepared.'},
+        {r:'mgr',who:'M. Reyes',st:'done',d:'Sep 04, 2025',cm:'Agree.'},
+        {r:'ctrl',who:'A. Okafor',st:'done',d:'Sep 15, 2025',cm:'Approved.'}],
+  ext:[{p:'External auditor',ty:'External Auditor',top:'Capitalisation cut-off',req:'2025-08-01',st:'Responded',resp:'2025-08-20',fb:'Agreed with the probable-date split.',doc:'Auditor memo Aug 2025.pdf'}],
+  impl:[{a:'Post reclass entry',own:'L. Tan',due:'Sep 30, 2025',st:'done',sys:'NetSuite',ev:'JE-2025-3310'}],
+  fsi:{ est:{bs:'-2.4 CIP',is:'-2.4 operating expense',cf:'Reclass',eq:'-2.4 RE',disc:'None'},
+        act:{bs:'-2.4 CIP',is:'-2.4 operating expense',cf:'Reclass',eq:'-2.4 RE',disc:'None'} },
+  pol:'follows', polNote:'Applied ACC-06 as drafted.', fromExc:null,
+  tl:[{d:'2025-06-02',ev:'Issue identified',who:'L. Tan',dec:'Capitalisation review',doc:'PO-0904'},
+      {d:'2025-08-20',ev:'External consultation',who:'External auditor',dec:'Agreed',doc:'Auditor memo'},
+      {d:'2025-09-15',ev:'Controller approval',who:'A. Okafor',dec:'Approved',doc:'Conclusion v1.0'}] },
+
+{ id:'AI-2025-024', t:'London office lease — modification vs separate contract', top:'lease',
+  ents:['Meridian Management Co'], amt:5.1, mat:'sig', pri:'p2', own:'J. Park',
+  st:'closed', opened:'2025-07-10', due:'—', approved:'2025-10-02', next:'—',
+  proj:'—', txn:'LSE-LON-004',
+  sum:{ bg:'The London office lease was amended to add an adjacent floor at a rate below standalone price.',
+        evt:'Lease amendment adding one floor.',
+        q:'Is the added floor a separate contract or a modification of the existing lease?',
+        sig:'$5.1M incremental lease liability.', per:'FY2025',
+        fs:['ROU assets','Lease liability'] },
+  objs:[{k:'Lease',v:'LSE-LON-004',go:"pickTab('glintel')"},
+        {k:'Account',v:'25000 · Lease liability',go:"pickTab('glrecon')"}],
+  res:[{k:'auth',src:'ASC 842-10-25-8',cite:'Separate contract test',note:'Additional right of use, but not at standalone price.'},
+       {k:'pol',src:'Korvyn policy ACC-09',cite:'Lease modifications',note:'On point.'}],
+  ana:{ facts:['Adds a right of use.','Priced below standalone.','No implicit rate observable.'],
+        alts:[{nm:'Modification — remeasure',rat:'Fails the standalone-price condition.',contra:'None.',imp:'Combined lease remeasured.',pol:'Consistent with ACC-09.',aud:'Supported.'},
+              {nm:'Separate contract',rat:'A distinct right of use is added.',contra:'Price is below standalone.',imp:'Two leases.',pol:'Inconsistent.',aud:'Not supported.'}],
+        judg:['Whether the added-floor price is at standalone.'], assum:['Market benchmark supports below-standalone.'],
+        risks:['Low.'], prop:'Treat as a modification and remeasure.' },
+  conc:{ txt:'The amendment is a lease modification, not a separate contract, because the added floor is not priced at standalone. The combined lease was remeasured at the modification-date IBR.',
+         treat:'Remeasure ROU asset and lease liability.', eff:'Oct 2025',
+         accts:['15600 · ROU assets','25000 · Lease liability'],
+         disc:'Lease maturity table updated.', tax:'No material impact.', ctl:'Standard lease control.',
+         erp:'Lease schedule updated in the lease subledger.',
+         ver:[{v:'v1.0',d:'Oct 02, 2025',who:'J. Park',n:'Approved.'}] },
+  appr:[{r:'prep',who:'J. Park',st:'done',d:'Sep 18, 2025',cm:'Prepared.'},
+        {r:'mgr',who:'M. Reyes',st:'done',d:'Sep 25, 2025',cm:'Agree.'},
+        {r:'ctrl',who:'A. Okafor',st:'done',d:'Oct 02, 2025',cm:'Approved.'}],
+  ext:[], impl:[{a:'Update lease schedule',own:'J. Park',due:'Oct 31, 2025',st:'done',sys:'Lease subledger',ev:'LSE-LON-004-R1'}],
+  fsi:{ est:{bs:'+5.1 ROU and liability',is:'Straight-line expense',cf:'None',eq:'None',disc:'Maturity table'},
+        act:{bs:'+5.1 ROU and liability',is:'Straight-line expense',cf:'None',eq:'None',disc:'Maturity table'} },
+  pol:'follows', polNote:'Applied ACC-09.', fromExc:null,
+  tl:[{d:'2025-07-10',ev:'Issue identified',who:'J. Park',dec:'Amendment execution',doc:'LSE-LON-004'},
+      {d:'2025-10-02',ev:'Controller approval',who:'A. Okafor',dec:'Approved',doc:'Conclusion v1.0'}] },
+
+{ id:'AI-2025-009', t:'Goodwill impairment triggering-event assessment', top:'imp',
+  ents:['Meridian Property Co'], amt:0, mat:'sig', pri:'p2', own:'A. Okafor',
+  st:'closed', opened:'2025-04-15', due:'—', approved:'2025-06-30', next:'—',
+  proj:'—', txn:'—',
+  sum:{ bg:'A decline in a regional data-centre market raised the question of whether a goodwill impairment triggering event had occurred.',
+        evt:'Regional market softening.',
+        q:'Has a triggering event occurred requiring an interim goodwill impairment test?',
+        sig:'No measured impairment, but a documented conclusion was required.', per:'Q2 2025',
+        fs:['Goodwill','Disclosures'] },
+  objs:[{k:'Entity',v:'Meridian Property Co',go:"pickTab('consol')"}],
+  res:[{k:'auth',src:'ASC 350-20-35-30',cite:'Interim impairment triggers',note:'Qualitative assessment of whether it is more likely than not that fair value is below carrying amount.'},
+       {k:'interp',src:'Firm impairment guide 2025',cite:'§2.1 triggering events',note:'Interpretive. Lists qualitative indicators.'}],
+  ana:{ facts:['Regional softening noted.','Long-term contracts largely fixed.','Occupancy stable.'],
+        alts:[{nm:'No triggering event',rat:'Contracts and occupancy support fair value.',contra:'Market sentiment is negative.',imp:'No test performed.',pol:'Consistent.',aud:'Supported with documentation.'},
+              {nm:'Perform interim test',rat:'Conservative response to market softening.',contra:'No indicator crosses the threshold.',imp:'Cost of a full test.',pol:'Not required.',aud:'Not necessary.'}],
+        judg:['Whether market softening is more-likely-than-not to reduce fair value below carrying amount.'],
+        assum:['Contracted revenue base is stable.'], risks:['If softening continues, a later test may be needed.'],
+        prop:'Conclude no triggering event; document the qualitative assessment.' },
+  conc:{ txt:'Management concluded no triggering event occurred in Q2 2025. The qualitative assessment — stable contracted revenue and occupancy against a softening market — supported that it is not more likely than not that fair value is below carrying amount. No interim test was required.',
+         treat:'No accounting entry; document the qualitative assessment.', eff:'Q2 2025',
+         accts:['—'], disc:'Impairment policy and judgment noted in the disclosure checklist.',
+         tax:'None.', ctl:'Quarterly triggering-event review added to the close checklist.',
+         erp:'None.',
+         ver:[{v:'v1.0',d:'Jun 30, 2025',who:'A. Okafor',n:'Approved qualitative conclusion.'}] },
+  appr:[{r:'prep',who:'A. Okafor',st:'done',d:'Jun 18, 2025',cm:'Qualitative assessment prepared.'},
+        {r:'ctrl',who:'A. Okafor',st:'done',d:'Jun 24, 2025',cm:'Reviewed.'},
+        {r:'cao',who:'S. Lee',st:'done',d:'Jun 30, 2025',cm:'Approved.'}],
+  ext:[{p:'External auditor',ty:'External Auditor',top:'Triggering-event conclusion',req:'2025-06-10',st:'Responded',resp:'2025-06-22',fb:'Concurred with the qualitative assessment.',doc:'Auditor memo Jun 2025.pdf'}],
+  impl:[{a:'Add quarterly triggering-event review',own:'J. Park',due:'Jul 15, 2025',st:'done',sys:'Korvyn',ev:'Close checklist item CT-074'}],
+  fsi:{ est:{bs:'None',is:'None',cf:'None',eq:'None',disc:'Judgment noted'},
+        act:{bs:'None',is:'None',cf:'None',eq:'None',disc:'Judgment noted'} },
+  pol:'follows', polNote:'Applied the impairment policy; added a recurring control.', fromExc:null,
+  tl:[{d:'2025-04-15',ev:'Issue identified',who:'A. Okafor',dec:'Market monitoring',doc:'—'},
+      {d:'2025-06-22',ev:'External consultation',who:'External auditor',dec:'Concurred',doc:'Auditor memo'},
+      {d:'2025-06-30',ev:'CAO approval',who:'S. Lee',dec:'Approved',doc:'Conclusion v1.0'}] },
 ];
+
+// ---- derivations over the matter book (KPIs, topics, precedent) ----
+const amMatById=id=>AM_MATTERS.find(m=>m.id===id);
+const amIsOpen=m=>AM_OPEN.includes(m.st);
+const amKpi=()=>{
+  const open=AM_MATTERS.filter(amIsOpen);
+  const resolvedThis=AM_MATTERS.filter(m=>m.st==='closed'||m.st==='done');
+  // average days to conclusion, over matters that reached an approved conclusion
+  const concluded=AM_MATTERS.filter(m=>m.approved);
+  const avgDays=concluded.length?Math.round(concluded.reduce((s,m)=>
+    s+Math.round((new Date(m.approved)-new Date(m.opened))/864e5),0)/concluded.length):0;
+  return {open, research:open.filter(m=>m.st==='res'||m.st==='ana'),
+    decision:open.filter(m=>m.st==='dec'||m.st==='rev'||m.st==='ext'),
+    material:open.filter(m=>m.mat==='mat'), impl:open.filter(m=>m.st==='impl'),
+    resolved:resolvedThis, avgDays,
+    exposure:+open.reduce((s,m)=>s+m.amt,0).toFixed(1)};
+};
+// topic roll-up — only topics that actually have matters, so the strip stays honest
+function amTopicRoll(){
+  const ids=[...new Set(AM_MATTERS.map(m=>m.top))];
+  return AM_TOPICS.filter(t=>ids.includes(t.id)).map(t=>{
+    const inT=AM_MATTERS.filter(m=>m.top===t.id), open=inT.filter(amIsOpen);
+    return {...t, open:open.length, material:open.filter(m=>m.mat==='mat').length,
+      decision:open.filter(m=>m.st==='dec').length,
+      resolved:inT.filter(m=>m.st==='closed').length};
+  });
+}
+/* Precedent matcher: prior CLOSED matters on the same topic. Korvyn surfaces them;
+   it never assumes the prior conclusion applies — facts must be compared. */
+const amPrecedents=m=>AM_MATTERS.filter(x=>x.st==='closed'&&x.top===m.top&&x.id!==m.id);
+
+// ---- page state ----
+let amSel=null, amfTopic='all', amfEnt='all', amfOwn='all', amfSt='all', amfMat='all',
+    amSort='days', amQuery='';
+function setAmSel(v){ amSel=v; renderAll(); }
+function amBack(){ amSel=null; renderAll(); }
+function setAmF(k,v){
+  if(k==='topic')amfTopic=v; else if(k==='ent')amfEnt=v; else if(k==='own')amfOwn=v;
+  else if(k==='st')amfSt=v; else if(k==='mat')amfMat=v;
+  renderAll();
+}
+function amReset(){ amfTopic=amfEnt=amfOwn=amfSt=amfMat='all'; amQuery=''; renderAll(); }
+function setAmSort(v){ amSort=v; renderAll(); }
+function setAmQuery(v){ amQuery=v; renderAll(); }
+function amDrill(k,v){ amSel=null; if(k) setAmF(k,v); else renderAll(); }
+const amFiltered=()=>amfTopic!=='all'||amfEnt!=='all'||amfOwn!=='all'||amfSt!=='all'||amfMat!=='all'||amQuery;
+function amScope(){
+  const q=amQuery.trim().toLowerCase();
+  return AM_MATTERS.filter(m=>
+    (amfTopic==='all'||m.top===amfTopic) &&
+    (amfEnt==='all'||m.ents.includes(amfEnt)) &&
+    (amfOwn==='all'||m.own===amfOwn) &&
+    (amfSt==='all'||m.st===amfSt) &&
+    (amfMat==='all'||m.mat===amfMat) &&
+    (!q||m.t.toLowerCase().includes(q)||m.id.toLowerCase().includes(q)||AM_TOPN[m.top].toLowerCase().includes(q)));
+}
+function amSorted(){
+  const r=amScope();
+  if(amSort==='days') return r.sort((a,b)=>amDays(b.opened)-amDays(a.opened));
+  if(amSort==='mat')  return r.sort((a,b)=>({mat:0,sig:1,imm:2})[a.mat]-({mat:0,sig:1,imm:2})[b.mat]);
+  if(amSort==='amt')  return r.sort((a,b)=>b.amt-a.amt);
+  if(amSort==='ent')  return r.sort((a,b)=>a.ents[0].localeCompare(b.ents[0]));
+  if(amSort==='top')  return r.sort((a,b)=>AM_TOPN[a.top].localeCompare(AM_TOPN[b.top]));
+  return r;
+}
+const amPill=(mp,k)=>{const s=mp[k]||{l:k,c:''};return `<span class="pill ${s.c}">${s.l}</span>`;};
+const amEnts=()=>[...new Set(AM_MATTERS.flatMap(m=>m.ents))].sort();
+const amOwners=()=>[...new Set(AM_MATTERS.map(m=>m.own))].sort();
+
+function amFilterBar(){
+  const sel=(k,cur,rows)=>`<select onchange="setAmF('${k}',this.value)">${rows.map(r=>
+    `<option value="${r[0]}" ${r[0]===cur?'selected':''}>${r[1]}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Search</label><input type="text" value="${amQuery.replace(/"/g,'&quot;')}"
+      placeholder="Issue, ID or topic" oninput="setAmQuery(this.value)" style="min-width:180px"></div>
+    <div class="grp"><label>Accounting topic</label>${sel('topic',amfTopic,[['all','All topics'],...amTopicRoll().map(t=>[t.id,t.nm])])}</div>
+    <div class="grp"><label>Entity</label>${sel('ent',amfEnt,[['all','All entities'],...amEnts().map(e=>[e,e])])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',amfOwn,[['all','All owners'],...amOwners().map(o=>[o,o])])}</div>
+    <div class="grp"><label>Status</label>${sel('st',amfSt,[['all','All statuses'],...Object.keys(AM_ST).map(k=>[k,AM_ST[k].l])])}</div>
+    <div class="grp"><label>Materiality</label>${sel('mat',amfMat,[['all','All'],...Object.keys(AM_MAT).map(k=>[k,AM_MAT[k].l])])}</div>
+    ${amFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="amReset()">Reset</button></div>`:''}
+  </div></div>`;
+}
+
+// ---------------- matters queue (KPIs + topics + table) ----------------
+function amvQueue(){
+  const K=amKpi(), rows=amSorted();
+  const kpi=(cls,chip,ic,lbl,val,d,go)=>`<div class="kpi ${cls} row-click" onclick="${go}">
+    <div class="kpi-ic"><span class="kpi-chip ${chip}">${glIc(ic)}</span>
+      <div><div class="k" style="margin:0">${lbl}</div><div class="v">${val}</div></div></div>
+    <div class="d">${d}</div></div>`;
+  let o=`<div class="kpis">
+    ${kpi('lenshi','chip-blue','M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01','Open issues',K.open.length,
+      K.open.length+' matters requiring work',"amDrill()")}
+    ${kpi('','chip-blue','M8 3a5 5 0 100 10A5 5 0 008 3zM11.5 11.5L14 14','Under research',K.research.length,
+      'researching or analysing',"amDrill('st','res')")}
+    ${kpi('warn','chip-amber','M8 4v4l3 2','Decision pending',K.decision.length,
+      'awaiting review or decision',"amDrill('st','dec')")}
+    ${kpi(K.material.length?'flag':'','chip-amber','M8 2.5L14.5 13.5h-13zM8 6.5v3','Material issues',K.material.length,
+      glB(K.exposure)+' exposure open',"amDrill('mat','mat')")}
+    ${kpi('warn','chip-purple','M3 8h10M8 3v10','Implementation pending',K.impl.length,
+      'conclusion approved, not yet done',"amDrill('st','impl')")}
+  </div>`;
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Open exposure</div><div class="sv">${glB(K.exposure)}</div>
+      <div class="sd">financial significance in scope</div></div>
+    <div class="stat"><div class="sl">Resolved this period</div><div class="sv">${K.resolved.length}</div>
+      <div class="sd">approved conclusions</div></div>
+    <div class="stat"><div class="sl">Average days to conclusion</div><div class="sv">${K.avgDays}</div>
+      <div class="sd">identified to approval</div></div>
+    <div class="stat"><div class="sl">In the precedent library</div><div class="sv">${AM_MATTERS.filter(m=>m.st==='closed').length}</div>
+      <div class="sd">searchable prior conclusions</div></div>
+  </div>`;
+
+  // topics strip
+  o+=`<div class="card"><h2>By accounting topic<span class="note">click to filter</span></h2>
+    <div class="ax-cats">
+    ${amTopicRoll().map(t=>`<div class="ax-cat ${amfTopic===t.id?'on':''}" onclick="amDrill('topic','${amfTopic===t.id?'all':t.id}')">
+      <div class="ax-cat-n">${t.nm}</div>
+      <div class="ax-cat-v">${t.open}</div>
+      <div class="ax-cat-d">${t.asc}</div>
+      <div class="ax-cat-f">${t.material?`<span class="ic-st"><span class="ic-dot bad"></span>${t.material} material</span>`:''}
+        ${t.resolved?`<span class="ic-st"><span class="ic-dot ok"></span>${t.resolved} resolved</span>`:''}</div></div>`).join('')}
+    </div></div>`;
+
+  o+=amFilterBar();
+
+  const sortBtn=(k,l)=>`<button class="${amSort===k?'on':''}" onclick="setAmSort('${k}')">${l}</button>`;
+  o+=`<div class="card"><h2>Accounting matters<span class="note">${rows.length} of ${AM_MATTERS.length}</span>
+      ${amFiltered()?`<span class="cardlink" onclick="amReset()">Clear</span>`:''}</h2>
+    <div class="subhead">Accounting matters that require judgment, research and a documented conclusion —
+      structured and searchable rather than living in email and spreadsheets. Click a matter to open its
+      working file.</div>
+    <div class="segbar">${sortBtn('days','Days open')}${sortBtn('mat','Materiality')}${sortBtn('amt','Exposure')}${sortBtn('top','Topic')}${sortBtn('ent','Entity')}</div>
+    <table class="tbl"><thead><tr><th>ID</th><th>Issue</th><th>Topic</th><th>Entity</th>
+      <th class="num">Exposure</th><th>Materiality</th><th>Owner</th><th>Status</th>
+      <th>Decision by</th><th class="num">Days</th></tr></thead><tbody>
+    ${rows.map(m=>`<tr class="row-click" onclick="setAmSel('${m.id}')">
+      <td class="ic-mini"><b>${m.id}</b></td>
+      <td><b>${m.t}</b>${m.fromExc?'<span class="pill sm" style="margin-left:6px">from exception</span>':''}
+        ${m.pol==='update'||m.pol==='create'?'<span class="pill flag sm" style="margin-left:6px">policy update</span>':''}</td>
+      <td class="ic-mini">${AM_TOPN[m.top]}</td>
+      <td class="ic-mini">${m.ents[0]}${m.ents.length>1?' +'+(m.ents.length-1):''}</td>
+      <td class="num">${m.amt?glB(m.amt):'&#8211;'}</td>
+      <td>${amPill(AM_MAT,m.mat)}</td>
+      <td class="ic-mini">${m.own}</td>
+      <td><span class="pill ${AM_ST[m.st].c} sm">${AM_ST[m.st].l}</span></td>
+      <td class="ic-mini">${m.due==='—'?'<span style="color:var(--faint)">closed</span>':m.due}</td>
+      <td ${amIsOpen(m)&&amDays(m.opened)>90?'style="color:var(--neg);font-weight:600"':''}>${amDays(m.opened)}</td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="10" class="note">No matters match the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">${K.open.length} open &#183; ${AM_MATTERS.filter(m=>m.st==='closed').length} in the precedent library
+      &#183; matters preserve why a decision was made, what guidance applied, and who approved it</div></div>`;
+  return o;
+}
+
+// ---------------- matter detail workspace ----------------
+function amvDetail(){
+  const m=amMatById(amSel); if(!m) return '';
+  const kv=(l,v)=>`<tr><td class="note" style="margin:0;width:170px">${l}</td><td>${v}</td></tr>`;
+  const life=Object.keys(AM_ST), at=life.indexOf(m.st);
+  let o=`<div class="gl-hd"><div class="grow">
+      <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="amBack()">&#8592; Accounting matters</span></div>
+      <h1>${m.t}</h1>
+      <div class="sub">${m.id} &#183; ${AM_TOPN[m.top]} <span style="color:var(--faint)">(${AM_TOPA[m.top]})</span>
+        &#183; ${m.ents.join(', ')}</div>
+    </div>${glExport}</div>`;
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Status</div><div class="sv" style="font-size:14px;padding-top:4px">${amPill(AM_ST,m.st)}</div>
+      <div class="sd">${m.own}</div></div>
+    <div class="stat"><div class="sl">Materiality</div><div class="sv" style="font-size:14px;padding-top:4px">${amPill(AM_MAT,m.mat)}</div>
+      <div class="sd">${m.amt?glB(m.amt)+' exposure':'no direct amount'}</div></div>
+    <div class="stat"><div class="sl">Priority</div><div class="sv" style="font-size:14px;padding-top:4px">${amPill(AM_PRI,m.pri)}</div>
+      <div class="sd">${m.fromExc?'escalated from exception':'raised in review'}</div></div>
+    <div class="stat"><div class="sl">Identified</div><div class="sv" style="font-size:14px;padding-top:4px">${m.opened}</div>
+      <div class="sd">${amIsOpen(m)?amDays(m.opened)+' days open':'closed '+(m.approved||'')}</div></div>
+    <div class="stat"><div class="sl">Decision required by</div><div class="sv" style="font-size:14px;padding-top:4px">${m.due==='—'?'&#8211;':m.due}</div>
+      <div class="sd">${m.next==='—'?'concluded':m.next}</div></div>
+  </div>`;
+
+  // A. Summary
+  const S=m.sum;
+  o+=`<div class="card"><h2>Issue summary ${amDoc}</h2>
+    <div class="subhead">The accounting question, stated before analysis begins.</div>
+    <table class="tbl"><tbody>
+      ${kv('Background',S.bg)}
+      ${kv('Transaction / event',S.evt)}
+      ${kv('Accounting question',`<b>${S.q}</b>`)}
+      ${kv('Financial significance',S.sig)}
+      ${kv('Entities affected',m.ents.join(', '))}
+      ${kv('Periods affected',S.per)}
+      ${kv('Financial statement areas',S.fs.map(x=>`<span class="pill sm">${x}</span>`).join(' '))}
+    </tbody></table></div>`;
+
+  // B. Related objects
+  o+=`<div class="card"><h2>Related items<span class="note">${m.objs.length}</span></h2>
+    <div class="subhead">Korvyn objects this matter connects to. The originating module holds the detail.</div>
+    <table class="tbl"><tbody>
+    ${m.objs.map(x=>`<tr class="row-click" onclick="${x.go}"><td class="note" style="margin:0;width:170px">${x.k}</td>
+      <td>${x.v}</td><td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
+    ${m.fromExc?`<tr class="row-click" onclick="pickTab('exceptions')"><td class="note" style="margin:0">Escalated from</td>
+      <td><b>${m.fromExc}</b> &#183; this matter resolves the judgment behind that exception</td>
+      <td style="text-align:right"><span class="extlink">Exception</span></td></tr>`:''}
+    </tbody></table></div>`;
+
+  // C. Research — the four source kinds kept visually distinct
+  o+=`<div class="card"><h2>Technical accounting research<span class="note">${m.res.length} references</span></h2>
+    <div class="subhead">Grouped by the weight the source carries. Interpretive firm guidance is persuasive,
+      not authoritative GAAP — the distinction is deliberate.</div>
+    ${['auth','interp','pol','prec'].map(k=>{const rs=m.res.filter(r=>r.k===k); if(!rs.length) return '';
+      return `<div style="margin-bottom:12px"><div class="subhead" style="font-weight:600;color:var(--ink);margin-bottom:6px">
+          ${amPill(AM_RK,k)} <span class="note" style="margin-left:6px">${AM_RK[k].d}</span></div>
+        <table class="tbl"><tbody>
+        ${rs.map(r=>`<tr><td style="width:180px"><b>${r.src}</b></td><td class="ic-mini">${r.cite}</td>
+          <td>${r.note}</td></tr>`).join('')}
+        </tbody></table></div>`;}).join('')}
+    </div>`;
+
+  // D. Analysis + alternatives
+  const A=m.ana;
+  o+=`<div class="card"><h2>Accounting analysis ${amAI}</h2>
+    <div class="subhead">Korvyn can draft and organise the analysis; the conclusion is management's to reach.
+      This section is working analysis, not an approved conclusion.</div>
+    <div class="grid2gl">
+      <div class="card" style="margin:0"><h2 style="font-size:14px">Relevant facts</h2>
+        <ul class="ic-mini" style="margin:0;padding-left:18px;line-height:1.8">${A.facts.map(f=>`<li>${f}</li>`).join('')}</ul></div>
+      <div class="card" style="margin:0"><h2 style="font-size:14px">Key judgments &amp; assumptions</h2>
+        <div class="note" style="margin:0 0 4px;font-weight:600">Judgments</div>
+        <ul class="ic-mini" style="margin:0 0 8px;padding-left:18px;line-height:1.7">${A.judg.map(j=>`<li>${j}</li>`).join('')}</ul>
+        <div class="note" style="margin:0 0 4px;font-weight:600">Assumptions</div>
+        <ul class="ic-mini" style="margin:0;padding-left:18px;line-height:1.7">${A.assum.map(j=>`<li>${j}</li>`).join('')}</ul></div>
+    </div>
+    <h2 style="font-size:14px;margin-top:4px">Accounting alternatives considered</h2>
+    <table class="tbl"><thead><tr><th>Alternative</th><th>Supporting rationale</th><th>Contrary considerations</th>
+      <th>Estimated impact</th><th>Policy</th><th>Audit</th></tr></thead><tbody>
+    ${A.alts.map(a=>`<tr><td><b>${a.nm}</b></td><td class="ic-mini">${a.rat}</td><td class="ic-mini">${a.contra}</td>
+      <td class="ic-mini">${a.imp}</td><td class="ic-mini">${a.pol}</td><td class="ic-mini">${a.aud}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot"><b>Proposed treatment:</b>&nbsp;${A.prop}
+      &#183; <span class="ic-mini">risks: ${A.risks.join('; ')}</span></div></div>`;
+
+  // E. Conclusion — clearly separated
+  if(m.conc){ const C=m.conc;
+    o+=`<div class="card" style="border-color:var(--pos)"><h2>Approved accounting conclusion ${amDoc}
+        <span class="note">${m.st==='closed'||m.st==='done'?'final':'proposed — pending approval'}</span></h2>
+      <div class="subhead">The formal conclusion, separate from the preliminary analysis above.</div>
+      <div class="note" style="font-size:13px;color:var(--ink);background:var(--pos-bg);padding:12px 14px;border-radius:var(--radius);margin-bottom:12px">
+        ${C.txt}</div>
+      <table class="tbl"><tbody>
+        ${kv('Accounting treatment',C.treat)}
+        ${kv('Effective date',C.eff)}
+        ${kv('Accounts affected',C.accts.map(a=>`<span class="pill sm">${a}</span>`).join(' '))}
+        ${kv('Disclosure impact',C.disc)}
+        ${kv('Tax considerations',C.tax)}
+        ${kv('Control considerations',C.ctl)}
+        ${kv('System / ERP impact',C.erp+' <span class="ic-mini">— final entries post in the ERP, not Korvyn</span>')}
+      </tbody></table>
+      <div class="cardfoot">Version history:
+        ${C.ver.map(v=>`<span class="ic-mini">${v.v} (${v.d}, ${v.who})</span>`).join(' &#183; ')}</div></div>`;
+  } else {
+    o+=`<div class="card"><h2>Accounting conclusion</h2>
+      <div class="subhead" style="margin:0">No conclusion has been reached yet. The matter is at
+        <b>${AM_ST[m.st].l}</b>. The proposed treatment under analysis is: ${A.prop}</div></div>`;
+  }
+
+  // Review workflow
+  o+=`<div class="card"><h2>Review &amp; approval</h2>
+    <div class="subhead">Prepared &#8594; Manager &#8594; Controller &#8594; approval. Additional reviewers by materiality.</div>
+    <table class="tbl"><thead><tr><th>Role</th><th>Reviewer</th><th>Status</th><th>Date</th><th>Comment / decision</th></tr></thead><tbody>
+    ${m.appr.map(a=>`<tr><td><b>${AM_ROLES[a.r]||a.r}</b></td><td class="ic-mini">${a.who}</td>
+      <td>${amPill(AM_AST,a.st)}</td><td class="ic-mini">${a.d}</td><td class="ic-mini">${a.cm}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // External consultation
+  if(m.ext.length){
+    o+=`<div class="card"><h2>External consultation<span class="note">${m.ext.length}</span></h2>
+      <div class="subhead">External input informs, but does not constitute, management's conclusion —
+        management retains responsibility for the accounting.</div>
+      <table class="tbl"><thead><tr><th>Party</th><th>Type</th><th>Topic</th><th>Requested</th>
+        <th>Status</th><th>Response</th><th>Feedback</th></tr></thead><tbody>
+      ${m.ext.map(e=>`<tr><td><b>${e.p}</b></td><td class="ic-mini">${e.ty}</td><td class="ic-mini">${e.top}</td>
+        <td class="ic-mini">${e.req}</td>
+        <td>${e.st==='Responded'?'<span class="pill good sm">Responded</span>':e.st==='In progress'?'<span class="pill ready sm">In progress</span>':'<span class="pill info sm">Requested</span>'}</td>
+        <td class="ic-mini">${e.resp}</td><td class="ic-mini">${e.fb}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
+  // Implementation
+  if(m.impl.length){
+    o+=`<div class="card"><h2>Implementation<span class="note">${m.impl.length} actions</span></h2>
+      <div class="subhead">Korvyn tracks implementation; final accounting entries post through the ERP.</div>
+      <table class="tbl"><thead><tr><th>Required action</th><th>Owner</th><th>Target date</th>
+        <th>System</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
+      ${m.impl.map(i=>`<tr><td><b>${i.a}</b></td><td class="ic-mini">${i.own}</td><td class="ic-mini">${i.due}</td>
+        <td class="ic-mini">${i.sys}</td>
+        <td>${i.st==='done'?'<span class="pill good sm">Done</span>':'<span class="pill ready sm">Pending</span>'}</td>
+        <td class="ic-mini">${i.ev}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
+  // Similar prior matters + policy
+  const pre=amPrecedents(m);
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Similar prior matters<span class="note">${pre.length}</span></h2>
+      ${pre.length?`<div class="subhead">Korvyn found ${pre.length} prior conclusion${pre.length===1?'':'s'} on this topic.
+        Review them — the prior conclusion does not automatically apply; facts and circumstances may differ.</div>
+        <table class="tbl"><tbody>
+        ${pre.map(p=>`<tr class="row-click" onclick="setAmSel('${p.id}')">
+          <td><b>${p.id}</b><div class="note" style="margin:0">${p.t}</div></td>
+          <td class="ic-mini">${p.ents[0]}<div style="color:var(--faint)">${p.approved}</div></td>
+          <td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
+        </tbody></table>`
+        :'<div class="subhead" style="margin:0">No prior matters on this topic in the precedent library.</div>'}</div>
+    <div class="card" style="margin:0"><h2>Policy connection</h2>
+      <div class="subhead">Whether this conclusion follows, clarifies, updates or creates policy.</div>
+      <table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0;width:170px">Policy outcome</td><td>${amPill(AM_POL,m.pol)}</td></tr>
+        <tr><td class="note" style="margin:0">Note</td><td>${m.polNote}</td></tr>
+      </tbody></table>
+      <div class="cardfoot">
+        ${m.pol==='update'||m.pol==='create'||m.pol==='clarify'?`<span class="pill flag sm">Policy update required</span>`:''}
+        <span class="extlink" onclick="pickTab('admin')">Accounting policies</span></div></div>
+  </div>`;
+
+  // Decision timeline
+  o+=`<div class="card"><h2>Decision timeline</h2>
+    <table class="tbl"><thead><tr><th>Date</th><th>Event</th><th>Owner</th><th>Decision</th><th>Documentation</th></tr></thead><tbody>
+    ${m.tl.map((t,i)=>`<tr><td class="ic-mini" style="white-space:nowrap">${t.d}</td>
+      <td><span class="ic-dot ${i===m.tl.length-1&&amIsOpen(m)?'warn':'ok'}"></span> <b>${t.ev}</b></td>
+      <td class="ic-mini">${t.who}</td><td class="ic-mini">${t.dec}</td>
+      <td>${t.doc==='—'?'<span class="ic-mini">&#8211;</span>':`<span class="extlink">${t.doc}</span>`}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">This working file preserves why the decision was made, what guidance was considered,
+      who approved it, and how it was implemented &#183; institutional accounting knowledge, retained.</div></div>`;
+  return o;
+}
+
+// Accounting > Accounting Issues. Renders into the new decision workspace.
+function renderAcctIssues(el){
+  if(amSel){ el.innerHTML=amvDetail(); return; }
+  let o=glHead('Accounting Issues',
+    'Institutional accounting decision layer — matters requiring judgment, research, a documented conclusion and approval.',
+    glActions);
+  o+=amvQueue();
+  el.innerHTML=o;
+}
 
 function renderIssues(){
   const el=$('view-issues'); if(!el)return;
+  // Shared tab id. Accounting gets the decision workspace; the standalone Issues
+  // lens keeps its original control-exception view below, unchanged.
+  if(LENS==='ledger'){ renderAcctIssues(el); return; }
   const sc=cipScope();
   const issues=[];
   sc.filter(p=>p.scrub>0).forEach(p=>issues.push({sev:'high',cat:'Cost integrity',
@@ -11564,6 +12061,8 @@ const VIEW_META={
   fdetail:{t:'Filing workspace',c:'Sections \u00b7 comments \u00b7 disclosures \u00b7 approvals',depth:4},
   tasks:{t:'Tasks',c:'Open capitalization determinations · owner, age, blocking evidence',depth:3},
   issues:{t:'Issues',c:'Control exceptions · where the spine fails its own tests',depth:3},
+  // Lens-scoped override — Accounting's Issues is the decision workspace, not the control view.
+  'ledger:issues':{t:'Accounting Issues',c:'Judgment · research · analysis · conclusion · approval',depth:4},
   archives:{t:'Archives',c:'Locked periods · retained determination evidence',depth:3},
   admin:{t:'Admin',c:'Capitalization policy · thresholds, roles, sign-off matrix',depth:2},
   overview:{t:'Overview',c:'Four-measure budget-vs-actual · cash-anchored ceiling',depth:5},
@@ -12079,6 +12578,24 @@ const CP_CARDS={
                trend:['growth','recur','top5'] };
     return (by[axSub]||by.queue).map(k=>base[k]);
   },
+  /* Accounting Issues is shared with the standalone Issues lens. Returning null outside
+     the ledger lens falls through to defaults, leaving that lens untouched. */
+  issues: ()=>{
+    if(LENS!=='ledger') return null;
+    const K=amKpi(), m=amSel?amMatById(amSel):null;
+    if(m){ const pre=amPrecedents(m);
+      return [
+        {t:'Summarize this accounting issue', s:m.id+' · '+AM_TOPN[m.top], i:'list'},
+        {t:'What are the key accounting judgments?', s:(m.ana?m.ana.judg.length:0)+' judgments', i:'search'},
+        pre.length?{t:'Compare this to prior precedents', s:pre.length+' similar prior matter'+(pre.length===1?'':'s'), i:'delta'}
+                  :{t:'What guidance is linked to this issue?', s:m.res.length+' references', i:'search'}];
+    }
+    const mat=K.material.length, dec=K.decision.length;
+    return [
+      {t:'Which material issues are awaiting decisions?', s:mat+' material · '+dec+' pending', i:'warn'},
+      {t:'Have we addressed a similar issue before?', s:AM_MATTERS.filter(x=>x.st==='closed').length+' in the precedent library', i:'search'},
+      {t:'Which issues require policy updates?', s:AM_MATTERS.filter(x=>amIsOpen(x)&&(x.pol==='update'||x.pol==='create')).length+' flagged', i:'list'}];
+  },
   glsync: [{t:'Why is JD Edwards sync delayed?',s:'Investigate the issue',i:'warn'},
            {t:'When did each source last sync?',s:'across 4 integrations',i:'clock'} ],
   fpexec: [{t:'Why is revenue below plan?',s:'2.1% under budget YTD',i:'delta'},
@@ -12098,6 +12615,21 @@ const CP_CARDS={
 // Context line: what the assistant is looking at right now, including page filters.
 function cpContext(){
   // Accounting > Exceptions (shared tab id — only when the ledger lens is active).
+  // Accounting > Issues (shared tab id — only in the ledger lens).
+  if(TAB==='issues' && LENS==='ledger'){
+    const f=[];
+    if(amSel){ const m=amMatById(amSel); if(m) f.push(m.id+' · '+AM_TOPN[m.top]); }
+    else {
+      f.push('accounting matters');
+      if(amfTopic!=='all') f.push(AM_TOPN[amfTopic]);
+      if(amfEnt!=='all')   f.push(amfEnt);
+      if(amfOwn!=='all')   f.push(amfOwn);
+      if(amfSt!=='all')    f.push(AM_ST[amfSt].l);
+      if(amfMat!=='all')   f.push(AM_MAT[amfMat].l);
+      if(amQuery)          f.push('search "'+amQuery+'"');
+    }
+    return 'Looking at: '+f.join(' · ')+' · '+amKpi().open.length+' open matters';
+  }
   if(TAB==='exceptions' && LENS==='ledger'){
     const f=[];
     if(axSel) f.push('exception '+axSel);
