@@ -4,12 +4,12 @@ Guidance for Claude Code working in this repo. Read this fully before editing.
 
 ## What this is
 
-`locusos_dashboard_v12.html` is a **single self-contained HTML file** (~8,700 lines): an
+`korvyn_dashboard.html` is a **single self-contained HTML file** (~8,700 lines): an
 illustrative prototype of **KORVYN**, an enterprise finance / accounting / capital
 intelligence layer sitting on top of an ERP, for a fictional data-center / CRE REIT
 ("Meridian Global Portfolio"). No backend, no build step, no dependencies at runtime.
 All data is hardcoded. It runs by opening the file in a browser. Dark/light mode via CSS
-variables. (The filename still carries the old product name; the brand is KORVYN.)
+variables.
 
 **The ERP is the system of record.** Korvyn reads it and adds visibility, workflow,
 controls, close, reconciliation, analytics and AI. Do **not** build journal-entry posting
@@ -212,7 +212,7 @@ check anyway. The file lives in this directory, so the preview pane runs its JS.
 
 ```
 # 1. Load it in the preview pane and confirm the console is clean
-#    preview_start file:///.../Locus Spine_Claude/locusos_dashboard_v12.html
+#    preview_start file:///C:/Korvyn/korvyn_dashboard.html
 #    read_console_messages(onlyErrors: true)   -> must be empty
 
 # 2. Behavior sweep: drive every tab and assert each view rendered.
