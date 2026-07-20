@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | Overview, Close, General Ledger, Intercompany, Consolidation — all five built to their written specs |
+| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close — every page built to its written spec (Reconciliations excepted, see the defect below) |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -36,8 +36,9 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 - **Accounting > Reconciliations** — still the older `glrecon` page, and it carries a known
   integrity defect (see below). Referenced from both Accounting > Overview and the GL
   workspace, so building it completes several drill-downs.
-- **Accounting > Continuous Close** — a routing summary (`acctStub`), not a full workspace.
-  It is now the only remaining `acctStub` in Accounting.
+- Accounting has no routing stubs left. `acctStub` itself has been **deleted** — Continuous
+  Close was its last caller. If a future page needs a placeholder, write it fresh rather than
+  resurrecting that helper.
 - Fixed Assets, Procurement, FP&A and Reporting have not had a written spec pass like
   Accounting did; their pages predate the current design standard.
 
@@ -132,6 +133,13 @@ There is no separate CSS/JS file. Edits happen in place.
   - `#secnav` (the old row-1 section strip) is **force-hidden** — its content moved to the
     rail and rendering it would duplicate the list. `#subnav` / `#subnav2` remain, and are
     the *within-record* tab strips (flux statement picker, filing workspace tabs).
+  - **Any setter that changes a pipeline step must call `navRepaint()`.** `renderAll()` does
+    *not* repaint `#subnav`, so a setter that only re-renders leaves the highlight stuck on
+    whichever step was active when the tab was opened. The page still works and every view
+    renders, which is why a length-based sweep will not catch it — it shipped that way in
+    Intercompany and Consolidation before being spotted by eye. `setCipSub` / `setFinRepSub`
+    had this right all along; the six new setters now call the shared `navRepaint()` helper.
+    To verify: change each sub-view and assert `#subnav button.on` matches the expected label.
   - `#subnav` is painted from `TAB_PIPELINES[TAB]`: `{steps:[{id,label,n,q}], get, set}`,
     where `n` is a live count and `q` picks the quiet badge style. This is how a tab gets
     sub-views **without adding tabs or touching navigation** — `icomp` uses it for all eight
@@ -198,6 +206,23 @@ There is no separate CSS/JS file. Edits happen in place.
   Calibration: an overdue reconciliation degrades the score and raises an exception but does
   **not** mark an entity Blocked — Blocked is reserved for things that actually stop
   consolidation (blocked close tasks, out-of-balance eliminations, missing submission).
+- `CC_SIGNALS` / `CC_TREND` / `CC_WS` / `CC_DEPS` — Continuous Close, also deliberately thin.
+  The nine workstream readiness figures are **measured** by `ccxWorkstreams()` from
+  `GL_CLOSE_FN`, `GL_RECON`, `icxPairs()`, `csxEntities()`, `CIP_PROJECTS`, `GL_ERP` and
+  `CLOSE_TASKS`. `CC_SIGNALS` is the exception and the reason the page exists: *detection
+  history* — work that was validated and has since been disturbed — genuinely cannot be
+  derived from current state.
+  **Measured vs estimated is the organising principle of this page.** Anything Korvyn
+  assesses rather than measures (emerging risks, days-to-close, effort, time saved) carries
+  a confidence and is rendered as a **range** with the `.cc-tag.est` badge; measured figures
+  carry `.cc-tag.meas`. Do not add a single-number days-to-close — the absence of one is
+  deliberate, not an omission.
+  `CC_TREND` stores the trajectory shape, but the final current-period point is overwritten
+  at render time with the live score, so the chart and the hero number cannot disagree.
+  Dependency-map nodes each read their **own** measure (`cipr`, `pisd`, `icdiff`, `icelim`
+  are separate derivations). An earlier version pointed three fixed-asset nodes at one
+  workstream and they all showed 55%, which located nothing — the whole value of the map is
+  showing where a chain breaks.
 - `FILING_TEAM`, `FILING_COMMENTS`, `FILING_NOTES`, `FILING_DISCLOSURES`,
   `FILING_APPROVALS`, `FILING_ACTIVITY` — the filing workspace's supporting data.
 - Workspace views (`renderTasks`/`renderIssues`) derive from `CIP_PROJECTS`; `renderArchives`
@@ -353,7 +378,13 @@ and re-copy after every edit or you will be validating a stale file.
 #     and setIcEvSel over IC_EVENTS. Consolidation: drive setCsSub over
 #     status/entities/elim/fx/results/excep/timeline, setCsEnt over CONS_ORDER, and
 #     setCsStmt x setCsCmp across the results grid.
+#     Continuous Close: drive setCcSub over
+#     now/ready/changed/risks/activity/deps/pull/block.
 #     Tie assertions: icxTie() -> {ok:true,pairs:5}; csxTie() -> {ok:true,entities:4,submitted:2}.
+
+# 2d. Sub-nav highlight: after each setXSub, assert
+#     document.querySelector('#subnav button.on').textContent matches the step you set.
+#     Views render correctly even when the highlight is stale, so nothing else catches it.
 
 # 2c. A render sweep proves nothing about CONTENT. Both bugs found in the Consolidation
 #     build (a shadowed key rendering "[object Object]", a filter matching nothing) passed
