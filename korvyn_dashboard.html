@@ -910,6 +910,23 @@ footer b{color:var(--muted)}
 .cc-tag.meas{background:var(--pos-bg);color:var(--pos)}
 .cc-tag.est{background:var(--accent-bg);color:var(--accent-ink)}
 
+/* ---- EXCEPTIONS: priority score chip and source-module tiles ---- */
+.ax-score{display:inline-grid;place-items:center;width:34px;height:26px;border-radius:var(--radius-sm);
+  background:var(--bg2);color:var(--muted);font-family:var(--num);font-size:12.5px;font-weight:700;
+  font-variant-numeric:tabular-nums;cursor:default}
+.ax-score.p1{background:var(--neg-bg);color:var(--neg)}
+.ax-score.p2{background:var(--warn-bg);color:var(--warn)}
+.ax-cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
+.ax-cat{border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px;cursor:pointer;
+  transition:.13s;background:var(--surface);min-width:0}
+.ax-cat:hover{border-color:var(--accent-line);background:var(--bg2)}
+.ax-cat.on{border-color:var(--accent-fill);background:var(--accent-bg)}
+.ax-cat-n{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ax-cat-v{font-family:var(--num);font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:6px;
+  font-variant-numeric:tabular-nums}
+.ax-cat-d{font-size:11px;color:var(--hint);margin-top:2px}
+.ax-cat-f{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px}
+
 .cc-trend{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
 .cc-spark{flex:1 1 300px;min-width:0;height:132px}
 .cc-trend-side{flex:0 0 190px;min-width:0}
@@ -9286,8 +9303,753 @@ function renderApprovals(){
   el.innerHTML=o;
 }
 
+/* ==================== ACCOUNTING EXCEPTION COMMAND CENTRE ====================
+   Home and Accounting share the `exceptions` tab id. Home keeps its original
+   control-test view untouched; Accounting gets this page, selected by LENS in
+   renderExceptions() and by the lens-scoped keys 'ledger:exceptions' in
+   TAB_PIPELINES / VIEW_META / CP_CARDS.
+
+   AGGREGATION, NOT DUPLICATION. Every exception is DERIVED from the module that
+   already detected it — GL_RECON, icxPairs/IC_EVENTS, csxEntities, CC_SIGNALS,
+   CIP_PROJECTS, GL_ERP, CLOSE_TASKS. This page says what needs attention and why;
+   the originating module holds the financial detail, and every row links there.
+
+   Facts derive. WORKFLOW does not: status, owner, assignment, validation result,
+   root-cause classification and comments are genuinely stateful and live in
+   AX_STATE, keyed by exception id and merged on. Same split as Intercompany's
+   IC_SETTLE and Consolidation's CONS_FX.                                        */
+
+const AX_CATS=[
+  {id:'recs', nm:'Reconciliation', go:"pickTab('glrecon')",  lk:'View reconciliation'},
+  {id:'ic',   nm:'Intercompany',   go:"pickTab('icomp')",    lk:'View intercompany relationship'},
+  {id:'cons', nm:'Consolidation',  go:"pickTab('consol')",   lk:'View consolidation blocker'},
+  {id:'cc',   nm:'Continuous close',go:"pickTab('contclose')",lk:'View continuous close'},
+  {id:'gl',   nm:'General ledger',  go:"pickTab('glintel')", lk:'View in General Ledger'},
+  {id:'fa',   nm:'Fixed assets / capital',go:"pickLens('assets')", lk:'View fixed asset'},
+  {id:'ap',   nm:'AP / cutoff',    go:"pickLens('procure')", lk:'View in Procurement'},
+  {id:'data', nm:'Data / integration',go:"pickTab('glsync')",lk:'View source systems'},
+];
+const AX_CATN=Object.fromEntries(AX_CATS.map(c=>[c.id,c.nm]));
+const AX_RISK={crit:{l:'Critical',c:'flag',d:'bad',w:25}, high:{l:'High',c:'ready',d:'warn',w:18},
+               med:{l:'Medium',c:'info',d:'warn',w:10},   low:{l:'Low',c:'',d:'idle',w:4}};
+const AX_CLOSE={block:{l:'Blocking close',c:'flag',w:15}, risk:{l:'Potential close risk',c:'ready',w:9},
+                monitor:{l:'Monitor',c:'info',w:4},       none:{l:'No close impact',c:'',w:0}};
+const AX_ST={det:'Detected', tri:'Triaged', asg:'Assigned', inv:'Investigating',
+             res:'Resolution in progress', done:'Resolved', val:'Validated', closed:'Closed'};
+const AX_STC={det:'',tri:'info',asg:'info',inv:'ready',res:'ready',done:'good',val:'good',closed:'good'};
+const AX_VAL={pend:{l:'Pending validation',c:'ready'}, ok:{l:'Validated',c:'good'},
+              fail:{l:'Failed validation',c:'flag'}, more:{l:'Requires additional action',c:'ready'}};
+const AX_RC={timing:'Timing', missing:'Missing transaction', cls:'Incorrect classification',
+             dup:'Duplicate', data:'Data quality', integ:'Integration failure',
+             proc:'Process failure', appr:'Approval delay', cp:'Counterparty difference',
+             fx:'FX difference', unk:'Unknown'};
+
+/* Workflow overlay. Only ids that have moved past Detected appear here; anything
+   absent is a freshly detected exception with no owner, which is itself a finding
+   the page surfaces ("no assigned owner"). */
+const AX_STATE={
+  'AX-RECS-13500-HOLD':{st:'inv', own:'M. Giri', by:'A. Okafor', at:'Jul 2, 2026', due:'Jul 22, 2026', rc:'cp',
+    aud:[{ts:'Jun 28, 2026 02:00',who:'Korvyn',act:'Detected — reconciliation difference on 13500'},
+         {ts:'Jul 02, 2026 09:15',who:'A. Okafor',act:'Triaged as critical and assigned to M. Giri'},
+         {ts:'Jul 08, 2026 14:20',who:'M. Giri',act:'Root cause classified as Counterparty difference'},
+         {ts:'Jul 19, 2026 16:55',who:'Korvyn',act:'Aged past 90 days — escalated'}],
+    cm:[{who:'M. Giri',ts:'Jul 08, 2026',t:'Traced to ICE-2603-0204. Property Co has not booked the payable; chasing their controller.'},
+        {who:'A. Okafor',ts:'Jul 19, 2026',t:'This will block elimination if not cleared before cut-off. Escalating.'}]},
+  'AX-RECS-20000-HOLD':{st:'res', own:'J. Park', by:'A. Okafor', at:'Jun 26, 2026', due:'Jul 21, 2026', rc:'timing',
+    aud:[{ts:'Jun 25, 2026 02:00',who:'Korvyn',act:'Detected — reconciliation past due date'},
+         {ts:'Jun 26, 2026 10:05',who:'A. Okafor',act:'Assigned to J. Park'},
+         {ts:'Jul 10, 2026 11:40',who:'J. Park',act:'Root cause classified as Timing'}],
+    cm:[{who:'J. Park',ts:'Jul 10, 2026',t:'Non-PO manual invoice posted after cut-off. Clearing entry prepared in NetSuite.'}]},
+  'AX-IC-ICE-2603-0204':{st:'done', own:'M. Giri', by:'M. Giri', at:'Jul 2, 2026', due:'Jul 20, 2026', rc:'missing',
+    val:'fail',
+    aud:[{ts:'Mar 31, 2026 02:00',who:'Korvyn',act:'Detected — no counterparty entry'},
+         {ts:'Jul 02, 2026 10:00',who:'M. Giri',act:'Assigned'},
+         {ts:'Jul 18, 2026 15:10',who:'M. Giri',act:'Marked resolved — counterparty instruction drafted'},
+         {ts:'Jul 18, 2026 15:11',who:'Korvyn',act:'Validation FAILED — counterparty entry still not posted in NetSuite; difference unchanged at 2.3M'}],
+    cm:[{who:'Korvyn',ts:'Jul 18, 2026',t:'Resolution could not be validated against source. The drafted instruction has not been approved or sent, so the intercompany difference is still open.'}]},
+  'AX-CONS-FX-MMC':{st:'asg', own:'S. Lee', by:'A. Okafor', at:'Jul 20, 2026', due:'Jul 23, 2026', rc:'fx',
+    aud:[{ts:'Jul 20, 2026 08:12',who:'Korvyn',act:'Detected — GBP rate stale at close date'},
+         {ts:'Jul 20, 2026 09:00',who:'A. Okafor',act:'Assigned to S. Lee'}], cm:[]},
+  'AX-DATA-JDE':{st:'inv', own:'A. Okafor', by:'A. Okafor', at:'Jul 20, 2026', due:'Jul 21, 2026', rc:'integ',
+    aud:[{ts:'Jul 20, 2026 06:15',who:'Korvyn',act:'Detected — JD Edwards feed behind'},
+         {ts:'Jul 20, 2026 06:40',who:'A. Okafor',act:'Self-assigned; raised with integrations'}], cm:[]},
+  'AX-FA-ASH-C':{st:'tri', own:'L. Tan', by:'A. Okafor', at:'Jul 5, 2026', due:'Jul 25, 2026', rc:'proc',
+    aud:[{ts:'Jun 01, 2026 02:00',who:'Korvyn',act:'Detected — COO issued, asset not transferred'},
+         {ts:'Jul 05, 2026 13:30',who:'A. Okafor',act:'Triaged and assigned to L. Tan'}],
+    cm:[{who:'L. Tan',ts:'Jul 05, 2026',t:'Recurring pattern — third period running. Needs a process fix, not another one-off transfer.'}]},
+  'AX-RECS-21000-MMC':{st:'val', own:'J. Park', by:'A. Okafor', at:'Jun 27, 2026', due:'Jul 15, 2026', rc:'data', val:'ok',
+    aud:[{ts:'Jun 26, 2026 02:00',who:'Korvyn',act:'Detected — reconciliation past due with a difference'},
+         {ts:'Jul 12, 2026 09:20',who:'J. Park',act:'Marked resolved'},
+         {ts:'Jul 12, 2026 09:21',who:'Korvyn',act:'Validation passed — difference now 0.310 and within tolerance'}], cm:[]},
+};
+
+/* Recurrence history: how many prior periods a pattern has appeared in. Cannot be
+   derived from current state, so it is declared — it is what turns a one-off into
+   a systemic finding. */
+const AX_RECUR={
+  'AX-FA-ASH-C':      {n:3, first:'Apr 2026', ents:1, proc:'CIP → placed-in-service transfer', owner:'L. Tan'},
+  'AX-RECS-20000-HOLD':{n:4, first:'Mar 2026', ents:2, proc:'AP cut-off / non-PO manual invoices', owner:'M. Reyes'},
+  'AX-IC-ICE-2603-0204':{n:2, first:'May 2026', ents:2, proc:'Intercompany counterparty posting', owner:'M. Giri'},
+  'AX-DATA-JDE':      {n:5, first:'Feb 2026', ents:2, proc:'JD Edwards nightly feed', owner:'A. Okafor'},
+};
+// Backlog trend by period. A stored series — history is not derivable from now.
+const AX_TREND=[{p:'Feb',o:19,r:14},{p:'Mar',o:22,r:18},{p:'Apr',o:17,r:20},
+                {p:'May',o:21,r:16},{p:'Jun',o:24,r:19},{p:'Jul',o:0,r:0}];
+const AX_ASOF='2026-06-30';
+const axDays=d=>Math.round((new Date(AX_ASOF+'T00:00:00')-new Date(d+'T00:00:00'))/864e5);
+
+/* Derive every exception from the module that detected it. `amt` is the transaction or
+   balance amount; `mis` is the POTENTIAL financial-statement impact, which is usually
+   smaller and sometimes nil — the two are deliberately separate so the page never implies
+   that every exception amount is a misstatement. */
+let _axE=null;
+function axExceptions(){
+  if(_axE) return _axE;
+  const out=[];
+  const add=e=>{ const w=AX_STATE[e.id]||{};
+    out.push({...e, st:w.st||'det', own:w.own||e.srcOwn||null, by:w.by||null, at:w.at||null, due:w.due||null,
+              rc:w.rc||null, val:w.val||null, cm:w.cm||[], aud:w.aud||[{ts:e.det+' 02:00',who:'Korvyn',act:'Detected'}],
+              recur:AX_RECUR[e.id]||null}); };
+
+  // ---- Reconciliations ----
+  GL_RECON.filter(r=>r.st==='over'||Math.abs(r.diff)>0).forEach(r=>{
+    const diff=Math.abs(r.diff)/1000;                       // bal is thousands -> $M
+    const late=r.st==='over';
+    add({id:'AX-RECS-'+r.acct+'-'+(CONS_ENT[r.ent]||{ini:'X'}).ini,
+      t:(late?'Reconciliation overdue':'Unreconciled difference')+' — '+r.nm+' ('+r.acct+')',
+      cat:'recs', srcSys:'NetSuite', ent:r.ent, acct:r.acct+' · '+r.nm, obj:'Account reconciliation',
+      amt:Math.abs(r.bal)/1000, mis:diff, det:'2026-06-25', period:'Jun 2026',
+      risk:diff>1?'crit':late?'high':'med', close:diff>1?'risk':late?'monitor':'none', ents:1,
+      what:(late?'This reconciliation passed its '+r.due+' due date and is still open.':'The reconciliation carries an unexplained difference.')
+        +(diff?' The difference is '+glB(diff)+'.':''),
+      why:{fin:diff?glB(diff)+' of balance is unsupported.':'', acct:'The account balance is not yet substantiated.',
+           close:diff>1?'Consolidation cannot rely on this balance.':'', rep:'', ctl:'A key control is operating late.'},
+      srcOwn:r.own, go:"pickTab('glrecon')", lk:'View reconciliation'});
+  });
+
+  // ---- Intercompany ----
+  IC_EVENTS.filter(e=>e.ms==='un'||e.ms==='disp').forEach(e=>{
+    const d=Math.abs(icxEvDiff(e));
+    add({id:'AX-IC-'+e.id, t:(e.dty==='missing'?'Missing counterparty entry':'Disputed intercompany difference')+' — '+e.id,
+      cat:'ic', srcSys:icxEnt(e.cp).erp, ent:icxEnt(e.cp).nm, acct:IC_AR+' / '+IC_AP+' · intercompany control',
+      obj:'Connected event '+e.id, amt:icxSideA(e), mis:d, det:e.dt, period:'Jun 2026',
+      risk:d>2?'crit':'high', close:'block', ents:2,
+      what:e.note||'The two sides of this intercompany event do not agree.',
+      why:{fin:glB(d)+' would survive consolidation as an unmatched balance.',
+           acct:'One entity has recorded an entry the other has not.',
+           close:'Elimination for this pair cannot clear.',
+           rep:'Consolidated equity would carry the difference.', ctl:''},
+      srcOwn:e.own, go:"pickTab('icomp')", lk:'View intercompany relationship'});
+  });
+
+  // ---- Consolidation ----
+  csxEntities().forEach(e=>{
+    if(e.fxr.stale) add({id:'AX-CONS-FX-'+e.ini, t:'Stale FX rate — '+e.fx+' translation for '+e.nm,
+      cat:'cons', srcSys:'Korvyn', ent:e.nm, acct:'Translation · '+e.fx+' → '+CONS_RPT, obj:'FX rate',
+      amt:Math.abs(e.fxr.cta||0), mis:Math.abs(e.fxr.cta||0), det:e.fxr.dt, period:'Jun 2026',
+      risk:'high', close:'block', ents:1,
+      what:'The '+e.fx+' rate is dated '+e.fxr.dt+', '+e.fxr.age+' days before the close date. Group policy requires the period-end closing rate.',
+      why:{fin:'CTA of '+glB(e.fxr.cta||0)+' is computed on a stale rate.', acct:'Translation cannot be finalised.',
+           close:'Consolidation is blocked for this entity.', rep:'Reported equity would be misstated.', ctl:''},
+      srcOwn:e.rev, go:"pickTab('consol')", lk:'View consolidation blocker'});
+    if(e.submitted && e.crit) add({id:'AX-CONS-INC-'+e.ini, t:'Entity inconsistency — '+e.nm+' submitted while blocked',
+      cat:'cons', srcSys:'Korvyn', ent:e.nm, acct:'Entity submission', obj:'Consolidation gate',
+      amt:0, mis:0, det:'2026-06-30', period:'Jun 2026', risk:'high', close:'risk', ents:1,
+      what:e.nm+' is marked submitted and eliminated in the consolidation book but still carries '+e.crit+' critical blocker'+(e.crit===1?'':'s')+'.',
+      why:{fin:'', acct:'Two source signals disagree about whether the entity is complete.',
+           close:'Close status may be overstated.', rep:'', ctl:'Submission control may have been bypassed.'},
+      srcOwn:e.rev, go:"pickTab('consol')", lk:'View consolidation blocker'});
+  });
+
+  // ---- Continuous close signals ----
+  CC_SIGNALS.filter(s=>s.sev!=='info').forEach(s=>{
+    add({id:'AX-CC-'+s.id, t:s.ch+' — '+s.item, cat:'cc', srcSys:s.src, ent:s.ent,
+      acct:s.item, obj:s.ref, amt:s.mat, mis:s.mat, det:'2026-06-30', period:'Jun 2026',
+      risk:s.sev==='crit'?'high':'med', close:s.sev==='crit'?'risk':'monitor', ents:1,
+      what:s.cur+' (previously: '+s.prev+').',
+      why:{fin:s.mat?glB(s.mat)+' of previously validated work is affected.':'',
+           acct:'Completed work has been disturbed and needs revalidation.', close:'', rep:'', ctl:'Validation no longer holds.'},
+      srcOwn:s.own, go:"pickTab('contclose')", lk:'View continuous close'});
+  });
+
+  // ---- Fixed assets / capital ----
+  CIP_PROJECTS.filter(p=>p.status==='ready'&&p.days>30).forEach(p=>
+    add({id:'AX-FA-'+p.id, t:'CIP not transferred to service — '+p.name,
+      cat:'fa', srcSys:'Procore → ERP', ent:p.entity, acct:'15000 · Construction in progress', obj:p.id,
+      amt:p.cip, mis:+(p.cip*0.02).toFixed(2), det:'2026-05-14', period:'Jun 2026',
+      risk:'high', close:'risk', ents:1,
+      what:'COO was issued '+p.days+' days ago and the asset is still sitting in CIP. '+p.note,
+      why:{fin:'Depreciation is understated while the asset remains in CIP.',
+           acct:'ASC 360 requires transfer once the asset is ready for its intended use.',
+           close:'', rep:'Fixed asset note would be misstated.', ctl:'Audit exposure on the PIS determination.'},
+      srcOwn:'L. Tan', go:"pickLens('assets')", lk:'View fixed asset'}));
+  CIP_PROJECTS.filter(p=>p.scrub>0).forEach(p=>
+    add({id:'AX-FA-SCRUB-'+p.id, t:'Operating cost mis-coded to CIP — '+p.name,
+      cat:'fa', srcSys:'Procore', ent:p.entity, acct:'15000 · Construction in progress', obj:p.id,
+      amt:p.scrub, mis:p.scrub, det:'2026-06-10', period:'Jun 2026', risk:'med', close:'monitor', ents:1,
+      what:glB(p.scrub)+' of maintenance cost is sitting in the capital account and needs scrubbing before close.',
+      why:{fin:glB(p.scrub)+' would be capitalised in error.', acct:'Operating cost does not meet the ASC 360 capitalisation test.',
+           close:'', rep:'', ctl:''},
+      srcOwn:'L. Tan', go:"pickLens('assets')", lk:'View fixed asset'}));
+
+  // ---- Data / integration ----
+  GL_ERP.filter(e=>e.st!=='ok').forEach(e=>
+    add({id:'AX-DATA-'+e.ini, t:'Source system feed behind — '+e.nm,
+      cat:'data', srcSys:e.nm, ent:e.ent+' entities', acct:'All accounts', obj:e.nm+' integration',
+      amt:0, mis:0, det:'2026-06-29', period:'Jun 2026', risk:'crit', close:'block', ents:e.ent,
+      what:e.nm+' has only delivered data through '+e.thru+', with '+e.iss+' open issue'+(e.iss===1?'':'s')+'. Last sync '+e.sync+'.',
+      why:{fin:'', acct:'GL completeness cannot be asserted for the affected entities.',
+           close:'Cut-off cannot be confirmed.', rep:'', ctl:'Completeness control is not operating.'},
+      srcOwn:'A. Okafor', go:"pickTab('glsync')", lk:'View source systems'}));
+
+  // ---- AP / cutoff, from blocked close tasks ----
+  CLOSE_TASKS.filter(x=>x.st==='blk').forEach((x,i)=>
+    add({id:'AX-AP-'+x.id, t:'Close task blocked — '+x.nm, cat:'ap', srcSys:'Korvyn', ent:x.ent,
+      acct:x.fn, obj:x.id, amt:0, mis:0, det:'2026-06-20', period:'Jun 2026',
+      risk:'med', close:'block', ents:1,
+      what:x.nm+' is blocked'+(x.dep?' behind '+x.dep+'.':'.'),
+      why:{fin:'', acct:'', close:'The close cannot complete while this task is blocked.', rep:'', ctl:''},
+      srcOwn:x.own, go:"pickTab('acctclose')", lk:'View in Close'}));
+
+  _axE=out.map(e=>({...e, age:axDays(e.det), sc:0}));
+  _axE.forEach(e=>{ const s=axScore(e); e.sc=s.score; e.drivers=s.drivers; });
+  return _axE.sort((a,b)=>b.sc-a.sc);
+}
+
+/* Priority score. Every component is shown to the user in "why this is prioritized",
+   so the number is never a black box. Weights are stated here and nowhere else. */
+function axScore(e){
+  const d=[];
+  const mat=Math.min(40, (e.mis/5)*40);
+  if(e.mis) d.push({t:glB(e.mis)+' potential financial impact', v:Math.round(mat)});
+  const risk=(AX_RISK[e.risk]||AX_RISK.low).w;
+  d.push({t:(AX_RISK[e.risk]||{}).l+' risk', v:risk});
+  const age=Math.min(15, e.age/6);
+  if(e.age>0) d.push({t:e.age+' days unresolved', v:Math.round(age)});
+  const cl=(AX_CLOSE[e.close]||AX_CLOSE.none).w;
+  if(cl) d.push({t:(AX_CLOSE[e.close]||{}).l, v:cl});
+  const rec=AX_RECUR[e.id]?3:0;
+  if(rec) d.push({t:'Recurring — '+AX_RECUR[e.id].n+' prior periods', v:rec});
+  const ent=Math.min(2,(e.ents||1)-1);
+  if(ent) d.push({t:e.ents+' entities affected', v:ent});
+  return {score:Math.min(100,Math.round(mat+risk+age+cl+rec+ent)), drivers:d.sort((a,b)=>b.v-a.v)};
+}
+
+const axOpen=()=>axExceptions().filter(e=>e.st!=='closed'&&e.st!=='val');
+const axKpi=()=>{
+  const A=axExceptions(), open=axOpen();
+  return {A, open,
+    crit:open.filter(e=>e.risk==='crit'), high:open.filter(e=>e.risk==='crit'||e.risk==='high'),
+    material:open.filter(e=>e.mis>=1), blocking:open.filter(e=>e.close==='block'),
+    overdue:open.filter(e=>e.due&&axDays('2026-'+'06-30')>0&&e.age>30),
+    exposure:+open.reduce((s,e)=>s+e.amt,0).toFixed(2),
+    misstate:+open.reduce((s,e)=>s+e.mis,0).toFixed(2),
+    resolved:A.filter(e=>e.st==='val'||e.st==='closed'||e.st==='done'),
+    failed:A.filter(e=>e.val==='fail'),
+    untriaged:open.filter(e=>e.st==='det'), unowned:open.filter(e=>!e.own)};
+};
+
+// ---- page state ----
+let axSub='queue', axSel=null, axfEnt='all', axfCat='all', axfRisk='all', axfOwn='all',
+    axfClose='all', axfSt='all', axfAge='all', axSort='sc';
+function setAxSub(v){ axSub=v; axSel=null; renderAll(); navRepaint(); }
+function setAxSel(v){ axSel=v; renderAll(); }
+function axBack(){ axSel=null; renderAll(); }
+function setAxF(k,v){
+  if(k==='ent')axfEnt=v; else if(k==='cat')axfCat=v; else if(k==='risk')axfRisk=v;
+  else if(k==='own')axfOwn=v; else if(k==='close')axfClose=v; else if(k==='st')axfSt=v;
+  else if(k==='age')axfAge=v;
+  renderAll();
+}
+function axReset(){ axfEnt=axfCat=axfRisk=axfOwn=axfClose=axfSt=axfAge='all'; renderAll(); }
+function setAxSort(v){ axSort=v; renderAll(); }
+// KPI cards and category tiles are real controls: they filter the queue.
+function axDrill(k,v){ axSub='queue'; axSel=null; if(k) setAxF(k,v); else renderAll(); navRepaint(); }
+const axAgeBk=a=>a<=7?'0-7':a<=30?'8-30':a<=60?'31-60':a<=90?'61-90':'90+';
+const axFiltered=()=>[axfEnt,axfCat,axfRisk,axfOwn,axfClose,axfSt,axfAge].some(v=>v!=='all');
+function axScope(){
+  return axExceptions().filter(e=>
+    (axfEnt==='all'  ||e.ent===axfEnt) && (axfCat==='all'||e.cat===axfCat) &&
+    (axfRisk==='all' ||e.risk===axfRisk) && (axfOwn==='all'||e.own===axfOwn) &&
+    (axfClose==='all'||e.close===axfClose) && (axfSt==='all'||e.st===axfSt) &&
+    (axfAge==='all'  ||axAgeBk(e.age)===axfAge));
+}
+function axSorted(){
+  const r=[...axScope()];
+  if(axSort==='sc')   return r.sort((a,b)=>b.sc-a.sc);
+  if(axSort==='amt')  return r.sort((a,b)=>b.mis-a.mis);
+  if(axSort==='age')  return r.sort((a,b)=>b.age-a.age);
+  if(axSort==='ent')  return r.sort((a,b)=>a.ent.localeCompare(b.ent));
+  return r;
+}
+
+// ---- shared bits ----
+const axPill=(m,k)=>{const s=m[k]||{l:k,c:''};return `<span class="pill ${s.c}">${s.l}</span>`;};
+const axScoreChip=e=>`<span class="ax-score ${e.sc>=75?'p1':e.sc>=50?'p2':''}"
+  title="${e.drivers.map(d=>d.t+' (+'+d.v+')').join(' · ')}">${e.sc}</span>`;
+const axFact=`<span class="cc-tag meas">Detected</span>`;
+const axReco=`<span class="cc-tag est">Korvyn recommendation</span>`;
+
+function axFilterBar(){
+  const A=axExceptions();
+  const uniq=k=>[...new Set(A.map(e=>e[k]).filter(Boolean))].sort();
+  const sel=(k,cur,rows)=>`<select onchange="setAxF('${k}',this.value)">${rows.map(r=>
+    `<option value="${r[0]}" ${r[0]===cur?'selected':''}>${r[1]}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Entity</label>${sel('ent',axfEnt,[['all','All entities'],...uniq('ent').map(e=>[e,e])])}</div>
+    <div class="grp"><label>Source module</label>${sel('cat',axfCat,[['all','All modules'],...AX_CATS.map(c=>[c.id,c.nm])])}</div>
+    <div class="grp"><label>Risk</label>${sel('risk',axfRisk,[['all','All risk'],...Object.keys(AX_RISK).map(k=>[k,AX_RISK[k].l])])}</div>
+    <div class="grp"><label>Close impact</label>${sel('close',axfClose,[['all','All'],...Object.keys(AX_CLOSE).map(k=>[k,AX_CLOSE[k].l])])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',axfOwn,[['all','All owners'],...uniq('own').map(o=>[o,o])])}</div>
+    <div class="grp"><label>Status</label>${sel('st',axfSt,[['all','All statuses'],...Object.keys(AX_ST).map(k=>[k,AX_ST[k]])])}</div>
+    <div class="grp"><label>Aging</label>${sel('age',axfAge,[['all','All ages'],['0-7','0-7 days'],['8-30','8-30 days'],['31-60','31-60 days'],['61-90','61-90 days'],['90+','90+ days']])}</div>
+    <div class="grp"><label>Period</label><select disabled><option>Jun 2026</option></select></div>
+    ${axFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="axReset()">Reset</button></div>`:''}
+  </div></div>`;
+}
+
+// ---------------- 1 + 2 + 3. Health, categories, priority queue ----------------
+function axvQueue(){
+  const K=axKpi(), rows=axSorted();
+  const kpi=(cls,chip,ic,lbl,val,d,go)=>`<div class="kpi ${cls} row-click" onclick="${go}">
+    <div class="kpi-ic"><span class="kpi-chip ${chip}">${glIc(ic)}</span>
+      <div><div class="k" style="margin:0">${lbl}</div><div class="v">${val}</div></div></div>
+    <div class="d">${d}</div></div>`;
+  let o=`<div class="kpis">
+    ${kpi('lenshi','chip-blue','M8 2.5L14.5 13.5h-13zM8 6.5v3','Open exceptions',K.open.length,
+      'across '+new Set(K.open.map(e=>e.cat)).size+' modules',"axDrill()")}
+    ${kpi(K.crit.length?'flag':'good','chip-amber','M8 2.5L14.5 13.5h-13zM8 6.5v3','Critical',K.crit.length,
+      'highest risk band',"axDrill('risk','crit')")}
+    ${kpi('warn','chip-amber','M8 14A6 6 0 108 2a6 6 0 000 12z','High risk',K.high.length,
+      'critical or high',"axDrill('risk','high')")}
+    ${kpi('warn','chip-purple','M3 13V6M6.5 13V3M10 13V8M13.5 13v-4','Material impact',K.material.length,
+      glB(K.misstate)+' potential impact',"axDrill()")}
+    ${kpi(K.blocking.length?'flag':'good','chip-amber','M2 8h12M8 2v12','Blocking close',K.blocking.length,
+      'cannot close until cleared',"axDrill('close','block')")}
+    ${kpi('warn','chip-blue','M8 4v4l3 2','Not yet triaged',K.untriaged.length,
+      'detected, no workflow started',"axDrill('st','det')")}
+  </div>`;
+
+  const prior=AX_TREND[AX_TREND.length-2];
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Total financial exposure</div><div class="sv">${glB(K.exposure)}</div>
+      <div class="sd">balance or transaction amount in scope</div></div>
+    <div class="stat"><div class="sl">Potential financial impact</div><div class="sv">${glB(K.misstate)}</div>
+      <div class="sd">the part that could misstate</div></div>
+    <div class="stat"><div class="sl">Resolved this period</div><div class="sv">${K.resolved.length}</div>
+      <div class="sd">vs ${prior.r} last period
+        <span class="delta ${K.resolved.length>=prior.r?'up':'dn'}">${K.resolved.length>=prior.r?'&#9650;':'&#9660;'}</span></div></div>
+    <div class="stat"><div class="sl">Failed validation</div>
+      <div class="sv ${K.failed.length?'neg':''}">${K.failed.length}</div>
+      <div class="sd">marked resolved, did not verify</div></div>
+    <div class="stat"><div class="sl">Overdue</div>
+      <div class="sv ${K.overdue.length?'neg':''}">${K.overdue.length}</div>
+      <div class="sd">open beyond 30 days</div></div>
+  </div>`;
+
+  // categories
+  o+=`<div class="card"><h2>By source module<span class="note">click to filter the queue</span></h2>
+    <div class="ax-cats">
+    ${AX_CATS.map(c=>{const inC=K.open.filter(e=>e.cat===c.id);
+      if(!inC.length) return '';
+      const blk=inC.filter(e=>e.close==='block').length, hi=inC.filter(e=>e.risk==='crit'||e.risk==='high').length;
+      return `<div class="ax-cat ${axfCat===c.id?'on':''}" onclick="axDrill('cat','${axfCat===c.id?'all':c.id}')">
+        <div class="ax-cat-n">${c.nm}</div>
+        <div class="ax-cat-v">${inC.length}</div>
+        <div class="ax-cat-d">${glB(+inC.reduce((s,e)=>s+e.mis,0).toFixed(2))} impact</div>
+        <div class="ax-cat-f">${hi?`<span class="ic-st"><span class="ic-dot warn"></span>${hi} high</span>`:''}
+          ${blk?`<span class="ic-st"><span class="ic-dot bad"></span>${blk} blocking</span>`:''}</div></div>`;}).join('')}
+    </div></div>`;
+
+  o+=axFilterBar();
+
+  const sortBtn=(k,l)=>`<button class="${axSort===k?'on':''}" onclick="setAxSort('${k}')">${l}</button>`;
+  o+=`<div class="card"><h2>Priority queue<span class="note">${rows.length} of ${K.A.length}</span>
+      ${axFiltered()?`<span class="cardlink" onclick="axReset()">Clear filters</span>`:''}</h2>
+    <div class="subhead">Ranked by Korvyn priority score — materiality &times; risk &times; aging &times; close
+      impact, plus recurrence and entity spread. Hover a score, or open an exception, to see exactly
+      what drove it. Not all exceptions are equal and this queue does not pretend they are.</div>
+    <div class="segbar">${sortBtn('sc','Priority')}${sortBtn('amt','Financial impact')}${sortBtn('age','Age')}${sortBtn('ent','Entity')}</div>
+    <table class="tbl"><thead><tr><th style="width:46px">Score</th><th>Exception</th><th>Source</th>
+      <th>Entity</th><th>Account / object</th><th class="num">Exposure</th><th class="num">Potential impact</th>
+      <th>Risk</th><th>Age</th><th>Close</th><th>Owner</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(e=>`<tr class="row-click" onclick="setAxSel('${e.id}')">
+      <td>${axScoreChip(e)}</td>
+      <td><b>${e.t}</b>${e.recur?`<span class="pill sm" style="margin-left:6px">recurring</span>`:''}
+        ${e.val==='fail'?`<span class="pill flag sm" style="margin-left:6px">failed validation</span>`:''}</td>
+      <td class="ic-mini">${AX_CATN[e.cat]}</td>
+      <td class="ic-mini">${e.ent}</td>
+      <td class="ic-mini">${e.acct}</td>
+      <td class="num">${e.amt?glB(e.amt):'&#8211;'}</td>
+      <td class="num" ${e.mis>=1?'style="color:var(--neg);font-weight:600"':''}>${e.mis?glB(e.mis):'&#8211;'}</td>
+      <td>${axPill(AX_RISK,e.risk)}</td>
+      <td ${e.age>90?'style="color:var(--neg);font-weight:600"':''}>${e.age} d</td>
+      <td>${e.close==='none'?'<span class="ic-mini">&#8211;</span>':axPill(AX_CLOSE,e.close)}</td>
+      <td class="ic-mini">${e.own||'<span style="color:var(--neg)">unassigned</span>'}</td>
+      <td><span class="pill ${AX_STC[e.st]} sm">${AX_ST[e.st]}</span></td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="12" class="note">No exceptions match the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Exceptions aggregate from the modules that detected them — this page says what
+      needs attention; the source module holds the detail.</div></div>`;
+  return o;
+}
+
+// ---------------- 4 + 5 + 6. Exception detail ----------------
+function axvDetail(){
+  const e=axExceptions().find(x=>x.id===axSel); if(!e) return '';
+  const cat=AX_CATS.find(c=>c.id===e.cat)||{};
+  const life=['det','tri','asg','inv','res','done','val','closed'];
+  const at=life.indexOf(e.st);
+  let o=`<div class="gl-hd"><div class="grow">
+      <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="axBack()">&#8592; Priority queue</span></div>
+      <h1>${e.t}</h1>
+      <div class="sub">${e.id} &#183; ${AX_CATN[e.cat]} &#183; ${e.ent} &#183; detected ${e.det}</div>
+    </div>${glExport}</div>`;
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Priority</div><div class="sv">${e.sc}<span style="font-size:13px;color:var(--hint)">/100</span></div>
+      <div class="sd">rank ${axExceptions().findIndex(x=>x.id===e.id)+1} of ${axExceptions().length}</div></div>
+    <div class="stat"><div class="sl">Risk</div><div class="sv" style="font-size:15px;padding-top:4px">${axPill(AX_RISK,e.risk)}</div>
+      <div class="sd">${e.mis>=1?'material':'below materiality'}</div></div>
+    <div class="stat"><div class="sl">Potential impact</div><div class="sv">${e.mis?glB(e.mis):'&#8211;'}</div>
+      <div class="sd">exposure ${e.amt?glB(e.amt):'none'}</div></div>
+    <div class="stat"><div class="sl">Age</div><div class="sv ${e.age>90?'neg':''}">${e.age} d</div>
+      <div class="sd">${e.due?'due '+e.due:'no target date'}</div></div>
+    <div class="stat"><div class="sl">Close impact</div>
+      <div class="sv" style="font-size:15px;padding-top:4px">${axPill(AX_CLOSE,e.close)}</div>
+      <div class="sd">Jun 2026 close</div></div>
+    <div class="stat"><div class="sl">Status</div>
+      <div class="sv" style="font-size:15px;padding-top:4px">${
+        // a resolution that did not verify must never read as clean
+        e.val==='fail' ? '<span class="pill flag">Resolved &#183; failed validation</span>'
+                       : `<span class="pill ${AX_STC[e.st]}">${AX_ST[e.st]}</span>`}</div>
+      <div class="sd">${e.own||'unassigned'}</div></div>
+  </div>`;
+  if(e.val==='fail') o+=`<div class="card" style="border-color:var(--neg-line,var(--line))">
+    <h2>Resolution did not verify</h2>
+    <div class="subhead" style="margin:0">This exception was marked resolved on
+      ${(e.aud.find(a=>/resolved/i.test(a.act))||{}).ts||'—'}, but Korvyn re-checked the source and the
+      condition is still present. It stays open and is ranked as though it had never been resolved.
+      Marking something done does not clear it here.</div></div>`;
+
+  // why prioritized
+  o+=`<div class="card"><h2>Why this is prioritized ${axFact}<span class="note">score ${e.sc} / 100</span></h2>
+    <div class="subhead">The score is the sum of these components. Nothing is hidden and no weighting is
+      applied that is not listed here.</div>
+    <table class="tbl"><tbody>
+    ${e.drivers.map(d=>`<tr><td>${d.t}</td>
+      <td style="width:180px"><div class="progline"><span class="mini-bar" style="min-width:90px"><i style="width:${d.v/40*100}%"></i></span></div></td>
+      <td class="num" style="width:60px"><b>+${d.v}</b></td></tr>`).join('')}
+    <tr style="font-weight:600"><td>Priority score</td><td></td><td class="num">${e.sc}</td></tr>
+    </tbody></table></div>`;
+
+  // what happened / why it matters
+  const why=Object.entries({fin:'Financial impact',acct:'Accounting impact',close:'Close impact',
+    rep:'Reporting impact',ctl:'Control impact'}).filter(([k])=>e.why[k]);
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>What happened ${axFact}</h2>
+      <div class="subhead" style="margin:0">${e.what}</div></div>
+    <div class="card" style="margin:0"><h2>Why it matters</h2>
+      <table class="tbl"><tbody>
+      ${why.map(([k,l])=>`<tr><td class="note" style="margin:0;width:150px">${l}</td><td>${e.why[k]}</td></tr>`).join('')}
+      </tbody></table>
+      ${why.length?'':'<div class="subhead" style="margin:0">No material impact identified.</div>'}</div>
+  </div>`;
+
+  // source + root cause + recommendation
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Source ${axFact}</h2>
+      <table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0">Source module</td><td>${AX_CATN[e.cat]}</td></tr>
+        <tr><td class="note" style="margin:0">Source system</td><td>${e.srcSys}</td></tr>
+        <tr><td class="note" style="margin:0">Entity</td><td>${e.ent}</td></tr>
+        <tr><td class="note" style="margin:0">Account</td><td>${e.acct}</td></tr>
+        <tr><td class="note" style="margin:0">Financial object</td><td>${e.obj}</td></tr>
+        <tr><td class="note" style="margin:0">Period</td><td>${e.period}</td></tr>
+        <tr><td class="note" style="margin:0">Detected</td><td>${e.det}</td></tr>
+      </tbody></table>
+      <div class="cardfoot"><span class="extlink" onclick="${e.go}">${e.lk}</span>
+        ${erpLink(e.obj,e.srcSys)}</div></div>
+
+    <div class="card" style="margin:0"><h2>Root cause &amp; next action</h2>
+      <table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0;width:150px">Root cause</td>
+          <td>${e.rc?`<span class="pill info">${AX_RC[e.rc]}</span>`:'<span class="note" style="margin:0">Not yet classified</span>'}</td></tr>
+        <tr><td class="note" style="margin:0">Recurrence</td>
+          <td>${e.recur?`<b>${e.recur.n} prior periods</b> — ${e.recur.proc}`:'First occurrence'}</td></tr>
+        <tr><td class="note" style="margin:0">Validation</td>
+          <td>${e.val?axPill(AX_VAL,e.val):'<span class="note" style="margin:0">Not yet resolved</span>'}</td></tr>
+      </tbody></table>
+      <div class="subhead" style="margin-top:12px">Recommended action ${axReco}</div>
+      <div class="note" style="margin:0">${
+        e.val==='fail' ? 'Reopen. The resolution did not verify against source data — the underlying condition is still present.'
+      : e.close==='block' ? 'Clear before cut-off. This is blocking the close, so it outranks larger but non-blocking items.'
+      : e.recur ? 'Fix the process, not the instance. This pattern has recurred '+e.recur.n+' periods running; '+e.recur.owner+' owns the process.'
+      : !e.own ? 'Assign an owner. This exception has not been triaged.'
+      : 'Continue investigation and record a root cause so recurrence can be tracked.'}</div>
+      <div class="cardfoot">Korvyn recommends; it does not act. Nothing here posts to the ERP.</div></div>
+  </div>`;
+
+  // lifecycle
+  o+=`<div class="card"><h2>Lifecycle</h2>
+    <div class="ic-spine">
+      ${life.map((k,i)=>`<div class="ic-stg ${i<at?'done':i===at?'open':''}"
+        style="${i>at?'opacity:.5':''}">
+        <div class="sl">${i+1}</div><div class="sv">${AX_ST[k]}</div></div>`).join('')}
+    </div>
+    <div class="statrow" style="margin:16px 0 0">
+      <div class="stat"><div class="sl">Owner</div><div class="sv" style="font-size:14px;padding-top:4px">${e.own||'&#8211;'}</div>
+        <div class="sd">${e.by?'assigned by '+e.by:'unassigned'}</div></div>
+      <div class="stat"><div class="sl">Assigned</div><div class="sv" style="font-size:14px;padding-top:4px">${e.at||'&#8211;'}</div>
+        <div class="sd">created ${e.det}</div></div>
+      <div class="stat"><div class="sl">Target resolution</div><div class="sv" style="font-size:14px;padding-top:4px">${e.due||'&#8211;'}</div>
+        <div class="sd">${e.due?(e.age>60?'at risk':'on track'):'no SLA set'}</div></div>
+      <div class="stat"><div class="sl">Last activity</div>
+        <div class="sv" style="font-size:14px;padding-top:4px">${e.aud.length?e.aud[e.aud.length-1].ts.split(' ')[0]+' '+e.aud[e.aud.length-1].ts.split(' ')[1]:'&#8211;'}</div>
+        <div class="sd">${e.aud.length} audit entries</div></div>
+    </div></div>`;
+
+  // comments + audit
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Comments<span class="note">${e.cm.length}</span></h2>
+      ${e.cm.length?e.cm.map(c=>`<div class="kv" style="align-items:flex-start">
+        <span class="avatar">${c.who.split(' ').map(x=>x[0]).join('').slice(0,2)}</span>
+        <div><div style="font-size:12px"><b>${c.who}</b> <span class="ic-mini">${c.ts}</span></div>
+          <div style="font-size:12.5px;margin-top:3px">${c.t}</div></div></div>`).join('')
+        :'<div class="subhead" style="margin:0">No comments yet.</div>'}</div>
+    <div class="card" style="margin:0"><h2>Audit trail<span class="note">${e.aud.length}</span></h2>
+      <table class="tbl"><tbody>
+      ${e.aud.map(a=>`<tr><td class="ic-mini" style="white-space:nowrap;width:150px">${a.ts}</td>
+        <td>${a.who==='Korvyn'?'<span class="pill info sm">Korvyn</span>':`<b>${a.who}</b>`}</td>
+        <td>${a.act}</td></tr>`).join('')}
+      </tbody></table></div>
+  </div>`;
+  return o;
+}
+
+// ---------------- 7. Financial exposure ----------------
+function axvExposure(){
+  const open=axScope().filter(e=>e.st!=='closed'&&e.st!=='val');
+  const done=axExceptions().filter(e=>e.st==='val'||e.st==='closed');
+  const grp=(key,label)=>{
+    const m={};
+    open.forEach(e=>{ const k=typeof key==='function'?key(e):e[key];
+      m[k]=m[k]||{n:0,amt:0,mis:0}; m[k].n++; m[k].amt+=e.amt; m[k].mis+=e.mis; });
+    return `<div class="card"><h2>${label}</h2>
+      <table class="tbl"><thead><tr><th>${label}</th><th class="num">Open</th>
+        <th class="num">Gross exposure</th><th class="num">Potential impact</th><th>Share of impact</th></tr></thead><tbody>
+      ${Object.entries(m).sort((a,b)=>b[1].mis-a[1].mis).map(([k,v])=>{
+        const tot=open.reduce((s,e)=>s+e.mis,0);
+        return `<tr><td><b>${AX_CATN[k]||k}</b></td><td class="num">${v.n}</td>
+          <td class="num">${v.amt?glB(+v.amt.toFixed(2)):'&#8211;'}</td>
+          <td class="num">${v.mis?glB(+v.mis.toFixed(2)):'&#8211;'}</td>
+          <td style="width:170px">${csxBar(tot?Math.round(v.mis/tot*100):0,90)}</td></tr>`;}).join('')}
+      </tbody></table></div>`;
+  };
+  const gross=+open.reduce((s,e)=>s+e.amt,0).toFixed(2);
+  const mis=+open.reduce((s,e)=>s+e.mis,0).toFixed(2);
+  const resolved=+done.reduce((s,e)=>s+e.mis,0).toFixed(2);
+  let o=axFilterBar();
+  o+=`<div class="card"><h2>Financial exposure<span class="note">${open.length} open exceptions</span></h2>
+    <div class="subhead"><b>Gross exposure is not misstatement.</b> Gross is the balance or transaction
+      amount an exception touches; potential impact is the part that could actually misstate the financial
+      statements. An overdue reconciliation on a $78M payable balance is a control issue, not a $78M error.</div>
+    <div class="statrow" style="margin-bottom:0">
+      <div class="stat"><div class="sl">Gross exposure</div><div class="sv">${glB(gross)}</div>
+        <div class="sd">balances and transactions touched</div></div>
+      <div class="stat"><div class="sl">Potential misstatement</div><div class="sv ${mis>=3?'neg':''}">${glB(mis)}</div>
+        <div class="sd">${gross?Math.round(mis/gross*100):0}% of gross</div></div>
+      <div class="stat"><div class="sl">Resolved exposure</div><div class="sv">${glB(resolved)}</div>
+        <div class="sd">${done.length} closed or validated</div></div>
+      <div class="stat"><div class="sl">Remaining exposure</div><div class="sv">${glB(mis)}</div>
+        <div class="sd">still open</div></div>
+    </div></div>`;
+  o+=`<div class="grid2gl">${grp('ent','By entity')}${grp('cat','By source module')}</div>`;
+  o+=grp(e=>(AX_RISK[e.risk]||{}).l+' risk','By risk band');
+  return o;
+}
+
+// ---------------- 8. Aging ----------------
+function axvAging(){
+  const open=axScope().filter(e=>e.st!=='closed'&&e.st!=='val');
+  const bk=['0-7','8-30','31-60','61-90','90+'];
+  const col={'0-7':'var(--pos)','8-30':'var(--accent)','31-60':'var(--warn)','61-90':'var(--warn)','90+':'var(--neg)'};
+  const inB=b=>open.filter(e=>axAgeBk(e.age)===b);
+  const tot=open.reduce((s,e)=>s+e.mis,0);
+  let o=axFilterBar();
+  o+=`<div class="card"><h2>Exception aging<span class="note">${open.length} open &#183; as of Jun 30, 2026</span></h2>
+    <div class="subhead">Amber marks items needing attention; red is reserved for exceptions past 90 days.
+      Items that roll from period to period are flagged as recurring — those are process problems, not
+      backlog.</div>
+    <div class="ic-age" style="margin-bottom:14px">
+      ${bk.map(b=>{const v=inB(b).reduce((s,e)=>s+e.mis,0);
+        return v?`<i style="width:${tot?v/tot*100:0}%;background:${col[b]}" title="${b} days"></i>`:'';}).join('')}
+    </div>
+    <div class="statrow" style="margin-bottom:0">
+      ${bk.map(b=>{const r=inB(b), crit=r.filter(e=>e.risk==='crit').length;
+        return `<div class="stat row-click" onclick="setAxF('age','${axfAge===b?'all':b}')">
+          <div class="sl"><span class="ic-dot" style="background:${col[b]}"></span>${b} days</div>
+          <div class="sv" ${b==='90+'&&r.length?'style="color:var(--neg)"':''}>${r.length}</div>
+          <div class="sd">${glB(+r.reduce((s,e)=>s+e.mis,0).toFixed(2))}${crit?' &#183; '+crit+' critical':''}</div></div>`;}).join('')}
+    </div></div>`;
+  o+=`<div class="card"><h2>Oldest first<span class="note">${open.length} shown</span></h2>
+    <table class="tbl"><thead><tr><th>Age</th><th>Exception</th><th>Source</th><th>Entity</th>
+      <th class="num">Potential impact</th><th>Risk</th><th>Owner</th><th>Rolls over</th></tr></thead><tbody>
+    ${[...open].sort((a,b)=>b.age-a.age).map(e=>`<tr class="row-click" onclick="setAxSel('${e.id}')">
+      <td ${e.age>90?'style="color:var(--neg);font-weight:600"':''}>${e.age} d</td>
+      <td><b>${e.t}</b></td><td class="ic-mini">${AX_CATN[e.cat]}</td><td class="ic-mini">${e.ent}</td>
+      <td class="num">${e.mis?glB(e.mis):'&#8211;'}</td><td>${axPill(AX_RISK,e.risk)}</td>
+      <td class="ic-mini">${e.own||'<span style="color:var(--neg)">unassigned</span>'}</td>
+      <td>${e.recur?`<span class="pill ready sm">${e.recur.n} periods</span>`:'<span class="ic-mini">no</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  return o;
+}
+
+// ---------------- 9. Recurring exceptions ----------------
+function axvRecur(){
+  const A=axExceptions().filter(e=>e.recur);
+  let o=`<div class="card"><h2>Recurring exceptions<span class="note">${A.length} patterns</span></h2>
+    <div class="subhead">Issues that keep coming back. Fixing the instance clears this period; fixing the
+      process stops it recurring. These are ranked by how often they have repeated, not by size — a small
+      exception on its fifth period is a systemic problem.</div>
+    <table class="tbl"><thead><tr><th>Pattern</th><th class="num">Occurrences</th><th class="num">Entities</th>
+      <th class="num">Exposure</th><th>First detected</th><th>Most recent</th><th>Root cause</th>
+      <th>Process owner</th><th></th></tr></thead><tbody>
+    ${A.sort((a,b)=>b.recur.n-a.recur.n).map(e=>`<tr class="row-click" onclick="setAxSel('${e.id}')">
+      <td><b>${e.recur.proc}</b><div class="note" style="margin:0">${e.t}</div></td>
+      <td class="num"><b>${e.recur.n}</b></td>
+      <td class="num">${e.recur.ents}</td>
+      <td class="num">${e.mis?glB(e.mis):'&#8211;'}</td>
+      <td class="ic-mini">${e.recur.first}</td>
+      <td class="ic-mini">Jun 2026</td>
+      <td>${e.rc?AX_RC[e.rc]:'<span class="note" style="margin:0">unclassified</span>'}</td>
+      <td class="ic-mini">${e.recur.owner}</td>
+      <td>${e.recur.n>=3?'<span class="pill flag sm">Requires process improvement</span>':'<span class="extlink">Flag</span>'}</td></tr>`).join('')}
+    ${A.length?'':'<tr><td colspan="9" class="note">No recurring patterns detected.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">${A.filter(e=>e.recur.n>=3).length} pattern(s) have recurred three or more periods
+      and are flagged for process improvement</div></div>`;
+  return o;
+}
+
+// ---------------- 10. Close impact ----------------
+function axvClose(){
+  const open=axScope().filter(e=>e.st!=='closed'&&e.st!=='val');
+  const band=k=>open.filter(e=>e.close===k);
+  let o=`<div class="statrow">
+    ${['block','risk','monitor','none'].map(k=>{const r=band(k);
+      return `<div class="stat row-click" onclick="setAxF('close','${axfClose===k?'all':k}')">
+        <div class="sl"><span class="ic-dot ${k==='block'?'bad':k==='risk'?'warn':k==='monitor'?'idle':'ok'}"></span>${AX_CLOSE[k].l}</div>
+        <div class="sv" ${k==='block'&&r.length?'style="color:var(--neg)"':''}>${r.length}</div>
+        <div class="sd">${glB(+r.reduce((s,e)=>s+e.mis,0).toFixed(2))} potential impact</div></div>`;}).join('')}
+  </div>`;
+  o+=`<div class="card"><h2>Close impact
+      <span class="cardlink" onclick="pickTab('acctclose')">Close</span></h2>
+    <div class="subhead">What the Jun 2026 close is actually waiting on. Continuous Close tracks readiness
+      day to day; this is the exception view of the same constraint.</div>
+    <table class="tbl"><thead><tr><th>Exception</th><th>Entity</th><th>Workstream</th>
+      <th class="num">Potential impact</th><th>Owner</th><th>Expected resolution</th><th>Close impact</th></tr></thead><tbody>
+    ${[...open].filter(e=>e.close!=='none').sort((a,b)=>(AX_CLOSE[b.close].w-AX_CLOSE[a.close].w)||b.mis-a.mis)
+      .map(e=>`<tr class="row-click" onclick="setAxSel('${e.id}')">
+      <td><b>${e.t}</b></td><td class="ic-mini">${e.ent}</td><td>${AX_CATN[e.cat]}</td>
+      <td class="num">${e.mis?glB(e.mis):'&#8211;'}</td>
+      <td class="ic-mini">${e.own||'<span style="color:var(--neg)">unassigned</span>'}</td>
+      <td class="ic-mini">${e.due||'not set'}</td>
+      <td>${axPill(AX_CLOSE,e.close)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot"><span class="extlink" onclick="pickTab('contclose')">Continuous close readiness</span>
+      <span class="extlink" onclick="pickTab('acctclose')">Formal close</span></div></div>`;
+  return o;
+}
+
+// ---------------- 11. Resolution validation ----------------
+function axvValid(){
+  const A=axExceptions().filter(e=>['done','val','closed'].includes(e.st)||e.val);
+  let o=`<div class="card"><h2>Resolution validation</h2>
+    <div class="subhead">An exception does not disappear because somebody marked it resolved. Korvyn
+      re-checks the underlying source data and only clears the exception if the condition is genuinely
+      gone. A resolution that does not verify comes back as <b>Failed validation</b>.</div>
+    <div class="statrow" style="margin-bottom:0">
+      ${Object.keys(AX_VAL).map(k=>{const r=A.filter(e=>e.val===k);
+        return `<div class="stat"><div class="sl">${AX_VAL[k].l}</div>
+          <div class="sv" ${k==='fail'&&r.length?'style="color:var(--neg)"':''}>${r.length}</div>
+          <div class="sd">exceptions</div></div>`;}).join('')}
+    </div></div>`;
+  o+=`<div class="card"><h2>Validation results<span class="note">${A.length} resolved or in validation</span></h2>
+    <table class="tbl"><thead><tr><th>Exception</th><th>Entity</th><th>Resolved by</th>
+      <th>What Korvyn re-checked</th><th class="num">Potential impact</th><th>Validation</th></tr></thead><tbody>
+    ${A.map(e=>{const chk={recs:'Does the reconciliation now balance?', ic:'Is the intercompany difference gone?',
+        cons:'Is the consolidation blocker cleared?', fa:'Has the asset been transferred out of CIP?',
+        data:'Is the feed current through the close date?', cc:'Does the validated work still hold?',
+        ap:'Is the close task unblocked?', gl:'Does the GL agree?'}[e.cat]||'Does the source condition still exist?';
+      return `<tr class="row-click" onclick="setAxSel('${e.id}')">
+      <td><b>${e.t}</b></td><td class="ic-mini">${e.ent}</td><td class="ic-mini">${e.own||'&#8211;'}</td>
+      <td class="ic-mini">${chk}</td>
+      <td class="num">${e.mis?glB(e.mis):'&#8211;'}</td>
+      <td>${e.val?axPill(AX_VAL,e.val):'<span class="pill ready">Pending validation</span>'}</td></tr>`;}).join('')}
+    ${A.length?'':'<tr><td colspan="6" class="note">Nothing has been marked resolved yet.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Validation reads source data — it is a check, not a status field somebody sets.</div></div>`;
+  return o;
+}
+
+// ---------------- 12. Trend ----------------
+function axvTrend(){
+  const K=axKpi();
+  // the final period is live: opened = current open count, resolved = current resolved count
+  const T=AX_TREND.map((p,i)=>i===AX_TREND.length-1?{...p,o:K.open.length,r:K.resolved.length}:p);
+  let rem=0; const series=T.map(p=>{ rem=Math.max(0,rem+p.o-p.r); return {...p,rem}; });
+  const W=460,H=150,PAD=6, maxV=Math.max(...series.map(s=>Math.max(s.o,s.r,s.rem)))||1;
+  const x=i=>PAD+i/(series.length-1)*(W-PAD*2), y=v=>H-PAD-(v/maxV)*(H-PAD*2);
+  const path=k=>series.map((s,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(s[k]).toFixed(1)).join(' ');
+  const last=series[series.length-1], prev=series[series.length-2];
+  const dir=last.rem-prev.rem;
+  return `<div class="card"><h2>Exception trend<span class="note">opened &#183; resolved &#183; remaining</span></h2>
+    <div class="subhead">Whether the backlog is improving or deteriorating. Remaining is the running
+      balance of opened less resolved — if it climbs while resolution holds steady, detection is
+      outpacing the team.</div>
+    <div class="cc-trend">
+      <svg viewBox="0 0 ${W} ${H}" class="cc-spark" preserveAspectRatio="none">
+        ${[0.25,0.5,0.75].map(g=>`<line x1="${PAD}" x2="${W-PAD}" y1="${y(maxV*g)}" y2="${y(maxV*g)}" stroke="var(--line)" stroke-width="1"/>`).join('')}
+        <path d="${path('o')}" fill="none" stroke="var(--warn)" stroke-width="2"/>
+        <path d="${path('r')}" fill="none" stroke="var(--pos)" stroke-width="2"/>
+        <path d="${path('rem')}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        ${series.map((s,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(s.rem).toFixed(1)}" r="2.6" fill="var(--accent)"/>`).join('')}
+      </svg>
+      <div class="cc-trend-side">
+        ${glLegend([['Opened',last.o,'var(--warn)'],['Resolved',last.r,'var(--pos)'],['Remaining',last.rem,'var(--accent)']])}
+        <div class="stat" style="margin-top:10px">
+          <div class="sl">Backlog direction</div>
+          <div class="sv" style="color:${dir<=0?'var(--pos)':'var(--neg)'}">${dir>0?'+':''}${dir}</div>
+          <div class="sd">${dir<=0?'improving vs last period':'deteriorating vs last period'}</div></div>
+      </div></div>
+    <div class="cardfoot">Feb through Jul 2026 &#183; the final point is live
+      <span class="cardlink" onclick="setAxSub('queue')">Priority queue</span></div></div>
+    <div class="card"><h2>By period</h2>
+    <table class="tbl"><thead><tr><th>Period</th><th class="num">Opened</th><th class="num">Resolved</th>
+      <th class="num">Net</th><th class="num">Remaining</th><th>Direction</th></tr></thead><tbody>
+    ${series.map(s=>`<tr><td><b>${s.p} 2026</b></td><td class="num">${s.o}</td><td class="num">${s.r}</td>
+      <td class="num" style="color:${s.o-s.r<=0?'var(--pos)':'var(--neg)'}">${s.o-s.r>0?'+':''}${s.o-s.r}</td>
+      <td class="num">${s.rem}</td>
+      <td>${s.o-s.r<=0?'<span class="ic-st"><span class="ic-dot ok"></span>improving</span>':'<span class="ic-st"><span class="ic-dot warn"></span>growing</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function renderAcctExcep(el){
+  if(axSel){ el.innerHTML=axvDetail(); return; }
+  let o=glHead('Exceptions',
+    'Accounting exception command centre — what needs attention, why it matters, and what it is worth, ranked across every module.',
+    glActions);
+  o+=({queue:axvQueue, exposure:axvExposure, aging:axvAging, recur:axvRecur,
+       close:axvClose, valid:axvValid, trend:axvTrend}[axSub]||axvQueue)();
+  el.innerHTML=o;
+}
+
 function renderExceptions(){
   const el=$('view-exceptions'); if(!el)return;
+  // Home and Accounting share this tab id. Accounting gets the exception command centre;
+  // Home keeps its original control-test view below, unchanged.
+  if(LENS==='ledger'){ renderAcctExcep(el); return; }
   const ins=cpInsights();
   const hi=ins.filter(i=>i.sev==='neg').length;
   let o=`<div class="kpis">
@@ -10382,6 +11144,17 @@ const TAB_PIPELINES={
     {id:'pull',     label:'Pull forward',   n:()=>ccxPullForward().filter(x=>x.earliest==='Now').length, q:false},
     {id:'block',    label:'Blockers',       n:()=>ccxBlockers().length, q:true},
   ], get:()=>ccSub, set:'setCcSub' },
+  // Lens-scoped: only Accounting's Exceptions gets a pipeline. Home > Exceptions,
+  // which shares this tab id, keeps no sub-nav and is untouched.
+  'ledger:exceptions':{ steps:[
+    {id:'queue',    label:'Priority queue', n:()=>axKpi().open.length, q:false},
+    {id:'exposure', label:'Financial exposure'},
+    {id:'aging',    label:'Aging',          n:()=>axOpen().filter(e=>e.age>90).length, q:true},
+    {id:'recur',    label:'Recurring',      n:()=>axExceptions().filter(e=>e.recur).length, q:false},
+    {id:'close',    label:'Close impact',   n:()=>axKpi().blocking.length, q:true},
+    {id:'valid',    label:'Validation',     n:()=>axKpi().failed.length, q:true},
+    {id:'trend',    label:'Trend'},
+  ], get:()=>axSub, set:'setAxSub' },
 };
 
 function paintRailNav(){
@@ -10405,7 +11178,9 @@ function paintRailNav(){
   el.style.display='none';   // section tabs now render in the left rail
 
   // Row 2: the active tab's sub-views (if any).
-  const pipe=TAB_PIPELINES[TAB];
+  // A tab id can be shared by two lenses (Home and Accounting both use `exceptions`).
+  // A lens-scoped key lets one of them diverge without touching the other.
+  const pipe=TAB_PIPELINES[LENS+':'+TAB]||TAB_PIPELINES[TAB];
   if(sub){
     if(pipe){
       const cur=pipe.get();
@@ -10441,6 +11216,8 @@ const VIEW_META={
   mywork:{t:'My Work',c:'Everything assigned to me across modules',depth:3},
   approvals:{t:'Approvals',c:'Sign-off queue and audit trail',depth:3},
   exceptions:{t:'Exceptions',c:'Control tests failing right now',depth:3},
+  // Lens-scoped override — Accounting's Exceptions is a different page on the same tab id.
+  'ledger:exceptions':{t:'Exceptions',c:'Priority queue · exposure · aging · recurrence · validation',depth:4},
   activity:{t:'Activity',c:'Chronological trail across all modules',depth:2},
   documents:{t:'Documents',c:'Evidence attached to open work',depth:2},
   dataroom:{t:'Data Room',c:'Locked periods and retained evidence',depth:3},
@@ -10487,7 +11264,7 @@ const VIEW_META={
   filing:{t:'Filing view',c:'10-Q / 10-K presentation · comparative periods · consolidated',depth:5},
 };
 function paintTopbar(){
-  const m=VIEW_META[TAB]||{t:'',c:'',depth:5};
+  const m=VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]||{t:'',c:'',depth:5};
   const ribbon=Array.from({length:5},(_,i)=>`<i class="${i<m.depth?'lit':''}"></i>`).join('');
   const tt=document.getElementById('tbTitle');
   if(tt)tt.innerHTML=`${m.t} <span class="spine-ribbon" title="Provenance depth — spine edges lit for this view">${ribbon}</span>`;
@@ -10954,6 +11731,33 @@ const CP_CARDS={
                pull:['pull','now','today'], block:['stop','least','cons'] };
     return (by[ccSub]||by.now).map(k=>base[k]);
   },
+  /* Exceptions is shared with Home. Returning nothing outside the ledger lens falls through
+     to the default prompts, so Home > Exceptions is unaffected. */
+  exceptions: ()=>{
+    if(LENS!=='ledger') return null;
+    const K=axKpi(), top=axExceptions()[0];
+    const byEnt={}; K.crit.forEach(e=>byEnt[e.ent]=(byEnt[e.ent]||0)+1);
+    const worstEnt=Object.entries(byEnt).sort((a,b)=>b[1]-a[1])[0];
+    const base={
+      today :{t:'What should I prioritize today?', s:'top item scores '+(top?top.sc:0)+'/100', i:'list'},
+      block :{t:'Show exceptions blocking close', s:K.blocking.length+' blocking', i:'warn'},
+      expo  :{t:'What are our largest financial exposures?', s:glB(K.misstate)+' potential impact', i:'chart'},
+      old   :{t:'Which exceptions have been open more than 30 days?', s:K.open.filter(e=>e.age>30).length+' items', i:'clock'},
+      recur :{t:'Show recurring exceptions', s:axExceptions().filter(e=>e.recur).length+' patterns', i:'search'},
+      why   :{t:top?'Why is "'+top.t.slice(0,42)+'" high priority?':'Why is this high priority?', s:'score breakdown', i:'delta'},
+      ent   :{t:'Which entity has the most critical exceptions?', s:worstEnt?worstEnt[0]+' — '+worstEnt[1]:'none critical', i:'search'},
+      unown :{t:'Show exceptions not yet triaged', s:K.untriaged.length+' awaiting triage', i:'warn'},
+      failed:{t:'Which resolved exceptions failed validation?', s:K.failed.length+' failed', i:'warn'},
+      growth:{t:'What is driving the increase in open exceptions?', s:K.open.length+' open now', i:'chart'},
+      next  :{t:'Which issues are likely to recur next month?', s:'based on '+axExceptions().filter(e=>e.recur).length+' patterns', i:'delta'},
+      top5  :{t:'Summarize the top five accounting risks', s:'ranked by priority score', i:'list'},
+    };
+    const by={ queue:['today','block','expo'], exposure:['expo','top5','ent'],
+               aging:['old','recur','unown'], recur:['recur','next','top5'],
+               close:['block','today','ent'], valid:['failed','why','unown'],
+               trend:['growth','recur','top5'] };
+    return (by[axSub]||by.queue).map(k=>base[k]);
+  },
   glsync: [{t:'Why is JD Edwards sync delayed?',s:'Investigate the issue',i:'warn'},
            {t:'When did each source last sync?',s:'across 4 integrations',i:'clock'} ],
   fpexec: [{t:'Why is revenue below plan?',s:'2.1% under budget YTD',i:'delta'},
@@ -10972,6 +11776,22 @@ const CP_CARDS={
 };
 // Context line: what the assistant is looking at right now, including page filters.
 function cpContext(){
+  // Accounting > Exceptions (shared tab id — only when the ledger lens is active).
+  if(TAB==='exceptions' && LENS==='ledger'){
+    const f=[];
+    if(axSel) f.push('exception '+axSel);
+    else f.push(({queue:'priority queue',exposure:'financial exposure',aging:'aging',
+                  recur:'recurring exceptions',close:'close impact',valid:'validation',
+                  trend:'exception trend'})[axSub]||'priority queue');
+    if(axfEnt  !=='all') f.push(axfEnt);
+    if(axfCat  !=='all') f.push(AX_CATN[axfCat]);
+    if(axfRisk !=='all') f.push((AX_RISK[axfRisk]||{}).l+' risk');
+    if(axfClose!=='all') f.push((AX_CLOSE[axfClose]||{}).l);
+    if(axfOwn  !=='all') f.push(axfOwn);
+    if(axfSt   !=='all') f.push(AX_ST[axfSt]);
+    if(axfAge  !=='all') f.push(axfAge+' days');
+    return 'Looking at: '+f.join(' · ')+' · '+axKpi().open.length+' open · Jun 2026';
+  }
   // Continuous close: which view, which filters, and the live readiness reading.
   if(TAB==='contclose'){
     const f=[({now:'readiness now',ready:'ready now',changed:'what changed',risks:'emerging risks',
@@ -11028,8 +11848,10 @@ function cpContext(){
 function cpCards(){
   const c=CP_CARDS[TAB];
   // A tab may supply a function when its prompts depend on live state or sub-view.
-  if(typeof c==='function')return c();
-  if(c)return c;
+  // Returning nothing from that function falls through to the default set, which is how
+  // a lens-shared tab keeps the other lens's prompts unchanged.
+  if(typeof c==='function'){ const r=c(); if(r) return r; }
+  else if(c) return c;
   return (CP_SUGS[TAB]||CP_SUGS.overview).map(s=>({t:s,s:'',i:'search'}));
 }
 // Insights derive from live data — the badge is a count of real open items.
