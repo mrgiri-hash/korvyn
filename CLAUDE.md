@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | Overview, Close, General Ledger, Intercompany — all four built to their written specs |
+| Accounting | Overview, Close, General Ledger, Intercompany, Consolidation — all five built to their written specs |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -37,9 +37,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
   integrity defect (see below). Referenced from both Accounting > Overview and the GL
   workspace, so building it completes several drill-downs.
 - **Accounting > Continuous Close** — a routing summary (`acctStub`), not a full workspace.
-- **Accounting > Consolidation** — older `consol` page. Intercompany > Elimination now links
-  into it and treats it as the place elimination entries are produced, so it has an
-  established contract to honour when it gets built.
+  It is now the only remaining `acctStub` in Accounting.
 - Fixed Assets, Procurement, FP&A and Reporting have not had a written spec pass like
   Accounting did; their pages predate the current design standard.
 
@@ -183,13 +181,34 @@ There is no separate CSS/JS file. Edits happen in place.
   pages silently disagree, which is exactly the failure `RECON_SCALE` represents.
   Naming: everything new is prefixed `icx`/`icv` specifically to avoid colliding with the
   pre-existing `icDiff` / `icUnmatched` / `icTotalDiff` / `icReady` helpers that Overview uses.
+- `CONS_ENT` / `CONS_FX` / `CONS_STAGES` — Consolidation's own data, deliberately thin.
+  Entity **status is not stored**: `csxEntity()` rolls it up from `GL_CLOSE`, `GL_RECON`,
+  `icxPairs()` and `GL_CONSOL`, so Consolidation cannot disagree with Close, Reconciliations
+  or Intercompany. The only genuinely new data is FX rates (nothing else owns them), the
+  region/country/BU metadata, and `CONS_DELTA` (a change feed, which by definition cannot be
+  derived from current state). `GL_CONSOL` and `consolReady()` are **left alone** because
+  Accounting > Overview reads them; **`csxTie()`** asserts the page agrees and must return
+  `{ok:true, entities:4, submitted:2}`.
+  The readiness score is a weighted roll-up of six gates and falls automatically as any gate
+  slips — do not hand-set it. Timeline stage status likewise derives, so the first amber stage
+  really is where the delay originates.
+  **Deliberate behaviour, not a bug:** an entity marked submitted-and-eliminated in `GL_CONSOL`
+  while still carrying critical blockers is surfaced as an *Entity inconsistency* exception.
+  Meridian DC Holdco is that case today. Do not "fix" it by suppressing the exception.
+  Calibration: an overdue reconciliation degrades the score and raises an exception but does
+  **not** mark an entity Blocked — Blocked is reserved for things that actually stop
+  consolidation (blocked close tasks, out-of-balance eliminations, missing submission).
 - `FILING_TEAM`, `FILING_COMMENTS`, `FILING_NOTES`, `FILING_DISCLOSURES`,
   `FILING_APPROVALS`, `FILING_ACTIVITY` — the filing workspace's supporting data.
 - Workspace views (`renderTasks`/`renderIssues`) derive from `CIP_PROJECTS`; `renderArchives`
   reads the live `fluxComments` store. None of them keep their own copies of these numbers.
 
-Financial statements (Financial reporting, Filing view, Flux review) all **derive from
-`COA` + `FINREP_SUPP`** — do not invent parallel numbers; reuse the derivation so views tie.
+Financial statements all **derive from `COA` + `FINREP_SUPP`** through **one function,
+`finDerived()`** — do not invent parallel numbers; call it. Financial reporting, Flux review
+and Consolidation > Consolidated results all read it, so the three cannot disagree. It is
+memoised (`_finD`), so declaration order does not matter. It was extracted out of
+`renderFinRep` when Consolidation needed the same figures; note that `renderFinRep` still
+keeps its own `const S=FINREP_SUPP` because `fluxModel(stmt,S,derived)` takes `S` bare.
 
 ## Flux review (the most complex feature — read before touching it)
 
@@ -251,6 +270,22 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   If you set it for a test, remove it afterwards. A robustness fix would be to give
   `[data-theme="light"]` the same variable block as `:root` so light re-declares rather than
   inherits — not done, as it touches the design system.
+- **Spreading then re-keying silently shadows.** `return {...meta, fx}` where `meta.fx` is the
+  functional-currency *string* and the local `fx` is the rate *object* leaves `e.fx` as the
+  object. The header rendered `[object Object]` and — worse, because it was silent — the
+  currency filter compared a string against an object and matched nothing. It shipped through
+  a full render sweep because the views still produced plenty of characters. When you spread a
+  metadata object and then add keys, check the key names do not already exist; give the new one
+  a distinct name (that is why it is `fxr`, not `fx`).
+- **Duplicate keys in an object literal silently win.** `VIEW_META` already had a `consol:`
+  entry far below where a second one was added; last-one-wins meant the new title never
+  applied and nothing errored. Before adding an entry to `VIEW_META`, `LENSES`, `TABS`,
+  `CP_CARDS` or `TAB_PIPELINES`, grep for the key first.
+- **Grepping for `X.` misses `X` passed bare.** Before extracting `finDerived()` out of
+  `renderFinRep`, a grep for `S\.` said `S` was unused downstream — but the function passes it
+  bare into `fluxModel(stmt,S,derived)`, so removing the declaration threw at runtime. When
+  checking whether a local is still needed, grep for the bare identifier with word boundaries,
+  not just its property accesses.
 - **Template-literal escaping:** these render functions are giant template strings. Don't use
   `\\'` inside them for apostrophes — use a plain word or `&#39;`. A stray backslash-escape
   breaks the whole script.
@@ -315,7 +350,16 @@ and re-copy after every edit or you will be validating a stale file.
 # 2a. Tabs with sub-views need their own sweep — the tab-level check only renders the
 #     default sub-view. Intercompany: drive setIcSub over
 #     net/events/match/diff/settle/elim/excep/audit, then setIcPairSel over icxPairs()
-#     and setIcEvSel over IC_EVENTS. Also run icxTie() -> must be {ok:true,pairs:5}.
+#     and setIcEvSel over IC_EVENTS. Consolidation: drive setCsSub over
+#     status/entities/elim/fx/results/excep/timeline, setCsEnt over CONS_ORDER, and
+#     setCsStmt x setCsCmp across the results grid.
+#     Tie assertions: icxTie() -> {ok:true,pairs:5}; csxTie() -> {ok:true,entities:4,submitted:2}.
+
+# 2c. A render sweep proves nothing about CONTENT. Both bugs found in the Consolidation
+#     build (a shadowed key rendering "[object Object]", a filter matching nothing) passed
+#     the length check comfortably. Spot-check the rendered HTML for "[object Object]",
+#     "undefined" and "NaN", and exercise at least one filter per page and assert the row
+#     count actually changes.
 
 # 2b. Responsive: check ≥1201, 861-1200 and ≤860 separately by asserting
 #     documentElement.scrollWidth <= clientWidth. Known: at 375px every page reports
