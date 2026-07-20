@@ -3162,61 +3162,676 @@ function cpAskVendor(v){
 }
 
 // ============================================================ CONSOLIDATION
-let consolFundsOpen=true;  // per-fund breakdown under Gross; folds to the clean gross→net story
-function toggleConsolFunds(){ consolFundsOpen=!consolFundsOpen; renderConsol(); }
-function renderConsol(){
-  const P=portfolio(), el=$('view-consol');
-  // build gross by fund, then intercompany eliminations, then net
-  const byFund={};
-  P.rows.forEach(r=>{ const f=r[IDX.fund]; byFund[f]=(byFund[f]||0)+conv(r[IDX.incurred],r[IDX.ccy]); });
-  const gross=P.incurred;
-  // illustrative IC elimination: cross-fund service charges + IC capital, ~6% of gross
-  const icService=+(gross*0.041).toFixed(1);
-  const icCapital=+(gross*0.022).toFixed(1);
-  const net=+(gross-icService-icCapital).toFixed(1);
-  const ledgerPin='';
+/* ==================== CONSOLIDATION CONTROL TOWER ====================
+   Korvyn is not a consolidation engine. The ERP consolidates and posts; Korvyn is the
+   readiness, orchestration and intelligence layer over it. This page answers: which
+   entities are ready, which are open, what is blocking consolidated reporting, and
+   what changed.
 
-  let h=`<div class="card"><h2>Consolidation waterfall ${ledgerPin}<span class="note">gross → intercompany eliminations → net · ties to TB</span>
-      <button class="pipe-allbtn" onclick="toggleConsolFunds()">${consolFundsOpen?'Collapse funds':'Expand funds'}</button></h2>
-    <div class="subhead">Full consolidation is the intercompany engine seen through one lens — the same eliminations, rolled up by fund and ring-fenced group.</div>
-    <div class="lrows">
-      <div class="l-row row-click" onclick="toggleConsolFunds()"><span><span class="pipe-exp ${consolFundsOpen?'open':''}">▸</span> <b>Gross capital cost</b> <span style="color:var(--hint)">· sum of all subsidiary cost edges</span></span><span class="amt">${money(gross)}</span></div>`;
-  if(consolFundsOpen){
-    Object.keys(byFund).sort().forEach(f=>{
-      const nm={F1:'Fund I — US',F2:'Fund II — EMEA (ring-fenced)',F3:'Fund III — Global'}[f]||f;
-      h+=`<div class="l-row sub"><span>${nm}</span><span class="amt">${money(byFund[f])}</span></div>`;
-    });
-  }
-  h+=`<div class="l-row"><span>− IC service charges <span style="color:var(--hint)">· cross-fund allocations</span></span><span class="amt" style="color:var(--coral)">(${money(icService)})</span></div>
-      <div class="l-row"><span>− IC capital contributions <span style="color:var(--hint)">· eliminated on consol</span></span><span class="amt" style="color:var(--coral)">(${money(icCapital)})</span></div>
-      <div class="l-row total"><span>= Net consolidated capital</span><span class="amt">${money(net)}</span></div>
-    </div>
-    <div class="note">Ring-fence-aware: Fund II eliminations don't cross into Fund I/III. The residual after eliminations is what appears on the consolidated balance sheet — and ties, line for line, to the trial balance's 15000 CIP + PP&E accounts.</div></div>`;
+   DERIVED, NOT RESTATED. Entity status is a roll-up of modules that already exist:
+     close        <- GL_CLOSE      (which derives from CLOSE_TASKS)
+     recs         <- GL_RECON
+     intercompany <- icxPairs()    (which derives from IC_EVENTS)
+     submission / FX / elimination <- GL_CONSOL
+   Consolidated statements come from finDerived() — the same derivation Financial
+   reporting and Flux review use. Nothing here re-computes a figure that exists elsewhere.
 
-  // drill: consol → subsidiary → GL category → detail
-  h+=`<div class="card"><h2>Drill &amp; trend<span class="note">consol → subsidiary → GL category → detail → source doc</span></h2>
-    <div class="subhead">The same path runs both ways: drill down to a transaction, or roll up from any invoice to portfolio capex.</div>
-    <table class="tbl"><thead><tr><th>Subsidiary / entity</th><th>Consol group</th><th class="num">Committed</th><th class="num">Incurred</th><th class="num">Paid</th><th></th></tr></thead><tbody>`;
-  const entities=[
-    ['Ashburn SPV LLC','F1 · USD','Americas','Ashburn VA'],
-    ['Dallas HoldCo','F1 · USD','Americas','Dallas TX'],
-    ['Meridian Ireland Ltd','F2 · EUR (ring-fenced)','EMEA','Dublin'],
-    ['Meridian UK Ltd','F2 · GBP (ring-fenced)','EMEA','London'],
-    ['Meridian SG Pte','F3 · SGD','APAC','Singapore'],
-    ['Meridian JP KK','F3 · SGD','APAC','Tokyo'],
-  ];
-  entities.forEach(([nm,grp,reg,site])=>{
-    const rs=P.rows.filter(r=>r[IDX.site]===site);
-    if(!rs.length)return;
-    const c=sum(rs,'committed'),i=sum(rs,'incurred'),p=sum(rs,'paid');
-    h+=`<tr class="row-click" onclick="pickTab('po')">
-      <td><b>${nm}</b></td><td style="color:var(--muted);font-size:12px">${grp}</td>
-      <td class="num cell-c">${money(c)}</td><td class="num cell-i">${money(i)}</td><td class="num cell-p">${money(p)}</td>
-      <td style="text-align:right;color:var(--blue);font-size:12px">drill ›</td></tr>`;
+   GL_CONSOL and consolReady() are left untouched because Accounting > Overview reads
+   them. csxTie() asserts this page agrees with that count.                          */
+
+const CONS_RPT='USD';                       // group reporting currency
+const CONS_ENT={
+  'Meridian DC Holdco':    {ini:'MDH', reg:'Americas', ctry:'United States',  fx:'USD', bu:'Colocation', rev:'A. Okafor',   share:.42, parent:true},
+  'Fleet DC OpCo':         {ini:'FDO', reg:'Americas', ctry:'United States',  fx:'USD', bu:'Hyperscale', rev:'L. Tan',      share:.28},
+  'Meridian Property Co':  {ini:'MPC', reg:'EMEA',     ctry:'Ireland',        fx:'EUR', bu:'Property',   rev:'J. Park',     share:.20},
+  'Meridian Management Co':{ini:'MMC', reg:'EMEA',     ctry:'United Kingdom', fx:'GBP', bu:'Services',   rev:'S. Lee',      share:.10},
+};
+const CONS_ORDER=['Meridian DC Holdco','Fleet DC OpCo','Meridian Property Co','Meridian Management Co'];
+const CONS_REGIONS=['Americas','EMEA'];
+// FX is the one thing with no existing source, so it is declared here — once.
+// `stale` derives from the rate date against the Jun 30 close, not stored twice.
+const CONS_FX={
+  'Meridian DC Holdco':    {rate:1.0000, prior:1.0000, cta:0,    src:'—',             dt:'2026-06-30'},
+  'Fleet DC OpCo':         {rate:1.0000, prior:1.0000, cta:0,    src:'—',             dt:'2026-06-30'},
+  'Meridian Property Co':  {rate:1.0842, prior:1.0715, cta:3.4,  src:'ECB reference', dt:'2026-06-30'},
+  'Meridian Management Co':{rate:1.2634, prior:1.2701, cta:-1.9, src:'ECB reference', dt:'2026-06-12'},
+};
+const CONS_ASOF='2026-06-30';
+const CONS_STALE_D=5;                       // a rate older than this many days is stale
+// Change feed — an event log, the one thing that cannot be derived from current state.
+const CONS_DELTA=[
+  {ts:'Jul 20, 2026 08:12', ent:'Meridian Management Co', t:'FX rate went stale',       d:'GBP rate still dated Jun 12 — 18 days old at the close date.', dir:'dn'},
+  {ts:'Jul 20, 2026 07:40', ent:'Meridian Property Co',   t:'Translation moved to in progress', d:'EUR translation started; CTA posted at 3.4M.', dir:'up'},
+  {ts:'Jul 19, 2026 16:55', ent:'Meridian DC Holdco',     t:'Intercompany difference aged past 90 days', d:'ICE-2603-0204 missing counterparty entry now 104 days old.', dir:'dn'},
+  {ts:'Jul 19, 2026 14:20', ent:'Fleet DC OpCo',          t:'Local close completed',    d:'All close tasks done; submission accepted.', dir:'up'},
+  {ts:'Jul 19, 2026 09:05', ent:'Meridian DC Holdco',     t:'Reconciliation went overdue', d:'Accounts Payable (20000) past its Jun 25 due date.', dir:'dn'},
+];
+const CONS_ST={ready:{l:'Ready',c:'good',d:'ok'}, prog:{l:'In progress',c:'ready',d:'warn'},
+               blocked:{l:'Blocked',c:'flag',d:'bad'}};
+// Consolidation timeline stages. Status derives from the modules; only the plan dates are stored.
+const CONS_STAGES=[
+  {id:'close',  nm:'Local close',        plan:'Jul 8',  own:'Entity controllers'},
+  {id:'recs',   nm:'Reconciliations',    plan:'Jul 9',  own:'Corporate accounting'},
+  {id:'ic',     nm:'Intercompany',       plan:'Jul 10', own:'Consolidation team'},
+  {id:'fx',     nm:'FX translation',     plan:'Jul 11', own:'Consolidation team'},
+  {id:'cons',   nm:'Consolidation',      plan:'Jul 12', own:'Corporate controller'},
+  {id:'mgmt',   nm:'Management reporting',plan:'Jul 15',own:'FP&A'},
+  {id:'board',  nm:'Board reporting',    plan:'Jul 20', own:'CFO'},
+  {id:'sec',    nm:'SEC reporting',      plan:'Jul 31', own:'Reporting'},
+];
+
+// ---- derivations (memoised) ----
+const csxDays=d=>Math.round((new Date(CONS_ASOF+'T00:00:00')-new Date(d+'T00:00:00'))/864e5);
+const csxStale=nm=>csxDays((CONS_FX[nm]||{}).dt||CONS_ASOF)>CONS_STALE_D;
+const csxPct=(n,d)=>d?Math.round(n/d*100):100;
+
+function csxEntity(nm){
+  const meta=CONS_ENT[nm]||{}, gc=GL_CONSOL.find(e=>e.ent===nm)||{};
+  const cl=GL_CLOSE.find(e=>e.ent===nm)||{done:0,prog:0,not:0,blk:0};
+  const clTot=cl.done+cl.prog+cl.not+cl.blk, clPct=csxPct(cl.done,clTot);
+  const rc=GL_RECON.filter(r=>r.ent===nm);
+  const rcPct=csxPct(rc.filter(r=>r.st==='done').length,rc.length);
+  const rcOver=rc.filter(r=>r.st==='over');
+  // intercompany reaches across via the key IC_ENT uses, not a second entity list
+  const key=Object.keys(IC_ENT).find(k=>IC_ENT[k].nm===nm);
+  const pairs=key?icxPairs().filter(p=>p.a===key||p.b===key):[];
+  const icBad=pairs.filter(p=>Math.abs(p.diff)>0.05);
+  const icPct=csxPct(pairs.length-icBad.length,pairs.length);
+  const fxPct=({na:100,done:100,prog:50,pend:0})[gc.fx]!==undefined?({na:100,done:100,prog:50,pend:0})[gc.fx]:0;
+  const subPct=({done:100,prog:50,pend:0})[gc.sub]!==undefined?({done:100,prog:50,pend:0})[gc.sub]:0;
+  const elPct =({done:100,pend:0})[gc.elim]!==undefined?({done:100,pend:0})[gc.elim]:0;
+  const fxr={...(CONS_FX[nm]||{}), stale:csxStale(nm), age:csxDays((CONS_FX[nm]||{}).dt||CONS_ASOF)};
+  // Readiness score: weighted across the six gates. Falls automatically as any gate slips.
+  const parts=[{k:'Close',v:clPct,w:.30},{k:'Reconciliations',v:rcPct,w:.15},
+               {k:'Intercompany',v:icPct,w:.20},{k:'Translation',v:fxPct,w:.15},
+               {k:'Submission',v:subPct,w:.10},{k:'Elimination',v:elPct,w:.10}];
+  const score=Math.round(parts.reduce((s,p)=>s+p.v*p.w,0));
+
+  const blk=[];
+  if(cl.blk) blk.push({sev:'crit', t:cl.blk+' close task'+(cl.blk===1?'':'s')+' blocked', go:"pickTab('acctclose')", lk:'Close'});
+  // An overdue reconciliation is a control finding, not a hard gate on consolidating —
+  // it degrades the score and raises an exception, but it does not mark the entity Blocked.
+  rcOver.forEach(r=>blk.push({sev:'warn', t:'Reconciliation overdue — '+r.nm+' ('+r.acct+')', go:"pickTab('glrecon')", lk:'Reconciliations'}));
+  icBad.forEach(p=>blk.push({sev:'crit', t:'Intercompany out of balance with '+icxEnt(p.a===key?p.b:p.a).nm+' — '+icxM(Math.abs(p.diff),p.ccy),
+                             go:"pickTab('icomp')", lk:'Intercompany'}));
+  if(fxr.stale) blk.push({sev:'warn', t:'FX rate stale — dated '+fxr.dt+', '+fxr.age+' days old', go:"setCsSub('fx')", lk:'FX translation'});
+  if(gc.sub!=='done') blk.push({sev:'warn', t:'Local submission not complete', go:"pickTab('acctclose')", lk:'Close'});
+  if(gc.elim!=='done') blk.push({sev:'warn', t:'Eliminations not cleared', go:"pickTab('icomp')", lk:'Intercompany'});
+
+  const crit=blk.filter(b=>b.sev==='crit').length;
+  const st = crit ? 'blocked' : (gc.sub==='done'&&gc.elim==='done'&&score>=95) ? 'ready' : 'prog';
+  // GL_CONSOL's own view of "done" — kept separate so the divergence is visible, not hidden.
+  const submitted = gc.sub==='done' && gc.elim==='done';
+  return {nm,...meta, gc, cl, clTot, clPct, rc, rcPct, rcOver, pairs, icBad, icPct,
+          fxPct, subPct, elPct, fxr, parts, score, blk, crit, st, submitted};
+}
+let _csE=null;
+function csxEntities(){ if(!_csE) _csE=CONS_ORDER.map(csxEntity); return _csE; }
+
+function csxKpi(){
+  const E=csxEntities();
+  const ready=E.filter(e=>e.st==='ready'), prog=E.filter(e=>e.st==='prog'), blocked=E.filter(e=>e.st==='blocked');
+  const K=icxKpi();
+  const cta=+E.reduce((s,e)=>s+(e.fxr.cta||0),0).toFixed(2);
+  return {E, ready, prog, blocked,
+    submitted:E.filter(e=>e.submitted),                 // ties to consolReady()
+    elimLeft:K.elimEx.length, elimPairs:K.pairs,
+    trIssues:E.filter(e=>e.fxr.stale||e.gc.fx==='pend'||e.gc.fx==='prog'),
+    cta, score:Math.round(E.reduce((s,e)=>s+e.score,0)/E.length),
+    fsPct:Math.round((E.filter(e=>e.submitted).length/E.length)*100)};
+}
+
+/* Exceptions across the whole consolidation, ranked by materiality + close impact + age.
+   Includes entity inconsistencies — an entity marked submitted while still carrying open
+   blockers is exactly the thing a control tower exists to catch. */
+function csxExcep(){
+  const out=[], E=csxEntities();
+  E.forEach(e=>{
+    if(e.gc.sub!=='done') out.push({e, kind:'Missing entity submission', d:0, age:0, sev:'warn',
+      det:e.nm+' has not submitted its local close.', go:"pickTab('acctclose')", score:5});
+    e.rcOver.forEach(r=>out.push({e, kind:'Missing reconciliation', d:Math.abs(r.diff), age:0, sev:'crit',
+      det:r.nm+' ('+r.acct+') is past its '+r.due+' due date.', go:"pickTab('glrecon')", score:8+Math.abs(r.diff)}));
+    if(e.cl.blk) out.push({e, kind:'Missing close tasks', d:0, age:0, sev:'crit',
+      det:e.cl.blk+' close task'+(e.cl.blk===1?'':'s')+' blocked in '+e.nm+'.', go:"pickTab('acctclose')", score:7});
+    e.icBad.forEach(p=>out.push({e, kind:'Out-of-balance elimination', d:Math.abs(p.diff), age:p.age, sev:'crit',
+      det:'Pair does not agree — '+icxM(Math.abs(p.diff),p.ccy)+' across '+p.open.length+' open item'+(p.open.length===1?'':'s')+'.',
+      go:"pickTab('icomp')", score:10+Math.abs(p.diff)*4+Math.min(p.age,180)/30}));
+    if(e.fxr.stale) out.push({e, kind:'Translation problem', d:Math.abs(e.fxr.cta||0), age:e.fxr.age, sev:'warn',
+      det:'FX rate dated '+e.fxr.dt+' — '+e.fxr.age+' days old at the close date.', go:"setCsSub('fx')", score:6+e.fxr.age/20});
+    if(Math.abs(e.fxr.cta||0)>=3) out.push({e, kind:'Material movement', d:Math.abs(e.fxr.cta), age:0, sev:'warn',
+      det:'CTA movement of '+glB(e.fxr.cta)+' on '+e.fxr.src+' rates.', go:"setCsSub('fx')", score:4+Math.abs(e.fxr.cta)});
+    // the interesting one: source systems disagree about whether this entity is done
+    if(e.submitted && e.crit) out.push({e, kind:'Entity inconsistency', d:0, age:0, sev:'crit',
+      det:e.nm+' is marked submitted and eliminated, but still carries '+e.crit+' critical blocker'+(e.crit===1?'':'s')+'.',
+      go:"setCsEnt('"+e.nm.replace(/'/g,"\\'")+"')", score:9});
   });
-  h+=`</tbody><tfoot><tr><td>Consolidated (pre-elim)</td><td></td><td class="num">${money(P.committed)}</td><td class="num">${money(P.incurred)}</td><td class="num">${money(P.paid)}</td><td></td></tr></tfoot></table>
-    <div class="note">Click any subsidiary to descend into its POs → invoices → payments → GL posting, or continue up to the consolidated number above.</div></div>`;
-  el.innerHTML=h;
+  return out.sort((a,b)=>b.score-a.score);
+}
+
+/* Timeline stage status derives from the modules rather than being stored. */
+function csxTimeline(){
+  const E=csxEntities(), K=icxKpi();
+  const pct={
+    close: closePct(),
+    recs : csxPct(GL_RECON.filter(r=>r.st==='done').length, GL_RECON.length),
+    ic   : K.matchRate>=100?100:Math.round(K.matchRate),
+    fx   : Math.round(E.reduce((s,e)=>s+e.fxPct,0)/E.length),
+    cons : Math.round(E.filter(e=>e.submitted).length/E.length*100),
+    mgmt : 0, board:0, sec:0,
+  };
+  let blockedSeen=false;
+  return CONS_STAGES.map(s=>{
+    const p=pct[s.id]!==undefined?pct[s.id]:0;
+    let st = p>=100 ? 'done' : p>0 ? 'prog' : 'not';
+    // downstream stages cannot start until everything upstream is complete
+    if(st==='not' && blockedSeen) st='wait';
+    if(p<100) blockedSeen=true;
+    return {...s, pct:p, st};
+  });
+}
+
+// GL_CONSOL is Accounting > Overview's source; assert this page agrees with it.
+function csxTie(){
+  const E=csxEntities(), bad=[];
+  if(E.length!==GL_CONSOL.length) bad.push('entity count '+E.length+' vs GL_CONSOL '+GL_CONSOL.length);
+  if(E.filter(e=>e.submitted).length!==consolReady())
+    bad.push('submitted '+E.filter(e=>e.submitted).length+' vs consolReady() '+consolReady());
+  CONS_ORDER.forEach(nm=>{ if(!GL_CONSOL.find(g=>g.ent===nm)) bad.push('not in GL_CONSOL: '+nm); });
+  return bad.length?{ok:false,bad}:{ok:true, entities:E.length, submitted:consolReady()};
+}
+
+// ---- page state ----
+let csSub='status', csEnt=null,
+    csfReg='all', csfCtry='all', csfCcy='all', csfBu='all', csfSt='all', csStmt='bs', csCmp='prior';
+function setCsSub(v){ csSub=v; csEnt=null; renderAll(); }
+function setCsEnt(v){ csEnt=v; renderAll(); }
+function csBack(){ csEnt=null; renderAll(); }
+function setCsStmt(v){ csStmt=v; renderAll(); }
+function setCsCmp(v){ csCmp=v; renderAll(); }
+function setCsF(k,v){
+  if(k==='reg')csfReg=v; else if(k==='ctry')csfCtry=v; else if(k==='ccy')csfCcy=v;
+  else if(k==='bu')csfBu=v; else if(k==='st')csfSt=v;
+  renderAll();
+}
+function csResetF(){ csfReg=csfCtry=csfCcy=csfBu=csfSt='all'; renderAll(); }
+function csDrill(sub,st){ csSub=sub; csEnt=null; if(st) csfSt=st; renderAll(); }
+const csxFiltered=()=>csfReg!=='all'||csfCtry!=='all'||csfCcy!=='all'||csfBu!=='all'||csfSt!=='all';
+function csxScope(){
+  return csxEntities().filter(e=>
+    (csfReg==='all'||e.reg===csfReg) && (csfCtry==='all'||e.ctry===csfCtry) &&
+    (csfCcy==='all'||e.fx===csfCcy)  && (csfBu==='all'||e.bu===csfBu) &&
+    (csfSt==='all'||e.st===csfSt));
+}
+
+// ---- shared bits ----
+const csxNode=(e,hi)=>`<span class="ic-node ${hi?'a':''}" title="${e.nm}">${e.ini}</span>`;
+const csxDot=(st,l)=>`<span class="ic-st"><span class="ic-dot ${(CONS_ST[st]||{}).d||'idle'}"></span>${l||(CONS_ST[st]||{}).l||st}</span>`;
+const csxBar=(p,w)=>`<div class="progline"><span class="mini-bar" style="min-width:${w||60}px"><i style="width:${p}%"></i></span><span class="ic-mini">${p}%</span></div>`;
+
+function csxFilterBar(){
+  const uniq=k=>[...new Set(CONS_ORDER.map(n=>CONS_ENT[n][k]))];
+  const sel=(k,cur,rows)=>`<select onchange="setCsF('${k}',this.value)">${rows.map(r=>
+    `<option value="${r[0]}" ${r[0]===cur?'selected':''}>${r[1]}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Region</label>${sel('reg',csfReg,[['all','All regions'],...CONS_REGIONS.map(r=>[r,r])])}</div>
+    <div class="grp"><label>Country</label>${sel('ctry',csfCtry,[['all','All countries'],...uniq('ctry').map(c=>[c,c])])}</div>
+    <div class="grp"><label>Functional currency</label>${sel('ccy',csfCcy,[['all','All currencies'],...uniq('fx').map(c=>[c,c])])}</div>
+    <div class="grp"><label>Business unit</label>${sel('bu',csfBu,[['all','All units'],...uniq('bu').map(b=>[b,b])])}</div>
+    <div class="grp"><label>Status</label>${sel('st',csfSt,[['all','All statuses'],...Object.keys(CONS_ST).map(k=>[k,CONS_ST[k].l])])}</div>
+    <div class="grp"><label>Reporting currency</label><select disabled><option>${CONS_RPT} (group)</option></select></div>
+    ${csxFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="csResetF()">Reset</button></div>`:''}
+  </div></div>`;
+}
+
+// ---------------- 1. Status: the control tower ----------------
+function csvStatus(){
+  const K=csxKpi(), E=K.E;
+  let o=`<div class="kpis">
+    <div class="kpi lenshi"><div class="kpi-ic"><span class="kpi-chip chip-blue">${glIc('M2.5 3.5h11v9h-11zM2.5 6.5h11')}</span>
+      <div><div class="k" style="margin:0">Total entities</div><div class="v">${E.length}</div></div></div>
+      <div class="d">${CONS_REGIONS.length} regions &#183; ${[...new Set(CONS_ORDER.map(n=>CONS_ENT[n].ctry))].length} countries</div>
+      <span class="askai" onclick="csDrill('entities')">${glIc('M6 3l5 5-5 5')}Entity readiness</span></div>
+    <div class="kpi good"><div class="kpi-ic"><span class="kpi-chip chip-green">${glIc('M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5')}</span>
+      <div><div class="k" style="margin:0">Ready</div><div class="v">${K.ready.length}</div></div></div>
+      <div class="d">no open blockers</div>
+      <span class="askai" onclick="csDrill('entities','ready')">${glIc('M6 3l5 5-5 5')}Show ready</span></div>
+    <div class="kpi warn"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2')}</span>
+      <div><div class="k" style="margin:0">In progress</div><div class="v">${K.prog.length}</div></div></div>
+      <div class="d">open, not blocked</div>
+      <span class="askai" onclick="csDrill('entities','prog')">${glIc('M6 3l5 5-5 5')}Show in progress</span></div>
+    <div class="kpi ${K.blocked.length?'flag':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M8 2.5L14.5 13.5h-13zM8 6.5v3')}</span>
+      <div><div class="k" style="margin:0">Blocked</div><div class="v">${K.blocked.length}</div></div></div>
+      <div class="d">critical blockers open</div>
+      <span class="askai" onclick="csDrill('entities','blocked')">${glIc('M6 3l5 5-5 5')}Show blocked</span></div>
+    <div class="kpi ${K.elimLeft?'warn':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-purple">${glIc('M8 2v12M3 5h10M3 11h10')}</span>
+      <div><div class="k" style="margin:0">Eliminations remaining</div><div class="v">${K.elimLeft}</div></div></div>
+      <div class="d">of ${K.elimPairs.length} intercompany pairs</div>
+      <span class="askai" onclick="csDrill('elim')">${glIc('M6 3l5 5-5 5')}Elimination status</span></div>
+    <div class="kpi ${K.trIssues.length?'warn':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-blue">${glIc('M2 8h12M8 2v12')}</span>
+      <div><div class="k" style="margin:0">Translation issues</div><div class="v">${K.trIssues.length}</div></div></div>
+      <div class="d">CTA ${glB(K.cta)} &#183; ${CONS_RPT} reporting</div>
+      <span class="askai" onclick="csDrill('fx')">${glIc('M6 3l5 5-5 5')}FX translation</span></div>
+  </div>`;
+
+  // readiness score + FS completion
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Consolidation readiness score
+      <span class="cardlink" onclick="csDrill('excep')">What is holding it down</span></h2>
+      <div class="donut-wrap">${glDonut(K.score,150,'readiness')}
+        <div style="flex:1;min-width:180px">
+          <div class="subhead" style="margin-bottom:10px">Weighted across the six gates every entity must clear.
+            The score falls automatically as any gate slips.</div>
+          ${['Close','Reconciliations','Intercompany','Translation','Submission','Elimination'].map(k=>{
+            const v=Math.round(E.reduce((s,e)=>s+(e.parts.find(p=>p.k===k)||{v:0}).v,0)/E.length);
+            const w=Math.round((E[0].parts.find(p=>p.k===k)||{w:0}).w*100);
+            return `<div class="progline" style="margin-bottom:7px">
+              <span style="font-size:11.5px;min-width:110px;color:var(--muted)">${k}</span>
+              <span class="mini-bar" style="min-width:70px"><i style="width:${v}%"></i></span>
+              <span class="ic-mini">${v}%</span>
+              <span class="ic-mini" style="color:var(--faint)">w ${w}%</span></div>`;}).join('')}
+        </div></div></div>
+    <div class="card" style="margin:0"><h2>Financial statement completion</h2>
+      <div class="donut-wrap">${glDonut(K.fsPct,150,'complete')}
+        <div style="flex:1;min-width:150px">${glLegend([
+          ['Submitted &amp; eliminated',K.submitted.length,'var(--pos)'],
+          ['Open',E.length-K.submitted.length,'var(--warn)']])}
+        <div class="note" style="margin-top:10px">Consolidated statements cannot be issued until every
+          entity has submitted and its eliminations have cleared.</div>
+        <div class="cardfoot" style="margin-top:10px"><span class="extlink" onclick="csDrill('results')">Consolidated results</span>
+          <span class="extlink" onclick="pickTab('finrep')">Financial reporting</span></div></div></div></div>
+  </div>`;
+
+  // entity hierarchy
+  o+=`<div class="card"><h2>Entity readiness<span class="note">${E.length} legal entities &#183; as of Jun 30, 2026</span>
+      <span class="cardlink" onclick="csDrill('entities')">Full detail</span></h2>
+    <div class="subhead">Parent, region, country, legal entity. Status rolls up from Close,
+      Reconciliations and Intercompany — this page does not keep its own copy of those.</div>
+    ${csxHierarchy(E)}
+    <div class="cardfoot">${K.ready.length} ready &#183; ${K.prog.length} in progress &#183;
+      ${K.blocked.length} blocked
+      <span class="cardlink" onclick="pickTab('acctover')">Accounting overview</span></div></div>`;
+
+  // since yesterday
+  o+=`<div class="card"><h2>What changed<span class="note">since yesterday</span></h2>
+    <table class="tbl"><thead><tr><th>When</th><th>Entity</th><th>Change</th><th></th></tr></thead><tbody>
+    ${CONS_DELTA.map(c=>`<tr class="row-click" onclick="setCsEnt('${c.ent.replace(/'/g,"\\'")}')">
+      <td class="ic-mini" style="white-space:nowrap">${c.ts}</td>
+      <td>${csxNode(CONS_ENT[c.ent]?{...CONS_ENT[c.ent],nm:c.ent}:{ini:'??',nm:c.ent})} <span class="ic-mini">${c.ent}</span></td>
+      <td><b style="color:${c.dir==='up'?'var(--pos)':'var(--neg)'}">${c.dir==='up'?'&#9650;':'&#9660;'}</b>
+        ${c.t}<div class="note" style="margin:0">${c.d}</div></td>
+      <td><span class="extlink">Open</span></td></tr>`).join('')}
+    </tbody></table></div>`;
+  return o;
+}
+
+// hierarchy renderer, shared by Status and Entities
+function csxHierarchy(E){
+  let o=`<table class="tbl"><tbody>
+    <tr><td colspan="4"><b>Meridian Global Portfolio REIT</b>
+      <span class="note" style="margin:0">&#183; parent &#183; ${CONS_RPT} reporting</span></td></tr>`;
+  CONS_REGIONS.forEach(reg=>{
+    const inReg=E.filter(e=>e.reg===reg); if(!inReg.length) return;
+    o+=`<tr><td class="indent1" colspan="4"><b>${reg}</b>
+      <span class="note" style="margin:0">&#183; ${inReg.length} entit${inReg.length===1?'y':'ies'}</span></td></tr>`;
+    [...new Set(inReg.map(e=>e.ctry))].forEach(ctry=>{
+      const inC=inReg.filter(e=>e.ctry===ctry);
+      o+=`<tr><td class="indent2" colspan="4" style="color:var(--muted);font-size:12px">${ctry}</td></tr>`;
+      inC.forEach(e=>{
+        o+=`<tr class="row-click" onclick="setCsEnt('${e.nm.replace(/'/g,"\\'")}')">
+          <td class="indent3"><div class="ic-pair">${csxNode(e,e.parent)}<span class="nm">${e.nm}</span></div>
+            <div class="note indent3" style="margin:0">${e.fx} functional &#183; ${e.bu} &#183; ${e.rev}</div></td>
+          <td style="width:150px">${csxBar(e.score,70)}</td>
+          <td style="width:150px">${csxDot(e.st)}</td>
+          <td style="width:120px;text-align:right">${e.blk.length?
+            `<span class="ic-mini" style="color:${e.crit?'var(--neg)':'var(--warn)'}">${e.blk.length} blocker${e.blk.length===1?'':'s'}</span>`
+            :'<span class="ic-mini">clear</span>'}</td></tr>`;
+      });
+    });
+  });
+  return o+'</tbody></table>';
+}
+
+// ---------------- 2. Entity readiness ----------------
+function csvEntities(){
+  const E=csxScope();
+  let o=csxFilterBar();
+  o+=`<div class="card"><h2>Entity readiness<span class="note">${E.length} of ${CONS_ORDER.length} shown</span></h2>
+    <div class="subhead">Every column is a roll-up of a module that already owns that number.
+      Click an entity to see why it is not ready.</div>
+    <table class="tbl"><thead><tr><th>Entity</th><th>Region / country</th><th>Functional</th>
+      <th>Close</th><th>Recs</th><th>Intercompany</th><th>Translation</th><th>Score</th>
+      <th>Status</th><th>Reviewer</th></tr></thead><tbody>
+    ${E.map(e=>`<tr class="row-click" onclick="setCsEnt('${e.nm.replace(/'/g,"\\'")}')">
+      <td><div class="ic-pair">${csxNode(e,e.parent)}<span class="nm">${e.nm}</span></div></td>
+      <td class="ic-mini">${e.reg}<div style="color:var(--faint)">${e.ctry}</div></td>
+      <td>${e.fx}</td>
+      <td>${csxBar(e.clPct,50)}</td>
+      <td>${csxBar(e.rcPct,50)}</td>
+      <td>${csxBar(e.icPct,50)}</td>
+      <td>${csxBar(e.fxPct,50)}</td>
+      <td><b>${e.score}%</b></td>
+      <td>${csxDot(e.st)}</td>
+      <td class="ic-mini">${e.rev}</td></tr>`).join('')}
+    ${E.length?'':'<tr><td colspan="10" class="note">No entities match the current filters.</td></tr>'}
+    </tbody></table></div>`;
+  o+=`<div class="card"><h2>Hierarchy</h2>${csxHierarchy(E)}</div>`;
+  return o;
+}
+
+// ---------------- 3. Entity detail ----------------
+function csvEntity(){
+  const e=csxEntities().find(x=>x.nm===csEnt); if(!e) return '';
+  const gate=(l,pct,st,go,lk)=>`<div class="ic-stg ${pct>=100?'done':pct>0?'open':'blocked'}">
+    <div class="sl">${l}</div><div class="sv">${st}</div>
+    ${go?`<div class="ic-mini" style="margin-top:5px"><span class="extlink" onclick="event.stopPropagation();${go}">${lk}</span></div>`:''}</div>`;
+  let o=`<div class="gl-hd"><div class="grow">
+      <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="csBack()">&#8592; Entity readiness</span></div>
+      <h1>${e.nm}</h1>
+      <div class="sub">${e.reg} &#183; ${e.ctry} &#183; ${e.fx} functional into ${CONS_RPT} &#183; ${e.bu}</div>
+    </div>${glExport}</div>`;
+
+  o+=`<div class="card"><h2>Readiness gates<span class="note">score ${e.score}%</span></h2>
+    <div class="subhead">Each gate links to the module that owns it. Korvyn does not restate any of these.</div>
+    <div class="ic-spine">
+      ${gate('Local close', e.clPct, e.clPct+'%', "pickTab('acctclose')", 'Close')}
+      ${gate('GL', 100, 'Posted', "pickTab('glact')", 'GL activity')}
+      ${gate('Reconciliations', e.rcPct, e.rcPct+'%', "pickTab('glrecon')", 'Reconciliations')}
+      ${gate('Intercompany', e.icPct, e.icBad.length?e.icBad.length+' open':'Agreed', "pickTab('icomp')", 'Intercompany')}
+      ${gate('Translation', e.fxPct, (CONSOL_ST[e.gc.fx]||{l:'—'}).l, "setCsSub('fx')", 'FX')}
+      ${gate('Submission', e.subPct, (CONSOL_ST[e.gc.sub]||{l:'—'}).l, "pickTab('acctclose')", 'Close')}
+      ${gate('Elimination', e.elPct, (CONSOL_ST[e.gc.elim]||{l:'—'}).l, "pickTab('icomp')", 'Intercompany')}
+    </div></div>`;
+
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Status</h2>
+      <table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0">Consolidation status</td><td>${csxDot(e.st)}</td></tr>
+        <tr><td class="note" style="margin:0">Readiness score</td><td><b>${e.score}%</b></td></tr>
+        <tr><td class="note" style="margin:0">Close</td><td>${e.cl.done} of ${e.clTot} tasks
+          ${e.cl.blk?`<span class="pill flag sm">${e.cl.blk} blocked</span>`:''}</td></tr>
+        <tr><td class="note" style="margin:0">Reconciliations</td><td>${e.rc.filter(r=>r.st==='done').length} of ${e.rc.length} complete
+          ${e.rcOver.length?`<span class="pill flag sm">${e.rcOver.length} overdue</span>`:''}</td></tr>
+        <tr><td class="note" style="margin:0">Intercompany</td><td>${e.pairs.length-e.icBad.length} of ${e.pairs.length} pairs agreed
+          ${e.icBad.length?`<span class="pill flag sm">${e.icBad.length} out of balance</span>`:''}</td></tr>
+        <tr><td class="note" style="margin:0">Translation</td><td>${icxPill(CONSOL_ST,e.gc.fx)}</td></tr>
+        <tr><td class="note" style="margin:0">Submission</td><td>${icxPill(CONSOL_ST,e.gc.sub)}</td></tr>
+        <tr><td class="note" style="margin:0">Elimination</td><td>${icxPill(CONSOL_ST,e.gc.elim)}</td></tr>
+        <tr><td class="note" style="margin:0">Reviewer</td><td>${e.rev}</td></tr>
+        <tr><td class="note" style="margin:0">Last refresh</td><td>Jul 20, 2026 08:12 &#183; <span class="ic-mini">automatic</span></td></tr>
+      </tbody></table></div>
+
+    <div class="card" style="margin:0"><h2>Blocking issues<span class="note">${e.blk.length}</span></h2>
+      ${e.blk.length?`<table class="tbl"><tbody>
+        ${e.blk.map(b=>`<tr class="row-click" onclick="${b.go}">
+          <td style="width:26px"><span class="ic-dot ${b.sev==='crit'?'bad':'warn'}"></span></td>
+          <td>${b.t}<div class="note" style="margin:0">resolve in ${b.lk}</div></td>
+          <td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
+      </tbody></table>`:'<div class="subhead" style="margin:0">No blocking issues. This entity is clear to consolidate.</div>'}
+      ${e.submitted&&e.crit?`<div class="note" style="color:var(--neg)">Inconsistent: this entity is marked
+        submitted and eliminated in the consolidation book, but still carries ${e.crit} critical blocker${e.crit===1?'':'s'}
+        above. One of the two is wrong and it should be resolved before the consolidated statements are issued.</div>`:''}
+      <div class="cardfoot"><span class="extlink" onclick="csDrill('excep')">All consolidation exceptions</span></div></div>
+  </div>`;
+
+  // FX for this entity
+  const f=e.fxr;
+  o+=`<div class="card"><h2>Currency translation</h2>
+    <table class="tbl"><thead><tr><th>Functional</th><th>Reporting</th><th class="num">Rate</th>
+      <th class="num">Prior rate</th><th class="num">Movement</th><th class="num">CTA</th>
+      <th>Rate source</th><th>Rate date</th><th>Status</th></tr></thead><tbody>
+      <tr><td><b>${e.fx}</b></td><td>${CONS_RPT}</td>
+        <td class="num">${(f.rate||1).toFixed(4)}</td>
+        <td class="num">${(f.prior||1).toFixed(4)}</td>
+        <td class="num" ${f.rate!==f.prior?`style="color:${f.rate>f.prior?'var(--pos)':'var(--neg)'}"`:''}>
+          ${f.rate===f.prior?'&#8211;':((f.rate-f.prior)/f.prior*100).toFixed(2)+'%'}</td>
+        <td class="num" ${f.cta?`style="color:${f.cta>0?'var(--pos)':'var(--neg)'};font-weight:600"`:''}>${f.cta?glB(f.cta):'&#8211;'}</td>
+        <td>${f.src}</td>
+        <td ${f.stale?'style="color:var(--warn);font-weight:600"':''}>${f.dt}${f.stale?' &#183; '+f.age+'d':''}</td>
+        <td>${f.stale?'<span class="pill ready">Stale rate</span>':icxPill(CONSOL_ST,e.gc.fx)}</td></tr>
+    </tbody></table>
+    <div class="cardfoot"><span class="extlink" onclick="setCsSub('fx')">All translations</span></div></div>`;
+
+  o+=`<div class="card"><h2>Reviewer comments</h2>
+    <div class="subhead" style="margin:0">${
+      e.st==='blocked' ? e.rev+' has flagged this entity as not ready for consolidation pending the blocking issues above.'
+    : e.st==='ready'   ? e.rev+' has signed off. Submission accepted and eliminations cleared.'
+    : e.rev+' is working through the open gates; no sign-off yet.'}</div></div>`;
+  return o;
+}
+
+// ---------------- 4. Elimination status ----------------
+function csvElim(){
+  const K=icxKpi(), P=K.pairs;
+  const cnt=k=>P.filter(p=>p.elim===k).length;
+  let o=`<div class="statrow">
+    ${[['done','Completed','var(--pos)'],['ready','Matched &#183; ready','var(--accent)'],
+       ['review','Pending review','var(--warn)'],['blocked','Blocked','var(--neg)']].map(k=>
+      `<div class="stat"><div class="sl"><span class="ic-dot" style="background:${k[2]}"></span>${k[1]}</div>
+       <div class="sv">${cnt(k[0])}</div><div class="sd">of ${P.length} pairs</div></div>`).join('')}
+    <div class="stat"><div class="sl">Unmatched value</div>
+      <div class="sv ${K.unmatched?'neg':''}">${glB(K.unmatched)}</div>
+      <div class="sd">cannot eliminate</div></div>
+  </div>`;
+  o+=`<div class="card"><h2>Elimination status<span class="note">from Intercompany</span>
+      <span class="cardlink" onclick="pickTab('icomp')">Open Intercompany</span></h2>
+    <div class="subhead">This is the consolidation view of the intercompany book — the same pairs, the same
+      figures, read from Intercompany rather than restated. Elimination entries are produced here at
+      consolidation; the matching and dispute work happens in Intercompany.</div>
+    <table class="tbl"><thead><tr><th>Entity pair</th><th class="num">Matched balance</th>
+      <th class="num">Unmatched</th><th class="num">FX difference</th><th class="num">Elimination</th>
+      <th>Status</th><th>Consolidation impact</th></tr></thead><tbody>
+    ${P.map(p=>{const u=Math.abs(p.diff);
+      return `<tr class="row-click" onclick="pickTab('icomp')">
+        <td>${icxPairCell(p)}</td>
+        <td class="num">${icxM(p.matched,p.ccy)}</td>
+        <td class="num" ${u>0.05?'style="color:var(--neg);font-weight:600"':''}>${u>0.05?icxM(u,p.ccy):'&#8211;'}</td>
+        <td class="num" ${p.fx?'style="color:var(--warn);font-weight:600"':''}>${p.fx?icxM(p.fx,p.ccy):'&#8211;'}</td>
+        <td class="num">${icxM(p.matched,p.ccy)}</td>
+        <td>${icxPill(IC_EST,p.elim)}</td>
+        <td class="note" style="margin:0">${p.elim==='done'?'Eliminated':p.elim==='ready'?'Will eliminate in full'
+          :p.elim==='review'?icxM(u,p.ccy)+' would survive consolidation':'FX policy call required'}</td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="cardfoot">${P.length-K.elimEx.length} of ${P.length} pairs clear &#183;
+      ${glB(K.unmatched)} would survive consolidation if posted today</div></div>`;
+  return o;
+}
+
+// ---------------- 5. FX translation ----------------
+function csvFx(){
+  const E=csxScope();
+  const cta=+E.reduce((s,e)=>s+(e.fxr.cta||0),0).toFixed(2);
+  let o=csxFilterBar();
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Cumulative translation adjustment</div>
+      <div class="sv ${cta<0?'neg':''}">${glB(cta)}</div><div class="sd">net, into ${CONS_RPT}</div></div>
+    <div class="stat"><div class="sl">Entities requiring translation</div>
+      <div class="sv">${E.filter(e=>e.fx!==CONS_RPT).length}</div><div class="sd">of ${E.length}</div></div>
+    <div class="stat"><div class="sl">Stale rates</div>
+      <div class="sv ${E.filter(e=>e.fxr.stale).length?'neg':''}">${E.filter(e=>e.fxr.stale).length}</div>
+      <div class="sd">older than ${CONS_STALE_D} days</div></div>
+    <div class="stat"><div class="sl">Translation complete</div>
+      <div class="sv">${Math.round(E.reduce((s,e)=>s+e.fxPct,0)/(E.length||1))}%</div>
+      <div class="sd">across entities in scope</div></div>
+  </div>`;
+  o+=`<div class="card"><h2>Currency translation<span class="note">${E.length} entities &#183; reporting in ${CONS_RPT}</span></h2>
+    <div class="subhead">Stale rates and significant CTA movements are called out. A rate older than
+      ${CONS_STALE_D} days at the close date is flagged — amber, because it needs attention rather than
+      being an error in itself.</div>
+    <table class="tbl"><thead><tr><th>Entity</th><th>Functional</th><th>Reporting</th>
+      <th class="num">Rate</th><th class="num">Prior</th><th class="num">Movement</th>
+      <th class="num">CTA</th><th>Rate source</th><th>Rate date</th><th>Status</th></tr></thead><tbody>
+    ${E.map(e=>{const f=e.fxr, mv=f.rate===f.prior?0:(f.rate-f.prior)/f.prior*100, big=Math.abs(f.cta||0)>=3;
+      return `<tr class="row-click" onclick="setCsEnt('${e.nm.replace(/'/g,"\\'")}')">
+        <td><div class="ic-pair">${csxNode(e,e.parent)}<span class="nm">${e.nm}</span></div></td>
+        <td>${e.fx}</td><td>${CONS_RPT}</td>
+        <td class="num">${(f.rate||1).toFixed(4)}</td>
+        <td class="num">${(f.prior||1).toFixed(4)}</td>
+        <td class="num" ${mv?`style="color:${mv>0?'var(--pos)':'var(--neg)'}"`:''}>${mv?mv.toFixed(2)+'%':'&#8211;'}</td>
+        <td class="num" ${f.cta?`style="color:${big?(f.cta>0?'var(--pos)':'var(--neg)'):'inherit'};font-weight:${big?600:400}"`:''}>${f.cta?glB(f.cta):'&#8211;'}</td>
+        <td class="ic-mini">${f.src}</td>
+        <td ${f.stale?'style="color:var(--warn);font-weight:600"':''}>${f.dt}</td>
+        <td>${f.stale?'<span class="pill ready">Stale &#183; '+f.age+'d</span>':icxPill(CONSOL_ST,e.gc.fx)}</td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="cardfoot">Net CTA ${glB(cta)} &#183; ${E.filter(e=>e.fxr.stale).length} stale rate(s)
+      <span class="cardlink" onclick="pickLens('treasury')">Treasury</span></div></div>`;
+  return o;
+}
+
+// ---------------- 6. Consolidated results ----------------
+function csvResults(){
+  const D=finDerived(), E=csxEntities();
+  // Comparative factors are illustrative, exactly as Financial reporting states for its own
+  // comparatives. The CURRENT column is the real derivation — never a second copy of it.
+  const F={prior:0.93, budget:1.04, fcast:1.01};
+  const f=F[csCmp]||F.prior;
+  const cmpL={prior:'Prior period',budget:'Budget',fcast:'Forecast'}[csCmp];
+  const M={
+    bs:{t:'Balance sheet', rows:[
+      ['Real estate, at cost',D.grossPPE],['Accumulated depreciation',D.accumDep],
+      ['Real estate, net',D.netPPE,1],['Total liabilities',D.totalLiab,1],
+      ['Contributed capital',D.icContrib],['Partners &amp; shareholders equity',D.lpEquity],
+      ['Total equity',D.totalEquity,1],['Total liabilities and equity',D.totalLE,1]]},
+    is:{t:'Income statement', rows:[
+      ['Total revenue',D.totalRev,1],['Net operating income',D.noi,1],
+      ['Depreciation',-D.dep],['Net income',D.netIncome,1],['FFO',D.ffo],['AFFO',D.affo]]},
+    cf:{t:'Cash flows', rows:[
+      ['Cash from operations',D.cfo,1],['Cash used in investing',D.cfi,1],
+      ['Cash from financing',D.cff,1],['Net change in cash',D.netCash,1]]},
+  }[csStmt];
+
+  let o=`<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Statement</label><div class="seg">
+      ${[['bs','Balance sheet'],['is','Income statement'],['cf','Cash flows']].map(s=>
+        `<button class="${csStmt===s[0]?'on':''}" onclick="setCsStmt('${s[0]}')">${s[1]}</button>`).join('')}
+    </div></div>
+    <div class="grp"><label>Compare to</label><div class="seg">
+      ${[['prior','Prior period'],['budget','Budget'],['fcast','Forecast']].map(s=>
+        `<button class="${csCmp===s[0]?'on':''}" onclick="setCsCmp('${s[0]}')">${s[1]}</button>`).join('')}
+    </div></div></div></div>`;
+
+  o+=`<div class="card"><h2>${M.t}<span class="note">consolidated &#183; ${CONS_RPT} &#183; Jun 2026</span>
+      <span class="cardlink" onclick="pickTab('finrep')">Financial reporting</span></h2>
+    <div class="subhead">Derived from the same trial balance as Financial reporting and Flux review —
+      one derivation, so the three views cannot disagree. Korvyn owns that the numbers tie; it does not
+      replace the statement-authoring workflow.</div>
+    <table class="tbl"><thead><tr><th>Line</th><th class="num">Current</th>
+      <th class="num">${cmpL}</th><th class="num">Variance</th><th class="num">%</th></tr></thead><tbody>
+    ${M.rows.map(r=>{const v=r[1], c=+(v*f).toFixed(1), d=+(v-c).toFixed(1);
+      return `<tr ${r[2]?'style="font-weight:600"':''}>
+        <td>${r[0]}</td><td class="num">${glB(v)}</td><td class="num">${glB(c)}</td>
+        <td class="num" style="color:${d>=0?'var(--pos)':'var(--neg)'}">${glB(d)}</td>
+        <td class="num">${c?((v-c)/Math.abs(c)*100).toFixed(1)+'%':'&#8211;'}</td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="cardfoot">${csStmt==='bs'?`Balance check: assets ${glB(D.totalAssets)} vs liabilities and equity ${glB(D.totalLE)} &#183; residual ${glB(D.balCheck)} is retained earnings`:'Comparative columns are illustrative factors, as stated in Financial reporting.'}</div></div>`;
+
+  // contribution drill: consolidated -> region -> entity
+  o+=`<div class="card"><h2>Contribution<span class="note">consolidated &#8594; region &#8594; entity &#8594; account</span></h2>
+    <div class="subhead">Entity contribution is an allocation of the consolidated figure on the stated
+      basis — the group total is the derived number and the rows sum back to it exactly.</div>
+    <table class="tbl"><thead><tr><th>Level</th><th class="num">${M.t}</th>
+      <th class="num">Share</th><th>Status</th><th></th></tr></thead><tbody>
+      <tr style="font-weight:600"><td>Consolidated</td><td class="num">${glB(M.rows[0][1])}</td>
+        <td class="num">100.0%</td><td>${csxKpi().blocked.length?csxDot('blocked','Blocked'):csxDot('ready','Clear')}</td><td></td></tr>
+    ${CONS_REGIONS.map(reg=>{
+      const inR=E.filter(e=>e.reg===reg), sh=inR.reduce((s,e)=>s+e.share,0);
+      return `<tr><td class="indent1"><b>${reg}</b></td>
+        <td class="num">${glB(M.rows[0][1]*sh)}</td><td class="num">${(sh*100).toFixed(1)}%</td>
+        <td>${inR.some(e=>e.st==='blocked')?csxDot('blocked'):inR.every(e=>e.st==='ready')?csxDot('ready'):csxDot('prog')}</td><td></td></tr>`
+        + inR.map(e=>`<tr class="row-click" onclick="setCsEnt('${e.nm.replace(/'/g,"\\'")}')">
+            <td class="indent2">${e.nm}<div class="note indent2" style="margin:0">${e.ctry} &#183; ${e.fx}</div></td>
+            <td class="num">${glB(M.rows[0][1]*e.share)}</td>
+            <td class="num">${(e.share*100).toFixed(1)}%</td>
+            <td>${csxDot(e.st)}</td>
+            <td style="text-align:right"><span class="extlink" onclick="event.stopPropagation();pickTab('glact')">Accounts</span></td></tr>`).join('');
+    }).join('')}
+    </tbody></table>
+    <div class="cardfoot">
+      <span class="extlink" onclick="pickTab('tb')">Trial balance</span>
+      <span class="extlink" onclick="pickTab('glact')">GL activity &#183; transactions</span>
+      <span class="extlink" onclick="pickLens('filings')">Reporting</span></div></div>`;
+  return o;
+}
+
+// ---------------- 7. Exceptions ----------------
+function csvExcep(){
+  const X=csxExcep();
+  const sevPill={crit:'flag',warn:'ready'}, sevLbl={crit:'Critical',warn:'Attention'};
+  let o=`<div class="statrow">
+    <div class="stat"><div class="sl"><span class="ic-dot bad"></span>Critical</div>
+      <div class="sv" style="color:var(--neg)">${X.filter(x=>x.sev==='crit').length}</div>
+      <div class="sd">blocking consolidation</div></div>
+    <div class="stat"><div class="sl"><span class="ic-dot warn"></span>Attention</div>
+      <div class="sv" style="color:var(--warn)">${X.filter(x=>x.sev==='warn').length}</div>
+      <div class="sd">needs review</div></div>
+    <div class="stat"><div class="sl">Entities affected</div>
+      <div class="sv">${new Set(X.map(x=>x.e.nm)).size}</div><div class="sd">of ${CONS_ORDER.length}</div></div>
+    <div class="stat"><div class="sl">Readiness impact</div>
+      <div class="sv">${100-csxKpi().score}%</div><div class="sd">held back by these</div></div>
+  </div>`;
+  o+=`<div class="card"><h2>Consolidation exceptions<span class="note">${X.length} open</span></h2>
+    <div class="subhead">Ranked by financial materiality, then close impact, then age. Each one links to
+      the module that can actually resolve it.</div>
+    <table class="tbl"><thead><tr><th style="width:34px"></th><th>Exception</th><th>Entity</th>
+      <th class="num">Value</th><th>Age</th><th>Severity</th><th></th></tr></thead><tbody>
+    ${X.map((x,i)=>`<tr class="row-click" onclick="${x.go}">
+      <td><span class="ic-rank ${i===0?'p1':i<3?'p2':''}">${i+1}</span></td>
+      <td><b>${x.kind}</b><div class="note" style="margin:0">${x.det}</div></td>
+      <td class="ic-mini">${(CONS_ENT[x.e.nm]||{}).ini||'??'}</td>
+      <td class="num" ${x.d>0.05?'style="color:var(--neg);font-weight:600"':''}>${x.d>0.05?glB(x.d):'&#8211;'}</td>
+      <td ${x.age>90?'style="color:var(--neg);font-weight:600"':''}>${x.age?x.age+' d':'&#8211;'}</td>
+      <td><span class="pill ${sevPill[x.sev]}">${sevLbl[x.sev]}</span></td>
+      <td><span class="extlink">Resolve</span></td></tr>`).join('')}
+    ${X.length?'':'<tr><td colspan="7" class="note">No open exceptions.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">Exceptions derive from the entity gates, so they cannot drift from the
+      readiness score above.</div></div>`;
+  return o;
+}
+
+// ---------------- 8. Timeline ----------------
+function csvTimeline(){
+  const T=csxTimeline();
+  const stC={done:'done',prog:'open',not:'blocked',wait:'blocked'};
+  const stL={done:'Complete',prog:'In progress',not:'Not started',wait:'Waiting upstream'};
+  let o=`<div class="card"><h2>Consolidation timeline<span class="note">Jun 2026 close</span></h2>
+    <div class="subhead">Where the close actually is against plan. A stage cannot start until everything
+      upstream of it is complete, so the first amber stage is where the delay originates.</div>
+    <div class="ic-spine">
+      ${T.map(s=>`<div class="ic-stg ${stC[s.st]}">
+        <div class="sl">${s.nm}</div>
+        <div class="sv">${s.pct}%</div>
+        <div class="ic-mini" style="margin-top:4px">${stL[s.st]}</div></div>`).join('')}
+    </div></div>`;
+  const firstOpen=T.find(s=>s.st!=='done');
+  o+=`<div class="card"><h2>Stage detail</h2>
+    <table class="tbl"><thead><tr><th>Stage</th><th>Owner</th><th>Planned</th>
+      <th>Progress</th><th>Status</th><th></th></tr></thead><tbody>
+    ${T.map(s=>`<tr ${s===firstOpen?'style="background:var(--warn-bg)"':''}>
+      <td><b>${s.nm}</b>${s===firstOpen?'<div class="note" style="margin:0">delay originates here</div>':''}</td>
+      <td class="ic-mini">${s.own}</td><td>${s.plan}</td>
+      <td>${csxBar(s.pct,70)}</td>
+      <td>${csxDot(s.st==='done'?'ready':s.st==='prog'?'prog':'blocked',stL[s.st])}</td>
+      <td style="text-align:right">${({close:"pickTab('acctclose')",recs:"pickTab('glrecon')",
+        ic:"pickTab('icomp')",fx:"setCsSub('fx')",cons:"setCsSub('status')",
+        mgmt:"pickLens('fpa')",board:"pickLens('fpa')",sec:"pickLens('filings')"})[s.id]
+        ?`<span class="extlink" onclick="${({close:"pickTab('acctclose')",recs:"pickTab('glrecon')",
+          ic:"pickTab('icomp')",fx:"setCsSub('fx')",cons:"setCsSub('status')",
+          mgmt:"pickLens('fpa')",board:"pickLens('fpa')",sec:"pickLens('filings')"})[s.id]}">Open</span>`:''}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">${firstOpen?`Critical path is held at <b>${firstOpen.nm}</b> (${firstOpen.pct}%).`
+      :'All stages complete.'}</div></div>`;
+  return o;
+}
+
+function renderConsol(){
+  const el=$('view-consol'); if(!el) return;
+  if(csEnt){ el.innerHTML=csvEntity(); return; }
+  let o=glHead('Consolidation',
+    'Consolidation control tower — entity readiness, eliminations, translation and what is blocking consolidated reporting.',
+    glActions);
+  o+=({status:csvStatus, entities:csvEntities, elim:csvElim, fx:csvFx,
+       results:csvResults, excep:csvExcep, timeline:csvTimeline}[csSub]||csvStatus)();
+  el.innerHTML=o;
 }
 
 // ============================================================ TRENDING
@@ -8335,12 +8950,14 @@ function renderFiling(){
   el.innerHTML=h;
 }
 
-function renderFinRep(){
-  const el=$('view-finrep'); if(!el)return;
-  const pin='';
+/* THE statement derivation. Financial reporting, Flux review and Consolidation all read
+   this one function, so the three views cannot disagree. Everything comes from COA +
+   FINREP_SUPP; do not recompute these formulas anywhere else. Memoised, not eagerly
+   evaluated, so declaration order stays irrelevant (see glAccounts for the pattern). */
+let _finD=null;
+function finDerived(){
+  if(_finD) return _finD;
   const S=FINREP_SUPP;
-
-  // ---- derive statement figures from COA + supplemental ----
   // Balance sheet
   const grossPPE = ['15000','15100','15200','15300','15400','15500','15600'].reduce((a,x)=>a+coaBal(x),0);
   const accumDep = coaBal('15900');                 // negative
@@ -8372,14 +8989,23 @@ function renderFinRep(){
   const affo = ffo + S.straightLineRent + S.maintCapex + 0; // less SL rent, less maint capex
 
   // Cash flow (indirect)
-  const cfoAdjust = dep + S.capitalizedInt*0 + S.straightLineRent; // non-cash addbacks
   const cfo = netIncome + dep + S.straightLineRent;
   const cfi = -(grossPPE*0.18) + S.gainOnSale*0 + 12.0; // illustrative: capex outflow + disposition proceeds
   const cff = S.drawsOnFacility + S.equityContrib + S.distributions;
   const netCash = cfo + cfi + cff;
 
-  const derived={grossPPE,accumDep,netPPE,totalAssets,ap,accrued,retention,leaseLiab,loan,icContrib,lpEquity,
-    totalLiab,totalEquity:totalEquityBook,totalLE,totalRev,noi,dep,netIncome,cfo,cfi,cff,ffo,affo};
+  _finD={grossPPE,accumDep,netPPE,totalAssets,ap,accrued,retention,leaseLiab,loan,icContrib,lpEquity,
+    totalLiab,totalEquity:totalEquityBook,totalLE,totalRev,noi,dep,netIncome,cfo,cfi,cff,ffo,affo,
+    balCheck,ebitda,ebit,preTax,netCash};
+  return _finD;
+}
+
+function renderFinRep(){
+  const el=$('view-finrep'); if(!el)return;
+  const pin='';
+  const S=FINREP_SUPP;              // still passed bare into fluxModel(stmt,S,derived)
+  const derived=finDerived();
+  const {totalRev,netIncome,ffo,affo}=derived;
 
   // ---- KPI strip ----
   let h=`<div class="kpis">
@@ -8953,6 +9579,15 @@ const TAB_PIPELINES={
     {id:'excep',  label:'Exceptions',       n:()=>icxExcep().filter(x=>x.sev==='crit').length, q:true},
     {id:'audit',  label:'Audit trail'},
   ], get:()=>icSub, set:'setIcSub' },
+  consol:{ steps:[
+    {id:'status',   label:'Status'},
+    {id:'entities', label:'Entities',   n:()=>csxEntities().filter(e=>e.st!=='ready').length, q:true},
+    {id:'elim',     label:'Eliminations',n:()=>icxKpi().elimEx.length, q:false},
+    {id:'fx',       label:'FX translation', n:()=>csxEntities().filter(e=>e.fxr.stale).length, q:true},
+    {id:'results',  label:'Consolidated results'},
+    {id:'excep',    label:'Exceptions', n:()=>csxExcep().filter(x=>x.sev==='crit').length, q:true},
+    {id:'timeline', label:'Timeline'},
+  ], get:()=>csSub, set:'setCsSub' },
 };
 
 function paintRailNav(){
@@ -9043,7 +9678,7 @@ const VIEW_META={
   lifecycle:{t:'Property lifecycle',c:'Stage → Market → Site · the portfolio in motion',depth:5},
   pis:{t:'Placed-in-service',c:'Campus → Hall · CIP carve into depreciating assets',depth:4},
   vendors:{t:'Vendors',c:'Capital concentration · top-N, tail, per-site, category mix',depth:4},
-  consol:{t:'Consolidation',c:'Gross → intercompany elimination → net · ring-fence aware',depth:4},
+  consol:{t:'Consolidation',c:'Entity readiness · eliminations · FX translation · consolidated results',depth:4},
   budget:{t:'Budget vs. actual',c:'GL-account-first variance review with drill to PO',depth:4},
   forecast:{t:'Forecast & scenarios',c:'Estimate-at-completion · scenario cases · cash-flow phasing',depth:4},
   trend:{t:'Trending',c:'Region → Subsidiary → GL → Category → PO → Invoice',depth:5},
@@ -9479,6 +10114,27 @@ const CP_CARDS={
                excep:['close','old','big'], audit:['big','miss','close'] };
     return (by[icSub]||by.net).map(k=>base[k]);
   },
+  // Consolidation prompts follow the sub-view, with counts off the same derivation.
+  consol: ()=>{
+    const K=csxKpi(), blk=K.blocked.map(e=>e.ini).join(', ');
+    const notReady=K.E.filter(e=>e.st!=='ready');
+    const base={
+      block :{t:'Which entities are blocking consolidation?', s:K.blocked.length?blk:'none blocked', i:'warn'},
+      why   :{t:'Why is '+(notReady[0]?notReady[0].nm.replace('Meridian ','').replace(' Co',''):'each entity')+' not ready?',
+              s:notReady[0]?notReady[0].blk.length+' open blocker'+(notReady[0].blk.length===1?'':'s'):'all clear', i:'search'},
+      cta   :{t:'Explain the largest CTA movement', s:'net '+glB(K.cta)+' translation adjustment', i:'delta'},
+      elim  :{t:'Which eliminations remain?', s:K.elimLeft+' of '+K.elimPairs.length+' pairs open', i:'list'},
+      risk  :{t:'Show material consolidation risks', s:csxExcep().filter(x=>x.sev==='crit').length+' critical', i:'warn'},
+      chg   :{t:'Which entities changed since yesterday?', s:new Set(CONS_DELTA.map(c=>c.ent)).size+' entities moved', i:'clock'},
+      fell  :{t:'Explain why readiness fell', s:'currently '+K.score+'%', i:'chart'},
+      all   :{t:'Show all outstanding blockers', s:K.E.reduce((s,e)=>s+e.blk.length,0)+' across all entities', i:'list'},
+    };
+    const by={ status:['block','fell','chg'], entities:['why','block','all'],
+               elim:['elim','risk','block'], fx:['cta','risk','chg'],
+               results:['fell','elim','risk'], excep:['risk','all','block'],
+               timeline:['block','fell','all'] };
+    return (by[csSub]||by.status).map(k=>base[k]);
+  },
   glsync: [{t:'Why is JD Edwards sync delayed?',s:'Investigate the issue',i:'warn'},
            {t:'When did each source last sync?',s:'across 4 integrations',i:'clock'} ],
   fpexec: [{t:'Why is revenue below plan?',s:'2.1% under budget YTD',i:'delta'},
@@ -9497,6 +10153,20 @@ const CP_CARDS={
 };
 // Context line: what the assistant is looking at right now, including page filters.
 function cpContext(){
+  // Consolidation: which entity and which readiness view is on screen.
+  if(TAB==='consol'){
+    const f=[];
+    if(csEnt) f.push(csEnt);
+    else f.push(({status:'consolidation status',entities:'entity readiness',elim:'elimination status',
+                  fx:'FX translation',results:'consolidated results',excep:'exceptions',
+                  timeline:'close timeline'})[csSub]||'consolidation status');
+    if(csfReg !=='all') f.push(csfReg);
+    if(csfCtry!=='all') f.push(csfCtry);
+    if(csfCcy !=='all') f.push(csfCcy+' functional');
+    if(csfBu  !=='all') f.push(csfBu);
+    if(csfSt  !=='all') f.push((CONS_ST[csfSt]||{}).l);
+    return 'Looking at: '+f.join(' · ')+' · Jun 2026 · '+CONS_RPT;
+  }
   // Intercompany: tell the assistant which relationship, event and filters are in view.
   if(TAB==='icomp'){
     const f=[];
