@@ -235,8 +235,17 @@ There is no separate CSS/JS file. Edits happen in place.
   cite (AI-2025-031, AI-2025-018), so don't renumber them without updating the `res[].src`
   citations that reference them. `AM_TOPICS` is the configurable taxonomy. Same shared-tab-id
   split as Exceptions (`'ledger:issues'` in VIEW_META; the Accounting rail badge is
-  `amKpi().open.length`, the standalone Issues lens keeps `wsIssueCount()`). No sub-nav
-  pipeline — it is a queue + detail, kept deliberately simple.
+  `amKpi().open.length`, the standalone Issues lens keeps `wsIssueCount()`).
+  **Phase 2** added a lens-scoped 3-tab pipeline (`'ledger:issues'` in TAB_PIPELINES:
+  matters / precedents / recurring, `amSub` state) plus derived intelligence — all still
+  computed over `AM_MATTERS`, no new stored data: `amSimilar(m)` (reuses each matter's
+  `res.k==='prec'` entry — its note IS the key difference — labelled Korvyn AI analysis,
+  never auto-applied), `amImplVal(i)` (validation is `ok` ONLY where `i.ev` evidence exists,
+  never assumed), `amRecurring()` (topic patterns), `amPrecedentBook()` (closed + concluded).
+  New detail sections were inserted surgically into `amvDetail` (FS impact estimated-vs-actual,
+  validation column, version-history table, policy-action, and a knowledge-graph chain reusing
+  `ic-spine` inside a native `<details>` for progressive disclosure). The matters queue and the
+  pre-Phase-2 detail sections were left unchanged — the design mandate was enhance, not rebuild.
 - `AX_STATE` / `AX_RECUR` / `AX_TREND` — Accounting > Exceptions. The exceptions themselves
   are **not stored**: `axExceptions()` derives all 25 from `GL_RECON`, `IC_EVENTS`,
   `csxEntities()`, `CC_SIGNALS`, `CIP_PROJECTS`, `GL_ERP` and `CLOSE_TASKS`, and every row
