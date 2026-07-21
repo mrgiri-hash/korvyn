@@ -70,8 +70,8 @@ keeps the original lie and adds a second one).
   Accounting · Fixed Assets · Procurement · FP&A · Treasury · Reporting · ⋯
   The `⋯` menu (`#moreMenu`) holds Data & Controls / Integrations / Administration.
 - **Left rail = functions within the active domain** (`#railTabs`, from `RAIL_SPEC`).
-- **Ask Korvyn** = persistent contextual AI, four states (docked / rail / full screen /
-  closed). Do not redesign it without being asked.
+- **Ask Korvyn** = persistent contextual AI, **three** states (closed / open / full screen).
+  Do not redesign it without being asked. See the Ask Korvyn section below before touching it.
 
 Lens ids kept their original names through relabelling: `ledger` renders as
 **Accounting**, `filings` as **Reporting** (SEC filings is a group inside its rail).
@@ -131,9 +131,9 @@ There is no separate CSS/JS file. Edits happen in place.
     identified by the text before the first ` · ` separator, so `ACC-06` and
     `ACC-06 · Capitalized Labor` are one record cited twice — and `ACC-06` turns out to be
     load-bearing for both an investor-diligence and a SOX request. The rule is stated on screen.
-  **Known, pre-existing, not a Data Room bug:** at ~1085px client width every page reports
-  scrollWidth 1141 — the offender is `#copilot`, the collapsed Ask Korvyn strip. Ask Korvyn is
-  out of scope to modify, so this is left alone.
+  **The old ~1085px overflow note is obsolete — that bug is fixed.** Every page used to report
+  scrollWidth 1141 at 1085px client width because `#copilot` sat in the body grid. The panel is
+  now `position:fixed` and out of layout, so there is zero horizontal overflow at any width.
 - **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
   `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
   (Fixed Assets), `procure` (Procurement), `fpa` (FP&A), `treasury` (Treasury),
@@ -369,6 +369,43 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
 - Lock/sign-off with audit trail: `lockFluxComment`/`unlockFluxComment` record `FLUX_REVIEWER`
   + `fluxNow()`. Locked comments surface in the Filing view as read-only "Disclosure notes".
 - `fluxModel(stmt, S, derived)` defines each statement's lines + GL breakdown.
+
+## Ask Korvyn (read before touching the assistant)
+
+`#copilot` is an **overlay**, never a layout participant. This is the load-bearing rule:
+
+- The body grid is **two columns** (`rail main`). The assistant deliberately has no grid
+  column, so opening it cannot reflow, resize or restyle the page underneath — the page keeps
+  its full width in every state. Do not reintroduce a `copilot` grid area or a `--copilot-w`
+  column; that is what caused the old 1085px overflow.
+- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--copilot-w,400px)`.
+  Closed is `transform:translateX(100%)` — **not** `width:0`.
+- **Three states, and only three:** closed (`copilot-collapsed`), open, full screen
+  (`copilot-full`). An earlier build also had a 56px `copilot-rail` icon strip between open and
+  closed; it was removed along with `cpRail` / `cpSetRail` / `renderCpStrip` / `cpExpandTo` and
+  the `.cp-strip` / `.cp-sbtn` CSS. Do not resurrect it — a second half-open state is the
+  bolted-on-widget feel the panel is meant to avoid.
+- **Closed state is a right-edge access rail** (`.cp-reopen`): 34px, flush to the edge,
+  vertically centred, page surface + hairline border, icon over a vertical "Korvyn AI" label.
+  It is explicitly **not** a floating bottom-right chat pill. Hidden in full screen.
+- **The panel separates from the workspace through boundary, shadow, spacing and type — never
+  through a tinted background.** `--surface-ai` is within a hair of `--surface` in both themes
+  (`#FCFDFE` / `#151C29`) and must stay that way. It exists only so the two planes are not
+  byte-identical; it is not a colour accent.
+- Header carries the identity block (mark, "Korvyn AI", and the grounding line with its green
+  check) plus exactly two controls: full screen and close. Starred/History moved to the quiet
+  `.cp-util` row **below** the input so they cannot compete with it. Every control in that row
+  does something real — `cpNewChat()` clears the thread, and there is no Upload/Settings stub,
+  because dead controls are against house rules.
+- `cpUserName()` reads the first name off `.um-nm` in the user menu; if that is ever removed the
+  welcome falls back to a generic "How can I help?" rather than rendering "Hi, ".
+- Suggestions are capped at three (`cards.slice(0,3)` in `renderCpHome`) — the underlying
+  `CP_CARDS` / `CP_SUGS` data is untouched, only the render is trimmed.
+- Dragging the resize handle narrower than `CP_SNAP` (200px) now snaps the panel **shut**,
+  since there is no rail to snap to.
+- `localStorage` silently no-ops under `file://` in the preview sandbox (all the writes are
+  already wrapped in try/catch), so open/closed state will not persist across a preview reload.
+  That is the sandbox, not a bug — do not "fix" it with a different storage mechanism.
 
 ## Editing patterns & gotchas
 
