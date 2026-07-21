@@ -1,4 +1,4 @@
-import type { AccountId, EntityId, DimensionCode } from './primitives';
+import type { AccountId, EntityId, DimensionCode } from './primitives.js';
 
 /**
  * Chart of accounts.

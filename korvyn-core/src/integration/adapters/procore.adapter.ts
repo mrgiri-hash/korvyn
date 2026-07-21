@@ -11,7 +11,7 @@ import {
   NotImplementedError,
   UnsupportedCapabilityError,
   capabilityFor,
-} from '../adapter';
+} from '../adapter.js';
 
 /**
  * ProcoreAdapter — a DO-NOTHING stub.

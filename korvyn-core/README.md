@@ -3,10 +3,36 @@
 Canonical accounting model + integration boundary. Typed scaffold only — no
 connectors, no sync engine, no persistence.
 
-> **Status: UNVERIFIED.** This was authored on a machine with no Node toolchain,
-> so it has never been compiled. Run `npm install && npm run typecheck` before
-> trusting it. Expect to fix a small number of type errors; the shapes and the
-> boundary are the deliverable, not a green build.
+> **Status: verified.** Compiles clean under the strict config, and 43 tests
+> exercise the invariants against the emitted `dist/`. Run `npm run check`.
+
+## Running it
+
+Node **is** installed on the build machine, but it is not on `PATH` —
+`C:\Users\mitragiri\tools\node22\` (v22.23.1, npm bundled). Prepend it first, or
+nothing below works and it looks like Node is missing:
+
+```powershell
+$env:Path = "C:\Users\mitragiri\tools\node22;$env:Path"
+npm install
+npm run check      # typecheck src + typecheck tests + tests + boundary
+```
+
+| Script | What it does |
+|---|---|
+| `npm run typecheck` | `tsc --noEmit` over `src` |
+| `npm run typecheck:test` | `tsc -p tsconfig.test.json` over `test` |
+| `npm run build` | emits `dist/` |
+| `npm test` | builds, then runs the suite |
+| `npm run check` | all of the above, plus the boundary checker |
+
+Tests are TypeScript run directly by Node 22's native type stripping, so there is
+**no test framework and no transpiler** — `node:test` plus `node:assert` only. The
+only devDependencies are `typescript` and `@types/node`.
+
+They import from `dist/`, not `src/`, so the suite exercises the artifact a
+consumer actually gets — and proves the ESM module graph resolves at runtime,
+which is precisely what the explicit `.js` extensions exist to guarantee.
 
 ## The architectural rule
 
@@ -134,10 +160,24 @@ Sync engine, conflict resolution, scheduling, retry/backoff, persistence,
 real API calls, the mapping *engine*, and any UI. The adapter is a pure
 translator plus authenticated transport; everything orchestrational sits above it.
 
+## What the first compile found
+
+Worth recording, because the failure mode generalises.
+
+`tsc` reported **29 errors**, which looked like 28 mechanical ones plus a real
+type bug (`journal.ts:99 — Type 'number' is not assignable to type 'bigint'`).
+It was actually **one** root cause: relative imports lacked the `.js` extensions
+that `moduleResolution: NodeNext` requires. Because `journal.ts` could not
+resolve `Money`, `amountMinor` degraded to an error type, and unary minus on an
+error type falls back to `number`. Fixing the imports fixed the "bigint bug" too.
+
+The lesson: **fix resolution errors before believing any type error downstream of
+them.** A broken import poisons inference in files that are themselves correct.
+
 ## Next steps
 
-1. Install Node ≥20, then `npm install && npm run typecheck`. Fix what it finds.
-2. Add the `import/no-restricted-paths` lint rule above so the boundary is
-   mechanically enforced.
-3. Write unit tests for `validateJournalEntry` — it is pure and needs no mocks.
+1. ~~Install Node, typecheck~~ — done; `npm run check` is green.
+2. ~~Unit tests for `validateJournalEntry`~~ — done, 43 tests.
+3. Add the `import/no-restricted-paths` lint rule above, so the boundary is
+   enforced by the toolchain and not only by `tools/check_boundary.py`.
 4. Only then start a real connector.

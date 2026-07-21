@@ -1,4 +1,4 @@
-import type { EntityId, CurrencyCode } from './primitives';
+import type { EntityId, CurrencyCode } from './primitives.js';
 
 /**
  * Legal / reporting entity. The unit of consolidation.

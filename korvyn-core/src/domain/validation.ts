@@ -8,12 +8,12 @@ import {
   ok,
   err,
   formatMoney,
-} from './primitives';
-import { type Account, canPostTo, accountAllowsEntity } from './account';
-import type { Entity } from './entity';
-import { type Period, acceptsPosting, dateWithinPeriod } from './period';
-import type { DimensionDefinition } from './dimension';
-import type { JournalEntry, ValidatedJournalEntry } from './journal';
+} from './primitives.js';
+import { type Account, canPostTo, accountAllowsEntity } from './account.js';
+import type { Entity } from './entity.js';
+import { type Period, acceptsPosting, dateWithinPeriod } from './period.js';
+import type { DimensionDefinition } from './dimension.js';
+import type { JournalEntry, ValidatedJournalEntry } from './journal.js';
 
 /**
  * The invariants. This is the only file that decides whether a posting is legal.

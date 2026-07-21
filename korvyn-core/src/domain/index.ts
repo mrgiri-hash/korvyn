@@ -7,10 +7,10 @@
  * the thing you need belongs in the domain, expressed in the domain's own
  * vocabulary.
  */
-export * from './primitives';
-export * from './account';
-export * from './entity';
-export * from './dimension';
-export * from './period';
-export * from './journal';
-export * from './validation';
+export * from './primitives.js';
+export * from './account.js';
+export * from './entity.js';
+export * from './dimension.js';
+export * from './period.js';
+export * from './journal.js';
+export * from './validation.js';

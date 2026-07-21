@@ -1,4 +1,4 @@
-import type { PeriodId, EntityId, IsoDate } from './primitives';
+import type { PeriodId, EntityId, IsoDate } from './primitives.js';
 
 /**
  * Accounting period and its open/closed state.

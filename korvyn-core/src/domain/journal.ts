@@ -5,8 +5,8 @@ import type {
   PeriodId,
   Money,
   IsoDate,
-} from './primitives';
-import type { DimensionAssignment } from './dimension';
+} from './primitives.js';
+import type { DimensionAssignment } from './dimension.js';
 
 /**
  * Journal entry and lines. The double-entry core.

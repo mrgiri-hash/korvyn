@@ -1,2 +1,2 @@
-export * from './domain';
-export * from './integration';
+export * from './domain/index.js';
+export * from './integration/index.js';

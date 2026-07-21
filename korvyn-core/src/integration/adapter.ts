@@ -1,4 +1,4 @@
-import type { Account, Entity, Period, JournalEntry, DimensionValue } from '../domain';
+import type { Account, Entity, Period, JournalEntry, DimensionValue } from '../domain/index.js';
 
 /**
  * THE SEAM.

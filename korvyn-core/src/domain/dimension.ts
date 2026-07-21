@@ -1,5 +1,5 @@
-import type { DimensionCode, DimensionValueId, AccountId } from './primitives';
-import type { AccountType } from './account';
+import type { DimensionCode, DimensionValueId, AccountId } from './primitives.js';
+import type { AccountType } from './account.js';
 
 /**
  * Flexible segments. One mechanism serves cost code, project/job, department,

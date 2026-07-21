@@ -1,4 +1,4 @@
-import type { CanonicalEntityType } from './adapter';
+import type { CanonicalEntityType } from './adapter.js';
 
 /**
  * Field mapping configuration — the TYPE ONLY. No engine, no UI, no evaluation.

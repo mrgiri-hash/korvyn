@@ -4,6 +4,36 @@ Guidance for Claude Code working in this repo. Read this fully before editing.
 
 ## What this is
 
+The repo holds **two independent things**. Almost all of this document is about the first.
+
+| | |
+|---|---|
+| `korvyn_dashboard.html` | the illustrative prototype — hardcoded data, no build step |
+| `korvyn-core/` | a real TypeScript package: canonical accounting model + ERP integration boundary |
+
+They share no code and neither imports the other. The dashboard does **not** run on
+`korvyn-core`; its numbers are still hardcoded. Rules below about deriving-not-duplicating,
+render dispatch, nav and the design system apply to the **dashboard only** unless stated.
+
+### `korvyn-core/` in one paragraph
+
+A typed GAAP domain model (`src/domain` — accounts, entities, dimensions, periods, journal
+entries, and the validation invariants) plus the adapter seam (`src/integration`) that
+external systems must enter through. **The architectural rule is one-directional:**
+`integration/` may import `domain/`, never the reverse, and no vendor field name may appear
+outside an adapter's private translation code. `tools/check_boundary.py` enforces that
+without needing Node. Money is `bigint` minor units; a journal line carries one signed
+amount; balance is checked per currency; `ValidatedJournalEntry` is a branded type so
+posting something unvalidated is a compile error. Verified: `npm run check` (typecheck src +
+tests, 43 tests, boundary) is green. See `korvyn-core/README.md` for the tradeoffs and the
+PATH note. Deliberately not built: sync engine, persistence, real API calls, any UI.
+
+Note the boundary with the dashboard rule below: Korvyn never *posts* to the ERP, but the
+core does model journal entries, because reading, validating and reconciling them requires
+representing them faithfully.
+
+---
+
 `korvyn_dashboard.html` is a **single self-contained HTML file** (~8,700 lines): an
 illustrative prototype of **KORVYN**, an enterprise finance / accounting / capital
 intelligence layer sitting on top of an ERP, for a fictional data-center / CRE REIT
@@ -636,9 +666,17 @@ from the row's own facts, labelled Korvyn analysis, and states that it is never 
 
 The file has no test runner, so validation is manual but fast:
 
-**Note: Node is not installed on this machine** (Python is). The `node --check` / jsdom route
-below is therefore unavailable; use the browser-preview sweep, which is a better end-to-end
-check anyway.
+**Node IS installed — it is just not on `PATH`.** An earlier session recorded "Node is not
+installed on this machine" here, `where node` agreed, and 1,217 lines of TypeScript were
+committed uncompiled on the strength of it. It lives at:
+
+```powershell
+$env:Path = "C:\Users\mitragiri\tools\node22;$env:Path"   # v22.23.1, npm bundled
+```
+
+Before concluding a tool is absent, search the filesystem, not just `PATH`. Python is also
+available. For the dashboard the browser-preview sweep is still the better end-to-end check,
+but `node --check` on the extracted script now works too.
 
 **Preview sandbox:** the preview pane only serves files from the *session's* working directory.
 If the session is rooted at `C:\Korvyn` this file loads directly. If it is rooted elsewhere
