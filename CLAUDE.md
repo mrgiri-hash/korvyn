@@ -378,16 +378,25 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   column, so opening it cannot reflow, resize or restyle the page underneath — the page keeps
   its full width in every state. Do not reintroduce a `copilot` grid area or a `--copilot-w`
   column; that is what caused the old 1085px overflow.
-- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--copilot-w,400px)`.
+- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--copilot-w,420px)`.
   Closed is `transform:translateX(100%)` — **not** `width:0`.
 - **Three states, and only three:** closed (`copilot-collapsed`), open, full screen
   (`copilot-full`). An earlier build also had a 56px `copilot-rail` icon strip between open and
   closed; it was removed along with `cpRail` / `cpSetRail` / `renderCpStrip` / `cpExpandTo` and
   the `.cp-strip` / `.cp-sbtn` CSS. Do not resurrect it — a second half-open state is the
   bolted-on-widget feel the panel is meant to avoid.
-- **Closed state is a right-edge access rail** (`.cp-reopen`): 34px, flush to the edge,
-  vertically centred, page surface + hairline border, icon over a vertical "Korvyn AI" label.
-  It is explicitly **not** a floating bottom-right chat pill. Hidden in full screen.
+- **Closed state has no on-page affordance at all.** No rail, no pill, no reserved width —
+  the workspace is completely unobstructed. Korvyn AI is reached from exactly one place: the
+  `.ribai` icon in the ribbon utilities (`#ribAi`, order Search · Help · Notifications ·
+  **Korvyn AI** · user). Two earlier designs were rejected and should not come back: a floating
+  bottom-right pill, and a 34px vertical right-edge rail with a rotated "Korvyn AI" label.
+  The icon is a 32px `.ribicon` carrying `--rail-ai` — a blue that reads on the dark ribbon,
+  since `--accent` is a light-surface hue and is unreadable there. The ribbon is dark in both
+  themes, so `--rail-ai` is one value in both. The glyph is a thin ring over three connected
+  nodes (the traceable spine), deliberately not a sparkle or a chat bubble.
+- **`#ribAiDot` is availability, not alarm:** a 6px `--rail-ai` dot, never the red `.ribdot`
+  used by notifications, and hidden while the panel is open. It is repainted inside
+  `paintRailRoles` next to the `ribNotif` badge, so it tracks nav changes for free.
 - **The panel separates from the workspace through boundary, shadow, spacing and type — never
   through a tinted background.** `--surface-ai` is within a hair of `--surface` in both themes
   (`#FCFDFE` / `#151C29`) and must stay that way. It exists only so the two planes are not
