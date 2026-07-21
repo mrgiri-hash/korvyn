@@ -24,7 +24,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 | Module | State |
 |---|---|
 | Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
-| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close, Exceptions, Accounting Issues — every page built to its written spec, no known defects |
+| Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close, Exceptions, Accounting Issues, Policies — every page built to its written spec, no known defects |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
 | FP&A | Eight functions, Executive Overview through Management Reporting |
@@ -246,6 +246,21 @@ There is no separate CSS/JS file. Edits happen in place.
   validation column, version-history table, policy-action, and a knowledge-graph chain reusing
   `ic-spine` inside a native `<details>` for progressive disclosure). The matters queue and the
   pre-Phase-2 detail sections were left unchanged — the design mandate was enhance, not rebuild.
+- `POL_POLICIES` — Accounting > Policies (`renderPolicies`, the `LENS==='ledger'` branch of
+  `renderAdmin`; the standalone Administration lens keeps its Settings/thresholds view). Another
+  **shared tab id** (`admin`): lens-scoped `'ledger:admin'` in VIEW_META, and a `LENS` guard in
+  the CP_CARDS `admin` function. 13 authored policy records (categories, levels, statuses,
+  versions, applicability, source docs), including a Global → EMEA → Germany capitalization
+  hierarchy (`parent` builds it) and the **ACC-06 / ACC-09 / ACC-14 records that AM_MATTERS
+  cite** — do not renumber them without updating those matters' `polNote`/`res` references.
+  Everything derives from `POL_POLICIES` (`polKpi`, `polCatRoll`, `polParentChain`,
+  `polChildren`); one authoritative record each, never duplicated across categories (a policy
+  has one `cat` plus `rel[]`). `aiEx` marks records whose standardized content is still
+  AI-extracted and awaiting validation — labelled, never treated as approved.
+  **Phase 1A scope = Library + Detail only.** Ingestion/upload, duplicate detection, search and
+  a full applicability engine were explicitly out of scope and are NOT built (an earlier draft
+  that included them was removed). If you add them later, they are a Phase 1B — do not assume
+  the removed code is retrievable beyond git history.
 - `AX_STATE` / `AX_RECUR` / `AX_TREND` — Accounting > Exceptions. The exceptions themselves
   are **not stored**: `axExceptions()` derives all 25 from `GL_RECON`, `IC_EVENTS`,
   `csxEntities()`, `CC_SIGNALS`, `CIP_PROJECTS`, `GL_ERP` and `CLOSE_TASKS`, and every row
