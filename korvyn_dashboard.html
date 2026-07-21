@@ -14,12 +14,22 @@
 
 :root{
   /* ---- structural slate (light) ---- */
-  --bg:#F6F7F9; --bg2:#EEF0F4; --surface:#FFFFFF; --surface2:#FBFCFD;
-  --ink:#101623; --muted:#5A6474; --hint:#8A93A3; --faint:#B4BCC9;
-  --line:#E7EAF0; --line2:#D6DBE4; --rail:#0E1521; --rail-ink:#C4CCDA; --rail-hint:#727E92;
+  /* ---- Midnight + Cobalt -------------------------------------------------------
+     The architecture is four planes, and the tokens are named for their plane:
+       MIDNIGHT  --rail / --rail2   platform chrome (top ribbon, module nav)
+       COBALT    --accent*          interaction, navigation, selection
+       WHITE     --bg / --surface   the financial workspace
+       INDIGO    --ai*              Korvyn Intelligence, and nothing else
+     Never reach for --ai to decorate a non-intelligence surface; that separation is
+     the whole point of the palette. */
+  --bg:#F7F8FA; --bg2:#EDF0F5; --surface:#FFFFFF; --surface2:#FBFCFD;
+  --ink:#172033; --muted:#64748B; --hint:#8A94A6; --faint:#B4BECC;
+  --line:#E2E8F0; --line2:#CBD5E1;
+  /* two midnight planes: the ribbon sits deepest, the module rail one step up */
+  --rail:#08111F; --rail2:#0D1726; --rail-ink:#C3CCDB; --rail-hint:#75818F;
 
-  /* ---- single accent (capital blue) + one supporting depth ---- */
-  --accent:#2563C9; --accent-ink:#1D4FA8; --accent-bg:#EAF1FD; --accent-line:#BFD5F5;
+  /* ---- single accent (cobalt) + one supporting depth ---- */
+  --accent:#2563EB; --accent-ink:#1D4ED8; --accent-bg:#EEF4FE; --accent-line:#C4D9FB;
   --accent-2:#0E7C86; /* teal-slate, used only for "incurred/actual" measure */
 
   /* ---- four disciplined semantic states ---- */
@@ -42,19 +52,25 @@
      --accent-fill / --neg-fill are the BACKGROUND hues used behind --on-* text.
      In light mode one value serves both; in dark they must diverge, because a hue
      light enough to read as text on a dark surface is too light to carry white text. */
-  --accent-fill:#2563C9; --neg-fill:#B3382F;
+  --accent-fill:#2563EB; --neg-fill:#B3382F;
   --on-accent:#FFFFFF; --on-neg:#FFFFFF;
+  /* ---- Korvyn Intelligence (indigo). Reserved for AI surfaces ONLY: Ask Korvyn,
+     Korvyn Insight, AI indicators, generated recommendations. Indigo must never
+     become a second UI accent — cobalt owns interaction. ---- */
+  --ai:#6366F1; --ai-deep:#7C3AED; --ai-ink:#4F46E5;
+  --ai-bg:#FAFAFF; --ai-line:#DDDEFB;
   /* The assistant reads as its own plane through its boundary, shadow and spacing —
      NOT through a tinted background. Keep this within a hair of --surface. */
   --surface-ai:#FCFDFE;
   /* Korvyn blue as it must read on the dark ribbon. --accent is a light-surface hue and
      is unreadable there, so the ribbon's AI affordance gets its own token. The ribbon is
      dark in both themes, so this value is the same in both. */
-  --rail-ai:#6BA3F5;
+  --rail-ai:#8B8FF8;
   --shadow-sm:0 1px 2px rgba(16,22,35,.03),0 1px 3px rgba(16,22,35,.05);
   --shadow-md:0 2px 4px rgba(16,22,35,.04),0 8px 24px rgba(16,22,35,.06);
   --shadow-rail:0 0 0 1px rgba(255,255,255,.03) inset;
-  --radius:12px; --radius-sm:8px; --radius-pill:20px;
+  /* restrained scale: major panels 10, cards 8, inputs/buttons 6 */
+  --radius:10px; --radius-sm:8px; --radius-xs:6px; --radius-pill:20px;
   /* ---- shell geometry (single source of truth for the rail + topbar) ---- */
   --rail-w:212px; --rail-w-collapsed:60px; --ribbon-h:56px;
   /* ---- density scale ---- */
@@ -67,7 +83,11 @@
 [data-theme="dark"]{
   --bg:#0B1018; --bg2:#0E141E; --surface:#141B27; --surface2:#111823;
   --ink:#EAEEF5; --muted:#9CA6B6; --hint:#6E7889; --faint:#4B5568;
-  --line:#222C3B; --line2:#2C384A; --rail:#080C13; --rail-ink:#AEB8C8; --rail-hint:#616C7E;
+  --line:#222C3B; --line2:#2C384A;
+  --rail:#050A12; --rail2:#0A1119; --rail-ink:#AEB8C8; --rail-hint:#616C7E;
+  /* intelligence indigo, lightened so it reads as text on dark surfaces */
+  --ai:#818CF8; --ai-deep:#A78BFA; --ai-ink:#A5B0FB;
+  --ai-bg:#161A2E; --ai-line:#2E3358;
 
   --accent:#5B93F0; --accent-ink:#7FACF5; --accent-bg:#16233A; --accent-line:#2A436B;
   --accent-2:#3FB0BA;
@@ -91,7 +111,7 @@
   --accent-fill:#2E6BD6; --neg-fill:#C4443A;
   --on-accent:#FFFFFF; --on-neg:#FFFFFF;
   --surface-ai:#151C29;
-  --rail-ai:#6BA3F5;
+  --rail-ai:#8B8FF8;
 
   --shadow-sm:0 1px 2px rgba(0,0,0,.28);
   --shadow-md:0 2px 4px rgba(0,0,0,.28),0 12px 32px rgba(0,0,0,.38);
@@ -137,14 +157,24 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .rail-sub{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--rail-hint);margin-top:3px}
 
 /* horizontal section nav (was the vertical rail role list; #railRoles / .railrole preserved) */
-.ribbon-nav{display:flex;align-items:center;gap:3px;min-width:0;overflow-x:auto}
+.ribbon-nav{display:flex;align-items:stretch;gap:2px;min-width:0;overflow-x:auto;align-self:stretch}
 .ribbon-nav::-webkit-scrollbar{height:0}
 .railrole{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;white-space:nowrap;
-  color:var(--rail-ink);font:inherit;font-size:12.5px;padding:8px 13px;border-radius:8px;transition:.13s;position:relative}
+  color:var(--rail-ink);font:inherit;font-size:13px;font-weight:450;padding:8px 13px;border-radius:var(--radius-sm);
+  transition:.13s;position:relative}
 .railrole:hover{background:rgba(255,255,255,.06);color:#fff}
-.railrole .ic{width:15px;height:15px;flex:none;opacity:.68}
-.railrole.on{background:var(--accent-fill);color:var(--on-accent);font-weight:600}
+.railrole .ic{width:15px;height:15px;flex:none;opacity:.62;transition:opacity .13s}
+.railrole.on{color:#fff;font-weight:600}
 .railrole.on .ic{opacity:1}
+/* ACTIVE STATE IS AN INDICATOR, NEVER A FILLED BLOCK.
+   `.railrole` is shared by the ribbon nav and the left rail, so each container scopes its
+   own treatment — see the shared-class-name note in CLAUDE.md. The ribbon stays deliberately
+   quiet so it keeps scaling as enterprise domains are added. */
+.ribbon-nav .railrole{border-radius:0;padding:0 13px}
+.ribbon-nav .railrole:hover{background:rgba(255,255,255,.045)}
+.ribbon-nav .railrole.on{background:rgba(255,255,255,.035)}
+.ribbon-nav .railrole.on::after{content:'';position:absolute;left:11px;right:11px;bottom:0;height:2px;
+  background:var(--accent);border-radius:2px 2px 0 0}
 
 .ribbon-scope{flex:none;text-align:right;font-size:10.5px;color:var(--rail-hint);line-height:1.4;
   padding-left:20px;border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:1px}
@@ -160,9 +190,15 @@ body.rail-collapsed{--rail-w:var(--rail-w-collapsed)}
 .rail{
   grid-area:rail;position:sticky;top:var(--ribbon-h);align-self:start;
   height:calc(100vh - var(--ribbon-h));z-index:20;
-  background:var(--rail);border-right:1px solid rgba(255,255,255,.07);
+  /* one step up from the ribbon, so the two midnight planes read as connected but distinct */
+background:var(--rail2);border-right:1px solid rgba(255,255,255,.06);
   display:flex;flex-direction:column;overflow:hidden;transition:width .16s ease;
 }
+/* Selected module item: subtle lighter navy + a thin cobalt left indicator. No saturated block. */
+.rail .railrole.on{background:rgba(255,255,255,.055);color:#fff}
+.rail .railrole.on::before{content:'';position:absolute;left:-10px;top:6px;bottom:6px;width:2.5px;
+  background:var(--accent);border-radius:0 2px 2px 0}
+body.rail-collapsed .rail .railrole.on::before{left:-10px}
 .rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
 .rail-scroll::-webkit-scrollbar{width:0}
 .rail-grouplbl{
@@ -224,10 +260,13 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 
 
 /* ---- rail: nesting + badges ---- */
-.railrole .rbadge{margin-left:auto;min-width:19px;height:17px;padding:0 5px;border-radius:9px;
-  background:var(--neg-fill);color:var(--on-neg);font-size:9.5px;font-weight:700;
-  display:grid;place-items:center;line-height:1;flex:none}
-.railrole .rbadge.mut{background:rgba(255,255,255,.12);color:var(--rail-ink)}
+/* Rail badges are OPEN-ITEM COUNTS, not alarms. Red on every one of them is alarm fatigue
+   and buries the genuinely critical, so the default is a compact neutral chip. */
+.railrole .rbadge{margin-left:auto;min-width:18px;height:16px;padding:0 5px;border-radius:8px;
+  background:rgba(255,255,255,.10);color:var(--rail-ink);font-size:10px;font-weight:600;
+  display:grid;place-items:center;line-height:1;flex:none;font-variant-numeric:tabular-nums}
+.railrole.on .rbadge{background:rgba(255,255,255,.16);color:#fff}
+.railrole .rbadge.mut{background:rgba(255,255,255,.07);color:var(--rail-hint)}
 body.rail-collapsed .rail .railrole .rbadge{display:none}
 .railrole .rchev{margin-left:auto;width:13px;height:13px;flex:none;opacity:.6;transition:transform .15s}
 .railrole.exp .rchev{transform:rotate(180deg)}
@@ -357,8 +396,10 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 @media(max-width:980px){.grid2{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--pad-card);margin-bottom:18px;box-shadow:var(--shadow-sm)}
-.card h2{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:3px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+/* Flat by default. Elevation is reserved for things that genuinely float — menus, overlays,
+   dialogs, drawers, intelligence surfaces. Hierarchy comes from spacing, type and borders. */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--pad-card);margin-bottom:18px}
+.card h2{font-size:16px;font-weight:600;letter-spacing:-.01em;margin-bottom:3px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .card h2 .note{font-size:12px;color:var(--hint);font-weight:400}
 .card .subhead{font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.55;max-width:80ch}
 .lenspin{font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:6px;
@@ -394,7 +435,7 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .card:has(> .tbl){overflow-x:auto}
 .card:has(> .tblwrap){overflow-x:visible}
 .tblwrap .tbl{min-width:960px}
-.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:9px 11px;border-bottom:1px solid var(--line2);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:9px 11px;border-bottom:1px solid var(--line2);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
 .tbl td{padding:10px 11px;border-bottom:1px solid var(--line)}
 .tbl tr:last-child td{border-bottom:none}
 .tbl td.num,.tbl th.num{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
@@ -686,7 +727,7 @@ footer b{color:var(--muted)}
 .delta.up{color:var(--pos)} .delta.dn{color:var(--neg)}
 .gl-hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:18px}
 .gl-hd .grow{flex:1;min-width:220px}
-.gl-hd h1{font-size:21px;font-weight:600;letter-spacing:-.02em}
+.gl-hd h1{font-size:23px;font-weight:650;letter-spacing:-.022em;line-height:1.2}
 .gl-hd .sub{font-size:12.5px;color:var(--muted);margin-top:4px}
 .grid2gl{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:18px}
 @media(max-width:1100px){.grid2gl{grid-template-columns:1fr}}
@@ -1561,6 +1602,66 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 .cp-saved-empty{font-size:11.5px;color:var(--hint);font-style:italic;padding:6px 2px}
 .cp-savedmsg{border-left:2px solid var(--warn);padding-left:10px;margin-bottom:8px}
 .cp-savedmsg .sm-body{font-family:var(--serif);font-size:12.5px;color:var(--muted);line-height:1.5}
+
+/* ==================== BROWSE -> INSPECT -> WORK split workspace ====================
+   A REUSABLE record-investigation pattern, not a Reconciliations one-off. The detail pane
+   is a grid SIBLING of the list, never an overlay: the list contracts to ~63% and the
+   context workspace takes ~37%, so nothing is ever occluded. Below 1100px the split
+   linearises rather than crushing the table. */
+.wsplit{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.wsplit.on{grid-template-columns:minmax(0,1.7fr) minmax(330px,1fr)}
+.wsplit>*{min-width:0}
+@media(max-width:1100px){ .wsplit.on{grid-template-columns:minmax(0,1fr)} }
+/* in split mode the table sheds its lowest-priority columns rather than scrolling */
+.wsplit.on .rec-hide{display:none}
+.wdetail{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;position:sticky;top:calc(var(--ribbon-h) + 14px)}
+.wd-hd{padding:15px 17px 14px;border-bottom:1px solid var(--line)}
+.wd-hd .t{font-size:15px;font-weight:650;letter-spacing:-.015em;line-height:1.3}
+.wd-hd .s{font-size:11.5px;color:var(--muted);margin-top:3px}
+.wd-x{margin-left:auto;width:26px;height:26px;border-radius:var(--radius-xs);border:1px solid var(--line2);
+  background:var(--surface);color:var(--muted);cursor:pointer;display:grid;place-items:center;flex:none;transition:.13s}
+.wd-x:hover{border-color:var(--accent-line);color:var(--accent);background:var(--accent-bg)}
+.wd-x svg{width:13px;height:13px}
+.wd-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
+.wd-m .v{font-size:19px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.wd-m .l{font-size:11px;color:var(--muted);margin-top:3px}
+.wd-body{padding:15px 17px;max-height:calc(100vh - 340px);overflow-y:auto}
+.wd-body::-webkit-scrollbar{width:6px}
+.wd-body::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+.wd-foot{padding:11px 14px;border-top:1px solid var(--line);background:var(--surface2);display:flex;gap:8px;flex-wrap:wrap}
+.wtabs{display:flex;gap:1px;border-bottom:1px solid var(--line);padding:0 10px;overflow-x:auto}
+.wtabs::-webkit-scrollbar{height:0}
+.wtabs button{font:inherit;font-size:12px;padding:9px 9px;border:none;background:none;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.13s;white-space:nowrap}
+.wtabs button:hover{color:var(--ink)}
+.wtabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.wrel{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.wrel:last-child{border-bottom:none}
+.wrel .g{flex:1;min-width:0;color:var(--muted)}
+.wrel .n{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);flex:none}
+.wrel .lk{color:var(--accent);cursor:pointer;font-weight:500;flex:none}
+.wrel .lk:hover{text-decoration:underline}
+.wsub{font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin:0 0 8px}
+
+/* ---- Korvyn Intelligence surface. Indigo, and ONLY on intelligence. ---- */
+.ki{background:var(--ai-bg);border:1px solid var(--ai-line);border-radius:var(--radius-sm);
+  padding:12px 13px;margin-bottom:15px}
+.ki-h{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--ai-ink);
+  margin-bottom:9px;letter-spacing:.01em}
+.ki-h svg{width:12px;height:12px;flex:none;color:var(--ai)}
+.ki-l{font-size:10px;font-weight:650;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.07em;margin:11px 0 4px}
+.ki-b{font-size:12.5px;line-height:1.55;color:var(--ink)}
+.ki ul{margin:0;padding-left:15px}
+.ki li{font-size:12.5px;line-height:1.5;color:var(--ink);margin-bottom:4px}
+.ki li::marker{color:var(--ai)}
+/* --muted, not --hint: --hint on the near-white indigo surface is ~3.4:1, under the AA floor */
+.ki-note{font-size:10.5px;color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--ai-line)}
+/* The intelligence spark, used wherever Korvyn is reasoning rather than reporting.
+   NB: `.spark` (no prefix) is already the 170px sparkline chart — do not reuse that name. */
+.ki-spark{display:inline-block;width:11px;height:11px;vertical-align:-1px;color:var(--ai)}
 
 </style>
 </head>
@@ -8744,32 +8845,247 @@ function renderGLTrend(){
 }
 
 // ---------------------------------------------------------------- 7. Reconciliations
+/* ---------------- Reconciliations: BROWSE -> INSPECT -> WORK ----------------
+   Row click no longer navigates away; it opens a contextual detail workspace BESIDE the
+   table (.wsplit), never over it. reconDrill() is preserved and is now reached from the
+   detail pane, so the old GL-intelligence route still works.
+
+   Every figure in the detail pane DERIVES from existing structures — GL_RECON, glTxns(),
+   axExceptions(), IC_EVENTS, POL_POLICIES, DR_ITEMS. Nothing is a hardcoded count: if a
+   relationship does not resolve, its row is omitted rather than invented. */
+const glReconKey=r=>r.acct+'|'+r.ent;
+const glReconRow=k=>GL_RECON.find(r=>glReconKey(r)===k)||null;
+let glReconSel=null, glReconWork=false, glReconTab='overview';
+function setGlReconSel(k){ glReconSel=(glReconSel===k?null:k); glReconWork=false; glReconTab='overview'; renderAll(); }
+function glReconCloseDetail(){ glReconSel=null; glReconWork=false; renderAll(); }
+function setGlReconTab(t){ glReconTab=t; renderAll(); }
+function glReconEnterWork(){ glReconWork=true; renderAll(); }
+function glReconExitWork(){ glReconWork=false; renderAll(); }
+
+/* The open exception for this reconciliation, if Exceptions actually derived one. */
+function glReconExcep(r){
+  try{ return axExceptions().find(e=>e.cat==='recs'&&e.ent===r.ent&&String(e.acct).indexOf(r.acct)===0)||null; }
+  catch(e){ return null; }
+}
+/* The governing policy, only where one genuinely governs this account. */
+function glReconPolicy(r){
+  try{
+    const want=(r.acct==='13500'||r.acct==='23500')?'ACC-IC-01'
+             :(r.acct==='15000')?'ACC-CAP-001':null;
+    return want?(POL_POLICIES.find(p=>p.id===want)||null):null;
+  }catch(e){ return null; }
+}
+/* Relationship summary. Each line resolves to a real record set or is not shown. */
+function glReconRel(r){
+  const out=[];
+  try{
+    if(COA.some(c=>c.acct===r.acct)){
+      const tx=glTxns(r.acct);
+      if(tx&&tx.length) out.push({l:'ERP transactions',n:tx.length,go:"reconDrill('"+r.acct+"')",lk:'Open'});
+    }
+  }catch(e){}
+  if(r.acct==='13500'||r.acct==='23500'){
+    try{ if(IC_EVENTS&&IC_EVENTS.length)
+      out.push({l:'Counterparty records',n:IC_EVENTS.length,go:"pickTab('icomp')",lk:'Intercompany'}); }catch(e){}
+  }
+  try{
+    const docs=DR_ITEMS.filter(i=>i.links.some(l=>l.k==='Recon'));
+    if(docs.length) out.push({l:'Supporting documents',n:docs.length,
+      go:"pickLens('droom');pickTab('drevid')",lk:'Data Room'});
+  }catch(e){}
+  const prior=GL_RECON.filter(x=>x.acct===r.acct&&x.ent!==r.ent);
+  if(prior.length) out.push({l:'Same account, other entities',n:prior.length});
+  return out;
+}
+/* Korvyn's reading of WHY this reconciliation is open. Derived from the row's own facts,
+   labelled as analysis, and never auto-applied. */
+function glReconInsight(r){
+  const late=r.st==='over', diff=Math.abs(r.diff), ic=(r.acct==='13500'||r.acct==='23500');
+  let cause=null, acts=[];
+  if(diff&&ic){
+    cause='The variance ties to an unmatched intercompany position. A due-from/due-to control account only carries a difference when one side of an event is recorded and the mirror leg is not, so the counterparty entity is the first place to look.';
+    acts=['Review the unmatched events in the Intercompany workspace',
+          'Confirm whether the counterparty entity has posted its side',
+          'If the mirror leg is genuinely absent, issue the settlement instruction'];
+  } else if(diff){
+    cause='The GL balance and the supporting schedule disagree, and the residual has not been explained. Until it is, this balance is unsupported for consolidation.';
+    acts=['Compare the supporting schedule against period activity',
+          'Document each reconciling item',
+          'Clear the residual or escalate it as an exception'];
+  } else if(late){
+    cause='The balance itself is not in question — no difference has been identified. This is a timing failure rather than an accuracy one: the reconciliation passed its due date without being completed.';
+    acts=['Confirm the preparer has the supporting schedule',
+          'Complete and submit for review',
+          'Check whether the due date is achievable for an account of this size'];
+  }
+  return {cause,acts,late,diff,ic};
+}
+
+const KI_SPARK='<svg class="ki-spark" viewBox="0 0 16 16" fill="none"><path d="M6.6 1.9l1.32 3.58L11.5 6.8 7.92 8.12 6.6 11.7 5.28 8.12 1.7 6.8l3.58-1.32z" fill="currentColor"/><path d="M12.3 9.1l.63 1.71 1.71.63-1.71.63-.63 1.71-.63-1.71-1.71-.63 1.71-.63z" fill="currentColor"/></svg>';
+
+/* The contextual detail workspace — the INSPECT half of the split. */
+function glvReconDetail(r){
+  const s=RECON_ST[r.st], ins=glReconInsight(r), rel=glReconRel(r),
+        ex=glReconExcep(r), pol=glReconPolicy(r);
+  const TABS=[['overview','Overview'],['evidence','Evidence'],['activity','Activity'],
+              ['approvals','Approvals'],['related','Related']];
+  let o='<div class="wdetail"><div class="wd-hd"><div style="display:flex;align-items:flex-start;gap:10px">'+
+    '<div style="min-width:0"><div class="t">'+r.nm+'</div>'+
+    '<div class="s">'+r.acct+' &#183; '+r.ent+'</div></div>'+
+    '<button class="wd-x" onclick="glReconCloseDetail()" title="Close and return to the full-width list" aria-label="Close detail">'+
+    '<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>'+
+    '<div class="wd-metrics"><div class="wd-m"><div class="v">'+glK(r.bal*1000)+'</div>'+
+    '<div class="l">Reconciled balance</div></div>'+
+    '<div class="wd-m"><div class="v" '+(r.diff?'style="color:var(--neg)"':'')+'>'+(r.diff?glK(r.diff*1000):'0.00')+'</div>'+
+    '<div class="l">Difference</div></div></div>'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">'+
+    '<span class="pill '+s.c+'">'+s.l+'</span>'+
+    '<span style="font-size:11.5px;color:'+(r.st==='over'?'var(--neg)':'var(--muted)')+'">Due '+r.due+'</span>'+
+    '<span style="font-size:11.5px;color:var(--muted);margin-left:auto">'+r.own+'</span></div></div>';
+
+  o+='<div class="wtabs">'+TABS.map(t=>
+    '<button class="'+(glReconTab===t[0]?'on':'')+'" onclick="setGlReconTab(\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>';
+
+  o+='<div class="wd-body">';
+  if(glReconTab==='overview'){
+    if(ins.cause){
+      o+='<div class="ki"><div class="ki-h">'+KI_SPARK+'Korvyn Insight</div>'+
+        '<div class="ki-l">Likely cause</div><div class="ki-b">'+ins.cause+'</div>'+
+        '<div class="ki-l">Recommended actions</div><ul>'+ins.acts.map(a=>'<li>'+a+'</li>').join('')+'</ul>'+
+        '<div class="ki-note">Korvyn analysis, derived from this reconciliation and the records it touches. '+
+        'Reviewed and applied by a preparer &#8212; never applied automatically.</div></div>';
+    }
+    o+='<div class="wsub">Relationships</div>';
+    o+=rel.map(x=>'<div class="wrel"><span class="g">'+x.l+'</span><span class="n">'+x.n+'</span>'+
+      (x.go?'<span class="lk" onclick="'+x.go+'">'+x.lk+'</span>':'')+'</div>').join('');
+    if(pol) o+='<div class="wrel"><span class="g">Related policy</span><span class="n">'+pol.id+'</span>'+
+      '<span class="lk" onclick="pickTab(\'admin\');setPolSub(\'library\');setPolSel(\''+pol.id+'\')">Open</span></div>';
+    if(ex) o+='<div class="wrel"><span class="g">Open exception</span><span class="n">'+ex.id+'</span>'+
+      '<span class="lk" onclick="pickTab(\'exceptions\');setAxSel(\''+ex.id+'\')">Open</span></div>';
+    if(!rel.length&&!pol&&!ex) o+='<div class="note" style="margin:0">No linked records resolve for this account yet.</div>';
+  }
+  if(glReconTab==='evidence'){
+    var docs=[]; try{ docs=DR_ITEMS.filter(i=>i.links.some(l=>l.k==='Recon')); }catch(e){}
+    o+='<div class="wsub">Supporting evidence</div>';
+    o+=docs.length?docs.map(i=>'<div class="wrel"><span class="g"><b style="color:var(--ink);font-weight:600">'+i.t+
+        '</b><div style="font-size:11px;color:var(--hint);margin-top:2px">'+i.id+' &#183; '+i.cat+'</div></span>'+
+        '<span class="pill '+DR_IST[i.st].c+' sm">'+DR_IST[i.st].l+'</span></div>').join('')
+      :'<div class="note" style="margin:0">No Data Room evidence is linked to a reconciliation yet.</div>';
+    o+='<div class="cardfoot" style="margin-top:12px">Evidence is held in the Data Room and points at source '+
+       'records &#183; Korvyn holds the linkage, the ERP stays the system of record</div>';
+  }
+  if(glReconTab==='activity'){
+    o+='<div class="wsub">Activity</div>';
+    o+='<div class="wrel"><span class="g">Reconciliation opened for Jun 2026</span></div>'+
+       '<div class="wrel"><span class="g">Assigned to '+r.own+'</span></div>'+
+       (r.st==='over'?'<div class="wrel"><span class="g" style="color:var(--neg)">Passed its due date of '+r.due+'</span></div>':'')+
+       (ex?'<div class="wrel"><span class="g">Exception '+ex.id+' raised by Korvyn</span>'+
+           '<span class="lk" onclick="pickTab(\'exceptions\');setAxSel(\''+ex.id+'\')">View</span></div>':'');
+    o+='<div class="cardfoot" style="margin-top:12px">Activity is derived from the reconciliation record; a '+
+       'full per-action audit trail arrives with the review workflow</div>';
+  }
+  if(glReconTab==='approvals'){
+    o+='<div class="wsub">Approvals</div>'+
+       '<div class="wrel"><span class="g">Preparer</span><span class="n">'+r.own+'</span></div>'+
+       '<div class="wrel"><span class="g">Reviewer</span><span class="lk">Not yet assigned</span></div>'+
+       '<div class="wrel"><span class="g">Status</span><span class="pill '+s.c+' sm">'+s.l+'</span></div>'+
+       '<div class="cardfoot" style="margin-top:12px">Sign-off routing is part of the review workflow and is not '+
+       'yet wired &#8212; this pane states the current position rather than offering an approval it cannot record</div>';
+  }
+  if(glReconTab==='related'){
+    o+='<div class="wsub">Related</div>';
+    const others=GL_RECON.filter(x=>x.acct===r.acct&&x.ent!==r.ent);
+    o+=others.length?others.map(x=>'<div class="wrel row-click" onclick="setGlReconSel(\''+glReconKey(x)+'\')">'+
+        '<span class="g"><b style="color:var(--ink);font-weight:600">'+x.ent+'</b>'+
+        '<div style="font-size:11px;color:var(--hint);margin-top:2px">'+x.acct+' &#183; due '+x.due+'</div></span>'+
+        '<span class="pill '+RECON_ST[x.st].c+' sm">'+RECON_ST[x.st].l+'</span></div>').join('')
+      :'<div class="note" style="margin:0">This account is reconciled in one entity only.</div>';
+    o+='<div class="wrel"><span class="g">GL account activity</span>'+
+       '<span class="lk" onclick="reconDrill(\''+r.acct+'\')">Open in General Ledger</span></div>';
+  }
+  o+='</div>';
+
+  o+='<div class="wd-foot"><button class="btn-primary" onclick="glReconEnterWork()">Review reconciliation</button>'+
+     '<button class="btn-out" onclick="askAI(\'Explain the difference on '+r.acct+' '+r.nm+' at '+r.ent+'\')">'+
+     KI_SPARK+' Ask Korvyn</button></div></div>';
+  return o;
+}
+
+/* WORK — the reconciliation takes the primary working area for deeper review. */
+function glvReconWork(r){
+  const s=RECON_ST[r.st], ins=glReconInsight(r), rel=glReconRel(r),
+        ex=glReconExcep(r), pol=glReconPolicy(r);
+  let o='<div class="gl-hd"><div class="grow">'+
+    '<div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="glReconExitWork()">&#8592; Reconciliations</span></div>'+
+    '<h1>'+r.nm+'</h1><div class="sub">'+r.acct+' &#183; '+r.ent+' &#183; owner '+r.own+'</div></div>'+glExport+'</div>';
+  o+='<div class="statrow">'+
+    '<div class="stat"><div class="sl">Reconciled balance</div><div class="sv">'+glK(r.bal*1000)+'</div><div class="sd">USD</div></div>'+
+    '<div class="stat"><div class="sl">Difference</div><div class="sv '+(r.diff?'neg':'')+'">'+(r.diff?glK(r.diff*1000):'0.00')+'</div>'+
+    '<div class="sd">'+(r.diff?'unexplained':'fully reconciled')+'</div></div>'+
+    '<div class="stat"><div class="sl">Status</div><div class="sv" style="font-size:14px;padding-top:4px"><span class="pill '+s.c+'">'+s.l+'</span></div>'+
+    '<div class="sd" '+(r.st==='over'?'style="color:var(--neg)"':'')+'>due '+r.due+'</div></div>'+
+    '<div class="stat"><div class="sl">Account group</div><div class="sv" style="font-size:13px;padding-top:5px">'+reconGrp(r.acct)+'</div>'+
+    '<div class="sd">'+(reconOffTB(r.acct)?'outside the illustrative TB':'in the trial balance')+'</div></div>'+
+    '</div>';
+  if(ins.cause){
+    o+='<div class="card"><div class="ki" style="margin:0"><div class="ki-h">'+KI_SPARK+'Korvyn Insight</div>'+
+      '<div class="ki-l">Likely cause</div><div class="ki-b">'+ins.cause+'</div>'+
+      '<div class="ki-l">Recommended actions</div><ul>'+ins.acts.map(a=>'<li>'+a+'</li>').join('')+'</ul>'+
+      '<div class="ki-note">Korvyn analysis, derived from this reconciliation and the records it touches. '+
+      'Reviewed and applied by a preparer &#8212; never applied automatically.</div></div></div>';
+  }
+  o+='<div class="grid2gl"><div class="card" style="margin:0"><h2>Reconciling relationships</h2>'+
+    '<div class="subhead">What this balance is supported by. Each line resolves to a real record set.</div>'+
+    rel.map(x=>'<div class="wrel"><span class="g">'+x.l+'</span><span class="n">'+x.n+'</span>'+
+      (x.go?'<span class="lk" onclick="'+x.go+'">'+x.lk+'</span>':'')+'</div>').join('')+
+    (pol?'<div class="wrel"><span class="g">Related policy</span><span class="n">'+pol.id+'</span>'+
+      '<span class="lk" onclick="pickTab(\'admin\');setPolSub(\'library\');setPolSel(\''+pol.id+'\')">Open</span></div>':'')+
+    (ex?'<div class="wrel"><span class="g">Open exception</span><span class="n">'+ex.id+'</span>'+
+      '<span class="lk" onclick="pickTab(\'exceptions\');setAxSel(\''+ex.id+'\')">Open</span></div>':'')+
+    '</div>'+
+    '<div class="card" style="margin:0"><h2>Reconciliation detail</h2><table class="tbl"><tbody>'+
+    '<tr><td class="note" style="margin:0;width:150px">Account</td><td>'+r.acct+' &#183; '+r.nm+'</td></tr>'+
+    '<tr><td class="note" style="margin:0">Entity</td><td>'+r.ent+'</td></tr>'+
+    '<tr><td class="note" style="margin:0">Group</td><td>'+reconGrp(r.acct)+'</td></tr>'+
+    '<tr><td class="note" style="margin:0">Preparer</td><td>'+r.own+'</td></tr>'+
+    '<tr><td class="note" style="margin:0">Due date</td><td>'+r.due+'</td></tr>'+
+    '<tr><td class="note" style="margin:0">Period</td><td>Jun 2026</td></tr>'+
+    '</tbody></table><div class="cardfoot"><span class="extlink" onclick="reconDrill(\''+r.acct+'\')">Open in General Ledger</span>'+
+    '<span class="extlink" onclick="askAI(\'Explain the difference on '+r.acct+' '+r.nm+' at '+r.ent+'\')">Ask Korvyn</span></div></div>'+
+    '</div>';
+  return o;
+}
+
 function renderGLRecon(){
   const el=$('view-glrecon'); if(!el)return;
+  // WORK state takes the primary working area for one reconciliation.
+  if(glReconWork&&glReconSel){ const rw=glReconRow(glReconSel);
+    if(rw){ el.innerHTML=glvReconWork(rw); return; } glReconWork=false; }
   const tot=reconTotal();
   const pc=n=>tot?Math.round(n/tot*100)+'%':'0%';
   // every control below actually filters; none of them are decorative
   const rows=GL_RECON.filter(r=>
-      (glReconEnt==='all'  || r.ent===glReconEnt)
-   && (glReconGrp==='all'  || reconGrp(r.acct)===glReconGrp)
-   && (glReconOwn==='all'  || r.own===glReconOwn)
-   && (glReconFilter==='all'|| r.st===glReconFilter));
+       (glReconEnt==='all'   || r.ent===glReconEnt)
+    && (glReconGrp==='all'   || reconGrp(r.acct)===glReconGrp)
+    && (glReconOwn==='all'   || r.own===glReconOwn)
+    && (glReconFilter==='all'|| r.st===glReconFilter));
   const ents=[...new Set(GL_RECON.map(r=>r.ent))];
   const owns=[...new Set(GL_RECON.map(r=>r.own))].sort();
   const filtered=glReconEnt!=='all'||glReconGrp!=='all'||glReconOwn!=='all'||glReconFilter!=='all';
   const sel=(fn,cur,opts)=>`<select onchange="${fn}(this.value)">${opts.map(o=>
     `<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+  const selRow=glReconSel?glReconRow(glReconSel):null;
 
   let o=glHead('Reconciliations','Manage account reconciliations and review status.',glExport);
   o+=`<div class="card"><div class="ctrls" style="margin-bottom:0">
-      <div class="grp"><label>Entity</label>${sel('setGlReconEnt',glReconEnt,[['all','All entities'],...ents.map(e=>[e,e])])}</div>
-      <div class="grp"><label>Account group</label>${sel('setGlReconGrp',glReconGrp,[['all','All accounts'],['Assets','Assets'],['Liabilities','Liabilities'],['Equity','Equity']])}</div>
-      <div class="grp"><label>Owner</label>${sel('setGlReconOwn',glReconOwn,[['all','All owners'],...owns.map(w=>[w,w])])}</div>
-      <div class="grp"><label>Reconciliation status</label>${sel('setGlReconFilter',glReconFilter,
-        [['all','All statuses'],...Object.keys(RECON_ST).map(k=>[k,RECON_ST[k].l])])}</div>
-      <div class="grp"><label>Period</label><select disabled><option>Jun 2026</option></select></div>
-      ${filtered?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="glReconReset()">Reset</button></div>`:''}
-    </div></div>`;
+    <div class="grp"><label>Entity</label>${sel('setGlReconEnt',glReconEnt,[['all','All entities'],...ents.map(e=>[e,e])])}</div>
+    <div class="grp"><label>Account group</label>${sel('setGlReconGrp',glReconGrp,[['all','All accounts'],['Assets','Assets'],['Liabilities','Liabilities'],['Equity','Equity']])}</div>
+    <div class="grp"><label>Owner</label>${sel('setGlReconOwn',glReconOwn,[['all','All owners'],...owns.map(w=>[w,w])])}</div>
+    <div class="grp"><label>Reconciliation status</label>${sel('setGlReconFilter',glReconFilter,
+      [['all','All statuses'],...Object.keys(RECON_ST).map(k=>[k,RECON_ST[k].l])])}</div>
+    <div class="grp"><label>Period</label><select disabled><option>Jun 2026</option></select></div>
+    ${filtered?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="glReconReset()">Reset</button></div>`:''}
+  </div></div>`;
 
   o+=`<div class="statrow">
     <div class="stat"><div class="sl">Total reconciliations</div><div class="sv">${tot}</div>
@@ -8777,29 +9093,34 @@ function renderGLRecon(){
     ${[['done','Complete','var(--pos)'],['prog','In progress','var(--warn)'],
        ['over','Overdue','var(--neg)'],['none','Not started','var(--faint)']].map(k=>
       `<div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:${k[2]}"></span>${k[1]}</div>
-       <div class="sv">${reconCount(k[0])}</div><div class="sd">${pc(reconCount(k[0]))}</div></div>`).join('')}
+        <div class="sv">${reconCount(k[0])}</div><div class="sd">${pc(reconCount(k[0]))}</div></div>`).join('')}
   </div>`;
 
   const unrec=+rows.filter(r=>r.diff).reduce((a,r)=>a+Math.abs(r.diff),0).toFixed(3);
-  o+=`<div class="card"><h2>Account reconciliations<span class="note">${rows.length} of ${tot} shown</span>
+  // BROWSE (full width) / INSPECT (split). The detail pane is a sibling, never an overlay.
+  o+=`<div class="wsplit ${selRow?'on':''}">`;
+  o+=`<div class="card" style="margin:0"><h2>Account reconciliations<span class="note">${rows.length} of ${tot} shown</span>
       ${filtered?`<span class="cardlink" onclick="glReconReset()">Clear filters</span>`:''}</h2>
     <div class="subhead">One row per account per entity. Every headline above is a count of these rows —
-      there is no sampling or scaling. Accounts marked <span class="pill sm">off TB</span> sit outside the
-      illustrative capital-only trial balance.</div>
-    <table class="tbl"><thead><tr><th>Account #</th><th>Account name</th><th>Entity</th><th>Group</th>
+      there is no sampling or scaling. Select a row to inspect it alongside the list.</div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Account #</th><th>Account name</th><th>Entity</th>
+      <th class="rec-hide">Group</th>
       <th class="num">Reconciled balance (USD)</th><th class="num">Difference (USD)</th>
-      <th>Status</th><th>Due date</th><th>Owner</th></tr></thead><tbody>
-    ${rows.map(r=>{const s=RECON_ST[r.st];return `<tr class="row-click" onclick="reconDrill('${r.acct}')">
+      <th>Status</th><th class="rec-hide">Due date</th><th class="rec-hide">Owner</th></tr></thead><tbody>
+    ${rows.map(r=>{const s=RECON_ST[r.st], k=glReconKey(r), on=glReconSel===k;
+      return `<tr class="row-click" onclick="setGlReconSel('${k}')" ${on?'style="background:var(--accent-bg)"':''}>
       <td>${r.acct}${reconOffTB(r.acct)?' <span class="pill sm">off TB</span>':''}</td>
-      <td><b>${r.nm}</b></td><td>${r.ent}</td><td class="ic-mini">${reconGrp(r.acct)}</td>
+      <td><b>${r.nm}</b></td><td>${r.ent}</td><td class="ic-mini rec-hide">${reconGrp(r.acct)}</td>
       <td class="num">${glK(r.bal*1000)}</td>
       <td class="num" ${r.diff?'style="color:var(--neg);font-weight:600"':''}>${r.diff?glK(r.diff*1000):'0.00'}</td>
-      <td><span class="pill ${s.c}">${s.l}</span></td><td>${r.due}</td><td>${r.own}</td></tr>`;}).join('')}
+      <td><span class="pill ${s.c}">${s.l}</span></td><td class="rec-hide">${r.due}</td><td class="rec-hide">${r.own}</td></tr>`;}).join('')}
     ${rows.length?'':'<tr><td colspan="9" class="note">No reconciliations match the current filters.</td></tr>'}
-    </tbody></table>
+    </tbody></table></div>
     <div class="cardfoot">Showing ${rows.length} of ${tot} reconciliations
       ${unrec?`&#183; unreconciled difference in view ${glK(unrec*1000)}`:''}
       <span class="cardlink" onclick="pickTab('glact')">GL activity</span></div></div>`;
+  if(selRow) o+=glvReconDetail(selRow);
+  o+=`</div>`;
   el.innerHTML=o;
 }
 
@@ -13883,8 +14204,9 @@ function paintRailRoles(){
 
   // ---- top ribbon: the sections ----
   const rib=document.getElementById('ribbonSections');
-  // 'portfolio' (Home) is reached via the wordmark, so it is omitted here.
-  if(rib) rib.innerHTML=LENS_ORDER.filter(id=>id!=='portfolio').map(id=>{
+  // Home is now an explicit global destination and leads the ribbon. The wordmark still
+  // routes Home too — that is a convenience, not the only way in.
+  if(rib) rib.innerHTML=LENS_ORDER.map(id=>{
     const l=LENSES[id];
     return btn(id===LENS,`pickLens('${id}')`,svg(ICON[l.icon]),l.label);
   }).join('');

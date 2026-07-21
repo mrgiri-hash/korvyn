@@ -63,9 +63,12 @@ keeps the original lie and adds a second one).
 
 ## Navigation architecture (read before touching nav)
 
-- **KORVYN wordmark = Home.** It is a `<button class="ribbon-brand">` that calls
-  `pickLens('portfolio')`. There is deliberately **no Home tab** in the top nav;
-  `paintRailRoles` filters `portfolio` out of the ribbon.
+- **Home is a global ribbon destination AND the wordmark.** `paintRailRoles` no longer filters
+  `portfolio` out — Home leads the ribbon with a thin-line house icon, and the
+  `<button class="ribbon-brand">` wordmark still calls `pickLens('portfolio')` as a convenience.
+  (This reverses the earlier "deliberately no Home tab" rule; it was changed on request.)
+  Accounting's rail keeps its own **Overview** (`acctover`) — that is the Accounting module
+  overview, not a duplicate of global Home, and must not be removed as "redundant".
 - **Top ribbon = enterprise domains** (`#ribbonSections`, from `LENS_ORDER`):
   Accounting · Fixed Assets · Procurement · FP&A · Treasury · Reporting · ⋯
   The `⋯` menu (`#moreMenu`) holds Data & Controls / Integrations / Administration.
@@ -369,6 +372,58 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
 - Lock/sign-off with audit trail: `lockFluxComment`/`unlockFluxComment` record `FLUX_REVIEWER`
   + `fluxNow()`. Locked comments surface in the Filing view as read-only "Disclosure notes".
 - `fluxModel(stmt, S, derived)` defines each statement's lines + GL breakdown.
+
+## Design system — Midnight + Cobalt (read before styling anything)
+
+The palette is **four planes**, and the tokens are named for their plane. Keeping them separate
+is the whole design; blurring them is the failure mode.
+
+| Plane | Tokens | Owns |
+|---|---|---|
+| **Midnight** | `--rail` `#08111F`, `--rail2` `#0D1726` | platform chrome — ribbon, module rail |
+| **Cobalt** | `--accent` `#2563EB` + `--accent-*` | interaction, navigation, selection |
+| **White** | `--bg` `#F7F8FA`, `--surface` `#FFFFFF` | the financial workspace |
+| **Indigo** | `--ai` `#6366F1`, `--ai-bg` `#FAFAFF`, `--ai-line`, `--ai-ink`, `--ai-deep` | **Korvyn Intelligence, and nothing else** |
+
+- The two midnight planes are deliberate: the ribbon sits deepest, the module rail one step up,
+  so they read as connected but distinct. `.rail` uses `--rail2`, `.ribbon` uses `--rail`.
+- **Never use `--ai` to decorate a non-intelligence surface.** Indigo marks Ask Korvyn, Korvyn
+  Insight, AI indicators and generated recommendations. Cobalt owns everything interactive. If
+  indigo starts appearing on ordinary UI the palette stops meaning anything.
+- **Active nav is an indicator, never a filled block.** `.railrole` is shared by the ribbon and
+  the left rail, so each scopes its own treatment: `.ribbon-nav .railrole.on` gets a 2px cobalt
+  underline; `.rail .railrole.on` gets a subtle lighter navy plus a 2.5px cobalt left indicator.
+  The bare `.railrole.on` only sets weight/colour. This keeps the ribbon quiet as domains are added.
+- **Rail badges are open-item counts, not alarms.** The default `.rbadge` is a neutral chip;
+  red on every badge is alarm fatigue and buries the genuinely critical.
+- **Cards are flat.** `.card` carries a 1px border and no shadow. Elevation is reserved for
+  things that actually float — menus, overlays, dialogs, drawers, intelligence surfaces.
+- Radii: `--radius` 10px (panels), `--radius-sm` 8px (cards), `--radius-xs` 6px (inputs/buttons).
+- **`.spark` is already the 170px sparkline chart.** The intelligence spark is `.ki-spark`.
+  Defining a bare `.spark` silently resizes every chart in the app — this was caught once.
+
+### The split workspace: BROWSE → INSPECT → WORK
+
+`.wsplit` is a **reusable record-investigation pattern**, not a Reconciliations one-off. Use it
+anywhere a record needs inspecting without losing its list.
+
+- **BROWSE** — `.wsplit` single column, list at full width.
+- **INSPECT** — `.wsplit.on` becomes `1.7fr / 1fr` (~63/37). The detail pane `.wdetail` is a grid
+  **sibling** of the list, never an overlay, so nothing is ever occluded. Under 1100px it
+  linearises rather than crushing the table; `.rec-hide` columns drop in split mode.
+- **WORK** — the record takes the primary working area (`glvReconWork`), with a back link.
+
+Reconciliations wires this via `glReconSel` (keyed `acct|ent` — **account alone is not unique**,
+the same account is reconciled in several entities), `glReconWork`, `glReconTab`. Clicking the
+selected row again toggles the pane shut. `reconDrill()` is preserved and reachable from the
+detail pane's Related tab, so the old GL-intelligence route still works.
+
+**Everything in the detail pane derives** — `glTxns()`, `IC_EVENTS`, `DR_ITEMS`, `POL_POLICIES`,
+`axExceptions()`. `glReconRel()` omits a row when a relationship does not resolve rather than
+inventing a count, which is why account 13500 shows no "ERP transactions" line: it is outside the
+illustrative capital-only TB, so `COA` has no entry and `glTxns` would be fiction. Do not
+"fix" that by hardcoding a number (see the RECON_SCALE note). `glReconInsight()` is derived
+from the row's own facts, labelled Korvyn analysis, and states that it is never auto-applied.
 
 ## Ask Korvyn (read before touching the assistant)
 
