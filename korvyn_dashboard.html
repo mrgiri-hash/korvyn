@@ -170,7 +170,7 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
    `.railrole` is shared by the ribbon nav and the left rail, so each container scopes its
    own treatment — see the shared-class-name note in CLAUDE.md. The ribbon stays deliberately
    quiet so it keeps scaling as enterprise domains are added. */
-.ribbon-nav .railrole{border-radius:0;padding:0 13px}
+.ribbon-nav .railrole{border-radius:0;padding:0 11px}
 .ribbon-nav .railrole:hover{background:rgba(255,255,255,.045)}
 .ribbon-nav .railrole.on{background:rgba(255,255,255,.035)}
 .ribbon-nav .railrole.on::after{content:'';position:absolute;left:11px;right:11px;bottom:0;height:2px;
@@ -211,32 +211,83 @@ body.rail-collapsed .rail-grouplbl{opacity:0;height:14px;padding:8px 0 0}
 body.rail-collapsed .rail .railrole{justify-content:center;padding:9px 0}
 body.rail-collapsed .rail .railrole .lbl{display:none}
 
-/* ---- ribbon right-side utilities ---- */
-.ribbon-util{display:flex;align-items:center;gap:4px;flex:none;margin-left:auto;padding-left:14px;
-  border-left:1px solid rgba(255,255,255,.08);position:relative}
-.ribicon{position:relative;width:32px;height:32px;border:none;background:none;border-radius:var(--radius-sm);
+/* ---- ribbon right-side utilities ------------------------------------------------
+   One deliberate cluster in three zones, not a row of loose icons:
+     SEARCH │ INTELLIGENCE · NOTIFICATIONS · HELP │ PROFILE
+   Every control shares a 32px footprint and a 16px thin-line glyph so the zone reads
+   as one system. Only Korvyn Intelligence departs, and only in hue. */
+.ribbon-util{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto;padding-left:0;
+  border-left:none;position:relative}
+.ribsep{width:1px;height:20px;background:rgba(255,255,255,.08);flex:none;margin:0 4px}
+
+/* global search: reads as part of the midnight header, not a white box dropped onto it */
+.ribsearch{display:flex;align-items:center;gap:8px;flex:none;width:214px;height:32px;
+  padding:0 8px 0 10px;border-radius:var(--radius-xs);
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.10);transition:.14s}
+.ribsearch:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16)}
+.ribsearch:focus-within{background:rgba(255,255,255,.06);border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+.ribsearch .ic{width:14px;height:14px;flex:none;color:var(--rail-hint)}
+.ribsearch:focus-within .ic{color:var(--rail-ink)}
+.ribsearch input{flex:1;min-width:0;border:none;outline:none;background:none;
+  font:inherit;font-size:12.5px;color:#fff}
+.ribsearch input::placeholder{color:var(--rail-hint)}
+.ribsearch .kbd{flex:none;font-family:var(--mono);font-size:9.5px;color:var(--rail-hint);
+  border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:1px 4px;line-height:1.5}
+.ribsearch:focus-within .kbd{opacity:0}
+
+.ribicon{position:relative;width:32px;height:32px;border:none;background:none;border-radius:var(--radius-xs);
   color:var(--rail-ink);cursor:pointer;display:grid;place-items:center;transition:.13s}
-.ribicon:hover{background:rgba(255,255,255,.09);color:#fff}
+.ribicon:hover{background:rgba(255,255,255,.08);color:#fff}
 .ribicon svg{width:16px;height:16px}
-.ribdot{position:absolute;top:2px;right:1px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;
-  background:var(--neg-fill);color:var(--on-neg);font-size:9px;font-weight:700;display:grid;place-items:center;
-  line-height:1;box-shadow:0 0 0 2px var(--rail)}
+/* restrained semantic red — small enough to inform without dominating the header */
+.ribdot{position:absolute;top:3px;right:3px;min-width:13px;height:13px;padding:0 3px;border-radius:7px;
+  background:var(--neg-fill);color:var(--on-neg);font-size:8.5px;font-weight:700;display:grid;place-items:center;
+  line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--rail)}
 /* ---- Korvyn AI: the one persistent access point, in the ribbon utilities ----
    Same 32px interactive area as its neighbours so it sits in the row naturally, but
    carries the accent hue and a thin ring so it reads as the intelligence affordance
    rather than another utility glyph. No glow, no gradient, no floating shadow. */
-.ribai{color:var(--rail-ai)}
-.ribai:hover{background:rgba(107,163,245,.14);color:var(--rail-ai)}
-body:not(.copilot-collapsed) .ribai{background:rgba(107,163,245,.16)}
+/* Indigo lives here and nowhere else in the header. A tinted surface at rest gives the
+   intelligence layer its distinction without a glow, a gradient or an oversized button. */
+.ribai{color:var(--rail-ai);background:rgba(139,143,248,.10);
+  box-shadow:inset 0 0 0 1px rgba(139,143,248,.18)}
+.ribai:hover{background:rgba(139,143,248,.18);color:#AFB2FB;
+  box-shadow:inset 0 0 0 1px rgba(139,143,248,.34)}
+body:not(.copilot-collapsed) .ribai{background:rgba(139,143,248,.22);color:#C2C4FC;
+  box-shadow:inset 0 0 0 1px rgba(139,143,248,.42)}
 /* "Korvyn has intelligence available" — deliberately a quiet blue dot, never a red
    alert badge, and suppressed while the panel is open since you are already there. */
 .ribai-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;
   background:var(--rail-ai);box-shadow:0 0 0 2px var(--rail);display:none}
 body.copilot-collapsed .ribai-dot.on{display:block}
-.ribuser{display:flex;align-items:center;gap:3px;border:none;background:none;cursor:pointer;
-  padding:3px 4px 3px 3px;border-radius:var(--radius-pill);color:var(--rail-ink);transition:.13s;margin-left:2px}
-.ribuser:hover{background:rgba(255,255,255,.09)}
-.ribuser .chev{width:14px;height:14px}
+/* Profile: identity, not just an initial. Compact enough to sit in a 50px header, and it
+   sheds role then name under width pressure rather than pushing modules out of the ribbon. */
+.ribuser{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;
+  padding:3px 6px 3px 3px;border-radius:var(--radius-xs);color:var(--rail-ink);transition:.13s;
+  max-width:210px;min-width:0}
+.ribuser:hover{background:rgba(255,255,255,.07)}
+.ribuser .chev{width:13px;height:13px;flex:none;opacity:.75}
+.ribuser-id{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;line-height:1.2}
+.ribuser-id .nm{font-size:12px;font-weight:550;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.ribuser-id .rl{font-size:10px;color:var(--rail-hint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.ribuser .avatar.av-solid{width:28px;height:28px;font-size:10.5px;flex:none}
+
+/* ---- graceful degradation, in the order the spec asks for ----
+   Breakpoints are set by what the MODULE NAV needs, not by taste: all seven domains must stay
+   visible before the profile gets to keep its name. The nav needs ~772px for seven items, so
+   at 1440 the profile collapses to avatar + chevron and every module still fits. Role returns
+   at 1700, the full block at 1500. Verified by measuring nav.scrollWidth at each width. */
+@media(max-width:1699px){ .ribuser-id .rl{display:none} }
+@media(max-width:1499px){ .ribuser-id{display:none} }
+/* Search yields before module navigation does — that is the spec's stated priority, and a
+   full-width search control genuinely cannot coexist with seven domains below ~1500px. */
+@media(max-width:1499px){
+  .ribsearch{width:34px;padding:0;justify-content:center;gap:0;cursor:pointer}
+  .ribsearch input,.ribsearch .kbd{display:none}
+  .ribsearch .ic{width:16px;height:16px}
+  .ribsearch:hover{background:rgba(255,255,255,.08)}
+}
 .avatar.av-solid{background:var(--accent-fill);color:var(--on-accent)}
 
 .ribbon-more{position:relative;flex:none;margin-left:2px}
@@ -1692,26 +1743,34 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       <button class="um-item" onclick="closeMoreMenu();pickLens('admin')">Administration</button>
     </div>
   </div>
+  <!-- Global utility cluster: three zones separated by hairlines —
+       SEARCH | INTELLIGENCE · NOTIFICATIONS · HELP | PROFILE -->
   <div class="ribbon-util">
-    <button class="ribicon" onclick="document.getElementById('cmd').focus()" aria-label="Search" title="Search (Ctrl-K)">
-      <svg viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-    </button>
-    <button class="ribicon" onclick="pickLens('admin')" aria-label="Help" title="Help">
-      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.5"/><path d="M6.3 6.2a1.75 1.75 0 113 1.25c-.5.4-1.3.7-1.3 1.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".8" fill="currentColor"/></svg>
-    </button>
-    <button class="ribicon" onclick="pickLens('issues')" aria-label="Notifications" title="Notifications">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 00-4 4v2.6L2.9 10.6h10.2L12 8.6V6a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 12.6a1.7 1.7 0 003.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-      <span class="ribdot" id="ribNotif">0</span>
-    </button>
-    <button class="ribicon ribai" id="ribAi" onclick="cpToggle()" aria-label="Korvyn AI" title="Korvyn AI">
+    <div class="ribsearch">
+      <svg class="ic" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input id="cmd" type="text" placeholder="Search Korvyn" autocomplete="off" aria-label="Search Korvyn"
+        onkeydown="if(event.key==='Enter')runCommand()">
+      <span class="kbd">&#8984;K</span>
+    </div>
+    <span class="ribsep"></span>
+    <button class="ribicon ribai" id="ribAi" onclick="cpToggle()" aria-label="Ask Korvyn" title="Ask Korvyn">
       <svg viewBox="0 0 16 16" fill="none">
         <path d="M6.6 1.9l1.32 3.58L11.5 6.8 7.92 8.12 6.6 11.7 5.28 8.12 1.7 6.8l3.58-1.32z" fill="currentColor"/>
         <path d="M12.3 9.1l.63 1.71 1.71.63-1.71.63-.63 1.71-.63-1.71-1.71-.63 1.71-.63z" fill="currentColor"/>
       </svg>
       <span class="ribai-dot" id="ribAiDot"></span>
     </button>
-    <button class="ribuser" onclick="toggleUserMenu(event)" title="Mitra Giri &#183; Accounting" aria-haspopup="true">
+    <button class="ribicon" onclick="pickLens('issues')" aria-label="Notifications" title="Notifications">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 00-4 4v2.6L2.9 10.6h10.2L12 8.6V6a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 12.6a1.7 1.7 0 003.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <span class="ribdot" id="ribNotif">0</span>
+    </button>
+    <button class="ribicon" onclick="pickLens('admin')" aria-label="Help" title="Help">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/><path d="M6.3 6.2a1.75 1.75 0 113 1.25c-.5.4-1.3.7-1.3 1.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 11.6h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <span class="ribsep"></span>
+    <button class="ribuser" onclick="toggleUserMenu(event)" title="Mitra Giri &#183; Accounting Manager" aria-haspopup="true">
       <span class="avatar av-solid">MG</span>
+      <span class="ribuser-id"><span class="nm">Mitra Giri</span><span class="rl">Accounting Manager</span></span>
       <svg class="chev" viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10l4-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="usermenu" id="userMenu">
@@ -14685,9 +14744,17 @@ showTab=function(){ _showTab(); paintRailNav(); document.body.classList.remove('
 const _renderAll=renderAll;
 renderAll=function(){ _renderAll(); paintTopbar(); };
 
-// keyboard: ⌘/Ctrl-K focuses the command bar
+/* ⌘/Ctrl-K owns global search, because the search control advertises that shortcut on screen.
+   Two listeners used to claim this chord — one focused #cmd (which did not exist, so it threw)
+   and one opened Ask Korvyn. Consolidated here. When search is collapsed to an icon at narrow
+   widths there is nothing to focus, so the chord falls through to Ask Korvyn instead. */
 document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();document.getElementById('cmd').focus();}
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){
+    e.preventDefault();
+    const el=document.getElementById('cmd');
+    if(el&&el.offsetParent!==null){ el.focus(); el.select(); return; }
+    if(typeof cpOpen==='function'){ cpOpen(); const c=document.getElementById('cpInput'); if(c)c.focus(); }
+  }
 });
 TAB=LENSES[LENS].tabs[0];
 
@@ -15574,11 +15641,7 @@ function cpGreet(){ }
 const _showTab2=showTab;
 showTab=function(){ _showTab2(); renderCpSugs(); renderPinned(); renderCpHome(); renderCpTabs(); };
 
-// keyboard: ⌘/Ctrl-K focuses copilot input
-document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault();
-    cpOpen(); const el=$('cpInput'); if(el)el.focus(); }
-});
+// (⌘/Ctrl-K is handled once, above, where global search is defined.)
 
 // ============================================================ NETSUITE LINK LAYER
 // Production-shaped deep-linking. Every spine node carries a NetSuite internal
