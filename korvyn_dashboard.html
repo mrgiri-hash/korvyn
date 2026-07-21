@@ -72,9 +72,9 @@
   /* restrained scale: major panels 10, cards 8, inputs/buttons 6 */
   --radius:10px; --radius-sm:8px; --radius-xs:6px; --radius-pill:20px;
   /* ---- shell geometry (single source of truth for the rail + topbar) ---- */
-  --rail-w:212px; --rail-w-collapsed:60px; --ribbon-h:56px;
+  --rail-w:200px; --rail-w-collapsed:56px; --ribbon-h:50px;
   /* ---- density scale ---- */
-  --pad-card:22px; --pad-content:26px; --row-h:44px;
+  --pad-card:16px; --pad-content:20px; --row-h:40px;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --serif:"Newsreader",Georgia,serif;
@@ -121,7 +121,7 @@
 html{-webkit-text-size-adjust:100%}
 body{
   font-family:var(--sans);background:var(--bg);color:var(--ink);
-  line-height:1.5;font-size:14px;-webkit-font-smoothing:antialiased;
+  line-height:1.5;font-size:13px;-webkit-font-smoothing:antialiased;
   font-feature-settings:"cv05","ss01";
   display:grid;
   /* Two columns only. The assistant is an overlay and deliberately does NOT take a grid
@@ -138,7 +138,7 @@ body{
 .ribbon{
   grid-area:ribbon;position:sticky;top:0;z-index:30;
   background:var(--rail);color:var(--rail-ink);
-  display:flex;align-items:center;gap:22px;padding:0 20px;height:56px;min-width:0;
+  display:flex;align-items:center;gap:18px;padding:0 18px;height:var(--ribbon-h);min-width:0;
   /* no bottom shadow: it would score a seam across the rail, which shares this surface */
 }
 /* The wordmark is the Home control, so Home is not repeated in the section nav. */
@@ -160,7 +160,7 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .ribbon-nav{display:flex;align-items:stretch;gap:2px;min-width:0;overflow-x:auto;align-self:stretch}
 .ribbon-nav::-webkit-scrollbar{height:0}
 .railrole{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;white-space:nowrap;
-  color:var(--rail-ink);font:inherit;font-size:13px;font-weight:450;padding:8px 13px;border-radius:var(--radius-sm);
+  color:var(--rail-ink);font:inherit;font-size:13px;font-weight:450;padding:6px 11px;border-radius:var(--radius-sm);
   transition:.13s;position:relative}
 .railrole:hover{background:rgba(255,255,255,.06);color:#fff}
 .railrole .ic{width:15px;height:15px;flex:none;opacity:.62;transition:opacity .13s}
@@ -199,11 +199,11 @@ background:var(--rail2);border-right:1px solid rgba(255,255,255,.06);
 .rail .railrole.on::before{content:'';position:absolute;left:-10px;top:6px;bottom:6px;width:2.5px;
   background:var(--accent);border-radius:0 2px 2px 0}
 body.rail-collapsed .rail .railrole.on::before{left:-10px}
-.rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:9px 9px;display:flex;flex-direction:column;gap:1px}
 .rail-scroll::-webkit-scrollbar{width:0}
 .rail-grouplbl{
   font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--rail-hint);
-  padding:14px 10px 6px;white-space:nowrap;overflow:hidden}
+  padding:11px 10px 5px;white-space:nowrap;overflow:hidden}
 body.rail-collapsed .rail-grouplbl{opacity:0;height:14px;padding:8px 0 0}
 .rail-div{height:1px;background:rgba(255,255,255,.07);margin:10px 8px}
 .rail .railrole{width:100%}
@@ -292,12 +292,12 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
 /* ============================ MAIN COLUMN ============================ */
 .main{grid-area:main;min-width:0;display:flex;flex-direction:column}
 .content{min-width:0}
-.topbar{position:sticky;top:56px;z-index:15;background:color-mix(in srgb,var(--bg) 82%,transparent);
+.topbar{position:sticky;top:var(--ribbon-h);z-index:15;background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:saturate(1.2) blur(10px);border-bottom:1px solid var(--line);
   padding:12px 26px;display:flex;align-items:center;gap:16px}
 .tb-title{min-width:0}
-.tb-title h1{font-size:16px;font-weight:600;letter-spacing:-.01em;line-height:1.2;display:flex;align-items:center;gap:9px}
-.tb-title .crumbline{font-size:11.5px;color:var(--hint);margin-top:2px;letter-spacing:.01em}
+.tb-title h1{font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2;display:flex;align-items:center;gap:9px}
+.tb-title .crumbline{font-size:11px;color:var(--hint);margin-top:2px;letter-spacing:.01em}
 .tb-title .crumbline b{color:var(--muted);font-weight:500}
 .topbar-spacer{flex:1}
 .iconbtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line2);background:var(--surface);
@@ -307,7 +307,10 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
 .env-chip{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
   color:var(--warn);background:var(--warn-bg);padding:5px 10px;border-radius:20px;white-space:nowrap}
 
-.content{padding:22px var(--pad-content) 40px;max-width:1360px;width:100%;margin:0 auto}
+/* Enterprise desktops (1440 / 1600 / 1920+) are the primary target, so the workspace is NOT
+   capped at a consumer max-width. A generous ceiling keeps very wide monitors from stretching
+   line lengths past readability without wasting a 1920 display. */
+.content{padding:16px var(--pad-content) 32px;max-width:1760px;width:100%;margin:0 auto}
 
 /* ---- global command bar (spotlight style) ---- */
 .cmdwrap{margin-bottom:18px}
@@ -350,15 +353,15 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
 .badge-je{background:var(--accent-bg);color:var(--accent-ink)}.badge-hall{background:var(--pos-bg);color:var(--pos)}
 
 /* ---- filter bar ---- */
-.bar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
-.barlabel{font-size:10px;color:var(--hint);text-transform:uppercase;letter-spacing:.09em;margin-bottom:11px;display:flex;align-items:center;gap:7px;font-weight:600}
-.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(186px,1fr));
-  gap:16px 18px;align-items:end}
+.bar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
+.barlabel{font-size:10px;color:var(--hint);text-transform:uppercase;letter-spacing:.09em;margin-bottom:9px;display:flex;align-items:center;gap:7px;font-weight:600}
+.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  gap:11px 14px;align-items:end}
 @media(max-width:640px){.ctrls{grid-template-columns:1fr 1fr}}
-.grp{display:flex;flex-direction:column;gap:5px}
-.grp label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:0;text-transform:none}
-select,input[type=date]{font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line2);
-  border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);cursor:pointer;transition:.13s}
+.grp{display:flex;flex-direction:column;gap:4px}
+.grp label{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:0;text-transform:none}
+select,input[type=date]{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--line2);
+  border-radius:var(--radius-xs);background:var(--surface);color:var(--ink);cursor:pointer;transition:.13s}
 /* filter-panel selects fill their grid cell and carry a chevron */
 .ctrls .grp{min-width:0}
 .ctrls .grp .seg{width:fit-content}
@@ -381,27 +384,27 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* ---- KPI cards ---- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:14px;margin-bottom:20px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:17px 18px;
-  box-shadow:var(--shadow-sm);transition:.15s;position:relative;overflow:hidden}
-.kpi:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;font-weight:600}
-.kpi .v{font-family:var(--num);font-size:27px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
-.kpi .d{font-size:11.5px;color:var(--hint);margin-top:6px;line-height:1.4}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:11px 14px;
+  transition:.15s;position:relative;overflow:hidden}
+.kpi:hover{border-color:var(--line2)}
+.kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:600}
+.kpi .v{font-family:var(--num);font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
+.kpi .d{font-size:10.5px;color:var(--hint);margin-top:3px;line-height:1.3}
 .kpi.flag .v{color:var(--neg)}.kpi.good .v{color:var(--pos)}.kpi.warn .v{color:var(--warn)}
 .kpi.lenshi{border-color:var(--accent-line)}
 .kpi.lenshi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
 .kpi .lenstag{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent-ink);
   font-weight:700;margin-top:8px;display:flex;align-items:center;gap:4px}
 
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 @media(max-width:980px){.grid2{grid-template-columns:1fr}}
 /* Flat by default. Elevation is reserved for things that genuinely float — menus, overlays,
    dialogs, drawers, intelligence surfaces. Hierarchy comes from spacing, type and borders. */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--pad-card);margin-bottom:18px}
-.card h2{font-size:16px;font-weight:600;letter-spacing:-.01em;margin-bottom:3px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--pad-card);margin-bottom:14px}
+.card h2{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:3px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .card h2 .note{font-size:12px;color:var(--hint);font-weight:400}
-.card .subhead{font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.55;max-width:80ch}
+.card .subhead{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;max-width:82ch}
 .lenspin{font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:6px;
   background:var(--accent-bg);color:var(--accent-ink);font-weight:700}
 
@@ -428,15 +431,15 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .residual.flag{background:var(--neg-bg);color:var(--neg)}
 
 /* ---- tables ---- */
-.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
 /* Wide tables (transaction drill-down, account explorer) scroll inside their card
    rather than pushing the page sideways. */
 .tblwrap{overflow-x:auto;margin:0 -2px}
 .card:has(> .tbl){overflow-x:auto}
 .card:has(> .tblwrap){overflow-x:visible}
 .tblwrap .tbl{min-width:960px}
-.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:9px 11px;border-bottom:1px solid var(--line2);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
-.tbl td{padding:10px 11px;border-bottom:1px solid var(--line)}
+.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:7px 10px;border-bottom:1px solid var(--line2);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line)}
 .tbl tr:last-child td{border-bottom:none}
 .tbl td.num,.tbl th.num{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
 .tbl tfoot td{border-top:2px solid var(--line2);font-weight:600;font-variant-numeric:tabular-nums;background:var(--surface2)}
@@ -553,7 +556,7 @@ footer b{color:var(--muted)}
 .subnav button .n.q{background:var(--warn)}
 
 /* collapsible global-filter bar (sits under the sub-nav) */
-.filterbar{margin-bottom:18px}
+.filterbar{margin-bottom:14px}
 .filterbar-hd{display:flex;align-items:center;gap:10px;width:100%;font:inherit;font-family:var(--sans);
   background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;
   color:var(--muted);transition:.13s;box-shadow:var(--shadow-sm)}
@@ -715,8 +718,8 @@ footer b{color:var(--muted)}
 .cmt .cst{margin-left:auto;display:flex;align-items:center;gap:8px}
 
 /* ---- GL: KPI cards with icon chips ---- */
-.kpi-ic{display:flex;align-items:center;gap:13px}
-.kpi-chip{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex:none}
+.kpi-ic{display:flex;align-items:center;gap:10px}
+.kpi-chip{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none}
 .kpi-chip svg{width:20px;height:20px}
 .chip-blue{background:var(--accent-bg);color:var(--accent)}
 .chip-green{background:var(--pos-bg);color:var(--pos)}
@@ -725,11 +728,11 @@ footer b{color:var(--muted)}
 .chip-teal{background:var(--teal-bg);color:var(--teal)}
 .delta{font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:3px}
 .delta.up{color:var(--pos)} .delta.dn{color:var(--neg)}
-.gl-hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.gl-hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .gl-hd .grow{flex:1;min-width:220px}
-.gl-hd h1{font-size:23px;font-weight:650;letter-spacing:-.022em;line-height:1.2}
-.gl-hd .sub{font-size:12.5px;color:var(--muted);margin-top:4px}
-.grid2gl{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:18px}
+.gl-hd h1{font-size:21px;font-weight:650;letter-spacing:-.022em;line-height:1.2}
+.gl-hd .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.grid2gl{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-bottom:14px}
 @media(max-width:1100px){.grid2gl{grid-template-columns:1fr}}
 .erp-ini{width:22px;height:22px;border-radius:5px;background:var(--bg2);color:var(--muted);
   font-size:8.5px;font-weight:700;display:inline-grid;place-items:center;flex:none;letter-spacing:-.02em}
@@ -746,11 +749,11 @@ footer b{color:var(--muted)}
 .extlink{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-weight:600;cursor:pointer}
 .extlink:hover{text-decoration:underline}
 .extlink svg{width:11px;height:11px}
-.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px}
-.stat .sl{font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:7px}
-.stat .sv{font-family:var(--num);font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.stat .sd{font-size:11px;color:var(--hint);margin-top:3px}
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.stat .sl{font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.stat .sv{font-family:var(--num);font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat .sd{font-size:10.5px;color:var(--hint);margin-top:2px}
 .spark{width:100%;height:170px}
 .progline{display:flex;align-items:center;gap:9px}
 .progline .mini-bar{flex:1;min-width:60px}
@@ -1560,8 +1563,8 @@ body.copilot-collapsed.copilot-min .cp-mintab{display:grid}
 body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 /* per-card Ask AI affordance */
 .kpi .spk{display:block;width:calc(100% + 36px);margin:10px -18px 0;height:38px}
-.askai{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--accent);
-  cursor:pointer;margin-top:10px;padding-top:9px;border-top:1px solid var(--line);width:100%}
+.askai{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--accent);
+  cursor:pointer;margin-top:6px;padding-top:6px;border-top:1px solid var(--line);width:100%}
 .askai:hover{color:var(--accent-ink)}
 .askai svg{width:12px;height:12px}
 
@@ -1751,10 +1754,8 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       <svg viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="tb-title">
-      <h1 id="tbTitle">Overview
-        <span class="spine-ribbon" title="Provenance depth — spine edges lit"><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i></i></span>
-      </h1>
-      <div class="crumbline" id="tbCrumb">Meridian Global Portfolio · <b>one spine, five sections, one filter state</b></div>
+      <h1 id="tbTitle">Overview</h1>
+      <div class="crumbline" id="tbCrumb">Meridian Global Portfolio</div>
     </div>
     <div class="topbar-spacer"></div>
     <span class="env-chip" title="Illustrative sample data">Prototype · sample data</span>
@@ -2592,7 +2593,7 @@ let LENS='portfolio';
 const TABS=[
   {id:'glintel',label:'General Ledger',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6'},
   {id:'acctclose',label:'Close',ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5'},
-  {id:'acctover',label:'Overview',ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+  {id:'acctover',label:'Overview',ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'icomp',label:'Intercompany',ic:'M8 2v12M3 5h10M3 11h10'},
   {id:'contclose',label:'Continuous Close',ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2'},
   {id:'mywork',label:'My Work',ic:'M3 4.5h10v9H3zM6 2.5h4v2H6zM6 8h4'},
@@ -2602,19 +2603,19 @@ const TABS=[
   {id:'documents',label:'Documents',ic:'M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3'},
   {id:'dataroom',label:'Data Room',ic:'M2 4.5h12v8H2zM2 7h12M6 7v5.5'},
   // Data Room module tabs (lens `droom`)
-  {id:'drover',label:'Overview',        ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+  {id:'drover',label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'drreq', label:'Requests',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5M5.5 11.5h3'},
   {id:'drevid',label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
   {id:'drwork',label:'Workspaces',      ic:'M2.5 4.5h11v8h-11zM2.5 7h11M6 7v5.5'},
   {id:'drext', label:'External Access', ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'},
   {id:'controls',label:'Controls',ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
-  {id:'fpexec',label:'Executive Overview',ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+  {id:'fpexec',label:'Executive Overview',ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'fplrp',label:'Long-Range Plan',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M6 6.5v6'},
   {id:'fpcash',label:'Cash & Liquidity',ic:'M2 5.5h12v6H2zM2 8h12M4.5 10h2'},
   {id:'fpwork',label:'Workforce Planning',ic:'M6 7.5a2 2 0 100-4 2 2 0 000 4zM2.5 13a3.5 3.5 0 017 0'},
   {id:'fpdriver',label:'Driver Planning',ic:'M8 13A5 5 0 118 3a5 5 0 010 10zM8 8l2.5-2'},
   {id:'fpmgmt',label:'Management Reporting',ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5'},
-  {id:'glover',label:'Overview',ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+  {id:'glover',label:'Overview',ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'glfin',label:'Financial reporting',ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5'},
   {id:'glact',label:'Account activity',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M5.5 9.5h5'},
   {id:'gltrend',label:'Trending review',ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4'},
@@ -2622,7 +2623,7 @@ const TABS=[
   {id:'glclose',label:'Close status',ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5'},
   {id:'glreports',label:'Reports',ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
   {id:'glsync',label:'Data / sync status',ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5'},
-  {id:'fdash',   label:'Dashboard', ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+  {id:'fdash',   label:'Dashboard', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'fxbrl',   label:'XBRL',      ic:'M4 3.5h8v9H4zM6 6h4M6 8.5h4M6 11h2'},
   {id:'freports',label:'Reports',   ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
   {id:'findex', label:'Filings',   ic:'M3 2.5h7l3 3v8H3zM10 2.5v3h3M5.5 9h5M5.5 11.5h3'},
@@ -3080,58 +3081,141 @@ function pipelineDrill(name,stage){
     aiAnswer(name+' — '+st.label, `<b>${name}</b> (${p.region} · ${p.fund}) is at the <b>${st.label}</b> stage${p.capital>0?` · <b>${money(p.capital)}</b> capital`:''}. ${p.note}. <br><br><b>Accounting treatment:</b> ${st.treat} → posts to <b>${st.gl}</b>.`,[],[]);
   }
 }
+/* ---------------- Home: the enterprise command centre ----------------
+   Home answers ONE question first: what requires my attention across the enterprise?
+   The capital analysis that used to lead the page is preserved verbatim, just moved below
+   the operational queue where it belongs.
+
+   Everything here DERIVES from existing module state — close, reconciliations, intercompany,
+   consolidation, exceptions, policies, approvals, CIP. Each derivation is wrapped so that a
+   source which cannot resolve is omitted rather than faked, and no source is duplicated: the
+   figures are the same ones the owning module renders. */
+const HOME_SEV={high:{l:'High',c:'flag'}, med:{l:'Medium',c:'warn'}, low:{l:'Low',c:''}};
+/* Summary-surface amounts. Millions when the figure is material, whole dollars when it is not:
+   glB() on a small variance renders "$0.0M", which reads as nil and would hide a real
+   difference. Detail pages keep full precision via glK(). Input is thousands. */
+const homeAmt=k=>{ const m=Math.abs(k)/1000;
+  return m>=0.1 ? glB(m) : '$'+Math.round(Math.abs(k)*1000).toLocaleString('en-US'); };
+function homeAttention(){
+  const out=[], t=(sev,t1,d,go)=>out.push({sev,t:t1,d,go});
+  try{ GL_RECON.filter(r=>Math.abs(r.diff)>0).forEach(r=>
+    t(Math.abs(r.diff)>=1000?'high':'med','Reconciliation difference — '+r.nm,
+      homeAmt(r.diff)+' unexplained · '+r.ent,
+      "pickLens('ledger');pickTab('glrecon');glReconCloseDetail();setGlReconSel('"+r.acct+"|"+r.ent+"')")); }catch(e){}
+  try{ const ov=GL_RECON.filter(r=>r.st==='over'&&!r.diff);
+    if(ov.length) t('high','Reconciliations overdue',
+      ov.length+' past due · earliest '+ov[0].due,"pickLens('ledger');pickTab('glrecon')"); }catch(e){}
+  try{ const blk=closeTotals().blk;
+    if(blk) t('high','Close tasks blocked', blk+' tasks cannot proceed · '+closePct()+'% complete',
+      "pickLens('ledger');pickTab('acctclose')"); }catch(e){}
+  try{ const ic=icxKpi();
+    if(ic.elimEx&&ic.elimEx.length) t('high','Elimination not ready',
+      ic.elimEx.length+' pair(s) out of balance',"pickLens('ledger');pickTab('icomp');setIcSub('elim')"); }catch(e){}
+  // csxExcep rows carry {e:entity, kind, d:detail} — there is no `.t`, so read `d` and the entity.
+  try{ const cx=csxExcep().filter(x=>x.sev==='crit');
+    if(cx.length) t('high','Consolidation inconsistency — '+((cx[0].e&&cx[0].e.nm)||'entity'),
+      (cx[0].kind||'Inconsistent submission')+(cx[0].d?' · '+homeAmt(cx[0].d):''),
+      "pickLens('ledger');pickTab('consol');setCsSub('excep')"); }catch(e){}
+  try{ const am=amKpi().open;
+    if(am.length) t('med','Accounting judgments open',
+      am.length+' matters awaiting conclusion',"pickLens('ledger');pickTab('issues')"); }catch(e){}
+  try{ const pi=polInbKpi().awaiting;
+    if(pi&&pi.length) t('med','Policy documents awaiting validation',
+      pi.length+' AI-extracted records need a human decision',
+      "pickLens('ledger');pickTab('admin');setPolSub('inbox')"); }catch(e){}
+  try{ const sc=cipScope().filter(x=>x.scrub>0);
+    if(sc.length) t('low','Operating cost sitting in CIP',
+      money0(sc.reduce((a,x)=>a+x.scrub,0))+' across '+sc.length+' projects',"pickLens('assets')"); }catch(e){}
+  const rank={high:0,med:1,low:2};
+  return out.sort((a,b)=>rank[a.sev]-rank[b.sev]);
+}
+/* What Korvyn found without being asked. Counts only — the detail lives in the owning module. */
+function homeDetected(){
+  const out=[], add=(n,l,go)=>{ if(n) out.push({n,l,go}); };
+  try{ add(axKpi().open.length,'exceptions open across the enterprise',"pickLens('ledger');pickTab('exceptions')"); }catch(e){}
+  try{ add(polInbKpi().awaiting.length,'policy documents awaiting validation',
+    "pickLens('ledger');pickTab('admin');setPolSub('inbox')"); }catch(e){}
+  try{ add(GL_RECON.filter(r=>Math.abs(r.diff)>0).length,'accounts with an unexplained difference',
+    "pickLens('ledger');pickTab('glrecon')"); }catch(e){}
+  try{ add(csxExcep().filter(x=>x.sev==='crit').length,'consolidation inconsistencies',
+    "pickLens('ledger');pickTab('consol');setCsSub('excep')"); }catch(e){}
+  return out;
+}
+
 function renderOverview(){
   const P=portfolio(), el=$('view-overview');
-  const promoted=(LENSES[LENS].promote||{}).overview;
-  const nSites=new Set(P.rows.map(r=>r[IDX.site])).size;
-  const nPO=P.rows.length;
   const halls=HALLS.filter(h=>F.region==='all'||h.region===F.region);
-  const dep=halls.filter(h=>h.status==='service').reduce((a,h)=>a+h.cip,0);
-  const inCip=halls.filter(h=>h.status!=='service').reduce((a,h)=>a+h.cip,0);
   const ready=halls.filter(h=>h.status==='ready').reduce((a,h)=>a+h.cip,0);
+  const A=homeAttention(), D=homeDetected();
 
-  // KPI set — overview lives in the Portfolio section; default to portfolio for any section
-  const KPI_SETS={
-    portfolio:[
-      {k:'Committed',v:money0(P.committed),d:'signed POs'+ccyTag(),cls:''},
-      {k:'Incurred',v:money0(P.incurred),d:pct(P.incurred/P.budget*100)+' of budget',cls:''},
-      {k:'Paid',v:money0(P.paid),d:'bank-confirmed',cls:''},
-      {k:'Open commitment',v:money0(P.openCommit),d:'not yet incurred',cls:'warn'},
-    ],
-    fpa:[
-      {k:'Budget',v:money0(P.budget),d:'imported at cost-code grain',cls:''},
-      {k:'Committed',v:money0(P.committed),d:pct(P.committed/P.budget*100)+' of budget',cls:''},
-      {k:'Open commitment',v:money0(P.openCommit),d:'not yet incurred',cls:'warn'},
-    ],
-    ctrl:[
-      {k:'Ceiling residual',v:money0(P.residual),d:'no phantom cost',cls:P.residual===0?'good':'flag'},
-      {k:'Halls placed',v:halls.filter(h=>h.status==='service').length+' of '+halls.length,d:'across all campuses in scope',cls:''},
-      {k:'Open exceptions',v:ready>0?String(halls.filter(h=>h.status==='ready').length):'0',d:ready>0?'halls ready for PIS':'all clear',cls:ready>0?'warn':'good'},
-    ],
-    ledger:[
-      {k:'GL total cost',v:money0(P.incurred),d:'all cost edges'+ccyTag(),cls:''},
-      {k:'Ties to TB',v:'✓ '+money0(0),d:'variance to 15000 CIP',cls:'good'},
-      {k:'Unposted edges',v:'3',d:'awaiting journal entry',cls:'warn'},
-    ],
-    audit:[
-      {k:'PBC coverage',v:'100%',d:'balances with full trail',cls:'good'},
-      {k:'Docs linked',v:'1,284',d:'POs · invoices · payments',cls:''},
-      {k:'Basis flagged',v:'0',d:'unsupported GAAP basis',cls:'good'},
-    ],
-  };
-  const KPI=KPI_SETS[LENS]||KPI_SETS.portfolio;
+  // ---- 1. Enterprise status. Compact strip, not a tile wall. ----
+  const S=[];
+  try{ S.push({l:'Close readiness',v:closePct()+'%',d:closeTotals().blk+' blocked',
+    go:"pickLens('ledger');pickTab('acctclose')"}); }catch(e){}
+  try{ S.push({l:'Open approvals',v:FILING_APPROVALS.filter(a=>a.st==='pending').length,
+    d:'awaiting sign-off',go:"pickTab('approvals')"}); }catch(e){}
+  try{ const k=axKpi(); S.push({l:'Material exceptions',v:k.open.length,
+    d:(k.blocking?k.blocking.length:0)+' blocking close',neg:k.open.length>0,
+    go:"pickLens('ledger');pickTab('exceptions')"}); }catch(e){}
+  // Executive summary reads in millions; the reconciliation pages keep full precision.
+  try{ const un=GL_RECON.reduce((a,r)=>a+Math.abs(r.diff),0);
+    S.push({l:'Unreconciled balance',v:un?homeAmt(un):'$0',d:'across all entities',neg:un>0,
+    go:"pickLens('ledger');pickTab('glrecon')"}); }catch(e){}
+  try{ S.push({l:'My open items',v:wsTaskCount()+wsIssueCount(),d:'tasks and issues assigned',
+    go:"pickTab('mywork')"}); }catch(e){}
 
-  let h='<div class="kpis">';
-  KPI.forEach((x,i)=>{
-    h+=`<div class="kpi ${x.cls} ${i===0?'lenshi':''}">
-      <div class="k">${x.k}</div><div class="v">${x.v}</div><div class="d">${x.d}</div>
-      ${i===0?`<div class="lenstag">▸ ${LENSES[LENS].label} headline</div>`:''}</div>`;
-  });
-  h+='</div>';
+  let h=`<div class="statrow">${S.map(x=>
+    `<div class="stat row-click" ${x.go?`onclick="${x.go}"`:''}><div class="sl">${x.l}</div>
+      <div class="sv ${x.neg?'neg':''}">${x.v}</div><div class="sd">${x.d}</div></div>`).join('')}</div>`;
 
-  // four-measure + ceiling, side by side
-  const fpaPin='';
-  const ctrlPin='';
+  // ---- 2. Needs your attention + what Korvyn detected ----
+  h+=`<div class="grid2">
+    <div class="card" style="margin-bottom:0"><h2>Needs your attention<span class="note">${A.length} items</span></h2>
+      <div class="subhead">A prioritised queue across every module — what needs human judgment now,
+        not another report.</div>
+      <table class="tbl"><tbody>
+      ${A.slice(0,7).map(x=>`<tr class="row-click" onclick="${x.go}">
+        <td style="width:20px"><span class="ic-dot ${x.sev==='high'?'bad':x.sev==='med'?'warn':'idle'}"></span></td>
+        <td><b>${x.t}</b><div class="ic-mini" style="color:var(--hint)">${x.d}</div></td>
+        <td style="text-align:right;width:74px"><span class="pill ${HOME_SEV[x.sev].c} sm">${HOME_SEV[x.sev].l}</span></td>
+      </tr>`).join('')}
+      ${A.length?'':'<tr><td class="note">Nothing is waiting on you.</td></tr>'}
+      </tbody></table>
+      ${A.length>7?`<div class="cardfoot">${A.length-7} more</div>`:''}</div>
+
+    <div class="card" style="margin-bottom:0"><h2>Korvyn detected</h2>
+      <div class="subhead">Found without being asked, since the last close cycle.</div>
+      <div class="ki" style="margin-bottom:12px"><div class="ki-h">${KI_SPARK}Korvyn Intelligence</div>
+        ${D.map(x=>`<div class="wrel row-click" onclick="${x.go}" style="border-color:var(--ai-line)">
+          <span class="n" style="min-width:26px">${x.n}</span><span class="g">${x.l}</span></div>`).join('')}
+        ${D.length?'':'<div class="ki-b">Nothing new detected.</div>'}
+      </div>
+      <div class="wsub">Upcoming</div>
+      ${(function(){ try{
+          const up=CLOSE_TASKS.filter(t=>t.st!=='done').slice(0,4);
+          return up.length?up.map(t=>`<div class="wrel"><span class="g">${t.task||t.nm||'Close task'}</span>
+            <span class="n" style="font-weight:500;color:var(--muted)">${t.ent||''}</span></div>`).join('')
+            :'<div class="note" style="margin:0">Nothing scheduled.</div>';
+        }catch(e){ return '<div class="note" style="margin:0">Nothing scheduled.</div>'; } })()}
+      <div class="cardfoot"><span class="cardlink" onclick="pickLens('ledger');pickTab('acctclose')">Close checklist</span></div>
+    </div>
+  </div>`;
+
+  // ---- 3. Capital position. The analysis that used to lead the page, preserved. ----
+  h+=`<div class="statrow">
+    <div class="stat"><div class="sl">Committed</div><div class="sv">${money0(P.committed)}</div>
+      <div class="sd">signed POs${ccyTag()}</div></div>
+    <div class="stat"><div class="sl">Incurred</div><div class="sv">${money0(P.incurred)}</div>
+      <div class="sd">${pct(P.incurred/P.budget*100)} of budget</div></div>
+    <div class="stat"><div class="sl">Paid</div><div class="sv">${money0(P.paid)}</div>
+      <div class="sd">bank-confirmed</div></div>
+    <div class="stat"><div class="sl">Open commitment</div><div class="sv" style="color:var(--warn)">${money0(P.openCommit)}</div>
+      <div class="sd">not yet incurred</div></div>
+    <div class="stat"><div class="sl">Halls in service</div>
+      <div class="sv">${halls.filter(h=>h.status==='service').length} of ${halls.length}</div>
+      <div class="sd">${ready>0?halls.filter(h=>h.status==='ready').length+' ready to place':'all placed'}</div></div>
+  </div>`;
+
   const measBars=[
     ['Budgeted',P.budget,'var(--line2)'],
     ['Committed',P.committed,'#378ADD'],
@@ -3140,8 +3224,9 @@ function renderOverview(){
   ];
   h+='<div class="grid2">';
   h+=`<div class="card" style="margin-bottom:0">
-    <h2>Four-measure budget vs. actual ${fpaPin}<span class="note">committed–incurred gap = forecast risk</span></h2>
-    <div class="subhead">The spine captures four edge types natively — not two. Period: <b>${periodLabel()}</b>.</div>
+    <h2>Budget vs. actual<span class="note">committed less incurred = forecast risk</span></h2>
+    <div class="subhead">Commitment, cost and cash tracked separately rather than collapsed into a
+      single actual. Period: <b>${periodLabel()}</b>.</div>
     <div class="measures">`;
   measBars.forEach(([lab,val,col])=>{
     const w=Math.max(2,val/P.budget*100);
@@ -3149,21 +3234,24 @@ function renderOverview(){
       <div class="m-track"><div class="m-fill" style="width:${w}%;background:${col}"></div></div>
       <span class="m-val">${money(val)}</span></div>`;
   });
-  h+=`</div><div class="gap-note warn"><b>${money(P.openCommit)}</b> committed but not yet incurred — signed-up-for spend two-measure tools miss. Every edge carries a timestamp, so "as of any date" is a filter, not a period-close snapshot.</div></div>`;
+  h+=`</div><div class="gap-note warn"><b>${money(P.openCommit)}</b> is committed but not yet incurred —
+      contracted spend that has not reached the ledger. Every commitment carries a date, so this is a
+      live position rather than a period-end snapshot.</div></div>`;
 
   h+=`<div class="card" style="margin-bottom:0">
-    <h2>Cash-anchored ceiling test ${ctrlPin}<span class="note">cash is the floor; residual = phantom cost</span></h2>
-    <div class="subhead">Run in reverse, the GL-to-cash bridge becomes a control: cost that is neither paid nor accrued is phantom.</div>
+    <h2>Cost-to-cash control<span class="note">unexplained residual should be nil</span></h2>
+    <div class="subhead">Reconciles recorded cost to cash and accruals. Anything left over is cost the
+      enterprise has recognised but cannot yet evidence.</div>
     <div class="lrows">
       <div class="l-row"><span>GL total cost <span style="color:var(--hint)">· all cost edges</span></span><span class="amt">${money(P.incurred)}</span></div>
-      <div class="l-row"><span>− Cash out <span style="color:var(--hint)">· bank-confirmed paid_by</span></span><span class="amt">${money(P.paid)}</span></div>
+      <div class="l-row"><span>− Cash out <span style="color:var(--hint)">· bank-confirmed</span></span><span class="amt">${money(P.paid)}</span></div>
       <div class="l-row"><span>− Accruals <span style="color:var(--hint)">· posted, unpaid</span></span><span class="amt">${money(P.accruals)}</span></div>
       <div class="l-row"><span>− Timing <span style="color:var(--hint)">· retention, AP</span></span><span class="amt">${money(P.timing)}</span></div>
       <div class="l-row total"><span>= Unexplained residual</span><span class="amt">${money(P.residual)}</span></div>
     </div>
     <div class="residual ${P.residual===0?'clean':'flag'}">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V4z" stroke="currentColor" stroke-width="1.3"/><path d="M6 8l1.5 1.5L10.5 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      ${P.residual===0?'Clean — every GL dollar is paid, accrued, or timed':'Residual of '+money(P.residual)+' — phantom cost to investigate'}</div></div>`;
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V4z" stroke="currentColor" stroke-width="1.3"/><path d="M6 8l1.5 1.5L10.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ${P.residual===0?'Clean — every recorded dollar is paid, accrued or timed':'Residual of '+money(P.residual)+' to investigate'}</div></div>`;
   h+='</div>';
 
   el.innerHTML=h;
@@ -5101,7 +5189,7 @@ const RAIL_SPEC={
   // workflows, not directories.
   droom:[
     {head:'Data Room'},
-    {tab:'drover', label:'Overview',        ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+    {tab:'drover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'drreq',  label:'Requests',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5M5.5 11.5h3',
       badge:()=>drKpi().open.length},
     {tab:'drevid', label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
@@ -5109,8 +5197,10 @@ const RAIL_SPEC={
     {tab:'drext',  label:'External Access', ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'},
   ],
   portfolio:[
-    {head:'Home'},
-    {tab:'overview',   label:'Overview',   ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+    // No 'Home' heading here — the house icon and the word Home belong to the GLOBAL
+    // destination in the ribbon, and repeating them inside Home's own rail is redundant.
+    {head:'My Work'},
+    {tab:'overview',   label:'Overview',   ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'mywork',     label:'My Work',    ic:'M3 4.5h10v9H3zM6 2.5h4v2H6zM6 8h4M6 10.5h3'},
     {tab:'approvals',  label:'Approvals',  ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
       badge:()=>FILING_APPROVALS.filter(a=>a.st==='pending').length},
@@ -5128,7 +5218,7 @@ const RAIL_SPEC={
     {lens:'admin',     label:'Administration', ic:'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M6 2.8v3.4M10.5 6.3v3.4M5 9.8v3.4'},
   ],
   treasury:[
-    {tab:'fpcash', label:'Overview',      ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6',
+    {tab:'fpcash', label:'Overview',      ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z',
       act:"setFpCashTab('overview');pickTab('fpcash')", on:()=>TAB==='fpcash'&&fpCashTab==='overview'},
     {tab:'fpcash', label:'Cash Forecast', ic:'M2 11l3.5-4 2.5 2.5L13 4M10.5 4H13v2.5',
       act:"setFpCashTab('forecast');pickTab('fpcash')", on:()=>TAB==='fpcash'&&fpCashTab==='forecast'},
@@ -5140,7 +5230,7 @@ const RAIL_SPEC={
       act:"setFpCashTab('debt');pickTab('fpcash')", on:()=>TAB==='fpcash'&&fpCashTab==='debt'},
   ],
   fpa:[
-    {tab:'fpexec',  label:'Executive Overview', ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+    {tab:'fpexec',  label:'Executive Overview', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'budget',  label:'Budget vs. Actual',  ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4'},
     {tab:'forecast',label:'Forecast & Scenarios',ic:'M2 11l3.5-4 2.5 2.5L13 4M10.5 4H13v2.5'},
     {tab:'fplrp',   label:'Long-Range Plan',    ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M6 6.5v6'},
@@ -5151,7 +5241,7 @@ const RAIL_SPEC={
   ],
   ledger:[
     {head:'Accounting'},
-    {tab:'acctover', label:'Overview',        ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+    {tab:'acctover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'acctclose',label:'Close',           ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
       badge:()=>clBlocked().length},
     {tab:'glintel',  label:'General Ledger',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6',
@@ -5178,7 +5268,7 @@ const RAIL_SPEC={
   ],
   filings:[
     {head:'SEC filings'},
-    {tab:'fdash',   label:'Dashboard', ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+    {tab:'fdash',   label:'Dashboard', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'findex',  label:'Filings',   ic:'M3 2.5h7l3 3v8H3zM10 2.5v3h3',
       kids:[{label:'Drafts',    seg:'draft'},
             {label:'In Review', seg:'review'},
@@ -6816,6 +6906,30 @@ function renderAcctOver(){
       <div><div class="k" style="margin:0">Material exceptions</div><div class="v">${matEx.length}</div></div></div>
       <div class="d">${ins.length} open in total</div>
       <span class="askai" onclick="pickTab('exceptions')">${glIc('M6 3l5 5-5 5')}Exceptions</span></div>
+  </div>`;
+
+  // ---------- 0. what needs judgment, before the operating detail ----------
+  // Reuses the same cross-module derivations Home uses, so the two pages cannot disagree.
+  const A=homeAttention(), D=homeDetected();
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Needs attention<span class="note">${A.length} items</span></h2>
+      <div class="subhead">Ranked across close, reconciliations, intercompany and consolidation.</div>
+      <table class="tbl"><tbody>
+      ${A.slice(0,6).map(x=>`<tr class="row-click" onclick="${x.go}">
+        <td style="width:20px"><span class="ic-dot ${x.sev==='high'?'bad':x.sev==='med'?'warn':'idle'}"></span></td>
+        <td><b>${x.t}</b><div class="ic-mini" style="color:var(--hint)">${x.d}</div></td>
+        <td style="text-align:right;width:74px"><span class="pill ${HOME_SEV[x.sev].c} sm">${HOME_SEV[x.sev].l}</span></td>
+      </tr>`).join('')}
+      ${A.length?'':'<tr><td class="note">Nothing outstanding.</td></tr>'}
+      </tbody></table>
+      ${A.length>6?`<div class="cardfoot">${A.length-6} more</div>`:''}</div>
+    <div class="card" style="margin:0"><h2>Korvyn detected</h2>
+      <div class="subhead">Surfaced without being asked.</div>
+      <div class="ki" style="margin-bottom:0"><div class="ki-h">${KI_SPARK}Korvyn Intelligence</div>
+        ${D.map(x=>`<div class="wrel row-click" onclick="${x.go}" style="border-color:var(--ai-line)">
+          <span class="n" style="min-width:26px">${x.n}</span><span class="g">${x.l}</span></div>`).join('')}
+        ${D.length?'':'<div class="ki-b">Nothing new detected.</div>'}
+      </div></div>
   </div>`;
 
   // ---------- 1. close readiness ----------
@@ -14171,7 +14285,9 @@ function renderAll(){
   if(TAB==='issues')renderIssues();
   if(TAB==='archives')renderArchives();
   if(TAB==='admin')renderAdmin();
-  $('footer').innerHTML=`<b>KORVYN</b> · prototype · sample data · figures illustrative · section: <b style="color:var(--accent)">${LENSES[LENS].label}</b> · period: <b>${periodLabel()}</b><br>One spine, one filter state: every commitment, invoice, payment, and posting is a traceable edge — so balances are their own provenance. Every view is reachable; slice, group, and format freely.`;
+  // Product-philosophy copy does not belong in a persistent application footer. The
+  // prototype marker lives in the topbar chip; this line stays to scope + period only.
+  $('footer').innerHTML=`<b>KORVYN</b> · ${LENSES[LENS].label} · ${periodLabel()} · figures illustrative`;
 }
 
 // init
@@ -14227,14 +14343,15 @@ function paintRailRoles(){
   if(lbl) lbl.textContent=LENSES[LENS]?LENSES[LENS].label:'Section';
   if(box){
     const spec=RAIL_SPEC[LENS];
-    if(spec&&spec.some(x=>x.head)&&lbl) lbl.style.display='none';
     // Util lenses are single-tab destinations and carry no rail — UNLESS they declare their
     // own RAIL_SPEC (the Data Room module does, and needs its contextual left nav).
     if(inUtil && !spec){
       box.innerHTML=''; if(lbl) lbl.style.display='none';
     } else if(spec){
-      // structured rail: optional children + live badges
-      if(lbl) lbl.style.display='';
+      // structured rail: optional children + live badges.
+      // A spec carrying its own `head` entries already labels itself — painting the generic
+      // label too renders the section name twice (that is how Home showed "HOME" twice).
+      if(lbl) lbl.style.display=spec.some(x=>x.head)?'none':'';
       box.innerHTML=spec.map(it=>{
         if(it.head) return `<div class="rail-grouplbl">${it.head}</div>`;   // section heading
         // `on`/`act` let an entry target existing state (e.g. Flux review = finrep + finRepSub)
@@ -14503,7 +14620,7 @@ const VIEW_META={
   admin:{t:'Admin',c:'Capitalization policy · thresholds, roles, sign-off matrix',depth:2},
   // Lens-scoped override — Accounting's Policies is the governed repository, not admin settings.
   'ledger:admin':{t:'Policies',c:'Enterprise policy repository and governance library',depth:4},
-  overview:{t:'Overview',c:'Four-measure budget-vs-actual · cash-anchored ceiling',depth:5},
+  overview:{t:'Overview',c:'Enterprise status · attention queue · capital position',depth:5},
   lifecycle:{t:'Property lifecycle',c:'Stage → Market → Site · the portfolio in motion',depth:5},
   pis:{t:'Placed-in-service',c:'Campus → Hall · CIP carve into depreciating assets',depth:4},
   vendors:{t:'Vendors',c:'Capital concentration · top-N, tail, per-site, category mix',depth:4},
@@ -14522,10 +14639,12 @@ const VIEW_META={
   filing:{t:'Filing view',c:'10-Q / 10-K presentation · comparative periods · consolidated',depth:5},
 };
 function paintTopbar(){
-  const m=VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]||{t:'',c:'',depth:5};
-  const ribbon=Array.from({length:5},(_,i)=>`<i class="${i<m.depth?'lit':''}"></i>`).join('');
+  const m=VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]||{t:'',c:''};
+  // The old segmented "provenance depth" bars were removed: they rendered an internal 1-5
+  // scale that meant nothing to a finance user and could not be explained without product
+  // jargon. VIEW_META still carries `depth`; it is simply no longer drawn.
   const tt=document.getElementById('tbTitle');
-  if(tt)tt.innerHTML=`${m.t} <span class="spine-ribbon" title="Provenance depth — spine edges lit for this view">${ribbon}</span>`;
+  if(tt)tt.textContent=m.t;
   const cr=document.getElementById('tbCrumb');
   if(cr)cr.innerHTML=`<b>${LENSES[LENS].label}</b> · ${m.c}`;
   // rail scope line + filter-bar state chip (same summary string)

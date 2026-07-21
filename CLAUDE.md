@@ -54,7 +54,13 @@ keeps the original lie and adds a second one).
 **Working agreements established with the user**
 
 - Work incrementally. Never rebuild or redesign an existing page unless asked.
-- Home > Overview is off-limits; it renders 3,374 characters and that is the regression check.
+- **Home > Overview was restructured on request** (enterprise command centre) and its old
+  3,374-character regression check is retired. The live check is now **Home > Exceptions =
+  3,395 chars**, plus the whole-app sweep. Home leads with enterprise status → Needs your
+  attention → Korvyn detected → capital position; the four-measure and cost-to-cash analyses
+  are preserved verbatim, just moved below the operational queue. `homeAttention()` /
+  `homeDetected()` derive from the owning modules and are **reused by Accounting > Overview**,
+  so the two pages cannot disagree — change them in one place.
 - The ERP is the system of record. Never build journal-entry creation, approval or posting.
 - Numbers must derive, never duplicate. Statements derive from `COA` + `FINREP_SUPP`;
   close roll-ups derive from `CLOSE_TASKS`; the GL ledger derives from `COA`. If a figure
@@ -372,6 +378,27 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
 - Lock/sign-off with audit trail: `lockFluxComment`/`unlockFluxComment` record `FLUX_REVIEWER`
   + `fluxNow()`. Locked comments surface in the Filing view as read-only "Disclosure notes".
 - `fluxModel(stmt, S, derived)` defines each statement's lines + GL breakdown.
+
+## Density, copy and icon rules (the "calm density" pass)
+
+- **Scale lives in tokens, never in zoom or transforms.** Base `font-size:13px`;
+  `--pad-card:16px`, `--pad-content:20px`, `--row-h:40px`, `--ribbon-h:50px`, `--rail-w:200px`.
+  Page title 21/650, section heading 15/600, table 12.5px with 11px headers, KPI value 21px.
+  KPI cards land ~126px. If a future pass needs more density, move these — do not add a
+  wrapper transform.
+- **The workspace is not capped at a consumer width.** `.content` max-width is 1760px because
+  1440/1600/1920 desktops are the primary target. It used to be 1360px, which wasted a 1920 display.
+- **One meaning per icon: the house is GLOBAL HOME and nothing else.** Every "Overview" entry
+  uses the 2×2 grid glyph. Eleven house paths were swapped; only `ICON.home` keeps it.
+- **A RAIL_SPEC with `head` entries labels itself.** `paintRailRoles` must not also paint
+  `#railTabsLbl` — an ordering bug (hide, then unconditionally re-show) made Home render "HOME"
+  twice. Home's rail groups are My Work / Workspace / System, with no Home heading at all.
+- **No internal product vocabulary in user-facing copy.** "Spine", "edge types", "phantom cost"
+  and similar are out of visible UI. The decorative "provenance depth" bars in the topbar were
+  removed outright — they rendered an unexplained 1–5 scale — and the footer is now scope and
+  period only, not product philosophy. `VIEW_META.depth` still exists but is not drawn.
+- **Summary amounts use `homeAmt()`**, which switches to whole dollars under $0.1M. `glB()`
+  alone renders a real 1,250 variance as "$0.0M", which reads as nil. Detail pages keep `glK()`.
 
 ## Design system — Midnight + Cobalt (read before styling anything)
 
