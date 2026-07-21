@@ -257,10 +257,16 @@ There is no separate CSS/JS file. Edits happen in place.
   `polChildren`); one authoritative record each, never duplicated across categories (a policy
   has one `cat` plus `rel[]`). `aiEx` marks records whose standardized content is still
   AI-extracted and awaiting validation — labelled, never treated as approved.
-  **Phase 1A scope = Library + Detail only.** Ingestion/upload, duplicate detection, search and
-  a full applicability engine were explicitly out of scope and are NOT built (an earlier draft
-  that included them was removed). If you add them later, they are a Phase 1B — do not assume
-  the removed code is retrievable beyond git history.
+  **Detail view** is 4 tabs (Overview / Applicability / Versions / Source documents) plus a
+  right-side Related Information sidebar — `polvDetail`, `polTab` state, scoped `.pol-*` CSS.
+  **Policy Inbox** (`POL_INBOX`, `polvInbox` / `polInbDrawer`) is the governance review queue
+  for AI-processed documents, reached via the Library/Inbox sub-nav (`polSub`,
+  `'ledger:admin'` pipeline). Nine documents, each with proposed metadata (editable in the
+  drawer — mutates the in-memory item), review flags, one `proc` status, and an optional
+  `match` to a real `POL_POLICIES` record. **Korvyn proposes; a human validates** — no action
+  in the inbox approves, publishes, merges or auto-decides a relationship; that boundary is the
+  point of the page. Still NOT built (later phases): document upload/OCR/extraction, an
+  approval/publication workflow, a rules/applicability engine.
 - `AX_STATE` / `AX_RECUR` / `AX_TREND` — Accounting > Exceptions. The exceptions themselves
   are **not stored**: `axExceptions()` derives all 25 from `GL_RECON`, `IC_EVENTS`,
   `csxEntities()`, `CC_SIGNALS`, `CIP_PROJECTS`, `GL_ERP` and `CLOSE_TASKS`, and every row
