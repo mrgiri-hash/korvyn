@@ -54,6 +54,18 @@ keeps the original lie and adds a second one).
 **Working agreements established with the user**
 
 - Work incrementally. Never rebuild or redesign an existing page unless asked.
+- **`HOME_PREVIEW` is quarantined placeholder data — never mix it with derived figures.**
+  Home now carries forward-looking cards for modules that do not exist yet (performance,
+  liquidity, FP&A variance, capital structure, entity explorer, governance, knowledge,
+  evidence, enterprise graph, integration integrity). Those figures describe the *scale of
+  enterprise Korvyn targets* — 248 entities, 14 ERP systems, 1,842 projects — and flatly
+  contradict the live book (4 entities, 4 ERP systems, 8 projects). They are therefore
+  confined to the single `HOME_PREVIEW` constant and **every card built from it renders a
+  `Preview` chip**, so nothing illustrative can be mistaken for a derived number. When a
+  module gets built, delete its block from `HOME_PREVIEW` and derive instead. Do not add a
+  number to Home without deciding which side of that line it sits on.
+  The sections above it — Enterprise pulse, Needs your attention, Korvyn detected — remain
+  fully derived and carry no Preview chip. That contrast is the whole point.
 - **Home > Overview was restructured on request** (enterprise command centre) and its old
   3,374-character regression check is retired. The live check is now **Home > Exceptions =
   3,395 chars**, plus the whole-app sweep. Home leads with enterprise status → Needs your
