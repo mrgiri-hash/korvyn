@@ -1576,6 +1576,7 @@ body.copilot-collapsed .cp-reopen{display:flex}
     </button>
     <div class="more-menu" id="moreMenu">
       <button class="um-item" onclick="closeMoreMenu();pickLens('portfolio');pickTab('controls')">Data &amp; Controls</button>
+      <button class="um-item" onclick="closeMoreMenu();pickLens('droom')">Data Room</button>
       <button class="um-item" onclick="closeMoreMenu();pickLens('portfolio');pickTab('glsync')">Integrations</button>
       <button class="um-item" onclick="closeMoreMenu();pickLens('admin')">Administration</button>
     </div>
@@ -1752,6 +1753,11 @@ body.copilot-collapsed .cp-reopen{display:flex}
 <div class="view" id="view-activity"></div>
 <div class="view" id="view-documents"></div>
 <div class="view" id="view-dataroom"></div>
+<div class="view" id="view-drover"></div>
+<div class="view" id="view-drreq"></div>
+<div class="view" id="view-drevid"></div>
+<div class="view" id="view-drwork"></div>
+<div class="view" id="view-drext"></div>
 <div class="view" id="view-controls"></div>
 <div class="view" id="view-glover"></div>
 <div class="view" id="view-glfin"></div>
@@ -2376,6 +2382,7 @@ const ICON={
   tasks:'<path d="M5.5 4h7M5.5 8h7M5.5 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="3" cy="4" r="1" fill="currentColor"/><circle cx="3" cy="8" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/>',
   issues:'<path d="M8 2.5L14.5 13.5h-13z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".85" fill="currentColor"/>',
   archives:'<path d="M2 4.5h12v2H2zM3 6.5v7h10v-7" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6.5 9h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  droom:'<path d="M3 2.5h7l3 3v8H3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.5 2.5v3h3M5.5 8.5h5M5.5 11h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
     admin:'<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="8" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="11.5" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/>',
   ledger:'<path d="M3 2h8l2 2v10H3z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5 6h6M5 9h6M5 12h4" stroke="currentColor" stroke-width="1.1"/>',
   fpa:'<path d="M2 13V3M2 13h12M4 11l3-4 3 2 4-6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -2437,6 +2444,13 @@ const LENSES={
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'locked periods · retained evidence',
     tabs:['archives'] },
+  // Data Room — evidence & diligence workspace. Its own module, reached from the ⋯ menu.
+  // NOTE: the lens id is `droom`; `dataroom` is an existing Home TAB id and stays untouched.
+  droom:{ id:'droom', label:'Data Room', icon:'droom',
+    q:'What evidence supports this number, conclusion, project, or approval — and what is still missing?',
+    filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
+    hint:'enterprise evidence · diligence · support',
+    tabs:['drover','drreq','drevid','drwork','drext'] },
   admin:{ id:'admin', label:'Admin', icon:'admin',
     q:'What policy thresholds and roles govern the capitalization judgment?',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
@@ -2454,7 +2468,7 @@ const LENSES={
     tabs:['fdash','findex','fdetail','fxbrl','freports','filing'] },
 };
 const LENS_ORDER=['portfolio','ledger','assets','procure','fpa','treasury','filings'];
-const UTIL_ORDER=['tasks','issues','archives','admin'];
+const UTIL_ORDER=['tasks','issues','archives','admin','droom'];
 let LENS='portfolio';
 
 // ============================================================ TABS
@@ -2472,6 +2486,12 @@ const TABS=[
   {id:'activity',label:'Activity',ic:'M2 8h3l2-4 2 8 2-6 1 2h2'},
   {id:'documents',label:'Documents',ic:'M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3'},
   {id:'dataroom',label:'Data Room',ic:'M2 4.5h12v8H2zM2 7h12M6 7v5.5'},
+  // Data Room module tabs (lens `droom`)
+  {id:'drover',label:'Overview',        ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+  {id:'drreq', label:'Requests',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5M5.5 11.5h3'},
+  {id:'drevid',label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
+  {id:'drwork',label:'Workspaces',      ic:'M2.5 4.5h11v8h-11zM2.5 7h11M6 7v5.5'},
+  {id:'drext', label:'External Access', ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'},
   {id:'controls',label:'Controls',ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
   {id:'fpexec',label:'Executive Overview',ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
   {id:'fplrp',label:'Long-Range Plan',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M6 6.5v6'},
@@ -4962,6 +4982,17 @@ const wsBlockers=p=>[!p.evid.coo&&'COO',!p.evid.ready&&'Ops readiness',!p.evid.f
 // Rail structure for sections that need more than a flat tab list.
 // `children` render as an indented, expandable group; `badge` is read live.
 const RAIL_SPEC={
+  // Data Room contextual left nav. Deliberately NOT a folder tree — these are evidence
+  // workflows, not directories.
+  droom:[
+    {head:'Data Room'},
+    {tab:'drover', label:'Overview',        ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
+    {tab:'drreq',  label:'Requests',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5M5.5 11.5h3',
+      badge:()=>drKpi().open.length},
+    {tab:'drevid', label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
+    {tab:'drwork', label:'Workspaces',      ic:'M2.5 4.5h11v8h-11zM2.5 7h11M6 7v5.5'},
+    {tab:'drext',  label:'External Access', ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'},
+  ],
   portfolio:[
     {head:'Home'},
     {tab:'overview',   label:'Overview',   ic:'M2.5 8.5L8 3l5.5 5.5M4 7.5v6h8v-6'},
@@ -10141,6 +10172,242 @@ function renderDocuments(){
   el.innerHTML=o;
 }
 
+/* ==================== DATA ROOM (Phase 1) ====================
+   An evidence & diligence workspace, NOT a document repository. The organising question is
+   "what evidence supports this number, conclusion, project or approval — and what is missing?",
+   so the primitives are REQUESTS and EVIDENCE LINKAGES, never folders. There is deliberately
+   no folder tree anywhere in this module.
+
+   Korvyn is not the ERP. Evidence here points AT source records (ERP documents, contracts,
+   Korvyn accounting conclusions) rather than replacing them.
+
+   Phase 1 = module entry + contextual left nav + Overview. Requests / Evidence / Workspaces /
+   External Access are lightweight placeholders pending later increments. Every figure on the
+   Overview derives from DR_REQUESTS / DR_ACTIVITY / DR_EXT — no separate metric store.        */
+
+const DR_ST={ prog:{l:'In Progress',c:''}, awaiting:{l:'Awaiting Evidence',c:'info'},
+  review:{l:'Under Review',c:'ready'}, ready:{l:'Ready for Release',c:'good'}, overdue:{l:'Overdue',c:'flag'} };
+const DR_TYPES=['External Audit','Internal Audit','Investor Diligence','Financing','Tax','SOX',
+  'Technical Accounting','Management Review'];
+
+/* Enterprise evidence / diligence requests. `items` = evidence items in the request,
+   `done` = provided and accepted. Progress and every headline derive from these. */
+const DR_REQUESTS=[
+  {id:'DR-2026-118', t:'FY2026 external audit — PP&amp;E and CIP substantive testing', ty:'External Audit',
+   scope:'Meridian DC Holdco · Fleet DC OpCo · Fund I / Fund III', ents:4, own:'A. Okafor',
+   party:'External auditor', items:340, done:268, due:'Aug 15, 2026', st:'prog'},
+  {id:'DR-2026-121', t:'South Valley CIP diligence — $4.2B capital programme', ty:'Investor Diligence',
+   scope:'South Valley · Fund III · 6 projects', ents:2, own:'M. Giri',
+   party:'Institutional investor', items:186, done:92, due:'Jul 31, 2026', st:'awaiting'},
+  {id:'DR-2026-109', t:'Q2 SOX control evidence — capitalisation and close cycles', ty:'SOX',
+   scope:'Enterprise · 12 legal entities', ents:12, own:'J. Park',
+   party:'Internal Controls', items:220, done:214, due:'Jul 20, 2026', st:'review'},
+  {id:'DR-2026-124', t:'Green loan financing — Ashburn Phase II drawdown package', ty:'Financing',
+   scope:'Fleet DC OpCo · Ashburn Phase II', ents:1, own:'S. Lee',
+   party:'Lender syndicate', items:96, done:96, due:'Jul 12, 2026', st:'ready'},
+  {id:'DR-2026-096', t:'Germany statutory and tax evidence package', ty:'Tax',
+   scope:'Meridian Management Co · Germany', ents:1, own:'J. Park',
+   party:'Local tax advisor', items:74, done:41, due:'Jun 30, 2026', st:'overdue'},
+  {id:'DR-2026-115', t:'Internal audit — procurement to payment cycle', ty:'Internal Audit',
+   scope:'Procurement · Americas / EMEA · 3 regions', ents:7, own:'L. Tan',
+   party:'Internal Audit', items:130, done:78, due:'Aug 5, 2026', st:'prog'},
+  {id:'DR-2026-127', t:'Technical accounting support — tenant fit-out conclusion', ty:'Technical Accounting',
+   scope:'Meridian DC Holdco · AI-2026-014', ents:1, own:'M. Giri',
+   party:'External auditor', items:28, done:19, due:'Jul 24, 2026', st:'awaiting'},
+  {id:'DR-2026-131', t:'Q2 board reporting pack — supporting schedules', ty:'Management Review',
+   scope:'Enterprise · consolidated', ents:1, own:'A. Okafor',
+   party:'Board / Audit Committee', items:42, done:42, due:'Jul 18, 2026', st:'ready'},
+];
+
+/* External parties with access. Expiry drives the Attention Required signal. */
+const DR_EXT=[
+  {party:'External auditor — engagement team', ty:'External Audit', scope:'FY2026 audit · PP&amp;E and CIP', granted:'2026-04-01', exp:'2026-08-31', st:'active', users:14},
+  {party:'Institutional investor — diligence team', ty:'Investor Diligence', scope:'South Valley · Fund III', granted:'2026-06-02', exp:'2026-07-28', st:'active', users:6},
+  {party:'Accounting advisory firm', ty:'Technical Accounting', scope:'Tenant fit-out conclusion', granted:'2026-05-20', exp:'2026-07-25', st:'active', users:3},
+  {party:'Local tax advisor — Germany', ty:'Tax', scope:'Germany statutory package', granted:'2026-03-15', exp:'2026-09-30', st:'active', users:2},
+  {party:'Lender syndicate — agent', ty:'Financing', scope:'Ashburn Phase II drawdown', granted:'2026-06-10', exp:'2026-07-15', st:'active', users:5},
+];
+
+/* Evidence activity — enterprise activity intelligence, not an upload log. Each entry says
+   what the evidence DID (linked, supported, approved), not merely that a file arrived. */
+const DR_ACTIVITY=[
+  {ts:'Jul 20, 2026 09:42', who:'M. Giri', kind:'link', req:'DR-2026-121',
+   t:'ERP reference linked to South Valley CIP evidence',
+   d:'12 NetSuite capital additions (AP-019284 and related) linked as support for the $4.2B CIP balance.'},
+  {ts:'Jul 20, 2026 08:15', who:'External auditor', kind:'access', req:'DR-2026-118',
+   t:'External auditor accessed approved materials',
+   d:'Engagement team opened the released PP&amp;E rollforward package. Access logged.'},
+  {ts:'Jul 19, 2026 17:05', who:'A. Okafor', kind:'approve', req:'DR-2026-109',
+   t:'Reviewer approved supporting evidence',
+   d:'214 of 220 SOX control evidence items approved for release; 6 returned for additional support.'},
+  {ts:'Jul 19, 2026 15:30', who:'External auditor', kind:'request', req:'DR-2026-127',
+   t:'Additional support requested',
+   d:'Auditor requested the market-rate benchmark underpinning the tenant fit-out lease-component allocation.'},
+  {ts:'Jul 19, 2026 11:20', who:'L. Tan', kind:'attach', req:'DR-2026-115',
+   t:'Evidence attached to an audit request',
+   d:'Three-way match samples for 24 purchase orders attached to the procurement cycle walkthrough.'},
+  {ts:'Jul 18, 2026 16:48', who:'S. Lee', kind:'link', req:'DR-2026-124',
+   t:'Contract associated with a project',
+   d:'Green loan facility agreement associated with Ashburn Phase II; drawdown conditions mapped to evidence items.'},
+  {ts:'Jul 18, 2026 14:02', who:'J. Park', kind:'attach', req:'DR-2026-096',
+   t:'Evidence attached to a tax request',
+   d:'HGB statutory reconciliation and supporting schedules attached for the German branch.'},
+  {ts:'Jul 17, 2026 10:35', who:'Korvyn', kind:'link', req:'DR-2026-127',
+   t:'Accounting conclusion linked as evidence',
+   d:'Approved conclusion AI-2026-014 and its precedent AI-2025-031 linked to the request.'},
+];
+const DR_KIND={ attach:{l:'Evidence attached',ic:'M3.5 2.5h6l3 3v8h-9z'}, link:{l:'Linked',ic:'M6.5 9.5l3-3M6 4.5h2a2.5 2.5 0 010 5H6M10 11.5H8a2.5 2.5 0 010-5h2'},
+  approve:{l:'Approved',ic:'M3.5 8.5l3 3 6-6'}, request:{l:'Support requested',ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3'},
+  access:{l:'External access',ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'} };
+
+const DR_ASOF='2026-07-20';
+const drDays=d=>Math.round((new Date(d)-new Date(DR_ASOF))/864e5);   // + future, - past
+
+// ---- derivations (every Overview figure computes from the above) ----
+function drKpi(){
+  const R=DR_REQUESTS;
+  const open=R.filter(r=>r.st!=='ready');
+  return {all:R, open,
+    overdue:R.filter(r=>r.st==='overdue'),
+    awaitingReq:R.filter(r=>r.st==='awaiting'),
+    review:R.filter(r=>r.st==='review'),
+    ready:R.filter(r=>r.st==='ready'),
+    collected:R.reduce((s,r)=>s+r.done,0),
+    outstanding:open.reduce((s,r)=>s+(r.items-r.done),0),
+    ext:DR_EXT.filter(e=>e.st==='active'),
+    extExpiring:DR_EXT.filter(e=>e.st==='active'&&drDays(e.exp)<=14)};
+}
+const drPct=r=>r.items?Math.round(r.done/r.items*100):0;
+/* Attention Required — derived, ranked. Operational, not decorative. */
+function drAttention(){
+  const out=[];
+  DR_REQUESTS.filter(r=>r.st==='overdue').forEach(r=>out.push({sev:'crit',
+    t:'Overdue request — '+r.id, d:r.t+' · due '+r.due+', '+(r.items-r.done)+' items outstanding.',
+    go:"pickLens('droom');pickTab('drreq')", lk:'Requests'}));
+  DR_EXT.filter(e=>drDays(e.exp)<=14&&e.st==='active').forEach(e=>out.push({sev:'warn',
+    t:'External access expiring — '+e.party, d:e.scope+' · expires '+e.exp+' ('+drDays(e.exp)+' days).',
+    go:"pickLens('droom');pickTab('drext')", lk:'External Access'}));
+  DR_REQUESTS.filter(r=>r.st==='review').forEach(r=>out.push({sev:'warn',
+    t:'Evidence awaiting review — '+r.id, d:(r.items-r.done)+' of '+r.items+' items still to clear review before release.',
+    go:"pickLens('droom');pickTab('drevid')", lk:'Evidence'}));
+  DR_REQUESTS.filter(r=>r.st==='awaiting').forEach(r=>out.push({sev:'warn',
+    t:'Requested support not yet provided — '+r.id, d:r.party+' is waiting on '+(r.items-r.done)+' items · due '+r.due+'.',
+    go:"pickLens('droom');pickTab('drreq')", lk:'Requests'}));
+  DR_REQUESTS.filter(r=>r.st==='prog'&&drPct(r)<70).forEach(r=>out.push({sev:'info',
+    t:'Evidence gap — '+r.id, d:drPct(r)+'% collected with '+(r.items-r.done)+' items outstanding by '+r.due+'.',
+    go:"pickLens('droom');pickTab('drreq')", lk:'Requests'}));
+  const rank={crit:0,warn:1,info:2};
+  return out.sort((a,b)=>rank[a.sev]-rank[b.sev]);
+}
+
+// ---------------- Data Room Overview ----------------
+function renderDrOver(){
+  const el=$('view-drover'); if(!el)return;
+  const K=drKpi(), A=drAttention();
+  let o=glHead('Data Room',
+    'Enterprise evidence, diligence, and financial support across the organization.',
+    `<button class="btn-out" onclick="toggleFilters()">${glIc('M2 3h12M4 8h8M6 13h4')}Filters</button>
+     <button class="btn-primary" onclick="toggleFilters()">New request</button>`);
+
+  // compact metric strip — restrained, not a tile dashboard
+  o+=`<div class="statrow">
+    <div class="stat row-click" onclick="pickTab('drreq')"><div class="sl">Open requests</div>
+      <div class="sv">${K.open.length}</div><div class="sd">of ${K.all.length} across the enterprise</div></div>
+    <div class="stat row-click" onclick="pickTab('drevid')"><div class="sl">Evidence items</div>
+      <div class="sv">${K.collected.toLocaleString('en-US')}</div><div class="sd">collected and accepted</div></div>
+    <div class="stat"><div class="sl">Awaiting response</div>
+      <div class="sv">${K.outstanding.toLocaleString('en-US')}</div><div class="sd">items outstanding</div></div>
+    <div class="stat row-click" onclick="pickTab('drext')"><div class="sl">External access</div>
+      <div class="sv">${K.ext.length}</div><div class="sd">${K.ext.reduce((s,e)=>s+e.users,0)} users · ${K.extExpiring.length} expiring</div></div>
+    <div class="stat"><div class="sl">Overdue requests</div>
+      <div class="sv ${K.overdue.length?'neg':''}">${K.overdue.length}</div><div class="sd">past their due date</div></div>
+  </div>`;
+
+  // active requests
+  o+=`<div class="card"><h2>Active requests<span class="note">${K.open.length} open · ${K.all.length} total</span>
+      <span class="cardlink" onclick="pickTab('drreq')">All requests</span></h2>
+    <div class="subhead">Evidence and diligence workflows across audit, financing, tax, controls and investor
+      review — each scoped to the entities, funds and projects it supports.</div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Request</th><th>Type</th><th>Scope</th>
+      <th>Owner</th><th>Progress</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    ${DR_REQUESTS.map(r=>{const p=drPct(r);
+      return `<tr class="row-click" onclick="pickTab('drreq')">
+      <td><b>${r.t}</b><div class="ic-mini" style="color:var(--faint)">${r.id} · ${r.party}</div></td>
+      <td class="ic-mini">${r.ty}</td>
+      <td class="ic-mini">${r.scope}</td>
+      <td class="ic-mini">${r.own}</td>
+      <td style="min-width:150px"><div class="progline"><span class="mini-bar" style="min-width:70px"><i style="width:${p}%"></i></span>
+        <span class="ic-mini">${p}%</span></div>
+        <div class="ic-mini" style="color:var(--faint)">${r.done} of ${r.items} items</div></td>
+      <td class="ic-mini" ${r.st==='overdue'?'style="color:var(--neg);font-weight:600"':''}>${r.due}</td>
+      <td><span class="pill ${DR_ST[r.st].c}">${DR_ST[r.st].l}</span></td></tr>`;}).join('')}
+    </tbody></table></div></div>`;
+
+  // evidence activity + attention required
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Evidence activity<span class="note">last 3 days</span></h2>
+      <div class="subhead">What the evidence did — linked, supported, approved or requested.</div>
+      ${DR_ACTIVITY.map(a=>`<div class="kv" style="align-items:flex-start;margin-bottom:13px">
+        <span class="erp-ini" title="${DR_KIND[a.kind].l}">${glIc(DR_KIND[a.kind].ic)}</span>
+        <div style="min-width:0">
+          <div style="font-size:12.5px;font-weight:600">${a.t}</div>
+          <div class="ic-mini" style="margin-top:2px">${a.d}</div>
+          <div class="ic-mini" style="color:var(--faint);margin-top:3px">${a.ts} · ${a.who} · ${a.req}</div>
+        </div></div>`).join('')}
+      <div class="cardfoot"><span class="extlink" onclick="pickTab('drevid')">All evidence activity</span></div></div>
+
+    <div class="card" style="margin:0"><h2>Attention required<span class="note">${A.length}</span></h2>
+      <div class="subhead">What is blocking release, expiring, or still outstanding.</div>
+      <table class="tbl"><tbody>
+      ${A.slice(0,8).map(x=>`<tr class="row-click" onclick="${x.go}">
+        <td style="width:22px"><span class="ic-dot ${x.sev==='crit'?'bad':x.sev==='warn'?'warn':'idle'}"></span></td>
+        <td><b>${x.t}</b><div class="note" style="margin:0">${x.d}</div></td>
+        <td style="text-align:right"><span class="extlink">${x.lk}</span></td></tr>`).join('')}
+      </tbody></table>
+      ${A.length>8?`<div class="cardfoot">${A.length-8} more</div>`:''}</div>
+  </div>`;
+  el.innerHTML=o;
+}
+
+/* Lightweight placeholders for the remaining Data Room destinations. Each states what it will
+   hold and shows the live count it will manage, so the route is real rather than empty. */
+function renderDrStub(tab){
+  const el=$('view-'+tab); if(!el)return;
+  const K=drKpi();
+  const spec={
+    drreq:{t:'Requests', s:'Evidence and diligence requests across the enterprise.',
+      n:K.open.length, nl:'open requests',
+      d:'The full request workspace — creation, scoping to entities/funds/projects, item-level tracking, reviewer routing and release — arrives in a later increment.',
+      rows:DR_REQUESTS.map(r=>[r.id,r.t,r.ty,DR_ST[r.st].l])},
+    drevid:{t:'Evidence', s:'Evidence items and what they support.',
+      n:K.collected.toLocaleString('en-US'), nl:'items collected',
+      d:'The evidence workspace — items, their linkages to ERP records, contracts, projects and accounting conclusions, and the gaps — arrives in a later increment.',
+      rows:DR_ACTIVITY.slice(0,6).map(a=>[a.req,a.t,DR_KIND[a.kind].l,a.ts.split(' ')[0]+' '+a.ts.split(' ')[1]])},
+    drwork:{t:'Workspaces', s:'Diligence workspaces for a transaction, audit or review.',
+      n:DR_REQUESTS.filter(r=>r.st!=='ready').length, nl:'active engagements',
+      d:'Workspaces group a request, its evidence, its participants and its release package for one engagement. Arrives in a later increment.',
+      rows:[...new Set(DR_REQUESTS.map(r=>r.ty))].map(t=>[t,DR_REQUESTS.filter(r=>r.ty===t).length+' request(s)','—','—'])},
+    drext:{t:'External Access', s:'External parties with access to released materials.',
+      n:K.ext.length, nl:'active parties',
+      d:'Access administration — parties, scoped permissions, expiry and a full access log — arrives in a later increment. Access is always scoped and time-boxed.',
+      rows:DR_EXT.map(e=>[e.party,e.scope,e.users+' users','expires '+e.exp])},
+  }[tab];
+  if(!spec) return;
+  let o=glHead(spec.t, spec.s, glActions);
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">${spec.nl}</div><div class="sv">${spec.n}</div>
+      <div class="sd">live from the Data Room</div></div>
+  </div>`;
+  o+=`<div class="card"><h2>${spec.t}<span class="note">preview</span>
+      <span class="cardlink" onclick="pickTab('drover')">Data Room overview</span></h2>
+    <div class="subhead">${spec.d}</div>
+    <table class="tbl"><tbody>
+    ${spec.rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i?'ic-mini':''}">${i?c:'<b>'+c+'</b>'}</td>`).join('')}</tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">Shown from live Data Room records so the route is real — the full workspace is a later increment.</div></div>`;
+  el.innerHTML=o;
+}
+
 function renderDataRoom(){
   const el=$('view-dataroom'); if(!el)return;
   const locked=Object.entries(fluxComments||{}).filter(e=>e[1]&&e[1].locked);
@@ -12848,6 +13115,11 @@ function renderAll(){
   if(TAB==='activity')renderActivity();
   if(TAB==='documents')renderDocuments();
   if(TAB==='dataroom')renderDataRoom();
+  if(TAB==='drover')renderDrOver();
+  if(TAB==='drreq')renderDrStub('drreq');
+  if(TAB==='drevid')renderDrStub('drevid');
+  if(TAB==='drwork')renderDrStub('drwork');
+  if(TAB==='drext')renderDrStub('drext');
   if(TAB==='controls')renderControls();
   if(TAB==='glover')renderGLOver();
   if(TAB==='glfin')renderGLFin();
@@ -12918,7 +13190,9 @@ function paintRailRoles(){
   if(box){
     const spec=RAIL_SPEC[LENS];
     if(spec&&spec.some(x=>x.head)&&lbl) lbl.style.display='none';
-    if(inUtil){
+    // Util lenses are single-tab destinations and carry no rail — UNLESS they declare their
+    // own RAIL_SPEC (the Data Room module does, and needs its contextual left nav).
+    if(inUtil && !spec){
       box.innerHTML=''; if(lbl) lbl.style.display='none';
     } else if(spec){
       // structured rail: optional children + live badges
@@ -13151,6 +13425,11 @@ const VIEW_META={
   activity:{t:'Activity',c:'Chronological trail across all modules',depth:2},
   documents:{t:'Documents',c:'Evidence attached to open work',depth:2},
   dataroom:{t:'Data Room',c:'Locked periods and retained evidence',depth:3},
+  drover:{t:'Data Room',c:'Enterprise evidence · diligence · financial support',depth:4},
+  drreq: {t:'Requests',c:'Data Room · evidence and diligence requests',depth:4},
+  drevid:{t:'Evidence',c:'Data Room · evidence items and linkages',depth:4},
+  drwork:{t:'Workspaces',c:'Data Room · diligence workspaces',depth:4},
+  drext: {t:'External Access',c:'Data Room · external party access',depth:4},
   controls:{t:'Controls',c:'Continuous control tests and results',depth:3},
   fpexec:{t:'Executive Overview',c:'Performance vs. plan across all entities',depth:4},
   fplrp:{t:'Long-Range Plan',c:'3, 5 and 10-year strategic outlook',depth:3},
@@ -13694,6 +13973,13 @@ const CP_CARDS={
   },
   /* Accounting Issues is shared with the standalone Issues lens. Returning null outside
      the ledger lens falls through to defaults, leaving that lens untouched. */
+  // Data Room — evidence & diligence context. Ask Korvyn UI itself is unchanged.
+  drover: ()=>{ const K=drKpi();
+    return [
+      {t:'Show everything supporting South Valley CIP', s:'DR-2026-121 · $4.2B programme', i:'search'},
+      {t:'Which requests are overdue or at risk?', s:K.overdue.length+' overdue · '+K.awaitingReq.length+' awaiting evidence', i:'warn'},
+      {t:'What evidence is still missing?', s:K.outstanding.toLocaleString('en-US')+' items outstanding', i:'list'}];
+  },
   // Accounting > Policies (ledger lens only; standalone Admin lens falls through to defaults).
   admin: ()=>{
     if(LENS!=='ledger') return null;
@@ -13770,6 +14056,13 @@ const CP_CARDS={
 function cpContext(){
   // Accounting > Exceptions (shared tab id — only when the ledger lens is active).
   // Accounting > Issues (shared tab id — only in the ledger lens).
+  // Data Room module — scope plus what the user is looking at.
+  if(LENS==='droom'){
+    const K=drKpi();
+    const where=({drover:'overview',drreq:'requests',drevid:'evidence',drwork:'workspaces',drext:'external access'})[TAB]||'overview';
+    return 'Looking at: Data Room · '+where+' · '+K.open.length+' open requests · '+
+      K.outstanding.toLocaleString('en-US')+' evidence items outstanding';
+  }
   // Accounting > Policies (shared tab id — only in the ledger lens).
   if(TAB==='admin' && LENS==='ledger'){
     const f=[];
