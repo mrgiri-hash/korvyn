@@ -414,13 +414,20 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   The icon is a 32px `.ribicon` carrying `--rail-ai` — a blue that reads on the dark ribbon,
   since `--accent` is a light-surface hue and is unreadable there. The ribbon is dark in both
   themes, so `--rail-ai` is one value in both.
-- **The AI glyph is the Korvyn brand symbol** — the "O" of the wordmark: a ring, a horizontal
-  line through it, and a filled node where the line meets the ring on the left. It is drawn as
-  SVG (`.ribai` and `.cp-mintab` share the geometry) rather than reusing the embedded PNG,
-  because that artwork carries a soft glow that goes muddy at 16px next to the crisp 1.3px-stroke
-  utility icons. If you need to check the source artwork, both PNGs are inline: the wordmark
-  lockup (557×96) and the symbol alone (141×128, used by `.cp-mark`). Never substitute a
-  sparkle, robot, wand or speech bubble — the glyph must stay the brand mark.
+- **The AI glyph is a two-spark AI mark** (large four-point spark plus a small companion),
+  shared verbatim by `.ribai` and `.cp-mintab` — if you change one, change both. This was
+  chosen by the user from four rendered candidates, over three options that carried more Korvyn
+  identity, so **do not "restore" the brand mark here**: the earlier "no sparkle" instruction
+  was explicitly superseded. The **panel header** (`.cp-mark`) still carries the Korvyn brand
+  PNG, and that split is intentional — the affordances say "AI", the panel says "Korvyn".
+  Two PNGs are inline if you need the source artwork: the wordmark lockup (557×96) and the
+  symbol alone (141×128, the ring with a line through it and a node at the left, used by
+  `.cp-mark`). Rendering that PNG at 16px goes muddy — its soft glow does not survive the
+  downscale next to crisp stroked icons — which is why ribbon-scale glyphs are drawn as SVG.
+- `.ring` is a **shared class name**: `.tree-hd .st .ring` / `.tree-kid .st .ring` are the
+  filing-tree status dots and are unrelated to anything AI. A previous icon carried
+  `class="ring"` with `.ribai .ring` rules; those were removed with it. Keep any future rule
+  scoped to its container.
 - **`#ribAiDot` is availability, not alarm:** a 6px `--rail-ai` dot, never the red `.ribdot`
   used by notifications, and hidden while the panel is open. It is repainted inside
   `paintRailRoles` next to the `ribNotif` badge, so it tracks nav changes for free.
