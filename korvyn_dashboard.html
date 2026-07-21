@@ -1274,7 +1274,7 @@ body.nav-open .scrim{display:block}
    moment the panel closes. It separates from the workspace through boundary, shadow and
    spacing — never through a tinted background. */
 .copilot{
-  position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--copilot-w,420px);
+  position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--copilot-w,440px);
   background:var(--surface-ai);border-left:1px solid var(--line2);
   display:flex;flex-direction:column;overflow:hidden;z-index:26;
   box-shadow:-10px 0 30px rgba(16,22,35,.07);
@@ -1379,7 +1379,7 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 
 /* The panel overlays at every width now, so the old 861-1200 float-out override is gone.
    Below 860 it simply takes the screen. */
-@media(max-width:860px){.copilot{width:100vw;max-width:420px}}
+@media(max-width:860px){.copilot{width:100vw;max-width:440px}}
 
 /* ---- NetSuite deep-link chip ---- */
 .ns-chip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--pos-ink);
@@ -1501,8 +1501,24 @@ body.copilot-collapsed .cp-resize{display:none}
 .cp-ubtn.on{color:var(--warn);background:var(--warn-bg)}
 .cp-util .sp{flex:1}
 
-/* The closed state has NO on-page affordance at all — no rail, no pill, no reserved
-   width. Korvyn AI is reached solely from the `.ribai` icon in the ribbon utilities. */
+/* CLOSED has NO on-page affordance at all — no rail, no pill, no reserved width. Korvyn AI is
+   reached solely from the `.ribai` icon in the ribbon utilities.
+
+   COLLAPSED (`copilot-min`) is a different state: a session is parked and the user wants the
+   page back. It shows this one small icon-only tab against the right boundary. It is fixed, so
+   it reserves no width, and it carries no vertical label and no rail. */
+.cp-mintab{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:24;
+  display:none;place-items:center;width:32px;height:40px;padding:0;cursor:pointer;
+  background:var(--surface);color:var(--accent);
+  border:1px solid var(--line2);border-right:none;
+  border-radius:var(--radius-sm) 0 0 var(--radius-sm);
+  box-shadow:-2px 0 8px rgba(16,22,35,.06);transition:.16s}
+body.copilot-collapsed.copilot-min .cp-mintab{display:grid}
+.cp-mintab:hover{background:var(--accent-bg);border-color:var(--accent-line);
+  box-shadow:-3px 0 12px rgba(16,22,35,.09)}
+.cp-mintab svg{width:17px;height:17px}
+/* a parked session is worth a quiet mark on the ribbon icon too */
+body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 /* per-card Ask AI affordance */
 .kpi .spk{display:block;width:calc(100% + 36px);margin:10px -18px 0;height:38px}
 .askai{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--accent);
@@ -1587,11 +1603,9 @@ body.copilot-collapsed .cp-resize{display:none}
     </button>
     <button class="ribicon ribai" id="ribAi" onclick="cpToggle()" aria-label="Korvyn AI" title="Korvyn AI">
       <svg viewBox="0 0 16 16" fill="none">
-        <circle class="ring" cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.15"/>
-        <path d="M5.7 6.3h4.6M5.7 6.3L8 10.3M10.3 6.3L8 10.3" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="5.7" cy="6.3" r="1.15" fill="currentColor"/>
-        <circle cx="10.3" cy="6.3" r="1.15" fill="currentColor"/>
-        <circle cx="8" cy="10.3" r="1.15" fill="currentColor"/>
+        <circle class="ring" cx="8.5" cy="8" r="5.4" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M3.1 8h10.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <circle cx="3.1" cy="8" r="1.75" fill="currentColor"/>
       </svg>
       <span class="ribai-dot" id="ribAiDot"></span>
     </button>
@@ -3258,7 +3272,7 @@ function renderVendors(){
 }
 // ask the copilot about a vendor (opens the panel + runs a grounded search)
 function cpAskVendor(v){
-  document.body.classList.remove('copilot-collapsed');
+  cpOpen();
   cpSend('Show me vendor '+v);
 }
 
@@ -14984,9 +14998,9 @@ function cpShowHistory(){ setCpTab('assistant');
 }
 function cpWide(){
   const on=document.body.classList.toggle('copilot-full');
-  if(on) document.body.classList.remove('copilot-collapsed');
+  if(on) document.body.classList.remove('copilot-collapsed','copilot-min');
   const b=document.getElementById('cpFullBtn');
-  if(b){ b.title=on?'Exit full screen':'Full screen';
+  if(b){ b.title=on?'Exit full workspace':'Expand to full workspace';
     b.innerHTML=on
       ? '<svg viewBox="0 0 16 16" fill="none"><path d="M2.5 6H6V2.5M13.5 10H10v3.5M10 2.5V6h3.5M6 13.5V10H2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       : '<svg viewBox="0 0 16 16" fill="none"><path d="M6 2.5H2.5V6M10 13.5h3.5V10M13.5 6V2.5H10M2.5 10v3.5H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
@@ -14996,7 +15010,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&document.body.classList.contains('copilot-full')) cpWide();
 });
 // contextual entry point used by KPI cards
-function askAI(q){ document.body.classList.remove('copilot-collapsed'); cpSend(q); }
+function askAI(q){ cpOpen(); cpSend(q); }
 
 // Drag the panel's leading edge to resize; width persists like the collapse state.
 const CP_MIN=340, CP_MAX=1200;   // the panel's working range
@@ -15031,21 +15045,53 @@ function cpApplyWidth(px){
   if(document.getElementById('cpResize')) start();
   else document.addEventListener('DOMContentLoaded',start);
 })();
-/* Three states only: closed (right-edge access rail), open (overlay panel), full screen.
-   The brand mark drops out of full screen, so there is always a way back from the mark. */
+/* Four presentation states over ONE live session:
+     CLOSED     `copilot-collapsed`               — ribbon icon only, nothing on the page
+     COLLAPSED  `copilot-collapsed copilot-min`   — session parked, small edge tab
+     OPEN       (no state class)                  — the standard workspace
+     FULL       `copilot-full`                    — the expanded analysis workspace
+
+   The conversation lives in `#cpThread` and NONE of these transitions touch it, so collapsing,
+   closing and reopening all resume exactly where the user left off — including scroll position,
+   because `.cp-scroll` is never re-rendered on a state change. `renderCpHome()` already yields
+   the panel to the thread whenever one exists, so a parked session comes back intact rather
+   than being replaced by the suggestions home.
+
+   Close deliberately does NOT destroy the thread either: nothing a user generated should
+   disappear silently. Clearing is what the explicit New chat control is for. */
+function cpOpen(){
+  document.body.classList.remove('copilot-collapsed','copilot-min');
+  try{localStorage.setItem('korvyn.ai','0')}catch(e){}
+  cpSyncMark();
+}
+// Collapse — hand the page back, keep the session warm, leave one small way in.
+function cpMinimize(){
+  document.body.classList.add('copilot-collapsed','copilot-min');
+  document.body.classList.remove('copilot-full');
+  try{localStorage.setItem('korvyn.ai','1')}catch(e){}
+  cpSyncMark();
+}
+// Close — put it fully away; the edge tab goes too, leaving only the ribbon icon.
+function cpClose(){
+  document.body.classList.add('copilot-collapsed');
+  document.body.classList.remove('copilot-min','copilot-full');
+  try{localStorage.setItem('korvyn.ai','1')}catch(e){}
+  cpSyncMark();
+}
+function cpToggle(){
+  if(document.body.classList.contains('copilot-collapsed')) cpOpen(); else cpClose();
+}
 function cpMarkClick(){
   if(document.body.classList.contains('copilot-full')) cpWide();
   cpSyncMark();
 }
 function cpSyncMark(){
-  const m=document.querySelector('.cp-mark'); if(!m)return;
-  const t=document.body.classList.contains('copilot-full') ? 'Exit full screen' : 'Korvyn';
-  m.title=t; m.setAttribute('aria-label',t);
+  const b=document.body, full=b.classList.contains('copilot-full');
+  const m=document.querySelector('.cp-mark');
+  if(m){ const t=full?'Exit full workspace':'Korvyn AI'; m.title=t; m.setAttribute('aria-label',t); }
+  const ai=document.getElementById('ribAi');
+  if(ai) ai.title=b.classList.contains('copilot-min')?'Korvyn AI — session active':'Korvyn AI';
 }
-function cpToggle(){ const closed=document.body.classList.toggle('copilot-collapsed');
-  if(closed) document.body.classList.remove('copilot-full');
-  try{localStorage.setItem('korvyn.ai',closed?'1':'0')}catch(e){}
-  cpSyncMark(); }
 // restore the last open/closed state
 try{ if(localStorage.getItem('korvyn.ai')==='0') document.body.classList.remove('copilot-collapsed'); }catch(e){}
 
@@ -15093,7 +15139,7 @@ showTab=function(){ _showTab2(); renderCpSugs(); renderPinned(); renderCpHome();
 // keyboard: ⌘/Ctrl-K focuses copilot input
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault();
-    document.body.classList.remove('copilot-collapsed'); const el=$('cpInput'); if(el)el.focus(); }
+    cpOpen(); const el=$('cpInput'); if(el)el.focus(); }
 });
 
 // ============================================================ NETSUITE LINK LAYER
@@ -15312,10 +15358,10 @@ renderSug(); renderLensBar(); renderTabs(); showTab(); renderAll();
 _navPrev=navSnapshot(); updateBackBtn();
 
 // route the legacy top command bar into the copilot thread
-runCommand=function(raw){ const q=(raw||$('cmd')?.value||'').trim(); if(!q)return; if($('cmd'))$('cmd').value=''; document.body.classList.remove('copilot-collapsed'); cpSend(q); };
+runCommand=function(raw){ const q=(raw||$('cmd')?.value||'').trim(); if(!q)return; if($('cmd'))$('cmd').value=''; cpOpen(); cpSend(q); };
 // legacy aiAnswer (used by property/JE traces) now posts into the copilot thread
 aiAnswer=function(q,bodyHTML,hits,actions){
-  document.body.classList.remove('copilot-collapsed');
+  cpOpen();
   const wrap=cpAddAgent(); const b=cpBody(wrap); b.innerHTML=bodyHTML;
   if(hits&&hits.length){ const hr=hitRows(hits.map(x=>({...x,action:x.action}))); if(hr)cpAppend(wrap,hr); }
   if(actions&&actions.length){ const ar=actRow(actions.map(a=>({label:a.label,fn:a.fn}))); if(ar)cpAppend(wrap,ar); }
@@ -15339,10 +15385,13 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
       </div>
     </div>
     <span class="sp"></span>
-    <button class="cp-tool" id="cpFullBtn" onclick="cpWide()" title="Full screen" aria-label="Toggle full screen">
+    <button class="cp-tool" onclick="cpMinimize()" title="Collapse and continue working" aria-label="Collapse Korvyn AI, keep the session">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M9.5 3.2v9.6M3 5.8L5.2 8 3 10.2M5.2 8h2.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="cp-tool" id="cpFullBtn" onclick="cpWide()" title="Expand to full workspace" aria-label="Toggle full workspace">
       <svg viewBox="0 0 16 16" fill="none"><path d="M6 2.5H2.5V6M10 13.5h3.5V10M13.5 6V2.5H10M2.5 10v3.5H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
-    <button class="cp-tool" onclick="cpToggle()" title="Close panel" aria-label="Close copilot">
+    <button class="cp-tool" onclick="cpClose()" title="Close" aria-label="Close Korvyn AI">
       <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     </button>
   </div>
@@ -15375,6 +15424,17 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
     </button>
   </div>
 </aside>
+<!-- Collapsed-with-session affordance. Only ever visible in the `copilot-min` state, which
+     means a live session is parked. Icon only, fixed, overlays the page boundary and
+     reserves no width. Closing (rather than collapsing) removes this entirely. -->
+<button class="cp-mintab" id="cpMinTab" onclick="cpOpen()"
+        title="Korvyn AI — session active" aria-label="Restore Korvyn AI session">
+  <svg viewBox="0 0 16 16" fill="none">
+    <circle cx="8.5" cy="8" r="5.4" stroke="currentColor" stroke-width="1.3"/>
+    <path d="M3.1 8h10.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+    <circle cx="3.1" cy="8" r="1.75" fill="currentColor"/>
+  </svg>
+</button>
 
 </body>
 </html>

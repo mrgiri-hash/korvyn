@@ -70,7 +70,7 @@ keeps the original lie and adds a second one).
   Accounting · Fixed Assets · Procurement · FP&A · Treasury · Reporting · ⋯
   The `⋯` menu (`#moreMenu`) holds Data & Controls / Integrations / Administration.
 - **Left rail = functions within the active domain** (`#railTabs`, from `RAIL_SPEC`).
-- **Ask Korvyn** = persistent contextual AI, **three** states (closed / open / full screen).
+- **Ask Korvyn** = persistent contextual AI, **four** states (closed / collapsed / open / full).
   Do not redesign it without being asked. See the Ask Korvyn section below before touching it.
 
 Lens ids kept their original names through relabelling: `ledger` renders as
@@ -378,22 +378,49 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   column, so opening it cannot reflow, resize or restyle the page underneath — the page keeps
   its full width in every state. Do not reintroduce a `copilot` grid area or a `--copilot-w`
   column; that is what caused the old 1085px overflow.
-- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--copilot-w,420px)`.
-  Closed is `transform:translateX(100%)` — **not** `width:0`.
-- **Three states, and only three:** closed (`copilot-collapsed`), open, full screen
-  (`copilot-full`). An earlier build also had a 56px `copilot-rail` icon strip between open and
-  closed; it was removed along with `cpRail` / `cpSetRail` / `renderCpStrip` / `cpExpandTo` and
-  the `.cp-strip` / `.cp-sbtn` CSS. Do not resurrect it — a second half-open state is the
-  bolted-on-widget feel the panel is meant to avoid.
+- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--copilot-w,440px)`.
+  Hidden is `transform:translateX(100%)` — **not** `width:0`.
+- **Four presentation states over one live session.** Go through the helpers, never toggle the
+  classes by hand:
+
+  | State | Classes | Affordance | Helper |
+  |---|---|---|---|
+  | Closed | `copilot-collapsed` | ribbon icon only | `cpClose()` |
+  | Collapsed | `copilot-collapsed copilot-min` | small edge tab `.cp-mintab` | `cpMinimize()` |
+  | Open | *(none)* | 440px workspace | `cpOpen()` |
+  | Full | `copilot-full` | expanded workspace | `cpWide()` |
+
+  `copilot-collapsed` means "panel not visible" in **both** hidden states; `copilot-min` is what
+  distinguishes a parked session from a dismissed one. Every place that used to open the panel
+  with a bare `classList.remove('copilot-collapsed')` now calls `cpOpen()`, because it must clear
+  `copilot-min` too or the edge tab is left stranded. `cpToggle()` is still the ribbon icon's
+  handler and still means open ↔ close.
+- **Session continuity is the point of Collapse, and it is structural, not saved state.** The
+  conversation lives in `#cpThread`; no state transition touches it, and `.cp-scroll` is never
+  re-rendered on a transition, so scroll position survives too. `renderCpHome()` already yields
+  the panel to the thread whenever one exists, so a parked session comes back rather than being
+  replaced by the suggestions home. **Close does not destroy the thread either** — nothing a
+  user generated should vanish silently; `cpNewChat()` is the one explicit way to clear.
+  If you add a state, verify the thread survives it.
+- An earlier build had a 56px `copilot-rail` icon strip; it was removed along with `cpRail` /
+  `cpSetRail` / `renderCpStrip` / `cpExpandTo` and its CSS. Do not resurrect it — `copilot-min`
+  now covers the "get out of my way but keep my work" case properly.
 - **Closed state has no on-page affordance at all.** No rail, no pill, no reserved width —
   the workspace is completely unobstructed. Korvyn AI is reached from exactly one place: the
   `.ribai` icon in the ribbon utilities (`#ribAi`, order Search · Help · Notifications ·
-  **Korvyn AI** · user). Two earlier designs were rejected and should not come back: a floating
-  bottom-right pill, and a 34px vertical right-edge rail with a rotated "Korvyn AI" label.
+  **Korvyn AI** · user). Three earlier designs were rejected and should not come back: a floating
+  bottom-right pill, a 34px vertical right-edge rail with a rotated "Korvyn AI" label, and a
+  three-connected-nodes glyph that read as a funnel at 16px.
   The icon is a 32px `.ribicon` carrying `--rail-ai` — a blue that reads on the dark ribbon,
   since `--accent` is a light-surface hue and is unreadable there. The ribbon is dark in both
-  themes, so `--rail-ai` is one value in both. The glyph is a thin ring over three connected
-  nodes (the traceable spine), deliberately not a sparkle or a chat bubble.
+  themes, so `--rail-ai` is one value in both.
+- **The AI glyph is the Korvyn brand symbol** — the "O" of the wordmark: a ring, a horizontal
+  line through it, and a filled node where the line meets the ring on the left. It is drawn as
+  SVG (`.ribai` and `.cp-mintab` share the geometry) rather than reusing the embedded PNG,
+  because that artwork carries a soft glow that goes muddy at 16px next to the crisp 1.3px-stroke
+  utility icons. If you need to check the source artwork, both PNGs are inline: the wordmark
+  lockup (557×96) and the symbol alone (141×128, used by `.cp-mark`). Never substitute a
+  sparkle, robot, wand or speech bubble — the glyph must stay the brand mark.
 - **`#ribAiDot` is availability, not alarm:** a 6px `--rail-ai` dot, never the red `.ribdot`
   used by notifications, and hidden while the panel is open. It is repainted inside
   `paintRailRoles` next to the `ribNotif` badge, so it tracks nav changes for free.
