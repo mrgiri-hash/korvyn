@@ -292,10 +292,25 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 
 .ribbon-more{position:relative;flex:none;margin-left:2px}
 .rib-more-btn{padding:8px 10px}
-.more-menu{position:absolute;top:calc(100% + 10px);left:0;min-width:186px;z-index:60;
+/* The More launcher. Wider than a plain menu because each module carries a one-line
+   description, but still a compact list — not tiles, not a mega-menu. Elevation is
+   legitimate here: this floats above the workspace. */
+.more-menu{position:absolute;top:calc(100% + 10px);left:0;width:304px;z-index:60;
   background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius-sm);
   box-shadow:var(--shadow-md);padding:6px;display:none}
 .more-menu.open{display:block}
+.mm-grp{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--hint);padding:9px 10px 5px}
+.mm-grp:not(:first-child){margin-top:3px;border-top:1px solid var(--line);padding-top:11px}
+.mm-item{display:flex;align-items:flex-start;gap:10px;width:100%;border:none;background:none;
+  cursor:pointer;font:inherit;padding:8px 10px;border-radius:6px;text-align:left;transition:.12s}
+.mm-item:hover{background:var(--accent-bg)}
+.mm-ic{width:16px;height:16px;flex:none;color:var(--muted);margin-top:1px}
+.mm-item:hover .mm-ic,.mm-item.on .mm-ic{color:var(--accent)}
+.mm-tx{min-width:0}
+.mm-nm{display:block;font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.25}
+.mm-item:hover .mm-nm,.mm-item.on .mm-nm{color:var(--accent-ink)}
+.mm-ds{display:block;font-size:11px;color:var(--hint);line-height:1.35;margin-top:2px}
 .usermenu{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;z-index:60;
   background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius-sm);
   box-shadow:var(--shadow-md);padding:6px;display:none}
@@ -1800,15 +1815,14 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
     <button class="railrole rib-more-btn" onclick="toggleMoreMenu(event)" title="More" aria-label="More modules">
       <svg class="ic" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
     </button>
-    <div class="more-menu" id="moreMenu">
-      <button class="um-item" onclick="closeMoreMenu();pickLens('portfolio');pickTab('controls')">Data &amp; Controls</button>
-      <button class="um-item" onclick="closeMoreMenu();pickLens('droom')">Data Room</button>
-      <button class="um-item" onclick="closeMoreMenu();pickLens('portfolio');pickTab('glsync')">Integrations</button>
-      <button class="um-item" onclick="closeMoreMenu();pickLens('admin')">Administration</button>
-    </div>
+    <!-- Painted from MODULE_LAUNCHER by renderMoreMenu() on open. Modules only —
+         no Settings, no preferences, no utility actions. -->
+    <div class="more-menu" id="moreMenu"></div>
   </div>
   <!-- Global utility cluster: three zones separated by hairlines —
-       SEARCH | INTELLIGENCE · NOTIFICATIONS · HELP | PROFILE -->
+       SEARCH | INTELLIGENCE · NOTIFICATIONS · SETTINGS | PROFILE
+       Level 5 of the navigation model (enterprise configuration) is the gear, and only
+       the gear. Level 4 (personal) is the profile menu. -->
   <div class="ribbon-util">
     <div class="ribsearch">
       <svg class="ic" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -1828,8 +1842,11 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 00-4 4v2.6L2.9 10.6h10.2L12 8.6V6a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 12.6a1.7 1.7 0 003.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       <span class="ribdot" id="ribNotif">0</span>
     </button>
-    <button class="ribicon" onclick="pickLens('admin')" aria-label="Help" title="Help">
-      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/><path d="M6.3 6.2a1.75 1.75 0 113 1.25c-.5.4-1.3.7-1.3 1.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 11.6h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <!-- Settings is the SINGLE entry point to enterprise configuration. It is not in the
+         ribbon nav, not in the More launcher and not in Home's rail — modules live in
+         navigation, configuration lives here. -->
+    <button class="ribicon" onclick="pickLens('admin')" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.38 3.62l-1.13 1.13M4.75 11.25l-1.13 1.13M12.38 12.38l-1.13-1.13M4.75 4.75L3.62 3.62" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
     </button>
     <span class="ribsep"></span>
     <button class="ribuser" onclick="toggleUserMenu(event)" title="Mitra Giri &#183; Accounting Manager" aria-haspopup="true">
@@ -1840,9 +1857,8 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
     <div class="usermenu" id="userMenu">
       <div class="um-hd"><span class="avatar av-solid">MG</span>
         <div><div class="um-nm">Mitra Giri</div><div class="um-rl">Accounting &#183; Owner</div></div></div>
-      <button class="um-item" onclick="closeUserMenu();pickLens('admin')">
-        <svg viewBox="0 0 16 16" fill="none"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.7" fill="var(--surface)" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="8" r="1.7" fill="var(--surface)" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="11.5" r="1.7" fill="var(--surface)" stroke="currentColor" stroke-width="1.3"/></svg>
-        Admin</button>
+      <!-- PERSONAL configuration only. Enterprise administration is not repeated here —
+           it has one home, the Settings gear. -->
       <button class="um-item" onclick="closeUserMenu();toggleTheme()">
         <svg viewBox="0 0 16 16" fill="none"><path d="M13 9.4A5.6 5.6 0 016.6 3a5.6 5.6 0 106.4 6.4z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
         Toggle theme</button>
@@ -1997,6 +2013,7 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 <div class="view" id="view-drevid"></div>
 <div class="view" id="view-drwork"></div>
 <div class="view" id="view-drext"></div>
+<div class="view" id="view-dgover"></div>
 <div class="view" id="view-controls"></div>
 <div class="view" id="view-glover"></div>
 <div class="view" id="view-glfin"></div>
@@ -2622,6 +2639,9 @@ const ICON={
   issues:'<path d="M8 2.5L14.5 13.5h-13z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".85" fill="currentColor"/>',
   archives:'<path d="M2 4.5h12v2H2zM3 6.5v7h10v-7" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6.5 9h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
   droom:'<path d="M3 2.5h7l3 3v8H3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.5 2.5v3h3M5.5 8.5h5M5.5 11h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  // Data & Governance: stacked data layers with a lineage thread — reads as data lineage,
+  // not as a shield (Controls) or a sync arrow (Integrations). One meaning per icon.
+  datagov:'<ellipse cx="8" cy="4" rx="5" ry="1.9" stroke="currentColor" stroke-width="1.3"/><path d="M3 4v4c0 1.05 2.24 1.9 5 1.9s5-.85 5-1.9V4" stroke="currentColor" stroke-width="1.3"/><path d="M3 8v4c0 1.05 2.24 1.9 5 1.9s5-.85 5-1.9V8" stroke="currentColor" stroke-width="1.3"/>',
     admin:'<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="8" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="11.5" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/>',
   ledger:'<path d="M3 2h8l2 2v10H3z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5 6h6M5 9h6M5 12h4" stroke="currentColor" stroke-width="1.1"/>',
   fpa:'<path d="M2 13V3M2 13h12M4 11l3-4 3 2 4-6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -2644,8 +2664,11 @@ const LENSES={
     q:'Where does the whole portfolio stand — capital deployed, consolidated, by stage?',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'all funds · USD · inception-to-date',
+    // `dataroom` moved OUT of Home and into the `droom` module — see the Data Room note
+    // below. Home keeps `documents` (the user's working surface); enterprise evidence is
+    // the Data Room module's job. Two different concepts, deliberately not merged.
     tabs:['overview','mywork','approvals','exceptions','activity',
-          'documents','dataroom','controls'] },
+          'documents','controls'] },
   assets:{ id:'assets', label:'Fixed Assets', icon:'assets',
     q:'Construction-in-progress through placed-in-service through depreciation — the asset lifecycle.',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
@@ -2683,13 +2706,27 @@ const LENSES={
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'locked periods · retained evidence',
     tabs:['archives'] },
-  // Data Room — evidence & diligence workspace. Its own module, reached from the ⋯ menu.
-  // NOTE: the lens id is `droom`; `dataroom` is an existing Home TAB id and stays untouched.
+  // Data Room — evidence & diligence workspace. A first-class enterprise module, reached
+  // from the More launcher. It is NOT part of Home: Home's rail is the user's own working
+  // queue, Data Room is the enterprise evidence environment.
+  // NOTE: the lens id is `droom`; `dataroom` is a TAB id that now belongs to THIS lens
+  // (it renders the locked-period retention record) and is titled "Retained Records" so
+  // nothing inside the module is labelled "Data Room" twice.
   droom:{ id:'droom', label:'Data Room', icon:'droom',
     q:'What evidence supports this number, conclusion, project, or approval — and what is still missing?',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'enterprise evidence · diligence · support',
-    tabs:['drover','drreq','drevid','drwork','drext'] },
+    tabs:['drover','drreq','drevid','drwork','drext','dataroom'] },
+  // Data & Governance — enterprise data quality, lineage, mappings and ownership.
+  // Deliberately DISTINCT from Controls (financial control framework and testing),
+  // Integrations (connectivity) and Data Room (evidence). Replaces the old
+  // "Data & Controls" launcher entry, which pointed at Home's Controls page and so
+  // promised governance while delivering control tests.
+  datagov:{ id:'datagov', label:'Data & Governance', icon:'datagov',
+    q:'Which source systems feed the book, how healthy is that data, and who owns it?',
+    filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
+    hint:'data quality · lineage · ownership',
+    tabs:['dgover'] },
   admin:{ id:'admin', label:'Admin', icon:'admin',
     q:'What policy thresholds and roles govern the capitalization judgment?',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
@@ -2707,7 +2744,10 @@ const LENSES={
     tabs:['fdash','findex','fdetail','fxbrl','freports','filing'] },
 };
 const LENS_ORDER=['portfolio','ledger','assets','procure','fpa','treasury','filings'];
-const UTIL_ORDER=['tasks','issues','archives','admin','droom'];
+// Destinations that are NOT in the ribbon. `droom` and `datagov` are full enterprise
+// modules reached from the More launcher (each owns a RAIL_SPEC); the rest are
+// single-tab workspaces reached from Home's rail or the Settings gear.
+const UTIL_ORDER=['tasks','issues','archives','admin','droom','datagov'];
 let LENS='portfolio';
 
 // ============================================================ TABS
@@ -2731,6 +2771,8 @@ const TABS=[
   {id:'drevid',label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
   {id:'drwork',label:'Workspaces',      ic:'M2.5 4.5h11v8h-11zM2.5 7h11M6 7v5.5'},
   {id:'drext', label:'External Access', ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'},
+  // Data & Governance module tab (lens `datagov`)
+  {id:'dgover',label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'controls',label:'Controls',ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
   {id:'fpexec',label:'Executive Overview',ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'fplrp',label:'Long-Range Plan',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M6 6.5v6'},
@@ -5478,14 +5520,45 @@ const wsBlockers=p=>[!p.evid.coo&&'COO',!p.evid.ready&&'Ops readiness',!p.evid.f
 const RAIL_SPEC={
   // Data Room contextual left nav. Deliberately NOT a folder tree — these are evidence
   // workflows, not directories.
+  //
+  // GROUPED because Data Room is a module, and a module owns its own navigation: Home's rail
+  // and Data Room's rail are different navigations, not variations of one list.
+  //
+  // Every entry resolves to a page that already exists. Review Queue and Activity reach the
+  // Evidence pipeline's own sub-views through `act`/`on` rather than inventing new tabs —
+  // the same mechanism Treasury and Flux review use. The target structure has further groups
+  // (Supporting Schedules, ERP References, Contracts, Access, Audit Trail); they are NOT
+  // listed until they render something, because a nav entry that leads nowhere is a dead
+  // control.
   droom:[
     {head:'Data Room'},
     {tab:'drover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
+    {head:'Diligence'},
     {tab:'drreq',  label:'Requests',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5M5.5 11.5h3',
       badge:()=>drKpi().open.length},
-    {tab:'drevid', label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
+    {tab:'drevid', label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z',
+      act:"setDrevSub('reg');pickTab('drevid')",  on:()=>TAB==='drevid'&&drevSub==='reg'},
+    {tab:'drevid', label:'Review Queue',    ic:'M3 4.5h10M3 8h10M3 11.5h6M13.5 10.5l-2 2-1.2-1.2',
+      act:"setDrevSub('gaps');pickTab('drevid')", on:()=>TAB==='drevid'&&drevSub==='gaps',
+      badge:()=>drevGaps().length},
+    {head:'Content'},
+    // The locked-period retention record. It used to sit in Home's rail labelled "Data Room",
+    // which is precisely the ambiguity this pass removes — it is enterprise evidence, so it
+    // belongs to this module, and it is titled "Retained Records" so nothing inside Data Room
+    // is called Data Room.
+    {tab:'dataroom',label:'Retained Records',ic:'M2 4.5h12v2H2zM3 6.5v7h10v-7M6.5 9h3'},
     {tab:'drwork', label:'Workspaces',      ic:'M2.5 4.5h11v8h-11zM2.5 7h11M6 7v5.5'},
+    {head:'Governance'},
     {tab:'drext',  label:'External Access', ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'},
+    {tab:'drevid', label:'Activity',        ic:'M2 8h3l2-4 2 8 2-6 1 2h2',
+      act:"setDrevSub('act');pickTab('drevid')",  on:()=>TAB==='drevid'&&drevSub==='act'},
+  ],
+  // Data & Governance contextual left nav. One real destination today; the module exists so
+  // that data quality / lineage / ownership has an architectural home distinct from Controls
+  // (financial control testing) and Integrations (connectivity).
+  datagov:[
+    {head:'Data & Governance'},
+    {tab:'dgover', label:'Overview', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   ],
   portfolio:[
     // No 'Home' heading here — the house icon and the word Home belong to the GLOBAL
@@ -5501,12 +5574,17 @@ const RAIL_SPEC={
     {head:'Workspace'},
     {lens:'tasks',     label:'Tasks',      ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01', badge:()=>wsTaskCount()},
     {lens:'issues',    label:'Issues',     ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3', badge:()=>wsIssueCount()},
+    // Documents is the user's WORKING surface — what is assigned to them, recently touched,
+    // attached to their tasks. It is not the enterprise evidence environment; that is the
+    // Data Room module, reached from the More launcher. The two are deliberately not merged,
+    // and Data Room is deliberately NOT repeated here.
     {tab:'documents',  label:'Documents',  ic:'M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3'},
-    {tab:'dataroom',   label:'Data Room',  ic:'M2 4.5h12v8H2zM2 7h12M6 7v5.5'},
     {head:'System'},
     {tab:'glsync',     label:'Integrations', ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5'},
     {tab:'controls',   label:'Controls',   ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
-    {lens:'admin',     label:'Administration', ic:'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M6 2.8v3.4M10.5 6.3v3.4M5 9.8v3.4'},
+    // Administration is NOT here. Enterprise configuration has exactly one entry point —
+    // the Settings gear in the ribbon utilities. Modules live in navigation; configuration
+    // lives in Settings; personal preferences live in the profile menu.
   ],
   treasury:[
     {tab:'fpcash', label:'Overview',      ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z',
@@ -11816,6 +11894,101 @@ function drevDetail(){
 
 /* Lightweight placeholders for the remaining Data Room destinations. Each states what it will
    hold and shows the live count it will manage, so the route is real rather than empty. */
+/* ============================================================ DATA & GOVERNANCE
+   Replaces the old "Data & Controls" launcher entry, which pointed at Home's Controls page
+   and so promised data governance while delivering control tests. The four concepts are
+   kept architecturally distinct:
+
+     Controls          financial control framework, testing, monitoring, exceptions
+     Data & Governance data quality, lineage, definitions, mappings, ownership   <- this
+     Data Room         enterprise evidence and diligence
+     Integrations      system connectivity and synchronisation
+
+   Everything on this page derives from data that already exists — GL_ERP (source systems),
+   COA (enterprise account definitions) and CONS_ENT (entity master data and its owners).
+   Nothing is invented, and the capabilities that are NOT built are named as such rather
+   than mocked up. */
+function renderDataGov(){
+  const el=$('view-dgover'); if(!el)return;
+  const ents=GL_ERP.reduce((a,e)=>a+e.ent,0);
+  const iss =GL_ERP.reduce((a,e)=>a+e.iss,0);
+  const stale=GL_ERP.filter(e=>e.st!=='ok');
+  const types=[...new Set(COA.map(a=>a.type))];
+  const entRows=CONS_ORDER.map(n=>({nm:n,...CONS_ENT[n]}));
+
+  let o=glHead('Data & Governance',
+    'Where the numbers come from, how healthy that data is, and who owns it.', glActions);
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">source systems</div><div class="sv">${GL_ERP.length}</div>
+      <div class="sd">feeding ${ents} entities</div></div>
+    <div class="stat"><div class="sl">account definitions</div><div class="sv">${COA.length}</div>
+      <div class="sd">across ${types.length} account types</div></div>
+    <div class="stat"><div class="sl">reporting entities</div><div class="sv">${entRows.length}</div>
+      <div class="sd">each with a named owner</div></div>
+    <div class="stat"><div class="sl">open data issues</div><div class="sv">${iss}</div>
+      <div class="sd">${stale.length} system${stale.length===1?'':'s'} not current</div></div>
+  </div>`;
+
+  // ---- source systems: this module owns the DEFINITION and health; Integrations owns the pipe
+  o+=`<div class="card"><h2>Source system coverage
+      <span class="cardlink" onclick="pickLens('portfolio');pickTab('glsync')">Integration status &#8594;</span></h2>
+    <div class="subhead">Which system is the book of record for which entities, and how current that
+      feed is. Data &amp; Governance owns whether the data is <i>right</i>; Integrations owns whether
+      the connection is <i>up</i>.</div>
+    <table class="tbl"><thead><tr><th>System</th><th class="num">Entities</th><th>Books through</th>
+      <th>Last sync</th><th class="num">Open issues</th><th>State</th></tr></thead><tbody>
+    ${GL_ERP.map(e=>`<tr><td><b>${e.nm}</b></td><td class="num">${e.ent}</td><td>${e.thru}</td>
+      <td>${e.sync}</td><td class="num">${e.iss||'—'}</td>
+      <td><span class="pill ${ERP_ST[e.st].c}">${ERP_ST[e.st].l}</span></td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">${stale.length
+      ? stale.map(e=>e.nm).join(', ')+' is behind the others, so any figure sourced from it is as of an earlier date than the rest of the book.'
+      : 'Every system is current through the same date.'}</div></div>`;
+
+  // ---- entity master data + ownership (real owners from CONS_ENT)
+  o+=`<div class="card"><h2>Entity master data<span class="note">ownership</span></h2>
+    <div class="subhead">Governance starts with a named owner. Region, country and functional
+      currency are master data that consolidation and FX translation both depend on.</div>
+    <table class="tbl"><thead><tr><th>Entity</th><th>Region</th><th>Country</th>
+      <th>Functional ccy</th><th>Business unit</th><th>Owner</th></tr></thead><tbody>
+    ${entRows.map(e=>`<tr><td><b>${e.nm}</b>${e.parent?' <span class="pill">parent</span>':''}</td>
+      <td>${e.reg}</td><td>${e.ctry}</td><td>${e.fx}</td><td>${e.bu}</td><td>${e.rev}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">Three functional currencies across four entities — every consolidated
+      figure therefore passes through an FX translation that this master data drives.</div></div>`;
+
+  // ---- enterprise definitions (derived from COA)
+  o+=`<div class="card"><h2>Enterprise definitions
+      <span class="cardlink" onclick="pickLens('ledger');pickTab('tb')">Trial balance &#8594;</span></h2>
+    <div class="subhead">The chart of accounts is the enterprise's shared vocabulary. Definitions
+      live here; the balances behind them live in Accounting.</div>
+    <table class="tbl"><thead><tr><th>Account type</th><th class="num">Accounts defined</th>
+      <th>Example</th></tr></thead><tbody>
+    ${types.map(t=>{ const rows=COA.filter(a=>a.type===t);
+      return `<tr><td><b>${t.charAt(0).toUpperCase()+t.slice(1)}</b></td>
+        <td class="num">${rows.length}</td><td class="ic-mini">${rows[0]?rows[0].name:'—'}</td></tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+
+  // ---- what this module will own, stated rather than mocked
+  o+=`<div class="card"><h2>Not yet built<span class="note">module scope</span></h2>
+    <div class="subhead">Named so the boundary is explicit. These are Data &amp; Governance's, not
+      Controls' and not Integrations'.</div>
+    <table class="tbl"><tbody>
+    ${[['Lineage','Field-level path from an ERP transaction to a reported figure'],
+       ['Mappings','Source account &#8594; enterprise account, maintained as configuration'],
+       ['Data quality rules','Assertions that run continuously and raise their own exceptions'],
+       ['Master data monitoring','Drift and completeness across entity, project and vendor masters'],
+       ['Enterprise glossary','One definition per metric, owned and versioned']]
+      .map(r=>`<tr><td><b>${r[0]}</b></td><td class="ic-mini">${r[1]}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">The figures above are live; this list is scope, not a preview of
+      finished work.</div></div>`;
+
+  el.innerHTML=o;
+}
+
 function renderDrStub(tab){
   const el=$('view-'+tab); if(!el)return;
   const K=drKpi();
@@ -11856,7 +12029,7 @@ function renderDataRoom(){
       <div class="d">${GL_ERP.reduce((a,e)=>a+e.ent,0)} entities</div></div>
     <div class="kpi"><div class="k">Retention</div><div class="v">7 yrs</div><div class="d">policy minimum</div></div>
   </div>
-  <div class="card"><h2>Data room<span class="note">what an auditor would be handed</span></h2>
+  <div class="card"><h2>Locked periods<span class="note">what an auditor would be handed</span></h2>
     <div class="subhead">Locked periods, their determinations, and the lineage back to the source system for
       each one.</div>
     <table class="tbl"><thead><tr><th>Period</th><th>Locked by</th><th class="num">Determinations</th>
@@ -14557,6 +14730,7 @@ function renderAll(){
   if(TAB==='drevid')renderDrEvid();
   if(TAB==='drwork')renderDrStub('drwork');
   if(TAB==='drext')renderDrStub('drext');
+  if(TAB==='dgover')renderDataGov();
   if(TAB==='controls')renderControls();
   if(TAB==='glover')renderGLOver();
   if(TAB==='glfin')renderGLFin();
@@ -14703,8 +14877,57 @@ function resetFilters(){
 }
 // Filters apply live on change; Done re-renders and collapses the panel.
 function applyFilters(){ renderAll(); toggleFilters(); }
+/* ---------------------------------------------------------------- MODULE LAUNCHER (More)
+   The More menu is a deliberate module launcher, NOT an overflow bucket. What it encodes:
+
+     - MODULES ONLY. Enterprise configuration belongs to the Settings gear, personal
+       preferences to the profile menu, view controls to the page toolbar, search to global
+       search. Nothing but a module may be added to this list.
+     - Every entry names a module and says in one line what that module owns, so the menu
+       explains the architecture rather than just linking to it.
+
+   Rendered from data rather than hand-written markup so that promoting a module into the
+   ribbon later is a change to this array, not a rewrite of the menu. `pinnable` and `perm`
+   are the hooks for that future personalization (pin / unpin / reorder, permission-aware).
+   Personalization is NOT implemented in this increment and NO pin affordance is drawn —
+   a control that cannot act does not belong in the UI. */
+const MODULE_LAUNCHER=[
+  {grp:'Enterprise workspaces'},
+  {id:'droom',  lens:'droom',  label:'Data Room', pinnable:true, perm:'dataroom.view',
+   desc:'Evidence, diligence &amp; financial documentation',
+   go:"pickLens('droom')",
+   ic:'M3 2.5h7l3 3v8H3zM9.5 2.5v3h3M5.5 8.5h5M5.5 11h3'},
+  {id:'datagov',lens:'datagov',label:'Data &amp; Governance', pinnable:true, perm:'datagov.view',
+   desc:'Enterprise data, lineage, quality &amp; ownership',
+   go:"pickLens('datagov')",
+   ic:'M8 2.2c2.8 0 5 .8 5 1.8s-2.2 1.8-5 1.8S3 5 3 4s2.2-1.8 5-1.8zM3 4v4c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V4M3 8v4c0 1 2.2 1.8 5 1.8s5-.8 5-1.8V8'},
+  {grp:'Platform'},
+  // Integrations is also reachable from Home > System. That duplication is deliberate and
+  // temporary: it is a platform-level destination that has not yet been promoted out of
+  // Home's rail. Data Room's duplication was removed precisely because it was NOT deliberate.
+  {id:'glsync', label:'Integrations', pinnable:true, perm:'integrations.view',
+   desc:'Connected ERP and source systems',
+   go:"pickLens('portfolio');pickTab('glsync')",
+   ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5'},
+];
+
+function renderMoreMenu(){
+  const el=document.getElementById('moreMenu'); if(!el)return;
+  el.innerHTML=MODULE_LAUNCHER.map(m=>{
+    if(m.grp) return `<div class="mm-grp">${m.grp}</div>`;
+    const on=m.lens&&LENS===m.lens;
+    return `<button class="mm-item${on?' on':''}" onclick="closeMoreMenu();${m.go}">
+      <svg class="mm-ic" viewBox="0 0 16 16" fill="none"><path d="${m.ic}" stroke="currentColor"
+        stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span class="mm-tx"><span class="mm-nm">${m.label}</span><span class="mm-ds">${m.desc}</span></span>
+    </button>`;
+  }).join('');
+}
+
 function toggleMoreMenu(e){ if(e)e.stopPropagation();
-  const m=document.getElementById('moreMenu'); if(m) m.classList.toggle('open'); }
+  const m=document.getElementById('moreMenu'); if(!m)return;
+  renderMoreMenu();                       // repaint so the active module reads as active
+  m.classList.toggle('open'); }
 function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.classList.remove('open'); }
 document.addEventListener('click',e=>{ const m=document.getElementById('moreMenu');
   if(m&&m.classList.contains('open')&&!m.parentElement.contains(e.target)) closeMoreMenu(); });
@@ -14877,12 +15100,19 @@ const VIEW_META={
   'ledger:exceptions':{t:'Exceptions',c:'Priority queue · exposure · aging · recurrence · validation',depth:4},
   activity:{t:'Activity',c:'Chronological trail across all modules',depth:2},
   documents:{t:'Documents',c:'Evidence attached to open work',depth:2},
-  dataroom:{t:'Data Room',c:'Locked periods and retained evidence',depth:3},
+  // Titled "Retained Records", not "Data Room" — this page lives INSIDE the Data Room
+  // module now, and a page called Data Room inside Data Room is the ambiguity this pass
+  // exists to remove.
+  dataroom:{t:'Retained Records',c:'Locked periods, determinations and lineage to source',depth:3},
   drover:{t:'Data Room',c:'Enterprise evidence · diligence · financial support',depth:4},
-  drreq: {t:'Requests',c:'Data Room · evidence and diligence requests',depth:4},
-  drevid:{t:'Evidence',c:'Data Room · evidence items and linkages',depth:4},
-  drwork:{t:'Workspaces',c:'Data Room · diligence workspaces',depth:4},
-  drext: {t:'External Access',c:'Data Room · external party access',depth:4},
+  dgover:{t:'Data & Governance',c:'Source systems, data health and ownership',depth:3},
+  // The crumb renders as `<lens label> · c`, so these must NOT restate "Data Room" — it
+  // used to read "Data Room · Data Room · …". They carried the prefix from when Data Room
+  // was a ⋯-menu destination with no module identity of its own; now the module names itself.
+  drreq: {t:'Requests',c:'Evidence and diligence requests',depth:4},
+  drevid:{t:'Evidence',c:'Evidence items and linkages',depth:4},
+  drwork:{t:'Workspaces',c:'Diligence workspaces',depth:4},
+  drext: {t:'External Access',c:'External party access',depth:4},
   controls:{t:'Controls',c:'Continuous control tests and results',depth:3},
   fpexec:{t:'Executive Overview',c:'Performance vs. plan across all entities',depth:4},
   fplrp:{t:'Long-Range Plan',c:'3, 5 and 10-year strategic outlook',depth:3},
