@@ -103,9 +103,17 @@ There is no separate CSS/JS file. Edits happen in place.
   (`inUtil && !spec`) — `tasks`/`issues`/`archives`/`admin` still render empty rails.
   **`dataroom` is a different thing**: an existing *tab* in Home. Do not conflate them.
   Data Room is an evidence & diligence workspace — requests and evidence linkages, **never a
-  folder tree**; evidence points at source records rather than replacing them. Phase 1 is
-  Overview only (`renderDrOver` over `DR_REQUESTS`/`DR_ACTIVITY`/`DR_EXT`); the other four are
-  `renderDrStub` placeholders showing live counts.
+  folder tree**; evidence points at source records rather than replacing them.
+  **Overview** (`renderDrOver`) and **Requests** (`renderDrReq` + `drReqDetail`) are built;
+  Evidence / Workspaces / External Access are still `renderDrStub` placeholders showing live
+  counts. `DR_ITEMS` is the important structure: an evidence item is a claim plus `links[]`
+  to real records, and those links resolve to actual policies (`ACC-CAP-001`) and accounting
+  conclusions (`AI-2026-011`) — keep them resolving if you renumber anything.
+  A request's `items`/`done` are the aggregate; the detail enumerates a representative tracked
+  subset and **says so on screen**. Do not "fix" that by inflating counts (see RECON_SCALE).
+  **Known, pre-existing, not a Data Room bug:** at ~1085px client width every page reports
+  scrollWidth 1141 — the offender is `#copilot`, the collapsed Ask Korvyn strip. Ask Korvyn is
+  out of scope to modify, so this is left alone.
 - **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
   `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
   (Fixed Assets), `procure` (Procurement), `fpa` (FP&A), `treasury` (Treasury),
