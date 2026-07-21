@@ -10260,6 +10260,140 @@ const DR_KIND={ attach:{l:'Evidence attached',ic:'M3.5 2.5h6l3 3v8h-9z'}, link:{
   approve:{l:'Approved',ic:'M3.5 8.5l3 3 6-6'}, request:{l:'Support requested',ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3'},
   access:{l:'External access',ic:'M6 3.5H3.5v9h9V10M9.5 3.5h3v3M12.5 3.5L7.5 8.5'} };
 
+/* Evidence items within a request. THIS is the module's thesis made concrete: an evidence
+   item is not a file, it is a claim supported by LINKS to source records — an ERP document,
+   a contract, a Korvyn accounting conclusion, a policy, a project. Korvyn does not hold the
+   source of truth; it holds the linkage and the state of the support.
+
+   The prototype enumerates a representative working set per request, not all N items — the
+   request's `items`/`done` counts are the real aggregate and the UI says so explicitly rather
+   than implying the listed rows are the whole population. */
+const DR_IST={ accepted:{l:'Accepted',c:'good'}, review:{l:'In review',c:'ready'},
+  provided:{l:'Provided',c:'info'}, pending:{l:'Not provided',c:''}, rejected:{l:'Returned',c:'flag'} };
+const DR_LINK={ ERP:'ERP document', Contract:'Contract', Conclusion:'Accounting conclusion',
+  Policy:'Policy', Project:'Project', Recon:'Reconciliation', Report:'Report' };
+
+const DR_ITEMS=[
+// ---- DR-2026-121 · South Valley CIP diligence (the marquee evidence chain) ----
+{id:'EV-4401', req:'DR-2026-121', t:'CIP rollforward — South Valley, inception to date', cat:'Balance support',
+ st:'accepted', own:'M. Giri', due:'Jul 10, 2026',
+ links:[{k:'ERP',v:'CIP rollforward · NetSuite',go:"pickLens('ledger');pickTab('glact')"},
+        {k:'Recon',v:'15000 · Construction in progress',go:"pickLens('ledger');pickTab('glrecon')"}]},
+{id:'EV-4402', req:'DR-2026-121', t:'Capital additions detail — 12 NetSuite documents', cat:'Transaction support',
+ st:'accepted', own:'L. Tan', due:'Jul 10, 2026',
+ links:[{k:'ERP',v:'AP-019284 and 11 related',go:"pickLens('ledger');pickTab('glact')"},
+        {k:'Project',v:'South Valley',go:"pickLens('assets')"}]},
+{id:'EV-4403', req:'DR-2026-121', t:'Capitalisation policy applied to the programme', cat:'Policy support',
+ st:'accepted', own:'A. Okafor', due:'Jul 10, 2026',
+ links:[{k:'Policy',v:'ACC-CAP-001 · Global Capitalization Policy',go:"pickLens('ledger');pickTab('admin');setPolSub('library');setPolSel('ACC-CAP-001')"}]},
+{id:'EV-4404', req:'DR-2026-121', t:'Owner-engineering capitalisation conclusion', cat:'Judgment support',
+ st:'review', own:'L. Tan', due:'Jul 24, 2026',
+ links:[{k:'Conclusion',v:'AI-2026-011',go:"pickLens('ledger');pickTab('issues');setAmSel('AI-2026-011')"},
+        {k:'Policy',v:'ACC-06 · Capitalized Labor',go:"pickLens('ledger');pickTab('admin');setPolSub('library');setPolSel('ACC-06')"}]},
+{id:'EV-4405', req:'DR-2026-121', t:'Construction contracts — principal EPC agreements', cat:'Contract support',
+ st:'provided', own:'M. Reyes', due:'Jul 24, 2026',
+ links:[{k:'Contract',v:'EPC-SV-2024-01 and 3 related',go:"pickLens('procure')"}]},
+{id:'EV-4406', req:'DR-2026-121', t:'Placed-in-service determinations for completed halls', cat:'Judgment support',
+ st:'pending', own:'L. Tan', due:'Jul 31, 2026',
+ links:[{k:'Project',v:'South Valley · halls A–C',go:"pickLens('assets')"}]},
+{id:'EV-4407', req:'DR-2026-121', t:'Interest capitalisation computation — ASC 835-20', cat:'Balance support',
+ st:'pending', own:'S. Lee', due:'Jul 31, 2026',
+ links:[{k:'Policy',v:'ACC-CAP-001 · s.4 interest',go:"pickLens('ledger');pickTab('admin');setPolSub('library');setPolSel('ACC-CAP-001')"}]},
+{id:'EV-4408', req:'DR-2026-121', t:'Cost-scrub evidence — operating cost removed from CIP', cat:'Exception support',
+ st:'rejected', own:'L. Tan', due:'Jul 18, 2026', note:'Returned — sample did not cover the Ashburn Hall C scrub.',
+ links:[{k:'ERP',v:'Scrub journal · pending',go:"pickLens('ledger');pickTab('glact')"}]},
+
+// ---- DR-2026-118 · FY2026 external audit ----
+{id:'EV-4310', req:'DR-2026-118', t:'PP&amp;E rollforward — all entities', cat:'Balance support',
+ st:'accepted', own:'A. Okafor', due:'Jul 05, 2026',
+ links:[{k:'Report',v:'PP&amp;E rollforward',go:"pickLens('assets')"},
+        {k:'Recon',v:'15200 · Building / shell',go:"pickLens('ledger');pickTab('glrecon')"}]},
+{id:'EV-4311', req:'DR-2026-118', t:'Depreciation recomputation support', cat:'Balance support',
+ st:'accepted', own:'L. Tan', due:'Jul 05, 2026',
+ links:[{k:'ERP',v:'JE-004812 · monthly depreciation',go:"pickLens('ledger');pickTab('glact')"}]},
+{id:'EV-4312', req:'DR-2026-118', t:'Additions sample — 40 items, three-way match', cat:'Transaction support',
+ st:'review', own:'M. Reyes', due:'Jul 25, 2026',
+ links:[{k:'ERP',v:'40 purchase orders',go:"pickLens('procure')"}]},
+{id:'EV-4313', req:'DR-2026-118', t:'Trial balance to statement tie-out', cat:'Balance support',
+ st:'accepted', own:'A. Okafor', due:'Jul 05, 2026',
+ links:[{k:'Report',v:'Trial balance',go:"pickLens('ledger');pickTab('tb')"}]},
+{id:'EV-4314', req:'DR-2026-118', t:'Impairment triggering-event assessment', cat:'Judgment support',
+ st:'accepted', own:'A. Okafor', due:'Jul 12, 2026',
+ links:[{k:'Conclusion',v:'AI-2025-009',go:"pickLens('ledger');pickTab('issues');setAmSel('AI-2025-009')"}]},
+{id:'EV-4315', req:'DR-2026-118', t:'Aged CIP listing with ageing commentary', cat:'Exception support',
+ st:'pending', own:'L. Tan', due:'Aug 08, 2026',
+ links:[{k:'Project',v:'Ashburn · Dallas · Tokyo',go:"pickLens('assets')"}]},
+
+// ---- DR-2026-127 · Technical accounting, tenant fit-out ----
+{id:'EV-4520', req:'DR-2026-127', t:'Approved accounting conclusion and analysis', cat:'Judgment support',
+ st:'provided', own:'M. Giri', due:'Jul 22, 2026',
+ links:[{k:'Conclusion',v:'AI-2026-014',go:"pickLens('ledger');pickTab('issues');setAmSel('AI-2026-014')"}]},
+{id:'EV-4521', req:'DR-2026-127', t:'Tenant master services agreement', cat:'Contract support',
+ st:'accepted', own:'M. Giri', due:'Jul 15, 2026',
+ links:[{k:'Contract',v:'MSA-2026-0114',go:"pickLens('procure')"}]},
+{id:'EV-4522', req:'DR-2026-127', t:'Market-rate benchmark for the lease-component allocation', cat:'Judgment support',
+ st:'pending', own:'M. Giri', due:'Jul 24, 2026', note:'Requested by the auditor on Jul 19 — not yet provided.',
+ links:[{k:'Conclusion',v:'AI-2026-014 · allocation',go:"pickLens('ledger');pickTab('issues');setAmSel('AI-2026-014')"}]},
+{id:'EV-4523', req:'DR-2026-127', t:'Prior precedent — Santa Clara fit-out conclusion', cat:'Precedent support',
+ st:'accepted', own:'M. Giri', due:'Jul 15, 2026',
+ links:[{k:'Conclusion',v:'AI-2025-031',go:"pickLens('ledger');pickTab('issues');setAmSel('AI-2025-031')"}]},
+
+// ---- DR-2026-096 · Germany tax (overdue) ----
+{id:'EV-4210', req:'DR-2026-096', t:'HGB statutory reconciliation to US GAAP', cat:'Balance support',
+ st:'accepted', own:'J. Park', due:'Jun 20, 2026',
+ links:[{k:'Policy',v:'ACC-CAP-003 · Germany addendum',go:"pickLens('ledger');pickTab('admin');setPolSub('library');setPolSel('ACC-CAP-003')"}]},
+{id:'EV-4211', req:'DR-2026-096', t:'Fixed asset register — German branch', cat:'Balance support',
+ st:'review', own:'J. Park', due:'Jun 28, 2026',
+ links:[{k:'Report',v:'FA register',go:"pickLens('assets')"}]},
+{id:'EV-4212', req:'DR-2026-096', t:'Transfer pricing documentation', cat:'Contract support',
+ st:'pending', own:'J. Park', due:'Jun 30, 2026', note:'Outstanding 20 days past the due date.',
+ links:[{k:'Policy',v:'ACC-IC-01 · Intercompany',go:"pickLens('ledger');pickTab('admin');setPolSub('library');setPolSel('ACC-IC-01')"}]},
+{id:'EV-4213', req:'DR-2026-096', t:'Intercompany balance confirmations', cat:'Balance support',
+ st:'pending', own:'M. Giri', due:'Jun 30, 2026',
+ links:[{k:'Recon',v:'13500 / 23500 control accounts',go:"pickLens('ledger');pickTab('icomp')"}]},
+
+// ---- DR-2026-109 · SOX ----
+{id:'EV-4150', req:'DR-2026-109', t:'Capitalisation review control — operating effectiveness', cat:'Control support',
+ st:'accepted', own:'J. Park', due:'Jul 10, 2026',
+ links:[{k:'Policy',v:'ACC-06 · Capitalized Labor',go:"pickLens('ledger');pickTab('admin');setPolSub('library');setPolSel('ACC-06')"}]},
+{id:'EV-4151', req:'DR-2026-109', t:'Close checklist completion evidence', cat:'Control support',
+ st:'accepted', own:'A. Okafor', due:'Jul 10, 2026',
+ links:[{k:'Report',v:'Close checklist',go:"pickLens('ledger');pickTab('acctclose')"}]},
+{id:'EV-4152', req:'DR-2026-109', t:'Reconciliation completeness — sample of 20 accounts', cat:'Control support',
+ st:'review', own:'S. Lee', due:'Jul 18, 2026',
+ links:[{k:'Recon',v:'20 account reconciliations',go:"pickLens('ledger');pickTab('glrecon')"}]},
+
+// ---- DR-2026-115 · Internal audit ----
+{id:'EV-4600', req:'DR-2026-115', t:'Three-way match samples — 24 purchase orders', cat:'Transaction support',
+ st:'accepted', own:'L. Tan', due:'Jul 19, 2026',
+ links:[{k:'ERP',v:'24 PO / invoice / receipt sets',go:"pickLens('procure')"}]},
+{id:'EV-4601', req:'DR-2026-115', t:'Vendor master change log', cat:'Control support',
+ st:'provided', own:'M. Reyes', due:'Jul 30, 2026',
+ links:[{k:'Report',v:'Vendor master',go:"pickLens('procure')"}]},
+{id:'EV-4602', req:'DR-2026-115', t:'Delegation of authority matrix', cat:'Control support',
+ st:'pending', own:'M. Reyes', due:'Aug 05, 2026',
+ links:[]},
+
+// ---- DR-2026-124 · Financing (released) ----
+{id:'EV-4700', req:'DR-2026-124', t:'Green loan facility agreement', cat:'Contract support',
+ st:'accepted', own:'S. Lee', due:'Jul 08, 2026',
+ links:[{k:'Contract',v:'Green loan facility',go:"pickLens('treasury')"}]},
+{id:'EV-4701', req:'DR-2026-124', t:'Drawdown conditions — evidence mapping', cat:'Control support',
+ st:'accepted', own:'S. Lee', due:'Jul 08, 2026',
+ links:[{k:'Project',v:'Ashburn Phase II',go:"pickLens('assets')"}]},
+{id:'EV-4702', req:'DR-2026-124', t:'Certified project cost report', cat:'Balance support',
+ st:'accepted', own:'L. Tan', due:'Jul 08, 2026',
+ links:[{k:'Report',v:'Project cost report',go:"pickLens('assets')"}]},
+
+// ---- DR-2026-131 · Board pack (released) ----
+{id:'EV-4800', req:'DR-2026-131', t:'Consolidated statements — Q2', cat:'Balance support',
+ st:'accepted', own:'A. Okafor', due:'Jul 15, 2026',
+ links:[{k:'Report',v:'Financial reporting',go:"pickLens('ledger');pickTab('finrep')"}]},
+{id:'EV-4801', req:'DR-2026-131', t:'Consolidation readiness and elimination summary', cat:'Balance support',
+ st:'accepted', own:'A. Okafor', due:'Jul 15, 2026',
+ links:[{k:'Report',v:'Consolidation',go:"pickLens('ledger');pickTab('consol')"}]},
+];
+
 const DR_ASOF='2026-07-20';
 const drDays=d=>Math.round((new Date(d)-new Date(DR_ASOF))/864e5);   // + future, - past
 
@@ -10298,6 +10432,162 @@ function drAttention(){
     go:"pickLens('droom');pickTab('drreq')", lk:'Requests'}));
   const rank={crit:0,warn:1,info:2};
   return out.sort((a,b)=>rank[a.sev]-rank[b.sev]);
+}
+
+// ---------------- Requests workspace (list + request detail) ----------------
+const drReqById=id=>DR_REQUESTS.find(r=>r.id===id);
+const drItemsFor=id=>DR_ITEMS.filter(i=>i.req===id);
+const drItemCounts=id=>{const it=drItemsFor(id); const c={};
+  Object.keys(DR_IST).forEach(k=>c[k]=it.filter(x=>x.st===k).length); c.total=it.length; return c;};
+// what still blocks release for a request
+const drOutstanding=id=>drItemsFor(id).filter(i=>i.st==='pending'||i.st==='rejected');
+
+let drReqSel=null, drfType='all', drfStatus='all', drfOwn='all', drQuery='';
+function setDrReqSel(v){ drReqSel=v; renderAll(); }
+function drReqBack(){ drReqSel=null; renderAll(); }
+function setDrF(k,v){ ({ty:()=>drfType=v,st:()=>drfStatus=v,own:()=>drfOwn=v}[k]||(()=>{}))(); renderAll(); }
+function setDrQuery(v){ drQuery=v; renderAll(); }
+function drReset(){ drfType=drfStatus=drfOwn='all'; drQuery=''; renderAll(); }
+const drFiltered=()=>drfType!=='all'||drfStatus!=='all'||drfOwn!=='all'||drQuery;
+function drReqScope(){
+  const q=drQuery.trim().toLowerCase();
+  return DR_REQUESTS.filter(r=>
+    (drfType==='all'||r.ty===drfType) && (drfStatus==='all'||r.st===drfStatus) &&
+    (drfOwn==='all'||r.own===drfOwn) &&
+    (!q||(r.id+' '+r.t+' '+r.ty+' '+r.scope+' '+r.party).toLowerCase().includes(q)));
+}
+const drOwners=()=>[...new Set(DR_REQUESTS.map(r=>r.own))].sort();
+
+function renderDrReq(){
+  const el=$('view-drreq'); if(!el)return;
+  if(drReqSel){ el.innerHTML=drReqDetail(); return; }
+  const K=drKpi(), rows=drReqScope();
+  let o=glHead('Requests',
+    'Evidence and diligence requests across the enterprise — each scoped to the entities, funds and projects it supports.',
+    `<button class="btn-out" onclick="toggleFilters()">${glIc('M2 3h12M4 8h8M6 13h4')}Filters</button>
+     <button class="btn-primary" onclick="toggleFilters()">New request</button>`);
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Open</div><div class="sv">${K.open.length}</div><div class="sd">of ${K.all.length} requests</div></div>
+    <div class="stat"><div class="sl">Awaiting evidence</div><div class="sv">${K.awaitingReq.length}</div><div class="sd">counterparty owes support</div></div>
+    <div class="stat"><div class="sl">Under review</div><div class="sv">${K.review.length}</div><div class="sd">before release</div></div>
+    <div class="stat"><div class="sl">Overdue</div><div class="sv ${K.overdue.length?'neg':''}">${K.overdue.length}</div><div class="sd">past due date</div></div>
+    <div class="stat"><div class="sl">Ready for release</div><div class="sv">${K.ready.length}</div><div class="sd">complete</div></div>
+  </div>`;
+
+  const sel=(k,cur,opts)=>`<select onchange="setDrF('${k}',this.value)">${opts.map(o=>
+    `<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+  o+=`<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Search</label><input type="text" value="${drQuery.replace(/"/g,'&quot;')}"
+      placeholder="Request, scope, party" oninput="setDrQuery(this.value)" style="min-width:190px"></div>
+    <div class="grp"><label>Type</label>${sel('ty',drfType,[['all','All types'],...DR_TYPES.map(t=>[t,t])])}</div>
+    <div class="grp"><label>Status</label>${sel('st',drfStatus,[['all','All statuses'],...Object.keys(DR_ST).map(k=>[k,DR_ST[k].l])])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',drfOwn,[['all','All owners'],...drOwners().map(o=>[o,o])])}</div>
+    ${drFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="drReset()">Reset</button></div>`:''}
+  </div></div>`;
+
+  o+=`<div class="card"><h2>Requests<span class="note">${rows.length} of ${DR_REQUESTS.length}</span>
+      ${drFiltered()?`<span class="cardlink" onclick="drReset()">Clear</span>`:''}</h2>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Request</th><th>Type</th><th>Scope</th>
+      <th>Owner</th><th>Progress</th><th class="num">Outstanding</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(r=>{const p=drPct(r), out=drOutstanding(r.id).length;
+      return `<tr class="row-click" onclick="setDrReqSel('${r.id}')">
+      <td><b>${r.t}</b><div class="ic-mini" style="color:var(--faint)">${r.id} · ${r.party}</div></td>
+      <td class="ic-mini">${r.ty}</td><td class="ic-mini">${r.scope}</td><td class="ic-mini">${r.own}</td>
+      <td style="min-width:150px"><div class="progline"><span class="mini-bar" style="min-width:70px"><i style="width:${p}%"></i></span>
+        <span class="ic-mini">${p}%</span></div>
+        <div class="ic-mini" style="color:var(--faint)">${r.done} of ${r.items} items</div></td>
+      <td class="num ${out?'':''}" ${out?'style="color:var(--warn);font-weight:600"':''}>${out||'&#8211;'}</td>
+      <td class="ic-mini" ${r.st==='overdue'?'style="color:var(--neg);font-weight:600"':''}>${r.due}</td>
+      <td><span class="pill ${DR_ST[r.st].c}">${DR_ST[r.st].l}</span></td></tr>`;}).join('')}
+    ${rows.length?'':'<tr><td colspan="8" class="note">No requests match the current filters.</td></tr>'}
+    </tbody></table></div>
+    <div class="cardfoot">Outstanding counts the tracked evidence items still not provided or returned</div></div>`;
+  el.innerHTML=o;
+}
+
+function drReqDetail(){
+  const r=drReqById(drReqSel); if(!r) return '';
+  const items=drItemsFor(r.id), c=drItemCounts(r.id), out=drOutstanding(r.id), p=drPct(r);
+  const linkChip=l=>`<span class="pill sm row-click" onclick="event.stopPropagation();${l.go}" style="cursor:pointer" title="${DR_LINK[l.k]||l.k}">${l.v}</span>`;
+  let o=`<div class="gl-hd"><div class="grow">
+      <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="drReqBack()">&#8592; Requests</span></div>
+      <h1>${r.t}</h1>
+      <div class="sub">${r.id} &#183; ${r.ty} &#183; ${r.party}</div>
+    </div>${glExport}</div>`;
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Status</div><div class="sv" style="font-size:14px;padding-top:4px"><span class="pill ${DR_ST[r.st].c}">${DR_ST[r.st].l}</span></div><div class="sd">${r.own}</div></div>
+    <div class="stat"><div class="sl">Progress</div><div class="sv">${p}%</div>
+      <div class="progline" style="margin-top:6px"><span class="mini-bar"><i style="width:${p}%"></i></span></div>
+      <div class="sd">${r.done} of ${r.items} items accepted</div></div>
+    <div class="stat"><div class="sl">Outstanding</div><div class="sv ${out.length?'neg':''}">${out.length}</div><div class="sd">tracked items not provided</div></div>
+    <div class="stat"><div class="sl">Due</div><div class="sv" style="font-size:14px;padding-top:4px">${r.due}</div>
+      <div class="sd" ${r.st==='overdue'?'style="color:var(--neg)"':''}>${r.st==='overdue'?'past due':'on schedule'}</div></div>
+    <div class="stat"><div class="sl">Scope</div><div class="sv" style="font-size:12.5px;padding-top:5px;line-height:1.4">${r.scope}</div>
+      <div class="sd">${r.ents} entit${r.ents===1?'y':'ies'}</div></div>
+  </div>`;
+
+  // what's missing first — the operational question
+  if(out.length){
+    o+=`<div class="card"><h2>Outstanding evidence<span class="note">${out.length} item${out.length===1?'':'s'}</span></h2>
+      <div class="subhead">What is still required before this request can be released.</div>
+      <table class="tbl"><tbody>
+      ${out.map(i=>`<tr><td style="width:22px"><span class="ic-dot ${i.st==='rejected'?'bad':'warn'}"></span></td>
+        <td><b>${i.t}</b>${i.note?`<div class="note" style="margin:0">${i.note}</div>`:''}</td>
+        <td class="ic-mini">${i.own}</td><td class="ic-mini">${i.due}</td>
+        <td><span class="pill ${DR_IST[i.st].c} sm">${DR_IST[i.st].l}</span></td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
+  o+=`<div class="card"><h2>Evidence items<span class="note">${items.length} tracked</span></h2>
+    <div class="subhead">Each item is a claim supported by links to source records — Korvyn holds the linkage
+      and the state of the support; the ERP and the contract systems remain the system of record.</div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Item</th><th>Category</th><th>Supported by</th>
+      <th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    ${items.map(i=>`<tr>
+      <td><b>${i.t}</b><div class="ic-mini" style="color:var(--faint)">${i.id}</div></td>
+      <td class="ic-mini">${i.cat}</td>
+      <td>${i.links.length?i.links.map(linkChip).join(' '):'<span class="ic-mini" style="color:var(--faint)">no link yet</span>'}</td>
+      <td class="ic-mini">${i.own}</td><td class="ic-mini">${i.due}</td>
+      <td><span class="pill ${DR_IST[i.st].c} sm">${DR_IST[i.st].l}</span></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="cardfoot">${items.length} tracked items shown of ${r.items} in the request &#183;
+      the prototype enumerates a representative working set, not the full population</div></div>`;
+
+  // item state + participants
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Evidence state</h2>
+      <table class="tbl"><tbody>
+      ${Object.keys(DR_IST).map(k=>`<tr><td><span class="pill ${DR_IST[k].c} sm">${DR_IST[k].l}</span></td>
+        <td class="num"><b>${c[k]}</b></td>
+        <td style="width:150px">${c.total?`<div class="progline"><span class="mini-bar" style="min-width:70px"><i style="width:${Math.round(c[k]/c.total*100)}%"></i></span></div>`:''}</td></tr>`).join('')}
+      </tbody></table></div>
+    <div class="card" style="margin:0"><h2>Request detail</h2>
+      <table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0;width:150px">Type</td><td>${r.ty}</td></tr>
+        <tr><td class="note" style="margin:0">Requesting party</td><td>${r.party}</td></tr>
+        <tr><td class="note" style="margin:0">Owner</td><td>${r.own}</td></tr>
+        <tr><td class="note" style="margin:0">Scope</td><td>${r.scope}</td></tr>
+        <tr><td class="note" style="margin:0">Entities in scope</td><td>${r.ents}</td></tr>
+        <tr><td class="note" style="margin:0">Due date</td><td>${r.due}</td></tr>
+      </tbody></table>
+      <div class="cardfoot"><span class="extlink" onclick="pickTab('drext')">External access</span>
+        <span class="extlink" onclick="pickTab('drover')">Data Room overview</span></div></div>
+  </div>`;
+
+  // activity for this request
+  const act=DR_ACTIVITY.filter(a=>a.req===r.id);
+  if(act.length){
+    o+=`<div class="card"><h2>Activity<span class="note">${act.length}</span></h2>
+      ${act.map(a=>`<div class="kv" style="align-items:flex-start;margin-bottom:12px">
+        <span class="erp-ini" title="${DR_KIND[a.kind].l}">${glIc(DR_KIND[a.kind].ic)}</span>
+        <div style="min-width:0"><div style="font-size:12.5px;font-weight:600">${a.t}</div>
+          <div class="ic-mini" style="margin-top:2px">${a.d}</div>
+          <div class="ic-mini" style="color:var(--faint);margin-top:3px">${a.ts} · ${a.who}</div></div></div>`).join('')}
+      </div>`;
+  }
+  return o;
 }
 
 // ---------------- Data Room Overview ----------------
@@ -13116,7 +13406,7 @@ function renderAll(){
   if(TAB==='documents')renderDocuments();
   if(TAB==='dataroom')renderDataRoom();
   if(TAB==='drover')renderDrOver();
-  if(TAB==='drreq')renderDrStub('drreq');
+  if(TAB==='drreq')renderDrReq();
   if(TAB==='drevid')renderDrStub('drevid');
   if(TAB==='drwork')renderDrStub('drwork');
   if(TAB==='drext')renderDrStub('drext');
