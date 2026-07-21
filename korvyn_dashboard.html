@@ -11321,8 +11321,650 @@ function renderArchives(){
   el.innerHTML=h;
 }
 
+/* ==================== ACCOUNTING > POLICIES (Phase 1) ====================
+   `admin` is a shared tab id: the Accounting rail labels it "Policies", the standalone
+   Administration lens shows Settings. renderAdmin() branches on LENS — the ledger lens gets
+   the governed policy repository below; the admin lens keeps its existing view.
+
+   Korvyn is the governance layer, not the ERP. This is the enterprise policy REPOSITORY:
+   one authoritative Policy Record per policy, discoverable through many contexts (primary
+   and related categories, level, applicability), with the original source document always
+   preserved. `aiEx` marks records whose standardized content is still AI-extracted and
+   awaiting the owner's validation — labelled, never silently treated as approved.
+
+   PHASE 1A scope = Library + Detail. Ingestion/upload, duplicate detection, search and a
+   full applicability engine are deliberately NOT built here. Everything the page computes
+   (KPIs, category roll-ups, hierarchy) DERIVES from POL_POLICIES — no second source of
+   truth. The ACC-06 / ACC-09 / ACC-14 records below are the exact policies AM_MATTERS cite,
+   so the Policy <-> Accounting Issue <-> Precedent traceability is real, not decorative. */
+
+// Configurable taxonomy.
+const POL_CATS=[
+  {id:'cap',  nm:'Capitalization'},        {id:'fa',   nm:'Fixed Assets'},
+  {id:'cip',  nm:'CIP'},                   {id:'pis',  nm:'Placed-in-Service'},
+  {id:'dep',  nm:'Depreciation'},          {id:'rev',  nm:'Revenue Recognition'},
+  {id:'lease',nm:'Leases'},                {id:'ic',   nm:'Intercompany'},
+  {id:'cons', nm:'Consolidation'},         {id:'fx',   nm:'Foreign Currency'},
+  {id:'debt', nm:'Debt'},                  {id:'intcap',nm:'Interest Capitalization'},
+  {id:'imp',  nm:'Impairment'},            {id:'accr', nm:'Accruals'},
+  {id:'finrep',nm:'Financial Reporting'},  {id:'cash', nm:'Cash'},
+  {id:'ctrl', nm:'Internal Controls'},     {id:'oth',  nm:'Other'},
+];
+const POL_CATN=Object.fromEntries(POL_CATS.map(c=>[c.id,c.nm]));
+// Configurable hierarchy of policy levels (broadest first).
+const POL_LEVELS={
+  global:{l:'Global Corporate',rank:0}, region:{l:'Regional',rank:1},
+  country:{l:'Country / Jurisdiction',rank:2}, entity:{l:'Legal Entity',rank:3},
+  fund:{l:'Fund',rank:4}, bu:{l:'Business Unit',rank:5}, proj:{l:'Project / Program',rank:6},
+  proc:{l:'Procedure',rank:7}, add:{l:'Addendum',rank:8},
+};
+const POL_ST={draft:{l:'Draft',c:''}, review:{l:'In Review',c:'info'}, appr:{l:'Pending Approval',c:'ready'},
+  active:{l:'Active',c:'good'}, superseded:{l:'Superseded',c:''}, retired:{l:'Retired',c:''}};
+const POL_VST={current:{l:'Current',c:'good'}, future:{l:'Future effective',c:'ready'},
+  superseded:{l:'Superseded',c:''}, retired:{l:'Retired',c:''}};
+const POL_ASOF='2026-06-30';
+const polDays=d=>Math.round((new Date(d)-new Date(POL_ASOF))/864e5);   // +future / -past
+
+/* The enterprise policy library. Amounts/dates illustrative. `aiEx` marks sections still
+   showing AI-extracted content awaiting a policy owner's validation. `parent` builds the
+   hierarchy; children are derived. `scope` carries included AND excluded applicability. */
+const POL_POLICIES=[
+// ---- Capitalization hierarchy chain: Global -> EMEA addendum -> Germany addendum ----
+{ id:'ACC-CAP-001', nm:'Global Capitalization Policy', cat:'cap',
+  rel:['fa','cip','intcap'], tags:['PP&E','CIP','ASC 360','ASC 835-20'], level:'global',
+  owner:'A. Okafor', purpose:'Establishes the enterprise threshold and criteria for capitalizing property, plant and equipment and directly-attributable costs.',
+  scope:{applies:'enterprise', inc:['All legal entities'], exc:['Meridian Management Co (services — de minimis capex)'],
+    regions:['Americas','EMEA'], jur:['All'], funds:['Fund I — US','Fund II — EMEA','Fund III — Global'], bu:['Colocation','Hyperscale','Property'], frameworks:['US GAAP']},
+  gov:{eff:'2025-01-01', appr:'2024-12-10', nextRev:'2026-12-31', approver:'S. Lee (CAO)', reviewer:'A. Okafor', freq:'Annual', status:'active', version:'v3.0'},
+  parent:null, aiEx:false,
+  content:{purpose:'Ensure consistent capitalization of qualifying expenditure across the enterprise.',
+    scope:'All capital expenditure on data-centre and property assets held for use.',
+    defs:['Qualifying asset — held for use, life > 1 year, cost ≥ threshold.','Directly attributable cost — expenditure necessary to bring the asset to its intended condition.'],
+    reqs:['Capitalize individual assets with cost ≥ $5,000 and useful life > 1 year.','Capitalize directly-attributable costs under ASC 360-10-30-1.','Expense feasibility and pre-probable costs.'],
+    principles:['Substance over form.','Consistency across entities and periods.'],
+    roles:['Entity controllers apply the policy; Corporate Accounting owns interpretation.'],
+    exceptions:['Meridian Management Co — services entity, de minimis capex, excluded.'],
+    controls:['Capitalization review control at close.','CIP aging exception monitoring.'],
+    procedures:['CIP → placed-in-service transfer procedure (ACC-CAP-PROC-01).']},
+  refs:{guidance:['ASC 360-10-30-1','ASC 835-20'], relPolicies:['ACC-06','ACC-CAP-002'], relProcedures:['ACC-CAP-PROC-01'],
+    relIssues:['AI-2026-011'], relPrecedents:['AI-2025-018']},
+  src:{doc:'Global Capitalization Policy v3.0.pdf', srcVer:'3.0', uploadedBy:'A. Okafor', uploadDate:'2024-12-11', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v3.0',eff:'2025-01-01',appr:'2024-12-10',by:'S. Lee',status:'current',summary:'Raised threshold to $5,000; added interest-capitalization cross-reference.'},
+    {v:'v2.0',eff:'2023-01-01',appr:'2022-12-05',by:'S. Lee',status:'superseded',summary:'Added directly-attributable cost guidance.'},
+    {v:'v1.0',eff:'2021-01-01',appr:'2020-12-01',by:'Predecessor CAO',status:'superseded',summary:'Initial enterprise policy.'}] },
+
+{ id:'ACC-CAP-002', nm:'EMEA Capitalization Addendum', cat:'cap',
+  rel:['fa','lease'], tags:['EMEA','IFRS bridge','component accounting'], level:'add',
+  owner:'J. Park', purpose:'Regional addendum addressing component accounting and local statutory bridges for EMEA entities.',
+  scope:{applies:'list', inc:['Meridian Property Co','Meridian Management Co'], exc:[],
+    regions:['EMEA'], jur:['Ireland','United Kingdom','Germany'], funds:['Fund II — EMEA'], bu:['Property','Services'], frameworks:['US GAAP','Local GAAP bridge']},
+  gov:{eff:'2025-01-01', appr:'2024-12-14', nextRev:'2026-12-31', approver:'A. Okafor', reviewer:'J. Park', freq:'Annual', status:'active', version:'v2.0'},
+  parent:'ACC-CAP-001', aiEx:false,
+  content:{purpose:'Adapt the global policy for EMEA component accounting and statutory bridges.',
+    scope:'EMEA legal entities reporting under US GAAP with local statutory filings.',
+    defs:['Component — separately depreciable part of a larger asset.'],
+    reqs:['Apply component accounting where local statutory rules require it.','Reconcile local GAAP capitalization differences to the US GAAP ledger.'],
+    principles:['Global policy governs; the addendum narrows, never widens.'],
+    roles:['EMEA controller (J. Park) owns the addendum.'], exceptions:[],
+    controls:['Local-to-group GAAP bridge reconciliation.'], procedures:[]},
+  refs:{guidance:['ASC 360-10-35','IAS 16'], relPolicies:['ACC-CAP-001','ACC-CAP-003'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'EMEA Capitalization Addendum v2.0.docx', srcVer:'2.0', uploadedBy:'J. Park', uploadDate:'2024-12-15', srcLoc:'SharePoint / EMEA / Policies'},
+  versions:[{v:'v2.0',eff:'2025-01-01',appr:'2024-12-14',by:'A. Okafor',status:'current',summary:'Aligned to Global v3.0 threshold.'},
+    {v:'v1.0',eff:'2023-06-01',appr:'2023-05-20',by:'A. Okafor',status:'superseded',summary:'Initial EMEA addendum.'}] },
+
+{ id:'ACC-CAP-003', nm:'Germany Local Accounting Addendum', cat:'cap',
+  rel:['fa','dep'], tags:['Germany','HGB','statutory'], level:'add',
+  owner:'J. Park', purpose:'Country addendum for German statutory (HGB) capitalization and depreciation differences.',
+  scope:{applies:'list', inc:['Meridian Management Co (Germany branch)'], exc:[],
+    regions:['EMEA'], jur:['Germany'], funds:['Fund II — EMEA'], bu:['Services'], frameworks:['Local GAAP bridge','HGB']},
+  gov:{eff:'2025-03-01', appr:'2025-02-18', nextRev:'2026-12-31', approver:'J. Park', reviewer:'Local advisor', freq:'Annual', status:'active', version:'v1.1'},
+  parent:'ACC-CAP-002', aiEx:true,
+  content:{purpose:'Capture HGB-specific capitalization and useful-life differences for Germany.',
+    scope:'German branch statutory reporting.',
+    defs:['HGB — German commercial code.'],
+    reqs:['Apply HGB useful lives for statutory books; bridge to US GAAP for group.','Document the capitalization difference each period.'],
+    principles:['Statutory and group books reconcile.'],
+    roles:['EMEA controller with local advisor support.'], exceptions:[],
+    controls:['Statutory-to-group reconciliation.'], procedures:[]},
+  refs:{guidance:['HGB §255','ASC 360-10-35'], relPolicies:['ACC-CAP-002'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'Germany Local Accounting Addendum v1.1.pdf', srcVer:'1.1', uploadedBy:'J. Park', uploadDate:'2025-02-20', srcLoc:'SharePoint / EMEA / Germany'},
+  versions:[{v:'v1.1',eff:'2025-03-01',appr:'2025-02-18',by:'J. Park',status:'current',summary:'AI-extracted useful-life table pending owner validation.'},
+    {v:'v1.0',eff:'2024-09-01',appr:'2024-08-25',by:'J. Park',status:'superseded',summary:'Initial Germany addendum.'}] },
+
+// ---- The ACC-xx policies Accounting Issues cites ----
+{ id:'ACC-06', nm:'Capitalized Labor Policy', cat:'cap',
+  rel:['fa','cip'], tags:['owner engineering','internal labour','ASC 360'], level:'global',
+  owner:'L. Tan', purpose:'Governs capitalization of internal labour and owner-engineering costs to capital projects.',
+  scope:{applies:'enterprise', inc:['All legal entities with capital projects'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['Fund I — US','Fund III — Global'], bu:['Colocation','Hyperscale'], frameworks:['US GAAP']},
+  gov:{eff:'2024-01-01', appr:'2023-12-08', nextRev:'2026-09-30', approver:'S. Lee (CAO)', reviewer:'L. Tan', freq:'Annual', status:'active', version:'v2.0'},
+  parent:'ACC-CAP-001', aiEx:false,
+  content:{purpose:'Capitalize only directly-attributable internal labour on probable projects.',
+    scope:'Internal engineering, commissioning and construction-supervision labour.',
+    defs:['Probable project — approved and more likely than not to be completed.'],
+    reqs:['Capitalize labour attributable to a probable project with time records.','Expense feasibility labour incurred before the probable date.'],
+    principles:['Time-record evidence required.'], roles:['Project controllers; Fixed Assets team.'],
+    exceptions:[], controls:['Capitalization review references the probable date.'], procedures:[]},
+  refs:{guidance:['ASC 360-10-30-1','ASC 970-360-25'], relPolicies:['ACC-CAP-001'], relProcedures:[],
+    relIssues:['AI-2026-011'], relPrecedents:['AI-2025-018']},
+  src:{doc:'Capitalized Labor Policy v2.0.pdf', srcVer:'2.0', uploadedBy:'L. Tan', uploadDate:'2023-12-09', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v2.0',eff:'2024-01-01',appr:'2023-12-08',by:'S. Lee',status:'current',summary:'Added probable-date cut-off and time-record requirement.'},
+    {v:'v1.0',eff:'2022-01-01',appr:'2021-12-03',by:'S. Lee',status:'superseded',summary:'Initial policy.'}] },
+
+{ id:'ACC-14', nm:'Tenant Improvement Allowances Policy', cat:'rev',
+  rel:['lease','fa'], tags:['tenant improvements','ASC 606','ASC 842','control'], level:'global',
+  owner:'M. Giri', purpose:'Governs accounting for landlord- and tenant-funded improvements and allowances.',
+  scope:{applies:'list', inc:['Meridian DC Holdco','Meridian Property Co'], exc:[],
+    regions:['Americas','EMEA'], jur:['United States','Ireland'], funds:['Fund I — US','Fund II — EMEA'], bu:['Colocation','Property'], frameworks:['US GAAP']},
+  gov:{eff:'2024-07-01', appr:'2024-06-18', nextRev:'2026-07-31', approver:'S. Lee (CAO)', reviewer:'M. Giri', freq:'Annual', status:'active', version:'v1.0'},
+  parent:null, aiEx:false,
+  content:{purpose:'Determine control and consideration for improvement allowances.',
+    scope:'Landlord-funded tenant improvement allowances.',
+    defs:['Allowance — landlord funding toward tenant improvements.'],
+    reqs:['Assess who controls the improvement.','Landlord-funded generic improvements are capitalized as landlord assets.'],
+    principles:['Control drives the accounting.'], roles:['Technical Accounting owns interpretation.'],
+    exceptions:['Tenant-funded bespoke construction is out of current scope — clarification pending (AI-2026-014).'],
+    controls:['Revenue-recognition review control.'], procedures:[]},
+  refs:{guidance:['ASC 606-10-25','ASC 842-10-15-35'], relPolicies:[], relProcedures:[],
+    relIssues:['AI-2026-014'], relPrecedents:['AI-2025-031']},
+  src:{doc:'Tenant Improvement Allowances Policy v1.0.pdf', srcVer:'1.0', uploadedBy:'M. Giri', uploadDate:'2024-06-20', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v1.0',eff:'2024-07-01',appr:'2024-06-18',by:'S. Lee',status:'current',summary:'Initial policy. Clarification for tenant-funded construction flagged by AI-2026-014.'}] },
+
+{ id:'ACC-09', nm:'Lease Accounting Policy', cat:'lease',
+  rel:['fa','debt'], tags:['ASC 842','IBR','modifications'], level:'global',
+  owner:'J. Park', purpose:'Governs lease classification, measurement, modification and the incremental borrowing rate.',
+  scope:{applies:'enterprise', inc:['All legal entities with leases'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['Fund I — US','Fund II — EMEA','Fund III — Global'], bu:['Colocation','Hyperscale','Property','Services'], frameworks:['US GAAP']},
+  gov:{eff:'2023-01-01', appr:'2022-12-12', nextRev:'2026-08-31', approver:'S. Lee (CAO)', reviewer:'J. Park', freq:'Annual', status:'active', version:'v2.1'},
+  parent:null, aiEx:false,
+  content:{purpose:'Consistent ASC 842 application across the enterprise.',
+    scope:'All lease and ground-lease arrangements.',
+    defs:['IBR — incremental borrowing rate by currency and term.'],
+    reqs:['Build and document the IBR by currency and term.','Apply the modification test before remeasurement.'],
+    principles:['A modification narrows or remeasures; it does not create a separate contract unless priced at standalone.'],
+    roles:['Corporate Accounting owns the IBR build.'], exceptions:[],
+    controls:['Lease modification review control.'], procedures:['IBR build-up procedure.']},
+  refs:{guidance:['ASC 842-10-25-8','ASC 842-20-35-5'], relPolicies:[], relProcedures:[],
+    relIssues:['AI-2026-007'], relPrecedents:['AI-2025-024']},
+  src:{doc:'Lease Accounting Policy v2.1.pdf', srcVer:'2.1', uploadedBy:'J. Park', uploadDate:'2024-11-02', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v2.1',eff:'2025-01-01',appr:'2024-11-01',by:'S. Lee',status:'current',summary:'Refreshed IBR methodology.'},
+    {v:'v2.0',eff:'2023-01-01',appr:'2022-12-12',by:'S. Lee',status:'superseded',summary:'ASC 842 adoption.'}] },
+
+{ id:'ACC-IC-01', nm:'Intercompany & FX Policy', cat:'ic',
+  rel:['fx','cons'], tags:['ASC 830','elimination','transfer pricing'], level:'global',
+  owner:'S. Lee', purpose:'Governs intercompany transactions, matching, and foreign-currency remeasurement.',
+  scope:{applies:'enterprise', inc:['All legal entities'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['Fund I — US','Fund II — EMEA','Fund III — Global'], bu:['All'], frameworks:['US GAAP']},
+  gov:{eff:'2024-01-01', appr:'2023-12-15', nextRev:'2026-07-15', approver:'S. Lee (CAO)', reviewer:'M. Giri', freq:'Annual', status:'review', version:'v1.2'},
+  parent:null, aiEx:false,
+  content:{purpose:'Consistent intercompany and FX treatment across the group.',
+    scope:'All intercompany balances and FX remeasurement.',
+    defs:['Closing rate — period-end reference rate.'],
+    reqs:['Remeasure intercompany balances at the period-end closing rate (s.4.2).','Match both sides before elimination.'],
+    principles:['Both sides agree before elimination.'],
+    roles:['Consolidation team owns matching.'], exceptions:[],
+    controls:['Intercompany matching control.'], procedures:[]},
+  refs:{guidance:['ASC 830-20-30-1','ASC 810'], relPolicies:[], relProcedures:[],
+    relIssues:['AI-2026-009'], relPrecedents:[]},
+  src:{doc:'Intercompany and FX Policy v1.2.docx', srcVer:'1.2', uploadedBy:'M. Giri', uploadDate:'2024-01-05', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v1.2',eff:'2024-01-01',appr:'2023-12-15',by:'S. Lee',status:'current',summary:'Under review — s.4.2 mid-month revaluation update proposed (AI-2026-009).'},
+    {v:'v1.1',eff:'2023-01-01',appr:'2022-12-20',by:'S. Lee',status:'superseded',summary:'Added transfer-pricing reference.'}] },
+
+{ id:'ACC-IMP-01', nm:'Impairment Policy', cat:'imp',
+  rel:['fa','cons'], tags:['ASC 350','ASC 360','triggering events'], level:'global',
+  owner:'A. Okafor', purpose:'Governs goodwill and long-lived asset impairment assessment.',
+  scope:{applies:'enterprise', inc:['All legal entities'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['All'], bu:['All'], frameworks:['US GAAP']},
+  gov:{eff:'2024-01-01', appr:'2023-12-20', nextRev:'2026-06-30', approver:'S. Lee (CAO)', reviewer:'A. Okafor', freq:'Annual', status:'active', version:'v1.0'},
+  parent:null, aiEx:false,
+  content:{purpose:'Timely identification and measurement of impairment.',
+    scope:'Goodwill and long-lived assets.',
+    defs:['Triggering event — an indicator that carrying amount may not be recoverable.'],
+    reqs:['Perform a quarterly qualitative triggering-event assessment.','Document the conclusion each quarter.'],
+    principles:['Document even when no test is required.'],
+    roles:['Controller owns the quarterly assessment.'], exceptions:[],
+    controls:['Quarterly triggering-event review (CT-074).'], procedures:[]},
+  refs:{guidance:['ASC 350-20-35-30','ASC 360-10'], relPolicies:[], relProcedures:[],
+    relIssues:[], relPrecedents:['AI-2025-009']},
+  src:{doc:'Impairment Policy v1.0.pdf', srcVer:'1.0', uploadedBy:'A. Okafor', uploadDate:'2023-12-22', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v1.0',eff:'2024-01-01',appr:'2023-12-20',by:'S. Lee',status:'current',summary:'Initial policy; added recurring triggering-event control per AI-2025-009.'}] },
+
+{ id:'ACC-FR-01', nm:'Financial Reporting & Close Policy', cat:'finrep',
+  rel:['cons','ctrl'], tags:['close','materiality','SOX'], level:'global',
+  owner:'A. Okafor', purpose:'Governs the period-end close, materiality and financial statement preparation.',
+  scope:{applies:'enterprise', inc:['All legal entities'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['All'], bu:['All'], frameworks:['US GAAP','SEC']},
+  gov:{eff:'2025-01-01', appr:'2024-12-05', nextRev:'2027-01-31', approver:'S. Lee (CAO)', reviewer:'A. Okafor', freq:'Annual', status:'active', version:'v4.0'},
+  parent:null, aiEx:false,
+  content:{purpose:'A controlled, timely and auditable close.',
+    scope:'All entities in the consolidation.',
+    defs:['Materiality — the threshold below which a misstatement would not influence a user.'],
+    reqs:['Complete the close checklist each period.','Apply the stated materiality thresholds.'],
+    principles:['Numbers derive; they are not restated.'],
+    roles:['Corporate Controller owns the close.'], exceptions:[],
+    controls:['Close checklist; reconciliation completeness.'], procedures:['Close calendar procedure.']},
+  refs:{guidance:['SEC Regulation S-X','ASC 105'], relPolicies:['ACC-IC-01'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'Financial Reporting and Close Policy v4.0.pdf', srcVer:'4.0', uploadedBy:'A. Okafor', uploadDate:'2024-12-06', srcLoc:'SharePoint / Corporate Accounting / Policies'},
+  versions:[{v:'v4.0',eff:'2025-01-01',appr:'2024-12-05',by:'S. Lee',status:'current',summary:'Aligned materiality thresholds to current scale.'},
+    {v:'v3.0',eff:'2023-01-01',appr:'2022-12-01',by:'S. Lee',status:'superseded',summary:'Prior close policy.'}] },
+
+{ id:'ACC-FUND3-01', nm:'Fund III Capital Accounting Procedure', cat:'cip',
+  rel:['cap','fa'], tags:['Fund III','global','procedure'], level:'proc',
+  owner:'L. Tan', purpose:'Fund-specific procedure for capital cost accounting on Fund III global projects.',
+  scope:{applies:'list', inc:['Meridian DC Holdco','Fleet DC OpCo'], exc:[],
+    regions:['Americas'], jur:['United States'], funds:['Fund III — Global'], bu:['Colocation','Hyperscale'], frameworks:['US GAAP']},
+  gov:{eff:'2025-04-01', appr:'2025-03-20', nextRev:'2026-10-31', approver:'A. Okafor', reviewer:'L. Tan', freq:'Annual', status:'active', version:'v1.0'},
+  parent:'ACC-CAP-001', aiEx:false,
+  content:{purpose:'Operationalize capital accounting for Fund III.',
+    scope:'Fund III global data-centre projects.',
+    defs:[], reqs:['Follow the global capitalization policy with Fund III project coding.'],
+    principles:['Procedure implements policy; it does not override it.'],
+    roles:['Fund III project accountants.'], exceptions:[],
+    controls:['Project cost coding review.'], procedures:[]},
+  refs:{guidance:['ASC 360-10'], relPolicies:['ACC-CAP-001','ACC-06'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'Fund III Capital Accounting Procedure v1.0.docx', srcVer:'1.0', uploadedBy:'L. Tan', uploadDate:'2025-03-21', srcLoc:'SharePoint / Fund III / Procedures'},
+  versions:[{v:'v1.0',eff:'2025-04-01',appr:'2025-03-20',by:'A. Okafor',status:'current',summary:'Initial Fund III procedure.'}] },
+
+{ id:'ACC-REV-02', nm:'Power &amp; Recoveries Revenue Policy', cat:'rev',
+  rel:['finrep'], tags:['ASC 606','recoveries','power'], level:'global',
+  owner:'J. Lindqvist', purpose:'Governs recognition of power and operating-cost recovery revenue.',
+  scope:{applies:'enterprise', inc:['All operating entities'], exc:['Meridian Management Co'],
+    regions:['Americas','EMEA'], jur:['All'], funds:['All'], bu:['Colocation','Hyperscale'], frameworks:['US GAAP']},
+  gov:{eff:'2024-01-01', appr:'2023-12-18', nextRev:'2026-09-15', approver:'S. Lee (CAO)', reviewer:'J. Lindqvist', freq:'Annual', status:'appr', version:'v2.0'},
+  parent:null, aiEx:false,
+  content:{purpose:'Consistent recognition of recovery revenue.',
+    scope:'Power and opex recoveries billed to tenants.',
+    defs:['Recovery — pass-through of operating cost to tenants.'],
+    reqs:['Recognize recoveries as the underlying cost is incurred.','True-up at period end.'],
+    principles:['Match recovery to cost.'], roles:['Revenue accounting.'], exceptions:[],
+    controls:['Recoveries true-up control.'], procedures:[]},
+  refs:{guidance:['ASC 606-10-25'], relPolicies:['ACC-14'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'Power and Recoveries Revenue Policy v2.0.pdf', srcVer:'2.0', uploadedBy:'J. Lindqvist', uploadDate:'2026-06-10', srcLoc:'SharePoint / Revenue / Policies'},
+  versions:[{v:'v2.0',eff:'2026-09-01',appr:'—',by:'—',status:'future',summary:'Pending CAO approval — future-effective revision.'},
+    {v:'v1.0',eff:'2024-01-01',appr:'2023-12-18',by:'S. Lee',status:'current',summary:'Current effective policy.'}] },
+
+{ id:'ACC-CASH-01', nm:'Cash &amp; Treasury Controls Policy', cat:'cash',
+  rel:['ctrl'], tags:['bank reconciliation','cut-off','SOX'], level:'global',
+  owner:'A. Johnson', purpose:'Governs cash controls, bank reconciliation and cut-off.',
+  scope:{applies:'enterprise', inc:['All legal entities'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['All'], bu:['All'], frameworks:['US GAAP']},
+  gov:{eff:'2022-01-01', appr:'2021-12-01', nextRev:'2026-06-15', approver:'S. Lee (CAO)', reviewer:'A. Johnson', freq:'Annual', status:'active', version:'v1.0'},
+  parent:null, aiEx:false,
+  content:{purpose:'Safeguard cash and ensure accurate cut-off.',
+    scope:'All bank and cash accounts.',
+    defs:[], reqs:['Reconcile all bank accounts monthly.','Apply a strict period-end cut-off.'],
+    principles:['Segregation of duties.'], roles:['Treasury and Cash accounting.'], exceptions:[],
+    controls:['Monthly bank reconciliation.'], procedures:[]},
+  refs:{guidance:['COSO'], relPolicies:['ACC-FR-01'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'Cash and Treasury Controls Policy v1.0.pdf', srcVer:'1.0', uploadedBy:'A. Johnson', uploadDate:'2021-12-02', srcLoc:'SharePoint / Treasury / Policies'},
+  versions:[{v:'v1.0',eff:'2022-01-01',appr:'2021-12-01',by:'S. Lee',status:'current',summary:'Initial policy — review overdue.'}] },
+
+{ id:'ACC-DEP-OLD', nm:'Depreciation Policy (legacy)', cat:'dep',
+  rel:['fa'], tags:['legacy','useful lives'], level:'global',
+  owner:'L. Tan', purpose:'Superseded depreciation policy retained for audit history.',
+  scope:{applies:'enterprise', inc:['All legal entities'], exc:[],
+    regions:['Americas','EMEA'], jur:['All'], funds:['All'], bu:['All'], frameworks:['US GAAP']},
+  gov:{eff:'2020-01-01', appr:'2019-12-01', nextRev:'—', approver:'Predecessor CAO', reviewer:'—', freq:'—', status:'superseded', version:'v2.0'},
+  parent:'ACC-CAP-001', aiEx:false,
+  content:{purpose:'Prior depreciation methodology.', scope:'All depreciable assets.',
+    defs:[], reqs:['Superseded by the useful-life table in the Global Capitalization Policy.'],
+    principles:[], roles:[], exceptions:[], controls:[], procedures:[]},
+  refs:{guidance:['ASC 360-10-35'], relPolicies:['ACC-CAP-001'], relProcedures:[],
+    relIssues:[], relPrecedents:[]},
+  src:{doc:'Depreciation Policy v2.0 (legacy).pdf', srcVer:'2.0', uploadedBy:'L. Tan', uploadDate:'2019-12-02', srcLoc:'Archive / Policies'},
+  versions:[{v:'v2.0',eff:'2020-01-01',appr:'2019-12-01',by:'Predecessor CAO',status:'superseded',summary:'Folded into ACC-CAP-001 v3.0.'}] },
+];
+
+// ---- derivations over the policy repository (all computed, no second source of truth) ----
+const polById=id=>POL_POLICIES.find(p=>p.id===id);
+const polActive=()=>POL_POLICIES.filter(p=>p.gov.status==='active');
+const polReviewDue=p=>p.gov.status==='active'&&p.gov.nextRev!=='—'&&polDays(p.gov.nextRev)<=90;
+const polRecent=p=>{const cur=p.versions.find(v=>v.status==='current'); return cur&&cur.eff!=='—'&&new Date(cur.eff)>=new Date('2025-01-01')&&polDays(cur.eff)<=0;};
+function polKpi(){
+  const P=POL_POLICIES;
+  return {all:P, active:polActive(),
+    review:P.filter(p=>p.gov.status==='review'),
+    appr:P.filter(p=>p.gov.status==='appr'),
+    reviewDue:P.filter(polReviewDue),
+    recent:P.filter(polRecent),
+    retired:P.filter(p=>p.gov.status==='superseded'||p.gov.status==='retired'),
+    owners:[...new Set(P.map(p=>p.owner))].length,
+    coverage:[...new Set(polActive().map(p=>p.cat))].length};
+}
+// category roll-up (only categories with active policies)
+function polCatRoll(){
+  const ids=[...new Set(POL_POLICIES.map(p=>p.cat))];
+  return POL_CATS.filter(c=>ids.includes(c.id)).map(c=>{
+    const inC=POL_POLICIES.filter(p=>p.cat===c.id||p.rel.includes(c.id));
+    return {...c, primary:POL_POLICIES.filter(p=>p.cat===c.id).length,
+      active:POL_POLICIES.filter(p=>p.cat===c.id&&p.gov.status==='active').length,
+      related:inC.length};
+  });
+}
+const polChildren=id=>POL_POLICIES.filter(p=>p.parent===id);
+function polParentChain(p){ const chain=[]; let cur=p; while(cur&&cur.parent){ cur=polById(cur.parent); if(cur)chain.unshift(cur); } return chain; }
+const polApplicSummary=p=>p.scope.applies==='enterprise'
+  ? 'Enterprise'+(p.scope.exc.length?' (except '+p.scope.exc.length+')':'')
+  : p.scope.inc.length+' entit'+(p.scope.inc.length===1?'y':'ies');
+
+// ---- page state (Phase 1A: library + detail) ----
+let polSel=null, polTab='overview',
+    polfCat='all', polfLevel='all', polfStatus='all', polfOwn='all', polfFund='all', polfRegion='all', polQuery='';
+function setPolSel(v){ polSel=v; polTab='overview'; renderAll(); }
+function setPolTab(v){ polTab=v; renderAll(); }
+function polBack(){ polSel=null; renderAll(); }
+function setPolF(k,v){ ({cat:()=>polfCat=v,level:()=>polfLevel=v,status:()=>polfStatus=v,own:()=>polfOwn=v,
+  fund:()=>polfFund=v,region:()=>polfRegion=v}[k]||(()=>{}))(); renderAll(); }
+function setPolQuery(v){ polQuery=v; renderAll(); }
+function polReset(){ polfCat=polfLevel=polfStatus=polfOwn=polfFund=polfRegion='all'; polQuery=''; renderAll(); }
+function polDrill(k,v){ polSel=null; if(k)setPolF(k,v); else renderAll(); }
+const polFiltered=()=>[polfCat,polfLevel,polfStatus,polfOwn,polfFund,polfRegion].some(v=>v!=='all')||polQuery;
+function polScope(){
+  const q=polQuery.trim().toLowerCase();
+  return POL_POLICIES.filter(p=>
+    (polfCat==='all'||p.cat===polfCat||p.rel.includes(polfCat)) &&
+    (polfLevel==='all'||p.level===polfLevel) &&
+    (polfStatus==='all'||p.gov.status===polfStatus) &&
+    (polfOwn==='all'||p.owner===polfOwn) &&
+    (polfFund==='all'||p.scope.funds.some(f=>f.includes(polfFund))) &&
+    (polfRegion==='all'||p.scope.regions.includes(polfRegion)) &&
+    (!q||(p.id+' '+p.nm+' '+POL_CATN[p.cat]+' '+p.tags.join(' ')).toLowerCase().includes(q)));
+}
+const polPill=(mp,k)=>{const s=mp[k]||{l:k,c:''};return `<span class="pill ${s.c}">${s.l}</span>`;};
+const polLevelL=k=>(POL_LEVELS[k]||{l:k}).l;
+const polOwners=()=>[...new Set(POL_POLICIES.map(p=>p.owner))].sort();
+const polFunds=()=>[...new Set(POL_POLICIES.flatMap(p=>p.scope.funds))].sort();
+const polRegions=()=>[...new Set(POL_POLICIES.flatMap(p=>p.scope.regions))].sort();
+// AI-extracted vs approved content labels — the product's core distinction
+const polAI=`<span class="cc-tag est">AI extracted — review required</span>`;
+const polApproved=`<span class="cc-tag meas">Approved policy</span>`;
+
+// ---------------- Library view (overview KPIs + categories + governed table) ----------------
+function polvLibrary(){
+  const K=polKpi(), rows=polScope();
+  const kpi=(cls,chip,ic,lbl,val,d,go)=>`<div class="kpi ${cls} row-click" onclick="${go}">
+    <div class="kpi-ic"><span class="kpi-chip ${chip}">${glIc(ic)}</span>
+      <div><div class="k" style="margin:0">${lbl}</div><div class="v">${val}</div></div></div>
+    <div class="d">${d}</div></div>`;
+  let o=`<div class="kpis">
+    ${kpi('lenshi','chip-blue','M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z','Active policies',K.active.length,
+      'across '+K.coverage+' categories',"polDrill('status','active')")}
+    ${kpi('','chip-blue','M8 3a5 5 0 100 10A5 5 0 008 3zM11.5 11.5L14 14','Pending review',K.review.length,
+      'in the review stage',"polDrill('status','review')")}
+    ${kpi('warn','chip-amber','M8 4v4l3 2','Pending approval',K.appr.length,
+      'awaiting sign-off',"polDrill('status','appr')")}
+    ${kpi(K.reviewDue.length?'warn':'','chip-amber','M8 2.5L14.5 13.5h-13zM8 6.5v3','Review due',K.reviewDue.length,
+      'next review within 90 days',"polDrill()")}
+    ${kpi('','chip-purple','M3 8h10M8 3v10','Recently updated',K.recent.length,
+      'current version effective in 2025+',"polDrill()")}
+    ${kpi('','chip-blue','M3 4.5h10v9H3zM3 7h10','Superseded / retired',K.retired.length,
+      'retained for audit history',"polDrill('status','superseded')")}
+  </div>`;
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Policy coverage</div><div class="sv">${K.coverage} / ${POL_CATS.length}</div>
+      <div class="sd">accounting categories with an active policy</div></div>
+    <div class="stat"><div class="sl">Requiring attention</div>
+      <div class="sv ${K.reviewDue.length+K.review.length+K.appr.length?'neg':''}">${K.reviewDue.length+K.review.length+K.appr.length}</div>
+      <div class="sd">review due, in review or pending approval</div></div>
+    <div class="stat"><div class="sl">Policy owners</div><div class="sv">${K.owners}</div>
+      <div class="sd">accountable across the enterprise</div></div>
+    <div class="stat"><div class="sl">Total policy records</div><div class="sv">${POL_POLICIES.length}</div>
+      <div class="sd">one authoritative record each</div></div>
+  </div>`;
+
+  // category strip — same authoritative record reachable through primary or related category
+  o+=`<div class="card"><h2>By accounting category<span class="note">click to filter</span></h2>
+    <div class="ax-cats">
+    ${polCatRoll().map(c=>`<div class="ax-cat ${polfCat===c.id?'on':''}" onclick="polDrill('cat','${polfCat===c.id?'all':c.id}')">
+      <div class="ax-cat-n">${c.nm}</div>
+      <div class="ax-cat-v">${c.primary}</div>
+      <div class="ax-cat-d">${c.active} active${c.related>c.primary?' · '+(c.related-c.primary)+' related':''}</div></div>`).join('')}
+    </div></div>`;
+
+  o+=polLibFilterBar();
+
+  o+=`<div class="card"><h2>Enterprise policy library<span class="note">${rows.length} of ${POL_POLICIES.length}</span>
+      ${polFiltered()?`<span class="cardlink" onclick="polReset()">Clear</span>`:''}</h2>
+    <div class="subhead">One governed, authoritative record per policy — discoverable through many contexts,
+      never duplicated. The original source document is always preserved.</div>
+    <table class="tbl"><thead><tr><th>ID</th><th>Policy</th><th>Category</th><th>Level</th><th>Owner</th>
+      <th>Applicability</th><th>Version</th><th>Effective</th><th>Next review</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(p=>`<tr class="row-click" onclick="setPolSel('${p.id}')">
+      <td class="ic-mini"><b>${p.id}</b></td>
+      <td><b>${p.nm}</b>${p.parent?'<span class="ic-mini" style="color:var(--faint)"> ↳ under '+p.parent+'</span>':''}
+        ${p.aiEx?' <span class="pill ready sm">AI content</span>':''}</td>
+      <td class="ic-mini">${POL_CATN[p.cat]}</td>
+      <td class="ic-mini">${polLevelL(p.level)}</td>
+      <td class="ic-mini">${p.owner}</td>
+      <td class="ic-mini">${polApplicSummary(p)}</td>
+      <td class="ic-mini">${p.gov.version}</td>
+      <td class="ic-mini">${p.gov.eff}</td>
+      <td class="ic-mini" ${polReviewDue(p)?'style="color:var(--warn);font-weight:600"':''}>${p.gov.nextRev}${polReviewDue(p)?' ⚠':''}</td>
+      <td>${polPill(POL_ST,p.gov.status)}</td></tr>`).join('')}
+    ${rows.length?'':'<tr><td colspan="10" class="note">No policies match the current filters.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">${K.active.length} active &#183; one authoritative record each &#183;
+      scales to thousands of documents through search and filters, not folders</div></div>`;
+  return o;
+}
+function polLibFilterBar(){
+  const sel=(k,cur,opts)=>`<select onchange="setPolF('${k}',this.value)">${opts.map(o=>
+    `<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Search</label><input type="text" value="${polQuery.replace(/"/g,'&quot;')}"
+      placeholder="Policy, ID, standard, tag" oninput="setPolQuery(this.value)" style="min-width:170px"></div>
+    <div class="grp"><label>Category</label>${sel('cat',polfCat,[['all','All categories'],...polCatRoll().map(c=>[c.id,c.nm])])}</div>
+    <div class="grp"><label>Level</label>${sel('level',polfLevel,[['all','All levels'],...Object.keys(POL_LEVELS).map(k=>[k,POL_LEVELS[k].l])])}</div>
+    <div class="grp"><label>Status</label>${sel('status',polfStatus,[['all','All statuses'],...Object.keys(POL_ST).map(k=>[k,POL_ST[k].l])])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',polfOwn,[['all','All owners'],...polOwners().map(o=>[o,o])])}</div>
+    <div class="grp"><label>Fund</label>${sel('fund',polfFund,[['all','All funds'],...polFunds().map(f=>[f,f])])}</div>
+    <div class="grp"><label>Region</label>${sel('region',polfRegion,[['all','All regions'],...polRegions().map(r=>[r,r])])}</div>
+    ${polFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="polReset()">Reset</button></div>`:''}
+  </div></div>`;
+}
+
+// ---------------- Policy detail (progressive-disclosure tabs) ----------------
+function polvDetail(){
+  const p=polById(polSel); if(!p) return '';
+  const kv=(l,v)=>`<tr><td class="note" style="margin:0;width:180px">${l}</td><td>${v}</td></tr>`;
+  const chain=polParentChain(p), kids=polChildren(p.id);
+  const cur=p.versions.find(v=>v.status==='current')||p.versions[0];
+  let o=`<div class="gl-hd"><div class="grow">
+      <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="polBack()">&#8592; Policy library</span></div>
+      <h1>${p.nm}</h1>
+      <div class="sub">${p.id} &#183; ${POL_CATN[p.cat]} &#183; ${polLevelL(p.level)} &#183; ${polApplicSummary(p)}</div>
+    </div>${glExport}</div>`;
+
+  // header facts
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Status</div><div class="sv" style="font-size:14px;padding-top:4px">${polPill(POL_ST,p.gov.status)}</div>
+      <div class="sd">${p.owner}</div></div>
+    <div class="stat"><div class="sl">Current version</div><div class="sv" style="font-size:15px;padding-top:4px">${p.gov.version}</div>
+      <div class="sd">${p.versions.length} version${p.versions.length===1?'':'s'}</div></div>
+    <div class="stat"><div class="sl">Effective</div><div class="sv" style="font-size:14px;padding-top:4px">${p.gov.eff}</div>
+      <div class="sd">approved ${p.gov.appr}</div></div>
+    <div class="stat"><div class="sl">Next review</div>
+      <div class="sv" style="font-size:14px;padding-top:4px" ${polReviewDue(p)?'':''}>${p.gov.nextRev}</div>
+      <div class="sd" ${polReviewDue(p)?'style="color:var(--warn)"':''}>${p.gov.nextRev==='—'?'—':polReviewDue(p)?'review due':'every '+p.gov.freq.toLowerCase()}</div></div>
+    <div class="stat"><div class="sl">Policy level</div><div class="sv" style="font-size:13px;padding-top:5px">${polLevelL(p.level)}</div>
+      <div class="sd">${p.parent?'under '+p.parent:'top-level'}</div></div>
+  </div>`;
+
+  // progressive-disclosure tabs
+  const tab=(id,l)=>`<button class="${polTab===id?'on':''}" onclick="setPolTab('${id}')">${l}</button>`;
+  o+=`<div class="segbar">${tab('overview','Overview')}${tab('content','Policy content')}${tab('applic','Applicability')}${tab('versions','Versions')}${tab('related','Related items')}${tab('source','Source documents')}</div>`;
+
+  if(polTab==='overview'){
+    o+=`<div class="card"><h2>Overview</h2>
+      <table class="tbl"><tbody>
+        ${kv('Policy purpose',p.purpose)}
+        ${kv('Policy owner',p.owner)}
+        ${kv('Primary category',POL_CATN[p.cat])}
+        ${kv('Related categories',p.rel.map(c=>`<span class="pill sm">${POL_CATN[c]}</span>`).join(' ')||'&#8211;')}
+        ${kv('Tags',(p.tags||[]).map(t=>`<span class="pill sm">${t}</span>`).join(' ')||'&#8211;')}
+        ${kv('Policy level',polLevelL(p.level))}
+        ${kv('Current version',p.gov.version+' &#183; effective '+p.gov.eff)}
+        ${kv('Next review date',p.gov.nextRev)}
+        ${kv('Status',polPill(POL_ST,p.gov.status))}
+      </tbody></table></div>
+    <div class="card"><h2>Applicability summary</h2>
+      <div class="subhead" style="margin:0">${p.scope.applies==='enterprise'
+        ? 'Global policy applicable to all legal entities'+(p.scope.exc.length?', except '+p.scope.exc.join(', '):'')+(kids.length?', with '+kids.length+' regional/local addend'+(kids.length===1?'um':'a')+'.':'.')
+        : 'Applies to '+p.scope.inc.join(', ')+(chain.length?' — under '+chain.map(c=>c.nm).join(' → ')+'.':'.')}</div></div>
+    <div class="card"><h2>Governance</h2>
+      <div class="subhead">Draft &#8594; In review &#8594; Pending approval &#8594; Active &#8594; Superseded / Retired.</div>
+      <div class="ic-spine">
+        ${['draft','review','appr','active','superseded'].map(s=>{const map={draft:'draft',review:'review',appr:'appr',active:'active',superseded:'superseded'};
+          const on=p.gov.status===s||(s==='active'&&(p.gov.status==='active'))||(s==='superseded'&&(p.gov.status==='retired'));
+          const passed=['draft','review','appr','active'].indexOf(p.gov.status)>=['draft','review','appr','active'].indexOf(s);
+          return `<div class="ic-stg ${p.gov.status===s?'open':passed&&p.gov.status==='active'?'done':''}">
+          <div class="sl">${POL_ST[s].l}</div><div class="sv">${p.gov.status===s?'current':''}</div></div>`;}).join('')}
+      </div>
+      <table class="tbl" style="margin-top:12px"><tbody>
+        ${kv('Owner',p.owner)}${kv('Reviewer',p.gov.reviewer)}${kv('Approver',p.gov.approver)}
+        ${kv('Effective date',p.gov.eff)}${kv('Review frequency',p.gov.freq)}${kv('Next review date',p.gov.nextRev)}
+      </tbody></table></div>`;
+  }
+
+  if(polTab==='content'){
+    const sec=(l,body)=>body?`<div style="margin-bottom:14px"><div class="subhead" style="font-weight:600;color:var(--ink);margin-bottom:5px">${l}</div>${body}</div>`:'';
+    const list=arr=>arr&&arr.length?`<ul class="ic-mini" style="margin:0;padding-left:18px;line-height:1.8">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>`:'';
+    const C=p.content;
+    o+=`<div class="card"><h2>Standardized policy record ${p.aiEx?polAI:polApproved}</h2>
+      <div class="subhead">Korvyn's standardized representation of the policy. ${p.aiEx
+        ? 'Some content is AI-extracted and awaiting the policy owner&#39;s validation — it is not yet approved.'
+        : 'This record has been validated by the policy owner.'}</div>
+      ${sec('Purpose',`<div class="ic-mini">${C.purpose}</div>`)}
+      ${sec('Scope',`<div class="ic-mini">${C.scope}</div>`)}
+      ${sec('Definitions',list(C.defs))}
+      ${sec('Policy requirements',list(C.reqs))}
+      ${sec('Key principles',list(C.principles))}
+      ${sec('Roles &amp; responsibilities',list(C.roles))}
+      ${sec('Exceptions',C.exceptions&&C.exceptions.length?list(C.exceptions):'<div class="ic-mini" style="color:var(--faint)">None.</div>')}
+      ${sec('Related controls',list(C.controls))}
+      ${sec('Related procedures',C.procedures&&C.procedures.length?list(C.procedures):'<div class="ic-mini" style="color:var(--faint)">None.</div>')}
+    </div>`;
+  }
+
+  if(polTab==='applic'){
+    const s=p.scope;
+    const grp=(l,arr,cls)=>`<tr><td class="note" style="margin:0;width:180px">${l}</td>
+      <td>${arr&&arr.length?arr.map(x=>`<span class="pill sm ${cls||''}">${x}</span>`).join(' '):'<span class="ic-mini" style="color:var(--faint)">&#8211;</span>'}</td></tr>`;
+    o+=`<div class="card"><h2>Applicability<span class="note">where this policy applies</span></h2>
+      <div class="subhead">Included and excluded scope. A full applicability engine is a later phase — this is the
+        governed data structure and view.</div>
+      <table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0;width:180px">Applies to</td><td><b>${s.applies==='enterprise'?'Entire enterprise':'Specific legal entities'}</b></td></tr>
+        ${grp('Included entities',s.inc,'good')}
+        ${grp('Excluded entities',s.exc,'flag')}
+        ${grp('Regions',s.regions)}
+        ${grp('Countries / jurisdictions',s.jur)}
+        ${grp('Funds',s.funds)}
+        ${grp('Business units',s.bu)}
+        ${grp('Accounting frameworks',s.frameworks)}
+      </tbody></table></div>`;
+    if(chain.length||kids.length){
+      o+=`<div class="card"><h2>Policy hierarchy</h2>
+        <div class="subhead">Related local guidance sits under the global policy. The global policy governs; addenda narrow it.</div>
+        <div class="ic-spine">
+          ${chain.map(c=>`<div class="ic-stg done" onclick="setPolSel('${c.id}')" style="cursor:pointer"><div class="sl">${polLevelL(c.level)}</div><div class="sv">${c.id}</div></div>`).join('')}
+          <div class="ic-stg open"><div class="sl">${polLevelL(p.level)} · this policy</div><div class="sv">${p.id}</div></div>
+          ${kids.map(c=>`<div class="ic-stg" onclick="setPolSel('${c.id}')" style="cursor:pointer"><div class="sl">${polLevelL(c.level)}</div><div class="sv">${c.id}</div></div>`).join('')}
+        </div>
+        ${kids.length?`<div class="cardfoot">Related local guidance: ${kids.map(c=>`<span class="extlink" onclick="setPolSel('${c.id}')">${c.nm}</span>`).join(' · ')}</div>`:''}</div>`;
+    }
+  }
+
+  if(polTab==='versions'){
+    o+=`<div class="card"><h2>Version history<span class="note">${p.versions.length} versions</span></h2>
+      <div class="subhead">Historical approved versions are never overwritten — they remain accessible so you can
+        establish what policy was effective on any given date.</div>
+      <table class="tbl"><thead><tr><th>Version</th><th>Effective date</th><th>Approval date</th>
+        <th>Approved by</th><th>Change summary</th><th>Status</th></tr></thead><tbody>
+      ${p.versions.map(v=>`<tr ${v.status==='current'?'style="background:var(--pos-bg)"':''}>
+        <td><b>${v.v}</b></td><td class="ic-mini">${v.eff}</td><td class="ic-mini">${v.appr}</td>
+        <td class="ic-mini">${v.by}</td><td class="ic-mini">${v.summary}</td>
+        <td>${polPill(POL_VST,v.status)}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="cardfoot">Current effective version: <b>${cur.v}</b> (${cur.eff})</div></div>`;
+  }
+
+  if(polTab==='related'){
+    const R=p.refs;
+    const issues=(R.relIssues||[]).map(id=>({id,m:(typeof amMatById==='function')?amMatById(id):null}));
+    const precs=(R.relPrecedents||[]).map(id=>({id,m:(typeof amMatById==='function')?amMatById(id):null}));
+    const linkRow=(id,m,kind)=>`<tr class="row-click" onclick="pickTab('issues');setAmSel('${id}')">
+      <td><b>${id}</b><div class="note" style="margin:0">${m?m.t:kind}</div></td>
+      <td class="ic-mini">${m?(typeof AM_TOPN!=='undefined'?AM_TOPN[m.top]:''):''}</td>
+      <td style="text-align:right"><span class="extlink">Open</span></td></tr>`;
+    o+=`<div class="grid2gl">
+      <div class="card" style="margin:0"><h2>Related accounting issues<span class="note">${issues.length}</span></h2>
+        ${issues.length?`<div class="subhead">Open questions and conclusions that reference this policy.</div>
+          <table class="tbl"><tbody>${issues.map(x=>linkRow(x.id,x.m,'Accounting issue')).join('')}</tbody></table>`
+          :'<div class="subhead" style="margin:0">No related accounting issues.</div>'}</div>
+      <div class="card" style="margin:0"><h2>Related precedents<span class="note">${precs.length}</span></h2>
+        ${precs.length?`<div class="subhead">Approved prior conclusions on this policy&#39;s topic.</div>
+          <table class="tbl"><tbody>${precs.map(x=>linkRow(x.id,x.m,'Precedent')).join('')}</tbody></table>`
+          :'<div class="subhead" style="margin:0">No related precedents.</div>'}</div>
+    </div>
+    <div class="grid2gl">
+      <div class="card" style="margin:0"><h2>Related policies<span class="note">${(R.relPolicies||[]).length}</span></h2>
+        ${(R.relPolicies||[]).length?`<table class="tbl"><tbody>
+          ${R.relPolicies.map(id=>{const rp=polById(id);return `<tr class="row-click" onclick="setPolSel('${id}')">
+            <td><b>${id}</b><div class="note" style="margin:0">${rp?rp.nm:''}</div></td>
+            <td style="text-align:right"><span class="extlink">Open</span></td></tr>`;}).join('')}
+        </tbody></table>`:'<div class="subhead" style="margin:0">No related policies.</div>'}</div>
+      <div class="card" style="margin:0"><h2>Controls &amp; processes</h2>
+        <div class="subhead">Where this policy is operationalized.</div>
+        <table class="tbl"><tbody>
+          <tr><td class="note" style="margin:0;width:150px">Related controls</td><td class="ic-mini">${(p.content.controls||[]).join('; ')||'&#8211;'}</td></tr>
+          <tr><td class="note" style="margin:0">Related procedures</td><td class="ic-mini">${(p.content.procedures||[]).join('; ')||'&#8211;'}</td></tr>
+          <tr><td class="note" style="margin:0">Accounting guidance</td><td>${(R.guidance||[]).map(g=>`<span class="pill sm">${g}</span>`).join(' ')||'&#8211;'}</td></tr>
+        </tbody></table>
+        <div class="cardfoot"><span class="extlink" onclick="pickTab('exceptions')">Exceptions</span>
+          <span class="extlink" onclick="pickTab('issues')">Accounting Issues</span></div></div>
+    </div>`;
+  }
+
+  if(polTab==='source'){
+    o+=`<div class="card"><h2>Source documents<span class="note">original artifacts preserved</span></h2>
+      <div class="subhead">Korvyn preserves the original approved source document for every version. The standardized
+        record is derived from these — it never replaces them.</div>
+      <table class="tbl"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Upload date</th>
+        <th>Uploaded by</th><th>Source location</th><th></th></tr></thead><tbody>
+        <tr><td><b class="ic-mini">${p.src.doc}</b></td><td class="ic-mini">${p.src.doc.split('.').pop().toUpperCase()}</td>
+          <td class="ic-mini">v${p.src.srcVer}</td><td class="ic-mini">${p.src.uploadDate}</td>
+          <td class="ic-mini">${p.src.uploadedBy}</td><td class="ic-mini">${p.src.srcLoc}</td>
+          <td style="text-align:right"><span class="extlink" onclick="toggleFilters()">View document</span></td></tr>
+        ${p.versions.filter(v=>v.status!=='current').map(v=>`<tr>
+          <td class="ic-mini" style="color:var(--faint)">${p.nm} ${v.v} (source)</td><td class="ic-mini">${p.src.doc.split('.').pop().toUpperCase()}</td>
+          <td class="ic-mini">${v.v}</td><td class="ic-mini">${v.appr}</td><td class="ic-mini">${v.by}</td>
+          <td class="ic-mini">Archive</td><td style="text-align:right"><span class="extlink" onclick="toggleFilters()">View document</span></td></tr>`).join('')}
+      </tbody></table>
+      <div class="cardfoot">The original source artifact is never overwritten or discarded.</div></div>`;
+  }
+  return o;
+}
+
+function renderPolicies(el){
+  if(polSel){ el.innerHTML=polvDetail(); return; }
+  // Phase 1A: Library + Detail only. Ingestion, search and applicability are later phases.
+  let o=glHead('Policies',
+    'Enterprise policy library — one governed, authoritative record per policy, discoverable through many contexts, with every source document preserved.',
+    glActions);
+  o+=polvLibrary();
+  el.innerHTML=o;
+}
+
 function renderAdmin(){
   const el=$('view-admin'); if(!el)return;
+  if(LENS==='ledger'){ renderPolicies(el); return; }   // Accounting > Policies; admin lens keeps Settings below
   let h=`<div class="card">
     <h2>Capitalization policy<span class="note">the thresholds every determination is tested against</span></h2>
     <div class="subhead">These thresholds drive the readiness rules in Fixed Assets and the exceptions in Issues.
@@ -12172,6 +12814,7 @@ const TAB_PIPELINES={
     {id:'pull',     label:'Pull forward',   n:()=>ccxPullForward().filter(x=>x.earliest==='Now').length, q:false},
     {id:'block',    label:'Blockers',       n:()=>ccxBlockers().length, q:true},
   ], get:()=>ccSub, set:'setCcSub' },
+  // Accounting > Policies (Phase 1A) is a single Library + Detail view — no sub-nav.
   // Accounting Issues (ledger lens only) gains a light 3-tab strip in Phase 2 so the
   // precedent library and recurring patterns don't clutter the matters queue.
   'ledger:issues':{ steps:[
@@ -12282,6 +12925,8 @@ const VIEW_META={
   'ledger:issues':{t:'Accounting Issues',c:'Judgment · research · analysis · conclusion · approval',depth:4},
   archives:{t:'Archives',c:'Locked periods · retained determination evidence',depth:3},
   admin:{t:'Admin',c:'Capitalization policy · thresholds, roles, sign-off matrix',depth:2},
+  // Lens-scoped override — Accounting's Policies is the governed repository, not admin settings.
+  'ledger:admin':{t:'Policies',c:'Enterprise policy repository and governance library',depth:4},
   overview:{t:'Overview',c:'Four-measure budget-vs-actual · cash-anchored ceiling',depth:5},
   lifecycle:{t:'Property lifecycle',c:'Stage → Market → Site · the portfolio in motion',depth:5},
   pis:{t:'Placed-in-service',c:'Campus → Hall · CIP carve into depreciating assets',depth:4},
@@ -12797,6 +13442,20 @@ const CP_CARDS={
   },
   /* Accounting Issues is shared with the standalone Issues lens. Returning null outside
      the ledger lens falls through to defaults, leaving that lens untouched. */
+  // Accounting > Policies (ledger lens only; standalone Admin lens falls through to defaults).
+  admin: ()=>{
+    if(LENS!=='ledger') return null;
+    const K=polKpi(), p=polSel?polById(polSel):null;
+    if(p){ return [
+      {t:'What changed in the latest version?', s:p.gov.version+' · '+(p.versions[0]?p.versions[0].summary.slice(0,32)+'…':''), i:'delta'},
+      {t:'Which entities does this policy apply to?', s:polApplicSummary(p), i:'search'},
+      {t:'Show the original source document', s:p.src.doc, i:'list'}];
+    }
+    return [
+      {t:'Show the current capitalization policy', s:'ACC-CAP-001 · active', i:'search'},
+      {t:'Show policies requiring review', s:K.reviewDue.length+' review due · '+K.review.length+' in review', i:'warn'},
+      {t:'Which policies apply to Germany?', s:'global + regional + local', i:'list'}];
+  },
   issues: ()=>{
     if(LENS!=='ledger') return null;
     const K=amKpi(), m=amSel?amMatById(amSel):null;
@@ -12846,6 +13505,21 @@ const CP_CARDS={
 function cpContext(){
   // Accounting > Exceptions (shared tab id — only when the ledger lens is active).
   // Accounting > Issues (shared tab id — only in the ledger lens).
+  // Accounting > Policies (shared tab id — only in the ledger lens).
+  if(TAB==='admin' && LENS==='ledger'){
+    const f=[];
+    if(polSel){ const p=polById(polSel); if(p) f.push(p.id+' · '+p.nm+(polTab!=='overview'?' · '+polTab:'')); }
+    else {
+      f.push('policy library');
+      if(polfCat!=='all') f.push(POL_CATN[polfCat]);
+      if(polfStatus!=='all') f.push(POL_ST[polfStatus].l);
+      if(polfOwn!=='all') f.push(polfOwn);
+      if(polfFund!=='all') f.push(polfFund);
+      if(polfRegion!=='all') f.push(polfRegion);
+      if(polQuery) f.push('search "'+polQuery+'"');
+    }
+    return 'Looking at: '+f.join(' · ')+' · '+polKpi().active.length+' active policies';
+  }
   if(TAB==='issues' && LENS==='ledger'){
     const f=[];
     if(amSel){ const m=amMatById(amSel); if(m) f.push(m.id+' · '+AM_TOPN[m.top]); }
