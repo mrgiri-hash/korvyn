@@ -927,6 +927,18 @@ footer b{color:var(--muted)}
 .ax-cat-d{font-size:11px;color:var(--hint);margin-top:2px}
 .ax-cat-f{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px}
 
+/* ---- POLICIES: detail two-column layout (main + related sidebar) ---- */
+.pol-2col{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media(max-width:1000px){.pol-2col{grid-template-columns:1fr}}
+.pol-rel{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);padding:4px 0;position:sticky;top:14px}
+.pol-rel h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:12px 15px 8px;margin:0}
+.pol-rel a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 15px;font-size:12.5px;
+  color:var(--ink);cursor:pointer;border-top:1px solid var(--line);transition:.12s}
+.pol-rel a:hover{background:var(--bg2)}
+.pol-rel a .n{font-family:var(--num);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.pol-sec{margin-bottom:16px}
+.pol-sec .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:5px}
+
 .cc-trend{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
 .cc-spark{flex:1 1 300px;min-width:0;height:132px}
 .cc-trend-side{flex:0 0 190px;min-width:0}
@@ -11769,12 +11781,12 @@ function polLibFilterBar(){
   </div></div>`;
 }
 
-// ---------------- Policy detail (progressive-disclosure tabs) ----------------
+// ---------------- Policy detail (4 tabs + related sidebar) ----------------
 function polvDetail(){
   const p=polById(polSel); if(!p) return '';
-  const kv=(l,v)=>`<tr><td class="note" style="margin:0;width:180px">${l}</td><td>${v}</td></tr>`;
   const chain=polParentChain(p), kids=polChildren(p.id);
   const cur=p.versions.find(v=>v.status==='current')||p.versions[0];
+  if(!['overview','applic','versions','source'].includes(polTab)) polTab='overview';
   let o=`<div class="gl-hd"><div class="grow">
       <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="polBack()">&#8592; Policy library</span></div>
       <h1>${p.nm}</h1>
@@ -11783,172 +11795,100 @@ function polvDetail(){
 
   // header facts
   o+=`<div class="statrow">
-    <div class="stat"><div class="sl">Status</div><div class="sv" style="font-size:14px;padding-top:4px">${polPill(POL_ST,p.gov.status)}</div>
-      <div class="sd">${p.owner}</div></div>
-    <div class="stat"><div class="sl">Current version</div><div class="sv" style="font-size:15px;padding-top:4px">${p.gov.version}</div>
-      <div class="sd">${p.versions.length} version${p.versions.length===1?'':'s'}</div></div>
-    <div class="stat"><div class="sl">Effective</div><div class="sv" style="font-size:14px;padding-top:4px">${p.gov.eff}</div>
-      <div class="sd">approved ${p.gov.appr}</div></div>
-    <div class="stat"><div class="sl">Next review</div>
-      <div class="sv" style="font-size:14px;padding-top:4px" ${polReviewDue(p)?'':''}>${p.gov.nextRev}</div>
-      <div class="sd" ${polReviewDue(p)?'style="color:var(--warn)"':''}>${p.gov.nextRev==='—'?'—':polReviewDue(p)?'review due':'every '+p.gov.freq.toLowerCase()}</div></div>
-    <div class="stat"><div class="sl">Policy level</div><div class="sv" style="font-size:13px;padding-top:5px">${polLevelL(p.level)}</div>
-      <div class="sd">${p.parent?'under '+p.parent:'top-level'}</div></div>
+    <div class="stat"><div class="sl">Status</div><div class="sv" style="font-size:14px;padding-top:4px">${polPill(POL_ST,p.gov.status)}</div><div class="sd">${p.owner}</div></div>
+    <div class="stat"><div class="sl">Version</div><div class="sv" style="font-size:15px;padding-top:4px">${p.gov.version}</div><div class="sd">${p.versions.length} version${p.versions.length===1?'':'s'}</div></div>
+    <div class="stat"><div class="sl">Effective</div><div class="sv" style="font-size:14px;padding-top:4px">${p.gov.eff}</div><div class="sd">approved ${p.gov.appr}</div></div>
+    <div class="stat"><div class="sl">Next review</div><div class="sv" style="font-size:14px;padding-top:4px">${p.gov.nextRev}</div><div class="sd" ${polReviewDue(p)?'style="color:var(--warn)"':''}>${p.gov.nextRev==='—'?'—':polReviewDue(p)?'review due':'every '+p.gov.freq.toLowerCase()}</div></div>
+    <div class="stat"><div class="sl">Policy level</div><div class="sv" style="font-size:13px;padding-top:5px">${polLevelL(p.level)}</div><div class="sd">${p.parent?'under '+p.parent:'top-level'}</div></div>
   </div>`;
 
-  // progressive-disclosure tabs
+  // ---- main column: tabs ----
   const tab=(id,l)=>`<button class="${polTab===id?'on':''}" onclick="setPolTab('${id}')">${l}</button>`;
-  o+=`<div class="segbar">${tab('overview','Overview')}${tab('content','Policy content')}${tab('applic','Applicability')}${tab('versions','Versions')}${tab('related','Related items')}${tab('source','Source documents')}</div>`;
+  let main=`<div class="segbar">${tab('overview','Overview')}${tab('applic','Applicability')}${tab('versions','Versions')}${tab('source','Source documents')}</div>`;
 
   if(polTab==='overview'){
-    o+=`<div class="card"><h2>Overview</h2>
-      <table class="tbl"><tbody>
-        ${kv('Policy purpose',p.purpose)}
-        ${kv('Policy owner',p.owner)}
-        ${kv('Primary category',POL_CATN[p.cat])}
-        ${kv('Related categories',p.rel.map(c=>`<span class="pill sm">${POL_CATN[c]}</span>`).join(' ')||'&#8211;')}
-        ${kv('Tags',(p.tags||[]).map(t=>`<span class="pill sm">${t}</span>`).join(' ')||'&#8211;')}
-        ${kv('Policy level',polLevelL(p.level))}
-        ${kv('Current version',p.gov.version+' &#183; effective '+p.gov.eff)}
-        ${kv('Next review date',p.gov.nextRev)}
-        ${kv('Status',polPill(POL_ST,p.gov.status))}
-      </tbody></table></div>
-    <div class="card"><h2>Applicability summary</h2>
-      <div class="subhead" style="margin:0">${p.scope.applies==='enterprise'
-        ? 'Global policy applicable to all legal entities'+(p.scope.exc.length?', except '+p.scope.exc.join(', '):'')+(kids.length?', with '+kids.length+' regional/local addend'+(kids.length===1?'um':'a')+'.':'.')
-        : 'Applies to '+p.scope.inc.join(', ')+(chain.length?' — under '+chain.map(c=>c.nm).join(' → ')+'.':'.')}</div></div>
-    <div class="card"><h2>Governance</h2>
-      <div class="subhead">Draft &#8594; In review &#8594; Pending approval &#8594; Active &#8594; Superseded / Retired.</div>
-      <div class="ic-spine">
-        ${['draft','review','appr','active','superseded'].map(s=>{const map={draft:'draft',review:'review',appr:'appr',active:'active',superseded:'superseded'};
-          const on=p.gov.status===s||(s==='active'&&(p.gov.status==='active'))||(s==='superseded'&&(p.gov.status==='retired'));
-          const passed=['draft','review','appr','active'].indexOf(p.gov.status)>=['draft','review','appr','active'].indexOf(s);
-          return `<div class="ic-stg ${p.gov.status===s?'open':passed&&p.gov.status==='active'?'done':''}">
-          <div class="sl">${POL_ST[s].l}</div><div class="sv">${p.gov.status===s?'current':''}</div></div>`;}).join('')}
-      </div>
-      <table class="tbl" style="margin-top:12px"><tbody>
-        ${kv('Owner',p.owner)}${kv('Reviewer',p.gov.reviewer)}${kv('Approver',p.gov.approver)}
-        ${kv('Effective date',p.gov.eff)}${kv('Review frequency',p.gov.freq)}${kv('Next review date',p.gov.nextRev)}
-      </tbody></table></div>`;
-  }
-
-  if(polTab==='content'){
-    const sec=(l,body)=>body?`<div style="margin-bottom:14px"><div class="subhead" style="font-weight:600;color:var(--ink);margin-bottom:5px">${l}</div>${body}</div>`:'';
-    const list=arr=>arr&&arr.length?`<ul class="ic-mini" style="margin:0;padding-left:18px;line-height:1.8">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>`:'';
     const C=p.content;
-    o+=`<div class="card"><h2>Standardized policy record ${p.aiEx?polAI:polApproved}</h2>
-      <div class="subhead">Korvyn's standardized representation of the policy. ${p.aiEx
-        ? 'Some content is AI-extracted and awaiting the policy owner&#39;s validation — it is not yet approved.'
-        : 'This record has been validated by the policy owner.'}</div>
+    const list=arr=>arr&&arr.length?`<ul class="ic-mini" style="margin:0;padding-left:18px;line-height:1.8">${arr.map(x=>`<li>${x}</li>`).join('')}</ul>`:'<div class="ic-mini" style="color:var(--faint)">None.</div>';
+    const sec=(l,body)=>`<div class="pol-sec"><div class="lbl">${l}</div>${body}</div>`;
+    main+=`<div class="card"><h2>Policy summary ${p.aiEx?polAI:polApproved}</h2>
       ${sec('Purpose',`<div class="ic-mini">${C.purpose}</div>`)}
       ${sec('Scope',`<div class="ic-mini">${C.scope}</div>`)}
-      ${sec('Definitions',list(C.defs))}
-      ${sec('Policy requirements',list(C.reqs))}
-      ${sec('Key principles',list(C.principles))}
-      ${sec('Roles &amp; responsibilities',list(C.roles))}
-      ${sec('Exceptions',C.exceptions&&C.exceptions.length?list(C.exceptions):'<div class="ic-mini" style="color:var(--faint)">None.</div>')}
-      ${sec('Related controls',list(C.controls))}
-      ${sec('Related procedures',C.procedures&&C.procedures.length?list(C.procedures):'<div class="ic-mini" style="color:var(--faint)">None.</div>')}
+    </div>
+    <div class="card"><h2>Principles &amp; responsibilities</h2>
+      <div class="grid2gl">
+        <div>${sec('Key principles',list(C.principles))}</div>
+        <div>${sec('Roles &amp; responsibilities',list(C.roles))}</div>
+      </div>
+      ${sec('Related procedures',list(C.procedures))}
+      ${sec('Policy notes',list((C.reqs||[]).concat(C.exceptions&&C.exceptions.length?['Exception: '+C.exceptions.join('; ')]:[])))}
     </div>`;
   }
 
   if(polTab==='applic'){
     const s=p.scope;
-    const grp=(l,arr,cls)=>`<tr><td class="note" style="margin:0;width:180px">${l}</td>
-      <td>${arr&&arr.length?arr.map(x=>`<span class="pill sm ${cls||''}">${x}</span>`).join(' '):'<span class="ic-mini" style="color:var(--faint)">&#8211;</span>'}</td></tr>`;
-    o+=`<div class="card"><h2>Applicability<span class="note">where this policy applies</span></h2>
-      <div class="subhead">Included and excluded scope. A full applicability engine is a later phase — this is the
-        governed data structure and view.</div>
+    const projByCat={cap:['Data-centre construction','Fit-out'],cip:['Data-centre construction'],pis:['Data-centre construction'],lease:['Ground lease','Office lease'],rev:['Colocation','Hyperscale'],fa:['Capital projects'],ic:['Intra-group services'],fx:['Cross-border'],imp:['All projects'],finrep:['All projects'],cash:['All projects'],dep:['Capital projects']};
+    const assetByCat={cap:['Buildings','M&amp;E','Fit-out'],cip:['Construction in progress'],fa:['PP&amp;E'],dep:['Depreciable PP&amp;E'],lease:['ROU assets'],rev:['&#8211;'],ic:['Intercompany balances'],fx:['Monetary balances'],imp:['Goodwill','Long-lived assets'],finrep:['All'],cash:['Cash &amp; equivalents']};
+    const proj=projByCat[p.cat]||['Various'], assets=assetByCat[p.cat]||['All asset classes'];
+    const row=(l,arr,cls)=>`<tr><td class="note" style="margin:0;width:190px">${l}</td><td>${arr&&arr.length?arr.map(x=>`<span class="pill sm ${cls||''}">${x}</span>`).join(' '):'<span class="ic-mini" style="color:var(--faint)">&#8211;</span>'}</td></tr>`;
+    main+=`<div class="card"><h2>Applies to</h2>
+      <div class="subhead">Where this policy applies, shown from the governed data structure — no applicability logic is run.</div>
       <table class="tbl"><tbody>
-        <tr><td class="note" style="margin:0;width:180px">Applies to</td><td><b>${s.applies==='enterprise'?'Entire enterprise':'Specific legal entities'}</b></td></tr>
-        ${grp('Included entities',s.inc,'good')}
-        ${grp('Excluded entities',s.exc,'flag')}
-        ${grp('Regions',s.regions)}
-        ${grp('Countries / jurisdictions',s.jur)}
-        ${grp('Funds',s.funds)}
-        ${grp('Business units',s.bu)}
-        ${grp('Accounting frameworks',s.frameworks)}
+        <tr><td class="note" style="margin:0;width:190px">Enterprise</td><td>${s.applies==='enterprise'?'<span class="pill good sm">Entire enterprise</span>':'<span class="ic-mini">Specific legal entities</span>'}</td></tr>
+        ${row('Legal entities',s.inc,'good')}
+        ${row('Funds',s.funds)}
+        ${row('Business units',s.bu)}
+        ${row('Regions',s.regions)}
+        ${row('Countries / jurisdictions',s.jur)}
+        ${row('Accounting framework',s.frameworks)}
+        ${row('Project types',proj)}
+        ${row('Asset classes',assets)}
+      </tbody></table></div>
+    <div class="card"><h2>Excluded &amp; local guidance</h2>
+      <table class="tbl"><tbody>
+        ${row('Excluded entities',s.exc,'flag')}
+        <tr><td class="note" style="margin:0;width:190px">Related local guidance</td><td>${kids.length?kids.map(c=>`<span class="pill sm row-click" onclick="setPolSel('${c.id}')" style="cursor:pointer">${c.nm}</span>`).join(' '):'<span class="ic-mini" style="color:var(--faint)">&#8211;</span>'}</td></tr>
       </tbody></table></div>`;
-    if(chain.length||kids.length){
-      o+=`<div class="card"><h2>Policy hierarchy</h2>
-        <div class="subhead">Related local guidance sits under the global policy. The global policy governs; addenda narrow it.</div>
-        <div class="ic-spine">
-          ${chain.map(c=>`<div class="ic-stg done" onclick="setPolSel('${c.id}')" style="cursor:pointer"><div class="sl">${polLevelL(c.level)}</div><div class="sv">${c.id}</div></div>`).join('')}
-          <div class="ic-stg open"><div class="sl">${polLevelL(p.level)} · this policy</div><div class="sv">${p.id}</div></div>
-          ${kids.map(c=>`<div class="ic-stg" onclick="setPolSel('${c.id}')" style="cursor:pointer"><div class="sl">${polLevelL(c.level)}</div><div class="sv">${c.id}</div></div>`).join('')}
-        </div>
-        ${kids.length?`<div class="cardfoot">Related local guidance: ${kids.map(c=>`<span class="extlink" onclick="setPolSel('${c.id}')">${c.nm}</span>`).join(' · ')}</div>`:''}</div>`;
-    }
   }
 
   if(polTab==='versions'){
-    o+=`<div class="card"><h2>Version history<span class="note">${p.versions.length} versions</span></h2>
-      <div class="subhead">Historical approved versions are never overwritten — they remain accessible so you can
-        establish what policy was effective on any given date.</div>
-      <table class="tbl"><thead><tr><th>Version</th><th>Effective date</th><th>Approval date</th>
-        <th>Approved by</th><th>Change summary</th><th>Status</th></tr></thead><tbody>
-      ${p.versions.map(v=>`<tr ${v.status==='current'?'style="background:var(--pos-bg)"':''}>
-        <td><b>${v.v}</b></td><td class="ic-mini">${v.eff}</td><td class="ic-mini">${v.appr}</td>
-        <td class="ic-mini">${v.by}</td><td class="ic-mini">${v.summary}</td>
-        <td>${polPill(POL_VST,v.status)}</td></tr>`).join('')}
+    main+=`<div class="card"><h2>Version history<span class="note">${p.versions.length} versions</span></h2>
+      <div class="subhead">Historical approved versions are retained so you can establish what policy was effective on any date.</div>
+      <table class="tbl"><thead><tr><th>Version</th><th>Effective date</th><th>Approved by</th><th>Status</th><th>Change summary</th></tr></thead><tbody>
+      ${p.versions.map(v=>`<tr ${v.status==='current'?'style="background:var(--pos-bg)"':''}><td><b>${v.v}</b></td><td class="ic-mini">${v.eff}</td><td class="ic-mini">${v.by}</td><td>${polPill(POL_VST,v.status)}</td><td class="ic-mini">${v.summary}</td></tr>`).join('')}
       </tbody></table>
-      <div class="cardfoot">Current effective version: <b>${cur.v}</b> (${cur.eff})</div></div>`;
-  }
-
-  if(polTab==='related'){
-    const R=p.refs;
-    const issues=(R.relIssues||[]).map(id=>({id,m:(typeof amMatById==='function')?amMatById(id):null}));
-    const precs=(R.relPrecedents||[]).map(id=>({id,m:(typeof amMatById==='function')?amMatById(id):null}));
-    const linkRow=(id,m,kind)=>`<tr class="row-click" onclick="pickTab('issues');setAmSel('${id}')">
-      <td><b>${id}</b><div class="note" style="margin:0">${m?m.t:kind}</div></td>
-      <td class="ic-mini">${m?(typeof AM_TOPN!=='undefined'?AM_TOPN[m.top]:''):''}</td>
-      <td style="text-align:right"><span class="extlink">Open</span></td></tr>`;
-    o+=`<div class="grid2gl">
-      <div class="card" style="margin:0"><h2>Related accounting issues<span class="note">${issues.length}</span></h2>
-        ${issues.length?`<div class="subhead">Open questions and conclusions that reference this policy.</div>
-          <table class="tbl"><tbody>${issues.map(x=>linkRow(x.id,x.m,'Accounting issue')).join('')}</tbody></table>`
-          :'<div class="subhead" style="margin:0">No related accounting issues.</div>'}</div>
-      <div class="card" style="margin:0"><h2>Related precedents<span class="note">${precs.length}</span></h2>
-        ${precs.length?`<div class="subhead">Approved prior conclusions on this policy&#39;s topic.</div>
-          <table class="tbl"><tbody>${precs.map(x=>linkRow(x.id,x.m,'Precedent')).join('')}</tbody></table>`
-          :'<div class="subhead" style="margin:0">No related precedents.</div>'}</div>
-    </div>
-    <div class="grid2gl">
-      <div class="card" style="margin:0"><h2>Related policies<span class="note">${(R.relPolicies||[]).length}</span></h2>
-        ${(R.relPolicies||[]).length?`<table class="tbl"><tbody>
-          ${R.relPolicies.map(id=>{const rp=polById(id);return `<tr class="row-click" onclick="setPolSel('${id}')">
-            <td><b>${id}</b><div class="note" style="margin:0">${rp?rp.nm:''}</div></td>
-            <td style="text-align:right"><span class="extlink">Open</span></td></tr>`;}).join('')}
-        </tbody></table>`:'<div class="subhead" style="margin:0">No related policies.</div>'}</div>
-      <div class="card" style="margin:0"><h2>Controls &amp; processes</h2>
-        <div class="subhead">Where this policy is operationalized.</div>
-        <table class="tbl"><tbody>
-          <tr><td class="note" style="margin:0;width:150px">Related controls</td><td class="ic-mini">${(p.content.controls||[]).join('; ')||'&#8211;'}</td></tr>
-          <tr><td class="note" style="margin:0">Related procedures</td><td class="ic-mini">${(p.content.procedures||[]).join('; ')||'&#8211;'}</td></tr>
-          <tr><td class="note" style="margin:0">Accounting guidance</td><td>${(R.guidance||[]).map(g=>`<span class="pill sm">${g}</span>`).join(' ')||'&#8211;'}</td></tr>
-        </tbody></table>
-        <div class="cardfoot"><span class="extlink" onclick="pickTab('exceptions')">Exceptions</span>
-          <span class="extlink" onclick="pickTab('issues')">Accounting Issues</span></div></div>
-    </div>`;
+      <div class="cardfoot">Current effective version: <b>${cur.v}</b> (${cur.eff}) &#183; versions can be compared in a later phase</div></div>`;
   }
 
   if(polTab==='source'){
-    o+=`<div class="card"><h2>Source documents<span class="note">original artifacts preserved</span></h2>
-      <div class="subhead">Korvyn preserves the original approved source document for every version. The standardized
-        record is derived from these — it never replaces them.</div>
-      <table class="tbl"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Upload date</th>
-        <th>Uploaded by</th><th>Source location</th><th></th></tr></thead><tbody>
-        <tr><td><b class="ic-mini">${p.src.doc}</b></td><td class="ic-mini">${p.src.doc.split('.').pop().toUpperCase()}</td>
-          <td class="ic-mini">v${p.src.srcVer}</td><td class="ic-mini">${p.src.uploadDate}</td>
-          <td class="ic-mini">${p.src.uploadedBy}</td><td class="ic-mini">${p.src.srcLoc}</td>
-          <td style="text-align:right"><span class="extlink" onclick="toggleFilters()">View document</span></td></tr>
-        ${p.versions.filter(v=>v.status!=='current').map(v=>`<tr>
-          <td class="ic-mini" style="color:var(--faint)">${p.nm} ${v.v} (source)</td><td class="ic-mini">${p.src.doc.split('.').pop().toUpperCase()}</td>
-          <td class="ic-mini">${v.v}</td><td class="ic-mini">${v.appr}</td><td class="ic-mini">${v.by}</td>
-          <td class="ic-mini">Archive</td><td style="text-align:right"><span class="extlink" onclick="toggleFilters()">View document</span></td></tr>`).join('')}
+    const typ=p.src.doc.split('.').pop().replace(/\)$/,'').toUpperCase();
+    main+=`<div class="card"><h2>Source documents<span class="note">authoritative reference</span></h2>
+      <div class="subhead">The original approved document is the authoritative reference. The standardized record is derived from it and never replaces it.</div>
+      <table class="tbl"><thead><tr><th>Document name</th><th>Version</th><th>Type</th><th>Uploaded by</th><th>Uploaded date</th><th>Status</th><th></th></tr></thead><tbody>
+        <tr><td><b class="ic-mini">${p.src.doc}</b></td><td class="ic-mini">v${p.src.srcVer}</td><td class="ic-mini">${typ}</td><td class="ic-mini">${p.src.uploadedBy}</td><td class="ic-mini">${p.src.uploadDate}</td><td>${polPill(POL_VST,'current')}</td>
+          <td style="text-align:right;white-space:nowrap"><span class="extlink" onclick="toggleFilters()">View</span> &#183; <span class="extlink" onclick="toggleFilters()">Download</span></td></tr>
+        ${p.versions.filter(v=>v.status!=='current').map(v=>`<tr><td class="ic-mini" style="color:var(--faint)">${p.nm} ${v.v} (source)</td><td class="ic-mini">${v.v}</td><td class="ic-mini">${typ}</td><td class="ic-mini">${v.by}</td><td class="ic-mini">${v.appr}</td><td>${polPill(POL_VST,v.status)}</td><td style="text-align:right;white-space:nowrap"><span class="extlink" onclick="toggleFilters()">View</span> &#183; <span class="extlink" onclick="toggleFilters()">Download</span></td></tr>`).join('')}
       </tbody></table>
       <div class="cardfoot">The original source artifact is never overwritten or discarded.</div></div>`;
   }
+
+  // ---- related sidebar (counts + simple links) ----
+  const R=p.refs;
+  const exCount=(R.relIssues||[]).filter(id=>{const m=(typeof amMatById==='function')?amMatById(id):null; return m&&m.fromExc;}).length;
+  const relRow=(l,n,go)=>`<a ${go?`onclick="${go}"`:''} ${go?'':'style="cursor:default"'}><span>${l}</span><span class="n">${n}</span></a>`;
+  const recRow=(id,ty,go)=>`<a onclick="${go}"><span>${id}</span><span class="n" style="font-weight:400;font-size:11px;color:var(--faint)">${ty}</span></a>`;
+  const rel=`<div class="pol-rel"><h3>Related information</h3>
+    ${relRow('Accounting issues',(R.relIssues||[]).length,(R.relIssues||[]).length?"pickTab('issues')":'')}
+    ${relRow('Accounting precedents',(R.relPrecedents||[]).length,(R.relPrecedents||[]).length?"pickTab('issues')":'')}
+    ${relRow('Exceptions',exCount,exCount?"pickTab('exceptions')":'')}
+    ${relRow('Related policies',(R.relPolicies||[]).length,(R.relPolicies||[]).length?`setPolSel('${(R.relPolicies||[])[0]}')`:'')}
+    ${relRow('Controls',(p.content.controls||[]).length,(p.content.controls||[]).length?"pickTab('exceptions')":'')}
+    ${((R.relIssues||[]).length||(R.relPrecedents||[]).length||(R.relPolicies||[]).length)?'<h3 style="border-top:1px solid var(--line)">Linked records</h3>':''}
+    ${(R.relIssues||[]).map(id=>recRow(id,'issue',`pickTab('issues');setAmSel('${id}')`)).join('')}
+    ${(R.relPrecedents||[]).map(id=>recRow(id,'precedent',`pickTab('issues');setAmSel('${id}')`)).join('')}
+    ${(R.relPolicies||[]).map(id=>recRow(id,'policy',`setPolSel('${id}')`)).join('')}
+  </div>`;
+
+  o+=`<div class="pol-2col"><div>${main}</div>${rel}</div>`;
   return o;
 }
 
