@@ -104,13 +104,33 @@ There is no separate CSS/JS file. Edits happen in place.
   **`dataroom` is a different thing**: an existing *tab* in Home. Do not conflate them.
   Data Room is an evidence & diligence workspace — requests and evidence linkages, **never a
   folder tree**; evidence points at source records rather than replacing them.
-  **Overview** (`renderDrOver`) and **Requests** (`renderDrReq` + `drReqDetail`) are built;
-  Evidence / Workspaces / External Access are still `renderDrStub` placeholders showing live
-  counts. `DR_ITEMS` is the important structure: an evidence item is a claim plus `links[]`
-  to real records, and those links resolve to actual policies (`ACC-CAP-001`) and accounting
-  conclusions (`AI-2026-011`) — keep them resolving if you renumber anything.
+  **Overview** (`renderDrOver`), **Requests** (`renderDrReq` + `drReqDetail`) and **Evidence**
+  (`renderDrEvid`) are built; Workspaces / External Access are still `renderDrStub` placeholders
+  showing live counts. `DR_ITEMS` is the important structure: an evidence item is a claim plus
+  `links[]` to real records, and those links resolve to actual policies (`ACC-CAP-001`) and
+  accounting conclusions (`AI-2026-011`) — keep them resolving if you renumber anything. A sweep
+  that executes all 18 distinct `go` strings and asserts the destination view renders is the
+  cheap way to prove that; it is worth re-running after any renumbering.
   A request's `items`/`done` are the aggregate; the detail enumerates a representative tracked
   subset and **says so on screen**. Do not "fix" that by inflating counts (see RECON_SCALE).
+  **Evidence** is a 4-step pipeline (`TAB_PIPELINES.drevid`: `reg|link|gaps|act`, `drevSub`) plus
+  an item detail (`drevSel` → `drevDetail`). Everything derives from `DR_ITEMS`; the sub-views are
+  `drevRegister` / `drevLinkage` / `drevGapView` / `drevActivity`. Three things there are
+  deliberate and should survive edits:
+  - **Two populations, never bridged.** Page figures count the 33 *tracked* items in `DR_ITEMS`;
+    the request aggregate is 1,116 items / 850 done. Both appear, each labelled, and the "Where
+    the gaps sit" cardfoot says outright that the two are not reconciled. Do not scale either
+    into the other.
+  - **One lateness rule, `drevLate(i)`** — past due and not yet accepted. It deliberately covers
+    provided-and-unreviewed items, so `EV-4211` (in review, 22 days past due) reads as late. The
+    5 late items partition cleanly: 3 are counterparty gaps in `drevGaps()`, 2 are ours and get
+    their own "Provided but not yet accepted" card. An earlier version keyed lateness off
+    `drevOpen` and silently showed those 2 as on time, and the detail view labelled an in-review
+    item "closed".
+  - **`drevRecords()` is the cross-request payoff** the Requests page cannot show: a record is
+    identified by the text before the first ` · ` separator, so `ACC-06` and
+    `ACC-06 · Capitalized Labor` are one record cited twice — and `ACC-06` turns out to be
+    load-bearing for both an investor-diligence and a SOX request. The rule is stated on screen.
   **Known, pre-existing, not a Data Room bug:** at ~1085px client width every page reports
   scrollWidth 1141 — the offender is `#copilot`, the collapsed Ask Korvyn strip. Ask Korvyn is
   out of scope to modify, so this is left alone.

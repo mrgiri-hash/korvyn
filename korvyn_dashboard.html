@@ -10181,9 +10181,10 @@ function renderDocuments(){
    Korvyn is not the ERP. Evidence here points AT source records (ERP documents, contracts,
    Korvyn accounting conclusions) rather than replacing them.
 
-   Phase 1 = module entry + contextual left nav + Overview. Requests / Evidence / Workspaces /
-   External Access are lightweight placeholders pending later increments. Every figure on the
-   Overview derives from DR_REQUESTS / DR_ACTIVITY / DR_EXT — no separate metric store.        */
+   Built: Overview, Requests (list + request detail), Evidence (register / linkage / gaps /
+   activity + item detail). Workspaces and External Access are still lightweight placeholders
+   pending later increments. Every figure derives from DR_REQUESTS / DR_ITEMS / DR_ACTIVITY /
+   DR_EXT — no separate metric store.                                                          */
 
 const DR_ST={ prog:{l:'In Progress',c:''}, awaiting:{l:'Awaiting Evidence',c:'info'},
   review:{l:'Under Review',c:'ready'}, ready:{l:'Ready for Release',c:'good'}, overdue:{l:'Overdue',c:'flag'} };
@@ -10644,7 +10645,7 @@ function renderDrOver(){
           <div class="ic-mini" style="margin-top:2px">${a.d}</div>
           <div class="ic-mini" style="color:var(--faint);margin-top:3px">${a.ts} · ${a.who} · ${a.req}</div>
         </div></div>`).join('')}
-      <div class="cardfoot"><span class="extlink" onclick="pickTab('drevid')">All evidence activity</span></div></div>
+      <div class="cardfoot"><span class="extlink" onclick="pickTab('drevid');setDrevSub('act')">All evidence activity</span></div></div>
 
     <div class="card" style="margin:0"><h2>Attention required<span class="note">${A.length}</span></h2>
       <div class="subhead">What is blocking release, expiring, or still outstanding.</div>
@@ -10659,20 +10660,426 @@ function renderDrOver(){
   el.innerHTML=o;
 }
 
+// ---------------- Evidence workspace (register · linkage · gaps · activity) ----------------
+/* The module thesis made operational. An evidence item is a CLAIM plus links to source
+   records, so the questions this page answers are "what supports this?" and "what is
+   asserted but unsupported?" — never "what files were uploaded".
+
+   Honesty rule (see the RECON_SCALE note in CLAUDE.md): every figure here counts the TRACKED
+   items in DR_ITEMS. The request aggregate (r.items / r.done) is a larger population and is
+   always labelled as such on screen. Nothing is scaled to bridge the two. */
+const drevById=id=>DR_ITEMS.find(i=>i.id===id);
+const drevCats=()=>[...new Set(DR_ITEMS.map(i=>i.cat))].sort();
+const drevOwners=()=>[...new Set(DR_ITEMS.map(i=>i.own))].sort();
+const drevOpen=i=>i.st==='pending'||i.st==='rejected';
+/* One lateness rule for the whole page: an item is late if its due date has passed and it is
+   not yet accepted. Provided-and-unreviewed still counts — until the support is accepted the
+   request cannot lean on it, and the delay has simply moved to our side of the exchange. */
+const drevLate=i=>i.st!=='accepted'&&drDays(i.due)<0;
+/* A link's record identifier is the text before the first separator, so "ACC-06" and
+   "ACC-06 &#183; Capitalized Labor" resolve to one record cited twice. */
+const drevRecId=l=>l.v.split(' · ')[0].trim();
+
+function drevKpi(){
+  const I=DR_ITEMS;
+  return {tracked:I.length,
+    accepted:I.filter(i=>i.st==='accepted').length,
+    inflight:I.filter(i=>i.st==='review'||i.st==='provided').length,
+    open:I.filter(drevOpen),
+    returned:I.filter(i=>i.st==='rejected').length,
+    linked:I.filter(i=>i.links.length),
+    unlinked:I.filter(i=>!i.links.length),
+    links:I.reduce((s,i)=>s+i.links.length,0),
+    reqItems:DR_REQUESTS.reduce((s,r)=>s+r.items,0),
+    reqDone:DR_REQUESTS.reduce((s,r)=>s+r.done,0)};
+}
+/* Coverage by source system — which kinds of record the evidence actually reaches into. */
+function drevLinkRoll(){
+  return Object.keys(DR_LINK).map(k=>{
+    const items=DR_ITEMS.filter(i=>i.links.some(l=>l.k===k));
+    return {k, l:DR_LINK[k], items:items.length, reqs:new Set(items.map(i=>i.req)).size,
+      links:DR_ITEMS.reduce((s,i)=>s+i.links.filter(l=>l.k===k).length,0)};
+  }).sort((a,b)=>b.links-a.links);
+}
+/* Load-bearing records: one source record cited by several evidence items, often across
+   different requests. This is the cross-request view the Requests page cannot show. */
+function drevRecords(){
+  const m={};
+  DR_ITEMS.forEach(i=>i.links.forEach(l=>{
+    const id=drevRecId(l);
+    if(!m[id]) m[id]={id, k:l.k, go:l.go, items:[], reqs:new Set()};
+    m[id].items.push(i); m[id].reqs.add(i.req);
+  }));
+  return Object.values(m).sort((a,b)=>b.reqs.size-a.reqs.size||b.items.length-a.items.length||a.id.localeCompare(b.id));
+}
+function drevCatRoll(){
+  return drevCats().map(c=>{const it=DR_ITEMS.filter(i=>i.cat===c);
+    return {c, n:it.length, acc:it.filter(i=>i.st==='accepted').length,
+      open:it.filter(drevOpen).length, links:it.reduce((s,i)=>s+i.links.length,0),
+      unl:it.filter(i=>!i.links.length).length};
+  }).sort((a,b)=>b.n-a.n);
+}
+/* The outstanding queue, ranked by how late it is. Returned items rank as critical
+   regardless of date — the support was reviewed and did not hold. */
+function drevGaps(){
+  return DR_ITEMS.filter(drevOpen).map(i=>{
+    const days=drDays(i.due);
+    return {...i, rq:drReqById(i.req), days,
+      sev:(i.st==='rejected'||days<0)?'crit':(days<=7?'warn':'info')};
+  }).sort((a,b)=>a.days-b.days);
+}
+
+let drevSub='reg', drevSel=null,
+    devfReq='all', devfCat='all', devfSt='all', devfLink='all', devfOwn='all', devQuery='';
+function setDrevSub(v){ drevSub=v; drevSel=null; renderAll(); navRepaint(); }
+function setDrevSel(v){ drevSel=v; renderAll(); }
+function drevBack(){ drevSel=null; renderAll(); }
+function setDrevF(k,v){ ({req:()=>devfReq=v,cat:()=>devfCat=v,st:()=>devfSt=v,
+  lk:()=>devfLink=v,own:()=>devfOwn=v}[k]||(()=>{}))(); renderAll(); }
+function setDrevQuery(v){ devQuery=v; renderAll(); }
+function drevReset(){ devfReq=devfCat=devfSt=devfLink=devfOwn='all'; devQuery=''; renderAll(); }
+const drevFiltered=()=>devfReq!=='all'||devfCat!=='all'||devfSt!=='all'||
+  devfLink!=='all'||devfOwn!=='all'||devQuery;
+function drevScope(){
+  const q=devQuery.trim().toLowerCase();
+  return DR_ITEMS.filter(i=>
+    (devfReq==='all'||i.req===devfReq) && (devfCat==='all'||i.cat===devfCat) &&
+    (devfSt==='all'||i.st===devfSt) && (devfOwn==='all'||i.own===devfOwn) &&
+    (devfLink==='all'||(devfLink==='none'?!i.links.length:i.links.some(l=>l.k===devfLink))) &&
+    (!q||(i.id+' '+i.t+' '+i.cat+' '+i.req+' '+i.links.map(l=>l.v).join(' ')).toLowerCase().includes(q)));
+}
+const drevChip=l=>`<span class="pill sm row-click" onclick="event.stopPropagation();${l.go}"
+  style="cursor:pointer" title="${DR_LINK[l.k]||l.k}">${l.v}</span>`;
+
+function renderDrEvid(){
+  const el=$('view-drevid'); if(!el)return;
+  if(drevSel){ el.innerHTML=drevDetail(); return; }
+  const K=drevKpi();
+  let o=glHead('Evidence',
+    'Every evidence item is a claim supported by links to source records — Korvyn holds the linkage and the state of the support, not the source of truth.',
+    `<button class="btn-out" onclick="toggleFilters()">${glIc('M2 3h12M4 8h8M6 13h4')}Filters</button>${glExport}`);
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Tracked items</div><div class="sv">${K.tracked}</div>
+      <div class="sd">across ${DR_REQUESTS.length} requests</div></div>
+    <div class="stat"><div class="sl">Accepted</div><div class="sv">${K.accepted}</div>
+      <div class="sd">support reviewed and held</div></div>
+    <div class="stat"><div class="sl">In flight</div><div class="sv">${K.inflight}</div>
+      <div class="sd">provided or under review</div></div>
+    <div class="stat row-click" onclick="setDrevSub('gaps')"><div class="sl">Outstanding</div>
+      <div class="sv ${K.open.length?'neg':''}">${K.open.length}</div>
+      <div class="sd">${K.returned} returned after review</div></div>
+    <div class="stat row-click" onclick="setDrevSub('link')"><div class="sl">Source links</div>
+      <div class="sv">${K.links}</div>
+      <div class="sd">${K.unlinked.length} item${K.unlinked.length===1?'':'s'} unsupported</div></div>
+  </div>`;
+
+  if(drevSub==='reg')  o+=drevRegister();
+  if(drevSub==='link') o+=drevLinkage();
+  if(drevSub==='gaps') o+=drevGapView();
+  if(drevSub==='act')  o+=drevActivity();
+  el.innerHTML=o;
+}
+
+/* ---- Register: the cross-request evidence book ---- */
+function drevRegister(){
+  const K=drevKpi(), rows=drevScope();
+  const sel=(k,cur,opts)=>`<select onchange="setDrevF('${k}',this.value)">${opts.map(x=>
+    `<option value="${x[0]}" ${x[0]===cur?'selected':''}>${x[1]}</option>`).join('')}</select>`;
+  let o=`<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Search</label><input type="text" value="${devQuery.replace(/"/g,'&quot;')}"
+      placeholder="Item, category, record" oninput="setDrevQuery(this.value)" style="min-width:190px"></div>
+    <div class="grp"><label>Request</label>${sel('req',devfReq,[['all','All requests'],
+      ...DR_REQUESTS.map(r=>[r.id,r.id+' · '+r.ty])])}</div>
+    <div class="grp"><label>Category</label>${sel('cat',devfCat,[['all','All categories'],...drevCats().map(c=>[c,c])])}</div>
+    <div class="grp"><label>Status</label>${sel('st',devfSt,[['all','All statuses'],
+      ...Object.keys(DR_IST).map(k=>[k,DR_IST[k].l])])}</div>
+    <div class="grp"><label>Supported by</label>${sel('lk',devfLink,[['all','Any source'],
+      ...Object.keys(DR_LINK).map(k=>[k,DR_LINK[k]]),['none','No link yet']])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',devfOwn,[['all','All owners'],...drevOwners().map(x=>[x,x])])}</div>
+    ${drevFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="drevReset()">Reset</button></div>`:''}
+  </div></div>`;
+
+  o+=`<div class="card"><h2>Evidence register<span class="note">${rows.length} of ${K.tracked} tracked</span>
+      ${drevFiltered()?`<span class="cardlink" onclick="drevReset()">Clear</span>`:''}</h2>
+    <div class="subhead">Every item across every request. Select an item to see the claim, the records
+      that support it, and where it sits in the request.</div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Item</th><th>Request</th><th>Category</th>
+      <th>Supported by</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(i=>{const r=drReqById(i.req);
+      return `<tr class="row-click" onclick="setDrevSel('${i.id}')">
+      <td><b>${i.t}</b><div class="ic-mini" style="color:var(--faint)">${i.id}</div></td>
+      <td class="ic-mini">${i.req}<div style="color:var(--faint)">${r?r.ty:''}</div></td>
+      <td class="ic-mini">${i.cat}</td>
+      <td>${i.links.length?i.links.map(drevChip).join(' ')
+        :'<span class="ic-mini" style="color:var(--warn)">no link yet</span>'}</td>
+      <td class="ic-mini">${i.own}</td>
+      <td class="ic-mini" ${drevLate(i)?'style="color:var(--neg);font-weight:600"':''}>${i.due}</td>
+      <td><span class="pill ${DR_IST[i.st].c} sm">${DR_IST[i.st].l}</span></td></tr>`;}).join('')}
+    ${rows.length?'':'<tr><td colspan="7" class="note">No evidence items match the current filters.</td></tr>'}
+    </tbody></table></div>
+    <div class="cardfoot">${K.tracked} tracked items shown of ${K.reqItems.toLocaleString('en-US')} across the
+      eight requests &#183; the prototype enumerates a representative working set, not the full population</div></div>`;
+
+  // category shape — where the evidence effort actually sits
+  const C=drevCatRoll();
+  o+=`<div class="card"><h2>Evidence by category<span class="note">${C.length} categories</span></h2>
+    <div class="subhead">What kind of assertion the evidence is being asked to support.</div>
+    <table class="tbl"><thead><tr><th>Category</th><th class="num">Items</th><th class="num">Accepted</th>
+      <th class="num">Outstanding</th><th class="num">Links</th><th style="width:160px">Accepted share</th></tr></thead><tbody>
+    ${C.map(c=>`<tr class="row-click" onclick="setDrevF('cat','${c.c}')">
+      <td><b>${c.c}</b></td><td class="num">${c.n}</td><td class="num">${c.acc}</td>
+      <td class="num" ${c.open?'style="color:var(--warn);font-weight:600"':''}>${c.open||'&#8211;'}</td>
+      <td class="num">${c.links}</td>
+      <td><div class="progline"><span class="mini-bar"><i style="width:${Math.round(c.acc/c.n*100)}%"></i></span>
+        <span class="ic-mini">${Math.round(c.acc/c.n*100)}%</span></div></td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">Select a category to filter the register</div></div>`;
+  return o;
+}
+
+/* ---- Linkage: the thesis view. What the evidence reaches into, and what it does not ---- */
+function drevLinkage(){
+  const K=drevKpi(), L=drevLinkRoll(), R=drevRecords();
+  const multi=R.filter(r=>r.items.length>1);
+  const cov=Math.round(K.linked.length/K.tracked*100);
+  let o=`<div class="card"><h2>Linkage coverage<span class="note">${cov}% of tracked items</span></h2>
+    <div class="subhead">An evidence item without a link is an assertion with nothing behind it. Coverage
+      counts items carrying at least one link to a source record.</div>
+    <div class="progline" style="margin-bottom:14px"><span class="mini-bar" style="height:8px"><i style="width:${cov}%"></i></span>
+      <span class="ic-mini"><b>${K.linked.length}</b> of ${K.tracked} linked</span></div>
+    ${K.unlinked.length?`<table class="tbl"><tbody>
+      ${K.unlinked.map(i=>`<tr class="row-click" onclick="setDrevSel('${i.id}')">
+        <td style="width:22px"><span class="ic-dot warn"></span></td>
+        <td><b>${i.t}</b><div class="note" style="margin:0">${i.id} &#183; ${i.req} &#183; no source record identified yet</div></td>
+        <td class="ic-mini">${i.own}</td>
+        <td><span class="pill ${DR_IST[i.st].c} sm">${DR_IST[i.st].l}</span></td></tr>`).join('')}
+      </tbody></table>`:'<div class="note">Every tracked item carries at least one source link.</div>'}
+    </div>`;
+
+  o+=`<div class="card"><h2>Coverage by source system<span class="note">${K.links} links</span></h2>
+    <div class="subhead">Which systems of record the evidence reaches into. Korvyn holds the linkage;
+      the ERP, the contract system and the project ledger remain the source of truth.</div>
+    <table class="tbl"><thead><tr><th>Source</th><th class="num">Links</th><th class="num">Items</th>
+      <th class="num">Requests</th><th style="width:170px">Share of links</th></tr></thead><tbody>
+    ${L.map(x=>`<tr class="row-click" onclick="setDrevSub('reg');setDrevF('lk','${x.k}')">
+      <td><b>${x.l}</b></td><td class="num">${x.links}</td><td class="num">${x.items}</td>
+      <td class="num">${x.reqs}</td>
+      <td><div class="progline"><span class="mini-bar"><i style="width:${Math.round(x.links/K.links*100)}%"></i></span>
+        <span class="ic-mini">${Math.round(x.links/K.links*100)}%</span></div></td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">Select a source to filter the register</div></div>`;
+
+  o+=`<div class="card"><h2>Load-bearing records<span class="note">${multi.length} cited more than once</span></h2>
+    <div class="subhead">One record supporting several evidence items — often across unrelated requests.
+      A change to any of these propagates into every request that leans on it.</div>
+    <table class="tbl"><thead><tr><th>Record</th><th>Type</th><th class="num">Items</th>
+      <th>Requests relying on it</th><th></th></tr></thead><tbody>
+    ${multi.map(r=>`<tr><td><b>${r.id}</b></td><td class="ic-mini">${DR_LINK[r.k]||r.k}</td>
+      <td class="num">${r.items.length}</td>
+      <td>${[...r.reqs].map(q=>{const rq=drReqById(q);
+        return `<span class="pill sm">${q}</span> <span class="ic-mini" style="color:var(--faint)">${rq?rq.ty:''}</span>`;}).join('<br>')}</td>
+      <td style="text-align:right"><span class="extlink" onclick="${r.go}">Open record</span></td></tr>`).join('')}
+    ${multi.length?'':'<tr><td colspan="5" class="note">No record is cited by more than one item.</td></tr>'}
+    </tbody></table>
+    <div class="cardfoot">A record is identified by the text before the first separator, so
+      &#8220;ACC-06&#8221; and &#8220;ACC-06 &#183; Capitalized Labor&#8221; count as one record</div></div>`;
+  return o;
+}
+
+/* ---- Gaps: what is still missing, ranked by lateness ---- */
+function drevGapView(){
+  const G=drevGaps(), late=G.filter(x=>x.days<0), ret=G.filter(x=>x.st==='rejected');
+  // no Outstanding tile here — the page-level strip already carries it
+  let o=`<div class="statrow">
+    <div class="stat"><div class="sl">Past due</div><div class="sv ${late.length?'neg':''}">${late.length}</div>
+      <div class="sd">already late as at ${DR_ASOF}</div></div>
+    <div class="stat"><div class="sl">Returned</div><div class="sv">${ret.length}</div>
+      <div class="sd">reviewed and sent back</div></div>
+    <div class="stat"><div class="sl">Requests affected</div><div class="sv">${new Set(G.map(x=>x.req)).size}</div>
+      <div class="sd">of ${DR_REQUESTS.length}</div></div>
+  </div>`;
+
+  o+=`<div class="card"><h2>Outstanding evidence<span class="note">ranked by lateness</span></h2>
+    <div class="subhead">What is blocking release. A returned item ranks critical whatever its date —
+      the support was reviewed and did not hold.</div>
+    <table class="tbl"><thead><tr><th style="width:22px"></th><th>Item</th><th>Request</th>
+      <th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    ${G.map(x=>`<tr class="row-click" onclick="setDrevSel('${x.id}')">
+      <td><span class="ic-dot ${x.sev==='crit'?'bad':x.sev==='warn'?'warn':'idle'}"></span></td>
+      <td><b>${x.t}</b>${x.note?`<div class="note" style="margin:0">${x.note}</div>`:''}
+        <div class="ic-mini" style="color:var(--faint)">${x.id} &#183; ${x.cat}</div></td>
+      <td class="ic-mini">${x.req}<div style="color:var(--faint)">${x.rq?x.rq.party:''}</div></td>
+      <td class="ic-mini">${x.own}</td>
+      <td class="ic-mini" ${x.days<0?'style="color:var(--neg);font-weight:600"':''}>${x.due}
+        <div style="color:var(--faint)">${x.days<0?Math.abs(x.days)+' days late':x.days+' days out'}</div></td>
+      <td><span class="pill ${DR_IST[x.st].c} sm">${DR_IST[x.st].l}</span></td></tr>`).join('')}
+    ${G.length?'':'<tr><td colspan="6" class="note">Nothing outstanding in the tracked set.</td></tr>'}
+    </tbody></table></div>`;
+
+  /* Support that arrived and then stalled in review past its due date. Not a counterparty gap —
+     the delay has moved to our side — so it is counted and presented separately. */
+  const stalled=DR_ITEMS.filter(i=>!drevOpen(i)&&drevLate(i));
+  if(stalled.length){
+    o+=`<div class="card"><h2>Provided but not yet accepted<span class="note">${stalled.length} past due</span></h2>
+      <div class="subhead">The support exists and is sitting in review past its due date. These are not
+        counterparty gaps and are not counted in outstanding — the delay is on our side.</div>
+      <table class="tbl"><tbody>
+      ${stalled.map(i=>`<tr class="row-click" onclick="setDrevSel('${i.id}')">
+        <td style="width:22px"><span class="ic-dot warn"></span></td>
+        <td><b>${i.t}</b><div class="ic-mini" style="color:var(--faint)">${i.id} &#183; ${i.req} &#183; ${i.cat}</div></td>
+        <td class="ic-mini">${i.own}</td>
+        <td class="ic-mini" style="color:var(--neg);font-weight:600">${i.due}
+          <div style="color:var(--faint);font-weight:400">${Math.abs(drDays(i.due))} days late</div></td>
+        <td><span class="pill ${DR_IST[i.st].c} sm">${DR_IST[i.st].l}</span></td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
+  // where the gaps concentrate
+  const byReq=[...new Set(G.map(x=>x.req))].map(q=>{const rq=drReqById(q), g=G.filter(x=>x.req===q);
+    return {rq, g};}).sort((a,b)=>b.g.length-a.g.length);
+  o+=`<div class="card"><h2>Where the gaps sit<span class="note">${byReq.length} requests</span></h2>
+    <div class="subhead">Tracked gaps by request, alongside the request-level outstanding count.</div>
+    <table class="tbl"><thead><tr><th>Request</th><th>Party</th><th class="num">Tracked gaps</th>
+      <th class="num">Request outstanding</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    ${byReq.map(x=>`<tr class="row-click" onclick="pickTab('drreq');setDrReqSel('${x.rq.id}')">
+      <td><b>${x.rq.t}</b><div class="ic-mini" style="color:var(--faint)">${x.rq.id}</div></td>
+      <td class="ic-mini">${x.rq.party}</td>
+      <td class="num" style="color:var(--warn);font-weight:600">${x.g.length}</td>
+      <td class="num">${x.rq.items-x.rq.done}</td>
+      <td class="ic-mini" ${x.rq.st==='overdue'?'style="color:var(--neg);font-weight:600"':''}>${x.rq.due}</td>
+      <td><span class="pill ${DR_ST[x.rq.st].c} sm">${DR_ST[x.rq.st].l}</span></td></tr>`).join('')}
+    </tbody></table>
+    <div class="cardfoot">Tracked gaps are the enumerated items on this page; request outstanding is the
+      full request aggregate &#183; the two are different populations and are not reconciled</div></div>`;
+  return o;
+}
+
+/* ---- Activity: what the evidence did ---- */
+function drevActivity(){
+  const kinds=Object.keys(DR_KIND).map(k=>({k, l:DR_KIND[k].l, ic:DR_KIND[k].ic,
+    n:DR_ACTIVITY.filter(a=>a.kind===k).length})).sort((a,b)=>b.n-a.n);
+  let o=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Evidence activity<span class="note">${DR_ACTIVITY.length} events</span></h2>
+      <div class="subhead">What the evidence did — linked, supported, approved, requested or accessed.
+        Not an upload log.</div>
+      ${DR_ACTIVITY.map(a=>{const rq=drReqById(a.req);
+        return `<div class="kv" style="align-items:flex-start;margin-bottom:14px">
+        <span class="erp-ini" title="${DR_KIND[a.kind].l}">${glIc(DR_KIND[a.kind].ic)}</span>
+        <div style="min-width:0"><div style="font-size:12.5px;font-weight:600">${a.t}</div>
+          <div class="ic-mini" style="margin-top:2px">${a.d}</div>
+          <div class="ic-mini" style="color:var(--faint);margin-top:3px">${a.ts} &#183; ${a.who} &#183;
+            <span class="extlink" onclick="pickTab('drreq');setDrReqSel('${a.req}')">${a.req}</span>
+            ${rq?' &#183; '+rq.ty:''}</div></div></div>`;}).join('')}
+      </div>
+    <div class="card" style="margin:0"><h2>Activity shape</h2>
+      <div class="subhead">The mix of what happened over the period covered.</div>
+      <table class="tbl"><tbody>
+      ${kinds.map(k=>`<tr><td style="width:22px"><span class="erp-ini">${glIc(k.ic)}</span></td>
+        <td><b>${k.l}</b></td><td class="num">${k.n}</td>
+        <td style="width:120px"><div class="progline"><span class="mini-bar"><i style="width:${Math.round(k.n/DR_ACTIVITY.length*100)}%"></i></span></div></td></tr>`).join('')}
+      </tbody></table>
+      <div class="cardfoot"><span class="extlink" onclick="pickTab('drover')">Data Room overview</span>
+        <span class="extlink" onclick="pickTab('drreq')">Requests</span></div></div>
+  </div>`;
+  return o;
+}
+
+/* ---- Evidence item detail: the claim, and everything standing behind it ---- */
+function drevDetail(){
+  const i=drevById(drevSel); if(!i) return '';
+  const r=drReqById(i.req), days=drDays(i.due), late=drevLate(i);
+  const sibs=DR_ITEMS.filter(x=>x.req===i.req&&x.id!==i.id);
+  let o=`<div class="gl-hd"><div class="grow">
+      <div class="ic-mini" style="margin-bottom:6px"><span class="extlink" onclick="drevBack()">&#8592; Evidence</span></div>
+      <h1>${i.t}</h1>
+      <div class="sub">${i.id} &#183; ${i.cat} &#183; ${i.req}</div>
+    </div>${glExport}</div>`;
+
+  o+=`<div class="statrow">
+    <div class="stat"><div class="sl">Status</div>
+      <div class="sv" style="font-size:14px;padding-top:4px"><span class="pill ${DR_IST[i.st].c}">${DR_IST[i.st].l}</span></div>
+      <div class="sd">${i.own}</div></div>
+    <div class="stat"><div class="sl">Supported by</div>
+      <div class="sv ${i.links.length?'':'neg'}">${i.links.length}</div>
+      <div class="sd">${i.links.length?'source record'+(i.links.length===1?'':'s'):'no source record yet'}</div></div>
+    <div class="stat"><div class="sl">Category</div>
+      <div class="sv" style="font-size:12.5px;padding-top:5px;line-height:1.4">${i.cat}</div>
+      <div class="sd">what it is asked to support</div></div>
+    <div class="stat"><div class="sl">Due</div>
+      <div class="sv" style="font-size:14px;padding-top:4px">${i.due}</div>
+      <div class="sd" ${late?'style="color:var(--neg)"':''}>${
+        i.st==='accepted'?'accepted':late?Math.abs(days)+' days late':days+' days out'}</div></div>
+    <div class="stat row-click" onclick="pickTab('drreq');setDrReqSel('${i.req}')"><div class="sl">Request</div>
+      <div class="sv" style="font-size:12.5px;padding-top:5px;line-height:1.4">${r?r.ty:'&#8211;'}</div>
+      <div class="sd">${r?r.party:''}</div></div>
+  </div>`;
+
+  if(i.note){
+    o+=`<div class="card" style="border-left:3px solid var(--warn)"><h2>Reviewer note</h2>
+      <div class="note" style="margin:0">${i.note}</div></div>`;
+  }
+
+  o+=`<div class="card"><h2>Source records<span class="note">${i.links.length}</span></h2>
+    <div class="subhead">What stands behind this claim. Korvyn holds the linkage and the state of the
+      support; each record stays in its own system of record.</div>
+    ${i.links.length?`<table class="tbl"><thead><tr><th>Type</th><th>Record</th><th></th></tr></thead><tbody>
+      ${i.links.map(l=>`<tr class="row-click" onclick="${l.go}">
+        <td class="ic-mini" style="width:170px">${DR_LINK[l.k]||l.k}</td>
+        <td><b>${l.v}</b></td>
+        <td style="text-align:right"><span class="extlink">Open</span></td></tr>`).join('')}
+      </tbody></table>`
+     :`<div class="note" style="margin:0">No source record has been identified for this item yet. Until one is,
+        the item is an assertion the Data Room cannot substantiate.</div>`}
+    </div>`;
+
+  o+=`<div class="grid2gl">
+    <div class="card" style="margin:0"><h2>Request context</h2>
+      ${r?`<table class="tbl"><tbody>
+        <tr><td class="note" style="margin:0;width:150px">Request</td><td><b>${r.t}</b></td></tr>
+        <tr><td class="note" style="margin:0">Type</td><td>${r.ty}</td></tr>
+        <tr><td class="note" style="margin:0">Requesting party</td><td>${r.party}</td></tr>
+        <tr><td class="note" style="margin:0">Scope</td><td>${r.scope}</td></tr>
+        <tr><td class="note" style="margin:0">Request owner</td><td>${r.own}</td></tr>
+        <tr><td class="note" style="margin:0">Request status</td>
+          <td><span class="pill ${DR_ST[r.st].c} sm">${DR_ST[r.st].l}</span> <span class="ic-mini">due ${r.due}</span></td></tr>
+        <tr><td class="note" style="margin:0">Request progress</td>
+          <td><div class="progline"><span class="mini-bar"><i style="width:${drPct(r)}%"></i></span>
+            <span class="ic-mini">${r.done} of ${r.items}</span></div></td></tr>
+      </tbody></table>
+      <div class="cardfoot"><span class="extlink" onclick="pickTab('drreq');setDrReqSel('${r.id}')">Open the request</span></div>`:''}
+    </div>
+    <div class="card" style="margin:0"><h2>Other evidence in this request<span class="note">${sibs.length} tracked</span></h2>
+      <div class="subhead">The rest of the working set supporting the same request.</div>
+      <table class="tbl"><tbody>
+      ${sibs.map(s=>`<tr class="row-click" onclick="setDrevSel('${s.id}')">
+        <td><b>${s.t}</b><div class="ic-mini" style="color:var(--faint)">${s.id} &#183; ${s.cat}</div></td>
+        <td><span class="pill ${DR_IST[s.st].c} sm">${DR_IST[s.st].l}</span></td></tr>`).join('')}
+      ${sibs.length?'':'<tr><td class="note">This is the only tracked item in the request.</td></tr>'}
+      </tbody></table></div>
+  </div>`;
+
+  const act=DR_ACTIVITY.filter(a=>a.req===i.req);
+  if(act.length){
+    o+=`<div class="card"><h2>Request activity<span class="note">${act.length}</span></h2>
+      <div class="subhead">Activity is recorded at the request level, so these events cover the whole
+        request rather than this item alone.</div>
+      ${act.map(a=>`<div class="kv" style="align-items:flex-start;margin-bottom:12px">
+        <span class="erp-ini" title="${DR_KIND[a.kind].l}">${glIc(DR_KIND[a.kind].ic)}</span>
+        <div style="min-width:0"><div style="font-size:12.5px;font-weight:600">${a.t}</div>
+          <div class="ic-mini" style="margin-top:2px">${a.d}</div>
+          <div class="ic-mini" style="color:var(--faint);margin-top:3px">${a.ts} &#183; ${a.who}</div></div></div>`).join('')}
+      </div>`;
+  }
+  return o;
+}
+
 /* Lightweight placeholders for the remaining Data Room destinations. Each states what it will
    hold and shows the live count it will manage, so the route is real rather than empty. */
 function renderDrStub(tab){
   const el=$('view-'+tab); if(!el)return;
   const K=drKpi();
   const spec={
-    drreq:{t:'Requests', s:'Evidence and diligence requests across the enterprise.',
-      n:K.open.length, nl:'open requests',
-      d:'The full request workspace — creation, scoping to entities/funds/projects, item-level tracking, reviewer routing and release — arrives in a later increment.',
-      rows:DR_REQUESTS.map(r=>[r.id,r.t,r.ty,DR_ST[r.st].l])},
-    drevid:{t:'Evidence', s:'Evidence items and what they support.',
-      n:K.collected.toLocaleString('en-US'), nl:'items collected',
-      d:'The evidence workspace — items, their linkages to ERP records, contracts, projects and accounting conclusions, and the gaps — arrives in a later increment.',
-      rows:DR_ACTIVITY.slice(0,6).map(a=>[a.req,a.t,DR_KIND[a.kind].l,a.ts.split(' ')[0]+' '+a.ts.split(' ')[1]])},
     drwork:{t:'Workspaces', s:'Diligence workspaces for a transaction, audit or review.',
       n:DR_REQUESTS.filter(r=>r.st!=='ready').length, nl:'active engagements',
       d:'Workspaces group a request, its evidence, its participants and its release package for one engagement. Arrives in a later increment.',
@@ -13407,7 +13814,7 @@ function renderAll(){
   if(TAB==='dataroom')renderDataRoom();
   if(TAB==='drover')renderDrOver();
   if(TAB==='drreq')renderDrReq();
-  if(TAB==='drevid')renderDrStub('drevid');
+  if(TAB==='drevid')renderDrEvid();
   if(TAB==='drwork')renderDrStub('drwork');
   if(TAB==='drext')renderDrStub('drext');
   if(TAB==='controls')renderControls();
@@ -13626,6 +14033,13 @@ const TAB_PIPELINES={
     {id:'pull',     label:'Pull forward',   n:()=>ccxPullForward().filter(x=>x.earliest==='Now').length, q:false},
     {id:'block',    label:'Blockers',       n:()=>ccxBlockers().length, q:true},
   ], get:()=>ccSub, set:'setCcSub' },
+  // Data Room > Evidence. `drevid` belongs to the droom lens alone, so a plain tab key is safe.
+  drevid:{ steps:[
+    {id:'reg',  label:'Evidence register', n:()=>DR_ITEMS.length, q:false},
+    {id:'link', label:'Linkage',           n:()=>drevKpi().unlinked.length, q:true},
+    {id:'gaps', label:'Gaps',              n:()=>drevKpi().open.length, q:true},
+    {id:'act',  label:'Activity',          n:()=>DR_ACTIVITY.length, q:false},
+  ], get:()=>drevSub, set:'setDrevSub' },
   // Accounting > Policies: Library / Inbox secondary nav (ledger lens only).
   'ledger:admin':{ steps:[
     {id:'library', label:'Policy library', n:()=>polKpi().active.length, q:false},
