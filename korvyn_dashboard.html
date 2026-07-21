@@ -938,6 +938,22 @@ footer b{color:var(--muted)}
 .pol-rel a .n{font-family:var(--num);font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .pol-sec{margin-bottom:16px}
 .pol-sec .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:5px}
+/* inbox review drawer: queue + contained review panel side by side */
+.pol-inbox{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+.pol-inbox>*{min-width:0}
+.pol-inbox.sel{grid-template-columns:minmax(0,1fr) 420px}
+@media(max-width:1180px){.pol-inbox.sel{grid-template-columns:1fr}}
+.pol-drawer{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);position:sticky;top:14px;overflow:hidden}
+.pol-drawer .dh{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--surface2)}
+.pol-drawer .db{padding:14px 16px;max-height:calc(100vh - 190px);overflow-y:auto}
+.pol-drawer .dsec{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin:16px 0 7px;padding-top:12px;border-top:1px solid var(--line)}
+.pol-drawer .dsec:first-child{margin-top:0;padding-top:0;border-top:none}
+.pol-fld{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}
+.pol-fld label{font-size:11px;color:var(--muted);font-weight:600}
+.pol-fld input,.pol-fld select{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--line2);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)}
+.pol-df{padding:14px 16px;border-top:1px solid var(--line);background:var(--surface2);display:flex;gap:7px;flex-wrap:wrap}
+.pol-prev{font-size:11.5px;color:var(--muted);background:var(--bg2);border:1px dashed var(--line2);border-radius:var(--radius-sm);padding:11px 13px;line-height:1.6;font-family:var(--num)}
+.pol-flag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--warn);background:var(--warn-bg);padding:4px 9px;border-radius:var(--radius-pill);margin:0 4px 4px 0}
 
 .cc-trend{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
 .cc-spark{flex:1 1 300px;min-width:0;height:132px}
@@ -11633,6 +11649,97 @@ const POL_POLICIES=[
   versions:[{v:'v2.0',eff:'2020-01-01',appr:'2019-12-01',by:'Predecessor CAO',status:'superseded',summary:'Folded into ACC-CAP-001 v3.0.'}] },
 ];
 
+/* ---- POLICY INBOX: enterprise governance review queue ----
+   Documents Korvyn has already processed (read/classify/extract/compare/flag). Nothing here
+   is a governed policy — each requires human validation. Korvyn proposes; a human decides.
+   `proc` is the one primary processing status; `flags` are the (possibly several) review
+   flags; `match` is an AI-identified possible relationship to an existing POL_POLICIES record,
+   never auto-applied. The proposed metadata is editable in the drawer (mutates in memory). */
+const POL_IFLAG={ eff:'Missing effective date', owner:'Missing owner', applic:'Unclear applicability',
+  dup:'Possible duplicate', prior:'Possible prior version', lowconf:'Low classification confidence',
+  multi:'Multiple policy topics detected' };
+const POL_IPROC={ processed:{l:'Processed',c:'info'}, needsReview:{l:'Needs review',c:'ready'},
+  missingInfo:{l:'Missing information',c:'ready'}, possibleDup:{l:'Possible duplicate',c:'flag'},
+  possiblePrior:{l:'Possible prior version',c:'flag'}, ready:{l:'Ready for validation',c:'good'},
+  deferred:{l:'Deferred',c:''} };
+const POL_IREL={ dup:'Duplicate', prior:'Prior version', newver:'New version',
+  related:'Related policy', addendum:'Regional addendum', local:'Local procedure' };
+// Restrained confidence banding — informational, never presented as certainty.
+const polConf=n=>n>=85?{l:'High confidence',c:'good'}:n>=60?{l:'Medium confidence',c:''}:{l:'Low confidence',c:'warn'};
+// Representative enterprise reviewers / teams (not a directory).
+const POL_TEAMS=['Corporate Controller','Technical Accounting','Regional Controller — EMEA',
+  'Fund Controller — Fund III','Fixed Assets Accounting','Internal Controls','Legal','Tax'];
+
+const POL_INBOX=[
+{ id:'INB-2048', doc:'Global Revenue Recognition Policy 2026.pdf', fmt:'PDF', uploadedBy:'M. Reyes', uploadDate:'2026-06-26',
+  srcLoc:'SharePoint / Corporate Accounting / Migration', srcVer:'4.0',
+  propName:'Global Revenue Recognition Policy', propCat:'rev', propLevel:'global', propOwner:'J. Lindqvist',
+  propEff:'2026-07-01', propRev:'2027-06-30', propApplic:'Enterprise · all operating entities', propVer:'v4.0', conf:94,
+  flags:[], proc:'ready', reviewer:'Technical Accounting', region:'Global', country:'—', entity:'—', fund:'—',
+  match:null, preview:'PURPOSE. This policy establishes the enterprise framework for recognizing revenue under ASC 606 across all operating entities…' },
+
+{ id:'INB-2047', doc:'EMEA Lease Addendum - draft.docx', fmt:'Word', uploadedBy:'J. Park', uploadDate:'2026-06-25',
+  srcLoc:'Email attachment', srcVer:'1.0',
+  propName:'EMEA Lease Accounting Addendum', propCat:'lease', propLevel:'add', propOwner:'Regional Controller — EMEA',
+  propEff:'2026-07-01', propRev:'2027-06-30', propApplic:'EMEA legal entities', propVer:'v1.0', conf:72,
+  flags:['applic'], proc:'needsReview', reviewer:'Regional Controller — EMEA', region:'EMEA', country:'—', entity:'Meridian Property Co', fund:'Fund II — EMEA',
+  match:{pol:'ACC-09', name:'Lease Accounting Policy', ver:'v2.1', level:'global', owner:'J. Park', sim:58, rel:'addendum'},
+  preview:'PURPOSE. This addendum supplements the Global Lease Accounting Policy for EMEA statutory reporting differences…' },
+
+{ id:'INB-2046', doc:'Germany HGB Capitalization Procedure.pdf', fmt:'PDF', uploadedBy:'J. Park', uploadDate:'2026-06-24',
+  srcLoc:'SharePoint / EMEA / Germany', srcVer:'—',
+  propName:'Germany HGB Capitalization Procedure', propCat:'cap', propLevel:'country', propOwner:'Regional Controller — EMEA',
+  propEff:'', propRev:'', propApplic:'Germany branch', propVer:'v1.0', conf:66,
+  flags:['eff','applic'], proc:'missingInfo', reviewer:null, region:'EMEA', country:'Germany', entity:'Meridian Management Co', fund:'Fund II — EMEA',
+  match:{pol:'ACC-CAP-003', name:'Germany Local Accounting Addendum', ver:'v1.1', level:'add', owner:'J. Park', sim:63, rel:'related'},
+  preview:'This procedure sets out HGB statutory useful lives and the bridge to US GAAP for the German branch…' },
+
+{ id:'INB-2045', doc:'Copy of Global Capitalization Policy v3.pdf', fmt:'PDF', uploadedBy:'M. Reyes', uploadDate:'2026-06-24',
+  srcLoc:'Bulk migration', srcVer:'3.0',
+  propName:'Global Capitalization Policy', propCat:'cap', propLevel:'global', propOwner:'A. Okafor',
+  propEff:'2025-01-01', propRev:'2026-12-31', propApplic:'Enterprise', propVer:'v3.0', conf:97,
+  flags:['dup'], proc:'possibleDup', reviewer:'Corporate Controller', region:'Global', country:'—', entity:'—', fund:'—',
+  match:{pol:'ACC-CAP-001', name:'Global Capitalization Policy', ver:'v3.0', level:'global', owner:'A. Okafor', sim:98, rel:'dup'},
+  preview:'PURPOSE. Ensure consistent capitalization of qualifying expenditure across the enterprise. Capitalize individual assets with cost ≥ $5,000…' },
+
+{ id:'INB-2044', doc:'Lease Policy (older scan).pdf', fmt:'PDF (scanned)', uploadedBy:'M. Reyes', uploadDate:'2026-06-23',
+  srcLoc:'Bulk migration', srcVer:'2.0',
+  propName:'Lease Accounting Policy', propCat:'lease', propLevel:'global', propOwner:'J. Park',
+  propEff:'2023-01-01', propRev:'—', propApplic:'Enterprise', propVer:'v2.0', conf:88,
+  flags:['prior'], proc:'possiblePrior', reviewer:'Technical Accounting', region:'Global', country:'—', entity:'—', fund:'—',
+  match:{pol:'ACC-09', name:'Lease Accounting Policy', ver:'v2.1', level:'global', owner:'J. Park', sim:91, rel:'prior'},
+  preview:'PURPOSE. Consistent ASC 842 application across the enterprise. [Scanned — text confidence reduced]…' },
+
+{ id:'INB-2043', doc:'Fund III Capital & Cost Guidance.docx', fmt:'Word', uploadedBy:'L. Tan', uploadDate:'2026-06-23',
+  srcLoc:'SharePoint / Fund III', srcVer:'1.0',
+  propName:'Fund III Capital Accounting Guidance', propCat:'cip', propLevel:'fund', propOwner:'',
+  propEff:'2026-05-01', propRev:'2027-04-30', propApplic:'Fund III global projects', propVer:'v1.0', conf:79,
+  flags:['owner'], proc:'missingInfo', reviewer:'Fund Controller — Fund III', region:'Americas', country:'United States', entity:'Fleet DC OpCo', fund:'Fund III — Global',
+  match:null, preview:'Guidance for capital cost accounting on Fund III global data-centre projects, aligned to the Global Capitalization Policy…' },
+
+{ id:'INB-2042', doc:'Colocation BU Revenue Procedures.pdf', fmt:'PDF', uploadedBy:'J. Lindqvist', uploadDate:'2026-06-22',
+  srcLoc:'Bulk migration', srcVer:'1.0',
+  propName:'Colocation Revenue Procedures', propCat:'rev', propLevel:'bu', propOwner:'J. Lindqvist',
+  propEff:'2026-06-01', propRev:'2027-05-31', propApplic:'Colocation business unit', propVer:'v1.0', conf:90,
+  flags:[], proc:'ready', reviewer:'Technical Accounting', region:'Americas', country:'United States', entity:'Meridian DC Holdco', fund:'Fund I — US',
+  match:null, preview:'Operating procedures for recognizing colocation and power recovery revenue within the Colocation business unit…' },
+
+{ id:'INB-2041', doc:'Misc Accounting Notes 2025.xlsx', fmt:'Excel', uploadedBy:'M. Reyes', uploadDate:'2026-06-21',
+  srcLoc:'Bulk migration', srcVer:'—',
+  propName:'Uncategorized Accounting Notes', propCat:'oth', propLevel:'proc', propOwner:'',
+  propEff:'', propRev:'', propApplic:'Unclear', propVer:'—', conf:38,
+  flags:['lowconf','multi','owner','eff','applic'], proc:'needsReview', reviewer:null, region:'—', country:'—', entity:'—', fund:'—',
+  match:null, preview:'[Spreadsheet — mixed content] Contains notes spanning capitalization, leases and intercompany. Multiple topics detected; unable to classify to a single policy…' },
+
+{ id:'INB-2040', doc:'Meridian Property Co Local Policy.pdf', fmt:'PDF', uploadedBy:'J. Park', uploadDate:'2026-06-20',
+  srcLoc:'SharePoint / EMEA', srcVer:'1.2',
+  propName:'Meridian Property Co Accounting Policy', propCat:'fa', propLevel:'entity', propOwner:'Regional Controller — EMEA',
+  propEff:'2025-06-01', propRev:'2026-05-31', propApplic:'Meridian Property Co', propVer:'v1.2', conf:83,
+  flags:['prior'], proc:'deferred', reviewer:'Regional Controller — EMEA', region:'EMEA', country:'Ireland', entity:'Meridian Property Co', fund:'Fund II — EMEA',
+  match:{pol:'ACC-CAP-002', name:'EMEA Capitalization Addendum', ver:'v2.0', level:'add', owner:'J. Park', sim:47, rel:'related'},
+  preview:'Legal-entity accounting policy for Meridian Property Co covering fixed asset and lease treatment under the EMEA addenda…' },
+];
+
 // ---- derivations over the policy repository (all computed, no second source of truth) ----
 const polById=id=>POL_POLICIES.find(p=>p.id===id);
 const polActive=()=>POL_POLICIES.filter(p=>p.gov.status==='active');
@@ -11665,9 +11772,22 @@ const polApplicSummary=p=>p.scope.applies==='enterprise'
   ? 'Enterprise'+(p.scope.exc.length?' (except '+p.scope.exc.length+')':'')
   : p.scope.inc.length+' entit'+(p.scope.inc.length===1?'y':'ies');
 
-// ---- page state (Phase 1A: library + detail) ----
-let polSel=null, polTab='overview',
-    polfCat='all', polfLevel='all', polfStatus='all', polfOwn='all', polfFund='all', polfRegion='all', polQuery='';
+// ---- inbox derivations ----
+const polInbById=id=>POL_INBOX.find(i=>i.id===id);
+function polInbKpi(){
+  const Q=POL_INBOX;
+  return {all:Q,
+    awaiting:Q.filter(i=>i.proc!=='ready'&&i.proc!=='deferred'),
+    missing:Q.filter(i=>i.flags.some(f=>['eff','owner','applic'].includes(f))||i.proc==='missingInfo'),
+    dup:Q.filter(i=>i.flags.includes('dup')||i.flags.includes('prior')||i.proc==='possibleDup'||i.proc==='possiblePrior'),
+    unassigned:Q.filter(i=>!i.propOwner)};
+}
+
+// ---- page state (library + detail + inbox) ----
+let polSub='library', polSel=null, polTab='overview', polInbSel=null,
+    polfCat='all', polfLevel='all', polfStatus='all', polfOwn='all', polfFund='all', polfRegion='all', polQuery='',
+    pifStatus='all', pifFlag='all', pifCat='all', pifLevel='all', pifOwn='all', pifRev='all', pifRegion='all', pifConf='all', piQuery='', piSel=[];
+function setPolSub(v){ polSub=v; polSel=null; polInbSel=null; renderAll(); navRepaint(); }
 function setPolSel(v){ polSel=v; polTab='overview'; renderAll(); }
 function setPolTab(v){ polTab=v; renderAll(); }
 function polBack(){ polSel=null; renderAll(); }
@@ -11676,6 +11796,26 @@ function setPolF(k,v){ ({cat:()=>polfCat=v,level:()=>polfLevel=v,status:()=>polf
 function setPolQuery(v){ polQuery=v; renderAll(); }
 function polReset(){ polfCat=polfLevel=polfStatus=polfOwn=polfFund=polfRegion='all'; polQuery=''; renderAll(); }
 function polDrill(k,v){ polSel=null; if(k)setPolF(k,v); else renderAll(); }
+// inbox interactions
+function setPolInbSel(v){ polInbSel=(polInbSel===v?null:v); renderAll(); }
+function setPif(k,v){ ({st:()=>pifStatus=v,flag:()=>pifFlag=v,cat:()=>pifCat=v,level:()=>pifLevel=v,own:()=>pifOwn=v,
+  rev:()=>pifRev=v,region:()=>pifRegion=v,conf:()=>pifConf=v}[k]||(()=>{}))(); renderAll(); }
+function setPiQuery(v){ piQuery=v; renderAll(); }
+function piReset(){ pifStatus=pifFlag=pifCat=pifLevel=pifOwn=pifRev=pifRegion=pifConf='all'; piQuery=''; renderAll(); }
+function piDrill(k,v){ polInbSel=null; if(k)setPif(k,v); else renderAll(); }
+// drawer edits mutate the in-memory item (Korvyn proposal, awaiting validation)
+function polInbEdit(id,f,v){ const i=polInbById(id); if(i){ i[f]=v; renderAll(); } }
+// review actions change the primary processing status; none approve or publish
+function polInbAct(id,act){ const i=polInbById(id); if(!i)return;
+  if(act==='ready') i.proc='ready'; else if(act==='defer') i.proc='deferred';
+  else if(act==='dup'){ i.proc='possibleDup'; if(!i.flags.includes('dup'))i.flags.push('dup'); }
+  renderAll(); }
+// bulk actions over selected rows (no bulk duplicate/publish/create)
+function piToggle(id){ piSel=piSel.includes(id)?piSel.filter(x=>x!==id):[...piSel,id]; renderAll(); }
+function piBulk(act){ piSel.forEach(id=>{const i=polInbById(id); if(!i)return;
+  if(act==='ready')i.proc='ready'; else if(act==='defer')i.proc='deferred';
+  else if(act==='reviewer')i.reviewer=i.reviewer||'Technical Accounting';
+  else if(act==='owner')i.propOwner=i.propOwner||'Corporate Controller';}); piSel=[]; renderAll(); }
 const polFiltered=()=>[polfCat,polfLevel,polfStatus,polfOwn,polfFund,polfRegion].some(v=>v!=='all')||polQuery;
 function polScope(){
   const q=polQuery.trim().toLowerCase();
@@ -11892,9 +12032,177 @@ function polvDetail(){
   return o;
 }
 
+// ---------------- Policy Inbox: governance review queue ----------------
+const piConfBand=n=>n>=85?'high':n>=60?'med':'low';
+function piScope(){
+  const q=piQuery.trim().toLowerCase();
+  return POL_INBOX.filter(i=>
+    (pifStatus==='all'||i.proc===pifStatus) &&
+    (pifFlag==='all'||i.flags.includes(pifFlag)) &&
+    (pifCat==='all'||i.propCat===pifCat) &&
+    (pifLevel==='all'||i.propLevel===pifLevel) &&
+    (pifOwn==='all'||i.propOwner===pifOwn) &&
+    (pifRev==='all'||i.reviewer===pifRev) &&
+    (pifRegion==='all'||i.region===pifRegion) &&
+    (pifConf==='all'||piConfBand(i.conf)===pifConf) &&
+    (!q||(i.doc+' '+i.propName+' '+POL_CATN[i.propCat]+' '+(i.propOwner||'')+' '+i.entity+' '+i.fund).toLowerCase().includes(q)));
+}
+const piFiltered=()=>[pifStatus,pifFlag,pifCat,pifLevel,pifOwn,pifRev,pifRegion,pifConf].some(v=>v!=='all')||piQuery;
+const piOwners=()=>[...new Set(POL_INBOX.map(i=>i.propOwner).filter(Boolean))].sort();
+const piReviewers=()=>[...new Set(POL_INBOX.map(i=>i.reviewer).filter(Boolean))].sort();
+const piRegions=()=>[...new Set(POL_INBOX.map(i=>i.region).filter(r=>r&&r!=='—'))].sort();
+
+function polvInbox(){
+  const K=polInbKpi(), rows=piScope();
+  const kpi=(cls,ic,lbl,val,d,go)=>`<div class="kpi ${cls} row-click" onclick="${go}">
+    <div class="kpi-ic"><span class="kpi-chip chip-blue">${glIc(ic)}</span>
+      <div><div class="k" style="margin:0">${lbl}</div><div class="v">${val}</div></div></div>
+    <div class="d">${d}</div></div>`;
+  let o=`<div class="kpis">
+    ${kpi('lenshi','M3.5 4.5h9v7h-9zM3.5 7h9','Awaiting review',K.awaiting.length,'not yet ready or deferred',"piDrill()")}
+    ${kpi(K.missing.length?'warn':'','M8 2.5L14.5 13.5h-13zM8 6.5v3','Missing required fields',K.missing.length,'effective date, owner or scope',"piDrill('flag','eff')")}
+    ${kpi(K.dup.length?'flag':'','M5 5h6v6H5zM8 3v2M8 11v2','Possible duplicate / prior version',K.dup.length,'AI-flagged match to a record',"piDrill('flag','dup')")}
+    ${kpi(K.unassigned.length?'warn':'','M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3.5 13a4.5 4.5 0 019 0','Owner assignment required',K.unassigned.length,'no proposed owner',"piDrill('own','all')")}
+  </div>`;
+  o+=`<div class="note" style="margin:-8px 0 14px">Korvyn reads, classifies, extracts, compares and flags. It does not approve or publish — every proposed Policy Record requires human validation.</div>`;
+
+  o+=polInbFilterBar();
+
+  // bulk bar
+  if(piSel.length){
+    o+=`<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px">
+      <b class="ic-mini">${piSel.length} selected</b>
+      <button class="btn-out" onclick="piBulk('reviewer')">Assign reviewer</button>
+      <button class="btn-out" onclick="piBulk('owner')">Assign owner</button>
+      <button class="btn-out" onclick="piBulk('ready')">Mark ready for validation</button>
+      <button class="btn-out" onclick="piBulk('defer')">Defer</button>
+      <span class="extlink" style="margin-left:auto" onclick="piSel=[];renderAll()">Clear selection</span></div>`;
+  }
+
+  const queue=`<div class="card"><h2>Documents requiring review<span class="note">${rows.length} of ${POL_INBOX.length}</span>
+      ${piFiltered()?`<span class="cardlink" onclick="piReset()">Clear</span>`:''}</h2>
+    <div class="subhead">Documents Korvyn has already processed, awaiting human review before they become governed policy records.</div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th style="width:26px"></th><th>Source document</th><th>Proposed policy</th>
+      <th>Category</th><th>Level</th><th>Owner</th><th>Applicability</th><th>Confidence</th><th>Flags</th><th>Status</th><th>Reviewer</th></tr></thead><tbody>
+    ${rows.map(i=>{const band=piConfBand(i.conf), cb=polConf(i.conf);
+      return `<tr class="row-click ${polInbSel===i.id?'':''}" onclick="setPolInbSel('${i.id}')" ${polInbSel===i.id?'style="background:var(--accent-bg)"':''}>
+      <td onclick="event.stopPropagation();piToggle('${i.id}')"><input type="checkbox" ${piSel.includes(i.id)?'checked':''}></td>
+      <td><b class="ic-mini">${i.doc}</b><div class="ic-mini" style="color:var(--faint)">${i.fmt} · ${i.uploadDate}</div></td>
+      <td class="ic-mini">${i.propName}</td>
+      <td class="ic-mini">${POL_CATN[i.propCat]}</td>
+      <td class="ic-mini">${polLevelL(i.propLevel)}</td>
+      <td class="ic-mini">${i.propOwner||'<span style="color:var(--neg)">unassigned</span>'}</td>
+      <td class="ic-mini">${i.propApplic}</td>
+      <td><span class="ic-mini" style="color:${band==='low'?'var(--warn)':band==='high'?'var(--pos)':'var(--muted)'}">${cb.l}</span>
+        <div class="ic-mini" style="color:var(--faint)">${i.conf}%</div></td>
+      <td>${i.flags.length?i.flags.slice(0,2).map(f=>`<span class="pill ready sm" title="${POL_IFLAG[f]}">${POL_IFLAG[f].replace('Missing ','').replace('Possible ','').replace('Low classification ','low ')}</span>`).join(' ')+(i.flags.length>2?` <span class="ic-mini">+${i.flags.length-2}</span>`:''):'<span class="ic-mini" style="color:var(--faint)">&#8211;</span>'}</td>
+      <td>${polPill(POL_IPROC,i.proc)}</td>
+      <td class="ic-mini">${i.reviewer||'<span style="color:var(--faint)">unassigned</span>'}</td></tr>`;}).join('')}
+    ${rows.length?'':'<tr><td colspan="11" class="note">No documents match the current filters.</td></tr>'}
+    </tbody></table></div>
+    <div class="cardfoot">A document has one processing status and may carry several review flags &#183; select rows for bulk actions</div></div>`;
+
+  o+=`<div class="pol-inbox ${polInbSel?'sel':''}"><div>${queue}</div>${polInbSel?polInbDrawer(polInbById(polInbSel)):''}</div>`;
+  return o;
+}
+
+function polInbFilterBar(){
+  const sel=(k,cur,opts)=>`<select onchange="setPif('${k}',this.value)">${opts.map(o=>
+    `<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+  return `<div class="card"><div class="ctrls" style="margin-bottom:0">
+    <div class="grp"><label>Search</label><input type="text" value="${piQuery.replace(/"/g,'&quot;')}"
+      placeholder="Document, policy, owner, entity, fund" oninput="setPiQuery(this.value)" style="min-width:180px"></div>
+    <div class="grp"><label>Processing status</label>${sel('st',pifStatus,[['all','All statuses'],...Object.keys(POL_IPROC).map(k=>[k,POL_IPROC[k].l])])}</div>
+    <div class="grp"><label>Review flag</label>${sel('flag',pifFlag,[['all','All flags'],...Object.keys(POL_IFLAG).map(k=>[k,POL_IFLAG[k]])])}</div>
+    <div class="grp"><label>Category</label>${sel('cat',pifCat,[['all','All categories'],...[...new Set(POL_INBOX.map(i=>i.propCat))].map(c=>[c,POL_CATN[c]])])}</div>
+    <div class="grp"><label>Level</label>${sel('level',pifLevel,[['all','All levels'],...Object.keys(POL_LEVELS).map(k=>[k,POL_LEVELS[k].l])])}</div>
+    <div class="grp"><label>Owner</label>${sel('own',pifOwn,[['all','All owners'],...piOwners().map(o=>[o,o])])}</div>
+    <div class="grp"><label>Reviewer</label>${sel('rev',pifRev,[['all','All reviewers'],...piReviewers().map(r=>[r,r])])}</div>
+    <div class="grp"><label>Region</label>${sel('region',pifRegion,[['all','All regions'],...piRegions().map(r=>[r,r])])}</div>
+    <div class="grp"><label>Confidence</label>${sel('conf',pifConf,[['all','All'],['high','High'],['med','Medium'],['low','Low']])}</div>
+    ${piFiltered()?`<div class="grp"><label>&nbsp;</label><button class="btn-out" onclick="piReset()">Reset</button></div>`:''}
+  </div></div>`;
+}
+
+function polInbDrawer(i){
+  if(!i) return '';
+  const cb=polConf(i.conf);
+  const inp=(f,l,val)=>`<div class="pol-fld"><label>${l}</label><input type="text" value="${(val||'').replace(/"/g,'&quot;')}" onchange="polInbEdit('${i.id}','${f}',this.value)"></div>`;
+  const selfld=(f,l,val,opts)=>`<div class="pol-fld"><label>${l}</label><select onchange="polInbEdit('${i.id}','${f}',this.value)">${opts.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+  const ownerOpts=[['','— unassigned —'],...[...new Set([...piOwners(),...POL_TEAMS])].map(o=>[o,o])];
+  const m=i.match, mp=m?polById(m.pol):null;
+  return `<div class="pol-drawer"><div class="dh">
+      <div style="flex:1;min-width:0"><div class="ic-mini" style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Review document</div>
+        <div style="font-weight:600;font-size:13.5px;word-break:break-word">${i.doc}</div></div>
+      <span class="extlink" onclick="setPolInbSel(null)">Close</span></div>
+    <div class="db">
+      <div class="dsec">Source document</div>
+      <table class="tbl" style="margin:0"><tbody>
+        <tr><td class="note" style="margin:0;width:120px">Document type</td><td class="ic-mini">${i.fmt}</td></tr>
+        <tr><td class="note" style="margin:0">Uploaded by</td><td class="ic-mini">${i.uploadedBy}</td></tr>
+        <tr><td class="note" style="margin:0">Uploaded date</td><td class="ic-mini">${i.uploadDate}</td></tr>
+        <tr><td class="note" style="margin:0">Source location</td><td class="ic-mini">${i.srcLoc}</td></tr>
+        <tr><td class="note" style="margin:0">Detected version</td><td class="ic-mini">${i.srcVer==='—'?'not detected':'v'+i.srcVer}</td></tr>
+      </tbody></table>
+      <div class="pol-prev" style="margin-top:10px">${i.preview}</div>
+      <div style="margin-top:8px"><span class="extlink" onclick="toggleFilters()">View full document</span> &#183; <span class="extlink" onclick="toggleFilters()">Open source document</span></div>
+
+      <div class="dsec">Korvyn proposal ${polAI}</div>
+      <div class="note" style="margin:0 0 8px">Confidence: <b style="color:${piConfBand(i.conf)==='low'?'var(--warn)':piConfBand(i.conf)==='high'?'var(--pos)':'var(--ink)'}">${cb.l}</b> <span style="color:var(--faint)">(${i.conf}%)</span> — AI-proposed, requires validation.</div>
+      ${inp('propName','Policy name',i.propName)}
+      ${selfld('propCat','Category',i.propCat,POL_CATS.map(c=>[c.id,c.nm]))}
+      ${selfld('propLevel','Policy level',i.propLevel,Object.keys(POL_LEVELS).map(k=>[k,POL_LEVELS[k].l]))}
+      ${selfld('propOwner','Owner',i.propOwner,ownerOpts)}
+      ${inp('propEff','Effective date',i.propEff)}
+      ${inp('propRev','Next review date',i.propRev)}
+      ${inp('propApplic','Applicability summary',i.propApplic)}
+      ${inp('propVer','Version',i.propVer)}
+
+      <div class="dsec">Review flags</div>
+      ${i.flags.length?i.flags.map(f=>`<span class="pol-flag">${glIc('M8 2.5L14.5 13.5h-13zM8 6.5v3')}${POL_IFLAG[f]}</span>`).join(''):'<div class="ic-mini" style="color:var(--faint)">No open flags. Metadata looks complete.</div>'}
+
+      ${m?`<div class="dsec">Possible match ${polAI}</div>
+        <div class="card" style="margin:0;border-color:var(--warn-line,var(--line))">
+          <div class="note" style="font-size:12px;background:var(--warn-bg);color:var(--ink);padding:8px 11px;border-radius:var(--radius-sm);margin-bottom:8px">Korvyn found a potentially related existing policy.</div>
+          <table class="tbl" style="margin:0"><tbody>
+            <tr><td class="note" style="margin:0;width:120px">Existing policy</td><td><b>${m.pol}</b> ${m.name}</td></tr>
+            <tr><td class="note" style="margin:0">Current version</td><td class="ic-mini">${m.ver}</td></tr>
+            <tr><td class="note" style="margin:0">Level</td><td class="ic-mini">${polLevelL(m.level)}</td></tr>
+            <tr><td class="note" style="margin:0">Owner</td><td class="ic-mini">${m.owner}</td></tr>
+            <tr><td class="note" style="margin:0">Similarity</td><td><b>${m.sim}%</b></td></tr>
+            <tr><td class="note" style="margin:0">Possible relationship</td><td>${polPill({[m.rel]:{l:POL_IREL[m.rel],c:'ready'}},m.rel)}</td></tr>
+          </tbody></table>
+          <div class="cardfoot" style="gap:6px;flex-wrap:wrap">
+            <span class="extlink" onclick="setPolInbSel(null);setPolSub('library');setPolSel('${m.pol}')">View existing policy</span>
+            <button class="btn-ghost" onclick="toggleFilters()">Mark new policy</button>
+            <button class="btn-ghost" onclick="toggleFilters()">Link as new version</button>
+            <button class="btn-ghost" onclick="toggleFilters()">Link as related</button>
+            <button class="btn-ghost" onclick="polInbAct('${i.id}','dup')">Mark duplicate</button>
+            <button class="btn-ghost" onclick="polInbAct('${i.id}','defer')">Defer decision</button>
+          </div></div>`:''}
+
+      <div class="dsec">Assignment</div>
+      ${selfld('propOwner','Policy owner',i.propOwner,ownerOpts)}
+      <div class="pol-fld"><label>Assigned reviewer</label><select onchange="polInbEdit('${i.id}','reviewer',this.value)">${[['','— unassigned —'],...[...new Set([...piReviewers(),...POL_TEAMS])].map(r=>[r,r])].map(o=>`<option value="${o[0]}" ${o[0]===i.reviewer?'selected':''}>${o[1]}</option>`).join('')}</select></div>
+    </div>
+    <div class="pol-df">
+      <button class="btn-primary" onclick="polInbAct('${i.id}','ready')">Mark ready for validation</button>
+      <button class="btn-out" onclick="toggleFilters()">Save review</button>
+      <button class="btn-out" onclick="toggleFilters()">Assign owner</button>
+      <button class="btn-out" onclick="polInbAct('${i.id}','dup')">Mark duplicate</button>
+      <button class="btn-ghost" onclick="polInbAct('${i.id}','defer')">Defer</button>
+    </div></div>`;
+}
+
 function renderPolicies(el){
-  if(polSel){ el.innerHTML=polvDetail(); return; }
-  // Phase 1A: Library + Detail only. Ingestion, search and applicability are later phases.
+  if(polSel){ el.innerHTML=polvDetail(); return; }   // policy detail (library drill-down)
+  if(polSub==='inbox'){
+    let o=glHead('Policy Inbox',
+      'Review AI-processed policy documents before validation and publication.',
+      glActions);
+    o+=polvInbox();
+    el.innerHTML=o; return;
+  }
   let o=glHead('Policies',
     'Enterprise policy library — one governed, authoritative record per policy, discoverable through many contexts, with every source document preserved.',
     glActions);
@@ -12754,7 +13062,11 @@ const TAB_PIPELINES={
     {id:'pull',     label:'Pull forward',   n:()=>ccxPullForward().filter(x=>x.earliest==='Now').length, q:false},
     {id:'block',    label:'Blockers',       n:()=>ccxBlockers().length, q:true},
   ], get:()=>ccSub, set:'setCcSub' },
-  // Accounting > Policies (Phase 1A) is a single Library + Detail view — no sub-nav.
+  // Accounting > Policies: Library / Inbox secondary nav (ledger lens only).
+  'ledger:admin':{ steps:[
+    {id:'library', label:'Policy library', n:()=>polKpi().active.length, q:false},
+    {id:'inbox',   label:'Policy inbox',   n:()=>polInbKpi().awaiting.length, q:true},
+  ], get:()=>polSub, set:'setPolSub' },
   // Accounting Issues (ledger lens only) gains a light 3-tab strip in Phase 2 so the
   // precedent library and recurring patterns don't clutter the matters queue.
   'ledger:issues':{ steps:[
@@ -13385,6 +13697,19 @@ const CP_CARDS={
   // Accounting > Policies (ledger lens only; standalone Admin lens falls through to defaults).
   admin: ()=>{
     if(LENS!=='ledger') return null;
+    // Policy Inbox context (queue or a selected document under review).
+    if(polSub==='inbox'){
+      const IK=polInbKpi(), d=polInbSel?polInbById(polInbSel):null;
+      if(d){ return [
+        {t:'Summarize the review flags for this document', s:d.flags.length+' flag'+(d.flags.length===1?'':'s')+' · '+polConf(d.conf).l, i:'warn'},
+        d.match?{t:'Compare this document to the possible existing policy', s:d.match.pol+' · '+d.match.sim+'% similar', i:'delta'}
+               :{t:'What does Korvyn propose for this document?', s:d.propName+' ('+d.conf+'%)', i:'search'}];
+      }
+      return [
+        {t:'Summarize the documents awaiting review', s:IK.awaiting.length+' awaiting · '+IK.dup.length+' possible dup', i:'list'},
+        {t:'Show policies missing an owner', s:IK.unassigned.length+' unassigned', i:'warn'},
+        {t:'Which documents have low classification confidence?', s:POL_INBOX.filter(x=>x.conf<60).length+' low confidence', i:'warn'}];
+    }
     const K=polKpi(), p=polSel?polById(polSel):null;
     if(p){ return [
       {t:'What changed in the latest version?', s:p.gov.version+' · '+(p.versions[0]?p.versions[0].summary.slice(0,32)+'…':''), i:'delta'},
@@ -13448,6 +13773,15 @@ function cpContext(){
   // Accounting > Policies (shared tab id — only in the ledger lens).
   if(TAB==='admin' && LENS==='ledger'){
     const f=[];
+    if(polSub==='inbox'){
+      if(polInbSel){ const d=polInbById(polInbSel); if(d) f.push('reviewing '+d.doc+' · proposed '+d.propName); }
+      else { f.push('policy inbox');
+        if(pifStatus!=='all') f.push(POL_IPROC[pifStatus].l);
+        if(pifFlag!=='all') f.push(POL_IFLAG[pifFlag]);
+        if(pifConf!=='all') f.push(pifConf+' confidence');
+        if(piQuery) f.push('search "'+piQuery+'"'); }
+      return 'Looking at: '+f.join(' · ')+' · '+polInbKpi().awaiting.length+' awaiting review';
+    }
     if(polSel){ const p=polById(polSel); if(p) f.push(p.id+' · '+p.nm+(polTab!=='overview'?' · '+polTab:'')); }
     else {
       f.push('policy library');
