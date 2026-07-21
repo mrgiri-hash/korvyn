@@ -118,8 +118,23 @@ keeps the original lie and adds a second one).
   Accounting's rail keeps its own **Overview** (`acctover`) — that is the Accounting module
   overview, not a duplicate of global Home, and must not be removed as "redundant".
 - **Top ribbon = enterprise domains** (`#ribbonSections`, from `LENS_ORDER`):
-  Accounting · Fixed Assets · Procurement · FP&A · Treasury · Reporting · ⋯
-  The `⋯` menu (`#moreMenu`) holds Data & Controls / Integrations / Administration.
+  Home · Accounting · Fixed Assets · Procurement · FP&A · Treasury · Reporting · ⋯
+- **The `⋯` More menu is a MODULE LAUNCHER, not an overflow bucket.** It is painted by
+  `renderMoreMenu()` from the `MODULE_LAUNCHER` array — grouped (Enterprise workspaces /
+  Platform), each entry an icon, a module name and a one-line statement of what that module
+  owns. Rules it encodes, which must hold as Korvyn grows:
+  **modules only** — enterprise configuration belongs to the Settings gear, personal
+  preferences to the profile menu, view controls to the page toolbar, search to global search.
+  It is rendered from data so a module can later be *pinned* into the ribbon by changing the
+  array rather than rewriting markup; `pinnable`/`perm` are the hooks for that. Navigation
+  personalization is **not implemented** and no pin affordance is drawn — a control that
+  cannot act does not belong in the UI.
+- **The five-level navigation model** (the foundational rule — check a new destination against
+  it before adding it anywhere):
+  1. global module nav (ribbon + More) · 2. module-specific left rail ·
+  3. page/view controls (filters, density, columns) · 4. personal (profile menu) ·
+  5. enterprise configuration (**Settings gear, and only the gear**).
+  Do not duplicate one destination across two levels without a deliberate, stated reason.
 - **Left rail = functions within the active domain** (`#railTabs`, from `RAIL_SPEC`).
 - **Ask Korvyn** = persistent contextual AI, **four** states (closed / collapsed / open / full).
   Do not redesign it without being asked. See the Ask Korvyn section below before touching it.
@@ -146,10 +161,27 @@ There is no separate CSS/JS file. Edits happen in place.
 
 ## Core architecture
 
-- **Data Room** is the module `droom` (lens), reached from the **⋯ menu**, not the ribbon. It
-  lives in `UTIL_ORDER` but — unlike the other util lenses — declares a `RAIL_SPEC`, so it gets
-  a contextual left nav (Overview / Requests / Evidence / Workspaces / External Access, tabs
-  `drover|drreq|drevid|drwork|drext`). This required the one shared-code change:
+- **Data Room** is the module `droom` (lens), reached from the **More launcher**, not the
+  ribbon. It lives in `UTIL_ORDER` but — unlike the other util lenses — declares a `RAIL_SPEC`,
+  so it gets a contextual left nav. That rail is **grouped** (Data Room / Diligence / Content /
+  Governance) because a module owns its own navigation: Home's rail and Data Room's rail are
+  different navigations, not variants of one list.
+  **Data Room appears in exactly ONE place.** It used to sit in both Home's rail and the ⋯
+  menu, which left it ambiguous whether it was part of Home, a global module, or a utility.
+  Do not put it back into Home's rail. Home's `Documents` is the user's *working* surface
+  (assigned to them, recently touched, attached to their tasks); Data Room is the *enterprise
+  evidence* environment. Different concepts — do not merge them, and do not delete Documents
+  because Data Room exists.
+  **The `dataroom` TAB now belongs to this lens**, titled **Retained Records** (locked periods,
+  determinations, lineage to source). It used to be Home's "Data Room" tab, which is precisely
+  the duplicate label that was removed; it renders through the untouched `renderDataRoom()`.
+  Review Queue and Activity are not new tabs — they reach the Evidence pipeline's own
+  sub-views via `act`/`on`, the same mechanism Treasury and Flux review use. Further target
+  groups (Supporting Schedules, ERP References, Contracts, Audit Trail) are **deliberately not
+  listed** until they render something.
+  The droom `VIEW_META.c` strings must **not** begin "Data Room · " — the crumb renders as
+  `<lens label> · c`, so that read "Data Room · Data Room · …".
+  Tabs: `drover|drreq|drevid|drwork|drext|dataroom`. This required the one shared-code change:
   `paintRailRoles` now blanks a util lens's rail only when it has **no** spec
   (`inUtil && !spec`) — `tasks`/`issues`/`archives`/`admin` still render empty rails.
   **`dataroom` is a different thing**: an existing *tab* in Home. Do not conflate them.
@@ -185,6 +217,24 @@ There is no separate CSS/JS file. Edits happen in place.
   **The old ~1085px overflow note is obsolete — that bug is fixed.** Every page used to report
   scrollWidth 1141 at 1085px client width because `#copilot` sat in the body grid. The panel is
   now `position:fixed` and out of layout, so there is zero horizontal overflow at any width.
+- **Data & Governance** is the module `datagov` (lens + `dgover` tab, `renderDataGov`), also in
+  `UTIL_ORDER` with its own `RAIL_SPEC`. It replaced the old **"Data & Controls"** launcher
+  entry, which pointed at Home's Controls page — a label promising data governance while
+  delivering control tests. Four concepts are kept architecturally distinct and must stay that
+  way: **Controls** (financial control framework, testing, monitoring), **Data & Governance**
+  (data quality, lineage, definitions, mappings, ownership), **Data Room** (evidence and
+  diligence), **Integrations** (connectivity and sync). Everything on the page derives from
+  `GL_ERP`, `COA` and `CONS_ENT`; the capabilities that are *not* built (lineage, mappings,
+  quality rules, master-data monitoring, glossary) are **named on screen as scope**, not
+  mocked up. Do not add a number there that does not derive.
+- **Administration/Settings has exactly one entry point: the Settings gear** in the ribbon
+  utilities (`pickLens('admin')`). It was previously reachable from four places — Home's rail,
+  the ⋯ menu, the user menu, and the **Help** button. The Help icon was replaced by the gear:
+  it routed to Administration, which is a mislabelled control, and there is no help content to
+  route it to. If Help returns, give it a real destination first.
+  Known leftovers, deliberately not touched in that pass because they are page-level controls
+  in an unrelated module: the Reporting filing page's **"Manage filing"** button and its team
+  **"View all"** link both still call `pickLens('admin')`.
 - **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
   `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
   (Fixed Assets), `procure` (Procurement), `fpa` (FP&A), `treasury` (Treasury),
