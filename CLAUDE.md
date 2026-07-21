@@ -95,6 +95,17 @@ There is no separate CSS/JS file. Edits happen in place.
 
 ## Core architecture
 
+- **Data Room** is the module `droom` (lens), reached from the **⋯ menu**, not the ribbon. It
+  lives in `UTIL_ORDER` but — unlike the other util lenses — declares a `RAIL_SPEC`, so it gets
+  a contextual left nav (Overview / Requests / Evidence / Workspaces / External Access, tabs
+  `drover|drreq|drevid|drwork|drext`). This required the one shared-code change:
+  `paintRailRoles` now blanks a util lens's rail only when it has **no** spec
+  (`inUtil && !spec`) — `tasks`/`issues`/`archives`/`admin` still render empty rails.
+  **`dataroom` is a different thing**: an existing *tab* in Home. Do not conflate them.
+  Data Room is an evidence & diligence workspace — requests and evidence linkages, **never a
+  folder tree**; evidence points at source records rather than replacing them. Phase 1 is
+  Overview only (`renderDrOver` over `DR_REQUESTS`/`DR_ACTIVITY`/`DR_EXT`); the other four are
+  `renderDrStub` placeholders showing live counts.
 - **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
   `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
   (Fixed Assets), `procure` (Procurement), `fpa` (FP&A), `treasury` (Treasury),
