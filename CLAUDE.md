@@ -154,6 +154,43 @@ necessary, the answer is a different ramp step, not a new colour.
   column carries `flex:true` (`max-width:0`) and truncates with a title tooltip.
   `dtRepaint(id)` swaps a single table in place, so sort/selection do not re-render the page.
 
+### Chrome themes (Settings → Appearance)
+
+Nine curated themes, each a complete per-mode override of the chrome tokens. **No arbitrary
+colour picker** — curated sets stay coherent.
+
+- **Scope is chrome-only and ENFORCED IN CODE, not by convention.** `CHROME_WRITABLE` is the
+  complete set of writable properties; `applyChromeTheme()` refuses to write anything outside
+  it even if a theme carries it, and `chromeThemeAudit()` rejects the theme outright. Verified
+  by pushing a rogue theme carrying `--ink`: not written, and flagged. Content and semantic
+  tokens — severity borders, provenance dots, status tags — are unreachable from here.
+- **`node tools/check_chrome_themes.mjs` is the gate.** It parses the theme literals out of the
+  HTML (so checker and product cannot disagree), composites translucent badge fills over their
+  background before measuring, and fails non-zero on: any required pair under AA, any token
+  outside the whitelist, any dark-mode chrome not darker than the content surface. **Proven by
+  injection** — it catches all three classes. Run it before shipping a theme change.
+  Border visibility is REPORTED, never gated: there is no WCAG threshold for hairlines and the
+  shipped default sits at 1.19, so gating it would fail the build on an opinion.
+- **The eight tokens were not enough, twice over.** A light background inverts the on-chrome
+  semantics and the badge fill, so those travel with the theme. And hover/active states were
+  hardcoded `#fff`, invisible on light chrome — hence `--chrome-text-strong`. Both were found
+  by actually shipping a light theme, not by inspection.
+- **Images are not covered by a token gate.** The wordmark is white PNG artwork and vanished on
+  light chrome; `[data-chrome="light-chrome"] .brand-lockup` inverts it. Any new chrome artwork
+  needs the same treatment.
+- **High contrast is structural, not just a palette** — thicker borders, a 4px active bar, 3px
+  focus rings at higher offset. Those live in `[data-chrome="high-contrast"]` rules because
+  token values cannot express them.
+- **Selection:** `korvyn.chrome.org` (admin default) and `korvyn.chrome.user` (individual
+  override, wins). Applied to **`document.body`**, not `documentElement` — the app carries
+  `data-theme` on body, so only an inline style there beats the dark block. `@media print`
+  resets chrome to the shipped default on `body` with `!important`, so a picked theme never
+  reaches a PDF or anything an auditor receives.
+- **The chrome theme boots from its own block**, beside `CHROME_THEMES`. Booting it from the
+  workspace block ~11,000 lines earlier hit the temporal dead zone and killed every top-level
+  statement after it — **the entire app rendered blank with a clean console**. `viewRenders:0`
+  is the symptom; a clean console is not evidence.
+
 ### The CHROME token set (read before styling the ribbon, rail or strip)
 
 **Canonical names** — `--chrome-bg` `--chrome-bg-2` `--chrome-border` `--chrome-border-strong`
