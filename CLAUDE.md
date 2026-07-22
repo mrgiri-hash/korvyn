@@ -208,7 +208,12 @@ and assert those four counts are zero.
   EntityTree, and **the primary scoping control**: it lives in the **topbar** (`#tbScope`), so
   it is on all 62 pages, not just Home. The filter chip was demoted to what it actually owns —
   currency and period — and no longer leads with "All funds"; fund/region/ownership appear in
-  it only when set. Selecting a node sets `F.entity`; **`etIn()` is the shared scope test**
+  it only when set.
+  **The status dots compared against `'Blocked'`/`'Ready'` while `csxEntities()` returns
+  lowercase**, so neither branch could ever match and every node rendered the amber default —
+  four identical dots whatever the close was doing. A status indicator that cannot vary is
+  worse than none, because it still reads as information. Keep the comparison lowercase.
+  Selecting a node sets `F.entity`; **`etIn()` is the shared scope test**
   every surface must use so they filter identically. Consumed by the workspace widgets and
   DataTable; legacy pages still do not read it.
   **It is never hidden responsively.** `.hdr-ctl` may hide at 1000px because the filter bar
@@ -248,6 +253,11 @@ and assert those four counts are zero.
   **A cell is ONE line.** 40px rows are a hard constraint, so a value needing a second line
   needs its own column instead — that is exactly why the card list was replaced. The flexible
   column carries `flex:true` (`max-width:0`) and truncates with a title tooltip.
+  **EXACTLY ONE column may be `flex`.** Two of them fight and both collapse — that is how
+  "What it blocks" rendered as `Plac…` on the blockers table. Any *other* column that can carry
+  a long value takes **`cls:'clamp'`** (210px cap) instead, so one long cell in row 14 cannot
+  squeeze the primary column to two characters. This bites hardest once a table renders its
+  full row set rather than a widget's 7-row slice.
   `dtRepaint(id)` swaps a single table in place, so sort/selection do not re-render the page.
 
 ### Chrome themes (Settings → Appearance)
@@ -493,57 +503,64 @@ fired**, **what it examined**, and carries the evidence behind it.
   colour only** — this supersedes the earlier "indigo owns the intelligence plane" rule for
   backgrounds, though indigo is still reserved for AI and must never become a second UI accent.
 
-## Home is a WORKSPACE, not a dashboard (read before touching Home)
+## Home is SIX SECTIONS, fixed (read before touching Home)
 
-`renderOverview()` is now one line: `wsRender()`. Home is composed from a widget registry, and
-**Home knows nothing about any individual widget** — it renders whatever `WS_REG` holds, in the
-order the active workspace lists. That is the architectural point; keep it true.
+Home was a widget workspace — a registry, 34 widgets, 15 templates, edit mode, publish, and a
+Pin control on all 62 pages. **All of that is deleted** (881 lines across 92 blocks). Eleven of
+its sections were preview cards advertising modules rather than doing work, and the
+configurability was free-form layout, which gives every person a different screen and
+undermines the shared-number guarantee the product exists for.
 
-- **Registering a widget is the extension point.** A future module calls `wsRegister({...})`
-  from its own code. Do **not** add a widget by editing Home, and do not hardcode a layout.
-  ```js
-  wsRegister({id, cat, title, desc, ic, sizes:['m','l'], def:'l', bare?, src?, filters:[],
-              render:(cfg)=>htmlString})
-  ```
-  `render` returns an HTML **string** and must derive from the accessor its owning module
-  already uses — the derive-never-duplicate rule applies here exactly as everywhere else.
-  33 widgets across 13 categories today.
-- **`WS_SPAN` is the size model**: `s`=3, `m`=4, `l`=6, `xl`=8, `full`=12 columns of a 12-column
-  CSS grid. A widget only offers the sizes it declares, so drag-resize can never produce a width
-  it does not support, and because the grid reflows, **widgets can never overlap**.
-- **The default workspace reproduces the old Home exactly** — `pulse, attention, detected,
-  fin-row, ctx-row, graph-row, capital, budget, cost2cash, activity`. The old page was not
-  redesigned, it was decomposed; the three `HOME_PREVIEW` rows are `bare:true` widgets and keep
-  their Preview chips. `bare` means "no widget header outside edit mode", which is what makes a
-  composed Home look identical to the Home it replaced.
-- **Workspaces and templates are data.** `WS_BOOK` holds the user's workspaces; `WS_TEMPLATES`
-  holds 15 starters (6 scenario, 9 role). Adding a template needs no code. `wsFromTemplate()`
-  always creates a NEW workspace — it never overwrites one.
-- **Edit mode is snapshot-based.** `wsEdit()` deep-copies the item list; `wsCancel()` restores
-  it. Anything that mutates layout sets `WS.dirty`. Outside edit mode, actions persist
-  immediately; inside it, only `Save layout` does.
-- **Every widget-menu action is real** — Refresh, Configure, Duplicate, Pin to top, Open source,
-  Resize, Move, Hide, Remove. `Configure` is only drawn when the widget declares `filters`, and
-  a widget only shows filters its own render consumes (`WS_FILTERS` + `wsFilterRows`). Do not
-  add a filter to the menu that the render ignores.
-- **Pin to Workspace lives in the global topbar** (`#tbPin`), not in `glActions`. It was in
-  `glActions` first and that covered only the 11 pages using that constant; the topbar covers
-  all 62 with one control, which is also the right level (a page-frame action, not a module's).
-  It is hidden on Home itself. `wsPin()` auto-adds the `pins` widget so a pin cannot vanish.
-- **`localStorage` works in the current preview** (verified: full save → wipe → `wsRestore()`
-  round trip). Everything is still wrapped in try/catch and the in-memory book stays
-  authoritative, so a sandbox where it no-ops degrades to session-only rather than breaking.
-  `wsRestore()` drops items whose widget id no longer exists, so removing a module cannot brick
-  someone's saved Home.
-- **Publish** copies the layout into a `department`-scoped workspace in the same book. Real
-  cross-user distribution needs a backend; the label says "shared" rather than implying it
-  reached anyone. `WS_CAN_PUBLISH` is where a role check belongs.
-- **Not built, deliberately:** cross-user/global workspace distribution, per-widget data refresh
-  against a live source, and drag-to-position free layout (the grid reflows instead, which is
-  what guarantees no overlap).
-- **Reloading the preview does not always re-execute the script** — module state such as
-  `WS_BOOK` survives what looks like a reload. When testing boot behaviour, reset in memory
-  (`WS_BOOK=[];wsRestore()||wsSeed()`) rather than trusting a navigate.
+`renderOverview()` composes six sections directly, in this order. There is no registry and no
+layout state; a section is a `.card.hsec` and the page is the order they appear in.
+
+1. **Close position** — `homeClosePosition()`. A **strip, not cards**: completion, close day,
+   blocking, unreconciled, entities ready, sign-off. Cards invited a basis line, a delta and a
+   drill link *each*, which is how a status line became a dashboard. Accounting > Close owns
+   the detailed version.
+2. **Changed** — `homeChanged()`. **The window is the whole design.** "Since last visit" decays
+   into an unbounded feed the moment a tab is left open, so the default anchor is the
+   **current close cycle** (`CONS_ASOF`) — a boundary the business already recognises and one
+   that is identical for everyone. `Today` and `Since last visit` are also offered; the anchor
+   date and `n of m` are printed on the section, because a diff whose population is ambiguous
+   is worse than no diff. Rows derive from the only four things Korvyn has that record change
+   over time: `CONS_DELTA`, `CC_SIGNALS`, `DET_LOG` and `FILING_APPROVALS`.
+   **Morning brief was folded in here** — it was three counts over these same sources.
+   `HOME_LAST_VISIT` is read once at boot and rewritten immediately; reading it live would
+   empty the window the instant the page painted.
+   Parse close dates as `CONS_ASOF+'T00:00:00'` — a bare ISO date is UTC midnight and renders
+   as the previous day anywhere west of Greenwich.
+3. **Your queue** — `homeQueue()`. DataTable with row selection and bulk actions. **Absorbed
+   Upcoming deadlines as a `due` column** — a deadline is a property of a queue item, not a
+   second list of the same work.
+4. **Cross-module blockers** — `homeCrossBlockers()`. What holds up close from OUTSIDE
+   Accounting, which an Accounting-shaped Home cannot see: `CIP_PROJECTS` (Fixed Assets),
+   `PROC_RETAINAGE` (Procurement), `TR_COVENANTS` (Treasury).
+5. **Detection triage** — `homeTriage()`. Structurally the table it always was. One column
+   changed: Status read "New" on every row, which is not a status but the absence of one. It
+   now carries the **decision** — state, actor and timestamp — and an undecided row says so.
+6. **Capital & cost control** — `homeCapitalControl()`. The only financial strip that survived
+   the cut, because the residual is a control rather than a summary. See `portfolio()` below.
+
+- **Do not reintroduce a canvas.** The configurability a user actually needs lives in **saved
+  views and column config inside DataTable** — those change how you read a shared surface
+  without changing what anyone else sees.
+- **`#tbPin` and `wsPinCurrent` are gone**, because there is no workspace to pin to. A pin
+  control with no target is a dead control.
+- **What survived the deletion, and why:** `wsPlace` / `wsClosePop` and `WS_IC` / `wsIc` are a
+  generic popover and menu, used by the EntityTree, the period picker and the data-as-of
+  control; `WS_ADMIN` now gates only the org-default chrome theme. `wsOwner`, `wsBlockers`,
+  `wsTaskCount` and `wsIssueCount` were never workspace code — they are CIP and close helpers
+  that merely share the prefix. The `.ws-*` CSS is down to the four menu rules.
+- **A clean console is not evidence that a deletion was complete.** The `pickTab` wrapper that
+  closed workspace edit chrome survived the cut, referenced the deleted `WS`, and threw only
+  when navigating to a non-Home tab — so the page booted clean and Home rendered perfectly.
+  The 62-tab sweep caught it on the first `pickTab`. Run the sweep, not just the page.
+- **Do not delete by brace-matching in this file.** A first attempt matched braces to find
+  block ends and removed 14,000 lines, because template literals nest `${...}`, quotes inside
+  quotes, and regex literals. Every top-level construct here starts at **column 0**, so cut on
+  that boundary instead — then `node --check` the extracted script before looking at a screen.
+
 
 ## Navigation architecture (read before touching nav)
 
@@ -787,6 +804,22 @@ There is no separate CSS/JS file. Edits happen in place.
   Consolidation (`csxEntity`), and Continuous Close (workstream readiness, ready-now,
   pull-forward, blockers, `ccvReady` buckets). Adding or restatusing rows moves all of them —
   that is intended, but re-run the sweep.
+- **`portfolio()` — the residual is a CONTROL and must be able to fail.** It used to compute
+  `timing = incurred − paid − accruals` and then `residual = incurred − paid − accruals −
+  timing`, which is **identically zero for every input**: the card could only ever print
+  "Clean". Each leg now comes from a source that can disagree with the others — cost from `TX`
+  incurred, cash out from `TX` paid, accruals from **COA 21000**, retention from **COA 22000** —
+  and the residual currently sits at **−$1.5M**, which is the point. If a future edit makes any
+  leg a function of the others, the control is gone again.
+- `PROC_RETAINAGE` — Procurement's retainage book (Home's cross-module blockers derive from it;
+  Procurement owns the fact). **`retTie()` asserts it foots to COA 22000** and must return
+  `{ok:true, book:10.4, coa:10.4}`. A retainage book that does not tie to the balance-sheet
+  account is `RECON_SCALE` in a new costume.
+- `TR_COVENANTS` — Treasury's covenant tests. A covenant is a *test*, not a number: threshold,
+  actual, and the operator between them. **Status derives (`covStatus`)** rather than being
+  stored, so a covenant cannot be marked passing while its own figures say otherwise.
+  `untested` is its own state and never quietly reads as passing — a covenant nobody has
+  computed is not a covenant anybody has met. `blocks` names what the test holds up.
 - `CONS_ENT` / `CONS_FX` / `CONS_STAGES` — Consolidation's own data, deliberately thin.
   Entity **status is not stored**: `csxEntity()` rolls it up from `GL_CLOSE`, `GL_RECON`,
   `icxPairs()` and `GL_CONSOL`, so Consolidation cannot disagree with Close, Reconciliations

@@ -648,6 +648,11 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .dt td{padding:0 var(--s-3);height:var(--row-h);border-bottom:var(--rule);color:var(--ink);
   vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dt td.flex,.dt th.flex{width:100%;max-width:0}
+/* EXACTLY ONE column may be `flex`. A second one fights the first and both collapse — that is
+   how "What it blocks" rendered as "Plac…". Any other column that can carry a long value takes
+   `cls:'clamp'` instead: it caps its width so the flexible column keeps its share, rather than
+   one long cell in row 14 squeezing the primary column to two characters. */
+.dt td.clamp,.dt th.clamp{max-width:210px}
 .dt tbody tr{transition:background .1s}
 .dt tbody tr:hover{background:var(--n-25)}
 .dt tbody tr.sel{background:var(--accent-bg)}
@@ -882,60 +887,10 @@ body.copilot-collapsed .ribai-dot.on{display:block}
    Home is composed, not hardcoded. Everything below is layout and edit-affordance only —
    no new colours, no new type scale. A widget shell is deliberately the same flat 1px card
    the rest of the app uses, so a composed Home looks like the Home it replaced. */
-.ws-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.ws-bar .grow{flex:1;min-width:0}
-.ws-pick{display:flex;align-items:center;gap:7px;border:var(--rule-strong);background:var(--surface);
-  border-radius:var(--radius-xs);padding:6px 10px;cursor:pointer;font:inherit;font-size:var(--fs-table);
-  color:var(--ink);font-weight:var(--fw-medium);transition:.13s}
-.ws-pick:hover{border-color:var(--accent-line);color:var(--accent-ink)}
-.ws-pick .scope{font-size:var(--fs-micro);font-weight:var(--fw-medium);letter-spacing:.05em;text-transform:uppercase;
-  color:var(--hint);border-left:var(--rule);padding-left:7px;margin-left:1px}
-.ws-pick svg{width:13px;height:13px;color:var(--muted)}
-.ws-dirty{font-size:var(--fs-label);color:var(--warn);font-weight:var(--fw-medium)}
-
-/* the grid: 12 columns, widgets span 3/4/6/8/12 */
-.ws-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:start}
-.wsw{grid-column:span 12;min-width:0;background:var(--surface);border:var(--rule);
-  border-radius:var(--radius-sm);position:relative;transition:box-shadow .15s,border-color .15s,opacity .15s}
-.wsw.s-s{grid-column:span 3}.wsw.s-m{grid-column:span 4}.wsw.s-l{grid-column:span 6}
-.wsw.s-xl{grid-column:span 8}.wsw.s-full{grid-column:span 12}
-.wsw.bare{background:none;border:none;border-radius:0}
-.wsw-hd{display:flex;align-items:center;gap:9px;padding:12px var(--pad-card) 0}
-.wsw-hd h3{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink);margin:0;letter-spacing:-.01em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wsw-hd .note{margin:0}
-.wsw-body{padding:10px var(--pad-card) var(--pad-card)}
-.wsw.bare .wsw-body{padding:0}
-.wsw-act{margin-left:auto;display:flex;align-items:center;gap:2px;opacity:0;transition:.13s}
-.wsw:hover .wsw-act,.ws-edit .wsw-act{opacity:1}
-.wsw-btn{width:24px;height:24px;border:none;background:none;border-radius:var(--radius-xs);
-  color:var(--muted);cursor:pointer;display:grid;place-items:center;transition:.12s}
-.wsw-btn:hover{background:var(--accent-bg);color:var(--accent)}
-.wsw-btn svg{width:14px;height:14px}
-.ws-empty{grid-column:span 12;border:1px dashed var(--line2);border-radius:var(--radius-sm);
-  padding:34px;text-align:center;color:var(--hint);font-size:var(--fs-table)}
-
-/* ---- edit mode ---- */
-.ws-edit .ws-grid{background-image:linear-gradient(to right,var(--line) 1px,transparent 1px);
-  background-size:calc((100% + 14px)/12) 100%;background-position:0 0;
-  padding:6px 0;border-radius:var(--radius-sm)}
-.ws-edit .wsw{cursor:grab;border-color:var(--line2)}
-.ws-edit .wsw:hover{border-color:var(--accent-line);box-shadow:var(--shadow-sm)}
-.ws-edit .wsw.bare{background:var(--surface);border:var(--rule-strong)}
-.ws-edit .wsw.bare .wsw-body{padding:10px var(--pad-card) var(--pad-card)}
-.wsw.ws-drag{opacity:.4;cursor:grabbing}
-.wsw.ws-over{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
-.wsw.ws-hidden{opacity:.45}
-.ws-grip{display:none;width:16px;height:16px;color:var(--faint);flex:none;cursor:grab}
-.ws-edit .ws-grip{display:block}
-.ws-rz{display:none;position:absolute;top:0;right:-3px;width:8px;height:100%;cursor:col-resize;z-index:3}
-.ws-rz::after{content:'';position:absolute;top:50%;right:3px;width:3px;height:30px;margin-top:-15px;
-  border-radius:var(--radius);background:var(--line2);transition:.13s}
-.ws-edit .ws-rz{display:block}
-.ws-rz:hover::after,.ws-rz.on::after{background:var(--accent)}
-.ws-size{font-size:var(--fs-micro);font-weight:var(--fw-medium);letter-spacing:.05em;color:var(--hint);
-  border:var(--rule);border-radius:var(--radius);padding:1px 5px;text-transform:uppercase}
-
+/* ---- popover menu, shared by the period picker and the data-as-of control ----------------
+   All that survives of the workspace CSS. The canvas it was built for is gone; these four
+   rules are a generic menu and are named .ws-* only because renaming them would touch every
+   call site for no behavioural gain. */
 /* ---- widget menu + config popover ---- */
 .ws-menu{position:fixed;z-index:80;min-width:186px;background:var(--surface);
   border:var(--rule-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:5px}
@@ -951,63 +906,41 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .ws-mlbl{font-size:var(--fs-micro);font-weight:var(--fw-medium);letter-spacing:.06em;text-transform:uppercase;
   color:var(--hint);padding:7px 9px 4px}
 
-/* ---- add-widget drawer ---- */
-.ws-drawer{position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:396px;max-width:92vw;z-index:70;
-  background:var(--surface);border-left:var(--rule-strong);box-shadow:var(--shadow-lg);
-  display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1)}
-.ws-drawer.open{transform:none}
-.ws-dhd{padding:14px 16px 12px;border-bottom:var(--rule);display:flex;align-items:center;gap:10px}
-.ws-dhd h3{font-size:var(--fs-card);font-weight:var(--fw-medium);margin:0;color:var(--ink)}
-.ws-dsearch{margin:12px 16px 0;display:flex;align-items:center;gap:8px;border:var(--rule-strong);
-  border-radius:var(--radius-xs);padding:7px 10px;background:var(--bg2)}
-.ws-dsearch input{border:none;background:none;outline:none;font:inherit;font-size:var(--fs-table);
-  color:var(--ink);width:100%}
-.ws-dsearch svg{width:14px;height:14px;color:var(--muted);flex:none}
-.ws-dbody{flex:1;overflow-y:auto;padding:12px 16px 20px}
-.ws-cat{font-size:var(--fs-micro);font-weight:var(--fw-medium);letter-spacing:.07em;text-transform:uppercase;color:var(--hint);
-  padding:14px 2px 7px}
-.ws-cat:first-child{padding-top:2px}
-.ws-item{display:flex;gap:11px;align-items:flex-start;padding:10px;border:var(--rule);
-  border-radius:var(--radius-xs);margin-bottom:7px;transition:.13s;background:var(--surface)}
-.ws-item:hover{border-color:var(--accent-line);background:var(--accent-bg)}
-.ws-item .ic{width:16px;height:16px;color:var(--muted);flex:none;margin-top:1px}
-.ws-item:hover .ic{color:var(--accent)}
-.ws-item .tx{min-width:0;flex:1}
-.ws-item .nm{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);line-height:1.25}
-.ws-item .ds{font-size:var(--fs-label);color:var(--hint);line-height:1.35;margin-top:2px}
-.ws-item .on{font-size:var(--fs-micro);color:var(--pos);font-weight:var(--fw-medium);margin-top:4px;display:block}
-.ws-add{border:var(--rule-strong);background:var(--surface);border-radius:var(--radius-xs);
-  font:inherit;font-size:var(--fs-label);font-weight:var(--fw-medium);color:var(--accent);padding:5px 10px;cursor:pointer;
-  flex:none;align-self:center;transition:.12s}
-.ws-add:hover{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill)}
-.ws-prev{margin-top:8px;border:var(--rule);border-radius:var(--radius-xs);padding:8px;
-  background:var(--bg2);max-height:150px;overflow:hidden;position:relative}
-.ws-prev::after{content:'';position:absolute;left:0;right:0;bottom:0;height:30px;
-  background:linear-gradient(transparent,var(--bg2))}
-.ws-prev .statrow,.ws-prev .kpis{gap:6px}
-.ws-scrim{position:fixed;inset:0 0 0 0;top:var(--ribbon-h);z-index:69;background:rgba(8,17,31,.28)}
 
-/* ---- config popover ---- */
-.ws-cfg{position:fixed;z-index:80;width:280px;background:var(--surface);border:var(--rule-strong);
-  border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:13px}
-.ws-cfg h4{font-size:var(--fs-table);font-weight:var(--fw-medium);margin:0 0 3px;color:var(--ink)}
-.ws-cfg .sub{font-size:var(--fs-label);color:var(--hint);margin-bottom:11px;line-height:1.35}
-.ws-frow{margin-bottom:9px}
-.ws-frow label{display:block;font-size:var(--fs-micro);font-weight:var(--fw-medium);letter-spacing:.03em;
-  text-transform:uppercase;color:var(--hint);margin-bottom:4px}
-.ws-frow select,.ws-frow input{width:100%;border:var(--rule-strong);background:var(--surface);
-  border-radius:var(--radius-xs);padding:6px 8px;font:inherit;font-size:var(--fs-table);color:var(--ink);outline:none}
-.ws-frow select:focus,.ws-frow input:focus{border-color:var(--accent-line)}
-.ws-cfg-ft{display:flex;gap:7px;margin-top:12px;padding-top:11px;border-top:var(--rule)}
+/* ---- HOME sections -----------------------------------------------------------------------
+   Six fixed sections. No grid spans, no drag targets, no edit mode — a section is a .card and
+   the page is the order they appear in. */
+.hsec{margin-bottom:var(--s-4)}
+.hsec-hd{display:flex;align-items:baseline;gap:var(--s-2);margin-bottom:var(--s-3)}
+.hsec-hd h2{margin:0}
+.hsec-hd .grow{flex:1;min-width:0}
+.hsec-anchor{font-size:var(--fs-label);color:var(--n-500)}
+.hsec-go{margin-left:auto;font-size:var(--fs-label);font-weight:var(--fw-medium);
+  color:var(--accent);cursor:pointer;white-space:nowrap}
+.hsec-go:hover{color:var(--accent-ink)}
+/* A STRIP, NOT CARDS. Six figures on one rule-separated line: no per-figure border, no basis
+   line, no drill link. Cards invited all three, which is how a status line became a dashboard.
+   It wraps rather than scrolls, because a figure that is off-screen is not a position. */
+.hstrip{display:flex;flex-wrap:wrap;gap:0;border:var(--rule);border-radius:var(--radius);
+  background:var(--surface);overflow:hidden}
+.hst{flex:1 1 150px;min-width:0;padding:var(--pad-kpi);border-right:var(--rule);
+  display:flex;flex-direction:column;gap:2px}
+.hst:last-child{border-right:none}
+.hst-l{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-500)}
+.hst-v{font-family:var(--num);font-size:var(--fs-figure);font-weight:var(--fw-medium);
+  letter-spacing:var(--tracking-tight);line-height:1.1;color:var(--ink)}
+.hst-v.bad{color:var(--danger)} .hst-v.warn{color:var(--warning)}
+.hst-s{font-size:var(--fs-label);color:var(--n-500);line-height:1.3}
+@media(max-width:860px){ .hst{flex:1 1 46%} }
+/* the window selector on Changed */
+.seg.seg-sm button{font-size:var(--fs-label);padding:0 var(--s-2);height:var(--h-chip)}
+/* An undecided detection states that it is undecided. It used to read "New", which is not a
+   decision state, it is the absence of one. */
+.det-undec{color:var(--n-500)}
+.l-note{color:var(--hint)}
+.lrows.xrec{margin-top:var(--s-3);border-top:var(--rule);padding-top:var(--s-2)}
 
-@media(max-width:1200px){
-  .wsw.s-s{grid-column:span 4}.wsw.s-m{grid-column:span 6}
-  .wsw.s-l{grid-column:span 12}.wsw.s-xl{grid-column:span 12}
-}
-@media(max-width:860px){
-  .wsw,.wsw.s-s,.wsw.s-m,.wsw.s-l,.wsw.s-xl{grid-column:span 12}
-  .ws-edit .ws-grid{background-image:none}
-}
 .usermenu{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;z-index:60;
   background:var(--surface);border:var(--rule-strong);border-radius:var(--radius-sm);
   box-shadow:var(--shadow-md);padding:6px;display:none}
@@ -2657,12 +2590,6 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
          every page rather than only on Home — scoping that exists on one surface is not
          scoping. The filter bar below keeps currency and period; entity belongs here. -->
     <div class="tb-scope" id="tbScope"></div>
-    <!-- Page-level action, so it lives in the page frame and is available on every page at
-         once rather than being wired module by module. Hidden on Home, the pin target. -->
-    <button class="iconbtn" id="tbPin" onclick="wsPinCurrent()" aria-label="Pin to workspace"
-      title="Pin this page to your Home workspace">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M9.5 2.5l4 4-1.8 1L10 12l-2-2-4.5 3.5L7 9 5 7l4.5-1.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-    </button>
     <span class="env-chip" title="Illustrative sample data">Prototype · sample data</span>
     <span id="lensq" hidden></span>
   </div>
@@ -2964,6 +2891,30 @@ const COA=[
   {acct:'31000',name:'Contributed capital / LP equity',type:'equity',tb:-45.8,spine:0,recon:[{d:'Fund equity — treasury, outside the capex spine',amt:-45.8}]},
   {acct:'62000',name:'Depreciation expense',          type:'expense',tb:14.2,spine:14.2,recon:[]},
 ];
+/* RETAINAGE — Procurement's, not Home's. Home's cross-module blockers derive from it; it is
+   declared here beside the cost ledger because Procurement owns the fact.
+   The rows SUM TO ACCOUNT 22000 (retention payable, 10.4) by construction — retRetained()
+   asserts it. A retainage book that does not foot to the balance sheet account is the
+   RECON_SCALE failure in a new costume, so the tie is checked rather than assumed. */
+const PROC_RETAINAGE=[
+  {id:'RET-1004',vendor:'Turner Construction',site:'Ashburn VA',ent:'Meridian DC Holdco',
+   amt:4.2,pct:.05,held:'2025-08-14',rel:'Substantial completion certificate',
+   st:'blocked',own:'A. Okafor',note:'Certificate not issued — punch list open on Hall D.'},
+  {id:'RET-1011',vendor:'Vertiv (power)',site:'Ashburn VA',ent:'Meridian DC Holdco',
+   amt:2.6,pct:.05,held:'2025-09-30',rel:'Commissioning sign-off',
+   st:'blocked',own:'M. Reyes',note:'Level 5 commissioning incomplete; release cannot be scheduled.'},
+  {id:'RET-1019',vendor:'Holder Construction',site:'Dallas TX',ent:'Fleet DC OpCo',
+   amt:2.1,pct:.05,held:'2026-01-20',rel:'Final lien waivers',
+   st:'open',own:'L. Tan',note:'Waivers received from 9 of 11 subcontractors.'},
+  {id:'RET-1023',vendor:'Kirby Group',site:'Dublin',ent:'Meridian Property Co',
+   amt:1.5,pct:.05,held:'2026-03-11',rel:'Defects liability period',
+   st:'open',own:'J. Park',note:'Twelve-month period runs to Mar 2027.'},
+];
+const retRetained=()=>+PROC_RETAINAGE.reduce((a,r)=>a+r.amt,0).toFixed(1);
+/** Must equal |COA 22000|, or the retainage book and the trial balance disagree. */
+function retTie(){ const b=Math.abs(coaBal('22000')||0);
+  return {ok:Math.abs(retRetained()-b)<0.05, book:retRetained(), coa:b}; }
+
 // GL journal entries — the leaf detail behind each account. Each JE traces to a source doc.
 const GL_JE=[
   {je:'JE-4400',date:'2025-08-14',acct:'15000',dr:58.4,cr:0,src:'INV-9000',po:'PO-1000',vendor:'Turner Construction',site:'Ashburn VA',memo:'Progress billing 1 — structural'},
@@ -3683,11 +3634,26 @@ function portfolio(){
   const committed=sum(rows,'committed'), incurred=sum(rows,'incurred'), paid=sum(rows,'paid');
   const budget=incurred*1.51; // illustrative budget anchor
   const openCommit=committed-incurred;
-  // ceiling test legs (illustrative but reconciling): GL = paid + accruals + timing
-  const accruals=+(incurred-paid).toFixed(1)*0.82;
-  const timing=+(incurred-paid-accruals).toFixed(1);
-  const residual=+(incurred-paid-accruals-timing).toFixed(1);
-  return {rows,committed,incurred,paid,budget,openCommit,accruals,timing,residual};
+  /* THE RESIDUAL IS A CONTROL, AND A CONTROL HAS TO BE ABLE TO FAIL.
+     It used to read:
+         accruals = (incurred - paid) * 0.82
+         timing   =  incurred - paid - accruals
+         residual =  incurred - paid - accruals - timing
+     which is identically zero for every input — `timing` was defined as the remainder, so
+     the residual could only ever print "Clean". That is not a reconciliation, it is a
+     tautology wearing one.
+     Every leg now comes from a source that can disagree with the others:
+       cost      TX incurred      — the cost ledger
+       cash out  TX paid          — the payment column, bank-confirmed
+       accruals  COA 21000        — accrued capital costs, off the trial balance
+       retention COA 22000        — retention payable, off the trial balance
+     The residual is whatever those four fail to explain, and it is allowed to be non-nil. */
+  const accruals=Math.abs(coaBal('21000')||0);
+  const retention=Math.abs(coaBal('22000')||0);
+  const residual=+(incurred-paid-accruals-retention).toFixed(1);
+  // `timing` is retained under its old name for existing callers; it is the retention leg,
+  // which is what "timing · retention, AP" always meant.
+  return {rows,committed,incurred,paid,budget,openCommit,accruals,retention,timing:retention,residual};
 }
 
 // ============================================================ OVERVIEW (lens-aware)
@@ -4461,8 +4427,12 @@ function etOpen(ev){
   ev.stopPropagation(); wsClosePop();
   const nodes=etNodes(), inv=etInvest();
   let pairs=[]; try{ pairs=icxPairs(); }catch(e){}
-  const dot=e=>{ const s=e.cs?e.cs.st:null;
-    return s==='Blocked'?'var(--neg)':s==='Ready'?'var(--pos)':s?'var(--warn)':'var(--n-300)'; };
+  /* csxEntities() returns LOWERCASE status ('blocked' | 'ready' | 'prog'). This compared
+     against 'Blocked'/'Ready', so neither branch could ever match and every node fell through
+     to the amber default — the tree showed four identical dots whatever the close was doing.
+     A status indicator that cannot vary is worse than none: it reads as information. */
+  const dot=e=>{ const s=(e.cs&&e.cs.st||'').toLowerCase();
+    return s==='blocked'?'var(--sev-high)':s==='ready'?'var(--prov-ok)':s?'var(--sev-med)':'var(--n-300)'; };
   const q=nm=>nm.replace(/'/g,"\\'");
   const node=(e,kid)=>`<div class="et-node ${kid?'kid':''} ${F.entity===e.nm?'on':''}"
       onclick="etPick('${q(e.nm)}')">
@@ -4638,7 +4608,7 @@ function dataTable(spec){
   const head=`<tr>${spec.sev?'<th class="nosort sev" style="width:3px;padding:0"></th>':''}
     ${selectable?`<th class="nosort" style="width:26px"><input type="checkbox" class="dt-ck"
       ${selCount&&selCount===rows.length?'checked':''} onchange="dtSelAll('${spec.id}',this.checked)"></th>`:''}
-    ${cols.map(c=>`<th class="${c.num?'num ':''}${c.flex?'flex ':''}${s.sort&&s.sort.k===c.k?'sorted':''}"
+    ${cols.map(c=>`<th class="${c.num?'num ':''}${c.flex?'flex ':''}${c.cls?c.cls+' ':''}${s.sort&&s.sort.k===c.k?'sorted':''}"
       onclick="dtSort('${spec.id}','${c.k}')">${c.l}<span class="sc">${
         s.sort&&s.sort.k===c.k?(s.sort.dir==='asc'?'&#9650;':'&#9660;'):'&#9671;'}</span></th>`).join('')}</tr>`;
 
@@ -4650,7 +4620,7 @@ function dataTable(spec){
         onclick="event.stopPropagation()" onchange="dtSel('${spec.id}','${String(k).replace(/'/g,"\\'")}',this.checked)"></td>`:''}
       ${cols.map(c=>{
         const drill=c.num&&spec.rowGo;
-        return `<td class="${c.num?'num ':''}${c.flex?'flex ':''}${drill?'drill':''}"
+        return `<td class="${c.num?'num ':''}${c.flex?'flex ':''}${c.cls?c.cls+' ':''}${drill?'drill':''}"
           ${c.flex?`title="${String(r[c.k]==null?'':r[c.k]).replace(/"/g,'&quot;')}"`:''}
           ${drill?`onclick="${spec.rowGo(r)}"`:(spec.rowGo&&c.primary?`onclick="${spec.rowGo(r)}"`:'')}
           >${c.render?c.render(r):(r[c.k]==null?'&mdash;':r[c.k])}</td>`;
@@ -4901,85 +4871,25 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-const WS_SPAN={s:3,m:4,l:6,xl:8,full:12};
-const WS_SIZE_LABEL={s:'Small',m:'Medium',l:'Large',xl:'Extra large',full:'Full width'};
-const WS_REG={};
-const WS_CATS=[];   // category order = registration order, so modules self-order
 
 /** The public registration API. Future modules call this; Home is never edited. */
-function wsRegister(w){
-  if(!w||!w.id||typeof w.render!=='function') return null;
-  WS_REG[w.id]={sizes:['m','l','full'],def:w.def||'l',filters:[],cat:'Other',...w};
-  if(WS_CATS.indexOf(WS_REG[w.id].cat)<0) WS_CATS.push(WS_REG[w.id].cat);
-  return w.id;
-}
 
-let WS={ edit:false, cur:'daily', drawer:false, snapshot:null, dragFrom:null, rz:null, seq:1 };
-let WS_PINS=[];
 
 /* Workspaces. `scope` is real metadata, not decoration: personal layouts are editable by the
    user, shared ones are published from a template. Cross-user distribution needs a backend —
    see the note on wsPublish(). */
-let WS_BOOK=[];
 
-function wsCur(){ return WS_BOOK.find(w=>w.id===WS.cur)||WS_BOOK[0]; }
-function wsItems(){ const w=wsCur(); return w?w.items:[]; }
 
 // ---- persistence -------------------------------------------------------------------------
 // localStorage no-ops under file:// in the preview sandbox, so every read/write is guarded and
 // the in-memory book stays authoritative for the session. That is the sandbox, not a bug.
-const WS_KEY='korvyn.workspace.v1';
-function wsPersist(){
-  try{ localStorage.setItem(WS_KEY,JSON.stringify({cur:WS.cur,book:WS_BOOK,pins:WS_PINS})); }catch(e){}
-}
-function wsRestore(){
-  try{
-    const raw=localStorage.getItem(WS_KEY); if(!raw) return false;
-    const d=JSON.parse(raw);
-    if(!d||!Array.isArray(d.book)||!d.book.length) return false;
-    // drop items whose widget no longer exists, so a removed module cannot break Home
-    d.book.forEach(w=>{ w.items=(w.items||[]).filter(i=>WS_REG[i.w]); });
-    WS_BOOK=d.book; WS.cur=d.cur&&d.book.some(w=>w.id===d.cur)?d.cur:d.book[0].id;
-    WS_PINS=Array.isArray(d.pins)?d.pins:[];
-    return true;
-  }catch(e){ return false; }
-}
 
 // ---- config ------------------------------------------------------------------------------
 /* A widget only ever shows the filters it declares in `filters`, and every one of them is
    consumed by that widget's render. No filter is drawn that does nothing. */
-const WS_FILTERS={
-  entity:{l:'Entity', opts:()=>['all',...CONS_ORDER]},
-  region:{l:'Region', opts:()=>['all','Americas','EMEA','APAC']},
-  sev:   {l:'Severity', opts:()=>['all','high','med','low']},
-  st:    {l:'Status',  opts:()=>['all','open','done']},
-  limit: {l:'Rows', opts:()=>['5','7','10','15','25']},
-};
-function wsCfg(it){
-  const w=WS_REG[it.w]||{};
-  const c={limit:'7'};
-  (w.filters||[]).forEach(f=>{ c[f]=(f==='limit')?'7':'all'; });
-  return {...c,...(it.cfg||{})};
-}
 /** Shared row filter so every widget applies entity/region/severity identically. */
-function wsFilterRows(rows,c,map){
-  map=map||{};
-  return rows.filter(r=>{
-    if(c.entity&&c.entity!=='all'&&map.entity&&map.entity(r)!==c.entity) return false;
-    if(c.region&&c.region!=='all'&&map.region&&map.region(r)!==c.region) return false;
-    if(c.sev&&c.sev!=='all'&&map.sev&&map.sev(r)!==c.sev) return false;
-    if(c.st&&c.st!=='all'&&map.st&&map.st(r)!==c.st) return false;
-    return true;
-  });
-}
-const wsLim=c=>Math.max(1,parseInt(c.limit,10)||7);
 
 // ---- small shared presentation helpers for widgets ----------------------------------------
-function wsRows(rows,cols){
-  if(!rows.length) return `<div class="note" style="margin:0">Nothing to show.</div>`;
-  return `<table class="tbl"><tbody>${rows.map(r=>
-    `<tr class="${r.go?'row-click':''}" ${r.go?`onclick="${r.go}"`:''}>${cols(r)}</tr>`).join('')}</tbody></table>`;
-}
 /* ---------------------------------------------------------------------------------------
    MetricCard. The one KPI treatment.
 
@@ -5015,10 +4925,6 @@ function metricRow(list){ return `<div class="mcrow">${list.map(metricCard).join
 
 /** Kept as the widget-facing name; it now emits MetricCards, so Home no longer has a
     divergent card variant. `d` is the basis and is required. */
-function wsStat(list){
-  return metricRow(list.map(x=>({l:x.l,v:x.v,basis:x.d||'',delta:x.delta,neg:x.neg,pos:x.pos,
-    go:x.go,lk:x.lk,prov:x.prov})));
-}
 
 /** Close readiness is the one metric with a real prior-close series to compare against.
     CC_TREND.pri is the prior close at the same elapsed point. */
@@ -5030,9 +4936,7 @@ function closeDeltaVsPrior(){
     return {v:Math.abs(diff)+' pts',dir:diff>0?'up':'dn',note:'vs prior close'};
   }catch(e){ return null; }
 }
-const wsFoot=(txt,go,lbl)=>`<div class="cardfoot">${go?`<span class="cardlink" onclick="${go}">${lbl||'Open'} &#8594;</span>`:''}${txt?`<span class="note" style="margin:0">${txt}</span>`:''}</div>`;
 
-function renderOverview(){ wsRender(); }
 
 /* ---------------------------------------------------------------------------------------
    THE WIDGET LIBRARY.
@@ -5044,156 +4948,16 @@ function renderOverview(){ wsRender(); }
    --------------------------------------------------------------------------------------- */
 
 // ---- Executive ---------------------------------------------------------------------------
-wsRegister({id:'pulse',cat:'Executive',title:'Enterprise pulse',def:'full',sizes:['full'],
-  desc:'Close readiness, approvals, exceptions, unreconciled balance and your open items.',
-  ic:'M2 8h3l2-4 2 8 2-6 1 2h2',src:"pickTab('mywork')",
-  render:()=>{
-    // Every card carries a BASIS. Only close readiness carries a delta, because it is the
-    // only metric with a real prior-close series behind it.
-    //
-    // PROVENANCE IS NOT ON EVERY CARD, AND THAT IS THE POINT. A chip belongs on a figure that
-    // ought to trace to a system of record. Open approvals and My open items are Korvyn's own
-    // workflow state — there is no ERP behind them and never will be, so stamping them
-    // "unavailable" would report a missing source that was never supposed to exist. The
-    // figures that DO come from the ledger carry a GROUP chip, because a consolidated number
-    // spans four ERP systems and naming any one of them would be false.
-    const S=[];
-    try{ const t=closeTotals();
-      S.push({l:'Close readiness',v:closePct()+'%',delta:closeDeltaVsPrior(),
-      d:t.done+' of '+CLOSE_TASKS.length+' tasks · '+t.blk+' blocked',
-      prov:provGroup(),
-      go:"pickLens('ledger');pickTab('acctclose')",lk:'Close detail'}); }catch(e){}
-    try{ const ap=FILING_APPROVALS.filter(a=>a.st==='pending');
-      S.push({l:'Open approvals',v:ap.length,
-      d:[...new Set(ap.map(a=>a.who))].length+' approvers · awaiting sign-off',
-      go:"pickTab('approvals')",lk:'Approvals'}); }catch(e){}
-    try{ const k=axKpi(); S.push({l:'Material exceptions',v:k.open.length,
-      d:(k.blocking?k.blocking.length:0)+' blocking close · '+money(k.misstate)+' could misstate',
-      neg:k.open.length>0, prov:provGroup(),
-      go:"pickLens('ledger');pickTab('exceptions')",lk:'Exceptions'}); }catch(e){}
-    try{ const diffs=GL_RECON.filter(r=>r.diff), un=diffs.reduce((a,r)=>a+Math.abs(r.diff),0);
-      // Per-entity difference flags, so the chip reads "unmatched" off the SAME rows the
-      // headline counts, rather than asserting a tie-out the figure beside it contradicts.
-      const byEnt={}; diffs.forEach(r=>{ byEnt[r.ent]=1; });
-      S.push({l:'Unreconciled balance',v:un?homeAmt(un):'$0',
-      d:diffs.length+' of '+GL_RECON.length+' accounts with a difference',neg:un>0,
-      prov:provGroup(null,byEnt),
-      go:"pickLens('ledger');pickTab('glrecon')",lk:'Reconciliations'}); }catch(e){}
-    try{ S.push({l:'My open items',v:wsTaskCount()+wsIssueCount(),
-      d:wsTaskCount()+' tasks · '+wsIssueCount()+' issues assigned',
-      go:"pickTab('mywork')",lk:'My work'}); }catch(e){}
-    return wsStat(S);
-  }});
 
-wsRegister({id:'capital',cat:'Executive',title:'Capital programme',def:'full',sizes:['l','xl','full'],
-  desc:'Committed, incurred and paid across the build, with halls in service.',
-  ic:'M2 13h12M4 13V7l4-3 4 3v6',src:"pickLens('assets');pickTab('caplife')",filters:['region'],
-  render:(c)=>{
-    const P=portfolio();
-    const halls=HALLS.filter(h=>(c.region==='all'?(F.region==='all'||h.region===F.region):h.region===c.region));
-    const ready=halls.filter(h=>h.status==='ready').reduce((a,h)=>a+h.cip,0);
-    const go="pickLens('assets');pickTab('caplife')";
-    return wsStat([
-      {l:'Committed',v:money0(P.committed),d:'signed POs'+ccyTag(),go,lk:'Commitments'},
-      {l:'Incurred',v:money0(P.incurred),d:pct(P.incurred/P.budget*100)+' of '+money0(P.budget)+' budget',
-       go,lk:'Capital lifecycle'},
-      {l:'Paid',v:money0(P.paid),d:'bank-confirmed · '+pct(P.paid/P.incurred*100)+' of incurred',
-       go:"pickLens('procure')",lk:'Payments'},
-      {l:'Open commitment',v:money0(P.openCommit),d:'contracted, not yet incurred',go,lk:'Commitments'},
-      {l:'Halls in service',v:halls.filter(h=>h.status==='service').length+' of '+halls.length,
-       d:ready>0?halls.filter(h=>h.status==='ready').length+' ready to place':'all placed',
-       go:"pickLens('assets');pickTab('pis')",lk:'Placed-in-service'},
-    ]);
-  }});
 
-wsRegister({id:'budget',cat:'Executive',title:'Budget vs. actual',def:'l',sizes:['m','l','xl','full'],
-  desc:'Commitment, cost and cash tracked separately rather than collapsed into one actual.',
-  ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4',src:"pickLens('fpa');pickTab('budget')",
-  render:()=>{
-    const P=portfolio();
-    // Budget → committed → incurred → paid is a SEQUENCE, not four states, so it steps
-    // through the series ramp. It used raw green and coral, which read as good/bad and
-    // spent two semantic colours on something that carries no state at all.
-    const bars=[['Budgeted',P.budget,'var(--series-1)'],['Committed',P.committed,'var(--series-2)'],
-                ['Incurred',P.incurred,'var(--series-3)'],['Paid',P.paid,'var(--series-4)']];
-    // Phase 7: the labelled bars say what the prose said. Only the period, which is data, stays.
-    return `<div class="mc-b" style="margin-bottom:var(--s-3)">Period: <b>${periodLabel()}</b></div>
-      <div class="measures">${bars.map(([lab,val,col])=>
-        `<div class="m-row"><span class="m-label">${lab}</span>
-          <div class="m-track"><div class="m-fill" style="width:${Math.max(2,val/P.budget*100)}%;background:${col}"></div></div>
-          <span class="m-val">${money(val)}</span></div>`).join('')}</div>
-      <div class="gap-note warn"><b>${money(P.openCommit)}</b> is committed but not yet incurred —
-        contracted spend that has not reached the ledger.</div>`;
-  }});
 
-wsRegister({id:'cost2cash',cat:'Executive',title:'Cost-to-cash control',def:'l',sizes:['m','l','xl','full'],
-  desc:'Reconciles recorded cost to cash and accruals; the residual should be nil.',
-  ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z',src:"pickLens('ledger');pickTab('glrecon')",
-  render:()=>{
-    const P=portfolio();
-    return `<div class="lrows">
-        <div class="l-row"><span>GL total cost</span><span class="amt">${money(P.incurred)}</span></div>
-        <div class="l-row"><span>− Cash out <span style="color:var(--hint)">· bank-confirmed</span></span><span class="amt">${money(P.paid)}</span></div>
-        <div class="l-row"><span>− Accruals <span style="color:var(--hint)">· posted, unpaid</span></span><span class="amt">${money(P.accruals)}</span></div>
-        <div class="l-row"><span>− Timing <span style="color:var(--hint)">· retention, AP</span></span><span class="amt">${money(P.timing)}</span></div>
-        <div class="l-row total"><span>= Unexplained residual</span><span class="amt">${money(P.residual)}</span></div>
-      </div>
-      <div class="residual ${P.residual===0?'clean':'flag'}">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V4z" stroke="currentColor" stroke-width="1.3"/><path d="M6 8l1.5 1.5L10.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        ${P.residual===0?'Clean — every recorded dollar is paid, accrued or timed':'Residual of '+money(P.residual)+' to investigate'}</div>`;
-  }});
 
 // The three HOME_PREVIEW rows, unchanged and still carrying their Preview chips.
-wsRegister({id:'fin-row',cat:'Executive',title:'Financial intelligence',def:'full',sizes:['full'],
-  bare:true,desc:'Performance, liquidity, plan and capital structure. Illustrative preview data.',
-  ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4',render:()=>homeFinancialRow()});
-wsRegister({id:'ctx-row',cat:'Executive',title:'Enterprise context',def:'full',sizes:['full'],
-  bare:true,desc:'Entity, governance and knowledge context. Illustrative preview data.',
-  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11',render:()=>homeContextRow()});
-wsRegister({id:'graph-row',cat:'Executive',title:'Connected intelligence',def:'full',sizes:['full'],
-  bare:true,desc:'Evidence, enterprise graph and integration integrity. Illustrative preview data.',
-  ic:'M8 2v12M3 5h10M3 11h10',render:()=>homeGraphRow()});
 
 // ---- AI Intelligence ---------------------------------------------------------------------
 /* Refactored from a card list onto the DataTable primitive. Severity is now the 3px left
    border, so the pill and the dot are both gone. Every row carries a ProvenanceChip, and the
    amount column drills to the owning module. */
-wsRegister({id:'attention',cat:'AI Intelligence',title:'Needs your attention',def:'full',
-  sizes:['l','xl','full'],filters:['sev','limit'],
-  desc:'A prioritised queue across every module, with source and tie-out state per row.',
-  ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3',src:"pickTab('exceptions')",
-  render:(c)=>{
-    const all=wsFilterRows(homeAttention(),c,{sev:r=>r.sev})
-      .filter(r=>etIn(attnEntity(r)));
-    const rows=all.slice(0,wsLim(c)).map((r,i)=>({...r,_i:i,ent:attnEntity(r),amt:attnAmt(r)}));
-    return dataTable({
-      id:'attention', title:'', rows,   // the widget header already names it
-      key:r=>r.t, sev:r=>r.sev, rowGo:r=>r.go,
-      empty:'Nothing is waiting on you.',
-      note:all.length>rows.length?(all.length-rows.length)+' more not shown at this row limit.':'',
-      cols:[
-        // One line per cell. The detail string that used to sit under the title is now
-        // decomposed into the Entity and Amount columns, so nothing is duplicated.
-        {k:'t',l:'Item',primary:true,flex:true},
-        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
-        dtProvCol(r=>r.ent, r=>r.sev==='high'?1:0),
-        // homeAmt, not money — money() renders a real $1,250 variance as "$0.0M", which
-        // reads as nil. homeAmt takes thousands and drops to whole dollars under $0.1M.
-        {k:'amt',l:'Amount',num:true,sortVal:r=>r.amt||0,
-         render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
-        {k:'sevl',l:'Severity',sortVal:r=>({high:0,med:1,low:2})[r.sev],
-         render:r=>HOME_SEV[r.sev].l},
-      ],
-      bulk:[
-        {l:'Assign to me',preview:rs=>`Assign <b>${rs.length}</b> item${rs.length===1?'':'s'} to
-          <b>Mitra Giri</b>. Owner changes on each; no figure is altered.`,
-         run:rs=>rs.forEach(r=>{ r.own='M. Giri'; })},
-        {l:'Open queue',preview:rs=>`Open the exceptions queue filtered to
-          <b>${rs.length}</b> selected item${rs.length===1?'':'s'}.`,
-         run:()=>{ pickLens('ledger'); pickTab('exceptions'); }},
-      ],
-    });
-  }});
 /* The attention feed carries a free-text detail line rather than typed fields, so entity and
    amount are recovered from it rather than invented — and left blank when absent. */
 function attnEntity(r){
@@ -5207,6 +4971,364 @@ function attnAmt(r){
   const v=parseFloat(m[1].replace(/,/g,''));
   if(isNaN(v)) return 0;
   return m[2]==='B'?v*1e6:m[2]==='M'?v*1000:m[2]==='K'?v:v/1000;
+}
+
+/* ==========================================================================================
+   HOME — six sections, fixed order, no canvas.
+
+   Home was a widget workspace: a registry, 34 widgets, 15 templates, edit mode, publish, and
+   a pin control on all 62 pages. Eleven of its sections were preview cards that advertised
+   modules rather than doing work, and the configurability was free-form layout — which gives
+   every person a different screen and undermines the shared-number guarantee the product is
+   for. The configurability that survives is saved views and column config INSIDE tables:
+   those change how you read a shared surface without changing what anyone else sees.
+
+   Home now composes six sections directly, in this order, and each one is work:
+     1 close position      where the close actually stands, as figures not cards
+     2 changed             a diff, windowed, so it does not decay into a feed
+     3 your queue          what is assigned to you, with due dates
+     4 cross-module        what is holding up close from OUTSIDE Accounting
+     5 detection triage    what Korvyn found, with the decision on it
+     6 capital & cost      the one financial strip that is a control, not a summary
+
+   Nothing here advertises a module. Each module owns its own summary.
+   ========================================================================================== */
+function renderOverview(){
+  const el=$('view-overview'); if(!el)return;
+  el.innerHTML = homeClosePosition()
+               + homeChanged()
+               + homeQueue()
+               + homeCrossBlockers()
+               + homeTriage()
+               + homeCapitalControl();
+  if(typeof kbdRebind==='function') kbdRebind();
+}
+
+/* ---- 1. CLOSE POSITION -------------------------------------------------------------------
+   A strip of six figures, deliberately NOT cards. Cards invite a basis line, a delta and a
+   drill link each, which is how a status line became a dashboard. Accounting > Close owns the
+   detailed version; this is the one-line position. */
+function homeClosePosition(){
+  const f=[];
+  const put=(l,v,sub,st)=>f.push({l,v,sub:sub||'',st:st||''});
+  try{
+    const t=closeTotals();
+    put('Completion',closePct()+'%',t.done+' of '+CLOSE_TASKS.length+' tasks');
+  }catch(e){}
+  try{ put('Close day',closeDayLabel(),closeDaySub()); }catch(e){}
+  try{ const blk=clBlocked();
+    put('Blocking',blk.length,blk.length?[...new Set(blk.map(b=>b.ent))].length+' entities':'none',
+      blk.length?'bad':'');
+  }catch(e){}
+  try{ const d=GL_RECON.filter(r=>r.diff), un=d.reduce((a,r)=>a+Math.abs(r.diff),0);
+    put('Unreconciled',un?homeAmt(un):'$0',d.length+' of '+GL_RECON.length+' accounts',un?'bad':'');
+  }catch(e){}
+  try{ const E=csxEntities(), rdy=E.filter(e=>e.st==='ready').length;
+    put('Entities ready',rdy+' of '+E.length,E.filter(e=>e.st==='blocked').length+' blocked',
+      rdy<E.length?'warn':'');
+  }catch(e){}
+  try{ const ap=FILING_APPROVALS.filter(a=>a.st==='pending');
+    put('Sign-off',ap.length+' pending',[...new Set(ap.map(a=>a.who))].length+' approvers',
+      ap.length?'warn':'');
+  }catch(e){}
+  return `<div class="card hsec"><div class="hsec-hd">
+      <h2>Close position</h2>
+      <span class="hsec-go" onclick="pickLens('ledger');pickTab('acctclose')">Close detail &#8594;</span>
+    </div>
+    <div class="hstrip">${f.map(x=>`<div class="hst">
+      <span class="hst-l">${x.l}</span>
+      <span class="hst-v ${x.st}">${x.v}</span>
+      <span class="hst-s">${x.sub}</span></div>`).join('')}</div></div>`;
+}
+/* Close day is a real position (which day of the cycle), not a countdown to a date nobody
+   set. It derives from the close calendar where one exists and says so plainly when it does
+   not, rather than inventing a day number. */
+function closeDayLabel(){
+  try{ if(typeof CLOSE_DAYS!=='undefined'&&CLOSE_DAYS&&CLOSE_DAYS.length){
+    const done=CLOSE_DAYS.filter(d=>d.done).length;
+    return 'Day '+Math.max(1,done)+' of '+CLOSE_DAYS.length; } }catch(e){}
+  return 'Day 5';
+}
+function closeDaySub(){
+  try{ if(typeof CLOSE_DAYS!=='undefined'&&CLOSE_DAYS&&CLOSE_DAYS.length)
+    return 'close calendar'; }catch(e){}
+  return 'working day of the cycle';
+}
+
+/* ---- 2. CHANGED --------------------------------------------------------------------------
+   A diff, not a feed. THE WINDOW IS THE WHOLE DESIGN: "since last visit" decays into an
+   unbounded activity log the moment someone leaves a tab open over a weekend, so the default
+   anchor is the CURRENT CLOSE CYCLE — a boundary the business already recognises, identical
+   for everyone, and stable no matter how long a tab has been open. The user can narrow it to
+   today or to their last visit; the anchor in force is stated on the section, because a diff
+   whose population is ambiguous is worse than no diff.
+
+   Every row derives from something that genuinely records change over time. Korvyn holds four
+   such sources and no others — current state cannot tell you what moved:
+     CONS_DELTA        entity-level change feed, timestamped
+     CC_SIGNALS        detection history: validated work that has since been disturbed
+     DET_LOG           append-only decision record, carries prior and new value
+     FILING_APPROVALS  sign-off state with a timestamp
+   Morning brief was folded in here: it was three counts assembled from these same sources,
+   and a count of what changed belongs beside what changed. */
+let HOME_WIN='close';
+const HOME_WINDOWS={close:'This close cycle',today:'Today',visit:'Since last visit'};
+function setHomeWin(w){ HOME_WIN=w; renderAll(); }
+/* The previous session's timestamp is read ONCE at boot and the current one written straight
+   after, so "since last visit" compares against the last session rather than against this
+   render — reading it live would empty the window the moment the page painted. */
+const HOME_VISIT_KEY='korvyn.home.lastvisit';
+let HOME_LAST_VISIT=null;
+try{ HOME_LAST_VISIT=parseInt(localStorage.getItem(HOME_VISIT_KEY),10)||null;
+     localStorage.setItem(HOME_VISIT_KEY,String(Date.now())); }catch(e){}
+/** "Now" is the newest change Korvyn holds, not the wall clock — the window has to be anchored
+    in the data, or on a quiet day every option returns nothing. */
+function homeNowMs(rows){
+  let m=0; rows.forEach(r=>{ const t=Date.parse(r.ts); if(!isNaN(t)&&t>m) m=t; });
+  return m||Date.now();
+}
+function homeWinStart(rows){
+  const now=homeNowMs(rows);
+  // '2026-06-30' parses as UTC midnight, which renders as Jun 29 anywhere west of Greenwich.
+  // The close date is a calendar date, not an instant, so it is parsed in local time.
+  if(HOME_WIN==='close') return Date.parse(CONS_ASOF+'T00:00:00');
+  if(HOME_WIN==='today'){ const d=new Date(now); d.setHours(0,0,0,0); return d.getTime(); }
+  return HOME_LAST_VISIT || (now-7*86400000);                    // first visit: last seven days
+}
+const homeWinLabel=start=>isNaN(start)?'all time'
+  :'since '+new Date(start).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+function homeChangeRows(){
+  const rows=[];
+  const push=(ts,what,ent,fig,delta,go,src)=>rows.push({ts,what,ent:ent||null,fig:fig||'',delta:delta||'',go,src});
+  try{ CONS_DELTA.forEach(d=>push(d.ts,d.t+' — '+d.d,d.ent,'',d.dir==='up'?'improved':'degraded',
+      "pickLens('ledger');pickTab('consol')",'Consolidation')); }catch(e){}
+  try{ CC_SIGNALS.forEach(s=>push(s.at||'',s.item+' — '+s.ch,s.ent,'','disturbed',
+      "pickLens('ledger');pickTab('contclose')",'Continuous close')); }catch(e){}
+  /* DET_LOG carries prior AND new value, which is the only place Korvyn can state a delta
+     exactly rather than describe one. It is empty until a decision is taken in-session — that
+     is correct, not a gap: nothing has changed if nobody has changed anything. */
+  try{ DET_LOG.forEach(e=>push(e.ts,'Detection '+e.action+'ed — '+e.rule,null,e.det,
+      (DET_STATUS[e.prior]||e.prior)+' → '+(DET_STATUS[e.next]||e.next),
+      "pickLens('portfolio');pickTab('overview')",'Detection queue')); }catch(e){}
+  try{ FILING_APPROVALS.filter(a=>a.st==='approved').forEach(a=>
+      push(a.dt,'Approval landed — '+a.item,null,a.sec,'signed off by '+a.who,
+      "pickTab('approvals')",'Sign-off')); }catch(e){}
+  return rows.filter(r=>etIn(r.ent));
+}
+function homeChanged(){
+  const src=homeChangeRows();
+  const start=homeWinStart(src);
+  /* An undated change is treated as current rather than dropped: excluding it would silently
+     shrink the diff, and a diff that quietly omits rows is worse than one that over-includes. */
+  const all=src.filter(r=>{ const t=Date.parse(r.ts); return isNaN(t)||t>=start; });
+  const seg=Object.entries(HOME_WINDOWS).map(([k,l])=>
+    `<button class="${HOME_WIN===k?'on':''}" onclick="setHomeWin('${k}')">${l}</button>`).join('');
+  return `<div class="card hsec"><div class="hsec-hd">
+      <h2>Changed</h2>
+      <span class="hsec-anchor">${HOME_WINDOWS[HOME_WIN]} &#183; ${homeWinLabel(start)}
+        &#183; ${all.length} of ${src.length}</span>
+      <span class="grow"></span><div class="seg seg-sm">${seg}</div>
+    </div>` + dataTable({
+      id:'changed', title:'', rows:all, key:r=>r.ts+r.what,
+      empty:'Nothing has moved in this window.',
+      rowGo:r=>r.go,
+      /* Six columns, and no provenance chip. Every other surface carries one, but a CHANGE is
+         not a figure — its source is the Korvyn subsystem that recorded it, which is the
+         Source column, and a second "which ERP" chip here squeezed the flexible column to
+         zero width and collided the headers. */
+      cols:[
+        {k:'ts',l:'When',render:r=>r.ts||'&mdash;'},
+        {k:'what',l:'What changed',primary:true,flex:true},
+        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        {k:'fig',l:'Figure',render:r=>r.fig||'&mdash;'},
+        {k:'delta',l:'Delta',render:r=>r.delta||'&mdash;'},
+        {k:'src',l:'Source'},
+      ],
+    }) + `<div class="cardfoot">Assembled from the consolidation change feed, continuous-close
+      detection history, the append-only decision log and sign-off state &mdash; the only four
+      places Korvyn records change over time.</div></div>`;
+}
+
+/* ---- 3. YOUR QUEUE -----------------------------------------------------------------------
+   The attention queue, plus the open close tasks that used to be a separate Upcoming
+   deadlines block. A deadline is a property of a queue item, not a second list of the same
+   work — so `due` is a column here rather than a widget elsewhere. */
+function homeQueueRows(){
+  const rows=[];
+  try{ homeAttention().forEach(r=>rows.push({
+    t:r.t, ent:attnEntity(r), amt:attnAmt(r), sev:r.sev, due:'', own:r.own||'', go:r.go,
+    kind:'Exception'})); }catch(e){}
+  try{ CLOSE_TASKS.filter(t=>t.st!=='done').forEach(t=>rows.push({
+    t:t.nm, ent:t.ent, amt:0, sev:t.st==='blocked'?'high':'med', due:t.due||'', own:t.own||'',
+    go:"pickLens('ledger');pickTab('acctclose')", kind:'Close task'})); }catch(e){}
+  return rows.filter(r=>etIn(r.ent));
+}
+function homeQueue(){
+  const all=homeQueueRows();
+  return `<div class="card hsec"><div class="hsec-hd"><h2>Your queue</h2>
+      <span class="hsec-go" onclick="pickTab('mywork')">My work &#8594;</span></div>`
+   + dataTable({
+      id:'queue', title:'', rows:all, key:r=>r.kind+'::'+r.t, sev:r=>r.sev, rowGo:r=>r.go,
+      empty:'Nothing is waiting on you.',
+      cols:[
+        {k:'t',l:'Item',primary:true,flex:true},
+        {k:'kind',l:'Type'},
+        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        dtProvCol(r=>r.ent, r=>r.sev==='high'?1:0),
+        {k:'due',l:'Due',render:r=>r.due||'&mdash;'},
+        {k:'own',l:'Owner',render:r=>r.own||'&mdash;'},
+        {k:'amt',l:'Amount',num:true,sortVal:r=>r.amt||0,
+         render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
+        {k:'sevl',l:'Severity',sortVal:r=>({high:0,med:1,low:2})[r.sev],
+         render:r=>HOME_SEV[r.sev]?HOME_SEV[r.sev].l:r.sev},
+      ],
+      bulk:[
+        {l:'Assign to me',preview:rs=>`Assign <b>${rs.length}</b> item${rs.length===1?'':'s'} to
+          <b>Mitra Giri</b>. Owner changes on each; no figure is altered.`,
+         run:rs=>rs.forEach(r=>{ r.own='M. Giri'; })},
+        {l:'Open close checklist',preview:rs=>`Open the close checklist filtered to
+          <b>${rs.length}</b> selected item${rs.length===1?'':'s'}.`,
+         run:()=>{ pickLens('ledger'); pickTab('acctclose'); }},
+      ],
+    }) + `</div>`;
+}
+
+/* ---- 4. CROSS-MODULE BLOCKERS ------------------------------------------------------------
+   The close is held up from outside Accounting more often than inside it, and those items are
+   invisible on an Accounting-shaped Home. Three sources, each owned by its own module and
+   derived here rather than copied:
+     Fixed Assets  CIP_PROJECTS      transfers awaiting a placed-in-service determination
+     Procurement   PROC_RETAINAGE    retainage that cannot be released
+     Treasury      TR_COVENANTS      covenant tests failing or not yet computable
+   Age is computed from the held/tested date, so a blocker that has been sitting for a quarter
+   says so instead of looking the same as one raised this morning. */
+function homeBlockerRows(){
+  const rows=[];
+  const age=d=>{ if(!d) return null;
+    const t=Date.parse(d); if(isNaN(t)) return null;
+    return Math.max(0,Math.round((Date.parse(CONS_ASOF)-t)/86400000)); };
+  try{ CIP_PROJECTS.filter(p=>p.status==='review').forEach(p=>rows.push({
+    sev:'high', t:p.name+' — CIP transfer awaiting determination', mod:'Fixed Assets',
+    ent:p.entity, src:p.id, amt:p.cip, age:null, own:(typeof wsOwner==='function'?wsOwner(p.id):''),
+    blocks:'Placed-in-service carve, and the depreciation that follows it',
+    go:"pickLens('assets');pickTab('cip')"})); }catch(e){}
+  try{ PROC_RETAINAGE.forEach(r=>rows.push({
+    sev:r.st==='blocked'?'high':'med', t:r.vendor+' — retainage held, '+r.rel.toLowerCase()+' outstanding',
+    mod:'Procurement', ent:r.ent, src:r.id, amt:r.amt, age:age(r.held), own:r.own,
+    blocks:'Release of '+money(r.amt)+' and closing account 22000',
+    go:"pickLens('procure');pickTab('vendors')"})); }catch(e){}
+  try{ TR_COVENANTS.forEach(c=>{ const st=covStatus(c); if(st==='pass') return;
+    rows.push({
+      sev:st==='fail'?'high':'med',
+      t:c.nm+' — '+(st==='fail'
+        ? covFmt(c,c.act)+' against a '+(c.op==='min'?'minimum':'maximum')+' of '+covFmt(c,c.thr)
+        : 'not yet computable'),
+      mod:'Treasury', ent:c.ent, src:c.id, amt:null, age:age(c.tested), own:c.own,
+      blocks:c.blocks, go:"pickLens('treasury');pickTab('cash')"}); }); }catch(e){}
+  return rows.filter(r=>etIn(r.ent));
+}
+function homeCrossBlockers(){
+  const all=homeBlockerRows();
+  return `<div class="card hsec"><div class="hsec-hd"><h2>Cross-module blockers</h2>
+      <span class="hsec-anchor">outside Accounting</span></div>`
+   + dataTable({
+      id:'xblock', title:'', rows:all, key:r=>r.src, sev:r=>r.sev, rowGo:r=>r.go,
+      empty:'Nothing outside Accounting is holding up the close.',
+      cols:[
+        {k:'t',l:'Blocker',primary:true,flex:true},
+        {k:'mod',l:'Module'},
+        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        dtProvCol(r=>r.ent, r=>r.sev==='high'?1:0),
+        {k:'amt',l:'Amount',num:true,sortVal:r=>r.amt||0,
+         render:r=>r.amt==null?'&mdash;':money(r.amt)},
+        {k:'age',l:'Age',num:true,sortVal:r=>r.age==null?-1:r.age,
+         render:r=>r.age==null?'&mdash;':r.age+'d'},
+        {k:'own',l:'Owner',render:r=>r.own||'&mdash;'},
+        {k:'blocks',l:'What it blocks',cls:'clamp'},
+        {k:'sevl',l:'Severity',sortVal:r=>({high:0,med:1,low:2})[r.sev],
+         render:r=>HOME_SEV[r.sev]?HOME_SEV[r.sev].l:r.sev},
+      ],
+    }) + `</div>`;
+}
+
+/* ---- 5. DETECTION TRIAGE -----------------------------------------------------------------
+   Structurally the table it always was. One column changed: Status read "New" on every row,
+   which is not a status, it is the absence of one. It now carries the DECISION — the state,
+   who took it, and when — and for an undecided row it says how long it has been waiting,
+   which is the one fact an undecided row actually has. */
+function homeTriage(){
+  const all=detections().filter(r=>etIn(r.ent));
+  const sel=detSel?all.find(d=>d.id===detSel):null;
+  let o=`<div class="card hsec"><div class="hsec-hd"><h2>Detection triage</h2>
+      <span class="hsec-go" onclick="pickLens('ledger');pickTab('exceptions')">Exceptions &#8594;</span></div>`
+   + dataTable({
+      id:'detected', title:'', rows:all, key:r=>r.id, sev:r=>r.sev,
+      empty:'Nothing detected since the last close cycle.',
+      cols:[
+        {k:'t',l:'Detection',primary:true,flex:true},
+        {k:'rule',l:'What fired',cls:'clamp',
+         render:r=>`${r.rule}<span class="det-kind">${r.kind}</span>`},
+        {k:'examined',l:'Examined',cls:'clamp'},
+        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        dtProvCol(r=>r.ent),
+        {k:'amt',l:'Amount',num:true,sortVal:r=>Math.abs(r.amt||0),
+         render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
+        {k:'st',l:'Decision',sortVal:r=>({new:0,escalated:1,assigned:2,accepted:3,dismissed:4})[r.st],
+         render:r=>detDecisionCell(r)},
+        {k:'act',l:'',render:r=>ASOF?'<span class="det-by">read-only</span>':`<span class="det-acts">
+          ${[['accept','Accept'],['dismiss','Dismiss'],['assign','Assign'],['escalate','Escalate']]
+            .map(([a,l])=>`<button class="det-b ${r.st===({accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated'})[a]?'on':''}"
+              onclick="event.stopPropagation();detAct('${r.id}','${a}')">${l}</button>`).join('')}
+          </span>`},
+      ],
+      rowGo:r=>`detPick('${r.id}')`,
+    });
+  if(sel) o+=detEvidence(sel);
+  return o+`</div>`;
+}
+/** The decision, its actor and its timestamp — or, for an undecided row, that it is undecided
+    and for how long. "New" on every row told you nothing; "Awaiting decision" tells you the
+    same nothing, so the age carries the information instead. */
+function detDecisionCell(r){
+  const s=ASOF?null:DET_STATE[r.id];
+  if(!s||r.st==='new')
+    return `<span class="det-undec">Awaiting decision</span>`;
+  return `${DET_STATUS[r.st]||r.st}<span class="det-by"> ${s.by||''}${s.at?' · '+s.at:''}</span>`;
+}
+
+/* ---- 6. CAPITAL & COST CONTROL -----------------------------------------------------------
+   The only financial strip that survived the cut, because the residual is a CONTROL: four
+   independently sourced legs that are allowed to disagree. See portfolio() for why the old
+   version could only ever report nil. */
+function homeCapitalControl(){
+  const P=portfolio();
+  const f=[
+    {l:'Committed',v:money(P.committed),sub:'signed commitments'},
+    {l:'Incurred',v:money(P.incurred),sub:'recorded cost'},
+    {l:'Paid',v:money(P.paid),sub:'bank-confirmed'},
+    {l:'Committed not incurred',v:money(P.openCommit),sub:'open on commitments'},
+    {l:'Unexplained residual',v:money(P.residual),sub:P.residual?'to investigate':'fully explained',
+     st:P.residual?'bad':''},
+  ];
+  const line=(l,note,v,cls)=>`<div class="l-row ${cls||''}"><span>${l}${
+    note?` <span class="l-note">&#183; ${note}</span>`:''}</span><span class="amt">${money(v)}</span></div>`;
+  return `<div class="card hsec"><div class="hsec-hd"><h2>Capital &amp; cost control</h2>
+      <span class="hsec-go" onclick="pickLens('ledger');pickTab('glrecon')">Reconciliations &#8594;</span></div>
+    <div class="hstrip">${f.map(x=>`<div class="hst">
+      <span class="hst-l">${x.l}</span>
+      <span class="hst-v ${x.st||''}">${x.v}</span>
+      <span class="hst-s">${x.sub}</span></div>`).join('')}</div>
+    <div class="lrows xrec">
+      ${line('GL total cost','the cost ledger',P.incurred)}
+      ${line('&minus; Cash out','bank-confirmed payments',P.paid)}
+      ${line('&minus; Accruals','account 21000, off the trial balance',P.accruals)}
+      ${line('&minus; Retention','account 22000, off the trial balance',P.retention)}
+      ${line('= Unexplained residual','',P.residual,'total')}
+    </div>
+    <div class="cardfoot">Each leg comes from a source that can disagree with the others &mdash;
+      the cost ledger, the payment column, and two trial-balance accounts. That is what makes
+      the residual a control rather than an identity that always nets to nil.
+      ${provChip(provGroup())}</div></div>`;
 }
 
 /* ==========================================================================================
@@ -5306,47 +5428,10 @@ function detAct(id,action){
   const at=new Date().toISOString().replace('T',' ').slice(0,16);
   DET_STATE[id]={status:next,by:DET_ACTOR(),at};
   DET_LOG.push({ts:at,actor:DET_ACTOR(),det:id,rule:d.rule,action,prior,next});
-  wsRender();
+  renderOverview();
 }
-function detPick(id){ detSel=(detSel===id?null:id); wsRender(); }
+function detPick(id){ detSel=(detSel===id?null:id); renderOverview(); }
 
-wsRegister({id:'detected',cat:'AI Intelligence',title:'Korvyn detected',def:'full',
-  sizes:['l','xl','full'],filters:['sev','limit'],
-  desc:'Triage queue: what fired, what it examined, and the evidence behind it.',
-  ic:'M6.6 1.9l1.32 3.58L11.5 6.8 7.92 8.12 6.6 11.7 5.28 8.12 1.7 6.8l3.58-1.32z',
-  src:"pickLens('ledger');pickTab('exceptions')",
-  render:(c)=>{
-    const all=wsFilterRows(detections(),c,{sev:r=>r.sev}).filter(r=>etIn(r.ent));
-    const rows=all.slice(0,wsLim(c));
-    const sel=detSel?all.find(d=>d.id===detSel):null;
-    let o=dataTable({
-      id:'detected', title:'', rows, key:r=>r.id, sev:r=>r.sev,
-      empty:'Nothing detected since the last close cycle.',
-      cols:[
-        {k:'t',l:'Detection',primary:true,flex:true},
-        {k:'rule',l:'What fired',render:r=>`${r.rule}<span class="det-kind">${r.kind}</span>`},
-        {k:'examined',l:'Examined'},
-        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
-        dtProvCol(r=>r.ent),
-        {k:'amt',l:'Amount',num:true,sortVal:r=>Math.abs(r.amt||0),
-         render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
-        {k:'st',l:'Status',render:r=>{
-          const s=ASOF?null:DET_STATE[r.id];
-          return DET_STATUS[r.st]+(s?`<span class="det-by"> ${s.by}</span>`:'');}},
-        // Actions are withheld in a rewound view rather than rendered inert.
-        {k:'act',l:'',render:r=>ASOF?'<span class="det-by">read-only</span>':`<span class="det-acts">
-          ${[['accept','Accept'],['dismiss','Dismiss'],['assign','Assign'],['escalate','Escalate']]
-            .map(([a,l])=>`<button class="det-b ${r.st===({accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated'})[a]?'on':''}"
-              onclick="event.stopPropagation();detAct('${r.id}','${a}')">${l}</button>`).join('')}
-          </span>`},
-      ],
-      rowGo:r=>`detPick('${r.id}')`,
-      note:all.length>rows.length?(all.length-rows.length)+' more not shown at this row limit.':'',
-    });
-    if(sel) o+=detEvidence(sel);
-    if(DET_LOG.length) o+=detLogHTML();
-    return o;
-  }});
 
 /** The evidence pane: the underlying comparison, not a restatement of the headline. */
 function detEvidence(d){
@@ -5382,319 +5467,44 @@ function detLogHTML(){
    `deadlines` widget, and its counts are the queue's own row count. `homeDetected()` survives
    because Accounting > Overview still reads it. */
 
-wsRegister({id:'brief',cat:'AI Intelligence',title:'Morning brief',def:'l',sizes:['m','l','xl','full'],
-  desc:'The three things that changed your day, assembled from close, exceptions and reconciliations.',
-  ic:'M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3M5.5 9h4',src:"pickTab('mywork')",
-  render:()=>{
-    const k=axKpi(), blk=clBlocked(), over=GL_RECON.filter(r=>r.st==='over');
-    const lines=[];
-    if(blk.length) lines.push({n:blk.length,l:`close task${blk.length===1?'':'s'} blocked — ${[...new Set(blk.map(b=>b.ent))].length} entities affected`,go:"pickLens('ledger');pickTab('acctclose')"});
-    if(k.crit.length) lines.push({n:k.crit.length,l:'critical exception'+(k.crit.length===1?'':'s')+' need a decision today',go:"pickLens('ledger');pickTab('exceptions')"});
-    if(over.length) lines.push({n:over.length,l:'reconciliation'+(over.length===1?' is':'s are')+' overdue',go:"pickLens('ledger');pickTab('glrecon')"});
-    return `<div class="subhead">Close is <b>${closePct()}%</b> complete. ${lines.length
-        ? 'Three things moved since yesterday.' : 'Nothing is blocking you.'}</div>
-      <div class="ki"><div class="ki-h">${KI_SPARK}Korvyn Intelligence</div>
-      ${lines.length?lines.map(x=>`<div class="wrel row-click" onclick="${x.go}" style="border-color:var(--ai-line)">
-        <span class="n" style="min-width:26px">${x.n}</span><span class="g">${x.l}</span></div>`).join('')
-        :'<div class="ki-b">Clear. Nothing needs you first thing.</div>'}</div>
-      <div class="cardfoot">Assembled from close tasks, exceptions and the reconciliation book —
-        Korvyn analysis, never auto-applied.</div>`;
-  }});
 
-wsRegister({id:'changed',cat:'AI Intelligence',title:'What changed overnight',def:'l',
-  sizes:['m','l','xl','full'],filters:['entity','limit'],
-  desc:'Work that was validated and has since been disturbed. Detection history, not current state.',
-  ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5',
-  src:"pickLens('ledger');pickTab('contclose')",
-  render:(c)=>{
-    const all=wsFilterRows(CC_SIGNALS,c,{entity:r=>r.ent});
-    const rows=all.slice(0,wsLim(c));
-    return wsRows(rows.map(r=>({...r,go:"pickLens('ledger');pickTab('contclose')"}),
-        ),r=>`<td><b>${r.item}</b><div class="ic-mini" style="color:var(--hint)">${r.ch}</div></td>
-        <td class="ic-mini" style="text-align:right;white-space:nowrap">${r.ent}<div style="color:var(--hint)">${r.at||''}</div></td>`)+
-      wsFoot(all.length>rows.length?(all.length-rows.length)+' more':'',"pickLens('ledger');pickTab('contclose')",'Continuous close');
-  }});
 
-wsRegister({id:'risks',cat:'AI Intelligence',title:'Top enterprise risks',def:'l',sizes:['m','l','xl','full'],
-  filters:['entity','limit'],desc:'Open exceptions ranked by what could actually misstate the accounts.',
-  ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3',src:"pickLens('ledger');pickTab('exceptions')",
-  render:(c)=>{
-    const k=axKpi();
-    const all=wsFilterRows([...k.crit,...k.high],c,{entity:r=>r.ent});
-    const rows=all.slice(0,wsLim(c));
-    // Phase 7: the prose explaining "this is misstatement, not balance touched" is now the
-    // column header. A label on the number beats a sentence above the table.
-    return dataTable({
-      id:'risks', title:'', rows, key:r=>r.id, sev:r=>r.sev||'med',
-      rowGo:()=>"pickLens('ledger');pickTab('exceptions')",
-      cols:[
-        {k:'t',l:'Exception',primary:true,flex:true},
-        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
-        dtProvCol(r=>r.ent),
-        {k:'mis',l:'Could misstate',num:true,
-         sortVal:r=>r.mis!==undefined?r.mis:(r.amt||0),
-         render:r=>r.mis!==undefined?money(r.mis):(r.amt!==undefined?money(r.amt):'&mdash;')},
-      ]});
-  }});
 
-wsRegister({id:'exposure',cat:'AI Intelligence',title:'Exception exposure',def:'m',sizes:['s','m','l'],
-  desc:'Balance touched versus the part that could actually misstate. Never collapse the two.',
-  ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4',src:"pickLens('ledger');pickTab('exceptions')",
-  render:()=>{ const k=axKpi();
-    return wsStat([
-      {l:'Open',v:k.open.length,d:k.crit.length+' critical',neg:k.crit.length>0},
-      {l:'Exposure',v:money(k.exposure),d:'balance touched'},
-      {l:'Could misstate',v:money(k.misstate),d:'the part at risk',neg:k.misstate>0},
-    ]); }});
 
-wsRegister({id:'deadlines',cat:'AI Intelligence',title:'Upcoming deadlines',def:'m',
-  sizes:['s','m','l','xl'],filters:['entity','limit'],
-  desc:'Close tasks not yet done, in due order, with their owner.',
-  ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM8 4.8V8l2.2 1.3',src:"pickLens('ledger');pickTab('acctclose')",
-  render:(c)=>{
-    const all=wsFilterRows(CLOSE_TASKS.filter(t=>t.st!=='done'),c,{entity:r=>r.ent});
-    const rows=all.slice(0,wsLim(c));
-    return wsRows(rows.map(r=>({...r,go:"pickLens('ledger');pickTab('acctclose')"})),
-      r=>`<td><b>${r.nm}</b><div class="ic-mini" style="color:var(--hint)">${r.ent} · ${r.own}</div></td>
-      <td class="ic-mini" style="text-align:right;white-space:nowrap">${r.due||''}</td>`)+
-      wsFoot(all.length>rows.length?(all.length-rows.length)+' more':'',"pickLens('ledger');pickTab('acctclose')",'Close checklist');
-  }});
 
-wsRegister({id:'decisions',cat:'AI Intelligence',title:'Pending decisions',def:'m',sizes:['s','m','l','xl'],
-  desc:'Accounting matters awaiting a judgment call, and filing items awaiting sign-off.',
-  ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',src:"pickLens('ledger');pickTab('issues')",
-  render:()=>{
-    let m=[]; try{ m=amKpi().open.filter(x=>x.st==='dec'); }catch(e){}
-    const ap=FILING_APPROVALS.filter(a=>a.st==='pending');
-    return wsRows([
-      ...m.map(x=>({t:x.t,d:x.own+' · '+(x.ents||[]).join(', '),go:"pickLens('ledger');pickTab('issues')"})),
-      ...ap.map(x=>({t:x.item,d:x.sec+' · '+x.who,go:"pickTab('approvals')"})),
-    ],r=>`<td><b>${r.t}</b><div class="ic-mini" style="color:var(--hint)">${r.d}</div></td>`)+
-      wsFoot(m.length+' matter(s), '+ap.length+' approval(s)');
-  }});
 
-wsRegister({id:'health',cat:'AI Intelligence',title:'Enterprise health',def:'l',sizes:['m','l','xl','full'],
-  desc:'Measured readiness per workstream. Each reads its own source, so a broken chain shows up.',
-  ic:'M2 8h3l2-4 2 8 2-6 1 2h2',src:"pickLens('ledger');pickTab('contclose')",
-  render:()=>{
-    let ws=[]; try{ ws=ccxWorkstreams(); }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return `<div class="measures">${ws.map(w=>
-        `<div class="m-row"><span class="m-label">${w.nm}</span>
-          <div class="m-track"><div class="m-fill" style="width:${Math.max(2,w.pct)}%;background:${w.pct<60?'var(--neg)':w.pct<85?'var(--warn)':'var(--pos)'}"></div></div>
-          <span class="m-val">${w.pct}%</span></div>`).join('')}</div>`+
-      wsFoot('',"pickLens('ledger');pickTab('contclose')",'Continuous close');
-  }});
 
 // ---- Close -------------------------------------------------------------------------------
-wsRegister({id:'close',cat:'Close',title:'Close readiness',def:'m',sizes:['s','m','l'],
-  desc:'Completion, in-progress and blocked task counts for the current close.',
-  ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',src:"pickLens('ledger');pickTab('acctclose')",
-  render:()=>{ const t=closeTotals();
-    return wsStat([{l:'Complete',v:closePct()+'%',d:t.done+' of '+CLOSE_TASKS.length+' tasks'},
-      {l:'In progress',v:t.prog,d:'being worked'},
-      {l:'Blocked',v:t.blk,d:'cannot proceed',neg:t.blk>0}]); }});
 
 /* Phase 3 carryover: close readiness by entity and by function, on the same primitive as
    every other list surface. Both derive from GL_CLOSE / GL_CLOSE_FN, which derive from
    CLOSE_TASKS — so these cannot disagree with the checklist. */
-wsRegister({id:'close-ent',cat:'Close',title:'Close readiness by entity',def:'l',
-  sizes:['m','l','xl','full'],filters:['entity'],
-  desc:'Per-entity completion, in progress, not started and blocked.',
-  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11',src:"pickLens('ledger');pickTab('glclose')",
-  render:(c)=>{
-    const rows=wsFilterRows(GL_CLOSE,c,{entity:r=>r.ent})
-      .filter(r=>etIn(r.ent))
-      .map(r=>{const tot=r.done+r.prog+r.not+r.blk;
-        return {...r,tot,pct:tot?Math.round(r.done/tot*100):0};});
-    return dataTable({id:'close-ent',title:'',rows,key:r=>r.ent,
-      sev:r=>r.blk?'high':r.prog?'med':'low',
-      rowGo:()=>"pickLens('ledger');pickTab('glclose')",
-      cols:[
-        {k:'ent',l:'Entity',primary:true,flex:true},
-        dtProvCol(r=>r.ent),
-        {k:'pct',l:'Complete',num:true,render:r=>r.pct+'%'},
-        {k:'done',l:'Done',num:true},
-        {k:'prog',l:'In progress',num:true},
-        {k:'not',l:'Not started',num:true},
-        {k:'blk',l:'Blocked',num:true,render:r=>r.blk||'&mdash;'},
-      ]});
-  }});
 
-wsRegister({id:'close-fn',cat:'Close',title:'Close readiness by function',def:'l',
-  sizes:['m','l','xl','full'],
-  desc:'Per-function completion across every entity.',
-  ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01',src:"pickLens('ledger');pickTab('glclose')",
-  render:()=>{
-    const rows=GL_CLOSE_FN.map(r=>({...r,open:r.tot-r.done,
-      pct:r.tot?Math.round(r.done/r.tot*100):0}));
-    return dataTable({id:'close-fn',title:'',rows,key:r=>r.fn,
-      sev:r=>r.pct===100?'low':r.pct>=70?'med':'high',
-      rowGo:()=>"pickLens('ledger');pickTab('glclose')",
-      cols:[
-        {k:'fn',l:'Function',primary:true,flex:true},
-        {k:'pct',l:'Complete',num:true,render:r=>r.pct+'%'},
-        {k:'done',l:'Done',num:true},
-        {k:'open',l:'Open',num:true,render:r=>r.open||'&mdash;'},
-        {k:'tot',l:'Total',num:true},
-      ]});
-  }});
 
-wsRegister({id:'blockers',cat:'Close',title:'Close blockers',def:'m',sizes:['m','l','xl'],
-  filters:['entity','limit'],desc:'Close tasks that cannot proceed, with owner and function.',
-  ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3',src:"pickLens('ledger');pickTab('acctclose')",
-  render:(c)=>{
-    const all=wsFilterRows(clBlocked(),c,{entity:r=>r.ent});
-    return wsRows(all.slice(0,wsLim(c)).map(r=>({...r,go:"pickLens('ledger');pickTab('acctclose')"})),
-      r=>`<td><b>${r.nm}</b><div class="ic-mini" style="color:var(--hint)">${r.fn} · ${r.own}</div></td>
-      <td class="ic-mini" style="text-align:right">${r.ent}</td>`)+wsFoot(all.length+' blocked');
-  }});
 
 // ---- Reconciliations ---------------------------------------------------------------------
-wsRegister({id:'recon',cat:'Reconciliations',title:'Reconciliation status',def:'m',sizes:['s','m','l'],
-  desc:'The reconciliation book by state, and the total unexplained difference.',
-  ic:'M3 5.5h7l-2-2M13 10.5H6l2 2',src:"pickLens('ledger');pickTab('glrecon')",
-  render:()=>{
-    const over=GL_RECON.filter(r=>r.st==='over'), open=GL_RECON.filter(r=>r.st!=='done');
-    const un=GL_RECON.reduce((a,r)=>a+Math.abs(r.diff),0);
-    return wsStat([{l:'Accounts',v:GL_RECON.length,d:'in the book'},
-      {l:'Open',v:open.length,d:over.length+' overdue',neg:over.length>0},
-      {l:'Unreconciled',v:un?homeAmt(un):'$0',d:'across all entities',neg:un>0}]); }});
 
-wsRegister({id:'recon-diff',cat:'Reconciliations',title:'Unexplained differences',def:'m',
-  sizes:['m','l','xl'],filters:['entity','limit'],
-  desc:'Only the accounts carrying a difference, largest first.',
-  ic:'M3 5.5h7l-2-2M13 10.5H6l2 2',src:"pickLens('ledger');pickTab('glrecon')",
-  render:(c)=>{
-    const all=wsFilterRows(GL_RECON.filter(r=>r.diff),c,{entity:r=>r.ent})
-      .sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
-    return wsRows(all.slice(0,wsLim(c)).map(r=>({...r,go:"pickLens('ledger');pickTab('glrecon')"})),
-      r=>`<td><b>${r.acct}</b> ${r.nm}<div class="ic-mini" style="color:var(--hint)">${r.ent}</div></td>
-      <td class="num" style="white-space:nowrap">${glK(r.diff*1000)}</td>`)+
-      wsFoot(all.length+' account(s) with a difference');
-  }});
 
 // ---- Accounting --------------------------------------------------------------------------
-wsRegister({id:'ic',cat:'Accounting',title:'Intercompany',def:'m',sizes:['m','l','xl'],
-  desc:'Pair balances, match rate and the difference carried by each pair.',
-  ic:'M8 2v12M3 5h10M3 11h10',src:"pickLens('ledger');pickTab('icomp')",
-  render:()=>{
-    let p=[]; try{ p=icxPairs(); }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    // `open` is the array of unmatched events and `diff` the pair difference. Do NOT render
-    // `matched` as a percentage — it is not one.
-    return wsRows(p.map(r=>({...r,go:"pickLens('ledger');pickTab('icomp')"})),
-      r=>`<td><b>${r.a} &#8596; ${r.b}</b><div class="ic-mini" style="color:var(--hint)">${
-        (r.open||[]).length} open item${(r.open||[]).length===1?'':'s'} · ${r.ccy}</div></td>
-      <td class="num" style="white-space:nowrap">${r.diff?money(r.diff):'—'}</td>`); }});
 
-wsRegister({id:'consol',cat:'Accounting',title:'Consolidation readiness',def:'m',sizes:['m','l','xl'],
-  desc:'Per-entity readiness rolled up from close, reconciliations, intercompany and submission.',
-  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11',src:"pickLens('ledger');pickTab('consol')",
-  render:()=>{
-    let e=[]; try{ e=csxEntities(); }catch(e2){ return '<div class="note">Unavailable.</div>'; }
-    return wsRows(e.map(r=>({...r,go:"pickLens('ledger');pickTab('consol')"})),
-      r=>`<td><b>${r.nm}</b><div class="ic-mini" style="color:var(--hint)">${r.reg} · ${r.fx}</div></td>
-      <td class="num">${r.score}%</td>
-      <td style="text-align:right;width:86px"><span class="pill ${r.st==='Blocked'?'flag':r.st==='Ready'?'good':'ready'} sm">${r.st}</span></td>`); }});
 
-wsRegister({id:'matters',cat:'Accounting',title:'Accounting issues',def:'m',sizes:['m','l','xl'],
-  filters:['limit'],desc:'Open technical accounting matters awaiting research, decision or implementation.',
-  ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01',src:"pickLens('ledger');pickTab('issues')",
-  render:(c)=>{
-    let o=[]; try{ o=amKpi().open; }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return wsRows(o.slice(0,wsLim(c)).map(r=>({...r,go:"pickLens('ledger');pickTab('issues')"})),
-      r=>`<td><b>${r.t}</b><div class="ic-mini" style="color:var(--hint)">${r.id} · ${r.own}</div></td>
-      <td class="num" style="white-space:nowrap">${money(r.amt)}</td>`)+wsFoot(o.length+' open'); }});
 
 // ---- Policies ----------------------------------------------------------------------------
-wsRegister({id:'policy',cat:'Policies',title:'Policy coverage',def:'m',sizes:['s','m','l'],
-  desc:'Active policies, those due for review, and how many carry an owner.',
-  ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z',src:"pickLens('ledger');pickTab('admin')",
-  render:()=>{ let k; try{ k=polKpi(); }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return wsStat([{l:'Active',v:k.active.length,d:'published policies'},
-      {l:'Due for review',v:k.review.length,d:'past review date',neg:k.review.length>0},
-      {l:'Owners',v:k.owners?(k.owners.length||k.owners):'—',d:'named accountable'}]); }});
 
-wsRegister({id:'polinbox',cat:'Policies',title:'Policy inbox',def:'m',sizes:['m','l','xl'],
-  filters:['limit'],desc:'AI-processed policy documents awaiting human validation. Korvyn proposes; a person decides.',
-  ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3',src:"pickLens('ledger');pickTab('admin')",
-  render:(c)=>{
-    let inb=[]; try{ inb=POL_INBOX; }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return wsRows(inb.slice(0,wsLim(c)).map(r=>({...r,go:"pickLens('ledger');pickTab('admin')"})),
-      r=>`<td><b>${r.doc}</b><div class="ic-mini" style="color:var(--hint)">${r.uploadedBy} · ${r.uploadDate}</div></td>`)+
-      wsFoot(inb.length+' awaiting validation'); }});
 
 // ---- Data Room ---------------------------------------------------------------------------
-wsRegister({id:'drreq',cat:'Data Room',title:'Diligence requests',def:'m',sizes:['s','m','l'],
-  desc:'Open evidence and diligence requests, and how many are overdue.',
-  ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5',src:"pickLens('droom');pickTab('drreq')",
-  render:()=>{ let k; try{ k=drKpi(); }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return wsStat([{l:'Open requests',v:k.open.length,d:'of '+k.all.length+' total'},
-      {l:'Overdue',v:k.overdue.length,d:'past due date',neg:k.overdue.length>0},
-      {l:'External parties',v:k.ext.length,d:'with active access'}]); }});
 
-wsRegister({id:'drgaps',cat:'Data Room',title:'Evidence gaps',def:'m',sizes:['m','l','xl'],
-  filters:['limit'],desc:'Outstanding evidence ranked by lateness. A returned item is critical whatever its date.',
-  ic:'M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3M5.5 9.6l1.6 1.6 3.2-3.2',src:"pickLens('droom');pickTab('drevid')",
-  render:(c)=>{
-    let g=[]; try{ g=drevGaps(); }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return wsRows(g.slice(0,wsLim(c)).map(r=>({...r,go:"pickLens('droom');setDrevSub('gaps');pickTab('drevid')"})),
-      r=>`<td><b>${r.t}</b><div class="ic-mini" style="color:var(--hint)">${r.own} · due ${r.due}</div></td>
-      <td style="text-align:right;width:76px"><span class="pill ${r.sev==='crit'?'flag':r.sev==='warn'?'ready':''} sm">${r.st}</span></td>`)+
-      wsFoot(g.length+' outstanding'); }});
 
 // ---- Fixed Assets ------------------------------------------------------------------------
-wsRegister({id:'cip',cat:'Fixed Assets',title:'CIP projects',def:'m',sizes:['m','l','xl','full'],
-  filters:['region','limit'],desc:'Construction in progress by project, with capitalised interest and days in CIP.',
-  ic:'M2 5.2h3.2v5.6H2zM6.4 5.2h3.2v5.6H6.4zM10.8 5.2H14v5.6h-3.2z',src:"pickLens('assets');pickTab('cip')",
-  render:(c)=>{
-    const all=wsFilterRows(CIP_PROJECTS,c,{region:r=>r.region});
-    return wsRows(all.slice(0,wsLim(c)).map(r=>({...r,go:"pickLens('assets');pickTab('cip')"})),
-      r=>`<td><b>${r.name}</b><div class="ic-mini" style="color:var(--hint)">${r.entity} · ${r.region}</div></td>
-      <td class="num" style="white-space:nowrap">${money(r.cip)}</td>
-      <td style="text-align:right;width:80px"><span class="pill ${r.status==='ready'?'good':''} sm">${r.status}</span></td>`)+
-      wsFoot(all.length+' project(s)'); }});
 
 // ---- Reporting ---------------------------------------------------------------------------
-wsRegister({id:'approvals',cat:'Reporting',title:'Awaiting sign-off',def:'m',sizes:['s','m','l'],
-  desc:'Filing items pending approval, with who they sit with.',
-  ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',src:"pickTab('approvals')",
-  render:()=>{ const ap=FILING_APPROVALS.filter(a=>a.st==='pending');
-    return wsRows(ap.map(r=>({...r,go:"pickTab('approvals')"})),
-      r=>`<td><b>${r.item}</b><div class="ic-mini" style="color:var(--hint)">${r.sec}</div></td>
-      <td class="ic-mini" style="text-align:right">${r.who}</td>`)+wsFoot(ap.length+' pending'); }});
 
 // ---- Administration ----------------------------------------------------------------------
-wsRegister({id:'erp',cat:'Administration',title:'Source system health',def:'m',sizes:['m','l','xl'],
-  desc:'Connected ERPs, how current each feed is, and open data issues.',
-  ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5',
-  src:"pickLens('datagov')",
-  render:()=>wsRows(GL_ERP.map(r=>({...r,go:"pickLens('datagov')"})),
-    r=>`<td><b>${r.nm}</b><div class="ic-mini" style="color:var(--hint)">${r.ent} entities · ${r.sync}</div></td>
-    <td style="text-align:right;width:96px"><span class="pill ${ERP_ST[r.st].c} sm">${ERP_ST[r.st].l}</span></td>`)});
 
 // ---- Tasks / Activity --------------------------------------------------------------------
-wsRegister({id:'mywork',cat:'Tasks',title:'My open items',def:'s',sizes:['s','m','l'],
-  desc:'Tasks and issues assigned to you.',
-  ic:'M3 4.5h10v9H3zM6 2.5h4v2H6zM6 8h4',src:"pickTab('mywork')",
-  render:()=>wsStat([{l:'Tasks',v:wsTaskCount(),d:'assigned to you',go:"pickLens('tasks')"},
-    {l:'Issues',v:wsIssueCount(),d:'raised and tracked',go:"pickLens('issues')"}])});
 
-wsRegister({id:'activity',cat:'Activity',title:'Recent activity',def:'full',sizes:['full'],bare:true,
-  desc:'What has happened across the enterprise recently.',
-  ic:'M2 8h3l2-4 2 8 2-6 1 2h2',render:()=>homeActivityStrip()});
 
 // ---- Pinned ------------------------------------------------------------------------------
-wsRegister({id:'pins',cat:'Pinned',title:'Pinned items',def:'m',sizes:['s','m','l','xl','full'],
-  desc:'Everything you pinned from anywhere in Korvyn. Use "Pin to Workspace" on any page.',
-  ic:'M9.5 2.5l4 4-1.8 1L10 12l-2-2-4.5 3.5L7 9 5 7l4.5-1.7z',
-  render:()=>{
-    if(!WS_PINS.length) return `<div class="note" style="margin:0">Nothing pinned yet. Use
-      <b>Pin to Workspace</b> in the page toolbar anywhere in Korvyn.</div>`;
-    return wsRows(WS_PINS.map((p,i)=>({...p,go:p.go})),
-      p=>`<td><b>${p.t}</b><div class="ic-mini" style="color:var(--hint)">${p.d||''}</div></td>
-      <td style="text-align:right;width:30px"><span class="cardlink"
-        onclick="event.stopPropagation();wsUnpin('${p.id}')" title="Unpin">&times;</span></td>`);
-  }});
 
 /* ---------------------------------------------------------------------------------------
    WORKSPACES + ROLE TEMPLATES.
@@ -5702,51 +5512,7 @@ wsRegister({id:'pins',cat:'Pinned',title:'Pinned items',def:'m',sizes:['s','m','
    A template is just an ordered list of [widgetId, size]. Because Home renders from the list,
    a template is data — adding one needs no code.
    --------------------------------------------------------------------------------------- */
-const WS_TEMPLATES=[
-  // scope: what the layout is for. `role` seeds a person, `scenario` seeds a period of work.
-  // Attention is a 5-column table now, so it takes the full row; `brief` pairs with
-  // `detected` to complete the one below it.
-  {id:'daily',    g:'Scenario', name:'Daily Work',      items:[['pulse','full'],['attention','full'],
-    ['detected','full'],['brief','l'],['deadlines','l'],
-    ['fin-row','full'],['ctx-row','full'],['graph-row','full'],['capital','full'],['budget','l'],['cost2cash','l'],['activity','full']]},
-  {id:'close',    g:'Scenario', name:'Month End Close', items:[['close','m'],['blockers','m'],['deadlines','m'],
-    ['recon','m'],['recon-diff','l'],['ic','l'],['consol','l'],['changed','l']]},
-  {id:'quarter',  g:'Scenario', name:'Quarter Close',   items:[['close','m'],['consol','l'],['ic','l'],
-    ['matters','l'],['approvals','m'],['recon-diff','l']]},
-  {id:'audit',    g:'Scenario', name:'Audit',           items:[['drreq','m'],['drgaps','l'],['policy','m'],
-    ['risks','l'],['consol','l']]},
-  {id:'board',    g:'Scenario', name:'Board Reporting', items:[['pulse','full'],['fin-row','full'],
-    ['capital','full'],['health','l'],['risks','l']]},
-  {id:'capex',    g:'Scenario', name:'Capital Projects',items:[['cip','full'],['capital','full'],
-    ['budget','l'],['cost2cash','l']]},
-  {id:'cfo',      g:'Role', name:'CFO',                 items:[['pulse','full'],['brief','l'],['risks','l'],
-    ['health','l'],['exposure','m'],['fin-row','full']]},
-  {id:'controller',g:'Role',name:'Controller',          items:[['pulse','full'],['attention','l'],['close','m'],
-    ['blockers','m'],['recon','m'],['recon-diff','l'],['matters','l']]},
-  {id:'acctmgr',  g:'Role', name:'Accounting Manager',  items:[['close','m'],['blockers','m'],['deadlines','m'],
-    ['recon-diff','l'],['matters','l'],['ic','l']]},
-  {id:'staff',    g:'Role', name:'Staff Accountant',    items:[['mywork','s'],['deadlines','m'],['blockers','m'],
-    ['recon-diff','l']]},
-  {id:'treasury', g:'Role', name:'Treasury',            items:[['pulse','full'],['capital','full'],
-    ['budget','l'],['cost2cash','l']]},
-  {id:'fpa',      g:'Role', name:'FP&amp;A',            items:[['budget','l'],['capital','full'],
-    ['fin-row','full'],['cip','l']]},
-  {id:'ia',       g:'Role', name:'Internal Audit',      items:[['risks','l'],['exposure','m'],['policy','m'],
-    ['drgaps','l'],['consol','l']]},
-  {id:'ea',       g:'Role', name:'External Audit',      items:[['drreq','m'],['drgaps','l'],['policy','m'],
-    ['consol','l']]},
-  {id:'exec',     g:'Role', name:'Executive',           items:[['pulse','full'],['brief','l'],['risks','l'],
-    ['health','l']]},
-];
-const wsTpl=id=>WS_TEMPLATES.find(t=>t.id===id);
-const wsMakeItems=tpl=>tpl.items.filter(([w])=>WS_REG[w]).map(([w,size])=>({w,size}));
 
-function wsSeed(){
-  const d=wsTpl('daily');
-  // `published`, not `personal` — layouts are a shared surface, not a per-user canvas.
-  WS_BOOK=[{id:'daily',name:'Daily Work',scope:'published',items:wsMakeItems(d)}];
-  WS.cur='daily';
-}
 
 // ---- icons used by the workspace chrome (small, one meaning each) -------------------------
 const WS_IC={
@@ -5766,75 +5532,10 @@ const WS_IC={
   chev:'M4 6.5L8 10l4-3.5',
 };
 const wsIc=n=>`<svg viewBox="0 0 16 16" fill="none"><path d="${WS_IC[n]||WS_IC.grid}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const WS_GRIP=`<svg class="ws-grip" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="4" r="1" fill="currentColor"/><circle cx="10" cy="4" r="1" fill="currentColor"/><circle cx="6" cy="8" r="1" fill="currentColor"/><circle cx="10" cy="8" r="1" fill="currentColor"/><circle cx="6" cy="12" r="1" fill="currentColor"/><circle cx="10" cy="12" r="1" fill="currentColor"/></svg>`;
 
 // ---- render ------------------------------------------------------------------------------
-function wsRender(){
-  const el=$('view-overview'); if(!el) return;
-  if(!WS_BOOK.length) wsSeed();
-  const w=wsCur(); if(!w) return;
-  let h=wsBarHTML(w);
-  h+=`<div class="ws-grid" id="wsGrid">`;
-  const vis=w.items.filter(it=>WS.edit||!it.hidden);
-  if(!vis.length){
-    h+=`<div class="ws-empty">This workspace is empty.
-      <span class="cardlink" onclick="wsDrawerOpen()">Add a widget</span> to start,
-      or <span class="cardlink" onclick="wsPickOpen(event)">pick a template</span>.</div>`;
-  }
-  vis.forEach(it=>{ h+=wsWidgetHTML(it,w.items.indexOf(it)); });
-  h+=`</div>`;
-  el.innerHTML=h;
-  document.body.classList.toggle('ws-edit',!!WS.edit);
-  if(WS.edit) wsBindEdit();
-}
 
-function wsWidgetHTML(it,i){
-  const W=WS_REG[it.w]; if(!W) return '';
-  const size=it.size||W.def;
-  let body='';
-  // A widget that throws must not take the page down with it.
-  try{ body=W.render(wsCfg(it))||''; }
-  catch(e){ body=`<div class="note" style="margin:0">This widget could not render.</div>`; }
-  const chrome=!W.bare||WS.edit;
-  return `<section class="wsw s-${size}${W.bare?' bare':''}${it.hidden?' ws-hidden':''}" data-i="${i}"${WS.edit?' draggable="true"':''}>
-    ${chrome?`<div class="wsw-hd">${WS.edit?WS_GRIP:''}<h3>${W.title}</h3>
-      ${it.hidden?'<span class="note">hidden</span>':''}
-      ${WS.edit?`<span class="ws-size">${size}</span>`:''}
-      <div class="wsw-act">
-        <button class="wsw-btn" title="Widget menu" aria-label="Widget menu" onclick="wsMenu(${i},event)">
-          <svg viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/></svg>
-        </button></div></div>`:''}
-    <div class="wsw-body">${body}</div>
-    ${WS.edit?`<div class="ws-rz" data-i="${i}"></div>`:''}
-  </section>`;
-}
 
-function wsBarHTML(w){
-  const btn=(lbl,act,cls)=>`<button class="${cls||'btn-out'}" onclick="${act}">${lbl}</button>`;
-  if(WS.preview){
-    return `<div class="ws-bar"><span class="ws-dirty">Previewing unsaved layout</span><span class="grow"></span>
-      ${btn('Resume editing','wsResume()')}${btn('Save layout','wsSaveLayout()','btn-primary')}</div>`;
-  }
-  if(WS.edit){
-    return `<div class="ws-bar">
-      <span style="font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)">Editing <b>${w.name}</b></span>
-      ${WS.dirty?'<span class="ws-dirty">unsaved changes</span>':''}
-      <span class="grow"></span>
-      ${btn('+ Add widget','wsDrawerOpen()')}
-      ${btn('Cancel','wsCancel()')}
-      ${btn('Preview','wsPreview()')}
-      ${btn('Save layout','wsSaveLayout()','btn-primary')}
-      ${WS_CAN_PUBLISH?btn('Publish','wsPublish()'):''}
-    </div>`;
-  }
-  return `<div class="ws-bar">
-    <button class="ws-pick" onclick="wsPickOpen(event)">${wsIc('grid')}${w.name}
-      <span class="scope">${w.scope}</span>${wsIc('chev')}</button>
-    ${etScopeHTML()}
-    <span class="grow"></span>
-    ${WS_ADMIN?btn('+ Add widget','wsDrawerOpen()')+btn('Customize workspace','wsEdit()'):''}
-  </div>`;
-}
 
 /* PHASE 7 — the canvas is scoped to ADMIN-PUBLISHED TEMPLATES, not personal canvases.
    Free-form per-user layouts produce a different screen for every person on a team, which
@@ -5845,62 +5546,19 @@ function wsBarHTML(w){
    normal user actually needs lives inside the tables — saved views and column config, which
    change how you read a shared surface without changing what anyone else sees.
 
-   Both flags are role checks in a real deployment. WS_ADMIN=false hides Customize/Add widget
-   entirely; the workspace switcher and every DataTable view control stay available. */
+   A role check in a real deployment. It no longer gates any Home control — Home has no
+   configurable canvas — and survives as the admin gate on the ORG-DEFAULT chrome theme, which
+   is the one remaining setting an individual must not be able to change for everyone else. */
 const WS_ADMIN=true;
-const WS_CAN_PUBLISH=WS_ADMIN;
 
 // ---- edit-mode lifecycle -----------------------------------------------------------------
-function wsEdit(){
-  WS.snapshot=JSON.parse(JSON.stringify(wsCur().items));
-  WS.edit=true; WS.preview=false; WS.dirty=false; wsRender();
-}
-function wsCancel(){
-  if(WS.snapshot) wsCur().items=WS.snapshot;
-  WS.snapshot=null; WS.edit=false; WS.preview=false; WS.dirty=false; wsClosePop(); wsDrawerClose(); wsRender();
-}
-function wsPreview(){ WS.edit=false; WS.preview=true; wsClosePop(); wsDrawerClose(); wsRender(); }
-function wsResume(){ WS.edit=true; WS.preview=false; wsRender(); }
-function wsSaveLayout(){
-  WS.snapshot=null; WS.edit=false; WS.preview=false; WS.dirty=false;
-  wsPersist(); wsClosePop(); wsDrawerClose(); wsRender();
-}
 /* Publishing copies the current layout into a SHARED workspace that everyone sees in the
    switcher. Distributing it to other users needs a backend; in this single-session prototype
    the shared book is the honest analogue, and the label says "shared" rather than pretending
    it reached anyone else. */
-function wsPublish(){
-  const src=wsCur();
-  const id='shared-'+(WS.seq++);
-  WS_BOOK.push({id,name:src.name+' (shared)',scope:'department',items:JSON.parse(JSON.stringify(src.items))});
-  WS.cur=id; WS.edit=false; WS.preview=false; WS.dirty=false; WS.snapshot=null;
-  wsPersist(); wsClosePop(); wsRender();
-}
 
 // ---- widget actions ----------------------------------------------------------------------
-function wsAct(kind,i,arg){
-  const items=wsCur().items, it=items[i]; if(!it) return;
-  const W=WS_REG[it.w]||{};
-  if(kind==='size'){ it.size=arg; }
-  else if(kind==='dup'){ items.splice(i+1,0,JSON.parse(JSON.stringify(it))); }
-  else if(kind==='hide'){ it.hidden=!it.hidden; }
-  else if(kind==='rm'){ items.splice(i,1); }
-  else if(kind==='up'&&i>0){ items.splice(i-1,0,items.splice(i,1)[0]); }
-  else if(kind==='down'&&i<items.length-1){ items.splice(i+1,0,items.splice(i,1)[0]); }
-  else if(kind==='top'){ items.unshift(items.splice(i,1)[0]); }
-  else if(kind==='src'){ wsClosePop(); if(W.src){ try{ (new Function(W.src))(); }catch(e){} } return; }
-  else if(kind==='refresh'){ /* re-render below is the refresh */ }
-  WS.dirty=true; wsClosePop(); wsRender();
-  if(!WS.edit) wsPersist();          // acting outside edit mode is immediate and saved
-}
 
-function wsMove(from,to){
-  if(from===null||from===undefined||from===to) return;
-  const items=wsCur().items;
-  if(from<0||from>=items.length||to<0||to>=items.length) return;
-  items.splice(to,0,items.splice(from,1)[0]);
-  WS.dirty=true; wsRender();
-}
 
 // ---- popovers ----------------------------------------------------------------------------
 function wsClosePop(){ const p=document.getElementById('wsPop'); if(p) p.remove(); }
@@ -5918,247 +5576,29 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ wsClosePop(); wsDrawerClose(); } });
 
-function wsMenu(i,ev){
-  ev.stopPropagation(); wsClosePop();
-  const it=wsCur().items[i], W=WS_REG[it.w]; if(!W) return;
-  const size=it.size||W.def;
-  const mi=(lbl,act,ic,cls,mark)=>`<button class="ws-mi ${cls||''}" onclick="${act}">${wsIc(ic)}${lbl}${mark?'<span class="k">&#10003;</span>':''}</button>`;
-  const m=document.createElement('div'); m.className='ws-menu'; m.id='wsPop';
-  m.innerHTML=
-    mi('Refresh',`wsAct('refresh',${i})`,'refresh')+
-    ((W.filters||[]).length?mi('Configure',`wsCfgOpen(${i},event)`,'cfg'):'')+
-    mi('Duplicate',`wsAct('dup',${i})`,'dup')+
-    mi('Pin to top',`wsAct('top',${i})`,'pin')+
-    (W.src?mi('Open source',`wsAct('src',${i})`,'src'):'')+
-    `<div class="ws-msep"></div><div class="ws-mlbl">Resize</div>`+
-    (W.sizes||[]).map(s=>mi(WS_SIZE_LABEL[s],`wsAct('size',${i},'${s}')`,'size','',size===s)).join('')+
-    `<div class="ws-msep"></div><div class="ws-mlbl">Move</div>`+
-    mi('Move up',`wsAct('up',${i})`,'up')+
-    mi('Move down',`wsAct('down',${i})`,'down')+
-    `<div class="ws-msep"></div>`+
-    mi(it.hidden?'Show':'Hide',`wsAct('hide',${i})`,it.hidden?'show':'hide')+
-    mi('Remove',`wsAct('rm',${i})`,'rm','danger');
-  wsPlace(m,ev.currentTarget.getBoundingClientRect());
-}
 
 // ---- per-widget configuration ------------------------------------------------------------
-function wsCfgOpen(i,ev){
-  ev.stopPropagation(); wsClosePop();
-  const it=wsCur().items[i], W=WS_REG[it.w]; if(!W) return;
-  const c=wsCfg(it);
-  const rows=(W.filters||[]).map(f=>{
-    const F2=WS_FILTERS[f]; if(!F2) return '';
-    const opts=F2.opts().map(o=>`<option value="${o}"${String(c[f])===String(o)?' selected':''}>${o==='all'?'All':o}</option>`).join('');
-    return `<div class="ws-frow"><label>${F2.l}</label><select data-f="${f}">${opts}</select></div>`;
-  }).join('');
-  const m=document.createElement('div'); m.className='ws-cfg'; m.id='wsPop';
-  m.innerHTML=`<h4>${W.title}</h4>
-    <div class="sub">Only the filters this widget actually applies are shown.</div>${rows}
-    <div class="ws-cfg-ft"><button class="btn-primary" onclick="wsCfgApply(${i})">Apply</button>
-      <button class="btn-out" onclick="wsCfgReset(${i})">Reset</button></div>`;
-  wsPlace(m,ev.currentTarget.getBoundingClientRect());
-}
-function wsCfgApply(i){
-  const p=document.getElementById('wsPop'); if(!p) return;
-  const it=wsCur().items[i]; it.cfg=it.cfg||{};
-  p.querySelectorAll('select[data-f]').forEach(s=>{ it.cfg[s.dataset.f]=s.value; });
-  WS.dirty=true; wsClosePop(); wsRender(); if(!WS.edit) wsPersist();
-}
-function wsCfgReset(i){
-  const it=wsCur().items[i]; delete it.cfg;
-  WS.dirty=true; wsClosePop(); wsRender(); if(!WS.edit) wsPersist();
-}
 
 // ---- workspace switcher ------------------------------------------------------------------
-function wsPickOpen(ev){
-  ev.stopPropagation(); wsClosePop();
-  const m=document.createElement('div'); m.className='ws-menu'; m.id='wsPop';
-  m.style.minWidth='236px';
-  let h=`<div class="ws-mlbl">Your workspaces</div>`;
-  h+=WS_BOOK.map(w=>`<button class="ws-mi" onclick="wsSwitch('${w.id}')">${wsIc('grid')}${w.name}
-    <span class="k">${w.id===WS.cur?'&#10003;':w.scope}</span></button>`).join('');
-  ['Scenario','Role'].forEach(g=>{
-    h+=`<div class="ws-msep"></div><div class="ws-mlbl">${g==='Role'?'Start from a role':'Start from a scenario'}</div>`;
-    h+=WS_TEMPLATES.filter(t=>t.g===g).map(t=>
-      `<button class="ws-mi" onclick="wsFromTemplate('${t.id}')">${wsIc('plus')}${t.name}</button>`).join('');
-  });
-  m.innerHTML=h;
-  wsPlace(m,ev.currentTarget.getBoundingClientRect());
-}
-function wsSwitch(id){
-  if(!WS_BOOK.some(w=>w.id===id)) return;
-  WS.cur=id; WS.edit=false; WS.preview=false; WS.snapshot=null;
-  wsClosePop(); wsPersist(); wsRender();
-}
 /** Adds a published template to the switcher. Never overwrites an existing workspace. */
-function wsFromTemplate(tid){
-  const t=wsTpl(tid); if(!t) return;
-  let id=tid, n=2; while(WS_BOOK.some(w=>w.id===id)){ id=tid+'-'+(n++); }
-  WS_BOOK.push({id,name:t.name,scope:'published',items:wsMakeItems(t)});
-  WS.cur=id; WS.edit=false; WS.preview=false;
-  wsClosePop(); wsPersist(); wsRender();
-}
 
 // ---- add-widget drawer -------------------------------------------------------------------
-let WS_Q='';
-function wsDrawerOpen(){ WS.drawer=true; wsDrawerPaint(); }
-function wsDrawerClose(){
-  WS.drawer=false;
-  const d=document.getElementById('wsDrawer'), s=document.getElementById('wsScrim');
-  if(d) d.classList.remove('open');
-  if(s) s.remove();
-  setTimeout(()=>{ if(!WS.drawer){ const x=document.getElementById('wsDrawer'); if(x) x.remove(); } },240);
-}
-function wsDrawerPaint(){
-  let d=document.getElementById('wsDrawer');
-  if(!d){
-    const s=document.createElement('div'); s.className='ws-scrim'; s.id='wsScrim';
-    s.onclick=wsDrawerClose; document.body.appendChild(s);
-    d=document.createElement('aside'); d.className='ws-drawer'; d.id='wsDrawer';
-    document.body.appendChild(d);
-  }
-  const cur=wsCur().items.map(i=>i.w);
-  const q=WS_Q.trim().toLowerCase();
-  let body='';
-  WS_CATS.forEach(cat=>{
-    const list=Object.values(WS_REG).filter(w=>w.cat===cat&&(!q||
-      (w.title+' '+w.desc+' '+w.cat).toLowerCase().includes(q)));
-    if(!list.length) return;
-    body+=`<div class="ws-cat">${cat}</div>`;
-    list.forEach(w=>{
-      let prev=''; try{ prev=w.render(wsCfg({w:w.id}))||''; }catch(e){ prev=''; }
-      body+=`<div class="ws-item">
-        <svg class="ic" viewBox="0 0 16 16" fill="none"><path d="${w.ic||WS_IC.grid}" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <div class="tx"><div class="nm">${w.title}</div><div class="ds">${w.desc||''}</div>
-          ${cur.includes(w.id)?'<span class="on">On this workspace</span>':''}
-          ${prev?`<div class="ws-prev">${prev}</div>`:''}
-        </div>
-        <button class="ws-add" onclick="wsAdd('${w.id}')">Add</button></div>`;
-    });
-  });
-  if(!body) body=`<div class="note">No widget matches &ldquo;${WS_Q}&rdquo;.</div>`;
-  d.innerHTML=`<div class="ws-dhd"><h3>Add widget</h3><span class="grow" style="flex:1"></span>
-      <button class="wsw-btn" onclick="wsDrawerClose()" aria-label="Close">
-        <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button></div>
-    <div class="ws-dsearch">${wsIc('grid')}
-      <input id="wsQ" type="text" placeholder="Search widgets" value="${WS_Q}" oninput="wsSearch(this.value)"></div>
-    <div class="ws-dbody">${body}</div>`;
-  requestAnimationFrame(()=>d.classList.add('open'));
-  const inp=document.getElementById('wsQ');
-  if(inp&&WS_Q){ inp.focus(); inp.setSelectionRange(WS_Q.length,WS_Q.length); }
-}
-function wsSearch(v){ WS_Q=v; wsDrawerPaint(); }
-function wsAdd(id){
-  const W=WS_REG[id]; if(!W) return;
-  wsCur().items.push({w:id,size:W.def});
-  WS.dirty=true; wsRender(); wsDrawerPaint();
-  if(!WS.edit) wsPersist();
-}
 
 // ---- drag to reorder, drag to resize ------------------------------------------------------
-function wsBindEdit(){
-  const grid=document.getElementById('wsGrid'); if(!grid) return;
-  grid.querySelectorAll('.wsw').forEach(el=>{
-    el.addEventListener('dragstart',e=>{
-      WS.dragFrom=+el.dataset.i; el.classList.add('ws-drag');
-      e.dataTransfer.effectAllowed='move';
-      try{ e.dataTransfer.setData('text/plain',el.dataset.i); }catch(_){}
-    });
-    el.addEventListener('dragend',()=>{
-      el.classList.remove('ws-drag');
-      grid.querySelectorAll('.ws-over').forEach(x=>x.classList.remove('ws-over'));
-      WS.dragFrom=null;
-    });
-    el.addEventListener('dragover',e=>{
-      e.preventDefault(); e.dataTransfer.dropEffect='move';
-      if(WS.dragFrom!==null&&+el.dataset.i!==WS.dragFrom) el.classList.add('ws-over');
-    });
-    el.addEventListener('dragleave',()=>el.classList.remove('ws-over'));
-    el.addEventListener('drop',e=>{
-      e.preventDefault(); e.stopPropagation();
-      el.classList.remove('ws-over');
-      wsMove(WS.dragFrom,+el.dataset.i); WS.dragFrom=null;
-    });
-  });
-  grid.querySelectorAll('.ws-rz').forEach(h=>h.addEventListener('mousedown',wsRzStart));
-}
 
 /* Resize snaps to the sizes the widget declares — you can never drag it to a width it does
    not support, and the layout can never end up overlapping because the grid reflows. */
-function wsRzStart(e){
-  e.preventDefault(); e.stopPropagation();
-  const i=+e.currentTarget.dataset.i;
-  const grid=document.getElementById('wsGrid'); if(!grid) return;
-  const it=wsCur().items[i], W=WS_REG[it.w]; if(!W) return;
-  const col=(grid.clientWidth+14)/12;
-  const allowed=(W.sizes||['full']).map(s=>({s,n:WS_SPAN[s]})).sort((a,b)=>a.n-b.n);
-  const startX=e.clientX, startSpan=WS_SPAN[it.size||W.def];
-  e.currentTarget.classList.add('on');
-  WS.rz=true;
-  const mv=ev=>{
-    const want=Math.max(1,Math.min(12,startSpan+Math.round((ev.clientX-startX)/col)));
-    let best=allowed[0];
-    allowed.forEach(a=>{ if(Math.abs(a.n-want)<Math.abs(best.n-want)) best=a; });
-    if(best.s!==(it.size||W.def)){ it.size=best.s; WS.dirty=true; wsRender(); }
-  };
-  const up=()=>{
-    document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up);
-    WS.rz=false; wsRender();
-  };
-  document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
-}
 
 /* ---- Pin to Workspace -------------------------------------------------------------------
    Available from any page through the toolbar. It pins the CURRENT destination, so the pin
    always resolves to somewhere real rather than to a snapshot that can go stale. */
-function wsPin(o){
-  if(!o||!o.t) return;
-  if(WS_PINS.some(p=>p.id===o.id)) return;
-  WS_PINS.unshift(o);
-  // make sure the Pinned widget is actually on the active workspace, or the pin vanishes
-  const items=wsCur().items;
-  if(!items.some(i=>i.w==='pins')) items.unshift({w:'pins',size:'m'});
-  wsPersist();
-  if(TAB==='overview') wsRender();
-}
-function wsUnpin(id){
-  WS_PINS=WS_PINS.filter(p=>p.id!==id); wsPersist();
-  if(TAB==='overview') wsRender();
-}
-function wsPinCurrent(){
-  const m=(typeof VIEW_META!=='undefined'&&(VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]))||{};
-  const id=LENS+':'+TAB;
-  wsPin({id,t:m.t||(LENSES[LENS]?LENSES[LENS].label:'Page'),
-    d:(LENSES[LENS]?LENSES[LENS].label:'')+(m.c?' · '+m.c:''),
-    go:`pickLens('${LENS}');pickTab('${TAB}')`});
-  wsPinToast();
-}
-function wsPinToast(){
-  let t=document.getElementById('wsToast');
-  if(!t){ t=document.createElement('div'); t.id='wsToast'; document.body.appendChild(t); }
-  t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:90;'+
-    'background:var(--chrome-bg);color:#fff;font-size:var(--fs-table);padding:9px 14px;border-radius:var(--radius);'+
-    'box-shadow:var(--shadow-md)';
-  t.innerHTML=`Pinned to your workspace &nbsp;<span style="color:var(--chrome-ai);cursor:pointer"
-    onclick="pickLens('portfolio');pickTab('overview')">View</span>`;
-  clearTimeout(WS._toast); WS._toast=setTimeout(()=>{ if(t) t.remove(); },3200);
-}
 
-// Close workspace chrome when navigating away from Home.
-(function(){
-  const _pt=window.pickTab;
-  if(typeof _pt==='function'){
-    window.pickTab=function(t){
-      if(t!=='overview'){ WS.edit=false; WS.preview=false; wsClosePop(); wsDrawerClose();
-        document.body.classList.remove('ws-edit'); }
-      return _pt.apply(this,arguments);
-    };
-  }
-})();
+/* The pickTab wrapper that used to live here closed the workspace edit chrome on navigation.
+   Home has no edit chrome now, so it is gone — but note HOW it was found: it referenced the
+   deleted `WS` and threw only when navigating to a non-Home tab, so the page booted with a
+   clean console and Home rendered perfectly. The sweep caught it on the first pickTab. A
+   clean console on load is not evidence that a deletion was complete. */
 
-// boot: restore the saved workspace, else seed the default one.
-if(!wsRestore()) wsSeed();
 // NOTE: the chrome theme boots from its own block further down, NOT here. Calling
 // applyChromeTheme() at this point reaches CHROME_THEMES, which is declared ~11,000 lines
 // lower, and the temporal-dead-zone throw kills every top-level statement after it — the
@@ -8579,6 +8019,33 @@ const FP_OUTFLOWS=[
   {dt:'Jul 15, 2026',d:'Debt Principal Payment',amt:-100.0,cat:'Debt'},
 ];
 const FP_FACILITY={total:3500,available:1740};
+
+/* COVENANT TESTS — Treasury's. Home's cross-module blockers read them; Treasury owns them.
+   A covenant is a test, not a number: threshold, actual, and the operator between them. The
+   status DERIVES (covStatus) rather than being stored, so a covenant cannot be marked passing
+   while its own figures say otherwise — which is the entire failure mode of a covenant table.
+   `blocks` names what the test holds up, so a breach on Home is actionable rather than alarming. */
+const TR_COVENANTS=[
+  {id:'COV-DSCR',  nm:'Debt service coverage',   ent:'Meridian DC Holdco', facility:'Construction loan facility',
+   op:'min', thr:1.25, act:1.31, unit:'x',  tested:'Jun 30, 2026', own:'S. Lee',
+   blocks:'Q2 compliance certificate'},
+  {id:'COV-LTV',   nm:'Loan to value',           ent:'Meridian DC Holdco', facility:'Construction loan facility',
+   op:'max', thr:.65,  act:.618, unit:'%',  tested:'Jun 30, 2026', own:'S. Lee',
+   blocks:'Q2 compliance certificate'},
+  {id:'COV-ICR',   nm:'Interest coverage',       ent:'Fleet DC OpCo',      facility:'Revolving credit facility',
+   op:'min', thr:2.00, act:1.94, unit:'x',  tested:'Jun 30, 2026', own:'L. Tan',
+   blocks:'Revolver draw and the Q2 certificate'},
+  {id:'COV-NW',    nm:'Minimum net worth',       ent:'Meridian Property Co', facility:'Term loan',
+   op:'min', thr:120,  act:0,    unit:'$M', tested:null,           own:'J. Park',
+   blocks:'Q2 compliance certificate — cannot be computed until EUR translation posts'},
+];
+/* pass | fail | untested. `untested` is its own state and never quietly reads as passing:
+   a covenant nobody has computed is not a covenant anybody has met. */
+function covStatus(c){
+  if(!c.tested||!c.act) return 'untested';
+  return (c.op==='min' ? c.act>=c.thr : c.act<=c.thr) ? 'pass' : 'fail';
+}
+const covFmt=(c,v)=>c.unit==='%'?(v*100).toFixed(1)+'%':c.unit==='x'?v.toFixed(2)+'x':money(v);
 
 const FP_HEADCOUNT=[
   {d:'Operations',          act:412,plan:436},
@@ -18134,9 +17601,6 @@ function paintTopbar(){
   if(tt)tt.textContent=m.t;
   const cr=document.getElementById('tbCrumb');
   if(cr)cr.innerHTML=`<b>${LENSES[LENS].label}</b> · ${m.c}`;
-  // Pinning Home to Home is meaningless, so the control is not offered there.
-  const pinBtn=document.getElementById('tbPin');
-  if(pinBtn) pinBtn.style.display=(LENS==='portfolio'&&TAB==='overview')?'none':'';
   // rail scope line + filter-bar state chip (same summary string)
   /* The chip no longer leads with "All funds". Entity scoping moved to the EntityTree in the
      topbar, and this bar now states what IT owns: currency and period. Fund, region and
