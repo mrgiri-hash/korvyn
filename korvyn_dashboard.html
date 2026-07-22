@@ -540,6 +540,13 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .prov-pop .ppr .v{color:var(--ink);font-weight:var(--fw-medium);text-align:right}
 .prov-pop .pp-hd{font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
   text-transform:uppercase;color:var(--n-500);margin-bottom:var(--s-2)}
+.prov-pop .pp-sub{margin-top:var(--s-2);padding-top:var(--s-2);border-top:var(--rule)}
+/* One row per contributing feed. The dot marks the constituent that is dragging the summary
+   down, so "4 systems, stale" resolves to WHICH system without another click. */
+.prov-pop .pps .v{font-weight:var(--fw-regular);color:var(--muted)}
+.prov-pop .pps .pps-t{color:var(--n-400)}
+.prov-pop .pps[data-tie="stale"] .v{color:var(--warning)}
+.prov-pop .pps[data-tie="unavailable"] .v{color:var(--danger)}
 .prov-pop .pp-ft{margin-top:var(--s-2);padding-top:var(--s-2);border-top:var(--rule)}
 .prov-pop .pp-ft a{color:var(--accent);cursor:pointer;text-decoration:none}
 .prov-pop .pp-ft a:hover{text-decoration:underline}
@@ -554,8 +561,47 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .et-node.on{background:var(--accent-bg);border-left-color:var(--accent);color:var(--accent-ink)}
 .et-node .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .et-node .pctv{color:var(--n-500);font-size:var(--fs-label);flex:none}
+/* Ownership and readiness are columns, not inline text — they only read as a comparison if
+   they line up down the tree, which is the whole reason to render a percentage at all. */
+.et-node .pctv.own{min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
 .et-node .stdot{width:5px;height:5px;border-radius:50%;flex:none}
 .et-node.kid{margin-left:var(--s-4)}
+/* METHOD IS A CLASSIFICATION, NOT A STATE, so it takes a neutral chip and never a semantic
+   hue. Red/amber/green mean something is wrong; equity method is not wrong. */
+.et-meth{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  background:var(--n-100);color:var(--n-600);border-radius:var(--radius);padding:1px 5px;
+  flex:none;min-width:52px;text-align:center;cursor:help}
+.et-meth[data-m="equity"],.et-meth[data-m="prop"]{background:transparent;
+  box-shadow:inset 0 0 0 1px var(--border-strong);color:var(--n-500)}
+/* The reason a 51% holding is NOT consolidated. Ownership alone would say the opposite, so
+   the basis travels with the node rather than living in a document nobody opens. */
+.et-why{font-size:var(--fs-label);color:var(--n-500);line-height:1.4;
+  padding:2px var(--s-2) var(--s-2) calc(var(--s-4) + var(--s-4));margin-top:-2px}
+.et-pop .hd .hd-note{text-transform:none;letter-spacing:0;font-weight:var(--fw-regular);
+  color:var(--n-400);margin-left:var(--s-1)}
+.et-scope .pctv{color:var(--n-500);font-size:var(--fs-label);font-weight:var(--fw-regular)}
+.et-scope.invest{border-color:var(--border-strong)}
+.et-scope.invest .pctv{color:var(--warning)}
+/* The topbar shares a grid column with .main, so this MUST stay shrinkable. A flex:none child
+   holding a long entity name here is what put every page into horizontal overflow last time
+   (.hdr-ctl, at 805px).
+   It sheds the "SCOPE" label at 1200 and the entity count at 900, but it is NEVER hidden:
+   unlike .hdr-ctl, whose period control re-appears in the filter bar at exactly the width it
+   vanishes, there is no entity control anywhere else. Hiding this would make scoping
+   unreachable rather than relocating it. */
+.tb-scope{display:flex;align-items:center;flex:0 1 auto;min-width:0;overflow:hidden}
+.tb-scope .et-scope{min-width:0;overflow:hidden}
+.tb-scope .et-scope>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:1200px){ .tb-scope .et-scope .lbl{display:none} }
+@media (max-width:900px){ .tb-scope .et-scope .pctv{display:none} }
+.et-banner{background:var(--n-50);border:var(--rule);border-radius:var(--radius);
+  padding:var(--s-2) var(--s-3);margin-bottom:var(--s-3);
+  font-size:var(--fs-table);color:var(--muted);line-height:1.5}
+.et-banner b{color:var(--ink);font-weight:var(--fw-medium)}
+.et-banner .etb-main .prov{margin-left:var(--s-1)}
+/* The second line is the one that keeps the banner honest against the roll-ups above it, so
+   it is quieter but never hidden. */
+.et-banner .etb-note{font-size:var(--fs-label);color:var(--n-500);margin-top:2px}
 .et-elim{font-size:var(--fs-label);color:var(--n-500);padding:var(--s-1) var(--s-2) var(--s-1) var(--s-6);
   display:flex;justify-content:space-between;gap:var(--s-2)}
 .et-scope{display:flex;align-items:center;gap:var(--s-2);border:var(--rule-strong);
@@ -564,7 +610,7 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .et-scope:hover{border-color:var(--accent-line);color:var(--accent-ink)}
 .et-scope .lbl{font-size:var(--fs-label);letter-spacing:var(--tracking-label);
   text-transform:uppercase;color:var(--n-500);font-weight:var(--fw-label)}
-.et-pop{position:fixed;z-index:80;width:322px;background:var(--surface);
+.et-pop{position:fixed;z-index:80;width:376px;background:var(--surface);
   border:var(--rule-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);
   padding:var(--s-3)}
 .et-pop .hd{font-size:var(--fs-label);font-weight:var(--fw-label);
@@ -1136,6 +1182,15 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   line-height:1.35}
 /* The delta is the only place a metric card may carry semantic colour, and it is only
    drawn when a real prior value exists. */
+/* The card clips its own content (truncation, and the .lenshi accent bar), which would also
+   clip the provenance popover. Open the clip ONLY while a chip inside is hovered, so
+   truncation still holds at rest. */
+.mc:has(.prov:hover),.kpi:has(.prov:hover),.stat:has(.prov:hover){overflow:visible}
+.mc-p{display:inline-flex;margin-left:var(--s-1)}
+.mc-p .prov{font-size:var(--fs-label)}
+/* The assistant panel is narrow and its popover would otherwise open past the right edge. */
+.cp-prov{display:inline-flex;margin-left:var(--s-1)}
+.cp-prov .prov-pop{left:auto;right:0}
 .mc-b .dlt{font-weight:var(--fw-medium)}
 .mc-b .dlt.up{color:var(--pos)} .mc-b .dlt.dn{color:var(--neg)}
 .mc-go{margin-top:auto;padding-top:var(--s-2);border-top:var(--rule);font-size:var(--fs-label);
@@ -2598,6 +2653,10 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       <div class="crumbline" id="tbCrumb">Meridian Global Portfolio</div>
     </div>
     <div class="topbar-spacer"></div>
+    <!-- PRIMARY SCOPING CONTROL. It sits in the page frame, like the pin, so it is present on
+         every page rather than only on Home — scoping that exists on one surface is not
+         scoping. The filter bar below keeps currency and period; entity belongs here. -->
+    <div class="tb-scope" id="tbScope"></div>
     <!-- Page-level action, so it lives in the page frame and is available on every page at
          once rather than being wired module by module. Hidden on Home, the pin target. -->
     <button class="iconbtn" id="tbPin" onclick="wsPinCurrent()" aria-label="Pin to workspace"
@@ -2682,6 +2741,10 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
         </div>
       </div>
     </div>
+
+    <!-- Scope statement. Only ever populated when the selected node is OUTSIDE the consolidated
+         population, where the page below it is legitimately empty and needs to say why. -->
+    <div id="scopeBanner"></div>
 
     <!-- VIEWS -->
     <main id="views">
@@ -4246,6 +4309,16 @@ const erpFor=ent=>GL_ERP.find(e=>e.nm===ERP_ENTITY[ent])||null;
 function provFor(o){
   o=o||{};
   const base={sourceSystem:null,syncedAt:null,thru:null,sourceRecordId:o.recordId||null};
+  /* An equity-method investee has no ERP feed and is not going to get one — Korvyn receives a
+     reporting package on the investee's own cycle. That is a DIFFERENT unavailable from "we
+     could not reach the system": the source is named and dated, it simply is not a live tie-out.
+     Saying so beats a bare "no source system is mapped", which reads like a config error. */
+  if(typeof CONS_INVEST!=='undefined' && CONS_INVEST[o.entity]){
+    const iv=CONS_INVEST[o.entity];
+    return {...base,sourceSystem:iv.src,thru:iv.thru,tieOutStatus:'unavailable',
+      why:'Equity-method investee — reported to Korvyn on the investee’s own cycle, '+
+          'books through '+iv.thru+'. There is no live feed to tie out against.'};
+  }
   const sys=erpFor(o.entity);
   if(!sys) return {...base,tieOutStatus:'unavailable',
     why:'No source system is mapped for '+(o.entity||'this record')+'.'};
@@ -4260,6 +4333,77 @@ function provFor(o){
 const PROV_TIE={matched:'Agrees with source',unmatched:'Differs from source',
   stale:'Source feed behind',unavailable:'No tie-out available'};
 
+/** Age in minutes, parsed from the authored `sync` string rather than stored beside it — the
+    string is the sample datum, and a numeric twin would be a second copy to keep in step. */
+function provAgeMin(s){
+  if(!s) return Infinity;
+  const m=/^(\d+(?:\.\d+)?)\s*(min|hr|hour|day)/i.exec(String(s));
+  if(!m) return Infinity;
+  const n=parseFloat(m[1]), u=m[2].toLowerCase();
+  return u.startsWith('min')?n:u.startsWith('day')?n*1440:n*60;
+}
+/* Severity order for rolling several entities into one chip. UNMATCHED OUTRANKS STALE: a
+   difference is a fact about the numbers, staleness is a fact about the feed, and the chip
+   sits beside a number. Ranking stale higher made "Unreconciled balance · $2.3M across 4
+   accounts" report itself as `stale`, burying the very differences the card exists to show.
+   Staleness is never lost — it is named in `why` and marked per row in the popover. */
+const PROV_RANK={matched:0,stale:1,unmatched:2,unavailable:3};
+/** Provenance for a figure that spans SEVERAL entities — every group-level roll-up.
+    A single-source chip on a consolidated number would name one of four systems and be wrong.
+    Two rules, both of which are the conservative reading:
+      freshness = the OLDEST contributing feed (a roll-up is only as current as its stalest input)
+      tie-out   = the WORST contributing state (one unmatched entity makes the total unmatched)
+    The popover enumerates the constituents, so the summary is never the only thing on offer. */
+function provGroup(entities,diffs){
+  const ents=entities&&entities.length?entities:CONS_ORDER;
+  const parts=ents.map(e=>({ent:e,p:provFor({entity:e,diff:diffs?diffs[e]:0})}));
+  if(!parts.length) return provFor({});
+  let worst=parts[0].p, oldest=parts[0].p;
+  parts.forEach(({p})=>{
+    if(PROV_RANK[p.tieOutStatus]>PROV_RANK[worst.tieOutStatus]) worst=p;
+    if(provAgeMin(p.syncedAt)>provAgeMin(oldest.syncedAt)) oldest=p;
+  });
+  const n=new Set(parts.map(x=>x.p.sourceSystem).filter(Boolean)).size;
+  const st=worst.tieOutStatus;
+  const stales=parts.filter(x=>x.p.tieOutStatus==='stale');
+  const unm=parts.filter(x=>x.p.tieOutStatus==='unmatched');
+  // A stale feed underneath an unmatched total is still worth saying, so the two facts are
+  // composed rather than one silently replacing the other.
+  const staleNote=stales.length
+    ? ' '+(stales.length===1?stales[0].p.sourceSystem+' is':stales.length+' feeds are')+
+      ' behind, at '+(oldest.thru||'an earlier date')+'.' : '';
+  return {sourceSystem:n+(n===1?' system':' systems'),
+    syncedAt:oldest.syncedAt, thru:oldest.thru, sourceRecordId:null,
+    tieOutStatus:st,
+    why: st==='stale'
+      ? 'This roll-up is only as current as its stalest input —'+staleNote
+      : st==='unmatched'
+      ? unm.length+(unm.length===1?' entity does':' entities do')+
+        ' not tie to source, so the total does not either.'+staleNote
+      : st==='unavailable' ? worst.why : null,
+    systems:parts.map(x=>({ent:x.ent,sys:x.p.sourceSystem||'No source',
+      sync:x.p.syncedAt||'—',tie:x.p.tieOutStatus}))};
+}
+
+/** Provenance for whatever the page is currently scoped to — one entity, or the group.
+    Used by surfaces that answer "for the current scope" rather than for a specific row. */
+function provForScope(){
+  const e=(typeof F!=='undefined')&&F.entity;
+  return (e&&e!=='all') ? provFor({entity:e}) : provGroup();
+}
+
+/** THE table column. Every list surface states provenance the same way and sorts it the same
+    way, rather than each spec hand-rolling a `src` column — there were two, already diverging
+    (one sorted on the resolved system name, the other on the raw ERP_ENTITY map, which differ
+    for anything without a feed). `get` pulls the entity off a row; `diff` optionally marks the
+    row as not tying out. */
+function dtProvCol(get,diff){
+  get=get||(r=>r.ent);
+  return {k:'src',l:'Source',
+    sortVal:r=>(provFor({entity:get(r)}).sourceSystem||'￿'),
+    render:r=>provChip(provFor({entity:get(r),diff:diff?diff(r):0,recordId:r.recordId||null}))};
+}
+
 /** The chip. Compact at rest, full lineage on hover. */
 function provChip(p){
   if(!p) return '';
@@ -4273,6 +4417,9 @@ function provChip(p){
       ${row('Books through',p.thru||'&mdash;')}
       ${row('Tie-out',PROV_TIE[t])}
       ${p.sourceRecordId?row('Record',p.sourceRecordId):''}
+      ${p.systems?`<div class="pp-hd pp-sub">Contributing sources</div>${
+        p.systems.map(s=>`<div class="ppr pps" data-tie="${s.tie}"><span class="k">${s.ent}</span>
+          <span class="v">${s.sys}<span class="pps-t"> &#183; ${s.sync}</span></span></div>`).join('')}`:''}
       ${p.why?`<div class="pp-${t==='unavailable'?'bad':'warn'}">${p.why}</div>`:''}
       ${p.sourceRecordId&&p.sourceSystem?`<div class="pp-ft"><a onclick="event.stopPropagation();askAI('Show me ${p.sourceRecordId} and its source record in ${p.sourceSystem}')">Open in ${p.sourceSystem} &#8599;</a></div>`:''}
     </span></span>`;
@@ -4287,39 +4434,70 @@ function etNodes(){
   let st={}; try{ csxEntities().forEach(e=>{ st[e.nm]=e; }); }catch(e){}
   return CONS_ORDER.map(nm=>({nm,...CONS_ENT[nm],cs:st[nm]||null}));
 }
+/** Equity-method investees. A separate population, never merged into etNodes(). */
+function etInvest(){ return CONS_INVEST_ORDER.map(nm=>({nm,...CONS_INVEST[nm],invest:true})); }
+const etIsInvest=nm=>!!(nm&&CONS_INVEST[nm]);
 const etLabel=()=>F.entity&&F.entity!=='all'?F.entity:'Consolidated group';
+/** Ownership as the tree states it. The parent is the top of the structure, not a holding
+    in itself, so it reads Parent rather than a percentage. */
+const etOwn=e=>e.parent?'Parent':(e.own==null?'&mdash;':(e.own*100).toFixed(e.own*100%1?1:0)+'%');
+const etMeth=m=>{ const x=CONS_METHODS[m]; return x?`<span class="et-meth" data-m="${m}" title="${x.d}">${x.l}</span>`:''; };
+
 function etScopeHTML(){
-  const n=F.entity&&F.entity!=='all'?1:CONS_ORDER.length;
-  return `<button class="et-scope" onclick="etOpen(event)" title="Scope every figure on this page">
+  const sel=F.entity&&F.entity!=='all';
+  const inv=sel&&etIsInvest(F.entity);
+  /* An equity-method scope is named as such on the control itself. Without it the label
+     reads like any other entity, and every consolidated figure on the page would appear to
+     be "for" an entity whose figures are not in the consolidation at all. */
+  const note=inv?'equity method &#183; not consolidated'
+             :sel?'1 of '+CONS_ORDER.length+' entities'
+             :CONS_ORDER.length+' entities';
+  return `<button class="et-scope ${inv?'invest':''}" onclick="etOpen(event)"
+      title="Scope every figure on this page">
     <span class="lbl">Scope</span>${etLabel()}
-    <span class="pctv" style="color:var(--n-500)">${n} ${n===1?'entity':'entities'}</span></button>`;
+    <span class="pctv">${note}</span></button>`;
 }
 function etOpen(ev){
   ev.stopPropagation(); wsClosePop();
-  const nodes=etNodes();
+  const nodes=etNodes(), inv=etInvest();
   let pairs=[]; try{ pairs=icxPairs(); }catch(e){}
   const dot=e=>{ const s=e.cs?e.cs.st:null;
     return s==='Blocked'?'var(--neg)':s==='Ready'?'var(--pos)':s?'var(--warn)':'var(--n-300)'; };
+  const q=nm=>nm.replace(/'/g,"\\'");
   const node=(e,kid)=>`<div class="et-node ${kid?'kid':''} ${F.entity===e.nm?'on':''}"
-      onclick="etPick('${e.nm.replace(/'/g,"\\'")}')">
+      onclick="etPick('${q(e.nm)}')">
       <span class="stdot" style="background:${dot(e)}"></span>
       <span class="nm">${e.nm}</span>
-      <span class="pctv">${e.share!==undefined?Math.round(e.share*100)+'%':''}</span>
+      <span class="pctv own">${etOwn(e)}</span>
+      ${etMeth(e.meth)}
       <span class="pctv">${e.cs?e.cs.score+'%':'&mdash;'}</span></div>`;
+  const iNode=e=>`<div class="et-node kid ${F.entity===e.nm?'on':''}" onclick="etPick('${q(e.nm)}')">
+      <span class="stdot" style="background:var(--n-300)"></span>
+      <span class="nm">${e.nm}</span>
+      <span class="pctv own">${(e.own*100).toFixed(0)}%</span>
+      ${etMeth(e.meth)}
+      <span class="pctv">&mdash;</span></div>
+      <div class="et-why">${e.basis}</div>`;
   const parent=nodes.find(n=>n.parent), kids=nodes.filter(n=>!n.parent);
   const m=document.createElement('div'); m.className='et-pop'; m.id='wsPop';
   m.innerHTML=`<div class="hd">Consolidation scope</div>
     <div class="et-node ${!F.entity||F.entity==='all'?'on':''}" onclick="etPick('all')">
       <span class="stdot" style="background:var(--n-300)"></span>
-      <span class="nm">Consolidated group</span><span class="pctv">100%</span></div>
+      <span class="nm">Consolidated group</span>
+      <span class="pctv own">100%</span><span class="et-meth" data-m="full">Full</span>
+      <span class="pctv">&mdash;</span></div>
     <div class="etree">
       ${parent?node(parent,false):''}
       ${kids.map(k=>node(k,true)).join('')}
     </div>
+    ${inv.length?`<div class="hd" style="margin-top:var(--s-3)">Equity-method investments
+      <span class="hd-note">not consolidated</span></div>
+      <div class="etree">${inv.map(iNode).join('')}</div>`:''}
     ${pairs.length?`<div class="hd" style="margin-top:var(--s-3)">Elimination pairs</div>
       ${pairs.map(p=>`<div class="et-elim"><span>${p.a} &#8596; ${p.b}</span>
         <span>${p.diff?money(p.diff):'nil'}</span></div>`).join('')}`:''}
-    <div class="ft">Ownership % and close readiness derive from the consolidation model.
+    <div class="ft">Ownership, method and close readiness derive from the consolidation model.
+      Method is the basis of inclusion &mdash; ownership alone does not determine it.
       Selecting a node scopes the figures on this page.</div>`;
   wsPlace(m,ev.currentTarget.getBoundingClientRect());
 }
@@ -4328,8 +4506,33 @@ function etPick(nm){
   wsClosePop();
   if(typeof renderAll==='function') renderAll();
 }
-/** Shared scope test so every surface filters identically. */
+/** Shared scope test so every surface filters identically. An equity-method investee is in
+    NO consolidated population, so scoping to one correctly empties every group surface —
+    that is the honest answer, and etScopeBanner() says so rather than leaving it looking
+    like a page that failed to load. */
 const etIn=ent=>!F.entity||F.entity==='all'||ent===F.entity;
+/* Two populations are on screen at once when an equity investee is scoped, and the banner has
+   to name BOTH or it will be contradicted by the page underneath it.
+     - Surfaces that filter by entity (every DataTable, via etIn) go empty. Correct.
+     - Group roll-ups — close readiness, exceptions, unreconciled balance — do not filter by
+       entity at all; they are measures OF the consolidated group. They keep reporting the four
+       consolidated entities, which is also correct, but it is not the scope you selected.
+   An earlier version of this banner claimed "group surfaces below are empty by definition",
+   while the pulse strip six inches lower showed 71% / 24 / $2.3M. Saying less would have been
+   better than saying that; saying which is which is better still. */
+function etScopeBanner(){
+  if(!etIsInvest(F.entity)) return '';
+  const e=CONS_INVEST[F.entity];
+  return `<div class="et-banner">
+    <div class="etb-main"><b>${F.entity}</b> is carried at equity &mdash; ${(e.own*100).toFixed(0)}%
+      held, ${e.partner} holds the rest &mdash; so it is not consolidated and contributes no
+      line-item figures. Carried at ${money(e.carry)}.
+      ${provChip(provFor({entity:F.entity}))}</div>
+    <div class="etb-note">Lists and queues filter to this scope and are empty.
+      Group roll-ups above continue to report the ${CONS_ORDER.length} consolidated entities
+      &mdash; they measure the group, and are not restated for an investment outside it.</div>
+  </div>`;
+}
 
 /* ==========================================================================================
    PHASE 3 — DATATABLE
@@ -4788,6 +4991,15 @@ function wsRows(rows,cols){
    and nothing else, so inventing "+X vs prior close" on the other cards would be fabricating
    a comparison. Absent a prior, the basis carries the card alone.
    --------------------------------------------------------------------------------------- */
+/** `prov` is a provenance descriptor from provFor(), or an {entity,diff,…} seed to build one.
+    ONE chip per card, in the basis line — a chip against every individual figure would put
+    ~180 of them on Home alone. A card states its own source once, because the figures inside
+    one card share it; where they would not, that is two cards. */
+function mcProv(p){
+  if(!p) return '';
+  const d=(p.tieOutStatus!==undefined)?p:provFor(p);
+  return ' <span class="mc-p">'+provChip(d)+'</span>';
+}
 function metricCard(m){
   const d=m.delta;
   const dl=d?`<span class="dlt ${d.dir}">${d.dir==='up'?'&#9650;':'&#9660;'} ${d.v}</span>${
@@ -4795,7 +5007,7 @@ function metricCard(m){
   return `<div class="mc ${m.go&&!m.lk?'clickable':''}" ${m.go&&!m.lk?`onclick="${m.go}"`:''}>
     <span class="mc-l">${m.l}</span>
     <span class="mc-v ${m.neg?'neg':''}${m.pos?'pos':''}">${m.v}</span>
-    <span class="mc-b">${dl}${m.basis||''}</span>
+    <span class="mc-b">${dl}${m.basis||''}${mcProv(m.prov)}</span>
     ${m.go&&m.lk?`<span class="mc-go" onclick="${m.go}">${m.lk} &#8594;</span>`:''}
   </div>`;
 }
@@ -4805,7 +5017,7 @@ function metricRow(list){ return `<div class="mcrow">${list.map(metricCard).join
     divergent card variant. `d` is the basis and is required. */
 function wsStat(list){
   return metricRow(list.map(x=>({l:x.l,v:x.v,basis:x.d||'',delta:x.delta,neg:x.neg,pos:x.pos,
-    go:x.go,lk:x.lk})));
+    go:x.go,lk:x.lk,prov:x.prov})));
 }
 
 /** Close readiness is the one metric with a real prior-close series to compare against.
@@ -4838,10 +5050,18 @@ wsRegister({id:'pulse',cat:'Executive',title:'Enterprise pulse',def:'full',sizes
   render:()=>{
     // Every card carries a BASIS. Only close readiness carries a delta, because it is the
     // only metric with a real prior-close series behind it.
+    //
+    // PROVENANCE IS NOT ON EVERY CARD, AND THAT IS THE POINT. A chip belongs on a figure that
+    // ought to trace to a system of record. Open approvals and My open items are Korvyn's own
+    // workflow state — there is no ERP behind them and never will be, so stamping them
+    // "unavailable" would report a missing source that was never supposed to exist. The
+    // figures that DO come from the ledger carry a GROUP chip, because a consolidated number
+    // spans four ERP systems and naming any one of them would be false.
     const S=[];
     try{ const t=closeTotals();
       S.push({l:'Close readiness',v:closePct()+'%',delta:closeDeltaVsPrior(),
       d:t.done+' of '+CLOSE_TASKS.length+' tasks · '+t.blk+' blocked',
+      prov:provGroup(),
       go:"pickLens('ledger');pickTab('acctclose')",lk:'Close detail'}); }catch(e){}
     try{ const ap=FILING_APPROVALS.filter(a=>a.st==='pending');
       S.push({l:'Open approvals',v:ap.length,
@@ -4849,11 +5069,15 @@ wsRegister({id:'pulse',cat:'Executive',title:'Enterprise pulse',def:'full',sizes
       go:"pickTab('approvals')",lk:'Approvals'}); }catch(e){}
     try{ const k=axKpi(); S.push({l:'Material exceptions',v:k.open.length,
       d:(k.blocking?k.blocking.length:0)+' blocking close · '+money(k.misstate)+' could misstate',
-      neg:k.open.length>0,
+      neg:k.open.length>0, prov:provGroup(),
       go:"pickLens('ledger');pickTab('exceptions')",lk:'Exceptions'}); }catch(e){}
     try{ const diffs=GL_RECON.filter(r=>r.diff), un=diffs.reduce((a,r)=>a+Math.abs(r.diff),0);
+      // Per-entity difference flags, so the chip reads "unmatched" off the SAME rows the
+      // headline counts, rather than asserting a tie-out the figure beside it contradicts.
+      const byEnt={}; diffs.forEach(r=>{ byEnt[r.ent]=1; });
       S.push({l:'Unreconciled balance',v:un?homeAmt(un):'$0',
       d:diffs.length+' of '+GL_RECON.length+' accounts with a difference',neg:un>0,
+      prov:provGroup(null,byEnt),
       go:"pickLens('ledger');pickTab('glrecon')",lk:'Reconciliations'}); }catch(e){}
     try{ S.push({l:'My open items',v:wsTaskCount()+wsIssueCount(),
       d:wsTaskCount()+' tasks · '+wsIssueCount()+' issues assigned',
@@ -4952,8 +5176,7 @@ wsRegister({id:'attention',cat:'AI Intelligence',title:'Needs your attention',de
         // decomposed into the Entity and Amount columns, so nothing is duplicated.
         {k:'t',l:'Item',primary:true,flex:true},
         {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
-        {k:'src',l:'Source',sortVal:r=>(provFor({entity:r.ent}).sourceSystem||''),
-         render:r=>provChip(provFor({entity:r.ent,diff:r.sev==='high'?1:0,recordId:null}))},
+        dtProvCol(r=>r.ent, r=>r.sev==='high'?1:0),
         // homeAmt, not money — money() renders a real $1,250 variance as "$0.0M", which
         // reads as nil. homeAmt takes thousands and drops to whole dollars under $0.1M.
         {k:'amt',l:'Amount',num:true,sortVal:r=>r.amt||0,
@@ -5104,6 +5327,7 @@ wsRegister({id:'detected',cat:'AI Intelligence',title:'Korvyn detected',def:'ful
         {k:'rule',l:'What fired',render:r=>`${r.rule}<span class="det-kind">${r.kind}</span>`},
         {k:'examined',l:'Examined'},
         {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        dtProvCol(r=>r.ent),
         {k:'amt',l:'Amount',num:true,sortVal:r=>Math.abs(r.amt||0),
          render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
         {k:'st',l:'Status',render:r=>{
@@ -5206,6 +5430,7 @@ wsRegister({id:'risks',cat:'AI Intelligence',title:'Top enterprise risks',def:'l
       cols:[
         {k:'t',l:'Exception',primary:true,flex:true},
         {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        dtProvCol(r=>r.ent),
         {k:'mis',l:'Could misstate',num:true,
          sortVal:r=>r.mis!==undefined?r.mis:(r.amt||0),
          render:r=>r.mis!==undefined?money(r.mis):(r.amt!==undefined?money(r.amt):'&mdash;')},
@@ -5286,8 +5511,7 @@ wsRegister({id:'close-ent',cat:'Close',title:'Close readiness by entity',def:'l'
       rowGo:()=>"pickLens('ledger');pickTab('glclose')",
       cols:[
         {k:'ent',l:'Entity',primary:true,flex:true},
-        {k:'src',l:'Source',sortVal:r=>ERP_ENTITY[r.ent]||'',
-         render:r=>provChip(provFor({entity:r.ent}))},
+        dtProvCol(r=>r.ent),
         {k:'pct',l:'Complete',num:true,render:r=>r.pct+'%'},
         {k:'done',l:'Done',num:true},
         {k:'prog',l:'In progress',num:true},
@@ -6164,13 +6388,52 @@ function cpAskVendor(v){
    them. csxTie() asserts this page agrees with that count.                          */
 
 const CONS_RPT='USD';                       // group reporting currency
+/* `share` is CONTRIBUTION — the entity's slice of a consolidated figure (the four sum to
+   1.00 and Consolidated > Entities renders `consolidatedFigure * share`). It is NOT ownership,
+   and the EntityTree used to print it under a heading that said "Ownership %", which asserted
+   that the parent owned 42% of itself. Ownership is `own`; consolidation basis is `meth`.
+   All four subsidiaries are wholly owned, so the group carries no non-controlling interest —
+   which is why no NCI line appears anywhere in the statements. */
 const CONS_ENT={
-  'Meridian DC Holdco':    {ini:'MDH', reg:'Americas', ctry:'United States',  fx:'USD', bu:'Colocation', rev:'A. Okafor',   share:.42, parent:true},
-  'Fleet DC OpCo':         {ini:'FDO', reg:'Americas', ctry:'United States',  fx:'USD', bu:'Hyperscale', rev:'L. Tan',      share:.28},
-  'Meridian Property Co':  {ini:'MPC', reg:'EMEA',     ctry:'Ireland',        fx:'EUR', bu:'Property',   rev:'J. Park',     share:.20},
-  'Meridian Management Co':{ini:'MMC', reg:'EMEA',     ctry:'United Kingdom', fx:'GBP', bu:'Services',   rev:'S. Lee',      share:.10},
+  'Meridian DC Holdco':    {ini:'MDH', reg:'Americas', ctry:'United States',  fx:'USD', bu:'Colocation', rev:'A. Okafor',   share:.42, parent:true, own:null, meth:'full'},
+  'Fleet DC OpCo':         {ini:'FDO', reg:'Americas', ctry:'United States',  fx:'USD', bu:'Hyperscale', rev:'L. Tan',      share:.28, own:1,    meth:'full'},
+  'Meridian Property Co':  {ini:'MPC', reg:'EMEA',     ctry:'Ireland',        fx:'EUR', bu:'Property',   rev:'J. Park',     share:.20, own:1,    meth:'full'},
+  'Meridian Management Co':{ini:'MMC', reg:'EMEA',     ctry:'United Kingdom', fx:'GBP', bu:'Services',   rev:'S. Lee',      share:.10, own:1,    meth:'full'},
 };
 const CONS_ORDER=['Meridian DC Holdco','Fleet DC OpCo','Meridian Property Co','Meridian Management Co'];
+
+/* EQUITY-METHOD INVESTMENTS — held, but NOT consolidated, and therefore deliberately a
+   SEPARATE POPULATION from CONS_ENT rather than a fifth row in it.
+
+   That separation is the accounting, not a convenience: an equity-method investee is carried
+   as a single line (investment + share of earnings), so it contributes no revenue, no assets
+   and no intercompany legs to the consolidated statements. It correspondingly has no close
+   tasks in the group checklist, no rows in the group reconciliation book, and no elimination
+   pairs. Everything that iterates CONS_ORDER — csxEntities, GL_CLOSE, GL_RECON, icxPairs —
+   is right to exclude it, and icxTie()/csxTie() stay green precisely because it is not there.
+
+   `own:.51` with `meth:'equity'` is the case the tree exists to express: MAJORITY ECONOMICS
+   WITHOUT CONTROL. Sagebrush holds substantive participating rights over the annual operating
+   budget, over capex above the stated threshold, and over removal of the managing member, so
+   Meridian cannot direct the activities that most significantly affect returns
+   (ASC 810-10-15-10). Ownership percentage alone would report this as a controlled subsidiary
+   and consolidate it — which is exactly why a tree that shows only ownership is misleading. */
+const CONS_METHODS={
+  full:  {l:'Full',         d:'Line-by-line consolidation with intercompany eliminated'},
+  equity:{l:'Equity',       d:'Carried as one line: investment plus share of earnings'},
+  prop:  {l:'Proportional', d:'Pro-rata share of each line consolidated'},
+};
+const CONS_INVEST={
+  'Ridgeline Data Campus JV':{ini:'RDC', reg:'Americas', ctry:'United States', fx:'USD',
+    bu:'Hyperscale', rev:'A. Okafor', own:.51, meth:'equity',
+    carry:184.6,                 // carrying value of the investment, $M
+    partner:'Sagebrush Infrastructure Partners',
+    basis:'Substantive participating rights held by the 49% member over the operating budget, '+
+          'capex above $5M and removal of the managing member (ASC 810-10-15-10).',
+    src:'Quarterly reporting package',   // no ERP feed — provenance is genuinely unavailable
+    thru:'Mar 31, 2026'},
+};
+const CONS_INVEST_ORDER=['Ridgeline Data Campus JV'];
 const CONS_REGIONS=['Americas','EMEA'];
 // FX is the one thing with no existing source, so it is declared here — once.
 // `stale` derives from the rate date against the Jun 30 close, not stored twice.
@@ -17875,14 +18138,22 @@ function paintTopbar(){
   const pinBtn=document.getElementById('tbPin');
   if(pinBtn) pinBtn.style.display=(LENS==='portfolio'&&TAB==='overview')?'none':'';
   // rail scope line + filter-bar state chip (same summary string)
-  const fund=({all:'All funds',F1:'Fund I',F2:'Fund II',F3:'Fund III'})[F.fund]||'All funds';
-  const reg=F.region==='all'?'':' · '+F.region;
-  const own=F.own && F.own!=='all'?' · '+({own:'Owned',lhi:'Leasehold',rou:'ROU'})[F.own]:'';
-  const summary=`${fund}${reg}${own} · ${F.ccy==='local'?'Local':'USD'} · ${periodLabel().replace('inception-to-date','ITD').replace('FY26 year-to-date','YTD')}`;
+  /* The chip no longer leads with "All funds". Entity scoping moved to the EntityTree in the
+     topbar, and this bar now states what IT owns: currency and period. Fund, region and
+     ownership type appear only when actually set — showing "All funds" by default made the
+     default look like a scope decision, while hiding a live filter would be worse. */
+  const fund=F.fund==='all'?'':({F1:'Fund I',F2:'Fund II',F3:'Fund III'})[F.fund]+' · ';
+  const reg=F.region==='all'?'':F.region+' · ';
+  const own=F.own && F.own!=='all'?({own:'Owned',lhi:'Leasehold',rou:'ROU'})[F.own]+' · ':'';
+  const summary=`${fund}${reg}${own}${F.ccy==='local'?'Local':'USD'} · ${periodLabel().replace('inception-to-date','ITD').replace('FY26 year-to-date','YTD')}`;
   const scope=document.getElementById('railScope');
   if(scope) scope.textContent=summary;
   const fbState=document.getElementById('filterbarState');
   if(fbState) fbState.textContent=summary;
+  const tbs=document.getElementById('tbScope');
+  if(tbs && typeof etScopeHTML==='function') tbs.innerHTML=etScopeHTML();
+  const sb=document.getElementById('scopeBanner');
+  if(sb && typeof etScopeBanner==='function') sb.innerHTML=etScopeBanner();
   // role-question sentence under the header removed per design — keep element empty & hidden
   const lq=document.getElementById('lensqBig');
   if(lq){ lq.textContent=''; lq.style.display='none'; }
@@ -17988,7 +18259,7 @@ function cpAddUser(text){ const t=$('cpThread'); const d=document.createElement(
 function cpAddAgent(){ const t=$('cpThread'); if(!t)return document.createElement('div'); const w=document.createElement('div'); w.className='cp-msg-a'; t.appendChild(w); return w; }
 function cpThink(wrap,steps,done){
   const el=document.createElement('div'); el.className='cp-think'; wrap.appendChild(el);
-  let i=0; const run=()=>{ if(i>=steps.length){ el.classList.add('done'); el.innerHTML=`<i class="ti"></i>`; el.querySelector('i').textContent='✓'; el.insertAdjacentText('beforeend',' grounded in spine'); done&&done(); return; }
+  let i=0; const run=()=>{ if(i>=steps.length){ el.classList.add('done'); el.innerHTML=`<i class="ti"></i>`; el.querySelector('i').textContent='✓'; el.insertAdjacentText('beforeend',' grounded in the ledger'); done&&done(); return; }
     el.innerHTML=`<span class="sp"></span>${steps[i]}`; cpScroll(); i++; setTimeout(run, 340+Math.random()*220); };
   run();
 }
@@ -18005,9 +18276,15 @@ function cpBody(wrap){ const b=document.createElement('div'); b.className='cp-bo
 function cpAppend(wrap,el){ wrap.appendChild(el); cpScroll(); }
 
 // citation + action + hit builders
+/* An answer is only as good as what it read, so it states that the same way every other
+   surface does — the same primitive, not a sentence about it.
+   This also retired "· figures from spine": "spine" is internal vocabulary and is not allowed
+   in visible copy, and it asserted a source without naming one, which is the opposite of what
+   a citation line is for. */
 function citeChips(cites){ if(!cites||!cites.length)return null;
   const d=document.createElement('div'); d.className='cp-cites';
-  d.innerHTML=`<i class="ti"></i>cites: `+cites.map(c=>`<span class="cp-cite" onclick="${c.action||''}">${c.label}</span>`).join(', ')+` · figures from spine`;
+  d.innerHTML=`<i class="ti"></i>cites: `+cites.map(c=>`<span class="cp-cite" onclick="${c.action||''}">${c.label}</span>`).join(', ')+
+    ` &#183; <span class="cp-prov">${provChip(provForScope())}</span>`;
   return d; }
 function actRow(actions){ if(!actions||!actions.length)return null;
   const d=document.createElement('div'); d.className='cp-acts';

@@ -177,11 +177,69 @@ and assert those four counts are zero.
   `--prov-ok` dot, where previously the chip carried semantic colour *only* when stale or
   unavailable so a healthy screen stayed grey. If the green reads as noise at scale, reverting
   is one token reference: point `[data-tie="matched"] .pd` back at `--n-400`.
-- **`etScopeHTML()` / `etOpen()` / `etPick()` / `etIn(entity)`** — the EntityTree scoping
-  control. Ownership %, elimination pairs and per-node close status derive from `CONS_ENT`,
-  `icxPairs()` and `csxEntities()`. Selecting a node sets `F.entity`; **`etIn()` is the shared
-  scope test** every surface must use so they filter identically. Consumed today by the
-  workspace widgets and DataTable; legacy pages do not read it yet.
+
+  **Reach (Phase 2): one chip per card, column or answer — never one per figure.**
+  - **Tables** use **`dtProvCol(get, diff)`**, not a hand-rolled `src` column. There were two
+    and they had already diverged: one sorted on the resolved system name, the other on the raw
+    `ERP_ENTITY` map, which differ for anything with no feed.
+  - **KPI strips** pass `prov:` to `metricCard`/`wsStat`, rendered in the basis line.
+    `.mc` clips its own content, so `.mc:has(.prov:hover)` opens the clip for the popover only
+    while hovered — truncation still holds at rest.
+  - **Assistant answers** carry it in the citation row. That also retired
+    "· figures from spine": internal vocabulary, and it asserted a source without naming one.
+  - **`provGroup(entities, diffs)` for any group-level figure.** A consolidated number spans
+    four ERP systems, so a single-source chip would be false. Freshness is the **oldest**
+    contributing feed; tie-out is the **worst** contributing state, and the popover enumerates
+    the constituents so the summary is never all you get.
+    **`PROV_RANK` puts `unmatched` ABOVE `stale`**: a difference is a fact about the numbers,
+    staleness a fact about the feed, and the chip sits beside a number. Ranking stale higher
+    made "Unreconciled balance · $2.3M across 4 accounts" report itself as `stale`, burying the
+    very differences the card exists to show. Staleness is never lost — it is composed into
+    `why` and marked per row.
+  - **Provenance is deliberately ABSENT from Korvyn-native figures.** Open approvals and My
+    open items are Korvyn's own workflow state; there is no ERP behind them and never will be,
+    so stamping them `unavailable` would report a missing source that was never meant to exist.
+    A chip belongs on a figure that *ought* to trace.
+  - An **equity-method investee** resolves to `unavailable` with its own reason — it reports on
+    the investee's cycle via a package, which is a different unavailable from "could not reach
+    the system". `provAgeMin()` parses the authored `sync` string rather than storing a numeric
+    twin of it.
+- **`etScopeHTML()` / `etOpen()` / `etPick()` / `etIn(entity)` / `etScopeBanner()`** — the
+  EntityTree, and **the primary scoping control**: it lives in the **topbar** (`#tbScope`), so
+  it is on all 62 pages, not just Home. The filter chip was demoted to what it actually owns —
+  currency and period — and no longer leads with "All funds"; fund/region/ownership appear in
+  it only when set. Selecting a node sets `F.entity`; **`etIn()` is the shared scope test**
+  every surface must use so they filter identically. Consumed by the workspace widgets and
+  DataTable; legacy pages still do not read it.
+  **It is never hidden responsively.** `.hdr-ctl` may hide at 1000px because the filter bar
+  re-offers the period at exactly that width; there is no entity control anywhere else, so
+  hiding this one would make scoping unreachable rather than relocating it. It sheds its label
+  at 1200 and its count at 900 instead.
+
+**TWO POPULATIONS, and the tree is the only place both appear.**
+
+- `CONS_ENT` / `CONS_ORDER` are the **consolidated group** (4 entities, all wholly owned, so
+  the group carries no NCI — which is why no NCI line appears in the statements).
+- `CONS_INVEST` / `CONS_INVEST_ORDER` are **equity-method investees**, deliberately a separate
+  structure rather than a fifth row. That separation is the accounting: an equity-method
+  investee is one line (investment + share of earnings), so it contributes no revenue, assets
+  or intercompany legs. Everything iterating `CONS_ORDER` — `csxEntities`, `GL_CLOSE`,
+  `GL_RECON`, `icxPairs` — is right to exclude it, and **`icxTie()`/`csxTie()` stay green
+  precisely because it is not there.** Do not "complete" the model by merging them.
+- **`share` is CONTRIBUTION, not ownership** — the four values sum to 1.00 and Consolidated >
+  Entities renders `consolidatedFigure * share`. Ownership is **`own`**; basis of inclusion is
+  **`meth`** (`CONS_METHODS`: full / equity / prop). The tree used to print `share` under a
+  heading reading "Ownership %", which asserted the parent owned 42% of itself.
+- **Ridgeline Data Campus JV is 51% and equity method, and that is the point.** Majority
+  economics without control: the 49% member holds substantive participating rights over the
+  operating budget, capex above $5M and removal of the managing member (ASC 810-10-15-10).
+  A tree showing ownership alone would report it as a controlled subsidiary. `prop` is defined
+  in the vocabulary but no entity uses it today.
+- **Scoping to an investee empties every entity-filtered surface, correctly**, and
+  `etScopeBanner()` says so. The banner must name **both** populations: an earlier version said
+  "group surfaces below are empty by definition" while the pulse strip beneath it showed
+  71% / 24 / $2.3M, because group roll-ups do not filter by entity at all. If you change one,
+  re-read the other.
 - **`dataTable(spec)`** — one table for every list surface. 40px rows, sortable, right-aligned
   tabular numerics, per-user column config and saved views (persisted, `korvyn.datatable.v1`),
   multi-select with bulk actions, and **a preview that must be confirmed before anything
@@ -885,7 +943,11 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   `filings` keeps `{head:'SEC filings'}` because that is a group *inside* Reporting, not the
   module's own name.
 - **No internal product vocabulary in user-facing copy.** "Spine", "edge types", "phantom cost"
-  and similar are out of visible UI. The decorative "provenance depth" bars in the topbar were
+  and similar are out of visible UI. **This is NOT actually clean — about 16 visible "spine"
+  strings remain** in `.subhead`/`.note` copy, two `VIEW_META.c` crumbs, and several assistant
+  answer bodies. Phase 2 removed the two on the primitives' own surfaces (the citation row's
+  "figures from spine" and the assistant grounding line, now "grounded in the ledger"); the
+  rest need a copy pass. Grep `spine` before claiming this rule holds. The decorative "provenance depth" bars in the topbar were
   removed outright — they rendered an unexplained 1–5 scale — and the footer is now scope and
   period only, not product philosophy. `VIEW_META.depth` still exists but is not drawn.
 - **Summary amounts use `homeAmt()`**, which switches to whole dollars under $0.1M. `glB()`
