@@ -13,18 +13,57 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root{
-  /* ---- structural slate (light) ---- */
-  /* ---- Midnight + Cobalt -------------------------------------------------------
-     The architecture is four planes, and the tokens are named for their plane:
-       MIDNIGHT  --rail / --rail2   platform chrome (top ribbon, module nav)
-       COBALT    --accent*          interaction, navigation, selection
-       WHITE     --bg / --surface   the financial workspace
-       INDIGO    --ai*              Korvyn Intelligence, and nothing else
-     Never reach for --ai to decorate a non-intelligence surface; that separation is
-     the whole point of the palette. */
-  --bg:#F7F8FA; --bg2:#EDF0F5; --surface:#FFFFFF; --surface2:#FBFCFD;
-  --ink:#172033; --muted:#64748B; --hint:#8A94A6; --faint:#B4BECC;
-  --line:#E2E8F0; --line2:#CBD5E1;
+  /* ==========================================================================
+     TOKEN LAYER. Everything visual resolves through here — no component may
+     declare a raw colour, size or spacing value of its own.
+
+     THE RAMP IS THE PALETTE. Ten neutral steps carry the entire instrument;
+     one accent hue carries interaction; red/amber/green carry STATE ONLY and
+     never appear as decoration or as series colours. If a new hue is needed,
+     the answer is a different ramp step, not a new colour.
+     ========================================================================== */
+
+  /* ---- 1. neutral ramp: n-0 lightest → n-9 darkest (inverted in dark) ---- */
+  --n-0:#FFFFFF;   /* card / panel surface            */
+  --n-1:#FAFBFD;   /* raised or inset surface         */
+  --n-2:#F4F6F9;   /* page ground                     */
+  --n-3:#E6EAF0;   /* hairline separator, track fill  */
+  --n-4:#D2DAE4;   /* strong border, disabled fill    */
+  --n-5:#B4BECC;   /* faint text, placeholder         */
+  --n-6:#8A94A6;   /* hint / tertiary text            */
+  --n-7:#64748B;   /* muted / secondary text          */
+  --n-8:#3C4A61;   /* strong secondary                */
+  --n-9:#172033;   /* primary ink                     */
+
+  /* ---- 2. structural aliases. Render code keeps its existing names; the
+     values now come from the ramp so there is exactly one place to tune. ---- */
+  --surface:var(--n-0); --surface2:var(--n-1);
+  --bg:var(--n-2);      --bg2:var(--n-3);
+  --ink:var(--n-9);     --muted:var(--n-7); --hint:var(--n-6); --faint:var(--n-5);
+  --line:var(--n-3);    --line2:var(--n-4);
+
+  /* ---- 3. type scale. Five sizes, and only these five. ---- */
+  --fs-label:11px;   /* uppercase section label, tracked */
+  --fs-table:12px;   /* table body                       */
+  --fs-body:13px;    /* UI body                          */
+  --fs-card:15px;    /* card / section title             */
+  --fs-page:20px;    /* page title                       */
+  --tracking-label:.06em;
+  /* Two text weights, 400 and 500. 600 is reserved for the 11px uppercase label
+     alone, which the type spec defines at that weight — it is a distinct
+     treatment rather than a third body weight. */
+  --fw-regular:400; --fw-medium:500; --fw-label:600;
+
+  /* ---- 4. spacing, 4px increments ---- */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px;
+  --s-6:24px; --s-7:28px; --s-8:32px; --s-10:40px; --s-12:48px;
+
+  /* ---- 5. hairline. The default separator everywhere.
+     0.5px is the intent; on sub-2x displays it rounds to 0 in some engines, so
+     the low-DPI override below keeps it visible rather than vanishing. ---- */
+  --hairline:0.5px;
+  --border:var(--hairline) solid var(--line);
+  --border-strong:var(--hairline) solid var(--line2);
   /* two midnight planes: the ribbon sits deepest, the module rail one step up */
   --rail:#08111F; --rail2:#0D1726; --rail-ink:#C3CCDB; --rail-hint:#75818F;
 
@@ -66,24 +105,36 @@
      is unreadable there, so the ribbon's AI affordance gets its own token. The ribbon is
      dark in both themes, so this value is the same in both. */
   --rail-ai:#8B8FF8;
-  --shadow-sm:0 1px 2px rgba(16,22,35,.03),0 1px 3px rgba(16,22,35,.05);
+  /* ---- series colours. NOT semantic. Budget/committed/incurred/paid are a
+     sequence, not a set of states, so they step through the ramp into the accent
+     rather than borrowing red/green — which are reserved for state and must keep
+     meaning what they say. ---- */
+  --series-1:var(--n-4); --series-2:var(--n-6); --series-3:var(--accent-line); --series-4:var(--accent);
+
+  /* ---- elevation. Shadow is reserved for TRUE OVERLAYS — popovers, menus,
+     modals, drawers. Cards, panels, tables and strips are flat and separate
+     through the hairline alone. ---- */
   --shadow-md:0 2px 4px rgba(16,22,35,.04),0 8px 24px rgba(16,22,35,.06);
+  --shadow-lg:0 4px 8px rgba(16,22,35,.05),0 16px 44px rgba(16,22,35,.10);
+  --shadow-sm:none;                 /* retained as a name; deliberately flat */
   --shadow-rail:0 0 0 1px rgba(255,255,255,.03) inset;
   /* restrained scale: major panels 10, cards 8, inputs/buttons 6 */
   --radius:10px; --radius-sm:8px; --radius-xs:6px; --radius-pill:20px;
   /* ---- shell geometry (single source of truth for the rail + topbar) ---- */
   --rail-w:200px; --rail-w-collapsed:56px; --ribbon-h:50px;
-  /* ---- density scale ---- */
-  --pad-card:16px; --pad-content:20px; --row-h:40px;
+  /* ---- density, expressed in the spacing scale ---- */
+  --pad-card:var(--s-4); --pad-content:var(--s-5); --row-h:var(--s-10);
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --serif:"Newsreader",Georgia,serif;
   --num:"Inter",var(--sans); /* Inter has excellent tabular figures */
 }
 [data-theme="dark"]{
-  --bg:#0B1018; --bg2:#0E141E; --surface:#141B27; --surface2:#111823;
-  --ink:#EAEEF5; --muted:#9CA6B6; --hint:#6E7889; --faint:#4B5568;
-  --line:#222C3B; --line2:#2C384A;
+  /* The ramp inverts: n-0 is still "surface", n-9 is still "ink". Because every
+     structural alias resolves through the ramp, only these ten values change. */
+  --n-0:#141B27; --n-1:#111823; --n-2:#0B1018; --n-3:#222C3B; --n-4:#2C384A;
+  --n-5:#4B5568; --n-6:#6E7889; --n-7:#9CA6B6; --n-8:#C3CCDB; --n-9:#EAEEF5;
+  --series-1:var(--n-4); --series-2:var(--n-6); --series-3:var(--accent-line); --series-4:var(--accent);
   --rail:#050A12; --rail2:#0A1119; --rail-ink:#AEB8C8; --rail-hint:#616C7E;
   /* intelligence indigo, lightened so it reads as text on dark surfaces */
   --ai:#818CF8; --ai-deep:#A78BFA; --ai-ink:#A5B0FB;
@@ -113,16 +164,23 @@
   --surface-ai:#151C29;
   --rail-ai:#8B8FF8;
 
-  --shadow-sm:0 1px 2px rgba(0,0,0,.28);
   --shadow-md:0 2px 4px rgba(0,0,0,.28),0 12px 32px rgba(0,0,0,.38);
+  --shadow-lg:0 4px 10px rgba(0,0,0,.34),0 20px 52px rgba(0,0,0,.46);
+  --shadow-sm:none;
 }
+/* The hairline is 0.5px by intent. Below 2dppx a half-pixel border rounds to zero in
+   some engines and the separator disappears entirely, so it steps up to 1px there. */
+@media (max-resolution:1.5dppx){ :root{ --hairline:1px; } }
 
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{
   font-family:var(--sans);background:var(--bg);color:var(--ink);
-  line-height:1.5;font-size:13px;-webkit-font-smoothing:antialiased;
+  line-height:1.5;font-size:var(--fs-body);-webkit-font-smoothing:antialiased;
   font-feature-settings:"cv05","ss01";
+  /* Global, not per-table. Every figure in the product is column-comparable, and a
+     number that shifts width between renders is a number a controller cannot scan. */
+  font-variant-numeric:tabular-nums;
   display:grid;
   /* Two columns only. The assistant is an overlay and deliberately does NOT take a grid
      column, so opening it cannot reflow, resize or redesign the page underneath. */
@@ -311,6 +369,124 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .mm-nm{display:block;font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.25}
 .mm-item:hover .mm-nm,.mm-item.on .mm-nm{color:var(--accent-ink)}
 .mm-ds{display:block;font-size:11px;color:var(--hint);line-height:1.35;margin-top:2px}
+
+/* ==================== PHASE 2/3 PRIMITIVES ====================
+   ProvenanceChip, EntityTree and DataTable. Everything here consumes the Phase 1
+   tokens only — no literal colour, size or spacing value below this line. */
+
+/* ---- ProvenanceChip ---------------------------------------------------------
+   The only element allowed to carry semantic colour AT REST, and only when the
+   tie-out is stale or unavailable. Matched/unmatched sit in the neutral ramp so a
+   screen full of healthy figures stays monochrome. */
+.prov{display:inline-flex;align-items:center;gap:var(--s-1);vertical-align:baseline;
+  font-size:var(--fs-label);color:var(--n-6);white-space:nowrap;cursor:default;
+  position:relative;font-variant-numeric:tabular-nums}
+.prov .pd{width:5px;height:5px;border-radius:50%;background:var(--n-5);flex:none}
+.prov[data-tie="matched"] .pd{background:var(--n-5)}
+.prov[data-tie="unmatched"] .pd{background:var(--n-8)}
+.prov[data-tie="stale"] .pd{background:var(--warn)}
+.prov[data-tie="stale"]{color:var(--warn)}
+.prov[data-tie="unavailable"] .pd{background:var(--neg)}
+.prov[data-tie="unavailable"]{color:var(--neg)}
+.prov:hover{color:var(--n-8)}
+.prov-pop{position:absolute;bottom:calc(100% + 6px);left:0;z-index:70;min-width:232px;
+  background:var(--surface);border:var(--border-strong);border-radius:var(--radius-xs);
+  box-shadow:var(--shadow-md);padding:var(--s-3);display:none;text-align:left;
+  font-size:var(--fs-label);color:var(--n-7);cursor:auto}
+.prov:hover .prov-pop{display:block}
+/* Plain div/span rows rather than dl/dt/dd — the chip renders inside table cells and a
+   definition list nested in an inline element is a parser edge case not worth risking. */
+.prov-pop .ppr{display:flex;justify-content:space-between;gap:var(--s-3);padding:1px 0}
+.prov-pop .ppr .k{color:var(--n-6)}
+.prov-pop .ppr .v{color:var(--ink);font-weight:var(--fw-medium);text-align:right}
+.prov-pop .pp-hd{font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-6);margin-bottom:var(--s-2)}
+.prov-pop .pp-ft{margin-top:var(--s-2);padding-top:var(--s-2);border-top:var(--border)}
+.prov-pop .pp-ft a{color:var(--accent);cursor:pointer;text-decoration:none}
+.prov-pop .pp-ft a:hover{text-decoration:underline}
+.prov-pop .pp-warn{margin-top:var(--s-2);color:var(--warn)}
+.prov-pop .pp-bad{margin-top:var(--s-2);color:var(--neg)}
+
+/* ---- EntityTree ------------------------------------------------------------- */
+.etree{font-size:var(--fs-table)}
+.et-node{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-1) var(--s-2);
+  border-radius:var(--radius-xs);cursor:pointer;transition:.12s;border-left:2px solid transparent}
+.et-node:hover{background:var(--accent-bg)}
+.et-node.on{background:var(--accent-bg);border-left-color:var(--accent);color:var(--accent-ink)}
+.et-node .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.et-node .pctv{color:var(--n-6);font-size:var(--fs-label);flex:none}
+.et-node .stdot{width:5px;height:5px;border-radius:50%;flex:none}
+.et-node.kid{margin-left:var(--s-4)}
+.et-elim{font-size:var(--fs-label);color:var(--n-6);padding:var(--s-1) var(--s-2) var(--s-1) var(--s-6);
+  display:flex;justify-content:space-between;gap:var(--s-2)}
+.et-scope{display:flex;align-items:center;gap:var(--s-2);border:var(--border-strong);
+  background:var(--surface);border-radius:var(--radius-xs);padding:var(--s-1) var(--s-2);
+  cursor:pointer;font-size:var(--fs-table);color:var(--ink);font-weight:var(--fw-medium)}
+.et-scope:hover{border-color:var(--accent-line);color:var(--accent-ink)}
+.et-scope .lbl{font-size:var(--fs-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-6);font-weight:var(--fw-label)}
+.et-pop{position:fixed;z-index:80;width:322px;background:var(--surface);
+  border:var(--border-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);
+  padding:var(--s-3)}
+.et-pop .hd{font-size:var(--fs-label);font-weight:var(--fw-label);
+  letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--n-6);
+  margin-bottom:var(--s-2)}
+.et-pop .ft{margin-top:var(--s-3);padding-top:var(--s-2);border-top:var(--border);
+  font-size:var(--fs-label);color:var(--n-6)}
+
+/* ---- DataTable --------------------------------------------------------------
+   One table for every list surface. Severity is a 3px left border and nothing
+   else — no pill, no dot. */
+.dt-wrap{border:var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden}
+.dt-bar{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
+  border-bottom:var(--border);min-height:var(--s-10)}
+.dt-bar .grow{flex:1;min-width:0}
+.dt-title{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink)}
+.dt-count{font-size:var(--fs-label);color:var(--n-6)}
+.dt-btn{border:var(--border-strong);background:var(--surface);border-radius:var(--radius-xs);
+  font:inherit;font-size:var(--fs-label);color:var(--n-7);padding:var(--s-1) var(--s-2);
+  cursor:pointer;transition:.12s;white-space:nowrap}
+.dt-btn:hover{border-color:var(--accent-line);color:var(--accent-ink)}
+.dt-btn.on{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-bg)}
+.dt{width:100%;border-collapse:collapse;font-size:var(--fs-table)}
+.dt th{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-6);text-align:left;padding:var(--s-2) var(--s-3);
+  border-bottom:var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+.dt th.num,.dt td.num{text-align:right;font-variant-numeric:tabular-nums}
+.dt th.nosort{cursor:default}
+.dt th .sc{color:var(--n-5);margin-left:var(--s-1);font-size:9px}
+.dt th.sorted{color:var(--ink)}
+.dt th.sorted .sc{color:var(--accent)}
+/* 40px rows are a hard constraint, so a cell is ONE line. If a value needs a second line it
+   needs its own column instead — that is the whole reason this primitive replaced the card
+   list. The flexible column carries max-width:0 so it truncates rather than wrapping. */
+.dt td{padding:0 var(--s-3);height:var(--row-h);border-bottom:var(--border);color:var(--ink);
+  vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt td.flex,.dt th.flex{width:100%;max-width:0}
+.dt tbody tr{transition:background .1s}
+.dt tbody tr:hover{background:var(--n-1)}
+.dt tbody tr.sel{background:var(--accent-bg)}
+.dt tbody tr:last-child td{border-bottom:none}
+.dt td.sev{padding:0;width:3px;border-left:3px solid transparent}
+.dt tr[data-sev="high"] td.sev{border-left-color:var(--neg)}
+.dt tr[data-sev="med"] td.sev{border-left-color:var(--warn)}
+.dt tr[data-sev="low"] td.sev{border-left-color:var(--n-4)}
+.dt td.drill{cursor:pointer}
+.dt td.drill:hover{color:var(--accent);text-decoration:underline}
+.dt .sub{font-size:var(--fs-label);color:var(--n-6);display:block;line-height:1.3}
+.dt-ck{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;vertical-align:middle}
+.dt-empty{padding:var(--s-8);text-align:center;color:var(--n-6);font-size:var(--fs-table)}
+.dt-foot{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
+  border-top:var(--border);font-size:var(--fs-label);color:var(--n-6)}
+.dt-bulk{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
+  border-bottom:var(--border);background:var(--accent-bg);font-size:var(--fs-table)}
+.dt-cfg{position:fixed;z-index:80;width:216px;background:var(--surface);border:var(--border-strong);
+  border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);padding:var(--s-3)}
+.dt-cfg label{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-1) 0;
+  font-size:var(--fs-table);color:var(--ink);cursor:pointer}
+.dt-prev{margin-top:var(--s-2);border:var(--border);border-radius:var(--radius-xs);
+  background:var(--n-1);padding:var(--s-2);font-size:var(--fs-label);color:var(--n-7)}
+.dt-prev b{color:var(--ink);font-weight:var(--fw-medium)}
 
 /* ================= WORKSPACE (Home widget framework) =================
    Home is composed, not hardcoded. Everything below is layout and edit-affordance only —
@@ -3628,6 +3804,277 @@ function homeActivityStrip(){
    uses. A widget never keeps its own copy of a number — same rule as everywhere else.
    ========================================================================================== */
 
+/* ==========================================================================================
+   PHASE 2 — PROVENANCE
+   A controller's first question about any figure is whether it agrees with the ERP, so
+   provenance is a primitive rather than a detail page.
+
+   Provenance is DERIVED, never authored. Source system comes from the entity→system map,
+   freshness from that system's own sync record, and tie-out from the figure's own difference.
+   Where no source link exists the chip says `unavailable` and explains why — it never shows a
+   confident-looking chip over a number Korvyn cannot actually trace.
+   ========================================================================================== */
+
+/* Which system is the book of record for each named entity. GL_ERP already counts entities
+   per system; this names the four in the live book. Data & Governance reads it too. */
+const ERP_ENTITY={
+  'Meridian DC Holdco':'NetSuite',
+  'Fleet DC OpCo':'Oracle ERP Cloud',
+  'Meridian Property Co':'SAP S/4HANA',
+  'Meridian Management Co':'JD Edwards',
+};
+const erpFor=ent=>GL_ERP.find(e=>e.nm===ERP_ENTITY[ent])||null;
+
+/** o: {entity, diff, offBook, recordId} -> provenance descriptor */
+function provFor(o){
+  o=o||{};
+  const base={sourceSystem:null,syncedAt:null,thru:null,sourceRecordId:o.recordId||null};
+  const sys=erpFor(o.entity);
+  if(!sys) return {...base,tieOutStatus:'unavailable',
+    why:'No source system is mapped for '+(o.entity||'this record')+'.'};
+  const s={...base,sourceSystem:sys.nm,syncedAt:sys.sync,thru:sys.thru};
+  if(o.offBook) return {...s,tieOutStatus:'unavailable',
+    why:'Outside the illustrative capital-only trial balance, so no tie-out is computed.'};
+  if(sys.st!=='ok') return {...s,tieOutStatus:'stale',
+    why:'Feed is behind the others — this figure is as at '+sys.thru+', not today.'};
+  return {...s,tieOutStatus:o.diff?'unmatched':'matched'};
+}
+
+const PROV_TIE={matched:'Agrees with source',unmatched:'Differs from source',
+  stale:'Source feed behind',unavailable:'No tie-out available'};
+
+/** The chip. Compact at rest, full lineage on hover. */
+function provChip(p){
+  if(!p) return '';
+  const t=p.tieOutStatus;
+  const row=(k,v)=>`<div class="ppr"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  return `<span class="prov" data-tie="${t}"><span class="pd"></span>${
+      p.sourceSystem||'No source'}${p.syncedAt?' &#183; '+p.syncedAt:''}<span class="prov-pop">
+      <div class="pp-hd">Provenance</div>
+      ${row('Source',p.sourceSystem||'&mdash;')}
+      ${row('Last sync',p.syncedAt||'&mdash;')}
+      ${row('Books through',p.thru||'&mdash;')}
+      ${row('Tie-out',PROV_TIE[t])}
+      ${p.sourceRecordId?row('Record',p.sourceRecordId):''}
+      ${p.why?`<div class="pp-${t==='unavailable'?'bad':'warn'}">${p.why}</div>`:''}
+      ${p.sourceRecordId&&p.sourceSystem?`<div class="pp-ft"><a onclick="event.stopPropagation();askAI('Show me ${p.sourceRecordId} and its source record in ${p.sourceSystem}')">Open in ${p.sourceSystem} &#8599;</a></div>`:''}
+    </span></span>`;
+}
+
+/* ==========================================================================================
+   PHASE 2 — ENTITY TREE
+   The primary scoping control. Ownership, elimination pairs and per-node close status all
+   derive from CONS_ENT / csxEntities() / icxPairs(); nothing here is authored.
+   ========================================================================================== */
+function etNodes(){
+  let st={}; try{ csxEntities().forEach(e=>{ st[e.nm]=e; }); }catch(e){}
+  return CONS_ORDER.map(nm=>({nm,...CONS_ENT[nm],cs:st[nm]||null}));
+}
+const etLabel=()=>F.entity&&F.entity!=='all'?F.entity:'Consolidated group';
+function etScopeHTML(){
+  const n=F.entity&&F.entity!=='all'?1:CONS_ORDER.length;
+  return `<button class="et-scope" onclick="etOpen(event)" title="Scope every figure on this page">
+    <span class="lbl">Scope</span>${etLabel()}
+    <span class="pctv" style="color:var(--n-6)">${n} ${n===1?'entity':'entities'}</span></button>`;
+}
+function etOpen(ev){
+  ev.stopPropagation(); wsClosePop();
+  const nodes=etNodes();
+  let pairs=[]; try{ pairs=icxPairs(); }catch(e){}
+  const dot=e=>{ const s=e.cs?e.cs.st:null;
+    return s==='Blocked'?'var(--neg)':s==='Ready'?'var(--pos)':s?'var(--warn)':'var(--n-4)'; };
+  const node=(e,kid)=>`<div class="et-node ${kid?'kid':''} ${F.entity===e.nm?'on':''}"
+      onclick="etPick('${e.nm.replace(/'/g,"\\'")}')">
+      <span class="stdot" style="background:${dot(e)}"></span>
+      <span class="nm">${e.nm}</span>
+      <span class="pctv">${e.share!==undefined?Math.round(e.share*100)+'%':''}</span>
+      <span class="pctv">${e.cs?e.cs.score+'%':'&mdash;'}</span></div>`;
+  const parent=nodes.find(n=>n.parent), kids=nodes.filter(n=>!n.parent);
+  const m=document.createElement('div'); m.className='et-pop'; m.id='wsPop';
+  m.innerHTML=`<div class="hd">Consolidation scope</div>
+    <div class="et-node ${!F.entity||F.entity==='all'?'on':''}" onclick="etPick('all')">
+      <span class="stdot" style="background:var(--n-4)"></span>
+      <span class="nm">Consolidated group</span><span class="pctv">100%</span></div>
+    <div class="etree">
+      ${parent?node(parent,false):''}
+      ${kids.map(k=>node(k,true)).join('')}
+    </div>
+    ${pairs.length?`<div class="hd" style="margin-top:var(--s-3)">Elimination pairs</div>
+      ${pairs.map(p=>`<div class="et-elim"><span>${p.a} &#8596; ${p.b}</span>
+        <span>${p.diff?money(p.diff):'nil'}</span></div>`).join('')}`:''}
+    <div class="ft">Ownership % and close readiness derive from the consolidation model.
+      Selecting a node scopes the figures on this page.</div>`;
+  wsPlace(m,ev.currentTarget.getBoundingClientRect());
+}
+function etPick(nm){
+  F.entity=(nm==='all')?null:nm;
+  wsClosePop();
+  if(typeof renderAll==='function') renderAll();
+}
+/** Shared scope test so every surface filters identically. */
+const etIn=ent=>!F.entity||F.entity==='all'||ent===F.entity;
+
+/* ==========================================================================================
+   PHASE 3 — DATATABLE
+   One table primitive for every list surface. Severity is a 3px left border and nothing else;
+   pills and dots are deliberately not available here.
+   ========================================================================================== */
+const DT_KEY='korvyn.datatable.v1';
+let DT_STATE={};
+function dtLoad(){ try{ DT_STATE=JSON.parse(localStorage.getItem(DT_KEY))||{}; }catch(e){ DT_STATE={}; } }
+function dtSave(){ try{ localStorage.setItem(DT_KEY,JSON.stringify(DT_STATE)); }catch(e){} }
+function dtS(id){
+  if(!DT_STATE[id]) DT_STATE[id]={sort:null,hidden:[],sel:[],views:{},view:null,pending:null};
+  return DT_STATE[id];
+}
+const DT_SPECS={};                 // live specs, so handlers can re-render their own table
+
+function dtSort(id,k){
+  const s=dtS(id);
+  s.sort=(s.sort&&s.sort.k===k)?{k,dir:s.sort.dir==='asc'?'desc':'asc'}:{k,dir:'asc'};
+  dtSave(); dtRepaint(id);
+}
+function dtToggleCol(id,k){
+  const s=dtS(id);
+  const i=s.hidden.indexOf(k);
+  if(i<0) s.hidden.push(k); else s.hidden.splice(i,1);
+  dtSave(); dtRepaint(id);
+}
+function dtSel(id,key,on){
+  const s=dtS(id); const i=s.sel.indexOf(key);
+  if(on&&i<0) s.sel.push(key); if(!on&&i>=0) s.sel.splice(i,1);
+  s.pending=null; dtRepaint(id);
+}
+function dtSelAll(id,on){
+  const s=dtS(id), spec=DT_SPECS[id]; if(!spec) return;
+  s.sel=on?dtRows(spec).map(r=>spec.key(r)):[];
+  s.pending=null; dtRepaint(id);
+}
+function dtBulk(id,i){ const s=dtS(id); s.pending=(s.pending===i?null:i); dtRepaint(id); }
+function dtBulkApply(id){
+  const s=dtS(id), spec=DT_SPECS[id]; if(!spec||s.pending===null) return;
+  const act=spec.bulk[s.pending], rows=dtRows(spec).filter(r=>s.sel.includes(spec.key(r)));
+  if(act&&act.run) act.run(rows);
+  s.pending=null; s.sel=[]; dtRepaint(id);
+}
+function dtSaveView(id){
+  const s=dtS(id), n='View '+(Object.keys(s.views).length+1);
+  s.views[n]={sort:s.sort?{...s.sort}:null,hidden:s.hidden.slice()};
+  s.view=n; dtSave(); dtRepaint(id);
+}
+function dtUseView(id,n){
+  const s=dtS(id), v=s.views[n];
+  if(v){ s.sort=v.sort?{...v.sort}:null; s.hidden=v.hidden.slice(); s.view=n; }
+  else { s.sort=null; s.hidden=[]; s.view=null; }
+  dtSave(); dtRepaint(id);
+}
+function dtCfgOpen(id,ev){
+  ev.stopPropagation(); wsClosePop();
+  const spec=DT_SPECS[id], s=dtS(id); if(!spec) return;
+  const m=document.createElement('div'); m.className='dt-cfg'; m.id='wsPop';
+  m.innerHTML=`<div class="pp-hd" style="font-size:var(--fs-label);font-weight:var(--fw-label);
+      letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--n-6);
+      margin-bottom:var(--s-2)">Columns</div>`+
+    spec.cols.filter(c=>c.k!=='sev').map(c=>`<label><input type="checkbox" class="dt-ck"
+      ${s.hidden.includes(c.k)?'':'checked'} onchange="dtToggleCol('${id}','${c.k}')">${c.l}</label>`).join('');
+  wsPlace(m,ev.currentTarget.getBoundingClientRect());
+}
+
+function dtRows(spec){
+  const s=dtS(spec.id);
+  let rows=spec.rows.slice();
+  if(s.sort){
+    const c=spec.cols.find(x=>x.k===s.sort.k);
+    if(c){
+      const g=c.sortVal||(r=>r[c.k]);
+      rows.sort((a,b)=>{
+        const x=g(a),y=g(b);
+        const n=(typeof x==='number'&&typeof y==='number')?x-y:String(x==null?'':x).localeCompare(String(y==null?'':y));
+        return s.sort.dir==='desc'?-n:n;
+      });
+    }
+  }
+  return rows;
+}
+
+/** Repaint just this table in place — no page re-render, so scroll and selection survive. */
+function dtRepaint(id){
+  const host=document.querySelector('[data-dt="'+id+'"]');
+  if(host&&DT_SPECS[id]) host.outerHTML=dataTable(DT_SPECS[id]);
+}
+
+/**
+ * spec: { id, title, cols:[{k,l,num?,sortVal?,render?}], rows, key(r),
+ *         sev?(r), rowGo?(r), bulk?:[{l,preview(rows),run(rows)}], empty?, note? }
+ */
+function dataTable(spec){
+  DT_SPECS[spec.id]=spec;
+  const s=dtS(spec.id);
+  const cols=spec.cols.filter(c=>!s.hidden.includes(c.k));
+  const rows=dtRows(spec);
+  const selectable=!!(spec.bulk&&spec.bulk.length);
+  const selCount=s.sel.length;
+
+  const head=`<tr>${spec.sev?'<th class="nosort sev" style="width:3px;padding:0"></th>':''}
+    ${selectable?`<th class="nosort" style="width:26px"><input type="checkbox" class="dt-ck"
+      ${selCount&&selCount===rows.length?'checked':''} onchange="dtSelAll('${spec.id}',this.checked)"></th>`:''}
+    ${cols.map(c=>`<th class="${c.num?'num ':''}${c.flex?'flex ':''}${s.sort&&s.sort.k===c.k?'sorted':''}"
+      onclick="dtSort('${spec.id}','${c.k}')">${c.l}<span class="sc">${
+        s.sort&&s.sort.k===c.k?(s.sort.dir==='asc'?'&#9650;':'&#9660;'):'&#9671;'}</span></th>`).join('')}</tr>`;
+
+  const body=rows.length?rows.map(r=>{
+    const k=spec.key(r), sel=s.sel.includes(k);
+    return `<tr data-sev="${spec.sev?spec.sev(r):''}" class="${sel?'sel':''}">
+      ${spec.sev?'<td class="sev"></td>':''}
+      ${selectable?`<td style="width:26px"><input type="checkbox" class="dt-ck" ${sel?'checked':''}
+        onclick="event.stopPropagation()" onchange="dtSel('${spec.id}','${String(k).replace(/'/g,"\\'")}',this.checked)"></td>`:''}
+      ${cols.map(c=>{
+        const drill=c.num&&spec.rowGo;
+        return `<td class="${c.num?'num ':''}${c.flex?'flex ':''}${drill?'drill':''}"
+          ${c.flex?`title="${String(r[c.k]==null?'':r[c.k]).replace(/"/g,'&quot;')}"`:''}
+          ${drill?`onclick="${spec.rowGo(r)}"`:(spec.rowGo&&c.primary?`onclick="${spec.rowGo(r)}"`:'')}
+          >${c.render?c.render(r):(r[c.k]==null?'&mdash;':r[c.k])}</td>`;
+      }).join('')}</tr>`;
+  }).join(''):'';
+
+  const views=Object.keys(s.views);
+  // Title is optional: when the table sits inside a surface that already names it (a widget
+  // header, a card heading) repeating it is the kind of duplication Phase 7 removes.
+  const bar=`<div class="dt-bar">
+      ${spec.title?`<span class="dt-title">${spec.title}</span>`:''}
+      <span class="dt-count">${rows.length} ${rows.length===1?'row':'rows'}</span>
+      <span class="grow"></span>
+      ${views.length?`<button class="dt-btn ${s.view?'on':''}"
+        onclick="dtUseView('${spec.id}','${s.view?'':views[0]}')">${s.view||'Saved views'}</button>`:''}
+      <button class="dt-btn" onclick="dtSaveView('${spec.id}')">Save view</button>
+      <button class="dt-btn" onclick="dtCfgOpen('${spec.id}',event)">Columns</button>
+    </div>`;
+
+  let bulk='';
+  if(selectable&&selCount){
+    const pend=s.pending!==null?spec.bulk[s.pending]:null;
+    const chosen=rows.filter(r=>s.sel.includes(spec.key(r)));
+    bulk=`<div class="dt-bulk"><b>${selCount} selected</b>
+      ${spec.bulk.map((b,i)=>`<button class="dt-btn ${s.pending===i?'on':''}"
+        onclick="dtBulk('${spec.id}',${i})">${b.l}</button>`).join('')}
+      <span class="grow"></span>
+      <button class="dt-btn" onclick="dtSelAll('${spec.id}',false)">Clear</button></div>`;
+    if(pend){
+      // Nothing is committed until this preview is confirmed.
+      bulk+=`<div class="dt-bulk" style="background:var(--surface)">
+        <div class="dt-prev" style="flex:1;margin:0">${pend.preview?pend.preview(chosen):''}</div>
+        <button class="dt-btn on" onclick="dtBulkApply('${spec.id}')">Apply</button>
+        <button class="dt-btn" onclick="dtBulk('${spec.id}',${s.pending})">Cancel</button></div>`;
+    }
+  }
+
+  return `<div class="dt-wrap" data-dt="${spec.id}">${bar}${bulk}
+    ${rows.length?`<table class="dt"><thead>${head}</thead><tbody>${body}</tbody></table>`
+      :`<div class="dt-empty">${spec.empty||'Nothing to show.'}</div>`}
+    ${spec.note?`<div class="dt-foot">${spec.note}</div>`:''}</div>`;
+}
+dtLoad();
+
 const WS_SPAN={s:3,m:4,l:6,xl:8,full:12};
 const WS_SIZE_LABEL={s:'Small',m:'Medium',l:'Large',xl:'Extra large',full:'Full width'};
 const WS_REG={};
@@ -3768,8 +4215,11 @@ wsRegister({id:'budget',cat:'Executive',title:'Budget vs. actual',def:'l',sizes:
   ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4',src:"pickLens('fpa');pickTab('budget')",
   render:()=>{
     const P=portfolio();
-    const bars=[['Budgeted',P.budget,'var(--line2)'],['Committed',P.committed,'#378ADD'],
-                ['Incurred',P.incurred,'#1D9E75'],['Paid',P.paid,'#D85A30']];
+    // Budget → committed → incurred → paid is a SEQUENCE, not four states, so it steps
+    // through the series ramp. It used raw green and coral, which read as good/bad and
+    // spent two semantic colours on something that carries no state at all.
+    const bars=[['Budgeted',P.budget,'var(--series-1)'],['Committed',P.committed,'var(--series-2)'],
+                ['Incurred',P.incurred,'var(--series-3)'],['Paid',P.paid,'var(--series-4)']];
     return `<div class="subhead">Commitment, cost and cash tracked separately rather than collapsed
       into a single actual. Period: <b>${periodLabel()}</b>.</div>
       <div class="measures">${bars.map(([lab,val,col])=>
@@ -3811,20 +4261,60 @@ wsRegister({id:'graph-row',cat:'Executive',title:'Connected intelligence',def:'f
   ic:'M8 2v12M3 5h10M3 11h10',render:()=>homeGraphRow()});
 
 // ---- AI Intelligence ---------------------------------------------------------------------
-wsRegister({id:'attention',cat:'AI Intelligence',title:'Needs your attention',def:'l',
-  sizes:['m','l','xl','full'],filters:['sev','limit'],
-  desc:'A prioritised queue across every module — what needs human judgment now.',
+/* Refactored from a card list onto the DataTable primitive. Severity is now the 3px left
+   border, so the pill and the dot are both gone. Every row carries a ProvenanceChip, and the
+   amount column drills to the owning module. */
+wsRegister({id:'attention',cat:'AI Intelligence',title:'Needs your attention',def:'full',
+  sizes:['l','xl','full'],filters:['sev','limit'],
+  desc:'A prioritised queue across every module, with source and tie-out state per row.',
   ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3',src:"pickTab('exceptions')",
   render:(c)=>{
-    const all=wsFilterRows(homeAttention(),c,{sev:r=>r.sev==='high'?'high':r.sev==='med'?'med':'low'});
-    const n=wsLim(c), rows=all.slice(0,n);
-    return `<div class="subhead">A prioritised queue across every module — what needs human judgment
-      now, not another report.</div>`+
-      wsRows(rows,r=>`<td style="width:20px"><span class="ic-dot ${r.sev==='high'?'bad':r.sev==='med'?'warn':'idle'}"></span></td>
-        <td><b>${r.t}</b><div class="ic-mini" style="color:var(--hint)">${r.d}</div></td>
-        <td style="text-align:right;width:74px"><span class="pill ${HOME_SEV[r.sev].c} sm">${HOME_SEV[r.sev].l}</span></td>`)+
-      wsFoot(all.length>n?(all.length-n)+' more':'',"pickTab('exceptions')",'View all items');
+    const all=wsFilterRows(homeAttention(),c,{sev:r=>r.sev})
+      .filter(r=>etIn(attnEntity(r)));
+    const rows=all.slice(0,wsLim(c)).map((r,i)=>({...r,_i:i,ent:attnEntity(r),amt:attnAmt(r)}));
+    return dataTable({
+      id:'attention', title:'', rows,   // the widget header already names it
+      key:r=>r.t, sev:r=>r.sev, rowGo:r=>r.go,
+      empty:'Nothing is waiting on you.',
+      note:all.length>rows.length?(all.length-rows.length)+' more not shown at this row limit.':'',
+      cols:[
+        // One line per cell. The detail string that used to sit under the title is now
+        // decomposed into the Entity and Amount columns, so nothing is duplicated.
+        {k:'t',l:'Item',primary:true,flex:true},
+        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        {k:'src',l:'Source',sortVal:r=>(provFor({entity:r.ent}).sourceSystem||''),
+         render:r=>provChip(provFor({entity:r.ent,diff:r.sev==='high'?1:0,recordId:null}))},
+        // homeAmt, not money — money() renders a real $1,250 variance as "$0.0M", which
+        // reads as nil. homeAmt takes thousands and drops to whole dollars under $0.1M.
+        {k:'amt',l:'Amount',num:true,sortVal:r=>r.amt||0,
+         render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
+        {k:'sevl',l:'Severity',sortVal:r=>({high:0,med:1,low:2})[r.sev],
+         render:r=>HOME_SEV[r.sev].l},
+      ],
+      bulk:[
+        {l:'Assign to me',preview:rs=>`Assign <b>${rs.length}</b> item${rs.length===1?'':'s'} to
+          <b>Mitra Giri</b>. Owner changes on each; no figure is altered.`,
+         run:rs=>rs.forEach(r=>{ r.own='M. Giri'; })},
+        {l:'Open queue',preview:rs=>`Open the exceptions queue filtered to
+          <b>${rs.length}</b> selected item${rs.length===1?'':'s'}.`,
+         run:()=>{ pickLens('ledger'); pickTab('exceptions'); }},
+      ],
+    });
   }});
+/* The attention feed carries a free-text detail line rather than typed fields, so entity and
+   amount are recovered from it rather than invented — and left blank when absent. */
+function attnEntity(r){
+  const hit=CONS_ORDER.find(n=>(r.d||'').indexOf(n)>=0||(r.t||'').indexOf(n)>=0);
+  return hit||null;
+}
+/** Returns THOUSANDS, the unit homeAmt() expects. 0 means "this row carries no amount". */
+function attnAmt(r){
+  const m=/\$([\d.,]+)\s*([MKB])?/.exec(r.d||'');
+  if(!m) return 0;
+  const v=parseFloat(m[1].replace(/,/g,''));
+  if(isNaN(v)) return 0;
+  return m[2]==='B'?v*1e6:m[2]==='M'?v*1000:m[2]==='K'?v:v/1000;
+}
 
 wsRegister({id:'detected',cat:'AI Intelligence',title:'Korvyn detected',def:'l',sizes:['m','l','xl','full'],
   desc:'Proactive intelligence identified since the last close cycle, plus what is upcoming.',
@@ -4120,7 +4610,9 @@ wsRegister({id:'pins',cat:'Pinned',title:'Pinned items',def:'m',sizes:['s','m','
    --------------------------------------------------------------------------------------- */
 const WS_TEMPLATES=[
   // scope: what the layout is for. `role` seeds a person, `scenario` seeds a period of work.
-  {id:'daily',    g:'Scenario', name:'Daily Work',      items:[['pulse','full'],['attention','l'],['detected','l'],
+  // Attention is a 5-column table now, so it takes the full row; `brief` pairs with
+  // `detected` to complete the one below it.
+  {id:'daily',    g:'Scenario', name:'Daily Work',      items:[['pulse','full'],['attention','full'],['detected','l'],['brief','l'],
     ['fin-row','full'],['ctx-row','full'],['graph-row','full'],['capital','full'],['budget','l'],['cost2cash','l'],['activity','full']]},
   {id:'close',    g:'Scenario', name:'Month End Close', items:[['close','m'],['blockers','m'],['deadlines','m'],
     ['recon','m'],['recon-diff','l'],['ic','l'],['consol','l'],['changed','l']]},
@@ -4242,6 +4734,7 @@ function wsBarHTML(w){
   return `<div class="ws-bar">
     <button class="ws-pick" onclick="wsPickOpen(event)">${wsIc('grid')}${w.name}
       <span class="scope">${w.scope}</span>${wsIc('chev')}</button>
+    ${etScopeHTML()}
     <span class="grow"></span>
     ${btn('+ Add widget','wsDrawerOpen()')}
     ${btn('Customize workspace','wsEdit()')}
@@ -5511,7 +6004,7 @@ function renderTrend(){
   h+=`<th class="num">Trend</th><th class="num">Total</th></tr></thead><tbody>`;
   // consolidated row
   const consVals=series(P.rows);
-  h+=`<tr style="background:#FAF9F5"><td><b>Consolidated</b></td>`;
+  h+=`<tr style="background:var(--n-1)"><td><b>Consolidated</b></td>`;
   consVals.forEach(v=>h+=`<td class="num">${money(v)}</td>`);
   h+=`<td class="num">${spark(consVals)}</td><td class="num"><b>${money(tCum==='cum'?consVals[consVals.length-1]:consVals.reduce((a,b)=>a+b,0))}</b></td></tr>`;
 

@@ -109,6 +109,57 @@ keeps the original lie and adds a second one).
   appears in two places, derive it once.
 - No dead controls. If an affordance cannot act, do not add it.
 
+## Design system: tokens and primitives (Phases 1–3 of the UI refactor)
+
+**The ramp is the palette.** `:root` leads with a 10-step neutral ramp `--n-0` (surface) →
+`--n-9` (ink), and every structural alias (`--bg`, `--surface`, `--ink`, `--muted`, `--line`, …)
+resolves through it. Dark mode redefines **only the ten ramp values**. If a new hue seems
+necessary, the answer is a different ramp step, not a new colour.
+
+- **One accent (cobalt). Red/amber/green are STATE ONLY** — never decoration, never series.
+  Budget→committed→incurred→paid is a *sequence*, so it uses `--series-1..4` (ramp into accent).
+  It previously used raw green and coral, which read as good/bad on figures carrying no state.
+- **Type scale is five sizes and only five**: `--fs-label` 11px (uppercase, `--tracking-label`,
+  `--fw-label` 600), `--fs-table` 12, `--fs-body` 13, `--fs-card` 15, `--fs-page` 20. Body text
+  is 400/500 only; 600 exists solely for the 11px label, which the spec defines at that weight.
+- **Spacing is `--s-1..--s-12` in 4px steps.** `--pad-card`, `--pad-content`, `--row-h` are
+  expressed in it, not in literals.
+- **`--border` is the default separator** (`0.5px solid var(--line)`). Below 2dppx the hairline
+  steps to 1px, because a half-pixel border rounds to zero in some engines and disappears.
+- **Shadow is for true overlays only** — popovers, menus, modals, drawers. `--shadow-sm` is
+  deliberately `none`; cards, panels and tables separate through the hairline alone.
+- `font-variant-numeric:tabular-nums` is global, not per-table.
+
+### The three primitives
+
+- **`provChip(provFor({entity, diff, offBook, recordId}))`** — provenance is DERIVED, never
+  authored: source system from `ERP_ENTITY` (entity→system map), freshness from that system's
+  own `GL_ERP` record, tie-out from the figure's own difference. Four states:
+  `matched | unmatched | stale | unavailable`. **It is the only element allowed semantic colour
+  at rest**, and only when stale/unavailable — so a healthy screen stays monochrome. Where no
+  source link exists it says `unavailable` and explains why rather than showing a confident chip
+  over a number Korvyn cannot trace.
+- **`etScopeHTML()` / `etOpen()` / `etPick()` / `etIn(entity)`** — the EntityTree scoping
+  control. Ownership %, elimination pairs and per-node close status derive from `CONS_ENT`,
+  `icxPairs()` and `csxEntities()`. Selecting a node sets `F.entity`; **`etIn()` is the shared
+  scope test** every surface must use so they filter identically. Consumed today by the
+  workspace widgets and DataTable; legacy pages do not read it yet.
+- **`dataTable(spec)`** — one table for every list surface. 40px rows, sortable, right-aligned
+  tabular numerics, per-user column config and saved views (persisted, `korvyn.datatable.v1`),
+  multi-select with bulk actions, and **a preview that must be confirmed before anything
+  commits**. **Severity is a 3px left border — never a pill, never a dot**; neither is available
+  in this primitive.
+  **A cell is ONE line.** 40px rows are a hard constraint, so a value needing a second line
+  needs its own column instead — that is exactly why the card list was replaced. The flexible
+  column carries `flex:true` (`max-width:0`) and truncates with a title tooltip.
+  `dtRepaint(id)` swaps a single table in place, so sort/selection do not re-render the page.
+
+**Number formatting is not yet unified — this is Phase 4's first job.** `money()` renders a real
+$1,250 variance as `$0.0M`, which reads as nil. `homeAmt()` takes **thousands** and drops to
+whole dollars under $0.1M; the attention table uses it. `$0.0M` still renders on `ledger/tb`,
+`ledger/finrep`, `ledger/exceptions`, `assets/ppe`, `fpa/trend` and one Home widget — all
+pre-existing `money()` calls.
+
 ## Home is a WORKSPACE, not a dashboard (read before touching Home)
 
 `renderOverview()` is now one line: `wsRender()`. Home is composed from a widget registry, and
