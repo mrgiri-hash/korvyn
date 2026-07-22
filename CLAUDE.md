@@ -53,7 +53,7 @@ Repo: `C:\Korvyn` · remote `github.com/mrgiri-hash/korvyn` (private) · branch 
 
 | Module | State |
 |---|---|
-| Home | Overview (do not redesign), My Work, Approvals, Exceptions, Activity, Documents, Data Room, Controls |
+| Home | **Overview is now a customizable Workspace** (widget framework — see the Workspace section), My Work, Approvals, Exceptions, Activity, Documents, Controls |
 | Accounting | **Complete.** Overview, Close, General Ledger, Reconciliations, Intercompany, Consolidation, Continuous Close, Exceptions, Accounting Issues, Policies — every page built to its written spec, no known defects |
 | Fixed Assets | Capital lifecycle, Capitalization, Capitalized labor, PP&E rollforward, Placed-in-service |
 | Procurement | Commitments/Invoices/Payments/Bank confirmation, Vendors |
@@ -108,6 +108,58 @@ keeps the original lie and adds a second one).
   close roll-ups derive from `CLOSE_TASKS`; the GL ledger derives from `COA`. If a figure
   appears in two places, derive it once.
 - No dead controls. If an affordance cannot act, do not add it.
+
+## Home is a WORKSPACE, not a dashboard (read before touching Home)
+
+`renderOverview()` is now one line: `wsRender()`. Home is composed from a widget registry, and
+**Home knows nothing about any individual widget** — it renders whatever `WS_REG` holds, in the
+order the active workspace lists. That is the architectural point; keep it true.
+
+- **Registering a widget is the extension point.** A future module calls `wsRegister({...})`
+  from its own code. Do **not** add a widget by editing Home, and do not hardcode a layout.
+  ```js
+  wsRegister({id, cat, title, desc, ic, sizes:['m','l'], def:'l', bare?, src?, filters:[],
+              render:(cfg)=>htmlString})
+  ```
+  `render` returns an HTML **string** and must derive from the accessor its owning module
+  already uses — the derive-never-duplicate rule applies here exactly as everywhere else.
+  33 widgets across 13 categories today.
+- **`WS_SPAN` is the size model**: `s`=3, `m`=4, `l`=6, `xl`=8, `full`=12 columns of a 12-column
+  CSS grid. A widget only offers the sizes it declares, so drag-resize can never produce a width
+  it does not support, and because the grid reflows, **widgets can never overlap**.
+- **The default workspace reproduces the old Home exactly** — `pulse, attention, detected,
+  fin-row, ctx-row, graph-row, capital, budget, cost2cash, activity`. The old page was not
+  redesigned, it was decomposed; the three `HOME_PREVIEW` rows are `bare:true` widgets and keep
+  their Preview chips. `bare` means "no widget header outside edit mode", which is what makes a
+  composed Home look identical to the Home it replaced.
+- **Workspaces and templates are data.** `WS_BOOK` holds the user's workspaces; `WS_TEMPLATES`
+  holds 15 starters (6 scenario, 9 role). Adding a template needs no code. `wsFromTemplate()`
+  always creates a NEW workspace — it never overwrites one.
+- **Edit mode is snapshot-based.** `wsEdit()` deep-copies the item list; `wsCancel()` restores
+  it. Anything that mutates layout sets `WS.dirty`. Outside edit mode, actions persist
+  immediately; inside it, only `Save layout` does.
+- **Every widget-menu action is real** — Refresh, Configure, Duplicate, Pin to top, Open source,
+  Resize, Move, Hide, Remove. `Configure` is only drawn when the widget declares `filters`, and
+  a widget only shows filters its own render consumes (`WS_FILTERS` + `wsFilterRows`). Do not
+  add a filter to the menu that the render ignores.
+- **Pin to Workspace lives in the global topbar** (`#tbPin`), not in `glActions`. It was in
+  `glActions` first and that covered only the 11 pages using that constant; the topbar covers
+  all 62 with one control, which is also the right level (a page-frame action, not a module's).
+  It is hidden on Home itself. `wsPin()` auto-adds the `pins` widget so a pin cannot vanish.
+- **`localStorage` works in the current preview** (verified: full save → wipe → `wsRestore()`
+  round trip). Everything is still wrapped in try/catch and the in-memory book stays
+  authoritative, so a sandbox where it no-ops degrades to session-only rather than breaking.
+  `wsRestore()` drops items whose widget id no longer exists, so removing a module cannot brick
+  someone's saved Home.
+- **Publish** copies the layout into a `department`-scoped workspace in the same book. Real
+  cross-user distribution needs a backend; the label says "shared" rather than implying it
+  reached anyone. `WS_CAN_PUBLISH` is where a role check belongs.
+- **Not built, deliberately:** cross-user/global workspace distribution, per-widget data refresh
+  against a live source, and drag-to-position free layout (the grid reflows instead, which is
+  what guarantees no overlap).
+- **Reloading the preview does not always re-execute the script** — module state such as
+  `WS_BOOK` survives what looks like a reload. When testing boot behaviour, reset in memory
+  (`WS_BOOK=[];wsRestore()||wsSeed()`) rather than trusting a navigate.
 
 ## Navigation architecture (read before touching nav)
 
