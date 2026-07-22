@@ -1870,7 +1870,10 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 <!-- ============ LEFT RAIL (sections + utility group) ============ -->
 <aside class="rail" id="railNav">
   <div class="rail-scroll">
-    <div class="rail-grouplbl" id="railTabsLbl">Section</div>
+    <!-- No module-name label here. The active module is already named twice above the rail —
+         highlighted in the ribbon and spelled out in the topbar crumb — so a third copy at
+         the top of its own rail is noise. Home never had one; now nothing does. Group heads
+         inside the rail name GROUPS, never the module. -->
     <nav id="railTabs"></nav>
   </div>
   <div class="rail-foot">
@@ -2798,7 +2801,11 @@ const TABS=[
   {id:'archives',label:'Archives',   ic:'M2 4.5h12v2H2zM3 6.5v7h10v-7M6.5 9h3'},
   {id:'admin',   label:'Admin',      ic:'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M6 2.8v3.4M10.5 6.3v3.4M5 9.8v3.4'},
   {id:'overview',label:'Overview',   ic:'M2 8l6-5 6 5M4 7v6h8V7'},
-  {id:'lifecycle',label:'Lifecycle', ic:'M2 8h3l2-4 2 8 2-6 1 2h2'},
+  // "Lifecycle" was ambiguous next to "Capital lifecycle", and the two carried the SAME
+  // glyph in the Fixed Assets rail. This one is the property portfolio (Stage → Market →
+  // Site), so it takes its own VIEW_META title and a site-pin glyph; the sparkline stays
+  // reserved for Activity.
+  {id:'lifecycle',label:'Property lifecycle', ic:'M8 14s4.5-4.4 4.5-7.4a4.5 4.5 0 10-9 0C3.5 9.6 8 14 8 14zM8 4.8a1.9 1.9 0 100 3.8 1.9 1.9 0 000-3.8z'},
   {id:'pis',     label:'Placed-in-service',ic:'M2 13h12M4 13V7l4-3 4 3v6M6 13v-3h4v3'},
   {id:'vendors', label:'Vendors',    ic:'M3 6h10l-1 8H4zM6 6V4a2 2 0 014 0v2'},
   {id:'consol',  label:'Consolidation',ic:'M8 2v12M3 5h10M3 11h10'},
@@ -2808,8 +2815,11 @@ const TABS=[
   {id:'pivot',   label:'Capex analysis',ic:'M2 2h12v12H2zM2 6h12M6 6v8'},
   {id:'po',      label:'PO tracing',  ic:'M4 2h6l3 3v9H4zM6 8h5M6 11h5'},
   {id:'ppe',     label:'PP&E rollforward',ic:'M2 13V3l4 3 4-4 4 4v7'},
-  {id:'caplife', label:'Capital lifecycle',ic:'M2 8h3l2-4 2 8 2-6 1 2h2'},
-  {id:'cip',     label:'Capitalization',ic:'M2 13h12M4 13V7l4-3 4 3v6M6 13v-3h4v3'},
+  // Phase bars: budget → committed → CIP → PIS is a staged progression, not a trend line.
+  {id:'caplife', label:'Capital lifecycle',ic:'M2 5.2h3.2v5.6H2zM6.4 5.2h3.2v5.6H6.4zM10.8 5.2H14v5.6h-3.2z'},
+  // Capitalization is cost moving INTO the balance sheet. The building glyph stays with
+  // Placed-in-service, which is the asset actually in service.
+  {id:'cip',     label:'Capitalization',ic:'M8 2v6.4M5.6 6.2L8 8.6l2.4-2.4M2.5 10.5v3h11v-3'},
   {id:'caplabor',label:'Capitalized labor',ic:'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 14v-1a5 5 0 0110 0v1M11.5 6.5l1.5-1 1.5 1'},
   {id:'finrep',  label:'Financial reporting',ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
   {id:'filing',  label:'Filing view',ic:'M4 2h6l3 3v9H4zM9 2v3h3M6 8h5M6 11h3'},
@@ -5531,12 +5541,14 @@ const RAIL_SPEC={
   // listed until they render something, because a nav entry that leads nowhere is a dead
   // control.
   droom:[
-    {head:'Data Room'},
+    // No {head:'Data Room'} — a group head names a GROUP, never the module you are already in.
     {tab:'drover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {head:'Diligence'},
     {tab:'drreq',  label:'Requests',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 9h5M5.5 11.5h3',
       badge:()=>drKpi().open.length},
-    {tab:'drevid', label:'Evidence',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z',
+    // A verified document, not the shield — the shield is Controls (Home) and Policies
+    // (Accounting). Evidence is a document whose support has been checked and held.
+    {tab:'drevid', label:'Evidence',        ic:'M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3M5.5 9.6l1.6 1.6 3.2-3.2',
       act:"setDrevSub('reg');pickTab('drevid')",  on:()=>TAB==='drevid'&&drevSub==='reg'},
     {tab:'drevid', label:'Review Queue',    ic:'M3 4.5h10M3 8h10M3 11.5h6M13.5 10.5l-2 2-1.2-1.2',
       act:"setDrevSub('gaps');pickTab('drevid')", on:()=>TAB==='drevid'&&drevSub==='gaps',
@@ -5557,7 +5569,6 @@ const RAIL_SPEC={
   // that data quality / lineage / ownership has an architectural home distinct from Controls
   // (financial control testing) and Integrations (connectivity).
   datagov:[
-    {head:'Data & Governance'},
     {tab:'dgover', label:'Overview', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   ],
   portfolio:[
@@ -5573,7 +5584,10 @@ const RAIL_SPEC={
     {tab:'activity',   label:'Activity',   ic:'M2 8h3l2-4 2 8 2-6 1 2h2'},
     {head:'Workspace'},
     {lens:'tasks',     label:'Tasks',      ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01', badge:()=>wsTaskCount()},
-    {lens:'issues',    label:'Issues',     ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3', badge:()=>wsIssueCount()},
+    // A flag, not the warning triangle — the triangle is Exceptions, three rows above, and
+    // two identical glyphs in one rail tell the eye they are the same thing. Exceptions are
+    // detected by the system; an issue is raised and tracked by a person.
+    {lens:'issues',    label:'Issues',     ic:'M4 2.5v11M4 3.5h8l-1.7 2.6L12 8.7H4', badge:()=>wsIssueCount()},
     // Documents is the user's WORKING surface — what is assigned to them, recently touched,
     // attached to their tasks. It is not the enterprise evidence environment; that is the
     // Data Room module, reached from the More launcher. The two are deliberately not merged,
@@ -5609,7 +5623,9 @@ const RAIL_SPEC={
     {tab:'fpmgmt',  label:'Management Reporting',ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5M5.5 11h3'},
   ],
   ledger:[
-    {head:'Accounting'},
+    // Was {head:'Accounting'} — the module names itself in the ribbon and the crumb, so the
+    // head now names what this group actually is.
+    {head:'Close & ledger'},
     {tab:'acctover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'acctclose',label:'Close',           ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
       badge:()=>clBlocked().length},
@@ -5625,7 +5641,9 @@ const RAIL_SPEC={
     {tab:'icomp',    label:'Intercompany',    ic:'M8 2v12M3 5h10M3 11h10',
       badge:()=>icUnmatched().length},
     {tab:'consol',   label:'Consolidation',   ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11'},
-    {tab:'contclose',label:'Continuous Close', ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5'},
+    // An infinity loop, not the sync arrows — "Data / sync status" sits in this same rail
+    // and owns that glyph. Continuous Close is close work that never stops, not a feed.
+    {tab:'contclose',label:'Continuous Close', ic:'M8 8c0-1.33-1.16-2.4-2.6-2.4S2.8 6.67 2.8 8s1.16 2.4 2.6 2.4S8 9.33 8 8zm0 0c0 1.33 1.16 2.4 2.6 2.4s2.6-1.07 2.6-2.4-1.16-2.4-2.6-2.4S8 6.67 8 8z'},
     {head:'Governance'},
     {tab:'exceptions',label:'Exceptions',     ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3', badge:()=>cpInsights().length},
     {tab:'issues',   label:'Accounting Issues',ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01',
@@ -5648,10 +5666,14 @@ const RAIL_SPEC={
     {tab:'fdetail', label:'Review Center', ic:'M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z', sub:'review',
       badge:()=>FILING_COMMENTS.filter(c=>c.st==='open').length, mut:true},
     {lens:'tasks',  label:'Tasks',  ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01', badge:()=>wsTaskCount()},
-    {lens:'issues', label:'Issues', ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3',                      badge:()=>wsIssueCount()},
+    // Same flag as Home's Issues — one destination, one glyph. It carried the warning
+    // triangle here, which is Exceptions.
+    {lens:'issues', label:'Issues', ic:'M4 2.5v11M4 3.5h8l-1.7 2.6L12 8.7H4',                badge:()=>wsIssueCount()},
     {tab:'fxbrl',   label:'XBRL',    ic:'M4 3.5h8v9H4zM6 6h4M6 8.5h4M6 11h2'},
     {tab:'freports',label:'Reports', ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
-    {lens:'admin',  label:'Settings',ic:'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M6 2.8v3.4M10.5 6.3v3.4M5 9.8v3.4'},
+    // A "Settings" entry lived here that jumped to the enterprise Administration lens —
+    // a second global Settings, inside a module rail, competing with the ribbon gear.
+    // Enterprise configuration has one entry point. Removed.
   ],
 };
 // live counts shared by the rail badges and the workspace views
@@ -14802,21 +14824,16 @@ function paintRailRoles(){
   }
 
   // ---- left rail, upper group ----
-  const lbl=document.getElementById('railTabsLbl');
   const box=document.getElementById('railTabs');
   const inUtil=UTIL_ORDER.indexOf(LENS)>=0;
-  if(lbl) lbl.textContent=LENSES[LENS]?LENSES[LENS].label:'Section';
   if(box){
     const spec=RAIL_SPEC[LENS];
     // Util lenses are single-tab destinations and carry no rail — UNLESS they declare their
     // own RAIL_SPEC (the Data Room module does, and needs its contextual left nav).
     if(inUtil && !spec){
-      box.innerHTML=''; if(lbl) lbl.style.display='none';
+      box.innerHTML='';
     } else if(spec){
       // structured rail: optional children + live badges.
-      // A spec carrying its own `head` entries already labels itself — painting the generic
-      // label too renders the section name twice (that is how Home showed "HOME" twice).
-      if(lbl) lbl.style.display=spec.some(x=>x.head)?'none':'';
       box.innerHTML=spec.map(it=>{
         if(it.head) return `<div class="rail-grouplbl">${it.head}</div>`;   // section heading
         // `on`/`act` let an entry target existing state (e.g. Flux review = finrep + finRepSub)
@@ -14846,11 +14863,9 @@ function paintRailRoles(){
         return out;
       }).join('');
     } else if(LENS==='procure'){
-      if(lbl) lbl.style.display='';
       box.innerHTML=PROC_SUBS.map(s=>
         btn(procSub===s.id,`setProcSub('${s.id}')`,path(s.ic),s.label)).join('');
     } else {
-      if(lbl) lbl.style.display='';
       box.innerHTML=(LENSES[LENS]?LENSES[LENS].tabs:[]).map(id=>{
         const t=TABS.find(x=>x.id===id); if(!t)return '';
         return btn(id===TAB,`pickTab('${id}')`,path(t.ic),t.label);

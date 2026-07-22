@@ -232,8 +232,12 @@ There is no separate CSS/JS file. Edits happen in place.
   the ⋯ menu, the user menu, and the **Help** button. The Help icon was replaced by the gear:
   it routed to Administration, which is a mislabelled control, and there is no help content to
   route it to. If Help returns, give it a real destination first.
-  Known leftovers, deliberately not touched in that pass because they are page-level controls
-  in an unrelated module: the Reporting filing page's **"Manage filing"** button and its team
+  A **second** global Settings was also found later, inside `RAIL_SPEC.filings` — a
+  `{lens:'admin', label:'Settings'}` entry in the Reporting rail. Removed. When auditing routes
+  into `admin`, paint **every** lens's rail before scanning the DOM; scanning only the rail that
+  happens to be painted is how that one was missed the first time.
+  Known leftovers, deliberately not touched because they are page-level controls in an
+  unrelated module: the Reporting filing page's **"Manage filing"** button and its team
   **"View all"** link both still call `pickLens('admin')`.
 - **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
   `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
@@ -262,9 +266,9 @@ There is no separate CSS/JS file. Edits happen in place.
 - **Two-level nav (this is the important bit):**
   - **Top ribbon** `#ribbonSections` = the *domains*, with `portfolio` filtered out
     (the wordmark is Home).
-  - **Left rail** `#railTabs` = the **active domain's** functions. A spec carrying its own
-    `head` entries suppresses the generic `#railTabsLbl`. There is no global Workspace
-    group any more — Workspace and System live in Home's left nav.
+  - **Left rail** `#railTabs` = the **active domain's** functions. There is no generic rail
+    label any more (`#railTabsLbl` was deleted — see the icon/label rules below). There is no
+    global Workspace group either — Workspace and System live in Home's left nav.
   - Both are painted by `paintRailRoles()`. `paintRailNav` is wrapped so the rail
     highlight follows `pickTab`, not just `pickLens`.
   - `#secnav` (the old row-1 section strip) is **force-hidden** — its content moved to the
@@ -482,9 +486,24 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
   1440/1600/1920 desktops are the primary target. It used to be 1360px, which wasted a 1920 display.
 - **One meaning per icon: the house is GLOBAL HOME and nothing else.** Every "Overview" entry
   uses the 2×2 grid glyph. Eleven house paths were swapped; only `ICON.home` keeps it.
-- **A RAIL_SPEC with `head` entries labels itself.** `paintRailRoles` must not also paint
-  `#railTabsLbl` — an ordering bug (hide, then unconditionally re-show) made Home render "HOME"
-  twice. Home's rail groups are My Work / Workspace / System, with no Home heading at all.
+  **No two entries in the SAME rail may share a glyph** — that is the case a user actually sees,
+  and it reads as "these are the same thing". Four pairs were fixed: Exceptions/Issues (Home),
+  Continuous Close/Data-sync (Accounting), Capital-lifecycle/Lifecycle and
+  Capitalization/Placed-in-service (Fixed Assets). Current assignments worth preserving:
+  ⚠ triangle = Exceptions (detected by the system) · ⚑ flag = Issues (raised by a person) ·
+  ⟳ sync arrows = Integrations/sync · ∞ = Continuous Close · 🛡 shield = Controls and Policies ·
+  document+check = Evidence · archive box = Retained Records/Archives · sparkline = Activity.
+  Reusing one glyph across *different modules* is tolerated (never seen side by side); reusing
+  it inside one rail is not. To check, group every `RAIL_SPEC` entry's `ic` per lens and assert
+  no path maps to two labels.
+- **A rail never names its own module.** The module is already named twice above the rail —
+  highlighted in the ribbon and spelled out in the topbar crumb — so a third copy is noise.
+  `#railTabsLbl` (which printed `LENSES[LENS].label`) has been **deleted**, along with the
+  `lbl` handling in `paintRailRoles`; do not reintroduce it. Group heads name GROUPS, never the
+  module: Home is My Work / Workspace / System, Accounting is Close & ledger / Governance /
+  Reports, Data Room is Diligence / Content / Governance with Overview ungrouped at the top.
+  `filings` keeps `{head:'SEC filings'}` because that is a group *inside* Reporting, not the
+  module's own name.
 - **No internal product vocabulary in user-facing copy.** "Spine", "edge types", "phantom cost"
   and similar are out of visible UI. The decorative "provenance depth" bars in the topbar were
   removed outright — they rendered an unexplained 1–5 scale — and the footer is now scope and
