@@ -64,8 +64,33 @@
   --hairline:0.5px;
   --border:var(--hairline) solid var(--line);
   --border-strong:var(--hairline) solid var(--line2);
-  /* two midnight planes: the ribbon sits deepest, the module rail one step up */
-  --rail:#08111F; --rail2:#0D1726; --rail-ink:#C3CCDB; --rail-hint:#75818F;
+  /* ---- 6. CHROME token set -------------------------------------------------
+     The product has two planes and therefore two token sets. They are named by
+     ROLE (content / chrome), not by lightness — in dark mode the content surface
+     is dark too, so "light set / dark set" stops being true and every reader has
+     to translate.
+
+       content plane -> the ramp above (--n-0..--n-9) and --neg/--warn/--pos/--accent
+       chrome plane  -> --rail* below
+
+     HEADER AND SIDEBAR SHARE ONE BASE, separated by a hairline. They used to be
+     two "midnight planes" (#08111F / #0D1726) — measured at 1.05:1 against each
+     other, which is below perceptual threshold. That paid for two tokens and
+     bought no visible separation; a hairline is a far more reliable separator
+     than a sub-threshold luminance step. */
+  --rail:#08111F; --rail2:var(--rail); --rail-ink:#C3CCDB; --rail-hint:#75818F;
+  /* Borders on chrome are low-opacity WHITE, never a darker grey — a darker line on
+     a near-black surface reads as a smudge rather than an edge. */
+  --rail-line:rgba(255,255,255,.08);        /* separators and dividers */
+  --rail-control-line:rgba(255,255,255,.10);/* borders of controls ON chrome (input, chip) */
+  --rail-lift:rgba(255,255,255,.06);        /* hover */
+  --rail-lift-on:rgba(255,255,255,.055);    /* active, paired with the accent bar */
+  /* Semantic values tuned for near-black. The content-plane semantics are light-surface
+     hues and fail badly here — measured on chrome they are neg 3.17, accent 3.66,
+     pos 3.79, warn 3.82, all under the 4.5:1 AA floor. These are the on-dark values,
+     and like --rail-ai they are IDENTICAL IN BOTH THEMES because the chrome is dark in
+     both. Measured on chrome: neg 6.34, warn 8.06, pos 8.06, accent 6.06. */
+  --rail-neg:#E8756B; --rail-warn:#D6A24E; --rail-pos:#4FBF88; --rail-accent:#5B93F0;
 
   /* ---- single accent (cobalt) + one supporting depth ---- */
   --accent:#2563EB; --accent-ink:#1D4ED8; --accent-bg:#EEF4FE; --accent-line:#C4D9FB;
@@ -135,7 +160,11 @@
   --n-0:#141B27; --n-1:#111823; --n-2:#0B1018; --n-3:#222C3B; --n-4:#2C384A;
   --n-5:#4B5568; --n-6:#6E7889; --n-7:#9CA6B6; --n-8:#C3CCDB; --n-9:#EAEEF5;
   --series-1:var(--n-4); --series-2:var(--n-6); --series-3:var(--accent-line); --series-4:var(--accent);
-  --rail:#050A12; --rail2:#0A1119; --rail-ink:#AEB8C8; --rail-hint:#616C7E;
+  /* Chrome goes DARKER than the content surface in dark mode, so the framing
+     relationship survives the inversion (chrome 0.0018 < content 0.0108). The
+     semantic chrome values are NOT redeclared — they are the same in both themes,
+     because the chrome is dark in both. */
+  --rail:#070C14; --rail2:var(--rail); --rail-ink:#AEB8C8; --rail-hint:#7A8595;
   /* intelligence indigo, lightened so it reads as text on dark surfaces */
   --ai:#818CF8; --ai-deep:#A78BFA; --ai-ink:#A5B0FB;
   --ai-bg:#161A2E; --ai-line:#2E3358;
@@ -197,6 +226,9 @@ body{
   grid-area:ribbon;position:sticky;top:0;z-index:30;
   background:var(--rail);color:var(--rail-ink);
   display:flex;align-items:center;gap:18px;padding:0 18px;height:var(--ribbon-h);min-width:0;
+  /* Header and sidebar now share one base, so the hairline IS the separation — doing the
+     work the old 1.05:1 luminance step was failing to do. */
+  border-bottom:1px solid var(--rail-line);
   /* no bottom shadow: it would score a seam across the rail, which shares this surface */
 }
 /* The wordmark is the Home control, so Home is not repeated in the section nav. */
@@ -220,7 +252,7 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .railrole{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;white-space:nowrap;
   color:var(--rail-ink);font:inherit;font-size:13px;font-weight:450;padding:6px 11px;border-radius:var(--radius-sm);
   transition:.13s;position:relative}
-.railrole:hover{background:rgba(255,255,255,.06);color:#fff}
+.railrole:hover{background:var(--rail-lift);color:#fff}
 .railrole .ic{width:15px;height:15px;flex:none;opacity:.62;transition:opacity .13s}
 .railrole.on{color:#fff;font-weight:600}
 .railrole.on .ic{opacity:1}
@@ -231,11 +263,14 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .ribbon-nav .railrole{border-radius:0;padding:0 11px}
 .ribbon-nav .railrole:hover{background:rgba(255,255,255,.045)}
 .ribbon-nav .railrole.on{background:rgba(255,255,255,.035)}
+/* --rail-accent, not --accent: the content-plane accent measures 3.66:1 on chrome. It clears
+   the 3:1 non-text floor, but this is the primary wayfinding cue and the chrome variant takes
+   it to 6.19:1. Any accent drawn ON chrome should use --rail-accent. */
 .ribbon-nav .railrole.on::after{content:'';position:absolute;left:11px;right:11px;bottom:0;height:2px;
-  background:var(--accent);border-radius:2px 2px 0 0}
+  background:var(--rail-accent);border-radius:2px 2px 0 0}
 
 .ribbon-scope{flex:none;text-align:right;font-size:10.5px;color:var(--rail-hint);line-height:1.4;
-  padding-left:20px;border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:1px}
+  padding-left:20px;border-left:1px solid var(--rail-line);display:flex;flex-direction:column;gap:1px}
 .ribbon-scope-port{opacity:.85}
 .ribbon-scope b{color:var(--rail-ink);font-weight:600;font-size:11px}
 
@@ -249,13 +284,14 @@ body.rail-collapsed{--rail-w:var(--rail-w-collapsed)}
   grid-area:rail;position:sticky;top:var(--ribbon-h);align-self:start;
   height:calc(100vh - var(--ribbon-h));z-index:20;
   /* one step up from the ribbon, so the two midnight planes read as connected but distinct */
-background:var(--rail2);border-right:1px solid rgba(255,255,255,.06);
+background:var(--rail2);border-right:1px solid var(--rail-line);
   display:flex;flex-direction:column;overflow:hidden;transition:width .16s ease;
 }
 /* Selected module item: subtle lighter navy + a thin cobalt left indicator. No saturated block. */
-.rail .railrole.on{background:rgba(255,255,255,.055);color:#fff}
+/* Active nav = left accent bar (::before) + subtle lift. Never a filled rect. */
+.rail .railrole.on{background:var(--rail-lift-on);color:#fff}
 .rail .railrole.on::before{content:'';position:absolute;left:-10px;top:6px;bottom:6px;width:2.5px;
-  background:var(--accent);border-radius:0 2px 2px 0}
+  background:var(--rail-accent);border-radius:0 2px 2px 0}
 body.rail-collapsed .rail .railrole.on::before{left:-10px}
 .rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:9px 9px;display:flex;flex-direction:column;gap:1px}
 .rail-scroll::-webkit-scrollbar{width:0}
@@ -263,7 +299,7 @@ body.rail-collapsed .rail .railrole.on::before{left:-10px}
   font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--rail-hint);
   padding:11px 10px 5px;white-space:nowrap;overflow:hidden}
 body.rail-collapsed .rail-grouplbl{opacity:0;height:14px;padding:8px 0 0}
-.rail-div{height:1px;background:rgba(255,255,255,.07);margin:10px 8px}
+.rail-div{height:1px;background:var(--rail-line);margin:10px 8px}
 .rail .railrole{width:100%}
 .rail .railrole .lbl{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 body.rail-collapsed .rail .railrole{justify-content:center;padding:9px 0}
@@ -276,12 +312,12 @@ body.rail-collapsed .rail .railrole .lbl{display:none}
    as one system. Only Korvyn Intelligence departs, and only in hue. */
 .ribbon-util{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto;padding-left:0;
   border-left:none;position:relative}
-.ribsep{width:1px;height:20px;background:rgba(255,255,255,.08);flex:none;margin:0 4px}
+.ribsep{width:1px;height:20px;background:var(--rail-line);flex:none;margin:0 4px}
 
 /* global search: reads as part of the midnight header, not a white box dropped onto it */
 .ribsearch{display:flex;align-items:center;gap:8px;flex:none;width:214px;height:32px;
   padding:0 8px 0 10px;border-radius:var(--radius-xs);
-  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.10);transition:.14s}
+  background:rgba(255,255,255,.03);border:1px solid var(--rail-control-line);transition:.14s}
 .ribsearch:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16)}
 .ribsearch:focus-within{background:rgba(255,255,255,.06);border-color:var(--accent);
   box-shadow:0 0 0 3px rgba(37,99,235,.18)}
@@ -291,7 +327,7 @@ body.rail-collapsed .rail .railrole .lbl{display:none}
   font:inherit;font-size:12.5px;color:#fff}
 .ribsearch input::placeholder{color:var(--rail-hint)}
 .ribsearch .kbd{flex:none;font-family:var(--mono);font-size:9.5px;color:var(--rail-hint);
-  border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:1px 4px;line-height:1.5}
+  border:1px solid var(--rail-control-line);border-radius:4px;padding:1px 4px;line-height:1.5}
 .ribsearch:focus-within .kbd{opacity:0}
 
 .ribicon{position:relative;width:32px;height:32px;border:none;background:none;border-radius:var(--radius-xs);
@@ -699,7 +735,7 @@ body.rail-collapsed .rail .railkids{display:none!important}
   transition:.13s;text-align:left;white-space:nowrap}
 .railkid:hover{background:rgba(255,255,255,.06);color:var(--rail-ink)}
 .railkid.on{color:#fff;background:rgba(255,255,255,.09);font-weight:600}
-.rail-foot{flex:none;border-top:1px solid rgba(255,255,255,.07);padding:8px 10px}
+.rail-foot{flex:none;border-top:1px solid var(--rail-line);padding:8px 10px}
 .rail-collapse{
   display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;cursor:pointer;
   color:var(--rail-hint);font:inherit;font-size:11.5px;padding:8px 11px;border-radius:var(--radius-sm);transition:.13s}

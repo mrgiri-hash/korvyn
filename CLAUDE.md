@@ -154,6 +154,35 @@ necessary, the answer is a different ramp step, not a new colour.
   column carries `flex:true` (`max-width:0`) and truncates with a title tooltip.
   `dtRepaint(id)` swaps a single table in place, so sort/selection do not re-render the page.
 
+### The CHROME token set (read before styling the ribbon or rail)
+
+There are **two token sets, named by ROLE not by lightness** — content (`--n-*` ramp,
+`--neg/--warn/--pos/--accent`) and chrome (`--rail*`). "Light set / dark set" would stop being
+true in dark mode, where the content surface is dark too.
+
+- **Header and sidebar share ONE base, separated by a hairline.** `--rail2` is now
+  `var(--rail)`. They used to be two "midnight planes" (`#08111F` / `#0D1726`) measured at
+  **1.05:1 against each other** — below perceptual threshold, so the design paid for two tokens
+  and bought no visible separation. The `.ribbon` bottom `--rail-line` does that job now.
+- **Chrome semantics are mandatory for anything drawn on the ribbon or rail.**
+  `--rail-neg` `--rail-warn` `--rail-pos` `--rail-accent` (plus the pre-existing `--rail-ai`).
+  They are the on-dark hues and are **identical in both themes**, because the chrome is dark in
+  both. The content-plane semantics fail badly here — measured on chrome they are
+  **neg 3.17, accent 3.66, pos 3.79, warn 3.82**, all under the 4.5:1 AA floor; the chrome set
+  measures **6.47 / 8.23 / 8.23 / 6.19**. The active-nav accent bar and ribbon underline use
+  `--rail-accent` for the same reason.
+- **Borders on chrome are low-opacity white, never a darker grey** — a darker line on a
+  near-black surface reads as a smudge, not an edge. Two roles, two tokens:
+  `--rail-line` (.08, separators and dividers) and `--rail-control-line` (.10, borders of
+  controls sitting on chrome). Backgrounds lifts are `--rail-lift` (hover) and
+  `--rail-lift-on` (active). **Zero ad-hoc `rgba(255,255,255,…)` borders remain** — assert this.
+- **In dark mode chrome goes darker than the content surface** so the framing survives the
+  inversion: chrome `#070C14` (L 0.0018) < content `#141B27` (L 0.0108). Any future chrome
+  value must preserve that ordering.
+- **Active nav is a left accent bar plus a subtle lift — never a filled rect.** Rail: 2.5px
+  `::before` in `--rail-accent`. Ribbon: 2px `::after` underline (correct for horizontal nav —
+  do not "fix" it to a left bar).
+
 ### MetricCard and the number rule (Phase 4)
 
 - **One card treatment.** `.mc` (new), `.kpi` and `.stat` are all *defined by the same CSS
