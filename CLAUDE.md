@@ -208,6 +208,47 @@ true in dark mode, where the content surface is dark too.
   exception with no misstatement).
   Sign leads the symbol — `-$2.3M`, never `$-2.3M`. `fpM()` was fixed to match.
 
+### Chrome: connection strip, period, data-as-of, palette, keyboard (Phase 6)
+
+- **The connection strip** (`#conStrip`, `paintConStrip()`) is `position:sticky` under the
+  ribbon — persistent means persistent. Per system it shows last sync and the **delta vs GL**,
+  which is the reconciliation difference for the entities whose book of record IS that system,
+  attributed through `ERP_ENTITY`. **"Records in flight" is deliberately absent**: Korvyn holds
+  no in-flight queue for these feeds, and a fabricated count on the one strip whose job is
+  trust would be self-defeating.
+- **Degraded states name what is stale.** Not "sync delayed" but *"JD Edwards behind —
+  Meridian Management Co as at Jun 29, not Jun 30"*. Never leave an old figure looking current.
+- **`--strip-h` is the single source of the strip height**, and `.topbar` sticks at
+  `calc(var(--ribbon-h) + var(--strip-h))`. Change one, both follow.
+- **`.hdr-ctl` must stay shrinkable** (`flex:0 1 auto; min-width:0`). It is a flex child of the
+  ribbon, which shares a grid column with `.main`, so `flex:none` there put every page into
+  horizontal overflow at 805px. It sheds labels at 1200 and hides at 1000 — and
+  `#periodTypeGrp` in the filter bar un-hides at exactly that breakpoint, so the close period
+  is offered in **exactly one place at every width** and is never unreachable.
+- **Data-as-of is deliberately narrow and says so.** It replays `DET_LOG` (append-only, with
+  prior/next) to a timestamp, so **decision state** rewinds exactly. Balances do not rewind —
+  Korvyn holds no balance history — and the control states that on its face. Actions are
+  withheld in a rewound view rather than rendered inert; `detAct()` refuses while `ASOF` is set.
+- **Command palette** `⌘/Ctrl-K` indexes ~183 real records (accounts, entities, close tasks,
+  exceptions, every destination). **Keyboard nav**: ↑/↓ move a focus ring across the visible
+  DataTables; on the detection queue A/D/S/E accept/dismiss/assign/escalate.
+
+### Phase 7 cleanup
+
+- **Descriptive sentences under headers were removed against one test:** does the sentence say
+  anything the header and the data do not? Where the answer was "it explains a column", the
+  meaning moved *into the column* instead — the risks widget's "ranked by potential
+  misstatement, not balance touched" is now the column header **Could misstate**. That is the
+  preferred fix; deleting the sentence and losing the meaning is not.
+- **Colour audit passes: zero stray hex in any rendered view.** Re-run it — collect
+  `#RRGGBB` from every `#view-*` innerHTML and assert empty.
+- **The Home canvas is scoped to admin-published templates, not personal canvases.**
+  `WS_ADMIN` gates Customize/Add widget; workspaces carry `scope:'published'`. Free-form
+  per-user layouts give every person a different screen, which undermines the shared-number
+  guarantee. The configurability a user actually needs lives in **saved views and column
+  config inside DataTable** — those change how you read a shared surface without changing what
+  anyone else sees. Do not reintroduce personal canvases.
+
 ### Detection queue (Phase 5)
 
 "Korvyn detected" was a passive stat list — five counts you could read but not act on. It is

@@ -146,7 +146,7 @@
   /* restrained scale: major panels 10, cards 8, inputs/buttons 6 */
   --radius:10px; --radius-sm:8px; --radius-xs:6px; --radius-pill:20px;
   /* ---- shell geometry (single source of truth for the rail + topbar) ---- */
-  --rail-w:200px; --rail-w-collapsed:56px; --ribbon-h:50px;
+  --rail-w:200px; --rail-w-collapsed:56px; --ribbon-h:50px; --strip-h:30px;
   /* ---- density, expressed in the spacing scale ---- */
   --pad-card:var(--s-4); --pad-content:var(--s-5); --row-h:var(--s-10);
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -214,8 +214,9 @@ body{
   /* Two columns only. The assistant is an overlay and deliberately does NOT take a grid
      column, so opening it cannot reflow, resize or redesign the page underneath. */
   grid-template-columns:var(--rail-w) 1fr;
-  grid-template-rows:auto 1fr;
-  grid-template-areas:"ribbon ribbon" "rail main";
+  /* three rows now: ribbon, the persistent connection strip, then rail+main */
+  grid-template-rows:auto auto 1fr;
+  grid-template-areas:"ribbon ribbon" "strip strip" "rail main";
   min-height:100vh;
 }
 ::selection{background:var(--accent-bg);color:var(--accent-ink)}
@@ -524,6 +525,88 @@ body.copilot-collapsed .ribai-dot.on{display:block}
   background:var(--n-1);padding:var(--s-2);font-size:var(--fs-label);color:var(--n-7)}
 .dt-prev b{color:var(--ink);font-weight:var(--fw-medium)}
 
+/* ==================== PHASE 6 — CHROME ====================
+   Connection strip, period selector, data-as-of, command palette. All on the chrome
+   plane, so every colour here comes from the --rail* set. */
+/* PERSISTENT means persistent: it sticks directly under the ribbon rather than scrolling
+   away, so the freshness of every figure on screen stays visible while you read them. */
+.constrip{grid-area:strip;position:sticky;top:var(--ribbon-h);z-index:29;
+  background:var(--rail);border-bottom:1px solid var(--rail-line);
+  display:flex;align-items:center;gap:var(--s-4);padding:0 18px;height:var(--strip-h);min-width:0;
+  overflow-x:auto;scrollbar-width:none}
+.constrip::-webkit-scrollbar{display:none}
+.cs-l{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--rail-hint);flex:none}
+.cs-sys{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);
+  color:var(--rail-ink);white-space:nowrap;flex:none;cursor:pointer;padding:2px var(--s-2);
+  border-radius:var(--radius-xs)}
+.cs-sys:hover{background:var(--rail-lift)}
+.cs-sys .d{width:5px;height:5px;border-radius:50%;flex:none}
+.cs-sys[data-st="ok"] .d{background:var(--rail-pos)}
+.cs-sys[data-st="warn"] .d{background:var(--rail-warn)}
+.cs-sys[data-st="err"] .d{background:var(--rail-neg)}
+.cs-sys[data-st="warn"],.cs-sys[data-st="err"]{color:var(--rail-warn)}
+.cs-sys[data-st="err"]{color:var(--rail-neg)}
+.cs-sys .t{color:var(--rail-hint)}
+.cs-delta{color:var(--rail-hint)}
+.cs-delta b{color:var(--rail-ink);font-weight:var(--fw-medium)}
+.cs-stale{margin-left:auto;flex:none;display:flex;align-items:center;gap:var(--s-2);
+  font-size:var(--fs-label);color:var(--rail-warn)}
+.cs-ok{margin-left:auto;flex:none;font-size:var(--fs-label);color:var(--rail-hint)}
+
+/* period + data-as-of, in the header so they are always visible */
+/* MUST be shrinkable. The ribbon shares a grid column with .main, so a flex:none child here
+   sets the whole track's minimum width and pushes every page into horizontal overflow — the
+   same trap documented for .ribbon itself. It sheds its labels, then hides entirely, before
+   it is ever allowed to widen the page. */
+.hdr-ctl{display:flex;align-items:center;gap:var(--s-2);flex:0 1 auto;min-width:0;overflow:hidden}
+.hdr-ctl .hdr-btn{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:1200px){ .hdr-ctl .hdr-btn .k{display:none} }
+@media(max-width:1000px){
+  .hdr-ctl{display:none}
+  /* Precedence is by width, and only ONE is ever offered: when the header control is hidden
+     the filter-bar group returns, so the close period is never unreachable and never in two
+     places at once. Overrides the inline display:none that hides it on wide screens. */
+  #periodTypeGrp{display:block!important}
+}
+.hdr-btn{display:flex;align-items:center;gap:var(--s-2);background:none;
+  border:1px solid var(--rail-control-line);border-radius:var(--radius-xs);
+  padding:3px var(--s-2);font:inherit;font-size:var(--fs-label);color:var(--rail-ink);
+  cursor:pointer;white-space:nowrap;transition:.12s}
+.hdr-btn:hover{background:var(--rail-lift);border-color:var(--rail-accent)}
+.hdr-btn .k{color:var(--rail-hint);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  font-weight:var(--fw-label)}
+.hdr-btn.rewound{border-color:var(--rail-warn);color:var(--rail-warn)}
+
+/* command palette */
+.cmdk{position:fixed;inset:0;z-index:200;background:rgba(8,17,31,.42);
+  display:flex;align-items:flex-start;justify-content:center;padding-top:12vh}
+.cmdk-box{width:min(620px,92vw);background:var(--surface);border:var(--border-strong);
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);overflow:hidden;display:flex;
+  flex-direction:column;max-height:66vh}
+.cmdk-in{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-4);
+  border-bottom:var(--border)}
+.cmdk-in input{flex:1;border:none;outline:none;font:inherit;font-size:var(--fs-card);
+  color:var(--ink);background:none}
+.cmdk-in svg{width:15px;height:15px;color:var(--n-6);flex:none}
+.cmdk-list{overflow-y:auto;padding:var(--s-2)}
+.cmdk-g{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-6);padding:var(--s-3) var(--s-2) var(--s-1)}
+.cmdk-r{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-2) var(--s-2);
+  border-radius:var(--radius-xs);cursor:pointer;font-size:var(--fs-table)}
+.cmdk-r.on{background:var(--accent-bg)}
+.cmdk-r .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.cmdk-r .ty{font-size:var(--fs-label);color:var(--n-6);flex:none}
+.cmdk-ft{border-top:var(--border);padding:var(--s-2) var(--s-4);font-size:var(--fs-label);
+  color:var(--n-6);display:flex;gap:var(--s-4)}
+.cmdk-ft kbd{font-family:var(--mono);font-size:10px;border:var(--border-strong);
+  border-radius:3px;padding:0 3px;color:var(--n-7)}
+.cmdk-empty{padding:var(--s-8);text-align:center;color:var(--n-6);font-size:var(--fs-table)}
+
+/* keyboard focus in queues */
+.dt tbody tr.kbd-on{box-shadow:inset 2px 0 0 var(--accent)}
+.dt tbody tr.kbd-on td{background:var(--accent-bg)}
+
 /* ---- Detection queue (Phase 5) ----------------------------------------------
    NO TINTED BACKGROUND. The evidence pane is structurally identical to every other
    surface — same hairline, same radius, same neutral ground. The only thing carrying
@@ -748,7 +831,10 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
 /* ============================ MAIN COLUMN ============================ */
 .main{grid-area:main;min-width:0;display:flex;flex-direction:column}
 .content{min-width:0}
-.topbar{position:sticky;top:var(--ribbon-h);z-index:15;background:color-mix(in srgb,var(--bg) 82%,transparent);
+/* Offset by the connection strip, which now sticks below the ribbon — without this the page
+   title parks underneath it. --strip-h is the single source of that height. */
+.topbar{position:sticky;top:calc(var(--ribbon-h) + var(--strip-h));z-index:15;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:saturate(1.2) blur(10px);border-bottom:1px solid var(--line);
   padding:12px 26px;display:flex;align-items:center;gap:16px}
 .tb-title{min-width:0}
@@ -2240,6 +2326,9 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
        SEARCH | INTELLIGENCE · NOTIFICATIONS · SETTINGS | PROFILE
        Level 5 of the navigation model (enterprise configuration) is the gear, and only
        the gear. Level 4 (personal) is the profile menu. -->
+  <!-- Close period and data-as-of live in the HEADER so they are visible from every page,
+       not buried in a per-page filter bar. -->
+  <div class="hdr-ctl" id="hdrCtl"></div>
   <div class="ribbon-util">
     <div class="ribsearch">
       <svg class="ic" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -2283,6 +2372,9 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   </div>
 
 </header>
+
+<!-- Persistent connection strip. Painted by paintConStrip() from GL_ERP + GL_RECON. -->
+<div class="constrip" id="conStrip"></div>
 
 <!-- ============ LEFT RAIL (sections + utility group) ============ -->
 <aside class="rail" id="railNav">
@@ -2368,7 +2460,11 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
             <option value="lhi">Leasehold impt (842)</option>
             <option value="rou">ROU asset (842)</option>
           </select></div>
-        <div class="grp"><label>Period</label>
+        <!-- PHASE 7: one filter mechanism, clear precedence. The close period is owned by the
+             HEADER control (always visible, every page); this select is kept only because the
+             rest of the app reads and writes #periodType directly, and it stays hidden so the
+             same setting is not offered in two places. Change period in the header. -->
+        <div class="grp" id="periodTypeGrp" style="display:none"><label>Period</label>
           <select id="periodType" onchange="onPeriodType()">
             <option value="itd">Inception-to-date</option>
             <option value="ytd">Year-to-date (FY26)</option>
@@ -4207,6 +4303,210 @@ function dataTable(spec){
 }
 dtLoad();
 
+/* ==========================================================================================
+   PHASE 6 — CHROME: connection strip, period + data-as-of, command palette, keyboard nav.
+   ========================================================================================== */
+
+/* ---- connection strip -------------------------------------------------------------------
+   Per system: last sync, books-through, and the delta against the GL — the reconciliation
+   difference for the entities whose book of record IS that system, attributed through
+   ERP_ENTITY. "Records in flight" is NOT shown: Korvyn holds no in-flight queue for these
+   feeds, and a fabricated count on the one strip whose job is trust would be self-defeating. */
+function conDeltaFor(sys){
+  const ents=Object.keys(ERP_ENTITY).filter(e=>ERP_ENTITY[e]===sys.nm);
+  const rows=GL_RECON.filter(r=>ents.indexOf(r.ent)>=0&&r.diff);
+  return {n:rows.length,amt:rows.reduce((a,r)=>a+Math.abs(r.diff),0),ents};
+}
+function paintConStrip(){
+  const el=document.getElementById('conStrip'); if(!el) return;
+  const stale=GL_ERP.filter(e=>e.st!=='ok');
+  const cur=(GL_ERP.filter(e=>e.st==='ok')[0]||{}).thru||'—';
+  el.innerHTML=`<span class="cs-l">Sources</span>`+
+    GL_ERP.map(e=>{
+      const d=conDeltaFor(e);
+      const tip=`${e.nm} · ${d.ents.length} entit${d.ents.length===1?'y':'ies'} · books through ${e.thru} · last sync ${e.sync}`;
+      return `<span class="cs-sys" data-st="${e.st}" title="${tip}" onclick="pickLens('datagov')">
+        <span class="d"></span>${e.nm}<span class="t">${e.sync}</span>
+        <span class="cs-delta">${d.amt?`<b>${homeAmt(d.amt)}</b> vs GL`:'in balance'}</span></span>`;
+    }).join('')+
+    /* Honest degraded state: name exactly WHAT is stale and AS AT WHEN, rather than letting
+       an old figure sit on screen looking current. */
+    (stale.length
+      ? `<span class="cs-stale" title="Figures sourced from these systems are not current">
+          ${stale.map(e=>{const d=conDeltaFor(e);
+            return `${e.nm} behind — ${d.ents.length?d.ents.join(', '):e.ent+' entities'} as at ${e.thru}, not ${cur}`;
+          }).join(' · ')}</span>`
+      : `<span class="cs-ok">All feeds current through ${cur}</span>`);
+}
+
+/* ---- close period + data-as-of, in the header -------------------------------------------
+   DATA-AS-OF IS DELIBERATELY NARROW. Korvyn holds no balance history, so it cannot show what
+   a balance was last Tuesday and does not pretend to. What it CAN reconstruct honestly is
+   decision state, because DET_LOG is append-only with prior/next on every entry — replaying
+   it to a timestamp is exact, not estimated. The control says so on its face. */
+let ASOF=null;
+const asofStamps=()=>[...new Set(DET_LOG.map(e=>e.ts))].sort().reverse();
+/** Exact replay of the append-only log. */
+function detStatusAt(id,asof){
+  if(!asof) return (DET_STATE[id]||{}).status||'new';
+  let st='new';
+  DET_LOG.filter(e=>e.det===id&&e.ts<=asof).forEach(e=>{ st=e.next; });
+  return st;
+}
+function paintHdrCtl(){
+  const el=document.getElementById('hdrCtl'); if(!el) return;
+  const per=({itd:'Inception to date',ytd:'Year to date',quarter:'Quarter',month:'Month'})[F.periodType]||'Period';
+  el.innerHTML=`
+    <button class="hdr-btn" onclick="hdrPeriod(event)" title="Close period — visible from every page">
+      <span class="k">Period</span>${per}</button>
+    <button class="hdr-btn ${ASOF?'rewound':''}" onclick="hdrAsOf(event)"
+      title="View decision state as it stood at a prior timestamp">
+      <span class="k">As of</span>${ASOF||'Live'}</button>`;
+}
+function hdrPeriod(ev){
+  ev.stopPropagation(); wsClosePop();
+  const m=document.createElement('div'); m.className='ws-menu'; m.id='wsPop';
+  m.innerHTML=`<div class="ws-mlbl">Close period</div>`+
+    [['itd','Inception to date'],['ytd','Year to date'],['quarter','Quarter'],['month','Month']]
+      .map(([v,l])=>`<button class="ws-mi" onclick="setHdrPeriod('${v}')">${wsIc('grid')}${l}
+        ${F.periodType===v?'<span class="k">&#10003;</span>':''}</button>`).join('');
+  wsPlace(m,ev.currentTarget.getBoundingClientRect());
+}
+function setHdrPeriod(v){
+  F.periodType=v;
+  const s=document.getElementById('periodType'); if(s){ s.value=v; if(typeof onPeriodType==='function') onPeriodType(); }
+  wsClosePop(); paintHdrCtl(); renderAll();
+}
+function hdrAsOf(ev){
+  ev.stopPropagation(); wsClosePop();
+  const stamps=asofStamps();
+  const m=document.createElement('div'); m.className='ws-menu'; m.id='wsPop'; m.style.minWidth='268px';
+  m.innerHTML=`<div class="ws-mlbl">Data as of</div>
+    <button class="ws-mi" onclick="setAsOf(null)">${wsIc('refresh')}Live${ASOF?'':'<span class="k">&#10003;</span>'}</button>`+
+    (stamps.length?stamps.map(s=>`<button class="ws-mi" onclick="setAsOf('${s}')">${wsIc('up')}${s}
+      ${ASOF===s?'<span class="k">&#10003;</span>':''}</button>`).join('')
+      :`<div class="ws-mlbl" style="font-weight:400;text-transform:none;letter-spacing:0">
+         No decisions recorded yet — the queue writes timestamps as you triage.</div>`)+
+    `<div class="ws-msep"></div>
+     <div class="ws-mlbl" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--n-6)">
+       Reconstructs <b>decision state</b> by replaying the append-only log. Balances are
+       current-state only — Korvyn holds no balance history and will not imply otherwise.</div>`;
+  wsPlace(m,ev.currentTarget.getBoundingClientRect());
+}
+function setAsOf(v){ ASOF=v; wsClosePop(); paintHdrCtl(); renderAll(); }
+
+/* ---- command palette (Cmd/Ctrl-K) -------------------------------------------------------
+   Indexes real records: accounts, entities, close tasks, exceptions, and every destination. */
+let CMDK=false, cmdkQ='', cmdkSel=0;
+function cmdkIndex(){
+  const out=[];
+  try{ COA.forEach(a=>out.push({ty:'Account',nm:a.acct+' · '+a.name,
+    go:"pickLens('ledger');pickTab('tb')"})); }catch(e){}
+  try{ CONS_ORDER.forEach(n=>out.push({ty:'Entity',nm:n,
+    go:`etPick('${n.replace(/'/g,"\\'")}');pickLens('ledger');pickTab('consol')`})); }catch(e){}
+  try{ CLOSE_TASKS.forEach(t=>out.push({ty:'Task',nm:t.nm+' · '+t.ent,
+    go:"pickLens('ledger');pickTab('acctclose')"})); }catch(e){}
+  try{ axExceptions().forEach(x=>out.push({ty:'Exception',nm:x.t,
+    go:"pickLens('ledger');pickTab('exceptions')"})); }catch(e){}
+  try{ [...LENS_ORDER,...UTIL_ORDER].forEach(L=>(LENSES[L].tabs||[]).forEach(t=>{
+    const m=VIEW_META[L+':'+t]||VIEW_META[t]||{};
+    out.push({ty:'Page',nm:(LENSES[L].label||L)+' · '+(m.t||t),
+      go:`pickLens('${L}');pickTab('${t}')`}); })); }catch(e){}
+  return out;
+}
+let _cmdkIdx=null;
+const cmdkHits=()=>{
+  if(!_cmdkIdx) _cmdkIdx=cmdkIndex();
+  const q=cmdkQ.trim().toLowerCase();
+  if(!q) return _cmdkIdx.filter(x=>x.ty==='Page').slice(0,12);
+  return _cmdkIdx.filter(x=>x.nm.toLowerCase().indexOf(q)>=0).slice(0,40);
+};
+function cmdkOpen(){ CMDK=true; cmdkQ=''; cmdkSel=0; cmdkPaint();
+  setTimeout(()=>{const i=document.getElementById('cmdkIn'); if(i) i.focus();},10); }
+function cmdkClose(){ CMDK=false; const e=document.getElementById('cmdkWrap'); if(e) e.remove(); }
+function cmdkPaint(){
+  let w=document.getElementById('cmdkWrap');
+  if(!w){ w=document.createElement('div'); w.className='cmdk'; w.id='cmdkWrap';
+    w.onclick=e=>{ if(e.target===w) cmdkClose(); }; document.body.appendChild(w); }
+  const hits=cmdkHits();
+  if(cmdkSel>=hits.length) cmdkSel=Math.max(0,hits.length-1);
+  let last='', list='';
+  hits.forEach((h,i)=>{ if(h.ty!==last){ list+=`<div class="cmdk-g">${h.ty}</div>`; last=h.ty; }
+    list+=`<div class="cmdk-r ${i===cmdkSel?'on':''}" onclick="cmdkGo(${i})">
+      <span class="nm">${h.nm}</span><span class="ty">${h.ty}</span></div>`; });
+  w.innerHTML=`<div class="cmdk-box" onclick="event.stopPropagation()">
+    <div class="cmdk-in">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input id="cmdkIn" placeholder="Jump to an account, entity, task, exception or page"
+        value="${cmdkQ.replace(/"/g,'&quot;')}" oninput="cmdkType(this.value)"></div>
+    <div class="cmdk-list">${hits.length?list:'<div class="cmdk-empty">No match.</div>'}</div>
+    <div class="cmdk-ft"><span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span>
+      <span><kbd>&#8629;</kbd> open</span><span><kbd>esc</kbd> close</span>
+      <span style="margin-left:auto">${hits.length} of ${_cmdkIdx.length} indexed</span></div>
+  </div>`;
+}
+function cmdkType(v){ cmdkQ=v; cmdkSel=0; cmdkPaint();
+  const i=document.getElementById('cmdkIn'); if(i){ i.focus(); i.setSelectionRange(v.length,v.length); } }
+function cmdkGo(i){
+  const h=cmdkHits()[i]; if(!h) return;
+  cmdkClose();
+  try{ (new Function(h.go))(); }catch(e){}
+}
+
+/* ---- keyboard navigation through queues -------------------------------------------------
+   Arrow keys move a focus ring through the visible DataTable; A/D/S/E triage the detection
+   queue without reaching for the mouse. */
+let KBD={id:null,idx:0};
+function kbdTables(){ return [...document.querySelectorAll('[data-dt]')].map(e=>e.dataset.dt); }
+function kbdPaint(){
+  document.querySelectorAll('.dt tbody tr.kbd-on').forEach(r=>r.classList.remove('kbd-on'));
+  if(!KBD.id) return;
+  const host=document.querySelector('[data-dt="'+KBD.id+'"]'); if(!host) return;
+  const rows=host.querySelectorAll('tbody tr');
+  if(!rows.length) return;
+  KBD.idx=Math.max(0,Math.min(KBD.idx,rows.length-1));
+  rows[KBD.idx].classList.add('kbd-on');
+  rows[KBD.idx].scrollIntoView({block:'nearest'});
+}
+function kbdMove(d){
+  const t=kbdTables(); if(!t.length) return;
+  if(!KBD.id||t.indexOf(KBD.id)<0){ KBD.id=t[0]; KBD.idx=0; }
+  else KBD.idx+=d;
+  const host=document.querySelector('[data-dt="'+KBD.id+'"]');
+  const n=host?host.querySelectorAll('tbody tr').length:0;
+  if(KBD.idx<0){ const i=t.indexOf(KBD.id); if(i>0){ KBD.id=t[i-1];
+      const h2=document.querySelector('[data-dt="'+KBD.id+'"]');
+      KBD.idx=(h2?h2.querySelectorAll('tbody tr').length:1)-1; } else KBD.idx=0; }
+  else if(KBD.idx>=n){ const i=t.indexOf(KBD.id); if(i<t.length-1){ KBD.id=t[i+1]; KBD.idx=0; }
+      else KBD.idx=n-1; }
+  kbdPaint();
+}
+function kbdRow(){
+  if(!KBD.id) return null;
+  const spec=DT_SPECS[KBD.id]; if(!spec) return null;
+  return dtRows(spec)[KBD.idx]||null;
+}
+document.addEventListener('keydown',e=>{
+  const typing=/^(INPUT|TEXTAREA|SELECT)$/.test((e.target||{}).tagName||'');
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); CMDK?cmdkClose():cmdkOpen(); return; }
+  if(CMDK){
+    if(e.key==='Escape'){ e.preventDefault(); cmdkClose(); }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); cmdkSel++; cmdkPaint(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); cmdkSel=Math.max(0,cmdkSel-1); cmdkPaint(); }
+    else if(e.key==='Enter'){ e.preventDefault(); cmdkGo(cmdkSel); }
+    return;
+  }
+  if(typing) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); kbdMove(1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); kbdMove(-1); }
+  else if(KBD.id==='detected'){
+    const r=kbdRow(); if(!r) return;
+    const k=e.key.toLowerCase();
+    const map={a:'accept',d:'dismiss',s:'assign',e:'escalate'};
+    if(map[k]){ e.preventDefault(); detAct(r.id,map[k]); kbdPaint(); }
+  }
+});
+
 const WS_SPAN={s:3,m:4,l:6,xl:8,full:12};
 const WS_SIZE_LABEL={s:'Small',m:'Medium',l:'Large',xl:'Extra large',full:'Full width'};
 const WS_REG={};
@@ -4401,8 +4701,8 @@ wsRegister({id:'budget',cat:'Executive',title:'Budget vs. actual',def:'l',sizes:
     // spent two semantic colours on something that carries no state at all.
     const bars=[['Budgeted',P.budget,'var(--series-1)'],['Committed',P.committed,'var(--series-2)'],
                 ['Incurred',P.incurred,'var(--series-3)'],['Paid',P.paid,'var(--series-4)']];
-    return `<div class="subhead">Commitment, cost and cash tracked separately rather than collapsed
-      into a single actual. Period: <b>${periodLabel()}</b>.</div>
+    // Phase 7: the labelled bars say what the prose said. Only the period, which is data, stays.
+    return `<div class="mc-b" style="margin-bottom:var(--s-3)">Period: <b>${periodLabel()}</b></div>
       <div class="measures">${bars.map(([lab,val,col])=>
         `<div class="m-row"><span class="m-label">${lab}</span>
           <div class="m-track"><div class="m-fill" style="width:${Math.max(2,val/P.budget*100)}%;background:${col}"></div></div>
@@ -4416,9 +4716,7 @@ wsRegister({id:'cost2cash',cat:'Executive',title:'Cost-to-cash control',def:'l',
   ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z',src:"pickLens('ledger');pickTab('glrecon')",
   render:()=>{
     const P=portfolio();
-    return `<div class="subhead">Anything left over is cost the enterprise has recognised but cannot
-      yet evidence.</div>
-      <div class="lrows">
+    return `<div class="lrows">
         <div class="l-row"><span>GL total cost</span><span class="amt">${money(P.incurred)}</span></div>
         <div class="l-row"><span>− Cash out <span style="color:var(--hint)">· bank-confirmed</span></span><span class="amt">${money(P.paid)}</span></div>
         <div class="l-row"><span>− Accruals <span style="color:var(--hint)">· posted, unpaid</span></span><span class="amt">${money(P.accruals)}</span></div>
@@ -4520,7 +4818,9 @@ const DET_STATUS={new:'New',accepted:'Accepted',dismissed:'Dismissed',
 /** Every detection derives from a real rule or model output. Nothing here is authored. */
 function detections(){
   const out=[];
-  const add=d=>out.push({...d,st:(DET_STATE[d.id]||{}).status||'new'});
+  // Status honours the as-of control: with ASOF set this replays the append-only log to that
+  // timestamp rather than reading current state, so rewinding is exact.
+  const add=d=>out.push({...d,st:detStatusAt(d.id,ASOF)});
 
   // --- rule: reconciliation variance threshold ---------------------------------------
   try{
@@ -4583,6 +4883,8 @@ function detections(){
 
 /** Append-only. Prior and new value are both recorded, so a decision can be reconstructed. */
 function detAct(id,action){
+  // You cannot triage a historical view — rewind is for reading, not for writing.
+  if(ASOF){ return; }
   const d=detections().find(x=>x.id===id); if(!d) return;
   const prior=(DET_STATE[id]||{}).status||'new';
   const next={accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated'}[action];
@@ -4614,9 +4916,10 @@ wsRegister({id:'detected',cat:'AI Intelligence',title:'Korvyn detected',def:'ful
         {k:'amt',l:'Amount',num:true,sortVal:r=>Math.abs(r.amt||0),
          render:r=>r.amt?homeAmt(r.amt):'&mdash;'},
         {k:'st',l:'Status',render:r=>{
-          const s=DET_STATE[r.id];
+          const s=ASOF?null:DET_STATE[r.id];
           return DET_STATUS[r.st]+(s?`<span class="det-by"> ${s.by}</span>`:'');}},
-        {k:'act',l:'',render:r=>`<span class="det-acts">
+        // Actions are withheld in a rewound view rather than rendered inert.
+        {k:'act',l:'',render:r=>ASOF?'<span class="det-by">read-only</span>':`<span class="det-acts">
           ${[['accept','Accept'],['dismiss','Dismiss'],['assign','Assign'],['escalate','Escalate']]
             .map(([a,l])=>`<button class="det-b ${r.st===({accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated'})[a]?'on':''}"
               onclick="event.stopPropagation();detAct('${r.id}','${a}')">${l}</button>`).join('')}
@@ -4691,9 +4994,7 @@ wsRegister({id:'changed',cat:'AI Intelligence',title:'What changed overnight',de
   render:(c)=>{
     const all=wsFilterRows(CC_SIGNALS,c,{entity:r=>r.ent});
     const rows=all.slice(0,wsLim(c));
-    return `<div class="subhead">Something already validated has been disturbed. This is detection
-      history — it genuinely cannot be derived from current state.</div>`+
-      wsRows(rows.map(r=>({...r,go:"pickLens('ledger');pickTab('contclose')"}),
+    return wsRows(rows.map(r=>({...r,go:"pickLens('ledger');pickTab('contclose')"}),
         ),r=>`<td><b>${r.item}</b><div class="ic-mini" style="color:var(--hint)">${r.ch}</div></td>
         <td class="ic-mini" style="text-align:right;white-space:nowrap">${r.ent}<div style="color:var(--hint)">${r.at||''}</div></td>`)+
       wsFoot(all.length>rows.length?(all.length-rows.length)+' more':'',"pickLens('ledger');pickTab('contclose')",'Continuous close');
@@ -4706,12 +5007,18 @@ wsRegister({id:'risks',cat:'AI Intelligence',title:'Top enterprise risks',def:'l
     const k=axKpi();
     const all=wsFilterRows([...k.crit,...k.high],c,{entity:r=>r.ent});
     const rows=all.slice(0,wsLim(c));
-    return `<div class="subhead">Ranked by potential misstatement, not by balance touched — an
-      overdue reconciliation on a large payable is a control issue, not a large error.</div>`+
-      wsRows(rows.map(r=>({...r,go:"pickLens('ledger');pickTab('exceptions')"})),
-        r=>`<td><b>${r.t}</b><div class="ic-mini" style="color:var(--hint)">${r.ent}</div></td>
-        <td class="num" style="white-space:nowrap">${r.mis!==undefined?money(r.mis):(r.amt!==undefined?money(r.amt):'—')}</td>`)+
-      wsFoot('',"pickLens('ledger');pickTab('exceptions')",'All exceptions');
+    // Phase 7: the prose explaining "this is misstatement, not balance touched" is now the
+    // column header. A label on the number beats a sentence above the table.
+    return dataTable({
+      id:'risks', title:'', rows, key:r=>r.id, sev:r=>r.sev||'med',
+      rowGo:()=>"pickLens('ledger');pickTab('exceptions')",
+      cols:[
+        {k:'t',l:'Exception',primary:true,flex:true},
+        {k:'ent',l:'Entity',render:r=>r.ent||'&mdash;'},
+        {k:'mis',l:'Could misstate',num:true,
+         sortVal:r=>r.mis!==undefined?r.mis:(r.amt||0),
+         render:r=>r.mis!==undefined?money(r.mis):(r.amt!==undefined?money(r.amt):'&mdash;')},
+      ]});
   }});
 
 wsRegister({id:'exposure',cat:'AI Intelligence',title:'Exception exposure',def:'m',sizes:['s','m','l'],
@@ -4755,8 +5062,7 @@ wsRegister({id:'health',cat:'AI Intelligence',title:'Enterprise health',def:'l',
   ic:'M2 8h3l2-4 2 8 2-6 1 2h2',src:"pickLens('ledger');pickTab('contclose')",
   render:()=>{
     let ws=[]; try{ ws=ccxWorkstreams(); }catch(e){ return '<div class="note">Unavailable.</div>'; }
-    return `<div class="subhead">Measured, not estimated — each workstream reads its own source.</div>
-      <div class="measures">${ws.map(w=>
+    return `<div class="measures">${ws.map(w=>
         `<div class="m-row"><span class="m-label">${w.nm}</span>
           <div class="m-track"><div class="m-fill" style="width:${Math.max(2,w.pct)}%;background:${w.pct<60?'var(--neg)':w.pct<85?'var(--warn)':'var(--pos)'}"></div></div>
           <span class="m-val">${w.pct}%</span></div>`).join('')}</div>`+
@@ -4771,6 +5077,52 @@ wsRegister({id:'close',cat:'Close',title:'Close readiness',def:'m',sizes:['s','m
     return wsStat([{l:'Complete',v:closePct()+'%',d:t.done+' of '+CLOSE_TASKS.length+' tasks'},
       {l:'In progress',v:t.prog,d:'being worked'},
       {l:'Blocked',v:t.blk,d:'cannot proceed',neg:t.blk>0}]); }});
+
+/* Phase 3 carryover: close readiness by entity and by function, on the same primitive as
+   every other list surface. Both derive from GL_CLOSE / GL_CLOSE_FN, which derive from
+   CLOSE_TASKS — so these cannot disagree with the checklist. */
+wsRegister({id:'close-ent',cat:'Close',title:'Close readiness by entity',def:'l',
+  sizes:['m','l','xl','full'],filters:['entity'],
+  desc:'Per-entity completion, in progress, not started and blocked.',
+  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11',src:"pickLens('ledger');pickTab('glclose')",
+  render:(c)=>{
+    const rows=wsFilterRows(GL_CLOSE,c,{entity:r=>r.ent})
+      .filter(r=>etIn(r.ent))
+      .map(r=>{const tot=r.done+r.prog+r.not+r.blk;
+        return {...r,tot,pct:tot?Math.round(r.done/tot*100):0};});
+    return dataTable({id:'close-ent',title:'',rows,key:r=>r.ent,
+      sev:r=>r.blk?'high':r.prog?'med':'low',
+      rowGo:()=>"pickLens('ledger');pickTab('glclose')",
+      cols:[
+        {k:'ent',l:'Entity',primary:true,flex:true},
+        {k:'src',l:'Source',sortVal:r=>ERP_ENTITY[r.ent]||'',
+         render:r=>provChip(provFor({entity:r.ent}))},
+        {k:'pct',l:'Complete',num:true,render:r=>r.pct+'%'},
+        {k:'done',l:'Done',num:true},
+        {k:'prog',l:'In progress',num:true},
+        {k:'not',l:'Not started',num:true},
+        {k:'blk',l:'Blocked',num:true,render:r=>r.blk||'&mdash;'},
+      ]});
+  }});
+
+wsRegister({id:'close-fn',cat:'Close',title:'Close readiness by function',def:'l',
+  sizes:['m','l','xl','full'],
+  desc:'Per-function completion across every entity.',
+  ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01',src:"pickLens('ledger');pickTab('glclose')",
+  render:()=>{
+    const rows=GL_CLOSE_FN.map(r=>({...r,open:r.tot-r.done,
+      pct:r.tot?Math.round(r.done/r.tot*100):0}));
+    return dataTable({id:'close-fn',title:'',rows,key:r=>r.fn,
+      sev:r=>r.pct===100?'low':r.pct>=70?'med':'high',
+      rowGo:()=>"pickLens('ledger');pickTab('glclose')",
+      cols:[
+        {k:'fn',l:'Function',primary:true,flex:true},
+        {k:'pct',l:'Complete',num:true,render:r=>r.pct+'%'},
+        {k:'done',l:'Done',num:true},
+        {k:'open',l:'Open',num:true,render:r=>r.open||'&mdash;'},
+        {k:'tot',l:'Total',num:true},
+      ]});
+  }});
 
 wsRegister({id:'blockers',cat:'Close',title:'Close blockers',def:'m',sizes:['m','l','xl'],
   filters:['entity','limit'],desc:'Close tasks that cannot proceed, with owner and function.',
@@ -4976,7 +5328,8 @@ const wsMakeItems=tpl=>tpl.items.filter(([w])=>WS_REG[w]).map(([w,size])=>({w,si
 
 function wsSeed(){
   const d=wsTpl('daily');
-  WS_BOOK=[{id:'daily',name:'Daily Work',scope:'personal',items:wsMakeItems(d)}];
+  // `published`, not `personal` — layouts are a shared surface, not a per-user canvas.
+  WS_BOOK=[{id:'daily',name:'Daily Work',scope:'published',items:wsMakeItems(d)}];
   WS.cur='daily';
 }
 
@@ -5064,14 +5417,23 @@ function wsBarHTML(w){
       <span class="scope">${w.scope}</span>${wsIc('chev')}</button>
     ${etScopeHTML()}
     <span class="grow"></span>
-    ${btn('+ Add widget','wsDrawerOpen()')}
-    ${btn('Customize workspace','wsEdit()')}
+    ${WS_ADMIN?btn('+ Add widget','wsDrawerOpen()')+btn('Customize workspace','wsEdit()'):''}
   </div>`;
 }
 
-/* In a real deployment this is a role check. It is a single flag here so the Publish control
-   is permission-gated rather than always drawn. */
-const WS_CAN_PUBLISH=true;
+/* PHASE 7 — the canvas is scoped to ADMIN-PUBLISHED TEMPLATES, not personal canvases.
+   Free-form per-user layouts produce a different screen for every person on a team, which
+   undermines the shared-number guarantee finance software exists to sell: two controllers
+   discussing "the close screen" must be looking at the same thing.
+
+   So layout editing is an ADMIN act that publishes to everyone, and the configurability a
+   normal user actually needs lives inside the tables — saved views and column config, which
+   change how you read a shared surface without changing what anyone else sees.
+
+   Both flags are role checks in a real deployment. WS_ADMIN=false hides Customize/Add widget
+   entirely; the workspace switcher and every DataTable view control stay available. */
+const WS_ADMIN=true;
+const WS_CAN_PUBLISH=WS_ADMIN;
 
 // ---- edit-mode lifecycle -----------------------------------------------------------------
 function wsEdit(){
@@ -5213,11 +5575,11 @@ function wsSwitch(id){
   WS.cur=id; WS.edit=false; WS.preview=false; WS.snapshot=null;
   wsClosePop(); wsPersist(); wsRender();
 }
-/** Creating from a template makes a NEW personal workspace — it never overwrites one. */
+/** Adds a published template to the switcher. Never overwrites an existing workspace. */
 function wsFromTemplate(tid){
   const t=wsTpl(tid); if(!t) return;
   let id=tid, n=2; while(WS_BOOK.some(w=>w.id===id)){ id=tid+'-'+(n++); }
-  WS_BOOK.push({id,name:t.name,scope:'personal',items:wsMakeItems(t)});
+  WS_BOOK.push({id,name:t.name,scope:'published',items:wsMakeItems(t)});
   WS.cur=id; WS.edit=false; WS.preview=false;
   wsClosePop(); wsPersist(); wsRender();
 }
@@ -9103,7 +9465,6 @@ function renderAcctOver(){
       </tbody></table>
       ${A.length>6?`<div class="cardfoot">${A.length-6} more</div>`:''}</div>
     <div class="card" style="margin:0"><h2>Korvyn detected</h2>
-      <div class="subhead">Surfaced without being asked.</div>
       <div class="ki" style="margin-bottom:0"><div class="ki-h">${KI_SPARK}Korvyn Intelligence</div>
         ${D.map(x=>`<div class="wrel row-click" onclick="${x.go}" style="border-color:var(--ai-line)">
           <span class="n" style="min-width:26px">${x.n}</span><span class="g">${x.l}</span></div>`).join('')}
@@ -16679,6 +17040,10 @@ function paintRailRoles(){
   // on narrow screens the rail is an overlay -- dismiss it once a destination is picked
   document.querySelectorAll('#railTabs .railrole,#railTabs .railkid').forEach(b=>
     b.addEventListener('click',()=>document.body.classList.remove('nav-open')));
+
+  // Phase 6 chrome rides the same paint cycle as the nav.
+  if(typeof paintConStrip==='function') paintConStrip();
+  if(typeof paintHdrCtl==='function') paintHdrCtl();
 }
 
 
