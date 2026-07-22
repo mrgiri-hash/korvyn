@@ -179,6 +179,30 @@ necessary, the answer is a different ramp step, not a new colour.
   exception with no misstatement).
   Sign leads the symbol — `-$2.3M`, never `$-2.3M`. `fpM()` was fixed to match.
 
+### Detection queue (Phase 5)
+
+"Korvyn detected" was a passive stat list — five counts you could read but not act on. It is
+now a triage queue (`detections()` + the `detected` widget) where every row states **what
+fired**, **what it examined**, and carries the evidence behind it.
+
+- **Facts derive; only the decision is stored.** `detections()` computes 18 detections from
+  `GL_RECON`, `CC_SIGNALS`, `GL_ERP`, `icxPairs()` and `POL_INBOX` across four rules and one
+  model. `DET_STATE` holds status/actor/timestamp only — the same facts/workflow split as
+  `AX_STATE` and `IC_SETTLE`.
+- **`DET_LOG` is APPEND-ONLY.** Every decision records actor, timestamp, **prior value and new
+  value**. Entries are never edited or removed, and re-firing the same action is a no-op rather
+  than a duplicate entry. Do not "tidy" this into a mutable status field — the append-only
+  history is what makes a decision defensible on audit.
+- **Every detection carries `ev:{expected, observed, basis, note}`** and the pane shows the
+  underlying comparison, not a restatement of the headline. Assert this holds for every row:
+  a detection with no evidence is not a detection, it is an assertion.
+- **NO TINTED BACKGROUND on intelligence surfaces.** `.ki` and the evidence pane now use
+  `--surface` + `--border`, structurally identical to every other surface; the AI signal is one
+  small spark icon in `--ai`. The indigo wash implied Korvyn's reasoning lived somewhere apart
+  from the ledger, which is the opposite of the claim it makes. **`--ai` survives as an icon
+  colour only** — this supersedes the earlier "indigo owns the intelligence plane" rule for
+  backgrounds, though indigo is still reserved for AI and must never become a second UI accent.
+
 ## Home is a WORKSPACE, not a dashboard (read before touching Home)
 
 `renderOverview()` is now one line: `wsRender()`. Home is composed from a widget registry, and
