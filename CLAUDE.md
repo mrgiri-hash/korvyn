@@ -154,7 +154,43 @@ necessary, the answer is a different ramp step, not a new colour.
   column carries `flex:true` (`max-width:0`) and truncates with a title tooltip.
   `dtRepaint(id)` swaps a single table in place, so sort/selection do not re-render the page.
 
-### The CHROME token set (read before styling the ribbon or rail)
+### The CHROME token set (read before styling the ribbon, rail or strip)
+
+**Canonical names** — `--chrome-bg` `--chrome-bg-2` `--chrome-border` `--chrome-border-strong`
+`--chrome-text` `--chrome-text-2` `--chrome-text-mute` `--chrome-accent` `--chrome-lift`
+`--chrome-lift-on` `--chrome-badge` `--chrome-ai`, plus `--danger-on-chrome`
+`--warning-on-chrome` `--success-on-chrome`. The old `--rail-*` colour names are **gone**;
+`--rail-w` / `--rail-w-collapsed` survive because they are GEOMETRY, not theming.
+
+- **Content tokens must not be reachable from chrome.** The isolation is testable and worth
+  re-running: walk every CSS rule whose selector starts with a chrome class and assert none
+  references `--n-*`, `--surface`, `--ink`, `--line`, `--accent`, `--neg/--pos/--warn` or the
+  `-fill`/`-bg` variants. Two focus rings leaked `var(--accent)` (3.66:1 on chrome) and now use
+  `--chrome-accent`; a focus ring you cannot see is the one affordance that must never be marginal.
+- **Chrome is ONE shared layer already** — there are zero module-scoped chrome rules. `.rail`
+  and `.ribbon` are defined once and every module consumes them, so a token change propagates
+  product-wide. (`.cl-rail`, `.tree-row .rail` and `.spine-ribbon` are unrelated things that
+  merely share a name fragment — do not "consolidate" them.)
+- **Surfaces:** ribbon and sidebar are the SAME `--chrome-bg`, separated by a hairline.
+  `--chrome-bg-2` is one step up and belongs to the **sync strip** alone.
+- **Module nav active = 2px bottom border + full-strength text, NO filled background.** The
+  fill it used to carry competed with the underline and made the state read as a chip.
+  **Sidebar active = 2px left border + subtle lift**, never a filled rounded rect.
+- **Count badges are legible, not decorative.** Neutral counts use `--chrome-badge` with
+  `--chrome-text-2`. A count representing BLOCKING work sets `sev:()=>'block'|'warn'` on its
+  `RAIL_SPEC` entry and gets the dark-surface semantic with **dark text** (white on those hues
+  is ~2.5:1). Only Close (blocked tasks) and Reconciliations (overdue) qualify today — red on
+  every badge is alarm fatigue and buries the genuinely critical.
+- **`--chrome-text-mute` still clears 4.5:1.** It recedes; it does not become unreadable.
+  Measured on chrome: text 11.69 / 7.15 / 4.90, semantics 6.47 / 8.23 / 8.23, accent 6.19.
+- **The notification badge was the vibrating example** and is fixed: it used `--neg-fill`
+  (`#B3382F`, a light-mode red) on near-black, which shimmers at the edges and only reached
+  ~4.0:1 with white text. It is now `--danger-on-chrome` with `--chrome-bg` text at ~6.5:1.
+- **`GL_ERP.inflight` is AUTHORED sample data**, like `sync`, `thru`, `next` and `iss` beside
+  it — Korvyn has no queue to count. It is labelled as such in the data so nobody later
+  mistakes it for a derivation and tries to make it tie to something.
+
+### Superseded: the earlier --rail-* chrome notes
 
 There are **two token sets, named by ROLE not by lightness** — content (`--n-*` ramp,
 `--neg/--warn/--pos/--accent`) and chrome (`--rail*`). "Light set / dark set" would stop being

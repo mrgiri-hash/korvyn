@@ -71,26 +71,36 @@
      to translate.
 
        content plane -> the ramp above (--n-0..--n-9) and --neg/--warn/--pos/--accent
-       chrome plane  -> --rail* below
+       chrome plane  -> --chrome-bg* below
 
      HEADER AND SIDEBAR SHARE ONE BASE, separated by a hairline. They used to be
      two "midnight planes" (#08111F / #0D1726) — measured at 1.05:1 against each
      other, which is below perceptual threshold. That paid for two tokens and
      bought no visible separation; a hairline is a far more reliable separator
      than a sub-threshold luminance step. */
-  --rail:#08111F; --rail2:var(--rail); --rail-ink:#C3CCDB; --rail-hint:#75818F;
+  /* Surfaces. Ribbon and sidebar are the SAME value; --chrome-bg-2 is one step up and
+     belongs to the sync strip, so the strip reads as a distinct band without breaking the
+     shared base the ribbon and sidebar depend on. */
+  --chrome-bg:#08111F;
+  --chrome-bg-2:#0D1726;
+  /* Three text levels: primary, secondary, and a mute for labels that must recede. */
+  --chrome-text:#C3CCDB;
+  --chrome-text-2:#95A0B0;
+  /* Mute still has to clear 4.5:1 — it recedes, it does not become unreadable. */
+  --chrome-text-mute:#78838F;
   /* Borders on chrome are low-opacity WHITE, never a darker grey — a darker line on
      a near-black surface reads as a smudge rather than an edge. */
-  --rail-line:rgba(255,255,255,.08);        /* separators and dividers */
-  --rail-control-line:rgba(255,255,255,.10);/* borders of controls ON chrome (input, chip) */
-  --rail-lift:rgba(255,255,255,.06);        /* hover */
-  --rail-lift-on:rgba(255,255,255,.055);    /* active, paired with the accent bar */
+  --chrome-border:rgba(255,255,255,.08);        /* separators and dividers */
+  --chrome-border-strong:rgba(255,255,255,.14); /* borders of controls ON chrome */
+  --chrome-lift:rgba(255,255,255,.06);          /* hover */
+  --chrome-lift-on:rgba(255,255,255,.055);      /* active, paired with the accent bar */
+  --chrome-badge:rgba(255,255,255,.10);         /* neutral count fill */
   /* Semantic values tuned for near-black. The content-plane semantics are light-surface
      hues and fail badly here — measured on chrome they are neg 3.17, accent 3.66,
      pos 3.79, warn 3.82, all under the 4.5:1 AA floor. These are the on-dark values,
-     and like --rail-ai they are IDENTICAL IN BOTH THEMES because the chrome is dark in
+     and like --chrome-ai they are IDENTICAL IN BOTH THEMES because the chrome is dark in
      both. Measured on chrome: neg 6.34, warn 8.06, pos 8.06, accent 6.06. */
-  --rail-neg:#E8756B; --rail-warn:#D6A24E; --rail-pos:#4FBF88; --rail-accent:#5B93F0;
+  --danger-on-chrome:#E8756B; --warning-on-chrome:#D6A24E; --success-on-chrome:#4FBF88; --chrome-accent:#5B93F0;
 
   /* ---- single accent (cobalt) + one supporting depth ---- */
   --accent:#2563EB; --accent-ink:#1D4ED8; --accent-bg:#EEF4FE; --accent-line:#C4D9FB;
@@ -129,7 +139,7 @@
   /* Korvyn blue as it must read on the dark ribbon. --accent is a light-surface hue and
      is unreadable there, so the ribbon's AI affordance gets its own token. The ribbon is
      dark in both themes, so this value is the same in both. */
-  --rail-ai:#8B8FF8;
+  --chrome-ai:#8B8FF8;
   /* ---- series colours. NOT semantic. Budget/committed/incurred/paid are a
      sequence, not a set of states, so they step through the ramp into the accent
      rather than borrowing red/green — which are reserved for state and must keep
@@ -164,7 +174,11 @@
      relationship survives the inversion (chrome 0.0018 < content 0.0108). The
      semantic chrome values are NOT redeclared — they are the same in both themes,
      because the chrome is dark in both. */
-  --rail:#070C14; --rail2:var(--rail); --rail-ink:#AEB8C8; --rail-hint:#7A8595;
+  --chrome-bg:#070C14;
+  --chrome-bg-2:#0B121C;
+  --chrome-text:#AEB8C8;
+  --chrome-text-2:#8B96A6;
+  --chrome-text-mute:#78838F;
   /* intelligence indigo, lightened so it reads as text on dark surfaces */
   --ai:#818CF8; --ai-deep:#A78BFA; --ai-ink:#A5B0FB;
   --ai-bg:#161A2E; --ai-line:#2E3358;
@@ -191,7 +205,7 @@
   --accent-fill:#2E6BD6; --neg-fill:#C4443A;
   --on-accent:#FFFFFF; --on-neg:#FFFFFF;
   --surface-ai:#151C29;
-  --rail-ai:#8B8FF8;
+  --chrome-ai:#8B8FF8;
 
   --shadow-md:0 2px 4px rgba(0,0,0,.28),0 12px 32px rgba(0,0,0,.38);
   --shadow-lg:0 4px 10px rgba(0,0,0,.34),0 20px 52px rgba(0,0,0,.46);
@@ -225,18 +239,20 @@ body{
 /* ============================ APP SHELL: TOP RIBBON ============================ */
 .ribbon{
   grid-area:ribbon;position:sticky;top:0;z-index:30;
-  background:var(--rail);color:var(--rail-ink);
+  background:var(--chrome-bg);color:var(--chrome-text);
   display:flex;align-items:center;gap:18px;padding:0 18px;height:var(--ribbon-h);min-width:0;
   /* Header and sidebar now share one base, so the hairline IS the separation — doing the
      work the old 1.05:1 luminance step was failing to do. */
-  border-bottom:1px solid var(--rail-line);
+  border-bottom:1px solid var(--chrome-border);
   /* no bottom shadow: it would score a seam across the rail, which shares this surface */
 }
 /* The wordmark is the Home control, so Home is not repeated in the section nav. */
 .ribbon-brand{display:flex;align-items:center;flex:none;padding:6px 26px 6px 0;
   border:none;background:none;cursor:pointer;border-radius:10px;transition:.14s}
 .ribbon-brand:hover .brand-lockup{opacity:.82}
-.ribbon-brand:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Chrome focus rings use the CHROME accent. The content accent measures 3.66:1 here, and a
+   focus ring you cannot see is the one affordance that must never be marginal. */
+.ribbon-brand:focus-visible{outline:2px solid var(--chrome-accent);outline-offset:2px}
 .brand-lockup{transition:opacity .14s}
 body.at-home .ribbon-brand{cursor:default}
 body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
@@ -245,15 +261,15 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .brand-lockup{height:30px;width:auto;display:block;flex:none}
 
 .rail-name{font-size:15px;font-weight:600;letter-spacing:.18em;color:#fff;line-height:1}
-.rail-sub{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--rail-hint);margin-top:3px}
+.rail-sub{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--chrome-text-2);margin-top:3px}
 
 /* horizontal section nav (was the vertical rail role list; #railRoles / .railrole preserved) */
 .ribbon-nav{display:flex;align-items:stretch;gap:2px;min-width:0;overflow-x:auto;align-self:stretch}
 .ribbon-nav::-webkit-scrollbar{height:0}
 .railrole{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;white-space:nowrap;
-  color:var(--rail-ink);font:inherit;font-size:13px;font-weight:450;padding:6px 11px;border-radius:var(--radius-sm);
+  color:var(--chrome-text);font:inherit;font-size:13px;font-weight:450;padding:6px 11px;border-radius:var(--radius-sm);
   transition:.13s;position:relative}
-.railrole:hover{background:var(--rail-lift);color:#fff}
+.railrole:hover{background:var(--chrome-lift);color:#fff}
 .railrole .ic{width:15px;height:15px;flex:none;opacity:.62;transition:opacity .13s}
 .railrole.on{color:#fff;font-weight:600}
 .railrole.on .ic{opacity:1}
@@ -262,22 +278,24 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
    own treatment — see the shared-class-name note in CLAUDE.md. The ribbon stays deliberately
    quiet so it keeps scaling as enterprise domains are added. */
 .ribbon-nav .railrole{border-radius:0;padding:0 11px}
-.ribbon-nav .railrole:hover{background:rgba(255,255,255,.045)}
-.ribbon-nav .railrole.on{background:rgba(255,255,255,.035)}
-/* --rail-accent, not --accent: the content-plane accent measures 3.66:1 on chrome. It clears
+.ribbon-nav .railrole:hover{background:var(--chrome-lift)}
+/* Active module nav = 2px bottom border + FULL-STRENGTH TEXT, and no filled background.
+   The fill it used to carry competed with the underline and made the state read as a chip. */
+.ribbon-nav .railrole.on{background:none;color:#fff;font-weight:var(--fw-medium)}
+/* --chrome-accent, not --accent: the content-plane accent measures 3.66:1 on chrome. It clears
    the 3:1 non-text floor, but this is the primary wayfinding cue and the chrome variant takes
-   it to 6.19:1. Any accent drawn ON chrome should use --rail-accent. */
+   it to 6.19:1. Any accent drawn ON chrome should use --chrome-accent. */
 .ribbon-nav .railrole.on::after{content:'';position:absolute;left:11px;right:11px;bottom:0;height:2px;
-  background:var(--rail-accent);border-radius:2px 2px 0 0}
+  background:var(--chrome-accent);border-radius:2px 2px 0 0}
 
-.ribbon-scope{flex:none;text-align:right;font-size:10.5px;color:var(--rail-hint);line-height:1.4;
-  padding-left:20px;border-left:1px solid var(--rail-line);display:flex;flex-direction:column;gap:1px}
+.ribbon-scope{flex:none;text-align:right;font-size:10.5px;color:var(--chrome-text-2);line-height:1.4;
+  padding-left:20px;border-left:1px solid var(--chrome-border);display:flex;flex-direction:column;gap:1px}
 .ribbon-scope-port{opacity:.85}
-.ribbon-scope b{color:var(--rail-ink);font-weight:600;font-size:11px}
+.ribbon-scope b{color:var(--chrome-text);font-weight:600;font-size:11px}
 
 /* legacy rail sub-nav classes kept in case any render path references them (secnav uses its own styles) */
 .railtab{display:flex;align-items:center;gap:10px;border:none;background:none;cursor:pointer;
-  color:var(--rail-ink);font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;transition:.13s;position:relative}
+  color:var(--chrome-text);font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;transition:.13s;position:relative}
 
 /* ============================ APP SHELL: LEFT RAIL ============================ */
 body.rail-collapsed{--rail-w:var(--rail-w-collapsed)}
@@ -285,22 +303,22 @@ body.rail-collapsed{--rail-w:var(--rail-w-collapsed)}
   grid-area:rail;position:sticky;top:var(--ribbon-h);align-self:start;
   height:calc(100vh - var(--ribbon-h));z-index:20;
   /* one step up from the ribbon, so the two midnight planes read as connected but distinct */
-background:var(--rail2);border-right:1px solid var(--rail-line);
+background:var(--chrome-bg);border-right:1px solid var(--chrome-border);
   display:flex;flex-direction:column;overflow:hidden;transition:width .16s ease;
 }
 /* Selected module item: subtle lighter navy + a thin cobalt left indicator. No saturated block. */
 /* Active nav = left accent bar (::before) + subtle lift. Never a filled rect. */
-.rail .railrole.on{background:var(--rail-lift-on);color:#fff}
-.rail .railrole.on::before{content:'';position:absolute;left:-10px;top:6px;bottom:6px;width:2.5px;
-  background:var(--rail-accent);border-radius:0 2px 2px 0}
+.rail .railrole.on{background:var(--chrome-lift-on);color:#fff}
+.rail .railrole.on::before{content:'';position:absolute;left:-10px;top:6px;bottom:6px;width:2px;
+  background:var(--chrome-accent);border-radius:0 2px 2px 0}
 body.rail-collapsed .rail .railrole.on::before{left:-10px}
 .rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:9px 9px;display:flex;flex-direction:column;gap:1px}
 .rail-scroll::-webkit-scrollbar{width:0}
 .rail-grouplbl{
-  font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--rail-hint);
+  font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--chrome-text-2);
   padding:11px 10px 5px;white-space:nowrap;overflow:hidden}
 body.rail-collapsed .rail-grouplbl{opacity:0;height:14px;padding:8px 0 0}
-.rail-div{height:1px;background:var(--rail-line);margin:10px 8px}
+.rail-div{height:1px;background:var(--chrome-border);margin:10px 8px}
 .rail .railrole{width:100%}
 .rail .railrole .lbl{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 body.rail-collapsed .rail .railrole{justify-content:center;padding:9px 0}
@@ -313,39 +331,44 @@ body.rail-collapsed .rail .railrole .lbl{display:none}
    as one system. Only Korvyn Intelligence departs, and only in hue. */
 .ribbon-util{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto;padding-left:0;
   border-left:none;position:relative}
-.ribsep{width:1px;height:20px;background:var(--rail-line);flex:none;margin:0 4px}
+.ribsep{width:1px;height:20px;background:var(--chrome-border);flex:none;margin:0 4px}
 
 /* global search: reads as part of the midnight header, not a white box dropped onto it */
 .ribsearch{display:flex;align-items:center;gap:8px;flex:none;width:214px;height:32px;
   padding:0 8px 0 10px;border-radius:var(--radius-xs);
-  background:rgba(255,255,255,.03);border:1px solid var(--rail-control-line);transition:.14s}
+  background:rgba(255,255,255,.03);border:1px solid var(--chrome-border-strong);transition:.14s}
 .ribsearch:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16)}
-.ribsearch:focus-within{background:rgba(255,255,255,.06);border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(37,99,235,.18)}
-.ribsearch .ic{width:14px;height:14px;flex:none;color:var(--rail-hint)}
-.ribsearch:focus-within .ic{color:var(--rail-ink)}
+.ribsearch:focus-within{background:var(--chrome-lift);border-color:var(--chrome-accent);
+  box-shadow:0 0 0 3px rgba(91,147,240,.22)}
+.ribsearch .ic{width:14px;height:14px;flex:none;color:var(--chrome-text-2)}
+.ribsearch:focus-within .ic{color:var(--chrome-text)}
 .ribsearch input{flex:1;min-width:0;border:none;outline:none;background:none;
   font:inherit;font-size:12.5px;color:#fff}
-.ribsearch input::placeholder{color:var(--rail-hint)}
-.ribsearch .kbd{flex:none;font-family:var(--mono);font-size:9.5px;color:var(--rail-hint);
-  border:1px solid var(--rail-control-line);border-radius:4px;padding:1px 4px;line-height:1.5}
+.ribsearch input::placeholder{color:var(--chrome-text-2)}
+.ribsearch .kbd{flex:none;font-family:var(--mono);font-size:9.5px;color:var(--chrome-text-2);
+  border:1px solid var(--chrome-border-strong);border-radius:4px;padding:1px 4px;line-height:1.5}
 .ribsearch:focus-within .kbd{opacity:0}
 
 .ribicon{position:relative;width:32px;height:32px;border:none;background:none;border-radius:var(--radius-xs);
-  color:var(--rail-ink);cursor:pointer;display:grid;place-items:center;transition:.13s}
+  color:var(--chrome-text);cursor:pointer;display:grid;place-items:center;transition:.13s}
 .ribicon:hover{background:rgba(255,255,255,.08);color:#fff}
 .ribicon svg{width:16px;height:16px}
 /* restrained semantic red — small enough to inform without dominating the header */
 .ribdot{position:absolute;top:3px;right:3px;min-width:13px;height:13px;padding:0 3px;border-radius:7px;
-  background:var(--neg-fill);color:var(--on-neg);font-size:8.5px;font-weight:700;display:grid;place-items:center;
-  line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--rail)}
+  /* THE VIBRATING BADGE. This used --neg-fill (#B3382F), a light-mode red, sitting on
+     near-black chrome — a dark saturated red on a dark ground shimmers at the edges and
+     the white label only reaches ~4.0:1. The dark-surface variant with chrome-dark text
+     is stable and reads at ~6.7:1. */
+  background:var(--danger-on-chrome);color:var(--chrome-bg);font-size:8.5px;font-weight:700;
+  display:grid;place-items:center;
+  line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--chrome-bg)}
 /* ---- Korvyn AI: the one persistent access point, in the ribbon utilities ----
    Same 32px interactive area as its neighbours so it sits in the row naturally, but
    carries the accent hue and a thin ring so it reads as the intelligence affordance
    rather than another utility glyph. No glow, no gradient, no floating shadow. */
 /* Indigo lives here and nowhere else in the header. A tinted surface at rest gives the
    intelligence layer its distinction without a glow, a gradient or an oversized button. */
-.ribai{color:var(--rail-ai);background:rgba(139,143,248,.10);
+.ribai{color:var(--chrome-ai);background:rgba(139,143,248,.10);
   box-shadow:inset 0 0 0 1px rgba(139,143,248,.18)}
 .ribai:hover{background:rgba(139,143,248,.18);color:#AFB2FB;
   box-shadow:inset 0 0 0 1px rgba(139,143,248,.34)}
@@ -354,18 +377,18 @@ body:not(.copilot-collapsed) .ribai{background:rgba(139,143,248,.22);color:#C2C4
 /* "Korvyn has intelligence available" — deliberately a quiet blue dot, never a red
    alert badge, and suppressed while the panel is open since you are already there. */
 .ribai-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;
-  background:var(--rail-ai);box-shadow:0 0 0 2px var(--rail);display:none}
+  background:var(--chrome-ai);box-shadow:0 0 0 2px var(--chrome-bg);display:none}
 body.copilot-collapsed .ribai-dot.on{display:block}
 /* Profile: identity, not just an initial. Compact enough to sit in a 50px header, and it
    sheds role then name under width pressure rather than pushing modules out of the ribbon. */
 .ribuser{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;
-  padding:3px 6px 3px 3px;border-radius:var(--radius-xs);color:var(--rail-ink);transition:.13s;
+  padding:3px 6px 3px 3px;border-radius:var(--radius-xs);color:var(--chrome-text);transition:.13s;
   max-width:210px;min-width:0}
 .ribuser:hover{background:rgba(255,255,255,.07)}
 .ribuser .chev{width:13px;height:13px;flex:none;opacity:.75}
 .ribuser-id{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;line-height:1.2}
 .ribuser-id .nm{font-size:12px;font-weight:550;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
-.ribuser-id .rl{font-size:10px;color:var(--rail-hint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.ribuser-id .rl{font-size:10px;color:var(--chrome-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
 .ribuser .avatar.av-solid{width:28px;height:28px;font-size:10.5px;flex:none}
 
 /* ---- graceful degradation, in the order the spec asks for ----
@@ -527,32 +550,35 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 
 /* ==================== PHASE 6 — CHROME ====================
    Connection strip, period selector, data-as-of, command palette. All on the chrome
-   plane, so every colour here comes from the --rail* set. */
+   plane, so every colour here comes from the --chrome-bg* set. */
 /* PERSISTENT means persistent: it sticks directly under the ribbon rather than scrolling
    away, so the freshness of every figure on screen stays visible while you read them. */
 .constrip{grid-area:strip;position:sticky;top:var(--ribbon-h);z-index:29;
-  background:var(--rail);border-bottom:1px solid var(--rail-line);
+  background:var(--chrome-bg-2);border-bottom:1px solid var(--chrome-border);
   display:flex;align-items:center;gap:var(--s-4);padding:0 18px;height:var(--strip-h);min-width:0;
   overflow-x:auto;scrollbar-width:none}
 .constrip::-webkit-scrollbar{display:none}
 .cs-l{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
-  text-transform:uppercase;color:var(--rail-hint);flex:none}
+  text-transform:uppercase;color:var(--chrome-text-2);flex:none}
 .cs-sys{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);
-  color:var(--rail-ink);white-space:nowrap;flex:none;cursor:pointer;padding:2px var(--s-2);
+  color:var(--chrome-text);white-space:nowrap;flex:none;cursor:pointer;padding:2px var(--s-2);
   border-radius:var(--radius-xs)}
-.cs-sys:hover{background:var(--rail-lift)}
+.cs-sys:hover{background:var(--chrome-lift)}
 .cs-sys .d{width:5px;height:5px;border-radius:50%;flex:none}
-.cs-sys[data-st="ok"] .d{background:var(--rail-pos)}
-.cs-sys[data-st="warn"] .d{background:var(--rail-warn)}
-.cs-sys[data-st="err"] .d{background:var(--rail-neg)}
-.cs-sys[data-st="warn"],.cs-sys[data-st="err"]{color:var(--rail-warn)}
-.cs-sys[data-st="err"]{color:var(--rail-neg)}
-.cs-sys .t{color:var(--rail-hint)}
-.cs-delta{color:var(--rail-hint)}
-.cs-delta b{color:var(--rail-ink);font-weight:var(--fw-medium)}
+.cs-sys[data-st="ok"] .d{background:var(--success-on-chrome)}
+.cs-sys[data-st="warn"] .d{background:var(--warning-on-chrome)}
+.cs-sys[data-st="err"] .d{background:var(--danger-on-chrome)}
+.cs-sys[data-st="warn"],.cs-sys[data-st="err"]{color:var(--warning-on-chrome)}
+.cs-sys[data-st="err"]{color:var(--danger-on-chrome)}
+.cs-sys .t{color:var(--chrome-text-2)}
+.cs-delta{color:var(--chrome-text-2)}
+.cs-delta b{color:var(--chrome-text);font-weight:var(--fw-medium)}
+.cs-per{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);
+  color:var(--chrome-text);white-space:nowrap;flex:none;padding-left:var(--s-3);
+  border-left:1px solid var(--chrome-border)}
 .cs-stale{margin-left:auto;flex:none;display:flex;align-items:center;gap:var(--s-2);
-  font-size:var(--fs-label);color:var(--rail-warn)}
-.cs-ok{margin-left:auto;flex:none;font-size:var(--fs-label);color:var(--rail-hint)}
+  font-size:var(--fs-label);color:var(--warning-on-chrome)}
+.cs-ok{margin-left:auto;flex:none;font-size:var(--fs-label);color:var(--chrome-text-2)}
 
 /* period + data-as-of, in the header so they are always visible */
 /* MUST be shrinkable. The ribbon shares a grid column with .main, so a flex:none child here
@@ -570,13 +596,13 @@ body.copilot-collapsed .ribai-dot.on{display:block}
   #periodTypeGrp{display:block!important}
 }
 .hdr-btn{display:flex;align-items:center;gap:var(--s-2);background:none;
-  border:1px solid var(--rail-control-line);border-radius:var(--radius-xs);
-  padding:3px var(--s-2);font:inherit;font-size:var(--fs-label);color:var(--rail-ink);
+  border:1px solid var(--chrome-border-strong);border-radius:var(--radius-xs);
+  padding:3px var(--s-2);font:inherit;font-size:var(--fs-label);color:var(--chrome-text);
   cursor:pointer;white-space:nowrap;transition:.12s}
-.hdr-btn:hover{background:var(--rail-lift);border-color:var(--rail-accent)}
-.hdr-btn .k{color:var(--rail-hint);text-transform:uppercase;letter-spacing:var(--tracking-label);
+.hdr-btn:hover{background:var(--chrome-lift);border-color:var(--chrome-accent)}
+.hdr-btn .k{color:var(--chrome-text-2);text-transform:uppercase;letter-spacing:var(--tracking-label);
   font-weight:var(--fw-label)}
-.hdr-btn.rewound{border-color:var(--rail-warn);color:var(--rail-warn)}
+.hdr-btn.rewound{border-color:var(--warning-on-chrome);color:var(--warning-on-chrome)}
 
 /* command palette */
 .cmdk{position:fixed;inset:0;z-index:200;background:rgba(8,17,31,.42);
@@ -801,11 +827,17 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 /* ---- rail: nesting + badges ---- */
 /* Rail badges are OPEN-ITEM COUNTS, not alarms. Red on every one of them is alarm fatigue
    and buries the genuinely critical, so the default is a compact neutral chip. */
+/* Count badges are LEGIBLE, not decorative. Neutral counts sit in a low-opacity white fill
+   with secondary chrome text. Counts that represent BLOCKING work carry the dark-surface
+   semantics — never the light-mode values, which vibrate against near-black. */
 .railrole .rbadge{margin-left:auto;min-width:18px;height:16px;padding:0 5px;border-radius:8px;
-  background:rgba(255,255,255,.10);color:var(--rail-ink);font-size:10px;font-weight:600;
+  background:var(--chrome-badge);color:var(--chrome-text-2);font-size:10px;font-weight:600;
   display:grid;place-items:center;line-height:1;flex:none;font-variant-numeric:tabular-nums}
-.railrole.on .rbadge{background:rgba(255,255,255,.16);color:#fff}
-.railrole .rbadge.mut{background:rgba(255,255,255,.07);color:var(--rail-hint)}
+.railrole.on .rbadge{background:rgba(255,255,255,.16);color:var(--chrome-text)}
+.railrole .rbadge.mut{background:rgba(255,255,255,.07);color:var(--chrome-text-mute)}
+/* Dark text on the semantic fill: white on these hues is ~2.5:1 and unreadable. */
+.railrole .rbadge.block,.railrole.on .rbadge.block{background:var(--danger-on-chrome);color:var(--chrome-bg)}
+.railrole .rbadge.warn,.railrole.on .rbadge.warn{background:var(--warning-on-chrome);color:var(--chrome-bg)}
 body.rail-collapsed .rail .railrole .rbadge{display:none}
 .railrole .rchev{margin-left:auto;width:13px;height:13px;flex:none;opacity:.6;transition:transform .15s}
 .railrole.exp .rchev{transform:rotate(180deg)}
@@ -814,15 +846,15 @@ body.rail-collapsed .rail .railrole .rchev{display:none}
 .railkids.open{display:flex}
 body.rail-collapsed .rail .railkids{display:none!important}
 .railkid{display:flex;align-items:center;border:none;background:none;cursor:pointer;width:100%;
-  color:var(--rail-hint);font:inherit;font-size:12px;padding:6px 11px 6px 38px;border-radius:var(--radius-sm);
+  color:var(--chrome-text-2);font:inherit;font-size:12px;padding:6px 11px 6px 38px;border-radius:var(--radius-sm);
   transition:.13s;text-align:left;white-space:nowrap}
-.railkid:hover{background:rgba(255,255,255,.06);color:var(--rail-ink)}
+.railkid:hover{background:rgba(255,255,255,.06);color:var(--chrome-text)}
 .railkid.on{color:#fff;background:rgba(255,255,255,.09);font-weight:600}
-.rail-foot{flex:none;border-top:1px solid var(--rail-line);padding:8px 10px}
+.rail-foot{flex:none;border-top:1px solid var(--chrome-border);padding:8px 10px}
 .rail-collapse{
   display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;cursor:pointer;
-  color:var(--rail-hint);font:inherit;font-size:11.5px;padding:8px 11px;border-radius:var(--radius-sm);transition:.13s}
-.rail-collapse:hover{background:rgba(255,255,255,.06);color:var(--rail-ink)}
+  color:var(--chrome-text-2);font:inherit;font-size:11.5px;padding:8px 11px;border-radius:var(--radius-sm);transition:.13s}
+.rail-collapse:hover{background:rgba(255,255,255,.06);color:var(--chrome-text)}
 .rail-collapse svg{width:15px;height:15px;flex:none;transition:transform .16s}
 body.rail-collapsed .rail-collapse{justify-content:center;padding:8px 0}
 body.rail-collapsed .rail-collapse .lbl{display:none}
@@ -1869,7 +1901,7 @@ footer b{color:var(--muted)}
   .menu-btn{display:grid!important}
 }
 .menu-btn{display:none;width:34px;height:34px;flex:none;border-radius:var(--radius-sm);border:none;
-  background:rgba(255,255,255,.08);color:var(--rail-ink);cursor:pointer;place-items:center;margin-right:2px}
+  background:rgba(255,255,255,.08);color:var(--chrome-text);cursor:pointer;place-items:center;margin-right:2px}
 .menu-btn:hover{background:rgba(255,255,255,.15);color:#fff}
 .menu-btn svg{width:17px;height:17px}
 .scrim{position:fixed;inset:0;background:rgba(8,12,19,.5);z-index:18;display:none}
@@ -3186,7 +3218,7 @@ const ICON={
   // Data & Governance: stacked data layers with a lineage thread — reads as data lineage,
   // not as a shield (Controls) or a sync arrow (Integrations). One meaning per icon.
   datagov:'<ellipse cx="8" cy="4" rx="5" ry="1.9" stroke="currentColor" stroke-width="1.3"/><path d="M3 4v4c0 1.05 2.24 1.9 5 1.9s5-.85 5-1.9V4" stroke="currentColor" stroke-width="1.3"/><path d="M3 8v4c0 1.05 2.24 1.9 5 1.9s5-.85 5-1.9V8" stroke="currentColor" stroke-width="1.3"/>',
-    admin:'<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="8" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="11.5" r="1.7" fill="var(--rail)" stroke="currentColor" stroke-width="1.3"/>',
+    admin:'<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="4.5" r="1.7" fill="var(--chrome-bg)" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="8" r="1.7" fill="var(--chrome-bg)" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="11.5" r="1.7" fill="var(--chrome-bg)" stroke="currentColor" stroke-width="1.3"/>',
   ledger:'<path d="M3 2h8l2 2v10H3z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5 6h6M5 9h6M5 12h4" stroke="currentColor" stroke-width="1.1"/>',
   fpa:'<path d="M2 13V3M2 13h12M4 11l3-4 3 2 4-6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   ctrl:'<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
@@ -4327,8 +4359,10 @@ function paintConStrip(){
       const tip=`${e.nm} · ${d.ents.length} entit${d.ents.length===1?'y':'ies'} · books through ${e.thru} · last sync ${e.sync}`;
       return `<span class="cs-sys" data-st="${e.st}" title="${tip}" onclick="pickLens('datagov')">
         <span class="d"></span>${e.nm}<span class="t">${e.sync}</span>
-        <span class="cs-delta">${d.amt?`<b>${homeAmt(d.amt)}</b> vs GL`:'in balance'}</span></span>`;
+        <span class="cs-delta">${d.amt?`<b>${homeAmt(d.amt)}</b> TB delta`:'TB in balance'}</span>
+        <span class="cs-delta">${e.inflight?`<b>${e.inflight.toLocaleString('en-US')}</b> in flight`:'0 in flight'}</span></span>`;
     }).join('')+
+    `<span class="cs-per"><span class="cs-l">Period</span>${periodLabel()}</span>`+
     /* Honest degraded state: name exactly WHAT is stale and AS AT WHEN, rather than letting
        an old figure sit on screen looking current. */
     (stale.length
@@ -5723,9 +5757,9 @@ function wsPinToast(){
   let t=document.getElementById('wsToast');
   if(!t){ t=document.createElement('div'); t.id='wsToast'; document.body.appendChild(t); }
   t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:90;'+
-    'background:var(--rail);color:#fff;font-size:12.5px;padding:9px 14px;border-radius:8px;'+
+    'background:var(--chrome-bg);color:#fff;font-size:12.5px;padding:9px 14px;border-radius:8px;'+
     'box-shadow:var(--shadow-md)';
-  t.innerHTML=`Pinned to your workspace &nbsp;<span style="color:var(--rail-ai);cursor:pointer"
+  t.innerHTML=`Pinned to your workspace &nbsp;<span style="color:var(--chrome-ai);cursor:pointer"
     onclick="pickLens('portfolio');pickTab('overview')">View</span>`;
   clearTimeout(WS._toast); WS._toast=setTimeout(()=>{ if(t) t.remove(); },3200);
 }
@@ -7773,7 +7807,7 @@ const RAIL_SPEC={
     {head:'Close & ledger'},
     {tab:'acctover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'acctclose',label:'Close',           ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
-      badge:()=>clBlocked().length},
+      badge:()=>clBlocked().length, sev:()=>'block'},   // blocked tasks stop the close
     {tab:'glintel',  label:'General Ledger',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6',
       kids:[{label:'GL overview',        sub:null, tab:'glover'},
             {label:'Trial balance',      sub:null, tab:'tb'},
@@ -7782,7 +7816,7 @@ const RAIL_SPEC={
             {label:'Flux review',        sub:null, tab:'finrep'},
             {label:'Trending review',    sub:null, tab:'gltrend'}]},
     {tab:'glrecon',  label:'Reconciliations', ic:'M3 5.5h7l-2-2M13 10.5H6l2 2',
-      badge:()=>GL_RECON.filter(r=>r.st==='over').length},
+      badge:()=>GL_RECON.filter(r=>r.st==='over').length, sev:()=>'warn'},   // overdue, at risk
     {tab:'icomp',    label:'Intercompany',    ic:'M8 2v12M3 5h10M3 11h10',
       badge:()=>icUnmatched().length},
     {tab:'consol',   label:'Consolidation',   ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11'},
@@ -8173,11 +8207,15 @@ function setFpSegBy(v){ fpSegBy=v; renderAll(); }
 // ==================== GENERAL LEDGER: source systems, close, recs, activity ====================
 // Entity counts and balances stay consistent with COA/FINREP_SUPP; nothing here re-states a
 // number the statements already derive.
+/* `inflight` is records currently queued between the source system and Korvyn. Like `sync`,
+   `thru`, `next` and `iss` it is AUTHORED sample data, not a derivation — Korvyn has no queue
+   to count in this prototype. It is listed here, beside the other authored fields, precisely
+   so nobody later mistakes it for a computed figure and tries to "fix" it to tie to something. */
 const GL_ERP=[
-  {nm:'NetSuite',        ini:'NS', ent:12, sync:'10 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 50 min', iss:0},
-  {nm:'Oracle ERP Cloud',ini:'OR', ent:6,  sync:'25 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 35 min', iss:0},
-  {nm:'SAP S/4HANA',     ini:'SAP',ent:4,  sync:'45 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 15 min', iss:0},
-  {nm:'JD Edwards',      ini:'JDE',ent:2,  sync:'1 hr ago',   thru:'Jun 29, 2026', st:'warn', next:'in 2 hrs',  iss:1},
+  {nm:'NetSuite',        ini:'NS', ent:12, sync:'10 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 50 min', iss:0, inflight:0},
+  {nm:'Oracle ERP Cloud',ini:'OR', ent:6,  sync:'25 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 35 min', iss:0, inflight:1284},
+  {nm:'SAP S/4HANA',     ini:'SAP',ent:4,  sync:'45 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 15 min', iss:0, inflight:0},
+  {nm:'JD Edwards',      ini:'JDE',ent:2,  sync:'1 hr ago',   thru:'Jun 29, 2026', st:'warn', next:'in 2 hrs',  iss:1, inflight:9613},
 ];
 const ERP_ST={ok:{l:'Synced',c:'good'},warn:{l:'Sync delayed',c:'ready'},err:{l:'Error',c:'flag'}};
 const ERP_HEALTH={ok:{l:'Healthy',c:'good'},warn:{l:'Warning',c:'ready'},err:{l:'Error',c:'flag'}};
@@ -17009,7 +17047,12 @@ function paintRailRoles(){
                  : it.lens ? `pickLens('${it.lens}')`
                  : (it.sub ? `setFDetailTab('${it.sub}');pickTab('${it.tab}')` : `pickTab('${it.tab}')`);
         let extra='';
-        if(it.badge){ const n=it.badge(); if(n) extra=`<span class="rbadge ${it.mut?'mut':''}">${n}</span>`; }
+        // `sev` marks a count that represents BLOCKING work, so it carries the dark-surface
+        // semantic instead of the neutral fill. Everything else stays neutral by default —
+        // red on every badge is alarm fatigue and buries the genuinely critical.
+        if(it.badge){ const n=it.badge();
+          if(n){ const sv=it.sev?it.sev():'';
+            extra=`<span class="rbadge ${it.mut?'mut':''} ${sv}">${n}</span>`; } }
         if(it.kids) extra=`<svg class="rchev" viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10l4-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         const open=!!railExpanded[it.label];
         let out=`<button class="railrole ${active?'on':''} ${open?'exp':''}" title="${it.label}" onclick="${it.kids?`toggleRailGroup('${it.label}');`:''}${go}">${path(it.ic)}<span class="lbl">${it.label}</span>${extra}</button>`;
