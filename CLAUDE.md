@@ -154,11 +154,30 @@ necessary, the answer is a different ramp step, not a new colour.
   column carries `flex:true` (`max-width:0`) and truncates with a title tooltip.
   `dtRepaint(id)` swaps a single table in place, so sort/selection do not re-render the page.
 
-**Number formatting is not yet unified — this is Phase 4's first job.** `money()` renders a real
-$1,250 variance as `$0.0M`, which reads as nil. `homeAmt()` takes **thousands** and drops to
-whole dollars under $0.1M; the attention table uses it. `$0.0M` still renders on `ledger/tb`,
-`ledger/finrep`, `ledger/exceptions`, `assets/ppe`, `fpa/trend` and one Home widget — all
-pre-existing `money()` calls.
+### MetricCard and the number rule (Phase 4)
+
+- **One card treatment.** `.mc` (new), `.kpi` and `.stat` are all *defined by the same CSS
+  block* — 11px uppercase label, 20px value, basis line, hairline divider, drill link. There
+  were two divergent variants across 163 call sites; rather than rewrite each, `.kpi`/`.stat`
+  are now that treatment, so every strip conforms and there is one place to tune. New surfaces
+  call `metricCard(m)` / `metricRow(list)`; `wsStat()` emits MetricCards, so Home's variant is
+  gone rather than duplicated.
+- **`basis` is mandatory; `delta` is optional and only where a prior value truly exists.**
+  A value with nothing qualifying it is the orphaned number this primitive exists to prevent —
+  **verified zero orphans app-wide**, and the check is worth re-running: query every
+  `.mc,.kpi,.stat` and assert each has a non-empty `.mc-b,.d,.sd`.
+  Korvyn holds a real prior-close series in `CC_TREND.pri` and nothing else, so close readiness
+  is the only card with a delta (`closeDeltaVsPrior()`). Do **not** add "vs prior close" to the
+  others — there is no prior value behind them.
+- **THE NUMBER RULE, by figure type, not per card:**
+  magnitude → `money()` / `money0()` / `homeAmt()` (abbreviated);
+  reconciliation-grade → `glK()` (long-form, two decimals, parens for negative).
+  `money()` takes **millions** and below $0.1M now drops to whole dollars — it used to render a
+  real $1,250 variance as `$0.0M`, which reads as nil on the one screen where a controller is
+  hunting exactly that number. Exact zero keeps `$0.0M`, because zero really is zero: the five
+  remaining `$0.0M` in the app were each verified to be genuine nil (residual, variance, an
+  exception with no misstatement).
+  Sign leads the symbol — `-$2.3M`, never `$-2.3M`. `fpM()` was fixed to match.
 
 ## Home is a WORKSPACE, not a dashboard (read before touching Home)
 

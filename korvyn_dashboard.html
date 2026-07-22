@@ -757,13 +757,37 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* ---- KPI cards ---- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:16px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:11px 14px;
-  transition:.15s;position:relative;overflow:hidden}
-.kpi:hover{border-color:var(--line2)}
-.kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:600}
-.kpi .v{font-family:var(--num);font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
-.kpi .d{font-size:10.5px;color:var(--hint);margin-top:3px;line-height:1.3}
+/* ================= MetricCard — the ONE KPI treatment =================
+   Phase 4 standardises on the accounting pattern: 11px uppercase label, large value,
+   basis line, hairline divider, drill link. `.kpi` and `.stat` were two divergent
+   variants of the same idea across 163 call sites; rather than rewrite every one they
+   are now defined AS this treatment, so every existing strip conforms automatically
+   and there is exactly one place to tune. New surfaces call metricCard(). */
+.mcrow,.kpis,.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));
+  gap:var(--s-3);margin-bottom:var(--s-4)}
+.mc,.kpi,.stat{background:var(--surface);border:var(--border);border-radius:var(--radius-sm);
+  padding:var(--s-3) var(--s-4);display:flex;flex-direction:column;min-width:0;
+  position:relative;overflow:hidden;transition:border-color .15s}
+.mc:hover,.kpi:hover,.stat:hover{border-color:var(--line2)}
+.mc-l,.kpi .k,.stat .sl{font-size:var(--fs-label);font-weight:var(--fw-label);
+  letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--n-6);
+  margin-bottom:var(--s-2);display:block}
+.mc-v,.kpi .v,.stat .sv{font-family:var(--num);font-size:var(--fs-page);
+  font-weight:var(--fw-medium);letter-spacing:-.02em;line-height:1.05;color:var(--ink)}
+.mc-v.neg,.kpi.flag .v{color:var(--neg)}
+.mc-v.pos,.kpi.good .v{color:var(--pos)}
+.kpi.warn .v{color:var(--warn)}
+.mc-b,.kpi .d,.stat .sd{font-size:var(--fs-label);color:var(--n-6);margin-top:var(--s-1);
+  line-height:1.35}
+/* The delta is the only place a metric card may carry semantic colour, and it is only
+   drawn when a real prior value exists. */
+.mc-b .dlt{font-weight:var(--fw-medium)}
+.mc-b .dlt.up{color:var(--pos)} .mc-b .dlt.dn{color:var(--neg)}
+.mc-go{margin-top:auto;padding-top:var(--s-2);border-top:var(--border);font-size:var(--fs-label);
+  font-weight:var(--fw-medium);color:var(--accent);cursor:pointer;display:inline-flex;
+  align-items:center;gap:var(--s-1)}
+.mc-go:hover{color:var(--accent-ink)}
+.mc.clickable{cursor:pointer}
 .kpi.flag .v{color:var(--neg)}.kpi.good .v{color:var(--pos)}.kpi.warn .v{color:var(--warn)}
 .kpi.lenshi{border-color:var(--accent-line)}
 .kpi.lenshi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
@@ -1122,11 +1146,10 @@ footer b{color:var(--muted)}
 .extlink{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-weight:600;cursor:pointer}
 .extlink:hover{text-decoration:underline}
 .extlink svg{width:11px;height:11px}
-.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
-.stat .sl{font-size:11px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:5px}
-.stat .sv{font-family:var(--num);font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.stat .sd{font-size:10.5px;color:var(--hint);margin-top:2px}
+/* .statrow / .stat were the homepage's divergent variant — 11px label, 19px value, no
+   drill link. They are now defined by the MetricCard block above, so the variant is gone
+   rather than duplicated. Only .stat's negative-value tone is still declared here. */
+.stat .sv.neg{color:var(--neg)}
 .spark{width:100%;height:170px}
 .progline{display:flex;align-items:center;gap:9px}
 .progline .mini-bar{flex:1;min-width:60px}
@@ -2356,8 +2379,30 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 <script>
 // ============================================================ DATA
 const FX={USD:1,EUR:1.08,GBP:1.27,SGD:0.74};
-const money=(n,dec=1)=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec})+'M';
-const money0=n=>'$'+Math.round(Number(n)).toLocaleString('en-US')+'M';
+/* ===================== THE NUMBER FORMATTING RULE (Phase 4) =====================
+   One rule, applied by figure TYPE rather than per-card:
+
+     MAGNITUDE indicator   -> abbreviated        money() / money0() / homeAmt()
+     RECONCILIATION-grade  -> long-form w/ cents fmtExact() (glK)
+
+   `money()` takes MILLIONS. It used to render every value with an M suffix, so a real
+   $1,250 variance came out as "$0.0M" — which reads as nil, on the one screen where a
+   controller is looking for exactly that number. Below $0.1M it now drops to whole
+   dollars instead. Exact zero keeps the M form, because zero really is zero.        */
+const money=(n,dec=1)=>{
+  const v=Number(n)||0;
+  if(v!==0&&Math.abs(v)<0.1)
+    return (v<0?'-':'')+'$'+Math.round(Math.abs(v)*1e6).toLocaleString('en-US');
+  // Sign leads the currency symbol — "-$2.3M", not "$-2.3M".
+  return (v<0?'-':'')+'$'+Math.abs(v).toLocaleString('en-US',
+    {minimumFractionDigits:dec,maximumFractionDigits:dec})+'M';
+};
+const money0=n=>{
+  const v=Number(n)||0;
+  if(v!==0&&Math.abs(v)<0.1)
+    return (v<0?'-':'')+'$'+Math.round(Math.abs(v)*1e6).toLocaleString('en-US');
+  return (v<0?'-':'')+'$'+Math.round(Math.abs(v)).toLocaleString('en-US')+'M';
+};
 const pct=(n)=>Math.round(n)+'%';
 
 // region, site, fund, ccy, vendor, quarter, committed, incurred, paid  (LOCAL currency, $M)
@@ -4154,10 +4199,46 @@ function wsRows(rows,cols){
   return `<table class="tbl"><tbody>${rows.map(r=>
     `<tr class="${r.go?'row-click':''}" ${r.go?`onclick="${r.go}"`:''}>${cols(r)}</tr>`).join('')}</tbody></table>`;
 }
+/* ---------------------------------------------------------------------------------------
+   MetricCard. The one KPI treatment.
+
+   m: { l:label, v:value, basis, delta?:{v,dir,note}, go?, lk?, neg?, pos? }
+
+   RULE: `basis` is mandatory — a value with nothing qualifying it is an orphaned number,
+   which is what this primitive exists to prevent. `delta` is OPTIONAL and is rendered only
+   where a genuine prior value exists. Korvyn holds a prior-close series for close readiness
+   and nothing else, so inventing "+X vs prior close" on the other cards would be fabricating
+   a comparison. Absent a prior, the basis carries the card alone.
+   --------------------------------------------------------------------------------------- */
+function metricCard(m){
+  const d=m.delta;
+  const dl=d?`<span class="dlt ${d.dir}">${d.dir==='up'?'&#9650;':'&#9660;'} ${d.v}</span>${
+      d.note?' '+d.note:''} &#183; `:'';
+  return `<div class="mc ${m.go&&!m.lk?'clickable':''}" ${m.go&&!m.lk?`onclick="${m.go}"`:''}>
+    <span class="mc-l">${m.l}</span>
+    <span class="mc-v ${m.neg?'neg':''}${m.pos?'pos':''}">${m.v}</span>
+    <span class="mc-b">${dl}${m.basis||''}</span>
+    ${m.go&&m.lk?`<span class="mc-go" onclick="${m.go}">${m.lk} &#8594;</span>`:''}
+  </div>`;
+}
+function metricRow(list){ return `<div class="mcrow">${list.map(metricCard).join('')}</div>`; }
+
+/** Kept as the widget-facing name; it now emits MetricCards, so Home no longer has a
+    divergent card variant. `d` is the basis and is required. */
 function wsStat(list){
-  return `<div class="statrow">${list.map(x=>
-    `<div class="stat ${x.go?'row-click':''}" ${x.go?`onclick="${x.go}"`:''}><div class="sl">${x.l}</div>
-      <div class="sv ${x.neg?'neg':''}">${x.v}</div><div class="sd">${x.d||''}</div></div>`).join('')}</div>`;
+  return metricRow(list.map(x=>({l:x.l,v:x.v,basis:x.d||'',delta:x.delta,neg:x.neg,pos:x.pos,
+    go:x.go,lk:x.lk})));
+}
+
+/** Close readiness is the one metric with a real prior-close series to compare against.
+    CC_TREND.pri is the prior close at the same elapsed point. */
+function closeDeltaVsPrior(){
+  try{
+    const pri=CC_TREND.pri, last=pri[pri.length-1][1], now=closePct();
+    const diff=now-last;
+    if(!diff) return null;
+    return {v:Math.abs(diff)+' pts',dir:diff>0?'up':'dn',note:'vs prior close'};
+  }catch(e){ return null; }
 }
 const wsFoot=(txt,go,lbl)=>`<div class="cardfoot">${go?`<span class="cardlink" onclick="${go}">${lbl||'Open'} &#8594;</span>`:''}${txt?`<span class="note" style="margin:0">${txt}</span>`:''}</div>`;
 
@@ -4177,19 +4258,28 @@ wsRegister({id:'pulse',cat:'Executive',title:'Enterprise pulse',def:'full',sizes
   desc:'Close readiness, approvals, exceptions, unreconciled balance and your open items.',
   ic:'M2 8h3l2-4 2 8 2-6 1 2h2',src:"pickTab('mywork')",
   render:()=>{
+    // Every card carries a BASIS. Only close readiness carries a delta, because it is the
+    // only metric with a real prior-close series behind it.
     const S=[];
-    try{ S.push({l:'Close readiness',v:closePct()+'%',d:closeTotals().blk+' blocked',
-      go:"pickLens('ledger');pickTab('acctclose')"}); }catch(e){}
-    try{ S.push({l:'Open approvals',v:FILING_APPROVALS.filter(a=>a.st==='pending').length,
-      d:'awaiting sign-off',go:"pickTab('approvals')"}); }catch(e){}
+    try{ const t=closeTotals();
+      S.push({l:'Close readiness',v:closePct()+'%',delta:closeDeltaVsPrior(),
+      d:t.done+' of '+CLOSE_TASKS.length+' tasks · '+t.blk+' blocked',
+      go:"pickLens('ledger');pickTab('acctclose')",lk:'Close detail'}); }catch(e){}
+    try{ const ap=FILING_APPROVALS.filter(a=>a.st==='pending');
+      S.push({l:'Open approvals',v:ap.length,
+      d:[...new Set(ap.map(a=>a.who))].length+' approvers · awaiting sign-off',
+      go:"pickTab('approvals')",lk:'Approvals'}); }catch(e){}
     try{ const k=axKpi(); S.push({l:'Material exceptions',v:k.open.length,
-      d:(k.blocking?k.blocking.length:0)+' blocking close',neg:k.open.length>0,
-      go:"pickLens('ledger');pickTab('exceptions')"}); }catch(e){}
-    try{ const un=GL_RECON.reduce((a,r)=>a+Math.abs(r.diff),0);
-      S.push({l:'Unreconciled balance',v:un?homeAmt(un):'$0',d:'across all entities',neg:un>0,
-      go:"pickLens('ledger');pickTab('glrecon')"}); }catch(e){}
-    try{ S.push({l:'My open items',v:wsTaskCount()+wsIssueCount(),d:'tasks and issues assigned',
-      go:"pickTab('mywork')"}); }catch(e){}
+      d:(k.blocking?k.blocking.length:0)+' blocking close · '+money(k.misstate)+' could misstate',
+      neg:k.open.length>0,
+      go:"pickLens('ledger');pickTab('exceptions')",lk:'Exceptions'}); }catch(e){}
+    try{ const diffs=GL_RECON.filter(r=>r.diff), un=diffs.reduce((a,r)=>a+Math.abs(r.diff),0);
+      S.push({l:'Unreconciled balance',v:un?homeAmt(un):'$0',
+      d:diffs.length+' of '+GL_RECON.length+' accounts with a difference',neg:un>0,
+      go:"pickLens('ledger');pickTab('glrecon')",lk:'Reconciliations'}); }catch(e){}
+    try{ S.push({l:'My open items',v:wsTaskCount()+wsIssueCount(),
+      d:wsTaskCount()+' tasks · '+wsIssueCount()+' issues assigned',
+      go:"pickTab('mywork')",lk:'My work'}); }catch(e){}
     return wsStat(S);
   }});
 
@@ -4200,13 +4290,17 @@ wsRegister({id:'capital',cat:'Executive',title:'Capital programme',def:'full',si
     const P=portfolio();
     const halls=HALLS.filter(h=>(c.region==='all'?(F.region==='all'||h.region===F.region):h.region===c.region));
     const ready=halls.filter(h=>h.status==='ready').reduce((a,h)=>a+h.cip,0);
+    const go="pickLens('assets');pickTab('caplife')";
     return wsStat([
-      {l:'Committed',v:money0(P.committed),d:'signed POs'+ccyTag()},
-      {l:'Incurred',v:money0(P.incurred),d:pct(P.incurred/P.budget*100)+' of budget'},
-      {l:'Paid',v:money0(P.paid),d:'bank-confirmed'},
-      {l:'Open commitment',v:money0(P.openCommit),d:'not yet incurred'},
+      {l:'Committed',v:money0(P.committed),d:'signed POs'+ccyTag(),go,lk:'Commitments'},
+      {l:'Incurred',v:money0(P.incurred),d:pct(P.incurred/P.budget*100)+' of '+money0(P.budget)+' budget',
+       go,lk:'Capital lifecycle'},
+      {l:'Paid',v:money0(P.paid),d:'bank-confirmed · '+pct(P.paid/P.incurred*100)+' of incurred',
+       go:"pickLens('procure')",lk:'Payments'},
+      {l:'Open commitment',v:money0(P.openCommit),d:'contracted, not yet incurred',go,lk:'Commitments'},
       {l:'Halls in service',v:halls.filter(h=>h.status==='service').length+' of '+halls.length,
-       d:ready>0?halls.filter(h=>h.status==='ready').length+' ready to place':'all placed'},
+       d:ready>0?halls.filter(h=>h.status==='ready').length+' ready to place':'all placed',
+       go:"pickLens('assets');pickTab('pis')",lk:'Placed-in-service'},
     ]);
   }});
 
@@ -7382,8 +7476,9 @@ function fpActuals(){
 const FP_BUDGET_F=1.021;   // plan was set ~2.1% above where actuals landed
 const fpBudget=v=>v*FP_BUDGET_F;
 const fpVarPct=(a,b)=>b?((a-b)/Math.abs(b))*100:0;
-const fpM=v=>{const a=Math.abs(v);
-  return (a>=1000?'$'+(v/1000).toFixed(2)+'B':'$'+Math.round(v)+'M');};
+/* Sign leads the currency symbol, matching money()/money0(). This rendered "$-31M". */
+const fpM=v=>{const a=Math.abs(v), s=v<0?'-':'';
+  return (a>=1000?s+'$'+(a/1000).toFixed(2)+'B':s+'$'+Math.round(a)+'M');};
 const fpSigned=v=>(v<0?'(':'')+fpM(Math.abs(v)).replace('$','$')+(v<0?')':'');
 
 // segment performance derives from the forecast project book
@@ -7963,8 +8058,10 @@ function renderFpExec(){
     <div class="card" style="margin:0"><h2>Cash Position &amp; Runway</h2>
       <div class="grid2fp" style="grid-template-columns:150px 1fr;margin:0;gap:14px">
         <div>
-          <div class="stat" style="margin-bottom:10px"><div class="sl">Cash &amp; Equivalents</div><div class="sv">$1.03B</div></div>
-          <div class="stat" style="margin-bottom:10px"><div class="sl">Net Cash Used (TTM)</div><div class="sv neg">($214M)</div></div>
+          <div class="stat" style="margin-bottom:10px"><div class="sl">Cash &amp; Equivalents</div><div class="sv">$1.03B</div>
+            <div class="sd">as of May 2026</div></div>
+          <div class="stat" style="margin-bottom:10px"><div class="sl">Net Cash Used (TTM)</div><div class="sv neg">($214M)</div>
+            <div class="sd">trailing twelve months</div></div>
           <div class="stat"><div class="sl">Cash Runway</div><div class="sv">4.8 months</div><div class="sd">as of May 2026</div></div>
         </div>
         <div>${fpCashChart(300,150)}</div>
@@ -8132,8 +8229,10 @@ function renderFpCash(){
     <div class="card" style="margin:0"><h2>Runway</h2>
       <div class="stat" style="margin-bottom:10px"><div class="sl">Cash Runway</div><div class="sv">4.8 months</div>
         <div class="sd"><span class="pill ready">Runway &lt; 6 months</span></div></div>
-      <div class="stat" style="margin-bottom:10px"><div class="sl">Avg. Monthly Burn</div><div class="sv">$224M</div></div>
-      <div class="stat"><div class="sl">Burn Multiple</div><div class="sv">1.15x</div></div></div>
+      <div class="stat" style="margin-bottom:10px"><div class="sl">Avg. Monthly Burn</div><div class="sv">$224M</div>
+        <div class="sd">trailing twelve months</div></div>
+      <div class="stat"><div class="sl">Burn Multiple</div><div class="sv">1.15x</div>
+        <div class="sd">net burn per dollar deployed</div></div></div>
     <div class="card" style="margin:0"><h2>Liquidity Summary</h2>
       <div class="kv"><span class="kvk">Total Facility</span><b>$${(FP_FACILITY.total/1000).toFixed(2)}B</b></div>
       <div class="kv"><span class="kvk">Available</span><b>$${(FP_FACILITY.available/1000).toFixed(2)}B</b></div>
@@ -10788,8 +10887,10 @@ function renderGLTrend(){
     </div></div>`;
   o+=`<div class="grid2gl" style="grid-template-columns:minmax(190px,240px) 1fr">
     <div>
-      <div class="stat" style="margin-bottom:12px"><div class="sl">CAGR</div><div class="sv">${cagr}%</div></div>
-      <div class="stat" style="margin-bottom:12px"><div class="sl">Average (30-mo)</div><div class="sv">$${avg.toLocaleString()}K</div></div>
+      <div class="stat" style="margin-bottom:12px"><div class="sl">CAGR</div><div class="sv">${cagr}%</div>
+        <div class="sd">compound, across the 30-month series</div></div>
+      <div class="stat" style="margin-bottom:12px"><div class="sl">Average (30-mo)</div><div class="sv">$${avg.toLocaleString()}K</div>
+        <div class="sd">monthly mean</div></div>
       <div class="stat" style="margin-bottom:12px"><div class="sl">High</div><div class="sv">$${hi.toLocaleString()}K</div><div class="sd">Jun 2026</div></div>
       <div class="stat"><div class="sl">Low</div><div class="sv">$${lo.toLocaleString()}K</div><div class="sd">Feb 2024</div></div>
     </div>
@@ -11098,10 +11199,14 @@ function renderGLClose(){
       <div class="donut-wrap">${glDonut(closePct(),150,'complete')}
       <div style="flex:1;min-width:130px">${glLegend(CLOSE_LEG())}</div></div></div>
     <div class="statrow" style="margin:0">
-      <div class="stat"><div class="sl">Total tasks</div><div class="sv">${tot}</div></div>
-      <div class="stat"><div class="sl">Blocked tasks</div><div class="sv" style="color:var(--neg)">${t.blk}</div></div>
-      <div class="stat"><div class="sl">In progress</div><div class="sv">${t.prog}</div></div>
-      <div class="stat"><div class="sl">Not started</div><div class="sv">${t.not}</div></div>
+      <div class="stat"><div class="sl">Total tasks</div><div class="sv">${tot}</div>
+        <div class="sd">${Math.round(t.done/tot*100)}% complete</div></div>
+      <div class="stat"><div class="sl">Blocked tasks</div><div class="sv" style="color:var(--neg)">${t.blk}</div>
+        <div class="sd">${[...new Set(clBlocked().map(b=>b.ent))].length} entities affected</div></div>
+      <div class="stat"><div class="sl">In progress</div><div class="sv">${t.prog}</div>
+        <div class="sd">${Math.round(t.prog/tot*100)}% of the checklist</div></div>
+      <div class="stat"><div class="sl">Not started</div><div class="sv">${t.not}</div>
+        <div class="sd">${Math.round(t.not/tot*100)}% of the checklist</div></div>
     </div></div>`;
   o+=`<div class="card"><h2>Entity close status<span class="note">${GL_CLOSE.length} entities</span></h2>
     <table class="tbl"><thead><tr><th>Entity</th><th>Progress</th><th class="num">Completed</th>
@@ -11149,11 +11254,17 @@ function renderGLSync(){
     `<button class="btn-out" onclick="pickTab('glover')">View integrations</button>
      <button class="btn-primary" onclick="renderAll()">Refresh all</button>`);
   o+=`<div class="statrow">
-    <div class="stat"><div class="sl">Total integrations</div><div class="sv">${GL_ERP.length}</div></div>
-    <div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:var(--pos)"></span>Healthy</div><div class="sv">${healthy}</div></div>
-    <div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:var(--warn)"></span>Warnings</div><div class="sv">${warn}</div></div>
-    <div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:var(--neg)"></span>Errors</div><div class="sv">${err}</div></div>
-    <div class="stat"><div class="sl">Last data update</div><div class="sv" style="font-size:17px">10 min ago</div></div>
+    <div class="stat"><div class="sl">Total integrations</div><div class="sv">${GL_ERP.length}</div>
+      <div class="sd">${GL_ERP.reduce((a,e)=>a+e.ent,0)} entities fed</div></div>
+    <div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:var(--pos)"></span>Healthy</div><div class="sv">${healthy}</div>
+      <div class="sd">of ${GL_ERP.length} source systems</div></div>
+    <div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:var(--warn)"></span>Warnings</div><div class="sv">${warn}</div>
+      <div class="sd">${GL_ERP.filter(e=>e.st==='warn').map(e=>e.nm).join(', ')||'none'}</div></div>
+    <div class="stat"><div class="sl"><span class="sw" style="width:8px;height:8px;border-radius:50%;background:var(--neg)"></span>Errors</div><div class="sv">${err}</div>
+      <div class="sd">${GL_ERP.reduce((a,e)=>a+e.iss,0)} open data issues</div></div>
+    <div class="stat"><div class="sl">Last data update</div>
+      <div class="sv">${GL_ERP[0].sync}</div>
+      <div class="sd">most recent feed · books through ${GL_ERP[0].thru}</div></div>
   </div>`;
   o+=`<div class="card"><h2>Source systems<span class="note">${GL_ERP.reduce((a,e)=>a+e.ent,0)} entities across ${GL_ERP.length} integrations</span></h2>
     <table class="tbl"><thead><tr><th>Source ERP</th><th>Status</th><th class="num">Entities</th>
