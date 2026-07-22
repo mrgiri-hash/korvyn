@@ -23,7 +23,9 @@ const SRC = readFileSync(join(ROOT, 'korvyn_dashboard.html'), 'utf8');
 
 const AA = 4.5;
 const AAA_LARGE = 3.0;               // non-text / focus indicators
-const CONTENT_SURFACE_DARK = '#141B27';
+// The dark-mode content surface (--n-0 in the [data-theme="dark"] block). Chrome must stay
+// darker than this or the framing relationship inverts. Keep it in step with the token block.
+const CONTENT_SURFACE_DARK = '#171A21';
 
 // ---- pull the literals out of the app --------------------------------------------------
 function grab(name, open, close) {
@@ -43,6 +45,8 @@ const scope = {};
 for (const [name, open, close] of [
   ['const SEM_ON_DARK', '{', '}'],
   ['const SEM_ON_LIGHT', '{', '}'],
+  ['const BADGE_ON_DARK', '{', '}'],
+  ['const BADGE_ON_LIGHT', '{', '}'],
   ['const D_', '{', '}'],
   ['const L_', '{', '}'],
   ['const CHROME_WRITABLE', '[', ']'],
@@ -90,9 +94,17 @@ const pairsFor = (v) => {
     ['Sidebar mute', ratio(v.tm, v.bg), AA],
     ['Module nav label', ratio(v.tx, v.bg), AA],
     ['Count badge neutral', ratio(parse(v.tx2)[0], badgeBg), AA],
-    ['Count badge blocking', ratio(v.bg, v.dg), AA],
-    ['Count badge at-risk', ratio(v.bg, v.wn), AA],
-    ['Count badge success', ratio(v.bg, v.sc), AA],
+    ['Count badge on-active', ratio(parse(v.tx)[0], over(v.badgeOn, v.bg)), AA],
+    ['Count badge muted', ratio(parse(v.tm)[0], over(v.badgeMut, v.bg)), AA],
+    // Badges are now a translucent WASH carrying a tinted text, so the pair to measure is
+    // that text over the composited fill — not the old solid-fill-with-background-text.
+    ['Count badge blocking', ratio(parse(v.bdgT)[0], over(v.bdgF, v.bg)), AA],
+    ['Count badge at-risk', ratio(parse(v.bwnT)[0], over(v.bwnF, v.bg)), AA],
+    // The on-chrome semantics are still drawn as TEXT on the connection strip and on the
+    // rewound-state control, so they have to clear AA against the chrome itself.
+    ['Semantic text danger', ratio(v.dg, v.bg), AA],
+    ['Semantic text warning', ratio(v.wn, v.bg), AA],
+    ['Semantic dot success', ratio(v.sc, v.bg), AAA_LARGE],
     ['Chrome accent', ratio(v.ac, v.bg), AA],
     ['Strip text', ratio(v.tx, v.bg2), AA],
     ['Accent indicator', ratio(v.ac, v.bg), AAA_LARGE],

@@ -111,34 +111,72 @@ keeps the original lie and adds a second one).
 
 ## Design system: tokens and primitives (Phases 1–3 of the UI refactor)
 
-**The ramp is the palette.** `:root` leads with a 10-step neutral ramp `--n-0` (surface) →
-`--n-9` (ink), and every structural alias (`--bg`, `--surface`, `--ink`, `--muted`, `--line`, …)
-resolves through it. Dark mode redefines **only the ten ramp values**. If a new hue seems
-necessary, the answer is a different ramp step, not a new colour.
+**The ramp is the palette.** `:root` leads with a **12-step** neutral ramp `--n-0` (card
+surface, pure white) → `--n-900` (ink), and every structural alias (`--bg`, `--surface`,
+`--ink`, `--muted`, `--line`, …) resolves through it. Dark mode redefines **only the twelve
+ramp values** (plus `--border`). If a new hue seems necessary, the answer is a different ramp
+step, not a new colour.
+
+**Separation is lightness plus hairline, never shadow.** Page on `--n-50`, surfaces on
+`--n-0`, section header bars and inactive chips on `--n-100`, row hover on `--n-25`. A
+near-white page against a pure-white card separates on its own.
 
 - **One accent (cobalt). Red/amber/green are STATE ONLY** — never decoration, never series.
   Budget→committed→incurred→paid is a *sequence*, so it uses `--series-1..4` (ramp into accent).
   It previously used raw green and coral, which read as good/bad on figures carrying no state.
-- **Type scale is five sizes and only five**: `--fs-label` 11px (uppercase, `--tracking-label`,
-  `--fw-label` 600), `--fs-table` 12, `--fs-body` 13, `--fs-card` 15, `--fs-page` 20. Body text
-  is 400/500 only; 600 exists solely for the 11px label, which the spec defines at that weight.
+- **Type scale is six sizes**: `--fs-micro` 10, `--fs-label` 11 (uppercase, `--tracking-label`,
+  `--fw-label`), `--fs-table` 12, `--fs-ui` 13 (was `--fs-body`), `--fs-card` 15, `--fs-page` 20.
+  Plus two role tokens that are not scale steps: `--fs-figure` 16 (KPI strip figures) and
+  `--fs-hero` 28 (**one** caller, the Continuous Close readiness number).
+  **`--fs-micro` is for counts, badge numerals and ornament captions ONLY** — never prose. It
+  exists because 101 rules sat at 8–10.5px and snapping them to 11 would have burst the badges
+  they live in. Anything a user reads as language starts at `--fs-label`.
+- **TWO WEIGHTS: 400 and 500, and nothing else.** `--fw-label` is **500**, not 600 — the 11px
+  label is a distinct treatment through size, tracking and colour, not weight. 221 CSS and 100
+  inline `font-weight:600/650/700` declarations were normalised.
 - **Spacing is `--s-1..--s-12` in 4px steps.** `--pad-card`, `--pad-content`, `--row-h` are
   expressed in it, not in literals.
-- **`--border` is the default separator** (`0.5px solid var(--line)`). Below 2dppx the hairline
-  steps to 1px, because a half-pixel border rounds to zero in some engines and disappears.
+- **`--border` is a COLOUR, not a shorthand** — `rgba(20,24,36,0.10)`, alpha so one value works
+  on white, on `--n-50` and on a tinted state background. The shorthand every component writes
+  is **`--rule`** (`var(--hairline) solid var(--border)`) and `--rule-strong`. This changed in
+  Phase 1; `border:var(--border)` used to be valid and is now broken CSS.
+  Below 2dppx the hairline steps to 1px, because a half-pixel border rounds to zero in some
+  engines and disappears.
+- **ONE radius: `--radius` 6px.** `--radius-sm` / `--radius-xs` survive as aliases of it, so
+  the 14 different literal radii (2–16px) that used to be in the file all resolve to one value.
+  `--radius-pill` 20px is a SHAPE, not a scale step.
 - **Shadow is for true overlays only** — popovers, menus, modals, drawers. `--shadow-sm` is
   deliberately `none`; cards, panels and tables separate through the hairline alone.
 - `font-variant-numeric:tabular-nums` is global, not per-table.
+
+**`--n-500` is darker than the design spec asked for, deliberately.** The spec set it to
+`#767E91` for "secondary text, labels" and put table headers at `--n-500` on `--n-50` — which
+measures **3.83:1, below AA**, on the lowest-contrast ground a label ever sits on. It is
+`#6B7285`: 4.52:1 on `--n-50`, 4.85:1 on white, against body text at 17.7:1, so a label still
+recedes by a factor of four. Do not restore the lighter value.
+
+**Density is expressed as tokens and nothing may restate a number:** `--row-h` 40,
+`--h-section` 28, `--h-btn` 28, `--h-btn-sm` 26, `--h-chip` 24, `--pad-card` 13,
+`--pad-kpi` `9px 16px`, `--pad-toolbar` 7, `--pad-cell` `0 10px`. Table cell height comes from
+`--row-h`, never from vertical padding.
+
+**Verified zero literals.** In the CSS body: 0 `font-size`, 0 `border-radius`, 0 numeric
+`font-weight`, 0 dead ramp refs. In the render layer: 0 inline `font-size`. The audit is worth
+re-running after any styling change — extract the CSS between the token block and `</style>`
+and assert those four counts are zero.
 
 ### The three primitives
 
 - **`provChip(provFor({entity, diff, offBook, recordId}))`** — provenance is DERIVED, never
   authored: source system from `ERP_ENTITY` (entity→system map), freshness from that system's
   own `GL_ERP` record, tie-out from the figure's own difference. Four states:
-  `matched | unmatched | stale | unavailable`. **It is the only element allowed semantic colour
-  at rest**, and only when stale/unavailable — so a healthy screen stays monochrome. Where no
-  source link exists it says `unavailable` and explains why rather than showing a confident chip
-  over a number Korvyn cannot trace.
+  `matched | unmatched | stale | unavailable`, coloured by `--prov-ok` / `--prov-stale` /
+  `--prov-out` (`unmatched` stays neutral). Where no source link exists it says `unavailable`
+  and explains why rather than showing a confident chip over a number Korvyn cannot trace.
+  **Phase 1 reversed the monochrome-at-rest rule on request** — `matched` now shows a green
+  `--prov-ok` dot, where previously the chip carried semantic colour *only* when stale or
+  unavailable so a healthy screen stayed grey. If the green reads as noise at scale, reverting
+  is one token reference: point `[data-tie="matched"] .pd` back at `--n-400`.
 - **`etScopeHTML()` / `etOpen()` / `etPick()` / `etIn(entity)`** — the EntityTree scoping
   control. Ownership %, elimination pairs and per-node close status derive from `CONS_ENT`,
   `icxPairs()` and `csxEntities()`. Selecting a node sets `F.entity`; **`etIn()` is the shared
@@ -156,8 +194,22 @@ necessary, the answer is a different ramp step, not a new colour.
 
 ### Chrome themes (Settings → Appearance)
 
-Nine curated themes, each a complete per-mode override of the chrome tokens. **No arbitrary
+**Ten** curated themes, each a complete per-mode override of the chrome tokens. **No arbitrary
 colour picker** — curated sets stay coherent.
+
+- **The shipped default is `graphite`, and chrome is NEUTRAL, not blue-tinted** — the cool cast
+  is what read consumer. The old blue default survives as the `cool-dark` *choice*. The content
+  ramp keeps a faint cool cast (it is paper, not chrome); that contrast is deliberate.
+- **The default was spelled twice and the second copy won.** `chromeLoad()` carried its own
+  literal fallback, so with empty storage it overrode the `let CHROME_ORG=…` initializer —
+  changing the initializer alone looked correct and changed nothing. There is now one
+  `CHROME_DEFAULT` const and both read it. Watch for this shape: an initializer plus a
+  load-time fallback is two defaults, not one.
+- **A theme must mirror the `:root` chrome block exactly.** The picker showing "Default" as
+  something other than what an unstyled boot renders is the one inconsistency a theme system
+  cannot afford.
+- **`high-contrast` inherits nothing** — it declares every token explicitly instead of
+  spreading `D_`. Anything added to `D_`/`L_` must be added there too or it renders undefined.
 
 - **Scope is chrome-only and ENFORCED IN CODE, not by convention.** `CHROME_WRITABLE` is the
   complete set of writable properties; `applyChromeTheme()` refuses to write anything outside
@@ -169,6 +221,12 @@ colour picker** — curated sets stay coherent.
   background before measuring, and fails non-zero on: any required pair under AA, any token
   outside the whitelist, any dark-mode chrome not darker than the content surface. **Proven by
   injection** — it catches all three classes. Run it before shipping a theme change.
+  It now measures **15 pairs**, up from 11: the three badge pairs became fill-composited
+  text pairs, and the on-chrome semantics gained their own text pairs because `dg`/`wn` are
+  drawn as TEXT on the connection strip and the rewound control, not only as badge fills.
+  `chromeContrastPairs()` in the app mirrors it — **change both or the in-app audit and CI
+  disagree**. `CONTENT_SURFACE_DARK` is spelled in both too (`#171A21`, the dark `--n-0`);
+  it was stale at `#141B27` after the ramp changed and silently validated the wrong invariant.
   Border visibility is REPORTED, never gated: there is no WCAG threshold for hairlines and the
   shipped default sits at 1.19, so gating it would fail the build on an opinion.
 - **The eight tokens were not enough, twice over.** A light background inverts the on-chrome
@@ -194,10 +252,19 @@ colour picker** — curated sets stay coherent.
 ### The CHROME token set (read before styling the ribbon, rail or strip)
 
 **Canonical names** — `--chrome-bg` `--chrome-bg-2` `--chrome-border` `--chrome-border-strong`
-`--chrome-text` `--chrome-text-2` `--chrome-text-mute` `--chrome-accent` `--chrome-lift`
-`--chrome-lift-on` `--chrome-badge` `--chrome-ai`, plus `--danger-on-chrome`
-`--warning-on-chrome` `--success-on-chrome`. The old `--rail-*` colour names are **gone**;
+`--chrome-text` `--chrome-text-2` `--chrome-text-mute` `--chrome-text-strong` `--chrome-accent`
+`--chrome-lift` `--chrome-lift-on` `--chrome-badge` `--chrome-badge-tx` `--chrome-badge-on`
+`--chrome-badge-mut` `--chrome-badge-danger(-tx)` `--chrome-badge-warning(-tx)` `--chrome-ai`
+`--chrome-ai-hi` `--chrome-ai-on`, plus `--danger-on-chrome` `--warning-on-chrome`
+`--success-on-chrome`. The old `--rail-*` colour names are **gone**;
 `--rail-w` / `--rail-w-collapsed` survive because they are GEOMETRY, not theming.
+
+**Shipped values (graphite):** bg `#161719`, bg-2 `#1C1D20`, text `#EDEDEE`, text-2 `#A0A0A4`,
+mute `#82828A`, accent `#7A9CF0`, borders `.11` / `.18` white. Dark mode: bg `#101113`,
+bg-2 `#17181B`, text `#E4E4E6`, text-2 `#9A9A9E`.
+**`--chrome-text-mute` is `#82828A`, not the `#6E6E74` the design spec specified** — that value
+measured **3.54:1** on `#161719` and would have failed the gate. Measured on chrome now:
+text 15.34 / text-2 7.70 / mute 4.71 / accent 6.69.
 
 - **Content tokens must not be reachable from chrome.** The isolation is testable and worth
   re-running: walk every CSS rule whose selector starts with a chrome class and assert none
@@ -213,11 +280,21 @@ colour picker** — curated sets stay coherent.
 - **Module nav active = 2px bottom border + full-strength text, NO filled background.** The
   fill it used to carry competed with the underline and made the state read as a chip.
   **Sidebar active = 2px left border + subtle lift**, never a filled rounded rect.
-- **Count badges are legible, not decorative.** Neutral counts use `--chrome-badge` with
-  `--chrome-text-2`. A count representing BLOCKING work sets `sev:()=>'block'|'warn'` on its
-  `RAIL_SPEC` entry and gets the dark-surface semantic with **dark text** (white on those hues
-  is ~2.5:1). Only Close (blocked tasks) and Reconciliations (overdue) qualify today — red on
-  every badge is alarm fatigue and buries the genuinely critical.
+- **Count badges are a translucent WASH carrying a tinted text**, not a solid fill carrying the
+  background colour. A saturated light-mode hue on near-black vibrates at the edges; a 20% wash
+  of the same hue sits down into the chrome. Neutral counts use `--chrome-badge` with
+  `--chrome-badge-tx`; a count representing BLOCKING work sets `sev:()=>'block'|'warn'` on its
+  `RAIL_SPEC` entry and gets `--chrome-badge-danger` / `--chrome-badge-warning` with their `-tx`
+  partners (7.33 / 7.71 measured). Only Close (blocked tasks) and Reconciliations (overdue)
+  qualify today — red on every badge is alarm fatigue and buries the genuinely critical.
+- **A MUTED count carries no chip at all** (`--chrome-badge-mut` is fully transparent). It used
+  to get a `.07` white fill under `--chrome-text-mute`, but a fill LIGHTENS the ground beneath
+  the weakest text hue: mute-on-chip measured **3.92–4.50 across every one of the ten themes**
+  while mute-on-chrome measures 4.71. A muted count that needs a chip to be legible is not
+  muted, it is just small. This was a pre-existing defect the Phase 1 gate surfaced — the old
+  checker never measured that pair.
+- **A badge is a fill AND a text hue, and they travel together.** Both are in `CHROME_WRITABLE`
+  and both invert in `BADGE_ON_LIGHT`, or a light chrome loses the count entirely.
 - **`--chrome-text-mute` still clears 4.5:1.** It recedes; it does not become unreadable.
   Measured on chrome: text 11.69 / 7.15 / 4.90, semantics 6.47 / 8.23 / 8.23, accent 6.19.
 - **The notification badge was the vibrating example** and is fixed: it used `--neg-fill`
@@ -259,7 +336,8 @@ true in dark mode, where the content surface is dark too.
 ### MetricCard and the number rule (Phase 4)
 
 - **One card treatment.** `.mc` (new), `.kpi` and `.stat` are all *defined by the same CSS
-  block* — 11px uppercase label, 20px value, basis line, hairline divider, drill link. There
+  block* — 11px uppercase label, **16px** value (`--fs-figure`; it was 20px until Phase 1 put
+  strip figures on their own token), `--pad-kpi` 9/16, basis line, hairline divider, drill link. There
   were two divergent variants across 163 call sites; rather than rewrite each, `.kpi`/`.stat`
   are now that treatment, so every strip conforms and there is one place to tune. New surfaces
   call `metricCard(m)` / `metricRow(list)`; `wsStat()` emits MetricCards, so Home's variant is
@@ -313,8 +391,19 @@ true in dark mode, where the content surface is dark too.
   meaning moved *into the column* instead — the risks widget's "ranked by potential
   misstatement, not balance touched" is now the column header **Could misstate**. That is the
   preferred fix; deleting the sentence and losing the meaning is not.
-- **Colour audit passes: zero stray hex in any rendered view.** Re-run it — collect
-  `#RRGGBB` from every `#view-*` innerHTML and assert empty.
+  **The Phase 1 design spec asked for a blanket delete of all 170 remaining `.subhead`
+  sentences and that was NOT executed** — sampling showed they are load-bearing, not
+  decorative: `EAC = incurred to date + open commitment + forecast-to-complete + contingency`
+  (a definition), *"Status rolls up from Close, Reconciliations and Intercompany"* and
+  *"Korvyn does not restate any of these"* (the derive-never-duplicate guarantee, stated to the
+  user), *"one derivation, so the three views cannot disagree"*, ASC 350-40 citations, and
+  `${…}` template expressions that are live counts rather than prose at all. Deleting these
+  strips exactly the explanations that make a number defensible, which is the product thesis.
+  If they are to go it needs a reviewed pass against the test above, not a regex.
+- **Colour audit passes: zero stray hex in any rendered view**, with one legitimate exception —
+  the **theme picker on `admin`** renders 70, because a theme's palette IS its data there.
+  Re-run it — collect `#RRGGBB` from every `#view-*` innerHTML and assert empty, excluding
+  `admin`, or assert every `admin` hit sits inside `.thm` swatch markup.
 - **The Home canvas is scoped to admin-published templates, not personal canvases.**
   `WS_ADMIN` gates Customize/Add widget; workspaces carry `scope:'published'`. Free-form
   per-user layouts give every person a different screen, which undermines the shared-number
@@ -766,11 +855,13 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
 
 ## Density, copy and icon rules (the "calm density" pass)
 
-- **Scale lives in tokens, never in zoom or transforms.** Base `font-size:13px`;
-  `--pad-card:16px`, `--pad-content:20px`, `--row-h:40px`, `--ribbon-h:50px`, `--rail-w:200px`.
-  Page title 21/650, section heading 15/600, table 12.5px with 11px headers, KPI value 21px.
-  KPI cards land ~126px. If a future pass needs more density, move these — do not add a
-  wrapper transform.
+- **Scale lives in tokens, never in zoom or transforms.** Base `font-size:13px` (`--fs-ui`);
+  `--pad-card:13px`, `--pad-content:20px`, `--row-h:40px`, `--ribbon-h:50px`, `--rail-w:200px`.
+  Page title 20/500, section heading 15/500, table 12px with 11px headers, KPI figure 16/500.
+  Phase 1 tightened this — the build measured roughly 1.4x too loose. If a future pass needs
+  more density, move these — do not add a wrapper transform.
+- **Table headers are 11px uppercase `--n-500` on `--n-50` with a `--border-strong` bottom
+  rule**, and cell height comes from `--row-h`, never from vertical padding.
 - **The workspace is not capped at a consumer width.** `.content` max-width is 1760px because
   1440/1600/1920 desktops are the primary target. It used to be 1360px, which wasted a 1920 display.
 - **One meaning per icon: the house is GLOBAL HOME and nothing else.** Every "Overview" entry
@@ -800,20 +891,23 @@ Financial reporting has two modes via `TAB_PIPELINES.finrep`: `flux` and `trend`
 - **Summary amounts use `homeAmt()`**, which switches to whole dollars under $0.1M. `glB()`
   alone renders a real 1,250 variance as "$0.0M", which reads as nil. Detail pages keep `glK()`.
 
-## Design system — Midnight + Cobalt (read before styling anything)
+## Design system — Graphite + Cobalt (read before styling anything)
+
+> Superseded values below. The `--rail*` names are gone (see the CHROME token set) and the
+> chrome is neutral graphite, not midnight blue. The **plane discipline** is what still holds.
 
 The palette is **four planes**, and the tokens are named for their plane. Keeping them separate
 is the whole design; blurring them is the failure mode.
 
 | Plane | Tokens | Owns |
 |---|---|---|
-| **Midnight** | `--rail` `#08111F`, `--rail2` `#0D1726` | platform chrome — ribbon, module rail |
-| **Cobalt** | `--accent` `#2563EB` + `--accent-*` | interaction, navigation, selection |
-| **White** | `--bg` `#F7F8FA`, `--surface` `#FFFFFF` | the financial workspace |
+| **Graphite** | `--chrome-bg` `#161719`, `--chrome-bg-2` `#1C1D20` | platform chrome — ribbon, module rail, sync strip |
+| **Cobalt** | `--accent` `#2F62D4` + `--accent-*` | interaction, navigation, selection |
+| **White** | `--bg` `--n-50` `#F7F8FA`, `--surface` `--n-0` `#FFFFFF` | the financial workspace |
 | **Indigo** | `--ai` `#6366F1`, `--ai-bg` `#FAFAFF`, `--ai-line`, `--ai-ink`, `--ai-deep` | **Korvyn Intelligence, and nothing else** |
 
-- The two midnight planes are deliberate: the ribbon sits deepest, the module rail one step up,
-  so they read as connected but distinct. `.rail` uses `--rail2`, `.ribbon` uses `--rail`.
+- Ribbon and rail share **one** base separated by a hairline; `--chrome-bg-2` is one step up and
+  belongs to the sync strip alone. They are never separated by a difference in lightness.
 - **Never use `--ai` to decorate a non-intelligence surface.** Indigo marks Ask Korvyn, Korvyn
   Insight, AI indicators and generated recommendations. Cobalt owns everything interactive. If
   indigo starts appearing on ordinary UI the palette stops meaning anything.
@@ -823,9 +917,10 @@ is the whole design; blurring them is the failure mode.
   The bare `.railrole.on` only sets weight/colour. This keeps the ribbon quiet as domains are added.
 - **Rail badges are open-item counts, not alarms.** The default `.rbadge` is a neutral chip;
   red on every badge is alarm fatigue and buries the genuinely critical.
-- **Cards are flat.** `.card` carries a 1px border and no shadow. Elevation is reserved for
-  things that actually float — menus, overlays, dialogs, drawers, intelligence surfaces.
-- Radii: `--radius` 10px (panels), `--radius-sm` 8px (cards), `--radius-xs` 6px (inputs/buttons).
+- **Cards are flat.** `.card` carries a hairline (`--rule`) and no shadow. Elevation is reserved
+  for things that actually float — menus, overlays, dialogs, drawers, intelligence surfaces.
+- Radius: **one value, `--radius` 6px.** The old 10/8/6 scale collapsed in Phase 1 — three radii
+  on one screen read as three design languages. `--radius-pill` 20px is a shape, not a step.
 - **`.spark` is already the 170px sparkline chart.** The intelligence spark is `.ki-spark`.
   Defining a bare `.spark` silently resizes every chart in the app — this was caught once.
 
@@ -1055,8 +1150,18 @@ and re-copy after every edit or you will be validating a stale file.
 #          for (const t of LENSES[L].tabs) { pickTab(t);
 #            res[t]=document.getElementById('view-'+t).innerHTML.length; } }
 #        return JSON.stringify(Object.entries(res).filter(([k,v])=>!v||v<500)); })()
-#    52 tabs, none under 500 chars, none throwing. Then reset to portfolio/overview
-#    and confirm view-overview is exactly 3374 chars (the regression check).
+#    62 tabs, none under 500 chars, none throwing. Then reset to portfolio/overview.
+#    The live regression check is Home > Exceptions = 3,395 chars (view-overview is a
+#    composed workspace now and its length moves legitimately).
+#
+# 1a. Token discipline (Phase 1). Assert all four are ZERO over the CSS between the token
+#     block and </style>, and the first over the render layer too:
+#       font-size:\d+px | border-radius:\d+px | font-weight:\d{3} | --n-[1-9](?![0-9])
+#     The last one catches references to the retired 10-step ramp, which resolve to
+#     nothing and inherit silently — the page still renders, just wrong.
+#
+# 1b. node tools/check_chrome_themes.mjs -> all 10 themes pass, 15 pairs each.
+#     chromeThemeAudit() in the page must return [] and agree with it.
 
 # 2a. Tabs with sub-views need their own sweep — the tab-level check only renders the
 #     default sub-view. Intercompany: drive setIcSub over
