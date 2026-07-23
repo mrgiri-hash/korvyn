@@ -307,9 +307,11 @@ body{
   /* Two columns only. The assistant is an overlay and deliberately does NOT take a grid
      column, so opening it cannot reflow, resize or redesign the page underneath. */
   grid-template-columns:var(--rail-w) 1fr;
-  /* three rows now: ribbon, the persistent connection strip, then rail+main */
-  grid-template-rows:auto auto 1fr;
-  grid-template-areas:"ribbon ribbon" "strip strip" "rail main";
+  /* Two rows: ribbon, then rail+main. The full-width connection strip that used to sit between
+     them was deleted in Phase 4 — it collided with the assistant overlay and cost 30px on every
+     screen. Source health now lives as a ribbon glyph plus a block in the assistant panel. */
+  grid-template-rows:auto 1fr;
+  grid-template-areas:"ribbon ribbon" "rail main";
   min-height:100vh;
 }
 ::selection{background:var(--accent-bg);color:var(--accent-ink)}
@@ -684,7 +686,6 @@ body.copilot-collapsed .ribai-dot.on{display:block}
    than in the token values. */
 [data-chrome="high-contrast"] .ribbon{border-bottom-width:2px}
 [data-chrome="high-contrast"] .rail{border-right-width:2px}
-[data-chrome="high-contrast"] .constrip{border-bottom-width:2px}
 [data-chrome="high-contrast"] .rail .railrole.on::before{width:4px}
 [data-chrome="high-contrast"] .ribbon-nav .railrole.on::after{height:3px}
 [data-chrome="high-contrast"] .rail-foot,
@@ -727,7 +728,7 @@ body.copilot-collapsed .ribai-dot.on{display:block}
     --danger-on-chrome:#E8756B!important; --warning-on-chrome:#D6A24E!important;
     --success-on-chrome:#4FBF88!important;
   }
-  .ribbon,.rail,.constrip,.ws-bar,.copilot{display:none!important}
+  .ribbon,.rail,.ws-bar,.copilot{display:none!important}
 }
 
 /* ---- the picker ---- */
@@ -754,34 +755,57 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 /* ==================== PHASE 6 — CHROME ====================
    Connection strip, period selector, data-as-of, command palette. All on the chrome
    plane, so every colour here comes from the --chrome-bg* set. */
-/* PERSISTENT means persistent: it sticks directly under the ribbon rather than scrolling
-   away, so the freshness of every figure on screen stays visible while you read them. */
-.constrip{grid-area:strip;position:sticky;top:var(--ribbon-h);z-index:29;
-  background:var(--chrome-bg-2);border-bottom:1px solid var(--chrome-border);
-  display:flex;align-items:center;gap:var(--s-4);padding:0 18px;height:var(--strip-h);min-width:0;
-  overflow-x:auto;scrollbar-width:none}
-.constrip::-webkit-scrollbar{display:none}
-.cs-l{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
-  text-transform:uppercase;color:var(--chrome-text-2);flex:none}
-.cs-sys{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);
-  color:var(--chrome-text);white-space:nowrap;flex:none;cursor:pointer;padding:2px var(--s-2);
-  border-radius:var(--radius-xs)}
-.cs-sys:hover{background:var(--chrome-lift)}
-.cs-sys .d{width:5px;height:5px;border-radius:50%;flex:none}
-.cs-sys[data-st="ok"] .d{background:var(--success-on-chrome)}
-.cs-sys[data-st="warn"] .d{background:var(--warning-on-chrome)}
-.cs-sys[data-st="err"] .d{background:var(--danger-on-chrome)}
-.cs-sys[data-st="warn"],.cs-sys[data-st="err"]{color:var(--warning-on-chrome)}
-.cs-sys[data-st="err"]{color:var(--danger-on-chrome)}
-.cs-sys .t{color:var(--chrome-text-2)}
-.cs-delta{color:var(--chrome-text-2)}
-.cs-delta b{color:var(--chrome-text);font-weight:var(--fw-medium)}
-.cs-per{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);
-  color:var(--chrome-text);white-space:nowrap;flex:none;padding-left:var(--s-3);
-  border-left:1px solid var(--chrome-border)}
-.cs-stale{margin-left:auto;flex:none;display:flex;align-items:center;gap:var(--s-2);
-  font-size:var(--fs-label);color:var(--warning-on-chrome)}
-.cs-ok{margin-left:auto;flex:none;font-size:var(--fs-label);color:var(--chrome-text-2)}
+/* ---- SOURCES: an always-visible ribbon glyph + a block in the assistant panel -------------
+   The full-width connection strip that used to live here was deleted in Phase 4. It cost 30px
+   on every screen and collided with the assistant overlay. What it carried that MUST survive is
+   the always-on signal: a controller has to be able to see a dead ERP feed without opening a
+   panel. That is this glyph — never hidden, colour-coded by the worst source state, with a
+   count badge for the number of degraded feeds. */
+.ribsrc .glyph{color:var(--chrome-text-2)}          /* neutral: every feed healthy */
+.ribsrc[data-st="warn"] .glyph{color:var(--warning-on-chrome)}
+.ribsrc[data-st="err"] .glyph{color:var(--danger-on-chrome)}
+.ribsrc .ct{position:absolute;top:2px;right:1px;min-width:14px;height:14px;padding:0 3px;
+  border-radius:var(--radius);font-size:var(--fs-micro);font-weight:var(--fw-medium);
+  line-height:14px;text-align:center;display:none}
+.ribsrc[data-st="warn"] .ct{display:block;background:var(--chrome-badge-warning);color:var(--chrome-badge-warning-tx)}
+.ribsrc[data-st="err"] .ct{display:block;background:var(--chrome-badge-danger);color:var(--chrome-badge-danger-tx)}
+
+/* The block, at the top of the assistant panel. Collapsed to one summary line by default; the
+   degraded counts carry the only colour a healthy screen never shows. */
+.cp-src{border-bottom:var(--rule);background:var(--surface)}
+.cps-sum{display:flex;align-items:center;gap:var(--s-2);width:100%;border:none;background:none;
+  cursor:pointer;font:inherit;font-size:var(--fs-table);color:var(--ink);text-align:left;
+  padding:10px 16px}
+.cps-sum:hover{background:var(--n-25)}
+.cps-sum .lbl{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-500)}
+.cps-sum .grow{flex:1}
+.cps-sum .warn{color:var(--warning);font-weight:var(--fw-medium)}
+.cps-sum .err{color:var(--danger);font-weight:var(--fw-medium)}
+.cps-sum .ok{color:var(--muted)}
+.cps-sum .cv{width:14px;height:14px;color:var(--muted);transition:transform .15s}
+.cp-src.open .cps-sum .cv{transform:rotate(90deg)}
+.cps-rows{display:none;padding:0 10px 10px}
+.cp-src.open .cps-rows{display:block}
+.cps-row{display:flex;align-items:center;gap:var(--s-2);padding:6px;border-radius:var(--radius)}
+.cps-row .d{width:6px;height:6px;border-radius:50%;flex:none}
+.cps-row[data-st="ok"] .d{background:var(--prov-ok)}
+.cps-row[data-st="warn"] .d{background:var(--warning)}
+.cps-row[data-st="err"] .d{background:var(--danger)}
+.cps-row .nm{font-weight:var(--fw-medium);min-width:96px;color:var(--ink)}
+.cps-row .fresh{font-size:var(--fs-label);color:var(--n-500)}
+.cps-row .grow{flex:1}
+.cps-row .rt{font-size:var(--fs-label);color:var(--muted);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.cps-row .rt b{color:var(--ink);font-weight:var(--fw-medium)}
+.cps-row[data-st="warn"]{background:var(--warning-bg)}
+.cps-row[data-st="err"]{background:var(--danger-bg)}
+/* The note under a degraded row names what is unavailable and which figures are therefore
+   not current — the honest-degradation sentence, not a generic "sync delayed". */
+.cps-note{font-size:var(--fs-label);line-height:1.4;padding:2px 6px 6px calc(6px + var(--s-3));
+  color:var(--muted)}
+.cps-note.err{color:var(--danger)}
+.cps-note b{font-weight:var(--fw-medium)}
 
 /* period + data-as-of, in the header so they are always visible */
 /* MUST be shrinkable. The ribbon shares a grid column with .main, so a flex:none child here
@@ -996,9 +1020,8 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
 /* ============================ MAIN COLUMN ============================ */
 .main{grid-area:main;min-width:0;display:flex;flex-direction:column}
 .content{min-width:0}
-/* Offset by the connection strip, which now sticks below the ribbon — without this the page
-   title parks underneath it. --strip-h is the single source of that height. */
-.topbar{position:sticky;top:calc(var(--ribbon-h) + var(--strip-h));z-index:15;
+/* Sticks directly below the ribbon now that the connection strip is gone. */
+.topbar{position:sticky;top:var(--ribbon-h);z-index:15;
   background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:saturate(1.2) blur(10px);border-bottom:var(--rule);
   padding:12px 26px;display:flex;align-items:center;gap:16px}
@@ -2521,6 +2544,13 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       </svg>
       <span class="ribai-dot" id="ribAiDot"></span>
     </button>
+    <!-- SOURCE HEALTH. Always visible, so a dead ERP feed is seen without opening a panel. The
+         glyph (a stacked-data mark) takes the worst source state as its colour; the badge counts
+         degraded feeds. Clicking opens the assistant to the sources block. -->
+    <button class="ribicon ribsrc" id="ribSrc" data-st="ok" onclick="openSources()" aria-label="Source health">
+      <svg class="glyph" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 4v8c0 1.1 2.24 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.24 2 5 2s5-.9 5-2" stroke="currentColor" stroke-width="1.4"/></svg>
+      <span class="ct"></span>
+    </button>
     <button class="ribicon" onclick="pickLens('issues')" aria-label="Notifications" title="Notifications">
       <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 00-4 4v2.6L2.9 10.6h10.2L12 8.6V6a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 12.6a1.7 1.7 0 003.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       <span class="ribdot" id="ribNotif">0</span>
@@ -2549,9 +2579,6 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   </div>
 
 </header>
-
-<!-- Persistent connection strip. Painted by paintConStrip() from GL_ERP + GL_RECON. -->
-<div class="constrip" id="conStrip"></div>
 
 <!-- ============ LEFT RAIL (sections + utility group) ============ -->
 <aside class="rail" id="railNav">
@@ -4291,6 +4318,14 @@ function provFor(o){
   const s={...base,sourceSystem:sys.nm,syncedAt:sys.sync,thru:sys.thru};
   if(o.offBook) return {...s,tieOutStatus:'unavailable',
     why:'Outside the illustrative capital-only trial balance, so no tie-out is computed.'};
+  /* UNREACHABLE is not the same as behind. A stale feed is connected and a day late; an
+     unreachable one cannot be read at all, so Korvyn cannot confirm the figure is still current
+     — it shows the last value it held, marked unavailable, rather than presenting a stale number
+     as though it were live. This is the honest-degradation behaviour: the chip changes, the
+     number does not silently pretend. */
+  if(sys.st==='err') return {...s,tieOutStatus:'unavailable',
+    why:sys.nm+' is unreachable — last read '+(sys.since||sys.sync)+'. This figure cannot be '+
+        'tied out to source; it is shown as last held, not confirmed current.'};
   if(sys.st!=='ok') return {...s,tieOutStatus:'stale',
     why:'Feed is behind the others — this figure is as at '+sys.thru+', not today.'};
   return {...s,tieOutStatus:o.diff?'unmatched':'matched'};
@@ -4333,20 +4368,32 @@ function provGroup(entities,diffs){
   const st=worst.tieOutStatus;
   const stales=parts.filter(x=>x.p.tieOutStatus==='stale');
   const unm=parts.filter(x=>x.p.tieOutStatus==='unmatched');
+  const unreach=[...new Set(parts.filter(x=>x.p.tieOutStatus==='unavailable')
+    .map(x=>x.p.sourceSystem).filter(Boolean))];
   // A stale feed underneath an unmatched total is still worth saying, so the two facts are
   // composed rather than one silently replacing the other.
+  // Name the stale source's OWN books-through date, not the oldest input's — when an
+  // unreachable feed is also present it is the "oldest" by sync age, and borrowing its date
+  // for the stale note misstated which date belonged to which feed.
   const staleNote=stales.length
-    ? ' '+(stales.length===1?stales[0].p.sourceSystem+' is':stales.length+' feeds are')+
-      ' behind, at '+(oldest.thru||'an earlier date')+'.' : '';
+    ? ' '+(stales.length===1
+        ? stales[0].p.sourceSystem+' is behind, at '+(stales[0].p.thru||'an earlier date')+'.'
+        : stales.length+' feeds are behind.') : '';
   return {sourceSystem:n+(n===1?' system':' systems'),
     syncedAt:oldest.syncedAt, thru:oldest.thru, sourceRecordId:null,
     tieOutStatus:st,
-    why: st==='stale'
+    why: st==='unavailable'
+      // One unreachable contributor makes the whole roll-up unconfirmable — a consolidated
+      // number is only as trustworthy as its least-reachable input.
+      ? (unreach.length?unreach.join(' and ')+(unreach.length===1?' is':' are')+' unreachable, so this '
+          :'A contributing source is unreachable, so this ')+
+        'roll-up cannot be fully tied out — it is shown as last held, not confirmed current.'+staleNote
+      : st==='stale'
       ? 'This roll-up is only as current as its stalest input —'+staleNote
       : st==='unmatched'
       ? unm.length+(unm.length===1?' entity does':' entities do')+
         ' not tie to source, so the total does not either.'+staleNote
-      : st==='unavailable' ? worst.why : null,
+      : null,
     systems:parts.map(x=>({ent:x.ent,sys:x.p.sourceSystem||'No source',
       sync:x.p.syncedAt||'—',tie:x.p.tieOutStatus}))};
 }
@@ -4679,28 +4726,76 @@ function conDeltaFor(sys){
   const rows=GL_RECON.filter(r=>ents.indexOf(r.ent)>=0&&r.diff);
   return {n:rows.length,amt:rows.reduce((a,r)=>a+Math.abs(r.diff),0),ents};
 }
-function paintConStrip(){
-  const el=document.getElementById('conStrip'); if(!el) return;
-  const stale=GL_ERP.filter(e=>e.st!=='ok');
-  const cur=(GL_ERP.filter(e=>e.st==='ok')[0]||{}).thru||'—';
-  el.innerHTML=`<span class="cs-l">Sources</span>`+
-    GL_ERP.map(e=>{
-      const d=conDeltaFor(e);
-      const tip=`${e.nm} · ${d.ents.length} entit${d.ents.length===1?'y':'ies'} · books through ${e.thru} · last sync ${e.sync}`;
-      return `<span class="cs-sys" data-st="${e.st}" title="${tip}" onclick="pickLens('datagov')">
-        <span class="d"></span>${e.nm}<span class="t">${e.sync}</span>
-        <span class="cs-delta">${d.amt?`<b>${homeAmt(d.amt)}</b> TB delta`:'TB in balance'}</span>
-        <span class="cs-delta">${e.inflight?`<b>${e.inflight.toLocaleString('en-US')}</b> in flight`:'0 in flight'}</span></span>`;
-    }).join('')+
-    `<span class="cs-per"><span class="cs-l">Period</span>${periodLabel()}</span>`+
-    /* Honest degraded state: name exactly WHAT is stale and AS AT WHEN, rather than letting
-       an old figure sit on screen looking current. */
-    (stale.length
-      ? `<span class="cs-stale" title="Figures sourced from these systems are not current">
-          ${stale.map(e=>{const d=conDeltaFor(e);
-            return `${e.nm} behind — ${d.ents.length?d.ents.join(', '):e.ent+' entities'} as at ${e.thru}, not ${cur}`;
-          }).join(' · ')}</span>`
-      : `<span class="cs-ok">All feeds current through ${cur}</span>`);
+/* ---- SOURCES: overall health, the ribbon glyph, and the assistant-panel block -------------
+   `srcHealth()` is the single derivation both the glyph and the block read, so they can never
+   disagree about whether a feed is down. `worst` drives the glyph colour; `err`/`warn` counts
+   drive the badge and the summary line. */
+function srcHealth(){
+  const err=GL_ERP.filter(e=>e.st==='err');
+  const warn=GL_ERP.filter(e=>e.st==='warn');
+  const ok=GL_ERP.filter(e=>e.st==='ok');
+  return {err,warn,ok,degraded:err.length+warn.length,
+    worst: err.length?'err':warn.length?'warn':'ok'};
+}
+/** The always-visible ribbon signal. Never hidden — a controller must see a dead feed without
+    opening a panel. Colour is the worst state; the badge counts degraded feeds. */
+function paintSources(){
+  const btn=document.getElementById('ribSrc'); if(!btn) return;
+  const h=srcHealth();
+  btn.setAttribute('data-st',h.worst);
+  const ct=btn.querySelector('.ct'); if(ct) ct.textContent=h.degraded||'';
+  btn.setAttribute('title', h.degraded
+    ? h.degraded+' source'+(h.degraded===1?'':'s')+' degraded — '+
+      (h.err.length?h.err.length+' unreachable':'')+(h.err.length&&h.warn.length?', ':'')+
+      (h.warn.length?h.warn.length+' stale':'')
+    : 'All '+h.ok.length+' sources current');
+}
+/* The entities a system is the book of record for — used to name, on a degraded row, exactly
+   which figures on the page are affected. Derived from ERP_ENTITY, not authored. */
+function srcEntities(sys){ return Object.keys(ERP_ENTITY).filter(e=>ERP_ENTITY[e]===sys); }
+let cpSrcOpen=false;
+function toggleCpSrc(){ cpSrcOpen=!cpSrcOpen; paintCpSrc(); }
+/** Opens the assistant to the sources block — the glyph's click target. */
+function openSources(){ if(typeof cpOpen==='function') cpOpen();
+  cpSrcOpen=true; paintCpSrc();
+  const el=document.getElementById('cpSrc'); if(el) el.scrollIntoView({block:'start'}); }
+/** The block at the top of the assistant panel. Collapsed = one summary line; expanded = one
+    row per system, and a note under each degraded row naming what it makes unavailable. */
+function paintCpSrc(){
+  const el=document.getElementById('cpSrc'); if(!el) return;
+  const h=srcHealth();
+  const parts=[`<span class="ok">${h.ok.length} connected</span>`];
+  if(h.warn.length) parts.push(`<span class="warn">${h.warn.length} stale</span>`);
+  if(h.err.length) parts.push(`<span class="err">${h.err.length} unreachable</span>`);
+  const summary=parts.join(' &#183; ');
+  const rows=GL_ERP.map(e=>{
+    const d=conDeltaFor(e);
+    const fresh=e.st==='err' ? 'last read '+(e.since||e.sync) : e.sync;
+    const flight=e.st==='err' ? '&mdash;'                         // unreachable: cannot count
+      : (e.inflight?`<b>${e.inflight.toLocaleString('en-US')}</b> in flight`:'0 in flight');
+    let row=`<div class="cps-row" data-st="${e.st}">
+      <span class="d"></span><span class="nm">${e.nm}</span>
+      <span class="fresh">${fresh}</span><span class="grow"></span>
+      <span class="rt">${d.amt?`<b>${homeAmt(d.amt)}</b> TB delta`:'TB in balance'}
+        &#183; ${flight}</span></div>`;
+    if(e.st!=='ok'){
+      const ents=srcEntities(e.nm);
+      const who=ents.length?ents.join(', '):e.ent+' entities';
+      row += e.st==='err'
+        ? `<div class="cps-note err"><b>${e.nm}</b> unreachable since ${e.since||e.sync}.
+             Figures for ${who} cannot be tied out — shown with a <b>no&#8209;source</b> chip,
+             not as confirmed current.</div>`
+        : `<div class="cps-note"><b>${e.nm}</b> books through ${e.thru}, a day behind.
+             Figures for ${who} are marked <b>stale</b>.</div>`;
+    }
+    return row;
+  }).join('');
+  el.className='cp-src'+(cpSrcOpen?' open':'');
+  el.innerHTML=`<button class="cps-sum" onclick="toggleCpSrc()" aria-expanded="${cpSrcOpen}">
+      <span class="lbl">Sources</span>${summary}<span class="grow"></span>
+      <svg class="cv" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cps-rows">${rows}</div>`;
 }
 
 /* ---- close period + data-as-of, in the header -------------------------------------------
@@ -8102,11 +8197,22 @@ function setFpSegBy(v){ fpSegBy=v; renderAll(); }
    `thru`, `next` and `iss` it is AUTHORED sample data, not a derivation — Korvyn has no queue
    to count in this prototype. It is listed here, beside the other authored fields, precisely
    so nobody later mistakes it for a computed figure and tries to "fix" it to tie to something. */
+/* `sync`, `thru`, `next`, `iss` and `inflight` are AUTHORED sample data — Korvyn has no live
+   feed behind this prototype to measure them from. Two rows carry a degraded `st` on purpose,
+   because the honest-degradation behaviour is the whole point of the sources feature and it
+   cannot be demonstrated against four healthy feeds:
+     SAP S/4HANA is `warn` — connected but a day behind (a STALE feed).
+     JD Edwards  is `err`  — not reachable since its last successful read (UNREACHABLE).
+   `since` is the absolute last-read stamp for an unreachable source; you cannot say "45 min
+   ago" about a feed you cannot reach, so it records when it was last actually seen.
+   provFor() maps a figure's entity to its system, so flipping these two states propagates to
+   every figure derived from them: SAP-fed figures read `stale`, JD Edwards-fed figures read
+   `unavailable`, with no per-figure wiring. That propagation is the feature. */
 const GL_ERP=[
   {nm:'NetSuite',        ini:'NS', ent:12, sync:'10 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 50 min', iss:0, inflight:0},
   {nm:'Oracle ERP Cloud',ini:'OR', ent:6,  sync:'25 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 35 min', iss:0, inflight:1284},
-  {nm:'SAP S/4HANA',     ini:'SAP',ent:4,  sync:'45 min ago', thru:'Jun 30, 2026', st:'ok',   next:'in 15 min', iss:0, inflight:0},
-  {nm:'JD Edwards',      ini:'JDE',ent:2,  sync:'1 hr ago',   thru:'Jun 29, 2026', st:'warn', next:'in 2 hrs',  iss:1, inflight:9613},
+  {nm:'SAP S/4HANA',     ini:'SAP',ent:4,  sync:'6 hrs ago',  thru:'Jun 29, 2026', st:'warn', next:'in 15 min', iss:1, inflight:0},
+  {nm:'JD Edwards',      ini:'JDE',ent:2,  sync:'4 days ago', thru:'Jun 30, 2026', st:'err',  next:'unknown',   iss:2, inflight:9613, since:'19 Jul 02:10'},
 ];
 const ERP_ST={ok:{l:'Synced',c:'good'},warn:{l:'Sync delayed',c:'ready'},err:{l:'Error',c:'flag'}};
 const ERP_HEALTH={ok:{l:'Healthy',c:'good'},warn:{l:'Warning',c:'ready'},err:{l:'Error',c:'flag'}};
@@ -17291,8 +17397,10 @@ function paintRailRoles(){
   document.querySelectorAll('#railTabs .railrole,#railTabs .railkid').forEach(b=>
     b.addEventListener('click',()=>document.body.classList.remove('nav-open')));
 
-  // Phase 6 chrome rides the same paint cycle as the nav.
-  if(typeof paintConStrip==='function') paintConStrip();
+  // Phase 6 chrome rides the same paint cycle as the nav. The sources glyph and its panel
+  // block replace the old connection strip (Phase 4).
+  if(typeof paintSources==='function') paintSources();
+  if(typeof paintCpSrc==='function') paintCpSrc();
   if(typeof paintHdrCtl==='function') paintHdrCtl();
 }
 
@@ -18808,6 +18916,9 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
   <div class="cp-tabs" id="cpTabs"></div>
   <div class="cp-saved" id="cpSaved"><div class="cp-saved-in" id="cpSavedIn"></div></div>
   <div class="cp-scroll" id="cpScroll">
+    <!-- Source health, at the top of the panel. Painted by paintCpSrc(); persists across
+         thread renders because renderCpHome() only touches #cpThread / #cpHome. -->
+    <div class="cp-src" id="cpSrc"></div>
     <div class="cp-thread" id="cpThread"></div>
     <div id="cpHome"></div>
   </div>

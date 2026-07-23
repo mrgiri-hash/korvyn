@@ -98,7 +98,9 @@ keeps the original lie and adds a second one).
   fully derived and carry no Preview chip. That contrast is the whole point.
 - **Home > Overview was restructured on request** (enterprise command centre) and its old
   3,374-character regression check is retired. The live check is now **Home > Exceptions =
-  3,395 chars**, plus the whole-app sweep. Home leads with enterprise status → Needs your
+  3,663 chars** (was 3,395 until Phase 4; the change is entirely the two degraded source
+  states — restoring SAP `ok` / JDE `warn` reproduces 3,395 exactly, so it is a data change,
+  not a regression), plus the whole-app sweep. Home leads with enterprise status → Needs your
   attention → Korvyn detected → capital position; the four-measure and cost-to-cash analyses
   are preserved verbatim, just moved below the operational queue. `homeAttention()` /
   `homeDetected()` derive from the owning modules and are **reused by Accounting > Overview**,
@@ -291,7 +293,7 @@ colour picker** — curated sets stay coherent.
   injection** — it catches all three classes. Run it before shipping a theme change.
   It now measures **15 pairs**, up from 11: the three badge pairs became fill-composited
   text pairs, and the on-chrome semantics gained their own text pairs because `dg`/`wn` are
-  drawn as TEXT on the connection strip and the rewound control, not only as badge fills.
+  drawn as TEXT (the source-health glyph, the rewound control), not only as badge fills.
   `chromeContrastPairs()` in the app mirrors it — **change both or the in-app audit and CI
   disagree**. `CONTENT_SURFACE_DARK` is spelled in both too (`#171A21`, the dark `--n-0`);
   it was stale at `#141B27` after the ramp changed and silently validated the wrong invariant.
@@ -427,18 +429,39 @@ true in dark mode, where the content surface is dark too.
   exception with no misstatement).
   Sign leads the symbol — `-$2.3M`, never `$-2.3M`. `fpM()` was fixed to match.
 
-### Chrome: connection strip, period, data-as-of, palette, keyboard (Phase 6)
+### Chrome: sources health, period, data-as-of, palette, keyboard (Phase 6, sources rebuilt in Phase 4)
 
-- **The connection strip** (`#conStrip`, `paintConStrip()`) is `position:sticky` under the
-  ribbon — persistent means persistent. Per system it shows last sync and the **delta vs GL**,
-  which is the reconciliation difference for the entities whose book of record IS that system,
-  attributed through `ERP_ENTITY`. **"Records in flight" is deliberately absent**: Korvyn holds
-  no in-flight queue for these feeds, and a fabricated count on the one strip whose job is
-  trust would be self-defeating.
-- **Degraded states name what is stale.** Not "sync delayed" but *"JD Edwards behind —
-  Meridian Management Co as at Jun 29, not Jun 30"*. Never leave an old figure looking current.
-- **`--strip-h` is the single source of the strip height**, and `.topbar` sticks at
-  `calc(var(--ribbon-h) + var(--strip-h))`. Change one, both follow.
+- **The full-width connection strip is DELETED.** `#conStrip` / `paintConStrip` are gone; the
+  body grid is back to two rows (`"ribbon ribbon" "rail main"`) and `.topbar` sticks at
+  `var(--ribbon-h)`. The strip cost 30px on every screen and collided with the assistant
+  overlay. `--strip-h` still exists as a token but is no longer consumed.
+- **Source health is now a ribbon glyph plus a panel block, from one derivation.**
+  `srcHealth()` returns `{ok,warn,err,degraded,worst}` and BOTH surfaces read it, so they cannot
+  disagree about whether a feed is down.
+  - **`#ribSrc` (`.ribsrc`, `paintSources()`) is the always-visible signal and is not optional.**
+    A controller must see a dead ERP feed without opening a panel. The stacked-data glyph takes
+    the *worst* state as its colour — neutral `--chrome-text-2` / amber `--warning-on-chrome` /
+    red `--danger-on-chrome` — and the badge counts degraded feeds. Chrome tokens only; the
+    isolation assertion covers it.
+  - **`#cpSrc` (`.cp-src`, `paintCpSrc()`) sits at the top of the assistant panel**, collapsed to
+    one summary line (`N connected · S stale · U unreachable`, degraded counts in `--warning` /
+    `--danger`). Expanded: one row per system (dot, name at 96px min-width, freshness, TB delta +
+    in-flight), each degraded row on a `--warning-bg` / `--danger-bg` fill and followed by a note
+    naming which entities' figures it makes stale or unavailable. It is the first child of
+    `.cp-scroll` and survives thread renders (`renderCpHome` only touches `#cpThread`/`#cpHome`).
+    The glyph's click handler is `openSources()` — opens the panel, expands the block, scrolls to it.
+- **HONEST DEGRADATION IS THE POINT, and it propagates through `provFor`, not per-figure wiring.**
+  A source's `st` maps a figure's tie-out: `err` (unreachable) → **`unavailable`**, `warn`
+  (behind) → **`stale`**, via the entity→system map. So flipping a source state re-marks every
+  figure derived from it automatically, and `provGroup` rolls a group figure to `unavailable`
+  when any contributing feed is unreachable — a consolidated number is only as trustworthy as
+  its least-reachable input. Verified end-to-end: JD Edwards `err` makes Home's consolidated
+  capital chip read `unavailable`.
+- **Two sources carry a degraded `st` as AUTHORED sample data** (labelled in `GL_ERP`, like
+  `inflight`): **SAP S/4HANA `warn`** (stale) and **JD Edwards `err`** (unreachable, with a
+  `since` last-read stamp). Without them the honest-degradation behaviour cannot be demonstrated
+  against four healthy feeds. This is why the Home > Exceptions regression baseline moved (below).
+  `srcEntities(sys)` derives the affected-entity list from `ERP_ENTITY`; the notes are not authored.
 - **`.hdr-ctl` must stay shrinkable** (`flex:0 1 auto; min-width:0`). It is a flex child of the
   ribbon, which shares a grid column with `.main`, so `flex:none` there put every page into
   horizontal overflow at 805px. It sheds labels at 1200 and hides at 1000 — and
@@ -1246,7 +1269,7 @@ and re-copy after every edit or you will be validating a stale file.
 #            res[t]=document.getElementById('view-'+t).innerHTML.length; } }
 #        return JSON.stringify(Object.entries(res).filter(([k,v])=>!v||v<500)); })()
 #    62 tabs, none under 500 chars, none throwing. Then reset to portfolio/overview.
-#    The live regression check is Home > Exceptions = 3,395 chars (view-overview is a
+#    The live regression check is Home > Exceptions = 3,663 chars (view-overview is a
 #    composed workspace now and its length moves legitimately).
 #
 # 1a. Token discipline (Phase 1). Assert all four are ZERO over the CSS between the token
@@ -1269,7 +1292,7 @@ and re-copy after every edit or you will be validating a stale file.
 #     Exceptions: drive setAxSub over queue/exposure/aging/recur/close/valid/trend and
 #     setAxSel over axExceptions(). ALSO assert Home > Exceptions is unchanged —
 #     pickLens('portfolio');pickTab('exceptions') must still render the old
-#     control-test page (~3,395 chars, no #subnav), since the tab id is shared.
+#     control-test page (~3,663 chars, no #subnav), since the tab id is shared.
 #     Tie assertions: icxTie() -> {ok:true,pairs:5}; csxTie() -> {ok:true,entities:4,submitted:2}.
 
 # 2d. Sub-nav highlight: after each setXSub, assert
