@@ -1056,10 +1056,12 @@ body.rail-collapsed .rail-collapse svg{transform:rotate(180deg)}
    (with its shadow back) so it can never crush the content. This reverses the Phase 4/5 pure-
    overlay rule on request; the margin is what keeps it from covering the page. */
 body:not(.copilot-collapsed):not(.copilot-full) .main,
-body.notif-open .main{margin-right:var(--panel-w)}
+body.notif-open .main,
+body.settings-open .main{margin-right:var(--panel-w)}
 @media(max-width:1100px){
   body:not(.copilot-collapsed):not(.copilot-full) .main,
-  body.notif-open .main{margin-right:0}
+  body.notif-open .main,
+  body.settings-open .main{margin-right:0}
 }
 .content{min-width:0}
 /* Sticks directly below the ribbon now that the connection strip is gone. */
@@ -2202,6 +2204,64 @@ body.notif-open .notifpanel{transform:none}
 .np-d{display:block;font-size:var(--fs-label);color:var(--n-500);margin-top:1px;line-height:1.35}
 .np-ar{color:var(--n-400);font-size:var(--fs-label);flex:none;margin-top:1px}
 .np-empty{padding:var(--s-8);text-align:center;color:var(--n-500);font-size:var(--fs-table)}
+/* ---- settings: a docked panel mirroring the assistant/notifications exactly ---- */
+.settingspanel{position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--panel-w);
+  background:var(--n-0);border-left:var(--rule);display:flex;flex-direction:column;overflow:hidden;
+  z-index:26;box-shadow:none;transform:translateX(100%);
+  transition:transform .22s cubic-bezier(.2,.7,.2,1)}
+body.settings-open .settingspanel{transform:none}
+@media(max-width:1100px){ body.settings-open .settingspanel{box-shadow:-10px 0 30px rgba(16,22,35,.10)} }
+@media(max-width:860px){ .settingspanel{width:100vw;max-width:440px} }
+.st-tabs{display:flex;gap:2px;padding:0 14px;border-bottom:var(--rule);flex:none}
+.st-tabs button{font:inherit;font-size:var(--fs-table);padding:8px 12px;border:none;background:none;
+  color:var(--n-500);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.13s}
+.st-tabs button:hover{color:var(--ink)}
+.st-tabs button.on{color:var(--n-900);border-bottom-color:var(--n-900);font-weight:var(--fw-medium)}
+.st-body{flex:1;overflow-y:auto;padding:12px 14px}
+.st-sec{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-500);margin:16px 0 8px;display:flex;align-items:baseline;gap:7px}
+.st-sec:first-child{margin-top:2px}
+.st-scope{font-size:var(--fs-micro);font-weight:var(--fw-regular);letter-spacing:0;text-transform:none;color:var(--n-400)}
+.st-note{font-size:var(--fs-label);color:var(--n-500);line-height:1.5;margin:6px 0}
+.st-warn{font-size:var(--fs-label);color:var(--danger);background:var(--danger-bg);border:var(--rule);
+  border-radius:var(--radius);padding:7px 9px;margin:6px 0;line-height:1.4}
+.st-seg{display:inline-flex;border:var(--rule-strong);border-radius:var(--radius);overflow:hidden}
+.st-seg button{font:inherit;font-size:var(--fs-table);height:var(--h-btn);padding:0 var(--s-4);border:none;
+  background:var(--n-0);color:var(--n-600);cursor:pointer;border-right:var(--rule)}
+.st-seg button:last-child{border-right:none}
+.st-seg button.on{background:var(--n-900);color:var(--n-0)}
+/* chrome theme as a single-column list that fits 400px */
+.st-thlist{display:flex;flex-direction:column;gap:6px;margin:4px 0}
+.st-thm{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:var(--rule);
+  border-radius:var(--radius);background:var(--n-0);padding:7px 9px;cursor:pointer;transition:.12s;font-family:var(--sans)}
+.st-thm:hover{border-color:var(--border-strong);background:var(--n-25)}
+.st-thm.on{border-color:var(--n-900)}
+.st-sw{width:52px;height:34px;border-radius:var(--radius);flex:none;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 7px;border:var(--rule)}
+.st-sw .b{height:3px;border-radius:2px}
+.st-sw .d{position:absolute;right:6px;top:6px;width:7px;height:7px;border-radius:50%}
+.st-thx{min-width:0;flex:1}
+.st-thx .nm{display:block;font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
+  display:flex;align-items:center;gap:6px}
+.st-thx .nt{display:block;font-size:var(--fs-label);color:var(--n-500);margin-top:1px;line-height:1.35}
+.st-tag{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--n-500);background:var(--n-100);border-radius:var(--radius);padding:0 5px}
+.st-tag.cur{background:var(--accent-bg);color:var(--accent)}
+.st-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:var(--fs-table);color:var(--muted);
+  margin:9px 0;padding-top:9px;border-top:var(--rule)}
+.st-row b{color:var(--ink);font-weight:var(--fw-medium)}
+.st-lk{color:var(--accent);cursor:pointer;text-decoration:underline}
+.st-select{border:var(--rule-strong);border-radius:var(--radius);padding:4px 7px;font:inherit;
+  font-size:var(--fs-label);background:var(--n-0);color:var(--ink);cursor:pointer}
+.st-select.wide{width:100%;margin:2px 0 4px}
+.st-user{display:flex;align-items:center;gap:10px;margin:4px 0 8px}
+.st-user .st-un{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink)}
+.st-user .st-ur{font-size:var(--fs-label);color:var(--n-500);margin-top:1px}
+.st-tbl{font-size:var(--fs-table);margin-top:4px}
+.st-tbl th{padding:var(--pad-cell);height:var(--h-section)}
+.st-tbl td{padding:var(--pad-cell);height:34px}
+.st-tbl .st-sub{font-size:var(--fs-label);color:var(--n-500);margin-top:1px}
+.st-tbl tr.st-me td{background:var(--accent-bg)}
 .cp-head{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:var(--rule);flex:none}
 .cp-mark{width:24px;height:24px;flex:none;display:grid;place-items:center;border:none;background:none;padding:0;cursor:default;border-radius:var(--radius);transition:.13s}
 body.copilot-full .cp-mark{cursor:pointer}
@@ -2720,10 +2780,10 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 00-4 4v2.6L2.9 10.6h10.2L12 8.6V6a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 12.6a1.7 1.7 0 003.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       <span class="ribdot" id="ribNotif">0</span>
     </button>
-    <!-- Settings is the SINGLE entry point to enterprise configuration. It is not in the
-         ribbon nav, not in the More launcher and not in Home's rail — modules live in
-         navigation, configuration lives here. -->
-    <button class="ribicon" onclick="pickLens('admin')" aria-label="Settings" title="Settings">
+    <!-- Settings is the SINGLE home for all configuration, and it opens as a docked panel like
+         the assistant — appearance (incl. light/dark), roles & access, and thresholds all live
+         inside it. Modules live in navigation; configuration lives here. -->
+    <button class="ribicon" onclick="toggleSettings()" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.38 3.62l-1.13 1.13M4.75 11.25l-1.13 1.13M12.38 12.38l-1.13-1.13M4.75 4.75L3.62 3.62" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
     </button>
     <span class="ribsep"></span>
@@ -2734,12 +2794,12 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
     </button>
     <div class="usermenu" id="userMenu">
       <div class="um-hd"><span class="avatar av-solid">MG</span>
-        <div><div class="um-nm">Mitra Giri</div><div class="um-rl">Accounting &#183; Owner</div></div></div>
-      <!-- PERSONAL configuration only. Enterprise administration is not repeated here —
-           it has one home, the Settings gear. -->
-      <button class="um-item" onclick="closeUserMenu();toggleTheme()">
-        <svg viewBox="0 0 16 16" fill="none"><path d="M13 9.4A5.6 5.6 0 016.6 3a5.6 5.6 0 106.4 6.4z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-        Toggle theme</button>
+        <div><div class="um-nm">Mitra Giri</div><div class="um-rl">Accounting &#183; Accounting Manager</div></div></div>
+      <!-- The profile menu is IDENTITY only. Every setting — theme included — lives in the one
+           Settings panel now, so the theme toggle that used to sit here is gone. -->
+      <button class="um-item" onclick="closeUserMenu();openSettings()">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.38 3.62l-1.13 1.13M4.75 11.25l-1.13 1.13M12.38 12.38l-1.13-1.13M4.75 4.75L3.62 3.62" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Settings</button>
     </div>
   </div>
 
@@ -6004,8 +6064,9 @@ const wsIc=n=>`<svg viewBox="0 0 16 16" fill="none"><path d="${WS_IC[n]||WS_IC.g
 
    A role check in a real deployment. It no longer gates any Home control — Home has no
    configurable canvas — and survives as the admin gate on the ORG-DEFAULT chrome theme, which
-   is the one remaining setting an individual must not be able to change for everyone else. */
-const WS_ADMIN=true;
+   is the one remaining setting an individual must not be able to change for everyone else.
+   `let`, not `const`, because the Settings role selector re-gates it live (setUserRole). */
+let WS_ADMIN=true;
 
 // ---- edit-mode lifecycle -----------------------------------------------------------------
 /* Publishing copies the current layout into a SHARED workspace that everyone sees in the
@@ -8211,6 +8272,7 @@ function notifCount(){ try{ return notifItems().length; }catch(e){ return 0; } }
    reflow), because every top-right control should open the same kind of window rather than a
    floating popover. Mutually exclusive with the assistant: opening one closes the other. */
 function openNotif(){ if(typeof cpClose==='function') cpClose();
+  if(typeof closeSettings==='function') closeSettings();
   document.body.classList.add('notif-open'); renderNotif(); }
 function closeNotif(){ document.body.classList.remove('notif-open'); }
 function toggleNotif(){ document.body.classList.contains('notif-open')?closeNotif():openNotif(); }
@@ -8224,6 +8286,125 @@ function renderNotif(){
         <span class="np-ar">&#8594;</span></button>`).join('')
     : `<div class="np-empty">Nothing needs you right now.</div>`;
 }
+
+/* ==========================================================================================
+   SETTINGS — one docked panel for everything administrative (built like the assistant).
+   Before this, settings was a full lens page, the theme toggle lived in the user menu, and
+   roles were scattered. Now there is ONE home: appearance (including light/dark), roles &
+   access, and the governing thresholds. Same docked mechanism as the assistant and
+   notifications — mutually exclusive with both.
+   ========================================================================================== */
+let USER_ROLE='Accounting Manager', stTab='appearance';
+/* Roles carry real capability, not just a label: `admin` gates who can set the org-default
+   chrome theme (and anything else WS_ADMIN protects). Switching role re-gates the UI live. */
+const USER_ROLES=[
+  {id:'Accounting Manager',        admin:true,  det:'Prepares and reviews. Full configuration access.'},
+  {id:'Controller',                admin:true,  det:'Reviews, approves and locks the period. Owns sign-off and org defaults.'},
+  {id:'Chief Accounting Officer',  admin:true,  det:'Determines, locks and can reopen. Highest authority.'},
+  {id:'Asset Manager',             admin:false, det:'Prepares fixed-asset determinations. Cannot lock or set org defaults.'},
+  {id:'FP&A Analyst',              admin:false, det:'Explains locked figures. Read-only on the close.'},
+  {id:'External Auditor',          admin:false, det:'View only. No edits, no configuration.'},
+];
+const userRole=()=>USER_ROLES.find(r=>r.id===USER_ROLE)||USER_ROLES[0];
+function setUserRole(id){
+  USER_ROLE=id; WS_ADMIN=userRole().admin;
+  // Reflect the role everywhere it shows, live.
+  document.querySelectorAll('.ribuser-id .rl').forEach(e=>e.textContent=id);
+  const um=document.querySelector('#userMenu .um-rl'); if(um) um.textContent='Accounting · '+id;
+  const rb=document.querySelector('.ribuser'); if(rb) rb.title='Mitra Giri · '+id;
+  renderSettings();
+  if(typeof renderAll==='function') renderAll();
+}
+function openSettings(){ if(typeof cpClose==='function') cpClose(); if(typeof closeNotif==='function') closeNotif();
+  document.body.classList.add('settings-open'); renderSettings(); }
+function closeSettings(){ document.body.classList.remove('settings-open'); }
+function toggleSettings(){ document.body.classList.contains('settings-open')?closeSettings():openSettings(); }
+function setStTab(t){ stTab=t; renderSettings(); }
+function renderSettings(){
+  const el=document.getElementById('settingsBody'); if(!el) return;
+  const tab=(t,l)=>`<button class="${stTab===t?'on':''}" onclick="setStTab('${t}')">${l}</button>`;
+  const tabs=document.getElementById('settingsTabs');
+  if(tabs) tabs.innerHTML=tab('appearance','Appearance')+tab('access','Roles & access')+tab('policy','Policies');
+  el.innerHTML = stTab==='access' ? stAccess() : stTab==='policy' ? stPolicies() : stAppearance();
+}
+/* Appearance: light/dark toggle FIRST (this is where the old user-menu toggle now lives), then
+   the curated chrome themes as a single-column list that fits the 400px panel, then the org
+   default (admin only). The AA ratio is shown per theme so a failing option is never hidden. */
+function stAppearance(){
+  const mode=document.body.getAttribute('data-theme')==='dark'?'dark':'light';
+  const act=chromeActive().id, audit=chromeThemeAudit();
+  const rows=CHROME_THEMES.map(t=>{
+    const s=chromeThemeScore(t,mode), v=t[mode]||t.light, ok=s.fails.length===0, framing=chromeFramingOk(t);
+    return `<button class="st-thm ${act===t.id?'on':''}" onclick="setChromeUser('${t.id}')"
+        title="${s.pairs.map(p=>p.k+' '+p.r.toFixed(2)).join(' · ')}">
+      <span class="st-sw" style="background:${v.bg}">
+        <span class="b" style="width:40%;background:${v.tx}"></span>
+        <span class="b" style="width:24%;background:${v.tx2}"></span>
+        <span class="d" style="background:${v.ac}"></span></span>
+      <span class="st-thx"><span class="nm">${t.name}
+        ${act===t.id?'<span class="st-tag cur">Active</span>':''}${CHROME_ORG===t.id?'<span class="st-tag">Org default</span>':''}</span>
+        <span class="nt">${t.note} · min ${s.min.toFixed(2)}:1 ${ok?'AA':'<b style="color:var(--danger)">fails AA</b>'}${framing?'':' · <b style="color:var(--danger)">framing inverts</b>'}</span></span>
+    </button>`;
+  }).join('');
+  return `<div class="st-sec">Theme</div>
+    <div class="st-seg">
+      <button class="${mode==='light'?'on':''}" onclick="if(document.body.getAttribute('data-theme')==='dark')toggleTheme()">Light</button>
+      <button class="${mode==='dark'?'on':''}" onclick="if(document.body.getAttribute('data-theme')!=='dark')toggleTheme()">Dark</button>
+    </div>
+    <div class="st-note">Light or dark applies to the whole workspace and is a personal preference.</div>
+    <div class="st-sec">Chrome theme <span class="st-scope">ribbon &amp; rail only</span></div>
+    <div class="st-note">A theme recolours the ribbon, sidebar and sync strip only — never severity
+      borders, provenance dots or status tags, which carry meaning. Enforced in code.</div>
+    ${audit.length?`<div class="st-warn"><b>Theme audit failed:</b> ${audit.join('; ')}</div>`:''}
+    <div class="st-thlist">${rows}</div>
+    <div class="st-row">Your selection: <b>${CHROME_USER?chromeTheme(CHROME_USER).name:'following the org default'}</b>
+      ${CHROME_USER?`<a class="st-lk" onclick="clearChromeUser();renderSettings()">Reset to org default</a>`:''}</div>
+    ${WS_ADMIN?`<div class="st-row">Org default
+      <select class="st-select" onchange="setChromeOrg(this.value);renderSettings()">
+        ${CHROME_THEMES.map(t=>`<option value="${t.id}" ${CHROME_ORG===t.id?'selected':''}>${t.name}</option>`).join('')}
+      </select></div>`:`<div class="st-note">Only an admin role can change the organisation default.</div>`}
+    <div class="st-note">Print and export reset chrome to the shipped default, so nothing an auditor
+      receives depends on what was picked here.</div>`;
+}
+/* Roles & access: the current user's role (switchable — it re-gates the UI), what it permits,
+   and the sign-off matrix. This is the "roles" home the settings request asked for. */
+function stAccess(){
+  const r=userRole();
+  const matrix=[['Asset Manager','Yes','No','No'],['Controller','Yes','Yes','No'],
+    ['Chief Accounting Officer','Yes','Yes','Yes'],['External Auditor','View','No','No']];
+  return `<div class="st-sec">Your role</div>
+    <div class="st-user"><span class="avatar av-solid">MG</span>
+      <div><div class="st-un">Mitra Giri</div><div class="st-ur">${USER_ROLE}${WS_ADMIN?' · admin':' · standard'}</div></div></div>
+    <select class="st-select wide" onchange="setUserRole(this.value)">
+      ${USER_ROLES.map(x=>`<option value="${x.id}" ${x.id===USER_ROLE?'selected':''}>${x.id}</option>`).join('')}
+    </select>
+    <div class="st-note">${r.det}</div>
+    <div class="st-note">Switching role re-gates the UI live — for example, only an admin role may
+      set the organisation chrome default. In a real deployment the role is assigned by an admin
+      and the user never picks it; it is switchable here so you can preview each.</div>
+    <div class="st-sec">Sign-off matrix <span class="st-scope">who can lock what</span></div>
+    <table class="tbl st-tbl"><thead><tr><th>Role</th><th>Determine</th><th>Lock</th><th>Reopen</th></tr></thead><tbody>
+      ${matrix.map(m=>`<tr${m[0]===USER_ROLE?' class="st-me"':''}><td><b>${m[0]}</b>${m[0]===USER_ROLE?' <span class="st-tag cur">you</span>':''}</td>`+
+        m.slice(1).map(c=>`<td><span class="tag ${c==='Yes'?'done':c==='View'?'stg':'open'}">${c}</span></td>`).join('')+`</tr>`).join('')}
+    </tbody></table>`;
+}
+function stPolicies(){
+  const thr=[['Capitalization floor','ASC 360-10','$5,000','Individual asset'],
+   ['Interest capitalization','ASC 835-20','Weighted-average rate','Qualifying CIP'],
+   ['PIS transfer trigger','ASC 360-10-30','COO + operational readiness','All halls'],
+   ['Aged-CIP exception','Internal control','30 days post-COO','Ready projects'],
+   ['Component carve minimum','ASC 360-10-35','$250,000','Separable components'],
+   ['Cost-scrub tolerance','Internal control','$0 operating cost in CIP','All projects']];
+  return `<div class="st-sec">Capitalization thresholds <span class="st-scope">governing config</span></div>
+    <div class="st-note">These thresholds drive the readiness rules in Fixed Assets and the
+      exceptions in Issues. Shown as the governing configuration, not editable in this prototype.</div>
+    <table class="tbl st-tbl"><thead><tr><th>Policy</th><th>Basis</th><th class="num">Threshold</th></tr></thead><tbody>
+      ${thr.map(r=>`<tr><td><b>${r[0]}</b><div class="st-sub">${r[3]}</div></td><td>${r[1]}</td><td class="num">${r[2]}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="st-note">Full policy records, versions and source documents live in
+      <a class="st-lk" onclick="closeSettings();pickLens('ledger');pickTab('admin')">Accounting → Policies</a>.</div>`;
+}
+
 let railExpanded={};   // label -> bool
 function toggleRailGroup(k){ railExpanded[k]=!railExpanded[k]; paintRailRoles(); }
 
@@ -19173,8 +19354,9 @@ function askAI(q){ cpOpen(); cpSend(q); }
    Close deliberately does NOT destroy the thread either: nothing a user generated should
    disappear silently. Clearing is what the explicit New chat control is for. */
 function cpOpen(){
-  // Assistant and notifications share the docked right slot — opening one closes the other.
+  // Assistant, notifications and settings share the docked right slot — opening one closes the others.
   if(typeof closeNotif==='function') closeNotif();
+  if(typeof closeSettings==='function') closeSettings();
   document.body.classList.remove('copilot-collapsed','copilot-min');
   try{localStorage.setItem('korvyn.ai','0')}catch(e){}
   cpSyncMark();
@@ -19563,6 +19745,16 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
   <div class="np-note">Everything that needs you, derived from live state. Each links to where it
     is resolved.</div>
   <div class="np-body" id="notifBody"></div>
+</aside>
+
+<!-- Settings: the single docked home for all configuration, built like the assistant. -->
+<aside class="settingspanel" id="settingsPanel">
+  <div class="np-head"><span class="np-ttl">Settings</span>
+    <button class="np-x" onclick="closeSettings()" aria-label="Close settings">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button></div>
+  <div class="st-tabs" id="settingsTabs"></div>
+  <div class="st-body" id="settingsBody"></div>
 </aside>
 
 </body>

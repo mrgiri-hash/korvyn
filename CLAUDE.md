@@ -731,18 +731,28 @@ There is no separate CSS/JS file. Edits happen in place.
   `GL_ERP`, `COA` and `CONS_ENT`; the capabilities that are *not* built (lineage, mappings,
   quality rules, master-data monitoring, glossary) are **named on screen as scope**, not
   mocked up. Do not add a number there that does not derive.
-- **Administration/Settings has exactly one entry point: the Settings gear** in the ribbon
-  utilities (`pickLens('admin')`). It was previously reachable from four places — Home's rail,
-  the ⋯ menu, the user menu, and the **Help** button. The Help icon was replaced by the gear:
-  it routed to Administration, which is a mislabelled control, and there is no help content to
-  route it to. If Help returns, give it a real destination first.
-  A **second** global Settings was also found later, inside `RAIL_SPEC.filings` — a
-  `{lens:'admin', label:'Settings'}` entry in the Reporting rail. Removed. When auditing routes
-  into `admin`, paint **every** lens's rail before scanning the DOM; scanning only the rail that
-  happens to be painted is how that one was missed the first time.
-  Known leftovers, deliberately not touched because they are page-level controls in an
-  unrelated module: the Reporting filing page's **"Manage filing"** button and its team
-  **"View all"** link both still call `pickLens('admin')`.
+- **Settings is now a DOCKED PANEL, and the single home for ALL configuration** (`#settingsPanel`,
+  `openSettings`/`closeSettings`/`toggleSettings`, `renderSettings`). The gear opens it like the
+  assistant — same `--panel-w`, same reflow, same 1100px overlay fallback — **mutually exclusive
+  with the assistant and notifications** (opening any one closes the others). Three tabs:
+  - **Appearance** (`stAppearance`) — the **light/dark toggle** (moved here from the user menu; that
+    is the answer to "why is theme under MG") followed by the curated chrome themes rendered as a
+    single-column list that fits 400px, with live AA ratios, plus the org-default (admin only).
+  - **Roles & access** (`stAccess`) — the current user's role, a **role selector**, and the sign-off
+    matrix. Roles are REAL: `setUserRole()` sets `WS_ADMIN` from the role's `admin` flag and updates
+    the ribbon label live, so e.g. `External Auditor` loses the org-default control. `WS_ADMIN` is
+    `let`, not `const`, for exactly this. In a real deployment an admin assigns the role; it is
+    switchable here only to preview each.
+  - **Policies** (`stPolicies`) — the capitalization thresholds, linking to Accounting → Policies
+    for the full records.
+- **The user menu (MG) is IDENTITY ONLY now.** The theme toggle that used to be its only item is
+  gone; it carries a single **Settings** shortcut (`openSettings()`) and the identity block. Do not
+  put configuration back in the profile menu — it has one home.
+- **The `admin` lens still exists as a legacy fallback.** `renderAdmin` (non-ledger branch) still
+  renders the old Administration page, because the Reporting filing page's **"Manage filing"**
+  button and team **"View all"** link still `pickLens('admin')`. The docked panel is the primary
+  entry; the lens is the fallback those two links land on. `renderAdmin`'s `LENS==='ledger'` branch
+  (Accounting → Policies) is untouched.
 - **Domains** ("lenses") live in `LENSES` + `LENS_ORDER`. Current order:
   `portfolio` (Home, hidden from the ribbon), `ledger` (**Accounting**), `assets`
   (Fixed Assets), `procure` (Procurement), `fpa` (FP&A), `treasury` (Treasury),
