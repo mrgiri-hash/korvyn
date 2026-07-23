@@ -512,10 +512,38 @@ fired**, **what it examined**, and carries the evidence behind it.
   `GL_RECON`, `CC_SIGNALS`, `GL_ERP`, `icxPairs()` and `POL_INBOX` across four rules and one
   model. `DET_STATE` holds status/actor/timestamp only — the same facts/workflow split as
   `AX_STATE` and `IC_SETTLE`.
-- **`DET_LOG` is APPEND-ONLY.** Every decision records actor, timestamp, **prior value and new
-  value**. Entries are never edited or removed, and re-firing the same action is a no-op rather
-  than a duplicate entry. Do not "tidy" this into a mutable status field — the append-only
-  history is what makes a decision defensible on audit.
+- **`DET_LOG` is APPEND-ONLY, and is the immutable audit log (Phase 6).** Every accept, dismiss,
+  assign, **reassign** and **bulk** action records actor, timestamp, **prior value, new value,
+  the owner hand-off, and the SOURCES READ AT DECISION TIME** (`detSourcesNow()` snapshots every
+  feed's state — a decision taken while JD Edwards was unreachable says so permanently, even
+  after the feed recovers). `detBulk()` logs one bulk event plus a per-item entry each. It is
+  **seeded** with the prior close cycle's decisions so the log and the data-as-of control have a
+  history to show and replay. Never "tidy" this into a mutable status field.
+- **Home > Activity IS the audit log** (`renderActivity`, rebuilt in Phase 6): the immutable
+  decision record, one row per event with actor / prior→new / sources-at-decision, an **Export
+  CSV** button (`auditExportCSV`), and it honours the **As of** control — rewound, it shows only
+  entries up to that timestamp. `auditLog()` is the accessor (a function so other decision stores
+  can fold in later). `alAvatar()` derives initials from full names (the log's actors are names,
+  not `FILING_TEAM` codes, so `avatar()` would render `?`).
+- **The evidence pane is extended for audit (Phase 6).** `detEvidence()` now shows, in order:
+  the comparison, the **rule/model definition + threshold** (`DET_RULES`, keyed by rule name —
+  a detection is only defensible if the controller can state the rule and threshold in words),
+  the **records examined WITH links through to source** (`detRecords()` → the account, its
+  source feed at freshness, and an `erpLink()` to the ERP record), and the full derivation. A
+  controller signing a rep letter must be able to explain why a detection fired.
+- **THE DRILL PATH: figure → journal entries → source record** (`figDrill()`, Phase 6). A KPI
+  that declares its underlying accounts (`drill:[accts]` on a `metricCard`, or on a Home strip
+  figure) becomes clickable to the real postings behind it (`glTxns`, which derive from `COA`),
+  each linking through to the ERP via `erpLink()`. Wired on the Home Close-position and
+  Capital-&-cost strips and through the `metricCard` primitive. Before this there was no path
+  from a headline number to its entries — a figure a controller cannot open is one they cannot
+  defend. Extend it to more surfaces by declaring `drill` on their cards, not by hand-wiring.
+- **Confidence percentages are hover-derivable, never bare (Phase 6).** Any `% confidence` label
+  carries a `.conf-why` dotted underline and a `title` naming exactly what the score is built
+  from and why it is not 100% (`icConfWhy` for intercompany matches, `polConfWhy` for the policy
+  inbox with its 85/60 thresholds). A percentage a controller cannot defend is an audit
+  liability; if you add one, add its derivation. Measured percentages (readiness) and qualitative
+  bands (CC estimate confidence) are fine as-is — the rule is about *undefended* numbers.
 - **Every detection carries `ev:{expected, observed, basis, note}`** and the pane shows the
   underlying comparison, not a restatement of the headline. Assert this holds for every row:
   a detection with no evidence is not a detection, it is an assertion.

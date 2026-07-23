@@ -905,6 +905,19 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .det-c .v.obs{color:var(--n-900)}
 .det-basis{font-size:var(--fs-table);color:var(--n-600);line-height:1.45;margin-bottom:var(--s-2)}
 .det-basis b{color:var(--ink);font-weight:var(--fw-medium)}
+/* extended evidence: section labels, threshold, and records-examined with links through */
+.det-ev-sec{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-500);margin:var(--s-3) 0 var(--s-2)}
+.det-ev-sec:first-of-type{margin-top:var(--s-1)}
+.det-thr{font-size:var(--fs-label);color:var(--n-600);line-height:1.4;margin-bottom:var(--s-2)}
+.det-thr b{color:var(--ink);font-weight:var(--fw-medium)}
+.det-recs{display:flex;flex-direction:column;gap:var(--s-1)}
+.det-rec{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;font-size:var(--fs-table)}
+.det-rec-l{color:var(--accent);cursor:pointer;border-bottom:1px dotted var(--accent-line)}
+.det-rec-l:hover{color:var(--accent-ink)}
+.det-rec-tie{font-size:var(--fs-label)}
+.det-rec-tie[data-tie="stale"]{color:var(--warning)}
+.det-rec-tie[data-tie="unavailable"]{color:var(--danger)}
 .det-ev-f{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
   margin-top:var(--s-3);padding-top:var(--s-2);border-top:var(--rule)}
 .det-log{margin-top:var(--s-3);border:var(--rule);border-radius:var(--radius-sm);
@@ -1221,6 +1234,46 @@ select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .tbl td.num,.tbl th.num{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
 .tbl tfoot td{border-top:2px solid var(--border-strong);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums;background:var(--surface2)}
 .row-click{cursor:pointer;transition:.1s}.row-click:hover td{background:var(--surface2)}
+/* ---- the immutable activity / audit log ------------------------------------------------- */
+.al-note{font-size:var(--fs-table);color:var(--muted);line-height:1.5;margin-bottom:var(--s-3);max-width:96ch}
+.al-tbl td{vertical-align:top}
+.al-ts{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.al-actor{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.al-what .al-sev{display:inline-block;width:3px;height:12px;border-radius:1px;margin-right:7px;
+  vertical-align:-1px;background:var(--sev-low)}
+.al-what .al-sev[data-sev="high"]{background:var(--sev-high)}
+.al-what .al-sev[data-sev="med"]{background:var(--sev-med)}
+.al-sub{font-size:var(--fs-label);color:var(--n-500);margin-top:1px;padding-left:10px}
+.al-pill{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--n-500);background:var(--n-100);border-radius:var(--radius);padding:1px 6px;white-space:nowrap}
+.al-pill.on{color:var(--ink);background:var(--n-100);font-weight:var(--fw-medium)}
+.al-src{font-size:var(--fs-label);color:var(--n-500);cursor:help;white-space:nowrap}
+.al-src.bad{color:var(--warning)}
+.al-rewound{font-size:var(--fs-label);color:var(--warning);font-weight:var(--fw-regular)}
+/* ---- figure → journal-entry → source drill (a true overlay, so it gets a shadow) -------- */
+.mc-v.drill,.hst-v.drill{cursor:pointer;border-bottom:1px dotted var(--border-strong)}
+.mc-v.drill:hover,.hst-v.drill:hover{color:var(--accent)}
+.fd-scrim{position:fixed;inset:0;z-index:95;background:rgba(8,12,19,.42);display:none;
+  align-items:flex-start;justify-content:center;padding:64px 20px 20px}
+.fd-scrim.on{display:flex}
+.fd-modal{background:var(--surface);border:var(--rule-strong);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);width:min(760px,100%);max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
+.fd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3);
+  padding:var(--pad-card);border-bottom:var(--rule)}
+.fd-ttl{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-500)}
+.fd-val{font-family:var(--num);font-size:var(--fs-page);font-weight:var(--fw-medium);
+  letter-spacing:var(--tracking-tight);color:var(--ink);margin-top:2px}
+.fd-note{font-size:var(--fs-table);color:var(--muted);line-height:1.5;padding:var(--s-3) var(--pad-card);
+  border-bottom:var(--rule);background:var(--n-50)}
+.fd-note b{color:var(--ink);font-weight:var(--fw-medium)}
+.fd-body{overflow:auto;padding:0 var(--pad-card) var(--s-3)}
+.fd-body .tbl th{position:sticky;top:0;background:var(--n-50);z-index:1}
+.fd-dt{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
+.fd-sub{font-size:var(--fs-label);color:var(--n-500);margin-top:1px}
+.fd-more{font-size:var(--fs-label);color:var(--n-500);padding:var(--s-2) 0;text-align:center}
+/* A confidence % is never bare: its label carries a dotted underline and a hover derivation. */
+.conf-why{cursor:help;border-bottom:1px dotted var(--line2)}
 .pill{display:inline-block;padding:0 var(--s-2);height:var(--h-chip);line-height:var(--h-chip);border-radius:var(--radius-pill);font-size:var(--fs-label);font-weight:var(--fw-medium);white-space:nowrap;letter-spacing:.01em}
 .pill.service,.pill.good{background:var(--pos-bg);color:var(--pos)}
 .pill.build,.pill.info{background:var(--accent-bg);color:var(--accent-ink)}
@@ -5075,14 +5128,57 @@ function metricCard(m){
   const d=m.delta;
   const dl=d?`<span class="dlt ${d.dir}">${d.dir==='up'?'&#9650;':'&#9660;'} ${d.v}</span>${
       d.note?' '+d.note:''} &#183; `:'';
+  // A figure with a `drill` (a list of underlying accounts) becomes clickable to its journal
+  // entries, then through to the source-system record — see figDrill().
+  const dr=m.drill?` drill" onclick="figDrill('${(m.l||'').replace(/'/g,"\\'")}','${m.v}',${JSON.stringify(m.drill).replace(/"/g,'&quot;')})"`:'"';
   return `<div class="mc ${m.go&&!m.lk?'clickable':''}" ${m.go&&!m.lk?`onclick="${m.go}"`:''}>
     <span class="mc-l">${m.l}</span>
-    <span class="mc-v ${m.neg?'neg':''}${m.pos?'pos':''}">${m.v}</span>
+    <span class="mc-v ${m.neg?'neg':''}${m.pos?'pos':''}${dr}>${m.v}</span>
     <span class="mc-b">${dl}${m.basis||''}${mcProv(m.prov)}</span>
     ${m.go&&m.lk?`<span class="mc-go" onclick="${m.go}">${m.lk} &#8594;</span>`:''}
   </div>`;
 }
 function metricRow(list){ return `<div class="mcrow">${list.map(metricCard).join('')}</div>`; }
+
+/* THE DRILL PATH: figure → journal entries → source-system record. Every KPI that declares its
+   underlying accounts becomes clickable; this lists the real postings behind it (glTxns, derived
+   from COA so they foot to the account activity) and links each through to the ERP via erpLink.
+   Before Phase 6 there was no path from a headline number to the entries that produced it — a
+   figure a controller cannot open is a figure they cannot defend. */
+function figDrill(label,value,accts){
+  accts=Array.isArray(accts)?accts:[accts];
+  let txns=[];
+  accts.forEach(a=>{ try{ txns=txns.concat(glTxns(a,true)); }catch(e){} });
+  txns.sort((a,b)=>Math.abs(b.net)-Math.abs(a.net));
+  const shown=txns.slice(0,40);
+  const total=txns.reduce((s,t)=>s+t.net,0);
+  const rows=shown.map(t=>`<tr>
+      <td class="fd-dt">${t.dt}, 2026</td>
+      <td><b>${t.id}</b><div class="fd-sub">${t.desc}</div></td>
+      <td>${t.acct} · ${t.ent}</td>
+      <td class="num">${glK(t.net*1000)}</td>
+      <td>${erpLink(t.id,t.src)}</td></tr>`).join('');
+  let ov=document.getElementById('figDrill');
+  if(!ov){ ov=document.createElement('div'); ov.id='figDrill'; ov.className='fd-scrim';
+    ov.onclick=e=>{ if(e.target===ov) figDrillClose(); }; document.body.appendChild(ov); }
+  ov.innerHTML=`<div class="fd-modal" role="dialog" aria-label="Drill to journal entries">
+    <div class="fd-head">
+      <div><div class="fd-ttl">${label}</div><div class="fd-val">${value}</div></div>
+      <button class="dt-btn" onclick="figDrillClose()">Close</button></div>
+    <div class="fd-note">This figure sums <b>${txns.length}</b> journal ${txns.length===1?'entry':'entries'}
+      across ${accts.length} account${accts.length===1?'':'s'} (${accts.join(', ')}). Each entry links
+      through to its source-system record. Postings derive from the account activity in the ledger;
+      Korvyn reads and reconciles them, it never posts.</div>
+    <div class="fd-body"><table class="tbl">
+      <thead><tr><th>Date</th><th>Entry</th><th>Account · entity</th><th class="num">Amount</th><th>Source</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="3"><b>Total across ${txns.length} entries</b></td>
+        <td class="num"><b>${glK(total*1000)}</b></td><td></td></tr></tfoot>
+    </table>${txns.length>shown.length?`<div class="fd-more">Showing the ${shown.length} largest of ${txns.length} entries.</div>`:''}</div>
+  </div>`;
+  ov.classList.add('on');
+}
+function figDrillClose(){ const ov=document.getElementById('figDrill'); if(ov) ov.classList.remove('on'); }
 
 /** Kept as the widget-facing name; it now emits MetricCards, so Home no longer has a
     divergent card variant. `d` is the basis and is required. */
@@ -5171,7 +5267,7 @@ function renderOverview(){
    detailed version; this is the one-line position. */
 function homeClosePosition(){
   const f=[];
-  const put=(l,v,sub,st)=>f.push({l,v,sub:sub||'',st:st||''});
+  const put=(l,v,sub,st,drill)=>f.push({l,v,sub:sub||'',st:st||'',drill:drill||null});
   try{
     const t=closeTotals();
     put('Completion',closePct()+'%',t.done+' of '+CLOSE_TASKS.length+' tasks');
@@ -5182,7 +5278,9 @@ function homeClosePosition(){
       blk.length?'bad':'');
   }catch(e){}
   try{ const d=GL_RECON.filter(r=>r.diff), un=d.reduce((a,r)=>a+Math.abs(r.diff),0);
-    put('Unreconciled',un?homeAmt(un):'$0',d.length+' of '+GL_RECON.length+' accounts',un?'bad':'');
+    // Drill the unreconciled figure to the postings behind the accounts that carry a difference.
+    const accts=[...new Set(d.map(r=>r.acct))].filter(a=>COA.some(c=>c.acct===a));
+    put('Unreconciled',un?homeAmt(un):'$0',d.length+' of '+GL_RECON.length+' accounts',un?'bad':'',accts.length?accts:null);
   }catch(e){}
   try{ const E=csxEntities(), rdy=E.filter(e=>e.st==='ready').length;
     put('Entities ready',rdy+' of '+E.length,E.filter(e=>e.st==='blocked').length+' blocked',
@@ -5198,7 +5296,7 @@ function homeClosePosition(){
     </div>
     <div class="hstrip">${f.map(x=>`<div class="hst">
       <span class="hst-l">${x.l}</span>
-      <span class="hst-v ${x.st}">${x.v}</span>
+      <span class="hst-v ${x.st}${x.drill?' drill" onclick="figDrill(\''+x.l+'\',\''+x.v+'\','+JSON.stringify(x.drill).replace(/"/g,'&quot;')+')':''}">${x.v}</span>
       <span class="hst-s">${x.sub}</span></div>`).join('')}</div></div>`;
 }
 /* Close day is a real position (which day of the cycle), not a countdown to a date nobody
@@ -5443,6 +5541,17 @@ function homeTriage(){
           </span>`},
       ],
       rowGo:r=>`detPick('${r.id}')`,
+      // Bulk decisions are logged as one bulk event plus a per-item entry each (detBulk),
+      // so the audit trail shows the aggregate act and every record it touched. Withheld in a
+      // rewound view, like the per-row actions.
+      bulk:ASOF?[]:[
+        {l:'Accept all',preview:rs=>`Accept <b>${rs.length}</b> detection${rs.length===1?'':'s'}. Each records actor, timestamp and the sources read now; the bulk act is logged too.`,
+         run:rs=>detBulk('accept',rs.map(r=>r.id))},
+        {l:'Dismiss all',preview:rs=>`Dismiss <b>${rs.length}</b> detection${rs.length===1?'':'s'}. Appended to the immutable log; nothing is deleted.`,
+         run:rs=>detBulk('dismiss',rs.map(r=>r.id))},
+        {l:'Assign to me',preview:rs=>`Assign <b>${rs.length}</b> detection${rs.length===1?'':'s'} to <b>${DET_ACTOR()}</b>.`,
+         run:rs=>detBulk('assign',rs.map(r=>r.id))},
+      ],
     });
   if(sel) o+=detEvidence(sel);
   return o+`</div>`;
@@ -5463,10 +5572,12 @@ function detDecisionCell(r){
    version could only ever report nil. */
 function homeCapitalControl(){
   const P=portfolio();
+  // The capital figures aggregate the cost ledger, which posts to CIP and the PP&E classes.
+  const CAP=['15000','15100','15200','15300','15400','15500'].filter(a=>COA.some(c=>c.acct===a));
   const f=[
     {l:'Committed',v:money(P.committed),sub:'signed commitments'},
-    {l:'Incurred',v:money(P.incurred),sub:'recorded cost'},
-    {l:'Paid',v:money(P.paid),sub:'bank-confirmed'},
+    {l:'Incurred',v:money(P.incurred),sub:'recorded cost',drill:CAP},
+    {l:'Paid',v:money(P.paid),sub:'bank-confirmed',drill:CAP},
     {l:'Committed not incurred',v:money(P.openCommit),sub:'open on commitments'},
     {l:'Unexplained residual',v:money(P.residual),sub:P.residual?'to investigate':'fully explained',
      st:P.residual?'bad':''},
@@ -5477,7 +5588,7 @@ function homeCapitalControl(){
       <span class="hsec-go" onclick="pickLens('ledger');pickTab('glrecon')">Reconciliations &#8594;</span></div>
     <div class="hstrip">${f.map(x=>`<div class="hst">
       <span class="hst-l">${x.l}</span>
-      <span class="hst-v ${x.st||''}">${x.v}</span>
+      <span class="hst-v ${x.st||''}${x.drill?' drill" onclick="figDrill(\''+x.l+'\',\''+x.v+'\','+JSON.stringify(x.drill).replace(/"/g,'&quot;')+')':''}">${x.v}</span>
       <span class="hst-s">${x.sub}</span></div>`).join('')}</div>
     <div class="lrows xrec">
       ${line('GL total cost','the cost ledger',P.incurred)}
@@ -5506,8 +5617,62 @@ function homeCapitalControl(){
 const DET_ACTOR=()=>{ try{ return (document.querySelector('.um-nm')||{}).textContent.trim()||'M. Giri'; }
   catch(e){ return 'M. Giri'; } };
 let DET_STATE={};              // id -> {status, by, at, note}
-let DET_LOG=[];                // append-only decision record
+/* APPEND-ONLY decision record. Seeded with the prior close cycle's decisions so the audit log
+   and the data-as-of control have a history to show and replay — these are the immutable record
+   of what was decided, when, by whom, and what the feeds looked like at the time. New decisions
+   append; nothing here is ever edited or removed. `sources` is the state of every feed at the
+   moment of the decision — a decision taken while a feed was down says so, permanently. */
+let DET_LOG=[
+  {ts:'2026-07-19 09:12',actor:'A. Okafor',det:'DET-REC-20000-MeridianDCHoldco',
+   rule:'Reconciliation variance threshold',ent:'Meridian DC Holdco',action:'assign',
+   prior:'new',next:'assigned',priorOwner:null,newOwner:'J. Lindqvist',
+   sources:['NetSuite:ok','Oracle ERP Cloud:ok','SAP S/4HANA:ok','JD Edwards:ok']},
+  {ts:'2026-07-20 14:37',actor:'J. Lindqvist',det:'DET-IC-HOLD-PROP',
+   rule:'Intercompany balance match',ent:null,action:'escalate',
+   prior:'new',next:'escalated',priorOwner:null,newOwner:null,
+   sources:['NetSuite:ok','Oracle ERP Cloud:ok','SAP S/4HANA:ok','JD Edwards:warn']},
+  {ts:'2026-07-21 08:05',actor:'M. Giri',det:'DET-POL-PIN-004',
+   rule:'Policy document extraction',ent:null,action:'dismiss',
+   prior:'new',next:'dismissed',priorOwner:null,newOwner:null,
+   sources:['NetSuite:ok','Oracle ERP Cloud:ok','SAP S/4HANA:warn','JD Edwards:err']},
+  {ts:'2026-07-21 16:48',actor:'M. Giri',det:'DET-REC-20000-MeridianDCHoldco',
+   rule:'Reconciliation variance threshold',ent:'Meridian DC Holdco',action:'reassign',
+   prior:'assigned',next:'assigned',priorOwner:'J. Lindqvist',newOwner:'A. Okafor',
+   sources:['NetSuite:ok','Oracle ERP Cloud:ok','SAP S/4HANA:warn','JD Edwards:err']},
+];
 let detSel=null;               // open evidence pane
+/* The unified, append-only audit trail. Today it is the decision log; it is a function rather
+   than the array directly so other decision stores (settlement, exception workflow) can fold in
+   later without changing callers. Sorted most-recent first for reading; export preserves order. */
+function auditLog(){ return DET_LOG.slice().sort((a,b)=>b.ts.localeCompare(a.ts)); }
+/* Actors in the log are full names ("M. Giri"), not FILING_TEAM codes, so the audit surface
+   derives its own initials chip rather than reusing avatar() (which keys on team code). */
+const alAvatar=nm=>{ const parts=(nm||'').split(/[.\s]+/).filter(Boolean);
+  const ini=(parts[0][0]||'?')+(parts.length>1?parts[parts.length-1][0]:'');
+  return `<span class="avatar" title="${nm}">${ini.toUpperCase()}</span>`; };
+const AUDIT_ACT={accept:'Accepted',dismiss:'Dismissed',assign:'Assigned',escalate:'Escalated',
+  reassign:'Reassigned','bulk-accept':'Bulk accept','bulk-dismiss':'Bulk dismiss',
+  'bulk-assign':'Bulk assign','bulk-escalate':'Bulk escalate'};
+const auditActLabel=e=>AUDIT_ACT[e.action]||(e.action==='assigned'?'Assigned':e.action);
+/** CSV export of the immutable log. One row per event; the sources-at-decision-time column is
+    what makes it answer "what did we know when we signed off." */
+function auditExportCSV(){
+  const cols=['Timestamp','Actor','Action','Detection','Rule','Entity','Prior','New','Owner change','Sources at decision'];
+  const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const rows=DET_LOG.slice().sort((a,b)=>a.ts.localeCompare(b.ts)).map(e=>[
+    e.ts, e.actor, auditActLabel(e), e.bulk?('('+e.count+' items)'):(e.det||''), e.rule||'', e.ent||'',
+    e.prior||'', e.next||'', (e.priorOwner||e.newOwner)?((e.priorOwner||'—')+' → '+(e.newOwner||'—')):'',
+    (e.sources||[]).join(' ')
+  ].map(esc).join(','));
+  const csv=cols.join(',')+'\n'+rows.join('\n');
+  try{
+    const blob=new Blob([csv],{type:'text/csv'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='korvyn-audit-log-'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    if(typeof cpToast==='function') cpToast('Audit log exported ('+DET_LOG.length+' events)');
+  }catch(e){ if(typeof cpToast==='function') cpToast('Export unavailable in this sandbox'); }
+}
 
 const DET_STATUS={new:'New',accepted:'Accepted',dismissed:'Dismissed',
   assigned:'Assigned',escalated:'Escalated'};
@@ -5524,7 +5689,7 @@ function detections(){
     const book=GL_RECON, diffs=book.filter(r=>r.diff);
     diffs.forEach(r=>add({
       id:'DET-REC-'+r.acct+'-'+r.ent.replace(/\s+/g,''),
-      kind:'rule', rule:'Reconciliation variance threshold',
+      kind:'rule', rule:'Reconciliation variance threshold', acct:r.acct,
       examined:book.length+' reconciliations · '+CONS_ORDER.length+' entities',
       t:'Unexplained difference — '+r.nm, ent:r.ent, amt:r.diff,
       sev:Math.abs(r.diff)>=1000?'high':'med',
@@ -5578,34 +5743,115 @@ function detections(){
   return out;
 }
 
-/** Append-only. Prior and new value are both recorded, so a decision can be reconstructed. */
-function detAct(id,action){
+/* THE SOURCES READ AT DECISION TIME. This is the audit-defining datum: "what did we know when
+   we signed off." It snapshots every feed's state at the instant of the decision, so a decision
+   taken while JD Edwards was unreachable records that fact permanently — even after the feed
+   recovers. Derived from live state, then frozen into the append-only log. */
+function detSourcesNow(){
+  try{ return GL_ERP.map(e=>e.nm+':'+e.st); }catch(e){ return []; }
+}
+/** APPEND-ONLY, and now records the sources read at decision time. Prior and new value are both
+    kept, so a decision can be reconstructed exactly. `to` names the assignee on assign/reassign. */
+function detAct(id,action,to){
   // You cannot triage a historical view — rewind is for reading, not for writing.
   if(ASOF){ return; }
   const d=detections().find(x=>x.id===id); if(!d) return;
   const prior=(DET_STATE[id]||{}).status||'new';
-  const next={accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated'}[action];
-  if(!next||next===prior) return;
+  const priorBy=(DET_STATE[id]||{}).by||null;
+  const map={accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated',reassign:'assigned'};
+  const next=map[action];
+  if(!next) return;
+  // reassign is a real, distinct event: same status, different owner — the log must show the hand-off.
+  if(next===prior && !(action==='reassign' && to && to!==priorBy)) return;
   const at=new Date().toISOString().replace('T',' ').slice(0,16);
-  DET_STATE[id]={status:next,by:DET_ACTOR(),at};
-  DET_LOG.push({ts:at,actor:DET_ACTOR(),det:id,rule:d.rule,action,prior,next});
-  renderOverview();
+  const by=DET_ACTOR();
+  DET_STATE[id]={status:next,by:(action==='assign'||action==='reassign')?(to||by):by,at};
+  DET_LOG.push({ts:at,actor:by,det:id,rule:d.rule,ent:d.ent,action,prior,next,
+    priorOwner:priorBy, newOwner:(action==='assign'||action==='reassign')?(to||by):null,
+    sources:detSourcesNow()});
+  if(typeof renderOverview==='function') renderOverview();
+  if(TAB==='activity') renderActivity();
+}
+/** Bulk action across several detections — logged as ONE bulk event plus the per-item entries,
+    so the log shows both the aggregate act and every record it touched. */
+function detBulk(action,ids){
+  if(ASOF) return;
+  const at=new Date().toISOString().replace('T',' ').slice(0,16);
+  DET_LOG.push({ts:at,actor:DET_ACTOR(),det:null,rule:null,action:'bulk-'+action,
+    prior:null,next:action,count:ids.length,sources:detSourcesNow(),bulk:true});
+  ids.forEach(id=>detAct(id,action));
 }
 function detPick(id){ detSel=(detSel===id?null:id); renderOverview(); }
 
 
 /** The evidence pane: the underlying comparison, not a restatement of the headline. */
+/* THE RULE DEFINITION. A detection is only defensible if the controller can state the rule that
+   fired it and the threshold that decided severity — in the controller's words, not a black box.
+   Keyed by rule name; every rule in detections() has an entry. */
+const DET_RULES={
+  'Reconciliation variance threshold':{
+    def:'A reconciled account must net to zero against the general ledger. The rule differences the reconciled balance and the GL balance for every account in the book and fires on any residual that is not fully explained.',
+    thr:'Fires at any non-zero difference. Severity is high at ≥ $1,000 potential misstatement, medium below.'},
+  'Post-validation change monitor':{
+    def:'Continuous-close work is snapshotted when it is validated. The rule compares each workstream’s state now against its state at validation and fires when signed-off work has since moved.',
+    thr:'Fires on any change after validation. Severity is high at ≥ $1M materiality.'},
+  'Source feed freshness':{
+    def:'Each ERP feed reports a books-through date. The rule compares every feed against the most current one and fires when a feed is behind or unreachable.',
+    thr:'Fires when a feed is not current with the estate.'},
+  'Intercompany balance match':{
+    def:'Within an entity debits equal credits, so a matched intercompany pair must net to zero across both sides. The rule differences due-from against due-to for every pair and fires when they disagree.',
+    thr:'Fires at any pair difference. Severity is high at ≥ $1M.'},
+  'Policy document extraction':{
+    def:'A model proposes standardized metadata for each uploaded policy document. Every proposal enters this queue for a human to validate; nothing is published from the model alone.',
+    thr:'Every extracted document is surfaced. No auto-publication — validation is mandatory.'},
+};
+/* Records examined, WITH links through to source. "Examined N reconciliations" is not evidence
+   until you can open the ones it means; this resolves the detection to the specific source
+   records and gives an ERP link where one exists. */
+function detRecords(d){
+  const rows=[];
+  if(d.acct){
+    const nm=(COA.find(a=>a.acct===d.acct)||{}).name||'';
+    rows.push({label:'Account '+d.acct+(nm?' · '+nm:'')+(d.ent?' · '+d.ent:''),
+      go:"pickLens('ledger');pickTab('glrecon')", erp:{id:d.acct, src:(d.ent?ERP_ENTITY[d.ent]:null)}});
+  }
+  if(d.ent){
+    const p=provFor({entity:d.ent});
+    rows.push({label:d.ent+' — source '+(p.sourceSystem||'unmapped')+' · '+(p.syncedAt||'—'),
+      go:"pickLens('datagov')", tie:p.tieOutStatus});
+  }
+  rows.push({label:d.examined, go:d.go});
+  return rows;
+}
 function detEvidence(d){
+  const rule=DET_RULES[d.rule]||{};
+  const recs=detRecords(d);
+  const kindLabel=d.kind==='model'?'Model output':'Rule';
   return `<div class="det-ev">
     <div class="det-ev-h">${KI_SPARK}<b>Evidence</b><span class="det-ev-r">${d.rule}</span>
       <span class="grow" style="flex:1"></span>
       <button class="dt-btn" onclick="detPick('${d.id}')">Close</button></div>
+
+    <div class="det-ev-sec">The comparison</div>
     <div class="det-cmp">
       <div class="det-c"><span class="l">Expected</span><span class="v">${d.ev.expected}</span></div>
       <div class="det-c"><span class="l">Observed</span><span class="v obs">${d.ev.observed}</span></div>
     </div>
-    <div class="det-basis"><b>Basis</b> ${d.ev.basis}</div>
-    <div class="det-basis">${d.ev.note}</div>
+
+    <div class="det-ev-sec">${kindLabel} definition</div>
+    <div class="det-basis">${rule.def||d.ev.basis}</div>
+    ${rule.thr?`<div class="det-thr"><b>Threshold</b> ${rule.thr}</div>`:''}
+
+    <div class="det-ev-sec">Records examined</div>
+    <div class="det-recs">${recs.map(r=>`<div class="det-rec">
+      <span class="det-rec-l" onclick="${r.go}">${r.label}</span>
+      ${r.erp&&r.erp.src?erpLink(r.erp.id,r.erp.src):''}
+      ${r.tie&&r.tie!=='matched'?`<span class="det-rec-tie" data-tie="${r.tie}">${PROV_TIE[r.tie]}</span>`:''}
+    </div>`).join('')}</div>
+
+    <div class="det-ev-sec">Derivation</div>
+    <div class="det-basis">${d.ev.basis}. ${d.ev.note}</div>
+
     <div class="det-ev-f">
       <span class="cardlink" onclick="${d.go}">Open the source record &#8594;</span>
       <span class="det-by">Korvyn analysis · never auto-applied</span>
@@ -10091,6 +10337,17 @@ const icxPairCell=p=>`<div class="ic-pair">${icxNode(p.a,1)}<span class="lk">&#8
 const icxDot=(cls,label)=>`<span class="ic-st"><span class="ic-dot ${cls}"></span>${label}</span>`;
 const icxPill=(map,k)=>{const s=map[k]||{l:k,c:''};return `<span class="pill ${s.c}">${s.l}</span>`;};
 const icxMsDot=m=>icxDot((IC_MST[m]||{}).d||'idle',(IC_MST[m]||{}).l||m);
+/* Confidence is never a bare number here. This names WHAT the match score is built from — the
+   factors that agreed and the one that has not been confirmed — so a controller can defend the
+   figure rather than trust it. Rendered as the hover title on every `% confidence` label. */
+function icConfWhy(e){
+  const d=Math.abs(icxEvDiff(e));
+  const amt=d<0.05?'amount agrees across both sides':'amount differs by '+icxM(d,e.ccy);
+  return 'Model match score, not a measured probability — a human confirms before it posts. '+
+    'Built from: '+amt+'; currency matches ('+e.ccy+'); counterparty posted within the timing '+
+    'tolerance. It is high because the economic terms line up; it is not 100% because the '+
+    'counterparty entry is not yet confirmed.';
+}
 
 function icxFilterBar(){
   const tys=[...new Set(IC_EVENTS.map(e=>e.ty))].sort();
@@ -10228,7 +10485,7 @@ function icvEvents(){
         <td>${e.ty}</td>
         <td class="num">${icxM(icxSideA(e),e.ccy)}</td>
         <td class="num" ${Math.abs(d)>0.05?'style="color:var(--neg);font-weight:var(--fw-medium)"':''}>${Math.abs(d)>0.05?icxM(d,e.ccy):'&#8211;'}</td>
-        <td>${icxMsDot(e.ms)}${e.ms==='sugg'?`<div class="ic-mini">${e.conf}% confidence</div>`:''}</td>
+        <td>${icxMsDot(e.ms)}${e.ms==='sugg'?`<div class="ic-mini conf-why" title="${icConfWhy(e)}">${e.conf}% confidence</div>`:''}</td>
         <td class="${a>90?'':''}" ${a>90?'style="color:var(--neg);font-weight:var(--fw-medium)"':''}>${a} d</td>
         <td>${e.own}</td></tr>`;}).join('')}
     ${rows.length?'':'<tr><td colspan="8" class="note">No events match the current filters.</td></tr>'}
@@ -10606,7 +10863,7 @@ function icvEvent(){
           <td>${aPosted&&bPosted?'<span class="pill good">Posted in both entities</span>':
                 aPosted?'<span class="pill ready">Posted in '+A.ini+' only</span>':'<span class="pill">Draft</span>'}</td></tr>
         <tr><td class="note" style="margin:0">Matching</td><td>${icxPill(IC_MST,e.ms)}
-          ${e.ms!=='exact'&&e.conf?` <span class="ic-mini">${e.conf}% confidence</span>`:''}</td></tr>
+          ${e.ms!=='exact'&&e.conf?` <span class="ic-mini conf-why" title="${icConfWhy(e)}">${e.conf}% confidence</span>`:''}</td></tr>
         <tr><td class="note" style="margin:0">Difference</td>
           <td ${Math.abs(d)>0.05?'style="color:var(--neg);font-weight:var(--fw-medium)"':''}>${Math.abs(d)>0.05?icxM(d,e.ccy):'None'}</td></tr>
         <tr><td class="note" style="margin:0">Difference type</td><td>${e.dty?IC_DTY[e.dty]:'&#8211;'}</td></tr>
@@ -13239,23 +13496,42 @@ function renderExceptions(){
 
 function renderActivity(){
   const el=$('view-activity'); if(!el)return;
-  const rows=[
-    ...FILING_ACTIVITY.map(a=>[a.who,a.what,a.when,'Reporting']),
-    ['AO','locked flux commentary for Q3 2026','Jun 16, 2026 6:00 PM','Accounting'],
-    ['MG','published filing version v3','Jun 18, 2026 10:42 AM','Reporting'],
-    ['SL','approved MD&amp;A','Jun 17, 2026 4:05 PM','Reporting'],
-    ['AO','transferred Dallas Hall A to PP&amp;E','Jun 14, 2026 2:15 PM','Fixed Assets'],
-    ['MG','scrubbed $1.1M mis-coded cost','Jun 12, 2026 9:30 AM','Fixed Assets'],
-  ];
-  el.innerHTML=`<div class="card"><h2>Activity<span class="note">${rows.length} events across all modules</span></h2>
-    <div class="subhead">Every posting, determination and sign-off is a traceable edge; this is that trail
-      in time order.</div>
-    ${rows.map(a=>`<div class="cmt">${avatar(a[0])}<div class="cbody">
-      <div class="chd"><span class="cnm">${teamNm(a[0])}</span>
-        <span class="crole">${(FILING_TEAM[a[0]]||{}).role||''}</span>
-        <span class="cst"><span class="pill info">${a[3]}</span></span></div>
-      <div class="ctxt">${a[1]} &#183; <span style="color:var(--hint)">${a[2]}</span></div></div></div>`).join('')}
-    </div>`;
+  let log=auditLog();
+  const rewound=!!ASOF;
+  if(rewound) log=log.filter(e=>e.ts<=ASOF);
+  const dot=e=>e.action.indexOf('escal')>=0?'high':e.action.indexOf('dismiss')>=0?'low':'med';
+  const rows=log.map(e=>{
+    const srcBad=(e.sources||[]).filter(s=>!/:ok$/.test(s));
+    const srcNote=srcBad.length
+      ? `<span class="al-src bad" title="Feeds not fully current when this decision was taken: ${(e.sources||[]).join(', ')}">${srcBad.length} feed${srcBad.length===1?'':'s'} degraded at decision</span>`
+      : `<span class="al-src" title="All feeds current when this decision was taken">all feeds current</span>`;
+    const owner=(e.priorOwner||e.newOwner)?`<div class="al-sub">owner ${e.priorOwner||'unassigned'} → ${e.newOwner||'—'}</div>`:'';
+    const what=e.bulk
+      ? `${auditActLabel(e)} · ${e.count} detection${e.count===1?'':'s'}`
+      : `${auditActLabel(e)} · <b>${e.rule||e.det||'detection'}</b>`;
+    return `<tr>
+      <td class="al-ts">${e.ts}</td>
+      <td><span class="al-actor">${alAvatar(e.actor)}${e.actor}</span></td>
+      <td class="al-what"><span class="al-sev" data-sev="${dot(e)}"></span>${what}
+        ${e.ent?`<div class="al-sub">${e.ent}</div>`:''}${owner}</td>
+      <td class="al-chg">${e.prior?`<span class="al-pill">${DET_STATUS[e.prior]||e.prior}</span> → `:''}<span class="al-pill on">${DET_STATUS[e.next]||AUDIT_ACT[e.action]||e.next}</span></td>
+      <td>${srcNote}</td></tr>`;
+  }).join('');
+  el.innerHTML=`<div class="card">
+    <h2>Activity log<span class="note">${log.length} decision${log.length===1?'':'s'} · append-only</span>
+      <span class="grow" style="flex:1"></span>
+      ${rewound?`<span class="al-rewound">Rewound to ${ASOF}</span>`:''}
+      <button class="btn-ghost" onclick="auditExportCSV()">Export CSV</button></h2>
+    <div class="al-note">Every decision on a detection writes actor, timestamp, prior and new
+      value, the owner hand-off, and the state of every source feed at the moment of the decision
+      — so the record answers <b>what did we know when we signed off</b>. Nothing here is ever
+      edited or deleted. Rewind with the <b>As of</b> control in the header to see the log as it
+      stood at a prior timestamp.</div>
+    ${log.length?`<div class="tblwrap"><table class="tbl al-tbl">
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Prior → new</th><th>Sources at decision</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`
+      :`<div class="note" style="padding:var(--s-6);text-align:center">No decisions recorded${rewound?' before '+ASOF:' yet'}. The queue writes an entry every time you accept, dismiss, assign, reassign or escalate a detection.</div>`}
+  </div>`;
 }
 
 function renderDocuments(){
@@ -15830,6 +16106,12 @@ const POL_IREL={ dup:'Duplicate', prior:'Prior version', newver:'New version',
   related:'Related policy', addendum:'Regional addendum', local:'Local procedure' };
 // Restrained confidence banding — informational, never presented as certainty.
 const polConf=n=>n>=85?{l:'High confidence',c:'good'}:n>=60?{l:'Medium confidence',c:''}:{l:'Low confidence',c:'warn'};
+/* The band is a threshold on the extraction score, named on hover so a reviewer knows exactly
+   what "High" means and never treats the number as a fact. */
+const polConfWhy=i=>'Extraction score '+i.conf+'% — the share of required metadata fields the '+
+  'model filled with a confident value. Banded: 85%+ High, 60-84% Medium, below 60% Low. '+
+  (i.flags&&i.flags.length?'Lowered by '+i.flags.length+' review flag'+(i.flags.length===1?'':'s')+'. ':'')+
+  'A score, not a guarantee — every document is human-validated before anything publishes.';
 // Representative enterprise reviewers / teams (not a directory).
 const POL_TEAMS=['Corporate Controller','Technical Accounting','Regional Controller — EMEA',
   'Fund Controller — Fund III','Fixed Assets Accounting','Internal Controls','Legal','Tax'];
@@ -16257,7 +16539,7 @@ function polvInbox(){
       <td class="ic-mini">${polLevelL(i.propLevel)}</td>
       <td class="ic-mini">${i.propOwner||'<span style="color:var(--neg)">unassigned</span>'}</td>
       <td class="ic-mini">${i.propApplic}</td>
-      <td><span class="ic-mini" style="color:${band==='low'?'var(--warn)':band==='high'?'var(--pos)':'var(--muted)'}">${cb.l}</span>
+      <td title="${polConfWhy(i)}" style="cursor:help"><span class="ic-mini" style="color:${band==='low'?'var(--warn)':band==='high'?'var(--pos)':'var(--muted)'}">${cb.l}</span>
         <div class="ic-mini" style="color:var(--faint)">${i.conf}%</div></td>
       <td>${i.flags.length?i.flags.slice(0,2).map(f=>`<span class="pill ready sm" title="${POL_IFLAG[f]}">${POL_IFLAG[f].replace('Missing ','').replace('Possible ','').replace('Low classification ','low ')}</span>`).join(' ')+(i.flags.length>2?` <span class="ic-mini">+${i.flags.length-2}</span>`:''):'<span class="ic-mini" style="color:var(--faint)">&#8211;</span>'}</td>
       <td>${polPill(POL_IPROC,i.proc)}</td>
@@ -17705,7 +17987,7 @@ const VIEW_META={
   exceptions:{t:'Exceptions',c:'Control tests failing right now',depth:3},
   // Lens-scoped override — Accounting's Exceptions is a different page on the same tab id.
   'ledger:exceptions':{t:'Exceptions',c:'Priority queue · exposure · aging · recurrence · validation',depth:4},
-  activity:{t:'Activity',c:'Chronological trail across all modules',depth:2},
+  activity:{t:'Activity log',c:'Immutable decision record · append-only · exportable',depth:2},
   documents:{t:'Documents',c:'Evidence attached to open work',depth:2},
   // Titled "Retained Records", not "Data Room" — this page lives INSIDE the Data Room
   // module now, and a page called Data Room inside Data Room is the ambiguity this pass
