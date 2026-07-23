@@ -1032,6 +1032,33 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .trace-agent-note{font-size:var(--fs-label);color:var(--muted);flex:1;min-width:140px}
 .trace-draft{margin-top:var(--s-3);font-size:var(--fs-table);color:var(--ink);display:flex;gap:var(--s-2);
   align-items:baseline;line-height:1.5}
+/* ranked exception list — financial + detections in one bucket */
+.trace-exlist{display:flex;flex-direction:column;gap:2px}
+.trace-exlist-h{font-size:var(--fs-label);color:var(--n-500);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);margin-bottom:var(--s-2)}
+.trace-exlist-h .n{background:var(--n-100);border-radius:var(--radius-pill);padding:0 var(--s-2);color:var(--n-600)}
+.trace-row{display:flex;align-items:center;gap:var(--s-3);width:100%;text-align:left;cursor:pointer;
+  border:var(--rule);background:var(--surface);border-radius:var(--radius);padding:var(--s-2) var(--s-3);
+  font-size:var(--fs-table)}
+.trace-row:hover{background:var(--n-25)}
+.trace-row.on{border-color:var(--accent);background:var(--accent-bg)}
+.trace-row-st{flex:none;width:74px;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--n-500)}
+.trace-row-st.s-new{color:var(--accent)} .trace-row-st.s-escalated{color:var(--warn)}
+.trace-row-st.s-dismissed{color:var(--n-400)} .trace-row-st.s-cleared{color:var(--pos)}
+.trace-row-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.trace-row-tag{flex:none;font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:.03em;
+  border-radius:var(--radius-sm);padding:1px 5px}
+.trace-row-tag.det{background:var(--warning-bg);color:var(--warn)}
+.trace-row-tag.fin{background:var(--n-100);color:var(--n-600)}
+.trace-row-mat{flex:none;width:78px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.trace-actions{display:flex;align-items:center;gap:var(--s-2);border-top:var(--rule);
+  padding-top:var(--s-3);margin-top:var(--s-3)}
+.trace-actions-l{font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--n-500);margin-right:var(--s-2)}
+.trace-act{border:var(--rule);background:var(--surface);border-radius:var(--radius-sm);
+  padding:var(--s-1) var(--s-3);font-size:var(--fs-table);color:var(--muted);cursor:pointer}
+.trace-act:hover{background:var(--n-25);color:var(--ink);border-color:var(--accent)}
 
 /* keyboard focus in queues */
 .dt tbody tr.kbd-on{box-shadow:inset 2px 0 0 var(--accent)}
@@ -18201,6 +18228,9 @@ const NS_SYNC_1=[
    period:'2026-06', amount:4200000, cr:4200000, sourceTxn:null, memo:'Period-end accrual - Ashburn capital costs'},
   {recordType:'invoice', internalId:'INV-N-9000', docNo:'INV-9000', externalId:'TURNER-INV-9000', entityId:'MERIDIAN-DC-HOLDCO',
    period:'2026-06', po:'PO-1000', vendorRef:'V-TURNER', amount:4180000, memo:'Progress billing - structural, Ashburn'},
+  // Non-PO manual invoice -> rule 1 (invoice with no PO reference) fires on this.
+  {recordType:'invoice', internalId:'INV-N-9100', docNo:'INV-9100', externalId:'TURNER-INV-9100', entityId:'MERIDIAN-DC-HOLDCO',
+   period:'2026-06', po:null, vendorRef:'V-TURNER', amount:1240000, due:'Jul 5, 2026', memo:'Non-PO manual invoice - no commitment'},
   {recordType:'po', internalId:'PO-N-1000', docNo:'PO-1000', entityId:'MERIDIAN-DC-HOLDCO', vendorRef:'V-TURNER',
    projectRef:'ASH-C', amount:58400000, memo:'Turner Construction - Ashburn shell & core'},
   {recordType:'vendor', internalId:'V-N-4021', externalId:'V-TURNER', name:'Turner Construction', taxId:'54-1740002'},
@@ -18212,6 +18242,9 @@ const NS_SYNC_2=[
   // Accrual JE re-sent with a CHANGED internalId, same natural key (defect 2).
   {recordType:'je', internalId:'JE-N-88213', docNo:'JE-ACCR-21000-06', line:'1', acctNo:'21000', entityId:'MERIDIAN-DC-HOLDCO',
    period:'2026-06', amount:4200000, cr:4200000, sourceTxn:null, memo:'Period-end accrual - Ashburn capital costs'},
+  // Two vendor records, same name, NO tax id -> identity resolution flags but cannot merge -> rule 5.
+  {recordType:'vendor', internalId:'V-N-5001', externalId:'V-CATER',  name:'Caterpillar', taxId:null},
+  {recordType:'vendor', internalId:'V-N-5002', externalId:'VEND-CAT', name:'Caterpillar', taxId:null},
 ];
 
 /* ---- graph stores (session state; localStorage no-ops under file://) ---------- */
@@ -18317,6 +18350,7 @@ function kvBoot(){
   if(KV_READY) return;
   KV_RAW=[]; KV_OBJ={}; KV_INDEX={}; KV_ALIAS={}; KV_MERGES=[]; KV_SEQ=0;
   kvIngest(NS_SYNC_1); kvIngest(NS_SYNC_2); kvResolveIdentities(); kvFlagDanglingParents();
+  kvFlagDuplicateCandidates();
   KV_READY=true;
 }
 /* idempotency check: snapshot the graph, run the whole pipeline again, deep-equal. */
@@ -18413,7 +18447,7 @@ const TRACE_EXC=[
     evidence:{ 'Vendor invoice':true, 'Purchase order':true, 'Contract':false },
     build:chainAccrual },
 ];
-function traceExc(id){ return TRACE_EXC.find(e=>e.id===id)||TRACE_EXC[0]; }
+function traceExc(id){ const all=allTraceExc(); return all.find(e=>e.id===id)||all[0]; }
 
 /* ---- 5. DETAIL VIEW — one component, role-view is a toggle --------------------- */
 let traceSel='TX-RECON-13500-HOLD', traceRole='controller';
@@ -18459,7 +18493,7 @@ function traceRolePane(e){
     <div class="trace-kv"><span>Due</span><b>${traceEsc(e.due)}</b></div>
     <div class="trace-kv"><span>Owner (you)</span><b>${traceEsc(e.preparer)}</b></div></div>`;
   if(traceRole==='fpa') return `<div class="trace-role-body">
-    <div class="trace-kv"><span>Restatement risk</span><b>${e.evidence['Counterparty confirmation']===false||e.evidence['Contract']===false?'Elevated':'Low'}</b></div>
+    <div class="trace-kv"><span>Restatement risk</span><b>${Object.values(e.evidence).some(v=>v===false)?'Elevated':'Low'}</b></div>
     <div class="trace-kv"><span>Against variance line</span><b>${traceEsc(e.varianceLine)}</b></div>
     <div class="trace-kv"><span>Exposure</span><b>${traceMoney(e.difference)}</b></div>
     <div class="trace-note">Cleared on a note with evidence missing carries restatement exposure until the ${traceEsc(e.varianceLine)} line is confirmed.</div></div>`;
@@ -18494,14 +18528,23 @@ function renderTraceExc(){
   kvBoot();
   const e=traceExc(traceSel), prov=e.build();
   const seg=(id,l)=>`<button class="trace-seg ${traceRole===id?'on':''}" onclick="setTraceRole('${id}')">${l}</button>`;
-  const pick=TRACE_EXC.map(x=>`<button class="trace-pick ${x.id===traceSel?'on':''}" onclick="setTraceSel('${x.id}')">${traceEsc(x.title.split(' — ')[0])}</button>`).join('');
-  const stateIdx=TRACE_STATES.indexOf(e.state);
+  const all=allTraceExc();
+  const list=all.map(x=>{ const st=traceState(x), mat=x.difference?traceMoney(x.difference):'control';
+    return `<button class="trace-row ${x.id===traceSel?'on':''}" onclick="setTraceSel('${x.id}')">
+      <span class="trace-row-st s-${st.toLowerCase()}">${st}</span>
+      <span class="trace-row-title">${traceEsc(x.title)}</span>
+      <span class="trace-row-tag ${x.detection?'det':'fin'}">${x.detection?'detection':'financial'}</span>
+      <span class="trace-row-mat">${mat}</span></button>`; }).join('');
+  const stateIdx=TRACE_STATES.indexOf(traceState(e));
   const life=TRACE_STATES.map((s,i)=>`<span class="trace-life ${i===stateIdx?'on':''} ${i<stateIdx?'done':''}">${s}</span>`).join('<span class="trace-life-sep">›</span>');
   const missing=prov.chain.filter(h=>!h.present).length, present=prov.chain.length-missing;
   const drafts=TRACE_DRAFTS.filter(d=>d.exc===e.id);
   $('view-traceexc').innerHTML=`
    <div class="trace-wrap">
-    <div class="trace-switch">Traced exceptions <span class="n">${TRACE_EXC.length}</span> ${pick}</div>
+    <div class="trace-exlist">
+      <div class="trace-exlist-h">Traceability exceptions <span class="n">${all.length}</span> · ranked by materiality · financial and detected in one list</div>
+      ${list}
+    </div>
     <div class="card trace-head">
       <div class="trace-head-top">
         <div><div class="trace-title">${traceEsc(e.title)}</div>
@@ -18510,6 +18553,7 @@ function renderTraceExc(){
       </div>
       <div class="trace-roles">${seg('preparer','Preparer')}${seg('controller','Controller')}${seg('fpa','FP&A')}</div>
       ${traceRolePane(e)}
+      <div class="trace-actions"><span class="trace-actions-l">Lifecycle</span>${['assign','escalate','clear','dismiss'].map(a=>`<button class="trace-act" onclick="traceDetAct('${e.id}','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
     </div>
 
     <div class="card trace-chain">
@@ -18542,6 +18586,152 @@ function traceReport(){ kvBoot();
     defects:Object.values(KV_OBJ).reduce((a,o)=>a+o.defects.length,0),
     idempotent:kvIdempotent().ok };
 }
+
+/* ============================================================================
+   LINKAGE DETECTIONS — broken/missing linkage as first-class exceptions
+   ----------------------------------------------------------------------------
+   Detect only (no inference, no auto-linking). Each detection OPENS a TRACE_EXC
+   using the existing object + lifecycle (New→Assigned→Escalated→Cleared→Dismissed),
+   expresses the broken link as a Provenance 'missing' hop, proposes an owner, and
+   carries materiality so it ranks alongside the financial exceptions. Inputs are
+   persisted (the labeled set for later inference); dismissed detections are retained.
+   ============================================================================ */
+
+let KV_DUP_CANDIDATES=[];   // arrays of korvynIds flagged as same-object but NOT merged
+/* Rule-5 support: flag same-name vendors identity resolution could not confidently merge
+   (no/absent tax id). This DETECTS a candidate duplicate — it never merges (that would be
+   auto-linking). Merged pairs are one active object, so they are not re-flagged. */
+function kvFlagDuplicateCandidates(){
+  KV_DUP_CANDIDATES=[];
+  const byName={};
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='vendor'||o._absorbedInto) return;
+    const nm=kvNorm(o.label); (byName[nm]=byName[nm]||[]).push(o); });
+  Object.values(byName).forEach(g=>{ if(g.length<2) return;
+    g.forEach(o=>kvDefect(o,'duplicate-candidate','shares a name with '+(g.length-1)+
+      ' other unmerged record(s); identity unconfirmed (no tax id) — flagged, not merged'));
+    KV_DUP_CANDIDATES.push(g.map(o=>o.korvynId)); });
+}
+
+function kvEntName(entId){ const e=kvEntity(entId); return e?e.label:(entId||'—'); }
+/* Proposed owner — derived from the related record's entity (or master-data steward for vendors). */
+function traceProposeOwner(o){
+  if(o && o.objectType==='vendor') return 'S. Weber';                 // master-data steward
+  const ent=o?kvGetForeign(o,'entityId'):null;
+  return ({'MERIDIAN-DC-HOLDCO':'M. Giri','MERIDIAN-PROPERTY-CO':'M. Reyes',
+           'FLEET-DC-OPCO':'L. Tan'})[ent]||'A. Okafor';
+}
+function traceDetRoute(o){
+  switch(o.objectType){
+    case 'invoice': case 'po': case 'vendor': return "pickLens('procure');pickTab('po')";
+    case 'je':      return "pickLens('ledger');pickTab('glact')";
+    case 'account': return "pickLens('ledger');pickTab('glrecon')";
+    case 'entity':  return "pickLens('ledger');pickTab('consol')";
+    case 'icevent': return "pickLens('ledger');pickTab('icomp');setIcSub('excep')";
+    default:        return "pickLens('ledger');pickTab('glact')";
+  }
+}
+/* The broken link is a Provenance 'missing' hop; present subjects are stated links. */
+function traceDetChain(d){
+  const chain=(d._present||[]).map(o=>hopLink(o.objectType,o,traceDetRoute(o),{linkType:'stated'}));
+  chain.push(hopMissing(d._broken.objectType, d._broken.label, d._broken.reason, d._broken.owner));
+  return {status:'resolved', readAt:KV_NOW, chain};
+}
+
+/* ---- persistence: the labeled set + per-detection lifecycle state --------------
+   TRACE_DET is append-only (inputs kept even after dismissal). TRACE_DET_STATE holds
+   workflow; TRACE_DET_LOG is the append-only transition log. */
+let TRACE_DET=[], TRACE_DET_STATE={}, TRACE_DET_LOG=[];
+function traceState(e){ return (TRACE_DET_STATE[e.id]&&TRACE_DET_STATE[e.id].state)||e.state; }
+function traceDetAct(id,action){
+  const map={assign:'Assigned',escalate:'Escalated',clear:'Cleared',dismiss:'Dismissed',reopen:'New'};
+  const st=map[action]; if(!st) return;
+  const e=traceExc(id), prev=traceState(e);
+  TRACE_DET_STATE[id]={state:st, owner:(TRACE_DET_STATE[id]&&TRACE_DET_STATE[id].owner)||e.preparer, at:KV_NOW};
+  TRACE_DET_LOG.push({id, action, from:prev, to:st, at:KV_NOW});   // append-only; dismissed retained
+  if(TAB==='traceexc') renderTraceExc();
+}
+
+/* ---- the five detection rules over the ingested graph ------------------------- */
+function traceDetections(){
+  kvBoot();
+  const out=[];
+  const open=(id,ruleId,ruleName,brokenLabel,broken,present,entId,account,materiality,evLabel,varianceLine,due,inputs)=>{
+    out.push({ id, detection:true, ruleId, ruleName,
+      title:ruleName+' — '+brokenLabel,
+      entity:kvEntName(entId), account:account||'—', source:'NetSuite',
+      difference:materiality||0, state:'New', preparer:broken.owner, controller:'A. Okafor',
+      clearance:'Open — link not resolved', blocks:'—', due:due||'—', varianceLine:varianceLine||'—',
+      evidence:{ [evLabel]:false }, _present:present, _broken:broken, build:null });
+    if(!TRACE_DET.some(d=>d.id===id)) TRACE_DET.push({id, ruleId, subjects:present.map(o=>o.korvynId),
+      broken:broken.label, at:KV_NOW, inputs});   // labeled set — inputs persisted
+  };
+
+  // Rule 1 — invoice with no PO reference
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='invoice'||o._absorbedInto||o.raw.po) return;
+    const ow=traceProposeOwner(o);
+    open('TX-DET-NOPO-'+o.korvynId,'invoice-no-po','Invoice without PO reference','PO reference',
+      {objectType:'purchase-order',label:'PO reference',reason:'Invoice '+kvGetForeign(o,'documentNumber')+
+        ' carries no PO reference — cannot 3-way match',owner:ow},
+      [o], kvGetForeign(o,'entityId'), '—', o.raw.amount||0, 'PO reference', 'Procurement match', o.raw.due,
+      {invoice:o.korvynId, po:null}); });
+
+  // Rule 2 — JE with no source transaction reference
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='je'||o._absorbedInto) return;
+    if(o.raw.sourceTxn!=null && o.raw.sourceTxn!=='') return;
+    const ow=traceProposeOwner(o);
+    open('TX-DET-NOTXN-'+o.korvynId,'je-no-source-txn','JE without source transaction','Source transaction',
+      {objectType:'source-transaction',label:'Source transaction',reason:'JE '+kvGetForeign(o,'documentNumber')+
+        ' carries no source transaction id',owner:ow},
+      [o], kvGetForeign(o,'entityId'), kvGetForeign(o,'accountNumber'), o.raw.amount||0,
+      'Source reference', 'Accrual origin', null, {je:o.korvynId, sourceTxn:null}); });
+
+  // Rule 3 — intercompany balance with no counterparty match
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='icevent'||o._absorbedInto) return;
+    const cp=kvEntity(o.raw.counterparty);
+    // counterparty matched only if a payable JE exists on the counterparty side (it does not here)
+    const matched=Object.values(KV_OBJ).some(x=>x.objectType==='je'&&!x._absorbedInto&&
+      kvHasForeign(x,'entityId',o.raw.counterparty));
+    if(matched) return;
+    open('TX-DET-ICNM-'+o.korvynId,'ic-no-counterparty','Intercompany balance with no counterparty match',
+      'Counterparty posting',
+      {objectType:'counterparty-posting',label:'Counterparty posting',
+       reason:kvEntName(o.raw.counterparty)+' has not booked the counterparty side of '+o.raw.eventId,owner:'M. Giri'},
+      cp?[o,cp]:[o], kvGetForeign(o,'entityId'), '—', o.raw.amount||0,
+      'Counterparty confirmation', 'Intercompany eliminations', null,
+      {icevent:o.korvynId, counterparty:o.raw.counterparty}); });
+
+  // Rule 4 — transaction referencing a parent that doesn't exist
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='je'||o._absorbedInto||!o.raw.counterpartyRef) return;
+    const found=Object.values(KV_OBJ).some(x=>x.objectType==='je'&&!x._absorbedInto&&
+      kvHasForeign(x,'documentNumber',o.raw.counterpartyRef));
+    if(found) return;
+    const ow=traceProposeOwner(o);
+    open('TX-DET-DANGLE-'+o.korvynId,'dangling-parent','Transaction references a parent that does not exist',
+      'Parent '+o.raw.counterpartyRef,
+      {objectType:'parent-journal-entry',label:'Parent '+o.raw.counterpartyRef,
+       reason:'JE '+kvGetForeign(o,'documentNumber')+' references '+o.raw.counterpartyRef+
+        ' which is not present in source',owner:ow},
+      [o], kvGetForeign(o,'entityId'), kvGetForeign(o,'accountNumber'), o.raw.amount||0,
+      'Referenced parent', 'Intercompany eliminations', null,
+      {je:o.korvynId, ref:o.raw.counterpartyRef}); });
+
+  // Rule 5 — duplicate objects identity resolution flagged but did NOT merge
+  KV_DUP_CANDIDATES.forEach(group=>{
+    const objs=group.map(k=>KV_OBJ[k]).filter(Boolean); if(objs.length<2) return;
+    open('TX-DET-DUP-'+objs[0].korvynId,'duplicate-candidate','Duplicate flagged, identity not confirmed',
+      'Confirmed unique identity',
+      {objectType:'canonical-identity',label:'Confirmed unique identity',
+       reason:objs.length+' records share the name "'+objs[0].label+'" but identity cannot be confirmed '+
+        '(no tax id); not merged',owner:'S. Weber'},
+      objs, kvGetForeign(objs[0],'entityId'), '—', 0, 'Confirmed identity', 'Vendor master', null,
+      {candidates:group}); });
+
+  out.forEach(d=>{ d.build=(function(dd){ return function(){ return traceDetChain(dd); }; })(d); });
+  return out;
+}
+
+/* Financial exceptions + detections in ONE list, ranked by materiality. */
+function allTraceExc(){ return [...TRACE_EXC, ...traceDetections()].sort((a,b)=>(b.difference||0)-(a.difference||0)); }
 
 function renderAll(){
   readFilters();
