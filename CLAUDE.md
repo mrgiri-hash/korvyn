@@ -1067,13 +1067,51 @@ from the row's own facts, labelled Korvyn analysis, and states that it is never 
 
 ## Ask Korvyn (read before touching the assistant)
 
-`#copilot` is an **overlay**, never a layout participant. This is the load-bearing rule:
+**Phase 5 rebuilt this panel** into a provenance-first, work-generating surface. The overlay and
+four-state rules below still hold; the layout, answer format and behaviour are new.
+
+- **Panel order, top to bottom:** header · **sources block** (`#cpSrc`, from Phase 4, moved
+  ABOVE the tabs) · **context banner** (`#cpCtx`, only when rows are selected) · tabs · scroll
+  (thread + home) · footer (**scope chips** `#cpScope` · input · disclaimer).
+- **`#copilot` is a FIXED 400px dock.** The drag-to-resize handle and its width persistence were
+  deleted; there is no `--copilot-w` any more. States are closed / open (400px) / full screen.
+  Surface is `--n-0`, left edge is `--rule`.
+- **Provenance is in EVERY answer, and it is the read-from block, not a footer.** `cpReadsFor()`
+  resolves the answer's scope (selection → EntityTree → region slot → whole group), maps entities
+  to ERP systems, and returns one row per contributing system — status dot, system, freshness,
+  accounts read, `--accent` link. **A source the answer could NOT read appears as a row marked
+  "could not read", never omitted** (JD Edwards, unreachable). `cpReadBlock()` renders it inside
+  the message card; `cpSend` computes `reads` BEFORE resolving the answer, so an answer literally
+  cannot render without stating what it read. The grounded answer engine (parseIntent → `ans*`)
+  is unchanged — Phase 5 reskinned the shell and wrapped it, per "enhance not rebuild".
+- **Answers become work: four standard actions on every answer** (`cpStdActions`) — Create task
+  (primary, `--n-900` filled), Save as evidence, Open in module, Escalate. Each is a real
+  side-effect into an append-only store: `CP_TASKS`, **`CP_EVIDENCE`** (question + answer +
+  sources consulted + actor + timestamp, never edited — the immutable log), `CP_ESCAL`.
+- **Selection awareness.** Every selectable DataTable's bulk bar carries **"Ask about selection"**
+  (`cpAskSelection`), which sets `CP.selection`, opens the panel, and paints the context banner.
+  `cpScopeEntities` then scopes the read-from set (and the answer) to the selected rows' entities,
+  not the whole page. `cpClearSelection` resets it.
+- **Insights tab IS the detection queue** (`cpInsightList` / `cpInsightCard`), the same
+  `detections()` Home triage renders — 3px severity left border, an evidence box (rule/model id,
+  expected vs observed, the source at its freshness), and the same `detAct` decision actions.
+  A detection decided here is decided everywhere (state lives in `DET_STATE`). Tab count is
+  `cpInsightCount()`, shown in `--n-400`.
+- **Dynamic suggestions** (`cpDynamicSugs`) lead the assistant home and are generated from what is
+  on screen and what is degraded: *"Which blockers can clear without JD Edwards?"* exists ONLY
+  because JD Edwards is `err`. A static suggestion list is the tell that the panel is not
+  context-aware — do not revert to one.
+- Messages are **bordered cards** (`--radius`), not chat bubbles: user on `--n-50`, assistant on
+  `--n-0`. Body is **12px sans at 1.6** (the serif treatment is gone). Active tab is `--n-900`
+  text + 2px `--n-900` underline (no accent). Footer submit is a circular `--n-900` button.
+
+### Legacy overlay rules (still true)
 
 - The body grid is **two columns** (`rail main`). The assistant deliberately has no grid
   column, so opening it cannot reflow, resize or restyle the page underneath — the page keeps
   its full width in every state. Do not reintroduce a `copilot` grid area or a `--copilot-w`
   column; that is what caused the old 1085px overflow.
-- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--copilot-w,440px)`.
+- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `400px`.
   Hidden is `transform:translateX(100%)` — **not** `width:0`.
 - **Four presentation states over one live session.** Go through the helpers, never toggle the
   classes by hand:
@@ -1082,7 +1120,7 @@ from the row's own facts, labelled Korvyn analysis, and states that it is never 
   |---|---|---|---|
   | Closed | `copilot-collapsed` | ribbon icon only | `cpClose()` |
   | Collapsed | `copilot-collapsed copilot-min` | small edge tab `.cp-mintab` | `cpMinimize()` |
-  | Open | *(none)* | 440px workspace | `cpOpen()` |
+  | Open | *(none)* | 400px workspace | `cpOpen()` |
   | Full | `copilot-full` | expanded workspace | `cpWide()` |
 
   `copilot-collapsed` means "panel not visible" in **both** hidden states; `copilot-min` is what
@@ -1137,10 +1175,10 @@ from the row's own facts, labelled Korvyn analysis, and states that it is never 
   because dead controls are against house rules.
 - `cpUserName()` reads the first name off `.um-nm` in the user menu; if that is ever removed the
   welcome falls back to a generic "How can I help?" rather than rendering "Hi, ".
-- Suggestions are capped at three (`cards.slice(0,3)` in `renderCpHome`) — the underlying
-  `CP_CARDS` / `CP_SUGS` data is untouched, only the render is trimmed.
-- Dragging the resize handle narrower than `CP_SNAP` (200px) now snaps the panel **shut**,
-  since there is no rail to snap to.
+- Suggestions are capped at three (`[...cpDynamicSugs(), ...cpCards()].slice(0,3)` in
+  `renderCpHome`) — dynamic degraded-aware prompts lead, page-contextual cards fill in behind.
+- The resize handle is **gone** (Phase 5, fixed 400px). `CP_SNAP`/`CP_MIN`/`CP_MAX`/`cpApplyWidth`
+  and the `#cpResize` element were removed; do not reintroduce them.
 - `localStorage` silently no-ops under `file://` in the preview sandbox (all the writes are
   already wrapped in try/catch), so open/closed state will not persist across a preview reload.
   That is the sandbox, not a bug — do not "fix" it with a different storage mechanism.
@@ -1183,9 +1221,19 @@ from the row's own facts, labelled Korvyn analysis, and states that it is never 
   ancestor cascades down uncontested — the in-app toggle cannot undo it. This bit a debugging
   session: setting dark on `documentElement` to test dark mode left the page stuck dark through
   every subsequent reload, because navigating to the same file URL does not hard-reload the DOM.
-  If you set it for a test, remove it afterwards. A robustness fix would be to give
-  `[data-theme="light"]` the same variable block as `:root` so light re-declares rather than
-  inherits — not done, as it touches the design system.
+  If you set it for a test, remove it afterwards.
+- **The dark ramp must re-declare the structural aliases, not only the ramp values — and it now
+  does.** `toggleTheme` flips `data-theme` on **`body`**, but `--surface`/`--bg`/`--ink`/`--muted`/
+  `--line`/… are declared in **`:root`** (the html element). A custom property resolves where it
+  is *declared*, against that element's ramp — so an alias declared on html resolved against
+  html's LIGHT `--n-*` and stayed light even though `[data-theme="dark"]` overrode `--n-*` on
+  body. **Dark-mode content was silently broken from the Phase 1 ramp rework until Phase 5**: the
+  ramp tokens went dark but every `.card`/`.tbl`/page surface stayed white. It went unnoticed
+  because the dark "checks" only read raw `--n-*` off body (which *are* dark) and never asserted
+  an alias or screenshotted content. The `[data-theme="dark"]` block now re-declares the aliases
+  so they re-resolve against the dark ramp. **If you add a ramp-derived alias to `:root`, add it
+  to the dark block too**, and verify dark mode by reading `--surface` (not just `--n-0`) or by
+  looking at a card.
 - **Spreading then re-keying silently shadows.** `return {...meta, fx}` where `meta.fx` is the
   functional-currency *string* and the local `fx` is the rate *object* leaves `e.fx` as the
   object. The header rendered `[object Object]` and — worse, because it was silent — the

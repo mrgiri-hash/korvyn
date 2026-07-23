@@ -239,13 +239,26 @@
   --num:"Inter",var(--sans); /* Inter has excellent tabular figures */
 }
 [data-theme="dark"]{
-  /* The ramp inverts: n-0 is still "card surface", n-900 is still "ink", and every
-     structural alias resolves through it — so only these twelve values change.
-     Note n-50 (page) is DARKER than n-0 (card) here: the roles hold, the lightness
-     order flips, which is exactly what makes one alias table serve both themes. */
+  /* The ramp inverts: n-0 is still "card surface", n-900 is still "ink".
+     Note n-50 (page) is DARKER than n-0 (card) here: the roles hold, the lightness order flips.
+
+     THE ALIASES MUST BE RE-DECLARED HERE, not only the ramp. `--surface: var(--n-0)` and the
+     rest are declared in `:root` (the html element), but `data-theme="dark"` is set on `body`.
+     A custom property resolves where it is DECLARED, against that element's ramp — so an alias
+     declared on html resolves against html's LIGHT ramp and stays light even though the dark
+     ramp overrides --n-* on body. Re-declaring the aliases on this (body-matching) selector
+     forces them to re-resolve against the dark ramp. (Latent since the Phase 1 ramp rework:
+     the ramp tokens went dark on body but every --surface/--bg/--ink surface stayed light.
+     Do NOT "simplify" by deleting these; and if you add a ramp-derived alias to :root, add it
+     here too.) */
   --n-0:#171A21;   --n-25:#1C1F27;  --n-50:#0F1218;  --n-100:#232732;
   --n-200:#2C313D; --n-300:#3A4150; --n-400:#666E80; --n-500:#8B93A4;
   --n-600:#A6ADBC; --n-700:#C3C9D5; --n-800:#DFE3EA; --n-900:#F2F4F8;
+  --surface:var(--n-0); --surface2:var(--n-25);
+  --bg:var(--n-50);     --bg2:var(--n-100);
+  --ink:var(--n-800);   --ink-strong:var(--n-900);
+  --muted:var(--n-600); --hint:var(--n-500); --faint:var(--n-400);
+  --line:var(--n-200);  --line2:var(--n-300);
   /* Hairlines invert to low-opacity white for the same reason they are low-opacity
      white on chrome: a darker line on a dark surface reads as a smudge, not an edge. */
   --border:rgba(255,255,255,0.10);
@@ -2081,13 +2094,13 @@ body.nav-open .scrim{display:block}
    moment the panel closes. It separates from the workspace through boundary, shadow and
    spacing — never through a tinted background. */
 .copilot{
-  position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--copilot-w,440px);
-  background:var(--surface-ai);border-left:var(--rule-strong);
+  position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:400px;
+  background:var(--n-0);border-left:var(--rule);
   display:flex;flex-direction:column;overflow:hidden;z-index:26;
   box-shadow:-10px 0 30px rgba(16,22,35,.07);
   transition:transform .22s cubic-bezier(.2,.7,.2,1)}
 body.copilot-collapsed .copilot{transform:translateX(100%);box-shadow:none}
-.cp-head{display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:var(--rule);flex:none}
+.cp-head{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:var(--rule);flex:none}
 .cp-mark{width:24px;height:24px;flex:none;display:grid;place-items:center;border:none;background:none;padding:0;cursor:default;border-radius:var(--radius);transition:.13s}
 body.copilot-full .cp-mark{cursor:pointer}
 body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
@@ -2095,7 +2108,7 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 /* Header identity block: mark, name, and the grounding line directly beneath it. */
 .cp-head{align-items:flex-start}
 .cp-idw{display:flex;flex-direction:column;gap:2px;min-width:0}
-.cp-title{font-size:var(--fs-ui);font-weight:var(--fw-medium);letter-spacing:-.01em;line-height:1.2}
+.cp-title{font-size:var(--fs-card);font-weight:var(--fw-medium);letter-spacing:-.01em;line-height:1.2}
 .cp-head .sp{flex:1}
 .cp-ground{margin-left:auto;font-size:var(--fs-micro);color:var(--pos);background:var(--pos-bg);padding:3px 8px;border-radius:var(--radius-pill);
   display:flex;align-items:center;gap:4px;font-weight:var(--fw-medium)}
@@ -2106,16 +2119,20 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .cp-thread{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
 .cp-thread::-webkit-scrollbar{width:7px}.cp-thread::-webkit-scrollbar-thumb{background:var(--line2);border-radius:var(--radius)}
 
-.cp-msg-u{align-self:flex-end;max-width:88%;background:var(--accent-fill);color:var(--on-accent);padding:9px 13px;
-  border-radius:var(--radius) 14px 3px 14px;font-size:var(--fs-ui);line-height:1.5;box-shadow:var(--shadow-sm)}
-.cp-msg-a{align-self:flex-start;max-width:97%;display:flex;flex-direction:column;gap:9px}
+/* Messages are bordered cards, not chat bubbles. A user message is a --n-50 fill; an assistant
+   message stays on --n-0. Both carry the hairline and one radius, so the thread reads as a stack
+   of records rather than a conversation UI. */
+.cp-msg-u{align-self:stretch;background:var(--n-50);border:var(--rule);border-radius:var(--radius);
+  padding:10px 12px;margin-bottom:10px;color:var(--ink);font-size:var(--fs-table);line-height:1.6}
+.cp-msg-a{align-self:stretch;background:var(--n-0);border:var(--rule);border-radius:var(--radius);
+  padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:9px}
 .cp-think{font-size:var(--fs-label);color:var(--hint);display:flex;align-items:center;gap:7px;font-family:var(--mono)}
 .cp-think .sp{width:12px;height:12px;border:1.6px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:cpspin .7s linear infinite;flex:none}
 @keyframes cpspin{to{transform:rotate(360deg)}}
 .cp-think.done .sp{border:none;background:none;color:var(--pos)}
-.cp-body{font-family:var(--serif);font-size:var(--fs-card);line-height:1.62;color:var(--ink)}
-.cp-body b{font-family:var(--sans);font-weight:var(--fw-medium)}
-.cp-body .fig{font-family:var(--num);font-weight:var(--fw-medium);color:var(--accent-ink);font-variant-numeric:tabular-nums}
+.cp-body{font-family:var(--sans);font-size:var(--fs-table);line-height:1.6;color:var(--ink)}
+.cp-body b{font-weight:var(--fw-medium)}
+.cp-body .fig{font-family:var(--num);font-weight:var(--fw-medium);color:var(--ink);font-variant-numeric:tabular-nums}
 .cp-cursor::after{content:"▍";color:var(--accent);animation:blink 1s step-end infinite;margin-left:1px}
 @keyframes blink{50%{opacity:0}}
 
@@ -2144,24 +2161,37 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .cp-cites{font-size:var(--fs-micro);color:var(--hint);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cp-cite{color:var(--accent);cursor:pointer;border-bottom:1px dotted var(--accent-line)}
 .cp-cite:hover{background:var(--accent-bg);border-radius:var(--radius)}
-.cp-acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:1px}
-.cp-act{font-size:var(--fs-label);padding:6px 11px;border:var(--rule-strong);border-radius:var(--radius);background:var(--surface);
-  color:var(--ink);cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:5px}
-.cp-act:hover{border-color:var(--accent-line);background:var(--accent-bg);color:var(--accent-ink)}
-.cp-act.pri{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-bg)}
+/* Message actions — 24px, wrapping. Primary (Create task) is --n-900 filled; the rest are
+   --border-strong outlined on --n-0. Every answer carries all four, so an answer is never a
+   dead end. */
+.cp-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:1px}
+.cp-act{font-size:var(--fs-label);height:var(--h-chip);padding:0 var(--s-2);border:var(--rule-strong);border-radius:var(--radius);background:var(--n-0);
+  color:var(--ink);cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:5px;font-family:var(--sans)}
+.cp-act:hover{border-color:var(--border-strong);background:var(--n-50)}
+.cp-act.pri{border-color:var(--n-900);color:var(--n-0);background:var(--n-900)}
+.cp-act.pri:hover{background:var(--n-800)}
 .cp-hit{display:flex;align-items:center;gap:9px;padding:8px 11px;border:var(--rule);border-radius:var(--radius);
   cursor:pointer;font-size:var(--fs-table);transition:.12s;background:var(--surface)}
 .cp-hit:hover{border-color:var(--accent-line);background:var(--accent-bg)}
 .cp-hit .badge{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:.04em;font-weight:var(--fw-medium);padding:2px 6px;border-radius:var(--radius);flex:none}
 .cp-hit .amt{margin-left:auto;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:var(--fw-medium)}
 
-.cp-foot{flex:none;padding:12px 14px;border-top:var(--rule)}
-.cp-input{display:flex;align-items:center;gap:9px;border:var(--rule-strong);border-radius:var(--radius-pill);padding:7px 7px 7px 15px;background:var(--surface);transition:.13s}
-.cp-input:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);background:var(--surface)}
-.cp-input input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:var(--fs-ui);color:var(--ink)}
-.cp-input input::placeholder{color:var(--hint)}
-.cp-input .send{width:28px;height:28px;border-radius:var(--radius);border:none;background:var(--accent-fill);color:var(--on-accent);cursor:pointer;display:grid;place-items:center;flex:none;transition:.12s}
-.cp-input .send:hover{background:var(--accent-ink)}
+.cp-foot{flex:none;padding:10px 14px;border-top:var(--rule)}
+/* Answer-scope chips — three, the active one filled --n-100. States what a question answers
+   against when nothing is selected. */
+.cp-scope{display:flex;gap:6px;margin-bottom:9px}
+.cp-scope .cpc{font-size:var(--fs-label);height:var(--h-chip);line-height:calc(var(--h-chip) - 2px);
+  padding:0 var(--s-2);border:var(--rule);border-radius:var(--radius);background:var(--n-0);
+  color:var(--n-500);cursor:pointer;transition:.12s;font-family:var(--sans)}
+.cp-scope .cpc:hover{border-color:var(--border-strong);color:var(--ink)}
+.cp-scope .cpc.on{background:var(--n-100);border-color:var(--border-strong);color:var(--ink);font-weight:var(--fw-medium)}
+.cp-input{display:flex;align-items:center;gap:9px;border:var(--rule-strong);border-radius:var(--radius);padding:6px 6px 6px 13px;background:var(--n-0);transition:.13s}
+.cp-input:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+.cp-input input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:var(--fs-table);color:var(--ink)}
+.cp-input input::placeholder{color:var(--n-400)}
+/* Circular --n-900 submit — the one filled control in the footer. */
+.cp-input .send{width:24px;height:24px;border-radius:50%;border:none;background:var(--n-900);color:var(--n-0);cursor:pointer;display:grid;place-items:center;flex:none;transition:.12s}
+.cp-input .send:hover{background:var(--n-800)}
 .cp-input .kbd{font-size:var(--fs-micro);color:var(--hint);border:var(--rule-strong);border-radius:var(--radius);padding:2px 6px;font-family:var(--mono)}
 .cp-sugs{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
 .cp-sug{font-size:var(--fs-label);padding:5px 10px;border:var(--rule);border-radius:var(--radius);background:var(--surface);
@@ -2206,25 +2236,28 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .backbtn svg{width:16px;height:16px}
 
 /* ---- copilot header controls ---- */
-.cp-head .cp-tool{width:26px;height:26px;border-radius:var(--radius);border:var(--rule-strong);background:var(--surface);
-  color:var(--muted);cursor:pointer;display:grid;place-items:center;transition:.13s;flex:none}
-.cp-head .cp-tool:hover{border-color:var(--accent-line);color:var(--accent);background:var(--accent-bg)}
+/* Header tools are quiet — the close/collapse/full affordances sit in --n-400 until hovered,
+   so they never compete with the title or the content. */
+.cp-head .cp-tool{width:24px;height:24px;border-radius:var(--radius);border:none;background:none;
+  color:var(--n-400);cursor:pointer;display:grid;place-items:center;transition:.13s;flex:none}
+.cp-head .cp-tool:hover{color:var(--ink);background:var(--n-100)}
 
 /* ---- Korvyn AI: redesigned shell ---- */
 /* Grounding line — sits directly under the name in the header, not as its own band. */
 .cp-status{display:flex;align-items:center;gap:5px;padding:0;font-size:var(--fs-micro);color:var(--hint);
   border:none;flex:none;line-height:1.3}
 .cp-status .ok{width:11px;height:11px;color:var(--pos);flex:none}
-.cp-tabs{display:flex;gap:2px;padding:0 12px;border-bottom:var(--rule);flex:none}
-.cp-tabs button{font:inherit;font-size:var(--fs-table);padding:10px 12px;border:none;background:none;color:var(--muted);
+.cp-tabs{display:flex;gap:2px;padding:0 14px;border-bottom:var(--rule);flex:none}
+.cp-tabs button{font:inherit;font-size:var(--fs-table);padding:8px 12px;border:none;background:none;color:var(--n-500);
   cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.13s;display:flex;align-items:center;gap:6px}
 .cp-tabs button:hover{color:var(--ink)}
-.cp-tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:var(--fw-medium)}
-/* the Insights count is information, not an alert — keep it neutral and quiet */
-.cp-tabs .ct{font-size:var(--fs-micro);font-weight:var(--fw-medium);background:var(--bg2);color:var(--hint);
-  border-radius:var(--radius);padding:1px 6px;line-height:1.5}
-.cp-tabs button.on .ct{background:var(--accent-bg);color:var(--accent-ink)}
-.cp-scroll{flex:1;overflow-y:auto;padding:14px 16px}
+/* Active tab is ink text on a 2px ink underline — no accent. The panel's one accent is the
+   read-through link and the submit; the tabs are structure, not interaction highlight. */
+.cp-tabs button.on{color:var(--n-900);border-bottom-color:var(--n-900);font-weight:var(--fw-medium)}
+/* the Insights count is information, not an alert — --n-400, quiet */
+.cp-tabs .ct{font-size:var(--fs-micro);font-weight:var(--fw-medium);color:var(--n-400);line-height:1.5}
+.cp-tabs button.on .ct{color:var(--n-500)}
+.cp-scroll{flex:1;overflow-y:auto;padding:12px 14px}
 .cp-scroll::-webkit-scrollbar{width:6px}
 .cp-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:var(--radius)}
 /* Welcome surface — an assistant greeting, deliberately not a chat bubble: full width,
@@ -2238,20 +2271,21 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .cp-lbl{font-size:var(--fs-micro);letter-spacing:.12em;text-transform:uppercase;color:var(--hint);
   font-weight:var(--fw-medium);margin:4px 0 9px;display:flex;align-items:center;gap:6px}
 .cp-lbl .sp{flex:1}
-/* Suggestions — compact action rows, not boxes. Hairline border, tight rhythm. */
-.cp-card{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:var(--rule);
-  background:var(--surface);border-radius:var(--radius-sm);padding:9px 11px;cursor:pointer;transition:.13s;
+/* Suggestions — single-line rows, --border outline, hover to --n-25 with --border-strong.
+   Leading glyph and trailing indicator both --n-400. */
+.cp-card{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:var(--rule);
+  background:var(--n-0);border-radius:var(--radius);padding:8px 10px;cursor:pointer;transition:.12s;
   font:inherit;margin-bottom:6px}
-.cp-card:hover{border-color:var(--accent-line);background:var(--accent-bg)}
-.cp-card .ci{width:22px;height:22px;border-radius:var(--radius);background:var(--bg2);color:var(--muted);
-  display:grid;place-items:center;flex:none;transition:.13s}
-.cp-card:hover .ci{background:var(--surface);color:var(--accent)}
-.cp-card .ci svg{width:13px;height:13px}
-.cp-card .cb{flex:1;min-width:0}
-.cp-card .ct2{display:block;font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);line-height:1.35}
-.cp-card .cs{display:block;font-size:var(--fs-micro);color:var(--hint);margin-top:1px;line-height:1.3}
-.cp-card .cv{width:12px;height:12px;color:var(--faint);flex:none}
-.cp-card:hover .cv{color:var(--accent)}
+.cp-card:hover{border-color:var(--border-strong);background:var(--n-25)}
+.cp-card .ci{width:14px;height:14px;color:var(--n-400);display:grid;place-items:center;flex:none}
+.cp-card .ci svg{width:14px;height:14px}
+.cp-card .cb{flex:1;min-width:0;display:flex;align-items:baseline;gap:7px;min-height:0}
+.cp-card .ct2{font-size:var(--fs-table);font-weight:var(--fw-regular);color:var(--ink);line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-card .cs{font-size:var(--fs-micro);color:var(--n-400);flex:none;white-space:nowrap}
+.cp-card .cv{width:12px;height:12px;color:var(--n-400);flex:none}
+/* A suggestion born of a degraded feed gets an amber leading glyph — the only colour in the list. */
+.cp-card.deg .ci{color:var(--warning)}
 /* Recents — quieter than suggestions on purpose: no border, no fill, lighter type. */
 .cp-recent{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;cursor:pointer;
   font:inherit;font-size:var(--fs-table);color:var(--muted);padding:6px 2px;text-align:left;transition:.13s;border-radius:var(--radius)}
@@ -2260,43 +2294,72 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .cp-recent .rw{font-size:var(--fs-label);color:var(--faint);flex:none}
 .cp-viewall{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--accent);cursor:pointer;margin-top:8px;display:inline-block}
 .cp-viewall:hover{text-decoration:underline}
-.cp-disc{font-size:var(--fs-micro);color:var(--faint);text-align:center;margin-top:8px}
-.cp-input .send{border-radius:50%!important;width:30px;height:30px}
-/* insights */
-.cp-ins{border:var(--rule);border-radius:var(--radius);padding:11px 12px;margin-bottom:9px;cursor:pointer;transition:.13s}
-.cp-ins:hover{border-color:var(--accent-line);background:var(--accent-bg)}
-.cp-ins .ih{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.cp-ins .idot{width:7px;height:7px;border-radius:50%;flex:none}
-.cp-ins .it{font-size:var(--fs-table);font-weight:var(--fw-medium);line-height:1.3}
-.cp-ins .id2{font-size:var(--fs-label);color:var(--hint);line-height:1.45}
+.cp-disc{font-size:var(--fs-micro);color:var(--n-400);text-align:center;margin-top:8px;line-height:1.4}
+/* ---- read-from block: one row per source an answer consulted --------------------------- */
+.cp-read{border-top:var(--rule);margin-top:9px;padding-top:8px}
+.cpr-lbl{font-size:var(--fs-label);font-weight:var(--fw-label);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;color:var(--n-500);margin-bottom:5px}
+.cpr-row{display:flex;align-items:center;gap:var(--s-2);padding:3px 0;font-size:var(--fs-label)}
+.cpr-row .d{width:6px;height:6px;border-radius:50%;flex:none;background:var(--prov-ok)}
+.cpr-row[data-st="warn"] .d{background:var(--warning)}
+.cpr-row[data-st="err"] .d{background:var(--danger)}
+.cpr-row .sys{font-weight:var(--fw-medium);color:var(--ink);min-width:96px}
+.cpr-row .fr{color:var(--n-500)}
+.cpr-row[data-st="err"] .fr,.cpr-row[data-st="err"] .rd{color:var(--danger)}
+.cpr-row .rd{color:var(--muted)}
+.cpr-row .lk{margin-left:auto;color:var(--accent);cursor:pointer;white-space:nowrap}
+.cpr-row .lk:hover{color:var(--accent-ink);text-decoration:underline}
+.cpr-cites{font-size:var(--fs-label);color:var(--n-500);margin-top:5px}
+.cpr-cite{color:var(--accent);cursor:pointer;border-bottom:1px dotted var(--accent-line)}
+.cpr-note{font-size:var(--fs-label);color:var(--warning);line-height:1.4;margin-top:5px}
+/* ---- context banner: only present when rows are selected elsewhere ---------------------- */
+.cp-ctx{display:flex;align-items:center;gap:var(--s-2);padding:7px 14px;background:var(--accent-bg);
+  border-bottom:var(--rule);flex:none;font-size:var(--fs-label)}
+.cp-ctx .cpx-t{color:var(--accent);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-ctx .cpx-t b{font-weight:var(--fw-medium)}
+.cp-ctx .cpx-clear{margin-left:auto;color:var(--accent);cursor:pointer;text-decoration:underline;flex:none}
+/* ---- insights = the detection queue, laid out for the panel ---------------------------- */
+.cp-insight{border:var(--rule);border-left:3px solid var(--sev-low);border-radius:var(--radius);
+  padding:10px 11px;margin-bottom:9px}
+.cp-insight[data-sev="high"]{border-left-color:var(--sev-high)}
+.cp-insight[data-sev="med"]{border-left-color:var(--sev-med)}
+.cpi-hd{display:flex;align-items:baseline;gap:var(--s-2)}
+.cpi-t{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);line-height:1.3}
+.cpi-dec{margin-left:auto;font-size:var(--fs-label);color:var(--n-500);white-space:nowrap;flex:none}
+.cpi-d{font-size:var(--fs-label);color:var(--n-500);line-height:1.4;margin-top:2px}
+.cpi-ev{background:var(--n-50);border:var(--rule);border-radius:var(--radius);padding:7px 8px;margin-top:7px}
+.cpi-ev-id{font-size:var(--fs-label);font-weight:var(--fw-medium);color:var(--ink);display:flex;align-items:center;gap:6px}
+.cpi-ev-id .k{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--n-500);border:var(--rule);border-radius:var(--radius);padding:0 4px}
+.cpi-ev-cmp{display:flex;gap:var(--s-3);font-size:var(--fs-label);color:var(--muted);margin-top:4px;flex-wrap:wrap}
+.cpi-ev-cmp b{font-family:var(--num);font-weight:var(--fw-medium);color:var(--ink);font-variant-numeric:tabular-nums}
+.cpi-ev-b{font-size:var(--fs-label);color:var(--n-500);line-height:1.4;margin-top:4px}
+.cpi-ev-s{display:flex;align-items:center;gap:5px;font-size:var(--fs-label);color:var(--n-500);margin-top:4px}
+.cpi-ev-s .d{width:5px;height:5px;border-radius:50%;flex:none;background:var(--prov-ok)}
+.cpi-ev-s .d[data-tie="stale"]{background:var(--warning)}
+.cpi-ev-s .d[data-tie="unavailable"]{background:var(--danger)}
+.cpi-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.cpi-act{font-size:var(--fs-label);height:var(--h-chip);padding:0 var(--s-2);border:var(--rule-strong);
+  border-radius:var(--radius);background:var(--n-0);color:var(--ink);cursor:pointer;transition:.12s;font-family:var(--sans)}
+.cpi-act:hover{border-color:var(--border-strong);background:var(--n-50)}
+.cpi-act.on{border-color:var(--n-900);background:var(--n-900);color:var(--n-0)}
+/* the "Ask about selection" bulk affordance reads as accent, not a mutating action */
+.dt-btn.dt-ask{color:var(--accent);border-color:var(--accent-line)}
+.dt-btn.dt-ask:hover{background:var(--accent-bg);border-color:var(--accent)}
 /* expanded (full-width) mode */
 /* Full screen fills the CONTENT area only. The ribbon and the left rail stay put and
    stay usable, so navigation continues to work with the assistant open. `left` tracks
    --rail-w so the panel follows the rail as it collapses. */
 body.copilot-full .copilot{position:fixed;top:var(--ribbon-h);left:var(--rail-w);right:0;bottom:0;
   width:auto!important;height:auto;z-index:25;border-left:var(--rule-strong);box-shadow:none}
-body.copilot-full .cp-resize{display:none}
 body.copilot-full .cp-scroll,body.copilot-full .cp-foot{max-width:900px;margin:0 auto;width:100%}
-body.copilot-full .cp-head,body.copilot-full .cp-status,body.copilot-full .cp-tabs{
-  padding-left:26px;padding-right:26px}
+body.copilot-full .cp-head,body.copilot-full .cp-status,body.copilot-full .cp-tabs,
+body.copilot-full .cp-src,body.copilot-full .cp-ctx{padding-left:26px;padding-right:26px}
 /* below the grid breakpoint the rail is off-canvas, so reclaim its width */
 @media(max-width:1200px){ body.copilot-full .copilot{left:0} }
 
-/* ---- Korvyn AI: collapsed icon rail (mirrors the left nav) ---- */
-
-/* drag handle: sits on the panel's leading edge */
-/* Straddles the panel edge so it is easy to grab from either side, with a visible grip. */
-.cp-resize{position:absolute;left:-5px;top:0;bottom:0;width:11px;cursor:col-resize;z-index:25;
-  background:transparent;display:flex;align-items:center;justify-content:center}
-.cp-resize::before{content:'';width:3px;height:38px;border-radius:var(--radius);background:var(--line2);
-  opacity:0;transition:opacity .13s,background .13s}
-.cp-resize:hover::before,body.cp-resizing .cp-resize::before{opacity:1;background:var(--accent)}
-body.cp-resizing{cursor:col-resize;user-select:none}
-body.cp-resizing .copilot{transition:none}
-body.copilot-collapsed .cp-resize{display:none}
-/* The intermediate 56px icon-rail state is gone. There are now three states — closed
-   (right-edge access rail), open (overlay panel) and full screen — because a second
-   half-open state is exactly the bolted-on widget feel the panel is meant to avoid. */
+/* The drag-to-resize handle was removed in Phase 5 — the panel is a fixed 400px dock. There
+   are three states: closed (ribbon icon only), open (400px overlay) and full screen. */
 
 /* Utility row: quiet, and deliberately below the input so it never competes with it.
    Every action here does something real — no decorative controls. */
@@ -4694,6 +4757,9 @@ function dataTable(spec){
     bulk=`<div class="dt-bulk"><b>${selCount} selected</b>
       ${spec.bulk.map((b,i)=>`<button class="dt-btn ${s.pending===i?'on':''}"
         onclick="dtBulk('${spec.id}',${i})">${b.l}</button>`).join('')}
+      <!-- Selection awareness: any selectable table can send its selection to the assistant,
+           which then answers against those rows rather than the whole page. -->
+      <button class="dt-btn dt-ask" onclick="cpAskSelection('${spec.id}')">Ask about selection</button>
       <span class="grow"></span>
       <button class="dt-btn" onclick="dtSelAll('${spec.id}',false)">Clear</button></div>`;
     if(pend){
@@ -17776,6 +17842,7 @@ TAB=LENSES[LENS].tabs[0];
 // Swap parseIntent() for an API call later; everything downstream is unchanged.
 
 const CP={ thread:[], ctx:{account:null,region:null,fund:null,measure:null,cat:null}, pinned:[], busy:false,
+  selection:null, scope:'page',
   recent:[{t:'Build P&L variance report',w:'10 min ago'},
           {t:'Explain increase in Repairs & Maintenance',w:'25 min ago'},
           {t:'Show intercompany eliminations',w:'1 day ago'}] };
@@ -17847,17 +17914,8 @@ function cpTypeInto(node,html,cb){
 function cpBody(wrap){ const b=document.createElement('div'); b.className='cp-body'; wrap.appendChild(b); return b; }
 function cpAppend(wrap,el){ wrap.appendChild(el); cpScroll(); }
 
-// citation + action + hit builders
-/* An answer is only as good as what it read, so it states that the same way every other
-   surface does — the same primitive, not a sentence about it.
-   This also retired "· figures from spine": "spine" is internal vocabulary and is not allowed
-   in visible copy, and it asserted a source without naming one, which is the opposite of what
-   a citation line is for. */
-function citeChips(cites){ if(!cites||!cites.length)return null;
-  const d=document.createElement('div'); d.className='cp-cites';
-  d.innerHTML=`<i class="ti"></i>cites: `+cites.map(c=>`<span class="cp-cite" onclick="${c.action||''}">${c.label}</span>`).join(', ')+
-    ` &#183; <span class="cp-prov">${provChip(provForScope())}</span>`;
-  return d; }
+// action + hit builders. (citeChips was retired in Phase 5 — provenance now renders as the
+// mandatory read-from block inside each answer, cpReadBlock(), not a one-line cite footer.)
 function actRow(actions){ if(!actions||!actions.length)return null;
   const d=document.createElement('div'); d.className='cp-acts';
   d.innerHTML=actions.map(a=>`<button class="cp-act ${a.pri?'pri':''}" onclick="${a.fn}">${a.icon||''}${a.label}</button>`).join('');
@@ -18002,17 +18060,26 @@ function cpSend(raw){
   ['account','region','fund','measure','cat'].forEach(k=>{ if(intent.slots[k])CP.ctx[k]=intent.slots[k]; });
   if(intent.slots.site){ const reg=({'London':'EMEA','Dublin':'EMEA','Ashburn VA':'Americas','Dallas TX':'Americas','Singapore':'APAC','Tokyo':'APAC'})[intent.slots.site]; CP.ctx.region=reg; }
 
+  // Resolve the read-from set up front, so an answer literally cannot render without stating
+  // what it read — provenance is not an afterthought appended at the end.
+  const reads=cpReadsFor(intent);
+
   const wrap=cpAddAgent();
   const thinkSteps=cpThinkSteps(intent);
   cpThink(wrap,thinkSteps,()=>{
     const res=cpResolve(intent,text);
+    res._reads=reads;
     const body=cpBody(wrap);
     cpTypeInto(body,res.body,()=>{
       _lastArtifacts=[];
       (res.artifacts||[]).forEach(a=>{ cpAppend(wrap,a); _lastArtifacts.push(a); });
       if(res.hits){ const hr=hitRows(res.hits); if(hr)cpAppend(wrap,hr); }
-      const cc=citeChips(res.cites); if(cc)cpAppend(wrap,cc);
-      const ar=actRow(res.actions); if(ar)cpAppend(wrap,ar);
+      // Read-from block (mandatory) then the four standard actions. Any answer-specific cites
+      // fold into the read-from block rather than sitting as a separate line.
+      const rb=document.createElement('div'); rb.innerHTML=cpReadBlock(reads,res.cites);
+      if(rb.firstElementChild) cpAppend(wrap,rb.firstElementChild);
+      const ab=document.createElement('div'); ab.innerHTML=cpStdActions(text,intent,res);
+      if(ab.firstElementChild) cpAppend(wrap,ab.firstElementChild);
       if(res.nav){ gotoTab(res.nav); }
       attachStar(wrap, text, res);
       CP.thread.push({role:'assistant',res}); CP.busy=false; cpScroll();
@@ -18453,9 +18520,190 @@ function cpInsights(){
 }
 const CP_SEV={neg:'var(--neg)',warn:'var(--warn)',info:'var(--accent)'};
 
+/* THE INSIGHTS TAB IS THE DETECTION QUEUE, so triage happens without leaving the page. Same
+   detections() the Home triage renders — full evidence and the same decision actions (detAct),
+   just laid out for the narrow panel. A detection here decided is decided everywhere, because
+   the state lives in DET_STATE, not in the view. */
+function cpInsightCard(d){
+  const st=(typeof DET_STATE!=='undefined'&&DET_STATE[d.id])||null;
+  const decided=st&&st.status&&st.status!=='new';
+  const src=(d.ent&&typeof provFor==='function')?provFor({entity:d.ent}):null;
+  const srcLine=src?`${src.sourceSystem||'No source'} · ${src.syncedAt||'—'} · ${PROV_TIE[src.tieOutStatus]}`
+                   :'derived across systems — no single source';
+  const act=(a,l)=>`<button class="cpi-act ${st&&st.status===({accept:'accepted',dismiss:'dismissed',assign:'assigned',escalate:'escalated'})[a]?'on':''}"
+      onclick="event.stopPropagation();detAct('${d.id}','${a}');renderCpHome();renderCpTabs()">${l}</button>`;
+  return `<div class="cp-insight" data-sev="${d.sev}">
+    <div class="cpi-hd"><span class="cpi-t">${d.t}</span>
+      ${decided?`<span class="cpi-dec">${DET_STATUS[st.status]||st.status}${st.by?' · '+st.by:''}</span>`:''}</div>
+    <div class="cpi-d">${d.rule} · examined ${d.examined}</div>
+    <div class="cpi-ev">
+      <div class="cpi-ev-id">${d.rule}<span class="k">${d.kind}</span></div>
+      <div class="cpi-ev-cmp"><span>Expected <b>${d.ev.expected}</b></span><span>Observed <b>${d.ev.observed}</b></span></div>
+      <div class="cpi-ev-b">${d.ev.basis}</div>
+      <div class="cpi-ev-s"><span class="d" data-tie="${src?src.tieOutStatus:'unavailable'}"></span>${srcLine}</div>
+    </div>
+    <div class="cpi-acts">${act('accept','Accept')}${act('assign','Assign')}${act('escalate','Escalate')}${act('dismiss','Dismiss')}</div>
+  </div>`;
+}
+function cpInsightList(){
+  let ds=[]; try{ ds=detections(); }catch(e){}
+  if(!ds.length) return `<div class="cp-lbl">Detection queue</div><div class="note">Nothing detected since the last close cycle.</div>`;
+  return `<div class="cp-lbl">Detection queue<span class="sp"></span>${ds.length}</div>`+
+    ds.map(cpInsightCard).join('');
+}
+function cpInsightCount(){ try{ return detections().length; }catch(e){ return 0; } }
+
+/* ==========================================================================================
+   PHASE 5 — PROVENANCE-FIRST ANSWERS, SELECTION AWARENESS, ANSWERS-BECOME-WORK
+   The grounded answer engine (parseIntent → ans*) is unchanged. This is the provenance and
+   workflow layer around it: every answer states what it read, every answer converts to work,
+   and a question can be scoped to selected rows.
+   ========================================================================================== */
+
+/* THE READ-FROM SET. An answer is only as trustworthy as the feeds behind it, so it names them
+   — including the ones it could NOT read. Scope resolves from the EntityTree first (what the
+   page is actually scoped to), then the question's own region slot, else the whole group. Each
+   contributing ERP system becomes a row with its live state, freshness and how much was read;
+   an unreachable system appears as a row marked "could not read", never omitted. */
+function cpScopeEntities(intent){
+  const sl=(intent&&intent.slots)||{};
+  // A selection wins: the question answers against exactly the selected rows' entities.
+  if(CP.selection){ const es=[...new Set(CP.selection.rows.map(r=>r.ent).filter(Boolean))];
+    if(es.length) return es; }
+  if(typeof F!=='undefined' && F.entity && F.entity!=='all' && !etIsInvest(F.entity)) return [F.entity];
+  if(sl.region) return CONS_ORDER.filter(e=>CONS_ENT[e].reg===sl.region);
+  return CONS_ORDER.slice();
+}
+function cpReadsFor(intent){
+  const ents=cpScopeEntities(intent);
+  const bySys={};
+  ents.forEach(e=>{ const sys=ERP_ENTITY[e]; if(!sys) return;
+    (bySys[sys]=bySys[sys]||[]).push(e); });
+  // Stable order: follow GL_ERP so a degraded feed sits where the user expects it.
+  return GL_ERP.filter(e=>bySys[e.nm]).map(e=>{
+    const scoped=bySys[e.nm];
+    const accts=GL_RECON.filter(r=>scoped.indexOf(r.ent)>=0).length;
+    const readable=e.st!=='err';
+    return {sys:e.nm, st:e.st,
+      fresh: e.st==='err' ? 'last read '+(e.since||e.sync) : e.sync,
+      read: readable ? (accts?accts+' accounts':scoped.length+' entit'+(scoped.length===1?'y':'ies'))
+                     : 'could not read',
+      ents:scoped, readable};
+  });
+}
+/* The read-from block, rendered INSIDE each assistant message. Mandatory, not conditional:
+   an answer with nothing to cite is an answer that should not have been made. */
+function cpReadBlock(reads,cites){
+  if(!reads||!reads.length) return '';
+  const degraded=reads.filter(r=>r.st!=='ok');
+  const row=r=>`<div class="cpr-row" data-st="${r.st}">
+    <span class="d"></span><span class="sys">${r.sys}</span>
+    <span class="fr">${r.fresh}</span><span class="rd">${r.read}</span>
+    <span class="lk" onclick="pickLens('datagov')">Open &#8599;</span></div>`;
+  const citeLine=(cites&&cites.length)
+    ? `<div class="cpr-cites">also cites ${cites.map(c=>`<span class="cpr-cite" onclick="${c.action||''}">${c.label}</span>`).join(', ')}</div>` : '';
+  const note=degraded.length
+    ? `<div class="cpr-note">Built while ${degraded.map(d=>d.sys+(d.st==='err'?' was unreachable':' was a day behind')).join(' and ')} — figures it feeds are marked ${degraded.some(d=>d.st==='err')?'no&#8209;source':'stale'} above and in the answer.</div>` : '';
+  return `<div class="cp-read"><div class="cpr-lbl">Read from</div>
+    ${reads.map(row).join('')}${citeLine}${note}</div>`;
+}
+
+/* ANSWERS BECOME WORK. Every response converts to a task, an evidence note, an escalation, or a
+   jump into the owning module — the four are always present, so an answer is never a dead end.
+   Each is a real side-effect, not a decoration. */
+const CP_OPEN={reconcile:"pickLens('ledger');pickTab('glrecon')",
+  ceiling:"pickLens('ledger');pickTab('glrecon')",carve:"pickLens('assets');pickTab('pis')",
+  commitment:"pickLens('procure');pickTab('vendors')",report:"pickLens('fpa');pickTab('budget')",
+  scope:"pickLens('portfolio');pickTab('overview')",trace:"pickLens('ledger');pickTab('glintel')",
+  navigate:'',search:''};
+function cpStdActions(question,intent,res){
+  const open=(res&&res.nav)||CP_OPEN[intent&&intent.action]||"pickLens('portfolio');pickTab('overview')";
+  const q=(question||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const acts=[
+    {l:'Create task',pri:true,fn:`cpMakeTask('${q}')`},
+    {l:'Save as evidence',fn:`cpSaveEvidence('${q}')`},
+    {l:'Open in module',fn:open?`cpJump("${open.replace(/"/g,'&quot;')}")`:''},
+    {l:'Escalate',fn:`cpEscalate('${q}')`},
+  ].filter(a=>a.fn);
+  return `<div class="cp-acts">${acts.map(a=>
+    `<button class="cp-act ${a.pri?'pri':''}" onclick="${a.fn}">${a.l}</button>`).join('')}</div>`;
+}
+
+/* Append-only, like DET_LOG. Saving an answer as evidence records the question, the answer, the
+   sources consulted and who saved it — never edited, so it stands up on audit. */
+let CP_TASKS=[], CP_EVIDENCE=[], CP_ESCAL=[];
+function cpLastAnswer(){ for(let i=CP.thread.length-1;i>=0;i--) if(CP.thread[i].role==='assistant') return CP.thread[i].res; return null; }
+function cpNowStamp(){ return new Date().toISOString().replace('T',' ').slice(0,16); }
+function cpMakeTask(q){
+  CP_TASKS.push({ts:cpNowStamp(),by:cpUserName()||'You',q, from:'Korvyn AI'});
+  cpToast('Task created from this answer'); }
+function cpSaveEvidence(q){
+  const res=cpLastAnswer();
+  const reads=(res&&res._reads)||[];
+  CP_EVIDENCE.push({ts:cpNowStamp(),by:cpUserName()||'You',question:q,
+    answer:res?(res.body||'').replace(/<[^>]+>/g,'').slice(0,600):'',
+    sources:reads.map(r=>r.sys+' ('+r.fresh+', '+r.read+')')});
+  cpToast('Saved to the evidence log'); }
+function cpEscalate(q){
+  CP_ESCAL.push({ts:cpNowStamp(),by:cpUserName()||'You',q});
+  cpToast('Escalated — routed to the accounting lead'); }
+
+/* SELECTION AWARENESS. A bulk action on any DataTable opens the panel scoped to the selected
+   rows; the question answers against those rows, not the whole page. The scope is stated in a
+   banner so the user always knows what "these" means. */
+function cpAskSelection(tableId){
+  const spec=DT_SPECS[tableId]; if(!spec) return;
+  const s=dtS(tableId);
+  const rows=dtRows(spec).filter(r=>s.sel.includes(spec.key(r)));
+  if(!rows.length) return;
+  // Name the scope by what was selected, not the raw table id — many tables carry no title
+  // because their section header already names them.
+  const ents=[...new Set(rows.map(r=>r.ent).filter(Boolean))];
+  const where=spec.title || (ents.length===1?ents[0]:ents.length?ents.length+' entities':'this page');
+  const label=rows.length+' selected · '+where;
+  CP.selection={tableId, n:rows.length, label,
+    rows:rows.map(r=>({k:spec.key(r), ent:r.ent||null, t:r.t||r.nm||spec.key(r)}))};
+  if(typeof cpOpen==='function') cpOpen();
+  paintCpCtx();
+  const i=$('cpInput'); if(i){ i.placeholder='Ask about the '+rows.length+' selected item'+(rows.length===1?'':'s')+'…'; i.focus(); }
+}
+function cpClearSelection(){ CP.selection=null; paintCpCtx();
+  const i=$('cpInput'); if(i) i.placeholder='Ask Korvyn about this page…'; }
+function paintCpCtx(){
+  const el=$('cpCtx'); if(!el) return;
+  const sel=CP.selection;
+  if(!sel){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  el.innerHTML=`<span class="cpx-t">Scoped to <b>${sel.label}</b></span>
+    <span class="cpx-clear" onclick="cpClearSelection()">Clear</span>`;
+}
+
+/* Footer answer-scope. Three chips; the active one filled. It states what a question answers
+   against when nothing is selected. */
+function setCpScope(s){ CP.scope=s; paintCpScope(); }
+const CP_SCOPES=[['page','This page'],['group','Consolidated group'],['all','All periods']];
+function paintCpScope(){
+  const el=$('cpScope'); if(!el) return;
+  el.innerHTML=CP_SCOPES.map(([k,l])=>
+    `<button class="cpc ${CP.scope===k?'on':''}" onclick="setCpScope('${k}')">${l}</button>`).join('');
+}
+
+/* DYNAMIC SUGGESTIONS. Generated from what is on screen AND what is currently degraded. A
+   prompt like "Which blockers can clear without JD Edwards?" exists ONLY because JD Edwards is
+   down — a static list would be the tell that the panel is not context-aware. */
+function cpDynamicSugs(){
+  const out=[];
+  try{ const h=srcHealth();
+    h.err.forEach(e=>out.push({t:`Which blockers can clear without ${e.nm}?`,s:e.nm+' is unreachable',i:'warn'}));
+    h.warn.forEach(e=>out.push({t:`What on this page depends on ${e.nm}?`,s:e.nm+' is a day behind',i:'clock'}));
+  }catch(e){}
+  try{ if(CP.selection) out.unshift({t:`Summarise the ${CP.selection.n} selected items`,s:CP.selection.label,i:'list'}); }catch(e){}
+  return out;
+}
+
 function renderCpTabs(){
   const box=$('cpTabs'); if(!box)return;
-  const n=cpInsights().length;
+  const n=cpInsightCount();
   box.innerHTML=`<button class="${cpTab==='assistant'?'on':''}" onclick="setCpTab('assistant')">Assistant</button>
     <button class="${cpTab==='insights'?'on':''}" onclick="setCpTab('insights')">Insights<span class="ct">${n}</span></button>`;
 }
@@ -18480,15 +18728,16 @@ function renderCpHome(){
   const talking=thread&&thread.children.length>0;
   if(cpTab==='insights'){
     if(thread)thread.style.display='none';
-    box.innerHTML=`<div class="cp-lbl">Open items on the spine</div>`+
-      cpInsights().map(i=>`<div class="cp-ins" onclick="${i.go}">
-        <div class="ih"><span class="idot" style="background:${CP_SEV[i.sev]}"></span><span class="it">${i.t}</span></div>
-        <div class="id2">${i.d}</div></div>`).join('');
+    box.innerHTML=cpInsightList();
     return;
   }
   if(thread)thread.style.display='';
   if(talking){ box.innerHTML=''; return; }   // conversation takes over the panel
-  const cards=cpCards();
+  // Dynamic suggestions lead: prompts generated from what is on screen and currently degraded.
+  // A static list would be the tell that the panel is not context-aware, so these come first
+  // and the page-contextual cards fill in behind them (capped at three total).
+  const dyn=cpDynamicSugs();
+  const cards=[...dyn,...cpCards()].slice(0,3);
   const rec=CP.recent||[];
   const ctx=cpContext();
   const nm=cpUserName();
@@ -18499,7 +18748,7 @@ function renderCpHome(){
       <div class="hq">Ask about anything on this page and Korvyn will work from the ERP data behind it.</div>`}
       ${ctx?`<div class="hc">${ctx}</div>`:''}</div>
     <div class="cp-lbl">Suggested for this page<span class="sp"></span></div>
-    ${cards.slice(0,3).map(c=>`<button class="cp-card" onclick="cpSend('${c.t.replace(/'/g,"\\'")}')">
+    ${cards.map(c=>`<button class="cp-card ${c.s&&/unreachable|behind/.test(c.s)?'deg':''}" onclick="cpSend('${c.t.replace(/'/g,"\\'")}')">
       <span class="ci"><svg viewBox="0 0 16 16" fill="none"><path d="${CP_ICON[c.i]||CP_ICON.search}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="cb"><span class="ct2">${c.t}</span>${c.s?`<span class="cs">${c.s}</span>`:''}</span>
       <svg class="cv" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -18534,39 +18783,9 @@ document.addEventListener('keydown',e=>{
 // contextual entry point used by KPI cards
 function askAI(q){ cpOpen(); cpSend(q); }
 
-// Drag the panel's leading edge to resize; width persists like the collapse state.
-const CP_MIN=340, CP_MAX=1200;   // the panel's working range
-const CP_SNAP=200;               // drag narrower than this and the panel snaps shut
-function cpApplyWidth(px){
-  const w=Math.max(CP_MIN,Math.min(CP_MAX,Math.round(px)));
-  document.body.style.setProperty('--copilot-w',w+'px');
-  try{localStorage.setItem('korvyn.aiw',w)}catch(e){}
-  return w;
-}
-(function cpInitResize(){
-  const start=()=>{
-    const el=document.getElementById('cpResize'); if(!el)return;
-    el.addEventListener('pointerdown',e=>{
-      e.preventDefault(); document.body.classList.add('cp-resizing');
-      el.setPointerCapture(e.pointerId);
-      const move=ev=>{
-        const px=window.innerWidth-ev.clientX;
-        if(px<CP_SNAP){ if(!document.body.classList.contains('copilot-collapsed')) cpToggle(); }
-        else cpApplyWidth(px);
-      };
-      const up=ev=>{ document.body.classList.remove('cp-resizing');
-        el.releasePointerCapture(ev.pointerId);
-        el.removeEventListener('pointermove',move); el.removeEventListener('pointerup',up); };
-      el.addEventListener('pointermove',move); el.addEventListener('pointerup',up);
-    });
-    // double-click the handle to restore the default width
-    el.addEventListener('dblclick',()=>{ document.body.style.removeProperty('--copilot-w');
-      try{localStorage.removeItem('korvyn.aiw')}catch(e){} });
-    try{ const w=localStorage.getItem('korvyn.aiw'); if(w) cpApplyWidth(+w); }catch(e){}
-  };
-  if(document.getElementById('cpResize')) start();
-  else document.addEventListener('DOMContentLoaded',start);
-})();
+/* The panel is a FIXED 400px dock (Phase 5). The drag-to-resize handle and its width
+   persistence were removed — a fixed width is one less thing to reason about, and the
+   full-screen toggle still covers the "I need more room" case. */
 /* Four presentation states over ONE live session:
      CLOSED     `copilot-collapsed`               — ribbon icon only, nothing on the page
      COLLAPSED  `copilot-collapsed copilot-min`   — session parked, small edge tab
@@ -18886,13 +19105,13 @@ aiAnswer=function(q,bodyHTML,hits,actions){
   cpScroll();
 };
 
-if(document.getElementById('cpThread')){ cpGreet(); renderCpSugs(); renderCpTabs(); renderCpHome(); cpStartPlaceholder(); }
-else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSugs(); renderPinned(); renderCpTabs(); renderCpHome(); cpStartPlaceholder(); }); }
+if(document.getElementById('cpThread')){ cpGreet(); renderCpSugs(); renderCpTabs(); renderCpHome(); paintCpScope(); paintCpCtx(); cpStartPlaceholder(); }
+else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSugs(); renderPinned(); renderCpTabs(); renderCpHome(); paintCpScope(); paintCpCtx(); cpStartPlaceholder(); }); }
 
 </script>
 
 <!-- ============ KORVYN AI COPILOT ============ -->
-<aside class="copilot" id="copilot"><div class="cp-resize" id="cpResize" title="Drag to resize" role="separator" aria-orientation="vertical"></div>
+<aside class="copilot" id="copilot">
   <div class="cp-head">
     <button class="cp-mark" onclick="cpMarkClick()" title="Korvyn" aria-label="Expand Korvyn panel"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAI0AAACACAYAAAA2wOp7AAAx5ElEQVR42u2deZxlVXXvv2vvc+5cU88jyCh2K6LgAGpaQKMmaNRQBKckGsVEY6LkZXyJ1ZXk5cXhGeMQBkVFwZgujXEMEQK0KCqDUZBGoAW66bm6a7rTGfbe6/1xbjXNEAUC3QXU+nzup7r61j333nN+57d+a9h7CU8mU5XhMQzDMCbi7//08N9fPhCOOvHwSmNodaPhl5F2lqmWV/pQWi3CQmuJEUwA9YHgc/LM0wqGprX5vtwn26VU2Z0n8US6N99N6/bbv/n7a/eAhAPfZ0TVbBpDxm5BGb3vc48HkycLUNYMo6Ny7wUaGVFz+7HjR1UWL35WsMnzfFQ5Pi6Fpc6xPPNm0AiRUSAAHlAgBFVM8AouIC5gnEAQEANiixNqFI2EbhyH7T43O0OS312r69XtKfeT/pnrbr74zacm9/98Y8MERHQeNIfQRkbUbFqPHMgo6z72k8aqpUedUu43L+hGpdO94ZhIWGIiCB40BxvwqnjvUEIQ1GgADYp4kFkcaXF5FUVVQBQJEsQYgwERgxGDlQisLV7T9rTFcHuUuWtI5Lt375269uZzFm17AAOdRei91TxoDgpYVA3ALKucc8H2Wrxk4EWVheWXOxud3kxY6yymk0Ca4Y0nNwqxAWMwxhB6cCjIpfipTgsf07uaKoJC8UvvJIqCETCqiIB6RYJHg+JdgFSxGCIbgzpA2Jo593014evtvRP/cdM7lu/Z7yo3qJ2r7POEAc39T/I7xvatjZb2nenFvhbMGhGipAtJoUNUFdWCKUQFYw02ijGlGEzU8xwCLkDuwYWgrmAdADEGMQJWwFI8RMHlkOaQO0LuURcITlANxblWj+Y+qGLUKLGUsDmglrti7/7Ter7kvnz9xu+PndKdq+CRJwKzrAeV3kn9o8ubL04rlbfnpeiXQ2CBa0PIyVJH8AFDoT+MjYgqFbBmv6uZ8Z7JgN9qRO9SH+1xyp7M+6lOpzWV0Wnh1efeS0Rk47IpSTzUZ01pYRkWmBIDIvlKvDlC1S71hoEQaOQCqUKagMvxeJz6IIqRoKCBIIAayrYOImiZ8F++6z83uSv955+8u283ABvUMkfcljyeNQvr73VDb/1a62V2QeUduZWXgqm6LhkZDo8EsF6JoyoS2wJEuWeHN/76WOxPsmZ2W6mk/5XsKk+O/c6FU/D2/JF+ruXnbK896+QV/X0DzSEHx/pa39OmgnuGD9EJJcNqVfpyhbwDwZGpgjHYnkzyEiFxTIkYche2hm64JLl1+rybR3vaZ4Naznpg5DcPmofiinon7ne/PPGi0uL+c72RM9qYKOuQaUaIDMSGKK4TYSHNmfYh3JCl5tsTO5pXZ3v7Nm38X7L3v2OvTWMP/9xsGCbIf+NGnvo+7Rs4fPJII/2n0ZDnqpoXYlglAqFL0AynAWMEowGP4iWiFJcxWZft3VbyvlX/etWFl132KymFbtND5bLk8cYuo+uLk/Xur3ePZJH9SxfFr1NPJW2TOAcYbDkmLtfBZXTSPP/BRGq+umfH9OXf/e2P3Aqj4d5oV+WsMQzAmlvQ4tizmvaRh/gAI+uRTWuLo90/3Ac44iu6tJ75l/ZV5RVGzIuNsEI9dNt473DeE6mgBHInlL3BkIfv6FT3bzaf2/jWoWSdxw1oNqjas0S8AG//j+47dUHlvRqzJJ8gUUfAElfrxKrg8nBHyMwXp7dPjX3pt865Ccb87Jc9c4PaNcPo6MG+U1VlFkj3Z6RnfbK9wvaXz/AleW054hSvpq/TgSwlyzzGKZr7kLvI1JDg+lL/qfqO7SObRo/YhRZu+mAmCWXus8uIWb9+vYqIvupzuqZvlf8ANfsrWYfcZHQjpVrtI85zfFfZ6Dr+om3X2a9fNyozs99wOKhdsx4dHUXnTP7j3qSecgALnXDR3jX5wMKzc3hdgKM7KeQpaVBwvcxROaIWEe6Qqc7ozj/su/Rgs448XrTLmy9r/15Wrfyf3Jih9gytGGytTjUEskTd2OSu6DMb3yBX7H+tql0DOipzCCi/CEC/YfxsKNf/O1sX1E9Z/BpfL/12ouZkn2FMQopBPDhjKVeEqOTcZ9k185c7/mrhPagaDsL3lbkOmLM//LOlgyc+5WO2Zs5M2qRph8yW6FML7Yxv7Nndff81b6x9G0AEzvyXuZsUewjoEUaQ4bXI7M3CiefE/e/+6GsI0f8OZXN8nuCMw8UCJYszMQ2XhS1+b/vc6T/u/1dE4L3BPJbuak6CZt1VGm08Vdyrv6bPHVzsP9Nftk/TGZoxWNugNjETbt+3M/2rf3t9bcOBgnaup98ftqAew8y6nL43bVvoXrz8XK2bd1jLYNShY0JRoZCIUi7YbhY+kL7F/hkQGFbL2GPjruYcaIZV7ZiIf/038jPc4uhS8dSHUpqlMoNZgNZM+Kdrr+iM3vn/+vaMjKjZdOBd+YQ0FTbcC57lF+hx7ZJ/n++3r4oSgs3pqsEEARpU7XT2b9k3bjmnNfbs8cdK58hcOjnDihkT8cNfmfmdeFnfR9M2Ejl8tY/6TNdfN363/fNr3iJX3l/vPDnsvuCJ/7H7VrOk9Ne2apbbGTolBZTgqzS6+/yP0632TP5eNjOiEaPinoCgURlRZFQkvPYbM38SLe57Hy2aNYJ1kantmQwf+dZfXfEX3PSy9lwu5B2kuomhl6vi/+pT6svCh6Vhfo0OuU/QXAm+TMXk3F2azIe7f1q64dFmHJlLDPOaK/3f1RebP69MMxkZhjrK5PTO7u995czav+wXuU8qdvm54NnPIKXzs3N9Pf4bPDU6zARD0DhUI0uzPNH5jfa5fVc+mowjc0X0vunyfL1ZGY3IFNNLSgzsbvof3rTJvvm/3ik3DavaMZ7E7PIQWCca1eeEZeFCrZgTNKFpIdgSNashlW2t3+i8d+Cbc6Fu9aiIXoDXfmP6D994verbvqO7z/m+6qu/pV/gDbf3z2qXeXQ8BNYBeP2WIXOhftl+QTU+Xzvl87QZXaRZ/E++U/qL6VfsTwI+Xm3dVVdFAGdd3X7lq7+n+a9eod3XfVf1jG/qh4sep3nA8PDqLMW5WqdR/Ak9z35O1Z6vHXO+TvIpbUUX+cny+5qnP26BMwuGl31ZX/Ta63XvG76jk7/5bXUv+5ofnc27MDJi5pHwCNyVFIoj+sfOn5qLvZcLdYYLdS8Xa9N+zu+O/zo7sUfz9vH1xYBX/+Puo87+rt7zmmu9f9O1qmd8Uf9yf7tmr1I8b48wKTjLJP/QfQuf8LlcpDPR+bov+rSquUjv4C3jKw68Fg/XooMeKa1Fmu/Scv5sf37FsKLfG7NjH6OXnyl/O6xqR+UJlNU9FCZS9ANepRGnyqfMB1vGLKifX7F0JWEmqXO0rhm4VNnwK6wlQ1XmdIAxK3xf+rV89NTvqP7ad1XPuFw/2HNJpujKnbdHza4qBHLlfa2/qH1Ote8T2m6cp9Plz6jK+/MPznl9M7xhQwGY/8he8Evf8jMv2ah66tf1kiJPo3beJT1WWeQCFPIPep69VLX+TzpdOV8n5BPq+bup181d4PQE2vM+/LOlp/y7v/XF31U9/ZvuK7xLy4Xo1XnR+1hqnILFrXxAvxB9UtV+XPfKBb5pzvO743c31z5cfWMOjo4ZE1TFHPGUD+kic1ze4Se33frTN8tHJZX1yONxaerjS+OgKEG/wFtcyr9rOQxEzrSlZJb41ZULYEOJ9bOLdubQ4rUXfSl9wwu/o3rKVbr3xM/r8+YTd4cmauUddy0z5/nN0UWaROdr03xW1fyf5M/mTBg+0nNLv/zBbatPv1K3nv591ZO/mJ0zWz6Yv5IcmgTgiP4yn1StXKDdvk/4mdIFOsW548f9T8LwR51lzr7Mf+Ks21Rf+h/5v4CaIoqaF76HFDgf0vdXLlEduEC3lz6pOR/KvtbTQOaQaZrhDWpHRcLL/nnyxeky85vJBLuS3a0/QySMrX8c9O0+Ue0sAqqGH/PebNJf2xSWZ50wLeX4V+1oOoxI+EXAMY+V+B0bJpx44gVxWN73v12D0vREPnrNbw7dNfwvaueF7yFVxsp64GJJ7A7/e+RMijFWlJYORn/Nr940dEhE8azAXbdh6uWn36J66lXuCtZpNKLzofVcc1PR3yfnRudrHn1Ed5pPqUYf6PzlL3JTj8lFHBsmrFs3EpmhxrmuTTOftO9go7gCwfM2Z9zUiBp3dfnjPuVHvsQicnIdKJ9b+oPpYwA9aKJ4lk1O/dLkaeuuV33ev/v18+H1HBfFozpsPq068AndO/hZ1dL/Sz7789jmUUfSaLEXEHZh33tczq7mNvMRVIv95eZtTrINI3xZ8vC9uEpfRdijQ+XX8ge7jkckPBjbPJqgkXXrRiLE6Cs/3zxe++wZrab/h01vk4kR5rO+c1YUr0VAnL0n+UDbE89klH2FOmsWvgmAtQ9sCX5UQdN66k4BZfIptXdO+bBr65VbLkBVRue1zBxmG/GMqMn+5tavJ81wbafEgCZ0bcmcXTtnz/Li+Ue/IU5g2LJmuATIcX9xw/Jjf+inDvuW+1MALrggnr8yjw9tY/82eaW9xOfli3R35dOqpQ92zn2wKrh5dFYz7BGO7isDKi8/fjjFJFs/ceenOHxdhc9fa2Fd9KTYfvbxnfAT/+WfXGZzc12lRC2GJo3SGxneWuUs4w/M25iHAQ5TPIbtAQ8D6yy0hG4WYNjODMRnZV0+y9ix4zx9TZXb9xmOrtp50MxxbTOG4caTcpnwlzqh4TJsqNhnlI+vngwKG+7FSvRzQCIwLLBHoCWs6QrZYUK+R/CpwGrwXYE+OOIoy+WfStZ+dvfTp+CwfT/a+TbWrYuYTB12r1KaUVhnYInMbjA0b3PMetFtevOur+UDK/82WIbEggz0nwlcyfC90a958DB8nWXNmog1t1gOJ+LwhmWm39L0EZWBmMpgjK2VWdRfZmhphfpQFcjzpw69qiT+h9k7V9zKkiUxe3Zk2LLSXmxYM27glh5DYeaZZ47ZqBQ7TXxm9T06Hb5iShBPk2scncarxvt6NSm5P9OYgg1awppxYabfsnSR4JdY8qahPzakDUu1LMTe4uqGEAumC0nFwLpGUjcvyCa6lwCGnUdV4EeeylGKbSosgeXdgL3HYtcpW8YDLA7w4gCj2ttIft4OuSlm18xnpW/wdVaYQjjMnhw/z3+VKzgLA/ieQB0RuLrQHjnCvgWWwaphvBGxOLKkyy1R2VKtGWxksXVLtWqxsSGuCndtzRb//ceOD5ltTH7ymu/xjD9ZgdSFBccrPvPkJU/W9iyKA+1qIE4Dy1ueoXHHpquBkQCjzAPnENtYTxCfxA/sU8KPvPC0oEb8QP1lwBUMA2OFsDWc+HXL0VVLO7JUBmKWrYhpLCuzeEkFu7xCvLhCvLpMdXGFviOrDBxeo++IGvWn1Flw5ACTh9nosJUnZRP57elnr+rGT3v2IKXBKtHKMnZlhXhphfrqEn5FmWgoptSI6H+mZfLIiKO3W7jaFMCdt7khiKXj0/C93Jh+nxNQ8zLW/aRRrANXKXTL3sWGZJGlnkbYfovGEWFpRMXFyIKIej2iMRAR9UVQtRhrKJVNpCJEZev6y9i4fnhyR/t7LF1Qytsx2IYhxlD2CiVHp2OoOY8Xg5Zzkhml38DMcXD0T2Hz1QcyzTzjHGrr+Cu0Fr0bT4myWcNLVpzARr7D8JiJmOm35KsNq9IIhmKoxdiSpdyIKQ3E1IZiTH8cNYZiZxoR5XoUSdWoiFGJFHEmOqlvSXciSjo/ntzKKS9dENWClSwNuKB5mgSk5bAtT97MychJgIFcmCajf7IHHAebmdU286A5xFFUIy//oJ1xj8JqIqC/9lzgOwwPIyx8VR+rhixaLVFZWqLciCk3IqqLSlT6Y+zCclRZXNJGf+y1Eds4ivBE3mCtQXCICpGFevBMYXDEePLE4ZzzrptH3emc7kTmsl0ZrZmUfDwn2ZeTNDNCOydLHM09nkrm7xXIG/08eDh0TeijEviAv4TIvIGIQJZ+kT+q/AaqJmJFI0KrMaWVZerlEvVFMfHyMvGSEvWlZeoLKhpVyl6o4Cmro0RERCDSnCgUKT8JOWCoGMWRk6MVFyw5tpE6u7iL3dsl60tjuyvOk3K3mE0SCRhDqAiVlqEzKByOY8s49MYqzV/BQ2CzRcrE/MAMMiyONFA+Xp/7/X5EZiK0WqK6NKZUj7ELS4RlZeoLy1RXVagtrlihYmIqRqh4oWY8VZQyEGGAgGIIJiYg+GL+Gs54XCzkeSDGENnGIotvmBxAc09jccBESuKUvlQxi5SliWHLasvhwJYTLZzBgdvSz9tBi6IKS2ZujLU/1EzodlUPT15w3HFcx3URtVUx5UZMdWmJ6qIyjWUV+lZUbXlRDaiqUFOlHqBmoKJKJXjqCINiGDAREQSnwaRAG2UaaCFkXvBGSBE6GigFW4lZcIwlionJyQHEK+m4YupKC6hbobJECuBcPa9xDoVtoJhOtbV/m13IRBxRzUq2wmD52cB1EeWFMeWBCn1LKlSfUrWDq2o+qtQVGljqBvoINKwSq7JEyzzNRhxuLQPiqDuPBDFqFBVLZpRWyNjnE+42lrtDTBMlEWWa4GfwUWz7Vlk1sYG7ig8ZlQzxhCErCfVuzp5MSErK0VbZvI55fXMIVmWqCjK2PX/2aze1cntqbhDwa4qMcGkgpry0RGlpheqymreVGoG+YBkksEADfZFS11p4KhXzTAxDLgOXo1ikUYOKRVoeSVKqeKpxgyXVOk9zHXZpEm4OkblThRpiS8RefKhA4/ACBMYYupMJwQpUYXIr9NcDFTW09xjIQ6/kMA+ag+uiDJzlc68/zZWXkBCIqisK0JhGiUojpr4wIq5EKLGBMkotBGrGsjgMcIpYc4xLCFRxL3gqsu5I7PNXIcurUDHQ8bB9Cr1yC/rN2wl37oZSP8skNktoMiSW6zQmIdguhhQlo7TUU8kDRhXTVbpeqS1XshDIG4G8a1izXdg0fw0PYb5mM2Ub8DjKZiUv/2Y5ihuLSjq4rOyqC+po1GeEPgMDqjSsYSkLOV0sy11OetoJRH/+fEovWK5UrRyoNYqq+BLkNceif3oK8omb0A98lzRXQqnMM/JJEuu4TiP6ceQYXKhWHLLMM9VRaCm0A/GMo1WxVLZb4mogO0xgrcDYPNscEpu+A1lgUGKCX0Vf39IoH1hRsZXDG5howDiGjDColgHrWCyLOD3UwrKQGzf6CuI/OwlKEJwXMo9YQYz0BnpSTJZ1AV1WRkZPhnWHEb/xy4Sdu0lKizkujIckOHOTCGoCEhRDtWHgMCLNglPxhMTT7zwT3hJ2ebrBwp1hXhAfmiQfZsEuAgHBEGQBT3n6IkNcjylHMYFSsFQ91I2n4Rq8IJRZnTuTf+BXse89CckzpJMjxiIli1iDzI4aNgKRQSsGDUqYTuC0lZivvh67ZHGIggsV+sxJ5BwVYIlTlgCD5PRhGzVXWxyjpQjqETayDJUt9diwOC16eRiW+XaKQ2D7mCFnAiXDGMPSwcWGUixYjImIEEooEWVWlRewOk9IX/9MSu9Zi+3mUImRWgwGlQNu+lnghBBQNEhkoB4TWjnupAWED73KxC42FWoM2joniGcxsBBlAEMNG5UpD5So9BliI4RICK4AiBssmr/YMw+Yg2nrexd4ZnoCZQdKLoIaw4AhGixrSi0o/ShDOBZTZm0IVBcNYUaeH8T7Yoi5zG7JpQJBlBAUQiCg3gPF1Go1wUkUnCkL0koxr3sK8qrnIE4J5RorxbEKaCDUCVQRImsrNoqtJVQFKkANfF50CebdonuQ4fllvQcv7C5+XjQ4g7hplEgDJrhkwOCjfmBQYLHAQok4LCpxeOqQs56BPbbfSB7A9HZTIkjxc/bhUYLHqseozobRYI2oYBXEAO94BqZcQSkTibCcIjwvGcEgGG+LlrBSCYi1qJBXhwy+T1jUZzi8YTlxyMCImXdTHJxurAI4DkExlBFK5PnCCGEgwAI8Q+JpSIVlWErlEvmvHYNRMJEtxsL0ZsnObsdVNPsVSqMAiwYBo73WDDEQYouBwClL4dglJmy6C2sNfeqJtShEYDyIOsWraixSDlbExtbEtViiijVh0MnyRG2Oj9aN+3L6Hr/0+OPckS85JzBcfMM1V/9iIF39PzyLGx/uQdY+DOE+24O7/pH5kuLHen1kUzB+wbYvBmMErEVC0P4IhxohiGAjxVobojQ3Ydkgckx/MKIGVdSAGAvF6E0j+4Fyn/c2xceT/b+KBXxA+iw8dQFy852osRA6ZGSk6kkRujT3Jeyd7LJvZ4dtE1062zK42cGOHLZlwH0a0rd9H2688O3zfHCgjY4+Vkf2sl/FShS97dfDn/pA5DCV1FF1jkrXoYOD2EYMmRCMJViAgAEDdv+SlgcjtR5wBdv7zXmj1gSOXYBQQxeuov8Fq3lhTcKzqyWSkjVpJV6dlexqF9mX+NgaZww+ErxCjpK6gA8BH8A7j+beuTzP89QF5wK5y0PQIA6JclSDgAYMPgQJQMggFxNSDerFBK8mZGKCE+tUCXnwqFoNgTB7fvKA5MGDBnWYkIkNDjzBhyAEJzZ4g6KoGDQDfF7cMkFRhEDv+QCeHPU5ASEAwce4CDwxuRdyfB5iE7vcEIgBX7SeFAEBxCFXJA4uQ9EpTycNkidOTCtjouXFRT6p1B2lIU+prmQNJUMp96532iyOVZ5RpBGQEGgMeVI80R2Bf73Us5Gwv0gcQrExtZfMh1lvonm0eKE5JvWQKxRf2uBSKNcgYLwGCISCV1SL2PpevKiiIir7XZTOSqgCN4gUPQ5gtBIV/z84ROXYo1kZMJQEYiDGUAKsKd5iljCDQhaKRokccAFSBacRnqiH4Xs75IOA6WV1ghSvzTyoB6fgi1HFuFAcezYBZNTitfg778C54n3yYPHB4kJxjkIADZYA6oViUHjvGF5BS706v4qoqqqgqClOToziUdV701pZIBDwCIFgg9fgyFFyE9BQwE4MeEzwseAwKEbp9xiEmABkLNCUIF3xJARNcaEDuadkHBoyDZIj9YwQMjp9XWCa4DtmmlaAfWTHTLLklzbzzM/u5sfMFBRRSA0JQdRbj0XEk0c/3sRVmaPqlAH11FIYTC2NoSHEezARzL4YN3uKZiEBiqoUk8nlXu1UXPWASND9S/NkOkFxyOQu0h98j93G0qnFtGtx6FQj063ZkBo0EzRRSFRJjKWrxrQ1TROxeaYGl2c+eKOpmCixcSUPUclbIPdIJ2SRT3PrjQlOSsFjfduRpxaXqdPURXgPXlEPUOz+JwTE5U6Cj0Lm8akneIO6gjjVKUoCzuILRefwGhm0dwdZlAwBAt707lQRgtP7kXLAE3C9f3WhgAFCMLMgKP4uN7OtJ54co8wGHgixCbQB33te8OTkRGRM3e5p3p2jxhNPOqYSx2AlMDTsWG6UPQi3oWC5T9/Ji08LjJ2u+69vEdhEqDaAqFC0RqJvfIXPETFIzAosC6lwHMt4dm0vds8LgllRNaQuFJXsgk+EgIKigpgDT8iBif7Z5I1CbBAI3D5BwBj23RPaV95gNgHbcdyDM7tR9pCECca3tNj+0zZbbu3Af3bgsi7QAeb7ah5r2/gAncGCl99emzRRP7o/5kmieAVOFO8DDosKtKJSkE4w5ppdcMJCNYpRpxAhvc1KVFAJMhsnoSIihRqYNQvegwtIKYatXaM/3AaxR0iMNyWsVjGmGDZjxBAZ347MYDsyh5nYPHOoYtKXSeSfF5fyZqV/wKZHHH5q9paPvGL/SL1b7hcx/bzAZsn4Q4tkxg5Fs9OD2ZpHWDKZTcrJg4ZOD/2YIwijaPeoYxoE+vFFGk6jeHeUO9pGKKMkIQXxpKbFjBlg0ac2Gf/mpwaNEXIFa4usiqois5/E9OCjPemkiBEgdwYidUU7j37pNti+ExoG7bTDeBDTJKPtlQRDh4hWNDHeSffe3SG9u83E3QnddkpoZ7Sn3c6dO/PbqPnLPvor84zzC3aVejStW6NORg0XcqwJlCs7DEoWhMQYWsC0CpPaNndUPdmPNuMv2GRCOYIeGxTYEKFIye2PooowW4MxgqJBe42gWrWEbd2g/3hNwUMuZY8R8zOESTxNgu+gdItG9LZHM087C6TVQLnlmc4CdefhyNmVmPN2MG2QMoFAME3y0GHX9LghT7oIrRAxScRuSux1jruSCSZiR/R3VxOu2xeoxUHTHMlDL4o6kO1Mrw9cipA+iKErETlIHMGffxu3ZRu5icjSjJt9ma0SsQfYi7HTQId0MnHJhEMzT54EolZgJlbMlFLaqjA2X+U+FDYxtagXizrQaXbfus+QTWRAGjxdItoIbY3ohDZ3mBSdmcKe/W9Gr580VGPUOdSpoNorNc3G7yIGa/BibKbYGEy9hPmT78Al3zVZpR4cXe7WwM9UmBZhr4FJhGm6rTbN7QlJMyeZ8RinmEyxnQNAMjxfOjiYtqmgABPXj0MogbHAJN3d+0zkOh6XFCsJAt4YHEquhh3pJLeYBO66E33FpWQX3xG0UkJj44NXHzIn3rvgfeqC9+rzgFpEKxG6O0ffeBnhA5fj44ha3jF5aHIHQmqUNo6mGGbIkjadOztM70vJpxLSqRymc1zuiNNA3Axsqs4yzbwdZAtx/HQcdUxooHYnX311M3LazLGJQyoe7/NgbVdgRqEE3JrP0C01WLtvJ/FvX2KSS54d7NuehT1lqcjyMr2srwm9EpK5o4V8+Wfw8R/gt27BVCvEeYu2n+BWotASb3KUNFgSnEtI9iSkuxLyOxOSfSluX0a3mRYL6LqBvsEA3XnXdHBN+KLxnKix9f7pgg3BmHJI0i0AEc1djqg/ob/RxkYWxYrtVR2LJPYdeYfcVFmD0rji+8ZfcRP5Ycuwa5ZSWt0wUoqQpgtyZ5Nw6zjpvl1ASrkUY7pT7KHDzUTswpgJEaYDtAkkOJfTmcpJZnKaSU7edXQ7OaG34rLPOjZ3PWwM86DhYA4WK4Kdk5NVhsqRJRtmcszCTP0tBWjSPVk8U5LcxEL/YYLtFQQMAYvHoRju1pQpDCttmZWkNLZuga1bSIlQTCjiJ8ViiKMAmoTprG3uInA7hkmghbIvBKYwTFmh6dt7uuTjGdm0w7c9vuWopo5dvSW6m1sBzgg90MzbwbKzxgzgsemxGipDGkxbAznT/scFaNxEN08lxFM5eQy2vkKJomB8USjE0FVPA2ES2BE63I5luSmxTCIGRCmRmViLILsTMtouYw852xH2SsykBPYF8dMEO43SIk/avrm9Q/f2DjPjCclkBjM5btKRT3viZmDLTIBNAW6cB8xBt16/STxwknOIh0gJO9hyyx0FaHbtyxmCvFICNuGzTqC63NlSPVWNOlZ9W62tBqirUjeGVoBJTbhHlX6RUEGNhIBCSDGmg9ClZBIJtESZxDJpgp0MhhbJrhadXR1aWxM6uxPSfRn5REZ3V6Fj2t1ApaxQ1fnSwSEaljpGYHiDJfhnInZGS5RJ/I+58pTdqEqENDOySBGvmKAgPsqbuauvTCgvSIKtdI2hBnTFk6iho4EGQgeYUjGRKFiLgnFByFRJ8HTV0lZHC8cMQpPmzjatuzokexLaWxLyZobbl5E2U1xwtMv3Y5l5HXPQbaS3u/yKydVYewwa9iHmMEL4HiiMYSJm9maYTMk7AZcEknEv2TJPlgb6m8rASh9o+KKjg8x4KhSrrmMMMUqsARsUq8Xa7USFBKWLo43QwbsWzZ91mNnWJZ9MyXYkdJoZMp3T3pfjQiF842Zg24yHTX6eZQ5tfgZTO4VAH2JaaHBk+XUAjI0RUW05Wnmg1PZEGsgJuZWAljw2CZGknni5c1FfRlzpiiM2EIfediNA2RQlhUWS00FoAQkRHXLXoTveobWtS3M8IdmZ4SYz0lZOZ9wRmsXeNO2p3t40uYe18yxzKEPtDQRFxfxxOFWVAAwQcQ9bf/Sj3lymENHe41jQZ+gsUZq7oQ/IestHWIKkPmij6TALUuJ67OP+yMaNiBBFFmIvlEJKUhvyy3zJunTG7SLynu5kl2R7QquZkOzMycYTksyhk45kIofckSW+SOANBuq3hAIw8/sMH8LNjASRUHlX9yhKpecQaGNZQddfxTdeNDm72VFE/4xnuqzUM6E65AgzQuIEEyldyH074PtzdF9EVI+o9VtvGhFR3XqJDVFsmZpp5QsHtoTqwJH88McbWZSU4+buJM8TR5jxJF2PZo6k6/ATDpc7khlPe8oRNwNLc8eNw35+L5q54Zq82DNQswRlN+Dw+dcOfD5i0+LAmnGYSYs7PK4JaVeJQiDvBmxsmRiIqFQtpcEIpi2makhMwUahG8hnXH774uvlRa94Xqmxy2WbvtfK65VA3tMleTeQT3lK1uNyTzLjqeDJmoH+1Z4bma9gz5Wo6T1a9fhXatEjOIAPu8kmvw3s37fGwMbApsXF3Z41c3RHjgs5nb0Z+d6UXZMp7Z0J6d6E7uYOe+9sM3FHm85tLWZunqH1kymaE13GfuVujUMrO/nFJ3PTxbsoTad07m7T2tUh392l3U5oTaT48ZxuN6e9x9E/49mEn68rzZGoCVG6rZPV2yNxTAr0ibrr+PiqfRQz1nV2x/IAG5Ubhw3cCUcvdiRZwKZKVzx5aqhHBjNtSCt2/3JZExVr7gAaHQBPt7VRBvvfpjz9UlrbHZlxWFV274VS8GRAqRkYWhLY1AywVmFsXvTOJSEcl4bRkCGmpYY2Jv/KfaKqBy6hGjHFRtAt4fBGMeMn6zOsALpVQ9a8tyE49AkMgU8FW1bq2w0v/L/I8c/4lt4z/l7+bsnVnHhunendGdNZoHyPpzIY2DweioaqsTC/Z/BcSQCrZUw879zzbEqLLyXQFEOE5ru0M34mF67sFKN7RB9koMZogI0ObnRs2ZixBceKnTk37szZRAak5N2MZKrnYu5y1DsOs1WpHV/ivOMndTpcw8IF58LRgbxjCJlgprQATNfDGb4XIc1XrueK9fqRpTrwRoQYggcGNOE/uXBlp5hjee8qzOi/XccLChsDN86y0Y3C5tlmqD0CdxqOzoSZRYa8TyklOcuX17ht78WsXXIN7/7hy/lw/9c58ZwGpjlbrfawcR4oc27PYBNK79q7Jid6IT5MIFTwoUve+QqPcFruLCOE4jHWu/ibHJs3OyqDgUrm2feTlCW/XOLTS28iCd9lUX0ERoS9acrmw3oMNs8sc3Wtf1bqP1PV5IKZETE1cn8tFw1uRvUBQ2vNI36XWRBtvsyxpVX0vuRPKZaX7MjPFzHP4t1/8mq2XJwwfMF8/mUO70wev2Xf00XtCwhhAksqMKmd5sUAvXE997HofwxR8HBjYDMGnucZHjZ8q3wZr+R6qZT/WNd9+utsIEVUfuHuBPN2SPIzeTX7TbyJhNBFqGtwP+Dij3yv2BZW/GM1YrkHnlHHmg3KZkl1Ov079bLWnDB8NiJa5AHmbe5ETBssoxI4J3kpEp1EoKNKSUMoadq+FEYD6x/8msljll1kveUP/upLVOxKtrZ+lS/07e4hd55t5kL2F6O8/u4hhlZ9CGsWQkDELESzG/Qj5Xf3Wj71kQrhR5hdHHUk3Q8jDLC6+vbektF5tpkz2V+FFSvfSNnUEZpijFdIdGbyk4D+vGtlHrMhmiNquLDvavLsa8T2bN4885r9/z9vh1z82t+ffC3GvkgsbbE4LDVy/0U+s+zm/aN7DipoDuDB8p6pfyKEjgzU/5w365p54Bx6wETvaj8/lPvPIeC0WH1Sw4cdbP3RxUWI/fNTI+YxHdk7oia9ZOlmWvlX1JgjpR7+mpdsGCh2NtB5V3UoBn+99fZVPq78kapxoqEiSkVdGNJm52K+flKncEtyiECzfwNBFfbtO48QblFrTubYX/9jRJTh+dncB3Edk7AeZUQr0nf4ewimIoFEFVVliXh/DRf1Xf2L3NLBAc3oaGAE4Z9X7qXbfR8+JFjzWs5p/RZj4hmed1MHJVJajyCipuXfqra0ChgnpitixBruDpP/9bHe3z2kyNYchMnyyogaLmh8Exf+BSWiUv9D3tL65R5w7PyFfexXF5i3T70hZPY0XGhjMCiZ1ZCbVuuDfO55+xjhIadD5KDRI8BLb+znyOMvJIqPQJlmOjuXz5dv3l+anzcek5aHc5qnU268DehAsFjjUIZs1rnEn1f/14fqlg4e08xOKgO44qRpQvevMNyNJWFB9EcMbz9snnEeI+E7Jp4/zE6m3jgLYa8ICWKaKDXy/Lv+vEYPMA+vkGwO6oi7YbV8cuB2ssmPQegipsKSRX9W+Y1tq+eB8xhESr/beRHEvy2eRCIyLF0xRCZLb2X8hn9CQ0/HyBwFDcCY+CLpt+Db5M0vAzFRaSBZuvy9vE6PmQfOoyB6e60M9q17X0NU/X0ckSol9RgCZeOZDK07P87YKd1Zgfzwe0I5BH2oI70E0h/4cxH7fAwpnpwpPshn5ZaH62PnracbxSgo5p1TZwc78OsonWK/dHxvH5CUJHk/n67e+T85x3JIC2bvuq0s0RHvVaK1KAmBmJnWx/lM35XFSXgIwx7m7V53NKImbvHm3HOaOFq6f0oFMS5Ypmc+xOeHfvQ/vSkPUZ5Eik3oP3psqrd//4Nk+V48C9FQpl4b5Q3ZOwra7IXr8/YLATPw+i1DZpL35D78kgT2EZFgaYuQiSehPf3BRwMwHPKM7OwXGL5tJUuO/BA+WoWhibIYFy5j6u73M3bU9Ly7+u/0SxFgxO9I1zrM25VoCTCNRVG6GKxV1GbNC7IL+jc9WqkNmTPU+qbth1Ff/PdIvBplEhsGJYQ7NPXv51OV2/bneub7cbjPTfS7rTOw1V8HE2PIUaSnESPxIVPX+Rif7HtUdeKhp/7ZqvfnVm6ltendYrP/IiJGzRaNokGpld9r39w6AxEtOgDVPGmLnSMjZn+j9zunF/Iu91ai+q/hTYrS7Q1xC3gGCCHXtP3RRxswzKmC4ewXO+eGmimf8IfB2GehTCBEBIZI/fVk2aV8pnbPA+62J5ErAuB32s+lVDsDGMCTYImxCAaLZwF5diczM+fzhcU7HovzJHM1CjBT2W8HUzpNPN1eFDAIdMmyy7nj5q9wxUnToLJ/56YngSsqv3XyiLxSf2WQeA2ODpAWAwZCAGMkhAFR84Nww4WXcuPb88fqxpI5eVdJMaDDvnPiDG+H3oQEQU2GoUpgkMyNk6Wf41ONbxxQ+n8igaeXyyq+z8Bv3TXY7F/9Ss3lNMVERXsmXgWPkiKUcATak1/lcws27ndlo4/N1i0yZ+l4lkF+r/0cotIfINESAk0kWNTUMFTFZddqt/3PfHrBj+97Zz781Pic+94AwxusXfzKFwcbvUp9tJScLkJebMOL7w3Sa6h32zGdi/n4wO0HI78ljwtqPvtnS1l82O9jzPNR0wJSMQSgopl3Jg0/CNK8jE8uvOU+r50V2o8HoBzwWU8854b4x/GJJ6nn5UE4RgOZKB0tZl8W+xFGRAI1cdm1Yef1G/jqC5sHS+fJ4yq8fGf7VUS1MxEaIswQyNWAeOoagjNB7whpfg22ch0XSuc+x1jfiy3mBAM9ECgAvH5qyC4on6gSn6LeHqkQCCEDg0gIqibpgaaGunGarX/j80M/OtiBgTxu6iqzOZo33L3cLFxxtsbxiepRUVIIqBhLxgBKFRf2EPy1MPmfXLT0Z/dZQz7LQAcXRMXYmvUPApTfuqsS28Gn5eX6c9D46Qj9CF0JpGowvR1UeyPYKKN0cJ0r2XLHt7j8hPahcMfyuE1qvX3imVT6zgJzrASTF/uSEgMlPDUkVDDMQPgpgRtI9t7A9dfsYNNZ2QOOyf3G+T1iMPVC4/uvGbofA6wavra6e+CII/PK4meJ02cRRavxiEIb6Igh12LAslIMD26oB3z+Q9zeb/KpFVsOZdpBHtc5ixMviO1zX7/Om8orIVqFkhNwBExvgqwgVAjBYsyM+GyrYH9m3Pgm17fsHraP7WPsfiB6YEO2PKS5kb0K84PaiRfEPOecIbKZo4zUjxOrxwUxh6mYCkKOkgE5Qo6QiSFVwYtQMT5YDf6nYWr8cv555U/ngtiXJ0Qq/Y076wwMnSo+folijgQc0os0JBQXtBiNHYkSA4ohRd0edTqOxlM2n9hmvd6T1RZOseeWGcae/nAn9BreMl6vRYsaPpqu+6y5SCvLlnmihYZ0RTDlRfhQR01EICDFcGYRpBfveIEUj8cQGY9Xl9waOpNXc+mKTQ9w04c0H/BEqsMMX1u1C4//JW/tadjKkQRilFQgUwgYAgQVMYIgClUCdTxlCBFiPIGuSJjCp9Nq4ylD1MLQQehYSL3iUARLjKcKfkiDNvB+UCPbLxpVMUQE0II9Mood3LPeKCShmD9vCiYMghqLIRbBEtyUaLghdKa+zUVLNz9oKH7Ik0g8QdLs9z2phrfuPp5y/4uISk9HWIQ3KkIC5CpIryNf8CFGjcETIVg0RMXg5/3j2B3ge6CbdYyRFvrJErASZgfbkzP70P3uxiG4ArAEQKWoQlssFYQaAYd32zTtfp/2puu49Pnb5nLSUp5wNZr735FvubWP0oq1plx6ZjClY1GzAqGEogSKvf9mnZfp9bkRAsY4BL///4r9wISAEDD4HlNYBA3F+OCepNZQxEtA3qs8+x5EVSzWeCIIedCwT8lvozV1PZtvu4ONp7q55IaeJKB5kKjoQAANX9Vg8TPWEleOF1N+GkSr8WGBYkDxPXZIey4lx+BFCEqAYMAVXQECqO8Nlp51NgVIbMFWRL2BaaYXhzk0tFD2CMndouYOv/u2n7Fn8p79QLlPPmluZ7PlSVEhfrBE2vCwrfStX5WUjzwS0mNMqbJETHkRxvVhTBQEQQyqFM7MF64ICqaRgqFULUEKnlJVgqhT9SagNI3kO8jb46K1u2x3+13Z3k3b+fqrOg8O7sdP6UOedN1uDwagWVs3ErFkbX8lXtjnB09o5IML6iTJAFk6aJyroVJBbFRkckIAzYO105TKU5FUUueyGfbcPEN3W5ftu6e48e2d/zaMn1MZ6odn/x8ketzAotkDPgAAAABJRU5ErkJggg==" alt="Korvyn" width="141" height="128"></button>
     <div class="cp-idw">
@@ -18913,22 +19132,26 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
       <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     </button>
   </div>
+  <!-- Source health, directly under the header. Painted by paintCpSrc(); persists across thread
+       renders because renderCpHome() only touches #cpThread / #cpHome. -->
+  <div class="cp-src" id="cpSrc"></div>
+  <!-- Context banner — appears only when rows are selected elsewhere. paintCpCtx(). -->
+  <div class="cp-ctx" id="cpCtx" style="display:none"></div>
   <div class="cp-tabs" id="cpTabs"></div>
   <div class="cp-saved" id="cpSaved"><div class="cp-saved-in" id="cpSavedIn"></div></div>
   <div class="cp-scroll" id="cpScroll">
-    <!-- Source health, at the top of the panel. Painted by paintCpSrc(); persists across
-         thread renders because renderCpHome() only touches #cpThread / #cpHome. -->
-    <div class="cp-src" id="cpSrc"></div>
     <div class="cp-thread" id="cpThread"></div>
     <div id="cpHome"></div>
   </div>
   <div class="cp-foot">
+    <!-- Answer scope: three chips stating what a question answers against when nothing is selected. -->
+    <div class="cp-scope" id="cpScope"></div>
     <div class="cp-input">
       <input id="cpInput" type="text" placeholder="Ask Korvyn about this page…" autocomplete="off"
         onkeydown="if(event.key==='Enter')cpSend()" onfocus="cpStopPlaceholder()" onblur="cpStartPlaceholder()">
       <button class="send" onclick="cpSend()" aria-label="Send"><svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M2 8h11M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <div class="cp-disc">AI responses can make mistakes.</div>
+    <div class="cp-disc">Answers cite their source and freshness. Korvyn never posts an entry without approval.</div>
   </div>
   <div class="cp-util">
     <button class="cp-ubtn" onclick="cpNewChat()" title="Start a new conversation" aria-label="New chat">
