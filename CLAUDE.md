@@ -1095,15 +1095,41 @@ from the row's own facts, labelled Korvyn analysis, and states that it is never 
 
 ## Ask Korvyn (read before touching the assistant)
 
-**Phase 5 rebuilt this panel** into a provenance-first, work-generating surface. The overlay and
-four-state rules below still hold; the layout, answer format and behaviour are new.
+**Phase 5 rebuilt this panel** into a provenance-first, work-generating surface; **Phase 7 docked
+it** (below). The layout, answer format and behaviour from Phase 5 hold.
+
+### DOCKED SIDE PANELS — the assistant reflows the page now (Phase 7, reverses the overlay rule)
+
+The old "the assistant is an OVERLAY, never a layout participant, never reflows the page" rule was
+**reversed on request** so the product matches the reference mockup, whose assistant is a docked
+column. Read this before touching panel layout — the reflow is deliberate now.
+
+- **The mechanism is a reserved margin, not a grid column.** `.copilot` stays `position:fixed`
+  (so it never scrolls away while you read), and **`.main` gets `margin-right:var(--panel-w)`**
+  when a panel is open — the content shrinks to the left and the fixed panel sits in the freed
+  space. Closing returns full width. This is why it does NOT reintroduce the old 1085px grid-column
+  overflow bug: the ribbon still spans the full width and `.main` keeps `min-width:0`.
+- **`--panel-w` (400px) is the single source** of both the panel width and the reserved margin, so
+  they cannot disagree. (This is a different thing from the deleted `--copilot-w` resize var — it
+  is fixed geometry shared by every docked panel.)
+- **Below 1100px it reverts to an overlay** (`@media(max-width:1100px)` zeroes the margin and
+  restores the shadow), because a 400px dock would crush the content on a narrow screen. Verified:
+  no page overflow at 1440/1200/820 with a panel open, across all 62 tabs.
+- **Every top-right control opens the SAME kind of docked panel**, not a floating popover. The
+  notifications bell now opens **`#notifPanel`** (`openNotif`/`closeNotif`/`toggleNotif`), which
+  mirrors `.copilot` exactly (same `--panel-w`, same reflow, same 1100px overlay fallback). It is
+  **mutually exclusive with the assistant** — opening one closes the other (`cpOpen` calls
+  `closeNotif`; `openNotif` calls `cpClose`). Its items derive from live state via `notifItems()`,
+  and **`notifCount()` returns `notifItems().length`** so the badge and the panel can never
+  disagree. The Settings gear stays a lens (a full page, not a quick panel); the user menu stays a
+  dropdown.
+- **`#copilot` surface is `--n-0`, left edge `--rule`, flush (no shadow) when docked**; the shadow
+  only returns in the narrow overlay mode. Full-screen mode still exists. The drag-to-resize handle
+  is still gone.
 
 - **Panel order, top to bottom:** header · **sources block** (`#cpSrc`, from Phase 4, moved
   ABOVE the tabs) · **context banner** (`#cpCtx`, only when rows are selected) · tabs · scroll
   (thread + home) · footer (**scope chips** `#cpScope` · input · disclaimer).
-- **`#copilot` is a FIXED 400px dock.** The drag-to-resize handle and its width persistence were
-  deleted; there is no `--copilot-w` any more. States are closed / open (400px) / full screen.
-  Surface is `--n-0`, left edge is `--rule`.
 - **Provenance is in EVERY answer, and it is the read-from block, not a footer.** `cpReadsFor()`
   resolves the answer's scope (selection → EntityTree → region slot → whole group), maps entities
   to ERP systems, and returns one row per contributing system — status dot, system, freshness,
@@ -1133,13 +1159,12 @@ four-state rules below still hold; the layout, answer format and behaviour are n
   `--n-0`. Body is **12px sans at 1.6** (the serif treatment is gone). Active tab is `--n-900`
   text + 2px `--n-900` underline (no accent). Footer submit is a circular `--n-900` button.
 
-### Legacy overlay rules (still true)
+### Shell rules (updated by the Phase 7 dock)
 
-- The body grid is **two columns** (`rail main`). The assistant deliberately has no grid
-  column, so opening it cannot reflow, resize or restyle the page underneath — the page keeps
-  its full width in every state. Do not reintroduce a `copilot` grid area or a `--copilot-w`
-  column; that is what caused the old 1085px overflow.
-- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `400px`.
+- The body grid is still **two columns** (`rail main`) — the panel is NOT a grid column. The
+  reflow is done with `.main { margin-right }`, precisely so the old grid-column overflow never
+  returns. Do not reintroduce a `copilot` grid area or a `--copilot-w` *resize* column.
+- `.copilot` is `position:fixed`, right edge, `top:var(--ribbon-h)`, width `var(--panel-w)`.
   Hidden is `transform:translateX(100%)` — **not** `width:0`.
 - **Four presentation states over one live session.** Go through the helpers, never toggle the
   classes by hand:
