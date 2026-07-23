@@ -431,20 +431,19 @@ body.rail-collapsed .rail .railrole .lbl{display:none}
 .ribsep{width:1px;height:20px;background:var(--chrome-border);flex:none;margin:0 4px}
 
 /* global search: reads as part of the midnight header, not a white box dropped onto it */
-.ribsearch{display:flex;align-items:center;gap:8px;flex:none;width:214px;height:32px;
-  padding:0 8px 0 10px;border-radius:var(--radius-xs);
-  background:rgba(255,255,255,.03);border:1px solid var(--chrome-border-strong);transition:.14s}
-.ribsearch:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16)}
-.ribsearch:focus-within{background:var(--chrome-lift);border-color:var(--chrome-accent);
-  box-shadow:0 0 0 3px rgba(91,147,240,.22)}
+/* One search-and-ask button. Wide and labelled "Search or ask Korvyn", it opens the command
+   palette (records + a pinned Ask-Korvyn row). Not an inline input — the palette is where you
+   actually type, which is cleaner and matches the reference. */
+.ribsearch{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;width:270px;height:32px;
+  padding:0 8px 0 11px;border-radius:var(--radius-xs);cursor:pointer;text-align:left;
+  background:rgba(255,255,255,.04);border:1px solid var(--chrome-border);transition:.14s}
+.ribsearch:hover{background:rgba(255,255,255,.07);border-color:var(--chrome-border-strong)}
 .ribsearch .ic{width:14px;height:14px;flex:none;color:var(--chrome-text-2)}
-.ribsearch:focus-within .ic{color:var(--chrome-text)}
-.ribsearch input{flex:1;min-width:0;border:none;outline:none;background:none;
-  font:inherit;font-size:var(--fs-table);color:var(--chrome-text-strong)}
-.ribsearch input::placeholder{color:var(--chrome-text-2)}
+.ribsearch .txt{flex:1;min-width:0;font-size:var(--fs-table);color:var(--chrome-text-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ribsearch:hover .txt{color:var(--chrome-text)}
 .ribsearch .kbd{flex:none;font-family:var(--mono);font-size:var(--fs-micro);color:var(--chrome-text-2);
   border:1px solid var(--chrome-border-strong);border-radius:var(--radius);padding:1px 4px;line-height:1.5}
-.ribsearch:focus-within .kbd{opacity:0}
 
 .ribicon{position:relative;width:32px;height:32px;border:none;background:none;border-radius:var(--radius-xs);
   color:var(--chrome-text);cursor:pointer;display:grid;place-items:center;transition:.13s}
@@ -465,12 +464,18 @@ body.rail-collapsed .rail .railrole .lbl{display:none}
    rather than another utility glyph. No glow, no gradient, no floating shadow. */
 /* Indigo lives here and nowhere else in the header. A tinted surface at rest gives the
    intelligence layer its distinction without a glow, a gradient or an oversized button. */
-.ribai{color:var(--chrome-ai);background:rgba(139,143,248,.10);
-  box-shadow:inset 0 0 0 1px rgba(139,143,248,.18)}
-.ribai:hover{background:rgba(139,143,248,.18);color:var(--chrome-ai-hi);
-  box-shadow:inset 0 0 0 1px rgba(139,143,248,.34)}
-body:not(.copilot-collapsed) .ribai{background:rgba(139,143,248,.22);color:var(--chrome-ai-on);
-  box-shadow:inset 0 0 0 1px rgba(139,143,248,.42)}
+/* A LABELLED pill, not a bare glyph — the intelligence affordance reads as itself. Indigo tint
+   lives here and nowhere else in the header. */
+.ribai{position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;flex:none;
+  padding:0 12px;border-radius:var(--radius-xs);cursor:pointer;transition:.13s;
+  color:var(--chrome-ai);background:rgba(139,143,248,.12);
+  box-shadow:inset 0 0 0 1px rgba(139,143,248,.24)}
+.ribai .spark{width:14px;height:14px;flex:none}
+.ribai .lbl{font-size:var(--fs-table);font-weight:var(--fw-medium)}
+.ribai:hover{background:rgba(139,143,248,.20);color:var(--chrome-ai-hi);
+  box-shadow:inset 0 0 0 1px rgba(139,143,248,.40)}
+body:not(.copilot-collapsed) .ribai{background:rgba(139,143,248,.26);color:var(--chrome-ai-on);
+  box-shadow:inset 0 0 0 1px rgba(139,143,248,.48)}
 /* "Korvyn has intelligence available" — deliberately a quiet blue dot, never a red
    alert badge, and suppressed while the panel is open since you are already there. */
 .ribai-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;
@@ -495,13 +500,16 @@ body.copilot-collapsed .ribai-dot.on{display:block}
    at 1700, the full block at 1500. Verified by measuring nav.scrollWidth at each width. */
 @media(max-width:1699px){ .ribuser-id .rl{display:none} }
 @media(max-width:1499px){ .ribuser-id{display:none} }
-/* Search yields before module navigation does — that is the spec's stated priority, and a
-   full-width search control genuinely cannot coexist with seven domains below ~1500px. */
-@media(max-width:1499px){
-  .ribsearch{width:34px;padding:0;justify-content:center;gap:0;cursor:pointer}
-  .ribsearch input,.ribsearch .kbd{display:none}
+/* The labelled search and the Assistant pill are the header's anchors, so they keep their labels
+   down to ~1360px — once the profile has already collapsed to an avatar there is room. Below that
+   they shed labels to clean glyphs (search yields before module navigation, per the priority). */
+@media(max-width:1359px){
+  .ribsearch{width:34px;padding:0;justify-content:center;gap:0}
+  .ribsearch .txt,.ribsearch .kbd{display:none}
   .ribsearch .ic{width:16px;height:16px}
   .ribsearch:hover{background:rgba(255,255,255,.08)}
+  .ribai{padding:0;width:34px;justify-content:center}
+  .ribai .lbl{display:none}
 }
 .avatar.av-solid{background:var(--accent-fill);color:var(--on-accent)}
 
@@ -866,6 +874,13 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .cmdk-r.on{background:var(--accent-bg)}
 .cmdk-r .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .cmdk-r .ty{font-size:var(--fs-label);color:var(--n-500);flex:none}
+/* The pinned Ask-Korvyn row: the search→AI hand-off. Indigo spark, so it reads as intelligence
+   rather than a record; selected state uses the AI tint, not the accent. */
+.cmdk-r.cmdk-ask .cmdk-spark{width:15px;height:15px;flex:none;color:var(--ai);display:grid;place-items:center}
+.cmdk-r.cmdk-ask .cmdk-spark svg{width:15px;height:15px}
+.cmdk-r.cmdk-ask .nm{color:var(--ink);font-weight:var(--fw-medium)}
+.cmdk-r.cmdk-ask.on{background:var(--ai-bg)}
+.cmdk-r.cmdk-ask .ty{color:var(--ai-ink)}
 .cmdk-ft{border-top:var(--rule);padding:var(--s-2) var(--s-4);font-size:var(--fs-label);
   color:var(--n-500);display:flex;gap:var(--s-4)}
 .cmdk-ft kbd{font-family:var(--mono);font-size:var(--fs-micro);border:var(--rule-strong);
@@ -2755,18 +2770,21 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
        not buried in a per-page filter bar. -->
   <div class="hdr-ctl" id="hdrCtl"></div>
   <div class="ribbon-util">
-    <div class="ribsearch">
+    <!-- ONE search-and-ask surface. Clicking (or ⌘K) opens the command palette, which both jumps
+         to records AND hands a question to the assistant via a pinned Ask Korvyn row. -->
+    <button class="ribsearch" onclick="cmdkOpen()" aria-label="Search or ask Korvyn">
       <svg class="ic" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      <input id="cmd" type="text" placeholder="Search Korvyn" autocomplete="off" aria-label="Search Korvyn"
-        onkeydown="if(event.key==='Enter')runCommand()">
+      <span class="txt">Search or ask Korvyn</span>
       <span class="kbd">&#8984;K</span>
-    </div>
-    <span class="ribsep"></span>
-    <button class="ribicon ribai" id="ribAi" onclick="cpToggle()" aria-label="Ask Korvyn" title="Ask Korvyn">
-      <svg viewBox="0 0 16 16" fill="none">
+    </button>
+    <!-- The assistant is a LABELED pill, the visual anchor of the utility cluster — not a bare
+         sparkle lost among the other icons. -->
+    <button class="ribai" id="ribAi" onclick="cpToggle()" aria-label="Ask Korvyn" title="Ask Korvyn">
+      <svg class="spark" viewBox="0 0 16 16" fill="none">
         <path d="M6.6 1.9l1.32 3.58L11.5 6.8 7.92 8.12 6.6 11.7 5.28 8.12 1.7 6.8l3.58-1.32z" fill="currentColor"/>
         <path d="M12.3 9.1l.63 1.71 1.71.63-1.71.63-.63 1.71-.63-1.71-1.71-.63 1.71-.63z" fill="currentColor"/>
       </svg>
+      <span class="lbl">Assistant</span>
       <span class="ribai-dot" id="ribAiDot"></span>
     </button>
     <!-- SOURCE HEALTH. Always visible, so a dead ERP feed is seen without opening a panel. The
@@ -5102,11 +5120,20 @@ function cmdkIndex(){
   return out;
 }
 let _cmdkIdx=null;
+/* A query reads as a QUESTION (route to the assistant) rather than a record lookup when it opens
+   with an interrogative, ends in "?", or runs to several words. Keyword lookups still Enter
+   straight to the top record; only genuine questions default to Ask Korvyn. */
+const cmdkIsQuestion=q=>{ q=(q||'').trim();
+  return /\?$/.test(q) || /^(why|what|how|which|who|when|where|show|explain|summar|draft|build|find|is |are |does |do |can |should )/i.test(q)
+    || q.split(/\s+/).length>=4; };
+/* SEARCH AND ASK ARE ONE SURFACE. When there is a query, a pinned "Ask Korvyn" row leads the
+   results — it hands the query to the assistant (cpAsk) rather than jumping to a record. */
 const cmdkHits=()=>{
   if(!_cmdkIdx) _cmdkIdx=cmdkIndex();
-  const q=cmdkQ.trim().toLowerCase();
-  if(!q) return _cmdkIdx.filter(x=>x.ty==='Page').slice(0,12);
-  return _cmdkIdx.filter(x=>x.nm.toLowerCase().indexOf(q)>=0).slice(0,40);
+  const q=cmdkQ.trim();
+  const base = !q ? _cmdkIdx.filter(x=>x.ty==='Page').slice(0,12)
+                  : _cmdkIdx.filter(x=>x.nm.toLowerCase().indexOf(q.toLowerCase())>=0).slice(0,40);
+  return q ? [{ty:'Ask Korvyn', nm:q, ask:true}, ...base] : base;
 };
 function cmdkOpen(){ CMDK=true; cmdkQ=''; cmdkSel=0; cmdkPaint();
   setTimeout(()=>{const i=document.getElementById('cmdkIn'); if(i) i.focus();},10); }
@@ -5119,12 +5146,18 @@ function cmdkPaint(){
   if(cmdkSel>=hits.length) cmdkSel=Math.max(0,hits.length-1);
   let last='', list='';
   hits.forEach((h,i)=>{ if(h.ty!==last){ list+=`<div class="cmdk-g">${h.ty}</div>`; last=h.ty; }
-    list+=`<div class="cmdk-r ${i===cmdkSel?'on':''}" onclick="cmdkGo(${i})">
-      <span class="nm">${h.nm}</span><span class="ty">${h.ty}</span></div>`; });
+    if(h.ask){
+      list+=`<div class="cmdk-r cmdk-ask ${i===cmdkSel?'on':''}" onclick="cmdkGo(${i})">
+        <span class="cmdk-spark"><svg viewBox="0 0 16 16" fill="none"><path d="M6.6 1.9l1.32 3.58L11.5 6.8 7.92 8.12 6.6 11.7 5.28 8.12 1.7 6.8l3.58-1.32z" fill="currentColor"/></svg></span>
+        <span class="nm">Ask Korvyn: &ldquo;${h.nm}&rdquo;</span><span class="ty">send to assistant</span></div>`;
+    } else {
+      list+=`<div class="cmdk-r ${i===cmdkSel?'on':''}" onclick="cmdkGo(${i})">
+        <span class="nm">${h.nm}</span><span class="ty">${h.ty}</span></div>`;
+    } });
   w.innerHTML=`<div class="cmdk-box" onclick="event.stopPropagation()">
     <div class="cmdk-in">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      <input id="cmdkIn" placeholder="Jump to an account, entity, task, exception or page"
+      <input id="cmdkIn" placeholder="Search records, or ask Korvyn a question"
         value="${cmdkQ.replace(/"/g,'&quot;')}" oninput="cmdkType(this.value)"></div>
     <div class="cmdk-list">${hits.length?list:'<div class="cmdk-empty">No match.</div>'}</div>
     <div class="cmdk-ft"><span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span>
@@ -5132,10 +5165,19 @@ function cmdkPaint(){
       <span style="margin-left:auto">${hits.length} of ${_cmdkIdx.length} indexed</span></div>
   </div>`;
 }
-function cmdkType(v){ cmdkQ=v; cmdkSel=0; cmdkPaint();
+function cmdkType(v){ cmdkQ=v;
+  // Keyword → default to the first record (index 1, past the ask row); question or empty →
+  // default to the ask row (index 0). So Enter does the expected thing without a second keystroke.
+  cmdkSel = (v.trim() && !cmdkIsQuestion(v)) ? 1 : 0;
+  cmdkPaint();
   const i=document.getElementById('cmdkIn'); if(i){ i.focus(); i.setSelectionRange(v.length,v.length); } }
+/** Hand the query to the assistant, docked. This is the search→AI connection: one input, and a
+    question lands in the AI window with its full grounded answer, sources and actions. */
+function cpAsk(q){ cmdkClose(); if(typeof cpOpen==='function') cpOpen();
+  if(typeof cpSend==='function') cpSend(q); }
 function cmdkGo(i){
   const h=cmdkHits()[i]; if(!h) return;
+  if(h.ask){ cpAsk(cmdkQ.trim()); return; }
   cmdkClose();
   try{ (new Function(h.go))(); }catch(e){}
 }
@@ -18374,18 +18416,9 @@ showTab=function(){ _showTab(); paintRailNav(); document.body.classList.remove('
 const _renderAll=renderAll;
 renderAll=function(){ _renderAll(); paintTopbar(); };
 
-/* ⌘/Ctrl-K owns global search, because the search control advertises that shortcut on screen.
-   Two listeners used to claim this chord — one focused #cmd (which did not exist, so it threw)
-   and one opened Ask Korvyn. Consolidated here. When search is collapsed to an icon at narrow
-   widths there is nothing to focus, so the chord falls through to Ask Korvyn instead. */
-document.addEventListener('keydown',e=>{
-  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){
-    e.preventDefault();
-    const el=document.getElementById('cmd');
-    if(el&&el.offsetParent!==null){ el.focus(); el.select(); return; }
-    if(typeof cpOpen==='function'){ cpOpen(); const c=document.getElementById('cpInput'); if(c)c.focus(); }
-  }
-});
+/* ⌘/Ctrl-K opens the command palette — the single search-and-ask surface. There is exactly ONE
+   handler for this chord now (the cmdk keydown listener); this second one, left over from the
+   inline #cmd input, was removed when search became a palette button. Do not add another. */
 TAB=LENSES[LENS].tabs[0];
 
 // ============================================================ KORVYN AI COPILOT

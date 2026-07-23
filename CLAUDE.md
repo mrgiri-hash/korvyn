@@ -471,9 +471,20 @@ true in dark mode, where the content surface is dark too.
   prior/next) to a timestamp, so **decision state** rewinds exactly. Balances do not rewind —
   Korvyn holds no balance history — and the control states that on its face. Actions are
   withheld in a rewound view rather than rendered inert; `detAct()` refuses while `ASOF` is set.
-- **Command palette** `⌘/Ctrl-K` indexes ~183 real records (accounts, entities, close tasks,
-  exceptions, every destination). **Keyboard nav**: ↑/↓ move a focus ring across the visible
-  DataTables; on the detection queue A/D/S/E accept/dismiss/assign/escalate.
+- **SEARCH AND ASK ARE ONE SURFACE (the command palette).** The ribbon search is a **button**
+  labelled "Search or ask Korvyn" (`.ribsearch`, opens `cmdkOpen()`) — NOT an inline input; the
+  old `#cmd` box and its `runCommand` path are gone, and there is now **exactly one `⌘/Ctrl-K`
+  handler** (the cmdk listener — a second one that focused the removed `#cmd` was deleted; do not
+  re-add it). The palette indexes ~183 real records AND leads with a pinned **Ask Korvyn** row
+  (`cmdkHits` prepends it when there is a query) that hands the query to the docked assistant via
+  `cpAsk()` (`cpOpen()`+`cpSend()`). Smart default: a **question** (`cmdkIsQuestion` — interrogative
+  opener, trailing `?`, or ≥4 words) selects the Ask row so Enter asks; a **keyword** selects the
+  first record so Enter jumps. The Ask row carries the indigo spark and `--ai-bg`, never the accent.
+- **The assistant affordance is a LABELLED pill** (`.ribai` = spark + "Assistant"), the visual
+  anchor of the utility cluster, not a bare glyph. It and the search shed their labels below
+  1360px (once the profile has collapsed to an avatar there is room); the labels show at 1440+.
+- **Keyboard nav**: ↑/↓ move a focus ring across the visible DataTables; on the detection queue
+  A/D/S/E accept/dismiss/assign/escalate.
 
 ### Phase 7 cleanup
 
