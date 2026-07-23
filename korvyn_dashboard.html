@@ -219,7 +219,12 @@
      three different design languages. --radius-pill is a SHAPE, not a scale step. */
   --radius:6px; --radius-sm:var(--radius); --radius-xs:var(--radius); --radius-pill:20px;
   /* ---- shell geometry (single source of truth for the rail + topbar) ---- */
-  --rail-w:200px; --rail-w-collapsed:56px; --ribbon-h:50px; --strip-h:30px;
+  --rail-w:200px; --rail-w-collapsed:56px; --ribbon-h:50px; --strip-h:36px;
+  /* Two-row shell: the header is the ribbon PLUS the close-context strip beneath it. Every
+     sticky offset (rail, topbar, the docked panels) measures from this, so re-declaring the
+     strip height moves them all together. --strip-h is consumed again now (the deleted Phase-4
+     connection strip freed the token; the close strip re-uses it). */
+  --header-h:calc(var(--ribbon-h) + var(--strip-h));
   /* Docked side-panel width. Shared by the assistant and the notifications panel so the panel
      and the space the main content reserves for it can never disagree. */
   --panel-w:400px;
@@ -323,11 +328,12 @@ body{
   /* Two columns only. The assistant is an overlay and deliberately does NOT take a grid
      column, so opening it cannot reflow, resize or redesign the page underneath. */
   grid-template-columns:var(--rail-w) 1fr;
-  /* Two rows: ribbon, then rail+main. The full-width connection strip that used to sit between
-     them was deleted in Phase 4 — it collided with the assistant overlay and cost 30px on every
-     screen. Source health now lives as a ribbon glyph plus a block in the assistant panel. */
-  grid-template-rows:auto 1fr;
-  grid-template-areas:"ribbon ribbon" "rail main";
+  /* Three rows now: ribbon, then the close-context strip, then rail+main. The strip spans the
+     full width and is sticky beneath the ribbon; the docked panels start below it (top:
+     --header-h) so — unlike the Phase-4 connection strip that collided with the overlay — the
+     strip is never covered when the assistant/notifications/settings panel is open. */
+  grid-template-rows:auto auto 1fr;
+  grid-template-areas:"ribbon ribbon" "strip strip" "rail main";
   min-height:100vh;
 }
 ::selection{background:var(--accent-bg);color:var(--accent-ink)}
@@ -337,14 +343,14 @@ body{
 .ribbon{
   grid-area:ribbon;position:sticky;top:0;z-index:30;
   background:var(--chrome-bg);color:var(--chrome-text);
-  display:flex;align-items:center;gap:18px;padding:0 18px;height:var(--ribbon-h);min-width:0;
+  display:flex;align-items:center;gap:14px;padding:0 14px;height:var(--ribbon-h);min-width:0;
   /* Header and sidebar now share one base, so the hairline IS the separation — doing the
      work the old 1.05:1 luminance step was failing to do. */
   border-bottom:1px solid var(--chrome-border);
   /* no bottom shadow: it would score a seam across the rail, which shares this surface */
 }
 /* The wordmark is the Home control, so Home is not repeated in the section nav. */
-.ribbon-brand{display:flex;align-items:center;flex:none;padding:6px 26px 6px 0;
+.ribbon-brand{display:flex;align-items:center;flex:none;padding:6px 12px 6px 0;
   border:none;background:none;cursor:pointer;border-radius:var(--radius);transition:.14s}
 .ribbon-brand:hover .brand-lockup{opacity:.82}
 /* Chrome focus rings use the CHROME accent. The content accent measures 3.66:1 here, and a
@@ -390,6 +396,63 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .ribbon-scope-port{opacity:.85}
 .ribbon-scope b{color:var(--chrome-text);font-weight:var(--fw-medium);font-size:var(--fs-label)}
 
+/* ---- two-row shell: lean the ribbon ----
+   The period/as-of controls, source-health glyph and settings gear all moved OUT of the ribbon
+   (to the strip below, or — for settings — the profile menu, its single documented home). The
+   nav goes text-only like the reference mockup: the per-module icons added weight and ~160px of
+   width that pushed Procurement…Reporting off the end into a hidden horizontal scroll. */
+.ribbon-nav .railrole .ic{display:none}
+/* Profile shows avatar + name; the role subtitle is dropped from the ribbon (it is still in the
+   profile menu). cpUserName() reads .um-nm in the MENU, not this block, so this is safe. */
+.ribuser .ribuser-id .rl{display:none}
+
+/* ============================ APP SHELL: CLOSE-CONTEXT STRIP ============================
+   Row 2 of the two-row shell — full width, sticky directly beneath the ribbon, one step lighter
+   (--chrome-bg-2, the strip's own token). The docked panels start at --header-h (below it), so
+   the strip is never covered when a panel is open — the failure that retired the Phase-4 strip.
+   EVERYTHING HERE DERIVES (paintCloseStrip): pipeline counts from srcHealth()/CLOSE_TASKS/
+   GL_RECON/csxEntities()/FILING_APPROVALS, metrics from the close accessors Home already reads.
+   Chrome tokens ONLY — the content plane is unreachable here, same isolation rule as the ribbon. */
+.cstrip{grid-area:strip;position:sticky;top:var(--ribbon-h);z-index:25;height:var(--strip-h);
+  background:var(--chrome-bg-2);border-bottom:1px solid var(--chrome-border);color:var(--chrome-text-2);
+  display:flex;align-items:center;gap:16px;padding:0 18px;min-width:0;overflow:hidden;font-size:var(--fs-table)}
+.cstrip-l{flex:none;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.cstrip-l .per{font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--chrome-text);font-weight:var(--fw-medium)}
+.cstrip-l .tag{font-size:var(--fs-micro);letter-spacing:.08em;text-transform:uppercase;color:var(--chrome-text-mute);
+  border:1px solid var(--chrome-border);border-radius:var(--radius-pill);padding:1px 7px}
+.cstrip-sep{flex:none;width:1px;height:16px;background:var(--chrome-border)}
+/* the pipeline: dot + label + count. Scrolls (hidden bar) rather than wrapping if it ever
+   exceeds the row; the right cluster stays pinned. */
+.cstrip-pipe{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:1px;overflow-x:auto;overflow-y:hidden}
+.cstrip-pipe::-webkit-scrollbar{height:0}
+.cstage{flex:none;display:flex;align-items:center;gap:7px;border:none;background:none;cursor:pointer;
+  color:var(--chrome-text-2);font:inherit;font-size:var(--fs-table);padding:0 9px;height:24px;
+  border-radius:var(--radius-xs);white-space:nowrap;transition:.13s}
+.cstage:hover{background:var(--chrome-lift);color:var(--chrome-text)}
+.cstage[disabled]{cursor:default}
+.cstage[disabled],.cstage[disabled] .nm{color:var(--chrome-text-mute)}
+.cstage[disabled]:hover{background:none;color:var(--chrome-text-mute)}
+.cstage .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--chrome-text-mute)}
+.cstage[data-st="ok"] .dot{background:var(--success-on-chrome)}
+.cstage[data-st="warn"] .dot{background:var(--warning-on-chrome)}
+.cstage[data-st="err"] .dot{background:var(--danger-on-chrome)}
+.cstage .nm{color:var(--chrome-text);font-weight:var(--fw-regular)}
+.cstage .ct{color:var(--chrome-text-2)}
+.cstage-arrow{flex:none;color:var(--chrome-text-mute);opacity:.55;font-size:var(--fs-micro)}
+/* right cluster: derived metrics + the relocated period / as-of controls (#hdrCtl) */
+.cstrip-r{flex:none;display:flex;align-items:center;gap:14px;white-space:nowrap}
+.cstrip-m{display:flex;align-items:center;gap:16px}
+.cstrip-m .m{display:flex;align-items:baseline;gap:5px}
+.cstrip-m .m .mk{font-size:var(--fs-micro);letter-spacing:.05em;text-transform:uppercase;color:var(--chrome-text-mute)}
+.cstrip-m .m .mv{color:var(--chrome-text);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+.cstrip-m .m .mv.bad{color:var(--danger-on-chrome)}
+.cstrip-m .m .mv.warn{color:var(--warning-on-chrome)}
+/* At tablet width, drop the metric labels then the left close-cycle label; the pipeline scrolls
+   and the controls stay reachable. The whole strip goes with the ribbon under 860 (mobile grid). */
+@media(max-width:1200px){ .cstrip-m .m .mk{display:none} }
+@media(max-width:1000px){ .cstrip-l .tag{display:none} }
+
 /* legacy rail sub-nav classes kept in case any render path references them (secnav uses its own styles) */
 .railtab{display:flex;align-items:center;gap:10px;border:none;background:none;cursor:pointer;
   color:var(--chrome-text);font:inherit;font-size:var(--fs-table);padding:8px 10px;border-radius:var(--radius);transition:.13s;position:relative}
@@ -397,8 +460,8 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 /* ============================ APP SHELL: LEFT RAIL ============================ */
 body.rail-collapsed{--rail-w:var(--rail-w-collapsed)}
 .rail{
-  grid-area:rail;position:sticky;top:var(--ribbon-h);align-self:start;
-  height:calc(100vh - var(--ribbon-h));z-index:20;
+  grid-area:rail;position:sticky;top:var(--header-h);align-self:start;
+  height:calc(100vh - var(--header-h));z-index:20;
   /* one step up from the ribbon, so the two midnight planes read as connected but distinct */
 background:var(--chrome-bg);border-right:1px solid var(--chrome-border);
   display:flex;flex-direction:column;overflow:hidden;transition:width .16s ease;
@@ -434,7 +497,7 @@ body.rail-collapsed .rail .railrole .lbl{display:none}
 /* One search-and-ask button. Wide and labelled "Search or ask Korvyn", it opens the command
    palette (records + a pinned Ask-Korvyn row). Not an inline input — the palette is where you
    actually type, which is cleaner and matches the reference. */
-.ribsearch{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;width:270px;height:32px;
+.ribsearch{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;width:230px;height:32px;
   padding:0 8px 0 11px;border-radius:var(--radius-xs);cursor:pointer;text-align:left;
   background:rgba(255,255,255,.04);border:1px solid var(--chrome-border);transition:.14s}
 .ribsearch:hover{background:rgba(255,255,255,.07);border-color:var(--chrome-border-strong)}
@@ -511,6 +574,12 @@ body.copilot-collapsed .ribai-dot.on{display:block}
   .ribai{padding:0;width:34px;justify-content:center}
   .ribai .lbl{display:none}
 }
+/* Keep all seven domains reachable through the 861–1200 band (the ⋯ menu is a Platform/
+   workspaces launcher, not a domain overflow, so a scrolled-off domain would be unreachable).
+   Tighten module-nav padding, then step the wordmark down, reclaiming the ~80px that otherwise
+   pushed Reporting off the end. */
+@media(max-width:1200px){ .ribbon-nav .railrole{padding:0 8px} }
+@media(max-width:1100px){ .brand-lockup{height:24px} .ribbon{gap:10px} }
 .avatar.av-solid{background:var(--accent-fill);color:var(--on-accent)}
 
 .ribbon-more{position:relative;flex:none;margin-left:2px}
@@ -752,7 +821,7 @@ body.copilot-collapsed .ribai-dot.on{display:block}
     --danger-on-chrome:#E8756B!important; --warning-on-chrome:#D6A24E!important;
     --success-on-chrome:#4FBF88!important;
   }
-  .ribbon,.rail,.ws-bar,.copilot{display:none!important}
+  .ribbon,.cstrip,.rail,.ws-bar,.copilot{display:none!important}
 }
 
 /* ---- the picker ---- */
@@ -881,11 +950,88 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .cmdk-r.cmdk-ask .nm{color:var(--ink);font-weight:var(--fw-medium)}
 .cmdk-r.cmdk-ask.on{background:var(--ai-bg)}
 .cmdk-r.cmdk-ask .ty{color:var(--ai-ink)}
+/* Context chips: current scope from the app header (view / entity / period). Display only.
+   Flat fills on the spacing/type scale — no border, no card chrome inside the overlay. */
+.cmdk-chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);
+  padding:var(--s-2) var(--s-4);border-top:var(--rule)}
+.cmdk-chip{display:inline-flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);
+  color:var(--ink);background:var(--n-100);border-radius:var(--radius-pill);padding:var(--s-1) var(--s-3);white-space:nowrap}
+.cmdk-chip .k{font-size:var(--fs-micro);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--n-500)}
 .cmdk-ft{border-top:var(--rule);padding:var(--s-2) var(--s-4);font-size:var(--fs-label);
   color:var(--n-500);display:flex;gap:var(--s-4)}
 .cmdk-ft kbd{font-family:var(--mono);font-size:var(--fs-micro);border:var(--rule-strong);
   border-radius:var(--radius);padding:0 3px;color:var(--n-600)}
 .cmdk-empty{padding:var(--s-8);text-align:center;color:var(--n-500);font-size:var(--fs-table)}
+
+/* ---- traceability detail view (one component, both exceptions) ---------------- */
+.trace-wrap{display:flex;flex-direction:column;gap:var(--s-4);max-width:1000px}
+.trace-switch{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-label);color:var(--n-500);
+  text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.trace-switch .n{background:var(--n-100);border-radius:var(--radius-pill);padding:0 var(--s-2);color:var(--n-600)}
+.trace-pick{border:var(--rule);background:var(--surface);border-radius:var(--radius-pill);padding:var(--s-1) var(--s-3);
+  font-size:var(--fs-table);color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
+.trace-pick.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.trace-head-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--s-4);flex-wrap:wrap}
+.trace-title{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink)}
+.trace-meta{font-size:var(--fs-table);color:var(--muted);margin-top:2px}
+.trace-src{color:var(--accent)}
+.trace-life-row{display:flex;align-items:center;gap:var(--s-1);flex-wrap:wrap}
+.trace-life{font-size:var(--fs-label);color:var(--n-400);text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.trace-life.done{color:var(--n-500)}
+.trace-life.on{color:var(--ink);font-weight:var(--fw-medium);background:var(--n-100);border-radius:var(--radius-sm);padding:1px var(--s-2)}
+.trace-life-sep{color:var(--n-300);font-size:var(--fs-label)}
+.trace-roles{display:flex;gap:var(--s-1);margin:var(--s-3) 0}
+.trace-seg{border:var(--rule);background:var(--surface);padding:var(--s-1) var(--s-3);font-size:var(--fs-table);
+  color:var(--muted);cursor:pointer}
+.trace-seg:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.trace-seg:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.trace-seg.on{background:var(--n-900);color:var(--n-0);border-color:var(--n-900)}
+.trace-role-body{display:flex;flex-direction:column;gap:var(--s-2);border-top:var(--rule);padding-top:var(--s-3)}
+.trace-role-h{font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--n-500)}
+.trace-kv{display:flex;justify-content:space-between;gap:var(--s-4);font-size:var(--fs-table);color:var(--muted)}
+.trace-kv b{color:var(--ink);font-weight:var(--fw-medium);text-align:right}
+.trace-note{font-size:var(--fs-table);color:var(--muted);line-height:1.5}
+.trace-ev{display:flex;align-items:center;gap:var(--s-2);font-size:var(--fs-table);color:var(--ink)}
+.trace-ev .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.trace-ev.ok .dot{background:var(--pos)} .trace-ev.no .dot{background:var(--warn)}
+.trace-ev .v{margin-left:auto;font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.trace-ev.ok .v{color:var(--pos)} .trace-ev.no .v{color:var(--warn)}
+.trace-chain-h{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink);margin-bottom:var(--s-2)}
+.trace-chain-sub{font-size:var(--fs-label);color:var(--n-500);font-weight:var(--fw-regular);margin-left:var(--s-2)}
+.trace-legend{display:flex;flex-wrap:wrap;gap:var(--s-4);font-size:var(--fs-label);color:var(--muted);
+  padding-bottom:var(--s-3);margin-bottom:var(--s-2);border-bottom:var(--rule)}
+.trace-legend span{display:inline-flex;align-items:center;gap:var(--s-2)}
+.trace-hop{display:flex;align-items:flex-start;gap:var(--s-3);padding:var(--s-3) 0;border-bottom:var(--rule)}
+.trace-hop:last-child{border-bottom:none}
+.trace-node{width:22px;height:22px;flex:none;border-radius:50%;background:var(--n-100);color:var(--n-600);
+  display:grid;place-items:center;font-size:var(--fs-label);font-weight:var(--fw-medium)}
+.trace-hop-main{flex:1;min-width:0}
+.trace-hop-lbl{font-size:var(--fs-table);color:var(--ink);display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap}
+.trace-hop-sub{font-size:var(--fs-label);color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap}
+.trace-hop-type{font-size:var(--fs-label);color:var(--n-500);flex:none;text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.trace-kid{font-family:var(--mono);font-size:var(--fs-micro);color:var(--n-600)}
+.trace-fid{display:inline-flex;align-items:center;gap:3px;font-size:var(--fs-micro);color:var(--n-600);
+  background:var(--n-50);border:var(--rule);border-radius:var(--radius-sm);padding:0 4px}
+.trace-fid .k{color:var(--n-500);text-transform:uppercase;letter-spacing:.04em}
+.trace-def{font-size:var(--fs-micro);color:var(--warn-ink,var(--warn));background:var(--warn-bg,var(--warning-bg));
+  border-radius:var(--radius-sm);padding:0 4px;text-transform:uppercase;letter-spacing:.03em}
+.trace-badge{font-size:var(--fs-micro);border-radius:var(--radius-sm);padding:1px 5px;white-space:nowrap;
+  text-transform:uppercase;letter-spacing:.03em;font-weight:var(--fw-medium)}
+.trace-badge-derived{background:var(--n-100);color:var(--n-600)}
+/* Inferred reads visibly as a PROPOSAL, never a fact: indigo (Korvyn's own reasoning) + dashed. */
+.trace-badge-inferred{background:var(--ai-bg);color:var(--ai-ink);border:1px dashed var(--ai)}
+.trace-badge-missing{background:var(--warning-bg);color:var(--warn)}
+.trace-hop-inferred{background:var(--ai-bg);border-radius:var(--radius);padding-left:var(--s-2)}
+.trace-hop-inferred .trace-node{background:var(--ai);color:var(--ai-on,#fff)}
+.trace-hop-missing .trace-node{background:var(--warning-bg);color:var(--warn)}
+.trace-open{border:var(--rule);background:var(--surface);border-radius:var(--radius-sm);padding:2px var(--s-2);
+  font-size:var(--fs-label);color:var(--accent);cursor:pointer;flex:none}
+.trace-agent-row{display:flex;align-items:center;gap:var(--s-3);flex-wrap:wrap}
+.trace-draft-btn{border:none;background:var(--n-900);color:var(--n-0);border-radius:var(--radius);
+  padding:var(--s-2) var(--s-3);font-size:var(--fs-table);cursor:pointer}
+.trace-agent-note{font-size:var(--fs-label);color:var(--muted);flex:1;min-width:140px}
+.trace-draft{margin-top:var(--s-3);font-size:var(--fs-table);color:var(--ink);display:flex;gap:var(--s-2);
+  align-items:baseline;line-height:1.5}
 
 /* keyboard focus in queues */
 .dt tbody tr.kbd-on{box-shadow:inset 2px 0 0 var(--accent)}
@@ -1080,7 +1226,7 @@ body.settings-open .main{margin-right:var(--panel-w)}
 }
 .content{min-width:0}
 /* Sticks directly below the ribbon now that the connection strip is gone. */
-.topbar{position:sticky;top:var(--ribbon-h);z-index:15;
+.topbar{position:sticky;top:var(--header-h);z-index:15;
   background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:saturate(1.2) blur(10px);border-bottom:var(--rule);
   padding:12px 26px;display:flex;align-items:center;gap:16px}
@@ -2151,11 +2297,11 @@ footer b{color:var(--muted)}
 
 /* responsive: ribbon wraps on narrow screens */
 @media(max-width:860px){
-  body{grid-template-columns:1fr;grid-template-areas:"ribbon" "main"}
+  body{grid-template-columns:1fr;grid-template-areas:"ribbon" "strip" "main"}
   .content{padding:16px}
   .topbar{padding:12px 16px}
   /* rail slides over the content instead of taking a column */
-  .rail{position:fixed;top:var(--ribbon-h);left:0;width:var(--rail-w-collapsed-off,240px);
+  .rail{position:fixed;top:var(--header-h);left:0;width:var(--rail-w-collapsed-off,240px);
         transform:translateX(-100%);transition:transform .18s ease;z-index:22}
   body.nav-open .rail{transform:translateX(0)}
   body.rail-collapsed .rail{--rail-w:240px}
@@ -2180,7 +2326,7 @@ body.nav-open .scrim{display:block}
    moment the panel closes. It separates from the workspace through boundary, shadow and
    spacing — never through a tinted background. */
 .copilot{
-  position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--panel-w);
+  position:fixed;top:var(--header-h);right:0;bottom:0;width:var(--panel-w);
   background:var(--n-0);border-left:var(--rule);
   display:flex;flex-direction:column;overflow:hidden;z-index:26;
   /* Docked (default): flush, no shadow — it sits in reserved space, not over the content. */
@@ -2191,7 +2337,7 @@ body.nav-open .scrim{display:block}
 @media(max-width:1100px){ body:not(.copilot-collapsed) .copilot{box-shadow:-10px 0 30px rgba(16,22,35,.10)} }
 body.copilot-collapsed .copilot{transform:translateX(100%);box-shadow:none}
 /* ---- notifications: a docked side panel that mirrors the assistant exactly ---- */
-.notifpanel{position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--panel-w);
+.notifpanel{position:fixed;top:var(--header-h);right:0;bottom:0;width:var(--panel-w);
   background:var(--n-0);border-left:var(--rule);display:flex;flex-direction:column;overflow:hidden;
   z-index:26;box-shadow:none;transform:translateX(100%);
   transition:transform .22s cubic-bezier(.2,.7,.2,1)}
@@ -2220,7 +2366,7 @@ body.notif-open .notifpanel{transform:none}
 .np-ar{color:var(--n-400);font-size:var(--fs-label);flex:none;margin-top:1px}
 .np-empty{padding:var(--s-8);text-align:center;color:var(--n-500);font-size:var(--fs-table)}
 /* ---- settings: a docked panel mirroring the assistant/notifications exactly ---- */
-.settingspanel{position:fixed;top:var(--ribbon-h);right:0;bottom:0;width:var(--panel-w);
+.settingspanel{position:fixed;top:var(--header-h);right:0;bottom:0;width:var(--panel-w);
   background:var(--n-0);border-left:var(--rule);display:flex;flex-direction:column;overflow:hidden;
   z-index:26;box-shadow:none;transform:translateX(100%);
   transition:transform .22s cubic-bezier(.2,.7,.2,1)}
@@ -2527,7 +2673,7 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 /* Full screen fills the CONTENT area only. The ribbon and the left rail stay put and
    stay usable, so navigation continues to work with the assistant open. `left` tracks
    --rail-w so the panel follows the rail as it collapses. */
-body.copilot-full .copilot{position:fixed;top:var(--ribbon-h);left:var(--rail-w);right:0;bottom:0;
+body.copilot-full .copilot{position:fixed;top:var(--header-h);left:var(--rail-w);right:0;bottom:0;
   width:auto!important;height:auto;z-index:25;border-left:var(--rule-strong);box-shadow:none}
 body.copilot-full .cp-scroll,body.copilot-full .cp-foot{max-width:900px;margin:0 auto;width:100%}
 body.copilot-full .cp-head,body.copilot-full .cp-status,body.copilot-full .cp-tabs,
@@ -2687,7 +2833,7 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 /* in split mode the table sheds its lowest-priority columns rather than scrolling */
 .wsplit.on .rec-hide{display:none}
 .wdetail{background:var(--surface);border:var(--rule);border-radius:var(--radius);
-  overflow:hidden;position:sticky;top:calc(var(--ribbon-h) + 14px)}
+  overflow:hidden;position:sticky;top:calc(var(--header-h) + 14px)}
 .wd-hd{padding:15px 17px 14px;border-bottom:var(--rule)}
 .wd-hd .t{font-size:var(--fs-card);font-weight:var(--fw-medium);letter-spacing:-.015em;line-height:1.3}
 .wd-hd .s{font-size:var(--fs-label);color:var(--muted);margin-top:3px}
@@ -2762,13 +2908,10 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
          no Settings, no preferences, no utility actions. -->
     <div class="more-menu" id="moreMenu"></div>
   </div>
-  <!-- Global utility cluster: three zones separated by hairlines —
-       SEARCH | INTELLIGENCE · NOTIFICATIONS · SETTINGS | PROFILE
-       Level 5 of the navigation model (enterprise configuration) is the gear, and only
-       the gear. Level 4 (personal) is the profile menu. -->
-  <!-- Close period and data-as-of live in the HEADER so they are visible from every page,
-       not buried in a per-page filter bar. -->
-  <div class="hdr-ctl" id="hdrCtl"></div>
+  <!-- Global utility cluster, leaned for the two-row shell: SEARCH | ASSISTANT · NOTIFICATIONS
+       | PROFILE. Close period + as-of moved to the strip below; source health became the strip's
+       Sync stage; the settings gear moved into the profile menu (Level 5 config still has one
+       home — see openSettings there). Level 4 (personal) is that same profile menu. -->
   <div class="ribbon-util">
     <!-- ONE search-and-ask surface. Clicking (or ⌘K) opens the command palette, which both jumps
          to records AND hands a question to the assistant via a pinned Ask Korvyn row. -->
@@ -2787,22 +2930,10 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
       <span class="lbl">Assistant</span>
       <span class="ribai-dot" id="ribAiDot"></span>
     </button>
-    <!-- SOURCE HEALTH. Always visible, so a dead ERP feed is seen without opening a panel. The
-         glyph (a stacked-data mark) takes the worst source state as its colour; the badge counts
-         degraded feeds. Clicking opens the assistant to the sources block. -->
-    <button class="ribicon ribsrc" id="ribSrc" data-st="ok" onclick="openSources()" aria-label="Source health">
-      <svg class="glyph" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 4v8c0 1.1 2.24 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.24 2 5 2s5-.9 5-2" stroke="currentColor" stroke-width="1.4"/></svg>
-      <span class="ct"></span>
-    </button>
+    <!-- Source health moved to the strip's Sync stage (still always-visible, more prominent). -->
     <button class="ribicon" onclick="toggleNotif()" aria-label="Notifications" title="Notifications">
       <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 00-4 4v2.6L2.9 10.6h10.2L12 8.6V6a4 4 0 00-4-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.4 12.6a1.7 1.7 0 003.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       <span class="ribdot" id="ribNotif">0</span>
-    </button>
-    <!-- Settings is the SINGLE home for all configuration, and it opens as a docked panel like
-         the assistant — appearance (incl. light/dark), roles & access, and thresholds all live
-         inside it. Modules live in navigation; configuration lives here. -->
-    <button class="ribicon" onclick="toggleSettings()" aria-label="Settings" title="Settings">
-      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.38 3.62l-1.13 1.13M4.75 11.25l-1.13 1.13M12.38 12.38l-1.13-1.13M4.75 4.75L3.62 3.62" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
     </button>
     <span class="ribsep"></span>
     <button class="ribuser" onclick="toggleUserMenu(event)" title="Mitra Giri &#183; Accounting Manager" aria-haspopup="true">
@@ -2822,6 +2953,13 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   </div>
 
 </header>
+
+<!-- ============ CLOSE-CONTEXT STRIP (row 2 of the two-row shell) ============
+     Full-width sticky bar beneath the ribbon. Left: the close cycle. Centre: the close pipeline
+     (Sync…Analyze), counts DERIVED, no authored figures. Right: derived Day/Completion/TB-delta
+     metrics, then the relocated period + as-of controls (#hdrCtl). Painted by paintCloseStrip(),
+     which rides the same paint cycle as the nav. -->
+<div class="cstrip" id="cstrip"></div>
 
 <!-- ============ LEFT RAIL (sections + utility group) ============ -->
 <aside class="rail" id="railNav">
@@ -3003,6 +3141,7 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 <div class="view" id="view-issues"></div>
 <div class="view" id="view-archives"></div>
 <div class="view" id="view-admin"></div>
+<div class="view" id="view-traceexc"></div>
     </main>
 
     <footer id="footer"></footer>
@@ -3771,6 +3910,7 @@ let LENS='portfolio';
 // Full catalog. Each role (lens) exposes only its own subset — see LENSES[x].tabs.
 // Shared tabs (trend, tb, ppe, pivot) are simply listed in more than one role's set.
 const TABS=[
+  {id:'traceexc',label:'Traceability',ic:'M4 8h8M4 8a2 2 0 11-4 0 2 2 0 014 0zm8 0a2 2 0 114 0 2 2 0 01-4 0z'},
   {id:'glintel',label:'General Ledger',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6'},
   {id:'acctclose',label:'Close',ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5'},
   {id:'acctover',label:'Overview',ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
@@ -4302,10 +4442,14 @@ const homeAmt=k=>{ const m=Math.abs(k)/1000;
   return m>=0.1 ? glB(m) : '$'+Math.round(Math.abs(k)*1000).toLocaleString('en-US'); };
 function homeAttention(){
   const out=[], t=(sev,t1,d,go)=>out.push({sev,t:t1,d,go});
-  try{ GL_RECON.filter(r=>Math.abs(r.diff)>0).forEach(r=>
+  try{ GL_RECON.filter(r=>Math.abs(r.diff)>0).forEach(r=>{
+    // The 13500 @ Meridian DC Holdco difference now opens the traceability detail view (its chain
+    // resolves from ingested NetSuite data). Every other row keeps the reconciliation drill.
+    const go=(r.acct==='13500'&&r.ent==='Meridian DC Holdco')
+      ? "openTrace('TX-RECON-13500-HOLD')"
+      : "pickLens('ledger');pickTab('glrecon');glReconCloseDetail();setGlReconSel('"+r.acct+"|"+r.ent+"')";
     t(Math.abs(r.diff)>=1000?'high':'med','Reconciliation difference — '+r.nm,
-      homeAmt(r.diff)+' unexplained · '+r.ent,
-      "pickLens('ledger');pickTab('glrecon');glReconCloseDetail();setGlReconSel('"+r.acct+"|"+r.ent+"')")); }catch(e){}
+      homeAmt(r.diff)+' unexplained · '+r.ent, go); }); }catch(e){}
   try{ const ov=GL_RECON.filter(r=>r.st==='over'&&!r.diff);
     if(ov.length) t('high','Reconciliations overdue',
       ov.length+' past due · earliest '+ov[0].due,"pickLens('ledger');pickTab('glrecon')"); }catch(e){}
@@ -5068,6 +5212,58 @@ function paintHdrCtl(){
       title="View decision state as it stood at a prior timestamp">
       <span class="k">As of</span>${ASOF||'Live'}</button>`;
 }
+/* ---- close-context strip (row 2 of the two-row shell) ------------------------------------
+   The whole content of the strip beneath the ribbon, and EVERY figure on it derives — nothing
+   authored, per the RECON_SCALE cautionary rule. Left: the close cycle. Centre: a linear close
+   pipeline whose per-stage state and count come from the same accessors the rest of the app
+   reads (srcHealth, CLOSE_TASKS via closeTotals/clBlocked, GL_RECON, csxEntities,
+   FILING_APPROVALS). Right: Day / completion / TB-delta, then #hdrCtl (period + as-of), which
+   paintHdrCtl fills right after this in the paint cycle. Chrome-token classes only. */
+function paintCloseStrip(){
+  const el=document.getElementById('cstrip'); if(!el) return;
+  let pct=71,done=54,total=76,open=22,blk=0,unrec=0,unN=0,rdy=0,entN=4,apN=0;
+  try{ pct=closePct(); }catch(e){}
+  try{ const t=closeTotals(); done=t.done; total=closeTotal(); open=Math.max(0,total-done); }catch(e){}
+  try{ blk=clBlocked().length; }catch(e){}
+  try{ const d=GL_RECON.filter(r=>r.diff); unN=d.length; unrec=d.reduce((a,r)=>a+Math.abs(r.diff),0); }catch(e){}
+  try{ const E=csxEntities(); entN=E.length; rdy=E.filter(e=>e.st==='ready').length; }catch(e){}
+  try{ apN=FILING_APPROVALS.filter(a=>a.st==='pending').length; }catch(e){}
+  const h=srcHealth();
+  let per='JUN 2026', dayTxt='6 of 5', dayOver=true;
+  try{ if(typeof CLOSE_DAYS!=='undefined'&&CLOSE_DAYS){
+      if(CLOSE_DAYS.period) per=CLOSE_DAYS.period.toUpperCase();
+      if(CLOSE_DAYS.actual){ dayTxt=CLOSE_DAYS.actual+' of '+CLOSE_DAYS.target;
+                             dayOver=CLOSE_DAYS.actual>CLOSE_DAYS.target; }
+  } }catch(e){}
+  const tbDelta=(typeof glK==='function')?'$'+glK(unrec*1000):String(unrec);
+  // pipeline stages — count DERIVED, dot state DERIVED; go routes to the owning module (real nav).
+  const stages=[
+    {nm:'Sync',    st:h.worst,              ct:h.degraded? h.degraded+' degraded' : h.ok.length+' sources', go:"openSources()"},
+    {nm:'Prepare', st:blk?'warn':'',        ct:open+' open',    go:"pickLens('ledger');pickTab('acctclose')"},
+    {nm:'Review',  st:unN?'warn':'ok',      ct:unN+' to clear', go:"pickLens('ledger');pickTab('glrecon')"},
+    {nm:'Approve', st:apN?'warn':'ok',      ct:apN+' to sign',  go:"pickLens('portfolio');pickTab('approvals')"},
+    {nm:'Lock',    st:rdy<entN?'warn':'ok', ct:rdy+' of '+entN, go:"pickLens('ledger');pickTab('consol')"},
+    {nm:'Analyze', st:'',                    ct:'awaiting lock', dis:true},
+  ];
+  const arrowSVG=`<svg class="cstage-arrow" width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const pipe=stages.map((s,i)=>{
+    const arrow=i?arrowSVG:'';
+    const attrs=`data-st="${s.st}"`+(s.dis?' disabled':` onclick="${s.go}"`);
+    return arrow+`<button class="cstage" ${attrs} title="${s.nm}"><span class="dot"></span><span class="nm">${s.nm}</span><span class="ct">${s.ct}</span></button>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="cstrip-l"><span class="per">${per}</span><span class="tag">Close</span></div>
+    <div class="cstrip-sep"></div>
+    <div class="cstrip-pipe">${pipe}</div>
+    <div class="cstrip-r">
+      <div class="cstrip-m">
+        <span class="m"><span class="mk">Day</span><span class="mv ${dayOver?'warn':''}">${dayTxt}</span></span>
+        <span class="m"><span class="mk">Complete</span><span class="mv">${pct}%</span></span>
+        <span class="m"><span class="mk">TB delta</span><span class="mv ${unrec?'bad':''}">${tbDelta}</span></span>
+      </div>
+      <div class="hdr-ctl" id="hdrCtl"></div>
+    </div>`;
+}
 function hdrPeriod(ev){
   ev.stopPropagation(); wsClosePop();
   const m=document.createElement('div'); m.className='ws-menu'; m.id='wsPop';
@@ -5101,43 +5297,90 @@ function hdrAsOf(ev){
 function setAsOf(v){ ASOF=v; wsClosePop(); paintHdrCtl(); renderAll(); }
 
 /* ---- command palette (Cmd/Ctrl-K) -------------------------------------------------------
-   Indexes real records: accounts, entities, close tasks, exceptions, and every destination. */
-let CMDK=false, cmdkQ='', cmdkSel=0;
-function cmdkIndex(){
-  const out=[];
-  try{ COA.forEach(a=>out.push({ty:'Account',nm:a.acct+' · '+a.name,
-    go:"pickLens('ledger');pickTab('tb')"})); }catch(e){}
-  try{ CONS_ORDER.forEach(n=>out.push({ty:'Entity',nm:n,
-    go:`etPick('${n.replace(/'/g,"\\'")}');pickLens('ledger');pickTab('consol')`})); }catch(e){}
-  try{ CLOSE_TASKS.forEach(t=>out.push({ty:'Task',nm:t.nm+' · '+t.ent,
-    go:"pickLens('ledger');pickTab('acctclose')"})); }catch(e){}
-  try{ axExceptions().forEach(x=>out.push({ty:'Exception',nm:x.t,
-    go:"pickLens('ledger');pickTab('exceptions')"})); }catch(e){}
+   A navigate + find overlay. Opens from anywhere, never changes navigation on its own, and
+   returns focus to whatever was focused underneath when it closes.
+
+   TYPED RESULTS. Everything the palette can act on is a CommandResult, and every variant carries
+   `provenance` so a result can always say where it came from. This is a single-file, no-build
+   app, so the contract is a JSDoc typedef (editor/tsc-checkable, zero runtime) rather than a .ts
+   interface, and `route` is Korvyn's nav command (pickLens/pickTab) — the app has no URL routes,
+   which is also why the overlay inherently "never changes the route".
+
+   @typedef {(
+     | { kind:'navigate', label:string, sublabel?:string, route:string,
+         provenance:{ source:'route' } }
+     | { kind:'record', label:string, sublabel?:string, recordId:string,
+         recordType:('exception'|'account'|'entity'|'task'), route:string,
+         provenance:{ source:'record', recordId:string } }
+   )} CommandResult
+
+   TODO (later pass): a third variant — { kind:'answer', … provenance:{ source:'answer', … } }
+   for grounded AI answers. NOT implemented here, and this pass does no generation. The pinned
+   "Ask Korvyn" row below is a bridge that hands the query to the assistant (cpAsk); it is not
+   this variant. */
+let CMDK=false, cmdkQ='', cmdkSel=0, cmdkPrevFocus=null;
+const cmdkEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* PROVIDER 1 — Navigate: a static index of destinations — every page/route, plus saved views.
+   Entities and accounts are modelled as records (the typed union gives them recordId + a
+   recordType), so they live in the Find provider; their `route` field is how a record navigates. */
+function cmdkNavigate(){
+  /** @type {CommandResult[]} */ const out=[];
   try{ [...LENS_ORDER,...UTIL_ORDER].forEach(L=>(LENSES[L].tabs||[]).forEach(t=>{
     const m=VIEW_META[L+':'+t]||VIEW_META[t]||{};
-    out.push({ty:'Page',nm:(LENSES[L].label||L)+' · '+(m.t||t),
-      go:`pickLens('${L}');pickTab('${t}')`}); })); }catch(e){}
+    out.push({kind:'navigate', label:(LENSES[L].label||L)+' · '+(m.t||t), sublabel:'Page',
+      route:`pickLens('${L}');pickTab('${t}')`, provenance:{source:'route'}}); })); }catch(e){}
+  // Saved DataTable views — the real store (korvyn.datatable.v1). Cross-page application needs a
+  // table→route map that does not exist yet, so a view routes best-effort via cmdkGoView (guarded,
+  // never a hard error); empty under file:// since localStorage no-ops in the preview sandbox.
+  try{ Object.keys(DT_STATE||{}).forEach(tid=>{ const s=DT_STATE[tid]; if(!s||!s.views)return;
+    Object.keys(s.views).forEach(vn=>out.push({kind:'navigate', label:vn, sublabel:'Saved view',
+      route:`cmdkGoView('${tid.replace(/'/g,"\\'")}','${vn.replace(/'/g,"\\'")}')`,
+      provenance:{source:'route'}})); }); }catch(e){}
   return out;
 }
-let _cmdkIdx=null;
+/* PROVIDER 2 — Find: search over records already in the store. The typed union models entities,
+   accounts, close tasks and exceptions as records (each carries a recordId + provenance). */
+function cmdkFind(){
+  /** @type {CommandResult[]} */ const out=[];
+  const rec=(recordType,label,recordId,route,sublabel)=>out.push({kind:'record', label, sublabel,
+    recordId:String(recordId), recordType, route, provenance:{source:'record', recordId:String(recordId)}});
+  try{ CONS_ORDER.forEach(n=>rec('entity',n,n,
+    `etPick('${n.replace(/'/g,"\\'")}');pickLens('ledger');pickTab('consol')`,'Entity')); }catch(e){}
+  try{ COA.forEach(a=>rec('account',a.acct+' · '+a.name,a.acct,
+    "pickLens('ledger');pickTab('tb')",'Account')); }catch(e){}
+  try{ CLOSE_TASKS.forEach((t,i)=>rec('task',t.nm+' · '+t.ent,(t.id||('task-'+i)),
+    "pickLens('ledger');pickTab('acctclose')",'Task')); }catch(e){}
+  try{ axExceptions().forEach((x,i)=>rec('exception',x.t,(x.id||('exc-'+i)),
+    "pickLens('ledger');pickTab('exceptions')",'Exception')); }catch(e){}
+  return out;
+}
+let _cmdkNav=null, _cmdkFind=null;
 /* A query reads as a QUESTION (route to the assistant) rather than a record lookup when it opens
    with an interrogative, ends in "?", or runs to several words. Keyword lookups still Enter
    straight to the top record; only genuine questions default to Ask Korvyn. */
 const cmdkIsQuestion=q=>{ q=(q||'').trim();
   return /\?$/.test(q) || /^(why|what|how|which|who|when|where|show|explain|summar|draft|build|find|is |are |does |do |can |should )/i.test(q)
     || q.split(/\s+/).length>=4; };
-/* SEARCH AND ASK ARE ONE SURFACE. When there is a query, a pinned "Ask Korvyn" row leads the
-   results — it hands the query to the assistant (cpAsk) rather than jumping to a record. */
-const cmdkHits=()=>{
-  if(!_cmdkIdx) _cmdkIdx=cmdkIndex();
-  const q=cmdkQ.trim();
-  const base = !q ? _cmdkIdx.filter(x=>x.ty==='Page').slice(0,12)
-                  : _cmdkIdx.filter(x=>x.nm.toLowerCase().indexOf(q.toLowerCase())>=0).slice(0,40);
-  return q ? [{ty:'Ask Korvyn', nm:q, ask:true}, ...base] : base;
-};
-function cmdkOpen(){ CMDK=true; cmdkQ=''; cmdkSel=0; cmdkPaint();
-  setTimeout(()=>{const i=document.getElementById('cmdkIn'); if(i) i.focus();},10); }
-function cmdkClose(){ CMDK=false; const e=document.getElementById('cmdkWrap'); if(e) e.remove(); }
+/* NAVIGATE RANKS ABOVE RECORD, capped at ~8 visible. SEARCH AND ASK ARE ONE SURFACE: when there
+   is a query, a pinned "Ask Korvyn" bridge row leads (kept wired to the assistant via cpAsk). */
+function cmdkHits(){
+  if(!_cmdkNav) _cmdkNav=cmdkNavigate();
+  if(!_cmdkFind) _cmdkFind=cmdkFind();
+  const q=cmdkQ.trim().toLowerCase();
+  const match=r=>((r.label||'')+' '+(r.sublabel||'')).toLowerCase().indexOf(q)>=0;
+  let results;
+  if(!q){ results=_cmdkNav.filter(r=>r.sublabel==='Page').slice(0,8); }
+  else { results=[..._cmdkNav.filter(match), ..._cmdkFind.filter(match)].slice(0,8); } // navigate before record
+  return q ? [{ask:true, label:cmdkQ.trim()}, ...results] : results;
+}
+function cmdkOpen(){ CMDK=true; cmdkQ=''; cmdkSel=0;
+  // remember the focused surface underneath, so Esc / close returns focus there
+  cmdkPrevFocus=(document.activeElement && document.activeElement!==document.body) ? document.activeElement : null;
+  cmdkPaint(); setTimeout(()=>{const i=document.getElementById('cmdkIn'); if(i) i.focus();},10); }
+function cmdkClose(){ CMDK=false; const e=document.getElementById('cmdkWrap'); if(e) e.remove();
+  try{ if(cmdkPrevFocus && cmdkPrevFocus.focus) cmdkPrevFocus.focus(); }catch(_){}
+  cmdkPrevFocus=null; }
 function cmdkPaint(){
   let w=document.getElementById('cmdkWrap');
   if(!w){ w=document.createElement('div'); w.className='cmdk'; w.id='cmdkWrap';
@@ -5145,25 +5388,41 @@ function cmdkPaint(){
   const hits=cmdkHits();
   if(cmdkSel>=hits.length) cmdkSel=Math.max(0,hits.length-1);
   let last='', list='';
-  hits.forEach((h,i)=>{ if(h.ty!==last){ list+=`<div class="cmdk-g">${h.ty}</div>`; last=h.ty; }
+  hits.forEach((h,i)=>{
+    // group by provider: the pinned bridge, then Navigate results, then Find (record) results
+    const grp = h.ask ? 'Ask Korvyn' : (h.kind==='navigate' ? 'Navigate' : 'Find');
+    if(grp!==last){ list+=`<div class="cmdk-g">${grp}</div>`; last=grp; }
     if(h.ask){
       list+=`<div class="cmdk-r cmdk-ask ${i===cmdkSel?'on':''}" onclick="cmdkGo(${i})">
         <span class="cmdk-spark"><svg viewBox="0 0 16 16" fill="none"><path d="M6.6 1.9l1.32 3.58L11.5 6.8 7.92 8.12 6.6 11.7 5.28 8.12 1.7 6.8l3.58-1.32z" fill="currentColor"/></svg></span>
-        <span class="nm">Ask Korvyn: &ldquo;${h.nm}&rdquo;</span><span class="ty">send to assistant</span></div>`;
+        <span class="nm">Ask Korvyn: &ldquo;${cmdkEsc(h.label)}&rdquo;</span><span class="ty">send to assistant</span></div>`;
     } else {
+      const tag = h.kind==='record' ? h.recordType : (h.sublabel||'Go');
       list+=`<div class="cmdk-r ${i===cmdkSel?'on':''}" onclick="cmdkGo(${i})">
-        <span class="nm">${h.nm}</span><span class="ty">${h.ty}</span></div>`;
+        <span class="nm">${cmdkEsc(h.label)}</span><span class="ty">${cmdkEsc(tag)}</span></div>`;
     } });
+  const shown=hits.filter(h=>!h.ask).length;
   w.innerHTML=`<div class="cmdk-box" onclick="event.stopPropagation()">
     <div class="cmdk-in">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <input id="cmdkIn" placeholder="Search records, or ask Korvyn a question"
         value="${cmdkQ.replace(/"/g,'&quot;')}" oninput="cmdkType(this.value)"></div>
     <div class="cmdk-list">${hits.length?list:'<div class="cmdk-empty">No match.</div>'}</div>
+    ${cmdkChips()}
     <div class="cmdk-ft"><span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span>
       <span><kbd>&#8629;</kbd> open</span><span><kbd>esc</kbd> close</span>
-      <span style="margin-left:auto">${hits.length} of ${_cmdkIdx.length} indexed</span></div>
+      <span style="margin-left:auto">${shown} shown</span></div>
   </div>`;
+}
+/* Context chips — the current scope read from the app header. DISPLAY ONLY this pass: they show
+   what the palette's results are scoped by conceptually, but do not filter the providers yet. */
+function cmdkChips(){
+  let view='—', ent='All entities', per='—';
+  try{ const m=VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]||{}; view=(LENSES[LENS]?LENSES[LENS].label:LENS)+' · '+(m.t||TAB); }catch(e){}
+  try{ ent=(F.entity && String(F.entity).trim()) ? F.entity : 'All entities'; }catch(e){}
+  try{ per=({itd:'Inception to date',ytd:'Year to date',quarter:'Quarter',month:'Month'})[F.periodType]||'Period'; }catch(e){}
+  const chip=(k,v)=>`<span class="cmdk-chip"><span class="k">${k}</span>${cmdkEsc(v)}</span>`;
+  return `<div class="cmdk-chips">${chip('View',view)}${chip('Entity',ent)}${chip('Period',per)}</div>`;
 }
 function cmdkType(v){ cmdkQ=v;
   // Keyword → default to the first record (index 1, past the ask row); question or empty →
@@ -5175,11 +5434,14 @@ function cmdkType(v){ cmdkQ=v;
     question lands in the AI window with its full grounded answer, sources and actions. */
 function cpAsk(q){ cmdkClose(); if(typeof cpOpen==='function') cpOpen();
   if(typeof cpSend==='function') cpSend(q); }
+/** Best-effort saved-view activation (see cmdkNavigate). Guarded: no-op if the table isn't live,
+    so an indexed view is never a broken control. */
+function cmdkGoView(tid,vn){ try{ if(typeof dtUseView==='function') dtUseView(tid,vn); }catch(e){} }
 function cmdkGo(i){
   const h=cmdkHits()[i]; if(!h) return;
-  if(h.ask){ cpAsk(cmdkQ.trim()); return; }
+  if(h.ask){ cpAsk(cmdkQ.trim()); return; }   // bridge to the assistant, not a CommandResult
   cmdkClose();
-  try{ (new Function(h.go))(); }catch(e){}
+  try{ (new Function(h.route))(); }catch(e){}
 }
 
 /* ---- keyboard navigation through queues -------------------------------------------------
@@ -17886,6 +18148,401 @@ function runCommand(raw){
 }
 
 // ============================================================ ORCHESTRATOR
+/* ============================================================================
+   TRACEABILITY + IDENTITY (slices 1-3, built in the dashboard as plain JS + JSDoc)
+   ----------------------------------------------------------------------------
+   One source system (NetSuite), stamped at ingestion. The two exceptions resolve
+   their chains from the INGESTED graph, not from fixtures. Nothing writes to the
+   ledger. See traceReport() for the empirical report-back.
+   ============================================================================ */
+
+/* ---- 1. IDENTITY MODEL (typedefs — checkable, zero runtime) --------------------
+ * @typedef {{system:string, kind:string, value:string, seenAt:string}} ForeignId
+ * @typedef {{kind:string, detail:string, seenAt:string}} Defect
+ * @typedef {{ korvynId:string, objectType:string, label:string, sourceSystem:string,
+ *   ingestedAt:string, rawRef:string, foreignIds:ForeignId[], defects:Defect[],
+ *   natural:string, raw:object, _absorbedInto?:string }} KObject
+ *
+ * PROVENANCE ENVELOPE — resolves to a chain or to Missing. No third state.
+ * @typedef {(
+ *   | { status:'resolved', chain: Hop[], readAt:string }
+ *   | { status:'missing',  reason:string, owner?:string }
+ * )} Provenance
+ *
+ * A Hop is the same two-state idea at the link level: a present ChainLink, or missing.
+ * linkType/confidence/derivedBy describe HOW a PRESENT link is known — orthogonal to
+ * presence, which is why 'missing' never becomes a fourth linkType.
+ * @typedef {(
+ *   | { present:true,  objectType:string, korvynId:string, label:string, sourceSystem:string,
+ *       foreignIds:ForeignId[], route:string,
+ *       linkType:'stated'|'derived'|'inferred', confidence?:number, derivedBy?:string }
+ *   | { present:false, status:'missing', objectType:string, label:string, reason:string, owner?:string }
+ * )} Hop
+ *
+ * TODO (later): a 'answer' provenance source for grounded AI answers. NOT built.
+ */
+
+/* ---- messy NetSuite fixture (hand-built, defects deliberately present) ---------
+   Two sync batches so id-change and idempotency are demonstrable, not authored. */
+const KV_NOW='2026-07-20 06:15';          // fixed clock => deterministic graph
+const NS_SYNC_1=[
+  {recordType:'entity',  internalId:'E-101',    externalId:'MDH', entityId:'MERIDIAN-DC-HOLDCO',   name:'Meridian DC Holdco',   period:'2026-06'},
+  {recordType:'entity',  internalId:'E-104',    externalId:'MPC', entityId:'MERIDIAN-PROPERTY-CO', name:'Meridian Property Co', period:'2026-06'},
+  {recordType:'account', internalId:'A-13500',  acctNo:'13500', entityId:'MERIDIAN-DC-HOLDCO', name:'Due from affiliates',   period:'2026-06'},
+  {recordType:'account', internalId:'A-21000',  acctNo:'21000', entityId:'MERIDIAN-DC-HOLDCO', name:'Accrued capital costs', period:'2026-06'},
+  // IC receivable JE (HOLD side). counterpartyRef points at a payable JE that never arrives -> dangling parent.
+  {recordType:'je', internalId:'JE-N-4610', docNo:'JE-004610', line:'1', acctNo:'13500', entityId:'MERIDIAN-DC-HOLDCO',
+   period:'2026-06', amount:2300000, dr:2300000, sourceTxn:'ICE-2603-0204', counterpartyRef:'JE-PROP-PAYABLE-2603',
+   memo:'Property management fee - Q1 accrual (IC receivable)'},
+  {recordType:'icevent', internalId:'IC-2603', eventId:'ICE-2603-0204', entityId:'MERIDIAN-DC-HOLDCO',
+   counterparty:'MERIDIAN-PROPERTY-CO', period:'2026-06', amount:2300000, desc:'Property management fee - Q1 accrual'},
+  // Accrual JE on 21000 with NO source transaction reference (defect 4).
+  {recordType:'je', internalId:'JE-N-71904', docNo:'JE-ACCR-21000-06', line:'1', acctNo:'21000', entityId:'MERIDIAN-DC-HOLDCO',
+   period:'2026-06', amount:4200000, cr:4200000, sourceTxn:null, memo:'Period-end accrual - Ashburn capital costs'},
+  {recordType:'invoice', internalId:'INV-N-9000', docNo:'INV-9000', externalId:'TURNER-INV-9000', entityId:'MERIDIAN-DC-HOLDCO',
+   period:'2026-06', po:'PO-1000', vendorRef:'V-TURNER', amount:4180000, memo:'Progress billing - structural, Ashburn'},
+  {recordType:'po', internalId:'PO-N-1000', docNo:'PO-1000', entityId:'MERIDIAN-DC-HOLDCO', vendorRef:'V-TURNER',
+   projectRef:'ASH-C', amount:58400000, memo:'Turner Construction - Ashburn shell & core'},
+  {recordType:'vendor', internalId:'V-N-4021', externalId:'V-TURNER', name:'Turner Construction', taxId:'54-1740002'},
+  {recordType:'project', internalId:'PRJ-N-ASHC', projectId:'ASH-C', entityId:'MERIDIAN-DC-HOLDCO', name:'Ashburn Hall C'},
+];
+const NS_SYNC_2=[
+  // Same vendor, different source ids, SAME tax id -> two korvynIds that must merge (defect 1).
+  {recordType:'vendor', internalId:'V-N-4055', externalId:'VEND-TURNER-CONS', name:'Turner Construction Co.', taxId:'54-1740002'},
+  // Accrual JE re-sent with a CHANGED internalId, same natural key (defect 2).
+  {recordType:'je', internalId:'JE-N-88213', docNo:'JE-ACCR-21000-06', line:'1', acctNo:'21000', entityId:'MERIDIAN-DC-HOLDCO',
+   period:'2026-06', amount:4200000, cr:4200000, sourceTxn:null, memo:'Period-end accrual - Ashburn capital costs'},
+];
+
+/* ---- graph stores (session state; localStorage no-ops under file://) ---------- */
+let KV_RAW=[], KV_OBJ={}, KV_INDEX={}, KV_ALIAS={}, KV_MERGES=[], KV_SEQ=0, KV_READY=false;
+
+function kvNorm(s){ return String(s==null?'':s).trim().toUpperCase(); }
+function kvMint(type){ return 'kv:'+type+':'+String(++KV_SEQ).padStart(4,'0'); }
+function kvNaturalKey(r){
+  switch(r.recordType){
+    case 'account': return 'ACCT:'+r.acctNo+'@'+r.entityId;
+    case 'entity':  return 'ENT:'+r.entityId;
+    case 'je':      return 'JE:'+r.docNo+':'+r.line;      // docNo stable; internalId volatile
+    case 'invoice': return 'INV:'+r.docNo;
+    case 'po':      return 'PO:'+r.docNo;
+    case 'vendor':  return 'VEND:'+kvNorm(r.externalId);  // externalId differs across the dupe -> merge by taxId later
+    case 'project': return 'PRJ:'+r.projectId;
+    case 'icevent': return 'ICE:'+r.eventId;
+    default:        return r.recordType+':'+(r.internalId||r.docNo);
+  }
+}
+function kvLabel(r){
+  if(r.recordType==='account') return r.acctNo+' · '+r.name;
+  if(r.recordType==='je')      return r.docNo+' · '+(r.memo||'');
+  if(r.recordType==='entity')  return r.name;
+  if(r.recordType==='vendor')  return r.name;
+  if(r.recordType==='invoice') return r.docNo+' · '+(r.memo||'');
+  if(r.recordType==='po')      return r.docNo+' · '+(r.memo||'');
+  if(r.recordType==='project') return r.name;
+  if(r.recordType==='icevent') return r.eventId+' · '+(r.desc||'');
+  return r.docNo||r.internalId||r.recordType;
+}
+function kvForeignSet(r,at){
+  const ids=[], add=(kind,val)=>{ if(val!=null&&val!=='') ids.push({system:'NetSuite',kind,value:String(val),seenAt:at}); };
+  add('internalId',r.internalId); add('externalId',r.externalId); add('documentNumber',r.docNo);
+  add('accountNumber',r.acctNo); add('entityId',r.entityId); add('period',r.period); add('taxId',r.taxId);
+  return ids;
+}
+function kvHasForeign(o,kind,val){ return o.foreignIds.some(f=>f.kind===kind&&f.value===String(val)); }
+function kvGetForeign(o,kind){ const f=o.foreignIds.find(x=>x.kind===kind); return f?f.value:null; }
+function kvAllForeign(o,kind){ return o.foreignIds.filter(f=>f.kind===kind).map(f=>f.value); }
+function kvUnionForeign(o,ids){ ids.forEach(f=>{ if(!o.foreignIds.some(g=>g.kind===f.kind&&g.value===f.value)) o.foreignIds.push(f); }); }
+function kvDefect(o,kind,detail){ const sig=kind+'|'+detail; if(!o.defects.some(d=>d.kind+'|'+d.detail===sig)) o.defects.push({kind,detail,seenAt:KV_NOW}); }
+function kvResolve(kid){ let id=kid, guard=0; while(KV_ALIAS[id]&&guard++<50) id=KV_ALIAS[id]; return KV_OBJ[id]; }
+
+/* ---- 4. idempotent ingestion ---------------------------------------------------
+   Re-running consults the natural-key index and dedups defects, so running the whole
+   pipeline twice yields byte-identical objects/ids/defects/merges. */
+function kvIngest(batch){
+  batch.forEach(r=>{
+    KV_RAW.push({ref:'raw:'+KV_RAW.length, at:KV_NOW, payload:JSON.parse(JSON.stringify(r))}); // verbatim, append-only
+    const key=kvNaturalKey(r);
+    let kid=KV_INDEX[key];
+    if(!kid){
+      kid=kvMint(r.recordType); KV_INDEX[key]=kid;
+      KV_OBJ[kid]={ korvynId:kid, objectType:r.recordType, label:kvLabel(r), sourceSystem:'NetSuite',
+        ingestedAt:KV_NOW, rawRef:'raw:'+(KV_RAW.length-1), foreignIds:kvForeignSet(r,KV_NOW),
+        defects:[], natural:key, raw:r };
+    } else {
+      const o=kvResolve(kid);
+      // defect 2: a source id that changed between syncs (natural key stable, internalId new)
+      if(r.internalId && o.foreignIds.some(f=>f.kind==='internalId') && !kvHasForeign(o,'internalId',r.internalId)){
+        kvDefect(o,'id-changed','internalId '+kvAllForeign(o,'internalId').join('/')+' → '+r.internalId+' (same '+key+')');
+      }
+      kvUnionForeign(o,kvForeignSet(r,KV_NOW));
+    }
+    // defect 4: JE with no source transaction reference
+    if(r.recordType==='je' && (r.sourceTxn==null||r.sourceTxn==='')){
+      kvDefect(kvResolve(KV_INDEX[key]),'no-source-txn-ref','JE '+r.docNo+' carries no source transaction id');
+    }
+  });
+}
+/* 1/2. identity resolution across korvynIds — non-destructive, recorded, reversible */
+function kvMerge(survivorId,absorbedId,rule){
+  if(KV_ALIAS[absorbedId]) return;                          // already merged (idempotent)
+  const s=KV_OBJ[survivorId], a=KV_OBJ[absorbedId]; if(!s||!a||s===a) return;
+  KV_MERGES.push({at:KV_NOW, survivor:survivorId, absorbed:absorbedId, rule, before:JSON.parse(JSON.stringify(a))});
+  kvUnionForeign(s,a.foreignIds); a.defects.forEach(d=>kvDefect(s,d.kind,d.detail));
+  kvDefect(s,'duplicate-source-id','same object ingested as '+absorbedId+' ('+kvGetForeign(a,'externalId')+'); merged via '+rule);
+  KV_ALIAS[absorbedId]=survivorId; a._absorbedInto=survivorId;               // tombstone, retained
+  Object.keys(KV_INDEX).forEach(k=>{ if(KV_INDEX[k]===absorbedId) KV_INDEX[k]=survivorId; });
+}
+function kvUnmerge(absorbedId){                                               // reversibility proof
+  const m=[...KV_MERGES].reverse().find(x=>x.absorbed===absorbedId); if(!m) return false;
+  KV_OBJ[absorbedId]=m.before; delete KV_ALIAS[absorbedId]; KV_INDEX[m.before.natural]=absorbedId; return true;
+}
+function kvResolveIdentities(){
+  const byTax={};
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='vendor'||o._absorbedInto) return;
+    const tax=kvGetForeign(o,'taxId'); if(tax)(byTax[tax]=byTax[tax]||[]).push(o); });
+  Object.values(byTax).forEach(g=>{ if(g.length<2) return;
+    g.sort((a,b)=>a.korvynId<b.korvynId?-1:1);
+    g.slice(1).forEach(dup=>kvMerge(g[0].korvynId,dup.korvynId,'same-tax-id')); });
+}
+/* defect 3: a referenced parent that does not exist. Detected against the ingested graph. */
+function kvFlagDanglingParents(){
+  Object.values(KV_OBJ).forEach(o=>{ if(o.objectType!=='je'||o._absorbedInto) return;
+    const ref=o.raw.counterpartyRef; if(!ref) return;
+    const found=Object.values(KV_OBJ).some(x=>x.objectType==='je'&&!x._absorbedInto&&kvHasForeign(x,'documentNumber',ref));
+    if(!found) kvDefect(o,'dangling-reference','counterparty JE '+ref+' not present in source');
+  });
+}
+function kvBoot(){
+  if(KV_READY) return;
+  KV_RAW=[]; KV_OBJ={}; KV_INDEX={}; KV_ALIAS={}; KV_MERGES=[]; KV_SEQ=0;
+  kvIngest(NS_SYNC_1); kvIngest(NS_SYNC_2); kvResolveIdentities(); kvFlagDanglingParents();
+  KV_READY=true;
+}
+/* idempotency check: snapshot the graph, run the whole pipeline again, deep-equal. */
+function kvIdempotent(){
+  kvBoot(); const before=kvSnapshot();
+  KV_READY=false; kvBoot(); const after=kvSnapshot();
+  return {ok: before===after, before, after};
+}
+function kvSnapshot(){
+  const objs=Object.values(KV_OBJ).map(o=>({k:o.korvynId,t:o.objectType,f:o.foreignIds.map(f=>f.kind+'='+f.value).sort(),
+    d:o.defects.map(d=>d.kind).sort(),a:o._absorbedInto||''})).sort((x,y)=>x.k<y.k?-1:1);
+  return JSON.stringify({objs, merges:KV_MERGES.map(m=>m.survivor+'<-'+m.absorbed).sort(),
+    index:Object.keys(KV_INDEX).sort().map(k=>k+'->'+KV_INDEX[k])});
+}
+
+/* ---- graph lookups the chains resolve through --------------------------------- */
+function kvFind(type,pred){ return Object.values(KV_OBJ).find(o=>o.objectType===type&&!o._absorbedInto&&pred(o)); }
+function kvAcct(no,ent){ return kvFind('account',o=>kvHasForeign(o,'accountNumber',no)&&kvHasForeign(o,'entityId',ent)); }
+function kvJeOn(no,ent){ return kvFind('je',o=>kvHasForeign(o,'accountNumber',no)&&kvHasForeign(o,'entityId',ent)); }
+function kvEntity(id){ return kvFind('entity',o=>kvHasForeign(o,'entityId',id)); }
+function kvDoc(type,no){ return kvFind(type,o=>kvHasForeign(o,'documentNumber',no)); }
+function kvVendor(extId){ const v=kvFind('vendor',o=>kvHasForeign(o,'externalId',extId)); return v?kvResolve(v.korvynId):null; }
+function kvProject(pid){ return kvFind('project',o=>o.raw.projectId===pid); }
+function kvIcEvent(eid){ return kvFind('icevent',o=>o.raw.eventId===eid); }
+
+/* ---- 2/3. hops: build a present ChainLink or a missing marker ------------------ */
+function hopLink(objectType,o,route,opts){ opts=opts||{};
+  return { present:true, objectType, korvynId:o.korvynId, label:o.label, sourceSystem:o.sourceSystem,
+    foreignIds:o.foreignIds, route, linkType:opts.linkType||'stated',
+    confidence:opts.confidence, derivedBy:opts.derivedBy, defects:o.defects };
+}
+function hopMissing(objectType,label,reason,owner){ return {present:false,status:'missing',objectType,label,reason,owner}; }
+// a derived object with no source record (the contract, resolved by a rule)
+function kvDerived(objectType,label,rule){ return {korvynId:'kv:'+objectType+':derived',objectType,label,sourceSystem:'derived',
+  foreignIds:[],defects:[{kind:'derived-object',detail:'no source record; resolved by '+rule,seenAt:KV_NOW}]}; }
+
+/* Chain 1 — reconciliation difference on 13500 @ Meridian DC Holdco (mostly missing tail). */
+function chainRecon(){
+  const H='MERIDIAN-DC-HOLDCO', P='MERIDIAN-PROPERTY-CO';
+  const acct=kvAcct('13500',H), je=kvJeOn('13500',H), cp=kvEntity(P), ice=kvIcEvent('ICE-2603-0204');
+  const chain=[];
+  chain.push(acct? hopLink('account',acct,"pickLens('ledger');pickTab('glrecon')",{linkType:'stated'})
+                 : hopMissing('account','13500 · Due from affiliates','Account not found in source','M. Giri'));
+  chain.push(je? hopLink('journal-entry',je,"pickLens('ledger');pickTab('glact')",{linkType:'stated'})
+               : hopMissing('journal-entry','IC receivable posting','No posting resolved on 13500','M. Giri'));
+  chain.push(cp? hopLink('entity',cp,"pickLens('ledger');pickTab('consol')",{linkType:'stated'})
+              : hopMissing('entity','Meridian Property Co','Counterparty entity not found','M. Giri'));
+  chain.push(ice? hopLink('intercompany-event',ice,"pickLens('ledger');pickTab('icomp');setIcSub('excep')",{linkType:'stated'})
+               : hopMissing('intercompany-event','ICE-2603-0204','Intercompany event not found','M. Giri'));
+  // the counterparty confirmation is genuinely absent (Property Co never booked the payable)
+  chain.push(hopMissing('counterparty-confirmation','Property Co payable (JE-PROP-PAYABLE-2603)',
+    'Meridian Property Co has not booked the counterparty payable; confirmation cannot be attached','M. Giri'));
+  return {status:'resolved', readAt:KV_NOW, chain};
+}
+/* Chain 2 — accrual on 21000 @ Meridian DC Holdco (document trail: stated + derived + inferred). */
+function chainAccrual(){
+  const H='MERIDIAN-DC-HOLDCO';
+  const je=kvJeOn('21000',H), inv=kvDoc('invoice','INV-9000'), po=kvDoc('po','PO-1000'),
+        ven=kvVendor('V-TURNER'), prj=kvProject('ASH-C');
+  const contract=kvDerived('contract','Turner Construction — Ashburn master (GMP)','vendor + project rule');
+  const chain=[];
+  chain.push(je? hopLink('journal-entry',je,"pickLens('ledger');pickTab('glact')",{linkType:'stated'})
+               : hopMissing('journal-entry','Accrual JE on 21000','Accrual posting not found','M. Reyes'));
+  // accrual JE carries no source txn ref -> matching it to the arriving invoice is a PROPOSAL, not a fact
+  chain.push(inv? hopLink('invoice',inv,"pickLens('procure');pickTab('po')",{linkType:'inferred',confidence:0.88})
+                : hopMissing('invoice','INV-9000','No invoice matched to the accrual','M. Reyes'));
+  chain.push(po? hopLink('purchase-order',po,"pickLens('procure');pickTab('po')",{linkType:'stated'})
+               : hopMissing('purchase-order','PO-1000','Invoice carries no PO','M. Reyes'));
+  chain.push(ven? hopLink('vendor',ven,"pickLens('procure');pickTab('vendors')",{linkType:'stated'})
+                : hopMissing('vendor','Turner Construction','PO names no vendor','M. Reyes'));
+  chain.push(hopLink('contract',contract,"pickLens('procure');pickTab('po')",
+    {linkType:'derived',derivedBy:'vendor + project → master contract'}));
+  chain.push(prj? hopLink('project',prj,"pickLens('assets');pickTab('caplife')",{linkType:'stated'})
+                : hopMissing('project','Ashburn Hall C','No project resolved','M. Reyes'));
+  return {status:'resolved', readAt:KV_NOW, chain};
+}
+
+/* ---- 4. EXCEPTION OBJECTS + LIFECYCLE (one shape, two instances) --------------- */
+const TRACE_STATES=['New','Assigned','Escalated','Cleared','Dismissed'];
+const TRACE_EXC=[
+  { id:'TX-RECON-13500-HOLD', title:'Due from affiliates — reconciliation difference',
+    entity:'Meridian DC Holdco', account:'13500', source:'NetSuite',
+    difference:2300000, state:'Cleared', preparer:'M. Giri', controller:'A. Okafor',
+    clearance:'Note only — no counterparty confirmation attached',
+    blocks:'Group consolidation lock — elimination cannot complete',
+    due:'Jun 28, 2026', varianceLine:'Intercompany eliminations',
+    evidence:{ 'Clearing note':true, 'Counterparty confirmation':false },
+    build:chainRecon },
+  { id:'TX-ACCR-21000-HOLD', title:'Accrued capital costs — accrual with document trail',
+    entity:'Meridian DC Holdco', account:'21000', source:'NetSuite',
+    difference:4200000, state:'Assigned', preparer:'M. Reyes', controller:'A. Okafor',
+    clearance:'Pending — invoice match proposed, awaiting confirmation',
+    blocks:'—', due:'Jul 6, 2026', varianceLine:'Capitalized costs / CIP additions',
+    evidence:{ 'Vendor invoice':true, 'Purchase order':true, 'Contract':false },
+    build:chainAccrual },
+];
+function traceExc(id){ return TRACE_EXC.find(e=>e.id===id)||TRACE_EXC[0]; }
+
+/* ---- 5. DETAIL VIEW — one component, role-view is a toggle --------------------- */
+let traceSel='TX-RECON-13500-HOLD', traceRole='controller';
+function openTrace(id){ traceSel=id; traceRole='controller'; pickTab('traceexc'); }
+function setTraceSel(id){ traceSel=id; if(TAB==='traceexc') renderTraceExc(); }
+function setTraceRole(r){ traceRole=r; renderTraceExc(); }
+
+function traceMoney(n){ const s=n<0?'-':''; const a=Math.abs(n);
+  return s+'$'+(a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':a.toFixed(0)); }
+function traceEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function traceFidChips(fids){ return (fids||[]).slice(0,6).map(f=>
+  `<span class="trace-fid"><span class="k">${traceEsc(f.kind)}</span>${traceEsc(f.value)}</span>`).join(''); }
+function traceDefBadges(defs){ return (defs||[]).map(d=>
+  `<span class="trace-def" title="${traceEsc(d.detail)}">${traceEsc(d.kind)}</span>`).join(''); }
+
+function traceHopRow(h,i){
+  if(!h.present){
+    return `<div class="trace-hop trace-hop-missing">
+      <span class="trace-node">${i+1}</span>
+      <div class="trace-hop-main">
+        <div class="trace-hop-lbl">${traceEsc(h.label)} <span class="trace-badge trace-badge-missing">Missing</span></div>
+        <div class="trace-hop-sub">${traceEsc(h.reason)}${h.owner?` · owner <b>${traceEsc(h.owner)}</b>`:''}</div>
+      </div><span class="trace-hop-type">${traceEsc(h.objectType)}</span></div>`;
+  }
+  let mark='', cls='';
+  if(h.linkType==='derived'){ mark=`<span class="trace-badge trace-badge-derived" title="Derived link">Derived · ${traceEsc(h.derivedBy||'rule')}</span>`; cls='trace-hop-derived'; }
+  else if(h.linkType==='inferred'){ mark=`<span class="trace-badge trace-badge-inferred">Proposed · ${Math.round((h.confidence||0)*100)}% — not confirmed</span>`; cls='trace-hop-inferred'; }
+  const route=h.route? `<button class="trace-open" onclick="(new Function(${JSON.stringify(h.route)}))()">Open ↗</button>`:'';
+  return `<div class="trace-hop ${cls}">
+    <span class="trace-node">${i+1}</span>
+    <div class="trace-hop-main">
+      <div class="trace-hop-lbl">${traceEsc(h.label)} ${mark}</div>
+      <div class="trace-hop-sub"><span class="trace-kid">${traceEsc(h.korvynId)}</span> · ${traceEsc(h.sourceSystem)} ${traceFidChips(h.foreignIds)} ${traceDefBadges(h.defects)}</div>
+    </div>
+    <span class="trace-hop-type">${traceEsc(h.objectType)}</span>${route}</div>`;
+}
+
+function traceRolePane(e){
+  const evRows=Object.keys(e.evidence).map(k=>`<div class="trace-ev ${e.evidence[k]?'ok':'no'}">
+    <span class="dot"></span>${traceEsc(k)}<span class="v">${e.evidence[k]?'attached':'missing'}</span></div>`).join('');
+  if(traceRole==='preparer') return `<div class="trace-role-body">
+    <div class="trace-role-h">What still needs evidence</div>${evRows}
+    <div class="trace-kv"><span>Due</span><b>${traceEsc(e.due)}</b></div>
+    <div class="trace-kv"><span>Owner (you)</span><b>${traceEsc(e.preparer)}</b></div></div>`;
+  if(traceRole==='fpa') return `<div class="trace-role-body">
+    <div class="trace-kv"><span>Restatement risk</span><b>${e.evidence['Counterparty confirmation']===false||e.evidence['Contract']===false?'Elevated':'Low'}</b></div>
+    <div class="trace-kv"><span>Against variance line</span><b>${traceEsc(e.varianceLine)}</b></div>
+    <div class="trace-kv"><span>Exposure</span><b>${traceMoney(e.difference)}</b></div>
+    <div class="trace-note">Cleared on a note with evidence missing carries restatement exposure until the ${traceEsc(e.varianceLine)} line is confirmed.</div></div>`;
+  // controller (default)
+  return `<div class="trace-role-body">
+    <div class="trace-kv"><span>Prepared by</span><b>${traceEsc(e.preparer)}</b></div>
+    <div class="trace-kv"><span>Cleared by / how</span><b>${traceEsc(e.controller)} — ${traceEsc(e.clearance)}</b></div>
+    <div class="trace-role-h">Evidence attached?</div>${evRows}
+    <div class="trace-kv"><span>Blocks lock?</span><b>${traceEsc(e.blocks)}</b></div></div>`;
+}
+
+/* ---- 6. ONE AGENT ACTION — draft clearing note, stage for approval, cannot post -
+   HumanApproval is a closure-branded token. The draft path never calls grant(), so it
+   cannot construct one; any posting op must verify() a real token. postToLedger is a
+   guarded stub (nothing writes to the ledger this pass). */
+const HumanApproval=(function(){ const BRAND=Symbol('human-approval');
+  return { grant:(actor,note)=>({[BRAND]:true, actor, note, at:KV_NOW}), verify:t=>!!(t&&t[BRAND]===true) }; })();
+let TRACE_DRAFTS=[];
+function traceDraftNote(id){ const e=traceExc(id); const prov=e.build();
+  TRACE_DRAFTS.push({exc:id, at:KV_NOW, status:'staged-for-approval', by:'Korvyn (agent)',
+    note:'Proposed clearing note for '+e.title+'. Chain attached ('+prov.chain.length+' hops, '+
+      prov.chain.filter(h=>!h.present).length+' missing). NOT posted — awaiting human approval.',
+    chain:prov.chain });
+  if(TAB==='traceexc') renderTraceExc();
+}
+function postToLedger(entry, approval){                      // guarded stub — never reached by agent code
+  if(!HumanApproval.verify(approval)) throw new Error('BLOCKED: posting requires a HumanApproval token');
+  throw new Error('NotImplemented: Korvyn never posts to the ERP (system of record).');
+}
+
+function renderTraceExc(){
+  kvBoot();
+  const e=traceExc(traceSel), prov=e.build();
+  const seg=(id,l)=>`<button class="trace-seg ${traceRole===id?'on':''}" onclick="setTraceRole('${id}')">${l}</button>`;
+  const pick=TRACE_EXC.map(x=>`<button class="trace-pick ${x.id===traceSel?'on':''}" onclick="setTraceSel('${x.id}')">${traceEsc(x.title.split(' — ')[0])}</button>`).join('');
+  const stateIdx=TRACE_STATES.indexOf(e.state);
+  const life=TRACE_STATES.map((s,i)=>`<span class="trace-life ${i===stateIdx?'on':''} ${i<stateIdx?'done':''}">${s}</span>`).join('<span class="trace-life-sep">›</span>');
+  const missing=prov.chain.filter(h=>!h.present).length, present=prov.chain.length-missing;
+  const drafts=TRACE_DRAFTS.filter(d=>d.exc===e.id);
+  $('view-traceexc').innerHTML=`
+   <div class="trace-wrap">
+    <div class="trace-switch">Traced exceptions <span class="n">${TRACE_EXC.length}</span> ${pick}</div>
+    <div class="card trace-head">
+      <div class="trace-head-top">
+        <div><div class="trace-title">${traceEsc(e.title)}</div>
+          <div class="trace-meta">${traceEsc(e.entity)} · acct ${traceEsc(e.account)} · <span class="trace-src">${traceEsc(e.source)}</span> · ${traceMoney(e.difference)}</div></div>
+        <div class="trace-life-row">${life}</div>
+      </div>
+      <div class="trace-roles">${seg('preparer','Preparer')}${seg('controller','Controller')}${seg('fpa','FP&A')}</div>
+      ${traceRolePane(e)}
+    </div>
+
+    <div class="card trace-chain">
+      <div class="trace-chain-h">Provenance chain <span class="trace-chain-sub">${present} resolved · ${missing} missing · read ${traceEsc(prov.readAt)}</span></div>
+      <div class="trace-legend">
+        <span><span class="trace-badge trace-badge-derived">Derived</span> resolved by a rule</span>
+        <span><span class="trace-badge trace-badge-inferred">Proposed · %</span> a proposal, not a fact</span>
+        <span><span class="trace-badge trace-badge-missing">Missing</span> absent — owner named</span></div>
+      ${prov.chain.map(traceHopRow).join('')}
+    </div>
+
+    <div class="card trace-agent">
+      <div class="trace-chain-h">Agent action</div>
+      <div class="trace-agent-row">
+        <button class="trace-draft-btn" onclick="traceDraftNote('${e.id}')">Draft clearing note + attach chain</button>
+        <span class="trace-agent-note">Stages a draft for approval. It cannot post — posting requires a human-approval token no agent path can construct.</span>
+      </div>
+      ${drafts.map(d=>`<div class="trace-draft"><span class="trace-badge trace-badge-inferred">${traceEsc(d.status)}</span> ${traceEsc(d.note)}</div>`).join('')}
+    </div>
+   </div>`;
+}
+
+/* ---- report-back: empirical, computed after ingestion ------------------------- */
+function traceReport(){ kvBoot();
+  const chains=[chainRecon(),chainAccrual()];
+  let present=0, missing=0; const byType={stated:0,derived:0,inferred:0};
+  chains.forEach(c=>c.chain.forEach(h=>{ if(h.present){present++; byType[h.linkType]++;} else missing++; }));
+  return { hopsTotal:present+missing, resolved:present, broken:missing,
+    linkTypes:byType, merges:KV_MERGES.length, objects:Object.keys(KV_OBJ).length,
+    defects:Object.values(KV_OBJ).reduce((a,o)=>a+o.defects.length,0),
+    idempotent:kvIdempotent().ok };
+}
+
 function renderAll(){
   readFilters();
   if(TAB==='overview')renderOverview();
@@ -17946,6 +18603,7 @@ function renderAll(){
   if(TAB==='issues')renderIssues();
   if(TAB==='archives')renderArchives();
   if(TAB==='admin')renderAdmin();
+  if(TAB==='traceexc')renderTraceExc();
   // Product-philosophy copy does not belong in a persistent application footer. The
   // prototype marker lives in the topbar chip; this line stays to scope + period only.
   $('footer').innerHTML=`<b>KORVYN</b> · ${LENSES[LENS].label} · ${periodLabel()} · figures illustrative`;
@@ -18058,10 +18716,11 @@ function paintRailRoles(){
   document.querySelectorAll('#railTabs .railrole,#railTabs .railkid').forEach(b=>
     b.addEventListener('click',()=>document.body.classList.remove('nav-open')));
 
-  // Phase 6 chrome rides the same paint cycle as the nav. The sources glyph and its panel
-  // block replace the old connection strip (Phase 4).
-  if(typeof paintSources==='function') paintSources();
+  // Chrome rides the same paint cycle as the nav. paintCloseStrip must run BEFORE paintHdrCtl —
+  // it (re)builds the strip's markup including the #hdrCtl container that paintHdrCtl then fills.
+  if(typeof paintSources==='function') paintSources();      // no-op now (#ribSrc removed); kept harmless
   if(typeof paintCpSrc==='function') paintCpSrc();
+  if(typeof paintCloseStrip==='function') paintCloseStrip();
   if(typeof paintHdrCtl==='function') paintHdrCtl();
 }
 
@@ -18344,6 +19003,7 @@ const VIEW_META={
   // Lens-scoped override — Accounting's Policies is the governed repository, not admin settings.
   'ledger:admin':{t:'Policies',c:'Enterprise policy repository and governance library',depth:4},
   overview:{t:'Overview',c:'Enterprise status · attention queue · capital position',depth:5},
+  traceexc:{t:'Traceability',c:'Exception · provenance chain · identity from ingested source',depth:5},
   lifecycle:{t:'Property lifecycle',c:'Stage → Market → Site · the portfolio in motion',depth:5},
   pis:{t:'Placed-in-service',c:'Campus → Hall · CIP carve into depreciating assets',depth:4},
   vendors:{t:'Vendors',c:'Capital concentration · top-N, tail, per-site, category mix',depth:4},
