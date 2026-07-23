@@ -1059,6 +1059,31 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .trace-act{border:var(--rule);background:var(--surface);border-radius:var(--radius-sm);
   padding:var(--s-1) var(--s-3);font-size:var(--fs-table);color:var(--muted);cursor:pointer}
 .trace-act:hover{background:var(--n-25);color:var(--ink);border-color:var(--accent)}
+/* graph answers rendered inside an assistant message (compact chain + detection list) */
+.cp-chain{margin:8px 0 2px;border:var(--rule);border-radius:var(--radius);overflow:hidden}
+.cp-chn{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-bottom:var(--rule);font-size:var(--fs-table)}
+.cp-chn:last-child{border-bottom:none}
+.cp-chn .n{width:18px;height:18px;flex:none;border-radius:50%;background:var(--n-100);color:var(--n-600);
+  display:grid;place-items:center;font-size:var(--fs-micro)}
+.cp-chn .l{flex:1;min-width:0;color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cp-chn .o{flex:none;max-width:45%;font-family:var(--mono);font-size:var(--fs-micro);color:var(--n-500);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-chn.miss{background:var(--warning-bg)}
+.cp-chn.miss .n{background:var(--warning-bg);color:var(--warn)}
+.cp-chn.miss .o{font-family:inherit;color:var(--warn);white-space:normal}
+.cp-chn .mb{color:var(--warn);font-weight:var(--fw-medium)}
+.cp-chn .tg{font-size:var(--fs-micro);border-radius:var(--radius-sm);padding:0 5px;text-transform:uppercase;letter-spacing:.03em}
+.cp-chn .tg.d{background:var(--n-100);color:var(--n-600)}
+.cp-chn .tg.i{background:var(--ai-bg);color:var(--ai-ink);border:1px dashed var(--ai)}
+.cp-chain-note{font-size:var(--fs-label);color:var(--muted);margin-top:6px}
+.cp-detlist{margin:8px 0 2px;display:flex;flex-direction:column;gap:4px}
+.cp-det{display:flex;align-items:center;gap:8px;padding:6px 8px;border:var(--rule);border-radius:var(--radius);
+  cursor:pointer;font-size:var(--fs-table)}
+.cp-det:hover{background:var(--n-25);border-color:var(--accent)}
+.cp-det .s{flex:none;width:66px;font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--n-500)}
+.cp-det .s.s-new{color:var(--accent)} .cp-det .s.s-escalated{color:var(--warn)}
+.cp-det .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.cp-det .m{flex:none;color:var(--ink);font-variant-numeric:tabular-nums}
 
 /* keyboard focus in queues */
 .dt tbody tr.kbd-on{box-shadow:inset 2px 0 0 var(--accent)}
@@ -19313,9 +19338,17 @@ function parseIntent(raw){
   if(/ashburn/.test(s))slots.site='Ashburn VA'; if(/singapore/.test(s))slots.site='Singapore';
   if(/tokyo/.test(s))slots.site='Tokyo'; if(/dallas/.test(s))slots.site='Dallas TX';
 
+  // graph subjects: an explicit exception/detection id, or a figure keyword mapped to its account
+  const exid=(s.match(/tx-[a-z]+-[a-z0-9:-]+/i)||[])[0]; if(exid)slots.exid=exid;   // detection ids embed a colon'd korvynId
+  if(/due from affil|from affiliates|\baffiliates\b/.test(s))slots.account=slots.account||'13500';
+  if(/accrued capital|capital accrual|\baccrual\b/.test(s))slots.account=slots.account||'21000';
+
   // action classification (priority-ordered, like a tool router)
   let action='search';
-  if(/tie out|reconcile|doesn't tie|reconciliation|why.*(gap|differ)/.test(s)) action='reconcile';
+  // graph-first: broken/missing-link detections, then an explicit trace of a graph subject
+  if(/broken link|missing link|not traceable|dangling|unattributed|duplicate|(what|which|any|show)[^.]*(detect|broken|missing)/.test(s)) action='graphdetect';
+  else if((/\b(trace|provenance|lineage)\b|where (do|does|did)|comes? from|chain of/.test(s))&&(slots.account||exid)) action='trace';
+  else if(/tie out|reconcile|doesn't tie|reconciliation|why.*(gap|differ)/.test(s)) action='reconcile';
   else if(/phantom|unposted|unexplained|ceiling|exception/.test(s)) action='ceiling';
   else if(/carve|placed in service|\bpis\b/.test(s)) action='carve';
   else if(/(build|create|make|generate|produce|give me).*(report|variance|breakdown|table|summary|analysis|chart)/.test(s)
@@ -19324,7 +19357,7 @@ function parseIntent(raw){
   else if(/(show|filter|scope|switch|go to|open|take me).*(emea|apac|america|fund|local|leasehold|owned|rou)/.test(s)
           ||((region||fund||local)&&/(show|filter|scope|only|just)/.test(s))) action='scope';
   else if(/(open|go to|show).*(trial balance|ceiling|rollforward|pp&e|ppe|trend|pivot|consol|budget|po|overview)/.test(s)) action='navigate';
-  else if(acct||po) action='trace';
+  else if(acct||po||exid) action='trace';
   return {action,slots,raw};
 }
 
@@ -19445,14 +19478,79 @@ function ansReport(slots){
   return {body,artifacts:[art],cites:[{label:'category × region budget',action:"cpJump(\"gotoTab('budget')\")"}],
     actions:[{label:'Pin to dashboard',pri:true,fn:'cpPinLast()'},{label:'Open Budget vs. actual',fn:"cpJump(\"gotoTab('budget')\")"}],agentic:'built a table artifact'};
 }
-function ansTrace(slots){
-  if(slots.account){ const c=COA.find(x=>x.acct===slots.account);
-    if(c){ const jes=GL_JE.filter(j=>j.acct===c.acct);
-      const body=`<b>${c.acct} · ${c.name}</b> carries a TB balance of <span class="fig">${cpMoney(c.tb)}</span> against a spine-derived <span class="fig">${cpMoney(c.spine)}</span>${Math.abs(c.tb-c.spine)>0.001?` — a <span class="fig">${cpMoney(c.tb-c.spine)}</span> reconciling item, named`:` — tied to the penny`}. ${jes.length} journal ${jes.length===1?'entry':'entries'} post here.`;
-      return {body,artifacts:[],cites:jes.slice(0,3).map(j=>({label:j.je,action:`cpJump("traceJE('${j.je}')")`})),
-        actions:[{label:'Open in trial balance',pri:true,fn:`cpJump("gotoTB('${c.acct}')")`}]}; } }
-  if(slots.po){ return {body:`<b>${slots.po}</b> — opening the PO register. Expand it to trace its invoices, payments, and bank-confirmation state; each invoice posts a dated journal entry to the ledger.`,artifacts:[],cites:[],actions:[{label:'Open PO tracing',pri:true,fn:"cpJump(\"gotoTab('po')\")"}]}; }
+// ============ GRAPH-BACKED ASSISTANT ANSWERS (deterministic, no LLM) ============
+// Ask Korvyn now answers trace/detection questions from the INGESTED graph, not canned
+// regex replies. If the graph cannot answer, it says "not traceable: <reason>" and names
+// what is missing — it never invents a plausible answer.
+
+/* Compact provenance chain, rendered inside an assistant message. Stated is plain; derived
+   shows the rule; inferred reads as a proposal; missing shows the owner who can resolve it. */
+function cpChainHTML(prov){
+  if(!prov||!prov.chain) return '';
+  return `<div class="cp-chain">`+prov.chain.map((h,i)=>{
+    if(!h.present) return `<div class="cp-chn miss"><span class="n">${i+1}</span>`+
+      `<span class="l">${h.label} <b class="mb">Missing</b></span>`+
+      `<span class="o">${h.reason}${h.owner?' · owner '+h.owner:''}</span></div>`;
+    const tag = h.linkType==='derived'  ? `<span class="tg d">derived · ${h.derivedBy||'rule'}</span>`
+              : h.linkType==='inferred' ? `<span class="tg i">proposed · ${Math.round((h.confidence||0)*100)}%</span>`
+              : '';
+    return `<div class="cp-chn"><span class="n">${i+1}</span>`+
+      `<span class="l">${h.label} ${tag}</span><span class="o">${h.korvynId}</span></div>`;
+  }).join('')+`</div>`;
+}
+
+/* Resolve a query to a graph subject in scope (the entity chip filters). Returns a chain,
+   a not-traceable reason, or null (not a graph query). */
+function cpGraphSubject(intent){
+  if(typeof kvBoot==='function') kvBoot();
+  const scope=(typeof F!=='undefined'&&F.entity&&String(F.entity).trim())?F.entity:null;
+  // 1) explicit exception / detection id
+  if(intent.slots.exid){ const ex=String(intent.slots.exid).toLowerCase();
+    const e=allTraceExc().find(x=>x.id.toLowerCase()===ex);
+    if(e) return {label:e.title, entity:e.entity, prov:e.build(), open:`openTrace('${e.id}')`}; }
+  // 2) account (from a number or a figure keyword) -> its traceability exception
+  const acct=intent.slots.account;
+  if(acct){
+    let cands=allTraceExc().filter(x=>x.account===acct);
+    if(scope){ const inScope=cands.filter(x=>x.entity===scope); if(inScope.length) cands=inScope; }
+    if(cands.length){ const e=cands[0]; return {label:e.title, entity:e.entity, prov:e.build(), open:`openTrace('${e.id}')`}; }
+    return {notTraceable:`account ${acct} is not in the ingested graph. Ingested (NetSuite · Meridian DC Holdco): `+
+      `13500 Due from affiliates, 21000 Accrued capital costs, and their journal entries, invoice, PO, vendor and project.`};
+  }
   return null;
+}
+
+/* trace: return the chain from the graph, or "not traceable: <reason>". */
+function ansTrace(intent,raw){
+  const sub=cpGraphSubject(intent);
+  if(sub && sub.notTraceable)
+    return {body:`<b>not traceable:</b> ${sub.notTraceable}`, artifacts:[], cites:[], actions:[]};
+  if(sub && sub.prov){
+    const prov=sub.prov, miss=prov.chain.filter(h=>!h.present).length, pres=prov.chain.length-miss;
+    const body=`Traced <b>${sub.label}</b> from the ingested graph — <span class="fig">${pres}</span> link${pres===1?'':'s'} resolved, `+
+      `<span class="fig">${miss}</span> missing.`+cpChainHTML(prov)+
+      (miss?`<div class="cp-chain-note">The missing link is shown with the owner who can resolve it — Korvyn does not fill it.</div>`:'');
+    return {body, artifacts:[], cites:[], actions:[{label:'Open in Traceability',pri:true,fn:`cpJump("${sub.open}")`}]};
+  }
+  // not a graph subject — fall back to the old PO hint, else null (search takes over)
+  if(intent.slots.po) return {body:`<b>${intent.slots.po}</b> — opening the PO register; expand it to trace invoices, payments and bank-confirmation state.`,
+    artifacts:[], cites:[], actions:[{label:'Open PO tracing',pri:true,fn:"cpJump(\"gotoTab('po')\")"}]};
+  return null;
+}
+
+/* graphdetect: the real broken/missing-link detections from the graph, ranked by materiality. */
+function ansGraphDetect(raw){
+  if(typeof kvBoot==='function') kvBoot();
+  const dets=traceDetections();
+  if(!dets.length) return {body:`No broken or missing links detected in the ingested graph.`, artifacts:[], cites:[], actions:[]};
+  const list=`<div class="cp-detlist">`+dets.slice(0,8).map(d=>{
+    const st=traceState(d), mat=d.difference?traceMoney(d.difference):'control';
+    return `<div class="cp-det" onclick="cpJump(&quot;openTrace('${d.id}')&quot;)">`+
+      `<span class="s s-${st.toLowerCase()}">${st}</span><span class="t">${d.title}</span><span class="m">${mat}</span></div>`;
+  }).join('')+`</div>`;
+  const body=`Korvyn detected <b>${dets.length}</b> broken/missing link${dets.length===1?'':'s'} in the ingested graph, `+
+    `each opened as an exception with a proposed owner and materiality. Ranked:`+list;
+  return {body, artifacts:[], cites:[], actions:[{label:'Open detection queue',pri:true,fn:`cpJump("openTrace('${dets[0].id}')")`}]};
 }
 function ansSearch(raw){
   const hits=searchIndex(raw.replace(/^(find|show|search|trace|open|get|what|is|the)\s+/gi,'').trim());
@@ -19533,7 +19631,8 @@ function cpThinkSteps(intent){
     report:['reading transactions'+(scope?` (${scope})`:'')+'…','summing by category & quarter…','building the artifact…'],
     scope:['resolving scope'+(scope?` (${scope})`:'')+'…','applying global filters…','re-rendering every view…'],
     commitment:['reading commitments…','computing committed − incurred…'],
-    trace:['locating entity in spine…','pulling journal entries…'],
+    trace:['resolving the subject in the graph…','walking the provenance chain…'],
+    graphdetect:['scanning the ingested graph…','ranking broken links by materiality…'],
     navigate:['locating the view…'],
     search:['searching the spine…','ranking matches…'],
   };
@@ -19547,7 +19646,8 @@ function cpResolve(intent,raw){
     case 'commitment': return ansCommitment();
     case 'scope': return ansScope({...intent.slots,raw});
     case 'report': return ansReport(intent.slots);
-    case 'trace': return ansTrace(intent.slots)||ansSearch(raw);
+    case 'trace': return ansTrace(intent,raw)||ansSearch(raw);
+    case 'graphdetect': return ansGraphDetect(raw);
     case 'navigate': return ansNavigate(raw.toLowerCase());
     default: return ansSearch(raw);
   }
@@ -20050,8 +20150,8 @@ function cpReadBlock(reads,cites){
 const CP_OPEN={reconcile:"pickLens('ledger');pickTab('glrecon')",
   ceiling:"pickLens('ledger');pickTab('glrecon')",carve:"pickLens('assets');pickTab('pis')",
   commitment:"pickLens('procure');pickTab('vendors')",report:"pickLens('fpa');pickTab('budget')",
-  scope:"pickLens('portfolio');pickTab('overview')",trace:"pickLens('ledger');pickTab('glintel')",
-  navigate:'',search:''};
+  scope:"pickLens('portfolio');pickTab('overview')",trace:"pickTab('traceexc')",
+  graphdetect:"pickTab('traceexc')",navigate:'',search:''};
 function cpStdActions(question,intent,res){
   const open=(res&&res.nav)||CP_OPEN[intent&&intent.action]||"pickLens('portfolio');pickTab('overview')";
   const q=(question||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
