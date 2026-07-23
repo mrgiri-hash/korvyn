@@ -1084,6 +1084,17 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .cp-det .s.s-new{color:var(--accent)} .cp-det .s.s-escalated{color:var(--warn)}
 .cp-det .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .cp-det .m{flex:none;color:var(--ink);font-variant-numeric:tabular-nums}
+/* live LLM-agent answer (streamed from the korvyn-agent server) */
+.cp-agent-badge{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-micro);color:var(--ai-ink);
+  background:var(--ai-bg);border:1px solid var(--ai);border-radius:var(--radius-pill);padding:1px 8px;
+  margin-bottom:6px;text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.cp-agent-badge .sp{width:6px;height:6px;border-radius:50%;background:var(--ai);box-shadow:0 0 0 3px var(--ai-bg)}
+.cp-agent-tools{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.cp-agent-tool{font-family:var(--mono);font-size:var(--fs-micro);color:var(--n-600);background:var(--n-50);
+  border:var(--rule);border-radius:var(--radius-sm);padding:0 5px}
+.cp-agent-body{white-space:pre-wrap;word-break:break-word}
+.cp-agent-src{font-size:var(--fs-label);color:var(--muted);margin-top:8px}
+.cp-agent-err{font-size:var(--fs-table);color:var(--warn);background:var(--warning-bg);border-radius:var(--radius);padding:6px 8px;margin-top:6px}
 
 /* keyboard focus in queues */
 .dt tbody tr.kbd-on{box-shadow:inset 2px 0 0 var(--accent)}
@@ -19342,12 +19353,19 @@ function parseIntent(raw){
   const exid=(s.match(/tx-[a-z]+-[a-z0-9:-]+/i)||[])[0]; if(exid)slots.exid=exid;   // detection ids embed a colon'd korvynId
   if(/due from affil|from affiliates|\baffiliates\b/.test(s))slots.account=slots.account||'13500';
   if(/accrued capital|capital accrual|\baccrual\b/.test(s))slots.account=slots.account||'21000';
+  // financial statements (derived live from finDerived)
+  const stmtM = /balance sheet/.test(s)?'bs'
+    : /(income statement|profit (and|&) loss|\bp&l\b|\bp and l\b|statement of operations)/.test(s)?'is'
+    : /(cash ?flow|statement of cash)/.test(s)?'cf'
+    : /(financial statement|the financials|\bfinancials\b)/.test(s)?'bs' : null;
+  if(stmtM)slots.stmt=stmtM;
 
   // action classification (priority-ordered, like a tool router)
   let action='search';
   // graph-first: broken/missing-link detections, then an explicit trace of a graph subject
   if(/broken link|missing link|not traceable|dangling|unattributed|duplicate|(what|which|any|show)[^.]*(detect|broken|missing)/.test(s)) action='graphdetect';
   else if((/\b(trace|provenance|lineage)\b|where (do|does|did)|comes? from|chain of/.test(s))&&(slots.account||exid)) action='trace';
+  else if(slots.stmt) action='statement';
   else if(/tie out|reconcile|doesn't tie|reconciliation|why.*(gap|differ)/.test(s)) action='reconcile';
   else if(/phantom|unposted|unexplained|ceiling|exception/.test(s)) action='ceiling';
   else if(/carve|placed in service|\bpis\b/.test(s)) action='carve';
@@ -19552,6 +19570,62 @@ function ansGraphDetect(raw){
     `each opened as an exception with a proposed owner and materiality. Ranked:`+list;
   return {body, artifacts:[], cites:[], actions:[{label:'Open detection queue',pri:true,fn:`cpJump("openTrace('${dets[0].id}')")`}]};
 }
+
+/* statement: render a full financial statement from finDerived() (the same derivation the
+   Financial Reporting page uses), as a grounded table in the assistant. Consolidated group. */
+function ansStatement(stmt){
+  const D=finDerived(), S=FINREP_SUPP, m=cpMoney, b=v=>'<b>'+v+'</b>';
+  let name, rows, foot;
+  if(stmt==='is'){ name='Income statement';
+    rows=[
+      ['Rental revenue', m(S.rentalRevenue)],
+      ['Recoveries', m(S.recoveries)],
+      [b('Total revenue'), b(m(D.totalRev))],
+      ['Property operating expenses', m(S.propertyOpex)],
+      [b('Net operating income'), b(m(D.noi))],
+      ['General &amp; administrative', m(S.gaExpense)],
+      [b('EBITDA'), b(m(D.ebitda))],
+      ['Depreciation', m(-D.dep)],
+      [b('EBIT'), b(m(D.ebit))],
+      ['Interest expense', m(S.interestExpense)],
+      ['Gain on sale', m(S.gainOnSale)],
+    ];
+    foot=[b('Net income'), b(m(D.netIncome))];
+  } else if(stmt==='cf'){ name='Cash flow statement';
+    rows=[
+      [b('Cash from operations'), b(m(D.cfo))],
+      [b('Cash from investing'), b(m(D.cfi))],
+      [b('Cash from financing'), b(m(D.cff))],
+    ];
+    foot=[b('Net change in cash'), b(m(D.netCash))];
+  } else { name='Balance sheet';
+    rows=[
+      [b('Assets'), ''],
+      ['Property, plant &amp; equipment (gross)', m(D.grossPPE)],
+      ['Accumulated depreciation', m(D.accumDep)],
+      [b('Net PP&amp;E'), b(m(D.netPPE))],
+      [b('Total assets'), b(m(D.totalAssets))],
+      [b('Liabilities'), ''],
+      ['Accounts payable', m(D.ap)],
+      ['Accrued capital costs', m(D.accrued)],
+      ['Retention payable', m(D.retention)],
+      ['Lease liability', m(D.leaseLiab)],
+      ['Loan / debt', m(D.loan)],
+      [b('Total liabilities'), b(m(D.totalLiab))],
+      [b('Equity'), ''],
+      ['Intercompany contribution', m(D.icContrib)],
+      ['LP equity', m(D.lpEquity)],
+      ['Retained earnings (net income to date)', m(D.balCheck)],
+      [b('Total equity'), b(m(D.totalEquity+D.balCheck))],
+    ];
+    foot=[b('Total liabilities &amp; equity'), b(m(D.totalLE+D.balCheck))];
+  }
+  const art=artTable('Consolidated group · '+name, ['Line','Amount'], rows, foot);
+  const tie = stmt==='bs' ? ' Assets tie to liabilities plus equity.' : '';
+  const body=`Here is the consolidated <b>${name.toLowerCase()}</b>, derived live from the trial balance (COA + supplemental inputs).${tie}`;
+  return {body, artifacts:[art], cites:[],
+    actions:[{label:'Open in Financial reporting',pri:true,fn:"cpJump(\"pickLens('ledger');pickTab('finrep')\")"}]};
+}
 function ansSearch(raw){
   const hits=searchIndex(raw.replace(/^(find|show|search|trace|open|get|what|is|the)\s+/gi,'').trim());
   if(hits.length) return {body:`Found <b>${hits.length}</b> match${hits.length>1?'es':''} across accounts, vendors, POs, journal entries, sites, and halls. Tap any result to jump — the dashboard re-scopes and drills automatically.`,artifacts:[],cites:[],hits};
@@ -19584,6 +19658,41 @@ function artChart(title,points){
 
 // ============ ORCHESTRATOR: user turn → parse → ground → stream ============
 let _lastArtifacts=[];
+/* ---- LIVE AGENT BRIDGE -------------------------------------------------------------------
+   When the korvyn-agent server is running (cd korvyn-agent && npm run serve), Ask Korvyn
+   streams from the real LLM agent (claude-opus-4-8, tool-calling). When it is NOT running,
+   fetch fails fast and cpSend falls back to the deterministic engine below — so the dashboard
+   always answers and stays self-contained. The API key lives only on the server, never here. */
+let CP_AGENT={ base:'http://localhost:8787', on:true, session:'ui-'+Math.random().toString(36).slice(2,8) };
+async function cpAgentTry(text, wrap, intent){
+  let res; const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(), 2500);
+  try{
+    res=await fetch(CP_AGENT.base+'/ask', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt:text, sessionId:CP_AGENT.session}), signal:ctrl.signal});
+  }catch(e){ clearTimeout(to); return false; }   // server unreachable -> deterministic fallback
+  clearTimeout(to);
+  if(!res.ok || !res.body) return false;
+  const badge=document.createElement('div'); badge.className='cp-agent-badge';
+  badge.innerHTML='<span class="sp"></span>Korvyn AI · live'; wrap.appendChild(badge);
+  const tools=document.createElement('div'); tools.className='cp-agent-tools'; wrap.appendChild(tools);
+  const body=document.createElement('div'); body.className='cp-body cp-agent-body'; wrap.appendChild(body);
+  let acc='', buf=''; const sources=new Set();
+  const reader=res.body.getReader(), dec=new TextDecoder();
+  const ev=(o)=>{
+    if(o.type==='text'){ acc+=o.text; body.textContent=acc; cpScroll(); }
+    else if(o.type==='tool'){ sources.add(o.tool); const c=document.createElement('span'); c.className='cp-agent-tool'; c.textContent='› '+o.tool; tools.appendChild(c); cpScroll(); }
+    else if(o.type==='done'){ (o.sources||[]).forEach(s=>sources.add(s)); }
+    else if(o.type==='error'){ const e=document.createElement('div'); e.className='cp-agent-err'; e.textContent='⚠ '+o.text; wrap.appendChild(e); }
+  };
+  try{
+    for(;;){ const r=await reader.read(); if(r.done)break; buf+=dec.decode(r.value,{stream:true});
+      let nl; while((nl=buf.indexOf('\n'))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(line){ try{ ev(JSON.parse(line)); }catch(_){ } } } }
+  }catch(e){ /* partial stream — keep what streamed */ }
+  if(sources.size){ const s=document.createElement('div'); s.className='cp-agent-src'; s.textContent='grounded in: '+[...sources].join(', '); wrap.appendChild(s); }
+  const ab=document.createElement('div'); ab.innerHTML=cpStdActions(text,intent,{}); if(ab.firstElementChild) wrap.appendChild(ab.firstElementChild);
+  CP.thread.push({role:'assistant', agent:true, text:acc}); CP.busy=false; cpScroll(); const inp=$('cpInput'); if(inp)inp.focus();
+  return true;
+}
 function cpSend(raw){
   const text=(raw||$('cpInput').value||'').trim(); if(!text||CP.busy)return;
   $('cpInput').value=''; CP.busy=true; cpAddUser(text); CP.thread.push({role:'user',text});
@@ -19599,27 +19708,33 @@ function cpSend(raw){
   const reads=cpReadsFor(intent);
 
   const wrap=cpAddAgent();
-  const thinkSteps=cpThinkSteps(intent);
-  cpThink(wrap,thinkSteps,()=>{
-    const res=cpResolve(intent,text);
-    res._reads=reads;
-    const body=cpBody(wrap);
-    cpTypeInto(body,res.body,()=>{
-      _lastArtifacts=[];
-      (res.artifacts||[]).forEach(a=>{ cpAppend(wrap,a); _lastArtifacts.push(a); });
-      if(res.hits){ const hr=hitRows(res.hits); if(hr)cpAppend(wrap,hr); }
-      // Read-from block (mandatory) then the four standard actions. Any answer-specific cites
-      // fold into the read-from block rather than sitting as a separate line.
-      const rb=document.createElement('div'); rb.innerHTML=cpReadBlock(reads,res.cites);
-      if(rb.firstElementChild) cpAppend(wrap,rb.firstElementChild);
-      const ab=document.createElement('div'); ab.innerHTML=cpStdActions(text,intent,res);
-      if(ab.firstElementChild) cpAppend(wrap,ab.firstElementChild);
-      if(res.nav){ gotoTab(res.nav); }
-      attachStar(wrap, text, res);
-      CP.thread.push({role:'assistant',res}); CP.busy=false; cpScroll();
-      $('cpInput').focus();
+  const runDeterministic=()=>{
+    const thinkSteps=cpThinkSteps(intent);
+    cpThink(wrap,thinkSteps,()=>{
+      const res=cpResolve(intent,text);
+      res._reads=reads;
+      const body=cpBody(wrap);
+      cpTypeInto(body,res.body,()=>{
+        _lastArtifacts=[];
+        (res.artifacts||[]).forEach(a=>{ cpAppend(wrap,a); _lastArtifacts.push(a); });
+        if(res.hits){ const hr=hitRows(res.hits); if(hr)cpAppend(wrap,hr); }
+        // Read-from block (mandatory) then the four standard actions. Any answer-specific cites
+        // fold into the read-from block rather than sitting as a separate line.
+        const rb=document.createElement('div'); rb.innerHTML=cpReadBlock(reads,res.cites);
+        if(rb.firstElementChild) cpAppend(wrap,rb.firstElementChild);
+        const ab=document.createElement('div'); ab.innerHTML=cpStdActions(text,intent,res);
+        if(ab.firstElementChild) cpAppend(wrap,ab.firstElementChild);
+        if(res.nav){ gotoTab(res.nav); }
+        attachStar(wrap, text, res);
+        CP.thread.push({role:'assistant',res}); CP.busy=false; cpScroll();
+        $('cpInput').focus();
+      });
     });
-  });
+  };
+  // Prefer the real LLM agent when its server is reachable; otherwise fall back so the
+  // dashboard always answers (see the LIVE AGENT BRIDGE note above cpSend).
+  if(CP_AGENT.on){ cpAgentTry(text, wrap, intent).then(ok=>{ if(!ok) runDeterministic(); }, ()=>runDeterministic()); }
+  else { runDeterministic(); }
 }
 function cpThinkSteps(intent){
   const a=intent.action, sl=intent.slots;
@@ -19633,6 +19748,7 @@ function cpThinkSteps(intent){
     commitment:['reading commitments…','computing committed − incurred…'],
     trace:['resolving the subject in the graph…','walking the provenance chain…'],
     graphdetect:['scanning the ingested graph…','ranking broken links by materiality…'],
+    statement:['reading the trial balance…','deriving the statement…'],
     navigate:['locating the view…'],
     search:['searching the spine…','ranking matches…'],
   };
@@ -19648,6 +19764,7 @@ function cpResolve(intent,raw){
     case 'report': return ansReport(intent.slots);
     case 'trace': return ansTrace(intent,raw)||ansSearch(raw);
     case 'graphdetect': return ansGraphDetect(raw);
+    case 'statement': return ansStatement(intent.slots.stmt);
     case 'navigate': return ansNavigate(raw.toLowerCase());
     default: return ansSearch(raw);
   }
@@ -20151,7 +20268,7 @@ const CP_OPEN={reconcile:"pickLens('ledger');pickTab('glrecon')",
   ceiling:"pickLens('ledger');pickTab('glrecon')",carve:"pickLens('assets');pickTab('pis')",
   commitment:"pickLens('procure');pickTab('vendors')",report:"pickLens('fpa');pickTab('budget')",
   scope:"pickLens('portfolio');pickTab('overview')",trace:"pickTab('traceexc')",
-  graphdetect:"pickTab('traceexc')",navigate:'',search:''};
+  graphdetect:"pickTab('traceexc')",statement:"pickLens('ledger');pickTab('finrep')",navigate:'',search:''};
 function cpStdActions(question,intent,res){
   const open=(res&&res.nav)||CP_OPEN[intent&&intent.action]||"pickLens('portfolio');pickTab('overview')";
   const q=(question||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
