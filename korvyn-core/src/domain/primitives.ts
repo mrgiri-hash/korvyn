@@ -22,12 +22,20 @@ export type DimensionCode = Brand<string, 'DimensionCode'>;
 export type DimensionValueId = Brand<string, 'DimensionValueId'>;
 export type CurrencyCode = Brand<string, 'CurrencyCode'>;
 
+// The capital-project spine: the project accumulates cost, then becomes one or
+// more assets at placed-in-service. Both are first-class identities, so both are
+// branded — an AssetId is not a CapitalProjectId even though both are strings.
+export type CapitalProjectId = Brand<string, 'CapitalProjectId'>;
+export type AssetId = Brand<string, 'AssetId'>;
+
 export const accountId = (v: string): AccountId => v as AccountId;
 export const entityId = (v: string): EntityId => v as EntityId;
 export const periodId = (v: string): PeriodId => v as PeriodId;
 export const journalEntryId = (v: string): JournalEntryId => v as JournalEntryId;
 export const dimensionCode = (v: string): DimensionCode => v as DimensionCode;
 export const dimensionValueId = (v: string): DimensionValueId => v as DimensionValueId;
+export const capitalProjectId = (v: string): CapitalProjectId => v as CapitalProjectId;
+export const assetId = (v: string): AssetId => v as AssetId;
 
 /** ISO-4217, e.g. "USD". Uppercased on construction; not otherwise validated here. */
 export const currencyCode = (v: string): CurrencyCode => v.toUpperCase() as CurrencyCode;

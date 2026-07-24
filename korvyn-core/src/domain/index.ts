@@ -14,3 +14,4 @@ export * from './dimension.js';
 export * from './period.js';
 export * from './journal.js';
 export * from './validation.js';
+export * from './capital.js';

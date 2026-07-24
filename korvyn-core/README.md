@@ -3,7 +3,7 @@
 Canonical accounting model + integration boundary. Typed scaffold only — no
 connectors, no sync engine, no persistence.
 
-> **Status: verified.** Compiles clean under the strict config, and 43 tests
+> **Status: verified.** Compiles clean under the strict config, and 78 tests
 > exercise the invariants against the emitted `dist/`. Run `npm run check`.
 
 ## Running it
@@ -80,6 +80,7 @@ src/
     period.ts                 accounting period + open/closed state
     journal.ts                JournalEntry, JournalLine, ValidatedJournalEntry
     validation.ts             THE INVARIANTS (balance, period, references)
+    capital.ts                capital-asset lifecycle: authorize → CIP → placed-in-service → depreciation
     index.ts
   integration/                the seam — may depend on domain
     adapter.ts                Adapter interface, capabilities, pull/push, auth
@@ -87,7 +88,12 @@ src/
     adapters/
       procore.adapter.ts      do-nothing stub proving the contract
     index.ts
+  fixtures/                   sample data (NOT re-exported from the domain barrel)
+    enterprise-gl.ts          multinational GL generator, validated + serialisable
   index.ts
+tools/
+  check_boundary.py           enforces the domain ← integration rule without Node
+  emit_enterprise_gl.mjs      serialises the GL snapshot into the dashboard
 ```
 
 ## Invariants enforced
@@ -106,6 +112,61 @@ src/
 | Entity exists and is active | `ENTITY_*` |
 | Account's required dimensions present | `MISSING_REQUIRED_DIMENSION` |
 | Dimension applies to that account type | `DIMENSION_NOT_APPLICABLE` |
+
+## The capital-asset lifecycle
+
+`capital.ts` models the quote-to-depreciation spine — one `CapitalProject` that
+moves through six stages, gaining detail at each and becoming one or more
+`AssetUnit`s when placed in service:
+
+```
+DRAFT  ─authorize→  AUTHORIZED  ─commit→  COMMITTED  ─spend→  INCURRING
+       ─capitalize→  IN_CIP  ─placeInService→  IN_SERVICE
+```
+
+The two middle transitions are the product thesis — the ASC 360 / 835-20
+capitalization and placed-in-service judgments — so they are the only ones behind
+a validated gate. `approveCapitalization` and `approvePlacement` return
+`Result<Approved…, DeterminationError[]>`, and `capitalize` / `placeInService`
+accept **only the branded result**, so a project can never hold an un-approved
+determination — the guarantee `ValidatedJournalEntry` gives a posting, applied to
+a judgment.
+
+| Gate | Load-bearing checks | Example codes |
+|---|---|---|
+| **capitalize** → `IN_CIP` | every cost classified, ≥1 capitalizable, single currency | `UNCLASSIFIED_COST`, `NO_CAPITALIZABLE_COST`, `FOREIGN_CURRENCY_COST` |
+| **placeInService** → `IN_SERVICE` | **asset cost ties out to the CIP balance settled**; life / method / salvage sane | `SETTLEMENT_OUT_OF_BALANCE`, `ASSET_MISSING_LIFE`, `SALVAGE_EXCEEDS_COST` |
+
+`SETTLEMENT_OUT_OF_BALANCE` is the crown-jewel invariant, in the same family as
+the reconciliation tie-outs the rest of Korvyn rests on: the cost carried into the
+fixed-asset register must equal the CIP balance being settled, or the gate
+refuses. Everything else **derives** — `cipBalance`, `capitalizedTotal`,
+`authorizationVariance` (a control that can fail), and depreciation
+(`monthlyDepreciation` / `accumulatedDepreciationAt` / `netBookValueAt`,
+straight-line and land, terminal balance pinned exactly to the depreciable base).
+Provenance threads through `SourceRef.journalEntryId` on every commitment and
+cost, so a depreciation dollar traces back to the AFE that authorized it.
+
+**Deliberately the roadmap tail** (the rest of Acquire-to-Retire): impairment
+(ASC 360-10), useful-life reassessment, and disposal / retirement. Depreciation is
+a derivation, not a stored stage.
+
+## The enterprise GL fixture
+
+`fixtures/enterprise-gl.ts` generates a multinational general ledger entirely in
+the canonical model — 6 legal entities across 4 functional currencies
+(USD/GBP/EUR/SGD), a hierarchical ~90-account chart, intercompany due-to/due-from,
+dimensioned postings, ~580 balanced journal entries. It is **provably** enterprise-
+grade, not merely large: the test suite asserts every generated entry passes
+`validateJournalEntry`, and every entity nets to zero in its own currency. It is
+deterministic (`buildEnterpriseGL({ seed })`) and serialisable (`bigint` →
+string).
+
+`tools/emit_enterprise_gl.mjs` is the build-time bridge to the single-file
+dashboard prototype: it serialises a snapshot into `korvyn_dashboard.html`'s
+`<script id="egl-data">` block (idempotent), where the dashboard's **Enterprise
+GL** module renders it. This is a snapshot, not a runtime dependency — the
+dashboard still imports nothing.
 
 ## Design tradeoffs
 
@@ -177,7 +238,7 @@ them.** A broken import poisons inference in files that are themselves correct.
 ## Next steps
 
 1. ~~Install Node, typecheck~~ — done; `npm run check` is green.
-2. ~~Unit tests for `validateJournalEntry`~~ — done, 43 tests.
+2. ~~Unit tests for `validateJournalEntry`~~ — done, 78 tests (capital lifecycle + enterprise GL fixture).
 3. Add the `import/no-restricted-paths` lint rule above, so the boundary is
    enforced by the toolchain and not only by `tools/check_boundary.py`.
 4. Only then start a real connector.
