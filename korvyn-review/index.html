@@ -401,6 +401,51 @@
   .kv-mo{font-size:11px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
   .kv-mono{font-size:12px;color:var(--ink-2);font-family:var(--mono)}
   .kv-quote{font-size:13px;color:var(--ink-2);font-style:italic;line-height:1.55;border-left:2px solid var(--ai-line);padding-left:12px}
+  /* ===== Reminders (bell dropdown + Home due strip) ===== */
+  .notifwrap{position:relative;display:inline-flex}
+  .rb-count{position:absolute;top:0;right:0;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#C8862B;color:#1b1205;
+    font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;line-height:1}
+  .rb-count.show{display:inline-flex}
+  .notifdrop{position:absolute;top:calc(100% + 9px);right:0;width:340px;max-width:88vw;background:var(--surface);border:1px solid var(--line-2);
+    border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;display:none;overflow:hidden;color:var(--ink)}
+  .notifdrop.open{display:block}
+  .nd-hd{padding:12px 15px;font-weight:500;font-size:13px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .nd-hd .n{margin-left:auto;font-size:11px;color:var(--muted);font-weight:400}
+  .nd-body{max-height:60vh;overflow:auto}
+  .nd-sec{padding:10px 15px 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+  .nd-row{display:flex;gap:10px;padding:9px 15px;align-items:flex-start;font-size:12.5px;color:var(--ink-2);border:0;background:transparent;width:100%;text-align:left;font-family:inherit}
+  .nd-row.link{cursor:pointer}
+  .nd-row.link:hover{background:var(--surface-2)}
+  .nd-dot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex:0 0 auto}
+  .nd-dot.warn{background:var(--warn)} .nd-dot.info{background:var(--faint)} .nd-dot.over{background:var(--neg)}
+  .nd-tx{flex:1;min-width:0}
+  .nd-tx b{color:var(--ink);font-weight:500}
+  .nd-when{color:var(--faint);font-size:11.5px;display:block;margin-top:1px}
+  .nd-empty{padding:22px 15px;text-align:center;color:var(--faint);font-size:12.5px}
+  .nd-ft{padding:10px 15px;border-top:1px solid var(--line);font-size:12px}
+  .nd-ft .lk{color:var(--accent);cursor:pointer}
+  /* Home due strip */
+  .duestrip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-6px 0 22px}
+  .due-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500;margin-right:2px}
+  .due-chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:20px;
+    padding:5px 12px;font-size:12px;color:var(--ink-2);cursor:pointer;font-family:inherit}
+  .due-chip:hover{border-color:var(--line-2);background:var(--surface-2)}
+  .due-chip .dd{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+  .due-chip.urg{border-color:var(--warn)}
+  .due-chip.urg .dd{background:var(--warn)}
+  .due-chip .dw{color:var(--faint)}
+  .due-chip.urg .dw{color:var(--warn);font-weight:500}
+  /* ===== Reminders slide panel (mirrors Ask Korvyn) ===== */
+  .notifpanel{position:fixed;top:52px;right:0;width:380px;height:calc(100vh - 52px);background:var(--surface);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease;z-index:41}
+  body.notif-open .notifpanel{transform:translateX(0);box-shadow:var(--shadow)}
+  body.notif-open .app{margin-right:380px}
+  .notifpanel .nd-body{flex:1;overflow:auto;padding-bottom:10px}
+  .np-ic{color:var(--warn)}
+  .nd-go{color:var(--faint);flex:0 0 auto;align-self:center}
+  .nd-row.link:hover .nd-go{color:var(--accent)}
+  @media(max-width:1100px){ body.notif-open .app{margin-right:0} }
+  @media(max-width:760px){ .notifpanel{width:100%} }
 </style>
 
 <div class="ribbon">
@@ -412,7 +457,7 @@
     <input id="search" placeholder="Search reviews, statement lines, documents">
   </div>
   <button class="ribai" id="ribAi" title="Ask Korvyn"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2l1.7 5.3L20 9l-5.3 1.7L13 16l-1.7-5.3L6 9l5.3-1.7z"/><path d="M18.5 13.5l.6 2 2 .6-2 .6-.6 2-.6-2-2-.6 2-.6z"/></svg><span class="rlbl">Ask Korvyn</span></button>
-  <button class="rb-ic" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="rb-dot"></span></button>
+  <button class="rb-ic" id="ribBell" title="Reminders"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="rb-count" id="ribCount"></span></button>
   <button class="rb-ic" id="themeBtn" title="Light / dark">&#9681;</button>
   <div class="rb-user" title="Maya Grant">MG</div>
 </div>
@@ -423,6 +468,7 @@
 </div>
 
 <div class="aipanel" id="aiPanel" aria-label="Korvyn AI"></div>
+<div class="notifpanel" id="notifPanel" aria-label="Reminders"></div>
 
 <script>
 (function(){
@@ -548,6 +594,7 @@
     h+='<div class="hero"><div class="ht"><div class="k">Current close</div><h1>July 2026</h1><div class="d">Target sign-off Aug 5 &middot; Day 4 of 8</div></div>';
     h+='<div class="prog"><div class="pr-top"><span class="pl">Overall close progress</span><span class="pv">'+pctDone+'% approved</span></div><div class="bar"><div class="seg done" style="width:'+pctDone+'%"></div><div class="seg prog" style="width:'+pctProg+'%"></div></div></div>';
     h+='<div class="stats"><div class="stat"><div class="sv">'+REVIEWS.length+'</div><div class="sl">Reviews</div></div><div class="stat"><div class="sv">'+inrev+'</div><div class="sl">In review</div></div><div class="stat att"><div class="sv">'+att+'</div><div class="sl">Need attention</div></div><div class="stat"><div class="sv">'+totQ+'</div><div class="sl">Open questions</div></div></div></div>';
+    h+='<div id="dueStrip"></div>';
     h+='<div class="sec" id="secReviews"><div class="sec-h"><h2>My Reviews</h2><span class="note">what requires your attention this close</span><span class="grow"></span><span class="link">View all</span></div>';
     h+='<div class="card"><table class="rev"><thead><tr><th>Review</th><th>Status</th><th>Owner</th><th>Reviewer</th><th>Due</th><th class="r">Open Q</th><th class="r">Evidence</th><th>Last activity</th></tr></thead><tbody id="revBody"></tbody></table></div></div>';
     h+='<div class="grid2">';
@@ -559,7 +606,7 @@
     h+='<div class="sec" id="secEv"><div class="sec-h"><h2>Evidence Center</h2><span class="note">across all reviews &middot; never folders</span></div><div class="card" id="evBody"></div></div>';
     h+='</div>';
     $('#view').innerHTML=h;
-    renderRevTable();renderInsights();renderActivity();renderKnowledge();renderEvidence();
+    renderRevTable();renderInsights();renderActivity();renderKnowledge();renderEvidence();renderDueStrip();
   }
   function renderRevTable(){
     var rows=REVIEWS.filter(function(r){return !search||r.name.toLowerCase().indexOf(search)>=0||r.area.toLowerCase().indexOf(search)>=0});
@@ -1024,7 +1071,7 @@
     setSendEnabled(!AI_BUSY);
     renderAIScroll();
   }
-  function aiOpen(){AI_OPEN=true;document.body.classList.add('ai-open');renderAI();refreshMode(function(){if(AI_OPEN)renderAI();});var i=document.getElementById('aiInput');if(i)i.focus();}
+  function aiOpen(){AI_OPEN=true;if(typeof notifClose==='function')notifClose();document.body.classList.add('ai-open');renderAI();refreshMode(function(){if(AI_OPEN)renderAI();});var i=document.getElementById('aiInput');if(i)i.focus();}
   function aiClose(){AI_OPEN=false;document.body.classList.remove('ai-open');}
   function aiToggle(){AI_OPEN?aiClose():aiOpen();}
   var _ribAi=document.getElementById('ribAi'); if(_ribAi)_ribAi.onclick=aiToggle;
@@ -1154,8 +1201,66 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .kv-open'),function(b){b.onclick=function(){openReview(this.getAttribute('data-open'));};});
   }
 
+  /* ---------- Reminders (docked slide panel, like Ask Korvyn) ---------- */
+  var TODAY_D=new Date(2026,6,25); // Jul 25 2026 (close day 4 of 8)
+  var _MOMAP={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  function dueDate(s){var p=s.trim().split(/\s+/);return new Date(2026,_MOMAP[p[0]],+p[1]);}
+  function daysUntil(s){return Math.round((dueDate(s)-TODAY_D)/86400000);}
+  function dueWord(d){return d<0?('overdue by '+(-d)+'d'):d===0?'today':d===1?'tomorrow':'in '+d+'d';}
+  function reminders(){
+    var now=[],later=[];
+    REVIEWS.forEach(function(r){
+      if(r.status==='approved')return;
+      var d=daysUntil(r.due);
+      var item={kind:'due',rid:r.id,d:d,name:r.name,due:r.due,sev:d<0?'over':(d<=1?'warn':'info')};
+      if(d<=2)now.push(item); else if(d<=6)later.push(item);
+    });
+    now.sort(function(a,b){return a.d-b.d;});later.sort(function(a,b){return a.d-b.d;});
+    var extra=[];
+    REVIEWS.forEach(function(r){if(r.status!=='approved'&&/auditor/i.test(r.last))extra.push({kind:'audit',rid:r.id,sev:'info',name:r.name});});
+    var oq=REVIEWS.reduce(function(a,r){return a+r.q},0),nrev=REVIEWS.filter(function(r){return r.q>0}).length;
+    if(oq>0)extra.push({kind:'q',sev:'info',oq:oq,nrev:nrev});
+    return {now:now.concat(extra),later:later};
+  }
+  function remNowCount(){return reminders().now.length;}
+  function renderNotifBadge(){var b=document.getElementById('ribCount');if(!b)return;var c=remNowCount();b.textContent=c;b.classList.toggle('show',c>0);}
+  function notifRow(x){
+    var txt,cls=x.rid?' link':'',data=x.rid?' data-rid="'+esc(x.rid)+'"':'',tag=x.rid?'button':'div';
+    if(x.kind==='due')txt='<b>'+esc(x.name)+'</b><span class="nd-when">due '+dueWord(x.d)+' &middot; '+esc(x.due)+'</span>';
+    else if(x.kind==='audit')txt='<b>Auditor requested support</b><span class="nd-when">'+esc(x.name)+' &middot; open the review to respond</span>';
+    else txt='<b>'+x.oq+' open questions</b><span class="nd-when">across '+x.nrev+' reviews need a response</span>';
+    return '<'+tag+' class="nd-row'+cls+'"'+data+'><span class="nd-dot '+x.sev+'"></span><span class="nd-tx">'+txt+'</span>'+(x.rid?'<span class="nd-go">&rarr;</span>':'')+'</'+tag+'>';
+  }
+  var NP_BELL='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>';
+  function renderNotif(){
+    var r=reminders();
+    var h='<div class="ai-hd"><span class="ai-mark np-ic">'+NP_BELL+'</span><div class="htx"><div class="t">Reminders</div><div class="g">Close July 2026 &middot; day 4 of 8</div></div><span class="sp"></span><button class="ib" id="notifX" title="Close">&#10005;</button></div>';
+    h+='<div class="nd-body">';
+    if(!r.now.length&&!r.later.length){h+='<div class="nd-empty">Nothing due right now &mdash; you&rsquo;re clear.</div>';}
+    else{
+      if(r.now.length){h+='<div class="nd-sec">Needs attention</div>'+r.now.map(notifRow).join('');}
+      if(r.later.length){h+='<div class="nd-sec">Later this week</div>'+r.later.map(notifRow).join('');}
+    }
+    h+='</div><div class="nd-ft"><span class="lk" id="ndAll">See all reviews &rarr;</span></div>';
+    var el=document.getElementById('notifPanel');el.innerHTML=h;
+    document.getElementById('notifX').onclick=notifClose;
+    Array.prototype.forEach.call(el.querySelectorAll('.nd-row.link'),function(b){b.onclick=function(){var id=this.getAttribute('data-rid');notifClose();openReview(id);};});
+    var all=document.getElementById('ndAll');if(all)all.onclick=function(){notifClose();navTo('my');};
+  }
+  function notifOpen(){if(typeof aiClose==='function')aiClose();renderNotif();document.body.classList.add('notif-open');}
+  function notifClose(){document.body.classList.remove('notif-open');}
+  function notifToggle(){document.body.classList.contains('notif-open')?notifClose():notifOpen();}
+  function dueStripHTML(){
+    var r=reminders();var due=r.now.filter(function(x){return x.kind==='due';}).concat(r.later).sort(function(a,b){return a.d-b.d;}).slice(0,4);
+    if(!due.length)return '';
+    return '<div class="duestrip"><span class="due-lbl">Due soon</span>'+due.map(function(x){return '<button class="due-chip'+(x.d<=1?' urg':'')+'" data-rid="'+esc(x.rid)+'"><span class="dd"></span>'+esc(x.name)+' <span class="dw">'+dueWord(x.d)+'</span></button>';}).join('')+'</div>';
+  }
+  function renderDueStrip(){var el=document.getElementById('dueStrip');if(!el)return;el.innerHTML=dueStripHTML();Array.prototype.forEach.call(el.querySelectorAll('.due-chip'),function(b){b.onclick=function(){openReview(this.getAttribute('data-rid'));};});}
+  (function(){var b=document.getElementById('ribBell');if(b)b.onclick=notifToggle;})();
+
   /* ---------- boot ---------- */
   renderNav();
   renderHome();
+  renderNotifBadge();
 })();
 </script>
