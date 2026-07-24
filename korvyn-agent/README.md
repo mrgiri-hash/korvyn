@@ -38,7 +38,17 @@ cp .env.example .env      # paste your key from console.anthropic.com
 npm run agent                                   # interactive, multi-turn REPL
 npm run agent -- "what did Korvyn detect? escalate the biggest one to A. Okafor and create a task to chase it"
 npm run dryrun                                  # exercise ALL tools with NO API call (free)
+npm run serve                                   # full app: serves the review-platform UI + live agent at http://localhost:8787
 ```
+
+### Full-fledged chatbot in the browser
+
+`npm run serve` starts the HTTP bridge **and** serves the reviews-first platform UI
+(`../korvyn-review/index.html`) at the same origin. Open **http://localhost:8787** with your
+`ANTHROPIC_API_KEY` set and the **Ask Korvyn** panel streams from the real agent —
+one command, one URL, no CSP sandbox. (The published claude.ai artifact can only ever
+show the grounded deterministic fallback: artifact CSP blocks all network calls and
+grants no model API, so a live LLM chatbot must run here, not there.)
 
 Try a multi-step ask: *"show me the balance sheet, explain the accrued-costs variance, then trace the biggest liability and tell me what's missing."*
 

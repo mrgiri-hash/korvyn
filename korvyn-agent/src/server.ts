@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { createServer, type ServerResponse } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { KorvynAgent } from './agent.js';
 
 /**
@@ -24,6 +26,20 @@ const server = createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // Serve the review-platform UI so the app and the live agent share one origin.
+  if (req.method === 'GET' && (url === '/' || url === '/index.html' || url.startsWith('/?'))) {
+    try {
+      const uiPath = process.env['REVIEW_UI_PATH'] ?? join(process.cwd(), '..', 'korvyn-review', 'index.html');
+      const html = readFileSync(uiPath);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch {
+      res.writeHead(404);
+      res.end('UI not found. Expected ../korvyn-review/index.html (or set REVIEW_UI_PATH).');
+    }
     return;
   }
 
