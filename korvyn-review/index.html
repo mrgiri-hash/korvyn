@@ -358,6 +358,49 @@
   .ai-send:disabled{opacity:.5;cursor:default}
   @media(max-width:1100px){ body.ai-open .app{margin-right:0} }
   @media(max-width:760px){ .aipanel{width:100%} .ribai .rlbl{display:none} }
+  /* ===== Knowledge Timeline (computed) ===== */
+  .krow.krow-c{cursor:pointer;border-radius:6px}
+  .krow.krow-c:hover{background:var(--surface-2)}
+  .kv-hd{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+  .kv-hd .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500}
+  .kv-hd h1{font-size:22px;font-weight:500;letter-spacing:.01em;margin-top:3px}
+  .kv-sub{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.55;max-width:640px}
+  .kv-sub b{color:var(--ink-2);font-weight:500}
+  .kv-stats{display:flex;gap:28px;margin-bottom:26px}
+  .kv-stat .v{font-size:20px;font-weight:500}
+  .kv-stat .l{font-size:11px;color:var(--muted);margin-top:1px}
+  .kv-group{margin-bottom:26px}
+  .kv-gh{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+  .kv-gh h2{font-size:14px;font-weight:500}
+  .kv-gh span{font-size:12px;color:var(--muted)}
+  .kv-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+  .kv-top{display:flex;align-items:flex-start;gap:12px;padding:14px 16px}
+  .kv-ic{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--ai-bg);border:1px solid var(--ai-line);display:grid;place-items:center;color:var(--ai)}
+  .kv-tx{flex:1;min-width:0}
+  .kv-t{font-size:13.5px;font-weight:500;color:var(--ink)}
+  .kv-tags{display:flex;gap:6px;flex-wrap:wrap;margin:5px 0}
+  .kv-note{font-size:12.5px;color:var(--ink-2);line-height:1.5}
+  .kv-open{flex:0 0 auto;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:6px;padding:5px 11px;font-size:11.5px;font-weight:500;cursor:pointer;font-family:inherit}
+  .kv-open:hover{border-color:var(--muted)}
+  details.kv-ev{border-top:1px solid var(--line)}
+  details.kv-ev summary{list-style:none;cursor:pointer;padding:9px 16px;font-size:11.5px;font-weight:500;color:var(--accent)}
+  details.kv-ev summary::-webkit-details-marker{display:none}
+  details.kv-ev summary:before{content:"Evidence \25B8 ";color:var(--faint);font-weight:400}
+  details.kv-ev[open] summary:before{content:"Evidence \25BE "}
+  .kv-evb{padding:4px 16px 16px}
+  .kv-chart{display:flex;align-items:flex-end;gap:1px;height:74px;border-bottom:1px solid var(--line);padding-bottom:2px}
+  .kv-bar{flex:1;background:var(--accent);opacity:.55;border-radius:2px 2px 0 0;min-height:3px}
+  .kv-bar.pk{background:var(--warn);opacity:1}
+  .kv-yrl{display:flex;justify-content:space-around;font-size:10px;color:var(--faint);margin-top:4px;letter-spacing:.04em}
+  .kv-cap{font-size:11.5px;color:var(--muted);margin-top:9px;line-height:1.5}
+  .kv-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:9px}
+  .kv-tbl td{padding:5px 4px;border-bottom:1px solid var(--line);color:var(--ink-2)}
+  .kv-tbl tr:last-child td{border-bottom:0}
+  .kv-tbl td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .kv-months{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}
+  .kv-mo{font-size:11px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+  .kv-mono{font-size:12px;color:var(--ink-2);font-family:var(--mono)}
+  .kv-quote{font-size:13px;color:var(--ink-2);font-style:italic;line-height:1.55;border-left:2px solid var(--ai-line);padding-left:12px}
 </style>
 
 <div class="ribbon">
@@ -436,13 +479,7 @@
     {who:'DO',t:'requested support for <b>Debt Review</b> (interest tie-out)',m:'1d ago'},
     {who:'PN',t:'uploaded the <b>FY26 Budget workbook</b>',m:'1d ago'}
   ];
-  var KNOWLEDGE=[
-    {t:'Recurring July temporary-power increase', tags:['Operating Expense','Seen 3 Julys'], note:'Same seasonal cooling driver as FY24 and FY25.'},
-    {t:'Cash reconciling item unresolved for four months', tags:['Cash','Escalate'], note:'In-transit wire first appeared in April.'},
-    {t:'Controller explanation reused from last year', tags:['Operating Expense','Reused'], note:'July power narrative carried forward and confirmed.'},
-    {t:'Prior audit comment reused', tags:['Debt','FY25 audit'], note:'Interest classification question raised again by the auditor.'},
-    {t:'Recurring capitalization adjustment identified', tags:['CIP','Standardize'], note:'Soft/hard cost reclass repeats each close.'}
-  ];
+  /* KNOWLEDGE is now computed - see knowledgeItems() */
   var EVIDENCE=[
     {n:'GL_Detail_Jul26.xlsx',ext:'xlsx',rev:'opex',t:'2h ago'},
     {n:'OpEx_Variance_Workpaper.xlsx',ext:'xlsx',rev:'opex',t:'6h ago'},
@@ -476,7 +513,7 @@
   }
   var activeNav='home';
   function renderNav(){
-    var counts={home:'',my:REVIEWS.length,all:REVIEWS.length,close:'',knowledge:KNOWLEDGE.length,evidence:EVIDENCE.length,audit:''};
+    var counts={home:'',my:REVIEWS.length,all:REVIEWS.length,close:'',knowledge:knowledgeItems().length,evidence:EVIDENCE.length,audit:''};
     var h='';
     NAV.forEach(function(grp){
       if(grp.g)h+='<div class="nh">'+grp.g+'</div>';
@@ -492,7 +529,7 @@
   function navTo(k){
     activeNav=k;renderNav();
     if(k==='home'||k==='my'||k==='all'||k==='close'){renderHome();if(k==='my'||k==='all')scrollToId('secReviews');if(k==='close')window.scrollTo({top:0,behavior:'smooth'});}
-    else if(k==='knowledge'){renderHome();scrollToId('secKnow');}
+    else if(k==='knowledge'){renderKnowledgeView();window.scrollTo(0,0);}
     else if(k==='evidence'){renderHome();scrollToId('secEv');}
     else if(k==='audit'){renderHome();scrollToId('secReviews');}
   }
@@ -563,10 +600,11 @@
   }
   function renderKnowledge(){
     var h='';
-    KNOWLEDGE.forEach(function(k){
-      h+='<div class="krow"><div class="kmark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="kx"><div class="kt">'+esc(k.t)+'</div><div class="km">'+k.tags.map(function(t){return '<span class="kpill">'+esc(t)+'</span>'}).join('')+'<span>'+esc(k.note)+'</span></div></div></div>';
+    knowledgeItems().slice(0,5).forEach(function(k){
+      h+='<div class="krow krow-c" data-ki="'+esc(k.id)+'"><div class="kmark">'+kIcon(k.kind)+'</div><div class="kx"><div class="kt">'+esc(k.t)+'</div><div class="km">'+k.tags.map(function(t){return '<span class="kpill">'+esc(t)+'</span>'}).join('')+'<span>'+esc(k.note)+'</span></div></div></div>';
     });
     $('#knBody').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('#knBody .krow-c'),function(el){el.onclick=function(){navTo('knowledge');};});
   }
   function renderEvidence(){
     var h='';
@@ -743,7 +781,7 @@
     window.scrollTo(0,0);
     var wired=!!WIRED[id];
     var evForRev=EVIDENCE.filter(function(e){return e.rev===id});
-    var knForRev=KNOWLEDGE.filter(function(k){return k.tags.some(function(t){return r.name.indexOf(t)>=0||(id==='opex'&&t==='Operating Expense')||(id==='cash'&&t==='Cash')||(id==='cip'&&t==='CIP')||(id==='debt'&&t==='Debt')})});
+    var knForRev=knowledgeItems().filter(function(k){return k.tags.some(function(t){return r.name.indexOf(t)>=0||(id==='opex'&&t==='Operating Expense')||(id==='cash'&&t==='Cash')||(id==='cip'&&t==='CIP')||(id==='debt'&&t==='Debt')})});
     var h='';
     h+='<div class="wsback" id="wsBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg> All reviews</div>';
     h+='<div class="wshead"><div><div class="wt">'+esc(r.name)+'</div><div class="wsub"><span class="st '+r.status+'"><span class="d"></span>'+STLABEL[r.status]+'</span><span>'+esc(r.area)+'</span>'+(wired?'<span style="color:var(--pos);font-weight:500">&#9679; Live on GL_Detail_Jul26.xlsx</span>':'')+'<span class="who"><span class="ava">'+r.owner+'</span>'+esc(PEOPLE[r.owner])+'</span><span>Reviewer '+esc(PEOPLE[r.rev])+'</span><span>Due '+r.due+'</span></div></div><div class="grow"></div>'+
@@ -991,6 +1029,130 @@
   function aiToggle(){AI_OPEN?aiClose():aiOpen();}
   var _ribAi=document.getElementById('ribAi'); if(_ribAi)_ribAi.onclick=aiToggle;
 
+
+  /* ---------- Knowledge Timeline: multi-year GL + recurrence detection ---------- */
+  var MABBR=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MNAME=MABBR;
+  var HMONTHS=(function(){var a=[];var y=2023,mo=8;for(var i=0;i<36;i++){a.push(y+'-'+(mo<10?'0'+mo:mo));mo++;if(mo>12){mo=1;y++;}}return a;})();
+  function countYears(){return HMONTHS.length/12;}
+  function monLabel(m){return MABBR[+m.slice(5)]+' '+m.slice(2,4);}
+  function monthDiff(a,b){return (+b.slice(0,4)-+a.slice(0,4))*12+(+b.slice(5)-+a.slice(5));}
+  function monthRange(a,b){var out=[];var y=+a.slice(0,4),mo=+a.slice(5);while(true){out.push(y+'-'+(mo<10?'0'+mo:mo));if(y===+b.slice(0,4)&&mo===+b.slice(5))break;mo++;if(mo>12){mo=1;y++;}}return out;}
+  function fyMonthCal(yi){return ((yi+7)%12)+1;}
+  function acctArea(acc){return acc.type==='Revenue'?{area:'Revenue',reviewId:'rev'}:{area:'Operating Expense',reviewId:'opex'};}
+  function effScale(acc){var s=0;E_ENT.forEach(function(e){s+=e.s*((acc.aff&&acc.aff[e.id])||1);});return s;}
+  function histNat(acc,gmi){
+    var yi=gmi%12;var ac=acc.acct;var nat;
+    if(ac==='55000'){nat=(yi===4)?505000*Math.pow(1.03,Math.floor(gmi/12)):37000;}
+    else if(ac==='53000'){nat=(gmi===31)?381000:56000*Math.pow(1.002,gmi);}
+    else if(ac==='15000'){nat=(gmi===29)?1010000:120000*Math.pow(1.003,gmi);}
+    else if(ac==='16000'){nat=(gmi>=24)?(gmi===29?-905000:(gmi<29?150000:42000)):150000;}
+    else if(ac==='52000'){nat=208000+(gmi>=29?92000:0);}
+    else{nat=acc.base*Math.pow(1+acc.g,gmi);var isSummer=(yi<=1)||(yi>=10);if(acc.season)nat*=1+(isSummer?acc.season:(yi===2||yi===9?acc.season*0.4:0));if(ac==='50000'&&gmi===35)nat*=1.24;}
+    nat*=effScale(acc);
+    var n=Math.abs(Math.sin(gmi*131+ac.charCodeAt(0)*17))%1;
+    nat*=1+(n-0.5)*0.04;
+    return Math.round(nat);
+  }
+  var _hist={};
+  function histSeries(acct){if(_hist[acct])return _hist[acct];var acc=null;for(var i=0;i<E_ACC.length;i++)if(E_ACC[i].acct===acct){acc=E_ACC[i];break;}var s=[];for(var g=0;g<HMONTHS.length;g++)s.push(histNat(acc,g));_hist[acct]=s;return s;}
+
+  /* stored close-history (the small, labelled prior-close records; matching is computed) */
+  var RECON_ITEMS=[{desc:'In-transit wire (operating account)',firstSeen:'2026-04',amount:12000,reviewId:'cash',area:'Cash'}];
+  var ADJ_HISTORY=[
+    {memo:'Soft/hard cost reclass',closes:['2026-04','2026-05','2026-06','2026-07'],reviewId:'cip',area:'CIP'},
+    {memo:'Depreciation true-up (post-CIP)',closes:['2026-01','2026-07'],reviewId:'fa',area:'Fixed Asset'}
+  ];
+  var REUSE_PRIORS=[
+    {title:'Controller explanation reused from FY25',tags:['Operating Expense','Reused'],note:'Last July’s temporary-power narrative applies again; Korvyn carried it forward and flagged it for confirmation.',reviewId:'opex',prior:'FY25 close',text:'July increase is seasonal cooling load at the data-center campuses; no adjustment proposed.'},
+    {title:'Prior audit comment resurfaced',tags:['Debt','FY25 audit'],note:'The interest-classification question from the FY25 audit was raised again this close.',reviewId:'debt',prior:'FY25 audit',text:'Confirm interest classification agrees to the amortization schedule.'}
+  ];
+
+  function movingAvg(s){var n=s.length,t=[];for(var i=0;i<n;i++){var lo=Math.max(0,i-6),hi=Math.min(n-1,i+5),sum=0,c=0;for(var j=lo;j<=hi;j++){sum+=s[j];c++;}t[i]=sum/c;}return t;}
+  function seasonalItems(){
+    var out=[];
+    E_ACC.forEach(function(acc){
+      if(acc.type!=='Expense'&&acc.type!=='Revenue')return;
+      var s=histSeries(acc.acct);var trend=movingAvg(s);
+      var dev=s.map(function(v,i){return trend[i]?v/trend[i]:1;});
+      var byDev=[];for(var yi=0;yi<12;yi++)byDev[yi]=[];
+      dev.forEach(function(d,gmi){byDev[gmi%12].push(d);});
+      var avgDev=byDev.map(function(a){return a.reduce(function(x,y){return x+y},0)/a.length;});
+      var pm=0;for(var j=1;j<12;j++)if(avgDev[j]>avgDev[pm])pm=j;
+      var lift=(avgDev[pm]-1)*100;
+      if(lift<15)return;
+      var years=byDev[0].length,recurs=true;
+      for(var y=0;y<years;y++){if(byDev[pm][y]<1.10){recurs=false;break;}}
+      if(!recurs)return;
+      var byRaw=[];for(var z=0;z<12;z++)byRaw[z]=[];
+      s.forEach(function(v,gmi){byRaw[gmi%12].push(v);});
+      var yrMean=[];for(var yy=0;yy<years;yy++){var sm=0;for(var k=0;k<12;k++)sm+=s[yy*12+k];yrMean[yy]=sm/12;}
+      var mean=s.reduce(function(a,b){return a+b},0)/s.length;
+      var cal=fyMonthCal(pm),area=acctArea(acc);
+      out.push({id:'sea-'+acc.acct,kind:'seasonal',t:'Recurring '+MNAME[cal]+' increase in '+acc.name,
+        tags:[area.area,'Seen '+years+' years'],
+        note:MNAME[cal]+' runs about +'+Math.round(lift)+'% above the surrounding months in every one of the last '+years+' years.',
+        ev:{pm:pm,cal:cal,mean:mean,liftPct:lift,perYear:byRaw[pm].map(function(v,i){return {fy:'FY'+(24+i),v:v,lift:Math.round((v-yrMean[i])/yrMean[i]*100)};}),series:s},
+        reviewId:area.reviewId,rank:lift*Math.abs(byRaw[pm][years-1])});
+    });
+    out.sort(function(a,b){return b.rank-a.rank;});
+    return out;
+  }
+  function agingItems(){
+    return RECON_ITEMS.map(function(it){
+      var age=monthDiff(it.firstSeen,'2026-07')+1;
+      return {id:'age-'+it.firstSeen,kind:'aging',t:it.desc+' unresolved for '+age+' months',
+        tags:[it.area,age>=3?'Escalate':'Watch'],
+        note:'First appeared '+monLabel(it.firstSeen)+' and has stayed open every close since — '+age+' consecutive.',
+        ev:{firstSeen:it.firstSeen,age:age,amount:it.amount,months:monthRange(it.firstSeen,'2026-07')},reviewId:it.reviewId};
+    }).filter(function(x){return x.ev.age>=3;});
+  }
+  function recurringAdjItems(){
+    return ADJ_HISTORY.filter(function(a){return a.closes.length>=2;}).map(function(a){
+      return {id:'adj-'+a.memo.replace(/[^a-z]/gi,'').slice(0,6),kind:'recurring-adj',t:'Recurring adjustment: '+a.memo,
+        tags:[a.area,'Standardize'],
+        note:'The same adjusting entry has been booked in '+a.closes.length+' consecutive closes — a candidate to standardize into policy.',
+        ev:{closes:a.closes,memo:a.memo},reviewId:a.reviewId};
+    });
+  }
+  function reuseItems(){return REUSE_PRIORS.map(function(p,i){return {id:'reuse-'+i,kind:'reuse',t:p.title,tags:p.tags,note:p.note,ev:{prior:p.prior,text:p.text},reviewId:p.reviewId};});}
+  var _ki=null;
+  function knowledgeItems(){if(_ki)return _ki;_ki=seasonalItems().concat(agingItems()).concat(recurringAdjItems()).concat(reuseItems());return _ki;}
+
+  function kIcon(kind){
+    var p={seasonal:'<path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/>',
+      aging:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+      'recurring-adj':'<path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+      reuse:'<path d="M6 3h12v18l-6-4-6 4z"/>'};
+    return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">'+(p[kind]||p.reuse)+'</svg>';
+  }
+  function kvEvidence(it){
+    if(it.kind==='seasonal'){
+      var s=it.ev.series,mx=Math.max.apply(null,s);
+      var bars=s.map(function(v,i){return '<div class="kv-bar'+(i%12===it.ev.pm?' pk':'')+'" style="height:'+Math.max(4,v/mx*100)+'%" title="'+HMONTHS[i]+': '+fmtAbbr(v)+'"></div>';}).join('');
+      var tbl='<table class="kv-tbl"><tbody>'+it.ev.perYear.map(function(p){return '<tr><td>'+p.fy+' '+MNAME[it.ev.cal]+'</td><td class="n">'+fmtAbbr(p.v)+'</td><td class="n" style="color:var(--warn)">+'+p.lift+'% vs run-rate</td></tr>';}).join('')+'</tbody></table>';
+      return '<div class="kv-chart">'+bars+'</div><div class="kv-yrl"><span>FY24</span><span>FY25</span><span>FY26</span></div><div class="kv-cap">36 months of GL; the '+MNAME[it.ev.cal]+' peak is highlighted in every year. Run-rate (monthly mean): '+fmtAbbr(it.ev.mean)+'.</div>'+tbl;
+    }
+    if(it.kind==='aging'){
+      return '<div class="kv-mono">First seen '+monLabel(it.ev.firstSeen)+' · open '+it.ev.age+' consecutive closes · '+fmtAbbr(it.ev.amount)+'</div><div class="kv-months" style="margin-top:8px">'+it.ev.months.map(function(m){return '<span class="kv-mo">'+monLabel(m)+'</span>';}).join('')+'</div><div class="kv-cap">Age is computed from the first-seen date to the current close; Korvyn escalates any item open more than three closes.</div>';
+    }
+    if(it.kind==='recurring-adj'){
+      return '<div class="kv-months">'+it.ev.closes.map(function(m){return '<span class="kv-mo">'+monLabel(m)+' close</span>';}).join('')+'</div><div class="kv-cap">The same memo — “'+esc(it.ev.memo)+'” — was booked in each close above.</div>';
+    }
+    return '<div class="kv-quote">'+esc(it.ev.text)+'</div><div class="kv-cap">Carried forward from '+esc(it.ev.prior)+'. Korvyn surfaces the prior explanation and matches it to this close; a human confirms it still applies.</div>';
+  }
+  function kvCard(it){
+    return '<div class="kv-card"><div class="kv-top"><span class="kv-ic">'+kIcon(it.kind)+'</span><div class="kv-tx"><div class="kv-t">'+esc(it.t)+'</div><div class="kv-tags">'+it.tags.map(function(t){return '<span class="kpill">'+esc(t)+'</span>';}).join('')+'</div><div class="kv-note">'+esc(it.note)+'</div></div>'+(it.reviewId&&revById(it.reviewId)?'<button class="kv-open" data-open="'+it.reviewId+'">Open review</button>':'')+'</div><details class="kv-ev"><summary></summary><div class="kv-evb">'+kvEvidence(it)+'</div></details></div>';
+  }
+  function renderKnowledgeView(){
+    var items=knowledgeItems();var reviews={};items.forEach(function(i){if(i.reviewId)reviews[i.reviewId]=1;});
+    var h='<div class="kv-hd"><div><div class="k">Institutional memory</div><h1>Knowledge Timeline</h1><div class="kv-sub">How Korvyn’s understanding of the business accumulates. Every item below is <b>computed</b> from '+HMONTHS.length+' months of workbooks across '+countYears()+' fiscal years — not authored.</div></div></div>';
+    h+='<div class="kv-stats"><div class="kv-stat"><div class="v">'+items.length+'</div><div class="l">Patterns detected</div></div><div class="kv-stat"><div class="v">'+countYears()+'</div><div class="l">Years of history</div></div><div class="kv-stat"><div class="v">'+Object.keys(reviews).length+'</div><div class="l">Reviews touched</div></div></div>';
+    var groups=[['seasonal','Seasonal patterns','Recurring in the GL every year'],['aging','Open items carried forward','Unresolved across multiple closes'],['recurring-adj','Recurring adjustments','Booked close after close — candidates to standardize'],['reuse','Reused knowledge','Prior explanations and audit comments matched to this close']];
+    groups.forEach(function(g){var gi=items.filter(function(x){return x.kind===g[0];});if(!gi.length)return;h+='<div class="kv-group"><div class="kv-gh"><h2>'+g[1]+'</h2><span>'+g[2]+'</span></div>'+gi.map(kvCard).join('')+'</div>';});
+    $('#view').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('#view .kv-open'),function(b){b.onclick=function(){openReview(this.getAttribute('data-open'));};});
+  }
 
   /* ---------- boot ---------- */
   renderNav();
