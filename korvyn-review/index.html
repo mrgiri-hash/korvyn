@@ -186,6 +186,42 @@
   body.compact table.rev tbody td{height:44px}
   body.compact .ins,body.compact .act{padding-top:9px;padding-bottom:9px}
   body.compact .set-row{padding:10px 0}
+  /* ---- GL <-> TB tie-out ledger ---- */
+  .ldg-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 16px}
+  .ldg-mo{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:7px 13px;cursor:pointer;font-family:inherit;font-size:12px;color:var(--muted)}
+  .ldg-mo:hover{border-color:var(--muted)}
+  .ldg-mo.on{border-color:var(--accent);color:var(--ink);font-weight:500;box-shadow:0 0 0 2px var(--accent-bg)}
+  .ldg-mo-s{width:6px;height:6px;border-radius:50%}
+  .ldg-mo-s.ok{background:var(--pos)} .ldg-mo-s.ex{background:var(--warn)}
+  .ldg-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .ldg-kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px}
+  .ldg-kpi .lk{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+  .ldg-kpi .lv{font-size:17px;font-weight:500;color:var(--ink);margin-top:5px;font-variant-numeric:tabular-nums}
+  .ldg-kpi .lv.ok{color:var(--pos)} .ldg-kpi .lv.ex{color:var(--warn)}
+  .ldg-tbl{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .ldg-tbl thead th{text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:500;padding:11px 14px;border-bottom:1px solid var(--line-2);background:var(--surface-2)}
+  .ldg-tbl thead th.l{text-align:left} .ldg-tbl thead th.c{text-align:center}
+  .ldg-tbl td{text-align:right;padding:0 14px;height:38px;border-bottom:1px solid var(--line);color:var(--ink-2)}
+  .ldg-tbl td.l{text-align:left;color:var(--ink)} .ldg-tbl td.c{text-align:center} .ldg-tbl td.cl{font-weight:500;color:var(--ink)}
+  .ldg-grp td{background:var(--surface-2);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:500;height:30px;text-align:left}
+  .ldg-row{cursor:pointer} .ldg-row:hover td{background:var(--surface-2)}
+  .ldg-row.op td{background:var(--surface-2)}
+  .ldg-ex{display:inline-block;width:13px;color:var(--faint);font-size:9px}
+  .ldg-ac{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px}
+  .ldg-sub td{font-weight:500;color:var(--ink);border-bottom:1px solid var(--line-2);background:var(--surface)}
+  .ldg-tie{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:11px;font-weight:600}
+  .ldg-tie.ok{color:var(--pos)} .ldg-tie.ex{color:var(--warn);background:var(--warn-bg)}
+  .ldg-diff{color:var(--warn);font-weight:500} .ldg-tbl td.df .mut{color:var(--faint)}
+  .ldg-detail td{background:var(--bg);padding:0}
+  .ldg-roll{padding:8px 14px 14px 40px;overflow-x:auto}
+  .ldg-rolltbl{border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums;min-width:100%}
+  .ldg-rolltbl th,.ldg-rolltbl td{padding:5px 10px;text-align:right;white-space:nowrap;color:var(--ink-2)}
+  .ldg-rolltbl th.l,.ldg-rolltbl td.l{text-align:left;color:var(--muted)}
+  .ldg-rolltbl th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line)}
+  .ldg-rolltbl th.on,.ldg-rolltbl td.on{background:var(--accent-bg)}
+  .ldg-rolltbl tr.cl td{font-weight:500;color:var(--ink);border-top:1px solid var(--line)}
+  .ldg-note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5}
+  @media(max-width:820px){ .ldg-kpis{grid-template-columns:repeat(2,1fr)} }
 
   .main{min-width:0}
   .wrap{max-width:1200px;margin:0 auto;padding:26px 30px 60px}
@@ -702,7 +738,7 @@
   /* ---------- nav ---------- */
   var NAV=[
     {g:'',items:[['home','Home','home'],['my','My Reviews','doc'],['all','All Reviews','stack']]},
-    {g:'Financial repository',items:[['repo-workspaces','Monthly Workspaces','grid'],['repo-upload','Financial Data Upload','up'],['repo-coa','Chart of Accounts Mapping','link'],['repo-history','Upload History','hist']]},
+    {g:'Financial repository',items:[['repo-workspaces','Monthly Workspaces','grid'],['repo-upload','Financial Data Upload','up'],['repo-coa','Chart of Accounts Mapping','link'],['repo-ledger','Trial Balance','scale'],['repo-history','Upload History','hist']]},
     {g:'Financial close',items:[['close','Close cockpit','cal'],['knowledge','Knowledge Timeline','clock'],['evidence','Evidence Center','file'],['audit','Audit Readiness','shield']]},
     {g:'System',items:[['settings','Settings','gear']]}
   ];
@@ -714,14 +750,15 @@
       up:'<path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M5 19h14"/>',
       link:'<path d="M9 12h6"/><path d="M8 8H6a4 4 0 0 0 0 8h2"/><path d="M16 8h2a4 4 0 0 1 0 8h-2"/>',
       hist:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/>',
-      gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'};
+      gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+      scale:'<path d="M12 3v18"/><path d="M7 7h10"/><path d="M7 7l-2.6 5.6a2.6 2.6 0 0 0 5.2 0z"/><path d="M17 7l-2.6 5.6a2.6 2.6 0 0 0 5.2 0z"/><path d="M8 21h8"/>'};
     var d=p[k]||p.home;
     return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">'+d+'</svg>';
   }
   var activeNav='home';
   function renderNav(){
     var counts={home:'',my:REVIEWS.length,all:REVIEWS.length,close:'',knowledge:knowledgeItems().length,evidence:EVIDENCE.length,audit:'',
-      'repo-workspaces':RP_PERIODS.length,'repo-upload':'','repo-coa':(rpUnmappedCount()||''),'repo-history':RP_UPLOADS.length};
+      'repo-workspaces':RP_PERIODS.length,'repo-upload':'','repo-coa':(rpUnmappedCount()||''),'repo-ledger':(ldgExceptions('2026-07').length||''),'repo-history':RP_UPLOADS.length};
     var h='';
     NAV.forEach(function(grp){
       if(grp.g)h+='<div class="nh">'+grp.g+'</div>';
@@ -751,6 +788,7 @@
     else if(k==='repo-workspaces'){renderRepoWorkspaces();window.scrollTo(0,0);}
     else if(k==='repo-upload'){renderRepoUpload();window.scrollTo(0,0);}
     else if(k==='repo-coa'){renderRepoCoa();window.scrollTo(0,0);}
+    else if(k==='repo-ledger'){renderLedger();window.scrollTo(0,0);}
     else if(k==='repo-history'){renderRepoHistory();window.scrollTo(0,0);}
     else if(k==='settings'){renderSettings();window.scrollTo(0,0);}
   }
@@ -1611,6 +1649,80 @@
   function rpUpMark(period,type){var a=rpActive(period,type);if(!a)return '<span class="rp-dash">—</span>';return '<span class="rp-cell"><span class="rp-chk">'+RP_CHK+'</span><span class="rp-vpill">v'+a.ver+'</span></span>';}
   function rpStateWord(s){return s==='done'?'Complete':s==='prog'?'In progress':s==='attention'?'Needs attention':'Not started';}
   function rpLcCard(label,val,state){return '<div class="rp-lc"><div class="lc-l">'+label+'</div><div class="lc-v">'+rpMark(state)+val+'</div></div>';}
+
+  /* ===== GL <-> TB tie-out ledger (the running-total spine) =======================
+     Sum each month's GL detail per account, roll it forward (opening + activity =
+     closing) and verify the running total ties to the trial balance every month.
+     Derived from the embedded GL engine (E_rows) -- nothing stored twice.
+       Balance-sheet accounts roll forward perpetually; P&L accounts accumulate YTD
+       and reset at the fiscal year boundary (calendar year, Dec year-end). ========= */
+  var LDG_MONTHNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function ldgMonthFull(m){return LDG_MONTHNAMES[(+m.slice(5))-1]+' '+m.slice(0,4);}
+  /* Deliberate TB-vs-GL variances, so the control is not trivially all-green: these are
+     the reconciling items a review platform exists to catch (AP echoes the wider Korvyn
+     model's -1,250 AP variance). Uploaded TB = GL closing + variance. */
+  var TB_VAR={'20000|2026-07':-1250,'15000|2026-06':8400,'21000|2026-05':-3200};
+  var _glLedger=null;
+  function glLedger(){
+    if(_glLedger)return _glLedger;
+    var months=E_MONTHS.slice(), rows=E_rows(), act={};
+    E_ACC.forEach(function(a){act[a.acct]={};});
+    rows.forEach(function(r){if(act[r.acct])act[r.acct][r.period]=(act[r.acct][r.period]||0)+r.amount;});
+    var accounts=E_ACC.map(function(a){
+      var isPL=(a.type==='Revenue'||a.type==='Expense'), series=[], run=0, prevFY=null;
+      months.forEach(function(m){
+        var fy=m.slice(0,4), amt=act[a.acct][m]||0, opening=(isPL&&fy!==prevFY)?0:run, closing=opening+amt;
+        series.push({month:m,opening:opening,activity:amt,closing:closing});
+        run=closing; prevFY=fy;
+      });
+      return {acct:a.acct,name:a.name,type:a.type,isPL:isPL,series:series};
+    });
+    _glLedger={months:months,accounts:accounts};
+    return _glLedger;
+  }
+  function ldgSeriesAt(a,m){return a.series[glLedger().months.indexOf(m)];}
+  function tbTie(m){
+    return glLedger().accounts.map(function(a){
+      var s=ldgSeriesAt(a,m), v=TB_VAR[a.acct+'|'+m]||0;
+      return {acct:a.acct,name:a.name,type:a.type,isPL:a.isPL,opening:s.opening,activity:s.activity,closing:s.closing,tb:s.closing+v,diff:v};
+    });
+  }
+  function ldgExceptions(m){return tbTie(m).filter(function(r){return Math.abs(r.diff)>0.5;});}
+  function ldgAmt(n){n=Math.round(n);var s=rpNum(Math.abs(n));return n<0?'('+s+')':s;}
+  function ldgDiffHTML(n){return '<span class="ldg-diff">'+(n>0?'+':'&minus;')+rpNum(Math.abs(Math.round(n)))+'</span>';}
+
+  var ldgMonth='2026-07', ldgExpand=null;
+  var LDG_GROUPS=[['Revenue','Revenue'],['Expense','Operating expenses'],['Asset','Assets'],['Liability','Liabilities']];
+  function ldgRollHTML(acct){
+    var a=null; glLedger().accounts.forEach(function(x){if(x.acct===acct)a=x;}); if(!a)return '';
+    var head='<tr><th class="l">Running balance</th>'+a.series.map(function(s){return '<th'+(s.month===ldgMonth?' class="on"':'')+'>'+E_ML[s.month]+'</th>';}).join('')+'</tr>';
+    function row(lbl,key,cls){return '<tr class="'+(cls||'')+'"><td class="l">'+lbl+'</td>'+a.series.map(function(s){return '<td'+(s.month===ldgMonth?' class="on"':'')+'>'+ldgAmt(s[key])+'</td>';}).join('')+'</tr>';}
+    return '<div class="ldg-roll"><table class="ldg-rolltbl">'+head+row('Opening','opening')+row('+ Activity','activity')+row('= Closing','closing','cl')+'</table></div>';
+  }
+  function renderLedger(){
+    var led=glLedger(), m=ldgMonth, T=tbTie(m), exc=ldgExceptions(m), totalAct=0;
+    T.forEach(function(r){totalAct+=Math.abs(r.activity);});
+    var h='<div class="kv-hd"><div><div class="k">Financial repository</div><h1>Trial Balance &mdash; GL roll-forward</h1><div class="kv-sub">Each month&rsquo;s GL detail is summed per account and rolled forward: <b>opening + activity = closing = trial balance</b>. Korvyn keeps the running total and verifies it ties to the TB every month.</div></div></div>';
+    h+='<div class="ldg-strip">'+led.months.map(function(mm){var ex=ldgExceptions(mm).length;return '<button class="ldg-mo'+(mm===m?' on':'')+'" data-mo="'+mm+'"><span class="ldg-mo-l">'+E_ML[mm]+'</span><span class="ldg-mo-s '+(ex?'ex':'ok')+'" title="'+(ex?ex+' exception':'Ties')+'"></span></button>';}).join('')+'</div>';
+    function k(l,v,cls){return '<div class="ldg-kpi"><div class="lk">'+l+'</div><div class="lv '+(cls||'')+'">'+v+'</div></div>';}
+    h+='<div class="ldg-kpis">'+k('Period',ldgMonthFull(m))+k('Accounts',String(T.length))+k('GL activity','$'+ldgAmt(totalAct))+k('Tie-out',exc.length?(exc.length+' exception'+(exc.length>1?'s':'')):'All accounts tie',exc.length?'ex':'ok')+'</div>';
+    h+='<div class="card"><table class="ldg-tbl"><thead><tr><th class="l">Account</th><th>Opening</th><th>+ Activity</th><th>= Closing</th><th>Trial balance</th><th>Diff</th><th class="c">Tie</th></tr></thead><tbody>';
+    LDG_GROUPS.forEach(function(g){
+      var rows=T.filter(function(r){return r.type===g[0];}); if(!rows.length)return;
+      h+='<tr class="ldg-grp"><td colspan="7">'+g[1]+'</td></tr>'; var sc=0;
+      rows.forEach(function(r){
+        var tie=Math.abs(r.diff)<0.5; sc+=r.closing;
+        h+='<tr class="ldg-row'+(ldgExpand===r.acct?' op':'')+'" data-acct="'+r.acct+'"><td class="l"><span class="ldg-ex">'+(ldgExpand===r.acct?'&#9662;':'&#9656;')+'</span><span class="ldg-ac">'+r.acct+'</span>'+esc(r.name)+'</td><td>'+ldgAmt(r.opening)+'</td><td>'+ldgAmt(r.activity)+'</td><td class="cl">'+ldgAmt(r.closing)+'</td><td>'+ldgAmt(r.tb)+'</td><td class="df">'+(tie?'<span class="mut">&mdash;</span>':ldgDiffHTML(r.diff))+'</td><td class="c">'+(tie?'<span class="ldg-tie ok">&#10003;</span>':'<span class="ldg-tie ex">!</span>')+'</td></tr>';
+        if(ldgExpand===r.acct)h+='<tr class="ldg-detail"><td colspan="7">'+ldgRollHTML(r.acct)+'</td></tr>';
+      });
+      h+='<tr class="ldg-sub"><td class="l">'+g[1]+' subtotal</td><td></td><td></td><td class="cl">'+ldgAmt(sc)+'</td><td></td><td></td><td></td></tr>';
+    });
+    h+='</tbody></table></div>';
+    h+='<div class="ldg-note">Tie-out verifies each account&rsquo;s GL detail foots to its trial-balance figure and rolls forward month to month. A full A = L + E balance also needs cash and equity accounts, which sit outside this illustrative GL.</div>';
+    $('#view').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('#view .ldg-mo'),function(b){b.onclick=function(){ldgMonth=b.getAttribute('data-mo');ldgExpand=null;renderLedger();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .ldg-row'),function(tr){tr.onclick=function(){var a=tr.getAttribute('data-acct');ldgExpand=(ldgExpand===a?null:a);renderLedger();};});
+  }
 
   /* ---- page: Monthly Workspaces (the module landing) ---- */
   function renderRepoWorkspaces(){
