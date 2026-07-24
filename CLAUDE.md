@@ -11,9 +11,14 @@ The repo holds **two independent things**. Almost all of this document is about 
 | `korvyn_dashboard.html` | the illustrative prototype — hardcoded data, no build step |
 | `korvyn-core/` | a real TypeScript package: canonical accounting model + ERP integration boundary |
 
-They share no code and neither imports the other. The dashboard does **not** run on
-`korvyn-core`; its numbers are still hardcoded. Rules below about deriving-not-duplicating,
-render dispatch, nav and the design system apply to the **dashboard only** unless stated.
+They share no code and neither imports the other at **runtime** — the dashboard's numbers are
+still hardcoded and it does **not** run on `korvyn-core`. The **one** bridge is build-time and
+one-directional: `korvyn-core/tools/emit_enterprise_gl.mjs` serialises the validated enterprise
+GL fixture into a `<script id="egl-data">` snapshot inside `korvyn_dashboard.html`, which the
+dashboard's **Enterprise GL** module (`renderEGL`, util lens `egl`, reached from the ⋯ launcher)
+renders. That is a data snapshot, not an import; the single-file dashboard still depends on
+nothing. Rules below about deriving-not-duplicating, render dispatch, nav and the design system
+apply to the **dashboard only** unless stated.
 
 ### `korvyn-core/` in one paragraph
 
@@ -24,8 +29,13 @@ external systems must enter through. **The architectural rule is one-directional
 outside an adapter's private translation code. `tools/check_boundary.py` enforces that
 without needing Node. Money is `bigint` minor units; a journal line carries one signed
 amount; balance is checked per currency; `ValidatedJournalEntry` is a branded type so
-posting something unvalidated is a compile error. Verified: `npm run check` (typecheck src +
-tests, 43 tests, boundary) is green. See `korvyn-core/README.md` for the tradeoffs and the
+posting something unvalidated is a compile error. Also built: `src/domain/capital.ts` (the
+CIP→PIS capital-asset lifecycle — one `CapitalProject` through six stages, two branded
+determination gates mirroring `ValidatedJournalEntry`, and a placed-in-service settlement
+tie-out) and `src/fixtures/enterprise-gl.ts` (a deterministic multinational GL — 6 entities,
+4 currencies, ~580 balanced entries — where every entry provably passes `validateJournalEntry`
+and every entity ties out per currency). Verified: `npm run check` (typecheck src + tests,
+**78 tests**, boundary) is green. See `korvyn-core/README.md` for the tradeoffs and the
 PATH note. Deliberately not built: sync engine, persistence, real API calls, any UI.
 
 Note the boundary with the dashboard rule below: Korvyn never *posts* to the ERP, but the
@@ -1390,7 +1400,9 @@ and re-copy after every edit or you will be validating a stale file.
 #          for (const t of LENSES[L].tabs) { pickTab(t);
 #            res[t]=document.getElementById('view-'+t).innerHTML.length; } }
 #        return JSON.stringify(Object.entries(res).filter(([k,v])=>!v||v<500)); })()
-#    62 tabs, none under 500 chars, none throwing. Then reset to portfolio/overview.
+#    63 tabs, none under 500 chars, none throwing. Then reset to portfolio/overview.
+#    (Was 62 until the Enterprise GL module `egl` was added — a util lens reached from the
+#    ⋯ launcher, rendering the korvyn-core GL snapshot in `window.EGL_DATA`.)
 #    The live regression check is Home > Exceptions = 3,663 chars (view-overview is a
 #    composed workspace now and its length moves legitimately).
 #
