@@ -1,6 +1,6 @@
 <title>Korvyn - Financial Review Platform</title>
 <style>
-  :root{--fx-stripe:#EEF1F4;--fx-hover:#E3EFEF;--fx-tot:#E0E5EA;--fx-sec:#E6EAEE;--fx-sec-tx:#17646F;
+  :root{--fx-stripe:#EFF2F5;--fx-hover:#E3EFEF;--fx-tot:#E5EAEF;--fx-sec:#E9EDF1;--fx-sec-tx:#17646F;--fx-head:linear-gradient(180deg,#F3F6F9,#E4EAF0);
     --bg:#F7F8FA; --surface:#FFFFFF; --surface-2:#FCFCFD; --raise:#EFF1F5;
     --chrome-accent:#7A9CF0; /* cobalt that reads on dark chrome — active-nav indicator; constant in both themes, like the ribbon */
     /* chrome hover/active/badge washes — white-translucent by default (dark chrome); light chrome themes invert these to dark-translucent */
@@ -18,7 +18,7 @@
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   }
   @media (prefers-color-scheme:dark){
-    :root{--fx-stripe:#1C212A;--fx-hover:#213130;--fx-tot:#272E39;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;
+    :root{--fx-stripe:#1C212A;--fx-hover:#213130;--fx-tot:#262D38;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;--fx-head:linear-gradient(180deg,#242B35,#1A1F27);
       --bg:#0F1218; --surface:#171A21; --surface-2:#1C1F27; --raise:#232732;
       --ink:#F2F4F8; --ink-2:#DFE3EA; --muted:#A6ADBC; --faint:#8B93A4;
       --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
@@ -41,7 +41,7 @@
     --pos-bg:#EAF6EF; --warn-bg:#FDF3E2; --neg-bg:#FBECEA; --slate-bg:#EFF1F5;
     --shadow:0 12px 34px rgba(16,18,24,.14);
   }
-  :root[data-theme="dark"]{--fx-stripe:#1C212A;--fx-hover:#213130;--fx-tot:#272E39;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;
+  :root[data-theme="dark"]{--fx-stripe:#1C212A;--fx-hover:#213130;--fx-tot:#262D38;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;--fx-head:linear-gradient(180deg,#242B35,#1A1F27);
     --bg:#0F1218; --surface:#171A21; --surface-2:#1C1F27; --raise:#232732;
     --ink:#F2F4F8; --ink-2:#DFE3EA; --muted:#A6ADBC; --faint:#8B93A4;
     --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
@@ -383,28 +383,32 @@
   .fx-gridwrap{overflow:auto;max-height:74vh;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);box-shadow:0 1px 3px rgba(20,24,36,.05)}
   .fxg{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
   .fxg col.c-line{width:246px} .fxg col.c-per{width:118px} .fxg col.c-chg{width:124px} .fxg col.c-pct{width:82px} .fxg col.c-trend{width:124px} .fxg col.c-cmt{width:auto}
-  .fxg th,.fxg td{height:34px;padding:0 14px;text-align:right;white-space:nowrap;vertical-align:middle}
+  .fxg th,.fxg td{height:36px;padding:0 14px;text-align:right;white-space:nowrap;vertical-align:middle}
+  .fxg tbody td{border-bottom:1px solid var(--line)}
+  .fxg thead th+th,.fxg tbody td+td{border-left:1px solid var(--line)}
+  .fxg tbody tr.fx-sec td{border-bottom:0}
   .fxg td.l,.fxg th.l{text-align:left}
-  .fxg thead th{position:sticky;top:0;z-index:3;background:#153A42;color:#EAF3F2;font-weight:600;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;padding:9px 14px;height:auto;border-bottom:2px solid #0B252B;vertical-align:bottom}
+  .fxg thead th{position:sticky;top:0;z-index:3;background:var(--fx-head);color:var(--ink);font-weight:600;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;padding:9px 14px 8px;height:auto;border-bottom:1px solid var(--line-2);vertical-align:bottom}
   .fxg thead th.l{text-align:left}
-  .fxg thead th.fx-cur-col{color:#fff}
-  .fxg thead th .sub{display:block;font-size:9px;font-weight:400;color:#9FC2C0;text-transform:none;letter-spacing:.01em;margin-top:3px}
-  .fxg th.fx-line,.fxg td.fx-line{position:sticky;left:0;z-index:2;text-align:left;box-shadow:7px 0 9px -8px rgba(20,24,36,.14)}
+  .fxg thead th.fx-cur-col{color:var(--fx-sec-tx)}
+  .fxg thead th .sub{display:block;font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:.01em;margin-top:3px}
+  .fxg th.fx-line,.fxg td.fx-line{position:sticky;left:0;z-index:2;text-align:left}
+  .fx-gridwrap.xscroll .fxg th.fx-line,.fx-gridwrap.xscroll .fxg td.fx-line{box-shadow:1px 0 0 0 rgba(20,24,36,.16)}
   .fxg thead th.fx-line{z-index:5}
-  .fxg tr.fx-sec td{background:var(--fx-sec);color:var(--fx-sec-tx);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.07em;height:27px}
+  .fxg tr.fx-sec td{background:var(--surface);color:var(--fx-sec-tx);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.07em;height:auto;padding-top:14px;padding-bottom:6px}
   .fxg tr.fx-grp>td{background:var(--surface)}
-  .fxg tr.fx-grp.alt>td{background:var(--fx-stripe)}
+  .fxg tr.fx-grp.alt>td{background:var(--surface)}
   .fxg tr.fx-grp:hover>td{background:var(--fx-hover)}
   .fxg tr.fx-grp>td.fx-line{color:var(--ink);font-weight:600;cursor:pointer}
   .fxg tr.fx-det>td{background:var(--surface);color:var(--ink-2)}
-  .fxg tr.fx-det.alt>td{background:var(--fx-stripe)}
-  .fxg tr.fx-det>td.fx-line{padding-left:16px;font-weight:400;color:var(--ink-2)}
+  .fxg tr.fx-det.alt>td{background:var(--surface)}
+  .fxg tr.fx-det>td.fx-line{padding-left:34px;font-weight:400;color:var(--ink-2)}
   .fxg tr.fx-tot>td{background:var(--fx-tot);color:var(--ink);font-weight:700}
   .fxg tr.fx-grand>td{background:var(--fx-tot);color:var(--ink);font-weight:700}
   .fxg td.fx-cur-col{font-weight:600;color:var(--ink)}
   .fxg tr.fx-det>td.fx-cur-col{font-weight:500}
-  .fxg .fx-sep{padding-left:22px}
-  .fxg tr.fx-grp.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn),7px 0 9px -8px rgba(20,24,36,.14)}
+  .fxg .fx-sep{padding-left:14px}
+  .fxg tr.fx-grp.mat>td.fx-line{box-shadow:none}
   .fx-flag{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;background:var(--warn-bg);color:var(--warn);font-size:10px;font-weight:700;margin-left:8px;vertical-align:middle}
   .fx-exp{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--line-2);border-radius:3px;color:var(--muted);font-size:12px;line-height:1;margin-right:9px;vertical-align:middle;background:var(--surface)}
   .fx-grp:hover .fx-exp{border-color:var(--fx-sec-tx);color:var(--fx-sec-tx)}
@@ -438,6 +442,32 @@
   .fx-sheet:hover{color:var(--ink)}
   .fx-sheet.on{background:var(--surface);color:var(--ink);font-weight:600}
   .fx-sheet-note{margin-left:auto;font-size:11px;color:var(--faint);padding-right:6px}
+  .fx-tools .btn{display:inline-flex;align-items:center;gap:6px}
+  .fx-print-head{display:none;margin-bottom:16px}
+  .fx-print-head .pph-org{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+  .fx-print-head .pph-title{font-size:21px;font-weight:700;color:var(--ink);margin-top:4px}
+  .fx-print-head .pph-sub{font-size:12px;color:var(--muted);margin-top:4px}
+  @page{size:landscape;margin:12mm}
+  body.print-mode{background:#fff!important}
+  body.print-mode .ribbon,body.print-mode #nav,body.print-mode #aiPanel,body.print-mode #aiMinTab,body.print-mode #notifPanel,body.print-mode #reviewModal,body.print-mode #view .kv-hd,body.print-mode #view .fx-kpis,body.print-mode #view .fx-bar,body.print-mode #view .fx-sheets,body.print-mode #view .flx-note{display:none!important}
+  body.print-mode .app{display:block!important}
+  body.print-mode .main{margin:0!important}
+  body.print-mode #view{padding:6px 4px!important}
+  body.print-mode .fx-print-head{display:block!important}
+  body.print-mode .fx-gridwrap{max-height:none!important;overflow:visible!important;border:none!important;box-shadow:none!important;border-radius:0!important}
+  body.print-mode .fxg{min-width:0!important;width:100%!important}
+  body.print-mode .fxg thead th,body.print-mode .fxg th.fx-line,body.print-mode .fxg td.fx-line{position:static!important;box-shadow:none!important}
+  body.print-mode .fx-exp,body.print-mode .fx-drill,body.print-mode .fx-cmt-add{display:none!important}
+  body.print-mode,body.print-mode *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .fx-chk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);cursor:pointer;user-select:none}
+  .fx-chk input{cursor:pointer;margin:0}
+  body.print-plain .fxg tr.fx-grp.alt>td,body.print-plain .fxg tr.fx-det.alt>td{background:var(--surface)!important}
+  body.print-plain .fxg thead th{background:var(--surface)!important;border-bottom:1.5px solid var(--ink)!important}
+  body.print-plain .fxg td,body.print-plain .fxg th{border-left:0!important;border-right:0!important;border-bottom:0!important}
+  body.print-plain .fxg tr.fx-sec td{background:var(--surface)!important}
+  body.print-plain .fxg tr.fx-tot>td,body.print-plain .fxg tr.fx-grand>td{background:var(--surface)!important}
+  body.print-plain .fxg tr.fx-tot>td.fx-money,body.print-plain .fxg tr.fx-tot>td.fx-pct{border-top:1px solid var(--ink-2)!important}
+  body.print-plain .fxg tr.fx-grand>td.fx-money,body.print-plain .fxg tr.fx-grand>td.fx-pct{border-top:1px solid var(--ink-2)!important;border-bottom:3px double var(--ink-2)!important}
   .flx-note{margin-top:12px}
   /* ---- review notes (auditable comment threads) ---- */
   .rn-overlay{position:fixed;inset:0;background:rgba(16,20,28,.42);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:64px 20px 20px;overflow:auto}
@@ -2319,7 +2349,7 @@
   }
 
   /* ---- FS flux review — Excel-grade flux grid (CoA pivot, multi-period trending) ---- */
-  var fluxStmt='bs', fluxFrom=null, fluxTo=null, fluxExpand={}, fluxEdit=null, fluxMat=8;
+  var fluxStmt='bs', fluxFrom=null, fluxTo=null, fluxExpand={}, fluxEdit=null, fluxMat=8, fluxPrintShaded=false;
   var FLUX_CAPTION={'Revenue':'Revenue','Facilities':'Facilities & site operations','Depreciation':'Depreciation & amortization','G&A':'General & administrative','PP&E':'Property & equipment','Payables':'Accounts payable','Accruals':'Accrued liabilities','Direct costs':'Cost of revenue'};
   var FLUX_COMMENTS={
     'bs:PP&E:2026-07':{text:'Net increase reflects routine equipment capitalization (new hall fit-out at the Campus site) plus the monthly construction draw on the Ridgeline campus. The $1.01M January addition remains the largest placement YTD. No impairment indicators.',ai:true},
@@ -2365,6 +2395,9 @@
     return '<td class="l fx-cmt"><button class="fx-cmt-add" data-edit="'+id+'">+ Add note</button></td>';
   }
   function monthSelect(which,val,months){return '<select class="fx-sel" data-per="'+which+'">'+months.map(function(m){return '<option value="'+m+'"'+(m===val?' selected':'')+'>'+flxLbl(m)+'</option>';}).join('')+'</select>';}
+  var FX_PRINT_ICO='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>';
+  var FX_MAIL_ICO='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+  function fxDoPrint(){document.body.classList.add('print-mode');if(!fluxPrintShaded)document.body.classList.add('print-plain');var clr=function(){document.body.classList.remove('print-mode');document.body.classList.remove('print-plain');window.removeEventListener('afterprint',clr);};window.addEventListener('afterprint',clr);setTimeout(function(){window.print();},40);setTimeout(clr,6000);}
   function renderMonthlyTrend(){
     var led=glLedger(), ms=led.months, P=fluxPeriods(led), fi=P.fi, ti=P.ti;
     var cols=[]; for(var ci=fi;ci<=ti;ci++)cols.push(ci);
@@ -2396,9 +2429,10 @@
     h+='<div class="fx-cmp"><span class="fx-lb">Flag moves over</span><select class="fx-sel" data-per="mat">'+[5,8,10,15].map(function(v){return '<option value="'+v+'"'+(v===fluxMat?' selected':'')+'>'+v+'%</option>';}).join('')+'</select></div>';
     var allKeys=[]; secs.forEach(function(s){s.groups.forEach(function(g){allKeys.push(fluxStmt+':'+g.report);});});
     var allExp=allKeys.length&&allKeys.every(function(k){return fluxExpand[k];});
-    h+='<div class="fx-tools"><button class="btn flx-expand-all">'+(allExp?'Collapse all':'Expand all')+'</button></div></div>';
+    h+='<div class="fx-tools"><button class="btn flx-expand-all">'+(allExp?'Collapse all':'Expand all')+'</button><label class="fx-chk" title="Keep the row shading and header/total fills when printing. Off prints a clean white statement."><input type="checkbox" class="fx-shade-chk"'+(fluxPrintShaded?' checked':'')+'> Shaded print</label><button class="btn fx-print">'+FX_PRINT_ICO+' Print</button><button class="btn fx-email">'+FX_MAIL_ICO+' Email</button></div></div>';
     // grid
     var minW=246+nCols*118+124+82+124+286;
+    h+='<div class="fx-print-head"><div class="pph-org">Meridian Global Portfolio &middot; Consolidated group</div><div class="pph-title">'+(isBS?'Balance Sheet':'Income Statement')+' &mdash; Flux &amp; Trending</div><div class="pph-sub">Period '+flxLbl(mFrom)+' &rarr; '+flxLbl(mTo)+' &middot; MoM &Delta; into '+flxLbl(mTo)+' &middot; Figures in USD</div></div>';
     h+='<div class="fx-gridwrap"><table class="fxg" style="min-width:'+minW+'px"><colgroup><col class="c-line">'+cols.map(function(){return '<col class="c-per">';}).join('')+'<col class="c-chg"><col class="c-pct"><col class="c-trend"><col class="c-cmt"></colgroup>';
     h+='<thead><tr><th class="l fx-line">Line item</th>';
     cols.forEach(function(idx,k){var last=k===nCols-1;h+='<th class="fx-per'+(last?' fx-cur-col':'')+'">'+flxLbl(ms[idx]).toUpperCase()+(last?'<span class="sub">'+flxAsOf(ms[idx])+'</span>':'')+'</th>';});
@@ -2446,6 +2480,10 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-sheet'),function(b){b.onclick=function(){fluxStmt=b.getAttribute('data-flx');fluxEdit=null;renderMonthlyTrend();};});
     var ea=document.querySelector('#view .flx-expand-all');
     if(ea)ea.onclick=function(){var ks=[];fluxSections(glLedger(),fluxStmt).forEach(function(s){s.groups.forEach(function(g){ks.push(fluxStmt+':'+g.report);});});var open=ks.some(function(k){return !fluxExpand[k];});ks.forEach(function(k){fluxExpand[k]=open;});renderMonthlyTrend();};
+    var pbtn=document.querySelector('#view .fx-print');if(pbtn)pbtn.onclick=fxDoPrint;
+    var sc=document.querySelector('#view .fx-shade-chk');if(sc)sc.onchange=function(){fluxPrintShaded=this.checked;};
+    var gw=document.querySelector('#view .fx-gridwrap');if(gw){gw.onscroll=function(){this.classList.toggle('xscroll',this.scrollLeft>0);};gw.classList.toggle('xscroll',gw.scrollLeft>0);}
+    var ebtn=document.querySelector('#view .fx-email');if(ebtn)ebtn.onclick=function(){var st=isBS?'Balance Sheet':'Income Statement';var subj='Flux review — '+st+' — '+flxLbl(mTo);var body='Flux & trending review — '+st+', period '+flxLbl(mFrom)+' to '+flxLbl(mTo)+'.\r\n\r\nMaterial moves: '+matCount+'; needs explanation: '+needCount+'.\r\n\r\nOpen in Korvyn to review the full statement.';window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);};
   }
 
   /* ===== Filing: statements in public-filing format + review-comments section ========= */
