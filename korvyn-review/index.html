@@ -1,6 +1,6 @@
 <title>Korvyn - Financial Review Platform</title>
 <style>
-  :root{
+  :root{--fx-stripe:#EEF1F4;--fx-hover:#E3EFEF;--fx-tot:#E0E5EA;--fx-sec:#E6EAEE;--fx-sec-tx:#17646F;
     --bg:#F7F8FA; --surface:#FFFFFF; --surface-2:#FCFCFD; --raise:#EFF1F5;
     --chrome-accent:#7A9CF0; /* cobalt that reads on dark chrome — active-nav indicator; constant in both themes, like the ribbon */
     /* chrome hover/active/badge washes — white-translucent by default (dark chrome); light chrome themes invert these to dark-translucent */
@@ -18,7 +18,7 @@
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   }
   @media (prefers-color-scheme:dark){
-    :root{
+    :root{--fx-stripe:#1C212A;--fx-hover:#213130;--fx-tot:#272E39;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;
       --bg:#0F1218; --surface:#171A21; --surface-2:#1C1F27; --raise:#232732;
       --ink:#F2F4F8; --ink-2:#DFE3EA; --muted:#A6ADBC; --faint:#8B93A4;
       --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
@@ -41,7 +41,7 @@
     --pos-bg:#EAF6EF; --warn-bg:#FDF3E2; --neg-bg:#FBECEA; --slate-bg:#EFF1F5;
     --shadow:0 12px 34px rgba(16,18,24,.14);
   }
-  :root[data-theme="dark"]{
+  :root[data-theme="dark"]{--fx-stripe:#1C212A;--fx-hover:#213130;--fx-tot:#272E39;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;
     --bg:#0F1218; --surface:#171A21; --surface-2:#1C1F27; --raise:#232732;
     --ink:#F2F4F8; --ink-2:#DFE3EA; --muted:#A6ADBC; --faint:#8B93A4;
     --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18);
@@ -361,46 +361,83 @@
   .trd-legend{display:flex;gap:16px;margin-bottom:10px;font-size:12px;color:var(--ink-2)}
   .trd-lg{display:flex;align-items:center;gap:6px}
   .trd-lg .sw{width:12px;height:2.5px;border-radius:2px}
-  /* ---- FS flux review (CoA-grouped pivot, expandable, filing-style) ---- */
-  .flx-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
-  .flx-cmp{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
-  .flx-cl{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:500}
-  .flx-arrow{color:var(--faint)}
-  .flx-sel{font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:5px 8px;cursor:pointer}
-  .flx-expand-all{margin-left:auto}
-  .flx-wrap{overflow-x:auto;border-radius:var(--radius-sm)}
-  .flx-tbl{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;min-width:880px}
-  .flx-tbl thead th{background:#1C6B7A;color:#fff;font-size:11px;font-weight:600;letter-spacing:.03em;padding:11px 14px;text-align:right;white-space:nowrap}
-  .flx-tbl thead th.l{text-align:left}
-  .flx-tbl thead th.chg{border-left:1px solid rgba(255,255,255,.28)}
-  .flx-tbl thead th.cm{text-align:left;width:40%}
-  .flx-tbl td{padding:8px 14px;text-align:right;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:top}
-  .flx-tbl td.l{text-align:left;color:var(--ink)}
-  .flx-sec td{background:var(--accent-bg);color:var(--accent);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:7px 14px}
-  .flx-grp{cursor:pointer}
-  .flx-grp>td.l{font-weight:500}
-  .flx-line>td.l{font-weight:500}
-  .flx-grp.alt td,.flx-det.alt td{background:rgba(120,132,156,.11)}
-  .flx-grp:hover>td{background:rgba(47,98,212,.07)}
-  .flx-tw{display:inline-block;width:14px;color:var(--faint);font-size:10px;margin-right:2px}
-  .flx-det td.l{padding-left:36px;color:var(--ink-2);font-weight:400}
-  .flx-ac{display:inline-block;min-width:44px;color:var(--faint);font-size:11px;margin-right:8px}
-  .flx-drill{margin-left:10px;font-size:11px;color:var(--accent);opacity:0;text-decoration:none;white-space:nowrap}
-  .flx-det:hover .flx-drill{opacity:1}
-  .flx-tot td{background:var(--surface-2);font-weight:600;color:var(--ink);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
-  .flx-grand td{background:var(--surface-2);font-weight:600;color:var(--ink);border-top:2px solid var(--line-2);border-bottom:3px double var(--line-2)}
-  .flx-chg{border-left:1px solid var(--line-2);color:var(--ink);white-space:nowrap}
-  .flx-tot .flx-chg,.flx-grand .flx-chg{font-weight:600}
-  .flx-cm{text-align:left;white-space:normal;max-width:520px}
-  .flx-cmt{cursor:text}
-  .flx-tx{text-align:left;color:var(--ink-2);font-size:12px;line-height:1.5}
-  .flx-by{display:block;font-size:10.5px;color:var(--faint);margin-top:3px}
-  .flx-by .ai{color:var(--accent);font-weight:500}
-  .flx-cmt:hover .flx-tx{color:var(--ink)}
-  .flx-addc{border:0;background:none;color:var(--accent);cursor:pointer;font-size:11.5px;font-family:inherit;padding:0}
-  .flx-addc:hover{text-decoration:underline}
-  .flx-ta{width:100%;min-height:64px;font-family:inherit;font-size:12px;line-height:1.5;color:var(--ink);background:var(--surface);border:1px solid var(--accent-line);border-radius:var(--radius-sm);padding:8px;resize:vertical;box-sizing:border-box;text-align:left}
-  .flx-eb{display:flex;gap:8px;margin-top:6px}
+  /* ---- FS flux review — Excel-grade flux grid (clean, multi-period) ---- */
+  .fx-kpis{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 14px}
+  .fx-kpi{flex:1 1 0;min-width:158px;background:var(--surface);border:1px solid var(--line-2);border-radius:9px;padding:11px 15px}
+  .fx-kpi .l{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .fx-kpi .v{font-size:19px;font-weight:600;color:var(--ink);margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .fx-kpi .s{font-size:11px;color:var(--faint);margin-top:3px}
+  .fx-kpi.warn{border-color:var(--warn)} .fx-kpi.warn .v{color:var(--warn)}
+  .fx-kpi.good .v{color:var(--pos)}
+  .fx-bar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+  .fx-cmp{display:flex;align-items:center;gap:8px;font-size:12px}
+  .fx-lb{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+  .fx-arw{color:var(--faint)}
+  .fx-sel{font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:5px 9px;cursor:pointer}
+  .fx-presets{display:inline-flex;border:1px solid var(--line-2);border-radius:7px;overflow:hidden}
+  .fx-preset{border:0;border-right:1px solid var(--line-2);background:var(--surface);color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 13px;cursor:pointer}
+  .fx-preset:last-child{border-right:0}
+  .fx-preset:hover:not(.on){background:var(--raise);color:var(--ink)}
+  .fx-preset.on{background:#1C6B7A;color:#fff}
+  .fx-tools{margin-left:auto;display:flex;gap:8px}
+  .fx-gridwrap{overflow:auto;max-height:74vh;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);box-shadow:0 1px 3px rgba(20,24,36,.05)}
+  .fxg{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+  .fxg col.c-line{width:246px} .fxg col.c-per{width:118px} .fxg col.c-chg{width:124px} .fxg col.c-pct{width:82px} .fxg col.c-trend{width:124px} .fxg col.c-cmt{width:auto}
+  .fxg th,.fxg td{height:34px;padding:0 14px;text-align:right;white-space:nowrap;vertical-align:middle}
+  .fxg td.l,.fxg th.l{text-align:left}
+  .fxg thead th{position:sticky;top:0;z-index:3;background:#153A42;color:#EAF3F2;font-weight:600;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;padding:9px 14px;height:auto;border-bottom:2px solid #0B252B;vertical-align:bottom}
+  .fxg thead th.l{text-align:left}
+  .fxg thead th.fx-cur-col{color:#fff}
+  .fxg thead th .sub{display:block;font-size:9px;font-weight:400;color:#9FC2C0;text-transform:none;letter-spacing:.01em;margin-top:3px}
+  .fxg th.fx-line,.fxg td.fx-line{position:sticky;left:0;z-index:2;text-align:left;box-shadow:7px 0 9px -8px rgba(20,24,36,.14)}
+  .fxg thead th.fx-line{z-index:5}
+  .fxg tr.fx-sec td{background:var(--fx-sec);color:var(--fx-sec-tx);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.07em;height:27px}
+  .fxg tr.fx-grp>td{background:var(--surface)}
+  .fxg tr.fx-grp.alt>td{background:var(--fx-stripe)}
+  .fxg tr.fx-grp:hover>td{background:var(--fx-hover)}
+  .fxg tr.fx-grp>td.fx-line{color:var(--ink);font-weight:600;cursor:pointer}
+  .fxg tr.fx-det>td{background:var(--surface);color:var(--ink-2)}
+  .fxg tr.fx-det.alt>td{background:var(--fx-stripe)}
+  .fxg tr.fx-det>td.fx-line{padding-left:16px;font-weight:400;color:var(--ink-2)}
+  .fxg tr.fx-tot>td{background:var(--fx-tot);color:var(--ink);font-weight:700}
+  .fxg tr.fx-grand>td{background:var(--fx-tot);color:var(--ink);font-weight:700}
+  .fxg td.fx-cur-col{font-weight:600;color:var(--ink)}
+  .fxg tr.fx-det>td.fx-cur-col{font-weight:500}
+  .fxg .fx-sep{padding-left:22px}
+  .fxg tr.fx-grp.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn),7px 0 9px -8px rgba(20,24,36,.14)}
+  .fx-flag{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:4px;background:var(--warn-bg);color:var(--warn);font-size:10px;font-weight:700;margin-left:8px;vertical-align:middle}
+  .fx-exp{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--line-2);border-radius:3px;color:var(--muted);font-size:12px;line-height:1;margin-right:9px;vertical-align:middle;background:var(--surface)}
+  .fx-grp:hover .fx-exp{border-color:var(--fx-sec-tx);color:var(--fx-sec-tx)}
+  .fx-exp-off{border-color:transparent;background:none}
+  .fx-line-txt{vertical-align:middle}
+  .fx-acct{display:inline-block;min-width:46px;color:var(--faint);font-size:10.5px;margin-right:10px}
+  .fx-drill{margin-left:10px;font-size:10.5px;color:var(--accent);opacity:0;text-decoration:none}
+  .fx-det:hover .fx-drill{opacity:1}
+  .fxg td.fx-money{position:relative;text-align:right}
+  .fx-cur{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--faint);font-weight:400}
+  .fxg td.fx-pct{text-align:right;font-size:11.5px}
+  .fxg td.fx-pct.up{color:var(--pos)} .fxg td.fx-pct.dn{color:var(--neg)} .fxg td.fx-pct.flat{color:var(--faint)}
+  .fx-arrow{font-size:8px;margin-right:3px}
+  .fxg td.fx-trend{padding:0 10px}
+  .fx-spark{display:block;margin:0 auto}
+  .fxg td.fx-cmt{text-align:left;white-space:normal;vertical-align:middle;padding:7px 14px;min-width:280px}
+  .fx-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;line-height:1.5;white-space:nowrap}
+  .fx-chip.ai{background:var(--ai-bg);color:var(--ai)}
+  .fx-chip.ok{background:var(--pos-bg);color:var(--pos)}
+  .fx-chip.need{background:var(--warn-bg);color:var(--warn)}
+  .fx-spk{font-size:9px}
+  .fx-cmt-box{cursor:text}
+  .fx-cmt-tx{margin-top:3px;font-size:11.5px;line-height:1.45;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:440px}
+  .fx-need{border:0;background:none;cursor:pointer;padding:0;font-family:inherit}
+  .fx-cmt-add{border:0;background:none;cursor:pointer;padding:0;font-family:inherit;color:var(--accent);font-size:11.5px}
+  .fx-cmt-add:hover{text-decoration:underline}
+  .fx-ta{width:100%;min-height:60px;font-family:inherit;font-size:12px;line-height:1.5;color:var(--ink);background:var(--surface);border:1px solid var(--accent-line);border-radius:6px;padding:7px;resize:vertical;box-sizing:border-box;text-align:left}
+  .fx-eb{display:flex;gap:8px;margin-top:6px}
+  .fx-sheets{display:flex;align-items:center;gap:3px;margin-top:-1px;padding-left:8px;border-top:1px solid var(--line-2)}
+  .fx-sheet{border:1px solid var(--line-2);border-top:0;background:var(--raise);color:var(--muted);font-family:inherit;font-size:12px;font-weight:500;padding:7px 18px;cursor:pointer;border-radius:0 0 7px 7px}
+  .fx-sheet:hover{color:var(--ink)}
+  .fx-sheet.on{background:var(--surface);color:var(--ink);font-weight:600}
+  .fx-sheet-note{margin-left:auto;font-size:11px;color:var(--faint);padding-right:6px}
   .flx-note{margin-top:12px}
   /* ---- review notes (auditable comment threads) ---- */
   .rn-overlay{position:fixed;inset:0;background:rgba(16,20,28,.42);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:64px 20px 20px;overflow:auto}
@@ -2281,20 +2318,20 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-go]'),function(b){b.onclick=function(){var t=this.getAttribute('data-go');if(t==='repo-ledger')ldgMonth=curPeriod;navTo(t);};});
   }
 
-  /* ---- FS flux review — CoA-grouped pivot, expandable, period-over-period ---- */
-  var fluxStmt='bs', fluxFrom=null, fluxTo=null, fluxExpand={}, fluxEdit=null;
+  /* ---- FS flux review — Excel-grade flux grid (CoA pivot, multi-period trending) ---- */
+  var fluxStmt='bs', fluxFrom=null, fluxTo=null, fluxExpand={}, fluxEdit=null, fluxMat=8;
   var FLUX_CAPTION={'Revenue':'Revenue','Facilities':'Facilities & site operations','Depreciation':'Depreciation & amortization','G&A':'General & administrative','PP&E':'Property & equipment','Payables':'Accounts payable','Accruals':'Accrued liabilities','Direct costs':'Cost of revenue'};
   var FLUX_COMMENTS={
     'bs:PP&E:2026-07':{text:'Net increase reflects routine equipment capitalization (new hall fit-out at the Campus site) plus the monthly construction draw on the Ridgeline campus. The $1.01M January addition remains the largest placement YTD. No impairment indicators.',ai:true},
-    'bs:Payables:2026-07':{text:'Movement is invoice timing on Operations and G&A vendors — the largest items are the July power settlement and site-ops. No aged or disputed balances; all within terms.',by:'Maya Grant'},
-    'bs:Accruals:2026-07':{text:'Routine month-end accrual for G&A and payroll. The prior-month accrual reversed as expected; no change in estimate.',ai:true},
-    'bs:Equity:2026-07':{text:'Movement is the period operating result flowing to retained earnings. No capital contributions or distributions in the period.',ai:true},
-    'is:Facilities:2026-07':{text:'Up on temporary rental chillers during the July heat event (~3 weeks, invoice CE-4471) within Power & utilities. Not a rate change; reverses as the rental accrual unwinds next month.',by:'Sarah Chen'},
+    'bs:Payables:2026-07':{text:'Invoice timing on Operations and G&A vendors — the largest items are the July power settlement and site-ops. No aged or disputed balances; all within terms.',by:'Maya Grant'},
+    'bs:Equity:2026-07':{text:'Period operating result flowing to retained earnings. No capital contributions or distributions in the period.',ai:true},
+    'is:Facilities:2026-07':{text:'Temporary rental chillers during the July heat event (~3 weeks, invoice CE-4471) within Power & utilities. Not a rate change; reverses as the rental accrual unwinds next month.',by:'Sarah Chen'},
     'is:G&A:2026-07':{text:'Property taxes drove the prior-period spike (April assessment true-up); the current period is back to the base run-rate.',ai:true}
   };
   function flxLbl(k){return (E_ML[k]||k).replace(' ','-');}
+  function flxAsOf(k){return filingDate(k);}
   function fluxVal(a,i){if(i<0)return 0;var s=a.series[i];if(a.type==='Revenue')return -s.activity;if(a.type==='Expense')return s.activity;if(a.type==='Liability')return -s.closing;return s.closing;}
-  function fluxPeriods(led){var ms=led.months;if(!fluxTo||ms.indexOf(fluxTo)<0)fluxTo=(ms.indexOf(ACTIVE_PERIOD)>=0?ACTIVE_PERIOD:ms[ms.length-1]);if(!fluxFrom||ms.indexOf(fluxFrom)<0){var ti=ms.indexOf(fluxTo);fluxFrom=ms[Math.max(0,ti-1)];}return {fi:ms.indexOf(fluxFrom),ti:ms.indexOf(fluxTo)};}
+  function fluxPeriods(led){var ms=led.months;if(!fluxTo||ms.indexOf(fluxTo)<0)fluxTo=(ms.indexOf(ACTIVE_PERIOD)>=0?ACTIVE_PERIOD:ms[ms.length-1]);if(!fluxFrom||ms.indexOf(fluxFrom)<0){var ti=ms.indexOf(fluxTo);fluxFrom=ms[Math.max(0,ti-5)];}var fi=ms.indexOf(fluxFrom),tj=ms.indexOf(fluxTo);if(fi>tj){var t=fi;fi=tj;tj=t;}return {fi:fi,ti:tj};}
   function fluxSections(led,stmt){
     var wantBS=(stmt==='bs');
     var accts=led.accounts.filter(function(a){return wantBS?(a.type==='Asset'||a.type==='Liability'):(a.type==='Revenue'||a.type==='Expense');});
@@ -2307,60 +2344,106 @@
       return {name:sn,groups:groups};
     });
   }
-  function fluxCmtCell(stmt,key,m){
-    var id=stmt+':'+key+':'+m, cm=FLUX_COMMENTS[id];
-    if(fluxEdit===id)return '<div class="flx-ed"><textarea id="flxTa" class="flx-ta" placeholder="Explain the movement — driver, amount, one-time vs run-rate...">'+(cm?esc(cm.text):'')+'</textarea><div class="flx-eb"><button class="btn primary flx-save" data-id="'+id+'">Save</button><button class="btn flx-cancel">Cancel</button></div></div>';
-    if(cm){var by=cm.ai?'<span class="ai">Korvyn draft</span> · edit to accept':esc(cm.by||'');return '<div class="flx-cmt" data-edit="'+id+'"><div class="flx-tx">'+esc(cm.text)+'</div><span class="flx-by">'+by+'</span></div>';}
-    return '<button class="flx-addc" data-edit="'+id+'">+ Add explanation</button>';
+  function fxNum(n){n=Math.round(n);return n<0?'('+rpNum(-n)+')':rpNum(n);}
+  function fxMoney(n,cls){return '<td class="fx-money'+(n<0?' fx-neg':'')+(cls?' '+cls:'')+'"><span class="fx-cur">$</span><span class="fx-num">'+fxNum(n)+'</span></td>';}
+  function fxPctCell(p,c){if(!p)return '<td class="fx-pct flat">&mdash;</td>';var d=(c-p)/Math.abs(p)*100;var cls=d>0.05?'up':d<-0.05?'dn':'flat';var ar=cls==='up'?'&#9650;':cls==='dn'?'&#9660;':'';return '<td class="fx-pct '+cls+'"><span class="fx-arrow">'+ar+'</span>'+(d>0?'+':'')+d.toFixed(1)+'%</td>';}
+  function fxSpark(vals){
+    if(!vals||vals.length<2)return '';
+    var w=104,h=26,pad=3,min=Math.min.apply(null,vals),max=Math.max.apply(null,vals),rng=(max-min)||1;
+    var pts=vals.map(function(v,i){var x=pad+(vals.length<2?0:i/(vals.length-1)*(w-2*pad));var y=h-pad-((v-min)/rng)*(h-2*pad);return [x,y];});
+    var line=pts.map(function(p,i){return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+    var area='M'+pts[0][0].toFixed(1)+' '+(h-pad)+' '+pts.map(function(p){return 'L'+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ')+' L'+pts[pts.length-1][0].toFixed(1)+' '+(h-pad)+' Z';
+    var last=pts[pts.length-1];
+    return '<svg class="fx-spark" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"><path d="'+area+'" fill="#1C6B7A" opacity="0.10"/><path d="'+line+'" fill="none" stroke="#1C6B7A" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="2.3" fill="#1C6B7A"/></svg>';
   }
-  function monthSelect(which,val,months){return '<select class="flx-sel" data-per="'+which+'">'+months.map(function(m){return '<option value="'+m+'"'+(m===val?' selected':'')+'>'+flxLbl(m)+'</option>';}).join('')+'</select>';}
+  function fxMatFlag(p,c){var d=c-p;if(!p)return Math.abs(d)>=250000;return Math.abs((c-p)/Math.abs(p)*100)>=fluxMat&&Math.abs(d)>=50000;}
+  function fluxCmtCell(stmt,key,m,material){
+    var id=stmt+':'+key+':'+m, cm=FLUX_COMMENTS[id];
+    if(fluxEdit===id)return '<td class="l fx-cmt"><div class="fx-ed"><textarea id="flxTa" class="fx-ta" placeholder="Explain the movement — driver, amount, one-time vs run-rate...">'+(cm?esc(cm.text):'')+'</textarea><div class="fx-eb"><button class="btn primary flx-save" data-id="'+id+'">Save</button><button class="btn flx-cancel">Cancel</button></div></div></td>';
+    if(cm){var chip=cm.ai?'<span class="fx-chip ai"><span class="fx-spk">&#10022;</span>Korvyn draft</span>':'<span class="fx-chip ok">&#10003; '+esc(cm.by||'Reviewer')+'</span>';return '<td class="l fx-cmt"><div class="fx-cmt-box" data-edit="'+id+'">'+chip+'<div class="fx-cmt-tx">'+esc(cm.text)+'</div></div></td>';}
+    if(material)return '<td class="l fx-cmt"><button class="fx-need" data-edit="'+id+'"><span class="fx-chip need">&#9888; Needs explanation</span></button></td>';
+    return '<td class="l fx-cmt"><button class="fx-cmt-add" data-edit="'+id+'">+ Add note</button></td>';
+  }
+  function monthSelect(which,val,months){return '<select class="fx-sel" data-per="'+which+'">'+months.map(function(m){return '<option value="'+m+'"'+(m===val?' selected':'')+'>'+flxLbl(m)+'</option>';}).join('')+'</select>';}
   function renderMonthlyTrend(){
-    var led=glLedger(), P=fluxPeriods(led), fi=P.fi, ti=P.ti, mFrom=led.months[fi], mTo=led.months[ti];
-    var isBS=fluxStmt==='bs', priLbl=flxLbl(mFrom), curLbl=flxLbl(mTo);
-    function sum(accs,i){return accs.reduce(function(s,a){return s+fluxVal(a,i);},0);}
+    var led=glLedger(), ms=led.months, P=fluxPeriods(led), fi=P.fi, ti=P.ti;
+    var cols=[]; for(var ci=fi;ci<=ti;ci++)cols.push(ci);
+    var nCols=cols.length, mFrom=ms[fi], mTo=ms[ti], priIdx=ti>0?ti-1:ti;
+    var isBS=fluxStmt==='bs';
+    function sum(accs,idx){return accs.reduce(function(s,a){return s+fluxVal(a,idx);},0);}
+    function ser(accs){return cols.map(function(idx){return sum(accs,idx);});}
     var secs=fluxSections(led,fluxStmt);
+    var matCount=0,needCount=0,groupCount=0,explained=0;
+    secs.forEach(function(sec){sec.groups.forEach(function(g){groupCount++;var cur=sum(g.accts,ti),prev=sum(g.accts,priIdx),mat=fxMatFlag(prev,cur),has=!!FLUX_COMMENTS[fluxStmt+':'+g.report+':'+mTo];if(mat)matCount++;if(has)explained++;if(mat&&!has)needCount++;});});
+    var assetA=led.accounts.filter(function(a){return a.type==='Asset';}), liabA=led.accounts.filter(function(a){return a.type==='Liability';});
+    var revA=led.accounts.filter(function(a){return a.type==='Revenue';}), expA=led.accounts.filter(function(a){return a.type==='Expense';});
+    var ctlPrev,ctlCur,ctlLbl;
+    if(isBS){ctlPrev=sum(assetA,priIdx);ctlCur=sum(assetA,ti);ctlLbl='Total assets';}
+    else{ctlPrev=sum(revA,priIdx)-sum(expA,priIdx);ctlCur=sum(revA,ti)-sum(expA,ti);ctlLbl='Operating income';}
+    var ctlD=ctlCur-ctlPrev, ctlPct=ctlPrev?ctlD/Math.abs(ctlPrev)*100:0;
+    var h='<div class="kv-hd"><div><div class="k">Financial reporting</div><h1>Flux review</h1><div class="kv-sub">'+(isBS?'Balance sheet':'Income statement')+' flux &amp; trending &mdash; every line is a chart-of-accounts caption; expand it to the GL accounts beneath. Choose any window of months; figures derive from the tied-out ledger. Korvyn drafts the explanation, a reviewer edits to accept &mdash; it is never posted.</div></div></div>';
+    h+='<div class="fx-kpis">';
+    h+='<div class="fx-kpi"><div class="l">Net movement &middot; '+esc(ctlLbl)+' (MoM)</div><div class="v">'+(ctlD<0?'-$':'+$')+rpNum(Math.abs(Math.round(ctlD)))+'</div><div class="s">'+(ctlPct>=0?'+':'')+ctlPct.toFixed(1)+'% into '+flxLbl(mTo)+'</div></div>';
+    h+='<div class="fx-kpi"><div class="l">Material moves</div><div class="v">'+matCount+'</div><div class="s">&ge; '+fluxMat+'% and &ge; $50K</div></div>';
+    h+='<div class="fx-kpi'+(needCount?' warn':' good')+'"><div class="l">Needs explanation</div><div class="v">'+needCount+'</div><div class="s">'+(needCount?'material &amp; unexplained':'all material moves explained')+'</div></div>';
+    h+='<div class="fx-kpi"><div class="l">Lines explained</div><div class="v">'+explained+' / '+groupCount+'</div><div class="s">captions with a review note</div></div>';
+    h+='<div class="fx-kpi'+(isBS?' good':'')+'"><div class="l">Window</div><div class="v">'+nCols+' mo</div><div class="s">'+flxLbl(mFrom)+' &rarr; '+flxLbl(mTo)+'</div></div>';
+    h+='</div>';
+    // command bar
+    var span=nCols;
+    h+='<div class="fx-bar"><div class="fx-cmp"><span class="fx-lb">Range</span>'+monthSelect('from',mFrom,ms)+'<span class="fx-arw">&rarr;</span>'+monthSelect('to',mTo,ms)+'</div>';
+    h+='<div class="fx-cmp"><span class="fx-lb">Quick</span><div class="fx-presets">'+[[2,'MoM'],[3,'3M'],[6,'6M'],[12,'12M']].map(function(p){return '<button class="fx-preset'+(span===p[0]?' on':'')+'" data-n="'+p[0]+'">'+p[1]+'</button>';}).join('')+'</div></div>';
+    h+='<div class="fx-cmp"><span class="fx-lb">Flag moves over</span><select class="fx-sel" data-per="mat">'+[5,8,10,15].map(function(v){return '<option value="'+v+'"'+(v===fluxMat?' selected':'')+'>'+v+'%</option>';}).join('')+'</select></div>';
     var allKeys=[]; secs.forEach(function(s){s.groups.forEach(function(g){allKeys.push(fluxStmt+':'+g.report);});});
     var allExp=allKeys.length&&allKeys.every(function(k){return fluxExpand[k];});
-    var h='<div class="kv-hd"><div><div class="k">Financial reporting</div><h1>Flux review</h1><div class="kv-sub">Period-over-period movement grouped by the chart-of-accounts mapping &mdash; each line is a financial-statement caption; expand it to the GL accounts beneath. Figures derive from the tied-out ledger; Korvyn drafts the commentary from the movement, a reviewer edits to accept &mdash; it is never posted.</div></div></div>';
-    h+='<div class="flx-toolbar"><div class="fs-tabs">'+[['bs','Balance sheet'],['is','Income statement']].map(function(t){return '<button class="fs-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</div>';
-    h+='<div class="flx-cmp"><span class="flx-cl">Compare</span>'+monthSelect('from',mFrom,led.months)+'<span class="flx-arrow">&rarr;</span>'+monthSelect('to',mTo,led.months)+'</div>';
-    h+='<button class="btn flx-expand-all">'+(allExp?'Collapse all':'Expand all')+'</button></div>';
-    h+='<div class="card fs-card"><div class="fs-h">'+(isBS?'Balance sheet flux':'Income statement flux')+' <span>'+priLbl+' &rarr; '+curLbl+'</span></div>';
-    h+='<div class="flx-wrap"><table class="flx-tbl"><thead><tr><th class="l"></th><th>'+priLbl+'</th><th>'+curLbl+'</th><th class="chg">Chg ($)</th><th class="cm">Comments</th></tr></thead><tbody>';
+    h+='<div class="fx-tools"><button class="btn flx-expand-all">'+(allExp?'Collapse all':'Expand all')+'</button></div></div>';
+    // grid
+    var minW=246+nCols*118+124+82+124+286;
+    h+='<div class="fx-gridwrap"><table class="fxg" style="min-width:'+minW+'px"><colgroup><col class="c-line">'+cols.map(function(){return '<col class="c-per">';}).join('')+'<col class="c-chg"><col class="c-pct"><col class="c-trend"><col class="c-cmt"></colgroup>';
+    h+='<thead><tr><th class="l fx-line">Line item</th>';
+    cols.forEach(function(idx,k){var last=k===nCols-1;h+='<th class="fx-per'+(last?' fx-cur-col':'')+'">'+flxLbl(ms[idx]).toUpperCase()+(last?'<span class="sub">'+flxAsOf(ms[idx])+'</span>':'')+'</th>';});
+    h+='<th class="fx-sep">MoM &Delta;<span class="sub">vs prior month</span></th><th>&Delta; %<span class="sub">vs prior</span></th><th class="fx-trend">Trend<span class="sub">'+nCols+'-mo</span></th><th class="l fx-cmt">Explanation &amp; review notes</th></tr></thead><tbody>';
+    function moneyRun(series){return series.map(function(v,k){return fxMoney(v,k===series.length-1?'fx-cur-col':'');}).join('');}
+    function emptyRun(){var e='';for(var k=0;k<nCols;k++)e+='<td class="fx-money'+(k===nCols-1?' fx-cur-col':'')+'"></td>';return e+'<td class="fx-money fx-sep"></td><td class="fx-pct"></td><td class="fx-trend"></td>';}
     var stripe=0;
     secs.forEach(function(sec){
-      h+='<tr class="flx-sec"><td class="l" colspan="5">'+sec.name+'</td></tr>';
+      h+='<tr class="fx-sec"><td class="l fx-line">'+sec.name+'</td>'+emptyRun()+'<td class="l fx-cmt"></td></tr>';
       sec.groups.forEach(function(g){
-        var gp=sum(g.accts,fi), gc=sum(g.accts,ti), ekey=fluxStmt+':'+g.report, exp=!!fluxExpand[ekey];
+        var s=ser(g.accts), cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=!!fluxExpand[ekey], mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
-        h+='<tr class="flx-grp'+alt+(exp?' open':'')+'" data-exp="'+ekey+'"><td class="l" title="'+esc(ttl)+'"><span class="flx-tw">'+(exp?'&#9662;':'&#9656;')+'</span>'+esc(g.caption)+'</td><td>'+fsAmt(gp)+'</td><td>'+fsAmt(gc)+'</td><td class="flx-chg">'+fsAmt(gc-gp)+'</td><td class="flx-cm">'+fluxCmtCell(fluxStmt,g.report,mTo)+'</td></tr>';
-        if(exp)g.accts.forEach(function(a){var ap=fluxVal(a,fi),ac=fluxVal(a,ti);h+='<tr class="flx-det'+alt+'"><td class="l"><span class="flx-ac">'+a.acct+'</span>'+esc(a.name)+'<a class="flx-drill" data-drill="'+a.acct+'" title="Open account in the general ledger">GL &rarr;</a></td><td>'+fsAmt(ap)+'</td><td>'+fsAmt(ac)+'</td><td class="flx-chg">'+fsAmt(ac-ap)+'</td><td class="flx-cm">'+fluxCmtCell(fluxStmt,a.acct,mTo)+'</td></tr>';});
+        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat':'')+'" data-exp="'+ekey+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span>'+(mat?'<span class="fx-flag" title="Material move">!</span>':'')+'</td>'+moneyRun(s)+fxMoney(cur-prev,'fx-sep')+fxPctCell(prev,cur)+'<td class="fx-trend">'+fxSpark(s)+'</td>'+fluxCmtCell(fluxStmt,g.report,mTo,mat)+'</tr>';
+        if(exp)g.accts.forEach(function(a){var as=ser([a]),acur=fluxVal(a,ti),aprev=fluxVal(a,priIdx);h+='<tr class="fx-det'+alt+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Open account in the general ledger">GL &rarr;</a></td>'+moneyRun(as)+fxMoney(acur-aprev,'fx-sep')+fxPctCell(aprev,acur)+'<td class="fx-trend">'+fxSpark(as)+'</td>'+fluxCmtCell(fluxStmt,a.acct,mTo,false)+'</tr>';});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
-      h+='<tr class="flx-tot"><td class="l">Total '+sec.name.toLowerCase()+'</td><td>'+fsAmt(sum(allA,fi))+'</td><td>'+fsAmt(sum(allA,ti))+'</td><td class="flx-chg">'+fsAmt(sum(allA,ti)-sum(allA,fi))+'</td><td></td></tr>';
+      var ts=ser(allA), tcur=sum(allA,ti), tprev=sum(allA,priIdx);
+      h+='<tr class="fx-tot"><td class="l fx-line">Total '+sec.name.toLowerCase()+'</td>'+moneyRun(ts)+fxMoney(tcur-tprev,'fx-sep')+fxPctCell(tprev,tcur)+'<td class="fx-trend">'+fxSpark(ts)+'</td><td class="l fx-cmt"></td></tr>';
     });
     if(isBS){
-      var assetA=led.accounts.filter(function(a){return a.type==='Asset';}), liabA=led.accounts.filter(function(a){return a.type==='Liability';});
-      var eqP=sum(assetA,fi)-sum(liabA,fi), eqC=sum(assetA,ti)-sum(liabA,ti);
-      h+='<tr class="flx-sec"><td class="l" colspan="5">Equity</td></tr>';
-      h+='<tr class="flx-line"><td class="l">Net position (retained earnings)</td><td>'+fsAmt(eqP)+'</td><td>'+fsAmt(eqC)+'</td><td class="flx-chg">'+fsAmt(eqC-eqP)+'</td><td class="flx-cm">'+fluxCmtCell('bs','Equity',mTo)+'</td></tr>';
-      h+='<tr class="flx-tot"><td class="l">Total equity</td><td>'+fsAmt(eqP)+'</td><td>'+fsAmt(eqC)+'</td><td class="flx-chg">'+fsAmt(eqC-eqP)+'</td><td></td></tr>';
-      h+='<tr class="flx-grand"><td class="l">Total liabilities &amp; equity</td><td>'+fsAmt(sum(liabA,fi)+eqP)+'</td><td>'+fsAmt(sum(liabA,ti)+eqC)+'</td><td class="flx-chg">'+fsAmt((sum(liabA,ti)+eqC)-(sum(liabA,fi)+eqP))+'</td><td></td></tr>';
+      var eqS=cols.map(function(idx){return sum(assetA,idx)-sum(liabA,idx);});
+      var eqCur=sum(assetA,ti)-sum(liabA,ti), eqPrev=sum(assetA,priIdx)-sum(liabA,priIdx), eqMat=fxMatFlag(eqPrev,eqCur);
+      h+='<tr class="fx-sec"><td class="l fx-line">Equity</td>'+emptyRun()+'<td class="l fx-cmt"></td></tr>';
+      h+='<tr class="fx-grp'+(eqMat?' mat':'')+'"><td class="l fx-line"><span class="fx-exp fx-exp-off">&nbsp;</span><span class="fx-line-txt">Net position (retained earnings)</span>'+(eqMat?'<span class="fx-flag" title="Material move">!</span>':'')+'</td>'+moneyRun(eqS)+fxMoney(eqCur-eqPrev,'fx-sep')+fxPctCell(eqPrev,eqCur)+'<td class="fx-trend">'+fxSpark(eqS)+'</td>'+fluxCmtCell('bs','Equity',mTo,eqMat)+'</tr>';
+      h+='<tr class="fx-tot"><td class="l fx-line">Total equity</td>'+moneyRun(eqS)+fxMoney(eqCur-eqPrev,'fx-sep')+fxPctCell(eqPrev,eqCur)+'<td class="fx-trend">'+fxSpark(eqS)+'</td><td class="l fx-cmt"></td></tr>';
+      var leS=cols.map(function(idx){return sum(assetA,idx);});
+      var leCur=sum(assetA,ti), lePrev=sum(assetA,priIdx);
+      h+='<tr class="fx-grand"><td class="l fx-line">Total liabilities &amp; equity</td>'+moneyRun(leS)+fxMoney(leCur-lePrev,'fx-sep')+fxPctCell(lePrev,leCur)+'<td class="fx-trend">'+fxSpark(leS)+'</td><td class="l fx-cmt"></td></tr>';
     } else {
-      var revA=led.accounts.filter(function(a){return a.type==='Revenue';}), expA=led.accounts.filter(function(a){return a.type==='Expense';});
-      var oiP=sum(revA,fi)-sum(expA,fi), oiC=sum(revA,ti)-sum(expA,ti);
-      h+='<tr class="flx-grand"><td class="l">Operating income</td><td>'+fsAmt(oiP)+'</td><td>'+fsAmt(oiC)+'</td><td class="flx-chg">'+fsAmt(oiC-oiP)+'</td><td></td></tr>';
+      var oiS=cols.map(function(idx){return sum(revA,idx)-sum(expA,idx);});
+      var oiCur=sum(revA,ti)-sum(expA,ti), oiPrev=sum(revA,priIdx)-sum(expA,priIdx);
+      h+='<tr class="fx-grand"><td class="l fx-line">Operating income</td>'+moneyRun(oiS)+fxMoney(oiCur-oiPrev,'fx-sep')+fxPctCell(oiPrev,oiCur)+'<td class="fx-trend">'+fxSpark(oiS)+'</td><td class="l fx-cmt"></td></tr>';
     }
-    h+='</tbody></table></div></div>';
-    h+='<div class="ldg-note flx-note">Lines are grouped by the chart-of-accounts mapping (Account Mapping) &mdash; expand any caption to its GL accounts, then open one in the general ledger. Figures are tied-out ledger balances for '+curLbl+' against '+priLbl+'; the change column is their difference. Explanations are captured per line per period and carry into the review workpapers and the filing.</div>';
+    h+='</tbody></table></div>';
+    h+='<div class="fx-sheets">'+[['bs','Balance Sheet'],['is','Income Statement']].map(function(t){return '<button class="fx-sheet'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+t[1]+'</button>';}).join('')+'<span class="fx-sheet-note">Grouped by chart-of-accounts mapping &middot; '+groupCount+' captions &middot; '+nCols+'-month window</span></div>';
+    h+='<div class="ldg-note flx-note">Each column is a period from the tied-out ledger ('+(isBS?'balances':'activity')+'); the sparkline traces the '+nCols+'-month trajectory and MoM &Delta; is the movement into '+flxLbl(mTo)+'. Widen the range or use a quick preset to see 3, 6 or 12 months at once. Moves are flagged material at &ge; '+fluxMat+'% and &ge; $50K &mdash; '+(needCount?('<b>'+needCount+'</b> still need'+(needCount>1?'':'s')+' an explanation'):'all material moves carry an explanation')+'.</div>';
     $('#view').innerHTML=h;
-    Array.prototype.forEach.call(document.querySelectorAll('#view .flx-grp'),function(r){r.onclick=function(e){if(e.target.closest('.flx-cm'))return;var k=this.getAttribute('data-exp');if(!k)return;fluxExpand[k]=!fluxExpand[k];renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .flx-drill'),function(a){a.onclick=function(e){e.stopPropagation();ldgExpand=this.getAttribute('data-drill');ldgMonth=fluxTo;navTo('repo-ledger');};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-grp'),function(r){r.onclick=function(e){if(e.target.closest('.fx-cmt'))return;var k=this.getAttribute('data-exp');if(!k)return;fluxExpand[k]=!fluxExpand[k];renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-drill'),function(a){a.onclick=function(e){e.stopPropagation();ldgExpand=this.getAttribute('data-drill');ldgMonth=fluxTo;navTo('repo-ledger');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-edit]'),function(b){b.onclick=function(e){e.stopPropagation();fluxEdit=this.getAttribute('data-edit');renderMonthlyTrend();var ta=document.getElementById('flxTa');if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .flx-save'),function(b){b.onclick=function(e){e.stopPropagation();var id=this.getAttribute('data-id'),ta=document.getElementById('flxTa'),v=ta?ta.value.trim():'';if(v)FLUX_COMMENTS[id]={text:v,by:CUR_USER.name};else delete FLUX_COMMENTS[id];fluxEdit=null;renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .flx-cancel'),function(b){b.onclick=function(e){e.stopPropagation();fluxEdit=null;renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .flx-sel'),function(s){s.onchange=function(){if(this.getAttribute('data-per')==='from')fluxFrom=this.value;else fluxTo=this.value;fluxEdit=null;renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fs-tab'),function(b){b.onclick=function(){fluxStmt=b.getAttribute('data-flx');fluxEdit=null;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-sel'),function(s){s.onchange=function(){var w=this.getAttribute('data-per');if(w==='from')fluxFrom=this.value;else if(w==='to')fluxTo=this.value;else if(w==='mat')fluxMat=+this.value;fluxEdit=null;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-preset'),function(b){b.onclick=function(){var n=+this.getAttribute('data-n'),lm=glLedger().months,tj=lm.indexOf(fluxTo);if(tj<0)tj=lm.length-1;fluxFrom=lm[Math.max(0,tj-(n-1))];fluxTo=lm[tj];fluxEdit=null;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-sheet'),function(b){b.onclick=function(){fluxStmt=b.getAttribute('data-flx');fluxEdit=null;renderMonthlyTrend();};});
     var ea=document.querySelector('#view .flx-expand-all');
     if(ea)ea.onclick=function(){var ks=[];fluxSections(glLedger(),fluxStmt).forEach(function(s){s.groups.forEach(function(g){ks.push(fluxStmt+':'+g.report);});});var open=ks.some(function(k){return !fluxExpand[k];});ks.forEach(function(k){fluxExpand[k]=open;});renderMonthlyTrend();};
   }
