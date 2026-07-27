@@ -2314,8 +2314,67 @@
   var E_MONTHS=['2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
   var E_ML={'2025-08':'Aug 25','2025-09':'Sep 25','2025-10':'Oct 25','2025-11':'Nov 25','2025-12':'Dec 25','2026-01':'Jan 26','2026-02':'Feb 26','2026-03':'Mar 26','2026-04':'Apr 26','2026-05':'May 26','2026-06':'Jun 26','2026-07':'Jul 26'};
   function E_q(m){var y=m.slice(0,4);var mo=+m.slice(5);return y+'-Q'+Math.ceil(mo/3);}
-  var E_ENT=[{id:'HOLDCO',s:0.9},{id:'CAMPUS',s:1.3},{id:'CRE',s:0.75},{id:'SVC',s:0.55}];
-  var E_SUMS=E_ENT.reduce(function(a,e){return a+e.s;},0);
+  /* ===== Enterprise entity master: ~66 operating entities across 3 regions / 13 countries /
+     10 currencies under a 5-level legal hierarchy (stands in for ~600 subs). E_ENT, FX_ENT_META
+     and CONS_GROUPS all DERIVE from this; the per-entity ledger + consolidation engine
+     (entLedger / entLedgerUSD / consolLedger, defined after glGroupTemplate) rolls them up so
+     glLedger() is a real consolidation that foots at every node. Proven in scratch harness. */
+  var E_GEN_ENT=[{id:'HOLDCO',s:0.9},{id:'CAMPUS',s:1.3},{id:'CRE',s:0.75},{id:'SVC',s:0.55}]; // transaction-detail entities (drill/opex) — deliberately small
+  var FXRATE={USD:1,CAD:1.36,BRL:5.0,MXN:17,GBP:0.79,EUR:0.92,SGD:1.35,JPY:150,AUD:1.52,HKD:7.8};
+  var LEGAL_NODES=[
+   {id:'MGP',name:'Meridian Global Portfolio',kind:'Group',parent:null,subs:1000},
+   {id:'AMER',name:'Meridian Americas',kind:'Sub-consolidation',parent:'MGP',subs:612},
+   {id:'INTL',name:'Meridian International',kind:'Sub-consolidation',parent:'MGP',subs:388},
+   {id:'EMEA',name:'Meridian EMEA',kind:'Reporting group',parent:'INTL',subs:214},
+   {id:'APAC',name:'Meridian Asia-Pacific',kind:'Reporting group',parent:'INTL',subs:174}];
+  var ENT_COUNTRIES=[
+   {c:'United States',cc:'US',region:'AMER',rgn:'N. America',ccy:'USD',erp:'SAP S/4HANA',cities:['Northern Virginia','Dallas','Silicon Valley','Chicago','Atlanta','Phoenix'],n:14},
+   {c:'Canada',cc:'CA',region:'AMER',rgn:'N. America',ccy:'CAD',erp:'Oracle EBS',cities:['Toronto','Montreal'],n:4},
+   {c:'Brazil',cc:'BR',region:'AMER',rgn:'LatAm',ccy:'BRL',erp:'SAP ECC',cities:['Sao Paulo'],n:3},
+   {c:'Mexico',cc:'MX',region:'AMER',rgn:'LatAm',ccy:'MXN',erp:'Oracle EBS',cities:['Queretaro'],n:2},
+   {c:'United Kingdom',cc:'UK',region:'EMEA',rgn:'EMEA',ccy:'GBP',erp:'Oracle Fusion',cities:['London','Slough'],n:8},
+   {c:'Germany',cc:'DE',region:'EMEA',rgn:'EMEA',ccy:'EUR',erp:'SAP S/4HANA',cities:['Frankfurt','Munich'],n:7},
+   {c:'Netherlands',cc:'NL',region:'EMEA',rgn:'EMEA',ccy:'EUR',erp:'SAP S/4HANA',cities:['Amsterdam'],n:4},
+   {c:'Ireland',cc:'IE',region:'EMEA',rgn:'EMEA',ccy:'EUR',erp:'NetSuite',cities:['Dublin'],n:3},
+   {c:'France',cc:'FR',region:'EMEA',rgn:'EMEA',ccy:'EUR',erp:'SAP ECC',cities:['Paris','Marseille'],n:4},
+   {c:'Singapore',cc:'SG',region:'APAC',rgn:'APAC',ccy:'SGD',erp:'Oracle EBS',cities:['Singapore'],n:5},
+   {c:'Japan',cc:'JP',region:'APAC',rgn:'APAC',ccy:'JPY',erp:'SAP S/4HANA',cities:['Tokyo','Osaka'],n:5},
+   {c:'Australia',cc:'AU',region:'APAC',rgn:'APAC',ccy:'AUD',erp:'Oracle Fusion',cities:['Sydney','Melbourne'],n:4},
+   {c:'Hong Kong',cc:'HK',region:'APAC',rgn:'APAC',ccy:'HKD',erp:'Oracle EBS',cities:['Hong Kong'],n:3}];
+  var ENT_BUS=['Data Center','Managed Services','Real Estate','Development','Corporate'];
+  var ENT_STATUS=['Ready','In review','Needs explanation','Not started','Blocked'];
+  var ENT_TIERS=[['Tier 1',0.030],['Tier 2',0.015],['Tier 3',0.007]];
+  function E_hash(s){var h=0;for(var i=0;i<s.length;i++)h=(h*33+s.charCodeAt(i))>>>0;return h;}
+  var ENT_MASTER=[], ENT_HOLDCOS=[];
+  ENT_COUNTRIES.forEach(function(co){
+    var hid=co.cc+'-HOLD';
+    ENT_HOLDCOS.push({id:hid,name:'Meridian '+co.c+' Holdings',kind:'HoldCo',parent:co.region,region:co.region,rgn:co.rgn,country:co.c,ccy:co.ccy,isHold:true});
+    var rr=E_rnd(E_hash(co.cc));
+    for(var i=0;i<co.n;i++){
+      var city=co.cities[i%co.cities.length], bu=ENT_BUS[Math.floor(rr()*ENT_BUS.length)], tier=ENT_TIERS[i===0?0:(i<3?1:2)];
+      ENT_MASTER.push({id:co.cc+String(101+i),
+        name:'Meridian '+city+' '+(bu==='Data Center'?'DC':bu==='Managed Services'?'Services':bu==='Real Estate'?'Properties':bu==='Development'?'Development':'Corp')+' '+(i+1<10?'0'+(i+1):''+(i+1)),
+        short:co.cc+' '+city.split(' ')[0], parent:hid, region:co.region, rgn:co.rgn, country:co.c, city:city, bu:bu,
+        costCenter:co.cc+'-'+bu.slice(0,3).toUpperCase()+'-'+(100+i), ccy:co.ccy, erp:co.erp, tier:tier[0],
+        status:ENT_STATUS[Math.floor(rr()*ENT_STATUS.length)], size:tier[1]*(0.7+rr()*0.6)});
+    }
+  });
+  (function(){var sz=ENT_MASTER.reduce(function(a,e){return a+e.size;},0);ENT_MASTER.forEach(function(e){e.size=e.size/sz;});})();
+  var ENT_BY_ID={}; ENT_MASTER.forEach(function(e){ENT_BY_ID[e.id]=e;});
+  var E_ENT=ENT_MASTER.map(function(e){return {id:e.id,s:e.size};});
+  var E_SUMS=1;
+  /* Intercompany: regional principal funds its region; group treasury funds the regional principals. */
+  var IC_PAIRS=[];
+  (function(){var byR={};ENT_MASTER.forEach(function(e){(byR[e.region]=byR[e.region]||[]).push(e);});var prin={};
+    Object.keys(byR).forEach(function(rg){var es=byR[rg].slice().sort(function(a,b){return b.size-a.size;});prin[rg]=es[0].id;es.slice(1).forEach(function(e){IC_PAIRS.push({from:es[0].id,to:e.id,amt:Math.round(e.size*3e9)});});});
+    var tr=prin['AMER'];['EMEA','APAC'].forEach(function(rg){if(prin[rg])IC_PAIRS.push({from:tr,to:prin[rg],amt:2e9});});})();
+  var IC_BY_ENT={}; IC_PAIRS.forEach(function(p){(IC_BY_ENT[p.from]=IC_BY_ENT[p.from]||{rec:0,pay:0}).rec+=p.amt;(IC_BY_ENT[p.to]=IC_BY_ENT[p.to]||{rec:0,pay:0}).pay+=p.amt;});
+  function icFlat(acct,name,type,fs,rollup,valUSD,months){return {acct:acct,name:name,type:type,fs:fs,rollup:rollup,seg:'Corporate',isPL:false,derive:null,usd:true,series:months.map(function(m){return {month:m,opening:valUSD,activity:0,closing:valUSD};})};}
+  /* FX: closing + average reporting rates per currency per month (local units per USD), drifting from base. */
+  var FXCLOSE={}, FXAVG={};
+  Object.keys(FXRATE).forEach(function(ccy){var r=E_rnd(E_hash('fx'+ccy)),cur=FXRATE[ccy],cl=[];
+    E_MONTHS.forEach(function(m,mi){if(ccy==='USD')cl.push(1);else{cur=cur*(1+(r()-0.5)*0.03);cl.push(cur);}});
+    FXCLOSE[ccy]=cl; FXAVG[ccy]=cl.map(function(c,mi){return mi>0?(c+cl[mi-1])/2:c;});});
   /* Cost-centre pool per segment (for the by-department opex pivot) */
   var E_DEPTS={'Data Center':['Operations','Facilities','Engineering'],'Managed Services':['Service Delivery','Sales'],'Capital Program':['Engineering','Development'],'Corporate':['G&A','Finance'],'Real Estate':['Property Mgmt','G&A']};
   /* ===== Deep REIT chart of accounts (Meridian Global Portfolio). Authored as logical
@@ -2474,8 +2533,8 @@
       if(acc.derive)return;
       var isPL=(acc.type==='Revenue'||acc.type==='Expense');
       var depts=E_DEPTS[acc.seg]||['Operations'], vlist=E_VEND[acc.acct]||['Various'], memo=E_MEMO[acc.acct]||'Posting';
-      var wsum=0,ws=E_ENT.map(function(e){var w=e.s*((acc.aff&&acc.aff[e.id])||1);wsum+=w;return w;});
-      E_ENT.forEach(function(ent,ei){
+      var wsum=0,ws=E_GEN_ENT.map(function(e){var w=e.s*((acc.aff&&acc.aff[e.id])||1);wsum+=w;return w;});
+      E_GEN_ENT.forEach(function(ent,ei){
         var frac=ws[ei]/wsum;
         E_MONTHS.forEach(function(m,mi){
           var nat;
@@ -2905,7 +2964,7 @@
   function monthRange(a,b){var out=[];var y=+a.slice(0,4),mo=+a.slice(5);while(true){out.push(y+'-'+(mo<10?'0'+mo:mo));if(y===+b.slice(0,4)&&mo===+b.slice(5))break;mo++;if(mo>12){mo=1;y++;}}return out;}
   function fyMonthCal(yi){return ((yi+7)%12)+1;}
   function acctArea(acc){return acc.type==='Revenue'?{area:'Revenue',reviewId:'rev'}:{area:'Operating Expense',reviewId:'opex'};}
-  function effScale(acc){var s=0;E_ENT.forEach(function(e){s+=e.s*((acc.aff&&acc.aff[e.id])||1);});return s;}
+  function effScale(acc){var s=0;E_GEN_ENT.forEach(function(e){s+=e.s*((acc.aff&&acc.aff[e.id])||1);});return s;}
   function histNat(acc,gmi){
     var yi=gmi%12;var ac=acc.acct;var nat;
     if(ac==='55000'){nat=(yi===4)?505000*Math.pow(1.03,Math.floor(gmi/12)):37000;}
@@ -3105,9 +3164,9 @@
      the reconciling items a review platform exists to catch (AP echoes the wider Korvyn
      model's -1,250 AP variance). Uploaded TB = GL closing + variance. */
   var TB_VAR={'20001|2026-07':-2300000,'12006|2026-06':1800000,'20002|2026-05':-950000};
-  var _glLedger=null;
-  function glLedger(){
-    if(_glLedger)return _glLedger;
+  var _glTpl=null;
+  function glGroupTemplate(){
+    if(_glTpl)return _glTpl;
     var months=E_MONTHS.slice(), rows=E_rows(), act={};
     E_ACC.forEach(function(a){act[a.acct]={};});
     rows.forEach(function(r){if(act[r.acct])act[r.acct][r.period]=(act[r.acct][r.period]||0)+r.amount;});
@@ -3134,9 +3193,61 @@
       var cashClose=-other, prev=mi>0?CASH.series[mi-1].closing:cashClose;
       CASH.series.push({month:m,opening:prev,activity:cashClose-prev,closing:cashClose});
     });
-    _glLedger={months:months,accounts:accounts};
-    return _glLedger;
+    _glTpl={months:months,accounts:accounts};
+    return _glTpl;
   }
+  /* ===== Per-entity ledger + consolidation engine (proven in the scratch harness) =====
+     entLedger: the group template scaled by (size × fx × per-entity mix), in LOCAL currency,
+     re-plugged through APIC so each entity's BS foots. entLedgerUSD: current-rate translation
+     with a CTA plug. consolSet/consolLedger: sum translated entities up the legal tree and
+     eliminate intercompany. glLedger() is now the consolidated group — SAME SHAPE as before,
+     so the ~56 existing consumers are unchanged. */
+  var _entCache={}, HIST_EQ={'30001':1,'30002':1,'30006':1,'30007':1,'30008':1};
+  function entLedger(eid){
+    if(_entCache[eid])return _entCache[eid];
+    var ent=ENT_BY_ID[eid], rate=(FXRATE[ent.ccy]||1), rnd=E_rnd(E_hash(eid)), k=ent.size*rate, tpl=glGroupTemplate(), months=tpl.months, PLUG='30002';
+    var accounts=tpl.accounts.map(function(a){var v=0.85+rnd()*0.30;
+      return {acct:a.acct,name:a.name,type:a.type,fs:a.fs,rollup:a.rollup,seg:a.seg,isPL:a.isPL,derive:a.derive,
+        series:a.series.map(function(s){return {opening:s.opening*k*v,activity:s.activity*k*v,closing:s.closing*k*v};})};});
+    var icb=IC_BY_ENT[eid];
+    if(icb){ if(icb.rec)accounts.push(icFlat('12098','Intercompany receivable','Asset','Current assets','Intercompany receivable',icb.rec,months));
+             if(icb.pay)accounts.push(icFlat('20098','Intercompany payable','Liability','Current liabilities','Intercompany payable',-icb.pay,months)); }
+    var apic=accounts.filter(function(a){return a.acct===PLUG;})[0];
+    months.forEach(function(m,mi){var other=0;accounts.forEach(function(a){if(a.isPL||a.acct===PLUG)return;other+=a.series[mi].closing;});var cl=-other,prev=mi>0?apic.series[mi-1].closing:cl;apic.series[mi]={month:m,opening:prev,activity:cl-prev,closing:cl};});
+    var led={eid:eid,ccy:ent.ccy,rate:rate,months:months,accounts:accounts}; _entCache[eid]=led; return led;
+  }
+  var _entUsdCache={};
+  function entLedgerUSD(eid){
+    if(_entUsdCache[eid])return _entUsdCache[eid];
+    var led=entLedger(eid), ccy=led.ccy, months=led.months, hist=FXCLOSE[ccy][0];
+    var out=led.accounts.map(function(a){
+      var series=a.series.map(function(s,mi){ if(a.usd)return {month:s.month,opening:s.opening,activity:s.activity,closing:s.closing};
+        var rC=a.isPL?FXAVG[ccy][mi]:(HIST_EQ[a.acct]?hist:FXCLOSE[ccy][mi]), rO=a.isPL?FXAVG[ccy][mi]:(HIST_EQ[a.acct]?hist:(mi>0?FXCLOSE[ccy][mi-1]:FXCLOSE[ccy][mi]));
+        var cl=s.closing/rC, op=s.opening/rO; return {month:s.month,opening:op,activity:cl-op,closing:cl}; });
+      return {acct:a.acct,name:a.name,type:a.type,fs:a.fs,rollup:a.rollup,seg:a.seg,isPL:a.isPL,derive:a.derive,series:series};});
+    var cta=out.filter(function(a){return a.acct==='30004';})[0];
+    if(cta)months.forEach(function(m,mi){var other=0;out.forEach(function(a){if(a.isPL||a.acct==='30004')return;other+=a.series[mi].closing;});var cl=-other,prev=mi>0?cta.series[mi-1].closing:cl;cta.series[mi]={month:m,opening:prev,activity:cl-prev,closing:cl};});
+    var r={eid:eid,months:months,accounts:out}; _entUsdCache[eid]=r; return r;
+  }
+  var ALL_NODES=LEGAL_NODES.concat(ENT_HOLDCOS).concat(ENT_MASTER);
+  function entsUnder(nodeId){ if(ENT_BY_ID[nodeId])return [nodeId]; var out=[]; ALL_NODES.forEach(function(n){if(n.parent===nodeId)out=out.concat(entsUnder(n.id));}); return out; }
+  var _consCache={};
+  function consolSet(eids,elimKey){
+    var key=(elimKey||'set')+':'+eids.slice().sort().join(','); if(_consCache[key])return _consCache[key];
+    var inSet={}; eids.forEach(function(e){inSet[e]=1;}); var tpl=glGroupTemplate(), months=tpl.months, acctMap={};
+    eids.forEach(function(eid){ entLedgerUSD(eid).accounts.forEach(function(a){
+      if(!acctMap[a.acct])acctMap[a.acct]={acct:a.acct,name:a.name,type:a.type,fs:a.fs,rollup:a.rollup,seg:a.seg,isPL:a.isPL,derive:a.derive,series:months.map(function(m){return {month:m,opening:0,activity:0,closing:0};})};
+      var t=acctMap[a.acct]; a.series.forEach(function(s,mi){t.series[mi].opening+=s.opening;t.series[mi].activity+=s.activity;t.series[mi].closing+=s.closing;}); }); });
+    var elim=0; IC_PAIRS.forEach(function(p){ if(inSet[p.from]&&inSet[p.to]){ elim+=p.amt;
+      months.forEach(function(m,mi){ if(acctMap['12098']){acctMap['12098'].series[mi].closing-=p.amt;acctMap['12098'].series[mi].opening-=p.amt;} if(acctMap['20098']){acctMap['20098'].series[mi].closing+=p.amt;acctMap['20098'].series[mi].opening+=p.amt;} }); }});
+    var order=tpl.accounts.map(function(a){return a.acct;}); Object.keys(acctMap).forEach(function(a){if(order.indexOf(a)<0)order.push(a);});
+    var accounts=order.map(function(a){return acctMap[a];}).filter(Boolean);
+    var byAcct={}; accounts.forEach(function(a){byAcct[a.acct]=a;});
+    var led={months:months,accounts:accounts,byAcct:byAcct,elim:elim,ents:eids.length}; _consCache[key]=led; return led;
+  }
+  function consolLedger(nodeId){ return consolSet(entsUnder(nodeId), nodeId); }
+  var _glLedger=null;
+  function glLedger(){ if(!_glLedger)_glLedger=consolLedger('MGP'); return _glLedger; }
   function ldgSeriesAt(a,m){return a.series[glLedger().months.indexOf(m)];}
   function tbTie(m){
     return glLedger().accounts.map(function(a){
@@ -3541,12 +3652,7 @@
      4 consolidated legal entities across 3 regions & currencies (the multinational structure).
      Every figure derives from the real E_rows() postings and uses fluxVal's sign convention,
      so per-entity contributions sum to the consolidated line exactly. */
-  var FX_ENT_META={
-    HOLDCO:{name:'Meridian Holdings, Inc.',short:'Holdings',region:'N. America',ccy:'USD'},
-    CAMPUS:{name:'Ridgeline Data Campus LLC',short:'Ridgeline',region:'N. America',ccy:'USD'},
-    CRE:{name:'Meridian CRE Europe Ltd',short:'CRE Europe',region:'EMEA',ccy:'GBP'},
-    SVC:{name:'Meridian Managed Services Pte',short:'Mgd Svcs',region:'APAC',ccy:'SGD'}
-  };
+  var FX_ENT_META={}; ENT_MASTER.forEach(function(e){FX_ENT_META[e.id]={name:e.name,short:e.short,region:e.rgn,ccy:e.ccy,country:e.country,city:e.city,bu:e.bu,erp:e.erp,tier:e.tier,status:e.status,legalParent:e.parent};});
   var FX_ENT_COLORS=['#2F62D4','#0E9AA6','#7C4DD6','#C24D8A'];
   var _fxEntIdx=null;
   function fxEntIndex(){ if(_fxEntIdx)return _fxEntIdx; var idx={};
@@ -3558,18 +3664,17 @@
      group does (A = L + E). fluxVal signs by type and already reads the derived cash / RE /
      CTA and the seeded opening balances, so scoped views are correct and complete. */
   var _entW=null; function entWeight(eid){ if(!_entW){_entW={};E_ENT.forEach(function(e){_entW[e.id]=e.s/E_SUMS;});} return _entW[eid]||0; }
-  function fxEntValue(accts,eid,i,isBS){ if(i<0)return 0; var w=entWeight(eid), v=0; accts.forEach(function(a){ v+=fluxVal(a,i)*w; }); return v; }
+  /* fxEntValue now reads the entity's REAL translated ledger (entLedgerUSD), not a weighted slice. */
+  var _entAccIdx={};
+  function entAcc(eid){ if(_entAccIdx[eid])return _entAccIdx[eid]; var m={}; entLedgerUSD(eid).accounts.forEach(function(a){m[a.acct]=a;}); _entAccIdx[eid]=m; return m; }
+  function fxEntValue(accts,eid,i,isBS){ if(i<0)return 0; var idx=entAcc(eid), v=0; accts.forEach(function(a){ var ea=idx[a.acct]; if(ea)v+=fluxVal(ea,i); }); return v; }
   function fxAbbr(n){return fmtAbbr(Math.round(n));}
   /* ---- FX translation: monthly reporting rates (USD per unit of local currency) ----
      A foreign entity's USD figures move with the rate, so a reported flux splits into
      ORGANIC (constant-currency, the operational move) and FX (the translation effect).
      Domestic USD entities carry a flat rate of 1, so their FX portion is always zero.
      Indexed to E_MONTHS (0..11); into Jul-26 sterling rallies and the SGD softens. */
-  var FX_RATES={
-    GBP:[1.225,1.228,1.231,1.235,1.239,1.243,1.246,1.249,1.252,1.254,1.256,1.300],
-    SGD:[0.750,0.749,0.748,0.747,0.746,0.746,0.745,0.745,0.744,0.744,0.745,0.723]
-  };
-  function fxRate(eid,idx){var ccy=(FX_ENT_META[eid]||{}).ccy||'USD';var s=FX_RATES[ccy];if(!s)return 1;var r=s[idx];return (r==null?1:r);}
+  function fxRate(eid,idx){var ccy=(FX_ENT_META[eid]||{}).ccy||'USD';var s=FXCLOSE[ccy];if(!s)return 1;var r=s[idx];return (r?1/r:1);}  // USD per unit local, from the closing-rate table (all currencies)
   /* FX (translation) portion of a reported move, summed across the in-scope entities.
      v1*(1 - R0/R1) revalues the current volume at the prior rate; the remainder is organic. */
   function fxFxPart(accts,ti,priIdx){
@@ -3589,13 +3694,10 @@
   /* ================= consolidation structure + review packages (Increment 2) =================
      The review hierarchy: Group -> sub-consolidation -> reporting group -> legal entity.
      Entity membership drives every roll-up; sub counts are illustrative structural metadata. */
-  var CONS_GROUPS=[
-    {id:'MGP', name:'Meridian Global Portfolio', kind:'Group',             parent:null,  ents:['HOLDCO','CAMPUS','CRE','SVC'], subs:1000, region:null},
-    {id:'AMER',name:'Meridian Americas',         kind:'Sub-consolidation', parent:'MGP', ents:['HOLDCO','CAMPUS'],            subs:612,  region:'N. America'},
-    {id:'INTL',name:'Meridian International',     kind:'Sub-consolidation', parent:'MGP', ents:['CRE','SVC'],                  subs:388,  region:null},
-    {id:'EMEA',name:'Meridian EMEA',             kind:'Reporting group',   parent:'INTL',ents:['CRE'],                         subs:214,  region:'EMEA'},
-    {id:'APAC',name:'Meridian Asia-Pacific',     kind:'Reporting group',   parent:'INTL',ents:['SVC'],                         subs:174,  region:'APAC'}
-  ];
+  /* CONS_GROUPS derives from the entity master: the 5 legal nodes + 13 country HoldCos, each
+     carrying its operating-entity membership (entsUnder) so every roll-up is real. */
+  var CONS_GROUPS=LEGAL_NODES.map(function(n){return {id:n.id,name:n.name,kind:n.kind,parent:n.parent,ents:entsUnder(n.id),subs:n.subs,region:(n.id==='AMER'?'N. America':n.id==='EMEA'?'EMEA':n.id==='APAC'?'APAC':null)};})
+    .concat(ENT_HOLDCOS.map(function(h){var es=entsUnder(h.id);return {id:h.id,name:h.name,kind:'HoldCo',parent:h.parent,ents:es,subs:es.length,region:h.rgn,country:h.country};}));
   var CONS_BY_ID={}; CONS_GROUPS.forEach(function(g){CONS_BY_ID[g.id]=g;});
   function consLeafOf(eid){var c=CONS_GROUPS.filter(function(g){return g.ents.indexOf(eid)>=0;}).sort(function(a,b){return a.ents.length-b.ents.length;});return c[0]||CONS_BY_ID.MGP;}
   function consEntNode(eid){var m=FX_ENT_META[eid]||{};return {id:'ent:'+eid,name:m.name||eid,kind:'Legal entity',isEnt:true,eid:eid,ents:[eid],subs:1,parent:consLeafOf(eid).id,ccy:m.ccy,region:m.region};}
@@ -4089,8 +4191,8 @@
     if(fluxScope.type==='region')return E_ENT.filter(function(e){return (FX_ENT_META[e.id]||{}).region===fluxScope.value;}).map(function(e){return e.id;});
     return null;
   }
-  function fxScopedVal(a,i){ var ents=fluxScopeEnts(); if(!ents)return fluxVal(a,i);   // fast path: all → exact consolidated
-    var isBS=fluxStmt==='bs', v=0; for(var j=0;j<ents.length;j++)v+=fxEntValue([a],ents[j],i,isBS); return v; }
+  function fxScopedVal(a,i){ var ents=fluxScopeEnts(); if(!ents)return fluxVal(a,i);   // fast path: all → exact consolidated group
+    var led=consolSet(ents), ea=led.byAcct[a.acct]; return ea?fluxVal(ea,i):0; }   // real consolidation of the scoped set, IC eliminated within scope
   function fluxScopeLabel(){ if(!fluxScope||fluxScope.type==='all')return 'Consolidated';
     if(fluxScope.type==='cons'){var g=CONS_BY_ID[fluxScope.value];return g?g.name:fluxScope.value;}
     if(fluxScope.type==='region')return fluxScope.value; var m=FX_ENT_META[fluxScope.value]; return m?m.name:fluxScope.value; }
