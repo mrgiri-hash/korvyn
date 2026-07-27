@@ -103,6 +103,13 @@
     position:sticky;top:52px;align-self:start;height:calc(100vh - 52px);overflow:auto;display:flex;flex-direction:column}
   .nav .ng{margin-bottom:6px}
   .nav .nh{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:500;padding:11px 10px 3px}
+  .nrev-back{display:flex;align-items:center;gap:6px;width:100%;padding:6px 9px;margin-bottom:2px;border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;border-radius:var(--radius-sm)}
+  .nrev-back:hover{background:var(--surface-2);color:var(--ink)}
+  body.chrome-nav .nrev-back{color:var(--chrome-ink-2)}
+  .nrev-search{padding:2px 4px 8px}
+  .nrev-find{width:100%;height:30px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12.5px;padding:0 10px;box-sizing:border-box}
+  .nrev-find:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  body.nav-collapsed .nrev-back .nctxt,body.nav-collapsed .nrev-search{display:none}
   .nitem{display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:var(--radius-sm);color:var(--ink-2);font-size:13px;
     font-weight:400;cursor:pointer;border-left:2px solid transparent;position:relative}
   .nitem:hover{background:var(--surface-2)}
@@ -123,6 +130,19 @@
   body.chrome-nav .nav .nsp{background:var(--chrome-line)}
   body.chrome-nav .navcollapse{color:var(--chrome-ink-2)}
   body.chrome-nav .navcollapse:hover{background:var(--chrome-lift);color:var(--chrome-ink)}
+  /* Reviews navigator on the dark chrome rail: the reused rp-ws-* explorer classes are
+     content-plane by default (invisible on chrome), so re-map them to chrome ink here only. */
+  body.chrome-nav .nav .rp-ws-item,body.chrome-nav .nav .rp-ws-item.pin .rp-ws-nm,body.chrome-nav .nav .rp-ws-item.quick,body.chrome-nav .nav .rp-ws-item.review{color:var(--chrome-ink)}
+  body.chrome-nav .nav .rp-ws-item:hover{background:var(--chrome-lift);color:var(--chrome-ink)}
+  body.chrome-nav .nav .rp-ws-item.on{background:var(--chrome-lift-on);color:var(--chrome-ink)}
+  body.chrome-nav .nav .rp-ws-item.on .rp-ws-nm{color:var(--chrome-ink)}
+  body.chrome-nav .nav .rp-ws-tw,body.chrome-nav .nav .rp-ws-fdoc,body.chrome-nav .nav .rp-ws-qic{color:var(--chrome-ink-2)}
+  body.chrome-nav .nav .rp-ws-ct{color:var(--chrome-ink-2);background:var(--chrome-badge)}
+  body.chrome-nav .nav .rp-ws-item.on .rp-ws-ct{color:var(--chrome-ink);background:var(--chrome-badge-on)}
+  body.chrome-nav .nav .rp-ws-empty{color:var(--chrome-ink-2)}
+  body.chrome-nav .nav .nrev-find{background:var(--chrome-2);border-color:var(--chrome-line);color:var(--chrome-ink)}
+  body.chrome-nav .nav .nrev-find::placeholder{color:var(--chrome-ink-2)}
+  body.chrome-nav .nav .nrev-back:hover{background:var(--chrome-lift);color:var(--chrome-ink)}
   /* collapse toggle, pinned to the bottom of the rail */
   .navcollapse{display:flex;align-items:center;gap:10px;width:100%;margin-top:auto;padding:8px 10px;border:0;background:transparent;
     color:var(--muted);font-family:inherit;font-size:12.5px;cursor:pointer;border-radius:var(--radius-sm)}
@@ -523,7 +543,7 @@
   .fx-print-head .pph-sub{font-size:12px;color:var(--muted);margin-top:4px}
   @page{size:landscape;margin:12mm}
   body.print-mode{background:#fff!important}
-  body.print-mode .ribbon,body.print-mode #nav,body.print-mode #aiPanel,body.print-mode #aiMinTab,body.print-mode #notifPanel,body.print-mode #reviewModal,body.print-mode #fxInsp,body.print-mode #fxCfg,body.print-mode #view .kv-hd,body.print-mode #view .rvc-hd,body.print-mode #view .rp-crumb,body.print-mode #view .rp-tl,body.print-mode #view .fx-kpis,body.print-mode #view .fx-sum,body.print-mode #view .fx-filter,body.print-mode #view .fx-tb,body.print-mode #view .fx-rsum,body.print-mode #view .fx-sheets,body.print-mode #view .flx-note{display:none!important}
+  body.print-mode .ribbon,body.print-mode #nav,body.print-mode #aiPanel,body.print-mode #aiMinTab,body.print-mode #notifPanel,body.print-mode #reviewModal,body.print-mode #fxInsp,body.print-mode #fxCfg,body.print-mode #view .kv-hd,body.print-mode #view .rvc-hd,body.print-mode #view .rp-crumb,body.print-mode #view .rp-tl,body.print-mode #view .fx-kpis,body.print-mode #view .fx-sum,body.print-mode #view .fx-filter,body.print-mode #view .fx-tb,body.print-mode #view .fx-subbar,body.print-mode #view .fx-rsum,body.print-mode #view .fx-sheets,body.print-mode #view .flx-note{display:none!important}
   body.print-mode .app{display:block!important;margin-right:0!important}
   body.print-mode .main{margin:0!important}
   body.print-mode #view{padding:6px 4px!important}
@@ -1100,6 +1120,18 @@
   .fx-rsum-div{width:1px;align-self:stretch;background:var(--line-2);margin:3px 0}
   .fx-rsum-scope{margin-left:auto;font-size:11.5px;color:var(--ink-2);font-weight:500}
   .fx-rsum-scope .sc-k{color:var(--faint);font-weight:400}
+  /* Increment 2 body declutter: a slim control row + a quiet caption above the grid, so the
+     grid leads. Replaces the bordered fx-rsum card and the standalone rc-modebar band. */
+  .fx-subbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+  .fx-sub-scope{margin-left:auto;font-size:11.5px;color:var(--ink-2);font-weight:500}
+  .fx-sub-scope .sc-k{color:var(--faint);font-weight:400}
+  .fx-metrics{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:0 0 10px;padding:0 0 9px;border-bottom:1px solid var(--line)}
+  .fx-mg{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .fx-mg-r{margin-left:auto}
+  .fx-sm{display:inline-flex;align-items:baseline;gap:6px;line-height:1}
+  .fx-sm .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+  .fx-sm .v{font-size:13.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .fx-sm .v.pos{color:var(--pos)} .fx-sm .v.neg{color:var(--neg)} .fx-sm .v.acc{color:var(--accent)} .fx-sm .v.warn{color:var(--warn)}
   /* ===== Review Framework: mode bar, review-mode first impression ===== */
   .rc-modebar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;flex-wrap:wrap}
   .rc-modes{display:inline-flex;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:2px}
@@ -1151,6 +1183,33 @@
   .fx-tb-mi{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;font-family:inherit;font-size:12.5px;color:var(--ink-2);padding:7px 9px;border-radius:5px;cursor:pointer}
   .fx-tb-mi:hover{background:var(--surface-2);color:var(--ink)}
   .fx-tb-mi svg{color:var(--muted);flex:0 0 auto}
+  /* Consolidated flux menu bar: Statement / View / Filter dropdowns replace the old control wall. */
+  .fx-menubar{gap:8px;flex-wrap:wrap;align-items:center}
+  .fxm-cur{font-size:11px;color:var(--muted);font-weight:400;max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fxm[open]>.fxm-sum .fxm-cur{color:var(--accent)}
+  .fxm-scoK{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .fxm-pop-scope{left:auto;right:0;min-width:248px}
+  .fxm-scope-sel{width:100%;height:30px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12.5px;font-family:inherit;padding:0 8px;margin-top:2px;cursor:pointer}
+  .fxm-scope-sel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  .fxm-note2{font-size:10.5px;color:var(--faint);padding:7px 8px 2px;line-height:1.45;white-space:normal;max-width:232px}
+  .fxm{position:relative;display:inline-block}
+  .fxm-sum{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);font-size:12.5px;font-weight:500;color:var(--ink);white-space:nowrap}
+  .fxm-sum::-webkit-details-marker{display:none}
+  .fxm-sum::after{content:'';border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-top:4px solid var(--muted);margin-left:3px}
+  .fxm-sum:hover{border-color:var(--faint)}
+  .fxm[open]>.fxm-sum{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  .fxm-sum-primary{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .fxm-sum-primary::after{border-top-color:var(--accent)}
+  .fxm-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .fxm-pop{position:absolute;top:calc(100% + 4px);left:0;z-index:40;min-width:184px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;box-shadow:var(--shadow);padding:5px;display:flex;flex-direction:column;gap:1px}
+  .fxm-pop-w{min-width:212px}
+  .fxm-h{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:7px 8px 3px}
+  .fxm-opt{display:flex;align-items:center;gap:7px;border:0;background:none;font-family:inherit;font-size:12.5px;color:var(--ink);text-align:left;padding:6px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}
+  .fxm-opt:hover{background:var(--surface-2)}
+  .fxm-opt.on{color:var(--accent);font-weight:500}
+  .fxm-ck{width:13px;height:13px;display:inline-flex;align-items:center;justify-content:center;color:var(--accent);flex:0 0 13px}
+  .fxm-sep{height:1px;background:var(--line);margin:4px 2px}
+  .fx-mb-scope{font-size:11.5px;color:var(--ink-2);font-weight:500;white-space:nowrap}
   /* Configure modal */
   .fx-cfg[hidden]{display:none}
   .fx-cfg-bd{position:fixed;inset:0;background:rgba(16,18,24,.32);z-index:58}
@@ -1497,7 +1556,7 @@
   .fxi-lin-n{font-size:12px;color:var(--ink)}
   .fxi-lin-arrow{text-align:center;color:var(--faint);font-size:12px;line-height:1.4}
   /* ===== Review-indicators cell (table) + enriched Review Panel tabs ===== */
-  .fxg col.c-review{width:230px}
+  .fxg col.c-review{width:300px}
   .fxg td.fx-rev{text-align:left;vertical-align:top;padding:9px 12px 8px;white-space:nowrap}
   .fx-rev-btn{display:inline-flex;align-items:center;gap:12px;cursor:pointer}
   .fx-ind{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -1511,6 +1570,15 @@
   .fx-rev-st.wait{background:var(--warn-bg);color:var(--warn)}
   @media(prefers-color-scheme:dark){ .fx-rev-st.rev{background:#241C3A;color:#B9A6F0} }
   .fxg th.fx-rev-h{text-align:left}
+  /* Inline Explanation & review column: note text shows in place; details open the panel. */
+  .fxg td.fx-xp-td{vertical-align:middle}
+  .fx-xp-td .fx-rev-btn{display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between}
+  .fx-xp-main{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+  .fx-xp-tx{font-size:11.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .fx-xp-add{font-size:11.5px;color:var(--muted)}
+  .fx-xp-td:hover .fx-xp-add{color:var(--accent)}
+  .fx-xp-inds{flex:0 0 auto;display:flex;align-items:center;gap:6px}
+  .fx-rev-st-ic{padding:2px 5px}
   /* Explanations block — collected below the table (Display menu), never between GL rows */
   .fx-notes{margin:12px 0 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
   .fx-notes-h{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:9px 14px 5px}
@@ -1890,7 +1958,12 @@
     return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">'+d+'</svg>';
   }
   var activeNav='home';
+  var railMode='modules';   /* 'modules' = module step rails; 'reviews' = the collections navigator */
+  var REV_TABS={frov:1,my:1,all:1,mtrend:1,frtpl:1,frlib:1,frmap:1,fradmin:1};
+  function navIsReview(k){return !!REV_TABS[k];}
+  function navReviewBack(){railMode='modules';renderNav();}
   function renderNav(){
+    if(railMode==='reviews'&&typeof renderReviewsNav==='function'){renderReviewsNav();return;}
     var counts={home:'',my:REVIEWS.length,all:REVIEWS.length,close:'',knowledge:knowledgeItems().length,evidence:EVIDENCE.length,audit:'',controls:(ctlOpenCount(ACTIVE_PERIOD)||''),
       periods:(RP_PERIODS.filter(function(p){return !p.locked;}).length||''),'repo-upload':'','repo-coa':(rpUnmappedCount()||''),'repo-ledger':(ldgExceptions('2026-07').length||''),'repo-history':RP_UPLOADS.length};
     var h='';
@@ -1910,6 +1983,47 @@
     var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
     syncNavToggle();
   }
+  /* Reviews-area left nav: the collapsible collections navigator (Favorites · Recent ·
+     Workspace · Collections), reusing the workspace explorer's tree + favorites/recent. */
+  function rpWsToggleNav(id){RP_WS_EXPAND[id]=!RP_WS_EXPAND[id];renderReviewsNav();}
+  function rpNavOpenFolder(id){rpExpandTo(id);RP_WS_EXPAND[id]=true;renderReviewsNav();}
+  function renderReviewsNav(){
+    var h='<button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button>';
+    h+='<div class="nrev-search"><input class="nrev-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></div>';
+    if(RP_WS_FIND){
+      var q=RP_WS_FIND.toLowerCase();
+      var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
+      var mcol=RP_WS_FOLDERS.filter(function(f){return !f.hidden&&f.name.toLowerCase().indexOf(q)>=0;});
+      h+='<div class="nh">'+(mrev.length+mcol.length)+' result'+((mrev.length+mcol.length)===1?'':'s')+'</div>';
+      mcol.forEach(function(f){h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+f.id+'"><span class="rp-ws-qic">'+rpIcon('folder')+'</span><span class="rp-ws-nm">'+esc(f.name)+'</span><span class="rp-ws-ct">'+f.count+'</span></button></div>';});
+      mrev.forEach(function(r){h+=rpPinReview(r);});
+      if(!mrev.length&&!mcol.length)h+='<div class="rp-ws-empty">No matches for &ldquo;'+esc(RP_WS_FIND)+'&rdquo;</div>';
+    } else {
+      var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):rpReviewById(f.id);});
+      if(favItems.length){ h+='<div class="nh">Favorites</div>';
+        favItems.forEach(function(f){ if(f.kind==='folder'){var fo=rpFolder(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span><span class="rp-ws-ct">'+fo.count+'</span></button></div>';}
+          else{var r=rpReviewById(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';} }); }
+      var recent=RP_RECENT.map(rpReviewById).filter(Boolean).slice(0,5);
+      if(recent.length){ h+='<div class="nh">Recent</div>'; recent.forEach(function(r){h+=rpPinReview(r);}); }
+      h+='<div class="nh">Workspace</div>';
+      h+='<div class="nitem'+(activeNav==='frov'?' on':'')+'" data-nav="frov">'+navIcon('grid')+'<span>Overview</span></div>';
+      h+='<div class="nitem'+(activeNav==='my'?' on':'')+'" data-nav="my">'+navIcon('doc')+'<span>My reviews</span></div>';
+      h+='<div class="nitem'+(activeNav==='all'?' on':'')+'" data-nav="all">'+navIcon('stack')+'<span>All reviews</span></div>';
+      h+='<div class="nh">Collections</div>';
+      RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);});
+    }
+    h+='<button class="navcollapse" id="navToggle"><span class="nav-cicon">'+navChevron()+'</span><span class="nctxt">Collapse</span></button>';
+    $('#nav').innerHTML=h;
+    var bk=document.getElementById('navRevBack');if(bk)bk.onclick=navReviewBack;
+    var fi=$('#nav').querySelector('.nrev-find');if(fi)fi.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderReviewsNav();var n=$('#nav').querySelector('.nrev-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-tw'),function(el){el.onclick=function(e){e.stopPropagation();rpWsToggleNav(this.getAttribute('data-tw'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item.folder'),function(el){el.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;rpWsToggleNav(this.getAttribute('data-ws'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item.pin[data-ws]'),function(el){el.onclick=function(){rpNavOpenFolder(this.getAttribute('data-ws'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-rid]'),function(el){el.onclick=function(){rpOpenReview(this.getAttribute('data-rid'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-nav]'),function(el){el.onclick=function(){navTo(this.getAttribute('data-nav'));};});
+    var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
+    syncNavToggle();
+  }
   function navChevron(){return document.body.classList.contains('nav-collapsed')
     ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg>'
     : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg>';}
@@ -1920,7 +2034,7 @@
     document.body.classList.toggle('flux-view', k==='mtrend');
     if(typeof rpNewPeriodClose==='function')rpNewPeriodClose();
     if(k!=='mtrend')RP_OPEN_REVIEW=null;
-    activeNav=(k.indexOf('period:')===0)?'periods':k;renderNav();
+    activeNav=(k.indexOf('period:')===0)?'periods':k;railMode=navIsReview(activeNav)?'reviews':'modules';renderNav();
     if(k==='home'||k==='close'){renderHome();if(k==='close')window.scrollTo({top:0,behavior:'smooth'});}
     else if(k==='my'){renderMyReviews();window.scrollTo(0,0);}
     else if(k==='all'){renderTeamReviews();window.scrollTo(0,0);}
@@ -3323,12 +3437,14 @@
   /* segment grouping (mockup UI): group flux rows by reportable segment, not by CoA caption */
   var FLUX_SEG={}, FLUX_SEG_ORDER=[]; (function(){var seen={};E_ACC.forEach(function(a){FLUX_SEG[a.acct]=a.seg;if(!seen[a.seg]){seen[a.seg]=1;FLUX_SEG_ORDER.push(a.seg);}});})();
   /* Keyed report-caption:month (statement-independent, so notes persist across BS / IS / Both). */
+  /* Seed explanations, keyed by rollup (or account) + period. Keys match the deep chart's
+     rollups so the inline Explanation column and the review counts resolve. */
   var FLUX_COMMENTS={
-    'PP&E:2026-07':{text:'Net increase reflects routine equipment capitalization (new hall fit-out at the Campus site) plus the monthly construction draw on the Ridgeline campus. The $1.01M January addition remains the largest placement YTD. No impairment indicators.',ai:true},
-    'Payables:2026-07':{text:'Invoice timing on Operations and G&A vendors — the largest items are the July power settlement and site-ops. No aged or disputed balances; all within terms.',by:'Maya Grant'},
-    'Equity:2026-07':{text:'Period operating result flowing to retained earnings. No capital contributions or distributions in the period.',ai:true},
-    'Facilities:2026-07':{text:'Temporary rental chillers during the July heat event (~3 weeks, invoice CE-4471) within Power & utilities. Not a rate change; reverses as the rental accrual unwinds next month.',by:'Sarah Chen'},
-    'G&A:2026-07':{text:'Property taxes drove the prior-period spike (April assessment true-up); the current period is back to the base run-rate.',ai:true}
+    'Real estate, at cost:2026-07':{text:'Net increase reflects routine equipment capitalization (new hall fit-out at the Campus site) plus the monthly construction draw on the Ridgeline campus. Placed-in-service step-up landed in January. No impairment indicators.',ai:true},
+    'Payables & accruals:2026-07':{text:'Invoice timing on Operations and G&A vendors — the largest items are the July power settlement and site-ops. No aged or disputed balances; all within terms.',by:'Maya Grant'},
+    "Shareholders' equity:2026-07":{text:'Period operating result flowing to retained earnings. No capital contributions or distributions in the period.',ai:true},
+    'Property operating:2026-07':{text:'Temporary rental chillers during the July heat event (~3 weeks, invoice CE-4471) within Power & utilities. Not a rate change; reverses as the rental accrual unwinds next month.',by:'Sarah Chen'},
+    'Depreciation & amortization:2026-07':{text:'Monthly depreciation plus the step-up from assets placed in service in January (Ridgeline hall). Run-rate is otherwise stable; no changes to useful lives.',ai:true}
   };
   function flxLbl(k){return (E_ML[k]||k).replace(' ','-');}
   function flxAsOf(k){return filingDate(k);}
@@ -4074,14 +4190,20 @@
   function fxLayerLabel(level){for(var i=0;i<FX_LAYER_DEFS.length;i++)if(FX_LAYER_DEFS[i][0]===level)return FX_LAYER_DEFS[i][1];return level;}
   var FX_ACT_TYPES={comment:['#2F62D4','&#128172;'],evidence:['#1D7A46','&#128206;'],submitted:['#7A6FF0','&#8593;'],approved:['#1D7A46','&#10003;'],assign:['#B8722E','&#8644;'],controller:['#1C6B7A','&#9873;']};
   var FX_CMT_ICO='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.4 8.5 8.5 0 0 1-3.8-.9L3 20.5l1.5-4.2a8.4 8.4 0 0 1-.9-3.8A8.38 8.38 0 0 1 12 4a8.38 8.38 0 0 1 9 7.5z"/></svg>';
-  /* Compact review-indicators cell: comment count, evidence count, status chip. Opens the Review Panel. */
+  /* Explanation & review cell: shows the note INLINE (reviewer/Korvyn chip + text), or
+     "Needs explanation" / "+ Add note", plus a compact evidence count and a review-status
+     pill. Clicking opens the docked Review Panel for the full thread/workflow. */
   function fxReviewTd(key,cmtId,mat,selk,selv){
-    var c=fxReviewCounts(key,cmtId), st=fxReviewStatus(key,cmtId,mat);
-    var h='<td class="fx-rev" data-selk="'+selk+'" data-selv="'+esc(selv)+'"><span class="fx-rev-btn" title="Open review panel">';
-    h+='<span class="fx-ind'+(c.notes?'':' z')+'" title="'+c.notes+' review note'+(c.notes===1?'':'s')+'">'+FX_CMT_ICO+(c.notes||0)+'</span>';
-    h+='<span class="fx-ind'+(c.docs?'':' z')+'" title="'+c.docs+' document'+(c.docs===1?'':'s')+'">'+FX_CLIP+(c.docs||0)+'</span>';
-    if(st)h+='<span class="fx-rev-st '+st.cls+'">'+st.ico+' '+st.label+'</span>';
-    return h+'</span></td>';
+    var c=fxReviewCounts(key,cmtId), st=fxReviewStatus(key,cmtId,mat), cm=FLUX_COMMENTS[cmtId], main;
+    if(cm){
+      var chip=cm.ai?'<span class="fx-chip ai">&#10022; Korvyn</span>':'<span class="fx-chip ok">'+AI_CHECK+' '+esc(cm.by||'Reviewer')+'</span>';
+      main=chip+'<span class="fx-xp-tx" title="'+esc(cm.text)+'">'+esc(cm.text)+'</span>';
+    } else if(mat){ main='<span class="fx-chip need">&#9888; Needs explanation</span>'; }
+    else { main='<span class="fx-xp-add">+ Add note</span>'; }
+    var inds='';
+    if(c.docs)inds+='<span class="fx-ind" title="'+c.docs+' evidence document'+(c.docs===1?'':'s')+'">'+FX_CLIP+c.docs+'</span>';
+    if(st&&st.cls!=='need')inds+='<span class="fx-rev-st '+st.cls+' fx-rev-st-ic" title="'+esc(st.label)+'">'+st.ico+'</span>';
+    return '<td class="fx-rev fx-xp-td" data-selk="'+selk+'" data-selv="'+esc(selv)+'"><span class="fx-rev-btn" title="Open review panel"><span class="fx-xp-main">'+main+'</span>'+(inds?'<span class="fx-xp-inds">'+inds+'</span>':'')+'</span></td>';
   }
   /* Review-note body for a material line (Display menu: comments/evidence/AI). Rendered in the
      Explanations block BELOW the table — never interleaved between GL rows. */
@@ -4671,38 +4793,21 @@
     else{ctlPrev=sum(revA,priIdx)-sum(expA,priIdx);ctlCur=sum(revA,ti)-sum(expA,ti);ctlLbl='Operating income';}
     var ctlD=ctlCur-ctlPrev, ctlPct=ctlPrev?ctlD/Math.abs(ctlPrev)*100:0;
     var h=(RP_OPEN_REVIEW&&typeof rpReviewHeader==='function')?rpReviewHeader():'<div class="kv-hd fx-kvhd"><div><div class="k">Financial reporting</div><h1>Flux review</h1><div class="kv-sub">'+(isBS?'Balance sheet':isBoth?'Balance sheet &amp; income statement':'Income statement')+' flux &amp; trending &mdash; figures derive from the tied-out ledger. Filter by review lens, scope to a region or entity, and click any line for the entity drivers and a Korvyn-drafted explanation.</div></div></div>';
-    h+=rcModeBar();
     // ----- scope + FX split derived for the compact review summary -----
     var node=fluxCurNode(), matFloor=scopeMatFloor(), gm=fxGroupMeta();
     var bandFx=isBS?fxFxPart(assetA,ti,priIdx):(fxFxPart(revA,ti,priIdx)-fxFxPart(expA,ti,priIdx));
     var bandOrg=ctlD-bandFx;
     function gbCls(n){return n<0?'neg':n>0?'pos':'';}
     function fxSum(n,plus){var s=n<0?'&minus;':(plus&&n>0?'+':'');return s+fxAbbr$(n);}
-    // ----- compact review summary (one line): Movement · Organic · FX · Material · Need explanation -----
-    h+='<div class="fx-rsum"><div class="fx-rsum-g">';
-    h+='<div class="fx-rsum-i" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></div>';
-    h+='<div class="fx-rsum-i" title="Constant-currency movement"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></div>';
-    h+='<div class="fx-rsum-i" title="FX translation effect vs prior-month rates"><span class="k">FX</span><span class="v acc">'+fxSum(bandFx,true)+'</span></div>';
-    h+='</div><div class="fx-rsum-div"></div><div class="fx-rsum-g">';
-    h+='<div class="fx-rsum-i" title="Moves over the flag threshold (&ge;'+fluxMat+'% &amp; '+fxAbbr(matFloor)+')"><span class="k">Material</span><span class="v">'+matCount+'</span></div>';
-    h+='<div class="fx-rsum-i" title="Material moves without an accepted explanation"><span class="k">Needs explanation</span><span class="v '+(needCount?'warn':'pos')+'">'+needCount+'</span></div>';
-    h+='<div class="fx-rsum-i" title="Material lines without verified supporting evidence"><span class="k">Outstanding evidence</span><span class="v '+(outstandingEvid?'warn':'pos')+'">'+outstandingEvid+'</span></div>';
-    h+='<div class="fx-rsum-i" title="Material lines explained and evidenced &mdash; ready for approval"><span class="k">Ready for approval</span><span class="v '+(readyApproval?'pos':'')+'">'+readyApproval+'</span></div>';
-    h+='</div>';
-    h+='<div class="fx-rsum-scope" title="Change scope in Configure">'+esc(node.name)+'<span class="sc-k"> &middot; '+esc(node.kind)+(node.isEnt?(node.ccy?' &middot; '+esc(node.ccy):''):' &middot; ~'+node.subs.toLocaleString()+' subs')+'</span></div>';
-    h+='</div>';
+    // (Review mode, Display and scope now live inside the consolidated menu bar below.)
     // ----- Review-mode first impression: exec AI narrative + top material changes (presentation only) -----
     if(RC_MODE==='executive'){
       var exN='The '+(isBS?'balance sheet':isBoth?'balance sheet and income statement':'income statement')+' moved '+(ctlD>=0?'up ':'down ')+fxAbbr$(ctlD)+' into '+flxLbl(mTo)+' &mdash; '+(matCount?(matCount+' material movement'+(matCount>1?'s':'')):'no material movements')+(needCount?(', '+needCount+' still needing explanation'):', all explained')+(outstandingEvid?('; '+outstandingEvid+' with outstanding evidence.'):'.');
       h+='<div class="fx-rvw-ai"><span class="sp">&#10022;</span><span class="tx">'+exN+'</span></div>';
     }
-    if((RC_MODE==='review'||RC_MODE==='executive')&&matLeaves.length){
-      h+='<div class="fx-rvw"><div class="fx-rvw-h">Top material changes</div><div class="fx-rvw-list">';
-      matLeaves.slice(0,3).forEach(function(l){ var drv=(l.note&&l.note.text)?l.note.text.replace(/<[^>]+>/g,'').replace(/&[a-z]+;/g,' ').trim():''; if(drv.length>54)drv=drv.slice(0,52)+'…'; if(!drv)drv=l.acc?'Explained':'Needs explanation';
-        h+='<button class="fx-rvw-item" data-selk="det" data-selv="'+l.acct+'"><span class="fx-rvw-n">'+esc(l.name)+'</span><span class="fx-rvw-d '+(l.d>=0?'up':'dn')+'">'+(l.d>=0?'+':'&minus;')+fxAbbr$(l.d)+'</span><span class="fx-rvw-drv'+(l.acc?'':' need')+'">'+esc(drv)+'</span></button>';
-      });
-      h+='</div></div>';
-    }
+    // (The "Top material changes" band was removed — it duplicated the "Explanations —
+    //  material lines" list below the grid. Material lines carry the amber grid edge and
+    //  the Explanations block; no need for a third copy up here.)
     // ----- single toolbar: statement · materiality · status · search · configure -----
     var allKeys=[]; secs.forEach(function(s){s.groups.forEach(function(g){allKeys.push(fluxStmt+':'+g.report);});});
     var allExp=allKeys.length&&allKeys.every(function(k){return fluxExpand[k];});
@@ -4713,23 +4818,48 @@
     var curStatus=fluxLens.needs?'needs':fluxLens.reviewed?'reviewed':fluxLens.material?'material':fluxLens.unfav?'unfav':fluxLens.noevid?'noevid':'all';
     var searchIco='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
     var moreIco='<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>';
-    h+='<div class="fx-tb">';
-    h+='<div class="fx-tb-tabs">'+[['bs','Balance Sheet'],['is','Income Statement'],['both','Both']].map(function(t){return '<button class="fx-tb-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</div>';
-    h+='<span class="fx-tb-sep"></span>';
-    h+='<label class="fx-tb-f"><span class="fx-tb-l">Materiality</span><select class="fx-tb-sel" id="fxTbMat">'+(matPresets.indexOf(fluxMat)<0?'<option value="'+fluxMat+'" selected>&ge; '+fluxMat+'%</option>':'')+matPresets.map(function(o){return '<option value="'+o+'"'+(fluxMat===o?' selected':'')+'>&ge; '+o+'%</option>';}).join('')+'</select></label>';
-    h+='<label class="fx-tb-f"><span class="fx-tb-l">Status</span><select class="fx-tb-sel" id="fxTbStatus">'+statusOpts.map(function(o){return '<option value="'+o[0]+'"'+(curStatus===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>';
+    // ----- one consolidated menu bar: Statement · View · Filter · Search … scope · More · Configure -----
+    var stmtLabel=fluxStmt==='bs'?'Balance Sheet':fluxStmt==='is'?'Income Statement':'Both';
+    var ckOn='<span class="fxm-ck">'+AI_CHECK+'</span>', ckOff='<span class="fxm-ck"></span>', filterOn=(curStatus!=='all');
+    h+='<div class="fx-tb fx-menubar">';
+    // Statement (primary)
+    h+='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+stmtLabel+'</summary><div class="fxm-pop">'+[['bs','Balance Sheet'],['is','Income Statement'],['both','Both']].map(function(t){return '<button class="fxm-opt fx-tb-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+(fluxStmt===t[0]?ckOn:ckOff)+t[1]+'</button>';}).join('')+'</div></details>';
+    // STRUCTURE — Rows: group-by + detail level (pulled out of the Configure modal)
+    var rowsCur=(fluxGroupBy==='segment'?'Segment':'Category');
+    h+='<details class="fxm"><summary class="fxm-sum">Rows<span class="fxm-cur">'+rowsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Group rows by</div>'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxm-opt fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+(fluxGroupBy===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'<div class="fxm-sep"></div><div class="fxm-h">Detail level</div><button class="fxm-opt fxm-exp2" data-exp="all">'+ckOff+'Expand all accounts</button><button class="fxm-opt fxm-exp2" data-exp="none">'+ckOff+'Collapse to subtotals</button></div></details>';
+    // STRUCTURE — Columns: axis + trend window (pulled out of the Configure modal)
+    var colsCur=(fluxCols==='entities'?'By entity':fluxCols==='regions'?'By region':nCols+'-mo trend');
+    h+='<details class="fxm"><summary class="fxm-sum">Columns<span class="fxm-cur">'+colsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Column axis</div>'+FLUX_COLS_OPTS.map(function(o){return '<button class="fxm-opt fxm-cols'+(fluxCols===o[0]?' on':'')+'" data-cols="'+o[0]+'">'+(fluxCols===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+(fluxCols==='periods'?('<div class="fxm-sep"></div><div class="fxm-h">Trend window</div>'+[[2,'Month over month'],[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months']].map(function(w){return '<button class="fxm-opt fxm-win'+(nCols===w[0]?' on':'')+'" data-win="'+w[0]+'">'+(nCols===w[0]?ckOn:ckOff)+w[1]+'</button>';}).join('')):'')+'</div></details>';
+    // PRESENTATION — View: review mode + what the explanation column shows
+    h+='<details class="fxm"><summary class="fxm-sum">View</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Review mode</div>'+RC_MODES.map(function(m){return '<button class="fxm-opt rc-mode'+(RC_MODE===m[0]?' on':'')+'" data-rcmode="'+m[0]+'" title="'+esc(RC_MODE_HINT[m[0]]||'')+'">'+(RC_MODE===m[0]?ckOn:ckOff)+m[1]+'</button>';}).join('')+'<div class="fxm-h">Explanation column shows</div>'+RC_DISPLAYS.map(function(d){return '<button class="fxm-opt rc-dispopt'+(RC_DISPLAY===d[0]?' on':'')+'" data-disp="'+d[0]+'">'+(RC_DISPLAY===d[0]?ckOn:ckOff)+d[1]+'</button>';}).join('')+'</div></details>';
+    // SUBSET — Filter: materiality threshold + status lens (dot when active)
+    var matOpts=(matPresets.indexOf(fluxMat)<0?'<button class="fxm-opt fxm-mat on" data-mat="'+fluxMat+'">'+ckOn+'&ge; '+fluxMat+'%</button>':'')+matPresets.map(function(o){return '<button class="fxm-opt fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">'+(fluxMat===o?ckOn:ckOff)+'&ge; '+o+'%</button>';}).join('');
+    h+='<details class="fxm'+(filterOn?' fxm-act':'')+'"><summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Materiality threshold</div>'+matOpts+'<div class="fxm-h">Show only</div>'+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'</div></details>';
+    // Search
     h+='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search line items&hellip;" value="'+esc(fluxFind)+'"></div>';
-    h+='<div class="fx-tb-right">'+(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'')+'<details class="fx-tb-more"><summary class="fx-tb-morebtn" title="More actions">'+moreIco+'</summary><div class="fx-tb-menu"><button class="fx-tb-mi flx-expand-all">'+(allExp?'Collapse all sections':'Expand all sections')+'</button><button class="fx-tb-mi fx-print">'+FX_PRINT_ICO+' Print statement</button><button class="fx-tb-mi fx-email">'+FX_MAIL_ICO+' Email summary</button></div></details><button class="btn primary fx-cfg-open">'+FX_GEAR_ICO+' Configure</button></div>';
+    // Right cluster: Scope (POV) · line count · clear · More (save / print / email / advanced)
+    h+='<div class="fx-tb-right"><details class="fxm fxm-scopeM"><summary class="fxm-sum"><span class="fxm-scoK">Scope</span><span class="fxm-cur">'+esc(node.name)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Consolidation scope</div><select class="fxm-scope-sel">'+fluxScopeOptions(fluxScope)+'</select><div class="fxm-note2">Scopes the whole statement to a region, entity or the consolidated group.</div></div></details>'+(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'')+'<details class="fx-tb-more"><summary class="fx-tb-morebtn" title="More actions">'+moreIco+'</summary><div class="fx-tb-menu"><button class="fx-tb-mi fx-saveview">&#9734; Save view</button><button class="fx-tb-mi fx-print">'+FX_PRINT_ICO+' Print statement</button><button class="fx-tb-mi fx-email">'+FX_MAIL_ICO+' Email summary</button><div class="fxm-sep"></div><button class="fx-tb-mi fx-cfg-open">'+FX_GEAR_ICO+' Advanced settings&hellip;</button></div></details></div>';
     h+='</div>';
+    // ----- slim summary caption for the grid: movement bridge (left) · review counts (right) -----
+    h+='<div class="fx-metrics"><div class="fx-mg">'+
+       '<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'+
+       '<span class="fx-sm" title="Constant-currency movement"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></span>'+
+       '<span class="fx-sm" title="FX translation effect vs prior-month rates"><span class="k">FX</span><span class="v acc">'+fxSum(bandFx,true)+'</span></span>'+
+       '</div><div class="fx-mg fx-mg-r">'+
+       '<span class="fx-sm" title="Moves over the flag threshold (&ge;'+fluxMat+'% &amp; '+fxAbbr(matFloor)+')"><span class="k">Material</span><span class="v">'+matCount+'</span></span>'+
+       '<span class="fx-sm" title="Material moves without an accepted explanation"><span class="k">Needs expl.</span><span class="v '+(needCount?'warn':'pos')+'">'+needCount+'</span></span>'+
+       '<span class="fx-sm" title="Material lines without verified supporting evidence"><span class="k">No evidence</span><span class="v '+(outstandingEvid?'warn':'pos')+'">'+outstandingEvid+'</span></span>'+
+       '<span class="fx-sm" title="Material lines explained and evidenced &mdash; ready for approval"><span class="k">Ready</span><span class="v '+(readyApproval?'pos':'')+'">'+readyApproval+'</span></span>'+
+       '</div></div>';
     // grid
     var extraCols=1;  // single compact Review column — the panel owns comments / evidence / workflow
-    var minW=236+nColShow*(colByPeriod?98:118)+106+96+88+74+230;
+    var minW=236+nColShow*(colByPeriod?98:118)+106+96+88+74+300;
     h+='<div class="fx-print-head"><div class="pph-org">Meridian Global Portfolio &middot; '+(fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel()))+'</div><div class="pph-title">'+(isBS?'Balance Sheet':isBoth?'Balance Sheet &amp; Income Statement':'Income Statement')+' &mdash; Flux &amp; Trending</div><div class="pph-sub">Period '+flxLbl(mFrom)+' &rarr; '+flxLbl(mTo)+' &middot; MoM &Delta; into '+flxLbl(mTo)+' &middot; Figures in USD</div></div>';
     h+='<div class="fx-gridwrap"><table class="fxg" style="min-width:'+minW+'px"><colgroup><col class="c-line">'+COLS.map(function(){return '<col class="'+(colByPeriod?'c-per':'c-ent')+'">';}).join('')+'<col class="c-chg"><col class="c-org"><col class="c-fx"><col class="c-pct"><col class="c-review"></colgroup>';
     var dHead=colByPeriod?'MoM &Delta;<span class="sub">vs prior month</span>':'MoM &Delta;<span class="sub">into '+flxLbl(mTo)+'</span>';
     h+='<thead><tr><th class="l fx-line">Line item</th>';
     COLS.forEach(function(c,k){h+='<th class="fx-per'+((c.cur||k===COLS.length-1)?' fx-cur-col':'')+'">'+c.label+(c.sub?'<span class="sub">'+c.sub+'</span>':'')+'</th>';});
-    h+='<th class="fx-sep">'+dHead+'</th><th class="fx-org">Organic<span class="sub">const. ccy</span></th><th class="fx-fx">FX<span class="sub">translation</span></th><th>&Delta; %<span class="sub">vs prior</span></th>'+'<th class="l fx-rev-h">Review</th></tr></thead><tbody>';
+    h+='<th class="fx-sep">'+dHead+'</th><th class="fx-org">Organic<span class="sub">const. ccy</span></th><th class="fx-fx">FX<span class="sub">translation</span></th><th>&Delta; %<span class="sub">vs prior</span></th>'+'<th class="l fx-rev-h">Explanation &amp; review</th></tr></thead><tbody>';
     var stripe=0;
     secs.forEach(function(sec){
       var vis=fluxFilterActive()?sec.groups.filter(function(g){return g.accts.some(function(a){return fxAcctPass(a,ti,priIdx,mTo);});}):sec.groups;
@@ -4780,8 +4910,14 @@
     if(typeof rpWireTimeline==='function')rpWireTimeline();
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=saveFluxView;
-    var mSel=document.getElementById('fxTbMat');if(mSel)mSel.onchange=function(){var mv=parseFloat(this.value);if(mv>0){fluxMat=mv;renderMonthlyTrend();}};
-    var sSel=document.getElementById('fxTbStatus');if(sSel)sSel.onchange=function(){var v=this.value;fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-mat'),function(b){b.onclick=function(){var mv=parseFloat(this.getAttribute('data-mat'));if(mv>0){fluxMat=mv;renderMonthlyTrend();}};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-status'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rc-dispopt'),function(b){b.onclick=function(){rcSetDisplay(this.getAttribute('data-disp'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rows'),function(b){b.onclick=function(){fluxGroupBy=this.getAttribute('data-rows');renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-cols'),function(b){b.onclick=function(){fluxCols=this.getAttribute('data-cols');renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-win'),function(b){b.onclick=function(){var n=+this.getAttribute('data-win'),ms=glLedger().months,tj=ms.indexOf(fluxTo);if(tj<0)tj=ms.length-1;fluxFrom=ms[Math.max(0,tj-(n-1))];fluxTo=ms[tj];fluxCols='periods';renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-exp2'),function(b){b.onclick=function(){var open=this.getAttribute('data-exp')==='all',ks=[];fluxSections(glLedger(),fluxStmt).forEach(function(s){s.groups.forEach(function(g){ks.push(fluxStmt+':'+g.report);});});ks.forEach(function(k){fluxExpand[k]=open;});renderMonthlyTrend();};});
+    var fxScopeSel=document.querySelector('#view .fxm-scope-sel');if(fxScopeSel)fxScopeSel.onchange=function(){var v=this.value;if(v==='all')fluxScope={type:'all',value:null};else{var pp=v.split(':');fluxScope={type:pp[0],value:pp.slice(1).join(':')};}if(typeof fluxInspClose==='function')fluxInspClose();renderMonthlyTrend();};
     var fxFindInp=document.querySelector('#view .fxf-find');if(fxFindInp)fxFindInp.oninput=function(){fluxFind=this.value;var pos=this.selectionStart;renderMonthlyTrend();var ni=document.querySelector('#view .fxf-find');if(ni){ni.focus();try{ni.setSelectionRange(pos,pos);}catch(e){}}};
     var fxClr=document.querySelector('#view .fxf-clear');if(fxClr)fxClr.onclick=function(){fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};fluxScope={type:'all',value:null};fluxFind='';renderMonthlyTrend();};
     var ea=document.querySelector('#view .flx-expand-all');
