@@ -1569,6 +1569,41 @@
   body.flux-view .fx-gb{padding:9px 13px;margin-bottom:9px}
   body.flux-view .fx-gb-v{font-size:15px}
   body.flux-view .fx-cn{margin-bottom:8px}
+  .rp-ws-empty{padding:16px 10px;font-size:12px;color:var(--muted);line-height:1.5}
+  /* overview: tighter, list-first */
+  .rp-ov-sec{margin-bottom:14px}
+  .rp-ov-h{padding-bottom:6px}
+  .rp-list{padding:4px}
+  .rp-li,.rp-act{padding:6px 8px}
+  /* canvas: compact analysis bar + filter pills so the accounting table dominates */
+  body.flux-view .fx-sum{margin-bottom:8px;gap:8px}
+  body.flux-view .fx-sheet{height:26px;padding:0 11px;font-size:12px}
+  body.flux-view .fx-chip2{height:26px;padding:0 9px}
+  body.flux-view .fx-sum-act .btn{height:26px}
+  body.flux-view .fx-filter{padding:5px 9px;margin-bottom:8px;gap:5px}
+  body.flux-view .fxf-lens{padding:3px 9px;font-size:11px}
+  body.flux-view .fxf-find{height:26px}
+  /* ===== Phase 4: Timeline Navigator + line-item history ===== */
+  .rp-tl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:5px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+  .rp-tl-k{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600}
+  .rp-tl-arrow{background:none;border:0;color:var(--muted);cursor:pointer;font-size:9px;padding:3px 4px;border-radius:4px}
+  .rp-tl-arrow:hover{background:var(--surface-2);color:var(--ink)}
+  .rp-tl-months{display:flex;gap:2px}
+  .rp-tl-m{background:none;border:0;font:inherit;font-size:12px;color:var(--muted);cursor:pointer;padding:3px 11px;border-radius:6px;font-variant-numeric:tabular-nums}
+  .rp-tl-m:hover{background:var(--surface-2);color:var(--ink)}
+  .rp-tl-m.on{background:var(--accent);color:#fff;font-weight:500}
+  .rp-tl-sp{width:1px;height:16px;background:var(--line-2);margin:0 4px}
+  .rp-tl-cmp{height:26px;border:1px solid var(--line-2);border-radius:6px;background:var(--bg);font:inherit;font-size:12px;color:var(--ink);padding:0 6px}
+  .fxi-tl{display:flex;gap:11px;position:relative}
+  .fxi-tl-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--accent);margin-top:4px;flex-shrink:0;position:relative;z-index:1}
+  .fxi-tl:not(:last-child) .fxi-tl-dot::after{content:'';position:absolute;top:9px;left:1.5px;width:2px;height:calc(100% + 14px);background:var(--line)}
+  .fxi-tl-b{flex:1;min-width:0;padding-bottom:15px}
+  .fxi-tl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .fxi-tl-m{font-size:12px;font-weight:600;color:var(--ink)}
+  .fxi-tl-d{font-size:12px;font-weight:500} .fxi-tl-d.up{color:var(--pos)} .fxi-tl-d.dn{color:var(--neg)}
+  .fxi-tl-l{font-size:11px;color:var(--muted)}
+  .fxi-tl-st{font-size:10px;color:var(--pos);margin-left:auto;white-space:nowrap}
+  .fxi-tl-c{font-size:11.5px;color:var(--ink-2);line-height:1.5;margin-top:4px}
 </style>
 
 <div class="ribbon">
@@ -3339,7 +3374,7 @@
   /* ===== Phase 3: workspace-thinking refinement — compact bars, project-explorer tree, favorites/recent, context menus ===== */
   function rpSumBar(items){return '<div class="rp-sumbar">'+items.map(function(it,i){return (i?'<span class="rp-sb-sep"></span>':'')+'<span class="rp-sb-i'+(it[2]?' '+it[2]:'')+'"><b>'+it[0]+'</b> '+it[1]+'</span>';}).join('')+'</div>';}
   var RP_FAVORITES=[{kind:'review',id:'ercbs'},{kind:'folder',id:'reg-emea'}];
-  var RP_RECENT=[];
+  var RP_RECENT=[], RP_WS_FIND='';
   function rpIsFav(kind,id){return RP_FAVORITES.some(function(f){return f.kind===kind&&f.id===id;});}
   function rpFavToggle(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&f.id===id)i=j;});if(i>=0)RP_FAVORITES.splice(i,1);else RP_FAVORITES.unshift({kind:kind,id:id});renderPeriodWorkspace();}
   function rpRecentPush(id){RP_RECENT=[id].concat(RP_RECENT.filter(function(x){return x!==id;})).slice(0,6);}
@@ -3360,6 +3395,7 @@
     return '<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><div class="rp-ws-item review'+(sel?' on':'')+'" data-rid="'+r.id+'" style="padding-left:'+(6+depth*13+15)+'px"><span class="rp-ws-fdoc">'+rpIcon('doc')+'</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+(rpIsFav('review',r.id)?'<span class="rp-ws-star">&#9733;</span>':'')+rpStatusDot(r.status)+'</div></div>';
   }
   function rpPinReview(r){return '<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-fdoc">'+rpIcon('doc')+'</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';}
+  function rpExpandTo(id){var f=rpFolder(id);while(f){RP_WS_EXPAND[f.id]=true;f=f.parent?rpFolder(f.parent):null;}}
   /* ---------- Period workspace (project-explorer left rail | work area) ---------- */
   function rpOpenPeriod(id){RP_PERIOD_SEL=id;RP_WS_SEL='overview';if(typeof rpReviewsFor==='function')RP_REVIEWS=rpReviewsFor(id);renderPeriodWorkspace();window.scrollTo(0,0);}
   function rpWsSelect(id){RP_WS_SEL=id;renderPeriodWorkspace();}
@@ -3372,18 +3408,28 @@
     var h=rpCrumb(crumbs);
     h+='<div class="rp-whd"><div class="rp-whd-l"><h1>'+esc(p.name)+'</h1><span class="rp-whd-meta">'+esc(p.type)+' &middot; '+esc(p.status)+' &middot; due '+esc(p.due)+' &middot; '+esc(p.owner)+'</span></div><div class="rp-hd-act"><button class="btn sm primary rp-newreview">+ Create Review</button><button class="btn sm rp-managestruct">Manage Structure</button></div></div>';
     h+=rpSumBar([[p.reviews,'Reviews'],[p.inprog,'In Progress'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Review'],[p.done,'Completed']]);
-    h+='<div class="rp-ws"><div class="rp-ws-dir"><div class="rp-ws-search"><input class="rp-ws-find" placeholder="Search folders &amp; reviews&hellip;"></div>';
-    var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):rpReviewById(f.id);});
-    if(favItems.length){ h+='<div class="rp-ws-sec">Favorites</div>';
-      favItems.forEach(function(f){ if(f.kind==='folder'){var fo=rpFolder(f.id);h+='<div class="rp-tn" data-ctx="folder" data-id="'+fo.id+'"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span></button></div>';}
-        else { var r=rpReviewById(f.id); h+='<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>'; } }); }
-    var recent=RP_RECENT.map(rpReviewById).filter(Boolean).slice(0,5);
-    if(recent.length){ h+='<div class="rp-ws-sec">Recent</div>'; recent.forEach(function(r){h+=rpPinReview(r);}); }
-    h+='<div class="rp-ws-sec">Workspace</div>';
-    h+='<button class="rp-ws-item quick'+(sel==='overview'?' on':'')+'" data-ws="overview"><span class="rp-ws-qic">'+rpIcon('grid')+'</span>Overview</button>';
-    h+='<button class="rp-ws-item quick'+(sel==='__myreviews'?' on':'')+'" data-ws="__myreviews"><span class="rp-ws-qic">'+rpIcon('doc')+'</span>My reviews</button>';
-    h+='<div class="rp-ws-sec rp-ws-sec-f">Folders</div>';
-    RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);});
+    h+='<div class="rp-ws"><div class="rp-ws-dir"><div class="rp-ws-search"><input class="rp-ws-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></div>';
+    if(RP_WS_FIND){
+      var q=RP_WS_FIND.toLowerCase();
+      var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
+      var mcol=RP_WS_FOLDERS.filter(function(f){return !f.hidden&&f.name.toLowerCase().indexOf(q)>=0;});
+      h+='<div class="rp-ws-sec">'+(mrev.length+mcol.length)+' result'+((mrev.length+mcol.length)===1?'':'s')+'</div>';
+      mcol.forEach(function(f){h+='<div class="rp-tn" data-ctx="folder" data-id="'+f.id+'"><button class="rp-ws-item pin" data-find-col="'+f.id+'"><span class="rp-ws-qic">'+rpIcon('folder')+'</span><span class="rp-ws-nm">'+esc(f.name)+'</span><span class="rp-ws-ct">'+f.count+'</span></button></div>';});
+      mrev.forEach(function(r){h+=rpPinReview(r);});
+      if(!mrev.length&&!mcol.length)h+='<div class="rp-ws-empty">No reviews match &ldquo;'+esc(RP_WS_FIND)+'&rdquo;</div>';
+    } else {
+      var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):rpReviewById(f.id);});
+      if(favItems.length){ h+='<div class="rp-ws-sec">Favorites</div>';
+        favItems.forEach(function(f){ if(f.kind==='folder'){var fo=rpFolder(f.id);h+='<div class="rp-tn" data-ctx="folder" data-id="'+fo.id+'"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span></button></div>';}
+          else { var r=rpReviewById(f.id); h+='<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>'; } }); }
+      var recent=RP_RECENT.map(rpReviewById).filter(Boolean).slice(0,5);
+      if(recent.length){ h+='<div class="rp-ws-sec">Recent</div>'; recent.forEach(function(r){h+=rpPinReview(r);}); }
+      h+='<div class="rp-ws-sec">Workspace</div>';
+      h+='<button class="rp-ws-item quick'+(sel==='overview'?' on':'')+'" data-ws="overview"><span class="rp-ws-qic">'+rpIcon('grid')+'</span>Overview</button>';
+      h+='<button class="rp-ws-item quick'+(sel==='__myreviews'?' on':'')+'" data-ws="__myreviews"><span class="rp-ws-qic">'+rpIcon('doc')+'</span>My reviews</button>';
+      h+='<div class="rp-ws-sec rp-ws-sec-f">Collections</div>';
+      RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);});
+    }
     var wsBody=(sel==='__structure')?rpStructureEditor():(sel==='__myreviews')?rpMyReviewsList(p):(selF?rpFolderContent(selF):rpPeriodOverview(p));
     h+='</div><div class="rp-ws-body">'+wsBody+'</div></div>';
     $('#view').innerHTML=h;
@@ -3445,15 +3491,18 @@
     h+='</tbody></table></div></div>';
     h+='<div class="rp-ov-cols"><div class="rp-ov-sec"><div class="rp-ov-h">My reviews</div><div class="card rp-list">'+mine.slice(0,6).map(function(r){return '<button class="rp-li" data-rid="'+r.id+'"><span class="rp-li-n">'+esc(r.name)+'</span>'+rpRStatusPill(r.status)+'</button>';}).join('')+'</div></div>';
     h+='<div class="rp-ov-sec"><div class="rp-ov-h">Recent activity</div><div class="card rp-list">'+RP_ACTIVITY.map(function(a){return '<div class="rp-act"><span class="rvw-av'+(a.sys?' ai':'')+'">'+(a.sys?'&#10022;':esc(a.who))+'</span><span class="rp-act-t">'+a.t+'<span class="rp-act-m">'+esc(a.m)+'</span></span></div>';}).join('')+'</div></div></div>';
-    h+='<div class="rp-ov-sec"><div class="rp-ov-h">Workspace directory</div><div class="rp-ov-dir">'+RP_WS_FOLDERS.filter(function(f){return !f.parent;}).map(function(f){return '<button class="rp-ov-fold" data-ws="'+f.id+'">'+rpIcon('folder')+'<span class="rp-ov-fn">'+esc(f.name)+'</span><span class="rp-ov-fc">'+f.count+'</span></button>';}).join('')+'</div></div>';
     return h;
   }
   function rpInit(n){return n.split(' ').map(function(w){return w[0];}).join('').slice(0,2);}
   function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}fluxStmt=(r.name.indexOf('Income')>=0)?'is':'bs';navTo('mtrend');}
   function rpWireWorkspace(){
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;var rid=this.getAttribute('data-rid');if(rid)rpOpenReview(rid);else rpWsSelect(this.getAttribute('data-ws'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;
+      var rid=this.getAttribute('data-rid'); if(rid){rpOpenReview(rid);return;}
+      var fc=this.getAttribute('data-find-col'); if(fc){ RP_WS_FIND=''; rpExpandTo(fc); RP_WS_SEL='overview'; renderPeriodWorkspace(); return; }
+      var ws=this.getAttribute('data-ws'); if(ws==='overview'||ws==='__myreviews'||ws==='__structure')rpWsSelect(ws); else rpWsToggle(ws); };});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-tw'),function(b){b.onclick=function(e){e.stopPropagation();rpWsToggle(this.getAttribute('data-tw'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tn'),function(el){el.oncontextmenu=function(e){e.preventDefault();e.stopPropagation();rpCtxMenu(this.getAttribute('data-ctx'),this.getAttribute('data-id'),e.clientX,e.clientY);};});
+    var find=document.querySelector('#view .rp-ws-find');if(find)find.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderPeriodWorkspace();var n=document.querySelector('#view .rp-ws-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-subf-c, #view .rp-ov-fold'),function(b){b.onclick=function(){rpWsSelect(this.getAttribute('data-ws'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rrow, #view .rp-li'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-oreview'),function(b){b.onclick=function(e){e.stopPropagation();rpOpenReview(this.getAttribute('data-rid'));};});
@@ -3653,7 +3702,7 @@
     var h='';
     h+='<div class="fxi-hd"><div class="t">'+esc(info.label)+'</div><div class="s">'+flxLbl(mTo)+' &middot; '+esc(scopeLbl)+'</div><button class="fxi-x" id="fxiX" title="Close">&times;</button></div>';
     h+='<div class="fxi-move"><span class="big">'+fxAbbr(cur)+'</span><span class="d '+(d>=0?'up':'dn')+'">'+(d>=0?'&#9650;':'&#9660;')+' '+fxAbbr(Math.abs(d))+' ('+(d>=0?'+':'&minus;')+Math.abs(pct).toFixed(1)+'%)</span></div>';
-    var tabs=[['summary','Summary'],['drivers','Drivers'],['stack','Review Stack'],['evidence','Evidence'],['lineage','Lineage'],['activity','Activity']];
+    var tabs=[['summary','Summary'],['drivers','Drivers'],['timeline','Timeline'],['stack','Review Stack'],['evidence','Evidence'],['lineage','Lineage'],['activity','Activity']];
     h+='<div class="fxi-tabs">'+tabs.map(function(t){return '<button class="fxi-tab'+(fxInspTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</div>';
     h+='<div class="fxi-b">';
     if(fxInspTab==='summary'){
@@ -3666,6 +3715,17 @@
       var txns=fxInspTxns(info,mTo);
       if(txns.length){ h+='<div class="fxi-h" style="margin-top:16px">Transactions driving it</div>';
         txns.forEach(function(t){ h+='<div class="fxi-txn"><span class="dt">'+t.date.slice(5)+'</span><span class="ds">'+t.entityId+' &middot; '+esc(t.vendor||t.memo||'')+'</span><span class="am">'+fxAbbr(Math.abs(t.amount))+'</span><span class="fxi-erp" title="Opens the source journal entry in the ERP (prototype)">ERP &rarr;</span></div>'; }); }
+    } else if(fxInspTab==='timeline'){
+      var thist=FX_LINE_HISTORY[key];
+      h+='<div class="fxi-h">Movement history &mdash; by period</div>';
+      if(thist){
+        thist.forEach(function(x){ h+='<div class="fxi-tl"><span class="fxi-tl-dot"></span><div class="fxi-tl-b"><div class="fxi-tl-top"><span class="fxi-tl-m">'+esc(x.m)+'</span><span class="fxi-tl-d '+(x.d>=0?'up':'dn')+'">'+(x.d>=0?'+':'&minus;')+fxAbbr(Math.abs(x.d))+'</span><span class="fxi-tl-l">'+esc(x.label)+'</span><span class="fxi-tl-st">&#10003; '+esc(x.status)+'</span></div>'+(x.comment?'<div class="fxi-tl-c">'+esc(x.comment)+'</div>':'')+'</div></div>'; });
+        h+='<div class="fxi-note-sm">One review, many periods &mdash; explanations and evidence persist as institutional knowledge, never re-entered month to month.</div>';
+      } else {
+        var tms=led.months,taccs=info.accts,trows=[]; for(var tmi=tms.length-1;tmi>=Math.max(1,tms.length-6);tmi--){ var tc=0,tp=0; taccs.forEach(function(a){tc+=fxScopedVal(a,tmi);tp+=fxScopedVal(a,tmi-1);}); trows.push([flxLbl(tms[tmi]),tc-tp]); }
+        trows.forEach(function(r){ h+='<div class="fxi-tl"><span class="fxi-tl-dot"></span><div class="fxi-tl-b"><div class="fxi-tl-top"><span class="fxi-tl-m">'+r[0]+'</span><span class="fxi-tl-d '+(r[1]>=0?'up':'dn')+'">'+(r[1]>=0?'+':'&minus;')+fxAbbr(Math.abs(r[1]))+'</span></div></div></div>'; });
+        h+='<div class="fxi-note-sm">Movement per period from the tied-out ledger. Add explanations to build this line&rsquo;s commentary history.</div>';
+      }
     } else if(fxInspTab==='stack'){
       var stack=fxLineStack(key), curLvl=FX_LEVELS[fxScopeLevel()];
       if(stack.length){
@@ -3725,6 +3785,7 @@
     var st=RP_RSTATUS[r.status]||['In progress','ip'];
     var h='<div class="rp-crumb rpc-canvas">'+crumbs.map(function(c,i){var last=i===crumbs.length-1;return (last?'<span class="rp-cr-cur">'+esc(c.label)+'</span>':'<button class="rp-cr" data-cgo="'+c.go+'">'+esc(c.label)+'</button>')+(last?'':'<span class="rp-cr-sep">/</span>');}).join('')+'</div>';
     h+='<div class="kv-hd rp-hd rpc-hd"><div><h1>'+esc(r.name)+'</h1><div class="kv-sub">'+esc(p.name.replace(' Close',''))+' &middot; '+esc(f?f.name:'')+' &middot; Reporting currency &middot; Actual vs prior month</div><div class="rpc-meta"><span class="rp-st r-'+st[1]+'">'+st[0]+'</span><span class="rpc-own">Owner '+esc(r.owner)+'</span><span class="rpc-own">Reviewer '+esc(pkgRevName(r.rev))+'</span></div></div><div class="rp-hd-act"><button class="btn primary rpc-submit">Submit for Review</button><button class="btn rpc-gov" title="Review information &amp; governance">Governance</button><button class="btn fx-cfg-open">Configure</button><button class="btn fx-saveview">Save View</button></div></div>';
+    if(typeof rpTimelineNav==='function')h+=rpTimelineNav();
     return h;
   }
   function rpCanvasBack(go){ RP_OPEN_REVIEW=null; if(typeof fluxInspClose==='function')fluxInspClose();
@@ -4023,6 +4084,34 @@
     RP_CLOSE_PERIODS.unshift(np);
     return newId;
   }
+  /* ===== Phase 4: persistent reviews — Timeline Navigator + Compare + line-item history ===== */
+  var RP_COMPARE='prev';
+  function rpCompareOffset(){return RP_COMPARE==='prevq'?3:RP_COMPARE==='prevy'?12:1;}
+  function rpSetPeriod(ti){var ms=glLedger().months;ti=Math.max(0,Math.min(ms.length-1,ti));fluxTo=ms[ti];fluxFrom=ms[Math.max(0,ti-rpCompareOffset())];renderMonthlyTrend();}
+  function rpSetCompare(v){if(v==='budget'||v==='fcst'){rpToast((v==='budget'?'Budget':'Forecast')+' comparison — a later increment; showing prior period.');v='prev';}RP_COMPARE=v;var ms=glLedger().months,P=fluxPeriods(glLedger());fluxFrom=ms[Math.max(0,P.ti-rpCompareOffset())];renderMonthlyTrend();}
+  function rpTimelineNav(){
+    var led=glLedger(),ms=led.months,P=fluxPeriods(led),ti=P.ti;
+    var start=Math.max(0,ms.length-8),chips='';
+    for(var i=start;i<ms.length;i++){chips+='<button class="rp-tl-m'+(i===ti?' on':'')+'" data-tlm="'+i+'">'+flxLbl(ms[i])+'</button>';}
+    var cmp=[['prev','Previous month'],['prevq','Previous quarter'],['prevy','Previous year'],['budget','Budget'],['fcst','Forecast']];
+    var h='<div class="rp-tl"><span class="rp-tl-k">Timeline</span><button class="rp-tl-arrow" data-tlnav="-1" title="Earlier">&#9664;</button><div class="rp-tl-months">'+chips+'</div><button class="rp-tl-arrow" data-tlnav="1" title="Later">&#9654;</button>';
+    h+='<span class="rp-tl-sp"></span><span class="rp-tl-k">Compare</span><select class="rp-tl-cmp">'+cmp.map(function(c){return '<option value="'+c[0]+'"'+(RP_COMPARE===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select></div>';
+    return h;
+  }
+  function rpWireTimeline(){
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tl-m'),function(b){b.onclick=function(){rpSetPeriod(+this.getAttribute('data-tlm'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tl-arrow'),function(b){b.onclick=function(){var P=fluxPeriods(glLedger());rpSetPeriod(P.ti+(+this.getAttribute('data-tlnav')));};});
+    var cmp=document.querySelector('#view .rp-tl-cmp');if(cmp)cmp.onchange=function(){rpSetCompare(this.value);};
+  }
+  var FX_LINE_HISTORY={
+    'PP&E':[
+      {m:'Jul',d:8000000,label:'Campus 5 placed in service',comment:'Campus 5 reached substantial completion and was placed into service.',status:'Approved'},
+      {m:'Jun',d:4000000,label:'Generator capitalization',comment:'Generator capitalization following commissioning.',status:'Approved'},
+      {m:'May',d:11000000,label:'Land acquisition',comment:'Land acquisition completed for the Frankfurt expansion parcel.',status:'Approved'},
+      {m:'Apr',d:7000000,label:'Construction draw',comment:'Construction draw capitalization on the Campus 5 build.',status:'Approved'}
+    ]
+  };
+  FX_LINE_HISTORY['15000']=FX_LINE_HISTORY['PP&E'];
   function fxRowSel(r){var k=r.getAttribute('data-selk'),v=r.getAttribute('data-selv');if(k&&v)fluxInspOpen(k,v);}
   var FX_GEAR_ICO='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
   /* ===== Configure panel — the grouped, staged-apply config surface (scales as controls are added) ===== */
@@ -4212,6 +4301,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
     var rsub=document.querySelector('#view .rpc-submit'); if(rsub)rsub.onclick=function(){rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review — routed to the reviewer.');};
     var rgov=document.querySelector('#view .rpc-gov'); if(rgov)rgov.onclick=rpGovOpen;
+    if(typeof rpWireTimeline==='function')rpWireTimeline();
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=saveFluxView;
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxf-lens'),function(b){b.onclick=function(){var id=this.getAttribute('data-lens');fluxLens[id]=!fluxLens[id];renderMonthlyTrend();};});
