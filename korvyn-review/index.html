@@ -405,6 +405,10 @@
   .fx-gridwrap.xscroll .fxg th.fx-line,.fx-gridwrap.xscroll .fxg td.fx-line{box-shadow:1px 0 0 0 rgba(20,24,36,.16)}
   .fxg thead th.fx-line{z-index:5}
   .fxg tr.fx-sec td{background:var(--surface);color:var(--muted);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.07em;height:auto;padding-top:12px;padding-bottom:4px}
+  .fx-sec-tw{display:inline-flex;margin-right:6px;color:var(--muted);transition:transform .12s;vertical-align:-3px}
+  .fx-sec-tw.open{transform:rotate(90deg)}
+  .fxg tr.fx-sec[data-sec]{cursor:pointer}
+  .fxg tr.fx-sec[data-sec]:hover td.fx-line{color:var(--ink)}
   .fxg tr.fx-grp>td{background:var(--surface)}
   .fxg tr.fx-grp.alt>td{background:var(--surface)}
   .fxg tr.fx-grp:hover>td{background:var(--surface-2)}
@@ -1185,6 +1189,20 @@
   .fx-tb-mi svg{color:var(--muted);flex:0 0 auto}
   /* Consolidated flux menu bar: Statement / View / Filter dropdowns replace the old control wall. */
   .fx-menubar{gap:8px;flex-wrap:wrap;align-items:center}
+  /* Grouped ribbon: labeled control groups (expanded) that fold to a compact one-row bar (collapsed). */
+  .fx-ribbon{display:flex;align-items:stretch;flex-wrap:wrap;gap:0;margin:0 0 12px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+  .fxr-grp{display:flex;flex-direction:column;align-items:center;gap:6px;padding:2px 12px}
+  .fxr-ctrls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+  .fxr-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:600}
+  .fxr-div{width:1px;background:var(--line);align-self:stretch;margin:3px 0}
+  .fxr-right{margin-left:auto}
+  .fxr-iconb{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;padding:0}
+  .fxr-iconb:hover{color:var(--ink);border-color:var(--faint);background:var(--surface-2)}
+  .fxr-collapse{align-self:center;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:6px;margin-left:6px}
+  .fxr-collapse:hover{background:var(--surface-2);color:var(--ink)}
+  .fx-ribbon.fxr-collapsed{padding:6px 8px;gap:8px;align-items:center}
+  .fx-ribbon.fxr-collapsed .fxr-lbl,.fx-ribbon.fxr-collapsed .fxr-div{display:none}
+  .fx-ribbon.fxr-collapsed .fxr-grp{flex-direction:row;padding:0;gap:6px}
   .fxm-cur{font-size:11px;color:var(--muted);font-weight:400;max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fxm[open]>.fxm-sum .fxm-cur{color:var(--accent)}
   .fxm-scoK{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
@@ -1557,7 +1575,7 @@
   .fxi-lin-arrow{text-align:center;color:var(--faint);font-size:12px;line-height:1.4}
   /* ===== Review-indicators cell (table) + enriched Review Panel tabs ===== */
   .fxg col.c-review{width:300px}
-  .fxg td.fx-rev{text-align:left;vertical-align:top;padding:9px 12px 8px;white-space:nowrap}
+  .fxg td.fx-rev{text-align:left;vertical-align:top;padding:9px 12px 8px;white-space:normal}
   .fx-rev-btn{display:inline-flex;align-items:center;gap:12px;cursor:pointer}
   .fx-ind{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
   .fx-ind svg{color:var(--faint);flex-shrink:0}
@@ -1571,10 +1589,10 @@
   @media(prefers-color-scheme:dark){ .fx-rev-st.rev{background:#241C3A;color:#B9A6F0} }
   .fxg th.fx-rev-h{text-align:left}
   /* Inline Explanation & review column: note text shows in place; details open the panel. */
-  .fxg td.fx-xp-td{vertical-align:middle}
-  .fx-xp-td .fx-rev-btn{display:flex;align-items:center;gap:8px;width:100%;justify-content:space-between}
-  .fx-xp-main{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
-  .fx-xp-tx{font-size:11.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .fxg td.fx-xp-td{vertical-align:top}
+  .fx-xp-td .fx-rev-btn{display:flex;align-items:flex-start;gap:8px;width:100%;justify-content:space-between}
+  .fx-xp-main{display:flex;align-items:flex-start;gap:6px;min-width:0;overflow:hidden}
+  .fx-xp-tx{font-size:11.5px;color:var(--ink-2);overflow:hidden;white-space:normal;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.35}
   .fx-xp-add{font-size:11.5px;color:var(--muted)}
   .fx-xp-td:hover .fx-xp-add{color:var(--accent)}
   .fx-xp-inds{flex:0 0 auto;display:flex;align-items:center;gap:6px}
@@ -3380,7 +3398,21 @@
   }
 
   /* ---- FS flux review — Excel-grade flux grid (CoA pivot, multi-period trending) ---- */
-  var fluxStmt='bs', fluxFrom=null, fluxTo=null, fluxExpand={}, fluxMat=8, fluxPrintShaded=false, fluxTxnOpen=null;
+  var fluxStmt='bs', fluxFrom=null, fluxTo=null, fluxExpand={}, fluxSecCollapse={}, fluxMat=8, fluxPrintShaded=false, fluxTxnOpen=null;
+  /* Staged expand/collapse across three tiers: section (fs) -> rollup group -> accounts.
+     One click steps a single level in/out, rather than expand-all / collapse-all. */
+  function fxStageExpand(dir){
+    var secs=fluxSections(glLedger(),fluxStmt), gkeys=[], secNames=[];
+    secs.forEach(function(s){if(s.name)secNames.push(s.name);s.groups.forEach(function(g){gkeys.push(fluxStmt+':'+g.report);});});
+    if(dir==='in'){
+      if(secNames.some(function(n){return fluxSecCollapse[n];}))secNames.forEach(function(n){fluxSecCollapse[n]=false;});
+      else gkeys.forEach(function(k){fluxExpand[k]=true;});
+    } else {
+      if(gkeys.some(function(k){return fluxExpand[k];}))gkeys.forEach(function(k){fluxExpand[k]=false;});
+      else secNames.forEach(function(n){fluxSecCollapse[n]=true;});
+    }
+    renderMonthlyTrend();
+  }
   var fluxSel=null, fluxInspEdit=false;   /* selected line + inspector edit-mode (auto-explanation drawer) */
   var fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};  /* review-lens toggles (AND-combined) */
   var fluxScope={type:'all',value:null};  /* re-aggregation scope: all | region:<region> | entity:<eid> */
@@ -3394,6 +3426,7 @@
   ];
   var fluxGroupBy='category';   /* ROWS dimension: 'category' (Revenue/OpEx/G&A) | 'segment' | 'account' (flat) */
   var fluxCols='periods';       /* COLUMNS dimension: 'periods' | 'entities' | 'regions' */
+  var fluxRibbonExp=true;       /* ribbon expanded (grouped + labels) vs collapsed (compact one-row) */
   /* ===== Review Framework: role-based presentation modes (shared platform capability) =====
      Mode changes PRESENTATION only over the same tied-out data; remembered per user via SETTINGS. */
   var RC_MODE=(SETTINGS.reviewMode||'review');       /* review | spreadsheet | executive | audit */
@@ -4821,24 +4854,26 @@
     // ----- one consolidated menu bar: Statement · View · Filter · Search … scope · More · Configure -----
     var stmtLabel=fluxStmt==='bs'?'Balance Sheet':fluxStmt==='is'?'Income Statement':'Both';
     var ckOn='<span class="fxm-ck">'+AI_CHECK+'</span>', ckOff='<span class="fxm-ck"></span>', filterOn=(curStatus!=='all');
-    h+='<div class="fx-tb fx-menubar">';
-    // Statement (primary)
-    h+='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+stmtLabel+'</summary><div class="fxm-pop">'+[['bs','Balance Sheet'],['is','Income Statement'],['both','Both']].map(function(t){return '<button class="fxm-opt fx-tb-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+(fluxStmt===t[0]?ckOn:ckOff)+t[1]+'</button>';}).join('')+'</div></details>';
-    // STRUCTURE — Rows: group-by + detail level (pulled out of the Configure modal)
-    var rowsCur=(fluxGroupBy==='segment'?'Segment':'Category');
-    h+='<details class="fxm"><summary class="fxm-sum">Rows<span class="fxm-cur">'+rowsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Group rows by</div>'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxm-opt fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+(fluxGroupBy===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'<div class="fxm-sep"></div><div class="fxm-h">Detail level</div><button class="fxm-opt fxm-exp2" data-exp="all">'+ckOff+'Expand all accounts</button><button class="fxm-opt fxm-exp2" data-exp="none">'+ckOff+'Collapse to subtotals</button></div></details>';
-    // STRUCTURE — Columns: axis + trend window (pulled out of the Configure modal)
+    // ----- ORGANIZED RIBBON: grouped controls with labels — Statement · Layout · Filter · Review · Scope · Actions -----
+    var rowsCur=(fluxGroupBy==='segment'?'Segment':'Financial statement');
     var colsCur=(fluxCols==='entities'?'By entity':fluxCols==='regions'?'By region':nCols+'-mo trend');
-    h+='<details class="fxm"><summary class="fxm-sum">Columns<span class="fxm-cur">'+colsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Column axis</div>'+FLUX_COLS_OPTS.map(function(o){return '<button class="fxm-opt fxm-cols'+(fluxCols===o[0]?' on':'')+'" data-cols="'+o[0]+'">'+(fluxCols===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+(fluxCols==='periods'?('<div class="fxm-sep"></div><div class="fxm-h">Trend window</div>'+[[2,'Month over month'],[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months']].map(function(w){return '<button class="fxm-opt fxm-win'+(nCols===w[0]?' on':'')+'" data-win="'+w[0]+'">'+(nCols===w[0]?ckOn:ckOff)+w[1]+'</button>';}).join('')):'')+'</div></details>';
-    // PRESENTATION — View: review mode + what the explanation column shows
-    h+='<details class="fxm"><summary class="fxm-sum">View</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Review mode</div>'+RC_MODES.map(function(m){return '<button class="fxm-opt rc-mode'+(RC_MODE===m[0]?' on':'')+'" data-rcmode="'+m[0]+'" title="'+esc(RC_MODE_HINT[m[0]]||'')+'">'+(RC_MODE===m[0]?ckOn:ckOff)+m[1]+'</button>';}).join('')+'<div class="fxm-h">Explanation column shows</div>'+RC_DISPLAYS.map(function(d){return '<button class="fxm-opt rc-dispopt'+(RC_DISPLAY===d[0]?' on':'')+'" data-disp="'+d[0]+'">'+(RC_DISPLAY===d[0]?ckOn:ckOff)+d[1]+'</button>';}).join('')+'</div></details>';
-    // SUBSET — Filter: materiality threshold + status lens (dot when active)
+    var chevD='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 8l6 6 6-6"/><path d="M6 14l6 6 6-6" opacity=".5"/></svg>';
+    var chevU='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 16l6-6 6 6"/><path d="M6 10l6-6 6 6" opacity=".5"/></svg>';
+    function fxrGrp(lbl,ctrls){return '<div class="fxr-grp"><div class="fxr-ctrls">'+ctrls+'</div><div class="fxr-lbl">'+lbl+'</div></div>';}
+    var dStmt='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+stmtLabel+'</summary><div class="fxm-pop">'+[['bs','Balance Sheet'],['is','Income Statement'],['both','Both']].map(function(t){return '<button class="fxm-opt fx-tb-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+(fluxStmt===t[0]?ckOn:ckOff)+t[1]+'</button>';}).join('')+'</div></details>';
+    var dRows='<details class="fxm"><summary class="fxm-sum">Rows<span class="fxm-cur">'+rowsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Group rows by</div>'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxm-opt fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+(fluxGroupBy===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'</div></details>';
+    var dCols='<details class="fxm"><summary class="fxm-sum">Columns<span class="fxm-cur">'+colsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Column axis</div>'+FLUX_COLS_OPTS.map(function(o){return '<button class="fxm-opt fxm-cols'+(fluxCols===o[0]?' on':'')+'" data-cols="'+o[0]+'">'+(fluxCols===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+(fluxCols==='periods'?('<div class="fxm-sep"></div><div class="fxm-h">Trend window</div>'+[[2,'Month over month'],[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months']].map(function(w){return '<button class="fxm-opt fxm-win'+(nCols===w[0]?' on':'')+'" data-win="'+w[0]+'">'+(nCols===w[0]?ckOn:ckOff)+w[1]+'</button>';}).join('')):'')+'</div></details>';
+    var expIcons='<button class="fxr-iconb fxm-exp2" data-exp="in" title="Expand one level (sections → rollups → accounts)">'+chevD+'</button><button class="fxr-iconb fxm-exp2" data-exp="out" title="Collapse one level">'+chevU+'</button>';
+    var dView='<details class="fxm"><summary class="fxm-sum">View</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Review mode</div>'+RC_MODES.map(function(m){return '<button class="fxm-opt rc-mode'+(RC_MODE===m[0]?' on':'')+'" data-rcmode="'+m[0]+'" title="'+esc(RC_MODE_HINT[m[0]]||'')+'">'+(RC_MODE===m[0]?ckOn:ckOff)+m[1]+'</button>';}).join('')+'<div class="fxm-h">Explanation column shows</div>'+RC_DISPLAYS.map(function(d){return '<button class="fxm-opt rc-dispopt'+(RC_DISPLAY===d[0]?' on':'')+'" data-disp="'+d[0]+'">'+(RC_DISPLAY===d[0]?ckOn:ckOff)+d[1]+'</button>';}).join('')+'</div></details>';
     var matOpts=(matPresets.indexOf(fluxMat)<0?'<button class="fxm-opt fxm-mat on" data-mat="'+fluxMat+'">'+ckOn+'&ge; '+fluxMat+'%</button>':'')+matPresets.map(function(o){return '<button class="fxm-opt fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">'+(fluxMat===o?ckOn:ckOff)+'&ge; '+o+'%</button>';}).join('');
-    h+='<details class="fxm'+(filterOn?' fxm-act':'')+'"><summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Materiality threshold</div>'+matOpts+'<div class="fxm-h">Show only</div>'+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'</div></details>';
-    // Search
-    h+='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search line items&hellip;" value="'+esc(fluxFind)+'"></div>';
-    // Right cluster: Scope (POV) · line count · clear · More (save / print / email / advanced)
-    h+='<div class="fx-tb-right"><details class="fxm fxm-scopeM"><summary class="fxm-sum"><span class="fxm-scoK">Scope</span><span class="fxm-cur">'+esc(node.name)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Consolidation scope</div><select class="fxm-scope-sel">'+fluxScopeOptions(fluxScope)+'</select><div class="fxm-note2">Scopes the whole statement to a region, entity or the consolidated group.</div></div></details>'+(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'')+'<details class="fx-tb-more"><summary class="fx-tb-morebtn" title="More actions">'+moreIco+'</summary><div class="fx-tb-menu"><button class="fx-tb-mi fx-saveview">&#9734; Save view</button><button class="fx-tb-mi fx-print">'+FX_PRINT_ICO+' Print statement</button><button class="fx-tb-mi fx-email">'+FX_MAIL_ICO+' Email summary</button><div class="fxm-sep"></div><button class="fx-tb-mi fx-cfg-open">'+FX_GEAR_ICO+' Advanced settings&hellip;</button></div></details></div>';
+    var dFilter='<details class="fxm'+(filterOn?' fxm-act':'')+'"><summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Materiality threshold</div>'+matOpts+'<div class="fxm-h">Show only</div>'+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'</div></details>';
+    var dScope='<details class="fxm fxm-scopeM"><summary class="fxm-sum"><span class="fxm-scoK">Scope</span><span class="fxm-cur">'+esc(node.name)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Consolidation scope</div><select class="fxm-scope-sel">'+fluxScopeOptions(fluxScope)+'</select><div class="fxm-note2">Scopes the whole statement to a region, entity or the consolidated group.</div></div></details>';
+    var dSearch='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search line items&hellip;" value="'+esc(fluxFind)+'"></div>';
+    var dActions=(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'')+'<details class="fx-tb-more"><summary class="fx-tb-morebtn" title="More actions">'+moreIco+'</summary><div class="fx-tb-menu"><button class="fx-tb-mi fx-saveview">&#9734; Save view</button><button class="fx-tb-mi fx-print">'+FX_PRINT_ICO+' Print statement</button><button class="fx-tb-mi fx-email">'+FX_MAIL_ICO+' Email summary</button><div class="fxm-sep"></div><button class="fx-tb-mi fx-cfg-open">'+FX_GEAR_ICO+' Advanced settings&hellip;</button></div></details>';
+    h+='<div class="fx-ribbon'+(fluxRibbonExp?'':' fxr-collapsed')+'">';
+    h+=fxrGrp('Statement',dStmt)+'<div class="fxr-div"></div>'+fxrGrp('Layout',dRows+dCols+expIcons)+'<div class="fxr-div"></div>'+fxrGrp('Filter',dFilter)+'<div class="fxr-div"></div>'+fxrGrp('Review',dView)+'<div class="fxr-div"></div>'+fxrGrp('Scope',dScope);
+    h+='<div class="fxr-grp fxr-right"><div class="fxr-ctrls">'+dSearch+dActions+'</div><div class="fxr-lbl">Actions</div></div>';
+    h+='<button class="fxr-collapse" title="'+(fluxRibbonExp?'Collapse toolbar':'Expand toolbar')+'">'+(fluxRibbonExp?chevU:chevD)+'</button>';
     h+='</div>';
     // ----- slim summary caption for the grid: movement bridge (left) · review counts (right) -----
     h+='<div class="fx-metrics"><div class="fx-mg">'+
@@ -4864,8 +4899,9 @@
     secs.forEach(function(sec){
       var vis=fluxFilterActive()?sec.groups.filter(function(g){return g.accts.some(function(a){return fxAcctPass(a,ti,priIdx,mTo);});}):sec.groups;
       if(fluxFilterActive()&&!vis.length)return;
-      if(sec.name)h+='<tr class="fx-sec"><td class="l fx-line">'+sec.name+'</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
-      vis.forEach(function(g){
+      var scol=!fluxFilterActive()&&!!fluxSecCollapse[sec.name];
+      if(sec.name)h+='<tr class="fx-sec'+(scol?' col':'')+'" data-sec="'+esc(sec.name)+'"><td class="l fx-line"><span class="fx-sec-tw'+(scol?'':' open')+'">'+rpIcon('chev')+'</span>'+sec.name+'</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
+      if(!scol)vis.forEach(function(g){
         var pass=fluxFilterActive()?g.accts.filter(function(a){return fxAcctPass(a,ti,priIdx,mTo);}):g.accts;
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
@@ -4916,8 +4952,10 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rows'),function(b){b.onclick=function(){fluxGroupBy=this.getAttribute('data-rows');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-cols'),function(b){b.onclick=function(){fluxCols=this.getAttribute('data-cols');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-win'),function(b){b.onclick=function(){var n=+this.getAttribute('data-win'),ms=glLedger().months,tj=ms.indexOf(fluxTo);if(tj<0)tj=ms.length-1;fluxFrom=ms[Math.max(0,tj-(n-1))];fluxTo=ms[tj];fluxCols='periods';renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-exp2'),function(b){b.onclick=function(){var open=this.getAttribute('data-exp')==='all',ks=[];fluxSections(glLedger(),fluxStmt).forEach(function(s){s.groups.forEach(function(g){ks.push(fluxStmt+':'+g.report);});});ks.forEach(function(k){fluxExpand[k]=open;});renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-exp2'),function(b){b.onclick=function(){fxStageExpand(this.getAttribute('data-exp'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view tr.fx-sec[data-sec]'),function(r){r.onclick=function(){var n=this.getAttribute('data-sec');fluxSecCollapse[n]=!fluxSecCollapse[n];renderMonthlyTrend();};});
     var fxScopeSel=document.querySelector('#view .fxm-scope-sel');if(fxScopeSel)fxScopeSel.onchange=function(){var v=this.value;if(v==='all')fluxScope={type:'all',value:null};else{var pp=v.split(':');fluxScope={type:pp[0],value:pp.slice(1).join(':')};}if(typeof fluxInspClose==='function')fluxInspClose();renderMonthlyTrend();};
+    var fxrCol=document.querySelector('#view .fxr-collapse');if(fxrCol)fxrCol.onclick=function(){fluxRibbonExp=!fluxRibbonExp;renderMonthlyTrend();};
     var fxFindInp=document.querySelector('#view .fxf-find');if(fxFindInp)fxFindInp.oninput=function(){fluxFind=this.value;var pos=this.selectionStart;renderMonthlyTrend();var ni=document.querySelector('#view .fxf-find');if(ni){ni.focus();try{ni.setSelectionRange(pos,pos);}catch(e){}}};
     var fxClr=document.querySelector('#view .fxf-clear');if(fxClr)fxClr.onclick=function(){fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};fluxScope={type:'all',value:null};fluxFind='';renderMonthlyTrend();};
     var ea=document.querySelector('#view .flx-expand-all');
