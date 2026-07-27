@@ -1511,12 +1511,21 @@
   .fx-rev-st.wait{background:var(--warn-bg);color:var(--warn)}
   @media(prefers-color-scheme:dark){ .fx-rev-st.rev{background:#241C3A;color:#B9A6F0} }
   .fxg th.fx-rev-h{text-align:left}
-  /* inline Display sub-row (comments / evidence / AI beneath material rows) */
-  .fxg tr.fx-inl>td.fx-inl-cell{background:var(--surface-2);border-bottom:1px solid var(--line);padding:6px 12px 7px 30px;text-align:left;white-space:normal}
+  /* Explanations block — collected below the table (Display menu), never between GL rows */
+  .fx-notes{margin:12px 0 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+  .fx-notes-h{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:9px 14px 5px}
+  .fx-notes-h .fx-notes-n{color:var(--faint);margin-left:4px}
+  .fx-note{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;font-family:inherit;padding:8px 14px 9px;cursor:pointer}
+  .fx-note:hover{background:var(--surface-2)}
+  .fx-note-top{display:flex;align-items:baseline;gap:10px}
+  .fx-note-nm{font-size:12.5px;font-weight:500;color:var(--ink)}
+  .fx-note-d{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .fx-note-d.up{color:var(--pos)} .fx-note-d.dn{color:var(--neg)}
+  .fx-note-b{margin-top:3px;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
   .fx-inl-chip{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:20px;margin-right:8px;vertical-align:middle;white-space:nowrap}
   .fx-inl-chip.ok{background:var(--pos-bg);color:var(--pos)} .fx-inl-chip.need{background:var(--warn-bg);color:var(--warn)} .fx-inl-chip.ai{background:var(--ai-bg);color:var(--ai)}
   .fx-inl-tx{font-size:11.5px;color:var(--ink-2);line-height:1.5}
-  .fx-inl-doc{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 8px;margin-right:6px;white-space:nowrap}
+  .fx-inl-doc{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:2px 8px;margin-right:6px;white-space:nowrap}
   .fx-inl-doc.pending{border-color:rgba(154,103,18,.3);color:var(--warn)}
   /* Summary field list */
   .fxi-sum{border:1px solid var(--line);border-radius:9px;overflow:hidden}
@@ -3920,23 +3929,30 @@
     if(st)h+='<span class="fx-rev-st '+st.cls+'">'+st.ico+' '+st.label+'</span>';
     return h+'</span></td>';
   }
-  /* Inline review sub-row under a material line, driven by the Display menu (comments/evidence/AI).
-     Presentation only; the Review Panel remains the full workspace. */
-  function fxInlineRow(key,cmtId,mat,span){
-    if(RC_DISPLAY==='numbers'||!mat)return '';
-    var inner='';
+  /* Review-note body for a material line (Display menu: comments/evidence/AI). Rendered in the
+     Explanations block BELOW the table — never interleaved between GL rows. */
+  function fxNoteBody(key,cmtId){
     if(RC_DISPLAY==='comments'){
       var cm=FLUX_COMMENTS[cmtId], layers=fxReviewLayers(key,cmtId), le=layers.filter(function(l){return l.entry;});
       var note=cm||(le.length?le[le.length-1].entry:null);
-      inner=note?('<span class="fx-inl-chip ok">'+FX_CMT_ICO+' '+esc(note.by||'Reviewer')+'</span><span class="fx-inl-tx">'+esc(note.text)+'</span>'):'<span class="fx-inl-chip need">&#9888; Needs explanation</span>';
-    } else if(RC_DISPLAY==='evidence'){
-      var ev=fxEvidenceFor(key);
-      inner=ev.length?ev.map(function(e){return '<span class="fx-inl-doc '+((e.status||'Pending').toLowerCase())+'">'+FX_CLIP+' '+esc(e.name)+' &middot; '+esc(e.status||'Pending')+'</span>';}).join(''):'<span class="fx-inl-chip need">&#9888; Evidence outstanding</span>';
-    } else if(RC_DISPLAY==='ai'){
-      var cm2=FLUX_COMMENTS[cmtId];
-      inner='<span class="fx-inl-chip ai">&#10022; Korvyn</span><span class="fx-inl-tx">'+(cm2?esc(cm2.text):'Korvyn has drafted an explanation for this movement &mdash; open the line to review and accept.')+'</span>';
+      return note?('<span class="fx-inl-chip ok">'+FX_CMT_ICO+' '+esc(note.by||'Reviewer')+'</span><span class="fx-inl-tx">'+esc(note.text)+'</span>'):'<span class="fx-inl-chip need">&#9888; Needs explanation</span>';
     }
-    return '<tr class="fx-inl"><td class="l fx-inl-cell" colspan="'+span+'">'+inner+'</td></tr>';
+    if(RC_DISPLAY==='evidence'){
+      var ev=fxEvidenceFor(key);
+      return ev.length?ev.map(function(e){return '<span class="fx-inl-doc '+((e.status||'Pending').toLowerCase())+'">'+FX_CLIP+' '+esc(e.name)+' &middot; '+esc(e.status||'Pending')+'</span>';}).join(''):'<span class="fx-inl-chip need">&#9888; Evidence outstanding</span>';
+    }
+    var cm2=FLUX_COMMENTS[cmtId];
+    return '<span class="fx-inl-chip ai">&#10022; Korvyn</span><span class="fx-inl-tx">'+(cm2?esc(cm2.text):'Korvyn has drafted an explanation for this movement &mdash; open the line to review and accept.')+'</span>';
+  }
+  /* Collected explanations/evidence/analysis block — footnote style, below the accounting table. */
+  function fxNotesBlock(leaves,mTo){
+    if(RC_DISPLAY==='numbers'||!leaves.length)return '';
+    var hd=RC_DISPLAY==='comments'?'Explanations':RC_DISPLAY==='evidence'?'Supporting evidence':'Korvyn analysis';
+    var h='<div class="fx-notes"><div class="fx-notes-h">'+hd+' &mdash; material lines <span class="fx-notes-n">'+leaves.length+'</span></div>';
+    leaves.forEach(function(l){
+      h+='<button class="fx-note" data-selk="det" data-selv="'+l.acct+'"><div class="fx-note-top"><span class="fx-note-nm">'+esc(l.name)+'</span><span class="fx-note-d '+(l.d>=0?'up':'dn')+'">'+(l.d>=0?'+':'&minus;')+fxAbbr$(l.d)+'</span></div><div class="fx-note-b">'+fxNoteBody(l.acct,l.acct+':'+mTo)+'</div></button>';
+    });
+    return h+'</div>';
   }
   var fxInspTab='summary';
   function fxAvatarOf(name){return name.split(' ').map(function(w){return w[0];}).join('').slice(0,2);}
@@ -4569,8 +4585,8 @@
         var pass=fluxFilterActive()?g.accts.filter(function(a){return fxAcctPass(a,ti,priIdx,mTo);}):g.accts;
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
-        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat':'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+rpIcon('chev')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>'+(exp?'':fxInlineRow(g.report,g.report+':'+mTo,mat,nColShow+5+extraCols));
-        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat':'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+fxInlineRow(a.acct,a.acct+':'+mTo,amat,nColShow+5+extraCols)+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
+        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat':'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+rpIcon('chev')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
+        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat':'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
       var tcur=sum(allA,ti), tprev=sum(allA,priIdx);
@@ -4588,6 +4604,7 @@
       h+='<tr class="fx-grand"><td class="l fx-line">Operating result</td>'+rowCellsNet(revA,expA)+fxMoney(oiCur-oiPrev,'fx-sep')+fxBridgeCellsNet(revA,expA,ti,priIdx,oiCur-oiPrev)+fxPctCell(oiPrev,oiCur)+'<td class="fx-rev"></td>'+'</tr>';
     }
     h+='</tbody></table></div>';
+    h+=fxNotesBlock(matLeaves,mTo);
     h+='<div class="fx-sheets"><span class="fx-sheet-note">Grouped by '+(fluxGroupBy==='category'?'statement category':'business segment')+' &middot; '+groupCount+' '+(fluxGroupBy==='category'?'captions':'segments')+' &middot; '+(fluxCols==='periods'?nCols+'-month window':fluxCols==='entities'?'by legal entity &middot; '+flxLbl(mTo):'by region &middot; '+flxLbl(mTo))+'</span></div>';
     h+='<div class="ldg-note flx-note">Each column is a period from the tied-out ledger ('+(isBS?'balances':isBoth?'balances &amp; activity':'activity')+'); MoM &Delta; is the movement into '+flxLbl(mTo)+', and a material move carries an amber edge. Click any line to open the inspector &mdash; entity-level drivers, the postings behind the move, and a Korvyn-drafted explanation to accept or edit. Widen the range or use a quick preset to see 3, 6 or 12 months at once. Moves are flagged material at &ge; '+fluxMat+'% and &ge; '+fxAbbr(matFloor)+(node.id!=='MGP'?' (component materiality for '+esc(node.name)+')':'')+' &mdash; '+(needCount?('<b>'+needCount+'</b> still need'+(needCount>1?'':'s')+' an explanation'):'all material moves carry an explanation')+'. The MoM &Delta; is split into <b>organic</b> (constant currency) and <b>FX</b> (translation), isolating the effect of reporting-rate moves on the foreign entities. Figures derive from '+gm.ents+' reporting entities standing in for a ~'+gm.subs.toLocaleString()+'-subsidiary group across '+gm.regions+' regions and '+gm.ccy+' functional currencies &mdash; illustrative, to show the model end to end.</div>';
     $('#view').innerHTML=h;
@@ -4621,7 +4638,7 @@
     var gw=document.querySelector('#view .fx-gridwrap');if(gw){gw.onscroll=function(){this.classList.toggle('xscroll',this.scrollLeft>0);};gw.classList.toggle('xscroll',gw.scrollLeft>0);}
     var ebtn=document.querySelector('#view .fx-email');if(ebtn)ebtn.onclick=function(){var st=isBS?'Balance Sheet':isBoth?'Balance Sheet & Income Statement':'Income Statement';var subj='Flux review — '+st+' — '+flxLbl(mTo);var body='Flux & trending review — '+st+', period '+flxLbl(mFrom)+' to '+flxLbl(mTo)+'.\r\n\r\nMaterial moves: '+matCount+'; needs explanation: '+needCount+'.\r\n\r\nOpen in Korvyn to review the full statement.';window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);};
     rcWireModeBar();
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-rvw-item'),function(b){b.onclick=function(){fluxInspOpen('det',this.getAttribute('data-selv'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-rvw-item, #view .fx-note'),function(b){b.onclick=function(){fluxInspOpen('det',this.getAttribute('data-selv'));};});
     renderFluxInsp();
   }
 
