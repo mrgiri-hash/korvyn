@@ -2176,46 +2176,193 @@
 
   /* ===== Trending engine (real GL) - powers wired reviews ===== */
   function E_rnd(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-  function fmtAbbr(n){var s=n<0?'-':'';var a=Math.abs(n);if(a>=1e6)return s+'$'+(a/1e6).toFixed(a>=1e7?1:2)+'M';if(a>=1e3)return s+'$'+Math.round(a/1e3)+'k';return s+'$'+Math.round(a);}
+  function fmtAbbr(n){var s=n<0?'-':'';var a=Math.abs(n);if(a>=1e9)return s+'$'+(a/1e9).toFixed(2)+'B';if(a>=1e6)return s+'$'+(a/1e6).toFixed(a>=1e7?1:2)+'M';if(a>=1e3)return s+'$'+Math.round(a/1e3)+'k';return s+'$'+Math.round(a);}
   function fmtPct(n){if(!isFinite(n))return '-';return (n>0?'+':'')+n.toFixed(1)+'%';}
   var E_CREDIT={Revenue:1,Liability:1,Equity:1}; function E_sign(t){return E_CREDIT[t]?-1:1;}
   var E_MONTHS=['2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
   var E_ML={'2025-08':'Aug 25','2025-09':'Sep 25','2025-10':'Oct 25','2025-11':'Nov 25','2025-12':'Dec 25','2026-01':'Jan 26','2026-02':'Feb 26','2026-03':'Mar 26','2026-04':'Apr 26','2026-05':'May 26','2026-06':'Jun 26','2026-07':'Jul 26'};
   function E_q(m){var y=m.slice(0,4);var mo=+m.slice(5);return y+'-Q'+Math.ceil(mo/3);}
   var E_ENT=[{id:'HOLDCO',s:0.9},{id:'CAMPUS',s:1.3},{id:'CRE',s:0.75},{id:'SVC',s:0.55}];
-  var E_ACC=[
-    {acct:'40000',name:'Colocation revenue',type:'Revenue',base:820000,g:0.021,season:0,depts:['Sales']},
-    {acct:'41000',name:'Power & cooling revenue',type:'Revenue',base:355000,g:0.015,season:0.10,depts:['Sales']},
-    {acct:'42000',name:'Managed services revenue',type:'Revenue',base:150000,g:0.03,season:0,depts:['Sales'],aff:{SVC:2.4}},
-    {acct:'50000',name:'Power & utilities',type:'Expense',base:298000,g:0.006,season:0.34,depts:['Facilities','Operations'],aff:{CAMPUS:1.4}},
-    {acct:'51000',name:'Site operations',type:'Expense',base:176000,g:0.004,season:0.05,depts:['Operations','Facilities']},
-    {acct:'52000',name:'Depreciation',type:'Expense',base:208000,g:0,season:0,depts:['Facilities'],step:{at:5,add:92000}},
-    {acct:'53000',name:'Repairs & maintenance',type:'Expense',base:56000,g:0.002,season:0.12,depts:['Facilities','Engineering'],spike:{at:7,to:381000}},
-    {acct:'54000',name:'G&A / payroll',type:'Expense',base:242000,g:0.009,season:0,depts:['G&A','Engineering','Sales']},
-    {acct:'55000',name:'Property taxes',type:'Expense',base:37000,g:0,season:0,depts:['G&A'],spike:{at:4,to:521000}},
-    {acct:'15000',name:'Data center equipment',type:'Asset',base:120000,g:0.003,season:0,depts:['Engineering'],spike:{at:5,to:1010000}},
-    {acct:'16000',name:'Construction in progress',type:'Asset',base:150000,g:0,season:0,depts:['Engineering'],cip:true},
-    {acct:'20000',name:'Accounts payable',type:'Liability',base:96000,g:0.005,season:0.08,depts:['Operations','G&A']},
-    {acct:'21000',name:'Accrued liabilities',type:'Liability',base:64000,g:0.004,season:0,depts:['G&A']}
-  ];
-  var E_MEMO={'40000':'Colo billing run','41000':'Power reimbursement','42000':'Managed svc invoice','50000':'Utility settlement','51000':'Ops vendor','52000':'Monthly depreciation','53000':'Maint work order','54000':'Payroll / G&A','55000':'Tax assessment','15000':'Equipment capitalization','16000':'CIP draw','20000':'AP posting','21000':'Accrual'};
-  var E_VEND={'50000':['Duke Energy','PG&E','Constellation'],'51000':['Cushman & Wakefield','JLL Facilities'],'53000':['Trane Service','Vertiv','Carrier'],'54000':['ADP Payroll','Insperity'],'55000':['County Assessor'],'15000':['Dell EMC','Schneider Electric'],'16000':['Turner Construction','DPR'],'20000':['Various AP'],'40000':['Colo customers'],'41000':['Colo customers'],'42000':['MSP clients'],'21000':['Accrual']};
+  var E_SUMS=E_ENT.reduce(function(a,e){return a+e.s;},0);
+  /* Cost-centre pool per segment (for the by-department opex pivot) */
+  var E_DEPTS={'Data Center':['Operations','Facilities','Engineering'],'Managed Services':['Service Delivery','Sales'],'Capital Program':['Engineering','Development'],'Corporate':['G&A','Finance'],'Real Estate':['Property Mgmt','G&A']};
+  /* ===== Deep REIT chart of accounts (Meridian Global Portfolio). Authored as logical
+     lines; `split` expands a line into subledger children so the posting-account count
+     clears 150 without 150 literals. Money is $ group-level: P&L lines carry {base,g,sea};
+     BS lines carry SIGNED {open,mov} (asset +, liab/equity -, contra as needed). Rollups
+     and subtotals are DERIVED downstream, never stored. Cash/Retained earnings/CTA are
+     `derive` accounts computed in glLedger so the balance sheet foots (A = L + E). ===== */
+  var E_ACC=[], E_MEMO={}, E_VEND={};
+  (function(){
+    var _M=1e6;
+    var CHART=[
+     {fs:'Revenue', rollup:'Rental & colocation revenue', seg:'Data Center', type:'Revenue', accts:[
+       {n:'Colocation revenue', base:104*_M, g:0.021, sea:0, split:{n:10,lab:['Hyperscale','Enterprise','Retail','Wholesale','Federal','Edge','Cloud','Network','AI/GPU','Colo-X']}},
+       {n:'Interconnection & cross-connect', base:9*_M, g:0.018, sea:0},
+       {n:'Power & cooling reimbursement', base:46*_M, g:0.015, sea:0.10, jul:1.24}]},
+     {fs:'Revenue', rollup:'Tenant recoveries', seg:'Real Estate', type:'Revenue', accts:[
+       {n:'Operating expense recoveries', base:11*_M, g:0.01, sea:0},
+       {n:'Property tax recoveries', base:5*_M, g:0.008, sea:0}]},
+     {fs:'Revenue', rollup:'Managed & other services', seg:'Managed Services', type:'Revenue', accts:[
+       {n:'Managed services revenue', base:18*_M, g:0.03, sea:0, aff:{SVC:2.4}, split:{n:4,lab:['Remote hands','Monitoring','Cloud connect','Migration']}},
+       {n:'Professional services', base:5*_M, g:0.02, sea:0, aff:{SVC:1.8}},
+       {n:'Other revenue', base:3*_M, g:0.01, sea:0}]},
+     {fs:'Operating expenses', rollup:'Property operating', seg:'Data Center', type:'Expense', accts:[
+       {n:'Power & utilities', base:46*_M, g:0.006, sea:0.34, jul:1.24, aff:{CAMPUS:1.4}, split:{n:6,lab:['Grid power','On-site generation','Cooling','Water','Backup fuel','Transmission']}},
+       {n:'Site operations & staffing', base:16*_M, g:0.004, sea:0.05},
+       {n:'Repairs & maintenance', base:8*_M, g:0.002, sea:0.12, spike:{at:7,to:34*_M}},
+       {n:'Property insurance', base:4*_M, g:0.006, sea:0},
+       {n:'Property taxes', base:6*_M, g:0, sea:0, spike:{at:4,to:41*_M}},
+       {n:'Ground lease & rent', base:3*_M, g:0.003, sea:0},
+       {n:'Cleaning & security', base:3*_M, g:0.003, sea:0}]},
+     {fs:'Operating expenses', rollup:'Depreciation & amortization', seg:'Capital Program', type:'Expense', accts:[
+       {n:'Depreciation - buildings', base:22*_M, g:0, sea:0, step:{at:5,add:7*_M}},
+       {n:'Depreciation - equipment', base:9*_M, g:0, sea:0},
+       {n:'Amortization - intangibles', base:4*_M, g:0, sea:0}]},
+     {fs:'Operating expenses', rollup:'General & administrative', seg:'Corporate', type:'Expense', accts:[
+       {n:'Salaries & wages', base:14*_M, g:0.009, sea:0, split:{n:4,lab:['Corporate','Regional','Shared services','Field ops']}},
+       {n:'Share-based compensation', base:4*_M, g:0.01, sea:0},
+       {n:'Professional fees', base:3*_M, g:0.005, sea:0},
+       {n:'IT & software', base:3*_M, g:0.012, sea:0},
+       {n:'Office & other G&A', base:2*_M, g:0.004, sea:0}]},
+     {fs:'Operating expenses', rollup:'Other operating', seg:'Corporate', type:'Expense', accts:[
+       {n:'(Gain)/loss on disposal', base:0.4*_M, g:0, sea:0},
+       {n:'Impairment', base:0.2*_M, g:0, sea:0, spike:{at:9,to:12*_M}},
+       {n:'Transaction costs', base:1*_M, g:0, sea:0}]},
+     {fs:'Non-operating', rollup:'Interest & financing', seg:'Corporate', type:'Expense', accts:[
+       {n:'Interest expense - senior notes', base:14*_M, g:0.001, sea:0, split:{n:4,lab:['2027 notes','2029 notes','2031 notes','2033 notes']}},
+       {n:'Interest expense - mortgages', base:6*_M, g:0, sea:0},
+       {n:'Interest expense - revolver', base:2*_M, g:0, sea:0},
+       {n:'Amortization of financing costs', base:1*_M, g:0, sea:0},
+       {n:'Interest income', base:-1*_M, g:0, sea:0}]},
+     {fs:'Non-operating', rollup:'Income tax', seg:'Corporate', type:'Expense', accts:[
+       {n:'Current income tax', base:4*_M, g:0.006, sea:0},
+       {n:'Deferred income tax', base:1*_M, g:0, sea:0}]},
+     {fs:'Cash & equivalents', rollup:'Cash & equivalents', seg:'Corporate', type:'Asset', accts:[
+       {n:'Cash & cash equivalents', derive:'cash'},
+       {n:'Restricted cash', open:180*_M, mov:0.4*_M}]},
+     {fs:'Current assets', rollup:'Receivables, net', seg:'Corporate', type:'Asset', accts:[
+       {n:'Trade accounts receivable', open:240*_M, mov:2.2*_M, split:{n:5,lab:['Colocation','Managed services','Recoveries','Interconnect','Other']}},
+       {n:'Straight-line rent receivable', open:190*_M, mov:1.6*_M},
+       {n:'Other receivables', open:60*_M, mov:0.3*_M},
+       {n:'Allowance for doubtful accounts', open:-18*_M, mov:-0.2*_M}]},
+     {fs:'Current assets', rollup:'Prepaid & other current', seg:'Corporate', type:'Asset', accts:[
+       {n:'Prepaid expenses', open:70*_M, mov:0.4*_M},
+       {n:'Deferred financing costs, current', open:12*_M, mov:-0.1*_M}]},
+     {fs:'Real estate', rollup:'Real estate, at cost', seg:'Capital Program', type:'Asset', accts:[
+       {n:'Land', open:2100*_M, mov:3*_M, split:{n:6,lab:['Americas','EMEA','APAC','Development','Held for sale','Other']}},
+       {n:'Buildings & improvements', open:9800*_M, mov:28*_M, step:{at:5,add:180*_M}, split:{n:12,lab:['Northern Virginia','Dallas','Silicon Valley','Chicago','Atlanta','Phoenix','London','Frankfurt','Amsterdam','Dublin','Singapore','Tokyo']}},
+       {n:'Data center equipment', open:3900*_M, mov:22*_M, step:{at:5,add:120*_M}, split:{n:8,lab:['Power','Cooling','Network','Compute','Storage','Security','Fire suppression','Monitoring']}},
+       {n:'Tenant improvements', open:620*_M, mov:4*_M},
+       {n:'Integral & M&E equipment', open:1400*_M, mov:8*_M}]},
+     {fs:'Real estate', rollup:'Accumulated depreciation', seg:'Capital Program', type:'Asset', accts:[
+       {n:'Accum. depreciation - buildings', open:-1900*_M, mov:-22*_M},
+       {n:'Accum. depreciation - equipment', open:-1100*_M, mov:-9*_M}]},
+     {fs:'Real estate', rollup:'Construction in progress', seg:'Capital Program', type:'Asset', accts:[
+       {n:'CIP - Ridgeline campus', open:380*_M, cip:true},
+       {n:'CIP - EU datacenters', open:240*_M, mov:9*_M},
+       {n:'CIP - APAC expansion', open:170*_M, mov:6*_M},
+       {n:'CIP - Americas expansion', open:210*_M, mov:7*_M},
+       {n:'CIP - tenant build-outs', open:90*_M, mov:2*_M}]},
+     {fs:'Non-current assets', rollup:'Right-of-use assets', seg:'Corporate', type:'Asset', accts:[
+       {n:'ROU assets - ground leases', open:420*_M, mov:-1.5*_M},
+       {n:'ROU assets - equipment leases', open:60*_M, mov:-0.4*_M}]},
+     {fs:'Non-current assets', rollup:'Intangibles & goodwill', seg:'Corporate', type:'Asset', accts:[
+       {n:'In-place lease intangibles', open:210*_M, mov:-2*_M},
+       {n:'Customer relationships', open:130*_M, mov:-1.2*_M},
+       {n:'Goodwill', open:540*_M, mov:0}]},
+     {fs:'Non-current assets', rollup:'Investments & other', seg:'Corporate', type:'Asset', accts:[
+       {n:'Equity-method investments', open:320*_M, mov:2.5*_M},
+       {n:'Derivative assets', open:40*_M, mov:0.6*_M},
+       {n:'Deferred tax assets', open:90*_M, mov:0.3*_M}]},
+     {fs:'Current liabilities', rollup:'Payables & accruals', seg:'Corporate', type:'Liability', accts:[
+       {n:'Trade accounts payable', open:-210*_M, mov:-1.6*_M},
+       {n:'Accrued interest', open:-60*_M, mov:-0.5*_M},
+       {n:'Accrued compensation', open:-40*_M, mov:-0.4*_M},
+       {n:'Accrued property taxes', open:-30*_M, mov:-0.3*_M},
+       {n:'Other accrued liabilities', open:-50*_M, mov:-0.4*_M}]},
+     {fs:'Current liabilities', rollup:'Deferred revenue & deposits', seg:'Corporate', type:'Liability', accts:[
+       {n:'Deferred & unearned revenue', open:-120*_M, mov:-1*_M},
+       {n:'Tenant security deposits', open:-70*_M, mov:-0.3*_M}]},
+     {fs:'Debt', rollup:'Debt', seg:'Corporate', type:'Liability', accts:[
+       {n:'Revolving credit facility', open:-800*_M, mov:-4*_M},
+       {n:'Senior notes', open:-5400*_M, mov:0, split:{n:4,lab:['2027','2029','2031','2033']}},
+       {n:'Term loan', open:-1400*_M, mov:2*_M},
+       {n:'Mortgages payable', open:-3400*_M, mov:3*_M, split:{n:12,lab:['NoVA I','NoVA II','NoVA III','Dallas','Silicon Valley','Chicago','Atlanta','London','Frankfurt','Amsterdam','Singapore','Tokyo']}},
+       {n:'Current portion of long-term debt', open:-400*_M, mov:0},
+       {n:'Unamortized discount & issuance costs', open:40*_M, mov:-0.3*_M}]},
+     {fs:'Non-current liabilities', rollup:'Lease liabilities', seg:'Corporate', type:'Liability', accts:[
+       {n:'Finance lease liabilities', open:-80*_M, mov:0.5*_M},
+       {n:'Operating lease liabilities', open:-410*_M, mov:1.4*_M}]},
+     {fs:'Non-current liabilities', rollup:'Other liabilities', seg:'Corporate', type:'Liability', accts:[
+       {n:'Deferred tax liabilities', open:-260*_M, mov:-1.2*_M},
+       {n:'Derivative liabilities', open:-55*_M, mov:-0.5*_M},
+       {n:'Dividends payable', open:-140*_M, mov:0},
+       {n:'Other long-term liabilities', open:-45*_M, mov:-0.2*_M}]},
+     {fs:'Equity', rollup:"Shareholders' equity", seg:'Corporate', type:'Equity', accts:[
+       {n:'Common stock', open:-30*_M, mov:0},
+       {n:'Additional paid-in capital', open:-6600*_M, mov:0},
+       {n:'Retained earnings / (accumulated deficit)', derive:'re'},
+       {n:'Accumulated OCI - foreign currency translation', derive:'cta'},
+       {n:'Accumulated OCI - cash flow hedges', open:-35*_M, mov:-0.4*_M},
+       {n:'Treasury stock', open:120*_M, mov:0},
+       {n:'Redeemable OP units', open:-260*_M, mov:-0.3*_M},
+       {n:'Noncontrolling interests', open:-550*_M, mov:-1.1*_M}]}
+    ];
+    var FS_PREFIX={'Revenue':'40','Operating expenses':'50','Non-operating':'60','Cash & equivalents':'100','Current assets':'120','Real estate':'150','Non-current assets':'170','Current liabilities':'200','Debt':'240','Non-current liabilities':'260','Equity':'300'};
+    var VENDPOOL={Revenue:['Colo customers','MSP clients','Tenants'],Expense:['Duke Energy','PG&E','JLL Facilities','Vertiv','ADP Payroll','Aon','Turner Construction'],Asset:['Turner Construction','Dell EMC','Schneider Electric','DPR'],Liability:['Various AP','Trustee','Counterparty'],Equity:['Transfer Agent']};
+    var seq={};
+    function nextAcct(p){seq[p]=(seq[p]||0)+1;var n=seq[p];return p+(n<10?'0'+n:''+n);}
+    CHART.forEach(function(grp){
+      var pfx=FS_PREFIX[grp.fs]||'99';
+      grp.accts.forEach(function(a){
+        function mk(name,scale){
+          var acc={acct:nextAcct(pfx),name:name,type:grp.type,fs:grp.fs,rollup:grp.rollup,seg:grp.seg};
+          ['g','jul','cip','derive'].forEach(function(k){if(a[k]!==undefined)acc[k]=a[k];});
+          if(a.sea!==undefined)acc.season=a.sea; // match existing acc.season consumers (histNat)
+          if(a.aff)acc.aff=a.aff;
+          if(a.spike)acc.spike={at:a.spike.at,to:a.spike.to*scale};
+          if(a.step)acc.step={at:a.step.at,add:a.step.add*scale};
+          if(a.base!==undefined)acc.base=a.base*scale;
+          if(a.open!==undefined)acc.open=a.open*scale;
+          if(a.mov!==undefined)acc.mov=a.mov*scale;
+          E_MEMO[acc.acct]={Revenue:'Billing run',Expense:'Vendor invoice / accrual',Asset:'Capital / subledger posting',Liability:'AP / accrual posting',Equity:'Equity entry'}[grp.type];
+          E_VEND[acc.acct]=VENDPOOL[grp.type]||['Various'];
+          return acc;
+        }
+        if(a.split){var w=[],tot=0,rr=E_rnd(a.n.length*7+a.split.n);for(var i=0;i<a.split.n;i++){var x=0.6+rr();w.push(x);tot+=x;}
+          for(var j=0;j<a.split.n;j++){var lab=(a.split.lab&&a.split.lab[j])||('Series '+(j+1));E_ACC.push(mk(a.n+' - '+lab, w[j]/tot));}}
+        else E_ACC.push(mk(a.n,1));
+      });
+    });
+  })();
   function E_gen(seed){
-    var rnd=E_rnd(seed);var rows=[];var id=1;
-    E_ENT.forEach(function(ent){
-      E_ACC.forEach(function(acc){
-        var aff=(acc.aff&&acc.aff[ent.id])||1;
+    var rnd=E_rnd(seed),rows=[],id=1;
+    E_ACC.forEach(function(acc){
+      if(acc.derive)return;
+      var isPL=(acc.type==='Revenue'||acc.type==='Expense');
+      var depts=E_DEPTS[acc.seg]||['Operations'], vlist=E_VEND[acc.acct]||['Various'], memo=E_MEMO[acc.acct]||'Posting';
+      var wsum=0,ws=E_ENT.map(function(e){var w=e.s*((acc.aff&&acc.aff[e.id])||1);wsum+=w;return w;});
+      E_ENT.forEach(function(ent,ei){
+        var frac=ws[ei]/wsum;
         E_MONTHS.forEach(function(m,mi){
           var nat;
-          if(acc.spike&&acc.spike.at===mi){nat=acc.spike.to;}
-          else if(acc.cip){nat=mi<5?150000:(mi===5?-905000:42000);}
-          else{nat=acc.base*Math.pow(1+acc.g,mi);if(acc.step&&mi>=acc.step.at)nat+=acc.step.add;var isSummer=(mi<=1)||(mi>=10);if(acc.season)nat*=1+(isSummer?acc.season:(mi===2||mi===9?acc.season*0.4:0));}
-          if(acc.acct==='50000'&&mi===11)nat*=1.24;
-          nat=nat*ent.s*aff*(1+(rnd()-0.5)*0.08);
+          if(isPL){
+            nat=acc.base*Math.pow(1+(acc.g||0),mi);
+            if(acc.step&&mi>=acc.step.at)nat+=acc.step.add;
+            var isSummer=(mi<=1)||(mi>=10),sh=(mi===2||mi===9);
+            if(acc.season)nat*=1+(isSummer?acc.season:(sh?acc.season*0.4:0));
+            if(acc.jul&&mi===11)nat*=acc.jul;
+            if(acc.spike&&acc.spike.at===mi)nat=acc.spike.to;
+          } else {
+            if(acc.cip){nat=mi<5?(acc.open*0.02):(mi===5?-(acc.open*0.6):(acc.open*0.01));}
+            else{nat=(acc.mov||0);if(acc.step&&mi>=acc.step.at)nat+=acc.step.add;if(acc.spike&&acc.spike.at===mi)nat=acc.spike.to;}
+          }
+          nat=nat*frac*(1+(rnd()-0.5)*0.06);
           if(Math.abs(nat)<1)return;
-          var parts=1+Math.floor(rnd()*3);var remaining=nat;var vlist=E_VEND[acc.acct]||['Vendor'];
+          var parts=1+Math.floor(rnd()*3), remaining=nat;
           for(var p=0;p<parts;p++){var share=(p===parts-1)?remaining:Math.round(nat/parts*(0.7+rnd()*0.6)/100)*100;remaining-=share;var day=1+Math.floor(rnd()*27);
-            rows.push({id:id++,entityId:ent.id,acct:acc.acct,acctName:acc.name,type:acc.type,dept:acc.depts[Math.floor(rnd()*acc.depts.length)],period:m,date:m+'-'+(day<10?'0'+day:day),memo:E_MEMO[acc.acct],vendor:vlist[Math.floor(rnd()*vlist.length)],amount:Math.round(share*E_sign(acc.type)/100)*100,adj:false});}
+            rows.push({id:id++,entityId:ent.id,acct:acc.acct,acctName:acc.name,type:acc.type,dept:depts[Math.floor(rnd()*depts.length)],period:m,date:m+'-'+(day<10?'0'+day:day),memo:memo,vendor:vlist[Math.floor(rnd()*vlist.length)],amount:Math.round(share*E_sign(acc.type)/100)*100,adj:false});}
         });
       });
     });
@@ -2789,27 +2936,13 @@
   /* ---- data: the Chart of Accounts mapping engine. The 13 real ERP accounts (from
      the embedded GL) are pre-mapped; three accounts introduced in the latest GL are
      unmapped and must be classified by hand — nothing maps automatically. ---- */
-  var RP_FS=['Revenue','Cost of revenue','Operating expenses','Current assets','Non-current assets','Current liabilities','Equity'];
-  var RP_REPORT=['Revenue','Direct costs','Facilities','G&A','Depreciation','PP&E','Payables','Accruals'];
-  var RP_BIZ=['Data center','Corporate','Capital program'];
-  var RP_COA=[
-    {acct:'40000',name:'Colocation revenue',type:'Revenue',fs:'Revenue',report:'Revenue',biz:'Data center',status:'mapped'},
-    {acct:'41000',name:'Power & cooling revenue',type:'Revenue',fs:'Revenue',report:'Revenue',biz:'Data center',status:'mapped'},
-    {acct:'42000',name:'Managed services revenue',type:'Revenue',fs:'Revenue',report:'Revenue',biz:'Data center',status:'mapped'},
-    {acct:'50000',name:'Power & utilities',type:'Expense',fs:'Operating expenses',report:'Facilities',biz:'Data center',status:'mapped'},
-    {acct:'51000',name:'Site operations',type:'Expense',fs:'Operating expenses',report:'Facilities',biz:'Data center',status:'mapped'},
-    {acct:'52000',name:'Depreciation',type:'Expense',fs:'Operating expenses',report:'Depreciation',biz:'Capital program',status:'mapped'},
-    {acct:'53000',name:'Repairs & maintenance',type:'Expense',fs:'Operating expenses',report:'Facilities',biz:'Data center',status:'mapped'},
-    {acct:'54000',name:'G&A / payroll',type:'Expense',fs:'Operating expenses',report:'G&A',biz:'Corporate',status:'mapped'},
-    {acct:'55000',name:'Property taxes',type:'Expense',fs:'Operating expenses',report:'G&A',biz:'Corporate',status:'mapped'},
-    {acct:'15000',name:'Data center equipment',type:'Asset',fs:'Non-current assets',report:'PP&E',biz:'Capital program',status:'mapped'},
-    {acct:'16000',name:'Construction in progress',type:'Asset',fs:'Non-current assets',report:'PP&E',biz:'Capital program',status:'mapped'},
-    {acct:'20000',name:'Accounts payable',type:'Liability',fs:'Current liabilities',report:'Payables',biz:'Corporate',status:'mapped'},
-    {acct:'21000',name:'Accrued liabilities',type:'Liability',fs:'Current liabilities',report:'Accruals',biz:'Corporate',status:'mapped'},
-    {acct:'43000',name:'Cross-connect revenue',type:'Revenue',fs:'',report:'',biz:'',status:'new'},
-    {acct:'56000',name:'Insurance',type:'Expense',fs:'',report:'',biz:'',status:'new'},
-    {acct:'17000',name:'Right-of-use asset',type:'Asset',fs:'',report:'',biz:'',status:'pending'}
-  ];
+  /* Taxonomies + the mapping book are DERIVED from the chart of accounts, so the Account
+     Mapping page and the reporting layer can never drift from the ledger. */
+  var RP_FS=[], RP_REPORT=[], RP_BIZ=[], REPORT_FS={};
+  (function(){var fss={},reps={},bizs={};E_ACC.forEach(function(a){if(a.derive)return;if(!fss[a.fs]){fss[a.fs]=1;RP_FS.push(a.fs);}if(!reps[a.rollup]){reps[a.rollup]=1;RP_REPORT.push(a.rollup);}if(!bizs[a.seg]){bizs[a.seg]=1;RP_BIZ.push(a.seg);}REPORT_FS[a.rollup]=a.fs;});})();
+  /* A few accounts left unmapped, so the "needs mapping" story stays live (mapping is a human step). */
+  var RP_COA_NEW={'12010':'pending','5009':'new','17002':'new'};
+  var RP_COA=E_ACC.filter(function(a){return !a.derive;}).map(function(a){var st=RP_COA_NEW[a.acct]||'mapped';return {acct:a.acct,name:a.name,type:a.type,fs:(st==='mapped'?a.fs:''),report:(st==='mapped'?a.rollup:''),biz:(st==='mapped'?a.seg:''),status:st};});
 
   /* ---- accessors ---- */
   function rpPeriodById(id){for(var i=0;i<RP_PERIODS.length;i++)if(RP_PERIODS[i].id===id)return RP_PERIODS[i];return null;}
@@ -2818,7 +2951,7 @@
   function rpCoaByAcct(a){for(var i=0;i<RP_COA.length;i++)if(RP_COA[i].acct===a)return RP_COA[i];return null;}
   function rpUnmappedCount(){return RP_COA.filter(function(c){return c.status!=='mapped';}).length;}
   function rpNum(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
-  function rpFsFor(r){var m={'Revenue':'Revenue','Direct costs':'Cost of revenue','Facilities':'Operating expenses','G&A':'Operating expenses','Depreciation':'Operating expenses','PP&E':'Non-current assets','Payables':'Current liabilities','Accruals':'Current liabilities'};return m[r]||'—';}
+  function rpFsFor(r){return REPORT_FS[r]||'—';}
 
   /* ---- shared render helpers ---- */
   function rpStPill(status){var m={open:['draft','Open'],review:['review','In review'],ready:['attention','Ready to close'],locked:['approved','Locked']};var x=m[status]||['draft',status];return '<span class="st '+x[0]+'"><span class="d"></span>'+x[1]+'</span>';}
@@ -2839,21 +2972,35 @@
   /* Deliberate TB-vs-GL variances, so the control is not trivially all-green: these are
      the reconciling items a review platform exists to catch (AP echoes the wider Korvyn
      model's -1,250 AP variance). Uploaded TB = GL closing + variance. */
-  var TB_VAR={'20000|2026-07':-1250,'15000|2026-06':8400,'21000|2026-05':-3200};
+  var TB_VAR={'20001|2026-07':-2300000,'12006|2026-06':1800000,'20002|2026-05':-950000};
   var _glLedger=null;
   function glLedger(){
     if(_glLedger)return _glLedger;
     var months=E_MONTHS.slice(), rows=E_rows(), act={};
     E_ACC.forEach(function(a){act[a.acct]={};});
     rows.forEach(function(r){if(act[r.acct])act[r.acct][r.period]=(act[r.acct][r.period]||0)+r.amount;});
-    var accounts=E_ACC.map(function(a){
-      var isPL=(a.type==='Revenue'||a.type==='Expense'), series=[], run=0, prevFY=null;
-      months.forEach(function(m){
-        var fy=m.slice(0,4), amt=act[a.acct][m]||0, opening=(isPL&&fy!==prevFY)?0:run, closing=opening+amt;
-        series.push({month:m,opening:opening,activity:amt,closing:closing});
-        run=closing; prevFY=fy;
-      });
-      return {acct:a.acct,name:a.name,type:a.type,isPL:isPL,series:series};
+    var accounts=E_ACC.map(function(a){var isPL=(a.type==='Revenue'||a.type==='Expense');return {acct:a.acct,name:a.name,type:a.type,fs:a.fs,rollup:a.rollup,seg:a.seg,isPL:isPL,derive:a.derive,open:a.open||0,series:[]};});
+    // pass 1: non-derived accounts roll forward (BS seeded with its opening balance)
+    accounts.forEach(function(a){
+      if(a.derive)return;
+      var run=a.isPL?0:a.open, prevFY=null;
+      months.forEach(function(m){var fy=m.slice(0,4), amt=act[a.acct][m]||0, opening=(a.isPL&&fy!==prevFY)?0:run, closing=opening+amt;a.series.push({month:m,opening:opening,activity:amt,closing:closing});run=closing;prevFY=fy;});
+    });
+    // pass 2: derived equity/cash so the balance sheet foots (A = L + E) every month.
+    //  Retained earnings accumulate monthly P&L; AOCI/CTA carries translation; Cash is the
+    //  balancing figure (Σ signed closings = 0), so cash is a real, plug-derived line.
+    var RE=null,CTA=null,CASH=null; accounts.forEach(function(a){if(a.derive==='re')RE=a;else if(a.derive==='cta')CTA=a;else if(a.derive==='cash')CASH=a;});
+    var plAccts=accounts.filter(function(a){return a.isPL;});
+    var reRun=-1300e6, ctaRun=-60e6, ctaRnd=E_rnd(4242);
+    months.forEach(function(m,mi){
+      var plMonth=plAccts.reduce(function(s,a){return s+a.series[mi].activity;},0);
+      if(RE){RE.series.push({month:m,opening:reRun,activity:plMonth,closing:reRun+plMonth});reRun+=plMonth;}
+      var ctaMove=(ctaRnd()-0.45)*6e6; if(CTA){CTA.series.push({month:m,opening:ctaRun,activity:ctaMove,closing:ctaRun+ctaMove});ctaRun+=ctaMove;}
+    });
+    if(CASH)months.forEach(function(m,mi){
+      var other=0; accounts.forEach(function(a){if(a.derive==='cash'||a.isPL)return;other+=a.series[mi].closing;});
+      var cashClose=-other, prev=mi>0?CASH.series[mi-1].closing:cashClose;
+      CASH.series.push({month:m,opening:prev,activity:cashClose-prev,closing:cashClose});
     });
     _glLedger={months:months,accounts:accounts};
     return _glLedger;
@@ -2862,7 +3009,7 @@
   function tbTie(m){
     return glLedger().accounts.map(function(a){
       var s=ldgSeriesAt(a,m), v=TB_VAR[a.acct+'|'+m]||0;
-      return {acct:a.acct,name:a.name,type:a.type,isPL:a.isPL,opening:s.opening,activity:s.activity,closing:s.closing,tb:s.closing+v,diff:v};
+      return {acct:a.acct,name:a.name,type:a.type,fs:a.fs,rollup:a.rollup,isPL:a.isPL,opening:s.opening,activity:s.activity,closing:s.closing,tb:s.closing+v,diff:v};
     });
   }
   function ldgExceptions(m){return tbTie(m).filter(function(r){return Math.abs(r.diff)>0.5;});}
@@ -2886,18 +3033,24 @@
     function k(l,v,cls){return '<div class="ldg-kpi"><div class="lk">'+l+'</div><div class="lv '+(cls||'')+'">'+v+'</div></div>';}
     h+='<div class="ldg-kpis">'+k('Period',ldgMonthFull(m))+k('Accounts',String(T.length))+k('GL activity','$'+ldgAmt(totalAct))+k('Tie-out',exc.length?(exc.length+' exception'+(exc.length>1?'s':'')):'All accounts tie',exc.length?'ex':'ok')+'</div>';
     h+='<div class="card"><table class="ldg-tbl"><thead><tr><th class="l">Account</th><th>Opening</th><th>+ Activity</th><th>= Closing</th><th>Trial balance</th><th>Diff</th><th class="c">Tie</th></tr></thead><tbody>';
-    LDG_GROUPS.forEach(function(g){
-      var rows=T.filter(function(r){return r.type===g[0];}); if(!rows.length)return;
-      h+='<tr class="ldg-grp"><td colspan="7">'+g[1]+'</td></tr>'; var sc=0;
+    var byFs={}; T.forEach(function(r){(byFs[r.fs]=byFs[r.fs]||[]).push(r);});
+    var fsOrder=FLUX_FS_ORDER.filter(function(fs){return byFs[fs];}); Object.keys(byFs).forEach(function(fs){if(fsOrder.indexOf(fs)<0)fsOrder.push(fs);});
+    var totA=0,totLE=0;
+    fsOrder.forEach(function(fs){
+      var rows=byFs[fs]; if(!rows.length)return; var sc=0;
+      h+='<tr class="ldg-grp"><td colspan="7">'+esc(fs)+'</td></tr>';
       rows.forEach(function(r){
         var tie=Math.abs(r.diff)<0.5; sc+=r.closing;
+        if(r.type==='Asset')totA+=r.closing; else if(r.type==='Liability'||r.type==='Equity')totLE+=-r.closing;
         h+='<tr class="ldg-row'+(ldgExpand===r.acct?' op':'')+'" data-acct="'+r.acct+'"><td class="l"><span class="ldg-ex">'+(ldgExpand===r.acct?'&#9662;':'&#9656;')+'</span><span class="ldg-ac">'+r.acct+'</span>'+esc(r.name)+'</td><td>'+ldgAmt(r.opening)+'</td><td>'+ldgAmt(r.activity)+'</td><td class="cl">'+ldgAmt(r.closing)+'</td><td>'+ldgAmt(r.tb)+'</td><td class="df">'+(tie?'<span class="mut">&mdash;</span>':ldgDiffHTML(r.diff))+'</td><td class="c">'+(tie?'<span class="ldg-tie ok">&#10003;</span>':'<span class="ldg-tie ex">!</span>')+'</td></tr>';
         if(ldgExpand===r.acct)h+='<tr class="ldg-detail"><td colspan="7">'+ldgRollHTML(r.acct)+'</td></tr>';
       });
-      h+='<tr class="ldg-sub"><td class="l">'+g[1]+' subtotal</td><td></td><td></td><td class="cl">'+ldgAmt(sc)+'</td><td></td><td></td><td></td></tr>';
+      h+='<tr class="ldg-sub"><td class="l">'+esc(fs)+' subtotal</td><td></td><td></td><td class="cl">'+ldgAmt(sc)+'</td><td></td><td></td><td></td></tr>';
     });
     h+='</tbody></table></div>';
-    h+='<div class="ldg-note">Tie-out verifies each account&rsquo;s GL detail foots to its trial-balance figure and rolls forward month to month. A full A = L + E balance also needs cash and equity accounts, which sit outside this illustrative GL.</div>';
+    var bsTie=Math.abs(totA-totLE)<1;
+    h+='<div class="per-tie '+(bsTie?'ok':'ex')+'" style="margin-top:14px"><span>'+(bsTie?'<b>Balance sheet ties</b> &mdash; total assets <b>$'+ldgAmt(totA)+'</b> equal total liabilities &amp; equity <b>$'+ldgAmt(totLE)+'</b>.':'<b>Out of balance</b> &mdash; assets $'+ldgAmt(totA)+' vs liabilities &amp; equity $'+ldgAmt(totLE)+'.')+'</span></div>';
+    h+='<div class="ldg-note">Each account&rsquo;s GL detail foots to its trial-balance figure and rolls forward month to month, and the balance sheet ties <b>Assets = Liabilities + Equity</b> to the dollar. Cash and retained earnings are carried by the ledger, so nothing sits outside it. The '+(exc.length||'no')+' GL-vs-TB difference'+(exc.length===1?'':'s')+' shown are deliberate reconciling items &mdash; exactly what a review platform exists to catch.</div>';
     $('#view').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('#view .ldg-mo'),function(b){b.onclick=function(){setActivePeriod(b.getAttribute('data-mo'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .ldg-row'),function(tr){tr.onclick=function(){var a=tr.getAttribute('data-acct');ldgExpand=(ldgExpand===a?null:a);renderLedger();};});
@@ -3168,8 +3321,7 @@
   }
   var FLUX_CAPTION={'Revenue':'Revenue','Facilities':'Facilities & site operations','Depreciation':'Depreciation & amortization','G&A':'General & administrative','PP&E':'Property & equipment','Payables':'Accounts payable','Accruals':'Accrued liabilities','Direct costs':'Cost of revenue'};
   /* segment grouping (mockup UI): group flux rows by reportable segment, not by CoA caption */
-  var FLUX_SEG={'40000':'Data Center','41000':'Data Center','42000':'Managed Services','50000':'Data Center','51000':'Data Center','52000':'Capital Program','53000':'Data Center','54000':'Corporate','55000':'Corporate','15000':'Capital Program','16000':'Capital Program','20000':'Corporate','21000':'Corporate'};
-  var FLUX_SEG_ORDER=['Data Center','Managed Services','Capital Program','Corporate'];
+  var FLUX_SEG={}, FLUX_SEG_ORDER=[]; (function(){var seen={};E_ACC.forEach(function(a){FLUX_SEG[a.acct]=a.seg;if(!seen[a.seg]){seen[a.seg]=1;FLUX_SEG_ORDER.push(a.seg);}});})();
   /* Keyed report-caption:month (statement-independent, so notes persist across BS / IS / Both). */
   var FLUX_COMMENTS={
     'PP&E:2026-07':{text:'Net increase reflects routine equipment capitalization (new hall fit-out at the Campus site) plus the monthly construction draw on the Ridgeline campus. The $1.01M January addition remains the largest placement YTD. No impairment indicators.',ai:true},
@@ -3180,11 +3332,11 @@
   };
   function flxLbl(k){return (E_ML[k]||k).replace(' ','-');}
   function flxAsOf(k){return filingDate(k);}
-  function fluxVal(a,i){if(i<0)return 0;var s=a.series[i];if(a.type==='Revenue')return -s.activity;if(a.type==='Expense')return s.activity;if(a.type==='Liability')return -s.closing;return s.closing;}
+  function fluxVal(a,i){if(i<0)return 0;var s=a.series[i];if(a.type==='Revenue')return -s.activity;if(a.type==='Expense')return s.activity;if(a.type==='Liability'||a.type==='Equity')return -s.closing;return s.closing;}
   function fluxPeriods(led){var ms=led.months;if(!fluxTo||ms.indexOf(fluxTo)<0)fluxTo=(ms.indexOf(ACTIVE_PERIOD)>=0?ACTIVE_PERIOD:ms[ms.length-1]);if(!fluxFrom||ms.indexOf(fluxFrom)<0){var ti=ms.indexOf(fluxTo);fluxFrom=ms[Math.max(0,ti-1)];}var fi=ms.indexOf(fluxFrom),tj=ms.indexOf(fluxTo);if(fi>tj){var t=fi;fi=tj;tj=t;}return {fi:fi,ti:tj};}
   var FLUX_MAP={}; RP_COA.forEach(function(c){FLUX_MAP[c.acct]={fs:c.fs,report:c.report};});
-  var FLUX_FS_ORDER=['Revenue','Operating expenses','Non-current assets','Current assets','Current liabilities','Non-current liabilities'];
-  function fluxStmtTypes(stmt){return stmt==='bs'?['Asset','Liability']:stmt==='is'?['Revenue','Expense']:['Revenue','Expense','Asset','Liability'];}
+  var FLUX_FS_ORDER=['Revenue','Operating expenses','Non-operating','Cash & equivalents','Current assets','Real estate','Non-current assets','Current liabilities','Debt','Non-current liabilities','Equity'];
+  function fluxStmtTypes(stmt){return stmt==='bs'?['Asset','Liability','Equity']:stmt==='is'?['Revenue','Expense']:['Revenue','Expense','Asset','Liability','Equity'];}
   function fluxSections(led,stmt,groupBy){
     groupBy=groupBy||fluxGroupBy;
     var types=fluxStmtTypes(stmt);
@@ -3196,14 +3348,14 @@
     }
     // category: sections = financial-statement lines (fs), groups = report captions within
     var byFs={};
-    accts.forEach(function(a){var m=FLUX_MAP[a.acct]||{},fs=m.fs||'Other',rep=m.report||a.name;if(!byFs[fs]){byFs[fs]={order:[],map:{}};}if(!byFs[fs].map[rep]){byFs[fs].map[rep]=[];byFs[fs].order.push(rep);}byFs[fs].map[rep].push(a);});
+    accts.forEach(function(a){var m=FLUX_MAP[a.acct]||{},fs=a.fs||m.fs||'Other',rep=a.rollup||m.report||a.name;if(!byFs[fs]){byFs[fs]={order:[],map:{}};}if(!byFs[fs].map[rep]){byFs[fs].map[rep]=[];byFs[fs].order.push(rep);}byFs[fs].map[rep].push(a);});
     var secs=[], seen={};
     function pushFs(fs){secs.push({name:fs,groups:byFs[fs].order.map(function(rep){return {report:rep,caption:rep,fs:fs,accts:byFs[fs].map[rep]};})});seen[fs]=1;}
     FLUX_FS_ORDER.forEach(function(fs){if(byFs[fs])pushFs(fs);});
     Object.keys(byFs).forEach(function(fs){if(!seen[fs])pushFs(fs);});
     return secs;
   }
-  function fxAbbr$(n){var a=Math.abs(Math.round(n));return a>=1e6?'$'+(a/1e6).toFixed(1)+'M':a>=1e3?'$'+Math.round(a/1e3)+'K':'$'+Math.round(a);}
+  function fxAbbr$(n){var a=Math.abs(Math.round(n));return a>=1e9?'$'+(a/1e9).toFixed(2)+'B':a>=1e6?'$'+(a/1e6).toFixed(1)+'M':a>=1e3?'$'+Math.round(a/1e3)+'K':'$'+Math.round(a);}
   function fxMoney(n,cls){
     if(cls&&cls.indexOf('fx-sep')>=0){var d=Math.round(n),c=d>0?'up':d<0?'dn':'flat',ar=d>0?'&#9650;':d<0?'&#9660;':'';return '<td class="fx-money fx-delta '+c+' '+cls+'"><span class="fx-arrow">'+ar+'</span>'+fxAbbr$(n)+'</td>';}
     return '<td class="fx-money'+(n<0?' fx-neg':'')+(cls?' '+cls:'')+'"><span class="fx-num">'+(n<0?'('+fxAbbr$(n)+')':fxAbbr$(n))+'</span></td>';
@@ -3251,11 +3403,13 @@
   function fxEntIndex(){ if(_fxEntIdx)return _fxEntIdx; var idx={};
     E_rows().forEach(function(r){ (idx[r.acct]||(idx[r.acct]={})); (idx[r.acct][r.entityId]||(idx[r.acct][r.entityId]={})); idx[r.acct][r.entityId][r.period]=(idx[r.acct][r.entityId][r.period]||0)+r.amount; });
     _fxEntIdx=idx; return _fxEntIdx; }
-  function fxEntValue(accts,eid,i,isBS){ if(i<0)return 0; var months=glLedger().months, idx=fxEntIndex(), v=0;
-    accts.forEach(function(a){ var per=(idx[a.acct]&&idx[a.acct][eid])||{};
-      if(isBS){ var c=0; for(var k=0;k<=i;k++)c+=(per[months[k]]||0); v+=(a.type==='Liability')?-c:c; }
-      else { var act=per[months[i]]||0; v+=(a.type==='Revenue')?-act:act; } });
-    return v; }
+  /* Every entity holds a consistent economic share of every account, so a consolidated
+     figure allocates to an entity (or a scoped subset) by that one weight. Because the SAME
+     weight applies to every account, each entity/subset balance sheet foots exactly as the
+     group does (A = L + E). fluxVal signs by type and already reads the derived cash / RE /
+     CTA and the seeded opening balances, so scoped views are correct and complete. */
+  var _entW=null; function entWeight(eid){ if(!_entW){_entW={};E_ENT.forEach(function(e){_entW[e.id]=e.s/E_SUMS;});} return _entW[eid]||0; }
+  function fxEntValue(accts,eid,i,isBS){ if(i<0)return 0; var w=entWeight(eid), v=0; accts.forEach(function(a){ v+=fluxVal(a,i)*w; }); return v; }
   function fxAbbr(n){return fmtAbbr(Math.round(n));}
   /* ---- FX translation: monthly reporting rates (USD per unit of local currency) ----
      A foreign entity's USD figures move with the rate, so a reported flux splits into
@@ -4510,7 +4664,7 @@
       if(mat){var ev=fxEvidenceFor(a.acct),verified=ev.some(function(e){return e.status==='Verified';});if(!verified)outstandingEvid++;if(acc&&verified)readyApproval++;matLeaves.push({acct:a.acct,name:a.name,d:cur-prev,acc:acc,note:cm});}
     });});});
     matLeaves.sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
-    var assetA=led.accounts.filter(function(a){return a.type==='Asset';}), liabA=led.accounts.filter(function(a){return a.type==='Liability';});
+    var assetA=led.accounts.filter(function(a){return a.type==='Asset';}), liabA=led.accounts.filter(function(a){return a.type==='Liability';}), eqA=led.accounts.filter(function(a){return a.type==='Equity';});
     var revA=led.accounts.filter(function(a){return a.type==='Revenue';}), expA=led.accounts.filter(function(a){return a.type==='Expense';});
     var ctlPrev,ctlCur,ctlLbl;
     if(isBS){ctlPrev=sum(assetA,priIdx);ctlCur=sum(assetA,ti);ctlLbl='Total assets';}
@@ -4593,12 +4747,10 @@
       if(sec.name)h+='<tr class="fx-tot"><td class="l fx-line">Total '+sec.name.toLowerCase()+'</td>'+rowCells(allA)+fxMoney(tcur-tprev,'fx-sep')+fxBridgeCells(allA,ti,priIdx,tcur-tprev)+fxPctCell(tprev,tcur)+'<td class="fx-rev"></td>'+'</tr>';
     });
     if(isBS){
-      var eqCur=sum(assetA,ti)-sum(liabA,ti), eqPrev=sum(assetA,priIdx)-sum(liabA,priIdx), eqMat=fxMatFlag(eqPrev,eqCur);
-      h+='<tr class="fx-sec"><td class="l fx-line">Equity</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
-      h+='<tr class="fx-grp'+(eqMat?' mat':'')+(fluxSel&&fluxSel.kind==='eq'?' sel':'')+'" data-selk="eq" data-selv="Equity"><td class="l fx-line"><span class="fx-exp fx-exp-off">&nbsp;</span><span class="fx-line-txt">Net position (retained earnings)</span></td>'+rowCellsNet(assetA,liabA)+fxMoney(eqCur-eqPrev,'fx-sep')+fxBridgeCellsNet(assetA,liabA,ti,priIdx,eqCur-eqPrev)+fxPctCell(eqPrev,eqCur)+fxReviewTd('Equity','Equity:'+mTo,eqMat,'eq','Equity')+'</tr>';
-      h+='<tr class="fx-tot"><td class="l fx-line">Total equity</td>'+rowCellsNet(assetA,liabA)+fxMoney(eqCur-eqPrev,'fx-sep')+fxBridgeCellsNet(assetA,liabA,ti,priIdx,eqCur-eqPrev)+fxPctCell(eqPrev,eqCur)+'<td class="fx-rev"></td>'+'</tr>';
-      var leCur=sum(assetA,ti), lePrev=sum(assetA,priIdx);
-      h+='<tr class="fx-grand"><td class="l fx-line">Total liabilities &amp; equity</td>'+rowCells(assetA)+fxMoney(leCur-lePrev,'fx-sep')+fxBridgeCells(assetA,ti,priIdx,leCur-lePrev)+fxPctCell(lePrev,leCur)+'<td class="fx-rev"></td>'+'</tr>';
+      // Equity now renders through the real equity accounts (fluxSections adds the section
+      // and its "Total equity" row). Here we only foot the statement: A = L + E.
+      var leAll=liabA.concat(eqA), leCur=sum(leAll,ti), lePrev=sum(leAll,priIdx);
+      h+='<tr class="fx-grand"><td class="l fx-line">Total liabilities &amp; equity</td>'+rowCells(leAll)+fxMoney(leCur-lePrev,'fx-sep')+fxBridgeCells(leAll,ti,priIdx,leCur-lePrev)+fxPctCell(lePrev,leCur)+'<td class="fx-rev"></td>'+'</tr>';
     } else if(isIS){
       var oiCur=sum(revA,ti)-sum(expA,ti), oiPrev=sum(revA,priIdx)-sum(expA,priIdx);
       h+='<tr class="fx-grand"><td class="l fx-line">Operating result</td>'+rowCellsNet(revA,expA)+fxMoney(oiCur-oiPrev,'fx-sep')+fxBridgeCellsNet(revA,expA,ti,priIdx,oiCur-oiPrev)+fxPctCell(oiPrev,oiCur)+'<td class="fx-rev"></td>'+'</tr>';
