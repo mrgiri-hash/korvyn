@@ -1528,6 +1528,47 @@
   .rp-rv-a:hover{background:var(--surface-2);color:var(--accent)}
   .rp-mv-sel{height:28px;max-width:150px;display:inline-block;width:auto}
   .rp-mv-cancel{margin-left:5px}
+  /* ===== Phase 3: workspace-thinking density ===== */
+  .rp-sumbar{display:flex;align-items:center;gap:0;flex-wrap:wrap;height:40px;padding:0 14px;margin:0 0 12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:12.5px;color:var(--muted)}
+  .rp-sb-i{white-space:nowrap} .rp-sb-i b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-right:3px}
+  .rp-sb-i.warn b{color:var(--warn)}
+  .rp-sb-sep{width:1px;height:15px;background:var(--line-2);margin:0 14px}
+  .rp-whd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 11px}
+  .rp-whd-l h1{font-size:17px;font-weight:600;color:var(--ink);margin:0;line-height:1.2}
+  .rp-whd-meta{font-size:11.5px;color:var(--muted)}
+  /* project-explorer tree */
+  .rp-ws{grid-template-columns:262px 1fr}
+  .rp-ws-dir{padding:6px;max-height:calc(100vh - 128px);overflow-y:auto}
+  .rp-ws-sec{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;padding:9px 8px 3px}
+  .rp-ws-sec-f{border-top:1px solid var(--line);margin-top:4px;padding-top:9px}
+  .rp-tn{position:relative}
+  .rp-ws-item{display:flex;align-items:center;gap:5px;width:100%;background:none;border:0;font:inherit;font-size:12.5px;color:var(--ink-2);cursor:pointer;padding:3px 8px;border-radius:6px;text-align:left;min-height:25px}
+  .rp-ws-item:hover{background:var(--surface-2)}
+  .rp-ws-item.on{background:var(--accent-bg);color:var(--ink);font-weight:500}
+  .rp-ws-item.review{color:var(--ink-2)} .rp-ws-item.review.on{font-weight:500}
+  .rp-ws-item.pin .rp-ws-nm,.rp-ws-item.quick{color:var(--ink-2)}
+  .rp-ws-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rp-ws-fdoc,.rp-ws-qic{display:inline-flex;color:var(--faint);flex-shrink:0}
+  .rp-ws-fdoc svg,.rp-ws-qic svg{width:13px;height:13px}
+  .rp-ws-star{color:#E0A64B;font-size:10px;flex-shrink:0}
+  .rp-ws-ct{font-size:10px;color:var(--faint);flex-shrink:0}
+  .rp-ws-item.on .rp-ws-ct{color:var(--accent)}
+  .rp-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-left:2px;background:var(--muted)}
+  .rp-dot.d-ns{background:var(--faint)} .rp-dot.d-ip{background:var(--accent)} .rp-dot.d-ne{background:var(--neg)}
+  .rp-dot.d-rd{background:var(--warn)} .rp-dot.d-dn{background:var(--pos)} .rp-dot.d-cr{background:#6D4BC7}
+  .rp-rtbl td{height:38px}
+  /* context menu */
+  .rp-ctx{position:fixed;min-width:196px;background:var(--surface);border:1px solid var(--line-2);border-radius:9px;box-shadow:0 12px 34px rgba(16,18,24,.2);padding:4px;z-index:90}
+  .rp-ctx-i{display:block;width:100%;background:none;border:0;font:inherit;font-size:12.5px;color:var(--ink-2);cursor:pointer;text-align:left;padding:6px 10px;border-radius:6px}
+  .rp-ctx-i:hover{background:var(--surface-2);color:var(--ink)}
+  .rp-ctx-i.soon{color:var(--faint)}
+  .rp-ctx-sep{height:1px;background:var(--line);margin:4px 6px}
+  /* canvas compaction (review context) */
+  body.flux-view .rpc-hd{padding-bottom:8px;margin-bottom:9px}
+  body.flux-view .rpc-hd h1{font-size:17px}
+  body.flux-view .fx-gb{padding:9px 13px;margin-bottom:9px}
+  body.flux-view .fx-gb-v{font-size:15px}
+  body.flux-view .fx-cn{margin-bottom:8px}
 </style>
 
 <div class="ribbon">
@@ -1556,6 +1597,7 @@
 <div class="rp-drawer-bd" id="rpDrawerBd"></div>
 <div class="rp-drawer" id="rpDrawer" aria-label="New close period"></div>
 <div class="rp-search" id="rpSearch" hidden aria-label="Search results"></div>
+<div class="rp-ctx" id="rpCtx" hidden role="menu"></div>
 <div class="rn-overlay" id="reviewModal" aria-label="Review note"><div class="rn-dialog"></div></div>
 
 <script>
@@ -2181,7 +2223,9 @@
   $('#search').addEventListener('input',function(){search=this.value.trim().toLowerCase();if(typeof rpGlobalSearch==='function')rpGlobalSearch(this.value);});
   $('#search').addEventListener('focus',function(){if(typeof rpGlobalSearch==='function')rpGlobalSearch(this.value);});
   $('#search').addEventListener('keydown',function(e){if(e.key==='Escape'){this.blur();if(typeof rpSearchShow==='function')rpSearchShow(false);}});
-  document.addEventListener('mousedown',function(e){if(typeof rpSearchOpen!=='undefined'&&rpSearchOpen&&!e.target.closest('#rpSearch')&&!e.target.closest('#search'))rpSearchShow(false);});
+  document.addEventListener('mousedown',function(e){if(typeof rpSearchOpen!=='undefined'&&rpSearchOpen&&!e.target.closest('#rpSearch')&&!e.target.closest('#search'))rpSearchShow(false);
+    var ctx=document.getElementById('rpCtx');if(ctx&&!ctx.hidden&&!e.target.closest('#rpCtx')&&typeof rpCtxClose==='function')rpCtxClose();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&typeof rpCtxClose==='function')rpCtxClose();});
   /* Theme lives in Settings now (not the ribbon). Persisted; 'system' follows the OS. */
   function currentTheme(){try{var t=localStorage.getItem('korvyn.theme');if(t)return t;}catch(e){}return document.documentElement.getAttribute('data-theme')||'system';}
   function applyTheme(t){var root=document.documentElement;if(t==='system'){root.removeAttribute('data-theme');}else{root.setAttribute('data-theme',t);}}
@@ -3272,7 +3316,7 @@
     var over=RP_CLOSE_PERIODS.reduce(function(a,p){return a+p.overdue;},0);
     var h=rpCrumb([{label:'Financial Reporting',go:'frov'},{label:'Close Periods'}]);
     h+='<div class="kv-hd rp-hd"><div><div class="k">Financial Reporting</div><h1>Close Periods</h1><div class="kv-sub">Create, organize, and manage financial reviews by reporting period.</div></div><button class="btn primary rp-newperiod">+ New Close Period</button></div>';
-    h+='<div class="rp-strip">'+rpStat(open,'Open periods')+rpStat(inprog,'Reviews in progress')+rpStat(need,'Waiting on explanation',need?'warn':'')+rpStat(ready,'Ready for approval')+rpStat(over,'Overdue',over?'warn':'')+'</div>';
+    h+=rpSumBar([[open,'Open Periods'],[inprog,'Reviews in Progress'],[need,'Waiting on Explanation',need?'warn':''],[ready,'Ready for Approval'],[over,'Overdue',over?'warn':'']]);
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl"><thead><tr><th class="l">Period</th><th class="l">Status</th><th>Reviews</th><th>Completion</th><th>Open expl.</th><th>Ready</th><th class="l">Owner</th><th class="l">Last activity</th><th></th></tr></thead><tbody>';
     RP_CLOSE_PERIODS.forEach(function(p){var pct=p.reviews?Math.round(p.done/p.reviews*100):0;
       h+='<tr class="rp-row" data-pid="'+p.id+'"><td class="l rp-pnm">'+esc(p.name)+'<span class="rp-ptype">'+esc(p.type)+'</span></td>'+
@@ -3292,30 +3336,92 @@
     var nb=document.querySelector('#view .rp-newperiod');if(nb)nb.onclick=rpNewPeriodOpen;
   }
   function rpStat(v,l,tone){return '<div class="rp-s"><div class="rp-sv '+(tone||'')+'">'+v+'</div><div class="rp-sl">'+l+'</div></div>';}
-  /* ---------- Period workspace (two-panel: folders | content) ---------- */
+  /* ===== Phase 3: workspace-thinking refinement — compact bars, project-explorer tree, favorites/recent, context menus ===== */
+  function rpSumBar(items){return '<div class="rp-sumbar">'+items.map(function(it,i){return (i?'<span class="rp-sb-sep"></span>':'')+'<span class="rp-sb-i'+(it[2]?' '+it[2]:'')+'"><b>'+it[0]+'</b> '+it[1]+'</span>';}).join('')+'</div>';}
+  var RP_FAVORITES=[{kind:'review',id:'ercbs'},{kind:'folder',id:'reg-emea'}];
+  var RP_RECENT=[];
+  function rpIsFav(kind,id){return RP_FAVORITES.some(function(f){return f.kind===kind&&f.id===id;});}
+  function rpFavToggle(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&f.id===id)i=j;});if(i>=0)RP_FAVORITES.splice(i,1);else RP_FAVORITES.unshift({kind:kind,id:id});renderPeriodWorkspace();}
+  function rpRecentPush(id){RP_RECENT=[id].concat(RP_RECENT.filter(function(x){return x!==id;})).slice(0,6);}
+  function rpReviewById(id){for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===id)return RP_REVIEWS[i];return null;}
+  function rpStatusDot(s){var m={notstarted:'ns',inprog:'ip',needexpl:'ne',ready:'rd',done:'dn',ctrl:'cr'};return '<span class="rp-dot d-'+(m[s]||'ip')+'" title="'+((RP_RSTATUS[s]||['',''])[0])+'"></span>';}
+  function rpTreeFolder(f,depth){
+    if(f.hidden)return '';
+    var kids=rpChildFolders(f.id).filter(function(k){return !k.hidden;}), revs=rpFolderReviews(f.id);
+    var has=kids.length||revs.length, open=!!RP_WS_EXPAND[f.id], sel=RP_WS_SEL===f.id;
+    var h='<div class="rp-tn" data-ctx="folder" data-id="'+f.id+'"><div class="rp-ws-item folder'+(sel?' on':'')+'" data-ws="'+f.id+'" style="padding-left:'+(6+depth*13)+'px">';
+    h+=has?'<span class="rp-ws-tw'+(open?' open':'')+'" data-tw="'+f.id+'">'+rpIcon('chev')+'</span>':'<span class="rp-ws-tw-sp"></span>';
+    h+='<span class="rp-ws-nm">'+esc(f.name)+'</span>'+(rpIsFav('folder',f.id)?'<span class="rp-ws-star">&#9733;</span>':'')+'<span class="rp-ws-ct">'+f.count+'</span></div></div>';
+    if(open){ kids.forEach(function(k){h+=rpTreeFolder(k,depth+1);}); revs.forEach(function(r){h+=rpTreeReview(r,depth+1);}); }
+    return h;
+  }
+  function rpTreeReview(r,depth){
+    var sel=RP_OPEN_REVIEW&&RP_OPEN_REVIEW.id===r.id;
+    return '<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><div class="rp-ws-item review'+(sel?' on':'')+'" data-rid="'+r.id+'" style="padding-left:'+(6+depth*13+15)+'px"><span class="rp-ws-fdoc">'+rpIcon('doc')+'</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+(rpIsFav('review',r.id)?'<span class="rp-ws-star">&#9733;</span>':'')+rpStatusDot(r.status)+'</div></div>';
+  }
+  function rpPinReview(r){return '<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-fdoc">'+rpIcon('doc')+'</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';}
+  /* ---------- Period workspace (project-explorer left rail | work area) ---------- */
   function rpOpenPeriod(id){RP_PERIOD_SEL=id;RP_WS_SEL='overview';if(typeof rpReviewsFor==='function')RP_REVIEWS=rpReviewsFor(id);renderPeriodWorkspace();window.scrollTo(0,0);}
   function rpWsSelect(id){RP_WS_SEL=id;renderPeriodWorkspace();}
   function rpWsToggle(id){RP_WS_EXPAND[id]=!RP_WS_EXPAND[id];renderPeriodWorkspace();}
   function renderPeriodWorkspace(){
     var p=rpPeriod(RP_PERIOD_SEL);
-    var sel=RP_WS_SEL, selF=sel==='overview'?null:rpFolder(sel);
+    var sel=RP_WS_SEL, selF=(sel==='overview'||sel==='__structure'||sel==='__myreviews')?null:rpFolder(sel);
     var crumbs=[{label:'Financial Reporting',go:'frov'},{label:'Close Periods',go:'frperiods'},{label:p.name.replace(' Close','')}];
     if(selF){ var par=selF.parent?rpFolder(selF.parent):null; if(par)crumbs.push({label:par.name}); crumbs.push({label:selF.name}); }
     var h=rpCrumb(crumbs);
-    h+='<div class="kv-hd rp-hd"><div><div class="k">'+esc(p.type)+' &middot; '+esc(p.status)+'</div><h1>'+esc(p.name)+'</h1><div class="kv-sub">Due '+esc(p.due)+' &middot; '+p.reviews+' reviews &middot; owner '+esc(p.owner)+'</div></div><div class="rp-hd-act"><button class="btn primary rp-newreview">+ Create Review</button><button class="btn rp-managestruct">Manage Structure</button><button class="btn rp-copyreview">Copy Review</button><button class="btn rp-psettings">Period Settings</button></div></div>';
-    h+='<div class="rp-strip">'+rpStat(p.reviews,'Total reviews')+rpStat(p.inprog,'In progress')+rpStat(p.needexpl,'Need explanation',p.needexpl?'warn':'')+rpStat(p.ready,'Ready for controller')+rpStat(p.done,'Completed')+'</div>';
+    h+='<div class="rp-whd"><div class="rp-whd-l"><h1>'+esc(p.name)+'</h1><span class="rp-whd-meta">'+esc(p.type)+' &middot; '+esc(p.status)+' &middot; due '+esc(p.due)+' &middot; '+esc(p.owner)+'</span></div><div class="rp-hd-act"><button class="btn sm primary rp-newreview">+ Create Review</button><button class="btn sm rp-managestruct">Manage Structure</button></div></div>';
+    h+=rpSumBar([[p.reviews,'Reviews'],[p.inprog,'In Progress'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Review'],[p.done,'Completed']]);
     h+='<div class="rp-ws"><div class="rp-ws-dir"><div class="rp-ws-search"><input class="rp-ws-find" placeholder="Search folders &amp; reviews&hellip;"></div>';
-    h+='<button class="rp-ws-item'+(sel==='overview'?' on':'')+'" data-ws="overview"><span class="rp-ws-ic">'+rpIcon('grid')+'</span>Overview</button>';
-    RP_WS_FOLDERS.filter(function(f){return !f.parent;}).forEach(function(f){
-      var kids=rpChildFolders(f.id), open=!!RP_WS_EXPAND[f.id];
-      h+='<div class="rp-ws-grp"><button class="rp-ws-item'+(sel===f.id?' on':'')+'" data-ws="'+f.id+'">'+(kids.length?'<span class="rp-ws-tw'+(open?' open':'')+'" data-tw="'+f.id+'">'+rpIcon('chev')+'</span>':'<span class="rp-ws-tw-sp"></span>')+'<span class="rp-ws-nm">'+esc(f.name)+'</span><span class="rp-ws-ct">'+f.count+'</span></button>';
-      if(kids.length&&open){h+='<div class="rp-ws-kids">';kids.forEach(function(k){h+='<button class="rp-ws-item rp-ws-kid'+(sel===k.id?' on':'')+'" data-ws="'+k.id+'"><span class="rp-ws-nm">'+esc(k.name)+'</span><span class="rp-ws-ct">'+k.count+'</span></button>';});h+='</div>';}
-      h+='</div>';
-    });
-    var wsBody=(sel==='__structure')?rpStructureEditor():(selF?rpFolderContent(selF):rpPeriodOverview(p));
+    var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):rpReviewById(f.id);});
+    if(favItems.length){ h+='<div class="rp-ws-sec">Favorites</div>';
+      favItems.forEach(function(f){ if(f.kind==='folder'){var fo=rpFolder(f.id);h+='<div class="rp-tn" data-ctx="folder" data-id="'+fo.id+'"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span></button></div>';}
+        else { var r=rpReviewById(f.id); h+='<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>'; } }); }
+    var recent=RP_RECENT.map(rpReviewById).filter(Boolean).slice(0,5);
+    if(recent.length){ h+='<div class="rp-ws-sec">Recent</div>'; recent.forEach(function(r){h+=rpPinReview(r);}); }
+    h+='<div class="rp-ws-sec">Workspace</div>';
+    h+='<button class="rp-ws-item quick'+(sel==='overview'?' on':'')+'" data-ws="overview"><span class="rp-ws-qic">'+rpIcon('grid')+'</span>Overview</button>';
+    h+='<button class="rp-ws-item quick'+(sel==='__myreviews'?' on':'')+'" data-ws="__myreviews"><span class="rp-ws-qic">'+rpIcon('doc')+'</span>My reviews</button>';
+    h+='<div class="rp-ws-sec rp-ws-sec-f">Folders</div>';
+    RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);});
+    var wsBody=(sel==='__structure')?rpStructureEditor():(sel==='__myreviews')?rpMyReviewsList(p):(selF?rpFolderContent(selF):rpPeriodOverview(p));
     h+='</div><div class="rp-ws-body">'+wsBody+'</div></div>';
     $('#view').innerHTML=h;
     rpWireWorkspace();rpWireStructure();
+  }
+  function rpMyReviewsList(p){
+    var mine=RP_REVIEWS.filter(function(r){return r.rev===CUR_USER.init||rpInit(r.owner)===CUR_USER.init;});
+    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">My reviews</h2><div class="rp-ws-desc">'+mine.length+' assigned to you &middot; '+esc(p.name.replace(' Close',''))+'</div></div></div>';
+    h+='<div class="card rvw-card"><div class="rvw-scroll"><table class="rvw-tbl rp-rtbl"><thead><tr><th class="l">Review</th><th class="l">Folder</th><th class="l">Status</th><th>Open items</th><th class="l">Updated</th><th></th></tr></thead><tbody>';
+    mine.forEach(function(r){var f=rpFolder(r.folder);h+='<tr class="rp-rrow" data-rid="'+r.id+'"><td class="l rvw-nm">'+esc(r.name)+'</td><td class="l rp-sub">'+esc(f?f.name:'')+'</td><td class="l">'+rpRStatusPill(r.status)+'</td><td class="rvw-num '+(r.need?'warn':'')+'">'+(r.need||'&mdash;')+'</td><td class="l rp-sub">'+esc(r.upd)+'</td>'+rpReviewActions(r)+'</tr>';});
+    h+='</tbody></table></div></div>';
+    return h;
+  }
+  /* ---------- right-click context menus ---------- */
+  function rpCtxMenu(kind,id,x,y){
+    var items = kind==='folder'?[['New Review','newreview'],['New Folder','newfolder'],['sep'],['Rename','rename'],['Archive','archive'],['sep'],[rpIsFav('folder',id)?'Remove from Favorites':'Add to Favorites','fav'],['sep'],['Duplicate','dup*'],['Move','move*'],['Permissions','perm*'],['Save as Template','tpl*']]
+      :[['Open','open'],['Duplicate','dup'],['Move','move'],['sep'],[rpIsFav('review',id)?'Remove from Favorites':'Add to Favorites','fav'],['sep'],['Rename','rn*'],['Archive','arch*'],['Save as Template','tpl*'],['Review Settings','set*']];
+    var el=document.getElementById('rpCtx'); if(!el)return;
+    el.innerHTML=items.map(function(it){return it[0]==='sep'?'<div class="rp-ctx-sep"></div>':'<button class="rp-ctx-i'+(/\*$/.test(it[1])?' soon':'')+'" data-a="'+it[1]+'">'+it[0]+'</button>';}).join('');
+    el.hidden=false; var vw=window.innerWidth,vh=window.innerHeight;
+    el.style.left=Math.min(x,vw-210)+'px'; el.style.top=Math.min(y,vh-el.offsetHeight-8)+'px';
+    Array.prototype.forEach.call(el.querySelectorAll('.rp-ctx-i'),function(b){b.onclick=function(){var a=b.getAttribute('data-a');rpCtxClose();rpCtxAction(kind,id,a);};});
+  }
+  function rpCtxClose(){var el=document.getElementById('rpCtx');if(el)el.hidden=true;}
+  function rpCtxAction(kind,id,a){
+    if(a==='fav'){rpFavToggle(kind,id);return;}
+    if(kind==='folder'){
+      if(a==='newreview')rpNewReviewOpen();
+      else if(a==='newfolder'){RP_WS_SEL='__structure';rpFolderCreate(id);}
+      else if(a==='rename'){RP_WS_SEL='__structure';RP_WS_RENAME=id;renderPeriodWorkspace();}
+      else if(a==='archive')rpFolderArchive(id);
+      else rpToast('Folder: '+a.replace('*','')+' — a later increment.');
+    } else {
+      if(a==='open')rpOpenReview(id);
+      else if(a==='dup')rpReviewDuplicate(id);
+      else if(a==='move'){var r=rpReviewById(id);if(r){rpWsSelect(r.folder);RP_MOVE_REVIEW=id;renderPeriodWorkspace();}}
+      else rpToast('Review: '+a.replace('*','')+' — a later increment.');
+    }
   }
   function rpFolderContent(f){
     var revs=rpFolderReviews(f.id);
@@ -3343,10 +3449,11 @@
     return h;
   }
   function rpInit(n){return n.split(' ').map(function(w){return w[0];}).join('').slice(0,2);}
-  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}fluxStmt=(r.name.indexOf('Income')>=0)?'is':'bs';navTo('mtrend');}
+  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}fluxStmt=(r.name.indexOf('Income')>=0)?'is':'bs';navTo('mtrend');}
   function rpWireWorkspace(){
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;rpWsSelect(this.getAttribute('data-ws'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;var rid=this.getAttribute('data-rid');if(rid)rpOpenReview(rid);else rpWsSelect(this.getAttribute('data-ws'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-tw'),function(b){b.onclick=function(e){e.stopPropagation();rpWsToggle(this.getAttribute('data-tw'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tn'),function(el){el.oncontextmenu=function(e){e.preventDefault();e.stopPropagation();rpCtxMenu(this.getAttribute('data-ctx'),this.getAttribute('data-id'),e.clientX,e.clientY);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-subf-c, #view .rp-ov-fold'),function(b){b.onclick=function(){rpWsSelect(this.getAttribute('data-ws'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rrow, #view .rp-li'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-oreview'),function(b){b.onclick=function(e){e.stopPropagation();rpOpenReview(this.getAttribute('data-rid'));};});
@@ -3410,7 +3517,7 @@
   function renderFRHub(){
     var p=rpPeriod('2027-03');
     var h='<div class="kv-hd rp-hd"><div><div class="k">Financial Reporting</div><h1>Overview</h1><div class="kv-sub">The financial review layer over the ERP &mdash; organize reviews by period and workspace, perform them on a controlled data foundation, and carry explanations and evidence through the review hierarchy.</div></div></div>';
-    h+='<div class="rp-strip">'+rpStat(RP_CLOSE_PERIODS.filter(function(x){return x.status!=='Closed'&&x.status!=='Archived';}).length,'Open periods')+rpStat(p.reviews,'Reviews this period')+rpStat(p.needexpl,'Need explanation',p.needexpl?'warn':'')+rpStat(p.ready,'Ready for controller')+rpStat(p.overdue,'Overdue',p.overdue?'warn':'')+'</div>';
+    h+=rpSumBar([[RP_CLOSE_PERIODS.filter(function(x){return x.status!=='Closed'&&x.status!=='Archived';}).length,'Open Periods'],[p.reviews,'Reviews this Period'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Controller'],[p.overdue,'Overdue',p.overdue?'warn':'']]);
     h+='<div class="rp-ov-dir rp-hub">'+[['frperiods','cal','Close Periods','Organize reviews by reporting period'],['my','doc','My Reviews','Assigned to you across periods'],['all','stack','All Reviews','Every review across the group'],['frtpl','tpl','Templates','Reusable review structures'],['frlib','stmt','Review Library','Statements, filings & report types'],['frmap','link','Mappings & Definitions','Statement maps, rollups, materiality']].map(function(x){return '<button class="rp-ov-fold rp-hub-c" data-go="'+x[0]+'">'+rpIcon(x[1])+'<span class="rp-ov-fn">'+x[2]+'</span><span class="rp-hub-d">'+x[3]+'</span></button>';}).join('')+'</div>';
     $('#view').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-hub-c'),function(b){b.onclick=function(){navTo(this.getAttribute('data-go'));};});
