@@ -110,6 +110,33 @@
   .nrev-find{width:100%;height:30px;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12.5px;padding:0 10px;box-sizing:border-box}
   .nrev-find:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
   body.nav-collapsed .nrev-back .nctxt,body.nav-collapsed .nrev-search{display:none}
+  /* Phase D faceted entity navigator */
+  .nh-fx{display:flex;align-items:center;justify-content:space-between}
+  .nfx-clr{border:0;background:none;font-family:inherit;font-size:10px;color:var(--accent);cursor:pointer;text-transform:none;letter-spacing:0;padding:0}
+  .nfx-gh{display:flex;align-items:center;gap:5px;width:100%;border:0;background:none;font-family:inherit;font-size:12px;color:var(--ink-2);padding:5px 9px;cursor:pointer;border-radius:6px;text-align:left}
+  .nfx-gh:hover{background:var(--surface-2)}
+  .nfx-tw{display:inline-flex;color:var(--faint);transition:transform .12s} .nfx-tw.open{transform:rotate(90deg)}
+  .nfx-gl{flex:1} .nfx-badge{font-size:9.5px;font-weight:600;background:var(--accent-bg);color:var(--accent);border-radius:9px;padding:0 6px;min-width:16px;text-align:center}
+  .nfx-vals{padding:1px 0 4px 8px}
+  .nfx-val{display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;font-family:inherit;font-size:11.5px;color:var(--ink-2);padding:3px 9px 3px 14px;cursor:pointer;border-radius:6px;text-align:left}
+  .nfx-val:hover{background:var(--surface-2)} .nfx-val.on{color:var(--ink);font-weight:500}
+  .nfx-ck{width:12px;display:inline-flex;justify-content:center;color:var(--accent);font-size:10px}
+  .nfx-vn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nfx-vc{font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .nfx-res{display:flex;align-items:center;justify-content:space-between;padding:7px 9px 5px;font-size:11px}
+  .nfx-cnt{font-weight:600;color:var(--ink-2)} .nfx-of{font-weight:400;color:var(--faint)}
+  .nfx-scopeset{border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);font-family:inherit;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:5px;cursor:pointer}
+  .nfx-ent{gap:6px} .nfx-ec{font-size:9.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .nfx-sd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .nfx-sd.d-rd{background:var(--pos)} .nfx-sd.d-ip{background:var(--accent)} .nfx-sd.d-ne{background:var(--warn)} .nfx-sd.d-ns{background:var(--faint)} .nfx-sd.d-bl{background:var(--neg)}
+  body.chrome-nav .nav .nfx-gh,body.chrome-nav .nav .nfx-val{color:var(--chrome-ink-2)}
+  body.chrome-nav .nav .nfx-gh:hover,body.chrome-nav .nav .nfx-val:hover{background:var(--chrome-lift);color:var(--chrome-ink)}
+  body.chrome-nav .nav .nfx-val.on{color:var(--chrome-ink)}
+  body.chrome-nav .nav .nfx-tw,body.chrome-nav .nav .nfx-vc,body.chrome-nav .nav .nfx-ec,body.chrome-nav .nav .nfx-of{color:var(--chrome-ink-2)}
+  body.chrome-nav .nav .nfx-cnt{color:var(--chrome-ink)} body.chrome-nav .nav .nfx-ck{color:var(--chrome-ink)}
+  body.chrome-nav .nav .nfx-badge{background:var(--chrome-badge);color:var(--chrome-ink-2)}
+  body.chrome-nav .nav .nfx-clr{color:var(--chrome-ink)}
+  body.chrome-nav .nav .nfx-scopeset{background:var(--chrome-lift-on);border-color:var(--chrome-line);color:var(--chrome-ink)}
   .nitem{display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:var(--radius-sm);color:var(--ink-2);font-size:13px;
     font-weight:400;cursor:pointer;border-left:2px solid transparent;position:relative}
   .nitem:hover{background:var(--surface-2)}
@@ -2003,37 +2030,63 @@
   }
   /* Reviews-area left nav: the collapsible collections navigator (Favorites · Recent ·
      Workspace · Collections), reusing the workspace explorer's tree + favorites/recent. */
+  /* ===== Phase D: faceted entity navigator — search + attribute facets over ENT_MASTER (66
+     entities standing in for ~600), so you filter/scope by region, BU, currency, status, country
+     instead of scrolling a tree. Selecting an entity or a filtered set scopes the flux (POV). ===== */
+  var NAV_FACET_DEFS=[{k:'rgn',label:'Region'},{k:'bu',label:'Business unit'},{k:'ccy',label:'Currency'},{k:'status',label:'Close status'},{k:'country',label:'Country'}];
+  var NAV_FACETS={rgn:[],bu:[],ccy:[],status:[],country:[]};
+  var NAV_FACET_OPEN={rgn:true};
+  function navFacetActive(){return NAV_FACET_DEFS.some(function(f){return NAV_FACETS[f.k].length;});}
+  function navEntPass(e,exclude){return NAV_FACET_DEFS.every(function(f){if(f.k===exclude)return true;var sel=NAV_FACETS[f.k];return !sel.length||sel.indexOf(e[f.k])>=0;});}
+  function navFilteredEnts(){var q=(RP_WS_FIND||'').toLowerCase();return ENT_MASTER.filter(function(e){if(q&&(e.name+' '+e.short+' '+e.id+' '+e.city+' '+e.country+' '+e.bu).toLowerCase().indexOf(q)<0)return false;return navEntPass(e,null);});}
+  function navFacetValues(dim){var base=ENT_MASTER.filter(function(e){return navEntPass(e,dim);});var m={};base.forEach(function(e){m[e[dim]]=(m[e[dim]]||0)+1;});return Object.keys(m).sort().map(function(v){return {v:v,n:m[v]};});}
+  function navToggleFacet(k,v){var a=NAV_FACETS[k],i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);renderReviewsNav();}
+  function navToggleFacetGrp(k){NAV_FACET_OPEN[k]=!NAV_FACET_OPEN[k];renderReviewsNav();}
+  function navClearFacets(){NAV_FACET_DEFS.forEach(function(f){NAV_FACETS[f.k]=[];});RP_WS_FIND='';renderReviewsNav();}
+  function navStatusDot(s){var m={'Ready':'rd','In review':'ip','Needs explanation':'ne','Not started':'ns','Blocked':'bl'};return '<span class="nfx-sd d-'+(m[s]||'ip')+'" title="'+esc(s)+'"></span>';}
+  function navScopeEnt(eid){fluxScope={type:'entity',value:eid};if(typeof fluxInspClose==='function')fluxInspClose();RP_OPEN_REVIEW=null;navTo('mtrend');}
+  function navScopeSet(){var fe=navFilteredEnts();if(!fe.length)return;var parts=[];NAV_FACET_DEFS.forEach(function(f){if(NAV_FACETS[f.k].length)parts.push(NAV_FACETS[f.k].join('/'));});
+    fluxScope={type:'set',value:fe.map(function(e){return e.id;}),label:(parts.join(' · ')||'Filtered')+' · '+fe.length+' entities'};if(typeof fluxInspClose==='function')fluxInspClose();RP_OPEN_REVIEW=null;navTo('mtrend');}
   function rpWsToggleNav(id){RP_WS_EXPAND[id]=!RP_WS_EXPAND[id];renderReviewsNav();}
   function rpNavOpenFolder(id){rpExpandTo(id);RP_WS_EXPAND[id]=true;renderReviewsNav();}
   function renderReviewsNav(){
     var h='<button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button>';
     h+='<div class="nrev-search"><input class="nrev-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></div>';
-    if(RP_WS_FIND){
-      var q=RP_WS_FIND.toLowerCase();
-      var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
-      var mcol=RP_WS_FOLDERS.filter(function(f){return !f.hidden&&f.name.toLowerCase().indexOf(q)>=0;});
-      h+='<div class="nh">'+(mrev.length+mcol.length)+' result'+((mrev.length+mcol.length)===1?'':'s')+'</div>';
-      mcol.forEach(function(f){h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+f.id+'"><span class="rp-ws-qic">'+rpIcon('folder')+'</span><span class="rp-ws-nm">'+esc(f.name)+'</span><span class="rp-ws-ct">'+f.count+'</span></button></div>';});
-      mrev.forEach(function(r){h+=rpPinReview(r);});
-      if(!mrev.length&&!mcol.length)h+='<div class="rp-ws-empty">No matches for &ldquo;'+esc(RP_WS_FIND)+'&rdquo;</div>';
-    } else {
+    var searching=!!RP_WS_FIND, facActive=navFacetActive();
+    if(searching){ var q=RP_WS_FIND.toLowerCase(); var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
+      if(mrev.length){h+='<div class="nh">Reviews</div>';mrev.slice(0,4).forEach(function(r){h+=rpPinReview(r);});} }
+    if(!searching){
       var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):rpReviewById(f.id);});
       if(favItems.length){ h+='<div class="nh">Favorites</div>';
         favItems.forEach(function(f){ if(f.kind==='folder'){var fo=rpFolder(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span><span class="rp-ws-ct">'+fo.count+'</span></button></div>';}
           else{var r=rpReviewById(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';} }); }
       var recent=RP_RECENT.map(rpReviewById).filter(Boolean).slice(0,5);
       if(recent.length){ h+='<div class="nh">Recent</div>'; recent.forEach(function(r){h+=rpPinReview(r);}); }
-      h+='<div class="nh">Workspace</div>';
-      h+='<div class="nitem'+(activeNav==='frov'?' on':'')+'" data-nav="frov">'+navIcon('grid')+'<span>Overview</span></div>';
-      h+='<div class="nitem'+(activeNav==='my'?' on':'')+'" data-nav="my">'+navIcon('doc')+'<span>My reviews</span></div>';
-      h+='<div class="nitem'+(activeNav==='all'?' on':'')+'" data-nav="all">'+navIcon('stack')+'<span>All reviews</span></div>';
-      h+='<div class="nh">Collections</div>';
-      RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);});
     }
+    h+='<div class="nh">Workspace</div>';
+    h+='<div class="nitem'+(activeNav==='frov'?' on':'')+'" data-nav="frov">'+navIcon('grid')+'<span>Overview</span></div>';
+    h+='<div class="nitem'+(activeNav==='my'?' on':'')+'" data-nav="my">'+navIcon('doc')+'<span>My reviews</span></div>';
+    h+='<div class="nitem'+(activeNav==='all'?' on':'')+'" data-nav="all">'+navIcon('stack')+'<span>All reviews</span></div>';
+    // ---- Entities: faceted navigator over the 66-entity master ----
+    h+='<div class="nh nh-fx">Entities'+((facActive||searching)?'<button class="nfx-clr" title="Clear filters &amp; search">clear</button>':'')+'</div>';
+    NAV_FACET_DEFS.forEach(function(f){ var open=!!NAV_FACET_OPEN[f.k], selN=NAV_FACETS[f.k].length;
+      h+='<div class="nfx-grp"><button class="nfx-gh" data-fgrp="'+f.k+'"><span class="nfx-tw'+(open?' open':'')+'">'+rpIcon('chev')+'</span><span class="nfx-gl">'+f.label+'</span>'+(selN?'<span class="nfx-badge">'+selN+'</span>':'')+'</button>';
+      if(open){var vals=navFacetValues(f.k);h+='<div class="nfx-vals">'+vals.map(function(o){var on=NAV_FACETS[f.k].indexOf(o.v)>=0;return '<button class="nfx-val'+(on?' on':'')+'" data-fk="'+f.k+'" data-fv="'+esc(o.v)+'"><span class="nfx-ck">'+(on?'&#10003;':'')+'</span><span class="nfx-vn">'+esc(o.v)+'</span><span class="nfx-vc">'+o.n+'</span></button>';}).join('')+'</div>';}
+      h+='</div>'; });
+    var fe=navFilteredEnts(), filtered=(facActive||searching);
+    h+='<div class="nfx-res"><span class="nfx-cnt">'+fe.length+' <span class="nfx-of">of '+ENT_MASTER.length+'</span></span>'+(filtered&&fe.length?'<button class="nfx-scopeset">Scope these &rarr;</button>':'')+'</div>';
+    if(filtered){ fe.slice(0,40).forEach(function(e){h+='<button class="rp-ws-item nfx-ent" data-ent="'+e.id+'" title="'+esc(e.name)+' &middot; '+esc(e.country)+' &middot; '+esc(e.bu)+'"><span class="rp-ws-nm">'+esc(e.short)+'</span><span class="nfx-ec">'+esc(e.ccy)+'</span>'+navStatusDot(e.status)+'</button>';});
+      if(fe.length>40)h+='<div class="rp-ws-empty">+ '+(fe.length-40)+' more &mdash; refine to narrow</div>'; }
+    if(!searching){ h+='<div class="nh">Review collections</div>'; RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);}); }
     h+='<button class="navcollapse" id="navToggle"><span class="nav-cicon">'+navChevron()+'</span><span class="nctxt">Collapse</span></button>';
     $('#nav').innerHTML=h;
     var bk=document.getElementById('navRevBack');if(bk)bk.onclick=navReviewBack;
     var fi=$('#nav').querySelector('.nrev-find');if(fi)fi.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderReviewsNav();var n=$('#nav').querySelector('.nrev-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nfx-gh'),function(el){el.onclick=function(){navToggleFacetGrp(this.getAttribute('data-fgrp'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nfx-val'),function(el){el.onclick=function(){navToggleFacet(this.getAttribute('data-fk'),this.getAttribute('data-fv'));};});
+    var _clr=$('#nav').querySelector('.nfx-clr');if(_clr)_clr.onclick=navClearFacets;
+    var _ss=$('#nav').querySelector('.nfx-scopeset');if(_ss)_ss.onclick=navScopeSet;
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nfx-ent'),function(el){el.onclick=function(){navScopeEnt(this.getAttribute('data-ent'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-tw'),function(el){el.onclick=function(e){e.stopPropagation();rpWsToggleNav(this.getAttribute('data-tw'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item.folder'),function(el){el.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;rpWsToggleNav(this.getAttribute('data-ws'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item.pin[data-ws]'),function(el){el.onclick=function(){rpNavOpenFolder(this.getAttribute('data-ws'));};});
@@ -3705,6 +3758,7 @@
   function consPath(node){var p=[],n=node;while(n){p.unshift(n);n=n.parent?CONS_BY_ID[n.parent]:null;}return p;}
   function nodeFromKey(k){return k&&k.indexOf('ent:')===0?consEntNode(k.slice(4)):CONS_BY_ID[k];}
   function fluxCurNode(){ if(fluxScope.type==='entity')return consEntNode(fluxScope.value);
+    if(fluxScope.type==='set')return {id:'set',name:fluxScope.label||'Custom selection',kind:'Selection',isEnt:false,ents:(fluxScope.value||[]),subs:(fluxScope.value||[]).length};
     if(fluxScope.type==='cons')return CONS_BY_ID[fluxScope.value]||CONS_BY_ID.MGP;
     if(fluxScope.type==='region'){var m=CONS_GROUPS.filter(function(g){return g.region===fluxScope.value;})[0];return m||CONS_BY_ID.MGP;}
     return CONS_BY_ID.MGP; }
@@ -4186,6 +4240,7 @@
   /* ---- scope: re-aggregate the statement to a region or a single legal entity ---- */
   function fluxScopeEnts(){ // entity-id list in scope, or null for consolidated (all)
     if(!fluxScope||fluxScope.type==='all')return null;
+    if(fluxScope.type==='set')return (fluxScope.value||[]).slice();   // a faceted / custom entity selection
     if(fluxScope.type==='entity')return [fluxScope.value];
     if(fluxScope.type==='cons'){var g=CONS_BY_ID[fluxScope.value];return g?g.ents.slice():null;}
     if(fluxScope.type==='region')return E_ENT.filter(function(e){return (FX_ENT_META[e.id]||{}).region===fluxScope.value;}).map(function(e){return e.id;});
@@ -4194,6 +4249,7 @@
   function fxScopedVal(a,i){ var ents=fluxScopeEnts(); if(!ents)return fluxVal(a,i);   // fast path: all → exact consolidated group
     var led=consolSet(ents), ea=led.byAcct[a.acct]; return ea?fluxVal(ea,i):0; }   // real consolidation of the scoped set, IC eliminated within scope
   function fluxScopeLabel(){ if(!fluxScope||fluxScope.type==='all')return 'Consolidated';
+    if(fluxScope.type==='set')return fluxScope.label||('Custom selection ('+(fluxScope.value||[]).length+')');
     if(fluxScope.type==='cons'){var g=CONS_BY_ID[fluxScope.value];return g?g.name:fluxScope.value;}
     if(fluxScope.type==='region')return fluxScope.value; var m=FX_ENT_META[fluxScope.value]; return m?m.name:fluxScope.value; }
   function fluxScopeOptions(sc){
