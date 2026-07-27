@@ -2,6 +2,58 @@
 
 Guidance for Claude Code working in this repo. Read this fully before editing.
 
+## UI / Design System — read before any UI work
+
+**Canonical, go-forward design system for Korvyn UI.** Full rules:
+[`docs/design-system.md`](docs/design-system.md). Tokens (the ONLY colors, fonts,
+spacing values allowed): [`src/styles/design-tokens.css`](src/styles/design-tokens.css).
+Read both before building or editing any screen. If a request conflicts with these
+rules, follow the rules and say so.
+
+**Scope note.** This system is applied in **`korvyn-review/`** and governs all *new
+or edited* UI. It is a **gold/teal/navy** system and **directly contradicts** the
+older **cobalt/graphite** design system documented further down this file — that
+older section describes `korvyn_dashboard.html` *as already shipped* and is kept as
+the record of that app, **not** as a mandate for new work. When the two disagree on
+new/edited UI, this block wins. `korvyn-review/index.html` is currently built on the
+old cobalt accent and is therefore **in violation** until reskinned.
+
+**Non-negotiable rules**
+1. THREE accent colors only: gold (needs attention/pending), teal
+   (approved/matched/tied out), red (exception/overdue/unfavorable). Everything else
+   is neutral gray or navy chrome. **No blue accents.**
+2. On any data table, color AT MOST two columns — the primary variance and its
+   direction. Gray all supporting columns (Organic, FX, CTA, NCI).
+3. Subtotal rows outrank detail rows: bold + a 2px heavy bottom border vs. 1px on
+   detail rows. Never equal weight.
+4. One card per screen REGION, not per table or row. Tables use row hairlines, never
+   card borders or per-cell borders. No box-in-box.
+5. Badges mean "action required from the user," not "count of items." Inventory
+   counts render as quiet gray text.
+6. One primary (filled **navy** `--k-ink-900`) button per screen. All others outline.
+7. All money, dates, IDs, deltas: monospace (`--k-font-data`), tabular-nums,
+   right-aligned. Chrome uses `--k-font-ui` (Inter). Never blend them.
+8. Every table and form ships with empty, loading, error, hover, and visible
+   keyboard-focus states — not just the happy path.
+
+**Consolidation-scale screens (600+ entities)**
+9. The roll-up tree is a status instrument: every node shows its own completion
+   (mini-bar + fraction) AND an exception count rolled up from everything beneath it.
+10. Tables default to exceptions + material movements only ("5 of 214 lines"); full
+    detail sits behind a filter chip.
+11. Multi-currency/elim/NCI data lives behind column-set toggles
+    (Local / Reporting / FX-CTA / Eliminations / NCI split), never one wide table.
+
+**Two rulings on ambiguities in the source files:**
+- The token file defines gold/teal **and** a separate `--k-success-600` green +
+  `--k-warning-600` orange. Rule 1 is authoritative: use **teal** for approved/matched
+  and **gold** for pending; do **not** use the green/orange tokens as accents.
+- The primary button is **navy** (`--k-ink-900`), not teal.
+
+**Before calling any screen done:** run the checklist at the bottom of
+`docs/design-system.md` and report which items pass. Never introduce a color, font,
+or spacing value not in the token file.
+
 ## What this is
 
 The repo holds **two independent things**. Almost all of this document is about the first.
