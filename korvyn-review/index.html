@@ -1410,6 +1410,12 @@
   .rp-tag.t-certified{background:var(--pos-bg);color:var(--pos)}
   .rp-tag.t-enterprise{background:var(--accent-bg);color:var(--accent)}
   .rp-tag.t-team{background:#EDE9FE;color:#6D4BC7}
+  .rp-tag.t-representative{background:var(--warn-bg);color:var(--warn)}
+  .rp-tag.t-blank{background:var(--raise);color:var(--muted)}
+  .rc-banner{background:var(--warn-bg);border:1px solid rgba(154,103,18,.25);color:var(--warn);font-size:12px;padding:8px 13px;border-radius:8px;margin:0 0 12px;line-height:1.5}
+  .rc-banner b{font-weight:600}
+  .rc-tpl-cfg{margin:9px 0 3px;font-size:11px;color:var(--ink-2);line-height:1.7}
+  .rc-tpl-cfg .rc-tpl-k{display:inline-block;min-width:54px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-right:6px}
   .rp-tpl-n{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:3px}
   .rp-tpl-ty{font-size:11px;color:var(--muted);margin-bottom:11px}
   .rp-tpl-act{display:flex;gap:14px;border-top:1px solid var(--line);padding-top:10px}
@@ -1880,7 +1886,7 @@
     else if(k==='repo-history'){renderRepoHistory();window.scrollTo(0,0);}
     else if(k==='mfs'){renderMonthlyFS();window.scrollTo(0,0);}
     else if(k==='filing'){renderFiling();window.scrollTo(0,0);}
-    else if(k==='mtrend'){renderMonthlyTrend();window.scrollTo(0,0);}
+    else if(k==='mtrend'){renderReviewCanvas();window.scrollTo(0,0);}
     else if(k==='frov'){renderFRHub();window.scrollTo(0,0);}
     else if(k==='frperiods'){renderClosePeriods();window.scrollTo(0,0);}
     else if(k==='frtpl'){renderTemplates();window.scrollTo(0,0);}
@@ -3402,9 +3408,10 @@
     {id:'euk',folder:'entities',name:'UK HoldCo',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:0,upd:'5h ago'},
     {id:'efr',folder:'entities',name:'France Operations',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'7h ago'},
     {id:'e1042',folder:'entities',name:'Entity 1042',type:'Entity Review',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'notstarted',need:0,upd:'2d ago'},
-    {id:'ffa',folder:'functions',name:'Fixed Assets',type:'Functional',cons:'MGP',owner:'Priya Nair',rev:'DO',status:'inprog',need:1,upd:'3h ago'},
-    {id:'frev',folder:'functions',name:'Revenue',type:'Functional',cons:'MGP',owner:'Sofia Chen',rev:'DO',status:'ready',need:0,upd:'6h ago'},
-    {id:'fdebt',folder:'functions',name:'Debt',type:'Functional',cons:'MGP',owner:'Maya Grant',rev:'DO',status:'inprog',need:0,upd:'1d ago'},
+    {id:'ffa',folder:'functions',name:'Fixed Assets Movement',type:'Fixed Assets',engine:'fixed-assets',cons:'MGP',owner:'Priya Nair',rev:'DO',status:'inprog',need:1,upd:'3h ago'},
+    {id:'fprop',folder:'functions',name:'Property Portfolio Review',type:'Property',engine:'property',cons:'MGP',owner:'Priya Nair',rev:'MG',status:'needexpl',need:2,upd:'2h ago'},
+    {id:'frev',folder:'functions',name:'Revenue',type:'Revenue',engine:'revenue',cons:'MGP',owner:'Sofia Chen',rev:'DO',status:'ready',need:0,upd:'6h ago'},
+    {id:'fdebt',folder:'functions',name:'Treasury & Debt Review',type:'Treasury',engine:'treasury',cons:'MGP',owner:'Maya Grant',rev:'DO',status:'inprog',need:1,upd:'1d ago'},
     {id:'fic',folder:'functions',name:'Intercompany',type:'Functional',cons:'MGP',owner:'Julia Alvarez',rev:'DO',status:'needexpl',need:2,upd:'2h ago'},
     {id:'crc',folder:'ccy',name:'Reporting Currency',type:'Currency View',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'inprog',need:0,upd:'4h ago'},
     {id:'clc',folder:'ccy',name:'Local Currency',type:'Currency View',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'5h ago'},
@@ -3643,17 +3650,45 @@
   }
   function rpField(l,ctrl){return '<div class="rp-dr-f"><label class="rp-dr-l">'+l+'</label>'+ctrl+'</div>';}
   /* ---------- Templates ---------- */
+  var RC_TEMPLATES=[
+    {id:'t-cbs',name:'Corporate BS Review',cat:'Enterprise',engine:'corporate-flux',stmt:'bs',badge:'Certified',built:true},
+    {id:'t-cis',name:'Corporate IS Review',cat:'Enterprise',engine:'corporate-flux',stmt:'is',badge:'Certified',built:true},
+    {id:'t-prop',name:'Property Review',cat:'Enterprise',engine:'property',badge:'Certified',built:true},
+    {id:'t-fa',name:'Fixed Assets Review',cat:'Enterprise',engine:'fixed-assets',badge:'Enterprise',built:true},
+    {id:'t-tr',name:'Treasury Review',cat:'Enterprise',engine:'treasury',badge:'Enterprise',built:true},
+    {id:'t-rev',name:'Revenue Review',cat:'Enterprise',engine:'revenue',badge:'Representative',built:false},
+    {id:'t-tax',name:'Tax Review',cat:'Enterprise',engine:'tax',badge:'Representative',built:false},
+    {id:'t-var',name:'Variance Review',cat:'Team',engine:'variance',badge:'Representative',built:false},
+    {id:'t-board',name:'Board Review',cat:'Team',engine:'board',badge:'Representative',built:false},
+    {id:'t-custom',name:'Custom Review',cat:'Custom',engine:'custom',badge:'Blank',built:false}
+  ];
+  function rcEngineFromType(t){ t=(t||'').toLowerCase(); if(t.indexOf('property')>=0)return 'property'; if(t.indexOf('fixed asset')>=0)return 'fixed-assets'; if(t.indexOf('treasury')>=0||t.indexOf('debt')>=0)return 'treasury'; if(t.indexOf('revenue')>=0)return 'revenue'; if(t.indexOf('tax')>=0)return 'tax'; if(t.indexOf('variance')>=0)return 'variance'; if(t.indexOf('board')>=0)return 'board'; if(t.indexOf('custom')>=0)return 'custom'; return 'corporate-flux'; }
+  function rcUseTemplate(id){
+    var t=null;RC_TEMPLATES.forEach(function(x){if(x.id===id)t=x;});if(!t)return;
+    var eng=RC_ENGINES[t.engine]||RC_ENGINES['corporate-flux'];
+    var rev={id:'rc'+(++RP_REVIEW_SEQ),folder:'functions',name:t.name,type:eng.name,engine:t.engine,cons:'MGP',owner:CUR_USER.name,rev:'DO',status:'inprog',need:0,upd:'Just now'};
+    RP_REVIEWS.push(rev); RP_OPEN_REVIEW=rev;
+    if(eng.id==='corporate-flux'){fluxStmt=t.stmt||'bs';var node=CONS_BY_ID.MGP;if(node)fluxScope=nodeToScope(node);}
+    rpToast('Created &ldquo;'+t.name+'&rdquo; from template &mdash; opening the Review Canvas.');
+    navTo('mtrend');
+  }
   function renderTemplates(){
     var h=rpCrumb([{label:'Financial Reporting',go:'frov'},{label:'Templates'}]);
-    h+='<div class="kv-hd rp-hd"><div><div class="k">Financial Reporting</div><h1>Templates</h1><div class="kv-sub">Reusable review structures &mdash; rows, columns, calculations, materiality, ownership and approval defaults. Create a review from any template.</div></div><button class="btn primary rp-tpl-new">+ New Template</button></div>';
-    RP_TEMPLATES.forEach(function(g){
-      h+='<div class="rp-ov-sec"><div class="rp-ov-h">'+g.t+' templates</div><div class="rp-tpl-grid">';
-      g.items.forEach(function(it){h+='<div class="rp-tpl-c"><div class="rp-tpl-top"><span class="rp-tpl-ic">'+rpIcon('tpl')+'</span><span class="rp-tag t-'+it[2].toLowerCase()+'">'+esc(it[2])+'</span></div><div class="rp-tpl-n">'+esc(it[0])+'</div><div class="rp-tpl-ty">'+esc(it[1])+' review</div><div class="rp-tpl-act"><button class="rp-link rp-tpl-use">Use template</button><button class="rp-link rp-tpl-prev">Preview</button></div></div>';});
+    h+='<div class="kv-hd rp-hd"><div><div class="k">Financial Reporting</div><h1>Template Gallery</h1><div class="kv-sub">Every review is built from a template. A template binds a business engine to a row/column layout, calculations, review fields, materiality and workflow &mdash; the Review Canvas, Review Panel and workflow are the <b>same across all of them</b>.</div></div><button class="btn primary rp-tpl-new">+ New Template</button></div>';
+    ['Enterprise','Team','Custom'].forEach(function(cat){ var items=RC_TEMPLATES.filter(function(t){return t.cat===cat;}); if(!items.length)return;
+      h+='<div class="rp-ov-sec"><div class="rp-ov-h">'+cat+' templates</div><div class="rp-tpl-grid">';
+      items.forEach(function(t){ var eng=RC_ENGINES[t.engine]||{name:t.name,rows:[],cols:[]};
+        h+='<div class="rp-tpl-c"><div class="rp-tpl-top"><span class="rp-tpl-ic">'+rpIcon(eng.icon||'tpl')+'</span><span class="rp-tag t-'+t.badge.toLowerCase()+'">'+esc(t.badge)+'</span></div>';
+        h+='<div class="rp-tpl-n">'+esc(t.name)+'</div><div class="rp-tpl-ty">'+esc(eng.name)+' engine'+(t.built?'':' &middot; representative')+'</div>';
+        h+='<div class="rc-tpl-cfg"><div><span class="rc-tpl-k">Rows</span>'+esc((eng.rows||[]).join(' › '))+'</div><div><span class="rc-tpl-k">Columns</span>'+esc((eng.cols||[]).map(function(c){return c.label;}).join(', ')||'Current, Prior, Change, Explanation')+'</div></div>';
+        h+='<div class="rp-tpl-act"><button class="rp-link rc-tpl-use" data-tpl="'+t.id+'">Use template</button><button class="rp-link rc-tpl-use" data-tpl="'+t.id+'">Open</button></div></div>';
+      });
       h+='</div></div>';
     });
-    h+='<div class="ldg-note">A template defines folder placement, review type, row &amp; column structure, calculations, materiality, review fields, ownership defaults, approval flow, formatting and currency basis. Certified templates lock structural elements. Create-from-review and publish-as-team-template arrive with the Review Designer (Phase 2).</div>';
+    h+='<div class="ldg-note">Corporate Flux is the reference engine; Property, Fixed Assets and Treasury are fully built. Revenue, Tax, Board, Variance and Custom carry representative layouts on the same canvas &mdash; ready to bind to source data in a later increment. &ldquo;+ New Template&rdquo; opens the Review Designer.</div>';
     $('#view').innerHTML=h;
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tpl-use, #view .rp-tpl-new, #view .rp-tpl-prev'),function(b){b.onclick=function(){rpToast('Templates connect to the Review Designer in Phase 2.');};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rc-tpl-use'),function(b){b.onclick=function(){rcUseTemplate(this.getAttribute('data-tpl'));};});
+    var nw=document.querySelector('#view .rp-tpl-new');if(nw)nw.onclick=function(){if(typeof rpNewReviewOpen==='function')rpNewReviewOpen();else rpToast('Review Designer.');};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr'),function(b){b.onclick=function(){var g=this.getAttribute('data-go');if(g)navTo(g);};});
   }
   /* ---------- Financial Reporting hub (Overview) + scope pages ---------- */
@@ -3750,7 +3785,7 @@
   function fluxInspOpen(kind,keyName){
     fluxSel={kind:kind,keyName:keyName,stmt:fluxStmt}; fluxInspEdit=false; fxInspTab='summary'; fxStackAdd=false;
     if(typeof aiClose==='function')aiClose(); if(typeof notifClose==='function')notifClose();
-    document.body.classList.add('fx-insp-open'); renderMonthlyTrend();
+    document.body.classList.add('fx-insp-open'); rcRerender();
   }
   function fluxInspClose(){ fluxSel=null; fluxInspEdit=false; document.body.classList.remove('fx-insp-open'); var el=document.getElementById('fxInsp'); if(el)el.innerHTML=''; }
   /* ===== Phase 2a: line-item detail panel (tabs + review stack + lineage) + review canvas header ===== */
@@ -3826,23 +3861,28 @@
   function fxAvatarOf(name){return name.split(' ').map(function(w){return w[0];}).join('').slice(0,2);}
   function renderFluxInsp(){
     var el=document.getElementById('fxInsp'); if(!el)return;
-    var info=fxSelResolve();
+    var isGen=!!(fluxSel&&fluxSel.kind==='gen');
+    var info=isGen?rcSelResolve():fxSelResolve();
     if(!info){ document.body.classList.remove('fx-insp-open'); el.innerHTML=''; fluxSel=null; return; }
     document.body.classList.add('fx-insp-open');
-    var led=glLedger(), P=fluxPeriods(led), ti=P.ti, priIdx=ti>0?ti-1:ti, mTo=led.months[ti];
-    var cur,prev;
-    if(info.netpos){ cur=info.assetA.reduce(function(s,a){return s+fxScopedVal(a,ti);},0)-info.liabA.reduce(function(s,a){return s+fxScopedVal(a,ti);},0); prev=info.assetA.reduce(function(s,a){return s+fxScopedVal(a,priIdx);},0)-info.liabA.reduce(function(s,a){return s+fxScopedVal(a,priIdx);},0); }
-    else { cur=info.accts.reduce(function(s,a){return s+fxScopedVal(a,ti);},0); prev=info.accts.reduce(function(s,a){return s+fxScopedVal(a,priIdx);},0); }
+    var led,P,ti,priIdx,mTo='',cur,prev,drv=[],totd=1,fxp=0,orgp=0,mat,scopeLbl,hasPrev=true;
+    if(isGen){ cur=info.cur; prev=info.prev; mat=info.mat; scopeLbl=info.sub; hasPrev=info.hasPrev!==false; }
+    else {
+      led=glLedger(); P=fluxPeriods(led); ti=P.ti; priIdx=ti>0?ti-1:ti; mTo=led.months[ti];
+      if(info.netpos){ cur=info.assetA.reduce(function(s,a){return s+fxScopedVal(a,ti);},0)-info.liabA.reduce(function(s,a){return s+fxScopedVal(a,ti);},0); prev=info.assetA.reduce(function(s,a){return s+fxScopedVal(a,priIdx);},0)-info.liabA.reduce(function(s,a){return s+fxScopedVal(a,priIdx);},0); }
+      else { cur=info.accts.reduce(function(s,a){return s+fxScopedVal(a,ti);},0); prev=info.accts.reduce(function(s,a){return s+fxScopedVal(a,priIdx);},0); }
+      drv=fxDrivers(info,ti,priIdx); totd=drv.reduce(function(a,x){return a+Math.abs(x.d);},0)||1;
+      fxp=info.netpos?(fxFxPart(info.assetA,ti,priIdx)-fxFxPart(info.liabA,ti,priIdx)):fxFxPart(info.accts,ti,priIdx); orgp=(cur-prev)-fxp;
+      mat=fxMatFlag(prev,cur); scopeLbl=(fluxScope.type==='all'?'Consolidated':fluxScopeLabel());
+    }
     var d=cur-prev, pct=prev?d/Math.abs(prev)*100:0;
-    var drv=fxDrivers(info,ti,priIdx), totd=drv.reduce(function(a,x){return a+Math.abs(x.d);},0)||1;
-    var cm=FLUX_COMMENTS[info.cmtId], accepted=!!(cm&&cm.by), draft=cm?cm.text:fxAiDraft(info,drv,d,mTo);
+    var cm=FLUX_COMMENTS[info.cmtId], accepted=!!(cm&&cm.by), draft=cm?cm.text:(isGen?rcAiDraft(info,d):fxAiDraft(info,drv,d,mTo));
     var plain=draft.replace(/<[^>]+>/g,'').replace(/&mdash;/g,'—').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
     var key=fluxSel.keyName, lin=FX_LINE_LINEAGE[key];
-    var fxp=info.netpos?(fxFxPart(info.assetA,ti,priIdx)-fxFxPart(info.liabA,ti,priIdx)):fxFxPart(info.accts,ti,priIdx), orgp=d-fxp;
-    var mat=fxMatFlag(prev,cur), scopeLbl=(fluxScope.type==='all'?'Consolidated':fluxScopeLabel());
+    var money=isGen?rcFmtMoney:fxAbbr;
     var h='';
-    h+='<div class="fxi-hd"><div class="t">'+esc(info.label)+'</div><div class="s">'+flxLbl(mTo)+' &middot; '+esc(scopeLbl)+'</div><button class="fxi-x" id="fxiX" title="Close">&times;</button></div>';
-    h+='<div class="fxi-move"><span class="big">'+fxAbbr(cur)+'</span><span class="d '+(d>=0?'up':'dn')+'">'+(d>=0?'&#9650;':'&#9660;')+' '+fxAbbr(Math.abs(d))+' ('+(d>=0?'+':'&minus;')+Math.abs(pct).toFixed(1)+'%)</span></div>';
+    h+='<div class="fxi-hd"><div class="t">'+esc(info.label)+'</div><div class="s">'+(isGen?esc(info.sub):flxLbl(mTo)+' &middot; '+esc(scopeLbl))+'</div><button class="fxi-x" id="fxiX" title="Close">&times;</button></div>';
+    h+='<div class="fxi-move"><span class="big">'+money(cur)+'</span>'+(hasPrev?'<span class="d '+(d>=0?'up':'dn')+'">'+(d>=0?'&#9650;':'&#9660;')+' '+money(Math.abs(d))+' ('+(d>=0?'+':'&minus;')+Math.abs(pct).toFixed(1)+'%)</span>':'')+'</div>';
     var tabs=[['summary','Summary'],['drivers','Drivers'],['stack','Review Stack'],['timeline','Timeline'],['evidence','Evidence'],['activity','Activity'],['history','History']];
     h+='<div class="fxi-tabs">'+tabs.map(function(t){return '<button class="fxi-tab'+(fxInspTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</div>';
     h+='<div class="fxi-b">';
@@ -3850,24 +3890,41 @@
       var sowner=(RP_OPEN_REVIEW&&RP_OPEN_REVIEW.owner)||'Julia Alvarez';
       var sreviewer=(RP_OPEN_REVIEW&&pkgRevName(RP_OPEN_REVIEW.rev))||'Maya Grant';
       var sst=fxReviewStatus(key,info.cmtId,mat);
-      var sumRows=[
-        ['Current balance',fxAbbr(cur),''],
-        ['Prior balance',fxAbbr(prev),''],
-        ['Movement',(d<0?'&minus;':'+')+fxAbbr(Math.abs(d))+' &middot; '+(d>=0?'+':'&minus;')+Math.abs(pct).toFixed(1)+'%',d>=0?'up':'dn'],
-        ['Organic &middot; const. ccy',(orgp<0?'&minus;':'+')+fxAbbr(Math.abs(orgp)),''],
-        ['FX translation',Math.abs(fxp)<500?'&mdash;':(fxp<0?'&minus;':'+')+fxAbbr(Math.abs(fxp)),'acc'],
-        ['Materiality',mat?'Material — flagged':'Below threshold',mat?'warn':''],
-        ['Owner',esc(sowner),'ppl'],
-        ['Reviewer',esc(sreviewer),'ppl'],
-        ['Status',sst?sst.label:'No review yet',sst?sst.cls:'']
-      ];
+      var sumRows;
+      if(isGen){
+        sumRows=info.cols.map(function(c){return [c.label,c.val,c.cls||''];});
+        sumRows.push(['Materiality',mat?'Material — flagged':'Below threshold',mat?'warn':'']);
+        sumRows.push(['Owner',esc(sowner),'ppl']);
+        sumRows.push(['Reviewer',esc(sreviewer),'ppl']);
+        sumRows.push(['Status',sst?sst.label:'No review yet',sst?sst.cls:'']);
+      } else {
+        sumRows=[
+          ['Current balance',fxAbbr(cur),''],
+          ['Prior balance',fxAbbr(prev),''],
+          ['Movement',(d<0?'&minus;':'+')+fxAbbr(Math.abs(d))+' &middot; '+(d>=0?'+':'&minus;')+Math.abs(pct).toFixed(1)+'%',d>=0?'up':'dn'],
+          ['Organic &middot; const. ccy',(orgp<0?'&minus;':'+')+fxAbbr(Math.abs(orgp)),''],
+          ['FX translation',Math.abs(fxp)<500?'&mdash;':(fxp<0?'&minus;':'+')+fxAbbr(Math.abs(fxp)),'acc'],
+          ['Materiality',mat?'Material — flagged':'Below threshold',mat?'warn':''],
+          ['Owner',esc(sowner),'ppl'],
+          ['Reviewer',esc(sreviewer),'ppl'],
+          ['Status',sst?sst.label:'No review yet',sst?sst.cls:'']
+        ];
+      }
       h+='<div class="fxi-sum">'+sumRows.map(function(r){return '<div class="fxi-srow"><span class="fxi-sk">'+r[0]+'</span><span class="fxi-sv '+r[2]+'">'+r[1]+'</span></div>';}).join('')+'</div>';
     } else if(fxInspTab==='drivers'){
-      h+='<div class="fxi-h">Where the movement sits &mdash; by contributing scope</div>';
-      drv.forEach(function(x){ h+='<div class="fxi-drv"><span class="sw" style="background:'+x.color+'"></span><span class="nm">'+esc(x.name)+'</span><span class="rg">'+x.region+'</span><span class="vl">'+(x.d>=0?'+':'&minus;')+fxAbbr(Math.abs(x.d))+'</span><span class="pc">'+Math.round(Math.abs(x.d)/totd*100)+'%</span></div>'; });
-      var txns=fxInspTxns(info,mTo);
-      if(txns.length){ h+='<div class="fxi-h" style="margin-top:16px">Transactions driving it</div>';
-        txns.forEach(function(t){ h+='<div class="fxi-txn"><span class="dt">'+t.date.slice(5)+'</span><span class="ds">'+t.entityId+' &middot; '+esc(t.vendor||t.memo||'')+'</span><span class="am">'+fxAbbr(Math.abs(t.amount))+'</span><span class="fxi-erp" title="Opens the source journal entry in the ERP (prototype)">ERP &rarr;</span></div>'; }); }
+      if(isGen){
+        var kids=rcChildren(key), ci=rcModel.eng.curIdx||0;
+        if(kids&&kids.length){ h+='<div class="fxi-h">Components of this line</div>';
+          var kt=kids.reduce(function(a,r){return a+Math.abs(+r.v[ci]||0);},0)||1;
+          kids.forEach(function(r){var v=+r.v[ci]||0; h+='<div class="fxi-drv"><span class="sw" style="background:var(--accent)"></span><span class="nm">'+esc(r.label)+'</span><span class="vl">'+rcFmtMoney(v)+'</span><span class="pc">'+Math.round(Math.abs(v)/kt*100)+'%</span></div>'; });
+        } else { h+='<div class="fxi-empty2">A leaf line with no sub-components. Entity-level driver and transaction analysis is available on the Corporate Flux engine.</div>'; }
+      } else {
+        h+='<div class="fxi-h">Where the movement sits &mdash; by contributing scope</div>';
+        drv.forEach(function(x){ h+='<div class="fxi-drv"><span class="sw" style="background:'+x.color+'"></span><span class="nm">'+esc(x.name)+'</span><span class="rg">'+x.region+'</span><span class="vl">'+(x.d>=0?'+':'&minus;')+fxAbbr(Math.abs(x.d))+'</span><span class="pc">'+Math.round(Math.abs(x.d)/totd*100)+'%</span></div>'; });
+        var txns=fxInspTxns(info,mTo);
+        if(txns.length){ h+='<div class="fxi-h" style="margin-top:16px">Transactions driving it</div>';
+          txns.forEach(function(t){ h+='<div class="fxi-txn"><span class="dt">'+t.date.slice(5)+'</span><span class="ds">'+t.entityId+' &middot; '+esc(t.vendor||t.memo||'')+'</span><span class="am">'+fxAbbr(Math.abs(t.amount))+'</span><span class="fxi-erp" title="Opens the source journal entry in the ERP (prototype)">ERP &rarr;</span></div>'; }); }
+      }
     } else if(fxInspTab==='timeline'){
       var thist=FX_LINE_HISTORY[key];
       h+='<div class="fxi-h">Prior-period explanations</div>';
@@ -3910,24 +3967,33 @@
           h+='<div class="fxi-act"><span class="fxi-act-ic" style="background:'+t[0]+'">'+t[1]+'</span><div class="fxi-act-b"><div class="fxi-act-t">'+esc(a.act)+'<span class="fxi-act-when">'+esc(a.at)+'</span></div><div class="fxi-act-d">'+a.det+' &middot; '+esc(a.who==='AI'?'Korvyn':a.who)+'</div></div></div>'; });
       } else { h+='<div class="fxi-empty2">No activity recorded on this line yet. Comments, evidence and approvals are logged here as a permanent history.</div>'; }
     } else if(fxInspTab==='history'){
-      var tms=led.months,taccs=info.accts,hrows=[]; for(var hmi=tms.length-1;hmi>=Math.max(1,tms.length-6);hmi--){ var hc=0,hp=0; taccs.forEach(function(a){hc+=fxScopedVal(a,hmi);hp+=fxScopedVal(a,hmi-1);}); hrows.push([flxLbl(tms[hmi]),hc,hc-hp]); }
-      h+='<div class="fxi-h">Balance &amp; movement by period</div>';
-      h+='<div class="fxi-evt"><div class="fxi-evt-hd hist"><span class="c-p">Period</span><span class="c-bal">Balance</span><span class="c-mv">Movement</span></div>';
-      hrows.forEach(function(r){ h+='<div class="fxi-evt-r hist"><span class="c-p">'+r[0]+'</span><span class="c-bal">'+fxAbbr(r[1])+'</span><span class="c-mv '+(r[2]>=0?'up':'dn')+'">'+(r[2]>=0?'+':'&minus;')+fxAbbr(Math.abs(r[2]))+'</span></div>'; });
-      h+='</div><div class="fxi-note-sm">Movement per period from the tied-out ledger &mdash; the quantitative trend behind this line.</div>';
+      if(isGen){
+        h+='<div class="fxi-h">Balance history</div>';
+        if(hasPrev){ h+='<div class="fxi-evt"><div class="fxi-evt-hd hist"><span class="c-p">Period</span><span class="c-bal">Balance</span><span class="c-mv">Movement</span></div>';
+          h+='<div class="fxi-evt-r hist"><span class="c-p">Current</span><span class="c-bal">'+rcFmtMoney(cur)+'</span><span class="c-mv '+(d>=0?'up':'dn')+'">'+(d>=0?'+':'&minus;')+rcFmtMoney(Math.abs(d))+'</span></div>';
+          h+='<div class="fxi-evt-r hist"><span class="c-p">Prior</span><span class="c-bal">'+rcFmtMoney(prev)+'</span><span class="c-mv">&mdash;</span></div></div>';
+        }
+        h+='<div class="fxi-empty2">A full period-by-period trend is derived for period-based reviews (Corporate Flux). This '+esc(rcModel.eng.name)+' review is a point-in-time snapshot; a period series is a later increment.</div>';
+      } else {
+        var tms=led.months,taccs=info.accts,hrows=[]; for(var hmi=tms.length-1;hmi>=Math.max(1,tms.length-6);hmi--){ var hc=0,hp=0; taccs.forEach(function(a){hc+=fxScopedVal(a,hmi);hp+=fxScopedVal(a,hmi-1);}); hrows.push([flxLbl(tms[hmi]),hc,hc-hp]); }
+        h+='<div class="fxi-h">Balance &amp; movement by period</div>';
+        h+='<div class="fxi-evt"><div class="fxi-evt-hd hist"><span class="c-p">Period</span><span class="c-bal">Balance</span><span class="c-mv">Movement</span></div>';
+        hrows.forEach(function(r){ h+='<div class="fxi-evt-r hist"><span class="c-p">'+r[0]+'</span><span class="c-bal">'+fxAbbr(r[1])+'</span><span class="c-mv '+(r[2]>=0?'up':'dn')+'">'+(r[2]>=0?'+':'&minus;')+fxAbbr(Math.abs(r[2]))+'</span></div>'; });
+        h+='</div><div class="fxi-note-sm">Movement per period from the tied-out ledger &mdash; the quantitative trend behind this line.</div>';
+      }
     }
     h+='</div>';
     el.innerHTML=h;
     var x=document.getElementById('fxiX'); if(x)x.onclick=fluxInspClose;
     Array.prototype.forEach.call(el.querySelectorAll('.fxi-tab'),function(b){b.onclick=function(){fxInspTab=this.getAttribute('data-tab');fxStackAdd=false;renderFluxInsp();};});
-    var acc=document.getElementById('fxiAccept'); if(acc)acc.onclick=function(){FLUX_COMMENTS[info.cmtId]={text:plain,by:CUR_USER.name,from:'Korvyn draft accepted'};fluxInspEdit=false;renderMonthlyTrend();};
+    var acc=document.getElementById('fxiAccept'); if(acc)acc.onclick=function(){FLUX_COMMENTS[info.cmtId]={text:plain,by:CUR_USER.name,from:'Korvyn draft accepted'};fluxInspEdit=false;rcRerender();};
     var ed=document.getElementById('fxiEdit'); if(ed)ed.onclick=function(){fluxInspEdit=true;renderFluxInsp();var ta=document.getElementById('fxiTa');if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}};
-    var sv=document.getElementById('fxiSave'); if(sv)sv.onclick=function(){var ta=document.getElementById('fxiTa'),v=ta?ta.value.trim():'';if(v)FLUX_COMMENTS[info.cmtId]={text:v,by:CUR_USER.name,from:'Reviewer edited'};else delete FLUX_COMMENTS[info.cmtId];fluxInspEdit=false;renderMonthlyTrend();};
+    var sv=document.getElementById('fxiSave'); if(sv)sv.onclick=function(){var ta=document.getElementById('fxiTa'),v=ta?ta.value.trim():'';if(v)FLUX_COMMENTS[info.cmtId]={text:v,by:CUR_USER.name,from:'Reviewer edited'};else delete FLUX_COMMENTS[info.cmtId];fluxInspEdit=false;rcRerender();};
     var cn=document.getElementById('fxiCancel'); if(cn)cn.onclick=function(){fluxInspEdit=false;renderFluxInsp();};
     var an=document.getElementById('fxiAddNote'); if(an)an.onclick=function(){fxStackAdd=true;renderFluxInsp();var ta=document.getElementById('fxiStackTa');if(ta)ta.focus();};
-    var ssave=document.getElementById('fxiStackSave'); if(ssave)ssave.onclick=function(){var ta=document.getElementById('fxiStackTa'),v=ta?ta.value.trim():'';if(v){var lvl=fxCurLayerLevel();(FX_STACK_LOCAL[key]=FX_STACK_LOCAL[key]||[]).push({level:lvl,label:fxLayerLabel(lvl),scope:scopeLbl,by:CUR_USER.name,role:CUR_USER.role,at:'Just now',text:v});}fxStackAdd=false;renderMonthlyTrend();};
+    var ssave=document.getElementById('fxiStackSave'); if(ssave)ssave.onclick=function(){var ta=document.getElementById('fxiStackTa'),v=ta?ta.value.trim():'';if(v){var lvl=fxCurLayerLevel();(FX_STACK_LOCAL[key]=FX_STACK_LOCAL[key]||[]).push({level:lvl,label:fxLayerLabel(lvl),scope:scopeLbl,by:CUR_USER.name,role:CUR_USER.role,at:'Just now',text:v});}fxStackAdd=false;rcRerender();};
     var scan=document.getElementById('fxiStackCancel'); if(scan)scan.onclick=function(){fxStackAdd=false;renderFluxInsp();};
-    var ae=document.getElementById('fxiAddEv'); if(ae)ae.onclick=function(){var nm='Supporting_Workpaper.xlsx';if(fxHasEvidence(key,nm)){rpToast('&ldquo;'+nm+'&rdquo; is already linked &mdash; documents are stored once and referenced by many reviews.');return;}(FX_EVID_LOCAL[key]=FX_EVID_LOCAL[key]||[]).push({name:nm,type:'xlsx',by:CUR_USER.name,refs:1,status:'Pending'});renderMonthlyTrend();};
+    var ae=document.getElementById('fxiAddEv'); if(ae)ae.onclick=function(){var nm='Supporting_Workpaper.xlsx';if(fxHasEvidence(key,nm)){rpToast('&ldquo;'+nm+'&rdquo; is already linked &mdash; documents are stored once and referenced by many reviews.');return;}(FX_EVID_LOCAL[key]=FX_EVID_LOCAL[key]||[]).push({name:nm,type:'xlsx',by:CUR_USER.name,refs:1,status:'Pending'});rcRerender();};
   }
   /* ---------- Review canvas contextual header (screen 7) ---------- */
   var RP_OPEN_REVIEW=null;
@@ -4067,7 +4133,7 @@
   function rpWireDesigner(){
     Array.prototype.forEach.call(document.querySelectorAll('#view .rd-cancel'),function(b){b.onclick=function(){RP_WS_SEL=RP_DESIGN&&RP_DESIGN.folder||'overview';activeNav='frperiods';renderNav();RP_PERIOD_SEL=RP_PERIOD_SEL||'2027-03';renderPeriodWorkspace();window.scrollTo(0,0);};});
     var open=document.querySelector('#view .rd-open');if(open)open.onclick=function(){var fol=rpFolder(RP_DESIGN.folder),cons=(fol||{}).cons||'EMEA';
-      var rev={id:'rv'+(++RP_REVIEW_SEQ),folder:RP_DESIGN.folder,name:RP_DESIGN.name,type:RP_DESIGN.type.replace(' Analysis','').replace(' Review','')||'Flux',cons:cons,owner:RP_DESIGN.owner,rev:'DO',status:'inprog',need:0,upd:'Just now'};
+      var rev={id:'rv'+(++RP_REVIEW_SEQ),folder:RP_DESIGN.folder,name:RP_DESIGN.name,type:RP_DESIGN.type.replace(' Analysis','').replace(' Review','')||'Flux',engine:rcEngineFromType(RP_DESIGN.type),cons:cons,owner:RP_DESIGN.owner,rev:'DO',status:'inprog',need:0,upd:'Just now'};
       RP_REVIEWS.push(rev); if(fol)fol.count++;
       RP_OPEN_REVIEW=rev; rpToast('Saved '+RP_DESIGN.name+' to '+(fol?fol.name:'folder')+'. Opening the review canvas.');
       var node=CONS_BY_ID[cons]||CONS_BY_ID.EMEA;fluxScope=nodeToScope(node);navTo('mtrend');};
@@ -4244,8 +4310,8 @@
   /* ===== Phase 4: persistent reviews — Timeline Navigator + Compare + line-item history ===== */
   var RP_COMPARE='prev';
   function rpCompareOffset(){return RP_COMPARE==='prevq'?3:RP_COMPARE==='prevy'?12:1;}
-  function rpSetPeriod(ti){var ms=glLedger().months;ti=Math.max(0,Math.min(ms.length-1,ti));fluxTo=ms[ti];fluxFrom=ms[Math.max(0,ti-rpCompareOffset())];renderMonthlyTrend();}
-  function rpSetCompare(v){if(v==='budget'||v==='fcst'){rpToast((v==='budget'?'Budget':'Forecast')+' comparison — a later increment; showing prior period.');v='prev';}RP_COMPARE=v;var ms=glLedger().months,P=fluxPeriods(glLedger());fluxFrom=ms[Math.max(0,P.ti-rpCompareOffset())];renderMonthlyTrend();}
+  function rpSetPeriod(ti){var ms=glLedger().months;ti=Math.max(0,Math.min(ms.length-1,ti));fluxTo=ms[ti];fluxFrom=ms[Math.max(0,ti-rpCompareOffset())];rcRerender();}
+  function rpSetCompare(v){if(v==='budget'||v==='fcst'){rpToast((v==='budget'?'Budget':'Forecast')+' comparison — a later increment; showing prior period.');v='prev';}RP_COMPARE=v;var ms=glLedger().months,P=fluxPeriods(glLedger());fluxFrom=ms[Math.max(0,P.ti-rpCompareOffset())];rcRerender();}
   function rpTimelineNav(){
     var led=glLedger(),ms=led.months,P=fluxPeriods(led),ti=P.ti;
     var start=Math.max(0,ms.length-8),chips='';
@@ -4457,6 +4523,196 @@
     var ebtn=document.querySelector('#view .fx-email');if(ebtn)ebtn.onclick=function(){var st=isBS?'Balance Sheet':isBoth?'Balance Sheet & Income Statement':'Income Statement';var subj='Flux review — '+st+' — '+flxLbl(mTo);var body='Flux & trending review — '+st+', period '+flxLbl(mFrom)+' to '+flxLbl(mTo)+'.\r\n\r\nMaterial moves: '+matCount+'; needs explanation: '+needCount+'.\r\n\r\nOpen in Korvyn to review the full statement.';window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);};
     renderFluxInsp();
   }
+
+  /* ===== Review Canvas framework — a shared shell + pluggable business engines =============
+     Corporate Flux is the reference engine (its own rich renderer, above). Property, Fixed Assets
+     and Treasury share a generic grid built on the same .fxg look. Every engine shares the header,
+     the compact Review column and the docked Review Panel + its workflow (stack / timeline /
+     evidence / activity / history / AI). Only the grid — the business renderer — changes. */
+  var rcExpand={}, rcModel=null, rcMatPct=8, rcFind='', rcStatusFilter='all';
+  function rcRerender(){ renderReviewCanvas(); }
+  function rcEngineId(r){ return (r&&r.engine)||'corporate-flux'; }
+  function renderReviewCanvas(){
+    var eng=RC_ENGINES[rcEngineId(RP_OPEN_REVIEW)]||RC_ENGINES['corporate-flux'];
+    if(eng.id==='corporate-flux'){ renderMonthlyTrend(); return; }
+    renderGenericCanvas(eng);
+  }
+  function rcH(s){var h=0,i;for(i=0;i<s.length;i++)h=(h*33+s.charCodeAt(i))>>>0;return h;}
+  function rcvNum(key,base,span){ return base+(rcH(key)%span); }
+  function rcFmtMoney(v){var a=Math.abs(v);return (v<0?'&minus;':'')+(a>=1e6?'$'+(a/1e6).toFixed(1)+'M':a>=1e3?'$'+Math.round(a/1e3)+'K':'$'+Math.round(a));}
+  function rcCell(col,val,isCur){
+    var k=col.kind;
+    if(val==null)return k==='pct'||k==='pctlevel'?'<td class="fx-pct"></td>':'<td class="fx-money"></td>';
+    if(k==='money')return '<td class="fx-money'+(isCur?' fx-cur-col':'')+(val<0?' fx-neg':'')+'"><span class="fx-num">'+(val<0?'('+rcFmtMoney(-val)+')':rcFmtMoney(val))+'</span></td>';
+    if(k==='num')return '<td class="fx-money'+(isCur?' fx-cur-col':'')+'"><span class="fx-num">'+esc(''+val)+'</span></td>';
+    if(k==='pctlevel')return '<td class="fx-pct">'+(+val).toFixed(1)+'%</td>';
+    if(k==='pct'){var c=val>0.05?'up':val<-0.05?'dn':'flat',ar=c==='up'?'&#9650;':c==='dn'?'&#9660;':'';return '<td class="fx-pct '+c+'"><span class="fx-arrow">'+ar+'</span>'+(val>0?'+':'')+(+val).toFixed(1)+'%</td>';}
+    if(k==='status'){var m={Pass:['ok','Pass'],Compliant:['ok','Compliant'],Watch:['need','Watch'],Breach:['need','Breach']}[val]||['ai',val];return '<td class="fx-money"><span class="fx-chip '+m[0]+'">'+esc(m[1])+'</span></td>';}
+    return '<td class="fx-money">'+esc(''+val)+'</td>';
+  }
+  function rcRowMat(vals,eng){ if(eng.priorIdx==null)return false; var cur=+vals[eng.curIdx]||0,pr=+vals[eng.priorIdx]||0; if(!pr)return false; return Math.abs((cur-pr)/pr*100)>=rcMatPct; }
+  function rcGroupVals(model,g){ return (g.rows&&g.rows.length)?model.cols.map(function(c,i){return (c.kind==='money'||c.kind==='num')?g.rows.reduce(function(t,r){return t+(+r.v[i]||0);},0):(g.v?g.v[i]:null);}):g.v; }
+  function rcLeaves(model){ var out=[]; model.sections.forEach(function(s){s.groups.forEach(function(g){ if(g.rows&&g.rows.length)g.rows.forEach(function(r){out.push(r);}); else out.push(g); });}); return out; }
+  function rcColTotal(model,idx){ var t=0; rcLeaves(model).forEach(function(l){t+=(+l.v[idx]||0);}); return t; }
+  function rcReviewed(l,eng){ var m=l.mat||rcRowMat(l.v,eng),st=fxReviewStatus(l.key,l.key+':cur',m); return {mat:m, ok:!!(st&&st.cls==='ok'), need:m&&(!st||st.cls!=='ok')}; }
+  function rcCounts(model,eng){ var mat=0,need=0; rcLeaves(model).forEach(function(l){var r=rcReviewed(l,eng);if(r.mat)mat++;if(r.need)need++;}); return {mat:mat,need:need}; }
+  function rcGroupPass(g,model,eng){
+    var leaves=(g.rows&&g.rows.length)?g.rows:[g], q=rcFind.toLowerCase();
+    if(q&&(g.label+' '+leaves.map(function(l){return l.label;}).join(' ')).toLowerCase().indexOf(q)<0)return false;
+    if(rcStatusFilter==='all')return true;
+    return leaves.some(function(l){var r=rcReviewed(l,eng);return rcStatusFilter==='material'?r.mat:rcStatusFilter==='needs'?r.need:rcStatusFilter==='reviewed'?r.ok:true;});
+  }
+  function rcGrid(model,eng){
+    var cols=model.cols, active=(rcFind||rcStatusFilter!=='all');
+    var minW=236+cols.length*120+230;
+    var h='<div class="fx-gridwrap"><table class="fxg" style="min-width:'+minW+'px"><colgroup><col class="c-line">'+cols.map(function(){return '<col class="c-ent">';}).join('')+'<col class="c-review"></colgroup>';
+    h+='<thead><tr><th class="l fx-line">'+esc(eng.rows[0]||'Line item')+'</th>'+cols.map(function(c,i){return '<th class="fx-per'+(i===eng.curIdx?' fx-cur-col':'')+'">'+esc(c.label)+'</th>';}).join('')+'<th class="l fx-rev-h">Review</th></tr></thead><tbody>';
+    function rev(key,mat){ return fxReviewTd(key,key+':cur',mat,'gen',key); }
+    model.sections.forEach(function(sec){
+      var vis=sec.groups.filter(function(g){return rcGroupPass(g,model,eng);});
+      if(active&&!vis.length)return;
+      h+='<tr class="fx-sec"><td class="l fx-line">'+esc(sec.name)+'</td>'+cols.map(function(){return '<td class="fx-money"></td>';}).join('')+'<td class="fx-rev"></td></tr>';
+      var secSum=cols.map(function(){return 0;});
+      vis.forEach(function(g){
+        var gv=rcGroupVals(model,g), hasRows=!!(g.rows&&g.rows.length), open=(!!rcExpand[g.key]||active);
+        cols.forEach(function(c,i){if(c.kind==='money'||c.kind==='num')secSum[i]+=(+gv[i]||0);});
+        var gmat=g.mat||(hasRows?g.rows.some(function(r){return r.mat||rcRowMat(r.v,eng);}):rcRowMat(gv,eng));
+        var selg=(fluxSel&&fluxSel.kind==='gen'&&fluxSel.keyName===g.key);
+        h+='<tr class="fx-grp'+(open?' open':'')+(gmat?' mat':'')+(selg?' sel':'')+'"'+(hasRows?' data-exp="'+esc(g.key)+'"':'')+' data-selk="gen" data-selv="'+esc(g.key)+'"><td class="l fx-line"><span class="fx-exp'+(hasRows?'':' fx-exp-off')+'">'+(hasRows?rpIcon('chev'):'&nbsp;')+'</span><span class="fx-line-txt">'+esc(g.label)+'</span></td>'+cols.map(function(c,i){return rcCell(c,gv[i],i===eng.curIdx);}).join('')+rev(g.key,gmat)+'</tr>';
+        if(open&&hasRows)g.rows.forEach(function(r){var rmat=r.mat||rcRowMat(r.v,eng),selr=(fluxSel&&fluxSel.kind==='gen'&&fluxSel.keyName===r.key);h+='<tr class="fx-det'+(rmat?' mat':'')+(selr?' sel':'')+'" data-selk="gen" data-selv="'+esc(r.key)+'"><td class="l fx-line">'+esc(r.label)+'</td>'+cols.map(function(c,i){return rcCell(c,r.v[i],i===eng.curIdx);}).join('')+rev(r.key,rmat)+'</tr>';});
+      });
+      h+='<tr class="fx-tot"><td class="l fx-line">Total '+esc(sec.name)+'</td>'+cols.map(function(c,i){return (c.kind==='money'||c.kind==='num')?rcCell(c,secSum[i],i===eng.curIdx):rcCell(c,null,false);}).join('')+'<td class="fx-rev"></td></tr>';
+    });
+    h+='</tbody></table></div>';
+    return h;
+  }
+  function rcToolbar(eng){
+    var statusOpts=[['all','All lines'],['needs','Needs explanation'],['reviewed','Reviewed'],['material','Material']];
+    var srch='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
+    var h='<div class="fx-tb"><div class="fx-tb-tabs"><button class="fx-tb-tab on">'+esc(eng.name)+'</button></div><span class="fx-tb-sep"></span>';
+    h+='<label class="fx-tb-f"><span class="fx-tb-l">Materiality</span><select class="fx-tb-sel" id="rcMat">'+[5,8,10,15].map(function(o){return '<option value="'+o+'"'+(rcMatPct===o?' selected':'')+'>&ge; '+o+'%</option>';}).join('')+'</select></label>';
+    h+='<label class="fx-tb-f"><span class="fx-tb-l">Status</span><select class="fx-tb-sel" id="rcStatus">'+statusOpts.map(function(o){return '<option value="'+o[0]+'"'+(rcStatusFilter===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>';
+    h+='<div class="fx-tb-search">'+srch+'<input class="fxf-find" id="rcFind" placeholder="Search line items&hellip;" value="'+esc(rcFind)+'"></div>';
+    h+='<div class="fx-tb-right"><button class="btn flx-expand-all" id="rcExpandAll">Expand all</button><button class="btn primary" id="rcCfg">'+FX_GEAR_ICO+' Configure</button></div></div>';
+    return h;
+  }
+  function renderGenericCanvas(eng){
+    var review=RP_OPEN_REVIEW, model=eng.model(review); rcModel={eng:eng,model:model};
+    var h=(review&&typeof rpReviewHeader==='function')?rpReviewHeader():'<div class="kv-hd fx-kvhd"><div><div class="k">Financial review</div><h1>'+esc(eng.name)+'</h1><div class="kv-sub">Reusable Review Canvas &mdash; '+esc(eng.rows.join(' &rsaquo; '))+'</div></div></div>';
+    if(eng.representative)h+='<div class="rc-banner"><b>Representative configuration.</b> The '+esc(eng.name)+' engine is shown with an illustrative layout and sample data; wire it to source data in a later increment. The review workflow below is fully functional.</div>';
+    var sum=eng.summary(review,model);
+    h+='<div class="fx-rsum"><div class="fx-rsum-g">'+sum.map(function(s){return '<div class="fx-rsum-i"><span class="k">'+s.k+'</span><span class="v '+(s.cls||'')+'">'+s.v+'</span></div>';}).join('')+'</div><div class="fx-rsum-scope">'+esc(eng.rows.join(' &middot; '))+'</div></div>';
+    h+=rcToolbar(eng)+rcGrid(model,eng);
+    h+='<div class="ldg-note flx-note">'+esc(eng.name)+' &mdash; grouped by '+esc(eng.rows.join(' &rsaquo; '))+'. Figures are illustrative and deterministic. The header, review column, and Review Panel (explanations, evidence, approvals, timeline, history) are the <b>same across every review type</b> &mdash; only the business renderer (this grid) changes.</div>';
+    $('#view').innerHTML=h;
+    rcWire(eng); renderFluxInsp();
+  }
+  function rcRowOpen(key){ if(!key)return; fluxSel={kind:'gen',keyName:key,engine:(rcModel&&rcModel.eng.id)||'',stmt:'gen'}; fluxInspEdit=false; fxInspTab='summary'; fxStackAdd=false; if(typeof aiClose==='function')aiClose(); if(typeof notifClose==='function')notifClose(); document.body.classList.add('fx-insp-open'); rcRerender(); }
+  function rcToggleAll(eng){ var model=eng.model(RP_OPEN_REVIEW),keys=[]; model.sections.forEach(function(s){s.groups.forEach(function(g){if(g.rows&&g.rows.length)keys.push(g.key);});}); var open=keys.some(function(k){return !rcExpand[k];}); keys.forEach(function(k){rcExpand[k]=open;}); rcRerender(); }
+  function rcWire(eng){
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxg tr.fx-grp'),function(r){r.onclick=function(e){var key=this.getAttribute('data-selv');if(e.target.closest('.fx-rev')){rcRowOpen(key);return;}var ek=this.getAttribute('data-exp');if(!ek){rcRowOpen(key);return;}rcExpand[ek]=!rcExpand[ek];rcRerender();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxg tr.fx-det'),function(r){r.onclick=function(){rcRowOpen(this.getAttribute('data-selv'));};});
+    var m=document.getElementById('rcMat');if(m)m.onchange=function(){rcMatPct=+this.value;rcRerender();};
+    var s=document.getElementById('rcStatus');if(s)s.onchange=function(){rcStatusFilter=this.value;rcRerender();};
+    var f=document.getElementById('rcFind');if(f)f.oninput=function(){rcFind=this.value;var p=this.selectionStart;rcRerender();var n=document.getElementById('rcFind');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(_){}}};
+    var ea=document.getElementById('rcExpandAll');if(ea)ea.onclick=function(){rcToggleAll(eng);};
+    var cfg=document.getElementById('rcCfg');if(cfg)cfg.onclick=function(){rpToast('Configure &mdash; rows, columns, calculations, review fields and materiality via the Review Designer.');};
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
+    var rsub=document.querySelector('#view .rpc-submit');if(rsub)rsub.onclick=function(){rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review.');};
+    var rgov=document.querySelector('#view .rpc-gov');if(rgov)rgov.onclick=rpGovOpen;
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(){rpToast('View configuration is available on the Corporate Flux engine; generic engines configure via the Review Designer.');};});
+    var sv=document.querySelector('#view .fx-saveview');if(sv)sv.onclick=function(){rpToast('View saved.');};
+    if(typeof rpWireTimeline==='function')rpWireTimeline();
+  }
+  /* resolve the selected generic line for the shared Review Panel */
+  function rcSelResolve(){
+    if(!fluxSel||fluxSel.kind!=='gen'||!rcModel)return null;
+    var key=fluxSel.keyName, eng=rcModel.eng, model=rcModel.model, found=null, secName='';
+    model.sections.forEach(function(s){ s.groups.forEach(function(g){ if(g.key===key){found={label:g.label,v:rcGroupVals(model,g),mat:g.mat};secName=s.name;} if(g.rows)g.rows.forEach(function(r){if(r.key===key){found={label:r.label,v:r.v,mat:r.mat};secName=s.name;}}); }); });
+    if(!found)return null;
+    var cur=eng.curIdx!=null?(+found.v[eng.curIdx]||0):0, prev=eng.priorIdx!=null?(+found.v[eng.priorIdx]||0):0;
+    var pcols=model.cols.map(function(c,i){var val=found.v[i];return {label:c.label, val:(val==null?'&mdash;':c.kind==='money'?rcFmtMoney(val):(c.kind==='pct'||c.kind==='pctlevel')?((c.kind==='pct'&&val>0?'+':'')+(+val).toFixed(1)+'%'):esc(''+val)), cls:c.kind==='pct'?(val>0?'up':val<0?'dn':''):''};});
+    return {engine:eng.id, isGeneric:true, label:found.label, sub:secName+' &middot; '+eng.name, key:key, cmtId:key+':cur', cur:cur, prev:prev, hasPrev:eng.priorIdx!=null, mat:(found.mat||rcRowMat(found.v,eng)), cols:pcols};
+  }
+  function rcAiDraft(info,d){ var dir=d>=0?'increased':'decreased'; return esc(info.label)+(info.hasPrev?(' '+dir+' '+rcFmtMoney(Math.abs(d))+' this period'):' balance is '+rcFmtMoney(info.cur))+'. Preparer to confirm the driver and whether any reclassification or accrual is required; supporting evidence is attached where available. Korvyn narrates from the figures &mdash; never a computed number.'; }
+  function rcChildren(key){ if(!rcModel)return null; var found=null; rcModel.model.sections.forEach(function(s){s.groups.forEach(function(g){if(g.key===key&&g.rows&&g.rows.length)found=g.rows;});}); return found; }
+  /* ===== Business engines: Property, Fixed Assets, Treasury (representative, deterministic) ===== */
+  function rcPropertyModel(){
+    var cols=[{key:'cur',label:'Current',kind:'money'},{key:'prior',label:'Prior',kind:'money'},{key:'occ',label:'Occupancy',kind:'pctlevel'},{key:'rec',label:'Recoveries',kind:'money'}];
+    var props=[
+      ['Sky Tower · Frankfurt',94.2,[['Rental income','pr-sky-rent',['Lufthansa Systems','Deloitte GmbH','WeWork']],['Recoveries','pr-sky-rec',0],['Operating expenses','pr-sky-opex',0],['Property tax','pr-sky-tax',0]]],
+      ['Harbor Point · Singapore',88.5,[['Rental income','pr-hbr-rent',['DBS Bank','Shopee','Grab Holdings']],['Recoveries','pr-hbr-rec',0],['Operating expenses','pr-hbr-opex',0],['Property tax','pr-hbr-tax',0]]],
+      ['Metro Plaza · Chicago',91.0,[['Rental income','pr-met-rent',['United Airlines','McDonalds Corp']],['Recoveries','pr-met-rec',0],['Operating expenses','pr-met-opex',0]]],
+      ['Gateway Center · London',96.8,[['Rental income','pr-gat-rent',['Barclays','Monzo Bank']],['Recoveries','pr-gat-rec',0],['Operating expenses','pr-gat-opex',0]]]
+    ];
+    return {cols:cols, sections:props.map(function(p){ var occ=p[1];
+      return {name:p[0], groups:p[2].map(function(a){ var label=a[0],key=a[1],tenants=a[3]||a[2];
+        var neg=/expense|tax/.test(label.toLowerCase());
+        if(Array.isArray(tenants)){ var rows=tenants.map(function(tn,ti){ var c=rcvNum(key+tn,900000,1700000),pr=Math.round(c*(0.9+((rcH(tn)%22)/100))); return {label:tn,key:key+'-'+ti,v:[c,pr,Math.max(60,occ-ti*3.5),Math.round(c*0.12)],mat:(ti===0&&rcH(key)%2===0)}; });
+          return {label:label,key:key,rows:rows,v:[null,null,occ,null]}; }
+        var cur=(rcvNum(key,320000,1500000))*(neg?-1:1),prior=Math.round(cur*(0.9+((rcH(key)%18)/100)));
+        return {label:label,key:key,v:[cur,prior,occ,neg?null:Math.round(Math.abs(cur)*0.1)],mat:(rcH(key)%3===0)}; })};
+    })};
+  }
+  function rcFixedAssetsModel(){
+    var cols=[{key:'cip',label:'CIP',kind:'money'},{key:'xfer',label:'Transfer',kind:'money'},{key:'pis',label:'Placed in service',kind:'money'},{key:'dep',label:'Depreciation',kind:'money'}];
+    var projs=[
+      ['Ridgeline Campus 5',[['Buildings','fa-rc-bld',['Shell & core','Fit-out']],['Data center equipment','fa-rc-dce',['Cooling plant','Power distribution','Racks & cabling']],['Generators','fa-rc-gen',0]]],
+      ['Frankfurt Expansion',[['Land','fa-fr-land',0],['Buildings','fa-fr-bld',['Structure','MEP']],['Data center equipment','fa-fr-dce',0]]],
+      ['Singapore DC2',[['Data center equipment','fa-sg-dce',['Cooling plant','UPS systems']],['Generators','fa-sg-gen',0]]]
+    ];
+    return {cols:cols, sections:projs.map(function(p){
+      return {name:p[0], groups:p[1].map(function(a){ var label=a[0],key=a[1],assets=a[2];
+        function vfor(k,ph){ var cip=rcvNum(k+'cip',2000000,9000000); var pis=(ph||rcH(k)%2)?Math.round(cip*(0.4+((rcH(k)%40)/100))):0; var xfer=-pis; var dep=-Math.round(pis*0.02); return [cip-pis,xfer,pis,dep]; }
+        if(Array.isArray(assets)){ var rows=assets.map(function(an,ai){ return {label:an,key:key+'-'+ai,v:vfor(key+an,ai%2),mat:(ai===0&&rcH(key)%2===0)}; }); return {label:label,key:key,rows:rows}; }
+        return {label:label,key:key,v:vfor(key,1),mat:(rcH(key)%3===0)}; })};
+    })};
+  }
+  function rcTreasuryModel(){
+    var cols=[{key:'cur',label:'Current',kind:'money'},{key:'fcst',label:'Forecast',kind:'money'},{key:'int',label:'Interest rate',kind:'pctlevel'},{key:'cmp',label:'Compliance',kind:'status'}];
+    var banks=[
+      ['JPMorgan Chase',[['Revolving credit facility','tr-jpm-rcf',['Tranche A · USD','Tranche B · EUR']],['Term loan A','tr-jpm-tla',0]]],
+      ['Deutsche Bank',[['Senior notes 2029','tr-db-notes',0],['Bilateral facility','tr-db-bil',0]]],
+      ['DBS Bank',[['Green loan facility','tr-dbs-green',['Drawn','Committed undrawn']],['FX hedging line','tr-dbs-fx',0]]]
+    ];
+    return {cols:cols, sections:banks.map(function(b){
+      return {name:b[0], groups:b[1].map(function(a){ var label=a[0],key=a[1],facs=a[2];
+        function vfor(k){ var cur=rcvNum(k,20000000,180000000),fc=Math.round(cur*(0.95+((rcH(k)%12)/100))),rate=3.5+((rcH(k)%320)/100),cmp=(rcH(k)%5===0)?'Watch':'Compliant'; return [cur,fc,rate,cmp]; }
+        if(Array.isArray(facs)){ var rows=facs.map(function(fn,fi){ return {label:fn,key:key+'-'+fi,v:vfor(key+fn),mat:(fi===0&&rcH(key)%2===0)}; }); return {label:label,key:key,rows:rows,v:[null,null,null,(rcH(key)%5===0)?'Watch':'Compliant']}; }
+        return {label:label,key:key,v:vfor(key),mat:(rcH(key)%3===0)}; })};
+    })};
+  }
+  function rcSum(model,eng,items){ var c=rcCounts(model,eng); return items.concat([['Material',''+c.mat,''],['Need explanation',''+c.need,c.need?'warn':'pos']]).map(function(x){return {k:x[0],v:x[1],cls:x[2]};}); }
+  var RC_ENGINES={
+    'corporate-flux':{id:'corporate-flux',name:'Corporate Flux',icon:'stmt',rows:['Entity','Account group','Account'],cols:[{label:'Prior'},{label:'Current'},{label:'MoM Δ'},{label:'Organic'},{label:'FX'}]},
+    'property':{id:'property',name:'Property Accounting',icon:'folder',rows:['Property','Account','Tenant'],cols:[{label:'Current'},{label:'Prior'},{label:'Occupancy'},{label:'Recoveries'}],curIdx:0,priorIdx:1,
+      model:function(){return rcPropertyModel();},
+      summary:function(r,m){var cur=rcColTotal(m,0),pr=rcColTotal(m,1);return rcSum(m,this,[['Rent roll',rcFmtMoney(cur),''],['Movement',(cur-pr<0?'&minus;':'+')+rcFmtMoney(Math.abs(cur-pr)),cur-pr<0?'neg':'pos'],['Avg occupancy','92.6%','']]);}},
+    'fixed-assets':{id:'fixed-assets',name:'Fixed Assets',icon:'stack',rows:['Project','Asset class','Asset'],cols:[{label:'CIP'},{label:'Transfer'},{label:'Placed in service'},{label:'Depreciation'}],curIdx:2,priorIdx:null,
+      model:function(){return rcFixedAssetsModel();},
+      summary:function(r,m){return rcSum(m,this,[['CIP balance',rcFmtMoney(rcColTotal(m,0)),''],['Placed in service',rcFmtMoney(rcColTotal(m,2)),'pos'],['Depreciation',rcFmtMoney(rcColTotal(m,3)),'neg']]);}},
+    'treasury':{id:'treasury',name:'Treasury',icon:'link',rows:['Bank','Debt','Facility'],cols:[{label:'Current'},{label:'Forecast'},{label:'Interest rate'},{label:'Compliance'}],curIdx:0,priorIdx:1,
+      model:function(){return rcTreasuryModel();},
+      summary:function(r,m){var cur=rcColTotal(m,0),fc=rcColTotal(m,1);return rcSum(m,this,[['Drawn',rcFmtMoney(cur),''],['Forecast',rcFmtMoney(fc),''],['Covenants','1 watch','warn']]);}}
+  };
+  /* Representative engines — configured layouts on the shared canvas, ready to bind to source data. */
+  function rcSampleCell(c,seed){ if(c.kind==='money')return rcvNum(seed,200000,2400000); if(c.kind==='pct')return ((rcH(seed)%22)-9)/1.5; if(c.kind==='pctlevel')return 78+(rcH(seed)%20); if(c.kind==='status')return (rcH(seed)%4===0)?'Watch':'Compliant'; if(c.kind==='num')return rcH(seed)%900; return '&mdash;'; }
+  function rcSampleModel(cols,rowNames){
+    var secs=rowNames||['Segment A','Segment B','Segment C'];
+    return {cols:cols, sections:secs.map(function(sn,si){ var groups=[];
+      for(var gi=0;gi<3;gi++){ var key='rep-'+si+'-'+gi, rows=[];
+        for(var ri=0;ri<2;ri++){ rows.push({label:'Line '+(gi+1)+'.'+(ri+1),key:key+'-'+ri,v:cols.map(function(c){return rcSampleCell(c,key+c.key+ri);}),mat:((si+gi+ri)%4===0)}); }
+        groups.push({label:sn+' &middot; item '+(gi+1),key:key,rows:rows}); }
+      return {name:sn,groups:groups}; })};
+  }
+  function rcRepEngine(id,name,rows,cols,secs){ return {id:id,name:name,icon:'stmt',representative:true,rows:rows,cols:cols,curIdx:0,priorIdx:(cols.length>1&&cols[1].kind==='money')?1:null,
+    model:function(){return rcSampleModel(this.cols,secs);},
+    summary:function(r,m){return rcSum(m,this,[[cols[0].label,rcFmtMoney(rcColTotal(m,0)),''],[cols[1]?cols[1].label:'Lines',cols[1]&&cols[1].kind==='money'?rcFmtMoney(rcColTotal(m,1)):''+rcLeaves(m).length,'']]);} }; }
+  RC_ENGINES['revenue']=rcRepEngine('revenue','Revenue Review',['Product line','Contract','Customer'],[{key:'cur',label:'Current',kind:'money'},{key:'prior',label:'Prior',kind:'money'},{key:'ytd',label:'YTD',kind:'money'},{key:'growth',label:'Growth',kind:'pct'}],['Colocation','Managed services','Power & cooling']);
+  RC_ENGINES['tax']=rcRepEngine('tax','Tax Review',['Jurisdiction','Entity','Account'],[{key:'cur',label:'Current tax',kind:'money'},{key:'def',label:'Deferred',kind:'money'},{key:'diff',label:'Book-tax diff',kind:'money'},{key:'etr',label:'ETR',kind:'pctlevel'}],['United States','Germany','Singapore']);
+  RC_ENGINES['board']=rcRepEngine('board','Board Review',['Metric group','KPI','Segment'],[{key:'cur',label:'Actual',kind:'money'},{key:'plan',label:'Plan',kind:'money'},{key:'py',label:'Prior year',kind:'money'},{key:'vpct',label:'vs plan',kind:'pct'}],['Revenue & margin','Capital program','Liquidity']);
+  RC_ENGINES['variance']=rcRepEngine('variance','Variance Review',['Cost centre','Account group','Account'],[{key:'act',label:'Actual',kind:'money'},{key:'bud',label:'Budget',kind:'money'},{key:'var',label:'Variance',kind:'money'},{key:'vpct',label:'Var %',kind:'pct'}],['Operations','Facilities','Corporate']);
+  RC_ENGINES['custom']=rcRepEngine('custom','Custom Review',['Dimension 1','Dimension 2','Detail'],[{key:'cur',label:'Current',kind:'money'},{key:'prior',label:'Prior',kind:'money'},{key:'chg',label:'Change',kind:'money'},{key:'chgp',label:'Change %',kind:'pct'}],['Group A','Group B','Group C']);
 
   /* ===== Filing: statements in public-filing format + review-comments section ========= */
   var FIL_DIM=[31,28,31,30,31,30,31,31,30,31,30,31];
@@ -4841,7 +5097,7 @@
     else if(k==='repo-ledger')renderLedger();
     else if(k==='mfs')renderMonthlyFS();
     else if(k==='filing')renderFiling();
-    else if(k==='mtrend')renderMonthlyTrend();
+    else if(k==='mtrend')renderReviewCanvas();
     else if(k==='repo-upload')renderRepoUpload();
     else if(k==='repo-coa')renderRepoCoa();
     else if(k==='repo-history')renderRepoHistory();}
