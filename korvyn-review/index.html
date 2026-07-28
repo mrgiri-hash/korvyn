@@ -519,6 +519,9 @@
   .fxg tr.fx-det>td.fx-line{padding-left:34px;font-weight:400;color:var(--muted)}
   .fxg tr.fx-tot>td{background:var(--fx-tot);color:var(--ink);font-weight:600;border-top:2px solid var(--line-2)}
   .fxg tr.fx-grand>td{background:var(--fx-tot);color:var(--ink);font-weight:700;border-top:2px solid var(--ink-2);border-bottom:2px solid var(--line-2)}
+  /* IS computed subtotals (Gross profit · Operating income · Income before tax) */
+  .fxg tr.fx-subtot>td{background:var(--surface-2);color:var(--ink);font-weight:600;border-top:1.5px solid var(--line-2)}
+  .fxg tr.fx-subtot>td.fx-line{text-transform:uppercase;letter-spacing:.04em;font-size:var(--fs-12)}
   .fxg td.fx-cur-col{font-weight:600;color:var(--ink)}
   .fxg tr.fx-det>td.fx-cur-col{font-weight:500}
   .fxg td.fx-delta{font-variant-numeric:tabular-nums;font-weight:500}
@@ -543,9 +546,15 @@
   .fxg thead th.fx-fx .sub,.fxg thead th.fx-org .sub{color:var(--faint)}
   .fxg tr.fx-grp.mat>td.fx-line,.fxg tr.fx-det.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn)}
   .fx-gridwrap.xscroll .fxg tr.fx-grp.mat>td.fx-line,.fx-gridwrap.xscroll .fxg tr.fx-det.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn),1px 0 0 0 rgba(20,24,36,.16)}
-  .fx-exp{display:inline-flex;align-items:center;justify-content:center;width:14px;color:var(--faint);font-size:var(--fs-12);margin-right:5px;vertical-align:middle;flex:0 0 auto}
-  .fx-grp:hover .fx-exp{color:var(--muted)}
+  /* mock-style [+]/[-] box expander */
+  .fx-exp{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;line-height:1;margin-right:9px;vertical-align:middle;flex:0 0 auto}
+  .fx-grp:hover .fx-exp{border-color:var(--faint);color:var(--ink)}
   .fx-exp-off{visibility:hidden}
+  .fx-sec-tw{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;line-height:1}
+  /* tree connector lines drawn to the expanded account children */
+  .fxg tr.fx-det>td.fx-line{padding-left:44px;position:relative}
+  .fxg tr.fx-det>td.fx-line::before{content:"";position:absolute;left:24px;top:0;bottom:0;border-left:1px solid var(--line-2)}
+  .fxg tr.fx-det>td.fx-line::after{content:"";position:absolute;left:24px;top:50%;width:9px;border-top:1px solid var(--line-2)}
   .fx-line-txt{vertical-align:middle}
   .fx-acct{display:inline-block;min-width:46px;color:var(--faint);font-size:var(--fs-12);margin-right:10px}
   .fx-drill{margin-left:10px;font-size:var(--fs-12);color:var(--accent);opacity:0;text-decoration:none;cursor:pointer;white-space:nowrap}
@@ -1335,18 +1344,14 @@
   .fx-metrics,.fx-sm,.rp-tl,.rp-tl-m,.rvc-meta,.rvc-m,.rvc-m-k,.rp-whd-meta,
   .rb-period,.rb-search input,.ribai .rlbl,.ribsearch,
   .rvw-tbl,.rp-tbl,.tbl{font-family:var(--mono)}
-  /* prose kept in the humanist sans so longer text stays comfortable to read all day */
-  .kv-sub,.subhead,.note,.ldg-note,.rp-ws-desc,.rp-act-m,.fx-cmt,.fx-cmt-tx,.fx-rev,.fxi-tl-c,
-  .rp-empty,.ph-d,.rvc-hd .kv-sub{font-family:var(--sans)}
+  /* long-form page/help prose kept in the humanist sans; flux commentary is typewriter */
+  .kv-sub,.subhead,.note,.ldg-note,.rp-ws-desc,.rp-empty,.ph-d,.rvc-hd .kv-sub{font-family:var(--sans)}
   /* ===== CONSISTENCY: the whole content plane is typewriter by default; only prose is sans.
      This is what makes every screen read uniformly instead of chasing per-class stragglers. ===== */
   /* body is typewriter (set on <body>) so EVERY surface — panels, inspector, ribbon,
      overlays — inherits it. Prose is opted back to the humanist sans everywhere. */
-  .kv-sub,.subhead,.note,.ldg-note,.rp-ws-desc,.rp-act-m,.rp-empty,.ph-d,p,
-  .fx-cmt,.fx-cmt-tx,.fx-cmt-box,.fx-rev,.fxi-tl-c,.cmt-txt,.rvw-txt,.prose,
-  .fxi-note,.fxi-ai .atx,.fxi-txn .ds,.fxi-drv-note,
-  .cp-msg,.cp-a,.cp-a-body,.cp-txt,.cp-ans,.nd-body,.nd-txt,.notif-txt,.st-desc,
-  .rvc-hd .kv-sub,.rp-dr-b .rp-note,.rp-note{font-family:var(--sans)}
+  .kv-sub,.subhead,.note,.ldg-note,.rp-ws-desc,.rp-empty,.ph-d,p,.st-desc,.rvc-hd .kv-sub,
+  .cp-msg,.cp-a,.cp-a-body,.cp-txt,.cp-ans,.nd-body,.nd-txt,.notif-txt{font-family:var(--sans)}
   /* ===== SQUARED CLASSIC EDGES — no rounded / smooth corners on boxes & filters ===== */
   .card,.kstrip,.kcard,.fx-ribbon,.fx-metrics,.fx-gridwrap,.ph-card,
   .fxm-sum,.fxm-pop,.fxf-find,.fx-tb-search,.fx-tb-more,.seg,.seg-b,.rp-seg-b,
@@ -3908,6 +3913,14 @@
   function fluxPeriods(led){var ms=led.months;if(!fluxTo||ms.indexOf(fluxTo)<0)fluxTo=(ms.indexOf(ACTIVE_PERIOD)>=0?ACTIVE_PERIOD:ms[ms.length-1]);if(!fluxFrom||ms.indexOf(fluxFrom)<0){var ti=ms.indexOf(fluxTo);fluxFrom=ms[Math.max(0,ti-5)];}var fi=ms.indexOf(fluxFrom),tj=ms.indexOf(fluxTo);if(fi>tj){var t=fi;fi=tj;tj=t;}return {fi:fi,ti:tj};}
   var FLUX_MAP={}; RP_COA.forEach(function(c){FLUX_MAP[c.acct]={fs:c.fs,report:c.report};});
   var FLUX_FS_ORDER=['Revenue','Operating expenses','Non-operating','Cash & equivalents','Current assets','Real estate','Non-current assets','Current liabilities','Debt','Non-current liabilities','Equity'];
+  /* Classic multi-step income statement — maps the real REIT rollups into the standard
+     sections; the between-section subtotals (Gross profit, Operating income, Income before
+     tax, Net income) are computed in renderMonthlyTrend and tie to the GL. */
+  var IS_FS_MAP={'Rental & colocation revenue':'Revenue','Tenant recoveries':'Revenue','Managed & other services':'Revenue',
+    'Property operating':'Cost of revenues','Depreciation & amortization':'Operating expenses',
+    'General & administrative':'Operating expenses','Other operating':'Operating expenses',
+    'Interest & financing':'Other income (expense)','Income tax':'Income tax expense'};
+  var IS_FS_ORDER=['Revenue','Cost of revenues','Operating expenses','Other income (expense)','Income tax expense'];
   function fluxStmtTypes(stmt){return stmt==='bs'?['Asset','Liability','Equity']:stmt==='is'?['Revenue','Expense']:['Revenue','Expense','Asset','Liability','Equity'];}
   function fluxSections(led,stmt,groupBy){
     groupBy=groupBy||fluxGroupBy;
@@ -3920,10 +3933,10 @@
     }
     // category: sections = financial-statement lines (fs), groups = report captions within
     var byFs={};
-    accts.forEach(function(a){var m=FLUX_MAP[a.acct]||{},fs=a.fs||m.fs||'Other',rep=a.rollup||m.report||a.name;if(!byFs[fs]){byFs[fs]={order:[],map:{}};}if(!byFs[fs].map[rep]){byFs[fs].map[rep]=[];byFs[fs].order.push(rep);}byFs[fs].map[rep].push(a);});
+    accts.forEach(function(a){var m=FLUX_MAP[a.acct]||{},rep=a.rollup||m.report||a.name,fs=a.fs||m.fs||'Other';if(stmt==='is')fs=IS_FS_MAP[rep]||fs;if(!byFs[fs]){byFs[fs]={order:[],map:{}};}if(!byFs[fs].map[rep]){byFs[fs].map[rep]=[];byFs[fs].order.push(rep);}byFs[fs].map[rep].push(a);});
     var secs=[], seen={};
     function pushFs(fs){secs.push({name:fs,groups:byFs[fs].order.map(function(rep){return {report:rep,caption:rep,fs:fs,accts:byFs[fs].map[rep]};})});seen[fs]=1;}
-    FLUX_FS_ORDER.forEach(function(fs){if(byFs[fs])pushFs(fs);});
+    (stmt==='is'?IS_FS_ORDER:FLUX_FS_ORDER).forEach(function(fs){if(byFs[fs])pushFs(fs);});
     Object.keys(byFs).forEach(function(fs){if(!seen[fs])pushFs(fs);});
     return secs;
   }
@@ -5384,23 +5397,30 @@
     var stripe=0;
     /* favorability by account type: revenue up = favorable, expense up = unfavorable; other types stay neutral */
     function fxFav(accts){var t=accts&&accts.length?accts[0].type:'';return t==='Revenue'?' fx-favup':t==='Expense'?' fx-favdn':'';}
+    /* IS multi-step subtotals: cumulative revenue-minus-costs, computed from the section buckets */
+    var isBk={}; if(isIS)secs.forEach(function(s){var aa=[];s.groups.forEach(function(g){aa=aa.concat(g.accts);});isBk[s.name]=aa;});
+    function isCat(names){var out=[];names.forEach(function(n){out=out.concat(isBk[n]||[]);});return out;}
+    function isSub(label,plusA,minusA,cls){var c=sum(plusA,ti)-sum(minusA,ti),p=sum(plusA,priIdx)-sum(minusA,priIdx);
+      return '<tr class="'+cls+'"><td class="l fx-line">'+label+'</td>'+rowCellsNet(plusA,minusA)+fxMoney(c-p,'fx-sep')+fxBridgeCellsNet(plusA,minusA,ti,priIdx,c-p)+fxPctCell(p,c)+'<td class="fx-rev"></td></tr>';}
+    var IS_SUB={'Cost of revenues':['Gross profit',['Cost of revenues']],'Operating expenses':['Operating income',['Cost of revenues','Operating expenses']],'Other income (expense)':['Income before tax',['Cost of revenues','Operating expenses','Other income (expense)']]};
     secs.forEach(function(sec){
       var vis=fluxFilterActive()?sec.groups.filter(function(g){return g.accts.some(function(a){return fxAcctPass(a,ti,priIdx,mTo);});}):sec.groups;
       if(fluxFilterActive()&&!vis.length)return;
       var scol=!fluxFilterActive()&&!!fluxSecCollapse[sec.name];
       /* single-line categories (Cash, Debt, Equity…) have section name === group caption — render the one line, not a duplicate header + total */
       var secDup=(sec.groups.length===1&&String(sec.groups[0].caption||'').toLowerCase().replace(/[^a-z0-9]/g,'')===String(sec.name||'').toLowerCase().replace(/[^a-z0-9]/g,''));
-      if(sec.name&&!secDup)h+='<tr class="fx-sec'+(scol?' col':'')+'" data-sec="'+esc(sec.name)+'"><td class="l fx-line"><span class="fx-sec-tw">'+(scol?'&#9656;':'&#9662;')+'</span>'+sec.name+'</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
+      if(sec.name&&!secDup)h+='<tr class="fx-sec'+(scol?' col':'')+'" data-sec="'+esc(sec.name)+'"><td class="l fx-line"><span class="fx-sec-tw">'+(scol?'+':'&minus;')+'</span>'+sec.name+'</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
       if(!scol||secDup)vis.forEach(function(g){
         var pass=fluxFilterActive()?g.accts.filter(function(a){return fxAcctPass(a,ti,priIdx,mTo);}):g.accts;
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
-        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&#9662;':'&#9656;')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
+        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
         if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
       var tcur=sum(allA,ti), tprev=sum(allA,priIdx);
       if(sec.name&&!secDup)h+='<tr class="fx-tot"><td class="l fx-line">Total '+sec.name.toLowerCase()+'</td>'+rowCells(allA)+fxMoney(tcur-tprev,'fx-sep')+fxBridgeCells(allA,ti,priIdx,tcur-tprev)+fxPctCell(tprev,tcur)+'<td class="fx-rev"></td>'+'</tr>';
+      if(isIS&&IS_SUB[sec.name]){var sm=IS_SUB[sec.name];h+=isSub(sm[0],isBk['Revenue']||[],isCat(sm[1]),'fx-subtot');}
     });
     if(isBS){
       // Equity now renders through the real equity accounts (fluxSections adds the section
@@ -5409,7 +5429,7 @@
       h+='<tr class="fx-grand"><td class="l fx-line">Total liabilities &amp; equity</td>'+rowCells(leAll)+fxMoney(leCur-lePrev,'fx-sep')+fxBridgeCells(leAll,ti,priIdx,leCur-lePrev)+fxPctCell(lePrev,leCur)+'<td class="fx-rev"></td>'+'</tr>';
     } else if(isIS){
       var oiCur=sum(revA,ti)-sum(expA,ti), oiPrev=sum(revA,priIdx)-sum(expA,priIdx);
-      h+='<tr class="fx-grand fx-favup"><td class="l fx-line">Operating result</td>'+rowCellsNet(revA,expA)+fxMoney(oiCur-oiPrev,'fx-sep')+fxBridgeCellsNet(revA,expA,ti,priIdx,oiCur-oiPrev)+fxPctCell(oiPrev,oiCur)+'<td class="fx-rev"></td>'+'</tr>';
+      h+='<tr class="fx-grand fx-favup"><td class="l fx-line">Net income</td>'+rowCellsNet(revA,expA)+fxMoney(oiCur-oiPrev,'fx-sep')+fxBridgeCellsNet(revA,expA,ti,priIdx,oiCur-oiPrev)+fxPctCell(oiPrev,oiCur)+'<td class="fx-rev"></td>'+'</tr>';
     }
     h+='</tbody></table></div>';
     /* material-lines footnote block removed — it duplicated the inline row comments */
