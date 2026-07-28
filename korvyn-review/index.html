@@ -212,7 +212,12 @@
   body.nav-collapsed .nitem{justify-content:center;padding:8px 0;gap:0}
   body.nav-collapsed .nitem>span:not(.nc){display:none}
   body.nav-collapsed .nitem .nc{display:none}
-  body.nav-collapsed .nav .nh{height:9px;padding:0;overflow:hidden;color:transparent}
+  body.nav-collapsed .nav .nh{display:none}
+  /* reviews navigator: the collapsed 60px rail is icon-only — the worklist, roll-up tree and
+     entity filter need width, so hide them and center the back + primary-nav icons */
+  body.nav-collapsed .nav .pk-row,body.nav-collapsed .nav .ct-row,body.nav-collapsed .nav .nfx-grp,body.nav-collapsed .nav .nfx-res,body.nav-collapsed .nav .nfx-vals,body.nav-collapsed .nav .rp-tn,body.nav-collapsed .nav .rp-ws-empty{display:none}
+  body.nav-collapsed .nav .nrev-back{justify-content:center;padding:8px 0}
+  body.nav-collapsed .nav .nrev-back span{display:none}
   body.nav-collapsed .navcollapse{justify-content:center;padding:8px 0}
   body.nav-collapsed .navcollapse .nctxt{display:none}
   body.nav-collapsed.ai-full .aipanel{left:60px}
@@ -464,16 +469,19 @@
   .fxg tr.fx-grp>td{background:var(--surface)}
   .fxg tr.fx-grp.alt>td{background:var(--surface)}
   .fxg tr.fx-grp:hover>td{background:var(--surface-2)}
-  .fxg tr.fx-grp>td.fx-line{color:var(--ink);font-weight:600;cursor:pointer}
+  .fxg tr.fx-grp>td.fx-line{color:var(--ink);font-weight:500;cursor:pointer}
   .fxg tr.fx-det>td{background:var(--surface);color:var(--ink-2)}
   .fxg tr.fx-det.alt>td{background:var(--surface)}
   .fxg tr.fx-det>td.fx-line{padding-left:34px;font-weight:400;color:var(--ink-2)}
   .fxg tr.fx-tot>td{background:var(--surface);color:var(--ink);font-weight:600;border-top:2px solid var(--line-2)}
-  .fxg tr.fx-grand>td{background:var(--surface);color:var(--ink);font-weight:600;border-top:2px solid var(--line-2)}
+  .fxg tr.fx-grand>td{background:var(--surface);color:var(--ink);font-weight:700;border-top:2px solid var(--ink-2)}
   .fxg td.fx-cur-col{font-weight:600;color:var(--ink)}
   .fxg tr.fx-det>td.fx-cur-col{font-weight:500}
   .fxg td.fx-delta{font-variant-numeric:tabular-nums;font-weight:500}
-  .fxg td.fx-delta.up{color:var(--pos)} .fxg td.fx-delta.dn{color:var(--neg)} .fxg td.fx-delta.flat{color:var(--faint)}
+  /* movements are NEUTRAL by default; color carries FAVORABILITY (teal favorable / red unfavorable), and only on material lines — routine moves stay quiet */
+  .fxg td.fx-delta.up,.fxg td.fx-delta.dn{color:var(--ink-2)} .fxg td.fx-delta.flat{color:var(--faint)}
+  .fxg tr.fx-favup td.fx-delta.up,.fxg tr.fx-favup td.fx-pct.up,.fxg tr.fx-favdn td.fx-delta.dn,.fxg tr.fx-favdn td.fx-pct.dn{color:var(--pos)}
+  .fxg tr.fx-favup td.fx-delta.dn,.fxg tr.fx-favup td.fx-pct.dn,.fxg tr.fx-favdn td.fx-delta.up,.fxg tr.fx-favdn td.fx-pct.up{color:var(--neg)}
   .fxg td.fx-delta .fx-arrow{font-size:8px;margin-right:2px}
   .fxg tbody td.fx-cur-col{background:transparent}
   .fxg .fx-sep{padding-left:14px}
@@ -514,7 +522,7 @@
   .fxg td.fx-money{position:relative;text-align:right}
   .fxg td.fx-money,.fxg td.fx-pct,.fxg td.fx-org,.fxg td.fx-fxc,.fxg .fx-acct{font-family:var(--mono)}
   .fxg td.fx-pct{text-align:right;font-size:11.5px}
-  .fxg td.fx-pct.up{color:var(--pos)} .fxg td.fx-pct.dn{color:var(--neg)} .fxg td.fx-pct.flat{color:var(--faint)}
+  .fxg td.fx-pct.up,.fxg td.fx-pct.dn{color:var(--muted)} .fxg td.fx-pct.flat{color:var(--faint)}
   .fx-arrow{font-size:8px;margin-right:3px}
   /* Support / supporting-docs cell (ported from mockup) */
   .fxg td.fx-ev{text-align:left;white-space:nowrap;vertical-align:top;padding:9px 12px 8px}
@@ -1496,6 +1504,17 @@
   .rp-ws-kids{margin:1px 0 3px 14px;border-left:1px solid var(--line);padding-left:5px}
   .rp-ws-kid{font-size:12px}
   .rp-ws-body{min-width:0}
+  /* period workspace: content-first sub-nav (replaces the in-page sidebar) */
+  .pw-tabs{display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--line-2);margin:8px 0 18px}
+  .pw-tab{font:inherit;font-size:13px;font-weight:500;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;margin-bottom:-1px;cursor:pointer}
+  .pw-tab:hover{color:var(--ink)}
+  .pw-tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+  .pw-tab:focus-visible{outline:2px solid var(--ink);outline-offset:-2px;border-radius:var(--radius-sm)}
+  .pw-tabs-sp{flex:1}
+  .pw-search{width:260px;max-width:38%}
+  .pw-search input{width:100%;height:30px;border:1px solid var(--line-2);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px;padding:0 10px;box-sizing:border-box}
+  .pw-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  .pw-body{min-width:0}
   .rp-ws-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
   .rp-ws-title{font-size:16px;font-weight:600;color:var(--ink);margin:0}
   .rp-ws-desc{font-size:11.5px;color:var(--muted);margin-top:2px}
@@ -3660,7 +3679,7 @@
   ];
   var fluxGroupBy='category';   /* ROWS dimension: 'category' (Revenue/OpEx/G&A) | 'segment' | 'account' (flat) */
   var fluxCols='periods';       /* COLUMNS dimension: 'periods' | 'entities' | 'regions' */
-  var fluxRibbonExp=true;       /* ribbon expanded (grouped + labels) vs collapsed (compact one-row) */
+  var fluxRibbonExp=false;      /* ribbon collapsed (compact one-row, no under-labels) is the default; expand adds grouped labels */
   /* ===== Review Framework: role-based presentation modes (shared platform capability) =====
      Mode changes PRESENTATION only over the same tied-out data; remembered per user via SETTINGS. */
   var RC_MODE=(SETTINGS.reviewMode||'review');       /* review | spreadsheet | executive | audit */
@@ -4131,33 +4150,40 @@
     var h=rpCrumb(crumbs);
     h+='<div class="rp-whd"><div class="rp-whd-l"><h1>'+esc(p.name)+'</h1><span class="rp-whd-meta">'+esc(p.type)+' &middot; '+esc(p.status)+' &middot; due '+esc(p.due)+' &middot; '+esc(p.owner)+'</span></div><div class="rp-hd-act"><button class="btn sm primary rp-newreview">+ Create Review</button><button class="btn sm rp-managestruct">Manage Structure</button></div></div>';
     h+=rpSumBar([[p.reviews,'Reviews'],[p.inprog,'In Progress'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Review'],[p.done,'Completed']]);
-    h+='<div class="rp-ws"><div class="rp-ws-dir"><div class="rp-ws-search"><input class="rp-ws-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></div>';
-    if(RP_WS_FIND){
-      var q=RP_WS_FIND.toLowerCase();
-      var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
-      var mcol=RP_WS_FOLDERS.filter(function(f){return !f.hidden&&f.name.toLowerCase().indexOf(q)>=0;});
-      h+='<div class="rp-ws-sec">'+(mrev.length+mcol.length)+' result'+((mrev.length+mcol.length)===1?'':'s')+'</div>';
-      mcol.forEach(function(f){h+='<div class="rp-tn" data-ctx="folder" data-id="'+f.id+'"><button class="rp-ws-item pin" data-find-col="'+f.id+'"><span class="rp-ws-qic">'+rpIcon('folder')+'</span><span class="rp-ws-nm">'+esc(f.name)+'</span><span class="rp-ws-ct">'+f.count+'</span></button></div>';});
-      mrev.forEach(function(r){h+=rpPinReview(r);});
-      if(!mrev.length&&!mcol.length)h+='<div class="rp-ws-empty">No reviews match &ldquo;'+esc(RP_WS_FIND)+'&rdquo;</div>';
-    } else {
-      var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):rpReviewById(f.id);});
-      if(favItems.length){ h+='<div class="rp-ws-sec">Favorites</div>';
-        favItems.forEach(function(f){ if(f.kind==='folder'){var fo=rpFolder(f.id);h+='<div class="rp-tn" data-ctx="folder" data-id="'+fo.id+'"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span></button></div>';}
-          else { var r=rpReviewById(f.id); h+='<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>'; } }); }
-      var recent=RP_RECENT.map(rpReviewById).filter(Boolean).slice(0,5);
-      if(recent.length){ h+='<div class="rp-ws-sec">Recent</div>'; recent.forEach(function(r){h+=rpPinReview(r);}); }
-      h+='<div class="rp-ws-sec">Workspace</div>';
-      h+='<button class="rp-ws-item quick'+(sel==='overview'?' on':'')+'" data-ws="overview"><span class="rp-ws-qic">'+rpIcon('grid')+'</span>Overview</button>';
-      h+='<button class="rp-ws-item quick'+(sel==='__myreviews'?' on':'')+'" data-ws="__myreviews"><span class="rp-ws-qic">'+rpIcon('doc')+'</span>My reviews</button>';
-      h+='<div class="rp-ws-sec rp-ws-sec-f">Collections</div>';
-      RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(f){h+=rpTreeFolder(f,0);});
-    }
-    var wsBody=(sel==='__structure')?rpStructureEditor():(sel==='__myreviews')?rpMyReviewsList(p):(selF?rpFolderContent(selF):rpPeriodOverview(p));
-    h+='</div><div class="rp-ws-body">'+wsBody+'</div></div>';
+    /* content-first: one horizontal sub-nav (no second sidebar) + full-width body */
+    var searching=!!RP_WS_FIND;
+    var tab=selF?'collections':(sel==='__myreviews'?'myreviews':sel==='__collections'?'collections':'overview');
+    h+='<div class="pw-tabs">';
+    h+='<button class="pw-tab'+(!searching&&tab==='overview'?' on':'')+'" data-pwtab="overview">Overview</button>';
+    h+='<button class="pw-tab'+(!searching&&tab==='myreviews'?' on':'')+'" data-pwtab="myreviews">My reviews</button>';
+    h+='<button class="pw-tab'+(!searching&&tab==='collections'?' on':'')+'" data-pwtab="collections">Collections</button>';
+    h+='<span class="pw-tabs-sp"></span><span class="pw-search"><input class="rp-ws-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></span></div>';
+    var wsBody=searching?rpSearchBody()
+      :(sel==='__structure')?rpStructureEditor()
+      :(sel==='__myreviews')?rpMyReviewsList(p)
+      :(sel==='__collections')?rpCollectionsGrid()
+      :selF?rpFolderContent(selF)
+      :rpPeriodOverview(p);
+    h+='<div class="pw-body">'+wsBody+'</div>';
     $('#view').innerHTML=h;
     rpWireWorkspace();rpWireStructure();
   }
+  function rpCollectionsGrid(){
+    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">Collections</h2><div class="rp-ws-desc">Browse this period&rsquo;s reviews by folder</div></div><div class="rp-ws-hd-act"><button class="btn sm rp-newfolder">+ Folder</button></div></div>';
+    h+='<div class="rp-ov-dir">'+RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).map(function(f){return '<button class="rp-ov-fold" data-ws="'+f.id+'">'+rpIcon('folder')+'<span class="rp-ov-fn">'+esc(f.name)+'</span><span class="rp-ov-fc">'+f.count+' reviews</span></button>';}).join('')+'</div>';
+    return h;
+  }
+  function rpSearchBody(){
+    var q=RP_WS_FIND.toLowerCase();
+    var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
+    var mcol=RP_WS_FOLDERS.filter(function(f){return !f.hidden&&f.name.toLowerCase().indexOf(q)>=0;});
+    var h='<div class="rp-ws-hd"><h2 class="rp-ws-title">'+(mrev.length+mcol.length)+' result'+((mrev.length+mcol.length)===1?'':'s')+' for &ldquo;'+esc(RP_WS_FIND)+'&rdquo;</h2></div>';
+    if(mcol.length){ h+='<div class="rp-ov-sec"><div class="rp-ov-h">Collections</div><div class="rp-ov-dir">'+mcol.map(function(f){return '<button class="rp-ov-fold" data-ws="'+f.id+'">'+rpIcon('folder')+'<span class="rp-ov-fn">'+esc(f.name)+'</span><span class="rp-ov-fc">'+f.count+' reviews</span></button>';}).join('')+'</div></div>'; }
+    if(mrev.length){ h+='<div class="rp-ov-sec"><div class="rp-ov-h">Reviews</div><div class="card rp-list">'+mrev.slice(0,12).map(function(r){return '<button class="rp-li" data-rid="'+r.id+'"><span class="rp-li-n">'+esc(r.name)+'</span>'+rpRStatusPill(r.status)+'</button>';}).join('')+'</div></div>'; }
+    if(!mrev.length&&!mcol.length) h+='<div class="rp-empty">No reviews or collections match &ldquo;'+esc(RP_WS_FIND)+'&rdquo;.</div>';
+    return h;
+  }
+  function pwTab(t){ RP_WS_SEL=(t==='myreviews'?'__myreviews':t==='collections'?'__collections':'overview'); RP_WS_FIND=''; renderPeriodWorkspace(); }
   function rpMyReviewsList(p){
     var mine=RP_REVIEWS.filter(function(r){return r.rev===CUR_USER.init||rpInit(r.owner)===CUR_USER.init;});
     var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">My reviews</h2><div class="rp-ws-desc">'+mine.length+' assigned to you &middot; '+esc(p.name.replace(' Close',''))+'</div></div></div>';
@@ -4208,7 +4234,7 @@
   function rpPeriodOverview(p){
     var att=RP_REVIEWS.filter(function(r){return r.status==='needexpl'||r.status==='ready';});
     var mine=RP_REVIEWS.filter(function(r){return r.rev===CUR_USER.init||rpInit(r.owner)===CUR_USER.init;});
-    var h='<div class="rp-ws-hd"><h2 class="rp-ws-title">Overview</h2></div>';
+    var h='';
     h+='<div class="rp-ov-sec"><div class="rp-ov-h">Needs attention</div><div class="card rvw-card"><table class="rvw-tbl rp-rtbl"><thead><tr><th class="l">Review</th><th class="l">Folder</th><th class="l">Reason</th><th class="l">Owner</th><th class="l">Status</th><th></th></tr></thead><tbody>';
     att.slice(0,6).forEach(function(r){var f=rpFolder(r.folder);h+='<tr class="rp-rrow" data-rid="'+r.id+'"><td class="l rvw-nm">'+esc(r.name)+'</td><td class="l rp-sub">'+esc(f?f.name:'')+'</td><td class="l rp-sub">'+(r.status==='needexpl'?r.need+' line'+(r.need>1?'s':'')+' need explanation':'Ready for controller sign-off')+'</td><td class="l rp-sub">'+esc(r.owner)+'</td><td class="l">'+rpRStatusPill(r.status)+'</td><td class="l"><button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></td></tr>';});
     h+='</tbody></table></div></div>';
@@ -4219,6 +4245,7 @@
   function rpInit(n){return n.split(' ').map(function(w){return w[0];}).join('').slice(0,2);}
   function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}fluxStmt=(r.name.indexOf('Income')>=0)?'is':'bs';navTo('mtrend');}
   function rpWireWorkspace(){
+    Array.prototype.forEach.call(document.querySelectorAll('#view .pw-tab'),function(b){b.onclick=function(){pwTab(this.getAttribute('data-pwtab'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;
       var rid=this.getAttribute('data-rid'); if(rid){rpOpenReview(rid);return;}
       var fc=this.getAttribute('data-find-col'); if(fc){ RP_WS_FIND=''; rpExpandTo(fc); RP_WS_SEL='overview'; renderPeriodWorkspace(); return; }
@@ -5150,6 +5177,8 @@
     COLS.forEach(function(c,k){h+='<th class="fx-per'+((c.cur||k===COLS.length-1)?' fx-cur-col':'')+'">'+c.label+(c.sub?'<span class="sub">'+c.sub+'</span>':'')+'</th>';});
     h+='<th class="fx-sep">'+dHead+'</th><th class="fx-org">Organic<span class="sub">const. ccy</span></th><th class="fx-fx">FX<span class="sub">translation</span></th><th>&Delta; %<span class="sub">vs prior</span></th>'+'<th class="l fx-rev-h">Explanation &amp; review</th></tr></thead><tbody>';
     var stripe=0;
+    /* favorability by account type: revenue up = favorable, expense up = unfavorable; other types stay neutral */
+    function fxFav(accts){var t=accts&&accts.length?accts[0].type:'';return t==='Revenue'?' fx-favup':t==='Expense'?' fx-favdn':'';}
     secs.forEach(function(sec){
       var vis=fluxFilterActive()?sec.groups.filter(function(g){return g.accts.some(function(a){return fxAcctPass(a,ti,priIdx,mTo);});}):sec.groups;
       if(fluxFilterActive()&&!vis.length)return;
@@ -5159,8 +5188,8 @@
         var pass=fluxFilterActive()?g.accts.filter(function(a){return fxAcctPass(a,ti,priIdx,mTo);}):g.accts;
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
-        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat':'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+rpIcon('chev')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
-        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat':'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
+        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+rpIcon('chev')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
+        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
       var tcur=sum(allA,ti), tprev=sum(allA,priIdx);
@@ -5173,7 +5202,7 @@
       h+='<tr class="fx-grand"><td class="l fx-line">Total liabilities &amp; equity</td>'+rowCells(leAll)+fxMoney(leCur-lePrev,'fx-sep')+fxBridgeCells(leAll,ti,priIdx,leCur-lePrev)+fxPctCell(lePrev,leCur)+'<td class="fx-rev"></td>'+'</tr>';
     } else if(isIS){
       var oiCur=sum(revA,ti)-sum(expA,ti), oiPrev=sum(revA,priIdx)-sum(expA,priIdx);
-      h+='<tr class="fx-grand"><td class="l fx-line">Operating result</td>'+rowCellsNet(revA,expA)+fxMoney(oiCur-oiPrev,'fx-sep')+fxBridgeCellsNet(revA,expA,ti,priIdx,oiCur-oiPrev)+fxPctCell(oiPrev,oiCur)+'<td class="fx-rev"></td>'+'</tr>';
+      h+='<tr class="fx-grand fx-favup"><td class="l fx-line">Operating result</td>'+rowCellsNet(revA,expA)+fxMoney(oiCur-oiPrev,'fx-sep')+fxBridgeCellsNet(revA,expA,ti,priIdx,oiCur-oiPrev)+fxPctCell(oiPrev,oiCur)+'<td class="fx-rev"></td>'+'</tr>';
     }
     h+='</tbody></table></div>';
     h+=fxNotesBlock(matLeaves,mTo);
