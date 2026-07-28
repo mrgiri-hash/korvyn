@@ -145,6 +145,37 @@
   .nitem>span:not(.nc){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .nitem .nc{margin-left:auto;font-size:11px;color:var(--muted);background:var(--raise);border-radius:9px;padding:0 6px;min-width:18px;text-align:center}
   .nitem.on .nc{background:var(--surface);color:var(--accent)}
+  /* ---- Accordion module rail (BlackLine-style): section headers + revealed children ---- */
+  .nsec{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;border-left:3px solid transparent;position:relative;user-select:none}
+  .nsec:hover{color:var(--ink)}
+  .nsec.on{color:var(--ink);border-left-color:var(--warn)}
+  .nsec-ic{display:none;position:relative;width:16px;height:16px;flex:0 0 auto;opacity:.9}
+  .nsec-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nsec-tw{flex:0 0 auto;display:inline-flex;color:var(--faint);transition:transform .12s}
+  .nsec-hd.open .nsec-tw{transform:rotate(90deg)}
+  .nsec-dot{position:absolute;top:-2px;right:-3px;width:6px;height:6px;border-radius:50%;background:var(--warn)}
+  .nkids{padding:2px 0 6px}
+  .nkid{display:flex;align-items:center;padding:5px 12px 5px 26px;cursor:pointer;color:var(--muted);font-size:12.5px;border-left:3px solid transparent;position:relative}
+  .nkid:hover{color:var(--ink)}
+  .nkid.on{color:var(--ink);font-weight:500}
+  .nkid-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nkid-b{margin-left:auto;font-size:11px;font-weight:600;background:var(--warn);color:var(--chrome);border-radius:9px;padding:0 6px;min-width:18px;text-align:center}
+  .nsec:focus-visible,.nkid:focus-visible{outline:2px solid var(--ink);outline-offset:-2px;border-radius:var(--radius-sm)}
+  /* navy (chrome) rail — the shipped default: inactive .72 white, active #fff, gold only for the active border + My Reviews badge */
+  body.chrome-nav .nav .nsec{color:rgba(255,255,255,.72)}
+  body.chrome-nav .nav .nsec:hover{color:#fff}
+  body.chrome-nav .nav .nsec.on{color:#fff;border-left-color:var(--warn)}
+  body.chrome-nav .nav .nsec-tw{color:rgba(255,255,255,.4)}
+  body.chrome-nav .nav .nkid{color:rgba(255,255,255,.72)}
+  body.chrome-nav .nav .nkid:hover{color:#fff}
+  body.chrome-nav .nav .nkid.on{color:#fff}
+  body.chrome-nav .nav .nkid-b{background:var(--warn);color:var(--chrome)}
+  body.chrome-nav .nav .nsec:focus-visible,body.chrome-nav .nav .nkid:focus-visible{outline-color:rgba(255,255,255,.85)}
+  /* collapsed 60px icon rail: section icon only, gold dot marks pending, children hidden */
+  body.nav-collapsed .nav .nsec{justify-content:center;padding:9px 0;gap:0}
+  body.nav-collapsed .nav .nsec-ic{display:block}
+  body.nav-collapsed .nav .nsec-lbl,body.nav-collapsed .nav .nsec-tw{display:none}
+  body.nav-collapsed .nav .nkids{display:none}
   .nav .nsp{display:none}
   /* optional DARK sidebar (matches the ribbon) — body.chrome-nav, set from Settings */
   body.chrome-nav .nav{background:var(--chrome);border-right-color:var(--chrome-line)}
@@ -1967,14 +1998,23 @@
   }
 
   /* ---------- nav ---------- */
-  var NAV=[
-    {g:'',items:[['home','Home','home']]},
-    {g:'Monthly close',items:[['close-dash','Dashboard','grid'],['repo-upload','Financial Data','up'],['repo-ledger','Trial Balance','scale'],['repo-coa','Account Mapping','link'],['txn-meta','Transaction Metadata','tag'],['repo-history','Upload History','hist']]},
-    {g:'Financial reporting',items:[['frov','Overview','grid'],['frperiods','Close Periods','cal'],['my','My Reviews','doc'],['all','All Reviews','stack'],['frtpl','Templates','tpl'],['frlib','Review Library','stmt'],['frmap','Mappings & Definitions','link'],['fradmin','Administration','gear']]},
-    {g:'Reconciliations',items:[['recon-bs','Balance Sheet','columns'],['recon-acct','Account Reconciliations','recon']]},
-    {g:'Audit & governance',items:[['controls','Controls','ctl'],['evidence','Evidence Center','file'],['audit','Audit Readiness','shield'],['knowledge','Knowledge Timeline','clock']]},
-    {g:'Administration',items:[['settings','Settings','gear']]}
+  /* Single source of truth for the left rail: sections -> children. Adding a destination
+     later is a one-line change here, not new markup. Children reveal only under the open
+     section (accordion). Top-level = section name only (icon shown in collapsed rail). */
+  var NAV_SECTIONS=[
+    {id:'home',label:'Home',icon:'home',route:'home'},
+    {id:'close',label:'Close',icon:'grid',kids:[['close-dash','Dashboard'],['repo-upload','Financial Data'],['repo-ledger','Trial Balance'],['repo-coa','Account Mapping'],['txn-meta','Transaction Metadata'],['repo-history','Upload History']]},
+    {id:'reporting',label:'Reporting',icon:'stmt',kids:[['frov','Overview'],['frperiods','Close Periods'],['my','My Reviews'],['all','All Reviews'],['frtpl','Templates'],['frlib','Review Library'],['frmap','Mappings & Definitions']]},
+    {id:'recon',label:'Reconciliations',icon:'recon',kids:[['recon-bs','Balance Sheet'],['recon-acct','Account Reconciliations']]},
+    {id:'audit',label:'Audit',icon:'shield',kids:[['controls','Controls'],['evidence','Evidence Center'],['audit','Audit Readiness'],['knowledge','Knowledge Timeline']]},
+    {id:'admin',label:'Admin',icon:'gear',kids:[['settings','Settings'],['fradmin','Administration']]}
   ];
+  function navSectionFor(k){for(var i=0;i<NAV_SECTIONS.length;i++){var s=NAV_SECTIONS[i];if(s.route===k)return s.id;if(s.kids&&s.kids.some(function(x){return x[0]===k;}))return s.id;}return null;}
+  /* The ONLY nav badge: review packages assigned to me (matches the My Reviews page's own count). */
+  function myReviewCount(){try{return ['MGP','AMER','INTL','EMEA','APAC'].filter(function(id){return pkgMine(id);}).length;}catch(e){return 0;}}
+  function navBadge(id){return id==='my'?myReviewCount():0;}
+  function navSecPending(sec){return !!(sec.kids&&sec.kids.some(function(k){return navBadge(k[0])>0;}));}
+  function navSecChevron(){return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>';}
   function navIcon(k){
     var p={home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',doc:'<path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/>',stack:'<rect x="4" y="4" width="16" height="5" rx="1"/><rect x="4" y="12" width="16" height="5" rx="1"/>',
       cal:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
@@ -2002,24 +2042,36 @@
   var REV_TABS={frov:1,my:1,all:1,mtrend:1,frtpl:1,frlib:1,frmap:1,fradmin:1};
   function navIsReview(k){return !!REV_TABS[k];}
   function navReviewBack(){railMode='modules';renderNav();}
+  var navOpen;  /* id of the currently open accordion section; derived from the active route */
+  function navSecToggle(id){
+    if(document.body.classList.contains('nav-collapsed')){document.body.classList.remove('nav-collapsed');try{localStorage.setItem('korvyn.nav','0');}catch(e){}navOpen=id;}
+    else{navOpen=(navOpen===id?null:id);}
+    renderNav();
+  }
   function renderNav(){
     if(railMode==='reviews'&&typeof renderReviewsNav==='function'){renderReviewsNav();return;}
-    var counts={home:'',my:REVIEWS.length,all:REVIEWS.length,close:'',knowledge:knowledgeItems().length,evidence:EVIDENCE.length,audit:'',controls:(ctlOpenCount(ACTIVE_PERIOD)||''),
-      periods:(RP_PERIODS.filter(function(p){return !p.locked;}).length||''),'repo-upload':'','repo-coa':(rpUnmappedCount()||''),'repo-ledger':(ldgExceptions('2026-07').length||''),'repo-history':RP_UPLOADS.length};
+    if(typeof navOpen==='undefined')navOpen=navSectionFor(activeNav);
     var h='';
-    NAV.forEach(function(grp){
-      if(grp.g)h+='<div class="nh">'+grp.g+'</div>';
-      grp.items.forEach(function(it){
-        if(it.tree==='periods'){h+=periodTreeHTML();return;}
-        var c=counts[it[0]];
-        h+='<div class="nitem'+(activeNav===it[0]?' on':'')+'" data-nav="'+it[0]+'">'+navIcon(it[2])+'<span>'+it[1]+'</span>'+(c?'<span class="nc">'+c+'</span>':'')+'</div>';
-      });
-      h+='<div class="nsp"></div>';
+    NAV_SECTIONS.forEach(function(sec){
+      if(!sec.kids){
+        var la=activeNav===sec.route;
+        h+='<div class="nsec nsec-link'+(la?' on':'')+'" data-nav="'+sec.route+'" role="button" tabindex="0" aria-current="'+(la?'page':'false')+'"><span class="nsec-ic">'+navIcon(sec.icon)+'</span><span class="nsec-lbl">'+sec.label+'</span></div>';
+        return;
+      }
+      var contains=sec.kids.some(function(k){return k[0]===activeNav;});
+      var open=navOpen===sec.id;
+      h+='<div class="nsec nsec-hd'+(contains?' on':'')+(open?' open':'')+'" data-sec="'+sec.id+'" role="button" tabindex="0" aria-expanded="'+open+'"><span class="nsec-ic">'+navIcon(sec.icon)+(navSecPending(sec)?'<span class="nsec-dot"></span>':'')+'</span><span class="nsec-lbl">'+sec.label+'</span><span class="nsec-tw">'+navSecChevron()+'</span></div>';
+      if(open){
+        h+='<div class="nkids">';
+        sec.kids.forEach(function(k){var b=navBadge(k[0]);var ka=activeNav===k[0];
+          h+='<div class="nkid'+(ka?' on':'')+'" data-nav="'+k[0]+'" role="button" tabindex="0" aria-current="'+(ka?'page':'false')+'"><span class="nkid-lbl">'+k[1]+'</span>'+(b?'<span class="nkid-b">'+b+'</span>':'')+'</div>';});
+        h+='</div>';
+      }
     });
     h+='<button class="navcollapse" id="navToggle"><span class="nav-cicon">'+navChevron()+'</span><span class="nctxt">Collapse</span></button>';
     $('#nav').innerHTML=h;
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem'),function(el){el.onclick=function(){navTo(this.getAttribute('data-nav'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.navfolder'),function(el){el.onclick=function(){navExpandToggle(this.getAttribute('data-exp'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nsec-hd'),function(el){el.onclick=function(){navSecToggle(this.getAttribute('data-sec'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();navSecToggle(this.getAttribute('data-sec'));}};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nsec-link,.nkid'),function(el){el.onclick=function(){navTo(this.getAttribute('data-nav'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();navTo(this.getAttribute('data-nav'));}};});
     var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
     syncNavToggle();
   }
@@ -2100,7 +2152,7 @@
     document.body.classList.toggle('flux-view', k==='mtrend');
     if(typeof rpNewPeriodClose==='function')rpNewPeriodClose();
     if(k!=='mtrend')RP_OPEN_REVIEW=null;
-    activeNav=(k.indexOf('period:')===0)?'periods':k;railMode=navIsReview(activeNav)?'reviews':'modules';renderNav();
+    activeNav=(k.indexOf('period:')===0)?'periods':k;railMode=navIsReview(activeNav)?'reviews':'modules';var _ns=navSectionFor(activeNav);if(_ns)navOpen=_ns;renderNav();
     if(k==='home'||k==='close'){renderHome();if(k==='close')window.scrollTo({top:0,behavior:'smooth'});}
     else if(k==='my'){renderMyReviews();window.scrollTo(0,0);}
     else if(k==='all'){renderTeamReviews();window.scrollTo(0,0);}
