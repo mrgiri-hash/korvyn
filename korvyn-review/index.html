@@ -1689,6 +1689,50 @@
   .rp-ov-fold svg{color:var(--muted)}
   .rp-ov-fn{font-size:var(--fs-13);font-weight:500;color:var(--ink)}
   .rp-ov-fc{font-size:var(--fs-12);color:var(--faint)}
+  /* folder-level control / sign-off gate */
+  .rp-fctrl{display:flex;align-items:center;gap:7px;font-size:var(--fs-11)}
+  .rp-ov-fold .rp-fctrl{margin-top:7px}
+  .rp-subf-c{flex-wrap:wrap}
+  .rp-subf-c .rp-fctrl{flex-basis:100%;margin-top:8px}
+  .rp-fbar{flex:0 0 46px;height:4px;border-radius:2px;background:var(--line-2);overflow:hidden}
+  .rp-fbar span{display:block;height:100%;background:var(--accent)}
+  .rp-fpct{color:var(--muted);font-variant-numeric:tabular-nums;min-width:28px}
+  .rp-fstage{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-fctrl.g-done .rp-fbar span{background:var(--pos)} .rp-fctrl.g-done .rp-fstage{color:var(--pos)}
+  .rp-fctrl.g-ready .rp-fbar span{background:var(--warn)} .rp-fctrl.g-ready .rp-fstage{color:var(--warn)}
+  .rp-fctrl.g-blocked .rp-fbar span{background:var(--neg)} .rp-fctrl.g-blocked .rp-fstage{color:var(--neg)}
+  .rp-fctrl.g-none{opacity:.5}
+  /* collections tree (replaces folder tiles) */
+  .rp-tree{padding:0;overflow:hidden}
+  .rp-tr{display:flex;align-items:center;gap:8px;height:32px;border-bottom:1px solid var(--line);cursor:pointer;padding-right:14px}
+  .rp-tr:last-child{border-bottom:0}
+  .rp-tr:hover{background:var(--surface-2)}
+  .rp-tr-tw{width:12px;flex:0 0 auto;color:var(--faint);font-size:10px;text-align:center}
+  .rp-tr>svg{color:var(--muted);flex:0 0 auto;width:15px;height:15px}
+  .rp-tr-n{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .rp-tr-fold .rp-tr-n{font-weight:500}
+  .rp-tr-fold[data-tw="bs"] .rp-tr-n,.rp-tr-fold[data-tw="is"] .rp-tr-n,.rp-tr-fold[data-tw="cf"] .rp-tr-n,.rp-tr-fold[data-tw="fn"] .rp-tr-n,.rp-tr-fold[data-tw="mgmt"] .rp-tr-n{text-transform:uppercase;letter-spacing:.03em}
+  .rp-tr-ct{color:var(--faint);font-size:var(--fs-11);min-width:16px}
+  .rp-tr-fold .rp-fctrl{margin-left:auto;flex:0 0 auto;max-width:210px}
+  .rp-tr-rev .rp-tr-n{color:var(--ink-2)}
+  .rp-tr-type{color:var(--faint);font-size:var(--fs-11);white-space:nowrap}
+  .rp-tr-need{color:var(--neg);font-size:var(--fs-11);white-space:nowrap}
+  .rp-tr-rev .rp-oreview{margin-left:auto}
+  /* one section per statement, same tree inside */
+  .rp-csec{margin-bottom:18px}
+  .rp-csec-hd{display:flex;align-items:center;gap:10px;padding:0 2px 8px}
+  .rp-csec-nm{font-family:var(--mono);font-size:var(--fs-14);font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}
+  .rp-csec-ct{font-size:var(--fs-11);color:var(--faint)}
+  .rp-csec-hd .rp-fctrl{margin-left:auto;max-width:220px}
+  /* statement selector — one section shown at a time */
+  .rp-cstabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .rp-cstab{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);font-family:var(--mono);font-size:var(--fs-12);letter-spacing:.02em;color:var(--ink-2);cursor:pointer}
+  .rp-cstab:hover{border-color:var(--faint);color:var(--ink)}
+  .rp-cstab.on{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+  .rp-cstab-n{font-size:var(--fs-11);color:var(--faint);font-variant-numeric:tabular-nums}
+  .rp-cstab.on .rp-cstab-n{color:rgba(255,255,255,.7)}
+  .rp-cstab.g-blocked:not(.on){border-color:var(--neg)}
+  .rp-cstab.g-blocked:not(.on) .rp-cstab-nm::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--neg);margin-left:6px;vertical-align:middle}
   .rp-hub{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
   .rp-hub-c{gap:5px}
   .rp-hub-d{font-size:var(--fs-12);color:var(--muted);line-height:1.4}
@@ -4226,54 +4270,65 @@
   var RP_PSTATUS={'Planning':'plan','Open':'open','In Review':'review','Controller Review':'ctrl','Closed':'done','Archived':'arch'};
   /* period workspace folder tree (top level == the period contextual nav) */
   var RP_WS_FOLDERS=[
-    {id:'consol',name:'Consolidated',parent:null,count:6,cons:'MGP'},
-    {id:'corp',name:'Corporate & HoldCo',parent:null,count:9},
-    {id:'corp-c',name:'Corporate Group',parent:'corp',count:4,cons:'AMER'},
-    {id:'corp-h',name:'HoldCo Group',parent:'corp',count:5,cons:'AMER'},
-    {id:'regions',name:'Regions',parent:null,count:31},
-    {id:'reg-amer',name:'Americas',parent:'regions',count:9,cons:'AMER'},
-    {id:'reg-emea',name:'EMEA',parent:'regions',count:11,cons:'EMEA'},
-    {id:'reg-apac',name:'APAC',parent:'regions',count:7,cons:'APAC'},
-    {id:'reg-eur',name:'Europe',parent:'regions',count:4,cons:'EMEA'},
-    {id:'entities',name:'Entities',parent:null,count:41,scope:'247 legal entities'},
-    {id:'functions',name:'Functions',parent:null,count:14},
-    {id:'ccy',name:'Currency Views',parent:null,count:9},
-    {id:'custom',name:'Custom Reviews',parent:null,count:12},
-    {id:'archived',name:'Archived',parent:null,count:6,arch:true}
+    {id:'bs',name:'Balance Sheet',parent:null,stmt:'bs'},
+      {id:'bs-con',name:'Consolidated',parent:'bs',cons:'MGP'},
+      {id:'bs-amer',name:'Americas',parent:'bs',cons:'AMER'},
+      {id:'bs-emea',name:'EMEA',parent:'bs',cons:'EMEA'},
+        {id:'bs-emea-de',name:'Germany DC01',parent:'bs-emea',cons:'EMEA'},
+        {id:'bs-emea-uk',name:'UK HoldCo',parent:'bs-emea',cons:'EMEA'},
+        {id:'bs-emea-fr',name:'France Operations',parent:'bs-emea',cons:'EMEA'},
+      {id:'bs-apac',name:'APAC',parent:'bs',cons:'APAC'},
+        {id:'bs-apac-1042',name:'Entity 1042',parent:'bs-apac',cons:'APAC'},
+    {id:'is',name:'Income Statement',parent:null,stmt:'is'},
+      {id:'is-con',name:'Consolidated',parent:'is',cons:'MGP'},
+      {id:'is-amer',name:'Americas',parent:'is',cons:'AMER'},
+      {id:'is-emea',name:'EMEA',parent:'is',cons:'EMEA'},
+      {id:'is-apac',name:'APAC',parent:'is',cons:'APAC'},
+    {id:'cf',name:'Cash Flow',parent:null,stmt:'cf'},
+      {id:'cf-con',name:'Consolidated',parent:'cf',cons:'MGP'},
+    {id:'fn',name:'Functional Reviews',parent:null},
+      {id:'fn-ppe',name:'Fixed Assets & PP&E',parent:'fn'},
+      {id:'fn-de',name:'Debt & Equity',parent:'fn'},
+      {id:'fn-ic',name:'Intercompany',parent:'fn'},
+      {id:'fn-rev',name:'Revenue',parent:'fn'},
+    {id:'mgmt',name:'Management & Other',parent:null},
+      {id:'mgmt-mr',name:'Management Reviews',parent:'mgmt'},
+      {id:'mgmt-ccy',name:'Currency Views',parent:'mgmt'},
+      {id:'mgmt-cust',name:'Custom Reviews',parent:'mgmt'}
   ];
   var RP_REVIEWS=[
-    {id:'cbs',folder:'consol',name:'Consolidated Balance Sheet Flux',type:'Flux',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'ctrl',need:2,upd:'1h ago'},
-    {id:'cis',folder:'consol',name:'Consolidated Income Statement Flux',type:'Flux',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'inprog',need:1,upd:'3h ago'},
-    {id:'ccf',folder:'consol',name:'Cash Flow Review',type:'Cash Flow',cons:'MGP',owner:'Sofia Chen',rev:'DO',status:'inprog',need:0,upd:'5h ago'},
-    {id:'cmr',folder:'consol',name:'Consolidated Management Review',type:'Management',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'notstarted',need:0,upd:'1d ago'},
-    {id:'ccbs',folder:'corp-c',name:'Balance Sheet Flux',type:'Flux',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'inprog',need:1,upd:'2h ago'},
-    {id:'ccox',folder:'corp-c',name:'Operating Expense Review',type:'Variance',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'needexpl',need:3,upd:'4h ago'},
-    {id:'chbs',folder:'corp-h',name:'Balance Sheet Flux',type:'Flux',cons:'AMER',owner:'Maya Grant',rev:'DO',status:'inprog',need:0,upd:'6h ago'},
-    {id:'chde',folder:'corp-h',name:'Debt and Equity Review',type:'Functional',cons:'AMER',owner:'Maya Grant',rev:'DO',status:'needexpl',need:2,upd:'1h ago'},
-    {id:'chic',folder:'corp-h',name:'Intercompany Review',type:'Functional',cons:'AMER',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'8h ago'},
-    {id:'abs',folder:'reg-amer',name:'Balance Sheet Flux',type:'Flux',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'ready',need:0,upd:'2h ago'},
-    {id:'ais',folder:'reg-amer',name:'Income Statement Flux',type:'Flux',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'inprog',need:1,upd:'3h ago'},
-    {id:'appe',folder:'reg-amer',name:'PP&E Review',type:'Functional',cons:'AMER',owner:'Priya Nair',rev:'MG',status:'inprog',need:0,upd:'1d ago'},
-    {id:'ercbs',folder:'reg-emea',name:'Reporting Currency BS Flux',type:'Flux',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:2,upd:'1h ago'},
-    {id:'elcbs',folder:'reg-emea',name:'Local Currency BS Flux',type:'Flux',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'needexpl',need:2,upd:'30m ago'},
-    {id:'eis',folder:'reg-emea',name:'Income Statement Flux',type:'Flux',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'4h ago'},
-    {id:'appc',folder:'reg-apac',name:'Balance Sheet Flux',type:'Flux',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'notstarted',need:0,upd:'2d ago'},
-    {id:'apcis',folder:'reg-apac',name:'Income Statement Flux',type:'Flux',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'inprog',need:1,upd:'1d ago'},
-    {id:'ede',folder:'entities',name:'Germany DC01',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'needexpl',need:1,upd:'20m ago'},
-    {id:'euk',folder:'entities',name:'UK HoldCo',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:0,upd:'5h ago'},
-    {id:'efr',folder:'entities',name:'France Operations',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'7h ago'},
-    {id:'e1042',folder:'entities',name:'Entity 1042',type:'Entity Review',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'notstarted',need:0,upd:'2d ago'},
-    {id:'ffa',folder:'functions',name:'Fixed Assets Movement',type:'Fixed Assets',engine:'fixed-assets',cons:'MGP',owner:'Priya Nair',rev:'DO',status:'inprog',need:1,upd:'3h ago'},
-    {id:'fprop',folder:'functions',name:'Property Portfolio Review',type:'Property',engine:'property',cons:'MGP',owner:'Priya Nair',rev:'MG',status:'needexpl',need:2,upd:'2h ago'},
-    {id:'frev',folder:'functions',name:'Revenue',type:'Revenue',engine:'revenue',cons:'MGP',owner:'Sofia Chen',rev:'DO',status:'ready',need:0,upd:'6h ago'},
-    {id:'fdebt',folder:'functions',name:'Treasury & Debt Review',type:'Treasury',engine:'treasury',cons:'MGP',owner:'Maya Grant',rev:'DO',status:'inprog',need:1,upd:'1d ago'},
-    {id:'fic',folder:'functions',name:'Intercompany',type:'Functional',cons:'MGP',owner:'Julia Alvarez',rev:'DO',status:'needexpl',need:2,upd:'2h ago'},
-    {id:'crc',folder:'ccy',name:'Reporting Currency',type:'Currency View',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'inprog',need:0,upd:'4h ago'},
-    {id:'clc',folder:'ccy',name:'Local Currency',type:'Currency View',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'5h ago'},
-    {id:'ccc',folder:'ccy',name:'Constant Currency',type:'Currency View',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'notstarted',need:0,upd:'1d ago'},
-    {id:'cebitda',folder:'custom',name:'Management Adjusted EBITDA',type:'Management',cons:'MGP',owner:'Maya Grant',rev:'DO',status:'inprog',need:0,upd:'2h ago'},
-    {id:'cdev',folder:'custom',name:'Development Projects',type:'Custom',cons:'AMER',owner:'Priya Nair',rev:'MG',status:'inprog',need:1,upd:'8h ago'},
-    {id:'cboard',folder:'custom',name:'Board Reporting Review',type:'Management',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'notstarted',need:0,upd:'2d ago'}
+    {id:'cbs',folder:'bs-con',name:'Consolidated Balance Sheet Flux',type:'Flux',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'ctrl',need:2,upd:'1h ago'},
+    {id:'cis',folder:'is-con',name:'Consolidated Income Statement Flux',type:'Flux',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'inprog',need:1,upd:'3h ago'},
+    {id:'ccf',folder:'cf-con',name:'Cash Flow Review',type:'Cash Flow',cons:'MGP',owner:'Sofia Chen',rev:'DO',status:'inprog',need:0,upd:'5h ago'},
+    {id:'cmr',folder:'mgmt-mr',name:'Consolidated Management Review',type:'Management',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'notstarted',need:0,upd:'1d ago'},
+    {id:'ccbs',folder:'bs-amer',name:'Balance Sheet Flux',type:'Flux',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'inprog',need:1,upd:'2h ago'},
+    {id:'ccox',folder:'is-amer',name:'Operating Expense Review',type:'Variance',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'needexpl',need:3,upd:'4h ago'},
+    {id:'chbs',folder:'bs-amer',name:'Balance Sheet Flux',type:'Flux',cons:'AMER',owner:'Maya Grant',rev:'DO',status:'inprog',need:0,upd:'6h ago'},
+    {id:'chde',folder:'fn-de',name:'Debt and Equity Review',type:'Functional',cons:'AMER',owner:'Maya Grant',rev:'DO',status:'needexpl',need:2,upd:'1h ago'},
+    {id:'chic',folder:'fn-ic',name:'Intercompany Review',type:'Functional',cons:'AMER',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'8h ago'},
+    {id:'abs',folder:'bs-amer',name:'Balance Sheet Flux',type:'Flux',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'ready',need:0,upd:'2h ago'},
+    {id:'ais',folder:'is-amer',name:'Income Statement Flux',type:'Flux',cons:'AMER',owner:'Sofia Chen',rev:'MG',status:'inprog',need:1,upd:'3h ago'},
+    {id:'appe',folder:'fn-ppe',name:'PP&E Review',type:'Functional',cons:'AMER',owner:'Priya Nair',rev:'MG',status:'inprog',need:0,upd:'1d ago'},
+    {id:'ercbs',folder:'bs-emea',name:'Reporting Currency BS Flux',type:'Flux',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:2,upd:'1h ago'},
+    {id:'elcbs',folder:'bs-emea',name:'Local Currency BS Flux',type:'Flux',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'needexpl',need:2,upd:'30m ago'},
+    {id:'eis',folder:'is-emea',name:'Income Statement Flux',type:'Flux',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'4h ago'},
+    {id:'appc',folder:'bs-apac',name:'Balance Sheet Flux',type:'Flux',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'notstarted',need:0,upd:'2d ago'},
+    {id:'apcis',folder:'is-apac',name:'Income Statement Flux',type:'Flux',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'inprog',need:1,upd:'1d ago'},
+    {id:'ede',folder:'bs-emea-de',name:'Germany DC01',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'needexpl',need:1,upd:'20m ago'},
+    {id:'euk',folder:'bs-emea-uk',name:'UK HoldCo',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:0,upd:'5h ago'},
+    {id:'efr',folder:'bs-emea-fr',name:'France Operations',type:'Entity Review',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'7h ago'},
+    {id:'e1042',folder:'bs-apac-1042',name:'Entity 1042',type:'Entity Review',cons:'APAC',owner:'Sofia Chen',rev:'PN',status:'notstarted',need:0,upd:'2d ago'},
+    {id:'ffa',folder:'fn-ppe',name:'Fixed Assets Movement',type:'Fixed Assets',engine:'fixed-assets',cons:'MGP',owner:'Priya Nair',rev:'DO',status:'inprog',need:1,upd:'3h ago'},
+    {id:'fprop',folder:'fn-ppe',name:'Property Portfolio Review',type:'Property',engine:'property',cons:'MGP',owner:'Priya Nair',rev:'MG',status:'needexpl',need:2,upd:'2h ago'},
+    {id:'frev',folder:'fn-rev',name:'Revenue',type:'Revenue',engine:'revenue',cons:'MGP',owner:'Sofia Chen',rev:'DO',status:'ready',need:0,upd:'6h ago'},
+    {id:'fdebt',folder:'fn-de',name:'Treasury & Debt Review',type:'Treasury',engine:'treasury',cons:'MGP',owner:'Maya Grant',rev:'DO',status:'inprog',need:1,upd:'1d ago'},
+    {id:'fic',folder:'fn-ic',name:'Intercompany',type:'Functional',cons:'MGP',owner:'Julia Alvarez',rev:'DO',status:'needexpl',need:2,upd:'2h ago'},
+    {id:'crc',folder:'mgmt-ccy',name:'Reporting Currency',type:'Currency View',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'inprog',need:0,upd:'4h ago'},
+    {id:'clc',folder:'mgmt-ccy',name:'Local Currency',type:'Currency View',cons:'EMEA',owner:'Julia Alvarez',rev:'MG',status:'inprog',need:1,upd:'5h ago'},
+    {id:'ccc',folder:'mgmt-ccy',name:'Constant Currency',type:'Currency View',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'notstarted',need:0,upd:'1d ago'},
+    {id:'cebitda',folder:'mgmt-mr',name:'Management Adjusted EBITDA',type:'Management',cons:'MGP',owner:'Maya Grant',rev:'DO',status:'inprog',need:0,upd:'2h ago'},
+    {id:'cdev',folder:'mgmt-cust',name:'Development Projects',type:'Custom',cons:'AMER',owner:'Priya Nair',rev:'MG',status:'inprog',need:1,upd:'8h ago'},
+    {id:'cboard',folder:'mgmt-mr',name:'Board Reporting Review',type:'Management',cons:'MGP',owner:'Group Reporting',rev:'DO',status:'notstarted',need:0,upd:'2d ago'}
   ];
   var RP_RSTATUS={notstarted:['Not started','ns'],inprog:['In progress','ip'],needexpl:['Needs explanation','ne'],ready:['Ready for controller','rd'],done:['Completed','dn'],ctrl:['Controller review','cr']};
   var RP_ACTIVITY=[
@@ -4293,7 +4348,25 @@
   function rpPeriod(id){for(var i=0;i<RP_CLOSE_PERIODS.length;i++)if(RP_CLOSE_PERIODS[i].id===id)return RP_CLOSE_PERIODS[i];return RP_CLOSE_PERIODS[0];}
   function rpFolder(id){for(var i=0;i<RP_WS_FOLDERS.length;i++)if(RP_WS_FOLDERS[i].id===id)return RP_WS_FOLDERS[i];return null;}
   function rpFolderReviews(id){return RP_REVIEWS.filter(function(r){return r.folder===id;});}
-  function rpChildFolders(id){return RP_WS_FOLDERS.filter(function(f){return f.parent===id;});}
+  function rpChildFolders(id){return RP_WS_FOLDERS.filter(function(f){return f.parent===id&&!f.hidden;});}
+  /* roll every review beneath a folder (incl. subfolders) up to a control state — this is
+     what puts a sign-off gate at every stage of the tree. */
+  function rpFolderAllReviews(fid){var out=rpFolderReviews(fid);rpChildFolders(fid).forEach(function(k){out=out.concat(rpFolderAllReviews(k.id));});return out;}
+  function rpFolderCount(fid){return rpFolderAllReviews(fid).length;}
+  function rpFolderCtrl(fid){
+    var rs=rpFolderAllReviews(fid),total=rs.length;
+    var doneN=rs.filter(function(r){return r.status==='done';}).length;
+    var needN=rs.filter(function(r){return r.status==='needexpl';}).length;
+    var readyN=rs.filter(function(r){return r.status==='ready'||r.status==='ctrl';}).length;
+    var pct=total?Math.round(doneN/total*100):0, stage,gate;
+    if(!total){stage='Empty';gate='none';}
+    else if(doneN===total){stage='Certified';gate='done';}
+    else if(needN){stage=needN+' need explanation';gate='blocked';}
+    else if((readyN+doneN)===total){stage='Ready for controller';gate='ready';}
+    else {stage='In progress';gate='open';}
+    return {total:total,done:doneN,need:needN,ready:readyN,pct:pct,stage:stage,gate:gate};
+  }
+  function rpCtrlChip(fid){var c=rpFolderCtrl(fid);return '<span class="rp-fctrl g-'+c.gate+'" title="'+esc(c.stage)+' &middot; '+c.done+'/'+c.total+' signed off"><span class="rp-fbar"><span style="width:'+c.pct+'%"></span></span><span class="rp-fpct">'+c.pct+'%</span><span class="rp-fstage">'+esc(c.stage)+'</span></span>';}
   function rpPStatusPill(s){return '<span class="rp-st p-'+(RP_PSTATUS[s]||'open')+'">'+esc(s)+'</span>';}
   function rpRStatusPill(s){var m=RP_RSTATUS[s]||['Open','ip'];return '<span class="rp-st r-'+m[1]+'">'+esc(m[0])+'</span>';}
   function rpCrumb(parts){return '<div class="rp-crumb">'+parts.map(function(p,i){var last=i===parts.length-1;return (last?'<span class="rp-cr-cur">'+esc(p.label)+'</span>':'<button class="rp-cr" data-go="'+(p.go||'')+'">'+esc(p.label)+'</button>')+(last?'':'<span class="rp-cr-sep">/</span>');}).join('')+'</div>';}
@@ -4392,7 +4465,7 @@
   function rpStat(v,l,tone){return '<div class="rp-s"><div class="rp-sv '+(tone||'')+'">'+v+'</div><div class="rp-sl">'+l+'</div></div>';}
   /* ===== Phase 3: workspace-thinking refinement — compact bars, project-explorer tree, favorites/recent, context menus ===== */
   function rpSumBar(items){return '<div class="rp-sumbar">'+items.map(function(it,i){return (i?'<span class="rp-sb-sep"></span>':'')+'<span class="rp-sb-i'+(it[2]?' '+it[2]:'')+'"><b>'+it[0]+'</b> '+it[1]+'</span>';}).join('')+'</div>';}
-  var RP_FAVORITES=[{kind:'review',id:'ercbs'},{kind:'folder',id:'reg-emea'}];
+  var RP_FAVORITES=[{kind:'review',id:'ercbs'},{kind:'folder',id:'bs-emea'}];
   var RP_RECENT=[], RP_WS_FIND='';
   function rpIsFav(kind,id){return RP_FAVORITES.some(function(f){return f.kind===kind&&f.id===id;});}
   function rpFavToggle(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&f.id===id)i=j;});if(i>=0)RP_FAVORITES.splice(i,1);else RP_FAVORITES.unshift({kind:kind,id:id});renderPeriodWorkspace();}
@@ -4429,25 +4502,44 @@
     h+=rpSumBar([[p.reviews,'Reviews'],[p.inprog,'In Progress'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Review'],[p.done,'Completed']]);
     /* content-first: one horizontal sub-nav (no second sidebar) + full-width body */
     var searching=!!RP_WS_FIND;
-    var tab=selF?'collections':(sel==='__myreviews'?'myreviews':sel==='__collections'?'collections':'overview');
+    var tab=(sel==='__myreviews')?'myreviews':'collections';
     h+='<div class="pw-tabs">';
-    h+='<button class="pw-tab'+(!searching&&tab==='overview'?' on':'')+'" data-pwtab="overview">Overview</button>';
-    h+='<button class="pw-tab'+(!searching&&tab==='myreviews'?' on':'')+'" data-pwtab="myreviews">My reviews</button>';
     h+='<button class="pw-tab'+(!searching&&tab==='collections'?' on':'')+'" data-pwtab="collections">Collections</button>';
+    h+='<button class="pw-tab'+(!searching&&tab==='myreviews'?' on':'')+'" data-pwtab="myreviews">My reviews</button>';
     h+='<span class="pw-tabs-sp"></span><span class="pw-search"><input class="rp-ws-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></span></div>';
     var wsBody=searching?rpSearchBody()
       :(sel==='__structure')?rpStructureEditor()
       :(sel==='__myreviews')?rpMyReviewsList(p)
-      :(sel==='__collections')?rpCollectionsGrid()
       :selF?rpFolderContent(selF)
-      :rpPeriodOverview(p);
+      :rpCollectionsTree();
     h+='<div class="pw-body">'+wsBody+'</div>';
     $('#view').innerHTML=h;
     rpWireWorkspace();rpWireStructure();
   }
-  function rpCollectionsGrid(){
-    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">Collections</h2><div class="rp-ws-desc">Browse this period&rsquo;s reviews by folder</div></div><div class="rp-ws-hd-act"><button class="btn sm rp-newfolder">+ Folder</button></div></div>';
-    h+='<div class="rp-ov-dir">'+RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).map(function(f){return '<button class="rp-ov-fold" data-ws="'+f.id+'">'+rpIcon('folder')+'<span class="rp-ov-fn">'+esc(f.name)+'</span><span class="rp-ov-fc">'+f.count+' reviews</span></button>';}).join('')+'</div>';
+  var RP_COL_EXPAND={};  /* which collection folders (regions/entities) are expanded within their statement section */
+  function rpTreeNode(f,depth){
+    var kids=rpChildFolders(f.id), revs=rpFolderReviews(f.id), open=!!RP_COL_EXPAND[f.id], has=kids.length||revs.length, n=rpFolderCount(f.id);
+    var pad=10+depth*18;
+    var h='<div class="rp-tr rp-tr-fold'+(open?' open':'')+'" data-tw="'+f.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw">'+(has?(open?'&#9662;':'&#9656;'):'')+'</span>'+rpIcon('folder')+'<span class="rp-tr-n">'+esc(f.name)+'</span><span class="rp-tr-ct">'+n+'</span>'+rpCtrlChip(f.id)+'</div>';
+    if(open){
+      kids.forEach(function(k){h+=rpTreeNode(k,depth+1);});
+      revs.forEach(function(r){h+='<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+(10+(depth+1)*18+10)+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'<button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></div>';});
+    }
+    return h;
+  }
+  var RP_COL_STMT='bs';  /* which statement section is shown in Collections */
+  function rpTreeRevRow(r,pad){return '<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'<button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></div>';}
+  function rpCollectionsTree(){
+    var tops=RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;});
+    if(!rpFolder(RP_COL_STMT))RP_COL_STMT=(tops[0]||{}).id;
+    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">Collections</h2><div class="rp-ws-desc">Pick a statement; scope rolls up its sign-off gate</div></div><div class="rp-ws-hd-act"><button class="btn sm rp-treeexp">Expand all</button><button class="btn sm rp-newfolder">+ Folder</button></div></div>';
+    h+='<div class="rp-cstabs">'+tops.map(function(f){var ct=rpFolderCtrl(f.id),n=rpFolderCount(f.id);return '<button class="rp-cstab g-'+ct.gate+(RP_COL_STMT===f.id?' on':'')+'" data-cst="'+f.id+'"><span class="rp-cstab-nm">'+esc(f.name)+'</span><span class="rp-cstab-n">'+n+'</span></button>';}).join('')+'</div>';
+    var f=rpFolder(RP_COL_STMT); if(!f)return h;
+    var n=rpFolderCount(f.id);
+    h+='<div class="rp-csec"><div class="rp-csec-hd"><span class="rp-csec-nm">'+esc(f.name)+'</span><span class="rp-csec-ct">'+n+' review'+(n===1?'':'s')+'</span>'+rpCtrlChip(f.id)+'</div><div class="card rp-tree">';
+    rpChildFolders(f.id).forEach(function(k){h+=rpTreeNode(k,0);});
+    rpFolderReviews(f.id).forEach(function(r){h+=rpTreeRevRow(r,20);});
+    h+='</div></div>';
     return h;
   }
   function rpSearchBody(){
@@ -4496,15 +4588,15 @@
     }
   }
   function rpFolderContent(f){
-    var revs=rpFolderReviews(f.id);
-    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">'+esc(f.name)+'</h2><div class="rp-ws-desc">'+(f.scope?esc(f.scope)+' &middot; ':'')+f.count+' review'+(f.count===1?'':'s')+' in this folder</div></div><div class="rp-ws-hd-act"><button class="btn sm rp-newreview">+ Review</button><button class="btn sm rp-newfolder">+ Subfolder</button></div></div>';
+    var revs=rpFolderReviews(f.id), tot=rpFolderCount(f.id), ctrl=rpFolderCtrl(f.id);
+    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">'+esc(f.name)+'</h2><div class="rp-ws-desc">'+(f.scope?esc(f.scope)+' &middot; ':'')+tot+' review'+(tot===1?'':'s')+' &middot; '+ctrl.done+'/'+ctrl.total+' signed off</div></div><div class="rp-ws-hd-act">'+rpCtrlChip(f.id)+'<button class="btn sm rp-newreview">+ Review</button><button class="btn sm rp-newfolder">+ Subfolder</button></div></div>';
     var kids=rpChildFolders(f.id);
-    if(kids.length){h+='<div class="rp-subf">'+kids.map(function(k){return '<button class="rp-subf-c" data-ws="'+k.id+'">'+rpIcon('folder')+'<span class="rp-subf-n">'+esc(k.name)+'</span><span class="rp-subf-ct">'+k.count+' reviews</span></button>';}).join('')+'</div>';}
+    if(kids.length){h+='<div class="rp-subf">'+kids.map(function(k){var n=rpFolderCount(k.id);return '<button class="rp-subf-c" data-ws="'+k.id+'">'+rpIcon('folder')+'<span class="rp-subf-n">'+esc(k.name)+'</span><span class="rp-subf-ct">'+n+' review'+(n===1?'':'s')+'</span>'+rpCtrlChip(k.id)+'</button>';}).join('')+'</div>';}
     if(revs.length){
       h+='<div class="card rvw-card"><div class="rvw-scroll"><table class="rvw-tbl rp-rtbl"><thead><tr><th class="l">Review</th><th class="l">Type</th><th class="l">Status</th><th>Needs expl.</th><th class="l">Owner</th><th class="l">Reviewer</th><th class="l">Updated</th><th></th></tr></thead><tbody>';
       revs.forEach(function(r){h+='<tr class="rp-rrow" data-rid="'+r.id+'"><td class="l rvw-nm">'+esc(r.name)+'</td><td class="l rp-sub">'+esc(r.type)+'</td><td class="l">'+rpRStatusPill(r.status)+'</td><td class="rvw-num '+(r.need?'warn':'')+'">'+(r.need||'&mdash;')+'</td><td class="l rvw-ppl"><span class="rvw-av">'+esc(rpInit(r.owner))+'</span>'+esc(r.owner)+'</td><td class="l rvw-ppl"><span class="rvw-av rev">'+esc(r.rev)+'</span>'+pkgRevName(r.rev)+'</td><td class="l rp-sub">'+esc(r.upd)+'</td>'+rpReviewActions(r)+'</tr>';});
       h+='</tbody></table></div></div>';
-      if(f.count>revs.length)h+='<div class="ldg-note">Showing '+revs.length+' of '+f.count+' reviews in this folder &mdash; a representative set for the prototype. Opening a review launches the Flux review canvas scoped to '+esc(f.name)+'.</div>';
+      if(kids.length)h+='<div class="ldg-note">'+revs.length+' review'+(revs.length===1?'':'s')+' directly in '+esc(f.name)+'; '+(tot-revs.length)+' more in its sub-folders. Sign-off rolls up: this folder can’t certify until every level beneath it is signed.</div>';
     } else if(!kids.length){ h+='<div class="rp-empty">No reviews in this folder yet. <button class="rp-link rp-newreview">Create the first review &rarr;</button></div>'; }
     return h;
   }
@@ -4566,6 +4658,10 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tn'),function(el){el.oncontextmenu=function(e){e.preventDefault();e.stopPropagation();rpCtxMenu(this.getAttribute('data-ctx'),this.getAttribute('data-id'),e.clientX,e.clientY);};});
     var find=document.querySelector('#view .rp-ws-find');if(find)find.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderPeriodWorkspace();var n=document.querySelector('#view .rp-ws-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-subf-c, #view .rp-ov-fold'),function(b){b.onclick=function(){rpWsSelect(this.getAttribute('data-ws'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cstab'),function(b){b.onclick=function(){RP_COL_STMT=this.getAttribute('data-cst');renderPeriodWorkspace();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-fold'),function(b){b.onclick=function(){var k=this.getAttribute('data-tw');RP_COL_EXPAND[k]=!RP_COL_EXPAND[k];renderPeriodWorkspace();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-rev'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
+    var texp=document.querySelector('#view .rp-treeexp');if(texp)texp.onclick=function(){var all={};RP_WS_FOLDERS.forEach(function(f){if(!f.hidden&&(rpChildFolders(f.id).length||rpFolderReviews(f.id).length))all[f.id]=true;});var anyClosed=Object.keys(all).some(function(k){return !RP_COL_EXPAND[k];});RP_COL_EXPAND=anyClosed?all:{};renderPeriodWorkspace();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rrow, #view .rp-li'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-oreview'),function(b){b.onclick=function(e){e.stopPropagation();rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-newreview'),function(b){b.onclick=rpNewReviewOpen;});
@@ -5021,7 +5117,7 @@
   var RP_SCOPES=['Consolidated group','Corporate group','HoldCo group','Region','Country','Legal entity','Fund','Project','Business unit','Functional area','Custom scope'];
   var RP_DESIGN=null, RP_DESIGN_SEL=null, RP_DESIGN_ADD=null;
   function rpDefaultDesign(seed){
-    return {name:seed&&seed.name||'Untitled Review',type:seed&&seed.type||'Flux Analysis',scope:seed&&seed.scope||'Region',ccy:seed&&seed.ccy||'reporting',folder:seed&&seed.folder||'reg-emea',owner:seed&&seed.owner||'Maya Grant',reviewer:seed&&seed.reviewer||'David Okafor',
+    return {name:seed&&seed.name||'Untitled Review',type:seed&&seed.type||'Flux Analysis',scope:seed&&seed.scope||'Region',ccy:seed&&seed.ccy||'reporting',folder:seed&&seed.folder||'bs-amer',owner:seed&&seed.owner||'Maya Grant',reviewer:seed&&seed.reviewer||'David Okafor',
       rows:[{t:'section',label:'Non-current assets'},{t:'glacct',label:'Land'},{t:'glacct',label:'Buildings'},{t:'glacct',label:'Data Center Equipment'},{t:'glacct',label:'Construction in Progress'},{t:'subtotal',label:'Net PP&E'}],
       cols:[{t:'feb',label:'February'},{t:'mar',label:'March'},{t:'mom',label:'Change'},{t:'mompct',label:'Change %'},{t:'expl',label:'Explanation'},{t:'evidence',label:'Evidence'}],
       matAbs:5000000,matPct:8};
@@ -5031,7 +5127,7 @@
   function rpNewReviewOpen(){document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderNewReview();}
   function rpRenderNewReview(){
     var d=document.getElementById('rpDrawer');if(!d)return;
-    var folderOpts=RP_WS_FOLDERS.map(function(f){return '<option value="'+f.id+'"'+(f.id==='reg-emea'?' selected':'')+'>'+esc((f.parent?'   ':'')+f.name)+'</option>';}).join('');
+    var folderOpts=RP_WS_FOLDERS.map(function(f){return '<option value="'+f.id+'"'+(f.id==='bs-amer'?' selected':'')+'>'+esc((f.parent?'   ':'')+f.name)+'</option>';}).join('');
     var h='<div class="rp-dr-hd"><div class="t">Create Review</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
     h+='<div class="rp-dr-sec">Basic information</div>';
     h+=rpField('Review name','<input class="rp-in" id="rpNrName" value="Local Currency PP&amp;E Flux">');
