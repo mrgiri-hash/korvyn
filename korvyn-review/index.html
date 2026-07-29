@@ -557,6 +557,15 @@
   .fxg tr.fx-det>td.fx-line::after{content:"";position:absolute;left:24px;top:50%;width:9px;border-top:1px solid var(--line-2)}
   .fx-line-txt{vertical-align:middle}
   .fx-acct{display:inline-block;min-width:46px;color:var(--faint);font-size:var(--fs-12);margin-right:10px}
+  /* Prior/Current period template: month columns recede, subtotals are emphasised and start a group */
+  .fxg th.fx-permo,.fxg td.fx-permo{color:var(--muted);font-weight:400}
+  .fxg col.c-permo{width:74px}
+  .fxg th.fx-subcol{font-weight:600}
+  .fxg td.fx-subcol{font-weight:500}
+  .fxg th.fx-subcol,.fxg td.fx-subcol{border-left:1px solid var(--line-2)}
+  .fxg th.fx-grpstart,.fxg td.fx-grpstart{border-left:1px solid var(--line-2)}
+  .fx-colexp{border:1px solid var(--line-2);background:var(--surface-2);color:var(--muted);border-radius:3px;font-family:var(--mono);font-size:10px;line-height:1;padding:1px 4px;margin-right:6px;cursor:pointer;vertical-align:middle}
+  .fx-colexp:hover{color:var(--ink);border-color:var(--faint)}
   .fx-drill{margin-left:10px;font-size:var(--fs-12);color:var(--accent);opacity:0;text-decoration:none;cursor:pointer;white-space:nowrap}
   .fx-det:hover .fx-drill,.fx-det.txnopen .fx-drill{opacity:1}
   .fx-det.txnopen .fx-drill{font-weight:600}
@@ -2144,6 +2153,10 @@
   .rp-tl-m.on{background:var(--accent);color:#fff;font-weight:500}
   .rp-tl-sp{width:1px;height:16px;background:var(--line-2);margin:0 4px}
   .rp-tl-cmp{height:26px;border:1px solid var(--line-2);border-radius:2px;background:var(--bg);font:inherit;font-size:var(--fs-13);color:var(--ink);padding:0 6px}
+  .rp-tl-basis{display:inline-flex;gap:2px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:4px;padding:2px}
+  .rp-tl-bseg{background:none;border:0;font:inherit;font-size:var(--fs-12);font-weight:500;letter-spacing:.02em;color:var(--muted);cursor:pointer;padding:3px 13px;border-radius:2px}
+  .rp-tl-bseg:hover{color:var(--ink)}
+  .rp-tl-bseg.on{background:var(--accent);color:#fff}
   .fxi-tl{display:flex;gap:11px;position:relative}
   .fxi-tl-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--accent);margin-top:4px;flex-shrink:0;position:relative;z-index:1}
   .fxi-tl:not(:last-child) .fxi-tl-dot::after{content:'';position:absolute;top:9px;left:1.5px;width:2px;height:calc(100% + 14px);background:var(--line)}
@@ -3992,6 +4005,7 @@
   var fluxShowNotes=true, fluxShowSupport=true;  /* column visibility (hide for a clean statement / print) */
   var fluxShowSplit=false;  /* Organic vs FX-translation split columns — hidden by default (plain reporting view); toggle in the Columns menu */
   var fluxShowComments=true;  /* comment text in the Explanation column — view/hide toggle in the View menu */
+  var fluxColExp=false;  /* period columns: collapsed = prior/current subtotals only; expanded = reveal the months in each period group */
   /* GL drill-down (ported from the flux-analysis mockup): expand an account to its real postings */
   function fluxTxnRows(acct,month){return E_rows().filter(function(r){return r.acct===acct&&r.period===month;}).sort(function(a,b){return Math.abs(b.amount)-Math.abs(a.amount);});}
   function fluxTxnDetail(acct){
@@ -4117,9 +4131,9 @@
   /* FX (translation) portion of a reported move, summed across the in-scope entities.
      v1*(1 - R0/R1) revalues the current volume at the prior rate; the remainder is organic. */
   function fxFxPart(accts,ti,priIdx){
-    var ents=fluxScopeEnts()||E_ENT.map(function(e){return e.id;}), isBS=fluxStmt==='bs', part=0;
+    var ents=fluxScopeEnts()||E_ENT.map(function(e){return e.id;}), isBS=fluxStmt==='bs', part=0, wstep=rpCompareOffset();
     ents.forEach(function(eid){ var R1=fxRate(eid,ti),R0=fxRate(eid,priIdx); if(R1===R0)return;
-      var v1=0; accts.forEach(function(a){ v1+=fxEntValue([a],eid,ti,isBS); });
+      var v1=0; accts.forEach(function(a){ if(a.type==='Revenue'||a.type==='Expense'){ for(var j=Math.max(0,ti-wstep+1);j<=ti;j++)v1+=fxEntValue([a],eid,j,false); } else v1+=fxEntValue([a],eid,ti,isBS); });
       part+=v1*(1-(R1?R0/R1:1)); });
     return part;
   }
@@ -4283,13 +4297,12 @@
         '<td class="l rvw-ppl"><span class="rvw-av rev">'+st.rev+'</span>'+pkgRevName(st.rev)+'</td>'+
         '<td class="l rvw-due'+(od?' over':'')+'">'+st.due+(od?' &middot; overdue':'')+'</td>'+
         '<td class="l rvw-sign-cell"><div class="rvw-track" title="'+esc(PKG_STLABEL[stg])+'">'+dots+'</div><span class="rvw-stg s-'+stg+'">'+PKG_STLABEL[stg]+'</span></td>'+
-        '<td class="l rvw-acts">'+act+'<button class="rvw-open" data-pkg="'+id+'">Open &rarr;</button></td></tr>';
+        '<td class="l rvw-acts">'+act+'</td></tr>';
     });
     h+='</tbody></table></div></div>';
     h+='<div class="ldg-note">Packages follow the consolidation tree &mdash; '+CONS_GROUPS.length+' groups over '+E_ENT.length+' reporting entities standing in for ~1,000 subsidiaries. Material moves use <b>component materiality</b>: the flag threshold scales with each group&rsquo;s size, so a move immaterial to the group can still be material inside a sub-consolidation. A parent can be <b>group-signed only after its sub-groups are signed</b> &mdash; sign Meridian EMEA and Asia-Pacific to unblock International. Counts derive from the tied-out ledger; opening a package scopes the Flux review to that group.</div>';
     $('#view').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-row'),function(r){r.onclick=function(){pkgOpen(this.getAttribute('data-pkg'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-open'),function(b){b.onclick=function(e){e.stopPropagation();pkgOpen(this.getAttribute('data-pkg'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-sign'),function(b){b.onclick=function(e){e.stopPropagation();pkgAdvance(this.getAttribute('data-pkg'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-cl'),function(c){c.onclick=function(){var acct=this.getAttribute('data-clacct');if(acct)fluxFind=acct;pkgOpen(this.getAttribute('data-clopen'));};});
   }
@@ -4489,7 +4502,7 @@
     var _shown=rpPeriodsFiltered().length, _total=RP_CLOSE_PERIODS.length, _anyF=RP_PFILTER.q||RP_PFILTER.status!=='All'||RP_PFILTER.range!=='l12'||RP_PFILTER.type!=='All';
     h+='<div class="rp-filt"><span class="rp-fsearch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="rp-pfind" placeholder="Search by month or year&hellip;" value="'+esc(RP_PFILTER.q)+'"></span>'+tfSel()+fsel('status','Status',_statuses)+fsel('type','Type',_types)+'<span class="rp-fcount">'+_shown+' of '+_total+'</span>'+(_anyF?'<button class="rp-fclear">Clear</button>':'')+'</div>';
     h+='<div class="rp-gbbar"><span class="rp-gb-l">Group by</span>'+[['none','None'],['year','Year'],['type','Type'],['status','Status']].map(function(o){return '<button class="rp-gb-b'+(RP_PERIOD_GROUP===o[0]?' on':'')+'" data-gb="'+o[0]+'">'+o[1]+'</button>';}).join('')+'<span class="rp-gb-l" style="margin-left:auto">Order</span>'+[['desc','Newest first'],['asc','Oldest first']].map(function(o){return '<button class="rp-gb-b'+(RP_PORDER===o[0]?' on':'')+'" data-ord="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
-    h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl"><thead><tr><th class="l">Period</th><th class="l">Status</th><th>Reviews</th><th>Completion</th><th>Open expl.</th><th>Ready</th><th class="l">Owner</th><th class="l">Last activity</th><th></th></tr></thead><tbody>';
+    h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl"><thead><tr><th class="l">Period</th><th class="l">Status</th><th>Reviews</th><th>Completion</th><th>Open expl.</th><th>Ready</th><th class="l">Owner</th><th class="l">Last activity</th></tr></thead><tbody>';
     function pRow(p){var pct=p.reviews?Math.round(p.done/p.reviews*100):0;
       var lk=rpPeriodLocked(p);
       var lockBtn='<button class="rp-plock2'+(lk?' on':'')+'" data-pid="'+p.id+'" title="'+(lk?'Unlock period — make editable':'Lock period — make read-only')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="'+(lk?'M8 11V7a4 4 0 0 1 8 0v4':'M8 11V7a4 4 0 0 1 7.6-1.2')+'"/></svg></button>';
@@ -4500,11 +4513,10 @@
         '<td class="rp-num '+(p.needexpl?'warn':'')+'">'+(p.needexpl||'&mdash;')+'</td>'+
         '<td class="rp-num">'+(p.ready||'&mdash;')+'</td>'+
         '<td class="l rp-ppl"><span class="rvw-av">'+esc(p.owner.split(' ').map(function(w){return w[0];}).join('').slice(0,2))+'</span>'+esc(p.owner)+'</td>'+
-        '<td class="l rp-sub">'+esc(p.last)+'</td>'+
-        '<td class="l"><button class="rvw-open rp-open" data-pid="'+p.id+'">Open &rarr;</button></td></tr>';
+        '<td class="l rp-sub">'+esc(p.last)+'</td></tr>';
     }
     var flist=rpPeriodsFiltered();
-    if(!flist.length){ h+='<tr><td colspan="9" class="l" style="padding:22px;text-align:center;color:var(--faint)">No periods match your filters.</td></tr>'; }
+    if(!flist.length){ h+='<tr><td colspan="8" class="l" style="padding:22px;text-align:center;color:var(--faint)">No periods match your filters.</td></tr>'; }
     else if(RP_PERIOD_GROUP==='none'){ flist.forEach(function(p){h+=pRow(p);}); }
     else {
       var gr={},ord=[];
@@ -4513,7 +4525,7 @@
       ord.forEach(function(k){
         var col=!!RP_GRP_COLLAPSED[k];
         var gd=gr[k].reduce(function(a,p){return a+p.done;},0), gt=gr[k].reduce(function(a,p){return a+p.reviews;},0);
-        h+='<tr class="rp-grp-row'+(col?' col':'')+'" data-grp="'+esc(k)+'"><td class="l rp-grp-h" colspan="9"><span class="rp-grp-tw">'+(col?'&#9656;':'&#9662;')+'</span>'+esc(k)+'<span class="rp-grp-n">'+gr[k].length+' period'+(gr[k].length>1?'s':'')+(gt?' &middot; '+Math.round(gd/gt*100)+'% complete':'')+'</span></td></tr>';
+        h+='<tr class="rp-grp-row'+(col?' col':'')+'" data-grp="'+esc(k)+'"><td class="l rp-grp-h" colspan="8"><span class="rp-grp-tw">'+(col?'&#9656;':'&#9662;')+'</span>'+esc(k)+'<span class="rp-grp-n">'+gr[k].length+' period'+(gr[k].length>1?'s':'')+(gt?' &middot; '+Math.round(gd/gt*100)+'% complete':'')+'</span></td></tr>';
         if(!col)gr[k].forEach(function(p){h+=pRow(p);});
       });
     }
@@ -4602,15 +4614,15 @@
     var badge='';
     if(kids.length){var rc=rpRollupCert(f.id);badge='<span title="Sub-folder sign-off roll-up" style="margin:0 5px;font-size:var(--fs-11);'+(rc.certified?'color:var(--pos)':'color:var(--muted)')+'">'+(rc.certified?'&#10003; ':'')+rc.signed+'/'+rc.total+' cert.</span>';}
     else if(rpSoComplete(f)){badge='<span title="Certified &amp; locked" style="color:var(--pos);margin:0 5px">&#128274;&#10003;</span>';}
-    var h='<div class="rp-tr rp-tr-fold'+(open?' open':'')+'" data-tw="'+f.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw">'+(has?(open?'&#9662;':'&#9656;'):'')+'</span>'+rpIcon('folder')+'<span class="rp-tr-n">'+esc(f.name)+'</span>'+badge+'<span class="rp-tr-ct">'+n+'</span>'+rpCtrlChip(f.id)+'<button class="rvw-open rp-ofolder" data-fid="'+f.id+'">Open &rarr;</button></div>';
+    var h='<div class="rp-tr rp-tr-fold'+(open?' open':'')+'" data-tw="'+f.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw">'+(has?(open?'&#9662;':'&#9656;'):'')+'</span>'+rpIcon('folder')+'<span class="rp-tr-n">'+esc(f.name)+'</span>'+badge+'<span class="rp-tr-ct">'+n+'</span>'+rpCtrlChip(f.id)+'</div>';
     if(open){
       kids.forEach(function(k){h+=rpTreeNode(k,depth+1);});
-      revs.forEach(function(r){h+='<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+(10+(depth+1)*18+10)+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'<button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></div>';});
+      revs.forEach(function(r){h+='<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+(10+(depth+1)*18+10)+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'</div>';});
     }
     return h;
   }
   var RP_COL_STMT='bs';  /* which statement section is shown in Collections */
-  function rpTreeRevRow(r,pad){return '<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'<button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></div>';}
+  function rpTreeRevRow(r,pad){return '<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'</div>';}
   function rpCollectionsTree(){
     var tops=RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;});
     if(!rpFolder(RP_COL_STMT))RP_COL_STMT=(tops[0]||{}).id;
@@ -4698,8 +4710,8 @@
     var att=RP_REVIEWS.filter(function(r){return r.status==='needexpl'||r.status==='ready';});
     var h='<div class="rp-ov-sec"><div class="rp-ov-h">Needs attention <span class="rp-ov-ct">'+att.length+'</span></div>';
     if(att.length){
-      h+='<div class="card rvw-card"><div class="rvw-scroll"><table class="rvw-tbl rp-rtbl"><thead><tr><th class="l">Review</th><th class="l">Folder</th><th class="l">Reason</th><th class="l">Owner</th><th class="l">Status</th><th></th></tr></thead><tbody>';
-      att.forEach(function(r){var f=rpFolder(r.folder);h+='<tr class="rp-rrow" data-rid="'+r.id+'"><td class="l rvw-nm">'+esc(r.name)+'</td><td class="l rp-sub">'+esc(f?f.name:'')+'</td><td class="l rp-sub">'+rpAttReason(r)+'</td><td class="l rvw-ppl"><span class="rvw-av">'+esc(rpInit(r.owner))+'</span>'+esc(r.owner)+'</td><td class="l">'+rpRStatusPill(r.status)+'</td><td class="l"><button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></td></tr>';});
+      h+='<div class="card rvw-card"><div class="rvw-scroll"><table class="rvw-tbl rp-rtbl"><thead><tr><th class="l">Review</th><th class="l">Folder</th><th class="l">Reason</th><th class="l">Owner</th><th class="l">Status</th></tr></thead><tbody>';
+      att.forEach(function(r){var f=rpFolder(r.folder);h+='<tr class="rp-rrow" data-rid="'+r.id+'"><td class="l rvw-nm">'+esc(r.name)+'</td><td class="l rp-sub">'+esc(f?f.name:'')+'</td><td class="l rp-sub">'+rpAttReason(r)+'</td><td class="l rvw-ppl"><span class="rvw-av">'+esc(rpInit(r.owner))+'</span>'+esc(r.owner)+'</td><td class="l">'+rpRStatusPill(r.status)+'</td></tr>';});
       h+='</tbody></table></div></div>';
     } else { h+='<div class="rp-empty">Nothing needs attention &mdash; every review in this period is on track.</div>'; }
     h+='</div>';
@@ -4740,7 +4752,7 @@
       setTimeout(function(){el.classList.remove('fx-focus');},2200);
     },40);
   }
-  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}var tg=rpReviewTarget(r);if(!r.engine)fluxStmt=tg.stmt||'bs';var focusSec=r.engine?null:(tg.sec||null);rpSoloSection(focusSec);RC_FOCUS_SEC=focusSec;navTo('mtrend');}
+  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;fluxColExp=false;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}var tg=rpReviewTarget(r);if(!r.engine)fluxStmt=tg.stmt||'bs';var focusSec=r.engine?null:(tg.sec||null);rpSoloSection(focusSec);RC_FOCUS_SEC=focusSec;navTo('mtrend');}
   function rpWireWorkspace(){
     Array.prototype.forEach.call(document.querySelectorAll('#view .pw-tab'),function(b){b.onclick=function(){pwTab(this.getAttribute('data-pwtab'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;
@@ -4752,12 +4764,10 @@
     var find=document.querySelector('#view .rp-ws-find');if(find)find.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderPeriodWorkspace();var n=document.querySelector('#view .rp-ws-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-subf-c, #view .rp-ov-fold'),function(b){b.onclick=function(){rpWsSelect(this.getAttribute('data-ws'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cstab'),function(b){b.onclick=function(){RP_COL_STMT=this.getAttribute('data-cst');renderPeriodWorkspace();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-fold'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ofolder'))return;var k=this.getAttribute('data-tw');RP_COL_EXPAND[k]=!RP_COL_EXPAND[k];renderPeriodWorkspace();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ofolder'),function(b){b.onclick=function(e){e.stopPropagation();rpWsSelect(this.getAttribute('data-fid'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-fold'),function(b){b.onclick=function(e){var k=this.getAttribute('data-tw');if(e.target.closest('.rp-tr-tw')){RP_COL_EXPAND[k]=!RP_COL_EXPAND[k];renderPeriodWorkspace();}else{rpWsSelect(k);}};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-rev'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
     var texp=document.querySelector('#view .rp-treeexp');if(texp)texp.onclick=function(){var all={};RP_WS_FOLDERS.forEach(function(f){if(!f.hidden&&(rpChildFolders(f.id).length||rpFolderReviews(f.id).length))all[f.id]=true;});var anyClosed=Object.keys(all).some(function(k){return !RP_COL_EXPAND[k];});RP_COL_EXPAND=anyClosed?all:{};renderPeriodWorkspace();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rrow, #view .rp-li'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-oreview'),function(b){b.onclick=function(e){e.stopPropagation();rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-newreview'),function(b){b.onclick=rpNewReviewOpen;});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-managestruct'),function(b){b.onclick=function(){rpWsSelect('__structure');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rollfwd'),function(b){b.onclick=rpRollFwdOpen;});
@@ -4910,7 +4920,7 @@
   /* ---- review lenses + search: which detail rows pass ---- */
   function fluxFilterActive(){ return fluxLens.material||fluxLens.needs||fluxLens.unfav||fluxLens.noevid||fluxLens.reviewed||!!fluxFind; }
   function fxGroupKeyOf(acct){ return fluxGroupBy==='segment'?(FLUX_SEG[acct]||''):((FLUX_MAP[acct]||{}).report||''); }
-  function fxLineNote(acct,mTo){ var an=FLUX_COMMENTS[acct+':'+mTo]; if(an)return an; var gk=fxGroupKeyOf(acct); return gk?FLUX_COMMENTS[gk+':'+mTo]:null; }
+  function fxLineNote(acct,mTo){ var sfx=rpBasisSuffix(); var an=FLUX_COMMENTS[acct+':'+mTo+sfx]; if(an)return an; var gk=fxGroupKeyOf(acct); return gk?FLUX_COMMENTS[gk+':'+mTo+sfx]:null; }
   function fxAcctPass(a,ti,priIdx,mTo){
     if(fluxFind){ if((a.acct+' '+a.name).toLowerCase().indexOf(fluxFind.toLowerCase())<0)return false; }
     if(!(fluxLens.material||fluxLens.needs||fluxLens.unfav||fluxLens.noevid||fluxLens.reviewed))return true;
@@ -4928,12 +4938,12 @@
     if(!fluxSel||fluxSel.stmt!==fluxStmt)return null;
     var led=glLedger(), P=fluxPeriods(led), ti=P.ti, mTo=led.months[ti], isBS=fluxStmt==='bs';
     var assetA=led.accounts.filter(function(a){return a.type==='Asset';}), liabA=led.accounts.filter(function(a){return a.type==='Liability';});
-    if(fluxSel.kind==='eq')return {label:'Net position (retained earnings)',sub:'Assets &minus; liabilities · consolidated',accts:assetA.concat(liabA),isBS:true,cmtId:'Equity:'+mTo,netpos:true,assetA:assetA,liabA:liabA};
+    if(fluxSel.kind==='eq')return {label:'Net position (retained earnings)',sub:'Assets &minus; liabilities · consolidated',accts:assetA.concat(liabA),isBS:true,cmtId:'Equity:'+mTo+rpBasisSuffix(),netpos:true,assetA:assetA,liabA:liabA};
     if(fluxSel.kind==='det'){ var a=led.accounts.filter(function(x){return x.acct===fluxSel.keyName;})[0]; if(!a)return null;
-      var seg=FLUX_SEG[a.acct]||''; return {label:a.name,sub:'Account '+a.acct+(seg?' · '+seg:''),accts:[a],isBS:isBS,cmtId:a.acct+':'+mTo}; }
+      var seg=FLUX_SEG[a.acct]||''; return {label:a.name,sub:'Account '+a.acct+(seg?' · '+seg:''),accts:[a],isBS:isBS,cmtId:a.acct+':'+mTo+rpBasisSuffix()}; }
     var grp=null; fluxSections(led,fluxStmt).forEach(function(s){s.groups.forEach(function(g){if(g.report===fluxSel.keyName)grp=g;});});
     if(!grp)return null;
-    return {label:grp.caption,sub:grp.accts.length+' accounts · '+fluxSel.keyName+(fluxGroupBy==='segment'?' segment':''),accts:grp.accts,isBS:isBS,cmtId:grp.report+':'+mTo};
+    return {label:grp.caption,sub:grp.accts.length+' accounts · '+fluxSel.keyName+(fluxGroupBy==='segment'?' segment':''),accts:grp.accts,isBS:isBS,cmtId:grp.report+':'+mTo+rpBasisSuffix()};
   }
   function fxDrivers(info,ti,priIdx){
     var sc=fluxScopeEnts(), list=sc?E_ENT.filter(function(e){return sc.indexOf(e.id)>=0;}):E_ENT;
@@ -5261,7 +5271,7 @@
     var h='<div class="rp-crumb rpc-canvas">'+crumbs.map(function(c,i){var last=i===crumbs.length-1;return (last?'<span class="rp-cr-cur">'+esc(c.label)+'</span>':'<button class="rp-cr" data-cgo="'+c.go+'">'+esc(c.label)+'</button>')+(last?'':'<span class="rp-cr-sep">/</span>');}).join('')+'</div>';
     var perName=p.name.replace(' Close','');
     var meta=[['Owner',esc(r.owner)],['Reviewer',esc(pkgRevName(r.rev))],['Period',esc(perName)],['Reporting currency','USD']];
-    h+='<div class="rvc-hd"><div class="rvc-hd-top"><h1 class="rvc-title">'+esc(r.name)+'</h1><div class="rvc-act"><button class="btn rpc-gov" title="Review information &amp; governance">Governance</button><button class="btn primary rpc-submit">Submit for review</button></div></div><div class="rvc-meta"><span class="rp-st r-'+st[1]+'">'+st[0]+'</span>'+meta.map(function(m){return '<span class="rvc-m"><span class="rvc-m-k">'+m[0]+'</span>'+m[1]+'</span>';}).join('')+'</div></div>';
+    h+='<div class="rvc-hd"><div class="rvc-hd-top"><h1 class="rvc-title">'+esc(r.name)+'</h1><div class="rvc-act"><button class="btn primary rpc-submit">Submit for review</button></div></div><div class="rvc-meta"><span class="rp-st r-'+st[1]+'">'+st[0]+'</span>'+meta.map(function(m){return '<span class="rvc-m"><span class="rvc-m-k">'+m[0]+'</span>'+m[1]+'</span>';}).join('')+'</div></div>';
     if(typeof rpTimelineNav==='function')h+=rpTimelineNav();
     return h;
   }
@@ -5739,7 +5749,7 @@
       var opts=RP_WS_FOLDERS.filter(function(f){return !f.hidden&&rpChildFolders(f.id).length===0;}).map(function(f){return '<option value="'+f.id+'"'+(f.id===r.folder?' selected':'')+'>'+esc(f.name)+'</option>';}).join('');
       return '<td class="l rp-rv-move"><select class="rp-in rp-mv-sel" data-rid="'+r.id+'">'+opts+'</select><button class="rp-sa rp-mv-cancel">&times;</button></td>';
     }
-    return '<td class="l rp-rv-acts"><button class="rp-rv-a rp-rvmove" data-rid="'+r.id+'" title="Move to another folder">Move</button><button class="rp-rv-a rp-rvdup" data-rid="'+r.id+'" title="Duplicate">Duplicate</button><button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></td>';
+    return '<td class="l rp-rv-acts"><button class="rp-rv-a rp-rvmove" data-rid="'+r.id+'" title="Move to another folder">Move</button><button class="rp-rv-a rp-rvdup" data-rid="'+r.id+'" title="Duplicate">Duplicate</button></td>';
   }
   function rpWireStructure(){
     var nb=document.querySelector('#view .rp-fnew');if(nb)nb.onclick=function(){rpFolderCreate(this.getAttribute('data-parent')||null);};
@@ -5794,21 +5804,19 @@
   /* ===== Phase 4: persistent reviews — Timeline Navigator + Compare + line-item history ===== */
   var RP_COMPARE='prev';
   function rpCompareOffset(){return RP_COMPARE==='prevq'?3:RP_COMPARE==='prevy'?12:1;}
-  function rpSetPeriod(ti){var ms=glLedger().months;ti=Math.max(0,Math.min(ms.length-1,ti));fluxTo=ms[ti];fluxFrom=ms[Math.max(0,ti-rpCompareOffset())];rcRerender();}
-  function rpSetCompare(v){if(v==='custom'){rpToast('Custom period — set the comparison window in Configure.');if(typeof openFluxCfg==='function')openFluxCfg();return;}if(v==='budget'||v==='fcst'){rpToast((v==='budget'?'Budget':'Forecast')+' comparison — a later increment; showing prior period.');v='prev';}RP_COMPARE=v;var ms=glLedger().months,P=fluxPeriods(glLedger());fluxFrom=ms[Math.max(0,P.ti-rpCompareOffset())];rcRerender();}
+  /* Flux basis is a FIXED lens (MoM/QoQ/YoY). Explanations are scoped to the basis they were
+     written against, so July MoM, July QoQ and July YoY each keep their own static comment set.
+     MoM keeps the bare legacy key (no suffix) so existing/seeded explanations stay intact. */
+  function rpBasisSuffix(){return RP_COMPARE==='prev'?'':(':'+RP_COMPARE);}
+  function rpSetPeriod(ti){var ms=glLedger().months;ti=Math.max(0,Math.min(ms.length-1,ti));var P=fluxPeriods(glLedger());var span=Math.max(1,P.ti-P.fi);fluxTo=ms[ti];fluxFrom=ms[Math.max(0,ti-span)];rcRerender();}
+  function rpSetCompare(v){if(v!=='prev'&&v!=='prevq'&&v!=='prevy')v='prev';RP_COMPARE=v;rcRerender();}
   function rpTimelineNav(){
-    var led=glLedger(),ms=led.months,P=fluxPeriods(led),ti=P.ti;
-    var start=Math.max(0,ms.length-8),chips='';
-    for(var i=start;i<ms.length;i++){chips+='<button class="rp-tl-m'+(i===ti?' on':'')+'" data-tlm="'+i+'">'+flxLbl(ms[i])+'</button>';}
-    var cmp=[['prev','Previous month'],['prevq','Previous quarter'],['prevy','Previous year'],['budget','Budget'],['fcst','Forecast'],['custom','Custom period&hellip;']];
-    var h='<div class="rp-tl"><span class="rp-tl-k">Timeline</span><button class="rp-tl-arrow" data-tlnav="-1" title="Earlier">&#9664;</button><div class="rp-tl-months">'+chips+'</div><button class="rp-tl-arrow" data-tlnav="1" title="Later">&#9654;</button>';
-    h+='<span class="rp-tl-sp"></span><span class="rp-tl-k">Compare</span><select class="rp-tl-cmp">'+cmp.map(function(c){return '<option value="'+c[0]+'"'+(RP_COMPARE===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select></div>';
+    var bases=[['prev','MoM','vs prior month'],['prevq','QoQ','vs 3 months prior'],['prevy','YoY','vs 12 months prior']];
+    var h='<div class="rp-tl"><span class="rp-tl-k">Flux basis</span><div class="rp-tl-basis" role="tablist">'+bases.map(function(b){return '<button class="rp-tl-bseg'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+b[2]+'">'+b[1]+'</button>';}).join('')+'</div></div>';
     return h;
   }
   function rpWireTimeline(){
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tl-m'),function(b){b.onclick=function(){rpSetPeriod(+this.getAttribute('data-tlm'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tl-arrow'),function(b){b.onclick=function(){var P=fluxPeriods(glLedger());rpSetPeriod(P.ti+(+this.getAttribute('data-tlnav')));};});
-    var cmp=document.querySelector('#view .rp-tl-cmp');if(cmp)cmp.onchange=function(){rpSetCompare(this.value);};
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tl-bseg'),function(b){b.onclick=function(){rpSetCompare(this.getAttribute('data-basis'));};});
   }
   var FX_LINE_HISTORY={
     'PP&E':[
@@ -5900,11 +5908,23 @@
     };
   }
   function renderMonthlyTrend(){
-    var led=glLedger(), ms=led.months, P=fluxPeriods(led), fi=P.fi, ti=P.ti;
-    var cols=[]; for(var ci=fi;ci<=ti;ci++)cols.push(ci);
-    var nCols=cols.length, mFrom=ms[fi], mTo=ms[ti], priIdx=ti>0?ti-1:ti;
+    var led=glLedger(), ms=led.months, P=fluxPeriods(led), ti=P.ti;
+    var step=rpCompareOffset(), priIdx=Math.max(0, ti-step);
+    /* Columns auto-derive from the flux basis: MoM shows a monthly trend, QoQ steps by quarter,
+       YoY steps by year. The comparison endpoint (priIdx) is always included so the Δ is visible. */
+    var maxCols={1:6,3:4,12:3}[step]||6;
+    var cols=[]; for(var ci=ti; ci>=0 && cols.length<maxCols; ci-=step)cols.unshift(ci);
+    if(cols.indexOf(priIdx)<0)cols.unshift(priIdx);
+    var fi=cols[0], nCols=cols.length, mFrom=ms[fi], mTo=ms[ti];
+    var cmpNm={prev:'MoM',prevq:'QoQ',prevy:'YoY'}[RP_COMPARE]||'&Delta;';
+    if(fluxStmt==='both')fluxStmt='bs';  /* combined BS+IS view retired — flux is per-statement */
     var isBS=fluxStmt==='bs', isBoth=fluxStmt==='both', isIS=fluxStmt==='is';
-    function sum(accs,idx){return accs.reduce(function(s,a){return s+fxScopedVal(a,idx);},0);}
+    /* Value accessor honouring stock vs flow. Balance-sheet accounts are point-in-time (the ITD
+       closing balance at idx). P&L accounts are a rolling sum over the basis window (MoM=1, QoQ=3,
+       YoY=12 months ending at idx) — so QoQ compares this quarter's activity to last quarter's, and
+       YoY compares trailing-12 to the prior trailing-12. */
+    function fxV(a,idx){ if(idx<0)return 0; if(a.type!=='Revenue'&&a.type!=='Expense')return fxScopedVal(a,idx); var v=0; for(var j=Math.max(0,idx-step+1);j<=idx;j++)v+=fxScopedVal(a,j); return v; }
+    function sum(accs,idx){return accs.reduce(function(s,a){return s+fxV(a,idx);},0);}
     // ----- COLUMNS model: the pivot's column axis (Periods | Entities | Regions) -----
     var scEnts=fluxScopeEnts();
     function entList(){return scEnts?E_ENT.filter(function(e){return scEnts.indexOf(e.id)>=0;}):E_ENT;}
@@ -5917,15 +5937,37 @@
       COLS=regs.map(function(r){return {kind:'reg',eids:entList().filter(function(e){return (FX_ENT_META[e.id]||{}).region===r;}).map(function(e){return e.id;}),label:r.toUpperCase(),sub:''};});
       COLS.push({kind:'consol',label:'CONSOL',sub:'total',cur:true});
     } else {
-      COLS=cols.map(function(idx,k){return {kind:'per',idx:idx,label:flxLbl(ms[idx]).toUpperCase(),sub:k===nCols-1?'current':'',cur:k===nCols-1};});
+      /* Prior/Current period template. Each period is a collapsible group: collapsed shows only
+         the subtotal (windowed for P&L, period-end balance for BS); expanded reveals its months.
+         The variance columns (Δ, Δ%) follow the two subtotals. */
+      var pWord={1:'MONTH',3:'QUARTER',12:'12 MONTHS'}[step]||'PERIOD', canExp=step>1;
+      var curMon=[]; for(var cj=Math.max(0,ti-step+1);cj<=ti;cj++)curMon.push(cj);
+      var priMon=[]; for(var pj=Math.max(0,priIdx-step+1);pj<=priIdx;pj++)priMon.push(pj);
+      var rng=function(a){return a.length?(flxLbl(ms[a[0]])+(a.length>1?'&ndash;'+flxLbl(ms[a[a.length-1]]):'')):'';};
+      COLS=[];
+      if(canExp&&fluxColExp){
+        priMon.forEach(function(idx){COLS.push({kind:'month',idx:idx,label:flxLbl(ms[idx]).toUpperCase(),grp:'pri'});});
+        curMon.forEach(function(idx,i){COLS.push({kind:'month',idx:idx,label:flxLbl(ms[idx]).toUpperCase(),grp:'cur',gstart:i===0});});
+        COLS.push({kind:'sub',idx:priIdx,label:'PRIOR '+pWord,sub:'total',subCol:true,grp:'pri'});
+        COLS.push({kind:'sub',idx:ti,label:'CURRENT '+pWord,sub:'total',subCol:true,cur:true,grp:'cur'});
+      } else if(canExp){
+        COLS.push({kind:'sub',idx:priIdx,label:'PRIOR '+pWord,sub:rng(priMon),subCol:true,grp:'pri'});
+        COLS.push({kind:'sub',idx:ti,label:'CURRENT '+pWord,sub:rng(curMon),subCol:true,cur:true,grp:'cur'});
+      } else {
+        COLS.push({kind:'sub',idx:priIdx,label:flxLbl(ms[priIdx]).toUpperCase(),sub:'prior',subCol:true,grp:'pri'});
+        COLS.push({kind:'sub',idx:ti,label:flxLbl(ms[ti]).toUpperCase(),sub:'current',subCol:true,cur:true,grp:'cur'});
+      }
     }
     var nColShow=COLS.length, colByPeriod=(fluxCols==='periods');
-    function colVal(accts,c){ if(c.kind==='per')return accts.reduce(function(s,a){return s+fxScopedVal(a,c.idx);},0);
-      if(c.kind==='consol')return accts.reduce(function(s,a){return s+fxScopedVal(a,ti);},0);
+    function colClass(c,k){ if(c.kind==='month')return 'fx-permo'+(c.gstart?' fx-grpstart':''); if(c.kind==='sub')return 'fx-subcol'+(c.cur?' fx-cur-col':''); return (c.cur||k===COLS.length-1)?'fx-cur-col':''; }
+    function colVal(accts,c){ if(c.kind==='sub')return accts.reduce(function(s,a){return s+fxV(a,c.idx);},0);
+      if(c.kind==='month')return accts.reduce(function(s,a){return s+fxScopedVal(a,c.idx);},0);
+      if(c.kind==='per')return accts.reduce(function(s,a){return s+fxV(a,c.idx);},0);
+      if(c.kind==='consol')return accts.reduce(function(s,a){return s+fxV(a,ti);},0);
       return accts.reduce(function(s,a){var t=0;for(var i=0;i<c.eids.length;i++)t+=fxEntValue([a],c.eids[i],ti,isBS);return s+t;},0); }
-    function rowCells(accts){return COLS.map(function(c,k){return fxMoney(colVal(accts,c),(c.cur||k===COLS.length-1)?'fx-cur-col':'');}).join('');}
-    function rowCellsNet(A,B){return COLS.map(function(c,k){return fxMoney(colVal(A,c)-colVal(B,c),(c.cur||k===COLS.length-1)?'fx-cur-col':'');}).join('');}
-    function emptyCells(){return COLS.map(function(c,k){return '<td class="fx-money'+((c.cur||k===COLS.length-1)?' fx-cur-col':'')+'"></td>';}).join('')+'<td class="fx-money fx-sep"></td><td class="fx-money fx-org"></td><td class="fx-money fx-fxc"></td><td class="fx-pct"></td>';}
+    function rowCells(accts){return COLS.map(function(c,k){return fxMoney(colVal(accts,c),colClass(c,k));}).join('');}
+    function rowCellsNet(A,B){return COLS.map(function(c,k){return fxMoney(colVal(A,c)-colVal(B,c),colClass(c,k));}).join('');}
+    function emptyCells(){return COLS.map(function(c,k){return '<td class="fx-money '+colClass(c,k)+'"></td>';}).join('')+'<td class="fx-money fx-sep"></td><td class="fx-money fx-org"></td><td class="fx-money fx-fxc"></td><td class="fx-pct"></td>';}
     var secs=fluxSections(led,fluxStmt);
     var matCount=0,needCount=0,groupCount=0,lineCount=0,explained=0,outstandingEvid=0,readyApproval=0,matLeaves=[];
     secs.forEach(function(sec){sec.groups.forEach(function(g){groupCount++;g.accts.forEach(function(a){lineCount++;var cur=sum([a],ti),prev=sum([a],priIdx),mat=fxMatFlag(prev,cur),cm=fxLineNote(a.acct,mTo),acc=!!(cm&&cm.by);if(mat)matCount++;if(acc)explained++;if(mat&&!acc)needCount++;
@@ -5973,18 +6015,18 @@
     var chevD='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 8l6 6 6-6"/><path d="M6 14l6 6 6-6" opacity=".5"/></svg>';
     var chevU='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 16l6-6 6 6"/><path d="M6 10l6-6 6 6" opacity=".5"/></svg>';
     function fxrGrp(lbl,ctrls){return '<div class="fxr-grp"><div class="fxr-ctrls">'+ctrls+'</div><div class="fxr-lbl">'+lbl+'</div></div>';}
-    var dStmt='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+stmtLabel+'</summary><div class="fxm-pop">'+[['bs','Balance Sheet'],['is','Income Statement'],['both','Both']].map(function(t){return '<button class="fxm-opt fx-tb-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+(fluxStmt===t[0]?ckOn:ckOff)+t[1]+'</button>';}).join('')+'</div></details>';
+    var dStmt='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+stmtLabel+'</summary><div class="fxm-pop">'+[['bs','Balance Sheet'],['is','Income Statement']].map(function(t){return '<button class="fxm-opt fx-tb-tab'+(fluxStmt===t[0]?' on':'')+'" data-flx="'+t[0]+'">'+(fluxStmt===t[0]?ckOn:ckOff)+t[1]+'</button>';}).join('')+'</div></details>';
     var dRows='<details class="fxm"><summary class="fxm-sum">Rows<span class="fxm-cur">'+rowsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Group rows by</div>'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxm-opt fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+(fluxGroupBy===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'</div></details>';
     var dCols='<details class="fxm"><summary class="fxm-sum">Columns<span class="fxm-cur">'+colsCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Column axis</div>'+FLUX_COLS_OPTS.map(function(o){return '<button class="fxm-opt fxm-cols'+(fluxCols===o[0]?' on':'')+'" data-cols="'+o[0]+'">'+(fluxCols===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+(fluxCols==='periods'?('<div class="fxm-sep"></div><div class="fxm-h">Trend window</div>'+[[2,'Month over month'],[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months']].map(function(w){return '<button class="fxm-opt fxm-win'+(nCols===w[0]?' on':'')+'" data-win="'+w[0]+'">'+(nCols===w[0]?ckOn:ckOff)+w[1]+'</button>';}).join('')):'')+'<div class="fxm-sep"></div><div class="fxm-h">Currency detail</div><button class="fxm-opt fxm-split'+(fluxShowSplit?' on':'')+'">'+(fluxShowSplit?ckOn:ckOff)+'Organic &amp; FX split columns</button></div></details>';
     var expIcons='<button class="fxr-iconb fxm-exp2" data-exp="in" title="Expand one level (sections → rollups → accounts)">'+chevD+'</button><button class="fxr-iconb fxm-exp2" data-exp="out" title="Collapse one level">'+chevU+'</button>';
-    var dView='<details class="fxm"><summary class="fxm-sum">View</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Review mode</div>'+RC_MODES.map(function(m){return '<button class="fxm-opt rc-mode'+(RC_MODE===m[0]?' on':'')+'" data-rcmode="'+m[0]+'" title="'+esc(RC_MODE_HINT[m[0]]||'')+'">'+(RC_MODE===m[0]?ckOn:ckOff)+m[1]+'</button>';}).join('')+'<div class="fxm-h">Explanation column shows</div>'+RC_DISPLAYS.map(function(d){return '<button class="fxm-opt rc-dispopt'+(RC_DISPLAY===d[0]?' on':'')+'" data-disp="'+d[0]+'">'+(RC_DISPLAY===d[0]?ckOn:ckOff)+d[1]+'</button>';}).join('')+'<div class="fxm-sep"></div><button class="fxm-opt fxm-comments">'+(fluxShowComments?ckOn:ckOff)+'Explanation &amp; review column</button></div></details>';
+    var dView='<details class="fxm"><summary class="fxm-sum">View</summary><div class="fxm-pop fxm-pop-w"><button class="fxm-opt fxm-comments">'+(fluxShowComments?ckOn:ckOff)+'Explanation &amp; review column</button><div class="fxm-sep"></div><div class="fxm-h">Currency detail</div><button class="fxm-opt fxm-split'+(fluxShowSplit?' on':'')+'">'+(fluxShowSplit?ckOn:ckOff)+'Organic &amp; FX split columns</button></div></details>';
     var matOpts=(matPresets.indexOf(fluxMat)<0?'<button class="fxm-opt fxm-mat on" data-mat="'+fluxMat+'">'+ckOn+'&ge; '+fluxMat+'%</button>':'')+matPresets.map(function(o){return '<button class="fxm-opt fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">'+(fluxMat===o?ckOn:ckOff)+'&ge; '+o+'%</button>';}).join('');
     var dFilter='<details class="fxm'+(filterOn?' fxm-act':'')+'"><summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Materiality threshold</div>'+matOpts+'<div class="fxm-h">Show only</div>'+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'</div></details>';
     var dScope='<details class="fxm fxm-scopeM"><summary class="fxm-sum"><span class="fxm-scoK">Scope</span><span class="fxm-cur">'+esc(node.name)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Consolidation scope</div><select class="fxm-scope-sel">'+fluxScopeOptions(fluxScope)+'</select><div class="fxm-note2">Scopes the whole statement to a region, entity or the consolidated group.</div></div></details>';
-    var dSearch='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search line items&hellip;" value="'+esc(fluxFind)+'"></div>';
+    var dSearch='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search GL account or name&hellip;" value="'+esc(fluxFind)+'"></div>';
     var dActions=(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'')+'<details class="fx-tb-more"><summary class="fx-tb-morebtn" title="More actions">'+moreIco+'</summary><div class="fx-tb-menu"><button class="fx-tb-mi fx-saveview">&#9734; Save view</button><button class="fx-tb-mi fx-print">'+FX_PRINT_ICO+' Print statement</button><button class="fx-tb-mi fx-email">'+FX_MAIL_ICO+' Email summary</button><div class="fxm-sep"></div><button class="fx-tb-mi fx-cfg-open">'+FX_GEAR_ICO+' Advanced settings&hellip;</button></div></details>';
     h+='<div class="fx-ribbon'+(fluxRibbonExp?'':' fxr-collapsed')+'">';
-    h+=fxrGrp('Statement',dStmt)+'<div class="fxr-div"></div>'+fxrGrp('Layout',dRows+dCols+expIcons)+'<div class="fxr-div"></div>'+fxrGrp('Filter',dFilter)+'<div class="fxr-div"></div>'+fxrGrp('Review',dView)+'<div class="fxr-div"></div>'+fxrGrp('Scope',dScope);
+    h+=fxrGrp('Statement',dStmt)+'<div class="fxr-div"></div>'+fxrGrp('Layout',dRows+expIcons)+'<div class="fxr-div"></div>'+fxrGrp('Filter',dFilter)+'<div class="fxr-div"></div>'+fxrGrp('Review',dView)+'<div class="fxr-div"></div>'+fxrGrp('Scope',dScope);
     h+='<div class="fxr-grp fxr-right"><div class="fxr-ctrls">'+dSearch+dActions+'</div><div class="fxr-lbl">Actions</div></div>';
     h+='<button class="fxr-collapse" title="'+(fluxRibbonExp?'Collapse toolbar':'Expand toolbar')+'">'+(fluxRibbonExp?chevU:chevD)+'</button>';
     h+='</div>';
@@ -6002,12 +6044,12 @@
     // grid
     var extraCols=1;  // single compact Review column — the panel owns comments / evidence / workflow
     var minW=236+nColShow*(colByPeriod?98:118)+106+(fluxShowSplit?96+88:0)+74+300;
-    h+='<div class="fx-print-head"><div class="pph-org">Meridian Global Portfolio &middot; '+(fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel()))+'</div><div class="pph-title">'+(isBS?'Balance Sheet':isBoth?'Balance Sheet &amp; Income Statement':'Income Statement')+' &mdash; Flux &amp; Trending</div><div class="pph-sub">Period '+flxLbl(mFrom)+' &rarr; '+flxLbl(mTo)+' &middot; MoM &Delta; into '+flxLbl(mTo)+' &middot; Figures in USD</div></div>';
-    h+='<div class="fx-gridwrap"><table class="fxg'+(fluxShowSplit?'':' fxg-nosplit')+(fluxShowComments?'':' fx-nocomments')+'" style="min-width:'+minW+'px"><colgroup><col class="c-line">'+COLS.map(function(){return '<col class="'+(colByPeriod?'c-per':'c-ent')+'">';}).join('')+'<col class="c-chg"><col class="c-org"><col class="c-fx"><col class="c-pct"><col class="c-review"></colgroup>';
-    var dHead=colByPeriod?'MoM &Delta;<span class="sub">vs prior month</span>':'MoM &Delta;<span class="sub">into '+flxLbl(mTo)+'</span>';
+    h+='<div class="fx-print-head"><div class="pph-org">Meridian Global Portfolio &middot; '+(fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel()))+'</div><div class="pph-title">'+(isBS?'Balance Sheet':isBoth?'Balance Sheet &amp; Income Statement':'Income Statement')+' &mdash; Flux &amp; Trending</div><div class="pph-sub">Period '+flxLbl(mFrom)+' &rarr; '+flxLbl(mTo)+' &middot; '+cmpNm+' &Delta; into '+flxLbl(mTo)+' &middot; Figures in USD</div></div>';
+    h+='<div class="fx-gridwrap"><table class="fxg'+(fluxShowSplit?'':' fxg-nosplit')+(fluxShowComments?'':' fx-nocomments')+'" style="min-width:'+minW+'px"><colgroup><col class="c-line">'+COLS.map(function(c){return '<col class="'+(!colByPeriod?'c-ent':c.kind==='month'?'c-permo':'c-per')+'">';}).join('')+'<col class="c-chg"><col class="c-org"><col class="c-fx"><col class="c-pct"><col class="c-review"></colgroup>';
+    var dHead=colByPeriod?('Variance<span class="sub">'+cmpNm+' &Delta;</span>'):(cmpNm+' &Delta;<span class="sub">into '+flxLbl(mTo)+'</span>');
     h+='<thead><tr><th class="l fx-line">Line item</th>';
-    COLS.forEach(function(c,k){h+='<th class="fx-per'+((c.cur||k===COLS.length-1)?' fx-cur-col':'')+'">'+c.label+(c.sub?'<span class="sub">'+c.sub+'</span>':'')+'</th>';});
-    h+='<th class="fx-sep">'+dHead+'</th><th class="fx-org">Organic<span class="sub">const. ccy</span></th><th class="fx-fx">FX<span class="sub">translation</span></th><th>&Delta; %<span class="sub">vs prior</span></th>'+'<th class="l fx-rev-h">Explanation &amp; review</th></tr></thead><tbody>';
+    COLS.forEach(function(c,k){var caret=(c.kind==='sub'&&colByPeriod&&step>1)?'<button class="fx-colexp" title="'+(fluxColExp?'Collapse period detail':'Expand the months in each period')+'">'+(fluxColExp?'&minus;':'+')+'</button>':'';h+='<th class="fx-per '+colClass(c,k)+'">'+caret+c.label+(c.sub?'<span class="sub">'+c.sub+'</span>':'')+'</th>';});
+    h+='<th class="fx-sep">'+dHead+'</th><th class="fx-org">Organic<span class="sub">const. ccy</span></th><th class="fx-fx">FX<span class="sub">translation</span></th><th>&Delta; %<span class="sub">vs '+flxLbl(ms[priIdx])+'</span></th>'+'<th class="l fx-rev-h">Explanation &amp; review</th></tr></thead><tbody>';
     var stripe=0;
     /* favorability by account type: revenue up = favorable, expense up = unfavorable; other types stay neutral */
     function fxFav(accts){var t=accts&&accts.length?accts[0].type:'';return t==='Revenue'?' fx-favup':t==='Expense'?' fx-favdn':'';}
@@ -6028,8 +6070,8 @@
         var pass=fluxFilterActive()?g.accts.filter(function(a){return fxAcctPass(a,ti,priIdx,mTo);}):g.accts;
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
-        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
-        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+(FLUX_REMAP[a.acct]?'<span class="fx-remapped" title="Mapping overridden by a user">remapped</span>':'')+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a><button class="fx-remap" data-remap="'+a.acct+'" title="Change this account’s section / category mapping">Remap</button></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
+        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo+rpBasisSuffix(),mat,'grp',g.report)+'</tr>';
+        if(exp)pass.forEach(function(a){var acur=fxV(a,ti),aprev=fxV(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct" title="GL account">'+a.acct+'</span>'+esc(a.name)+(FLUX_REMAP[a.acct]?'<span class="fx-remapped" title="Mapping overridden by a user">remapped</span>':'')+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a><button class="fx-remap" data-remap="'+a.acct+'" title="Change this account’s section / category mapping">Remap</button></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo+rpBasisSuffix(),amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
       var tcur=sum(allA,ti), tprev=sum(allA,priIdx);
@@ -6066,7 +6108,6 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cn-crumb, #view .fx-cn-kid'),function(b){if(b.classList.contains('cur'))return;b.onclick=function(){var n=nodeFromKey(this.getAttribute('data-cnode'));if(n)fluxSetNode(n);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
     var rsub=document.querySelector('#view .rpc-submit'); if(rsub)rsub.onclick=function(){var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review — routed to the reviewer.');};
-    var rgov=document.querySelector('#view .rpc-gov'); if(rgov)rgov.onclick=rpGovOpen;
     if(typeof rpWireTimeline==='function')rpWireTimeline();
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=saveFluxView;
@@ -6077,6 +6118,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rows'),function(b){b.onclick=function(){fluxGroupBy=this.getAttribute('data-rows');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-cols'),function(b){b.onclick=function(){fluxCols=this.getAttribute('data-cols');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-split'),function(b){b.onclick=function(){fluxShowSplit=!fluxShowSplit;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-colexp'),function(b){b.onclick=function(e){e.stopPropagation();fluxColExp=!fluxColExp;renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-win'),function(b){b.onclick=function(){var n=+this.getAttribute('data-win'),ms=glLedger().months,tj=ms.indexOf(fluxTo);if(tj<0)tj=ms.length-1;fluxFrom=ms[Math.max(0,tj-(n-1))];fluxTo=ms[tj];fluxCols='periods';renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-exp2'),function(b){b.onclick=function(){fxStageExpand(this.getAttribute('data-exp'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view tr.fx-sec[data-sec]'),function(r){r.onclick=function(){var n=this.getAttribute('data-sec');fluxSecCollapse[n]=!fluxSecCollapse[n];renderMonthlyTrend();};});
@@ -6190,7 +6232,6 @@
     var cfg=document.getElementById('rcCfg');if(cfg)cfg.onclick=function(){rpToast('Configure &mdash; rows, columns, calculations, review fields and materiality via the Review Designer.');};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
     var rsub=document.querySelector('#view .rpc-submit');if(rsub)rsub.onclick=function(){var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review.');};
-    var rgov=document.querySelector('#view .rpc-gov');if(rgov)rgov.onclick=rpGovOpen;
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(){rpToast('View configuration is available on the Corporate Flux engine; generic engines configure via the Review Designer.');};});
     var sv=document.querySelector('#view .fx-saveview');if(sv)sv.onclick=function(){rpToast('View saved.');};
     rcWireModeBar();
