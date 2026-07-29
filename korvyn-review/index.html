@@ -913,6 +913,39 @@
   .hero .stat .sv{font-size:var(--fs-20);font-weight:500}
   .hero .stat .sl{font-size:var(--fs-12);color:var(--muted);margin-top:1px}
   .hero .stat.att .sv{color:var(--warn)}
+  /* ---- Simplified enterprise home ---- */
+  .hm-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin:6px 0 24px;flex-wrap:wrap}
+  .hm-k{font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .hm-h1{font-size:27px;font-weight:600;letter-spacing:-.01em;margin:4px 0 5px;color:var(--ink)}
+  .hm-sub{font-size:var(--fs-13);color:var(--muted)}
+  .hm-prog{flex:1 1 300px;min-width:260px;max-width:380px}
+  .hm-prog-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:var(--fs-13);color:var(--muted)}
+  .hm-pv{color:var(--ink);font-weight:600}
+  .hm-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:30px}
+  .hm-tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+  .hm-tile .tl{font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  .hm-tile .tv{font-size:30px;font-weight:600;color:var(--ink);margin-top:9px;line-height:1;font-variant-numeric:tabular-nums}
+  .hm-tile .ts{font-size:var(--fs-12);color:var(--faint);margin-top:7px}
+  .hm-tile.warn .tv{color:var(--warn)}
+  @media(max-width:980px){ .hm-kpis{grid-template-columns:repeat(2,1fr)} }
+  /* customize toolbar + edit list */
+  .hm-bar{display:flex;align-items:center;gap:8px;margin:0 0 18px}
+  .hm-editnote{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-12);color:var(--muted)}
+  .hm-add-wrap{position:relative}
+  .hm-add-menu{position:absolute;top:calc(100% + 5px);right:0;min-width:210px;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:var(--shadow);padding:5px;z-index:40}
+  .hm-add-i{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;font-family:var(--sans);font-size:var(--fs-13);color:var(--ink);cursor:pointer;border-radius:var(--radius-sm)}
+  .hm-add-i:hover{background:var(--surface-2)}
+  .hm-editlist{display:flex;flex-direction:column;gap:9px;max-width:620px}
+  .hm-wbar{display:flex;align-items:center;gap:11px;padding:12px 14px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;cursor:grab;font-size:var(--fs-13);user-select:none}
+  .hm-wbar:active{cursor:grabbing}
+  .hm-wbar.dragging{opacity:.45}
+  .hm-wbar.drop-before{box-shadow:inset 0 3px 0 var(--accent)}
+  .hm-wbar.drop-after{box-shadow:inset 0 -3px 0 var(--accent)}
+  .hm-grip{color:var(--faint);display:inline-flex;flex:0 0 auto}
+  .hm-wbar-t{font-weight:500;color:var(--ink)}
+  .hm-wbar-sz{font-size:var(--fs-12);color:var(--faint)}
+  .hm-w-x{border:0;background:none;color:var(--faint);font-size:19px;line-height:1;cursor:pointer;padding:0 4px}
+  .hm-w-x:hover{color:var(--neg)}
 
   /* Section */
   .sec{margin-bottom:26px}
@@ -2702,33 +2735,109 @@
     qsa('.sess-revoke').forEach(function(b){b.onclick=function(){var id=+b.getAttribute('data-sid');SET_SESSIONS=SET_SESSIONS.filter(function(x){return x.id!==id;});renderSettings();setToast('Session revoked.');};});
   }
 
-  /* ---------- home ---------- */
+  /* ---------- home (customizable widget dashboard) ---------- */
   var search='';
-  function renderHome(){
-    var appr=REVIEWS.filter(function(r){return r.status==='approved'}).length;
-    var inrev=REVIEWS.filter(function(r){return r.status==='review'}).length;
-    var att=REVIEWS.filter(function(r){return r.status==='attention'}).length;
-    var totQ=REVIEWS.reduce(function(a,r){return a+r.q},0);
-    var pctDone=Math.round(appr/REVIEWS.length*100);
-    var pctProg=Math.round(inrev/REVIEWS.length*100);
+  var HM_GRIP='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  var HM_GEAR='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.3 2.9a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1L9.5 22h5l.3-2.9a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z"/></svg>';
+  var HOME_EDIT=false;
+  var HOME_ORDER=(function(){try{var s=localStorage.getItem('korvyn.home.v1');if(s){var a=JSON.parse(s);if(Array.isArray(a)&&a.length)return a;}}catch(e){}return ['kpis','reviews'];})();
+  function homeSave(){try{localStorage.setItem('korvyn.home.v1',JSON.stringify(HOME_ORDER));}catch(e){}}
+  /* Home "My reviews" reads the real review platform (RP_REVIEWS), scoped to the current user. */
+  function homeMyReviews(){return RP_REVIEWS.filter(function(r){return r.rev===CUR_USER.init||rpInit(r.owner)===CUR_USER.init;});}
+  function homeScopeLabel(c){var m={MGP:'Consolidated',AMER:'Americas',INTL:'International',EMEA:'EMEA',APAC:'Asia-Pacific'};return m[c]||c;}
+  function renderHomeReviews(){
+    var mine=homeMyReviews().slice();
+    var ord={needexpl:0,ctrl:1,inprog:2,ready:3,notstarted:4,done:5};
+    mine.sort(function(a,b){return (ord[a.status]-ord[b.status])||((b.need||0)-(a.need||0));});
     var h='';
-    h+='<div class="hero"><div class="ht"><div class="k">Current close</div><h1>July 2026</h1><div class="d">Target sign-off Aug 5 &middot; Day 4 of 8</div></div>';
-    h+='<div class="prog"><div class="pr-top"><span class="pl">Overall close progress</span><span class="pv">'+pctDone+'% approved</span></div><div class="bar"><div class="seg done" style="width:'+pctDone+'%"></div><div class="seg prog" style="width:'+pctProg+'%"></div></div></div>';
-    h+='<div class="stats"><div class="stat"><div class="sv">'+REVIEWS.length+'</div><div class="sl">Reviews</div></div><div class="stat"><div class="sv">'+inrev+'</div><div class="sl">In review</div></div><div class="stat att"><div class="sv">'+att+'</div><div class="sl">Need attention</div></div><div class="stat"><div class="sv">'+totQ+'</div><div class="sl">Open questions</div></div></div></div>';
-    h+='<div id="dueStrip"></div>';
-    h+='<div class="sec" id="secReviews"><div class="sec-h"><h2>My Reviews</h2><span class="note">what requires your attention this close</span><span class="grow"></span><span class="link">View all</span></div>';
-    h+='<div class="card"><table class="rev"><thead><tr><th>Review</th><th>Status</th><th>Owner</th><th>Reviewer</th><th>Due</th><th class="r">Open Q</th><th class="r">Evidence</th><th>Last activity</th></tr></thead><tbody id="revBody"></tbody></table></div></div>';
-    h+='<div class="grid2">';
-    h+='<div class="sec"><div class="sec-h"><h2>AI Financial Insights</h2><span class="note">what actually matters</span></div><div class="card" id="insBody"></div></div>';
-    h+='<div class="sec"><div class="sec-h"><h2>Recent Financial Activity</h2></div><div class="card" id="actBody"></div></div>';
-    h+='</div>';
-    h+='<div class="grid2">';
-    h+='<div class="sec" id="secKnow"><div class="sec-h"><h2>Knowledge Timeline</h2><span class="note">how understanding accumulates</span></div><div class="card"><div class="kn" id="knBody"></div></div></div>';
-    h+='<div class="sec" id="secEv"><div class="sec-h"><h2>Evidence Center</h2><span class="note">across all reviews &middot; never folders</span></div><div class="card" id="evBody"></div></div>';
-    h+='</div>';
-    $('#view').innerHTML=h;
-    renderRevTable();renderInsights();renderActivity();renderKnowledge();renderEvidence();renderDueStrip();
+    mine.forEach(function(r){var st=RP_RSTATUS[r.status]||['',''];var rn=(typeof pkgRevName==='function')?pkgRevName(r.rev):r.rev;
+      h+='<tr data-hrev="'+r.id+'"><td><div class="rev-nm"><span>'+esc(r.name)+'<span class="sub">'+esc(r.type)+' &middot; '+homeScopeLabel(r.cons)+'</span></span></div></td>'
+        +'<td><span class="rp-st r-'+st[1]+'">'+esc(st[0])+'</span></td>'
+        +'<td><span class="who"><span class="ava rev">'+esc(r.rev)+'</span>'+esc(String(rn).split(' ')[0])+'</span></td>'
+        +'<td class="r"><span class="qn '+(r.need?'has':'zero')+'">'+(r.need||0)+'</span></td>'
+        +'<td><span class="last">'+esc(r.upd)+'</span></td></tr>';
+    });
+    if(!mine.length)h='<tr><td colspan="5" style="text-align:center;color:var(--faint);padding:22px">No reviews assigned to you.</td></tr>';
+    var tb=document.getElementById('hmRevBody'); if(!tb)return;
+    tb.innerHTML=h;
+    Array.prototype.forEach.call(tb.querySelectorAll('tr[data-hrev]'),function(tr){tr.onclick=function(){rpOpenReview(this.getAttribute('data-hrev'));};});
   }
+  var HOME_WIDGETS={
+    kpis:{t:'Key metrics',w:'full',html:function(){
+      var mine=homeMyReviews();
+      var inprog=mine.filter(function(r){return r.status==='inprog'||r.status==='ctrl'}).length;
+      var need=mine.filter(function(r){return r.status==='needexpl'}).length;
+      var open=mine.reduce(function(a,r){return a+(r.need||0);},0);
+      function tile(l,v,s,cls){return '<div class="hm-tile'+(cls?' '+cls:'')+'"><div class="tl">'+l+'</div><div class="tv">'+v+'</div><div class="ts">'+s+'</div></div>';}
+      return '<div class="hm-kpis">'+tile('My reviews',mine.length,'assigned to you')+tile('In progress',inprog,'being worked')+tile('Needs explanation',need,need?'action required':'all clear',need?'warn':'')+tile('Open items',open,'across your reviews')+'</div>';
+    }},
+    reviews:{t:'My reviews',w:'full',html:function(){return '<div class="sec" id="secReviews"><div class="sec-h"><h2>My reviews</h2><span class="note">assigned to you &middot; most urgent first</span><span class="grow"></span><span class="link" id="hmViewAll">View all</span></div><div class="card"><table class="rev"><thead><tr><th class="l">Review</th><th>Status</th><th class="l">Reviewer</th><th class="r">Open items</th><th class="l">Updated</th></tr></thead><tbody id="hmRevBody"></tbody></table></div></div>';},after:function(){renderHomeReviews();var va=document.getElementById('hmViewAll');if(va)va.onclick=function(){if(typeof rpOpenPeriod==='function'){rpOpenPeriod('2026-07');RP_WS_SEL='__myreviews';renderPeriodWorkspace();window.scrollTo(0,0);}};}},
+    insights:{t:'AI Financial Insights',w:'half',html:function(){return '<div class="sec"><div class="sec-h"><h2>AI Financial Insights</h2><span class="note">what actually matters</span></div><div class="card" id="insBody"></div></div>';},after:function(){renderInsights();}},
+    activity:{t:'Recent activity',w:'half',html:function(){return '<div class="sec"><div class="sec-h"><h2>Recent activity</h2></div><div class="card" id="actBody"></div></div>';},after:function(){renderActivity();}},
+    knowledge:{t:'Knowledge timeline',w:'half',html:function(){return '<div class="sec" id="secKnow"><div class="sec-h"><h2>Knowledge timeline</h2><span class="note">how understanding accumulates</span></div><div class="card"><div class="kn" id="knBody"></div></div></div>';},after:function(){renderKnowledge();}},
+    evidence:{t:'Evidence center',w:'half',html:function(){return '<div class="sec" id="secEv"><div class="sec-h"><h2>Evidence center</h2><span class="note">across all reviews</span></div><div class="card" id="evBody"></div></div>';},after:function(){renderEvidence();}},
+    duesoon:{t:'Due soon',w:'full',html:function(){return '<div class="sec"><div class="sec-h"><h2>Due soon</h2></div><div id="dueStrip"></div></div>';},after:function(){renderDueStrip();}}
+  };
+  var HOME_ALL=['kpis','reviews','insights','activity','knowledge','evidence','duesoon'];
+  function homeWidgetsHTML(){
+    if(HOME_EDIT){
+      return '<div class="hm-editlist" id="hmEditList">'+HOME_ORDER.map(function(id){var w=HOME_WIDGETS[id];if(!w)return '';
+        return '<div class="hm-wbar" draggable="true" data-w="'+id+'"><span class="hm-grip">'+HM_GRIP+'</span><span class="hm-wbar-t">'+w.t+'</span><span class="hm-wbar-sz">'+(w.w==='half'?'half width':'full width')+'</span><span class="grow"></span><button class="hm-w-x" data-wx="'+id+'" title="Remove from home">&times;</button></div>';
+      }).join('')+'</div>';
+    }
+    var out='',i=0;
+    while(i<HOME_ORDER.length){
+      var id=HOME_ORDER[i],w=HOME_WIDGETS[id];
+      if(!w){i++;continue;}
+      if(w.w==='half'){
+        var run=[];
+        while(i<HOME_ORDER.length&&HOME_WIDGETS[HOME_ORDER[i]]&&HOME_WIDGETS[HOME_ORDER[i]].w==='half'){run.push(HOME_ORDER[i]);i++;}
+        out+='<div class="grid2">'+run.map(function(id2){return HOME_WIDGETS[id2].html();}).join('')+'</div>';
+      }else{ out+=w.html(); i++; }
+    }
+    return out;
+  }
+  function renderHome(){
+    var all=(typeof RP_REVIEWS!=='undefined')?RP_REVIEWS:[];
+    var appr=all.filter(function(r){return r.status==='ready'||r.status==='done'}).length;
+    var prog=all.filter(function(r){return r.status==='inprog'||r.status==='ctrl'}).length;
+    var pctDone=all.length?Math.round(appr/all.length*100):0, pctProg=all.length?Math.round(prog/all.length*100):0;
+    var h='';
+    h+='<div class="hm-hd"><div class="hm-hd-l"><div class="hm-k">Monthly close</div><h1 class="hm-h1">July 2026</h1><div class="hm-sub">In progress &middot; Day 4 of 8 &middot; Target sign-off Aug 5</div></div>';
+    h+='<div class="hm-prog"><div class="hm-prog-top"><span>Overall progress</span><span class="hm-pv">'+pctDone+'% complete</span></div><div class="bar"><div class="seg done" style="width:'+pctDone+'%"></div><div class="seg prog" style="width:'+pctProg+'%"></div></div></div></div>';
+    if(HOME_EDIT){
+      var avail=HOME_ALL.filter(function(id){return HOME_ORDER.indexOf(id)<0;});
+      h+='<div class="hm-bar"><span class="hm-editnote">'+HM_GRIP+' Drag to reorder &middot; remove with &times; &middot; add widgets on the right</span><span class="grow"></span>'+
+        (avail.length?('<div class="hm-add-wrap"><button class="btn sm" id="hmAddBtn">+ Add widget</button><div class="hm-add-menu" id="hmAddMenu" hidden>'+avail.map(function(id){return '<button class="hm-add-i" data-add="'+id+'">'+HOME_WIDGETS[id].t+'</button>';}).join('')+'</div></div>'):'<span class="hm-editnote">All widgets added</span>')+
+        '<button class="btn sm" id="hmReset">Reset</button><button class="btn sm primary" id="hmDone">Done</button></div>';
+    }else{
+      h+='<div class="hm-bar"><span class="grow"></span><button class="btn sm" id="hmCust">'+HM_GEAR+' Customize</button></div>';
+    }
+    h+='<div class="hm-widgets'+(HOME_EDIT?' editing':'')+'">'+homeWidgetsHTML()+'</div>';
+    $('#view').innerHTML=h;
+    if(!HOME_EDIT){ HOME_ORDER.forEach(function(id){var w=HOME_WIDGETS[id];if(w&&w.after)w.after();}); }
+    homeWire();
+  }
+  function homeWire(){
+    var c=document.getElementById('hmCust');if(c)c.onclick=function(){HOME_EDIT=true;renderHome();};
+    var d=document.getElementById('hmDone');if(d)d.onclick=function(){HOME_EDIT=false;homeSave();renderHome();};
+    var r=document.getElementById('hmReset');if(r)r.onclick=function(){HOME_ORDER=['kpis','reviews'];homeSave();renderHome();};
+    var ab=document.getElementById('hmAddBtn');if(ab)ab.onclick=function(e){e.stopPropagation();var m=document.getElementById('hmAddMenu');if(m)m.hidden=!m.hidden;};
+    Array.prototype.forEach.call(document.querySelectorAll('#view .hm-add-i'),function(b){b.onclick=function(){var id=this.getAttribute('data-add');if(HOME_ORDER.indexOf(id)<0)HOME_ORDER.push(id);homeSave();renderHome();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .hm-w-x'),function(b){b.onclick=function(){var id=this.getAttribute('data-wx');var i=HOME_ORDER.indexOf(id);if(i>=0)HOME_ORDER.splice(i,1);homeSave();renderHome();};});
+    var list=document.getElementById('hmEditList');
+    if(list){var dragId=null;
+      Array.prototype.forEach.call(list.querySelectorAll('.hm-wbar'),function(el){
+        el.ondragstart=function(e){dragId=this.getAttribute('data-w');this.classList.add('dragging');try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId);}catch(x){}};
+        el.ondragend=function(){this.classList.remove('dragging');dragId=null;Array.prototype.forEach.call(list.querySelectorAll('.hm-wbar'),function(x){x.classList.remove('drop-before','drop-after');});};
+        el.ondragover=function(e){e.preventDefault();var t=this.getAttribute('data-w');if(t===dragId)return;var rc=this.getBoundingClientRect();var aft=(e.clientY-rc.top)>rc.height/2;this.classList.toggle('drop-after',aft);this.classList.toggle('drop-before',!aft);};
+        el.ondragleave=function(){this.classList.remove('drop-before','drop-after');};
+        el.ondrop=function(e){e.preventDefault();var t=this.getAttribute('data-w');if(!dragId||t===dragId)return;var rc=this.getBoundingClientRect();var aft=(e.clientY-rc.top)>rc.height/2;var from=HOME_ORDER.indexOf(dragId);if(from<0)return;HOME_ORDER.splice(from,1);var to=HOME_ORDER.indexOf(t);to=aft?to+1:to;HOME_ORDER.splice(to,0,dragId);homeSave();renderHome();};
+      });
+    }
+    document.addEventListener('mousedown',homeAddClose);
+  }
+  function homeAddClose(e){var m=document.getElementById('hmAddMenu');if(m&&!m.hidden&&!e.target.closest('.hm-add-wrap'))m.hidden=true;}
   function renderRevTable(){
     var rows=REVIEWS.filter(function(r){return !search||r.name.toLowerCase().indexOf(search)>=0||r.area.toLowerCase().indexOf(search)>=0});
     var h='';
