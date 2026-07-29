@@ -164,6 +164,15 @@
   .nav .nh{font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.02em;color:var(--faint);font-weight:500;padding:11px 10px 3px}
   .nrev-back{display:flex;align-items:center;gap:6px;width:100%;padding:6px 9px;margin-bottom:2px;border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:var(--fs-13);font-weight:500;cursor:pointer;border-radius:var(--radius-sm)}
   .nrev-back:hover{background:var(--surface-2);color:var(--ink)}
+  .nrev-top{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+  .nrev-top .nrev-back{flex:1;margin-bottom:0}
+  .nrev-collapse{flex:0 0 auto;width:26px;height:26px;display:grid;place-items:center;border:0;background:transparent;color:var(--faint);border-radius:var(--radius-sm);cursor:pointer}
+  .nrev-collapse:hover{background:var(--surface-2);color:var(--ink)}
+  body.chrome-nav .nrev-collapse{color:var(--chrome-ink-2)}
+  body.chrome-nav .nrev-collapse:hover{background:var(--chrome-lift);color:var(--chrome-ink)}
+  body.nav-collapsed .nav .nrev-top{justify-content:center}
+  body.nav-collapsed .nav .nrev-back{display:none}
+  body.nav-collapsed #nav > :not(.nrev-top){display:none}
   body.chrome-nav .nrev-back{color:var(--chrome-ink-2)}
   .nrev-search{padding:2px 4px 8px}
   .nrev-find{width:100%;height:30px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:var(--fs-13);padding:0 10px;box-sizing:border-box}
@@ -293,7 +302,7 @@
   .navcollapse:hover{background:var(--surface-2);color:var(--ink)}
   .navcollapse svg{flex:0 0 auto}
   /* collapsed = 60px icon rail: labels, counts and group headings drop; icons center */
-  body.nav-collapsed .app{grid-template-columns:60px minmax(0,1fr)}
+  body.nav-collapsed:not(.no-leftnav) .app{grid-template-columns:60px minmax(0,1fr)}
   body.nav-collapsed .nav{padding:16px 8px}
   body.nav-collapsed .nitem{justify-content:center;padding:8px 0;gap:0}
   body.nav-collapsed .nitem>span:not(.nc){display:none}
@@ -2457,7 +2466,7 @@
   function rpWsToggleNav(id){RP_WS_EXPAND[id]=!RP_WS_EXPAND[id];renderReviewsNav();}
   function rpNavOpenFolder(id){rpExpandTo(id);RP_WS_EXPAND[id]=true;renderReviewsNav();}
   function renderReviewsNav(){
-    var h='<button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button>';
+    var h='<div class="nrev-top"><button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
     h+='<div class="nrev-search"><input class="nrev-find" placeholder="Search reviews &amp; collections&hellip;" value="'+esc(RP_WS_FIND)+'"></div>';
     var searching=!!RP_WS_FIND, facActive=navFacetActive();
     if(searching){ var q=RP_WS_FIND.toLowerCase(); var mrev=RP_REVIEWS.filter(function(r){return (r.name+' '+r.type+' '+r.owner).toLowerCase().indexOf(q)>=0;});
@@ -2486,7 +2495,6 @@
     h+='<div class="nfx-res"><span class="nfx-cnt">'+fe.length+' <span class="nfx-of">of '+ENT_MASTER.length+'</span></span>'+(filtered&&fe.length?'<button class="nfx-scopeset">Scope these &rarr;</button>':'')+'</div>';
     if(filtered){ fe.slice(0,40).forEach(function(e){h+='<button class="rp-ws-item nfx-ent" data-ent="'+e.id+'" title="'+esc(e.name)+' &middot; '+esc(e.country)+' &middot; '+esc(e.bu)+'"><span class="rp-ws-nm">'+esc(e.short)+'</span><span class="nfx-ec">'+esc(e.ccy)+'</span>'+navStatusDot(e.status)+'</button>';});
       if(fe.length>40)h+='<div class="rp-ws-empty">+ '+(fe.length-40)+' more &mdash; refine to narrow</div>'; }
-    h+='<button class="navcollapse" id="navToggle"><span class="nav-cicon">'+navChevron()+'</span><span class="nctxt">Collapse</span></button>';
     $('#nav').innerHTML=h;
     var bk=document.getElementById('navRevBack');if(bk)bk.onclick=navReviewBack;
     var fi=$('#nav').querySelector('.nrev-find');if(fi)fi.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderReviewsNav();var n=$('#nav').querySelector('.nrev-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
