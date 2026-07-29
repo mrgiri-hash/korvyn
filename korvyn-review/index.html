@@ -560,6 +560,10 @@
   .fx-drill{margin-left:10px;font-size:var(--fs-12);color:var(--accent);opacity:0;text-decoration:none;cursor:pointer;white-space:nowrap}
   .fx-det:hover .fx-drill,.fx-det.txnopen .fx-drill{opacity:1}
   .fx-det.txnopen .fx-drill{font-weight:600}
+  .fx-remap{margin-left:12px;font-size:var(--fs-12);color:var(--accent);opacity:.5;background:none;border:0;padding:0;font-family:inherit;cursor:pointer;white-space:nowrap}
+  .fx-det:hover .fx-remap{opacity:1}
+  .fx-remap:hover{text-decoration:underline}
+  .fx-remapped{margin-left:8px;font-size:var(--fs-11);color:var(--warn);border:1px solid var(--warn);border-radius:2px;padding:0 4px;vertical-align:middle}
   /* GL drill-down detail (ported from mockup) */
   .fx-txn-row>td{padding:0;background:var(--surface-2);border-bottom:1px solid var(--line)}
   .fx-txn{padding:11px 16px 12px 36px}
@@ -1590,8 +1594,8 @@
   .rp-grp-n{margin-left:9px;color:var(--faint);font-weight:400;text-transform:none;letter-spacing:0}
   .rp-grp-row{cursor:pointer}
   .rp-grp-tw{display:inline-block;width:13px;color:var(--faint);margin-right:4px}
-  .rp-fbar{display:flex;align-items:center;gap:10px;margin:0 0 10px;flex-wrap:wrap}
-  .rp-fsearch{display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);min-width:190px}
+  .rp-filt{display:flex;align-items:center;gap:10px;margin:0 0 10px;flex-wrap:wrap}
+  .rp-fsearch{display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);min-width:220px}
   .rp-fsearch input{border:0;background:transparent;outline:none;font-family:inherit;font-size:var(--fs-12);color:var(--ink);width:100%}
   .rp-fsel{display:flex;align-items:center;gap:6px;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
   .rp-fsel select{height:28px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);font-family:inherit;font-size:var(--fs-12);color:var(--ink);padding:0 6px;text-transform:none;letter-spacing:0}
@@ -2024,6 +2028,7 @@
   .rp-sumbar{display:flex;align-items:center;gap:0;flex-wrap:wrap;height:40px;padding:0 14px;margin:0 0 12px;background:var(--surface);border:1px solid var(--line);border-radius:2px;font-size:var(--fs-13);color:var(--muted)}
   .rp-sb-i{white-space:nowrap} .rp-sb-i b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-right:3px}
   .rp-sb-i.warn b{color:var(--warn)}
+  .rp-sb-i.ok b{color:var(--pos)}
   .rp-sb-sep{width:1px;height:15px;background:var(--line-2);margin:0 14px}
   .rp-whd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 11px}
   .rp-whd-l h1{font-size:var(--fs-20);font-weight:600;color:var(--ink);margin:0;line-height:1.2}
@@ -2238,8 +2243,8 @@
      built are 'ph-*' placeholder routes (rendered by renderPlaceholder). */
   var NAV_SECTIONS=[
     {id:'home',label:'Home',icon:'home',route:'home'},
-    {id:'close',label:'Close',icon:'cal',kids:[['close-dash','Close Overview'],['frperiods','Close Periods'],['ph-tasks','Tasks & Checklist'],['ph-completion','Completion Status'],['ph-je','Journal Entries']]},
-    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frov','Flux Overview'],['my','My Reviews'],['all','All Reviews'],['ph-trending','Trending Analysis'],['ph-variance','Variance Analysis'],['ph-scenario','Scenario Analysis']]},
+    {id:'close',label:'Close',icon:'cal',kids:[['close-dash','Close Overview'],['ph-tasks','Tasks & Checklist'],['ph-completion','Completion Status'],['ph-je','Journal Entries']]},
+    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Flux Overview'],['my','My Reviews'],['all','All Reviews'],['ph-trending','Trending Analysis'],['ph-variance','Variance Analysis'],['ph-scenario','Scenario Analysis']]},
     {id:'gl',label:'General Ledger',icon:'up',kids:[['repo-upload','Financial Data'],['repo-ledger','Trial Balance'],['repo-coa','Chart of Accounts'],['txn-meta','Transaction Metadata'],['ph-jexplorer','Journal Explorer'],['ph-reclass','Reclassifications']]},
     {id:'recon',label:'Reconciliations',icon:'recon',kids:[['recon-bs','Balance Sheet'],['recon-acct','Account Reconciliations'],['ph-recdash','Rec Dashboard'],['ph-unrec','Unreconciled Items']]},
     {id:'reporting',label:'Reporting',icon:'stmt',kids:[['frlib','Review Library'],['frtpl','Templates'],['frmap','Mappings & Definitions'],['ph-finstmt','Financial Statements'],['ph-mgmt','Management Reports'],['ph-board','Board Package']]},
@@ -3987,6 +3992,11 @@
   function fluxVal(a,i){if(i<0)return 0;var s=a.series[i];if(a.type==='Revenue')return -s.activity;if(a.type==='Expense')return s.activity;if(a.type==='Liability'||a.type==='Equity')return -s.closing;return s.closing;}
   function fluxPeriods(led){var ms=led.months;if(!fluxTo||ms.indexOf(fluxTo)<0)fluxTo=(ms.indexOf(ACTIVE_PERIOD)>=0?ACTIVE_PERIOD:ms[ms.length-1]);if(!fluxFrom||ms.indexOf(fluxFrom)<0){var ti=ms.indexOf(fluxTo);fluxFrom=ms[Math.max(0,ti-5)];}var fi=ms.indexOf(fluxFrom),tj=ms.indexOf(fluxTo);if(fi>tj){var t=fi;fi=tj;tj=t;}return {fi:fi,ti:tj};}
   var FLUX_MAP={}; RP_COA.forEach(function(c){FLUX_MAP[c.acct]={fs:c.fs,report:c.report};});
+  /* User overrides of Korvyn's default CoA mapping — set inline from the flux review when a
+     reviewer decides an account belongs on a different section/category. fluxSections consults
+     this FIRST, so a remap moves the account (and its value) to the new line everywhere the
+     statement is derived. Keyed by account; {fs, report}. */
+  var FLUX_REMAP={};
   var FLUX_FS_ORDER=['Revenue','Operating expenses','Non-operating','Cash & equivalents','Current assets','Real estate','Non-current assets','Current liabilities','Debt','Non-current liabilities','Equity'];
   /* Classic multi-step income statement — maps the real REIT rollups into the standard
      sections; the between-section subtotals (Gross profit, Operating income, Income before
@@ -4008,7 +4018,7 @@
     }
     // category: sections = financial-statement lines (fs), groups = report captions within
     var byFs={};
-    accts.forEach(function(a){var m=FLUX_MAP[a.acct]||{},rep=a.rollup||m.report||a.name,fs=a.fs||m.fs||'Other';if(stmt==='is')fs=IS_FS_MAP[rep]||fs;if(!byFs[fs]){byFs[fs]={order:[],map:{}};}if(!byFs[fs].map[rep]){byFs[fs].map[rep]=[];byFs[fs].order.push(rep);}byFs[fs].map[rep].push(a);});
+    accts.forEach(function(a){var ov=FLUX_REMAP[a.acct]||{},m=FLUX_MAP[a.acct]||{},rep=ov.report||a.rollup||m.report||a.name,fs=ov.fs||a.fs||m.fs||'Other';if(stmt==='is'&&!ov.fs)fs=IS_FS_MAP[rep]||fs;if(!byFs[fs]){byFs[fs]={order:[],map:{}};}if(!byFs[fs].map[rep]){byFs[fs].map[rep]=[];byFs[fs].order.push(rep);}byFs[fs].map[rep].push(a);});
     var secs=[], seen={};
     function pushFs(fs){secs.push({name:fs,groups:byFs[fs].order.map(function(rep){return {report:rep,caption:rep,fs:fs,accts:byFs[fs].map[rep]};})});seen[fs]=1;}
     (stmt==='is'?IS_FS_ORDER:FLUX_FS_ORDER).forEach(function(fs){if(byFs[fs])pushFs(fs);});
@@ -4260,13 +4270,27 @@
   /* Close-period directory + period workspace (folders + reviews) + create-period drawer.
      Directory/overview counts are authored period metadata; a review opens the existing
      Flux canvas scoped to its consolidation node. Realistic front-end mock + local state. */
-  var RP_CLOSE_PERIODS=[
-    {id:'2027-03',name:'March 2027 Close',type:'Monthly Close',status:'In Review',owner:'Maya Grant',due:'Apr 8, 2027',reviews:128,inprog:46,needexpl:18,ready:11,done:53,overdue:4,last:'2h ago',cur:true},
-    {id:'2027-02',name:'February 2027 Close',type:'Monthly Close',status:'Closed',owner:'David Okafor',due:'Mar 6, 2027',reviews:124,inprog:0,needexpl:0,ready:0,done:124,overdue:0,last:'3w ago'},
-    {id:'2027-01',name:'January 2027 Close',type:'Monthly Close',status:'Closed',owner:'David Okafor',due:'Feb 6, 2027',reviews:121,inprog:0,needexpl:0,ready:0,done:121,overdue:0,last:'7w ago'},
-    {id:'2026-Q4',name:'Q4 2026 Year-End',type:'Year-End',status:'Archived',owner:'Group Reporting',due:'Feb 20, 2027',reviews:206,inprog:0,needexpl:0,ready:0,done:206,overdue:0,last:'9w ago'},
-    {id:'2026-12',name:'December 2026 Close',type:'Monthly Close',status:'Archived',owner:'David Okafor',due:'Jan 8, 2027',reviews:119,inprog:0,needexpl:0,ready:0,done:119,overdue:0,last:'12w ago'}
-  ];
+  /* One consistent monthly close per period, MM-YYYY, across the platform's ~20-year life
+     (Jan 2007 -> the current close, Jul 2026). Generated so the series is clean and uniform:
+     the current month is In Review; every prior month is a completed Closed period. */
+  var RP_CLOSE_PERIODS=(function(){
+    var SH=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var CY=2026, CM=7, SY=2007;                 /* current close = Jul 2026; history back to 2007 */
+    function pad(n){return ('0'+n).slice(-2);}
+    var out=[];
+    for(var y=CY;y>=SY;y--){
+      for(var m=(y===CY?CM:12);m>=1;m--){
+        var cur=(y===CY&&m===CM);
+        var nm=m+1>12?1:m+1, ny=m+1>12?y+1:y;    /* the month a close completes in */
+        var nmName=SH[nm]+' '+ny;
+        var rv=112+((y+m)%17);                    /* deterministic, realistic review count */
+        out.push(cur
+          ? {id:y+'-'+pad(m),name:pad(m)+'-'+y,type:'Monthly Close',status:'In Review',owner:'Maya Grant',due:'Aug 5, 2026',reviews:128,inprog:46,needexpl:18,ready:11,done:53,overdue:4,last:'2h ago',cur:true}
+          : {id:y+'-'+pad(m),name:pad(m)+'-'+y,type:'Monthly Close',status:'Closed',owner:'David Okafor',due:SH[nm]+' 6, '+ny,reviews:rv,inprog:0,needexpl:0,ready:0,done:rv,overdue:0,last:nmName});
+      }
+    }
+    return out;
+  })();
   var RP_PSTATUS={'Planning':'plan','Open':'open','In Review':'review','Controller Review':'ctrl','Closed':'done','Archived':'arch'};
   /* period workspace folder tree (top level == the period contextual nav) */
   var RP_WS_FOLDERS=[
@@ -4372,9 +4396,22 @@
   function rpCrumb(parts){return '<div class="rp-crumb">'+parts.map(function(p,i){var last=i===parts.length-1;return (last?'<span class="rp-cr-cur">'+esc(p.label)+'</span>':'<button class="rp-cr" data-go="'+(p.go||'')+'">'+esc(p.label)+'</button>')+(last?'':'<span class="rp-cr-sep">/</span>');}).join('')+'</div>';}
   /* ---------- Close Periods directory ---------- */
   var RP_PERIOD_GROUP='year';  /* none | year | type | status — how the Close Periods page buckets rows */
+  var RP_PORDER='desc';        /* desc = newest first, asc = oldest first */
   var RP_GRP_COLLAPSED={};      /* group key -> collapsed? (folder open/closed state) */
-  var RP_PFILTER={q:'',status:'All',year:'All',type:'All'};  /* smart filter facets */
+  var RP_PFILTER={q:'',status:'All',range:'l12',type:'All'};  /* smart filter facets — range is the timeframe window (default: trailing 12 months) */
   function rpPeriodYear(p){var m=String(p.name).match(/20\d{2}/)||String(p.due||'').match(/20\d{2}/);return m?m[0]:'Undated';}
+  function rpPeriodIdx(p){var m=String(p.id).match(/(\d{4})-(\d{2})/);return m?(+m[1])*12+(+m[2]):0;}
+  var RP_NOW_IDX=2026*12+7;    /* current close = Jul 2026 — anchor for rolling timeframe windows */
+  function rpInRange(p){
+    var r=RP_PFILTER.range||'l12', i=rpPeriodIdx(p);
+    if(r==='all')return true;
+    if(r==='l3')return i>RP_NOW_IDX-3;
+    if(r==='l6')return i>RP_NOW_IDX-6;
+    if(r==='l12')return i>RP_NOW_IDX-12;
+    if(r==='ytd')return rpPeriodYear(p)==='2026';
+    if(r.charAt(0)==='y')return rpPeriodYear(p)===r.slice(1);
+    return true;
+  }
   function rpPeriodLocked(p){return p.locked!=null?!!p.locked:(p.status==='Closed'||p.status==='Archived');}
   function rpToggleLock(pid){var p=rpPeriod(pid);if(!p)return;p.locked=!rpPeriodLocked(p);if(typeof rpToast==='function')rpToast(p.name+(p.locked?' — locked (read-only)':' — unlocked (editable)'));renderClosePeriods();}
   function rpPeriodGroupKey(p){
@@ -4383,15 +4420,19 @@
     if(RP_PERIOD_GROUP==='status')return p.status||'Other';
     return 'All';
   }
+  var RP_MONTH_NAMES=['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  function rpPeriodHay(p){var m=String(p.id).match(/(\d{4})-(\d{2})/);var mo=m?+m[2]:0,yr=m?m[1]:'';var nm=RP_MONTH_NAMES[mo]||'';return (p.name+' '+p.owner+' '+p.type+' '+yr+' '+nm+' '+nm.slice(0,3)).toLowerCase();}
   function rpPeriodsFiltered(){
-    var q=(RP_PFILTER.q||'').toLowerCase();
-    return RP_CLOSE_PERIODS.filter(function(p){
-      if(q&&(p.name+' '+p.owner+' '+p.type).toLowerCase().indexOf(q)<0)return false;
+    var q=(RP_PFILTER.q||'').toLowerCase().trim();
+    var _out=RP_CLOSE_PERIODS.filter(function(p){
+      if(q&&rpPeriodHay(p).indexOf(q)<0)return false;
       if(RP_PFILTER.status!=='All'&&p.status!==RP_PFILTER.status)return false;
-      if(RP_PFILTER.year!=='All'&&rpPeriodYear(p)!==RP_PFILTER.year)return false;
+      if(!q&&!rpInRange(p))return false;   /* a search spans all history; the timeframe only bounds the un-searched browse view */
       if(RP_PFILTER.type!=='All'&&p.type!==RP_PFILTER.type)return false;
       return true;
     });
+    _out.sort(function(a,b){return RP_PORDER==='asc'?rpPeriodIdx(a)-rpPeriodIdx(b):rpPeriodIdx(b)-rpPeriodIdx(a);});
+    return _out;
   }
   function rpDistinct(fn){var out=[];RP_CLOSE_PERIODS.forEach(function(p){var v=fn(p);if(v&&out.indexOf(v)<0)out.push(v);});return out;}
   function renderClosePeriods(){
@@ -4401,20 +4442,29 @@
     var need=RP_CLOSE_PERIODS.reduce(function(a,p){return a+p.needexpl;},0);
     var ready=RP_CLOSE_PERIODS.reduce(function(a,p){return a+p.ready;},0);
     var over=RP_CLOSE_PERIODS.reduce(function(a,p){return a+p.overdue;},0);
-    var h=rpCrumb([{label:'Financial Reporting',go:'frov'},{label:'Close Periods'}]);
-    h+='<div class="kv-hd rp-hd"><div><div class="k">Financial Reporting</div><h1>Close Periods</h1><div class="kv-sub">Create, organize, and manage financial reviews by reporting period.</div></div><button class="btn primary rp-newperiod">+ New Close Period</button></div>';
+    var h=rpCrumb([{label:'Flux Overview'}]);
+    h+='<div class="kv-hd rp-hd"><div><div class="k">Flux Analysis</div><h1>Flux Overview</h1><div class="kv-sub">Create, organize, and manage financial reviews by reporting period.</div></div><button class="btn primary rp-newperiod">+ New Period</button></div>';
     h+=rpSumBar([[open,'Open Periods'],[inprog,'Reviews in Progress'],[need,'Waiting on Explanation',need?'warn':''],[ready,'Ready for Approval'],[over,'Overdue',over?'warn':'']]);
     var _years=rpDistinct(rpPeriodYear).sort().reverse(), _statuses=rpDistinct(function(p){return p.status;}), _types=rpDistinct(function(p){return p.type;});
     function fsel(f,label,opts){return '<label class="rp-fsel"><span>'+label+'</span><select class="rp-pf" data-f="'+f+'"><option value="All">All</option>'+opts.map(function(o){return '<option value="'+esc(o)+'"'+(RP_PFILTER[f]===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select></label>';}
-    var _shown=rpPeriodsFiltered().length, _total=RP_CLOSE_PERIODS.length, _anyF=RP_PFILTER.q||RP_PFILTER.status!=='All'||RP_PFILTER.year!=='All'||RP_PFILTER.type!=='All';
-    h+='<div class="rp-fbar"><span class="rp-fsearch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="rp-pfind" placeholder="Search periods&hellip;" value="'+esc(RP_PFILTER.q)+'"></span>'+fsel('status','Status',_statuses)+fsel('year','Year',_years)+fsel('type','Type',_types)+'<span class="rp-fcount">'+_shown+' of '+_total+'</span>'+(_anyF?'<button class="rp-fclear">Clear</button>':'')+'</div>';
-    h+='<div class="rp-gbbar"><span class="rp-gb-l">Group by</span>'+[['none','None'],['year','Year'],['type','Type'],['status','Status']].map(function(o){return '<button class="rp-gb-b'+(RP_PERIOD_GROUP===o[0]?' on':'')+'" data-gb="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
+    function tfSel(){
+      var r=RP_PFILTER.range||'l12';
+      function opt(v,l){return '<option value="'+v+'"'+(r===v?' selected':'')+'>'+esc(l)+'</option>';}
+      var ys='';_years.forEach(function(y){ys+=opt('y'+y,y);});
+      return '<label class="rp-fsel"><span>Timeframe</span><select class="rp-pf" data-f="range">'+
+        '<optgroup label="Rolling">'+opt('l3','Last 3 months')+opt('l6','Last 6 months')+opt('l12','Last 12 months')+opt('ytd','Year to date')+'</optgroup>'+
+        '<optgroup label="By year">'+ys+'</optgroup>'+
+        '<optgroup label="&nbsp;">'+opt('all','All time')+'</optgroup>'+
+        '</select></label>';
+    }
+    var _shown=rpPeriodsFiltered().length, _total=RP_CLOSE_PERIODS.length, _anyF=RP_PFILTER.q||RP_PFILTER.status!=='All'||RP_PFILTER.range!=='l12'||RP_PFILTER.type!=='All';
+    h+='<div class="rp-filt"><span class="rp-fsearch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="rp-pfind" placeholder="Search by month or year&hellip;" value="'+esc(RP_PFILTER.q)+'"></span>'+tfSel()+fsel('status','Status',_statuses)+fsel('type','Type',_types)+'<span class="rp-fcount">'+_shown+' of '+_total+'</span>'+(_anyF?'<button class="rp-fclear">Clear</button>':'')+'</div>';
+    h+='<div class="rp-gbbar"><span class="rp-gb-l">Group by</span>'+[['none','None'],['year','Year'],['type','Type'],['status','Status']].map(function(o){return '<button class="rp-gb-b'+(RP_PERIOD_GROUP===o[0]?' on':'')+'" data-gb="'+o[0]+'">'+o[1]+'</button>';}).join('')+'<span class="rp-gb-l" style="margin-left:auto">Order</span>'+[['desc','Newest first'],['asc','Oldest first']].map(function(o){return '<button class="rp-gb-b'+(RP_PORDER===o[0]?' on':'')+'" data-ord="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl"><thead><tr><th class="l">Period</th><th class="l">Status</th><th>Reviews</th><th>Completion</th><th>Open expl.</th><th>Ready</th><th class="l">Owner</th><th class="l">Last activity</th><th></th></tr></thead><tbody>';
     function pRow(p){var pct=p.reviews?Math.round(p.done/p.reviews*100):0;
       var lk=rpPeriodLocked(p);
-      var pencil=lk?'':'<button class="rp-pedit" data-pid="'+p.id+'" title="Rename period"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>';
       var lockBtn='<button class="rp-plock2'+(lk?' on':'')+'" data-pid="'+p.id+'" title="'+(lk?'Unlock period — make editable':'Lock period — make read-only')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="'+(lk?'M8 11V7a4 4 0 0 1 8 0v4':'M8 11V7a4 4 0 0 1 7.6-1.2')+'"/></svg></button>';
-      return '<tr class="rp-row'+(lk?' rp-locked':'')+'" data-pid="'+p.id+'"><td class="l rp-pnm" data-pid="'+p.id+'"><span class="rp-pnm-t">'+esc(p.name)+'</span>'+pencil+lockBtn+'</td>'+
+      return '<tr class="rp-row'+(lk?' rp-locked':'')+'" data-pid="'+p.id+'"><td class="l rp-pnm" data-pid="'+p.id+'"><span class="rp-pnm-t">'+esc(p.name)+'</span>'+lockBtn+'</td>'+
         '<td class="l">'+rpPStatusPill(p.status)+'</td>'+
         '<td class="rp-num">'+p.reviews+'</td>'+
         '<td class="rp-num"><div class="rp-bar"><span style="width:'+pct+'%"></span></div><span class="rp-pct">'+pct+'%</span></td>'+
@@ -4430,7 +4480,7 @@
     else {
       var gr={},ord=[];
       flist.forEach(function(p){var k=rpPeriodGroupKey(p);if(!gr[k]){gr[k]=[];ord.push(k);}gr[k].push(p);});
-      if(RP_PERIOD_GROUP==='year')ord.sort(function(a,b){return String(b).localeCompare(String(a));});
+      if(RP_PERIOD_GROUP==='year')ord.sort(function(a,b){return RP_PORDER==='asc'?String(a).localeCompare(String(b)):String(b).localeCompare(String(a));});
       ord.forEach(function(k){
         var col=!!RP_GRP_COLLAPSED[k];
         var gd=gr[k].reduce(function(a,p){return a+p.done;},0), gt=gr[k].reduce(function(a,p){return a+p.reviews;},0);
@@ -4439,16 +4489,15 @@
       });
     }
     h+='</tbody></table></div></div>';
-    h+='<div class="ldg-note">A period is a container for a close cycle&rsquo;s reviews. Open a period to work in its review workspace; create one from scratch, from a close template, or by copying a prior period&rsquo;s structure. Counts are period metadata for a global enterprise close (hundreds of entities); the March 2027 workspace lists a representative set of reviews.</div>';
+    h+='<div class="ldg-note">A period is a container for a close cycle&rsquo;s reviews. Open a period to work in its review workspace; create one from scratch, from a close template, or by copying a prior period&rsquo;s structure. Counts are period metadata for a global enterprise close (hundreds of entities); the current period&rsquo;s workspace lists a representative set of reviews.</div>';
     $('#view').innerHTML=h;
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-row'),function(r){r.onclick=function(e){if(e.target.closest('.rp-pedit')||e.target.closest('.rp-plock2')||e.target.closest('.rp-pnm-in'))return;rpOpenPeriod(this.getAttribute('data-pid'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-pedit'),function(b){b.onclick=function(e){e.stopPropagation();rpPeriodRename(this.getAttribute('data-pid'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-row'),function(r){r.onclick=function(e){if(e.target.closest('.rp-plock2'))return;rpOpenPeriod(this.getAttribute('data-pid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-plock2'),function(b){b.onclick=function(e){e.stopPropagation();rpToggleLock(this.getAttribute('data-pid'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-gb-b'),function(b){b.onclick=function(){RP_PERIOD_GROUP=this.getAttribute('data-gb');renderClosePeriods();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-gb-b'),function(b){b.onclick=function(){var o=this.getAttribute('data-ord');if(o){RP_PORDER=o;}else{RP_PERIOD_GROUP=this.getAttribute('data-gb');}renderClosePeriods();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-grp-row'),function(r){r.onclick=function(){var k=this.getAttribute('data-grp');RP_GRP_COLLAPSED[k]=!RP_GRP_COLLAPSED[k];renderClosePeriods();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-pf'),function(s){s.onchange=function(){RP_PFILTER[this.getAttribute('data-f')]=this.value;renderClosePeriods();};});
     var pfind=document.querySelector('#view .rp-pfind');if(pfind)pfind.oninput=function(){RP_PFILTER.q=this.value;var pos=this.selectionStart;renderClosePeriods();var n=document.querySelector('#view .rp-pfind');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
-    var pclr=document.querySelector('#view .rp-fclear');if(pclr)pclr.onclick=function(){RP_PFILTER={q:'',status:'All',year:'All',type:'All'};renderClosePeriods();};
+    var pclr=document.querySelector('#view .rp-fclear');if(pclr)pclr.onclick=function(){RP_PFILTER={q:'',status:'All',range:'l12',type:'All'};renderClosePeriods();};
     var nb=document.querySelector('#view .rp-newperiod');if(nb)nb.onclick=rpNewPeriodOpen;
   }
   function rpPeriodRename(pid){
@@ -4489,17 +4538,18 @@
   function rpPinReview(r){return '<div class="rp-tn" data-ctx="review" data-id="'+r.id+'"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-fdoc">'+rpIcon('doc')+'</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';}
   function rpExpandTo(id){var f=rpFolder(id);while(f){RP_WS_EXPAND[f.id]=true;f=f.parent?rpFolder(f.parent):null;}}
   /* ---------- Period workspace (project-explorer left rail | work area) ---------- */
-  function rpOpenPeriod(id){RP_PERIOD_SEL=id;RP_WS_SEL='overview';if(typeof rpReviewsFor==='function')RP_REVIEWS=rpReviewsFor(id);renderPeriodWorkspace();window.scrollTo(0,0);navMark('workspace');}
+  function rpOpenPeriod(id){RP_PERIOD_SEL=id;RP_WS_SEL='overview';if(typeof rpReviewsFor==='function')RP_REVIEWS=rpReviewsFor(id);if(typeof rpFoldersFor==='function')RP_WS_FOLDERS=rpFoldersFor(id);renderPeriodWorkspace();window.scrollTo(0,0);navMark('workspace');}
   function rpWsSelect(id){RP_WS_SEL=id;renderPeriodWorkspace();navMark('workspace');}
   function rpWsToggle(id){RP_WS_EXPAND[id]=!RP_WS_EXPAND[id];renderPeriodWorkspace();}
   function renderPeriodWorkspace(){
     var p=rpPeriod(RP_PERIOD_SEL);
     var sel=RP_WS_SEL, selF=(sel==='overview'||sel==='__structure'||sel==='__myreviews')?null:rpFolder(sel);
-    var crumbs=[{label:'Financial Reporting',go:'frov'},{label:'Close Periods',go:'frperiods'},{label:p.name.replace(' Close','')}];
+    var crumbs=[{label:'Financial Reporting',go:'frov'},{label:'Flux Overview',go:'frperiods'},{label:p.name.replace(' Close','')}];
     if(selF){ var par=selF.parent?rpFolder(selF.parent):null; if(par)crumbs.push({label:par.name}); crumbs.push({label:selF.name}); }
     var h=rpCrumb(crumbs);
-    h+='<div class="rp-whd"><div class="rp-whd-l"><h1>'+esc(p.name)+'</h1><span class="rp-whd-meta">'+esc(p.type)+' &middot; '+esc(p.status)+' &middot; due '+esc(p.due)+' &middot; '+esc(p.owner)+'</span></div><div class="rp-hd-act"><button class="btn sm primary rp-newreview">+ Create Review</button><button class="btn sm rp-managestruct">Manage Structure</button></div></div>';
-    h+=rpSumBar([[p.reviews,'Reviews'],[p.inprog,'In Progress'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Review'],[p.done,'Completed']]);
+    h+='<div class="rp-whd"><div class="rp-whd-l"><h1>'+esc(p.name)+'</h1><span class="rp-whd-meta">'+esc(p.type)+' &middot; '+esc(p.status)+' &middot; due '+esc(p.due)+' &middot; '+esc(p.owner)+'</span></div><div class="rp-hd-act"><button class="btn sm primary rp-newreview">+ Create Review</button><button class="btn sm rp-rollfwd">Roll forward&hellip;</button><button class="btn sm rp-managestruct">Manage Structure</button></div></div>';
+    var _pc=rpPeriodCert();
+    h+=rpSumBar([[p.reviews,'Reviews'],[p.inprog,'In Progress'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Review'],[_pc.signed+' / '+_pc.total,'Folders certified',_pc.certified?'ok':'']]);
     /* content-first: one horizontal sub-nav (no second sidebar) + full-width body */
     var searching=!!RP_WS_FIND;
     var tab=(sel==='__myreviews')?'myreviews':'collections';
@@ -4520,7 +4570,10 @@
   function rpTreeNode(f,depth){
     var kids=rpChildFolders(f.id), revs=rpFolderReviews(f.id), open=!!RP_COL_EXPAND[f.id], has=kids.length||revs.length, n=rpFolderCount(f.id);
     var pad=10+depth*18;
-    var h='<div class="rp-tr rp-tr-fold'+(open?' open':'')+'" data-tw="'+f.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw">'+(has?(open?'&#9662;':'&#9656;'):'')+'</span>'+rpIcon('folder')+'<span class="rp-tr-n">'+esc(f.name)+'</span><span class="rp-tr-ct">'+n+'</span>'+rpCtrlChip(f.id)+'</div>';
+    var badge='';
+    if(kids.length){var rc=rpRollupCert(f.id);badge='<span title="Sub-folder sign-off roll-up" style="margin:0 5px;font-size:var(--fs-11);'+(rc.certified?'color:var(--pos)':'color:var(--muted)')+'">'+(rc.certified?'&#10003; ':'')+rc.signed+'/'+rc.total+' cert.</span>';}
+    else if(rpSoComplete(f)){badge='<span title="Certified &amp; locked" style="color:var(--pos);margin:0 5px">&#128274;&#10003;</span>';}
+    var h='<div class="rp-tr rp-tr-fold'+(open?' open':'')+'" data-tw="'+f.id+'" style="padding-left:'+pad+'px"><span class="rp-tr-tw">'+(has?(open?'&#9662;':'&#9656;'):'')+'</span>'+rpIcon('folder')+'<span class="rp-tr-n">'+esc(f.name)+'</span>'+badge+'<span class="rp-tr-ct">'+n+'</span>'+rpCtrlChip(f.id)+'<button class="rvw-open rp-ofolder" data-fid="'+f.id+'">Open &rarr;</button></div>';
     if(open){
       kids.forEach(function(k){h+=rpTreeNode(k,depth+1);});
       revs.forEach(function(r){h+='<div class="rp-tr rp-tr-rev" data-rid="'+r.id+'" style="padding-left:'+(10+(depth+1)*18+10)+'px"><span class="rp-tr-tw"></span>'+rpIcon('doc')+'<span class="rp-tr-n">'+esc(r.name)+'</span><span class="rp-tr-type">'+esc(r.type)+'</span>'+rpRStatusPill(r.status)+(r.need?'<span class="rp-tr-need">'+r.need+' need expl.</span>':'')+'<button class="rvw-open rp-oreview" data-rid="'+r.id+'">Open &rarr;</button></div>';});
@@ -4589,7 +4642,18 @@
   }
   function rpFolderContent(f){
     var revs=rpFolderReviews(f.id), tot=rpFolderCount(f.id), ctrl=rpFolderCtrl(f.id);
-    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">'+esc(f.name)+'</h2><div class="rp-ws-desc">'+(f.scope?esc(f.scope)+' &middot; ':'')+tot+' review'+(tot===1?'':'s')+' &middot; '+ctrl.done+'/'+ctrl.total+' signed off</div></div><div class="rp-ws-hd-act">'+rpCtrlChip(f.id)+'<button class="btn sm rp-newreview">+ Review</button><button class="btn sm rp-newfolder">+ Subfolder</button></div></div>';
+    var _rc=rpRollupCert(f.id), _hasKids=rpChildFolders(f.id).length>0;
+    var _rcTxt=_hasKids?(' &middot; <span style="'+(_rc.certified?'color:var(--pos);font-weight:500':'color:var(--muted)')+'">'+(_rc.certified?'&#10003; ':'')+'roll-up '+_rc.signed+' of '+_rc.total+' certified</span>'):'';
+    var h='<div class="rp-ws-hd"><div><h2 class="rp-ws-title">'+esc(f.name)+'</h2><div class="rp-ws-desc">'+(f.scope?esc(f.scope)+' &middot; ':'')+tot+' review'+(tot===1?'':'s')+' &middot; '+ctrl.done+'/'+ctrl.total+' signed off'+_rcTxt+'</div></div><div class="rp-ws-hd-act">'+rpCtrlChip(f.id)+'<button class="btn sm rp-newreview">+ Review</button><button class="btn sm rp-newfolder">+ Subfolder</button></div></div>';
+    if(f.stmt&&f.sec){
+      var lrows=rpFolderLinkedRows(f);
+      h+='<div class="card rvw-card rp-linked"><div class="rp-csec-hd"><span class="rp-csec-nm">Linked financial lines</span><span class="rp-csec-ct">'+esc(f.scope||stmtLabel(f.stmt))+' &middot; live from the consolidated chart</span></div><div class="rvw-scroll"><table class="rvw-tbl rp-rtbl"><thead><tr><th class="l">Statement line</th><th>Current</th></tr></thead><tbody>';
+      if(lrows.length){lrows.forEach(function(r){var vs=fxAbbr$(r.val);if(r.val<0)vs='('+vs+')';h+='<tr><td class="l">'+esc(r.label)+'</td><td class="rp-num">'+vs+'</td></tr>';});}
+      else{h+='<tr><td class="l" colspan="2" style="color:var(--faint);padding:14px">No statement lines match this scope — the account, subsidiary, cost-center or segment filters excluded everything. Widen a dimension to see lines.</td></tr>';}
+      h+='</tbody></table></div></div>';
+    }
+    h+=rpSoLadder(f);
+    h+=rpFolderAudit(f.id);
     var kids=rpChildFolders(f.id);
     if(kids.length){h+='<div class="rp-subf">'+kids.map(function(k){var n=rpFolderCount(k.id);return '<button class="rp-subf-c" data-ws="'+k.id+'">'+rpIcon('folder')+'<span class="rp-subf-n">'+esc(k.name)+'</span><span class="rp-subf-ct">'+n+' review'+(n===1?'':'s')+'</span>'+rpCtrlChip(k.id)+'</button>';}).join('')+'</div>';}
     if(revs.length){
@@ -4659,14 +4723,19 @@
     var find=document.querySelector('#view .rp-ws-find');if(find)find.oninput=function(){RP_WS_FIND=this.value;var pos=this.selectionStart;renderPeriodWorkspace();var n=document.querySelector('#view .rp-ws-find');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-subf-c, #view .rp-ov-fold'),function(b){b.onclick=function(){rpWsSelect(this.getAttribute('data-ws'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cstab'),function(b){b.onclick=function(){RP_COL_STMT=this.getAttribute('data-cst');renderPeriodWorkspace();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-fold'),function(b){b.onclick=function(){var k=this.getAttribute('data-tw');RP_COL_EXPAND[k]=!RP_COL_EXPAND[k];renderPeriodWorkspace();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-fold'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ofolder'))return;var k=this.getAttribute('data-tw');RP_COL_EXPAND[k]=!RP_COL_EXPAND[k];renderPeriodWorkspace();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ofolder'),function(b){b.onclick=function(e){e.stopPropagation();rpWsSelect(this.getAttribute('data-fid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-tr-rev'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
     var texp=document.querySelector('#view .rp-treeexp');if(texp)texp.onclick=function(){var all={};RP_WS_FOLDERS.forEach(function(f){if(!f.hidden&&(rpChildFolders(f.id).length||rpFolderReviews(f.id).length))all[f.id]=true;});var anyClosed=Object.keys(all).some(function(k){return !RP_COL_EXPAND[k];});RP_COL_EXPAND=anyClosed?all:{};renderPeriodWorkspace();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rrow, #view .rp-li'),function(b){b.onclick=function(e){if(e.target.closest('.rp-oreview'))return;rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-oreview'),function(b){b.onclick=function(e){e.stopPropagation();rpOpenReview(this.getAttribute('data-rid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-newreview'),function(b){b.onclick=rpNewReviewOpen;});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-managestruct'),function(b){b.onclick=function(){rpWsSelect('__structure');};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-newfolder'),function(b){b.onclick=function(){var cur=rpFolder(RP_WS_SEL);var par=(cur&&!cur.parent)?RP_WS_SEL:null;RP_WS_SEL='__structure';rpFolderCreate(par);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-rollfwd'),function(b){b.onclick=rpRollFwdOpen;});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-signoff'),function(b){b.onclick=function(e){e.stopPropagation();rpSignOff(this.getAttribute('data-fid'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-reopen'),function(b){b.onclick=function(e){e.stopPropagation();rpReopenOpen(this.getAttribute('data-fid'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-chaincfg'),function(b){b.onclick=function(e){e.stopPropagation();rpChainCfgOpen(this.getAttribute('data-fid'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-newfolder'),function(b){b.onclick=function(){var par=(RP_WS_SEL&&RP_WS_SEL.charAt(0)!=='_'&&RP_WS_SEL!=='overview'&&rpFolder(RP_WS_SEL))?RP_WS_SEL:RP_COL_STMT;rpNewFolderOpen(par);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-copyreview, #view .rp-psettings'),function(b){b.onclick=function(){rpToast('Copy review / period settings — a later increment.');};});
     var cr=document.querySelectorAll('#view .rp-cr');Array.prototype.forEach.call(cr,function(b){b.onclick=function(){var g=this.getAttribute('data-go');if(g)navTo(g);};});
   }
@@ -4674,14 +4743,17 @@
   /* ---------- Create Close Period drawer (Scenario A) ---------- */
   function rpNewPeriodOpen(){document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderNewPeriod();}
   function rpNewPeriodClose(){document.body.classList.remove('rp-drawer-open');var d=document.getElementById('rpDrawer');if(d)d.innerHTML='';}
-  var RP_NP={start:'copy',src:'2027-02'};
+  var RP_NP={start:'copy',src:'2026-06'};
   function rpRenderNewPeriod(){
     var d=document.getElementById('rpDrawer');if(!d)return;
     var h='<div class="rp-dr-hd"><div class="t">New Close Period</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
-    h+=rpField('Period name','<input class="rp-in" id="rpNpName" value="April 2027 Close">');
-    h+=rpField('Reporting month','<input class="rp-in" id="rpNpMonth" value="April 2027">');
+    var _dMo=8,_dYr=2026;   /* default = the month after the current close (Aug 2026) */
+    function _moOpts(sel){var s='';for(var i=1;i<=12;i++){s+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+RP_MONTH_NAMES[i]+'</option>';}return s;}
+    function _yrOpts(sel){var s='';for(var y=2024;y<=2030;y++){s+='<option value="'+y+'"'+(y===sel?' selected':'')+'>'+y+'</option>';}return s;}
+    h+='<div class="rp-dr-row">'+rpField('Month','<select class="rp-in" id="rpNpMonth">'+_moOpts(_dMo)+'</select>')+rpField('Year','<select class="rp-in" id="rpNpYear">'+_yrOpts(_dYr)+'</select>')+'</div>';
+    h+=rpField('Folder name','<input class="rp-in" id="rpNpName" value="'+('0'+_dMo).slice(-2)+'-'+_dYr+'" readonly title="Set automatically from Month and Year — MM-YYYY">');
     h+=rpField('Period type','<select class="rp-in" id="rpNpType"><option>Monthly Close</option><option>Quarter-End</option><option>Year-End</option><option>Forecast</option><option>Budget</option><option>Custom</option></select>');
-    h+='<div class="rp-dr-row">'+rpField('Period owner','<input class="rp-in" value="Maya Grant">')+rpField('Due date','<input class="rp-in" id="rpNpDue" value="May 8, 2027">')+'</div>';
+    h+='<div class="rp-dr-row">'+rpField('Period owner','<input class="rp-in" value="Maya Grant">')+rpField('Due date','<input class="rp-in" id="rpNpDue" value="Sep 6, 2026">')+'</div>';
     h+=rpField('Description','<textarea class="rp-in rp-ta" placeholder="Optional&hellip;"></textarea>');
     h+='<div class="rp-dr-lbl">Starting structure</div><div class="rp-seg">'+[['copy','Copy prior period'],['template','Use close template'],['blank','Start blank']].map(function(o){return '<button class="rp-seg-b'+(RP_NP.start===o[0]?' on':'')+'" data-np="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
     if(RP_NP.start==='copy'){
@@ -4694,12 +4766,25 @@
     document.getElementById('rpNpCancel').onclick=rpNewPeriodClose;
     Array.prototype.forEach.call(d.querySelectorAll('.rp-seg-b'),function(b){b.onclick=function(){RP_NP.start=this.getAttribute('data-np');rpRenderNewPeriod();};});
     var sc=document.getElementById('rpNpSrc');if(sc)sc.onchange=function(){RP_NP.src=this.value;};
+    /* The folder name is DERIVED from Month + Year and never free-typed — this is what keeps
+       the MM-YYYY format intact so sorting and the grouped layout stay correct. */
+    function _npMoYr(){return [+((document.getElementById('rpNpMonth')||{}).value||_dMo),+((document.getElementById('rpNpYear')||{}).value||_dYr)];}
+    function _syncNp(){
+      var v=_npMoYr(),mo=v[0],yr=v[1];
+      var nameEl=document.getElementById('rpNpName');if(nameEl)nameEl.value=('0'+mo).slice(-2)+'-'+yr;
+      var nm2=mo+1>12?1:mo+1,ny=mo+1>12?yr+1:yr;
+      var dueEl=document.getElementById('rpNpDue');if(dueEl)dueEl.value=RP_MONTH_NAMES[nm2].slice(0,3)+' 6, '+ny;
+    }
+    var moEl=document.getElementById('rpNpMonth');if(moEl)moEl.onchange=_syncNp;
+    var yrEl=document.getElementById('rpNpYear');if(yrEl)yrEl.onchange=_syncNp;
     document.getElementById('rpNpCreate').onclick=function(){
-      var nm=(document.getElementById('rpNpName')||{}).value||'New Close Period';
+      var v=_npMoYr(),mo=v[0],yr=v[1];
+      var nm=('0'+mo).slice(-2)+'-'+yr, id=yr+'-'+('0'+mo).slice(-2);
+      if(RP_CLOSE_PERIODS.some(function(p){return p.id===id;})){ rpNewPeriodClose(); rpToast('Period '+nm+' already exists — opening it.'); activeNav='frperiods';renderNav();rpOpenPeriod(id); return; }
       var typ=(document.getElementById('rpNpType')||{}).value||'Monthly Close';
       var due=(document.getElementById('rpNpDue')||{}).value||'—';
       var isCopy=RP_NP.start==='copy';
-      var newId=rpCreatePeriod(nm,typ,due,isCopy,RP_NP.src);
+      var newId=rpCreatePeriod(id,nm,typ,due,isCopy,RP_NP.src);
       rpNewPeriodClose();
       rpToast('Created '+nm+(isCopy?' — structure copied from '+rpPeriod(RP_NP.src).name+', statuses reset':RP_NP.start==='template'?' from template':' (blank)')+'.');
       activeNav='frperiods';renderNav();rpOpenPeriod(newId);
@@ -4750,7 +4835,7 @@
   }
   /* ---------- Financial Reporting hub (Overview) + scope pages ---------- */
   function renderFRHub(){
-    var p=rpPeriod('2027-03');
+    var p=rpPeriod('2026-07');
     var h='<div class="kv-hd rp-hd"><div><div class="k">Financial Reporting</div><h1>Overview</h1><div class="kv-sub">The financial review layer over the ERP &mdash; organize reviews by period and workspace, perform them on a controlled data foundation, and carry explanations and evidence through the review hierarchy.</div></div></div>';
     h+=rpSumBar([[RP_CLOSE_PERIODS.filter(function(x){return x.status!=='Closed'&&x.status!=='Archived';}).length,'Open Periods'],[p.reviews,'Reviews this Period'],[p.needexpl,'Need Explanation',p.needexpl?'warn':''],[p.ready,'Ready for Controller'],[p.overdue,'Overdue',p.overdue?'warn':'']]);
     h+='<div class="rp-ov-dir rp-hub">'+[['frperiods','cal','Close Periods','Organize reviews by reporting period'],['my','doc','My Reviews','Assigned to you across periods'],['all','stack','All Reviews','Every review across the group'],['frtpl','tpl','Templates','Reusable review structures'],['frlib','stmt','Review Library','Statements, filings & report types'],['frmap','link','Mappings & Definitions','Statement maps, rollups, materiality']].map(function(x){return '<button class="rp-ov-fold rp-hub-c" data-go="'+x[0]+'">'+rpIcon(x[1])+'<span class="rp-ov-fn">'+x[2]+'</span><span class="rp-hub-d">'+x[3]+'</span></button>';}).join('')+'</div>';
@@ -5094,8 +5179,8 @@
   var RP_OPEN_REVIEW=null;
   function rpReviewHeader(){
     var r=RP_OPEN_REVIEW; if(!r)return '';
-    var f=rpFolder(r.folder), par=f&&f.parent?rpFolder(f.parent):null, p=rpPeriod(RP_PERIOD_SEL||'2027-03');
-    var crumbs=[{label:'Close Periods',go:'frperiods'},{label:p.name.replace(' Close',''),go:'__ws'}];
+    var f=rpFolder(r.folder), par=f&&f.parent?rpFolder(f.parent):null, p=rpPeriod(RP_PERIOD_SEL||'2026-07');
+    var crumbs=[{label:'Flux Overview',go:'frperiods'},{label:p.name.replace(' Close',''),go:'__ws'}];
     if(par)crumbs.push({label:par.name,go:'__ws:'+f.parent}); if(f)crumbs.push({label:f.name,go:'__ws:'+f.id});
     crumbs.push({label:r.name});
     var st=RP_RSTATUS[r.status]||['In progress','ip'];
@@ -5127,12 +5212,14 @@
   function rpNewReviewOpen(){document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderNewReview();}
   function rpRenderNewReview(){
     var d=document.getElementById('rpDrawer');if(!d)return;
-    var folderOpts=RP_WS_FOLDERS.map(function(f){return '<option value="'+f.id+'"'+(f.id==='bs-amer'?' selected':'')+'>'+esc((f.parent?'   ':'')+f.name)+'</option>';}).join('');
+    var _curF=(RP_WS_SEL&&RP_WS_SEL.charAt(0)!=='_'&&RP_WS_SEL!=='overview'&&rpFolder(RP_WS_SEL))?RP_WS_SEL:'bs-amer';
+    var folderOpts=RP_WS_FOLDERS.map(function(f){return '<option value="'+f.id+'"'+(f.id===_curF?' selected':'')+'>'+esc((f.parent?'   ':'')+f.name)+'</option>';}).join('');
     var h='<div class="rp-dr-hd"><div class="t">Create Review</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
     h+='<div class="rp-dr-sec">Basic information</div>';
     h+=rpField('Review name','<input class="rp-in" id="rpNrName" value="Local Currency PP&amp;E Flux">');
     h+=rpField('Description','<textarea class="rp-in rp-ta" placeholder="Optional&hellip;"></textarea>');
-    h+='<div class="rp-dr-row">'+rpField('Period','<input class="rp-in" value="March 2027" disabled>')+rpField('Folder location','<select class="rp-in" id="rpNrFolder">'+folderOpts+'</select>')+'</div>';
+    h+='<div class="rp-dr-row">'+rpField('Period','<input class="rp-in" value="07-2026" disabled>')+rpField('Folder location','<select class="rp-in" id="rpNrFolder">'+folderOpts+'</select>')+'</div>';
+    var _cf=rpFolder(_curF);if(_cf&&_cf.stmt&&_cf.sec)h+='<div class="rp-copy-fine">Inherits <b>'+esc(_cf.scope)+'</b> from the folder — the review opens onto that section of the live statement.</div>';
     h+=rpField('Review type','<select class="rp-in" id="rpNrType">'+RP_DTYPES.map(function(t){return '<option'+(t==='Flux Analysis'?' selected':'')+'>'+t+'</option>';}).join('')+'</select>');
     h+='<div class="rp-dr-sec">Scope</div>';
     h+=rpField('Scope','<select class="rp-in" id="rpNrScope">'+RP_SCOPES.map(function(s){return '<option'+(s==='Region'?' selected':'')+'>'+s+'</option>';}).join('')+'</select>');
@@ -5142,7 +5229,7 @@
     h+=rpField('Currency','<div class="rp-seg" id="rpNrCcy">'+[['reporting','Reporting'],['local','Local'],['constant','Constant']].map(function(o){return '<button class="rp-seg-b'+(RP_NR.ccy===o[0]||(!RP_NR.ccy&&o[0]==='local')?' on':'')+'" data-ccy="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>');
     h+='<div class="rp-dr-sec">Ownership</div>';
     h+='<div class="rp-dr-row">'+rpField('Owner','<input class="rp-in" value="Maya Grant">')+rpField('Reviewer','<input class="rp-in" value="David Okafor">')+'</div>';
-    h+='<div class="rp-dr-row">'+rpField('Final approver','<input class="rp-in" value="CFO">')+rpField('Due date','<input class="rp-in" value="Apr 5, 2027">')+'</div>';
+    h+='<div class="rp-dr-row">'+rpField('Final approver','<input class="rp-in" value="CFO">')+rpField('Due date','<input class="rp-in" value="Aug 5, 2026">')+'</div>';
     h+='<div class="rp-dr-sec">Starting point</div>';
     h+='<div class="rp-seg">'+[['template','Use template'],['copy','Copy review'],['blank','Start blank']].map(function(o){return '<button class="rp-seg-b'+(RP_NR.start===o[0]?' on':'')+'" data-nr="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
     h+='</div><div class="rp-dr-ft"><button class="btn" id="rpNrCancel">Cancel</button><button class="btn primary" id="rpNrCreate">Create &amp; design &rarr;</button></div>';
@@ -5154,6 +5241,7 @@
     document.getElementById('rpNrCreate').onclick=function(){
       var nm=(document.getElementById('rpNrName')||{}).value||'New Review';
       var seed={name:nm,type:(document.getElementById('rpNrType')||{}).value,scope:(document.getElementById('rpNrScope')||{}).value,folder:(document.getElementById('rpNrFolder')||{}).value,ccy:RP_NR.ccy||'local'};
+      var _sf=rpFolder(seed.folder);if(_sf&&_sf.stmt&&_sf.sec)seed.target={stmt:_sf.stmt,sec:_sf.sec};
       rpNewPeriodClose();
       RP_DESIGN=rpDefaultDesign(seed);
       if(RP_NR.start==='blank'){RP_DESIGN.rows=[{t:'section',label:'Non-current assets'},{t:'glacct',label:'Data Center Equipment'},{t:'glacct',label:'Construction in Progress'},{t:'subtotal',label:'Net PP&E'}];RP_DESIGN.cols=[{t:'feb',label:'February'},{t:'mar',label:'March'},{t:'mom',label:'Change'},{t:'expl',label:'Explanation'}];}
@@ -5164,7 +5252,7 @@
   function renderReviewDesigner(){
     if(!RP_DESIGN)RP_DESIGN=rpDefaultDesign();
     var D=RP_DESIGN;
-    var h=rpCrumb([{label:'Financial Reporting',go:'frov'},{label:'Close Periods',go:'frperiods'},{label:'March 2027'},{label:'Review Designer'}]);
+    var h=rpCrumb([{label:'Financial Reporting',go:'frov'},{label:'Flux Overview',go:'frperiods'},{label:'07-2026'},{label:'Review Designer'}]);
     h+='<div class="kv-hd rp-hd"><div><div class="k">Review Designer &middot; '+esc(D.type)+'</div><h1>'+esc(D.name)+'</h1><div class="kv-sub">Scope '+esc(D.scope)+' &middot; '+esc({reporting:'Reporting',local:'Local',constant:'Constant'}[D.ccy]||'Reporting')+' currency &middot; source data stays controlled; you control the presentation.</div></div><div class="rp-hd-act"><button class="btn rd-cancel">Cancel</button><button class="btn rd-savetpl">Save as Template</button><button class="btn primary rd-open">Save &amp; open review &rarr;</button></div></div>';
     h+='<div class="rd"><div class="rd-build">';
     h+='<div class="rd-sec"><div class="rd-sec-h">Rows<button class="rd-add" data-add="row">+ Add</button></div>';
@@ -5226,7 +5314,7 @@
   function rpDesignRemove(kind,i){var arr=kind==='row'?RP_DESIGN.rows:RP_DESIGN.cols;arr.splice(i,1);RP_DESIGN_SEL=null;renderReviewDesigner();}
   function rpDesignAdd(kind,t){var arr=kind==='row'?RP_DESIGN.rows:RP_DESIGN.cols;var types=kind==='row'?RP_ROW_TYPES:RP_COL_TYPES;var nm=types.filter(function(x){return x[0]===t;})[0];arr.push({t:t,label:nm?nm[1]:t});RP_DESIGN_ADD=null;RP_DESIGN_SEL={kind:kind,idx:arr.length-1};renderReviewDesigner();}
   function rpWireDesigner(){
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rd-cancel'),function(b){b.onclick=function(){RP_WS_SEL=RP_DESIGN&&RP_DESIGN.folder||'overview';activeNav='frperiods';renderNav();RP_PERIOD_SEL=RP_PERIOD_SEL||'2027-03';renderPeriodWorkspace();window.scrollTo(0,0);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rd-cancel'),function(b){b.onclick=function(){RP_WS_SEL=RP_DESIGN&&RP_DESIGN.folder||'overview';activeNav='frperiods';renderNav();RP_PERIOD_SEL=RP_PERIOD_SEL||'2026-07';renderPeriodWorkspace();window.scrollTo(0,0);};});
     var open=document.querySelector('#view .rd-open');if(open)open.onclick=function(){var fol=rpFolder(RP_DESIGN.folder),cons=(fol||{}).cons||'EMEA';
       var rev={id:'rv'+(++RP_REVIEW_SEQ),folder:RP_DESIGN.folder,name:RP_DESIGN.name,type:RP_DESIGN.type.replace(' Analysis','').replace(' Review','')||'Flux',engine:rcEngineFromType(RP_DESIGN.type),cons:cons,owner:RP_DESIGN.owner,rev:'DO',status:'inprog',need:0,upd:'Just now'};
       RP_REVIEWS.push(rev); if(fol)fol.count++;
@@ -5254,9 +5342,9 @@
     return {
       name:r.name||'Review',
       classification: cert?'Certified Review':'Team Review',
-      createdBy:'Maya Grant', createdDate:'Mar 1, 2027', sourceTemplate:'Regional Local Currency Flux',
-      modifiedBy: r.owner||'Maya Grant', modifiedDate:'Mar 6, 2027',
-      mappingVersion:'v12 · Mar 2027', formulaVersion:'v4', refreshed:'Mar 6, 2027 · 06:14 UTC',
+      createdBy:'Maya Grant', createdDate:'Jul 1, 2026', sourceTemplate:'Regional Local Currency Flux',
+      modifiedBy: r.owner||'Maya Grant', modifiedDate:'Jul 6, 2026',
+      mappingVersion:'v12 · Jul 2026', formulaVersion:'v4', refreshed:'Jul 6, 2026 · 06:14 UTC',
       included:'EMEA reporting entities · PP&E accounts (15000–15900)',
       excluded:'Intercompany PP&E · assets held for sale',
       matMethod:'Greater of $5M or 8% of prior balance',
@@ -5309,7 +5397,7 @@
     if(!h)h='<div class="rp-sr-empty">No matches for &ldquo;'+rpEsc(q)+'&rdquo;. Try an entity, region, review name, owner, or a phrase like &ldquo;waiting on controller&rdquo;.</div>';
     el.innerHTML=h; rpSearchShow(true); rpWireSearch();
   }
-  function rpSearchQuick(){return '<div class="rp-sr-quick">'+[['My reviews','my'],['All reviews','all'],['Close Periods','frperiods'],['Templates','frtpl']].map(function(x){return '<button class="rp-sr-chip" data-nav="'+x[1]+'">'+x[0]+'</button>';}).join('')+'</div>';}
+  function rpSearchQuick(){return '<div class="rp-sr-quick">'+[['My reviews','my'],['All reviews','all'],['Flux Overview','frperiods'],['Templates','frtpl']].map(function(x){return '<button class="rp-sr-chip" data-nav="'+x[1]+'">'+x[0]+'</button>';}).join('')+'</div>';}
   function rpSearchRow(kind,id,title,sub){return '<button class="rp-sr-row" data-k="'+kind+'" data-id="'+rpEsc(id)+'"><span class="rp-sr-ic '+kind+'">'+({period:'&#9635;',folder:'&#128193;',review:'&#9636;',entity:'&#9679;'}[kind]||'')+'</span><span class="rp-sr-t">'+rpEsc(title)+'<span class="rp-sr-s">'+rpEsc(sub)+'</span></span></button>';}
   function rpSearchShow(v){var el=document.getElementById('rpSearch');if(!el)return;rpSearchOpen=v;el.hidden=!v;document.body.classList.toggle('rp-search-open',v);}
   function rpWireSearch(){var el=document.getElementById('rpSearch');if(!el)return;
@@ -5318,8 +5406,8 @@
   }
   function rpSearchGo(kind,id){
     if(kind==='period'){activeNav='frperiods';renderNav();rpOpenPeriod(id);}
-    else if(kind==='folder'){var f=rpFolder(id);RP_PERIOD_SEL=RP_PERIOD_SEL||'2027-03';RP_WS_SEL=id;if(f&&f.parent)RP_WS_EXPAND[f.parent]=true;activeNav='frperiods';renderNav();renderPeriodWorkspace();window.scrollTo(0,0);}
-    else if(kind==='review'){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===id)r=RP_REVIEWS[i];if(r){RP_PERIOD_SEL=RP_PERIOD_SEL||'2027-03';rpOpenReview(id);}}
+    else if(kind==='folder'){var f=rpFolder(id);RP_PERIOD_SEL=RP_PERIOD_SEL||'2026-07';RP_WS_SEL=id;if(f&&f.parent)RP_WS_EXPAND[f.parent]=true;activeNav='frperiods';renderNav();renderPeriodWorkspace();window.scrollTo(0,0);}
+    else if(kind==='review'){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===id)r=RP_REVIEWS[i];if(r){RP_PERIOD_SEL=RP_PERIOD_SEL||'2026-07';rpOpenReview(id);}}
     else if(kind==='entity'){RP_OPEN_REVIEW=null;fluxScope=nodeToScope(consEntNode(id));navTo('mtrend');}
   }
   /* ===== Phase 2d: editable workspace — folder CRUD / Manage Structure + review move/duplicate (§4) ===== */
@@ -5339,7 +5427,7 @@
     var h='<div class="rp-struct-row" style="padding-left:'+(11+depth*22)+'px">';
     h+='<span class="rp-struct-ic">'+rpIcon('folder')+'</span>';
     if(renaming)h+='<input class="rp-in rp-struct-in" id="rpRenameIn" value="'+esc(f.name)+'" data-f="'+f.id+'">';
-    else h+='<span class="rp-struct-n">'+esc(f.name)+'</span><span class="rp-struct-ct">'+f.count+'</span>';
+    else h+='<span class="rp-struct-n">'+esc(f.name)+'</span>'+(f.scope?'<span class="rp-struct-scope" style="color:var(--muted);font-size:var(--fs-11)">'+esc(f.scope)+'</span>':'')+'<span class="rp-struct-ct">'+rpFolderCount(f.id)+'</span>';
     h+='<span class="rp-struct-a">';
     if(renaming)h+='<button class="rp-sa on rp-rn-save" data-f="'+f.id+'">Save</button>';
     else{
@@ -5356,6 +5444,216 @@
     if(parentId){var kids=rpChildFolders(parentId);if(kids.length){RP_WS_FOLDERS.splice(RP_WS_FOLDERS.indexOf(kids[kids.length-1])+1,0,nf);}else{RP_WS_FOLDERS.splice(RP_WS_FOLDERS.indexOf(rpFolder(parentId))+1,0,nf);}RP_WS_EXPAND[parentId]=true;}
     else RP_WS_FOLDERS.push(nf);
     RP_WS_RENAME=id;renderPeriodWorkspace();var i=document.getElementById('rpRenameIn');if(i){i.focus();i.select();}}
+  /* ---- Folder → financials linking. A folder can be scoped to one section of a live
+     statement (stmt+sec). The Section list is pulled from fluxSections() so it is always the
+     real chart, and rpSectionRows() reads the section's actual lines/values. Reviews created
+     inside a scoped folder inherit the scope and open onto those exact lines. ---- */
+  function stmtLabel(s){return s==='is'?'Income Statement':s==='cf'?'Cash Flow':'Balance Sheet';}
+  function rpStmtSections(stmt){try{return fluxSections(glLedger(),stmt).map(function(s){return s.name;}).filter(function(x){return x;});}catch(e){return [];}}
+  function rpSectionRows(stmt,sec){
+    try{var led=glLedger(),ti=led.months.length-1,s=null;
+      fluxSections(led,stmt).forEach(function(x){if(x.name===sec)s=x;});
+      if(!s)return [];
+      return s.groups.map(function(g){return {label:g.caption,val:g.accts.reduce(function(a,acc){return a+fluxVal(acc,ti);},0)};});
+    }catch(e){return [];}}
+  function rpFolderScopeLabel(flt){
+    if(!flt||!flt.stmt)return '';
+    var p=[stmtLabel(flt.stmt)]; if(flt.sec)p.push(flt.sec);
+    if(flt.accts&&flt.accts.length)p.push(flt.accts.length+' acct'+(flt.accts.length>1?'s':''));
+    if(flt.entity)p.push(ENT_BY_ID[flt.entity]?(ENT_BY_ID[flt.entity].short||ENT_BY_ID[flt.entity].name):flt.entity);
+    if(flt.cc)p.push('CC '+flt.cc);
+    if(flt.seg)p.push(flt.seg);
+    return p.join(' · ');
+  }
+  function rpEntScope(flt){
+    var ents=null;
+    if(flt.entity){ if(ENT_BY_ID[flt.entity])ents=[flt.entity]; else ents=ENT_MASTER.filter(function(e){return e.region===flt.entity;}).map(function(e){return e.id;}); }
+    if(flt.cc){ var ccE=ENT_MASTER.filter(function(e){return e.costCenter===flt.cc;}).map(function(e){return e.id;}); ents=ents?ents.filter(function(x){return ccE.indexOf(x)>=0;}):ccE; }
+    return ents;
+  }
+  function rpFolderLinkedRows(f){
+    try{
+      var flt=f.filter||{stmt:f.stmt,sec:f.sec};
+      if(!flt.stmt||!flt.sec)return [];
+      var led=glLedger(),ti=led.months.length-1,s=null;
+      fluxSections(led,flt.stmt).forEach(function(x){if(x.name===flt.sec)s=x;});
+      if(!s)return [];
+      var pick=(flt.accts&&flt.accts.length)?flt.accts:null, ents=rpEntScope(flt);
+      function acctOk(a){ if(pick&&pick.indexOf(a.acct)<0)return false; if(flt.seg&&FLUX_SEG[a.acct]!==flt.seg)return false; return true; }
+      function valOf(acc){ if(ents){var v=0;ents.forEach(function(eid){v+=fxEntValue([acc],eid,ti,flt.stmt==='bs');});return v;} return fluxVal(acc,ti); }
+      return s.groups.map(function(g){var accs=g.accts.filter(acctOk);if(!accs.length)return null;return {label:g.caption,val:accs.reduce(function(a,acc){return a+valOf(acc);},0)};}).filter(Boolean);
+    }catch(e){return [];}
+  }
+  function rpFolderCreateScoped(parentId,name,filter){
+    var id='f'+(++RP_FOLDER_SEQ), label=rpFolderScopeLabel(filter);
+    var nf={id:id,name:name||'New folder',parent:parentId||null,count:0,stmt:filter.stmt,sec:filter.sec||null,filter:filter,scope:label};
+    if(parentId){var kids=rpChildFolders(parentId);if(kids.length){RP_WS_FOLDERS.splice(RP_WS_FOLDERS.indexOf(kids[kids.length-1])+1,0,nf);}else{RP_WS_FOLDERS.splice(RP_WS_FOLDERS.indexOf(rpFolder(parentId))+1,0,nf);}RP_WS_EXPAND[parentId]=true;}
+    else RP_WS_FOLDERS.push(nf);
+    RP_WS_SEL=id;renderPeriodWorkspace();rpToast('Created “'+nf.name+'” — linked to '+(label||'the statement')+'.');
+  }
+  var RP_NF={parent:null,stmt:null,sec:null,entity:'',cc:'',seg:''};
+  function rpNewFolderOpen(parentId){RP_NF={parent:parentId||null,stmt:null,sec:null,entity:'',cc:'',seg:''};document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderNewFolder();}
+  function rpNfSecSelect(stmt,cur){var secs=rpStmtSections(stmt);return '<select class="rp-in" id="rpNfSec"><option value="">— Whole statement —</option>'+secs.map(function(s){return '<option value="'+esc(s)+'"'+(cur===s?' selected':'')+'>'+esc(s)+'</option>';}).join('')+'</select>';}
+  function rpNfAcctChecks(stmt,sec){
+    if(!sec)return '<div class="rp-copy-fine">Choose a section to pick specific GL accounts (optional — defaults to the whole section).</div>';
+    var accs=[];try{fluxSections(glLedger(),stmt).forEach(function(x){if(x.name===sec)x.groups.forEach(function(g){g.accts.forEach(function(a){accs.push(a);});});});}catch(e){}
+    if(!accs.length)return '<div class="rp-copy-fine">No GL accounts in this section.</div>';
+    return '<div class="rp-nf-accts" style="max-height:148px;overflow:auto;display:flex;flex-direction:column;gap:5px;border:1px solid var(--line-2);border-radius:2px;padding:8px">'+accs.map(function(a){return '<label class="rp-chk"><input type="checkbox" class="rp-nf-acct" value="'+esc(a.acct)+'" checked> <b>'+esc(a.acct)+'</b>&nbsp;'+esc(a.name)+'</label>';}).join('')+'</div>';
+  }
+  function rpNfEntSelect(cur){
+    var regions=[];ENT_MASTER.forEach(function(e){if(regions.indexOf(e.region)<0)regions.push(e.region);});
+    var h='<select class="rp-in" id="rpNfEnt"><option value="">All subsidiaries</option>';
+    regions.forEach(function(rg){h+='<optgroup label="'+esc(rg)+'"><option value="'+esc(rg)+'"'+(cur===rg?' selected':'')+'>All '+esc(rg)+'</option>';ENT_MASTER.filter(function(e){return e.region===rg;}).forEach(function(e){h+='<option value="'+esc(e.id)+'"'+(cur===e.id?' selected':'')+'>'+esc(e.short||e.name)+'</option>';});h+='</optgroup>';});
+    return h+'</select>';
+  }
+  function rpNfCcSelect(cur){var ccs=[];ENT_MASTER.forEach(function(e){if(e.costCenter&&ccs.indexOf(e.costCenter)<0)ccs.push(e.costCenter);});ccs.sort();return '<select class="rp-in" id="rpNfCc"><option value="">All cost centers</option>'+ccs.map(function(c){return '<option value="'+esc(c)+'"'+(cur===c?' selected':'')+'>'+esc(c)+'</option>';}).join('')+'</select>';}
+  function rpNfSegSelect(cur){return '<select class="rp-in" id="rpNfSeg"><option value="">All segments</option>'+FLUX_SEG_ORDER.map(function(s){return '<option value="'+esc(s)+'"'+(cur===s?' selected':'')+'>'+esc(s)+'</option>';}).join('')+'</select>';}
+  function rpRenderNewFolder(){
+    var d=document.getElementById('rpDrawer');if(!d)return;
+    var par=RP_NF.parent?rpFolder(RP_NF.parent):null;
+    var stmt=RP_NF.stmt||(par&&par.stmt)||'bs';
+    var h='<div class="rp-dr-hd"><div class="t">New folder</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
+    h+=rpField('Folder name','<input class="rp-in" id="rpNfName" value="" placeholder="e.g. Property, Plant &amp; Equipment">');
+    if(par)h+=rpField('Location','<input class="rp-in" value="'+esc(par.name)+'" disabled>');
+    h+='<div class="rp-dr-sec">Link to financials</div>';
+    h+='<div class="rp-dr-row">'+rpField('Statement','<select class="rp-in" id="rpNfStmt">'+[['bs','Balance Sheet'],['is','Income Statement'],['cf','Cash Flow']].map(function(o){return '<option value="'+o[0]+'"'+(stmt===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>')+rpField('Section',rpNfSecSelect(stmt,RP_NF.sec))+'</div>';
+    h+=rpField('GL accounts',rpNfAcctChecks(stmt,RP_NF.sec));
+    h+='<div class="rp-dr-sec">Dimensions</div>';
+    h+='<div class="rp-dr-row">'+rpField('Subsidiary',rpNfEntSelect(RP_NF.entity))+rpField('Cost center',rpNfCcSelect(RP_NF.cc))+'</div>';
+    h+='<div class="rp-dr-row">'+rpField('Segment',rpNfSegSelect(RP_NF.seg))+'<div class="rp-dr-f"></div></div>';
+    h+='<div class="rp-copy-fine">The folder binds to this slice of the live consolidated statement. Leave a dimension on “All” to skip it. Reviews created inside inherit the full scope.</div>';
+    h+='</div><div class="rp-dr-ft"><button class="btn" id="rpNfCancel">Cancel</button><button class="btn primary" id="rpNfCreate">Create folder</button></div>';
+    d.innerHTML=h;
+    document.getElementById('rpDrX').onclick=rpNewPeriodClose;
+    document.getElementById('rpNfCancel').onclick=rpNewPeriodClose;
+    var st=document.getElementById('rpNfStmt');if(st)st.onchange=function(){RP_NF.stmt=this.value;RP_NF.sec=null;rpRenderNewFolder();};
+    var sc=document.getElementById('rpNfSec');if(sc)sc.onchange=function(){RP_NF.sec=this.value;rpRenderNewFolder();};
+    var en=document.getElementById('rpNfEnt');if(en)en.onchange=function(){RP_NF.entity=this.value;};
+    var ccx=document.getElementById('rpNfCc');if(ccx)ccx.onchange=function(){RP_NF.cc=this.value;};
+    var sg=document.getElementById('rpNfSeg');if(sg)sg.onchange=function(){RP_NF.seg=this.value;};
+    document.getElementById('rpNfCreate').onclick=function(){
+      var nm=((document.getElementById('rpNfName')||{}).value||'').trim();
+      var se=RP_NF.sec||((document.getElementById('rpNfSec')||{}).value)||'';
+      var checks=Array.prototype.slice.call(d.querySelectorAll('.rp-nf-acct'));
+      var chosen=checks.filter(function(c){return c.checked;}).map(function(c){return c.value;});
+      var accts=(checks.length&&chosen.length<checks.length)?chosen:[];
+      var filter={stmt:stmt,sec:se||null,accts:accts,entity:RP_NF.entity||'',cc:RP_NF.cc||'',seg:RP_NF.seg||''};
+      rpNewPeriodClose();
+      rpFolderCreateScoped(RP_NF.parent,nm||rpFolderScopeLabel(filter)||stmtLabel(stmt),filter);
+    };
+  }
+  /* ---- Roll folders forward: copy a prior period's folder tree (names, hierarchy, scopes)
+     into the current period. Reviews are NOT copied — the shell carries forward, the numbers
+     start fresh. Also invoked automatically by New Period → Copy prior period. ---- */
+  var RP_RF={src:null};
+  function rpRollFwdOpen(){
+    var cur=RP_PERIOD_SEL, curIdx=rpPeriodIdx(rpPeriod(cur)), prev=null, prevIdx=-1;
+    RP_CLOSE_PERIODS.forEach(function(p){var i=rpPeriodIdx(p);if(p.id!==cur&&i<curIdx&&i>prevIdx){prev=p.id;prevIdx=i;}});
+    RP_RF={src:prev||(RP_CLOSE_PERIODS.filter(function(p){return p.id!==cur;})[0]||{}).id||null};
+    document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderRollFwd();
+  }
+  function rpRenderRollFwd(){
+    var d=document.getElementById('rpDrawer');if(!d)return;
+    var cur=rpPeriod(RP_PERIOD_SEL);
+    var opts=RP_CLOSE_PERIODS.filter(function(p){return p.id!==RP_PERIOD_SEL;}).map(function(p){return '<option value="'+p.id+'"'+(RP_RF.src===p.id?' selected':'')+'>'+esc(p.name)+'</option>';}).join('');
+    var src=RP_RF.src?rpFoldersFor(RP_RF.src).filter(function(f){return !f.hidden;}):[];
+    var scoped=src.filter(function(f){return f.filter&&f.filter.sec;}).length;
+    var h='<div class="rp-dr-hd"><div class="t">Roll folders forward</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
+    h+='<div class="rp-copy-fine">Copy a prior period&rsquo;s folder structure — names, hierarchy and every scope definition (accounts, subsidiary, cost center, segment) — into <b>'+esc(cur.name)+'</b>. This replaces '+esc(cur.name)+'&rsquo;s current folders with the source&rsquo;s.</div>';
+    h+=rpField('Roll forward from','<select class="rp-in" id="rpRfSrc">'+opts+'</select>');
+    h+='<div class="rp-copy-note"><div class="rp-copy-h">Carried forward</div><ul class="rp-copy-ul"><li>'+src.length+' folders &mdash; '+scoped+' with a financial scope</li><li>Folder hierarchy &amp; ordering</li><li>Statement / section / GL-account / dimension filters</li></ul><div class="rp-copy-h">Starts fresh</div><ul class="rp-copy-ul dim"><li>Reviews, explanations &amp; sign-offs</li></ul></div>';
+    h+='</div><div class="rp-dr-ft"><button class="btn" id="rpRfCancel">Cancel</button><button class="btn primary" id="rpRfGo">Roll forward</button></div>';
+    d.innerHTML=h;
+    document.getElementById('rpDrX').onclick=rpNewPeriodClose;
+    document.getElementById('rpRfCancel').onclick=rpNewPeriodClose;
+    var s=document.getElementById('rpRfSrc');if(s)s.onchange=function(){RP_RF.src=this.value;rpRenderRollFwd();};
+    document.getElementById('rpRfGo').onclick=function(){var src=(document.getElementById('rpRfSrc')||{}).value;rpNewPeriodClose();if(src)rpFoldersRollForward(src,RP_PERIOD_SEL);};
+  }
+  /* ===== Controls & sign-offs (Workiva-style: each folder defines its own approval chain).
+     A folder's chain is an ordered list of named-role levels; sign-offs are sequential, each
+     stamped with actor + timestamp; completing the chain certifies and LOCKS the folder; a lock
+     can be reopened with a reason. Same person signing two levels is allowed but flagged as a
+     segregation-of-duties exception. Everything is recorded in an append-only audit trail. ===== */
+  var RP_DEFAULT_CHAIN=[{role:'Preparer'},{role:'Reviewer'},{role:'Controller'}];
+  var RP_SIGNOFF={};      /* key "period::folder" -> [ {role,by,at,sod} | undefined ] */
+  var RP_AUDIT=[]; var RP_AUDIT_SEQ=0;
+  function rpNow(){var d=new Date();function p(n){return (n<10?'0':'')+n;}var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes());}
+  function rpChainOf(f){return (f.chain&&f.chain.length)?f.chain:RP_DEFAULT_CHAIN;}
+  function rpSoKey(f){return (RP_PERIOD_SEL||'')+'::'+f.id;}
+  function rpSoState(f){var k=rpSoKey(f);if(!RP_SIGNOFF[k])RP_SIGNOFF[k]=[];return RP_SIGNOFF[k];}
+  function rpSoNext(f){var chain=rpChainOf(f),st=rpSoState(f);for(var i=0;i<chain.length;i++){if(!st[i])return i;}return -1;}
+  function rpSoComplete(f){return rpChainOf(f).length>0&&rpSoNext(f)===-1;}
+  function rpSoCount(f){var st=rpSoState(f),n=0;for(var i=0;i<st.length;i++)if(st[i])n++;return n;}
+  /* Roll-up: a parent folder — and the period — certify only when their OWN chain and every
+     folder beneath them is fully signed off. */
+  function rpDescendantFolders(fid){var f=rpFolder(fid);var out=f?[f]:[];rpChildFolders(fid).forEach(function(k){if(!k.hidden)out=out.concat(rpDescendantFolders(k.id));});return out;}
+  function rpRollupCert(fid){var all=rpDescendantFolders(fid),total=all.length,signed=all.filter(function(x){return rpSoComplete(x);}).length;return {total:total,signed:signed,certified:total>0&&signed===total};}
+  function rpPeriodCert(){var seen={},list=[];RP_WS_FOLDERS.filter(function(f){return !f.parent&&!f.hidden;}).forEach(function(t){rpDescendantFolders(t.id).forEach(function(f){if(f&&!seen[f.id]){seen[f.id]=1;list.push(f);}});});var total=list.length,signed=list.filter(function(x){return rpSoComplete(x);}).length;return {total:total,signed:signed,certified:total>0&&signed===total};}
+  function rpAudit(action,target,detail,sod,fid){RP_AUDIT.unshift({id:++RP_AUDIT_SEQ,ts:rpNow(),actor:CUR_USER.name,action:action,target:target,detail:detail||'',sod:!!sod,fid:fid||null,per:RP_PERIOD_SEL});}
+  function rpSignOff(fid){
+    var f=rpFolder(fid);if(!f)return;var i=rpSoNext(f);if(i<0){rpToast('Already fully signed off.');return;}
+    var chain=rpChainOf(f),st=rpSoState(f),me=CUR_USER.name,sod=st.some(function(s){return s&&s.by===me;});
+    st[i]={role:chain[i].role,by:me,at:rpNow(),sod:sod};
+    rpAudit('Signed off',f.name,chain[i].role+(sod?' — segregation-of-duties exception (same approver as an earlier level)':''),sod,fid);
+    if(rpSoComplete(f)){f.locked=true;rpAudit('Certified',f.name,'All '+chain.length+' approvals complete — folder locked',false,fid);}
+    renderPeriodWorkspace();rpToast(chain[i].role+' signed off'+(rpSoComplete(f)?' — '+f.name+' certified & locked.':(sod?' — SoD exception logged.':'.')));
+  }
+  var RP_RO={fid:null};
+  function rpReopenOpen(fid){RP_RO={fid:fid};document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderReopen();}
+  function rpRenderReopen(){
+    var d=document.getElementById('rpDrawer');if(!d)return;var f=rpFolder(RP_RO.fid),st=rpSoState(f),last=-1;for(var i=0;i<st.length;i++)if(st[i])last=i;var role=last>=0?st[last].role:'';
+    var h='<div class="rp-dr-hd"><div class="t">Reopen sign-off</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
+    h+='<div class="rp-copy-fine">Reversing the <b>'+esc(role)+'</b> sign-off on <b>'+esc(f?f.name:'')+'</b> unlocks it and is recorded, with your reason, in the audit trail.</div>';
+    h+=rpField('Reason for reopening','<textarea class="rp-in rp-ta" id="rpRoReason" placeholder="e.g. Late adjusting entry to depreciation"></textarea>');
+    h+='</div><div class="rp-dr-ft"><button class="btn" id="rpRoCancel">Cancel</button><button class="btn primary" id="rpRoGo">Reopen &amp; unlock</button></div>';
+    d.innerHTML=h;document.getElementById('rpDrX').onclick=rpNewPeriodClose;document.getElementById('rpRoCancel').onclick=rpNewPeriodClose;
+    document.getElementById('rpRoGo').onclick=function(){var reason=((document.getElementById('rpRoReason')||{}).value||'').trim();rpNewPeriodClose();rpReopenSignoff(RP_RO.fid,reason);};
+  }
+  function rpReopenSignoff(fid,reason){
+    var f=rpFolder(fid);if(!f)return;var st=rpSoState(f),last=-1;for(var i=0;i<st.length;i++)if(st[i])last=i;if(last<0){rpToast('Nothing to reopen.');return;}
+    var role=st[last].role;st[last]=undefined;f.locked=false;
+    rpAudit('Reopened',f.name,role+' sign-off reversed'+(reason?' — '+reason:''),false,fid);
+    renderPeriodWorkspace();rpToast('Reopened '+role+' sign-off on '+f.name+'.');
+  }
+  var RP_CC={fid:null,steps:[]};
+  function rpChainCfgOpen(fid){var f=rpFolder(fid);if(!f)return;RP_CC={fid:fid,steps:rpChainOf(f).map(function(s){return {role:s.role};})};document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;rpRenderChainCfg();}
+  function rpRenderChainCfg(){
+    var d=document.getElementById('rpDrawer');if(!d)return;var f=rpFolder(RP_CC.fid);
+    var roles=['Preparer','Reviewer','Controller','CFO','Manager','Director','External Auditor'];
+    var h='<div class="rp-dr-hd"><div class="t">Configure approval chain</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
+    h+='<div class="rp-copy-fine">Define the ordered approvals for <b>'+esc(f?f.name:'')+'</b>. Each level is a named role; sign-offs complete in order. Saving resets any sign-offs already recorded on this folder.</div>';
+    RP_CC.steps.forEach(function(s,i){
+      var known=roles.indexOf(s.role)>=0;
+      h+='<div class="rp-cc-row" style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="rp-appr-n" style="width:18px;height:18px;border-radius:9px;background:var(--surface2);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-11)">'+(i+1)+'</span><select class="rp-in rp-cc-role" data-i="'+i+'" style="flex:1">'+roles.map(function(r){return '<option'+(s.role===r?' selected':'')+'>'+r+'</option>';}).join('')+(known?'':'<option selected>'+esc(s.role)+'</option>')+'</select><button class="rp-sa rp-cc-del" data-i="'+i+'"'+(RP_CC.steps.length<=1?' disabled':'')+'>Remove</button></div>';
+    });
+    if(RP_CC.steps.length<4)h+='<button class="btn sm rp-cc-add">+ Add level</button>';
+    h+='</div><div class="rp-dr-ft"><button class="btn" id="rpCcCancel">Cancel</button><button class="btn primary" id="rpCcSave">Save chain</button></div>';
+    d.innerHTML=h;document.getElementById('rpDrX').onclick=rpNewPeriodClose;document.getElementById('rpCcCancel').onclick=rpNewPeriodClose;
+    Array.prototype.forEach.call(d.querySelectorAll('.rp-cc-role'),function(sel){sel.onchange=function(){RP_CC.steps[+this.getAttribute('data-i')].role=this.value;};});
+    Array.prototype.forEach.call(d.querySelectorAll('.rp-cc-del'),function(b){b.onclick=function(){RP_CC.steps.splice(+this.getAttribute('data-i'),1);rpRenderChainCfg();};});
+    var add=d.querySelector('.rp-cc-add');if(add)add.onclick=function(){RP_CC.steps.push({role:'Reviewer'});rpRenderChainCfg();};
+    document.getElementById('rpCcSave').onclick=function(){var f=rpFolder(RP_CC.fid);if(f){f.chain=RP_CC.steps.map(function(s){return {role:s.role};});RP_SIGNOFF[rpSoKey(f)]=[];f.locked=false;rpAudit('Chain configured',f.name,f.chain.map(function(s){return s.role;}).join(' → '),false,RP_CC.fid);}rpNewPeriodClose();renderPeriodWorkspace();rpToast('Approval chain saved.');};
+  }
+  function rpSoLadder(f){
+    var chain=rpChainOf(f),st=rpSoState(f),next=rpSoNext(f),complete=rpSoComplete(f),lastSigned=-1;for(var j=0;j<st.length;j++)if(st[j])lastSigned=j;
+    var cert=complete?'<span style="color:var(--pos);font-weight:500">&#10003; Certified &amp; locked</span>':'<span style="color:var(--muted)">'+rpSoCount(f)+' of '+chain.length+' signed</span>';
+    var h='<div class="card rvw-card" style="margin:14px 0"><div class="rp-csec-hd"><span class="rp-csec-nm">Approvals</span>&nbsp;&nbsp;'+cert+'<span style="margin-left:auto"><button class="btn sm rp-chaincfg" data-fid="'+f.id+'">Configure chain</button></span></div><div style="padding:4px 0">';
+    chain.forEach(function(step,i){
+      var s=st[i],done=!!s,isNext=(i===next);
+      var dot=done?'<span style="color:var(--pos)">&#10003;</span>':(isNext?'<span style="color:var(--accent)">&#9679;</span>':'<span style="color:var(--line2)">&#9675;</span>');
+      var mid=done?('<span class="rvw-av">'+esc(rpInit(s.by))+'</span><span>'+esc(s.by)+'</span> <span style="color:var(--muted)">&middot; '+esc(s.at)+'</span>'+(s.sod?' <span title="Segregation-of-duties exception" style="color:var(--warn);border:1px solid var(--warn);border-radius:2px;padding:0 4px;font-size:var(--fs-11)">SoD</span>':'')):(isNext?'<span style="color:var(--accent)">Awaiting sign-off</span>':'<span style="color:var(--faint)">Pending prior approvals</span>');
+      var act=(done&&i===lastSigned)?'<button class="btn sm rp-reopen" data-fid="'+f.id+'">Reopen</button>':(isNext?'<button class="btn sm primary rp-signoff" data-fid="'+f.id+'">Sign off as '+esc(step.role)+'</button>':'');
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:'+(i?'1px solid var(--line)':'0')+'"><span style="width:16px;text-align:center">'+dot+'</span><span style="width:110px;font-weight:500">'+esc(step.role)+'</span><span style="flex:1;display:flex;align-items:center;gap:6px">'+mid+'</span>'+act+'</div>';
+    });
+    h+='</div></div>';return h;
+  }
+  function rpFolderAudit(fid){
+    var rows=RP_AUDIT.filter(function(a){return a.fid===fid;}).slice(0,8);
+    if(!rows.length)return '';
+    var h='<div class="card rvw-card" style="margin:14px 0"><div class="rp-csec-hd"><span class="rp-csec-nm">Audit trail</span><span class="rp-csec-ct">append-only</span></div><div style="padding:2px 0">';
+    rows.forEach(function(a){h+='<div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-top:1px solid var(--line)"><span class="rvw-av">'+esc(rpInit(a.actor))+'</span><span style="width:130px"><b>'+esc(a.action)+'</b></span><span style="flex:1;color:var(--muted)">'+esc(a.detail)+(a.sod?' <span style="color:var(--warn)">(SoD)</span>':'')+'</span><span style="color:var(--faint);font-size:var(--fs-11)">'+esc(a.ts)+'</span></div>';});
+    h+='</div></div>';return h;
+  }
   function rpFolderRenameSave(id){var i=document.getElementById('rpRenameIn');var v=i?i.value.trim():'';var f=rpFolder(id);if(f&&v)f.name=v;RP_WS_RENAME=null;renderPeriodWorkspace();}
   function rpFolderReorder(id,dir){var f=rpFolder(id);if(!f)return;var sibs=RP_WS_FOLDERS.filter(function(x){return x.parent===f.parent&&!x.hidden;});var si=sibs.indexOf(f),tj=si+(dir==='up'?-1:1);if(tj<0||tj>=sibs.length)return;var target=sibs[tj];var ai=RP_WS_FOLDERS.indexOf(f),aj=RP_WS_FOLDERS.indexOf(target);RP_WS_FOLDERS[ai]=target;RP_WS_FOLDERS[aj]=f;renderPeriodWorkspace();}
   function rpFolderArchive(id){var f=rpFolder(id);if(!f)return;f.hidden=true;if(RP_WS_SEL===id)RP_WS_SEL='__structure';renderPeriodWorkspace();rpToast('Archived "'+f.name+'".');}
@@ -5387,16 +5685,33 @@
      per period because each period's array is cached and mutated in place. */
   var RP_PERIOD_REVIEWS={}, RP_PERIOD_SEQ=100;
   function rpReviewsFor(pid){
-    if(!RP_PERIOD_REVIEWS['2027-03'])RP_PERIOD_REVIEWS['2027-03']=RP_REVIEWS; /* capture authored March base once */
+    if(!RP_PERIOD_REVIEWS['2026-07'])RP_PERIOD_REVIEWS['2026-07']=RP_REVIEWS; /* capture authored March base once */
     if(RP_PERIOD_REVIEWS[pid])return RP_PERIOD_REVIEWS[pid];
-    var base=RP_PERIOD_REVIEWS['2027-03'], p=rpPeriod(pid), closed=(p.status==='Closed'||p.status==='Archived');
+    var base=RP_PERIOD_REVIEWS['2026-07'], p=rpPeriod(pid), closed=(p.status==='Closed'||p.status==='Archived');
     var arr=base.map(function(r,i){var c={};for(var k in r)c[k]=r[k];c.id=pid+'-'+r.id;
       c.status=closed?'done':(i%4===0?'inprog':i%4===1?'ready':'done'); c.need=0; c.upd=p.last||'—'; return c;});
     RP_PERIOD_REVIEWS[pid]=arr; return arr;
   }
-  function rpCreatePeriod(nm,typ,due,fromCopy,srcId){
-    var newId='np'+(++RP_PERIOD_SEQ);
+  /* Folders are PER-PERIOD (like reviews). Each period keeps its own folder tree — a deep
+     clone of the authored base — so a scope defined one month does not silently leak into every
+     other month, and last month's structure can be ROLLED FORWARD into the next. */
+  var RP_PERIOD_FOLDERS={};
+  function rpCloneFolders(arr){return arr.map(function(f){var c={};for(var k in f)c[k]=f[k];if(f.filter){var ff={};for(var k2 in f.filter)ff[k2]=f.filter[k2];if(f.filter.accts)ff.accts=f.filter.accts.slice();c.filter=ff;}return c;});}
+  function rpFoldersFor(pid){
+    if(!RP_PERIOD_FOLDERS['2026-07'])RP_PERIOD_FOLDERS['2026-07']=RP_WS_FOLDERS; /* capture authored base once */
+    if(RP_PERIOD_FOLDERS[pid])return RP_PERIOD_FOLDERS[pid];
+    RP_PERIOD_FOLDERS[pid]=rpCloneFolders(RP_PERIOD_FOLDERS['2026-07']); return RP_PERIOD_FOLDERS[pid];
+  }
+  function rpFoldersRollForward(srcId,dstId){
+    RP_PERIOD_FOLDERS[dstId]=rpCloneFolders(rpFoldersFor(srcId));
+    var n=RP_PERIOD_FOLDERS[dstId].filter(function(f){return !f.hidden;}).length, sp=rpPeriod(srcId), dp=rpPeriod(dstId);
+    if(RP_PERIOD_SEL===dstId){RP_WS_FOLDERS=RP_PERIOD_FOLDERS[dstId];RP_WS_SEL='__structure';renderPeriodWorkspace();window.scrollTo(0,0);}
+    rpToast('Rolled '+n+' folders forward from '+(sp?sp.name:srcId)+' into '+(dp?dp.name:dstId)+'. Scopes carried; reviews start fresh.');
+  }
+  function rpCreatePeriod(id,nm,typ,due,fromCopy,srcId){
+    var newId=id||('np'+(++RP_PERIOD_SEQ));
     var base=fromCopy?rpReviewsFor(srcId):[];
+    RP_PERIOD_FOLDERS[newId]=rpCloneFolders(fromCopy?rpFoldersFor(srcId):rpFoldersFor('2026-07'));  /* roll the folder structure forward on Copy-prior-period */
     RP_PERIOD_REVIEWS[newId]=base.map(function(r){var c={};for(var k in r)c[k]=r[k];c.id=newId+'-'+String(r.id).split('-').pop();c.status='notstarted';c.need=0;c.upd='Just now';return c;});
     var np={id:newId,name:nm,type:typ||'Monthly Close',status:'Planning',owner:'Maya Grant',due:due||'—',reviews:RP_PERIOD_REVIEWS[newId].length,inprog:0,needexpl:0,ready:0,done:0,overdue:0,last:'Just now'};
     RP_CLOSE_PERIODS.unshift(np);
@@ -5475,6 +5790,41 @@
     var hk=el.querySelector('[data-cfg-shaded]');if(hk)hk.onchange=function(){p.shaded=this.checked;};
   }
   function saveFluxView(){var nm='View '+(FLUX_VIEWS.length+1);FLUX_VIEWS.push({name:nm,cfg:fluxSnap()});setToast&&setToast('Saved “'+nm+'” — '+FLUX_VIEWS.length+' saved view'+(FLUX_VIEWS.length>1?'s':''));}
+  /* ---- Inline account remap (edit CoA mapping from the flux review). ---- */
+  var RP_RM={acct:null,fs:null,report:null};
+  function fxAcctInfo(acct){var a=null;glLedger().accounts.forEach(function(x){if(x.acct===acct)a=x;});var ov=FLUX_REMAP[acct]||{},m=FLUX_MAP[acct]||{};return {acct:acct,name:a?a.name:acct,type:a?a.type:'',fs:ov.fs||(a&&a.fs)||m.fs||'Other',report:ov.report||(a&&a.rollup)||m.report||(a?a.name:acct)};}
+  function fxStmtOf(info){return (info.type==='Revenue'||info.type==='Expense')?'is':'bs';}
+  function fxSectionsFor(stmt){try{return fluxSections(glLedger(),stmt).map(function(s){return s.name;}).filter(Boolean);}catch(e){return [];}}
+  function fxCategoriesIn(stmt,fs){var out=[];try{fluxSections(glLedger(),stmt).forEach(function(s){if(s.name===fs)s.groups.forEach(function(g){if(out.indexOf(g.report)<0)out.push(g.report);});});}catch(e){}return out;}
+  function fxRemapOpen(acct){var info=fxAcctInfo(acct);RP_RM={acct:acct,fs:info.fs,report:info.report};document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;fxRenderRemap();}
+  function fxRenderRemap(){
+    var d=document.getElementById('rpDrawer');if(!d)return;
+    var info=fxAcctInfo(RP_RM.acct),stmt=fxStmtOf(info);
+    var secs=fxSectionsFor(stmt);if(secs.indexOf(RP_RM.fs)<0&&RP_RM.fs)secs.unshift(RP_RM.fs);
+    var cats=fxCategoriesIn(stmt,RP_RM.fs);
+    var h='<div class="rp-dr-hd"><div class="t">Remap account</div><button class="rp-dr-x" id="rpDrX">&times;</button></div><div class="rp-dr-b">';
+    h+='<div class="rp-copy-fine"><b>'+esc(info.acct)+'</b> '+esc(info.name)+' &middot; '+esc(stmtLabel(stmt))+'. Move it to a different section or category; the change applies wherever the statement is derived and is recorded in the audit trail.</div>';
+    h+=rpField('Current mapping','<input class="rp-in" value="'+esc(info.fs+' · '+info.report)+'" disabled>');
+    h+='<div class="rp-dr-sec">New mapping</div>';
+    h+=rpField('Section','<select class="rp-in" id="rpRmFs">'+secs.map(function(s){return '<option'+(RP_RM.fs===s?' selected':'')+'>'+esc(s)+'</option>';}).join('')+'</select>');
+    h+=rpField('Category','<select class="rp-in" id="rpRmRep">'+cats.map(function(c){return '<option'+(RP_RM.report===c?' selected':'')+'>'+esc(c)+'</option>';}).join('')+(cats.indexOf(RP_RM.report)<0&&RP_RM.report&&RP_RM.report!=='__new'?'<option selected>'+esc(RP_RM.report)+'</option>':'')+'<option value="__new"'+(RP_RM.report==='__new'?' selected':'')+'>+ New category&hellip;</option></select>');
+    if(RP_RM.report==='__new')h+=rpField('New category name','<input class="rp-in" id="rpRmNew" placeholder="e.g. Restricted cash">');
+    h+='</div><div class="rp-dr-ft"><button class="btn" id="rpRmCancel">Cancel</button>'+(FLUX_REMAP[RP_RM.acct]?'<button class="btn" id="rpRmReset">Reset to default</button>':'')+'<button class="btn primary" id="rpRmSave">Save mapping</button></div>';
+    d.innerHTML=h;
+    document.getElementById('rpDrX').onclick=rpNewPeriodClose;document.getElementById('rpRmCancel').onclick=rpNewPeriodClose;
+    var fsel=document.getElementById('rpRmFs');if(fsel)fsel.onchange=function(){RP_RM.fs=this.value;var cs=fxCategoriesIn(stmt,RP_RM.fs);if(cs.indexOf(RP_RM.report)<0)RP_RM.report=cs[0]||RP_RM.report;fxRenderRemap();};
+    var rsel=document.getElementById('rpRmRep');if(rsel)rsel.onchange=function(){RP_RM.report=this.value;fxRenderRemap();};
+    var rst=document.getElementById('rpRmReset');if(rst)rst.onclick=function(){var was=fxAcctInfo(RP_RM.acct);delete FLUX_REMAP[RP_RM.acct];rpAudit('Mapping reset',info.acct+' '+info.name,'Restored Korvyn default mapping',false,null);rpNewPeriodClose();rcRerender();rpToast('Restored default mapping for '+info.acct+'.');};
+    document.getElementById('rpRmSave').onclick=function(){
+      var fs=(document.getElementById('rpRmFs')||{}).value||info.fs;
+      var rep=(document.getElementById('rpRmRep')||{}).value||info.report;
+      if(rep==='__new')rep=((document.getElementById('rpRmNew')||{}).value||'').trim()||info.report;
+      var from=info.fs+' · '+info.report, to=fs+' · '+rep;
+      FLUX_REMAP[RP_RM.acct]={fs:fs,report:rep};
+      rpAudit('Remapped account',info.acct+' '+info.name,from+'  →  '+to,false,null);
+      rpNewPeriodClose();rcRerender();rpToast('Remapped '+info.acct+' — '+to+'.');
+    };
+  }
   function renderMonthlyTrend(){
     var led=glLedger(), ms=led.months, P=fluxPeriods(led), fi=P.fi, ti=P.ti;
     var cols=[]; for(var ci=fi;ci<=ti;ci++)cols.push(ci);
@@ -5605,7 +5955,7 @@
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
         h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo,mat,'grp',g.report)+'</tr>';
-        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
+        if(exp)pass.forEach(function(a){var acur=fxScopedVal(a,ti),aprev=fxScopedVal(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct">'+a.acct+'</span>'+esc(a.name)+(FLUX_REMAP[a.acct]?'<span class="fx-remapped" title="Mapping overridden by a user">remapped</span>':'')+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a><button class="fx-remap" data-remap="'+a.acct+'" title="Change this account’s section / category mapping">Remap</button></td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo,amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
       var tcur=sum(allA,ti), tprev=sum(allA,priIdx);
@@ -5626,8 +5976,9 @@
     // Footnotes removed on request — the "Grouped by…" caption and the long derivation note.
     $('#view').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-grp'),function(r){r.onclick=function(e){if(e.target.closest('.fx-rev')){fxRowSel(this);return;}var k=this.getAttribute('data-exp');if(!k){fxRowSel(this);return;}fluxExpand[k]=!fluxExpand[k];renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-det'),function(r){r.onclick=function(e){if(e.target.closest('.fx-drill'))return;fxRowSel(this);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-det'),function(r){r.onclick=function(e){if(e.target.closest('.fx-drill')||e.target.closest('.fx-remap'))return;fxRowSel(this);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-drill'),function(a){a.onclick=function(e){e.stopPropagation();var ac=this.getAttribute('data-drill');fluxTxnOpen=(fluxTxnOpen===ac?null:ac);renderMonthlyTrend();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-remap'),function(a){a.onclick=function(e){e.stopPropagation();fxRemapOpen(this.getAttribute('data-remap'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-erp'),function(a){a.onclick=function(e){e.stopPropagation();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view td.fx-ev[data-ev]'),function(td){
       var k=td.getAttribute('data-ev'), inp=td.querySelector('.fx-evfile');
