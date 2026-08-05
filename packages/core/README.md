@@ -163,7 +163,7 @@ deterministic (`buildEnterpriseGL({ seed })`) and serialisable (`bigint` →
 string).
 
 `tools/emit_enterprise_gl.mjs` is the build-time bridge to the single-file
-dashboard prototype: it serialises a snapshot into `korvyn_dashboard.html`'s
+dashboard prototype: it serialises a snapshot into `apps/dashboard/korvyn_dashboard.html`'s
 `<script id="egl-data">` block (idempotent), where the dashboard's **Enterprise
 GL** module renders it. This is a snapshot, not a runtime dependency — the
 dashboard still imports nothing.

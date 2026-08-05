@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = readFileSync(join(ROOT, 'korvyn_dashboard.html'), 'utf8');
+const SRC = readFileSync(join(ROOT, 'apps', 'dashboard', 'korvyn_dashboard.html'), 'utf8');
 
 const AA = 4.5;
 const AAA_LARGE = 3.0;               // non-text / focus indicators

@@ -14,7 +14,7 @@ import { dirname, resolve } from 'node:path';
 import { buildEnterpriseGL, serializeEnterpriseGL, lineCount } from '../dist/fixtures/enterprise-gl.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dashboard = resolve(here, '..', '..', 'korvyn_dashboard.html');
+const dashboard = resolve(here, '..', '..', '..', 'apps', 'dashboard', 'korvyn_dashboard.html');
 
 const gl = buildEnterpriseGL({ seed: 42, invoicesPerMonth: 12 });
 const json = serializeEnterpriseGL(gl);

@@ -5,17 +5,17 @@ Guidance for Claude Code working in this repo. Read this fully before editing.
 ## UI / Design System — read before any UI work
 
 **Canonical, go-forward design system for Korvyn UI.** Full rules:
-[`docs/design-system.md`](docs/design-system.md). Tokens (the ONLY colors, fonts,
-spacing values allowed): [`src/styles/design-tokens.css`](src/styles/design-tokens.css).
+[`design-system/design-system.md`](design-system/design-system.md). Tokens (the ONLY colors, fonts,
+spacing values allowed): [`design-system/design-tokens.css`](design-system/design-tokens.css).
 Read both before building or editing any screen. If a request conflicts with these
 rules, follow the rules and say so.
 
-**Scope note.** This system is applied in **`korvyn-review/`** and governs all *new
+**Scope note.** This system is applied in **`apps/review/`** and governs all *new
 or edited* UI. It is a **gold/teal/navy** system and **directly contradicts** the
 older **cobalt/graphite** design system documented further down this file — that
-older section describes `korvyn_dashboard.html` *as already shipped* and is kept as
+older section describes `apps/dashboard/korvyn_dashboard.html` *as already shipped* and is kept as
 the record of that app, **not** as a mandate for new work. When the two disagree on
-new/edited UI, this block wins. `korvyn-review/index.html` is currently built on the
+new/edited UI, this block wins. `apps/review/index.html` is currently built on the
 old cobalt accent and is therefore **in violation** until reskinned.
 
 **Non-negotiable rules**
@@ -51,7 +51,7 @@ old cobalt accent and is therefore **in violation** until reskinned.
 - The primary button is **navy** (`--k-ink-900`), not teal.
 
 **Before calling any screen done:** run the checklist at the bottom of
-`docs/design-system.md` and report which items pass. Never introduce a color, font,
+`design-system/design-system.md` and report which items pass. Never introduce a color, font,
 or spacing value not in the token file.
 
 ## What this is
@@ -60,19 +60,19 @@ The repo holds **two independent things**. Almost all of this document is about 
 
 | | |
 |---|---|
-| `korvyn_dashboard.html` | the illustrative prototype — hardcoded data, no build step |
-| `korvyn-core/` | a real TypeScript package: canonical accounting model + ERP integration boundary |
+| `apps/dashboard/korvyn_dashboard.html` | the illustrative prototype — hardcoded data, no build step |
+| `packages/core/` | a real TypeScript package: canonical accounting model + ERP integration boundary |
 
 They share no code and neither imports the other at **runtime** — the dashboard's numbers are
 still hardcoded and it does **not** run on `korvyn-core`. The **one** bridge is build-time and
-one-directional: `korvyn-core/tools/emit_enterprise_gl.mjs` serialises the validated enterprise
-GL fixture into a `<script id="egl-data">` snapshot inside `korvyn_dashboard.html`, which the
+one-directional: `packages/core/tools/emit_enterprise_gl.mjs` serialises the validated enterprise
+GL fixture into a `<script id="egl-data">` snapshot inside `apps/dashboard/korvyn_dashboard.html`, which the
 dashboard's **Enterprise GL** module (`renderEGL`, util lens `egl`, reached from the ⋯ launcher)
 renders. That is a data snapshot, not an import; the single-file dashboard still depends on
 nothing. Rules below about deriving-not-duplicating, render dispatch, nav and the design system
 apply to the **dashboard only** unless stated.
 
-### `korvyn-core/` in one paragraph
+### `packages/core/` in one paragraph
 
 A typed GAAP domain model (`src/domain` — accounts, entities, dimensions, periods, journal
 entries, and the validation invariants) plus the adapter seam (`src/integration`) that
@@ -87,7 +87,7 @@ determination gates mirroring `ValidatedJournalEntry`, and a placed-in-service s
 tie-out) and `src/fixtures/enterprise-gl.ts` (a deterministic multinational GL — 6 entities,
 4 currencies, ~580 balanced entries — where every entry provably passes `validateJournalEntry`
 and every entity ties out per currency). Verified: `npm run check` (typecheck src + tests,
-**78 tests**, boundary) is green. See `korvyn-core/README.md` for the tradeoffs and the
+**78 tests**, boundary) is green. See `packages/core/README.md` for the tradeoffs and the
 PATH note. Deliberately not built: sync engine, persistence, real API calls, any UI.
 
 Note the boundary with the dashboard rule below: Korvyn never *posts* to the ERP, but the
@@ -96,7 +96,7 @@ representing them faithfully.
 
 ---
 
-`korvyn_dashboard.html` is a **single self-contained HTML file** (~8,700 lines): an
+`apps/dashboard/korvyn_dashboard.html` is a **single self-contained HTML file** (~8,700 lines): an
 illustrative prototype of **KORVYN**, an enterprise finance / accounting / capital
 intelligence layer sitting on top of an ERP, for a fictional data-center / CRE REIT
 ("Meridian Global Portfolio"). No backend, no build step, no dependencies at runtime.
@@ -1441,7 +1441,7 @@ and re-copy after every edit or you will be validating a stale file.
 
 ```
 # 1. Load it in the preview pane and confirm the console is clean
-#    preview_start file:///C:/Korvyn/korvyn_dashboard.html
+#    preview_start file:///C:/Korvyn/apps/dashboard/korvyn_dashboard.html
 #    read_console_messages(onlyErrors: true)   -> must be empty
 
 # 2. Behavior sweep: drive every tab and assert each view rendered.

@@ -1,7 +1,7 @@
 # korvyn-review
 
 The **Financial Review Platform** — Korvyn's reviews-first workspace. A separate front-end
-from the original three pieces (`korvyn_dashboard.html`, `korvyn-core/`, `korvyn-agent/`);
+from the original three pieces (`apps/dashboard/korvyn_dashboard.html`, `packages/core/`, `packages/agent/`);
 it reuses their **design language** but not their layout.
 
 The organizing idea: the unit of work is a **Financial Review Package** (Operating Expense,
@@ -16,17 +16,17 @@ Approvals · Audit Readiness).
 | File | What it is |
 |---|---|
 | `index.html` | The platform. Self-contained (inlined Korvyn wordmark + tokens). Operating Expense and Revenue reviews are wired **live** to an embedded GL trending engine (interactive chart, materiality-flagged variance table, transaction drill-down, derived exec + AI). Other reviews show honest "connects as we go" stubs naming their real engine. |
-| `gl-trending-review.html` | Standalone earlier prototype: one review package end-to-end — customizable MoM/QoQ trending, data-vintage versioning, evidence attach, comments, and Approve-&-freeze immutable versions. Kept as a reference. |
+| `mocks/gl-trending-review.html` | Standalone earlier prototype: one review package end-to-end — customizable MoM/QoQ trending, data-vintage versioning, evidence attach, comments, and Approve-&-freeze immutable versions. Kept as a reference. |
 
 ## Running it with the live agent (the full chatbot)
 
 `index.html` opens on its own in a browser (the **Ask Korvyn** panel then falls back to a
 grounded, deterministic engine that still cites its source). To make Ask Korvyn a
-**full-fledged agentic chatbot**, run [`korvyn-agent`](../korvyn-agent), which serves this
+**full-fledged agentic chatbot**, run [`korvyn-agent`](../../packages/agent), which serves this
 UI and the streaming LLM agent on one origin:
 
 ```bash
-cd ../korvyn-agent
+cd ../../packages/agent
 cp .env.example .env      # add ANTHROPIC_API_KEY
 npm install
 npm run serve             # → http://localhost:8787  (serves ../korvyn-review/index.html + POST /ask)
@@ -44,7 +44,7 @@ Open **http://localhost:8787** and the panel connects to the live agent
 - **AI narrates, never computes a number** — every figure comes from the engine; the AI
   layer only explains and cites.
 - Sample data is a fictional data-center REIT (Meridian). No backend, no persistence yet;
-  the production path stands this on [`korvyn-core`](../korvyn-core).
+  the production path stands this on [`korvyn-core`](../../packages/core).
 
 ## Not a claude.ai artifact
 

@@ -2,7 +2,7 @@
 
 A **full-fledged agentic AI** over Korvyn's graph — the API-backed successor to the dashboard's deterministic `parseIntent → ans*` stub. It uses the Claude API (`claude-opus-4-8`) with tool-calling: the model reasons over your question, calls the graph and workflow tools, composes them for requests nobody hand-coded, **and takes action** — it doesn't just answer, it does work.
 
-Separate package from `korvyn_dashboard.html` (the prototype) and `korvyn-core` (the clean domain model), so the LLM dependency and the API key live server-side and neither of those is touched.
+Separate package from `apps/dashboard/korvyn_dashboard.html` (the prototype) and `korvyn-core` (the clean domain model), so the LLM dependency and the API key live server-side and neither of those is touched.
 
 ## What makes it "agentic", not a chatbot
 
@@ -25,7 +25,7 @@ The data they read (`src/graph.ts`, `src/ledger.ts`) is a compact, deterministic
 ## Setup
 
 ```bash
-cd korvyn-agent
+cd packages/agent
 npm install
 cp .env.example .env      # paste your key from console.anthropic.com
 ```
@@ -44,7 +44,7 @@ npm run serve                                   # full app: serves the review-pl
 ### Full-fledged chatbot in the browser
 
 `npm run serve` starts the HTTP bridge **and** serves the reviews-first platform UI
-(`../korvyn-review/index.html`) at the same origin. Open **http://localhost:8787** with your
+(`../../apps/review/index.html`) at the same origin. Open **http://localhost:8787** with your
 `ANTHROPIC_API_KEY` set and the **Ask Korvyn** panel streams from the real agent —
 one command, one URL, no CSP sandbox. (The published claude.ai artifact can only ever
 show the grounded deterministic fallback: artifact CSP blocks all network calls and
