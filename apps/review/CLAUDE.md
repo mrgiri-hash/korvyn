@@ -31,6 +31,14 @@ stubs naming their real engine — never mocked numbers.
 - **Config-driven left nav** (`NAV_CFG`) with an admin Settings → Navigation editor (role × item
   matrix, reorder, custom items, preview-as-role). Roles: Preparer / Reviewer / Controller /
   Administrator / External auditor.
+- **Review Sets change presentation, never population.** A saved set (`FLUX_VIEWS`, My Views menu)
+  stores only the keys in `FXV_KEYS` — density, lens, columns, expansion. It must never restore the
+  statement, entity scope, period or review id: silently moving a reviewer to a different population
+  than the one they opened is how someone signs off on lines they never saw. When a set is applied
+  the toolbar says whose it is and offers one click back (`fxvClear`).
+- **Favourites is the one organiser.** Pins live at the top of the rail; browsable things (org tree,
+  recent reviews) sit under **Browse** and collapse. Don't add a parallel list of reviews to pick
+  from — the queue pager (`fluxQueue`) pages through a list that already exists.
 
 ## Design-system status
 
