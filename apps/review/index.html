@@ -1682,6 +1682,9 @@
   .fxm-scoK{font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.015em;color:var(--muted);font-weight:600}
   /* the scope tree carries indented entity names — it needs room, or every row ellipsises */
   .fxm-pop-scope{left:auto;right:0;min-width:340px;max-width:min(420px,90vw)}
+  .fxm-pkg{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .fxm-pkg-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fxm-pkg-mt{font-size:var(--fs-11);color:var(--faint);white-space:nowrap;flex:0 0 auto}
   .fxs-find{padding:2px 0 6px}
   .fxs-in{width:100%;height:28px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:var(--fs-12);padding:0 8px;box-sizing:border-box;outline:none}
   .fxs-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
@@ -1885,6 +1888,7 @@
   .fx-star{border:0;background:none;cursor:pointer;color:var(--faint);font-size:17px;line-height:1;padding:2px 3px;border-radius:3px}
   .fx-star:hover{color:var(--warn);background:var(--surface-2)}
   .fx-star.on{color:var(--warn)}
+  .fx-vstar-lbl{font-size:var(--fs-12);color:var(--faint);margin-left:2px;white-space:nowrap}
   .fx-tb-sp{flex:1}
   .fx-mb-scope{font-size:var(--fs-12);color:var(--ink-2);font-weight:500;white-space:nowrap}
   /* Configure modal */
@@ -2642,6 +2646,27 @@
   .fx-scopedot{width:6px;height:6px;border-radius:50%;background:var(--warn);flex:0 0 auto}
   .fx-scopeclr{border:0;background:transparent;color:var(--accent);font-family:inherit;font-size:var(--fs-12);cursor:pointer;padding:0 0 0 4px;text-decoration:underline}
   .fx-scopeclr:hover{color:var(--ink)}
+  .rvb-bd{padding:14px 18px;max-height:56vh;overflow:auto}
+  .rvb-l{display:block;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.02em;color:var(--faint);font-weight:500;margin:12px 0 5px}
+  .rvb-ct{text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px}
+  .rvb-seg{display:flex;gap:6px}
+  .rvb-sg{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);font-family:inherit;font-size:var(--fs-12);padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer}
+  .rvb-sg.on{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+  .rvb-secs{border:1px solid var(--line);border-radius:var(--radius-sm)}
+  .rvb-sec{border-bottom:1px solid var(--line);padding:6px 0}
+  .rvb-sec:last-child{border-bottom:0}
+  .rvb-row{display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:var(--fs-12);color:var(--ink-2);cursor:pointer}
+  .rvb-row:hover{background:var(--surface-2)}
+  .rvb-row b{color:var(--ink);font-weight:500}
+  .rvb-cat{padding-left:34px;color:var(--muted)}
+  .fxm-rvedit{margin-left:auto;color:var(--faint);font-size:11px;padding-left:8px}
+  .fxm-rvedit:hover{color:var(--accent)}
+  .fav-ic{position:absolute;top:50%;transform:translateY(-50%);border:0;background:var(--surface);color:var(--faint);cursor:pointer;font-size:11px;line-height:1;padding:2px 4px;border-radius:3px;opacity:0}
+  .rp-tn:hover .fav-ic{opacity:1}
+  .fav-ic:hover{color:var(--ink);background:var(--surface-2)}
+  .fav-ic[data-favren]{right:44px} .fav-ic[data-favmenu]{right:25px} .fav-ic.fav-x{right:6px}
+  .fav-ic.fav-x:hover{color:var(--neg)}
+  body.chrome-nav .fav-ic{background:var(--chrome);color:var(--chrome-ink-2)}
   .rp-ws-item.pin.on{background:var(--surface-2);border-left:3px solid var(--warn);font-weight:500}
   body.chrome-nav .rp-ws-item.pin.on{background:var(--chrome-lift)}
   .rp-ws-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface);color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:2px 5px;border-radius:3px;opacity:0}
@@ -2765,6 +2790,7 @@
 <div class="rp-ctx" id="rpCtx" hidden role="menu"></div>
 <div class="rn-overlay" id="reviewModal" aria-label="Review note"><div class="rn-dialog"></div></div>
 <div class="rn-overlay" id="navEditModal" aria-label="Customize navigation"><div class="rn-dialog nv-dialog"></div></div>
+<div class="rn-overlay" id="rvbModal" aria-label="Review builder"><div class="rn-dialog nv-dialog"></div></div>
 
 <script>
 (function(){
@@ -3022,14 +3048,76 @@
   function navCfgSections(role){return NAV_CFG.sections.filter(function(s){return s.visible&&navRoleOk(s.roles,role);});}
   function navCfgItems(sec,role){return (sec.items||[]).filter(function(it){return it.visible&&navRoleOk(it.roles,role);});}
   function navCanAdmin(){return can('adminNav');}   /* Administrator only — customize navigation / org config */
+  /* FAVORITES — the single personal organiser. A pin can be renamed and put in a group; a group
+     is scopeable as a whole (the union of its entities), which is what the old "entity sets"
+     existed to do. One concept instead of two. */
+  var RP_FAV_RENAME=null, RP_FAV_MENU=null, RP_FAV_GRP_EXP={}, RP_FAV_NEWGRP=null;
+  function favKeyOf(f){return f.kind+':'+f.id;}
+  function favByKey(k){for(var i=0;i<RP_FAVORITES.length;i++)if(favKeyOf(RP_FAVORITES[i])===k)return RP_FAVORITES[i];return null;}
+  function favDisplayName(f){
+    if(f.name)return navShort(f.name);
+    if(f.kind==='entity')return navShort((ENT_BY_ID[f.id]||{}).name||f.id);
+    if(f.kind==='folder'){var fo=rpFolder(f.id);return fo?fo.name:f.id;}
+    if(f.kind==='review'){var r=rpReviewById(f.id);return r?r.name:f.id;}
+    return f.id;
+  }
+  function favVisible(){return RP_FAVORITES.filter(function(f){
+    return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden)
+      :f.kind==='view'?true:f.kind==='entity'?!!ENT_BY_ID[f.id]
+      :f.kind==='scope'?!!(f.ents&&f.ents.length):!!rpReviewById(f.id);});}
+  function favGroups(){var out=[];favVisible().forEach(function(f){if(f.group&&out.indexOf(f.group)<0)out.push(f.group);});return out.sort();}
+  function favRename(k,v){var f=favByKey(k);if(f&&v&&v.trim())f.name=v.trim();RP_FAV_RENAME=null;favSave();orgMutated();}
+  function favSetGroup(k,g){var f=favByKey(k);if(f){if(g)f.group=g;else delete f.group;}RP_FAV_MENU=null;favSave();orgMutated();}
+  function favToggleGrp(g){RP_FAV_GRP_EXP[g]=!RP_FAV_GRP_EXP[g];renderReviewsNav();}
+  function favMenuToggle(k){RP_FAV_MENU=(RP_FAV_MENU===k?null:k);renderReviewsNav();}
+  function favNewGroupStart(k){RP_FAV_NEWGRP=k;RP_FAV_MENU=null;renderReviewsNav();}
+  function favNewGroupCommit(k,v){if(v&&v.trim())favSetGroup(k,v.trim());else{RP_FAV_NEWGRP=null;renderReviewsNav();}RP_FAV_NEWGRP=null;}
+  /* every entity a group's pins resolve to — lets a group be scoped like a saved selection */
+  function favGroupEnts(g){var out=[];
+    favVisible().forEach(function(f){ if(f.group!==g)return;
+      if(f.kind==='entity')out.push(f.id);
+      else if(f.kind==='scope'&&f.ents)f.ents.forEach(function(e){out.push(e);});
+      else if(f.kind==='view'&&f.scope){var sc=f.scope;if(sc.type==='entity')out.push(sc.value);else if(sc.type==='set'&&sc.value)sc.value.forEach(function(e){out.push(e);});}
+    });
+    var seen={},u=[];out.forEach(function(e){if(e&&!seen[e]){seen[e]=1;u.push(e);}});return u;}
+  function favScopeGroup(g){var ents=favGroupEnts(g);if(!ents.length){rpToast('Nothing in "'+g+'" resolves to an entity yet.');return;}
+    RP_OPEN_REVIEW=null;fluxApplyScope({type:'set',value:ents,label:'Group · '+g,favgroup:g},{nav:true});}
+  function favIsOn(f){
+    if(f.kind==='view')return (String(fluxReviewId||'')+'|'+fluxScopeValue(fluxScope))===String(f.id);
+    if(f.kind==='entity')return fluxScope.type==='entity'&&String(fluxScope.value)===String(f.id);
+    if(f.kind==='scope')return String(fluxScope.favscope||'')===String(f.id);
+    return false;}
+  function favOpenAttr(f){
+    if(f.kind==='view')return 'data-favview="'+esc(f.id)+'"';
+    if(f.kind==='entity')return 'data-faventopen="'+esc(f.id)+'"';
+    if(f.kind==='scope')return 'data-favscopeopen="'+esc(f.id)+'"';
+    if(f.kind==='folder')return 'data-ws="'+esc(f.id)+'"';
+    return 'data-rid="'+esc(f.id)+'"';}
+  function favPinRow(f,depth){
+    var k=favKeyOf(f);
+    if(RP_FAV_RENAME===k)return '<div class="fld-inpwrap" style="padding-left:'+(6+(depth||0)*13)+'px"><input id="favRenameInput" class="fld-input" data-favrename="'+esc(k)+'" value="'+esc(favDisplayName(f))+'"></div>';
+    var ct=(f.kind==='scope'&&f.ents)?f.ents.length:null;
+    var h='<div class="rp-tn"><button class="rp-ws-item pin'+(favIsOn(f)?' on':'')+'" '+favOpenAttr(f)+' title="'+esc(favDisplayName(f))+'" style="padding-left:'+(6+(depth||0)*13)+'px"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(favDisplayName(f))+'</span>'+(ct!=null?'<span class="rp-ws-ct">'+ct+'</span>':'')+'</button>'
+      +'<button class="fav-ic" data-favren="'+esc(k)+'" title="Rename">&#9998;</button>'
+      +'<button class="fav-ic" data-favmenu="'+esc(k)+'" title="Move to group">&#9776;</button>'
+      +'<button class="fav-ic fav-x" data-favdel2="'+esc(k)+'" title="Remove from favorites">&#10005;</button></div>';
+    if(RP_FAV_NEWGRP===k)h+='<div class="fld-inpwrap"><input id="favNewGrpInput" class="fld-input" data-favnewgrp="'+esc(k)+'" placeholder="New group name&hellip;"></div>';
+    else if(RP_FAV_MENU===k){
+      h+='<div class="fld-menu">'+favGroups().map(function(g){return '<button class="fld-mi" data-favto="'+esc(k)+'~'+esc(g)+'"><span class="fld-mnm">'+esc(g)+'</span></button>';}).join('')
+        +(f.group?'<button class="fld-mi" data-favto="'+esc(k)+'~"><span class="fld-mnm">Remove from '+esc(f.group)+'</span></button>':'')
+        +'<button class="fld-mi fld-mi-new" data-favnew="'+esc(k)+'">+ New group&hellip;</button></div>';}
+    return h;}
   function navPinnedHTML(){
-    var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):f.kind==='entity'?ENT_BY_ID[f.id]:f.kind==='scope'?(f.ents&&f.ents.length):rpReviewById(f.id);});
-    if(!favItems.length)return '<div class="rp-ws-empty">Star a review, entity or grouping to pin it here.</div>';
-    var h='';favItems.forEach(function(f){
-      if(f.kind==='folder'){var fo=rpFolder(f.id),fc=(typeof rpFolderCount==='function'?rpFolderCount(fo.id):fo.count);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span>'+(fc||fc===0?'<span class="rp-ws-ct">'+fc+'</span>':'')+'</button>'+favUnpinBtn('folder',f.id)+'</div>';}
-      else if(f.kind==='entity'){var en=(ENT_BY_ID[f.id]&&ENT_BY_ID[f.id].name)||f.id,eOn=(fluxScope.type==='entity'&&String(fluxScope.value)===String(f.id));h+='<div class="rp-tn"><button class="rp-ws-item pin'+(eOn?' on':'')+'" data-faventopen="'+esc(f.id)+'" title="Scope to '+esc(en)+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(en))+'</span></button>'+favUnpinBtn('entity',f.id)+'</div>';}
-      else if(f.kind==='scope'){var sOn=(String(fluxScope.favscope||'')===String(f.id));h+='<div class="rp-tn"><button class="rp-ws-item pin'+(sOn?' on':'')+'" data-favscopeopen="'+esc(f.id)+'" title="Scope to '+esc(f.name||'')+' ('+(f.ents?f.ents.length:0)+' entities)"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(f.name)||'Grouping')+'</span><span class="rp-ws-ct">'+(f.ents?f.ents.length:0)+'</span></button>'+favUnpinBtn('scope',f.id)+'</div>';}
-      else{var r=rpReviewById(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button>'+favUnpinBtn('review',r.id)+'</div>';} });
+    var items=favVisible();
+    if(!items.length)return '<div class="rp-ws-empty">Star a review, entity, grouping or the view you are on to pin it here. Rename a pin, or put pins in a group to scope them together.</div>';
+    var h='', groups=favGroups();
+    groups.forEach(function(g){
+      var pins=items.filter(function(f){return f.group===g;}), open=RP_FAV_GRP_EXP[g]!==false, ents=favGroupEnts(g);
+      var on=(fluxScope.favgroup===g);
+      h+='<div class="fld-row'+(on?' on':'')+'" data-favgrp="'+esc(g)+'" role="button" tabindex="0" title="Scope to everything in '+esc(g)+' ('+ents.length+' entities)"><span class="ct-tw'+(open?' open':'')+'" data-favgtw="'+esc(g)+'">'+rpIcon('chev')+'</span><span class="fld-nm">'+esc(g)+'</span><span class="fld-ct">'+pins.length+'</span></div>';
+      if(open)pins.forEach(function(f){h+=favPinRow(f,1);});
+    });
+    items.filter(function(f){return !f.group;}).forEach(function(f){h+=favPinRow(f,0);});
     return h;
   }
   function navRecentHTML(){
@@ -3043,8 +3131,8 @@
     var role=navActiveRole();
     var h='<div class="nrev-top"><button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
     navCfgSections(role).forEach(function(sec){
-      if(sec.special==='orgtree'){ h+=foldersSectionHTML()+orgSectionHTML(sec.label); return; }
-      if(sec.special==='pinned'){ h+='<div class="nh">'+esc(sec.label)+'</div>'+navPinnedHTML(); return; }
+      if(sec.special==='orgtree'){ h+='<div class="nh fld-hd"><span>Favorites</span></div>'+navPinnedHTML()+orgSectionHTML(sec.label); return; }
+      if(sec.special==='pinned'){ return; }   /* Favorites now renders at the top of the nav */
       if(sec.special==='recent'){ h+='<div class="nh">'+esc(sec.label)+'</div>'+navRecentHTML(); return; }
       var items=navCfgItems(sec,role);
       if(!items.length&&!sec.builtin)return;   /* hide an empty custom section */
@@ -3082,6 +3170,18 @@
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldren]'),function(el){el.onclick=function(e){e.stopPropagation();folderStartRename(this.getAttribute('data-foldren'),e);};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-folddel]'),function(el){el.onclick=function(e){e.stopPropagation();folderDelete(this.getAttribute('data-folddel'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldrm]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-foldrm').split('~');folderRemoveEnt(a[0],a[1]);};});
+    var _fr=document.getElementById('favRenameInput');
+    if(_fr){var _fk=_fr.getAttribute('data-favrename');_fr.onkeydown=function(e){if(e.key==='Enter')favRename(_fk,this.value);else if(e.key==='Escape'){RP_FAV_RENAME=null;renderReviewsNav();}};_fr.onblur=function(){favRename(_fk,this.value);};try{_fr.focus();_fr.select();}catch(e){}}
+    var _fng=document.getElementById('favNewGrpInput');
+    if(_fng){var _nk=_fng.getAttribute('data-favnewgrp');_fng.onkeydown=function(e){if(e.key==='Enter')favNewGroupCommit(_nk,this.value);else if(e.key==='Escape'){RP_FAV_NEWGRP=null;renderReviewsNav();}};_fng.onblur=function(){favNewGroupCommit(_nk,this.value);};try{_fng.focus();}catch(e){}}
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favren]'),function(el){el.onclick=function(e){e.stopPropagation();RP_FAV_RENAME=this.getAttribute('data-favren');RP_FAV_MENU=null;renderReviewsNav();};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favmenu]'),function(el){el.onclick=function(e){e.stopPropagation();favMenuToggle(this.getAttribute('data-favmenu'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favto]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-favto').split('~');favSetGroup(a[0],a[1]||'');};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favnew]'),function(el){el.onclick=function(e){e.stopPropagation();favNewGroupStart(this.getAttribute('data-favnew'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favdel2]'),function(el){el.onclick=function(e){e.stopPropagation();var f=favByKey(this.getAttribute('data-favdel2'));if(f)favRemove(f.kind,f.id);};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-tw[data-favgtw]'),function(el){el.onclick=function(e){e.stopPropagation();favToggleGrp(this.getAttribute('data-favgtw'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-row[data-favgrp]'),function(el){el.onclick=function(e){if(e.target.closest('.ct-tw'))return;favScopeGroup(this.getAttribute('data-favgrp'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();this.click();}};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favview]'),function(el){el.onclick=function(){fxOpenViewFav(this.getAttribute('data-favview'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-faventopen]'),function(el){el.onclick=function(){favEntScope(this.getAttribute('data-faventopen'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favscopeopen]'),function(el){el.onclick=function(){favScopeOpen(this.getAttribute('data-favscopeopen'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-x[data-favdel]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-favdel').split('~');favRemove(a[0],a[1]);};});
@@ -4990,22 +5090,96 @@
      collapse mechanism rpSoloSection uses. Cash Flow / G&A / Custom have no engine yet and render
      as clearly-labelled "Soon" entries — never a dead action. */
   var FLUX_REVIEWS=[
-    {id:'bs',   name:'Balance Sheet Review',    stmt:'bs', secs:null},
-    {id:'is',   name:'Income Statement Review', stmt:'is', secs:null},
-    {id:'rev',  name:'Revenue Review',          stmt:'is', secs:['Revenue']},
-    {id:'opex', name:'OPEX Review',             stmt:'is', secs:['Operating expenses']},
+    {id:'bs',   name:'Balance Sheet',    stmt:'bs', secs:null},
+    {id:'is',   name:'Income Statement', stmt:'is', secs:null},
+    {id:'rev',  name:'Revenue',          stmt:'is', secs:['Revenue']},
+    {id:'cor',  name:'Cost of Revenues', stmt:'is', secs:['Cost of revenues']},
+    {id:'opex', name:'OPEX',             stmt:'is', secs:['Operating expenses']},
     /* G&A is a CATEGORY inside Operating expenses, not a section — it scopes by group caption,
        otherwise it would be indistinguishable from the OPEX review. */
-    {id:'ga',   name:'G&A Review',              stmt:'is', secs:['Operating expenses'], grps:['General & administrative']},
-    {id:'fa',   name:'Fixed Assets Review',     stmt:'bs', secs:['Real estate','Non-current assets']},
-    {id:'wc',   name:'Working Capital Review',  stmt:'bs', secs:['Cash & equivalents','Current assets','Current liabilities']},
-    {id:'cash', name:'Cash Review',             stmt:'bs', secs:['Cash & equivalents']},
-    {id:'ic',   name:'Intercompany Review',     stmt:'bs', secs:null, find:'intercompany'}
+    {id:'ga',   name:'G&A',              stmt:'is', secs:['Operating expenses'], grps:['General & administrative']},
+    {id:'tax',  name:'Tax',              stmt:'is', secs:['Income tax expense']},
+    {id:'fa',   name:'Fixed Assets',     stmt:'bs', secs:['Real estate','Non-current assets']},
+    {id:'wc',   name:'Working Capital',   stmt:'bs', secs:['Cash & equivalents','Current assets','Current liabilities']},
+    {id:'cash', name:'Cash',              stmt:'bs', secs:['Cash & equivalents']},
+    {id:'debt', name:'Debt',              stmt:'bs', secs:['Debt','Non-current liabilities']},
+    {id:'eq',   name:'Equity',            stmt:'bs', secs:['Equity']},
+    {id:'ic',   name:'Intercompany',      stmt:'bs', secs:null, find:'intercompany'}
   ];
-  var FLUX_REVIEWS_SOON=[['cf','Cash Flow Review'],['custom','Custom Reviews']];
-  function fluxReviewById(id){for(var i=0;i<FLUX_REVIEWS.length;i++)if(FLUX_REVIEWS[i].id===id)return FLUX_REVIEWS[i];return null;}
+  var FLUX_REVIEWS_SOON=[['cf','Cash Flow']];
+  /* USER-DEFINED REVIEWS — a review is just {name, stmt, secs[], grps[]}, so a user can build one
+     from the real statement sections and categories. Persisted per user; built-ins stay read-only. */
+  var FLUX_USER_REVIEWS=[];
+  try{var _urv=localStorage.getItem('korvyn.reviews.v1');if(_urv){var _urp=JSON.parse(_urv);if(Array.isArray(_urp))FLUX_USER_REVIEWS=_urp;}}catch(e){}
+  function fluxUserSave(){try{localStorage.setItem('korvyn.reviews.v1',JSON.stringify(FLUX_USER_REVIEWS));}catch(e){}}
+  function fluxAllReviews(){return FLUX_REVIEWS.concat(FLUX_USER_REVIEWS);}
+  function fluxIsUserReview(id){return FLUX_USER_REVIEWS.some(function(r){return r.id===id;});}
+  function fluxReviewById(id){var a=fluxAllReviews();for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
+  /* ---- Review builder: pick the statement, then its sections / categories ---- */
+  var RVB={id:null,name:'',stmt:'bs',sel:{}};
+  function rvbSections(stmt){try{return fluxSections(glLedger(),stmt)||[];}catch(e){return [];}}
+  function rvbOpen(id){
+    var r=id?fluxReviewById(id):null;
+    RVB={id:(r&&fluxIsUserReview(id))?id:null,name:r?r.name:'',stmt:r?r.stmt:fluxStmt,sel:{}};
+    if(r){ rvbSections(r.stmt).forEach(function(sec){
+        var inSec=!r.secs||!r.secs.length||r.secs.indexOf(sec.name)>=0; if(!inSec)return;
+        sec.groups.forEach(function(g){ if(!r.grps||!r.grps.length||r.grps.indexOf(g.caption)>=0){RVB.sel[sec.name]=RVB.sel[sec.name]||{};RVB.sel[sec.name][g.caption]=true;} }); }); }
+    var el=document.getElementById('rvbModal'); if(el)el.classList.add('open'); rvbRender();
+  }
+  function rvbClose(){var el=document.getElementById('rvbModal');if(el)el.classList.remove('open');}
+  function rvbToggleCat(sec,cat){RVB.sel[sec]=RVB.sel[sec]||{};if(RVB.sel[sec][cat])delete RVB.sel[sec][cat];else RVB.sel[sec][cat]=true;if(!Object.keys(RVB.sel[sec]).length)delete RVB.sel[sec];rvbRender();}
+  function rvbToggleSec(sec){
+    var secs=rvbSections(RVB.stmt), found=null; secs.forEach(function(x){if(x.name===sec)found=x;}); if(!found)return;
+    var all=RVB.sel[sec]&&found.groups.every(function(g){return RVB.sel[sec][g.caption];});
+    if(all)delete RVB.sel[sec]; else {RVB.sel[sec]={};found.groups.forEach(function(g){RVB.sel[sec][g.caption]=true;});}
+    rvbRender();
+  }
+  function rvbSetStmt(st){RVB.stmt=st;RVB.sel={};rvbRender();}
+  function rvbCount(){var n=0;Object.keys(RVB.sel).forEach(function(k){n+=Object.keys(RVB.sel[k]).length;});return n;}
+  function rvbSave(){
+    var nm=(RVB.name||'').trim(); if(!nm){rpToast('Give the review a name.');return;}
+    if(!rvbCount()){rpToast('Pick at least one section or category.');return;}
+    var secs=Object.keys(RVB.sel), grps=[];
+    secs.forEach(function(sec){Object.keys(RVB.sel[sec]).forEach(function(c){if(grps.indexOf(c)<0)grps.push(c);});});
+    var rec={id:RVB.id||('u'+(FLUX_USER_REVIEWS.length+1)+'-'+nm.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,8)),name:nm,stmt:RVB.stmt,secs:secs,grps:grps,user:true};
+    var i=-1;FLUX_USER_REVIEWS.forEach(function(r,j){if(r.id===rec.id)i=j;});
+    if(i>=0)FLUX_USER_REVIEWS[i]=rec; else FLUX_USER_REVIEWS.push(rec);
+    fluxUserSave(); rvbClose(); fluxSetReview(rec.id); rpToast('Saved "'+nm+'".');
+  }
+  function rvbDelete(){
+    if(!RVB.id)return; var gone=RVB.id;
+    FLUX_USER_REVIEWS=FLUX_USER_REVIEWS.filter(function(r){return r.id!==gone;});
+    fluxUserSave(); rvbClose();
+    if(fluxReviewId===gone)fluxClearReview(); else renderMonthlyTrend();
+    rpToast('Review deleted.');
+  }
+  function rvbRender(){
+    var d=document.querySelector('#rvbModal .rn-dialog'); if(!d)return;
+    var secs=rvbSections(RVB.stmt);
+    var h='<div class="rn-hd"><div class="rn-hx"><div class="rn-k">Flux review</div><div class="rn-t">'+(RVB.id?'Edit review':'New review')+'</div><div class="rn-m">Name it, choose the statement, then tick the sections or individual categories it covers. Only those lines show when the review is selected.</div></div><button class="rn-x" id="rvbX" aria-label="Close">&#10005;</button></div>';
+    h+='<div class="rvb-bd"><label class="rvb-l">Name</label><input class="fld-input" id="rvbName" placeholder="e.g. Property costs review" value="'+esc(RVB.name)+'">';
+    h+='<label class="rvb-l">Statement</label><div class="rvb-seg">'+[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rvb-sg'+(RVB.stmt===o[0]?' on':'')+'" data-rvbstmt="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
+    h+='<label class="rvb-l">Sections &amp; categories <span class="rvb-ct">'+rvbCount()+' selected</span></label><div class="rvb-secs">';
+    secs.forEach(function(sec){
+      var picked=RVB.sel[sec.name]||{}, all=sec.groups.length&&sec.groups.every(function(g){return picked[g.caption];});
+      h+='<div class="rvb-sec"><label class="rvb-row"><input type="checkbox" data-rvbsec="'+esc(sec.name)+'"'+(all?' checked':'')+'><b>'+esc(sec.name)+'</b></label>';
+      sec.groups.forEach(function(g){ h+='<label class="rvb-row rvb-cat"><input type="checkbox" data-rvbcat="'+esc(sec.name)+'~'+esc(g.caption)+'"'+(picked[g.caption]?' checked':'')+'>'+esc(g.caption)+'</label>'; });
+      h+='</div>';
+    });
+    h+='</div></div>';
+    h+='<div class="nv-modalfoot">'+(RVB.id?'<button class="btn" id="rvbDel">Delete</button>':'')+'<span class="grow"></span><button class="btn" id="rvbCancel">Cancel</button><button class="btn primary" id="rvbSave">Save review</button></div>';
+    d.innerHTML=h;
+    var n=document.getElementById('rvbName'); if(n)n.oninput=function(){RVB.name=this.value;};
+    var x=document.getElementById('rvbX'); if(x)x.onclick=rvbClose;
+    var cn=document.getElementById('rvbCancel'); if(cn)cn.onclick=rvbClose;
+    var sv=document.getElementById('rvbSave'); if(sv)sv.onclick=rvbSave;
+    var dl=document.getElementById('rvbDel'); if(dl)dl.onclick=rvbDelete;
+    Array.prototype.forEach.call(d.querySelectorAll('[data-rvbstmt]'),function(b){b.onclick=function(){rvbSetStmt(this.getAttribute('data-rvbstmt'));};});
+    Array.prototype.forEach.call(d.querySelectorAll('[data-rvbsec]'),function(b){b.onchange=function(){rvbToggleSec(this.getAttribute('data-rvbsec'));};});
+    Array.prototype.forEach.call(d.querySelectorAll('[data-rvbcat]'),function(b){b.onchange=function(){var a=this.getAttribute('data-rvbcat').split('~');rvbToggleCat(a[0],a[1]);};});
+  }
   function fluxReviewIsActive(r){return fluxReviewId===r.id&&r.stmt===fluxStmt;}
-  function fluxReviewName(){var r=fluxReviewById(fluxReviewId);if(r&&r.stmt===fluxStmt)return r.name;return fluxStmt==='bs'?'Balance Sheet Review':'Income Statement Review';}
+  function fluxReviewName(){var r=fluxReviewById(fluxReviewId);if(r&&r.stmt===fluxStmt)return r.name;return fluxStmt==='bs'?'Balance Sheet':'Income Statement';}
   /* Collapse every section except those in secList (array). Empty = show the whole statement.
      Mirrors rpSoloSection but for a SET of sections, so a sub-statement Review opens to its sections. */
   function fluxFocusSecs(secList){
@@ -5025,14 +5199,35 @@
   /* Apply that scope to a section list. Used by the renderer so every derived figure agrees. */
   function fluxScopeSections(secs){
     var sc=fluxReviewScope(); if(!sc)return secs;
+    /* segment grouping produces ONE unnamed bucket — a section-scoped review cannot be expressed
+       against it, so leave the rows alone rather than filtering everything away. */
+    if(secs.length===1&&!secs[0].name)return secs;
     var out=secs.filter(function(s){return !sc.secs||sc.secs.indexOf(s.name)>=0;});
     if(sc.grps)out=out.map(function(s){return {name:s.name,groups:s.groups.filter(function(g){return sc.grps.indexOf(g.caption)>=0||sc.grps.indexOf(g.report)>=0;})};}).filter(function(s){return s.groups.length;});
     return out;
+  }
+  /* A lens (OPEX, G&A…) answers WHAT; the Entity scope answers WHO. They compose — and the app
+     already holds the real, owned combinations as review packages (RP_REVIEWS carries `cons`), so
+     the picker offers those instead of leaving the user to assemble the pair by hand. */
+  function fluxLensPackages(lensId){
+    var lens=fluxReviewById(lensId); if(!lens||typeof RP_REVIEWS==='undefined')return [];
+    return RP_REVIEWS.filter(function(r){
+      var t=(typeof rpReviewTarget==='function')?rpReviewTarget(r):null; if(!t||t.stmt!==lens.stmt)return false;
+      return (!lens.secs||!lens.secs.length)?!t.sec:(t.sec&&lens.secs.indexOf(t.sec)>=0);
+    });
+  }
+  function fluxLensForTarget(tg){
+    if(!tg)return null; var best=null;
+    FLUX_REVIEWS.forEach(function(l){ if(l.stmt!==tg.stmt)return;
+      if(tg.sec){ if(l.secs&&l.secs.length===1&&l.secs[0]===tg.sec&&!l.grps)best=best||l.id; }
+      else if(!l.secs&&!l.grps)best=best||l.id; });
+    return best;
   }
   function fluxClearReview(){ fluxReviewId=(fluxStmt==='is'?'is':'bs'); fluxSecCollapse={}; fluxFind=''; renderMonthlyTrend(); }
   function fluxSetReview(id){
     var r=fluxReviewById(id); if(!r){if(typeof rpToast==='function')rpToast('That review is coming soon.');return;}
     fluxReviewId=id; fluxStmt=r.stmt; if(typeof fluxInspClose==='function')fluxInspClose();
+    if(((r.secs&&r.secs.length)||(r.grps&&r.grps.length))&&fluxGroupBy!=='category')fluxGroupBy='category';
     fluxSecCollapse={}; RC_FOCUS_SEC=null;
     fluxFind=r.find||'';   /* review-level pre-filter — e.g. Intercompany narrows to intercompany accounts */
     renderMonthlyTrend(); if(typeof rpApplyFocus==='function')rpApplyFocus();
@@ -5384,6 +5579,26 @@
     if(i>=0)RP_FAVORITES.splice(i,1); else RP_FAVORITES.unshift({kind:kind,id:id,name:foldPayloadName(p),ents:foldPayloadEnts(p)});
     if(typeof favSave==='function')favSave();}
   function favTogglePayload(p,e){if(e)e.stopPropagation();favToggleCore(p);RP_FOLD_MENU=null;orgMutated();}
+  /* Pinning the combination you are actually looking at — the lens AND the entity — because a
+     review is only meaningful as a pair. Keyed deterministically so the star toggles cleanly. */
+  function fxViewFavKey(){return (fluxReviewId||'')+'|'+fluxScopeValue(fluxScope);}
+  function fxViewFavLabel(){var l=fluxReviewById(fluxReviewId);return ((l?l.name.replace(/ Review$/,''):'Statement'))+' · '+navShort(fluxScopeLabel(fluxScope));}
+  function fxIsViewFav(){var k=fxViewFavKey();return RP_FAVORITES.some(function(f){return f.kind==='view'&&f.id===k;});}
+  function fxToggleViewFav(){
+    var k=fxViewFavKey(), i=-1;
+    RP_FAVORITES.forEach(function(f,j){if(f.kind==='view'&&f.id===k)i=j;});
+    if(i>=0)RP_FAVORITES.splice(i,1);
+    else RP_FAVORITES.unshift({kind:'view',id:k,name:fxViewFavLabel(),lens:fluxReviewId,scope:JSON.parse(JSON.stringify(fluxScope))});
+    if(typeof favSave==='function')favSave();
+    if(typeof renderReviewsNav==='function')renderReviewsNav();
+    renderMonthlyTrend();
+  }
+  function fxOpenViewFav(k){
+    var f=null;RP_FAVORITES.forEach(function(x){if(x.kind==='view'&&x.id===k)f=x;});
+    if(!f)return; RP_OPEN_REVIEW=null;
+    if(f.lens){var l=fluxReviewById(f.lens); if(l){fluxReviewId=f.lens;fluxStmt=l.stmt;}}
+    fluxSecCollapse={}; fluxApplyScope(f.scope||{type:'all',value:null},{nav:true});
+  }
   function favEntScope(eid){RP_OPEN_REVIEW=null;fluxApplyScope({type:'entity',value:eid},{nav:true});}
   function favScopeOpen(id){var sc=scopeForFav('scope',id);if(!sc)return;RP_OPEN_REVIEW=null;fluxApplyScope(sc,{nav:true});}
   function favRemove(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&String(f.id)===String(id))i=j;});if(i<0)return;RP_FAVORITES.splice(i,1);if(typeof favSave==='function')favSave();orgMutated();}
@@ -5393,7 +5608,7 @@
     var favOn=favIsPayload(payload);
     var top='<button class="fld-mi fld-mi-fav" data-favtoggle="'+esc(payload)+'"><span class="fld-mnm">'+(favOn?'★ Remove from favorites':'☆ Add to favorites')+'</span></button>';
     var items=RP_FOLDERS.map(function(f){return '<button class="fld-mi" data-foldto="'+f.id+'~'+esc(payload)+'"><span class="fld-mnm">'+esc(f.name)+'</span><span class="fld-mi-ct">'+f.ents.length+'</span></button>';}).join('');
-    return '<div class="fld-menu">'+top+items+'<button class="fld-mi fld-mi-new" data-foldnew="'+esc(payload)+'">+ New entity set with this</button></div>'; }
+    return '<div class="fld-menu">'+top+'</div>'; }
   function folderRowHTML(f){ var open=!!RP_CONS_EXPAND['fld:'+f.id], sel=(fluxScope&&fluxScope.folder===f.id);
     var h;
     if(RP_FOLD_RENAME===f.id){ h='<div class="fld-inpwrap"><input id="fldRenameInput" class="fld-input" value="'+esc(f.name)+'" data-foldrename="'+f.id+'"></div>'; }
@@ -5981,7 +6196,7 @@
       setTimeout(function(){el.classList.remove('fx-focus');},2200);
     },40);
   }
-  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;fluxColExp=false;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}var tg=rpReviewTarget(r);if(!r.engine)fluxStmt=tg.stmt||'bs';var focusSec=r.engine?null:(tg.sec||null);rpSoloSection(focusSec);RC_FOCUS_SEC=focusSec;navTo('mtrend');}
+  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;fluxColExp=false;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}var tg=rpReviewTarget(r);if(!r.engine)fluxStmt=tg.stmt||'bs';var _ln=r.engine?null:fluxLensForTarget(tg);if(_ln)fluxReviewId=_ln;fluxSecCollapse={};RC_FOCUS_SEC=null;navTo('mtrend');}
   function rpWireWorkspace(){
     Array.prototype.forEach.call(document.querySelectorAll('#view .pw-tab'),function(b){b.onclick=function(){pwTab(this.getAttribute('data-pwtab'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;
@@ -7542,11 +7757,14 @@
     var _rvAction=_lkNow?('<span class="fx-state-note fx-locked-note">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked &mdash; read-only</span>'):(_rvCaps.workflow?'<button class="btn primary rpc-submit req-prepare">Submit for review</button>':'<span class="fx-state-note" title="'+((RP_REVIEW_STATES[rpReviewState(_rv)]||{}).hint||'').replace(/&mdash;/g,'—')+'">Not in the sign-off workflow</span>');
     var _rvFav=(typeof rpIsFav==='function'&&rpIsFav('review',_rv&&_rv.id));
     var _rvStar=_rv?('<button class="fx-star'+(_rvFav?' on':'')+'" title="'+(_rvFav?'Pinned — click to unpin':'Pin this review')+'">'+(_rvFav?'&#9733;':'&#9734;')+'</button>'):'';
+    /* no saved package open — pin the ad-hoc combination on screen instead */
+    var _vwFav=(typeof fxIsViewFav==='function')&&fxIsViewFav();
+    var _vwStar='<button class="fx-star fx-vstar'+(_vwFav?' on':'')+'" title="'+esc((_vwFav?'Pinned — click to unpin: ':'Pin this view: ')+fxViewFavLabel())+'">'+(_vwFav?'&#9733;':'&#9734;')+'</button>';
     // ----- context path: Scope › Period › Review (so the reporting period is always visible) -----
     var _crScope=fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel());
     var _crumb='<nav class="fx-crumb" aria-label="Breadcrumb"><span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr">'+esc(flxLbl(mTo))+'</span>'+(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'')+(_rv?'<span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr-cur">'+esc(_rv.name)+'</span>':'')+'</nav>';
     var h=_crumb+(_rv?('<div class="fx-titlebar"><button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button><h1 class="fx-h1">'+esc(_rv.name)+'</h1>'+_rvBadge+_rvStar+'<div class="fx-tb-sp"></div>'+_rvAction+'</div>')
-      :'<div class="fx-titlebar"><h1 class="fx-h1">Flux review</h1></div>');
+      :'<div class="fx-titlebar"><h1 class="fx-h1">Flux review</h1>'+_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span></div>');
     // ----- period-lock banner: closed periods are read-only for everyone; only an authorized role reopens -----
     if(typeof applyPeriodLock==='function')applyPeriodLock();
     if(typeof periodLocked==='function'&&periodLocked()){
@@ -7597,7 +7815,15 @@
     var dPeriod='<details class="fxm'+(_lkNow?' fxm-locked':'')+'"><summary class="fxm-sum" title="Reporting period'+(_lkNow?' — locked (read-only)':'')+'"><span class="fxm-cur">'+flxLbl(ms[ti])+'</span>'+(_lkNow?'<span class="fxm-lock" aria-label="Locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+'</span>':'')+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Reporting period</div>'+ms.slice().reverse().map(function(m){var _pl=(typeof rpPeriodById==='function')&&rpPeriodById(m)&&rpPeriodById(m).locked;return '<button class="fxm-opt fxm-period'+(m===ms[ti]?' on':'')+'" data-period="'+m+'">'+(m===ms[ti]?ckOn:ckOff)+flxLbl(m)+(_pl?'<span class="fxm-opt-lock" title="Locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+'</span>':'')+'</button>';}).join('')+'<div class="fxm-sep"></div><div class="fxm-note2">Trailing 12 months loaded for this ledger.</div><button class="fxm-opt fxm-allperiods"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Go to another period&hellip;</button></div></details>';
     // CONTEXT — Review (the primary analytical workspace; presets over the existing engine)
     var dRevStates=(typeof RP_STATE_ORDER!=='undefined')?('<div class="fxm-sep"></div><div class="fxm-h">By state</div>'+RP_STATE_ORDER.map(function(s){var d=RP_REVIEW_STATES[s];return '<button class="fxm-opt fxm-rstate" data-rstate="'+s+'">'+ckOff+'<span class="rp-state-dot st-'+d.dot+'"></span>'+d.label+' reviews</button>';}).join('')):'';
-    var dReview='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+esc(fluxReviewName().replace(/ Review$/,''))+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Review</div>'+FLUX_REVIEWS.map(function(r){var on=fluxReviewIsActive(r);return '<button class="fxm-opt fxm-review'+(on?' on':'')+'" data-review="'+r.id+'">'+(on?ckOn:ckOff)+esc(r.name)+'</button>';}).join('')+'<div class="fxm-sep"></div>'+FLUX_REVIEWS_SOON.map(function(s){return '<button class="fxm-opt fxm-soon" disabled>'+ckOff+s[1]+'<span class="fxm-soon-tag">Soon</span></button>';}).join('')+dRevStates+'<div class="fxm-sep"></div><button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review Layout&hellip;</button></div></details>';
+    var _myRvBlock='<div class="fxm-sep"></div><div class="fxm-h">My reviews</div>'
+      +(FLUX_USER_REVIEWS.length?FLUX_USER_REVIEWS.map(function(r){var on=(fluxReviewId===r.id&&r.stmt===fluxStmt);
+        return '<button class="fxm-opt fxm-review'+(on?' on':'')+'" data-review="'+esc(r.id)+'">'+(on?ckOn:ckOff)+esc(r.name)+'<span class="fxm-rvedit" data-rvbedit="'+esc(r.id)+'" title="Edit">&#9998;</span></button>';}).join(''):'')
+      +'<button class="fxm-opt fxm-rvnew">+ New review&hellip;</button>';
+    var _pkgs=fluxLensPackages(fluxReviewId)||[];
+    var _pkgBlock=_pkgs.length?('<div class="fxm-sep"></div><div class="fxm-h">Assigned &mdash; open the owned review</div>'
+      +_pkgs.slice(0,8).map(function(r){var cn=(CONS_BY_ID[r.cons]||{}).name||r.cons, st=(RP_RSTATUS[r.status]||['',''])[0];
+        return '<button class="fxm-opt fxm-pkg" data-pkg="'+esc(r.id)+'" title="'+esc(r.name+' — '+cn+' · '+r.owner+' · '+st)+'"><span class="fxm-pkg-nm">'+esc(navShort(cn))+'</span><span class="fxm-pkg-mt">'+esc(r.owner)+(r.need?' · '+r.need+' open':'')+'</span></button>';}).join('')):'';
+    var dReview='<details class="fxm"><summary class="fxm-sum fxm-sum-primary">'+esc(fluxReviewName().replace(/ Review$/,''))+'</summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Review</div>'+FLUX_REVIEWS.map(function(r){var on=fluxReviewIsActive(r);return '<button class="fxm-opt fxm-review'+(on?' on':'')+'" data-review="'+r.id+'">'+(on?ckOn:ckOff)+esc(r.name)+'</button>';}).join('')+_myRvBlock+_pkgBlock+'<div class="fxm-sep"></div>'+FLUX_REVIEWS_SOON.map(function(s){return '<button class="fxm-opt fxm-soon" disabled>'+ckOff+s[1]+'<span class="fxm-soon-tag">Soon</span></button>';}).join('')+dRevStates+'<div class="fxm-sep"></div><div class="fxm-note2">Sets which sections of the statement you review. It applies to the current <b>Entity</b> scope &mdash; or pick an <b>Assigned</b> review above to set both at once.</div><button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review Layout&hellip;</button></div></details>';
     var dRows=fxSheetDetails('rows','<summary class="fxm-sum" title="Group rows by '+rowsCur+'"><span class="fxm-k">Rows</span><span class="fxm-cur">'+rowsCur+'</span></summary>','Rows','<div class="fxm-h">Group rows by</div>'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxm-opt fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+(fluxGroupBy===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join(''));
     var _bdBtn=function(id,label,st){if(st.ok){var on=fluxCols===id;return '<button class="fxm-opt fxm-cols'+(on?' on':'')+'" data-cols="'+id+'">'+(on?ckOn:ckOff)+label+'</button>';}return '<button class="fxm-opt fxm-soon" disabled title="'+esc(st.why)+'">'+ckOff+label+'<span class="fxm-soon-tag">'+esc(st.tag)+'</span></button>';};
     var _colMenu='<div class="fxm-h">Columns</div>'
@@ -7635,7 +7861,7 @@
     // boxy row just below the metrics strip (built after the metrics, before the grid).
     /* A scoped review must SAY it is scoped and offer the way out — a filtered statement that
        looks like a whole statement is how a reviewer signs off on a population they never saw. */
-    var _rvChip=_rvScope?('<span class="fx-scopechip" title="'+esc(_rvScope.name)+' shows only part of the statement"><span class="fx-scopedot"></span><b>'+esc(_rvScope.name.replace(/ Review$/,''))+'</b>'+esc(secs.length+' of '+_secsAll.length+' sections')+'<button class="fx-scopeclr" title="Show the whole statement">Show all</button></span>'):'';
+    var _rvChip=_rvScope?('<span class="fx-scopechip" title="'+esc(_rvScope.name+' for '+fluxScopeLabel(fluxScope)+' — showing part of the statement')+'"><span class="fx-scopedot"></span><b>'+esc(_rvScope.name.replace(/ Review$/,''))+'</b>'+esc('· '+fluxScopeLabel(fluxScope)+' · '+secs.length+' of '+_secsAll.length+' sections')+'<button class="fx-scopeclr" title="Show the whole statement">Show all</button></span>'):'';
     h+='<div class="fx-fbar fx-fbar-ctx">'+dPeriod+dReview+dScope+dBasis+_rvChip+'</div>';
     // ----- slim summary caption for the grid: movement bridge (left) · review counts (right) -----
     h+='<div class="fx-metrics"><div class="fx-mg">'+
@@ -7771,6 +7997,9 @@
     };
     // ----- Increment 1 dock wiring: Review · Period · View panels · Insights · My Views · Share -----
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-review'),function(b){b.onclick=function(){fluxSetReview(this.getAttribute('data-review'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rvnew'),function(b){b.onclick=function(e){e.stopPropagation();rvbOpen(null);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-rvbedit]'),function(b){b.onclick=function(e){e.stopPropagation();e.preventDefault();rvbOpen(this.getAttribute('data-rvbedit'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-pkg'),function(b){b.onclick=function(){if(typeof rpOpenReview==='function')rpOpenReview(this.getAttribute('data-pkg'));};});
     var _sclr=document.querySelector('#view .fx-scopeclr');if(_sclr)_sclr.onclick=function(e){e.stopPropagation();fluxClearReview();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rstate'),function(b){b.onclick=function(){RP_REVIEW_STATE_FILTER=this.getAttribute('data-rstate');if(typeof rpToast==='function')rpToast('Showing '+(RP_REVIEW_STATES[RP_REVIEW_STATE_FILTER]||{}).label+' reviews.');activeNav='all';if(typeof renderNav==='function')renderNav();navTo('all');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-period'),function(b){b.onclick=function(){var m=this.getAttribute('data-period');if(typeof fluxInspClose==='function')fluxInspClose();if(typeof setActivePeriod==='function')setActivePeriod(m);else{fluxTo=m;renderMonthlyTrend();}};});
@@ -7807,7 +8036,8 @@
       document.addEventListener('keydown',function(e){ if(e.key==='Escape')Array.prototype.forEach.call(document.querySelectorAll('.fx-fbar .fxm[open]'),function(o){o.open=false;}); });
     }
     /* Header star — pin / unpin this review (mirrors the left-nav Pinned list). */
-    var _star=document.querySelector('#view .fx-star');
+    var _vst=document.querySelector('#view .fx-vstar'); if(_vst)_vst.onclick=function(e){e.stopPropagation();fxToggleViewFav();};
+    var _star=document.querySelector('#view .fx-star:not(.fx-vstar)');
     if(_star)_star.onclick=function(){ if(!RP_OPEN_REVIEW)return; var id=RP_OPEN_REVIEW.id, i=-1;
       RP_FAVORITES.forEach(function(f,j){if(f.kind==='review'&&f.id===id)i=j;});
       if(i>=0)RP_FAVORITES.splice(i,1); else RP_FAVORITES.unshift({kind:'review',id:id});
