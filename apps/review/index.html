@@ -178,8 +178,38 @@
   .tn-item[aria-expanded="true"]{color:var(--ink);background:rgba(20,24,36,.05)}
   .tn-cv{display:inline-flex;align-items:center;color:var(--faint);transition:transform .12s}
   .tn-item[aria-expanded="true"] .tn-cv{transform:rotate(180deg)}
-  .tn-menu{position:absolute;top:100%;left:0;min-width:226px;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:var(--shadow);z-index:60;padding:5px;display:none}
+.tn-menu{position:absolute;top:100%;left:0;min-width:226px;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:var(--shadow);z-index:60;padding:5px;display:none}
   .tn-menu.open{display:block}
+  /* Favourites menu — anchored to the RIGHT edge of the bar. Scoped with #topnav so it outranks
+     the generic .tn-menu (which sets left:0); with both left and right set, left would win and
+     the panel hung ~60px off-screen. */
+  #topnav .tn-fav-wrap{margin-left:auto;position:relative}
+  #topnav .tn-fav-item .tn-fav-star{color:var(--warn);font-size:12px;margin-right:5px}
+  /* fixed, not absolute: the menu bar overflows horizontally on narrow screens, which dragged an
+     absolutely-positioned panel off with it. Anchoring to the VIEWPORT keeps it on screen at any width. */
+  #topnav .tn-fav-menu{position:fixed;top:94px;left:auto;right:8px;min-width:288px;max-width:min(360px,calc(100vw - 16px));max-height:min(440px,calc(100vh - 120px));overflow-y:auto}
+  @media(max-width:1200px){ #topnav .tn-fav-item .tn-fav-lbl{display:none} #topnav .tn-fav-item{padding:0 10px} }
+  #topnav .tn-fav-menu .tn-mi{white-space:nowrap}
+  #topnav .tn-fav-menu .tn-mi>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tn-fav-rw{position:relative;display:flex;align-items:center}
+  #topnav .tn-fav-rw .tn-mi{flex:1;min-width:0;padding-right:66px}
+  #topnav .tn-fav-rw .fav-ic{opacity:0}
+  #topnav .tn-fav-rw:hover .fav-ic{opacity:1}
+  #topnav .tn-fav-sub{margin:2px 0 4px 22px;border-left:2px solid var(--line);padding-left:6px}
+  #topnav .tn-fav-edit{padding:4px 8px}
+  /* Opens on HOVER like every sibling menu (click-only felt unresponsive next to them); any edit
+     action sets .open so the panel stays put while you type instead of vanishing on mouse-out. */
+  #topnav .tn-fav-wrap:hover > .tn-fav-menu{display:block}
+  #topnav .tn-fav-menu.open{display:block}
+  .fav-grip{flex:0 0 auto;width:11px;color:var(--faint);font-size:9px;letter-spacing:-2px;cursor:grab;opacity:0;user-select:none}
+  .rp-tn:hover .fav-grip,.tn-fav-rw:hover .fav-grip{opacity:.75}
+  .fav-dragover{outline:2px solid var(--accent);outline-offset:-2px;border-radius:3px}
+  #topnav .tn-fav-grp{font-weight:500;color:var(--ink)}
+  #topnav .tn-fav-mi.on{color:var(--accent)}
+  #topnav .tn-fav-add{color:var(--accent)}
+  #topnav .tn-fav-pg{margin-left:auto;padding-left:10px;font-size:var(--fs-11);color:var(--faint);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 auto}
+  #topnav .tn-fav-sep{height:1px;background:var(--line);margin:4px 0}
+  #topnav .tn-fav-empty{padding:10px 12px 12px;font-size:var(--fs-12);color:var(--muted);line-height:1.5}
   .tn-mi{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:7px 10px;border:0;background:none;font-family:var(--sans);font-size:var(--fs-13);color:var(--ink);cursor:pointer;border-radius:var(--radius-sm);text-align:left}
   .tn-mi:hover{background:var(--surface-2)}
   .tn-mi.on{background:var(--accent-bg);color:var(--accent);font-weight:500}
@@ -2955,6 +2985,67 @@
       navTo(route);
     }
   }
+  /* GLOBAL FAVOURITES — the same pins as the reviews left-nav, reachable from the menu bar in
+     every module, and any PAGE can be pinned from here too. One store (RP_FAVORITES), two
+     surfaces; opening a pin jumps straight to what it points at, whatever screen you were on. */
+  /* NB: a navLabelFor() already exists further down whose fallback is the string "Coming soon";
+     this one is deliberately named differently so the two cannot shadow each other. */
+  function favPageLabel(route){
+    for(var i=0;i<NAV_SECTIONS.length;i++){var sec=NAV_SECTIONS[i];
+      if(sec.route===route)return sec.label;
+      if(sec.kids)for(var j=0;j<sec.kids.length;j++)if(sec.kids[j][0]===route)return sec.label+' · '+sec.kids[j][1];}
+    if(route==='mtrend')return 'Flux review';
+    return route||'This page';
+  }
+  var TOPFAV_OPEN=false;
+  document.addEventListener('click',function(){if(TOPFAV_OPEN){TOPFAV_OPEN=false;RP_FAV_RENAME=null;RP_FAV_MENU=null;RP_FAV_NEWGRP=null;if(typeof renderTopNav==='function')renderTopNav();}});
+  function topFavPageKey(){return 'page:'+(activeNav||'');}
+  function topFavPagePinned(){var k=topFavPageKey();return RP_FAVORITES.some(function(f){return favKeyOf(f)===k;});}
+  function topFavTogglePage(){
+    var k=topFavPageKey(), i=-1;
+    RP_FAVORITES.forEach(function(f,j){if(favKeyOf(f)===k)i=j;});
+    if(i>=0)RP_FAVORITES.splice(i,1);
+    else RP_FAVORITES.unshift({kind:'page',id:activeNav,name:favPageLabel(activeNav)});
+    if(typeof favSave==='function')favSave();
+    navMenuOpen=null; renderNav();
+    if(typeof rpToast==='function')rpToast(i>=0?'Removed from favourites.':'Pinned "'+favPageLabel(activeNav)+'" to favourites.');
+  }
+  function topFavRow(f,depth){
+    var k=favKeyOf(f), ct=(f.kind==='scope'&&f.ents)?f.ents.length:null;
+    if(RP_FAV_RENAME===k)return '<div class="tn-fav-edit"><input id="gfavRenameInput" class="fld-input" data-gfavrename="'+esc(k)+'" value="'+esc(favDisplayName(f))+'"></div>';
+    return '<div class="tn-fav-rw" data-favdrag="'+esc(k)+'"><span class="fav-grip" title="Drag to reorder">&#8942;&#8942;</span>'
+      +'<button class="tn-mi tn-fav-mi'+(favIsOn(f)?' on':'')+'" data-gfav="'+esc(k)+'" style="padding-left:'+(2+(depth||0)*12)+'px" title="'+esc(favDisplayName(f))+'"><span>'+esc(favDisplayName(f))+'</span>'+(ct!=null?'<span class="tn-mi-b">'+ct+'</span>':'')+'</button>'
+      +'<button class="fav-ic" data-gfavren="'+esc(k)+'" title="Rename">&#9998;</button>'
+      +'<button class="fav-ic" data-gfavmenu="'+esc(k)+'" title="Move to group">&#9776;</button>'
+      +'<button class="fav-ic fav-x" data-gfavdel="'+esc(k)+'" title="Remove from favourites">&#10005;</button></div>'
+      +(RP_FAV_MENU===k?('<div class="tn-fav-sub">'+favGroups().map(function(g){return '<button class="tn-mi" data-gfavto="'+esc(k)+'~'+esc(g)+'"><span>'+esc(g)+'</span></button>';}).join('')
+         +(f.group?'<button class="tn-mi" data-gfavto="'+esc(k)+'~"><span>Remove from '+esc(f.group)+'</span></button>':'')
+         +'<button class="tn-mi tn-fav-add" data-gfavnew="'+esc(k)+'"><span>+ New group&hellip;</span></button></div>'):'')
+      +(RP_FAV_NEWGRP===k?'<div class="tn-fav-edit"><input id="gfavNewGrpInput" class="fld-input" data-gfavnewgrp="'+esc(k)+'" placeholder="New group name&hellip;"></div>':'');
+  }
+  function topFavMenuHTML(){
+    var items=(typeof favVisible==='function')?favVisible():[], pinned=topFavPagePinned();
+    var h='<div class="tn-menu tn-fav-menu">';
+    h+='<button class="tn-mi tn-fav-add" data-gfavpage="1"><span>'+(pinned?'&#9733; Remove this page':'&#9734; Add this page')+'</span><span class="tn-fav-pg">'+esc(favPageLabel(activeNav))+'</span></button>';
+    h+='<div class="tn-fav-sep"></div>';
+    if(!items.length)return h+'<div class="tn-fav-empty">Nothing pinned yet. Add this page, or star a review, an entity, a grouping or the view you are on &mdash; they appear here in every module.</div></div>';
+    favGroups().forEach(function(g){
+      var pins=items.filter(function(f){return f.group===g;}), ents=favGroupEnts(g);
+      h+='<button class="tn-mi tn-fav-grp" data-gfavgrp="'+esc(g)+'" data-favgrpdrop="'+esc(g)+'" title="Scope to everything in '+esc(g)+' ('+ents.length+' entities)"><span>'+esc(g)+'</span><span class="tn-mi-b">'+pins.length+'</span></button>';
+      pins.forEach(function(f){h+=topFavRow(f,1);});
+    });
+    items.filter(function(f){return !f.group;}).forEach(function(f){h+=topFavRow(f,0);});
+    return h+'</div>';
+  }
+  function topFavOpen(k){
+    var f=(typeof favByKey==='function')?favByKey(k):null; if(!f)return; navMenuOpen=null;
+    if(f.kind==='page')navTo(f.id);
+    else if(f.kind==='view')fxOpenViewFav(f.id);
+    else if(f.kind==='entity')favEntScope(f.id);
+    else if(f.kind==='scope')favScopeOpen(f.id);
+    else if(f.kind==='folder'&&typeof rpNavOpenFolder==='function')rpNavOpenFolder(f.id);
+    else if(typeof rpOpenReview==='function')rpOpenReview(f.id);
+  }
   function renderTopNav(){
     var el=document.getElementById('topnav'); if(!el)return;
     var actSec=navDrillSection(activeNav);
@@ -2973,6 +3064,25 @@
       }).join('')+'</div>';
       return '<div class="tn-wrap"><button class="tn-item'+(on?' on':'')+'" data-nav="'+sec.kids[0][0]+'"'+(navSecPending(sec)?' title="Items need attention"':'')+'>'+esc(sec.label)+'<span class="tn-cv">'+navCaret()+'</span></button>'+menu+'</div>';
     }).join('');
+    var _nf=(typeof favVisible==='function')?favVisible().length:0;
+    el.innerHTML+='<div class="tn-wrap tn-fav-wrap"><button class="tn-item tn-fav-item"'+(topFavPagePinned()?' data-pgon="1"':'')+' title="Favourites — available in every module"><span class="tn-fav-star">&#9733;</span><span class="tn-fav-lbl">Favourites</span>'+(_nf?'<span class="tn-mi-b">'+_nf+'</span>':'')+'<span class="tn-cv">'+navCaret()+'</span></button>'+topFavMenuHTML()+'</div>';
+    var _gm=el.querySelector('.tn-fav-menu'); if(_gm&&(TOPFAV_OPEN||RP_FAV_RENAME||RP_FAV_MENU||RP_FAV_NEWGRP))_gm.classList.add('open');
+    var _gb=el.querySelector('.tn-fav-item');
+    if(_gb)_gb.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=!TOPFAV_OPEN;RP_FAV_RENAME=null;RP_FAV_MENU=null;RP_FAV_NEWGRP=null;renderTopNav();};
+    if(_gm)_gm.onclick=function(e){e.stopPropagation();};
+    var _gr=document.getElementById('gfavRenameInput');
+    if(_gr){var _gk=_gr.getAttribute('data-gfavrename');_gr.onkeydown=function(e){e.stopPropagation();if(e.key==='Enter')favRename(_gk,this.value);else if(e.key==='Escape'){RP_FAV_RENAME=null;renderTopNav();}};_gr.onblur=function(){favRename(_gk,this.value);};try{_gr.focus();_gr.select();}catch(_){}}
+    var _gn=document.getElementById('gfavNewGrpInput');
+    if(_gn){var _nk2=_gn.getAttribute('data-gfavnewgrp');_gn.onkeydown=function(e){e.stopPropagation();if(e.key==='Enter'){if(this.value&&this.value.trim())favSetGroup(_nk2,this.value.trim());else{RP_FAV_NEWGRP=null;renderTopNav();}}else if(e.key==='Escape'){RP_FAV_NEWGRP=null;renderTopNav();}};try{_gn.focus();}catch(_){}}
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavren]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;RP_FAV_RENAME=this.getAttribute('data-gfavren');RP_FAV_MENU=null;renderTopNav();};});
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavmenu]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;var k=this.getAttribute('data-gfavmenu');RP_FAV_MENU=(RP_FAV_MENU===k?null:k);renderTopNav();};});
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavto]'),function(b){b.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-gfavto').split('~');favSetGroup(a[0],a[1]||'');};});
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavnew]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;RP_FAV_NEWGRP=this.getAttribute('data-gfavnew');RP_FAV_MENU=null;renderTopNav();};});
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavdel]'),function(b){b.onclick=function(e){e.stopPropagation();var f=favByKey(this.getAttribute('data-gfavdel'));if(f)favRemove(f.kind,f.id);};});
+    favDragWire(el);
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavpage]'),function(b){b.onclick=function(e){e.stopPropagation();topFavTogglePage();};});
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfav]'),function(b){b.onclick=function(e){e.stopPropagation();topFavOpen(this.getAttribute('data-gfav'));};});
+    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavgrp]'),function(b){b.onclick=function(e){e.stopPropagation();navMenuOpen=null;favScopeGroup(this.getAttribute('data-gfavgrp'));};});
     Array.prototype.forEach.call(el.querySelectorAll('.tn-item[data-nav],.tn-mi[data-nav]'),function(b){b.onclick=function(){navMenuOpen=null;navTo(this.getAttribute('data-nav'));};});
     Array.prototype.forEach.call(el.querySelectorAll('.tn-si[data-navsub]'),function(b){b.onclick=function(e){e.stopPropagation();navSubGo(this.getAttribute('data-navsub'));};});
   }
@@ -3056,6 +3166,7 @@
   function favByKey(k){for(var i=0;i<RP_FAVORITES.length;i++)if(favKeyOf(RP_FAVORITES[i])===k)return RP_FAVORITES[i];return null;}
   function favDisplayName(f){
     if(f.name)return navShort(f.name);
+    if(f.kind==='page')return favPageLabel(f.id);
     if(f.kind==='entity')return navShort((ENT_BY_ID[f.id]||{}).name||f.id);
     if(f.kind==='folder'){var fo=rpFolder(f.id);return fo?fo.name:f.id;}
     if(f.kind==='review'){var r=rpReviewById(f.id);return r?r.name:f.id;}
@@ -3063,11 +3174,48 @@
   }
   function favVisible(){return RP_FAVORITES.filter(function(f){
     return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden)
-      :f.kind==='view'?true:f.kind==='entity'?!!ENT_BY_ID[f.id]
+      :f.kind==='page'?true:f.kind==='view'?true:f.kind==='entity'?!!ENT_BY_ID[f.id]
       :f.kind==='scope'?!!(f.ents&&f.ents.length):!!rpReviewById(f.id);});}
   function favGroups(){var out=[];favVisible().forEach(function(f){if(f.group&&out.indexOf(f.group)<0)out.push(f.group);});return out.sort();}
-  function favRename(k,v){var f=favByKey(k);if(f&&v&&v.trim())f.name=v.trim();RP_FAV_RENAME=null;favSave();orgMutated();}
-  function favSetGroup(k,g){var f=favByKey(k);if(f){if(g)f.group=g;else delete f.group;}RP_FAV_MENU=null;favSave();orgMutated();}
+  /* Every favourite mutation goes through favChanged(), which repaints the left nav AND the
+     global menu bar, so the two surfaces can never show a different list or a different order. */
+  function favChanged(){ favSave(); if(typeof renderNav==='function')renderNav();
+    /* the grid does not depend on favourites — only the page star does, so patch that in place
+       rather than re-rendering the whole statement on every rename or drag. */
+    var _st=document.querySelector('#view .fx-vstar');
+    if(_st&&typeof fxIsViewFav==='function'){var _on=fxIsViewFav();_st.classList.toggle('on',_on);_st.innerHTML=_on?'&#9733;':'&#9734;';
+      var _lb=document.querySelector('#view .fx-vstar-lbl'); if(_lb&&typeof fxViewFavLabel==='function')_lb.textContent=fxViewFavLabel();} }
+  var FAV_DRAG=null;
+  function favReorder(src,dst){
+    if(!src||!dst||src===dst)return;
+    var si=-1; RP_FAVORITES.forEach(function(f,i){if(favKeyOf(f)===src)si=i;});
+    if(si<0)return; var item=RP_FAVORITES.splice(si,1)[0];
+    var di=-1; RP_FAVORITES.forEach(function(f,i){if(favKeyOf(f)===dst)di=i;});
+    if(di<0)di=RP_FAVORITES.length;
+    /* dropping onto a row inside a group adopts that group, so a drag can both move and regroup */
+    var tgt=null; RP_FAVORITES.forEach(function(f){if(favKeyOf(f)===dst)tgt=f;});
+    if(tgt){ if(tgt.group)item.group=tgt.group; else delete item.group; }
+    RP_FAVORITES.splice(di,0,item); favChanged();
+  }
+  /* Shared drag wiring — the same handlers serve the left nav and the menu-bar list. */
+  function favDragWire(scope){
+    if(!scope)return;
+    Array.prototype.forEach.call(scope.querySelectorAll('[data-favdrag]'),function(el){
+      el.setAttribute('draggable','true');
+      el.ondragstart=function(e){FAV_DRAG=this.getAttribute('data-favdrag');if(e.dataTransfer){e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',FAV_DRAG);}catch(_){}}};
+      el.ondragover=function(e){if(!FAV_DRAG||FAV_DRAG===this.getAttribute('data-favdrag'))return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='move';this.classList.add('fav-dragover');};
+      el.ondragleave=function(){this.classList.remove('fav-dragover');};
+      el.ondrop=function(e){e.preventDefault();e.stopPropagation();this.classList.remove('fav-dragover');var d=this.getAttribute('data-favdrag');var srcK=FAV_DRAG;FAV_DRAG=null;favReorder(srcK,d);};
+      el.ondragend=function(){FAV_DRAG=null;Array.prototype.forEach.call(document.querySelectorAll('.fav-dragover'),function(x){x.classList.remove('fav-dragover');});};
+    });
+    Array.prototype.forEach.call(scope.querySelectorAll('[data-favgrpdrop]'),function(el){
+      el.ondragover=function(e){if(!FAV_DRAG)return;e.preventDefault();this.classList.add('fav-dragover');};
+      el.ondragleave=function(){this.classList.remove('fav-dragover');};
+      el.ondrop=function(e){e.preventDefault();e.stopPropagation();this.classList.remove('fav-dragover');var g=this.getAttribute('data-favgrpdrop');var srcK=FAV_DRAG;FAV_DRAG=null;if(srcK)favSetGroup(srcK,g);};
+    });
+  }
+  function favRename(k,v){var f=favByKey(k);if(f&&v&&v.trim())f.name=v.trim();RP_FAV_RENAME=null;favChanged();}
+  function favSetGroup(k,g){var f=favByKey(k);if(f){if(g)f.group=g;else delete f.group;}RP_FAV_MENU=null;favChanged();}
   function favToggleGrp(g){RP_FAV_GRP_EXP[g]=!RP_FAV_GRP_EXP[g];renderReviewsNav();}
   function favMenuToggle(k){RP_FAV_MENU=(RP_FAV_MENU===k?null:k);renderReviewsNav();}
   function favNewGroupStart(k){RP_FAV_NEWGRP=k;RP_FAV_MENU=null;renderReviewsNav();}
@@ -3083,11 +3231,13 @@
   function favScopeGroup(g){var ents=favGroupEnts(g);if(!ents.length){rpToast('Nothing in "'+g+'" resolves to an entity yet.');return;}
     RP_OPEN_REVIEW=null;fluxApplyScope({type:'set',value:ents,label:'Group · '+g,favgroup:g},{nav:true});}
   function favIsOn(f){
+    if(f.kind==='page')return activeNav===f.id;
     if(f.kind==='view')return (String(fluxReviewId||'')+'|'+fluxScopeValue(fluxScope))===String(f.id);
     if(f.kind==='entity')return fluxScope.type==='entity'&&String(fluxScope.value)===String(f.id);
     if(f.kind==='scope')return String(fluxScope.favscope||'')===String(f.id);
     return false;}
   function favOpenAttr(f){
+    if(f.kind==='page')return 'data-favpage="'+esc(f.id)+'"';
     if(f.kind==='view')return 'data-favview="'+esc(f.id)+'"';
     if(f.kind==='entity')return 'data-faventopen="'+esc(f.id)+'"';
     if(f.kind==='scope')return 'data-favscopeopen="'+esc(f.id)+'"';
@@ -3097,7 +3247,7 @@
     var k=favKeyOf(f);
     if(RP_FAV_RENAME===k)return '<div class="fld-inpwrap" style="padding-left:'+(6+(depth||0)*13)+'px"><input id="favRenameInput" class="fld-input" data-favrename="'+esc(k)+'" value="'+esc(favDisplayName(f))+'"></div>';
     var ct=(f.kind==='scope'&&f.ents)?f.ents.length:null;
-    var h='<div class="rp-tn"><button class="rp-ws-item pin'+(favIsOn(f)?' on':'')+'" '+favOpenAttr(f)+' title="'+esc(favDisplayName(f))+'" style="padding-left:'+(6+(depth||0)*13)+'px"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(favDisplayName(f))+'</span>'+(ct!=null?'<span class="rp-ws-ct">'+ct+'</span>':'')+'</button>'
+    var h='<div class="rp-tn" data-favdrag="'+esc(k)+'"><span class="fav-grip" title="Drag to reorder">&#8942;&#8942;</span><button class="rp-ws-item pin'+(favIsOn(f)?' on':'')+'" '+favOpenAttr(f)+' title="'+esc(favDisplayName(f))+'" style="padding-left:'+(6+(depth||0)*13)+'px"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(favDisplayName(f))+'</span>'+(ct!=null?'<span class="rp-ws-ct">'+ct+'</span>':'')+'</button>'
       +'<button class="fav-ic" data-favren="'+esc(k)+'" title="Rename">&#9998;</button>'
       +'<button class="fav-ic" data-favmenu="'+esc(k)+'" title="Move to group">&#9776;</button>'
       +'<button class="fav-ic fav-x" data-favdel2="'+esc(k)+'" title="Remove from favorites">&#10005;</button></div>';
@@ -3114,7 +3264,7 @@
     groups.forEach(function(g){
       var pins=items.filter(function(f){return f.group===g;}), open=RP_FAV_GRP_EXP[g]!==false, ents=favGroupEnts(g);
       var on=(fluxScope.favgroup===g);
-      h+='<div class="fld-row'+(on?' on':'')+'" data-favgrp="'+esc(g)+'" role="button" tabindex="0" title="Scope to everything in '+esc(g)+' ('+ents.length+' entities)"><span class="ct-tw'+(open?' open':'')+'" data-favgtw="'+esc(g)+'">'+rpIcon('chev')+'</span><span class="fld-nm">'+esc(g)+'</span><span class="fld-ct">'+pins.length+'</span></div>';
+      h+='<div class="fld-row'+(on?' on':'')+'" data-favgrp="'+esc(g)+'" data-favgrpdrop="'+esc(g)+'" role="button" tabindex="0" title="Scope to everything in '+esc(g)+' ('+ents.length+' entities)"><span class="ct-tw'+(open?' open':'')+'" data-favgtw="'+esc(g)+'">'+rpIcon('chev')+'</span><span class="fld-nm">'+esc(g)+'</span><span class="fld-ct">'+pins.length+'</span></div>';
       if(open)pins.forEach(function(f){h+=favPinRow(f,1);});
     });
     items.filter(function(f){return !f.group;}).forEach(function(f){h+=favPinRow(f,0);});
@@ -3181,6 +3331,8 @@
     Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favdel2]'),function(el){el.onclick=function(e){e.stopPropagation();var f=favByKey(this.getAttribute('data-favdel2'));if(f)favRemove(f.kind,f.id);};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-tw[data-favgtw]'),function(el){el.onclick=function(e){e.stopPropagation();favToggleGrp(this.getAttribute('data-favgtw'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-row[data-favgrp]'),function(el){el.onclick=function(e){if(e.target.closest('.ct-tw'))return;favScopeGroup(this.getAttribute('data-favgrp'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();this.click();}};});
+    favDragWire($('#nav'));
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favpage]'),function(el){el.onclick=function(){navTo(this.getAttribute('data-favpage'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favview]'),function(el){el.onclick=function(){fxOpenViewFav(this.getAttribute('data-favview'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-faventopen]'),function(el){el.onclick=function(){favEntScope(this.getAttribute('data-faventopen'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favscopeopen]'),function(el){el.onclick=function(){favScopeOpen(this.getAttribute('data-favscopeopen'));};});
@@ -5601,7 +5753,7 @@
   }
   function favEntScope(eid){RP_OPEN_REVIEW=null;fluxApplyScope({type:'entity',value:eid},{nav:true});}
   function favScopeOpen(id){var sc=scopeForFav('scope',id);if(!sc)return;RP_OPEN_REVIEW=null;fluxApplyScope(sc,{nav:true});}
-  function favRemove(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&String(f.id)===String(id))i=j;});if(i<0)return;RP_FAVORITES.splice(i,1);if(typeof favSave==='function')favSave();orgMutated();}
+  function favRemove(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&String(f.id)===String(id))i=j;});if(i<0)return;RP_FAVORITES.splice(i,1);favChanged();}
   function favUnpinBtn(kind,id){return '<button class="rp-ws-x" data-favdel="'+esc(kind)+'~'+esc(String(id))+'" title="Remove from favorites">&#10005;</button>';}
   function foldAddBtn(payload){return '<button class="fld-add" data-foldadd="'+esc(payload)+'" title="Favorite or add to an entity set">+</button>';}
   function foldMenuHTML(payload){ if(RP_FOLD_MENU!==payload)return '';
