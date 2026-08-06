@@ -5335,30 +5335,35 @@
   /* Real presets map to statements the engine computes. Section-focus presets reuse the same
      collapse mechanism rpSoloSection uses. Cash Flow / G&A / Custom have no engine yet and render
      as clearly-labelled "Soon" entries — never a dead action. */
-  var FLUX_REVIEWS=[
-    {id:'bs',   name:'Balance Sheet',    stmt:'bs', secs:null},
-    {id:'is',   name:'Income Statement', stmt:'is', secs:null},
-    {id:'rev',  name:'Revenue',          stmt:'is', secs:['Revenue']},
-    {id:'cor',  name:'Cost of Revenues', stmt:'is', secs:['Cost of revenues']},
-    {id:'opex', name:'OPEX',             stmt:'is', secs:['Operating expenses']},
-    /* G&A is a CATEGORY inside Operating expenses, not a section — it scopes by group caption,
-       otherwise it would be indistinguishable from the OPEX review. */
-    {id:'ga',   name:'G&A',              stmt:'is', secs:['Operating expenses'], grps:['General & administrative']},
-    {id:'tax',  name:'Tax',              stmt:'is', secs:['Income tax expense']},
-    {id:'fa',   name:'Fixed Assets',     stmt:'bs', secs:['Real estate','Non-current assets']},
-    {id:'wc',   name:'Working Capital',   stmt:'bs', secs:['Cash & equivalents','Current assets','Current liabilities']},
-    {id:'cash', name:'Cash',              stmt:'bs', secs:['Cash & equivalents']},
-    {id:'debt', name:'Debt',              stmt:'bs', secs:['Debt','Non-current liabilities']},
-    {id:'eq',   name:'Equity',            stmt:'bs', secs:['Equity']},
-    {id:'ic',   name:'Intercompany',      stmt:'bs', secs:null, find:'intercompany'}
-  ];
-  var FLUX_REVIEWS_SOON=[['cf','Cash Flow']];
+  /* The built-in shortcut list (OPEX, G&A, Fixed Assets, Debt, Tax...) is gone: every one of them
+     is now reachable as a derived section or category, so maintaining a parallel hardcoded array
+     could only drift from the chart of accounts. This map exists solely so favourites pinned under
+     the old ids still resolve; selections are normalised to the derived form on use. */
+  var FLUX_LEGACY_SEL={bs:'all',is:'all',ic:'all',
+    rev:'sec:Revenue',cor:'sec:Cost of revenues',opex:'sec:Operating expenses',
+    ga:'cat:Operating expenses~General & administrative',tax:'sec:Income tax expense',
+    fa:'sec:Real estate',wc:'sec:Current assets',cash:'sec:Cash & equivalents',
+    debt:'sec:Debt',eq:'sec:Equity'};
+  function fluxNormalizeSel(id){return (id&&FLUX_LEGACY_SEL[id])?FLUX_LEGACY_SEL[id]:(id||'all');}
+  /* Which statement owns a selection. Needed because 'sec:Operating expenses' identifies a
+     section but not its statement, and a pin may be restored while the other one is showing. */
+  function fluxStmtForSel(sel){
+    if(!sel||sel==='all')return null;
+    var name=null;
+    if(sel.indexOf('sec:')===0)name=sel.slice(4);
+    else if(sel.indexOf('cat:')===0)name=sel.slice(4).split('~')[0];
+    else{var r=fluxReviewById(sel);return r?r.stmt:null;}
+    var found=null;
+    ['bs','is'].forEach(function(st){ if(found)return;
+      try{ (fluxSections(glLedger(),st)||[]).forEach(function(x){ if(x.name===name&&!found)found=st; }); }catch(_){} });
+    return found;
+  }
   /* USER-DEFINED REVIEWS — a review is just {name, stmt, secs[], grps[]}, so a user can build one
      from the real statement sections and categories. Persisted per user; built-ins stay read-only. */
   var FLUX_USER_REVIEWS=[];
   try{var _urv=localStorage.getItem('korvyn.reviews.v1');if(_urv){var _urp=JSON.parse(_urv);if(Array.isArray(_urp))FLUX_USER_REVIEWS=_urp;}}catch(e){}
   function fluxUserSave(){try{localStorage.setItem('korvyn.reviews.v1',JSON.stringify(FLUX_USER_REVIEWS));}catch(e){}}
-  function fluxAllReviews(){return FLUX_REVIEWS.concat(FLUX_USER_REVIEWS);}
+  function fluxAllReviews(){return FLUX_USER_REVIEWS;}
   function fluxIsUserReview(id){return FLUX_USER_REVIEWS.some(function(r){return r.id===id;});}
   function fluxReviewById(id){var a=fluxAllReviews();for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
   /* ---- Review builder: pick the statement, then its sections / categories ---- */
@@ -5424,7 +5429,6 @@
     Array.prototype.forEach.call(d.querySelectorAll('[data-rvbsec]'),function(b){b.onchange=function(){rvbToggleSec(this.getAttribute('data-rvbsec'));};});
     Array.prototype.forEach.call(d.querySelectorAll('[data-rvbcat]'),function(b){b.onchange=function(){var a=this.getAttribute('data-rvbcat').split('~');rvbToggleCat(a[0],a[1]);};});
   }
-  function fluxReviewIsActive(r){return fluxReviewId===r.id&&r.stmt===fluxStmt;}
   function fluxReviewName(){var sc=fluxReviewScope();return sc?sc.name:('Entire '+fluxStmtLabel());}
   /* Collapse every section except those in secList (array). Empty = show the whole statement.
      Mirrors rpSoloSection but for a SET of sections, so a sub-statement Review opens to its sections. */
@@ -5437,7 +5441,7 @@
      (and, for a category review like G&A, the groups) outside it are removed from the statement,
      the KPI strip and the totals — not merely collapsed. Returns null for a whole-statement review. */
   function fluxReviewScope(){
-    var id=fluxReviewId;
+    var id=fluxNormalizeSel(fluxReviewId);
     if(!id||id==='all')return null;
     if(id.indexOf('sec:')===0){var n=id.slice(4);return {secs:[n],grps:null,name:n,id:id};}
     if(id.indexOf('cat:')===0){var a=id.slice(4).split('~');return {secs:[a[0]],grps:[a[1]],name:a[1],id:id};}
@@ -5500,24 +5504,27 @@
       return sc?(t.sec&&sc.secs&&sc.secs.indexOf(t.sec)>=0):!t.sec;
     });
   }
-  function fluxLensForTarget(tg){
-    if(!tg)return null; var best=null;
-    FLUX_REVIEWS.forEach(function(l){ if(l.stmt!==tg.stmt)return;
-      if(tg.sec){ if(l.secs&&l.secs.length===1&&l.secs[0]===tg.sec&&!l.grps)best=best||l.id; }
-      else if(!l.secs&&!l.grps)best=best||l.id; });
-    return best;
+  function fluxLensForTarget(tg){ return tg?(tg.sec?('sec:'+tg.sec):'all'):null; }
+  /* A narrowed review is opened in order to READ its lines, so expand the groups it scopes to
+     rather than making the user expand each one after every selection. Called from every entry
+     point (the picker, a pinned view, an assigned package) so they behave identically. */
+  function fluxExpandScoped(){
+    try{ if(fluxReviewScope()&&typeof fluxExpand==='object')
+      fluxScopeSections(fluxSections(glLedger(),fluxStmt)).forEach(function(sc){
+        sc.groups.forEach(function(g){fluxExpand[fluxStmt+':'+g.report]=true;});}); }catch(_){}
   }
-  function fluxClearReview(){ fluxReviewId=(fluxStmt==='is'?'is':'bs'); fluxSecCollapse={}; fluxFind=''; renderMonthlyTrend(); }
+  function fluxClearReview(){ fluxReviewId='all'; fluxSecCollapse={}; fluxFind=''; renderMonthlyTrend(); }
   function fluxSetReview(id){
-    id=id||'all';
+    id=fluxNormalizeSel(id);
     var synthetic=(id==='all'||id.indexOf('sec:')===0||id.indexOf('cat:')===0);
     if(!synthetic){
-      var r=fluxReviewById(id); if(!r){if(typeof rpToast==='function')rpToast('That review is coming soon.');return;}
+      var r=fluxReviewById(id); if(!r){if(typeof rpToast==='function')rpToast('That review is no longer available.');return;}
       fluxStmt=r.stmt;
-    }
+    } else { var _st=fluxStmtForSel(id); if(_st)fluxStmt=_st; }
     fluxReviewId=id; if(typeof fluxInspClose==='function')fluxInspClose();
     if(fluxReviewScope()&&fluxGroupBy!=='category')fluxGroupBy='category';
     fluxSecCollapse={}; RC_FOCUS_SEC=null;
+    fluxExpandScoped();
     var r=synthetic?null:fluxReviewById(id);
     fluxFind=(r&&r.find)||'';   /* review-level pre-filter — e.g. Intercompany narrows to intercompany accounts */
     renderMonthlyTrend(); if(typeof rpApplyFocus==='function')rpApplyFocus();
@@ -5886,8 +5893,9 @@
   function fxOpenViewFav(k){
     var f=null;RP_FAVORITES.forEach(function(x){if(x.kind==='view'&&x.id===k)f=x;});
     if(!f)return; RP_OPEN_REVIEW=null;
-    if(f.lens){var l=fluxReviewById(f.lens); if(l){fluxReviewId=f.lens;fluxStmt=l.stmt;}}
-    fluxSecCollapse={}; fluxApplyScope(f.scope||{type:'all',value:null},{nav:true});
+    if(f.lens){ var sel=fluxNormalizeSel(f.lens), st=fluxStmtForSel(sel);
+      if(st)fluxStmt=st; fluxReviewId=sel; }
+    fluxSecCollapse={}; fluxExpandScoped(); fluxApplyScope(f.scope||{type:'all',value:null},{nav:true});
   }
   function favEntScope(eid){RP_OPEN_REVIEW=null;fluxApplyScope({type:'entity',value:eid},{nav:true});}
   function favScopeOpen(id){var sc=scopeForFav('scope',id);if(!sc)return;RP_OPEN_REVIEW=null;fluxApplyScope(sc,{nav:true});}
@@ -6486,7 +6494,7 @@
       setTimeout(function(){el.classList.remove('fx-focus');},2200);
     },40);
   }
-  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;fluxColExp=false;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}var tg=rpReviewTarget(r);if(!r.engine)fluxStmt=tg.stmt||'bs';var _ln=r.engine?null:fluxLensForTarget(tg);if(_ln)fluxReviewId=_ln;fluxSecCollapse={};RC_FOCUS_SEC=null;navTo('mtrend');}
+  function rpOpenReview(rid){var r=null;for(var i=0;i<RP_REVIEWS.length;i++)if(RP_REVIEWS[i].id===rid)r=RP_REVIEWS[i];if(!r)return;RP_OPEN_REVIEW=r;fluxColExp=false;if(typeof rpRecentPush==='function')rpRecentPush(rid);var node=CONS_BY_ID[r.cons||'MGP'];if(node){fluxScope=nodeToScope(node);}var tg=rpReviewTarget(r);if(!r.engine)fluxStmt=tg.stmt||'bs';var _ln=r.engine?null:fluxLensForTarget(tg);if(_ln)fluxReviewId=_ln;fluxSecCollapse={};RC_FOCUS_SEC=null;fluxExpandScoped();navTo('mtrend');}
   function rpWireWorkspace(){
     Array.prototype.forEach.call(document.querySelectorAll('#view .pw-tab'),function(b){b.onclick=function(){pwTab(this.getAttribute('data-pwtab'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-ws-item'),function(b){b.onclick=function(e){if(e.target.closest('.rp-ws-tw'))return;
