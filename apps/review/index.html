@@ -211,6 +211,8 @@
   body.nav-resizing{cursor:col-resize;user-select:none}
   body.nav-collapsed .nav-resizer,body.no-leftnav .nav-resizer{display:none}
   @media(max-width:760px){ .nav-resizer{display:none} }
+  /* role-based affordance hiding — the permGuard() checks enforce; this just hides what a role can't use */
+  body.role-no-configure .req-configure,body.role-no-approve .req-approve,body.role-no-prepare .req-prepare,body.role-no-edit .req-edit{display:none!important}
   /* the sidebar lives on the CONTENT plane (light in light mode, dark in dark mode); the ribbon
      stays dark chrome — so light mode gives a light sidebar under a dark top bar. */
   .nav{border-right:1px solid var(--line);background:var(--surface);min-height:calc(100vh - 94px);padding:6px 8px;
@@ -1678,7 +1680,28 @@
   .fxm-cur{font-size:var(--fs-12);color:var(--muted);font-weight:400;max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fxm[open]>.fxm-sum .fxm-cur{color:var(--accent)}
   .fxm-scoK{font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.015em;color:var(--muted);font-weight:600}
-  .fxm-pop-scope{left:auto;right:0;min-width:248px}
+  /* the scope tree carries indented entity names — it needs room, or every row ellipsises */
+  .fxm-pop-scope{left:auto;right:0;min-width:340px;max-width:min(420px,90vw)}
+  .fxs-find{padding:2px 0 6px}
+  .fxs-in{width:100%;height:28px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:var(--fs-12);padding:0 8px;box-sizing:border-box;outline:none}
+  .fxs-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  .fxs-tree{max-height:340px;overflow:auto;margin:0 -6px}
+  .fxs-h{font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.02em;color:var(--faint);font-weight:500;padding:9px 10px 3px}
+  .fxs-row{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 6px;cursor:pointer;border-left:3px solid transparent;position:relative}
+  .fxs-row:hover{background:var(--surface-2)}
+  .fxs-row.on{border-left-color:var(--warn);background:var(--surface-2);font-weight:500}
+  .fxs-row:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+  .fxs-tw{display:inline-flex;align-items:center;justify-content:center;width:14px;flex:0 0 auto;border:0;background:transparent;color:var(--faint);cursor:pointer;padding:0;transition:transform .12s}
+  .fxs-tw.open{transform:rotate(90deg)}
+  .fxs-sp{width:14px;flex:0 0 auto}
+  .fxs-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-12);color:var(--ink-2)}
+  .fxs-row.on .fxs-nm{color:var(--ink)}
+  .fxs-ct{font-size:var(--fs-11);color:var(--faint);font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .fxs-fav{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:1px 3px;border-radius:3px;flex:0 0 auto;opacity:0}
+  .fxs-row:hover .fxs-fav,.fxs-fav.on{opacity:1}
+  .fxs-fav.on{color:var(--warn)}
+  .fxs-fav:hover{color:var(--warn);background:var(--surface-2)}
+  .fxs-empty{padding:10px;font-size:var(--fs-12);color:var(--muted)}
   .fxm-scope-sel{width:100%;height:30px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--ink);font-size:var(--fs-13);font-family:inherit;padding:0 8px;margin-top:2px;cursor:pointer}
   .fxm-scope-sel:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
   .fxm-note2{font-size:var(--fs-12);color:var(--faint);padding:7px 8px 2px;line-height:1.45;white-space:normal;max-width:232px}
@@ -2613,6 +2636,14 @@
   body.nav-collapsed .fld-hd,body.nav-collapsed .fld-row,body.nav-collapsed .fld-mem,body.nav-collapsed .fld-empty,body.nav-collapsed .fld-menu,body.nav-collapsed .fld-inpwrap{display:none}
   /* unpin (remove favorite) control on pinned rows */
   .rp-tn{position:relative}
+  /* scoped-review chip — states that the statement is filtered, and offers the way back */
+  .fx-scopechip{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:3px 8px;border:1px solid var(--warn);border-radius:var(--radius-pill,20px);background:var(--warn-bg,rgba(180,130,20,.08));font-size:var(--fs-12);color:var(--ink-2);white-space:nowrap}
+  .fx-scopechip b{color:var(--ink);font-weight:500}
+  .fx-scopedot{width:6px;height:6px;border-radius:50%;background:var(--warn);flex:0 0 auto}
+  .fx-scopeclr{border:0;background:transparent;color:var(--accent);font-family:inherit;font-size:var(--fs-12);cursor:pointer;padding:0 0 0 4px;text-decoration:underline}
+  .fx-scopeclr:hover{color:var(--ink)}
+  .rp-ws-item.pin.on{background:var(--surface-2);border-left:3px solid var(--warn);font-weight:500}
+  body.chrome-nav .rp-ws-item.pin.on{background:var(--chrome-lift)}
   .rp-ws-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface);color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:2px 5px;border-radius:3px;opacity:0}
   .rp-tn:hover .rp-ws-x{opacity:1}
   .rp-ws-x:hover{color:var(--neg);background:var(--surface-2)}
@@ -2996,8 +3027,8 @@
     if(!favItems.length)return '<div class="rp-ws-empty">Star a review, entity or grouping to pin it here.</div>';
     var h='';favItems.forEach(function(f){
       if(f.kind==='folder'){var fo=rpFolder(f.id),fc=(typeof rpFolderCount==='function'?rpFolderCount(fo.id):fo.count);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span>'+(fc||fc===0?'<span class="rp-ws-ct">'+fc+'</span>':'')+'</button>'+favUnpinBtn('folder',f.id)+'</div>';}
-      else if(f.kind==='entity'){var en=(ENT_BY_ID[f.id]&&ENT_BY_ID[f.id].name)||f.id;h+='<div class="rp-tn"><button class="rp-ws-item pin" data-faventopen="'+esc(f.id)+'" title="Scope to '+esc(en)+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(en))+'</span></button>'+favUnpinBtn('entity',f.id)+'</div>';}
-      else if(f.kind==='scope'){h+='<div class="rp-tn"><button class="rp-ws-item pin" data-favscopeopen="'+esc(f.id)+'" title="Scope to '+esc(f.name||'')+' ('+(f.ents?f.ents.length:0)+' entities)"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(f.name)||'Grouping')+'</span><span class="rp-ws-ct">'+(f.ents?f.ents.length:0)+'</span></button>'+favUnpinBtn('scope',f.id)+'</div>';}
+      else if(f.kind==='entity'){var en=(ENT_BY_ID[f.id]&&ENT_BY_ID[f.id].name)||f.id,eOn=(fluxScope.type==='entity'&&String(fluxScope.value)===String(f.id));h+='<div class="rp-tn"><button class="rp-ws-item pin'+(eOn?' on':'')+'" data-faventopen="'+esc(f.id)+'" title="Scope to '+esc(en)+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(en))+'</span></button>'+favUnpinBtn('entity',f.id)+'</div>';}
+      else if(f.kind==='scope'){var sOn=(String(fluxScope.favscope||'')===String(f.id));h+='<div class="rp-tn"><button class="rp-ws-item pin'+(sOn?' on':'')+'" data-favscopeopen="'+esc(f.id)+'" title="Scope to '+esc(f.name||'')+' ('+(f.ents?f.ents.length:0)+' entities)"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(f.name)||'Grouping')+'</span><span class="rp-ws-ct">'+(f.ents?f.ents.length:0)+'</span></button>'+favUnpinBtn('scope',f.id)+'</div>';}
       else{var r=rpReviewById(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button>'+favUnpinBtn('review',r.id)+'</div>';} });
     return h;
   }
@@ -4726,8 +4757,15 @@
   var PERM_LABELS=[['prepare','Prepare'],['review','Review'],['approve','Approve'],['reopen','Reopen period'],['adminNav','Customize nav'],['configure','Configure']];
   function curRole(){for(var i=0;i<ROLES.length;i++)if(ROLES[i].id===CUR_USER.roleId)return ROLES[i];return ROLES[0];}
   function can(p){return !!curRole().perms[p];}
+  /* Any participant (prepare/review/approve) vs a read-only External Auditor. */
+  function canEdit(){return can('prepare')||can('review')||can('approve');}
+  /* Role guard — the security counterpart to fxLockGuard(). Returns true if the action is BLOCKED
+     (and toasts why). Pass 'edit' for the not-read-only check, otherwise a permission key. */
+  function permGuard(perm,msg){var ok=(perm==='edit')?canEdit():can(perm);if(!ok){if(typeof rpToast==='function')rpToast(msg||'You do not have permission for this action.');return true;}return false;}
+  /* Body classes let CSS hide affordances a role can't use (defense-in-depth still lives in the guards). */
+  function applyRoleClasses(){var b=document.body;if(!b)return;b.classList.toggle('role-no-configure',!can('configure'));b.classList.toggle('role-no-approve',!can('approve'));b.classList.toggle('role-no-prepare',!can('prepare'));b.classList.toggle('role-no-edit',!canEdit());}
   function roleLimitLabel(r){return r.limit===Infinity?'any amount':(r.limit>0?('$'+(r.limit/1000000)+'M'):'none');}
-  function setUserRole(id){var r=null;for(var i=0;i<ROLES.length;i++)if(ROLES[i].id===id)r=ROLES[i];if(!r)return;CUR_USER.roleId=r.id;CUR_USER.role=r.name;closeUserMenu();paintUserChip();navTo(activeNav||'home');if(typeof rpToast==='function')rpToast('Now testing as '+r.name+'.');}
+  function setUserRole(id){var r=null;for(var i=0;i<ROLES.length;i++)if(ROLES[i].id===id)r=ROLES[i];if(!r)return;CUR_USER.roleId=r.id;CUR_USER.role=r.name;closeUserMenu();paintUserChip();if(typeof applyRoleClasses==='function')applyRoleClasses();navTo(activeNav||'home');if(typeof rpToast==='function')rpToast('Now testing as '+r.name+'.');}
   function paintUserChip(){var el=document.getElementById('ribRole');if(el)el.textContent=curRole().name;var w=document.getElementById('ribUser');if(w)w.title=CUR_USER.name+' · '+curRole().name;}
   function renderUserMenu(){
     var el=document.getElementById('userMenu');if(!el)return;var cur=curRole();
@@ -4760,7 +4798,7 @@
   function rnCount(id){return rnEntries(id).filter(function(e){return e.kind==='comment'||e.kind==='question'||e.kind==='response';}).length;}
   function rnLocked(period){var p=rpPeriodById(period);return p?!!p.locked:false;}
   function rnEnsure(id){if(!REVIEW_NOTES[id])REVIEW_NOTES[id]={assignee:null,entries:[]};return REVIEW_NOTES[id];}
-  function rnAdd(id,kind,text){rnEnsure(id).entries.push({by:CUR_USER.name,role:CUR_USER.role,init:CUR_USER.init,at:'Just now',kind:kind,text:text});}
+  function rnAdd(id,kind,text){if(permGuard('edit','Read-only access — you cannot post review notes.'))return;rnEnsure(id).entries.push({by:CUR_USER.name,role:CUR_USER.role,init:CUR_USER.init,at:'Just now',kind:kind,text:text});}
   function rnAssign(id,person){var n=rnEnsure(id);n.assignee=person;n.entries.push({by:CUR_USER.name,role:CUR_USER.role,init:CUR_USER.init,at:'Just now',kind:'assigned',text:'Assigned to '+person+'.'});}
   function rnMetaFromId(id){var p=id.split(':'),scope=p[0],acct=p[p.length-2],period=p[p.length-1],name='';glLedger().accounts.forEach(function(a){if(a.acct===acct)name=a.name;});return {crumb:scope==='trend'?'Trending · review note':'Financial statement · review note',title:acct+'  '+name,sub:ldgMonthFull(period),period:period};}
   function rnMarker(id){var st=rnStatus(id),c=rnCount(id);if(st==='none')return '<button class="rn-mk add" data-rn="'+id+'">+ Note</button>';var cls=st==='resolved'?'ok':st==='inreview'?'rv':'op';return '<button class="rn-mk '+cls+'" data-rn="'+id+'"><span class="rn-dot"></span>'+c+' note'+(c>1?'s':'')+' &middot; '+(st==='resolved'?'Resolved':st==='inreview'?'In review':'Open')+'</button>';}
@@ -4956,7 +4994,9 @@
     {id:'is',   name:'Income Statement Review', stmt:'is', secs:null},
     {id:'rev',  name:'Revenue Review',          stmt:'is', secs:['Revenue']},
     {id:'opex', name:'OPEX Review',             stmt:'is', secs:['Operating expenses']},
-    {id:'ga',   name:'G&A Review',              stmt:'is', secs:['Operating expenses']},
+    /* G&A is a CATEGORY inside Operating expenses, not a section — it scopes by group caption,
+       otherwise it would be indistinguishable from the OPEX review. */
+    {id:'ga',   name:'G&A Review',              stmt:'is', secs:['Operating expenses'], grps:['General & administrative']},
     {id:'fa',   name:'Fixed Assets Review',     stmt:'bs', secs:['Real estate','Non-current assets']},
     {id:'wc',   name:'Working Capital Review',  stmt:'bs', secs:['Cash & equivalents','Current assets','Current liabilities']},
     {id:'cash', name:'Cash Review',             stmt:'bs', secs:['Cash & equivalents']},
@@ -4973,10 +5013,27 @@
     if(!secList||!secList.length)return;
     try{ fluxSections(glLedger(),fluxStmt).forEach(function(s){ if(s.name&&secList.indexOf(s.name)<0)fluxSecCollapse[s.name]=true; }); }catch(e){}
   }
+  /* THE review scope. A review is a SUBSET OF THE STATEMENT, not a scroll position: the sections
+     (and, for a category review like G&A, the groups) outside it are removed from the statement,
+     the KPI strip and the totals — not merely collapsed. Returns null for a whole-statement review. */
+  function fluxReviewScope(){
+    var r=fluxReviewById(fluxReviewId);
+    if(!r||r.stmt!==fluxStmt)return null;
+    var hasSec=!!(r.secs&&r.secs.length), hasGrp=!!(r.grps&&r.grps.length);
+    return (hasSec||hasGrp)?{secs:hasSec?r.secs:null,grps:hasGrp?r.grps:null,name:r.name,id:r.id}:null;
+  }
+  /* Apply that scope to a section list. Used by the renderer so every derived figure agrees. */
+  function fluxScopeSections(secs){
+    var sc=fluxReviewScope(); if(!sc)return secs;
+    var out=secs.filter(function(s){return !sc.secs||sc.secs.indexOf(s.name)>=0;});
+    if(sc.grps)out=out.map(function(s){return {name:s.name,groups:s.groups.filter(function(g){return sc.grps.indexOf(g.caption)>=0||sc.grps.indexOf(g.report)>=0;})};}).filter(function(s){return s.groups.length;});
+    return out;
+  }
+  function fluxClearReview(){ fluxReviewId=(fluxStmt==='is'?'is':'bs'); fluxSecCollapse={}; fluxFind=''; renderMonthlyTrend(); }
   function fluxSetReview(id){
     var r=fluxReviewById(id); if(!r){if(typeof rpToast==='function')rpToast('That review is coming soon.');return;}
     fluxReviewId=id; fluxStmt=r.stmt; if(typeof fluxInspClose==='function')fluxInspClose();
-    fluxFocusSecs(r.secs); RC_FOCUS_SEC=(r.secs&&r.secs[0])||null;
+    fluxSecCollapse={}; RC_FOCUS_SEC=null;
     fluxFind=r.find||'';   /* review-level pre-filter — e.g. Intercompany narrows to intercompany accounts */
     renderMonthlyTrend(); if(typeof rpApplyFocus==='function')rpApplyFocus();
   }
@@ -5119,7 +5176,7 @@
     } else inner='<span class="fx-evdrop">'+FX_CLIP+'Drop / add</span>';
     return '<td class="l fx-ev" data-ev="'+esc(key)+'">'+inner+'<input type="file" class="fx-evfile" multiple hidden></td>';
   }
-  function fxAddEvid(k,names){if(typeof periodLocked==='function'&&periodLocked()){if(typeof rpToast==='function')rpToast('This period is locked — evidence can’t be added.');return;}if(!names||!names.length)return;FX_EVID[k]=(FX_EVID[k]||[]).concat(names.map(function(n){return {name:n};}));renderMonthlyTrend();}
+  function fxAddEvid(k,names){if(typeof periodLocked==='function'&&periodLocked()){if(typeof rpToast==='function')rpToast('This period is locked — evidence can’t be added.');return;}if(permGuard('edit','Read-only access — you cannot attach evidence.'))return;if(!names||!names.length)return;FX_EVID[k]=(FX_EVID[k]||[]).concat(names.map(function(n){return {name:n};}));renderMonthlyTrend();}
 
   /* ===== Entity / region breakdown — powers the inspector's "where the movement sits" =====
      4 consolidated legal entities across 3 regions & currencies (the multinational structure).
@@ -5183,7 +5240,22 @@
     if(fluxScope.type==='region'){var m=CONS_GROUPS.filter(function(g){return g.region===fluxScope.value;})[0];return m||CONS_BY_ID.MGP;}
     return CONS_BY_ID.MGP; }
   function nodeToScope(node){ return node.isEnt?{type:'entity',value:node.eid}:node.id==='MGP'?{type:'all',value:null}:{type:'cons',value:node.id}; }
-  function fluxSetNode(node){ fluxScope=nodeToScope(node); if(typeof fluxInspClose==='function')fluxInspClose(); renderMonthlyTrend(); }
+  function fluxSetNode(node){ fluxApplyScope(nodeToScope(node)); }
+  /* THE single scope setter. Every scope entry point (entity dropdown, org tree, grouping,
+     folder, favorite) routes through here so the statement, the entity control and the left-nav
+     selection can never disagree. Re-renders BOTH the nav and the view. */
+  function fluxApplyScope(sc,opts){
+    fluxScope=sc; RP_OPEN_REVIEW=(opts&&opts.keepReview)?RP_OPEN_REVIEW:RP_OPEN_REVIEW;
+    if(typeof fluxInspClose==='function')fluxInspClose();
+    if(typeof renderNav==='function')renderNav();
+    if(opts&&opts.nav){navTo('mtrend');return;}
+    if(typeof renderMonthlyTrend==='function')renderMonthlyTrend();
+  }
+  /* Human label for any scope — used by the entity control and the scope chip. */
+  function fluxScopeLabel(sc){ sc=sc||fluxScope;
+    if(sc.type==='set')return sc.label||('Custom selection · '+((sc.value||[]).length)+' entities');
+    if(sc.type==='all')return 'Consolidated';
+    var n=fluxCurNode(); return (n&&n.name)||sc.value||'Consolidated'; }
   /* component / tiered materiality: the floor scales with the scope's size, so a move immaterial
      to the group can still be material inside a small sub-consolidation. Group scope stays $50K. */
   var _matFloor={};
@@ -5246,7 +5318,7 @@
       if(e.status==='Ready')ready++; else if(e.status==='Needs explanation'||e.status==='Blocked')exc++; });
     return {total:ents.length, ready:ready, exc:exc}; }
   function ctToggle(id){ RP_CONS_EXPAND[id]=!RP_CONS_EXPAND[id]; renderReviewsNav(); }
-  function ctScope(id){ var n=nodeFromKey(id); if(!n)return; fluxScope=nodeToScope(n); RP_OPEN_REVIEW=null; navTo('mtrend'); }
+  function ctScope(id){ var n=nodeFromKey(id); if(!n)return; RP_OPEN_REVIEW=null; fluxApplyScope(nodeToScope(n),{nav:true}); }
   /* nav display name: drop the redundant "Meridian " prefix repeated on every row (full name stays on hover) */
   function navShort(s){return (s||'').replace(/^Meridian\s+/,'');}
   /* ORGANIZATION "Organize by": regroup the roll-up by any entity dimension (per-user). */
@@ -5256,11 +5328,18 @@
   var ORG_GROUPBYS=[{id:'structure',label:'Structure'},{id:'rgn',label:'Region'},{id:'bu',label:'Business unit'},{id:'ccy',label:'Currency'},{id:'country',label:'Country'}];
   function orgGbLabel(){for(var i=0;i<ORG_GROUPBYS.length;i++)if(ORG_GROUPBYS[i].id===RP_ORG_GROUPBY)return ORG_GROUPBYS[i].label;return 'Structure';}
   function orgToggleMenu(e){if(e)e.stopPropagation();RP_ORG_MENU=!RP_ORG_MENU;renderReviewsNav();}
-  function orgSetGroupBy(g){RP_ORG_GROUPBY=g;RP_ORG_MENU=false;try{localStorage.setItem('korvyn.org.groupby',g);}catch(e){}renderReviewsNav();}
+  function orgSetGroupBy(g){RP_ORG_GROUPBY=g;RP_ORG_MENU=false;try{localStorage.setItem('korvyn.org.groupby',g);}catch(e){}orgMutated();}
   function orgGroups(){ var key=RP_ORG_GROUPBY,map={},order=[]; ENT_MASTER.forEach(function(e){var v=e[key]||'—';if(!map[v]){map[v]=[];order.push(v);}map[v].push(e.id);}); order.sort(); return order.map(function(v){return {key:String(v),label:String(v),ents:map[v]};}); }
   function orgGroupById(gid){var gs=orgGroups();for(var i=0;i<gs.length;i++)if((RP_ORG_GROUPBY+':'+gs[i].key)===gid)return gs[i];return null;}
   function orgToggleSet(gid){RP_CONS_EXPAND[gid]=!RP_CONS_EXPAND[gid];renderReviewsNav();}
-  function orgScopeSet(gid){var g=orgGroupById(gid);if(!g)return;fluxScope={type:'set',value:g.ents.slice(),label:orgGbLabel()+' · '+g.label,gid:gid};RP_OPEN_REVIEW=null;navTo('mtrend');}
+  /* ONE definition per scope kind — the nav rows AND the entity dropdown both build from these,
+     so the two surfaces can never describe the same selection differently. */
+  function scopeForGroup(gid){var g=orgGroupById(gid);return g?{type:'set',value:g.ents.slice(),label:orgGbLabel()+' · '+g.label,gid:gid}:null;}
+  function scopeForFolder(fid){var f=folderById(fid);return (f&&f.ents.length)?{type:'set',value:f.ents.slice(),label:'Set · '+f.name,folder:fid}:null;}
+  function scopeForFav(kind,id){ if(kind==='entity')return {type:'entity',value:id};
+    var f=null;RP_FAVORITES.forEach(function(x){if(x.kind==='scope'&&String(x.id)===String(id))f=x;});
+    return (f&&f.ents&&f.ents.length)?{type:'set',value:f.ents.slice(),label:'★ '+(f.name||'Grouping'),favscope:id}:null; }
+  function orgScopeSet(gid){var sc=scopeForGroup(gid);if(!sc)return;RP_OPEN_REVIEW=null;fluxApplyScope(sc,{nav:true});}
   function orgEntRow(eid,depth){var node=consEntNode(eid),sel=(fluxCurNode().id===node.id),e=ENT_BY_ID[eid],exc=(e&&(e.status==='Needs explanation'||e.status==='Blocked'))?1:0;
     return '<div class="ct-row'+(sel?' on':'')+'" data-consnode="'+node.id+'" role="button" tabindex="0" title="'+esc(node.name)+'" style="padding-left:'+(6+depth*11)+'px"><span class="ct-tw-sp"></span><span class="ct-nm">'+esc(navShort(node.name))+'</span>'+(exc?'<span class="ct-exc" title="needs attention">'+exc+'</span>':'')+foldAddBtn('ent:'+eid)+'</div>'+foldMenuHTML('ent:'+eid);}
   function orgGroupRow(g,gid){var open=!!RP_CONS_EXPAND[gid],sel=(fluxScope.type==='set'&&fluxScope.gid===gid),st=nodeEntStatus({ents:g.ents}),pct=st.total?Math.round(st.ready/st.total*100):0;
@@ -5278,48 +5357,53 @@
   var RP_FOLDERS=[]; try{var _fs0=localStorage.getItem('korvyn.org.folders.v1'); if(_fs0){var _fp0=JSON.parse(_fs0); if(Array.isArray(_fp0))RP_FOLDERS=_fp0;}}catch(e){}
   var _FOLD_SEQ=0, RP_FOLD_MENU=null, RP_FOLD_ADDING=false, RP_FOLD_RENAME=null;
   function foldersSave(){try{localStorage.setItem('korvyn.org.folders.v1',JSON.stringify(RP_FOLDERS));}catch(e){}}
+  /* Folders/favorites are also entity-dropdown options, so a change to either has to repaint the
+     flux toolbar too — otherwise the nav and the dropdown disagree until the next unrelated render. */
+  function orgMutated(){ renderReviewsNav(); if(activeNav==='mtrend'&&typeof renderMonthlyTrend==='function'&&document.querySelector('#view .fxs-tree'))renderMonthlyTrend(); }
   function folderById(id){for(var i=0;i<RP_FOLDERS.length;i++)if(RP_FOLDERS[i].id===id)return RP_FOLDERS[i];return null;}
-  function folderCreate(name,ents){var f={id:'fld-'+(++_FOLD_SEQ)+'-'+RP_FOLDERS.length,name:(name&&name.trim())||'New folder',ents:(ents||[]).slice()};RP_FOLDERS.push(f);foldersSave();return f;}
+  function folderCreate(name,ents){var f={id:'fld-'+(++_FOLD_SEQ)+'-'+RP_FOLDERS.length,name:(name&&name.trim())||'New set',ents:(ents||[]).slice()};RP_FOLDERS.push(f);foldersSave();return f;}
   function foldPayloadEnts(p){if(!p)return [];if(p.indexOf('ent:')===0)return [p.slice(4)];if(CONS_BY_ID[p])return CONS_BY_ID[p].ents.slice();var g=orgGroupById(p);return g?g.ents.slice():[];}
   function foldPayloadName(p){if(!p)return '';if(p.indexOf('ent:')===0){var eid=p.slice(4);return (ENT_BY_ID[eid]&&ENT_BY_ID[eid].name)||eid;}if(CONS_BY_ID[p])return CONS_BY_ID[p].name;var g=orgGroupById(p);return g?g.label:p;}
-  function folderAddPayload(fid,payload){var f=folderById(fid);if(!f)return;foldPayloadEnts(payload).forEach(function(e){if(f.ents.indexOf(e)<0)f.ents.push(e);});RP_FOLD_MENU=null;foldersSave();renderReviewsNav();}
-  function folderNewFromPayload(payload){folderCreate(foldPayloadName(payload),foldPayloadEnts(payload));RP_FOLD_MENU=null;renderReviewsNav();}
-  function folderRemoveEnt(fid,eid){var f=folderById(fid);if(!f)return;f.ents=f.ents.filter(function(e){return e!==eid;});foldersSave();renderReviewsNav();}
-  function folderDelete(fid){RP_FOLDERS=RP_FOLDERS.filter(function(f){return f.id!==fid;});if(fluxScope&&fluxScope.folder===fid)fluxScope={type:'all',value:null};foldersSave();renderReviewsNav();}
-  function folderScope(fid){var f=folderById(fid);if(!f||!f.ents.length)return;fluxScope={type:'set',value:f.ents.slice(),label:'Folder · '+f.name,folder:fid};RP_OPEN_REVIEW=null;navTo('mtrend');}
+  function folderAddPayload(fid,payload){var f=folderById(fid);if(!f)return;foldPayloadEnts(payload).forEach(function(e){if(f.ents.indexOf(e)<0)f.ents.push(e);});RP_FOLD_MENU=null;foldersSave();orgMutated();}
+  function folderNewFromPayload(payload){folderCreate(foldPayloadName(payload),foldPayloadEnts(payload));RP_FOLD_MENU=null;orgMutated();}
+  function folderRemoveEnt(fid,eid){var f=folderById(fid);if(!f)return;f.ents=f.ents.filter(function(e){return e!==eid;});foldersSave();orgMutated();}
+  function folderDelete(fid){RP_FOLDERS=RP_FOLDERS.filter(function(f){return f.id!==fid;});if(fluxScope&&fluxScope.folder===fid)fluxScope={type:'all',value:null};foldersSave();orgMutated();}
+  function folderScope(fid){var sc=scopeForFolder(fid);if(!sc)return;RP_OPEN_REVIEW=null;fluxApplyScope(sc,{nav:true});}
   function folderToggleExpand(fid){RP_CONS_EXPAND['fld:'+fid]=!RP_CONS_EXPAND['fld:'+fid];renderReviewsNav();}
   function folderToggleMenu(payload,e){if(e)e.stopPropagation();RP_FOLD_MENU=(RP_FOLD_MENU===payload?null:payload);renderReviewsNav();}
   function folderStartAdd(e){if(e)e.stopPropagation();RP_FOLD_ADDING=true;renderReviewsNav();}
-  function folderCommitAdd(val){if(val&&val.trim())folderCreate(val,[]);RP_FOLD_ADDING=false;renderReviewsNav();}
+  function folderCommitAdd(val){if(val&&val.trim())folderCreate(val,[]);RP_FOLD_ADDING=false;orgMutated();}
   function folderStartRename(fid,e){if(e)e.stopPropagation();RP_FOLD_RENAME=fid;renderReviewsNav();}
-  function folderCommitRename(fid,val){var f=folderById(fid);if(f&&val&&val.trim()){f.name=val.trim();foldersSave();}RP_FOLD_RENAME=null;renderReviewsNav();}
+  function folderCommitRename(fid,val){var f=folderById(fid);if(f&&val&&val.trim()){f.name=val.trim();foldersSave();}RP_FOLD_RENAME=null;orgMutated();}
   /* favorites of an entity or grouping share RP_FAVORITES with review pins (kinds 'entity' / 'scope') */
   function favIsPayload(p){if(!p)return false;if(p.indexOf('ent:')===0)return rpIsFav('entity',p.slice(4));return rpIsFav('scope',p);}
-  function favTogglePayload(p,e){if(e)e.stopPropagation();var i=-1,kind,id;
+  /* the mutation alone — callers decide how much of the UI to repaint */
+  function favToggleCore(p){var i=-1,kind,id;
     if(p.indexOf('ent:')===0){kind='entity';id=p.slice(4);}else{kind='scope';id=p;}
     RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&f.id===id)i=j;});
     if(i>=0)RP_FAVORITES.splice(i,1); else RP_FAVORITES.unshift({kind:kind,id:id,name:foldPayloadName(p),ents:foldPayloadEnts(p)});
-    RP_FOLD_MENU=null;if(typeof favSave==='function')favSave();renderReviewsNav();}
-  function favEntScope(eid){fluxScope={type:'entity',value:eid};RP_OPEN_REVIEW=null;navTo('mtrend');}
-  function favScopeOpen(id){var f=null;RP_FAVORITES.forEach(function(x){if(x.kind==='scope'&&x.id===id)f=x;});if(!f||!f.ents||!f.ents.length)return;fluxScope={type:'set',value:f.ents.slice(),label:'★ '+(f.name||'Grouping'),favscope:id};RP_OPEN_REVIEW=null;navTo('mtrend');}
-  function favRemove(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&String(f.id)===String(id))i=j;});if(i<0)return;RP_FAVORITES.splice(i,1);if(typeof favSave==='function')favSave();renderReviewsNav();}
+    if(typeof favSave==='function')favSave();}
+  function favTogglePayload(p,e){if(e)e.stopPropagation();favToggleCore(p);RP_FOLD_MENU=null;orgMutated();}
+  function favEntScope(eid){RP_OPEN_REVIEW=null;fluxApplyScope({type:'entity',value:eid},{nav:true});}
+  function favScopeOpen(id){var sc=scopeForFav('scope',id);if(!sc)return;RP_OPEN_REVIEW=null;fluxApplyScope(sc,{nav:true});}
+  function favRemove(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&String(f.id)===String(id))i=j;});if(i<0)return;RP_FAVORITES.splice(i,1);if(typeof favSave==='function')favSave();orgMutated();}
   function favUnpinBtn(kind,id){return '<button class="rp-ws-x" data-favdel="'+esc(kind)+'~'+esc(String(id))+'" title="Remove from favorites">&#10005;</button>';}
-  function foldAddBtn(payload){return '<button class="fld-add" data-foldadd="'+esc(payload)+'" title="Favorite or add to folder">+</button>';}
+  function foldAddBtn(payload){return '<button class="fld-add" data-foldadd="'+esc(payload)+'" title="Favorite or add to an entity set">+</button>';}
   function foldMenuHTML(payload){ if(RP_FOLD_MENU!==payload)return '';
     var favOn=favIsPayload(payload);
     var top='<button class="fld-mi fld-mi-fav" data-favtoggle="'+esc(payload)+'"><span class="fld-mnm">'+(favOn?'★ Remove from favorites':'☆ Add to favorites')+'</span></button>';
     var items=RP_FOLDERS.map(function(f){return '<button class="fld-mi" data-foldto="'+f.id+'~'+esc(payload)+'"><span class="fld-mnm">'+esc(f.name)+'</span><span class="fld-mi-ct">'+f.ents.length+'</span></button>';}).join('');
-    return '<div class="fld-menu">'+top+items+'<button class="fld-mi fld-mi-new" data-foldnew="'+esc(payload)+'">+ New folder with this</button></div>'; }
+    return '<div class="fld-menu">'+top+items+'<button class="fld-mi fld-mi-new" data-foldnew="'+esc(payload)+'">+ New entity set with this</button></div>'; }
   function folderRowHTML(f){ var open=!!RP_CONS_EXPAND['fld:'+f.id], sel=(fluxScope&&fluxScope.folder===f.id);
     var h;
     if(RP_FOLD_RENAME===f.id){ h='<div class="fld-inpwrap"><input id="fldRenameInput" class="fld-input" value="'+esc(f.name)+'" data-foldrename="'+f.id+'"></div>'; }
-    else { h='<div class="fld-row'+(sel?' on':'')+'" data-foldopen="'+f.id+'" role="button" tabindex="0" title="Scope to '+esc(f.name)+' ('+f.ents.length+' entities)"><span class="ct-tw'+(open?' open':'')+'" data-foldtw="'+f.id+'">'+rpIcon('chev')+'</span><span class="fld-nm">'+esc(f.name)+'</span><span class="fld-ct">'+f.ents.length+'</span><button class="fld-x" data-foldren="'+f.id+'" title="Rename">&#9998;</button><button class="fld-x" data-folddel="'+f.id+'" title="Delete folder">&#10005;</button></div>'; }
+    else { h='<div class="fld-row'+(sel?' on':'')+'" data-foldopen="'+f.id+'" role="button" tabindex="0" title="Scope to '+esc(f.name)+' ('+f.ents.length+' entities)"><span class="ct-tw'+(open?' open':'')+'" data-foldtw="'+f.id+'">'+rpIcon('chev')+'</span><span class="fld-nm">'+esc(f.name)+'</span><span class="fld-ct">'+f.ents.length+'</span><button class="fld-x" data-foldren="'+f.id+'" title="Rename">&#9998;</button><button class="fld-x" data-folddel="'+f.id+'" title="Delete set">&#10005;</button></div>'; }
     if(open&&RP_FOLD_RENAME!==f.id){ f.ents.slice().sort(function(a,b){return ((ENT_BY_ID[a]&&ENT_BY_ID[a].name)||'').localeCompare((ENT_BY_ID[b]&&ENT_BY_ID[b].name)||'');}).forEach(function(eid){ var nm=(ENT_BY_ID[eid]&&ENT_BY_ID[eid].name)||eid; h+='<div class="fld-mem" title="'+esc(nm)+'"><span class="fld-mnm">'+esc(navShort(nm))+'</span><button class="fld-x" data-foldrm="'+f.id+'~'+eid+'" title="Remove">&#10005;</button></div>'; });
-      if(!f.ents.length)h+='<div class="fld-empty">Empty — add entities with + on the tree below.</div>'; }
+      if(!f.ents.length)h+='<div class="fld-empty">Empty — add entities with the + on the Organization tree.</div>'; }
     return h; }
-  function foldersSectionHTML(){ var h='<div class="nh fld-hd"><span>My folders</span><button class="fld-new" id="fldNewBtn" title="New folder">+ New</button></div>';
-    if(RP_FOLD_ADDING){ h+='<div class="fld-inpwrap"><input id="fldNewInput" class="fld-input" placeholder="Folder name…"></div>'; }
-    if(!RP_FOLDERS.length&&!RP_FOLD_ADDING){ h+='<div class="fld-empty">No folders yet. Create one, then add entities with the + on the Organization tree.</div>'; }
+  function foldersSectionHTML(){ var h='<div class="nh fld-hd"><span>My entity sets</span><button class="fld-new" id="fldNewBtn" title="New entity set">+ New</button></div>';
+    if(RP_FOLD_ADDING){ h+='<div class="fld-inpwrap"><input id="fldNewInput" class="fld-input" placeholder="Set name…"></div>'; }
+    if(!RP_FOLDERS.length&&!RP_FOLD_ADDING){ h+='<div class="fld-empty">No entity sets yet. A set is your own saved group of entities — create one, then add entities with the + on the Organization tree, and click it to scope the statement.</div>'; }
     RP_FOLDERS.forEach(function(f){ h+=folderRowHTML(f); });
     return h; }
   document.addEventListener('click',function(){if(RP_FOLD_MENU&&document.getElementById('fldNewBtn')){RP_FOLD_MENU=null;renderReviewsNav();}});
@@ -5580,6 +5664,7 @@
   }
   function rpPeriodLocked(p){return p.locked!=null?!!p.locked:(p.status==='Closed'||p.status==='Archived');}
   function rpToggleLock(pid){var p=rpPeriod(pid);if(!p)return;var willLock=!rpPeriodLocked(p);
+    if(willLock&&permGuard('configure','Only a Controller or Administrator can lock a period.'))return;
     if(!willLock&&typeof navCanReopen==='function'&&!navCanReopen()){if(typeof rpToast==='function')rpToast('Not authorized — only a Controller or Administrator can reopen a period.');return;}
     if(typeof periodSetLocked==='function')periodSetLocked(pid,willLock); else p.locked=willLock;
     if(typeof rpAudit==='function')rpAudit(willLock?'Locked period':'Reopened locked period',p.name,willLock?'Period closed & locked — read-only':'Close sign-off reversed — period editable again',!willLock,null);
@@ -5634,7 +5719,7 @@
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl"><thead><tr><th class="l">Period</th><th class="l">Status</th><th>Reviews</th><th>Completion</th><th>Open expl.</th><th>Ready</th><th class="l">Owner</th><th class="l">Last activity</th></tr></thead><tbody>';
     function pRow(p){var pct=p.reviews?Math.round(p.done/p.reviews*100):0;
       var lk=rpPeriodLocked(p);
-      var lockBtn='<button class="rp-plock2'+(lk?' on':'')+'" data-pid="'+p.id+'" title="'+(lk?'Unlock period — make editable':'Lock period — make read-only')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="'+(lk?'M8 11V7a4 4 0 0 1 8 0v4':'M8 11V7a4 4 0 0 1 7.6-1.2')+'"/></svg></button>';
+      var lockBtn='<button class="rp-plock2 req-configure'+(lk?' on':'')+'" data-pid="'+p.id+'" title="'+(lk?'Unlock period — make editable':'Lock period — make read-only')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="'+(lk?'M8 11V7a4 4 0 0 1 8 0v4':'M8 11V7a4 4 0 0 1 7.6-1.2')+'"/></svg></button>';
       return '<tr class="rp-row'+(lk?' rp-locked':'')+'" data-pid="'+p.id+'"><td class="l rp-pnm" data-pid="'+p.id+'"><span class="rp-pnm-t">'+esc(p.name)+'</span>'+lockBtn+'</td>'+
         '<td class="l">'+rpPStatusPill(p.status)+'</td>'+
         '<td class="rp-num">'+p.reviews+'</td>'+
@@ -6060,13 +6145,134 @@
   function fluxScopeRegionCount(){var e=fluxScopeEnts();var ids=e||E_ENT.map(function(x){return x.id;});var r={};ids.forEach(function(id){var rg=(FX_ENT_META[id]||{}).region;if(rg)r[rg]=1;});return Object.keys(r).length;}
   function fluxColEntState(){var n=fluxScopeEntCount();if(n<2)return {ok:false,tag:'1 entity',why:'Only one entity is in scope — nothing to split.'};if(n>FLUX_ENT_COL_MAX)return {ok:false,tag:n+' entities',why:n+' entities in scope — scope to a region or set (≤'+FLUX_ENT_COL_MAX+') to split by entity.'};return {ok:true};}
   function fluxColRegState(){var n=fluxScopeRegionCount();if(n<2)return {ok:false,tag:'1 region',why:'Only one region is in scope — nothing to split.'};return {ok:true};}
+  /* Entity control — MIRRORS the left-nav Organization tree: the same consolidation hierarchy,
+     the same active "Organize by" grouping, the same folders and favorites. One selection model,
+     two surfaces. Every value here round-trips through fluxScopeFromValue(). */
+  function fluxScopeValue(sc){ sc=sc||fluxScope;
+    if(sc.type==='set'){ if(sc.folder)return 'fld:'+sc.folder; if(sc.gid)return 'grp:'+sc.gid; if(sc.favscope)return 'fav:'+sc.favscope; return 'cur'; }
+    return sc.type==='all'?'all':sc.type+':'+sc.value; }
+  function fluxScopeFromValue(v){
+    if(v==='all')return {type:'all',value:null};
+    if(v==='cur')return null;
+    if(v.indexOf('fld:')===0)return scopeForFolder(v.slice(4));
+    if(v.indexOf('grp:')===0)return scopeForGroup(v.slice(4));
+    if(v.indexOf('fav:')===0)return scopeForFav('scope',v.slice(4));
+    var p=v.split(':'); return {type:p[0],value:p.slice(1).join(':')};
+  }
+  /* The entity picker is a COLLAPSIBLE TREE, not a flat list — same shape, same expand/collapse
+     and same groupings as the left-nav Organization tree, so the two read as one control. */
+  var FX_SCOPE_EXP={}, FX_SCOPE_FIND='';
+  function fxScopeToggle(k){FX_SCOPE_EXP[k]=!FX_SCOPE_EXP[k];fxScopeRepaint();}
+  /* Repaint just the picker's contents, preserving open state, scroll position and focus. */
+  function fxScopeRepaint(){
+    var w=document.querySelector('#view .fxs-wrap'); if(!w)return;
+    var old=w.querySelector('.fxs-tree'), st=old?old.scrollTop:0;
+    var ae=document.activeElement, wasFind=!!(ae&&ae.classList&&ae.classList.contains('fxs-in')), caret=wasFind?ae.selectionStart:0;
+    w.innerHTML=fluxScopeTreeHTML();
+    var nt=w.querySelector('.fxs-tree'); if(nt)nt.scrollTop=st;
+    fxScopeWire();
+    if(wasFind){var i=w.querySelector('.fxs-in'); if(i){i.focus(); try{i.selectionStart=i.selectionEnd=caret;}catch(e){}}}
+  }
+  /* All picker wiring in one place so the in-place repaint can re-attach it. */
+  function fxScopeWire(){
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxs-row[data-scope]'),function(el){
+      el.onclick=function(e){ if(e.target.closest('.fxs-tw')||e.target.closest('.fxs-fav'))return;
+        var sc=fluxScopeFromValue(this.getAttribute('data-scope')); if(!sc)return; RP_OPEN_REVIEW=null; FX_SCOPE_FIND=''; fluxApplyScope(sc); };
+      el.onkeydown=function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();this.click();} }; });
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxs-tw[data-twig]'),function(el){el.onclick=function(e){e.stopPropagation();e.preventDefault();fxScopeToggle(this.getAttribute('data-twig'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxs-fav[data-scopefav]'),function(el){el.onclick=function(e){e.stopPropagation();e.preventDefault();favToggleCore(this.getAttribute('data-scopefav'));if(typeof renderReviewsNav==='function')renderReviewsNav();fxScopeRepaint();};});
+    var i=document.querySelector('#view .fxs-in');
+    if(i)i.oninput=function(){FX_SCOPE_FIND=this.value;fxScopeRepaint();};
+  }
+  /* A scope is favouritable from the STATEMENT too, not only the left nav — and it goes through the
+     nav's own favTogglePayload, so one favourite exists in one place however it was starred. */
+  function fxScopePayload(val){
+    if(!val||val==='all'||val.indexOf('fld:')===0||val.indexOf('fav:')===0)return null;
+    if(val.indexOf('entity:')===0)return 'ent:'+val.slice(7);
+    if(val.indexOf('cons:')===0)return val.slice(5);
+    if(val.indexOf('grp:')===0)return val.slice(4);
+    return null;
+  }
+  function fxsRow(val,label,count,depth,hasKids,open,cur){
+    var pl=fxScopePayload(val), fav=pl?favIsPayload(pl):false;
+    return '<div class="fxs-row'+(val===cur?' on':'')+'" data-scope="'+esc(val)+'" role="button" tabindex="0" title="'+esc(label)+'" style="padding-left:'+(6+depth*13)+'px">'
+      +(hasKids?'<button class="fxs-tw'+(open?' open':'')+'" data-twig="'+esc(val)+'">'+rpIcon('chev')+'</button>':'<span class="fxs-sp"></span>')
+      +'<span class="fxs-nm">'+esc(label)+'</span>'+(count!=null?'<span class="fxs-ct">'+count+'</span>':'')
+      +(pl?'<button class="fxs-fav'+(fav?' on':'')+'" data-scopefav="'+esc(pl)+'" title="'+(fav?'Remove from favorites':'Add to favorites')+'">'+(fav?'★':'☆')+'</button>':'')
+      +'</div>';
+  }
+  function fxsEnt(eid,depth,cur){var e=ENT_BY_ID[eid]||{};return fxsRow('entity:'+eid,navShort(e.name||eid),null,depth,false,false,cur);}
+  function fxsNode(node,depth,cur){
+    var val='cons:'+node.id, kids=consChildren(node)||[], open=!!FX_SCOPE_EXP[val];
+    var h=fxsRow(val,navShort(node.name),(node.ents||[]).length,depth,kids.length>0,open,cur);
+    if(open)kids.forEach(function(k){ h+=k.isEnt?fxsEnt(k.eid,depth+1,cur):fxsNode(k,depth+1,cur); });
+    return h;
+  }
+  function fluxScopeTreeHTML(){
+    var cur=fluxScopeValue(fluxScope), h='';
+    h+='<div class="fxs-find"><input class="fxs-in" placeholder="Find an entity&hellip;" value="'+esc(FX_SCOPE_FIND)+'"></div><div class="fxs-tree">';
+    if(FX_SCOPE_FIND){
+      var q=FX_SCOPE_FIND.toLowerCase(), hits=ENT_MASTER.filter(function(e){return (e.name+' '+e.id+' '+(e.ccy||'')).toLowerCase().indexOf(q)>=0;});
+      h+=hits.length?hits.slice(0,60).map(function(e){return fxsRow('entity:'+e.id,navShort(e.name)+' · '+(e.ccy||''),null,0,false,false,cur);}).join(''):'<div class="fxs-empty">No entity matches that search.</div>';
+      return h+'</div>';
+    }
+    h+=fxsRow('all','Consolidated · all entities',(E_ENT||[]).length,0,false,false,cur);
+    h+='<div class="fxs-h">Structure</div>';
+    (consChildren(CONS_BY_ID.MGP)||[]).forEach(function(k){ h+=k.isEnt?fxsEnt(k.eid,0,cur):fxsNode(k,0,cur); });
+    if(typeof RP_ORG_GROUPBY!=='undefined'&&RP_ORG_GROUPBY!=='structure'){
+      h+='<div class="fxs-h">By '+esc(orgGbLabel().toLowerCase())+'</div>';
+      orgGroups().forEach(function(g){ var val='grp:'+RP_ORG_GROUPBY+':'+g.key, open=!!FX_SCOPE_EXP[val];
+        h+=fxsRow(val,g.label,g.ents.length,0,true,open,cur);
+        if(open)g.ents.forEach(function(eid){h+=fxsEnt(eid,1,cur);}); });
+    }
+    if(typeof RP_FOLDERS!=='undefined'&&RP_FOLDERS.filter(function(f){return f.ents.length;}).length){
+      h+='<div class="fxs-h">My entity sets</div>';
+      RP_FOLDERS.filter(function(f){return f.ents.length;}).forEach(function(f){ var val='fld:'+f.id, open=!!FX_SCOPE_EXP[val];
+        h+=fxsRow(val,f.name,f.ents.length,0,true,open,cur);
+        if(open)f.ents.forEach(function(eid){h+=fxsEnt(eid,1,cur);}); });
+    }
+    if(typeof RP_FAVORITES!=='undefined'&&RP_FAVORITES.filter(function(f){return (f.kind==='scope'&&f.ents&&f.ents.length)||(f.kind==='entity'&&ENT_BY_ID[f.id]);}).length){
+      h+='<div class="fxs-h">Favorites</div>';
+      RP_FAVORITES.forEach(function(f){
+        if(f.kind==='scope'&&f.ents&&f.ents.length){ var val='fav:'+f.id, open=!!FX_SCOPE_EXP[val];
+          h+=fxsRow(val,'★ '+navShort(f.name||'Grouping'),f.ents.length,0,true,open,cur);
+          if(open)f.ents.forEach(function(eid){h+=fxsEnt(eid,1,cur);}); }
+        else if(f.kind==='entity'&&ENT_BY_ID[f.id]) h+=fxsRow('entity:'+f.id,'★ '+navShort(ENT_BY_ID[f.id].name),null,0,false,false,cur); });
+    }
+    return h+'</div>';
+  }
   function fluxScopeOptions(sc){
     sc=sc||fluxScope;
-    var cur=sc.type==='all'?'all':sc.type+':'+sc.value;
-    function opt(v,label){return '<option value="'+v+'"'+(v===cur?' selected':'')+'>'+label+'</option>';}
-    var regions={}; E_ENT.forEach(function(e){var r=(FX_ENT_META[e.id]||{}).region;if(r)regions[r]=1;});
-    var h=opt('all','Consolidated · all entities');
-    h+='<optgroup label="By region">'+Object.keys(regions).map(function(r){return opt('region:'+r,r);}).join('')+'</optgroup>';
+    var cur=fluxScopeValue(sc), NB='  ';
+    function opt(v,label,depth){return '<option value="'+esc(v)+'"'+(v===cur?' selected':'')+'>'+(depth?new Array(depth+1).join(NB):'')+esc(label)+'</option>';}
+    var h='';
+    /* a custom multi-entity selection with no saved home still has to show as the current value */
+    if(cur==='cur')h+=opt('cur',fluxScopeLabel(sc));
+    h+=opt('all','Consolidated · all entities');
+    /* 1. the consolidation structure, indented exactly like the nav tree */
+    var struct=''; (function walk(node,depth){ if(!node)return;
+      if(node.id!=='MGP')struct+=opt('cons:'+node.id,node.name+' · '+(node.ents||[]).length,depth-1);
+      (consChildren(node)||[]).forEach(function(k){ if(!k.isEnt)walk(k,depth+1); });
+    })(CONS_BY_ID.MGP,0);
+    if(struct)h+='<optgroup label="Structure">'+struct+'</optgroup>';
+    /* 2. the grouping the user has the nav organized by (Region / Business unit / Currency / Country) */
+    if(typeof RP_ORG_GROUPBY!=='undefined'&&RP_ORG_GROUPBY!=='structure'){
+      var gs=orgGroups().map(function(g){return opt('grp:'+RP_ORG_GROUPBY+':'+g.key,g.label+' · '+g.ents.length);}).join('');
+      if(gs)h+='<optgroup label="By '+esc(orgGbLabel().toLowerCase())+'">'+gs+'</optgroup>';
+    } else {
+      var regions={}; E_ENT.forEach(function(e){var r=(FX_ENT_META[e.id]||{}).region;if(r)regions[r]=1;});
+      h+='<optgroup label="By region">'+Object.keys(regions).map(function(r){return opt('region:'+r,r);}).join('')+'</optgroup>';
+    }
+    /* 3. the user's own folders and favorites — the nav's other two ways in */
+    if(typeof RP_FOLDERS!=='undefined'&&RP_FOLDERS.length){
+      var fo=RP_FOLDERS.filter(function(f){return f.ents.length;}).map(function(f){return opt('fld:'+f.id,f.name+' · '+f.ents.length);}).join('');
+      if(fo)h+='<optgroup label="My entity sets">'+fo+'</optgroup>';
+    }
+    if(typeof RP_FAVORITES!=='undefined'){
+      var fv=RP_FAVORITES.filter(function(f){return f.kind==='scope'&&f.ents&&f.ents.length;}).map(function(f){return opt('fav:'+f.id,(f.name||'Grouping')+' · '+f.ents.length);}).join('');
+      var fe=RP_FAVORITES.filter(function(f){return f.kind==='entity'&&ENT_BY_ID[f.id];}).map(function(f){return opt('entity:'+f.id,ENT_BY_ID[f.id].name);}).join('');
+      if(fv||fe)h+='<optgroup label="Favorites">'+fv+fe+'</optgroup>';
+    }
     h+='<optgroup label="By legal entity">'+E_ENT.map(function(e){var m=FX_ENT_META[e.id]||{};return opt('entity:'+e.id,(m.name||e.id)+(m.ccy?' · '+m.ccy:''));}).join('')+'</optgroup>';
     return h;
   }
@@ -6460,7 +6666,7 @@
     var h='<div class="rp-crumb rpc-canvas">'+crumbs.map(function(c,i){var last=i===crumbs.length-1;return (last?'<span class="rp-cr-cur">'+esc(c.label)+'</span>':'<button class="rp-cr" data-cgo="'+c.go+'">'+esc(c.label)+'</button>')+(last?'':'<span class="rp-cr-sep">/</span>');}).join('')+'</div>';
     var perName=p.name.replace(' Close','');
     var meta=[['Owner',esc(r.owner)],['Reviewer',esc(pkgRevName(r.rev))],['Period',esc(perName)],['Reporting currency','USD']];
-    h+='<div class="rvc-hd"><div class="rvc-hd-top"><h1 class="rvc-title">'+esc(r.name)+'</h1><div class="rvc-act"><button class="btn primary rpc-submit">Submit for review</button></div></div><div class="rvc-meta"><span class="rp-st r-'+st[1]+'">'+st[0]+'</span>'+meta.map(function(m){return '<span class="rvc-m"><span class="rvc-m-k">'+m[0]+'</span>'+m[1]+'</span>';}).join('')+'</div></div>';
+    h+='<div class="rvc-hd"><div class="rvc-hd-top"><h1 class="rvc-title">'+esc(r.name)+'</h1><div class="rvc-act"><button class="btn primary rpc-submit req-prepare">Submit for review</button></div></div><div class="rvc-meta"><span class="rp-st r-'+st[1]+'">'+st[0]+'</span>'+meta.map(function(m){return '<span class="rvc-m"><span class="rvc-m-k">'+m[0]+'</span>'+m[1]+'</span>';}).join('')+'</div></div>';
     if(typeof rpTimelineNav==='function')h+=rpTimelineNav();
     return h;
   }
@@ -6941,6 +7147,7 @@
   function rpAudit(action,target,detail,sod,fid){RP_AUDIT.unshift({id:++RP_AUDIT_SEQ,ts:rpNow(),actor:CUR_USER.name,action:action,target:target,detail:detail||'',sod:!!sod,fid:fid||null,per:RP_PERIOD_SEL});}
   function rpSignOff(fid){
     if(typeof periodLocked==='function'&&periodLocked()){rpToast('This period is locked — reopen the period to change sign-offs.');return;}
+    if(permGuard('approve','You do not have approval rights — only a reviewer or above can sign off.'))return;
     var f=rpFolder(fid);if(!f)return;var i=rpSoNext(f);if(i<0){rpToast('Already fully signed off.');return;}
     var chain=rpChainOf(f),st=rpSoState(f),me=CUR_USER.name,sod=st.some(function(s){return s&&s.by===me;});
     st[i]={role:chain[i].role,by:me,at:rpNow(),sod:sod};
@@ -6993,7 +7200,7 @@
       var s=st[i],done=!!s,isNext=(i===next);
       var dot=done?'<span style="color:var(--pos)">&#10003;</span>':(isNext?'<span style="color:var(--accent)">&#9679;</span>':'<span style="color:var(--line2)">&#9675;</span>');
       var mid=done?('<span class="rvw-av">'+esc(rpInit(s.by))+'</span><span>'+esc(s.by)+'</span> <span style="color:var(--muted)">&middot; '+esc(s.at)+'</span>'+(s.sod?' <span title="Segregation-of-duties exception" style="color:var(--warn);border:1px solid var(--warn);border-radius:2px;padding:0 4px;font-size:var(--fs-11)">SoD</span>':'')):(isNext?'<span style="color:var(--accent)">Awaiting sign-off</span>':'<span style="color:var(--faint)">Pending prior approvals</span>');
-      var act=(done&&i===lastSigned)?'<button class="btn sm rp-reopen" data-fid="'+f.id+'">Reopen</button>':(isNext?'<button class="btn sm primary rp-signoff" data-fid="'+f.id+'">Sign off as '+esc(step.role)+'</button>':'');
+      var act=(done&&i===lastSigned)?'<button class="btn sm rp-reopen" data-fid="'+f.id+'">Reopen</button>':(isNext?'<button class="btn sm primary rp-signoff req-approve" data-fid="'+f.id+'">Sign off as '+esc(step.role)+'</button>':'');
       h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:'+(i?'1px solid var(--line)':'0')+'"><span style="width:16px;text-align:center">'+dot+'</span><span style="width:110px;font-weight:500">'+esc(step.role)+'</span><span style="flex:1;display:flex;align-items:center;gap:6px">'+mid+'</span>'+act+'</div>';
     });
     h+='</div></div>';return h;
@@ -7182,7 +7389,7 @@
       window.location.href=url;
     };
   }
-  function fxRemapOpen(acct){if(typeof fxLockGuard==='function'&&fxLockGuard())return;var info=fxAcctInfo(acct);RP_RM={acct:acct,fs:info.fs,report:info.report};document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;fxRenderRemap();}
+  function fxRemapOpen(acct){if(typeof fxLockGuard==='function'&&fxLockGuard())return;if(permGuard('configure','Only a Controller or Administrator can change GL account mappings.'))return;var info=fxAcctInfo(acct);RP_RM={acct:acct,fs:info.fs,report:info.report};document.body.classList.add('rp-drawer-open');var bd=document.getElementById('rpDrawerBd');if(bd)bd.onclick=rpNewPeriodClose;fxRenderRemap();}
   function fxRenderRemap(){
     var d=document.getElementById('rpDrawer');if(!d)return;
     var info=fxAcctInfo(RP_RM.acct),stmt=fxStmtOf(info);
@@ -7304,7 +7511,10 @@
     function rowCells(accts){return COLS.map(function(c,k){return fxMoney(colVal(accts,c),colClass(c,k));}).join('');}
     function rowCellsNet(A,B){return COLS.map(function(c,k){return fxMoney(colVal(A,c)-colVal(B,c),colClass(c,k));}).join('');}
     function emptyCells(){return COLS.map(function(c,k){return '<td class="fx-money '+colClass(c,k)+'"></td>';}).join('')+'<td class="fx-money fx-sep"></td><td class="fx-money fx-org"></td><td class="fx-money fx-fxc"></td><td class="fx-pct"></td>';}
-    var secs=fluxSections(led,fluxStmt);
+    var _secsAll=fluxSections(led,fluxStmt);
+    /* Scope the statement to the selected review BEFORE anything derives from it, so the grid,
+       the KPI strip, the totals and the print notes all describe the same population. */
+    var secs=fluxScopeSections(_secsAll), _rvScope=fluxReviewScope();
     var matCount=0,needCount=0,groupCount=0,lineCount=0,explained=0,outstandingEvid=0,readyApproval=0,matLeaves=[],printNotes=[];
     secs.forEach(function(sec){sec.groups.forEach(function(g){groupCount++;
       /* Footnotes are collected at the category-line level (g.report) — matching what the statement annotates — not per GL account. */
@@ -7329,7 +7539,7 @@
     var _rvBadge=(_rv&&typeof rpStateBadge==='function')?rpStateBadge(_rv):'';
     var _rvCaps=(_rv&&typeof rpStateCaps==='function')?rpStateCaps(_rv):{workflow:true};
     var _lkNow=(typeof periodLocked==='function'&&periodLocked());
-    var _rvAction=_lkNow?('<span class="fx-state-note fx-locked-note">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked &mdash; read-only</span>'):(_rvCaps.workflow?'<button class="btn primary rpc-submit">Submit for review</button>':'<span class="fx-state-note" title="'+((RP_REVIEW_STATES[rpReviewState(_rv)]||{}).hint||'').replace(/&mdash;/g,'—')+'">Not in the sign-off workflow</span>');
+    var _rvAction=_lkNow?('<span class="fx-state-note fx-locked-note">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked &mdash; read-only</span>'):(_rvCaps.workflow?'<button class="btn primary rpc-submit req-prepare">Submit for review</button>':'<span class="fx-state-note" title="'+((RP_REVIEW_STATES[rpReviewState(_rv)]||{}).hint||'').replace(/&mdash;/g,'—')+'">Not in the sign-off workflow</span>');
     var _rvFav=(typeof rpIsFav==='function'&&rpIsFav('review',_rv&&_rv.id));
     var _rvStar=_rv?('<button class="fx-star'+(_rvFav?' on':'')+'" title="'+(_rvFav?'Pinned — click to unpin':'Pin this review')+'">'+(_rvFav?'&#9733;':'&#9734;')+'</button>'):'';
     // ----- context path: Scope › Period › Review (so the reporting period is always visible) -----
@@ -7404,8 +7614,8 @@
     var dViewNew=fxSheetDetails('view','<summary class="fxm-sum" title="Display density"><span class="fxm-k">View</span><span class="fxm-cur">'+({comfortable:'Comfortable',compact:'Compact',executive:'Executive'}[SETTINGS.density]||'Comfortable')+'</span></summary>','View','<div class="fxm-h">Display density</div>'+[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']].map(function(o){return '<button class="fxm-opt fx-density'+(SETTINGS.density===o[0]?' on':'')+'" data-density="'+o[0]+'">'+(SETTINGS.density===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'<div class="fxm-sep"></div><div class="fxm-h">Panels</div><button class="fxm-opt fxm-comments">'+(fluxShowComments?ckOn:ckOff)+'Comments column</button><button class="fxm-opt fxm-panel'+(fluxInspDefaultTab==='evidence'?' on':'')+'" data-panel="evidence">'+(fluxInspDefaultTab==='evidence'?ckOn:ckOff)+'Line detail opens to Evidence</button><button class="fxm-opt fxm-reviewer'+(FX_CMT_CFG.reviewer?' on':'')+'">'+(FX_CMT_CFG.reviewer?ckOn:ckOff)+'Reviewer (prepared / reviewed by)</button><div class="fxm-sep"></div><div class="fxm-h">Table</div><button class="fxm-opt fx-sticky">'+(fluxStickyHead?ckOn:ckOff)+'Sticky headers</button><button class="fxm-opt fx-zebra">'+(fluxZebra?ckOn:ckOff)+'Zebra rows</button><button class="fxm-opt fx-lines">'+(fluxLines?ckOn:ckOff)+'Grid lines</button>');
     var matOpts=(matPresets.indexOf(fluxMat)<0?'<button class="fxm-opt fxm-mat on" data-mat="'+fluxMat+'">'+ckOn+'&ge; '+fluxMat+'%</button>':'')+matPresets.map(function(o){return '<button class="fxm-opt fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">'+(fluxMat===o?ckOn:ckOff)+'&ge; '+o+'%</button>';}).join('');
     var dFilter=fxSheetDetails('filter','<summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary>','Filter','<div class="fxm-h">Materiality threshold</div>'+matOpts+'<div class="fxm-h">Show only</div>'+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')).replace('class="fxm fxm-sheet"','class="fxm fxm-sheet'+(filterOn?' fxm-act':'')+'"');
-    var _scVal=fluxScope.type==='all'?'Consolidated':(node.name||node.short||node.id);
-    var dScope='<details class="fxm fxm-scopeM"><summary class="fxm-sum" title="Reporting entity: '+esc(node.name)+'"><span class="fxm-k">Entity</span><span class="fxm-cur">'+esc(_scVal)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Reporting entity</div><select class="fxm-scope-sel">'+fluxScopeOptions(fluxScope)+'</select><div class="fxm-note2">Scopes the whole statement to a region, a legal entity or the consolidated group.</div></div></details>';
+    var _scVal=fluxScopeLabel(fluxScope);
+    var dScope='<details class="fxm fxm-scopeM"><summary class="fxm-sum" title="Reporting entity: '+esc(node.name)+'"><span class="fxm-k">Entity</span><span class="fxm-cur">'+esc(_scVal)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Reporting entity</div><div class="fxs-wrap">'+fluxScopeTreeHTML()+'</div><div class="fxm-note2">Scopes the statement. Expand to drill; the star pins a scope to Favorites.</div></div></details>';
     var dSearch='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search GL account or name&hellip;" value="'+esc(fluxFind)+'"></div>';
     var dActions=(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'');
     var basisSegs=[['prev','MoM','vs prior month'],['prevq','QoQ','vs 3 months prior']];
@@ -7423,7 +7633,10 @@
     // ===== Boxy CONTEXT filter row — sits directly under the header (the mock's top pill row) =====
     // Period · Review · Scope · Basis. Presentation / Focus / Workspace controls live in a second
     // boxy row just below the metrics strip (built after the metrics, before the grid).
-    h+='<div class="fx-fbar fx-fbar-ctx">'+dPeriod+dReview+dScope+dBasis+'</div>';
+    /* A scoped review must SAY it is scoped and offer the way out — a filtered statement that
+       looks like a whole statement is how a reviewer signs off on a population they never saw. */
+    var _rvChip=_rvScope?('<span class="fx-scopechip" title="'+esc(_rvScope.name)+' shows only part of the statement"><span class="fx-scopedot"></span><b>'+esc(_rvScope.name.replace(/ Review$/,''))+'</b>'+esc(secs.length+' of '+_secsAll.length+' sections')+'<button class="fx-scopeclr" title="Show the whole statement">Show all</button></span>'):'';
+    h+='<div class="fx-fbar fx-fbar-ctx">'+dPeriod+dReview+dScope+dBasis+_rvChip+'</div>';
     // ----- slim summary caption for the grid: movement bridge (left) · review counts (right) -----
     h+='<div class="fx-metrics"><div class="fx-mg">'+
        '<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'+
@@ -7470,14 +7683,26 @@
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
         h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo+rpBasisSuffix(),mat,'grp',g.report)+'</tr>';
-        if(exp)pass.forEach(function(a){var acur=fxV(a,ti),aprev=fxV(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct" title="GL account">'+a.acct+'</span>'+esc(a.name)+(FLUX_REMAP[a.acct]?'<span class="fx-remapped" title="Mapping overridden by a user">remapped</span>':'')+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a>'+(_lkNow?'':'<button class="fx-remap" data-remap="'+a.acct+'" title="Change this account’s section / category mapping">Remap</button>')+'</td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo+rpBasisSuffix(),amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
+        if(exp)pass.forEach(function(a){var acur=fxV(a,ti),aprev=fxV(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct" title="GL account">'+a.acct+'</span>'+esc(a.name)+(FLUX_REMAP[a.acct]?'<span class="fx-remapped" title="Mapping overridden by a user">remapped</span>':'')+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a>'+((_lkNow||!can('configure'))?'':'<button class="fx-remap" data-remap="'+a.acct+'" title="Change this account’s section / category mapping">Remap</button>')+'</td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo+rpBasisSuffix(),amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
       var tcur=sum(allA,ti), tprev=sum(allA,priIdx);
       if(sec.name&&!secDup)h+='<tr class="fx-tot"><td class="l fx-line">Total '+sec.name.toLowerCase()+'</td>'+rowCells(allA)+fxMoney(tcur-tprev,'fx-sep')+fxBridgeCells(allA,ti,priIdx,tcur-tprev)+fxPctCell(tprev,tcur)+'<td class="fx-rev"></td>'+'</tr>';
-      if(isIS&&IS_SUB[sec.name]){var sm=IS_SUB[sec.name];h+=isSub(sm[0],isBk['Revenue']||[],isCat(sm[1]),'fx-subtot');}
+      /* Cross-section subtotals (Gross profit, Operating income…) span sections the scoped review
+         has removed, so they would foot to a population that is no longer on screen. Suppressed. */
+      if(isIS&&!_rvScope&&IS_SUB[sec.name]){var sm=IS_SUB[sec.name];h+=isSub(sm[0],isBk['Revenue']||[],isCat(sm[1]),'fx-subtot');}
     });
-    if(isBS){
+    if(_rvScope){
+      /* A scoped review must NOT foot to the whole statement — "Net income" or "Total liabilities
+         & equity" under a G&A-only view describes lines the reviewer cannot see. Foot the SCOPE. */
+      var scAll=[]; secs.forEach(function(s){s.groups.forEach(function(g){scAll=scAll.concat(g.accts);});});
+      var scRev=scAll.filter(function(a){return a.type==='Revenue';}), scExp=scAll.filter(function(a){return a.type==='Expense';});
+      var scLbl='Total &mdash; '+esc(_rvScope.name.replace(/ Review$/,''));
+      if(isIS&&scRev.length&&scExp.length){ var nC=sum(scRev,ti)-sum(scExp,ti), nP=sum(scRev,priIdx)-sum(scExp,priIdx);
+        h+='<tr class="fx-grand" title="Foots the scoped review only, not the whole statement"><td class="l fx-line">'+scLbl+'</td>'+rowCellsNet(scRev,scExp)+fxMoney(nC-nP,'fx-sep')+fxBridgeCellsNet(scRev,scExp,ti,priIdx,nC-nP)+fxPctCell(nP,nC)+'<td class="fx-rev"></td></tr>'; }
+      else { var sC=sum(scAll,ti), sP=sum(scAll,priIdx);
+        h+='<tr class="fx-grand" title="Foots the scoped review only, not the whole statement"><td class="l fx-line">'+scLbl+'</td>'+rowCells(scAll)+fxMoney(sC-sP,'fx-sep')+fxBridgeCells(scAll,ti,priIdx,sC-sP)+fxPctCell(sP,sC)+'<td class="fx-rev"></td></tr>'; }
+    } else if(isBS){
       // Equity now renders through the real equity accounts (fluxSections adds the section
       // and its "Total equity" row). Here we only foot the statement: A = L + E.
       var leAll=liabA.concat(eqA), leCur=sum(leAll,ti), lePrev=sum(leAll,priIdx);
@@ -7506,7 +7731,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-tb-tab'),function(b){b.onclick=function(){fluxStmt=b.getAttribute('data-flx');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cn-crumb, #view .fx-cn-kid'),function(b){if(b.classList.contains('cur'))return;b.onclick=function(){var n=nodeFromKey(this.getAttribute('data-cnode'));if(n)fluxSetNode(n);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
-    var rsub=document.querySelector('#view .rpc-submit'); if(rsub)rsub.onclick=function(){if(fxLockGuard())return;var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review — routed to the reviewer.');};
+    var rsub=document.querySelector('#view .rpc-submit'); if(rsub)rsub.onclick=function(){if(fxLockGuard())return;if(permGuard('prepare','Only a preparer can submit a review for approval.'))return;var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review — routed to the reviewer.');};
     var _rop=document.querySelector('#view .fx-reopen'); if(_rop)_rop.onclick=function(){if(!navCanReopen()){rpToast('Not authorized — only a Controller or Administrator can reopen a period.');return;}fxReopenAsk=true;renderMonthlyTrend();};
     var _ropY=document.querySelector('#view .fx-reopen-yes'); if(_ropY)_ropY.onclick=function(){fxReopenPeriod();};
     var _ropN=document.querySelector('#view .fx-reopen-no'); if(_ropN)_ropN.onclick=function(){fxReopenAsk=false;renderMonthlyTrend();};
@@ -7528,7 +7753,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-win'),function(b){b.onclick=function(){fluxTrendN=+this.getAttribute('data-win');fluxCols='trend';renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-exp2'),function(b){b.onclick=function(){fxStageExpand(this.getAttribute('data-exp'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view tr.fx-sec[data-sec]'),function(r){r.onclick=function(){var n=this.getAttribute('data-sec');fluxSecCollapse[n]=!fluxSecCollapse[n];renderMonthlyTrend();};});
-    var fxScopeSel=document.querySelector('#view .fxm-scope-sel');if(fxScopeSel)fxScopeSel.onchange=function(){var v=this.value;if(v==='all')fluxScope={type:'all',value:null};else{var pp=v.split(':');fluxScope={type:pp[0],value:pp.slice(1).join(':')};}if(typeof fluxInspClose==='function')fluxInspClose();renderMonthlyTrend();};
+    fxScopeWire();
     var fxrCol=document.querySelector('#view .fxr-collapse');if(fxrCol)fxrCol.onclick=function(){fluxRibbonExp=!fluxRibbonExp;renderMonthlyTrend();};
     var fxFindInp=document.querySelector('#view .fxf-find');if(fxFindInp)fxFindInp.oninput=function(){fluxFind=this.value;var pos=this.selectionStart;renderMonthlyTrend();var ni=document.querySelector('#view .fxf-find');if(ni){ni.focus();try{ni.setSelectionRange(pos,pos);}catch(e){}}};
     var fxClr=document.querySelector('#view .fxf-clear');if(fxClr)fxClr.onclick=function(){fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};fluxScope={type:'all',value:null};fluxFind='';renderMonthlyTrend();};
@@ -7546,6 +7771,7 @@
     };
     // ----- Increment 1 dock wiring: Review · Period · View panels · Insights · My Views · Share -----
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-review'),function(b){b.onclick=function(){fluxSetReview(this.getAttribute('data-review'));};});
+    var _sclr=document.querySelector('#view .fx-scopeclr');if(_sclr)_sclr.onclick=function(e){e.stopPropagation();fluxClearReview();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rstate'),function(b){b.onclick=function(){RP_REVIEW_STATE_FILTER=this.getAttribute('data-rstate');if(typeof rpToast==='function')rpToast('Showing '+(RP_REVIEW_STATES[RP_REVIEW_STATE_FILTER]||{}).label+' reviews.');activeNav='all';if(typeof renderNav==='function')renderNav();navTo('all');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-period'),function(b){b.onclick=function(){var m=this.getAttribute('data-period');if(typeof fluxInspClose==='function')fluxInspClose();if(typeof setActivePeriod==='function')setActivePeriod(m);else{fluxTo=m;renderMonthlyTrend();}};});
     var _allper=document.querySelector('#view .fxm-allperiods'); if(_allper)_allper.onclick=function(){if(typeof fluxInspClose==='function')fluxInspClose();navTo('frperiods');};
@@ -7708,7 +7934,7 @@
     var ea=document.getElementById('rcExpandAll');if(ea)ea.onclick=function(){rcToggleAll(eng);};
     var cfg=document.getElementById('rcCfg');if(cfg)cfg.onclick=function(){rpToast('Configure &mdash; rows, columns, calculations, review fields and materiality via the Review Designer.');};
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
-    var rsub=document.querySelector('#view .rpc-submit');if(rsub)rsub.onclick=function(){var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review.');};
+    var rsub=document.querySelector('#view .rpc-submit');if(rsub)rsub.onclick=function(){if(permGuard('prepare','Only a preparer can submit a review for approval.'))return;var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review.');};
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(){rpToast('View configuration is available on the Corporate Flux engine; generic engines configure via the Review Designer.');};});
     var sv=document.querySelector('#view .fx-saveview');if(sv)sv.onclick=function(){rpToast('View saved.');};
     rcWireModeBar();
@@ -7891,11 +8117,11 @@
   function signSeed(role){return {Preparer:'Sarah Chen',Reviewer:'David Okoye',Controller:'David Okoye',CFO:'Elena Vasquez'}[role]||'Sarah Chen';}
   var SIGNOFFS={};
   function signoffData(period,area){var key=period+'|'+area;if(!SIGNOFFS[key]){var roles=SIGN_LADDERS[area]||['Preparer','Reviewer'],p=rpPeriodById(period),locked=p&&p.locked;SIGNOFFS[key]=roles.map(function(r,i){if(locked)return {role:r,by:signSeed(r),at:p.lockedOn};if(i===0)return {role:r,by:signSeed(r),at:(area==='statements'?'Jul 23, 2026 14:05':'Jul 23, 2026 17:20')};return {role:r,by:null,at:null};});}return SIGNOFFS[key];}
-  function signStep(period,area,i){if(rnLocked(period)){if(typeof rpToast==='function')rpToast('This period is locked — sign-off is closed.');return;}var l=signoffData(period,area);l[i].by=CUR_USER.name;l[i].at='Just now';reRenderCurrent();}
+  function signStep(period,area,i){if(rnLocked(period)){if(typeof rpToast==='function')rpToast('This period is locked — sign-off is closed.');return;}if(permGuard('approve','You do not have approval rights — only a reviewer or above can sign off.'))return;var l=signoffData(period,area);l[i].by=CUR_USER.name;l[i].at='Just now';reRenderCurrent();}
   function signoffProgress(period,area){var l=signoffData(period,area),d=l.filter(function(s){return !!s.by;}).length;return {done:d,total:l.length};}
   function signoffLadder(period,area){var l=signoffData(period,area),locked=rnLocked(period),h='<div class="sol">';
     l.forEach(function(s,i){var signed=!!s.by,prevDone=l.slice(0,i).every(function(p){return !!p.by;}),active=!signed&&prevDone&&!locked;
-      var body=signed?'<div class="sol-by"><b>'+esc(s.by)+'</b><span>'+esc(s.at)+'</span></div>':(active?'<button class="btn primary sol-sign" data-so="'+area+'|'+i+'">Sign off</button>':'<div class="sol-pending">Awaiting '+esc(i>0?l[i-1].role:s.role)+'</div>');
+      var body=signed?'<div class="sol-by"><b>'+esc(s.by)+'</b><span>'+esc(s.at)+'</span></div>':(active?'<button class="btn primary sol-sign req-approve" data-so="'+area+'|'+i+'">Sign off</button>':'<div class="sol-pending">Awaiting '+esc(i>0?l[i-1].role:s.role)+'</div>');
       h+='<div class="sol-step'+(signed?' done':active?' active':'')+'"><div class="sol-ic">'+(signed?RN_CHECK:(i+1))+'</div><div class="sol-x"><div class="sol-role">'+esc(s.role)+'</div>'+body+'</div></div>';});
     return h+'</div>';}
   function wireSignoff(period){Array.prototype.forEach.call(document.querySelectorAll('#view .sol-sign'),function(b){b.onclick=function(){var p=this.getAttribute('data-so').split('|');signStep(period,p[0],+p[1]);};});}
@@ -7912,7 +8138,7 @@
   var CONTROL_DONE={};
   function ctlBase(c,period){if(c.id==='ACC-C01')return ldgExceptions(period).length?'exception':'performed';if(c.id==='ACC-C05')return rpUnmappedCount()?'pending':'performed';var p=rpPeriodById(period);if(p&&p.locked)return 'performed';return {'ACC-C02':'performed','ACC-C03':'pending','ACC-C04':'performed','ACC-C06':'performed','ACC-C07':'pending'}[c.id]||'pending';}
   function ctlStatus(c,period){if(CONTROL_DONE[period+'|'+c.id])return 'performed';return ctlBase(c,period);}
-  function ctlSign(period,id){var p=rpPeriodById(period);if(p&&p.locked){if(typeof rpToast==='function')rpToast('This period is locked — controls can’t be signed.');return;}CONTROL_DONE[period+'|'+id]={by:CUR_USER.name,at:'Just now'};reRenderCurrent();}
+  function ctlSign(period,id){var p=rpPeriodById(period);if(p&&p.locked){if(typeof rpToast==='function')rpToast('This period is locked — controls can’t be signed.');return;}if(permGuard('approve','You do not have approval rights to sign off controls.'))return;CONTROL_DONE[period+'|'+id]={by:CUR_USER.name,at:'Just now'};reRenderCurrent();}
   function ctlOpenCount(period){return CONTROLS.filter(function(c){var s=ctlStatus(c,period);return s!=='performed';}).length;}
   function renderControls(){
     var m=ACTIVE_PERIOD,p=rpPeriodById(m),locked=p&&p.locked;
@@ -7924,7 +8150,7 @@
     h+='<div class="card"><table class="ctl-tbl"><thead><tr><th class="l">Control</th><th>Type</th><th>Frequency</th><th>Owner</th><th>Status</th><th class="c">Sign-off</th></tr></thead><tbody>';
     rows.forEach(function(r){var c=r.c,st=r.st,done=CONTROL_DONE[m+'|'+c.id];
       var stx={performed:['approved','Performed'],exception:['attention','Exception'],pending:['draft','Pending']}[st];
-      var sign=done?('<span class="ctl-by">'+esc(done.by.split(' ')[0])+' &middot; '+esc(done.at)+'</span>'):(st==='pending'&&!locked?'<button class="btn ctl-sign" data-ctl="'+c.id+'">Sign off</button>':(st==='performed'?'<span class="ctl-chk">'+RN_CHECK+'</span>':'<span class="mut">&mdash;</span>'));
+      var sign=done?('<span class="ctl-by">'+esc(done.by.split(' ')[0])+' &middot; '+esc(done.at)+'</span>'):(st==='pending'&&!locked?'<button class="btn ctl-sign req-approve" data-ctl="'+c.id+'">Sign off</button>':(st==='performed'?'<span class="ctl-chk">'+RN_CHECK+'</span>':'<span class="mut">&mdash;</span>'));
       h+='<tr><td class="l"><span class="ctl-id">'+c.id+'</span>'+esc(c.name)+'</td><td>'+c.type+'</td><td>'+c.freq+'</td><td>'+esc(c.owner)+'</td><td><span class="st '+stx[0]+'"><span class="d"></span>'+stx[1]+'</span></td><td class="c">'+sign+'</td></tr>';});
     h+='</tbody></table></div>';
     h+='<div class="ldg-note">Statuses derive from live state where Korvyn can see it &mdash; the GL-to-TB control shows an exception whenever the tie-out has open items, and account mapping stays pending until every new account is mapped.</div>';
@@ -8043,6 +8269,7 @@
   function renderRepoUpload(){
     rpInitUpPeriod();
     var h='<div class="kv-hd"><div><div class="k">Monthly close</div><h1>Financial Data</h1><div class="kv-sub">Upload the general ledger and trial balance for a period. Every upload is retained &mdash; the latest becomes <b>Active</b>, earlier versions stay available. Nothing is ever overwritten, and a locked period accepts no further uploads.</div></div></div>';
+    if(!can('configure')){h+='<div class="fx-lockbar" style="margin:16px 0"><span class="fx-lockbar-ic">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+'</span><div class="fx-lockbar-tx"><b>Read-only</b> &mdash; loading GL / trial-balance data requires the Configure permission (Controller or Administrator). Ask an administrator if you need to upload.</div></div>';var _v=document.getElementById('view');if(_v)_v.innerHTML=h;return;}
     h+='<div class="lbl" style="margin-bottom:8px">Accounting period</div><div class="rp-pchips">';
     RP_PERIODS.forEach(function(p){
       if(p.locked){h+='<span class="rp-pchip lk" title="Locked — no further uploads">'+RP_LOCKED+p.label+'</span>';}
@@ -8242,6 +8469,7 @@
   renderCloseDash();
   paintPeriodChip();
   paintUserChip();
+  applyRoleClasses();
   renderNotifBadge();
   (function(){var b=document.getElementById('navBack'),f=document.getElementById('navFwd');if(b)b.onclick=navBack;if(f)f.onclick=navFwd;})();
   navMark('nav');
