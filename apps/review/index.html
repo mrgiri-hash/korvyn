@@ -2611,6 +2611,14 @@
   .fld-mi-ct{font-size:var(--fs-11);color:var(--faint)}
   body.chrome-nav .fld-new{color:var(--chrome-ink-2)} body.chrome-nav .fld-new:hover{color:var(--chrome-ink);background:var(--chrome-lift)}
   body.nav-collapsed .fld-hd,body.nav-collapsed .fld-row,body.nav-collapsed .fld-mem,body.nav-collapsed .fld-empty,body.nav-collapsed .fld-menu,body.nav-collapsed .fld-inpwrap{display:none}
+  /* unpin (remove favorite) control on pinned rows */
+  .rp-tn{position:relative}
+  .rp-ws-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:var(--surface);color:var(--faint);cursor:pointer;font-size:12px;line-height:1;padding:2px 5px;border-radius:3px;opacity:0}
+  .rp-tn:hover .rp-ws-x{opacity:1}
+  .rp-ws-x:hover{color:var(--neg);background:var(--surface-2)}
+  body.chrome-nav .rp-ws-x{background:var(--chrome);color:var(--chrome-ink-2)}
+  body.chrome-nav .rp-ws-x:hover{color:#fff;background:var(--chrome-lift)}
+  body.nav-collapsed .rp-ws-x{display:none}
   .ct-nm,.pk-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-13);color:var(--ink-2)}
   .ct-bar{width:32px;height:4px;border-radius:100px;background:var(--line-2);overflow:hidden;flex:0 0 auto}
   .ct-bar>i{display:block;height:100%;background:var(--pos)}
@@ -2987,10 +2995,10 @@
     var favItems=RP_FAVORITES.filter(function(f){return f.kind==='folder'?(rpFolder(f.id)&&!rpFolder(f.id).hidden):f.kind==='entity'?ENT_BY_ID[f.id]:f.kind==='scope'?(f.ents&&f.ents.length):rpReviewById(f.id);});
     if(!favItems.length)return '<div class="rp-ws-empty">Star a review, entity or grouping to pin it here.</div>';
     var h='';favItems.forEach(function(f){
-      if(f.kind==='folder'){var fo=rpFolder(f.id),fc=(typeof rpFolderCount==='function'?rpFolderCount(fo.id):fo.count);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span>'+(fc||fc===0?'<span class="rp-ws-ct">'+fc+'</span>':'')+'</button></div>';}
-      else if(f.kind==='entity'){var en=(ENT_BY_ID[f.id]&&ENT_BY_ID[f.id].name)||f.id;h+='<div class="rp-tn"><button class="rp-ws-item pin" data-faventopen="'+esc(f.id)+'" title="Scope to '+esc(en)+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(en))+'</span></button></div>';}
-      else if(f.kind==='scope'){h+='<div class="rp-tn"><button class="rp-ws-item pin" data-favscopeopen="'+esc(f.id)+'" title="Scope to '+esc(f.name||'')+' ('+(f.ents?f.ents.length:0)+' entities)"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(f.name||'Grouping')+'</span><span class="rp-ws-ct">'+(f.ents?f.ents.length:0)+'</span></button></div>';}
-      else{var r=rpReviewById(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';} });
+      if(f.kind==='folder'){var fo=rpFolder(f.id),fc=(typeof rpFolderCount==='function'?rpFolderCount(fo.id):fo.count);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-ws="'+fo.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(fo.name)+'</span>'+(fc||fc===0?'<span class="rp-ws-ct">'+fc+'</span>':'')+'</button>'+favUnpinBtn('folder',f.id)+'</div>';}
+      else if(f.kind==='entity'){var en=(ENT_BY_ID[f.id]&&ENT_BY_ID[f.id].name)||f.id;h+='<div class="rp-tn"><button class="rp-ws-item pin" data-faventopen="'+esc(f.id)+'" title="Scope to '+esc(en)+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(en))+'</span></button>'+favUnpinBtn('entity',f.id)+'</div>';}
+      else if(f.kind==='scope'){h+='<div class="rp-tn"><button class="rp-ws-item pin" data-favscopeopen="'+esc(f.id)+'" title="Scope to '+esc(f.name||'')+' ('+(f.ents?f.ents.length:0)+' entities)"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(navShort(f.name)||'Grouping')+'</span><span class="rp-ws-ct">'+(f.ents?f.ents.length:0)+'</span></button>'+favUnpinBtn('scope',f.id)+'</div>';}
+      else{var r=rpReviewById(f.id);h+='<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-star">&#9733;</span><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button>'+favUnpinBtn('review',r.id)+'</div>';} });
     return h;
   }
   function navRecentHTML(){
@@ -3045,6 +3053,7 @@
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldrm]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-foldrm').split('~');folderRemoveEnt(a[0],a[1]);};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-faventopen]'),function(el){el.onclick=function(){favEntScope(this.getAttribute('data-faventopen'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favscopeopen]'),function(el){el.onclick=function(){favScopeOpen(this.getAttribute('data-favscopeopen'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-x[data-favdel]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-favdel').split('~');favRemove(a[0],a[1]);};});
     var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
     syncNavToggle();
   }
@@ -5293,6 +5302,8 @@
     RP_FOLD_MENU=null;if(typeof favSave==='function')favSave();renderReviewsNav();}
   function favEntScope(eid){fluxScope={type:'entity',value:eid};RP_OPEN_REVIEW=null;navTo('mtrend');}
   function favScopeOpen(id){var f=null;RP_FAVORITES.forEach(function(x){if(x.kind==='scope'&&x.id===id)f=x;});if(!f||!f.ents||!f.ents.length)return;fluxScope={type:'set',value:f.ents.slice(),label:'★ '+(f.name||'Grouping'),favscope:id};RP_OPEN_REVIEW=null;navTo('mtrend');}
+  function favRemove(kind,id){var i=-1;RP_FAVORITES.forEach(function(f,j){if(f.kind===kind&&String(f.id)===String(id))i=j;});if(i<0)return;RP_FAVORITES.splice(i,1);if(typeof favSave==='function')favSave();renderReviewsNav();}
+  function favUnpinBtn(kind,id){return '<button class="rp-ws-x" data-favdel="'+esc(kind)+'~'+esc(String(id))+'" title="Remove from favorites">&#10005;</button>';}
   function foldAddBtn(payload){return '<button class="fld-add" data-foldadd="'+esc(payload)+'" title="Favorite or add to folder">+</button>';}
   function foldMenuHTML(payload){ if(RP_FOLD_MENU!==payload)return '';
     var favOn=favIsPayload(payload);
