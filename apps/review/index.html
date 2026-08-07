@@ -291,11 +291,22 @@
   /* Browse — the divider above the collapsible browse sections (org tree, recent) */
   .nav .nh-grp{margin-top:8px;padding-top:9px;border-top:1px solid var(--line);letter-spacing:.06em;font-weight:600}
   .nav .nh-tw{margin-right:2px;vertical-align:middle}
+  /* Planned pages — reachable, clearly not built. Quiet, never gold: they are not "needs attention". */
+  .nplan-h{display:flex;align-items:center;gap:5px;width:100%;margin-top:6px;padding:6px 9px;border:0;background:transparent;color:var(--faint);font-family:inherit;font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.04em;font-weight:600;cursor:pointer;border-radius:var(--radius-sm)}
+  .nplan-h:hover{color:var(--muted);background:var(--surface-2)}
+  .nplan-n{margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0}
+  .nitem-planned{opacity:.62}
+  .nitem-planned span:not(.nc){font-style:italic}
+  body.chrome-nav .nplan-h{color:var(--chrome-ink-2)}
   /* space-between would push a header with no trailing button (Recent reviews) to the right edge */
   .nav .org-hd .nh-tw+span{margin-right:auto}
   .nrev-back{display:flex;align-items:center;gap:6px;width:100%;padding:6px 9px;margin-bottom:2px;border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:var(--fs-13);font-weight:500;cursor:pointer;border-radius:var(--radius-sm)}
   .nrev-back:hover{background:var(--surface-2);color:var(--ink)}
   .nrev-top{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+  /* modules rail header — names whose workspace this is, where the reviews rail has "All modules" */
+  .nmod-k{flex:1;min-width:0;padding:6px 9px;font-size:var(--fs-13);font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.chrome-nav .nmod-k{color:var(--chrome-ink)}
+  body.nav-collapsed .nav .nmod-k{display:none}
   .nrev-top .nrev-back{flex:1;margin-bottom:0}
   .nrev-collapse{flex:0 0 auto;width:26px;height:26px;display:grid;place-items:center;border:0;background:transparent;color:var(--faint);border-radius:var(--radius-sm);cursor:pointer}
   .nrev-collapse:hover{background:var(--surface-2);color:var(--ink)}
@@ -1188,6 +1199,7 @@
   .hm-prog{flex:1 1 300px;min-width:260px;max-width:380px}
   .hm-prog-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:var(--fs-13);color:var(--muted)}
   .hm-pv{color:var(--ink);font-weight:600}
+  .hm-prog-sub{margin-top:6px;font-size:var(--fs-12);color:var(--faint);font-family:var(--mono);font-variant-numeric:tabular-nums}
   /* Continue where you left off — one horizontal band: identity · state · the single primary action */
   .hm-res{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
   .hm-res-id{display:flex;align-items:center;gap:10px;min-width:0}
@@ -1985,6 +1997,87 @@
   .lbl,.fxr-lbl,thead th{letter-spacing:.04em}
   .fx-back{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--muted);cursor:pointer}
   .fx-back:hover{color:var(--ink);border-color:var(--faint)}
+  /* ===== Worklist mode ==========================================================================
+     In worklist mode the instrument gets out of the way: the grid, the 7 presentation controls and
+     the two context controls a worklist makes redundant (Review, Basis) are all hidden. Four
+     controls remain — Period, Statement, Entity, Filter — against twelve before. */
+  .fx-modesw{display:inline-flex;border:1px solid var(--line-2);border-radius:2px;overflow:hidden;margin-right:10px}
+  .fx-modeb{border:0;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--muted);padding:5px 12px;cursor:pointer}
+  .fx-modeb+.fx-modeb{border-left:1px solid var(--line-2)}
+  .fx-modeb:hover{color:var(--ink)}
+  .fx-modeb.on{background:var(--ink-900,var(--ink));color:#fff;font-weight:600}
+  body.fx-work .fx-gridwrap{display:none}
+  /* Filter survives — it owns the materiality standard, which the worklist is defined by. The rest
+     of the presentation row is about arranging a grid that is not on screen. */
+  body.fx-work .fx-fbar-pres>.fx-fbar-grp:first-of-type,
+  body.fx-work .fx-fbar-pres .fx-fbar-div,
+  body.fx-work .fx-fbar-pres [data-fxmenu="insights"],
+  body.fx-work .fx-fbar-pres [data-fxmenu="myviews"],
+  body.fx-work .fx-fbar-pres [data-fxmenu="share"]{display:none}
+  body.fx-work .fx-fbar-ctx .fxm-review,body.fx-work .fx-fbar-ctx .fxm-basis{display:none}
+  body:not(.fx-work) .fx-worklist{display:none}
+  .fx-worklist{border:1px solid var(--line);border-radius:2px;background:var(--surface);overflow:hidden}
+  .fxw-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:13px 15px;border-bottom:1px solid var(--line)}
+  .fxw-h1{font-size:var(--fs-16,16px);font-weight:600;color:var(--ink)}
+  .fxw-hsub{font-size:var(--fs-12);color:var(--muted)}
+  .fxw-prog{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--faint)}
+  .fxw-grp{padding:9px 15px 5px;font-size:var(--fs-11,11px);text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--muted);background:var(--surface-2);border-top:1px solid var(--line)}
+  .fxw-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 15px;border:0;border-top:1px solid var(--line);background:none;font:inherit;text-align:left;cursor:pointer}
+  .fxw-item:hover{background:var(--surface-2)}
+  .fxw-item:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+  .fxw-nm{flex:1 1 auto;min-width:0;font-size:var(--fs-13);font-weight:500;color:var(--ink)}
+  .fxw-sub{display:block;font-family:var(--mono);font-size:var(--fs-11,11px);font-weight:400;color:var(--faint);margin-top:2px}
+  .fxw-d{flex:0 0 auto;min-width:86px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600}
+  .fxw-d.up{color:var(--pos)} .fxw-d.dn{color:var(--neg)}
+  .fxw-pct{flex:0 0 auto;min-width:62px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--faint)}
+  .fxw-chip{flex:0 0 auto;min-width:132px;font-size:var(--fs-11,11px);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .fxw-chip.need{color:var(--warn)} .fxw-chip.evid{color:var(--warn)} .fxw-chip.done{color:var(--pos)}
+  .fxw-go{flex:0 0 auto;font-size:var(--fs-12);color:var(--muted)}
+  .fxw-item:hover .fxw-go{color:var(--ink)}
+  .fxw-empty{padding:22px 15px;font-size:var(--fs-13);color:var(--muted)}
+  /* Tie-out assertion — teal when the ledger agrees, red when it does not (an exception, not a warning) */
+  .fx-tie{display:flex;align-items:center;gap:8px;padding:7px 12px;margin:0 0 8px;border:1px solid var(--line);border-left:3px solid var(--pos);border-radius:2px;background:var(--surface);font-size:var(--fs-12);color:var(--ink-2)}
+  .fx-tie.bad{border-left-color:var(--neg);background:var(--surface-2)}
+  .fx-tie.warn{border-left-color:var(--warn)}
+  .fx-tie-ic{color:var(--pos);font-weight:700} .fx-tie.bad .fx-tie-ic{color:var(--neg)} .fx-tie.warn .fx-tie-ic{color:var(--warn)}
+  .fx-tie-go{border:0;background:none;font:inherit;font-size:var(--fs-12);color:var(--muted);cursor:pointer;white-space:nowrap}
+  .fx-tie-go:hover{color:var(--ink);text-decoration:underline}
+  /* Submit-with-exception confirm — deliberately loud; this one writes your name to the audit trail */
+  .fx-ovr{display:flex;align-items:center;gap:10px;padding:9px 12px;margin:0 0 8px;border:1px solid var(--neg);border-radius:2px;background:var(--surface);font-size:var(--fs-12);color:var(--ink)}
+  .fx-ovr-ic{color:var(--neg);font-weight:700}
+  /* Coverage bar — the sign-off sentence: standard applied · share explained · what's left over */
+  .fx-cover{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 12px;margin:0 0 10px;background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--pos);border-radius:2px;font-size:var(--fs-12)}
+  .fx-cover.fx-cover-gap{border-left-color:var(--warn)}
+  .fx-cov-k{text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--muted);font-size:var(--fs-11,11px)}
+  .fx-cov-v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
+  .fx-cov-v.warn{color:var(--warn)} .fx-cov-v.pos{color:var(--pos)}
+  .fx-cov-tx{color:var(--muted)}
+  .fx-cov-sep{width:1px;height:14px;background:var(--line-2);margin:0 4px}
+  .fx-cov-std{color:var(--faint);font-family:var(--mono);white-space:nowrap}
+  /* ---- work spine: the one piece of chrome that follows you, so it stays quiet ---- */
+  .spine{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--line)}
+  .spine-in{display:flex;align-items:center;gap:10px;padding:7px 26px;max-width:none}
+  .spine-k{font-size:var(--fs-11,11px);text-transform:uppercase;letter-spacing:.06em;font-weight:600;color:var(--faint);white-space:nowrap}
+  .spine-cur{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:38vw;padding:4px 8px;border:0;border-radius:2px;background:transparent;font:inherit;font-size:var(--fs-13);color:var(--ink);cursor:pointer}
+  .spine-cur:hover{background:var(--surface-2)}
+  .spine-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+  .spine-pos{padding:4px 8px;border:1px solid transparent;border-radius:2px;background:transparent;font:inherit;font-size:var(--fs-12);color:var(--muted);white-space:nowrap;cursor:pointer}
+  .spine-pos:hover{border-color:var(--line-2);color:var(--ink)}
+  .spine-pos b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+  .spine-sp{flex:1}
+  .spine-left{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--faint);white-space:nowrap}
+  .spine-b{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+  .spine-b:hover:not(:disabled){border-color:var(--faint);color:var(--ink)}
+  .spine-b:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .spine-b:disabled{color:var(--faint);opacity:.5;cursor:default}
+  .spine-pop{position:absolute;z-index:60;left:26px;top:100%;min-width:340px;max-height:330px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:3px;box-shadow:0 8px 26px rgba(23,34,47,.14);padding:6px}
+  .spine-i{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-radius:2px;background:none;font:inherit;font-size:var(--fs-12);color:var(--ink-2);text-align:left;cursor:pointer}
+  .spine-i:hover{background:var(--surface-2)}
+  .spine-i.on{background:var(--surface-2);color:var(--ink);font-weight:600}
+  .spine-i-n{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--faint);min-width:18px;text-align:right}
+  .spine-i-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .spine-i-mt{margin-left:auto;color:var(--faint);white-space:nowrap}
+  @media (max-width:900px){.spine-k,.spine-left{display:none}}
   /* queue pager — one quiet strip: prev · position (jumps) · next */
   .fx-pager{display:flex;align-items:center;gap:8px;margin:0 0 14px}
   .fx-pg{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--ink-2);font:inherit;font-size:var(--fs-12);cursor:pointer}
@@ -2248,6 +2341,23 @@
   .rp-cc-s.pos .rp-cc-sv{color:var(--pos)}
   .rp-cc-sl{font-size:var(--fs-12);color:var(--muted);margin-top:4px}
   .rp-cc-foot{margin-top:10px;font-size:var(--fs-12);color:var(--faint)}
+  /* the archive disclosure — quiet by design; the current close above it is the front door */
+  .rp-arch-h{display:flex;align-items:center;gap:7px;width:100%;padding:9px 12px;margin:0 0 12px;border:1px solid var(--line);border-radius:2px;background:var(--surface);font:inherit;font-size:var(--fs-13);color:var(--muted);cursor:pointer}
+  .rp-arch-h:hover{color:var(--ink);border-color:var(--line-2)}
+  .rp-arch-n{margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--faint)}
+  /* Flux Analysis tables (Trending / Variance) — reuse the periods table chrome */
+  .fxa-bar{flex-wrap:wrap}
+  .fxa-nm{display:block}
+  .fxa-sub{display:block;font-size:var(--fs-11,11px);color:var(--faint);margin-top:2px}
+  .fxa-ind{padding-left:22px}
+  .fxa-mut{color:var(--faint)}
+  .fxa-tbl td.pos,.fxa-tbl td.neg{font-weight:600}
+  .fxa-tbl td.pos{color:var(--pos)} .fxa-tbl td.neg{color:var(--neg)} .fxa-tbl td.warn{color:var(--warn)}
+  /* subtotal rows outrank detail rows — bold + a heavier rule */
+  .fxa-tbl tr.fxa-sec td{font-weight:600;color:var(--ink);border-bottom:2px solid var(--line-2);padding-top:13px}
+  /* the spark stays neutral: Change and Δ% are the two coloured columns the design system allows */
+  .fxa-sk{color:var(--faint)}
+  .fxa-spark{display:block;overflow:visible}
   .rp-pct{font-size:var(--fs-12);color:var(--muted)}
   .rp-ppl{color:var(--ink-2)}
   .rp-sub{color:var(--muted);font-size:var(--fs-12)}
@@ -2921,7 +3031,7 @@
 
 <div class="app">
   <nav class="nav" id="nav"></nav>
-  <main class="main"><div class="wrap" id="view"></div></main>
+  <main class="main"><div class="spine" id="spine" hidden></div><div class="wrap" id="view"></div></main>
   <div id="navResizer" class="nav-resizer" title="Drag to resize the sidebar"></div>
 </div>
 
@@ -3022,12 +3132,12 @@
      built are 'ph-*' placeholder routes (rendered by renderPlaceholder). */
   var NAV_SECTIONS=[
     {id:'home',label:'Home',icon:'home',route:'home'},
-    {id:'close',label:'Close',icon:'cal',kids:[['close-dash','Close Overview','periods'],['ph-tasks','Tasks & Checklist'],['ph-completion','Completion Status'],['ph-je','Journal Entries']]},
-    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Flux Overview','periods'],['my','My Reviews'],['all','All Reviews'],['ph-trending','Trending Analysis'],['ph-variance','Variance Analysis'],['ph-scenario','Scenario Analysis']]},
+    {id:'close',label:'Close',icon:'cal',kids:[['close-dash','Close Overview','periods'],['ph-tasks','Tasks & Checklist'],['ph-approvals','Approvals'],['ph-completion','Completion Status'],['ph-je','Journal Entries']]},
+    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Flux Overview','periods'],['my','My Reviews'],['all','All Reviews'],['trending','Trending Analysis'],['variance','Variance Analysis'],['ph-scenario','Scenario Analysis']]},
     {id:'gl',label:'General Ledger',icon:'up',kids:[['repo-upload','Financial Data'],['repo-ledger','Trial Balance','periods'],['repo-coa','Chart of Accounts'],['txn-meta','Transaction Metadata'],['ph-jexplorer','Journal Explorer'],['ph-reclass','Reclassifications']]},
     {id:'recon',label:'Reconciliations',icon:'recon',kids:[['recon-bs','Balance Sheet'],['recon-acct','Account Reconciliations'],['ph-recdash','Rec Dashboard'],['ph-unrec','Unreconciled Items']]},
     {id:'reporting',label:'Reporting',icon:'stmt',kids:[['frlib','Review Library'],['frtpl','Templates'],['frmap','Mappings & Definitions'],['ph-finstmt','Financial Statements'],['ph-mgmt','Management Reports'],['ph-board','Board Package']]},
-    {id:'audit',label:'Audit & Controls',icon:'shield',kids:[['controls','Controls','periods'],['evidence','Evidence Center'],['audit','Audit Readiness'],['knowledge','Knowledge Timeline']]},
+    {id:'audit',label:'Audit & Controls',icon:'shield',kids:[['controls','Controls','periods'],['ph-exceptions','Exceptions'],['evidence','Evidence Center'],['audit','Audit Readiness'],['knowledge','Knowledge Timeline']]},
     {id:'settings',label:'Settings',icon:'gear',kids:[['settings','Configuration'],['fradmin','Administration'],['ph-users','Users & Roles'],['ph-workflow','Workflow'],['repo-history','Upload History']]}
   ];
   function navSectionFor(k){for(var i=0;i<NAV_SECTIONS.length;i++){var s=NAV_SECTIONS[i];if(s.route===k)return s.id;if(s.kids&&s.kids.some(function(x){return x[0]===k;}))return s.id;}return null;}
@@ -3062,7 +3172,12 @@
   var navDrill=null;   /* drill-down nav: null = auto (follow active section) · '__home' = show the section headers · '<secId>' = drilled into one section */
   var navSlideDir='';  /* one-shot entrance animation: 'right' (drilling in) | 'left' (going back) */
   var railMode='modules';   /* 'modules' = module step rails; 'reviews' = the collections navigator */
-  var REV_TABS={frov:1,my:1,all:1,mtrend:1,frtpl:1,frlib:1,frmap:1,fradmin:1};
+  /* Routes that hand the rail over to the collections navigator. Kept deliberately narrow: only
+     the review WORKSPACE itself (an open review, the period overview and the review lists). Pages
+     that merely live in the review area — Review Library, Templates, Mappings, Administration —
+     belong to their own top-nav category (Reporting, Settings) and keep that category's rail, so
+     the rail always reflects the header you are under. */
+  var REV_TABS={frov:1,mtrend:1};
   function navIsReview(k){return !!REV_TABS[k];}
   function navReviewBack(){railMode='modules';renderNav();}
   /* Multi-open nav: all sections expanded by default; navCollapsed holds the ids the
@@ -3201,8 +3316,163 @@
   }
   function renderNav(){
     renderTopNav();
-    if(railMode==='reviews'&&typeof renderReviewsNav==='function'){document.body.classList.remove('no-leftnav');renderReviewsNav();return;}
-    document.body.classList.add('no-leftnav'); var _n=$('#nav'); if(_n)_n.innerHTML='';
+    document.body.classList.remove('no-leftnav');
+    if(railMode==='reviews'&&typeof renderReviewsNav==='function'){renderReviewsNav();}
+    else renderModulesNav();
+    if(typeof renderSpine==='function')renderSpine();
+  }
+  /* ---- The work spine ------------------------------------------------------------------------
+     The app is organised by module, but the work is a queue. Every screen could tell you WHERE you
+     were and none could tell you WHAT YOU WERE DOING — so finishing one review meant navigating
+     back to a list to find the next. The queue pager solved that inside the flux review; a queue
+     that only exists on one screen is not a queue.
+
+     This strip persists across every screen: what you have open, where it sits in your assigned
+     work, what is next, and how much is left. It is the one piece of chrome allowed to follow you
+     around, so it stays quiet — no accent colour, no badge — and disappears entirely when you have
+     no assigned reviews rather than sitting there empty. */
+  var SPINE_OPEN=false;
+  function spineQueue(){
+    var mine=(typeof homeMyReviews==='function')?homeMyReviews():[];
+    var ord={needexpl:0,ctrl:1,inprog:2,ready:3,notstarted:4,done:5};
+    return mine.slice().sort(function(a,b){return (ord[a.status]-ord[b.status])||((b.need||0)-(a.need||0));});
+  }
+  function spineCurrent(q){
+    var open=(typeof RP_OPEN_REVIEW!=='undefined')?RP_OPEN_REVIEW:null, i=-1;
+    if(open)q.forEach(function(r,j){if(r.id===open.id)i=j;});
+    if(i<0){var last=(typeof rpLastReview==='function')?rpLastReview():null;
+      if(last)q.forEach(function(r,j){if(r.id===last.id)i=j;});}
+    return i;
+  }
+  function renderSpine(){
+    var el=document.getElementById('spine'); if(!el)return;
+    var q=spineQueue();
+    if(!q.length){el.hidden=true;el.innerHTML='';return;}
+    var i=spineCurrent(q), cur=i>=0?q[i]:null, left=q.filter(function(r){return r.status!=='done';}).length;
+    var pv=i>0?q[i-1]:null, nx=(i>=0&&i<q.length-1)?q[i+1]:null;
+    var chev=function(d){return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+(d<0?'M15 18l-6-6 6-6':'M9 6l6 6-6 6')+'"/></svg>';};
+    var h='<div class="spine-in"><span class="spine-k">Your queue</span>';
+    if(cur){
+      h+='<button class="spine-cur" data-spgo="'+esc(cur.id)+'" title="Open '+esc(cur.name)+'">'+rpStatusDot(cur.status)+'<span class="spine-nm">'+esc(cur.name)+'</span></button>'
+        +'<button class="spine-pos" data-spmenu="1" title="Jump to another review in your queue"><b>'+(i+1)+'</b> of '+q.length+'</button>';
+    } else {
+      h+='<button class="spine-cur" data-spgo="'+esc(q[0].id)+'">'+rpStatusDot(q[0].status)+'<span class="spine-nm">Start: '+esc(q[0].name)+'</span></button>'
+        +'<button class="spine-pos" data-spmenu="1"><b>0</b> of '+q.length+'</button>';
+    }
+    h+='<span class="spine-sp"></span>'
+      +'<span class="spine-left">'+left+' still open</span>'
+      +'<button class="spine-b"'+(pv?(' data-spgo="'+esc(pv.id)+'" title="'+esc('Previous: '+pv.name)+'"'):' disabled title="First in your queue"')+'>'+chev(-1)+'<span>Prev</span></button>'
+      +'<button class="spine-b"'+(nx?(' data-spgo="'+esc(nx.id)+'" title="'+esc('Next: '+nx.name)+'"'):(cur?' disabled title="Last in your queue"':' disabled title="Open a review to page through the queue"'))+'><span>Next</span>'+chev(1)+'</button></div>';
+    if(SPINE_OPEN){
+      h+='<div class="spine-pop">'+q.map(function(r,j){
+        var st=RP_RSTATUS[r.status]||['',''];
+        return '<button class="spine-i'+(j===i?' on':'')+'" data-spgo="'+esc(r.id)+'"><span class="spine-i-n">'+(j+1)+'</span>'+rpStatusDot(r.status)+'<span class="spine-i-nm">'+esc(r.name)+'</span><span class="spine-i-mt">'+esc(st[0])+(r.need?' · '+r.need+' open':'')+'</span></button>';
+      }).join('')+'</div>';
+    }
+    el.innerHTML=h; el.hidden=false;
+    Array.prototype.forEach.call(el.querySelectorAll('[data-spgo]'),function(b){b.onclick=function(e){e.stopPropagation();SPINE_OPEN=false;rpOpenReview(this.getAttribute('data-spgo'));};});
+    var m=el.querySelector('[data-spmenu]'); if(m)m.onclick=function(e){e.stopPropagation();SPINE_OPEN=!SPINE_OPEN;renderSpine();};
+  }
+  document.addEventListener('click',function(){if(SPINE_OPEN){SPINE_OPEN=false;if(typeof renderSpine==='function')renderSpine();}});
+  /* ---- Modules rail --------------------------------------------------------------------------
+     The rail belongs to the ACTIVE TOP-NAV CATEGORY: open Close and it lists Close's pages, open
+     General Ledger and it lists the ledger's. That content is derived from NAV_SECTIONS — the same
+     definition the top menu bar renders from — so the rail can never list something the menu does
+     not, or fall out of step when a category gains a page.
+
+     Home is the exception, and deliberately: it has no child pages, so it carries the workspace
+     rail from the mock (what is assigned to you, what you pinned, what needs looking at). That one
+     is NAV_CFG-driven (rail:'modules'), so the admin editor still governs it.
+
+     Favourites pins render under EVERY category rail — they are the one organiser, and having them
+     appear and disappear as you move between categories is exactly the thing that makes a pin
+     useless. Inside the review workspace the rail hands over to the collections navigator. */
+  function navFavBlockHTML(label){
+    var pins=favVisible('all');
+    return '<div class="nh fld-hd org-hd"><span>'+esc(label||'Favorites')+'</span><button class="org-gb" id="favMgrBtn" title="Manage favourites">Manage</button></div>'
+      +(pins.length?pins.map(function(f){return favPinRow(f,0);}).join('')
+        :'<div class="rp-ws-empty">Star a review, a page or an entity to pin it here.</div>');
+  }
+  /* the category whose rail is showing — follows the active route, exactly as the top menu bar does */
+  function navRailSection(){
+    var id=navSectionFor(activeNav);
+    for(var i=0;i<NAV_SECTIONS.length;i++)if(NAV_SECTIONS[i].id===id)return NAV_SECTIONS[i];
+    return null;
+  }
+  function renderModulesNav(){
+    var role=navActiveRole();
+    var sec=navRailSection();
+    if(sec&&sec.kids&&sec.kids.length){ renderSectionRail(sec); return; }
+    var _who=(typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.name)?String(CUR_USER.name).split(' ')[0]:'';
+    var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(_who?(_who+'’s workspace'):'Workspace')+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
+    navCfgSections(role,'modules').forEach(function(sec){
+      if(sec.special==='pagefav'){ h+=navFavBlockHTML(sec.label); return; }
+      var items=navCfgItems(sec,role);
+      if(!items.length&&!sec.builtin)return;
+      h+='<div class="nh">'+esc(sec.label)+'</div>';
+      items.forEach(function(it){
+        if(it.kind==='url'){ h+='<div class="nitem" data-navurl="'+esc(it.target)+'">'+navIcon(it.icon||'link')+'<span>'+esc(it.label)+'</span></div>'; return; }
+        if(it.kind==='review'){ h+='<div class="nitem" data-navreview="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span></div>'; return; }
+        var badge=(it.target==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
+        h+='<div class="nitem'+(activeNav===it.target?' on':'')+'" data-nav="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span>'+badge+'</div>';
+      });
+    });
+    h+=navRailFootHTML();
+    $('#nav').innerHTML=h; navRailWire();
+  }
+  /* A route that is still a roadmap stub. `ph-` is the existing convention for those pages. */
+  function navIsPlanned(route){return String(route).indexOf('ph-')===0;}
+  var NAV_PLANNED_OPEN={};
+  try{var _np0=localStorage.getItem('korvyn.nav.planned.v1');if(_np0){var _npp=JSON.parse(_np0);if(_npp)NAV_PLANNED_OPEN=_npp;}}catch(e){}
+  function navPlannedToggle(id){NAV_PLANNED_OPEN[id]=!NAV_PLANNED_OPEN[id];
+    try{localStorage.setItem('korvyn.nav.planned.v1',JSON.stringify(NAV_PLANNED_OPEN));}catch(e){}renderNav();}
+  /* One category's rail: the section's WORKING pages, then the pins, then what is still planned.
+     Nearly half of this app's destinations are honest roadmap stubs. Listing every one of them
+     beside the real pages made the whole product read as unfinished and buried the pages that do
+     work. They stay reachable — nothing is hidden — but they sit behind one disclosure that says
+     how many there are, instead of taking up half the rail on every screen. */
+  function renderSectionRail(sec){
+    var live=[], planned=[];
+    sec.kids.forEach(function(k){(navIsPlanned(k[0])?planned:live).push(k);});
+    var openPlanned=!!NAV_PLANNED_OPEN[sec.id]||planned.some(function(k){return k[0]===activeNav;});
+    function item(k,muted){
+      var route=k[0], label=k[1];
+      var badge=(route==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
+      return '<div class="nitem'+(activeNav===route?' on':'')+(muted?' nitem-planned':'')+'" data-nav="'+esc(route)+'"'+(muted?' title="'+esc(label)+' — on the roadmap, not built yet"':'')+'>'+navIcon(navRailIcon(route,sec))+'<span>'+esc(label)+'</span>'+badge+'</div>';
+    }
+    var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(sec.label)+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
+    h+='<div class="nh">'+esc(sec.label)+'</div>';
+    if(!live.length)h+='<div class="rp-ws-empty">Nothing in this area is built yet &mdash; see what is planned below.</div>';
+    live.forEach(function(k){h+=item(k,false);});
+    if(planned.length){
+      h+='<button class="nplan-h'+(openPlanned?' open':'')+'" data-navplan="'+esc(sec.id)+'"><span class="ct-tw'+(openPlanned?' open':'')+'">'+rpIcon('chev')+'</span><span>Planned</span><span class="nplan-n">'+planned.length+'</span></button>';
+      if(openPlanned)planned.forEach(function(k){h+=item(k,true);});
+    }
+    h+=navFavBlockHTML('Favorites');
+    h+=navRailFootHTML();
+    $('#nav').innerHTML=h; navRailWire();
+  }
+  /* a page keeps the icon its category uses, so the rail reads as one family */
+  function navRailIcon(route,sec){
+    var m={frperiods:'cal',my:'doc',all:'stack',trending:'trend',variance:'scale',
+      'repo-upload':'up','repo-ledger':'stmt','repo-coa':'columns','txn-meta':'tag',
+      'recon-bs':'recon','recon-acct':'recon',frlib:'folder',frtpl:'tpl',frmap:'tag',
+      controls:'ctl',evidence:'file',audit:'shield',knowledge:'hist',
+      settings:'gear',fradmin:'gear','repo-history':'hist','close-dash':'cal'};
+    return m[route]||(sec&&sec.icon)||'doc';
+  }
+  function navRailFootHTML(){
+    return can('adminNav')?('<div class="nav-foot"><button class="nav-gear" id="navGearBtn" title="Customize navigation"><span class="nav-gear-ic">'+navIcon('gear')+'</span><span class="nav-gear-lbl">Customize navigation</span></button></div>'):'';
+  }
+  function navRailWire(){
+    var _g=document.getElementById('navGearBtn');if(_g)_g.onclick=openNavEditModal;
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-navplan]'),function(el){el.onclick=function(e){e.stopPropagation();navPlannedToggle(this.getAttribute('data-navplan'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-nav]'),function(el){el.onclick=function(){navTo(this.getAttribute('data-nav'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navreview]'),function(el){el.onclick=function(){if(typeof rpOpenReview==='function')rpOpenReview(this.getAttribute('data-navreview'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navurl]'),function(el){el.onclick=function(){var u=this.getAttribute('data-navurl');try{window.open(u,'_blank');}catch(e){if(typeof rpToast==='function')rpToast('Would open '+u);}};});
+    favNavWire();
+    var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
+    syncNavToggle();
   }
   /* Reviews-area left nav: the collapsible collections navigator (Favorites · Recent ·
      Workspace · Collections), reusing the workspace explorer's tree + favorites/recent. */
@@ -3241,17 +3511,49 @@
      item. Admin edits it in Settings → Navigation; it persists to localStorage. */
   var NAV_ROLES=['Preparer','Reviewer','Controller','Administrator','External auditor'];
   function navDefaultCfg(){return {sections:[
-    {id:'workspace',label:'Workspace',visible:true,roles:['*'],builtin:true,items:[
+    /* rail:'modules' renders on every non-review screen (Home, Close, GL, Reconciliations…);
+       rail:'reviews' is the collections navigator inside the review workspace. One config, one
+       editor, two contexts — a section states which rail it belongs to. */
+    {id:'mworkspace',label:'Workspace',rail:'modules',visible:true,roles:['*'],builtin:true,items:[
+      {id:'m-dash',label:'Dashboard',kind:'route',target:'home',icon:'grid',visible:true,roles:['*'],builtin:true},
+      {id:'m-tasks',label:'My tasks',kind:'route',target:'ph-tasks',icon:'ctl',visible:true,roles:['*'],builtin:true},
+      {id:'m-appr',label:'My approvals',kind:'route',target:'ph-approvals',icon:'shield',visible:true,roles:['*'],builtin:true},
+      {id:'m-rev',label:'My reviews',kind:'route',target:'my',icon:'doc',visible:true,roles:['*'],builtin:true},
+      {id:'m-all',label:'All reviews',kind:'route',target:'all',icon:'stack',visible:true,roles:['*'],builtin:true}
+    ]},
+    {id:'mfav',label:'Favorites',rail:'modules',visible:true,roles:['*'],builtin:true,special:'pagefav',items:[]},
+    {id:'minsights',label:'Insights',rail:'modules',visible:true,roles:['*'],builtin:true,items:[
+      {id:'m-ai',label:'AI insights',kind:'route',target:'insights',icon:'trend',visible:true,roles:['*'],builtin:true},
+      {id:'m-exc',label:'Exceptions',kind:'route',target:'ph-exceptions',icon:'scale',visible:true,roles:['*'],builtin:true},
+      {id:'m-act',label:'Recent activity',kind:'route',target:'activity',icon:'hist',visible:true,roles:['*'],builtin:true}
+    ]},
+    {id:'workspace',label:'Workspace',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
       {id:'overview',label:'Overview',kind:'route',target:'frov',icon:'grid',visible:true,roles:['*'],builtin:true},
       {id:'myreviews',label:'My reviews',kind:'route',target:'my',icon:'doc',visible:true,roles:['*'],builtin:true},
       {id:'allreviews',label:'All reviews',kind:'route',target:'all',icon:'stack',visible:true,roles:['*'],builtin:true}
     ]},
-    {id:'organization',label:'Organization',visible:true,roles:['*'],builtin:true,special:'orgtree',items:[]},
-    {id:'pinned',label:'Pinned reviews',visible:true,roles:['*'],builtin:true,special:'pinned',items:[]},
-    {id:'recent',label:'Recent reviews',visible:true,roles:['*'],builtin:true,special:'recent',items:[]}
+    {id:'organization',label:'Organization',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'orgtree',items:[]},
+    {id:'pinned',label:'Pinned reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'pinned',items:[]},
+    {id:'recent',label:'Recent reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'recent',items:[]}
   ]};}
   var NAV_CFG=navDefaultCfg(), NAV_CFG_SEQ=0;
   (function(){try{var s=localStorage.getItem('korvyn.navcfg.v1');if(s){var p=JSON.parse(s);if(p&&p.sections&&p.sections.length)NAV_CFG=p;}}catch(e){}})();
+  /* A builtin section added after someone saved a nav config would never reach them. Insert any
+     missing builtin ONCE, tracked by id — so a section an admin deliberately deleted stays deleted.
+     Sections saved before `rail` existed are the review-rail ones; stamp them so both rails filter
+     cleanly without a version bump that would discard the admin's customisation. */
+  (function(){
+    var seen=null; try{var s=localStorage.getItem('korvyn.navcfg.seen.v1');if(s)seen=JSON.parse(s);}catch(e){}
+    if(!Array.isArray(seen))seen=[];
+    var def=navDefaultCfg().sections, have={}, added=0;
+    NAV_CFG.sections.forEach(function(s){have[s.id]=1;});
+    def.forEach(function(d,i){ if(have[d.id]||seen.indexOf(d.id)>=0)return;
+      NAV_CFG.sections.splice(Math.min(i,NAV_CFG.sections.length),0,d); added++; });
+    NAV_CFG.sections.forEach(function(s){ if(s.rail)return; var d=null;
+      def.forEach(function(x){if(x.id===s.id)d=x;}); s.rail=(d&&d.rail)||'reviews'; });
+    try{localStorage.setItem('korvyn.navcfg.seen.v1',JSON.stringify(def.map(function(d){return d.id;})));}catch(e){}
+    if(added)navCfgSave();
+  })();
   function navCfgSave(){try{localStorage.setItem('korvyn.navcfg.v1',JSON.stringify(NAV_CFG));}catch(e){}}
   function navCfgReset(){NAV_CFG=navDefaultCfg();navCfgSave();}
   function navNewId(p){return p+'-'+(++NAV_CFG_SEQ)+'-'+(NAV_CFG.sections.length);}
@@ -3268,7 +3570,8 @@
   function navSetRole(o,role,on){var r=navRolesArr(o),i=r.indexOf(role);if(on&&i<0)r.push(role);if(!on&&i>=0)r.splice(i,1);o.roles=r;}
   function navMoveInList(list,idx,dir){var j=idx+dir;if(idx<0||j<0||j>=list.length)return;var t=list[idx];list[idx]=list[j];list[j]=t;}
   function navRoleOk(roles,role){return !roles||roles.indexOf('*')>=0||roles.indexOf(role)>=0;}
-  function navCfgSections(role){return NAV_CFG.sections.filter(function(s){return s.visible&&navRoleOk(s.roles,role);});}
+  function navSecRail(s){return s.rail||'reviews';}
+  function navCfgSections(role,rail){return NAV_CFG.sections.filter(function(s){return s.visible&&navRoleOk(s.roles,role)&&(!rail||navSecRail(s)===rail);});}
   function navCfgItems(sec,role){return (sec.items||[]).filter(function(it){return it.visible&&navRoleOk(it.roles,role);});}
   function navCanAdmin(){return can('adminNav');}   /* Administrator only — customize navigation / org config */
   /* FAVORITES — the single personal organiser. A pin can be renamed and put in a group; a group
@@ -3460,7 +3763,7 @@
     var h='<div class="nrev-top"><button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
     var _grpDone={};
     function grpHead(g){ if(!g||_grpDone[g])return ''; _grpDone[g]=1; return '<div class="nh nh-grp">'+esc(g)+'</div>'; }
-    navCfgSections(role).forEach(function(sec){
+    navCfgSections(role,'reviews').forEach(function(sec){
       if(sec.special==='orgtree'){ h+='<div class="nh fld-hd org-hd"><span>Favorites</span><button class="org-gb" id="favMgrBtn" title="Manage favourites">Manage</button></div>'+navPinnedHTML()+grpHead(navSecGroup(sec))+orgSectionHTML(sec.label,sec.id); return; }
       if(sec.special==='pinned'){ return; }   /* Favorites now renders at the top of the nav */
       if(sec.special==='recent'){ h+=grpHead(navSecGroup(sec))+'<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':navRecentHTML()); return; }
@@ -3506,11 +3809,19 @@
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldren]'),function(el){el.onclick=function(e){e.stopPropagation();folderStartRename(this.getAttribute('data-foldren'),e);};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-folddel]'),function(el){el.onclick=function(e){e.stopPropagation();folderDelete(this.getAttribute('data-folddel'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldrm]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-foldrm').split('~');folderRemoveEnt(a[0],a[1]);};});
+    favNavWire();
+    var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
+    syncNavToggle();
+  }
+  /* Favourite-pin wiring, shared by BOTH rails. The pins render in the reviews rail and in the
+     modules rail, and a rename or a drag from either has to behave identically — so the handlers
+     live here once and re-render through renderNav(), which dispatches to whichever rail is up. */
+  function favNavWire(){
     var _fr=document.getElementById('favRenameInput');
-    if(_fr){var _fk=_fr.getAttribute('data-favrename');_fr.onkeydown=function(e){if(e.key==='Enter')favRename(_fk,this.value);else if(e.key==='Escape'){RP_FAV_RENAME=null;renderReviewsNav();}};_fr.onblur=function(){favRename(_fk,this.value);};try{_fr.focus();_fr.select();}catch(e){}}
+    if(_fr){var _fk=_fr.getAttribute('data-favrename');_fr.onkeydown=function(e){if(e.key==='Enter')favRename(_fk,this.value);else if(e.key==='Escape'){RP_FAV_RENAME=null;renderNav();}};_fr.onblur=function(){favRename(_fk,this.value);};try{_fr.focus();_fr.select();}catch(e){}}
     var _fng=document.getElementById('favNewGrpInput');
-    if(_fng){var _nk=_fng.getAttribute('data-favnewgrp');_fng.onkeydown=function(e){if(e.key==='Enter')favNewGroupCommit(_nk,this.value);else if(e.key==='Escape'){RP_FAV_NEWGRP=null;renderReviewsNav();}};_fng.onblur=function(){favNewGroupCommit(_nk,this.value);};try{_fng.focus();}catch(e){}}
-    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favren]'),function(el){el.onclick=function(e){e.stopPropagation();RP_FAV_RENAME=this.getAttribute('data-favren');RP_FAV_MENU=null;renderReviewsNav();};});
+    if(_fng){var _nk=_fng.getAttribute('data-favnewgrp');_fng.onkeydown=function(e){if(e.key==='Enter')favNewGroupCommit(_nk,this.value);else if(e.key==='Escape'){RP_FAV_NEWGRP=null;renderNav();}};_fng.onblur=function(){favNewGroupCommit(_nk,this.value);};try{_fng.focus();}catch(e){}}
+    Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favren]'),function(el){el.onclick=function(e){e.stopPropagation();RP_FAV_RENAME=this.getAttribute('data-favren');RP_FAV_MENU=null;renderNav();};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favmenu]'),function(el){el.onclick=function(e){e.stopPropagation();favMenuToggle(this.getAttribute('data-favmenu'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favto]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-favto').split('~');favSetGroup(a[0],a[1]||'');};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('[data-favnew]'),function(el){el.onclick=function(e){e.stopPropagation();favNewGroupStart(this.getAttribute('data-favnew'));};});
@@ -3524,8 +3835,6 @@
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-faventopen]'),function(el){el.onclick=function(){favEntScope(this.getAttribute('data-faventopen'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-favscopeopen]'),function(el){el.onclick=function(){favScopeOpen(this.getAttribute('data-favscopeopen'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-x[data-favdel]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-favdel').split('~');favRemove(a[0],a[1]);};});
-    var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
-    syncNavToggle();
   }
   /* ===== full navigation customizer, opened from the gear at the bottom of the left nav =====
      Reuses the SAME editor as Settings → Navigation (navEditorHTML + navEditorWire) so the two
@@ -3597,6 +3906,12 @@
     else if(k==='all'){renderTeamReviews();window.scrollTo(0,0);}
     else if(k==='knowledge'){renderKnowledgeView();window.scrollTo(0,0);}
     else if(k==='evidence'){renderHome();scrollToId('secEv');}
+    /* The rail's Insights group points at home sections rather than inventing pages. If the widget
+       is not on this user's home layout, scrollToId no-ops and they simply land on Home. */
+    else if(k==='trending'){renderTrending();window.scrollTo(0,0);}
+    else if(k==='variance'){renderVariance();window.scrollTo(0,0);}
+    else if(k==='insights'){renderHome();scrollToId('secIns');}
+    else if(k==='activity'){renderHome();scrollToId('secAct');}
     else if(k==='audit'){renderHome();scrollToId('secReviews');}
     else if(k==='periods'){renderPeriods();window.scrollTo(0,0);}
     else if(k==='repo-upload'){renderRepoUpload();window.scrollTo(0,0);}
@@ -3987,8 +4302,8 @@
       return '<div class="hm-kpis">'+tile('My reviews',mine.length,'assigned to you')+tile('In progress',inprog,'being worked')+tile('Needs explanation',need,need?'action required':'all clear',need?'warn':'')+tile('Open items',open,'across your reviews')+'</div>';
     }},
     reviews:{t:'My reviews',w:'full',html:function(){return '<div class="sec" id="secReviews"><div class="sec-h"><h2>My reviews</h2><span class="note">assigned to you &middot; most urgent first</span><span class="grow"></span><span class="link" id="hmViewAll">View all</span></div><div class="card"><table class="rev"><thead><tr><th class="l">Review</th><th>Status</th><th class="l">Reviewer</th><th class="r">Open items</th><th class="l">Updated</th></tr></thead><tbody id="hmRevBody"></tbody></table></div></div>';},after:function(){renderHomeReviews();var va=document.getElementById('hmViewAll');if(va)va.onclick=function(){if(typeof rpOpenPeriod==='function'){rpOpenPeriod('2026-07');RP_WS_SEL='__myreviews';renderPeriodWorkspace();window.scrollTo(0,0);}};}},
-    insights:{t:'AI Financial Insights',w:'half',html:function(){return '<div class="sec"><div class="sec-h"><h2>AI Financial Insights</h2><span class="note">what actually matters</span></div><div class="card" id="insBody"></div></div>';},after:function(){renderInsights();}},
-    activity:{t:'Recent activity',w:'half',html:function(){return '<div class="sec"><div class="sec-h"><h2>Recent activity</h2></div><div class="card" id="actBody"></div></div>';},after:function(){renderActivity();}},
+    insights:{t:'AI Financial Insights',w:'half',html:function(){return '<div class="sec" id="secIns"><div class="sec-h"><h2>AI Financial Insights</h2><span class="note">what actually matters</span></div><div class="card" id="insBody"></div></div>';},after:function(){renderInsights();}},
+    activity:{t:'Recent activity',w:'half',html:function(){return '<div class="sec" id="secAct"><div class="sec-h"><h2>Recent activity</h2></div><div class="card" id="actBody"></div></div>';},after:function(){renderActivity();}},
     knowledge:{t:'Knowledge timeline',w:'half',html:function(){return '<div class="sec" id="secKnow"><div class="sec-h"><h2>Knowledge timeline</h2><span class="note">how understanding accumulates</span></div><div class="card"><div class="kn" id="knBody"></div></div></div>';},after:function(){renderKnowledge();}},
     evidence:{t:'Evidence center',w:'half',html:function(){return '<div class="sec" id="secEv"><div class="sec-h"><h2>Evidence center</h2><span class="note">across all reviews</span></div><div class="card" id="evBody"></div></div>';},after:function(){renderEvidence();}},
     duesoon:{t:'Due soon',w:'full',html:function(){return '<div class="sec"><div class="sec-h"><h2>Due soon</h2></div><div id="dueStrip"></div></div>';},after:function(){renderDueStrip();}}
@@ -4024,16 +4339,14 @@
     return out;
   }
   function renderHome(){
-    var all=(typeof RP_REVIEWS!=='undefined')?RP_REVIEWS:[];
-    var appr=all.filter(function(r){return r.status==='ready'||r.status==='done'}).length;
-    var prog=all.filter(function(r){return r.status==='inprog'||r.status==='ctrl'}).length;
-    var pctDone=all.length?Math.round(appr/all.length*100):0, pctProg=all.length?Math.round(prog/all.length*100):0;
+    /* one definition of close progress, shared with Close Overview and the Flux Overview band */
+    var _cp=closeProgress(), pctDone=_cp.pct, pctProg=_cp.inprogPct;
     var h='';
     /* the close in flight, read from the period record — the Flux Overview band reads the same one */
     var _hp=(typeof rpPeriodById==='function')?rpPeriodById(ACTIVE_PERIOD):null;
     var _hsub=[(_hp&&_hp.status==='open')?'In progress':(_hp?(_hp.locked?'Locked':'Closed'):''),(_hp&&_hp.close)||'',(_hp&&_hp.target)?('Target sign-off '+_hp.target):''].filter(Boolean).join(' &middot; ');
     h+='<div class="hm-hd"><div class="hm-hd-l"><div class="hm-k">Monthly close</div><h1 class="hm-h1">'+esc((_hp&&_hp.label)||'')+'</h1><div class="hm-sub">'+_hsub+'</div></div>';
-    h+='<div class="hm-prog"><div class="hm-prog-top"><span>Overall progress</span><span class="hm-pv">'+pctDone+'% complete</span></div><div class="bar"><div class="seg done" style="width:'+pctDone+'%"></div><div class="seg prog" style="width:'+pctProg+'%"></div></div></div></div>';
+    h+='<div class="hm-prog"><div class="hm-prog-top"><span>Close progress</span><span class="hm-pv">'+pctDone+'% complete</span></div><div class="bar"><div class="seg done" style="width:'+pctDone+'%"></div><div class="seg prog" style="width:'+pctProg+'%"></div></div><div class="hm-prog-sub">'+_cp.done+' of '+_cp.total+' reviews signed off</div></div></div>';
     if(HOME_EDIT){
       var avail=HOME_ALL.filter(function(id){return HOME_ORDER.indexOf(id)<0;});
       h+='<div class="hm-bar"><span class="hm-editnote">'+HM_GRIP+' Drag to reorder &middot; remove with &times; &middot; add widgets on the right</span><span class="grow"></span>'+
@@ -5806,7 +6119,62 @@
     return '<td class="fx-money'+(n<0?' fx-neg':'')+(cls?' '+cls:'')+'"><span class="fx-num">'+(n<0?'('+fxAbbr$(n)+')':fxAbbr$(n))+'</span></td>';
   }
   function fxPctCell(p,c){if(!p)return '<td class="fx-pct flat">&mdash;</td>';var d=(c-p)/Math.abs(p)*100;var cls=d>0.05?'up':d<-0.05?'dn':'flat';var ar=cls==='up'?'&#9650;':cls==='dn'?'&#9660;':'';return '<td class="fx-pct '+cls+'"><span class="fx-arrow">'+ar+'</span>'+(d>0?'+':'')+d.toFixed(1)+'%</td>';}
-  function fxMatFlag(p,c){var fl=scopeMatFloor();var d=c-p;if(!p)return Math.abs(d)>=fl*5;return Math.abs((c-p)/Math.abs(p)*100)>=fluxMat&&Math.abs(d)>=fl;}
+  /* ===== Materiality standard ==================================================================
+     A flux threshold has to be defensible, which means an auditor can ask "what standard did you
+     apply, and why?" and get an answer off the screen. Two rules, both required:
+       · a RELATIVE rule (fluxMat %) so a small account moving a lot is caught, and
+       · an ABSOLUTE floor so a rounding move on a huge account is not.
+     The floor derives from a benchmark, and the BENCHMARK FOLLOWS THE STATEMENT — total assets for
+     the balance sheet, revenue for the income statement. One floor cannot serve both: here total
+     assets are ~$11B while monthly revenue is ~$72M, so an assets-derived floor would silently
+     suppress every income-statement line. The floor previously came from an arbitrary $50K anchor
+     and appeared nowhere in the UI; it is now derived, adjustable and stated. */
+  var MAT_BASES={assets:'total assets',revenue:'revenue',pretax:'pre-tax income'};
+  var MAT_POLICY={bs:{basis:'assets',pct:0.25},is:{basis:'revenue',pct:2}};
+  function matPolicy(){return MAT_POLICY[fluxStmt]||MAT_POLICY.bs;}
+  function matBenchmark(basis){
+    var led=glLedger(),P=fluxPeriods(led),ti=P.ti,out=0;
+    led.accounts.forEach(function(a){
+      if(basis==='assets'){ if(a.type==='Asset')out+=fxScopedVal(a,ti); }
+      else if(basis==='revenue'){ if(a.type==='Revenue')out+=fxScopedVal(a,ti); }
+      else { if(a.type==='Revenue')out+=fxScopedVal(a,ti); if(a.type==='Expense')out-=fxScopedVal(a,ti); }
+    });
+    return Math.abs(out);
+  }
+  function matFloor(){var p=matPolicy();return Math.max(1000,Math.round(matBenchmark(p.basis)*p.pct/100));}
+  /* the sentence an auditor should be able to read off the screen */
+  function matStandard(){var p=matPolicy();
+    return '≥ '+fluxMat+'% of the line and ≥ '+fxAbbr$(matFloor())+' ('+p.pct+'% of '+MAT_BASES[p.basis]+')';}
+  function fxMatFlag(p,c){var fl=matFloor();var d=c-p;if(!p)return Math.abs(d)>=fl;return Math.abs((c-p)/Math.abs(p)*100)>=fluxMat&&Math.abs(d)>=fl;}
+  /* ===== Tie-out assertion =====================================================================
+     A flux over an untied ledger is worthless: you are explaining movements in numbers that do not
+     agree to the trial balance. The close dashboard already knew this; the review being signed did
+     not say it. Ledger-level (not scoped) — the assertion is about the source, not the slice.
+
+     A difference BELOW materiality is not a blocker — it is a known, documented difference, and
+     treating it as fatal would stop every close that carries a trivial rounding variance. Only a
+     difference at or above the floor blocks: at that size you are explaining movements in numbers
+     that could themselves be wrong. */
+  function fxTieOut(){
+    var m=fluxTo||ACTIVE_PERIOD;
+    var rows=(typeof tbTie==='function')?tbTie(m):[];
+    var items=rows.filter(function(r){return Math.abs(r.diff)>0.5;});
+    var amt=items.reduce(function(a,r){return a+Math.abs(r.diff);},0), fl=matFloor();
+    return {ok:!items.length,n:items.length,amt:amt,period:m,floor:fl,blocks:amt>=fl};
+  }
+  /* Readiness of the review on screen, stashed by the renderer so the submit gate and the header
+     can never disagree with the numbers the reviewer is looking at. */
+  var FX_READY={mat:0,need:0,noevid:0,cov:100,resid:0,floor:0};
+  var FX_SUBMIT_OVERRIDE=false;   /* armed only by a first blocked submit; cleared on send or cancel */
+  /* ===== Worklist vs Statement ==================================================================
+     A flux review has one job: explain the movements that matter and prove it. The statement grid
+     is the instrument for that job, and it was also the front door — so a reviewer met 12 controls
+     and 37 rows to reach the 1 line that actually needed a decision. Landing on the WORK instead of
+     the instrument is the whole change: the worklist is the decisions, ranked, with a visible end.
+     The grid keeps every capability it had; it is now one click away rather than compulsory. */
+  var FX_MODE='work';
+  try{var _fm0=localStorage.getItem('korvyn.flux.mode.v1'); if(_fm0==='work'||_fm0==='statement')FX_MODE=_fm0;}catch(e){}
+  function fxSetMode(m){FX_MODE=m;try{localStorage.setItem('korvyn.flux.mode.v1',m);}catch(e){}renderMonthlyTrend();}
   function fluxCmtCell(stmt,key,m,material){
     var id=key+':'+m, cm=FLUX_COMMENTS[id];
     if(cm){var chip=cm.ai?'<span class="fx-chip ai"><span class="fx-spk">&#10022;</span>Korvyn draft</span>':'<span class="fx-chip ok">&#10003; '+esc(cm.by||'Reviewer')+'</span>';return '<td class="l fx-cmt"><div class="fx-cmt-box" data-edit="'+id+'">'+chip+'<div class="fx-cmt-tx">'+esc(cm.text)+'</div></div></td>';}
@@ -6343,6 +6711,7 @@
   function rpCrumb(parts){return '<div class="rp-crumb">'+parts.map(function(p,i){var last=i===parts.length-1;return (last?'<span class="rp-cr-cur">'+esc(p.label)+'</span>':'<button class="rp-cr" data-go="'+(p.go||'')+'">'+esc(p.label)+'</button>')+(last?'':'<span class="rp-cr-sep">/</span>');}).join('')+'</div>';}
   /* ---------- Close Periods directory ---------- */
   var RP_PERIOD_GROUP='year';  /* none | year | type | status — how the Close Periods page buckets rows */
+  var RP_ARCHIVE_OPEN=false;   /* prior periods are an archive behind a disclosure, not the front door */
   var RP_PORDER='desc';        /* desc = newest first, asc = oldest first */
   var RP_GRP_COLLAPSED={};      /* group key -> collapsed? (folder open/closed state) */
   var RP_PFILTER={q:'',status:'All',range:'l12',type:'All'};  /* smart filter facets — range is the timeframe window (default: trailing 12 months) */
@@ -6395,6 +6764,19 @@
      It replaces the old summary strip rather than sitting beside it: that strip summed counters
      across all periods, which for this data set is the current period restated. */
   function rpCurrentClose(){for(var i=0;i<RP_CLOSE_PERIODS.length;i++)if(RP_CLOSE_PERIODS[i].cur)return RP_CLOSE_PERIODS[i];return null;}
+  /* THE close-progress number. Three screens used to answer "how complete is this close?" with
+     three different figures (6% from a sample review list, 30% from the checklist, 41% from the
+     period record) — all defensible, which is exactly why it destroyed trust in a product whose
+     pitch is defensibility. One definition now: reviews signed off over reviews in the close,
+     read from the period record. The checklist keeps its own count but no longer calls itself
+     "close progress" — it is a different thing and now says so. */
+  function closeProgress(){
+    var p=rpCurrentClose();
+    if(!p)return {done:0,total:0,pct:0,inprogPct:0};
+    var t=p.reviews||0;
+    return {done:p.done||0,total:t,pct:t?Math.round((p.done||0)/t*100):0,
+      inprogPct:t?Math.round(((p.inprog||0)+(p.ready||0))/t*100):0};
+  }
   function rpCloseBandHTML(){
     var p=rpCurrentClose();
     if(!p)return '<div class="card rp-cc rp-cc-empty">No close is currently open. Create one with <b>+ New Period</b>, or open a prior period below.</div>';
@@ -6408,7 +6790,7 @@
       +'<span class="grow"></span><span class="rp-cc-cal">'+esc(cad)+'</span></div>'
       +'<div class="rp-cc-main"><h2 class="rp-cc-nm">'+esc(cal?cal.label:p.name)+'</h2>'
       +'<div class="rp-cc-prog"><span class="rp-bar rp-cc-bar"><span style="width:'+pct+'%"></span></span>'
-      +'<span class="rp-cc-pct">'+pct+'%</span><span class="rp-cc-sub">'+p.done+' of '+p.reviews+' reviews complete</span></div>'
+      +'<span class="rp-cc-pct">'+pct+'%</span><span class="rp-cc-sub">'+p.done+' of '+p.reviews+' reviews signed off</span></div>'
       +'<button class="btn rp-cc-go" data-ccgo="'+esc(p.id)+'">Open this close</button></div>'
       +'<div class="rp-cc-stats">'+st('In progress',p.inprog)+st('Needs explanation',p.needexpl,p.needexpl?'warn':'')
       +st('Ready for approval',p.ready)+st('Overdue',p.overdue,p.overdue?'neg':'')+st('Completed',p.done,'pos')+'</div>'
@@ -6419,6 +6801,18 @@
     var h=rpCrumb([{label:'Flux Overview'}]);
     h+='<div class="kv-hd rp-hd"><div><div class="k">Flux Analysis</div><h1>Flux Overview</h1><div class="kv-sub">Create, organize, and manage financial reviews by reporting period.</div></div><button class="btn primary rp-newperiod">+ New Period</button></div>';
     h+=rpCloseBandHTML();
+    /* The archive is a destination you visit occasionally, not the front door. 234 of these 235
+       rows are closed months; leading with them put a directory where the entrance belongs. The
+       current close sits above; everything else is one disclosure away. */
+    h+='<button class="rp-arch-h'+(RP_ARCHIVE_OPEN?' open':'')+'" id="rpArchH"><span class="ct-tw'+(RP_ARCHIVE_OPEN?' open':'')+'">'+rpIcon('chev')+'</span><span>All periods</span><span class="rp-arch-n">'+RP_CLOSE_PERIODS.length+'</span></button>';
+    if(!RP_ARCHIVE_OPEN){
+      h+='<div class="ldg-note">A period is a container for a close cycle&rsquo;s reviews. Open the current close above, or expand <b>All periods</b> to search prior months.</div>';
+      $('#view').innerHTML=h;
+      var _ah0=document.getElementById('rpArchH'); if(_ah0)_ah0.onclick=function(){RP_ARCHIVE_OPEN=true;renderClosePeriods();};
+      var _cg0=document.querySelector('#view [data-ccgo]'); if(_cg0)_cg0.onclick=function(e){e.stopPropagation();rpEnterFluxForPeriod(this.getAttribute('data-ccgo'));};
+      var _nb0=document.querySelector('#view .rp-newperiod'); if(_nb0)_nb0.onclick=rpNewPeriodOpen;
+      return;
+    }
     var _years=rpDistinct(rpPeriodYear).sort().reverse(), _statuses=rpDistinct(function(p){return p.status;}), _types=rpDistinct(function(p){return p.type;});
     function fsel(f,label,opts){return '<label class="rp-fsel"><span>'+label+'</span><select class="rp-pf" data-f="'+f+'"><option value="All">All</option>'+opts.map(function(o){return '<option value="'+esc(o)+'"'+(RP_PFILTER[f]===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select></label>';}
     function tfSel(){
@@ -6473,6 +6867,139 @@
     var pclr=document.querySelector('#view .rp-fclear');if(pclr)pclr.onclick=function(){RP_PFILTER={q:'',status:'All',range:'l12',type:'All'};renderClosePeriods();};
     var nb=document.querySelector('#view .rp-newperiod');if(nb)nb.onclick=rpNewPeriodOpen;
     var cg=document.querySelector('#view [data-ccgo]');if(cg)cg.onclick=function(e){e.stopPropagation();rpEnterFluxForPeriod(this.getAttribute('data-ccgo'));};
+    var _ah=document.getElementById('rpArchH');if(_ah)_ah.onclick=function(){RP_ARCHIVE_OPEN=!RP_ARCHIVE_OPEN;renderClosePeriods();};
+  }
+  /* ===== Flux Analysis: Trending + Variance ====================================================
+     Both read the SAME engine the flux review reads — glLedger() through fxScopedVal(), so they
+     honour the active entity scope and can never disagree with the statement. Nothing here is
+     authored: every figure, ranking and threshold count is computed from the ledger series.
+     Deliberately NOT a second flux review: flux answers "what moved this period, and why"; these
+     answer "how has this line behaved over time" and "where did the period's variance come from".
+  ============================================================================================== */
+  var FXA_STMT='bs', FXA_WIN=6, FXA_RANK='move', FXA_MAT=5;
+  function fxaVal(a,i){return (typeof fxScopedVal==='function')?fxScopedVal(a,i):fluxVal(a,i);}
+  function fxaMonths(n){var ms=glLedger().months, ti=ms.indexOf(fluxTo);
+    if(ti<0)ti=ms.length-1; var from=Math.max(0,ti-(n-1)); return {idx:ms.slice(from,ti+1).map(function(m){return ms.indexOf(m);}),labels:ms.slice(from,ti+1)};}
+  /* One row per reported line (the statement's own categories), summed from its accounts. */
+  function fxaLines(stmt,win){
+    var led=glLedger(), w=fxaMonths(win), out=[];
+    fluxSections(led,stmt,'category').forEach(function(s){
+      s.groups.forEach(function(g){
+        var series=w.idx.map(function(i){return g.accts.reduce(function(a,ac){return a+fxaVal(ac,i);},0);});
+        var first=series[0], last=series[series.length-1], d=last-first;
+        /* volatility = population sigma of period-over-period % change; stated, not implied */
+        var pcts=[],prev=series[0];
+        for(var i=1;i<series.length;i++){if(prev)pcts.push((series[i]-prev)/Math.abs(prev)*100);prev=series[i];}
+        var mean=pcts.length?pcts.reduce(function(a,b){return a+b;},0)/pcts.length:0;
+        var vol=pcts.length?Math.sqrt(pcts.reduce(function(a,b){return a+(b-mean)*(b-mean);},0)/pcts.length):0;
+        out.push({sec:s.name||'',name:g.caption,accts:g.accts.length,series:series,first:first,last:last,d:d,
+          pct:first?d/Math.abs(first)*100:0,vol:vol});
+      });
+    });
+    return {rows:out,labels:w.labels};
+  }
+  function fxaSpark(series){
+    if(!series.length)return '';
+    var min=Math.min.apply(null,series), max=Math.max.apply(null,series), rng=(max-min)||1, W=68, H=18;
+    var pts=series.map(function(v,i){return (series.length>1?(i/(series.length-1)*W):0).toFixed(1)+','+(H-((v-min)/rng)*H).toFixed(1);}).join(' ');
+    return '<svg class="fxa-spark" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+  function fxaTone(n){return n>0?'pos':n<0?'neg':'';}
+  function fxaMoney(n,plus){var s=n<0?'&minus;':(plus&&n>0?'+':'');return s+fxAbbr$(n);}
+  function fxaPct(n){return (n>0?'+':n<0?'&minus;':'')+Math.abs(n).toFixed(1)+'%';}
+  function fxaStmtBar(route){
+    return '<div class="rp-gbbar fxa-bar"><span class="rp-gb-l">Statement</span>'
+      +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rp-gb-b'+(FXA_STMT===o[0]?' on':'')+'" data-fxastmt="'+o[0]+'">'+o[1]+'</button>';}).join('')
+      +(route==='trending'?('<span class="rp-gb-l" style="margin-left:18px">Window</span>'+[[3,'Last 3'],[6,'Last 6'],[12,'Last 12']].map(function(o){return '<button class="rp-gb-b'+(FXA_WIN===o[0]?' on':'')+'" data-fxawin="'+o[0]+'">'+o[1]+'</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Rank by</span>'+[['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']].map(function(o){return '<button class="rp-gb-b'+(FXA_RANK===o[0]?' on':'')+'" data-fxarank="'+o[0]+'">'+o[1]+'</button>';}).join(''))
+        :('<span class="rp-gb-l" style="margin-left:18px">Basis</span>'+[['prev','MoM'],['prevq','QoQ']].map(function(o){return '<button class="rp-gb-b'+(RP_COMPARE===o[0]?' on':'')+'" data-fxabasis="'+o[0]+'">'+o[1]+'</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Material at</span>'+[3,5,10].map(function(o){return '<button class="rp-gb-b'+(FXA_MAT===o?' on':'')+'" data-fxamat="'+o+'">&ge; '+o+'%</button>';}).join('')))
+      +'</div>';
+  }
+  function fxaScopeNote(){
+    var sc=(typeof fluxScopeLabel==='function')?fluxScopeLabel(fluxScope):'Consolidated';
+    return '<div class="ldg-note">Computed from the general ledger for <b>'+esc(sc)+'</b> at the same source the flux review reads &mdash; change the entity scope in a review and these follow. Figures are reporting currency.</div>';
+  }
+  function fxaWire(route){
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxastmt]'),function(b){b.onclick=function(){FXA_STMT=this.getAttribute('data-fxastmt');navTo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxawin]'),function(b){b.onclick=function(){FXA_WIN=+this.getAttribute('data-fxawin');navTo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxarank]'),function(b){b.onclick=function(){FXA_RANK=this.getAttribute('data-fxarank');navTo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxamat]'),function(b){b.onclick=function(){FXA_MAT=+this.getAttribute('data-fxamat');navTo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxabasis]'),function(b){b.onclick=function(){RP_COMPARE=this.getAttribute('data-fxabasis');navTo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-go]'),function(b){b.onclick=function(){navTo(this.getAttribute('data-go'));};});
+  }
+  function renderTrending(){
+    var d=fxaLines(FXA_STMT,FXA_WIN), rows=d.rows.slice();
+    rows.sort(FXA_RANK==='vol'?function(a,b){return b.vol-a.vol;}
+      :FXA_RANK==='pct'?function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}
+      :function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
+    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Trending Analysis'}]);
+    h+='<div class="kv-hd rp-hd"><div><div class="k">Flux Analysis</div><h1>Trending Analysis</h1><div class="kv-sub">How each reported line has behaved across periods &mdash; movement, direction and volatility, ranked.</div></div></div>';
+    h+=fxaStmtBar('trending');
+    var first=d.labels[0], last=d.labels[d.labels.length-1];
+    h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl fxa-tbl"><thead><tr>'
+      +'<th class="l">Line item</th><th class="l">Trend</th><th>'+esc(flxLbl(first))+'</th><th>'+esc(flxLbl(last))+'</th>'
+      +'<th>Change</th><th>&Delta; %</th><th title="Population standard deviation of period-over-period % change across the window">Volatility</th></tr></thead><tbody>';
+    if(!rows.length){ h+='<tr><td colspan="7" class="l" style="padding:22px;text-align:center;color:var(--faint)">No lines on this statement for the current scope.</td></tr>'; }
+    rows.forEach(function(r){
+      h+='<tr><td class="l"><span class="fxa-nm">'+esc(r.name)+'</span><span class="fxa-sub">'+esc(r.sec)+' &middot; '+r.accts+' account'+(r.accts===1?'':'s')+'</span></td>'
+        +'<td class="l fxa-sk '+fxaTone(r.d)+'">'+fxaSpark(r.series)+'</td>'
+        +'<td class="rp-num">'+fxaMoney(r.first)+'</td><td class="rp-num">'+fxaMoney(r.last)+'</td>'
+        +'<td class="rp-num '+fxaTone(r.d)+'">'+fxaMoney(r.d,true)+'</td>'
+        +'<td class="rp-num '+fxaTone(r.d)+'">'+fxaPct(r.pct)+'</td>'
+        +'<td class="rp-num fxa-mut">'+r.vol.toFixed(1)+'%</td></tr>';
+    });
+    h+='</tbody></table></div></div>';
+    h+='<div class="ldg-note">Ranked by '+(FXA_RANK==='vol'?'volatility':FXA_RANK==='pct'?'steepest percentage change':'largest absolute movement')+' over the last '+FXA_WIN+' periods ('+esc(flxLbl(first))+' &rarr; '+esc(flxLbl(last))+'). Volatility is the standard deviation of period-over-period percentage change &mdash; a line can move a long way steadily (low volatility) or barely move while swinging (high).</div>';
+    h+=fxaScopeNote();
+    $('#view').innerHTML=h; fxaWire('trending');
+  }
+  function renderVariance(){
+    var led=glLedger(), P=fluxPeriods(led), ti=P.ti, step=rpCompareOffset(), pi=Math.max(0,ti-step);
+    var secs=[], total=0;
+    fluxSections(led,FXA_STMT,'category').forEach(function(s){
+      var groups=s.groups.map(function(g){
+        var prev=g.accts.reduce(function(a,ac){return a+fxaVal(ac,pi);},0);
+        var cur=g.accts.reduce(function(a,ac){return a+fxaVal(ac,ti);},0);
+        var breach=g.accts.filter(function(ac){var p=fxaVal(ac,pi),c=fxaVal(ac,ti);return p&&Math.abs((c-p)/Math.abs(p)*100)>=FXA_MAT;}).length;
+        return {name:g.caption,prev:prev,cur:cur,d:cur-prev,pct:prev?(cur-prev)/Math.abs(prev)*100:0,accts:g.accts.length,breach:breach};
+      });
+      var sd=groups.reduce(function(a,g){return a+g.d;},0);
+      total+=sd;
+      secs.push({name:s.name||'',groups:groups,d:sd,prev:groups.reduce(function(a,g){return a+g.prev;},0),cur:groups.reduce(function(a,g){return a+g.cur;},0),breach:groups.reduce(function(a,g){return a+g.breach;},0)});
+    });
+    var absTot=secs.reduce(function(a,s){return a+s.groups.reduce(function(x,g){return x+Math.abs(g.d);},0);},0)||1;
+    var basis=({prev:'month',prevq:'quarter',prevy:'year'})[RP_COMPARE]||'month';
+    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Variance Analysis'}]);
+    h+='<div class="kv-hd rp-hd"><div><div class="k">Flux Analysis</div><h1>Variance Analysis</h1><div class="kv-sub">Where this period&rsquo;s movement came from &mdash; contribution by section and category, against a materiality threshold.</div></div></div>';
+    h+=fxaStmtBar('variance');
+    h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl fxa-tbl"><thead><tr>'
+      +'<th class="l">Section / category</th><th>'+esc(flxLbl(led.months[pi]))+'</th><th>'+esc(flxLbl(led.months[ti]))+'</th>'
+      +'<th>Variance</th><th>&Delta; %</th><th title="Share of the total absolute movement on this statement">Contribution</th>'
+      +'<th title="Accounts whose own movement is at or above the threshold">Material accounts</th></tr></thead><tbody>';
+    var any=false;
+    secs.forEach(function(s){
+      var gs=s.groups.filter(function(g){return g.d!==0||g.breach;});
+      if(!gs.length)return; any=true;
+      h+='<tr class="fxa-sec"><td class="l">'+esc(s.name)+'</td><td class="rp-num">'+fxaMoney(s.prev)+'</td><td class="rp-num">'+fxaMoney(s.cur)+'</td>'
+        +'<td class="rp-num '+fxaTone(s.d)+'">'+fxaMoney(s.d,true)+'</td>'
+        +'<td class="rp-num '+fxaTone(s.d)+'">'+fxaPct(s.prev?s.d/Math.abs(s.prev)*100:0)+'</td>'
+        +'<td class="rp-num fxa-mut">'+Math.round(Math.abs(s.d)/absTot*100)+'%</td>'
+        +'<td class="rp-num '+(s.breach?'warn':'fxa-mut')+'">'+(s.breach||'&mdash;')+'</td></tr>';
+      gs.forEach(function(g){
+        h+='<tr><td class="l fxa-ind">'+esc(g.name)+'<span class="fxa-sub">'+g.accts+' account'+(g.accts===1?'':'s')+'</span></td>'
+          +'<td class="rp-num">'+fxaMoney(g.prev)+'</td><td class="rp-num">'+fxaMoney(g.cur)+'</td>'
+          +'<td class="rp-num '+fxaTone(g.d)+'">'+fxaMoney(g.d,true)+'</td>'
+          +'<td class="rp-num '+fxaTone(g.d)+'">'+fxaPct(g.pct)+'</td>'
+          +'<td class="rp-num fxa-mut">'+Math.round(Math.abs(g.d)/absTot*100)+'%</td>'
+          +'<td class="rp-num '+(g.breach?'warn':'fxa-mut')+'">'+(g.breach||'&mdash;')+'</td></tr>';
+      });
+    });
+    if(!any)h+='<tr><td colspan="7" class="l" style="padding:22px;text-align:center;color:var(--faint)">Nothing moved on this statement between the two periods.</td></tr>';
+    h+='</tbody></table></div></div>';
+    h+='<div class="ldg-note">Compared against the prior '+basis+'. Contribution is each line&rsquo;s share of the total <i>absolute</i> movement, so offsetting swings still show their size. A material account is one whose own movement is at or above &ge;&nbsp;'+FXA_MAT+'%; the count is the number of accounts inside that line, not a dollar figure.</div>';
+    h+=fxaScopeNote();
+    $('#view').innerHTML=h; fxaWire('variance');
   }
   function rpPeriodRename(pid){
     var p=rpPeriod(pid); if(!p)return;
@@ -8265,13 +8792,19 @@
        the KPI strip, the totals and the print notes all describe the same population. */
     var secs=fluxScopeSections(_secsAll), _rvScope=fluxReviewScope();
     var matCount=0,needCount=0,groupCount=0,lineCount=0,explained=0,outstandingEvid=0,readyApproval=0,matLeaves=[],printNotes=[];
+    /* Coverage: counts alone ("7 material, 1 needs explanation") never say whether the unexplained
+       remainder is trivia or the whole story. A sign-off rests on the SHARE OF MOVEMENT explained
+       and the size of what is left unexplained — measured against the same floor that defines
+       materiality, so the two can never tell different stories. */
+    var absMove=0, explMove=0;
     secs.forEach(function(sec){sec.groups.forEach(function(g){groupCount++;
       /* Footnotes are collected at the category-line level (g.report) — matching what the statement annotates — not per GL account. */
       var _gc=fxLineNote(g.report,mTo),_gcur=sum(g.accts,ti),_gprev=sum(g.accts,priIdx),_gmat=fxMatFlag(_gprev,_gcur);
       if(_gc&&_gc.text)printNotes.push({name:g.caption,by:_gc.by||'',text:_gc.text,d:_gcur-_gprev});
       else if(_gmat&&!(_gc&&_gc.by))printNotes.push({name:g.caption,needs:true,d:_gcur-_gprev});
       g.accts.forEach(function(a){lineCount++;var cur=sum([a],ti),prev=sum([a],priIdx),mat=fxMatFlag(prev,cur),cm=fxLineNote(a.acct,mTo),acc=!!(cm&&cm.by);if(mat)matCount++;if(acc)explained++;if(mat&&!acc)needCount++;
-      if(mat){var ev=fxEvidenceFor(a.acct),verified=ev.some(function(e){return e.status==='Verified';});if(!verified)outstandingEvid++;if(acc&&verified)readyApproval++;matLeaves.push({acct:a.acct,name:a.name,d:cur-prev,acc:acc,note:cm});}
+      absMove+=Math.abs(cur-prev); if(acc)explMove+=Math.abs(cur-prev);
+      if(mat){var ev=fxEvidenceFor(a.acct),verified=ev.some(function(e){return e.status==='Verified';});if(!verified)outstandingEvid++;if(acc&&verified)readyApproval++;matLeaves.push({acct:a.acct,name:a.name,d:cur-prev,prev:prev,acc:acc,note:cm,evid:verified,sec:sec.name||'',grp:g.caption});}
     });});});
     matLeaves.sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
     var assetA=led.accounts.filter(function(a){return a.type==='Asset';}), liabA=led.accounts.filter(function(a){return a.type==='Liability';}), eqA=led.accounts.filter(function(a){return a.type==='Equity';});
@@ -8297,29 +8830,14 @@
     // ----- context path: Scope › Period › Review (so the reporting period is always visible) -----
     var _crScope=fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel());
     var _crumb='<nav class="fx-crumb" aria-label="Breadcrumb"><span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr">'+esc(flxLbl(mTo))+'</span>'+(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'')+(_rv?'<span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr-cur">'+esc(_rv.name)+'</span>':'')+'</nav>';
-    var h=_crumb+(_rv?('<div class="fx-titlebar"><button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button><h1 class="fx-h1">'+esc(_rv.name)+'</h1>'+_rvBadge+_rvStar+'<div class="fx-tb-sp"></div>'+_rvAction+'</div>')
+    /* Worklist is the default; Statement is one click, with everything it always had. */
+    var _modeSw='<div class="fx-modesw" role="tablist">'
+      +'<button class="fx-modeb'+(FX_MODE==='work'?' on':'')+'" data-fxmode="work" role="tab">Worklist</button>'
+      +'<button class="fx-modeb'+(FX_MODE==='statement'?' on':'')+'" data-fxmode="statement" role="tab">Statement</button></div>';
+    var h=_crumb+(_rv?('<div class="fx-titlebar"><button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button><h1 class="fx-h1">'+esc(_rv.name)+'</h1>'+_rvBadge+_rvStar+'<div class="fx-tb-sp"></div>'+_modeSw+_rvAction+'</div>')
       :'<div class="fx-titlebar"><h1 class="fx-h1">Flux review</h1>'+_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span></div>');
-    /* ----- queue pager: page through the list this review came from (only when one is open) ----- */
-    if(_rv){
-      var _pgChev=function(d){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+(d<0?'M15 18l-6-6 6-6':'M9 6l6 6-6 6')+'"/></svg>';};
-      var _q=fluxQueue(), _qi=-1;
-      _q.list.forEach(function(r,i){if(r.id===_rv.id)_qi=i;});
-      if(_qi>=0&&_q.list.length>1){
-        var _pv=_qi>0?_q.list[_qi-1]:null, _nx=_qi<_q.list.length-1?_q.list[_qi+1]:null;
-        var _pgBtn=function(r,dir){
-          var lbl=dir<0?'Previous review':'Next review';
-          if(!r)return '<button class="fx-pg" disabled title="'+(dir<0?'This is the first review in the queue':'This is the last review in the queue')+'">'+(dir<0?_pgChev(-1):'')+'<span>'+lbl+'</span>'+(dir>0?_pgChev(1):'')+'</button>';
-          return '<button class="fx-pg" data-pgo="'+esc(r.id)+'" title="'+esc(lbl+': '+r.name)+'">'+(dir<0?_pgChev(-1):'')+'<span>'+lbl+'</span>'+(dir>0?_pgChev(1):'')+'</button>';
-        };
-        var _pgList=_q.list.map(function(r,i){
-          var st=RP_RSTATUS[r.status]||['',''];
-          return '<button class="fx-pgq-i'+(i===_qi?' on':'')+'" data-pgo="'+esc(r.id)+'"><span class="fx-pgq-n">'+(i+1)+'</span>'+rpStatusDot(r.status)+'<span class="fx-pgq-nm">'+esc(r.name)+'</span><span class="fx-pgq-mt">'+esc(st[0])+'</span></button>';
-        }).join('');
-        h+='<div class="fx-pager">'+_pgBtn(_pv,-1)
-          +'<details class="fx-pgq"><summary class="fx-pgq-sum" title="Jump to another review in this queue"><b>'+(_qi+1)+'</b> of '+_q.list.length+' in '+esc(_q.label)+'</summary><div class="fx-pgq-pop"><div class="fxm-h">'+esc(_q.label)+'</div>'+_pgList+'</div></details>'
-          +_pgBtn(_nx,1)+'</div>';
-      }
-    }
+    /* The queue pager that used to sit here is now the global work spine above the view: it
+       follows you across every screen instead of existing only inside an open review. */
     // ----- period-lock banner: closed periods are read-only for everyone; only an authorized role reopens -----
     if(typeof applyPeriodLock==='function')applyPeriodLock();
     if(typeof periodLocked==='function'&&periodLocked()){
@@ -8332,7 +8850,7 @@
       h+='<div class="fx-lockbar"><span class="fx-lockbar-ic">'+LOCK_ICO+'</span><div class="fx-lockbar-tx"><b>'+esc(_lki.label)+' is locked</b> &mdash; closed'+(_lki.on?' on '+esc(_lki.on):'')+'. This period is read-only: explanations, evidence, sign-offs and account mappings can&rsquo;t be changed.</div>'+_reopenCtl+'</div>';
     }
     // ----- scope + FX split derived for the compact review summary -----
-    var node=fluxCurNode(), matFloor=scopeMatFloor(), gm=fxGroupMeta();
+    var node=fluxCurNode(), matFloorV=matFloor(), gm=fxGroupMeta();
     var bandFx=isBS?fxFxPart(assetA,ti,priIdx):(fxFxPart(revA,ti,priIdx)-fxFxPart(expA,ti,priIdx));
     var bandOrg=ctlD-bandFx;
     function gbCls(n){return n<0?'neg':n>0?'pos':'';}
@@ -8385,7 +8903,7 @@
       +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){var on=(fluxStmt===o[0]);return '<button class="fxm-opt fxm-stmt'+(on?' on':'')+'" data-stmt="'+o[0]+'">'+(on?ckOn:ckOff)+o[1]+'</button>';}).join('')
       +'<button class="fxm-opt fxm-soon" disabled>'+ckOff+'Cash Flow<span class="fxm-soon-tag">Soon</span></button>'
       +'<div class="fxm-note2">Pick the statement first &mdash; the <b>Review</b> control beside it repopulates with that statement&#39;s sections.</div></div></details>';
-    var dReview='<details class="fxm"><summary class="fxm-sum"><span class="fxm-k">Review</span><span class="fxm-cur">'+esc(fluxReviewName())+'</span></summary><div class="fxm-pop fxm-pop-w fxm-pop-sec">'
+    var dReview='<details class="fxm fxm-review"><summary class="fxm-sum"><span class="fxm-k">Review</span><span class="fxm-cur">'+esc(fluxReviewName())+'</span></summary><div class="fxm-pop fxm-pop-w fxm-pop-sec">'
       +fluxSectionMenuHTML(ckOn,ckOff)+_pkgBlock+dRevStates
       +'<div class="fxm-sep"></div><div class="fxm-note2">Narrows the statement to a section or a single category. It applies to the current <b>Entity</b> scope.</div>'
       +'<button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review Layout&hellip;</button></div></details>';
@@ -8404,7 +8922,18 @@
     // PRESENTATION — View: display preferences ONLY (never changes review structure)
     var dViewNew=fxSheetDetails('view','<summary class="fxm-sum" title="Display density"><span class="fxm-k">View</span><span class="fxm-cur">'+({comfortable:'Comfortable',compact:'Compact',executive:'Executive'}[SETTINGS.density]||'Comfortable')+'</span></summary>','View','<div class="fxm-h">Display density</div>'+[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']].map(function(o){return '<button class="fxm-opt fx-density'+(SETTINGS.density===o[0]?' on':'')+'" data-density="'+o[0]+'">'+(SETTINGS.density===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'<div class="fxm-sep"></div><div class="fxm-h">Panels</div><button class="fxm-opt fxm-comments">'+(fluxShowComments?ckOn:ckOff)+'Comments column</button><button class="fxm-opt fxm-panel'+(fluxInspDefaultTab==='evidence'?' on':'')+'" data-panel="evidence">'+(fluxInspDefaultTab==='evidence'?ckOn:ckOff)+'Line detail opens to Evidence</button><button class="fxm-opt fxm-reviewer'+(FX_CMT_CFG.reviewer?' on':'')+'">'+(FX_CMT_CFG.reviewer?ckOn:ckOff)+'Reviewer (prepared / reviewed by)</button><div class="fxm-sep"></div><div class="fxm-h">Table</div><button class="fxm-opt fx-sticky">'+(fluxStickyHead?ckOn:ckOff)+'Sticky headers</button><button class="fxm-opt fx-zebra">'+(fluxZebra?ckOn:ckOff)+'Zebra rows</button><button class="fxm-opt fx-lines">'+(fluxLines?ckOn:ckOff)+'Grid lines</button>');
     var matOpts=(matPresets.indexOf(fluxMat)<0?'<button class="fxm-opt fxm-mat on" data-mat="'+fluxMat+'">'+ckOn+'&ge; '+fluxMat+'%</button>':'')+matPresets.map(function(o){return '<button class="fxm-opt fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">'+(fluxMat===o?ckOn:ckOff)+'&ge; '+o+'%</button>';}).join('');
-    var dFilter=fxSheetDetails('filter','<summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary>','Filter','<div class="fxm-h">Materiality threshold</div>'+matOpts+'<div class="fxm-h">Show only</div>'+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')).replace('class="fxm fxm-sheet"','class="fxm fxm-sheet'+(filterOn?' fxm-act':'')+'"');
+    /* The absolute floor and the benchmark it derives from are now first-class controls, not a
+       hidden constant — an auditor asking "what standard did you apply?" reads it off this menu. */
+    var _mp=matPolicy();
+    var _floorPresets=(fluxStmt==='is')?[0.5,1,2,5]:[0.1,0.25,0.5,1];
+    var _basisOpts=(fluxStmt==='is')?[['revenue','Revenue'],['pretax','Pre-tax income']]:[['assets','Total assets']];
+    var _matBlock='<div class="fxm-h">Relative rule &mdash; line movement</div>'+matOpts
+      +'<div class="fxm-sep"></div><div class="fxm-h">Absolute floor &mdash; '+esc(_mp.pct)+'% of '+esc(MAT_BASES[_mp.basis])+' = '+fxAbbr$(matFloor())+'</div>'
+      +_floorPresets.map(function(o){return '<button class="fxm-opt fxm-matfl'+(_mp.pct===o?' on':'')+'" data-matfl="'+o+'">'+(_mp.pct===o?ckOn:ckOff)+o+'%</button>';}).join('')
+      +(_basisOpts.length>1?('<div class="fxm-h">Benchmark</div>'+_basisOpts.map(function(o){return '<button class="fxm-opt fxm-matbs'+(_mp.basis===o[0]?' on':'')+'" data-matbs="'+o[0]+'">'+(_mp.basis===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')):'')
+      +'<div class="fxm-note2">A line is material when it breaches <b>both</b> rules &mdash; so a rounding move on a huge account is ignored, and a small account swinging hard is not. The benchmark follows the statement.</div>'
+      +'<div class="fxm-sep"></div><div class="fxm-h">Show only</div>';
+    var dFilter=fxSheetDetails('filter','<summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary>','Filter',_matBlock+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')).replace('class="fxm fxm-sheet"','class="fxm fxm-sheet'+(filterOn?' fxm-act':'')+'"');
     var _scVal=fluxScopeLabel(fluxScope);
     var dScope='<details class="fxm fxm-scopeM"><summary class="fxm-sum" title="Reporting entity: '+esc(node.name)+'"><span class="fxm-k">Entity</span><span class="fxm-cur">'+esc(_scVal)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Reporting entity</div><div class="fxs-wrap">'+fluxScopeTreeHTML()+'</div><div class="fxm-note2">Scopes the statement. Expand to drill; the star pins a scope to Favorites.</div></div></details>';
     var dSearch='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search GL account or name&hellip;" value="'+esc(fluxFind)+'"></div>';
@@ -8413,7 +8942,7 @@
     if(fluxYoYAvail())basisSegs.push(['prevy','YoY','vs 12 months prior']);
     var basisCur=({prev:'MoM',prevq:'QoQ',prevy:'YoY'})[RP_COMPARE]||'MoM';
     var basisNote=fluxYoYAvail()?'':'<div class="fxm-note2">Year-over-year needs 24 months of history &mdash; this period has '+ms.length+'.</div>';
-    var dBasis='<details class="fxm"><summary class="fxm-sum" title="Comparison basis"><span class="fxm-k">Basis</span><span class="fxm-cur">'+basisCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Comparison basis</div>'+basisSegs.map(function(b){return '<button class="fxm-opt rp-tl-bseg'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+b[2]+'">'+(RP_COMPARE===b[0]?ckOn:ckOff)+b[1]+'</button>';}).join('')+basisNote+'</div></details>';
+    var dBasis='<details class="fxm fxm-basis"><summary class="fxm-sum" title="Comparison basis"><span class="fxm-k">Basis</span><span class="fxm-cur">'+basisCur+'</span></summary><div class="fxm-pop fxm-pop-w"><div class="fxm-h">Comparison basis</div>'+basisSegs.map(function(b){return '<button class="fxm-opt rp-tl-bseg'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+b[2]+'">'+(RP_COMPARE===b[0]?ckOn:ckOff)+b[1]+'</button>';}).join('')+basisNote+'</div></details>';
     // FOCUS — Insights: curated one-click perspectives (share the lens state with Filter; distinct role)
     var insOpts=[['material','Material variances'],['needs','Needs explanation'],['noevid','Missing evidence'],['unfav','High-risk accounts'],['reviewed','Recently reviewed'],['material','Top movers']];
     var insSoon=[['aifind','AI findings'],['revq','Reviewer questions'],['recent','Recent changes']];
@@ -8462,16 +8991,75 @@
        '<span class="fx-sm" title="Constant-currency movement"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></span>'+
        '<span class="fx-sm" title="FX translation effect vs prior-month rates"><span class="k">FX</span><span class="v acc">'+fxSum(bandFx,true)+'</span></span>'+
        '</div><div class="fx-mg fx-mg-r">'+
-       '<span class="fx-sm" title="Moves over the flag threshold (&ge;'+fluxMat+'% &amp; '+fxAbbr(matFloor)+')"><span class="k">Material</span><span class="v">'+matCount+'</span></span>'+
+       '<span class="fx-sm" title="'+esc('Materiality standard: '+matStandard())+'"><span class="k">Material</span><span class="v">'+matCount+'</span></span>'+
        '<span class="fx-sm" title="Material moves without an accepted explanation"><span class="k">Needs expl.</span><span class="v '+(needCount?'warn':'pos')+'">'+needCount+'</span></span>'+
        '<span class="fx-sm" title="Material lines without verified supporting evidence"><span class="k">No evidence</span><span class="v '+(outstandingEvid?'warn':'pos')+'">'+outstandingEvid+'</span></span>'+
        '<span class="fx-sm" title="Material lines explained and evidenced &mdash; ready for approval"><span class="k">Ready</span><span class="v '+(readyApproval?'pos':'')+'">'+readyApproval+'</span></span>'+
        '</div></div>';
+    /* the sign-off sentence: what standard, how much is covered, what is left over */
+    var _covPct=absMove?Math.round(explMove/absMove*100):100, _resid=Math.max(0,absMove-explMove), _fl=matFloorV;
+    FX_READY={mat:matCount,need:needCount,noevid:outstandingEvid,cov:_covPct,resid:_resid,floor:_fl};
+    /* tie-out first: if the ledger does not agree to the trial balance, nothing below it is signable */
+    var _tie=fxTieOut();
+    h+='<div class="fx-tie'+(_tie.ok?' ok':(_tie.blocks?' bad':' warn'))+'">'
+      +'<span class="fx-tie-ic">'+(_tie.ok?'&#10003;':'&#9888;')+'</span>'
+      +(_tie.ok
+        ? '<span>General ledger <b>ties to the trial balance</b> for '+esc(flxLbl(_tie.period))+'.</span>'
+        : _tie.blocks
+          ? '<span>General ledger <b>does not tie</b> to the trial balance for '+esc(flxLbl(_tie.period))+' &mdash; '+_tie.n+' reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+', <b>at or above the '+fxAbbr$(_tie.floor)+' floor</b>. This review cannot be submitted until it ties.</span>'
+          : '<span>GL to trial balance: '+_tie.n+' known reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+' &mdash; <b>below the '+fxAbbr$(_tie.floor)+' materiality floor</b>. Documented difference; it does not block sign-off.</span>')
+      +'<span class="grow"></span><button class="fx-tie-go" data-cgo="repo-ledger">Open Trial Balance &rarr;</button></div>';
+    if(FX_SUBMIT_OVERRIDE&&needCount){
+      h+='<div class="fx-ovr"><span class="fx-ovr-ic">&#9888;</span><span><b>'+needCount+' material line'+(needCount===1?'':'s')+'</b> still without an accepted explanation. Submitting now records a named exception against you on the audit trail, visible to the reviewer and the auditor.</span><span class="grow"></span><button class="fx-lockbar-btn danger rpc-submit">Submit with exception</button><button class="fx-lockbar-btn ghost fx-ovr-no">Cancel</button></div>';
+    }
+    h+='<div class="fx-cover'+(_resid>_fl?' fx-cover-gap':'')+'">'
+      +'<span class="fx-cov-k">Coverage</span>'
+      +'<span class="fx-cov-v">'+_covPct+'%</span>'
+      +'<span class="fx-cov-tx">of absolute movement carries an accepted explanation</span>'
+      +'<span class="fx-cov-sep"></span>'
+      +'<span class="fx-cov-k">Unexplained</span>'
+      +'<span class="fx-cov-v '+(_resid>_fl?'warn':'pos')+'">'+fxAbbr$(_resid)+'</span>'
+      +'<span class="fx-cov-tx">'+(_resid>_fl?'above':'within')+' the '+fxAbbr$(_fl)+' floor</span>'
+      +'<span class="grow"></span>'
+      +'<span class="fx-cov-std" title="Click Filter to change the standard">Materiality '+esc(matStandard())+'</span></div>';
+    /* ----- the worklist: the decisions this review is actually asking of you, ranked ----- */
+    var _wNeed=matLeaves.filter(function(x){return !x.acc;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
+    var _wEvid=matLeaves.filter(function(x){return x.acc&&!x.evid;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
+    var _wDone=matLeaves.filter(function(x){return x.acc&&x.evid;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
+    var _wOpen=_wNeed.length+_wEvid.length;
+    function _wItem(x,kind){
+      var pct=x.prev?(x.d/Math.abs(x.prev)*100):0;
+      var chip=kind==='need'?'<span class="fxw-chip need">Needs explanation</span>'
+        :kind==='evid'?'<span class="fxw-chip evid">Missing evidence</span>'
+        :'<span class="fxw-chip done">Ready</span>';
+      return '<button class="fxw-item" data-wsel="'+esc(x.acct)+'">'
+        +'<span class="fxw-nm">'+esc(x.name)+'<span class="fxw-sub">'+esc(x.acct+' · '+x.sec)+'</span></span>'
+        +'<span class="fxw-d '+(x.d>=0?'up':'dn')+'">'+fxSum(x.d,true)+'</span>'
+        +'<span class="fxw-pct">'+(pct>0?'+':pct<0?'−':'')+Math.abs(pct).toFixed(1)+'%</span>'
+        +chip+'<span class="fxw-go">'+(kind==='done'?'Review':'Explain')+' →</span></button>';
+    }
+    var _wl='<div class="fx-worklist">';
+    _wl+='<div class="fxw-hd"><span class="fxw-h1">'+(_wOpen?(_wOpen+' line'+(_wOpen===1?'':'s')+' need'+(_wOpen===1?'s':'')+' you'):'Nothing outstanding')+'</span>'
+      +'<span class="fxw-hsub">'+(_wOpen
+        ? 'Material movements without an accepted explanation or verified evidence, largest first.'
+        : 'Every material movement on this statement is explained and evidenced.')+'</span>'
+      +'<span class="grow"></span><span class="fxw-prog">'+_wDone.length+' of '+matLeaves.length+' cleared</span></div>';
+    if(!matLeaves.length){
+      _wl+='<div class="fxw-empty"><b>No material movements.</b> Nothing on this statement breaches '+esc(matStandard())+'. Switch to <b>Statement</b> to read the full population, or lower the threshold in Filter.</div>';
+    } else {
+      if(_wNeed.length)_wl+='<div class="fxw-grp">Needs explanation</div>'+_wNeed.map(function(x){return _wItem(x,'need');}).join('');
+      if(_wEvid.length)_wl+='<div class="fxw-grp">Explained &mdash; evidence outstanding</div>'+_wEvid.map(function(x){return _wItem(x,'evid');}).join('');
+      if(_wDone.length)_wl+='<div class="fxw-grp">Cleared</div>'+_wDone.map(function(x){return _wItem(x,'done');}).join('');
+    }
+    _wl+='</div>';
+    /* _wl is emitted after the control row below, so Filter — which owns the materiality standard
+       the worklist is defined by — sits above the list it governs rather than stranded beneath it. */
     // ===== Boxy PRESENTATION / FOCUS / WORKSPACE row — under the metrics, above the grid =====
     h+='<div class="fx-fbar fx-fbar-pres"><div class="fx-fbar-grp">'+dRows+expIcons+dCols+dViewNew+'</div>'
       +'<div class="fx-fbar-div"></div><div class="fx-fbar-grp">'+dInsights+dFilter+'</div>'
       +'<div class="fxr-sp"></div>'+(dActions?'<div class="fx-fbar-acts">'+dActions+'</div>':'')
       +'<div class="fx-fbar-grp">'+dMyViews+dShare+'</div></div>';
+    h+=_wl;   /* worklist sits under the control row it is governed by (hidden in Statement mode) */
     // grid
     var extraCols=1;  // single compact Review column — the panel owns comments / evidence / workflow
     var minW=236+nColShow*(colByPeriod?98:118)+106+(fluxShowSplit?96+88:0)+74+300;
@@ -8550,7 +9138,35 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-tb-tab'),function(b){b.onclick=function(){fluxStmt=b.getAttribute('data-flx');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cn-crumb, #view .fx-cn-kid'),function(b){if(b.classList.contains('cur'))return;b.onclick=function(){var n=nodeFromKey(this.getAttribute('data-cnode'));if(n)fluxSetNode(n);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-cgo]'),function(b){b.onclick=function(){rpCanvasBack(this.getAttribute('data-cgo'));};});
-    var rsub=document.querySelector('#view .rpc-submit'); if(rsub)rsub.onclick=function(){if(fxLockGuard())return;if(permGuard('prepare','Only a preparer can submit a review for approval.'))return;var _op=fxDiscOpenTotal();if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}rpToast('Submitted '+(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review')+' for review — routed to the reviewer.');};
+    /* Submit is a control, not a button. It refuses when the package is not signable, and the one
+       thing it will let you past — unexplained material lines — costs you a named exception on the
+       audit trail. A tie-out failure is never overridable: the numbers themselves are wrong. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rpc-submit'),function(rsub){
+      rsub.onclick=function(){
+      if(fxLockGuard())return;
+      if(permGuard('prepare','Only a preparer can submit a review for approval.'))return;
+      var _op=fxDiscOpenTotal();
+      if(_op){rpToast('Cannot submit — '+_op+' open review comment'+(_op>1?'s':'')+' must be resolved first.');return;}
+      var _t=fxTieOut();
+      if(_t.blocks){rpToast('Cannot submit — the general ledger does not tie to the trial balance ('+_t.n+' reconciling item'+(_t.n===1?'':'s')+', '+fxAbbr$(_t.amt)+', at or above the '+fxAbbr$(_t.floor)+' floor). Resolve the tie-out first.');return;}
+      var nm=(RP_OPEN_REVIEW?RP_OPEN_REVIEW.name:'review');
+      if(FX_READY.need&&!FX_SUBMIT_OVERRIDE){
+        FX_SUBMIT_OVERRIDE=true; renderMonthlyTrend();
+        rpToast(FX_READY.need+' material line'+(FX_READY.need===1?'':'s')+' still without an accepted explanation — confirm below to submit with an exception.');
+        return;
+      }
+      if(FX_READY.need){
+        /* fid ties the entry to the review's folder — an audit entry no surface renders is not an
+           audit trail, and rpFolderAudit filters on exactly this. */
+        rpAudit('Submitted with exception',nm,FX_READY.need+' material line'+(FX_READY.need===1?'':'s')+' unexplained; coverage '+FX_READY.cov+'% of movement, '+fxAbbr$(FX_READY.resid)+' unexplained against a '+fxAbbr$(FX_READY.floor)+' floor',true,(RP_OPEN_REVIEW&&RP_OPEN_REVIEW.folder)||null);
+        rpToast('Submitted '+nm+' with a documented exception — recorded on the audit trail.');
+      } else {
+        rpAudit('Submitted for review',nm,'Coverage '+FX_READY.cov+'% of movement; no unexplained material lines',false,(RP_OPEN_REVIEW&&RP_OPEN_REVIEW.folder)||null);
+        rpToast('Submitted '+nm+' for review — routed to the reviewer.');
+      }
+      FX_SUBMIT_OVERRIDE=false; renderMonthlyTrend();
+    };});
+    var _sox=document.querySelector('#view .fx-ovr-no'); if(_sox)_sox.onclick=function(){FX_SUBMIT_OVERRIDE=false;renderMonthlyTrend();};
     var _rop=document.querySelector('#view .fx-reopen'); if(_rop)_rop.onclick=function(){if(!navCanReopen()){rpToast('Not authorized — only a Controller or Administrator can reopen a period.');return;}fxReopenAsk=true;renderMonthlyTrend();};
     var _ropY=document.querySelector('#view .fx-reopen-yes'); if(_ropY)_ropY.onclick=function(){fxReopenPeriod();};
     var _ropN=document.querySelector('#view .fx-reopen-no'); if(_ropN)_ropN.onclick=function(){fxReopenAsk=false;renderMonthlyTrend();};
@@ -8562,6 +9178,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=function(){fxvForm={name:'',scope:'personal'};renderMonthlyTrend();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-mat'),function(b){b.onclick=function(){var mv=parseFloat(this.getAttribute('data-mat'));if(mv>0){fluxMat=mv;renderMonthlyTrend();}};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matfl'),function(b){b.onclick=function(){var v=parseFloat(this.getAttribute('data-matfl'));if(v>0){matPolicy().pct=v;renderMonthlyTrend();}};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matbs'),function(b){b.onclick=function(){matPolicy().basis=this.getAttribute('data-matbs');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-status'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rc-dispopt'),function(b){b.onclick=function(){rcSetDisplay(this.getAttribute('data-disp'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-comments'),function(b){b.onclick=function(){fluxShowComments=!fluxShowComments;renderMonthlyTrend();};});
@@ -8660,6 +9278,10 @@
       });
       document.addEventListener('keydown',function(e){ if(e.key==='Escape')Array.prototype.forEach.call(document.querySelectorAll('.fx-fbar .fxm[open]'),function(o){o.open=false;}); });
     }
+    /* Worklist ⇄ Statement, and the worklist's own rows open the same inspector the grid opens. */
+    document.body.classList.toggle('fx-work',FX_MODE==='work');
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxmode]'),function(b){b.onclick=function(){fxSetMode(this.getAttribute('data-fxmode'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-wsel]'),function(b){b.onclick=function(){fluxInspOpen('det',this.getAttribute('data-wsel'));};});
     /* Queue pager — Previous / Next, and the position label jumps within the same queue. */
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-pgo]'),function(b){
       b.onclick=function(e){e.stopPropagation();var id=this.getAttribute('data-pgo');if(id)rpOpenReview(id);};});
@@ -9040,7 +9662,11 @@
     var sp=signoffProgress(m,'close'), cp=CONTROLS.filter(function(c){return ctlStatus(c,m)==='performed';}).length, openN=openNotesCount(m);
     var wd=p.close?p.close.match(/Day (\d+) of (\d+)/):null;
     var h='<div class="kv-hd"><div><div class="k">Monthly close &middot; '+p.label+'</div><h1>Dashboard</h1><div class="kv-sub">The command center for this month&rsquo;s close. Work top to bottom &mdash; load data, map accounts, tie out, review, then lock.</div></div><div class="per-hd-r">'+rpStPill(p.status)+(p.locked?'<span class="per-lock">Locked '+p.lockedOn+'</span>':(p.close?'<span class="per-lock">'+p.close+' &middot; target '+p.target+'</span>':''))+'</div></div>';
-    h+=kpiStrip([{label:'Close progress',value:pct+'%',sub:doneN+' of '+steps.length+' steps'},{label:'Working day',value:(p.locked?'Locked':(wd?'Day '+wd[1]:'&mdash;')),sub:(p.locked?p.lockedOn:(wd?'of '+wd[2]+' working days':''))},{label:'Open items',value:String(exc+newAcc+openN),sub:'reconciling &middot; unmapped &middot; notes',tone:(exc+newAcc+openN)?'warn':'pos'},{label:'Sign-offs',value:sp.done+' / '+sp.total,sub:'close certification',tone:sp.done<sp.total?'warn':'pos'},{label:'Controls',value:cp+' / '+CONTROLS.length,sub:'performed',tone:cp<CONTROLS.length?'warn':'pos'}]);
+    /* Two different things, now named as two different things: the close's completion (reviews
+       signed off — the one number, shared with Home and Flux Overview) and this month's checklist. */
+    var _cpv=closeProgress();
+    h+=kpiStrip([{label:'Close progress',value:_cpv.pct+'%',sub:_cpv.done+' of '+_cpv.total+' reviews signed off'},
+      {label:'Close checklist',value:doneN+' / '+steps.length,sub:'steps complete',tone:doneN<steps.length?'warn':'pos'},{label:'Working day',value:(p.locked?'Locked':(wd?'Day '+wd[1]:'&mdash;')),sub:(p.locked?p.lockedOn:(wd?'of '+wd[2]+' working days':''))},{label:'Open items',value:String(exc+newAcc+openN),sub:'reconciling &middot; unmapped &middot; notes',tone:(exc+newAcc+openN)?'warn':'pos'},{label:'Sign-offs',value:sp.done+' / '+sp.total,sub:'close certification',tone:sp.done<sp.total?'warn':'pos'},{label:'Controls',value:cp+' / '+CONTROLS.length,sub:'performed',tone:cp<CONTROLS.length?'warn':'pos'}]);
     h+='<div class="per-tie '+(exc?'ex':'ok')+'"><span>'+(exc?('<b>'+exc+' reconciling item'+(exc>1?'s':'')+'</b> between the GL and trial balance this period.'):'<b>GL ties to the trial balance</b> for this period.')+'</span><a data-go="repo-ledger">Open Trial Balance &rarr;</a></div>';
     h+='<div class="sec-h" style="margin-bottom:12px"><h2>Close checklist</h2><span class="note">everything the month needs before it can lock</span></div>';
     h+='<div class="pfx">'+steps.map(function(s){return '<div class="pfrow" data-go="'+s[3]+'"><span class="pf-ic">'+rpMark(s[2])+'</span><span class="pf-nm">'+s[0]+'</span><span class="pf-sub">'+s[1]+'</span><span class="pf-arw">&rarr;</span></div>';}).join('')+'</div>';
