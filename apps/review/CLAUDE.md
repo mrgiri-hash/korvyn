@@ -60,14 +60,30 @@ stubs naming their real engine — never mocked numbers.
   every screen — that is the whole point, so never scope it to one surface, and never let a screen
   grow its own pager beside it. It stays chrome-quiet: no accent colour, no badge, and it hides
   entirely when you have no assigned reviews.
-- **Lead with the work, not the instrument.** The flux review opens on the **Worklist**
-  (`FX_MODE='work'`): the material lines still needing an explanation or evidence, ranked largest
-  first, with a visible finish line (`n of m cleared`). The statement grid is one click away and
-  keeps every capability — it is a *mode*, not the front door. Worklist mode also hides the seven
-  presentation controls plus Review and Basis, leaving four: **Period · Statement · Entity ·
-  Filter** (Filter stays because it owns the materiality standard the worklist is defined by).
-  Before this, a reviewer met 12 controls and 37 rows to reach the 1 line that needed a decision.
-  Don't reintroduce configuration ahead of the work.
+- **The reviews rail is: My workspace · Reviews · Organization · Pinned reviews · Recent.**
+  Statement selection lives in **Reviews** (`NAV_STATEMENTS`) because which statement you are
+  reviewing is *where you are*, not a filter — the toolbar dropdown mirrors the same `fluxStmt`, so
+  the two cannot disagree. **Organization** turned the old "Organize by" dropdown into the section's
+  own items (`ORG_GROUPBYS` → Entities / Regions / Business units / Currencies / Countries); the
+  tree below regroups on the dimension you pick. Funds and Projects from the mock are not
+  dimensions the entity master carries — don't invent them.
+- **One filter row: essentials up front, everything else inside.** Search · Period · Statement ·
+  Entity · **Material only** · **Filters (n)**, with Columns and density on the right (hidden in
+  worklist mode). Basis, Rows, Insights and the materiality standard live inside the Filters panel,
+  which shows a live count of non-default filters and a **Reset all**. Filters apply live, so the
+  panel deliberately has no Apply button — a staged Apply over controls that already update
+  instantly is a button that does nothing. My Views and Share sit beside the title, not in the row.
+- **The statement grid is the single flux view.** A ranked "worklist" mode was built and then
+  removed at the owner's direction (2026-08-07) — don't reintroduce a second mode or a
+  Worklist/Statement toggle. The signal it carried lives in the metrics strip and the coverage bar.
+- **The toolbar is one box** (`.fx-fbar-ctx`): search · period · entity · **Filters (n)** · My Views ·
+  Share · Columns · View. Nothing floats outside it — My Views and Share sat in the titlebar and had
+  to move in. The titlebar keeps only title, status, star and Submit.
+- **Every menu in the view shares one behaviour.** The open/close wiring is scoped to `#view .fxm`,
+  NOT to `.fx-fbar .fxm`. When it was bar-scoped, titlebar menus escaped it and needed a double
+  click to dismiss a rival menu. Opening one closes the others, hovering another switches to it,
+  Escape and outside-click close, and leaving with the cursor closes after a ~340ms grace period
+  (long enough to survive a diagonal path to an option).
 - **The period directory is an archive, not an entrance.** Flux Overview leads with the current
   close; the 235 prior periods sit behind the **All periods** disclosure (`RP_ARCHIVE_OPEN`).
 - **Materiality is a stated standard, not a constant.** A line is material only when it breaches

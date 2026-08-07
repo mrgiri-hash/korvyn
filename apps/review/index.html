@@ -1997,44 +1997,51 @@
   .lbl,.fxr-lbl,thead th{letter-spacing:.04em}
   .fx-back{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--muted);cursor:pointer}
   .fx-back:hover{color:var(--ink);border-color:var(--faint)}
-  /* ===== Worklist mode ==========================================================================
-     In worklist mode the instrument gets out of the way: the grid, the 7 presentation controls and
-     the two context controls a worklist makes redundant (Review, Basis) are all hidden. Four
-     controls remain — Period, Statement, Entity, Filter — against twelve before. */
-  .fx-modesw{display:inline-flex;border:1px solid var(--line-2);border-radius:2px;overflow:hidden;margin-right:10px}
-  .fx-modeb{border:0;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--muted);padding:5px 12px;cursor:pointer}
-  .fx-modeb+.fx-modeb{border-left:1px solid var(--line-2)}
-  .fx-modeb:hover{color:var(--ink)}
-  .fx-modeb.on{background:var(--ink-900,var(--ink));color:#fff;font-weight:600}
-  body.fx-work .fx-gridwrap{display:none}
-  /* Filter survives — it owns the materiality standard, which the worklist is defined by. The rest
-     of the presentation row is about arranging a grid that is not on screen. */
-  body.fx-work .fx-fbar-pres>.fx-fbar-grp:first-of-type,
-  body.fx-work .fx-fbar-pres .fx-fbar-div,
-  body.fx-work .fx-fbar-pres [data-fxmenu="insights"],
-  body.fx-work .fx-fbar-pres [data-fxmenu="myviews"],
-  body.fx-work .fx-fbar-pres [data-fxmenu="share"]{display:none}
-  body.fx-work .fx-fbar-ctx .fxm-review,body.fx-work .fx-fbar-ctx .fxm-basis{display:none}
-  body:not(.fx-work) .fx-worklist{display:none}
-  .fx-worklist{border:1px solid var(--line);border-radius:2px;background:var(--surface);overflow:hidden}
-  .fxw-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:13px 15px;border-bottom:1px solid var(--line)}
-  .fxw-h1{font-size:var(--fs-16,16px);font-weight:600;color:var(--ink)}
-  .fxw-hsub{font-size:var(--fs-12);color:var(--muted)}
-  .fxw-prog{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--faint)}
-  .fxw-grp{padding:9px 15px 5px;font-size:var(--fs-11,11px);text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--muted);background:var(--surface-2);border-top:1px solid var(--line)}
-  .fxw-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 15px;border:0;border-top:1px solid var(--line);background:none;font:inherit;text-align:left;cursor:pointer}
-  .fxw-item:hover{background:var(--surface-2)}
-  .fxw-item:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
-  .fxw-nm{flex:1 1 auto;min-width:0;font-size:var(--fs-13);font-weight:500;color:var(--ink)}
-  .fxw-sub{display:block;font-family:var(--mono);font-size:var(--fs-11,11px);font-weight:400;color:var(--faint);margin-top:2px}
-  .fxw-d{flex:0 0 auto;min-width:86px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600}
-  .fxw-d.up{color:var(--pos)} .fxw-d.dn{color:var(--neg)}
-  .fxw-pct{flex:0 0 auto;min-width:62px;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--faint)}
-  .fxw-chip{flex:0 0 auto;min-width:132px;font-size:var(--fs-11,11px);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  .fxw-chip.need{color:var(--warn)} .fxw-chip.evid{color:var(--warn)} .fxw-chip.done{color:var(--pos)}
-  .fxw-go{flex:0 0 auto;font-size:var(--fs-12);color:var(--muted)}
-  .fxw-item:hover .fxw-go{color:var(--ink)}
-  .fxw-empty{padding:22px 15px;font-size:var(--fs-13);color:var(--muted)}
+  /* Quick chip — the one filter reached for constantly, promoted out of the panel */
+  .fx-qchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+  .fx-qchip:hover{border-color:var(--faint);color:var(--ink)}
+  .fx-qchip .fx-qdot{width:7px;height:7px;border-radius:1px;transform:rotate(45deg);background:var(--faint)}
+  .fx-qchip.on{border-color:var(--warn);color:var(--ink);font-weight:600}
+  .fx-qchip.on .fx-qdot{background:var(--warn)}
+  /* ===== The filter box ========================================================================
+     A panel, not a dropdown list: groups sit side by side in priority order so the comparison
+     basis is never buried below a tall materiality block. */
+  /* One big panel: all four groups visible at once, side by side, no scrolling to find a filter.
+     Clamped to the viewport so it can never run off the right edge on a narrow window. */
+  /* Anchored to the toolbar ROW, not to the Filters button. Anchored to the button it opened at
+     the button's left edge and ran off the right of the window; spanning the row makes it as wide
+     as the content column and impossible to overflow, whatever the button's position. */
+  /* The toolbar is a BOX — one bordered surface holding every control, instead of buttons floating
+     loose on the page. Both rows live in the same element (it wraps), so the box contains them. */
+  .fx-fbar-ctx{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:2px;padding:9px 12px;row-gap:8px}
+  .fx-fbar .fxm[data-fxmenu="filters"]{position:static}
+  .fx-filtbox{position:absolute;top:calc(100% + 4px);left:0;right:0;width:auto;min-width:0;max-width:none;padding:0;max-height:min(78vh,660px);overflow:auto}
+  .fxfb-hd{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:2}
+  .fxfb-t{font-weight:600;color:var(--ink);font-size:var(--fs-15,15px)}
+  .fxfb-n{font-family:var(--mono);font-size:var(--fs-12);color:var(--faint)}
+  .fxfb-reset{border:1px solid var(--line-2);background:var(--surface);border-radius:2px;font:inherit;font-size:var(--fs-12);color:var(--muted);padding:6px 14px;cursor:pointer}
+  .fxfb-reset:hover{color:var(--ink);border-color:var(--faint)}
+  .fxfb-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .fxfb-s{padding:16px 20px;border-right:1px solid var(--line);min-width:0}
+  .fxfb-s:last-child{border-right:0}
+  .fxfb-h{margin:0 0 10px;font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--ink-2)}
+  .fxfb-h2{margin-top:20px}
+  .fxfb-s .fxm-opt{padding-left:0;padding-right:0}
+  .fxfb-s .fxm-h{padding-left:0;margin-top:12px}
+  .fxfb-s .fxm-note2{padding-left:0;padding-right:0}
+  .fxfb-s .fxm-sep{margin:12px 0}
+  /* segmented control — one axis, mutually exclusive */
+  .fxfb-seg{display:inline-flex;border:1px solid var(--line-2);border-radius:2px;overflow:hidden;flex-wrap:wrap}
+  .fxfb-segb{border:0;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--muted);padding:5px 13px;cursor:pointer;white-space:nowrap}
+  .fxfb-segb+.fxfb-segb{border-left:1px solid var(--line-2)}
+  .fxfb-segb:hover{color:var(--ink)}
+  .fxfb-segb.on{background:var(--ink);color:#fff;font-weight:600}
+  .fxfb-scroll{max-height:300px;overflow:auto;margin-bottom:8px}
+  @media (max-width:1180px){.fxfb-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fxfb-s:nth-child(2n){border-right:0}.fxfb-s{border-bottom:1px solid var(--line)}}
+  @media (max-width:720px){.fxfb-grid{grid-template-columns:1fr}.fxfb-s{border-right:0}}
+  .fx-filters-sum{display:inline-flex;align-items:center}
+  .fx-fcount{margin-left:6px;min-width:17px;height:17px;padding:0 4px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:10px;font-variant-numeric:tabular-nums}
+  .fx-fbar-acts-row{border:0;background:none;padding-left:0;padding-right:0}
   /* Tie-out assertion — teal when the ledger agrees, red when it does not (an exception, not a warning) */
   .fx-tie{display:flex;align-items:center;gap:8px;padding:7px 12px;margin:0 0 8px;border:1px solid var(--line);border-left:3px solid var(--pos);border-radius:2px;background:var(--surface);font-size:var(--fs-12);color:var(--ink-2)}
   .fx-tie.bad{border-left-color:var(--neg);background:var(--surface-2)}
@@ -2055,7 +2062,9 @@
   .fx-cov-sep{width:1px;height:14px;background:var(--line-2);margin:0 4px}
   .fx-cov-std{color:var(--faint);font-family:var(--mono);white-space:nowrap}
   /* ---- work spine: the one piece of chrome that follows you, so it stays quiet ---- */
-  .spine{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--line)}
+  /* Sticks BELOW the chrome, never over it: .ribbon is 52px (z-30) and .topnav 42px (z-29), so the
+     spine parks at 94px — the same offset the left rail uses — and sits under both in the stack. */
+  .spine{position:sticky;top:94px;z-index:27;background:var(--surface);border-bottom:1px solid var(--line)}
   .spine-in{display:flex;align-items:center;gap:10px;padding:7px 26px;max-width:none}
   .spine-k{font-size:var(--fs-11,11px);text-transform:uppercase;letter-spacing:.06em;font-weight:600;color:var(--faint);white-space:nowrap}
   .spine-cur{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:38vw;padding:4px 8px;border:0;border-radius:2px;background:transparent;font:inherit;font-size:var(--fs-13);color:var(--ink);cursor:pointer}
@@ -3133,7 +3142,7 @@
   var NAV_SECTIONS=[
     {id:'home',label:'Home',icon:'home',route:'home'},
     {id:'close',label:'Close',icon:'cal',kids:[['close-dash','Close Overview','periods'],['ph-tasks','Tasks & Checklist'],['ph-approvals','Approvals'],['ph-completion','Completion Status'],['ph-je','Journal Entries']]},
-    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Flux Overview','periods'],['my','My Reviews'],['all','All Reviews'],['trending','Trending Analysis'],['variance','Variance Analysis'],['ph-scenario','Scenario Analysis']]},
+    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Flux Overview','periods'],['my','My Reviews'],['all','All Reviews'],['trending','Trending Analysis'],['variance','Variance Analysis'],['ph-execdash','Executive Dashboard'],['ph-scenario','Scenario Analysis']]},
     {id:'gl',label:'General Ledger',icon:'up',kids:[['repo-upload','Financial Data'],['repo-ledger','Trial Balance','periods'],['repo-coa','Chart of Accounts'],['txn-meta','Transaction Metadata'],['ph-jexplorer','Journal Explorer'],['ph-reclass','Reclassifications']]},
     {id:'recon',label:'Reconciliations',icon:'recon',kids:[['recon-bs','Balance Sheet'],['recon-acct','Account Reconciliations'],['ph-recdash','Rec Dashboard'],['ph-unrec','Unreconciled Items']]},
     {id:'reporting',label:'Reporting',icon:'stmt',kids:[['frlib','Review Library'],['frtpl','Templates'],['frmap','Mappings & Definitions'],['ph-finstmt','Financial Statements'],['ph-mgmt','Management Reports'],['ph-board','Board Package']]},
@@ -3527,10 +3536,22 @@
       {id:'m-exc',label:'Exceptions',kind:'route',target:'ph-exceptions',icon:'scale',visible:true,roles:['*'],builtin:true},
       {id:'m-act',label:'Recent activity',kind:'route',target:'activity',icon:'hist',visible:true,roles:['*'],builtin:true}
     ]},
-    {id:'workspace',label:'Workspace',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
+    {id:'workspace',label:'My workspace',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
       {id:'overview',label:'Overview',kind:'route',target:'frov',icon:'grid',visible:true,roles:['*'],builtin:true},
-      {id:'myreviews',label:'My reviews',kind:'route',target:'my',icon:'doc',visible:true,roles:['*'],builtin:true},
-      {id:'allreviews',label:'All reviews',kind:'route',target:'all',icon:'stack',visible:true,roles:['*'],builtin:true}
+      {id:'myreviews',label:'My queue',kind:'route',target:'my',icon:'doc',visible:true,roles:['*'],builtin:true},
+      {id:'allreviews',label:'Team queue',kind:'route',target:'all',icon:'stack',visible:true,roles:['*'],builtin:true},
+      {id:'execdash',label:'Executive dashboard',kind:'route',target:'ph-execdash',icon:'trend',visible:true,roles:['*'],builtin:true}
+    ]},
+    /* Statement selection as NAVIGATION rather than a dropdown — you are not filtering a thing,
+       you are choosing which statement you are reviewing. */
+    {id:'rstatements',label:'Reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'statements',items:[]},
+    /* Analysis has to reach INSIDE a review, not only from Flux Overview. The rail swaps to this
+       navigator the moment a review opens, so a section that exists only on the overview
+       disappears exactly when a reviewer wants to ask "is this line always like this?". */
+    {id:'ranalysis',label:'Analysis',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
+      {id:'r-trend',label:'Trending analysis',kind:'route',target:'trending',icon:'trend',visible:true,roles:['*'],builtin:true},
+      {id:'r-var',label:'Variance analysis',kind:'route',target:'variance',icon:'scale',visible:true,roles:['*'],builtin:true},
+      {id:'r-scen',label:'Scenario analysis',kind:'route',target:'ph-scenario',icon:'stmt',visible:true,roles:['*'],builtin:true}
     ]},
     {id:'organization',label:'Organization',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'orgtree',items:[]},
     {id:'pinned',label:'Pinned reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'pinned',items:[]},
@@ -3551,6 +3572,23 @@
       NAV_CFG.sections.splice(Math.min(i,NAV_CFG.sections.length),0,d); added++; });
     NAV_CFG.sections.forEach(function(s){ if(s.rail)return; var d=null;
       def.forEach(function(x){if(x.id===s.id)d=x;}); s.rail=(d&&d.rail)||'reviews'; });
+    /* Same rule one level down: a builtin ITEM added to an existing builtin section would never
+       reach anyone with a saved config. Track offered item ids the same way. */
+    var iseen=null; try{var s2=localStorage.getItem('korvyn.navcfg.items.v1');if(s2)iseen=JSON.parse(s2);}catch(e){}
+    if(!Array.isArray(iseen))iseen=[];
+    var allIds=[];
+    def.forEach(function(d){ (d.items||[]).forEach(function(it){ allIds.push(d.id+'/'+it.id); }); });
+    def.forEach(function(d){
+      var cur=null; NAV_CFG.sections.forEach(function(s){if(s.id===d.id)cur=s;});
+      if(!cur||!cur.builtin)return; cur.items=cur.items||[];
+      (d.items||[]).forEach(function(it,i){
+        var key=d.id+'/'+it.id;
+        if(iseen.indexOf(key)>=0)return;
+        if(cur.items.some(function(x){return x.id===it.id;}))return;
+        cur.items.splice(Math.min(i,cur.items.length),0,it); added++;
+      });
+    });
+    try{localStorage.setItem('korvyn.navcfg.items.v1',JSON.stringify(allIds));}catch(e){}
     try{localStorage.setItem('korvyn.navcfg.seen.v1',JSON.stringify(def.map(function(d){return d.id;})));}catch(e){}
     if(added)navCfgSave();
   })();
@@ -3738,6 +3776,41 @@
   function navSecToggle(id){NAV_SEC_COL[id]=!NAV_SEC_COL[id];navSecColSave();renderReviewsNav();}
   function navSecGroup(sec){return sec.group||((sec.special==='orgtree'||sec.special==='recent')?'Browse':'');}
   function navSecTw(id){return '<span class="ct-tw nh-tw'+(navSecCollapsed(id)?'':' open')+'" data-navsec="'+esc(id)+'">'+rpIcon('chev')+'</span>';}
+  /* ---- Reviews rail: statements as navigation -------------------------------------------------
+     Which statement you are reviewing is not a filter — it is where you are. Putting it in the rail
+     (rather than only in a toolbar dropdown) makes the current statement legible at a glance and
+     takes a control out of the filter row. Cash Flow and KPI reviews are honest roadmap items. */
+  var NAV_STATEMENTS=[
+    {id:'bs',label:'Balance Sheet',icon:'stmt',live:true},
+    {id:'is',label:'Income Statement',icon:'stmt',live:true},
+    {id:'cf',label:'Cash Flow',icon:'stmt',live:false},
+    {id:'kpi',label:'KPI Reviews',icon:'trend',live:false}
+  ];
+  function navStatementsHTML(){
+    var inFlux=(activeNav==='mtrend');
+    var h='';
+    NAV_STATEMENTS.forEach(function(s){
+      if(!s.live){ h+='<div class="nitem nitem-planned" title="'+esc(s.label)+' &mdash; on the roadmap, not built yet">'+navIcon(s.icon)+'<span>'+esc(s.label)+'</span></div>'; return; }
+      var on=inFlux&&fluxStmt===s.id;
+      h+='<div class="nitem'+(on?' on':'')+'" data-navstmt="'+s.id+'">'+navIcon(s.icon)+'<span>'+esc(s.label)+'</span></div>';
+    });
+    h+='<div class="nitem" data-navcustom="1" title="Build a review over your own selection of sections and categories">'+navIcon('tpl')+'<span>Custom views</span></div>';
+    return h;
+  }
+  function navGoStatement(id){ fluxStmt=id; if(typeof fluxSecCollapse!=='undefined')fluxSecCollapse={};
+    if(typeof fluxExpandScoped==='function')fluxExpandScoped(); navTo('mtrend'); }
+  /* ---- Reviews rail: organization dimensions --------------------------------------------------
+     The "Organize by" dropdown became the section itself: pick the dimension you think in, and the
+     tree below it regroups. Same ORG_GROUPBYS the entity dropdown reads, so the two cannot differ.
+     Funds and Projects from the mock are not dimensions the entity master carries — the real ones
+     are structure, region, business unit, currency and country. */
+  var NAV_ORG_LABELS={structure:'Entities',rgn:'Regions',bu:'Business units',ccy:'Currencies',country:'Countries'};
+  function navOrgDimsHTML(){
+    return ORG_GROUPBYS.map(function(o){
+      var on=(RP_ORG_GROUPBY===o.id);
+      return '<div class="nitem'+(on?' on':'')+'" data-navorgdim="'+esc(o.id)+'">'+navIcon(o.id==='structure'?'folder':o.id==='rgn'?'tag':o.id==='bu'?'columns':o.id==='ccy'?'scale':'grid')+'<span>'+esc(NAV_ORG_LABELS[o.id]||o.label)+'</span></div>';
+    }).join('');
+  }
   function navPinnedHTML(){
     var items=favVisible('flux');
     if(!items.length)return '<div class="rp-ws-empty">Star a review, an entity, a grouping or the view you are on to pin it here. Pinned <b>pages</b> live in the Favourites menu on the top bar instead.</div>';
@@ -3764,16 +3837,19 @@
     var _grpDone={};
     function grpHead(g){ if(!g||_grpDone[g])return ''; _grpDone[g]=1; return '<div class="nh nh-grp">'+esc(g)+'</div>'; }
     navCfgSections(role,'reviews').forEach(function(sec){
-      if(sec.special==='orgtree'){ h+='<div class="nh fld-hd org-hd"><span>Favorites</span><button class="org-gb" id="favMgrBtn" title="Manage favourites">Manage</button></div>'+navPinnedHTML()+grpHead(navSecGroup(sec))+orgSectionHTML(sec.label,sec.id); return; }
-      if(sec.special==='pinned'){ return; }   /* Favorites now renders at the top of the nav */
-      if(sec.special==='recent'){ h+=grpHead(navSecGroup(sec))+'<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':navRecentHTML()); return; }
+      if(sec.special==='statements'){ h+='<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':navStatementsHTML()); return; }
+      if(sec.special==='orgtree'){ h+='<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':(navOrgDimsHTML()+orgTreeBodyHTML())); return; }
+      if(sec.special==='pinned'){ h+='<div class="nh fld-hd org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span><button class="org-gb" id="favMgrBtn" title="Manage favourites">Manage</button></div>'+(navSecCollapsed(sec.id)?'':navPinnedHTML()); return; }
+      if(sec.special==='recent'){ h+='<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':navRecentHTML()); return; }
       var items=navCfgItems(sec,role);
       if(!items.length&&!sec.builtin)return;   /* hide an empty custom section */
       h+='<div class="nh">'+esc(sec.label)+'</div>';
       items.forEach(function(it){
         if(it.kind==='review'){ h+='<div class="nitem" data-navreview="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span></div>'; }
         else if(it.kind==='url'){ h+='<div class="nitem" data-navurl="'+esc(it.target)+'">'+navIcon(it.icon||'link')+'<span>'+esc(it.label)+'</span></div>'; }
-        else { var badge=(it.target==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':''; h+='<div class="nitem'+(activeNav===it.target?' on':'')+'" data-nav="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span>'+badge+'</div>'; }
+        else { var badge=(it.target==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
+          var pl=(typeof navIsPlanned==='function')&&navIsPlanned(it.target);   /* roadmap items read as roadmap here too */
+          h+='<div class="nitem'+(activeNav===it.target?' on':'')+(pl?' nitem-planned':'')+'" data-nav="'+esc(it.target)+'"'+(pl?' title="'+esc(it.label)+' — on the roadmap, not built yet"':'')+'>'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span>'+badge+'</div>'; }
       });
     });
     if(can('adminNav'))h+='<div class="nav-foot"><button class="nav-gear" id="navGearBtn" title="Customize navigation"><span class="nav-gear-ic">'+navIcon('gear')+'</span><span class="nav-gear-lbl">Customize navigation</span></button></div>';
@@ -3785,6 +3861,9 @@
     Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-nav]'),function(el){el.onclick=function(){navTo(this.getAttribute('data-nav'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navreview]'),function(el){el.onclick=function(){if(typeof rpOpenReview==='function')rpOpenReview(this.getAttribute('data-navreview'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navurl]'),function(el){el.onclick=function(){var u=this.getAttribute('data-navurl');try{window.open(u,'_blank');}catch(e){if(typeof rpToast==='function')rpToast('Would open '+u);}};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navstmt]'),function(el){el.onclick=function(){navGoStatement(this.getAttribute('data-navstmt'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navorgdim]'),function(el){el.onclick=function(){orgSetGroupBy(this.getAttribute('data-navorgdim'));};});
+    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navcustom]'),function(el){el.onclick=function(){if(typeof rvbOpen==='function')rvbOpen(null);};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-tw[data-ctw]'),function(el){el.onclick=function(e){e.stopPropagation();ctToggle(this.getAttribute('data-ctw'));};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-row[data-consnode],.pk-row[data-consnode]'),function(el){el.onclick=function(e){if(e.target.closest('.ct-tw'))return;ctScope(this.getAttribute('data-consnode'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ctScope(this.getAttribute('data-consnode'));}};});
     Array.prototype.forEach.call($('#nav').querySelectorAll('.nh-tw[data-navsec]'),function(el){
@@ -6166,15 +6245,7 @@
      can never disagree with the numbers the reviewer is looking at. */
   var FX_READY={mat:0,need:0,noevid:0,cov:100,resid:0,floor:0};
   var FX_SUBMIT_OVERRIDE=false;   /* armed only by a first blocked submit; cleared on send or cancel */
-  /* ===== Worklist vs Statement ==================================================================
-     A flux review has one job: explain the movements that matter and prove it. The statement grid
-     is the instrument for that job, and it was also the front door — so a reviewer met 12 controls
-     and 37 rows to reach the 1 line that actually needed a decision. Landing on the WORK instead of
-     the instrument is the whole change: the worklist is the decisions, ranked, with a visible end.
-     The grid keeps every capability it had; it is now one click away rather than compulsory. */
-  var FX_MODE='work';
-  try{var _fm0=localStorage.getItem('korvyn.flux.mode.v1'); if(_fm0==='work'||_fm0==='statement')FX_MODE=_fm0;}catch(e){}
-  function fxSetMode(m){FX_MODE=m;try{localStorage.setItem('korvyn.flux.mode.v1',m);}catch(e){}renderMonthlyTrend();}
+  var FX_FILT_ICO='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>';
   function fluxCmtCell(stmt,key,m,material){
     var id=key+':'+m, cm=FLUX_COMMENTS[id];
     if(cm){var chip=cm.ai?'<span class="fx-chip ai"><span class="fx-spk">&#10022;</span>Korvyn draft</span>':'<span class="fx-chip ok">&#10003; '+esc(cm.by||'Reviewer')+'</span>';return '<td class="l fx-cmt"><div class="fx-cmt-box" data-edit="'+id+'">'+chip+'<div class="fx-cmt-tx">'+esc(cm.text)+'</div></div></td>';}
@@ -6388,6 +6459,14 @@
     var h='<div class="ct-row'+(sel?' on':'')+'" data-orgset="'+esc(gid)+'" role="button" tabindex="0" title="'+st.ready+' of '+st.total+' entities ready" style="padding-left:6px"><span class="ct-tw'+(open?' open':'')+'" data-orgtw="'+esc(gid)+'">'+rpIcon('chev')+'</span><span class="ct-nm">'+esc(g.label)+'</span><span class="ct-bar"><i style="width:'+pct+'%"></i></span>'+(st.exc>0?'<span class="ct-exc" title="'+st.exc+' need attention">'+st.exc+'</span>':'')+foldAddBtn(gid)+'</div>'+foldMenuHTML(gid);
     if(open){g.ents.slice().sort(function(a,b){return (ENT_BY_ID[a].name||'').localeCompare(ENT_BY_ID[b].name||'');}).forEach(function(eid){h+=orgEntRow(eid,1);});}
     return h;}
+  /* the tree body alone — the dimension picker that used to be a dropdown in this header is now
+     the Organization section's own items, so the header keeps only its twisty. */
+  function orgTreeBodyHTML(){
+    var h='';
+    if(RP_ORG_GROUPBY==='structure'){h+=rpConsTree(CONS_BY_ID.MGP,0);}
+    else{orgGroups().forEach(function(g){h+=orgGroupRow(g,RP_ORG_GROUPBY+':'+g.key);});}
+    return h;
+  }
   function orgSectionHTML(label,secId){var menu='';
     var _col=secId?navSecCollapsed(secId):false;
     if(RP_ORG_MENU&&!_col){menu='<div class="org-menu">'+ORG_GROUPBYS.map(function(o){return '<button class="org-mi'+(o.id===RP_ORG_GROUPBY?' on':'')+'" data-orggb="'+o.id+'">'+esc(o.label)+(o.id===RP_ORG_GROUPBY?'<span class="org-ck">&#10003;</span>':'')+'</button>';}).join('')+'</div>';}
@@ -8830,11 +8909,7 @@
     // ----- context path: Scope › Period › Review (so the reporting period is always visible) -----
     var _crScope=fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel());
     var _crumb='<nav class="fx-crumb" aria-label="Breadcrumb"><span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr">'+esc(flxLbl(mTo))+'</span>'+(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'')+(_rv?'<span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr-cur">'+esc(_rv.name)+'</span>':'')+'</nav>';
-    /* Worklist is the default; Statement is one click, with everything it always had. */
-    var _modeSw='<div class="fx-modesw" role="tablist">'
-      +'<button class="fx-modeb'+(FX_MODE==='work'?' on':'')+'" data-fxmode="work" role="tab">Worklist</button>'
-      +'<button class="fx-modeb'+(FX_MODE==='statement'?' on':'')+'" data-fxmode="statement" role="tab">Statement</button></div>';
-    var h=_crumb+(_rv?('<div class="fx-titlebar"><button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button><h1 class="fx-h1">'+esc(_rv.name)+'</h1>'+_rvBadge+_rvStar+'<div class="fx-tb-sp"></div>'+_modeSw+_rvAction+'</div>')
+    var h=_crumb+(_rv?('<div class="fx-titlebar"><button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button><h1 class="fx-h1">'+esc(_rv.name)+'</h1>'+_rvBadge+_rvStar+'<div class="fx-tb-sp"></div>'+_rvAction+'</div>')
       :'<div class="fx-titlebar"><h1 class="fx-h1">Flux review</h1>'+_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span></div>');
     /* The queue pager that used to sit here is now the global work spine above the view: it
        follows you across every screen instead of existing only inside an open review. */
@@ -8931,8 +9006,7 @@
       +'<div class="fxm-sep"></div><div class="fxm-h">Absolute floor &mdash; '+esc(_mp.pct)+'% of '+esc(MAT_BASES[_mp.basis])+' = '+fxAbbr$(matFloor())+'</div>'
       +_floorPresets.map(function(o){return '<button class="fxm-opt fxm-matfl'+(_mp.pct===o?' on':'')+'" data-matfl="'+o+'">'+(_mp.pct===o?ckOn:ckOff)+o+'%</button>';}).join('')
       +(_basisOpts.length>1?('<div class="fxm-h">Benchmark</div>'+_basisOpts.map(function(o){return '<button class="fxm-opt fxm-matbs'+(_mp.basis===o[0]?' on':'')+'" data-matbs="'+o[0]+'">'+(_mp.basis===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')):'')
-      +'<div class="fxm-note2">A line is material when it breaches <b>both</b> rules &mdash; so a rounding move on a huge account is ignored, and a small account swinging hard is not. The benchmark follows the statement.</div>'
-      +'<div class="fxm-sep"></div><div class="fxm-h">Show only</div>';
+      +'<div class="fxm-note2">A line is material when it breaches <b>both</b> rules &mdash; so a rounding move on a huge account is ignored, and a small account swinging hard is not. The benchmark follows the statement.</div>';
     var dFilter=fxSheetDetails('filter','<summary class="fxm-sum">Filter'+(filterOn?'<span class="fxm-dot"></span>':'')+'</summary>','Filter',_matBlock+statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')).replace('class="fxm fxm-sheet"','class="fxm fxm-sheet'+(filterOn?' fxm-act':'')+'"');
     var _scVal=fluxScopeLabel(fluxScope);
     var dScope='<details class="fxm fxm-scopeM"><summary class="fxm-sum" title="Reporting entity: '+esc(node.name)+'"><span class="fxm-k">Entity</span><span class="fxm-cur">'+esc(_scVal)+'</span></summary><div class="fxm-pop fxm-pop-scope"><div class="fxm-h">Reporting entity</div><div class="fxs-wrap">'+fluxScopeTreeHTML()+'</div><div class="fxm-note2">Scopes the statement. Expand to drill; the star pins a scope to Favorites.</div></div></details>';
@@ -8984,7 +9058,51 @@
     /* A reviewer reading through someone else's lens has to be told so — and be one click from their own. */
     var _actSet=fluxActiveSet?fxvById(fluxActiveSet):null;
     var _setChip=_actSet?('<span class="fx-setchip" title="'+esc((_actSet.hint||'')+' — presentation only; the review, entity and period are unchanged')+'"><b>'+esc(_actSet.name)+'</b> review set is active<button class="fx-setclr" title="Back to your own view">Clear</button></span>'):'';
-    h+='<div class="fx-fbar fx-fbar-ctx">'+dPeriod+dStmt+dReview+dScope+dBasis+_rvChip+_setChip+'</div>';
+    /* ===== One filter row: essentials up front, everything else inside ==========================
+       Twelve controls in two rows became: search · period · statement · entity · material-only ·
+       Filters(n), with Columns and density on the right. Review, Basis, Rows, Insights and the
+       materiality standard all moved into the Filters panel — they are real controls, just not
+       ones you touch on the way in. My Views and Share moved up beside the title, where the mock
+       puts them, because they are about the workspace rather than this statement.
+       Deviation from the mock, deliberately: filters apply live, so the panel offers Reset rather
+       than Apply. A staged Apply on controls that already update instantly would be a button that
+       does nothing the moment before you press it. */
+    var _fCount=0;
+    if(curStatus&&curStatus!=='all')_fCount++;
+    if(fluxMat!==8)_fCount++;
+    if(matPolicy().pct!==(fluxStmt==='is'?2:0.25))_fCount++;
+    if(RP_COMPARE!=='prev')_fCount++;
+    if(fluxGroupBy!=='category')_fCount++;
+    if(_rvScope)_fCount++;
+    if(fluxFind)_fCount++;
+    /* ONE box. Every filter lives here, grouped: what you are looking at (Focus), what counts as
+       worth looking at (Materiality), what it is measured against (Comparison), how it is arranged
+       (Grouping) and how much of the statement is in play (Review scope). The Statement dropdown is
+       gone entirely — the rail's Reviews section owns that now, and two controls writing one
+       variable is the thing we keep removing. Material-only was likewise a duplicate of
+       Focus → Material, so it folded in rather than sitting outside as a chip. */
+    /* One BOX, not a long menu. A 260px dropdown made the reader scroll past a tall materiality
+       block to reach the comparison basis — present, but effectively missing. As a panel the
+       groups sit side by side in priority order: what needs me (Focus) · what counts as worth
+       looking at (Materiality) · what it is measured against (Comparison) and how it is arranged,
+       with Review scope full-width beneath because it is the longest list. */
+    var _fbSec=function(title,body,cls){return '<section class="fxfb-s'+(cls?' '+cls:'')+'"><h4 class="fxfb-h">'+esc(title)+'</h4>'+body+'</section>';};
+    var _fbFocus=statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('');
+    /* MoM / QoQ / YoY as a segmented control — one axis, mutually exclusive, read at a glance */
+    var _fbBasis='<div class="fxfb-seg">'+basisSegs.map(function(b){return '<button class="fxfb-segb rp-tl-bseg'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+esc(b[2])+'">'+b[1]+'</button>';}).join('')+'</div>'+basisNote;
+    var _fbRows='<div class="fxfb-seg">'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxfb-segb fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+esc(o[1])+'</button>';}).join('')+'</div>';
+    var _fbScope='<div class="fxfb-scroll">'+fluxSectionMenuHTML(ckOn,ckOff)+'</div><button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review layout&hellip;</button>';
+    var _filtersBtn='<details class="fxm fxm-top" data-fxmenu="filters"><summary class="fxm-sum fx-filters-sum">'+FX_FILT_ICO+'Filters'+(_fCount?'<span class="fx-fcount">'+_fCount+'</span>':'')+'</summary>'
+      +'<div class="fxm-pop fx-filtbox">'
+      +'<div class="fxfb-hd"><span class="fxfb-t">Filters</span><span class="fxfb-n">'+(_fCount?(_fCount+' active'):'none active')+'</span><span class="grow"></span><button class="fxfb-reset fx-filt-reset">Reset all</button></div>'
+      +'<div class="fxfb-grid">'
+      +_fbSec('Focus',_fbFocus)
+      +_fbSec('Materiality',_matBlock)
+      +_fbSec('Comparison',_fbBasis+'<h4 class="fxfb-h fxfb-h2">Group rows by</h4>'+_fbRows)
+      +_fbSec('Review scope',_fbScope)
+      +'</div></div></details>';
+    h+='<div class="fx-fbar fx-fbar-ctx">'+dSearch+dPeriod+dScope+_filtersBtn+_rvChip+_setChip
+      +'<span class="fxr-sp"></span><div class="fx-fbar-grp"><!--WSACT-->'+dCols+dViewNew+expIcons+'</div></div>';
     // ----- slim summary caption for the grid: movement bridge (left) · review counts (right) -----
     h+='<div class="fx-metrics"><div class="fx-mg">'+
        '<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'+
@@ -9022,44 +9140,14 @@
       +'<span class="fx-cov-tx">'+(_resid>_fl?'above':'within')+' the '+fxAbbr$(_fl)+' floor</span>'
       +'<span class="grow"></span>'
       +'<span class="fx-cov-std" title="Click Filter to change the standard">Materiality '+esc(matStandard())+'</span></div>';
-    /* ----- the worklist: the decisions this review is actually asking of you, ranked ----- */
-    var _wNeed=matLeaves.filter(function(x){return !x.acc;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
-    var _wEvid=matLeaves.filter(function(x){return x.acc&&!x.evid;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
-    var _wDone=matLeaves.filter(function(x){return x.acc&&x.evid;}).sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);});
-    var _wOpen=_wNeed.length+_wEvid.length;
-    function _wItem(x,kind){
-      var pct=x.prev?(x.d/Math.abs(x.prev)*100):0;
-      var chip=kind==='need'?'<span class="fxw-chip need">Needs explanation</span>'
-        :kind==='evid'?'<span class="fxw-chip evid">Missing evidence</span>'
-        :'<span class="fxw-chip done">Ready</span>';
-      return '<button class="fxw-item" data-wsel="'+esc(x.acct)+'">'
-        +'<span class="fxw-nm">'+esc(x.name)+'<span class="fxw-sub">'+esc(x.acct+' · '+x.sec)+'</span></span>'
-        +'<span class="fxw-d '+(x.d>=0?'up':'dn')+'">'+fxSum(x.d,true)+'</span>'
-        +'<span class="fxw-pct">'+(pct>0?'+':pct<0?'−':'')+Math.abs(pct).toFixed(1)+'%</span>'
-        +chip+'<span class="fxw-go">'+(kind==='done'?'Review':'Explain')+' →</span></button>';
-    }
-    var _wl='<div class="fx-worklist">';
-    _wl+='<div class="fxw-hd"><span class="fxw-h1">'+(_wOpen?(_wOpen+' line'+(_wOpen===1?'':'s')+' need'+(_wOpen===1?'s':'')+' you'):'Nothing outstanding')+'</span>'
-      +'<span class="fxw-hsub">'+(_wOpen
-        ? 'Material movements without an accepted explanation or verified evidence, largest first.'
-        : 'Every material movement on this statement is explained and evidenced.')+'</span>'
-      +'<span class="grow"></span><span class="fxw-prog">'+_wDone.length+' of '+matLeaves.length+' cleared</span></div>';
-    if(!matLeaves.length){
-      _wl+='<div class="fxw-empty"><b>No material movements.</b> Nothing on this statement breaches '+esc(matStandard())+'. Switch to <b>Statement</b> to read the full population, or lower the threshold in Filter.</div>';
-    } else {
-      if(_wNeed.length)_wl+='<div class="fxw-grp">Needs explanation</div>'+_wNeed.map(function(x){return _wItem(x,'need');}).join('');
-      if(_wEvid.length)_wl+='<div class="fxw-grp">Explained &mdash; evidence outstanding</div>'+_wEvid.map(function(x){return _wItem(x,'evid');}).join('');
-      if(_wDone.length)_wl+='<div class="fxw-grp">Cleared</div>'+_wDone.map(function(x){return _wItem(x,'done');}).join('');
-    }
-    _wl+='</div>';
-    /* _wl is emitted after the control row below, so Filter — which owns the materiality standard
-       the worklist is defined by — sits above the list it governs rather than stranded beneath it. */
     // ===== Boxy PRESENTATION / FOCUS / WORKSPACE row — under the metrics, above the grid =====
-    h+='<div class="fx-fbar fx-fbar-pres"><div class="fx-fbar-grp">'+dRows+expIcons+dCols+dViewNew+'</div>'
-      +'<div class="fx-fbar-div"></div><div class="fx-fbar-grp">'+dInsights+dFilter+'</div>'
-      +'<div class="fxr-sp"></div>'+(dActions?'<div class="fx-fbar-acts">'+dActions+'</div>':'')
-      +'<div class="fx-fbar-grp">'+dMyViews+dShare+'</div></div>';
-    h+=_wl;   /* worklist sits under the control row it is governed by (hidden in Statement mode) */
+    /* Only the live-filter readout remains below the metrics; every control moved into the one row
+       above or up to the title. dRows / dCols / dInsights / dFilter / dBasis / dReview are still
+       built (the Filters panel and the row reuse their option lists) but no longer sit on screen. */
+    if(dActions)h+='<div class="fx-fbar fx-fbar-acts-row">'+'<span class="fxr-sp"></span><div class="fx-fbar-acts">'+dActions+'</div></div>';
+    /* My Views + Share are built below the titlebar, so they slot in by placeholder rather than
+       being read before they exist. */
+    h=h.replace('<!--WSACT-->',dMyViews+dShare);
     // grid
     var extraCols=1;  // single compact Review column — the panel owns comments / evidence / workflow
     var minW=236+nColShow*(colByPeriod?98:118)+106+(fluxShowSplit?96+88:0)+74+300;
@@ -9178,6 +9266,12 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=function(){fxvForm={name:'',scope:'personal'};renderMonthlyTrend();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-mat'),function(b){b.onclick=function(){var mv=parseFloat(this.getAttribute('data-mat'));if(mv>0){fluxMat=mv;renderMonthlyTrend();}};});
+    var _fr=document.querySelector('#view .fx-filt-reset');
+    if(_fr)_fr.onclick=function(){
+      fluxClearLens(); fluxMat=8; matPolicy().pct=(fluxStmt==='is'?2:0.25); RP_COMPARE='prev';
+      fluxGroupBy='category'; fluxFind=''; fluxReviewId='all'; fluxSecCollapse={};
+      renderMonthlyTrend();   /* one render — fluxClearReview() would have rendered a second time */
+    };
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matfl'),function(b){b.onclick=function(){var v=parseFloat(this.getAttribute('data-matfl'));if(v>0){matPolicy().pct=v;renderMonthlyTrend();}};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matbs'),function(b){b.onclick=function(){matPolicy().basis=this.getAttribute('data-matbs');renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-status'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
@@ -9261,27 +9355,38 @@
     /* Every filter-bar dropdown (Context + Presentation) behaves like a menu bar: only one open at a
        time, a click outside closes it, Escape closes it, and — once one is open — hovering another
        filter switches straight to it (so menus never sit stale while you move across the bar). */
-    function fbarCloseOthers(keep){ Array.prototype.forEach.call(document.querySelectorAll('#view .fx-fbar .fxm[open]'),function(o){if(o!==keep)o.open=false;}); }
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-fbar .fxm'),function(d){
+    /* Scope is EVERY menu in the view, not just the ones inside the filter bar. My Views and Share
+       used to sit in the titlebar, outside this selector, so clicking one left the filter menu open
+       and you needed a second click to dismiss it. Any menu anywhere in the view now shares one
+       behaviour: opening closes the others, hovering switches, leaving closes. */
+    function fbarCloseOthers(keep){ Array.prototype.forEach.call(document.querySelectorAll('#view .fxm[open]'),function(o){if(o!==keep)o.open=false;}); }
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm'),function(d){
       var s=d.querySelector(':scope > .fxm-sum'); if(!s)return;
       /* close siblings synchronously BEFORE this one native-toggles on click — no async race */
       s.addEventListener('mousedown',function(){ fbarCloseOthers(d); });
       /* once any menu is open, hovering another switches straight to it */
       s.addEventListener('mouseenter',function(){
-        var anyOpen=document.querySelector('#view .fx-fbar .fxm[open]');
+        var anyOpen=document.querySelector('#view .fxm[open]');
         if(anyOpen&&anyOpen!==d){ fbarCloseOthers(d); d.open=true; }
       });
+      /* …and it closes when the cursor leaves it. The grace period matters: a menu that vanishes
+         the instant the pointer clips a corner on its way to an option is worse than one that
+         lingers. Re-entering anywhere in the menu (summary or popup — both are descendants, so
+         this holds even where the popup is position:fixed) cancels the close. */
+      d.addEventListener('mouseleave',function(){
+        if(!d.open)return;
+        clearTimeout(d.__fxLeave);
+        d.__fxLeave=setTimeout(function(){ if(d.open)d.open=false; },340);
+      });
+      d.addEventListener('mouseenter',function(){ clearTimeout(d.__fxLeave); });
     });
     if(!window.__fxFbarOutside){ window.__fxFbarOutside=true;
-      document.addEventListener('mousedown',function(e){ if(e.target.closest('.fx-fbar .fxm'))return;
-        Array.prototype.forEach.call(document.querySelectorAll('.fx-fbar .fxm[open]'),function(o){o.open=false;});
+      document.addEventListener('mousedown',function(e){ if(e.target.closest('#view .fxm'))return;
+        Array.prototype.forEach.call(document.querySelectorAll('#view .fxm[open]'),function(o){o.open=false;});
       });
-      document.addEventListener('keydown',function(e){ if(e.key==='Escape')Array.prototype.forEach.call(document.querySelectorAll('.fx-fbar .fxm[open]'),function(o){o.open=false;}); });
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape')Array.prototype.forEach.call(document.querySelectorAll('#view .fxm[open]'),function(o){o.open=false;}); });
     }
     /* Worklist ⇄ Statement, and the worklist's own rows open the same inspector the grid opens. */
-    document.body.classList.toggle('fx-work',FX_MODE==='work');
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxmode]'),function(b){b.onclick=function(){fxSetMode(this.getAttribute('data-fxmode'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-wsel]'),function(b){b.onclick=function(){fluxInspOpen('det',this.getAttribute('data-wsel'));};});
     /* Queue pager — Previous / Next, and the position label jumps within the same queue. */
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-pgo]'),function(b){
       b.onclick=function(e){e.stopPropagation();var id=this.getAttribute('data-pgo');if(id)rpOpenReview(id);};});
