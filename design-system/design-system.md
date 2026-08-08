@@ -9,6 +9,32 @@ font, or spacing value that isn't defined there.
 
 ---
 
+
+> ## 2026-08-08 — Enterprise Filter Panel system supersedes the three-accent ruling
+>
+> The owner specified a new visual system (Inter primary, IBM Plex Sans alternate, IBM Plex Mono
+> numeric; navy `#102A5E`, **Action blue `#1F4ED8`**, positive `#0F9D68`, negative `#D14343`,
+> warning `#C58A1B`). It is applied in `apps/review/index.html`.
+>
+> **This changes two rules that previously read as non-negotiable**, and they are changed here so the
+> written rules and the code cannot disagree:
+> - **"No blue accents" no longer holds.** Action blue is the interactive affordance (links,
+>   "View lines"). It is deliberately distinct from the navy that *fills* selected state, so
+>   "clickable" and "selected" stop being one signal.
+> - **Positive is green `#0F9D68`, not teal.** The earlier ruling preferring teal is withdrawn.
+>
+> Rules that still hold and were **not** changed: at most two coloured columns per table; subtotals
+> outrank detail rows (table values render Medium, subtotal/section rows 600, so weight still
+> separates them); badges mean action-required while counts stay quiet; one filled primary per screen;
+> money/dates/IDs tabular and right-aligned.
+>
+> **Known gap:** no Inter woff2 is embedded, so the stack resolves to Segoe UI. Embedding one is a
+> one-line upgrade with no other change.
+>
+> **Open accessibility item:** warning `#C58A1B` is 3.03:1 on white — large text only, below AA for
+> normal text. Fine as a fill or a dot; a darker variant is needed wherever gold is used as body text.
+
+
 ## 1. Color discipline (the #1 rule)
 
 Korvyn uses **three status colors and nothing else**:
