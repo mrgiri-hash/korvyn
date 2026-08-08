@@ -60,7 +60,27 @@ stubs naming their real engine — never mocked numbers.
   every screen — that is the whole point, so never scope it to one surface, and never let a screen
   grow its own pager beside it. It stays chrome-quiet: no accent colour, no badge, and it hides
   entirely when you have no assigned reviews.
-- **The reviews rail is: My workspace · Reviews · Organization · Pinned reviews · Recent.**
+- **ONE Flux Analysis rail, for the whole module.** `FLUX_NAV` defines it (Overview · My work ·
+  Reviews · Analysis · Management · Configuration · Planned · Favorites) and `navIsFlux()` decides
+  which routes get it — including `mtrend`, so opening a close does **not** swap navigation. Flux
+  used to run two competing navigators and entering a close felt like a different application.
+  `REV_TABS` is deliberately empty and `renderReviewsNav` is now unreachable; don't wire it back.
+  The reporting period is **context applied to these pages**, never a hierarchy you descend into.
+- **Scope lives with scope, not in the rail.** Statement, Entity and the organization browse
+  (Entities / Regions / Business units / Currencies / Countries + the consolidation tree) all sit in
+  the flux toolbar — they answer *what am I looking at*, which is a page control, not navigation.
+  Putting any of them back in the sidebar recreates the original defect: the same question
+  answerable in two places. Periods are context (`rpCloseContextHTML`), never nav.
+- **Never call `orgSetGroupBy` / `orgMutated` from a Flux page.** Both repaint the retired
+  collections navigator into `#nav` and will silently wipe the Flux rail. Set `RP_ORG_GROUPBY`
+  directly, persist it, and re-render the page (see the Entity picker's `data-fxorgdim` handler).
+- **My Reviews and All Reviews are one component** (`renderReviewRegister`) over `RP_REVIEWS`,
+  differing only in default scope; **Review Packages** (`renderReviewPackages`) is the separate
+  consolidation-package surface. Team scope is a filter inside All Reviews — never a nav item.
+- **Overview and Close Periods share `renderClosePeriods(mode)`** but must never print the same
+  crumb and H1; two nav items that look like one page is what that split fixed.
+- *(superseded — kept for history)* The reviews rail was: My workspace · Reviews · Organization ·
+  Pinned reviews · Recent.
   Statement selection lives in **Reviews** (`NAV_STATEMENTS`) because which statement you are
   reviewing is *where you are*, not a filter — the toolbar dropdown mirrors the same `fluxStmt`, so
   the two cannot disagree. **Organization** turned the old "Organize by" dropdown into the section's
