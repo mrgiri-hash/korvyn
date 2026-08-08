@@ -2530,17 +2530,12 @@
   /* the spark stays neutral: Change and Δ% are the two coloured columns the design system allows */
   .fxa-sk{color:var(--faint)}
   .fxa-spark{display:block;overflow:visible}
-  /* ---- Monthly Flux: the month-by-month matrix -------------------------------------------------
-     Month cells stay NEUTRAL. Design-system rule 2 spends this table's two coloured columns on
-     Total change and its direction; a breaching month gets a gold exception dot instead, so the
-     matrix flags what needs attention without becoming a heat map that colours every column. */
-  .fxa-mtx td.fxa-mo,.fxa-mtx th{white-space:nowrap}
-  .fxa-mo{position:relative;color:var(--ink-2)}
-  .fxa-mo.mat{color:var(--ink);font-weight:600}
-  .fxa-modot{position:absolute;top:7px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--warn)}
-  /* Two hand-offs per row, so the column needs a little room and both reveal together on hover. */
-  .fxa-acts{display:flex;align-items:center;gap:12px;white-space:nowrap}
-  .fxa-mtx tr:hover .fxa-acts .fxa-go{opacity:1}
+  /* ---- Monthly Flux under Analytics: the review's own grid in the fxa chrome -------------------
+     Scope and period ride at the right of the question-led header, where Trending and Variance put
+     their context, instead of the review's identity trail. */
+  .fx-hd-sc{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-left:auto;font-size:var(--fs-12)}
+  .fx-hd-sc .fxm>.fxm-sum{height:24px;padding:0 7px}
+  .fx-hd-sc .fxm>.fxm-sum .fxm-cur{font-size:var(--fs-12);font-weight:500}
   .rp-pct{font-size:var(--fs-12);color:var(--muted)}
   .rp-ppl{color:var(--ink-2)}
   .rp-sub{color:var(--muted);font-size:var(--fs-12)}
@@ -4279,7 +4274,9 @@
     else if(k==='repo-history'){renderRepoHistory();window.scrollTo(0,0);}
     else if(k==='mfs'){renderMonthlyFS();window.scrollTo(0,0);}
     else if(k==='filing'){renderFiling();window.scrollTo(0,0);}
-    else if(k==='mtrend'){renderReviewCanvas();window.scrollTo(0,0);if(typeof rpApplyFocus==='function')rpApplyFocus();}
+    /* Opening a review is always the workspace, never the analytics skin — reset the flag here so
+       arriving at mtrend from the Analytics page cannot leave the review wearing the wrong chrome. */
+    else if(k==='mtrend'){FX_PAGE='review';renderReviewCanvas();window.scrollTo(0,0);if(typeof rpApplyFocus==='function')rpApplyFocus();}
     else if(k==='frov'){renderFRHub();window.scrollTo(0,0);}
     else if(k==='frperiods'){renderClosePeriods();window.scrollTo(0,0);}
     /* Management: both reuse existing renderers — the period workspace (packages/folders for the
@@ -7546,12 +7543,7 @@
     var rank=function(opts){return lbl('Rank by')+opts.map(function(o){return '<button class="rp-gb-b'+(FXA_RANK===o[0]?' on':'')+'" data-fxarank="'+o[0]+'">'+o[1]+'</button>';}).join('');};
     var mid=route==='trending'
       ? win+rank([['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']])
-      : route==='mflux'
-        /* Terse labels here on purpose: Flux carries three control groups where Trending carries two,
-           and the verbose wording wrapped the bar to a second row — the same crowding we just took
-           out of the review. The column headings say what each rank means. */
-        ? win+mat+rank([['move','Movement'],['breach','Months moved'],['pct','Steepest %']])
-        : (lbl('Basis')+[['prev','MoM'],['prevq','QoQ']].map(function(o){return '<button class="rp-gb-b'+(RP_COMPARE===o[0]?' on':'')+'" data-fxabasis="'+o[0]+'">'+o[1]+'</button>';}).join('')+mat);
+      : (lbl('Basis')+[['prev','MoM'],['prevq','QoQ']].map(function(o){return '<button class="rp-gb-b'+(RP_COMPARE===o[0]?' on':'')+'" data-fxabasis="'+o[0]+'">'+o[1]+'</button>';}).join('')+mat);
     return '<div class="rp-gbbar fxa-bar"><span class="rp-gb-l">Statement</span>'
       +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rp-gb-b'+(FXA_STMT===o[0]?' on':'')+'" data-fxastmt="'+o[0]+'">'+o[1]+'</button>';}).join('')
       +mid+fxaEntBar()+'</div>';
@@ -7660,81 +7652,16 @@
     h+=fxaScopeNote();
     $('#view').innerHTML=h; fxaWire('variance');
   }
-  /* ---- THIRD LENS: Monthly Flux ----------------------------------------------------------------
-     The family now answers three different questions with one set of chrome:
-       Trending — how has this line behaved over time?          (trajectory: spark + volatility)
-       Variance — where did THIS period's movement come from?   (one step, decomposed by section)
-       Monthly Flux — which months moved, and is it recurring?  (the month-by-month matrix)
-     Flux is the overview of the three, so it leads the Analytics group. It is deliberately NOT the
-     flux REVIEW workspace (`mtrend`): this reads across every line at once and signs nothing, which
-     is why each row hands off to the review rather than trying to be one.
-     Rows are one per reported line, movement INTO each month, computed from the same fxaLines /
-     fxScopedVal source the other two lenses use — so the three cannot disagree. */
-  function fxaFluxRows(stmt,win){
-    /* One extra month, so the earliest column still has a prior period to move from. */
-    var d=fxaLines(stmt,win+1);
-    var labels=d.labels.slice(1);   /* a delta is labelled by the month it moved INTO */
-    var rows=d.rows.map(function(r){
-      var mv=[], brk=0, big=null;
-      for(var i=1;i<r.series.length;i++){
-        var prev=r.series[i-1], cur=r.series[i], dd=cur-prev;
-        var pct=prev?dd/Math.abs(prev)*100:0;
-        var mat=!!prev&&Math.abs(pct)>=FXA_MAT;   /* the same relative rule the other lenses state */
-        if(mat)brk++;
-        var cell={d:dd,pct:pct,mat:mat,label:labels[i-1]};
-        mv.push(cell);
-        if(!big||Math.abs(dd)>Math.abs(big.d))big=cell;
-      }
-      var tot=r.series[r.series.length-1]-r.series[0];
-      return {sec:r.sec,name:r.name,accts:r.accts,mv:mv,breaches:brk,tot:tot,
-        pct:r.series[0]?tot/Math.abs(r.series[0])*100:0,big:big};
-    });
-    return {rows:rows,labels:labels};
-  }
-  function renderMonthlyFlux(){
-    fxaApplyScope();
-    var d=fxaFluxRows(FXA_STMT,FXA_WIN), rows=d.rows.slice();
-    rows.sort(FXA_RANK==='breach'?function(a,b){return (b.breaches-a.breaches)||(Math.abs(b.tot)-Math.abs(a.tot));}
-      :FXA_RANK==='pct'?function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}
-      :function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);});
-    if(FXA_FOCUS)rows=rows.filter(function(r){return r.name===FXA_FOCUS;});
-    var nMo=d.labels.length, nCols=nMo+5;
-    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Monthly Flux'}]);
-    h+=rpCloseContextHTML();
-    h+='<div class="kv-hd rp-hd"><div><h1>Monthly Flux</h1><div class="kv-sub">Which months moved &mdash; and is it recurring or one-off?</div></div></div>';
-    h+=fxaFocusChip('trending','another lens');
-    h+=fxaStmtBar('mflux');
-    h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl fxa-tbl fxa-mtx"><thead><tr>'
-      +'<th class="l">Line item</th>'
-      +d.labels.map(function(m){return '<th title="Movement into '+esc(flxLbl(m))+'">'+esc(flxLbl(m))+'</th>';}).join('')
-      +'<th title="Months in this window whose own movement breached the threshold">Months moved</th>'
-      +'<th title="Movement across the whole window, first month to last">Total change</th><th>&Delta; %</th><th class="l"></th>'
-      +'</tr></thead><tbody>';
-    if(!rows.length){
-      h+='<tr><td colspan="'+nCols+'" class="l" style="padding:22px;text-align:center;color:var(--faint)">'
-        +(FXA_FOCUS?('No movement for &ldquo;'+esc(FXA_FOCUS)+'&rdquo; on this statement.'):'No lines on this statement for the current scope.')+'</td></tr>';
-    }
-    rows.forEach(function(r){
-      h+='<tr><td class="l"><span class="fxa-nm">'+esc(r.name)+'</span><span class="fxa-sub">'+esc(r.sec)+' &middot; '+r.accts+' account'+(r.accts===1?'':'s')+'</span></td>';
-      /* Month cells stay NEUTRAL. Design-system rule 2 allows two coloured columns, and they are
-         spent on Total change and its direction. A breaching month carries a gold exception dot
-         instead — that flags "needs attention", which is what the colour means here, rather than
-         turning the matrix into a heat map that would colour every column at once. */
-      r.mv.forEach(function(m){
-        h+='<td class="rp-num fxa-mo'+(m.mat?' mat':'')+'" title="'+esc('Movement into '+flxLbl(m.label)+': '+(m.d>=0?'+':'−')+fxAbbr$(Math.abs(m.d))+' ('+fxaPct(m.pct).replace(/&minus;/g,'−')+')'+(m.mat?' — at or above the ≥'+FXA_MAT+'% threshold':''))+'">'
-          +(m.d?fxaMoney(m.d,true):'&mdash;')+(m.mat?'<span class="fxa-modot" aria-label="material"></span>':'')+'</td>';
-      });
-      h+='<td class="rp-num fxa-mut" title="'+esc(r.breaches?(r.breaches+' of '+nMo+' months breached ≥'+FXA_MAT+'% — '+(r.breaches>=Math.ceil(nMo/2)?'recurring movement':'occasional movement')):'No month breached the threshold')+'">'+(r.breaches?(r.breaches+' of '+nMo):'&mdash;')+'</td>'
-        +'<td class="rp-num '+fxaTone(r.tot)+'">'+fxaMoney(r.tot,true)+'</td>'
-        +'<td class="rp-num '+fxaTone(r.tot)+'">'+fxaPct(r.pct)+'</td>'
-        +'<td class="l fxa-acts"><button class="fxa-go" data-fxagotrend="'+esc(r.name)+'" title="How has this line behaved over time?">Trend &rarr;</button>'
-        +'<button class="fxa-go" data-fxagovar="'+esc(r.name)+'" title="Where did this period&rsquo;s movement come from?">Variance &rarr;</button></td></tr>';
-    });
-    h+='</tbody></table></div></div>';
-    h+='<div class="ldg-note">Each cell is the movement <b>into</b> that month &mdash; the closing balance less the month before. A month is flagged (&#9679;) when its own movement is at or above &ge;&nbsp;'+FXA_MAT+'% of the prior month&rsquo;s balance, the same relative rule the other two lenses state. <b>Months moved</b> counts those flagged months: a line that breaches most months is behaving differently from one that breached once, and the two need different explanations. Ranked by '+(FXA_RANK==='breach'?'how many months moved':FXA_RANK==='pct'?'steepest percentage change':'largest total movement')+' over '+nMo+' month'+(nMo===1?'':'s')+'.</div>';
-    h+=fxaScopeNote();
-    $('#view').innerHTML=h; fxaWire('mflux');
-  }
+  /* ---- Monthly Flux under Analytics -----------------------------------------------------------
+     This is the flux review's OWN content — the same statement grid, the same GL account expansion,
+     the same Explanation / comments column, the same filters — wearing the Trending/Variance chrome.
+     It is NOT a reimplementation and NOT a second dataset: it calls `renderMonthlyTrend()` with
+     `FX_PAGE='analytics'`, which swaps only the page chrome (crumb, question-led H1, card wrapper,
+     method footnote) and drops the sign-off action, because signing off belongs to a review you
+     opened, not to an analytics entry point. Everything else on screen is literally the same code,
+     so the two can never drift apart or disagree about a number. */
+  var FX_PAGE='review';           /* 'review' = the workspace; 'analytics' = the Analytics lens */
+  function renderMonthlyFlux(){ FX_PAGE='analytics'; renderMonthlyTrend(); }
   function rpPeriodRename(pid){
     var p=rpPeriod(pid); if(!p)return;
     var cell=document.querySelector('#view .rp-pnm[data-pid="'+pid+'"]'); if(!cell)return;
@@ -9603,12 +9530,21 @@
        had to survive. A control sitting exactly where it reads costs no vertical space at all. */
     var _trail='<span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><!--PERIOD-->'
       +(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'');
-    var h='<div class="fx-hd" aria-label="Breadcrumb">'
-      +(_rv?('<button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button>'):'')
-      +'<nav class="fx-hd-tr">'+_trail+'<span class="fx-cr-sep">&rsaquo;</span></nav>'
-      +'<h1 class="fx-h1">'+(_rv?esc(_rv.name):'Flux review')+'</h1>'
-      +(_rv?(_rvBadge+_rvStar):(_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span>'))
-      +'<div class="fx-tb-sp"></div>'+(_rv?_rvAction:'')+'</div>';
+    /* TWO chromes over ONE page. Under Analytics (FX_PAGE==='analytics') the grid, the filters, the
+       comment column and the GL expansion are identical — only the wrapper changes, to the
+       Trending/Variance language: rpCrumb, a question-led H1, and the method footnote at the bottom.
+       The sign-off action is dropped there because signing off belongs to a review you opened. */
+    var _fxa=(FX_PAGE==='analytics');
+    var h=_fxa
+      ? (rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Monthly Flux'}])
+         +'<div class="kv-hd rp-hd"><div><h1>Monthly Flux</h1><div class="kv-sub">How did every line move this month &mdash; and is the movement explained?</div></div>'
+         +'<div class="fx-hd-sc">'+_trail+'</div></div>')
+      : ('<div class="fx-hd" aria-label="Breadcrumb">'
+        +(_rv?('<button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button>'):'')
+        +'<nav class="fx-hd-tr">'+_trail+'<span class="fx-cr-sep">&rsaquo;</span></nav>'
+        +'<h1 class="fx-h1">'+(_rv?esc(_rv.name):'Flux review')+'</h1>'
+        +(_rv?(_rvBadge+_rvStar):(_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span>'))
+        +'<div class="fx-tb-sp"></div>'+(_rv?_rvAction:'')+'</div>');
     /* The queue pager that used to sit here is now the global work spine above the view: it
        follows you across every screen instead of existing only inside an open review. */
     // ----- period-lock banner: closed periods are read-only for everyone; only an authorized role reopens -----
@@ -9986,7 +9922,20 @@
     h+='</tbody></table></div>';
     /* Print/preview footnotes: comments render here (not inline) so the statement rows stay tight on the page. */
     h+='<div class="fx-print-notes"><div class="fpn-h">Explanations &amp; review notes &mdash; '+flxLbl(mTo)+'</div>'+(printNotes.length?printNotes.map(function(n){return '<div class="fpn-item"><div class="fpn-line">'+esc(n.name)+'<span class="fpn-d">'+fxSum(n.d)+'</span></div>'+(n.needs?'<div class="fpn-need">Needs explanation</div>':'<div class="fpn-tx">'+(n.by?'<b>'+esc(n.by)+'</b> &mdash; ':'')+esc(n.text)+'</div>')+'</div>';}).join(''):'<div class="fpn-empty">No review notes recorded for this period.</div>')+'</div>';
+    /* The Analytics skin closes with the family's method footnote, the way Trending and Variance do —
+       it states the standard applied rather than leaving the reader to infer it. */
+    if(_fxa){
+      /* The Organic/FX clause is conditional: those columns sit behind View → Currency detail, and a
+         footnote explaining columns that are not on screen is a footnote that misleads. */
+      h+='<div class="ldg-note">Every line on the '+(isBS?'balance sheet':isIS?'income statement':'statement')+' for '+esc(flxLbl(mTo))+', compared against '+esc(flxLbl(ms[priIdx]))+'. Expand a line to its GL accounts, or open one to read and answer its review comments &mdash; this is the same grid, the same explanations and the same filters as the flux review workspace, so nothing here is a second copy of the numbers. '
+        +(fluxShowSplit?'<b>Organic</b> is constant-currency movement and <b>FX</b> is the translation effect, so the two add back to the reported variance. ':'The <b>Organic</b> and <b>FX</b> figures above split that movement into real activity and translation effect; add the columns under <b>View &rarr; Currency detail</b> to see it per line. ')
+        +'Materiality '+esc(matStandard())+'.</div>';
+      h+=(typeof fxaScopeNote==='function')?fxaScopeNote():'';
+    }
     $('#view').innerHTML=h;
+    /* The Analytics skin's crumb must be wired here, not only in navTo: every filter change
+       re-renders through renderMonthlyTrend() directly, which would otherwise leave a dead crumb. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-crumb .rp-cr[data-go]'),function(b){b.onclick=function(){var g=this.getAttribute('data-go');if(g)navTo(g);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-grp'),function(r){r.onclick=function(e){if(e.target.closest('.fx-rev')){fxRowSel(this);return;}var k=this.getAttribute('data-exp');if(!k){fxRowSel(this);return;}fluxExpand[k]=!fluxExpand[k];renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-det'),function(r){r.onclick=function(e){if(e.target.closest('.fx-drill')||e.target.closest('.fx-remap'))return;fxRowSel(this);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-drill'),function(a){a.onclick=function(e){e.stopPropagation();var ac=this.getAttribute('data-drill');fluxTxnOpen=(fluxTxnOpen===ac?null:ac);renderMonthlyTrend();};});
@@ -10242,6 +10191,9 @@
   function rcRerender(){ renderReviewCanvas(); }
   function rcEngineId(r){ return (r&&r.engine)||'corporate-flux'; }
   function renderReviewCanvas(){
+    /* The single funnel into the review workspace, so the analytics skin is cleared here too —
+       control handlers call renderMonthlyTrend() directly and must not flip the page identity. */
+    FX_PAGE='review';
     var eng=RC_ENGINES[rcEngineId(RP_OPEN_REVIEW)]||RC_ENGINES['corporate-flux'];
     if(eng.id==='corporate-flux'){ renderMonthlyTrend(); return; }
     renderGenericCanvas(eng);

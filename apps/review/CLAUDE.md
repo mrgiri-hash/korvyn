@@ -41,28 +41,33 @@ stubs naming their real engine — never mocked numbers.
   and cannot disagree with the statement. Scenario Analysis stays an honest stub: what-if modelling
   is **enterprise planning**, which the product thesis puts out of scope. Don't fill it with numbers
   the ledger cannot produce.
-- **THREE analytics lenses, ONE set of chrome** — the `fxa*` family. Each answers a different
-  question and keeps its own maths, but they share `rpCrumb` → `rpCloseContextHTML` →
-  question-led `.kv-hd` H1 → `fxaFocusChip` → `fxaStmtBar(route)` → **one** `.card.rp-card` with one
-  `.rp-tbl.fxa-tbl` → `.ldg-note` method footnote → `fxaScopeNote`, wired by `fxaWire(route)`:
-  - **Monthly Flux** (`renderMonthlyFlux`, route `mflux`) — *which months moved, recurring or
-    one-off?* The month-by-month matrix: movement **into** each month, a gold dot on months
-    breaching `FXA_MAT`, and a `Months moved` count that separates a line breaching most months from
-    one that breached once. **It leads the Analytics group** — it is the overview you read first,
-    then drop into the other two. It is deliberately **not** the review workspace (`mtrend`): it
-    reads across every line and signs nothing, which is why each row hands off instead.
-  - **Trending** (`renderTrending`) — *how has this line behaved over time?* Sparkline + volatility.
-  - **Variance** (`renderVariance`) — *where did THIS period's movement come from?* One step,
-    decomposed by section/category with contribution share.
-
-  Adding a lens means extending `fxaStmtBar` and `fxaWire`, not writing new chrome. **Render a
-  control only where it changes something** on that route — Window is meaningless on Variance (one
-  step), Basis is meaningless on the month matrix (every column *is* a month); a control that cannot
-  act is a dead control.
-- **On the month matrix, colour flags materiality — it is not a heat map.** Design-system rule 2
-  allows two coloured columns and they are spent on `Total change` and `Δ %`. Month cells stay
-  neutral; a breaching month carries a gold `.fxa-modot`. Colouring every month column would spend
-  the table's whole colour budget on magnitude and leave nothing to mark the exceptions.
+- **Trending and Variance share the `fxa*` chrome**: `rpCrumb` → `rpCloseContextHTML` → question-led
+  `.kv-hd` H1 → `fxaFocusChip` → `fxaStmtBar(route)` → **one** `.card.rp-card` with one
+  `.rp-tbl.fxa-tbl` → `.ldg-note` method footnote → `fxaScopeNote`, wired by `fxaWire(route)`.
+  Trending answers *how has this line behaved over time?* (sparkline + volatility); Variance answers
+  *where did THIS period's movement come from?* (one step, decomposed with contribution share).
+  **Render a control only where it changes something** on that route — Window is meaningless on
+  Variance, which compares one step; a control that cannot act is a dead control.
+- **Monthly Flux (`mflux`) is the flux review's OWN page in the `fxa` chrome — not a second
+  dataset.** `renderMonthlyFlux()` sets `FX_PAGE='analytics'` and calls **`renderMonthlyTrend()`**.
+  The statement grid, the GL-account expansion, the Explanation / comments column, the line-detail
+  panel, the drill and Remap affordances, and the **whole filter set** are literally the same code
+  and the same state — so the two surfaces cannot drift or disagree about a number. `FX_PAGE` swaps
+  **only** the page chrome: `rpCrumb` + question-led H1 + scope/period at the header's right
+  (`.fx-hd-sc`) instead of the review's `.fx-hd` identity line, plus the `.ldg-note` method footnote
+  and `fxaScopeNote()` at the bottom. **The sign-off action is dropped there** — signing off belongs
+  to a review you opened, not to an analytics entry point.
+  - **Never reimplement the flux grid for a new surface.** An earlier attempt at this page invented a
+    month-by-month matrix from `fxaLines`; it had no comment column and no GL expansion, and it was a
+    second computation of numbers the review already owns. If a new surface needs the flux content,
+    add a `FX_PAGE` mode.
+  - `FX_PAGE` is reset to `'review'` in **both** `navTo('mtrend')` and `renderReviewCanvas()` —
+    filter handlers call `renderMonthlyTrend()` directly, so the flag has to be cleared at the funnel
+    into the workspace or a review could render wearing the analytics chrome.
+  - The Analytics crumb is wired inside `renderMonthlyTrend`, not only in `navTo`: every filter
+    change re-renders directly and would otherwise leave a dead crumb.
+  - Its footnote's Organic/FX clause is conditional on `fluxShowSplit` — those columns live behind
+    **View → Currency detail**, and a footnote explaining columns that are not on screen misleads.
 - **Review Sets change presentation, never population.** A saved set (`FLUX_VIEWS`, My Views menu)
   stores only the keys in `FXV_KEYS` — density, lens, columns, expansion. It must never restore the
   statement, entity scope, period or review id: silently moving a reviewer to a different population
