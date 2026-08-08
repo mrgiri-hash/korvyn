@@ -895,6 +895,74 @@
   .fxg tbody tr.fx-grp.sel>td,.fxg tbody tr.fx-det.sel>td{background:var(--accent-bg)}
   .fxg tbody tr.fx-grp.sel>td.fx-line,.fxg tbody tr.fx-det.sel>td.fx-line{box-shadow:inset 3px 0 0 var(--accent)}
   .fxg tbody tr.fx-grp.sel.mat>td.fx-line,.fxg tbody tr.fx-det.sel.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn),inset 6px 0 0 var(--accent)}
+  /* ===== FILTERS: right-hand slide-over workspace ==============================================
+     Enterprise-calm rather than consumer-playful: white panel, soft borders, one subtle shadow, navy
+     for the primary action and for selected state, grey for everything secondary, 8px spacing rhythm.
+     440px sits in the 420–480 band — wide enough for a segmented row of options without wrapping. */
+  .fx-fdrawer{position:fixed;top:52px;right:0;width:440px;height:calc(100vh - 52px);z-index:47;
+    background:var(--surface);border-left:1px solid var(--line-2);box-shadow:-8px 0 28px rgba(23,34,47,.10);
+    display:flex;flex-direction:column;font-size:var(--fs-13)}
+  body.fx-filt-open .app{margin-right:440px}
+  @media(max-width:1180px){ body.fx-filt-open .app{margin-right:0} }
+  /* No double scrollbars: while the drawer is open only the drawer scrolls. */
+  body.fx-filt-open{overflow:hidden}
+  /* The drawer owns "Active filters" while it is open, so the page's own chip row would be the same
+     information twice, 400px apart. It comes back on close, where it is the persistent indicator. */
+  body.fx-filt-open #view .fx-chips{display:none}
+  /* The page stays visible and dims slightly, so you keep your place while filtering. */
+  .fx-fscrim{position:fixed;inset:52px 440px 0 0;z-index:46;background:rgba(23,34,47,.10);}
+  @media(max-width:1180px){ .fx-fscrim{inset:52px 0 0 0} }
+  .fxd-hd{flex:0 0 auto;display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .fxd-t{font-size:var(--fs-14);font-weight:600;color:var(--ink);letter-spacing:.02em;text-transform:uppercase}
+  .fxd-x{margin-left:auto;border:0;background:none;font-size:19px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 4px;border-radius:2px}
+  .fxd-x:hover{color:var(--ink);background:var(--surface-2)}
+  /* Active filters: what is on right now, each removable without opening its section. */
+  .fxd-active{flex:0 0 auto;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .fxd-active-hd{display:flex;align-items:center;font-size:var(--fs-12);font-weight:600;color:var(--ink-2)}
+  .fxd-clear{margin-left:auto;border:0;background:none;font:inherit;font-size:var(--fs-12);color:var(--accent);cursor:pointer;padding:0}
+  .fxd-clear:hover{text-decoration:underline}
+  .fxd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .fxd-none{font-size:var(--fs-12);color:var(--faint);margin-top:6px}
+  .fxd-tabs{flex:0 0 auto;display:flex;gap:16px;padding:0 16px;border-bottom:1px solid var(--line)}
+  .fxd-tab{border:0;background:none;font:inherit;font-size:var(--fs-13);color:var(--muted);cursor:pointer;
+    padding:9px 0 8px;border-bottom:2px solid transparent}
+  .fxd-tab:hover{color:var(--ink)}
+  .fxd-tab.on{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+  /* ONLY this scrolls — never the panel and the page together. */
+  .fxd-body{flex:1 1 auto;overflow-y:auto;overflow-x:hidden}
+  .fxd-sughd{padding:14px 16px 8px;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--ink-2)}
+  .fxd-sugs{display:flex;flex-direction:column;gap:8px;padding:0 16px 14px;border-bottom:1px solid var(--line)}
+  .fxd-sugc{border:1px solid var(--line-2);border-left:3px solid var(--warn);border-radius:3px;padding:9px 11px;background:var(--surface)}
+  .fxd-sugc.on{border-color:var(--accent);border-left-color:var(--accent);background:var(--accent-bg)}
+  .fxd-sugc-t{font-size:var(--fs-12);color:var(--ink-2);line-height:1.4}
+  .fxd-sugc-a{margin-top:5px;border:0;background:none;font:inherit;font-size:var(--fs-12);font-weight:500;color:var(--accent);cursor:pointer;padding:0}
+  .fxd-sugc-a:hover{text-decoration:underline}
+  /* A collapsed row IS the summary: label left, applied value right. That is what lets nine groups
+     live in one column without the panel ever feeling dense. */
+  .fxd-sec{border-bottom:1px solid var(--line)}
+  .fxd-sec-hd{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;font:inherit;
+    text-align:left;padding:12px 16px;cursor:pointer}
+  .fxd-sec-hd:hover{background:var(--surface-2)}
+  .fxd-sec-hd:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+  .fxd-sec-k{font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--ink-2);flex:0 0 auto}
+  .fxd-sec-v{margin-left:auto;font-size:var(--fs-12);color:var(--muted);text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:56%}
+  .fxd-sec.open .fxd-sec-v{color:var(--ink)}
+  .fxd-sec-tw{flex:0 0 auto;font-size:10px;color:var(--faint)}
+  .fxd-sec-b{padding:2px 16px 16px}
+  .fxd-sec-b .fxfb-h2{margin-top:16px}
+  .fxd-sec-b .fxm-note2{padding:8px 0 0;font-size:var(--fs-12)}
+  .fxd-sec-b .fxfb-scroll{max-height:210px;overflow:auto}
+  /* Concise checkbox list for By section. */
+  .fxd-cks{display:flex;flex-direction:column;gap:2px}
+  .fxd-ck{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:var(--fs-13);color:var(--ink-2);cursor:pointer}
+  .fxd-ck input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+  .fxd-ck:hover{color:var(--ink)}
+  .fxd-vwrap{padding:14px 16px}
+  /* Primary actions stay reachable without scrolling back. */
+  .fxd-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--line);background:var(--surface)}
+  .fxd-save{display:inline-flex;align-items:center;gap:6px;border:0;background:none;font:inherit;font-size:var(--fs-12);color:var(--muted);cursor:pointer;padding:4px 0}
+  .fxd-save:hover{color:var(--ink)}
   /* ===== Flux inspector: docked right drawer that slides the grid over (mirrors the AI panel) ===== */
   .fx-insp{position:fixed;top:52px;right:0;width:400px;height:calc(100vh - 52px);background:var(--surface);border-left:1px solid var(--line-2);transform:translateX(100%);transition:transform .2s ease;z-index:46;display:flex;flex-direction:column}
   body.fx-insp-open .fx-insp{transform:translateX(0);box-shadow:var(--shadow)}
@@ -6146,9 +6214,49 @@
   var FX_FILT_OPEN=false;
   var FX_FILT_DISMISS_BOUND=false;   /* document listeners bind once, not once per render */
   try{FX_FILT_OPEN=localStorage.getItem('korvyn.fxfilt.open')==='1';}catch(e){}
-  function fxFiltToggle(){FX_FILT_OPEN=!FX_FILT_OPEN;
-    try{localStorage.setItem('korvyn.fxfilt.open',FX_FILT_OPEN?'1':'0');}catch(e){}
-    renderMonthlyTrend();}
+  /* Which accordion rows are expanded. All collapsed by default: collapsed, the drawer is a readable
+     SUMMARY of the whole filter state (each row shows its own current value), and you open only the
+     one you came to change. That is what makes nine groups fit without cramming. */
+  var FX_FILT_SEC={};
+  var FX_FILT_TAB='filter';          /* 'filter' | 'views' */
+  var FX_BOOKMARK_ICO='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  /* Cancel has to mean something. Controls still apply LIVE — you want to watch the statement change
+     as you filter, and the suggestion cards say "View lines" — so instead of buffering every edit we
+     snapshot the state when the drawer opens. Cancel restores that snapshot; Apply commits it and
+     closes. Both buttons therefore do real work, which a staged Apply over live controls would not. */
+  var FX_FILT_SNAP=null;
+  function fxFiltSnapshot(){
+    var mp=matPolicy();
+    return {lens:JSON.stringify(fluxLens),mat:fluxMat,mpct:mp.pct,mbasis:mp.basis,cmp:RP_COMPARE,
+      grp:fluxGroupBy,find:fluxFind,rev:fluxReviewId,secCol:JSON.stringify(fluxSecCollapse),
+      cols:fluxCols,trendN:fluxTrendN,split:fluxShowSplit,density:SETTINGS.density,
+      comments:fluxShowComments,insp:fluxInspDefaultTab,reviewer:FX_CMT_CFG.reviewer,
+      sticky:fluxStickyHead,zebra:fluxZebra,lines:fluxLines};
+  }
+  function fxFiltRestore(s){
+    if(!s)return;
+    try{fluxLens=JSON.parse(s.lens);}catch(e){}
+    fluxMat=s.mat; var mp=matPolicy(); mp.pct=s.mpct; mp.basis=s.mbasis;
+    RP_COMPARE=s.cmp; fluxGroupBy=s.grp; fluxFind=s.find; fluxReviewId=s.rev;
+    try{fluxSecCollapse=JSON.parse(s.secCol);}catch(e){}
+    fluxCols=s.cols; fluxTrendN=s.trendN; fluxShowSplit=s.split;
+    SETTINGS.density=s.density; if(typeof applyDensity==='function')applyDensity();
+    fluxShowComments=s.comments; fluxInspDefaultTab=s.insp; FX_CMT_CFG.reviewer=s.reviewer;
+    fluxStickyHead=s.sticky; fluxZebra=s.zebra; fluxLines=s.lines;
+  }
+  function fxFiltOpen(){
+    FX_FILT_OPEN=true; FX_FILT_SNAP=fxFiltSnapshot();
+    try{localStorage.setItem('korvyn.fxfilt.open','1');}catch(e){}
+    document.body.classList.add('fx-filt-open'); renderMonthlyTrend();
+  }
+  function fxFiltClose(revert){
+    if(revert)fxFiltRestore(FX_FILT_SNAP);
+    FX_FILT_OPEN=false; FX_FILT_SNAP=null;
+    try{localStorage.setItem('korvyn.fxfilt.open','0');}catch(e){}
+    document.body.classList.remove('fx-filt-open'); renderMonthlyTrend();
+  }
+  function fxFiltToggle(){ if(FX_FILT_OPEN)fxFiltClose(false); else fxFiltOpen(); }
+  function fxFiltSec(k){FX_FILT_SEC[k]=!FX_FILT_SEC[k];renderMonthlyTrend();}
   var fluxLines=true, fluxZebra=false;   /* Customize-gear view settings (density unified into SETTINGS.density) */      /* ribbon collapsed (compact one-row, no under-labels) is the default; expand adds grouped labels */
   /* ===== Review Framework: role-based presentation modes (shared platform capability) =====
      Mode changes PRESENTATION only over the same tied-out data; remembered per user via SETTINGS. */
@@ -9428,11 +9536,16 @@
      panel purely to find out, which is the panel doing a chip's job. These name each active filter,
      drop it in one click, and carry the n-of-m readout that used to own a 34px row of its own.
      Only NON-DEFAULT state produces a chip: a clean review shows an empty row and costs nothing. */
-  function fxFilterChips(curStatus,statusOpts,visLines,totLines){
+  function fxFilterChips(curStatus,statusOpts,visLines,totLines,inDrawer){
     var out=[];
     function chip(k,lbl,val){
+      /* In the drawer the chip reads as one phrase ("Material at: ≥ 8%") because it sits under an
+         "Active filters" heading; on the page it keeps the two-part key/value form. */
+      var body=inDrawer
+        ? '<span class="fx-chip-k">'+esc(lbl)+':</span><span class="fx-chip-v">'+esc(val)+'</span>'
+        : '<span class="fx-chip-k">'+esc(lbl)+'</span><span class="fx-chip-v">'+esc(val)+'</span>';
       return '<button class="fx-chip" data-fxchip="'+k+'" title="'+esc(lbl+': '+val+' — click to remove')+'">'
-        +'<span class="fx-chip-k">'+esc(lbl)+'</span><span class="fx-chip-v">'+esc(val)+'</span><span class="fx-chip-x">&times;</span></button>';
+        +body+'<span class="fx-chip-x">&times;</span></button>';
     }
     if(fluxFind)out.push(chip('find','Search','“'+fluxFind+'”'));
     if(curStatus&&curStatus!=='all'){
@@ -9449,6 +9562,9 @@
       out.push(chip('rows','Rows',rl||fluxGroupBy));
     }
     if(!out.length)return '';
+    /* The drawer prints its own "Active filters (n)" heading and Clear all, so the chips go bare
+       there; on the page they carry the readout and the reset with them. */
+    if(inDrawer)return out.join('');
     return out.join('')
       +'<span class="fx-chips-n" title="Lines passing the current filters, of the whole population">'+visLines+' of '+totLines+' lines</span>'
       +'<button class="fx-chips-clr fx-filt-reset">Clear all</button>';
@@ -9823,13 +9939,29 @@
        floor derives from) and a line is material only when it breaches BOTH rules — collapsing them
        into one row would imply they were alternatives. The floor's own heading states the standard in
        words, which is what an auditor reads off the screen. */
-    var _fbMat=_gbRow((matPresets.indexOf(fluxMat)<0?_gbBtn('fxm-mat','data-mat',fluxMat,'&ge; '+fluxMat+'%',true):'')
+    /* Split into the drawer's own sections. Relative rule and absolute floor stay together under
+       Materiality — a line is material only when it breaches BOTH, so separating them would imply
+       they were alternatives — while the benchmark the floor derives from is its own row, since it is
+       a different question ("measured against what?"). */
+    var _fbMatRel=_gbRow((matPresets.indexOf(fluxMat)<0?_gbBtn('fxm-mat','data-mat',fluxMat,'&ge; '+fluxMat+'%',true):'')
         +matPresets.map(function(o){return _gbBtn('fxm-mat','data-mat',o,'&ge; '+o+'%',fluxMat===o);}).join(''))
       +'<h4 class="fxfb-h fxfb-h2">Absolute floor &mdash; '+esc(_mp.pct)+'% of '+esc(MAT_BASES[_mp.basis])+' = '+fxAbbr$(matFloor())+'</h4>'
       +_gbRow(_floorPresets.map(function(o){return _gbBtn('fxm-matfl','data-matfl',o,o+'%',_mp.pct===o);}).join(''))
-      +(_basisOpts.length>1?('<h4 class="fxfb-h fxfb-h2">Benchmark</h4>'
-        +_gbRow(_basisOpts.map(function(o){return _gbBtn('fxm-matbs','data-matbs',o[0],esc(o[1]),_mp.basis===o[0]);}).join(''))):'')
-      +'<div class="fxm-note2">A line is material when it breaches <b>both</b> rules &mdash; so a rounding move on a huge account is ignored, and a small account swinging hard is not. The benchmark follows the statement.</div>';
+      +'<div class="fxm-note2">Material only when it breaches <b>both</b> rules.</div>';
+    var _fbMatBench=(_basisOpts.length>1
+      ? _gbRow(_basisOpts.map(function(o){return _gbBtn('fxm-matbs','data-matbs',o[0],esc(o[1]),_mp.basis===o[0]);}).join(''))
+      : '<div class="fxm-note2">The balance sheet floor derives from <b>total assets</b>. The benchmark follows the statement.</div>');
+    /* "By section" is a concise checkbox list over the statement's own sections — checked means the
+       section's rows are shown. It reads the same fluxSecCollapse the grid does, so the list and the
+       statement cannot disagree. */
+    var _fbSect=(function(){
+      var all=(typeof _secsAll!=='undefined'&&_secsAll&&_secsAll.length)?_secsAll:secs;
+      if(!all||!all.length)return '<div class="fxm-note2">No sections on this statement.</div>';
+      return '<div class="fxd-cks">'+all.map(function(s){
+        var nm=s.name||'', on=!fluxSecCollapse[nm];
+        return '<label class="fxd-ck"><input type="checkbox" class="fxd-seck" data-sect="'+esc(nm)+'"'+(on?' checked':'')+'><span>'+esc(nm||'(unnamed)')+'</span></label>';
+      }).join('')+'</div>';
+    })();
     var _fbScope='<div class="fxfb-scroll">'+fluxSectionMenuHTML(ckOn,ckOff)+'</div><button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review layout&hellip;</button>';
     /* ---- Presentation tier: Columns · Display · Views, folded INTO the panel -------------------
        These used to be separate dropdowns floating at the right of the bar. They are not filters —
@@ -9882,33 +10014,72 @@
     var _sugHTML=_sug.length
       ? _sug.map(function(s){return '<button class="fx-sug'+(curStatus===s[0]?' on':'')+' '+s[2]+'" data-status="'+s[0]+'" title="Focus the statement on these lines">'+(curStatus===s[0]?'&#10003; ':'')+s[1]+'</button>';}).join('')
       : '<div class="fxm-note2">Nothing outstanding at the current standard &mdash; every material movement is explained and evidenced.</div>';
-    /* One panel, in flow, welded to the underside of the bar. */
-    var _filtPanel=FX_FILT_OPEN?('<div class="fx-filtpop">'
-      /* Reset all only exists when there is something to reset — an affordance that cannot act is a
-         dead control, and this panel opens with nothing active most of the time. */
-      +'<div class="fxfb-hd"><span class="fxfb-t">Filters</span><span class="fxfb-n">'+(_fCount?(_fCount+' active'):'none active')+'</span><span class="grow"></span>'+(_fCount?'<button class="fxfb-reset fx-filt-reset">Reset all</button>':'')+'<button class="fxfb-reset fx-filt-hide">Hide</button></div>'
-      +'<div class="fxfb-sug"><h4 class="fxfb-h">Suggested &mdash; from this review</h4><div class="fxfb-sugs">'+_sugHTML+'</div></div>'
-      /* Header and suggestions stay pinned; only the control area below them scrolls. */
-      +'<div class="fxfb-body">'
-      /* TIER ONE — what is in the review. These four change the POPULATION or which of it you see,
-         which is what you are signing off on, so they lead and they own the word "Filters". */
-      +'<div class="fxfb-grid">'
-      +_fbSec('Focus',_fbFocus)
-      +_fbSec('Materiality',_fbMat)
-      +_fbSec('Comparison',_fbBasis+'<h4 class="fxfb-h fxfb-h2">Group rows by</h4>'+_fbRows)
-      +_fbSec('Review scope',_fbScope)
+    /* ===== FILTERS: a right-hand drawer of collapsed accordion rows ==============================
+       Three earlier containers failed for the same structural reason — nine control groups will not
+       fit any box that shows them all at once. A full-width in-flow band was ~830px of "full screen
+       filter"; a 560px popup crammed them into two columns with a scrollbar inside the page's own.
+       Collapsing each group to ONE ROW carrying its own current value fixes it: shut, the drawer is a
+       readable summary of the entire filter state; you expand only what you came to change. Full
+       viewport height means it never needs a nested scroll, and the statement stays visible beside it
+       so you watch rows change as you filter. */
+    var _secRow=function(key,label,value,body){
+      var on=!!FX_FILT_SEC[key];
+      return '<div class="fxd-sec'+(on?' open':'')+'">'
+        +'<button class="fxd-sec-hd" data-fsec="'+key+'" aria-expanded="'+(on?'true':'false')+'">'
+          +'<span class="fxd-sec-k">'+esc(label)+'</span>'
+          +'<span class="fxd-sec-v">'+value+'</span>'
+          +'<span class="fxd-sec-tw">'+(on?'&#9652;':'&#9662;')+'</span></button>'
+        +(on?('<div class="fxd-sec-b">'+body+'</div>'):'')+'</div>';
+    };
+    /* Each row's value summary is derived from the same state the controls write, so a collapsed row
+       can never describe something different from what is applied. */
+    var _lensLbl=(function(){var a=[];statusOpts.forEach(function(o){if(o[0]!=='all'&&fluxLens[o[0]])a.push(o[1]);});return a.length?a.join(', '):'All lines';})();
+    var _mpNow=matPolicy();
+    var _rowsLbl=(function(){var l='';FLUX_ROWS_OPTS.forEach(function(o){if(o[0]===fluxGroupBy)l=o[1];});return l||fluxGroupBy;})();
+    var _scopeLbl=(fluxReviewId&&fluxReviewId!=='all')?fluxReviewName():('Entire '+fluxStmtLabel());
+    var _secSel=(function(){
+      var all=(typeof _secsAll!=='undefined'&&_secsAll&&_secsAll.length)?_secsAll:secs, t=all.length;
+      var on=all.filter(function(s){return !fluxSecCollapse[s.name||''];}).length;
+      return on===t?('All '+t+' sections'):(on+' of '+t+' selected');
+    })();
+    var _colsLbl=(fluxCols==='trend'?(fluxTrendN+'-'+colUnit+' trend'):'Comparison');
+    var _viewLbl=[_colsLbl,({comfortable:'Comfortable',compact:'Compact',executive:'Executive'}[SETTINGS.density]||'Comfortable'),(fluxShowComments?'Comments':'No comments')].join(', ');
+    var _otherLbl=[(fluxShowSplit?'Organic/FX split: On':'Organic/FX split: Off'),(fluxZebra?'Zebra: On':'Zebra: Off'),(fluxLines?'Grid lines: On':'Grid lines: Off')].join(' &middot; ');
+    /* Suggestions become cards with an explicit "View lines" — the action is legible instead of the
+       whole card being a mystery target. */
+    var _sugCards=_sug.length
+      ? _sug.map(function(s){return '<div class="fxd-sugc'+(curStatus===s[0]?' on':'')+'"><div class="fxd-sugc-t">'+s[1]+'</div>'
+          +'<button class="fxd-sugc-a fx-sug" data-status="'+s[0]+'">View lines</button></div>';}).join('')
+      : '<div class="fxd-none">Nothing outstanding at the current standard &mdash; every material movement is explained and evidenced.</div>';
+    var _tabF=(FX_FILT_TAB!=='views');
+    var _chipRow=fxFilterChips(curStatus,statusOpts,visLines,totLines,true);
+    var _filtPanel=FX_FILT_OPEN?('<aside class="fx-fdrawer" aria-label="Filters">'
+      +'<div class="fxd-hd"><span class="fxd-t">Filters</span><button class="fxd-x fx-filt-cancel" title="Close without keeping these changes">&times;</button></div>'
+      +'<div class="fxd-active"><div class="fxd-active-hd"><span>Active filters ('+_fCount+')</span>'
+        +(_fCount?'<button class="fxd-clear fx-filt-reset">Clear all</button>':'')+'</div>'
+        +(_chipRow?('<div class="fxd-chips">'+_chipRow+'</div>'):'<div class="fxd-none">No filters applied &mdash; showing the whole statement.</div>')+'</div>'
+      +'<div class="fxd-tabs"><button class="fxd-tab'+(_tabF?' on':'')+'" data-ftab="filter">Filter</button>'
+        +'<button class="fxd-tab'+(_tabF?'':' on')+'" data-ftab="views">Saved views</button></div>'
+      +'<div class="fxd-body">'
+      +(_tabF
+        ? ('<div class="fxd-sughd">Suggested &mdash; from this review</div><div class="fxd-sugs">'+_sugCards+'</div>'
+          /* Population first, presentation last — the order a reviewer thinks in. */
+          +_secRow('focus','Focus',esc(_lensLbl),_fbFocus)
+          +_secRow('mat','Materiality','&ge; '+fluxMat+'% &middot; '+fxAbbr$(matFloor()),_fbMatRel)
+          +_secRow('cmp','Comparison',esc(basisCur),_fbBasis)
+          +_secRow('bench','Benchmark',esc(MAT_BASES[_mpNow.basis]||''),_fbMatBench)
+          +_secRow('scope','Review scope',esc(_scopeLbl),_fbScope)
+          +_secRow('rows','Group rows by',esc(_rowsLbl),_fbRows)
+          +_secRow('sect','By section',esc(_secSel),_fbSect)
+          +_secRow('cols','Columns & view',esc(_viewLbl),_fbCols)
+          +_secRow('other','Other',_otherLbl,_fbDisp))
+        : ('<div class="fxd-vwrap">'+_fbViews+'</div>'))
       +'</div>'
-      /* TIER TWO — how it is drawn. Labelled as such and kept BELOW the fold of tier one, because
-         the distinction is load-bearing here: a review set restores presentation only, and silently
-         moving a reviewer to a different population than the one they opened is how someone signs
-         off on lines they never saw. Saying so on the band is cheaper than explaining it later. */
-      +'<div class="fxfb-tier"><span class="fxfb-tier-k">Presentation &amp; views</span>'
-        +'<span class="fxfb-tier-d">changes how the statement is drawn &mdash; never which lines it contains</span></div>'
-      +'<div class="fxfb-grid">'
-      +_fbSec('Columns',_fbCols)
-      +_fbSec('Display',_fbDisp)
-      +_fbSec('Views',_fbViews,'fxfb-wide')
-      +'</div></div></div>'):'';
+      +'<div class="fxd-foot"><button class="fxd-save fx-saveview">'+FX_BOOKMARK_ICO+' Save as view</button>'
+        +'<span class="grow"></span>'
+        +'<button class="btn sm fx-filt-cancel">Cancel</button>'
+        +'<button class="btn sm primary fx-filt-apply">Apply filters</button></div>'
+      +'</aside>'):'';
     /* The close-context bar (Day 4 of 8 · 41% · 53 of 128 signed off) does NOT render here any more.
        That is close-LEVEL status: inside one review it was 61px answering a question the reviewer did
        not ask, and the work spine above #view already carries queue position. It still leads Flux
@@ -9943,12 +10114,16 @@
         +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rp-gb-b fxm-stmt'+(fluxStmt===o[0]?' on':'')+'" data-stmt="'+o[0]+'">'+o[1]+'</button>';}).join('')
         +'<span class="rp-gb-l" style="margin-left:18px">Entity</span>'+dScope
         +'</div>';
-      h+='<div class="fx-fbar fx-fbar-ctx fx-fbar-2'+(FX_FILT_OPEN?' fx-fbar-open':'')+'">'+dSearch+_filtersBtn
-        +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>'+_filtPanel;
+      h+='<div class="fx-fbar fx-fbar-ctx fx-fbar-2">'+dSearch+_filtersBtn
+        +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>';
     } else {
-      h+='<div class="fx-fbar fx-fbar-ctx'+(FX_FILT_OPEN?' fx-fbar-open':'')+'">'+dSearch+dStmt+dScope+_filtersBtn
-        +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>'+_filtPanel;
+      h+='<div class="fx-fbar fx-fbar-ctx">'+dSearch+dStmt+dScope+_filtersBtn
+        +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>';
     }
+    /* The drawer is a fixed slide-over, so it is appended at the END of the view rather than in the
+       bar — nothing in the page flow moves when it opens. The scrim dims the statement without
+       hiding it, so you keep your place while filtering. */
+    var _filtMount=FX_FILT_OPEN?('<div class="fx-fscrim fx-filt-cancel"></div>'+_filtPanel):'';
     /* Only the expand / collapse pair stays at the right. They are not filters and not presentation —
        they act on the tree in front of you, one level at a time, and belong next to it. My Views,
        Share and View all left this cluster: two into the Filters panel, Share up to the header. */
@@ -10088,7 +10263,23 @@
         +'Materiality '+esc(matStandard())+'.</div>';
       h+=(typeof fxaScopeNote==='function')?fxaScopeNote():'';
     }
+    h+=_filtMount;
     $('#view').innerHTML=h;
+    document.body.classList.toggle('fx-filt-open',!!FX_FILT_OPEN);
+    /* ---- Filters drawer wiring ---------------------------------------------------------------- */
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fsec]'),function(b){
+      b.onclick=function(e){e.stopPropagation();fxFiltSec(this.getAttribute('data-fsec'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-ftab]'),function(b){
+      b.onclick=function(e){e.stopPropagation();FX_FILT_TAB=this.getAttribute('data-ftab');renderMonthlyTrend();};});
+    /* Cancel (and the × and the scrim) revert to the state captured when the drawer opened; Apply
+       keeps it. Both are real actions, which is what earns them a place in a sticky footer. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-cancel'),function(b){
+      b.onclick=function(e){e.stopPropagation();fxFiltClose(true);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-apply'),function(b){
+      b.onclick=function(e){e.stopPropagation();fxFiltClose(false);};});
+    /* Checked = the section's rows are shown; it writes the same fluxSecCollapse the grid reads. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxd-seck'),function(c){
+      c.onchange=function(){var n=this.getAttribute('data-sect');fluxSecCollapse[n]=!this.checked;renderMonthlyTrend();};});
     /* The Analytics skin's crumb must be wired here, not only in navTo: every filter change
        re-renders through renderMonthlyTrend() directly, which would otherwise leave a dead crumb. */
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-crumb .rp-cr[data-go]'),function(b){b.onclick=function(){var g=this.getAttribute('data-go');if(g)navTo(g);};});
@@ -10167,10 +10358,10 @@
        moment you touch the statement you are filtering. Bound once, not once per render. */
     if(!FX_FILT_DISMISS_BOUND){
       FX_FILT_DISMISS_BOUND=true;
+      /* Escape is a cancel, not just a close — it reverts to the state the drawer opened with, which
+         is what a user pressing Escape means by it. */
       document.addEventListener('keydown',function(e){
-        if(e.key==='Escape'&&FX_FILT_OPEN&&document.querySelector('#view .fx-filtpop')){
-          FX_FILT_OPEN=false;try{localStorage.setItem('korvyn.fxfilt.open','0');}catch(_e){}
-          if(typeof renderMonthlyTrend==='function')renderMonthlyTrend();}
+        if(e.key==='Escape'&&FX_FILT_OPEN&&document.querySelector('#view .fx-fdrawer'))fxFiltClose(true);
       });
     }
     /* Remove one filter without opening the panel. Each chip resets exactly the state it names — a

@@ -94,12 +94,24 @@ stubs naming their real engine — never mocked numbers.
     small icon at the top right (`.fx-icob`, menu opens leftward) because it is an *action* that leaves
     the app, not a filter. Only the **expand / collapse pair** stays at the bar's right: it acts on the
     tree in front of you, one level at a time, and belongs beside it.
-  - **In flow, welded under the bar (`.fx-fbar-open`) — and with NO inner scroll.** Both alternatives
-    were built and rejected: a 560px anchored popup put seven sections into two 264px columns with a
-    scrollbar inside the page's *and* still overhung the viewport, because the bar sits low; capping
-    the in-flow body reintroduced the same scroll-within-scroll. At full width the sections get ~290px
-    columns, all are visible, and the page is the only thing that scrolls. **Escape** closes it; an
-    outside click deliberately does not, because it is a mode you work with open, not an overlay.
+  - **It is a RIGHT-HAND SLIDE-OVER of collapsed accordion rows** (`.fx-fdrawer`, 440px, full height).
+    Three containers were built and rejected first, all for one structural reason: **nine control
+    groups will not fit any box that shows them all at once.** A full-width in-flow band was ~830px of
+    "full screen filter"; a 560px anchored popup crammed them into two 264px columns with a scrollbar
+    inside the page's own and still overhung the viewport. **Collapsing each group to one row carrying
+    its own applied value** is the fix — shut, the drawer is a readable summary of the entire filter
+    state; you expand only what you came to change. Nine rows, in this order: Focus · Materiality ·
+    Comparison · Benchmark · Review scope · Group rows by · By section · Columns & view · Other.
+  - **Every summary derives from the state its controls write**, so a collapsed row can never describe
+    something other than what is applied.
+  - **`Cancel` and `Apply` are real.** Controls apply **live** (you watch the statement change, and the
+    suggestion cards say *View lines*), so instead of buffering edits the drawer **snapshots state on
+    open**: `fxFiltSnapshot` / `fxFiltRestore`. Cancel — and the ×, the scrim, and Escape — restore that
+    snapshot; Apply commits and closes. That is what earns them a sticky footer, and it is why the
+    repo's "no staged Apply over live controls" rule is not violated: the button does real work.
+  - Only the drawer scrolls (`body.fx-filt-open{overflow:hidden}`) — no double scrollbars. The page
+    stays visible and dims under a 10% scrim. The page's own chip row hides while the drawer is open,
+    since the drawer owns *Active filters*; it returns on close as the persistent indicator.
 - **ONE selection language, and it is a SOLID DARK fill: `--ink` (#141824), the `.rp-gb-b.on`
   treatment.** Filters are rendered as labelled rows of inline `.rp-gb-b` buttons (`.fxfb-btns`) —
   the actual Trending/Variance class, not a lookalike, so the two cannot drift. This replaced vertical
