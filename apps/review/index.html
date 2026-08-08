@@ -365,8 +365,12 @@
   body.nav-collapsed .nav .nsubh{display:none}
   .nitem svg{flex:0 0 auto;opacity:.85}
   .nitem>span:not(.nc){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .nitem .nc{margin-left:auto;font-size:var(--fs-12);color:var(--muted);background:var(--raise);border-radius:2px;padding:0 6px;min-width:18px;text-align:center}
-  .nitem.on .nc{background:var(--surface);color:var(--accent)}
+  /* Quiet inventory count — a number of things, no action implied (design-system rule 5). */
+  .nitem .nc{margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--muted);background:none;border-radius:2px;padding:0 2px;min-width:18px;text-align:right}
+  .nitem.on .nc{color:var(--ink-2)}
+  /* A BADGE means action required from you — the only item that earns one is My Reviews. */
+  .nitem .nc.nc-act{background:var(--warn);color:#fff;font-weight:600;padding:0 6px;text-align:center;border-radius:9px}
+  .nitem.on .nc.nc-act{background:var(--warn);color:#fff}
   /* ---- nav footer: settings gear pinned to the bottom of the left nav ---- */
   .nav-foot{margin-top:auto;padding-top:8px;border-top:1px solid var(--line)}
   .nav-gear{display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border:0;background:transparent;
@@ -972,7 +976,7 @@
     #view{padding:0!important}
   }
   body.print-mode{background:#fff!important}
-  body.print-mode .ribbon,body.print-mode #nav,body.print-mode #aiPanel,body.print-mode #aiMinTab,body.print-mode #notifPanel,body.print-mode #reviewModal,body.print-mode #fxInsp,body.print-mode #fxCfg,body.print-mode #view .kv-hd,body.print-mode #view .rvc-hd,body.print-mode #view .rp-crumb,body.print-mode #view .rp-tl,body.print-mode #view .fx-kpis,body.print-mode #view .fx-sum,body.print-mode #view .fx-filter,body.print-mode #view .fx-tb,body.print-mode #view .fx-subbar,body.print-mode #view .fx-rsum,body.print-mode #view .fx-sheets,body.print-mode #view .flx-note,body.print-mode .topnav,body.print-mode .fx-dock,body.print-mode #view .fx-titlebar,body.print-mode #view .fx-rvw-ai{display:none!important}
+  body.print-mode .ribbon,body.print-mode #nav,body.print-mode #aiPanel,body.print-mode #aiMinTab,body.print-mode #notifPanel,body.print-mode #reviewModal,body.print-mode #fxInsp,body.print-mode #fxCfg,body.print-mode #view .kv-hd,body.print-mode #view .rvc-hd,body.print-mode #view .rp-crumb,body.print-mode #view .rp-tl,body.print-mode #view .fx-kpis,body.print-mode #view .fx-sum,body.print-mode #view .fx-filter,body.print-mode #view .fx-tb,body.print-mode #view .fx-subbar,body.print-mode #view .fx-rsum,body.print-mode #view .fx-sheets,body.print-mode #view .flx-note,body.print-mode .topnav,body.print-mode .fx-dock,body.print-mode #view .fx-titlebar,body.print-mode #view .fx-hd,body.print-mode #view .fx-chips,body.print-mode #view .fx-filtpanel,body.print-mode #view .fx-rvw-ai{display:none!important}
   body.print-mode .app{display:block!important;margin-right:0!important}
   body.print-mode .main{margin:0!important}
   body.print-mode #view{padding:6px 4px!important}
@@ -1793,6 +1797,7 @@
   .btn,.btn-primary,.btn-ghost,.btn.sm,.seg,.seg-b,.rp-seg-b,.pill,.chip,.tag,.rp-st,.rbadge,.nkid-b,
   .pw-tab,.rp-tab,.fx-tb-tab,.fxm-sum,.fxm-cur,.fxr-lbl,.fx-tb-l,.fxm-h,.fxm-opt,
   .fx-metrics,.fx-sm,.rp-tl,.rp-tl-m,.rvc-meta,.rvc-m,.rvc-m-k,.rp-whd-meta,
+  .fx-status,.fx-filt-toggle,.fx-chip,.fx-chips-n,.fx-chips-clr,.fx-sug,.fx-tiep,.fx-cov-k,
   .rb-period,.rb-search input,.ribai .rlbl,.ribsearch,
   .rvw-tbl,.rp-tbl,.tbl{font-family:var(--sans)}
   /* long-form page/help prose kept in the humanist sans; flux commentary is typewriter */
@@ -1989,7 +1994,7 @@
   .rp-state.st-sh .rp-state-dot{background:var(--warn)}
   .rp-state.st-pb{color:var(--pos);border-color:var(--pos-bg);background:var(--pos-bg)}
   .rp-state.st-pb .rp-state-dot{background:var(--pos)}
-  .fx-titlebar .rp-state{margin-left:10px}
+  .fx-titlebar .rp-state,.fx-hd .rp-state{margin-left:6px}
   .fxm-rstate .rp-state-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;background:var(--faint);vertical-align:middle}
   .fxm-rstate .rp-state-dot.st-sh{background:var(--warn)} .fxm-rstate .rp-state-dot.st-pb{background:var(--pos)}
   .fx-state-note{font-size:var(--fs-12);color:var(--muted);font-style:italic}
@@ -2007,11 +2012,12 @@
   .rx-hier-arw{color:var(--faint)}
   .rx-hier-n{margin-left:auto;color:var(--muted)}
   .fx-crumb{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:0 0 6px;font-size:var(--fs-12)}
-  .fx-crumb .fx-cr{color:var(--muted)}
-  .fx-crumb .fx-cr-cur{color:var(--ink-2);font-weight:500}
-  .fx-crumb .fx-cr-sep{color:var(--faint)}
-  .fx-crumb .fx-cr-lock{display:inline-flex;align-items:center;gap:3px;color:var(--warn);font-weight:500}
-  .fx-crumb .fx-cr-lock svg{width:12px;height:12px}
+  /* The trail moved into the merged identity line (.fx-hd-tr); .fx-crumb no longer renders. */
+  .fx-crumb .fx-cr,.fx-hd-tr .fx-cr{color:var(--muted)}
+  .fx-crumb .fx-cr-cur,.fx-hd-tr .fx-cr-cur{color:var(--ink-2);font-weight:500}
+  .fx-crumb .fx-cr-sep,.fx-hd-tr .fx-cr-sep{color:var(--faint)}
+  .fx-crumb .fx-cr-lock,.fx-hd-tr .fx-cr-lock{display:inline-flex;align-items:center;gap:3px;color:var(--warn);font-weight:500}
+  .fx-crumb .fx-cr-lock svg,.fx-hd-tr .fx-cr-lock svg{width:12px;height:12px}
   /* ===== Period lock: banner, indicators, read-only notes ===== */
   .fxm-lock{display:inline-flex;align-items:center;color:var(--warn);margin-left:1px}
   .fxm-lock svg{width:12px;height:12px}
@@ -2094,6 +2100,78 @@
   .fx-filters-sum{display:inline-flex;align-items:center}
   .fx-fcount{margin-left:6px;min-width:17px;height:17px;padding:0 4px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:10px;font-variant-numeric:tabular-nums}
   .fx-fbar-acts-row{border:0;background:none;padding-left:0;padding-right:0}
+  /* ---- ONE identity line: trail + title + status + primary action ----------------------------
+     Replaces the stacked .fx-crumb (27px) + .fx-titlebar (51px), which both ended in the review's
+     name. The trail stays quiet and small; the current node is the H1. */
+  .fx-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;min-height:30px}
+  .fx-hd-tr{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:var(--fs-12)}
+  .fx-hd .fx-h1{font-size:var(--fs-18,18px)}
+  .fx-hd .fx-back{margin-right:2px}
+  /* The period switcher lives inside the trail, sized to read as trail text rather than a control. */
+  .fx-hd-tr .fxm>.fxm-sum{height:22px;padding:0 6px;border-color:transparent;background:none}
+  .fx-hd-tr .fxm>.fxm-sum:hover{border-color:var(--line-2);background:var(--surface)}
+  .fx-hd-tr .fxm>.fxm-sum .fxm-cur{font-size:var(--fs-12);font-weight:500;color:var(--muted)}
+  .fx-hd-tr .fxm[open]>.fxm-sum{border-color:var(--line-2);background:var(--surface)}
+  .fx-hd-tr .fxm[open]>.fxm-sum .fxm-cur{color:var(--accent)}
+  /* ---- smart filter: the collapsed state is a row of removable chips ------------------------- */
+  .fx-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;min-height:24px}
+  .fx-chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 4px 0 9px;border:1px solid var(--line-2);border-radius:12px;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+  .fx-chip:hover{border-color:var(--faint)}
+  .fx-chip:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .fx-chip-k{color:var(--muted)}
+  .fx-chip-v{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
+  .fx-chip-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:8px;color:var(--faint);font-size:14px;line-height:1}
+  .fx-chip:hover .fx-chip-x{background:var(--raise);color:var(--ink)}
+  .fx-chips-n{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12);color:var(--faint);margin-left:2px}
+  .fx-chips-clr{border:0;background:none;font:inherit;font-size:var(--fs-12);color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+  .fx-chips-clr:hover{color:var(--ink)}
+  /* ---- smart filter: the expanded panel, IN FLOW and visually welded to the bar -------------- */
+  .fx-fbar-open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;margin-bottom:0}
+  .fx-filt-toggle{display:inline-flex;align-items:center;gap:2px;height:28px;padding:0 9px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);font:inherit;font-size:var(--fs-13);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+  .fx-filt-toggle:hover{border-color:var(--faint);color:var(--ink)}
+  .fx-filt-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .fx-filt-toggle.open{border-color:var(--accent-line);background:var(--accent-bg);color:var(--ink)}
+  /* It is a disclosure, so the chevron must say which way it goes. .fxm-sum::after already draws the
+     triangle — flip it rather than adding a second glyph beside it. */
+  .fx-filt-toggle.open::after{border-top:0;border-bottom:4px solid var(--ink)}
+  .fx-filtpanel{border:1px solid var(--line);border-top:0;border-radius:0 0 2px 2px;background:var(--surface);margin:0 0 12px;overflow:hidden}
+  .fx-filtpanel .fxfb-hd{padding:11px 20px}
+  /* Cap the control grid so some of the statement stays on screen. Expanding in flow is only better
+     than an overlay if you can still SEE the rows change — a panel tall enough to push the grid off
+     the fold is an overlay with extra steps. Header and suggestions stay pinned above the scroll. */
+  .fx-filtpanel .fxfb-grid{max-height:min(40vh,340px);overflow:auto}
+  /* Suggestions band — derived from this review, so it leads the panel. */
+  .fxfb-sug{padding:13px 20px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .fxfb-sugs{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .fx-sug{display:inline-flex;align-items:center;height:26px;padding:0 11px;border:1px solid var(--line-2);border-radius:13px;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+  .fx-sug:hover{border-color:var(--faint);color:var(--ink)}
+  .fx-sug:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .fx-sug.warn{border-left:3px solid var(--warn)}
+  .fx-sug.pos{border-left:3px solid var(--pos)}
+  .fx-sug.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:500}
+  /* The View panel gets the same wide treatment as Filters, so its groups sit side by side. */
+  .fx-fbar .fxm[data-fxmenu="view"]{position:static}
+  .fx-viewbox{position:absolute;top:calc(100% + 4px);left:0;right:0;width:auto;min-width:0;max-width:none;padding:0;max-height:min(72vh,560px);overflow:auto}
+  .fxfb-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* ---- ONE status line: movement bridge (left) · defensibility state (right) ------------------
+     Was .fx-metrics + .fx-cover, two bands totalling 128px that read as contradicting each other. */
+  .fx-status{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 10px;padding:0 0 9px;border-bottom:1px solid var(--line)}
+  .fx-st-g{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+  .fx-st-r{margin-left:auto}
+  /* Tie-out collapsed to a pill: a healthy assertion should cost a glyph, not a band. */
+  .fx-tiep{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--muted);cursor:pointer;white-space:nowrap}
+  .fx-tiep:hover{border-color:var(--faint);color:var(--ink)}
+  .fx-tiep:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  .fx-tiep-ic{font-weight:700}
+  .fx-tiep.ok{border-color:var(--pos);color:var(--pos)} .fx-tiep.ok .fx-tiep-ic{color:var(--pos)}
+  .fx-tiep.warn{border-color:var(--warn);color:var(--warn)} .fx-tiep.warn .fx-tiep-ic{color:var(--warn)}
+  /* Coverage: mini-bar + fraction, the status-instrument pattern (design-system rule 9). */
+  .fx-cov{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+  .fx-covbar{display:inline-block;width:56px;height:5px;border-radius:3px;background:var(--raise);overflow:hidden}
+  .fx-covbar>i{display:block;height:100%;background:var(--pos)}
+  .fx-cov.gap .fx-covbar>i{background:var(--warn)}
+  .fx-cov-r{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:var(--fs-12)}
+  .fx-cov-r.warn{color:var(--warn)} .fx-cov-r.pos{color:var(--muted)}
   /* Tie-out assertion — teal when the ledger agrees, red when it does not (an exception, not a warning) */
   .fx-tie{display:flex;align-items:center;gap:8px;padding:7px 12px;margin:0 0 8px;border:1px solid var(--line);border-left:3px solid var(--pos);border-radius:2px;background:var(--surface);font-size:var(--fs-12);color:var(--ink-2)}
   .fx-tie.bad{border-left-color:var(--neg);background:var(--surface-2)}
@@ -2452,6 +2530,17 @@
   /* the spark stays neutral: Change and Δ% are the two coloured columns the design system allows */
   .fxa-sk{color:var(--faint)}
   .fxa-spark{display:block;overflow:visible}
+  /* ---- Monthly Flux: the month-by-month matrix -------------------------------------------------
+     Month cells stay NEUTRAL. Design-system rule 2 spends this table's two coloured columns on
+     Total change and its direction; a breaching month gets a gold exception dot instead, so the
+     matrix flags what needs attention without becoming a heat map that colours every column. */
+  .fxa-mtx td.fxa-mo,.fxa-mtx th{white-space:nowrap}
+  .fxa-mo{position:relative;color:var(--ink-2)}
+  .fxa-mo.mat{color:var(--ink);font-weight:600}
+  .fxa-modot{position:absolute;top:7px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--warn)}
+  /* Two hand-offs per row, so the column needs a little room and both reveal together on hover. */
+  .fxa-acts{display:flex;align-items:center;gap:12px;white-space:nowrap}
+  .fxa-mtx tr:hover .fxa-acts .fxa-go{opacity:1}
   .rp-pct{font-size:var(--fs-12);color:var(--muted)}
   .rp-ppl{color:var(--ink-2)}
   .rp-sub{color:var(--muted);font-size:var(--fs-12)}
@@ -3227,7 +3316,7 @@
   var NAV_SECTIONS=[
     {id:'home',label:'Home',icon:'home',route:'home'},
     {id:'close',label:'Close',icon:'cal',kids:[['close-dash','Close Overview','periods'],['ph-tasks','Tasks & Checklist'],['ph-approvals','Approvals'],['ph-completion','Completion Status'],['ph-je','Journal Entries']]},
-    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Overview','periods'],['my','My Reviews'],['all','All Reviews'],['trending','Trending Analysis'],['variance','Variance Analysis'],['frpkgs','Review Packages'],['frcloseper','Close Periods'],['ph-execdash','Executive Dashboard'],['ph-scenario','Scenario Analysis']]},
+    {id:'flux',label:'Flux Analysis',icon:'stmt',kids:[['frperiods','Overview','periods'],['my','My Reviews'],['all','All Reviews'],['mflux','Monthly Flux'],['trending','Trending Analysis'],['variance','Variance Analysis'],['frpkgs','Review Packages'],['frcloseper','Close Periods'],['ph-execdash','Executive Dashboard'],['ph-scenario','Scenario Analysis']]},
     {id:'gl',label:'General Ledger',icon:'up',kids:[['repo-upload','Financial Data'],['repo-ledger','Trial Balance','periods'],['repo-coa','Chart of Accounts'],['txn-meta','Transaction Metadata'],['ph-jexplorer','Journal Explorer'],['ph-reclass','Reclassifications']]},
     {id:'recon',label:'Reconciliations',icon:'recon',kids:[['recon-bs','Balance Sheet'],['recon-acct','Account Reconciliations'],['ph-recdash','Rec Dashboard'],['ph-unrec','Unreconciled Items']]},
     /* Review Library / Templates / Mappings moved to Flux Analysis › Configuration — they belong to
@@ -3560,7 +3649,7 @@
   var NAV_ROUTE_ICON={
     home:'home', insights:'trend', activity:'hist',
     'close-dash':'cal','ph-tasks':'ctl','ph-approvals':'shield','ph-completion':'trend','ph-je':'file',
-    frperiods:'cal', my:'doc', all:'stack', trending:'trend', variance:'columns',
+    frperiods:'cal', my:'doc', all:'stack', mflux:'grid', trending:'trend', variance:'columns',
     'ph-execdash':'grid','ph-scenario':'scale',
     'repo-upload':'up','repo-ledger':'stmt','repo-coa':'columns','txn-meta':'tag',
     'ph-jexplorer':'file','ph-reclass':'recon',
@@ -3659,6 +3748,7 @@
        navigator the moment a review opens, so a section that exists only on the overview
        disappears exactly when a reviewer wants to ask "is this line always like this?". */
     {id:'ranalysis',label:'Analysis',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
+      {id:'r-mflux',label:'Monthly flux',kind:'route',target:'mflux',icon:'grid',visible:true,roles:['*'],builtin:true},
       {id:'r-trend',label:'Trending analysis',kind:'route',target:'trending',icon:'trend',visible:true,roles:['*'],builtin:true},
       {id:'r-var',label:'Variance analysis',kind:'route',target:'variance',icon:'scale',visible:true,roles:['*'],builtin:true},
       {id:'r-scen',label:'Scenario analysis',kind:'route',target:'ph-scenario',icon:'stmt',visible:true,roles:['*'],builtin:true}
@@ -3896,40 +3986,70 @@
      pages — not a hierarchy you descend into — so the rail is identical on Overview, inside a
      package, and inside an open review. Every target below is an EXISTING route with an existing
      renderer; nothing here is a new page. */
+  /* Six groups became three, and the two ENTRANCES lead the rail ungrouped: My Reviews for the
+     people doing the work, Overview for the people who own the close. "My work" was a heading over
+     exactly one item — two lines of chrome for one destination, and it pushed the single most-used
+     link down the rail. Everything below is browse (Reviews), look-across (Analytics) or admin
+     (Setup, last, where its frequency belongs). */
   var FLUX_NAV=[
-    {items:[['frperiods','Overview','grid']]},
-    {label:'My work',   items:[['my','My Reviews','doc']]},
+    {items:[['my','My Reviews','doc','mine'],['frperiods','Overview','grid','close']]},
     /* Review Packages and Close Periods are review surfaces, not a separate "Management" idea —
        one fewer heading to read past. */
-    {label:'Reviews',   items:[['all','All Reviews','stack'],['frpkgs','Review Packages','folder'],['frcloseper','Close Periods','cal']]},
-    {label:'Analysis',  items:[['trending','Trending Analysis','trend'],['variance','Variance Analysis','columns']]},
-    {label:'Configuration',items:[['frtpl','Templates','tpl'],['frlib','Review Library','file'],['frmap','Mappings & Definitions','tag']]},
-    {label:'Planned',   items:[['ph-execdash','Executive Dashboard','grid'],['ph-scenario','Scenario Analysis','scale']]}
+    {label:'Reviews',   items:[['all','All Reviews','stack','all'],['frpkgs','Review Packages','folder'],['frcloseper','Close Periods','cal']]},
+    /* "Analysis" was a group heading inside a module already called Flux Analysis — it read as
+       though Overview and Reviews were not analysis. Executive Dashboard and Scenario Analysis are
+       both analytics, so they sit in THIS category's Planned disclosure rather than a top-level
+       Planned group, which gave two roadmap stubs the structural weight of a whole section. */
+    /* Flux leads the group: it is the overview of the three lenses — read every line across the
+       months first, then drop into Trending for one line's trajectory or Variance for one step. */
+    {label:'Analytics', items:[['mflux','Flux','grid'],['trending','Trending','trend'],['variance','Variance','columns']],
+     planned:[['ph-execdash','Executive Dashboard','grid'],['ph-scenario','Scenario Analysis','scale']]},
+    {label:'Setup',     items:[['frtpl','Templates','tpl'],['frlib','Review Library','file'],['frmap','Mappings & Definitions','tag']]}
   ];
+  /* Design-system rule 5: a badge means "action required from you", NOT "count of items". So only
+     My Reviews earns the gold badge; Overview's close completion and the register's inventory render
+     as quiet grey text. Every figure here is read from the same source its own screen renders —
+     myReviewCount() and closeProgress() — so the rail cannot disagree with the page it leads to. */
+  function fluxNavCount(k){
+    try{
+      if(k==='mine'){var n=myReviewCount();return n?{t:String(n),act:true}:null;}
+      if(k==='close'){var p=closeProgress();return p.total?{t:p.pct+'%'}:null;}
+      if(k==='all'){var m=(typeof RP_REVIEWS!=='undefined'&&RP_REVIEWS)?RP_REVIEWS.length:0;return m?{t:String(m)}:null;}
+    }catch(e){}
+    return null;
+  }
   /* Routes that live inside the Flux module. mtrend (an open review) and frov are included so the
      rail survives the moment a reviewer opens a close — that is the whole point of this change. */
-  var FLUX_ROUTES=(function(){var s={mtrend:1,frov:1};FLUX_NAV.forEach(function(g){g.items.forEach(function(i){s[i[0]]=1;});});return s;})();
+  var FLUX_ROUTES=(function(){var s={mtrend:1,frov:1};FLUX_NAV.forEach(function(g){
+    g.items.concat(g.planned||[]).forEach(function(i){s[i[0]]=1;});});return s;})();
   function navIsFlux(k){return !!FLUX_ROUTES[k];}
   function renderFluxRail(){
     var _who='Flux Analysis';
     var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(_who)+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
+    function fluxNavItem(it,isPlanned){
+      var c=isPlanned?null:fluxNavCount(it[3]);
+      var badge=c?('<span class="nc'+(c.act?' nc-act':'')+'">'+esc(c.t)+'</span>'):'';
+      return '<div class="nitem'+(activeNav===it[0]?' on':'')+(isPlanned?' nitem-planned':'')+'" data-nav="'+esc(it[0])+'"'+(isPlanned?' title="'+esc(it[1])+' — on the roadmap, not built yet"':'')+'>'+navIcon(it[2])+'<span>'+esc(it[1])+'</span>'+badge+'</div>';
+    }
     FLUX_NAV.forEach(function(g){
-      var planned=(g.label==='Planned');
-      if(planned){
-        var open=!!NAV_PLANNED_OPEN.flux||g.items.some(function(i){return i[0]===activeNav;});
-        h+='<button class="nplan-h'+(open?' open':'')+'" data-navplan="flux"><span class="ct-tw'+(open?' open':'')+'">'+rpIcon('chev')+'</span><span>Planned</span><span class="nplan-n">'+g.items.length+'</span></button>';
-        if(!open)return;
-      } else if(g.label){
+      var plan=g.planned||[];
+      if(g.label){
         /* Collapsible for future depth, but the primary Flux sections default OPEN — a heading you
            have to expand every session is worse than one you can read past. */
-        var _k='flux:'+g.label, _col=navSecCollapsed(_k)&&!g.items.some(function(i){return i[0]===activeNav;});
+        var _k='flux:'+g.label, _act=g.items.concat(plan).some(function(i){return i[0]===activeNav;});
+        var _col=navSecCollapsed(_k)&&!_act;
         h+='<div class="nh org-hd nh-fluxg">'+navSecTw(_k)+'<span>'+esc(g.label)+'</span></div>';
         if(_col)return;
       }
-      g.items.forEach(function(it){
-        var badge=(it[0]==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
-        h+='<div class="nitem'+(activeNav===it[0]?' on':'')+(planned?' nitem-planned':'')+'" data-nav="'+esc(it[0])+'"'+(planned?' title="'+esc(it[1])+' — on the roadmap, not built yet"':'')+'>'+navIcon(it[2])+'<span>'+esc(it[1])+'</span>'+badge+'</div>';
-      });
+      g.items.forEach(function(it){h+=fluxNavItem(it,false);});
+      /* Roadmap stubs belong to the category they'd ship into, behind that category's own
+         disclosure — not a top-level group competing with real work. */
+      if(plan.length){
+        var pk='flux:'+(g.label||'')+':planned';
+        var popen=!!NAV_PLANNED_OPEN[pk]||plan.some(function(i){return i[0]===activeNav;});
+        h+='<button class="nplan-h'+(popen?' open':'')+'" data-navplan="'+esc(pk)+'"><span class="ct-tw'+(popen?' open':'')+'">'+rpIcon('chev')+'</span><span>Planned</span><span class="nplan-n">'+plan.length+'</span></button>';
+        if(popen)plan.forEach(function(it){h+=fluxNavItem(it,true);});
+      }
     });
     h+=navFavBlockHTML('Favorites');
     h+=navRailFootHTML();
@@ -4146,6 +4266,7 @@
     else if(k==='evidence'){renderHome();scrollToId('secEv');}
     /* The rail's Insights group points at home sections rather than inventing pages. If the widget
        is not on this user's home layout, scrollToId no-ops and they simply land on Home. */
+    else if(k==='mflux'){renderMonthlyFlux();window.scrollTo(0,0);}
     else if(k==='trending'){renderTrending();window.scrollTo(0,0);}
     else if(k==='variance'){renderVariance();window.scrollTo(0,0);}
     else if(k==='insights'){renderHome();scrollToId('secIns');}
@@ -5965,6 +6086,15 @@
   var fluxGroupBy='category';   /* ROWS dimension: 'category' (Revenue/OpEx/G&A) | 'segment' | 'account' (flat) */
   var fluxCols='periods';       /* COLUMNS dimension: 'periods' | 'entities' | 'regions' */
   var fluxRibbonExp=false;
+  /* The smart filter's disclosure state. It expands IN FLOW beneath the control bar rather than as an
+     overlay, because a panel that covers the statement hides the very rows you are filtering — you
+     lose the feedback that tells you whether the filter did what you wanted. Persisted per user:
+     a reviewer who works with the panel open should not have to reopen it every period. */
+  var FX_FILT_OPEN=false;
+  try{FX_FILT_OPEN=localStorage.getItem('korvyn.fxfilt.open')==='1';}catch(e){}
+  function fxFiltToggle(){FX_FILT_OPEN=!FX_FILT_OPEN;
+    try{localStorage.setItem('korvyn.fxfilt.open',FX_FILT_OPEN?'1':'0');}catch(e){}
+    renderMonthlyTrend();}
   var fluxLines=true, fluxZebra=false;   /* Customize-gear view settings (density unified into SETTINGS.density) */      /* ribbon collapsed (compact one-row, no under-labels) is the default; expand adds grouped labels */
   /* ===== Review Framework: role-based presentation modes (shared platform capability) =====
      Mode changes PRESENTATION only over the same tied-out data; remembered per user via SETTINGS. */
@@ -7406,14 +7536,25 @@
       +'<button class="fxa-focus-x" data-fxafocusclr="1">Show all lines</button></div>';
   }
   function fxaStmtBar(route){
+    /* One bar, three lenses. Each control appears only where it changes something on that page —
+       Window is meaningless on Variance (one step), Basis is meaningless on the month matrix
+       (every column IS a month), so neither is rendered there. A control that cannot act is a
+       dead control. */
+    var lbl=function(t){return '<span class="rp-gb-l" style="margin-left:18px">'+t+'</span>';};
+    var win=lbl('Window')+[[3,'Last 3'],[6,'Last 6'],[12,'Last 12']].map(function(o){return '<button class="rp-gb-b'+(FXA_WIN===o[0]?' on':'')+'" data-fxawin="'+o[0]+'">'+o[1]+'</button>';}).join('');
+    var mat=lbl('Material at')+[3,5,10].map(function(o){return '<button class="rp-gb-b'+(FXA_MAT===o?' on':'')+'" data-fxamat="'+o+'">&ge; '+o+'%</button>';}).join('');
+    var rank=function(opts){return lbl('Rank by')+opts.map(function(o){return '<button class="rp-gb-b'+(FXA_RANK===o[0]?' on':'')+'" data-fxarank="'+o[0]+'">'+o[1]+'</button>';}).join('');};
+    var mid=route==='trending'
+      ? win+rank([['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']])
+      : route==='mflux'
+        /* Terse labels here on purpose: Flux carries three control groups where Trending carries two,
+           and the verbose wording wrapped the bar to a second row — the same crowding we just took
+           out of the review. The column headings say what each rank means. */
+        ? win+mat+rank([['move','Movement'],['breach','Months moved'],['pct','Steepest %']])
+        : (lbl('Basis')+[['prev','MoM'],['prevq','QoQ']].map(function(o){return '<button class="rp-gb-b'+(RP_COMPARE===o[0]?' on':'')+'" data-fxabasis="'+o[0]+'">'+o[1]+'</button>';}).join('')+mat);
     return '<div class="rp-gbbar fxa-bar"><span class="rp-gb-l">Statement</span>'
       +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rp-gb-b'+(FXA_STMT===o[0]?' on':'')+'" data-fxastmt="'+o[0]+'">'+o[1]+'</button>';}).join('')
-      +(route==='trending'?('<span class="rp-gb-l" style="margin-left:18px">Window</span>'+[[3,'Last 3'],[6,'Last 6'],[12,'Last 12']].map(function(o){return '<button class="rp-gb-b'+(FXA_WIN===o[0]?' on':'')+'" data-fxawin="'+o[0]+'">'+o[1]+'</button>';}).join('')
-        +'<span class="rp-gb-l" style="margin-left:18px">Rank by</span>'+[['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']].map(function(o){return '<button class="rp-gb-b'+(FXA_RANK===o[0]?' on':'')+'" data-fxarank="'+o[0]+'">'+o[1]+'</button>';}).join(''))
-        :('<span class="rp-gb-l" style="margin-left:18px">Basis</span>'+[['prev','MoM'],['prevq','QoQ']].map(function(o){return '<button class="rp-gb-b'+(RP_COMPARE===o[0]?' on':'')+'" data-fxabasis="'+o[0]+'">'+o[1]+'</button>';}).join('')
-        +'<span class="rp-gb-l" style="margin-left:18px">Material at</span>'+[3,5,10].map(function(o){return '<button class="rp-gb-b'+(FXA_MAT===o?' on':'')+'" data-fxamat="'+o+'">&ge; '+o+'%</button>';}).join('')))
-      +fxaEntBar()
-      +'</div>';
+      +mid+fxaEntBar()+'</div>';
   }
   function fxaScopeNote(){
     var sc=(typeof fluxScopeLabel==='function')?fluxScopeLabel(fluxScope):'Consolidated';
@@ -7518,6 +7659,81 @@
     h+='<div class="ldg-note">Compared against the prior '+basis+'. Contribution is each line&rsquo;s share of the total <i>absolute</i> movement, so offsetting swings still show their size. A material account is one whose own movement is at or above &ge;&nbsp;'+FXA_MAT+'%; the count is the number of accounts inside that line, not a dollar figure.</div>';
     h+=fxaScopeNote();
     $('#view').innerHTML=h; fxaWire('variance');
+  }
+  /* ---- THIRD LENS: Monthly Flux ----------------------------------------------------------------
+     The family now answers three different questions with one set of chrome:
+       Trending — how has this line behaved over time?          (trajectory: spark + volatility)
+       Variance — where did THIS period's movement come from?   (one step, decomposed by section)
+       Monthly Flux — which months moved, and is it recurring?  (the month-by-month matrix)
+     Flux is the overview of the three, so it leads the Analytics group. It is deliberately NOT the
+     flux REVIEW workspace (`mtrend`): this reads across every line at once and signs nothing, which
+     is why each row hands off to the review rather than trying to be one.
+     Rows are one per reported line, movement INTO each month, computed from the same fxaLines /
+     fxScopedVal source the other two lenses use — so the three cannot disagree. */
+  function fxaFluxRows(stmt,win){
+    /* One extra month, so the earliest column still has a prior period to move from. */
+    var d=fxaLines(stmt,win+1);
+    var labels=d.labels.slice(1);   /* a delta is labelled by the month it moved INTO */
+    var rows=d.rows.map(function(r){
+      var mv=[], brk=0, big=null;
+      for(var i=1;i<r.series.length;i++){
+        var prev=r.series[i-1], cur=r.series[i], dd=cur-prev;
+        var pct=prev?dd/Math.abs(prev)*100:0;
+        var mat=!!prev&&Math.abs(pct)>=FXA_MAT;   /* the same relative rule the other lenses state */
+        if(mat)brk++;
+        var cell={d:dd,pct:pct,mat:mat,label:labels[i-1]};
+        mv.push(cell);
+        if(!big||Math.abs(dd)>Math.abs(big.d))big=cell;
+      }
+      var tot=r.series[r.series.length-1]-r.series[0];
+      return {sec:r.sec,name:r.name,accts:r.accts,mv:mv,breaches:brk,tot:tot,
+        pct:r.series[0]?tot/Math.abs(r.series[0])*100:0,big:big};
+    });
+    return {rows:rows,labels:labels};
+  }
+  function renderMonthlyFlux(){
+    fxaApplyScope();
+    var d=fxaFluxRows(FXA_STMT,FXA_WIN), rows=d.rows.slice();
+    rows.sort(FXA_RANK==='breach'?function(a,b){return (b.breaches-a.breaches)||(Math.abs(b.tot)-Math.abs(a.tot));}
+      :FXA_RANK==='pct'?function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}
+      :function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);});
+    if(FXA_FOCUS)rows=rows.filter(function(r){return r.name===FXA_FOCUS;});
+    var nMo=d.labels.length, nCols=nMo+5;
+    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Monthly Flux'}]);
+    h+=rpCloseContextHTML();
+    h+='<div class="kv-hd rp-hd"><div><h1>Monthly Flux</h1><div class="kv-sub">Which months moved &mdash; and is it recurring or one-off?</div></div></div>';
+    h+=fxaFocusChip('trending','another lens');
+    h+=fxaStmtBar('mflux');
+    h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl fxa-tbl fxa-mtx"><thead><tr>'
+      +'<th class="l">Line item</th>'
+      +d.labels.map(function(m){return '<th title="Movement into '+esc(flxLbl(m))+'">'+esc(flxLbl(m))+'</th>';}).join('')
+      +'<th title="Months in this window whose own movement breached the threshold">Months moved</th>'
+      +'<th title="Movement across the whole window, first month to last">Total change</th><th>&Delta; %</th><th class="l"></th>'
+      +'</tr></thead><tbody>';
+    if(!rows.length){
+      h+='<tr><td colspan="'+nCols+'" class="l" style="padding:22px;text-align:center;color:var(--faint)">'
+        +(FXA_FOCUS?('No movement for &ldquo;'+esc(FXA_FOCUS)+'&rdquo; on this statement.'):'No lines on this statement for the current scope.')+'</td></tr>';
+    }
+    rows.forEach(function(r){
+      h+='<tr><td class="l"><span class="fxa-nm">'+esc(r.name)+'</span><span class="fxa-sub">'+esc(r.sec)+' &middot; '+r.accts+' account'+(r.accts===1?'':'s')+'</span></td>';
+      /* Month cells stay NEUTRAL. Design-system rule 2 allows two coloured columns, and they are
+         spent on Total change and its direction. A breaching month carries a gold exception dot
+         instead — that flags "needs attention", which is what the colour means here, rather than
+         turning the matrix into a heat map that would colour every column at once. */
+      r.mv.forEach(function(m){
+        h+='<td class="rp-num fxa-mo'+(m.mat?' mat':'')+'" title="'+esc('Movement into '+flxLbl(m.label)+': '+(m.d>=0?'+':'−')+fxAbbr$(Math.abs(m.d))+' ('+fxaPct(m.pct).replace(/&minus;/g,'−')+')'+(m.mat?' — at or above the ≥'+FXA_MAT+'% threshold':''))+'">'
+          +(m.d?fxaMoney(m.d,true):'&mdash;')+(m.mat?'<span class="fxa-modot" aria-label="material"></span>':'')+'</td>';
+      });
+      h+='<td class="rp-num fxa-mut" title="'+esc(r.breaches?(r.breaches+' of '+nMo+' months breached ≥'+FXA_MAT+'% — '+(r.breaches>=Math.ceil(nMo/2)?'recurring movement':'occasional movement')):'No month breached the threshold')+'">'+(r.breaches?(r.breaches+' of '+nMo):'&mdash;')+'</td>'
+        +'<td class="rp-num '+fxaTone(r.tot)+'">'+fxaMoney(r.tot,true)+'</td>'
+        +'<td class="rp-num '+fxaTone(r.tot)+'">'+fxaPct(r.pct)+'</td>'
+        +'<td class="l fxa-acts"><button class="fxa-go" data-fxagotrend="'+esc(r.name)+'" title="How has this line behaved over time?">Trend &rarr;</button>'
+        +'<button class="fxa-go" data-fxagovar="'+esc(r.name)+'" title="Where did this period&rsquo;s movement come from?">Variance &rarr;</button></td></tr>';
+    });
+    h+='</tbody></table></div></div>';
+    h+='<div class="ldg-note">Each cell is the movement <b>into</b> that month &mdash; the closing balance less the month before. A month is flagged (&#9679;) when its own movement is at or above &ge;&nbsp;'+FXA_MAT+'% of the prior month&rsquo;s balance, the same relative rule the other two lenses state. <b>Months moved</b> counts those flagged months: a line that breaches most months is behaving differently from one that breached once, and the two need different explanations. Ranked by '+(FXA_RANK==='breach'?'how many months moved':FXA_RANK==='pct'?'steepest percentage change':'largest total movement')+' over '+nMo+' month'+(nMo===1?'':'s')+'.</div>';
+    h+=fxaScopeNote();
+    $('#view').innerHTML=h; fxaWire('mflux');
   }
   function rpPeriodRename(pid){
     var p=rpPeriod(pid); if(!p)return;
@@ -9221,6 +9437,36 @@
   }
   /* Top-bar menus render as boxy dropdowns (the mock UX): a bordered pill that opens a panel
      downward. `title` retained for signature compatibility; shown as the first section heading. */
+  /* ---- the smart filter's COLLAPSED state: which filters are on, each removable ----------------
+     A "Filters (3)" badge tells you how many filters are active and never which — so you open the
+     panel purely to find out, which is the panel doing a chip's job. These name each active filter,
+     drop it in one click, and carry the n-of-m readout that used to own a 34px row of its own.
+     Only NON-DEFAULT state produces a chip: a clean review shows an empty row and costs nothing. */
+  function fxFilterChips(curStatus,statusOpts,visLines,totLines){
+    var out=[];
+    function chip(k,lbl,val){
+      return '<button class="fx-chip" data-fxchip="'+k+'" title="'+esc(lbl+': '+val+' — click to remove')+'">'
+        +'<span class="fx-chip-k">'+esc(lbl)+'</span><span class="fx-chip-v">'+esc(val)+'</span><span class="fx-chip-x">&times;</span></button>';
+    }
+    if(fluxFind)out.push(chip('find','Search','“'+fluxFind+'”'));
+    if(curStatus&&curStatus!=='all'){
+      var sl=''; statusOpts.forEach(function(o){if(o[0]===curStatus)sl=o[1];});
+      out.push(chip('status','Focus',sl||curStatus));
+    }
+    /* The materiality default is statement-dependent — the floor benchmark follows the statement, so
+       "non-default" has to be asked per statement or the BS would always look filtered. */
+    var _dfl=(fluxStmt==='is'?2:0.25);
+    if(fluxMat!==8||matPolicy().pct!==_dfl)out.push(chip('mat','Materiality','≥'+fluxMat+'% · '+fxAbbr$(matFloor())));
+    if(RP_COMPARE!=='prev')out.push(chip('basis','Basis',({prevq:'QoQ',prevy:'YoY'})[RP_COMPARE]||RP_COMPARE));
+    if(fluxGroupBy!=='category'){
+      var rl=''; FLUX_ROWS_OPTS.forEach(function(o){if(o[0]===fluxGroupBy)rl=o[1];});
+      out.push(chip('rows','Rows',rl||fluxGroupBy));
+    }
+    if(!out.length)return '';
+    return out.join('')
+      +'<span class="fx-chips-n" title="Lines passing the current filters, of the whole population">'+visLines+' of '+totLines+' lines</span>'
+      +'<button class="fx-chips-clr fx-filt-reset">Clear all</button>';
+  }
   function fxSheetDetails(id,summaryHTML,title,inner){
     return '<details class="fxm fxm-top" data-fxmenu="'+id+'">'+summaryHTML+'<div class="fxm-pop fxm-pop-w">'+inner+'</div></details>';
   }
@@ -9347,9 +9593,22 @@
     var _vwStar='<button class="fx-star fx-vstar'+(_vwFav?' on':'')+'" title="'+esc((_vwFav?'Pinned — click to unpin: ':'Pin this view: ')+fxViewFavLabel())+'">'+(_vwFav?'&#9733;':'&#9734;')+'</button>';
     // ----- context path: Scope › Period › Review (so the reporting period is always visible) -----
     var _crScope=fluxScope.type==='all'?'Consolidated group':esc(fluxScopeLabel());
-    var _crumb='<nav class="fx-crumb" aria-label="Breadcrumb"><span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr">'+esc(flxLbl(mTo))+'</span>'+(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'')+(_rv?'<span class="fx-cr-sep">&rsaquo;</span><span class="fx-cr-cur">'+esc(_rv.name)+'</span>':'')+'</nav>';
-    var h=_crumb+(_rv?('<div class="fx-titlebar"><button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button><h1 class="fx-h1">'+esc(_rv.name)+'</h1>'+_rvBadge+_rvStar+'<div class="fx-tb-sp"></div>'+_rvAction+'</div>')
-      :'<div class="fx-titlebar"><h1 class="fx-h1">Flux review</h1>'+_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span></div>');
+    /* ONE identity line. The crumb and the H1 were two stacked bands (78px) saying the same thing:
+       the crumb ended in "Balance Sheet Flux" and the H1 *was* "Balance Sheet Flux". Merged, the
+       trail reads Scope › Period › Review with the current node as the title, and the primary action
+       sits on the same line. Locked state and the pin stay where they were. */
+    /* The period segment of the trail IS the period switcher (dPeriod slots in by placeholder, since
+       it is built further down). It used to live in the close-context bar; that bar is close-level
+       status and no longer renders inside a single review, but the period control is review-level and
+       had to survive. A control sitting exactly where it reads costs no vertical space at all. */
+    var _trail='<span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><!--PERIOD-->'
+      +(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'');
+    var h='<div class="fx-hd" aria-label="Breadcrumb">'
+      +(_rv?('<button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button>'):'')
+      +'<nav class="fx-hd-tr">'+_trail+'<span class="fx-cr-sep">&rsaquo;</span></nav>'
+      +'<h1 class="fx-h1">'+(_rv?esc(_rv.name):'Flux review')+'</h1>'
+      +(_rv?(_rvBadge+_rvStar):(_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span>'))
+      +'<div class="fx-tb-sp"></div>'+(_rv?_rvAction:'')+'</div>';
     /* The queue pager that used to sit here is now the global work spine above the view: it
        follows you across every screen instead of existing only inside an open review. */
     // ----- period-lock banner: closed periods are read-only for everyone; only an authorized role reopens -----
@@ -9431,10 +9690,12 @@
       +'<div class="fxm-sep"></div><div class="fxm-h">Breakdown</div><div class="fxm-note2">Splits the current Entity scope (<b>'+esc(fluxScopeLabel())+'</b>) into columns.</div>'
       +_bdBtn('entities','Split by entity',fluxColEntState())+_bdBtn('regions','Split by region',fluxColRegState())
       +'<div class="fxm-sep"></div><div class="fxm-h">Currency detail</div><button class="fxm-opt fxm-split'+(fluxShowSplit?' on':'')+'">'+(fluxShowSplit?ckOn:ckOff)+'Organic &amp; FX split columns</button>';
-    var dCols=fxSheetDetails('cols','<summary class="fxm-sum" title="Column axis: '+colsCur+'"><span class="fxm-k">Columns</span><span class="fxm-cur">'+colsCur+'</span></summary>','Columns',_colMenu);
     var expIcons='<button class="fxr-iconb fxm-exp2" data-exp="in" title="Expand one level (sections → rollups → accounts)">'+chevD+'</button><button class="fxr-iconb fxm-exp2" data-exp="out" title="Collapse one level">'+chevU+'</button>';
-    // PRESENTATION — View: display preferences ONLY (never changes review structure)
-    var dViewNew=fxSheetDetails('view','<summary class="fxm-sum" title="Display density"><span class="fxm-k">View</span><span class="fxm-cur">'+({comfortable:'Comfortable',compact:'Compact',executive:'Executive'}[SETTINGS.density]||'Comfortable')+'</span></summary>','View','<div class="fxm-h">Display density</div>'+[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']].map(function(o){return '<button class="fxm-opt fx-density'+(SETTINGS.density===o[0]?' on':'')+'" data-density="'+o[0]+'">'+(SETTINGS.density===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('')+'<div class="fxm-sep"></div><div class="fxm-h">Panels</div><button class="fxm-opt fxm-comments">'+(fluxShowComments?ckOn:ckOff)+'Comments column</button><button class="fxm-opt fxm-panel'+(fluxInspDefaultTab==='evidence'?' on':'')+'" data-panel="evidence">'+(fluxInspDefaultTab==='evidence'?ckOn:ckOff)+'Line detail opens to Evidence</button><button class="fxm-opt fxm-reviewer'+(FX_CMT_CFG.reviewer?' on':'')+'">'+(FX_CMT_CFG.reviewer?ckOn:ckOff)+'Reviewer (prepared / reviewed by)</button><div class="fxm-sep"></div><div class="fxm-h">Table</div><button class="fxm-opt fx-sticky">'+(fluxStickyHead?ckOn:ckOff)+'Sticky headers</button><button class="fxm-opt fx-zebra">'+(fluxZebra?ckOn:ckOff)+'Zebra rows</button><button class="fxm-opt fx-lines">'+(fluxLines?ckOn:ckOff)+'Grid lines</button>');
+    /* PRESENTATION — the option lists for the one View control. Columns used to be a second dropdown
+       beside View; both answer "how is this drawn", never what is in it, so they are one control now
+       and the panel below assembles them side by side. */
+    var _dispOpts='<div class="fxm-h">Density</div>'+[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']].map(function(o){return '<button class="fxm-opt fx-density'+(SETTINGS.density===o[0]?' on':'')+'" data-density="'+o[0]+'">'+(SETTINGS.density===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('');
+    var _tblOpts='<div class="fxm-h">Panels</div><button class="fxm-opt fxm-comments">'+(fluxShowComments?ckOn:ckOff)+'Comments column</button><button class="fxm-opt fxm-panel'+(fluxInspDefaultTab==='evidence'?' on':'')+'" data-panel="evidence">'+(fluxInspDefaultTab==='evidence'?ckOn:ckOff)+'Line detail opens to Evidence</button><button class="fxm-opt fxm-reviewer'+(FX_CMT_CFG.reviewer?' on':'')+'">'+(FX_CMT_CFG.reviewer?ckOn:ckOff)+'Reviewer (prepared / reviewed by)</button><div class="fxm-sep"></div><div class="fxm-h">Table</div><button class="fxm-opt fx-sticky">'+(fluxStickyHead?ckOn:ckOff)+'Sticky headers</button><button class="fxm-opt fx-zebra">'+(fluxZebra?ckOn:ckOff)+'Zebra rows</button><button class="fxm-opt fx-lines">'+(fluxLines?ckOn:ckOff)+'Grid lines</button>';
     var matOpts=(matPresets.indexOf(fluxMat)<0?'<button class="fxm-opt fxm-mat on" data-mat="'+fluxMat+'">'+ckOn+'&ge; '+fluxMat+'%</button>':'')+matPresets.map(function(o){return '<button class="fxm-opt fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">'+(fluxMat===o?ckOn:ckOff)+'&ge; '+o+'%</button>';}).join('');
     /* The absolute floor and the benchmark it derives from are now first-class controls, not a
        hidden constant — an auditor asking "what standard did you apply?" reads it off this menu. */
@@ -9461,7 +9722,8 @@
       +'<div class="fxm-sep"></div><div class="fxm-h">Reporting entity</div><div class="fxs-wrap">'+_scopeBody+'</div>'
       +'<div class="fxm-note2">Scopes the statement. Expand to drill; the star pins a scope to Favorites.</div></div></details>';
     var dSearch='<div class="fx-tb-search">'+searchIco+'<input class="fxf-find" placeholder="Search GL account or name&hellip;" value="'+esc(fluxFind)+'"></div>';
-    var dActions=(fluxFilterActive()?'<span class="fx-tb-count">'+visLines+' / '+totLines+' lines</span>':'')+((fluxFilterActive()||fluxScope.type!=='all')?'<button class="fxf-clear">Clear</button>':'');
+    /* The old line-count + Clear row is gone: the chip row carries "n of m lines" and "Clear all"
+       beside the filters they describe, rather than in a band of its own below the metrics. */
     var basisSegs=[['prev','MoM','vs prior month'],['prevq','QoQ','vs 3 months prior']];
     if(fluxYoYAvail())basisSegs.push(['prevy','YoY','vs 12 months prior']);
     var basisCur=({prev:'MoM',prevq:'QoQ',prevy:'YoY'})[RP_COMPARE]||'MoM';
@@ -9542,68 +9804,127 @@
     var _fbBasis='<div class="fxfb-seg">'+basisSegs.map(function(b){return '<button class="fxfb-segb rp-tl-bseg'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+esc(b[2])+'">'+b[1]+'</button>';}).join('')+'</div>'+basisNote;
     var _fbRows='<div class="fxfb-seg">'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxfb-segb fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+esc(o[1])+'</button>';}).join('')+'</div>';
     var _fbScope='<div class="fxfb-scroll">'+fluxSectionMenuHTML(ckOn,ckOff)+'</div><button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review layout&hellip;</button>';
-    var _filtersBtn='<details class="fxm fxm-top" data-fxmenu="filters"><summary class="fxm-sum fx-filters-sum">'+FX_FILT_ICO+'Filters'+(_fCount?'<span class="fx-fcount">'+_fCount+'</span>':'')+'</summary>'
-      +'<div class="fxm-pop fx-filtbox">'
-      +'<div class="fxfb-hd"><span class="fxfb-t">Filters</span><span class="fxfb-n">'+(_fCount?(_fCount+' active'):'none active')+'</span><span class="grow"></span><button class="fxfb-reset fx-filt-reset">Reset all</button></div>'
+    /* ===== SMART FILTER — a disclosure, not a dropdown ==========================================
+       Two changes make it "smart" rather than just smaller.
+       1) It expands IN FLOW beneath the control bar instead of overlaying the grid. An overlay hides
+          the rows you are filtering, so you lose the one signal that tells you the filter did what
+          you meant; you close the panel to check, then reopen it to adjust.
+       2) It leads with SUGGESTIONS derived from this review's own engine output — not a static list.
+          Each one only sets lens state that already exists, so nothing here computes or invents a
+          number: they are shortcuts to the population the numbers already point at. */
+    var _filtersBtn='<button class="fxm-sum fx-filt-toggle'+(FX_FILT_OPEN?' open':'')+'" aria-expanded="'+(FX_FILT_OPEN?'true':'false')+'" title="'+(FX_FILT_OPEN?'Hide the filter panel':'Show the filter panel')+'">'+FX_FILT_ICO+'Filters'+(_fCount?'<span class="fx-fcount">'+_fCount+'</span>':'')+'</button>';
+    /* Coverage is derived here rather than below the bar, because the suggestions cite the residual
+       and the status line renders it — one computation, two readers, so they cannot disagree. */
+    var _covPct=absMove?Math.round(explMove/absMove*100):100, _resid=Math.max(0,absMove-explMove), _fl=matFloorV;
+    /* Suggestions read straight off the counts this render already derived. Ordered by what stops a
+       sign-off first: unexplained, then unevidenced, then the residual, then what is already clear. */
+    var _sug=[];
+    if(needCount)_sug.push(['needs',needCount+' material line'+(needCount===1?'':'s')+' need'+(needCount===1?'s':'')+' an explanation','warn']);
+    if(outstandingEvid)_sug.push(['noevid',outstandingEvid+' material line'+(outstandingEvid===1?'':'s')+' without evidence','warn']);
+    if(_resid>_fl)_sug.push(['material',fxAbbr$(_resid)+' unexplained, above the '+fxAbbr$(_fl)+' floor','warn']);
+    if(readyApproval)_sug.push(['reviewed',readyApproval+' line'+(readyApproval===1?'':'s')+' explained and evidenced &mdash; ready','pos']);
+    var _sugHTML=_sug.length
+      ? _sug.map(function(s){return '<button class="fx-sug'+(curStatus===s[0]?' on':'')+' '+s[2]+'" data-status="'+s[0]+'" title="Focus the statement on these lines">'+(curStatus===s[0]?'&#10003; ':'')+s[1]+'</button>';}).join('')
+      : '<div class="fxm-note2">Nothing outstanding at the current standard &mdash; every material movement is explained and evidenced.</div>';
+    var _filtPanel=FX_FILT_OPEN?('<div class="fx-filtpanel">'
+      /* Reset all only exists when there is something to reset — an affordance that cannot act is a
+         dead control, and this panel opens with nothing active most of the time. */
+      +'<div class="fxfb-hd"><span class="fxfb-t">Filters</span><span class="fxfb-n">'+(_fCount?(_fCount+' active'):'none active')+'</span><span class="grow"></span>'+(_fCount?'<button class="fxfb-reset fx-filt-reset">Reset all</button>':'')+'<button class="fxfb-reset fx-filt-hide">Hide</button></div>'
+      +'<div class="fxfb-sug"><h4 class="fxfb-h">Suggested &mdash; from this review</h4><div class="fxfb-sugs">'+_sugHTML+'</div></div>'
       +'<div class="fxfb-grid">'
       +_fbSec('Focus',_fbFocus)
       +_fbSec('Materiality',_matBlock)
       +_fbSec('Comparison',_fbBasis+'<h4 class="fxfb-h fxfb-h2">Group rows by</h4>'+_fbRows)
       +_fbSec('Review scope',_fbScope)
-      +'</div></div></details>';
-    /* The close context bar rides here too, so opening a package reads as going DEEPER into July
-       2026 rather than arriving somewhere else. It owns the period, so the filter row no longer
-       carries its own Period dropdown — one control per piece of state. */
-    h+=(typeof rpCloseContextHTML==='function')?rpCloseContextHTML():'';
-    /* Statement sits beside Entity again — the two together answer "what am I looking at". It went
-       missing when the rail that briefly owned it was replaced, leaving no way to switch BS/IS. */
-    h+='<div class="fx-fbar fx-fbar-ctx">'+dSearch+dStmt+dScope+_filtersBtn+_rvChip+_setChip
-      +'<span class="fxr-sp"></span><div class="fx-fbar-grp"><!--WSACT-->'+dCols+dViewNew+expIcons+'</div></div>';
-    // ----- slim summary caption for the grid: movement bridge (left) · review counts (right) -----
-    h+='<div class="fx-metrics"><div class="fx-mg">'+
-       '<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'+
-       '<span class="fx-sm" title="Constant-currency movement"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></span>'+
-       '<span class="fx-sm" title="FX translation effect vs prior-month rates"><span class="k">FX</span><span class="v acc">'+fxSum(bandFx,true)+'</span></span>'+
-       '</div><div class="fx-mg fx-mg-r">'+
-       '<span class="fx-sm" title="'+esc('Materiality standard: '+matStandard())+'"><span class="k">Material</span><span class="v">'+matCount+'</span></span>'+
-       '<span class="fx-sm" title="Material moves without an accepted explanation"><span class="k">Needs expl.</span><span class="v '+(needCount?'warn':'pos')+'">'+needCount+'</span></span>'+
-       '<span class="fx-sm" title="Material lines without verified supporting evidence"><span class="k">No evidence</span><span class="v '+(outstandingEvid?'warn':'pos')+'">'+outstandingEvid+'</span></span>'+
-       '<span class="fx-sm" title="Material lines explained and evidenced &mdash; ready for approval"><span class="k">Ready</span><span class="v '+(readyApproval?'pos':'')+'">'+readyApproval+'</span></span>'+
-       '</div></div>';
-    /* the sign-off sentence: what standard, how much is covered, what is left over */
-    var _covPct=absMove?Math.round(explMove/absMove*100):100, _resid=Math.max(0,absMove-explMove), _fl=matFloorV;
+      +'</div></div>'):'';
+    /* ONE presentation control, assembled here because it reuses _fbSec. Columns + View were two
+       dropdowns (≈310px of the 577px that made the bar wrap) and both answer "how is this drawn".
+       The summary drops its current-value text: which density you are on is not population-critical,
+       so it belongs in the panel, not in a bar you read on the way in. */
+    var dViewNew='<details class="fxm fxm-top" data-fxmenu="view"><summary class="fxm-sum" title="Columns, density and table display"><span class="fxm-k">View</span></summary>'
+      +'<div class="fxm-pop fx-viewbox">'
+      +'<div class="fxfb-hd"><span class="fxfb-t">View</span><span class="fxfb-n">presentation only &mdash; never changes what is in the review</span></div>'
+      +'<div class="fxfb-grid fxfb-grid-3">'+_fbSec('Columns',_colMenu)+_fbSec('Density',_dispOpts)+_fbSec('Table & panels',_tblOpts)+'</div></div></details>';
+    /* The close-context bar (Day 4 of 8 · 41% · 53 of 128 signed off) does NOT render here any more.
+       That is close-LEVEL status: inside one review it was 61px answering a question the reviewer did
+       not ask, and the work spine above #view already carries queue position. It still leads Flux
+       Overview and Close Periods, where it is the point. The period control it owned moved into the
+       identity trail above. */
+    /* ===== ONE control bar that cannot wrap ====================================================
+       It used to wrap to two rows (84px) because it held two unrelated families: the LEFT answers
+       "what population am I looking at" (692px) and the RIGHT "how is it drawn / what do I do with
+       it" (577px) — 1269px into a 1160px bar. The right family is not filters at all. Columns folded
+       into View (one presentation control, not two), and the right-hand summaries dropped their
+       current-value text: which density you are on is not population-critical, so it belongs in the
+       panel and the tooltip. Nothing left the box — the one-box rule holds.
+       Statement stays beside Entity: together they answer "what am I looking at". */
+    h+='<div class="fx-fbar fx-fbar-ctx'+(FX_FILT_OPEN?' fx-fbar-open':'')+'">'+dSearch+dStmt+dScope+_filtersBtn
+      +'<span class="fxr-sp"></span><div class="fx-fbar-grp"><!--WSACT-->'+dViewNew+expIcons+'</div></div>'+_filtPanel;
+    /* ----- the smart filter's collapsed state: WHICH filters are on, each removable -------------
+       A "Filters (2)" badge says how many are active but never which. These chips say which, let you
+       drop one without opening anything, and carry the n-of-m readout that used to own its own 34px
+       row. The scope and review-set chips ride here too — they are population warnings rather than
+       filters, so they keep their distinct treatment. */
+    var _chips=fxFilterChips(curStatus,statusOpts,visLines,totLines);
+    if(_chips||_rvChip||_setChip)h+='<div class="fx-chips">'+_chips+_rvChip+_setChip+'</div>';
+    /* ===== ONE status line: the movement bridge + the defensibility state ========================
+       fx-metrics and fx-cover were two bands (128px) saying one thing — "how big was the movement,
+       and how much of it is defended". They also read as contradicting each other: "Material 1"
+       beside "Coverage 0%". Merged, the labels have to disambiguate, so they do: the counts are
+       explicitly of MATERIAL lines, coverage explicitly of ALL absolute movement.
+       The 545px materiality restatement that forced fx-cover to wrap was a read-only echo of a
+       setting; it is now the Coverage tooltip, and the editable version lives in Filters →
+       Materiality, which is the only place it can actually be changed. */
     FX_READY={mat:matCount,need:needCount,noevid:outstandingEvid,cov:_covPct,resid:_resid,floor:_fl};
-    /* tie-out first: if the ledger does not agree to the trial balance, nothing below it is signable */
+    /* Tie-out, in proportion. A healthy tie-out was a 47px full-width band reporting that nothing
+       happened — the definition of chrome. It collapses to a glyph. A below-floor difference stays
+       visible as a short gold clause (it is a documented difference, and a tooltip is not
+       documentation) but does not take a band. Only a BLOCKING break gets the full band, because it
+       stops sign-off: nothing below it is signable. */
     var _tie=fxTieOut();
-    h+='<div class="fx-tie'+(_tie.ok?' ok':(_tie.blocks?' bad':' warn'))+'">'
-      +'<span class="fx-tie-ic">'+(_tie.ok?'&#10003;':'&#9888;')+'</span>'
-      +(_tie.ok
-        ? '<span>General ledger <b>ties to the trial balance</b> for '+esc(flxLbl(_tie.period))+'.</span>'
-        : _tie.blocks
-          ? '<span>General ledger <b>does not tie</b> to the trial balance for '+esc(flxLbl(_tie.period))+' &mdash; '+_tie.n+' reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+', <b>at or above the '+fxAbbr$(_tie.floor)+' floor</b>. This review cannot be submitted until it ties.</span>'
-          : '<span>GL to trial balance: '+_tie.n+' known reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+' &mdash; <b>below the '+fxAbbr$(_tie.floor)+' materiality floor</b>. Documented difference; it does not block sign-off.</span>')
-      +'<span class="grow"></span><button class="fx-tie-go" data-cgo="repo-ledger">Open Trial Balance &rarr;</button></div>';
+    var _tieFull=_tie.ok?'General ledger ties to the trial balance for '+flxLbl(_tie.period)+'.'
+      :(_tie.blocks
+        ? 'General ledger does not tie to the trial balance for '+flxLbl(_tie.period)+' — '+_tie.n+' reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+', at or above the '+fxAbbr$(_tie.floor)+' floor. This review cannot be submitted until it ties.'
+        : 'GL to trial balance: '+_tie.n+' known reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+' — below the '+fxAbbr$(_tie.floor)+' materiality floor. Documented difference; it does not block sign-off.');
+    var _tiePill=_tie.blocks?'' :('<button class="fx-tiep'+(_tie.ok?' ok':' warn')+'" data-cgo="repo-ledger" title="'+esc(_tieFull)+' — open the Trial Balance">'
+      +'<span class="fx-tiep-ic">'+(_tie.ok?'&#10003;':'&#9888;')+'</span>'
+      +(_tie.ok?'ties to TB':fxAbbr$(_tie.amt)+' off TB, below floor')+'</button>');
+    var _covCls=_resid>_fl?'warn':'pos';
+    h+='<div class="fx-status">'
+      +'<div class="fx-st-g">'
+        +'<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'
+        +'<span class="fx-sm" title="Constant-currency movement — the part that is real activity"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></span>'
+        +'<span class="fx-sm" title="FX translation effect vs prior-month rates"><span class="k">FX</span><span class="v acc">'+fxSum(bandFx,true)+'</span></span>'
+        +_tiePill
+      +'</div>'
+      /* COVERAGE LEADS, then only the two counts that represent outstanding work. This app's own
+         standard is "coverage, not counts": coverage plus the unexplained residual is what a sign-off
+         rests on, because "7 material, 1 needs explanation" never says whether the remainder is
+         trivia or the whole story. Four equal-weight counts diluted exactly that. The material total
+         and the ready count now live in the Coverage tooltip and in the Filters panel's suggestions,
+         where they are one click from the lines they describe. */
+      +'<div class="fx-st-g fx-st-r">'
+        +'<span class="fx-cov'+(_resid>_fl?' gap':'')+'" title="'+esc(_covPct+'% of absolute movement carries an accepted explanation. '+fxAbbr$(_resid)+' unexplained, '+(_resid>_fl?'above':'within')+' the '+fxAbbr$(_fl)+' floor. '+matCount+' material line'+(matCount===1?'':'s')+', '+readyApproval+' ready for approval. Materiality '+matStandard())+'">'
+          +'<span class="fx-cov-k">Coverage</span>'
+          +'<span class="fx-covbar"><i style="width:'+Math.max(2,Math.min(100,_covPct))+'%"></i></span>'
+          +'<span class="fx-cov-v">'+_covPct+'%</span>'
+          +'<span class="fx-cov-r '+_covCls+'">'+(_resid>_fl?'&#9888; ':'')+fxAbbr$(_resid)+' unexplained</span>'
+        +'</span>'
+        +'<span class="fx-cov-sep"></span>'
+        +'<span class="fx-sm" title="'+esc('Material lines without an accepted explanation — of '+matCount+' material line'+(matCount===1?'':'s')+'. Standard: '+matStandard())+'"><span class="k">Needs expl.</span><span class="v '+(needCount?'warn':'pos')+'">'+needCount+'</span></span>'
+        +'<span class="fx-sm" title="Material lines without verified supporting evidence"><span class="k">No evid.</span><span class="v '+(outstandingEvid?'warn':'pos')+'">'+outstandingEvid+'</span></span>'
+      +'</div></div>';
+    /* A BLOCKING tie-out break keeps its full band — it stops sign-off, so it must be unmissable. */
+    if(_tie.blocks){
+      h+='<div class="fx-tie bad"><span class="fx-tie-ic">&#9888;</span><span>General ledger <b>does not tie</b> to the trial balance for '+esc(flxLbl(_tie.period))+' &mdash; '+_tie.n+' reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+', <b>at or above the '+fxAbbr$(_tie.floor)+' floor</b>. This review cannot be submitted until it ties.</span>'
+        +'<span class="grow"></span><button class="fx-tie-go" data-cgo="repo-ledger">Open Trial Balance &rarr;</button></div>';
+    }
     if(FX_SUBMIT_OVERRIDE&&needCount){
       h+='<div class="fx-ovr"><span class="fx-ovr-ic">&#9888;</span><span><b>'+needCount+' material line'+(needCount===1?'':'s')+'</b> still without an accepted explanation. Submitting now records a named exception against you on the audit trail, visible to the reviewer and the auditor.</span><span class="grow"></span><button class="fx-lockbar-btn danger rpc-submit">Submit with exception</button><button class="fx-lockbar-btn ghost fx-ovr-no">Cancel</button></div>';
     }
-    h+='<div class="fx-cover'+(_resid>_fl?' fx-cover-gap':'')+'">'
-      +'<span class="fx-cov-k">Coverage</span>'
-      +'<span class="fx-cov-v">'+_covPct+'%</span>'
-      +'<span class="fx-cov-tx">of absolute movement carries an accepted explanation</span>'
-      +'<span class="fx-cov-sep"></span>'
-      +'<span class="fx-cov-k">Unexplained</span>'
-      +'<span class="fx-cov-v '+(_resid>_fl?'warn':'pos')+'">'+fxAbbr$(_resid)+'</span>'
-      +'<span class="fx-cov-tx">'+(_resid>_fl?'above':'within')+' the '+fxAbbr$(_fl)+' floor</span>'
-      +'<span class="grow"></span>'
-      +'<span class="fx-cov-std" title="Click Filter to change the standard">Materiality '+esc(matStandard())+'</span></div>';
-    // ===== Boxy PRESENTATION / FOCUS / WORKSPACE row — under the metrics, above the grid =====
-    /* Only the live-filter readout remains below the metrics; every control moved into the one row
-       above or up to the title. dRows / dCols / dInsights / dFilter / dBasis / dReview are still
-       built (the Filters panel and the row reuse their option lists) but no longer sit on screen. */
-    if(dActions)h+='<div class="fx-fbar fx-fbar-acts-row">'+'<span class="fxr-sp"></span><div class="fx-fbar-acts">'+dActions+'</div></div>';
-    /* My Views + Share are built below the titlebar, so they slot in by placeholder rather than
-       being read before they exist. */
-    h=h.replace('<!--WSACT-->',dMyViews+dShare);
+    /* My Views + Share, and the period switcher in the identity trail, are all built below the point
+       where they are placed, so they slot in by placeholder rather than being read before they exist. */
+    h=h.replace('<!--WSACT-->',dMyViews+dShare).replace('<!--PERIOD-->',dPeriod);
     // grid
     var extraCols=1;  // single compact Review column — the panel owns comments / evidence / workflow
     var minW=236+nColShow*(colByPeriod?98:118)+106+(fluxShowSplit?96+88:0)+74+300;
@@ -9722,15 +10043,36 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=function(){fxvForm={name:'',scope:'personal'};renderMonthlyTrend();};
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-mat'),function(b){b.onclick=function(){var mv=parseFloat(this.getAttribute('data-mat'));if(mv>0){fluxMat=mv;renderMonthlyTrend();}};});
-    var _fr=document.querySelector('#view .fx-filt-reset');
-    if(_fr)_fr.onclick=function(){
+    /* querySelectorAll, not querySelector: "Reset all" now exists in two places — the panel header
+       and the chip row's "Clear all" — and wiring only the first would leave a dead control. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-reset'),function(b){b.onclick=function(){
       fluxClearLens(); fluxMat=8; matPolicy().pct=(fluxStmt==='is'?2:0.25); RP_COMPARE='prev';
       fluxGroupBy='category'; fluxFind=''; fluxReviewId='all'; fluxSecCollapse={};
       renderMonthlyTrend();   /* one render — fluxClearReview() would have rendered a second time */
-    };
+    };});
+    /* Smart filter disclosure. The Hide button in the panel header and the bar toggle are the same
+       action, so they share one handler. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-toggle,#view .fx-filt-hide'),function(b){
+      b.onclick=function(e){e.stopPropagation();fxFiltToggle();};});
+    /* Remove one filter without opening the panel. Each chip resets exactly the state it names — a
+       chip that cleared more than it said would be worse than no chip at all. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxchip]'),function(b){b.onclick=function(){
+      var k=this.getAttribute('data-fxchip');
+      if(k==='find')fluxFind='';
+      else if(k==='status')fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};
+      else if(k==='mat'){fluxMat=8;matPolicy().pct=(fluxStmt==='is'?2:0.25);}
+      else if(k==='basis')RP_COMPARE='prev';
+      else if(k==='rows')fluxGroupBy='category';
+      renderMonthlyTrend();
+    };});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matfl'),function(b){b.onclick=function(){var v=parseFloat(this.getAttribute('data-matfl'));if(v>0){matPolicy().pct=v;renderMonthlyTrend();}};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matbs'),function(b){b.onclick=function(){matPolicy().basis=this.getAttribute('data-matbs');renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-status'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
+    /* .fx-sug (the smart filter's suggestions) sets the same lens as .fxm-status — one handler, so a
+       suggestion and the Focus list can never disagree about what "needs explanation" selects. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-status,#view .fx-sug'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
+    /* The tie-out link was never wired — a dead control on a band that gates sign-off. Both the
+       collapsed pill and the blocking band's button open the Trial Balance now. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-tie-go,#view .fx-tiep'),function(b){b.onclick=function(e){e.stopPropagation();navTo(this.getAttribute('data-cgo')||'repo-ledger');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rc-dispopt'),function(b){b.onclick=function(){rcSetDisplay(this.getAttribute('data-disp'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-comments'),function(b){b.onclick=function(){fluxShowComments=!fluxShowComments;renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rows'),function(b){b.onclick=function(){fluxGroupBy=this.getAttribute('data-rows');renderMonthlyTrend();};});

@@ -36,11 +36,33 @@ stubs naming their real engine — never mocked numbers.
   one renders; both go through `renderNav()`, and shared pieces (the favourite pins) wire once in
   `favNavWire()`. A section missing `rail` is treated as `'reviews'` — that is the migration for
   configs saved before the split, so an admin's customisation survives.
-- **Flux Analysis is real, except Scenario.** Trending (`renderTrending`) and Variance
-  (`renderVariance`) compute from `glLedger()` through `fxScopedVal()` — the same source the flux
-  review reads, so they honour the entity scope and cannot disagree with the statement. Scenario
-  Analysis stays an honest stub: what-if modelling is **enterprise planning**, which the product
-  thesis puts out of scope. Don't fill it with numbers the ledger cannot produce.
+- **Flux Analysis is real, except Scenario.** All three analytics lenses compute from `glLedger()`
+  through `fxScopedVal()` — the same source the flux review reads, so they honour the entity scope
+  and cannot disagree with the statement. Scenario Analysis stays an honest stub: what-if modelling
+  is **enterprise planning**, which the product thesis puts out of scope. Don't fill it with numbers
+  the ledger cannot produce.
+- **THREE analytics lenses, ONE set of chrome** — the `fxa*` family. Each answers a different
+  question and keeps its own maths, but they share `rpCrumb` → `rpCloseContextHTML` →
+  question-led `.kv-hd` H1 → `fxaFocusChip` → `fxaStmtBar(route)` → **one** `.card.rp-card` with one
+  `.rp-tbl.fxa-tbl` → `.ldg-note` method footnote → `fxaScopeNote`, wired by `fxaWire(route)`:
+  - **Monthly Flux** (`renderMonthlyFlux`, route `mflux`) — *which months moved, recurring or
+    one-off?* The month-by-month matrix: movement **into** each month, a gold dot on months
+    breaching `FXA_MAT`, and a `Months moved` count that separates a line breaching most months from
+    one that breached once. **It leads the Analytics group** — it is the overview you read first,
+    then drop into the other two. It is deliberately **not** the review workspace (`mtrend`): it
+    reads across every line and signs nothing, which is why each row hands off instead.
+  - **Trending** (`renderTrending`) — *how has this line behaved over time?* Sparkline + volatility.
+  - **Variance** (`renderVariance`) — *where did THIS period's movement come from?* One step,
+    decomposed by section/category with contribution share.
+
+  Adding a lens means extending `fxaStmtBar` and `fxaWire`, not writing new chrome. **Render a
+  control only where it changes something** on that route — Window is meaningless on Variance (one
+  step), Basis is meaningless on the month matrix (every column *is* a month); a control that cannot
+  act is a dead control.
+- **On the month matrix, colour flags materiality — it is not a heat map.** Design-system rule 2
+  allows two coloured columns and they are spent on `Total change` and `Δ %`. Month cells stay
+  neutral; a breaching month carries a gold `.fxa-modot`. Colouring every month column would spend
+  the table's whole colour budget on magnitude and leave nothing to mark the exceptions.
 - **Review Sets change presentation, never population.** A saved set (`FLUX_VIEWS`, My Views menu)
   stores only the keys in `FXV_KEYS` — density, lens, columns, expansion. It must never restore the
   statement, entity scope, period or review id: silently moving a reviewer to a different population
@@ -60,12 +82,27 @@ stubs naming their real engine — never mocked numbers.
   every screen — that is the whole point, so never scope it to one surface, and never let a screen
   grow its own pager beside it. It stays chrome-quiet: no accent colour, no badge, and it hides
   entirely when you have no assigned reviews.
-- **ONE Flux Analysis rail, for the whole module.** `FLUX_NAV` defines it (Overview · My work ·
-  Reviews · Analysis · Management · Configuration · Planned · Favorites) and `navIsFlux()` decides
+- **ONE Flux Analysis rail, for the whole module.** `FLUX_NAV` defines it and `navIsFlux()` decides
   which routes get it — including `mtrend`, so opening a close does **not** swap navigation. Flux
   used to run two competing navigators and entering a close felt like a different application.
   `REV_TABS` is deliberately empty and `renderReviewsNav` is now unreachable; don't wire it back.
   The reporting period is **context applied to these pages**, never a hierarchy you descend into.
+- **The rail is three groups, and the two entrances lead it ungrouped** (2026-08-08): `My Reviews`
+  (for the people doing the work) and `Overview` (for the people who own the close), then
+  **Reviews** · **Analytics** · **Setup**, then Favorites. What this fixed: the rail listed 11 items
+  over 9 renderers, and *both* duplicate pairs sat in different groups — `Overview`/`Close Periods`
+  are one `renderClosePeriods`, `My Reviews`/`All Reviews` are one `renderReviewRegister` — so the
+  grouping actively hid that they were the same surface. `My work` was a heading over exactly one
+  item (two lines of chrome for one destination, pushing the most-used link down the rail), and
+  `Analysis` was a group heading inside a module already called Flux *Analysis*. Setup sits last
+  because that is its frequency. **Roadmap stubs live in the category they'd ship into**, behind that
+  category's own `Planned (n)` disclosure (`NAV_PLANNED_OPEN['flux:<group>:planned']`) — a top-level
+  Planned group gave two stubs the structural weight of a whole section.
+- **In the rail, a badge means "action required from you"; a count is quiet grey text.** Only
+  `My Reviews` earns the gold badge (`.nc-act`). `Overview`'s close completion and `All Reviews`'
+  inventory render as plain `.nc` — design-system rule 5. Every figure comes from the same function
+  its own screen renders (`myReviewCount()`, `closeProgress()`, `RP_REVIEWS.length`) via
+  `fluxNavCount()`, so the rail cannot disagree with the page it leads to.
 - **Scope lives with scope, not in the rail.** Statement, Entity and the organization browse
   (Entities / Regions / Business units / Currencies / Countries + the consolidation tree) all sit in
   the flux toolbar — they answer *what am I looking at*, which is a page control, not navigation.
@@ -87,18 +124,49 @@ stubs naming their real engine — never mocked numbers.
   own items (`ORG_GROUPBYS` → Entities / Regions / Business units / Currencies / Countries); the
   tree below regroups on the dimension you pick. Funds and Projects from the mock are not
   dimensions the entity master carries — don't invent them.
-- **One filter row: essentials up front, everything else inside.** Search · Period · Statement ·
-  Entity · **Material only** · **Filters (n)**, with Columns and density on the right (hidden in
-  worklist mode). Basis, Rows, Insights and the materiality standard live inside the Filters panel,
-  which shows a live count of non-default filters and a **Reset all**. Filters apply live, so the
-  panel deliberately has no Apply button — a staged Apply over controls that already update
-  instantly is a button that does nothing. My Views and Share sit beside the title, not in the row.
+- **One filter row: essentials up front, everything else inside.** Filters apply live, so the panel
+  deliberately has no Apply button — a staged Apply over controls that already update instantly is a
+  button that does nothing.
+- **THE FLUX REVIEW HEADER IS THREE BANDS, ~150px** (rebuilt 2026-08-08). It was eight bands and
+  442px — the grid started at y=609 of a 910px viewport, so 67% of the first screen was chrome and
+  only ~8 statement rows were visible. Now: **identity line** · **control bar** · **status line**,
+  and the grid starts at ~y=317 with ~15 rows visible. The five moves, each with its reason, so none
+  of them gets undone by accident:
+  1. **Crumb + titlebar merged** into `.fx-hd`. They were two bands saying one thing — the crumb
+     ended in the review's name and the H1 *was* the review's name. The **period switcher lives in
+     the trail** (`<!--PERIOD-->` placeholder → `dPeriod`), because a control sitting where it reads
+     costs no vertical space.
+  2. **The control bar cannot wrap.** It held two unrelated families — population (search ·
+     Statement · Entity · Filters, 692px) and presentation (577px) — which overflowed a 1160px bar.
+     **Columns folded into View** (both answer "how is this drawn", never what is in it) and the
+     right-hand summaries dropped their current-value text. Nothing left the box; the one-box rule
+     holds.
+  3. **`fx-metrics` + `fx-cover` merged** into `.fx-status`. 128px saying one thing, and they read as
+     contradicting each other ("Material 1" beside "Coverage 0%"). The 545px materiality
+     restatement that forced the wrap was a read-only echo of a setting; it is now the Coverage
+     tooltip, editable only in Filters → Materiality.
+  4. **Healthy gates collapse to a glyph.** See the tie-out rule below.
+  5. **The close-context bar does not render inside a review.** `Day 4 of 8 · 41% · 53 of 128` is
+     close-LEVEL status; inside one review it was 61px answering a question the reviewer didn't ask,
+     and the work spine already carries queue position. It still leads Overview and Close Periods.
+- **The smart filter is a disclosure, not a dropdown, and its collapsed state names what is on.**
+  Collapsed (`FX_FILT_OPEN`, persisted): active filters render as **removable chips**
+  (`fxFilterChips`) carrying `n of m lines` and `Clear all` — a `Filters (3)` badge says how many are
+  active and never *which*, so you open the panel purely to find out. Only non-default state makes a
+  chip, so a clean review costs nothing. Expanded: the panel opens **in flow** beneath the bar, never
+  as an overlay — an overlay hides the rows you are filtering, which is the one signal that tells you
+  the filter did what you meant. `.fx-filtpanel .fxfb-grid` is height-capped for the same reason: a
+  panel tall enough to push the grid off the fold is an overlay with extra steps. It leads with
+  **suggestions derived from this review's own engine output** (`_sug`), ordered by what stops a
+  sign-off first; each only sets lens state that already exists, so nothing there computes a number.
+  Suggestions and the Focus list share one handler, so they cannot disagree.
 - **The statement grid is the single flux view.** A ranked "worklist" mode was built and then
   removed at the owner's direction (2026-08-07) — don't reintroduce a second mode or a
   Worklist/Statement toggle. The signal it carried lives in the metrics strip and the coverage bar.
-- **The toolbar is one box** (`.fx-fbar-ctx`): search · period · entity · **Filters (n)** · My Views ·
-  Share · Columns · View. Nothing floats outside it — My Views and Share sat in the titlebar and had
-  to move in. The titlebar keeps only title, status, star and Submit.
+- **The toolbar is one box** (`.fx-fbar-ctx`): search · Statement · Entity · **Filters (n)** on the
+  left; My Views · Share · **View** · expand on the right. Nothing floats outside it — My Views and
+  Share sat in the titlebar and had to move in. The identity line keeps only trail, title, state
+  badge, star and Submit.
 - **Every menu in the view shares one behaviour.** The open/close wiring is scoped to `#view .fxm`,
   NOT to `.fx-fbar .fxm`. When it was bar-scoped, titlebar menus escaped it and needed a double
   click to dismiss a rival menu. Opening one closes the others, hovering another switches to it,
@@ -115,11 +183,21 @@ stubs naming their real engine — never mocked numbers.
 - **Coverage, not counts.** `Coverage %` (share of *absolute* movement carrying an accepted
   explanation) plus the unexplained residual against the floor is what a sign-off rests on —
   "7 material, 1 needs explanation" never says whether the remainder is trivia or the whole story.
+  So on the status line **coverage leads**, followed by only the two counts that represent
+  outstanding work (`Needs expl.`, `No evid.`). The material total and the ready count moved into
+  the Coverage tooltip and the Filters panel's suggestions, where they are one click from the lines
+  they describe — four equal-weight counts diluted the instrument this rule exists to protect.
 - **Tie-out gates sign-off, in proportion.** `fxTieOut()` asserts GL↔TB on the review itself. A
   difference **at or above** the materiality floor blocks submission and cannot be overridden — you
   would be explaining movements in numbers that are themselves wrong. A difference **below** the
   floor is a documented difference and must not block, or every close with a rounding variance
   stalls. Note the floor is statement-dependent, so the same variance can block the IS and not the BS.
+  **The display is proportionate too.** A healthy tie-out is a `✓ ties to TB` pill in the status line
+  (a green full-width band reporting that nothing happened is the definition of chrome). A
+  below-floor difference stays a visible gold clause — it is a *documented* difference and a tooltip
+  is not documentation — but does not take a band. Only `_tie.blocks` gets the full red band, because
+  it stops sign-off and nothing below it is signable. Both the pill and the band open the Trial
+  Balance; `.fx-tie-go` had never been wired at all.
 - **Submit is a control.** It refuses on open comments, a material tie-out break, and unexplained
   material lines. The last is overridable exactly once, via an explicit confirm that writes a
   **named exception** (`rpAudit(..., sod=true, fid)`) to the folder's append-only trail. Always pass
