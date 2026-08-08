@@ -2136,6 +2136,34 @@
   .fx-filt-toggle.open::after{border-top:0;border-bottom:4px solid var(--ink)}
   .fx-filtpanel{border:1px solid var(--line);border-top:0;border-radius:0 0 2px 2px;background:var(--surface);margin:0 0 12px;overflow:hidden}
   .fx-filtpanel .fxfb-hd{padding:11px 20px}
+  /* ---- SOLID DARK selection, matching .rp-gb-b.on in Trending / Variance --------------------
+     The panel was inconsistent with itself: its segmented controls (Basis, Group rows by) already
+     filled solid dark, while the option lists beside them showed only accent-coloured text and a
+     tick — two visual languages for one act of choosing. A filter changes the POPULATION you are
+     about to sign off on, so its selected state should be the loudest "this is on" the system has.
+     Scoped to the filter surfaces so it cannot leak into every menu in the app. */
+  .fx-filtpanel .fxm-opt.on,.fx-filtbox .fxm-opt.on{background:var(--ink);color:var(--surface);font-weight:600}
+  .fx-filtpanel .fxm-opt.on:hover,.fx-filtbox .fxm-opt.on:hover{background:var(--ink);color:var(--surface)}
+  .fx-filtpanel .fxm-opt.on .fxm-ck,.fx-filtbox .fxm-opt.on .fxm-ck{color:var(--surface)}
+  /* The section/category rows in Review scope carry their own count — keep it legible when filled. */
+  .fx-filtpanel .fxm-opt.on .fxm-secn,.fx-filtbox .fxm-opt.on .fxm-secn{color:var(--surface);opacity:.72}
+  /* The bar's own two filter controls take the same fill when active, so the row and the panel agree. */
+  .fx-fbar .fxm-sum-primary{background:var(--ink);border-color:var(--ink);color:var(--surface);font-weight:600}
+  .fx-fbar .fxm-sum-primary .fxm-k{color:var(--surface);opacity:.68}
+  .fx-fbar .fxm-sum-primary .fxm-cur{color:var(--surface)}
+  .fx-fbar .fxm-sum-primary::after{border-top-color:var(--surface)}
+  .fx-fbar .fxm-sum-primary:hover{background:var(--ink-2,var(--ink))}
+  /* Labelled rows of inline options — the Trending/Variance format, so the filter panel and the
+     analytics bars are one language. .rp-gb-b brings the fill; this only handles the wrapping. */
+  .fxfb-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 4px}
+  .fxfb-s .fxfb-btns .rp-gb-b{margin:0}
+  /* Row two on the Analytics page: the controls Trending and Variance do not have. Quieter than the
+     shared bar above it so the eye reads the shared format first. */
+  .fx-fbar-2{background:var(--surface-2)}
+  /* The Entity picker carries its own "Entity" key, but in the shared bar the .rp-gb-l label already
+     says it — printing both read "ENTITY Entity Consolidated". */
+  .fxa-bar .fxm-scopeM .fxm-k{display:none}
+  .fxa-bar .fxm-scopeM>.fxm-sum{height:26px}
   /* Cap the control grid so some of the statement stays on screen. Expanding in flow is only better
      than an overlay if you can still SEE the rows change — a panel tall enough to push the grid off
      the fold is an overlay with extra steps. Header and suggestions stay pinned above the scroll. */
@@ -2531,11 +2559,8 @@
   .fxa-sk{color:var(--faint)}
   .fxa-spark{display:block;overflow:visible}
   /* ---- Monthly Flux under Analytics: the review's own grid in the fxa chrome -------------------
-     Scope and period ride at the right of the question-led header, where Trending and Variance put
-     their context, instead of the review's identity trail. */
-  .fx-hd-sc{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-left:auto;font-size:var(--fs-12)}
-  .fx-hd-sc .fxm>.fxm-sum{height:24px;padding:0 7px}
-  .fx-hd-sc .fxm>.fxm-sum .fxm-cur{font-size:var(--fs-12);font-weight:500}
+     Period and close status ride in rpCloseContextHTML on the LEFT, exactly as they do on Trending
+     and Variance — so the three lenses put the same thing in the same place. */
   .rp-pct{font-size:var(--fs-12);color:var(--muted)}
   .rp-ppl{color:var(--ink-2)}
   .rp-sub{color:var(--muted);font-size:var(--fs-12)}
@@ -9535,10 +9560,14 @@
        Trending/Variance language: rpCrumb, a question-led H1, and the method footnote at the bottom.
        The sign-off action is dropped there because signing off belongs to a review you opened. */
     var _fxa=(FX_PAGE==='analytics');
+    /* Header assembled in exactly Trending/Variance order — rpCrumb, then the close-context bar, then
+       the question-led H1 — so clicking between the three lenses moves nothing on screen. The period
+       lives on the LEFT in that bar, which also means this page has ONE period control rather than a
+       second one in the header: two controls writing one variable is the thing we keep removing. */
     var h=_fxa
       ? (rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Monthly Flux'}])
-         +'<div class="kv-hd rp-hd"><div><h1>Monthly Flux</h1><div class="kv-sub">How did every line move this month &mdash; and is the movement explained?</div></div>'
-         +'<div class="fx-hd-sc">'+_trail+'</div></div>')
+         +((typeof rpCloseContextHTML==='function')?rpCloseContextHTML():'')
+         +'<div class="kv-hd rp-hd"><div><h1>Monthly Flux</h1><div class="kv-sub">How did every line move this month &mdash; and is the movement explained?</div></div></div>')
       : ('<div class="fx-hd" aria-label="Breadcrumb">'
         +(_rv?('<button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button>'):'')
         +'<nav class="fx-hd-tr">'+_trail+'<span class="fx-cr-sep">&rsaquo;</span></nav>'
@@ -9735,10 +9764,31 @@
        looking at (Materiality) · what it is measured against (Comparison) and how it is arranged,
        with Review scope full-width beneath because it is the longest list. */
     var _fbSec=function(title,body,cls){return '<section class="fxfb-s'+(cls?' '+cls:'')+'"><h4 class="fxfb-h">'+esc(title)+'</h4>'+body+'</section>';};
-    var _fbFocus=statusOpts.map(function(o){return '<button class="fxm-opt fxm-status'+(curStatus===o[0]?' on':'')+'" data-status="'+o[0]+'">'+(curStatus===o[0]?ckOn:ckOff)+o[1]+'</button>';}).join('');
-    /* MoM / QoQ / YoY as a segmented control — one axis, mutually exclusive, read at a glance */
-    var _fbBasis='<div class="fxfb-seg">'+basisSegs.map(function(b){return '<button class="fxfb-segb rp-tl-bseg'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+esc(b[2])+'">'+b[1]+'</button>';}).join('')+'</div>'+basisNote;
-    var _fbRows='<div class="fxfb-seg">'+FLUX_ROWS_OPTS.map(function(o){return '<button class="fxfb-segb fxm-rows'+(fluxGroupBy===o[0]?' on':'')+'" data-rows="'+o[0]+'">'+esc(o[1])+'</button>';}).join('')+'</div>';
+    /* ONE control format across the whole module: labelled groups of inline buttons with a solid
+       dark active fill, reusing `.rp-gb-b` — the ACTUAL class Trending and Variance use, not a
+       lookalike, so the two can never drift apart. Replaces the vertical checkmark lists: a set of
+       mutually exclusive options reads faster as a row you scan than as a column you tick, and the
+       filled state says "this is on" without needing a tick to explain it.
+       `fxm-status` / `fxm-mat` / `fxm-rows` etc. stay on as handler hooks — only the look changes. */
+    var _gbBtn=function(hook,attr,val,label,on,title){
+      return '<button class="rp-gb-b '+hook+(on?' on':'')+'" '+attr+'="'+esc(String(val))+'"'+(title?' title="'+esc(title)+'"':'')+'>'+label+'</button>';};
+    var _gbRow=function(btns){return '<div class="fxfb-btns">'+btns+'</div>';};
+    var _fbFocus=_gbRow(statusOpts.map(function(o){return _gbBtn('fxm-status','data-status',o[0],esc(o[1]),curStatus===o[0]);}).join(''));
+    /* MoM / QoQ / YoY — one axis, mutually exclusive, read at a glance */
+    var _fbBasis=_gbRow(basisSegs.map(function(b){return _gbBtn('fxm-basis-b','data-basis',b[0],b[1],RP_COMPARE===b[0],b[2]);}).join(''))+basisNote;
+    var _fbRows=_gbRow(FLUX_ROWS_OPTS.map(function(o){return _gbBtn('fxm-rows','data-rows',o[0],esc(o[1]),fluxGroupBy===o[0]);}).join(''));
+    /* Materiality in the same format. It stays THREE labelled groups rather than one row, because
+       they are three separate decisions (the relative rule, the absolute floor, and the benchmark the
+       floor derives from) and a line is material only when it breaches BOTH rules — collapsing them
+       into one row would imply they were alternatives. The floor's own heading states the standard in
+       words, which is what an auditor reads off the screen. */
+    var _fbMat=_gbRow((matPresets.indexOf(fluxMat)<0?_gbBtn('fxm-mat','data-mat',fluxMat,'&ge; '+fluxMat+'%',true):'')
+        +matPresets.map(function(o){return _gbBtn('fxm-mat','data-mat',o,'&ge; '+o+'%',fluxMat===o);}).join(''))
+      +'<h4 class="fxfb-h fxfb-h2">Absolute floor &mdash; '+esc(_mp.pct)+'% of '+esc(MAT_BASES[_mp.basis])+' = '+fxAbbr$(matFloor())+'</h4>'
+      +_gbRow(_floorPresets.map(function(o){return _gbBtn('fxm-matfl','data-matfl',o,o+'%',_mp.pct===o);}).join(''))
+      +(_basisOpts.length>1?('<h4 class="fxfb-h fxfb-h2">Benchmark</h4>'
+        +_gbRow(_basisOpts.map(function(o){return _gbBtn('fxm-matbs','data-matbs',o[0],esc(o[1]),_mp.basis===o[0]);}).join(''))):'')
+      +'<div class="fxm-note2">A line is material when it breaches <b>both</b> rules &mdash; so a rounding move on a huge account is ignored, and a small account swinging hard is not. The benchmark follows the statement.</div>';
     var _fbScope='<div class="fxfb-scroll">'+fluxSectionMenuHTML(ckOn,ckOff)+'</div><button class="fxm-opt fx-cfg-open">'+FX_GEAR_ICO+' Review layout&hellip;</button>';
     /* ===== SMART FILTER — a disclosure, not a dropdown ==========================================
        Two changes make it "smart" rather than just smaller.
@@ -9769,7 +9819,7 @@
       +'<div class="fxfb-sug"><h4 class="fxfb-h">Suggested &mdash; from this review</h4><div class="fxfb-sugs">'+_sugHTML+'</div></div>'
       +'<div class="fxfb-grid">'
       +_fbSec('Focus',_fbFocus)
-      +_fbSec('Materiality',_matBlock)
+      +_fbSec('Materiality',_fbMat)
       +_fbSec('Comparison',_fbBasis+'<h4 class="fxfb-h fxfb-h2">Group rows by</h4>'+_fbRows)
       +_fbSec('Review scope',_fbScope)
       +'</div></div>'):'';
@@ -9794,8 +9844,30 @@
        current-value text: which density you are on is not population-critical, so it belongs in the
        panel and the tooltip. Nothing left the box — the one-box rule holds.
        Statement stays beside Entity: together they answer "what am I looking at". */
-    h+='<div class="fx-fbar fx-fbar-ctx'+(FX_FILT_OPEN?' fx-fbar-open':'')+'">'+dSearch+dStmt+dScope+_filtersBtn
-      +'<span class="fxr-sp"></span><div class="fx-fbar-grp"><!--WSACT-->'+dViewNew+expIcons+'</div></div>'+_filtPanel;
+    /* Clicking through the three Analytics lenses must FEEL like one product, so on the Analytics
+       page the primary bar IS the Trending/Variance bar — same `.rp-gbbar.fxa-bar` container, same
+       `.rp-gb-l` labels, same `.rp-gb-b` buttons in the same order (Statement · Basis · Material at ·
+       Entity). It is wired to the flux review's own state rather than FXA_*, because this page *is*
+       the review; the format is shared, the variables are the page's own.
+       Flux legitimately has controls the other two lenses do not — full-text search, the deeper
+       Filters panel, review sets, export, presentation — so those sit on a second, quieter row rather
+       than being crammed into the shared one or dropped. */
+    if(_fxa){
+      h+='<div class="rp-gbbar fxa-bar">'
+        +'<span class="rp-gb-l">Statement</span>'
+        +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rp-gb-b fxm-stmt'+(fluxStmt===o[0]?' on':'')+'" data-stmt="'+o[0]+'">'+o[1]+'</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Basis</span>'
+        +basisSegs.map(function(b){return '<button class="rp-gb-b fxm-basis-b'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+esc(b[2])+'">'+b[1]+'</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Material at</span>'
+        +matPresets.map(function(o){return '<button class="rp-gb-b fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">&ge; '+o+'%</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Entity</span>'+dScope
+        +'</div>';
+      h+='<div class="fx-fbar fx-fbar-ctx fx-fbar-2'+(FX_FILT_OPEN?' fx-fbar-open':'')+'">'+dSearch+_filtersBtn
+        +'<span class="fxr-sp"></span><div class="fx-fbar-grp"><!--WSACT-->'+dViewNew+expIcons+'</div></div>'+_filtPanel;
+    } else {
+      h+='<div class="fx-fbar fx-fbar-ctx'+(FX_FILT_OPEN?' fx-fbar-open':'')+'">'+dSearch+dStmt+dScope+_filtersBtn
+        +'<span class="fxr-sp"></span><div class="fx-fbar-grp"><!--WSACT-->'+dViewNew+expIcons+'</div></div>'+_filtPanel;
+    }
     /* ----- the smart filter's collapsed state: WHICH filters are on, each removable -------------
        A "Filters (2)" badge says how many are active but never which. These chips say which, let you
        drop one without opening anything, and carry the n-of-m readout that used to own its own 34px
@@ -10005,6 +10077,10 @@
       b.onclick=function(e){e.stopPropagation();fxFiltToggle();};});
     /* Remove one filter without opening the panel. Each chip resets exactly the state it names — a
        chip that cleared more than it said would be worse than no chip at all. */
+    /* Basis buttons carry .fxm-basis-b now, not .rp-tl-bseg — .rp-tl-bseg.on filled with --accent
+       while every other selection filled with --ink, which put two different darks side by side in
+       one panel. Renaming the hook means rpWireTimeline no longer binds them, so wire them here. */
+    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-basis-b'),function(b){b.onclick=function(){rpSetCompare(this.getAttribute('data-basis'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxchip]'),function(b){b.onclick=function(){
       var k=this.getAttribute('data-fxchip');
       if(k==='find')fluxFind='';

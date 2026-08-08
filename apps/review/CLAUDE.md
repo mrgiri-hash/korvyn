@@ -68,6 +68,37 @@ stubs naming their real engine — never mocked numbers.
     change re-renders directly and would otherwise leave a dead crumb.
   - Its footnote's Organic/FX clause is conditional on `fluxShowSplit` — those columns live behind
     **View → Currency detail**, and a footnote explaining columns that are not on screen misleads.
+- **Clicking through the three Analytics lenses must FEEL identical.** Flux, Trending and Variance
+  put the same thing in the same place, verified by position: crumb **y=167** · close-context bar
+  (period on the **left**) **y=202** · question-led H1 **y=265** · control bar **y=372**. On the
+  Analytics page the primary bar *is* the other two lenses' bar — the same `.rp-gbbar.fxa-bar`
+  container, `.rp-gb-l` labels and `.rp-gb-b` buttons, in the same order (**Statement · Basis ·
+  Material at · Entity**) — but wired to the **flux review's own state** (`fluxStmt`, `RP_COMPARE`,
+  `fluxMat`, `fluxScope`), because this page *is* the review. Format shared, variables the page's own.
+  Flux has controls the other two lack (search, the Filters panel, review sets, Share, View), so
+  those sit on a **second, quieter row** (`.fx-fbar-2`) rather than being crammed into the shared bar
+  or dropped. The period lives only in the close-context bar there — the header's own period control
+  is not rendered, because two controls writing one variable is the thing we keep removing.
+- **ONE selection language, and it is a SOLID DARK fill: `--ink` (#141824), the `.rp-gb-b.on`
+  treatment.** Filters are rendered as labelled rows of inline `.rp-gb-b` buttons (`.fxfb-btns`) —
+  the actual Trending/Variance class, not a lookalike, so the two cannot drift. This replaced vertical
+  checkmark lists: a set of mutually exclusive options reads faster as a row you scan than a column
+  you tick, and a filled state says "this is on" without needing a tick to explain it. A filter
+  changes the **population you are about to sign off on**, so its selected state should be the
+  loudest "on" the system has. Two traps this closed:
+  - The panel contradicted itself — segmented controls filled dark while the option lists beside them
+    showed only accent-coloured text.
+  - **Basis filled a *different* dark.** Those buttons also carried `.rp-tl-bseg`, whose `.on` uses
+    `--accent` (#0B1F3A navy), so two darks sat side by side in one panel. The hook is now
+    `.fxm-basis-b`, wired in `renderMonthlyTrend` — `rpWireTimeline` binds `.rp-tl-bseg` and no
+    longer reaches them, so **don't rename it back without moving the handler**.
+  - Materiality stays **three** labelled groups (relative rule · absolute floor · benchmark), not one
+    row: they are three separate decisions and a line is material only when it breaches *both* rules,
+    so one row would imply they were alternatives.
+  - **Review scope stays a list**, not inline buttons — it is a 20+ item hierarchy carrying per-section
+    counts, and wrapping that into button rows would lose the hierarchy.
+  - The Entity picker's own `.fxm-k` is hidden inside `.fxa-bar`: the `.rp-gb-l` label already says
+    "Entity", and printing both read *"ENTITY Entity Consolidated"*.
 - **Review Sets change presentation, never population.** A saved set (`FLUX_VIEWS`, My Views menu)
   stores only the keys in `FXV_KEYS` — density, lens, columns, expansion. It must never restore the
   statement, entity scope, period or review id: silently moving a reviewer to a different population
