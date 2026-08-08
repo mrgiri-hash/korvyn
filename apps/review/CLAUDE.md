@@ -79,6 +79,27 @@ stubs naming their real engine — never mocked numbers.
   those sit on a **second, quieter row** (`.fx-fbar-2`) rather than being crammed into the shared bar
   or dropped. The period lives only in the close-context bar there — the header's own period control
   is not rendered, because two controls writing one variable is the thing we keep removing.
+- **FILTERS IS THE ONE HOME FOR FILTERS.** The panel carries everything in two labelled tiers:
+  **tier one** (Focus · Materiality · Comparison · Review scope) changes the population or which of it
+  you see; **tier two**, under a `Presentation & views` band (Columns · Display · Views), changes only
+  how the statement is drawn. The band says so out loud because the split is load-bearing — a review
+  set restores presentation only, and silently moving a reviewer to a different population than the
+  one they opened is how someone signs off on lines they never saw.
+  - **Nothing that lives in the panel may also sit on a bar.** Materiality and Basis were in both,
+    i.e. two controls writing `fluxMat` / `RP_COMPARE`, and a filter changed from the bar produced no
+    chip. The Analytics bar now holds only **Statement · Entity** — the population selectors the panel
+    does *not* own. Trending and Variance keep their own Material / Basis groups because they have no
+    Filters panel to move them into; the thing shared across the three lenses is the **format**.
+  - **The right-hand cluster is gone.** My Views and View folded into the panel; **Share** became a
+    small icon at the top right (`.fx-icob`, menu opens leftward) because it is an *action* that leaves
+    the app, not a filter. Only the **expand / collapse pair** stays at the bar's right: it acts on the
+    tree in front of you, one level at a time, and belongs beside it.
+  - **In flow, welded under the bar (`.fx-fbar-open`) — and with NO inner scroll.** Both alternatives
+    were built and rejected: a 560px anchored popup put seven sections into two 264px columns with a
+    scrollbar inside the page's *and* still overhung the viewport, because the bar sits low; capping
+    the in-flow body reintroduced the same scroll-within-scroll. At full width the sections get ~290px
+    columns, all are visible, and the page is the only thing that scrolls. **Escape** closes it; an
+    outside click deliberately does not, because it is a mode you work with open, not an overlay.
 - **ONE selection language, and it is a SOLID DARK fill: `--ink` (#141824), the `.rp-gb-b.on`
   treatment.** Filters are rendered as labelled rows of inline `.rp-gb-b` buttons (`.fxfb-btns`) —
   the actual Trending/Variance class, not a lookalike, so the two cannot drift. This replaced vertical
