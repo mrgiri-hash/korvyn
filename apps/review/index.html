@@ -856,10 +856,12 @@
   .fxg tr.fx-grp.mat>td.fx-line,.fxg tr.fx-det.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn)}
   .fx-gridwrap.xscroll .fxg tr.fx-grp.mat>td.fx-line,.fx-gridwrap.xscroll .fxg tr.fx-det.mat>td.fx-line{box-shadow:inset 3px 0 0 var(--warn),1px 0 0 0 rgba(20,24,36,.16)}
   /* mock-style [+]/[-] box expander */
-  .fx-exp{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;line-height:1;margin-right:9px;vertical-align:middle;flex:0 0 auto}
+  /* Disclosure arrows, not boxed +/- buttons: a triangle already reads as "opens", so the box was
+     chrome around a glyph that did not need it. */
+  .fx-exp{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:0;background:none;color:var(--muted);font-size:10px;line-height:1;margin-right:8px;vertical-align:middle;flex:0 0 auto;transition:color .12s}
   .fx-grp:hover .fx-exp{border-color:var(--faint);color:var(--ink)}
   .fx-exp-off{visibility:hidden}
-  .fx-sec-tw{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--line-2);border-radius:2px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;line-height:1}
+  .fx-sec-tw{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:0;background:none;color:currentColor;font-size:10px;line-height:1;margin-right:6px}
   /* tree connector lines drawn to the expanded account children */
   .fxg tr.fx-det>td.fx-line{padding-left:44px;position:relative}
   .fxg tr.fx-det>td.fx-line::before{content:"";position:absolute;left:24px;top:0;bottom:0;border-left:1px solid var(--line-2)}
@@ -2292,6 +2294,40 @@
   /* ---- Share as a top-right icon ---------------------------------------------------------------
      It is an ACTION, not a filter: it leaves the app rather than changing what is on screen. */
   .fx-hd-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
+  /* ---- Page actions, docked at the right of the close bar ------------------------------------- */
+  .rp-ctx-acts{display:flex;align-items:center;gap:6px;margin-left:14px}
+  .ctx-ib{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;min-width:30px;
+    padding:0 8px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);
+    color:var(--muted);font:inherit;font-size:var(--fs-13);cursor:pointer}
+  .ctx-ib:hover{color:var(--ink);border-color:var(--faint)}
+  .ctx-ib:focus-visible{outline:2px solid var(--action);outline-offset:1px}
+  /* Filters is the one FILLED control here, so its count reads without opening the drawer. */
+  .ctx-filt{background:var(--accent);border-color:var(--accent);color:#fff;padding:0 12px;font-weight:500}
+  .ctx-filt:hover{background:var(--accent);border-color:var(--accent);color:#fff;filter:brightness(1.12)}
+  .ctx-fn{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;
+    border-radius:9px;background:rgba(255,255,255,.22);color:#fff;font-size:11px;font-weight:600}
+  .ctx-more>.ctx-ib-sum{list-style:none}
+  .ctx-more>.ctx-ib-sum::-webkit-details-marker{display:none}
+  .ctx-more>.ctx-ib-sum::after{display:none}
+  /* ---- KPI strip ------------------------------------------------------------------------------ */
+  .fx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:0 0 14px}
+  /* display:block resets the older .fx-kpi flex-row rule above, which otherwise laid the label,
+     value and sub-line side by side instead of stacking them. */
+  .fx-kpi{display:block;border:1px solid var(--line);border-radius:3px;background:var(--surface);padding:12px 14px;min-width:0}
+  .fx-kpi-k{font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fx-kpi-v{margin-top:6px;font-size:22px;font-weight:600;color:var(--ink);line-height:1.15;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fx-kpi-v.sm{font-size:16px}
+  .fx-kpi-v.pos{color:var(--pos)} .fx-kpi-v.neg{color:var(--neg)} .fx-kpi-v.acc{color:var(--pos)}
+  .fx-kpi-s{margin-top:4px;font-size:var(--fs-12);color:var(--muted);font-variant-numeric:tabular-nums;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fx-kpi-s .warn{color:var(--warn)}
+  /* Reset sits at the end of the control bar, and only when there is something to reset. */
+  .fxa-reset{margin-left:14px;border:0;background:none;font:inherit;font-size:var(--fs-12);color:var(--action);cursor:pointer;padding:0}
+  .fxa-reset:hover{text-decoration:underline}
+  /* Toolbar menus (Columns / Density) sit above the grid they act on. */
+  .fx-tbm>.fxm-sum{gap:6px}
+  .fx-tbm-pop{min-width:260px;padding:12px 14px}
   .fx-icob{width:30px;padding:0;justify-content:center;color:var(--muted)}
   .fx-icob::after{display:none}          /* an icon button takes no dropdown caret */
   .fx-icob:hover{color:var(--ink);border-color:var(--faint)}
@@ -7118,7 +7154,32 @@
       +'<span class="grow"></span>'
       +'<span class="rp-ctx-pct">'+cp.pct+'%</span>'
       +'<span class="rp-bar rp-ctx-bar"><span style="width:'+cp.pct+'%"></span></span>'
-      +'<span class="rp-ctx-sub">'+cp.done+' of '+cp.total+' signed off</span></div>';
+      +'<span class="rp-ctx-sub">'+cp.done+' of '+cp.total+' signed off</span>'
+      /* Page actions live at the right of this bar — export, duplicate, Filters, overflow. The Filters
+         button is the one filled control, so the count is legible without opening the drawer.
+         Placeholder mount: only the Flux pages fill it, so every other screen renders the bar
+         unchanged rather than growing a row of controls it has no handlers for. */
+      +'<!--CTXACTS--></div>';
+  }
+  /* Built here so the bar itself stays generic. FX_FILT_OPEN drives the pressed state. */
+  function fxCtxActionsHTML(fCount){
+    var ico=function(p){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';};
+    return '<span class="rp-ctx-acts">'
+      +'<button class="ctx-ib fx-export" title="Export">'+ico('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/>')+'</button>'
+      +'<button class="ctx-ib fx-copy" title="Copy this view">'+ico('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>')+'</button>'
+      +'<button class="ctx-ib ctx-filt fx-filt-toggle'+(FX_FILT_OPEN?' open':'')+'" title="Filters">'
+        +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>'
+        +'<span>Filters</span>'+(fCount?'<span class="ctx-fn">'+fCount+'</span>':'')+'</button>'
+      +'<details class="fxm fxm-top ctx-more" data-fxmenu="ctxmore"><summary class="fxm-sum ctx-ib ctx-ib-sum" title="More actions">'
+        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary>'
+        +'<div class="fxm-pop fxm-pop-w fxm-pop-r"><div class="fxm-h">This view</div>'
+        +'<button class="fxm-opt fx-print">Print preview&hellip;</button>'
+        +'<button class="fxm-opt fx-email">Email summary&hellip;</button>'
+        +'<div class="fxm-sep"></div><div class="fxm-h">Export</div>'
+        +'<button class="fxm-opt fx-exppdf">Export PDF</button>'
+        +'<button class="fxm-opt fx-expxls">Export Excel (CSV)</button>'
+        +'<button class="fxm-opt fx-revpkg">Generate reviewer package</button></div></details>'
+      +'</span>';
   }
   function renderReviewPackages(mine){
     _rvwMine=mine;
@@ -9755,7 +9816,7 @@
       ? (rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Monthly Flux'}])
          +((typeof rpCloseContextHTML==='function')?rpCloseContextHTML():'')
          +'<div class="kv-hd rp-hd"><div><h1>Monthly Flux</h1><div class="kv-sub">How did every line move this month &mdash; and is the movement explained?</div></div>'
-         +'<div class="fx-hd-acts"><!--SHARE--></div></div>')
+         +'</div>')
       : ('<div class="fx-hd" aria-label="Breadcrumb">'
         +(_rv?('<button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button>'):'')
         +'<nav class="fx-hd-tr">'+_trail+'<span class="fx-cr-sep">&rsaquo;</span></nav>'
@@ -10029,6 +10090,14 @@
         +_gbTog('fxm-reviewer','Prepared / reviewed by',FX_CMT_CFG.reviewer)+'</div>'
       +'<h4 class="fxfb-h fxfb-h2">Table</h4><div class="fxfb-btns">'
         +_gbTog('fx-sticky','Sticky headers',fluxStickyHead)+_gbTog('fx-zebra','Zebra rows',fluxZebra)+_gbTog('fx-lines','Grid lines',fluxLines)+'</div>';
+    /* Columns and Density also sit as menus on the table toolbar, per the spec. They reuse the exact
+       option markup the drawer renders, so the two surfaces share hooks and state — a change in
+       either shows as selected in both, and neither can drift from what the grid is doing. */
+    var _tbIco='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+    var dCols2='<details class="fxm fxm-top fx-tbm" data-fxmenu="cols2"><summary class="fxm-sum">'+_tbIco+'<span class="fxm-k">Columns</span></summary>'
+      +'<div class="fxm-pop fxm-pop-w fx-tbm-pop">'+_fbCols+'</div></details>';
+    var dDens2='<details class="fxm fxm-top fx-tbm" data-fxmenu="dens2"><summary class="fxm-sum">'+_tbIco+'<span class="fxm-k">Density</span></summary>'
+      +'<div class="fxm-pop fxm-pop-w fx-tbm-pop">'+_fbDisp+'</div></details>';
     /* ===== SMART FILTER — a disclosure, not a dropdown ==========================================
        Two changes make it "smart" rather than just smaller.
        1) It expands IN FLOW beneath the control bar instead of overlaying the grid. An overlay hides
@@ -10139,22 +10208,40 @@
        Filters panel, review sets, export, presentation — so those sit on a second, quieter row rather
        than being crammed into the shared one or dropped. */
     if(_fxa){
-      /* The bar holds only what the Filters panel does NOT: Statement and Entity, the two population
-         selectors. Materiality and Basis were here as well as in the panel — two controls writing
-         `fluxMat` and `RP_COMPARE`, which is the duplication this codebase keeps removing, and it
-         also meant a filter could be changed from a place that never showed a chip for it. Filters is
-         the one robust home for filters; the bar answers only "what am I looking at".
-         Trending and Variance keep their own Material / Basis groups because they have no Filters
-         panel to move them into — the shared thing across the three lenses is the FORMAT. */
+      /* KPI strip — the movement bridge and the sign-off state as cards, replacing the single status
+         line. Every figure is the one this render already derived, so the cards cannot disagree with
+         the grid beneath them. */
+      var _kpi=function(k,v,sub,cls){return '<div class="fx-kpi"><div class="fx-kpi-k">'+k+'</div>'
+        +'<div class="fx-kpi-v '+(cls||'')+'">'+v+'</div>'
+        +(sub?'<div class="fx-kpi-s">'+sub+'</div>':'')+'</div>';};
+      var _pctOf=function(part,whole){return whole?((part/Math.abs(whole)*100>=0?'+':'')+(part/Math.abs(whole)*100).toFixed(1)+'% vs prior'):'';};
+      var _top=matLeaves&&matLeaves.length?matLeaves[0]:null;
+      h+='<div class="fx-kpis">'
+        +_kpi('Total movement',fxSum(ctlD),_pctOf(ctlD,ctlPrev),gbCls(ctlD))
+        +_kpi('Organic',fxSum(bandOrg),_pctOf(bandOrg,ctlPrev),gbCls(bandOrg))
+        +_kpi('FX',fxSum(bandFx,true),_pctOf(bandFx,ctlPrev),'acc')
+        +_kpi('Coverage',_covPct+'%',(_resid>_fl?'<span class="warn">'+fxAbbr$(_resid)+' unexplained</span>':fxAbbr$(_resid)+' unexplained'),'')
+        +_kpi('Needs explanation',String(needCount),(outstandingEvid?outstandingEvid+' without evidence':'all evidenced'),(needCount?'neg':''))
+        +(_top?_kpi('Top driver',esc(_top.name),fxAbbr$(_top.d)+(ctlPrev?(' ('+Math.abs(_top.d/Math.abs(ctlPrev)*100).toFixed(1)+'%)'):''),'sm'):'')
+        +'</div>';
+      /* Statement · Basis · Material at · Entity · Reset — restored to the bar to match the spec.
+         These mirror the Filters drawer rather than competing with it: both write the same variables,
+         and a change made here still produces its chip in the drawer's Active filters. */
       h+='<div class="rp-gbbar fxa-bar">'
         +'<span class="rp-gb-l">Statement</span>'
         +[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){return '<button class="rp-gb-b fxm-stmt'+(fluxStmt===o[0]?' on':'')+'" data-stmt="'+o[0]+'">'+o[1]+'</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Basis</span>'
+        +basisSegs.map(function(b){return '<button class="rp-gb-b fxm-basis-b'+(RP_COMPARE===b[0]?' on':'')+'" data-basis="'+b[0]+'" title="'+esc(b[2])+'">'+b[1]+'</button>';}).join('')
+        +'<span class="rp-gb-l" style="margin-left:18px">Material at</span>'
+        +matPresets.map(function(o){return '<button class="rp-gb-b fxm-mat'+(fluxMat===o?' on':'')+'" data-mat="'+o+'">&ge; '+o+'%</button>';}).join('')
         +'<span class="rp-gb-l" style="margin-left:18px">Entity</span>'+dScope
+        +(_fCount?'<button class="fxa-reset fx-filt-reset" title="Clear every filter">Reset</button>':'')
         +'</div>';
-      h+='<div class="fx-fbar fx-fbar-ctx fx-fbar-2">'+dSearch+_filtersBtn
+      /* Table toolbar: search, then the two presentation menus, directly above the grid they act on. */
+      h+='<div class="fx-fbar fx-fbar-ctx fx-fbar-2">'+dSearch+dCols2+dDens2
         +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>';
     } else {
-      h+='<div class="fx-fbar fx-fbar-ctx">'+dSearch+dStmt+dScope+_filtersBtn
+      h+='<div class="fx-fbar fx-fbar-ctx">'+dSearch+dStmt+dScope
         +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>';
     }
     /* The drawer is a fixed slide-over, so it is appended at the END of the view rather than in the
@@ -10194,7 +10281,10 @@
       +'<span class="fx-tiep-ic">'+(_tie.ok?'&#10003;':'&#9888;')+'</span>'
       +(_tie.ok?'ties to TB':fxAbbr$(_tie.amt)+' off TB, below floor')+'</button>');
     var _covCls=_resid>_fl?'warn':'pos';
-    h+='<div class="fx-status">'
+    /* On the Analytics page the KPI cards already carry movement, coverage and the outstanding
+       counts, so the status line would be the same figures twice. The review workspace has no cards
+       and keeps it. */
+    if(!_fxa)h+='<div class="fx-status">'
       +'<div class="fx-st-g">'
         +'<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'
         +'<span class="fx-sm" title="Constant-currency movement — the part that is real activity"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></span>'
@@ -10228,7 +10318,8 @@
     }
     /* My Views + Share, and the period switcher in the identity trail, are all built below the point
        where they are placed, so they slot in by placeholder rather than being read before they exist. */
-    h=h.replace('<!--SHARE-->',dShare).replace('<!--PERIOD-->',dPeriod);
+    /* The ctx bar is generic, so its action cluster is injected here where _fCount is known. */
+    h=h.replace('<!--CTXACTS-->',fxCtxActionsHTML(_fCount)).replace('<!--SHARE-->','').replace('<!--PERIOD-->',dPeriod);
     // grid
     var extraCols=1;  // single compact Review column — the panel owns comments / evidence / workflow
     var minW=236+nColShow*(colByPeriod?98:118)+106+(fluxShowSplit?96+88:0)+74+300;
@@ -10253,12 +10344,12 @@
       var scol=!fluxFilterActive()&&!!fluxSecCollapse[sec.name];
       /* single-line categories (Cash, Debt, Equity…) have section name === group caption — render the one line, not a duplicate header + total */
       var secDup=(sec.groups.length===1&&String(sec.groups[0].caption||'').toLowerCase().replace(/[^a-z0-9]/g,'')===String(sec.name||'').toLowerCase().replace(/[^a-z0-9]/g,''));
-      if(sec.name&&!secDup)h+='<tr class="fx-sec'+(scol?' col':'')+'" data-sec="'+esc(sec.name)+'"><td class="l fx-line"><span class="fx-sec-tw">'+(scol?'+':'&minus;')+'</span>'+sec.name+'</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
+      if(sec.name&&!secDup)h+='<tr class="fx-sec'+(scol?' col':'')+'" data-sec="'+esc(sec.name)+'"><td class="l fx-line"><span class="fx-sec-tw">'+(scol?'&#9656;':'&#9662;')+'</span>'+sec.name+'</td>'+emptyCells()+'<td class="fx-rev"></td>'+'</tr>';
       if(!scol||secDup)vis.forEach(function(g){
         var pass=fluxFilterActive()?g.accts.filter(function(a){return fxAcctPass(a,ti,priIdx,mTo);}):g.accts;
         var cur=sum(g.accts,ti), prev=sum(g.accts,priIdx), ekey=fluxStmt+':'+g.report, exp=(RC_MODE==='spreadsheet'||RC_MODE==='audit')?true:(RC_MODE==='executive')?false:(!!fluxExpand[ekey]||fluxFilterActive()), mat=fxMatFlag(prev,cur);
         var alt=(stripe++%2)?' alt':'', ttl=(g.fs?g.fs+' · ':'')+g.accts.length+' account'+(g.accts.length>1?'s':'')+' · mapped from CoA';
-        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&minus;':'+')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo+rpBasisSuffix(),mat,'grp',g.report)+'</tr>';
+        h+='<tr class="fx-grp'+alt+(exp?' open':'')+(mat?' mat'+fxFav(g.accts):'')+(fluxSel&&fluxSel.kind==='grp'&&fluxSel.keyName===g.report?' sel':'')+'" data-exp="'+ekey+'" data-selk="grp" data-selv="'+esc(g.report)+'"><td class="l fx-line" title="'+esc(ttl)+'"><span class="fx-exp">'+(exp?'&#9662;':'&#9656;')+'</span><span class="fx-line-txt">'+esc(g.caption)+'</span></td>'+rowCells(g.accts)+fxMoney(cur-prev,'fx-sep')+fxBridgeCells(g.accts,ti,priIdx,cur-prev)+fxPctCell(prev,cur)+fxReviewTd(g.report,g.report+':'+mTo+rpBasisSuffix(),mat,'grp',g.report)+'</tr>';
         if(exp)pass.forEach(function(a){var acur=fxV(a,ti),aprev=fxV(a,priIdx),amat=fxMatFlag(aprev,acur),dopen=(fluxTxnOpen===a.acct);h+='<tr class="fx-det'+alt+(amat?' mat'+fxFav([a]):'')+(dopen?' txnopen':'')+(fluxSel&&fluxSel.kind==='det'&&fluxSel.keyName===a.acct?' sel':'')+'" data-selk="det" data-selv="'+a.acct+'"><td class="l fx-line"><span class="fx-acct" title="GL account">'+a.acct+'</span>'+esc(a.name)+(FLUX_REMAP[a.acct]?'<span class="fx-remapped" title="Mapping overridden by a user">remapped</span>':'')+'<a class="fx-drill" data-drill="'+a.acct+'" title="Drill to GL postings">GL '+(dopen?'&darr;':'&rarr;')+'</a>'+((_lkNow||!can('configure'))?'':'<button class="fx-remap" data-remap="'+a.acct+'" title="Change this account’s section / category mapping">Remap</button>')+'</td>'+rowCells([a])+fxMoney(acur-aprev,'fx-sep')+fxBridgeCells([a],ti,priIdx,acur-aprev)+fxPctCell(aprev,acur)+fxReviewTd(a.acct,a.acct+':'+mTo+rpBasisSuffix(),amat,'det',a.acct)+'</tr>'+(dopen?'<tr class="fx-txn-row"><td class="l fx-txn-cell" colspan="'+(nColShow+5+extraCols)+'">'+fluxTxnDetail(a.acct)+'</td></tr>':'');});
       });
       var allA=[]; sec.groups.forEach(function(g){allA=allA.concat(g.accts);});
@@ -10308,6 +10399,14 @@
        snapshot on first paint of an open drawer, so Cancel always has something to restore. */
     if(FX_FILT_OPEN&&!FX_FILT_SNAP)FX_FILT_SNAP=fxFiltSnapshot();
     /* ---- Filters drawer wiring ---------------------------------------------------------------- */
+    /* Close-bar actions. Export reuses the CSV path the overflow menu offers, so the icon and the
+       menu item cannot do different things; Copy puts the current view's link on the clipboard. */
+    var _xp=document.querySelector('#view .fx-export');
+    if(_xp)_xp.onclick=function(e){e.stopPropagation();var b=document.querySelector('#view .fx-expxls');if(b)b.click();};
+    var _cp=document.querySelector('#view .fx-copy');
+    if(_cp)_cp.onclick=function(e){e.stopPropagation();
+      try{navigator.clipboard.writeText(location.href);rpToast('Link to this view copied.');}
+      catch(_e){rpToast('Copy is unavailable in this browser.');}};
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-fsec]'),function(b){
       b.onclick=function(e){e.stopPropagation();fxFiltSec(this.getAttribute('data-fsec'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-ftab]'),function(b){
