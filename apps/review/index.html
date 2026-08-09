@@ -2294,6 +2294,11 @@
   /* ---- Share as a top-right icon ---------------------------------------------------------------
      It is an ACTION, not a filter: it leaves the app rather than changing what is on screen. */
   .fx-hd-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
+  /* ---- Ownership strip: the ONLY thing an open review adds to the page ------------------------
+     Slim by design. The crumb already names the review, so this carries just the affordances that
+     exist because you own it: back, its workflow state, the pin, and Submit. */
+  .fx-own{display:flex;align-items:center;gap:8px;margin:0 0 12px;min-height:30px}
+  .fx-own .rp-state{margin-left:0}
   /* ---- Page actions, docked at the right of the close bar ------------------------------------- */
   .rp-ctx-acts{display:flex;align-items:center;gap:6px;margin-left:14px}
   .ctx-ib{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;min-width:30px;
@@ -9805,27 +9810,32 @@
        had to survive. A control sitting exactly where it reads costs no vertical space at all. */
     var _trail='<span class="fx-cr">'+_crScope+'</span><span class="fx-cr-sep">&rsaquo;</span><!--PERIOD-->'
       +(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'');
-    /* TWO chromes over ONE page. Under Analytics (FX_PAGE==='analytics') the grid, the filters, the
-       comment column and the GL expansion are identical — only the wrapper changes, to the
-       Trending/Variance language: rpCrumb, a question-led H1, and the method footnote at the bottom.
-       The sign-off action is dropped there because signing off belongs to a review you opened. */
+    /* ===== ONE chrome. Ownership ADDS a strip; it does not swap the page ==========================
+       There used to be two chromes over this one grid, and they had drifted far past the only real
+       difference between the two routes. The reviewer — whose sign-off depends on the materiality
+       standard — ended up with FEWER materiality controls on screen than someone merely browsing, no
+       KPI summary of the thing they were about to sign, and no way to export their own review. That
+       is backwards, and it happened because the analytics skin was built second and kept gaining
+       pieces that were never back-ported.
+       So: crumb, close-context bar + actions, KPI cards, control bar, table toolbar and the Filters
+       drawer are IDENTICAL on both routes. The single genuine difference is OWNERSHIP — an open
+       review has a state, a folder and an audit trail, so it alone gets the ownership strip carrying
+       back / state badge / star / Submit. Everything else is about reading the statement, which both
+       routes do the same way. */
     var _fxa=(FX_PAGE==='analytics');
-    /* Header assembled in exactly Trending/Variance order — rpCrumb, then the close-context bar, then
-       the question-led H1 — so clicking between the three lenses moves nothing on screen. The period
-       lives on the LEFT in that bar, which also means this page has ONE period control rather than a
-       second one in the header: two controls writing one variable is the thing we keep removing. */
-    /* No H1 block here. The crumb already reads "Flux Analysis / Monthly Flux", so a 32px title plus
-       a strapline underneath restated the page name a third time and pushed the KPI cards down for
-       nothing. The crumb names the page; the cards start the content. */
-    var h=_fxa
-      ? (rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Monthly Flux'}])
-         +((typeof rpCloseContextHTML==='function')?rpCloseContextHTML():''))
-      : ('<div class="fx-hd" aria-label="Breadcrumb">'
+    /* The crumb names the page on both routes, so the review's name is not repeated in the strip. */
+    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},
+                   {label:_fxa?'Monthly Flux':(_rv?_rv.name:'Flux review')}])
+      +((typeof rpCloseContextHTML==='function')?rpCloseContextHTML():'');
+    /* Ownership strip — only when a review is actually open. The period lives in the context bar
+       above on both routes, so there is exactly one period control either way. */
+    if(!_fxa){
+      h+='<div class="fx-own">'
         +(_rv?('<button class="rp-cr fx-back" data-cgo="'+_rvBack+'" title="Back">'+backIco+'</button>'):'')
-        +'<nav class="fx-hd-tr">'+_trail+'<span class="fx-cr-sep">&rsaquo;</span></nav>'
-        +'<h1 class="fx-h1">'+(_rv?esc(_rv.name):'Flux review')+'</h1>'
         +(_rv?(_rvBadge+_rvStar):(_vwStar+'<span class="fx-vstar-lbl">'+esc(fxViewFavLabel())+'</span>'))
-        +'<div class="fx-tb-sp"></div><!--SHARE-->'+(_rv?_rvAction:'')+'</div>');
+        +(_lkNow?'<span class="fx-cr-lock" title="This period is locked">'+(typeof LOCK_ICO!=='undefined'?LOCK_ICO:'')+' Locked</span>':'')
+        +'<div class="fx-tb-sp"></div>'+(_rv?_rvAction:'')+'</div>';
+    }
     /* The queue pager that used to sit here is now the global work spine above the view: it
        follows you across every screen instead of existing only inside an open review. */
     // ----- period-lock banner: closed periods are read-only for everyone; only an authorized role reopens -----
@@ -10210,7 +10220,7 @@
        Flux legitimately has controls the other two lenses do not — full-text search, the deeper
        Filters panel, review sets, export, presentation — so those sit on a second, quieter row rather
        than being crammed into the shared one or dropped. */
-    if(_fxa){
+    {
       /* KPI strip — the movement bridge and the sign-off state as cards, replacing the single status
          line. Every figure is the one this render already derived, so the cards cannot disagree with
          the grid beneath them. */
@@ -10226,6 +10236,13 @@
         +_kpi('Coverage',_covPct+'%',(_resid>_fl?'<span class="warn">'+fxAbbr$(_resid)+' unexplained</span>':fxAbbr$(_resid)+' unexplained'),'')
         +_kpi('Needs explanation',String(needCount),(outstandingEvid?outstandingEvid+' without evidence':'all evidenced'),(needCount?'neg':''))
         +(_top?_kpi('Top driver',esc(_top.name),fxAbbr$(_top.d)+(ctlPrev?(' ('+Math.abs(_top.d/Math.abs(ctlPrev)*100).toFixed(1)+'%)'):''),'sm'):'')
+        /* Tie-out earns a card rather than living in a band the other route did not have. It gates
+           sign-off, so it must be visible wherever the statement is — a blocking break still gets its
+           own full-width band below, because that one stops you. */
+        +(function(){var t=fxTieOut();
+          return _kpi('GL to TB',(t.ok?'&#10003; Ties':(t.blocks?'&#9888; Blocked':'&#9888; '+fxAbbr$(t.amt))),
+            (t.ok?'agrees for '+esc(flxLbl(t.period)):(t.blocks?'at or above the '+fxAbbr$(t.floor)+' floor':'below the '+fxAbbr$(t.floor)+' floor')),
+            (t.ok?'pos sm':(t.blocks?'neg sm':'sm')));})()
         +'</div>';
       /* Statement · Basis · Material at · Entity · Reset — restored to the bar to match the spec.
          These mirror the Filters drawer rather than competing with it: both write the same variables,
@@ -10240,11 +10257,9 @@
         +'<span class="rp-gb-l" style="margin-left:18px">Entity</span>'+dScope
         +(_fCount?'<button class="fxa-reset fx-filt-reset" title="Clear every filter">Reset</button>':'')
         +'</div>';
-      /* Table toolbar: search, then the two presentation menus, directly above the grid they act on. */
+      /* Table toolbar: search, then the two presentation menus, directly above the grid they act on.
+         Identical on both routes — reading the statement is the same job whether or not you own it. */
       h+='<div class="fx-fbar fx-fbar-ctx fx-fbar-2">'+dSearch+dCols2+dDens2
-        +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>';
-    } else {
-      h+='<div class="fx-fbar fx-fbar-ctx">'+dSearch+dStmt+dScope
         +'<span class="fxr-sp"></span><div class="fx-fbar-grp">'+expIcons+'</div></div>';
     }
     /* The drawer is a fixed slide-over, so it is appended at the END of the view rather than in the
@@ -10284,33 +10299,10 @@
       +'<span class="fx-tiep-ic">'+(_tie.ok?'&#10003;':'&#9888;')+'</span>'
       +(_tie.ok?'ties to TB':fxAbbr$(_tie.amt)+' off TB, below floor')+'</button>');
     var _covCls=_resid>_fl?'warn':'pos';
-    /* On the Analytics page the KPI cards already carry movement, coverage and the outstanding
-       counts, so the status line would be the same figures twice. The review workspace has no cards
-       and keeps it. */
-    if(!_fxa)h+='<div class="fx-status">'
-      +'<div class="fx-st-g">'
-        +'<span class="fx-sm" title="'+esc(ctlLbl)+' &middot; movement into '+flxLbl(mTo)+'"><span class="k">Movement</span><span class="v '+gbCls(ctlD)+'">'+fxSum(ctlD)+'</span></span>'
-        +'<span class="fx-sm" title="Constant-currency movement — the part that is real activity"><span class="k">Organic</span><span class="v '+gbCls(bandOrg)+'">'+fxSum(bandOrg)+'</span></span>'
-        +'<span class="fx-sm" title="FX translation effect vs prior-month rates"><span class="k">FX</span><span class="v acc">'+fxSum(bandFx,true)+'</span></span>'
-        +_tiePill
-      +'</div>'
-      /* COVERAGE LEADS, then only the two counts that represent outstanding work. This app's own
-         standard is "coverage, not counts": coverage plus the unexplained residual is what a sign-off
-         rests on, because "7 material, 1 needs explanation" never says whether the remainder is
-         trivia or the whole story. Four equal-weight counts diluted exactly that. The material total
-         and the ready count now live in the Coverage tooltip and in the Filters panel's suggestions,
-         where they are one click from the lines they describe. */
-      +'<div class="fx-st-g fx-st-r">'
-        +'<span class="fx-cov'+(_resid>_fl?' gap':'')+'" title="'+esc(_covPct+'% of absolute movement carries an accepted explanation. '+fxAbbr$(_resid)+' unexplained, '+(_resid>_fl?'above':'within')+' the '+fxAbbr$(_fl)+' floor. '+matCount+' material line'+(matCount===1?'':'s')+', '+readyApproval+' ready for approval. Materiality '+matStandard())+'">'
-          +'<span class="fx-cov-k">Coverage</span>'
-          +'<span class="fx-covbar"><i style="width:'+Math.max(2,Math.min(100,_covPct))+'%"></i></span>'
-          +'<span class="fx-cov-v">'+_covPct+'%</span>'
-          +'<span class="fx-cov-r '+_covCls+'">'+(_resid>_fl?'&#9888; ':'')+fxAbbr$(_resid)+' unexplained</span>'
-        +'</span>'
-        +'<span class="fx-cov-sep"></span>'
-        +'<span class="fx-sm" title="'+esc('Material lines without an accepted explanation — of '+matCount+' material line'+(matCount===1?'':'s')+'. Standard: '+matStandard())+'"><span class="k">Needs expl.</span><span class="v '+(needCount?'warn':'pos')+'">'+needCount+'</span></span>'
-        +'<span class="fx-sm" title="Material lines without verified supporting evidence"><span class="k">No evid.</span><span class="v '+(outstandingEvid?'warn':'pos')+'">'+outstandingEvid+'</span></span>'
-      +'</div></div>';
+    /* The status line is retired on BOTH routes. Movement, organic, FX, coverage, the
+       outstanding counts and the tie-out are all KPI cards now, so keeping it anywhere would
+       print the same figures twice — and keeping it on ONE route was half of why the two pages
+       looked like different products. */
     /* A BLOCKING tie-out break keeps its full band — it stops sign-off, so it must be unmissable. */
     if(_tie.blocks){
       h+='<div class="fx-tie bad"><span class="fx-tie-ic">&#9888;</span><span>General ledger <b>does not tie</b> to the trial balance for '+esc(flxLbl(_tie.period))+' &mdash; '+_tie.n+' reconciling item'+(_tie.n===1?'':'s')+', '+fxAbbr$(_tie.amt)+', <b>at or above the '+fxAbbr$(_tie.floor)+' floor</b>. This review cannot be submitted until it ties.</span>'
@@ -10384,16 +10376,16 @@
     h+='</tbody></table></div>';
     /* Print/preview footnotes: comments render here (not inline) so the statement rows stay tight on the page. */
     h+='<div class="fx-print-notes"><div class="fpn-h">Explanations &amp; review notes &mdash; '+flxLbl(mTo)+'</div>'+(printNotes.length?printNotes.map(function(n){return '<div class="fpn-item"><div class="fpn-line">'+esc(n.name)+'<span class="fpn-d">'+fxSum(n.d)+'</span></div>'+(n.needs?'<div class="fpn-need">Needs explanation</div>':'<div class="fpn-tx">'+(n.by?'<b>'+esc(n.by)+'</b> &mdash; ':'')+esc(n.text)+'</div>')+'</div>';}).join(''):'<div class="fpn-empty">No review notes recorded for this period.</div>')+'</div>';
-    /* The Analytics skin closes with the family's method footnote, the way Trending and Variance do —
-       it states the standard applied rather than leaving the reader to infer it. */
-    if(_fxa){
-      /* The Organic/FX clause is conditional: those columns sit behind View → Currency detail, and a
-         footnote explaining columns that are not on screen is a footnote that misleads. */
-      h+='<div class="ldg-note">Every line on the '+(isBS?'balance sheet':isIS?'income statement':'statement')+' for '+esc(flxLbl(mTo))+', compared against '+esc(flxLbl(ms[priIdx]))+'. Expand a line to its GL accounts, or open one to read and answer its review comments &mdash; this is the same grid, the same explanations and the same filters as the flux review workspace, so nothing here is a second copy of the numbers. '
-        +(fluxShowSplit?'<b>Organic</b> is constant-currency movement and <b>FX</b> is the translation effect, so the two add back to the reported variance. ':'The <b>Organic</b> and <b>FX</b> figures above split that movement into real activity and translation effect; add the columns under <b>View &rarr; Currency detail</b> to see it per line. ')
-        +'Materiality '+esc(matStandard())+'.</div>';
-      h+=(typeof fxaScopeNote==='function')?fxaScopeNote():'';
-    }
+    /* The method footnote closes BOTH routes, the way Trending and Variance do — it states the
+       standard applied rather than leaving the reader to infer it, and that is worth at least as much
+       to someone about to sign off as to someone browsing. Wording is route-neutral: it used to say
+       "the same grid as the flux review workspace", which read as nonsense once inside that workspace.
+       The Organic/FX clause stays conditional — those columns sit behind Columns → Currency detail,
+       and a footnote explaining columns that are not on screen is a footnote that misleads. */
+    h+='<div class="ldg-note">Every line on the '+(isBS?'balance sheet':isIS?'income statement':'statement')+' for '+esc(flxLbl(mTo))+', compared against '+esc(flxLbl(ms[priIdx]))+'. Expand a line to its GL accounts, or open one to read and answer its review comments. '
+      +(fluxShowSplit?'<b>Organic</b> is constant-currency movement and <b>FX</b> is the translation effect, so the two add back to the reported variance. ':'The <b>Organic</b> and <b>FX</b> cards above split that movement into real activity and translation effect; add the columns under <b>Columns &rarr; Currency detail</b> to see it per line. ')
+      +'Materiality '+esc(matStandard())+'.</div>';
+    h+=(typeof fxaScopeNote==='function')?fxaScopeNote():'';
     h+=_filtMount;
     $('#view').innerHTML=h;
     document.body.classList.toggle('fx-filt-open',!!FX_FILT_OPEN);
