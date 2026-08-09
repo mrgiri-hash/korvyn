@@ -7194,7 +7194,13 @@
     var rows=order.filter(function(id){return mine?pkgMine(id):true;});
     var tot=rows.length, inrev=0, signed=0, over=0, needTot=0;
     rows.forEach(function(id){var stg=pkgStage(id);if(stg==='review'||stg==='controller')inrev++;if(stg==='signed')signed++;if(pkgOverdue(id))over++;needTot+=pkgStats(CONS_BY_ID[id]).need;});
-    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:'Review Packages'}]);
+    /* "Open this close" lands here, so the crumb names the close it opened. Without it the button
+       said "open this close" and the destination said only "Review Packages", leaving the period
+       scoping legible in nothing but a dropdown. */
+    var _pkgPer=(function(){try{var c=rpPeriodById(RP_PERIOD_SEL||ACTIVE_PERIOD);return c?c.label:'';}catch(e){return '';}})();
+    var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'}]
+      .concat(_pkgPer?[{label:_pkgPer,go:'frperiods'}]:[])
+      .concat([{label:'Review Packages'}]));
     h+=rpCloseContextHTML();
     h+='<div class="kv-hd"><div><h1>Review Packages</h1><div class="kv-sub">Each package rolls up its entities, and is group-signed only once its sub-groups are signed.</div></div></div>';
     /* Same compact summary bar My Reviews and All Reviews use — five oversized KPI cards said the
@@ -7739,7 +7745,16 @@
      Flux shell — it must never feel like launching a different application. */
   function rpOverviewWire(){
     var cg=document.querySelector('#view [data-ccgo]');
-    if(cg)cg.onclick=function(e){e.stopPropagation();RP_PERIOD_SEL=this.getAttribute('data-ccgo');navTo('frpkgs');};
+    /* Opening a close must load that close's DATA, not just point the period selector at it.
+       rpOpenPeriod refreshes RP_REVIEWS and RP_WS_FOLDERS when the period changes; this handler set
+       RP_PERIOD_SEL alone, so the destination could show July's label over another period's reviews. */
+    if(cg)cg.onclick=function(e){e.stopPropagation();
+      var id=this.getAttribute('data-ccgo');
+      RP_PERIOD_SEL=id;
+      if(typeof setActivePeriod==='function'&&typeof ACTIVE_PERIOD!=='undefined')ACTIVE_PERIOD=id;
+      if(typeof rpReviewsFor==='function')RP_REVIEWS=rpReviewsFor(id);
+      if(typeof rpFoldersFor==='function')RP_WS_FOLDERS=rpFoldersFor(id);
+      navTo('frpkgs');};
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-qgo]'),function(b){
       b.onclick=function(){if(typeof rpOpenReview==='function')rpOpenReview(this.getAttribute('data-qgo'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-nav2]'),function(b){
