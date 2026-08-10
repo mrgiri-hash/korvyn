@@ -2625,6 +2625,25 @@
   .kd-vitem.on .kd-vapply{background:var(--ink);color:#fff;font-weight:600}
   .kd-vdel{flex:0 0 auto;border:0;background:none;font-size:15px;line-height:1;color:var(--faint);cursor:pointer;padding:2px 6px;border-radius:2px}
   .kd-vdel:hover{color:var(--neg);background:var(--surface-2)}
+  /* ===== The two GLOBAL slide-overs (filters · settings) ======================================
+     Same 440px `.fx-fdrawer` shell the page Filters use, so "a panel slides in from the right" means
+     one thing platform-wide. They mount outside #view and sit above it. */
+  .kg-drawer{z-index:61}
+  .kg-scrim{z-index:60;inset:var(--rb-h) 0 0 0}
+  body.kg-open{overflow:hidden}
+  .kg-scope{margin-left:8px;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.06em;
+    font-weight:600;color:#fff;background:var(--ink);border-radius:9px;padding:2px 8px}
+  .kg-note{padding:8px 16px 4px}
+  .kg-seg{width:100%}
+  .kg-seg .fxcb-sg{flex:1 1 0;justify-content:center}
+  /* A disabled option states the single loaded value rather than pretending to be a choice. */
+  .kg-drawer .fxm-opt[disabled]{opacity:.45;cursor:not-allowed}
+  .kg-drawer .fxm-opt[disabled]:hover{background:none}
+  .rb-ic.on{background:rgba(255,255,255,.16)}
+  .rb-count-q{background:var(--warn);color:var(--ink-900,#141824)}
+  /* Table preferences, applied platform-wide from the settings panel. */
+  body.tp-wrap .rp-tbl td,body.tp-wrap .fxg td{white-space:normal}
+  body.tp-nototals .rp-tbl tr.fx-tot-soft{display:none}
   /* The drawer's Context band leads the panel and is marked as the global tier. */
   .fxd-band-ctx{margin-top:0;border-top:0}
   .kd-pin{margin-left:6px;font-size:var(--fs-11);color:var(--faint);font-style:italic}
@@ -3837,6 +3856,8 @@
     <input id="search" placeholder="Search everything — reviews, accounts, entities, people, evidence…">
   </div>
   <button class="ribai" id="ribAi" title="Ask Korvyn"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2l1.7 5.3L20 9l-5.3 1.7L13 16l-1.7-5.3L6 9l5.3-1.7z"/><path d="M18.5 13.5l.6 2 2 .6-2 .6-.6 2-.6-2-2-.6 2-.6z"/></svg><span class="rlbl">Ask Korvyn</span></button>
+  <button class="rb-ic" id="ribFilt" title="Global filters — apply across every page"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg><span class="rb-count rb-count-q" id="ribFiltN"></span></button>
+  <button class="rb-ic" id="ribSet" title="Global settings — display &amp; table preferences"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.3 2.9a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1L9.5 22h5l.3-2.9a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z"/></svg></button>
   <button class="rb-ic" id="ribBell" title="Reminders"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="rb-count" id="ribCount"></span></button>
   <button class="rb-user-wrap" id="ribUser" title="Maya Grant"><span class="rb-role"><span class="rb-role-k">Role</span><span class="rb-role-v" id="ribRole">Administrator</span></span><span class="rb-user">MG</span><svg class="rb-user-cv" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg></button>
   <div class="um-pop" id="userMenu"></div>
@@ -4229,6 +4250,10 @@
       return w?(w+'’s workspace'):'Workspace';}
     return navRailLabel(rail);
   }
+  /* EACH MODULE KEEPS ITS OWN RAIL (owner's direction, 2026-08-10). A flat rail listing every
+     module's pages at once was tried and reverted: what "standard" means here is that every rail
+     has the same ANATOMY and comes from the same config and renderer — not that every rail shows
+     the same links. The global Filters and Settings panels are what follow you across pages. */
   function renderRail(rail){
     var role=navActiveRole();
     var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(navRailTitle(rail))+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
@@ -4270,6 +4295,8 @@
       }
       if(!live.length&&!planned.length)h+='<div class="rp-ws-empty">Nothing in this area is built yet.</div>';
       live.forEach(function(it){h+=railItem(it,sec,false);});
+      /* Roadmap stubs stay reachable but sit behind their own category's disclosure — nearly half
+         of all destinations are stubs, and listing them beside real pages read as unfinished. */
       if(planned.length){
         var pk='rail:'+sec.id+':planned';
         var popen=!!NAV_PLANNED_OPEN[pk]||planned.some(function(it){return it.target===activeNav;});
@@ -8767,6 +8794,177 @@
     });
   }
   var KCTX_LBL={period:'Reporting period',entity:'Entity scope',statement:'Statement',basis:'Comparison basis',materiality:'Materiality threshold'};
+
+  /* ===== GLOBAL FILTERS + GLOBAL SETTINGS — one slide-over each, on every page ==================
+     (2026-08-10, to the owner's standard-layout specimen.) The context dimensions had a home on
+     each page's control bar, which made them consistent but still per-page: to change entity you
+     had to be on a page that rendered an entity control. These two panels are opened from the
+     RIBBON, so they are reachable from every screen at the same coordinates — including the pages
+     that have no control bar at all (Close Overview, the stubs, Settings).
+
+     They reuse `.fx-fdrawer` — the same 440px slide-over the page Filters use — so "a panel slides
+     in from the right and Cancel/Apply live at its foot" means one thing platform-wide.
+
+     HONESTY RULE: the specimen lists Consolidation, Currency, GAAP and Data View. Exactly one value
+     of each is loaded (Global Consolidated · USD · US GAAP · Actual), so those render as a stated
+     value with the alternatives DISABLED and a reason — the same treatment the flux drawer already
+     gives Budget/Forecast. An option that silently does nothing is worse than an absent one, and a
+     filter that claims to reshape numbers it cannot reach is worse still. */
+  var KGF_OPEN=false, KGS_OPEN=false, KGF_SNAP=null;
+  /* The four declared-but-single-valued dimensions live on FX_REPORTING, which already prints them
+     in every flux attribute line — so the panel and the page cannot state a different basis. */
+  var KGF_STATIC=[
+    {k:'cons',label:'Consolidation',get:function(){return 'Global Consolidated';},
+     opts:[['gc','Global Consolidated',true],['loc','Local books',false],['stat','Statutory',false]],
+     why:'Only the global consolidated view is loaded in this prototype.'},
+    {k:'ccy',label:'Currency',get:function(){return FX_REPORTING.ccy+' — US Dollar';},
+     opts:[['USD','USD — US Dollar',true],['EUR','EUR — Euro',false],['GBP','GBP — Pound sterling',false]],
+     why:'Reporting currency is USD; local-currency detail is a column set inside a flux review, not a global filter.'},
+    {k:'gaap',label:'GAAP',get:function(){return FX_REPORTING.gaap;},
+     opts:[['us','US GAAP',true],['ifrs','IFRS',false]],
+     why:'One accounting framework is loaded.'},
+    {k:'view',label:'Data view',get:function(){return FX_REPORTING.basis;},
+     opts:[['act','Actual',true],['bud','Budget',false],['fc','Forecast',false]],
+     why:'No budget or forecast version is loaded, so there is nothing to compare against.'}
+  ];
+  function kgfSnapshot(){return {p:kctxGet('period'),e:kctxGet('entity'),s:kctxGet('statement'),b:kctxGet('basis'),m:kctxGet('materiality')};}
+  function kgfRestore(s){ if(!s)return;
+    if(s.e&&s.e!==kctxGet('entity'))kctxSet('entity',s.e,{quiet:true});
+    if(s.s)kctxSet('statement',s.s,{quiet:true});
+    if(s.b)kctxSet('basis',s.b,{quiet:true});
+    if(s.m)kctxSet('materiality',s.m,{quiet:true});
+    if(s.p&&s.p!==kctxGet('period')&&typeof setActivePeriod==='function')setActivePeriod(s.p);
+  }
+  function kgfOpen(){KGF_OPEN=true;KGS_OPEN=false;KGF_SNAP=kgfSnapshot();kgPaint();}
+  function kgfClose(commit){ if(!commit&&KGF_SNAP)kgfRestore(KGF_SNAP);
+    KGF_OPEN=false;KGF_SNAP=null;kgPaint();kctxRepaint();}
+  function kgsOpen(){KGS_OPEN=true;KGF_OPEN=false;kgPaint();}
+  function kgsClose(){KGS_OPEN=false;kgPaint();}
+  /* How many global filters are off their default — the ribbon badge, so the button says whether
+     the numbers on screen are being narrowed before you open anything. */
+  function kgfCount(){var n=0;
+    if(kctxGet('entity')!=='MGP')n++;
+    if(kctxGet('statement')!=='bs')n++;
+    if(kctxGet('basis')!=='prev')n++;
+    if(kctxGet('materiality')!==8)n++;
+    return n;}
+  function kgFieldHTML(key,label,valHTML,body,open){
+    return '<div class="fxd-sec'+(open?' open':'')+'"><div class="fxd-fl">'+esc(label)+'</div>'
+      +'<button class="fxd-sec-hd" data-kgsec="'+esc(key)+'" aria-expanded="'+(open?'true':'false')+'">'
+      +'<span class="fxd-sec-v">'+valHTML+'</span><span class="fxd-sec-tw">'+(open?'&#9652;':'&#9662;')+'</span></button>'
+      +(open?('<div class="fxd-sec-b">'+body+'</div>'):'')+'</div>';
+  }
+  var KG_SEC={};
+  function kgfHTML(){
+    var h='<aside class="fx-fdrawer kg-drawer" aria-label="Global filters">'
+      +'<div class="fxd-hd"><span class="fxd-t">Filters</span>'
+      +'<span class="kg-scope">global</span>'
+      +'<button class="fxd-x" data-kgcancel title="Close without keeping these changes">&times;</button></div>'
+      +'<div class="fxd-bandnote kg-note">These apply to every page &mdash; the whole platform reads them.</div>'
+      +'<div class="fxd-body">';
+    KCTX_KEYS.forEach(function(k){
+      var d=document.createElement('div'); d.innerHTML=kctxPill(k); var pop=d.querySelector('.fxm-pop');
+      h+=kgFieldHTML('c-'+k,KCTX_LBL[k],esc(kctxLabel(k)),pop?pop.innerHTML:'',!!KG_SEC['c-'+k]);
+    });
+    KGF_STATIC.forEach(function(f){
+      var body=f.opts.map(function(o){
+        return '<button class="fxm-opt'+(o[2]?' on':'')+'"'+(o[2]?'':' disabled title="'+esc(f.why)+'"')+'>'
+          +(o[2]?'<span class="fxm-ck">'+AI_CHECK+'</span>':'<span class="fxm-ck"></span>')+esc(o[1])+'</button>';}).join('')
+        +'<div class="fxm-note2">'+esc(f.why)+'</div>';
+      h+=kgFieldHTML('s-'+f.k,f.label,esc(f.get()),body,!!KG_SEC['s-'+f.k]);
+    });
+    var n=kgfCount();
+    h+='<div class="fxd-active"><div class="fxd-active-hd"><span>Narrowed from default ('+n+')</span>'
+      +(n?'<button class="fxd-clear" data-kgreset>Reset all</button>':'')+'</div>'
+      +(n?'':'<div class="fxd-none">Everything is at its default &mdash; the platform is showing the full consolidated position.</div>')+'</div>';
+    /* The specimen's footer is [Reset all] [Apply filters]. `Reset all` therefore RESETS — it does
+       not cancel; a button whose label describes a different action than the one it performs is
+       the worst kind of dead control. Cancelling (restore the snapshot taken on open) is the ×,
+       the scrim and Escape, exactly as in the page Filters drawer. */
+    h+='</div><div class="fxd-foot"><button class="btn sm" data-kgreset>Reset all</button>'
+      +'<button class="btn sm primary" data-kgapply>Apply filters</button>'
+      +'<div class="fxd-rows">Applied live &middot; Esc to discard</div></div></aside>';
+    return h;
+  }
+  var KG_TBL_DEFAULTS={rowNums:true,freezeFirst:true,wrapCells:false,showTotals:true};
+  var KG_TBL=(function(){var d={};for(var k in KG_TBL_DEFAULTS)d[k]=KG_TBL_DEFAULTS[k];
+    try{var s=JSON.parse(localStorage.getItem('korvyn.tblprefs.v1')||'{}');for(var k2 in s)d[k2]=s[k2];}catch(e){}return d;})();
+  function kgTblSave(){try{localStorage.setItem('korvyn.tblprefs.v1',JSON.stringify(KG_TBL));}catch(e){}
+    document.body.classList.toggle('tp-rownums',!!KG_TBL.rowNums);
+    document.body.classList.toggle('tp-freeze',!!KG_TBL.freezeFirst);
+    document.body.classList.toggle('tp-wrap',!!KG_TBL.wrapCells);
+    document.body.classList.toggle('tp-nototals',!KG_TBL.showTotals);}
+  try{kgTblSave();}catch(e){}
+  var KG_LANDING=(function(){try{return localStorage.getItem('korvyn.landing.v1')||'home';}catch(e){return 'home';}})();
+  function kgsHTML(){
+    function seg(name,opts,cur,attr){return '<div class="fxcb-seg kg-seg">'+opts.map(function(o){
+      return '<button class="fxcb-sg'+(cur===o[0]?' on':'')+'" '+attr+'="'+o[0]+'">'+esc(o[1])+'</button>';}).join('')+'</div>';}
+    /* `.on` goes on the BUTTON — `.fxd-tog.on .fxd-sw` is what the switch styling keys off. */
+    function tog(k,label){return '<button class="fxd-tog'+(KG_TBL[k]?' on':'')+'" data-kgtbl="'+k+'" role="switch" aria-checked="'+(KG_TBL[k]?'true':'false')+'">'
+      +'<span class="fxd-tog-l">'+esc(label)+'</span><span class="fxd-sw"><span class="fxd-sw-k"></span></span></button>';}
+    var themes=THEMES.map(function(t){return [t.id,t.label];});
+    var h='<aside class="fx-fdrawer kg-drawer" aria-label="Global settings">'
+      +'<div class="fxd-hd"><span class="fxd-t">Settings</span><span class="kg-scope">global</span>'
+      +'<button class="fxd-x" data-kgsclose title="Close">&times;</button></div>'
+      +'<div class="fxd-body">'
+      +'<div class="fxd-band fxd-band-ctx">Display</div>'
+      +'<div class="fxd-sec open"><div class="fxd-fl">Chrome theme</div><div class="fxd-sec-b">'
+        +'<div class="fxfb-btns">'+themes.map(function(t){return '<button class="rp-gb-b'+(currentChrome()===t[0]?' on':'')+'" data-kgtheme="'+t[0]+'">'+esc(t[1])+'</button>';}).join('')+'</div></div></div>'
+      +'<div class="fxd-sec open"><div class="fxd-fl">Density</div><div class="fxd-sec-b">'
+        +seg('dens',[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']],SETTINGS.density||'comfortable','data-kgdens')+'</div></div>'
+      +'<div class="fxd-band">Table preferences</div>'
+      +'<div class="fxd-togs">'+tog('rowNums','Show row numbers')+tog('freezeFirst','Freeze first column')
+        +tog('wrapCells','Wrap text in cells')+tog('showTotals','Show totals by default')+'</div>'
+      +'<div class="fxd-band">Other</div>'
+      +'<div class="fxd-sec open"><div class="fxd-fl">Default landing page</div><div class="fxd-sec-b">'
+        +'<div class="fxfb-btns">'+[['home','Home'],['my','My Reviews'],['frperiods','Flux Overview'],['mtrend','Last review']].map(function(o){
+          return '<button class="rp-gb-b'+(KG_LANDING===o[0]?' on':'')+'" data-kgland="'+o[0]+'">'+esc(o[1])+'</button>';}).join('')+'</div>'
+        +'<div class="fxm-note2">Where Korvyn opens when you sign in.</div></div></div>'
+      +'</div>'
+      +'<div class="fxd-foot"><button class="btn sm" data-kgsreset>Reset to defaults</button>'
+      +'<button class="btn sm primary" data-kgsclose>Save changes</button>'
+      +'<div class="fxd-rows">Saved as you change them</div></div></aside>';
+    return h;
+  }
+  /* Both panels mount OUTSIDE #view — they belong to the app chrome, not to a page, which is what
+     lets them survive a page render and appear on screens that draw no bar at all. */
+  function kgPaint(){
+    var host=document.getElementById('kgHost');
+    if(!host){host=document.createElement('div');host.id='kgHost';document.body.appendChild(host);}
+    var open=KGF_OPEN||KGS_OPEN;
+    document.body.classList.toggle('kg-open',open);
+    host.innerHTML=open?('<div class="fx-fscrim kg-scrim"></div>'+(KGF_OPEN?kgfHTML():kgsHTML())):'';
+    var badge=document.getElementById('ribFiltN');
+    if(badge){var n=kgfCount();badge.textContent=n?String(n):'';badge.style.display=n?'':'none';}
+    var fb=document.getElementById('ribFilt'); if(fb)fb.classList.toggle('on',KGF_OPEN);
+    var sb=document.getElementById('ribSet'); if(sb)sb.classList.toggle('on',KGS_OPEN);
+    if(!open)return;
+    var scrim=host.querySelector('.kg-scrim'); if(scrim)scrim.onclick=function(){KGF_OPEN?kgfClose(false):kgsClose();};
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgcancel]'),function(b){b.onclick=function(){kgfClose(false);};});
+    var ap=host.querySelector('[data-kgapply]'); if(ap)ap.onclick=function(){kgfClose(true);};
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgsclose]'),function(b){b.onclick=function(){kgsClose();};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgsec]'),function(b){b.onclick=function(){
+      var k=this.getAttribute('data-kgsec');KG_SEC[k]=!KG_SEC[k];kgPaint();};});
+    var rs=host.querySelector('[data-kgreset]'); if(rs)rs.onclick=function(){
+      kctxSet('entity','MGP',{quiet:true});kctxSet('statement','bs',{quiet:true});
+      kctxSet('basis','prev',{quiet:true});kctxSet('materiality',8,{quiet:true});kgPaint();kctxRepaint();};
+    /* Context options inside the panel carry the same data-kctx hooks the bars use — one writer. */
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kctx]'),function(b){
+      b.onclick=function(e){e.stopPropagation();kctxSet(this.getAttribute('data-kctx'),this.getAttribute('data-kctxv'),{quiet:true});kgPaint();kctxRepaint();};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgtheme]'),function(b){b.onclick=function(){setChrome(this.getAttribute('data-kgtheme'));kgPaint();};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgdens]'),function(b){b.onclick=function(){
+      SETTINGS.density=this.getAttribute('data-kgdens');saveSettings();applyDensity();kgPaint();};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgtbl]'),function(b){b.onclick=function(){
+      var k=this.getAttribute('data-kgtbl');KG_TBL[k]=!KG_TBL[k];kgTblSave();kgPaint();};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgland]'),function(b){b.onclick=function(){
+      KG_LANDING=this.getAttribute('data-kgland');try{localStorage.setItem('korvyn.landing.v1',KG_LANDING);}catch(e){}kgPaint();};});
+    var sr=host.querySelector('[data-kgsreset]'); if(sr)sr.onclick=function(){
+      for(var k in KG_TBL_DEFAULTS)KG_TBL[k]=KG_TBL_DEFAULTS[k]; kgTblSave();
+      SETTINGS.density='comfortable';saveSettings();applyDensity();setChrome('navy');
+      KG_LANDING='home';try{localStorage.setItem('korvyn.landing.v1','home');}catch(e){}
+      kgPaint(); if(typeof rpToast==='function')rpToast('Display settings reset to defaults.');};
+  }
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(KGF_OPEN)kgfClose(false);else if(KGS_OPEN)kgsClose();}});
   var KD_REGS={}, KD_OPEN=null, KD_SNAP=null, KD_SEC={};
   var KVIEWS={}; try{KVIEWS=JSON.parse(localStorage.getItem('korvyn.kviews.v1')||'{}');}catch(e){}
   var KVIEW_ACTIVE={};
@@ -12589,6 +12787,13 @@
   }
   function renderDueStrip(){var el=document.getElementById('dueStrip');if(!el)return;el.innerHTML=dueStripHTML();Array.prototype.forEach.call(el.querySelectorAll('.due-chip'),function(b){b.onclick=function(){openReview(this.getAttribute('data-rid'));};});}
   (function(){var b=document.getElementById('ribBell');if(b)b.onclick=notifToggle;})();
+  /* The two global panels hang off the ribbon, so they are reachable at the same coordinates from
+     every screen — including the ones that draw no control bar. */
+  (function(){
+    var f=document.getElementById('ribFilt'); if(f)f.onclick=function(){KGF_OPEN?kgfClose(true):kgfOpen();};
+    var s=document.getElementById('ribSet');  if(s)s.onclick=function(){KGS_OPEN?kgsClose():kgsOpen();};
+    try{kgPaint();}catch(e){}
+  })();
   (function(){var ov=document.getElementById('reviewModal');if(ov)ov.onclick=function(e){if(e.target===ov)closeReviewModal();};document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.getElementById('reviewModal').classList.contains('open'))closeReviewModal();});})();
   (function(){var ov=document.getElementById('navEditModal');if(ov)ov.onclick=function(e){if(e.target===ov)closeNavEditModal();};document.addEventListener('keydown',function(e){var m=document.getElementById('navEditModal');if(e.key==='Escape'&&m&&m.classList.contains('open'))closeNavEditModal();});})();
 

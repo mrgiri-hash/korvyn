@@ -269,6 +269,36 @@ foot. Rules:
   set the rail is the admin's to own. Verified: renames, deliberate hides and custom items survive.
 - A rail with nothing visible renders an **empty state naming why** (no sections vs hidden for this
   role) — a blank sidebar reads as a broken app.
+- **Each module keeps its OWN list.** A flat rail listing every module's pages at once was built to
+  the owner's standard-layout specimen and **reverted at their direction** on 2026-08-10. What
+  "standard" means here is that every rail has the same **anatomy**, config and renderer — not the
+  same links. Don't rebuild the flat rail. The things that follow you across pages are the two
+  global panels below.
+
+## GLOBAL Filters + GLOBAL Settings slide-overs (2026-08-10, owner's specimen)
+
+Two panels hang off the **ribbon**, so they open at the same coordinates from every screen —
+including the ones that draw no control bar at all (Close Overview, Reporting, the stubs). Both
+reuse `.fx-fdrawer`, the same 440px slide-over the page Filters use, so "a panel slides in from the
+right with its actions at the foot" means one thing platform-wide.
+
+- **Filters** lists the five KCTX dimensions (period · entity · statement · basis · materiality)
+  plus Consolidation · Currency · GAAP · Data view. Options carry the same `data-kctx` hooks the
+  page bars use, so the panel and any bar are **one writer**. Live apply, snapshot on open; the
+  footer is `[Reset all] [Apply filters]` per the specimen, so **Reset all genuinely resets** —
+  cancelling (restore the snapshot) is the ×, the scrim and Escape. A ribbon badge counts how many
+  dimensions are off default. `kgfCount()` drives it.
+- **HONESTY RULE.** Exactly one value of Consolidation / Currency / GAAP / Data view is loaded, so
+  those render the stated value with the alternatives **disabled and a reason** — the same treatment
+  the flux drawer already gives Budget/Forecast. A filter that claims to reshape numbers it cannot
+  reach is worse than an absent one. If real multi-currency or a budget version ever loads, enable
+  them there.
+- **Settings** carries Display (chrome theme · density), Table preferences (row numbers, freeze
+  first column, wrap cells, show totals — persisted to `korvyn.tblprefs.v1` and applied as `tp-*`
+  body classes) and Default landing page. It writes the existing `SETTINGS` / `setChrome` /
+  `applyDensity`, so it cannot disagree with the full Settings page.
+- Both mount into `#kgHost` **outside `#view`** — they are app chrome, not a page, which is what
+  lets them survive a page render and appear on screens that draw no bar.
 
 ## GLOBAL filter context — KCTX (2026-08-10)
 
