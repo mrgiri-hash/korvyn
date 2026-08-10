@@ -178,6 +178,19 @@ where a bullet further down conflicts with this section, **this section wins**. 
   (`.rd`) caps at 1320px. Don't reintroduce a global cap — it wasted the right third of a wide
   monitor on exactly the screens that need columns.
 
+## ONE page-header pattern, platform-wide (2026-08-10)
+
+Every page's header is the flux identity block: **[grey 13px context prefix] / [18px/700/-.016em
+sentence-case title]** on one line, a 12px muted sub beneath, actions at the right centring against
+the pair. Implemented on the SHARED classes (`.kv-hd` + `.k` + `h1` + `.kv-sub`, `.hm-*`, `.fx-h1`,
+`.rvc-title`) so no renderer's markup changed — the kicker `.k` renders inline before the title
+with a `::after "/"`, exactly the flux crumb-prefix. What this killed: `.kv-hd h1` was UPPERCASE
+24px over a rule-off band ("ALL REVIEWS", "SETTINGS"), Home ran 27px mixed case, flux 18px — three
+dialects, so switching tabs read as switching products. Crumb bands (`.rp-crumb`), where a page
+still has one, are retyped to the same 13px grey so they read as the same voice one line taller.
+Don't reintroduce a per-surface title treatment; if a page needs more hierarchy, it gets it below
+the header, not by growing the title.
+
 ## Rules that must hold
 
 - **AI narrates, never computes a number.** Every figure comes from the engine; the AI layer only
@@ -228,9 +241,27 @@ where a bullet further down conflicts with this section, **this section wins**. 
     change re-renders directly and would otherwise leave a dead crumb.
   - Its footnote's Organic/FX clause is conditional on `fluxShowSplit` — those columns live behind
     **View → Currency detail**, and a footnote explaining columns that are not on screen misleads.
-- **Clicking through the three Analytics lenses must FEEL identical.** Flux, Trending and Variance
-  put the same thing in the same place, verified by position: crumb **y=167** · close-context bar
-  (period on the **left**) **y=202** · question-led H1 **y=265** · control bar **y=372**. On the
+- **Clicking through the three Analytics lenses must FEEL identical — and there is now ONE function
+  that guarantees it: `fxaChrome()`** (2026-08-10). It emits the flux page's exact markup —
+  `.fxhd` identity block (crumb prefix / title / attribute line, period pill right) · `.card.fxk`
+  five-cell KPI card · `.fxcb` pill control bar — and Trending and Variance both call it. Verified
+  by position: **header y=104 · KPI card y=154 · control bar y=213 · content y=257** on all three.
+  Check those four numbers after any change here.
+  - What it replaced: Flux had been rebuilt to the owner's specimen while these two still ran the
+    pre-rebuild stack — a separate `rp-crumb` band, the `rp-ctxbar` close-context bar Flux had
+    dropped, a `.kv-hd` title band and a `.rp-gbbar` of labelled button groups. Five bands against
+    four, none in the same place, which is exactly what "why doesn't it feel the same?" was.
+  - **`fxaChrome` never computes.** Every KPI cell is passed in by the renderer that already
+    derived it from its own data (`rows` for Trending, `secs`/`absTot`/`total` for Variance), so a
+    card cannot disagree with the table beneath it.
+  - Controls are `fxaPill()` menus (the `.fxcb-m` pill), not `.rp-gb-b` groups, and Entity is a
+    pill menu (`data-fxaent`) rather than a `<select>`. `fxaStmtBar()` and the `#fxaEnt` handler
+    are kept only so any surface still calling the old bar keeps working — don't build on them.
+  - Section rows in `.fxa-tbl` wear the statement grid's caption treatment (teal, uppercase,
+    letterspaced) because all three lenses read the same chart of accounts.
+- *(superseded — kept for the reasoning)* The three lenses were previously aligned at: crumb
+  **y=167** · close-context bar (period on the **left**) **y=202** · question-led H1 **y=265** ·
+  control bar **y=372**. On the
   Analytics page the primary bar *is* the other two lenses' bar — the same `.rp-gbbar.fxa-bar`
   container, `.rp-gb-l` labels and `.rp-gb-b` buttons, in the same order (**Statement · Basis ·
   Material at · Entity**) — but wired to the **flux review's own state** (`fluxStmt`, `RP_COMPARE`,
