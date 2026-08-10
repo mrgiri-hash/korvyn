@@ -139,13 +139,41 @@
      Korvyn label — the nav tabs themselves never shrink, because a clipped category name is worse
      than a missing convenience. */
   .ribbon .grow{flex:1 1 0;min-width:0}
-  .ribbon .rb-search{flex:0 1 300px;min-width:0;width:auto;max-width:none}
+  /* SEARCH IS THE SHOCK ABSORBER. It was `flex:0 1 300px`, which stops shrinking at its content
+     width — so once the band gained the two global-panel buttons the row overflowed and the right
+     cluster painted on top of the nav instead of yielding. `1 1 0` with `min-width:0` lets it give
+     up every pixel it has before anything else is asked to move. */
+  .ribbon .rb-search{flex:1 1 0;min-width:0;width:auto;max-width:none}
+  /* The actions read as ONE cluster, not four things that happen to be adjacent: a hairline sets
+     them off from the search field, and they never shrink or wrap. */
+  .rb-acts{display:flex;align-items:center;gap:2px;flex:0 0 auto;margin-left:2px;padding-left:8px;
+    border-left:1px solid var(--chrome-line)}
+  .rb-acts .ribai{margin-right:6px}
+  .rb-acts .rb-user-wrap{margin-left:4px}
+  /* Favourites, now in the actions cluster: the star carries it, the word sheds first. */
+  .rb-favhost{display:flex;align-items:center;flex:0 0 auto}
+  .rb-favhost .tn-fav-wrap{position:relative}
+  .rb-favhost .tn-fav-item{height:32px;padding:0 9px;border-radius:var(--radius-sm)}
+  .rb-favhost .tn-fav-menu{right:0;left:auto}
+  @media(max-width:1560px){ .rb-favhost .tn-fav-lbl{display:none} }
   /* The role caption is redundant beside an avatar whose menu names the role; it cost ~130px of a
      band that now has to hold the whole module nav. */
   .ribbon .rb-role{display:none}
-  @media(max-width:1680px){ .ribbon .rb-hist{display:none} }
-  @media(max-width:1560px){ #topnav .tn-item{padding:0 9px;gap:4px} .ribbon .rb-search{flex:0 1 210px} }
-  @media(max-width:1500px){ .ribbon .ribai .rlbl{display:none} .ribbon .rb-search{flex:0 1 168px} }
+  /* The shed order, now that the band also carries the two global-panel buttons. Those two never
+     shed: they are the only way to reach the filters and settings from a page that draws no bar,
+     so losing them would strand the user. Everything ahead of them yields first. */
+  @media(max-width:1860px){ .ribbon .rb-hist{display:none} }
+  /* The band carries brand + 8 nav categories + Favourites + search + 4 actions. Measured, that
+     needs ~1850px to sit comfortably — so on any normal monitor something must yield, and the
+     search field is the right thing: it is the only item whose job survives being an icon.
+     It collapses well before the nav is squeezed, because a clipped module name is a navigation
+     failure while a collapsed search is one extra click. */
+  @media(max-width:1820px){
+    .ribbon .rb-search{flex:0 0 34px;padding:6px 9px;justify-content:center;cursor:pointer}
+    .ribbon .rb-search input{display:none}
+  }
+  @media(max-width:1560px){ #topnav .tn-item{padding:0 9px;gap:4px} }
+  @media(max-width:1460px){ .ribbon .ribai .rlbl{display:none} .rb-acts .ribai{margin-right:2px} }
   @media(max-width:1240px){ #topnav .tn-item{padding:0 7px;font-size:var(--fs-12)} }
   .brand{display:flex;align-items:center;gap:12px}
   .brand-lockup{height:19px;width:auto;display:block}
@@ -2634,6 +2662,24 @@
   .kg-scope{margin-left:8px;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.06em;
     font-weight:600;color:#fff;background:var(--ink);border-radius:9px;padding:2px 8px}
   .kg-note{padding:8px 16px 4px}
+  /* Each band names its REACH, so no one has to guess how far a change travels. */
+  .kg-tag{margin-left:8px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    padding:2px 6px;border-radius:8px;vertical-align:1px}
+  .kg-tag.g{background:var(--ink);color:#fff}
+  .kg-tag.p{background:var(--surface-2);color:var(--muted);border:1px solid var(--line-2)}
+  .kg-tag.d{background:transparent;color:var(--faint);border:1px solid var(--line-2)}
+  .fxd-subband{padding:10px 18px 2px;font-size:var(--fs-11);text-transform:uppercase;
+    letter-spacing:.05em;font-weight:600;color:var(--faint)}
+  /* A preference and its inheritance line. The line is the load-bearing part: it is what keeps a
+     per-page override from becoming state nobody can explain. */
+  .fxd-pref{padding:6px 18px 10px}
+  .fxd-pref .fxd-tog{padding:0}
+  .kg-inhrow{display:flex;align-items:center;gap:8px;margin-top:5px}
+  .kg-inh{font-size:var(--fs-11);color:var(--faint)}
+  .kg-inh.ov{color:var(--warn);font-weight:600}
+  .kg-reset{margin-left:auto;border:0;background:none;font:inherit;font-size:var(--fs-11);
+    color:var(--link);cursor:pointer;padding:0;text-align:right}
+  .kg-reset:hover{text-decoration:underline}
   .kg-seg{width:100%}
   .kg-seg .fxcb-sg{flex:1 1 0;justify-content:center}
   /* A disabled option states the single loaded value rather than pretending to be a choice. */
@@ -3856,10 +3902,13 @@
     <input id="search" placeholder="Search everything — reviews, accounts, entities, people, evidence…">
   </div>
   <button class="ribai" id="ribAi" title="Ask Korvyn"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2l1.7 5.3L20 9l-5.3 1.7L13 16l-1.7-5.3L6 9l5.3-1.7z"/><path d="M18.5 13.5l.6 2 2 .6-2 .6-.6 2-.6-2-2-.6 2-.6z"/></svg><span class="rlbl">Ask Korvyn</span></button>
+  <div class="rb-acts">
+  <div id="favHost" class="rb-favhost"></div>
   <button class="rb-ic" id="ribFilt" title="Global filters — apply across every page"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg><span class="rb-count rb-count-q" id="ribFiltN"></span></button>
   <button class="rb-ic" id="ribSet" title="Global settings — display &amp; table preferences"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.3 2.9a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1L9.5 22h5l.3-2.9a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z"/></svg></button>
   <button class="rb-ic" id="ribBell" title="Reminders"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span class="rb-count" id="ribCount"></span></button>
   <button class="rb-user-wrap" id="ribUser" title="Maya Grant"><span class="rb-role"><span class="rb-role-k">Role</span><span class="rb-role-v" id="ribRole">Administrator</span></span><span class="rb-user">MG</span><svg class="rb-user-cv" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
   <div class="um-pop" id="userMenu"></div>
 </div>
 
@@ -4129,26 +4178,32 @@
       }).join('')+'</div>';
       return '<div class="tn-wrap"><button class="tn-item'+(on?' on':'')+'" data-nav="'+sec.kids[0][0]+'"'+(navSecPending(sec)?' title="Items need attention"':'')+'>'+esc(sec.label)+'<span class="tn-cv">'+navCaret()+'</span></button>'+menu+'</div>';
     }).join('');
+    /* Favourites renders into the RIGHT-HAND ACTIONS CLUSTER, not at the end of the module tabs.
+       It is a personal organiser, not a module — sitting it among the eight categories implied it
+       was a ninth, and it was the item pushing the nav into the search field. It stays in the
+       ribbon (owner's standing instruction); only which end of it changed. `fel` scopes the whole
+       fav block below, which used to be scoped to #topnav. */
+    var fel=document.getElementById('favHost')||el;
     var _nf=(typeof favVisible==='function')?favVisible().length:0;
-    el.innerHTML+='<div class="tn-wrap tn-fav-wrap"><button class="tn-item tn-fav-item"'+(topFavPagePinned()?' data-pgon="1"':'')+' title="Favourites — available in every module"><span class="tn-fav-star">&#9733;</span><span class="tn-fav-lbl">Favourites</span>'+(_nf?'<span class="tn-mi-b">'+_nf+'</span>':'')+'<span class="tn-cv">'+navCaret()+'</span></button>'+topFavMenuHTML()+'</div>';
-    var _gm=el.querySelector('.tn-fav-menu'); if(_gm&&(TOPFAV_OPEN||RP_FAV_RENAME||RP_FAV_MENU||RP_FAV_NEWGRP))_gm.classList.add('open');
-    var _gb=el.querySelector('.tn-fav-item');
+    fel.innerHTML='<div class="tn-wrap tn-fav-wrap"><button class="tn-item tn-fav-item"'+(topFavPagePinned()?' data-pgon="1"':'')+' title="Favourites — available in every module"><span class="tn-fav-star">&#9733;</span><span class="tn-fav-lbl">Favourites</span>'+(_nf?'<span class="tn-mi-b">'+_nf+'</span>':'')+'<span class="tn-cv">'+navCaret()+'</span></button>'+topFavMenuHTML()+'</div>';
+    var _gm=fel.querySelector('.tn-fav-menu'); if(_gm&&(TOPFAV_OPEN||RP_FAV_RENAME||RP_FAV_MENU||RP_FAV_NEWGRP))_gm.classList.add('open');
+    var _gb=fel.querySelector('.tn-fav-item');
     if(_gb)_gb.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=!TOPFAV_OPEN;RP_FAV_RENAME=null;RP_FAV_MENU=null;RP_FAV_NEWGRP=null;renderTopNav();};
     if(_gm)_gm.onclick=function(e){e.stopPropagation();};
     var _gr=document.getElementById('gfavRenameInput');
     if(_gr){var _gk=_gr.getAttribute('data-gfavrename');_gr.onkeydown=function(e){e.stopPropagation();if(e.key==='Enter')favRename(_gk,this.value);else if(e.key==='Escape'){RP_FAV_RENAME=null;renderTopNav();}};_gr.onblur=function(){favRename(_gk,this.value);};try{_gr.focus();_gr.select();}catch(_){}}
     var _gn=document.getElementById('gfavNewGrpInput');
     if(_gn){var _nk2=_gn.getAttribute('data-gfavnewgrp');_gn.onkeydown=function(e){e.stopPropagation();if(e.key==='Enter'){if(this.value&&this.value.trim())favSetGroup(_nk2,this.value.trim());else{RP_FAV_NEWGRP=null;renderTopNav();}}else if(e.key==='Escape'){RP_FAV_NEWGRP=null;renderTopNav();}};try{_gn.focus();}catch(_){}}
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavren]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;RP_FAV_RENAME=this.getAttribute('data-gfavren');RP_FAV_MENU=null;renderTopNav();};});
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavmenu]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;var k=this.getAttribute('data-gfavmenu');RP_FAV_MENU=(RP_FAV_MENU===k?null:k);renderTopNav();};});
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavto]'),function(b){b.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-gfavto').split('~');favSetGroup(a[0],a[1]||'');};});
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavnew]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;RP_FAV_NEWGRP=this.getAttribute('data-gfavnew');RP_FAV_MENU=null;renderTopNav();};});
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavdel]'),function(b){b.onclick=function(e){e.stopPropagation();var f=favByKey(this.getAttribute('data-gfavdel'));if(f)favRemove(f.kind,f.id);};});
-    Array.prototype.forEach.call(el.querySelectorAll('.favm-open'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=false;favMgrOpen();};});
-    favDragWire(el);
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavpage]'),function(b){b.onclick=function(e){e.stopPropagation();topFavTogglePage();};});
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfav]'),function(b){b.onclick=function(e){e.stopPropagation();topFavOpen(this.getAttribute('data-gfav'));};});
-    Array.prototype.forEach.call(el.querySelectorAll('[data-gfavgrp]'),function(b){b.onclick=function(e){e.stopPropagation();navMenuOpen=null;favScopeGroup(this.getAttribute('data-gfavgrp'));};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavren]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;RP_FAV_RENAME=this.getAttribute('data-gfavren');RP_FAV_MENU=null;renderTopNav();};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavmenu]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;var k=this.getAttribute('data-gfavmenu');RP_FAV_MENU=(RP_FAV_MENU===k?null:k);renderTopNav();};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavto]'),function(b){b.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-gfavto').split('~');favSetGroup(a[0],a[1]||'');};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavnew]'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=true;RP_FAV_NEWGRP=this.getAttribute('data-gfavnew');RP_FAV_MENU=null;renderTopNav();};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavdel]'),function(b){b.onclick=function(e){e.stopPropagation();var f=favByKey(this.getAttribute('data-gfavdel'));if(f)favRemove(f.kind,f.id);};});
+    Array.prototype.forEach.call(fel.querySelectorAll('.favm-open'),function(b){b.onclick=function(e){e.stopPropagation();TOPFAV_OPEN=false;favMgrOpen();};});
+    favDragWire(fel);
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavpage]'),function(b){b.onclick=function(e){e.stopPropagation();topFavTogglePage();};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfav]'),function(b){b.onclick=function(e){e.stopPropagation();topFavOpen(this.getAttribute('data-gfav'));};});
+    Array.prototype.forEach.call(fel.querySelectorAll('[data-gfavgrp]'),function(b){b.onclick=function(e){e.stopPropagation();navMenuOpen=null;favScopeGroup(this.getAttribute('data-gfavgrp'));};});
     Array.prototype.forEach.call(el.querySelectorAll('.tn-item[data-nav],.tn-mi[data-nav]'),function(b){b.onclick=function(){navMenuOpen=null;navTo(this.getAttribute('data-nav'));};});
     Array.prototype.forEach.call(el.querySelectorAll('.tn-si[data-navsub]'),function(b){b.onclick=function(e){e.stopPropagation();navSubGo(this.getAttribute('data-navsub'));};});
   }
@@ -4938,6 +4993,11 @@
   function navPaintArrows(){var b=document.getElementById('navBack'),f=document.getElementById('navFwd');if(b)b.disabled=NAV_HI<=0;if(f)f.disabled=NAV_HI>=NAV_HIST.length-1;}
   function navTo(k){
     if(typeof kdRouteChange==='function')kdRouteChange();   /* commit + drop any page filter drawer */
+    /* Resolve this page's presentation preferences (override → global → fallback) into the live
+       variables BEFORE it renders, so a page with an override draws with it and one without falls
+       back — and no renderer has to know which happened. */
+    activeNav=(k.indexOf('period:')===0)?'periods':k;
+    if(typeof kprefApply==='function')kprefApply();
     if(k!=='mtrend'&&typeof fluxInspClose==='function'){fluxInspClose();if(typeof closeFluxCfg==='function')closeFluxCfg();}
     if(k!=='mtrend'&&typeof fluxSheetOpen!=='undefined'){fluxSheetOpen=null;document.body.classList.remove('fx-sheet-open');}
     document.body.classList.toggle('flux-view', k==='mtrend');
@@ -8811,6 +8871,74 @@
      gives Budget/Forecast. An option that silently does nothing is worse than an absent one, and a
      filter that claims to reshape numbers it cannot reach is worse still. */
   var KGF_OPEN=false, KGS_OPEN=false, KGF_SNAP=null;
+
+  /* ===== PREFERENCES: one global default, an optional per-page override =======================
+     The third band of the panel. A preference is not a filter — it changes how a page is DRAWN,
+     never which rows it contains — and it is the one class of setting that genuinely wants to be
+     global AND per-page at once: you want compact density everywhere, except on the one screen you
+     read at arm's length.
+
+     The rule that makes per-page customisation safe rather than confusing: **every field says
+     whether it is inherited or overridden, and offers one click back.** Without that, an override
+     becomes mystery state and "why does this page look different?" has no answer on screen.
+
+     `kprefApply(page)` resolves override → global → fallback and writes the LIVE variable each
+     render, so the existing code (fluxStickyHead, SETTINGS.density, …) keeps reading exactly what
+     it always read. Nothing downstream learns about inheritance. */
+  var KPREF_DEFS=[
+    {k:'density',label:'Density',kind:'opts',band:'Layout',fallback:'comfortable',
+      opts:[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']],
+      get:function(){return SETTINGS.density||'comfortable';},
+      set:function(v){SETTINGS.density=v;saveSettings();applyDensity();}},
+    {k:'rowNums',label:'Row numbers',kind:'tog',band:'Table',fallback:true,
+      get:function(){return !!KG_TBL.rowNums;},set:function(v){KG_TBL.rowNums=!!v;kgTblSave();}},
+    {k:'freezeFirst',label:'Freeze first column',kind:'tog',band:'Table',fallback:true,
+      get:function(){return !!KG_TBL.freezeFirst;},set:function(v){KG_TBL.freezeFirst=!!v;kgTblSave();}},
+    {k:'wrapCells',label:'Wrap text in cells',kind:'tog',band:'Table',fallback:false,
+      get:function(){return !!KG_TBL.wrapCells;},set:function(v){KG_TBL.wrapCells=!!v;kgTblSave();}},
+    {k:'showTotals',label:'Show totals by default',kind:'tog',band:'Table',fallback:true,
+      get:function(){return !!KG_TBL.showTotals;},set:function(v){KG_TBL.showTotals=!!v;kgTblSave();}},
+    {k:'sticky',label:'Sticky headers',kind:'tog',band:'Table',fallback:true,
+      get:function(){return typeof fluxStickyHead==='undefined'?true:!!fluxStickyHead;},
+      set:function(v){if(typeof fluxStickyHead!=='undefined')fluxStickyHead=!!v;}},
+    {k:'zebra',label:'Zebra rows',kind:'tog',band:'Table',fallback:false,
+      get:function(){return typeof fluxZebra==='undefined'?false:!!fluxZebra;},
+      set:function(v){if(typeof fluxZebra!=='undefined')fluxZebra=!!v;}},
+    {k:'lines',label:'Grid lines',kind:'tog',band:'Table',fallback:false,
+      get:function(){return typeof fluxLines==='undefined'?false:!!fluxLines;},
+      set:function(v){if(typeof fluxLines!=='undefined')fluxLines=!!v;}},
+    {k:'comments',label:'Comments column',kind:'tog',band:'Panels',fallback:true,
+      get:function(){return typeof fluxShowComments==='undefined'?true:!!fluxShowComments;},
+      set:function(v){if(typeof fluxShowComments!=='undefined')fluxShowComments=!!v;}}
+  ];
+  function kprefDef(k){for(var i=0;i<KPREF_DEFS.length;i++)if(KPREF_DEFS[i].k===k)return KPREF_DEFS[i];return null;}
+  var KPREF_G={}, KPREF_P={};
+  try{KPREF_G=JSON.parse(localStorage.getItem('korvyn.pref.global.v1')||'{}');}catch(e){}
+  try{KPREF_P=JSON.parse(localStorage.getItem('korvyn.pref.page.v1')||'{}');}catch(e){}
+  function kprefSave(){try{localStorage.setItem('korvyn.pref.global.v1',JSON.stringify(KPREF_G));
+    localStorage.setItem('korvyn.pref.page.v1',JSON.stringify(KPREF_P));}catch(e){}}
+  /* The page a preference override belongs to. Deliberately the ROUTE, not the registry id: two
+     routes that share a renderer (My Reviews / All Reviews) are two screens to the person using
+     them, and they should be able to draw them differently. */
+  function kprefPage(){return activeNav||'home';}
+  function kprefHasOverride(k,page){var p=KPREF_P[page||kprefPage()];return !!(p&&p[k]!==undefined);}
+  function kprefGlobal(k){var d=kprefDef(k);return KPREF_G[k]!==undefined?KPREF_G[k]:(d?d.fallback:null);}
+  function kprefResolve(k,page){ page=page||kprefPage();
+    var p=KPREF_P[page]; if(p&&p[k]!==undefined)return p[k]; return kprefGlobal(k); }
+  /* Write the resolved value into the live variable. Called at the top of every render, so a page
+     with an override draws with it and a page without one falls back to the global — and neither
+     needs to know which happened. */
+  function kprefApply(page){ page=page||kprefPage();
+    KPREF_DEFS.forEach(function(d){ var v=kprefResolve(d.k,page); if(v===undefined||v===null)return;
+      try{ if(d.get()!==v)d.set(v); }catch(e){} }); }
+  function kprefSet(k,v,scope){ var d=kprefDef(k); if(!d)return;
+    if(scope==='page'){ var pg=kprefPage(); KPREF_P[pg]=KPREF_P[pg]||{}; KPREF_P[pg][k]=v; }
+    else { KPREF_G[k]=v; }
+    kprefSave(); try{d.set(kprefResolve(k));}catch(e){} }
+  function kprefClearPage(k){ var pg=kprefPage(); if(KPREF_P[pg]){delete KPREF_P[pg][k];
+    if(!Object.keys(KPREF_P[pg]).length)delete KPREF_P[pg];} kprefSave();
+    var d=kprefDef(k); if(d){try{d.set(kprefResolve(k));}catch(e){}} }
+  function kprefPageOverrideCount(page){var p=KPREF_P[page||kprefPage()];return p?Object.keys(p).length:0;}
   /* The four declared-but-single-valued dimensions live on FX_REPORTING, which already prints them
      in every flux attribute line — so the panel and the page cannot state a different basis. */
   var KGF_STATIC=[
@@ -8855,13 +8983,37 @@
       +(open?('<div class="fxd-sec-b">'+body+'</div>'):'')+'</div>';
   }
   var KG_SEC={};
+  /* Which page-level registry belongs to the screen you are on. Band two renders THIS and nothing
+     else — which is exactly why the statement-grid controls do not need disabling on the Trial
+     Balance: they are not that page's filters, so they are simply not there. */
+  var KD_ROUTE_REG={my:'register',all:'register',frperiods:'periods',frcloseper:'periods',
+    frpkgs:'packages','repo-ledger':'ledger',trending:'trending',variance:'variance',
+    mtrend:'flux',mflux:'flux'};
+  function kdCurrentReg(){var id=KD_ROUTE_REG[activeNav];return id?KD_REGS[id]:null;}
+  function kgPageLabel(){
+    var m={my:'My Reviews',all:'All Reviews',frperiods:'Flux Overview',frcloseper:'Close Periods',
+      frpkgs:'Review Packages','repo-ledger':'Trial Balance',trending:'Trending',variance:'Variance',
+      mtrend:'this review',mflux:'Monthly Flux'};
+    return m[activeNav]||'this page';
+  }
+  /* ===== THE PANEL: three bands, and the bands are the whole idea =============================
+       1 CONTEXT      — global. Identical on every page; change it here and the platform moves.
+       2 THIS PAGE    — the page's own filters. This band is SUPPOSED to differ from page to page;
+                        that is not inconsistency, it is the point, so it is headed with the page's
+                        own name to say so out loud.
+       3 PRESENTATION — a global default with an optional override for this page, each field
+                        stating which is in force and offering one click back.
+     Same panel, same order, same three questions, everywhere: what am I looking at · what have I
+     narrowed it to · how is it drawn. */
   function kgfHTML(){
-    var h='<aside class="fx-fdrawer kg-drawer" aria-label="Global filters">'
+    var reg=kdCurrentReg();
+    var h='<aside class="fx-fdrawer kg-drawer" aria-label="Filters">'
       +'<div class="fxd-hd"><span class="fxd-t">Filters</span>'
-      +'<span class="kg-scope">global</span>'
       +'<button class="fxd-x" data-kgcancel title="Close without keeping these changes">&times;</button></div>'
-      +'<div class="fxd-bandnote kg-note">These apply to every page &mdash; the whole platform reads them.</div>'
       +'<div class="fxd-body">';
+    /* ---- 1. Context ---- */
+    h+='<div class="fxd-band fxd-band-ctx">Context<span class="kg-tag g">global</span></div>'
+      +'<div class="fxd-bandnote">Applies to every page &mdash; the whole platform reads these.</div>';
     KCTX_KEYS.forEach(function(k){
       var d=document.createElement('div'); d.innerHTML=kctxPill(k); var pop=d.querySelector('.fxm-pop');
       h+=kgFieldHTML('c-'+k,KCTX_LBL[k],esc(kctxLabel(k)),pop?pop.innerHTML:'',!!KG_SEC['c-'+k]);
@@ -8873,19 +9025,56 @@
         +'<div class="fxm-note2">'+esc(f.why)+'</div>';
       h+=kgFieldHTML('s-'+f.k,f.label,esc(f.get()),body,!!KG_SEC['s-'+f.k]);
     });
+    /* ---- 2. This page ---- */
+    var pf=reg?reg.fields.filter(function(f){return (!f.when||f.when())&&f.tier!=='pres';}):[];
+    h+='<div class="fxd-band">'+esc(kgPageLabel())+'<span class="kg-tag p">this page</span></div>';
+    if(!pf.length){
+      h+='<div class="fxd-bandnote">'+(reg?'No filters of its own &mdash; it reads the context above.'
+        :'This screen has no filters of its own; it reads the context above.')+'</div>';
+    } else {
+      h+='<div class="fxd-bandnote">Stays here &mdash; leaving the page does not carry these with you.</div>';
+      pf.forEach(function(f){
+        h+=kgFieldHTML('p-'+f.k,f.label,f.val(),f.body(),!!KG_SEC['p-'+f.k]);
+      });
+      /* The page's own switches, where it declares them (the flux lenses). */
+      if(reg.switches)h+='<div class="fxd-togs">'+reg.switches()+'</div>';
+    }
+    /* ---- 3. Presentation, with inheritance ---- */
+    var ov=kprefPageOverrideCount();
+    h+='<div class="fxd-band">Presentation<span class="kg-tag d">'+(ov?ov+' overridden here':'global default')+'</span></div>'
+      +'<div class="fxd-bandnote">A global default you can override just for '+esc(kgPageLabel())+'.</div>';
+    var band=null;
+    KPREF_DEFS.forEach(function(d){
+      if(d.band!==band){band=d.band;h+='<div class="fxd-subband">'+esc(band)+'</div>';}
+      h+=kgPrefFieldHTML(d);
+    });
+    h+='</div>';   /* /fxd-body */
     var n=kgfCount();
-    h+='<div class="fxd-active"><div class="fxd-active-hd"><span>Narrowed from default ('+n+')</span>'
-      +(n?'<button class="fxd-clear" data-kgreset>Reset all</button>':'')+'</div>'
-      +(n?'':'<div class="fxd-none">Everything is at its default &mdash; the platform is showing the full consolidated position.</div>')+'</div>';
-    /* The specimen's footer is [Reset all] [Apply filters]. `Reset all` therefore RESETS — it does
-       not cancel; a button whose label describes a different action than the one it performs is
-       the worst kind of dead control. Cancelling (restore the snapshot taken on open) is the ×,
-       the scrim and Escape, exactly as in the page Filters drawer. */
-    h+='</div><div class="fxd-foot"><button class="btn sm" data-kgreset>Reset all</button>'
+    h+='<div class="fxd-foot"><button class="btn sm" data-kgreset>Reset all</button>'
       +'<button class="btn sm primary" data-kgapply>Apply filters</button>'
-      +'<div class="fxd-rows">Applied live &middot; Esc to discard</div></div></aside>';
+      +'<div class="fxd-rows">'+(n?n+' narrowed from default':'All at default')+' &middot; live, Esc to discard</div>'
+      +'</div></aside>';
     return h;
   }
+  /* A preference field: the control, plus the one sentence that keeps overrides from becoming
+     mystery state — is this the global default, or something I set only here? */
+  function kgPrefFieldHTML(d){
+    var here=kprefHasOverride(d.k), v=kprefResolve(d.k), g=kprefGlobal(d.k);
+    var ctl;
+    if(d.kind==='tog'){
+      ctl='<button class="fxd-tog'+(v?' on':'')+'" data-kgpref="'+d.k+'" data-kgprefv="'+(v?'0':'1')+'" role="switch" aria-checked="'+(v?'true':'false')+'">'
+        +'<span class="fxd-tog-l">'+esc(d.label)+'</span><span class="fxd-sw"><span class="fxd-sw-k"></span></span></button>';
+    } else {
+      ctl='<div class="fxd-fl">'+esc(d.label)+'</div><div class="fxfb-btns">'+d.opts.map(function(o){
+        return '<button class="rp-gb-b'+(v===o[0]?' on':'')+'" data-kgpref="'+d.k+'" data-kgprefv="'+esc(String(o[0]))+'">'+esc(o[1])+'</button>';}).join('')+'</div>';
+    }
+    var note=here
+      ? '<span class="kg-inh ov">Overridden for '+esc(kgPageLabel())+'</span><button class="kg-reset" data-kgprefreset="'+d.k+'">Use global ('+esc(kgPrefLabel(d,g))+')</button>'
+      : '<span class="kg-inh">Using global</span><button class="kg-reset" data-kgprefhere="'+d.k+'">Set just for '+esc(kgPageLabel())+'</button>';
+    return '<div class="fxd-pref">'+ctl+'<div class="kg-inhrow">'+note+'</div></div>';
+  }
+  function kgPrefLabel(d,v){ if(d.kind==='tog')return v?'on':'off';
+    var l=String(v); (d.opts||[]).forEach(function(o){if(o[0]===v)l=o[1];}); return l; }
   var KG_TBL_DEFAULTS={rowNums:true,freezeFirst:true,wrapCells:false,showTotals:true};
   var KG_TBL=(function(){var d={};for(var k in KG_TBL_DEFAULTS)d[k]=KG_TBL_DEFAULTS[k];
     try{var s=JSON.parse(localStorage.getItem('korvyn.tblprefs.v1')||'{}');for(var k2 in s)d[k2]=s[k2];}catch(e){}return d;})();
@@ -8951,6 +9140,35 @@
     /* Context options inside the panel carry the same data-kctx hooks the bars use — one writer. */
     Array.prototype.forEach.call(host.querySelectorAll('[data-kctx]'),function(b){
       b.onclick=function(e){e.stopPropagation();kctxSet(this.getAttribute('data-kctx'),this.getAttribute('data-kctxv'),{quiet:true});kgPaint();kctxRepaint();};});
+    /* Preferences. A change writes the GLOBAL default unless this page already holds an override,
+       in which case it writes the override — the field you are looking at is the one you edit. */
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgpref]'),function(b){b.onclick=function(){
+      var k=this.getAttribute('data-kgpref'), raw=this.getAttribute('data-kgprefv'), d=kprefDef(k);
+      var v=(d&&d.kind==='tog')?(raw==='1'):raw;
+      kprefSet(k,v,kprefHasOverride(k)?'page':'global'); kgPaint(); kctxRepaint();};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgprefhere]'),function(b){b.onclick=function(){
+      var k=this.getAttribute('data-kgprefhere'); kprefSet(k,kprefResolve(k),'page'); kgPaint();
+      if(typeof rpToast==='function')rpToast('“'+(kprefDef(k)||{}).label+'” is now set just for '+kgPageLabel()+'.');};});
+    Array.prototype.forEach.call(host.querySelectorAll('[data-kgprefreset]'),function(b){b.onclick=function(){
+      var k=this.getAttribute('data-kgprefreset'); kprefClearPage(k); kgPaint(); kctxRepaint();};});
+    /* Band two renders the PAGE's own controls — literally the markup its registry builds, carrying
+       the same data-attributes its bar carries. Rather than binding a second handler (two writers,
+       the thing this codebase keeps deleting), a click in the panel is FORWARDED to the identical
+       control in #view, which the page already wired. One handler set, and the panel can never
+       drift from what the bar does because it is running the bar's own code. */
+    var KG_FWD=['data-regchip','data-regscope','data-regcons','data-regarea','data-regcol',
+      'data-pfrange','data-pfstatus','data-pftype','data-gb','data-ord',
+      'data-ldgfs','data-ldgtie','data-pkgview','data-pkgcol',
+      'data-fxawin','data-fxarank','data-status','data-mat','data-matfl','data-matbs',
+      'data-rows','data-cols','data-sect'];
+    KG_FWD.forEach(function(attr){
+      Array.prototype.forEach.call(host.querySelectorAll('['+attr+']'),function(b){
+        b.onclick=function(e){ e.stopPropagation();
+          var v=this.getAttribute(attr);
+          var twin=document.querySelector('#view ['+attr+'="'+(window.CSS&&CSS.escape?CSS.escape(v):v)+'"]');
+          if(twin&&typeof twin.click==='function'){twin.click();setTimeout(kgPaint,0);}
+        };});
+    });
     Array.prototype.forEach.call(host.querySelectorAll('[data-kgtheme]'),function(b){b.onclick=function(){setChrome(this.getAttribute('data-kgtheme'));kgPaint();};});
     Array.prototype.forEach.call(host.querySelectorAll('[data-kgdens]'),function(b){b.onclick=function(){
       SETTINGS.density=this.getAttribute('data-kgdens');saveSettings();applyDensity();kgPaint();};});
