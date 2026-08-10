@@ -8871,6 +8871,20 @@
      gives Budget/Forecast. An option that silently does nothing is worse than an absent one, and a
      filter that claims to reshape numbers it cannot reach is worse still. */
   var KGF_OPEN=false, KGS_OPEN=false, KGF_SNAP=null;
+  /* ===== ONE handler set, TWO mounts =========================================================
+     The flux filter controls render in two places: the page itself (the bar's own menus) and the
+     global panel in #kgHost. Rather than binding a second handler for the panel — two writers on
+     one variable, the defect this codebase keeps deleting — every drawer handler queries BOTH
+     roots through this helper, so the panel literally runs the page's own code and cannot drift.
+     `renderMonthlyTrend` therefore has to paint the panel BEFORE its handler block runs; it does. */
+  function fxQ(sel){
+    var parts=String(sel).split(','), out=[];
+    ['#view ','#kgHost '].forEach(function(root){
+      var q=parts.map(function(s){return root+s.trim();}).join(',');
+      Array.prototype.push.apply(out,document.querySelectorAll(q));
+    });
+    return out;
+  }
 
   /* ===== PREFERENCES: one global default, an optional per-page override =======================
      The third band of the panel. A preference is not a filter — it changes how a page is DRAWN,
@@ -8963,7 +8977,11 @@
     if(s.m)kctxSet('materiality',s.m,{quiet:true});
     if(s.p&&s.p!==kctxGet('period')&&typeof setActivePeriod==='function')setActivePeriod(s.p);
   }
-  function kgfOpen(){KGF_OPEN=true;KGS_OPEN=false;KGF_SNAP=kgfSnapshot();kgPaint();}
+  /* Opening the panel re-renders the PAGE, not just the panel. The page's own handler block is what
+     binds the panel's controls (through fxQ, one pass over both mounts) — painting the panel alone
+     left it carrying only the fallback forwarder, so a control that had no twin in #view did
+     nothing at all. Rendering the page runs: registry → kgPaint → bind, in that order. */
+  function kgfOpen(){KGF_OPEN=true;KGS_OPEN=false;KGF_SNAP=kgfSnapshot();kgPaint();kctxRepaint();}
   function kgfClose(commit){ if(!commit&&KGF_SNAP)kgfRestore(KGF_SNAP);
     KGF_OPEN=false;KGF_SNAP=null;kgPaint();kctxRepaint();}
   function kgsOpen(){KGS_OPEN=true;KGF_OPEN=false;kgPaint();}
@@ -9033,6 +9051,9 @@
         :'This screen has no filters of its own; it reads the context above.')+'</div>';
     } else {
       h+='<div class="fxd-bandnote">Stays here &mdash; leaving the page does not carry these with you.</div>';
+      /* The engine's suggestions lead the band, ordered by what stops a sign-off first. They are
+         review-scoped, so a page without an open review simply has none. */
+      if(reg.suggestions){var _s=reg.suggestions();if(_s)h+='<div class="fxd-sugs">'+_s+'</div>';}
       pf.forEach(function(f){
         h+=kgFieldHTML('p-'+f.k,f.label,f.val(),f.body(),!!KG_SEC['p-'+f.k]);
       });
@@ -9117,7 +9138,14 @@
   }
   /* Both panels mount OUTSIDE #view — they belong to the app chrome, not to a page, which is what
      lets them survive a page render and appear on screens that draw no bar at all. */
-  function kgPaint(){
+  /* `fromRender` says this paint is already inside a page render, so the page's handler block is
+     about to bind the panel through fxQ(). Any OTHER paint — opening the panel, expanding a field —
+     creates fresh nodes after that block has run, leaving them dead. So a standalone paint asks the
+     current page to re-render once, which repaints the panel (fromRender) and re-binds it.
+     Only the flux registry needs this: the list pages bind `#view` only and are served by the
+     forwarder instead. */
+  var KG_REBINDING=false;
+  function kgPaint(fromRender){
     var host=document.getElementById('kgHost');
     if(!host){host=document.createElement('div');host.id='kgHost';document.body.appendChild(host);}
     var open=KGF_OPEN||KGS_OPEN;
@@ -9156,11 +9184,14 @@
        the thing this codebase keeps deleting), a click in the panel is FORWARDED to the identical
        control in #view, which the page already wired. One handler set, and the panel can never
        drift from what the bar does because it is running the bar's own code. */
+    /* Forwarding covers the list pages, whose renderers bind only `#view`. The FLUX hooks are
+       deliberately absent: renderMonthlyTrend binds those through fxQ() across both mounts, and a
+       forwarder here would overwrite the real handler with one that hunts for a twin that no longer
+       exists once the in-view drawer is gone. */
     var KG_FWD=['data-regchip','data-regscope','data-regcons','data-regarea','data-regcol',
       'data-pfrange','data-pfstatus','data-pftype','data-gb','data-ord',
       'data-ldgfs','data-ldgtie','data-pkgview','data-pkgcol',
-      'data-fxawin','data-fxarank','data-status','data-mat','data-matfl','data-matbs',
-      'data-rows','data-cols','data-sect'];
+      'data-fxawin','data-fxarank'];
     KG_FWD.forEach(function(attr){
       Array.prototype.forEach.call(host.querySelectorAll('['+attr+']'),function(b){
         b.onclick=function(e){ e.stopPropagation();
@@ -9181,6 +9212,13 @@
       SETTINGS.density='comfortable';saveSettings();applyDensity();setChrome('navy');
       KG_LANDING='home';try{localStorage.setItem('korvyn.landing.v1','home');}catch(e){}
       kgPaint(); if(typeof rpToast==='function')rpToast('Display settings reset to defaults.');};
+    /* Re-bind: this paint produced new nodes after the page's handler block already ran. */
+    if(!fromRender&&!KG_REBINDING&&KGF_OPEN){
+      var _cur=kdCurrentReg();
+      if(_cur&&_cur.id==='flux'&&typeof _cur.rerender==='function'){
+        KG_REBINDING=true; try{_cur.rerender();}finally{KG_REBINDING=false;}
+      }
+    }
   }
   document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(KGF_OPEN)kgfClose(false);else if(KGS_OPEN)kgsClose();}});
   var KD_REGS={}, KD_OPEN=null, KD_SNAP=null, KD_SEC={};
@@ -11774,7 +11812,9 @@
        2) It leads with SUGGESTIONS derived from this review's own engine output — not a static list.
           Each one only sets lens state that already exists, so nothing here computes or invents a
           number: they are shortcuts to the population the numbers already point at. */
-    var _filtersBtn='<button class="fxm-sum fx-filt-toggle'+(FX_FILT_OPEN?' open':'')+'" aria-expanded="'+(FX_FILT_OPEN?'true':'false')+'" title="'+(FX_FILT_OPEN?'Hide filters':'Show filters')+'">'+FX_FILT_ICO+'Filters'+(_fCount?'<span class="fx-fcount">'+_fCount+'</span>':'')+'</button>';
+    /* The bar's Filters button now opens the GLOBAL panel — the review's fields live in its band
+       two. One panel platform-wide; this button is just another way in. */
+    var _filtersBtn='<button class="fxm-sum fx-filt-toggle'+(KGF_OPEN?' open':'')+'" data-kgopen="1" aria-expanded="'+(KGF_OPEN?'true':'false')+'" title="'+(KGF_OPEN?'Hide filters':'Show filters')+'">'+FX_FILT_ICO+'Filters'+(_fCount?'<span class="fx-fcount">'+_fCount+'</span>':'')+'</button>';
     /* Coverage is derived here rather than below the bar, because the suggestions cite the residual
        and the status line renders it — one computation, two readers, so they cannot disagree. */
     var _covPct=absMove?Math.round(explMove/absMove*100):100, _resid=Math.max(0,absMove-explMove), _fl=matFloorV;
@@ -12003,7 +12043,11 @@
     /* The drawer is a fixed slide-over, so it is appended at the END of the view rather than in the
        bar — nothing in the page flow moves when it opens. The scrim dims the statement without
        hiding it, so you keep your place while filtering. */
-    var _filtMount=FX_FILT_OPEN?('<div class="fx-fscrim fx-filt-cancel"></div>'+_filtPanel):'';
+    /* (2026-08-10) The in-view drawer is retired. Its fields moved into band two of the global
+       panel — see the `kdReg({id:'flux'…})` registration below — so a review no longer carries a
+       filter panel of its own. `_filtPanel` is still built above because its field bodies ARE what
+       band two renders; only the shell around them is gone. */
+    var _filtMount='';
     /* Only the expand / collapse pair stays at the right. They are not filters and not presentation —
        they act on the tree in front of you, one level at a time, and belong next to it. My Views,
        Share and View all left this cluster: two into the Filters panel, Share up to the header. */
@@ -12134,6 +12178,44 @@
     h+=(typeof fxaScopeNote==='function')?fxaScopeNote():'';
     h+=_filtMount;
     $('#view').innerHTML=h;
+    /* ===== Publish this render's filter fields to the global panel ============================
+       The field bodies are locals of this function and close over a dozen more (statusOpts, _mp,
+       secs, _sug…). Rather than hoisting all of that to module scope, the render PUBLISHES them:
+       band two of the global panel reads `KD_REGS.flux`, and because band two only ever shows the
+       CURRENT page's registry, and this function re-runs on every change while you are on a flux
+       route, the closures can never be read stale. */
+    kdReg({id:'flux',noun:'lines',ctx:['period','entity','statement','basis','materiality'],
+      get:function(){return fxFiltSnapshot();},
+      set:function(s){fxFiltRestore(s);},
+      reset:function(){fluxClearLens();fluxFind='';fluxGroupBy='category';},
+      clear:function(k){ if(k==='status')fluxClearLens(); else if(k==='rows')fluxGroupBy='category';
+        else if(k==='scope')fluxReviewId='all'; },
+      chips:function(){var c=[];
+        if(curStatus&&curStatus!=='all'){var sl='';statusOpts.forEach(function(o){if(o[0]===curStatus)sl=o[1];});
+          c.push({k:'status',l:'Focus',v:sl||curStatus});}
+        if(fluxGroupBy!=='category'){var rl='';FLUX_ROWS_OPTS.forEach(function(o){if(o[0]===fluxGroupBy)rl=o[1];});
+          c.push({k:'rows',l:'Rows',v:rl||fluxGroupBy});}
+        return c;},
+      rows:function(){return {shown:visLines,total:totLines};},
+      rerender:function(){renderMonthlyTrend();},
+      /* The engine's own suggestions — review-scoped, so they render only with a review open.
+         Nothing here computes: each one only sets lens state that already exists. */
+      suggestions:function(){return (RP_OPEN_REVIEW&&_sug.length)?_sugCards:'';},
+      switches:function(){return _tog('needs','Unexplained only','Material lines with no accepted explanation')
+        +_tog('noevid','Missing evidence only','Material lines with no verified supporting document');},
+      fields:[
+        {k:'scope',label:'Review scope',val:function(){return esc(_scopeLbl);},body:function(){return _fbScope;}},
+        {k:'focus',label:'Reviewer status',val:function(){return esc(_lensLbl);},body:function(){return _fbFocus;}},
+        {k:'bench',label:'Materiality benchmark',val:function(){return esc(MAT_BASES[_mpNow.basis]||'');},body:function(){return _fbMatBench;}},
+        {k:'rbasis',label:'Reporting basis',val:function(){return esc(FX_REPORTING.basis);},body:function(){return _fbRptBasis;}},
+        {k:'rows',label:'Group rows by',val:function(){return esc(_rowsLbl);},body:function(){return _fbRows;}},
+        {k:'sect',label:'Sections shown',val:function(){return esc(_secSel);},body:function(){return _fbSect;}},
+        {k:'cols',label:'Columns & view',val:function(){return esc(_viewLbl);},body:function(){return _fbCols;}},
+        {k:'views',label:'Saved views',val:function(){return esc(fluxActiveSet?(fxvById(fluxActiveSet)||{}).name||'None':'None');},body:function(){return _fbViews;}}
+      ]});
+    /* The panel must exist BEFORE the handler block below, because those handlers bind through
+       fxQ() to both #view and #kgHost in one pass. */
+    if(typeof kgPaint==='function')kgPaint(true);
     document.body.classList.toggle('fx-filt-open',!!FX_FILT_OPEN);
     /* The open state is persisted, so on a reload the drawer can render without fxFiltOpen() ever
        having run — which left FX_FILT_SNAP null and made Cancel silently do nothing. Take the
@@ -12159,7 +12241,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-apply'),function(b){
       b.onclick=function(e){e.stopPropagation();fxFiltClose(false);};});
     /* Checked = the section's rows are shown; it writes the same fluxSecCollapse the grid reads. */
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxd-seck'),function(c){
+    Array.prototype.forEach.call(fxQ('.fxd-seck'),function(c){
       c.onchange=function(){var n=this.getAttribute('data-sect');fluxSecCollapse[n]=!this.checked;renderMonthlyTrend();};});
     /* The Analytics skin's crumb must be wired here, not only in navTo: every filter change
        re-renders through renderMonthlyTrend() directly, which would otherwise leave a dead crumb. */
@@ -12215,16 +12297,16 @@
     var _ropY=document.querySelector('#view .fx-reopen-yes'); if(_ropY)_ropY.onclick=function(){fxReopenPeriod();};
     var _ropN=document.querySelector('#view .fx-reopen-no'); if(_ropN)_ropN.onclick=function(){fxReopenAsk=false;renderMonthlyTrend();};
     if(typeof rpWireTimeline==='function')rpWireTimeline();
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-density'),function(b){b.onclick=function(){SETTINGS.density=this.getAttribute('data-density');saveSettings();applyDensity();renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fx-density'),function(b){b.onclick=function(){SETTINGS.density=this.getAttribute('data-density');saveSettings();applyDensity();renderMonthlyTrend();};});
     var _fxl=document.querySelector('#view .fx-lines');if(_fxl)_fxl.onclick=function(){fluxLines=!fluxLines;renderMonthlyTrend();};
     var _fxz=document.querySelector('#view .fx-zebra');if(_fxz)_fxz.onclick=function(){fluxZebra=!fluxZebra;renderMonthlyTrend();};
     var _fxd=document.querySelector('#view .fx-designtpl');if(_fxd)_fxd.onclick=function(){RP_DESIGN=rpDefaultDesign({name:(RP_OPEN_REVIEW&&RP_OPEN_REVIEW.name)||'Review'});RP_DESIGN_SEL=null;renderReviewDesigner();window.scrollTo(0,0);};
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
+    Array.prototype.forEach.call(fxQ('.fx-cfg-open'),function(b){b.onclick=function(e){e.stopPropagation();openFluxCfg();};});
     var fxSv=document.querySelector('#view .fx-saveview');if(fxSv)fxSv.onclick=function(){fxvForm={name:'',scope:'personal'};renderMonthlyTrend();};
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-mat'),function(b){b.onclick=function(){var mv=parseFloat(this.getAttribute('data-mat'));if(mv>0){fluxMat=mv;renderMonthlyTrend();}};});
+    Array.prototype.forEach.call(fxQ('.fxm-mat'),function(b){b.onclick=function(){var mv=parseFloat(this.getAttribute('data-mat'));if(mv>0){fluxMat=mv;renderMonthlyTrend();}};});
     /* querySelectorAll, not querySelector: "Reset all" now exists in two places — the panel header
        and the chip row's "Clear all" — and wiring only the first would leave a dead control. */
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-reset'),function(b){b.onclick=function(){
+    Array.prototype.forEach.call(fxQ('.fx-filt-reset'),function(b){b.onclick=function(){
       fluxClearLens(); fluxMat=8; matPolicy().pct=(fluxStmt==='is'?2:0.25); RP_COMPARE='prev';
       fluxGroupBy='category'; fluxFind=''; fluxReviewId='all'; fluxSecCollapse={};
       renderMonthlyTrend();   /* one render — fluxClearReview() would have rendered a second time */
@@ -12232,10 +12314,11 @@
     /* Smart filter disclosure. The Hide button in the popup header and the bar toggle are the same
        action, so they share one handler. Opening it closes any rival menu, the way every other menu
        in the view behaves. */
+    /* The review's Filters button opens the GLOBAL panel now — its fields are band two there. */
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-filt-toggle,#view .fx-filt-hide'),function(b){
       b.onclick=function(e){e.stopPropagation();
         Array.prototype.forEach.call(document.querySelectorAll('#view .fxm[open]'),function(o){o.open=false;});
-        fxFiltToggle();};});
+        if(KGF_OPEN)kgfClose(true); else kgfOpen();};});
     /* Escape closes it, but an outside CLICK deliberately does not: it is a panel in flow, not an
        overlay, so it is a mode you leave on while you work rather than something that vanishes the
        moment you touch the statement you are filtering. Bound once, not once per render. */
@@ -12252,7 +12335,7 @@
     /* Basis buttons carry .fxm-basis-b now, not .rp-tl-bseg — .rp-tl-bseg.on filled with --accent
        while every other selection filled with --ink, which put two different darks side by side in
        one panel. Renaming the hook means rpWireTimeline no longer binds them, so wire them here. */
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-basis-b'),function(b){b.onclick=function(){rpSetCompare(this.getAttribute('data-basis'));};});
+    Array.prototype.forEach.call(fxQ('.fxm-basis-b'),function(b){b.onclick=function(){rpSetCompare(this.getAttribute('data-basis'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxchip]'),function(b){b.onclick=function(){
       var k=this.getAttribute('data-fxchip');
       if(k==='find')fluxFind='';
@@ -12262,21 +12345,21 @@
       else if(k==='rows')fluxGroupBy='category';
       renderMonthlyTrend();
     };});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matfl'),function(b){b.onclick=function(){var v=parseFloat(this.getAttribute('data-matfl'));if(v>0){matPolicy().pct=v;renderMonthlyTrend();}};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-matbs'),function(b){b.onclick=function(){matPolicy().basis=this.getAttribute('data-matbs');renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-matfl'),function(b){b.onclick=function(){var v=parseFloat(this.getAttribute('data-matfl'));if(v>0){matPolicy().pct=v;renderMonthlyTrend();}};});
+    Array.prototype.forEach.call(fxQ('.fxm-matbs'),function(b){b.onclick=function(){matPolicy().basis=this.getAttribute('data-matbs');renderMonthlyTrend();};});
     /* .fx-sug (the smart filter's suggestions) sets the same lens as .fxm-status — one handler, so a
        suggestion and the Focus list can never disagree about what "needs explanation" selects. */
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-status,#view .fx-sug'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-status,.fx-sug'),function(b){b.onclick=function(){var v=this.getAttribute('data-status');fluxLens={material:false,needs:false,unfav:false,noevid:false,reviewed:false};if(v!=='all')fluxLens[v]=true;renderMonthlyTrend();};});
     /* The tie-out link was never wired — a dead control on a band that gates sign-off. Both the
        collapsed pill and the blocking band's button open the Trial Balance now. */
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-tie-go,#view .fx-tiep'),function(b){b.onclick=function(e){e.stopPropagation();navTo(this.getAttribute('data-cgo')||'repo-ledger');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rc-dispopt'),function(b){b.onclick=function(){rcSetDisplay(this.getAttribute('data-disp'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-comments'),function(b){b.onclick=function(){fluxShowComments=!fluxShowComments;renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rows'),function(b){b.onclick=function(){fluxGroupBy=this.getAttribute('data-rows');renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-cols'),function(b){b.onclick=function(){fluxCols=this.getAttribute('data-cols');renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-split'),function(b){b.onclick=function(){fluxShowSplit=!fluxShowSplit;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-comments'),function(b){b.onclick=function(){fluxShowComments=!fluxShowComments;renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-rows'),function(b){b.onclick=function(){fluxGroupBy=this.getAttribute('data-rows');renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-cols'),function(b){b.onclick=function(){fluxCols=this.getAttribute('data-cols');renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-split'),function(b){b.onclick=function(){fluxShowSplit=!fluxShowSplit;renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fx-colexp'),function(b){b.onclick=function(e){e.stopPropagation();fluxColExp=!fluxColExp;renderMonthlyTrend();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-win'),function(b){b.onclick=function(){fluxTrendN=+this.getAttribute('data-win');fluxCols='trend';renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-win'),function(b){b.onclick=function(){fluxTrendN=+this.getAttribute('data-win');fluxCols='trend';renderMonthlyTrend();};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-exp2'),function(b){b.onclick=function(){fxStageExpand(this.getAttribute('data-exp'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view tr.fx-sec[data-sec]'),function(r){r.onclick=function(){var n=this.getAttribute('data-sec');fluxSecCollapse[n]=!fluxSecCollapse[n];renderMonthlyTrend();};});
     fxScopeWire();
@@ -12297,7 +12380,7 @@
     };
     // ----- Increment 1 dock wiring: Review · Period · View panels · Insights · My Views · Share -----
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-review'),function(b){b.onclick=function(){fluxSetReview(this.getAttribute('data-review'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-stmt'),function(b){b.onclick=function(){fluxSetStmt(this.getAttribute('data-stmt'));};});
+    Array.prototype.forEach.call(fxQ('.fxm-stmt'),function(b){b.onclick=function(){fluxSetStmt(this.getAttribute('data-stmt'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-sec'),function(b){b.onclick=function(e){if(e.target.closest('[data-rvbedit]'))return;fluxSetReview(this.getAttribute('data-sec'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rvnew'),function(b){b.onclick=function(e){e.stopPropagation();rvbOpen(null);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-rvbedit]'),function(b){b.onclick=function(e){e.stopPropagation();e.preventDefault();rvbOpen(this.getAttribute('data-rvbedit'));};});
@@ -12306,12 +12389,12 @@
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-rstate'),function(b){b.onclick=function(){RP_REVIEW_STATE_FILTER=this.getAttribute('data-rstate');if(typeof rpToast==='function')rpToast('Showing '+(RP_REVIEW_STATES[RP_REVIEW_STATE_FILTER]||{}).label+' reviews.');activeNav='all';if(typeof renderNav==='function')renderNav();navTo('all');};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-period'),function(b){b.onclick=function(){var m=this.getAttribute('data-period');if(typeof fluxInspClose==='function')fluxInspClose();if(typeof setActivePeriod==='function')setActivePeriod(m);else{fluxTo=m;renderMonthlyTrend();}};});
     var _allper=document.querySelector('#view .fxm-allperiods'); if(_allper)_allper.onclick=function(){if(typeof fluxInspClose==='function')fluxInspClose();navTo('frperiods');};
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-panel'),function(b){b.onclick=function(){var p=this.getAttribute('data-panel');fluxInspDefaultTab=(fluxInspDefaultTab===p?'overview':p);renderMonthlyTrend();};});
+    Array.prototype.forEach.call(fxQ('.fxm-panel'),function(b){b.onclick=function(){var p=this.getAttribute('data-panel');fluxInspDefaultTab=(fluxInspDefaultTab===p?'overview':p);renderMonthlyTrend();};});
     var _fxrev=document.querySelector('#view .fxm-reviewer');if(_fxrev)_fxrev.onclick=function(){FX_CMT_CFG.reviewer=!FX_CMT_CFG.reviewer;renderMonthlyTrend();};
     var _fxst=document.querySelector('#view .fx-sticky');if(_fxst)_fxst.onclick=function(){fluxStickyHead=!fluxStickyHead;renderMonthlyTrend();};
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-vpreset'),function(b){b.onclick=function(){fluxApplyPreset(this.getAttribute('data-vp'));};});
+    Array.prototype.forEach.call(fxQ('.fxm-vpreset'),function(b){b.onclick=function(){fluxApplyPreset(this.getAttribute('data-vp'));};});
     /* ----- Review Sets: apply · delete · duplicate · manage · the inline save form ----- */
-    Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-vsaved'),function(b){b.onclick=function(e){if(e.target.closest('.fxm-vdel'))return;fxvApply(this.getAttribute('data-vid'));};});
+    Array.prototype.forEach.call(fxQ('.fxm-vsaved'),function(b){b.onclick=function(e){if(e.target.closest('.fxm-vdel'))return;fxvApply(this.getAttribute('data-vid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-vdel'),function(b){b.onclick=function(e){e.stopPropagation();e.preventDefault();
       var id=this.getAttribute('data-vdel'),v=fxvById(id); if(!v||v.std)return;
       FLUX_VIEWS=FLUX_VIEWS.filter(function(x){return x.id!==id;}); if(fluxActiveSet===id)fluxActiveSet=null;

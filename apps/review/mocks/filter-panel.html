@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Korvyn — three-band filter panel (mock)</title>
+<!--
+  DESIGN MOCK, reference only. Shows the proposed end state of the filter panel once the flux
+  drawer's fields move into band two. Static markup + the app's real tokens; no engine behind it.
+  The point of the mock is the COMPARISON: the same panel on two different pages. Bands one and
+  three are identical; only band two changes, and it is headed with the page's own name so that
+  reads as intentional rather than as inconsistency.
+-->
+<style>
+:root{
+  --sans:Inter,"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#F7F8FA; --surface:#FFFFFF; --surface-2:#FCFCFD;
+  --ink:#111827; --ink-2:#374151; --muted:#6B7280; --faint:#9AA1AC;
+  --line:#E5E7EB; --line-2:#D8DCE3;
+  --accent:#102A5E; --accent-bg:#EDF0F7; --accent-line:#C4CCDE;
+  --pos:#0F9D68; --warn:#C58A1B; --neg:#D14343; --link:#356095;
+  --fs-11:0.6875rem; --fs-12:0.75rem; --fs-13:0.8125rem; --fs-14:0.875rem;
+  --radius:6px; --radius-sm:4px;
+  --chrome:#2E3A54; --chrome-ink:#EEF1F7; --chrome-ink-2:#A9B4CA; --chrome-line:rgba(255,255,255,.14);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13px;line-height:1.45}
+.wrap{max-width:1500px;margin:0 auto;padding:28px 24px 60px}
+h1{font-size:18px;font-weight:700;letter-spacing:-.016em;margin:0 0 4px}
+.sub{font-size:var(--fs-13);color:var(--muted);margin:0 0 4px;max-width:70ch}
+.k{font-size:var(--fs-13);color:var(--faint)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0 22px;padding:12px 14px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.lg{display:flex;align-items:flex-start;gap:8px;font-size:var(--fs-12);color:var(--muted);max-width:30ch}
+.lg b{display:block;color:var(--ink);font-size:var(--fs-13)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:1080px){.pair{grid-template-columns:1fr}}
+.col > .caption{font-size:var(--fs-12);color:var(--muted);margin:0 0 8px}
+.col > .caption b{color:var(--ink)}
+
+/* ---- the panel, at the real 440px ---- */
+.panel{width:440px;max-width:100%;background:var(--surface);border:1px solid var(--line-2);
+  border-radius:var(--radius);box-shadow:-8px 0 28px rgba(23,34,47,.10);display:flex;flex-direction:column;
+  height:760px;overflow:hidden}
+.p-hd{flex:0 0 auto;display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.p-t{font-size:var(--fs-14);font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.p-x{margin-left:auto;color:var(--muted);font-size:19px;line-height:1}
+.p-body{flex:1 1 auto;overflow-y:auto}
+.band{padding:12px 18px 0;margin-top:6px;border-top:1px solid var(--line);
+  font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--ink)}
+.band:first-child{margin-top:0;border-top:0}
+.tag{margin-left:8px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 6px;border-radius:8px;vertical-align:1px}
+.tag.g{background:var(--ink);color:#fff}
+.tag.p{background:var(--surface-2);color:var(--muted);border:1px solid var(--line-2)}
+.tag.d{background:transparent;color:var(--faint);border:1px solid var(--line-2)}
+.bandnote{padding:4px 18px 8px;font-size:var(--fs-12);color:var(--muted)}
+.subband{padding:10px 18px 2px;font-size:var(--fs-11);text-transform:uppercase;letter-spacing:.05em;
+  font-weight:600;color:var(--faint)}
+.f{padding:0 18px;margin-bottom:10px}
+.fl{font-size:var(--fs-12);font-weight:600;color:var(--ink-2);margin-bottom:5px}
+.fv{display:flex;align-items:center;gap:10px;width:100%;padding:0 10px;height:30px;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius-sm);
+  font-size:var(--fs-13);color:var(--ink);cursor:pointer}
+.fv .v{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fv .cv{flex:0 0 auto;font-size:9px;color:var(--faint)}
+.f.open .fv{border-color:var(--ink);border-bottom-left-radius:0;border-bottom-right-radius:0}
+.fb{border:1px solid var(--ink);border-top:0;border-radius:0 0 var(--radius-sm) var(--radius-sm);
+  padding:10px;background:var(--surface-2)}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.b{height:26px;padding:0 10px;border:1px solid var(--line-2);border-radius:var(--radius-sm);
+  background:var(--surface);font:inherit;font-size:var(--fs-12);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.b.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:500}
+.b[disabled]{opacity:.45;cursor:not-allowed}
+.note{font-size:var(--fs-12);color:var(--muted);margin-top:8px;line-height:1.5}
+.cks{display:flex;flex-direction:column;gap:5px}
+.ck{display:flex;align-items:center;gap:8px;font-size:var(--fs-13);color:var(--ink-2)}
+.ck input{accent-color:var(--ink)}
+/* switches */
+.togs{padding:2px 18px 6px}
+.tog{display:flex;align-items:center;gap:10px;width:100%;padding:7px 0;color:var(--ink-2)}
+.tog-l{flex:1 1 auto;font-size:var(--fs-13)}
+.sw{flex:0 0 auto;width:34px;height:19px;border-radius:10px;background:var(--line-2);position:relative}
+.sw i{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.tog.on .sw{background:var(--ink)} .tog.on .sw i{transform:translateX(15px)}
+/* preference + inheritance line — the load-bearing bit */
+.pref{padding:6px 18px 12px}
+.inh{display:flex;align-items:center;gap:8px;margin-top:6px}
+.inh .s{font-size:var(--fs-11);color:var(--faint)}
+.inh .s.ov{color:var(--warn);font-weight:600}
+.inh .a{margin-left:auto;font-size:var(--fs-11);color:var(--link);cursor:pointer}
+.sug{margin:0 18px 10px;border:1px solid var(--line-2);border-left:3px solid var(--warn);
+  border-radius:3px;padding:9px 11px;background:var(--surface)}
+.sug-t{font-size:var(--fs-12);color:var(--ink-2);line-height:1.45}
+.sug-a{margin-top:5px;font-size:var(--fs-12);font-weight:500;color:var(--link);cursor:pointer}
+.p-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:12px 18px 14px;border-top:1px solid var(--line);background:var(--surface)}
+.bt{height:30px;padding:0 12px;border:1px solid var(--line-2);border-radius:var(--radius-sm);
+  background:var(--surface);font:inherit;font-size:var(--fs-13);color:var(--ink);cursor:pointer}
+.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.foot-n{width:100%;font-size:var(--fs-12);color:var(--faint);font-family:var(--mono)}
+.callout{margin:26px 0 0;padding:14px 16px;background:var(--surface);border:1px solid var(--line);
+  border-left:3px solid var(--accent);border-radius:var(--radius)}
+.callout h3{margin:0 0 6px;font-size:var(--fs-14)}
+.callout p{margin:0 0 8px;font-size:var(--fs-13);color:var(--ink-2);max-width:95ch}
+.callout p:last-child{margin-bottom:0}
+mark{background:#FDF3D8;padding:0 3px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="k">Design mock · reference only</div>
+  <h1>Filters — three bands, one panel, every page</h1>
+  <p class="sub">The proposed end state once the flux drawer's fields move into band two. Both panels below are
+  the <b>same component</b>. Bands one and three are identical on every screen; only band two changes, and it
+  carries the page's own name so that reads as intentional.</p>
+
+  <div class="legend">
+    <div class="lg"><span class="tag g">global</span><span><b>Context</b>Same everywhere. Change it here and the whole platform moves.</span></div>
+    <div class="lg"><span class="tag p">this page</span><span><b>Page filters</b>Stays here. Leaving the page does not carry it with you.</span></div>
+    <div class="lg"><span class="tag d">default</span><span><b>Presentation</b>A global default you may override for one page — and it says which is in force.</span></div>
+  </div>
+
+  <div class="pair">
+    <!-- ============ A: inside a flux review ============ -->
+    <div class="col">
+      <p class="caption">On a <b>flux review</b> — band two is the review's own filter set, moved up from the old drawer</p>
+      <div class="panel">
+        <div class="p-hd"><span class="p-t">Filters</span><span class="p-x">×</span></div>
+        <div class="p-body">
+
+          <div class="band">Context<span class="tag g">global</span></div>
+          <div class="bandnote">Applies to every page — the whole platform reads these.</div>
+          <div class="f"><div class="fl">Reporting period</div><div class="fv"><span class="v">July 2026</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Entity scope</div><div class="fv"><span class="v">Meridian EMEA</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Statement</div><div class="fv"><span class="v">Balance Sheet</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Comparison basis</div><div class="fv"><span class="v">Month over month</span><span class="cv">▾</span></div></div>
+          <div class="f open"><div class="fl">Materiality threshold</div>
+            <div class="fv"><span class="v">≥ 8% · floor $27.4M</span><span class="cv">▴</span></div>
+            <div class="fb">
+              <div class="btns"><span class="b">≥ 3%</span><span class="b">≥ 5%</span><span class="b on">≥ 8%</span><span class="b">≥ 10%</span></div>
+              <div class="subband" style="padding:10px 0 4px">Absolute floor — 0.25% of total assets = $27.4M</div>
+              <div class="btns"><span class="b">0.1%</span><span class="b on">0.25%</span><span class="b">0.5%</span></div>
+              <div class="note">Material only when it breaches <b>both</b> rules.</div>
+            </div>
+          </div>
+          <div class="f"><div class="fl">Currency</div><div class="fv"><span class="v">USD — US Dollar</span><span class="cv">▾</span></div></div>
+
+          <div class="band">This review<span class="tag p">this page</span></div>
+          <div class="bandnote">Stays here — leaving the page does not carry these with you.</div>
+          <div class="sug">
+            <div class="sug-t"><b>3 material lines</b> have no accepted explanation, holding $386.2M of unexplained movement.</div>
+            <div class="sug-a">View those lines →</div>
+          </div>
+          <div class="f"><div class="fl">Review scope</div><div class="fv"><span class="v">Entire Balance Sheet</span><span class="cv">▾</span></div></div>
+          <div class="f open"><div class="fl">Reviewer status</div>
+            <div class="fv"><span class="v">Needs explanation</span><span class="cv">▴</span></div>
+            <div class="fb"><div class="btns"><span class="b">All lines</span><span class="b">Material</span><span class="b on">Needs explanation</span><span class="b">Unfavourable</span><span class="b">Missing evidence</span><span class="b">Reviewed</span></div></div>
+          </div>
+          <div class="togs">
+            <div class="tog on"><span class="tog-l">Unexplained only</span><span class="sw"><i></i></span></div>
+            <div class="tog"><span class="tog-l">Missing evidence only</span><span class="sw"><i></i></span></div>
+          </div>
+          <div class="f"><div class="fl">Group rows by</div><div class="fv"><span class="v">Category</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Sections shown</div><div class="fv"><span class="v">All 7 sections</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Columns &amp; view</div><div class="fv"><span class="v">Comparison · Organic &amp; FX split</span><span class="cv">▾</span></div></div>
+
+          <div class="band">Presentation<span class="tag d">1 overridden here</span></div>
+          <div class="bandnote">A global default you can override just for this review.</div>
+          <div class="subband">Layout</div>
+          <div class="pref">
+            <div class="fl">Density</div>
+            <div class="btns"><span class="b">Comfortable</span><span class="b on">Compact</span><span class="b">Executive</span></div>
+            <div class="inh"><span class="s ov">Overridden for this review</span><span class="a">Use global (Comfortable)</span></div>
+          </div>
+          <div class="subband">Table</div>
+          <div class="pref">
+            <div class="tog on"><span class="tog-l">Sticky headers</span><span class="sw"><i></i></span></div>
+            <div class="inh"><span class="s">Using global</span><span class="a">Set just for this review</span></div>
+          </div>
+          <div class="pref">
+            <div class="tog"><span class="tog-l">Zebra rows</span><span class="sw"><i></i></span></div>
+            <div class="inh"><span class="s">Using global</span><span class="a">Set just for this review</span></div>
+          </div>
+        </div>
+        <div class="p-foot">
+          <span class="bt">Reset all</span><span class="bt pri">Apply filters</span>
+          <span class="foot-n">18 of 152 lines shown · live, Esc to discard</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ B: on the Trial Balance ============ -->
+    <div class="col">
+      <p class="caption">On the <b>Trial Balance</b> — bands one and three are <mark>identical</mark>; band two is simply that page's own two filters</p>
+      <div class="panel">
+        <div class="p-hd"><span class="p-t">Filters</span><span class="p-x">×</span></div>
+        <div class="p-body">
+
+          <div class="band">Context<span class="tag g">global</span></div>
+          <div class="bandnote">Applies to every page — the whole platform reads these.</div>
+          <div class="f"><div class="fl">Reporting period</div><div class="fv"><span class="v">July 2026</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Entity scope</div><div class="fv"><span class="v">Meridian EMEA</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Statement</div><div class="fv"><span class="v">Balance Sheet</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Comparison basis</div><div class="fv"><span class="v">Month over month</span><span class="cv">▾</span></div></div>
+          <div class="f"><div class="fl">Materiality threshold</div><div class="fv"><span class="v">≥ 8% · floor $27.4M</span><span class="cv">▾</span></div></div>
+          <div class="f open"><div class="fl">Currency</div>
+            <div class="fv"><span class="v">USD — US Dollar</span><span class="cv">▴</span></div>
+            <div class="fb">
+              <div class="btns"><span class="b on">USD — US Dollar</span><span class="b" disabled>EUR — Euro</span><span class="b" disabled>GBP — Pound sterling</span></div>
+              <div class="note">Reporting currency is USD; local-currency detail is a column set inside a flux review, not a global filter.</div>
+            </div>
+          </div>
+
+          <div class="band">Trial Balance<span class="tag p">this page</span></div>
+          <div class="bandnote">Stays here — leaving the page does not carry these with you.</div>
+          <div class="f open"><div class="fl">Statement section</div>
+            <div class="fv"><span class="v">All sections</span><span class="cv">▴</span></div>
+            <div class="fb"><div class="cks">
+              <label class="ck"><input type="checkbox" checked><span>All sections</span></label>
+              <label class="ck"><input type="checkbox"><span>Current assets</span></label>
+              <label class="ck"><input type="checkbox"><span>Real estate</span></label>
+              <label class="ck"><input type="checkbox"><span>Non-current assets</span></label>
+            </div></div>
+          </div>
+          <div class="f"><div class="fl">Tie-out</div><div class="fv"><span class="v">All accounts</span><span class="cv">▾</span></div></div>
+          <div class="bandnote" style="color:var(--faint);font-style:italic">No statement-grid controls here — this page has no grid to group,
+            so they are absent rather than greyed out.</div>
+
+          <div class="band">Presentation<span class="tag d">global default</span></div>
+          <div class="bandnote">A global default you can override just for the Trial Balance.</div>
+          <div class="subband">Layout</div>
+          <div class="pref">
+            <div class="fl">Density</div>
+            <div class="btns"><span class="b on">Comfortable</span><span class="b">Compact</span><span class="b">Executive</span></div>
+            <div class="inh"><span class="s">Using global</span><span class="a">Set just for the Trial Balance</span></div>
+          </div>
+          <div class="subband">Table</div>
+          <div class="pref">
+            <div class="tog on"><span class="tog-l">Sticky headers</span><span class="sw"><i></i></span></div>
+            <div class="inh"><span class="s">Using global</span><span class="a">Set just for the Trial Balance</span></div>
+          </div>
+          <div class="pref">
+            <div class="tog"><span class="tog-l">Zebra rows</span><span class="sw"><i></i></span></div>
+            <div class="inh"><span class="s">Using global</span><span class="a">Set just for the Trial Balance</span></div>
+          </div>
+        </div>
+        <div class="p-foot">
+          <span class="bt">Reset all</span><span class="bt pri">Apply filters</span>
+          <span class="foot-n">154 of 154 accounts shown · live, Esc to discard</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h3>What to look at</h3>
+    <p><b>1. The two panels are the same object.</b> Scroll them side by side: the Context band and the
+    Presentation band match field for field. That is what makes it read as one panel rather than a different
+    panel per screen.</p>
+    <p><b>2. Band two is where the flux drawer went.</b> Review scope, Reviewer status, the two switches, Group
+    rows by, Sections shown, Columns &amp; view — all of it, plus the engine's own suggestion card at the top,
+    which only appears when a review is open.</p>
+    <p><b>3. The inheritance line is the load-bearing part.</b> Every preference says <i>Using global</i> or
+    <i>Overridden for this review</i>, with one click back. Without it a per-page override becomes state nobody
+    can explain.</p>
+    <p><b>4. Absent, not greyed.</b> The Trial Balance has no statement grid, so the grid controls are not there
+    at all — band two is per-page by definition, so nothing has to be disabled to explain itself.</p>
+  </div>
+</div>
+</body>
+</html>
