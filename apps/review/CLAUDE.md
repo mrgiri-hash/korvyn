@@ -18,6 +18,166 @@ History · Approvals · Audit Readiness.
 transaction drill-down, derived exec + AI narrative). Other reviews show honest "connects as we go"
 stubs naming their real engine — never mocked numbers.
 
+## The 2026-08-09 reconstruction (owner's specimen) — read this before touching flux chrome
+
+The owner supplied a screenshot of the intended Flux Review page and asked for it to be
+reconstructed. Several rules below were written against the *previous* layout and are now amended;
+where a bullet further down conflicts with this section, **this section wins**. What changed:
+
+- **ONE chrome band.** `#topnav` (the 42px light-grey module nav) now lives **inside** `.ribbon`.
+  There is one bar (`--rb-h`, 52px after the density pass) carrying brand · history · module nav ·
+  search · Ask Korvyn · alerts · identity, and **Favourites stays in it** (owner's explicit
+  instruction). `--rb-h` is the single
+  source for that height — every panel that hangs below the chrome and everything that sticks under
+  it reads it. Two hard-coded numbers (52px "under the ribbon", 94px "under both bars") were
+  repeated across a dozen rules; don't reintroduce either.
+  - The bar cannot hold everything at every width, so optional pieces shed in priority order:
+    history → the role caption → the Ask Korvyn label → the label text on Materiality / Entity.
+    `.topnav` is `flex:0 0 auto` deliberately: its dropdowns are absolutely-positioned children, so
+    shrinking it does not clip, it draws the tabs on top of the search box.
+- **Palette: the pre-existing theme stands** (slate `--chrome`, teal `--fx-sec-tx`, navy
+  `--accent`). A navy-chrome / action-blue pass was built and then reverted at the owner's
+  direction on 2026-08-09. Don't re-apply it.
+- **The flux top section is: crumb · identity line · attribute line · ONE KPI card · ONE control
+  bar.** This supersedes the "three bands" rule below.
+  - The **close-context bar does not render on the flux pages at all** now. Its three jobs moved to
+    where they read: the period became the pill in the identity line's right cluster, the close
+    state became the badge beside it, the completion figure became the first KPI cell. Same
+    functions, one band instead of two. It still leads Flux Overview and Close Periods.
+  - The **ownership strip is gone as a strip** — back, star, state badge and Submit all sit in the
+    identity line, which had unused width on the right.
+  - The **attribute line** (`Balance Sheet · Meridian EMEA · USD · US GAAP · Actual`) is new. Those
+    facts were previously scattered across a scope chip, the toolbar and the print header, so
+    nothing on screen answered "which basis is this?" without opening a menu. `FX_REPORTING`
+    declares currency / framework / basis once.
+  - **One KPI card, five cells** (Reviewed · Material items · Unexplained variance · Overdue ·
+    target date), replacing seven bordered mini-cards. The seven violated design-system rule 4 and
+    mixed two questions — the movement bridge and the sign-off state — so neither read as an
+    instrument. The card answers only *where does the sign-off stand*; the bridge figures live in
+    the method footnote and the Organic / FX columns that already carry them per line. It mounts
+    through a `<!--KPIS-->` placeholder because half its figures are derived further down.
+  - **One control bar** (`.fxcb`): Statement segmented · comparison-window readout · Basis ·
+    Materiality · Entity … search · Columns · Export · Filters · expand. Density left the bar for
+    the drawer's presentation tier.
+    **Nothing on it is ever hidden to make it fit.** Below ~1600px it splits into two rows, and it
+    splits **at the spacer** so the break lands on the seam already there: population controls
+    above, reading tools below. An earlier pass wrapped wherever it ran out — stranding Export and
+    Filters on a second line while Columns stayed on the first — which is why `nowrap` plus
+    hide-on-narrow was tried and then rejected in turn.
+    Breakpoints are calibrated for the **expanded 248px rail**, the default; a collapsed rail just
+    leaves slack. A container query would be the exact tool and is deliberately NOT used:
+    `container-type:inline-size` applies `contain:layout`, making the element a containing block for
+    fixed-position descendants — it would tear the Filters drawer, the line-detail panel and the AI
+    panel off the viewport.
+  - The **comparison window is a READOUT, not a control** — no border, no chevron, no hover. It is
+    Period × Basis, and both of those have real controls inches away; making it a dropdown would
+    put a third writer on variables two controls already own. It **stays visible at every width**
+    (an attempt to hide it below 1520px was reverted at the owner's direction — it is the first
+    thing a reviewer checks). What yields instead is the search field, then the Materiality /
+    Entity word labels. It prints the year once when both endpoints share it (`Jun → Jul 2026`),
+    and a single month when the basis leaves nothing to compare against — a `Jul 2026 → Jul 2026`
+    readout states a comparison that is not happening.
+  - **THE GRID STARTS AT y≈273, AND THAT IS THE BUDGET.** Everything above it is chrome on the one
+    thing the page exists to show. Measured with `.fx-gridwrap`'s `getBoundingClientRect().top` at
+    1440 and 1800 — check it after any header change. It was 430, then 344, then 293; each pass
+    only found the next band by measuring, so measure. Where the budget goes: ribbon 56 · spine 36 ·
+    wrap padding 18 · identity block 53 · KPI card 62 · control bar 48.
+    Three structural rules hold it there, in order of how much they saved:
+    1. **The crumb is a PREFIX on the title line, not a band.** Its last node was the review's name
+       and the next line was an H1 of the review's name — two bands saying one thing, which is the
+       defect the 2026-08-08 rebuild removed and which came back by following the specimen's layout
+       literally. Its handler is scoped `#view .rp-cr[data-go]`, NOT `.rp-crumb .rp-cr[data-go]` —
+       the crumb-scoped selector would leave it dead.
+    2. **The attribute line lives INSIDE the identity block**, as line two under the title, with the
+       right-hand cluster centring against the pair. As its own band it cost 28px to print five
+       words of context belonging to the title above it.
+    3. **The control bar's word labels go before the bar splits** (≤1640px), because a second row
+       costs 44px on every render and "≥ 8%" / an entity name already read as what they are.
+    Type is sized to match: 20px title, 19px KPI value, 7px card padding. The target-date cell is
+    the one value NOT in the mono face — a date is not a figure you column-align, and Plex Mono
+    spaced "Aug 5, 2026" across its whole cell.
+    The **spine is 34px, not 44** — it is persistent chrome on every screen, so its height is a tax
+    paid on every page; it needs to be readable, not comfortable.
+- **The Filters drawer is a FORM of labelled fields**, not label-left/value-right accordion rows.
+  The principle survives unchanged — each group is shut by default and shows the value in force, so
+  the whole filter state reads top to bottom without opening anything — only the clothes changed:
+  the label moved above the control so the value owns the field's width, and the field took a
+  select's border. Expansion is still **in place**; do not turn these into nested popups inside a
+  scrolling panel. Order: population fields · two switches · a `Presentation & views` band · the
+  presentation fields · Active filters · sticky Cancel/Apply + `n of m rows shown`.
+  - The switches (Unexplained only / Missing evidence only) write the **same `fluxLens`** the
+    Reviewer-status field writes, through the one `.fxm-status` handler, so they cannot contradict
+    it.
+  - **Deviations from the specimen, deliberate:** no separate `Region` select — region is a
+    dimension of the Entity picker's own browse, and a second writer on `fluxScope` is exactly the
+    duplication this module keeps removing. Reporting basis renders Budget and Forecast **disabled**
+    because no such version is loaded; an option that silently does nothing is worse than an absent
+    one.
+  - Statement, Comparison basis and Materiality now appear **both** on the bar and in the drawer.
+    That relaxes the "nothing in the panel may also sit on a bar" rule below, at the owner's
+    direction. It is safe only because chips derive from state (`fxFilterChips`), so a change made
+    on the bar still produces its chip — verify that stays true.
+- **The statement grid's indentation ladder is 20px per level**, and the position IS the level:
+  `x=28` section captions **and the totals that close them** (a subtotal belongs *to* its section,
+  so aligning them is what makes the total scan as the section's own line) · `x=48` categories,
+  behind a caret gutter reserved even on leaf rows · `x=68` GL accounts. A first pass used 4px and
+  read as inconsistent alignment rather than depth. Tree-elbow connectors were removed: at three
+  levels the indent alone is unambiguous, and 100+ hairline elbows read as a second grid.
+  - **A caret only where expanding reveals something.** A category mapped to one GL account
+    expanded to a copy of itself — a dead control. Those rows keep the caret's width as a spacer.
+  - Δ% is now coloured. It and Variance are the two columns design-system rule 2 allows; the
+    current-period column lost its tint because it competed with them.
+  - The Explanation cell is **one clipped line** with the full text in `title` and the detail panel.
+    A four-line note used to set its whole row's height. The column is a fixed 330px — `auto` plus a
+    nowrap cell let one long note widen the table and shove the money columns left.
+- **The line-detail panel is Overview · Comments · Evidence · History**, and it **opens on
+  Overview** (`fluxInspDefaultTab='overview'`). It used to open straight into the conversation,
+  which answers "what has been said about this" before it has answered "what is this and where does
+  it stand" — the two questions a reviewer has, in that order.
+  - The header is **four labelled figures** — current · prior · variance · Δ% — not one big balance
+    with the delta trailing it in parentheses. In a flux review the movement is the subject, not a
+    footnote to the balance. Colour lands only on the two variance cells, the grid's rule.
+  - Tabs carry their own counts. "Comments" and "Comments 5" are different invitations. A count is
+    inventory, so it is quiet grey — never the gold badge (design-system rule 5).
+  - **Overview** is five cards: Explanation (with a derived classification chip and Accept / Edit) ·
+    Key drivers (footing to the header's variance, which is what the Total row is for, with FX
+    translation on its own line rather than folded silently into the scopes) · Workflow & review ·
+    Evidence and Comments as **summaries with a chevron through to their tabs**. "Is there anything
+    behind this line?" is a different question from "let me work the thread".
+  - The classification chip is **derived, never typed**: below materiality → `Routine`; material and
+    accepted → `Material · explained`; material and unaccepted → `Needs review`.
+  - **One tab, one job.** The explanation, the people row and the drivers left Comments for
+    Overview; prior-period explanations and the activity log left it for History, where they belong
+    — they used to trail the live thread, so the conversation you were reading ran straight on into
+    last quarter's signed-off notes. Rendering the note in both places had put the same explanation
+    on screen twice behind two Edit buttons writing one variable.
+  - A **sticky `Open in review`** footer is the one action that leaves the panel. It closes the panel
+    when a review is already open rather than navigating to the page you are on.
+  - Anything a user writes is stamped with `fxNowLabel()`. `cm.at` feeds both the byline and the
+    Workflow card's "Last updated"; an explanation with no date on it is not an audit record.
+- **Cash is a category of Current assets, not a peer section of it.** It used to carry its own `fs`,
+  so the balance sheet opened with a "Cash & equivalents" line floating above the CURRENT ASSETS
+  heading and outside the "Total current assets" it foots into — a presentation the balance sheet
+  does not have.
+
+## Platform-wide type & density (2026-08-09 overhaul — owner's picks)
+
+- **Inter is EMBEDDED** — a latin-subset variable woff2 (wght 100–900, ~97KB base64) beside the
+  Plex Mono faces. Before this the stack *declared* Inter but shipped nothing, so every machine
+  rendered Segoe UI against embedded Plex Mono — a mismatched lockup nobody chose. If the type ever
+  looks "off", first verify the face actually loads (`document.fonts.check('16px Inter')` and a
+  canvas width probe against a bogus family) before adjusting sizes; that was the real defect here.
+- **Compact density** ("Bloomberg/ERP", owner's pick): base 13px/1.4 body · statement rows 32
+  (GL 30, totals 36, grand 40, thead 28) · `.rp-tbl` register rows 32 to match — the two big tables
+  side by side with different row heights is what reads as "inconsistent" without anyone saying
+  why · controls 30px · ribbon `--rb-h` 52px. Comfortable/Executive per-user modes still layer on.
+- **Type scale tokens are now truthful and distinct** (11/12/13/14/15/18/24px). The old scale had
+  `--fs-11` ≡ `--fs-12` (both 0.75rem) and `--fs-28` at 2rem — sizes set by name were not the sizes
+  that rendered. Names are historical; the rem value is authoritative.
+- **Width: data runs full-width, prose caps itself.** `.wrap` has no max-width; the settings shell
+  (`.rd`) caps at 1320px. Don't reintroduce a global cap — it wasted the right third of a wide
+  monitor on exactly the screens that need columns.
+
 ## Rules that must hold
 
 - **AI narrates, never computes a number.** Every figure comes from the engine; the AI layer only
@@ -94,7 +254,9 @@ stubs naming their real engine — never mocked numbers.
     small icon at the top right (`.fx-icob`, menu opens leftward) because it is an *action* that leaves
     the app, not a filter. Only the **expand / collapse pair** stays at the bar's right: it acts on the
     tree in front of you, one level at a time, and belongs beside it.
-  - **It is a RIGHT-HAND SLIDE-OVER of collapsed accordion rows** (`.fx-fdrawer`, 440px, full height).
+  - *(amended 2026-08-09 — the rows are labelled FIELDS now; the structural argument below is why
+    they must stay collapsed, and it still holds)*
+    **It is a RIGHT-HAND SLIDE-OVER of collapsed accordion rows** (`.fx-fdrawer`, 440px, full height).
     Three containers were built and rejected first, all for one structural reason: **nine control
     groups will not fit any box that shows them all at once.** A full-width in-flow band was ~830px of
     "full screen filter"; a 560px anchored popup crammed them into two 264px columns with a scrollbar
@@ -196,7 +358,8 @@ stubs naming their real engine — never mocked numbers.
 - **One filter row: essentials up front, everything else inside.** Filters apply live, so the panel
   deliberately has no Apply button — a staged Apply over controls that already update instantly is a
   button that does nothing.
-- **THE FLUX REVIEW HEADER IS THREE BANDS, ~150px** (rebuilt 2026-08-08). It was eight bands and
+- *(amended 2026-08-09 — see the reconstruction section above; kept for the reasoning, which still
+  holds)* **THE FLUX REVIEW HEADER IS THREE BANDS, ~150px** (rebuilt 2026-08-08). It was eight bands and
   442px — the grid started at y=609 of a 910px viewport, so 67% of the first screen was chrome and
   only ~8 statement rows were visible. Now: **identity line** · **control bar** · **status line**,
   and the grid starts at ~y=317 with ~15 rows visible. The five moves, each with its reason, so none
