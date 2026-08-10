@@ -645,6 +645,18 @@
   .nv-lbl:focus{outline:none;border-color:var(--accent);background:var(--surface)}
   .nv-kind{font-size:var(--fs-11);color:var(--faint);font-family:var(--mono);white-space:nowrap}
   .nv-kind.dyn{font-family:inherit;font-style:italic}
+  /* Rail grouping + the per-section rail picker (2026-08-10: the editor governs all eight rails). */
+  .nv-rail-row>.nv-rail-h{background:var(--ink);color:#fff;font-size:var(--fs-11);text-transform:uppercase;
+    letter-spacing:.06em;font-weight:600;padding:6px 10px}
+  .nv-rail-n{margin-left:8px;font-weight:400;letter-spacing:.02em;text-transform:none;opacity:.65}
+  .nv-railsel{flex:0 0 auto;height:22px;max-width:150px;border:1px solid var(--line-2);border-radius:2px;
+    background:var(--surface);font-family:var(--sans);font-size:var(--fs-11);color:var(--muted);padding:0 4px}
+  .nv-railsel:hover{color:var(--ink);border-color:var(--faint)}
+  .nv-railsel:focus{outline:none;border-color:var(--accent);color:var(--ink)}
+  .nvp-pick{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .nvp-pick .set-sel{height:26px;font-size:var(--fs-12)}
+  .nvp-as{font-size:var(--fs-12);color:var(--muted)}
+  .nvp-planned{opacity:.5}
   .nv-del{border:0;background:none;cursor:pointer;color:var(--faint);font-size:15px;line-height:1;padding:0 4px;border-radius:3px}
   .nv-del:hover{color:var(--neg);background:var(--neg-bg)}
   .nv-add-row td{padding:3px 4px 8px}
@@ -925,6 +937,17 @@
     background:var(--accent);color:#fff;font-size:var(--fs-11);font-weight:600;font-family:var(--mono)}
   .fxcb .fx-filt-toggle.open .fx-fcount{background:rgba(255,255,255,.22)}
   .fxcb-exp{display:inline-flex;gap:2px}
+  /* ===== Global context cluster (KCTX) =========================================================
+     Leads every control bar, in one fixed order, separated from the page's own controls by a
+     hairline so the reach of each control is visible without reading a label: everything left of
+     the rule follows you across the platform, everything right of it belongs to this page. */
+  .kctx{display:inline-flex;align-items:center;gap:6px;padding-right:8px;margin-right:2px;
+    border-right:1px solid var(--line-2)}
+  .kctx .fxcb-m>.fxm-sum .fxcb-ic{color:var(--muted)}
+  .kctx-pin{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;
+    border:1px dashed var(--line-2);border-radius:var(--radius-sm);background:var(--surface-2);
+    color:var(--muted);font-size:var(--fs-13);cursor:default;white-space:nowrap}
+  @media(max-width:1180px){ .kctx{border-right:0;padding-right:0} }
   .fxcb-exp .fxr-iconb{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--line-2);
     border-radius:var(--radius-sm);background:var(--surface);color:var(--muted)}
   .fxcb-exp .fxr-iconb:hover{border-color:var(--faint);color:var(--ink);background:var(--surface-2)}
@@ -2595,6 +2618,19 @@
   /* Labelled rows of inline options — the Trending/Variance format, so the filter panel and the
      analytics bars are one language. .rp-gb-b brings the fill; this only handles the wrapping. */
   .fxfb-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 4px}
+  /* Saved views inside the platform filter drawer (KD engine) — per-page named snapshots. */
+  .kd-vitem{display:flex;align-items:center;gap:4px;margin-bottom:2px}
+  .kd-vitem .kd-vapply{flex:1 1 auto;min-width:0;text-align:left;border:0;background:none;font:inherit;font-size:var(--fs-13);color:var(--ink-2);cursor:pointer;padding:5px 8px;border-radius:var(--radius-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kd-vitem .kd-vapply:hover{background:var(--surface-2);color:var(--ink)}
+  .kd-vitem.on .kd-vapply{background:var(--ink);color:#fff;font-weight:600}
+  .kd-vdel{flex:0 0 auto;border:0;background:none;font-size:15px;line-height:1;color:var(--faint);cursor:pointer;padding:2px 6px;border-radius:2px}
+  .kd-vdel:hover{color:var(--neg);background:var(--surface-2)}
+  /* The drawer's Context band leads the panel and is marked as the global tier. */
+  .fxd-band-ctx{margin-top:0;border-top:0}
+  .kd-pin{margin-left:6px;font-size:var(--fs-11);color:var(--faint);font-style:italic}
+  .kd-vrow{display:flex;gap:6px;margin-top:8px}
+  .kd-vrow .kd-vname{flex:1 1 auto;min-width:0;height:30px;padding:0 9px;border:1px solid var(--line-2);border-radius:var(--radius-sm);font-family:var(--sans);font-size:var(--fs-13);color:var(--ink);background:var(--surface)}
+  .kd-vrow .kd-vname:focus{outline:none;border-color:var(--ink)}
   .fxfb-s .fxfb-btns .rp-gb-b{margin:0}
   /* Row two on the Analytics page: the controls Trending and Variance do not have. Quieter than the
      shared bar above it so the eye reads the shared format first. */
@@ -4098,11 +4134,9 @@
   function renderNav(){
     renderTopNav();
     document.body.classList.remove('no-leftnav');
-    /* One rail for the whole Flux module — including inside an open review, where a second
-       navigator used to take over. */
-    if(navIsFlux(activeNav)){renderFluxRail();}
-    else if(railMode==='reviews'&&typeof renderReviewsNav==='function'){renderReviewsNav();}
-    else renderModulesNav();
+    /* ONE renderer, ONE config, every module — including inside an open review, where a second
+       navigator used to take over. The rail a route belongs to is the only decision left. */
+    renderRail(navRailFor(activeNav));
     if(typeof renderSpine==='function')renderSpine();
   }
   /* ---- The work spine ------------------------------------------------------------------------
@@ -4183,59 +4217,89 @@
     for(var i=0;i<NAV_SECTIONS.length;i++)if(NAV_SECTIONS[i].id===id)return NAV_SECTIONS[i];
     return null;
   }
-  function renderModulesNav(){
+  /* ===== THE ONE RAIL RENDERER ================================================================
+     Every module's rail comes through here, from NAV_CFG, in one anatomy:
+        header (module name + collapse) → sections → per-section `Planned (n)` → Favourites → foot
+     A section is either a link list or a dynamic `special` block. This replaced renderFluxRail /
+     renderSectionRail / renderModulesNav — see the NAV_RAILS block for why three renderers was the
+     defect and not just duplication. Keep it ONE function: the moment a module wants a rail
+     "just slightly different", that difference belongs in its config, not in a second renderer. */
+  function navRailTitle(rail){
+    if(rail==='modules'){var w=(typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.name)?String(CUR_USER.name).split(' ')[0]:'';
+      return w?(w+'’s workspace'):'Workspace';}
+    return navRailLabel(rail);
+  }
+  function renderRail(rail){
     var role=navActiveRole();
-    var sec=navRailSection();
-    if(sec&&sec.kids&&sec.kids.length){ renderSectionRail(sec); return; }
-    var _who=(typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.name)?String(CUR_USER.name).split(' ')[0]:'';
-    var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(_who?(_who+'’s workspace'):'Workspace')+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
-    navCfgSections(role,'modules').forEach(function(sec){
+    var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(navRailTitle(rail))+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
+    function railItem(it,sec,isPlanned){
+      if(it.kind==='url')return '<div class="nitem" data-navurl="'+esc(it.target)+'">'+navIcon(it.icon||'link')+'<span>'+esc(it.label)+'</span></div>';
+      if(it.kind==='review')return '<div class="nitem" data-navreview="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span></div>';
+      var c=isPlanned?null:navCount(it.count);
+      var badge=c?('<span class="nc'+(c.act?' nc-act':'')+'">'+esc(c.t)+'</span>'):'';
+      return '<div class="nitem'+(activeNav===it.target?' on':'')+(isPlanned?' nitem-planned':'')+'" data-nav="'+esc(it.target)+'"'
+        +(isPlanned?' title="'+esc(it.label)+' — on the roadmap, not built yet"':'')+'>'
+        +navIcon(navItemIcon(it,sec))+'<span>'+esc(it.label)+'</span>'+badge+'</div>';
+    }
+    var _secs=navCfgSections(role,rail), _drew=0;
+    /* An admin can hide or move away every section on a rail, and a role can be excluded from all
+       of them. A blank sidebar reads as a broken app, so the rail says which it is and — for an
+       admin — offers the way back. */
+    _secs.forEach(function(sec){ if(sec.special!=='pagefav'&&navCfgItems(sec,role).length)_drew++; });
+    if(!_drew){
+      h+='<div class="nh">'+esc(navRailLabel(rail))+'</div>'
+        +'<div class="rp-ws-empty">'+(_secs.length
+          ? 'Nothing in this area is visible for the <b>'+esc(role)+'</b> role.'
+          : 'This rail has no sections.')
+        +(can('adminNav')?' Use <b>Customize navigation</b> below to change that.':'')+'</div>';
+    }
+    _secs.forEach(function(sec){
       if(sec.special==='pagefav'){ h+=navFavBlockHTML(sec.label); return; }
+      if(sec.special){ return; }   /* retired dynamic blocks (statements/orgtree/pinned/recent) */
       var items=navCfgItems(sec,role);
       if(!items.length&&!sec.builtin)return;
-      h+='<div class="nh">'+esc(sec.label)+'</div>';
-      items.forEach(function(it){
-        if(it.kind==='url'){ h+='<div class="nitem" data-navurl="'+esc(it.target)+'">'+navIcon(it.icon||'link')+'<span>'+esc(it.label)+'</span></div>'; return; }
-        if(it.kind==='review'){ h+='<div class="nitem" data-navreview="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span></div>'; return; }
-        var badge=(it.target==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
-        h+='<div class="nitem'+(activeNav===it.target?' on':'')+'" data-nav="'+esc(it.target)+'">'+navIcon(navItemIcon(it,sec))+'<span>'+esc(it.label)+'</span>'+badge+'</div>';
-      });
+      /* Roadmap stubs stay reachable but sit behind their own category's disclosure — nearly half
+         of all destinations are stubs, and listing them beside real pages read as unfinished. */
+      var live=[], planned=[];
+      items.forEach(function(it){(it.kind==='route'&&navIsPlanned(it.target)?planned:live).push(it);});
+      var anyActive=items.some(function(it){return it.target===activeNav;});
+      if(sec.head!==false&&sec.label){
+        var _col=navSecCollapsed(sec.id)&&!anyActive;
+        h+='<div class="nh org-hd nh-fluxg">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>';
+        if(_col)return;
+      }
+      if(!live.length&&!planned.length)h+='<div class="rp-ws-empty">Nothing in this area is built yet.</div>';
+      live.forEach(function(it){h+=railItem(it,sec,false);});
+      if(planned.length){
+        var pk='rail:'+sec.id+':planned';
+        var popen=!!NAV_PLANNED_OPEN[pk]||planned.some(function(it){return it.target===activeNav;});
+        h+='<button class="nplan-h'+(popen?' open':'')+'" data-navplan="'+esc(pk)+'"><span class="ct-tw'+(popen?' open':'')+'">'+rpIcon('chev')+'</span><span>Planned</span><span class="nplan-n">'+planned.length+'</span></button>';
+        if(popen)planned.forEach(function(it){h+=railItem(it,sec,true);});
+      }
     });
     h+=navRailFootHTML();
     $('#nav').innerHTML=h; navRailWire();
   }
+  /* Which rail a route belongs to. Flux keeps its explicit test because `mtrend` (an open review)
+     and `frov` are not NAV_SECTIONS kids — the rail has to survive opening a close, which is the
+     whole point of the one-Flux-rail rule. */
+  function navRailFor(route){
+    if(navIsFlux(route))return 'flux';
+    var id=navSectionFor(route);
+    return (!id||id==='home')?'modules':id;
+  }
+  function renderModulesNav(){ renderRail(navRailFor(activeNav)); }
   /* A route that is still a roadmap stub. `ph-` is the existing convention for those pages. */
   function navIsPlanned(route){return String(route).indexOf('ph-')===0;}
   var NAV_PLANNED_OPEN={};
   try{var _np0=localStorage.getItem('korvyn.nav.planned.v1');if(_np0){var _npp=JSON.parse(_np0);if(_npp)NAV_PLANNED_OPEN=_npp;}}catch(e){}
   function navPlannedToggle(id){NAV_PLANNED_OPEN[id]=!NAV_PLANNED_OPEN[id];
     try{localStorage.setItem('korvyn.nav.planned.v1',JSON.stringify(NAV_PLANNED_OPEN));}catch(e){}renderNav();}
-  /* One category's rail: the section's WORKING pages, then the pins, then what is still planned.
-     Nearly half of this app's destinations are honest roadmap stubs. Listing every one of them
-     beside the real pages made the whole product read as unfinished and buried the pages that do
-     work. They stay reachable — nothing is hidden — but they sit behind one disclosure that says
-     how many there are, instead of taking up half the rail on every screen. */
-  function renderSectionRail(sec){
-    var live=[], planned=[];
-    sec.kids.forEach(function(k){(navIsPlanned(k[0])?planned:live).push(k);});
-    var openPlanned=!!NAV_PLANNED_OPEN[sec.id]||planned.some(function(k){return k[0]===activeNav;});
-    function item(k,muted){
-      var route=k[0], label=k[1];
-      var badge=(route==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
-      return '<div class="nitem'+(activeNav===route?' on':'')+(muted?' nitem-planned':'')+'" data-nav="'+esc(route)+'"'+(muted?' title="'+esc(label)+' — on the roadmap, not built yet"':'')+'>'+navIcon(navRailIcon(route,sec))+'<span>'+esc(label)+'</span>'+badge+'</div>';
-    }
-    var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(sec.label)+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
-    h+='<div class="nh">'+esc(sec.label)+'</div>';
-    if(!live.length)h+='<div class="rp-ws-empty">Nothing in this area is built yet &mdash; see what is planned below.</div>';
-    live.forEach(function(k){h+=item(k,false);});
-    if(planned.length){
-      h+='<button class="nplan-h'+(openPlanned?' open':'')+'" data-navplan="'+esc(sec.id)+'"><span class="ct-tw'+(openPlanned?' open':'')+'">'+rpIcon('chev')+'</span><span>Planned</span><span class="nplan-n">'+planned.length+'</span></button>';
-      if(openPlanned)planned.forEach(function(k){h+=item(k,true);});
-    }
-    h+=navFavBlockHTML('Favorites');
-    h+=navRailFootHTML();
-    $('#nav').innerHTML=h; navRailWire();
-  }
+  /* (retired 2026-08-10 — `renderSectionRail` built a category's rail straight off
+     NAV_SECTIONS.kids: one flat list, one Planned disclosure, no badges, nothing editable. Its one
+     durable idea survives inside `renderRail`: roadmap stubs stay reachable but sit behind their
+     own category's `Planned (n)` disclosure, because nearly half of all destinations are stubs and
+     listing them beside real pages made the product read as unfinished.) */
   /* ONE route→icon map, read by both rails. Previously each rail decided for itself and unmapped
      routes fell back to their section's icon — so Executive Dashboard and Scenario Analysis, both
      unmapped under Flux Analysis, rendered as the same glyph. Every route in a section now gets a
@@ -4312,44 +4376,112 @@
      `special` block (orgtree / pinned / recent). Visibility + role assignment live on each section and
      item. Admin edits it in Settings → Navigation; it persists to localStorage. */
   var NAV_ROLES=['Preparer','Reviewer','Controller','Administrator','External auditor'];
+  /* ===== ONE RAIL DEFINITION FOR THE WHOLE PLATFORM (2026-08-10) ===============================
+     Every module's left rail is now NAV_CFG, rendered by ONE function (`renderRail`). Before this
+     there were three renderers producing three different structures: `renderFluxRail` off a
+     hardcoded FLUX_NAV (groups + badges + per-group Planned), `renderSectionRail` off
+     NAV_SECTIONS.kids (one flat list, one Planned, no badges), and `renderModulesNav` off NAV_CFG
+     (Home only). So the rail changed shape as you moved between modules, and — the real defect —
+     the Settings → Navigation editor governed **Home alone**: for every other module the role×item
+     matrix, the reordering and the custom items were a dead control.
+     A section declares which rail it belongs to. `rail:'*'` renders on EVERY rail, which is how
+     Favourites stays the one organiser without being duplicated eight times in the editor.
+     `head:false` suppresses the group heading — the entrances lead a rail ungrouped.
+     `count:` names a figure in the `navCount` registry; the rail never computes one itself. */
+  var NAV_RAILS=[{id:'modules',label:'Home'},{id:'flux',label:'Flux Analysis'},{id:'close',label:'Close'},
+    {id:'gl',label:'General Ledger'},{id:'recon',label:'Reconciliations'},{id:'reporting',label:'Reporting'},
+    {id:'audit',label:'Audit & Controls'},{id:'settings',label:'Settings'},{id:'*',label:'Every rail'}];
+  function navRailLabel(id){var l=id;NAV_RAILS.forEach(function(r){if(r.id===id)l=r.label;});return l;}
+  function _ni(id,label,target,icon,count){return {id:id,label:label,kind:'route',target:target,icon:icon,count:count||null,visible:true,roles:['*'],builtin:true};}
+  function _ns(id,label,rail,items,opts){var s={id:id,label:label,rail:rail,visible:true,roles:['*'],builtin:true,items:items||[]};
+    if(opts)for(var k in opts)s[k]=opts[k]; return s;}
   function navDefaultCfg(){return {sections:[
-    /* rail:'modules' renders on every non-review screen (Home, Close, GL, Reconciliations…);
-       rail:'reviews' is the collections navigator inside the review workspace. One config, one
-       editor, two contexts — a section states which rail it belongs to. */
-    {id:'mworkspace',label:'Workspace',rail:'modules',visible:true,roles:['*'],builtin:true,items:[
-      {id:'m-dash',label:'Dashboard',kind:'route',target:'home',icon:'grid',visible:true,roles:['*'],builtin:true},
-      {id:'m-tasks',label:'My tasks',kind:'route',target:'ph-tasks',icon:'ctl',visible:true,roles:['*'],builtin:true},
-      {id:'m-appr',label:'My approvals',kind:'route',target:'ph-approvals',icon:'shield',visible:true,roles:['*'],builtin:true},
-      {id:'m-rev',label:'My reviews',kind:'route',target:'my',icon:'doc',visible:true,roles:['*'],builtin:true},
-      {id:'m-all',label:'All reviews',kind:'route',target:'all',icon:'stack',visible:true,roles:['*'],builtin:true}
-    ]},
-    {id:'mfav',label:'Favorites',rail:'modules',visible:true,roles:['*'],builtin:true,special:'pagefav',items:[]},
-    {id:'minsights',label:'Insights',rail:'modules',visible:true,roles:['*'],builtin:true,items:[
-      {id:'m-ai',label:'AI insights',kind:'route',target:'insights',icon:'trend',visible:true,roles:['*'],builtin:true},
-      {id:'m-exc',label:'Exceptions',kind:'route',target:'ph-exceptions',icon:'scale',visible:true,roles:['*'],builtin:true},
-      {id:'m-act',label:'Recent activity',kind:'route',target:'activity',icon:'hist',visible:true,roles:['*'],builtin:true}
-    ]},
-    {id:'workspace',label:'My workspace',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
-      {id:'overview',label:'Overview',kind:'route',target:'frov',icon:'grid',visible:true,roles:['*'],builtin:true},
-      {id:'myreviews',label:'My queue',kind:'route',target:'my',icon:'doc',visible:true,roles:['*'],builtin:true},
-      {id:'allreviews',label:'Team queue',kind:'route',target:'all',icon:'stack',visible:true,roles:['*'],builtin:true},
-      {id:'execdash',label:'Executive dashboard',kind:'route',target:'ph-execdash',icon:'trend',visible:true,roles:['*'],builtin:true}
-    ]},
-    /* Statement selection as NAVIGATION rather than a dropdown — you are not filtering a thing,
-       you are choosing which statement you are reviewing. */
-    {id:'rstatements',label:'Reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'statements',items:[]},
-    /* Analysis has to reach INSIDE a review, not only from Flux Overview. The rail swaps to this
-       navigator the moment a review opens, so a section that exists only on the overview
-       disappears exactly when a reviewer wants to ask "is this line always like this?". */
-    {id:'ranalysis',label:'Analysis',rail:'reviews',visible:true,roles:['*'],builtin:true,items:[
-      {id:'r-mflux',label:'Monthly flux',kind:'route',target:'mflux',icon:'grid',visible:true,roles:['*'],builtin:true},
-      {id:'r-trend',label:'Trending analysis',kind:'route',target:'trending',icon:'trend',visible:true,roles:['*'],builtin:true},
-      {id:'r-var',label:'Variance analysis',kind:'route',target:'variance',icon:'scale',visible:true,roles:['*'],builtin:true},
-      {id:'r-scen',label:'Scenario analysis',kind:'route',target:'ph-scenario',icon:'stmt',visible:true,roles:['*'],builtin:true}
-    ]},
-    {id:'organization',label:'Organization',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'orgtree',items:[]},
-    {id:'pinned',label:'Pinned reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'pinned',items:[]},
-    {id:'recent',label:'Recent reviews',rail:'reviews',visible:true,roles:['*'],builtin:true,special:'recent',items:[]}
+    /* --- Home / workspace ------------------------------------------------------------------- */
+    _ns('mworkspace','Workspace','modules',[
+      _ni('m-dash','Dashboard','home','grid'),
+      _ni('m-tasks','My tasks','ph-tasks','ctl'),
+      _ni('m-appr','My approvals','ph-approvals','shield'),
+      _ni('m-rev','My reviews','my','doc','mine'),
+      _ni('m-all','All reviews','all','stack','all')
+    ]),
+    _ns('minsights','Insights','modules',[
+      _ni('m-ai','AI insights','insights','trend'),
+      _ni('m-exc','Exceptions','ph-exceptions','scale'),
+      _ni('m-act','Recent activity','activity','hist')
+    ]),
+    /* --- Flux Analysis: the two ENTRANCES lead ungrouped, then Reviews · Analytics · Setup.
+       Migrated verbatim from FLUX_NAV, including the reasoning that put it in this order: My
+       Reviews for the people doing the work, Overview for the people who own the close. --- */
+    _ns('fluxmain','Flux Analysis','flux',[
+      _ni('f-my','My Reviews','my','doc','mine'),
+      _ni('f-ov','Overview','frperiods','grid','close')
+    ],{head:false}),
+    _ns('fluxreviews','Reviews','flux',[
+      _ni('f-all','All Reviews','all','stack','all'),
+      _ni('f-pkgs','Review Packages','frpkgs','folder'),
+      _ni('f-per','Close Periods','frcloseper','cal')
+    ]),
+    /* Flux leads Analytics: it is the overview of the three lenses. The two roadmap stubs sit in
+       THIS category's own Planned disclosure — a top-level Planned group gave two stubs the
+       structural weight of a whole section. */
+    _ns('fluxanalytics','Analytics','flux',[
+      _ni('f-flux','Flux','mflux','grid'),
+      _ni('f-trend','Trending','trending','trend'),
+      _ni('f-var','Variance','variance','columns'),
+      _ni('f-exec','Executive Dashboard','ph-execdash','grid'),
+      _ni('f-scen','Scenario Analysis','ph-scenario','scale')
+    ]),
+    _ns('fluxsetup','Setup','flux',[
+      _ni('f-tpl','Templates','frtpl','tpl'),
+      _ni('f-lib','Review Library','frlib','file'),
+      _ni('f-map','Mappings & Definitions','frmap','tag')
+    ]),
+    /* --- The remaining modules, migrated from NAV_SECTIONS.kids so the rail and the top menu
+       still list exactly the same destinations — but now through the editable config. --- */
+    _ns('closemain','Close','close',[
+      _ni('c-dash','Close Overview','close-dash','cal'),
+      _ni('c-tasks','Tasks & Checklist','ph-tasks','ctl'),
+      _ni('c-appr','Approvals','ph-approvals','shield'),
+      _ni('c-comp','Completion Status','ph-completion','trend'),
+      _ni('c-je','Journal Entries','ph-je','file')
+    ]),
+    _ns('glmain','General Ledger','gl',[
+      _ni('g-up','Financial Data','repo-upload','up'),
+      _ni('g-tb','Trial Balance','repo-ledger','stmt'),
+      _ni('g-coa','Chart of Accounts','repo-coa','columns'),
+      _ni('g-txn','Transaction Metadata','txn-meta','tag'),
+      _ni('g-jex','Journal Explorer','ph-jexplorer','file'),
+      _ni('g-rec','Reclassifications','ph-reclass','recon')
+    ]),
+    _ns('reconmain','Reconciliations','recon',[
+      _ni('rc-bs','Balance Sheet','recon-bs','recon'),
+      _ni('rc-acct','Account Reconciliations','recon-acct','scale'),
+      _ni('rc-dash','Rec Dashboard','ph-recdash','grid'),
+      _ni('rc-unrec','Unreconciled Items','ph-unrec','link')
+    ]),
+    _ns('repmain','Reporting','reporting',[
+      _ni('rp-fs','Financial Statements','ph-finstmt','stmt'),
+      _ni('rp-mgmt','Management Reports','ph-mgmt','file'),
+      _ni('rp-board','Board Package','ph-board','filing')
+    ]),
+    _ns('audmain','Audit & Controls','audit',[
+      _ni('a-ctl','Controls','controls','ctl'),
+      _ni('a-exc','Exceptions','ph-exceptions','scale'),
+      _ni('a-ev','Evidence Center','evidence','file'),
+      _ni('a-aud','Audit Readiness','audit','shield'),
+      _ni('a-kn','Knowledge Timeline','knowledge','hist')
+    ]),
+    _ns('setmain','Settings','settings',[
+      _ni('s-cfg','Configuration','settings','gear'),
+      _ni('s-adm','Administration','fradmin','ctl'),
+      _ni('s-usr','Users & Roles','ph-users','shield'),
+      _ni('s-wf','Workflow','ph-workflow','recon'),
+      _ni('s-hist','Upload History','repo-history','hist')
+    ]),
+    /* Favourites is the ONE organiser, so it is one section on `*` — every rail renders it, the
+       admin edits it once, and a pin cannot appear in one module and vanish in the next. It sits
+       last in the list, which is where it lands on every rail unless an admin moves it. */
+    _ns('mfav','Favorites','*',[],{special:'pagefav'})
   ]};}
   var NAV_CFG=navDefaultCfg(), NAV_CFG_SEQ=0;
   (function(){try{var s=localStorage.getItem('korvyn.navcfg.v1');if(s){var p=JSON.parse(s);if(p&&p.sections&&p.sections.length)NAV_CFG=p;}}catch(e){}})();
@@ -4366,6 +4498,18 @@
       NAV_CFG.sections.splice(Math.min(i,NAV_CFG.sections.length),0,d); added++; });
     NAV_CFG.sections.forEach(function(s){ if(s.rail)return; var d=null;
       def.forEach(function(x){if(x.id===s.id)d=x;}); s.rail=(d&&d.rail)||'reviews'; });
+    /* ONE-TIME rail adoption (2026-08-10). Before this build `rail` was only 'modules' / 'reviews'
+       and was NOT user-editable, so a stored rail on a builtin section carries no admin intent —
+       it is just the old two-rail world. Adopt the default rail for builtins once, which is what
+       moves Favourites from 'modules' onto '*' so it returns to every rail. Custom sections and
+       every later edit are untouched: after this flag is set, the rail is the admin's to own. */
+    try{
+      if(!localStorage.getItem('korvyn.navcfg.railver.v1')){
+        NAV_CFG.sections.forEach(function(s){ if(!s.builtin)return; var d=null;
+          def.forEach(function(x){if(x.id===s.id)d=x;}); if(d&&d.rail)s.rail=d.rail; });
+        localStorage.setItem('korvyn.navcfg.railver.v1','1');
+      }
+    }catch(e){}
     /* Same rule one level down: a builtin ITEM added to an existing builtin section would never
        reach anyone with a saved config. Track offered item ids the same way. */
     var iseen=null; try{var s2=localStorage.getItem('korvyn.navcfg.items.v1');if(s2)iseen=JSON.parse(s2);}catch(e){}
@@ -4403,7 +4547,11 @@
   function navMoveInList(list,idx,dir){var j=idx+dir;if(idx<0||j<0||j>=list.length)return;var t=list[idx];list[idx]=list[j];list[j]=t;}
   function navRoleOk(roles,role){return !roles||roles.indexOf('*')>=0||roles.indexOf(role)>=0;}
   function navSecRail(s){return s.rail||'reviews';}
-  function navCfgSections(role,rail){return NAV_CFG.sections.filter(function(s){return s.visible&&navRoleOk(s.roles,role)&&(!rail||navSecRail(s)===rail);});}
+  /* `rail:'*'` renders on every rail (Favourites). A section for a rail that no longer exists —
+     the retired `reviews` collections navigator — simply never matches, so an old saved config
+     keeps its data without painting a dead navigator. */
+  function navCfgSections(role,rail){return NAV_CFG.sections.filter(function(s){
+    return s.visible&&navRoleOk(s.roles,role)&&(!rail||navSecRail(s)===rail||navSecRail(s)==='*');});}
   function navCfgItems(sec,role){return (sec.items||[]).filter(function(it){return it.visible&&navRoleOk(it.roles,role);});}
   function navCanAdmin(){return can('adminNav');}   /* Administrator only — customize navigation / org config */
   /* FAVORITES — the single personal organiser. A pin can be renamed and put in a group; a group
@@ -4584,27 +4732,21 @@
      people doing the work, Overview for the people who own the close. "My work" was a heading over
      exactly one item — two lines of chrome for one destination, and it pushed the single most-used
      link down the rail. Everything below is browse (Reviews), look-across (Analytics) or admin
-     (Setup, last, where its frequency belongs). */
-  var FLUX_NAV=[
-    {items:[['my','My Reviews','doc','mine'],['frperiods','Overview','grid','close']]},
-    /* Review Packages and Close Periods are review surfaces, not a separate "Management" idea —
-       one fewer heading to read past. */
-    {label:'Reviews',   items:[['all','All Reviews','stack','all'],['frpkgs','Review Packages','folder'],['frcloseper','Close Periods','cal']]},
-    /* "Analysis" was a group heading inside a module already called Flux Analysis — it read as
-       though Overview and Reviews were not analysis. Executive Dashboard and Scenario Analysis are
-       both analytics, so they sit in THIS category's Planned disclosure rather than a top-level
-       Planned group, which gave two roadmap stubs the structural weight of a whole section. */
-    /* Flux leads the group: it is the overview of the three lenses — read every line across the
-       months first, then drop into Trending for one line's trajectory or Variance for one step. */
-    {label:'Analytics', items:[['mflux','Flux','grid'],['trending','Trending','trend'],['variance','Variance','columns']],
-     planned:[['ph-execdash','Executive Dashboard','grid'],['ph-scenario','Scenario Analysis','scale']]},
-    {label:'Setup',     items:[['frtpl','Templates','tpl'],['frlib','Review Library','file'],['frmap','Mappings & Definitions','tag']]}
-  ];
+     (Setup, last, where its frequency belongs).
+     (2026-08-10: this structure now lives in NAV_CFG's `flux` sections — see navDefaultCfg — so the
+     admin editor governs it like every other rail. The hardcoded FLUX_NAV array it used to live in
+     is gone; only its ORDER and its reasoning, both preserved above and in the config, mattered.) */
   /* Design-system rule 5: a badge means "action required from you", NOT "count of items". So only
      My Reviews earns the gold badge; Overview's close completion and the register's inventory render
      as quiet grey text. Every figure here is read from the same source its own screen renders —
      myReviewCount() and closeProgress() — so the rail cannot disagree with the page it leads to. */
-  function fluxNavCount(k){
+  function fluxNavCount(k){return navCount(k);}
+  /* ONE badge registry for every rail. An item declares `count:'mine'`; the rail never computes a
+     figure itself — each one is read from the same function its own screen renders, so the rail
+     cannot disagree with the page it leads to. `act:true` is the gold "action required from you"
+     badge (design-system rule 5); everything else is quiet grey inventory. */
+  function navCount(k){
+    if(!k)return null;
     try{
       if(k==='mine'){var n=myReviewCount();return n?{t:String(n),act:true}:null;}
       if(k==='close'){var p=closeProgress();return p.total?{t:p.pct+'%'}:null;}
@@ -4613,42 +4755,18 @@
     return null;
   }
   /* Routes that live inside the Flux module. mtrend (an open review) and frov are included so the
-     rail survives the moment a reviewer opens a close — that is the whole point of this change. */
-  var FLUX_ROUTES=(function(){var s={mtrend:1,frov:1};FLUX_NAV.forEach(function(g){
-    g.items.concat(g.planned||[]).forEach(function(i){s[i[0]]=1;});});return s;})();
+     rail survives the moment a reviewer opens a close — that is the whole point of this change.
+     Derived from the DEFAULT config, never the saved one: which rail a route belongs to is a
+     property of the product, so an admin hiding an item must not strand its route on another rail. */
+  var FLUX_ROUTES=(function(){var s={mtrend:1,frov:1};
+    navDefaultCfg().sections.forEach(function(sec){ if(sec.rail!=='flux')return;
+      (sec.items||[]).forEach(function(it){ if(it.kind==='route')s[it.target]=1; }); });
+    return s;})();
   function navIsFlux(k){return !!FLUX_ROUTES[k];}
-  function renderFluxRail(){
-    var _who='Flux Analysis';
-    var h='<div class="nrev-top nmod-top"><span class="nmod-k">'+esc(_who)+'</span><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
-    function fluxNavItem(it,isPlanned){
-      var c=isPlanned?null:fluxNavCount(it[3]);
-      var badge=c?('<span class="nc'+(c.act?' nc-act':'')+'">'+esc(c.t)+'</span>'):'';
-      return '<div class="nitem'+(activeNav===it[0]?' on':'')+(isPlanned?' nitem-planned':'')+'" data-nav="'+esc(it[0])+'"'+(isPlanned?' title="'+esc(it[1])+' — on the roadmap, not built yet"':'')+'>'+navIcon(it[2])+'<span>'+esc(it[1])+'</span>'+badge+'</div>';
-    }
-    FLUX_NAV.forEach(function(g){
-      var plan=g.planned||[];
-      if(g.label){
-        /* Collapsible for future depth, but the primary Flux sections default OPEN — a heading you
-           have to expand every session is worse than one you can read past. */
-        var _k='flux:'+g.label, _act=g.items.concat(plan).some(function(i){return i[0]===activeNav;});
-        var _col=navSecCollapsed(_k)&&!_act;
-        h+='<div class="nh org-hd nh-fluxg">'+navSecTw(_k)+'<span>'+esc(g.label)+'</span></div>';
-        if(_col)return;
-      }
-      g.items.forEach(function(it){h+=fluxNavItem(it,false);});
-      /* Roadmap stubs belong to the category they'd ship into, behind that category's own
-         disclosure — not a top-level group competing with real work. */
-      if(plan.length){
-        var pk='flux:'+(g.label||'')+':planned';
-        var popen=!!NAV_PLANNED_OPEN[pk]||plan.some(function(i){return i[0]===activeNav;});
-        h+='<button class="nplan-h'+(popen?' open':'')+'" data-navplan="'+esc(pk)+'"><span class="ct-tw'+(popen?' open':'')+'">'+rpIcon('chev')+'</span><span>Planned</span><span class="nplan-n">'+plan.length+'</span></button>';
-        if(popen)plan.forEach(function(it){h+=fluxNavItem(it,true);});
-      }
-    });
-    h+=navFavBlockHTML('Favorites');
-    h+=navRailFootHTML();
-    $('#nav').innerHTML=h; navRailWire();
-  }
+  /* (retired 2026-08-10 — `renderFluxRail` is now `renderRail('flux')`. Its two load-bearing
+     behaviours moved into the shared renderer and apply to every module: collapsible group
+     headings that default OPEN (a heading you must expand every session is worse than one you can
+     read past), and a per-section `Planned (n)` disclosure.) */
   /* ---- Reviews rail: statements as navigation -------------------------------------------------
      Which statement you are reviewing is not a filter — it is where you are. Putting it in the rail
      (rather than only in a toolbar dropdown) makes the current statement legible at a glance and
@@ -4702,69 +4820,14 @@
     if(!recent.length)return '<div class="rp-ws-empty">Reviews you open appear here.</div>';
     return recent.slice(0,6).map(function(r){return '<div class="rp-tn"><button class="rp-ws-item pin" data-rid="'+r.id+'"><span class="rp-ws-nm">'+esc(r.name)+'</span>'+rpStatusDot(r.status)+'</button></div>';}).join('');
   }
-  function renderReviewsNav(){
-    // Rendered from NAV_CFG, filtered to the active role. Fully customizable from the gear at the
-    // bottom of the nav (openNavEditModal) or in Settings → Navigation — both drive the same editor.
-    var role=navActiveRole();
-    var h='<div class="nrev-top"><button class="nrev-back" id="navRevBack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"/></svg><span>All modules</span></button><button class="nrev-collapse" id="navToggle" title="Collapse sidebar"><span class="nav-cicon">'+navChevron()+'</span></button></div>';
-    var _grpDone={};
-    function grpHead(g){ if(!g||_grpDone[g])return ''; _grpDone[g]=1; return '<div class="nh nh-grp">'+esc(g)+'</div>'; }
-    navCfgSections(role,'reviews').forEach(function(sec){
-      if(sec.special==='statements'){ h+='<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':navStatementsHTML()); return; }
-      if(sec.special==='orgtree'){ h+='<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':(navOrgDimsHTML()+orgTreeBodyHTML())); return; }
-      if(sec.special==='pinned'){ h+='<div class="nh fld-hd org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span><button class="org-gb" id="favMgrBtn" title="Manage favourites">Manage</button></div>'+(navSecCollapsed(sec.id)?'':navPinnedHTML()); return; }
-      if(sec.special==='recent'){ h+='<div class="nh org-hd">'+navSecTw(sec.id)+'<span>'+esc(sec.label)+'</span></div>'+(navSecCollapsed(sec.id)?'':navRecentHTML()); return; }
-      var items=navCfgItems(sec,role);
-      if(!items.length&&!sec.builtin)return;   /* hide an empty custom section */
-      h+='<div class="nh">'+esc(sec.label)+'</div>';
-      items.forEach(function(it){
-        if(it.kind==='review'){ h+='<div class="nitem" data-navreview="'+esc(it.target)+'">'+navIcon(it.icon||'doc')+'<span>'+esc(it.label)+'</span></div>'; }
-        else if(it.kind==='url'){ h+='<div class="nitem" data-navurl="'+esc(it.target)+'">'+navIcon(it.icon||'link')+'<span>'+esc(it.label)+'</span></div>'; }
-        else { var badge=(it.target==='my'&&myReviewCount())?'<span class="nc">'+myReviewCount()+'</span>':'';
-          var pl=(typeof navIsPlanned==='function')&&navIsPlanned(it.target);   /* roadmap items read as roadmap here too */
-          h+='<div class="nitem'+(activeNav===it.target?' on':'')+(pl?' nitem-planned':'')+'" data-nav="'+esc(it.target)+'"'+(pl?' title="'+esc(it.label)+' — on the roadmap, not built yet"':'')+'>'+navIcon(navItemIcon(it,sec))+'<span>'+esc(it.label)+'</span>'+badge+'</div>'; }
-      });
-    });
-    if(can('adminNav'))h+='<div class="nav-foot"><button class="nav-gear" id="navGearBtn" title="Customize navigation"><span class="nav-gear-ic">'+navIcon('gear')+'</span><span class="nav-gear-lbl">Customize navigation</span></button></div>';
-    $('#nav').innerHTML=h;
-    var _g=document.getElementById('navGearBtn');if(_g)_g.onclick=openNavEditModal;
-    var bk=document.getElementById('navRevBack');if(bk)bk.onclick=navReviewBack;
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item.pin[data-ws]'),function(el){el.onclick=function(){rpNavOpenFolder(this.getAttribute('data-ws'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.rp-ws-item[data-rid]'),function(el){el.onclick=function(){rpOpenReview(this.getAttribute('data-rid'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-nav]'),function(el){el.onclick=function(){navTo(this.getAttribute('data-nav'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navreview]'),function(el){el.onclick=function(){if(typeof rpOpenReview==='function')rpOpenReview(this.getAttribute('data-navreview'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navurl]'),function(el){el.onclick=function(){var u=this.getAttribute('data-navurl');try{window.open(u,'_blank');}catch(e){if(typeof rpToast==='function')rpToast('Would open '+u);}};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navstmt]'),function(el){el.onclick=function(){navGoStatement(this.getAttribute('data-navstmt'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navorgdim]'),function(el){el.onclick=function(){orgSetGroupBy(this.getAttribute('data-navorgdim'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nitem[data-navcustom]'),function(el){el.onclick=function(){if(typeof rvbOpen==='function')rvbOpen(null);};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-tw[data-ctw]'),function(el){el.onclick=function(e){e.stopPropagation();ctToggle(this.getAttribute('data-ctw'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-row[data-consnode],.pk-row[data-consnode]'),function(el){el.onclick=function(e){if(e.target.closest('.ct-tw'))return;ctScope(this.getAttribute('data-consnode'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();ctScope(this.getAttribute('data-consnode'));}};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nh-tw[data-navsec]'),function(el){
-      el.onclick=function(e){e.stopPropagation();navSecToggle(this.getAttribute('data-navsec'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.nh.org-hd'),function(el){
-      var tw=el.querySelector('.nh-tw[data-navsec]'); if(!tw)return;
-      el.style.cursor='pointer';
-      el.onclick=function(e){if(e.target.closest('.org-gb')||e.target.closest('.org-menu')||e.target.closest('#favMgrBtn'))return;navSecToggle(tw.getAttribute('data-navsec'));};});
-    var _gb=document.getElementById('orgGbBtn');if(_gb)_gb.onclick=orgToggleMenu;
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.org-mi[data-orggb]'),function(el){el.onclick=function(e){e.stopPropagation();orgSetGroupBy(this.getAttribute('data-orggb'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-tw[data-orgtw]'),function(el){el.onclick=function(e){e.stopPropagation();orgToggleSet(this.getAttribute('data-orgtw'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-row[data-orgset]'),function(el){el.onclick=function(e){if(e.target.closest('.ct-tw'))return;orgScopeSet(this.getAttribute('data-orgset'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();orgScopeSet(this.getAttribute('data-orgset'));}};});
-    var _fnb=document.getElementById('fldNewBtn');if(_fnb)_fnb.onclick=folderStartAdd;
-    var _fni=document.getElementById('fldNewInput');if(_fni){_fni.onkeydown=function(e){if(e.key==='Enter')folderCommitAdd(this.value);else if(e.key==='Escape'){RP_FOLD_ADDING=false;renderReviewsNav();}};_fni.onblur=function(){folderCommitAdd(this.value);};try{_fni.focus();}catch(e){}}
-    var _fri=document.getElementById('fldRenameInput');if(_fri){var _rid=_fri.getAttribute('data-foldrename');_fri.onkeydown=function(e){if(e.key==='Enter')folderCommitRename(_rid,this.value);else if(e.key==='Escape'){RP_FOLD_RENAME=null;renderReviewsNav();}};_fri.onblur=function(){folderCommitRename(_rid,this.value);};try{_fri.focus();_fri.select();}catch(e){}}
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-add[data-foldadd]'),function(el){el.onclick=function(e){folderToggleMenu(this.getAttribute('data-foldadd'),e);};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-mi[data-favtoggle]'),function(el){el.onclick=function(e){e.stopPropagation();favTogglePayload(this.getAttribute('data-favtoggle'),e);};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-mi[data-foldto]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-foldto').split('~');folderAddPayload(a[0],a[1]);};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-mi-new[data-foldnew]'),function(el){el.onclick=function(e){e.stopPropagation();folderNewFromPayload(this.getAttribute('data-foldnew'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-row[data-foldopen]'),function(el){el.onclick=function(e){if(e.target.closest('.ct-tw')||e.target.closest('.fld-x'))return;folderScope(this.getAttribute('data-foldopen'));};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();folderScope(this.getAttribute('data-foldopen'));}};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.ct-tw[data-foldtw]'),function(el){el.onclick=function(e){e.stopPropagation();folderToggleExpand(this.getAttribute('data-foldtw'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldren]'),function(el){el.onclick=function(e){e.stopPropagation();folderStartRename(this.getAttribute('data-foldren'),e);};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-folddel]'),function(el){el.onclick=function(e){e.stopPropagation();folderDelete(this.getAttribute('data-folddel'));};});
-    Array.prototype.forEach.call($('#nav').querySelectorAll('.fld-x[data-foldrm]'),function(el){el.onclick=function(e){e.stopPropagation();var a=this.getAttribute('data-foldrm').split('~');folderRemoveEnt(a[0],a[1]);};});
-    favNavWire();
-    var _nt=document.getElementById('navToggle');if(_nt)_nt.onclick=toggleNav;
-    syncNavToggle();
-  }
+  /* (retired 2026-08-10) `renderReviewsNav` used to paint the collections navigator — statements,
+     org tree, pinned, recent — into #nav. It was already unreachable (REV_TABS is empty), but it
+     stayed a live LANDMINE: ~20 callers still invoke it (favToggleGrp, ctToggle, orgMutated,
+     folderToggle*, navSecToggle…), and every one of them silently wiped whatever rail was up.
+     That is the defect the repo doc warns about under "Never call orgSetGroupBy / orgMutated from
+     a Flux page". With ONE renderer there is nothing to wipe: it now simply repaints the current
+     rail, so all those callers became correct instead of dangerous. Do not give it a body again. */
+  function renderReviewsNav(){ renderRail(navRailFor(activeNav)); }
   /* Favourite-pin wiring, shared by BOTH rails. The pins render in the reviews rail and in the
      modules rail, and a rename or a drag from either has to behave identically — so the handlers
      live here once and re-render through renderNav(), which dispatches to whichever rail is up. */
@@ -4847,6 +4910,7 @@
   function navFwd(){if(NAV_HI<NAV_HIST.length-1){NAV_HI++;navRestore(NAV_HIST[NAV_HI]);}}
   function navPaintArrows(){var b=document.getElementById('navBack'),f=document.getElementById('navFwd');if(b)b.disabled=NAV_HI<=0;if(f)f.disabled=NAV_HI>=NAV_HIST.length-1;}
   function navTo(k){
+    if(typeof kdRouteChange==='function')kdRouteChange();   /* commit + drop any page filter drawer */
     if(k!=='mtrend'&&typeof fluxInspClose==='function'){fluxInspClose();if(typeof closeFluxCfg==='function')closeFluxCfg();}
     if(k!=='mtrend'&&typeof fluxSheetOpen!=='undefined'){fluxSheetOpen=null;document.body.classList.remove('fx-sheet-open');}
     document.body.classList.toggle('flux-view', k==='mtrend');
@@ -5040,14 +5104,20 @@
   }
 
   /* ===== Navigation editor (Settings → Navigation): role×item matrix + live preview ===== */
-  function navPreviewHTML(role){
+  /* The preview is per ROLE **and per RAIL**. It used to call navCfgSections(role) with no rail, so
+     it concatenated every rail into one column — harmless when only Home was configurable, actively
+     misleading now that all eight modules are. It previews what `renderRail` will actually draw. */
+  var NAV_PREVIEW_RAIL=null;
+  function navPreviewRail(){return NAV_PREVIEW_RAIL||navRailFor(activeNav);}
+  function navPreviewHTML(role,rail){
     var h='', any=false;
-    navCfgSections(role).forEach(function(sec){ any=true;
-      h+='<div class="nvp-h">'+esc(sec.label)+'</div>';
-      if(sec.special){ h+='<div class="nvp-dyn">'+({orgtree:'Organization roll-up tree',pinned:'Pinned reviews',recent:'Recent reviews'}[sec.special]||'Dynamic block')+'</div>'; return; }
+    navCfgSections(role,rail||navPreviewRail()).forEach(function(sec){ any=true;
+      if(sec.special==='pagefav'){ h+='<div class="nvp-h">'+esc(sec.label)+'</div><div class="nvp-dyn">Your pinned reviews, entities and pages</div>'; return; }
+      if(sec.special){ h+='<div class="nvp-h">'+esc(sec.label)+'</div><div class="nvp-dyn">Retired block &mdash; no longer rendered</div>'; return; }
       var items=navCfgItems(sec,role);
+      if(sec.head!==false&&sec.label)h+='<div class="nvp-h">'+esc(sec.label)+'</div>';
       if(!items.length){ h+='<div class="nvp-empty">— hidden for this role —</div>'; return; }
-      items.forEach(function(it){ h+='<div class="nvp-item">'+navIcon(it.icon||(it.kind==='url'?'link':'doc'))+'<span>'+esc(it.label)+'</span></div>'; });
+      items.forEach(function(it){ h+='<div class="nvp-item'+(navIsPlanned(it.target)?' nvp-planned':'')+'">'+navIcon(navItemIcon(it,sec))+'<span>'+esc(it.label)+'</span></div>'; });
     });
     return any?h:'<div class="nvp-empty">Nothing is visible for this role.</div>';
   }
@@ -5061,18 +5131,40 @@
     var h='<div class="set-block"><div class="sb-h">Navigation</div><div class="sb-d"><b>Administrator · org-wide.</b> Toggle visibility, assign each item to roles, reorder, rename, and add shortcuts. Everyone in a role sees the same left navigation; changes save automatically. <span class="nv-note">Prototype: open to all here — production restricts editing to Administrators.</span></div>';
     h+='<div class="nv-toolbar"><label class="nv-prev">Preview as&nbsp;<select class="set-sel" data-navpreview><option value="">My role ('+esc(navActiveRole())+')</option>'+NAV_ROLES.map(function(r){return '<option value="'+r+'"'+(NAV_PREVIEW_ROLE===r?' selected':'')+'>'+esc(r)+'</option>';}).join('')+'</select></label><span class="grow"></span><button class="btn nv-addsec">+ Add section</button><button class="btn nv-reset">Reset to default</button></div></div>';
     h+='<div class="nv-split"><div class="set-block nv-editor"><table class="nv-tbl"><thead><tr><th class="nv-th-item">Section / item</th><th>Show</th>'+NAV_ROLES.map(function(r){return '<th class="nv-rc" title="'+esc(r)+'">'+abbr[r]+'</th>';}).join('')+'<th></th></tr></thead><tbody>';
-    NAV_CFG.sections.forEach(function(sec){
-      var spfx='sec:'+sec.id;
-      h+='<tr class="nv-sec-row"><td class="nv-item-cell">'+navEdMoveBtns(spfx)+'<input class="nv-lbl nv-lbl-sec" data-navlabel="'+spfx+'" value="'+esc(sec.label)+'">'+(sec.special?'<span class="nv-kind dyn">dynamic</span>':'')+'</td><td class="nv-rc"><input type="checkbox" data-navvis="'+spfx+'"'+(sec.visible?' checked':'')+'></td>'+navEdRoleCks(sec,spfx)+'<td class="nv-rc">'+(sec.builtin?'':'<button class="nv-del" data-navdel="'+spfx+'" title="Delete section">&times;</button>')+'</td></tr>';
+    /* Grouped BY RAIL (2026-08-10). Every module's rail is now config, so this table went from 8
+       sections to ~13 across 8 rails; ungrouped it read as one undifferentiated list and you could
+       not tell which module a section would appear in. Sections whose rail no longer renders — the
+       retired `reviews` collections navigator — are skipped rather than offered: an editor row that
+       changes nothing on screen is a dead control. */
+    var _railOf={}; NAV_CFG.sections.forEach(function(s){var r=navSecRail(s);(_railOf[r]=_railOf[r]||[]).push(s);});
+    function navEdSectionRows(sec){
+      var spfx='sec:'+sec.id, h2='';
+      /* A section can be MOVED between rails from here — this is what makes the rails genuinely
+         customizable rather than merely editable: an admin can lift Templates out of Flux into
+         Settings, or put a custom section on `*` so it follows the user through every module. */
+      var railSel='<select class="nv-railsel" data-navrail="'+esc(sec.id)+'" title="Which module rail this section appears in">'
+        +NAV_RAILS.map(function(r){return '<option value="'+esc(r.id)+'"'+(navSecRail(sec)===r.id?' selected':'')+'>'+esc(r.label)+'</option>';}).join('')+'</select>';
+      h2+='<tr class="nv-sec-row"><td class="nv-item-cell">'+navEdMoveBtns(spfx)+'<input class="nv-lbl nv-lbl-sec" data-navlabel="'+spfx+'" value="'+esc(sec.label)+'">'+railSel+(sec.special?'<span class="nv-kind dyn">dynamic</span>':'')+(sec.head===false?'<span class="nv-kind">no heading</span>':'')+'</td><td class="nv-rc"><input type="checkbox" data-navvis="'+spfx+'"'+(sec.visible?' checked':'')+'></td>'+navEdRoleCks(sec,spfx)+'<td class="nv-rc">'+(sec.builtin?'':'<button class="nv-del" data-navdel="'+spfx+'" title="Delete section">&times;</button>')+'</td></tr>';
       if(!sec.special){
         (sec.items||[]).forEach(function(it){var ipfx='item:'+sec.id+':'+it.id;
-          h+='<tr class="nv-item-row"><td class="nv-item-cell nv-indent">'+navEdMoveBtns(ipfx)+'<input class="nv-lbl" data-navlabel="'+ipfx+'" value="'+esc(it.label)+'">'+navEdKindTag(it)+'</td><td class="nv-rc"><input type="checkbox" data-navvis="'+ipfx+'"'+(it.visible?' checked':'')+'></td>'+navEdRoleCks(it,ipfx)+'<td class="nv-rc">'+(it.builtin?'':'<button class="nv-del" data-navdel="'+ipfx+'" title="Delete item">&times;</button>')+'</td></tr>';
+          h2+='<tr class="nv-item-row"><td class="nv-item-cell nv-indent">'+navEdMoveBtns(ipfx)+'<input class="nv-lbl" data-navlabel="'+ipfx+'" value="'+esc(it.label)+'">'+navEdKindTag(it)+'</td><td class="nv-rc"><input type="checkbox" data-navvis="'+ipfx+'"'+(it.visible?' checked':'')+'></td>'+navEdRoleCks(it,ipfx)+'<td class="nv-rc">'+(it.builtin?'':'<button class="nv-del" data-navdel="'+ipfx+'" title="Delete item">&times;</button>')+'</td></tr>';
         });
-        h+='<tr class="nv-add-row"><td colspan="'+(NAV_ROLES.length+3)+'"><button class="nv-additem" data-navadditem="'+sec.id+'">+ Add item</button></td></tr>';
+        h2+='<tr class="nv-add-row"><td colspan="'+(NAV_ROLES.length+3)+'"><button class="nv-additem" data-navadditem="'+sec.id+'">+ Add item</button></td></tr>';
       }
+      return h2;
+    }
+    NAV_RAILS.forEach(function(rl){
+      var secs=_railOf[rl.id]||[]; if(!secs.length)return;
+      h+='<tr class="nv-rail-row"><td class="nv-rail-h" colspan="'+(NAV_ROLES.length+3)+'">'+esc(rl.label)
+        +(rl.id==='*'?'<span class="nv-rail-n">shown on every rail</span>':'<span class="nv-rail-n">'+secs.length+' section'+(secs.length===1?'':'s')+'</span>')+'</td></tr>';
+      secs.forEach(function(sec){h+=navEdSectionRows(sec);});
     });
     h+='</tbody></table></div>';
-    h+='<div class="set-block nv-previewpane"><div class="sb-h">Preview &mdash; '+esc(pv)+'</div><div class="nvp">'+navPreviewHTML(pv)+'</div></div></div>';
+    h+='<div class="set-block nv-previewpane"><div class="sb-h">Preview</div>'
+      +'<div class="nvp-pick"><select class="set-sel" data-navpreviewrail>'
+      +NAV_RAILS.filter(function(r){return r.id!=='*';}).map(function(r){return '<option value="'+esc(r.id)+'"'+(navPreviewRail()===r.id?' selected':'')+'>'+esc(r.label)+' rail</option>';}).join('')
+      +'</select><span class="nvp-as">as '+esc(pv)+'</span></div>'
+      +'<div class="nvp">'+navPreviewHTML(pv,navPreviewRail())+'</div></div></div>';
     h+='<div class="set-block nv-addform"><div class="sb-h">Add a shortcut</div><div class="nv-af-grid"><label class="nv-af-f">Label<input class="nv-af-label" placeholder="e.g. Q3 Board pack"></label><label class="nv-af-f">Type<select class="nv-af-kind"><option value="review">Review shortcut</option><option value="url">External link</option></select></label><label class="nv-af-f nv-af-review-w">Review<select class="nv-af-review">'+RP_REVIEWS.map(function(r){return '<option value="'+r.id+'">'+esc(r.name)+'</option>';}).join('')+'</select></label><label class="nv-af-f nv-af-url-w">URL<input class="nv-af-url" placeholder="https://…"></label><label class="nv-af-f">Add to section<select class="nv-af-sec">'+linkSecs.map(function(s){return '<option value="'+s.id+'">'+esc(s.label)+'</option>';}).join('')+'</select></label><button class="btn primary nv-af-add">Add shortcut</button></div></div>';
     return h;
   }
@@ -5080,16 +5172,26 @@
   function navEditorWire(scope,rerender){
     var v=scope||document.getElementById('view'); if(!v)return;
     var rerun=rerender||renderSettings;
-    function rr(){navCfgSave();rerun();}
+    /* Repaint the LIVE rail on every edit, not just on close. The modal is a centred dialog with
+       the rail visible beside it, so an edit that only updated the preview pane read as though the
+       change had not taken — you had to close the editor to find out whether it worked. */
+    function rr(){navCfgSave();if(typeof renderNav==='function')renderNav();rerun();}
     Array.prototype.forEach.call(v.querySelectorAll('[data-navvis]'),function(el){el.onchange=function(){var o=navEdObj(this.getAttribute('data-navvis'));if(o){o.visible=this.checked;rr();}};});
     Array.prototype.forEach.call(v.querySelectorAll('[data-navrole]'),function(el){el.onchange=function(){var a=this.getAttribute('data-navrole').split(':'),role=a.pop(),o=navEdObj(a.join(':'));if(o){navSetRole(o,role,this.checked);rr();}};});
     Array.prototype.forEach.call(v.querySelectorAll('[data-navlabel]'),function(el){el.onchange=function(){var o=navEdObj(this.getAttribute('data-navlabel'));if(o){o.label=(this.value||'').trim()||o.label;rr();}};});
     Array.prototype.forEach.call(v.querySelectorAll('[data-navmove]'),function(el){el.onclick=function(){var a=this.getAttribute('data-navmove').split(':'),dir=+a.pop();if(a[0]==='sec'){navMoveInList(NAV_CFG.sections,navSecIdx(a[1]),dir);}else{var s=navSecById(a[1]);if(s)navMoveInList(s.items,navItemIdx(s,a[2]),dir);}rr();};});
     Array.prototype.forEach.call(v.querySelectorAll('[data-navdel]'),function(el){el.onclick=function(){var a=this.getAttribute('data-navdel').split(':');if(a[0]==='sec'){NAV_CFG.sections=NAV_CFG.sections.filter(function(s){return s.id!==a[1];});}else{var s=navSecById(a[1]);if(s)s.items=(s.items||[]).filter(function(it){return it.id!==a[2];});}rr();};});
     Array.prototype.forEach.call(v.querySelectorAll('[data-navadditem]'),function(el){el.onclick=function(){var s=navSecById(this.getAttribute('data-navadditem'));if(s){s.items=s.items||[];s.items.push({id:navNewId('it'),label:'New link',kind:'url',target:'https://',icon:'link',visible:true,roles:['*'],builtin:false});rr();}};});
-    var addsec=v.querySelector('.nv-addsec');if(addsec)addsec.onclick=function(){NAV_CFG.sections.push({id:navNewId('sec'),label:'New section',visible:true,roles:['*'],builtin:false,items:[]});rr();};
-    var reset=v.querySelector('.nv-reset');if(reset)reset.onclick=function(){navCfgReset();NAV_PREVIEW_ROLE=null;rerun();};
+    /* Moving a section between rails. `renderNav()` on top of the editor's own re-render, because
+       the rail behind the modal may be the one that just gained or lost the section. */
+    Array.prototype.forEach.call(v.querySelectorAll('[data-navrail]'),function(el){el.onchange=function(){
+      var s=navSecById(this.getAttribute('data-navrail')); if(!s)return; s.rail=this.value; navCfgSave(); renderNav(); rerun();};});
+    /* A new section is born on the rail you are previewing — created with no rail it would default
+       to the retired `reviews` rail and appear nowhere, which reads as the button being broken. */
+    var addsec=v.querySelector('.nv-addsec');if(addsec)addsec.onclick=function(){NAV_CFG.sections.push({id:navNewId('sec'),label:'New section',rail:navPreviewRail(),visible:true,roles:['*'],builtin:false,items:[]});rr();};
+    var reset=v.querySelector('.nv-reset');if(reset)reset.onclick=function(){navCfgReset();NAV_PREVIEW_ROLE=null;NAV_PREVIEW_RAIL=null;rerun();};
     var prev=v.querySelector('[data-navpreview]');if(prev)prev.onchange=function(){NAV_PREVIEW_ROLE=this.value||null;rerun();};
+    var prail=v.querySelector('[data-navpreviewrail]');if(prail)prail.onchange=function(){NAV_PREVIEW_RAIL=this.value||null;rerun();};
     var afa=v.querySelector('.nv-af-add');if(afa)afa.onclick=function(){
       var label=((v.querySelector('.nv-af-label')||{}).value||'').trim(), kind=(v.querySelector('.nv-af-kind')||{}).value||'review', secId=(v.querySelector('.nv-af-sec')||{}).value, s=navSecById(secId); if(!s)return;
       var target=kind==='review'?((v.querySelector('.nv-af-review')||{}).value||''):((v.querySelector('.nv-af-url')||{}).value||'').trim();
@@ -6365,35 +6467,86 @@
     function row(lbl,key,cls){return '<tr class="'+(cls||'')+'"><td class="l">'+lbl+'</td>'+a.series.map(function(s){return '<td'+(s.month===ldgMonth?' class="on"':'')+'>'+ldgAmt(s[key])+'</td>';}).join('')+'</tr>';}
     return '<div class="ldg-roll"><table class="ldg-rolltbl">'+head+row('Opening','opening')+row('+ Activity','activity')+row('= Closing','closing','cl')+'</table></div>';
   }
+  var LDG_F={q:'',fs:'All',tie:'all'};   /* Trial Balance population filters — the platform drawer's state */
+  /* Module-level so the drawer registry's count and the render read the SAME live state — a
+     closure captured on first render would count against a stale query. */
+  function ldgPass(r){
+    var q=(LDG_F.q||'').toLowerCase().trim();
+    if(LDG_F.fs!=='All'&&r.fs!==LDG_F.fs)return false;
+    if(LDG_F.tie==='ex'&&Math.abs(r.diff)<0.5)return false;
+    if(q&&(String(r.acct)+' '+r.name).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }
   function renderLedger(){
     var led=glLedger(), m=ldgMonth, T=tbTie(m), exc=ldgExceptions(m), totalAct=0;
     T.forEach(function(r){totalAct+=Math.abs(r.activity);});
+    /* PLATFORM GRAMMAR: header · .fxk KPI card · .fxcb bar (population pills left, search +
+       Filters right) · chips · content card. The month strip stays — it is period context. */
+    var _fsAll=[]; T.forEach(function(r){if(_fsAll.indexOf(r.fs)<0)_fsAll.push(r.fs);});
+    var _fsOpts=[['All','All sections']].concat(FLUX_FS_ORDER.filter(function(fs){return _fsAll.indexOf(fs)>=0;}).map(function(fs){return [fs,fs];}));
+    var _tieOpts=[['all','All accounts'],['ex','Exceptions only']];
+    var Tf=T.filter(ldgPass), _anyLf=!!(LDG_F.q||LDG_F.fs!=='All'||LDG_F.tie!=='all');
+    if(!KD_REGS.ledger)kdReg({id:'ledger',noun:'accounts',ctx:['period'],
+      get:function(){return {f:LDG_F};},
+      set:function(s){if(s.f)LDG_F=s.f;},
+      reset:function(){LDG_F={q:'',fs:'All',tie:'all'};},
+      clear:function(k){if(k==='q')LDG_F.q='';else if(k==='tie')LDG_F.tie='all';else LDG_F.fs='All';},
+      chips:function(){var c=[];if(LDG_F.q)c.push({k:'q',l:'Search',v:'“'+LDG_F.q+'”'});
+        if(LDG_F.fs!=='All')c.push({k:'fs',l:'Section',v:LDG_F.fs});
+        if(LDG_F.tie!=='all')c.push({k:'tie',l:'Tie-out',v:'Exceptions only'});return c;},
+      rows:function(){return {shown:tbTie(ldgMonth).filter(ldgPass).length,total:tbTie(ldgMonth).length};},
+      rerender:function(){renderLedger();},
+      fields:[
+        {k:'fs',label:'Statement section',val:function(){return esc(_regLbl(_fsOpts,LDG_F.fs));},
+          body:function(){return _regOptBtns('data-ldgfs',_fsOpts,LDG_F.fs);}},
+        {k:'tie',label:'Tie-out',val:function(){return esc(_regLbl(_tieOpts,LDG_F.tie));},
+          body:function(){return _regOptBtns('data-ldgtie',_tieOpts,LDG_F.tie);}}
+      ]});
     var h='<div class="kv-hd"><div><div class="k">Monthly close</div><h1>Trial Balance</h1><div class="kv-sub">Each month&rsquo;s GL detail is summed per account and rolled forward: <b>opening + activity = closing = trial balance</b>. Korvyn keeps the running total and verifies it ties to the TB every month.</div></div></div>';
     h+='<div class="ldg-strip">'+led.months.map(function(mm){var ex=ldgExceptions(mm).length;return '<button class="ldg-mo'+(mm===m?' on':'')+'" data-mo="'+mm+'"><span class="ldg-mo-l">'+E_ML[mm]+'</span><span class="ldg-mo-s '+(ex?'ex':'ok')+'" title="'+(ex?ex+' exception':'Ties')+'"></span></button>';}).join('')+'</div>';
-    function k(l,v,cls){return '<div class="ldg-kpi"><div class="lk">'+l+'</div><div class="lv '+(cls||'')+'">'+v+'</div></div>';}
-    h+='<div class="ldg-kpis">'+k('Period',ldgMonthFull(m))+k('Accounts',String(T.length))+k('GL activity','$'+ldgAmt(totalAct))+k('Tie-out',exc.length?(exc.length+' exception'+(exc.length>1?'s':'')):'All accounts tie',exc.length?'ex':'ok')+'</div>';
+    h+=kpiCard([
+      {v:esc(ldgMonthFull(m)),k:'',s:'reporting period',date:true},
+      {v:String(T.length),k:'Accounts',s:'in the trial balance',cls:'fxk-act'},
+      {v:'$'+ldgAmt(totalAct),k:'GL activity',s:'absolute movement'},
+      {v:exc.length?String(exc.length):'&#10003;',k:'Tie-out',s:exc.length?('exception'+(exc.length>1?'s':'')+' GL vs TB'):'all accounts tie',cls:exc.length?'neg':''}
+    ]);
+    h+=kcbBar(
+      fxaPill('',LDG_F.fs==='All'?'Section':esc(LDG_F.fs),'<div class="fxm-h">Statement section</div>'+_regOptBtns('data-ldgfs',_fsOpts,LDG_F.fs),'Statement section')
+      +fxaPill('',LDG_F.tie==='all'?'Tie-out':'Exceptions only','<div class="fxm-h">Tie-out</div>'+_regOptBtns('data-ldgtie',_tieOpts,LDG_F.tie),'Tie-out'),
+      kcbSearch('ldg-q','Search GL account or name&hellip;',LDG_F.q)
+      +kdBtn('ledger',KD_REGS.ledger.chips().length)
+    );
+    h+=kdChipsRow(KD_REGS.ledger);
     h+='<div class="card"><table class="ldg-tbl"><thead><tr><th class="l">Account</th><th>Opening</th><th>+ Activity</th><th>= Closing</th><th>Trial balance</th><th>Diff</th><th class="c">Tie</th></tr></thead><tbody>';
-    var byFs={}; T.forEach(function(r){(byFs[r.fs]=byFs[r.fs]||[]).push(r);});
+    var byFs={}; Tf.forEach(function(r){(byFs[r.fs]=byFs[r.fs]||[]).push(r);});
     var fsOrder=FLUX_FS_ORDER.filter(function(fs){return byFs[fs];}); Object.keys(byFs).forEach(function(fs){if(fsOrder.indexOf(fs)<0)fsOrder.push(fs);});
+    /* The balance-sheet tie asserts the LEDGER, not the view — it always sums every account. */
     var totA=0,totLE=0;
+    T.forEach(function(r){ if(r.type==='Asset')totA+=r.closing; else if(r.type==='Liability'||r.type==='Equity')totLE+=-r.closing; });
+    if(!Tf.length)h+='<tr><td colspan="7" class="l" style="padding:22px;text-align:center;color:var(--faint)">No accounts match these filters.</td></tr>';
     fsOrder.forEach(function(fs){
       var rows=byFs[fs]; if(!rows.length)return; var sc=0;
       h+='<tr class="ldg-grp"><td colspan="7">'+esc(fs)+'</td></tr>';
       rows.forEach(function(r){
         var tie=Math.abs(r.diff)<0.5; sc+=r.closing;
-        if(r.type==='Asset')totA+=r.closing; else if(r.type==='Liability'||r.type==='Equity')totLE+=-r.closing;
         h+='<tr class="ldg-row'+(ldgExpand===r.acct?' op':'')+'" data-acct="'+r.acct+'"><td class="l"><span class="ldg-ex">'+(ldgExpand===r.acct?'&#9662;':'&#9656;')+'</span><span class="ldg-ac">'+r.acct+'</span>'+esc(r.name)+'</td><td>'+ldgAmt(r.opening)+'</td><td>'+ldgAmt(r.activity)+'</td><td class="cl">'+ldgAmt(r.closing)+'</td><td>'+ldgAmt(r.tb)+'</td><td class="df">'+(tie?'<span class="mut">&mdash;</span>':ldgDiffHTML(r.diff))+'</td><td class="c">'+(tie?'<span class="ldg-tie ok">&#10003;</span>':'<span class="ldg-tie ex">!</span>')+'</td></tr>';
         if(ldgExpand===r.acct)h+='<tr class="ldg-detail"><td colspan="7">'+ldgRollHTML(r.acct)+'</td></tr>';
       });
-      h+='<tr class="ldg-sub"><td class="l">'+esc(fs)+' subtotal</td><td></td><td></td><td class="cl">'+ldgAmt(sc)+'</td><td></td><td></td><td></td></tr>';
+      /* A filtered subtotal is a different number than the section's own — say so on the label. */
+      h+='<tr class="ldg-sub"><td class="l">'+esc(fs)+' subtotal'+(_anyLf?' (filtered rows)':'')+'</td><td></td><td></td><td class="cl">'+ldgAmt(sc)+'</td><td></td><td></td><td></td></tr>';
     });
     h+='</tbody></table></div>';
     var bsTie=Math.abs(totA-totLE)<1;
     h+='<div class="per-tie '+(bsTie?'ok':'ex')+'" style="margin-top:14px"><span>'+(bsTie?'<b>Balance sheet ties</b> &mdash; total assets <b>$'+ldgAmt(totA)+'</b> equal total liabilities &amp; equity <b>$'+ldgAmt(totLE)+'</b>.':'<b>Out of balance</b> &mdash; assets $'+ldgAmt(totA)+' vs liabilities &amp; equity $'+ldgAmt(totLE)+'.')+'</span></div>';
     h+='<div class="ldg-note">Each account&rsquo;s GL detail foots to its trial-balance figure and rolls forward month to month, and the balance sheet ties <b>Assets = Liabilities + Equity</b> to the dollar. Cash and retained earnings are carried by the ledger, so nothing sits outside it. The '+(exc.length||'no')+' GL-vs-TB difference'+(exc.length===1?'':'s')+' shown are deliberate reconciling items &mdash; exactly what a review platform exists to catch.</div>';
     $('#view').innerHTML=h;
+    kdAttach('ledger');   /* drawer mounts first, so the handlers below serve bar AND drawer */
     Array.prototype.forEach.call(document.querySelectorAll('#view .ldg-mo'),function(b){b.onclick=function(){setActivePeriod(b.getAttribute('data-mo'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .ldg-row'),function(tr){tr.onclick=function(){var a=tr.getAttribute('data-acct');ldgExpand=(ldgExpand===a?null:a);renderLedger();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-ldgfs]'),function(b){b.onclick=function(){LDG_F.fs=this.getAttribute('data-ldgfs');renderLedger();};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-ldgtie]'),function(b){b.onclick=function(){LDG_F.tie=this.getAttribute('data-ldgtie');renderLedger();};});
+    var _lqi=document.querySelector('#view .ldg-q');
+    if(_lqi)_lqi.oninput=function(){LDG_F.q=this.value;var p=this.selectionStart;renderLedger();var n=document.querySelector('#view .ldg-q');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}};
   }
 
   /* ===== Period-first navigation: folder tree, month workspace, monthly reporting == */
@@ -7606,26 +7759,45 @@
       .concat([{label:'Review Packages'}]));
     h+=rpCloseContextHTML();
     h+='<div class="kv-hd"><div><h1>Review Packages</h1><div class="kv-sub">Each package rolls up its entities, and is group-signed only once its sub-groups are signed.</div></div></div>';
-    /* Same compact summary bar My Reviews and All Reviews use — five oversized KPI cards said the
-       same thing in five times the height, and made two sibling pages look unrelated. */
-    h+='<div class="rp-sumbar"><span class="rp-sb-i"><b>'+tot+'</b> packages '+(mine?'assigned to you':'across the group')+'</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i"><b>'+inrev+'</b> in review</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i"><b>'+signed+' / '+tot+'</b> signed off</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i'+(over?' warn':'')+'"><b>'+over+'</b> overdue</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i'+(needTot?' warn':'')+'"><b>'+needTot+'</b> need explanation</span></div>';
+    /* PLATFORM GRAMMAR: the same one-card .fxk instrument every list page leads with. */
+    h+=kpiCard([
+      {v:String(tot),k:'Packages',s:mine?'assigned to you':'across the group',cls:'fxk-act'},
+      {v:String(inrev),k:'In review',s:'preparer or reviewer stage'},
+      {v:signed+' / '+tot,k:'Signed off',s:'group sign-off complete'},
+      {v:String(over),k:'Overdue',s:'past due date',cls:over?'neg':''},
+      {v:String(needTot),k:'Need explanation',s:'open material lines',cls:needTot?'neg':''}
+    ]);
     var cls=portfolioClusters();
     if(cls.length){ h+='<div class="rvw-det"><div class="rvw-det-h"><span class="rvw-spark">&#10022;</span>Korvyn detected across the portfolio<span class="rvw-det-s">narrated from the ledger &mdash; never a computed conclusion</span></div><div class="rvw-cls">';
       cls.forEach(function(c){ h+='<div class="rvw-cl k-'+c.kind+'" data-clopen="'+(c.pkg||'MGP')+'"'+(c.acct?' data-clacct="'+c.acct+'"':'')+'><div class="rvw-cl-tag">'+c.tag+'</div><div class="rvw-cl-t">'+c.title+'</div><div class="rvw-cl-b">'+c.body+'</div><div class="rvw-cl-go">Review &rarr;</div></div>'; });
       h+='</div></div>'; }
-    /* Local VIEW controls — table filters, deliberately not navigation and never in the sidebar. */
+    /* PLATFORM GRAMMAR: one .fxcb control bar — population (scope) left, presentation + Filters
+       right — replacing the page's own one-off .rvw-vbar dialect. */
     var _colOpts=[['scope','Scope'],['fx','of which FX'],['prep','Preparer'],['rev','Reviewer']];
-    h+='<div class="rvw-vbar"><span class="rvw-vk">View</span>'
-      +'<div class="rvw-seg"><button class="rvw-segb'+(mine?' on':'')+'" data-pkgview="mine">My packages</button>'
-      +'<button class="rvw-segb'+(mine?'':' on')+'" data-pkgview="all">All packages</button></div>'
-      +'<span class="grow"></span>'
-      +'<details class="fxm rvw-colm"><summary class="fxm-sum">Columns</summary><div class="fxm-pop"><div class="fxm-h">Secondary columns</div>'
+    var _pkgColsBody=function(){return '<div class="fxm-h">Secondary columns</div>'
       +_colOpts.map(function(c){return '<button class="fxm-opt rvw-colb" data-pkgcol="'+c[0]+'">'+(RP_PKG_COLS[c[0]]?'&#10003; ':'&nbsp;&nbsp;&nbsp;')+esc(c[1])+'</button>';}).join('')
-      +'<div class="fxm-note2">Hide what you are not using rather than scrolling sideways. The primary variance columns always stay.</div></div></details></div>';
+      +'<div class="fxm-note2">Hide what you are not using rather than scrolling sideways. The primary variance columns always stay.</div>';};
+    if(!KD_REGS.packages)kdReg({id:'packages',noun:'packages',ctx:['period'],
+      get:function(){return {mine:_rvwMine,cols:RP_PKG_COLS};},
+      set:function(s){if(typeof s.mine==='boolean')_rvwMine=s.mine;if(s.cols)RP_PKG_COLS=s.cols;rpPkgColsSave();},
+      reset:function(){},
+      clear:function(k){if(k==='mine')_rvwMine=false;},
+      chips:function(){return _rvwMine?[{k:'mine',l:'Scope',v:'My packages'}]:[];},
+      rows:function(){return {shown:['MGP','AMER','INTL','EMEA','APAC'].filter(function(id){return _rvwMine?pkgMine(id):true;}).length,total:5};},
+      rerender:function(){renderReviewPackages(_rvwMine);},
+      fields:[
+        {k:'mine',label:'Scope',val:function(){return _rvwMine?'My packages':'All packages';},
+          body:function(){return _regOptBtns('data-pkgview',[['mine','My packages'],['all','All packages']],_rvwMine?'mine':'all');}},
+        {k:'cols',label:'Columns',tier:'pres',
+          val:function(){var n=_colOpts.filter(function(c){return RP_PKG_COLS[c[0]];}).length;return n+' of '+_colOpts.length+' secondary columns';},
+          body:_pkgColsBody}
+      ]});
+    h+=kcbBar(
+      kcbSeg('data-pkgview',[['mine','My packages'],['all','All packages']],mine?'mine':'all'),
+      '<details class="fxm fxcb-m"><summary class="fxm-sum"><span class="fxm-cur">Columns</span></summary><div class="fxm-pop fxm-pop-w fxm-pop-r">'+_pkgColsBody()+'</div></details>'
+      +kdBtn('packages',KD_REGS.packages.chips().length)
+    );
+    h+=kdChipsRow(KD_REGS.packages);
     var _hcls=_colOpts.filter(function(c){return !RP_PKG_COLS[c[0]];}).map(function(c){return 'h-'+c[0];}).join(' ');
     h+='<div class="card rvw-card"><div class="rvw-scroll"><table class="rvw-tbl'+(_hcls?' '+_hcls:'')+'"><thead><tr><th class="l">Review package</th><th class="l">Scope</th><th>Total assets &Delta;</th><th>of which FX</th><th>Material</th><th>Needs expl.</th><th class="l">Preparer</th><th class="l">Reviewer</th><th class="l">Due</th><th class="l">Sign-off</th><th class="l">Actions</th></tr></thead><tbody>';
     if(!rows.length)h+='<tr><td colspan="11" class="rvw-empty">No review packages assigned to you.</td></tr>';
@@ -7651,6 +7823,7 @@
     h+='</tbody></table></div></div>';
     h+='<div class="ldg-note">'+CONS_GROUPS.length+' groups over '+E_ENT.length+' reporting entities (~1,000 subsidiaries). <b>Component materiality</b>: the threshold scales with each group&rsquo;s size, so a move immaterial to the group can still be material inside a sub-consolidation. A parent is <b>group-signed only after its sub-groups are signed</b>.</div>';
     $('#view').innerHTML=h;
+    kdAttach('packages');   /* drawer mounts first, so the handlers below serve bar AND drawer */
     Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-row'),function(r){r.onclick=function(){pkgOpen(this.getAttribute('data-pkg'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-sign'),function(b){b.onclick=function(e){e.stopPropagation();pkgAdvance(this.getAttribute('data-pkg'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rvw-cl'),function(c){c.onclick=function(){var acct=this.getAttribute('data-clacct');if(acct)fluxFind=acct;pkgOpen(this.getAttribute('data-clopen'));};});
@@ -7680,6 +7853,17 @@
   var RP_REG_COLS={pkg:true,prep:true,rev:true,last:true};
   try{var _rg0=localStorage.getItem('korvyn.reg.cols.v1');if(_rg0){var _rgp=JSON.parse(_rg0);if(_rgp)RP_REG_COLS=_rgp;}}catch(e){}
   function rpRegSave(){try{localStorage.setItem('korvyn.reg.cols.v1',JSON.stringify(RP_REG_COLS));}catch(e){}}
+  /* Option lists shared by the bar pills AND the Filters drawer fields — one source, two surfaces,
+     one data attribute each, so a single handler serves both and they cannot disagree. */
+  var RP_REG_CHIPDEFS=[['all','All'],['inprog','In progress'],['needs','Needs explanation'],['ready','Ready for review'],['overdue','Overdue'],['done','Completed']];
+  var RP_REG_SCOPES=[['all','All'],['mine','My reviews'],['pkg','My packages']];
+  var RP_REG_COLDEFS=[['pkg','Package'],['prep','Preparer'],['rev','Reviewer'],['last','Last activity']];
+  function _regLbl(list,v){var l=v;list.forEach(function(o){if(o[0]===v)l=o[1];});return l;}
+  function _regOptBtns(attr,opts,cur){return opts.map(function(o){return fxaOpt(attr,o[0],esc(o[1]),cur===o[0]);}).join('');}
+  function _regPkgs(){var a=[];RP_REVIEWS.forEach(function(r){var n=rpRegPkg(r);if(a.indexOf(n)<0)a.push(n);});return a.sort();}
+  function _regAreas(){var a=[];RP_REVIEWS.forEach(function(r){var n=rpRegArea(r);if(a.indexOf(n)<0)a.push(n);});return a.sort();}
+  function _regColsBody(){return '<div class="fxm-h">Optional columns</div>'
+    +RP_REG_COLDEFS.map(function(c){return '<button class="fxm-opt rp-regcol" data-regcol="'+c[0]+'">'+(RP_REG_COLS[c[0]]?'&#10003; ':'&nbsp;&nbsp;&nbsp;')+esc(c[1])+'</button>';}).join('');}
   function rpRegMine(r){return r.rev===CUR_USER.init||rpInit(r.owner)===CUR_USER.init;}
   function rpRegDue(r){var s=(typeof REVIEW_PKG_STATE!=='undefined')&&REVIEW_PKG_STATE[r.cons];return (s&&s.due)||'';}
   function rpRegOverdue(r){return (typeof pkgOverdue==='function')?!!pkgOverdue(r.cons):false;}
@@ -7716,29 +7900,58 @@
     h+=rpCloseContextHTML();
     h+='<div class="kv-hd"><div><h1>'+(mine?'My Reviews':'All Reviews')+'</h1><div class="kv-sub">'
       +(mine?'Reviews requiring your preparation, review, approval, or follow-up.':'Every financial review across periods, entities, packages and teams.')+'</div></div></div>';
-    /* compact summary line rather than a wall of KPI cards */
-    h+='<div class="rp-sumbar"><span class="rp-sb-i"><b>'+all.length+'</b> reviews</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i'+(cnt.needs?' warn':'')+'"><b>'+cnt.needs+'</b> need explanation</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i"><b>'+cnt.ready+'</b> ready for review</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i'+(cnt.overdue?' warn':'')+'"><b>'+cnt.overdue+'</b> overdue</span><span class="rp-sb-sep"></span>'
-      +'<span class="rp-sb-i"><b>'+cnt.done+'</b> completed</span></div>';
-    var chips=[['all','All',cnt.all],['inprog','In progress',cnt.inprog],['needs','Needs explanation',cnt.needs],['ready','Ready for review',cnt.ready],['overdue','Overdue',cnt.overdue],['done','Completed',cnt.done]];
-    h+='<div class="rp-chips">'+chips.map(function(c){return '<button class="rp-chip'+(RP_REG.chip===c[0]?' on':'')+'" data-regchip="'+c[0]+'">'+esc(c[1])+'<span class="rp-chip-n">'+c[2]+'</span></button>';}).join('')+'</div>';
-    /* Scope is a FILTER on All Reviews — deliberately not a navigation item. */
-    var scopes=[['all','All'],['mine','My reviews'],['pkg','My packages']];
-    var pkgs=[]; RP_REVIEWS.forEach(function(r){var n=rpRegPkg(r);if(pkgs.indexOf(n)<0)pkgs.push(n);}); pkgs.sort();
-    var areas=[]; RP_REVIEWS.forEach(function(r){var n=rpRegArea(r);if(areas.indexOf(n)<0)areas.push(n);}); areas.sort();
-    function sel(k,label,list){return '<label class="rp-fsel"><span>'+label+'</span><select class="rp-regf" data-regf="'+k+'"><option value="All">All</option>'+list.map(function(o){return '<option value="'+esc(o)+'"'+(RP_REG[k]===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select></label>';}
-    h+='<div class="rp-filt">'
-      +'<span class="rp-fsearch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="rp-regq" placeholder="Search reviews, packages, owners&hellip;" value="'+esc(RP_REG.q)+'"></span>'
-      +(mine?'':'<span class="rp-scopeseg">'+scopes.map(function(s){return '<button class="rvw-segb'+(RP_REG.scope===s[0]?' on':'')+'" data-regscope="'+s[0]+'">'+esc(s[1])+'</button>';}).join('')+'</span>')
-      +sel('cons','Package',pkgs)+sel('area','Area',areas)
-      +'<span class="rp-fcount">'+rows.length+' of '+all.length+'</span>'
-      +((RP_REG.q||RP_REG.chip!=='all'||RP_REG.cons!=='All'||RP_REG.area!=='All'||RP_REG.scope!=='all')?'<button class="rp-regclr">Clear</button>':'')
-      +'<span class="grow"></span>'
-      +'<details class="fxm rvw-colm"><summary class="fxm-sum">Columns</summary><div class="fxm-pop"><div class="fxm-h">Optional columns</div>'
-      +[['pkg','Package'],['prep','Preparer'],['rev','Reviewer'],['last','Last activity']].map(function(c){return '<button class="fxm-opt rp-regcol" data-regcol="'+c[0]+'">'+(RP_REG_COLS[c[0]]?'&#10003; ':'&nbsp;&nbsp;&nbsp;')+esc(c[1])+'</button>';}).join('')
-      +'</div></details></div>';
+    /* PLATFORM GRAMMAR: one .fxk KPI card, one .fxcb control bar (population left, tools +
+       Filters right), the chips row, then the content card. Same shape as the flux review. */
+    /* ctx:['period'] — the one global dimension this page reads. Its CONTROL stays in the
+       close-context bar above (its documented home); the drawer lists it so the Context tier means
+       the same thing on every page, and so a reviewer can see the period without leaving the panel. */
+    if(!KD_REGS.register)kdReg({id:'register',noun:'reviews',ctx:['period'],
+      get:function(){return {f:RP_REG,cols:RP_REG_COLS};},
+      set:function(s){if(s.f)RP_REG=s.f;if(s.cols)RP_REG_COLS=s.cols;rpRegSave();},
+      reset:function(){RP_REG={q:'',chip:'all',scope:'all',cons:'All',area:'All'};},
+      clear:function(k){if(k==='q')RP_REG.q='';else if(k==='chip')RP_REG.chip='all';else if(k==='scope')RP_REG.scope='all';else RP_REG[k]='All';},
+      chips:function(){var c=[];if(RP_REG.q)c.push({k:'q',l:'Search',v:'“'+RP_REG.q+'”'});
+        if(RP_REG.chip!=='all')c.push({k:'chip',l:'Status',v:_regLbl(RP_REG_CHIPDEFS,RP_REG.chip)});
+        if(!_rvwMine&&RP_REG.scope!=='all')c.push({k:'scope',l:'Scope',v:_regLbl(RP_REG_SCOPES,RP_REG.scope)});
+        if(RP_REG.cons!=='All')c.push({k:'cons',l:'Package',v:RP_REG.cons});
+        if(RP_REG.area!=='All')c.push({k:'area',l:'Area',v:RP_REG.area});return c;},
+      rows:function(){return {shown:rpRegRows(_rvwMine).length,total:RP_REVIEWS.filter(function(r){return _rvwMine?rpRegMine(r):true;}).length};},
+      rerender:function(){renderReviewRegister(_rvwMine);},
+      fields:[
+        {k:'chip',label:'Status',val:function(){return esc(_regLbl(RP_REG_CHIPDEFS,RP_REG.chip));},
+          body:function(){return _regOptBtns('data-regchip',RP_REG_CHIPDEFS,RP_REG.chip);}},
+        {k:'scope',label:'Scope',when:function(){return !_rvwMine;},
+          val:function(){return esc(_regLbl(RP_REG_SCOPES,RP_REG.scope));},
+          body:function(){return _regOptBtns('data-regscope',RP_REG_SCOPES,RP_REG.scope);}},
+        {k:'cons',label:'Review package',val:function(){return esc(RP_REG.cons);},
+          body:function(){return _regOptBtns('data-regcons',[['All','All']].concat(_regPkgs().map(function(p){return [p,p];})),RP_REG.cons);}},
+        {k:'area',label:'Statement area',val:function(){return esc(RP_REG.area);},
+          body:function(){return _regOptBtns('data-regarea',[['All','All']].concat(_regAreas().map(function(p){return [p,p];})),RP_REG.area);}},
+        {k:'cols',label:'Columns',tier:'pres',
+          val:function(){var n=RP_REG_COLDEFS.filter(function(c){return RP_REG_COLS[c[0]];}).length;return n+' of '+RP_REG_COLDEFS.length+' optional columns';},
+          body:_regColsBody}
+      ]});
+    h+=kpiCard([
+      {v:String(all.length),k:'Reviews',s:(mine?'assigned to you':'across the period')+' · '+cnt.done+' completed',cls:'fxk-act'},
+      {v:String(cnt.inprog),k:'In progress',s:'being worked'},
+      {v:String(cnt.needs),k:'Need explanation',s:'awaiting preparers',cls:cnt.needs?'neg':''},
+      {v:String(cnt.ready),k:'Ready for review',s:'awaiting reviewers'},
+      {v:String(cnt.overdue),k:'Overdue',s:'past package due date',cls:cnt.overdue?'neg':''}
+    ]);
+    var _reg=KD_REGS.register;
+    h+=kcbBar(
+      /* Pills carry their NAME as the value while at default ("Status", "Package") and the
+         selection once one is made — the .fxcb-l labels hide below 1640px, and three bare "All"
+         pills say nothing. The chips row below always states any non-default selection in full. */
+      (mine?'':kcbSeg('data-regscope',RP_REG_SCOPES,RP_REG.scope))
+      +fxaPill('',RP_REG.chip==='all'?'Status':esc(_regLbl(RP_REG_CHIPDEFS,RP_REG.chip)),'<div class="fxm-h">Review status</div>'+_regOptBtns('data-regchip',RP_REG_CHIPDEFS,RP_REG.chip),'Review status')
+      +fxaPill('',RP_REG.cons==='All'?'Package':esc(RP_REG.cons),'<div class="fxm-h">Review package</div>'+_regOptBtns('data-regcons',[['All','All']].concat(_regPkgs().map(function(p){return [p,p];})),RP_REG.cons),'Review package')
+      +fxaPill('',RP_REG.area==='All'?'Area':esc(RP_REG.area),'<div class="fxm-h">Statement area</div>'+_regOptBtns('data-regarea',[['All','All']].concat(_regAreas().map(function(p){return [p,p];})),RP_REG.area),'Statement area'),
+      kcbSearch('rp-regq','Search reviews, packages, owners&hellip;',RP_REG.q)
+      +'<details class="fxm fxcb-m"><summary class="fxm-sum"><span class="fxm-cur">Columns</span></summary><div class="fxm-pop fxm-pop-w fxm-pop-r">'+_regColsBody()+'</div></details>'
+      +kdBtn('register',_reg.chips().length)
+    );
+    h+=kdChipsRow(_reg);
     var hc=[['pkg',5],['prep',6],['rev',7],['last',10]].filter(function(c){return !RP_REG_COLS[c[0]];}).map(function(c){return 'rh-'+c[0];}).join(' ');
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl rp-regtbl'+(hc?' '+hc:'')+'"><thead><tr>'
       +'<th class="l">Review</th><th class="l">Period</th><th class="l">Entity / group</th><th class="l">Area</th><th class="l">Package</th>'
@@ -7762,12 +7975,15 @@
     h+='<div class="ldg-note">'+(mine?'Your actionable queue &mdash; reviews where you are preparer or reviewer. ':'The enterprise register &mdash; every review in the period. ')
       +'Scope, status and package are <b>filters on one dataset</b>, not separate pages: My Reviews is this same table pre-scoped to you. Due dates come from the owning review package; a review is overdue when its package is.</div>';
     $('#view').innerHTML=h;
+    /* Drawer mounts into #view BEFORE the handlers below are wired, so one handler set serves the
+       same data-attribute controls on the bar and in the drawer. */
+    kdAttach('register');
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-regopen]'),function(t){t.onclick=function(){rpOpenReview(this.getAttribute('data-regopen'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-regchip]'),function(b){b.onclick=function(){RP_REG.chip=this.getAttribute('data-regchip');renderReviewRegister(mine);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-regscope]'),function(b){b.onclick=function(){RP_REG.scope=this.getAttribute('data-regscope');renderReviewRegister(mine);};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-regf'),function(s){s.onchange=function(){RP_REG[this.getAttribute('data-regf')]=this.value;renderReviewRegister(mine);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-regcons]'),function(b){b.onclick=function(){RP_REG.cons=this.getAttribute('data-regcons');renderReviewRegister(mine);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-regarea]'),function(b){b.onclick=function(){RP_REG.area=this.getAttribute('data-regarea');renderReviewRegister(mine);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-regcol'),function(b){b.onclick=function(e){e.stopPropagation();var k=this.getAttribute('data-regcol');RP_REG_COLS[k]=!RP_REG_COLS[k];rpRegSave();renderReviewRegister(mine);};});
-    var cl=document.querySelector('#view .rp-regclr');if(cl)cl.onclick=function(){RP_REG={q:'',chip:'all',scope:'all',cons:'All',area:'All'};renderReviewRegister(mine);};
     var qi=document.querySelector('#view .rp-regq');
     if(qi)qi.oninput=function(){RP_REG.q=this.value;var p=this.selectionStart;renderReviewRegister(mine);var n=document.querySelector('#view .rp-regq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}};
     rpCtxPerWire(function(){renderReviewRegister(mine);});
@@ -8061,8 +8277,9 @@
   /* Overview and Close Periods share this renderer but are DIFFERENT pages: Overview leads with the
      current close and what needs you; Close Periods is the historical directory. They used to print
      the same crumb and the same H1, which made two nav items look like one page. */
+  var _kdPerMode;   /* which entrance rendered last (undefined = Overview, 'periods' = Close Periods) — so filter re-renders keep the page's own crumb and title */
   function renderClosePeriods(mode){
-    RP_PERIOD_SEL=null;
+    RP_PERIOD_SEL=null; _kdPerMode=mode;
     var arch=(mode==='periods');
     if(arch)RP_ARCHIVE_OPEN=true;
     var h=rpCrumb([{label:'Flux Analysis',go:'frperiods'},{label:arch?'Close Periods':'Overview'}]);
@@ -8087,21 +8304,47 @@
       var _nb0=document.querySelector('#view .rp-newperiod'); if(_nb0)_nb0.onclick=rpNewPeriodOpen;
       return;
     }
+    /* PLATFORM GRAMMAR: one .fxcb control bar (population pills left, search + presentation +
+       Filters right), the chips row, then the directory card — the same shape as every list page. */
     var _years=rpDistinct(rpPeriodYear).sort().reverse(), _statuses=rpDistinct(function(p){return p.status;}), _types=rpDistinct(function(p){return p.type;});
-    function fsel(f,label,opts){return '<label class="rp-fsel"><span>'+label+'</span><select class="rp-pf" data-f="'+f+'"><option value="All">All</option>'+opts.map(function(o){return '<option value="'+esc(o)+'"'+(RP_PFILTER[f]===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select></label>';}
-    function tfSel(){
-      var r=RP_PFILTER.range||'l12';
-      function opt(v,l){return '<option value="'+v+'"'+(r===v?' selected':'')+'>'+esc(l)+'</option>';}
-      var ys='';_years.forEach(function(y){ys+=opt('y'+y,y);});
-      return '<label class="rp-fsel"><span>Timeframe</span><select class="rp-pf" data-f="range">'+
-        '<optgroup label="Rolling">'+opt('l3','Last 3 months')+opt('l6','Last 6 months')+opt('l12','Last 12 months')+opt('ytd','Year to date')+'</optgroup>'+
-        '<optgroup label="By year">'+ys+'</optgroup>'+
-        '<optgroup label="&nbsp;">'+opt('all','All time')+'</optgroup>'+
-        '</select></label>';
-    }
-    var _shown=rpPeriodsFiltered().length, _total=RP_CLOSE_PERIODS.length, _anyF=RP_PFILTER.q||RP_PFILTER.status!=='All'||RP_PFILTER.range!=='l12'||RP_PFILTER.type!=='All';
-    h+='<div class="rp-filt"><span class="rp-fsearch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="rp-pfind" placeholder="Search by month or year&hellip;" value="'+esc(RP_PFILTER.q)+'"></span>'+tfSel()+fsel('status','Status',_statuses)+fsel('type','Type',_types)+'<span class="rp-fcount">'+_shown+' of '+_total+'</span>'+(_anyF?'<button class="rp-fclear">Clear</button>':'')+'</div>';
-    h+='<div class="rp-gbbar"><span class="rp-gb-l">Group by</span>'+[['none','None'],['year','Year'],['type','Type'],['status','Status']].map(function(o){return '<button class="rp-gb-b'+(RP_PERIOD_GROUP===o[0]?' on':'')+'" data-gb="'+o[0]+'">'+o[1]+'</button>';}).join('')+'<span class="rp-gb-l" style="margin-left:auto">Order</span>'+[['desc','Newest first'],['asc','Oldest first']].map(function(o){return '<button class="rp-gb-b'+(RP_PORDER===o[0]?' on':'')+'" data-ord="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>';
+    var _tfOpts=[['l3','Last 3 months'],['l6','Last 6 months'],['l12','Last 12 months'],['ytd','Year to date']]
+      .concat(_years.map(function(y){return ['y'+y,String(y)];})).concat([['all','All time']]);
+    var _grpOpts=[['none','None'],['year','Year'],['type','Type'],['status','Status']];
+    var _ordOpts=[['desc','Newest first'],['asc','Oldest first']];
+    if(!KD_REGS.periods)kdReg({id:'periods',noun:'periods',ctx:['period'],
+      get:function(){return {f:RP_PFILTER,grp:RP_PERIOD_GROUP,ord:RP_PORDER};},
+      set:function(s){if(s.f)RP_PFILTER=s.f;if(s.grp)RP_PERIOD_GROUP=s.grp;if(s.ord)RP_PORDER=s.ord;},
+      reset:function(){RP_PFILTER={q:'',status:'All',range:'l12',type:'All'};},
+      clear:function(k){if(k==='q')RP_PFILTER.q='';else if(k==='range')RP_PFILTER.range='l12';else RP_PFILTER[k]='All';},
+      chips:function(){var c=[];if(RP_PFILTER.q)c.push({k:'q',l:'Search',v:'“'+RP_PFILTER.q+'”'});
+        if(RP_PFILTER.range!=='l12')c.push({k:'range',l:'Timeframe',v:_regLbl(_tfOpts,RP_PFILTER.range)});
+        if(RP_PFILTER.status!=='All')c.push({k:'status',l:'Status',v:RP_PFILTER.status});
+        if(RP_PFILTER.type!=='All')c.push({k:'type',l:'Type',v:RP_PFILTER.type});return c;},
+      rows:function(){return {shown:rpPeriodsFiltered().length,total:RP_CLOSE_PERIODS.length};},
+      rerender:function(){renderClosePeriods(_kdPerMode);},
+      fields:[
+        {k:'range',label:'Timeframe',val:function(){return esc(_regLbl(_tfOpts,RP_PFILTER.range||'l12'));},
+          body:function(){return _regOptBtns('data-pfrange',_tfOpts,RP_PFILTER.range||'l12');}},
+        {k:'status',label:'Status',val:function(){return esc(RP_PFILTER.status);},
+          body:function(){return _regOptBtns('data-pfstatus',[['All','All']].concat(_statuses.map(function(s){return [s,s];})),RP_PFILTER.status);}},
+        {k:'type',label:'Type',val:function(){return esc(RP_PFILTER.type);},
+          body:function(){return _regOptBtns('data-pftype',[['All','All']].concat(_types.map(function(s){return [s,s];})),RP_PFILTER.type);}},
+        {k:'grp',label:'Group rows by',tier:'pres',val:function(){return esc(_regLbl(_grpOpts,RP_PERIOD_GROUP));},
+          body:function(){return _regOptBtns('data-gb',_grpOpts,RP_PERIOD_GROUP);}},
+        {k:'ord',label:'Order',tier:'pres',val:function(){return esc(_regLbl(_ordOpts,RP_PORDER));},
+          body:function(){return _regOptBtns('data-ord',_ordOpts,RP_PORDER);}}
+      ]});
+    var _perReg=KD_REGS.periods;
+    h+=kcbBar(
+      fxaPill('',esc(_regLbl(_tfOpts,RP_PFILTER.range||'l12')),'<div class="fxm-h">Timeframe</div>'+_regOptBtns('data-pfrange',_tfOpts,RP_PFILTER.range||'l12'),'Timeframe')
+      +fxaPill('',RP_PFILTER.status==='All'?'Status':esc(RP_PFILTER.status),'<div class="fxm-h">Period status</div>'+_regOptBtns('data-pfstatus',[['All','All']].concat(_statuses.map(function(s){return [s,s];})),RP_PFILTER.status),'Period status')
+      +fxaPill('',RP_PFILTER.type==='All'?'Type':esc(RP_PFILTER.type),'<div class="fxm-h">Period type</div>'+_regOptBtns('data-pftype',[['All','All']].concat(_types.map(function(s){return [s,s];})),RP_PFILTER.type),'Period type'),
+      kcbSearch('rp-pfind','Search by month or year&hellip;',RP_PFILTER.q)
+      +fxaPill('',RP_PERIOD_GROUP==='none'?'Group by':esc('By '+_regLbl(_grpOpts,RP_PERIOD_GROUP).toLowerCase()),'<div class="fxm-h">Group rows by</div>'+_regOptBtns('data-gb',_grpOpts,RP_PERIOD_GROUP),'Group rows by')
+      +fxaPill('',esc(_regLbl(_ordOpts,RP_PORDER)),'<div class="fxm-h">Order</div>'+_regOptBtns('data-ord',_ordOpts,RP_PORDER),'Sort order')
+      +kdBtn('periods',_perReg.chips().length)
+    );
+    h+=kdChipsRow(_perReg);
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl"><thead><tr><th class="l">Period</th><th class="l">Status</th><th>Reviews</th><th>Completion</th><th>Open expl.</th><th>Ready</th><th class="l">Owner</th><th class="l">Last activity</th></tr></thead><tbody>';
     function pRow(p){var pct=p.reviews?Math.round(p.done/p.reviews*100):0;
       var lk=rpPeriodLocked(p);
@@ -8134,11 +8377,13 @@
     $('#view').innerHTML=h;
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-row'),function(r){r.onclick=function(e){if(e.target.closest('.rp-plock2'))return;rpEnterFluxForPeriod(this.getAttribute('data-pid'));};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-plock2'),function(b){b.onclick=function(e){e.stopPropagation();rpToggleLock(this.getAttribute('data-pid'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-gb-b'),function(b){b.onclick=function(){var o=this.getAttribute('data-ord');if(o){RP_PORDER=o;}else{RP_PERIOD_GROUP=this.getAttribute('data-gb');}renderClosePeriods();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-grp-row'),function(r){r.onclick=function(){var k=this.getAttribute('data-grp');RP_GRP_COLLAPSED[k]=!RP_GRP_COLLAPSED[k];renderClosePeriods();};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-pf'),function(s){s.onchange=function(){RP_PFILTER[this.getAttribute('data-f')]=this.value;renderClosePeriods();};});
-    var pfind=document.querySelector('#view .rp-pfind');if(pfind)pfind.oninput=function(){RP_PFILTER.q=this.value;var pos=this.selectionStart;renderClosePeriods();var n=document.querySelector('#view .rp-pfind');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
-    var pclr=document.querySelector('#view .rp-fclear');if(pclr)pclr.onclick=function(){RP_PFILTER={q:'',status:'All',range:'l12',type:'All'};renderClosePeriods();};
+    kdAttach('periods');   /* drawer mounts first, so the handlers below serve bar AND drawer */
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-gb],#view [data-ord]'),function(b){b.onclick=function(){var o=this.getAttribute('data-ord');if(o){RP_PORDER=o;}else{RP_PERIOD_GROUP=this.getAttribute('data-gb');}renderClosePeriods(_kdPerMode);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view .rp-grp-row'),function(r){r.onclick=function(){var k=this.getAttribute('data-grp');RP_GRP_COLLAPSED[k]=!RP_GRP_COLLAPSED[k];renderClosePeriods(_kdPerMode);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-pfrange]'),function(b){b.onclick=function(){RP_PFILTER.range=this.getAttribute('data-pfrange');renderClosePeriods(_kdPerMode);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-pfstatus]'),function(b){b.onclick=function(){RP_PFILTER.status=this.getAttribute('data-pfstatus');renderClosePeriods(_kdPerMode);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-pftype]'),function(b){b.onclick=function(){RP_PFILTER.type=this.getAttribute('data-pftype');renderClosePeriods(_kdPerMode);};});
+    var pfind=document.querySelector('#view .rp-pfind');if(pfind)pfind.oninput=function(){RP_PFILTER.q=this.value;var pos=this.selectionStart;renderClosePeriods(_kdPerMode);var n=document.querySelector('#view .rp-pfind');if(n){n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}}};
     var nb=document.querySelector('#view .rp-newperiod');if(nb)nb.onclick=rpNewPeriodOpen;
     rpOverviewWire();
     var _ah=document.getElementById('rpArchH');if(_ah)_ah.onclick=function(){RP_ARCHIVE_OPEN=!RP_ARCHIVE_OPEN;renderClosePeriods();};
@@ -8206,8 +8451,51 @@
      workflow: same header pattern, same control bar, same table chrome, same entity scope, and a
      one-click hand-off between them carrying the line you are looking at. */
   var FXA_ENT='MGP';                 /* consolidation scope shared by both analyses */
+  /* Platform Filters drawer registries for the two lenses. Fields reuse the SAME data attributes
+     the bar pills carry (data-fxawin / -rank / -mat / -basis), so fxaWire's one handler set serves
+     both surfaces and they cannot disagree. Statement and Entity are NOT here any more — they are
+     global context, declared on the registry as `ctx` and rendered by the shared Context tier. */
+  var FXA_STMT_OPTS=[['bs','Balance Sheet'],['is','Income Statement']];
+  function fxaEntOpts(){return ['MGP','AMER','INTL','EMEA','APAC'].filter(function(id){return !!CONS_BY_ID[id];}).map(function(id){return [id,CONS_BY_ID[id].name];});}
+  function fxaRegInit(){
+    if(KD_REGS.trending)return;
+    var winOpts=[[3,'Last 3 periods'],[6,'Last 6 periods'],[12,'Last 12 periods']];
+    var rankOpts=[['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']];
+    kdReg({id:'trending',noun:'lines',ctx:['period','entity','statement'],
+      /* A saved view stores the page's own controls only — never the global context. Restoring a
+         view must not silently move you to another entity or period; that is the same rule review
+         sets follow, for the same reason. */
+      get:function(){return {win:FXA_WIN,rank:FXA_RANK};},
+      set:function(s){if(s.win)FXA_WIN=s.win;if(s.rank)FXA_RANK=s.rank;},
+      reset:function(){FXA_WIN=6;FXA_RANK='move';},
+      clear:function(k){if(k==='win')FXA_WIN=6;else if(k==='rank')FXA_RANK='move';},
+      chips:function(){var c=[];
+        if(FXA_WIN!==6)c.push({k:'win',l:'Window',v:_regLbl(winOpts,FXA_WIN)});
+        if(FXA_RANK!=='move')c.push({k:'rank',l:'Rank by',v:_regLbl(rankOpts,FXA_RANK)});return c;},
+      rerender:function(){renderTrending();},
+      fields:([
+        {k:'win',label:'Trend window',val:function(){return esc(_regLbl(winOpts,FXA_WIN));},
+          body:function(){return _regOptBtns('data-fxawin',winOpts,FXA_WIN);}},
+        {k:'rank',label:'Rank by',tier:'pres',val:function(){return esc(_regLbl(rankOpts,FXA_RANK));},
+          body:function(){return _regOptBtns('data-fxarank',rankOpts,FXA_RANK);}}
+      ])});
+    /* Variance's Basis and Materiality ARE global context (RP_COMPARE / fluxMat), so they are
+       declared as ctx rather than page fields — the review and this lens now read one threshold. */
+    kdReg({id:'variance',noun:'lines',ctx:['period','entity','statement','basis','materiality'],
+      get:function(){return {};}, set:function(){}, reset:function(){}, clear:function(){},
+      chips:function(){return [];},
+      rerender:function(){renderVariance();},
+      fields:[]});
+  }
   var FXA_FOCUS=null;                /* a line carried across from the other lens */
-  function fxaApplyScope(){var n=CONS_BY_ID[FXA_ENT];if(n&&typeof nodeToScope==='function')fluxScope=nodeToScope(n);}
+  /* (2026-08-10) This used to be the ONLY link between the two scope variables, and it ran one way:
+     FXA_ENT → fluxScope, unconditionally. So it also OVERWROTE a review's scope on every analytics
+     render. `kctxSyncFromReview()` now runs first and pulls FXA_ENT from the canonical fluxScope, so
+     this only re-applies what the context already agrees on — and a custom entity set made in a
+     review (which no cons id can express) survives instead of being flattened to Consolidated. */
+  function fxaApplyScope(){
+    if(kctxEntityId()===null)return;   /* custom set / single entity — fluxScope is already right */
+    var n=CONS_BY_ID[FXA_ENT];if(n&&typeof nodeToScope==='function')fluxScope=nodeToScope(n);}
   function fxaEntBar(){
     var ids=['MGP','AMER','INTL','EMEA','APAC'].filter(function(id){return !!CONS_BY_ID[id];});
     return '<span class="rp-gb-l" style="margin-left:18px">Entity</span><select class="rp-gb-sel" id="fxaEnt">'
@@ -8255,12 +8543,18 @@
         ? '<div class="fxk-c fxk-c-date"><div class="fxk-dv">'+k.v+'</div><div class="fxk-s">'+(k.s||'')+'</div></div>'
         : '<div class="fxk-c"><div class="fxk-v '+(k.cls||'')+'">'+k.v+'</div>'
           +'<div class="fxk-x"><div class="fxk-k">'+k.k+'</div><div class="fxk-s">'+(k.s||'')+'</div></div></div>';}).join('')+'</div>';
+    /* The bar LEADS with the global context cluster, in the platform's fixed order, then the
+       page's own controls. Statement and Entity used to be rendered here as page-local controls
+       writing FXA_STMT / FXA_ENT — the very duplication KCTX removed, so they are now the context
+       pills and write through to the review's variables too. */
     h+='<div class="fxcb">'
-      +'<div class="fxcb-seg">'+[['bs','Balance Sheet'],['is','Income Statement']].map(function(x){
-          return '<button class="fxcb-sg'+(FXA_STMT===x[0]?' on':'')+'" data-fxastmt="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</div>'
+      /* PERIOD is not in the cluster here: its documented home on these pages is the pill in the
+         identity line's right cluster (`.fxhd-per`), and rendering it twice would put two writers
+         on one dimension — the duplication this whole change removes. The drawer's Context tier
+         lists all five together, which is where they read as one set. */
+      +kctxCluster(o.ctx||['entity','statement'])
       +o.controls
-      +'<span class="fxcb-l">Entity</span>'+fxaEntMenu()
-      +'<span class="fxcb-sp"></span></div>';
+      +'<span class="fxcb-sp"></span>'+(o.right||'')+'</div>';
     return h;
   }
   /* Bar controls as the flux page's outlined pills, not `.rp-gbbar` button groups. */
@@ -8299,19 +8593,22 @@
     var sc=(typeof fluxScopeLabel==='function')?fluxScopeLabel(fluxScope):'Consolidated';
     return '<div class="ldg-note">Computed from the general ledger for <b>'+esc(sc)+'</b> at the same source the flux review reads &mdash; change the entity scope in a review and these follow. Figures are reporting currency.</div>';
   }
+  /* While the platform Filters drawer is open, a control change re-renders the page directly —
+     navTo would close the drawer (kdRouteChange), and the route is not changing. */
+  function fxaGo(route){ if(KD_OPEN&&KD_REGS[KD_OPEN])KD_REGS[KD_OPEN].rerender(); else navTo(route); }
   function fxaWire(route){
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxastmt]'),function(b){b.onclick=function(){FXA_STMT=this.getAttribute('data-fxastmt');navTo(route);};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxawin]'),function(b){b.onclick=function(){FXA_WIN=+this.getAttribute('data-fxawin');navTo(route);};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxarank]'),function(b){b.onclick=function(){FXA_RANK=this.getAttribute('data-fxarank');navTo(route);};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxamat]'),function(b){b.onclick=function(){FXA_MAT=+this.getAttribute('data-fxamat');navTo(route);};});
-    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxabasis]'),function(b){b.onclick=function(){RP_COMPARE=this.getAttribute('data-fxabasis');navTo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxastmt]'),function(b){b.onclick=function(){FXA_STMT=this.getAttribute('data-fxastmt');fxaGo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxawin]'),function(b){b.onclick=function(){FXA_WIN=+this.getAttribute('data-fxawin');fxaGo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxarank]'),function(b){b.onclick=function(){FXA_RANK=this.getAttribute('data-fxarank');fxaGo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxamat]'),function(b){b.onclick=function(){FXA_MAT=+this.getAttribute('data-fxamat');fxaGo(route);};});
+    Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxabasis]'),function(b){b.onclick=function(){RP_COMPARE=this.getAttribute('data-fxabasis');fxaGo(route);};});
     Array.prototype.forEach.call(document.querySelectorAll('#view .rp-cr[data-go]'),function(b){b.onclick=function(){navTo(this.getAttribute('data-go'));};});
     var _ent=document.getElementById('fxaEnt');
     if(_ent)_ent.onchange=function(){FXA_ENT=this.value;navTo(route);};
     /* Entity is a pill menu now, matching the flux bar; the old <select> hook stays above so any
        surface still rendering fxaStmtBar() keeps working. */
     Array.prototype.forEach.call(document.querySelectorAll('#view [data-fxaent]'),function(b){
-      b.onclick=function(e){e.stopPropagation();FXA_ENT=this.getAttribute('data-fxaent');navTo(route);};});
+      b.onclick=function(e){e.stopPropagation();FXA_ENT=this.getAttribute('data-fxaent');fxaGo(route);};});
     /* The header period pill uses the flux page's own hook, so switching period behaves
        identically on all three lenses. */
     Array.prototype.forEach.call(document.querySelectorAll('#view .fxm-period'),function(b){
@@ -8338,8 +8635,262 @@
       b.onclick=function(){FXA_FOCUS=null;navTo(route);};});
     if(typeof rpCtxPerWire==='function')rpCtxPerWire(function(){navTo(route);});
   }
+  /* ================= PLATFORM UX STANDARD — one bar, one Filters drawer, every page ==============
+     The flux review page (rebuilt to the owner's specimen) is the platform's grammar:
+       header · ONE .fxk KPI card · ONE .fxcb control bar (population left, tools right) ·
+       .fx-chips active filters · content card · .ldg-note footnote.
+     Every list page renders that grammar through these helpers, and every page's filters live in
+     ONE place: the right-hand 440px drawer (`.fx-fdrawer`, the flux drawer's exact CSS), driven by
+     a per-page REGISTRY so the drawer engine is written once and cannot drift per page.
+     A registry: {id, title, noun, fields:[{k,label,val(),body(),tier:'pop'|'pres'}], get(), set(s),
+       reset(), chips():[{k,l,v}], clear(k), rows():{shown,total}, rerender()}.
+     Semantics are the flux drawer's: controls apply LIVE; the drawer snapshots state on open;
+     Cancel / × / scrim / Escape restore the snapshot; Apply commits and closes. Saved views are
+     per-page named snapshots (KVIEWS) surfaced in every drawer's Presentation tier — unlike flux
+     review sets they may carry filters, because a list page's filters are not a sign-off
+     population, and the chips row always says what is active. */
+  /* ===== KCTX — the GLOBAL filter context (2026-08-10) ========================================
+     Five dimensions mean the same thing on every screen: the reporting PERIOD, the ENTITY scope,
+     the STATEMENT, the comparison BASIS and the MATERIALITY rule. Three of them were owned twice —
+     the review workspace held fluxScope / fluxStmt / fluxMat and the analytics lenses held their
+     own FXA_ENT / FXA_STMT / FXA_MAT — and `fxaApplyScope()` copied one way only (FXA_ENT →
+     fluxScope). So setting EMEA in Trending carried into a review, but scoping a review to EMEA
+     did NOT carry back: returning to Trending silently showed Consolidated.
+
+     KCTX does not introduce a sixth copy. The existing variables stay the source of truth and this
+     is a WRITE-THROUGH: `kctxSet` sets every mirror of a dimension at once, so the copies can no
+     longer drift, and nothing downstream had to be rewritten to read it.
+
+     THE GUARDRAIL: an open review PINS its own scope. `Review Sets change presentation, never
+     population` exists because silently moving a reviewer to a different population than the one
+     they opened is how someone signs off on lines they never saw — the same argument applies to a
+     context set on another screen. So context flows outward from a review (the review is the
+     authority on its own scope) and a page-level context change never reaches into an open one. */
+  var KCTX_KEYS=['period','entity','statement','basis','materiality'];
+  function kctxEntityId(){   /* the cons node id fluxScope corresponds to, or null for a custom set */
+    if(!fluxScope||fluxScope.type==='all')return 'MGP';
+    if(fluxScope.type==='cons')return fluxScope.value;
+    return null;
+  }
+  function kctxGet(k){
+    if(k==='period')return (typeof ACTIVE_PERIOD!=='undefined')?ACTIVE_PERIOD:null;
+    if(k==='entity')return kctxEntityId();
+    if(k==='statement')return fluxStmt;
+    if(k==='basis')return RP_COMPARE;
+    if(k==='materiality')return fluxMat;
+    return null;
+  }
+  function kctxLabel(k){
+    if(k==='period'){var p=(typeof rpPeriodById==='function')&&rpPeriodById(kctxGet('period'));return (p&&p.label)||String(kctxGet('period')||'');}
+    if(k==='entity')return (typeof fluxScopeLabel==='function')?fluxScopeLabel():'Consolidated';
+    if(k==='statement')return fluxStmt==='is'?'Income Statement':'Balance Sheet';
+    if(k==='basis')return ({prev:'Month over month',prevq:'Quarter over quarter',prevy:'Year over year'})[RP_COMPARE]||RP_COMPARE;
+    if(k==='materiality')return '≥ '+fluxMat+'%';
+    return '';
+  }
+  /* Write-through. Every mirror of a dimension is set here and ONLY here. */
+  function kctxSet(k,v,opts){
+    if(k==='period'){ if(typeof setActivePeriod==='function')setActivePeriod(v); return; }
+    if(k==='entity'){
+      var node=CONS_BY_ID[v]; if(!node)return;
+      fluxScope=nodeToScope(node); FXA_ENT=v;
+      if(typeof fluxInspClose==='function')fluxInspClose();
+    }
+    else if(k==='statement'){ fluxStmt=v; FXA_STMT=v;
+      if(typeof fluxSecCollapse!=='undefined')fluxSecCollapse={};
+      if(typeof fluxExpandScoped==='function')fluxExpandScoped(); }
+    else if(k==='basis'){ RP_COMPARE=v; }
+    else if(k==='materiality'){ fluxMat=+v; FXA_MAT=+v; }
+    else return;
+    if(!(opts&&opts.quiet))kctxRepaint();
+  }
+  /* Keep the analytics mirrors honest whenever the review moved the canonical variable. Called at
+     the top of the analytics renderers — this is the back-link `fxaApplyScope` never had. */
+  function kctxSyncFromReview(){
+    var e=kctxEntityId(); if(e)FXA_ENT=e;
+    FXA_STMT=fluxStmt; FXA_MAT=fluxMat;
+  }
+  function kctxRepaint(){
+    if(KD_OPEN&&KD_REGS[KD_OPEN]){KD_REGS[KD_OPEN].rerender();return;}
+    if(typeof renderNav==='function')renderNav();
+    if(typeof reRenderCurrent==='function')reRenderCurrent();
+  }
+  /* Context renders in ONE place on every bar: leading the `.fxcb`, in this fixed order, ahead of
+     the page's own controls. A page declares only the dimensions it actually reads — a context pill
+     on a page whose numbers ignore it would be a dead control, which the repo forbids, and is why
+     this is a declared list rather than an unconditional five-pill strip. */
+  function kctxPill(k,dis){
+    var lbl=kctxLabel(k);
+    if(dis)return '<span class="fxcb-m kctx-pin" title="'+esc(dis)+'">'+KCTX_ICO[k]+'<span class="fxm-cur">'+esc(lbl)+'</span></span>';
+    var body='';
+    if(k==='period'){var ms=glLedger().months, cur=kctxGet('period');
+      body='<div class="fxm-h">Reporting period</div>'+ms.slice().reverse().map(function(m){
+        return '<button class="fxm-opt kctx-o'+(m===cur?' on':'')+'" data-kctx="period" data-kctxv="'+m+'">'+flxLbl(m)+'</button>';}).join('');}
+    else if(k==='entity'){var ids=['MGP','AMER','INTL','EMEA','APAC'].filter(function(i){return !!CONS_BY_ID[i];});
+      body='<div class="fxm-h">Reporting entity</div>'+ids.map(function(i){
+        return '<button class="fxm-opt kctx-o'+(kctxGet('entity')===i?' on':'')+'" data-kctx="entity" data-kctxv="'+i+'">'+esc(CONS_BY_ID[i].name)+'</button>';}).join('');}
+    else if(k==='statement'){body='<div class="fxm-h">Statement</div>'+[['bs','Balance Sheet'],['is','Income Statement']].map(function(o){
+        return '<button class="fxm-opt kctx-o'+(fluxStmt===o[0]?' on':'')+'" data-kctx="statement" data-kctxv="'+o[0]+'">'+o[1]+'</button>';}).join('');}
+    else if(k==='basis'){body='<div class="fxm-h">Comparison basis</div>'+[['prev','Month over month'],['prevq','Quarter over quarter']].map(function(o){
+        return '<button class="fxm-opt kctx-o'+(RP_COMPARE===o[0]?' on':'')+'" data-kctx="basis" data-kctxv="'+o[0]+'">'+o[1]+'</button>';}).join('');}
+    else if(k==='materiality'){body='<div class="fxm-h">Materiality threshold</div>'+[3,5,8,10].map(function(o){
+        return '<button class="fxm-opt kctx-o'+(fluxMat===o?' on':'')+'" data-kctx="materiality" data-kctxv="'+o+'">&ge; '+o+'%</button>';}).join('');}
+    return '<details class="fxm fxcb-m kctx-m"><summary class="fxm-sum" title="'+esc(KCTX_TITLE[k])+'">'+KCTX_ICO[k]
+      +'<span class="fxm-cur">'+esc(lbl)+'</span></summary><div class="fxm-pop fxm-pop-w">'+body+'</div></details>';
+  }
+  var KCTX_TITLE={period:'Reporting period — applies across the platform',entity:'Entity scope — applies across the platform',
+    statement:'Statement — applies across the platform',basis:'Comparison basis — applies across the platform',
+    materiality:'Materiality threshold — applies across the platform'};
+  var KCTX_ICO={
+    period:'<svg class="fxcb-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    entity:'<svg class="fxcb-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5"/></svg>',
+    statement:'<svg class="fxcb-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+    basis:'<svg class="fxcb-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4"/></svg>',
+    materiality:'<svg class="fxcb-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 3v18M7 7h10M8 21h8"/></svg>'};
+  function kctxCluster(keys,pinned){
+    return '<span class="kctx">'+KCTX_KEYS.filter(function(k){return keys.indexOf(k)>=0;})
+      .map(function(k){return kctxPill(k,(pinned&&pinned[k])||null);}).join('')+'</span>';
+  }
+  function kctxWire(){
+    var v=document.getElementById('view'); if(!v)return;
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kctx]'),function(b){
+      b.onclick=function(e){e.stopPropagation();kctxSet(this.getAttribute('data-kctx'),this.getAttribute('data-kctxv'));};});
+  }
+  /* The drawer's Context tier — same five, same order, above the page's own population fields. */
+  function kctxFields(keys,pinned){
+    return KCTX_KEYS.filter(function(k){return keys.indexOf(k)>=0;}).map(function(k){
+      return {k:'ctx-'+k,tier:'ctx',label:KCTX_LBL[k],
+        val:function(){return esc(kctxLabel(k))+((pinned&&pinned[k])?' <span class="kd-pin">pinned by this review</span>':'');},
+        body:function(){ if(pinned&&pinned[k])return '<div class="fxd-none">'+esc(pinned[k])+'</div>';
+          var d=document.createElement('div'); d.innerHTML=kctxPill(k); var pop=d.querySelector('.fxm-pop');
+          return pop?pop.innerHTML:''; }};
+    });
+  }
+  var KCTX_LBL={period:'Reporting period',entity:'Entity scope',statement:'Statement',basis:'Comparison basis',materiality:'Materiality threshold'};
+  var KD_REGS={}, KD_OPEN=null, KD_SNAP=null, KD_SEC={};
+  var KVIEWS={}; try{KVIEWS=JSON.parse(localStorage.getItem('korvyn.kviews.v1')||'{}');}catch(e){}
+  var KVIEW_ACTIVE={};
+  function kviewsSave(){try{localStorage.setItem('korvyn.kviews.v1',JSON.stringify(KVIEWS));}catch(e){}}
+  function kdReg(reg){KD_REGS[reg.id]=reg;return reg;}
+  function kdSnapshot(reg){try{return JSON.parse(JSON.stringify(reg.get()));}catch(e){return null;}}
+  function kdOpenDrawer(id){var r=KD_REGS[id];if(!r)return;KD_OPEN=id;KD_SNAP=kdSnapshot(r);r.rerender();}
+  function kdCloseDrawer(commit){var r=KD_REGS[KD_OPEN];KD_OPEN=null;
+    if(r){if(!commit&&KD_SNAP)r.set(KD_SNAP);KD_SNAP=null;r.rerender();}}
+  /* Route changes commit whatever is applied (filters are live) and drop the drawer. The body class
+     is shared with the flux drawer, so it is only cleared when flux does not own it. */
+  function kdRouteChange(){KD_OPEN=null;KD_SNAP=null;
+    if(typeof FX_FILT_OPEN==='undefined'||!FX_FILT_OPEN)document.body.classList.remove('fx-filt-open');}
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&KD_OPEN)kdCloseDrawer(false);});
+  /* ----- bar pieces (the flux bar's exact classes) ----- */
+  var KCB_SEARCH_ICO='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+  function kcbBar(left,right){return '<div class="fxcb">'+left+'<span class="fxcb-sp"></span>'+(right||'')+'</div>';}
+  function kcbSearch(cls,ph,val){return '<div class="fx-tb-search">'+KCB_SEARCH_ICO+'<input class="'+cls+'" placeholder="'+ph+'" value="'+esc(val||'')+'"></div>';}
+  function kcbSeg(attr,opts,cur){return '<div class="fxcb-seg">'+opts.map(function(o){
+    return '<button class="fxcb-sg'+(cur===o[0]?' on':'')+'" '+attr+'="'+esc(String(o[0]))+'">'+o[1]+'</button>';}).join('')+'</div>';}
+  function kdBtn(id,n){return '<button class="fxm-sum fx-filt-toggle'+(KD_OPEN===id?' open':'')+'" data-kdopen="'+esc(id)+'" aria-expanded="'+(KD_OPEN===id?'true':'false')+'">'+FX_FILT_ICO+'Filters'+(n?'<span class="fx-fcount">'+n+'</span>':'')+'</button>';}
+  /* ----- drawer ----- */
+  function kdField(reg,f){var key=reg.id+':'+f.k, on=!!KD_SEC[key];
+    return '<div class="fxd-sec'+(on?' open':'')+'"><div class="fxd-fl">'+esc(f.label)+'</div>'
+      +'<button class="fxd-sec-hd" data-kdsec="'+esc(f.k)+'" aria-expanded="'+(on?'true':'false')+'">'
+      +'<span class="fxd-sec-v">'+f.val()+'</span><span class="fxd-sec-tw">'+(on?'&#9652;':'&#9662;')+'</span></button>'
+      +(on?('<div class="fxd-sec-b">'+f.body()+'</div>'):'')+'</div>';}
+  function kdViewsField(reg){
+    var vs=KVIEWS[reg.id]||[], act=KVIEW_ACTIVE[reg.id];
+    return {k:'__views',label:'Saved views',tier:'pres',
+      val:function(){return esc(act||'None');},
+      body:function(){
+        var h=vs.length?vs.map(function(v,i){return '<div class="kd-vitem'+(act===v.name?' on':'')+'">'
+          +'<button class="kd-vapply" data-kdview="'+i+'">'+esc(v.name)+'</button>'
+          +'<button class="kd-vdel" data-kdviewdel="'+i+'" title="Delete view">&times;</button></div>';}).join('')
+          :'<div class="fxd-none">No saved views for this page yet.</div>';
+        h+='<div class="kd-vrow"><input class="kd-vname" placeholder="Name this view&hellip;"><button class="btn sm kd-vsave">Save current</button></div>';
+        return h;}};
+  }
+  function kdChipHTML(c,extra){return '<button class="fx-chip" data-kdchip="'+esc(c.k)+'"'+(extra||'')+' title="'+esc(c.l+': '+c.v+' — click to remove')+'"><span class="fx-chip-k">'+esc(c.l)+'</span><span class="fx-chip-v">'+esc(c.v)+'</span><span class="fx-chip-x">&times;</span></button>';}
+  /* The page-level chips row: WHICH filters are on, each removable, with the n-of-m readout.
+     Hidden while the drawer is open (body.fx-filt-open) — the drawer owns Active filters then. */
+  function kdChipsRow(reg){
+    var ch=reg.chips(), rw=reg.rows?reg.rows():null;
+    if(!ch.length)return '';
+    return '<div class="fx-chips">'+ch.map(function(c){return kdChipHTML(c);}).join('')
+      +(rw?'<span class="fx-chips-n">'+rw.shown.toLocaleString()+' of '+rw.total.toLocaleString()+' '+esc(reg.noun||'rows')+'</span>':'')
+      +'<button class="fx-chips-clr" data-kdreset>Clear all</button></div>';
+  }
+  function kdDrawerHTML(reg){
+    /* THREE tiers, and the order is the argument: CONTEXT (global — the same five dimensions
+       wherever you are) → POPULATION (this page's own filters) → PRESENTATION (how it is drawn).
+       A reviewer reads down and knows exactly how far each control reaches. */
+    var live=(reg.ctx&&reg.ctx.length?kctxFields(reg.ctx,reg.pinned):[]).concat(reg.fields.filter(function(f){return !f.when||f.when();}));
+    var ctx=live.filter(function(f){return f.tier==='ctx';});
+    var pop=live.filter(function(f){return f.tier!=='pres'&&f.tier!=='ctx';});
+    var pres=live.filter(function(f){return f.tier==='pres';}).concat([kdViewsField(reg)]);
+    var ch=reg.chips(), rw=reg.rows?reg.rows():null;
+    return '<aside class="fx-fdrawer" aria-label="Filters">'
+      +'<div class="fxd-hd"><span class="fxd-t">Filters</span><button class="fxd-x" data-kdcancel title="Close without keeping these changes">&times;</button></div>'
+      +'<div class="fxd-reset"><button class="fxd-clear" data-kdreset>Reset all</button></div>'
+      +'<div class="fxd-body">'
+      +(ctx.length?('<div class="fxd-band fxd-band-ctx">Context</div>'
+        +'<div class="fxd-bandnote">Applies across the platform &mdash; these follow you from screen to screen.</div>'
+        +ctx.map(function(f){return kdField(reg,f);}).join('')
+        +'<div class="fxd-band">Filters</div>'
+        +'<div class="fxd-bandnote">This page only.</div>'):'')
+      +pop.map(function(f){return kdField(reg,f);}).join('')
+      +'<div class="fxd-band">Presentation &amp; views</div>'
+      +'<div class="fxd-bandnote">Changes how the page is drawn &mdash; never which rows it contains.</div>'
+      +pres.map(function(f){return kdField(reg,f);}).join('')
+      +'<div class="fxd-active"><div class="fxd-active-hd"><span>Active filters ('+ch.length+')</span>'
+        +(ch.length?'<button class="fxd-clear" data-kdreset>Clear all</button>':'')+'</div>'
+        +(ch.length?('<div class="fxd-chips">'+ch.map(function(c){return kdChipHTML(c);}).join('')+'</div>'):'<div class="fxd-none">No filters applied.</div>')+'</div>'
+      +'</div>'
+      +'<div class="fxd-foot"><button class="btn sm" data-kdcancel>Cancel</button>'
+      +'<button class="btn sm primary" data-kdapply>Apply filters</button>'
+      +(rw?'<div class="fxd-rows">'+rw.shown.toLocaleString()+' of '+rw.total.toLocaleString()+' '+esc(reg.noun||'rows')+' shown</div>':'')
+      +'</div></aside>';
+  }
+  /* Call at the END of a page render, after #view.innerHTML is set and before page handlers are
+     wired — the drawer mounts into #view, so page-level querySelectorAll wiring reaches the same
+     data-attribute controls inside it: one handler set serves the bar AND the drawer. */
+  function kdAttach(id){
+    var reg=KD_REGS[id]; if(!reg)return;
+    var open=(KD_OPEN===id);
+    document.body.classList.toggle('fx-filt-open',open);
+    var v=document.getElementById('view'); if(!v)return;
+    if(open)v.insertAdjacentHTML('beforeend','<div class="fx-fscrim" data-kdcancel></div>'+kdDrawerHTML(reg));
+    /* ONE context handler for the bar cluster AND the drawer's Context tier — the same data-kctx
+       hooks in both, so neither surface can write a dimension the other does not see. */
+    kctxWire();
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdopen]'),function(b){b.onclick=function(){
+      if(KD_OPEN===this.getAttribute('data-kdopen'))kdCloseDrawer(true);else kdOpenDrawer(this.getAttribute('data-kdopen'));};});
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdreset]'),function(b){b.onclick=function(){KVIEW_ACTIVE[id]=null;reg.reset();reg.rerender();};});
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdchip]'),function(b){b.onclick=function(){reg.clear(this.getAttribute('data-kdchip'));reg.rerender();};});
+    if(!open)return;
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdcancel]'),function(b){b.onclick=function(){kdCloseDrawer(false);};});
+    var ap=v.querySelector('[data-kdapply]'); if(ap)ap.onclick=function(){kdCloseDrawer(true);};
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdsec]'),function(b){b.onclick=function(){
+      var key=id+':'+this.getAttribute('data-kdsec');KD_SEC[key]=!KD_SEC[key];reg.rerender();};});
+    /* saved views */
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdview]'),function(b){b.onclick=function(){
+      var vv=(KVIEWS[id]||[])[+this.getAttribute('data-kdview')];if(!vv)return;
+      reg.set(JSON.parse(JSON.stringify(vv.state)));KVIEW_ACTIVE[id]=vv.name;reg.rerender();};});
+    Array.prototype.forEach.call(v.querySelectorAll('[data-kdviewdel]'),function(b){b.onclick=function(e){e.stopPropagation();
+      var i=+this.getAttribute('data-kdviewdel');var vs=KVIEWS[id]||[];
+      if(KVIEW_ACTIVE[id]===(vs[i]||{}).name)KVIEW_ACTIVE[id]=null;
+      vs.splice(i,1);kviewsSave();reg.rerender();};});
+    var sv=v.querySelector('.kd-vsave'); if(sv)sv.onclick=function(){
+      var inp=v.querySelector('.kd-vname'), nm=inp?inp.value.trim():''; if(!nm)return;
+      var vs=KVIEWS[id]=KVIEWS[id]||[];
+      var cur=kdSnapshot(reg), ex=null; vs.forEach(function(x){if(x.name===nm)ex=x;});
+      if(ex)ex.state=cur; else vs.push({name:nm,state:cur});
+      KVIEW_ACTIVE[id]=nm; kviewsSave(); reg.rerender();};
+  }
+  /* One-card KPI strip — the flux/analytics `.fxk` instrument, for any page's summary figures. */
+  function kpiCard(cells){return '<div class="card fxk">'+cells.map(function(k){
+    return k.date
+      ? '<div class="fxk-c fxk-c-date"><div class="fxk-dv">'+k.v+'</div><div class="fxk-s">'+(k.s||'')+'</div></div>'
+      : '<div class="fxk-c"><div class="fxk-v '+(k.cls||'')+'">'+k.v+'</div>'
+        +'<div class="fxk-x"><div class="fxk-k">'+k.k+'</div><div class="fxk-s">'+(k.s||'')+'</div></div></div>';}).join('')+'</div>';}
   function renderTrending(){
-    fxaApplyScope();
+    fxaRegInit(); kctxSyncFromReview(); fxaApplyScope();
     var d=fxaLines(FXA_STMT,FXA_WIN), rows=d.rows.slice();
     rows.sort(FXA_RANK==='vol'?function(a,b){return b.vol-a.vol;}
       :FXA_RANK==='pct'?function(a,b){return Math.abs(b.pct)-Math.abs(a.pct);}
@@ -8363,8 +8914,10 @@
           +[[3,'Last 3'],[6,'Last 6'],[12,'Last 12']].map(function(o){return fxaOpt('data-fxawin',o[0],o[1]+' periods',FXA_WIN===o[0]);}).join(''))
         +fxaPill('Rank by',({move:'Largest movement',vol:'Most volatile',pct:'Steepest %'})[FXA_RANK]||'Largest movement',
           '<div class="fxm-h">Rank by</div>'
-          +[['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']].map(function(o){return fxaOpt('data-fxarank',o[0],o[1],FXA_RANK===o[0]);}).join(''))
+          +[['move','Largest movement'],['vol','Most volatile'],['pct','Steepest %']].map(function(o){return fxaOpt('data-fxarank',o[0],o[1],FXA_RANK===o[0]);}).join('')),
+      right:kdBtn('trending',KD_REGS.trending.chips().length)
     });
+    h+=kdChipsRow(KD_REGS.trending);
     h+=fxaFocusChip('variance','Variance Analysis');
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl fxa-tbl"><thead><tr>'
       +'<th class="l">Line item</th><th class="l">Trend</th><th>'+esc(flxLbl(first))+'</th><th>'+esc(flxLbl(last))+'</th>'
@@ -8382,10 +8935,10 @@
     h+='</tbody></table></div></div>';
     h+='<div class="ldg-note">Ranked by '+(FXA_RANK==='vol'?'volatility':FXA_RANK==='pct'?'steepest percentage change':'largest absolute movement')+' over the last '+FXA_WIN+' periods ('+esc(flxLbl(first))+' &rarr; '+esc(flxLbl(last))+'). Volatility is the standard deviation of period-over-period percentage change &mdash; a line can move a long way steadily (low volatility) or barely move while swinging (high).</div>';
     h+=fxaScopeNote();
-    $('#view').innerHTML=h; fxaWire('trending');
+    $('#view').innerHTML=h; kdAttach('trending'); fxaWire('trending');
   }
   function renderVariance(){
-    fxaApplyScope();
+    fxaRegInit(); kctxSyncFromReview(); fxaApplyScope();
     var led=glLedger(), P=fluxPeriods(led), ti=P.ti, step=rpCompareOffset(), pi=Math.max(0,ti-step);
     var secs=[], total=0;
     fluxSections(led,FXA_STMT,'category').forEach(function(s){
@@ -8417,10 +8970,10 @@
         {v:_moved+' of '+secs.length,k:'Sections moving',s:'on this statement'},
         {v:esc(flxLblFull(led.months[ti])),s:'vs '+esc(flxLbl(led.months[pi])),date:true}
       ],
-      controls:fxaPill('Basis',({prev:'MoM',prevq:'QoQ'})[RP_COMPARE]||'MoM','<div class="fxm-h">Comparison basis</div>'
-          +[['prev','MoM'],['prevq','QoQ']].map(function(o){return fxaOpt('data-fxabasis',o[0],o[1],RP_COMPARE===o[0]);}).join(''))
-        +fxaPill('Materiality','&ge; '+FXA_MAT+'%','<div class="fxm-h">Material at</div>'
-          +[3,5,10].map(function(o){return fxaOpt('data-fxamat',o,'&ge; '+o+'%',FXA_MAT===o);}).join(''))
+      /* Basis and Materiality are context here, not page controls — the cluster carries them. */
+      ctx:['entity','statement','basis','materiality'],
+      controls:'',
+      right:kdBtn('variance',KD_REGS.variance.chips().length)
     });
     h+=fxaFocusChip('trending','Trending Analysis');
     h+='<div class="card rp-card"><div class="rp-scroll"><table class="rp-tbl fxa-tbl"><thead><tr>'
@@ -8450,7 +9003,7 @@
     h+='</tbody></table></div></div>';
     h+='<div class="ldg-note">Compared against the prior '+basis+'. Contribution is each line&rsquo;s share of the total <i>absolute</i> movement, so offsetting swings still show their size. A material account is one whose own movement is at or above &ge;&nbsp;'+FXA_MAT+'%; the count is the number of accounts inside that line, not a dollar figure.</div>';
     h+=fxaScopeNote();
-    $('#view').innerHTML=h; fxaWire('variance');
+    $('#view').innerHTML=h; kdAttach('variance'); fxaWire('variance');
   }
   /* ---- Monthly Flux under Analytics -----------------------------------------------------------
      This is the flux review's OWN content — the same statement grid, the same GL account expansion,
@@ -12040,6 +12593,9 @@
   (function(){var ov=document.getElementById('navEditModal');if(ov)ov.onclick=function(e){if(e.target===ov)closeNavEditModal();};document.addEventListener('keydown',function(e){var m=document.getElementById('navEditModal');if(e.key==='Escape'&&m&&m.classList.contains('open'))closeNavEditModal();});})();
 
   /* ---------- global active-period switcher (the whole app scopes to one close period) ---------- */
+  /* Repaint whatever screen is up, in place. Extended 2026-08-10 to cover every surface that reads
+     the global context (KCTX) — a period or entity change on a page this did not list left that
+     page showing the previous context's numbers under the new context's label. */
   function reRenderCurrent(){var k=activeNav;
     if(k==='close-dash')renderCloseDash();
     else if(k==='controls')renderControls();
@@ -12049,7 +12605,14 @@
     else if(k==='mtrend')renderReviewCanvas();
     else if(k==='repo-upload')renderRepoUpload();
     else if(k==='repo-coa')renderRepoCoa();
-    else if(k==='repo-history')renderRepoHistory();}
+    else if(k==='repo-history')renderRepoHistory();
+    else if(k==='trending')renderTrending();
+    else if(k==='variance')renderVariance();
+    else if(k==='mflux')renderMonthlyFlux();
+    else if(k==='my')renderMyReviews();
+    else if(k==='all')renderTeamReviews();
+    else if(k==='frpkgs')renderReviewPackages(_rvwMine);
+    else if(k==='frperiods'||k==='frcloseper')renderClosePeriods(_kdPerMode);}
   function setActivePeriod(m){ACTIVE_PERIOD=m;ldgMonth=m;curPeriod=m;ldgExpand=null;
     /* One period context: move the flux window with the close period (preserve the window length). */
     try{var ms=glLedger().months, ti=ms.indexOf(m); if(ti>=0){var span=5; if(fluxFrom&&fluxTo){var a=ms.indexOf(fluxFrom),b=ms.indexOf(fluxTo); if(a>=0&&b>=0)span=Math.max(1,b-a);} fluxTo=m; fluxFrom=ms[Math.max(0,ti-span)];}}catch(e){}

@@ -191,6 +191,118 @@ still has one, are retyped to the same 13px grey so they read as the same voice 
 Don't reintroduce a per-surface title treatment; if a page needs more hierarchy, it gets it below
 the header, not by growing the title.
 
+## ONE page grammar + ONE filter home, platform-wide (2026-08-10, the KD engine)
+
+The flux review page (the owner's specimen) is now the **platform grammar**, and every list page
+renders it: **header · ONE `.fxk` KPI card · ONE `.fxcb` control bar (population pills left,
+search / Columns / Filters right) · `.fx-chips` active-filter chips · content card · `.ldg-note`
+footnote.** Converted: My/All Reviews (`renderReviewRegister`), Review Packages, Close Periods /
+Overview archive, Trial Balance (`renderLedger`, whose search/section/tie filters are real), and
+Trending + Variance (via `fxaChrome`'s new `o.right` slot). The old per-page dialects — `.rp-sumbar`,
+`.rp-chips` status chips, `.rp-filt` select rows, `.rp-gbbar` on periods, `.rvw-vbar` — are gone;
+don't reintroduce one.
+
+**FILTERS live in ONE place on every page: the right-hand 440px drawer** (`.fx-fdrawer`, the flux
+drawer's own CSS), driven by the shared **KD engine** (`kdReg`/`kdOpenDrawer`/`kdAttach`, beside
+`fxaChrome`). Each page registers a REGISTRY — `{id, noun, fields:[{k,label,val(),body(),tier,
+when()}], get/set/reset/clear, chips(), rows(), rerender()}` — so the drawer is written once and
+pages cannot drift. Semantics are the flux drawer's, deliberately: controls apply **live**; the
+drawer **snapshots on open** (`kdSnapshot`); Cancel / × / scrim / Escape restore; Apply commits.
+Rules that must hold:
+
+- **Bar pills and drawer fields emit the SAME data attributes** (`data-regchip`, `data-pfstatus`,
+  `data-fxawin`…). `kdAttach(id)` is called immediately after `#view.innerHTML=` and **before** the
+  page wires its handlers, so one `querySelectorAll('#view …')` pass serves both surfaces. Wire a
+  drawer control through a second handler and the two surfaces can disagree.
+- **Registry closures must read live state.** A field/rows() that captures a per-render local counts
+  against a stale value forever (the `ldgPass` bug: it was in-render, the registry kept the first
+  render's copy — it is module-level now). Keep predicates at module level.
+- `navTo` calls `kdRouteChange()`: a route change **commits** whatever is applied (filters are live)
+  and drops the drawer; the shared `fx-filt-open` body class is only cleared when flux doesn't own it.
+- On the analytics lenses, control handlers go through `fxaGo(route)` — while a drawer is open a
+  change re-renders in place; `navTo` would close the drawer mid-edit.
+- **Pills carry their NAME as the value while at default** ("Status", "Package") and the selection
+  once one is made — `.fxcb-l` labels hide below 1640px, and three bare "All" pills say nothing.
+  The chips row states every non-default selection in full, so nothing is ambiguous.
+- **Saved views (`KVIEWS`, per page, in every drawer's Presentation tier)** are named snapshots of
+  that page's registry state. Unlike flux Review Sets they MAY carry filters — a list page's filters
+  are not a sign-off population, and the chips row always says what is active. The flux review keeps
+  its own drawer/engine (suggestions, tiered fields, review sets); KD mirrors its behaviour and CSS
+  — change the interaction pattern in one, change it in the other.
+- Pages with nothing to filter (stubs, settings, reporting stubs) get **no bar** — a bar of dead
+  controls is worse than no bar (repo rule). The KPI card is for list pages with population stats;
+  content pages lead with their content.
+
+## ONE left rail, ONE config, every module (2026-08-10)
+
+**`renderRail(rail)` is the only rail renderer, and NAV_CFG is the only rail definition.** It
+replaced three renderers that produced three different structures: `renderFluxRail` (hardcoded
+`FLUX_NAV`: groups + badges + per-group Planned), `renderSectionRail` (off `NAV_SECTIONS.kids`: one
+flat list, one Planned, no badges) and `renderModulesNav` (NAV_CFG, **Home only**). The rail changed
+shape as you moved between modules — and the real defect: **Settings → Navigation governed Home
+alone**, so for every other module the role×item matrix, reordering and custom items were a dead
+control. Every rail is now: header → sections → per-section `Planned (n)` → Favourites → Customize
+foot. Rules:
+
+- A section declares its `rail`. **`rail:'*'` renders on every rail** — that is how Favourites stays
+  the one organiser without being duplicated eight times in the editor. `head:false` suppresses the
+  heading (the Flux entrances lead ungrouped). `count:` names a figure in the **`navCount` registry**;
+  the rail never computes one, so it cannot disagree with the page it leads to. Only `mine` is the
+  gold action badge — `close`/`all` are quiet grey inventory (design-system rule 5).
+- **`navRailFor(route)`** resolves the rail; `navIsFlux` stays an explicit test because `mtrend` and
+  `frov` are not NAV_SECTIONS kids and the Flux rail must survive opening a close. `FLUX_ROUTES` is
+  derived from **`navDefaultCfg()`, never the saved config** — which rail a route belongs to is a
+  property of the product, so an admin hiding an item must not strand its route.
+- **`renderReviewsNav` was a live landmine and is now a delegation.** It was already unreachable, but
+  ~20 callers still invoked it (favToggleGrp, ctToggle, orgMutated, folderToggle*, navSecToggle…) and
+  every one silently wiped whatever rail was up — the defect the old "never call orgSetGroupBy /
+  orgMutated from a Flux page" warning describes. It now repaints the current rail, so those callers
+  became correct instead of dangerous. **Do not give it a body again.**
+- The editor **groups by rail**, offers a per-section **rail picker** (a section can be moved between
+  modules), previews **per role AND per rail**, and repaints the live rail on every edit — an edit
+  that only updated the preview read as not having taken. Sections on a rail that no longer renders
+  (the retired `reviews` navigator) are skipped rather than offered.
+- **Migration:** the existing "insert missing builtins once, tracked by id" pass carries saved configs
+  onto the new rails. A **one-time rail adoption** (`korvyn.navcfg.railver.v1`) then makes builtin
+  sections take the default rail — before this build `rail` was not user-editable, so a stored rail
+  carries no admin intent. That is what moves Favourites from `modules` onto `*`. After the flag is
+  set the rail is the admin's to own. Verified: renames, deliberate hides and custom items survive.
+- A rail with nothing visible renders an **empty state naming why** (no sections vs hidden for this
+  role) — a blank sidebar reads as a broken app.
+
+## GLOBAL filter context — KCTX (2026-08-10)
+
+Five dimensions mean the same thing on every screen: **period · entity · statement · basis ·
+materiality**. Three were owned twice — the review held `fluxScope` / `fluxStmt` / `fluxMat`, the
+analytics lenses held `FXA_ENT` / `FXA_STMT` / `FXA_MAT` — and `fxaApplyScope()` copied **one way**
+(FXA_ENT → fluxScope). So setting EMEA in Trending carried into a review, but scoping a review to
+EMEA did not carry back: returning to Trending silently showed Consolidated.
+
+- **KCTX is not a sixth copy.** The existing variables stay the source of truth; `kctxSet(k,v)` is a
+  **write-through** that sets every mirror at once, and `kctxSyncFromReview()` (top of both analytics
+  renderers) is the back-link that never existed. `fxaApplyScope()` no longer overwrites a review's
+  scope, and **bails out entirely when the scope is a custom set or a single entity** — no cons id
+  can express those, and it used to flatten them to Consolidated.
+- **THE GUARDRAIL: an open review pins its own scope.** Context flows *outward* from a review; a
+  context set elsewhere never reaches into an open one (`rpOpenReview` scopes from the review record).
+  Same argument as review sets: silently moving a reviewer to a different population than the one they
+  opened is how someone signs off on lines they never saw. Verified — global APAC, opening an EMEA
+  review lands on EMEA.
+- **One fixed spot: the cluster leads the `.fxcb` bar**, in `KCTX_KEYS` order, separated from the
+  page's own controls by a hairline — everything left of the rule follows you across the platform,
+  everything right of it belongs to this page.
+- **A page declares only the dimensions it reads** (`ctx:[…]` on its KD registry, `o.ctx` on
+  `fxaChrome`). A context pill on a page whose numbers ignore it is a dead control. **Period is
+  deliberately not in the cluster on the analytics pages** — its documented home there is the
+  identity-line pill (`.fxhd-per`), and rendering it twice puts two writers on one dimension.
+- **The drawer now has THREE tiers, and the order is the argument:** Context (global) → Filters (this
+  page) → Presentation & views. All five context dimensions are listed there even when their control
+  lives elsewhere, so the tier means the same thing on every page.
+- **Saved views never store context.** A view restores the page's own controls only — same rule as
+  review sets, same reason.
+- `reRenderCurrent()` now covers every surface that reads context. A period or entity change on a
+  page it did not list left that page showing the previous context's numbers under the new label.
+
 ## Rules that must hold
 
 - **AI narrates, never computes a number.** Every figure comes from the engine; the AI layer only
