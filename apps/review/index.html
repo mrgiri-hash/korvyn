@@ -75,8 +75,32 @@
          fs-11=11px chips/units · fs-12=12px helper/labels · fs-13=13px BODY & TABLE (the base) ·
          fs-14=14px emphasized body · fs-16=15px card titles · fs-20=18px section heads ·
          fs-28=24px page display. rem-based so browser zoom & OS a11y still scale everything. */
-    --fs-11:0.6875rem; --fs-12:0.75rem; --fs-13:0.8125rem; --fs-14:0.875rem;
-    --fs-16:0.9375rem; --fs-20:1.125rem; --fs-28:1.5rem;
+    /* ===== SEMANTIC TYPE SCALE — from apps/dashboard (2026-08-10, convergence phase 2) =========
+       The dashboard names each step by its JOB rather than its pixel count, which is strictly
+       better than what this file had: the old names were openly untrustworthy ("token names are
+       historical; the rem value is authoritative" — --fs-11 rendered 11px, --fs-16 rendered 15px,
+       --fs-20 rendered 18px). A name that lies about its own value is a name you have to look up
+       every time. These say what they are for, and the rule travels with them:
+
+         --fs-micro  10px  counts, badge numerals, ornament captions ONLY — NOT available to prose
+         --fs-label  11px  uppercase section label, tracked
+         --fs-table  12px  table body
+         --fs-ui     13px  UI body — the default
+         --fs-card   15px  card / section title
+         --fs-figure 16px  large figures in KPI strips
+         --fs-page   18px  page title
+         --fs-hero   24px  reserved for one component; if it earns a second caller, collapse it
+
+       Kept in REM, not the dashboard's px, so browser zoom and OS accessibility settings still
+       scale the whole product — that property is worth more than matching the unit. */
+    --fs-micro:0.625rem; --fs-label:0.6875rem; --fs-table:0.75rem; --fs-ui:0.8125rem;
+    --fs-body-em:0.875rem; --fs-card:0.9375rem; --fs-figure:1rem; --fs-page:1.125rem; --fs-hero:1.5rem;
+    /* The numeric names stay as ALIASES so ~2,600 rules keep working untouched, exactly as the
+       ramp aliases do. Migrating call sites to the semantic names is mechanical and can happen
+       file-wide later; doing it in the same change as the rename would make a 2,000-line diff
+       whose real content is two edits. */
+    --fs-11:var(--fs-label); --fs-12:var(--fs-table); --fs-13:var(--fs-ui); --fs-14:var(--fs-body-em);
+    --fs-16:var(--fs-card); --fs-20:var(--fs-page); --fs-28:var(--fs-hero);
   }
   @media (prefers-color-scheme:dark){
     :root{--fx-stripe:#1C212A;--fx-hover:#1F242D;--fx-tot:#262D38;--fx-sec:#20262F;--fx-sec-tx:#64B6C2;--fx-curol:rgba(255,255,255,.05);--fx-head:linear-gradient(180deg,#242B35,#1A1F27);
