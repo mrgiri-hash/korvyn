@@ -36,16 +36,12 @@
 
   :root{--fx-stripe:#F6F8FA;--fx-hover:#EDF1F5;--fx-tot:#F6F8FA;--fx-sec:#EAEEF2;--fx-sec-tx:#17646F;--fx-curol:rgba(31,42,68,.022);--fx-head:linear-gradient(180deg,#FAFBFD,#F2F5F8);
     --bg:#F7F8FA; --surface:#FFFFFF; --surface-2:#FCFCFD; --raise:#EFF1F5;
-    /* The active-nav indicator on dark chrome. Still the pre-convergence teal, DELIBERATELY, and
-       this is the note explaining why the obvious phase-3 edit is wrong:
-       the dashboard's chrome accent (#7A9CF0) is tuned for ONE near-black ground (#161719, 6.69:1)
-       because the dashboard has one chrome. This app ships SEVEN — navy, carbon, black, slate and
-       three light ones — and a single constant cannot serve them: #7A9CF0 measures 6.17 / 7.30 /
-       7.84 on the dark chromes but 1.93 on the default slate and 2.4–2.7 on snow / mist / paper,
-       far below AA, on the one element that tells you where you are.
-       Converging this needs a PER-THEME accent (THEMES already carries an `accent` per entry —
-       that is the hook), not a token swap. Measured 2026-08-10. */
-    --chrome-accent:#2FA090;
+    /* The active-nav indicator. Now the dashboard's chrome accent, which became SAFE the moment the
+       product went to one chrome: it measures 6.69:1 on #161719. It could not be used while six
+       selectable chromes existed — it sat at 1.93 on slate and 2.4–2.7 on the light themes, below AA
+       on the one element that tells you where you are. That measurement is what drove the decision
+       to collapse to a single chrome rather than hand-tune seven accents. */
+    --chrome-accent:#7A9CF0;
     /* chrome hover/active/badge washes — white-translucent by default (dark chrome); light chrome themes invert these to dark-translucent */
     --chrome-lift:rgba(255,255,255,.06); --chrome-lift-on:rgba(255,255,255,.08); --chrome-badge:rgba(255,255,255,.09); --chrome-badge-on:rgba(255,255,255,.16);
     /* ===== Enterprise Filter Panel visual system — owner-specified, 2026-08-08 =================
@@ -60,7 +56,7 @@
     --ink:var(--n-800); --ink-2:var(--n-700); --muted:var(--n-500); --faint:var(--n-400);
     --ink-strong:var(--n-900);
     --line:var(--n-200); --line-2:var(--n-300); --line-faint:rgba(20,24,36,.05);
-    --chrome:#5B6E8C; --chrome-2:#66799A; --chrome-ink:#FFFFFF; --chrome-ink-2:#E4ECF7; --chrome-line:rgba(255,255,255,.11);
+    --chrome:#161719; --chrome-2:#1C1D20; --chrome-ink:#EDEDEE; --chrome-ink-2:#A0A0A4; --chrome-line:rgba(255,255,255,.11);
     /* Korvyn cobalt, from the dashboard — replaces the navy accent. */
     --accent:#2F62D4; --accent-ink:#2450B4; --accent-bg:#EDF2FD; --accent-line:#C4D9FB;
     --accent-fill:#2F62D4;
@@ -126,7 +122,7 @@
       --ink:var(--n-900); --ink-2:var(--n-800); --muted:var(--n-600); --faint:var(--n-500);
       --ink-strong:var(--n-900);
       --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18); --line-faint:rgba(255,255,255,.05);
-      --chrome:#516079; --chrome-2:#5C6E8C; --chrome-ink:#FFFFFF; --chrome-ink-2:#DCE6F4; --chrome-line:rgba(255,255,255,.11);
+      --chrome:#161719; --chrome-2:#1C1D20; --chrome-ink:#EDEDEE; --chrome-ink-2:#A0A0A4; --chrome-line:rgba(255,255,255,.11);
       /* Dark cobalt, from the dashboard. Deliberately LIGHTER than the light-mode hue: on dark
          surfaces --accent is read as TEXT, so it must rise off the background rather than sit on
          it. --accent-fill is the separate BACKGROUND hue behind white text (white on #2E6BD6
@@ -153,7 +149,7 @@
     --ink:var(--n-800); --ink-2:var(--n-700); --muted:var(--n-500); --faint:var(--n-400);
     --ink-strong:var(--n-900);
     --line:var(--n-200); --line-2:var(--n-300); --line-faint:rgba(20,24,36,.05);
-    --chrome:#5B6E8C; --chrome-2:#66799A; --chrome-ink:#FFFFFF; --chrome-ink-2:#E4ECF7; --chrome-line:rgba(255,255,255,.11);
+    --chrome:#161719; --chrome-2:#1C1D20; --chrome-ink:#EDEDEE; --chrome-ink-2:#A0A0A4; --chrome-line:rgba(255,255,255,.11);
     /* Korvyn cobalt, from the dashboard — replaces the navy accent. */
     --accent:#2F62D4; --accent-ink:#2450B4; --accent-bg:#EDF2FD; --accent-line:#C4D9FB;
     --accent-fill:#2F62D4;
@@ -176,7 +172,7 @@
     --ink:var(--n-900); --ink-2:var(--n-800); --muted:var(--n-600); --faint:var(--n-500);
     --ink-strong:var(--n-900);
     --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.18); --line-faint:rgba(255,255,255,.05);
-    --chrome:#516079; --chrome-2:#5C6E8C; --chrome-ink:#FFFFFF; --chrome-ink-2:#DCE6F4; --chrome-line:rgba(255,255,255,.11);
+    --chrome:#161719; --chrome-2:#1C1D20; --chrome-ink:#EDEDEE; --chrome-ink-2:#A0A0A4; --chrome-line:rgba(255,255,255,.11);
     /* Dark cobalt — lighter than the light-mode hue because on dark surfaces --accent is read as
        TEXT and must rise off the ground rather than sit on it. --accent-fill is the separate
        BACKGROUND hue behind white text (white on #2E6BD6 = 5.01:1). */
@@ -5144,18 +5140,27 @@
   /* Color themes are CHROME-ONLY (ribbon + sidebar): a curated navy/neutral set, all teal-accented,
      per the design system (navy chrome, no blue). The content plane keeps its neutral ramp and the
      gold/teal/red status accents so numbers read the same under every theme. */
+  /* ===== ONE CHROME (2026-08-10, convergence phase 3 — owner's decision) =====================
+     Six selectable chrome themes became one, matching the dashboard. This DELETES a capability,
+     deliberately, and the reason is the accent: the active-navigation indicator has to read on the
+     chrome, and one constant cannot serve six grounds. Measured, the dashboard's `#7A9CF0` gives
+     navy 6.17 · carbon 7.30 · black 7.84 but slate 1.93 · snow 2.68 · mist 2.43 · paper 2.46 —
+     so with six themes the element that tells you where you are sat far below AA on four of them.
+     The alternatives were seven hand-tuned accents (which keeps the two apps looking different
+     anyway) or one chrome (which is what "one Korvyn" actually means). The owner chose one.
+     Values are the dashboard's, contrast and all: text 15.34 / 7.70 / 4.71 on the ground, and the
+     accent 6.69. The mute still clears 4.5 — it recedes, it does not become unreadable. */
   var THEMES=[
-    {id:'navy',label:'Navy',chrome:'#0B1F3A',accent:'#2FA090',light:false},
-    {id:'carbon',label:'Carbon',chrome:'#0C0C0D',accent:'#2FA090',light:false},
-    {id:'black',label:'Black',chrome:'#000000',accent:'#2FA090',light:false},
-    {id:'light-snow',label:'Snow',chrome:'#FFFFFF',accent:'#0F6B5C',light:true},
-    {id:'light-mist',label:'Mist',chrome:'#F2F4F7',accent:'#0F6B5C',light:true},
-    {id:'light-paper',label:'Paper',chrome:'#F7F5F0',accent:'#0F6B5C',light:true}
+    {id:'graphite',label:'Graphite',chrome:'#161719',accent:'#7A9CF0',light:false}
   ];
-  function currentChrome(){try{return localStorage.getItem('korvyn.chrome')||'navy';}catch(e){return 'navy';}}
-  function applyChrome(id){var r=document.documentElement;if(!id||id==='navy')r.removeAttribute('data-chrome');else r.setAttribute('data-chrome',id);}
-  function setChrome(id){applyChrome(id);try{localStorage.setItem('korvyn.chrome',id);}catch(e){}if(activeNav==='settings')renderSettings();}
-  try{applyChrome(currentChrome());}catch(e){}
+  /* Kept as functions rather than inlined: `setChrome` is called from the global Settings panel and
+     from restore paths, and a one-theme product should still fail soft if an old localStorage value
+     names a theme that no longer exists — hence the normalisation to 'graphite' rather than trusting
+     whatever is stored. */
+  function currentChrome(){return 'graphite';}
+  function applyChrome(){document.documentElement.removeAttribute('data-chrome');}
+  function setChrome(){applyChrome();try{localStorage.setItem('korvyn.chrome','graphite');}catch(e){}}
+  try{applyChrome();}catch(e){}
 
   var SETTINGS=(function(){
     var d={density:'comfortable',darkSidebar:false,lang:'en',tz:'et',mfa:true,sso:true,sessionTimeout:'30',loginAlerts:true,
@@ -5195,7 +5200,7 @@
       var darkSw=THEMES.filter(function(x){return !x.light;}).map(swatch).join('');
       var lightSw=THEMES.filter(function(x){return x.light;}).map(swatch).join('');
       return '<div class="set-block"><div class="sb-h">Theme</div><div class="sb-d">Light or dark surfaces for the workspace.</div><div class="set-opts">'+opt('light','Light','Bright surfaces')+opt('dark','Dark','Dark surfaces')+opt('system','System','Follow your device')+'</div></div>'+
-        '<div class="set-block"><div class="sb-h">Color theme</div><div class="sb-d">Colours the top ribbon and sidebar &mdash; independent of the light/dark setting above.</div><div class="thm-sub">Dark</div><div class="thm-grid">'+darkSw+'</div><div class="thm-sub">Light</div><div class="thm-grid">'+lightSw+'</div></div>'+
+        '<div class="set-block"><div class="sb-h">Chrome</div><div class="sb-d">Korvyn ships a single graphite chrome so the active-navigation accent can be tuned to one ground and verified against it (6.69:1). The light/dark setting above still controls the workspace surfaces.</div></div>'+
         ''+
         '<div class="set-block"><div class="sb-h">Density</div><div class="sb-d">Row spacing across the workspace &mdash; also available in the review toolbar.</div><div class="set-opts">'+
         '<button class="set-opt'+(SETTINGS.density!=='compact'?' on':'')+'" data-dens="comfortable"><div class="set-opt-t">Comfortable</div><div class="set-opt-d">Roomier rows, easier reading</div></button>'+
@@ -9200,8 +9205,8 @@
       +'<button class="fxd-x" data-kgsclose title="Close">&times;</button></div>'
       +'<div class="fxd-body">'
       +'<div class="fxd-band fxd-band-ctx">Display</div>'
-      +'<div class="fxd-sec open"><div class="fxd-fl">Chrome theme</div><div class="fxd-sec-b">'
-        +'<div class="fxfb-btns">'+themes.map(function(t){return '<button class="rp-gb-b'+(currentChrome()===t[0]?' on':'')+'" data-kgtheme="'+t[0]+'">'+esc(t[1])+'</button>';}).join('')+'</div></div></div>'
+      /* No chrome-theme picker: the product ships ONE chrome now (see THEMES), so a picker here
+         would be a row of one button that changes nothing — a dead control. */
       +'<div class="fxd-sec open"><div class="fxd-fl">Density</div><div class="fxd-sec-b">'
         +seg('dens',[['comfortable','Comfortable'],['compact','Compact'],['executive','Executive']],SETTINGS.density||'comfortable','data-kgdens')+'</div></div>'
       +'<div class="fxd-band">Table preferences</div>'
