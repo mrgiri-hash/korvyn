@@ -35,7 +35,51 @@ font, or spacing value that isn't defined there.
 > normal text. Fine as a fill or a dot; a darker variant is needed wherever gold is used as body text.
 
 
+> ## 2026-08-10 — Convergence onto the `apps/dashboard` system
+>
+> At the owner's direction, `apps/review/` is being folded onto the design system in
+> `apps/dashboard/korvyn_dashboard.html`, so Korvyn is **one product** rather than two prototypes
+> that look related. Phases 1–3 have landed in the review platform. **Where this block and anything
+> below disagree, this block wins.**
+>
+> **Colour is a 12-step neutral ramp plus one accent.** `--n-0` (lightest) … `--n-900` (darkest) is
+> the single source for every neutral; semantic names are **aliases** onto it (`--ink: var(--n-800)`,
+> `--muted: var(--n-500)`, `--line: var(--n-200)`). Never write a raw neutral hex — pick a step.
+> The accent is **Korvyn cobalt `#2F62D4`** (dark mode `#7A9CF0`, lighter because on dark surfaces
+> the accent is read as *text* and must rise off the ground).
+>
+> **Status colours are unchanged and still only three:** positive `#0F9D68`, negative `#D14343`,
+> warning `#C58A1B`. Cobalt is an *accent*, not a status — it never means "good".
+>
+> **Type is named by job, not by size:** `--fs-micro` (10, counts and badge numerals only — never
+> prose) · `--fs-label` (11, tracked uppercase) · `--fs-table` (12) · `--fs-ui` (13, the default) ·
+> `--fs-card` (15) · `--fs-figure` (16) · `--fs-page` (18) · `--fs-hero` (24). Kept in **rem** so
+> browser zoom and OS accessibility still scale the product. The old numeric names (`--fs-13`) remain
+> as aliases; don't add new call sites for them. Fonts: Inter (embedded) + IBM Plex Mono.
+>
+> **One chrome.** Six selectable chrome themes were reduced to a single graphite `#161719`. This
+> deleted a capability deliberately: the active-navigation accent must read on the chrome, and one
+> constant cannot serve six grounds — `#7A9CF0` measures 6.17 / 7.30 / 7.84 on the dark themes but
+> **1.93 on the old default slate** and 2.4–2.7 on the light ones. One chrome is what let the accent
+> be tuned to a single ground and verified there: accent 6.70:1, text 15.33:1, secondary 6.88:1.
+> Don't reintroduce a chrome picker.
+>
+> **Two rules from the 2026-08-08 block are reinforced, not replaced:** selected state is still a
+> solid dark `--ink` fill, kept deliberately distinct from the cobalt accent so *selected* and
+> *clickable* remain different signals; and the "no blue accents" rule stays withdrawn.
+>
+> **Still open:** the warning `#C58A1B` contrast item below is inherited unchanged. Card, chip and
+> table treatments have not yet been audited against the dashboard. `tools/check_chrome_themes.mjs`
+> validates the **dashboard's** theme definitions only — a green run there is not cover for a change
+> made in `apps/review/`.
+
+
 ## 1. Color discipline (the #1 rule)
+
+> **Superseded 2026-08-10** — see the convergence block above. The accent is now cobalt on a 12-step
+> neutral ramp; "no blue accents" was already withdrawn on 2026-08-08. The *discipline* below still
+> holds and is the reason the rule existed: a small fixed palette, status colour used sparingly and
+> only where it means something. Kept for that reasoning.
 
 Korvyn uses **three status colors and nothing else**:
 
@@ -95,10 +139,18 @@ never be the same visual weight as a line item — the eye has to skim to totals
 
 ## 5. Chrome / top bar
 
-- One slim top bar (52px), one row. Brand, period context, search, Ask Korvyn,
-  avatar. That's it.
-- **One primary action per screen** (filled navy button). Everything else is a
-  secondary outline button. Never two filled buttons competing.
+- One slim top bar (52px), one row. Brand, module nav, Favourites, search, Ask Korvyn, the two
+  global panels (Filters, Settings), alerts, identity.
+- **The chrome is a single graphite `#161719`** — no picker (2026-08-10). Its text ramp is
+  `--chrome-ink` / `--chrome-ink-2`, measured 15.33 / 6.88 on that ground, with the active-nav
+  accent at 6.70. If you change any of the three, re-measure all three.
+- **The bar is over-subscribed and sheds in a fixed order** as the viewport narrows: history →
+  the role caption → the Ask Korvyn label → the search field collapses to its icon (at 1820px,
+  before a module name would clip — a clipped module name is a navigation failure, a collapsed
+  search is one extra click). The two global-panel buttons **never** shed: on pages that draw no
+  control bar they are the only route to filters and settings.
+- **One primary action per screen** (filled button). Everything else is a secondary outline button.
+  Never two filled buttons competing.
 
 ---
 
