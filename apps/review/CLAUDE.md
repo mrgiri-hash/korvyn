@@ -300,6 +300,62 @@ right with its actions at the foot" means one thing platform-wide.
 - Both mount into `#kgHost` **outside `#view`** — they are app chrome, not a page, which is what
   lets them survive a page render and appear on screens that draw no bar.
 
+## The panel is THREE BANDS, and the bands are the idea (2026-08-10)
+
+1. **Context** `GLOBAL` — the five KCTX dimensions + Consolidation/Currency/GAAP/Data view.
+   Identical on every page; change it here and the platform moves.
+2. **[Page name]** `THIS PAGE` — that page's own filters, headed with the page's name because this
+   band is *supposed* to differ per page. That is not inconsistency; it is why the statement-grid
+   controls are **absent** on the Trial Balance rather than greyed out.
+3. **Presentation** — a global default with an optional per-page override.
+
+**The flux drawer is gone; its fields are band two.** `renderMonthlyTrend` **publishes** them into
+`KD_REGS.flux` rather than hoisting a dozen closures to module scope — safe because band two only
+ever shows the *current* page's registry, and that function re-runs on every change while you are on
+a flux route, so the closures cannot be read stale. Three things that cost real time:
+
+- **One handler set, two mounts.** `fxQ(sel)` queries `#view` **and** `#kgHost` in one pass, so the
+  panel runs the page's own code and cannot drift. Don't bind a second handler for the panel.
+- **Order is load-bearing.** The page must paint the panel (`kgPaint(true)`) *before* its handler
+  block runs. And any *standalone* paint — opening the panel, expanding a field — creates nodes
+  after that block has already run, so `kgPaint()` asks the current registry to re-render once
+  (guarded by `KG_REBINDING` against recursion). Skip either and panel controls are silently dead.
+- **`FX_FILT_OPEN` must never restore true.** `body.fx-filt-open` still carries a 440px page inset
+  and a scroll lock; with the drawer retired, a stale `korvyn.fxfilt.open=1` shifts the page 440px
+  with nothing on screen to explain it. It is forced false and the key is cleared on load.
+
+**Inheritance (`kpref*`)** resolves override → global → fallback into the live variable at the top of
+every render, so no renderer learns about inheritance. Overrides are keyed by **route**, not
+renderer: My Reviews and All Reviews share a function but are two screens to the person using them.
+Every field states *Using global* or *Overridden for X* with one click back — without that line an
+override is state nobody can explain.
+
+## Convergence with `apps/dashboard` — phase status (2026-08-10)
+
+Folding this app onto the dashboard's design system, at the owner's direction.
+
+- **Phase 1 — neutral ramp + accent (done).** The 12-step ramp (`--n-0`…`--n-900`) is the single
+  source for every neutral; this app's existing names are **aliases** onto it (`--ink: var(--n-800)`),
+  which is what let ~2,600 rules keep working untouched. Accent is Korvyn cobalt `#2F62D4`. Dark mode
+  gets the ramp inverted, declared on `:root` — the **same element** the aliases sit on, because a
+  custom property resolves against the element it is DECLARED on. (The dashboard's ramp landed on
+  `body` while its aliases sat on `html`, and every surface stayed light. Don't repeat it.)
+- **Phase 2 — semantic type scale (done).** `--fs-micro/label/table/ui/card/figure/page/hero`, each
+  named by its job with its rule attached. Numeric names remain aliases. Kept in **rem**, not the
+  dashboard's px, so zoom and OS accessibility still scale the product. `--fs-page` (18px) and
+  `--fs-hero` (24px) deliberately keep this app's values, not the dashboard's 20/28 — raising them
+  grows every page header, and the flux grid-start position is a documented budget.
+- **Phase 3 — component look (blocked on a decision).** The chrome accent **cannot** converge by
+  token swap: the dashboard tunes `#7A9CF0` for its one near-black chrome, but this app ships seven.
+  Measured: navy 6.17 · carbon 7.30 · black 7.84 — but **slate (the default) 1.93**, snow 2.68, mist
+  2.43, paper 2.46. It needs a per-theme accent (`THEMES` already carries an `accent` field). The
+  segmented control's `--ink` fill is **not** a convergence target: "one selection language, a solid
+  dark fill" is a deliberate ruling that keeps *selected* distinct from *clickable*.
+- **Phase 4 — merge.** Not started; needs its own plan.
+
+⚠️ `tools/check_chrome_themes.mjs` validates the **dashboard's** theme definitions, not this app's.
+A green run there is not cover for a change made in `apps/review/`.
+
 ## GLOBAL filter context — KCTX (2026-08-10)
 
 Five dimensions mean the same thing on every screen: **period · entity · statement · basis ·

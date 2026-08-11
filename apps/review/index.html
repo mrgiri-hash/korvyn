@@ -7008,7 +7008,14 @@
      a reviewer who works with the panel open should not have to reopen it every period. */
   var FX_FILT_OPEN=false;
   var FX_FILT_DISMISS_BOUND=false;   /* document listeners bind once, not once per render */
-  try{FX_FILT_OPEN=localStorage.getItem('korvyn.fxfilt.open')==='1';}catch(e){}
+  /* (2026-08-10) The in-view drawer this flag gated is retired — its fields live in band two of the
+     global panel. The flag is kept only because a few dead branches still read it, but it must never
+     restore TRUE again: `body.fx-filt-open` still carries the 440px page inset and the scroll lock,
+     so a stale `korvyn.fxfilt.open=1` from before this change would shift the page 440px right and
+     lock scrolling with no drawer on screen to explain it. Forced false, and the stale key is
+     cleared so the bug cannot arrive from an old session. */
+  FX_FILT_OPEN=false;
+  try{localStorage.removeItem('korvyn.fxfilt.open');}catch(e){}
   /* Which accordion rows are expanded. All collapsed by default: collapsed, the drawer is a readable
      SUMMARY of the whole filter state (each row shows its own current value), and you open only the
      one you came to change. That is what makes nine groups fit without cramming. */
