@@ -6,8 +6,9 @@ there; this file is the map and the shared rules.
 
 | You're working in… | Read |
 |---|---|
-| `apps/review/` — the active front-end | [`apps/review/CLAUDE.md`](apps/review/CLAUDE.md) |
-| `apps/dashboard/` — the original prototype | [`apps/dashboard/CLAUDE.md`](apps/dashboard/CLAUDE.md) |
+| **either app — they are being merged** | [`apps/CONVERGENCE.md`](apps/CONVERGENCE.md) (plan + decisions) |
+| `apps/review/` — the active front-end, and the one that survives the merge | [`apps/review/CLAUDE.md`](apps/review/CLAUDE.md) |
+| `apps/dashboard/` — the original prototype, being folded in | [`apps/dashboard/CLAUDE.md`](apps/dashboard/CLAUDE.md) |
 | `packages/core/` — the domain model | [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) · [README](packages/core/README.md) |
 | `packages/agent/` — the LLM agent | [`packages/agent/CLAUDE.md`](packages/agent/CLAUDE.md) · [README](packages/agent/README.md) |
 | any UI | [`design-system/design-system.md`](design-system/design-system.md) (rules) + [`design-tokens.css`](design-system/design-tokens.css) (the only colors/fonts/spacing) |
