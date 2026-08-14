@@ -3284,6 +3284,35 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   max-height:calc(100vh - var(--header-h) - 24px);overflow-y:auto;overscroll-behavior:contain}
 #fxRoot .dw-hd{position:sticky;top:0;background:var(--surface);z-index:3}
 #fxRoot .dw-tabs{position:sticky;top:60px;background:var(--surface);z-index:2}
+
+/* FULL-LENGTH DRAWER.
+   In flow the panel began where the grid began — around 430px down the page, past
+   the title, the KPI strip and the filter bar — and ran only as far as its content.
+   On a 960px viewport that left it occupying the bottom half of the screen: a panel
+   pinned to the lower right, not a drawer. Sticky cannot fix that, because sticky
+   can never lift an element above its own flow position.
+
+   So the open drawer is FIXED: top under the pinned chrome, bottom at the foot of
+   the viewport, full length no matter where the grid sits or how far the page is
+   scrolled. Its column is still reserved by the grid template (a fixed element
+   leaves the flow but `minmax(0,1fr) 37%` keeps sizing the track), so the table
+   narrows exactly as before and nothing is ever covered — this is a drawer beside
+   the content, not over it. sizeDrawer() syncs left/width to that reserved track.
+
+   Below 1100px the split collapses to one column and the panel returns to normal
+   flow, where a fixed overlay would have nothing to sit beside. */
+/* top and height are set inline by sizeDrawer(), measured off the chrome that is
+   actually pinned — --header-h covers the ribbon and close strip but NOT the page's
+   own sticky #topbar, and that bar changes height between pages and filter states.
+   The values here are the fallback if the measurement cannot run. */
+#fxRoot .fx-detail.fx-dw-full{position:fixed;top:calc(var(--header-h) + 8px);
+  height:calc(100vh - var(--header-h) - 20px);max-height:none;
+  display:flex;flex-direction:column;overflow:hidden;z-index:8}
+/* header and tabs hold their place by being flex items, so they no longer need to be
+   sticky against a scrolling panel — only the body scrolls */
+#fxRoot .fx-detail.fx-dw-full .dw-hd,
+#fxRoot .fx-detail.fx-dw-full .dw-tabs{position:static;flex:0 0 auto}
+#fxRoot .fx-detail.fx-dw-full .dw-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain}
 #fxRoot .tolmark{font-size:var(--fs-table);padding:6px 10px;border-radius:var(--radius);margin-bottom:4px}
 #fxRoot .tolmark.ok{background:var(--success-bg);color:var(--success)}
 #fxRoot .tolmark.bad{background:var(--warning-bg);color:var(--warning)}
@@ -5265,9 +5294,42 @@ function exOpen(base,src){
   }
   go();
 }
+/* Pin the open drawer to the column the grid is still reserving for it. A fixed
+   element has left the flow, so it cannot inherit that track's geometry — but the
+   track is still there and still 37% wide, so measuring the table beside it gives
+   the exact gap to fill. Re-run on every paint and on resize; fixed positioning
+   needs no scroll handler. */
+function sizeDrawer(){
+  const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
+  const full=sp.classList.contains('on')&&dt.style.display!=='none'
+             &&window.matchMedia('(min-width:1101px)').matches;
+  dt.classList.toggle('fx-dw-full',full);
+  if(!full){dt.style.left=dt.style.width=dt.style.top=dt.style.height='';return;}
+  const tbl=sp.firstElementChild; if(!tbl)return;
+  const g=sp.getBoundingClientRect(), t=tbl.getBoundingClientRect();
+  const gap=parseFloat(getComputedStyle(sp).columnGap)||16;
+  dt.style.left=Math.round(t.right+gap)+'px';
+  dt.style.width=Math.max(280,Math.round(g.right-t.right-gap))+'px';
+  /* Start below everything that is actually pinned. --header-h covers the ribbon and
+     the close strip but NOT the page's own sticky .topbar, so trusting the token
+     alone put the drawer's title behind that bar. Measure the pinned bars instead:
+     .topbar exists once per view, so filter to the one with height — the others
+     belong to hidden views — and take the lowest edge. */
+  let top=0;
+  document.querySelectorAll('.ribbon,.cstrip,.topbar').forEach(e=>{
+    const cs=getComputedStyle(e); if(cs.position!=='sticky'&&cs.position!=='fixed')return;
+    const r=e.getBoundingClientRect();
+    if(r.height>0&&r.top<200&&r.width>300)top=Math.max(top,Math.round(r.bottom));
+  });
+  top+=8;
+  if(top>8&&top<window.innerHeight-160){
+    dt.style.top=top+'px'; dt.style.height=(window.innerHeight-top-12)+'px';
+  }else{ dt.style.top=dt.style.height=''; }   // fall back to the CSS values
+}
+window.addEventListener('resize',sizeDrawer);
 function paintDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
-  const shut=()=>{sp.classList.remove('on');dt.style.display='none';};
+  const shut=()=>{sp.classList.remove('on');dt.style.display='none';sizeDrawer();};
   if(!S.sel){shut();return;}
   sp.classList.add('on'); dt.style.display='';
   const all=rows(), r=all.find(x=>x.id===S.sel);
@@ -5291,6 +5353,7 @@ function paintDrawer(){
     `<button class="${S.dwTab===id?'on':''}" onclick="KFX.dwTab('${id}')">${nm}</button>`).join('');
   $('fxDwBody').innerHTML=({explain:dwExplain,roll:dwRoll,drive:dwDrive,accts:dwAccts,jes:dwJes,
     hist:dwHist,audit:dwAudit}[S.dwTab]||dwExplain)(r);
+  sizeDrawer();   // after the grid has laid out, so the reserved track is measurable
 }
 // switching tabs parks the draft; it used to null it and lose whatever was typed
 function dwTab(t){S.dwTab=t;paintDrawer();}
@@ -9527,7 +9590,12 @@ document.addEventListener('click',e=>{
   const p=document.getElementById('wsPop');
   if(p&&!p.contains(e.target)) wsClosePop();
 });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ wsClosePop(); wsDrawerClose(); } });
+/* wsDrawerClose() used to be called here too. No such function exists any more — the
+   drawer it closed is gone — so every Escape press anywhere in the app threw a
+   ReferenceError. Harmless to the user (KFX's own Escape handler runs first and does
+   the real work) but it kept the console permanently dirty, which is the repo's
+   end-to-end check for this file. Dead call removed rather than guarded. */
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ wsClosePop(); } });
 
 
 // ---- per-widget configuration ------------------------------------------------------------
