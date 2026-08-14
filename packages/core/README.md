@@ -162,11 +162,11 @@ grade, not merely large: the test suite asserts every generated entry passes
 deterministic (`buildEnterpriseGL({ seed })`) and serialisable (`bigint` →
 string).
 
-`tools/emit_enterprise_gl.mjs` is the build-time bridge to the single-file
-dashboard prototype: it serialises a snapshot into `apps/dashboard/korvyn_dashboard.html`'s
-`<script id="egl-data">` block (idempotent), where the dashboard's **Enterprise
-GL** module renders it. This is a snapshot, not a runtime dependency — the
-dashboard still imports nothing.
+`tools/emit_enterprise_gl.mjs` is the build-time bridge to the single-file main
+file: it serialises a snapshot into `index.html`'s `<script id="egl-data">` block
+(idempotent), where the **Enterprise GL** module (`view-egl`) renders it. This is
+a snapshot, not a runtime dependency — the page still imports nothing. Re-pointed
+2026-08-14 from `apps/dashboard/korvyn_dashboard.html`.
 
 ## Design tradeoffs
 

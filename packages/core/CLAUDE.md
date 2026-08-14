@@ -26,11 +26,12 @@ No sync engine, no persistence, no real API calls, no UI — deliberately.
 - **Normal balance derives from account type**, never stored. `MappingConfig` contains no
   functions (must serialise to a DB row).
 
-## The one bridge to the dashboard
+## The one bridge to the UI
 
-`tools/emit_enterprise_gl.mjs` serialises a validated GL snapshot into
-`apps/dashboard/korvyn_dashboard.html`'s `<script id="egl-data">` block. That is a build-time data
-snapshot, **not** a runtime import — the dashboard still depends on nothing.
+`tools/emit_enterprise_gl.mjs` serialises a validated GL snapshot into the main file's
+`<script id="egl-data">` block — `index.html` at the repo root, re-pointed 2026-08-14 from
+`apps/dashboard/korvyn_dashboard.html`. That is a build-time data snapshot, **not** a runtime
+import — the page still depends on nothing. Exactly one view (`view-egl`) reads it.
 
 ## Verify
 
