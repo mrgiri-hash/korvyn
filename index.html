@@ -3316,6 +3316,57 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .tolmark{font-size:var(--fs-table);padding:6px 10px;border-radius:var(--radius);margin-bottom:4px}
 #fxRoot .tolmark.ok{background:var(--success-bg);color:var(--success)}
 #fxRoot .tolmark.bad{background:var(--warning-bg);color:var(--warning)}
+
+/* ---- explanation drawer, review pass -------------------------------------
+   THE VERDICT COMES FIRST. The drawer used to open with a four-row sum and put
+   the answer — is this line defensible or not — underneath it, so the reviewer
+   read the arithmetic before learning whether it mattered. The verdict now leads
+   and the arithmetic supports it.
+
+   Severity here is a 3px left border and nothing else (rule 8): no dot, no pill,
+   no tinted fill. A clean line therefore stays monochrome and only a real
+   exception carries colour. */
+#fxRoot .verdict{border:var(--rule);border-left:3px solid var(--n-300);border-radius:var(--radius);
+  padding:var(--s-3) var(--s-4);margin-bottom:var(--s-3);background:var(--surface)}
+#fxRoot .verdict.bad{border-left-color:var(--sev-high)}
+#fxRoot .verdict.ok{border-left-color:var(--success)}
+#fxRoot .verdict.mute{border-left-color:var(--n-300)}
+#fxRoot .verdict-h{font-size:var(--fs-card);color:var(--ink-strong);line-height:1.3}
+#fxRoot .verdict-n{font-size:var(--fs-figure);font-variant-numeric:tabular-nums;
+  letter-spacing:var(--tracking-tight);color:var(--ink-strong);margin-top:2px}
+#fxRoot .verdict.bad .verdict-n{color:var(--danger)}
+#fxRoot .verdict.ok .verdict-n{color:var(--success)}
+#fxRoot .verdict-s{font-size:var(--fs-table);color:var(--muted);line-height:1.45;margin-top:var(--s-2)}
+/* who owes the next move — an enterprise review is a queue, not a document */
+#fxRoot .ballin{font-size:var(--fs-table);color:var(--muted);margin-top:var(--s-2);
+  padding-top:var(--s-2);border-top:var(--rule)}
+#fxRoot .ballin b{color:var(--ink);font-weight:var(--fw-medium)}
+
+/* PROSE IS NEVER --fs-micro (rule 6: micro carries counts and badge numerals that
+   are not sentences). These two classes carry whole sentences and were set at 10px,
+   which is also below what anyone reads comfortably in a dense panel. They recede
+   through COLOUR now, not size. */
+#fxRoot .rl-note{font-size:var(--fs-table);color:var(--muted);line-height:1.5}
+#fxRoot .rl-empty{font-size:var(--fs-table);color:var(--hint);font-style:normal;padding:var(--s-2) 0}
+/* the numerals and attribution in item meta are NOT sentences, so they stay at micro */
+#fxRoot .exi-meta{font-size:var(--fs-micro)}
+#fxRoot .exi-meta .say{font-size:var(--fs-table);color:var(--muted)}
+
+/* .lnk was a <span onclick>: not focusable, not in the tab order, no keyboard path
+   to accept / edit / dismiss / unlock — the whole decision surface was mouse-only
+   (rule 15). It is a real button now, styled to look exactly as it did. */
+#fxRoot button.lnk{background:none;border:none;padding:0;font:inherit;font-size:var(--fs-label);
+  color:var(--accent-ink);cursor:pointer;text-align:left}
+#fxRoot button.lnk:hover{text-decoration:underline}
+#fxRoot .exi-meta button.lnk{font-size:var(--fs-micro)}
+#fxRoot button.lnk:focus-visible,#fxRoot .exi:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+#fxRoot .exi{transition:border-color .12s ease}
+/* three sides only — the shorthand would repaint the 3px severity mark on the left,
+   so an item would lose its state the moment the pointer touched it */
+#fxRoot .exi:hover{border-top-color:var(--line2);border-right-color:var(--line2);border-bottom-color:var(--line2)}
+/* an item still missing its support is a state, so it gets the 3px mark and nothing else */
+#fxRoot .exi.nosup{border-left:3px solid var(--sev-med)}
+#fxRoot .exi.locked{border-left:3px solid var(--n-300)}
 #fxRoot .insight{font-size:var(--fs-table);line-height:1.5;color:var(--ink);background:var(--ai-bg);
   border:1px solid var(--ai-line);border-radius:var(--radius);padding:10px 11px}
 #fxRoot .insight b{font-weight:var(--fw-medium)}
@@ -5361,18 +5412,50 @@ function dwTab(t){S.dwTab=t;paintDrawer();}
 function dwExplain(r){
   const rc=rec(r.id,true), tol=thr().tol*uFac(), res=r.d-rc.items.reduce((t,x)=>t+x.amt,0);
   const clear=Math.abs(res)<=tol, lock=rc.status==='approved';
+  const expl=rc.items.reduce((t,x)=>t+x.amt,0);
+  const cover=r.d?Math.abs(expl/r.d)*100:0;        // how much of the movement is accounted for
+  const P=prof(), T=thr(), n=rc.items.length;
   let h='';
-  h+=`<div class="dw-sec">Movement summary</div>
+
+  /* THE VERDICT LEADS. This panel used to open with a four-row sum and put the
+     answer \u2014 is this line defensible \u2014 underneath it, so the reviewer read the
+     arithmetic before learning whether it mattered. The one number that decides
+     the line is now the first thing on the page, at figure size, and the
+     arithmetic below is what backs it up. */
+  const vcls=!r.req?'mute':(clear?'ok':'bad');
+  h+=`<div class="verdict ${vcls}">
+    <div class="verdict-h">${!r.req?'Explanation optional'
+      :(clear?'Tied out \u2014 within tolerance':'Unexplained residual')}</div>
+    <div class="verdict-n">${fmtS(!r.req?r.d:res)}</div>
+    <div class="verdict-s">${!r.req
+      ? `This movement does not breach <b>${esc(P.nm)}</b> (${fmt(T.abs*uFac())} ${T.op} ${T.pct}% of the line),
+         so commentary is optional. Star the line to require one anyway.`
+      : (clear
+        ? `${n} item${n===1?'':'s'} account${n===1?'s':''} for ${cover.toFixed(0)}% of the ${fmt(Math.abs(r.d))}
+           movement. What remains is inside the \u00b1${fmt(tol)} tolerance set by <b>${esc(P.nm)}</b>.`
+        : `${n?n+' item'+(n===1?'':'s')+' account'+(n===1?'s':'')+' for '+cover.toFixed(0)+'% of the movement, but '
+             :'Nothing has been accepted yet, so '}${fmt(Math.abs(res))} is unexplained
+           against a \u00b1${fmt(tol)} tolerance (<b>${esc(P.nm)}</b>).`)}</div>
+    ${(()=>{  /* an enterprise review is a queue: name who owes the next move */
+      const who={draft:`<b>${esc(rc.prep.split(',')[0])}</b> to finish and submit`,
+                 returned:`<b>${esc(rc.prep.split(',')[0])}</b> to address the reviewer\u2019s note and resubmit`,
+                 submitted:`<b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b> to approve or return`,
+                 approved:`Closed \u2014 approved and locked by <b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b>`}[rc.status];
+      return who?`<div class="ballin">${rc.status==='approved'?'':'Waiting on '}${who}</div>`:'';})()}
+  </div>`;
+
+  /* The tie-out, as supporting detail. Coverage is shown as a share of the movement
+     because that is how a controller reads it \u2014 an absolute alone does not say
+     whether a line is nearly done or barely started. */
+  h+=`<div class="dw-sec">Tie-out</div>
   <div class="mathbox">
-    <div class="mathrow"><span class="l">Total variance</span><span class="v">${fmtS(r.d)}</span></div>
-    <div class="mathrow"><span class="l">Explained \u2014 ${rc.items.length} driver${rc.items.length===1?'':'s'}</span>
-      <span class="v">${fmtS(rc.items.reduce((t,x)=>t+x.amt,0))}</span></div>
-    <div class="mathrow tot"><span class="l">Remaining</span><span class="v">${fmtS(res)}</span></div>
-    <div class="mathrow"><span class="l">Policy tolerance</span><span class="v">${fmt(tol)}</span></div>
-  </div>
-  <div class="tolmark ${clear?'ok':'bad'}">${clear?'\u2713 Within tolerance':'\u26a0 Outside tolerance \u2014 '+fmt(Math.abs(res))+' still unexplained'}</div>`;
-  if(!r.req)h+=`<div class="rl-note" style="margin-bottom:12px">This line does not breach the
-    ${esc(prof().nm)} threshold, so commentary is optional. Star it to require an explanation anyway.</div>`;
+    <div class="mathrow"><span class="l">Movement to explain</span><span class="v">${fmtS(r.d)}</span></div>
+    <div class="mathrow"><span class="l">Less: accepted explanation \u2014 ${n} item${n===1?'':'s'}</span>
+      <span class="v">${fmtS(expl)}${n?` <span style="color:var(--faint)">${cover.toFixed(0)}%</span>`:''}</span></div>
+    <div class="mathrow tot resid ${clear?'clear':''}"><span class="l">Unexplained residual</span>
+      <span class="v">${fmtS(res)}</span></div>
+    <div class="mathrow"><span class="l">Tolerance \u00b7 ${esc(P.nm)}</span><span class="v">\u00b1${fmt(tol)}</span></div>
+  </div>`;
 
   h+=`<div class="dw-sec">Korvyn insight</div><div class="insight">${insight(r)}
     <div style="margin-top:8px"><button class="btn-out sm" onclick="KFX.exPropose()">Review suggested drivers</button></div></div>`;
@@ -5403,9 +5486,9 @@ function dwExplain(r){
         </div>
         <div class="exi-tx">${esc(x.note)}</div>
         <div class="exi-meta"><span style="color:var(--muted)">${esc(x.basis||'')}</span><span class="sp"></span>
-          ${lock?'':`<span class="lnk" onclick="KFX.sugAccept(${i})">accept</span>
-          <span class="lnk" onclick="KFX.sugEdit(${i})">edit and accept</span>
-          <span class="lnk" onclick="KFX.sugDismiss(${i})">dismiss</span>`}</div>
+          ${lock?'':`<button type="button" class="lnk" onclick="KFX.sugAccept(${i})">accept</button>
+          <button type="button" class="lnk" onclick="KFX.sugEdit(${i})">edit and accept</button>
+          <button type="button" class="lnk" onclick="KFX.sugDismiss(${i})">dismiss</button>`}</div>
       </div>`;
     });
     const done=rc.sugs.filter(x=>x.status!=='proposed');
@@ -5424,34 +5507,43 @@ function dwExplain(r){
 
   if(exEdit)h+=exForm(r);
 
-  if(!rc.items.length)h+=`<div class="rl-empty" style="padding:10px 0">No explanation accepted yet. The residual
-    above is the full movement.</div>`;
+  /* EMPTY STATE with the next move in it, not just a statement of absence. An empty
+     panel that only says "nothing here" makes the reviewer work out what to do; this
+     one names the two ways forward and what each costs. */
+  if(!rc.items.length&&!exEdit)h+=`<div class="rl-empty">
+    ${lock?'This line was approved with no itemised explanation.'
+      :`Nothing accepted yet, so the full ${fmt(Math.abs(r.d))} movement is unexplained. Add an item
+        yourself, or let Korvyn propose a quantified split from the underlying dimensions and accept
+        the parts you agree with.`}</div>`;
   rc.items.forEach((it,i)=>{
-    h+=`<div class="exi ${lock?'locked':''}">
+    const noSup=!(it.files||[]).length;
+    h+=`<div class="exi ${lock?'locked':''} ${!lock&&noSup?'nosup':''}">
       <div class="exi-top">
         <span class="exi-amt dlt ${it.amt>0?'up':'dn'}">${fmtS(it.amt)}</span>
         <span class="pill ac">${esc(RSN[it.reason]||it.reason)}</span>
         ${it.src==='korvyn'?'<span class="pill ai">accepted from Korvyn</span>':''}
         ${it.src==='korvyn-edited'?'<span class="pill ai">Korvyn, edited</span>':''}
+        ${it.src==='carried'?'<span class="pill">carried forward</span>':''}
         <span class="sp"></span>
         <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(it.amt/r.d*100):0).toFixed(0)}% of \u0394</span>
       </div>
       <div class="exi-tx">${esc(it.note)}</div>
       <div class="exi-meta">${it.ev?`<span class="pill">${ic('clip')} ${esc(it.ev)}</span>`:''}
-        ${(it.files||[]).length?'':'<span style="color:var(--danger)">no support attached</span>'}
+        ${noSup?'<span class="say" style="color:var(--warning)">No support attached \u2014 an approver will ask for it</span>':''}
         <span class="sp"></span>
         <span style="color:var(--faint)">${esc((it.by||PEOPLE.prep).split(',')[0])} \u00b7 ${it.at||''}</span></div>`;
     if((it.files||[]).length)h+=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px">`+
       it.files.map((f,fi)=>`<span class="pill">
         <a href="${f.url}" download="${esc(f.name)}" style="color:inherit;text-decoration:none">${ic('clip')} ${esc(f.name)}</a>
         <span style="color:var(--faint)">${fmtBytes(f.size)}</span>
-        ${lock?'':`<span class="lnk" style="font-size:var(--fs-micro)" onclick="KFX.upDel(${i},${fi})">\u00d7</span>`}
+        ${lock?'':`<button type="button" class="lnk" style="font-size:var(--fs-micro)"
+          aria-label="Remove ${esc(f.name)}" onclick="KFX.upDel(${i},${fi})">\u00d7</button>`}
       </span>`).join('')+`</div>`;
     if(!lock)h+=`<div style="margin-top:7px;display:flex;gap:6px;align-items:center">
         <input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">
         <button class="btn-out sm" onclick="document.getElementById('up${i}').click()">Attach support</button>
-        <span class="lnk" onclick="KFX.exNew(${i})">edit</span>
-        <span class="lnk" onclick="KFX.exDel(${i})">remove</span></div>`;
+        <button type="button" class="lnk" onclick="KFX.exNew(${i})">edit</button>
+        <button type="button" class="lnk" onclick="KFX.exDel(${i})">remove</button></div>`;
     h+=`</div>`;
   });
 
@@ -5461,8 +5553,10 @@ function dwExplain(r){
     rc.files.map((f,fi)=>`<span class="pill"><a href="${f.url}" download="${esc(f.name)}"
       style="color:inherit;text-decoration:none">${ic('clip')} ${esc(f.name)}</a>
       <span style="color:var(--faint)">${fmtBytes(f.size)} \u00b7 ${esc(f.by.split(',')[0])}</span>
-      ${lock?'':`<span class="lnk" style="font-size:var(--fs-micro)" onclick="KFX.upDel(-1,${fi})">\u00d7</span>`}</span>`).join('')+`</div>`;
-  else h+=`<div class="rl-empty" style="padding:4px 0">Nothing attached at line level.</div>`;
+      ${lock?'':`<button type="button" class="lnk" style="font-size:var(--fs-micro)"
+        aria-label="Remove ${esc(f.name)}" onclick="KFX.upDel(-1,${fi})">\u00d7</button>`}</span>`).join('')+`</div>`;
+  else h+=`<div class="rl-empty">Nothing attached at line level. Line support backs the whole movement —
+    a reconciliation, a schedule, a board paper — as opposed to the evidence on a single item.</div>`;
   if(!lock)h+=`<input type="file" id="upLine" multiple class="hidden" onchange="KFX.upFiles(-1,this)">
     <button class="btn-out sm" onclick="document.getElementById('upLine').click()">Attach support</button>`;
 
@@ -5470,6 +5564,11 @@ function dwExplain(r){
   h+=`<div class="stat-line"><span>${statusPill({req:r.req,status:rc.status,items:rc.items.length,clear})}</span>
     <span class="sp"></span><span style="color:var(--muted)">${esc(rc.prep.split(',')[0])} prepared</span></div>`;
   if(rc.revNote)h+=`<div class="rl-note" style="color:var(--danger);margin:8px 0">Returned: ${esc(rc.revNote)}</div>`;
+  /* LOCKED is a state the reviewer has to understand, not just a set of hidden buttons.
+     Say what it means, who can undo it, and that undoing it is recorded. */
+  if(lock)h+=`<div class="rl-note" style="margin-top:8px">Approved and locked by
+    <b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b>. The explanation is frozen and flows to the flux memo
+    as a disclosure note. Unlocking returns the line to draft and is written to the audit trail.</div>`;
   h+=`<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
   if(rc.status==='draft'||rc.status==='returned')
     h+=`<button class="btn-primary sm" ${clear&&rc.items.length?'':'disabled style="opacity:.45"'} onclick="KFX.exSubmit()">Submit for review</button>`;
@@ -5478,11 +5577,15 @@ function dwExplain(r){
         <button class="btn-out sm" onclick="KFX.exReturn()">Return with note</button>`;
   if(lock)h+=`<button class="btn-out sm" onclick="KFX.exUnlock()">Unlock</button>`;
   h+=`</div>`;
-  if(!clear&&rc.items.length)h+=`<div class="rl-note" style="margin-top:8px">Submission is blocked until the
-    residual falls inside tolerance. Add an item for the remaining ${fmt(Math.abs(res))} or widen the tolerance
-    in the materiality profile.</div>`;
+  /* Say WHY the disabled primary is disabled. A greyed button with no reason beside it
+     is the commonest way an enterprise screen wastes a reviewer's time. */
+  if((rc.status==='draft'||rc.status==='returned')&&!(clear&&rc.items.length))
+    h+=`<div class="rl-note" style="margin-top:8px">${!rc.items.length
+      ? 'Submission needs at least one accepted explanation item.'
+      : `Submission is blocked while ${fmt(Math.abs(res))} sits outside the ±${fmt(tol)} tolerance. Add an item
+         for the remainder, or change the materiality profile in the filter bar.`}</div>`;
   if(rc.trail.length)h+=`<div class="rl-note" style="margin-top:10px">${rc.trail.length} logged action${rc.trail.length===1?'':'s'}
-    on this line \u2014 <span class="lnk" onclick="KFX.dwTab('audit')">open the audit trail</span>.</div>`;
+    on this line \u2014 <button type="button" class="lnk" onclick="KFX.dwTab('audit')">open the audit trail</button>.</div>`;
   return h;
 }
 
@@ -5502,9 +5605,13 @@ function insight(r){
     (man?`, and ${man} manual or post-close entr${man===1?'y':'ies'} posted to it this period.`:'.');
 }
 
-/* ---- suggestion actions ---- */
+/* ---- suggestion actions ----
+   Every one of these reads S.sel, which can name a line that is no longer in rows()
+   — a filter or statement change drops it while the drawer's buttons are still on
+   screen. exPropose() then threw on r.d. They fail with a message now. */
 function exPropose(){
   const r=rows().find(x=>x.id===S.sel), rc=rec(S.sel,true);
+  if(!r){toast('That line is no longer in the current view');closeDrawer();return;}
   const src=suggest(S.sel,r.d);
   rc.sugs=src.map(x=>({...x,status:'proposed',
     basis:S.stmt==='is'?'derived from the segment decomposition':'derived from the rollforward'}));
@@ -5514,6 +5621,7 @@ function exPropose(){
 }
 function sugAccept(i){
   const rc=rec(S.sel,true), x=rc.sugs[i];
+  if(!x){toast('That suggestion is no longer there');paintDrawer();return;}
   rc.items.push({amt:x.amt,reason:x.reason,note:x.note,ev:'',files:[],src:'korvyn',
     by:PEOPLE.prep,at:stamp()});
   x.status='accepted';
@@ -5527,7 +5635,9 @@ function sugEdit(i){
   exOpen({i:null,sug:i},sg);
 }
 function sugDismiss(i){
-  const rc=rec(S.sel,true), x=rc.sugs[i]; x.status='dismissed';
+  const rc=rec(S.sel,true), x=rc.sugs[i];
+  if(!x){toast('That suggestion is no longer there');paintDrawer();return;}
+  x.status='dismissed';
   logA({line:S.sel,act:'dismissed a Korvyn suggestion',before:itemStr(x)});
   renderAll();
 }
@@ -5597,7 +5707,7 @@ function exForm(r){
       <button class="btn-primary sm" onclick="KFX.exSave()">${it.sug!=null?'Save and accept':'Save item'}</button>
       <button class="btn-out sm" onclick="KFX.exCancel()">Cancel</button>
       <span class="sp"></span>
-      <span class="lnk" onclick="KFX.exFill()">Use remaining residual</span>
+      <button type="button" class="lnk" onclick="KFX.exFill()">Use remaining residual</button>
     </div></div>`;
 }
 function exNew(i){
@@ -5659,6 +5769,7 @@ function exSave(){
 }
 function exDel(i){
   const rc=rec(S.sel,true);
+  if(!rc.items[i]){toast('That item is no longer there');paintDrawer();return;}
   logA({line:S.sel,act:'removed an explanation item',before:itemStr(rc.items[i])});
   rc.items.splice(i,1);renderAll();
 }
