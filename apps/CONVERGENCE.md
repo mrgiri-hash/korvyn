@@ -4,18 +4,71 @@ Folding `apps/dashboard/` and `apps/review/` into a single product, at the owner
 (2026-08-10). This file is the plan and the record of decisions; the per-app `CLAUDE.md` files carry
 the working detail.
 
+---
+
+> ## ⚠️ 2026-08-14 — REVERSED. The dashboard line wins.
+>
+> **The owner supplied a further-evolved dashboard and made it the main file: `index.html` at the
+> repo root.** It is a direct descendant of `apps/dashboard/korvyn_dashboard.html` — same spine
+> ribbon, same `RECON_SCALE`, same baked `EGL_DATA` snapshot — grown to ~24k lines and ~60 views on
+> the "Instrument" system (a further evolution of the phase 1–3 ramp + cobalt work).
+>
+> **This inverts the central ruling below.** `apps/review/` is superseded; it is no longer the
+> active front-end and no longer the app screens move *into*. Everything under `apps/` is now a
+> predecessor kept for reference. **Where this block and anything below it disagree, this block
+> wins** — the text below is preserved because the *reasoning* it records is still the reasoning
+> that has to be answered, not because its conclusion still holds.
+>
+> ### What the reversal costs — read this before planning any next step
+>
+> The old ruling picked review because it carried **the live GL engine**, and that fact has not
+> changed:
+>
+> | | `index.html` (main) | `apps/review/index.html` (superseded) |
+> |---|---|---|
+> | `glLedger()` live engine | ✗ none | ✓ 54 references |
+> | 152-account REIT chart that foots (A = L + E) | ✗ | ✓ `E_ACC`-derived taxonomies |
+> | flux surface depth | 141 references | 650 references |
+> | baked `EGL_DATA` snapshot | ✓ (read by `view-egl` alone) | ✗ |
+> | views | ~60 | fewer, but deeper |
+>
+> So the direction of travel flips, and with it the source-of-numbers question. **The engine now
+> has to move into `index.html`, rather than the screens moving into the engine.** Until it does,
+> the main file's figures are illustrative except for `view-egl`, which reads the validated snapshot
+> emitted by `packages/core/tools/emit_enterprise_gl.mjs` (re-pointed at `index.html` on 2026-08-14).
+>
+> That is a real debt, not a detail. The repo rule *"numbers derive, never duplicate"* and the
+> `RECON_SCALE` cautionary tale both apply to it, and porting `glLedger()` in is the obvious next
+> increment whenever the owner wants live numbers in the main file.
+>
+> ### What is still true from the plan below
+>
+> - The **inventory** of ~59 dashboard views, and the grouping by capital-lifecycle / overlap /
+>   out-of-thesis / data-room / leaf. `index.html` inherits it.
+> - The finding that **~14 of 59 views (financial planning, reporting/filing) sit outside the product
+>   thesis.** They are now in the main file by default rather than arriving by a decision — which
+>   makes the explicit call *more* overdue, not less.
+> - Every rule under "Rules that hold throughout".
+> - The trap about `px` vs `rem` type scales, in reverse: the main file is **px**, so anything lifted
+>   from `apps/review/` arrives in `rem` and must be converted, not pasted.
+> - The trap about `check_chrome_themes.mjs` validating nothing shipping — **resolved**: it was
+>   re-pointed at `index.html` on 2026-08-14 and all 10 themes still pass AA in both modes.
+
+---
+
 ## Where it stands
 
 | Phase | What | Status |
 |---|---|---|
-| 1 | Neutral ramp + cobalt accent | ✅ `839d682` |
-| 2 | Semantic type scale | ✅ `eb82b7e` |
-| 3 | One graphite chrome | ✅ `305454a` |
-| — | `design-system.md` brought in line | ✅ `e25b078` |
+| 1 | Neutral ramp + cobalt accent | ✅ `839d682` — and carried further in `index.html` |
+| 2 | Semantic type scale | ✅ `eb82b7e` — `index.html` ships six sizes + two weights |
+| 3 | One graphite chrome | ✅ `305454a` — 10 themes, gated, all pass AA |
+| — | `design-system.md` brought in line | ✅ `e25b078`, re-recorded 2026-08-14 |
 | 3b | Card / chip / table treatments | ⬜ not audited |
-| 4 | Merge the two apps | ⬜ this document |
+| 4 | Merge the two apps | ↩️ **direction reversed** — see the block above |
+| 5 | Port `glLedger()` into `index.html` | ⬜ the debt the reversal creates |
 
-## Decisions made (and why)
+## Decisions made (and why) — superseded 2026-08-14, kept for the reasoning
 
 **`apps/review/` is the surviving app.** It is already named the active front-end, it carries the
 live GL engine, and phases 1–3 put the converged design system in it. The dashboard's screens move

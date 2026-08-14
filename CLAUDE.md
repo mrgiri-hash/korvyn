@@ -4,84 +4,106 @@ Orienting guidance for the whole repo. **Working detail lives in a `CLAUDE.md` n
 Claude Code auto-loads the one for whatever subtree you're editing. Read that one before you edit
 there; this file is the map and the shared rules.
 
+> **`index.html` at the repo root is the main project file** (owner's direction, 2026-08-14). It is
+> the product. Everything under `apps/` is now a predecessor kept for reference — read from them,
+> edit them only if asked by name.
+
 | You're working in… | Read |
 |---|---|
-| **either app — they are being merged** | [`apps/CONVERGENCE.md`](apps/CONVERGENCE.md) (plan + decisions) |
-| `apps/review/` — the active front-end, and the one that survives the merge | [`apps/review/CLAUDE.md`](apps/review/CLAUDE.md) |
-| `apps/dashboard/` — the original prototype, being folded in | [`apps/dashboard/CLAUDE.md`](apps/dashboard/CLAUDE.md) |
+| **`index.html` — THE main file** | this document, then the file's own token/system comments |
+| the merge — which app survives, and why it changed | [`apps/CONVERGENCE.md`](apps/CONVERGENCE.md) (plan + decisions) |
+| `apps/review/` — superseded 2026-08-14; still holds the live GL engine | [`apps/review/CLAUDE.md`](apps/review/CLAUDE.md) |
+| `apps/dashboard/` — the prototype `index.html` descends from | [`apps/dashboard/CLAUDE.md`](apps/dashboard/CLAUDE.md) |
 | `packages/core/` — the domain model | [`packages/core/CLAUDE.md`](packages/core/CLAUDE.md) · [README](packages/core/README.md) |
 | `packages/agent/` — the LLM agent | [`packages/agent/CLAUDE.md`](packages/agent/CLAUDE.md) · [README](packages/agent/README.md) |
-| any UI | [`design-system/design-system.md`](design-system/design-system.md) (rules) + [`design-tokens.css`](design-system/design-tokens.css) (the only colors/fonts/spacing) |
+| any UI | the token layer at the top of [`index.html`](index.html), then [`design-system/design-system.md`](design-system/design-system.md) (written record) |
 
 ## UI / Design System — read before any UI work
 
-**Canonical, go-forward design system for Korvyn UI.** Full rules:
-[`design-system/design-system.md`](design-system/design-system.md). Tokens (the ONLY colors, fonts,
-spacing values allowed): [`design-system/design-tokens.css`](design-system/design-tokens.css). Read
-both before building or editing any screen. If a request conflicts with these rules, follow the
-rules and say so.
+**The system is the token layer at the top of `index.html`** (`:root`, ~line 20 onward), called
+**"Instrument"**: structured monochrome slate, one accent, engineered numerics, light + dark.
+It is heavily self-documenting — the comments there explain *why* each value is what it is, and they
+are the authority. Read them before editing any screen.
 
-**Scope note.** This system governs all *new or edited* UI and is being applied in `apps/review/`.
-It is a **gold/teal/navy** system and **directly contradicts** the older **cobalt/graphite** system
-the dashboard shipped on (documented in [`apps/dashboard/CLAUDE.md`](apps/dashboard/CLAUDE.md), kept
-as the record of that app, not a mandate for new work). When the two disagree on new/edited UI, this
-block wins.
+**Scope note (2026-08-14).** This replaces the **gold/teal/navy** system that this block used to
+describe. That system, its `--k-*` tokens in
+[`design-system/design-tokens.css`](design-system/design-tokens.css), and its "no blue accents" /
+"teal for positive" rulings are **withdrawn** — they described `apps/review/`, which is no longer the
+main file. `design-system/design-system.md` is kept as the dated record of how the system got here;
+where it and `index.html` disagree, **the file wins** and the doc gets a new dated block.
 
 **Non-negotiable rules**
-1. THREE accent colors only: gold (needs attention/pending), teal (approved/matched/tied out), red
-   (exception/overdue/unfavorable). Everything else is neutral gray or navy chrome. **No blue accents.**
-2. On any data table, color AT MOST two columns — the primary variance and its direction. Gray all
+1. **The ramp is the palette.** Twelve neutral steps (`--n-0` … `--n-900`) carry the whole
+   instrument. If a new hue seems necessary, the answer is a different ramp step.
+2. **ONE accent: cobalt `--accent` `#2F62D4`**, and it carries interaction. `--accent-2` (teal-slate)
+   is admitted for the "incurred/actual" measure alone. Indigo `--ai` is reserved for AI surfaces
+   (Ask Korvyn, Insight, generated recommendations) and must never become a second UI accent.
+3. **Red / amber / green are STATE ONLY** — never decoration, never a series colour. Series step
+   through the ramp into the accent (`--series-1` … `--series-4`).
+4. **Two planes, named by role, not lightness:** content (the ramp) and chrome (`--chrome-*`).
+   Chrome is a true *neutral*, never blue-tinted; header and sidebar share one base and separate by
+   a hairline, never by lightness. Chrome themes are gated by `tools/check_chrome_themes.mjs`.
+5. **Separation is lightness and hairlines, never shadow.** Shadow is reserved for true overlays —
+   popovers, menus, modals, drawers. Cards, panels, tables and strips are flat.
+6. **Six type sizes and only these six** (`--fs-label` … `--fs-page`). `--fs-micro` is for counts and
+   badge numerals that carry no sentence, never prose. `--fs-hero` has exactly one caller.
+7. **TWO font weights: 400 and 500.** The 11px uppercase label is a treatment of size, tracking and
+   colour — not weight. Spacing is the 4px scale (`--s-1` … `--s-12`).
+8. Severity is a 3px left border and nothing else — never a dot, never a pill, never both.
+   Provenance dots are the one element allowed semantic colour at rest, and only when stale or
+   unreachable, so a healthy screen stays monochrome.
+
+**Rules carried forward unchanged from the previous system** (they are about structure, not colour,
+and still hold)
+9. On any data table, colour AT MOST two columns — the primary variance and its direction. Gray all
    supporting columns (Organic, FX, CTA, NCI).
-3. Subtotal rows outrank detail rows: bold + a 2px heavy bottom border vs. 1px on detail rows.
-   Never equal weight.
-4. One card per screen REGION, not per table or row. Tables use row hairlines, never card borders or
-   per-cell borders. No box-in-box.
-5. Badges mean "action required from the user," not "count of items." Inventory counts render as
-   quiet gray text.
-6. One primary (filled **navy** `--k-ink-900`) button per screen. All others outline.
-7. All money, dates, IDs, deltas: monospace (`--k-font-data`), tabular-nums, right-aligned. Chrome
-   uses `--k-font-ui` (Inter). Never blend them.
-8. Every table and form ships with empty, loading, error, hover, and visible keyboard-focus states —
-   not just the happy path.
+10. Subtotal rows outrank detail rows. Never equal weight.
+11. One card per screen REGION, not per table or row. Tables use row hairlines, never card borders or
+    per-cell borders. No box-in-box.
+12. Badges mean "action required from the user," not "count of items." Inventory counts render as
+    quiet gray text.
+13. One filled primary button per screen. All others outline.
+14. All money, dates, IDs, deltas: monospace, tabular-nums, right-aligned. Chrome uses Inter.
+    Never blend them.
+15. Every table and form ships with empty, loading, error, hover, and visible keyboard-focus states —
+    not just the happy path.
 
 **Consolidation-scale screens (600+ entities)**
-9. The roll-up tree is a status instrument: every node shows its own completion (mini-bar + fraction)
-   AND an exception count rolled up from everything beneath it.
-10. Tables default to exceptions + material movements only ("5 of 214 lines"); full detail sits
+16. The roll-up tree is a status instrument: every node shows its own completion (mini-bar + fraction)
+    AND an exception count rolled up from everything beneath it.
+17. Tables default to exceptions + material movements only ("5 of 214 lines"); full detail sits
     behind a filter chip.
-11. Multi-currency/elim/NCI data lives behind column-set toggles (Local / Reporting / FX-CTA /
+18. Multi-currency/elim/NCI data lives behind column-set toggles (Local / Reporting / FX-CTA /
     Eliminations / NCI split), never one wide table.
 
-**Two rulings on ambiguities in the token file:**
-- It defines gold/teal **and** a separate `--k-success-600` green + `--k-warning-600` orange. Rule 1
-  is authoritative: use **teal** for approved/matched and **gold** for pending; do **not** use the
-  green/orange tokens as accents.
-- The primary button is **navy** (`--k-ink-900`), not teal.
-
-**Before calling any screen done:** run the checklist at the bottom of `design-system/design-system.md`
-and report which items pass. Never introduce a color, font, or spacing value not in the token file.
+**Before calling any screen done:** run `node tools/check_chrome_themes.mjs` if chrome was touched,
+and report which of the rules above the screen passes. Never introduce a colour, font size, weight or
+spacing value that is not already a token in `index.html`.
 
 ## What's in the repo
 
 ```
 Korvyn/
-├─ apps/                      runnable prototypes (single-file HTML, no build step)
-│   ├─ dashboard/             the original illustrative dashboard (korvyn_dashboard.html)
-│   └─ review/                the Financial Review Platform  ← ACTIVE FRONT-END
-│       ├─ index.html
+├─ index.html                 ← THE MAIN FILE. Single self-contained page, ~24k lines,
+│                               ~60 views, the "Instrument" system. Open it in a browser.
+├─ apps/                      predecessors, kept for reference (single-file HTML, no build)
+│   ├─ dashboard/             korvyn_dashboard.html — what index.html grew out of
+│   └─ review/                the Financial Review Platform — superseded 2026-08-14,
+│       ├─ index.html           but still the only home of the live GL engine
 │       └─ mocks/             design explorations, reference only
 ├─ packages/                  real TypeScript libraries
 │   ├─ core/                  canonical GAAP domain model + ERP integration boundary
 │   └─ agent/                 server-side LLM agent over the domain (tools, approvals)
-├─ design-system/             the canonical UI system (gold/teal/navy) — one home
+├─ design-system/             dated written record of how the UI system got here
 ├─ assets/                    brand (logo)
 ├─ tools/                     repo-wide tooling (check_chrome_themes.mjs)
 └─ archive/                   superseded snapshots (git-ignored)
 ```
 
-`apps/` are prototypes; `packages/` are the real code. They share **no runtime code**. The one
-bridge is build-time and one-directional: `packages/core/tools/emit_enterprise_gl.mjs` serialises a
-validated GL snapshot into `apps/dashboard/korvyn_dashboard.html` (data, not an import).
+`index.html` and `apps/` are prototypes; `packages/` are the real code. They share **no runtime
+code**. The one bridge is build-time and one-directional: `packages/core/tools/emit_enterprise_gl.mjs`
+serialises a validated GL snapshot into `index.html`'s `<script id="egl-data">` (data, not an
+import). It is read by exactly one view, `view-egl`.
 
 **Product thesis (keep edits in this lane):** own the construction-in-progress → placed-in-service
 (CIP → PIS) determination-and-defense layer — the ASC 360 / 835-20 capitalization judgment between
@@ -99,7 +121,8 @@ not enterprise planning.
 - **No dead controls.** If an affordance can't act, don't add it.
 - **AI narrates, never computes a number** — every figure comes from an engine/tool; the AI layer
   only explains and cites.
-- **Prototypes stay single-file** (`apps/*`): no build step, no external runtime dependencies.
+- **The main file stays single-file** (`index.html`, and likewise `apps/*`): no build step, no
+  external runtime dependencies. It is ~2 MB — read the region you need, never the whole file.
 - **Work incrementally.** Never rebuild or redesign an existing page unless asked.
 
 ## Toolchain
@@ -116,13 +139,13 @@ Before concluding a tool is absent, search the filesystem, not just `PATH`. Pyth
 ## Checks
 
 ```bash
-node tools/check_chrome_themes.mjs     # dashboard chrome themes pass WCAG AA (10 themes)
+node tools/check_chrome_themes.mjs     # index.html chrome themes pass WCAG AA (10 themes)
 cd packages/core && npm run check      # core: typecheck + 78 tests + import boundary
 cd packages/agent && npm run dryrun    # agent: all tools resolve, no API call
 ```
 
-For `apps/*` the browser-preview sweep is the end-to-end check (drive every tab, assert each view
-rendered, console clean) — the per-app CLAUDE.md has the specifics.
+For `index.html` the browser-preview sweep is the end-to-end check: open
+`file:///C:/Korvyn/index.html`, drive every tab, assert each view rendered, console clean.
 
 ## Git
 

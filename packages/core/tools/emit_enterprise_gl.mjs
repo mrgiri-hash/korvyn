@@ -1,8 +1,11 @@
 /**
  * Build-time bridge: generate the enterprise GL in korvyn-core, validate is proven
- * by the test suite, then embed a serialized snapshot into the single-file dashboard.
+ * by the test suite, then embed a serialized snapshot into the main file.
  *
- * The dashboard imports nothing at runtime, so this is the ONLY way data crosses
+ * Target: `index.html` at the repo root (re-pointed 2026-08-14, when it replaced
+ * `apps/dashboard/korvyn_dashboard.html` as the main file — see apps/CONVERGENCE.md).
+ *
+ * The page imports nothing at runtime, so this is the ONLY way data crosses
  * from the typed core into it — a snapshot written into <script id="egl-data">,
  * not a live dependency. Idempotent: re-run to refresh the snapshot in place.
  *
@@ -14,7 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { buildEnterpriseGL, serializeEnterpriseGL, lineCount } from '../dist/fixtures/enterprise-gl.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dashboard = resolve(here, '..', '..', '..', 'apps', 'dashboard', 'korvyn_dashboard.html');
+const dashboard = resolve(here, '..', '..', '..', 'index.html');
 
 const gl = buildEnterpriseGL({ seed: 42, invoicesPerMonth: 12 });
 const json = serializeEnterpriseGL(gl);

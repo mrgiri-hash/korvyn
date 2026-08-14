@@ -43,8 +43,9 @@ npm run serve                                   # full app: serves the review-pl
 
 ### Full-fledged chatbot in the browser
 
-`npm run serve` starts the HTTP bridge **and** serves the reviews-first platform UI
-(`../../apps/review/index.html`) at the same origin. Open **http://localhost:8787** with your
+`npm run serve` starts the HTTP bridge **and** serves the main file
+(`../../index.html`; set `REVIEW_UI_PATH` to serve something else) at the same origin. Open
+**http://localhost:8787** with your
 `ANTHROPIC_API_KEY` set and the **Ask Korvyn** panel streams from the real agent —
 one command, one URL, no CSP sandbox. (The published claude.ai artifact can only ever
 show the grounded deterministic fallback: artifact CSP blocks all network calls and

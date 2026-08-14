@@ -29,16 +29,19 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Serve the review-platform UI so the app and the live agent share one origin.
+  // Serve the main file so the app and the live agent share one origin. Re-pointed
+  // 2026-08-14 from apps/review/index.html, which is superseded; REVIEW_UI_PATH still
+  // overrides, so `REVIEW_UI_PATH=../../apps/review/index.html npm run serve` gets the
+  // old UI back.
   if (req.method === 'GET' && (url === '/' || url === '/index.html' || url.startsWith('/?'))) {
     try {
-      const uiPath = process.env['REVIEW_UI_PATH'] ?? join(process.cwd(), '..', '..', 'apps', 'review', 'index.html');
+      const uiPath = process.env['REVIEW_UI_PATH'] ?? join(process.cwd(), '..', '..', 'index.html');
       const html = readFileSync(uiPath);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch {
       res.writeHead(404);
-      res.end('UI not found. Expected ../../apps/review/index.html (or set REVIEW_UI_PATH).');
+      res.end('UI not found. Expected ../../index.html (or set REVIEW_UI_PATH).');
     }
     return;
   }

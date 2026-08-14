@@ -40,7 +40,9 @@ npm install
 cp .env.example .env      # paste your key from console.anthropic.com
 npm run dryrun            # exercise ALL tools with NO API call (free)
 npm run agent             # interactive multi-turn REPL (spends credits)
-npm run serve             # serves apps/review/index.html + live agent at http://localhost:8787
+npm run serve             # serves the main file (../../index.html) + live agent at :8787
+                          # REVIEW_UI_PATH overrides — point it at apps/review/index.html
+                          # for the superseded review platform
 ```
 
 `npm run serve` is the only way to get a **live** Ask Korvyn — a published claude.ai artifact can

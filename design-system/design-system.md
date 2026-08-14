@@ -1,11 +1,36 @@
-# Korvyn Design System — Rules for Claude Code
+# Korvyn Design System — the written record
 
-This file is the source of truth for Korvyn's UI. Read it before building or
-editing any screen. When a request conflicts with these rules, follow the rules
-and say so. Every screen must pass the checklist at the bottom before it's done.
+> ## 2026-08-14 — this file is no longer the source of truth; `index.html` is
+>
+> The owner made **`index.html` at the repo root** the main project file. It carries the
+> **"Instrument"** system in its own `:root` token layer — twelve-step neutral ramp, one cobalt
+> accent `#2F62D4`, six type sizes, two font weights, 4px spacing, hairlines instead of shadow, and a
+> separate neutral `--chrome-*` plane. That token layer is exhaustively commented with the reasoning
+> for each value, **and it is the authority**.
+>
+> This file is kept as the **dated record of how the system got here** — the rulings, the reversals,
+> and the reasoning behind each. It is not a mandate. **Where this file and `index.html` disagree,
+> the file wins**, and the disagreement gets a new dated block here so the record stays honest.
+>
+> **What is withdrawn:** the gold/teal/navy `--k-*` system in `design-tokens.css`, and with it the
+> 2026-08-08 Enterprise Filter Panel block below. Both described `apps/review/index.html`, which was
+> superseded on the same date (see [`apps/CONVERGENCE.md`](../apps/CONVERGENCE.md)). The 2026-08-10
+> convergence block below is *not* withdrawn — Instrument is its direct continuation.
+>
+> **What carries forward unchanged**, because it is about structure rather than colour: at most two
+> coloured columns per table; subtotals outrank detail rows; one card per screen region and no
+> box-in-box; badges mean action-required while counts stay quiet; one filled primary per screen;
+> money/dates/IDs monospace, tabular and right-aligned; every table and form ships empty, loading,
+> error, hover and focus states. The condensed list lives at the top of the root
+> [`CLAUDE.md`](../CLAUDE.md).
+>
+> **The gate:** `node tools/check_chrome_themes.mjs`, re-pointed at `index.html` on this date. All 10
+> chrome themes pass WCAG AA in both modes, keep chrome scope, and preserve dark framing.
 
-Design tokens live in `src/styles/design-tokens.css`. Never introduce a color,
-font, or spacing value that isn't defined there.
+---
+
+Everything below is the historical record, newest block first. Read it for *why*, not for *what* —
+for what, read the token layer in `index.html`.
 
 ---
 

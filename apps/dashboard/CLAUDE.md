@@ -1,13 +1,29 @@
 # CLAUDE.md — Korvyn dashboard (`apps/dashboard/korvyn_dashboard.html`)
 
+> ## 📌 2026-08-14 — the main file grew out of this app
+>
+> **`index.html` at the repo root is now the main project file**, and it is a direct descendant of
+> this one: same spine ribbon, same `RECON_SCALE`, same baked `EGL_DATA` snapshot, grown to ~24k
+> lines and ~60 views on the **"Instrument"** system — a further evolution of the cobalt/graphite
+> work described below.
+>
+> **New work happens in `index.html`, not here.** This file stays as the record of the ancestor and
+> as the place a lot of the *reasoning* below is still written down. Much of it transfers directly;
+> where a specific token name, line number or screen detail is quoted, verify it against
+> `index.html` before relying on it — the descendant has moved on.
+>
+> `packages/core/tools/emit_enterprise_gl.mjs` and `tools/check_chrome_themes.mjs` were both
+> re-pointed at `index.html` on 2026-08-14 and no longer read this file.
+
 Working guidance for the **original single-file dashboard prototype**. This is the record of
 that app as shipped. For the monorepo map and shared conventions see the [root CLAUDE.md](../../CLAUDE.md);
-for the go-forward gold/teal/navy UI system see [`design-system/design-system.md`](../../design-system/design-system.md).
+the UI system now lives in `index.html`'s own token layer, with the written record in
+[`design-system/design-system.md`](../../design-system/design-system.md).
 
 > **Design-system note.** The design system described *below in this file* is the dashboard's
-> shipped **cobalt/graphite** system — the record of what this app is, **not** a mandate for new
-> work. New or edited UI follows the gold/teal/navy system in `design-system/`. When the two
-> disagree on new UI, the design-system pointer at repo root wins.
+> shipped **cobalt/graphite** system. The gold/teal/navy system that this note used to point you to
+> is **withdrawn** (it described `apps/review/`, which is superseded). The Instrument system in
+> `index.html` is the direct continuation of what is described below.
 
 ---
 
