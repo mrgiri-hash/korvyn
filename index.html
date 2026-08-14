@@ -5398,10 +5398,47 @@ function sizeDrawer(){
     dt.style.top=top+'px'; dt.style.height=(window.innerHeight-top-12)+'px';
   }else{ dt.style.top=dt.style.height=''; }   // fall back to the CSS values
 }
-/* rAF-throttled: the top edge tracks the filter bar scrolling out from over it */
+/* WHERE THE FROZEN HEADER PARKS.
+   The sticky column header and section rows offset from --fx-stick, which was
+   declared five times in the stylesheet and every one of them built on --header-h.
+   --header-h is the ribbon plus the close strip (50 + 36 = 86) and does NOT include
+   the page's own sticky .topbar, which is 61px tall and sits at z-15 against the
+   header's z-3. So the header did freeze — underneath the topbar. In normal mode it
+   was hidden completely (86->114 against a bar reaching 147); in focus mode it
+   parked at 126 and showed a 7px sliver. The focus line had the same problem: it
+   pins at --header-h too, so it sat behind the topbar as well.
+
+   Measured at runtime instead, and stacked in the order they actually appear:
+   page chrome, then the focus line directly beneath it, then the table header. An
+   inline custom property beats all five stylesheet declarations, so the conflicting
+   ones stop mattering rather than needing to be reconciled. */
+function syncStick(){
+  const root=$('fxRoot'); if(!root)return;
+  let base=0;
+  document.querySelectorAll('.ribbon,.cstrip,.topbar').forEach(e=>{
+    const cs=getComputedStyle(e);
+    if(cs.position!=='sticky'&&cs.position!=='fixed')return;
+    const r=e.getBoundingClientRect();
+    if(r.height<=0||r.width<300)return;
+    if(r.top>window.innerHeight*0.5)return;        // tall content, not top chrome
+    base=Math.max(base,r.bottom);
+  });
+  if(!base)return;
+  base=Math.round(base);
+  // the focus line pins directly under the page chrome, and the header under IT
+  const fl=root.querySelector('.fx-focusline');
+  if(fl&&fl.getBoundingClientRect().height>0){
+    fl.style.top=base+'px';
+    base=Math.round(fl.getBoundingClientRect().bottom);
+  }
+  root.style.setProperty('--fx-stick',base+'px');
+}
+/* rAF-throttled: the drawer's top edge tracks the filter bar scrolling out from
+   over it, and the frozen header tracks the chrome above it */
 let dwTick=0;
-function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;sizeDrawer();}); }
+function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;syncStick();sizeDrawer();}); }
 window.addEventListener('scroll',dwOnScroll,{passive:true});
+window.addEventListener('resize',syncStick);
 window.addEventListener('resize',sizeDrawer);
 function paintDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
@@ -6341,6 +6378,7 @@ function after(){
   const mb=$('fxMatBtn'); if(mb)mb.innerHTML=esc(prof().nm)+' \u25be';
   const as=$('fxActiveScope'); if(as)as.textContent=activeScopeLine();
   paintKpi(); paintGrid(); paintDrawer(); paintPanel();
+  syncStick();   // the focus line and grid may have just changed height
 }
 function activeScopeLine(){
   const out=[];
