@@ -3305,9 +3305,15 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
    actually pinned — --header-h covers the ribbon and close strip but NOT the page's
    own sticky #topbar, and that bar changes height between pages and filter states.
    The values here are the fallback if the measurement cannot run. */
+/* STACKING BAND. The page's layers are: table headers 2-3, focus line 6, .topbar 15,
+   #railNav 20, then the TRUE OVERLAYS — copilot / notifications / settings 26, modal
+   mask 90, toast 120. The drawer belongs above ordinary page chrome and below every
+   true overlay, so it sits at 22. It deliberately does NOT try to beat #filterbar
+   (z-30): that one is handled by geometry in sizeDrawer(), because winning it here
+   would bury the filter bar's own controls under the panel. */
 #fxRoot .fx-detail.fx-dw-full{position:fixed;top:calc(var(--header-h) + 8px);
   height:calc(100vh - var(--header-h) - 20px);max-height:none;
-  display:flex;flex-direction:column;overflow:hidden;z-index:8}
+  display:flex;flex-direction:column;overflow:hidden;z-index:22}
 /* header and tabs hold their place by being flex items, so they no longer need to be
    sticky against a scrolling panel — only the body scrolls */
 #fxRoot .fx-detail.fx-dw-full .dw-hd,
@@ -5359,24 +5365,43 @@ function sizeDrawer(){
   const tbl=sp.firstElementChild; if(!tbl)return;
   const g=sp.getBoundingClientRect(), t=tbl.getBoundingClientRect();
   const gap=parseFloat(getComputedStyle(sp).columnGap)||16;
-  dt.style.left=Math.round(t.right+gap)+'px';
-  dt.style.width=Math.max(280,Math.round(g.right-t.right-gap))+'px';
-  /* Start below everything that is actually pinned. --header-h covers the ribbon and
-     the close strip but NOT the page's own sticky .topbar, so trusting the token
-     alone put the drawer's title behind that bar. Measure the pinned bars instead:
-     .topbar exists once per view, so filter to the one with height — the others
-     belong to hidden views — and take the lowest edge. */
+  const left=Math.round(t.right+gap), right=Math.round(g.right);
+  dt.style.left=left+'px';
+  dt.style.width=Math.max(280,right-left)+'px';
+
+  /* WHERE THE TOP GOES, and why this is measured rather than declared.
+     The drawer sits at z-index 8. Several page layers outrank it — #filterbar is
+     position:relative z-30 and makes its own stacking context, .topbar is z-15,
+     #railNav z-20 — so any of them that reaches into the drawer's column paints
+     straight over it. That is what cut the title and the tab strip off.
+
+     Raising the drawer above them all was the tempting fix and the wrong one: it
+     would bury the filter bar's own controls (saved views, favourites) under the
+     panel whenever the drawer is open, and it would also start outranking the
+     copilot / notification / settings panels at z-26, which are true overlays and
+     must stay on top.
+
+     So the drawer yields geometrically instead: it begins below whatever currently
+     occupies its column. #filterbar SCROLLS (relative, not sticky), so as it leaves
+     the drawer reclaims the space and runs the full height — which is why this also
+     runs on scroll, not just on paint. */
   let top=0;
-  document.querySelectorAll('.ribbon,.cstrip,.topbar').forEach(e=>{
-    const cs=getComputedStyle(e); if(cs.position!=='sticky'&&cs.position!=='fixed')return;
+  document.querySelectorAll('.ribbon,.cstrip,.topbar,#filterbar,#fxRoot .fx-focusline').forEach(e=>{
     const r=e.getBoundingClientRect();
-    if(r.height>0&&r.top<200&&r.width>300)top=Math.max(top,Math.round(r.bottom));
+    if(r.height<=0||r.width<=0)return;
+    if(r.right<=left||r.left>=right)return;              // not over the drawer's column
+    if(r.top>window.innerHeight*0.5)return;              // not top chrome, just tall content
+    top=Math.max(top,Math.round(r.bottom));
   });
   top+=8;
   if(top>8&&top<window.innerHeight-160){
     dt.style.top=top+'px'; dt.style.height=(window.innerHeight-top-12)+'px';
   }else{ dt.style.top=dt.style.height=''; }   // fall back to the CSS values
 }
+/* rAF-throttled: the top edge tracks the filter bar scrolling out from over it */
+let dwTick=0;
+function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;sizeDrawer();}); }
+window.addEventListener('scroll',dwOnScroll,{passive:true});
 window.addEventListener('resize',sizeDrawer);
 function paintDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
