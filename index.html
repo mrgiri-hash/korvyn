@@ -5220,7 +5220,51 @@ function jes(acct){
 /* ============================================================================
    19. DRAWER
    ========================================================================== */
-let exEdit=null;
+/* ---- in-progress explanations ------------------------------------------------
+   A half-typed explanation is the reviewer's work, and everything the page does
+   around it used to throw it away.
+
+   The form is now rendered FROM a draft and writes back into that draft on every
+   keystroke, so any repaint restores what was typed instead of resetting the fields
+   to their last-saved values. That repaint happens constantly and none of it was
+   the reviewer's doing: accepting a Korvyn suggestion, attaching a file, removing
+   another item, carrying forward, submitting, or any period / statement / filter
+   change all run renderAll().
+
+   Drafts are keyed BY LINE. Moving to another line parks the draft instead of
+   discarding it, and coming back restores it. The old code kept ONE global exEdit
+   that survived a line change with its item index intact, so `rc.items[exEdit.i]`
+   then addressed a DIFFERENT line's items — saving silently rewrote the wrong
+   explanation, or spread `undefined` into a corrupt item. That is the bug this
+   keying closes, not just a convenience.
+
+   Nothing is discarded unless the reviewer says so, and the one path that discards
+   (Cancel) confirms first when the draft differs from what it started as. */
+const EX_DRAFTS=Object.create(null);
+const EX_FIELDS=['amt','reason','note','ev'];
+let exEdit=null;                    // always === EX_DRAFTS[S.sel], re-derived every paint
+
+/* the values the form starts from, so "has this been touched" is a comparison and
+   not a guess. Blank and absent must compare equal, hence the ?? '' on both sides. */
+function exMkDraft(line,base,src){
+  const v={amt:(src&&src.amt!=null&&src.amt!=='')?(src.amt/uFac()).toFixed(2):'',
+           reason:(src&&src.reason)||'', note:(src&&src.note)||'', ev:(src&&src.ev)||''};
+  return {line,i:base.i,sug:base.sug,...v,seed:{...v}};
+}
+const exDirty=d=>!!d&&EX_FIELDS.some(k=>String(d[k]??'')!==String(d.seed[k]??''));
+/* every keystroke lands here. No repaint — this is only about not losing the value. */
+function exField(k,v){ if(exEdit&&EX_FIELDS.indexOf(k)>=0)exEdit[k]=v; }
+/* one door into the editor, so the dirty guard cannot be forgotten at a call site */
+function exOpen(base,src){
+  const go=()=>{exEdit=EX_DRAFTS[S.sel]=exMkDraft(S.sel,base,src);paintDrawer();};
+  if(exDirty(exEdit)&&(exEdit.i!==base.i||exEdit.sug!==base.sug)){
+    confirmM('Replace what you are writing?',
+      'This explanation has unsaved changes. Opening a different item replaces them.',
+      'Replace',go);
+    return;
+  }
+  go();
+}
 function paintDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
   const shut=()=>{sp.classList.remove('on');dt.style.display='none';};
@@ -5228,12 +5272,18 @@ function paintDrawer(){
   sp.classList.add('on'); dt.style.display='';
   const all=rows(), r=all.find(x=>x.id===S.sel);
   if(!r){S.sel=null;shut();return;}
+  // the active editor is whatever was parked on THIS line, never a leftover from another
+  exEdit=EX_DRAFTS[S.sel]||null;
+  // an item can be removed by another control while its editor is open; keep the typed
+  // text and re-aim it at a new item rather than saving into an index that is now gone
+  if(exEdit&&exEdit.i!=null&&!rec(S.sel,true).items[exEdit.i])exEdit.i=null;
   $('fxDwTitle').textContent=r.l;
   $('fxDwSub').innerHTML=`${PERIODS[priorIndex()].lbl} \u2192 ${PERIODS[S.cur].lbl}<br>
     ${fmt(r.pri)} \u2192 ${fmt(r.cur)} &#183;
     <span class="dlt ${r.d>0?'up':'dn'}">${fmtS(r.d)}${r.pri?' / '+pct(r.dp):''}</span>`;
   const rcT=rec(r.id,true);
-  const tabs=[['explain','Explanation'],
+  // a parked draft is invisible from another tab unless the tab says so
+  const tabs=[['explain','Explanation'+(exDirty(exEdit)?' · unsaved':'')],
     [S.stmt==='bs'?'roll':'drive',S.stmt==='bs'?'Rollforward':'Drivers'],
     ['accts','Accounts'],['jes','GL detail'],['hist','History'],
     ['audit','Audit'+(rcT.trail.length?' \u00b7 '+rcT.trail.length:'')]];
@@ -5242,7 +5292,8 @@ function paintDrawer(){
   $('fxDwBody').innerHTML=({explain:dwExplain,roll:dwRoll,drive:dwDrive,accts:dwAccts,jes:dwJes,
     hist:dwHist,audit:dwAudit}[S.dwTab]||dwExplain)(r);
 }
-function dwTab(t){S.dwTab=t;exEdit=null;paintDrawer();}
+// switching tabs parks the draft; it used to null it and lose whatever was typed
+function dwTab(t){S.dwTab=t;paintDrawer();}
 
 function dwExplain(r){
   const rc=rec(r.id,true), tol=thr().tol*uFac(), res=r.d-rc.items.reduce((t,x)=>t+x.amt,0);
@@ -5407,7 +5458,11 @@ function sugAccept(i){
   if(rc.status==='returned')rc.status='draft';
   renderAll();
 }
-function sugEdit(i){exEdit={i:null,sug:i,seed:rec(S.sel,true).sugs[i]};paintDrawer();}
+function sugEdit(i){
+  const sg=rec(S.sel,true).sugs[i];
+  if(!sg){toast('That suggestion is no longer there');paintDrawer();return;}
+  exOpen({i:null,sug:i},sg);
+}
 function sugDismiss(i){
   const rc=rec(S.sel,true), x=rc.sugs[i]; x.status='dismissed';
   logA({line:S.sel,act:'dismissed a Korvyn suggestion',before:itemStr(x)});
@@ -5449,60 +5504,95 @@ function upDel(i,fi){
 }
 
 /* ---- the editor. Seeds from a Korvyn suggestion or a cited journal entry. ---- */
+/* Rendered from the DRAFT, never from the stored item \u2014 that is the whole point.
+   Reading `rc.items[exEdit.i]` here is what made a background repaint blank the
+   fields back to their last-saved values. Every control writes into the draft as it
+   is touched, so this function is safe to call as often as the page likes. */
 function exForm(r){
-  const rc=rec(r.id,true);
-  const it=exEdit.i!=null?rc.items[exEdit.i]:(exEdit.seed||{amt:'',reason:'',note:'',ev:''});
+  const it=exEdit;
   const opts=REASONS.filter(x=>x.stmt==='both'||x.stmt===S.stmt);
   return `<div class="exform">
-    ${exEdit.sug!=null?'<div class="pill ai" style="margin-bottom:7px">Editing a Korvyn suggestion \u2014 saving records it as edited</div>':''}
+    ${it.sug!=null?'<div class="pill ai" style="margin-bottom:7px">Editing a Korvyn suggestion \u2014 saving records it as edited</div>':''}
+    ${exDirty(it)?'<div class="rl-note" style="margin-bottom:7px">Unsaved \u2014 kept if you switch tabs or lines, discarded only if you say so.</div>':''}
     <div class="fr">
       <div style="flex:0 0 110px"><label>Amount (${uName()||'$'})</label>
         <input class="inp" id="exAmt" type="number" step="0.1" style="width:100%"
-          value="${it.amt===''||it.amt==null?'':(it.amt/uFac()).toFixed(2)}"></div>
+          value="${esc(it.amt)}" oninput="KFX.exField('amt',this.value)"></div>
       <div style="flex:1"><label>Reason code</label>
-        <select id="exRsn" style="width:100%">${opts.map(o=>
+        <select id="exRsn" style="width:100%" onchange="KFX.exField('reason',this.value)">${opts.map(o=>
           `<option value="${o.id}" ${it.reason===o.id?'selected':''}>${o.nm}</option>`).join('')}</select></div>
     </div>
     <label>Explanation</label>
-    <textarea class="ta" id="exNote" rows="3" placeholder="What drove this, specifically.">${esc(it.note||'')}</textarea>
+    <textarea class="ta" id="exNote" rows="3" placeholder="What drove this, specifically."
+      oninput="KFX.exField('note',this.value)">${esc(it.note||'')}</textarea>
     <div class="fr" style="margin-top:7px">
       <div style="flex:1"><label>Evidence reference</label>
         <input class="inp" id="exEv" style="width:100%" placeholder="JE, recon, invoice or lease reference"
-          value="${esc(it.ev||'')}"></div>
+          value="${esc(it.ev||'')}" oninput="KFX.exField('ev',this.value)"></div>
     </div>
     <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
-      <button class="btn-primary sm" onclick="KFX.exSave()">${exEdit.sug!=null?'Save and accept':'Save item'}</button>
+      <button class="btn-primary sm" onclick="KFX.exSave()">${it.sug!=null?'Save and accept':'Save item'}</button>
       <button class="btn-out sm" onclick="KFX.exCancel()">Cancel</button>
       <span class="sp"></span>
       <span class="lnk" onclick="KFX.exFill()">Use remaining residual</span>
     </div></div>`;
 }
-function exNew(i){exEdit={i:i==null?null:i};paintDrawer();}
-function exCancel(){exEdit=null;paintDrawer();}
-function exFill(){const r=rows().find(x=>x.id===S.sel),rc=rec(S.sel,true);
-  const res=r.d-rc.items.reduce((t,x)=>t+x.amt,0);$('exAmt').value=(res/uFac()).toFixed(2);}
+function exNew(i){
+  const rc=rec(S.sel,true);
+  if(i!=null&&!rc.items[i]){toast('That explanation item is no longer there');paintDrawer();return;}
+  exOpen({i:i==null?null:i,sug:null}, i!=null?rc.items[i]:null);
+}
+function exCancel(){
+  const d=exEdit; if(!d)return;
+  const drop=()=>{delete EX_DRAFTS[d.line];exEdit=null;paintDrawer();};
+  // the ONLY path that throws typed text away, so it is the one path that asks
+  if(exDirty(d)){
+    confirmM('Discard this explanation?',
+      'What you have typed here has not been saved, and discarding it cannot be undone.',
+      'Discard',drop);
+    return;
+  }
+  drop();
+}
+// writes the draft too, or the next repaint would put the old amount straight back
+function exFill(){
+  const r=rows().find(x=>x.id===S.sel),rc=rec(S.sel,true); if(!r||!exEdit)return;
+  const v=((r.d-rc.items.reduce((t,x)=>t+x.amt,0))/uFac()).toFixed(2);
+  exEdit.amt=v; const el=$('exAmt'); if(el)el.value=v;
+}
 function exSave(){
-  const rc=rec(S.sel,true), amt=parseFloat($('exAmt').value||0)*uFac();
-  const note=$('exNote').value.trim();
+  if(!exEdit)return;
+  const rc=rec(S.sel,true);
+  // the target can be deleted by another control between opening and saving; keep the
+  // reviewer's text and land it as a new item rather than writing past the end
+  if(exEdit.i!=null&&!rc.items[exEdit.i]){
+    exEdit.i=null; toast('That item was removed while you were writing \u2014 saving it as a new one');
+  }
+  const note=String(exEdit.note||'').trim();
   if(!note){toast('An explanation needs a description');return;}
+  // '' -> 0 rather than NaN; a select never touched still reports its rendered value
+  const raw=parseFloat(exEdit.amt), amt=(isFinite(raw)?raw:0)*uFac();
+  const reason=exEdit.reason||($('exRsn')?$('exRsn').value:'');
+  const ev=String(exEdit.ev||'').trim();
   if(exEdit.i!=null){
     const before=rc.items[exEdit.i];
-    const it={...before,amt,reason:$('exRsn').value,note,ev:$('exEv').value.trim(),
+    const it={...before,amt,reason,note,ev,
       by:PEOPLE.prep,at:stamp(),src:before.src==='korvyn'?'korvyn-edited':before.src};
     logA({line:S.sel,act:'edited an explanation item',before:itemStr(before),after:itemStr(it)});
     rc.items[exEdit.i]=it;
   }else{
-    const it={amt,reason:$('exRsn').value,note,ev:$('exEv').value.trim(),files:[],
+    const it={amt,reason,note,ev,files:[],
       by:PEOPLE.prep,at:stamp(),src:exEdit.sug!=null?'korvyn-edited':'user'};
     rc.items.push(it);
     if(exEdit.sug!=null){
       const sg=rc.sugs[exEdit.sug];
-      logA({line:S.sel,act:'edited and accepted a Korvyn suggestion',before:itemStr(sg),after:itemStr(it)});
-      sg.status='edited';
+      if(sg){logA({line:S.sel,act:'edited and accepted a Korvyn suggestion',before:itemStr(sg),after:itemStr(it)});
+        sg.status='edited';}
+      else logA({line:S.sel,act:'added an explanation item',after:itemStr(it)});
     }else logA({line:S.sel,act:'added an explanation item',after:itemStr(it)});
   }
   if(rc.status==='returned')rc.status='draft';
-  exEdit=null;renderAll();
+  delete EX_DRAFTS[exEdit.line]; exEdit=null; renderAll();
 }
 function exDel(i){
   const rc=rec(S.sel,true);
@@ -5708,6 +5798,16 @@ function dwHist(r){
    20. MODALS, EXPORT, MEMO
    ========================================================================== */
 function closeModal(){$('fxMask').classList.remove('on');}
+/* Yes/no counterpart to ask(). The dismissing button is the one that KEEPS the work,
+   so the safe choice is the one you get by hitting Escape or clicking away. */
+function confirmM(title,body,okLabel,cb){
+  $('fxModal').innerHTML=`<h3>${esc(title)}</h3><div class="mbody">
+    <div class="rl-note">${esc(body)}</div></div>
+    <div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Keep editing</button>
+    <button class="btn-primary" id="cfOk">${esc(okLabel)}</button></div>`;
+  $('fxMask').classList.add('on'); setTimeout(()=>{const b=$('cfOk');if(b)b.focus();},30);
+  $('cfOk').onclick=()=>{closeModal();cb();};
+}
 function ask(title,ph,cb){
   $('fxModal').innerHTML=`<h3>${esc(title)}</h3><div class="mbody">
     <input class="inp" id="askIn" style="width:100%" placeholder="${esc(ph)}"></div>
@@ -6161,7 +6261,7 @@ function setStmtFromShell(v){ S.stmt=v; S.sel=null; }
   });
 })();
 
-return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, exNew, exCancel, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
