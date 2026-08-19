@@ -3441,6 +3441,12 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .kdraft .kd-hd{display:flex;align-items:center;gap:6px;margin-bottom:var(--s-2)}
 #fxRoot .kdraft .kd-tx{font-size:var(--fs-table);color:var(--ink);line-height:1.55}
 #fxRoot .kdraft .kd-act{display:flex;gap:6px;margin-top:var(--s-3);flex-wrap:wrap}
+/* SUPPORT INDICATOR — objective counts a reviewer can go and check, never a
+   self-reported confidence percentage. A model's certainty is not evidence, and
+   printing one beside audited figures invites it to be read as though it were. */
+#fxRoot .kdraft .kd-sup{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;
+  margin-top:var(--s-2);padding-top:var(--s-2);border-top:1px solid var(--ai-line);
+  font-size:var(--fs-micro);color:var(--muted)}
 
 /* WHAT NEEDS ATTENTION — a worklist, so each row is an issue and nothing else. */
 #fxRoot .attn{border:var(--rule);border-radius:var(--radius);overflow:hidden}
@@ -5127,6 +5133,298 @@ function cell(c,r,totalD){
   return '<td></td>';
 }
 /* ============================================================================
+   KORVYN DRAFT EXPLANATION — the structured object, then the narrative.
+
+   The order matters and is the whole design: financial facts -> detected drivers
+   -> organisational explanations -> historical context -> evidence and status ->
+   THEN prose. Korvyn never writes a sentence and looks for numbers to justify it.
+
+   Everything here reads the existing engine — byDim, rollforward, drivers,
+   lineAccts/accVal, thr/prof, rec, priorRec. There is no second set of financial
+   values and no independent total anywhere in this file.
+
+   WHAT THIS DATA MODEL CANNOT SUPPORT: the slice carries acct / prop / ent / reg /
+   seg / cc and no currency, so there is no FX or translation contribution to
+   derive. It is reported as unavailable rather than invented — a fabricated FX
+   line is exactly the kind of unsupported claim this engine exists to prevent.
+   ========================================================================== */
+
+const KD_STRONG=85, KD_PARTIAL=50;    // % of movement quantified
+
+function explainObj(r){
+  const rc=rec(r.id,true), T=thr(), P=prof(), C=coverOf(r,rc);
+  const mv=r.d, amv=Math.abs(mv);
+  const share=v=>amv?Math.abs(v)/amv*100:0;
+
+  /* ---- 1. detected drivers, from the decomposition the grid already runs ---- */
+  let drv;
+  if(S.stmt==='bs'){
+    // the rollforward classifies movement by what the account IS — definitional,
+    // not inferred, so this is the one place causal wording is actually earned
+    drv=rollforward(r.id).parts.map(p=>({k:p.acct,nm:p.l,d:p.v,kind:'roll'}));
+  }else{
+    drv=byDim(r.id,'seg').map(x=>({k:x.k,nm:segName(x.k),d:x.d,pri:x.pri,cur:x.cur,kind:'seg'}));
+  }
+  drv=drv.filter(x=>Math.abs(x.d)>0.0005).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  drv.forEach(x=>x.pctOf=share(x.d));
+
+  /* ---- 2. organisational contributions ---- */
+  const byEnt=entParts(r.id);
+  const regMap={};
+  byEnt.forEach(e=>{regMap[e.reg]=(regMap[e.reg]||0)+e.d;});
+  const byReg=Object.entries(regMap).map(([k,d])=>({k,d,pctOf:share(d)}))
+    .sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  const byProp=byDim(r.id,'prop').map(x=>({...x,nm:propName(x.k),pctOf:share(x.d)}));
+  const sl=activeSlices(), pi=priorIndex(), pb=priBasis();
+  const byAcct=lineAccts(S.stmt,r.id).map(a=>{
+    const cur=accVal([a],S.cur,S.grain,'act',sl), pri=accVal([a],pi,S.grain,pb,sl);
+    return {k:a,nm:ACC[a].n,cur,pri,d:cur-pri,pctOf:share(cur-pri)};
+  }).filter(x=>Math.abs(x.d)>0.0005).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+
+  /* ---- 3. classified movement, only where the segment model supports it ---- */
+  const segAmt=k=>{const x=byDim(r.id,'seg').find(y=>y.k===k);return x?x.d:0;};
+  const cls=S.stmt==='is'?{
+    organic:segAmt('same'), acquisition:segAmt('acq'), disposition:segAmt('dispo'),
+    development:segAmt('dev')+segAmt('lease'), corporate:segAmt('corp'),
+  }:null;
+
+  /* ---- 4. organisational and historical context ---- */
+  const stk=stackFor(r,rc);
+  const lower=stk.filter(l=>l.kind==='ent'||l.kind==='reg');
+  const approvedLower=lower.filter(l=>l.status==='approved');
+  const pr=priorRec(r.id);
+  const ev=evidenceFor(rc);
+
+  /* ---- 5. how much of the movement the drivers actually account for ---- */
+  const quantified=drv.reduce((t,x)=>t+Math.abs(x.d),0);
+  const quantPct=amv?Math.min(100,quantified/amv*100):0;
+
+  return {
+    line:r.l, id:r.id, stmt:S.stmt,
+    cur:r.cur, pri:r.pri, mv, mvPct:r.dp, from:compareLabel(), to:PERIODS[S.cur].short,
+    material:!!r.req, flagged:!!r.flag, watched:!!r.watch,
+    threshold:{abs:T.abs*uFac(), pct:T.pct, op:T.op, profile:P.nm}, tolerance:C.tol,
+    drivers:drv, byEnt, byReg, byProp, byAcct, classified:cls,
+    fx:{available:false, reason:'no currency dimension on the slice model'},
+    quantified, quantPct,
+    explained:C.ex, residual:C.res, covered:C.cover, clear:Math.abs(C.res)<=C.tol,
+    items:rc.items, lower, approvedLower, evidence:ev,
+    prior:pr&&pr.items.length?{items:pr.items,period:PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl}:null,
+    status:rc.status, prep:rc.prep, rev:rc.rev,
+    next:{draft:'preparer to complete and submit',returned:'preparer to address the review note',
+          submitted:'reviewer to approve or return',approved:'closed'}[rc.status],
+  };
+}
+
+/* ---- NARRATIVE ---------------------------------------------------------------
+   Rules this obeys, because a controller reads them as claims:
+     - lead with the total movement and state it from -> to, so "increased" can
+       never be misread on a line that reports as a negative
+     - name only quantified drivers, largest first, and stop at three
+     - "partially offset by" only when a driver genuinely runs the other way
+     - CONTRIBUTION language, not causal language: the decomposition proves where
+       the movement SITS, not what caused it. The balance-sheet rollforward is the
+       exception — "additions", "depreciation" are definitional, so those earn
+       plain causal phrasing.
+     - state the residual when it is above tolerance, and never otherwise
+     - no false precision: whole percentages, the product's own money formatting */
+function kdNarrative(o){
+  if(!o.mv)return 'No movement in this line for the selected comparison.';
+  /* DIRECTION IS READ IN ACCOUNTING TERMS, not from the sign of the delta. Expenses
+     and contra accounts report as negatives, so an expense growing from (13.5) to
+     (14.9) has a NEGATIVE delta — describing that as "decreased 1.4" is true of the
+     signed figure and wrong to every accountant who reads it. On a line that reports
+     negative, direction comes from the magnitude and the percentage loses its sign,
+     because "increased ... −10.4%" is a contradiction on the page. */
+  const negLine=o.pri<0||o.cur<0;
+  const dir=negLine?(Math.abs(o.cur)>Math.abs(o.pri)?'increased':'decreased')
+                   :(o.mv>0?'increased':'decreased');
+  const pctTxt=negLine?Math.abs(o.mvPct).toFixed(1)+'%':pct(o.mvPct);
+  const S1=`${esc(o.line)} ${dir} ${fmt(Math.abs(o.mv))} (${pctTxt}) from ${fmt(o.pri)} `+
+           `in ${esc(o.from)} to ${fmt(o.cur)} in ${esc(o.to)}.`;
+
+  const same=o.drivers.filter(d=>Math.sign(d.d)===Math.sign(o.mv)).slice(0,3);
+  const opp =o.drivers.filter(d=>Math.sign(d.d)!==Math.sign(o.mv)).slice(0,2);
+  const phrase=d=>`${fmt(Math.abs(d.d))} from ${esc(d.nm).toLowerCase()}`;
+  let S2='';
+  if(same.length){
+    const lead=o.stmt==='bs'?'The movement is made up of ':'The movement is concentrated in ';
+    const list=same.map(d=>`${esc(d.nm)} (${fmt(Math.abs(d.d))}, ${d.pctOf.toFixed(0)}%)`);
+    S2=lead+(list.length===1?list[0]
+       :list.slice(0,-1).join(', ')+' and '+list[list.length-1])+'.';
+  }
+  let S3='';
+  if(opp.length)S3=' Partially offset by '+opp.map(d=>phrase(d)).join(' and ')+'.';
+
+  let S4='';
+  if(o.quantPct>=1)S4=` These items account for approximately ${Math.round(o.quantPct)}% of the movement.`;
+
+  let S5='';
+  if(o.material&&!o.clear)
+    S5=` A ${fmt(Math.abs(o.residual))} residual remains above the ${fmt(o.tolerance)} `+
+       `${esc(o.threshold.profile)} tolerance.`;
+
+  /* Where lower levels have already signed off, say so and POINT at them rather
+     than restating their words — the whole point of the stack is that entity
+     commentary survives instead of being copied upward. */
+  let S6='';
+  if(o.approvedLower.length)
+    S6=` ${o.approvedLower.length} lower-level explanation${o.approvedLower.length===1?'':'s'} `+
+       `(${o.approvedLower.map(l=>esc(l.scope)).join(', ')}) ${o.approvedLower.length===1?'has':'have'} been approved.`;
+
+  return S1+' '+S2+S3+S4+S5+S6;
+}
+
+/* ---- SUPPORT INDICATOR -------------------------------------------------------
+   Objective, and every part of it is a count the reviewer can go and check. Not a
+   confidence percentage: a model's self-reported certainty is not evidence, and
+   printing one next to audited figures invites it to be treated as though it is. */
+function kdSupport(o){
+  const lvl=o.quantPct>=KD_STRONG?'Strong support':o.quantPct>=KD_PARTIAL?'Partial support':'Limited support';
+  const facts=[`${Math.round(o.quantPct)}% of movement quantified`];
+  if(o.byEnt.length)facts.push(`${o.byEnt.length} contributing entit${o.byEnt.length===1?'y':'ies'}`);
+  if(o.evidence.length)facts.push(`${o.evidence.length} supporting document${o.evidence.length===1?'':'s'}`);
+  if(o.material&&!o.clear)facts.push(`${fmt(Math.abs(o.residual))} residual`);
+  const missing=o.lower.filter(l=>l.status==='pending').length;
+  if(missing)facts.push(`${missing} entity explanation${missing===1?'':'s'} outstanding`);
+  return {lvl,facts,cls:o.quantPct>=KD_STRONG?'ok':o.quantPct>=KD_PARTIAL?'wa':'bad'};
+}
+
+/* ---- WHAT NEEDS ATTENTION ----------------------------------------------------
+   Only issues the underlying state actually supports. Each one names the thing a
+   reviewer would have to go and do. */
+function kdAttention(r,o){
+  const out=[], rc=rec(r.id,true);
+  if(o.material&&!o.clear)
+    out.push({hi:1,w:`${fmt(Math.abs(o.residual))} residual exceeds the ${fmt(o.tolerance)} review tolerance.`});
+  if(o.material&&!o.items.length)
+    out.push({hi:1,w:'No explanation has been accepted on this line yet.'});
+  const openSug=(rc.sugs||[]).filter(x=>x.status==='proposed').length;
+  if(openSug)out.push({w:`${openSug} Korvyn suggestion${openSug===1?'':'s'} awaiting your decision.`});
+  const pend=o.lower.filter(l=>l.status==='pending');
+  if(pend.length)out.push({w:`${pend.length} contributing ${pend.length===1?'entity has':'entities have'} no explanation: `+
+    pend.map(l=>esc(l.scope)).join(', ')+'.'});
+  const await_=o.lower.filter(l=>l.status==='submitted');
+  if(await_.length)out.push({w:`${await_.length} entity explanation${await_.length===1?'':'s'} awaiting approval.`});
+  const noSup=o.items.filter(it=>!(it.files||[]).length).length;
+  if(noSup)out.push({w:`${noSup} explanation item${noSup===1?'':'s'} ha${noSup===1?'s':'ve'} no supporting document.`});
+  if(o.material&&o.items.length&&!o.evidence.length)
+    out.push({w:'No supporting schedule is attached to this line.'});
+  /* An accepted item that disagrees materially with the quantified driver for the
+     same thing is the single most useful thing this panel can surface. */
+  o.items.forEach(it=>{
+    const d=o.drivers.find(x=>Math.sign(x.d)===Math.sign(it.amt)&&Math.abs(Math.abs(x.d)-Math.abs(it.amt))>o.tolerance);
+    if(d&&Math.abs(it.amt)>o.tolerance&&o.drivers.length&&
+       !o.drivers.some(x=>Math.abs(Math.abs(x.d)-Math.abs(it.amt))<=o.tolerance))
+      out.push({w:`An accepted item of ${fmtS(it.amt)} does not match any quantified driver within tolerance.`});
+  });
+  if(o.prior&&o.items.some(it=>o.prior.items.some(p=>p.note===it.note)))
+    out.push({w:`Prior-period wording was carried forward — confirm the driver mix still holds.`});
+  if(o.status==='submitted'&&pend.length)
+    out.push({w:'Submitted for review while explanations below remain open.'});
+  if(o.status==='returned')
+    out.push({hi:1,w:'Returned by the reviewer'+(rc.revNote?': '+esc(rc.revNote):'.')});
+  // dedupe by text
+  const seen=new Set();
+  return out.filter(x=>{const k=x.w;if(seen.has(k))return false;seen.add(k);return true;});
+}
+
+/* ---- the draft record --------------------------------------------------------
+   Kept on the record so the ORIGINAL survives an edit: History has to be able to
+   show what Korvyn proposed as distinct from what a person signed. */
+function kdraftFor(r){
+  const rc=rec(r.id,true);
+  const key=stackKey(r,rc);
+  if(rc.kd&&rc.kd.key===key)return rc.kd;
+  const o=explainObj(r);
+  rc.kd={key, text:kdNarrative(o), at:stamp(), ver:(rc.kd?rc.kd.ver+1:1), o};
+  if(!rc.kdOriginal)rc.kdOriginal={text:rc.kd.text,at:rc.kd.at};
+  return rc.kd;
+}
+
+/* ---- HUMAN CONTROL -----------------------------------------------------------
+   The draft stays system-prepared until a person acts, and every route out of it
+   records who acted, when, and whether they changed anything. Approved commentary
+   is never overwritten. */
+function kdGuard(rc){
+  if(rc.status==='approved'){toast('This line is approved and locked — unlock it first');return false;}
+  return true;
+}
+function kdAccept(){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  const rc=rec(r.id,true); if(!kdGuard(rc))return;
+  const kd=kdraftFor(r), o=kd.o;
+  const src=o.drivers.filter(d=>Math.abs(d.d)>0).slice(0,6);
+  if(!src.length){toast('No quantified driver to accept');return;}
+  src.forEach(d=>rc.items.push({amt:d.d,reason:kdReason(d),note:kdItemNote(d,o),ev:'',files:[],
+    src:'korvyn',by:PEOPLE.prep,at:stamp()}));
+  logA({line:S.sel,act:'accepted the Korvyn draft unchanged',
+    detail:src.length+' driver'+(src.length===1?'':'s')+' accepted; draft '+('v'+kd.ver)});
+  if(rc.status==='returned')rc.status='draft';
+  renderAll(); toast('Korvyn draft accepted as the preparer explanation');
+}
+function kdEdit(){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  const rc=rec(r.id,true); if(!kdGuard(rc))return;
+  const kd=kdraftFor(r);
+  S.dwTab='stack';
+  exOpen({i:null,sug:null},{amt:r.d,reason:'oth',note:kd.text,ev:''});
+  toast('Editing the Korvyn draft — saving records it as edited, not accepted');
+}
+function kdRegen(){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  const rc=rec(r.id,true); delete rc.kd;
+  kdraftFor(r);
+  logA({line:S.sel,who:'Korvyn',act:'regenerated the draft explanation from current drivers'});
+  renderAll(); toast('Draft regenerated from the current drivers');
+}
+function kdDismiss(){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  const rc=rec(r.id,true); if(!kdGuard(rc))return;
+  rc.kdDismissed=true;
+  logA({line:S.sel,act:'dismissed the Korvyn draft explanation'});
+  renderAll(); toast('Draft dismissed — it stays in History');
+}
+function kdRestore(){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  const rc=rec(r.id,true); rc.kdDismissed=false; renderAll();
+}
+/* map a detected driver onto the product's own reason codes rather than inventing
+   a parallel vocabulary */
+function kdReason(d){
+  if(d.kind==='seg')return {same:'vol',acq:'acq',dispo:'dispo',dev:'dev',lease:'dev',corp:'oth'}[d.k]||'oth';
+  const a=String(d.k);
+  return a.startsWith('159')?'dep':a.startsWith('15')?(d.d>=0?'add':'ret')
+    :a.startsWith('27')?(d.d>=0?'add':'ret'):'time';
+}
+function kdItemNote(d,o){
+  const sh=o.mv?Math.abs(d.d/o.mv*100):0;
+  return d.kind==='seg'
+    ? `${d.nm} ${d.d>=0?'contributed':'reduced'} ${fmt(Math.abs(d.d))} of the movement `+
+      `(${fmt(d.pri)} → ${fmt(d.cur)}), approximately ${sh.toFixed(0)}%.`
+    : `${d.nm} of ${fmt(Math.abs(d.d))} in the period, approximately ${sh.toFixed(0)}% of the movement.`;
+}
+
+/* ---- PRIOR-PERIOD INTELLIGENCE ----------------------------------------------
+   Referenced, never auto-applied: carrying last month's language into this
+   month's approved commentary is how a stale explanation gets signed. */
+function kdPriorHtml(o){
+  if(!o.prior)return '';
+  return `<div class="dw-sec">Prior period reference</div>
+    <div class="rl-note" style="margin-bottom:var(--s-2)">${o.prior.items.length}
+      explanation item${o.prior.items.length===1?'':'s'} were accepted in ${esc(o.prior.period)}.
+      Nothing is carried forward automatically.</div>
+    ${o.prior.items.slice(0,2).map(it=>`<div class="exi locked"><div class="exi-top">
+      <span class="exi-amt">${fmtS(it.amt)}</span>
+      <span class="pill">${esc(RSN[it.reason]||it.reason)}</span></div>
+      <div class="exi-tx">${esc(it.note)}</div></div>`).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn-out sm" onclick="KFX.dwTab('hist')">View prior explanation</button>
+      <button class="btn-out sm" onclick="KFX.exCarry()">Carry forward selectively</button>
+    </div>`;
+}
+
+/* ============================================================================
    DISPLAY MODES — four layers over the same review, never four reports.
    Every mode reads the same rows() and the same explanation records; none of them
    has its own dataset, and none of them recomputes a financial value.
@@ -5177,8 +5475,11 @@ function bestExplanation(r,rc){
   if(inh.length)
     return {kind:'inherited',label:'Inherited · '+inh.length+' lower level'+(inh.length===1?'':'s'),
             text:inh.map(l=>l.note).join(' '),by:inh[0].who,at:inh[0].at,n:inh.length};
-  if(r.req)
-    return {kind:'draft',label:'Korvyn draft',text:insight(r),by:'System generated',at:'',n:0};
+  if(r.req){
+    // ONE narrative object feeds the drawer, the grid band and the memo
+    const kd=kdraftFor(r);
+    return {kind:'draft',label:'Korvyn draft',text:kd.text,by:'System generated',at:kd.at,n:0};
+  }
   return {kind:'none',label:'Explanation required',text:'',by:'',at:'',n:0};
 }
 
@@ -5965,8 +6266,7 @@ function stackFor(r,rc){
 
   // 1. Korvyn draft — informational, never equivalent to approved human commentary
   L.push({kind:'ai',scope:'Korvyn draft',who:'System generated',at:rc.updated||stamp(),
-    status:'draft',
-    note:insight(r),
+    status:'draft', note:'', _kd:true,
     refs:[],ev:0,ver:'v1'});
 
   // 2. one layer per contributing entity, quantified from its real contribution
@@ -6054,29 +6354,32 @@ function dwSummary(r){
      Indigo is a boundary, not a fill — no gradient, no sparkle, no chat bubble.
      (The narrative engine itself is deepened in a later pass; this shows the
      grounded reading the module already derives from the decomposition.) */
-  h+=`<div class="dw-sec">Korvyn draft explanation</div>
-    <div class="kdraft">
-      <div class="kd-hd"><span class="pill ai">System generated</span>
-        <span style="color:var(--faint);font-size:var(--fs-micro)">Not approved commentary</span></div>
-      <div class="kd-tx">${insight(r)}</div>
-      <div class="kd-act">
-        <button class="btn-out sm" onclick="KFX.dwTab('stack')">Review in stack</button>
-        <button class="btn-out sm" onclick="KFX.exPropose()">Regenerate from current drivers</button>
-      </div>
-    </div>`;
+  /* KORVYN DRAFT — generated from the structured object, never the other way round.
+     Stays unmistakably system-prepared until a person acts on it. */
+  const O=explainObj(r), KD=kdraftFor(r), SUP=kdSupport(O);
+  if(rc.kdDismissed){
+    h+=`<div class="dw-sec">Korvyn draft explanation</div>
+      <div class="rl-note">Dismissed on this line. It remains in History.
+        <button type="button" class="lnk" onclick="KFX.kdRestore()">Restore</button></div>`;
+  }else{
+    h+=`<div class="dw-sec">Korvyn draft explanation</div>
+      <div class="kdraft">
+        <div class="kd-hd"><span class="pill ai">System generated</span>
+          <span style="color:var(--faint);font-size:var(--fs-micro)">Not approved commentary · v${KD.ver}</span></div>
+        <div class="kd-tx">${KD.text}</div>
+        <div class="kd-sup"><span class="pill ${SUP.cls}">${SUP.lvl}</span>
+          <span>${SUP.facts.map(esc).join(' · ')}</span></div>
+        <div class="kd-act">
+          ${rc.status==='approved'?'':`<button class="btn-primary sm" onclick="KFX.kdAccept()">Accept as preparer explanation</button>
+          <button class="btn-out sm" onclick="KFX.kdEdit()">Edit</button>`}
+          <button class="btn-out sm" onclick="KFX.kdRegen()">Regenerate from current drivers</button>
+          ${rc.status==='approved'?'':`<button class="btn-out sm" onclick="KFX.kdDismiss()">Dismiss</button>`}
+        </div>
+      </div>`;
+  }
 
-  /* WHAT NEEDS ATTENTION — derived, and only what the state actually supports. */
-  const attn=[];
-  if(r.req&&!clear)attn.push({hi:1,w:`${fmt(Math.abs(C.res))} residual is above the ${fmt(C.tol)} tolerance.`});
-  if(r.req&&!n)attn.push({hi:1,w:'No explanation has been accepted on this line yet.'});
-  const openSug=(rc.sugs||[]).filter(x=>x.status==='proposed').length;
-  if(openSug)attn.push({w:`${openSug} Korvyn suggestion${openSug===1?'':'s'} awaiting your decision.`});
-  const noSup=(rc.items||[]).filter(it=>!(it.files||[]).length).length;
-  if(noSup)attn.push({w:`${noSup} explanation item${noSup===1?'':'s'} ha${noSup===1?'s':'ve'} no supporting document attached.`});
-  const stk=stackFor(r,rc), waiting=stk.filter(l=>l.kind!=='ai'&&l.status==='pending');
-  if(rc.status==='submitted'&&waiting.length)
-    attn.push({w:`Submitted, but ${waiting.length} review layer${waiting.length===1?'':'s'} below remain open.`});
-  if(rc.status==='returned')attn.push({hi:1,w:'Returned by the reviewer'+(rc.revNote?': '+esc(rc.revNote):'.')});
+  /* WHAT NEEDS ATTENTION — derived by the engine from the same object. */
+  const attn=kdAttention(r,O);
   if(attn.length){
     h+=`<div class="dw-sec">What needs attention</div><div class="attn">`+
       attn.map(a=>`<div class="attn-r ${a.hi?'hi':''}"><span class="w">${a.w}</span></div>`).join('')+`</div>`;
@@ -6092,6 +6395,8 @@ function dwSummary(r){
       <span class="v">${fmtS(C.res)}</span></div>
     <div class="mathrow"><span class="l">Tolerance · ${esc(P.nm)}</span><span class="v">±${fmt(C.tol)}</span></div>
   </div>`;
+
+  h+=kdPriorHtml(O);
 
   /* COMPACT WORKFLOW — status, not a form. Forms live in Review stack. */
   const step=(k,v,cl)=>`<div class="wf-s ${cl||''}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
@@ -6152,7 +6457,7 @@ function dwStack(r){
         ${l.kind==='ai'?'<span class="pill ai">Korvyn</span>':''}
         <span class="sp"></span><span class="pill ${s.cl==='done'?'ok':(s.cl==='wait'?'wa':'')}">${s.nm}</span></div>
       <div class="rs-by">${esc(String(l.who).split(',')[0])} · ${esc(l.at)} · ${esc(l.ver)}</div>
-      <div class="rs-tx">${l.kind==='ai'?l.note:esc(l.note)}</div>
+      <div class="rs-tx">${l._kd?kdraftFor(r).text:esc(l.note)}</div>
       ${l.refs&&l.refs.length?`<div class="rs-ref">References ${l.refs.length} lower-level
         explanation${l.refs.length===1?'':'s'}: ${esc(l.refs.join(', '))}</div>`:''}
       <div class="rs-meta"><span>${l.ev?l.ev+' document'+(l.ev===1?'':'s'):'No documents'}</span>
@@ -7137,7 +7442,8 @@ function setStmtFromShell(v){ S.stmt=v; S.sel=null; }
   });
 })();
 
-return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, drvSub, histSub, dwGripDown, dwGripKey, explMore, bandApprove, bandReturn, setFullAll, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, drvSub, histSub, dwGripDown, dwGripKey, explMore, bandApprove, bandReturn, setFullAll,
+kdAccept, kdEdit, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
