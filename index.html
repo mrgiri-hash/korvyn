@@ -3159,8 +3159,12 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .kpi .prog i,.kpis .prog i{display:block;height:100%;background:var(--accent)}
 
 #fxRoot{min-width:0}
+/* The workspace reserves a REAL track, so the statement narrows and is never covered.
+   --dw-w is the single source of that width: the grid track, the fixed panel and the
+   drag handle all read it, which is why resizing cannot desynchronise them. */
+#fxRoot{--dw-w:440px}
 #fxRoot .wsplit{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
-#fxRoot .wsplit.on{grid-template-columns:minmax(0,1fr) 37%}
+#fxRoot .wsplit.on{grid-template-columns:minmax(0,1fr) var(--dw-w)}
 #fxRoot .fx-table{min-width:0;overflow:visible}
 @media (max-width:1100px){ #fxRoot .wsplit.on{grid-template-columns:1fr} }
 
@@ -3373,11 +3377,115 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 /* an item still missing its support is a state, so it gets the 3px mark and nothing else */
 #fxRoot .exi.nosup{border-left:3px solid var(--sev-med)}
 #fxRoot .exi.locked{border-left:3px solid var(--n-300)}
+
+/* ===== REVIEW WORKSPACE =====================================================
+   A docked work surface, not a detail drawer. It reserves its own grid track so
+   the statement stays visible and legible beside it; it never overlays on desktop. */
+
+/* RESIZE GRIP. Sits on the panel's left edge, 7px of target over a 1px rule that
+   only appears on hover or drag — a drag affordance that is invisible at rest. */
+#fxRoot .dw-grip{position:absolute;left:-4px;top:0;bottom:0;width:9px;cursor:col-resize;z-index:3}
+#fxRoot .dw-grip::after{content:'';position:absolute;left:4px;top:0;bottom:0;width:1px;
+  background:transparent;transition:background .12s ease}
+#fxRoot .dw-grip:hover::after,#fxRoot .dw-grip.on::after{background:var(--accent)}
+#fxRoot .dw-grip:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+body.dw-resizing{cursor:col-resize;user-select:none}
+
+/* WORKSPACE HEADER. Three bands: what line, what context, what the numbers are.
+   Deliberately NOT KPI cards — a reviewer needs these legible at a glance while
+   reading the explanation, not decorated. */
+#fxRoot .dw-hd{display:block;padding:var(--s-3) var(--s-4) var(--s-2)}
+#fxRoot .dw-hd .t{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink-strong);line-height:1.25}
+#fxRoot .dw-hd .ctx{font-size:var(--fs-label);color:var(--hint);margin-top:2px}
+#fxRoot .dw-x{position:absolute;right:var(--s-3);top:var(--s-3)}
+/* the three figures, tabular and right-aligned like every other money in the product */
+#fxRoot .dw-figs{display:flex;gap:var(--s-5);margin-top:var(--s-2);flex-wrap:wrap;align-items:flex-end}
+#fxRoot .dw-fig{min-width:0}
+#fxRoot .dw-fig .k{display:block;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--faint)}
+#fxRoot .dw-fig .v{font-size:var(--fs-table);font-variant-numeric:tabular-nums;color:var(--ink);
+  letter-spacing:var(--tracking-tight)}
+#fxRoot .dw-fig.var .v{font-weight:var(--fw-medium);color:var(--ink-strong)}
+#fxRoot .dw-hd .st{margin-top:var(--s-2)}
+
+/* WORKFLOW FOOTER. Always reachable, so a reviewer never scrolls a long panel to
+   find the action. Only the actions the current state actually permits render. */
+#fxRoot .dw-foot{flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  padding:var(--s-2) var(--s-4);border-top:var(--rule);background:var(--surface)}
+#fxRoot .dw-foot .sp{flex:1}
+#fxRoot .dw-foot .why{font-size:var(--fs-micro);color:var(--muted);flex-basis:100%;margin-top:-2px}
+
+/* REVIEW STACK — a review LINEAGE, not a chat thread. One rail down the left with a
+   node per organisational layer; each layer keeps its own scope, author and status,
+   and higher layers reference the ones beneath instead of copying their text. */
+#fxRoot .rs{position:relative;padding-left:var(--s-5)}
+#fxRoot .rs::before{content:'';position:absolute;left:6px;top:6px;bottom:10px;width:1px;background:var(--line2)}
+#fxRoot .rs-l{position:relative;padding:0 0 var(--s-4) 0}
+#fxRoot .rs-l::before{content:'';position:absolute;left:calc(-1 * var(--s-5) + 3px);top:5px;
+  width:7px;height:7px;border-radius:50%;background:var(--n-0);border:1px solid var(--line2)}
+#fxRoot .rs-l.done::before{background:var(--success);border-color:var(--success)}
+#fxRoot .rs-l.wait::before{background:var(--warning);border-color:var(--warning)}
+#fxRoot .rs-l.ai::before{background:var(--ai);border-color:var(--ai)}
+#fxRoot .rs-hd{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+#fxRoot .rs-sc{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink-strong)}
+#fxRoot .rs-by{font-size:var(--fs-micro);color:var(--faint)}
+#fxRoot .rs-tx{font-size:var(--fs-table);color:var(--ink);line-height:1.5;margin-top:3px}
+#fxRoot .rs-meta{font-size:var(--fs-micro);color:var(--faint);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+#fxRoot .rs-ref{font-size:var(--fs-micro);color:var(--muted);margin-top:4px;
+  padding-left:var(--s-2);border-left:2px solid var(--line2)}
+
+/* KORVYN DRAFT. Indigo is reserved for AI surfaces and is a BOUNDARY here, not a fill —
+   no gradient, no sparkle, no chat bubble. It reads as one more layer of the review. */
+#fxRoot .kdraft{border:1px solid var(--ai-line);border-radius:var(--radius);
+  background:var(--ai-bg);padding:var(--s-3);margin-bottom:var(--s-3)}
+#fxRoot .kdraft .kd-hd{display:flex;align-items:center;gap:6px;margin-bottom:var(--s-2)}
+#fxRoot .kdraft .kd-tx{font-size:var(--fs-table);color:var(--ink);line-height:1.55}
+#fxRoot .kdraft .kd-act{display:flex;gap:6px;margin-top:var(--s-3);flex-wrap:wrap}
+
+/* WHAT NEEDS ATTENTION — a worklist, so each row is an issue and nothing else. */
+#fxRoot .attn{border:var(--rule);border-radius:var(--radius);overflow:hidden}
+#fxRoot .attn-r{display:flex;gap:var(--s-2);align-items:flex-start;padding:7px 10px;
+  font-size:var(--fs-table);color:var(--ink);border-bottom:var(--rule);border-left:3px solid var(--sev-med)}
+#fxRoot .attn-r:last-child{border-bottom:none}
+#fxRoot .attn-r.hi{border-left-color:var(--sev-high)}
+#fxRoot .attn-r .w{flex:1;min-width:0;line-height:1.45}
+
+/* compact preparer -> reviewer -> controller chain */
+#fxRoot .wf{display:flex;align-items:stretch;gap:0;border:var(--rule);border-radius:var(--radius);overflow:hidden}
+#fxRoot .wf-s{flex:1;min-width:0;padding:7px 10px;border-right:var(--rule)}
+#fxRoot .wf-s:last-child{border-right:none}
+#fxRoot .wf-s .k{display:block;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--faint)}
+#fxRoot .wf-s .v{font-size:var(--fs-table);color:var(--ink)}
+#fxRoot .wf-s.now{background:var(--accent-bg)}
+#fxRoot .wf-s.now .v{color:var(--accent-ink);font-weight:var(--fw-medium)}
+#fxRoot .wf-s.done .v{color:var(--success)}
+
+/* sub-navigation inside Drivers, so Accounts and GL detail keep working without
+   holding permanent top-level tabs */
+#fxRoot .dw-sub{display:flex;gap:2px;margin-bottom:var(--s-3);border:var(--rule);
+  border-radius:var(--radius);padding:2px;width:fit-content;max-width:100%;flex-wrap:wrap}
+#fxRoot .dw-sub button{background:none;border:none;padding:3px 9px;border-radius:calc(var(--radius) - 2px);
+  font:inherit;font-size:var(--fs-label);color:var(--muted);cursor:pointer}
+#fxRoot .dw-sub button.on{background:var(--n-100);color:var(--ink-strong)}
+#fxRoot .dw-sub button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #fxRoot .insight{font-size:var(--fs-table);line-height:1.5;color:var(--ink);background:var(--ai-bg);
   border:1px solid var(--ai-line);border-radius:var(--radius);padding:10px 11px}
 #fxRoot .insight b{font-weight:var(--fw-medium)}
 
-/* responsive column priority: analytical columns yield before the numbers do */
+/* RESPONSIVE COLUMN PRIORITY: analytical columns yield before the numbers do.
+   Driven by dw-tight / dw-tighter, which sizeDrawer() sets from the room the table
+   ACTUALLY has — a viewport media query cannot know how wide the reviewer dragged
+   the workspace. The viewport rules below still cover the workspace-closed case. */
+#fxRoot .col-line{min-width:250px}
+#fxRoot.dw-tight .col-trend{display:none}
+#fxRoot.dw-tighter .col-contrib{display:none}
+/* Once the optional columns are gone the CORE ones compress rather than clip. The
+   line caption gives up the most because it truncates gracefully; the figures and
+   the review status never do. */
+#fxRoot.dw-tight .col-line{min-width:180px}
+#fxRoot.dw-tighter .col-line{min-width:150px}
+#fxRoot.dw-tighter .col-cmt{min-width:120px}
 @media (max-width:1600px){ #fxRoot .wsplit.on .col-contrib{display:none} }
 @media (max-width:1440px){ #fxRoot .wsplit.on .col-trend{display:none} }
 @media (max-width:1280px){ #fxRoot .col-contrib{display:none} }
@@ -4281,7 +4389,9 @@ const S={
   ent:[], seg:[], prop:[], cc:[], reg:[],
   profile:'close',
   dir:'all', show:'all', sort:'stmt',
-  glAll:false, glOpen:{}, sel:null, dwTab:'explain', jeAcct:null, jeOnly:'',
+  glAll:false, glOpen:{}, sel:null, dwTab:'sum', jeAcct:null, jeOnly:'',
+  drvSub:'decomp',           // Drivers sub-view: decomposition | accounts | GL detail
+  histSub:'trend',           // History sub-view: periods | audit trail
   view:'compact',            // 'compact' | 'review' — density of the explanation column
   dens:'std',                // 'std' | 'dense' — row height
   focus:false,               // hide the summary chrome and give the table the screen
@@ -4930,7 +5040,12 @@ function cell(c,r,totalD){
         <span class="ctrack"><i style="width:${Math.min(100,sh*2.2).toFixed(1)}%"></i></span></td>`;}
     case 'share':{const tot=lineVal(S.stmt,S.stmt==='bs'?'ta':'totrev',S.cur,S.grain,'act');
       return `<td class="num">${tot?(r.cur/tot*100).toFixed(1)+'%':'\u2014'}</td>`;}
-    case 'trend':return `<td class="num">${spark(r)}</td>`;
+    /* col-trend, not just num: the HEADER carried the class and the body cell did
+       not, so hiding the column hid the heading and left a 76-150px empty band
+       behind it — the table went on reserving the width. Latent since the
+       responsive rules were written; the workspace made it visible by shedding
+       this column far more often. */
+    case 'trend':return `<td class="num col-trend">${spark(r)}</td>`;
     case 'bud':  return `<td class="num">${fmt(V(S.cur,S.grain,'bud'))}</td>`;
     case 'budv': {const b=V(S.cur,S.grain,'bud'),v=r.cur-b;
       return `<td class="num dlt ${v>0?'up':'dn'}">${fmtS(v)}</td>`;}
@@ -4958,7 +5073,7 @@ function paintGrid(){
   const hide=S.view==='review'?['contrib','trend','share','avg3','ann','bud','budv']:[];
   const totalD=all.filter(r=>!r.hdr&&!r.tot).reduce((t,r)=>t+Math.abs(r.d),0);
   const cols=S.cols.filter(c=>!hide.includes(c));
-  let h=`<thead><tr><th style="min-width:250px">${S.stmt==='bs'?'Balance sheet line':'Income statement line'}</th>`+
+  let h=`<thead><tr><th class="col-line">${S.stmt==='bs'?'Balance sheet line':'Income statement line'}</th>`+
     cols.map(c=>`<th class="col-${c} ${['owner','status','cmt','contrib','trend'].includes(c)?'':'num'}">${COL_DEFS.find(x=>x.id===c).nm}</th>`).join('')+
     `</tr></thead><tbody>`;
   v.forEach(r=>{
@@ -5082,13 +5197,13 @@ function setView(v){S.view=v;popClose();logA({act:'table view changed',after:v})
 function setElim(v){S.elim=v;logA({act:'eliminations setting changed',before:S.elim,after:v});renderAll();}
 function toggleGl(){S.glAll=!S.glAll;renderAll();}
 function glTog(id){S.glOpen[id]=!S.glOpen[id];renderAll();}
-function openAcct(line,acct){S.sel=line;S.jeAcct=acct;S.dwTab='jes';renderAll();}
+function openAcct(line,acct){S.sel=line;S.jeAcct=acct;S.dwTab='drive';S.drvSub='jes';renderAll();}
 function star(id){const k=S.stmt+'::'+id;S.watch[k]=!S.watch[k];const on=!!S.watch[k];if(!on)delete S.watch[k];
   logA({line:id,act:on?'added to watchlist':'removed from watchlist'});renderAll();}
 function clearWatch(){S.watch={};renderAll();}
 function gotoWatch(st,id){S.stmt=st;S.sel=id;renderAll();}
 function trend(id){pop('trend:'+id,$('fxGrid')||document.body);}
-function pick(id){S.sel=S.sel===id?null:id;S.dwTab='explain';renderAll();}
+function pick(id){S.sel=S.sel===id?null:id;S.dwTab='sum';renderAll();}
 function closeDrawer(){S.sel=null;renderAll();}
 function resetFilters(){S.ent=[];S.seg=[];S.prop=[];S.cc=[];S.reg=[];S.dir='all';S.show='all';S.sort='stmt';renderAll();}
 /* Drill and filter are the same gesture: scoping from a decomposition row applies the
@@ -5351,6 +5466,72 @@ function exOpen(base,src){
   }
   go();
 }
+/* ---- workspace width -------------------------------------------------------
+   One number governs the grid track, the fixed panel and the drag handle, so they
+   cannot drift apart. Persisted per user; localStorage is wrapped because a page
+   opened over file:// can refuse it and a width preference must never break the
+   panel. */
+const DW_MIN=380, DW_MAX=600, DW_DEF=440, DW_KEY='korvyn.flux.workspaceWidth';
+function dwStoredWidth(){
+  let n=NaN; try{n=parseInt(localStorage.getItem(DW_KEY),10);}catch(e){}
+  return Math.min(DW_MAX,Math.max(DW_MIN,isFinite(n)?n:DW_DEF));
+}
+function dwCurWidth(){
+  const root=$('fxRoot'); if(!root)return DW_DEF;
+  const v=parseFloat(getComputedStyle(root).getPropertyValue('--dw-w'));
+  return isFinite(v)?v:DW_DEF;
+}
+/* The statement is the centre of gravity, so it gets a floor the workspace cannot
+   push past. DW_MAX is a maximum, not a promise: on a narrow monitor 600px of panel
+   plus the compressed core columns simply do not both fit, and the columns win. */
+const DW_TABLE_MIN=700;   // measured: the six core columns fully compressed need ~688
+function applyDwWidth(px,persist){
+  const sp=$('fxSplit');
+  let cap=DW_MAX;
+  if(sp&&sp.classList.contains('on')){
+    const room=sp.getBoundingClientRect().width;
+    if(room>0)cap=Math.min(DW_MAX,Math.max(DW_MIN,Math.round(room-DW_TABLE_MIN)));
+  }
+  const w=Math.min(cap,Math.max(DW_MIN,Math.round(px)));
+  const root=$('fxRoot'); if(root)root.style.setProperty('--dw-w',w+'px');
+  if(persist){ try{localStorage.setItem(DW_KEY,String(w));}catch(e){} }
+  sizeDrawer();
+  return w;
+}
+/* Drag from the panel's left edge. Width is derived from the grid's RIGHT edge minus
+   the pointer, so the panel tracks the cursor exactly however the page is scrolled.
+   Nothing re-renders during the drag — only a custom property changes — so the
+   selected line, the open tab and any half-typed explanation all survive it. */
+function dwGripDown(ev){
+  const sp=$('fxSplit'); if(!sp)return;
+  ev.preventDefault();
+  const right=sp.getBoundingClientRect().right;
+  const grip=ev.currentTarget;
+  const move=e=>{const x=e.touches?e.touches[0].clientX:e.clientX; applyDwWidth(right-x,false);};
+  const up=()=>{
+    document.removeEventListener('mousemove',move);
+    document.removeEventListener('mouseup',up);
+    document.removeEventListener('touchmove',move);
+    document.removeEventListener('touchend',up);
+    document.body.classList.remove('dw-resizing');
+    if(grip)grip.classList.remove('on');
+    applyDwWidth(dwCurWidth(),true);          // persist only once, on release
+  };
+  document.body.classList.add('dw-resizing');
+  grip.classList.add('on');
+  document.addEventListener('mousemove',move);
+  document.addEventListener('mouseup',up);
+  document.addEventListener('touchmove',move,{passive:false});
+  document.addEventListener('touchend',up);
+}
+/* a drag handle that only responds to a mouse is not a control (rule 15) */
+function dwGripKey(ev){
+  const step=ev.shiftKey?48:16;
+  if(ev.key==='ArrowLeft'){ev.preventDefault();applyDwWidth(dwCurWidth()+step,true);}
+  else if(ev.key==='ArrowRight'){ev.preventDefault();applyDwWidth(dwCurWidth()-step,true);}
+  else if(ev.key==='Home'){ev.preventDefault();applyDwWidth(DW_DEF,true);}
+}
+
 /* Pin the open drawer to the column the grid is still reserving for it. A fixed
    element has left the flow, so it cannot inherit that track's geometry — but the
    track is still there and still 37% wide, so measuring the table beside it gives
@@ -5361,9 +5542,27 @@ function sizeDrawer(){
   const full=sp.classList.contains('on')&&dt.style.display!=='none'
              &&window.matchMedia('(min-width:1101px)').matches;
   dt.classList.toggle('fx-dw-full',full);
-  if(!full){dt.style.left=dt.style.width=dt.style.top=dt.style.height='';return;}
+  const root=$('fxRoot');
+  if(!full){
+    dt.style.left=dt.style.width=dt.style.top=dt.style.height='';
+    if(root)root.classList.remove('dw-tight','dw-tighter');
+    return;
+  }
   const tbl=sp.firstElementChild; if(!tbl)return;
   const g=sp.getBoundingClientRect(), t=tbl.getBoundingClientRect();
+
+  /* OPTIONAL COLUMNS YIELD BEFORE THE FINANCIAL CONTEXT DOES.
+     The statement must keep line, prior, current, Δ, Δ% and review status whatever
+     width the reviewer drags the workspace to. The stylesheet's existing rules shed
+     these columns on VIEWPORT width, which was fine when the panel was a fixed 37%
+     but cannot work now the reviewer sets the width: at 1452px wide with a 440px
+     panel the grid needed 848px in a 745px box and clipped the explanation column.
+     Measured against the room the table actually has instead. */
+  const room=t.width;
+  if(root){
+    root.classList.toggle('dw-tight',room<860);      // drop the 12-period sparkline
+    root.classList.toggle('dw-tighter',room<760);    // drop the contribution bar too
+  }
   const gap=parseFloat(getComputedStyle(sp).columnGap)||16;
   const left=Math.round(t.right+gap), right=Math.round(g.right);
   dt.style.left=left+'px';
@@ -5452,131 +5651,378 @@ function paintDrawer(){
   // an item can be removed by another control while its editor is open; keep the typed
   // text and re-aim it at a new item rather than saving into an index that is now gone
   if(exEdit&&exEdit.i!=null&&!rec(S.sel,true).items[exEdit.i])exEdit.i=null;
-  $('fxDwTitle').textContent=r.l;
-  $('fxDwSub').innerHTML=`${PERIODS[priorIndex()].lbl} \u2192 ${PERIODS[S.cur].lbl}<br>
-    ${fmt(r.pri)} \u2192 ${fmt(r.cur)} &#183;
-    <span class="dlt ${r.d>0?'up':'dn'}">${fmtS(r.d)}${r.pri?' / '+pct(r.dp):''}</span>`;
   const rcT=rec(r.id,true);
-  // a parked draft is invisible from another tab unless the tab says so
-  const tabs=[['explain','Explanation'+(exDirty(exEdit)?' · unsaved':'')],
-    [S.stmt==='bs'?'roll':'drive',S.stmt==='bs'?'Rollforward':'Drivers'],
-    ['accts','Accounts'],['jes','GL detail'],['hist','History'],
-    ['audit','Audit'+(rcT.trail.length?' \u00b7 '+rcT.trail.length:'')]];
+  $('fxDwHead').innerHTML=dwHead(r,rcT);
+
+  /* FIVE TABS, answering five different questions. The old six were organised by
+     data SOURCE (accounts, GL detail, audit); these are organised by what a reviewer
+     is trying to find out. Nothing was dropped — Accounts and GL detail moved under
+     Drivers, where a reviewer reaches them by drilling a driver rather than by
+     leaving the analysis, and Audit merged into History beside the period trend. */
+  const stk=stackFor(r,rcT), openL=stk.filter(l=>l.status==='pending'||l.status==='submitted').length;
+  const ev=evidenceFor(rcT);
+  const tabs=[
+    ['sum','Summary'],
+    ['drive','Drivers'],
+    ['stack','Review stack'+(openL?' · '+openL:'')+(exDirty(exEdit)?' · unsaved':'')],
+    ['evid','Evidence'+(ev.length?' · '+ev.length:'')],
+    ['hist','History'+(rcT.trail.length?' · '+rcT.trail.length:'')]];
   $('fxDwTabs').innerHTML=tabs.map(([id,nm])=>
-    `<button class="${S.dwTab===id?'on':''}" onclick="KFX.dwTab('${id}')">${nm}</button>`).join('');
-  $('fxDwBody').innerHTML=({explain:dwExplain,roll:dwRoll,drive:dwDrive,accts:dwAccts,jes:dwJes,
-    hist:dwHist,audit:dwAudit}[S.dwTab]||dwExplain)(r);
+    `<button class="${S.dwTab===id?'on':''}" onclick="KFX.dwTab('${id}')">${esc(nm)}</button>`).join('');
+  $('fxDwBody').innerHTML=({sum:dwSummary,drive:dwDrivers,stack:dwStack,evid:dwEvidence,
+    hist:dwHistory}[S.dwTab]||dwSummary)(r);
+  $('fxDwFoot').innerHTML=dwFoot(r,rcT);
   sizeDrawer();   // after the grid has laid out, so the reserved track is measurable
 }
+/* Legacy tab ids still arrive from citeJe() and openAcct(); map them forward rather
+   than dropping the reviewer on a blank panel. */
+const DW_TAB_ALIAS={explain:'sum',sum:'sum',roll:'drive',drive:'drive',accts:'drive',jes:'drive',
+  stack:'stack',evid:'evid',hist:'hist',audit:'hist'};
 // switching tabs parks the draft; it used to null it and lose whatever was typed
-function dwTab(t){S.dwTab=t;paintDrawer();}
+function dwTab(t){
+  const id=DW_TAB_ALIAS[t]||'sum';
+  if(t==='accts')S.drvSub='accts';
+  if(t==='jes')S.drvSub='jes';
+  if(t==='audit')S.histSub='audit';
+  S.dwTab=id;paintDrawer();
+}
+function drvSub(s){S.drvSub=s;paintDrawer();}
+function histSub(s){S.histSub=s;paintDrawer();}
 
-function dwExplain(r){
-  const rc=rec(r.id,true), tol=thr().tol*uFac(), res=r.d-rc.items.reduce((t,x)=>t+x.amt,0);
-  const clear=Math.abs(res)<=tol, lock=rc.status==='approved';
-  const expl=rc.items.reduce((t,x)=>t+x.amt,0);
-  const cover=r.d?Math.abs(expl/r.d)*100:0;        // how much of the movement is accounted for
-  const P=prof(), T=thr(), n=rc.items.length;
+/* ---- workspace header ------------------------------------------------------
+   What line, what context, what the numbers are — in that order, compact enough to
+   stay in view while the reviewer reads the explanation below it. Prior, Current and
+   Variance are the three figures an explanation gets checked against, so they belong
+   in the header rather than inside a tab. Not KPI cards: three labelled figures. */
+function dwHead(r,rc){
+  return `<button class="dw-x" onclick="KFX.closeDrawer()" aria-label="Close the review workspace">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"
+        stroke-width="1.5" stroke-linecap="round"/></svg></button>
+    <div class="t">${esc(r.l)}</div>
+    <div class="ctx">${S.stmt==='bs'?'Balance sheet':'Income statement'} ·
+      ${PERIODS[priorIndex()].lbl} → ${PERIODS[S.cur].lbl}${r.sec?' · '+esc(r.sec):''}</div>
+    <div class="dw-figs">
+      <div class="dw-fig"><span class="k">${esc(compareLabel())}</span><span class="v">${fmt(r.pri)}</span></div>
+      <div class="dw-fig"><span class="k">${PERIODS[S.cur].short}</span><span class="v">${fmt(r.cur)}</span></div>
+      <div class="dw-fig var"><span class="k">Variance</span>
+        <span class="v dlt ${r.d>0?'up':'dn'}">${fmtS(r.d)}${r.pri?' / '+pct(r.dp):''}</span></div>
+    </div>
+    <div class="st">${statusPill({req:r.req,status:rc.status,items:rc.items.length,clear:r.clear})}</div>`;
+}
+
+/* ---- workflow footer -------------------------------------------------------
+   Persistent, so the action never scrolls out of reach in a long panel, and
+   state-aware: an action the state does not permit is not rendered at all rather
+   than rendered dead. Submit is the one exception — it renders disabled WITH its
+   reason, because "why can I not submit" is the question a preparer actually has. */
+function dwFoot(r,rc){
+  const lock=rc.status==='approved', can=r.clear&&rc.items.length;
+  let h='';
+  if(rc.status==='draft'||rc.status==='returned'){
+    h+=`<button class="btn-primary sm" ${can?'':'disabled style="opacity:.45"'}
+      onclick="KFX.exSubmit()">Submit for review</button>`;
+    if(!can)h+=`<span class="why">${!rc.items.length
+      ? 'Needs at least one accepted explanation item — add one in Review stack.'
+      : 'Residual is outside tolerance — see Summary.'}</span>`;
+  }
+  if(rc.status==='submitted')
+    h+=`<button class="btn-primary sm" onclick="KFX.exApprove()">Approve</button>
+        <button class="btn-out sm" onclick="KFX.exReturn()">Return for update</button>`;
+  if(lock)h+=`<button class="btn-out sm" onclick="KFX.exUnlock()">Unlock</button>`;
+  h+=`<span class="sp"></span>
+    <button class="btn-out sm" onclick="KFX.dwTab('hist')">History</button>`;
+  return h;
+}
+
+/* ============================================================================
+   REVIEW WORKSPACE TABS
+   dwExplain() used to be all six tabs' worth of content in one function. It is
+   split here by the question each tab answers. Every capability it held is still
+   present — the explanation editor and Korvyn suggestions moved to Review stack,
+   attachments to Evidence, and the status block became the persistent footer.
+   ========================================================================== */
+
+/* ---- shared derivations ----------------------------------------------------
+   These read the SAME figures the grid and the tie-out use. Nothing here computes
+   an independent total; byDim/rollforward/drivers are the existing engine. */
+function coverOf(r,rc){
+  const ex=rc.items.reduce((t,x)=>t+x.amt,0);
+  return {ex, res:r.d-ex, cover:r.d?Math.abs(ex/r.d)*100:0, tol:thr().tol*uFac()};
+}
+
+/* Contributing organisations for this line, largest first. Real contributions from
+   the slice data — an entity with no movement in the line never appears. */
+function entParts(id){
+  return byDim(id,'ent').map(x=>({...x,
+    nm:(ENTITIES.find(e=>e.id===x.k)||{nm:x.k}).nm,
+    reg:(ENTITIES.find(e=>e.id===x.k)||{reg:'—'}).reg}));
+}
+
+/* ---- REVIEW STACK MODEL ----------------------------------------------------
+   A review LINEAGE: who signed off on what, at which level of the organisation.
+   Layers are derived from the entities that actually move this line, so the stack
+   can never show an organisation with nothing to do with the movement.
+
+   Statuses are DERIVED FROM rc.status rather than stored separately, so the stack
+   and the workflow footer can never disagree about where the line stands. Higher
+   layers REFERENCE the layers beneath (refs) instead of copying their text — the
+   whole point of a stack is that corporate commentary does not overwrite what
+   Germany wrote. */
+function stackKey(r){return S.stmt+'::'+r.id+'::'+S.cur+'::'+S.grain+'::'+priorIndex();}
+function stackFor(r,rc){
+  rc=rc||rec(r.id,true);
+  const key=stackKey(r);
+  if(rc._stackKey===key&&rc.stack)return rc.stack;
+  const rnd=seeded('stack'+r.id), pick=a=>a[Math.floor(rnd()*a.length)];
+  const NAMES=['S. Weber','A. Patel','L. Moreau','D. Hassan','K. Ito','R. Alvarez'];
+  const parts=entParts(r.id).slice(0,3);
+  const st=rc.status, hasItems=rc.items.length>0;
+  const done=st==='approved', up=st==='approved'||st==='submitted';
+  const L=[];
+
+  // 1. Korvyn draft — informational, never equivalent to approved human commentary
+  L.push({kind:'ai',scope:'Korvyn draft',who:'System generated',at:rc.updated||stamp(),
+    status:'draft',
+    note:insight(r),
+    refs:[],ev:0,ver:'v1'});
+
+  // 2. one layer per contributing entity, quantified from its real contribution
+  parts.forEach(p=>{
+    L.push({kind:'ent',scope:p.nm,who:pick(NAMES),at:stamp(),
+      status:hasItems?(up?'approved':'submitted'):'pending',
+      note:`${p.nm} ${p.d>=0?'contributed':'reduced'} ${fmt(Math.abs(p.d))} of the movement `+
+           `(${fmt(p.pri)} → ${fmt(p.cur)}).`,
+      refs:[],ev:0,ver:'v1',amt:p.d});
+  });
+
+  // 3. a regional layer only when the contributors actually span more than one region
+  const regs=[...new Set(parts.map(p=>p.reg))];
+  if(regs.length>1){
+    L.push({kind:'reg',scope:regs.join(' / ')+' region',who:pick(NAMES),at:stamp(),
+      status:hasItems?(up?'approved':'submitted'):'pending',
+      note:`Regional review of ${parts.length} contributing entities. Reviewed against the `+
+           `${esc(prof().nm)} threshold; no additional regional adjustments.`,
+      refs:parts.map(p=>p.nm),ev:0,ver:'v1'});
+  }
+
+  // 4. corporate accounting — the accepted explanation items on this line
+  L.push({kind:'corp',scope:'Corporate accounting',who:rc.prep,at:rc.updated||stamp(),
+    status:st==='returned'?'returned':(st==='draft'?(hasItems?'draft':'pending'):(done?'approved':'submitted')),
+    note:hasItems
+      ? `${rc.items.length} accepted explanation item${rc.items.length===1?'':'s'} covering `+
+        `${coverOf(r,rc).cover.toFixed(0)}% of the movement.`
+      : 'No explanation accepted yet at corporate level.',
+    refs:parts.map(p=>p.nm),ev:(rc.files||[]).length,ver:'v'+(1+(rc.trail||[]).length)});
+
+  // 5. controller sign-off
+  L.push({kind:'ctrl',scope:'Corporate controller',who:rc.rev||PEOPLE.rev,at:done?(rc.updated||stamp()):'—',
+    status:done?'approved':(st==='submitted'?'pending':'pending'),
+    note:done?'Approved and locked. Explanation flows to the flux memo as a disclosure note.'
+      :(st==='submitted'?'Awaiting controller review.':'Not yet submitted for controller review.'),
+    refs:[],ev:0,ver:'—'});
+
+  rc.stack=L; rc._stackKey=key;
+  return L;
+}
+const STACK_ST={approved:{nm:'Approved',cl:'done'},submitted:{nm:'Submitted',cl:'wait'},
+  pending:{nm:'Pending review',cl:''},returned:{nm:'Returned',cl:'wait'},draft:{nm:'Draft',cl:''}};
+
+/* ---- EVIDENCE MODEL --------------------------------------------------------
+   One list over both places a document can hang: an explanation item, or the line
+   itself. Scope is what distinguishes them, so it is a column rather than two
+   separate sections a reviewer has to reconcile. */
+function evidenceFor(rc){
+  const out=[];
+  (rc.items||[]).forEach((it,i)=>(it.files||[]).forEach((f,fi)=>
+    out.push({f,fi,i,scope:'Explanation item',what:RSN[it.reason]||it.reason,by:it.by||rc.prep,at:it.at})));
+  (rc.files||[]).forEach((f,fi)=>
+    out.push({f,fi,i:-1,scope:'Line level',what:'Supports the whole movement',by:f.by||rc.prep,at:f.at||''}));
+  return out;
+}
+
+/* ============================ 1. SUMMARY ================================== */
+function dwSummary(r){
+  const rc=rec(r.id,true), C=coverOf(r,rc);
+  const clear=Math.abs(C.res)<=C.tol, P=prof(), T=thr(), n=rc.items.length;
   let h='';
 
-  /* THE VERDICT LEADS. This panel used to open with a four-row sum and put the
-     answer \u2014 is this line defensible \u2014 underneath it, so the reviewer read the
-     arithmetic before learning whether it mattered. The one number that decides
-     the line is now the first thing on the page, at figure size, and the
-     arithmetic below is what backs it up. */
+  /* THE VERDICT LEADS. The one number that decides the line, at figure size, before
+     any arithmetic. Severity is a 3px left border and nothing else. */
   const vcls=!r.req?'mute':(clear?'ok':'bad');
   h+=`<div class="verdict ${vcls}">
     <div class="verdict-h">${!r.req?'Explanation optional'
-      :(clear?'Tied out \u2014 within tolerance':'Unexplained residual')}</div>
-    <div class="verdict-n">${fmtS(!r.req?r.d:res)}</div>
+      :(clear?'Tied out — within tolerance':'Unexplained residual')}</div>
+    <div class="verdict-n">${fmtS(!r.req?r.d:C.res)}</div>
     <div class="verdict-s">${!r.req
       ? `This movement does not breach <b>${esc(P.nm)}</b> (${fmt(T.abs*uFac())} ${T.op} ${T.pct}% of the line),
          so commentary is optional. Star the line to require one anyway.`
-      : (clear
-        ? `${n} item${n===1?'':'s'} account${n===1?'s':''} for ${cover.toFixed(0)}% of the ${fmt(Math.abs(r.d))}
-           movement. What remains is inside the \u00b1${fmt(tol)} tolerance set by <b>${esc(P.nm)}</b>.`
-        : `${n?n+' item'+(n===1?'':'s')+' account'+(n===1?'s':'')+' for '+cover.toFixed(0)+'% of the movement, but '
-             :'Nothing has been accepted yet, so '}${fmt(Math.abs(res))} is unexplained
-           against a \u00b1${fmt(tol)} tolerance (<b>${esc(P.nm)}</b>).`)}</div>
-    ${(()=>{  /* an enterprise review is a queue: name who owes the next move */
-      const who={draft:`<b>${esc(rc.prep.split(',')[0])}</b> to finish and submit`,
-                 returned:`<b>${esc(rc.prep.split(',')[0])}</b> to address the reviewer\u2019s note and resubmit`,
-                 submitted:`<b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b> to approve or return`,
-                 approved:`Closed \u2014 approved and locked by <b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b>`}[rc.status];
+      : `${n?`${C.cover.toFixed(0)}% of the ${fmt(Math.abs(r.d))} movement explained by ${n} item${n===1?'':'s'}. `
+           :'Nothing accepted yet. '}${clear
+          ? `Residual is inside the ±${fmt(C.tol)} tolerance set by <b>${esc(P.nm)}</b>.`
+          : `${fmt(Math.abs(C.res))} exceeds the ±${fmt(C.tol)} tolerance (<b>${esc(P.nm)}</b>).`}`}</div>
+    ${(()=>{const who={draft:`<b>${esc(rc.prep.split(',')[0])}</b> to finish and submit`,
+        returned:`<b>${esc(rc.prep.split(',')[0])}</b> to address the reviewer’s note and resubmit`,
+        submitted:`<b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b> to approve or return`,
+        approved:`Closed — approved by <b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b>`}[rc.status];
       return who?`<div class="ballin">${rc.status==='approved'?'':'Waiting on '}${who}</div>`:'';})()}
   </div>`;
 
-  /* The tie-out, as supporting detail. Coverage is shown as a share of the movement
-     because that is how a controller reads it \u2014 an absolute alone does not say
-     whether a line is nearly done or barely started. */
+  /* KORVYN DRAFT. Prominent, and unmistakably system-prepared until a person acts.
+     Indigo is a boundary, not a fill — no gradient, no sparkle, no chat bubble.
+     (The narrative engine itself is deepened in a later pass; this shows the
+     grounded reading the module already derives from the decomposition.) */
+  h+=`<div class="dw-sec">Korvyn draft explanation</div>
+    <div class="kdraft">
+      <div class="kd-hd"><span class="pill ai">System generated</span>
+        <span style="color:var(--faint);font-size:var(--fs-micro)">Not approved commentary</span></div>
+      <div class="kd-tx">${insight(r)}</div>
+      <div class="kd-act">
+        <button class="btn-out sm" onclick="KFX.dwTab('stack')">Review in stack</button>
+        <button class="btn-out sm" onclick="KFX.exPropose()">Regenerate from current drivers</button>
+      </div>
+    </div>`;
+
+  /* WHAT NEEDS ATTENTION — derived, and only what the state actually supports. */
+  const attn=[];
+  if(r.req&&!clear)attn.push({hi:1,w:`${fmt(Math.abs(C.res))} residual is above the ${fmt(C.tol)} tolerance.`});
+  if(r.req&&!n)attn.push({hi:1,w:'No explanation has been accepted on this line yet.'});
+  const openSug=(rc.sugs||[]).filter(x=>x.status==='proposed').length;
+  if(openSug)attn.push({w:`${openSug} Korvyn suggestion${openSug===1?'':'s'} awaiting your decision.`});
+  const noSup=(rc.items||[]).filter(it=>!(it.files||[]).length).length;
+  if(noSup)attn.push({w:`${noSup} explanation item${noSup===1?'':'s'} ha${noSup===1?'s':'ve'} no supporting document attached.`});
+  const stk=stackFor(r,rc), waiting=stk.filter(l=>l.kind!=='ai'&&l.status==='pending');
+  if(rc.status==='submitted'&&waiting.length)
+    attn.push({w:`Submitted, but ${waiting.length} review layer${waiting.length===1?'':'s'} below remain open.`});
+  if(rc.status==='returned')attn.push({hi:1,w:'Returned by the reviewer'+(rc.revNote?': '+esc(rc.revNote):'.')});
+  if(attn.length){
+    h+=`<div class="dw-sec">What needs attention</div><div class="attn">`+
+      attn.map(a=>`<div class="attn-r ${a.hi?'hi':''}"><span class="w">${a.w}</span></div>`).join('')+`</div>`;
+  }
+
+  /* THE TIE-OUT, as supporting detail rather than the opening statement. */
   h+=`<div class="dw-sec">Tie-out</div>
   <div class="mathbox">
     <div class="mathrow"><span class="l">Movement to explain</span><span class="v">${fmtS(r.d)}</span></div>
-    <div class="mathrow"><span class="l">Less: accepted explanation \u2014 ${n} item${n===1?'':'s'}</span>
-      <span class="v">${fmtS(expl)}${n?` <span style="color:var(--faint)">${cover.toFixed(0)}%</span>`:''}</span></div>
+    <div class="mathrow"><span class="l">Less: accepted explanation — ${n} item${n===1?'':'s'}</span>
+      <span class="v">${fmtS(C.ex)}${n?` <span style="color:var(--faint)">${C.cover.toFixed(0)}%</span>`:''}</span></div>
     <div class="mathrow tot resid ${clear?'clear':''}"><span class="l">Unexplained residual</span>
-      <span class="v">${fmtS(res)}</span></div>
-    <div class="mathrow"><span class="l">Tolerance \u00b7 ${esc(P.nm)}</span><span class="v">\u00b1${fmt(tol)}</span></div>
+      <span class="v">${fmtS(C.res)}</span></div>
+    <div class="mathrow"><span class="l">Tolerance · ${esc(P.nm)}</span><span class="v">±${fmt(C.tol)}</span></div>
   </div>`;
 
-  h+=`<div class="dw-sec">Korvyn insight</div><div class="insight">${insight(r)}
-    <div style="margin-top:8px"><button class="btn-out sm" onclick="KFX.exPropose()">Review suggested drivers</button></div></div>`;
+  /* COMPACT WORKFLOW — status, not a form. Forms live in Review stack. */
+  const step=(k,v,cl)=>`<div class="wf-s ${cl||''}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  const stq=rc.status;
+  h+=`<div class="dw-sec">Review workflow</div><div class="wf">
+    ${step('Preparer',esc(rc.prep.split(',')[0]),stq==='draft'||stq==='returned'?'now':'done')}
+    ${step('Reviewer',esc((rc.rev||PEOPLE.rev).split(',')[0]),stq==='submitted'?'now':(stq==='approved'?'done':''))}
+    ${step('Controller',stq==='approved'?'Signed off':'Pending',stq==='approved'?'done':'')}
+  </div>`;
+  return h;
+}
 
-  /* ---- system-suggested review. Proposed, never posted: each one is accepted,
-     edited or dismissed by a person, and the log records which. ---- */
-  const open=rc.sugs.filter(x=>x.status==='proposed');
+/* ============================ 2. DRIVERS ================================== */
+function dwDrivers(r){
+  const rc=rec(r.id,true), C=coverOf(r,rc);
+  const sub=S.drvSub||'decomp';
+  let h=`<div class="dw-sub" role="tablist">
+    ${[['decomp',S.stmt==='bs'?'Rollforward':'Decomposition'],['accts','Accounts'],['jes','GL detail']]
+      .map(([k,nm])=>`<button class="${sub===k?'on':''}" onclick="KFX.drvSub('${k}')">${nm}</button>`).join('')}
+  </div>`;
+
+  if(sub==='accts')return h+dwAccts(r);
+  if(sub==='jes')return h+dwJes(r);
+
+  /* THE BRIDGE. Movement at the top, accepted drivers beneath, explained and residual
+     at the foot — so the reviewer can see at a glance whether the explanation adds up
+     to the number it claims to explain. Values are the accepted items; nothing here
+     is a second computation of the movement. */
+  h+=`<div class="dw-sec">Driver bridge</div><div class="mathbox">
+    <div class="mathrow"><span class="l">Movement to explain</span><span class="v">${fmtS(r.d)}</span></div>`;
+  if(rc.items.length)rc.items.forEach(it=>h+=`<div class="mathrow"><span class="l">${esc(it.note.split('.')[0])}
+      <span style="color:var(--faint)">· ${esc(RSN[it.reason]||it.reason)}</span></span>
+    <span class="v dlt ${it.amt>0?'up':'dn'}">${fmtS(it.amt)}</span></div>`);
+  else h+=`<div class="mathrow"><span class="l" style="color:var(--hint)">No accepted drivers yet</span>
+    <span class="v">${fmtS(0)}</span></div>`;
+  h+=`<div class="mathrow tot"><span class="l">Explained</span><span class="v">${fmtS(C.ex)}</span></div>
+    <div class="mathrow"><span class="l">Residual</span>
+      <span class="v ${Math.abs(C.res)>C.tol?'dlt dn':''}">${fmtS(C.res)}</span></div></div>`;
+  h+=`<div class="rl-note" style="margin-bottom:var(--s-3)">The bridge foots to the movement in the header.
+    Drill any dimension below to the accounts and then to the journal entries behind it.</div>`;
+
+  // the existing decomposition, unchanged — it is the engine, not a re-implementation
+  return h+(S.stmt==='bs'?dwRoll(r):dwDrive(r));
+}
+
+/* ========================== 3. REVIEW STACK =============================== */
+function dwStack(r){
+  const rc=rec(r.id,true), lock=rc.status==='approved';
+  const stk=stackFor(r,rc);
+  let h=`<div class="dw-sec">Review lineage</div>
+    <div class="rl-note" style="margin-bottom:var(--s-3)">Each level keeps its own commentary. Higher levels
+      reference the explanations beneath them rather than overwriting them, so an entity's words survive
+      corporate review.</div><div class="rs">`;
+  stk.forEach(l=>{
+    const s=STACK_ST[l.status]||STACK_ST.pending;
+    h+=`<div class="rs-l ${l.kind==='ai'?'ai':s.cl}">
+      <div class="rs-hd"><span class="rs-sc">${esc(l.scope)}</span>
+        ${l.kind==='ai'?'<span class="pill ai">Korvyn</span>':''}
+        <span class="sp"></span><span class="pill ${s.cl==='done'?'ok':(s.cl==='wait'?'wa':'')}">${s.nm}</span></div>
+      <div class="rs-by">${esc(String(l.who).split(',')[0])} · ${esc(l.at)} · ${esc(l.ver)}</div>
+      <div class="rs-tx">${l.kind==='ai'?l.note:esc(l.note)}</div>
+      ${l.refs&&l.refs.length?`<div class="rs-ref">References ${l.refs.length} lower-level
+        explanation${l.refs.length===1?'':'s'}: ${esc(l.refs.join(', '))}</div>`:''}
+      <div class="rs-meta"><span>${l.ev?l.ev+' document'+(l.ev===1?'':'s'):'No documents'}</span>
+        ${l.amt!=null?`<span>${fmtS(l.amt)} of the movement</span>`:''}</div>
+    </div>`;
+  });
+  h+=`</div>`;
+
+  /* AUTHORING lives here, next to the lineage it joins. */
+  const openS=(rc.sugs||[]).filter(x=>x.status==='proposed');
   h+=`<div class="dw-sec">Korvyn's suggested review
-    ${open.length?`<span class="pill ai" style="margin-left:6px">${open.length} awaiting your decision</span>`:''}</div>`;
-  if(!rc.sugs.length){
+    ${openS.length?`<span class="pill ai" style="margin-left:6px">${openS.length} awaiting your decision</span>`:''}</div>`;
+  if(!(rc.sugs||[]).length){
     h+=`<div class="rl-note" style="margin-bottom:8px">Korvyn reads the movement against the underlying
       dimensions and proposes a quantified explanation for each contributor. Nothing is posted until you
       accept it.</div>
       <button class="btn-out sm" onclick="KFX.exPropose()">Generate suggested explanation</button>`;
   }else{
-    if(open.length>1)h+=`<div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="btn-primary sm" onclick="KFX.sugAllAccept()">Accept all ${open.length}</button>
+    if(openS.length>1)h+=`<div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn-primary sm" onclick="KFX.sugAllAccept()">Accept all ${openS.length}</button>
       <button class="btn-out sm" onclick="KFX.sugAllDismiss()">Dismiss all</button></div>`;
     rc.sugs.forEach((x,i)=>{
       if(x.status!=='proposed')return;
       h+=`<div class="exi" style="border-color:var(--ai-line);background:var(--ai-bg)">
-        <div class="exi-top">
-          <span class="pill ai">Korvyn suggests</span>
+        <div class="exi-top"><span class="pill ai">Korvyn suggests</span>
           <span class="exi-amt dlt ${x.amt>0?'up':'dn'}">${fmtS(x.amt)}</span>
-          <span class="pill ac">${esc(RSN[x.reason]||x.reason)}</span>
-          <span class="sp"></span>
-          <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(x.amt/r.d*100):0).toFixed(0)}% of \u0394</span>
+          <span class="pill ac">${esc(RSN[x.reason]||x.reason)}</span><span class="sp"></span>
+          <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(x.amt/r.d*100):0).toFixed(0)}% of Δ</span>
         </div>
         <div class="exi-tx">${esc(x.note)}</div>
-        <div class="exi-meta"><span style="color:var(--muted)">${esc(x.basis||'')}</span><span class="sp"></span>
+        <div class="exi-meta"><span class="say">${esc(x.basis||'')}</span><span class="sp"></span>
           ${lock?'':`<button type="button" class="lnk" onclick="KFX.sugAccept(${i})">accept</button>
           <button type="button" class="lnk" onclick="KFX.sugEdit(${i})">edit and accept</button>
           <button type="button" class="lnk" onclick="KFX.sugDismiss(${i})">dismiss</button>`}</div>
-      </div>`;
-    });
+      </div>`;});
     const done=rc.sugs.filter(x=>x.status!=='proposed');
-    if(done.length)h+=`<div class="rl-note">${done.filter(x=>x.status==='accepted').length} accepted \u00b7
-      ${done.filter(x=>x.status==='edited').length} edited \u00b7
-      ${done.filter(x=>x.status==='dismissed').length} dismissed \u2014 each decision is in the audit log.</div>`;
-    if(!open.length)h+=`<button class="btn-out sm" onclick="KFX.exPropose()">Regenerate suggestions</button>`;
+    if(done.length)h+=`<div class="rl-note">${done.filter(x=>x.status==='accepted').length} accepted ·
+      ${done.filter(x=>x.status==='edited').length} edited ·
+      ${done.filter(x=>x.status==='dismissed').length} dismissed — each decision is in the audit log.</div>`;
+    if(!openS.length)h+=`<button class="btn-out sm" onclick="KFX.exPropose()">Regenerate suggestions</button>`;
   }
 
-  h+=`<div class="dw-sec">Explanation items</div>`;
-  h+=`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-    ${lock?'':`<button class="btn-primary sm" onclick="KFX.exNew()">+ Add explanation</button>`}
-    ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length&&!lock?
-      `<button class="btn-out sm" onclick="KFX.exCarry()">Carry forward prior period</button>`:'';})()}
-  </div>`;
-
+  h+=`<div class="dw-sec">Corporate explanation items</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      ${lock?'':`<button class="btn-primary sm" onclick="KFX.exNew()">+ Add explanation</button>`}
+      ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length&&!lock?
+        `<button class="btn-out sm" onclick="KFX.exCarry()">Carry forward prior period</button>`:'';})()}
+    </div>`;
   if(exEdit)h+=exForm(r);
-
-  /* EMPTY STATE with the next move in it, not just a statement of absence. An empty
-     panel that only says "nothing here" makes the reviewer work out what to do; this
-     one names the two ways forward and what each costs. */
   if(!rc.items.length&&!exEdit)h+=`<div class="rl-empty">
     ${lock?'This line was approved with no itemised explanation.'
       :`Nothing accepted yet, so the full ${fmt(Math.abs(r.d))} movement is unexplained. Add an item
-        yourself, or let Korvyn propose a quantified split from the underlying dimensions and accept
-        the parts you agree with.`}</div>`;
+        yourself, or accept a Korvyn suggestion above.`}</div>`;
   rc.items.forEach((it,i)=>{
     const noSup=!(it.files||[]).length;
     h+=`<div class="exi ${lock?'locked':''} ${!lock&&noSup?'nosup':''}">
@@ -5585,70 +6031,70 @@ function dwExplain(r){
         <span class="pill ac">${esc(RSN[it.reason]||it.reason)}</span>
         ${it.src==='korvyn'?'<span class="pill ai">accepted from Korvyn</span>':''}
         ${it.src==='korvyn-edited'?'<span class="pill ai">Korvyn, edited</span>':''}
-        ${it.src==='carried'?'<span class="pill">carried forward</span>':''}
         <span class="sp"></span>
-        <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(it.amt/r.d*100):0).toFixed(0)}% of \u0394</span>
+        <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(it.amt/r.d*100):0).toFixed(0)}% of Δ</span>
       </div>
       <div class="exi-tx">${esc(it.note)}</div>
       <div class="exi-meta">${it.ev?`<span class="pill">${ic('clip')} ${esc(it.ev)}</span>`:''}
-        ${noSup?'<span class="say" style="color:var(--warning)">No support attached \u2014 an approver will ask for it</span>':''}
+        ${noSup?'<span class="say" style="color:var(--warning)">No support attached — an approver will ask for it</span>':''}
         <span class="sp"></span>
-        <span style="color:var(--faint)">${esc((it.by||PEOPLE.prep).split(',')[0])} \u00b7 ${it.at||''}</span></div>`;
-    if((it.files||[]).length)h+=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px">`+
-      it.files.map((f,fi)=>`<span class="pill">
-        <a href="${f.url}" download="${esc(f.name)}" style="color:inherit;text-decoration:none">${ic('clip')} ${esc(f.name)}</a>
-        <span style="color:var(--faint)">${fmtBytes(f.size)}</span>
-        ${lock?'':`<button type="button" class="lnk" style="font-size:var(--fs-micro)"
-          aria-label="Remove ${esc(f.name)}" onclick="KFX.upDel(${i},${fi})">\u00d7</button>`}
-      </span>`).join('')+`</div>`;
+        <span style="color:var(--faint)">${esc((it.by||PEOPLE.prep).split(',')[0])} · ${it.at||''}</span></div>`;
     if(!lock)h+=`<div style="margin-top:7px;display:flex;gap:6px;align-items:center">
-        <input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">
-        <button class="btn-out sm" onclick="document.getElementById('up${i}').click()">Attach support</button>
+        <button class="btn-out sm" onclick="KFX.dwTab('evid')">Evidence${(it.files||[]).length?' · '+it.files.length:''}</button>
         <button type="button" class="lnk" onclick="KFX.exNew(${i})">edit</button>
         <button type="button" class="lnk" onclick="KFX.exDel(${i})">remove</button></div>`;
     h+=`</div>`;
   });
-
-  /* ---- line-level support, for evidence that backs the whole line ---- */
-  h+=`<div class="dw-sec">Line support</div>`;
-  if((rc.files||[]).length)h+=`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">`+
-    rc.files.map((f,fi)=>`<span class="pill"><a href="${f.url}" download="${esc(f.name)}"
-      style="color:inherit;text-decoration:none">${ic('clip')} ${esc(f.name)}</a>
-      <span style="color:var(--faint)">${fmtBytes(f.size)} \u00b7 ${esc(f.by.split(',')[0])}</span>
-      ${lock?'':`<button type="button" class="lnk" style="font-size:var(--fs-micro)"
-        aria-label="Remove ${esc(f.name)}" onclick="KFX.upDel(-1,${fi})">\u00d7</button>`}</span>`).join('')+`</div>`;
-  else h+=`<div class="rl-empty">Nothing attached at line level. Line support backs the whole movement —
-    a reconciliation, a schedule, a board paper — as opposed to the evidence on a single item.</div>`;
-  if(!lock)h+=`<input type="file" id="upLine" multiple class="hidden" onchange="KFX.upFiles(-1,this)">
-    <button class="btn-out sm" onclick="document.getElementById('upLine').click()">Attach support</button>`;
-
-  h+=`<div class="dw-sec">Review status</div>`;
-  h+=`<div class="stat-line"><span>${statusPill({req:r.req,status:rc.status,items:rc.items.length,clear})}</span>
-    <span class="sp"></span><span style="color:var(--muted)">${esc(rc.prep.split(',')[0])} prepared</span></div>`;
-  if(rc.revNote)h+=`<div class="rl-note" style="color:var(--danger);margin:8px 0">Returned: ${esc(rc.revNote)}</div>`;
-  /* LOCKED is a state the reviewer has to understand, not just a set of hidden buttons.
-     Say what it means, who can undo it, and that undoing it is recorded. */
-  if(lock)h+=`<div class="rl-note" style="margin-top:8px">Approved and locked by
-    <b>${esc((rc.rev||PEOPLE.rev).split(',')[0])}</b>. The explanation is frozen and flows to the flux memo
-    as a disclosure note. Unlocking returns the line to draft and is written to the audit trail.</div>`;
-  h+=`<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">`;
-  if(rc.status==='draft'||rc.status==='returned')
-    h+=`<button class="btn-primary sm" ${clear&&rc.items.length?'':'disabled style="opacity:.45"'} onclick="KFX.exSubmit()">Submit for review</button>`;
-  if(rc.status==='submitted')
-    h+=`<button class="btn-primary sm" onclick="KFX.exApprove()">Approve and lock</button>
-        <button class="btn-out sm" onclick="KFX.exReturn()">Return with note</button>`;
-  if(lock)h+=`<button class="btn-out sm" onclick="KFX.exUnlock()">Unlock</button>`;
-  h+=`</div>`;
-  /* Say WHY the disabled primary is disabled. A greyed button with no reason beside it
-     is the commonest way an enterprise screen wastes a reviewer's time. */
-  if((rc.status==='draft'||rc.status==='returned')&&!(clear&&rc.items.length))
-    h+=`<div class="rl-note" style="margin-top:8px">${!rc.items.length
-      ? 'Submission needs at least one accepted explanation item.'
-      : `Submission is blocked while ${fmt(Math.abs(res))} sits outside the ±${fmt(tol)} tolerance. Add an item
-         for the remainder, or change the materiality profile in the filter bar.`}</div>`;
-  if(rc.trail.length)h+=`<div class="rl-note" style="margin-top:10px">${rc.trail.length} logged action${rc.trail.length===1?'':'s'}
-    on this line \u2014 <button type="button" class="lnk" onclick="KFX.dwTab('audit')">open the audit trail</button>.</div>`;
   return h;
+}
+
+/* ============================ 4. EVIDENCE ================================= */
+function dwEvidence(r){
+  const rc=rec(r.id,true), lock=rc.status==='approved', ev=evidenceFor(rc);
+  let h=`<div class="dw-sec">Supporting evidence</div>
+    <div class="rl-note" style="margin-bottom:var(--s-3)">Item evidence supports one quantified driver.
+      Line evidence — a reconciliation, a schedule, a board paper — supports the whole movement.</div>`;
+  if(!ev.length)h+=`<div class="rl-empty">Nothing attached to this line yet. An approver will ask for support
+    on any item that carries a material amount.</div>`;
+  else{
+    h+=`<table class="tbl"><thead><tr><th>Document</th><th>Scope</th><th>Uploaded by</th>
+      <th class="num">Size</th>${lock?'':'<th></th>'}</tr></thead><tbody>`;
+    ev.forEach(e=>{
+      h+=`<tr><td><a href="${e.f.url}" download="${esc(e.f.name)}"
+          style="color:inherit;text-decoration:none">${ic('clip')} ${esc(e.f.name)}</a>
+          <div style="font-size:var(--fs-micro);color:var(--faint)">${esc(e.what||'')}</div></td>
+        <td><span class="pill">${esc(e.scope)}</span></td>
+        <td style="color:var(--muted)">${esc(String(e.by).split(',')[0])}
+          <div style="font-size:var(--fs-micro);color:var(--faint)">${esc(e.at||'')} · ${PERIODS[S.cur].lbl}</div></td>
+        <td class="num" style="color:var(--faint)">${fmtBytes(e.f.size)}</td>
+        ${lock?'':`<td><button type="button" class="lnk" aria-label="Remove ${esc(e.f.name)}"
+          onclick="KFX.upDel(${e.i},${e.fi})">remove</button></td>`}</tr>`;});
+    h+='</tbody></table>';
+  }
+  if(!lock){
+    h+=`<div class="dw-sec">Attach</div>
+      <input type="file" id="upLine" multiple class="hidden" onchange="KFX.upFiles(-1,this)">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-out sm" onclick="document.getElementById('upLine').click()">Attach line evidence</button>`;
+    rc.items.forEach((it,i)=>{
+      h+=`<input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">
+        <button class="btn-out sm" onclick="document.getElementById('up${i}').click()">Attach to
+          ${esc(RSN[it.reason]||it.reason)} ${fmtS(it.amt)}</button>`;});
+    h+=`</div>`;
+  }
+  return h;
+}
+
+/* ============================= 5. HISTORY ================================= */
+function dwHistory(r){
+  const sub=S.histSub||'trend';
+  const rc=rec(r.id,true);
+  let h=`<div class="dw-sub" role="tablist">
+    ${[['trend','Periods'],['audit','Audit trail'+(rc.trail.length?' · '+rc.trail.length:'')]]
+      .map(([k,nm])=>`<button class="${sub===k?'on':''}" onclick="KFX.histSub('${k}')">${nm}</button>`).join('')}
+  </div>`;
+  if(sub==='audit')return h+dwAudit(r);
+  return h+dwHist(r);
 }
 
 /* A short, grounded reading of where the movement sits. Every figure is the same
@@ -6003,8 +6449,12 @@ function dwJes(r){
 }
 function setJeAcct(a){S.jeAcct=a;paintDrawer();}
 function setJeOnly(v){S.jeOnly=v;paintDrawer();}
+/* Start an explanation from a journal entry. This used to hand-build exEdit, which
+   now bypasses the draft model — a draft has to be keyed to its line and carry its
+   own seed so a repaint can restore it. Go through exOpen like every other opener. */
 function citeJe(id,amt){
-  exEdit={i:null,seed:{amt,ev:id}}; S.dwTab='explain'; paintDrawer();
+  S.dwTab='stack';
+  exOpen({i:null,sug:null},{amt,reason:'',note:'',ev:id});
   toast('Started an explanation from '+id);
 }
 
@@ -6265,13 +6715,17 @@ function body(){
         <h2 id="fxGridTitle"></h2>
         <table class="tbl fx-tbl" id="fxGrid"></table>
       </div>
-      <div class="fx-detail" id="fxDetail" style="display:none">
-        <div class="dw-hd"><div style="min-width:0"><div class="t" id="fxDwTitle"></div>
-          <div class="s" id="fxDwSub"></div></div><span class="fx-sp"></span>
-          <button class="dw-x" onclick="KFX.closeDrawer()" aria-label="Close">
-            <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+      <div class="fx-detail" id="fxDetail" style="display:none" role="complementary"
+           aria-label="Review workspace">
+        <div class="dw-grip" id="fxDwGrip" role="separator" aria-orientation="vertical"
+             tabindex="0" title="Drag to resize — arrow keys also work"
+             aria-label="Resize the review workspace"
+             onmousedown="KFX.dwGripDown(event)" ontouchstart="KFX.dwGripDown(event)"
+             onkeydown="KFX.dwGripKey(event)"></div>
+        <div class="dw-hd" id="fxDwHead"></div>
         <div class="dw-tabs" id="fxDwTabs"></div>
         <div class="dw-body" id="fxDwBody"></div>
+        <div class="dw-foot" id="fxDwFoot"></div>
       </div>
     </div></div>`;
 }
@@ -6377,6 +6831,8 @@ function after(){
   set('fxViewBtn',`${ic('view')}View <span class="cue">\u25be</span>`);
   const mb=$('fxMatBtn'); if(mb)mb.innerHTML=esc(prof().nm)+' \u25be';
   const as=$('fxActiveScope'); if(as)as.textContent=activeScopeLine();
+  // restore the reviewer's preferred workspace width once, before the first paint
+  if(!S._dwInit){S._dwInit=1;applyDwWidth(dwStoredWidth(),false);}
   paintKpi(); paintGrid(); paintDrawer(); paintPanel();
   syncStick();   // the focus line and grid may have just changed height
 }
@@ -6498,7 +6954,7 @@ function setStmtFromShell(v){ S.stmt=v; S.sel=null; }
   });
 })();
 
-return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, drvSub, histSub, dwGripDown, dwGripKey, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
