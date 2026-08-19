@@ -3477,6 +3477,34 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    Driven by dw-tight / dw-tighter, which sizeDrawer() sets from the room the table
    ACTUALLY has — a viewport media query cannot know how wide the reviewer dragged
    the workspace. The viewport rules below still cover the workspace-closed case. */
+/* ===== FULL EXPLANATIONS =====================================================
+   An inline band under the financial row, for reading the whole statement and its
+   commentary together without opening every line. It is deliberately SUBORDINATE
+   to the row it explains: a very quiet neutral ground, a hairline, and no card
+   edge — the financial row stays the object and this is its footnote. */
+#fxRoot .expl-band>td{background:var(--n-25);border-bottom:var(--rule);
+  padding:var(--s-2) var(--s-4) var(--s-3) 34px}
+#fxRoot .eb{max-width:78ch}         /* prose stays readable however wide the screen */
+#fxRoot .eb-hd{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:3px}
+#fxRoot .eb-k{font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--faint)}
+#fxRoot .eb-tx{font-size:var(--fs-table);line-height:1.55;color:var(--ink)}
+#fxRoot .eb-tx.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+#fxRoot .eb-meta{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+#fxRoot .eb-meta b{color:var(--muted);font-weight:var(--fw-regular)}
+#fxRoot .eb-act{display:flex;gap:8px;align-items:center;margin-left:auto}
+/* the four provenances a narrative can have, told apart by the label not by colour */
+#fxRoot .eb-src{font-size:var(--fs-micro);padding:1px 6px;border-radius:999px;
+  border:var(--rule);color:var(--muted);white-space:nowrap}
+#fxRoot .eb-src.approved{border-color:var(--success);color:var(--success)}
+#fxRoot .eb-src.submitted{border-color:var(--warning);color:var(--warning)}
+#fxRoot .eb-src.inherited{border-color:var(--line2);color:var(--muted)}
+#fxRoot .eb-src.draft{border-color:var(--ai-line);color:var(--ai-ink)}
+#fxRoot .eb-src.none{border-color:var(--sev-high);color:var(--danger)}
+/* a band under a section header or a subtotal would break the statement's hierarchy */
+#fxRoot .fx-sec+.expl-band,#fxRoot .fx-tot+.expl-band{display:none}
+
 #fxRoot .col-line{min-width:250px}
 #fxRoot.dw-tight .col-trend{display:none}
 #fxRoot.dw-tighter .col-contrib{display:none}
@@ -3642,6 +3670,19 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   body.fx-printing{background:#fff}
   .memo-line{page-break-inside:avoid}
   .memo-hd{page-break-after:avoid}
+
+  /* FULL EXPLANATIONS IN PRINT — this mode is meant to be the review package, so a
+     straight print of the statement has to stand on its own. */
+  #fxRoot .no-print{display:none!important}          /* Approve / Return / Show more */
+  #fxRoot .expl-band>td{background:transparent;border-left:2px solid #999;
+    padding-left:12px}                                /* a rule survives greyscale */
+  /* An explanation separated from the figures it explains is worse than useless in a
+     PDF an auditor receives, so the pair travels together. */
+  #fxRoot .fx-row{page-break-after:avoid}
+  #fxRoot .expl-band{page-break-inside:avoid;page-break-before:avoid}
+  #fxRoot .eb-tx.clip{-webkit-line-clamp:unset;display:block;overflow:visible}  /* print in full */
+  #fxRoot .fx-sec{page-break-after:avoid}
+  #fxRoot thead{display:table-header-group}           /* column heads repeat per page */
   @page{margin:16mm 14mm}
 }
 
@@ -4392,7 +4433,13 @@ const S={
   glAll:false, glOpen:{}, sel:null, dwTab:'sum', jeAcct:null, jeOnly:'',
   drvSub:'decomp',           // Drivers sub-view: decomposition | accounts | GL detail
   histSub:'trend',           // History sub-view: periods | audit trail
-  view:'compact',            // 'compact' | 'review' — density of the explanation column
+  /* DISPLAY MODE — four layers over the same review, not four reports.
+     'compact' and 'review' are the original two values and are still written by
+     saved views, so they are migrated on read by dispMode() rather than rewritten
+     in every stored snapshot. */
+  view:'status',             // nums | status | cmt | full  (legacy: compact, review)
+  fullAll:false,             // Full explanations: material lines only, or every one
+  explOpen:{},               // per-line "Show more" for long narratives
   dens:'std',                // 'std' | 'dense' — row height
   focus:false,               // hide the summary chrome and give the table the screen
   fold:{},                   // collapsed statement sections
@@ -4789,10 +4836,18 @@ function paintPop(keepFocus){
         <div class="pop-o" onclick="KFX.pop('views',document.getElementById('pop'))">Manage favorites and views\u2026</div>
       </div>`;
   }else if(popKind==='viewmode'){
-    h=`<div class="pop-h">Table view</div><div class="pop-l">`+
-      [['compact','Compact','workflow status only'],['review','Review','shows commentary inline']]
-      .map(([v,nm,d])=>`<div class="pop-o ${S.view===v?'on':''}" onclick="KFX.setView('${v}')">
-        <span class="bx">${S.view===v?'\u2713':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>
+    /* DISPLAY, not "table view": four layers over the same review. Row density and
+       the column set stay separate controls below — they answer how much fits on
+       screen, which is a different question from how much commentary is shown. */
+    const dm=dispMode();
+    h=`<div class="pop-h">Display</div><div class="pop-l">`+
+      DISP_MODES.map(([v,nm,d])=>`<div class="pop-o ${dm===v?'on':''}" onclick="KFX.setView('${v}')">
+        <span class="bx">${dm===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+
+      (dm==='full'?`</div><div class="pop-h" style="border-top:var(--rule)">Full explanations</div><div class="pop-l">`+
+        [[false,'Material lines only','flagged, watched and review-required'],
+         [true,'All available explanations','every line that has commentary']]
+        .map(([v,nm,d])=>`<div class="pop-o ${!!S.fullAll===v?'on':''}" onclick="KFX.setFullAll(${v})">
+          <span class="bx">${!!S.fullAll===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join(''):'')+`</div>
       <div class="pop-h" style="border-top:var(--rule)">Row density</div><div class="pop-l">`+
       [['std','Standard','34px rows'],['dense','Dense','28px \u2014 more lines per screen']]
       .map(([v,nm,d])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
@@ -5057,7 +5112,10 @@ function cell(c,r,totalD){
     case 'status':return `<td>${r.acct?'':statusPill(r)}</td>`;
     case 'cmt':  {if(r.acct||r.tot)return '<td class="col-cmt"></td>';
       const rc=rec(r.id), st=explStatus(r,rc);
-      if(S.view!=='review')return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
+      /* In Full explanations the narrative lives in the band beneath the row, so the
+         column carries the workflow state only — printing it twice would push the
+         figures off screen and say the same thing. */
+      if(dispMode()!=='cmt')return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
       if(!rc||!rc.items.length)
         return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
       const txt=rc.items.map(x=>x.note).join(' ');
@@ -5068,9 +5126,122 @@ function cell(c,r,totalD){
   }
   return '<td></td>';
 }
+/* ============================================================================
+   DISPLAY MODES — four layers over the same review, never four reports.
+   Every mode reads the same rows() and the same explanation records; none of them
+   has its own dataset, and none of them recomputes a financial value.
+   ========================================================================== */
+const DISP_MODES=[
+  ['nums',  'Numbers only',      'maximum financial density'],
+  ['status','Review status',     'workflow state, dense grid'],
+  ['cmt',   'Comments',          'current explanation in the column'],
+  ['full',  'Full explanations', 'narrative inline under each material line'],
+];
+/* 'compact' and 'review' are the original two values and are still written into
+   saved views. Migrate on READ so old saved views keep working rather than
+   rewriting every stored snapshot. */
+function dispMode(){
+  const v=S.view;
+  if(v==='compact')return 'status';
+  if(v==='review')return 'cmt';
+  return DISP_MODES.some(m=>m[0]===v)?v:'status';
+}
+
+/* ---- WHICH NARRATIVE TO SHOW ------------------------------------------------
+   With four possible sources, showing all of them would be noise and showing the
+   newest would be wrong. Priority is by review standing, not recency:
+
+     1. approved commentary at this level      — signed off, this is the answer
+     2. submitted commentary at this level     — the answer, pending sign-off
+     3. approved commentary inherited from a lower level (entity/region)
+     4. Korvyn draft                           — system-prepared, nobody has acted
+     5. nothing                                — explanation required
+
+   Returns ONE narrative plus what it is, so the band can label its provenance
+   instead of leaving the reader to guess whether they are reading signed-off
+   commentary or a machine's first draft. */
+function bestExplanation(r,rc){
+  rc=rc||rec(r.id);
+  const items=(rc&&rc.items)||[];
+  const join=()=>items.map(x=>x.note).join(' ');
+  if(items.length&&rc.status==='approved')
+    return {kind:'approved',label:'Approved',text:join(),by:rc.rev||PEOPLE.rev,at:rc.updated||'',n:items.length};
+  if(items.length&&(rc.status==='submitted'))
+    return {kind:'submitted',label:'Submitted',text:join(),by:rc.prep,at:rc.updated||'',n:items.length};
+  if(items.length)
+    return {kind:'submitted',label:rc.status==='returned'?'Returned':'Draft',text:join(),
+            by:rc.prep,at:rc.updated||'',n:items.length};
+  // nothing at this level — look down the stack for approved lower-level commentary
+  const stk=rc?stackFor(r,rc):[];
+  const inh=stk.filter(l=>l.kind!=='ai'&&l.kind!=='ctrl'&&l.status==='approved');
+  if(inh.length)
+    return {kind:'inherited',label:'Inherited · '+inh.length+' lower level'+(inh.length===1?'':'s'),
+            text:inh.map(l=>l.note).join(' '),by:inh[0].who,at:inh[0].at,n:inh.length};
+  if(r.req)
+    return {kind:'draft',label:'Korvyn draft',text:insight(r),by:'System generated',at:'',n:0};
+  return {kind:'none',label:'Explanation required',text:'',by:'',at:'',n:0};
+}
+
+/* ---- THE BAND ---------------------------------------------------------------
+   Metadata is derived from the same records the workspace reads, so the grid and
+   the workspace can never tell a reviewer two different things about one line. */
+function explBand(r,cols){
+  const rc=rec(r.id,true), best=bestExplanation(r,rc);
+  const stk=stackFor(r,rc), ev=evidenceFor(rc);
+  const entL=stk.filter(l=>l.kind==='ent');
+  const appr=stk.filter(l=>l.kind!=='ai'&&l.status==='approved').length;
+  const tot=stk.filter(l=>l.kind!=='ai').length;
+  const open=!!S.explOpen[r.id];
+  const long=(best.text||'').length>320;
+  const id=r.id.replace(/'/g,"&#39;");
+
+  let body;
+  if(best.kind==='none'||!best.text){
+    body=`<div class="eb-tx" style="color:var(--hint)">No explanation on this line yet.
+      ${r.req?'One is required before it can be signed off.':''}</div>`;
+  }else{
+    body=`<div class="eb-tx ${long&&!open?'clip':''}">${best.kind==='draft'?best.text:esc(best.text)}</div>`;
+    if(long)body+=`<button type="button" class="lnk no-print" style="font-size:var(--fs-micro);margin-top:3px"
+      onclick="event.stopPropagation();KFX.explMore('${id}')">${open?'Show less':'Show more'}</button>`;
+  }
+
+  const meta=[];
+  if(entL.length)meta.push(`Entity explanations <b>${entL.length}</b>`);
+  if(ev.length)meta.push(`Evidence <b>${ev.length}</b>`);
+  if(tot)meta.push(`Approved <b>${appr}/${tot}</b>`);
+  if(r.req&&!r.clear)meta.push(`<b>${fmt(Math.abs(r.res))}</b> unexplained`);
+  if(best.by)meta.push(esc(String(best.by).split(',')[0]));
+
+  /* Restrained inline actions, and only the ones this state permits — a row of
+     buttons repeated down a statement would drown the statement. */
+  const rcst=rc.status;
+  let act=`<button type="button" class="lnk" onclick="event.stopPropagation();KFX.pick('${id}')">Open detail</button>`;
+  if(rcst==='submitted')act=`<button type="button" class="lnk"
+      onclick="event.stopPropagation();KFX.bandApprove('${id}')">Approve</button>
+    <button type="button" class="lnk"
+      onclick="event.stopPropagation();KFX.bandReturn('${id}')">Return</button>`+act;
+
+  return `<tr class="expl-band"><td colspan="${cols.length+1}"><div class="eb">
+    <div class="eb-hd"><span class="eb-k">Explanation</span>
+      <span class="eb-src ${best.kind}">${esc(best.label)}</span></div>
+    ${body}
+    <div class="eb-meta">${meta.join(' · ')}<span class="eb-act no-print">${act}</span></div>
+  </div></td></tr>`;
+}
+function explMore(id){S.explOpen[id]=!S.explOpen[id];paintGrid();}
+/* Approve / return straight from the statement. They route through the same
+   workflow functions the workspace footer uses — one code path, one audit trail. */
+function bandApprove(id){const k=S.sel;S.sel=id;exApprove();S.sel=k||id;renderAll();}
+function bandReturn(id){S.sel=id;exReturn();}
+function setFullAll(v){S.fullAll=!!v;popClose();renderAll();}
+
 function paintGrid(){
   const all=rows(), v=visible(all);
-  const hide=S.view==='review'?['contrib','trend','share','avg3','ann','bud','budv']:[];
+  const mode=dispMode();
+  /* Numbers only drops the explanation column outright; the two narrative modes give
+     up the analytical extras so the prose has room. Review status keeps everything. */
+  const hide=mode==='nums'?['cmt']
+    :(mode==='cmt'||mode==='full')?['contrib','trend','share','avg3','ann','bud','budv']:[];
   const totalD=all.filter(r=>!r.hdr&&!r.tot).reduce((t,r)=>t+Math.abs(r.d),0);
   const cols=S.cols.filter(c=>!hide.includes(c));
   let h=`<thead><tr><th class="col-line">${S.stmt==='bs'?'Balance sheet line':'Income statement line'}</th>`+
@@ -5097,11 +5268,19 @@ function paintGrid(){
            onclick="event.stopPropagation();KFX.glTog('${r.id}')"><svg viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4"
            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}
       </div></td>`+cols.map(c=>cell(c,r,totalD)).join('')+`</tr>`;
+    /* THE BAND. Only under real financial lines — never a section header, a subtotal
+       or a GL sub-row, because those are the statement's structure and a footnote
+       under them would break the hierarchy the reader navigates by. Material and
+       watched lines by default; everything with something to say on request. */
+    if(mode==='full'&&!r.tot&&!r.acct){
+      const hasSaid=(()=>{const rc=rec(r.id);return !!(rc&&(rc.items.length||rc.status!=='draft'));})();
+      if(r.req||r.watch||(S.fullAll&&hasSaid))h+=explBand(r,cols);
+    }
     if((S.glOpen[r.id]||S.glAll)&&!r.tot)h+=glRows(r,cols,totalD);
   });
   h+='</tbody>';
   const gEl=$('fxGrid');
-  if(gEl){gEl.innerHTML=h; gEl.className='tbl fx-tbl'+(S.view==='review'?' review':'');}
+  if(gEl){gEl.innerHTML=h; gEl.className='tbl fx-tbl'+(mode==='cmt'?' review':'')+(mode==='full'?' fullx':'');}
   const gt=$('fxGridTitle');
   if(gt)gt.innerHTML=`${S.stmt==='bs'?'Balance sheet flux':'Income statement flux'}
     <span class="note">${esc(periodTag())} \u00b7 $${S.units===1?'':uName()}</span>
@@ -5768,10 +5947,14 @@ function entParts(id){
    layers REFERENCE the layers beneath (refs) instead of copying their text — the
    whole point of a stack is that corporate commentary does not overwrite what
    Germany wrote. */
-function stackKey(r){return S.stmt+'::'+r.id+'::'+S.cur+'::'+S.grain+'::'+priorIndex();}
+/* The key has to include the WORKFLOW state, not just the scope and period. Layer
+   statuses are derived from rc.status, so caching on scope alone left the lineage
+   showing 'Approved 0/6' on a line that had just been approved. */
+function stackKey(r,rc){rc=rc||rec(r.id,true);
+  return S.stmt+'::'+r.id+'::'+S.cur+'::'+S.grain+'::'+priorIndex()+'::'+rc.status+'::'+rc.items.length;}
 function stackFor(r,rc){
   rc=rc||rec(r.id,true);
-  const key=stackKey(r);
+  const key=stackKey(r,rc);
   if(rc._stackKey===key&&rc.stack)return rc.stack;
   const rnd=seeded('stack'+r.id), pick=a=>a[Math.floor(rnd()*a.length)];
   const NAMES=['S. Weber','A. Patel','L. Moreau','D. Hassan','K. Ito','R. Alvarez'];
@@ -6954,7 +7137,7 @@ function setStmtFromShell(v){ S.stmt=v; S.sel=null; }
   });
 })();
 
-return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, drvSub, histSub, dwGripDown, dwGripKey, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, drvSub, histSub, dwGripDown, dwGripKey, explMore, bandApprove, bandReturn, setFullAll, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
