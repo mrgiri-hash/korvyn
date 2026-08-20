@@ -3035,8 +3035,24 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .fx-acct td:first-child{padding-left:34px}
 #fxRoot tr.row-f{cursor:pointer}
 #fxRoot tr.row-f:hover td:first-child{color:var(--accent-ink)}
-#fxRoot .dlt.up{color:var(--danger)} .dlt.dn{color:var(--success)}
+/* VARIANCE COLOUR. Two bugs lived on this one line.
+   1. INVERTED against the rest of the platform: up (positive) was danger and dn
+      (negative) was success, while .mc-b and every other surface do the opposite.
+      A positive number must never render red.
+   2. The second selector had lost its #fxRoot scope, so `.dlt.dn{success}` was
+      GLOBAL and leaked green-for-negative across the whole application.
+   Sign carries the colour, and in this signed model that lands on the right
+   favourability by itself: expenses report negative, so an expense growing makes
+   its delta more negative and it reads red, while revenue growing reads green.
+   Whether a variance BREACHES materiality is a separate signal (.brk), because it
+   is a separate question from which way the line moved. */
+#fxRoot .dlt.up{color:var(--pos)}
+#fxRoot .dlt.dn{color:var(--neg)}
 #fxRoot .dlt.n{color:var(--muted)}
+/* The breach mark rides the two columns rule 9 allows to carry emphasis: the
+   primary variance and its direction. Weight, not another hue — the hue is
+   already saying which way the line moved. */
+#fxRoot .num.brk{font-weight:var(--fw-medium)}
 #fxRoot .bar{display:inline-block;height:5px;border-radius:2px;background:var(--series-4);vertical-align:middle}
 #fxRoot .bar.dn{background:var(--series-2)}
 /* ---------------------------------------------------------------- drawer */
@@ -3546,7 +3562,13 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .expv{display:flex;align-items:center;gap:6px;width:100%;min-width:0;background:none;
   border:none;padding:0;font:inherit;font-size:var(--fs-table);color:var(--muted);
   cursor:pointer;text-align:left}
-#fxRoot .expv .pv{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* PROSE IS CAPPED, DATA IS NOT. The preview was filling every pixel out to the
+   right edge of the table, which is unreadable and is what the design record
+   means by "full-width data / capped prose". */
+#fxRoot .expv .pv{flex:0 1 auto;min-width:0;max-width:52ch;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fxRoot .expv{justify-content:flex-start}
+#fxRoot .col-cmt{width:1%}   /* claim what the prose needs; figures keep the rest */
 #fxRoot .expv .mk{flex:none;font-size:10px;line-height:1}
 #fxRoot .expv .cv{flex:none;font-size:9px;color:var(--faint);transition:transform .12s ease}
 #fxRoot .expv.on .cv{transform:rotate(90deg)}
@@ -5171,8 +5193,12 @@ function cell(c,r,totalD){
   switch(c){
     case 'cur':  return `<td class="num">${fmt(r.cur)}</td>`;
     case 'pri':  return `<td class="num">${fmt(r.pri)}</td>`;
-    case 'dlt':  return `<td class="num dlt ${r.d>0?'up':r.d<0?'dn':'n'}">${fmtS(r.d)}</td>`;
-    case 'pctd': return `<td class="num dlt ${r.d>0?'up':r.d<0?'dn':'n'}">${r.pri?pct(r.dp):'\u2014'}</td>`;
+    /* .brk marks a variance that breaches the SELECTED materiality profile, so
+       changing the profile in the filter bar visibly re-flags the statement. */
+    case 'dlt':  return `<td class="num dlt ${r.d>0?'up':r.d<0?'dn':'n'}${r.flag?' brk':''}"
+      ${r.flag?`title="Breaches ${esc(prof().nm)} — ${fmt(thr().abs*uFac())} ${thr().op} ${thr().pct}% of the line"`:''}
+      >${fmtS(r.d)}</td>`;
+    case 'pctd': return `<td class="num dlt ${r.d>0?'up':r.d<0?'dn':'n'}${r.flag?' brk':''}">${r.pri?pct(r.dp):'—'}</td>`;
     case 'contrib':{const sh=totalD?Math.abs(r.d)/totalD*100:0;
       return `<td class="col-contrib"><span class="cnum">${sh<0.5&&sh>0?'<1':Math.round(sh)}%</span>
         <span class="ctrack"><i style="width:${Math.min(100,sh*2.2).toFixed(1)}%"></i></span></td>`;}
@@ -5692,7 +5718,7 @@ function paintGrid(){
     h+=`<tr class="${cls}" ${r.tot?'':`onclick="KFX.pick('${r.id}')"`}>
       <td><div class="fx-name">
         ${r.tot?'':`<span class="star ${r.watch?'on':''}" onclick="event.stopPropagation();KFX.star('${r.id}')"
-           title="${r.watch?'Remove line from watchlist':'Add line to watchlist'}">${r.watch?'\u2605':'\u2606'}</span>`}
+           title="${r.watch?'On your watchlist — click to stop requiring an explanation here' :'Watch this line — it will then require an explanation even below materiality'}">${r.watch?'★':'☆'}</span>`}
         <span class="tw">${esc(r.l)}</span>
         ${r.tot?'':`<button class="caret ${S.glOpen[r.id]||S.glAll?'on':''}" title="Show the general ledger accounts behind this line"
            onclick="event.stopPropagation();KFX.glTog('${r.id}')"><svg viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4"
