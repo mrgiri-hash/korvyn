@@ -3323,6 +3323,38 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .fx-detail.fx-dw-full .dw-hd,
 #fxRoot .fx-detail.fx-dw-full .dw-tabs{position:static;flex:0 0 auto}
 #fxRoot .fx-detail.fx-dw-full .dw-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain}
+
+/* ---- window polish ---------------------------------------------------------
+   The panel is a docked work surface, not an overlay, so it separates by hairline
+   and lightness — NOT by shadow (rule 5 reserves shadow for true overlays, and a
+   drop-shadowed sidebar is the fastest way to make an instrument look consumer).
+   What it was actually missing was the affordances a window needs: somewhere for
+   the eye to stop, and a signal that content continues past the fold. */
+
+/* the header reads as the window's title bar: it holds its own ground and the
+   content scrolls beneath it */
+#fxRoot .fx-dw-full .dw-hd{background:var(--surface);border-bottom:var(--rule)}
+#fxRoot .fx-dw-full .dw-tabs{background:var(--surface)}
+/* a hairline that appears only once there IS something above the fold */
+#fxRoot .fx-dw-full.scrolled .dw-tabs{box-shadow:0 1px 0 var(--border-strong)}
+/* and one at the foot, so the workflow bar never looks like it is floating */
+#fxRoot .fx-dw-full .dw-foot{box-shadow:0 -1px 0 var(--border)}
+
+/* tab bar rhythm: the active tab is carried by weight and the accent rule, not by
+   a filled chip — chips here would compete with the status pills in the body */
+#fxRoot .fx-dw-full .dw-tabs{padding:0 var(--s-4);gap:2px}
+#fxRoot .fx-dw-full .dw-tabs button{padding:8px 8px 7px;font-size:var(--fs-label);white-space:nowrap}
+#fxRoot .fx-dw-full .dw-body{padding:var(--s-4) var(--s-4) var(--s-5)}
+/* the scrollbar is part of the window, so it is styled rather than left to the OS */
+#fxRoot .fx-dw-full .dw-body{scrollbar-width:thin;scrollbar-color:var(--n-300) transparent}
+#fxRoot .fx-dw-full .dw-body::-webkit-scrollbar{width:9px}
+#fxRoot .fx-dw-full .dw-body::-webkit-scrollbar-thumb{background:var(--n-200);border-radius:99px;
+  border:3px solid var(--surface)}
+#fxRoot .fx-dw-full .dw-body:hover::-webkit-scrollbar-thumb{background:var(--n-300)}
+#fxRoot .fx-dw-full .dw-body::-webkit-scrollbar-track{background:transparent}
+/* first section heading in the body should not double the header's padding */
+#fxRoot .fx-dw-full .dw-body>.dw-sec:first-child,
+#fxRoot .fx-dw-full .dw-body>.verdict:first-child{margin-top:0}
 #fxRoot .tolmark{font-size:var(--fs-table);padding:6px 10px;border-radius:var(--radius);margin-bottom:4px}
 #fxRoot .tolmark.ok{background:var(--success-bg);color:var(--success)}
 #fxRoot .tolmark.bad{background:var(--warning-bg);color:var(--warning)}
@@ -3508,6 +3540,18 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .eb-src.inherited{border-color:var(--line2);color:var(--muted)}
 #fxRoot .eb-src.draft{border-color:var(--ai-line);color:var(--ai-ink)}
 #fxRoot .eb-src.none{border-color:var(--sev-high);color:var(--danger)}
+/* The review-status chip IS the disclosure control in Full explanations mode, so it
+   has to read as pressable without becoming a button-looking thing repeated down
+   every row. It keeps the .est colouring and gains only a caret. */
+#fxRoot .est-t{background:none;border:none;padding:0;font:inherit;font-size:var(--fs-label);
+  cursor:pointer;display:inline-flex;align-items:center;gap:4px;color:inherit;text-align:left}
+#fxRoot .est-t.need{color:var(--danger)} #fxRoot .est-t.wait{color:var(--warning)}
+#fxRoot .est-t.ok{color:var(--success)}  #fxRoot .est-t.mute{color:var(--hint)}
+#fxRoot .est-t .cv{font-size:9px;color:var(--faint);transition:transform .12s ease;display:inline-block}
+#fxRoot .est-t.on .cv{transform:rotate(90deg)}
+#fxRoot .est-t:hover{text-decoration:underline}
+#fxRoot .est-t:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
 /* a band under a section header or a subtotal would break the statement's hierarchy */
 #fxRoot .fx-sec+.expl-band,#fxRoot .fx-tot+.expl-band{display:none}
 
@@ -3573,7 +3617,14 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 /* ---- filter panel as an overlay -------------------------------------------
    Same header, same panel, same Reset/Apply. It simply floats under the bar instead
    of pushing the page down, so opening filters never displaces the analysis. */
-.filterbar{position:relative;z-index:30}
+/* The filter bar scrolls (position:relative) and therefore slides UP THROUGH the
+   sticky app chrome. At z-30 it tied with .ribbon and came later in the DOM, so it
+   won the tie and painted straight over the brand bar for the ~50px of scroll it
+   took to pass — the ribbon vanished and the filter row appeared in its place.
+   It has to sit BELOW every pinned layer it passes: .topbar (15), .cstrip (25) and
+   .ribbon (30). z-10 keeps it above the table (2-6) so its own expanded panel still
+   covers the grid, which is the only thing the high z-index was ever buying. */
+.filterbar{position:relative;z-index:10}
 .filterbar.open{z-index:45}
 .filterbar .bar#filterCtrls{position:absolute;left:0;right:0;top:calc(100% - 1px);
   background:var(--surface);border:var(--rule-strong);border-radius:0 0 var(--radius) var(--radius);
@@ -4445,7 +4496,8 @@ const S={
      in every stored snapshot. */
   view:'status',             // nums | status | cmt | full  (legacy: compact, review)
   fullAll:false,             // Full explanations: material lines only, or every one
-  explOpen:{},               // per-line "Show more" for long narratives
+  explOpen:{},               // which lines have their explanation band open
+  explFull:{},               // and which of those have the narrative unclamped
   dens:'std',                // 'std' | 'dense' — row height
   focus:false,               // hide the summary chrome and give the table the screen
   fold:{},                   // collapsed statement sections
@@ -4853,7 +4905,11 @@ function paintPop(keepFocus){
         [[false,'Material lines only','flagged, watched and review-required'],
          [true,'All available explanations','every line that has commentary']]
         .map(([v,nm,d])=>`<div class="pop-o ${!!S.fullAll===v?'on':''}" onclick="KFX.setFullAll(${v})">
-          <span class="bx">${!!S.fullAll===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join(''):'')+`</div>
+          <span class="bx">${!!S.fullAll===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+
+        `<div class="pop-o" onclick="KFX.explAll(true)"><span class="bx"></span>Expand all
+          <span class="sub">open every explanation</span></div>
+         <div class="pop-o" onclick="KFX.explAll(false)"><span class="bx"></span>Collapse all
+          <span class="sub">back to one line per row</span></div>`:'')+`</div>
       <div class="pop-h" style="border-top:var(--rule)">Row density</div><div class="pop-l">`+
       [['std','Standard','34px rows'],['dense','Dense','28px \u2014 more lines per screen']]
       .map(([v,nm,d])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
@@ -5120,8 +5176,26 @@ function cell(c,r,totalD){
       const rc=rec(r.id), st=explStatus(r,rc);
       /* In Full explanations the narrative lives in the band beneath the row, so the
          column carries the workflow state only — printing it twice would push the
-         figures off screen and say the same thing. */
-      if(dispMode()!=='cmt')return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
+         figures off screen and say the same thing.
+         And the state becomes the CONTROL: a statement with a paragraph under every
+         material line is unreadable as a statement, so the band opens on a click
+         rather than by default. */
+      const dm=dispMode();
+      if(dm==='full'){
+        /* Only lines that would actually produce a band get the control. Rendering it
+           on every row made "Not required" lines look expandable and do nothing when
+           clicked, which is a dead control. */
+        const hasSaid=!!(rc&&(rc.items.length||rc.status!=='draft'));
+        const bandable=r.req||r.watch||(S.fullAll&&hasSaid);
+        if(!bandable)return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
+        const on=!!S.explOpen[r.id];
+        return `<td class="col-cmt"><button type="button" class="est-t ${st.cl} ${on?'on':''}"
+          aria-expanded="${on?'true':'false'}"
+          onclick="event.stopPropagation();KFX.explToggle('${r.id.replace(/'/g,"&#39;")}')"
+          title="${on?'Hide the explanation':'Show the explanation'}">${st.nm}
+          <span class="cv">▸</span></button></td>`;
+      }
+      if(dm!=='cmt')return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
       if(!rc||!rc.items.length)
         return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
       const txt=rc.items.map(x=>x.note).join(' ');
@@ -5492,7 +5566,7 @@ function explBand(r,cols){
   const entL=stk.filter(l=>l.kind==='ent');
   const appr=stk.filter(l=>l.kind!=='ai'&&l.status==='approved').length;
   const tot=stk.filter(l=>l.kind!=='ai').length;
-  const open=!!S.explOpen[r.id];
+  const open=!!S.explFull[r.id];
   const long=(best.text||'').length>320;
   const id=r.id.replace(/'/g,"&#39;");
 
@@ -5529,7 +5603,17 @@ function explBand(r,cols){
     <div class="eb-meta">${meta.join(' · ')}<span class="eb-act no-print">${act}</span></div>
   </div></td></tr>`;
 }
-function explMore(id){S.explOpen[id]=!S.explOpen[id];paintGrid();}
+/* Two levels, deliberately: explToggle opens the band on a line, explMore unclamps
+   a long narrative inside an open one. Conflating them would mean every click that
+   opened an explanation also dumped 20 lines of prose into the statement. */
+function explToggle(id){S.explOpen[id]=!S.explOpen[id];paintGrid();}
+function explMore(id){S.explFull[id]=!S.explFull[id];paintGrid();}
+function explAll(open){
+  const v=visible(rows());
+  S.explOpen={};
+  if(open)v.forEach(r=>{if(!r.hdr&&!r.tot&&!r.acct&&(r.req||r.watch))S.explOpen[r.id]=true;});
+  popClose(); paintGrid();
+}
 /* Approve / return straight from the statement. They route through the same
    workflow functions the workspace footer uses — one code path, one audit trail. */
 function bandApprove(id){const k=S.sel;S.sel=id;exApprove();S.sel=k||id;renderAll();}
@@ -5573,7 +5657,7 @@ function paintGrid(){
        or a GL sub-row, because those are the statement's structure and a footnote
        under them would break the hierarchy the reader navigates by. Material and
        watched lines by default; everything with something to say on request. */
-    if(mode==='full'&&!r.tot&&!r.acct){
+    if(mode==='full'&&!r.tot&&!r.acct&&S.explOpen[r.id]){
       const hasSaid=(()=>{const rc=rec(r.id);return !!(rc&&(rc.items.length||rc.status!=='draft'));})();
       if(r.req||r.watch||(S.fullAll&&hasSaid))h+=explBand(r,cols);
     }
@@ -6152,6 +6236,17 @@ function paintDrawer(){
   $('fxDwBody').innerHTML=({sum:dwSummary,drive:dwDrivers,stack:dwStack,evid:dwEvidence,
     hist:dwHistory}[S.dwTab]||dwSummary)(r);
   $('fxDwFoot').innerHTML=dwFoot(r,rcT);
+  /* Tell the panel when its body is scrolled, so the tab bar can grow a hairline.
+     Bound once per element — paintDrawer runs on every repaint and stacking a new
+     listener each time would leak them by the hundred over a review session. */
+  const bd=$('fxDwBody');
+  if(bd&&!bd._scrollBound){
+    bd._scrollBound=1;
+    bd.addEventListener('scroll',()=>{
+      const p=$('fxDetail'); if(p)p.classList.toggle('scrolled',bd.scrollTop>2);
+    },{passive:true});
+  }
+  if(bd&&$('fxDetail'))$('fxDetail').classList.toggle('scrolled',bd.scrollTop>2);
   sizeDrawer();   // after the grid has laid out, so the reserved track is measurable
 }
 /* Legacy tab ids still arrive from citeJe() and openAcct(); map them forward rather
@@ -7443,7 +7538,7 @@ function setStmtFromShell(v){ S.stmt=v; S.sel=null; }
 })();
 
 return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, drvSub, histSub, dwGripDown, dwGripKey, explMore, bandApprove, bandReturn, setFullAll,
-kdAccept, kdEdit, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+kdAccept, kdEdit, kdRegen, kdDismiss, kdRestore, explToggle, explAll, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeAcct, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
