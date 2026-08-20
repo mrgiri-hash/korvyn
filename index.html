@@ -3540,6 +3540,27 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .eb-src.inherited{border-color:var(--line2);color:var(--muted)}
 #fxRoot .eb-src.draft{border-color:var(--ai-line);color:var(--ai-ink)}
 #fxRoot .eb-src.none{border-color:var(--sev-high);color:var(--danger)}
+/* EXPLANATION PREVIEW. One line of the real narrative, its provenance carried by a
+   single leading marker, the whole cell pressable. It must not look like a button
+   repeated down every row, so it is text with a caret and nothing else. */
+#fxRoot .expv{display:flex;align-items:center;gap:6px;width:100%;min-width:0;background:none;
+  border:none;padding:0;font:inherit;font-size:var(--fs-table);color:var(--muted);
+  cursor:pointer;text-align:left}
+#fxRoot .expv .pv{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fxRoot .expv .mk{flex:none;font-size:10px;line-height:1}
+#fxRoot .expv .cv{flex:none;font-size:9px;color:var(--faint);transition:transform .12s ease}
+#fxRoot .expv.on .cv{transform:rotate(90deg)}
+#fxRoot .expv:hover .pv{color:var(--ink)}
+#fxRoot .expv:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+/* signed-off commentary and a machine draft must never read alike at a glance */
+#fxRoot .expv.approved .mk{color:var(--success)}
+#fxRoot .expv.submitted .mk{color:var(--warning)}
+#fxRoot .expv.inherited .mk{color:var(--muted)}
+#fxRoot .expv.draft .mk{color:var(--ai)}
+/* the one line with nothing to say is the only one allowed to shout */
+#fxRoot .expv.none{color:var(--danger)}
+#fxRoot .expv.none .pv{font-weight:var(--fw-medium)}
+
 /* The review-status chip IS the disclosure control in Full explanations mode, so it
    has to read as pressable without becoming a button-looking thing repeated down
    every row. It keeps the .est colouring and gains only a caret. */
@@ -5181,19 +5202,43 @@ function cell(c,r,totalD){
          material line is unreadable as a statement, so the band opens on a click
          rather than by default. */
       const dm=dispMode();
+      /* SILENCE IS THE DEFAULT. "Not required" was the majority of this column's ink,
+         spending the widest remaining column telling the reviewer that nothing needs
+         doing — and "Needs explanation" only repeated what the 3px severity mark and
+         the flag already say. A line that needs nothing now says nothing (rule 12:
+         badges mean action required; everything else stays quiet). */
+      const hasSaid=!!(rc&&(rc.items.length||rc.status!=='draft'));
+      if(!r.req&&!r.watch&&!hasSaid)return '<td class="col-cmt"></td>';
+
       if(dm==='full'){
-        /* Only lines that would actually produce a band get the control. Rendering it
-           on every row made "Not required" lines look expandable and do nothing when
-           clicked, which is a dead control. */
-        const hasSaid=!!(rc&&(rc.items.length||rc.status!=='draft'));
-        const bandable=r.req||r.watch||(S.fullAll&&hasSaid);
-        if(!bandable)return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
+        /* A PREVIEW OF THE ACTUAL NARRATIVE, so the reviewer decides whether to open
+           it by reading it rather than by reading a workflow label. Provenance is a
+           single marker: signed-off commentary and a machine's first draft must never
+           look alike at a glance. Truncation is CSS, not JS, so the preview adapts as
+           the workspace is resized. */
+        const best=bestExplanation(r,rc);
         const on=!!S.explOpen[r.id];
-        return `<td class="col-cmt"><button type="button" class="est-t ${st.cl} ${on?'on':''}"
-          aria-expanded="${on?'true':'false'}"
-          onclick="event.stopPropagation();KFX.explToggle('${r.id.replace(/'/g,"&#39;")}')"
-          title="${on?'Hide the explanation':'Show the explanation'}">${st.nm}
-          <span class="cv">▸</span></button></td>`;
+        const MK={approved:'✓',submitted:'◐',inherited:'↑',draft:'◆',none:''};
+        let t=String(best.text||'').replace(/\s+/g,' ').trim();
+        /* SHOW THE SENTENCE THAT SAYS SOMETHING NEW. The draft opens by restating the
+           movement — "increased 1.4 (+6.8%) from 21.0 to 22.4" — which is precisely
+           what the Current, Compared and delta columns beside this cell already show.
+           Preview the DRIVERS instead, and fall back to the opening only if that is
+           all there is. */
+        const sent=t.split(/(?<=\.)\s+/).filter(Boolean);
+        // no [^.] guards: sent[0] is already one sentence, and the figures inside it
+        // ("1.4", "6.8%") contain periods that such a guard would stop dead on
+        if(sent.length>1&&/(increased|decreased)\b.*\bfrom\b.*\bto\b/i.test(sent[0]))
+          t=sent.slice(1).join(' ');
+        // whatever survives, it must not simply repeat the row's own label
+        if(t.toLowerCase().indexOf(String(r.l).toLowerCase())===0)
+          t=t.slice(String(r.l).length).replace(/^[\s,:—-]+/,'');
+        const label=best.kind==='none'||!t?'Explanation required':t;
+        return `<td class="col-cmt"><button type="button" class="expv ${best.kind} ${on?'on':''}"
+          aria-expanded="${on?'true':'false'}" title="${esc(best.label)}${t?' — '+esc(t):''}"
+          onclick="event.stopPropagation();KFX.explToggle('${r.id.replace(/'/g,"&#39;")}')">
+          ${MK[best.kind]?`<span class="mk">${MK[best.kind]}</span>`:''}
+          <span class="pv">${esc(label)}</span><span class="cv">▸</span></button></td>`;
       }
       if(dm!=='cmt')return `<td class="col-cmt"><span class="est ${st.cl}">${st.nm}</span></td>`;
       if(!rc||!rc.items.length)
