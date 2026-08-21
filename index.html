@@ -3215,6 +3215,54 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   border-radius:var(--radius);font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
 .fx-modal .ib:hover:not([disabled]){background:var(--bg2);color:var(--accent-ink)}
 .fx-modal .ib[disabled]{opacity:.3;cursor:default}
+/* ---- MODAL PROSE, FORM AND THE REQUEST REGISTER ---------------------------
+   .rl-note and .rl-empty are the module's two prose treatments and were scoped to
+   #fxRoot alone, so every modal that used them — the audit log, the column chooser —
+   fell back to body size in body colour. The modal is a fixed overlay OUTSIDE #fxRoot
+   by design (it must escape the module's stacking context), so the fix is to state
+   the rules for it here rather than loosen the selector and let the module's
+   typography leak into the shell. Same for the small button and link modifiers. */
+.fx-modal .rl-note{font-size:var(--fs-table);color:var(--muted);line-height:1.5}
+.fx-modal .rl-empty{font-size:var(--fs-table);color:var(--hint);padding:var(--s-2) 0}
+.fx-modal .btn-out.sm,.fx-modal .btn-primary.sm{height:var(--h-btn-sm);
+  font-size:var(--fs-label);padding:0 9px}
+.fx-modal button.lnk{background:none;border:none;padding:0;font:inherit;
+  font-size:var(--fs-label);color:var(--accent-ink);cursor:pointer}
+.fx-modal button.lnk:hover{text-decoration:underline}
+.fx-modal .fld{margin-bottom:var(--s-4)}
+.fx-modal .fld:last-child{margin-bottom:0}
+.fx-modal .fld label{display:block;font-size:var(--fs-label);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--muted);margin-bottom:5px}
+.fx-modal .inp,.fx-modal textarea.ta{width:100%;font:inherit;font-size:var(--fs-table);
+  padding:6px 9px;border:var(--rule-strong);border-radius:var(--radius);
+  background:var(--surface);color:var(--ink);box-sizing:border-box}
+.fx-modal textarea.ta{resize:vertical;line-height:1.5}
+/* The request register is a list of OBLIGATIONS, so it is rows and hairlines — the
+   modal body is already the one card for this region (rule 11). Lateness is the only
+   genuine exception on the surface, so it is the only thing that takes state colour. */
+.fx-modal .rq-sec{font-size:var(--fs-label);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--muted);
+  margin:var(--s-5) 0 var(--s-1);padding-bottom:var(--s-2);border-bottom:var(--rule)}
+.fx-modal .rq-sec:first-child{margin-top:0}
+.fx-modal .rq-sec .ct{color:var(--faint);text-transform:none;letter-spacing:0;margin-left:7px}
+.fx-modal .rq{display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:0 var(--s-3);padding:var(--s-3) 0;border-bottom:var(--rule)}
+.fx-modal .rq:last-child{border-bottom:none}
+.fx-modal .rq-h{font-size:var(--fs-table);color:var(--ink-strong)}
+.fx-modal .rq-h .sc{color:var(--muted)}
+/* Column 1 explicitly: auto-placement would drop the second full-width line into the
+   age column, which is the kind of bug that only shows up on the row with a long ask. */
+.fx-modal .rq-ask,.fx-modal .rq-m{grid-column:1/2}
+.fx-modal .rq-ask{font-size:var(--fs-table);color:var(--ink);line-height:1.5;margin-top:3px}
+.fx-modal .rq-m{font-size:var(--fs-micro);color:var(--faint);margin-top:4px;line-height:1.5}
+.fx-modal .rq-m b{font-weight:var(--fw-medium);color:var(--ink)}
+.fx-modal .rq-age{font-size:var(--fs-micro);color:var(--faint);white-space:nowrap;
+  font-variant-numeric:tabular-nums;text-align:right}
+.fx-modal .rq-age.late{color:var(--danger)}
+.fx-modal .rq-a{grid-column:1/-1;display:flex;gap:var(--s-2);align-items:center;
+  flex-wrap:wrap;margin-top:var(--s-2)}
+.fx-modal .rq-why{grid-column:1/-1;font-size:var(--fs-micro);color:var(--muted);
+  line-height:1.5;margin-top:var(--s-2)}
 
 /* ===================== FLUX ANALYSIS — refinement layer =====================
    Content first: four slim rows above the table, then the analysis. Every value
@@ -4790,9 +4838,17 @@ const PEOPLE={prep:'J. Reyes, Senior Accountant',rev:'A. Okafor, Controller',cfo
    A stable directory, part of the sample data in the same way ENTITIES and PROPS
    are. It exists so that when a subsidiary's explanation is outstanding the product
    can say WHO it is outstanding from — and so that a name is never invented at
-   render time by a seeded RNG, which is what the review lineage used to do. */
+   render time by a seeded RNG, which is what the review lineage used to do.
+
+   MDC-CORP resolves to the ACTING USER instead of to a fixed name. The parent's own
+   books are kept by whoever is in this seat, so an explanation requested against the
+   corporate entity is a request addressed to you. That is what makes the INBOUND half
+   of the request queue real without inventing a second identity model on top of the
+   shell's. Every other entity belongs to somebody who is not in this session, and a
+   request against it is genuinely outbound — which is why answering one of those is
+   refused and offered as "record on behalf" instead. */
 const ENT_OWNERS={
-  'MDC-CORP':{nm:'D. Hassan',  role:'Corporate Accountant'},
+  'MDC-CORP':{me:true},
   'MDC-VA':  {nm:'A. Patel',   role:'Property Controller'},
   'MDC-TX':  {nm:'L. Moreau',  role:'Property Controller'},
   'MDC-OR':  {nm:'K. Ito',     role:'Property Controller'},
@@ -4804,8 +4860,9 @@ const REG_OWNERS={
   West:     {nm:'T. Nakamura',role:'Regional Controller'},
   Corporate:{nm:'A. Okafor', role:'Controller'},
 };
-const entOwner=k=>ENT_OWNERS[k]||{nm:'Unassigned',role:'—'};
-const regOwner=k=>REG_OWNERS[k]||{nm:'Unassigned',role:'—'};
+const ownerRec=o=>o&&o.me?{nm:ME().nm,role:ME().role,me:true}:(o||{nm:'Unassigned',role:'—'});
+const entOwner=k=>ownerRec(ENT_OWNERS[k]);
+const regOwner=k=>ownerRec(REG_OWNERS[k]);
 
 /* ============================================================================
    4. CHART OF ACCOUNTS
@@ -5300,8 +5357,12 @@ function lineVal(stmt,id,i,grain,basis,slices){
    delta less the items — is what makes review a control instead of a checkbox.
    ========================================================================== */
 const CMT={};                                          // key -> record
-const cKey=(id)=>S.stmt+'::'+periodTag()+'::'+id;
-const cKeyFor=(id,tag)=>S.stmt+'::'+tag+'::'+id;
+/* The FULL key takes every part explicitly. The two convenience forms below fill in
+   whatever is on screen, which is right for the drawer and wrong for anything that
+   acts on another statement or period — the request register does exactly that. */
+const cKeyFull=(stmt,tag,id)=>stmt+'::'+tag+'::'+id;
+const cKey=(id)=>cKeyFull(S.stmt,periodTag(),id);
+const cKeyFor=(id,tag)=>cKeyFull(S.stmt,tag,id);
 function rec(id,make){
   const k=cKey(id);
   if(!CMT[k]&&make)CMT[k]={items:[],sugs:[],files:[],status:'draft',prep:meStr(),rev:null,revNote:'',
@@ -5327,18 +5388,80 @@ function rec(id,make){
    Scope keys are 'ent:<id>' and 'reg:<name>', so the same store serves entity and
    regional levels without a second mechanism. */
 const LCMT={};
-const lKey=(id,scope)=>S.stmt+'::'+periodTag()+'::'+id+'::'+scope;
-function lRec(id,scope,make){
-  const k=lKey(id,scope);
+const lKeyFull=(stmt,tag,id,scope)=>stmt+'::'+tag+'::'+id+'::'+scope;
+const lKey=(id,scope)=>lKeyFull(S.stmt,periodTag(),id,scope);
+function lRecFull(stmt,tag,id,scope,make){
+  const k=lKeyFull(stmt,tag,id,scope);
   if(!LCMT[k]&&make)LCMT[k]={note:'',by:'',role:'',at:null,status:'pending',
-    files:[],ver:0,requested:null,requestedBy:null,onBehalf:null};
+    files:[],ver:0,reqId:null,onBehalf:null};
   return LCMT[k]||null;
 }
+const lRec=(id,scope,make)=>lRecFull(S.stmt,periodTag(),id,scope,make);
 /* one number the whole surface agrees on: how many contributing levels still owe
    an explanation. Nothing here samples or truncates. */
 function lOutstanding(id,parts){
   return parts.filter(p=>{const lr=lRec(id,'ent:'+p.k);return !lr||lr.status==='pending';});
 }
+
+/* ============================================================================
+   EXPLANATION REQUESTS — the ask, as an object that can be delivered
+
+   Asking a subsidiary to explain a movement used to write two fields onto the local
+   record: a timestamp and the name of whoever clicked. Everything a request has to
+   survive as was missing. WHAT was asked — so the answer that came back was whatever
+   the owner guessed you wanted. WHEN it is needed — so nothing was ever late, only
+   old. Whether it was answered, declined or withdrawn — the flag was set once and
+   never cleared, so recording an explanation on behalf of the level left the ask
+   outstanding for ever, after it had been satisfied. How many times it had been
+   chased. And it was invisible outside the one drawer it was raised in, on the one
+   line, in the one period: a group controller who had asked eleven subsidiaries for
+   commentary had no list of the eleven, and the eleven were never told.
+
+   FXREQ is the register. One row per ask, newest first. A request is CLOSED, never
+   deleted — a withdrawn request is part of the defence file too, because "we asked
+   and then stopped asking" is a fact an auditor is entitled to. The local record
+   holds only a pointer, so the lineage, the worklist bar and the register cannot
+   disagree about whether something is outstanding.
+   ========================================================================== */
+const FXREQ=[]; let _rqid=0; let reqsOpen=false;
+/* Due dates as a controller says them out loud. A date picker on a request that is
+   nearly always wanted inside the week is friction for no information. */
+const REQ_DUE=[{d:0,nm:'Today'},{d:1,nm:'Tomorrow'},{d:2,nm:'In 2 days'},
+  {d:5,nm:'In 5 days'},{d:10,nm:'In 10 days'}];
+const REQ_DUE_DEF=2;
+const REQ_ST={open:{nm:'Open'},answered:{nm:'Answered'},withdrawn:{nm:'Withdrawn'}};
+/* Both halves of a due date: the words a person reads, and the instant lateness is
+   measured against — end of the due day, because "by Friday" means all of Friday. */
+function dueParts(days){
+  const d=new Date(); d.setDate(d.getDate()+days); d.setHours(23,59,59,999);
+  return {due:d.toLocaleDateString('en-US',{month:'short',day:'numeric'}),dueTs:d.getTime()};
+}
+function scopeOwner(scope){const s=String(scope||'');
+  return s.indexOf('reg:')===0?regOwner(s.slice(4)):entOwner(s.slice(4));}
+function scopeName(scope){const s=String(scope||'');
+  if(s.indexOf('reg:')===0)return s.slice(4)+' region';
+  const k=s.slice(4); return (ENTITIES.find(e=>e.id===k)||{nm:k}).nm;}
+const reqById=id=>FXREQ.find(q=>q.id===id)||null;
+/* The LIVE request on a local record — via the pointer, never a search, so a closed
+   request can never resurface as outstanding. */
+function reqLive(lr){const q=lr&&lr.reqId?reqById(lr.reqId):null;return q&&q.status==='open'?q:null;}
+const reqOpen=()=>FXREQ.filter(q=>q.status==='open');
+/* Who a request belongs to resolves LIVE from the owner directory rather than from a
+   snapshot taken when it was raised, so changing role in Settings re-sorts the queue
+   instead of leaving a stale answer behind. */
+const reqMine  =()=>reqOpen().filter(q=>scopeOwner(q.scope).me);
+const reqRaised=()=>reqOpen().filter(q=>!scopeOwner(q.scope).me);
+/* Age and lateness are DERIVED. A request stored as "3 days old" is wrong by morning. */
+const reqAge =q=>Math.max(0,Math.floor((Date.now()-q.ts)/86400000));
+const reqLate=q=>!!(q.dueTs&&Date.now()>q.dueTs);
+const reqOverdue=()=>reqOpen().filter(reqLate);
+function reqAgeTxt(q){const n=reqAge(q);
+  return n===0?'raised today':n===1?'1 day old':n+' days old';}
+/* Requests attached to lines on the statement and period currently on screen — what
+   the worklist bar counts, so its segment means the same thing as every other one. */
+function reqHere(){const tag=periodTag();
+  return reqOpen().filter(q=>q.stmt===S.stmt&&q.period===tag);}
+const reqLinesHere=()=>new Set(reqHere().map(q=>q.line));
 function explained(id){const r=rec(id);return r?r.items.reduce((t,x)=>t+x.amt,0):0;}
 function residual(id,d){return d-explained(id);}
 function stamp(){const d=new Date();return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+
@@ -5377,8 +5500,11 @@ function rows(){
   return out;
 }
 function visible(rws){
+  // built once, not per row — the set is the same for every line in the pass
+  const reqL=S.show==='req'?reqLinesHere():null;
   let v=rws.filter(r=>{
     if(r.hdr||r.tot)return true;
+    if(reqL&&!reqL.has(r.id))return false;
     if(S.dir==='up'&&r.d<=0)return false;
     if(S.dir==='dn'&&r.d>=0)return false;
     if(S.dir==='unfav'&&!unfav(r))return false;
@@ -5588,8 +5714,12 @@ const DIMS=[
   {k:'reg', nm:'Region',      opts:()=>REGIONS.map(r=>({id:r,nm:r}))},
 ];
 const DIM=k=>DIMS.find(d=>d.k===k);
+/* Every worklist segment must have an entry here. This is the registry the scope strip,
+   the active-filter chips and the Show menu all read; a segment that sets S.show to a
+   value missing from it renders an undefined label and takes the strip down with it. */
 const SHOWS=[['all','All lines'],['flag','Flagged only'],['open','Needs explanation'],
-  ['resid','Has unexplained residual'],['watch','Watchlist only'],['mine','Assigned to me'],
+  ['resid','Has unexplained residual'],['req','Explanation requested'],
+  ['watch','Watchlist only'],['mine','Assigned to me'],
   ['ret','Returned by reviewer']];
 const DIRS=[['all','Any movement'],['up','Increases only'],['dn','Decreases only'],['unfav','Unfavorable only']];
 
@@ -5638,13 +5768,16 @@ function paintStrip(){
     h+=`<span class="tok" onclick="KFX.pop('${d.k}',this)"><span class="k">${d.nm}</span> ${esc(txt)}
       <span class="x" onclick="event.stopPropagation();KFX.setAll('${d.k}')">\u00d7</span></span>`;
   });
+  /* Fall back to the raw key rather than indexing into undefined: the chip list at
+     activeChips() already guards this way, and an unregistered show mode should render
+     an ugly chip, not take the whole scope strip down. */
   if(S.show!=='all'){any=true;
     h+=`<span class="tok" onclick="KFX.pop('show',this)"><span class="k">Show</span>
-      ${esc(SHOWS.find(x=>x[0]===S.show)[1])}
+      ${esc((SHOWS.find(x=>x[0]===S.show)||[,S.show])[1])}
       <span class="x" onclick="event.stopPropagation();KFX.setShow('all')">\u00d7</span></span>`;}
   if(S.dir!=='all'){any=true;
     h+=`<span class="tok" onclick="KFX.pop('dir',this)"><span class="k">Direction</span>
-      ${esc(DIRS.find(x=>x[0]===S.dir)[1])}
+      ${esc((DIRS.find(x=>x[0]===S.dir)||[,S.dir])[1])}
       <span class="x" onclick="event.stopPropagation();KFX.setDir('all')">\u00d7</span></span>`;}
   if(!any)h+=`<span class="tok q" onclick="KFX.pop('add',this)">Consolidated \u2014 nothing filtered</span>`;
   h+=`<button class="addf" onclick="KFX.pop('add',this)">+ Add filter</button>`;
@@ -5795,9 +5928,11 @@ function paintPop(keepFocus){
         explanation with one of these codes. Counts are lines on this statement.</div></div>`;
   }else if(popKind==='more'){
     h=`<div class="pop-h">Actions</div><div class="pop-l">`+
-      [['openAudit','Audit log','audit'],['exportCsv','Export grid','export'],
-       ['openMemo','Flux memo','memo'],['printMemo','Print','print']]
-      .map(([f,nm,k])=>`<div class="pop-o" onclick="KFX.popClose();KFX.${f}()">${ic(k)} ${nm}</div>`).join('')+`</div>`;
+      [['openReqs','Explanation requests','cmt',reqOpen().length],
+       ['openAudit','Audit log','audit',0],['exportCsv','Export grid','export',0],
+       ['openMemo','Flux memo','memo',0],['printMemo','Print','print',0]]
+      .map(([f,nm,k,n])=>`<div class="pop-o" onclick="KFX.popClose();KFX.${f}()">${ic(k)} ${nm}${
+        n?`<span class="sub">${n} open</span>`:''}</div>`).join('')+`</div>`;
   }else if(popKind&&popKind.indexOf('trend:')===0){
     const id=popKind.slice(6), ln=LINE(S.stmt,id), sl=activeSlices(), a=[];
     for(let k=Math.max(0,S.cur-11);k<=S.cur;k++)a.push({p:PERIODS[k],v:lineVal(S.stmt,id,k,'m','act',sl)});
@@ -5976,6 +6111,13 @@ function paintKpi(){
     seg('resid',  fmt(unexp),  'unexplained', unexp>0?'act':'',
         'Lines carrying a residual outside tolerance')+
     seg('ret',    ret,         'returned',   ret?'bad':'', 'Reviews returned to the preparer')+
+    /* Work owed by someone ELSE is still work on this statement, and it was the one
+       thing the bar could not count: a request lived in the drawer it was raised in.
+       Only lateness takes colour — an open request inside its due date is normal. */
+    (()=>{const rq=reqHere(), late=rq.filter(reqLate).length;
+      return seg('req', rq.length, 'requested', late?'bad':'',
+        late? late+' of '+rq.length+' explanation requests are past their due date'
+            : 'Lines where an entity or region still owes an explanation you asked for');})()+
     seg('watch',  wch.length,  'watched',    '',           'Lines you are watching below materiality')+
     seg('flag',   flg.length,  'flagged',    '',           'Lines breaching the materiality policy')+
     `<span class="wl-sp"></span>
@@ -7013,11 +7155,17 @@ function delPreset(i){S.presets.splice(i,1);renderAll();}
    ========================================================================== */
 const AUDIT=[];
 let _aid=0;
+/* An action raised from the request register can belong to a statement and period
+   other than the one on screen, so both travel with the entry whenever the caller
+   knows them. Falling back to S.stmt/periodTag() unconditionally filed those under
+   whatever the user happened to be looking at, and attached the trail entry to the
+   wrong record. */
 function logA(o){
+  const stmt=o.stmt||S.stmt, period=o.period||periodTag();
   AUDIT.unshift({id:'A'+String(++_aid).padStart(5,'0'),t:stamp(),ts:Date.now(),
-    stmt:S.stmt,period:periodTag(),line:o.line||null,who:o.who||meStr(),
+    stmt,period,line:o.line||null,who:o.who||meStr(),
     act:o.act,detail:o.detail||'',before:o.before==null?null:o.before,after:o.after==null?null:o.after});
-  const r=o.line?CMT[cKeyFor(o.line,periodTag())]:null;
+  const r=o.line?CMT[cKeyFull(stmt,period,o.line)]:null;
   if(r)r.trail.unshift(AUDIT[0]);
 }
 const itemStr=it=>it?fmtS(it.amt)+' \u00b7 '+(RSN[it.reason]||it.reason)+' \u00b7 '+it.note:'\u2014';
@@ -7637,8 +7785,11 @@ function stackKey(r,rc){rc=rc||rec(r.id,true);
   /* every field the lineage RENDERS has to be in this signature, or an action that
      changes only one of them leaves a stale stack on screen — requesting an
      explanation changes neither status nor version, and did exactly that. */
-  const sig=lr=>lr?(lr.status+'/'+lr.ver+'/'+(lr.requested?'r':'')+'/'+(lr.onBehalf?'b':'')+
-    '/'+(lr.note?lr.note.length:0)+'/'+(lr.files||[]).length):'0';
+  /* The open request is part of the layer's state, so a chase or a withdrawal has to
+     bust this cache the same way a note does. */
+  const sig=lr=>{const q=lr&&lr.reqId?reqById(lr.reqId):null;
+    return lr?(lr.status+'/'+lr.ver+'/'+(q?q.status+q.chases.length:'-')+'/'+(lr.onBehalf?'b':'')+
+      '/'+(lr.note?lr.note.length:0)+'/'+(lr.files||[]).length):'0';};
   const regs=[...new Set(parts.map(p=>p.reg))];
   const lsig=parts.map(p=>p.k+sig(lRec(r.id,'ent:'+p.k))).join('|')+'##'+
              regs.map(g=>g+sig(lRec(r.id,'reg:'+g))).join('|');
@@ -7678,7 +7829,7 @@ function stackFor(r,rc){
       status:lr?lr.status:'pending',
       note:has?lr.note:'',
       outstanding:!has,
-      requested:lr&&lr.requested||null,
+      req:reqLive(lr),
       onBehalf:lr&&lr.onBehalf||null,
       refs:[],ev:(lr&&lr.files||[]).length,ver:has?('v'+(lr.ver||1)):'—',amt:p.d,reg:p.reg});
   });
@@ -7698,7 +7849,7 @@ function stackFor(r,rc){
         status:lr?lr.status:'pending',
         note:has?lr.note:'',
         outstanding:!has,
-        requested:lr&&lr.requested||null,
+        req:reqLive(lr),
         onBehalf:lr&&lr.onBehalf||null,
         refs:kids.map(p=>p.nm),ev:(lr&&lr.files||[]).length,
         ver:has?('v'+(lr.ver||1)):'—',
@@ -7737,25 +7888,214 @@ function stackFor(r,rc){
    subsidiary's explanation is a different fact from the subsidiary writing it. */
 function lRequest(scope){
   const r=rows().find(x=>x.id===S.sel); if(!r)return;
-  const lr=lRec(r.id,scope,true);
-  const who=lStackWho(r,scope);
-  lr.requested=stamp(); lr.requestedBy=meStr();
-  logA({line:r.id,who:meStr(),act:'requested an explanation from '+(who?who.scope:scope),
-    detail:who?('owner: '+who.who+' · '+who.role):''});
-  renderAll(); toast('Requested — '+(who?who.who:scope)+' now owes an explanation on this line');
+  const live=reqLive(lRec(r.id,scope,true));
+  /* ASKING AGAIN IS A CHASE, NOT A SECOND REQUEST. Two open asks for the same
+     explanation is a data error wearing diligence as a disguise: the owner cannot
+     tell which to answer, and the register counts one obligation twice. */
+  if(live){reqChase(live.id);return;}
+  if(!caps().prepare){toast('Your role is read-only on the close — it cannot put an obligation on an entity');return;}
+  reqCompose(r,scope);
 }
+
+/* THE ASK IS A SENTENCE, NOT A TIMESTAMP. "Explain this" is the reason chasing
+   exists; naming the thing you actually want — the invoice, the accrual basis, why it
+   moved twice — is what gets answered once. The due date is the other half: without
+   one nothing is ever late, only old, and nothing can be escalated on the facts. */
+function reqCompose(r,scope){
+  const own=scopeOwner(scope), nm=scopeName(scope), ly=lStackWho(r,scope);
+  const amt=ly&&ly.amt!=null?ly.amt:null;
+  $('fxModal').innerHTML=`<h3>Request an explanation</h3><div class="mbody">
+    <div class="rl-note" style="margin-bottom:var(--s-4)">
+      <b>${esc(r.l)}</b> · ${esc(periodTag())} · ${esc(nm)}${
+        amt!=null?` contributes ${fmtS(amt)} of the ${fmtS(r.d)} movement`:''}.<br>
+      Goes to <b>${esc(own.nm)}</b>${own.role&&own.role!=='—'?' · '+esc(own.role):''}${
+        own.me?' — that is you, so it lands in your own queue.'
+             :' — they owe the explanation until it is answered or you withdraw it.'}</div>
+    <div class="fld"><label for="rqAsk">What do you need from them?</label>
+      <textarea class="ta" id="rqAsk" rows="3"
+        placeholder="${esc('e.g. what drove the movement, and the support behind it')}"></textarea></div>
+    <div class="fld"><label for="rqDue">Needed by</label>
+      <select class="inp" id="rqDue">${REQ_DUE.map(d=>
+        `<option value="${d.d}" ${d.d===REQ_DUE_DEF?'selected':''}>${esc(d.nm)}</option>`).join('')}</select></div>
+    </div>
+    <div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Cancel</button>
+      <button class="btn-primary" id="rqOk">Send request</button></div>`;
+  $('fxMask').classList.add('on');
+  setTimeout(()=>{const a=$('rqAsk');if(a)a.focus();},30);
+  $('rqOk').onclick=()=>{
+    const txt=String(($('rqAsk')||{}).value||'').trim();
+    if(!txt){toast('Say what you need — an unspecified request is what chasing is for');
+      const a=$('rqAsk'); if(a)a.focus(); return;}
+    const days=parseInt(($('rqDue')||{}).value,10)||0;
+    closeModal(); reqSend(r,scope,txt,days);
+  };
+}
+function reqSend(r,scope,txt,days){
+  const lr=lRec(r.id,scope,true), own=scopeOwner(scope), ly=lStackWho(r,scope);
+  const dp=dueParts(days);
+  const q={id:'R'+String(++_rqid).padStart(4,'0'),
+    stmt:S.stmt, period:periodTag(), line:r.id, lineLbl:r.l,
+    scope, kind:String(scope).indexOf('reg:')===0?'reg':'ent', scopeNm:scopeName(scope),
+    ask:txt, by:meStr(), at:stamp(), ts:Date.now(),
+    due:dp.due, dueTs:dp.dueTs, amt:ly&&ly.amt!=null?ly.amt:null,
+    /* Enough of the view to come back to exactly this movement later. The register is
+       cross-period by nature, and a link that lands on the wrong comparison is worse
+       than no link. */
+    st:{stmt:S.stmt,grain:S.grain,compare:S.compare,cur:S.cur,prior:S.prior},
+    status:'open', chases:[], closedAt:null, closedBy:null, outcome:''};
+  FXREQ.unshift(q); lr.reqId=q.id;
+  logA({line:r.id,who:meStr(),act:'requested an explanation from '+q.scopeNm,
+    detail:q.id+' · owner: '+own.nm+(own.role&&own.role!=='—'?' · '+own.role:'')+' · due '+q.due,
+    after:txt});
+  renderAll();
+  toast(own.me?'Requested — it is in your own queue, due '+q.due
+              :'Requested — '+own.nm+' owes an explanation by '+q.due);
+}
+/* A chase is a new event on the SAME obligation. It is recorded because "we asked
+   four times" is the fact that justifies escalating, and because a request nobody
+   followed up on is a different failure from one that was chased and ignored. */
+function reqChase(id){
+  const q=reqById(id); if(!q||q.status!=='open')return;
+  if(!caps().prepare){toast('Your role is read-only on the close');return;}
+  q.chases.unshift({by:meStr(),at:stamp(),ts:Date.now()});
+  const own=scopeOwner(q.scope);
+  logA({line:q.line,stmt:q.stmt,period:q.period,who:meStr(),
+    act:'chased the explanation requested from '+q.scopeNm,
+    detail:q.id+' · asked '+q.at+' · '+q.chases.length+' reminder'+
+      (q.chases.length===1?'':'s')+' · owner: '+own.nm});
+  renderAll(); paintReqs();
+  toast('Chased — '+q.chases.length+' reminder'+(q.chases.length===1?'':'s')+' now on the record');
+}
+/* Withdrawn, never deleted. "We asked and then stopped asking" is a fact an auditor
+   is entitled to, and the number moving is the usual reason it happens. */
+function reqWithdraw(id){
+  const q=reqById(id); if(!q||q.status!=='open')return;
+  if(!caps().prepare){toast('Your role is read-only on the close');return;}
+  const own=scopeOwner(q.scope), back=reqsOpen;
+  confirmM('Withdraw this request?',
+    own.nm+' will no longer owe an explanation on '+q.lineLbl+'. It stays in the register as '+
+    'withdrawn — the ask, every chase and this decision remain part of the defence file.',
+    'Withdraw',()=>{
+      q.status='withdrawn'; q.closedAt=stamp(); q.closedBy=meStr();
+      logA({line:q.line,stmt:q.stmt,period:q.period,who:meStr(),
+        act:'withdrew the explanation request to '+q.scopeNm,
+        detail:q.id,before:'open',after:'withdrawn'});
+      renderAll(); toast('Withdrawn — it stays in the register');
+      if(back)openReqs();
+    });
+}
+
+/* ---- ANSWERING -------------------------------------------------------------
+   This is the half that was missing. A request only the person who raised it can
+   satisfy is not a request, it is a reminder to yourself. Two paths, and they are
+   different facts:
+
+   OWNER ANSWERS   — the words are theirs, under their name and role. Available when
+                     the scope's owner is the person in this seat (see ENT_OWNERS).
+   ON BEHALF       — corporate writes it down for them, under corporate's name, and
+                     the lineage says so for ever. Always available to a preparer,
+                     because chasing a silent subsidiary through close is real work
+                     that has to land somewhere.
+
+   The refusal is deliberately part of the product: pressing Answer on a request that
+   belongs to Ashburn names A. Patel and offers the on-behalf path instead. */
+/* One form for both paths and for the case where nobody asked at all, so the three
+   can never drift apart. ctx carries what the writer needs; q is the request being
+   discharged, or null when corporate is simply writing the explanation down. */
+function replyForm(ctx,onBehalf,q){
+  const own=scopeOwner(ctx.scope), back=reqsOpen;
+  $('fxModal').innerHTML=`<h3>${onBehalf?'Record on behalf of '+esc(own.nm)
+      :(q?'Answer this request':'Record the explanation for '+esc(ctx.scopeNm))}</h3>
+    <div class="mbody">
+      <div class="rl-note" style="margin-bottom:var(--s-4)">
+        <b>${esc(ctx.lineLbl)}</b> · ${esc(ctx.period)} · ${esc(ctx.scopeNm)}${
+          ctx.amt!=null?' · '+fmtS(ctx.amt)+' of the movement':''}<br>
+        ${q?`${esc(String(q.by).split(',')[0])} asked on ${esc(q.at)}: “${esc(q.ask)}”${
+              q.chases.length?` · chased ${q.chases.length}×`:''}`
+           :'Nobody has asked for this — you are recording it because the explanation exists.'}</div>
+      <div class="fld"><label for="rqRep">${onBehalf?'What did they say?':'Your explanation'}</label>
+        <textarea class="ta" id="rqRep" rows="4"
+          placeholder="${esc('What drove it, specifically — and what supports that.')}"></textarea></div>
+      ${onBehalf?`<div class="rl-note">Recorded under your name. The lineage will state for ever that
+        you wrote it on ${esc(own.nm)}'s behalf — a corporate accountant writing a subsidiary's
+        explanation is not the same fact as the subsidiary writing it, and the memo will not
+        pretend otherwise.</div>`:''}
+    </div>
+    <div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Cancel</button>
+      <button class="btn-primary" id="rqRepOk">${onBehalf?'Record on behalf':'Send answer'}</button></div>`;
+  $('fxMask').classList.add('on');
+  setTimeout(()=>{const a=$('rqRep');if(a)a.focus();},30);
+  $('rqRepOk').onclick=()=>{
+    const txt=String(($('rqRep')||{}).value||'').trim();
+    if(!txt){toast('An explanation needs words');const a=$('rqRep');if(a)a.focus();return;}
+    closeModal(); reqWrite(ctx,q,txt,onBehalf); if(back)openReqs();
+  };
+}
+function reqReply(id,onBehalf){
+  const q=reqById(id); if(!q||q.status!=='open')return;
+  if(!caps().prepare){toast('Your role is read-only on the close');return;}
+  const own=scopeOwner(q.scope);
+  if(!onBehalf&&!own.me){
+    toast(q.scopeNm+' belongs to '+own.nm+' — record it on their behalf instead');return;}
+  replyForm(q,onBehalf,q);
+}
+/* Your own books, from the lineage. There is no "on behalf" here — these are your
+   words, under your name, and the request (if one was raised) closes with them. */
+function lAnswer(scope){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  if(!caps().prepare){toast('Your role is read-only on the close');return;}
+  const lr=lRec(r.id,scope,true), live=reqLive(lr);
+  if(live){reqReply(live.id,false);return;}
+  const ly=lStackWho(r,scope);
+  replyForm({stmt:S.stmt,period:periodTag(),line:r.id,lineLbl:r.l,scope,
+    scopeNm:scopeName(scope),amt:ly&&ly.amt!=null?ly.amt:null},false,null);
+}
+/* Record on behalf from the lineage. If an ask is open, this ANSWERS it — which is
+   exactly what the old code failed to do: it wrote the note and left the request
+   outstanding for ever, after the thing it asked for had arrived. */
 function lOnBehalf(scope){
   const r=rows().find(x=>x.id===S.sel); if(!r)return;
   if(!caps().prepare){toast('Your role is read-only on the close');return;}
-  const who=lStackWho(r,scope);
-  ask('Record on behalf of '+(who?who.scope:scope),'What did they say?',n=>{
-    const lr=lRec(r.id,scope,true);
-    lr.note=n; lr.by=meStr().split(',')[0]; lr.role=ME().role; lr.at=stamp();
-    lr.status='submitted'; lr.ver=(lr.ver||0)+1; lr.onBehalf=(who?who.who:scope);
-    logA({line:r.id,who:meStr(),act:'recorded an explanation on behalf of '+(who?who.scope:scope),
-      after:n});
-    renderAll(); toast('Recorded — the lineage states that you wrote it on their behalf');
-  });
+  const lr=lRec(r.id,scope,true), live=reqLive(lr);
+  if(live){reqReply(live.id,true);return;}
+  const ly=lStackWho(r,scope);
+  replyForm({stmt:S.stmt,period:periodTag(),line:r.id,lineLbl:r.l,scope,
+    scopeNm:scopeName(scope),amt:ly&&ly.amt!=null?ly.amt:null},true,null);
+}
+/* One writer for every path, so the local record can never be half-updated. It keys
+   by the CONTEXT's statement and period, not the screen's — answering from the
+   register routinely means answering something you are not currently looking at. */
+function reqWrite(ctx,q,note,onBehalf){
+  const lr=lRecFull(ctx.stmt,ctx.period,ctx.line,ctx.scope,true), own=scopeOwner(ctx.scope);
+  lr.note=note;
+  lr.by  =onBehalf?meStr().split(',')[0]:own.nm;
+  lr.role=onBehalf?ME().role:own.role;
+  lr.at=stamp(); lr.status='submitted'; lr.ver=(lr.ver||0)+1;
+  lr.onBehalf=onBehalf?own.nm:null;
+  if(q){q.status='answered'; q.closedAt=stamp(); q.closedBy=meStr();
+    q.outcome=onBehalf?'on-behalf':'owner';}
+  logA({line:ctx.line,stmt:ctx.stmt,period:ctx.period,who:meStr(),
+    act:onBehalf?('recorded an explanation on behalf of '+ctx.scopeNm)
+                :('answered the explanation requested from '+ctx.scopeNm),
+    detail:(q?q.id+' · asked '+q.at+(q.chases.length?' · chased '+q.chases.length+'×':'')
+             :'no request had been raised'),
+    after:note});
+  renderAll();
+  toast(onBehalf?'Recorded — the lineage states that you wrote it on their behalf'
+                :'Answered — the request is closed and the lineage carries your words');
+}
+/* Back to the movement the request is about, in the view it was raised from. */
+function reqGoto(id){
+  const q=reqById(id); if(!q)return;
+  closeModal();
+  if(q.st){S.grain=q.st.grain;S.compare=q.st.compare;S.cur=q.st.cur;S.prior=q.st.prior;}
+  S.sel=q.line; S.dwTab='stack';
+  if(q.st&&q.st.stmt!==S.stmt&&typeof window.setFluxStmt==='function'){
+    /* Go through the SHELL's setter so the statement picker moves with us; it calls
+       setStmtFromShell, which would clear the selection, so re-assert it after. */
+    window.setFluxStmt(q.st.stmt); S.sel=q.line; S.dwTab='stack';
+  }else if(q.st){S.stmt=q.st.stmt;}
+  renderAll();
 }
 /* mark a local level's own review complete — the level's review, not the comment */
 function lReview(scope){
@@ -8200,7 +8540,9 @@ function dwStack(r){
       <div class="rw-lat">${esc(l.at)}${l.ver&&l.ver!=='—'?' · '+esc(l.ver):''}</div>
       ${txt?`<div class="rw-ltx">${txt}</div>`:''}
       ${l.outstanding?`<div class="rw-lowed">No explanation recorded at this level.${
-        l.requested?` Requested ${esc(l.requested)}.`:''}</div>`:''}
+        l.req?` Asked ${esc(l.req.at)}, due ${esc(l.req.due)}${
+          reqLate(l.req)?' — <b>overdue</b>':''}${
+          l.req.chases.length?` · chased ${l.req.chases.length}×`:''}: “${esc(l.req.ask)}”`:''}</div>`:''}
       ${l.refs&&l.refs.length?`<div class="rw-lref">References ${l.refs.length} lower-level
         explanation${l.refs.length===1?'':'s'}: ${esc(l.refs.join(', '))}</div>`:''}
       <div class="rw-lmeta"><span>${l.ev?l.ev+' document'+(l.ev===1?'':'s'):'No documents'}</span>
@@ -8221,9 +8563,23 @@ function dwStack(r){
         <button type="button" class="lnk" onclick="KFX.kdRestore()">Restore</button></div>`:''}
       ${l.key&&!lock?`<div class="rw-lact">
         ${l.outstanding
-          ? `<button class="btn-out sm" onclick="KFX.lRequest('${l.key}')">${
-              l.requested?'Request again':'Request explanation'}</button>
-             <button class="btn-out sm" onclick="KFX.lOnBehalf('${l.key}')">Record on behalf</button>`
+          ? (()=>{
+              /* WHOSE BOOKS THESE ARE decides what the buttons say. On a level you
+                 keep yourself there is no "on behalf" — those are your words. On
+                 anyone else's, the only two honest moves are to ask them, or to
+                 write it down for them and have the lineage say so. */
+              const own=scopeOwner(l.key), b=[];
+              if(own.me){
+                b.push(`<button class="btn-out sm" onclick="KFX.lAnswer('${l.key}')">Write the explanation</button>`);
+                if(!l.req)b.push(`<button type="button" class="lnk" onclick="KFX.lRequest('${l.key}')">put it on the request list</button>`);
+              }else{
+                b.push(`<button class="btn-out sm" onclick="KFX.lRequest('${l.key}')">${
+                  l.req?'Chase':'Request explanation'}</button>`);
+                b.push(`<button class="btn-out sm" onclick="KFX.lOnBehalf('${l.key}')">Record on behalf</button>`);
+              }
+              if(l.req)b.push(`<button type="button" class="lnk" onclick="KFX.reqWithdraw('${l.req.id}')">withdraw the request</button>`);
+              return b.join('');
+            })()
           : (l.status!=='approved'
               ? `<button class="btn-out sm" onclick="KFX.lReview('${l.key}')">Mark reviewed at this level</button>`
               : '')}</div>`:''}
@@ -8751,7 +9107,7 @@ function dwHist(r){
 /* ============================================================================
    20. MODALS, EXPORT, MEMO
    ========================================================================== */
-function closeModal(){$('fxMask').classList.remove('on');}
+function closeModal(){$('fxMask').classList.remove('on');reqsOpen=false;}
 /* Yes/no counterpart to ask(). The dismissing button is the one that KEEPS the work,
    so the safe choice is the one you get by hitting Escape or clicking away. */
 function confirmM(title,body,okLabel,cb){
@@ -8803,6 +9159,82 @@ function exportAudit(){
   dl([head,...body].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'),
     'korvyn_flux_audit_log.csv','text/csv');
   toast('Audit log exported');
+}
+
+/* ============================================================================
+   THE REQUEST REGISTER
+   Everything asked for, in one place, across statements and periods. A request
+   raised on the balance sheet in July is still owed in August, and the drawer it
+   was raised in is the last place anyone would look for it. Two sections because
+   they are two different jobs: what you owe, and what you are waiting on.
+   ========================================================================== */
+function openReqs(){
+  reqsOpen=true;
+  const mine=reqMine(), theirs=reqRaised(), closed=FXREQ.filter(q=>q.status!=='open');
+  const total=mine.length+theirs.length;
+  let h=`<h3>Explanation requests${total?' — '+total+' open':''}</h3><div class="mbody">
+    <div class="rl-note" style="margin-bottom:var(--s-4)">An explanation requested from an entity or a
+      region is an obligation on a named person, not a note to yourself. Everything raised from a
+      review lineage lands here until it is answered or withdrawn — whatever statement or period it
+      was raised on.</div>
+    <div class="rq-sec">Assigned to you<span class="ct">${mine.length||'none'}</span></div>`;
+  h+= mine.length ? mine.map(q=>reqRow(q,'in')).join('')
+    : `<div class="rl-empty">Nothing is being asked of you. A request lands here when it names a scope
+        whose local books you keep.</div>`;
+  h+=`<div class="rq-sec">Waiting on others<span class="ct">${theirs.length||'none'}</span></div>`;
+  h+= theirs.length ? theirs.map(q=>reqRow(q,'out')).join('')
+    : `<div class="rl-empty">Nothing outstanding. Ask from the Review lineage on any line where a
+        contributing entity has not written an explanation.</div>`;
+  if(closed.length)
+    h+=`<div class="rq-sec">Closed<span class="ct">${closed.length}</span></div>`+
+       closed.map(q=>reqRow(q,'done')).join('');
+  h+=`</div><div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Close</button>
+    <button class="btn-primary" onclick="KFX.exportReqs()">Export register</button></div>`;
+  $('fxModal').innerHTML=h; $('fxMask').classList.add('on');
+}
+function paintReqs(){ const m=$('fxMask');
+  if(reqsOpen&&m&&m.classList.contains('on'))openReqs(); }
+/* Lateness is the only thing on this list allowed state colour — everything else is
+   inventory, and rule 12 says inventory renders quiet. */
+function reqRow(q,mode){
+  const own=scopeOwner(q.scope), open=q.status==='open', late=open&&reqLate(q);
+  const a=[];
+  if(open&&mode==='in')
+    a.push(`<button class="btn-primary sm" onclick="KFX.reqReply('${q.id}',false)">Answer</button>`);
+  if(open&&mode==='out'){
+    a.push(`<button class="btn-out sm" onclick="KFX.reqChase('${q.id}')">Chase</button>`);
+    a.push(`<button class="btn-out sm" onclick="KFX.reqReply('${q.id}',true)">Record on behalf</button>`);
+  }
+  a.push(`<button type="button" class="lnk" onclick="KFX.reqGoto('${q.id}')">go to the line</button>`);
+  if(open)a.push(`<button type="button" class="lnk" onclick="KFX.reqWithdraw('${q.id}')">withdraw</button>`);
+  const tail=q.status==='answered'
+      ? ' · answered '+(q.outcome==='on-behalf'
+          ? 'on their behalf by '+esc(String(q.closedBy).split(',')[0]) : 'by the owner')
+    : q.status==='withdrawn'
+      ? ' · withdrawn by '+esc(String(q.closedBy).split(',')[0]) : '';
+  return `<div class="rq">
+    <div class="rq-h"><b>${esc(q.lineLbl)}</b>
+      <span class="sc">· ${esc(q.scopeNm)} · ${esc(q.period)} · ${esc(q.stmt.toUpperCase())}</span></div>
+    <div class="rq-age ${late?'late':''}">${open?esc(reqAgeTxt(q)):esc(REQ_ST[q.status].nm)}<br>${
+      open?(late?'overdue — was due ':'due ')+esc(q.due):esc(q.closedAt||'')}</div>
+    <div class="rq-ask">“${esc(q.ask)}”</div>
+    <div class="rq-m">${esc(q.id)} · asked by ${esc(String(q.by).split(',')[0])} on ${esc(q.at)} ·
+      owner ${esc(own.nm)}${own.role&&own.role!=='—'?' · '+esc(own.role):''}${
+      q.amt!=null?' · '+fmtS(q.amt)+' of the movement':''}${
+      q.chases.length?' · <b>chased '+q.chases.length+'×</b>, last '+esc(q.chases[0].at):''}${tail}</div>
+    <div class="rq-a">${a.join('')}</div></div>`;
+}
+function exportReqs(){
+  const head=['Request','Status','Statement','Period','Line','Scope','Owner','Owner role','Asked by',
+    'Asked','Due','Overdue','Reminders','Last reminder','Ask','Closed','Closed by','Outcome'];
+  const body=FXREQ.map(q=>{const o=scopeOwner(q.scope);
+    return [q.id,REQ_ST[q.status].nm,q.stmt.toUpperCase(),q.period,q.lineLbl,q.scopeNm,o.nm,o.role,
+      q.by,q.at,q.due,(q.status==='open'&&reqLate(q))?'yes':'no',q.chases.length,
+      q.chases.length?q.chases[0].at:'',q.ask,q.closedAt||'',q.closedBy||'',q.outcome||''];});
+  if(!body.length){toast('Nothing has been requested yet');return;}
+  dl([head,...body].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'),
+    'korvyn_flux_explanation_requests.csv','text/csv');
+  toast('Request register exported');
 }
 
 /* Columns: order matters as much as membership, so the chooser is an ordered list you
@@ -9325,7 +9757,8 @@ function lineForAcct(acct){
 })();
 
 return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, pickAt, lineForAcct,
-dwCollapse, dwMenu, viewAsReviewer, lRequest, lOnBehalf, lReview, lShowAll, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
+dwCollapse, dwMenu, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, lShowAll, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
+openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
 kdAccept, kdEdit, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
@@ -14761,6 +15194,25 @@ function wsIssueCount(){ const sc=cipScope();
    links to where it is resolved — no decorative "you have mail" chrome. */
 function notifItems(){
   const out=[];
+  /* EXPLANATION REQUESTS. The only notification here raised by a person rather than by
+     system state, and the reason this surface matters to the flux review: an ask that
+     lives in the drawer it was raised in has not been delivered to anybody. Two
+     entries because they are two different obligations — what you owe, and what you
+     are waiting on and can now chase on the facts. */
+  try{ const mine=KFX.reqMine();
+    if(mine.length){
+      const late=mine.filter(q=>q.dueTs&&Date.now()>q.dueTs).length;
+      out.push({sev:'high',
+        t:mine.length+' explanation'+(mine.length===1?'':'s')+' requested from you',
+        d:[...new Set(mine.map(q=>q.lineLbl))].slice(0,2).join(', ')+
+          (late?' · '+late+' past due':' · due '+mine[0].due),
+        go:"openFluxRequests()"});
+    } }catch(e){}
+  try{ const late=KFX.reqRaised().filter(q=>q.dueTs&&Date.now()>q.dueTs);
+    if(late.length) out.push({sev:'med',
+      t:late.length+' explanation request'+(late.length===1?'':'s')+' past due',
+      d:'waiting on '+[...new Set(late.map(q=>q.scopeNm))].slice(0,3).join(', '),
+      go:"openFluxRequests()"}); }catch(e){}
   try{ srcHealth().err.forEach(e=>out.push({sev:'high',t:e.nm+' is unreachable',
     d:'last read '+(e.since||e.sync)+' · figures it feeds are marked no-source',go:"openSources()"})); }catch(e){}
   try{ srcHealth().warn.forEach(e=>out.push({sev:'med',t:e.nm+' feed is behind',
@@ -14781,6 +15233,19 @@ function notifItems(){
   return out;
 }
 function notifCount(){ try{ return notifItems().length; }catch(e){ return 0; } }
+/* One entry point for "take me to the request register". The register is a flux-module
+   overlay and the module only renders on the balance sheet or income statement, so
+   getting there means putting the statement picker somewhere the module owns — the
+   overlay itself lives at document level and opens either way, but landing behind the
+   legacy cash-flow view with a modal over it would be a lie about where you are. */
+function openFluxRequests(){
+  if(typeof pickLens==='function')pickLens('ledger');
+  if(typeof pickTab==='function')pickTab('finrep');
+  if(typeof setFinRepSub==='function')setFinRepSub('flux');
+  if(typeof fluxStmt!=='undefined'&&fluxStmt!=='bs'&&fluxStmt!=='is'
+     &&typeof setFluxStmt==='function')setFluxStmt('is');
+  setTimeout(()=>{ try{ KFX.openReqs(); }catch(e){} },0);
+}
 
 /* The notifications panel — a docked side panel, exactly like the assistant (same width, same
    reflow), because every top-right control should open the same kind of window rather than a
