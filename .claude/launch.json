@@ -4,14 +4,22 @@
     {
       "name": "main",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8780", "--directory", "."],
-      "port": 8780
+      "runtimeArgs": [
+        "-c",
+        "import os,http.server,socketserver;socketserver.TCPServer.allow_reuse_address=True;socketserver.TCPServer(('',int(os.environ.get('PORT') or 8780)),http.server.SimpleHTTPRequestHandler).serve_forever()"
+      ],
+      "port": 8780,
+      "autoPort": true
     },
     {
       "name": "review",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8779", "--directory", "apps/review"],
-      "port": 8779
+      "runtimeArgs": [
+        "-c",
+        "import os,functools,http.server,socketserver;socketserver.TCPServer.allow_reuse_address=True;socketserver.TCPServer(('',int(os.environ.get('PORT') or 8779)),functools.partial(http.server.SimpleHTTPRequestHandler,directory='apps/review')).serve_forever()"
+      ],
+      "port": 8779,
+      "autoPort": true
     }
   ]
 }
