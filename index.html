@@ -3005,6 +3005,11 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:var(--on-accent)}
 .pop-o.on .bx{background:var(--accent-fill);border-color:var(--accent-fill)}
 .pop-o .sub{margin-left:auto;font-size:var(--fs-micro);color:var(--faint)}
+/* A STAR IN A ROW IS A CONTROL, NOT THE ROW'S OWN CHECKBOX. `.pop-o.on .bx` fills
+   the box in the accent to mark the selected row, which on a saved-view row painted
+   solid over the star and swallowed it — so the one view that IS loaded was the one
+   whose favorite state you could not read. */
+.pop-o.on .bx.stx{background:none;border:none}
 .pop-b{padding:9px 11px;border-top:var(--rule)}
 .pop-b .fgrp{margin-bottom:8px}
 .pop-b .fgrp:last-child{margin-bottom:0}
@@ -3049,9 +3054,14 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .dlt.up{color:var(--pos)}
 #fxRoot .dlt.dn{color:var(--neg)}
 #fxRoot .dlt.n{color:var(--muted)}
-/* The breach mark rides the two columns rule 9 allows to carry emphasis: the
-   primary variance and its direction. Weight, not another hue — the hue is
-   already saying which way the line moved. */
+/* THE NUMERIC HIERARCHY, top to bottom: the variance amount is the column a
+   reviewer scans (medium weight, .v-amt), Current is the as-of balance (ink),
+   Compared is the quieter baseline (.q, muted), and the percentage is secondary
+   (.v-pct, neutral — no green/red, since the amount's colour and the F/U mark
+   already carry direction and favourability). */
+#fxRoot .fx-tbl td.v-amt{font-weight:var(--fw-medium)}
+#fxRoot .fx-tbl td.q{color:var(--muted)}
+#fxRoot .fx-tbl td.v-pct{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 #fxRoot .num.brk{font-weight:var(--fw-medium)}
 #fxRoot .bar{display:inline-block;height:5px;border-radius:2px;background:var(--series-4);vertical-align:middle}
 #fxRoot .bar.dn{background:var(--series-2)}
@@ -3418,9 +3428,16 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .col-cmt{min-width:150px}
 #fxRoot .fx-tbl td.col-cmt{white-space:normal}
 
-/* review mode: commentary gets the room, rows breathe a little */
-#fxRoot .fx-tbl.review td{height:auto;padding-top:7px;padding-bottom:7px;vertical-align:top}
-#fxRoot .fx-tbl.review td.col-cmt{width:38%}
+/* FAVORABILITY MARK — a single restrained letter on the Δ% cell, income-statement
+   only (a balance-sheet movement has no favourable direction, so it never renders
+   there). The letter is the only thing that carries state colour; the variance
+   figure beside it stays neutral. Rule 6: a one-letter mark is not a sentence, so it
+   is --fs-micro. Right-aligned cell, so the mark sits just left of nothing — a small
+   gap off the number keeps it from touching the digits. */
+#fxRoot .fav{display:inline-block;margin-left:6px;font-size:var(--fs-micro);
+  font-weight:var(--fw-medium);letter-spacing:.03em;font-variant-numeric:normal}
+#fxRoot .fav.f{color:var(--success)}
+#fxRoot .fav.u{color:var(--danger)}
 
 /* drawer: one internal scroll region, sticky heading */
 #fxRoot .fx-detail{border:var(--rule);border-radius:var(--radius);background:var(--surface);
@@ -3802,31 +3819,11 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-tot .v{font-size:var(--fs-card);font-variant-numeric:tabular-nums;
   letter-spacing:var(--tracking-tight);color:var(--ink-strong)}
 
-/* ---- REVIEW STACK: a financial-review lineage, not a thread ---------------
-   No bubble, no avatar, no per-entry status badge. An organisational level, who
-   wrote it, when, and what they said — separated by a hairline. Review status is
-   a property of the LEVEL's review, so it renders as one quiet metadata line and
-   never as a label on the commentary itself. */
-#fxRoot .rw-lin{border-top:var(--rule)}
-#fxRoot .rw-le{padding:var(--s-3) 0;border-bottom:var(--rule)}
-#fxRoot .rw-lscope{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink-strong);
-  text-transform:uppercase;letter-spacing:var(--tracking-label);font-size:var(--fs-label)}
-#fxRoot .rw-lby{font-size:var(--fs-table);color:var(--ink);margin-top:3px}
-#fxRoot .rw-lby .role{color:var(--muted)}
-#fxRoot .rw-lat{font-size:var(--fs-micro);color:var(--faint);margin-top:1px;
-  font-variant-numeric:tabular-nums}
-#fxRoot .rw-ltx{font-size:var(--fs-table);color:var(--ink);line-height:1.55;margin-top:6px;max-width:64ch}
-#fxRoot .rw-lmeta{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;
-  display:flex;gap:10px;flex-wrap:wrap}
-#fxRoot .rw-lref{font-size:var(--fs-micro);color:var(--muted);margin-top:5px;
-  padding-left:var(--s-2);border-left:2px solid var(--line2)}
-#fxRoot .rw-lrev{font-size:var(--fs-table);color:var(--muted);margin-top:5px}
-/* A LEVEL THAT OWES AN EXPLANATION. Severity is a 3px left border and nothing else
-   (rule 8), so an outstanding subsidiary is marked the same way an exception is
-   marked anywhere else in the product — and a lineage with nothing outstanding
-   stays entirely monochrome. */
-#fxRoot .rw-le.owed{border-left:3px solid var(--sev-med);padding-left:9px}
-#fxRoot .rw-lowed{font-size:var(--fs-table);color:var(--muted);margin-top:6px;line-height:1.5}
+/* ---- inline action row (Korvyn draft controls, and anywhere a small cluster of
+   buttons sits under a block). The old lineage renderer's other classes
+   (rw-lin / rw-le / rw-lscope / rw-lby / rw-lat / rw-ltx / rw-lmeta / rw-lref /
+   rw-lrev / rw-lowed) went with the "Review stack" tab; the comment stream styles
+   itself with .rw-cm. */
 #fxRoot .rw-lact{display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--s-2)}
 
 /* ---- EVIDENCE: a plain list, never a document repository ------------------ */
@@ -3850,6 +3847,83 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-h .m{font-size:var(--fs-micro);color:var(--faint);margin-top:2px}
 #fxRoot .rw-h .d{font-size:var(--fs-micro);color:var(--muted);margin-top:2px}
 
+/* ---- COMMENTS: a professional accounting comment stream -------------------
+   Not a chat, not a hierarchy diagram, not the old "Review stack". Each comment is
+   author / role · scope / time, then the text — separated by a hairline. No bubble,
+   no avatar-dominant identity, no per-comment status badge, and no approve control:
+   review applies to the financial line, never to a comment. */
+#fxRoot .rw-cbar{display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-3)}
+#fxRoot .rw-cbar .sp{flex:1}
+#fxRoot .rw-add{width:100%;text-align:left;background:var(--surface);border:var(--rule);
+  border-radius:var(--radius);padding:8px 10px;font:inherit;font-size:var(--fs-table);color:var(--muted);
+  cursor:text;margin-bottom:var(--s-3)}
+#fxRoot .rw-add:hover{border-color:var(--line2)}
+#fxRoot .rw-add:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#fxRoot .rw-cfil{position:relative}
+#fxRoot .rw-cfil>button{background:none;border:var(--rule);border-radius:var(--radius);
+  padding:3px 8px;font:inherit;font-size:var(--fs-micro);color:var(--muted);cursor:pointer;
+  display:inline-flex;align-items:center;gap:4px}
+#fxRoot .rw-cfil>button:hover{border-color:var(--line2);color:var(--ink)}
+#fxRoot .rw-cfil .cue{color:var(--faint);font-size:9px}
+#fxRoot .rw-cmenu{position:absolute;right:0;top:calc(100% + 3px);z-index:6;min-width:150px;
+  background:var(--surface);border:var(--rule-strong);border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);padding:4px;overflow:hidden}
+#fxRoot .rw-cmenu button{display:flex;width:100%;text-align:left;background:none;border:none;
+  padding:6px 9px;font:inherit;font-size:var(--fs-table);color:var(--ink);cursor:pointer;border-radius:var(--radius)}
+#fxRoot .rw-cmenu button:hover{background:var(--bg2)}
+#fxRoot .rw-cmenu button.on{color:var(--ink-strong);font-weight:var(--fw-medium);background:var(--bg2)}
+#fxRoot .rw-cstream{border-top:var(--rule)}
+#fxRoot .rw-cm{padding:var(--s-3) 0;border-bottom:var(--rule)}
+#fxRoot .rw-cm .who{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink-strong);line-height:1.3}
+#fxRoot .rw-cm .role{font-size:var(--fs-micro);color:var(--muted);margin-top:1px}
+#fxRoot .rw-cm .at{font-size:var(--fs-micro);color:var(--faint);margin-top:1px;font-variant-numeric:tabular-nums}
+#fxRoot .rw-cm .tx{font-size:var(--fs-table);color:var(--ink);line-height:1.55;margin-top:6px;max-width:64ch}
+#fxRoot .rw-cm .refs{font-size:var(--fs-micro);color:var(--muted);margin-top:5px;
+  padding-left:var(--s-2);border-left:2px solid var(--line2)}
+#fxRoot .rw-cm .ev{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap}
+/* a scope that owes a comment: the one place semantic colour is allowed here, as a
+   3px left border and nothing else (rule 8) — the same mark an exception carries */
+#fxRoot .rw-cm.owed{border-left:3px solid var(--sev-med);padding-left:9px}
+#fxRoot .rw-cm .owed-t{font-size:var(--fs-table);color:var(--muted);margin-top:4px}
+#fxRoot .rw-cm .cact{display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--s-2)}
+/* inline composer */
+#fxRoot .rw-comp{border:var(--rule);border-radius:var(--radius);padding:9px;margin-bottom:var(--s-3);
+  background:var(--surface)}
+#fxRoot .rw-comp textarea{width:100%;min-height:64px;border:var(--rule);border-radius:var(--radius);
+  padding:7px 8px;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--bg);resize:vertical}
+#fxRoot .rw-comp textarea:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+#fxRoot .rw-comp .row{display:flex;align-items:center;gap:6px;margin-top:7px}
+#fxRoot .rw-comp .row .sp{flex:1}
+#fxRoot .rw-comp .scope{font-size:var(--fs-micro);color:var(--faint)}
+
+/* ---- SUPPORT: evidence + what is behind the number ------------------------ */
+#fxRoot .rw-fs{border-top:var(--rule);margin-top:var(--s-2)}
+#fxRoot .rw-fsr{display:flex;align-items:flex-start;gap:var(--s-3);padding:7px 0;border-bottom:var(--rule)}
+#fxRoot .rw-fsr .k{flex:none;width:96px;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--hint);font-weight:var(--fw-label);padding-top:2px}
+#fxRoot .rw-fsr .v{flex:1;min-width:0;font-size:var(--fs-table);color:var(--ink);line-height:1.45}
+#fxRoot .rw-fsr .v .mono{font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight)}
+#fxRoot .rw-fsr .v .sub{display:block;font-size:var(--fs-micro);color:var(--faint);margin-top:1px}
+#fxRoot .rw-fsr .v .tie{color:var(--success)}
+#fxRoot .rw-fsr .v .tie.bad{color:var(--danger)}
+#fxRoot button.rw-fslnk{background:none;border:none;padding:0;font:inherit;font-size:var(--fs-table);
+  color:var(--accent-ink);cursor:pointer}
+#fxRoot button.rw-fslnk:hover{text-decoration:underline}
+#fxRoot button.rw-fslnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- header: the line, its movement, and what it is compared to ----------- */
+#fxRoot .rw-per{font-size:var(--fs-micro);color:var(--faint);margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* ---- HISTORY: a restrained chronological record --------------------------- */
+#fxRoot .rw-hm{font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--hint);font-weight:var(--fw-label);margin:var(--s-4) 0 0;padding-top:var(--s-2);
+  border-top:var(--rule)}
+#fxRoot .rw-hm:first-child{margin-top:0;padding-top:0;border-top:none}
+#fxRoot .rw-h{padding:7px 0;border-bottom:var(--rule)}
+#fxRoot .rw-h .w{font-size:var(--fs-table);color:var(--ink);line-height:1.45}
+#fxRoot .rw-h .m{font-size:var(--fs-micro);color:var(--faint);margin-top:2px}
+#fxRoot .rw-h .d{font-size:var(--fs-micro);color:var(--muted);margin-top:2px}
+
 /* ---- footer: the next action, always in reach ---------------------------- */
 #fxRoot .dw-foot .rw-fnote{font-size:var(--fs-table);color:var(--muted)}
 
@@ -3857,11 +3931,12 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    Driven by dw-tight / dw-tighter, which sizeDrawer() sets from the room the table
    ACTUALLY has — a viewport media query cannot know how wide the reviewer dragged
    the workspace. The viewport rules below still cover the workspace-closed case. */
-/* ===== FULL EXPLANATIONS =====================================================
-   An inline band under the financial row, for reading the whole statement and its
-   commentary together without opening every line. It is deliberately SUBORDINATE
-   to the row it explains: a very quiet neutral ground, a hairline, and no card
-   edge — the financial row stays the object and this is its footnote. */
+/* ===== NARRATIVE BAND ========================================================
+   An inline band under the financial row — the Narrative mode's concise current
+   explanation, for reading the whole statement and its commentary together without
+   opening every line. It is deliberately SUBORDINATE to the row it explains: a very
+   quiet neutral ground, a hairline, and no card edge — the financial row stays the
+   object and this is its footnote. */
 #fxRoot .expl-band>td{background:var(--n-25);border-bottom:var(--rule);
   padding:var(--s-2) var(--s-4) var(--s-3) 34px}
 #fxRoot .eb{max-width:78ch}         /* prose stays readable however wide the screen */
@@ -3871,7 +3946,9 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    passing a verdict on commentary that does not get verdicts. Who wrote it and
    where the review stands are stated underneath, in words. */
 #fxRoot .eb-tx{font-size:var(--fs-table);line-height:1.55;color:var(--ink)}
-#fxRoot .eb-tx.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+/* three lines, not four: Narrative keeps the row financially primary and defers the
+   rest to Expand (spec: 2–3 lines maximum, truncate elegantly) */
+#fxRoot .eb-tx.clip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 #fxRoot .eb-meta{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;
   display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 #fxRoot .eb-meta b{color:var(--muted);font-weight:var(--fw-regular)}
@@ -3904,23 +3981,11 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .fxind .t.ok{color:var(--success);font-size:var(--fs-label)}
 #fxRoot .col-cmt{width:1%;white-space:nowrap}
 
-/* ===== COMMENTS MODE: ONE LINE, UNDER THE ROW ================================
-   Not in a cell: prose in a table cell either wraps and drags the row's figures
-   down with it, or it eats the column budget the numbers need. Its own row,
-   spanning the statement, clipped to exactly one line, indented under the line it
-   belongs to and visibly subordinate to it. */
-#fxRoot .cmt-line>td{background:var(--n-25);border-bottom:var(--rule);
-  padding:3px var(--s-4) 5px 34px;cursor:pointer}
-#fxRoot .cmt-line:hover>td{background:var(--bg2)}
-#fxRoot .cmt-line .cl{display:flex;align-items:baseline;gap:6px;min-width:0;
-  font-size:var(--fs-table);line-height:1.35}
-#fxRoot .cmt-line .ar{flex:none;color:var(--n-300);font-size:11px}
-#fxRoot .cmt-line .wh{flex:none;color:var(--muted)}
-/* ONE LINE MEANS ONE LINE. nowrap + ellipsis, and a ch cap so the preview stops
-   where prose stops being readable rather than at the far edge of a 1900px table. */
-#fxRoot .cmt-line .tx{flex:0 1 auto;min-width:0;max-width:96ch;color:var(--ink);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fxRoot .fx-sec+.cmt-line,#fxRoot .fx-tot+.cmt-line{display:none}
+/* The one-line ".cmt-line" preview row and its CSS were removed with the Comments
+   display mode. Comments — the author-by-author history — live in the Review
+   Workspace's Review-stack tab; the current synthesized explanation lives in the
+   Narrative band (.expl-band, below) and in the workspace Summary. The mode that
+   printed a one-line preview under every row is gone; the data behind it is not. */
 
 /* a band under a section header or a subtotal would break the statement's hierarchy */
 #fxRoot .fx-sec+.expl-band,#fxRoot .fx-tot+.expl-band{display:none}
@@ -4098,9 +4163,11 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   .memo-line{page-break-inside:avoid}
   .memo-hd{page-break-after:avoid}
 
-  /* FULL EXPLANATIONS IN PRINT — this mode is meant to be the review package, so a
-     straight print of the statement has to stand on its own. */
-  #fxRoot .no-print{display:none!important}          /* Open detail / Show more */
+  /* NARRATIVE IN PRINT — this mode is meant to be the review package, so a straight
+     print of the statement has to stand on its own. Pair it with "Expand all
+     narratives" for a fully-expanded read; the clamp override below also prints each
+     band whole regardless. */
+  #fxRoot .no-print{display:none!important}          /* Open detail / Expand */
   #fxRoot .expl-band>td{background:transparent;border-left:2px solid #999;
     padding-left:12px}                                /* a rule survives greyscale */
   /* An explanation separated from the figures it explains is worse than useless in a
@@ -4111,11 +4178,6 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   #fxRoot .eb-tx.clip{-webkit-line-clamp:unset;display:block;overflow:visible}  /* print in full */
   #fxRoot .fx-sec{page-break-after:avoid}
   #fxRoot thead{display:table-header-group}           /* column heads repeat per page */
-  /* The one-line preview is a screen affordance for choosing what to open. On paper
-     a sentence cut mid-word is worse than no sentence, so it prints whole. */
-  #fxRoot .cmt-line{page-break-inside:avoid;page-break-before:avoid}
-  #fxRoot .cmt-line>td{background:transparent}
-  #fxRoot .cmt-line .tx{white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
   /* the workspace is a working surface, never part of the printed package */
   #fxRoot .fx-detail,#fxRoot .dw-grip{display:none!important}
   #fxRoot .wsplit.on{grid-template-columns:1fr!important}
@@ -4142,12 +4204,59 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .fx-work{font-size:var(--fs-label);color:var(--hint);padding:2px 2px 10px;display:flex;gap:7px;flex-wrap:wrap}
 #fxRoot .fx-work .em{color:var(--muted);font-weight:var(--fw-medium)}
 #fxRoot .fx-work .dot{color:var(--n-300)}
-#fxRoot .fx-table>h2{display:flex;align-items:center;gap:8px}
+/* the caption is a quiet count now, not a heading — it sits close to the table it
+   labels rather than reserving heading space above it */
+#fxRoot .fx-table>h2{display:flex;align-items:center;gap:8px;margin:0 0 var(--s-2);
+  font-weight:var(--fw-regular)}
 #fxRoot .fx-table>h2 .note{font-size:var(--fs-label);color:var(--hint);font-weight:var(--fw-regular)}
 #fxRoot .fx-sp{flex:1}
 #fxRoot.focused .gl-hd{position:sticky;top:calc(var(--header-h) + 34px);z-index:5;background:var(--bg);
   padding-top:6px;margin-bottom:4px}
 #fxRoot.focused{--fx-stick:calc(var(--header-h) + 34px + 46px)}
+
+/* ---- VIEW CONTROLS: one star, one menu, one overflow ------------------------
+   "Favorite" and "My views" were two buttons opening two menus over ONE set of
+   objects — a favorite is a saved view that has been starred, so it cannot need a
+   second home, and the pair made the same view appear twice under two names. The
+   star now acts on the loaded view and nothing else; the menu organises every
+   view; the ••• holds the actions. No new tokens: these are .btn-out. */
+/* .btn-out has no height of its own — it is padding around a line box — so an
+   icon-only button collapses to the height of its glyph. Stretching the row keeps
+   the three controls one height without hard-coding a number that would drift from
+   the button token. */
+#fxRoot .fx-vw{display:inline-flex;align-items:stretch;gap:6px}
+#fxRoot .fx-vw .btn-out.star,#fxRoot .fx-vw .btn-out.ovf{padding:0 11px;justify-content:center}
+
+/* ---- PAGE CONTEXT + PERIOD NAVIGATOR ----------------------------------------
+   Quiet but legible: the context line is the shared .sub, and the navigator below
+   it is a row of ramp-coloured steps with the active one in the accent. It is
+   NAVIGATION, not a chart — five steps of the chosen grain and the comparison it
+   is measured against, nothing that plots a series. Separation is lightness and a
+   hairline (rule 5); the only colour is the one accent (rule 2). */
+#fxRoot .fx-pnav{display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  padding:0 0 10px;font-size:var(--fs-label);color:var(--muted)}
+#fxRoot .fx-pnav .pn-track{display:inline-flex;align-items:center;gap:2px}
+#fxRoot .fx-pnav .pn-p{height:24px;padding:0 9px;border:1px solid transparent;
+  border-radius:var(--radius);background:none;color:var(--muted);font:inherit;
+  font-size:var(--fs-label);font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap}
+#fxRoot .fx-pnav .pn-p:hover{background:var(--bg2);color:var(--ink)}
+#fxRoot .fx-pnav .pn-p.on{background:var(--accent-bg);border-color:var(--accent-line);
+  color:var(--accent-ink);font-weight:var(--fw-medium)}
+#fxRoot .fx-pnav .pn-a{height:24px;width:22px;border:var(--rule-strong);border-radius:var(--radius);
+  background:var(--surface);color:var(--muted);cursor:pointer;line-height:1;padding:0;
+  font:inherit;font-size:var(--fs-table)}
+#fxRoot .fx-pnav .pn-a:hover{border-color:var(--accent-line);color:var(--accent-ink)}
+#fxRoot .fx-pnav .pn-a[disabled]{opacity:.38;cursor:default}
+#fxRoot .fx-pnav .pn-a[disabled]:hover{border-color:var(--border);color:var(--muted)}
+#fxRoot .fx-pnav .pn-gap{width:1px;height:15px;background:var(--border);margin:0 2px}
+#fxRoot .fx-pnav .pn-cl{color:var(--hint)}
+#fxRoot .fx-pnav .pn-cmp{height:24px;padding:0 9px;border:var(--rule-strong);border-radius:var(--radius);
+  background:var(--surface);color:var(--ink);font:inherit;font-size:var(--fs-label);
+  font-variant-numeric:tabular-nums;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+#fxRoot .fx-pnav .pn-cmp:hover{border-color:var(--accent-line);color:var(--accent-ink)}
+#fxRoot .fx-pnav .pn-cmp .cue{color:var(--faint);font-size:9px}
+#fxRoot .fx-pnav .pn-p:focus-visible,#fxRoot .fx-pnav .pn-a:focus-visible,
+#fxRoot .fx-pnav .pn-cmp:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* ---- smart filters ---------------------------------------------------------- */
 .pop-why{font-size:var(--fs-micro);color:var(--faint);line-height:1.35;margin-top:1px;white-space:normal}
@@ -4177,16 +4286,18 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .fx-work{display:flex;align-items:stretch;gap:0;padding:0;margin:0 0 12px;
   border:var(--rule);border-radius:var(--radius);background:var(--surface);overflow:hidden;
   flex-wrap:wrap}
-#fxRoot .wl-seg,#fxRoot .wl-done{display:flex;align-items:baseline;gap:6px;background:none;
+#fxRoot .wl-seg,#fxRoot .wl-done,#fxRoot .wl-stat{display:flex;align-items:baseline;gap:6px;background:none;
   border:none;border-right:var(--rule);padding:9px 14px;font:inherit;cursor:pointer;
   color:var(--muted);text-align:left;position:relative;min-width:0}
+/* the coverage figure is a read-out, not a filter — no pointer, no hover */
+#fxRoot .wl-stat{cursor:default}
 #fxRoot .wl-seg:hover,#fxRoot .wl-done:hover{background:var(--bg2)}
 #fxRoot .wl-seg:focus-visible,#fxRoot .wl-done:focus-visible{outline:2px solid var(--accent);
   outline-offset:-2px}
-#fxRoot .wl-seg .n,#fxRoot .wl-done .n{font-size:var(--fs-figure);line-height:1;
+#fxRoot .wl-seg .n,#fxRoot .wl-done .n,#fxRoot .wl-stat .n{font-size:var(--fs-figure);line-height:1;
   font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight);color:var(--ink-strong)}
 #fxRoot .wl-done .n .of{font-size:var(--fs-table);color:var(--faint)}
-#fxRoot .wl-seg .l,#fxRoot .wl-done .l{font-size:var(--fs-label);text-transform:uppercase;
+#fxRoot .wl-seg .l,#fxRoot .wl-done .l,#fxRoot .wl-stat .l{font-size:var(--fs-label);text-transform:uppercase;
   letter-spacing:var(--tracking-label);color:var(--hint);white-space:nowrap}
 /* a count of nothing is not news — it recedes rather than sitting there in ink */
 #fxRoot .wl-seg.nil .n{color:var(--n-300)}
@@ -4379,6 +4490,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    badge, and collapses the rail. Everything removed is either restated in the focus
    strip or one click away, so nothing becomes unreachable. */
 body.fx-focus #fxRoot .gl-hd{display:none}
+body.fx-focus #fxRoot .fx-pnav{display:none}
 body.fx-focus #subnav2{display:none}
 body.fx-focus .filterbar{display:none}
 body.fx-focus .protobadge,body.fx-focus .proto-badge{display:none}
@@ -5162,20 +5274,25 @@ const S={
      so collapsing is not the same act as closing. drvPath is the driver drill —
      one array of {dim,k,label} that the whole Drivers tab derives from, which is
      why the drill can never disagree with its own breadcrumb. */
-  stackAll:false,            // Review stack: every local level, or the folded set
   dwCollapsed:false,         // panel collapsed to a rail; S.sel survives it
-  dwMenu:false,              // the ••• overflow (Evidence / History) is open
+  dwMenu:false,              // the ••• overflow (History) is open
+  histFocus:'review',        // which History section the ••• entry leads with: review|prior|activity
+  cmtCompose:false,          // the Comments composer is open
+  cmtMenu:false,             // the Comments scope-filter menu is open
+  cmtFilter:'all',           // Comments scope filter: all|ent|reg|corp
   drvPath:[],                // driver drill: [{dim,k,label}], root is []
   drvGl:false,               // terminal GL view once an account is pinned
   rwFullEx:false,            // the current explanation is expanded in place
   rwPeriods:false,           // History: the 13-period trend is disclosed
-  /* DISPLAY MODE — four layers over the same review, not four reports.
-     'compact' and 'review' are the original two values and are still written by
-     saved views, so they are migrated on read by dispMode() rather than rewritten
-     in every stored snapshot. */
-  view:'status',             // nums | status | cmt | full  (legacy: compact, review)
-  fullAll:false,             // Full explanations: material lines only, or every one
-  explFull:{},               // and which of those have the narrative unclamped
+  /* DISPLAY MODE — three layers over the same review, not three reports.
+     Stored values are the four-mode keys minus 'cmt' (retired); 'status'=Review,
+     'nums'=Financials, 'full'=Narrative. Legacy 'compact'/'review'/'cmt' are
+     migrated on read by dispMode() rather than rewritten in every stored snapshot. */
+  view:'status',             // status=Review | nums=Financials | full=Narrative  (legacy: compact, review, cmt)
+  fullAll:false,             // Narrative: which lines get a band — material only, or every explained line
+  explFull:{},               // and which individual bands the reviewer expanded past the clamp
+  narrExpand:false,          // Narrative: the global "Expand all narratives" state — transient, for print/screen-share
+
   dens:'std',                // 'std' | 'dense' — row height
   focus:false,               // hide the summary chrome and give the table the screen
   fold:{},                   // collapsed statement sections
@@ -5290,17 +5407,21 @@ const COMPARES=[
   {id:'fcst',  nm:'Forecast \u2014 same period'},
   {id:'custom',nm:'Custom period'},
 ];
-function priorIndex(){
+/* Which period a given comparison BASIS resolves to, at the current grain. Split
+   out of priorIndex() so the comparison menu can state what each option would
+   compare against without a second copy of this arithmetic drifting from it. */
+function priorFor(c){
   const g=S.grain,i=S.cur;
-  if(S.compare==='custom')return S.prior;
-  if(S.compare==='yoy')   return Math.max(0,i-12);
-  if(S.compare==='budget'||S.compare==='fcst')return i;
+  if(c==='custom')return S.prior;
+  if(c==='yoy')   return Math.max(0,i-12);
+  if(c==='budget'||c==='fcst')return i;
   if(g==='m')  return Math.max(0,i-1);
   if(g==='q')  return Math.max(0,win(i,'q')[0]-1);
   if(g==='ytd')return Math.max(0,i-12);
   if(g==='ttm')return Math.max(0,i-12);
   return Math.max(0,i-1);
 }
+function priorIndex(){ return priorFor(S.compare); }
 const priBasis=()=>S.compare==='budget'?'bud':(S.compare==='fcst'?'fct':'act');
 function periodTag(){
   const c=PERIODS[S.cur],p=PERIODS[priorIndex()];
@@ -5366,7 +5487,12 @@ const cKeyFor=(id,tag)=>cKeyFull(S.stmt,tag,id);
 function rec(id,make){
   const k=cKey(id);
   if(!CMT[k]&&make)CMT[k]={items:[],sugs:[],files:[],status:'draft',prep:meStr(),rev:null,revNote:'',
-    updated:null,trail:[]};
+    updated:null,trail:[],comments:[]};
+  /* `comments` is the discussion stream shown in the Comments tab — free-text notes
+     and questions, distinct from `items` (the quantified explanation) and from the
+     per-scope lineage notes. Older records were created before it existed, so it is
+     backfilled on read rather than assumed present. */
+  if(CMT[k]&&!CMT[k].comments)CMT[k].comments=[];
   return CMT[k]||null;
 }
 /* ============================================================================
@@ -5653,7 +5779,9 @@ function fxKeys(e){
   if(k==='x'&&id){e.preventDefault();star(id);return true;}
   if(k==='g'&&id){e.preventDefault();glTog(id);return true;}
   if(k==='n'){e.preventDefault();fxNextOpen();return true;}
-  if(k>='1'&&k<='4'){e.preventDefault();setView(DISP_MODES[+k-1][0]);return true;}
+  /* number keys pick a mode by position — bounded by the registry length so the
+     three-mode control cannot dereference a fourth entry that no longer exists */
+  if(k>='1'&&k<=String(DISP_MODES.length)){e.preventDefault();setView(DISP_MODES[+k-1][0]);return true;}
   return false;
 }
 
@@ -5855,22 +5983,22 @@ function paintPop(keepFocus){
         S.show==='all'?'':'active'}</span></div>
        <div class="pop-o" onclick="KFX.pop('dir',document.getElementById('pop'))">Direction<span class="sub">${
         S.dir==='all'?'':'active'}</span></div></div>`;
-  }else if(popKind==='fav'){
-    const favs=S.views.filter(v=>v.fav), m=matchView(), fm=favMatch();
-    h=`<div class="pop-h">Favorite views</div><div class="pop-l">`+
-      (favs.length?favs.map(v=>{const k=S.views.indexOf(v);
-        return `<div class="pop-o ${v.on?'on':''}" onclick="KFX.loadView(${k})">
-          <span class="bx" style="border:none;color:var(--warning)" title="Remove from favorites"
-            onclick="event.stopPropagation();KFX.favView(${k})">\u2605</span>${esc(v.nm)}
-          ${v.def?'<span class="sub">default</span>':''}</div>`;}).join('')
-       :'<div class="rl-empty" style="padding:6px 8px">No favorites yet.</div>')+
-      `</div><div class="pop-l" style="border-top:var(--rule)">
-        <div class="pop-o" onclick="KFX.favCurrent()">
-          ${fm?'\u2605 Remove this view from favorites'
-             :(m?'\u2606 Add \u201c'+esc(m.nm)+'\u201d to favorites'
-                :'\u2606 Save current view as a favorite\u2026')}</div>
-        <div class="pop-o" onclick="KFX.pop('views',document.getElementById('pop'))">Manage favorites and views\u2026</div>
-      </div>`;
+  }else if(popKind==='cmp'){
+    /* WHAT THIS PERIOD IS MEASURED AGAINST, stated as the period it resolves to
+       rather than as the name of a setting. "Same period, prior year" is a rule;
+       "Jun 2025" is the answer, and the answer is what a reviewer is checking. */
+    h=`<div class="pop-h">Compare with</div><div class="pop-l">`+
+      COMPARES.map(c=>{const on=S.compare===c.id;
+        const sub=(c.id==='budget'||c.id==='fcst')?pLabel(S.cur):pLabel(priorFor(c.id));
+        return `<div class="pop-o ${on?'on':''}" onclick="KFX.cmpPick('${c.id}')">
+          <span class="bx">${on?'\u2713':''}</span>${esc(c.nm)}
+          <span class="sub">${esc(sub)}</span></div>`;}).join('')+`</div>`+
+      (S.compare==='custom'?`<div class="pop-h" style="border-top:var(--rule)">Which period</div>
+        <div class="pop-l">`+PERIODS.slice().reverse().filter(p=>p.i<S.cur).map(p=>
+          `<div class="pop-o ${S.prior===p.i?'on':''}" onclick="KFX.priorPick(${p.i})">
+            <span class="bx">${S.prior===p.i?'\u2713':''}</span>${esc(p.lbl)}</div>`).join('')+`</div>`:'')+
+      `<div class="pop-b"><div class="rl-note">Cadence \u2014 monthly, quarterly, year to date,
+        trailing 12 \u2014 is set in the filter panel and is stated in the page context above.</div></div>`;
   }else if(popKind==='viewmode'){
     /* TABLE CONFIGURATION, AND NOTHING ELSE.
        This menu used to be called Display and held six unrelated concerns: display
@@ -5891,9 +6019,9 @@ function paintPop(keepFocus){
       [['std','Standard','34px rows'],['dense','Dense','28px — more lines per screen']]
       .map(([v,nm,d])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
         <span class="bx">${S.dens===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`+
-      /* the reach of the band is a property of Full explanations, so it is only
-         offered while that mode is on rather than sitting there greyed out */
-      (dm==='full'?`<div class="pop-h" style="border-top:var(--rule)">Explain which lines</div><div class="pop-l">`+
+      /* the reach of the band is a property of Narrative, so it is only offered
+         while that mode is on rather than sitting there greyed out */
+      (dm==='full'?`<div class="pop-h" style="border-top:var(--rule)">Narrative — which lines</div><div class="pop-l">`+
         [[false,'Material lines only','flagged, watched and review-required'],
          [true,'Every line with commentary','including immaterial lines that were explained']]
         .map(([v,nm,d])=>`<div class="pop-o ${!!S.fullAll===v?'on':''}" onclick="KFX.setFullAll(${v})">
@@ -5943,17 +6071,52 @@ function paintPop(keepFocus){
       `</div><div class="pop-b"><div class="rl-note">12M high ${fmt(hi)} \u00b7 12M low ${fmt(lo)}.
         Full multi-period analysis lives in Trending review.</div></div>`;
   }else if(popKind==='views'){
+    /* ONE MENU OVER ONE SET OF OBJECTS. Favorites, Recent, My views and Shared
+       views are four READINGS of S.views, not four stores \u2014 a view is starred, or
+       recently loaded, or owned, or shared, and the same record can be all four.
+       A view therefore appears in exactly ONE section, first reading wins, because
+       listing it four times is the repetition this pass exists to remove. */
+    const seen=new Set();
+    const take=(list,n)=>{const o=[];
+      list.forEach(v=>{if(seen.has(v)||o.length>=n)return; seen.add(v); o.push(v);}); return o;};
+    const row=v=>{const i=S.views.indexOf(v);
+      return `<div class="pop-o ${v.on?'on':''}" onclick="KFX.loadView(${i})">
+        <span class="bx stx" style="border:none;color:${v.fav?'var(--warning)':'var(--faint)'}"
+          title="${v.fav?'Remove from favorites':'Add to favorites'}"
+          onclick="event.stopPropagation();KFX.favView(${i})">${v.fav?'\u2605':'\u2606'}</span>
+        ${esc(v.nm)}<span class="sub">${v.def?'default':(v.own?esc(v.own):'')}</span></div>`;};
+    let first=true;
+    const sect=(nm,list)=>{ if(!list.length)return '';
+      const s=`<div class="pop-h"${first?'':' style="border-top:var(--rule)"'}>${nm}</div>
+        <div class="pop-l">`+list.map(row).join('')+`</div>`;
+      first=false; return s; };
+    const favs=take(S.views.filter(v=>v.fav),6);
+    const rec =take(S.views.filter(v=>v.used).sort((a,b)=>b.used-a.used),3);
+    const mine=take(S.views.filter(v=>!v.shared),6);
+    const shd =take(S.views.filter(v=>v.shared),6);
+    h=(S.views.length
+        ? sect('Favorites',favs)+sect('Recent',rec)+sect('My views',mine)+sect('Shared views',shd)
+        : `<div class="pop-h">Views</div><div class="pop-l">
+             <div class="rl-empty" style="padding:6px 8px">No saved views yet.</div></div>`)+
+      `<div class="pop-l" style="border-top:var(--rule)">
+        <div class="pop-o" onclick="KFX.saveView()">Save current view\u2026</div>
+        <div class="pop-o" onclick="KFX.pop('manage',document.getElementById('pop'))">Manage views\u2026</div>
+      </div>`;
+  }else if(popKind==='manage'){
+    /* Everything the organised menu deliberately does not carry: every view at
+       once with its default and delete controls, plus the two stores that are
+       saved-view-adjacent but are not views \u2014 filter presets and the watchlist. */
     const w=Object.keys(S.watch).filter(k=>S.watch[k]);
-    h=`<div class="pop-h">Saved views<span class="clr" onclick="KFX.saveView()">Save current</span></div>
+    h=`<div class="pop-h">Manage views<span class="clr" onclick="KFX.saveView()">Save current</span></div>
       <div class="pop-l">`+(S.views.length?S.views.map((v,i)=>
         `<div class="pop-o ${v.on?'on':''}" onclick="KFX.loadView(${i})">
-          <span class="bx" style="border:none;color:${v.fav?'var(--warning)':'var(--faint)'}"
+          <span class="bx stx" style="border:none;color:${v.fav?'var(--warning)':'var(--faint)'}"
             title="${v.fav?'Remove from favorites':'Add to favorites'}"
             onclick="event.stopPropagation();KFX.favView(${i})">${v.fav?'\u2605':'\u2606'}</span>
           ${esc(v.nm)}
           <span class="sub">
             <span title="Open on this view" onclick="event.stopPropagation();KFX.defView(${i})">${v.def?'default':'set default'}</span>
-            <span onclick="event.stopPropagation();KFX.delView(${i})">remove</span></span></div>`).join('')
+            ${v.sys?'':`<span onclick="event.stopPropagation();KFX.delView(${i})">remove</span>`}</span></div>`).join('')
         :'<div class="rl-empty" style="padding:6px 8px">No saved views yet.</div>')+`</div>
       <div class="pop-h" style="border-top:var(--rule)">Filter presets<span class="clr"
         onclick="KFX.saveFilterPreset()">Save filters</span></div>
@@ -5965,7 +6128,7 @@ function paintPop(keepFocus){
         `<span class="clr" onclick="KFX.clearWatch()">Clear</span>`:''}</div>
       <div class="pop-l">`+(w.length?w.map(k=>{const [st,id]=k.split('::');const ln=LINE(st,id);
         return `<div class="pop-o" onclick="KFX.gotoWatch('${st}','${id}')">
-          <span class="bx" style="border:none;color:var(--warning)">\u2605</span>
+          <span class="bx stx" style="border:none;color:var(--warning)">\u2605</span>
           ${esc(ln?ln.l:id)}<span class="sub">${st.toUpperCase()}</span></div>`;}).join('')
         :'<div class="rl-empty" style="padding:6px 8px">Star a statement line to watch it every period.</div>')+`</div>`;
   }else if(popKind==='units'){
@@ -6105,21 +6268,32 @@ function paintKpi(){
       aria-pressed="${on?'true':'false'}" title="${esc(title||('Show only '+label))}"
       onclick="KFX.setShow('${on?'all':id}')"><span class="n">${n}</span><span class="l">${esc(label)}</span></button>`;
   };
+  /* THE ESSENTIALS ALWAYS, THE EXCEPTIONS ONLY WHEN THEY EXIST. The first review
+     decision needs: how much is owed (need you), the exposure (unexplained + the
+     coverage it is the complement of), what is done (signed off), and whether the
+     statement even ties. Returned / requested / watched / flagged are exceptions —
+     a zero of any of them is noise, so each appears only when it is non-zero (and
+     stays a one-click filter when it does). This keeps the strip compact without
+     removing a single filter: every one is still reachable from the filter panel. */
+  const rq=reqHere(), late=rq.filter(reqLate).length;
   w.innerHTML=
     seg('open',   open.length, open.length===1?'needs you':'need you','act',
         'Lines that require an explanation and are not yet signed off')+
     seg('resid',  fmt(unexp),  'unexplained', unexp>0?'act':'',
         'Lines carrying a residual outside tolerance')+
-    seg('ret',    ret,         'returned',   ret?'bad':'', 'Reviews returned to the preparer')+
-    /* Work owed by someone ELSE is still work on this statement, and it was the one
-       thing the bar could not count: a request lived in the drawer it was raised in.
-       Only lateness takes colour — an open request inside its due date is normal. */
-    (()=>{const rq=reqHere(), late=rq.filter(reqLate).length;
-      return seg('req', rq.length, 'requested', late?'bad':'',
+    /* coverage is the complement of unexplained — a display figure, not a filter,
+       so it reads as summary rather than as one more thing to click */
+    `<span class="wl-stat" title="Share of the gross movement covered by an accepted explanation">
+       <span class="n">${cov.toFixed(0)}%</span><span class="l">explained</span></span>`+
+    /* An exception segment appears when it has a count OR when it is the filter
+       currently applied — so a filter can always be switched off from the same bar
+       it was switched on, even after the count it isolated has fallen to zero. */
+    ((ret||S.show==='ret')? seg('ret', ret, 'returned', ret?'bad':'', 'Reviews returned to the preparer') : '')+
+    ((rq.length||S.show==='req')? seg('req', rq.length, 'requested', late?'bad':'',
         late? late+' of '+rq.length+' explanation requests are past their due date'
-            : 'Lines where an entity or region still owes an explanation you asked for');})()+
-    seg('watch',  wch.length,  'watched',    '',           'Lines you are watching below materiality')+
-    seg('flag',   flg.length,  'flagged',    '',           'Lines breaching the materiality policy')+
+            : 'Lines where an entity or region still owes an explanation you asked for') : '')+
+    ((wch.length||S.show==='watch')? seg('watch', wch.length, 'watched', '', 'Lines you are watching below materiality') : '')+
+    ((flg.length||S.show==='flag')? seg('flag', flg.length, 'flagged', '', 'Lines breaching the materiality policy') : '')+
     `<span class="wl-sp"></span>
      <button type="button" class="wl-done ${req.length&&!open.length?'ok':''}"
        title="Signed off on this statement" onclick="KFX.setShow('all')">
@@ -6185,10 +6359,13 @@ function cell(c,r,totalD){
   const V=(i,g,b)=>r.acct?accVal([r.acct],i,g,b,activeSlices()):lineVal(S.stmt,r.id,i,g,b);
   switch(c){
     case 'cur':  return `<td class="num">${fmt(r.cur)}</td>`;
-    case 'pri':  return `<td class="num">${fmt(r.pri)}</td>`;
-    /* .brk marks a variance that breaches the SELECTED materiality profile, so
-       changing the profile in the filter bar visibly re-flags the statement. */
-    case 'dlt':  return `<td class="num dlt ${r.d>0?'up':r.d<0?'dn':'n'}${r.flag?' brk':''}"
+    /* Compared is the baseline the variance is measured FROM — reference, not the
+       figure a reviewer scans — so it sits one tone quieter than Current. */
+    case 'pri':  return `<td class="num q">${fmt(r.pri)}</td>`;
+    /* THE VARIANCE IS THE COLUMN A REVIEWER SCANS, so it carries the most weight:
+       medium on every row (.v-amt), not only when it breaches. Direction is the one
+       hue rule 9 admits; .brk adds nothing extra now that the weight is always on. */
+    case 'dlt':  return `<td class="num dlt v-amt ${r.d>0?'up':r.d<0?'dn':'n'}"
       ${r.flag?`title="Breaches ${esc(prof().nm)} — ${fmt(thr().abs*matFac())} ${thr().op} ${thr().pct}% of the line"`:''}
       >${fmt(r.d)}</td>`;
       /* ONE NEGATIVE CONVENTION PER STATEMENT. Current and Compared render through
@@ -6199,7 +6376,21 @@ function cell(c,r,totalD){
          survives a greyscale print where a minus at 12px disappears. fmtS stays for
          prose and for the workspace, where a signed figure inside a sentence is
          correct and parentheses would read as an aside. */
-    case 'pctd': return `<td class="num dlt ${r.d>0?'up':r.d<0?'dn':'n'}${r.flag?' brk':''}">${r.pri?pct(r.dp):'—'}</td>`;
+    /* FAVORABILITY rides on the Δ% cell, income-statement only. A positive Δ is not
+       the same as good news — an expense that rose is an unfavourable increase — so
+       the letter reads what the sign cannot. It is suppressed entirely on the balance
+       sheet (no favourable direction there) and on GL sub-rows, and only the letter
+       carries colour; the percentage keeps its own sign styling. Shown wherever there
+       is real movement, so it appears in both Review and Financials. */
+    case 'pctd': {
+      /* THE PERCENTAGE IS SECONDARY — neutral, not a second green/red column. The
+         variance amount already carries direction in colour, and favourability is
+         read by the F/U mark; colouring the % too was the same signal a third time.
+         So the number sits quiet (.v-pct) and only the F/U letter carries a hue. */
+      const fav=(S.stmt==='is'&&!r.acct&&r.d)
+        ? ` <span class="fav ${unfav(r)?'u':'f'}" title="${unfav(r)?'Unfavorable':'Favorable'} variance">${unfav(r)?'U':'F'}</span>` : '';
+      return `<td class="num v-pct">${r.pri?pct(r.dp):'—'}${fav}</td>`;
+    }
     case 'contrib':{const sh=totalD?Math.abs(r.d)/totalD*100:0;
       return `<td class="col-contrib"><span class="cnum">${sh<0.5&&sh>0?'<1':Math.round(sh)}%</span>
         <span class="ctrack"><i style="width:${Math.min(100,sh*2.2).toFixed(1)}%"></i></span></td>`;}
@@ -6275,6 +6466,18 @@ function cmtIndicators(r){
 
   if(n)out.push(go('stack',n+' explanation item'+(n===1?'':'s'),`${ic('cmt')}<span class="t">${n}</span>`));
 
+  /* HOW MUCH OF THE MOVEMENT IS EXPLAINED — the Review mode's coverage read, at row
+     height. Derived from the figures already on the row (the accepted items sum to
+     r.ex against the movement r.d), so it costs no record lookup and can never
+     disagree with the drawer's own coverage. Only on lines that owe an explanation
+     and have begun one; a line with nothing said says nothing here, and full
+     coverage is stated plainly rather than shouted. */
+  if(r.req&&n&&r.d){
+    const cov=Math.min(100,Math.abs(r.ex/r.d)*100);
+    out.push(go('sum',cov.toFixed(0)+'% of the movement is explained',
+      `<span class="t">${cov.toFixed(0)}% expl</span>`));
+  }
+
   /* INHERITED COMMENTARY is a different fact from having your own, and it is the
      one a reviewer most often misses — nothing at this level, but a level beneath
      has already explained it. Derived, not stored: bestExplanation decides. */
@@ -6312,22 +6515,11 @@ function pickAt(id,tab){
   renderAll();
 }
 
-/* ONE LINE OF THE CURRENT EXPLANATION, for Comments mode. Never every comment,
-   never more than one line — the ellipsis is CSS so it adapts to the column set
-   and to the width the reviewer dragged the workspace to. */
-function cmtPreview(r,cols){
-  const rc=rec(r.id); if(!rc)return '';
-  const best=bestExplanation(r,rc);
-  if(!best.text)return '';
-  const w=rwWho(best.kind==='draft'?'Korvyn draft':(best.by||rc.prep));
-  const who=best.kind==='inherited'?best.label:(w.role||w.nm);
-  const t=String(best.text).replace(/\s+/g,' ').trim();
-  return `<tr class="cmt-line" onclick="KFX.pickAt('${r.id.replace(/'/g,"&#39;")}','sum')">
-    <td colspan="${cols.length+1}"><span class="cl">
-      <span class="ar" aria-hidden="true">&#8627;</span>
-      <span class="wh">${esc(who)}:</span>
-      <span class="tx">${esc(t)}</span></span></td></tr>`;
-}
+/* cmtPreview() — the one-line under-row preview — was removed with the Comments
+   display mode. Its job (a quick read of the current explanation without opening the
+   line) is now served two ways that already existed: the Narrative band renders the
+   same bestExplanation() text in full, and the Review workspace Summary shows it for
+   the selected line. Nothing that read the underlying records was lost. */
 
 /* ============================================================================
    KORVYN DRAFT EXPLANATION — the structured object, then the narrative.
@@ -6586,7 +6778,7 @@ function kdEdit(){
   const r=rows().find(x=>x.id===S.sel); if(!r)return;
   const rc=rec(r.id,true); if(!kdGuard(rc))return;
   const kd=kdraftFor(r);
-  S.dwTab='stack';
+  S.dwTab='sum'; S.rwFullEx=true;   // explanation authoring lives under Overview › Explanation
   exOpen({i:null,sug:null,fromKd:kd.ver||1},{amt:r.d,reason:'oth',note:kd.text,ev:''});
   toast('Editing the Korvyn draft — saving records it as edited, not accepted');
 }
@@ -6641,37 +6833,50 @@ function kdItemNote(d,o){
    dwHistory() shows the prior items and offers the same selective carry-forward. */
 
 /* ============================================================================
-   DISPLAY MODES — four layers over the same review, never four reports.
+   DISPLAY MODES — three layers over the same review, never three reports.
    Every mode reads the same rows() and the same explanation records; none of them
    has its own dataset, and none of them recomputes a financial value.
    ========================================================================== */
-/* THE STATEMENT IS THE WORKING SURFACE, so the default mode is the compact one.
-   Commentary is knowledge that lives in the Review Workspace; these modes decide
-   how much of it the statement is willing to carry alongside the figures, and
-   only the last two are allowed to spend vertical space on prose.
+/* THREE MODES, ONE STATEMENT. Four visible choices — Review, Numbers only,
+   Comments, Full explanations — asked the reviewer to distinguish "Comments" from
+   "Full explanations" every time they opened the page, a distinction that is real
+   in the DATA (a comment is a human-authored note; an explanation is the current
+   synthesized narrative) but that a person choosing how to LOOK at a statement does
+   not need. The two collapse into one reading mode:
 
-   Order is the order a reviewer meets them, not alphabetical: Review first
-   because it is the default and the answer for almost every session. */
+     Review     — financials + review context (status, counts, explained %,
+                  favorability, outstanding indicator). The default, and the answer
+                  for almost every session. Stored value 'status'.
+     Financials — the financial statement only, review chrome shed. Stored 'nums'.
+     Narrative  — one concise current explanation under each relevant line, the
+                  reader opts into prose. Stored 'full'.
+
+   Order is the order a reviewer meets them, not alphabetical: Review first because
+   it is the default. The stored VALUES are unchanged from the four-mode era so no
+   saved view breaks — 'status'/'nums'/'full' keep their exact meaning, and the
+   retired 'cmt' migrates to Review in dispMode() (Comments was a working view, not
+   a reading one). */
 const DISP_MODES=[
-  ['status','Review',            'default — status and indicators, compact rows'],
-  ['nums',  'Numbers only',      'maximum financial density'],
-  ['cmt',   'Comments',          'one-line preview under rows that have commentary'],
-  ['full',  'Full explanations', 'narrative band under each material line'],
+  ['status','Review',    'financials with review context — status, counts, explained %'],
+  ['nums',  'Financials','the financial statement only'],
+  ['full',  'Narrative', 'one concise explanation under each relevant line'],
 ];
 const dispName=()=>{const m=DISP_MODES.find(x=>x[0]===dispMode());return m?m[1]:'Review';};
-/* 'compact' and 'review' are the original two values and are still written into
-   saved views. Migrate on READ so old saved views keep working rather than
-   rewriting every stored snapshot. The stored key for the default mode stays
-   'status' for exactly the same reason — it is in saved views on disk — even
-   though the mode is called Review everywhere a person reads it.
+/* MIGRATE ON READ. Saved views persist the raw value in S.view (snapshot() now
+   carries it), so every legacy key a stored view could hold has to keep resolving:
 
-   ANYTHING UNRECOGNISED FALLS BACK TO THE COMPACT MODE, never to a narrative one:
-   a corrupt or future view value must not be able to open the statement with a
-   paragraph under every line. */
+     'compact' (original Review)  -> Review
+     'review'  (original Comments)-> Review   (Comments folded into Review)
+     'cmt'     (Comments)         -> Review
+     'status' / 'nums' / 'full'   -> themselves
+
+   ANYTHING UNRECOGNISED FALLS BACK TO REVIEW, never to Narrative: a corrupt or
+   future view value must not be able to open the statement with a paragraph under
+   every line. */
 function dispMode(){
   const v=S.view;
   if(v==='compact')return 'status';
-  if(v==='review')return 'cmt';
+  if(v==='review'||v==='cmt')return 'status';   // Comments -> Review
   return DISP_MODES.some(m=>m[0]===v)?v:'status';
 }
 
@@ -6734,8 +6939,15 @@ function explBand(r,cols){
   const entL=stk.filter(l=>l.kind==='ent');
   const appr=stk.filter(l=>l.kind!=='ai'&&l.status==='approved').length;
   const tot=stk.filter(l=>l.kind!=='ai').length;
-  const open=!!S.explFull[r.id];
-  const long=(best.text||'').length>320;
+  /* Two ways a band opens to its full length: the reviewer expands THIS one, or the
+     global "Expand all narratives" is on (for a CFO read, a screen-share, a print).
+     Either satisfies "open"; the per-row Expand still toggles its own state so
+     collapsing all afterward leaves the ones a reviewer opened by hand alone. */
+  const open=!!S.explFull[r.id]||S.narrExpand;
+  /* The clamp is three lines (the spec's 2–3 maximum), so the row stays financially
+     primary; ~230 chars is about three lines at this measure, past which the Expand
+     control is worth showing. */
+  const long=(best.text||'').length>230;
   const id=r.id.replace(/'/g,"&#39;");
 
   let body;
@@ -6744,8 +6956,10 @@ function explBand(r,cols){
       ${r.req?'One is required before it can be signed off.':''}</div>`;
   }else{
     body=`<div class="eb-tx ${long&&!open?'clip':''}">${best.kind==='draft'?best.text:esc(best.text)}</div>`;
-    if(long)body+=`<button type="button" class="lnk no-print" style="font-size:var(--fs-micro);margin-top:3px"
-      onclick="event.stopPropagation();KFX.explMore('${id}')">${open?'Show less':'Show more'}</button>`;
+    /* hidden while Expand-all is on: a page of "Collapse" links under a printed
+       statement is noise, and the one global control already governs them */
+    if(long&&!S.narrExpand)body+=`<button type="button" class="lnk no-print" style="font-size:var(--fs-micro);margin-top:3px"
+      onclick="event.stopPropagation();KFX.explMore('${id}')">${open?'Collapse':'Expand'} &#8594;</button>`;
   }
 
   /* TWO METADATA LINES, AND THEY ANSWER DIFFERENT QUESTIONS.
@@ -6794,14 +7008,13 @@ function explBand(r,cols){
       onclick="event.stopPropagation();KFX.pick('${id}')">Open detail &#8594;</button></div>
   </div></td></tr>`;
 }
-/* THE MODE IS THE CHOICE, NOT THE ROW. Bands used to be opened one row at a time
-   inside Full explanations, which meant the mode a reviewer picked in order to read
-   financials and explanations together still opened on a statement with nothing to
-   read. Full explanations now renders the band for every qualifying line, and the
-   per-row open/close state (S.explOpen, explToggle, explAll) went with it.
+/* THE MODE IS THE CHOICE, NOT THE ROW. Bands used to be opened one row at a time;
+   Narrative mode renders the band for every qualifying line at once, and the per-row
+   open/close state (S.explOpen, explToggle, explAll) went with that change.
 
    explMore survives because it answers a different question: not "show me this
-   line's explanation" but "this one is long, show me the rest of it". */
+   line's explanation" but "this one is long, show me the rest of it" — the per-row
+   Expand. The global "Expand all narratives" (toggleNarrExpand) is the other axis. */
 function explMore(id){S.explFull[id]=!S.explFull[id];paintGrid();}
 /* Mark reviewed / return straight from the statement. They act on the LINE's
    review, not on any one comment, and route through the same workflow functions
@@ -6811,17 +7024,37 @@ function explMore(id){S.explFull[id]=!S.explFull[id];paintGrid();}
    under every narrative in the statement they read as a decision about THAT
    explanation. The same two actions live in the workspace footer, where the review
    state they change is on screen beside them. */
+/* WHICH LINES get a narrative band — material/watched only, or every line that
+   carries an explanation. Lives in the Table menu, still gated on Narrative mode. */
 function setFullAll(v){S.fullAll=!!v;popClose();renderAll();}
+/* THE ONE GLOBAL NARRATIVE ACTION. Opens every band to full length at once — a CFO
+   read, a screen-share, a snapshot, a print — without expanding them one by one, and
+   without the page auto-expanding on entry (the spec: do not auto-expand all). It is
+   transient (not saved with the view) and only offered while Narrative is active. */
+function toggleNarrExpand(){
+  S.narrExpand=!S.narrExpand;
+  logA({act:S.narrExpand?'expanded all narratives':'collapsed all narratives'});
+  renderAll();
+}
 
 function paintGrid(){
   const all=rows(), v=visible(all);
   const mode=dispMode();
-  /* NUMBERS ONLY sheds the review metadata and keeps every financial column — that
-     is the whole point of it. The two narrative modes shed NOTHING: prose lives in
-     its own full-width row beneath the figures now, so it no longer has to be paid
-     for out of the statement's columns, and switching into Comments or Full
-     explanations leaves the financial surface exactly as it was. */
-  const hide=mode==='nums'?['cmt','status','owner']:[];
+  /* THE INLINE REVIEW CHROME — the explanation-indicator column ('cmt'), the
+     workflow columns ('status','owner') and the coverage column ('resid'/Unexplained).
+     Two modes shed it, for the same reason from opposite directions:
+
+       Financials — a pure financial statement carries no review context at all.
+       Narrative  — the band beneath each line already states the review context in
+                    prose (explained %, status, drivers, evidence), so the compact
+                    indicator column would say the same thing twice. The band is the
+                    payload; the row stays financially primary above it.
+
+     Favorability is NOT part of this set: it rides the Δ% cell and belongs to the
+     numbers, not the review, so it survives in both modes. Review keeps the whole
+     set, because inline context is the whole point of Review. */
+  const REVIEW_CHROME=['cmt','status','owner','resid'];
+  const hide=(mode==='nums'||mode==='full')?REVIEW_CHROME:[];
   const totalD=all.filter(r=>!r.hdr&&!r.tot).reduce((t,r)=>t+Math.abs(r.d),0);
   const cols=S.cols.filter(c=>!hide.includes(c));
   /* SORTABLE HEADERS. The sort was fully implemented, wired to a <select> inside a
@@ -6861,9 +7094,7 @@ function paintGrid(){
     const gEl0=$('fxGrid');
     if(gEl0){gEl0.innerHTML=h;gEl0.className='tbl fx-tbl';}
     const gt0=$('fxGridTitle');
-    if(gt0)gt0.innerHTML=`${S.stmt==='bs'?'Balance sheet flux':'Income statement flux'}
-      <span class="note">${esc(periodTag())} · $${S.units===1?'':uName()}</span>
-      <span class="fx-sp"></span><span class="est mute">0 of ${all.filter(r=>!r.hdr&&!r.tot).length} lines shown</span>`;
+    if(gt0)gt0.innerHTML=`<span class="est mute">0 of ${all.filter(r=>!r.hdr&&!r.tot).length} lines shown</span>`;
     return;
   }
   v.forEach(r=>{
@@ -6904,27 +7135,38 @@ function paintGrid(){
        subtotal or a GL sub-row, because those are the statement's structure and a
        footnote under them would break the hierarchy the reader navigates by.
 
-       Neither of these can appear in Review or Numbers only. That is the whole
-       decision: the default statement is a statement, and prose is something a
-       reviewer opts into. */
-    if(!r.tot&&!r.acct){
+       The band cannot appear in Review or Financials. That is the whole decision:
+       the default statement is a statement, and prose is something a reviewer opts
+       into by choosing Narrative. Material and watched lines get a band by default;
+       'Explain which lines' (S.fullAll, in the Table menu) extends it to every line
+       that carries an explanation. */
+    if(mode==='full'&&!r.tot&&!r.acct){
       const rcx=rec(r.id);
       const hasSaid=!!(rcx&&(rcx.items.length||rcx.status!=='draft'));
-      // COMMENTS: one line, and only where there is something to preview
-      if(mode==='cmt'&&(r.req||r.watch||hasSaid))h+=cmtPreview(r,cols);
-      // FULL EXPLANATIONS: material and watched lines by default, everything with
-      // something to say when the reviewer asks for all of it
-      if(mode==='full'&&(r.req||r.watch||(S.fullAll&&hasSaid)))h+=explBand(r,cols);
+      if(r.req||r.watch||(S.fullAll&&hasSaid))h+=explBand(r,cols);
     }
     if((S.glOpen[r.id]||S.glAll)&&!r.tot)h+=glRows(r,cols,totalD);
   });
   h+='</tbody>';
   const gEl=$('fxGrid');
-  if(gEl){gEl.innerHTML=h; gEl.className='tbl fx-tbl'+(mode==='cmt'?' review':'')+(mode==='full'?' fullx':'');}
+  /* No mode-derived class any more. The retired 'cmt' mode added '.review' (taller
+     rows, a 38%-wide comment column — from when that cell held prose) and 'full'
+     added '.fullx' (which never matched any rule). The Narrative band and its
+     structure guards are keyed to the ROW class '.expl-band', not to the table, so
+     the mode needs no hook on the grid element. */
+  if(gEl){gEl.innerHTML=h; gEl.className='tbl fx-tbl';}
+  /* THE TABLE'S CAPTION IS NOT A SECOND PAGE TITLE. It used to repeat the page
+     heading word for word and then restate the period and the units \u2014 three facts
+     the header and the filter bar now carry permanently, one of them ten pixels
+     above it. What only this line can say is which statement the rows are and how
+     many of them are on screen. */
+  /* THE CAPTION IS THE LINE COUNT, AND NOTHING ELSE. It used to name the statement
+     ("Income statement") — a third printing of a word the page header and the active
+     sub-tab already carry. What only this line can say is how many lines are on
+     screen out of the whole statement, which is the filter-subset feedback a reviewer
+     actually needs; it leads the caption now. */
   const gt=$('fxGridTitle');
-  if(gt)gt.innerHTML=`${S.stmt==='bs'?'Balance sheet flux':'Income statement flux'}
-    <span class="note">${esc(periodTag())} \u00b7 $${S.units===1?'':uName()}</span>
-    <span class="fx-sp"></span><span id="fxGridStatus"></span>`;
+  if(gt)gt.innerHTML=`<span class="est mute" id="fxGridStatus"></span>`;
   /* SHOWING X OF Y \u2014 the fact the table was never stating. The worklist bar owns
      "how much is signed off"; what this line owes the reviewer is whether they are
      looking at the whole statement or a slice of it, which is the question a filter
@@ -6955,6 +7197,24 @@ function setGrain(v){S.grain=v;renderAll();}
 function setCompare(v){S.compare=v;renderAll();}
 function setCur(v){S.cur=+v;if(S.prior>=S.cur)S.prior=Math.max(0,S.cur-1);renderAll();}
 function setPrior(v){S.prior=+v;renderAll();}
+/* ---- the period navigator's own handlers ----------------------------------
+   The menu stays open on "Custom period" because that choice is not finished
+   until a period is named; every other choice is complete on click, so it
+   closes. renderAll() rebuilds the page, not the popover, so the repaint is
+   explicit rather than a side effect. */
+function cmpPick(c){
+  S.compare=c; renderAll();
+  if(popKind==='cmp'){ if(c==='custom')paintPop(); else popClose(); }
+}
+function priorPick(i){ S.prior=+i; S.compare='custom'; renderAll(); popClose(); }
+/* One step of the CHOSEN grain, clamped to the calendar. An arrow that steps past
+   Jun 2026 would land on a period the model has no data for, so it disables
+   instead — a dead control is worse than a missing one. */
+function stepPeriod(n){
+  const steps=navSteps(), at=navIdx(steps), k=at+n;
+  if(k<0||k>=steps.length)return;
+  setCur(steps[k].i);
+}
 function setUnits(v){S.units=+v;renderAll();}
 function setDir(v){S.dir=v;renderAll();}
 function setShow(v){S.show=v;renderAll();}
@@ -7079,18 +7339,32 @@ function scopeTo(dim,val){
 function toggleTheme(){const b=document.body;b.dataset.theme=b.dataset.theme==='dark'?'':'dark';}
 
 /* views and presets ---------------------------------------------------------- */
+/* A saved view now stores the DISPLAY MODE too. It never did — snapshot() captured
+   the filters and the columns but not `view`, so a "CFO monthly" view and a
+   "narrative for the board" view were indistinguishable once loaded. `view` and
+   `fullAll` are the display state a view should reproduce; `narrExpand` is left out
+   deliberately, because "expand every narrative" is a transient act for a print or a
+   screen-share, not a property of the view (the spec: do not auto-expand all). */
 function snapshot(){return JSON.parse(JSON.stringify({stmt:S.stmt,grain:S.grain,compare:S.compare,cur:S.cur,
   prior:S.prior,units:S.units,ent:S.ent,seg:S.seg,prop:S.prop,cc:S.cc,reg:S.reg,profile:S.profile,
-  dir:S.dir,show:S.show,sort:S.sort,cols:S.cols}));}
+  dir:S.dir,show:S.show,sort:S.sort,cols:S.cols,view:S.view,fullAll:S.fullAll}));}
 /* Favorites and saved views are the same objects; `fav` is just membership in the
-   shortlist. A view can be favorited or unfavorited from either menu, and more than
-   one can be a favorite \u2014 the earlier version cleared every other star, which is why
-   a newly favorited view fell back into My views. */
+   shortlist. A view can be favorited or unfavorited from anywhere it is listed, and
+   more than one can be a favorite \u2014 an earlier version cleared every other star,
+   which is why a newly favorited view fell back out of the shortlist.
+
+   `used` is a monotonic sequence, not a clock: Recent has to order loads within a
+   session, and a session that reloads must not inherit yesterday's ordering. */
+let viewSeq=0;
+/* THE VIEW THAT IS ACTUALLY LOADED, which is not the same question as "which saved
+   view does the current state happen to equal". The star acts on the loaded view \u2014
+   that is what makes it a toggle rather than a save-as. */
+function curView(){ return S.views.find(v=>v.on)||null; }
 function saveView(asFav){
   ask(asFav?'Name this favorite':'Name this view',
-      asFav?'e.g. CFO monthly flux':'e.g. Ashburn same-store \u2014 monthly close',nm=>{
+      asFav?'e.g. Ashburn same-store \u2014 flagged only':'e.g. Ashburn same-store \u2014 monthly close',nm=>{
     S.views.forEach(v=>v.on=false);
-    S.views.push({nm,fav:!!asFav,def:false,on:true,st:snapshot()});
+    S.views.push({nm,fav:!!asFav,def:false,on:true,used:++viewSeq,st:snapshot()});
     logA({act:asFav?'saved a favorite view':'saved a view',after:nm});
     renderAll(); toast(asFav?'Added to favorites':'View saved');
   });
@@ -7098,7 +7372,7 @@ function saveView(asFav){
 function loadView(i){
   const v=S.views[i]; if(!v)return;
   Object.assign(S,JSON.parse(JSON.stringify(v.st)));
-  S.views.forEach(x=>x.on=false); v.on=true;
+  S.views.forEach(x=>x.on=false); v.on=true; v.used=++viewSeq;
   logA({act:'loaded a saved view',after:v.nm}); popClose(); renderAll();
 }
 function loadFav(nm){const i=S.views.findIndex(v=>v.nm===nm); if(i>=0)loadView(i);}
@@ -7116,15 +7390,20 @@ function defView(i){
   logA({act:on?'set the default view':'cleared the default view',after:v.nm});
   renderAll(); if(popKind)paintPop();
 }
-/* Favorite the configuration currently on screen, straight from the star control. */
-function favCurrent(){
-  const m=favMatch();
-  if(m){ m.fav=false; logA({act:'removed a view from favorites',after:m.nm});
-    renderAll(); if(popKind)paintPop(); toast('Removed from favorites'); return; }
-  const same=matchView();
-  if(same){ same.fav=true; logA({act:'added a view to favorites',after:same.nm});
-    renderAll(); if(popKind)paintPop(); toast('Added to favorites'); return; }
-  saveView(true);
+/* THE STAR IS A TOGGLE ON THE LOADED VIEW, and it does nothing else. It used to
+   compare the current state against every saved snapshot and, on no match, open a
+   Save dialog — so a reviewer who nudged one filter and pressed the star got a
+   second near-identical view rather than the star they asked for. Starring is now
+   membership, and membership is only meaningful for a view that exists. The one
+   case where there is nothing to star — every view deleted — still saves, because
+   a control that cannot act should not be on the page at all. */
+function starCurrent(){
+  const v=curView();
+  if(!v){ saveView(true); return; }
+  v.fav=!v.fav;
+  logA({act:v.fav?'added a view to favorites':'removed a view from favorites',after:v.nm});
+  renderAll(); if(popKind)paintPop();
+  toast(v.fav?'Added to favorites':'Removed from favorites');
 }
 /* Which saved view, if any, the current configuration actually is. Comparing state
    rather than holding a flag means the label can never claim a favorite the user has
@@ -7553,29 +7832,37 @@ function paintDrawer(){
   const rcT=rec(r.id,true);
   $('fxDwHead').innerHTML=dwHead(r,rcT);
 
-  /* THREE TABS AND AN OVERFLOW. Summary, Drivers and Review stack are what a
-     reviewer is actually doing; Evidence and History are what they go and check,
-     so they no longer hold permanent tab width. Nothing was dropped — Accounts and
-     GL detail are reached by drilling a driver, and the audit trail is the History
-     record itself. The overflow carries one quiet dot when something behind it
-     genuinely needs a look. */
-  const ev=evidenceFor(rcT), gaps=evidenceGaps(rcT).length;
-  const inOver=S.dwTab==='evid'||S.dwTab==='hist';
-  let tb=[['sum','Summary'],['drive','Drivers'],
-    ['stack','Review stack'+(exDirty(exEdit)?' · unsaved':'')]]
-    .map(([id,nm])=>`<button class="${S.dwTab===id?'on':''}" onclick="KFX.dwTab('${id}')">${esc(nm)}</button>`).join('');
+  /* THREE PERMANENT TABS AND AN OVERFLOW. Overview, Comments and Support are the
+     complete tab structure — the questions an accountant actually asks: what happened
+     and why (Overview), what people say about it (Comments), and what is behind the
+     number (Support). Drivers is not a tab — it is a drill reached from Overview and
+     rendered in place. Evidence is folded into Support. History moves to the ••• menu
+     so it never competes with the three. The old "Review stack" name is gone; the
+     lineage logic that fed it now feeds the comment stream and the drill. */
+  const nComments=commentStream(r,rcT).filter(c=>!c.owed).length;
+  const gaps=evidenceGaps(rcT).length;
+  const inHist=S.dwTab==='hist';
+  const on=t=>S.dwTab===t||(t==='sum'&&S.dwTab==='drive');
+  let tb=[['sum','Overview',''],['comments','Comments',nComments?`<span class="ct">${nComments}</span>`:''],
+    ['support','Support',gaps?'<i class="dot"></i>':'']]
+    .map(([id,nm,badge])=>`<button class="${on(id)?'on':''}" onclick="KFX.dwTab('${id}')">${esc(nm)}${badge}</button>`).join('');
   tb+=`<span class="rw-tsp"></span>
-    <button class="rw-more ${inOver?'on':''}" aria-haspopup="menu" aria-label="Evidence and History"
-      title="Evidence and History" aria-expanded="${S.dwMenu?'true':'false'}"
-      onclick="event.stopPropagation();KFX.dwMenu()">•••${gaps?'<i class="dot"></i>':''}</button>`;
-  if(S.dwMenu)tb+=`<div class="rw-menu" role="menu" onclick="event.stopPropagation()">
-      <button role="menuitem" class="${S.dwTab==='evid'?'on':''}" onclick="KFX.dwTab('evid')">Evidence
-        <span class="ct ${gaps?'warn':''}">${gaps?gaps+' missing':(ev.length||'')}</span></button>
-      <button role="menuitem" class="${S.dwTab==='hist'?'on':''}" onclick="KFX.dwTab('hist')">History
+    <button class="rw-more ${inHist?'on':''}" aria-haspopup="menu" aria-label="History and more"
+      title="History" aria-expanded="${S.dwMenu?'true':'false'}"
+      onclick="event.stopPropagation();KFX.dwMenu()">•••</button>`;
+  if(S.dwMenu){
+    const pr=priorRec(r.id), hasPrior=pr&&pr.items.length;
+    tb+=`<div class="rw-menu" role="menu" onclick="event.stopPropagation()">
+      <button role="menuitem" class="${inHist&&S.histFocus==='review'?'on':''}" onclick="KFX.histOpen('review')">Review history
+        <span class="ct">${rcT.trail.length||''}</span></button>
+      ${hasPrior?`<button role="menuitem" class="${inHist&&S.histFocus==='prior'?'on':''}" onclick="KFX.histOpen('prior')">Prior-period explanation
+        <span class="ct">${pr.items.length}</span></button>`:''}
+      <button role="menuitem" class="${inHist&&S.histFocus==='activity'?'on':''}" onclick="KFX.histOpen('activity')">Activity log
         <span class="ct">${rcT.trail.length||''}</span></button>
     </div>`;
+  }
   $('fxDwTabs').innerHTML=tb;
-  $('fxDwBody').innerHTML=({sum:dwSummary,drive:dwDrivers,stack:dwStack,evid:dwEvidence,
+  $('fxDwBody').innerHTML=({sum:dwSummary,drive:dwDrivers,comments:dwComments,support:dwSupport,
     hist:dwHistory}[S.dwTab]||dwSummary)(r);
   $('fxDwFoot').innerHTML=dwFoot(r,rcT);
   /* Tell the panel when its body is scrolled, so the tab bar can grow a hairline.
@@ -7591,29 +7878,41 @@ function paintDrawer(){
   if(bd&&$('fxDetail'))$('fxDetail').classList.toggle('scrolled',bd.scrollTop>2);
   sizeDrawer();   // after the grid has laid out, so the reserved track is measurable
 }
-/* Legacy tab ids still arrive from citeJe() and openAcct(); map them forward rather
-   than dropping the reviewer on a blank panel. Evidence and History are still real
-   destinations — they simply live behind the overflow now, so a deep link into
-   them keeps working. */
-const DW_TAB_ALIAS={explain:'sum',sum:'sum',roll:'drive',drive:'drive',accts:'drive',jes:'drive',
-  stack:'stack',evid:'evid',hist:'hist',audit:'hist'};
+/* Legacy tab ids map forward onto the three-tab model, so old deep links and internal
+   callers keep landing somewhere sensible:
+     summary/explain/the retired "stack" -> Overview
+     drivers/rollforward/accounts/JEs    -> the Drivers drill (inside Overview)
+     evidence                            -> Support
+     history/audit                       -> History (in the ••• menu)
+   The retired 'stack' resolves to Overview because the explanation authoring it used
+   to hold now lives under Overview's Explanation section; the commentary it also held
+   is the Comments tab. */
+const DW_TAB_ALIAS={explain:'sum',sum:'sum',stack:'sum',
+  roll:'drive',drive:'drive',accts:'drive',jes:'drive',
+  comments:'comments',evid:'support',support:'support',hist:'hist',audit:'hist'};
 // switching tabs parks the draft; it used to null it and lose whatever was typed
 function dwTab(t){
   const id=DW_TAB_ALIAS[t]||'sum';
   // the two legacy sub-destinations are now points on the driver drill
   if(t==='accts'){S.drvPath=[];S.drvGl=false;}
   if(t==='jes'&&S.jeAcct){S.drvPath=[{dim:'acct',k:S.jeAcct,label:rwName('acct',S.jeAcct)}];S.drvGl=true;}
+  // leaving the Drivers drill for a real tab resets the drill so it reopens at its root
+  if(id!=='drive'&&S.dwTab==='drive'){S.drvPath=[];S.drvGl=false;}
   S.dwMenu=false;
   S.dwTab=id;paintDrawer();
 }
+/* History lives in the ••• menu now. Three entries onto one chronological record,
+   each leading with the section it names, so "Prior-period explanation" and "Activity
+   log" are real destinations rather than three buttons opening the same scroll. */
+function histOpen(focus){S.histFocus=focus||'review';S.dwMenu=false;S.dwTab='hist';paintDrawer();}
 /* ---- panel controls --------------------------------------------------------
    Collapse keeps the selection and every piece of in-progress work; close drops
    the selection. They are deliberately two different acts. */
 const DW_RAIL=34;                       // the collapsed rail's width
 function dwCollapse(){S.dwCollapsed=!S.dwCollapsed;S.dwMenu=false;paintDrawer();}
-function dwMenu(){S.dwMenu=!S.dwMenu;paintDrawer();}
-document.addEventListener('click',()=>{if(S.dwMenu){S.dwMenu=false;paintDrawer();}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.dwMenu){S.dwMenu=false;paintDrawer();}});
+function dwMenu(){S.dwMenu=!S.dwMenu;S.cmtMenu=false;paintDrawer();}
+document.addEventListener('click',()=>{if(S.dwMenu||S.cmtMenu){S.dwMenu=false;S.cmtMenu=false;paintDrawer();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(S.dwMenu||S.cmtMenu)){S.dwMenu=false;S.cmtMenu=false;paintDrawer();}});
 
 /* ---- workspace header ------------------------------------------------------
    The line, and one metadata line under it. That is the whole header.
@@ -7639,6 +7938,7 @@ function dwHead(r,rc){
         <span class="sep">·</span><span class="n">${r.pri?pct(r.dp):'—'}</span>
         <span class="sep">·</span><span>${word}</span>
       </div>
+      <div class="rw-per">${esc(cmpPhrase())}</div>
     </div>
     <div class="rw-hact">
       <button class="rw-ib" onclick="KFX.dwCollapse()" title="Collapse the review workspace"
@@ -7696,8 +7996,8 @@ function dwFoot(r,rc){
     if(!ok)h+=`<span class="why">${!C.prepare
       ? esc(me.role)+' is read-only on the close.'
       : (!rc.items.length
-        ? 'Needs at least one accepted explanation item — add one in Review stack.'
-        : 'Residual is outside tolerance — see Summary.')}</span>`;
+        ? 'Needs at least one accepted explanation item — add one under Explanation in Overview.'
+        : 'Residual is outside tolerance — see Overview.')}</span>`;
   }
   if(rc.status==='submitted'){
     if(canReviewLine(rc)){
@@ -7737,11 +8037,13 @@ function viewAsReviewer(){
 }
 
 /* ============================================================================
-   REVIEW WORKSPACE TABS
-   dwExplain() used to be all six tabs' worth of content in one function. It is
-   split here by the question each tab answers. Every capability it held is still
-   present — the explanation editor and Korvyn suggestions moved to Review stack,
-   attachments to Evidence, and the status block became the persistent footer.
+   REVIEW WORKSPACE — THREE TABS
+   The panel answers, in order: what happened and why (Overview), what people say
+   about it (Comments), and what is behind the number (Support). Drivers is a drill
+   reached from Overview; Evidence is folded into Support; History lives in the •••
+   menu. Every capability the older, busier panel held is still present — the
+   explanation editor and Korvyn suggestions render under Overview › Explanation,
+   attachments and financial lineage under Support, the review state in the footer.
    ========================================================================== */
 
 /* ---- shared derivations ----------------------------------------------------
@@ -8089,11 +8391,13 @@ function reqGoto(id){
   const q=reqById(id); if(!q)return;
   closeModal();
   if(q.st){S.grain=q.st.grain;S.compare=q.st.compare;S.cur=q.st.cur;S.prior=q.st.prior;}
-  S.sel=q.line; S.dwTab='stack';
+  /* the request is about who owes a comment, so it lands on the Comments tab where the
+     outstanding scope and its Answer / Record-on-behalf actions live */
+  S.sel=q.line; S.dwTab='comments';
   if(q.st&&q.st.stmt!==S.stmt&&typeof window.setFluxStmt==='function'){
     /* Go through the SHELL's setter so the statement picker moves with us; it calls
        setStmtFromShell, which would clear the selection, so re-assert it after. */
-    window.setFluxStmt(q.st.stmt); S.sel=q.line; S.dwTab='stack';
+    window.setFluxStmt(q.st.stmt); S.sel=q.line; S.dwTab='comments';
   }else if(q.st){S.stmt=q.st.stmt;}
   renderAll();
 }
@@ -8113,11 +8417,9 @@ function lStackWho(r,scope){
   const stk=stackFor(r,rec(r.id,true));
   return stk.find(l=>l.key===scope)||null;
 }
-function lShowAll(){S.stackAll=!S.stackAll;paintDrawer();}
-/* The vocabulary of a REVIEW at one organisational level. `approved` is the stored
-   key for the terminal state and reads as "Reviewed" everywhere a person sees it. */
-const STACK_ST={approved:{nm:'Reviewed',cl:'done'},submitted:{nm:'In review',cl:'wait'},
-  pending:{nm:'Needs review',cl:''},returned:{nm:'Returned',cl:'wait'},draft:{nm:'Draft',cl:''}};
+/* lShowAll / S.stackAll / STACK_ST were the old lineage renderer's fold toggle and
+   per-level status vocabulary. The comment stream does not fold and shows no
+   per-comment status badge, so all three were removed rather than left as dead code. */
 
 /* ---- EVIDENCE MODEL --------------------------------------------------------
    One list over both places a document can hang: an explanation item, or the line
@@ -8191,8 +8493,10 @@ function rwState(r,rc,C){
    who wrote it, at what level, when — and whether a machine drafted it. */
 function rwSource(r,rc,best){
   if(best.kind==='draft'){
-    const kd=kdraftFor(r);
-    return `Korvyn draft · v${kd.ver} · no one has acted on it yet`;
+    /* a Korvyn draft states how much of the movement it could quantify — the honest
+       measure of how far to trust it — rather than a version number nobody reads */
+    const q=Math.round(explainObj(r).quantPct);
+    return `Korvyn draft · ${q}% of movement quantified`;
   }
   if(best.kind==='inherited'){
     const inh=stackFor(r,rc).filter(l=>l.kind!=='ai'&&l.kind!=='ctrl'&&l.status==='approved')[0];
@@ -8219,31 +8523,37 @@ function dwSummary(r){
     ${st.sub?`<div class="rw-sub">${st.sub}</div>`:''}
   </div>`;
 
-  /* ---- B. CURRENT EXPLANATION. ONE narrative — the one that answers the line
-     today — clamped to four lines and opened on request. Never every underlying
-     comment, and never labelled as an approved thing: a comment is authored and
-     versioned, and it is the review around it that completes. */
-  const best=bestExplanation(r,rc);
-  h+=`<div class="rw-sec">Current explanation</div>`;
-  if(!best.text){
+  /* ---- B. EXPLANATION. ONE narrative — the one that answers the line today —
+     clamped and opened on request. Never every underlying comment, and never
+     labelled "approved": a comment is authored and versioned, and it is the review
+     around it that completes. Expanding it reveals the itemised explanation and, for
+     a preparer on an unlocked line, the authoring surface that used to be its own
+     "Review stack" tab. The editor takes over whenever one is open. */
+  const best=bestExplanation(r,rc), lock=rc.status==='approved', open=!!S.rwFullEx;
+  const canPrep=!lock&&caps().prepare;
+  h+=`<div class="rw-sec">Explanation</div>`;
+  if(exEdit){
+    // an open editor is the whole section — Save/Cancel live in the footer
+    h+=explAuthoring(r,rc,lock);
+  }else if(!best.text){
     h+=`<div class="rw-quiet">No explanation on this line yet.${
-      r.req?' One is required before this review can complete.':''}</div>
-      <button type="button" class="rw-lnk" onclick="KFX.dwTab('stack')">Write an explanation →</button>`;
+      r.req?' One is required before this review can complete.':''}</div>`;
+    // a dismissed Korvyn draft can be restored; otherwise the authoring surface
+    // (write, generate a suggestion, carry forward) is offered directly, not hidden
+    if(rc.kdDismissed&&canPrep)
+      h+=`<div class="rw-src">Korvyn draft dismissed on this line — it remains in History.
+        <button type="button" class="rw-lnk" onclick="KFX.kdRestore()">Restore</button></div>`;
+    if(canPrep)h+=explAuthoring(r,rc,lock);
   }else{
-    const open=!!S.rwFullEx;
     h+=`<div class="rw-nar ${open?'':'clip'}">${best.kind==='draft'?best.text:esc(best.text)}</div>
       <button type="button" class="rw-lnk" onclick="KFX.rwFullEx()">${
         open?'Show less':'View full explanation →'}</button>
       <div class="rw-src">${rwSource(r,rc,best)}</div>`;
-    // the itemised commentary behind the narrative, only once it is asked for
-    if(open&&rc.items.length){
-      h+=`<div class="rw-items">`+rc.items.map(it=>{
-        const w=rwWho(it.by||rc.prep);
-        return `<div class="rw-item">
-          <span class="a dlt ${it.amt>0?'up':'dn'}">${fmtS(it.amt)}</span>
-          <span class="k">${esc(RSN[it.reason]||it.reason)} · ${esc(w.nm)}${it.at?' · '+esc(it.at):''}</span>
-          <div class="t">${esc(it.note)}</div></div>`;}).join('')+`</div>`;
-    }
+    /* THE KORVYN DRAFT IS THE CURRENT EXPLANATION UNTIL A PERSON ACTS. Its controls
+       ride directly under the narrative — accepting it is the primary move on a
+       drafted line, so it is not hidden behind "View full explanation". */
+    if(best.kind==='draft'&&canPrep)h+=kdControls(r,rc);
+    if(open)h+=explAuthoring(r,rc,lock);
   }
 
   /* ---- C. KEY DRIVERS. Three, aligned, tabular. No cards and no chart: the
@@ -8265,27 +8575,126 @@ function dwSummary(r){
     h+=`<button type="button" class="rw-lnk" onclick="KFX.dwTab('drive')">View all drivers →</button>`;
   }
 
-  /* ---- D. NEEDS ATTENTION. Rendered only when the underlying state actually
-     produces something. Severity is a 3px left border on the items that carry it
-     and nothing at all on the others — never an alert card per row. */
+  /* ---- D. NEEDS ATTENTION. THE SECTION ITSELF appears only when something actually
+     needs attention — a healthy line shows nothing here at all, not a "No open
+     issues" placeholder. Severity is a 3px left border on the items that carry it and
+     nothing at all on the others — never an alert card per row. */
   const attn=kdAttention(r,O);
-  h+=`<div class="rw-sec">Needs attention</div>`;
-  h+=attn.length
-    ? `<div class="rw-attn">`+attn.map(a=>`<div class="rw-a ${a.hi?'hi':''}">${a.w}</div>`).join('')+`</div>`
-    : `<div class="rw-quiet">No open issues</div>`;
+  if(attn.length)
+    h+=`<div class="rw-sec">Needs attention</div>
+      <div class="rw-attn">`+attn.map(a=>`<div class="rw-a ${a.hi?'hi':''}">${a.w}</div>`).join('')+`</div>`;
 
-  /* ---- E. NEXT REVIEWER. Accountability as two lines of type. Omitted once the
-     review is complete, because the state block above already names who closed it
-     and repeating it would be the third time this panel said the same thing. */
+  /* ---- E. REVIEWER. Accountability as two lines of type — no profile card, no
+     dominant avatar. Omitted once the review is complete, because the status block
+     above already names who reviewed it ("REVIEWED · David Lee · Corporate
+     Controller"), and repeating it would be the third time this panel said the same. */
   if(rc.status!=='approved'){
     const w=rwWho(rc.rev||PEOPLE.rev), p=rwWho(rc.prep);
-    h+=`<div class="rw-sec">Next reviewer</div>
+    h+=`<div class="rw-sec">Reviewer</div>
       <div class="rw-who">${esc(w.nm)}</div>
       ${w.role?`<div class="rw-role">${esc(w.role)}</div>`:''}
       <div class="rw-role">${rc.status==='submitted'
         ? 'Has the line now'
         : `After ${esc(p.nm)} submits`}</div>`;
   }
+  return h;
+}
+
+/* ---- THE KORVYN DRAFT'S CONTROLS -------------------------------------------
+   The four moves on a system-prepared draft, in the order a preparer reaches for
+   them: accept it as their own explanation, edit it (which records it as edited,
+   not accepted), regenerate it, or dismiss it. They render under the draft narrative
+   in Overview, where the draft is shown — the same actions the old "Review stack"
+   lineage carried, minus the tab. Nothing here approves a comment. */
+function kdControls(r,rc){
+  const SUP=kdSupport(explainObj(r));
+  return `<div class="rw-src">${esc(SUP.lvl)} · ${SUP.facts.map(esc).join(' · ')}</div>
+    <div class="rw-lact" style="margin-top:var(--s-2)">
+      <button class="btn-out sm" onclick="KFX.kdAccept()">Accept as explanation</button>
+      <button class="btn-out sm" onclick="KFX.kdEdit()">Edit</button>
+      <button class="btn-out sm" onclick="KFX.kdRegen()">Regenerate</button>
+      <button class="btn-out sm" onclick="KFX.kdDismiss()">Dismiss</button></div>`;
+}
+
+/* ---- EXPLANATION AUTHORING -------------------------------------------------
+   The preparer surface that used to be the back half of the "Review stack" tab:
+   Korvyn's suggested explanation, the accepted explanation items, and the controls
+   to add / carry forward / edit / remove them. It lives under Overview › Explanation
+   now, revealed when the explanation is expanded, so authoring sits with the thing
+   it authors. Nothing here approves a comment — every control acts on the line's
+   explanation items, which the line's own review (footer) then completes. */
+function explAuthoring(r,rc,lock){
+  let h='';
+  // the editor, when one is open, is the whole surface
+  if(exEdit)return exForm(r);
+
+  const openS=(rc.sugs||[]).filter(x=>x.status==='proposed');
+  if(!lock){
+    h+=`<div class="dw-sec">Korvyn's suggested explanation
+      ${openS.length?`<span class="pill ai" style="margin-left:6px">${openS.length} awaiting your decision</span>`:''}</div>`;
+    if(!(rc.sugs||[]).length){
+      h+=`<div class="rl-note" style="margin-bottom:8px">Korvyn reads the movement against the underlying
+        dimensions and proposes a quantified explanation for each contributor. Nothing is posted until you
+        accept it.</div>
+        <button class="btn-out sm" onclick="KFX.exPropose()">Generate suggested explanation</button>`;
+    }else{
+      if(openS.length>1)h+=`<div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="btn-primary sm" onclick="KFX.sugAllAccept()">Accept all ${openS.length}</button>
+        <button class="btn-out sm" onclick="KFX.sugAllDismiss()">Dismiss all</button></div>`;
+      rc.sugs.forEach((x,i)=>{
+        if(x.status!=='proposed')return;
+        h+=`<div class="exi" style="border-color:var(--ai-line);background:var(--ai-bg)">
+          <div class="exi-top"><span class="pill ai">Korvyn suggests</span>
+            <span class="exi-amt dlt ${x.amt>0?'up':'dn'}">${fmtS(x.amt)}</span>
+            <span class="pill ac">${esc(RSN[x.reason]||x.reason)}</span><span class="sp"></span>
+            <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(x.amt/r.d*100):0).toFixed(0)}% of Δ</span>
+          </div>
+          <div class="exi-tx">${esc(x.note)}</div>
+          <div class="exi-meta"><span class="say">${esc(x.basis||'')}</span><span class="sp"></span>
+            <button type="button" class="lnk" onclick="KFX.sugAccept(${i})">accept</button>
+            <button type="button" class="lnk" onclick="KFX.sugEdit(${i})">edit and accept</button>
+            <button type="button" class="lnk" onclick="KFX.sugDismiss(${i})">dismiss</button></div>
+        </div>`;});
+      const done=rc.sugs.filter(x=>x.status!=='proposed');
+      if(done.length)h+=`<div class="rl-note">${done.filter(x=>x.status==='accepted').length} accepted ·
+        ${done.filter(x=>x.status==='edited').length} edited ·
+        ${done.filter(x=>x.status==='dismissed').length} dismissed — each decision is in the audit log.</div>`;
+      if(!openS.length)h+=`<button class="btn-out sm" onclick="KFX.exPropose()">Regenerate suggestions</button>`;
+    }
+  }
+
+  h+=`<div class="dw-sec">Explanation items</div>
+    ${lock?'':`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn-primary sm" onclick="KFX.exNew()">+ Add explanation</button>
+      ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length?
+        `<button class="btn-out sm" onclick="KFX.exCarry()">Carry forward prior period</button>`:'';})()}
+    </div>`}`;
+  if(!rc.items.length)h+=`<div class="rl-empty">
+    ${lock?'This line was reviewed with no itemised explanation.'
+      :`Nothing accepted yet, so the full ${fmt(Math.abs(r.d))} movement is unexplained. Add an item
+        yourself, or accept a Korvyn suggestion above.`}</div>`;
+  rc.items.forEach((it,i)=>{
+    const noSup=!(it.files||[]).length;
+    h+=`<div class="exi ${lock?'locked':''} ${!lock&&noSup?'nosup':''}">
+      <div class="exi-top">
+        <span class="exi-amt dlt ${it.amt>0?'up':'dn'}">${fmtS(it.amt)}</span>
+        <span class="pill ac">${esc(RSN[it.reason]||it.reason)}</span>
+        ${it.src==='korvyn'?'<span class="pill ai">accepted from Korvyn</span>':''}
+        ${it.src==='korvyn-edited'?'<span class="pill ai">Korvyn, edited</span>':''}
+        <span class="sp"></span>
+        <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(it.amt/r.d*100):0).toFixed(0)}% of Δ</span>
+      </div>
+      <div class="exi-tx">${esc(it.note)}</div>
+      <div class="exi-meta">${it.ev?`<span class="pill">${ic('clip')} ${esc(it.ev)}</span>`:''}
+        ${noSup?'<span class="say" style="color:var(--warning)">No support attached — an approver will ask for it</span>':''}
+        <span class="sp"></span>
+        <span style="color:var(--faint)">${esc((it.by||PEOPLE.prep).split(',')[0])} · ${it.at||''}</span></div>`;
+    if(!lock)h+=`<div style="margin-top:7px;display:flex;gap:6px;align-items:center">
+        <button class="btn-out sm" onclick="KFX.dwTab('support')">Support${(it.files||[]).length?' · '+it.files.length:''}</button>
+        <button type="button" class="lnk" onclick="KFX.exNew(${i})">edit</button>
+        <button type="button" class="lnk" onclick="KFX.exDel(${i})">remove</button></div>`;
+    h+=`</div>`;
+  });
   return h;
 }
 
@@ -8362,11 +8771,14 @@ function dwDrivers(r){
   let h='';
 
   /* the back affordance names the level you are standing in, so it reads as an
-     exit from this thing rather than as an unlabelled arrow */
+     exit from this thing rather than as an unlabelled arrow. Drivers is a drill
+     reached from Overview, not a tab, so at its root the way back is to Overview. */
   if(path.length){
     const here=path[path.length-1];
     h+=`<button type="button" class="rw-back" onclick="KFX.drvUp()">‹ ${esc(here.label)}</button>
       <div class="rw-crumb">${['Drivers',...path.map(p=>p.label)].map(esc).join(' › ')}</div>`;
+  }else{
+    h+=`<button type="button" class="rw-back" onclick="KFX.dwTab('sum')">‹ Overview</button>`;
   }
 
   /* the total for wherever we are standing: the line's movement at the root, the
@@ -8504,168 +8916,163 @@ function rwGlList(r,filt){
   return h;
 }
 
-/* ========================== 3. REVIEW STACK =============================== */
-/* A FINANCIAL-REVIEW LINEAGE, NOT A THREAD. No bubble, no avatar, no social
-   affordance, and — the point of this pass — no status label on an individual
-   entry. Each entry is a comment object: organisational scope, author, role, time,
-   version, narrative, the lower-level explanations it references and its evidence.
-   Where a LEVEL's review has completed, that fact appears as one quiet metadata
-   line beneath, because the completion belongs to the review and not to the words. */
-function dwStack(r){
-  const rc=rec(r.id,true), lock=rc.status==='approved';
-  const stk=stackFor(r,rc);
-  const outs=stk.filter(l=>l.outstanding).length;
-  /* PROGRESSIVE DISCLOSURE BELONGS HERE, NOT IN THE MODEL. The lineage carries every
-     contributing level; this decides how many to draw. Outstanding levels are never
-     folded away — the whole point is that they are the ones you have to chase. */
-  const LIM=6;
-  const local=stk.filter(l=>l.kind==='ent'||l.kind==='reg');
-  const folded=!S.stackAll&&local.length>LIM;
-  const hidden=folded?local.filter(l=>!l.outstanding).slice(LIM):[];
-  const hide=new Set(hidden.map(l=>l.key));
+/* ============================ 3. COMMENTS ================================
+   A PROFESSIONAL ACCOUNTING COMMENT STREAM — not a chat, not a hierarchy diagram,
+   and not the old "Review stack". Each comment is author / role · scope / time, then
+   the text, separated by a hairline. No bubble, no dominant avatar, no per-comment
+   status badge, and no approve control: review applies to the financial line, never
+   to a comment.
 
-  let h=`<div class="rw-sec">Review lineage<span class="ct">${stk.length} levels${
-    outs?' · '+outs+' outstanding':''}</span></div>
-    <div class="rw-quiet" style="margin-bottom:var(--s-2)">Each level keeps its own commentary. Higher levels
-      reference the explanations beneath them rather than overwriting them, so an entity's words survive
-      corporate review.</div><div class="rw-lin">`;
-  stk.forEach(l=>{
-    if(l.key&&hide.has(l.key))return;
-    const s=STACK_ST[l.status]||STACK_ST.pending;
-    const txt=l._kd?kdraftFor(r).text:esc(l.note);
-    h+=`<div class="rw-le ${l.outstanding?'owed':''}">
-      <div class="rw-lscope">${esc(l.scope)}</div>
-      <div class="rw-lby">${esc(String(l.who).split(',')[0])}${
-        l.role?` <span class="role">· ${esc(l.role)}</span>`:''}</div>
-      <div class="rw-lat">${esc(l.at)}${l.ver&&l.ver!=='—'?' · '+esc(l.ver):''}</div>
-      ${txt?`<div class="rw-ltx">${txt}</div>`:''}
-      ${l.outstanding?`<div class="rw-lowed">No explanation recorded at this level.${
-        l.req?` Asked ${esc(l.req.at)}, due ${esc(l.req.due)}${
-          reqLate(l.req)?' — <b>overdue</b>':''}${
-          l.req.chases.length?` · chased ${l.req.chases.length}×`:''}: “${esc(l.req.ask)}”`:''}</div>`:''}
-      ${l.refs&&l.refs.length?`<div class="rw-lref">References ${l.refs.length} lower-level
-        explanation${l.refs.length===1?'':'s'}: ${esc(l.refs.join(', '))}</div>`:''}
-      <div class="rw-lmeta"><span>${l.ev?l.ev+' document'+(l.ev===1?'':'s'):'No documents'}</span>
-        ${l.amt!=null?`<span>${fmtS(l.amt)} of the movement</span>`:''}</div>
-      ${l.onBehalf?`<div class="rw-lrev">Recorded by ${esc(String(l.who).split(',')[0])} on behalf of
-        ${esc(l.onBehalf)}</div>`:''}
-      ${l.status==='approved'
-        ? `<div class="rw-lrev">Reviewed at ${esc(l.scope)} level · ${esc(String(l.who).split(',')[0])} · ${esc(l.at)}</div>`
-        : (l.status==='returned'?`<div class="rw-lrev">Review returned at this level</div>`:'')}
-      ${l._kd?(()=>{const SUP=kdSupport(explainObj(r));
-        return `<div class="rw-lrev">${esc(SUP.lvl)} · ${SUP.facts.map(esc).join(' · ')}</div>`;})():''}
-      ${l._kd&&!lock?`<div class="rw-lact">
-        <button class="btn-out sm" onclick="KFX.kdAccept()">Accept as preparer explanation</button>
-        <button class="btn-out sm" onclick="KFX.kdEdit()">Edit</button>
-        <button class="btn-out sm" onclick="KFX.kdRegen()">Regenerate</button>
-        <button class="btn-out sm" onclick="KFX.kdDismiss()">Dismiss</button></div>`:''}
-      ${l._kd&&rc.kdDismissed?`<div class="rw-lrev">Dismissed on this line — it remains in History.
-        <button type="button" class="lnk" onclick="KFX.kdRestore()">Restore</button></div>`:''}
-      ${l.key&&!lock?`<div class="rw-lact">
-        ${l.outstanding
-          ? (()=>{
-              /* WHOSE BOOKS THESE ARE decides what the buttons say. On a level you
-                 keep yourself there is no "on behalf" — those are your words. On
-                 anyone else's, the only two honest moves are to ask them, or to
-                 write it down for them and have the lineage say so. */
-              const own=scopeOwner(l.key), b=[];
-              if(own.me){
-                b.push(`<button class="btn-out sm" onclick="KFX.lAnswer('${l.key}')">Write the explanation</button>`);
-                if(!l.req)b.push(`<button type="button" class="lnk" onclick="KFX.lRequest('${l.key}')">put it on the request list</button>`);
-              }else{
-                b.push(`<button class="btn-out sm" onclick="KFX.lRequest('${l.key}')">${
-                  l.req?'Chase':'Request explanation'}</button>`);
-                b.push(`<button class="btn-out sm" onclick="KFX.lOnBehalf('${l.key}')">Record on behalf</button>`);
-              }
-              if(l.req)b.push(`<button type="button" class="lnk" onclick="KFX.reqWithdraw('${l.req.id}')">withdraw the request</button>`);
-              return b.join('');
-            })()
-          : (l.status!=='approved'
-              ? `<button class="btn-out sm" onclick="KFX.lReview('${l.key}')">Mark reviewed at this level</button>`
-              : '')}</div>`:''}
-    </div>`;
+   The stream draws from three real sources and invents none:
+     - per-scope commentary a local controller wrote (the review lineage's notes),
+     - free discussion comments authored here (rc.comments),
+     - contributing scopes that owe a comment (rendered as a quiet "awaiting" row
+       with the ask / record-on-behalf actions, in plain accounting language).
+   The lineage model that fed the old tab is unchanged underneath — only its
+   presentation is. */
+function commentStream(r,rc){
+  rc=rc||rec(r.id,true);
+  const out=[];
+  stackFor(r,rc).forEach(l=>{
+    if(l.kind!=='ent'&&l.kind!=='reg')return;   // Korvyn draft, corporate summary and controller status are not comments
+    if(l.outstanding){
+      out.push({owed:true,kind:l.kind,scope:l.scope,who:String(l.who).split(',')[0],
+        role:l.role||'',key:l.key,req:l.req,amt:l.amt});
+    }else{
+      out.push({owed:false,kind:l.kind,scope:l.scope,who:String(l.who).split(',')[0],
+        role:l.role||'',at:l.at,ver:l.ver&&l.ver!=='—'?l.ver:'',text:l.note,
+        refs:l.refs||[],ev:l.ev||0,onBehalf:l.onBehalf,key:l.key,status:l.status});
+    }
   });
-  h+=`</div>`;
-  if(folded&&hidden.length)h+=`<button type="button" class="rw-lnk" onclick="KFX.lShowAll()"
-    >Show ${hidden.length} more level${hidden.length===1?'':'s'} with an explanation recorded →</button>`;
-  else if(S.stackAll&&local.length>LIM)h+=`<button type="button" class="rw-lnk"
-    onclick="KFX.lShowAll()">Show fewer levels</button>`;
+  (rc.comments||[]).forEach(c=>{const w=rwWho(c.by);
+    out.push({owed:false,kind:'corp',scope:c.scope||'Corporate',who:w.nm,role:w.role,
+      at:c.at,ver:c.ver&&c.ver>1?('v'+c.ver):'',text:c.text,refs:[],ev:0,disc:true});});
+  return out;
+}
+const CMT_KINDS=[['all','All'],['ent','Entity'],['reg','Regional'],['corp','Corporate']];
+function cmtCard(c,lock){
+  /* MARKING A LEVEL'S REVIEW COMPLETE is a governance action on that scope's own
+     review — the multinational close's per-level sign-off — not an approval of the
+     comment's words. So it renders once the level has commented but its own review
+     is still open, only for a reviewer, as one quiet link. The old "Review stack"
+     tab held this; nothing else in the three-tab panel can. */
+  const canReview=!lock&&c.key&&c.status&&c.status!=='approved'&&typeof caps==='function'&&caps().review;
+  return `<div class="rw-cm">
+    <div class="who">${esc(c.who)}</div>
+    <div class="role">${[c.role,c.scope].filter(Boolean).map(esc).join(' · ')}</div>
+    <div class="at">${esc(c.at||'')}${c.ver?' · '+esc(c.ver):''}</div>
+    ${c.text?`<div class="tx">${esc(c.text)}</div>`:''}
+    ${c.onBehalf?`<div class="refs">Recorded on behalf of ${esc(c.onBehalf)}</div>`:''}
+    ${c.refs&&c.refs.length?`<div class="refs">References ${c.refs.length} lower-level
+      explanation${c.refs.length===1?'':'s'}: ${esc(c.refs.join(', '))}</div>`:''}
+    ${c.ev?`<div class="ev"><span>${ic('clip')} ${c.ev} document${c.ev===1?'':'s'}</span></div>`:''}
+    ${canReview?`<div class="cact"><button type="button" class="rw-lnk"
+      onclick="KFX.lReview('${c.key}')">Mark this level reviewed</button></div>`:''}
+  </div>`;
+}
+function owedCard(c,lock){
+  const own=c.key?scopeOwner(c.key):{me:false};
+  let act='';
+  if(!lock){
+    const b=[];
+    if(own.me){
+      b.push(`<button class="btn-out sm" onclick="KFX.lAnswer('${c.key}')">Add the comment</button>`);
+      if(!c.req)b.push(`<button type="button" class="lnk" onclick="KFX.lRequest('${c.key}')">put it on the request list</button>`);
+    }else{
+      b.push(`<button class="btn-out sm" onclick="KFX.lRequest('${c.key}')">${c.req?'Chase':'Request'}</button>`);
+      b.push(`<button class="btn-out sm" onclick="KFX.lOnBehalf('${c.key}')">Record on behalf</button>`);
+    }
+    if(c.req)b.push(`<button type="button" class="lnk" onclick="KFX.reqWithdraw('${c.req.id}')">withdraw</button>`);
+    act=`<div class="cact">${b.join('')}</div>`;
+  }
+  return `<div class="rw-cm owed">
+    <div class="who">${esc(c.who)}</div>
+    <div class="role">${[c.role,c.scope].filter(Boolean).map(esc).join(' · ')}</div>
+    <div class="owed-t">No comment yet${c.amt!=null?` · ${fmtS(c.amt)} of the movement`:''}.${
+      c.req?` Asked ${esc(c.req.at)}, due ${esc(c.req.due)}${reqLate(c.req)?' — <b>overdue</b>':''}${
+        c.req.chases.length?` · chased ${c.req.chases.length}×`:''}.`:''}</div>
+    ${act}
+  </div>`;
+}
+function cmtComposer(){
+  const me=ME();
+  return `<div class="rw-comp">
+    <textarea id="cmtIn" placeholder="Add a comment — a note or a question for the reviewers."></textarea>
+    <div class="row"><span class="scope">Posting as ${esc(me.nm)} · ${esc(me.role)}</span><span class="sp"></span>
+      <button class="btn-out sm" onclick="KFX.cmtCancel()">Cancel</button>
+      <button class="btn-primary sm" onclick="KFX.cmtSave()">Comment</button></div>
+  </div>`;
+}
+function dwComments(r){
+  const rc=rec(r.id,true), lock=rc.status==='approved';
+  const all=commentStream(r,rc);
+  const said=all.filter(c=>!c.owed), owed=all.filter(c=>c.owed);
+  const kinds=new Set(said.map(c=>c.kind));
+  const showFilter=said.length>2&&kinds.size>1;
+  const fk=showFilter?(S.cmtFilter||'all'):'all';
+  const match=c=>fk==='all'||c.kind===fk;
+  const shown=said.filter(match), owedShown=owed.filter(match);
 
-  /* AUTHORING lives here, next to the lineage it joins. */
-  const openS=(rc.sugs||[]).filter(x=>x.status==='proposed');
-  h+=`<div class="dw-sec">Korvyn's suggested review
-    ${openS.length?`<span class="pill ai" style="margin-left:6px">${openS.length} awaiting your decision</span>`:''}</div>`;
-  if(!(rc.sugs||[]).length){
-    h+=`<div class="rl-note" style="margin-bottom:8px">Korvyn reads the movement against the underlying
-      dimensions and proposes a quantified explanation for each contributor. Nothing is posted until you
-      accept it.</div>
-      <button class="btn-out sm" onclick="KFX.exPropose()">Generate suggested explanation</button>`;
-  }else{
-    if(openS.length>1)h+=`<div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="btn-primary sm" onclick="KFX.sugAllAccept()">Accept all ${openS.length}</button>
-      <button class="btn-out sm" onclick="KFX.sugAllDismiss()">Dismiss all</button></div>`;
-    rc.sugs.forEach((x,i)=>{
-      if(x.status!=='proposed')return;
-      h+=`<div class="exi" style="border-color:var(--ai-line);background:var(--ai-bg)">
-        <div class="exi-top"><span class="pill ai">Korvyn suggests</span>
-          <span class="exi-amt dlt ${x.amt>0?'up':'dn'}">${fmtS(x.amt)}</span>
-          <span class="pill ac">${esc(RSN[x.reason]||x.reason)}</span><span class="sp"></span>
-          <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(x.amt/r.d*100):0).toFixed(0)}% of Δ</span>
-        </div>
-        <div class="exi-tx">${esc(x.note)}</div>
-        <div class="exi-meta"><span class="say">${esc(x.basis||'')}</span><span class="sp"></span>
-          ${lock?'':`<button type="button" class="lnk" onclick="KFX.sugAccept(${i})">accept</button>
-          <button type="button" class="lnk" onclick="KFX.sugEdit(${i})">edit and accept</button>
-          <button type="button" class="lnk" onclick="KFX.sugDismiss(${i})">dismiss</button>`}</div>
-      </div>`;});
-    const done=rc.sugs.filter(x=>x.status!=='proposed');
-    if(done.length)h+=`<div class="rl-note">${done.filter(x=>x.status==='accepted').length} accepted ·
-      ${done.filter(x=>x.status==='edited').length} edited ·
-      ${done.filter(x=>x.status==='dismissed').length} dismissed — each decision is in the audit log.</div>`;
-    if(!openS.length)h+=`<button class="btn-out sm" onclick="KFX.exPropose()">Regenerate suggestions</button>`;
+  let h=`<div class="rw-cbar">
+    <div class="rw-sec" style="margin:0">Comments${said.length?`<span class="ct">${said.length}</span>`:''}</div>
+    <span class="sp"></span>
+    ${showFilter?`<div class="rw-cfil">
+      <button aria-haspopup="menu" aria-expanded="${S.cmtMenu?'true':'false'}"
+        onclick="event.stopPropagation();KFX.cmtMenu()">${
+        esc((CMT_KINDS.find(k=>k[0]===fk)||CMT_KINDS[0])[1])} comments <span class="cue">▾</span></button>
+      ${S.cmtMenu?`<div class="rw-cmenu" role="menu" onclick="event.stopPropagation()">`+
+        CMT_KINDS.filter(k=>k[0]==='all'||kinds.has(k[0])).map(k=>
+          `<button class="${fk===k[0]?'on':''}" onclick="KFX.cmtFilter('${k[0]}')">${esc(k[1])}</button>`).join('')+
+        `</div>`:''}
+    </div>`:''}
+  </div>`;
+
+  if(!lock){
+    h+= S.cmtCompose ? cmtComposer() : `<button class="rw-add" onclick="KFX.addComment()">Add a comment…</button>`;
   }
 
-  h+=`<div class="dw-sec">Corporate explanation items</div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-      ${lock?'':`<button class="btn-primary sm" onclick="KFX.exNew()">+ Add explanation</button>`}
-      ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length&&!lock?
-        `<button class="btn-out sm" onclick="KFX.exCarry()">Carry forward prior period</button>`:'';})()}
-    </div>`;
-  if(exEdit)h+=exForm(r);
-  if(!rc.items.length&&!exEdit)h+=`<div class="rl-empty">
-    ${lock?'This line was approved with no itemised explanation.'
-      :`Nothing accepted yet, so the full ${fmt(Math.abs(r.d))} movement is unexplained. Add an item
-        yourself, or accept a Korvyn suggestion above.`}</div>`;
-  rc.items.forEach((it,i)=>{
-    const noSup=!(it.files||[]).length;
-    h+=`<div class="exi ${lock?'locked':''} ${!lock&&noSup?'nosup':''}">
-      <div class="exi-top">
-        <span class="exi-amt dlt ${it.amt>0?'up':'dn'}">${fmtS(it.amt)}</span>
-        <span class="pill ac">${esc(RSN[it.reason]||it.reason)}</span>
-        ${it.src==='korvyn'?'<span class="pill ai">accepted from Korvyn</span>':''}
-        ${it.src==='korvyn-edited'?'<span class="pill ai">Korvyn, edited</span>':''}
-        <span class="sp"></span>
-        <span style="color:var(--faint);font-size:var(--fs-micro)">${(r.d?Math.abs(it.amt/r.d*100):0).toFixed(0)}% of Δ</span>
-      </div>
-      <div class="exi-tx">${esc(it.note)}</div>
-      <div class="exi-meta">${it.ev?`<span class="pill">${ic('clip')} ${esc(it.ev)}</span>`:''}
-        ${noSup?'<span class="say" style="color:var(--warning)">No support attached — an approver will ask for it</span>':''}
-        <span class="sp"></span>
-        <span style="color:var(--faint)">${esc((it.by||PEOPLE.prep).split(',')[0])} · ${it.at||''}</span></div>`;
-    if(!lock)h+=`<div style="margin-top:7px;display:flex;gap:6px;align-items:center">
-        <button class="btn-out sm" onclick="KFX.dwTab('evid')">Evidence${(it.files||[]).length?' · '+it.files.length:''}</button>
-        <button type="button" class="lnk" onclick="KFX.exNew(${i})">edit</button>
-        <button type="button" class="lnk" onclick="KFX.exDel(${i})">remove</button></div>`;
-    h+=`</div>`;
-  });
+  if(!said.length&&!owed.length){
+    h+=`<div class="rw-quiet">No comments yet.${lock?'':
+      ' Add the first, or a contributing entity will as the review moves.'}</div>`;
+    return h;
+  }
+  if(shown.length)h+=`<div class="rw-cstream">`+shown.map(c=>cmtCard(c,lock)).join('')+`</div>`;
+  else if(said.length)h+=`<div class="rw-quiet">No ${esc((CMT_KINDS.find(k=>k[0]===fk)||[])[1]||'').toLowerCase()} comments.</div>`;
+
+  if(owedShown.length)
+    h+=`<div class="rw-sec">Awaiting a comment<span class="ct">${owedShown.length}</span></div>
+      <div class="rw-cstream">`+owedShown.map(c=>owedCard(c,lock)).join('')+`</div>`;
   return h;
 }
+/* ---- add-a-comment: a discussion note, never an approval --------------------
+   Writes to rc.comments (the free discussion stream), audited like anything else.
+   It is a comment, not an explanation item, so it never changes coverage or the
+   residual — it is what people SAY about the number, beside what explains it. */
+function addComment(){ if(rec(S.sel,true).status==='approved'){toast('This line is reviewed and locked');return;}
+  S.cmtCompose=true; paintDrawer(); setTimeout(()=>{const t=document.getElementById('cmtIn');if(t)t.focus();},30); }
+function cmtCancel(){ S.cmtCompose=false; paintDrawer(); }
+function cmtSave(){
+  const t=document.getElementById('cmtIn'); const txt=t?String(t.value||'').trim():'';
+  if(!txt){toast('Nothing to post');if(t)t.focus();return;}
+  const rc=rec(S.sel,true);
+  rc.comments.push({by:meStr(),at:stamp(),ts:Date.now(),text:txt,scope:'Corporate',ver:1});
+  logA({line:S.sel,who:meStr(),act:'added a comment',after:txt});
+  S.cmtCompose=false; renderAll(); toast('Comment added');
+}
+function cmtFilter(k){ S.cmtFilter=k; S.cmtMenu=false; paintDrawer(); }
+function cmtMenu(){ S.cmtMenu=!S.cmtMenu; paintDrawer(); }
 
-/* ============================ 4. EVIDENCE =================================
-   A PLAIN LIST, not a document repository. What is attached carries a check; what
-   an accepted explanation still owes carries an open ring. Scope, uploader and
-   size stay — as one quiet metadata line instead of four table columns. */
-function dwEvidence(r){
+/* ============================ 4. SUPPORT =================================
+   "What is behind this number?" — the two answers a reviewer needs in one place:
+   the SUPPORTING EVIDENCE attached to the line, and the FINANCIAL SOURCE it derives
+   from (the statement line it rolls into, the accounts beneath it, the volume of
+   journal entries, the source ERP, and whether it ties to the trial balance).
+
+   The evidence list is a plain list, not a document repository: what is attached
+   carries a check, what an accepted explanation still owes carries an open ring.
+   The financial source is read straight from the model — lineAccts, jes, tieOut —
+   and invents nothing. */
+function dwSupport(r){
   const rc=rec(r.id,true), lock=rc.status==='approved';
   const ev=evidenceFor(rc), gaps=evidenceGaps(rc);
   let h=`<div class="rw-sec">Evidence<span class="ct">${ev.length||''}</span></div>`;
@@ -8697,8 +9104,34 @@ function dwEvidence(r){
     rc.items.forEach((it,i)=>{
       h+=`<input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">`;});
     h+=`<button type="button" class="rw-lnk"
-      onclick="document.getElementById('upLine').click()">Add evidence →</button>`;
+      onclick="document.getElementById('upLine').click()">Add support →</button>`;
   }
+
+  /* ---- FINANCIAL SOURCE — where the number comes from, read from the model ---- */
+  const accts=lineAccts(S.stmt,r.id);
+  const nJe=accts.reduce((n,a)=>n+jes(a).length,0);
+  const tie=tieOut();
+  const firstAcct=accts[0]||'';
+  const a=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  h+=`<div class="rw-sec" style="margin-top:var(--s-5)">Financial source</div>
+    <div class="rw-fs">
+      <div class="rw-fsr"><span class="k">Financial line</span>
+        <span class="v">${r.sec?esc(r.sec)+' <span style="color:var(--faint)">→</span> ':''}${esc(r.l)}</span></div>
+      <div class="rw-fsr"><span class="k">Accounts</span><span class="v">${
+        accts.length?accts.map(x=>`<span class="mono">${esc(x)}</span> ${esc(ACC[x]?ACC[x].n:x)}`).join('<br>')
+          :'<span style="color:var(--faint)">Not mapped to a modelled account</span>'}</span></div>
+      <div class="rw-fsr"><span class="k">Transactions</span>
+        <span class="v">${nJe?`<button type="button" class="rw-fslnk" onclick="KFX.dwTab('drive')">${
+          nJe} GL transaction${nJe===1?'':'s'} →</button>`:'<span style="color:var(--faint)">None this period</span>'}</span></div>
+      <div class="rw-fsr"><span class="k">ERP</span>
+        <span class="v">${firstAcct?`<button type="button" class="rw-fslnk"
+          onclick="glFromFlux({line:'${a(r.l)}',driver:'',ent:'',acct:'${a(firstAcct)}'})">NetSuite →</button>`
+          :'NetSuite'}
+          <span class="sub">System of record — Korvyn reads and reconciles; it does not post.</span></span></div>
+      <div class="rw-fsr"><span class="k">Trial balance</span>
+        <span class="v"><span class="tie ${tie.ok?'':'bad'}">${tie.ok?'✓ Ties to trial balance':'Does not tie'}</span>
+          <span class="sub">${esc(tie.txt)}</span></span></div>
+    </div>`;
   return h;
 }
 
@@ -8710,7 +9143,36 @@ function dwEvidence(r){
    permanent second sub-tab. */
 function dwHistory(r){
   const rc=rec(r.id,true);
-  let h=`<div class="rw-sec">History<span class="ct">${rc.trail.length||''}</span></div>`;
+  const focus=S.histFocus||'review';
+  /* History lives in the ••• menu now, so it opens with a clear way back to the
+     three tabs. The menu's three entries lead with different sections of the same
+     record — Prior-period explanation puts the prior period first — but nothing is
+     hidden: an accountant who opened "Activity log" still sees the prior period. */
+  const title={review:'Review history',prior:'Prior-period explanation',activity:'Activity log'}[focus]||'History';
+  let h=`<button type="button" class="rw-back" onclick="KFX.dwTab('sum')">‹ Overview</button>`;
+  /* Prior-period explanation is what the menu item names, so it leads when chosen. */
+  const priorBlock=()=>{
+    const pr=priorRec(r.id); if(!(pr&&pr.items.length))return '';
+    const pl=PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl;
+    let b=`<div class="rw-hm">${esc(pl.toUpperCase())}</div>
+      <div class="rw-h"><div class="w">Prior-period explanation available</div>
+        <div class="m">${pr.items.length} item${pr.items.length===1?'':'s'} accepted · nothing carries
+          forward automatically</div></div>`;
+    b+=`<div class="rw-items">`+pr.items.map(it=>`<div class="rw-item">
+        <span class="a">${fmtS(it.amt)}</span>
+        <span class="k">${esc(RSN[it.reason]||it.reason)}</span>
+        <div class="t">${esc(it.note)}</div></div>`).join('')+`</div>`;
+    if(rc.status!=='approved')
+      b+=`<button type="button" class="rw-lnk" onclick="KFX.exCarry()">Carry forward selectively →</button>`;
+    return b;
+  };
+  if(focus==='prior'){
+    const pb=priorBlock();
+    h+=`<div class="rw-sec">${esc(title)}</div>`;
+    h+= pb || `<div class="rw-quiet">No prior-period explanation on this line.</div>`;
+    return h;
+  }
+  h+=`<div class="rw-sec">${esc(title)}<span class="ct">${rc.trail.length||''}</span></div>`;
   if(!rc.trail.length)h+=`<div class="rw-quiet">Nothing logged on this line yet.</div>`;
   else{
     let month='';
@@ -8731,20 +9193,7 @@ function dwHistory(r){
   }
 
   /* the prior period, as the next block down the chronology */
-  const pr=priorRec(r.id);
-  if(pr&&pr.items.length){
-    const pl=PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl;
-    h+=`<div class="rw-hm">${esc(pl.toUpperCase())}</div>
-      <div class="rw-h"><div class="w">Prior-period explanation available</div>
-        <div class="m">${pr.items.length} item${pr.items.length===1?'':'s'} accepted · nothing carries
-          forward automatically</div></div>`;
-    h+=`<div class="rw-items">`+pr.items.map(it=>`<div class="rw-item">
-        <span class="a">${fmtS(it.amt)}</span>
-        <span class="k">${esc(RSN[it.reason]||it.reason)}</span>
-        <div class="t">${esc(it.note)}</div></div>`).join('')+`</div>`;
-    if(rc.status!=='approved')
-      h+=`<button type="button" class="rw-lnk" onclick="KFX.exCarry()">Carry forward selectively →</button>`;
-  }
+  h+=priorBlock();
 
   /* the 13-period trend, disclosed rather than resident */
   h+=`<div style="margin-top:var(--s-4)">
@@ -9082,7 +9531,7 @@ function setJeOnly(v){S.jeOnly=v;paintDrawer();}
    now bypasses the draft model — a draft has to be keyed to its line and carry its
    own seed so a repaint can restore it. Go through exOpen like every other opener. */
 function citeJe(id,amt){
-  S.dwTab='stack';
+  S.dwTab='sum'; S.rwFullEx=true;   // the explanation editor lives under Overview › Explanation
   exOpen({i:null,sug:null},{amt,reason:'',note:'',ev:id});
   toast('Started an explanation from '+id);
 }
@@ -9175,7 +9624,7 @@ function openReqs(){
   let h=`<h3>Explanation requests${total?' — '+total+' open':''}</h3><div class="mbody">
     <div class="rl-note" style="margin-bottom:var(--s-4)">An explanation requested from an entity or a
       region is an obligation on a named person, not a note to yourself. Everything raised from a
-      review lineage lands here until it is answered or withdrawn — whatever statement or period it
+      line's comments lands here until it is answered or withdrawn — whatever statement or period it
       was raised on.</div>
     <div class="rq-sec">Assigned to you<span class="ct">${mine.length||'none'}</span></div>`;
   h+= mine.length ? mine.map(q=>reqRow(q,'in')).join('')
@@ -9183,8 +9632,8 @@ function openReqs(){
         whose local books you keep.</div>`;
   h+=`<div class="rq-sec">Waiting on others<span class="ct">${theirs.length||'none'}</span></div>`;
   h+= theirs.length ? theirs.map(q=>reqRow(q,'out')).join('')
-    : `<div class="rl-empty">Nothing outstanding. Ask from the Review lineage on any line where a
-        contributing entity has not written an explanation.</div>`;
+    : `<div class="rl-empty">Nothing outstanding. Ask from the Comments tab on any line where a
+        contributing entity has not written a comment.</div>`;
   if(closed.length)
     h+=`<div class="rq-sec">Closed<span class="ct">${closed.length}</span></div>`+
        closed.map(q=>reqRow(q,'done')).join('');
@@ -9407,6 +9856,147 @@ function printMemo(){
 
 
 /* ============================================================================
+   20b. THE HEADER IS THE VISIBLE STATE
+
+   A variance is meaningless until you know what it is a variance FROM. Period,
+   comparison basis, cadence and scope decided every number on the statement and
+   yet lived only inside a collapsed filter panel — so the answer to "what am I
+   comparing?" was two clicks away, and the page header spent its one line saying
+   "Flux analysis" to someone who had just opened Flux analysis.
+
+   These four facts now render as the header's context line and re-render on every
+   state change, because body() is rebuilt by renderAll(). Nothing here computes a
+   figure; it states the basis the figures were computed on.
+   ========================================================================== */
+const GRAIN_NM={m:'Monthly',q:'Quarterly',ytd:'Year to date',ttm:'Trailing 12'};
+const stmtTitle=()=>S.stmt==='bs'?'Balance sheet flux':'Income statement flux';
+/* One period, named the way the CHOSEN GRAIN names it: a quarterly review is not
+   looking at Jun 2026, it is looking at Q2 2026, and saying otherwise invites a
+   reviewer to read a quarter's movement as a month's. */
+function pLabel(i,g){
+  const p=PERIODS[Math.max(0,Math.min(NP-1,i))];
+  g=g||S.grain;
+  if(g==='q')  return p.q;
+  if(g==='ytd')return 'YTD '+p.lbl;
+  if(g==='ttm')return 'TTM '+p.lbl;
+  return p.lbl;
+}
+/* "Jun 2026 vs May 2026" · "Q2 2026 vs Q1 2026" · "Jun 2026 Actual vs Budget". */
+function cmpPhrase(){
+  const c=pLabel(S.cur);
+  if(S.compare==='budget')return c+' Actual vs Budget';
+  if(S.compare==='fcst')  return c+' Actual vs Forecast';
+  return c+' vs '+pLabel(priorIndex());
+}
+/* The cadence word, and ONLY when the phrase has not already said it. "YTD Jun
+   2026 vs YTD Jun 2025 · Year to date" says year-to-date twice; budget and
+   forecast are a basis rather than a cadence, and naming one there reads as a
+   claim about the window. Saying a thing once is the whole point of this pass. */
+function cadenceWord(){
+  if(S.compare==='budget'||S.compare==='fcst')return '';
+  if(S.compare==='yoy')   return 'Year-over-Year';
+  if(S.compare==='custom')return 'Custom comparison';
+  if(S.grain==='ytd'||S.grain==='ttm')return '';
+  return GRAIN_NM[S.grain]||'';
+}
+/* The DOMINANT scope, said the way a person would say it: one entity or region by
+   name, otherwise a count, and "Consolidated" when nothing is filtered. Listing
+   five dimensions that are all empty is five phrases to say nothing. */
+function scopeWord(){
+  const one=k=>{const d=DIM(k), v=S[k];
+    return v.length===1?((d.opts().find(o=>o.id===v[0])||{nm:v[0]}).nm.split(' — ')[0]):null;};
+  if(S.ent.length) return one('ent') ||S.ent.length+' entities';
+  if(S.prop.length)return one('prop')||S.prop.length+' properties';
+  if(S.reg.length) return one('reg') ||S.reg.length+' regions';
+  if(S.seg.length) return one('seg') ||S.seg.length+' segments';
+  if(S.cc.length)  return one('cc')  ||S.cc.length+' cost centers';
+  return 'Consolidated';
+}
+/* Reporting currency. The shell's local/USD toggle governs the portfolio pages;
+   this statement consolidates into the reporting currency and nothing on it is
+   translated by that switch, so stating anything but USD would be a claim the
+   numbers do not support. */
+const ccyWord=()=>'USD';
+function hdrContext(){
+  const sep='<span class="sep">·</span>';
+  return [esc(scopeWord()),esc(cmpPhrase()),esc(cadenceWord()),ccyWord()]
+    .filter(Boolean).join(sep);
+}
+
+/* ---- THE PERIOD NAVIGATOR --------------------------------------------------
+   Navigation and visible comparison context, deliberately NOT a chart: stepping
+   to the next month is the single most repeated act on this page and it used to
+   require opening the filter panel and hunting a 30-entry <select>. Trending
+   analysis stays where trending lives.
+
+   The steps are the CHOSEN grain, so switching to Quarterly walks quarters and
+   YTD walks year-to-date windows rather than silently continuing to walk months.
+   The window clamps to the modelled calendar — the statement ends at Jun 2026, so
+   the forward arrow disables there rather than stepping into a period with no
+   data. */
+function navSteps(){
+  if(S.grain==='q'){
+    const qs=[];
+    PERIODS.forEach(p=>{const k=p.y+'-'+p.qi, e=qs.find(x=>x.k===k);
+      if(e)e.i=p.i; else qs.push({k,a:p.i,i:p.i,lbl:p.q});});   // a = first month, i = last modelled month
+    return qs;
+  }
+  const pre=S.grain==='ytd'?'YTD ':S.grain==='ttm'?'TTM ':'';
+  return PERIODS.map(p=>({k:String(p.i),a:p.i,i:p.i,lbl:pre+p.lbl}));
+}
+/* Which step the current period sits IN — containment, not equality, because a
+   quarter step is addressed by its last month and S.cur can be any month in it. */
+function navIdx(steps){
+  let k=steps.findIndex(s=>S.cur>=s.a&&S.cur<=s.i);
+  if(k<0){k=0; steps.forEach((s,n)=>{if(s.i<=S.cur)k=n;});}
+  return k;
+}
+function cmpBtnLabel(){
+  if(S.compare==='budget')return 'Budget';
+  if(S.compare==='fcst')  return 'Forecast';
+  return pLabel(priorIndex());
+}
+function periodNav(){
+  const steps=navSteps(), at=navIdx(steps), N=steps.length, W=5;
+  const a=Math.max(0,Math.min(at-Math.floor(W/2),N-W));
+  const vis=steps.slice(a,a+W), here=steps[at];
+  const arrow=(n,lbl,dis)=>`<button class="pn-a" ${dis?'disabled':''} title="${lbl}"
+      aria-label="${lbl}" onclick="KFX.stepPeriod(${n})">${n<0?'‹':'›'}</button>`;
+  return `<div class="fx-pnav" id="fxPnav" role="group" aria-label="Period navigation">
+    ${arrow(-1,'Earlier period',at<=0)}
+    <div class="pn-track">`+vis.map(s=>`<button class="pn-p ${s===here?'on':''}"
+      ${s===here?'aria-current="true"':''} onclick="KFX.setCur(${s.i})">${esc(s.lbl)}</button>`).join('')+
+    `</div>
+    ${arrow(1,'Later period',at>=N-1)}
+    <span class="pn-gap"></span>
+    <span class="pn-cl">Compare:</span>
+    <button class="pn-cmp" data-pop="cmp" aria-expanded="false" onclick="KFX.pop('cmp',this)"
+      title="What this period is measured against">${esc(cmpBtnLabel())}
+      <span class="cue">▾</span></button></div>`;
+}
+
+/* ---- THE VIEW CONTROLS -----------------------------------------------------
+   One star, one menu, one overflow. See the note on the 'views' popover for why
+   Favorite and My views could not both exist. */
+function viewControls(){
+  const v=curView();
+  return `<div class="fx-vw">
+    <button class="btn-out star" onclick="KFX.starCurrent()"
+      aria-pressed="${v&&v.fav?'true':'false'}" aria-label="Favorite this view"
+      title="${v?(v.fav?'Remove “'+esc(v.nm)+'” from favorites'
+                       :'Add “'+esc(v.nm)+'” to favorites')
+               :'Save the current configuration as a favorite'}">${
+      v&&v.fav?ic('star','fill'):ic('star')}</button>
+    <button class="btn-out" data-pop="views" onclick="KFX.pop('views',this)" aria-expanded="false"
+      title="${v?'Views — “'+esc(v.nm)+'” is loaded':'Saved views'}">${ic('views')}Views
+      <span class="cue">▾</span></button>
+    <button class="btn-out ovf" data-pop="more" onclick="KFX.pop('more',this)" aria-expanded="false"
+      aria-label="More actions"
+      title="Explanation requests, audit log, export grid, flux memo, print">${ic('more')}</button>
+  </div>`;
+}
+
+/* ============================================================================
    21. SHELL INTEGRATION
    The module owns no chrome. It renders into #view-finrep when Financial reporting
    is on the Flux review sub-tab and the statement picker is on BS or IS; Cash flows
@@ -9420,34 +10010,35 @@ function body(){
      page; burying it under a menu called Display, beneath "Row density", was the
      single worst piece of information architecture on the surface.
 
-     Display mode is a four-state switch a reviewer changes constantly, so it is a
-     compact segmented control. Everything structural about the TABLE (columns,
-     density, folding) stays in a menu, because that is table configuration and it
-     is set once. Materiality moves to the filter bar where the population is
-     defined. Focus mode keeps its icon. */
+     Display mode is a three-state switch a reviewer changes constantly, so it is a
+     compact segmented control. The three labels — Review, Financials, Narrative —
+     are each one word, so the control shows them verbatim; the abbreviation hack the
+     four-mode control needed ("Full explanations" -> "Explanations") is gone with the
+     modes that required it. Everything structural about the TABLE (columns, density,
+     folding) stays in a menu, because that is table configuration and it is set once.
+     Materiality moves to the filter bar where the population is defined. */
+  const narr=dispMode()==='full';
   const acts=`
     <div class="seg fx-disp" role="group" aria-label="Display mode">
       ${DISP_MODES.map(([v,nm])=>`<button class="${dispMode()===v?'on':''}"
-        onclick="KFX.setView('${v}')" title="${esc(nm)}">${esc(nm==='Full explanations'?'Explanations'
-          :nm==='Numbers only'?'Numbers':nm)}</button>`).join('')}
+        onclick="KFX.setView('${v}')" title="${esc(nm)}">${esc(nm)}</button>`).join('')}
     </div>
+    ${narr?`<button class="btn-out" onclick="KFX.toggleNarrExpand()"
+      title="Open every narrative to its full length — for a CFO read, a screen-share or a print"
+      aria-pressed="${S.narrExpand?'true':'false'}">${S.narrExpand?'Collapse narratives':'Expand all narratives'}</button>`:''}
     <button class="btn-out" id="fxViewBtn" data-pop="viewmode" onclick="KFX.pop('viewmode',this)"
       aria-expanded="false" title="Columns, row density, sections, focus mode"></button>
-    <button class="btn-out" data-pop="more" onclick="KFX.pop('more',this)" aria-expanded="false"
-      title="Audit log, export, flux memo, print">${ic('more')}Export</button>
+    ${viewControls()}
     <button class="btn-out" onclick="KFX.submitAll()">Submit ready lines</button>`;
-  /* ONE CONTEXT LINE, the same one the ledger pages carry: scope, period, currency,
-     then what this page adds. It used to be a sentence describing the page's purpose
-     to someone who had already opened it — and once every General Ledger page under
-     it stated its financial universe here, a page of prose was the odd one out. */
-  const ents=new Set(activeSlices().map(x=>x.ent)).size;
-  const sep='<span class="sep">·</span>';
-  const sub=[`<b>${S.ent.length?S.ent.length+' entities':'Consolidated Group'}</b>`,
-    esc(PERIODS[S.cur].lbl), '$'+(S.units===1?'':uName()),
-    esc(compareLabel())+' comparison',
-    ents+' entit'+(ents===1?'y':'ies')].join(sep);
+  /* ONE CONTEXT LINE, the same one the ledger pages carry: scope, comparison,
+     cadence, currency. It used to name the period and the entity count but not
+     what the period was measured AGAINST — the one fact that decides every delta
+     on the statement — and said "Sequential comparison" where a reviewer needs
+     "vs May 2026". The entity count left it because the scope word already says
+     the scope, and the units token left it because the filter bar states units. */
   return `<div id="fxRoot">`+
-    glHead('Flux analysis', sub, acts)+
+    glHead(esc(stmtTitle()), hdrContext(), acts)+
+    periodNav()+
     `<div class="kpis" id="fxKpi"></div>
     <div class="fx-work" id="fxWork"></div>
     <div class="fx-focusline" id="fxFocusLine"></div>
@@ -9485,12 +10076,12 @@ function body(){
 function activeChips(){
   const c=[];
   /* Only things you actually chose. A chip that cannot be taken off is not a filter,
-     it is context \u2014 that lives in the basis line beside them. */
-  if(S.compare!=='seq')c.push({id:'cmp',
-    label:S.compare==='budget'?'vs budget':S.compare==='fcst'?'vs forecast'
-      :'vs '+PERIODS[priorIndex()].short, title:'Comparison'});
-  if(S.grain!=='m')c.push({id:'grain',
-    label:{q:'Quarterly',ytd:'Year to date',ttm:'Trailing 12'}[S.grain], title:'Cadence'});
+     it is context \u2014 that lives in the basis line beside them.
+
+     COMPARISON AND CADENCE ARE NO LONGER CHIPS. They are stated in the page header
+     as "Jun 2026 vs May 2026 \u00b7 Monthly", permanently and in words, so a chip saying
+     "vs May '26" beside it is the same fact in a second place and a second wording.
+     The filter panel still sets them; the header is where they are read. */
   DIMS.forEach(d=>{
     const v=S[d.k]; if(!v.length)return;
     const os=d.opts();
@@ -9500,7 +10091,8 @@ function activeChips(){
   if(S.show!=='all')c.push({id:'show', label:(SHOWS.find(x=>x[0]===S.show)||[])[1], title:'Showing'});
   if(S.dir!=='all') c.push({id:'dir',  label:(DIRS.find(x=>x[0]===S.dir)||[])[1],  title:'Direction'});
   if(S.elim!=='inc')c.push({id:'elim', label:'Eliminations excluded', title:'Eliminations'});
-  if(S.units!==1000000)c.push({id:'units', label:'$'+(S.units===1?'':uName()), title:'Units'});
+  /* Units are the basis line's one remaining job — see basisLine(). A chip here as
+     well would state the same scale twice, one of them only sometimes. */
   /* MATERIALITY IS ALWAYS A CHIP, not only when it differs from the default. It is
      the policy that decides which lines exist on this statement; a reviewer must be
      able to see which one is in force without opening anything, and reach it in one
@@ -9519,21 +10111,20 @@ function activeChips(){
   return c;
 }
 /* The unchangeable context the numbers rest on, stated but not offered for removal.
-   Materiality left this line and became a real chip, so it is no longer said twice. */
-function basisLine(){
-  return PERIODS[S.cur].short+(S.compare==='seq'?' vs '+PERIODS[priorIndex()].short:'')+
-    (S.grain==='m'?' \u00b7 Monthly':'')+
-    (S.units===1000000?' \u00b7 $M':'');
-}
+   Materiality left this line and became a real chip; period, comparison and cadence
+   left it for the page header, which states them permanently and in full. What is
+   left is the display scale \u2014 the one basis fact the header deliberately does not
+   carry, because it changes how a figure READS rather than what it measures. */
+function basisLine(){ return '$'+(S.units===1?'':uName()); }
 /* Every chip on screen comes off. Optional filters clear; a chosen setting returns to
-   the default it was changed from. */
+   the default it was changed from. Comparison, cadence and units are absent because
+   they are no longer chips — the header states the first two and the basis line the
+   third, and a handler for a chip that cannot be rendered is a control nobody can
+   reach. */
 function chipOff(id){
-  if(id==='cmp')       S.compare='seq';
-  else if(id==='grain')S.grain='m';
-  else if(id==='show') S.show='all';
+  if(id==='show')      S.show='all';
   else if(id==='dir')  S.dir='all';
   else if(id==='elim') S.elim='inc';
-  else if(id==='units')S.units=1000000;
   else if(id==='mat')  S.profile='close';
   else if(id==='q')     S.q='';
   else if(id==='reason')S.reason=[];
@@ -9548,7 +10139,6 @@ function chipOff(id){
   renderAll();
 }
 function chipClick(id,el){
-  if(id==='units') return pop('units',el);
   if(id==='mat')   return pop('mat',el);
   if(id==='show')  return pop('show',el);
   if(id==='dir')   return pop('dir',el);
@@ -9560,17 +10150,18 @@ function chipClick(id,el){
   openFilters();
 }
 
-/* Rendered into the shared filter header's extra slot, so flux gains its favorites and
-   saved views without introducing a second bar. */
-function headerControls(){
-  const fm=favMatch();
-  return `<button class="fb-btn" data-pop="fav" onclick="KFX.pop('fav',this)" id="fxFavBtn"
-      aria-expanded="false" title="Favorite this flux view \u2014 the stars beside statement lines are the watchlist">
-      ${fm?ic('star','fill'):ic('star')} ${fm?esc(fm.nm):'Favorite'} <span class="cue">\u25be</span></button>
-    <button class="fb-btn" data-pop="views" onclick="KFX.pop('views',this)" id="fxViewsBtn"
-      aria-expanded="false" title="Saved views, filter presets and watchlist">
-      ${ic('views')} My views <span class="cue">\u25be</span></button>`;
-}
+/* THE FILTER BAR'S EXTRA SLOT IS NOW EMPTY ON FLUX, deliberately. It carried a
+   "Favorite \u25be" button and a "My views \u25be" button \u2014 two controls, two menus, one set
+   of objects, and a view that was starred appeared in both under different names.
+   The pair moved into the page header as one star and one Views menu (see
+   viewControls()), which is also where the reviewer now reads what they are looking
+   at. The shell contract is kept rather than edited: paintTopbar() still asks, and
+   the answer is "nothing \u2014 the bar is filters again". */
+function headerControls(){ return ''; }
+/* The flux basis line is the display scale only, and units are not in the filter
+   panel, so the shared tooltip's "change these in the filter panel" would send a
+   reviewer to the wrong surface. */
+function basisTitle(){ return 'Display scale \u2014 set it under Table \u203a Units'; }
 
 /* the context sentence: what this analysis is scoped to, in one line */
 function ctxSummary(){
@@ -9602,7 +10193,7 @@ function after(){
   set('fxViewBtn',`${ic('cols')}Table <span class="cue">\u25be</span>`);
   /* a shortcut nobody can discover is a shortcut nobody uses */
   set('fxKeys',[['j k','move'],['\u21b5','open'],['e','explain'],['x','watch'],['g','ledger'],
-    ['n','next line needing review'],['/','find'],['1\u20134','display']]
+    ['n','next line needing review'],['/','find'],['1\u20133','display']]
     .map(([k,l])=>`<span><kbd>${k}</kbd>${l}</span>`).join(''));
   const mb=$('fxMatBtn'); if(mb)mb.innerHTML=esc(prof().nm)+' \u25be';
   const as=$('fxActiveScope'); if(as)as.textContent=activeScopeLine();
@@ -9686,16 +10277,30 @@ function lineForAcct(acct){
    ========================================================================== */
 (function init(){
   const snap=o=>Object.assign(JSON.parse(JSON.stringify(snapshot())),o||{});
+  /* THE DEFAULT IS NEUTRAL, AND IT IS NOT A ROLE. "CFO monthly flux" opened this
+     page for everyone \u2014 an Accounting Manager, a preparer, an external auditor \u2014
+     which asserts that Korvyn's universal starting point is one executive's cut of
+     the income statement. It is not: the starting point is the close as it stands.
+
+     Standard review is therefore the plain state \u2014 consolidated, current close
+     period, prior-period comparison, the close materiality policy, Review display
+     mode \u2014 which is exactly what snapshot() returns with no overrides. It is
+     shipped rather than authored, so `sys` protects it from delete, and it is NOT
+     starred: a favorite is something a person chose, and pre-choosing on their
+     behalf is how a shortlist stops meaning anything.
+
+     `own`/`shared` are what let one menu separate what the organisation ships from
+     what this reviewer built, without a second store. */
   S.views=[
-    {nm:'CFO monthly flux',      fav:true, def:true,  on:true,
-      st:snap({stmt:'is',show:'all',sort:'stmt'})},
-    {nm:'Property accounting',   fav:true, def:false, on:false,
+    {nm:'Standard review', sys:1, shared:1, own:'Korvyn', fav:false, def:true, on:true,
+      st:snap()},
+    {nm:'Property accounting',   shared:1, own:'Property Accounting', fav:true, def:false, on:false,
       st:snap({stmt:'is',seg:['same'],show:'open'})},
-    {nm:'Regional review \u2014 West',fav:true, def:false, on:false,
+    {nm:'Regional review \u2014 West', shared:1, own:'Regional Controllers', fav:true, def:false, on:false,
       st:snap({reg:['West'],show:'flag'})},
     {nm:'Development entities',  fav:true, def:false, on:false,
       st:snap({seg:['dev','lease']})},
-    {nm:'Consolidated executive view',fav:true,def:false,on:false,
+    {nm:'Consolidated executive view', shared:1, own:'Corporate Reporting', fav:true, def:false, on:false,
       st:snap({stmt:'is',grain:'ytd',compare:'yoy',profile:'sec'})},
     {nm:'Balance sheet \u2014 monthly close',fav:false,def:false,on:false,
       st:snap({stmt:'bs',show:'all'})},
@@ -9708,8 +10313,27 @@ function lineForAcct(acct){
   ];
   S.watch={};
   ['is::power','bs::recost'].forEach(k=>{S.watch[k]=true;});
+  /* ONE ILLUSTRATIVE COMMENT THREAD, so the Comments tab opens on something real to
+     read rather than an empty stream. These are discussion comments (rc.comments) on
+     the General and administrative line — additive demo content, not a change to any
+     existing explanation, evidence or sign-off. A reviewer can add, and every
+     contributing entity still shows its own "awaiting a comment" row beneath. */
+  (function seedComments(){
+    const rc=rec('ga',true); if(!rc||rc.comments.length)return;
+    rc.comments.push(
+      {by:'Anna Schmidt, Property Accountant',scope:'Germany GmbH',at:'Jun 5',ver:1,
+       text:'Project Atlas advisory fees increased sharply this month as diligence moved into the confirmatory phase. Support is the vendor invoices and the signed SOW; I have attached the fee schedule.'},
+      {by:'Maya Chen, EMEA Controller',scope:'EMEA',at:'Jun 6',ver:1,
+       text:'Increase is concentrated in Germany and the UK. Germany primarily relates to Project Atlas; the UK is transaction-related legal on the Munich portfolio. Nothing here looks recurring.'},
+      {by:'David Lee, Corporate Controller',scope:'Corporate',at:'Jun 7',ver:1,
+       text:'Please confirm whether the UK legal amount is expected to recur next quarter, or whether it closes with the transaction.'});
+  })();
+  /* LAST-USED IS PRESERVED, and it is `def` — the view flagged "open on this view"
+     in Manage views. The page opens on it and marks it loaded, which is what makes
+     the star and the Views menu able to say which view is on screen at all. */
   const d=S.views.find(v=>v.def);
-  if(d)Object.assign(S,JSON.parse(JSON.stringify(d.st)));
+  if(d){ Object.assign(S,JSON.parse(JSON.stringify(d.st)));
+         S.views.forEach(v=>v.on=false); d.on=true; }
 })();
 
 /* ============================================================================
@@ -9756,8 +10380,8 @@ function lineForAcct(acct){
   });
 })();
 
-return {basisLine, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, favCurrent, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, pickAt, lineForAcct,
-dwCollapse, dwMenu, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, lShowAll, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
+return {basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
+dwCollapse, dwMenu, histOpen, addComment, cmtCancel, cmtSave, cmtFilter, cmtMenu, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
 kdAccept, kdEdit, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
@@ -26441,9 +27065,15 @@ function paintTopbar(){
       &&typeof glChips==='function';
     const chips=(fxOn&&KFX.activeChips)?KFX.activeChips():(glOn?glChips():null);
     const H=fxOn
-      ? {basis:()=>KFX.basisLine(),open:'KFX.openFilters()',off:id=>`KFX.chipOff('${id}')`,
+      ? {basis:()=>KFX.basisLine(),
+         basisTitle:()=>KFX.basisTitle?KFX.basisTitle():'The basis these figures are stated on',
+         /* the flux basis is the display scale, so the basis opens the scale picker
+            rather than a filter panel that does not contain it */
+         open:"KFX.pop('units',this)",off:id=>`KFX.chipOff('${id}')`,
          click:id=>`KFX.chipClick('${id}',this)`,clear:'KFX.resetFilters()'}
-      : {basis:()=>'Jun 2026 · USD · Consolidated',open:'toggleFilters()',
+      : {basis:()=>'Jun 2026 · USD · Consolidated',
+         basisTitle:()=>'Period, currency and scope — change these in the filter panel',
+         open:'toggleFilters()',
          off:id=>`glChipOff('${id}')`,click:()=>`toggleFilters()`,clear:'glReset()'};
     /* the module's esc lives inside its closure; the shell escapes with its own */
     const e=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -26451,7 +27081,7 @@ function paintTopbar(){
     if(chips){
       fbState.className='filterbar-state chips';
       fbState.innerHTML=
-        `<span class="fbasis" title="Period, cadence, units and policy \u2014 change these in the filter panel"
+        `<span class="fbasis" title="${e(H.basisTitle())}"
            onclick="event.stopPropagation();${H.open}">${e(H.basis())}</span>`+
         /* a chip flagged `fixed` is context rather than an optional filter \u2014 it can be
            changed but not removed, so it does not offer an \u00d7 that would do nothing */
