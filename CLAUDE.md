@@ -18,6 +18,24 @@ there; this file is the map and the shared rules.
 | `packages/agent/` — the LLM agent | [`packages/agent/CLAUDE.md`](packages/agent/CLAUDE.md) · [README](packages/agent/README.md) |
 | any UI | the token layer at the top of [`index.html`](index.html), then [`design-system/design-system.md`](design-system/design-system.md) (written record) |
 
+## Editors and AI tooling
+
+**This file and its four subtree siblings are the source of truth.** Cursor does not read
+`CLAUDE.md`, so the same guidance is mirrored into [`.cursor/rules/`](.cursor/rules/) as six
+scoped `.mdc` rules:
+
+| Rule | Scope |
+|---|---|
+| `project.mdc` | always on — the map, the thesis, shared conventions, toolchain, checks |
+| `design-system.mdc` | `index.html`, `apps/**/*.html`, `design-system/**` |
+| `main-file.mdc` | `index.html` |
+| `core.mdc` · `agent.mdc` | `packages/core/**` · `packages/agent/**` |
+| `legacy-apps.mdc` | `apps/**` |
+
+Those rules carry the non-negotiables inline and link back here for detail. **When you
+change a rule in a `CLAUDE.md`, change it in the matching `.mdc` too** — a mirror that has
+drifted is worse than no mirror, because each editor then enforces a different repo.
+
 ## UI / Design System — read before any UI work
 
 **The system is the token layer at the top of `index.html`** (`:root`, ~line 20 onward), called

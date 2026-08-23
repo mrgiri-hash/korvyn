@@ -8,7 +8,9 @@ controls, close, reconciliation, analytics, and AI. It never posts routine ERP t
 determination-and-defense layer — the ASC 360 / 835-20 capitalization judgment between
 project-cost systems and the GL.
 
-> Working guidance for this repo lives in [`CLAUDE.md`](CLAUDE.md). Read it before editing.
+> Working guidance for this repo lives in [`CLAUDE.md`](CLAUDE.md) (and a `CLAUDE.md` next to
+> each subtree). Read it before editing. The same guidance is mirrored for Cursor in
+> [`.cursor/rules/`](.cursor/rules/) — keep the two in step.
 
 ## Layout
 

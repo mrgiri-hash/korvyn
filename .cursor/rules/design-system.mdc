@@ -1,0 +1,72 @@
+---
+description: The "Instrument" design system — the non-negotiable UI rules for any Korvyn screen.
+globs: index.html,apps/**/*.html,design-system/**
+alwaysApply: false
+---
+
+# Instrument — read before any UI work
+
+**The system is the token layer at the top of `index.html`** (`:root`, ~line 20 onward).
+It is heavily self-documenting: the comments there explain *why* each value is what it is,
+and **they are the authority**. Read them before editing any screen.
+
+`design-system/design-system.md` is the dated written record of how the system got here.
+Where it and `index.html` disagree, **the file wins** and the doc gets a new dated block.
+
+**Superseded (2026-08-14):** the gold/teal/navy system, its `--k-*` tokens in
+`design-system/design-tokens.css`, and its "no blue accents" / "teal for positive" rulings
+are **withdrawn**. They described `apps/review/`, which is no longer the main file.
+
+## Non-negotiable
+
+1. **The ramp is the palette.** Twelve neutral steps (`--n-0` … `--n-900`) carry the whole
+   instrument. If a new hue seems necessary, the answer is a different ramp step.
+2. **ONE accent: cobalt `--accent` `#2F62D4`**, and it carries interaction. `--accent-2`
+   (teal-slate) is admitted for the "incurred/actual" measure alone. Indigo `--ai` is
+   reserved for AI surfaces (Ask Korvyn, Insight, generated recommendations) and must
+   never become a second UI accent — it is a *marker*, never a fill.
+3. **Red / amber / green are STATE ONLY** — never decoration, never a series colour.
+   Series step through the ramp into the accent (`--series-1` … `--series-4`).
+4. **Two planes, named by role, not lightness:** content (the ramp) and chrome
+   (`--chrome-*`). Chrome is a true neutral, never blue-tinted; header and sidebar share
+   one base and separate by a hairline, never by lightness. Gated by
+   `tools/check_chrome_themes.mjs`.
+5. **Separation is lightness and hairlines, never shadow.** Shadow is reserved for true
+   overlays — popovers, menus, modals, drawers *over* content. Cards, panels, tables,
+   strips and docked side panels are flat.
+6. **Six type sizes and only these six** (`--fs-label` … `--fs-page`). `--fs-micro` is for
+   counts and badge numerals that carry no sentence, **never prose**. `--fs-hero` has
+   exactly one caller. A hard-coded `px` font-size is a seventh size — do not add one.
+7. **TWO font weights: 400 and 500.** `--fw-label` is already 500, so a section label
+   cannot be "made bolder" — hierarchy comes from size, tracking, ink and hairlines.
+   Spacing is the 4px scale (`--s-1` … `--s-12`).
+8. **Severity is a 3px left border and nothing else** — never a dot, never a pill, never
+   both. Provenance dots are the one element allowed semantic colour at rest, and only
+   when stale or unreachable, so a healthy screen stays monochrome.
+9. On any data table, colour **at most two columns** — the primary variance and its
+   direction. Gray all supporting columns (Organic, FX, CTA, NCI).
+10. Subtotal rows outrank detail rows. Never equal weight.
+11. **One card per screen REGION**, not per table or row. Tables use row hairlines, never
+    card borders or per-cell borders. **No box-in-box.**
+12. **Badges mean "action required from the user,"** not "count of items." Inventory
+    counts render as quiet gray text.
+13. **One filled primary button per screen.** All others outline.
+14. All money, dates, IDs, deltas: tabular-nums, right-aligned, `--num` (Inter tabular)
+    for figures and `--mono` for identifiers. Chrome uses Inter. Never blend them.
+15. Every table and form ships with **empty, loading, error, hover and visible
+    keyboard-focus states** — not just the happy path.
+
+## Consolidation-scale screens (600+ entities)
+
+16. The roll-up tree is a status instrument: every node shows its own completion
+    (mini-bar + fraction) AND an exception count rolled up from everything beneath it.
+17. Tables default to exceptions + material movements only ("5 of 214 lines"); full detail
+    sits behind a filter chip.
+18. Multi-currency / elim / NCI data lives behind column-set toggles (Local / Reporting /
+    FX-CTA / Eliminations / NCI split), never one wide table.
+
+## Before calling any screen done
+
+Run `node tools/check_chrome_themes.mjs` if chrome was touched, and report which of the
+rules above the screen passes. **Never introduce a colour, font size, weight or spacing
+value that is not already a token in `index.html`.**

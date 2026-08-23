@@ -1,0 +1,57 @@
+---
+description: Working discipline for index.html — the ~29k-line single-file main app.
+globs: index.html
+alwaysApply: false
+---
+
+# `index.html` — the main file
+
+One self-contained page: ~29,000 lines, ~2.3 MB, ~60 views, the "Instrument" system. No
+build step, no external runtime dependencies. Open it in a browser to run it.
+
+## How to work in it
+
+- **Never read the whole file.** Read the region you need. Locate first with `grep -n`,
+  then read a bounded range.
+- **Never pass replacement code through the shell.** Quotes get stripped silently and a
+  syntax check still passes, so the damage surfaces later and far from its cause. Write
+  the new text to a file, splice it in with a Node script, and **assert on unique anchor
+  strings** — the script should refuse to write if an anchor matches zero times or more
+  than once.
+- **Scope every new CSS rule under `#fxRoot`** (or the owning view's id). `.dw-hd`,
+  `.dw-tabs`, `.dw-body` and `.dw-foot` are shared class names between the Flux review
+  workspace and the GL ledger inspector (`.acctsurf .gl-detail`); an unscoped selector
+  restyles the other one.
+- **Verify in the browser, not by reading.** Drive the view, assert the DOM, check the
+  console. Geometry in this file is *measured* at runtime (`sizeDrawer`, `syncStick`), so
+  reasoning about the CSS alone will mislead you.
+
+## Structural facts worth knowing before you edit
+
+- `<script id="egl-data">` is a **baked data snapshot**, not an import. It is serialised
+  by `packages/core/tools/emit_enterprise_gl.mjs` and read by exactly one view,
+  `view-egl`. This is the only bridge between `packages/` and the prototypes, and it is
+  build-time and one-directional.
+- The Flux review workspace renders at **two densities from one set of renderers**:
+  `dwCtx()` derives every figure once per paint, `RWSEC` is a registry of named parts, and
+  `RW_LAYOUT` is a pure composition table that *is* the entire mode flag. A part absent
+  from `RWSEC` cannot render in either density. Do not fork it into two builders.
+  Any refactor there must pass the byte-identity probe: hash `#fxDwBody.innerHTML` for
+  every tab on every line before and after; they must be identical strings.
+- A **materiality threshold** (`r.req`) decides whether a line must be explained at all. A
+  **tolerance** (`r.clear`) decides whether an explanation covers enough of the movement.
+  They are different numbers — conflating them is how a line below the threshold ends up
+  permanently unsubmittable.
+- Roles resolve at call time from `USER_ROLE` through `FX_CAPS`, keyed on
+  `Accounting Manager` / `Controller` / `Chief Accounting Officer` / `Asset Manager` /
+  `FP&A Analyst` / `External Auditor`. An unknown role falls back to view-only.
+  Segregation of duties is enforced at the action (`canReviewLine`), not in the UI.
+
+## Checks
+
+```bash
+node tools/check_chrome_themes.mjs
+```
+
+Then the browser sweep: open the file, drive every tab, assert each view rendered, console
+clean.

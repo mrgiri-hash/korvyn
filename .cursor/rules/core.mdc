@@ -1,0 +1,34 @@
+---
+description: packages/core — the canonical GAAP domain model and its one-directional ERP boundary.
+globs: packages/core/**
+alwaysApply: false
+---
+
+# `@korvyn/core`
+
+Read [`packages/core/README.md`](../../packages/core/README.md) before editing — it is the
+full working guide. [`packages/core/CLAUDE.md`](../../packages/core/CLAUDE.md) is the
+load-bearing summary.
+
+A typed GAAP domain model (`src/domain` — accounts, entities, dimensions, periods, journal
+entries, validation) plus the adapter seam (`src/integration`). Also the CIP→PIS
+capital-asset lifecycle (`src/domain/capital.ts`) and a validated multinational GL fixture
+(`src/fixtures/enterprise-gl.ts`). No sync engine, no persistence, no real API calls, no
+UI — deliberately.
+
+## Must not break
+
+- **The boundary is one-directional.** `integration/` may import `domain/`, never the
+  reverse. **No vendor field name** (NetSuite / Intacct / Yardi / Procore / QuickBooks …)
+  may appear outside an adapter's private translation code. `tools/check_boundary.py`
+  enforces this without Node — run it.
+- **Vocabulary is GAAP's, not any vendor's.** Translation is an adapter's job.
+- Modelling a journal entry is not posting one. The ERP stays the system of record.
+
+## Check
+
+```bash
+cd packages/core && npm run check   # typecheck + typecheck:test + tests + boundary checker
+```
+
+Node is not on `PATH` — see the project rule.
