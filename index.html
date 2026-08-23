@@ -3091,15 +3091,20 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .mathrow.resid .v{color:var(--danger);font-weight:var(--fw-medium)}
 #fxRoot .mathrow.resid.clear .v{color:var(--success)}
 /* explanation items */
-#fxRoot .exi{border:var(--rule);border-radius:var(--radius);padding:9px 10px;margin-bottom:7px;background:var(--surface)}
-#fxRoot .exi.locked{background:var(--surface2)}
+/* A ROW, NOT A CARD. .fx-detail is the one card of this region (rule 11); an item that
+   draws its own border and fill is a box inside that box, and eight of them stacked is
+   what made the drawer read as a feed. Separation is a hairline (rule 5). */
+#fxRoot .exi{border:none;border-radius:0;background:none;margin:0;padding:var(--s-2) 0;
+  border-bottom:var(--rule)}
 #fxRoot .exi-top{display:flex;align-items:center;gap:7px;margin-bottom:4px}
 #fxRoot .exi-amt{font-variant-numeric:tabular-nums;font-weight:var(--fw-medium);font-size:var(--fs-table)}
 #fxRoot .exi-tx{font-size:var(--fs-table);color:var(--ink);line-height:1.45}
 #fxRoot .exi-meta{font-size:var(--fs-micro);color:var(--faint);margin-top:4px;display:flex;align-items:center;gap:6px}
 #fxRoot .exi-meta .lnk{font-size:var(--fs-micro)}
-#fxRoot .exform{border:1px solid var(--accent-line);border-radius:var(--radius);padding:10px;background:var(--accent-bg);
-  margin-bottom:var(--s-3)}
+/* the open editor is marked the way .glfrom marks an active object — a 3px accent rule,
+   not a tinted card. --accent, so rule 8's severity channel stays clear. */
+#fxRoot .exform{border:none;border-radius:0;background:none;border-left:3px solid var(--accent);
+  padding:var(--s-3) 0 var(--s-3) var(--s-3);margin-bottom:var(--s-3)}
 #fxRoot .exform .fr{display:flex;gap:7px;margin-bottom:7px}
 #fxRoot .exform label{font-size:var(--fs-label);color:var(--muted);display:block;margin-bottom:3px}
 #fxRoot textarea.ta{width:100%;font-family:inherit;font-size:var(--fs-table);padding:6px 8px;border:var(--rule-strong);
@@ -3137,8 +3142,6 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .rl-empty{font-size:var(--fs-micro);color:var(--faint);font-style:italic;padding:3px 0}
 #fxRoot .tbl td.num,#fxRoot .tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
 #fxRoot .tbl th.ctr,#fxRoot .tbl td.ctr{text-align:center}
-#fxRoot .fx-detail{border:var(--rule);border-radius:var(--radius);background:var(--surface);
-  max-height:calc(100vh - var(--header-h) - 90px);overflow-y:auto;position:sticky;top:calc(var(--header-h) + 8px)}
 /* true overlays: fixed, so they stay outside #fxRoot's stacking context */
 .fx-mask{position:fixed;inset:0;background:rgba(16,22,35,.42);z-index:90;display:none;
   align-items:center;justify-content:center;padding:var(--s-5)}
@@ -3400,7 +3403,7 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
    the statement states its own. Quiet, one line, under the table. */
 #fxRoot .fx-keys{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 2px 0;
   font-size:var(--fs-label);color:var(--faint)}
-#fxRoot .fx-keys kbd{font-family:inherit;font-size:var(--fs-micro);border:var(--rule);
+#fxRoot .fx-keys kbd,#fxRoot .ws-from kbd{font-family:inherit;font-size:var(--fs-micro);border:var(--rule);
   border-radius:3px;padding:1px 5px;color:var(--muted);background:var(--surface2);
   margin-right:4px;font-variant-numeric:tabular-nums}
 
@@ -3477,8 +3480,14 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   display:flex;flex-direction:column;overflow:hidden;z-index:22}
 /* header and tabs hold their place by being flex items, so they no longer need to be
    sticky against a scrolling panel — only the body scrolls */
-#fxRoot .fx-detail.fx-dw-full .dw-hd,
-#fxRoot .fx-detail.fx-dw-full .dw-tabs{position:static;flex:0 0 auto}
+#fxRoot .fx-detail.fx-dw-full .dw-hd{position:static;flex:0 0 auto}
+/* the tab bar is NOT static: .rw-menu is absolutely positioned against it, and
+   .fx-dw-full is overflow:hidden. A static bar hands the menu to the panel, which
+   clips it out of existence — and ••• is the only route to History. */
+/* top:0 is load-bearing. The base rule is position:sticky;top:60px — `static` ignored
+   that offset, `relative` honours it, so switching to relative for the menu's sake
+   silently shoved the tab bar 60px down over the body it sits above. */
+#fxRoot .fx-detail.fx-dw-full .dw-tabs{position:relative;top:0;flex:0 0 auto}
 #fxRoot .fx-detail.fx-dw-full .dw-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain}
 
 /* ---- window polish ---------------------------------------------------------
@@ -3510,36 +3519,12 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .fx-dw-full .dw-body:hover::-webkit-scrollbar-thumb{background:var(--n-300)}
 #fxRoot .fx-dw-full .dw-body::-webkit-scrollbar-track{background:transparent}
 /* first section heading in the body should not double the header's padding */
-#fxRoot .fx-dw-full .dw-body>.dw-sec:first-child,
-#fxRoot .fx-dw-full .dw-body>.verdict:first-child{margin-top:0}
-#fxRoot .tolmark{font-size:var(--fs-table);padding:6px 10px;border-radius:var(--radius);margin-bottom:4px}
-#fxRoot .tolmark.ok{background:var(--success-bg);color:var(--success)}
-#fxRoot .tolmark.bad{background:var(--warning-bg);color:var(--warning)}
+#fxRoot .fx-dw-full .dw-body>.dw-sec:first-child{margin-top:0}
 
 /* ---- explanation drawer, review pass -------------------------------------
-   THE VERDICT COMES FIRST. The drawer used to open with a four-row sum and put
-   the answer — is this line defensible or not — underneath it, so the reviewer
-   read the arithmetic before learning whether it mattered. The verdict now leads
-   and the arithmetic supports it.
-
-   Severity here is a 3px left border and nothing else (rule 8): no dot, no pill,
-   no tinted fill. A clean line therefore stays monochrome and only a real
-   exception carries colour. */
-#fxRoot .verdict{border:var(--rule);border-left:3px solid var(--n-300);border-radius:var(--radius);
-  padding:var(--s-3) var(--s-4);margin-bottom:var(--s-3);background:var(--surface)}
-#fxRoot .verdict.bad{border-left-color:var(--sev-high)}
-#fxRoot .verdict.ok{border-left-color:var(--success)}
-#fxRoot .verdict.mute{border-left-color:var(--n-300)}
-#fxRoot .verdict-h{font-size:var(--fs-card);color:var(--ink-strong);line-height:1.3}
-#fxRoot .verdict-n{font-size:var(--fs-figure);font-variant-numeric:tabular-nums;
-  letter-spacing:var(--tracking-tight);color:var(--ink-strong);margin-top:2px}
-#fxRoot .verdict.bad .verdict-n{color:var(--danger)}
-#fxRoot .verdict.ok .verdict-n{color:var(--success)}
-#fxRoot .verdict-s{font-size:var(--fs-table);color:var(--muted);line-height:1.45;margin-top:var(--s-2)}
-/* who owes the next move — an enterprise review is a queue, not a document */
-#fxRoot .ballin{font-size:var(--fs-table);color:var(--muted);margin-top:var(--s-2);
-  padding-top:var(--s-2);border-top:var(--rule)}
-#fxRoot .ballin b{color:var(--ink);font-weight:var(--fw-medium)}
+   THE VERDICT COMES FIRST — and it is now .rw-state in the review workspace, which
+   says it in type rather than in a bordered block. The .verdict / .ballin / .tolmark
+   vocabulary that used to live here had no emitter left and is gone. */
 
 /* PROSE IS NEVER --fs-micro (rule 6: micro carries counts and badge numerals that
    are not sentences). These two classes carry whole sentences and were set at 10px,
@@ -3558,14 +3543,20 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   color:var(--accent-ink);cursor:pointer;text-align:left}
 #fxRoot button.lnk:hover{text-decoration:underline}
 #fxRoot .exi-meta button.lnk{font-size:var(--fs-micro)}
-#fxRoot button.lnk:focus-visible,#fxRoot .exi:focus-within{outline:2px solid var(--accent);outline-offset:2px}
-#fxRoot .exi{transition:border-color .12s ease}
-/* three sides only — the shorthand would repaint the 3px severity mark on the left,
-   so an item would lose its state the moment the pointer touched it */
-#fxRoot .exi:hover{border-top-color:var(--line2);border-right-color:var(--line2);border-bottom-color:var(--line2)}
+#fxRoot button.lnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* offset 0: a borderless row rung at 2px would float its ring off its own edge */
+#fxRoot .exi:focus-within{outline:2px solid var(--accent);outline-offset:0}
+#fxRoot .exi{transition:background-color .12s ease}
+/* the three-sided border trick is retired with the border it protected; a flat row
+   hovers by lightness, and the 3px state mark on the left is untouched by that */
+#fxRoot .exi:hover{background:var(--bg2)}
 /* an item still missing its support is a state, so it gets the 3px mark and nothing else */
-#fxRoot .exi.nosup{border-left:3px solid var(--sev-med)}
-#fxRoot .exi.locked{border-left:3px solid var(--n-300)}
+#fxRoot .exi.nosup{border-left:3px solid var(--sev-med);padding-left:9px}
+#fxRoot .exi.locked{border-left:3px solid var(--n-300);padding-left:9px;background:none}
+/* A KORVYN SUGGESTION IS NOT A TINTED BOX. Indigo is an AI *marker*, never a fill and
+   never a second UI accent (rule 2) — the "Korvyn suggests" chip carries the whole
+   attribution, so the row itself is exactly as flat as every other row. */
+#fxRoot .exi.ai{background:none;border-left:none;padding-left:0}
 
 /* ===== REVIEW WORKSPACE =====================================================
    A docked work surface, not a detail drawer. It reserves its own grid track so
@@ -3602,7 +3593,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .dw-foot{flex:0 0 auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;
   padding:var(--s-2) var(--s-4);border-top:var(--rule);background:var(--surface)}
 #fxRoot .dw-foot .sp{flex:1}
-#fxRoot .dw-foot .why{font-size:var(--fs-micro);color:var(--muted);flex-basis:100%;margin-top:-2px}
+#fxRoot .dw-foot .why{font-size:var(--fs-table);color:var(--muted);flex-basis:100%;margin-top:-2px}
 
 /* REVIEW STACK — a review LINEAGE, not a chat thread. One rail down the left with a
    node per organisational layer; each layer keeps its own scope, author and status,
@@ -3623,19 +3614,14 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rs-ref{font-size:var(--fs-micro);color:var(--muted);margin-top:4px;
   padding-left:var(--s-2);border-left:2px solid var(--line2)}
 
-/* KORVYN DRAFT. Indigo is reserved for AI surfaces and is a BOUNDARY here, not a fill —
-   no gradient, no sparkle, no chat bubble. It reads as one more layer of the review. */
-#fxRoot .kdraft{border:1px solid var(--ai-line);border-radius:var(--radius);
-  background:var(--ai-bg);padding:var(--s-3);margin-bottom:var(--s-3)}
-#fxRoot .kdraft .kd-hd{display:flex;align-items:center;gap:6px;margin-bottom:var(--s-2)}
-#fxRoot .kdraft .kd-tx{font-size:var(--fs-table);color:var(--ink);line-height:1.55}
-#fxRoot .kdraft .kd-act{display:flex;gap:6px;margin-top:var(--s-3);flex-wrap:wrap}
-/* SUPPORT INDICATOR — objective counts a reviewer can go and check, never a
+/* KORVYN DRAFT. Indigo marks an AI surface and is never a fill (rule 2). The .kdraft
+   block that used to sit here drew a tinted, bordered card and had no emitter left —
+   kdControls() renders .rw-src + .rw-lact, and the suggestion row is .exi.ai, which is
+   flat. The "Korvyn suggests" chip carries the whole attribution.
+   SUPPORT INDICATOR — objective counts a reviewer can go and check, never a
    self-reported confidence percentage. A model's certainty is not evidence, and
-   printing one beside audited figures invites it to be read as though it were. */
-#fxRoot .kdraft .kd-sup{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;
-  margin-top:var(--s-2);padding-top:var(--s-2);border-top:1px solid var(--ai-line);
-  font-size:var(--fs-micro);color:var(--muted)}
+   printing one beside audited figures invites it to be read as though it were.
+   It renders through .rw-src. */
 
 /* WHAT NEEDS ATTENTION — a worklist, so each row is an issue and nothing else. */
 #fxRoot .attn{border:var(--rule);border-radius:var(--radius);overflow:hidden}
@@ -3681,6 +3667,13 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    lives in Summary where the reviewer acts on it. */
 #fxRoot .fx-detail .dw-hd{display:flex;align-items:flex-start;gap:var(--s-2);
   padding:var(--s-3) var(--s-4);border-bottom:var(--rule);background:var(--surface)}
+/* THE HEADER ROW. .dw-hd used to be the flex row itself, holding .rw-id and .rw-hact
+   side by side. Page mode needs a third slot (the hoisted review state) that wraps to
+   its own line below both, so the row moved into .rw-idrow and .dw-hd became its
+   container. The row therefore has to carry the flex — in BOTH densities, or the
+   drawer's title and its window controls stack and the header collapses to its
+   content width. */
+#fxRoot .rw-idrow{display:flex;align-items:flex-start;gap:var(--s-2);flex:1;min-width:0}
 #fxRoot .rw-id{flex:1;min-width:0}
 #fxRoot .rw-nm{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink-strong);
   line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3689,9 +3682,12 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-meta .n{font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight)}
 #fxRoot .rw-meta .sep{color:var(--n-300)}
 #fxRoot .rw-hact{display:flex;gap:1px;flex:none;margin:-1px -4px 0 0}
+/* font-size is set even though these hold only an SVG: a <button> with no font-size
+   inherits the UA's 13.3333px, which is a seventh size sitting in the panel's computed
+   styles waiting for the first person to put a character in one (rule 6). */
 #fxRoot .rw-ib{width:22px;height:22px;border:none;background:none;color:var(--faint);
   cursor:pointer;border-radius:var(--radius);display:inline-flex;align-items:center;
-  justify-content:center;line-height:0;padding:0}
+  justify-content:center;line-height:0;padding:0;font-size:var(--fs-table)}
 #fxRoot .rw-ib:hover{background:var(--bg2);color:var(--ink)}
 #fxRoot .rw-ib:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #fxRoot .rw-ib svg{width:13px;height:13px}
@@ -3717,11 +3713,23 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   white-space:nowrap;font-weight:var(--fw-regular)}
 #fxRoot .fx-detail .dw-tabs button.on{color:var(--ink-strong);border-bottom-color:var(--accent);
   font-weight:var(--fw-medium)}
+/* A COUNT AND A DOT, IN THE INTERACTION COLOUR. These are "something here wants you"
+   badges (rule 12), not severity marks — severity is the 3px left border and only that
+   (rule 8). Both were EMITTED by paintDrawer and styled by nothing, so the Support tab's
+   evidence-gap dot rendered as an empty inline element. */
+#fxRoot .fx-detail .dw-tabs button .ct{margin-left:5px;font-size:var(--fs-micro);
+  color:var(--faint);font-variant-numeric:tabular-nums}
+#fxRoot .fx-detail .dw-tabs button.on .ct{color:var(--ink-strong)}
+#fxRoot .fx-detail .dw-tabs button .dot{display:inline-block;width:4px;height:4px;
+  border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:2px}
+#fxRoot .fx-detail .dw-tabs button:hover{color:var(--ink)}
+#fxRoot .fx-detail .dw-tabs button:focus-visible{outline:2px solid var(--accent);
+  outline-offset:-2px;border-radius:var(--radius)}
 #fxRoot .dw-tabs .rw-tsp{flex:1}
 #fxRoot .dw-tabs .rw-more{position:relative;letter-spacing:.12em;padding-right:11px}
 /* one quiet dot when something behind the overflow actually needs a look */
 #fxRoot .dw-tabs .rw-more .dot{position:absolute;top:5px;right:3px;width:4px;height:4px;
-  border-radius:50%;background:var(--sev-med)}
+  border-radius:50%;background:var(--accent)}
 #fxRoot .rw-menu{position:absolute;right:var(--s-3);top:calc(100% + 3px);z-index:6;min-width:172px;
   background:var(--surface);border:var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-lg);
   padding:3px;overflow:hidden}
@@ -3734,12 +3742,53 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   font-variant-numeric:tabular-nums}
 #fxRoot .rw-menu button .ct.warn{color:var(--sev-med)}
 
+/* ---- header: the scope word, then four labelled figures ------------------- */
+#fxRoot .rw-sub2{font-size:var(--fs-table);color:var(--muted);margin-top:2px}
+/* the header wraps so the strip can take a full row of its own beneath the title */
+#fxRoot .fx-detail .dw-hd{flex-wrap:wrap}
+#fxRoot .ws-from,#fxRoot .rw-figs4{flex:1 0 100%}
+#fxRoot .rw-figs4{display:flex;gap:var(--s-5);margin-top:var(--s-3);padding-top:var(--s-3);
+  border-top:var(--rule);flex-wrap:wrap}
+#fxRoot .rw-figs4 .f{min-width:0}
+#fxRoot .rw-figs4 b{display:block;font-size:var(--fs-figure);font-weight:var(--fw-regular);
+  font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight);color:var(--ink-strong);
+  line-height:1.15}
+#fxRoot .rw-figs4 span{display:block;font-size:var(--fs-label);color:var(--hint);margin-top:2px}
+
+/* ---- workflow & review: a definition list, never a profile card ----------- */
+#fxRoot .rw-wf{border-top:var(--rule)}
+#fxRoot .rw-wfr{display:flex;align-items:baseline;gap:var(--s-3);padding:7px 0;
+  border-bottom:var(--rule);font-size:var(--fs-table)}
+#fxRoot .rw-wfr .k{flex:none;width:104px;color:var(--muted)}
+#fxRoot .rw-wfr .v{flex:1;min-width:0;color:var(--ink);text-align:right}
+#fxRoot .rw-wfr .v .sub{color:var(--muted)}
+
+/* ---- a row that is a way in: one line, a count, a chevron ----------------- */
+#fxRoot button.rw-jump{display:flex;width:100%;align-items:center;gap:var(--s-2);
+  background:none;border:none;border-top:var(--rule);padding:11px 0;margin-top:var(--s-4);
+  font:inherit;font-size:var(--fs-card);color:var(--ink-strong);cursor:pointer;text-align:left}
+#fxRoot button.rw-jump:hover{color:var(--accent-ink)}
+#fxRoot button.rw-jump:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#fxRoot button.rw-jump .ct{font-size:var(--fs-micro);color:var(--faint);
+  font-variant-numeric:tabular-nums}
+#fxRoot button.rw-jump .gap{font-size:var(--fs-table);color:var(--sev-med)}
+#fxRoot button.rw-jump .sp{flex:1}
+#fxRoot button.rw-jump .cue{color:var(--faint);font-size:var(--fs-card)}
+#fxRoot .rw-lact .sp{flex:1}
+
 /* ---- body rhythm ---------------------------------------------------------- */
 #fxRoot .fx-dw-full .dw-body{padding:var(--s-4) var(--s-4) var(--s-5)}
 /* the one section label in the panel. Quiet, and it never sits on a filled bar. */
 #fxRoot .rw-sec{font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);
-  color:var(--hint);font-weight:var(--fw-label);margin:var(--s-5) 0 var(--s-2)}
-#fxRoot .rw-sec:first-child{margin-top:0}
+  color:var(--muted);font-weight:var(--fw-label);
+  margin:var(--s-6) 0 var(--s-3);padding-top:var(--s-4);border-top:var(--rule)}
+#fxRoot .rw-sec:first-child{margin-top:0;padding-top:0;border-top:none}
+/* the review state already closes on a rule; a second one directly under it would be
+   two hairlines with nothing between them */
+#fxRoot .rw-state + .rw-sec{border-top:none;padding-top:0;margin-top:var(--s-5)}
+/* the Comments bar lays its label out inline beside a filter control, so it is a row,
+   not the head of a block */
+#fxRoot .rw-cbar .rw-sec{border-top:none;padding-top:0}
 #fxRoot .rw-sec .ct{color:var(--faint);font-weight:var(--fw-regular);letter-spacing:0;margin-left:5px;
   font-variant-numeric:tabular-nums}
 #fxRoot button.rw-lnk{background:none;border:none;padding:0;font:inherit;font-size:var(--fs-label);
@@ -3765,7 +3814,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 /* ---- B. current explanation ---------------------------------------------- */
 #fxRoot .rw-nar{font-size:var(--fs-table);color:var(--ink);line-height:1.55;max-width:64ch}
 #fxRoot .rw-nar.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
-#fxRoot .rw-src{font-size:var(--fs-micro);color:var(--faint);margin-top:6px}
+#fxRoot .rw-src{font-size:var(--fs-table);color:var(--hint);margin-top:6px}
 #fxRoot .rw-items{margin-top:var(--s-3);border-top:var(--rule)}
 #fxRoot .rw-item{padding:8px 0;border-bottom:var(--rule)}
 #fxRoot .rw-item .a{font-size:var(--fs-table);font-variant-numeric:tabular-nums;
@@ -3785,7 +3834,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-r .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 #fxRoot .rw-r .v{flex:none;font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight)}
 #fxRoot .rw-r .p{flex:none;width:34px;text-align:right;font-variant-numeric:tabular-nums;color:var(--faint)}
-#fxRoot .rw-r .cv{flex:none;font-size:9px;color:var(--n-300);width:8px;text-align:right}
+#fxRoot .rw-r .cv{flex:none;font-size:var(--fs-micro);color:var(--n-300);width:8px;text-align:right}
 #fxRoot .rw-r.resid{border-bottom:none;color:var(--muted)}
 #fxRoot .rw-r.resid .l{color:var(--muted)}
 #fxRoot .rw-r.tot{border-bottom:none;border-top:var(--rule-strong);font-weight:var(--fw-medium)}
@@ -3836,16 +3885,15 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fxRoot .rw-e.gap .nmx{color:var(--muted)}
 #fxRoot .rw-e .mt{font-size:var(--fs-micro);color:var(--faint);margin-top:1px}
-
-/* ---- HISTORY: a restrained chronological record --------------------------- */
-#fxRoot .rw-hm{font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);
-  color:var(--hint);font-weight:var(--fw-label);margin:var(--s-4) 0 0;padding-top:var(--s-2);
-  border-top:var(--rule)}
-#fxRoot .rw-hm:first-child{margin-top:0;padding-top:0;border-top:none}
-#fxRoot .rw-h{padding:7px 0;border-bottom:var(--rule)}
-#fxRoot .rw-h .w{font-size:var(--fs-table);color:var(--ink);line-height:1.45}
-#fxRoot .rw-h .m{font-size:var(--fs-micro);color:var(--faint);margin-top:2px}
-#fxRoot .rw-h .d{font-size:var(--fs-micro);color:var(--muted);margin-top:2px}
+/* the gap row's second line is a SENTENCE, not a stamp — rule 6 keeps it off micro */
+#fxRoot .rw-e.gap .mt{font-size:var(--fs-table);color:var(--hint)}
+/* THE FILE INPUTS WERE NEVER HIDDEN. Both evidence uploaders are emitted with
+   class="hidden", and that class is defined NOWHERE in this file — so every one of
+   them rendered as a live 253x22 "Choose File" control stacked under the evidence
+   list, beside the "attach" and "Add support →" links that are supposed to be the
+   only way to reach them. One input per explanation item, so a line with four items
+   drew five of them. */
+#fxRoot .hidden{display:none}
 
 /* ---- COMMENTS: a professional accounting comment stream -------------------
    Not a chat, not a hierarchy diagram, not the old "Review stack". Each comment is
@@ -3864,7 +3912,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   padding:3px 8px;font:inherit;font-size:var(--fs-micro);color:var(--muted);cursor:pointer;
   display:inline-flex;align-items:center;gap:4px}
 #fxRoot .rw-cfil>button:hover{border-color:var(--line2);color:var(--ink)}
-#fxRoot .rw-cfil .cue{color:var(--faint);font-size:9px}
+#fxRoot .rw-cfil .cue{color:var(--faint);font-size:var(--fs-micro)}
 #fxRoot .rw-cmenu{position:absolute;right:0;top:calc(100% + 3px);z-index:6;min-width:150px;
   background:var(--surface);border:var(--rule-strong);border-radius:var(--radius);
   box-shadow:var(--shadow-lg);padding:4px;overflow:hidden}
@@ -3878,7 +3926,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-cm .role{font-size:var(--fs-micro);color:var(--muted);margin-top:1px}
 #fxRoot .rw-cm .at{font-size:var(--fs-micro);color:var(--faint);margin-top:1px;font-variant-numeric:tabular-nums}
 #fxRoot .rw-cm .tx{font-size:var(--fs-table);color:var(--ink);line-height:1.55;margin-top:6px;max-width:64ch}
-#fxRoot .rw-cm .refs{font-size:var(--fs-micro);color:var(--muted);margin-top:5px;
+#fxRoot .rw-cm .refs{font-size:var(--fs-table);color:var(--muted);margin-top:5px;
   padding-left:var(--s-2);border-left:2px solid var(--line2)}
 #fxRoot .rw-cm .ev{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap}
 /* a scope that owes a comment: the one place semantic colour is allowed here, as a
@@ -3887,8 +3935,8 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-cm .owed-t{font-size:var(--fs-table);color:var(--muted);margin-top:4px}
 #fxRoot .rw-cm .cact{display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--s-2)}
 /* inline composer */
-#fxRoot .rw-comp{border:var(--rule);border-radius:var(--radius);padding:9px;margin-bottom:var(--s-3);
-  background:var(--surface)}
+/* the composer is a form, not a card — the textarea draws its own control border */
+#fxRoot .rw-comp{border:none;border-radius:0;padding:0;background:none;margin-bottom:var(--s-3)}
 #fxRoot .rw-comp textarea{width:100%;min-height:64px;border:var(--rule);border-radius:var(--radius);
   padding:7px 8px;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--bg);resize:vertical}
 #fxRoot .rw-comp textarea:focus-visible{outline:2px solid var(--accent);outline-offset:0}
@@ -3902,8 +3950,9 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-fsr .k{flex:none;width:96px;font-size:var(--fs-micro);text-transform:uppercase;
   letter-spacing:var(--tracking-label);color:var(--hint);font-weight:var(--fw-label);padding-top:2px}
 #fxRoot .rw-fsr .v{flex:1;min-width:0;font-size:var(--fs-table);color:var(--ink);line-height:1.45}
-#fxRoot .rw-fsr .v .mono{font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight)}
-#fxRoot .rw-fsr .v .sub{display:block;font-size:var(--fs-micro);color:var(--faint);margin-top:1px}
+#fxRoot .rw-fsr .v .mono{font-family:var(--mono);font-variant-numeric:tabular-nums;
+  letter-spacing:var(--tracking-tight)}
+#fxRoot .rw-fsr .v .sub{display:block;font-size:var(--fs-table);color:var(--hint);margin-top:1px}
 #fxRoot .rw-fsr .v .tie{color:var(--success)}
 #fxRoot .rw-fsr .v .tie.bad{color:var(--danger)}
 #fxRoot button.rw-fslnk{background:none;border:none;padding:0;font:inherit;font-size:var(--fs-table);
@@ -3926,6 +3975,160 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 
 /* ---- footer: the next action, always in reach ---------------------------- */
 #fxRoot .dw-foot .rw-fnote{font-size:var(--fs-table);color:var(--muted)}
+
+/* ===== THE WORKSPACE COLUMN RUNS THE FULL HEIGHT =============================
+   sizeDrawer() begins the panel BELOW whatever currently occupies its column, which
+   is the right rule — but the page title row, the period navigator, the worklist bar
+   and the shared filter bar all span the full width, so all four reached into that
+   column and pushed the panel ~400px down. The result was a short panel floating
+   beside the table with a tall band of dead space above it.
+
+   The fix is not to raise the panel over that chrome — it would paint over the filter
+   bar's own controls and the page's primary button. It is to take the chrome OUT of
+   the column: once nothing full-width overlaps it, sizeDrawer's existing measurement
+   finds only the app chrome above and the panel rises to it on its own. No change to
+   the measuring code; it already says "begin below whatever is in your column."
+
+   The reserved width is --dw-w, the same single source the grid track and the drag
+   handle read, so the chrome yields EXACTLY the panel's width and follows it when the
+   reviewer drags — and shrinks to 34px when the panel collapses to its rail.
+
+   #filterbar is shared shell chrome that lives outside #fxRoot and is used by every
+   page, so it is gated on a body class and reads a mirrored copy of the width. */
+@media (min-width:1101px){
+  #fxRoot.dw-open .gl-hd,
+  #fxRoot.dw-open .fx-pnav,
+  #fxRoot.dw-open .fx-work,
+  #fxRoot.dw-open .fx-focusline{margin-right:calc(var(--dw-w) + 12px)}
+  body.fx-dw-open #filterbar{margin-right:calc(var(--fx-dw-w,440px) + 12px)}
+}
+
+/* ===== THE FULL REVIEW PAGE ==================================================
+   THE SAME ELEMENT, NOT A SECOND SURFACE. #fxDetail is the docked drawer at 440px
+   and the full working paper at 1400px; only its container changes. There is no
+   second panel to keep in step, and no markup that exists in one mode only beyond
+   the return strip.
+
+   Geometry, and why it is this and not `position:fixed`:
+     The drawer's full-length mode is fixed, measured every paint by sizeDrawer()
+     against the track the grid reserves for it. None of that applies here — the
+     statement is hidden, so there is no track to measure and nothing to sit beside.
+     The page is therefore plain STATIC FLOW: the window scrolls, the tab bar sticks
+     under the measured page chrome (--fx-stick, which syncStick() already maintains
+     off the real ribbon/cstrip/topbar heights), and the workflow footer sticks to
+     the bottom of the viewport so the action is never scrolled away. sizeDrawer()
+     gets an early-out so the whole fixed-geometry path is disarmed rather than
+     fighting this.
+
+   Columns come from CONTAINER queries on .dw-body, not viewport media queries. With
+   the copilot, notifications or settings panel docked, .main loses ~400px — a
+   viewport rule would happily render a 200px-wide prose column against a 1600px
+   screen. The container knows its own width; the viewport does not.
+
+   One card in the region (rule 11): .fx-detail draws the only border. Columns and
+   regions separate by hairline and lightness (rule 5) — no card, no radius, no
+   shadow anywhere inside. */
+#fxRoot.dw-page .wsplit.on{grid-template-columns:minmax(0,1fr)}
+#fxRoot.dw-page .wsplit.on>.card.fx-table{display:none}
+/* --dw-w is never written in page mode, so returning to the drawer restores the
+   reviewer's own persisted width rather than some value this mode invented */
+#fxRoot.dw-page .fx-detail{position:static;height:auto;max-height:none;overflow:visible;
+  display:flex;flex-direction:column;border:var(--rule);border-radius:0;
+  background:var(--surface);box-shadow:none;
+  min-height:calc(100vh - var(--fx-stick) - var(--s-6))}
+/* border-radius:0 is load-bearing: a sticky footer inside a rounded box overhangs
+   its own corners, and the join reads as a rendering fault rather than a decision */
+
+/* ---- the header becomes the page's title block --------------------------- */
+#fxRoot.dw-page .fx-detail .dw-hd{position:static;display:block;
+  padding:var(--s-4) var(--s-5)}
+#fxRoot.dw-page .dw-hd .rw-idrow{gap:var(--s-6)}
+/* the line name stays at --fs-card. It gains its weight from being PAIRED with the
+   hoisted verdict, not from a larger size — glHead already owns the 20px title, and
+   two page titles stacked is the "said twice" fault this panel keeps removing. */
+#fxRoot.dw-page .rw-nm{white-space:normal}
+/* the review state is hoisted out of the body and set against the identity, so the
+   verdict and the line are one glance rather than two */
+#fxRoot.dw-page .dw-hd .rw-state{flex:none;max-width:46ch;text-align:right;
+  padding-bottom:0;border-bottom:none}
+@media (max-width:1360px){
+  #fxRoot.dw-page .dw-hd .rw-state{flex:1 0 100%;text-align:left;max-width:none;
+    margin-top:var(--s-3);padding-top:var(--s-3);border-top:var(--rule)}
+  #fxRoot.dw-page .dw-hd .rw-idrow{flex-wrap:wrap}
+  /* the state wraps to its own row; the window controls must NOT follow it down and
+     strand themselves on a third row with nothing to sit beside */
+  #fxRoot.dw-page .dw-hd .rw-hact{order:1}
+  #fxRoot.dw-page .dw-hd .rw-state{order:2}
+}
+
+/* ---- the tab bar becomes an index, and sticks ---------------------------- */
+#fxRoot.dw-page .fx-detail .dw-tabs{position:sticky;top:var(--fx-stick);z-index:8;
+  padding:0 var(--s-5);background:var(--surface);flex-wrap:wrap}
+/* NOT overflow-x:auto. The ••• menu is absolutely positioned against this bar, and any
+   overflow value other than visible clips it — the same fault that hid History in the
+   full-length drawer. The page has the width to wrap instead. */
+/* a hairline, expressed as a border — rule 5 keeps shadow for true overlays */
+#fxRoot.dw-page .fx-detail.scrolled .dw-tabs{border-bottom-color:var(--border-strong)}
+
+/* ---- the body is the container the columns measure themselves against ----- */
+#fxRoot.dw-page .fx-detail .dw-body{container-type:inline-size;overflow:visible;
+  padding:var(--s-5) var(--s-5) var(--s-8)}
+
+#fxRoot .rw-cols{display:grid;align-items:start;gap:var(--s-4);
+  grid-template-columns:1fr;grid-template-areas:"judge" "comp" "rec"}
+#fxRoot .rw-col{min-width:0}
+#fxRoot .rw-col.judge{grid-area:judge}
+#fxRoot .rw-col.comp{grid-area:comp}
+#fxRoot .rw-col.rec{grid-area:rec}
+/* two columns: the record moves alongside, judgement and composition stack */
+@container (min-width:820px){
+  #fxRoot .rw-cols{grid-template-columns:minmax(0,1fr) minmax(320px,380px);
+    grid-template-areas:"judge rec" "comp rec"}
+  #fxRoot .rw-col.rec{border-left:var(--rule);padding-left:var(--s-5)}
+  #fxRoot .rw-col.comp{border-top:var(--rule);padding-top:var(--s-5);margin-top:var(--s-5)}
+}
+/* three columns: the argument reads left to right — is it defensible, what is it
+   made of, what is it judged against */
+@container (min-width:1180px){
+  #fxRoot .rw-cols{gap:var(--s-5);
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) 400px;
+    grid-template-areas:"judge comp rec"}
+  #fxRoot .rw-col.judge{max-width:72ch}
+  #fxRoot .rw-col.comp{border-top:none;padding-top:0;margin-top:0;
+    border-left:var(--rule);padding-left:var(--s-5)}
+}
+/* a mounted region. Its own .rw-sec is its label — the wrapper never adds a second */
+#fxRoot .rw-rg{margin-top:var(--s-6);padding-top:var(--s-5);border-top:var(--rule)}
+#fxRoot .rw-rg:first-child{margin-top:0;padding-top:0;border-top:none}
+#fxRoot .rw-rg:focus{outline:none}
+#fxRoot .rw-rg:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+
+/* ---- the action never scrolls away --------------------------------------- */
+#fxRoot.dw-page .fx-detail .dw-foot{position:sticky;bottom:0;z-index:8;
+  padding:var(--s-3) var(--s-5);background:var(--surface);box-shadow:none}
+
+/* ---- controls that act on a table which is not on screen ------------------ */
+#fxRoot.dw-page .fx-focusline,
+#fxRoot.dw-page .fx-keys,
+#fxRoot.dw-page .seg.fx-disp,
+#fxRoot.dw-page #fxViewBtn,
+#fxRoot.dw-page .fx-narrbtn,
+#fxRoot.dw-page .fx-detail>.dw-grip{display:none}
+
+/* ---- the way back. NOT a card: .fx-detail is already the one card of this
+   region (rule 11), so this is the .glfrom grammar minus its box — a 3px accent
+   mark and a closing hairline, nothing else. ------------------------------- */
+#fxRoot .ws-from{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;
+  padding:var(--s-2) 0 var(--s-2) var(--s-3);border-left:3px solid var(--accent);
+  border-bottom:var(--rule);font-size:var(--fs-table);color:var(--muted);
+  margin-bottom:var(--s-3)}
+#fxRoot .ws-from b{color:var(--ink);font-weight:var(--fw-regular)}
+#fxRoot .ws-from .sep{color:var(--n-300)}
+#fxRoot .ws-from .sp{flex:1}
+#fxRoot .ws-from .keys{flex:1 0 100%;font-size:var(--fs-label);color:var(--faint);
+  display:flex;gap:var(--s-4);flex-wrap:wrap;margin-top:var(--s-1)}
+#fxRoot:not(.dw-page) .ws-from{display:none}
+
 
 /* RESPONSIVE COLUMN PRIORITY: analytical columns yield before the numbers do.
    Driven by dw-tight / dw-tighter, which sizeDrawer() sets from the room the table
@@ -4181,6 +4384,8 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   /* the workspace is a working surface, never part of the printed package */
   #fxRoot .fx-detail,#fxRoot .dw-grip{display:none!important}
   #fxRoot .wsplit.on{grid-template-columns:1fr!important}
+  #fxRoot.dw-page .wsplit.on>.card.fx-table{display:block!important}
+  #fxRoot.dw-page .ws-from{display:none!important}
   /* indicator counts carry no meaning on paper — the band beneath says it in words */
   #fxRoot .fxind{display:none!important}
   @page{margin:16mm 14mm}
@@ -5275,9 +5480,14 @@ const S={
      one array of {dim,k,label} that the whole Drivers tab derives from, which is
      why the drill can never disagree with its own breadcrumb. */
   dwCollapsed:false,         // panel collapsed to a rail; S.sel survives it
+  dwPage:false,              // the review is promoted to a full-width working paper;
+                             // mutually exclusive with dwCollapsed
+  dwRg:null,                 // page mode: which region the scroll spy has under the tabs
   dwMenu:false,              // the ••• overflow (History) is open
   histFocus:'review',        // which History section the ••• entry leads with: review|prior|activity
   cmtCompose:false,          // the Comments composer is open
+  cmtDraft:'',               // …and what is typed into it, so a repaint cannot eat it
+  kdDraft:null,              // the explanation's words, while they are being edited
   cmtMenu:false,             // the Comments scope-filter menu is open
   cmtFilter:'all',           // Comments scope filter: all|ent|reg|corp
   drvPath:[],                // driver drill: [{dim,k,label}], root is []
@@ -5693,7 +5903,13 @@ function lineMatches(r){
   }
   return true;
 }
-function setQuery(v){S.q=String(v||'');S.sel=null;paintGrid();paintKpi();syncFilterChrome();}
+/* paintDrawer is NOT optional here. This is the one S.sel-nulling setter that repaints
+   the grid without repainting the panel, so the panel never learned the line was gone:
+   with the docked drawer that left a stale line on screen, and with the full review page
+   it left #fxRoot.dw-page holding the statement at display:none over a hidden panel — a
+   blank page with no route back short of a reload. shut() is what tears the mode down,
+   and shut() only runs inside paintDrawer. */
+function setQuery(v){S.q=String(v||'');S.sel=null;paintGrid();paintKpi();paintDrawer();syncFilterChrome();}
 function setReason(id){
   const i=S.reason.indexOf(id);
   i<0?S.reason.push(id):S.reason.splice(i,1);
@@ -5730,6 +5946,9 @@ function setCover(v){S.cover=v;S.sel=null;renderAll();}
 function fxRowEls(){ return [...document.querySelectorAll('#fxGrid tr[data-line]')]; }
 function fxFocusRow(el){
   if(!el)return;
+  /* the statement is hidden in page mode; focusing a row inside it would move the
+     caret somewhere invisible and scroll the page to nothing */
+  if(S.dwPage)return;
   fxRowEls().forEach(t=>t.classList.remove('kfocus'));
   el.classList.add('kfocus');
   el.setAttribute('tabindex','0');
@@ -5768,6 +5987,11 @@ function fxKeys(e){
     return false;
   }
   const k=e.key;
+  /* the statement is hidden on the full review page, so the keys that move a cursor
+     through it have nothing to move. n (next line needing review), e, x and / still
+     do, and stay live — walking the worklist without leaving the page is the point. */
+  if(S.dwPage&&('jk'.indexOf(k)>=0||k==='ArrowDown'||k==='ArrowUp'||k==='Enter'||k==='g'
+    ||(k>='1'&&k<=String(DISP_MODES.length))))return false;
   if(k==='/'){e.preventDefault();openFilters();
     setTimeout(()=>{const s=$('fxSearch'); if(s)s.focus();},60); return true;}
   if(k==='j'||k==='ArrowDown'){e.preventDefault();fxMove(1);return true;}
@@ -6742,7 +6966,12 @@ function kdraftFor(r){
   const key=stackKey(r,rc);
   if(rc.kd&&rc.kd.key===key)return rc.kd;
   const o=explainObj(r);
-  rc.kd={key, text:kdNarrative(o), at:stamp(), ver:(rc.kd?rc.kd.ver+1:1), o};
+  /* stackKey moves whenever the record moves — an accepted item, a status change —
+     and rebuilding the draft here would silently discard words a person had written
+     into it. Only kdRegen replaces edited text, and it says so when it does. */
+  const kept=rc.kd&&rc.kd.edited?rc.kd:null;
+  rc.kd={key, text:kept?kept.text:kdNarrative(o), at:stamp(), ver:(rc.kd?rc.kd.ver+1:1), o,
+         edited:!!kept, editedBy:kept&&kept.editedBy, editedAt:kept&&kept.editedAt};
   if(!rc.kdOriginal)rc.kdOriginal={text:rc.kd.text,at:rc.kd.at};
   return rc.kd;
 }
@@ -6761,9 +6990,15 @@ function kdAccept(){
   const kd=kdraftFor(r), o=kd.o;
   const src=o.drivers.filter(d=>Math.abs(d.d)>0).slice(0,6);
   if(!src.length){toast('No quantified driver to accept');return;}
+  const edited=!!kd.edited;
   src.forEach(d=>rc.items.push({amt:d.d,reason:kdReason(d),note:kdItemNote(d,o),ev:'',files:[],
-    src:'korvyn',by:meStr(),at:stamp()}));
-  logA({line:S.sel,act:'accepted the Korvyn draft unchanged',
+    src:edited?'korvyn-edited':'korvyn',by:meStr(),at:stamp()}));
+  /* THE WORDS ON SCREEN ARE THE WORDS ACCEPTED. Without this the item notes would
+     become the explanation and a preparer's edit would vanish at the moment they
+     approved it — the one moment they were certain it had been kept. */
+  rc.narr=kd.text; rc.narrBy=meStr(); rc.narrAt=stamp();
+  rc.narrSrc=edited?'korvyn-edited':'korvyn';
+  logA({line:S.sel,act:'accepted the Korvyn draft'+(edited?' as edited':' unchanged'),
     detail:src.length+' driver'+(src.length===1?'':'s')+' accepted; draft '+('v'+kd.ver)});
   if(rc.status==='returned')rc.status='draft';
   renderAll(); toast('Korvyn draft accepted as the preparer explanation');
@@ -6774,13 +7009,42 @@ function kdAccept(){
    pill, and from the memo — in exactly the population where a human took a
    generated paragraph and adjusted it. That is the population an auditor most wants
    flagged. The draft is carried on the editor now and lands as 'korvyn-edited'. */
+/* ONE editor for the line's words, whatever wrote them. Seeded from the draft when a
+   draft is what is on screen, and from the line's own narrative once one exists. */
 function kdEdit(){
   const r=rows().find(x=>x.id===S.sel); if(!r)return;
   const rc=rec(r.id,true); if(!kdGuard(rc))return;
-  const kd=kdraftFor(r);
-  S.dwTab='sum'; S.rwFullEx=true;   // explanation authoring lives under Overview › Explanation
-  exOpen({i:null,sug:null,fromKd:kd.ver||1},{amt:r.d,reason:'oth',note:kd.text,ev:''});
-  toast('Editing the Korvyn draft — saving records it as edited, not accepted');
+  const best=bestExplanation(r,rc);
+  S.dwTab='sum'; S.rwFullEx=false;
+  S.kdDraft = best.kind==='draft' ? kdraftFor(r).text : (rc.narr||best.text||'');
+  paintDrawer();
+  setTimeout(()=>{const t=document.getElementById('kdIn');
+    if(t){t.focus();try{t.setSelectionRange(t.value.length,t.value.length);}catch(e){}}},30);
+}
+/* every keystroke, no repaint — the same contract exField and cmtField hold */
+function kdField(v){ S.kdDraft=v; }
+function kdCancel(){ S.kdDraft=null; paintDrawer(); }
+function kdSave(){
+  const r=rows().find(x=>x.id===S.sel); if(!r)return;
+  const rc=rec(r.id,true); if(!kdGuard(rc))return;
+  const txt=String(S.kdDraft==null?'':S.kdDraft).trim();
+  if(!txt){toast('An explanation cannot be empty');const t=document.getElementById('kdIn');if(t)t.focus();return;}
+  const best=bestExplanation(r,rc);
+  if(best.kind==='draft'){
+    /* still a draft: the words change, the standing does not. Accepting is a separate,
+       deliberate act — editing a machine's sentence is not the same as signing it. */
+    const kd=kdraftFor(r), was=kd.text;
+    if(txt===was){S.kdDraft=null;paintDrawer();return;}
+    kd.text=txt; kd.edited=true; kd.editedBy=meStr(); kd.editedAt=stamp();
+    logA({line:S.sel,who:meStr(),act:'edited the Korvyn draft',before:was,after:txt});
+    S.kdDraft=null; renderAll();
+    toast('Saved — Accept it to make it this line\u2019s explanation');
+    return;
+  }
+  const was=rc.narr||best.text||'';
+  rc.narr=txt; rc.narrBy=meStr(); rc.narrAt=stamp(); rc.narrSrc='user'; rc.updated=stamp();
+  if(txt!==was)logA({line:S.sel,who:meStr(),act:'edited the explanation',before:was,after:txt});
+  S.kdDraft=null; renderAll(); toast('Explanation updated');
 }
 function kdRegen(){
   const r=rows().find(x=>x.id===S.sel); if(!r)return;
@@ -6900,7 +7164,10 @@ function dispMode(){
 function bestExplanation(r,rc){
   rc=rc||rec(r.id);
   const items=(rc&&rc.items)||[];
-  const join=()=>items.map(x=>x.note).join(' ');
+  /* rc.narr is the line's OWN narrative — what a person actually wrote or accepted.
+     Falling back to the concatenated item notes keeps every record written before the
+     narrative existed rendering exactly as it did. */
+  const join=()=>(rc&&rc.narr)||items.map(x=>x.note).join(' ');
   if(items.length&&rc.status==='approved')
     return {kind:'approved',label:'Reviewed',text:join(),by:rc.prep,at:rc.updated||'',n:items.length};
   if(items.length&&(rc.status==='submitted'))
@@ -6908,6 +7175,13 @@ function bestExplanation(r,rc){
   if(items.length)
     return {kind:'submitted',label:rc.status==='returned'?'Returned':'Draft',text:join(),
             by:rc.prep,at:rc.updated||'',n:items.length};
+  /* A WRITTEN EXPLANATION WITH NOTHING ITEMISED IS STILL AN EXPLANATION. It outranks
+     the draft and the inherited stack for the same reason the itemised one does: a
+     person at this level wrote it about this line. */
+  if(rc&&rc.narr)
+    return {kind:'submitted',label:{approved:'Reviewed',submitted:'In review',
+              returned:'Returned'}[rc.status]||'Draft',
+            text:rc.narr,by:rc.narrBy||rc.prep,at:rc.narrAt||rc.updated||'',n:0};
   // nothing at this level — look down the stack for lower-level commentary whose
   // own review is complete
   const stk=rc?stackFor(r,rc):[];
@@ -7276,6 +7550,9 @@ function openFilters(){
 /* Focus mode: the review summary is useful when you arrive and noise once you are
    working the statement, so it collapses to a single line rather than disappearing. */
 function toggleFocus(){
+  /* focus mode trims chrome to make the STATEMENT bigger. On the full review page
+     there is no statement to enlarge, so the control has nothing to act on. */
+  if(S.dwPage){toast('Focus mode is not available on the full review page');return;}
   S.focus=!S.focus;
   const b=document.body;
   if(b&&b.classList){
@@ -7319,11 +7596,16 @@ function trend(id){pop('trend:'+id,$('fxGrid')||document.body);}
    draft is NOT reset: it is keyed by line and parked, not discarded. */
 function pick(id){
   S.sel=S.sel===id?null:id;
-  S.dwTab='sum'; S.dwCollapsed=false; S.dwMenu=false;
+  /* pick() is only reachable from the statement grid, which page mode hides — but the
+     toggle-off path runs through shut(), and the mode must be down before it does.
+     pickAt() deliberately does NOT do this: that is what lets 'n' and 'Next needing
+     review' walk the worklist without leaving the page. */
+  S.dwTab='sum'; S.dwCollapsed=false; S.dwMenu=false; S.dwPage=false; S.kdDraft=null;
   S.drvPath=[]; S.drvGl=false; S.rwFullEx=false; S.rwPeriods=false;
   renderAll();
 }
-function closeDrawer(){S.sel=null;S.dwCollapsed=false;S.dwMenu=false;renderAll();}
+function closeDrawer(){S.sel=null;S.dwCollapsed=false;S.dwMenu=false;S.dwPage=false;
+  S.cmtCompose=false;S.cmtDraft='';S.kdDraft=null;renderAll();}
 function resetFilters(){S.ent=[];S.seg=[];S.prop=[];S.cc=[];S.reg=[];S.dir='all';S.show='all';S.sort='stmt';
   S.q='';S.reason=[];S.thresh='';S.cover='all';S.sel=null;renderAll();}
 /* Drill and filter are the same gesture: scoping from a decomposition row applies the
@@ -7633,6 +7915,7 @@ function dwCurWidth(){
    plus the compressed core columns simply do not both fit, and the columns win. */
 const DW_TABLE_MIN=700;   // measured: the six core columns fully compressed need ~688
 function applyDwWidth(px,persist){
+  if(S.dwPage)return dwCurWidth();   // the page has no --dw-w, and must not learn one
   const sp=$('fxSplit');
   let cap=DW_MAX;
   if(sp&&sp.classList.contains('on')){
@@ -7650,6 +7933,7 @@ function applyDwWidth(px,persist){
    Nothing re-renders during the drag — only a custom property changes — so the
    selected line, the open tab and any half-typed explanation all survive it. */
 function dwGripDown(ev){
+  if(S.dwPage)return;                // there is no edge to drag on a full-width page
   const sp=$('fxSplit'); if(!sp)return;
   ev.preventDefault();
   const right=sp.getBoundingClientRect().right;
@@ -7673,6 +7957,7 @@ function dwGripDown(ev){
 }
 /* a drag handle that only responds to a mouse is not a control (rule 15) */
 function dwGripKey(ev){
+  if(S.dwPage)return;
   const step=ev.shiftKey?48:16;
   if(ev.key==='ArrowLeft'){ev.preventDefault();applyDwWidth(dwCurWidth()+step,true);}
   else if(ev.key==='ArrowRight'){ev.preventDefault();applyDwWidth(dwCurWidth()-step,true);}
@@ -7686,13 +7971,35 @@ function dwGripKey(ev){
    needs no scroll handler. */
 function sizeDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
+  /* PAGE MODE HAS NO TRACK TO MEASURE. The statement is hidden, so there is nothing
+     to sit beside and nothing to measure against — a hidden card returns an all-zero
+     rect, and the fixed panel would land 12px from the viewport edge, over the rail.
+     Disarm the whole fixed path rather than trying to compute a sane number for it. */
+  if(S.dwPage){
+    dt.classList.remove('fx-dw-full');
+    dt.style.left=dt.style.width=dt.style.top=dt.style.height='';
+    const rt=$('fxRoot'); if(rt)rt.classList.remove('dw-tight','dw-tighter','dw-open');
+    document.body.classList.remove('fx-dw-open');
+    document.body.style.removeProperty('--fx-dw-w');
+    return;
+  }
   const full=sp.classList.contains('on')&&dt.style.display!=='none'
+             &&sp.offsetParent!==null
              &&window.matchMedia('(min-width:1101px)').matches;
   dt.classList.toggle('fx-dw-full',full);
   const root=$('fxRoot');
+  /* TELL THE PAGE CHROME TO GET OUT OF THE COLUMN. Toggled before the top is measured
+     below, so the same pass sees the narrowed chrome and lifts the panel to the app
+     bar instead of to the title row. --fx-dw-w is mirrored onto <body> because
+     #filterbar is shell chrome outside #fxRoot and cannot read --dw-w. */
+  if(root)root.classList.toggle('dw-open',full);
+  document.body.classList.toggle('fx-dw-open',full);
+  if(full&&root)document.body.style.setProperty('--fx-dw-w',
+    (getComputedStyle(root).getPropertyValue('--dw-w')||'440px').trim());
   if(!full){
     dt.style.left=dt.style.width=dt.style.top=dt.style.height='';
     if(root)root.classList.remove('dw-tight','dw-tighter');
+    document.body.style.removeProperty('--fx-dw-w');
     return;
   }
   const tbl=sp.firstElementChild; if(!tbl)return;
@@ -7793,15 +8100,84 @@ function syncStick(){
 /* rAF-throttled: the drawer's top edge tracks the filter bar scrolling out from
    over it, and the frozen header tracks the chrome above it */
 let dwTick=0;
-function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;syncStick();sizeDrawer();}); }
+function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;syncStick();sizeDrawer();dwSpy();}); }
+/* PAGE MODE: the tab bar doubles as an index, so it has to say where you are. This
+   only ever toggles a class — writing S.dwTab from a scroll handler would repaint the
+   body mid-scroll and would collapse an open driver drill under the reader. */
+const RW_INDEX=['explain','drill','evid','cmtHead','trail'];
+function dwSpy(){
+  const dt=$('fxDetail'); if(!dt)return;
+  if(!S.dwPage){dt.classList.remove('scrolled');return;}
+  dt.classList.toggle('scrolled',window.scrollY>4);
+  const tabs=$('fxDwTabs'); if(!tabs)return;
+  const stick=(dt.querySelector('.dw-tabs')||{getBoundingClientRect:()=>({bottom:0})})
+    .getBoundingClientRect().bottom;
+  let here=null, best=-Infinity;
+  dt.querySelectorAll('[data-rg]').forEach(sec=>{
+    const k=sec.getAttribute('data-rg');
+    if(RW_INDEX.indexOf(k)<0)return;                 // not a destination the index offers
+    const top=sec.getBoundingClientRect().top;
+    if(top<=stick+4&&top>best){best=top;here=k;}
+  });
+  // above the first region, the index reads as the first entry rather than as nothing
+  if(!here&&dt.querySelector('[data-rg]'))here=RW_INDEX.find(k=>dt.querySelector('#fxRg-'+k))||null;
+  if(here===S.dwRg)return;
+  S.dwRg=here;
+  tabs.querySelectorAll('button[data-go]').forEach(b=>
+    b.classList.toggle('on',b.getAttribute('data-go')===here));
+}
 window.addEventListener('scroll',dwOnScroll,{passive:true});
 window.addEventListener('resize',syncStick);
 window.addEventListener('resize',sizeDrawer);
+/* MEASURE WHEN THE LAYOUT ACTUALLY MOVES, rather than guessing when it has settled.
+   The panel is fixed-positioned and pinned to the track the grid reserves for it, so
+   every one of its numbers is a measurement — and a measurement taken one frame too
+   early is simply wrong. It is taken too early more often than it looks: the rail
+   animates its width, the copilot docks and undocks, the chrome yields the column on
+   .dw-open, fonts finish loading, the filter bar grows a row of chips. A rAF after
+   paintDrawer catches none of those reliably, which left the panel pinned to
+   yesterday's geometry until the next scroll happened to re-run it.
+
+   An observer on the two boxes that define the panel's position — the statement card
+   (its left edge and width) and the chrome above it (its height) — re-runs the same
+   rAF-throttled pass the scroll handler uses. It is idempotent: with settled layout it
+   writes back the values it just read. */
+let dwRO=null;
+function dwObserve(){
+  if(typeof ResizeObserver!=='function')return;
+  /* re-bound on every paint: renderFinRep() replaces #fxRoot wholesale, and an
+     observer still holding the detached nodes would never fire again */
+  if(dwRO)dwRO.disconnect(); else dwRO=new ResizeObserver(()=>dwOnScroll());
+  ['#fxSplit','#fxSplit>.card.fx-table','#fxRoot .gl-hd','#filterbar','.main']
+    .forEach(sel=>{const e=document.querySelector(sel); if(e)dwRO.observe(e);});
+  dwWatchView();
+}
+/* the shell shows and hides views by toggling display, which fires no event. Without
+   this, navigating away with the drawer open leaves body.fx-dw-open set and the shared
+   filter bar indented by the width of a panel that is no longer on screen. */
+let dwMO=null;
+function dwWatchView(){
+  if(dwMO||typeof MutationObserver!=='function')return;
+  const v=document.getElementById('view-finrep'); if(!v)return;
+  dwMO=new MutationObserver(()=>dwOnScroll());
+  dwMO.observe(v,{attributes:true,attributeFilter:['style','class','hidden']});
+}
 function paintDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
   const root=$('fxRoot');
-  const shut=()=>{sp.classList.remove('on');dt.style.display='none';
-    if(root)root.classList.remove('dw-collapsed');sizeDrawer();};
+  /* ABOVE the early return, deliberately — see the note on shut() below */
+  if(root)root.classList.toggle('dw-page',!!S.dwPage);
+  /* the ONE place page mode is torn down. Fourteen setters null S.sel; routing all of
+     them through here is what stops any of them stranding the page with no statement
+     and no panel. The toast fires only when a filter change removed the open line. */
+  const shut=()=>{
+    if(S.dwPage){S.dwPage=false;if(root)root.classList.remove('dw-page');
+      toast('That line is no longer in the filtered statement');}
+    sp.classList.remove('on');dt.style.display='none';
+    if(root)root.classList.remove('dw-collapsed','dw-open');
+    document.body.classList.remove('fx-dw-open');
+    document.body.style.removeProperty('--fx-dw-w');
+    sizeDrawer();};
   if(!S.sel){shut();return;}
   sp.classList.add('on'); dt.style.display='';
   const all=rows(), r=all.find(x=>x.id===S.sel);
@@ -7839,13 +8215,27 @@ function paintDrawer(){
      rendered in place. Evidence is folded into Support. History moves to the ••• menu
      so it never competes with the three. The old "Review stack" name is gone; the
      lineage logic that fed it now feeds the comment stream and the drill. */
-  const nComments=commentStream(r,rcT).filter(c=>!c.owed).length;
+  /* RULE 12: a badge means "action required from you", never "how many things exist".
+     This counted comments that had already been made — an inventory, and one that never
+     went down, so it read as urgent forever. It counts what is OWED now. The inventory
+     survives where rule 12 puts it: quiet gray text on the section label, which
+     RWSEC.cmtHead already renders. */
+  const nComments=commentStream(r,rcT).filter(c=>c.owed).length;
   const gaps=evidenceGaps(rcT).length;
   const inHist=S.dwTab==='hist';
   const on=t=>S.dwTab===t||(t==='sum'&&S.dwTab==='drive');
-  let tb=[['sum','Overview',''],['comments','Comments',nComments?`<span class="ct">${nComments}</span>`:''],
+  let tb;
+  if(S.dwPage){
+    const NM={explain:'Explanation',drill:'Drivers',evid:'Evidence',cmtHead:'Comments',trail:'History'};
+    const BADGE={evid:gaps?'<i class="dot"></i>':'',
+                 cmtHead:nComments?`<span class="ct">${nComments}</span>`:''};
+    tb=RW_INDEX.map(k=>`<button data-go="${k}" class="${S.dwRg===k?'on':''}"
+        onclick="KFX.dwGo('${k}')">${esc(NM[k])}${BADGE[k]||''}</button>`).join('');
+  }else{
+    tb=[['sum','Overview',''],['comments','Comments',nComments?`<span class="ct">${nComments}</span>`:''],
     ['support','Support',gaps?'<i class="dot"></i>':'']]
     .map(([id,nm,badge])=>`<button class="${on(id)?'on':''}" onclick="KFX.dwTab('${id}')">${esc(nm)}${badge}</button>`).join('');
+  }
   tb+=`<span class="rw-tsp"></span>
     <button class="rw-more ${inHist?'on':''}" aria-haspopup="menu" aria-label="History and more"
       title="History" aria-expanded="${S.dwMenu?'true':'false'}"
@@ -7862,8 +8252,9 @@ function paintDrawer(){
     </div>`;
   }
   $('fxDwTabs').innerHTML=tb;
-  $('fxDwBody').innerHTML=({sum:dwSummary,drive:dwDrivers,comments:dwComments,support:dwSupport,
-    hist:dwHistory}[S.dwTab]||dwSummary)(r);
+  /* ONE context, derived once, composed by RW_LAYOUT. The five per-tab builders that
+     used to be dispatched here each re-derived the same figures; dwCtx does it once. */
+  $('fxDwBody').innerHTML=dwBody(dwCtx(r));
   $('fxDwFoot').innerHTML=dwFoot(r,rcT);
   /* Tell the panel when its body is scrolled, so the tab bar can grow a hairline.
      Bound once per element — paintDrawer runs on every repaint and stacking a new
@@ -7875,8 +8266,18 @@ function paintDrawer(){
       const p=$('fxDetail'); if(p)p.classList.toggle('scrolled',bd.scrollTop>2);
     },{passive:true});
   }
-  if(bd&&$('fxDetail'))$('fxDetail').classList.toggle('scrolled',bd.scrollTop>2);
+  // in page mode the WINDOW scrolls, not the body, so the hairline reads from it
+  if(bd&&$('fxDetail'))$('fxDetail').classList.toggle('scrolled',
+    S.dwPage?window.scrollY>4:bd.scrollTop>2);
+  if(S.dwPage){S.dwRg=null;dwSpy();}
   sizeDrawer();   // after the grid has laid out, so the reserved track is measurable
+  /* AND ONCE MORE ON THE NEXT FRAME. The first pass runs in the same tick that adds
+     .wsplit.on and .dw-open, so it can measure the grid before the --dw-w track exists
+     and the chrome before it has yielded the column — which pins the panel to geometry
+     that is one paint out of date and leaves it there until the next scroll. The second
+     pass is idempotent: with settled layout it writes the same values it just read. */
+  requestAnimationFrame(sizeDrawer);
+  dwObserve();    // and keep measuring for as long as the layout keeps moving
 }
 /* Legacy tab ids map forward onto the three-tab model, so old deep links and internal
    callers keep landing somewhere sensible:
@@ -7897,22 +8298,77 @@ function dwTab(t){
   if(t==='accts'){S.drvPath=[];S.drvGl=false;}
   if(t==='jes'&&S.jeAcct){S.drvPath=[{dim:'acct',k:S.jeAcct,label:rwName('acct',S.jeAcct)}];S.drvGl=true;}
   // leaving the Drivers drill for a real tab resets the drill so it reopens at its root
-  if(id!=='drive'&&S.dwTab==='drive'){S.drvPath=[];S.drvGl=false;}
+  if(!S.dwPage&&id!=='drive'&&S.dwTab==='drive'){S.drvPath=[];S.drvGl=false;}
   S.dwMenu=false;
   S.dwTab=id;paintDrawer();
+  if(S.dwPage)dwGo(id==='drive'?'drill':id==='support'?'evid':id==='comments'?'cmtHead':'explain');
+}
+/* PAGE MODE NAVIGATION IS A SCROLL, NOT A SWAP. Every region is already mounted, so
+   the tab bar and the ••• menu jump to one — offset by the sticky chrome AND by the
+   tab bar's own height, or the jump lands with the region's heading tucked under it. */
+function dwGo(key){
+  const el=document.getElementById('fxRg-'+key); if(!el)return;
+  const dt=$('fxDetail'), tabs=dt&&dt.querySelector('.dw-tabs');
+  const stick=tabs?tabs.getBoundingClientRect().bottom:0;
+  window.scrollTo({top:Math.max(0,window.scrollY+el.getBoundingClientRect().top-stick-8),
+    behavior:'smooth'});
+  el.setAttribute('tabindex','-1'); el.focus({preventScroll:true});
 }
 /* History lives in the ••• menu now. Three entries onto one chronological record,
    each leading with the section it names, so "Prior-period explanation" and "Activity
    log" are real destinations rather than three buttons opening the same scroll. */
-function histOpen(focus){S.histFocus=focus||'review';S.dwMenu=false;S.dwTab='hist';paintDrawer();}
+function histOpen(focus){
+  S.histFocus=focus||'review';S.dwMenu=false;
+  // on the page History is not a destination — it is already down the record column
+  if(S.dwPage){paintDrawer();dwGo(focus==='prior'?'prior':'trail');return;}
+  S.dwTab='hist';paintDrawer();
+}
 /* ---- panel controls --------------------------------------------------------
    Collapse keeps the selection and every piece of in-progress work; close drops
    the selection. They are deliberately two different acts. */
 const DW_RAIL=34;                       // the collapsed rail's width
+let dwRet=0;                            // where the statement was scrolled to
+/* PROMOTE THE OPEN REVIEW TO A FULL PAGE, AND BACK. The same line, the same review,
+   the same half-typed explanation — only the composition changes.
+
+   It calls paintDrawer, NEVER renderAll: renderFinRep() innerHTMLs #fxRoot away and
+   takes the scroll position, the focused element and the body's bound scroll listener
+   with it. Focus and caret position are captured and restored across the repaint,
+   because expanding the page while writing an explanation must not eject the caret. */
+function dwPage(){
+  if(!S.sel)return;
+  const af=document.activeElement, afId=af&&af.id;
+  const ss=af&&af.selectionStart, se=af&&af.selectionEnd;
+  const was=S.dwPage;
+  S.dwPage=!was; S.dwCollapsed=false; S.dwMenu=false; S.cmtMenu=false;
+  if(S.dwPage){
+    /* focus mode trims the chrome that the page needs; leave it on the way in. The
+       temporary flag dance is so the guard inside toggleFocus does not refuse us. */
+    if(S.focus){S.dwPage=false;toggleFocus();S.dwPage=true;}
+    dwRet=window.scrollY;
+  }else if(S.drvPath.length){
+    // a drill left open on the page is where the reviewer was; land back on it
+    S.dwTab='drive';
+  }
+  logA({line:S.sel,act:S.dwPage?'opened the full review page':'returned to the docked workspace'});
+  paintDrawer();
+  requestAnimationFrame(()=>{
+    window.scrollTo(0,S.dwPage?0:dwRet);
+    syncStick();
+    if(afId){const t=document.getElementById(afId);
+      if(t){t.focus();
+        if(t.setSelectionRange&&ss!=null){try{t.setSelectionRange(ss,se);}catch(_){}}}}
+  });
+}
 function dwCollapse(){S.dwCollapsed=!S.dwCollapsed;S.dwMenu=false;paintDrawer();}
 function dwMenu(){S.dwMenu=!S.dwMenu;S.cmtMenu=false;paintDrawer();}
 document.addEventListener('click',()=>{if(S.dwMenu||S.cmtMenu){S.dwMenu=false;S.cmtMenu=false;paintDrawer();}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(S.dwMenu||S.cmtMenu)){S.dwMenu=false;S.cmtMenu=false;paintDrawer();}});
+/* This listener is registered BEFORE the module's Escape ladder and does not stop
+   propagation, so it has already cleared the flags by the time the ladder reads them.
+   Marking the event is what tells the ladder this keypress was spent closing a menu —
+   without it, one Escape would close the ••• menu AND demote the full review page. */
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(S.dwMenu||S.cmtMenu)){
+  e._rwMenuClosed=1;S.dwMenu=false;S.cmtMenu=false;paintDrawer();}});
 
 /* ---- workspace header ------------------------------------------------------
    The line, and one metadata line under it. That is the whole header.
@@ -7931,25 +8387,63 @@ function dwHead(r,rc){
   const word=!r.d?'No movement'
     :(S.stmt==='is'?(unfav(r)?'Unfavorable':'Favorable')
                    :(Math.abs(r.cur)>Math.abs(r.pri)?'Increase':'Decrease'));
-  return `<div class="rw-id">
+  /* THE WAY BACK, AND WHERE YOU ARE IN THE WORKLIST. Page mode hides the statement,
+     so the header has to carry what the statement was telling the reviewer: which
+     statement this line came from, where it sits, and how much is left. Every figure
+     is derived from the same visible(rows()) the grid and fxNextOpen use. */
+  let from='';
+  if(S.dwPage){
+    const rws=visible(rows()).filter(x=>!x.hdr&&!x.tot);
+    const at=rws.findIndex(x=>x.id===r.id);
+    const owed=rws.filter(x=>x.req&&!(x.status==='approved'&&x.clear)).length;
+    from=`<div class="ws-from">
+      <button type="button" class="rw-lnk" onclick="KFX.dwPage()">‹ ${esc(stmtTitle())}</button>
+      ${r.sec?`<span class="sep">·</span><span>${esc(r.sec)}</span>`:''}
+      ${at>=0?`<span class="sep">·</span><span>line <b>${at+1}</b> of ${rws.length}</span>`:''}
+      ${owed?`<span class="sep">·</span><span><b>${owed}</b> still need review</span>`:''}
+      <span class="sp"></span>
+      ${owed?`<button class="btn-out sm" onclick="KFX.nextOpen()">Next needing review →</button>`:''}
+      <span class="keys">
+        <span><kbd>n</kbd>next line needing review</span><span><kbd>e</kbd>explain</span>
+        <span><kbd>x</kbd>watch</span><span><kbd>/</kbd>find</span>
+        <span><kbd>Esc</kbd>back to the statement</span></span>
+    </div>`;
+  }
+  /* THE FOUR FIGURES, LABELLED. Current, prior, the variance and the percentage —
+     the same four the statement row carries, and the four a reviewer reads before
+     anything else. They were one dense line of punctuation that never showed the
+     prior period at all. Every one is read straight off the row; nothing is derived
+     a second time here. */
+  const dcls=r.d>0?'up':r.d<0?'dn':'n';
+  const figs=`<div class="rw-figs4">
+    <div class="f"><b>${fmt(r.cur)}${uName()}</b><span>${esc(PERIODS[S.cur].short)}</span></div>
+    <div class="f"><b>${r.pri?fmt(r.pri)+uName():'—'}</b><span>${esc(compareLabel())}</span></div>
+    <div class="f"><b class="dlt ${dcls}">${sgn(r.d)}${uName()}</b><span>Variance</span></div>
+    <div class="f"><b class="dlt ${dcls}">${r.pri?pct(r.dp):'—'}</b><span>${esc(word)}</span></div>
+  </div>`;
+  return from+`<div class="rw-idrow"><div class="rw-id">
       <div class="rw-nm" title="${esc(r.l)}">${esc(r.l)}</div>
-      <div class="rw-meta">
-        <span class="n dlt ${r.d>0?'up':r.d<0?'dn':'n'}">${sgn(r.d)}${uName()}</span>
-        <span class="sep">·</span><span class="n">${r.pri?pct(r.dp):'—'}</span>
-        <span class="sep">·</span><span>${word}</span>
-      </div>
-      <div class="rw-per">${esc(cmpPhrase())}</div>
+      <div class="rw-sub2">${esc(scopeWord())}</div>
     </div>
+    ${S.dwPage?RWSEC.state(dwCtx(r)):''}
     <div class="rw-hact">
-      <button class="rw-ib" onclick="KFX.dwCollapse()" title="Collapse the review workspace"
+      ${S.dwPage?'':`<button class="rw-ib" onclick="KFX.dwCollapse()" title="Collapse the review workspace"
         aria-label="Collapse the review workspace"><svg viewBox="0 0 16 16" fill="none"><path
         d="M6.5 3.5L11 8l-4.5 4.5" stroke="currentColor" stroke-width="1.5"
-        stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}
+      <button class="rw-ib" onclick="KFX.dwPage()" aria-pressed="${S.dwPage?'true':'false'}"
+        title="${S.dwPage?'Return to the docked review':'Open the full review page'}"
+        aria-label="${S.dwPage?'Return to the docked review':'Open the full review page'}"><svg
+        viewBox="0 0 16 16" fill="none"><path d="${S.dwPage
+          ?'M6 2.5V6H2.5M10 13.5V10h3.5M13.5 6H10V2.5M2.5 10H6v3.5'
+          :'M6 2.5H2.5V6M10 13.5h3.5V10M13.5 6V2.5H10M2.5 10v3.5H6'}"
+        stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+        stroke-linejoin="round"/></svg></button>
       <button class="rw-ib" onclick="KFX.closeDrawer()" title="Close the review workspace"
         aria-label="Close the review workspace"><svg viewBox="0 0 16 16" fill="none"><path
         d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5"
         stroke-linecap="round"/></svg></button>
-    </div>`;
+    </div></div>`+figs;
 }
 
 /* ---- workflow footer -------------------------------------------------------
@@ -7968,7 +8462,12 @@ function dwHead(r,rc){
    the role switch, because a control that explains why it is unavailable teaches the
    segregation of duties rather than merely enforcing it. */
 function dwFoot(r,rc){
-  const lock=rc.status==='approved', can=r.clear&&rc.items.length;
+  const lock=rc.status==='approved';
+  /* required  -> needs an explanation AND coverage inside tolerance
+     not required -> nothing is owed; the reviewer may still leave a note */
+  const hasEx=!!(rc.items.length||rc.narr);
+  const can=r.req?(r.clear&&hasEx):true;
+  const C2=coverOf(r,rc);
   const me=ME(), C=caps();
   let h='';
 
@@ -7983,10 +8482,11 @@ function dwFoot(r,rc){
   }
 
   // an open editor owns the footer: Save / Cancel is the pair the reviewer needs
-  if(exEdit){
-    h+=`<button class="btn-out sm" onclick="KFX.exCancel()">Cancel</button>
+  if(S.kdDraft!=null||exEdit){
+    const pros=S.kdDraft!=null;
+    h+=`<button class="btn-out sm" onclick="KFX.${pros?'kdCancel':'exCancel'}()">Cancel</button>
         <span class="sp"></span>
-        <button class="btn-primary sm" onclick="KFX.exSave()">Save</button>`;
+        <button class="btn-primary sm" onclick="KFX.${pros?'kdSave':'exSave'}()">Save</button>`;
     return h;
   }
   if(rc.status==='draft'||rc.status==='returned'){
@@ -7995,9 +8495,16 @@ function dwFoot(r,rc){
       onclick="KFX.exSubmit()">Submit</button>`;
     if(!ok)h+=`<span class="why">${!C.prepare
       ? esc(me.role)+' is read-only on the close.'
-      : (!rc.items.length
-        ? 'Needs at least one accepted explanation item — add one under Explanation in Overview.'
-        : 'Residual is outside tolerance — see Overview.')}</span>`;
+      : (!hasEx
+        ? (rc.kd&&!rc.kdDismissed
+            /* there IS an explanation on screen — it is a draft nobody has signed.
+               Telling this preparer to "write one" describes a line they are looking
+               at the explanation for. */
+            ? 'The draft explanation has not been accepted — Accept it under Explanation.'
+            : 'Needs an explanation — write one under Explanation.')
+        : `${fmt(Math.abs(C2.res))} of the ${fmt(Math.abs(r.d))} movement is still
+           unexplained, against a ${fmt(C2.tol)} tolerance — itemise the explanation
+           or widen the policy.`)}</span>`;
   }
   if(rc.status==='submitted'){
     if(canReviewLine(rc)){
@@ -8509,96 +9016,439 @@ function rwSource(r,rc,best){
     (fromKd?' · from a Korvyn draft':'');
 }
 
-function dwSummary(r){
-  const rc=rec(r.id,true), C=coverOf(r,rc), O=explainObj(r);
-  let h='';
+/* ============================================================================
+   ONE CONTEXT, ONE SET OF PARTS, ONE COMPOSITION TABLE
+   The panel renders at two densities — a 440px docked drawer and a full-width
+   working paper — and they are the SAME renderers. Not a shared stylesheet over two
+   builders: literally one registry of parts, composed differently.
+
+   Why it is built this way rather than as two functions with an `if`:
+     · A part that is absent from RWSEC cannot render in either density, so the two
+       surfaces are structurally incapable of drifting apart. There is no "we fixed
+       it in the drawer and forgot the page" failure mode available.
+     · dwCtx() derives EVERY figure ONCE per paint and hands the same object to every
+       part. The five old builders each re-ran rec(), explainObj(), coverOf() and
+       commentStream() — four independent recomputations of the same numbers on one
+       repaint. "Numbers derive once" is now literally true here, not aspirational.
+     · A mode is a COMPOSITION, not a branch. RW_LAYOUT is the entire mode flag.
+
+   X.page is read in exactly FOUR places (explain, drivers, drill, trend) and never
+   for a figure and never for a capability. Every lock, caps() and canReviewLine()
+   check stays inside the parts at render time, so page mode is structurally unable
+   to weaken the period lock or segregation of duties. Adding a fifth X.page read for
+   anything that is not pure layout is how that guarantee gets lost.
+   ========================================================================== */
+function dwCtx(r){
+  const rc=rec(r.id,true);
+  const O=explainObj(r);
+  const all=commentStream(r,rc);
+  const said=all.filter(c=>!c.owed), owed=all.filter(c=>c.owed);
+  const kinds=new Set(said.map(c=>c.kind));
+  const showFilter=said.length>2&&kinds.size>1;
+  const fk=showFilter?(S.cmtFilter||'all'):'all';
+  const match=c=>fk==='all'||c.kind===fk;
+  return {r,rc,O,
+    C:coverOf(r,rc),
+    best:bestExplanation(r,rc),
+    attn:kdAttention(r,O),
+    lock:rc.status==='approved',
+    page:!!S.dwPage,
+    lead:S.histFocus||'review',
+    cmt:{all,said,owed,kinds,showFilter,fk,shown:said.filter(match),owedShown:owed.filter(match)}};
+}
+
+/* Each part is (X) => html. The templates below are lifted VERBATIM from the five
+   builders these replaced, indentation included — the whitespace inside a template
+   literal is output, so re-indenting it to suit its new nesting would change the
+   rendered HTML. It looks wrong and it is correct. */
+const RWSEC={
 
   /* ---- A. REVIEW STATE. Typography and spacing only — no KPI card, no banner,
      no pill. A healthy line stays monochrome; only a returned review and a residual
      outside tolerance take colour, because those are the only true exceptions. */
-  const st=rwState(r,rc,C);
-  h+=`<div class="rw-state ${st.bad?'bad':''}">
+  state(X){
+    const st=rwState(X.r,X.rc,X.C);
+    return `<div class="rw-state ${st.bad?'bad':''}">
     <div class="rw-verdict">${esc(st.nm)}</div>
     <div class="rw-figs">${st.figs}</div>
     ${st.sub?`<div class="rw-sub">${st.sub}</div>`:''}
   </div>`;
+  },
 
   /* ---- B. EXPLANATION. ONE narrative — the one that answers the line today —
      clamped and opened on request. Never every underlying comment, and never
      labelled "approved": a comment is authored and versioned, and it is the review
      around it that completes. Expanding it reveals the itemised explanation and, for
      a preparer on an unlocked line, the authoring surface that used to be its own
-     "Review stack" tab. The editor takes over whenever one is open. */
-  const best=bestExplanation(r,rc), lock=rc.status==='approved', open=!!S.rwFullEx;
-  const canPrep=!lock&&caps().prepare;
-  h+=`<div class="rw-sec">Explanation</div>`;
-  if(exEdit){
-    // an open editor is the whole section — Save/Cancel live in the footer
-    h+=explAuthoring(r,rc,lock);
-  }else if(!best.text){
-    h+=`<div class="rw-quiet">No explanation on this line yet.${
+     "Review stack" tab. The editor takes over whenever one is open.
+
+     On the full page there is no fold to hide behind, so it opens by default. */
+  explain(X){
+    const r=X.r, rc=X.rc, best=X.best, lock=X.lock, open=!!S.rwFullEx;
+    const canPrep=!lock&&caps().prepare;
+    const n=rc.items.length;
+    let h=`<div class="rw-sec">Explanation</div>`;
+    if(S.kdDraft!=null){
+      // the words, and nothing else. Save / Cancel are in the sticky footer.
+      return h+`<div class="exform">
+        <textarea class="ta" id="kdIn" rows="8" oninput="KFX.kdField(this.value)"
+          aria-label="Explanation"
+          placeholder="Explain the movement in your own words.">${esc(S.kdDraft)}</textarea>
+      </div>`;
+    }
+    if(exEdit){
+      // an open editor is the whole section — Save/Cancel live in the footer
+      return h+explAuthoring(r,rc,lock);
+    }
+    if(open){
+      /* THE AUTHORING SURFACE IS A DESTINATION, NOT A DEFAULT. Korvyn's suggestions and
+         the itemised explanation used to unfold under the narrative the moment anyone
+         expanded it, which is why "editing seems complicated": the reader asked to see
+         more words and was handed a workbench. It is one click away and clearly named. */
+      return h+`<button type="button" class="rw-back" onclick="KFX.rwFullEx()">‹ Explanation</button>`
+        +explAuthoring(r,rc,lock);
+    }
+    if(!best.text){
+      h+=`<div class="rw-quiet">No explanation on this line yet.${
       r.req?' One is required before this review can complete.':''}</div>`;
-    // a dismissed Korvyn draft can be restored; otherwise the authoring surface
-    // (write, generate a suggestion, carry forward) is offered directly, not hidden
-    if(rc.kdDismissed&&canPrep)
-      h+=`<div class="rw-src">Korvyn draft dismissed on this line — it remains in History.
+      if(rc.kdDismissed&&canPrep)
+        h+=`<div class="rw-src">Korvyn draft dismissed on this line — it remains in History.
         <button type="button" class="rw-lnk" onclick="KFX.kdRestore()">Restore</button></div>`;
-    if(canPrep)h+=explAuthoring(r,rc,lock);
-  }else{
-    h+=`<div class="rw-nar ${open?'':'clip'}">${best.kind==='draft'?best.text:esc(best.text)}</div>
-      <button type="button" class="rw-lnk" onclick="KFX.rwFullEx()">${
-        open?'Show less':'View full explanation →'}</button>
-      <div class="rw-src">${rwSource(r,rc,best)}</div>`;
-    /* THE KORVYN DRAFT IS THE CURRENT EXPLANATION UNTIL A PERSON ACTS. Its controls
-       ride directly under the narrative — accepting it is the primary move on a
-       drafted line, so it is not hidden behind "View full explanation". */
+      if(canPrep)h+=`<div class="rw-lact" style="margin-top:var(--s-3)">
+        <button class="btn-out sm" onclick="KFX.kdEdit()">Write an explanation</button>
+        <button class="btn-out sm" onclick="KFX.exPropose()">Ask Korvyn to draft one</button></div>`;
+      return h;
+    }
+    /* best.text is UNESCAPED for a Korvyn draft and escaped for every other path.
+       That is deliberate and load-bearing: kdNarrative() composes its own <b> marks
+       around the quantified figures. Do not "tidy" this into one esc(). */
+    h+=`<div class="rw-nar">${best.kind==='draft'?best.text:esc(best.text)}</div>
+      <div class="rw-src">${best.kind==='draft'
+        ? 'Korvyn draft — not yet accepted by a preparer'
+        : rwSource(r,rc,best)}</div>
+      ${best.kind==='draft'?`<div class="rw-src">${kdSupportLine(r)}</div>`:''}`;
     if(best.kind==='draft'&&canPrep)h+=kdControls(r,rc);
-    if(open)h+=explAuthoring(r,rc,lock);
-  }
+    else if(canPrep)h+=`<div class="rw-lact" style="margin-top:var(--s-3)">
+      <button class="btn-out sm" onclick="KFX.kdEdit()">Edit</button></div>`;
+    /* the itemised explanation, stated as one line rather than unfolded */
+    h+=`<button type="button" class="rw-lnk" style="margin-top:var(--s-3)"
+      onclick="KFX.rwFullEx()">${n?`${n} explanation item${n===1?'':'s'} · ${
+        Math.round(X.C.cover)}% of the movement`:'Itemise this explanation'} →</button>`;
+    return h;
+  },
 
   /* ---- C. KEY DRIVERS. Three, aligned, tabular. No cards and no chart: the
      numbers are the comparison, and a three-bar chart of three numbers is
-     decoration. The rest of the decomposition is one link away. */
-  const top=O.drivers.slice(0,3);
-  h+=`<div class="rw-sec">Key drivers</div>`;
-  if(!top.length){
-    h+=`<div class="rw-quiet">No dimension of this line moved enough to isolate a driver.</div>`;
-  }else{
-    h+=`<div class="rw-rows">`+top.map(d=>`<div class="rw-r">
+     decoration. The rest of the decomposition is one link away.
+
+     Suppressed on the full page: the complete decomposition renders in the
+     Composition column from the same explainObj(r).drivers, whose first three rows
+     ARE these three. Printing them twice would be the duplication rule broken in the
+     one place the reader would most notice it. */
+  drivers(X){
+    if(X.page)return '';
+    const r=X.r, C=X.C, top=X.O.drivers.slice(0,3);
+    let h=`<div class="rw-sec">Key drivers</div>`;
+    if(!top.length){
+      h+=`<div class="rw-quiet">No dimension of this line moved enough to isolate a driver.</div>`;
+    }else{
+      h+=`<div class="rw-rows">`+top.map(d=>`<div class="rw-r">
         <span class="l">${esc(d.nm)}</span>
         <span class="v dlt ${d.d>0?'up':'dn'}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
         <span class="p">${Math.round(d.pctOf)}%</span></div>`).join('')+`</div>`;
-    if(r.req&&Math.abs(C.res)>0.0005)
-      h+=`<div class="rw-rows"><div class="rw-r resid"><span class="l">Unexplained residual</span>
+      if(r.req&&Math.abs(C.res)>0.0005)
+        h+=`<div class="rw-rows"><div class="rw-r resid"><span class="l">Unexplained residual</span>
         <span class="v ${Math.abs(C.res)>C.tol?'dlt dn':''}">${(C.res>0?'+':'')+fmtS(C.res)}</span>
         <span class="p"></span></div></div>`;
-    h+=`<button type="button" class="rw-lnk" onclick="KFX.dwTab('drive')">View all drivers →</button>`;
-  }
+      h+=`<div class="rw-rows"><div class="rw-r tot"><span class="l">Movement</span>
+        <span class="v dlt ${r.d>0?'up':r.d<0?'dn':'n'}">${(r.d>0?'+':'')+fmtS(r.d)}</span>
+        <span class="p"></span></div></div>`;
+      h+=`<button type="button" class="rw-lnk" onclick="KFX.dwTab('drive')">View all drivers →</button>`;
+    }
+    return h;
+  },
 
   /* ---- D. NEEDS ATTENTION. THE SECTION ITSELF appears only when something actually
      needs attention — a healthy line shows nothing here at all, not a "No open
      issues" placeholder. Severity is a 3px left border on the items that carry it and
      nothing at all on the others — never an alert card per row. */
-  const attn=kdAttention(r,O);
-  if(attn.length)
-    h+=`<div class="rw-sec">Needs attention</div>
-      <div class="rw-attn">`+attn.map(a=>`<div class="rw-a ${a.hi?'hi':''}">${a.w}</div>`).join('')+`</div>`;
+  attn(X){
+    if(!X.attn.length)return '';
+    return `<div class="rw-sec">Needs attention</div>
+      <div class="rw-attn">`+X.attn.map(a=>`<div class="rw-a ${a.hi?'hi':''}">${a.w}</div>`).join('')+`</div>`;
+  },
 
   /* ---- E. REVIEWER. Accountability as two lines of type — no profile card, no
      dominant avatar. Omitted once the review is complete, because the status block
      above already names who reviewed it ("REVIEWED · David Lee · Corporate
      Controller"), and repeating it would be the third time this panel said the same. */
-  if(rc.status!=='approved'){
+  reviewer(X){
+    const rc=X.rc;
     const w=rwWho(rc.rev||PEOPLE.rev), p=rwWho(rc.prep);
-    h+=`<div class="rw-sec">Reviewer</div>
-      <div class="rw-who">${esc(w.nm)}</div>
-      ${w.role?`<div class="rw-role">${esc(w.role)}</div>`:''}
-      <div class="rw-role">${rc.status==='submitted'
-        ? 'Has the line now'
-        : `After ${esc(p.nm)} submits`}</div>`;
-  }
-  return h;
+    const st={draft:'Needs review',returned:'Returned to the preparer',
+      submitted:'In review',approved:'Reviewed and locked'}[rc.status]||'Needs review';
+    const rows=[['Status',esc(st)],
+      ['Review owner',esc(w.nm)+(w.role?` <span class="sub">${esc(w.role)}</span>`:'')],
+      ['Prepared by',esc(p.nm)]];
+    if(rc.status!=='approved')
+      rows.push(['Next',rc.status==='submitted'?esc(w.nm)+' has the line now'
+        :`after ${esc(p.nm)} submits`]);
+    if(rc.updated)rows.push(['Last updated',esc(rc.updated)]);
+    /* deliberately NO close-day row: the close strip states the close position on every
+       screen in the product, and a line's workflow block is not a second calendar. */
+    return `<div class="rw-sec">Workflow &amp; review</div><div class="rw-wf">`+
+      rows.map(([k,v])=>`<div class="rw-wfr"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')+
+      `</div>`;
+  },
+
+  /* the evidence count, as one line with a way in — the reference's collapsed row */
+  evidRow(X){
+    const ev=evidenceFor(X.rc).length, gaps=evidenceGaps(X.rc).length;
+    return `<button type="button" class="rw-jump" onclick="KFX.dwTab('support')">
+      <span class="l">Evidence</span><span class="ct">${ev}</span>
+      ${gaps?`<span class="gap">${gaps} expected</span>`:''}
+      <span class="sp"></span><span class="cue">›</span></button>`;
+  },
+
+  /* ---- the driver drill, whole. It is one thing — a path, a total and a level —
+     and splitting a drill across regions would be splitting a single navigation. */
+  drill(X){ return dwDrivers(X.r); },
+
+  /* ---- COMMENTS, in three parts: the bar and composer, what was said, and who
+     still owes a comment. Three parts because the page puts them in one column but
+     the drawer stacks them behind one tab, and because "awaiting a comment" is a
+     worklist that a controller works, not a continuation of the thread. */
+  cmtHead(X){
+    const said=X.cmt.said, showFilter=X.cmt.showFilter, fk=X.cmt.fk, kinds=X.cmt.kinds;
+    let h=`<div class="rw-cbar">
+    <div class="rw-sec" style="margin:0">Comments${said.length?`<span class="ct">${said.length}</span>`:''}</div>
+    <span class="sp"></span>
+    ${showFilter?`<div class="rw-cfil">
+      <button aria-haspopup="menu" aria-expanded="${S.cmtMenu?'true':'false'}"
+        onclick="event.stopPropagation();KFX.cmtMenu()">${
+        esc((CMT_KINDS.find(k=>k[0]===fk)||CMT_KINDS[0])[1])} comments <span class="cue">▾</span></button>
+      ${S.cmtMenu?`<div class="rw-cmenu" role="menu" onclick="event.stopPropagation()">`+
+        CMT_KINDS.filter(k=>k[0]==='all'||kinds.has(k[0])).map(k=>
+          `<button class="${fk===k[0]?'on':''}" onclick="KFX.cmtFilter('${k[0]}')">${esc(k[1])}</button>`).join('')+
+        `</div>`:''}
+    </div>`:''}
+  </div>`;
+    /* deliberately NOT gated on X.lock — see the note above addComment() */
+    h+= S.cmtCompose ? cmtComposer(X.lock)
+      : `<button class="rw-add" onclick="KFX.addComment()">Add a comment…</button>`;
+    return h;
+  },
+
+  cmtStream(X){
+    const said=X.cmt.said, owed=X.cmt.owed, shown=X.cmt.shown, fk=X.cmt.fk, lock=X.lock;
+    if(!said.length&&!owed.length)
+      return `<div class="rw-quiet">No comments yet.${lock?'':
+      ' Add the first, or a contributing entity will as the review moves.'}</div>`;
+    if(shown.length)return `<div class="rw-cstream">`+shown.map(c=>cmtCard(c,lock)).join('')+`</div>`;
+    if(said.length)return `<div class="rw-quiet">No ${esc((CMT_KINDS.find(k=>k[0]===fk)||[])[1]||'').toLowerCase()} comments.</div>`;
+    return '';
+  },
+
+  cmtOwed(X){
+    const owedShown=X.cmt.owedShown;
+    if(!owedShown.length)return '';
+    return `<div class="rw-sec">Awaiting a comment<span class="ct">${owedShown.length}</span></div>
+      <div class="rw-cstream">`+owedShown.map(c=>owedCard(c,X.lock)).join('')+`</div>`;
+  },
+
+  /* ---- SUPPORT, in two parts: what is attached, and where the number comes from.
+     Two parts because on the page they belong in the Composition column at opposite
+     ends of one chain — evidence closes the chain that Financial source opens. */
+  evid(X){
+    const rc=X.rc, lock=X.lock;
+    const ev=evidenceFor(rc), gaps=evidenceGaps(rc);
+    let h=`<div class="rw-sec">Evidence<span class="ct">${ev.length||''}</span></div>`;
+    if(!ev.length&&!gaps.length)
+      h+=`<div class="rw-quiet">Nothing attached to this line yet. A reviewer will ask for support on any
+      item that carries a material amount.</div>`;
+    else{
+      h+=`<div class="rw-ev">`;
+      ev.forEach(e=>{
+        h+=`<div class="rw-e">
+        <span class="mk" aria-hidden="true">✓</span>
+        <span class="w"><a class="nmx" href="${e.f.url}" download="${esc(e.f.name)}"
+            title="${esc(e.f.name)}">${esc(e.f.name)}</a>
+          <span class="mt">${esc(e.scope)} · ${esc(String(e.by).split(',')[0])}${
+            e.at?' · '+esc(e.at):''} · ${fmtBytes(e.f.size)}</span></span>
+        ${lock?'':`<button type="button" class="lnk" aria-label="Remove ${esc(e.f.name)}"
+          onclick="KFX.upDel(${e.i},${e.fi})">remove</button>`}</div>`;});
+      gaps.forEach(g=>{
+        h+=`<div class="rw-e gap">
+        <span class="mk" aria-hidden="true">○</span>
+        <span class="w"><span class="nmx">Support for ${esc(g.what)}</span>
+          <span class="mt">Expected — this explanation item has no document behind it</span></span>
+        ${lock?'':`<button type="button" class="lnk"
+          onclick="document.getElementById('up${g.i}').click()">attach</button>`}</div>`;});
+      h+=`</div>`;
+    }
+    if(!lock){
+      h+=`<input type="file" id="upLine" multiple class="hidden" onchange="KFX.upFiles(-1,this)">`;
+      rc.items.forEach((it,i)=>{
+        h+=`<input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">`;});
+      h+=`<button type="button" class="rw-lnk"
+      onclick="document.getElementById('upLine').click()">Add support →</button>`;
+    }
+    return h;
+  },
+
+  /* ---- FINANCIAL SOURCE — where the number comes from, read from the model ---- */
+  source(X){
+    const r=X.r;
+    const accts=lineAccts(S.stmt,r.id);
+    const nJe=accts.reduce((n,a)=>n+jes(a).length,0);
+    const tie=tieOut();
+    const firstAcct=accts[0]||'';
+    const a=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+    return `<div class="rw-sec" style="margin-top:var(--s-5)">Financial source</div>
+    <div class="rw-fs">
+      <div class="rw-fsr"><span class="k">Financial line</span>
+        <span class="v">${r.sec?esc(r.sec)+' <span style="color:var(--faint)">→</span> ':''}${esc(r.l)}</span></div>
+      <div class="rw-fsr"><span class="k">Accounts</span><span class="v">${
+        accts.length?accts.map(x=>`<span class="mono">${esc(x)}</span> ${esc(ACC[x]?ACC[x].n:x)}`).join('<br>')
+          :'<span style="color:var(--faint)">Not mapped to a modelled account</span>'}</span></div>
+      <div class="rw-fsr"><span class="k">Transactions</span>
+        <span class="v">${nJe?`<button type="button" class="rw-fslnk" onclick="KFX.dwTab('drive')">${
+          nJe} GL transaction${nJe===1?'':'s'} →</button>`:'<span style="color:var(--faint)">None this period</span>'}</span></div>
+      <div class="rw-fsr"><span class="k">ERP</span>
+        <span class="v">${firstAcct?`<button type="button" class="rw-fslnk"
+          onclick="glFromFlux({line:'${a(r.l)}',driver:'',ent:'',acct:'${a(firstAcct)}'})">NetSuite →</button>`
+          :'NetSuite'}
+          <span class="sub">System of record — Korvyn reads and reconciles; it does not post.</span></span></div>
+      <div class="rw-fsr"><span class="k">Trial balance</span>
+        <span class="v"><span class="tie ${tie.ok?'':'bad'}">${tie.ok?'✓ Ties to trial balance':'Does not tie'}</span>
+          <span class="sub">${esc(tie.txt)}</span></span></div>
+    </div>`;
+  },
+
+  /* ---- HISTORY. A RESTRAINED CHRONOLOGICAL RECORD, grouped by month: the audit
+     trail, append-only, before-and-after preserved, presented as a record rather
+     than as a two-column log table.
+
+     History lives in the ••• menu in the drawer, so it opens with a clear way back
+     to the three tabs. The menu's three entries lead with different sections of the
+     same record — Prior-period explanation puts the prior period first — but nothing
+     is hidden: an accountant who opened "Activity log" still sees the prior period. */
+  histBack(X){
+    return `<button type="button" class="rw-back" onclick="KFX.dwTab('sum')">‹ Overview</button>`;
+  },
+
+  trail(X){
+    const rc=X.rc;
+    const title={review:'Review history',prior:'Prior-period explanation',activity:'Activity log'}[X.lead]||'History';
+    let h=`<div class="rw-sec">${esc(title)}<span class="ct">${rc.trail.length||''}</span></div>`;
+    if(!rc.trail.length)h+=`<div class="rw-quiet">Nothing logged on this line yet.</div>`;
+    else{
+      let month='';
+      rc.trail.forEach(a=>{
+        const m=(a.ts?new Date(a.ts):new Date()).toLocaleDateString('en-US',
+        {month:'long',year:'numeric'}).toUpperCase();
+        if(m!==month){month=m;h+=`<div class="rw-hm">${esc(m)}</div>`;}
+        const w=rwWho(a.who);
+        h+=`<div class="rw-h">
+        <div class="w">${esc(a.act.charAt(0).toUpperCase()+a.act.slice(1))}</div>
+        <div class="m">${esc(w.nm)} · ${esc(a.t)}${a.id?' · '+esc(a.id):''}</div>
+        ${a.detail?`<div class="d">${esc(a.detail)}</div>`:''}
+        ${a.before!=null?`<div class="d">from: ${esc(String(a.before))}</div>`:''}
+        ${a.after!=null?`<div class="d">to: ${esc(String(a.after))}</div>`:''}
+      </div>`;});
+      h+=`<div class="rw-src">Append-only. Edits record the value before and after, so the record shows
+      what an explanation said at the moment its review completed.</div>`;
+    }
+    return h;
+  },
+
+  /* the prior period. When the ••• menu led with it, it carries the title and stands
+     alone; otherwise it is the next block down the chronology. */
+  prior(X){
+    const r=X.r, rc=X.rc;
+    const pb=(()=>{
+    const pr=priorRec(r.id); if(!(pr&&pr.items.length))return '';
+    const pl=PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl;
+    let b=`<div class="rw-hm">${esc(pl.toUpperCase())}</div>
+      <div class="rw-h"><div class="w">Prior-period explanation available</div>
+        <div class="m">${pr.items.length} item${pr.items.length===1?'':'s'} accepted · nothing carries
+          forward automatically</div></div>`;
+    b+=`<div class="rw-items">`+pr.items.map(it=>`<div class="rw-item">
+        <span class="a">${fmtS(it.amt)}</span>
+        <span class="k">${esc(RSN[it.reason]||it.reason)}</span>
+        <div class="t">${esc(it.note)}</div></div>`).join('')+`</div>`;
+    if(rc.status!=='approved')
+      b+=`<button type="button" class="rw-lnk" onclick="KFX.exCarry()">Carry forward selectively →</button>`;
+    return b;
+    })();
+    if(X.lead==='prior'&&!X.page)
+      return `<div class="rw-sec">Prior-period explanation</div>`+
+        (pb || `<div class="rw-quiet">No prior-period explanation on this line.</div>`);
+    return pb;
+  },
+
+  /* the 13-period trend. A disclosure in the drawer, where it would otherwise be a
+     permanent second sub-tab; resident on the page, which has the room for it. */
+  trend(X){
+    let h='';
+    if(!X.page)
+      h+=`<div style="margin-top:var(--s-4)">
+    <button type="button" class="rw-lnk" onclick="KFX.rwPeriods()">${
+      S.rwPeriods?'Hide the period trend':'View the last 13 periods →'}</button></div>`;
+    if(S.rwPeriods||X.page)h+=dwHist(X.r);
+    return h;
+  },
+};
+
+/* THE MODE IS A COMPOSITION TABLE AND NOTHING ELSE. Read this to know what each
+   surface shows; there is no second place to look. A key that is not here does not
+   render, in either density. */
+const RW_LAYOUT={
+  drawer:{
+    sum:['state','explain','drivers','attn','reviewer','evidRow'],
+    drive:['drill'],
+    comments:['cmtHead','cmtStream','cmtOwed'],
+    support:['evid','source'],
+    /* a getter, because which History sections show depends on which ••• entry
+       opened it, and that is state rather than structure */
+    get hist(){ return (S.histFocus||'review')==='prior'
+      ? ['histBack','prior']
+      : ['histBack','trail','prior','trend']; },
+  },
+  /* THE FULL PAGE. Three columns, ordered as the reviewer's argument:
+       judge — is this line defensible, and what is stopping it
+       comp  — the unbroken chain from the movement down to the ERP
+       rec   — the context it is judged against, and the record of who said what
+     `state` is hoisted into the header in page mode, so it is not listed here. */
+  page:{
+    judge:['explain','attn','reviewer'],
+    comp:['drill','evid','source'],
+    rec:['prior','trend','cmtHead','cmtOwed','cmtStream','trail'],
+  },
+};
+const RW_RGNAME={explain:'Explanation',attn:'Needs attention',reviewer:'Workflow and review',
+  drill:'Drivers',evid:'Evidence',source:'Financial source',prior:'Prior period',
+  trend:'Period trend',cmtHead:'Comments',cmtOwed:'Awaiting a comment',
+  cmtStream:'Comment stream',trail:'Review history'};
+
+/* One dispatch for both densities. The drawer joins its parts; the page mounts each
+   one in a labelled region so the tab bar can double as an index and the scroll spy
+   has something to track. */
+function dwBody(X){
+  const part=k=>{const f=RWSEC[k];return f?f(X):'';};
+  if(!X.page)return (RW_LAYOUT.drawer[S.dwTab]||RW_LAYOUT.drawer.sum).map(part).join('');
+  const col=(k,keys)=>`<div class="rw-col ${k}">`+keys.map(p=>{
+    const html=part(p);
+    return html?`<section class="rw-rg" id="fxRg-${p}" data-rg="${p}"
+      aria-label="${esc(RW_RGNAME[p]||p)}">${html}</section>`:'';
+  }).join('')+`</div>`;
+  return `<div class="rw-cols">`+
+    col('judge',RW_LAYOUT.page.judge)+
+    col('comp',RW_LAYOUT.page.comp)+
+    col('rec',RW_LAYOUT.page.rec)+
+    `</div>`;
 }
+
 
 /* ---- THE KORVYN DRAFT'S CONTROLS -------------------------------------------
    The four moves on a system-prepared draft, in the order a preparer reaches for
@@ -8607,13 +9457,18 @@ function dwSummary(r){
    in Overview, where the draft is shown — the same actions the old "Review stack"
    lineage carried, minus the tab. Nothing here approves a comment. */
 function kdControls(r,rc){
-  const SUP=kdSupport(explainObj(r));
-  return `<div class="rw-src">${esc(SUP.lvl)} · ${SUP.facts.map(esc).join(' · ')}</div>
-    <div class="rw-lact" style="margin-top:var(--s-2)">
-      <button class="btn-out sm" onclick="KFX.kdAccept()">Accept as explanation</button>
+  return `<div class="rw-lact" style="margin-top:var(--s-3)">
+      <button class="btn-out sm" onclick="KFX.kdAccept()">Accept</button>
       <button class="btn-out sm" onclick="KFX.kdEdit()">Edit</button>
-      <button class="btn-out sm" onclick="KFX.kdRegen()">Regenerate</button>
-      <button class="btn-out sm" onclick="KFX.kdDismiss()">Dismiss</button></div>`;
+      <span class="sp"></span>
+      <button type="button" class="rw-lnk" onclick="KFX.kdRegen()">Regenerate</button>
+      <button type="button" class="rw-lnk" onclick="KFX.kdDismiss()">Dismiss</button></div>`;
+}
+/* the support reading is a sentence about the draft, so it belongs WITH the draft's
+   provenance line rather than as a second grey paragraph under the buttons */
+function kdSupportLine(r){
+  const SUP=kdSupport(explainObj(r));
+  return `${esc(SUP.lvl)} · ${SUP.facts.map(esc).join(' · ')}`;
 }
 
 /* ---- EXPLANATION AUTHORING -------------------------------------------------
@@ -8639,11 +9494,11 @@ function explAuthoring(r,rc,lock){
         <button class="btn-out sm" onclick="KFX.exPropose()">Generate suggested explanation</button>`;
     }else{
       if(openS.length>1)h+=`<div style="display:flex;gap:6px;margin-bottom:8px">
-        <button class="btn-primary sm" onclick="KFX.sugAllAccept()">Accept all ${openS.length}</button>
+        <button class="btn-out sm" onclick="KFX.sugAllAccept()">Accept all ${openS.length}</button>
         <button class="btn-out sm" onclick="KFX.sugAllDismiss()">Dismiss all</button></div>`;
       rc.sugs.forEach((x,i)=>{
         if(x.status!=='proposed')return;
-        h+=`<div class="exi" style="border-color:var(--ai-line);background:var(--ai-bg)">
+        h+=`<div class="exi ai">
           <div class="exi-top"><span class="pill ai">Korvyn suggests</span>
             <span class="exi-amt dlt ${x.amt>0?'up':'dn'}">${fmtS(x.amt)}</span>
             <span class="pill ac">${esc(RSN[x.reason]||x.reason)}</span><span class="sp"></span>
@@ -8665,7 +9520,7 @@ function explAuthoring(r,rc,lock){
 
   h+=`<div class="dw-sec">Explanation items</div>
     ${lock?'':`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="btn-primary sm" onclick="KFX.exNew()">+ Add explanation</button>
+      <button class="btn-out sm" onclick="KFX.exNew()">+ Add explanation</button>
       ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length?
         `<button class="btn-out sm" onclick="KFX.exCarry()">Carry forward prior period</button>`:'';})()}
     </div>`}`;
@@ -8686,7 +9541,7 @@ function explAuthoring(r,rc,lock){
       </div>
       <div class="exi-tx">${esc(it.note)}</div>
       <div class="exi-meta">${it.ev?`<span class="pill">${ic('clip')} ${esc(it.ev)}</span>`:''}
-        ${noSup?'<span class="say" style="color:var(--warning)">No support attached — an approver will ask for it</span>':''}
+        ${noSup?'<span class="say">No support attached — an approver will ask for it</span>':''}
         <span class="sp"></span>
         <span style="color:var(--faint)">${esc((it.by||PEOPLE.prep).split(',')[0])} · ${it.at||''}</span></div>`;
     if(!lock)h+=`<div style="margin-top:7px;display:flex;gap:6px;align-items:center">
@@ -8777,7 +9632,9 @@ function dwDrivers(r){
     const here=path[path.length-1];
     h+=`<button type="button" class="rw-back" onclick="KFX.drvUp()">‹ ${esc(here.label)}</button>
       <div class="rw-crumb">${['Drivers',...path.map(p=>p.label)].map(esc).join(' › ')}</div>`;
-  }else{
+  }else if(!S.dwPage){
+    /* on the page the drill is a mounted region, not a destination, so at its root
+       there is nothing to go back FROM — Overview is already beside it */
     h+=`<button type="button" class="rw-back" onclick="KFX.dwTab('sum')">‹ Overview</button>`;
   }
 
@@ -8994,214 +9851,48 @@ function owedCard(c,lock){
     ${act}
   </div>`;
 }
-function cmtComposer(){
+function cmtComposer(lock){
   const me=ME();
   return `<div class="rw-comp">
-    <textarea id="cmtIn" placeholder="Add a comment — a note or a question for the reviewers."></textarea>
-    <div class="row"><span class="scope">Posting as ${esc(me.nm)} · ${esc(me.role)}</span><span class="sp"></span>
+    <textarea id="cmtIn" oninput="KFX.cmtField(this.value)"
+      placeholder="Add a comment — a note or a question for the reviewers.">${esc(S.cmtDraft||'')}</textarea>
+    <div class="row"><span class="scope">Posting as ${esc(me.nm)} · ${esc(me.role)}${
+      lock?' · this line is reviewed and locked; the comment is recorded after sign-off':''
+      }</span><span class="sp"></span>
       <button class="btn-out sm" onclick="KFX.cmtCancel()">Cancel</button>
-      <button class="btn-primary sm" onclick="KFX.cmtSave()">Comment</button></div>
+      <button class="btn-out sm" onclick="KFX.cmtSave()">Comment</button></div>
   </div>`;
-}
-function dwComments(r){
-  const rc=rec(r.id,true), lock=rc.status==='approved';
-  const all=commentStream(r,rc);
-  const said=all.filter(c=>!c.owed), owed=all.filter(c=>c.owed);
-  const kinds=new Set(said.map(c=>c.kind));
-  const showFilter=said.length>2&&kinds.size>1;
-  const fk=showFilter?(S.cmtFilter||'all'):'all';
-  const match=c=>fk==='all'||c.kind===fk;
-  const shown=said.filter(match), owedShown=owed.filter(match);
-
-  let h=`<div class="rw-cbar">
-    <div class="rw-sec" style="margin:0">Comments${said.length?`<span class="ct">${said.length}</span>`:''}</div>
-    <span class="sp"></span>
-    ${showFilter?`<div class="rw-cfil">
-      <button aria-haspopup="menu" aria-expanded="${S.cmtMenu?'true':'false'}"
-        onclick="event.stopPropagation();KFX.cmtMenu()">${
-        esc((CMT_KINDS.find(k=>k[0]===fk)||CMT_KINDS[0])[1])} comments <span class="cue">▾</span></button>
-      ${S.cmtMenu?`<div class="rw-cmenu" role="menu" onclick="event.stopPropagation()">`+
-        CMT_KINDS.filter(k=>k[0]==='all'||kinds.has(k[0])).map(k=>
-          `<button class="${fk===k[0]?'on':''}" onclick="KFX.cmtFilter('${k[0]}')">${esc(k[1])}</button>`).join('')+
-        `</div>`:''}
-    </div>`:''}
-  </div>`;
-
-  if(!lock){
-    h+= S.cmtCompose ? cmtComposer() : `<button class="rw-add" onclick="KFX.addComment()">Add a comment…</button>`;
-  }
-
-  if(!said.length&&!owed.length){
-    h+=`<div class="rw-quiet">No comments yet.${lock?'':
-      ' Add the first, or a contributing entity will as the review moves.'}</div>`;
-    return h;
-  }
-  if(shown.length)h+=`<div class="rw-cstream">`+shown.map(c=>cmtCard(c,lock)).join('')+`</div>`;
-  else if(said.length)h+=`<div class="rw-quiet">No ${esc((CMT_KINDS.find(k=>k[0]===fk)||[])[1]||'').toLowerCase()} comments.</div>`;
-
-  if(owedShown.length)
-    h+=`<div class="rw-sec">Awaiting a comment<span class="ct">${owedShown.length}</span></div>
-      <div class="rw-cstream">`+owedShown.map(c=>owedCard(c,lock)).join('')+`</div>`;
-  return h;
 }
 /* ---- add-a-comment: a discussion note, never an approval --------------------
    Writes to rc.comments (the free discussion stream), audited like anything else.
    It is a comment, not an explanation item, so it never changes coverage or the
    residual — it is what people SAY about the number, beside what explains it. */
-function addComment(){ if(rec(S.sel,true).status==='approved'){toast('This line is reviewed and locked');return;}
+/* A COMMENT IS NOT A DETERMINATION. It writes to rc.comments and the trail, and touches
+   no figure, no status and no sign-off — so a reviewed line stays open to being
+   questioned. The lock still holds everything that would change the answer: items,
+   evidence, the authoring surface and the request actions. */
+function addComment(){
   S.cmtCompose=true; paintDrawer(); setTimeout(()=>{const t=document.getElementById('cmtIn');if(t)t.focus();},30); }
-function cmtCancel(){ S.cmtCompose=false; paintDrawer(); }
+/* every keystroke lands here and NOTHING repaints — the same contract exField holds for
+   the explanation editor. The composer is repainted by tab switches, filter changes and
+   every renderAll, and each one of those used to throw away a half-typed comment. */
+function cmtField(v){ S.cmtDraft=v; }
+function cmtCancel(){ S.cmtCompose=false; S.cmtDraft=''; paintDrawer(); }
 function cmtSave(){
-  const t=document.getElementById('cmtIn'); const txt=t?String(t.value||'').trim():'';
+  const t=document.getElementById('cmtIn');
+  /* the draft is the source of truth; #cmtIn is the fallback for the very first paint,
+     before any input event has fired */
+  const txt=String(S.cmtDraft||(t?t.value:'')||'').trim();
   if(!txt){toast('Nothing to post');if(t)t.focus();return;}
   const rc=rec(S.sel,true);
   rc.comments.push({by:meStr(),at:stamp(),ts:Date.now(),text:txt,scope:'Corporate',ver:1});
   logA({line:S.sel,who:meStr(),act:'added a comment',after:txt});
-  S.cmtCompose=false; renderAll(); toast('Comment added');
+  S.cmtCompose=false; S.cmtDraft=''; renderAll(); toast('Comment added');
 }
 function cmtFilter(k){ S.cmtFilter=k; S.cmtMenu=false; paintDrawer(); }
 function cmtMenu(){ S.cmtMenu=!S.cmtMenu; paintDrawer(); }
 
-/* ============================ 4. SUPPORT =================================
-   "What is behind this number?" — the two answers a reviewer needs in one place:
-   the SUPPORTING EVIDENCE attached to the line, and the FINANCIAL SOURCE it derives
-   from (the statement line it rolls into, the accounts beneath it, the volume of
-   journal entries, the source ERP, and whether it ties to the trial balance).
 
-   The evidence list is a plain list, not a document repository: what is attached
-   carries a check, what an accepted explanation still owes carries an open ring.
-   The financial source is read straight from the model — lineAccts, jes, tieOut —
-   and invents nothing. */
-function dwSupport(r){
-  const rc=rec(r.id,true), lock=rc.status==='approved';
-  const ev=evidenceFor(rc), gaps=evidenceGaps(rc);
-  let h=`<div class="rw-sec">Evidence<span class="ct">${ev.length||''}</span></div>`;
-  if(!ev.length&&!gaps.length)
-    h+=`<div class="rw-quiet">Nothing attached to this line yet. A reviewer will ask for support on any
-      item that carries a material amount.</div>`;
-  else{
-    h+=`<div class="rw-ev">`;
-    ev.forEach(e=>{
-      h+=`<div class="rw-e">
-        <span class="mk" aria-hidden="true">✓</span>
-        <span class="w"><a class="nmx" href="${e.f.url}" download="${esc(e.f.name)}"
-            title="${esc(e.f.name)}">${esc(e.f.name)}</a>
-          <span class="mt">${esc(e.scope)} · ${esc(String(e.by).split(',')[0])}${
-            e.at?' · '+esc(e.at):''} · ${fmtBytes(e.f.size)}</span></span>
-        ${lock?'':`<button type="button" class="lnk" aria-label="Remove ${esc(e.f.name)}"
-          onclick="KFX.upDel(${e.i},${e.fi})">remove</button>`}</div>`;});
-    gaps.forEach(g=>{
-      h+=`<div class="rw-e gap">
-        <span class="mk" aria-hidden="true">○</span>
-        <span class="w"><span class="nmx">Support for ${esc(g.what)}</span>
-          <span class="mt">Expected — this explanation item has no document behind it</span></span>
-        ${lock?'':`<button type="button" class="lnk"
-          onclick="document.getElementById('up${g.i}').click()">attach</button>`}</div>`;});
-    h+=`</div>`;
-  }
-  if(!lock){
-    h+=`<input type="file" id="upLine" multiple class="hidden" onchange="KFX.upFiles(-1,this)">`;
-    rc.items.forEach((it,i)=>{
-      h+=`<input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">`;});
-    h+=`<button type="button" class="rw-lnk"
-      onclick="document.getElementById('upLine').click()">Add support →</button>`;
-  }
-
-  /* ---- FINANCIAL SOURCE — where the number comes from, read from the model ---- */
-  const accts=lineAccts(S.stmt,r.id);
-  const nJe=accts.reduce((n,a)=>n+jes(a).length,0);
-  const tie=tieOut();
-  const firstAcct=accts[0]||'';
-  const a=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
-  h+=`<div class="rw-sec" style="margin-top:var(--s-5)">Financial source</div>
-    <div class="rw-fs">
-      <div class="rw-fsr"><span class="k">Financial line</span>
-        <span class="v">${r.sec?esc(r.sec)+' <span style="color:var(--faint)">→</span> ':''}${esc(r.l)}</span></div>
-      <div class="rw-fsr"><span class="k">Accounts</span><span class="v">${
-        accts.length?accts.map(x=>`<span class="mono">${esc(x)}</span> ${esc(ACC[x]?ACC[x].n:x)}`).join('<br>')
-          :'<span style="color:var(--faint)">Not mapped to a modelled account</span>'}</span></div>
-      <div class="rw-fsr"><span class="k">Transactions</span>
-        <span class="v">${nJe?`<button type="button" class="rw-fslnk" onclick="KFX.dwTab('drive')">${
-          nJe} GL transaction${nJe===1?'':'s'} →</button>`:'<span style="color:var(--faint)">None this period</span>'}</span></div>
-      <div class="rw-fsr"><span class="k">ERP</span>
-        <span class="v">${firstAcct?`<button type="button" class="rw-fslnk"
-          onclick="glFromFlux({line:'${a(r.l)}',driver:'',ent:'',acct:'${a(firstAcct)}'})">NetSuite →</button>`
-          :'NetSuite'}
-          <span class="sub">System of record — Korvyn reads and reconciles; it does not post.</span></span></div>
-      <div class="rw-fsr"><span class="k">Trial balance</span>
-        <span class="v"><span class="tie ${tie.ok?'':'bad'}">${tie.ok?'✓ Ties to trial balance':'Does not tie'}</span>
-          <span class="sub">${esc(tie.txt)}</span></span></div>
-    </div>`;
-  return h;
-}
-
-/* ============================= 5. HISTORY =================================
-   A RESTRAINED CHRONOLOGICAL RECORD, grouped by month. This is the audit trail —
-   append-only, before-and-after preserved — presented as a record rather than as a
-   two-column log table. The prior period sits at the foot of the chronology where
-   it belongs, and the 13-period trend is one disclosure away rather than a
-   permanent second sub-tab. */
-function dwHistory(r){
-  const rc=rec(r.id,true);
-  const focus=S.histFocus||'review';
-  /* History lives in the ••• menu now, so it opens with a clear way back to the
-     three tabs. The menu's three entries lead with different sections of the same
-     record — Prior-period explanation puts the prior period first — but nothing is
-     hidden: an accountant who opened "Activity log" still sees the prior period. */
-  const title={review:'Review history',prior:'Prior-period explanation',activity:'Activity log'}[focus]||'History';
-  let h=`<button type="button" class="rw-back" onclick="KFX.dwTab('sum')">‹ Overview</button>`;
-  /* Prior-period explanation is what the menu item names, so it leads when chosen. */
-  const priorBlock=()=>{
-    const pr=priorRec(r.id); if(!(pr&&pr.items.length))return '';
-    const pl=PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl;
-    let b=`<div class="rw-hm">${esc(pl.toUpperCase())}</div>
-      <div class="rw-h"><div class="w">Prior-period explanation available</div>
-        <div class="m">${pr.items.length} item${pr.items.length===1?'':'s'} accepted · nothing carries
-          forward automatically</div></div>`;
-    b+=`<div class="rw-items">`+pr.items.map(it=>`<div class="rw-item">
-        <span class="a">${fmtS(it.amt)}</span>
-        <span class="k">${esc(RSN[it.reason]||it.reason)}</span>
-        <div class="t">${esc(it.note)}</div></div>`).join('')+`</div>`;
-    if(rc.status!=='approved')
-      b+=`<button type="button" class="rw-lnk" onclick="KFX.exCarry()">Carry forward selectively →</button>`;
-    return b;
-  };
-  if(focus==='prior'){
-    const pb=priorBlock();
-    h+=`<div class="rw-sec">${esc(title)}</div>`;
-    h+= pb || `<div class="rw-quiet">No prior-period explanation on this line.</div>`;
-    return h;
-  }
-  h+=`<div class="rw-sec">${esc(title)}<span class="ct">${rc.trail.length||''}</span></div>`;
-  if(!rc.trail.length)h+=`<div class="rw-quiet">Nothing logged on this line yet.</div>`;
-  else{
-    let month='';
-    rc.trail.forEach(a=>{
-      const m=(a.ts?new Date(a.ts):new Date()).toLocaleDateString('en-US',
-        {month:'long',year:'numeric'}).toUpperCase();
-      if(m!==month){month=m;h+=`<div class="rw-hm">${esc(m)}</div>`;}
-      const w=rwWho(a.who);
-      h+=`<div class="rw-h">
-        <div class="w">${esc(a.act.charAt(0).toUpperCase()+a.act.slice(1))}</div>
-        <div class="m">${esc(w.nm)} · ${esc(a.t)}${a.id?' · '+esc(a.id):''}</div>
-        ${a.detail?`<div class="d">${esc(a.detail)}</div>`:''}
-        ${a.before!=null?`<div class="d">from: ${esc(String(a.before))}</div>`:''}
-        ${a.after!=null?`<div class="d">to: ${esc(String(a.after))}</div>`:''}
-      </div>`;});
-    h+=`<div class="rw-src">Append-only. Edits record the value before and after, so the record shows
-      what an explanation said at the moment its review completed.</div>`;
-  }
-
-  /* the prior period, as the next block down the chronology */
-  h+=priorBlock();
-
-  /* the 13-period trend, disclosed rather than resident */
-  h+=`<div style="margin-top:var(--s-4)">
-    <button type="button" class="rw-lnk" onclick="KFX.rwPeriods()">${
-      S.rwPeriods?'Hide the period trend':'View the last 13 periods →'}</button></div>`;
-  if(S.rwPeriods)h+=dwHist(r);
-  return h;
-}
 
 /* A short, grounded reading of where the movement sits. Every figure is the same
    aggregation the grid runs, cut by one more dimension — nothing is asserted. */
@@ -9540,12 +10231,15 @@ function citeJe(id,amt){
 function dwHist(r){
   const sl=activeSlices(),n=13,a=[];
   for(let i=Math.max(0,S.cur-n+1);i<=S.cur;i++)a.push({p:PERIODS[i],v:lineVal(S.stmt,r.id,i,S.grain,'act',sl)});
+  /* rule 15 — a trend table needs an empty state, and one row is not a trend */
+  if(a.length<2)return `<div class="rw-sec">Period trend</div>
+    <div class="rw-quiet">Fewer than two periods of history on this line.</div>`;
   let h=`<div class="rw-sec">Last ${a.length} periods</div><table class="tbl"><thead><tr><th>Period</th>
     <th class="num">Value</th><th class="num">\u0394 vs prior</th><th class="num">\u0394 %</th></tr></thead><tbody>`;
   a.forEach((x,i)=>{const d=i?x.v-a[i-1].v:0,dp=i&&a[i-1].v?d/Math.abs(a[i-1].v)*100:0;
     const brk=i&&(Math.abs(d)>=thr().abs*matFac());
-    h+=`<tr><td>${x.p.lbl}${brk?' <span class="pill wa">breached</span>':''}</td><td class="num">${fmt(x.v)}</td>
-      <td class="num dlt ${d>0?'up':'dn'}">${i?fmtS(d):'\u2014'}</td>
+    h+=`<tr><td>${x.p.lbl}</td><td class="num">${fmt(x.v)}</td>
+      <td class="num dlt ${d>0?'up':'dn'} ${brk?'brk':''}">${i?fmtS(d):'\u2014'}</td>
       <td class="num">${i&&a[i-1].v?pct(dp):'\u2014'}</td></tr>`;});
   h+='</tbody></table>';
   // prior-period commentary is rendered by dwHistory, above the disclosure that
@@ -10023,7 +10717,7 @@ function body(){
       ${DISP_MODES.map(([v,nm])=>`<button class="${dispMode()===v?'on':''}"
         onclick="KFX.setView('${v}')" title="${esc(nm)}">${esc(nm)}</button>`).join('')}
     </div>
-    ${narr?`<button class="btn-out" onclick="KFX.toggleNarrExpand()"
+    ${narr?`<button class="btn-out fx-narrbtn" onclick="KFX.toggleNarrExpand()"
       title="Open every narrative to its full length — for a CFO read, a screen-share or a print"
       aria-pressed="${S.narrExpand?'true':'false'}">${S.narrExpand?'Collapse narratives':'Expand all narratives'}</button>`:''}
     <button class="btn-out" id="fxViewBtn" data-pop="viewmode" onclick="KFX.pop('viewmode',this)"
@@ -10251,7 +10945,9 @@ function scopeSummary(){
     (d.opts().find(o=>o.id===v[0])||{nm:v[0]}).nm.split(' \u2014 ')[0]:v.length+' '+d.nm.toLowerCase()+'s');});
   return (parts.length?parts.join(' \u00b7 '):'Consolidated')+' \u00b7 '+periodTag();
 }
-function setStmtFromShell(v){ S.stmt=v; S.sel=null; }
+/* a pure state setter — the shell repaints after it. It clears the page mode too,
+   because switching statement from outside the module means the open line is gone. */
+function setStmtFromShell(v){ S.stmt=v; S.sel=null; S.dwPage=false; }
 
 /* THE ONE THING THE LEDGER NEEDS FROM THIS MODULE. A GL account rolls into exactly
    one statement line, and the mapping already exists here as LINE_ACCTS. Exposing a
@@ -10366,6 +11062,14 @@ function lineForAcct(acct){
     if(e.key==='Escape'){
       if(popKind){popClose();return;}
       const m=$('fxMask'); if(m&&m.classList.contains('on')){closeModal();return;}
+      // a menu closed by the listener above has already consumed this keypress
+      if(e._rwMenuClosed||S.dwMenu||S.cmtMenu)return;
+      /* Escape out of a field returns the caret, never the panel — the same rule
+         fxKeys already states for typing, applied to the one path that skipped it */
+      {const tg=e.target,nm=tg&&tg.tagName;
+       if(S.sel&&(nm==='INPUT'||nm==='TEXTAREA'||nm==='SELECT'||(tg&&tg.isContentEditable))){
+         tg.blur();return;}}
+      if(S.dwPage){e.preventDefault();dwPage();return;}
       if(S.sel){closeDrawer();return;}
       const c=document.getElementById('filterCtrls');
       if(c&&!c.hidden){c.hidden=true;syncFilterChrome();}
@@ -10381,9 +11085,9 @@ function lineForAcct(acct){
 })();
 
 return {basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
-dwCollapse, dwMenu, histOpen, addComment, cmtCancel, cmtSave, cmtFilter, cmtMenu, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
+dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
-kdAccept, kdEdit, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
