@@ -34,10 +34,21 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   build-time and one-directional.
 - The Flux review workspace renders at **two densities from one set of renderers**:
   `dwCtx()` derives every figure once per paint, `RWSEC` is a registry of named parts, and
-  `RW_LAYOUT` is a pure composition table that *is* the entire mode flag. A part absent
-  from `RWSEC` cannot render in either density. Do not fork it into two builders.
-  Any refactor there must pass the byte-identity probe: hash `#fxDwBody.innerHTML` for
-  every tab on every line before and after; they must be identical strings.
+  `RW_LAYOUT` is a pure composition table for everything except Overview. Overview is
+  state-composed by `dwModeOf` / `dwOverviewKeys` (inspect / explain / review / locked).
+  `RW_LAYOUT.drawer.sum` is the material-line default those keys return — not the only
+  Overview. A part absent from `RWSEC` cannot render in either density. Do not fork it
+  into two builders. Any refactor there must pass the byte-identity probe: hash
+  `#fxDwBody.innerHTML` for every tab on every line before and after; they must be
+  identical strings.
+- **Four Overview modes, and a freeze.** inspect (`!r.req`) reads — drivers, a quiet
+  optional-explanation cue, no footer. explain (`r.req`, draft/returned) works — the
+  explanation owns Save/Accept; the footer is Submit once coverage clears. review
+  (`submitted`) and locked (`approved`) report. Submitted reads exactly like locked in
+  the explanation card (`canPrep = !lock && !frozen && caps().prepare`): a preparer
+  must not rewrite the words a reviewer is reading. The way back is the reviewer's
+  Return, a recorded transition — name the freeze rather than silently dropping Edit.
+  Variance leads the header; the two period balances sit quiet beneath it.
 - A **materiality threshold** (`r.req`) decides whether a line must be explained at all. A
   **tolerance** (`r.clear`) decides whether an explanation covers enough of the movement.
   They are different numbers — conflating them is how a line below the threshold ends up

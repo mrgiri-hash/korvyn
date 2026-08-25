@@ -143,6 +143,33 @@ not enterprise planning.
   external runtime dependencies. It is ~2 MB — read the region you need, never the whole file.
 - **Work incrementally.** Never rebuild or redesign an existing page unless asked.
 
+## 2026-08-25 — Flux inspect panel: four modes and the in-review freeze
+
+The docked inspect panel (`#fxDetail` in `index.html`) composes itself to the line
+through `dwModeOf` / `dwOverviewKeys`. `RW_LAYOUT.drawer.sum` is the material-line
+default those keys return — not the only Overview. Do not restore a single
+composition for every line.
+
+| Mode | When | What the panel does |
+|---|---|---|
+| **inspect** | `!r.req`, not submitted/approved | Reads. Drivers lead; a quiet `explainCue` if nothing is on the line; no footer. |
+| **explain** | `r.req`, draft/returned | The explanation is the subject and owns Save/Accept. Footer is Submit only once coverage clears. |
+| **review** | `rc.status==='submitted'` | Reports. Footer is Return / Mark reviewed, gated by `canReviewLine`. |
+| **locked** | `rc.status==='approved'` | Reports. No Needs attention. Footer is Reopen (Controller/CAO) or a quiet “Controller or CAO to reopen”. |
+
+**Freeze rule.** Submitted reads exactly like locked in the explanation card
+(`canPrep = !lock && !frozen && caps().prepare`). A preparer must not rewrite the
+words a reviewer is reading — the sign-off would attach to text nobody reviewed.
+The way back is the reviewer’s Return, a recorded transition. Name the freeze
+rather than silently dropping Edit.
+
+Variance leads the header at figure size; the two period balances sit quiet
+beneath it. In a flux review the movement is the subject, not a footnote to the
+balance.
+
+No seeded line starts submitted or approved. Locked is reachable only by walking
+a line through the workflow. `CMT` is in-memory; a reload restores the book.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
