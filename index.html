@@ -1303,11 +1303,24 @@ body.rail-collapsed .rail .railrole .rchev{display:none}
 .railkids{display:none;flex-direction:column;gap:1px;margin:1px 0 3px}
 .railkids.open{display:flex}
 body.rail-collapsed .rail .railkids{display:none!important}
-.railkid{display:flex;align-items:center;border:none;background:none;cursor:pointer;width:100%;
-  color:var(--chrome-text-2);font:inherit;font-size:var(--fs-table);padding:6px 11px 6px 38px;border-radius:var(--radius-sm);
-  transition:var(--dur-1) var(--ease);text-align:left;white-space:nowrap}
+/* Leaves now carry an icon too — a modest indent (20px vs the parent's 11px) keeps
+   the nesting legible while every item stays iconed and scannable. */
+.railkid{display:flex;align-items:center;gap:8px;border:none;background:none;cursor:pointer;width:100%;
+  color:var(--chrome-text-2);font:inherit;font-size:var(--fs-table);padding:6px 11px 6px 20px;border-radius:var(--radius-sm);
+  transition:var(--dur-1) var(--ease);text-align:left;white-space:nowrap;position:relative}
+.railkid .ic{width:14px;height:14px;flex:none;opacity:.55;transition:opacity var(--dur-1) var(--ease)}
+.railkid .lbl{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .railkid:hover{background:rgba(255,255,255,.06);color:var(--chrome-text)}
-.railkid.on{color:var(--chrome-text-strong);background:var(--chrome-lift-on);font-weight:var(--fw-medium)}
+.railkid:hover .ic{opacity:.8}
+.railkid.on{color:var(--chrome-text-strong);font-weight:var(--fw-medium)}
+.railkid.on .ic{opacity:1}
+/* ONE crisp active state, parents and leaves alike — a 3px accent bar at the rail
+   edge plus a subtle accent tint (owner's direction). The bar is where the rail
+   legitimately spends the accent: it marks where you are. */
+.rail .railrole.on,.rail .railkid.on{background:color-mix(in srgb, var(--chrome-accent) 14%, transparent)}
+.rail .railkid.on::before{content:'';position:absolute;left:-10px;top:5px;bottom:5px;width:3px;
+  background:var(--chrome-accent);border-radius:0 2px 2px 0}
+.rail .railrole.on::before{width:3px}
 .rail-foot{flex:none;border-top:1px solid var(--chrome-border);padding:8px 10px}
 .rail-collapse{
   display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;cursor:pointer;
@@ -27993,7 +28006,11 @@ function paintRailRoles(){
             const kgo = k.seg ? `setFIndexSeg('${k.seg}');pickTab('findex')`
                       : k.sub ? `setFDetailTab('${k.sub}');pickTab('fdetail')`
                       : `pickTab('${k.tab}')`;
-            return `<button class="railkid ${kon?'on':''}" onclick="${kgo}">${k.label}</button>`;
+            // leaves carry no icon of their own — look theirs up from the TABS
+            // registry by tab id, so every rail item is iconed (and the collapsed
+            // rail and hierarchy read consistently). Empty slot keeps label alignment.
+            const kic=k.ic||((k.tab&&(TABS.find(t=>t.id===k.tab)||{}).ic)||'');
+            return `<button class="railkid ${kon?'on':''}" onclick="${kgo}">${kic?path(kic):'<svg class="ic" viewBox="0 0 16 16" fill="none"></svg>'}<span class="lbl">${k.label}</span></button>`;
           }).join('')+`</div>`;
         }
         return out;
