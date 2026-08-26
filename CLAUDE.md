@@ -184,11 +184,15 @@ words a reviewer is reading — the sign-off would attach to text nobody reviewe
 The way back is the reviewer’s Return, a recorded transition. Name the freeze
 rather than silently dropping Edit.
 
-The header is **four equal figure cells in one row — current · prior · variance ·
-Δ%** (the reference inspector's order), separated by hairlines, with colour on the
-two variance cells only (rules 2/3/5). It replaced a 2×2 hero+mute grid that made
-variance one oversized number over two greyed balances; equal weight reads as an
-instrument. The movement is still the subject — it just no longer needs to shout.
+The header leads with a **hero variance** (owner's direction, 2026-08-25 — "push
+the visual language"): the movement is the subject of a flux review, so it is the
+big signed figure with a direction glyph and its Δ%, over a quiet `prior → current`
+balance flow with the period labels. `.rw-hero` replaced the four-equal-cell grid,
+which replaced a 2×2 hero+mute grid before it — the figure is one step larger on
+the full page. Colour lands only on the variance (rules 2/3). Key drivers render as
+a **contribution visualization** — each driver's share of the movement as a bar,
+carrying the same up/down the value does — so the shape of the variance reads at a
+glance instead of being decoded from three percentages.
 
 No seeded line starts submitted or approved. Locked is reachable only by walking
 a line through the workflow. `CMT` is in-memory; a reload restores the book.

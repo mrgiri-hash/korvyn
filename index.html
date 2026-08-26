@@ -3936,6 +3936,19 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-r.sub{padding-left:0}
 #fxRoot .rw-r .sl{display:block;font-size:var(--fs-micro);color:var(--faint);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* KEY DRIVERS as a contribution visualization — each driver's share of the
+   movement drawn as a bar, so the shape of the variance reads at a glance instead
+   of being decoded from three percentages. The bar carries the same up/down the
+   value does (consistent with the grid, not new decoration); a faint ramp track
+   behind it makes the share legible even when small. */
+#fxRoot .drv-rows .rw-r.drv{border-bottom:none;padding-bottom:2px}
+#fxRoot .drv-bar{height:5px;background:var(--n-100);border-radius:var(--radius-pill);
+  overflow:hidden;margin:0 0 9px}
+#fxRoot .drv-bar:last-child{margin-bottom:2px}
+#fxRoot .drv-bar i{display:block;height:100%;border-radius:inherit;
+  background:var(--accent);transition:width var(--dur-2) var(--ease-emph)}
+#fxRoot .drv-bar.up i{background:var(--success)}
+#fxRoot .drv-bar.dn i{background:var(--danger)}
 
 /* ---- D. needs attention. A worklist, not a stack of alert cards. ---------- */
 #fxRoot .rw-attn{border-top:var(--rule)}
@@ -4210,7 +4223,6 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot.dw-page .fx-detail{border:none;background:var(--bg)}
 #fxRoot.dw-page .fx-detail .dw-hd{background:var(--surface);border-bottom:var(--rule)}
 #fxRoot.dw-page .fx-detail .dw-body{background:var(--bg)}
-#fxRoot.dw-page .fx-detail .rw-figs4 b{font-size:var(--fs-figure)}
 #fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-5)}
 #fxRoot.dw-page .fx-detail .rw-col{
   background:var(--surface);
@@ -4596,47 +4608,42 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    one line — crushing the line name to nothing. Forcing the identity row to basis
    100% makes the grid wrap cleanly beneath it. */
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-idrow{flex:0 0 100%}
-/* FOUR EQUAL FIGURE CELLS — current · prior · variance · Δ%, matching the reference
-   inspector: one row, equal weight, separated by hairlines (rule 5), colour only on
-   the two variance cells (rule 2/3). The old 2×2 hero+mute grid is retired. */
-#fxRoot.aw .fx-detail .rw-figs4{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:0;
+/* THE HERO — the movement leads at hero size (a signed figure with a direction
+   glyph + its Δ%), the two balances flow beneath as prior → current. Full-bleed to
+   the panel edges, set off by hairlines top and bottom so it reads as the header's
+   own instrument strip. Colour lands only on the variance (rules 2/3). */
+#fxRoot.aw .fx-detail .rw-hero{
+  flex:1 0 100%;
   margin:var(--s-3) calc(-1 * var(--s-4)) 0;
-  padding:0;
-  border:none;
+  padding:var(--s-3) var(--s-4);
   border-top:var(--rule);
+  border-bottom:var(--rule);
   background:var(--surface);
 }
-#fxRoot.aw .fx-detail .rw-figs4 .f{
-  padding:var(--s-3) var(--s-3) var(--s-3) var(--s-4);
-  border-right:var(--rule);
-  min-width:0;
+#fxRoot.aw .fx-detail .rw-hero-top{display:flex;align-items:baseline;gap:var(--s-3);flex-wrap:wrap}
+#fxRoot.aw .fx-detail .rw-hero-v{
+  font-size:var(--fs-hero);font-weight:var(--fw-medium);
+  font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight);line-height:1.02;
 }
-#fxRoot.aw .fx-detail .rw-figs4 .f + .f{padding-left:var(--s-3)}
-#fxRoot.aw .fx-detail .rw-figs4 .f:last-child{border-right:none}
-#fxRoot.aw .fx-detail .rw-figs4 b{
-  display:block;
-  font-size:var(--fs-card);
-  font-weight:var(--fw-medium);
-  font-variant-numeric:tabular-nums;
-  letter-spacing:var(--tracking-tight);
-  line-height:1.15;
-  color:var(--ink-strong);
-  white-space:nowrap;
+#fxRoot.aw .fx-detail .rw-hero-pct{
+  font-size:var(--fs-card);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums;
 }
-#fxRoot.aw .fx-detail .rw-figs4 span{
-  display:block;
-  font-size:var(--fs-micro);
-  text-transform:uppercase;
-  letter-spacing:var(--tracking-label);
-  color:var(--hint);
-  margin-top:3px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+#fxRoot.aw .fx-detail .rw-hero-word{
+  margin-left:auto;align-self:center;
+  font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--hint);
 }
+#fxRoot.aw .fx-detail .rw-hero-flow{
+  display:flex;align-items:baseline;gap:8px;margin-top:6px;
+  font-size:var(--fs-table);color:var(--muted);font-variant-numeric:tabular-nums;
+}
+#fxRoot.aw .fx-detail .rw-hero-flow .ar{color:var(--faint)}
+#fxRoot.aw .fx-detail .rw-hero-flow .cv{color:var(--ink);font-weight:var(--fw-medium)}
+#fxRoot.aw .fx-detail .rw-hero-flow .pr{
+  margin-left:auto;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--hint);
+}
+/* page mode gives the hero more room and lifts the figure a step */
+#fxRoot.dw-page .fx-detail .rw-hero-v{font-size:calc(var(--fs-hero) + 4px)}
 #fxRoot.aw .fx-detail .dw-tabs{
   display:flex;
   padding:0 var(--s-2);
@@ -8811,15 +8818,24 @@ function dwHead(r,rc){
         <span><kbd>Esc</kbd>back to the statement</span></span>
     </div>`;
   }
-  /* THE FOUR FIGURES. Variance leads — this is a flux panel — then direction,
-     then the two period balances quieter beneath. Every one is read straight off
-     the row; nothing is derived a second time here. */
+  /* THE HERO. The movement IS the subject of a flux review, so it leads at hero
+     size — a big signed figure with a direction glyph and its Δ% — and the two
+     period balances sit quiet beneath as a "prior → current" flow. Everything is
+     read straight off the row; nothing is derived a second time here. */
   const dcls=r.d>0?'up':r.d<0?'dn':'n';
-  const figs=`<div class="rw-figs4">
-    <div class="f"><b>${fmt(r.cur)}${uName()}</b><span>${esc(PERIODS[S.cur].short)}</span></div>
-    <div class="f"><b>${r.pri?fmt(r.pri)+uName():'—'}</b><span>${esc(compareLabel())}</span></div>
-    <div class="f"><b class="dlt ${dcls}">${sgn(r.d)}${uName()}</b><span>Variance</span></div>
-    <div class="f"><b class="dlt ${dcls}">${r.pri?pct(r.dp):'—'}</b><span>${esc(word)}</span></div>
+  const arrow=r.d>0?'&#9650;':r.d<0?'&#9660;':'';
+  const figs=`<div class="rw-hero">
+    <div class="rw-hero-top">
+      <b class="rw-hero-v dlt ${dcls}">${arrow?arrow+' ':''}${fmt(Math.abs(r.d))}${uName()}</b>
+      <span class="rw-hero-pct dlt ${dcls}">${r.pri?pct(r.dp):'—'}</span>
+      <span class="rw-hero-word">${esc(word)}</span>
+    </div>
+    <div class="rw-hero-flow">
+      <span class="pv">${r.pri?fmt(r.pri)+uName():'—'}</span>
+      <span class="ar" aria-hidden="true">&rarr;</span>
+      <span class="cv">${fmt(r.cur)}${uName()}</span>
+      <span class="pr">${esc(compareLabel())} &rarr; ${esc(PERIODS[S.cur].short)}</span>
+    </div>
   </div>`;
   return from+`<div class="rw-idrow"><div class="rw-id">
       <div class="rw-nm" title="${esc(r.l)}">${esc(r.l)}</div>
@@ -9595,10 +9611,14 @@ const RWSEC={
     if(!top.length){
       h+=`<div class="rw-quiet">No dimension of this line moved enough to isolate a driver.</div>`;
     }else{
-      h+=`<div class="rw-rows">`+top.map(d=>`<div class="rw-r">
+      h+=`<div class="rw-rows drv-rows">`+top.map(d=>{
+        const dir=d.d>0?'up':'dn';
+        const w=Math.max(4,Math.min(100,Math.round(Math.abs(d.pctOf))));
+        return `<div class="rw-r drv">
         <span class="l">${esc(d.nm)}</span>
-        <span class="v dlt ${d.d>0?'up':'dn'}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
-        <span class="p">${Math.round(d.pctOf)}%</span></div>`).join('')+`</div>`;
+        <span class="v dlt ${dir}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
+        <span class="p">${Math.round(d.pctOf)}%</span></div>
+        <div class="drv-bar ${dir}"><i style="width:${w}%"></i></div>`;}).join('')+`</div>`;
       if(r.req&&Math.abs(C.res)>0.0005)
         h+=`<div class="rw-rows"><div class="rw-r resid"><span class="l">Unexplained residual</span>
         <span class="v ${Math.abs(C.res)>C.tol?'dlt dn':''}">${(C.res>0?'+':'')+fmtS(C.res)}</span>
