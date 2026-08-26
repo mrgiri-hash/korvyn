@@ -201,6 +201,21 @@ signable. Every one is derived from the same `dwCtx` figures the text states.
 No seeded line starts submitted or approved. Locked is reachable only by walking
 a line through the workflow. `CMT` is in-memory; a reload restores the book.
 
+## 2026-08-26 — the left rail moved to the content plane (amends design rule 4)
+
+The left rail (`.rail` / `#railNav`) was dark chrome, sharing the ribbon's base so
+the two read as one "midnight L". At the owner's direction it now sits on the
+**content plane** — a **light rail** in light mode (white surface, cobalt active
+state), following the theme (dark in dark mode), while the **ribbon stays dark
+chrome**. Reasoning: a close tool is used all day, a light rail is calmer and the
+familiar finance-software pattern, and the ribbon's dense status still reads best on
+dark. This **amends design-system rule 4** ("header and sidebar share one base,
+separate by a hairline, never by lightness") for the sidebar only — header and rail
+now differ by plane by intent. Implementation: the `.railrole`/`.railkid`/`.rbadge`
+classes are shared with the dark ribbon nav, so the light treatment is added as
+`.rail`-scoped overrides onto content tokens (`--surface`, `--ink`, `--accent-bg`,
+`--accent-ink`, `--accent`), never by editing the shared base. Every pairing is AA.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
