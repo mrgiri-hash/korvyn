@@ -1902,6 +1902,14 @@ footer b{color:var(--muted)}
    rather than duplicated. Only .stat's negative-value tone is still declared here. */
 .stat .sv.neg{color:var(--neg)}
 .spark{width:100%;height:170px}
+/* Trending-review hero — the latest value at figure size with its MoM change, the
+   same hero grammar the review panel uses so the two lenses read as one system. */
+.gltr-hero{display:flex;align-items:baseline;gap:var(--s-3);flex-wrap:wrap;margin:2px 0 10px}
+.gltr-hero-v{font-size:var(--fs-hero);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums;
+  letter-spacing:var(--tracking-tight);color:var(--ink-strong);line-height:1.05}
+.gltr-hero-d{font-size:var(--fs-card);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+.gltr-hero-k{margin-left:auto;align-self:center;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--hint)}
 .progline{display:flex;align-items:center;gap:9px}
 .progline .mini-bar{flex:1;min-width:60px}
 
@@ -21309,6 +21317,11 @@ function renderGLTrend(){
   const line=d.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
   const ma=d.map((v,i)=>{const s=Math.max(0,i-11),w=d.slice(s,i+1);return w.reduce((a,b)=>a+b,0)/w.length;});
   const maLine=ma.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
+  /* the same visual language the review panel speaks — an area under the trend and a
+     latest-value hero with its MoM change, so this lens reads as one family with it */
+  const area=`M${X(0).toFixed(1)} ${H} L`+d.map((v,i)=>`${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' L')+` L${X(n-1).toFixed(1)} ${H} Z`;
+  const prev=d[n-2], chg=d[n-1]-prev, chgPct=prev?(chg/Math.abs(prev)*100):0;
+  const dcls=chg>=0?'up':'dn', arr=chg>=0?'&#9650;':'&#9660;';
   glSurface(el);
   let o=glHead('Trending review',glCtx(['30 periods']),glExport+glSaveView);
   /* the account/entity/cadence/range controls now live in the shared filter panel,
@@ -21324,7 +21337,13 @@ function renderGLTrend(){
     </div>
     <div class="card" style="margin:0">
       <h2>Total revenue<span class="note">USD in thousands</span></h2>
+      <div class="gltr-hero">
+        <b class="gltr-hero-v">$${d[n-1].toLocaleString()}K</b>
+        <span class="gltr-hero-d dlt ${dcls}">${arr} ${Math.abs(chgPct).toFixed(1)}% MoM</span>
+        <span class="gltr-hero-k">latest &middot; ${TREND_MONTHS[TREND_MONTHS.length-1]}</span>
+      </div>
       <svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <path d="${area}" fill="var(--accent)" fill-opacity=".06"/>
         <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
         <path d="${maLine}" fill="none" stroke="var(--hint)" stroke-width="1.5" stroke-dasharray="5 4"/>
       </svg>
