@@ -4135,6 +4135,39 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-rg:focus{outline:none}
 #fxRoot .rw-rg:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 
+/* ===== FULL-PAGE VISUAL DESIGN (2026-08-25, later) ==========================
+   The full page read as one flat white sheet — rule 11's "one card, hairlines
+   inside, no shadow" taken literally left the eye nothing to rest on. At the
+   owner's direction the page now reads as a light dashboard: a white header band
+   over a soft-gray body, the three argument columns floating as white cards with
+   a whisper of elevation. Depth is lightness plus a soft shadow — the page is a
+   docked workspace, not a data table, so this stays within rule 5's spirit and is
+   never the heavy overlay shadow. The drawer already reads this way; the two
+   densities now share one visual language. Regions keep their hairline rhythm
+   INSIDE each column card, so nothing splits into confetti. */
+#fxRoot.dw-page .fx-detail{border:none;background:var(--bg)}
+#fxRoot.dw-page .fx-detail .dw-hd{background:var(--surface);border-bottom:var(--rule)}
+#fxRoot.dw-page .fx-detail .dw-body{background:var(--bg)}
+#fxRoot.dw-page .fx-detail .rw-figs4 b{font-size:var(--fs-figure)}
+#fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-5)}
+#fxRoot.dw-page .fx-detail .rw-col{
+  background:var(--surface);
+  border:var(--rule);
+  border-radius:12px;
+  padding:var(--s-5);
+  margin:0;
+  box-shadow:0 1px 2px rgba(16,22,35,.04),0 3px 10px rgba(16,22,35,.05);
+}
+#fxRoot.dw-page .fx-detail .rw-sec{color:var(--muted);font-weight:var(--fw-medium)}
+@container (min-width:1180px){
+  #fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-6)}
+  /* prose stays readable, but the card fills its column — cap the narrative, not
+     the card, so judge doesn't float narrow beside a full-width neighbour */
+  #fxRoot.dw-page .fx-detail .rw-col.judge{max-width:none}
+  #fxRoot.dw-page .fx-detail .rw-col.judge .rw-nar,
+  #fxRoot.dw-page .fx-detail .rw-col.judge .rw-src{max-width:64ch}
+}
+
 /* ---- the action never scrolls away --------------------------------------- */
 #fxRoot.dw-page .fx-detail .dw-foot{position:sticky;bottom:0;z-index:8;
   padding:var(--s-3) var(--s-5);background:var(--surface);box-shadow:none}
@@ -4432,11 +4465,22 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    cell, among others) that would break the explanation band and the comment
    preview. It shares the grammar by declaring the same two rules, not by
    inheriting a layer built for a different table. */
+/* Toolbar actions sit on one row height. Global .gl-hd is flex-start (title vs
+   actions), which left Review / Table / star / Views stepping off --h-btn. */
+#fxRoot .gl-hd{align-items:center}
 #fxRoot .gl-hd .sub{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 #fxRoot .gl-hd .sub .sep{color:var(--n-300)}
 #fxRoot .gl-hd .sub b{color:var(--ink);font-weight:var(--fw-regular)}
-#fxRoot .gl-hd .btn-out,#fxRoot .gl-hd .btn-primary{display:inline-flex;align-items:center;gap:6px}
+#fxRoot .gl-hd .seg{height:var(--h-btn);align-self:center}
+#fxRoot .gl-hd .btn-out,#fxRoot .gl-hd .btn-primary{
+  display:inline-flex;align-items:center;gap:6px;
+  height:var(--h-btn);padding:var(--pad-btn)}
 #fxRoot .gl-hd .btn-out.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
+/* KFX icons are 13×13 on a 16 grid; .btn-out svg is 14px globally — pin the
+   subtree so the two cannot disagree. Do not restyle the Views path (short third
+   line is a list icon by design). */
+#fxRoot .gl-hd .fxi,#fxRoot .gl-hd .btn-out svg{width:13px;height:13px;flex:none}
+#fxRoot .gl-hd .btn-out .cue{color:var(--faint);font-size:9px}
 #fxRoot .kpis{margin-bottom:6px}
 #fxRoot .fx-work{font-size:var(--fs-label);color:var(--hint);padding:2px 2px 10px;display:flex;gap:7px;flex-wrap:wrap}
 #fxRoot .fx-work .em{color:var(--muted);font-weight:var(--fw-medium)}
@@ -4484,9 +4528,18 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   letter-spacing:var(--tracking-label);
   color:var(--hint);
 }
+/* The identity row takes its OWN full-width line. .dw-hd is a flex-wrap row; the
+   figure grid below carries negative side margins to bleed full-width, so its outer
+   size plus the identity row's zero-basis summed to exactly 100% and the two shared
+   one line — crushing the line name to nothing. Forcing the identity row to basis
+   100% makes the grid wrap cleanly beneath it. */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-idrow{flex:0 0 100%}
+/* FOUR EQUAL FIGURE CELLS — current · prior · variance · Δ%, matching the reference
+   inspector: one row, equal weight, separated by hairlines (rule 5), colour only on
+   the two variance cells (rule 2/3). The old 2×2 hero+mute grid is retired. */
 #fxRoot.aw .fx-detail .rw-figs4{
   display:grid;
-  grid-template-columns:1.35fr 1fr;
+  grid-template-columns:repeat(4,1fr);
   gap:0;
   margin:var(--s-3) calc(-1 * var(--s-4)) 0;
   padding:0;
@@ -4495,39 +4548,21 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   background:var(--surface);
 }
 #fxRoot.aw .fx-detail .rw-figs4 .f{
-  padding:var(--s-3) var(--s-4) var(--s-2);
+  padding:var(--s-3) var(--s-3) var(--s-3) var(--s-4);
   border-right:var(--rule);
-  border-bottom:var(--rule);
   min-width:0;
 }
-#fxRoot.aw .fx-detail .rw-figs4 .f:nth-child(2n){border-right:none}
-#fxRoot.aw .fx-detail .rw-figs4 .f:nth-last-child(-n+2){border-bottom:none}
-#fxRoot.aw .fx-detail .rw-figs4 .f.hero{
-  padding-top:var(--s-4);
-  padding-bottom:var(--s-3);
-}
+#fxRoot.aw .fx-detail .rw-figs4 .f + .f{padding-left:var(--s-3)}
+#fxRoot.aw .fx-detail .rw-figs4 .f:last-child{border-right:none}
 #fxRoot.aw .fx-detail .rw-figs4 b{
   display:block;
-  font-size:var(--fs-figure);
+  font-size:var(--fs-card);
   font-weight:var(--fw-medium);
   font-variant-numeric:tabular-nums;
   letter-spacing:var(--tracking-tight);
   line-height:1.15;
   color:var(--ink-strong);
-}
-#fxRoot.aw .fx-detail .rw-figs4 .f.hero b{
-  font-size:var(--fs-page);
-  line-height:1.05;
-}
-#fxRoot.aw .fx-detail .rw-figs4 .f.mute{
-  background:var(--n-50);
-  padding-top:var(--s-2);
-  padding-bottom:var(--s-3);
-}
-#fxRoot.aw .fx-detail .rw-figs4 .f.mute b{
-  font-size:var(--fs-table);
-  font-weight:var(--fw-regular);
-  color:var(--ink);
+  white-space:nowrap;
 }
 #fxRoot.aw .fx-detail .rw-figs4 span{
   display:block;
@@ -4536,6 +4571,9 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   letter-spacing:var(--tracking-label);
   color:var(--hint);
   margin-top:3px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 #fxRoot.aw .fx-detail .dw-tabs{
   display:flex;
@@ -4619,6 +4657,111 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   margin-left:calc(-1 * var(--s-3));
   padding-left:calc(var(--s-3) + 6px);
 }
+/* Workflow & review, Evidence and Comments as flat hairline blocks — the reference
+   inspector's card stack rendered in the panel's own idiom (surface + hairline +
+   radius, never a shadow; rule 5). Drawer only: page mode composes these in its
+   three columns from RW_LAYOUT.page, so it must keep its column look. */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-wf{
+  border:var(--rule);
+  border-radius:var(--radius);
+  background:var(--surface);
+  padding:2px var(--s-3);
+}
+#fxRoot.aw:not(.dw-page) .fx-detail button.rw-jump{
+  width:100%;
+  border:var(--rule);
+  border-radius:var(--radius);
+  background:var(--surface);
+  padding:10px var(--s-3);
+  margin-top:var(--s-3);
+}
+#fxRoot.aw:not(.dw-page) .fx-detail button.rw-jump:hover{background:var(--bg2)}
+/* Comments: the jump row and its last-message peek are one bordered block — the
+   wrapper carries the hairline, the inner jump drops its own so they read as a
+   single card, the message set off by a hairline the way the reference holds it. */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peekwrap{
+  border:var(--rule);
+  border-radius:var(--radius);
+  background:var(--surface);
+  margin-top:var(--s-3);
+  overflow:hidden;
+}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peekwrap button.rw-jump{
+  border:none;
+  border-radius:0;
+  margin:0;
+  background:none;
+}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peekwrap button.rw-jump:hover{background:var(--bg2)}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peek{
+  display:flex;
+  gap:6px;
+  padding:var(--s-2) var(--s-3) 10px;
+  border-top:var(--rule);
+  font-size:var(--fs-table);
+  color:var(--muted);
+  line-height:1.4;
+}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peek .who{
+  flex:none;
+  color:var(--ink);
+  font-weight:var(--fw-medium);
+}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peek .tx{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+/* ---- VISUAL DEPTH (2026-08-25, later) --------------------------------------
+   The panel read as flat: white hairline blocks on a near-white body, ~3% apart,
+   so nothing lifted. Depth comes from lightness plus a whisper of elevation — the
+   drawer is a docked surface, so a soft card shadow is within rule 5's "shadow for
+   overlays", never the heavy overlay shadow. The body deepens to --bg2 so the
+   white cards float off it; section labels take --muted for real hierarchy. */
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body{background:var(--bg2)}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-work,
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-rows,
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-attn,
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-wf,
+#fxRoot.aw:not(.dw-page) .fx-detail button.rw-jump,
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peekwrap{
+  border-radius:8px;
+  box-shadow:0 1px 2px rgba(16,22,35,.04),0 2px 6px rgba(16,22,35,.05);
+}
+/* the inner jump is inside the peek card — it must not cast its own shadow */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-peekwrap button.rw-jump{box-shadow:none;border-radius:0}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-sec{
+  color:var(--muted);
+  font-weight:var(--fw-medium);
+}
+/* the metric band gets a hairline foot so it reads as the header's own strip,
+   and the figures a touch more size for presence */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-figs4{border-bottom:var(--rule)}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-figs4 b{font-size:var(--fs-ui)}
+/* ---- reviewer avatar chip + derived classification pill --------------------
+   Both are decoration over facts already stated: the avatar always sits beside the
+   spelt-out name, the pill only ever restates the materiality/acceptance the panel
+   derived. State colour is the one place the panel is allowed it (rule 8). */
+#fxRoot.aw .fx-detail .rw-av{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:9px;font-weight:var(--fw-medium);letter-spacing:.02em;
+  margin-right:6px;flex:none;
+}
+#fxRoot.aw .fx-detail .rw-wfr .v:has(.rw-av){
+  display:flex;align-items:center;justify-content:flex-end;gap:5px;
+}
+#fxRoot.aw .fx-detail .rw-clsb{
+  display:inline-block;margin-left:8px;padding:1px 9px;
+  border-radius:var(--radius-pill);
+  font-size:var(--fs-micro);font-weight:var(--fw-medium);
+  text-transform:none;letter-spacing:0;vertical-align:middle;line-height:1.55;
+}
+#fxRoot.aw .fx-detail .rw-clsb.warn{background:var(--warn-bg);color:var(--warn)}
+#fxRoot.aw .fx-detail .rw-clsb.ok{background:var(--pos-bg);color:var(--pos-ink)}
+#fxRoot.aw .fx-detail .rw-clsb.rout{background:var(--n-100);color:var(--muted)}
 #fxRoot.aw .fx-detail .dw-foot{
   padding:var(--s-3) var(--s-4);
   background:var(--n-50);
@@ -4642,12 +4785,6 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   cursor:pointer;
   text-align:left;
 }
-#fxRoot.focused .gl-hd{#fxRoot.aw .fx-detail .rw-comp{
-  background:var(--surface);
-  border:var(--rule);
-  border-radius:var(--radius);
-  padding:var(--s-3);
-}
 #fxRoot.focused .gl-hd{position:sticky;top:calc(var(--header-h) + 34px);z-index:5;background:var(--bg);
   padding-top:6px;margin-bottom:4px}
 #fxRoot.focused{--fx-stick:calc(var(--header-h) + 34px + 46px)}
@@ -4658,12 +4795,10 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    second home, and the pair made the same view appear twice under two names. The
    star now acts on the loaded view and nothing else; the menu organises every
    view; the ••• holds the actions. No new tokens: these are .btn-out. */
-/* .btn-out has no height of its own — it is padding around a line box — so an
-   icon-only button collapses to the height of its glyph. Stretching the row keeps
-   the three controls one height without hard-coding a number that would drift from
-   the button token. */
-#fxRoot .fx-vw{display:inline-flex;align-items:stretch;gap:6px}
-#fxRoot .fx-vw .btn-out.star,#fxRoot .fx-vw .btn-out.ovf{padding:0 11px;justify-content:center}
+/* Icon-only star/overflow share --h-btn with Table and the Review segment. */
+#fxRoot .fx-vw{display:inline-flex;align-items:center;gap:6px;height:var(--h-btn)}
+#fxRoot .fx-vw .btn-out.star,#fxRoot .fx-vw .btn-out.ovf{
+  height:var(--h-btn);padding:0 11px;justify-content:center;align-items:center}
 
 /* ---- PAGE CONTEXT + PERIOD NAVIGATOR ----------------------------------------
    Quiet but legible: the context line is the shared .sub, and the navigator below
@@ -8619,10 +8754,10 @@ function dwHead(r,rc){
      the row; nothing is derived a second time here. */
   const dcls=r.d>0?'up':r.d<0?'dn':'n';
   const figs=`<div class="rw-figs4">
-    <div class="f hero"><b class="dlt ${dcls}">${sgn(r.d)}${uName()}</b><span>Variance</span></div>
+    <div class="f"><b>${fmt(r.cur)}${uName()}</b><span>${esc(PERIODS[S.cur].short)}</span></div>
+    <div class="f"><b>${r.pri?fmt(r.pri)+uName():'—'}</b><span>${esc(compareLabel())}</span></div>
+    <div class="f"><b class="dlt ${dcls}">${sgn(r.d)}${uName()}</b><span>Variance</span></div>
     <div class="f"><b class="dlt ${dcls}">${r.pri?pct(r.dp):'—'}</b><span>${esc(word)}</span></div>
-    <div class="f mute"><b>${fmt(r.cur)}${uName()}</b><span>${esc(PERIODS[S.cur].short)}</span></div>
-    <div class="f mute"><b>${r.pri?fmt(r.pri)+uName():'—'}</b><span>${esc(compareLabel())}</span></div>
   </div>`;
   return from+`<div class="rw-idrow"><div class="rw-id">
       <div class="rw-nm" title="${esc(r.l)}">${esc(r.l)}</div>
@@ -9173,6 +9308,13 @@ function rwWho(s){
   const p=String(s||'').split(',');
   return {nm:p[0].trim(), role:p.length>1?p.slice(1).join(',').trim():''};
 }
+/* Initials for the reviewer avatar chip — first + last token, e.g. "A. Okafor" → AO,
+   "Mitra Giri" → MG. Decoration only; the name is always spelt out beside it. */
+function rwInitials(nm){
+  const p=String(nm||'').trim().split(/\s+/).filter(Boolean);
+  if(!p.length)return '—';
+  return ((p[0][0]||'')+(p.length>1?(p[p.length-1][0]||''):'')).toUpperCase();
+}
 
 /* WHERE THE REVIEW STANDS. The state belongs to the financial line, never to a
    comment, so this reads rc.status — the review object's own state — and says it
@@ -9299,7 +9441,14 @@ const RWSEC={
     const frozen=rc.status==='submitted';
     const canPrep=!lock&&!frozen&&caps().prepare;
     const n=rc.items.length;
-    let h=`<div class="rw-sec">Explanation</div><div class="rw-work">`;
+    /* DERIVED classification, never typed — the same rule the reference inspector uses:
+       below materiality is Routine; a material line with an accepted explanation that
+       covers tolerance is Material · explained; otherwise it Needs review. A draft is
+       not acceptance, so a Korvyn draft still reads Needs review. */
+    const cls=!r.req?['Routine','rout']
+      :((best.text&&best.kind!=='draft'&&r.clear)?['Material · explained','ok']
+        :['Needs review','warn']);
+    let h=`<div class="rw-sec">Explanation<span class="rw-clsb ${cls[1]}">${cls[0]}</span></div><div class="rw-work">`;
     if(S.kdDraft!=null){
       // the words, and Save / Cancel on this card — one primary, not a second in the footer.
       return h+`<div class="exform">
@@ -9420,7 +9569,8 @@ const RWSEC={
     const st={draft:'Needs review',returned:'Returned to the preparer',
       submitted:'In review',approved:'Reviewed and locked'}[rc.status]||'Needs review';
     const rows=[['Status',esc(st)],
-      ['Review owner',esc(w.nm)+(w.role?` <span class="sub">${esc(w.role)}</span>`:'')],
+      ['Review owner',`<span class="rw-av" aria-hidden="true">${esc(rwInitials(w.nm))}</span>`+
+        esc(w.nm)+(w.role?` <span class="sub">${esc(w.role)}</span>`:'')],
       ['Prepared by',esc(p.nm)]];
     if(rc.status!=='approved')
       rows.push(['Next',rc.status==='submitted'?esc(w.nm)+' has the line now'
@@ -9440,6 +9590,26 @@ const RWSEC={
       <span class="l">Evidence</span><span class="ct">${ev}</span>
       ${gaps?`<span class="gap">${gaps} expected</span>`:''}
       <span class="sp"></span><span class="cue">›</span></button>`;
+  },
+
+  /* COMMENTS, as a peek — the same collapsed row as evidence, plus the last thing
+     said, so Overview answers "is there a conversation on this line?" before the
+     reviewer opens the thread to work it. The count is quiet inventory; "awaiting"
+     is the only badge, because an owed comment is work, not a tally (rule 12). */
+  cmtPeek(X){
+    const said=X.cmt.said, owed=X.cmt.owed;
+    const last=said.length?said[said.length-1]:null;
+    const jump=`<button type="button" class="rw-jump" onclick="KFX.dwTab('comments')">
+      <span class="l">Comments</span><span class="ct">${said.length}</span>
+      ${owed.length?`<span class="gap">${owed.length} awaiting</span>`:''}
+      <span class="sp"></span><span class="cue">›</span></button>`;
+    /* With a last message, the row and the peek are ONE block — the message sits
+       inside the same hairline as its header, the way the reference card holds it.
+       With nothing said yet, the bare jump is the block. */
+    if(!last)return jump;
+    return `<div class="rw-peekwrap">${jump}<div class="rw-peek">
+      <span class="who">${esc(last.who)}</span>
+      <span class="tx">${esc(last.text||'')}</span></div></div>`;
   },
 
   /* ---- the driver drill, whole. It is one thing — a path, a total and a level —
@@ -9677,12 +9847,19 @@ function dwModeOf(r,rc){
 function dwOverviewKeys(X){
   const m=dwModeOf(X.r,X.rc);
   const editing=S.kdDraft!=null||!!exEdit;
+  /* The reference inspector's Overview answers, in order: what this movement is,
+     what drove it, who owns it and by when, then a glance at the evidence and the
+     conversation behind it. `reviewer` (Workflow & review), `evidRow` and `cmtPeek`
+     are the last three; each is a SUMMARY with a way through to its own tab, never a
+     second copy of the tab. Drawer-only — page mode composes these in its columns
+     from RW_LAYOUT.page, so adding them here cannot double them there. */
+  const tail=['reviewer','evidRow','cmtPeek'];
   if(m==='inspect'){
-    if(editing||X.best.text)return ['state','explain','drivers'];
-    return ['state','drivers','explainCue'];
+    if(editing||X.best.text)return ['state','explain','drivers',...tail];
+    return ['state','drivers','explainCue',...tail];
   }
-  if(m==='locked')return ['state','explain','drivers'];
-  return ['state','explain','drivers','attn'];
+  if(m==='locked')return ['state','explain','drivers',...tail];
+  return ['state','explain','drivers','attn',...tail];
 }
 function dwBody(X){
   const part=k=>{const f=RWSEC[k];return f?f(X):'';};

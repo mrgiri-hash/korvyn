@@ -157,15 +157,38 @@ composition for every line.
 | **review** | `rc.status==='submitted'` | Reports. Footer is Return / Mark reviewed, gated by `canReviewLine`. |
 | **locked** | `rc.status==='approved'` | Reports. No Needs attention. Footer is Reopen (Controller/CAO) or a quiet “Controller or CAO to reopen”. |
 
+**Overview carries a common tail (2026-08-25, later).** Below the mode-specific
+parts, every mode's Overview now ends with three summaries — **Workflow & review**,
+**Evidence**, **Comments** — mirroring the reference (`apps/review/`) inspector's
+fuller Overview. Each is a collapsed block: its count and a chevron through to its
+own tab, never a second copy of that tab. Comments shows the last message *inside*
+the same block (`.rw-peekwrap`); Evidence shows its count and expected-gaps.
+`dwOverviewKeys` appends `['reviewer','evidRow','cmtPeek']` to each mode's keys.
+The full page composes these from `RW_LAYOUT.page` in its three columns. Both
+densities now read as a **light dashboard** (owner's direction, 2026-08-25): the
+drawer is a stack of white hairline blocks on a soft-gray (`--bg2`) body; the full
+page is a white header band over a gray body with the three argument columns
+floating as elevated white cards. Depth is lightness plus a soft shadow, never the
+heavy overlay shadow — this deliberately relaxes the old "one card, hairlines
+inside, no shadow" ruling for this panel. The drawer-specific block CSS stays
+scoped `:not(.dw-page)` and the page card CSS is scoped `.dw-page`, so the two
+treatments never leak into each other. Two touches of colour, both over facts already stated: the
+Review-owner row carries an initials avatar (`rwInitials`) beside the spelt-out
+name, and the Explanation header carries a **derived** classification pill —
+Routine (below materiality) · Material · explained (accepted and within tolerance) ·
+Needs review (otherwise; a Korvyn draft is not acceptance). It is never typed.
+
 **Freeze rule.** Submitted reads exactly like locked in the explanation card
 (`canPrep = !lock && !frozen && caps().prepare`). A preparer must not rewrite the
 words a reviewer is reading — the sign-off would attach to text nobody reviewed.
 The way back is the reviewer’s Return, a recorded transition. Name the freeze
 rather than silently dropping Edit.
 
-Variance leads the header at figure size; the two period balances sit quiet
-beneath it. In a flux review the movement is the subject, not a footnote to the
-balance.
+The header is **four equal figure cells in one row — current · prior · variance ·
+Δ%** (the reference inspector's order), separated by hairlines, with colour on the
+two variance cells only (rules 2/3/5). It replaced a 2×2 hero+mute grid that made
+variance one oversized number over two greyed balances; equal weight reads as an
+instrument. The movement is still the subject — it just no longer needs to shout.
 
 No seeded line starts submitted or approved. Locked is reachable only by walking
 a line through the workflow. `CMT` is in-memory; a reload restores the book.
