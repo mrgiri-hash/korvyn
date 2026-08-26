@@ -3949,6 +3949,15 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   background:var(--accent);transition:width var(--dur-2) var(--ease-emph)}
 #fxRoot .drv-bar.up i{background:var(--success)}
 #fxRoot .drv-bar.dn i{background:var(--danger)}
+/* COVERAGE — the explained share as a fill, with a tick at the coverage the
+   tolerance demands. Accent while it climbs, success once it clears the tick. */
+#fxRoot .rw-cover{margin-top:9px}
+#fxRoot .rw-cover-bar{position:relative;height:6px;background:var(--n-100);border-radius:var(--radius-pill)}
+#fxRoot .rw-cover-bar i{display:block;height:100%;border-radius:inherit;background:var(--accent);
+  transition:width var(--dur-2) var(--ease-emph)}
+#fxRoot .rw-cover.ok .rw-cover-bar i{background:var(--success)}
+#fxRoot .rw-cover-bar .thr{position:absolute;top:-2px;bottom:-2px;width:2px;
+  background:var(--ink-strong);opacity:.45;border-radius:1px}
 
 /* ---- D. needs attention. A worklist, not a stack of alert cards. ---------- */
 #fxRoot .rw-attn{border-top:var(--rule)}
@@ -4642,8 +4651,16 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   margin-left:auto;font-size:var(--fs-micro);text-transform:uppercase;
   letter-spacing:var(--tracking-label);color:var(--hint);
 }
+/* the trajectory sparkline sits under the flow, full width, a slim trend cue */
+#fxRoot.aw .fx-detail .rw-hero-spark{display:flex;align-items:center;gap:var(--s-3);margin-top:8px}
+#fxRoot.aw .fx-detail .rw-hero-spark svg{flex:1;min-width:0;height:34px;display:block;max-width:360px}
+#fxRoot.aw .fx-detail .rw-hero-spark-n{
+  flex:none;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--hint);white-space:nowrap;
+}
 /* page mode gives the hero more room and lifts the figure a step */
 #fxRoot.dw-page .fx-detail .rw-hero-v{font-size:calc(var(--fs-hero) + 4px)}
+#fxRoot.dw-page .fx-detail .rw-hero-spark svg{max-width:420px}
 #fxRoot.aw .fx-detail .dw-tabs{
   display:flex;
   padding:0 var(--s-2);
@@ -6991,6 +7008,29 @@ function spark(r){
     <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><path d="${p}"
     fill="none" stroke="var(--accent)" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round"/></svg></span>`;
 }
+/* A larger sparkline for the review panel hero — the line's own trajectory over the
+   trailing periods, so the movement is read against its history at a glance. Accent,
+   not state colour: a trend line is a series (rule 3), never favourable/unfavourable.
+   Area fill + a marked endpoint give it presence without becoming a chart. */
+function dwHeroSpark(r){
+  const sl=activeSlices(),n=13,a=[];
+  for(let i=Math.max(0,S.cur-n+1);i<=S.cur;i++)
+    a.push(r.acct?accVal([r.acct],i,'m','act',sl):lineVal(S.stmt,r.id,i,'m','act',sl));
+  if(a.length<3)return '';
+  const hi=Math.max(...a),lo=Math.min(...a),rg=(hi-lo)||1,W=240,H=34,pad=4;
+  const x=i=>(i*(W/(a.length-1))).toFixed(1);
+  const y=v=>(pad+(H-2*pad)-((v-lo)/rg)*(H-2*pad)).toFixed(1);
+  const line=a.map((v,i)=>`${i?'L':'M'}${x(i)} ${y(v)}`).join(' ');
+  const area=`M0 ${H} L`+a.map((v,i)=>`${x(i)} ${y(v)}`).join(' L')+` L${W} ${H} Z`;
+  const lx=x(a.length-1),ly=y(a[a.length-1]);
+  return `<div class="rw-hero-spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+      role="img" aria-label="Trailing ${a.length}-period trend">
+    <path d="${area}" fill="var(--accent)" fill-opacity=".07"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.4"
+      vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lx}" cy="${ly}" r="2.4" fill="var(--accent)"/></svg>
+    <span class="rw-hero-spark-n">${a.length}-period trend</span></div>`;
+}
 /* One vocabulary for where a line stands, used by the table, the memo and the drawer. */
 function explStatus(r,rc){
   if(!r.req)                       return {nm:'Not required', cl:'mute'};
@@ -8836,6 +8876,7 @@ function dwHead(r,rc){
       <span class="cv">${fmt(r.cur)}${uName()}</span>
       <span class="pr">${esc(compareLabel())} &rarr; ${esc(PERIODS[S.cur].short)}</span>
     </div>
+    ${dwHeroSpark(r)}
   </div>`;
   return from+`<div class="rw-idrow"><div class="rw-id">
       <div class="rw-nm" title="${esc(r.l)}">${esc(r.l)}</div>
@@ -9493,9 +9534,23 @@ const RWSEC={
   state(X){
     const st=rwState(X.r,X.rc,X.C);
     if(st.soft) return `<div class="rw-state soft">${esc(st.nm)}${st.figs}</div>`;
+    /* COVERAGE, made visual — how much of the movement is explained, and how close
+       that is to signable. The fill is the explained share; the tick is the coverage
+       the tolerance demands, so "past the tick" reads as clear at a glance. Only
+       where an explanation is actually required and still open. */
+    const r=X.r, C=X.C; let bar='';
+    if(r.req && X.rc.status!=='approved' && Math.abs(r.d)>0){
+      const cover=Math.max(0,Math.min(100,C.cover));
+      const clear=Math.abs(C.res)<=C.tol;
+      const thr=Math.max(0,Math.min(100,(Math.abs(r.d)-C.tol)/Math.abs(r.d)*100));
+      bar=`<div class="rw-cover${clear?' ok':''}" title="${cover.toFixed(0)}% of the movement explained">
+        <div class="rw-cover-bar"><i style="width:${cover.toFixed(0)}%"></i>
+        <span class="thr" style="left:${thr.toFixed(0)}%"></span></div></div>`;
+    }
     return `<div class="rw-state ${st.bad?'bad':''}">
     <div class="rw-verdict">${esc(st.nm)}</div>
     <div class="rw-figs">${st.figs}</div>
+    ${bar}
     ${st.sub?`<div class="rw-sub">${st.sub}</div>`:''}
   </div>`;
   },

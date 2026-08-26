@@ -192,7 +192,11 @@ which replaced a 2×2 hero+mute grid before it — the figure is one step larger
 the full page. Colour lands only on the variance (rules 2/3). Key drivers render as
 a **contribution visualization** — each driver's share of the movement as a bar,
 carrying the same up/down the value does — so the shape of the variance reads at a
-glance instead of being decoded from three percentages.
+glance instead of being decoded from three percentages. The hero also carries a
+**trailing-period sparkline** (`dwHeroSpark`, accent — a trend is a series, not a
+state), and the review-state block a **coverage bar**: the explained share as a
+fill with a tick at the coverage the tolerance demands, so "past the tick" reads as
+signable. Every one is derived from the same `dwCtx` figures the text states.
 
 No seeded line starts submitted or approved. Locked is reachable only by walking
 a line through the workflow. `CMT` is in-memory; a reload restores the book.
