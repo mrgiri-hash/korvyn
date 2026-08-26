@@ -792,7 +792,23 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .dt td.drill:hover{color:var(--accent);text-decoration:underline}
 .dt .sub{font-size:var(--fs-label);color:var(--n-500);display:block;line-height:1.3}
 .dt-ck{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;vertical-align:middle}
-.dt-empty{padding:var(--s-8);text-align:center;color:var(--n-500);font-size:var(--fs-table)}
+/* ONE EMPTY-STATE house style — a quiet tray glyph, a title, an optional hint,
+   centred with room to breathe. Replaces the bare centred sentence that read as a
+   gap rather than a considered state. Shared by .dt-empty and .np-empty. */
+.dt-empty,.np-empty{display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:var(--s-10) var(--s-6);color:var(--muted)}
+.es-ic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  background:var(--bg2);color:var(--n-400);margin-bottom:var(--s-3)}
+.es-ic svg{width:22px;height:22px}
+.es-t{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink);line-height:var(--lh-tight)}
+.es-h{font-size:var(--fs-table);color:var(--muted);margin-top:5px;max-width:46ch;line-height:var(--lh)}
+/* SKELETON — the loading-placeholder house style, ready for any async surface (the
+   app renders synchronously today, so nothing triggers it yet). A ramp block with a
+   slow pulse; the global prefers-reduced-motion guard stills it. */
+.skel{background:var(--n-100);border-radius:var(--radius);animation:skel-pulse 1.5s var(--ease-in-out) infinite}
+.skel-line{height:12px;margin:7px 0;border-radius:var(--radius)}
+.skel-line.w40{width:40%}.skel-line.w60{width:60%}.skel-line.w80{width:80%}
+@keyframes skel-pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .dt-foot{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
   border-top:var(--rule);font-size:var(--fs-label);color:var(--n-500)}
 .dt-bulk{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
@@ -2511,7 +2527,7 @@ body.notif-open .notifpanel{transform:none}
 .np-t{display:block;font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);line-height:1.35}
 .np-d{display:block;font-size:var(--fs-label);color:var(--n-500);margin-top:1px;line-height:1.35}
 .np-ar{color:var(--n-400);font-size:var(--fs-label);flex:none;margin-top:1px}
-.np-empty{padding:var(--s-8);text-align:center;color:var(--n-500);font-size:var(--fs-table)}
+/* .np-empty now uses the shared empty-state house style (see .dt-empty,.np-empty) */
 /* ---- settings: a docked panel mirroring the assistant/notifications exactly ---- */
 .settingspanel{position:fixed;top:var(--header-h);right:0;bottom:0;width:var(--panel-w);
   background:var(--n-0);border-left:var(--rule);display:flex;flex-direction:column;overflow:hidden;
@@ -13674,8 +13690,19 @@ function dataTable(spec){
 
   return `<div class="dt-wrap" data-dt="${spec.id}">${bar}${bulk}
     ${rows.length?`<table class="dt"><thead>${head}</thead><tbody>${body}</tbody></table>`
-      :`<div class="dt-empty">${spec.empty||'Nothing to show.'}</div>`}
+      :`<div class="dt-empty">${emptyState(spec.empty||'Nothing to show',spec.emptyHint)}</div>`}
     ${spec.note?`<div class="dt-foot">${spec.note}</div>`:''}</div>`;
+}
+/* ONE empty state, house style — a quiet tray glyph over a title and an optional
+   hint, centred and generous. The shared data table and the needs-you panel use it;
+   any list can adopt it by dropping the same three lines into its empty branch. */
+function emptyState(title,hint){
+  return `<div class="es-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 13l2-7h12l2 7"/><path d="M4 13v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>
+      <path d="M4 13h5l1.2 2h3.6l1.2-2h5"/></svg></div>
+    <div class="es-t">${title||'Nothing to show'}</div>
+    ${hint?`<div class="es-h">${hint}</div>`:''}`;
 }
 dtLoad();
 
@@ -17210,7 +17237,7 @@ function renderNotif(){
         <span class="np-sev"></span>
         <span class="np-tx"><span class="np-t">${i.t}</span><span class="np-d">${i.d}</span></span>
         <span class="np-ar">&#8594;</span></button>`).join('')
-    : `<div class="np-empty">Nothing needs you right now.</div>`;
+    : `<div class="np-empty">${emptyState('You’re all clear','Nothing needs you right now — new items land here as the close moves.')}</div>`;
 }
 
 /* ==========================================================================================
