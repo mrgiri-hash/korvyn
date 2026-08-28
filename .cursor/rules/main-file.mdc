@@ -132,6 +132,15 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   clear in `pick()`, `pickAt()` and `closeDrawer()`. `cmtComp` is a
   registry part: add it to BOTH `RW_LAYOUT.drawer.comments` and `RW_LAYOUT.page.rec`. The base
   avatar rule is `#fxRoot.aw .fx-detail .rw-av`, so `.rw-av.ai` must match that specificity.
+- **The thread is a TIMELINE** (2026-08-28). ONE connector down the gutter
+  (`.rw-msg::before`) behind opaque badges — never a per-message rail beside the prose,
+  which is box-in-box applied to strokes. `.rw-thread`/`.rw-grp` are `gap:0`; spacing is
+  padding, or the connector is cut between every pair. The VOICE lives on the badge: a
+  person is ramp, YOU are the accent, a Korvyn draft is indigo (`--ai`, never a second UI
+  accent), an awaited voice is a dashed hollow circle. `.who` is `flex:0 0 100%` with role
+  and time on a quiet line beneath it. Rows are full-bleed via `--rw-bleed` set on
+  `.dw-body`; hover is `--surface2` and the replied-to message takes `.aim` (`--accent-bg`).
+
 - A **materiality threshold** (`r.req`) decides whether a line must be explained at all. A
   **tolerance** (`r.clear`) decides whether an explanation covers enough of the movement.
   They are different numbers — conflating them is how a line below the threshold ends up
@@ -140,6 +149,47 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   `Accounting Manager` / `Controller` / `Chief Accounting Officer` / `Asset Manager` /
   `FP&A Analyst` / `External Auditor`. An unknown role falls back to view-only.
   Segregation of duties is enforced at the action (`canReviewLine`), not in the UI.
+
+## Corporate Flux — page shell (2026-08-28, UI/UX Phase 1)
+
+Flux is the reference implementation for the Korvyn-wide interaction language. Zendesk is
+the reference for *discipline* only — never branding, never IA. The shell (dark ribbon,
+module nav, Accounting rail, Search / Ask Korvyn, notifications, profile, scope) is
+untouched.
+
+- **The page header is the shell's title row**, written by `paintTopbar()`: the name
+  **Corporate Flux**, then `KFX.pageContext()` — *"Jun 2026 vs May 2026 · Consolidated ·
+  USD"*. Every clause comes from the function the matching control reads, so the header
+  and the Period / Scope / Basis fields cannot drift. **Never add a header inside
+  `#fxRoot`** — that is why `glHead()` was retired; the page name would be on screen
+  twice.
+- The stack is **A: what view you are in → B: how it is filtered**: title + context →
+  statement tabs (`.ktabs`, level 1, accent) → command tabs (`.ktabs.lvl2`, ink) → the
+  one contextual field row → the statement.
+- Tabs and dropdowns come from the shared `.ktabs` / `.pop` primitives — see
+  `design-system.mdc`. Do not add Flux-specific tab or menu styling.
+- **The accent marks the OPEN field, not the filtered one.** A narrowing filter reads
+  through its value (`--hint` → `--ink` 500 + stronger border). The "is anything
+  filtering this?" guarantee is the per-tab counts, which are load-bearing: they are
+  looked up by `data-tab` in `syncFilterChrome()` and refreshed together.
+- **The field row never wraps** (`flex-wrap:nowrap` + scroll). With the review panel open
+  it is 684px against 932px of content; wrapping made it two rows and pushed the
+  statement 36px down.
+- `#fxRoot.aw` must not redefine `--radius`.
+- Phase 1 deliberately did NOT touch: the statement table's columns, variance treatment,
+  row hierarchy or account groups; the comments/support panel; the narrative. The
+  eight-tab command architecture and its names are unchanged. The table's *frame* and
+  filled header band are surface treatment, not a redesign of the statement.
+- **Boxy (2026-08-28):** `#fxRoot.aw` is a GROUND — no background, no border, no radius,
+  `padding:0`. The command surface, the worklist tiles and the statement are each their
+  own bordered white card on it. See `design-system.mdc`.
+- **Never put `overflow:hidden` on `.card.fx-table`.** The column heads are
+  `position:sticky; top:var(--fx-stick)`; an `overflow:hidden` ancestor becomes their
+  containing block and drops the header ~147px into the middle of the statement.
+  `#fxRoot .fx-table{overflow:visible}` exists for this — do not out-specify it.
+- The sticky `thead` fills with `--n-50`, one step lighter than the `--bg2` section
+  rows, so the two filled bands never read as one. It must not use `var(--bg)` — that
+  borrows the page colour for a band inside a white card.
 
 ## Checks
 

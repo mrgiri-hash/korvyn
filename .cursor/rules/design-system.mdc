@@ -61,6 +61,123 @@ are **withdrawn**. They described `apps/review/`, which is no longer the main fi
 15. Every table and form ships with **empty, loading, error, hover and visible
     keyboard-focus states** — not just the happy path.
 
+## Shared primitives — extend these, never restyle buttons (2026-08-28)
+
+**Tabs — `.ktabs` / `.ktab`.** The one tab language. 32px (`--h-tab`), `0 12px`,
+`--fs-table`, 2px underline, no pill, no fill, no shadow, no radius; the strip scrolls
+before it wraps. **Two levels, one vocabulary:** level 1 is where you ARE (primary view
+navigation) and takes the accent; `.ktabs.lvl2` is identical geometry with an **ink**
+underline, for a secondary/command row. Two accent underlines on one screen is competing
+navigation — one accent, and the hierarchy reads without a second colour, size or shape.
+Rows are keyboard-driven by one delegated handler: roving `tabindex`, ←/→/Home/End.
+
+**Dropdowns — `.pop`.** One anchored menu for every selector.
+- Two fixed widths: 300px, or 340px `.wide` for a menu carrying a second column of
+  figures or a form. Never narrower than the control it opens from.
+- One inset (`--pop-x`) for header, search, rows and footer, so a section label and its
+  rows start on the same pixel. Section separators are `.pop-h.sec` / `.pop-l.sec`,
+  never an inline `border-top`.
+- `--shadow-md`, not `--shadow-lg` — an anchored menu is not a modal (rule 5 still
+  reserves shadow for true overlays; this is the restrained end of that allowance).
+- Anchoring is live: re-placed on scroll and resize, right-aligns to the trigger rather
+  than sliding along the viewport, closes when the trigger leaves the screen.
+- **Single-select is a tick + a selected ROW (`--accent-bg`); multi-select is a checkbox
+  and a neutral row.** A filling box reads as "one of several" — never draw one where
+  only one answer is possible. Twelve accent-filled rows is a loud selected state.
+- Keyboard throughout: ↑/↓/Home/End/Enter/Space, Escape closes and returns focus to the
+  trigger. Roles are assigned after paint, so a new menu is covered automatically.
+- Long lists get a search.
+
+**Amends rule 2 for filter fields:** the accent marks the **open** field, not the
+filtered one. A narrowing filter is stated by its **value** — `--hint` at rest, `--ink`
+at 500 against a stronger border once it narrows — and the guarantee that a filtered
+view says so is carried by per-tab counts, not by colour. Filter rows never wrap: one
+row, scrolling.
+
+**Never redefine `--radius` in a subtree.** It rounds every control that asks for the
+token and forces per-control pins back to 6px.
+
+## Boxy — a ground carrying cards (2026-08-28, owner's direction)
+
+**Supersedes "4b UNBOXED".** A screen is a light **ground**; each region standing on
+it is its own white card with a real edge. The page container is not the card — it
+has no background, no border, no radius. This honours rule 11 literally (one card per
+region, not one card per screen) and keeps rule 5 (separation is lightness + a
+hairline, **never shadow** — these cards are flat).
+
+- **A card edge and an inner divider are not the same line.** Outer edge of a region →
+  `--line2` (n-300). Dividers inside a card → `--line` (n-200). Against the darker
+  page `--line` all but vanishes, and a card reads as white paint rather than an object.
+- Light-mode `--bg` is `var(--n-100)`, not `var(--n-50)` — a card must be visibly
+  lifted off its ground. **The dark block is unchanged**: the ramp inverts there, so
+  `--n-50` is already the darkest step and is correctly the page.
+- **Primary tabs are folder tabs** (`.ktabs.lvl1`): the selected tab is a white box
+  whose bottom edge IS the panel's top edge. The strip carries no border-bottom of its
+  own and sits above the panel in the stacking order. Secondary rows (`.lvl2`) keep the
+  underline — a command row inside a panel is not opening a panel.
+- Filter-row fields are `--h-field` (32px) on `--border-strong`: an input-shaped box you
+  read a value out of, not a chip you press.
+
+## The filter region — one object, everywhere (2026-08-28, owner's direction)
+
+Every filter surface in the product is the same three-part card, on Flux (`#fxRoot`)
+and on every other page (`#gfBar`):
+
+```
+⇶ FILTERS   2 active                              Clear all   ▸   ← .kfh, the toggle
+Period  Scope ¹  Workflow  Variance  Basis │ Display  Saved Views  ← .ktabs.lvl2
+[Fund  All ⌄]  [Region  All ⌄]  [Ownership  All ⌄]                ← one field row
+```
+
+- **The band is the toggle and starts folded.** It is a `role="button"` div, not a
+  `<button>` — Clear all lives inside it and a nested button is invalid markup.
+- **The count must survive the fold.** Collapsing may hide WHICH filters are set,
+  never THAT any are. `N active` + Clear all stay on the band. Do not remove them.
+- `.ktab-div` marks where the filters stop, so tabs that configure rather than
+  filter are not claimed by the word *Filters*.
+- **Fields drive existing controls; they never hold state.** Set the underlying
+  `<select>.value` and dispatch `change` so the control's own handler runs. Read
+  options off that control too — never restate them in a registry.
+- **A field with nothing to choose does not render.** No dead controls.
+- One menu: `.pop`. New surfaces declare filters as data and get a `g:<key>` menu
+  with the shared keyboard, anchoring, width and selected-state.
+- The field CSS is `:is(#fxRoot,#gfBar) .fxf` / `.fx-fields`. **Add a surface by
+  adding it to that `:is()`**, never by copying the block.
+- **ONE filter affordance per surface.** The band is the only way in — never add a
+  page-level "Filters" button inside the content, and never a second "+ Filter" chip.
+  Both regions fold whenever the page changes (`_lastFiltTab` in `paintTopbar`).
+## One page template (2026-08-28, owner's direction)
+
+Every view is the same three bands: **shell title row** (name + one context line) ->
+**FILTERS band** (the options) -> **content** (driven by them).
+
+- **The page states its name once.** `glHead()` drops its `h1` when it repeats the
+  topbar's `VIEW_META` title (`glDupTitle()`). Keep the `h1` only when it names a
+  RECORD rather than the view. Never add a second page header component - `fpHead()`
+  delegates to `glHead()`.
+- **A page must not render its own filter row.** Controls in the content are
+  discovered (`.grp` holding a `<label>` + bound `<select>` inside `#view-<TAB>`) and
+  surfaced as a **More filters** tab, then hidden with `[data-gf-moved]`. Discovery
+  must NOT test visibility, or it stops finding the row it just hid.
+- Discovered fields drive the original control (set `.value`, dispatch `change`) and
+  read their options off it - never restate either.
+
+- **A collapsed rail must not hide navigation.** With `.railkids` hidden, a group's
+  children open as an anchored flyout — `pop(kind, el, /*side*/ true)` places the menu
+  BESIDE its trigger. `toggleRailGroup()` returns false when it handled the click, so a
+  collapsed rail neither navigates nor flips state nobody can see.
+- The popover's outside-click dismissal listens on **`mousedown`**, not `click` — a
+  synthetic `.click()` in a test will not trigger it.
+- In `index.html`, `toggleFilters()` is also the file's **placeholder handler** for ~25
+  unrelated buttons (Export, Columns, Actions, New request, Run Report…). Do not treat a
+  `toggleFilters()` caller as a filter control without reading its label first.
+
+**The UI face is a system stack**, led by `"Segoe UI Variable Text"` then
+`-apple-system`. `--num` is `var(--sans)` so chrome and figures share one face
+(rule 14); identifiers keep `--mono`. Inter is deliberately NOT in the stack. Keep the
+file self-contained: no `@font-face`, no CDN. If you change the face, verify tabular
+figures measure a 0px width spread across all ten digits before shipping it.
+
 ## Consolidation-scale screens (600+ entities)
 
 16. The roll-up tree is a status instrument: every node shows its own completion

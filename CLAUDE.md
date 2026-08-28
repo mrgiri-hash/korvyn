@@ -598,6 +598,506 @@ is a second chart competing with the figures beside it, and "how has this line
 behaved over time" is a question asked of one line in the workspace, not of sixteen
 at once. Still one click away under Display › Table › Columns.
 
+## 2026-08-28 — UI/UX Phase 1: Corporate Flux is the reference implementation
+
+Owner's direction: refine the Flux **page shell and controls** — not the statement
+table, not the review panel, not the narrative — into the interaction language the
+rest of Korvyn will adopt. Zendesk is the reference for *discipline* (compact
+enterprise density, restrained borders, predictable menus), never for branding or
+IA. **The shell is unchanged**: dark ribbon, global module nav, contextual
+Accounting rail, Search / Ask Korvyn, notifications, profile, scope architecture.
+
+**The page states its identity once, in the shell's own title row.** `paintTopbar()`
+writes both halves for Flux: the name — **Corporate Flux** — and one quiet context
+line beneath it, `KFX.pageContext()` → *"Jun 2026 vs May 2026 · Consolidated · USD"*.
+It replaced the crumb *"Income statement · variance analysis"*, which named the
+statement the tabs directly beneath already name, and restated what the page is
+called where its context belongs. Every clause comes from the function the matching
+control reads (`cmpPhrase` · `scopeWord` · `ccyWord`), so the header and the Period,
+Scope and Basis fields cannot drift. The cadence word drops out of a plain
+prior-period comparison — "Jun 2026 vs May 2026 · Monthly" says monthly twice.
+**Do not add a header inside `#fxRoot`.** That is why `glHead()` was retired; the
+page name would then be on screen twice.
+
+The stack now reads **A: what view you are in → B: how it is filtered**:
+
+| y | Region |
+|---|---|
+| 86 | **Corporate Flux** + context line (the shell title row) |
+| 161 | Income statement · Balance sheet · Cash flows · Equity — level 1 tabs |
+| 223 | Period · Scope · Workflow · Variance · Basis · Display · Saved Views · Actions — level 2 |
+| 255 | the one contextual field row |
+| 358 | the statement (was 365) |
+
+**ONE TAB LANGUAGE — `.ktabs` / `.ktab`, a design-system primitive.** The same idea
+was drawn three ways on one screen: the statement picker at 36px on 8/14 padding,
+the Flux command bar at 30px on 0/10, and the popover's Included|Excluded pair at
+28px on 0/2. All three now draw from one primitive — 32px, `0 12px`, `--fs-table`,
+2px underline, no pill, no fill, no shadow, no radius; the strip scrolls before it
+wraps. **Two levels, one vocabulary:** level 1 (where you ARE) takes the accent;
+`.lvl2` (the command surface) is identical geometry with an **ink** underline. Two
+accent underlines 60px apart is the competing-tab-rows problem — with one accent on
+the screen the hierarchy reads without a second colour, size or shape. `#subnav2`
+and the Flux bar both emit `.ktab`; **add a tab row by using the primitive, never by
+restyling buttons.** Tab rows are keyboard-driven: roving `tabindex`, ←/→/Home/End
+through one delegated handler (all eight Flux tabs previously had `tabindex=0`, so
+reaching the field row took nine presses of Tab).
+
+**ONE DROPDOWN LANGUAGE — `.pop` is now the app-wide standard.** Measured before:
+seventeen menus hanging off seventeen identical 180px fields opened at **eleven
+widths between 230px and 330px**; the internal inset was 11 / 9 / 11 / 7px across
+header, search, footer and rows; **0 of 6 rows were focusable** and none carried a
+role; and the menu **never re-placed**, so one scroll left it 228px from its
+trigger. Now:
+
+- **Two fixed widths** — 300px standard, 340px `.wide` (dimension multi-selects and
+  the materiality editor, which carry a second column of figures or a form). Never
+  narrower than the control it hangs off.
+- **One inset**, `--pop-x`, for header, search, rows and footer, so a section label
+  and its rows start on the same pixel.
+- **`--shadow-md`, not `--shadow-lg`** — an anchored menu is not a modal. A 44px
+  blur under a 1px border is two separations doing one job.
+- **Anchoring is live**: re-placed on scroll and resize, right-aligns to the trigger
+  rather than sliding along the viewport, closes when the trigger leaves the screen.
+- **Single-select is a TICK, multi-select is a CHECKBOX.** A box that fills in reads
+  as "one of several"; drawing it on Period or Cadence promised a choice the menu
+  does not offer. A single-select also carries the selection on the **row**
+  (`--accent-bg`) — one row can be selected, so it is obvious the moment the menu
+  reopens. A multi-select keeps the row neutral and lets the ticked box carry it,
+  because twelve accent-filled rows is the loud state this pass removes. Reason code
+  moved to the checkbox, where it always belonged.
+- **Keyboard throughout**: ↑/↓/Home/End/Enter/Space, Escape closes and returns focus
+  to the trigger. Roles are assigned after paint (`popEnhance()`) rather than at the
+  twenty call sites that emit rows, so any menu added later is covered.
+- Section separators are `.pop-h.sec` / `.pop-l.sec`, not an inline `border-top`
+  written at ten call sites. Long lists get a search — Period had **30 rows and no
+  search**.
+
+**THE ACCENT MARKS THE OPEN FIELD, NOT THE FILTERED ONE.** This **amends** the
+2026-08-28 ruling above that "accent marks a field actually narrowing the
+population". A Scope row with three dimensions set was three cobalt tablets in a row
+of five — the loud selected state the owner ruled out, and a misuse of the accent
+besides: rule 2 says the accent carries *interaction*, which is what it does now, on
+the field whose menu is open. A narrowing filter is stated by its **value**: `--hint`
+"All"/"Any" at rest, `--ink` at 500 against a stronger border once it narrows. The
+guarantee that a filtered statement always says so is unchanged and never rested on
+colour — **every tab carries a live count of its own filters**, and Clear all
+appears at the end of the row.
+
+**The field row is ONE row and stays one row.** `flex-wrap:wrap` made it two the
+moment the review panel took 440px (measured: 36px → 72px, pushing the statement
+down at exactly the moment a reviewer needs it). It scrolls instead, on the same
+discipline as the tab strip.
+
+**Tab counts follow the tab that owns the filter.** `syncFilterChrome()` read the
+*first* tab in the DOM and scored it against `FX_FTABS[0]` (Period) while its own
+comment said the query belongs to Scope — so typing in Find updated the wrong tab's
+count and Scope's never moved. Counts are now looked up by `data-tab` and refreshed
+together.
+
+**`#fxRoot.aw` no longer redefines `--radius`.** `--radius:14px` was a parallel
+design system inside one page: every control asking for the token got rounded into a
+capsule, which is why `.fxf` and `.seg` each had to pin 6px back by hand. The card
+declares its own corner (10px); nothing inherits it.
+
+**Deliberately NOT done in this phase** (owner's direction — later phases): the
+statement table, the variance column treatment, the comments/support panel, the
+narrative experience, row hierarchy and account-group presentation. The eight-tab
+command architecture, its names, and the two-submits rule are unchanged — the
+existing IA already answers the questions the brief listed.
+
+**Open question for the owner:** the left rail still reads **"Flux analysis"** while
+the page now reads **"Corporate Flux"**. Renaming a nav item is a navigation change,
+so it was not made unasked.
+
+## 2026-08-28 — BOXY: the surface is a ground, its regions are the cards
+
+Owner reviewed the pass above and its verdict was **"I don't feel any changes"** —
+fairly. Everything in it was structural, behavioural or sub-pixel: real fixes, but
+a reviewer opening the page saw the same screen with a different title. What
+follows is the visible half, and it **supersedes the "4b UNBOXED" direction**
+recorded in the mercury block.
+
+**The inversion.** `#fxRoot.aw` was ONE flat white card holding un-boxed bands. It
+is now a **ground**: `background:none`, no border, no radius, `padding:0`. Each
+region standing on it is its own white card with a real edge — the command
+surface, the worklist tiles, the statement. This is the reference's own structure
+(a light canvas carrying bordered white cards), and it honours **rule 11** more
+literally than the flat version did: exactly one card per region, rather than one
+card for the whole screen. **Rule 5 is intact** — the cards separate by *lightness
+and a hairline*, never by shadow.
+
+| Region | Treatment |
+|---|---|
+| statement picker | **folder tabs** — `.ktabs.lvl1`, selected tab is a white box whose bottom edge IS the panel's top edge |
+| command surface | one white card, radius `0 6px 6px 6px`, joined to the folder tab above it |
+| worklist | a row of **stat tiles** — figure over label, one card each (was a strip between two hairlines) |
+| statement | a framed card; the line count is its header band; filled `thead`, filled section rows |
+
+**A CARD EDGE AND AN INNER DIVIDER ARE NOT THE SAME LINE.** This is the rule to
+carry forward. `--line` (n-200) is a hairline *between things sharing a surface*;
+against the darker page it all but vanished, so a card read as white paint rather
+than an object. **Outer edge of a region → `--line2` (n-300). Dividers inside a
+card → `--line`.** Nothing new was introduced; both are ramp steps.
+
+**Planes.** Light-mode `--bg` moved `var(--n-50)` → `var(--n-100)`. At `#F7F8FA`
+the page was three percent off the white cards standing on it. **The dark block is
+unchanged and must stay so** — the ramp inverts there, so `--n-50` is already the
+darkest step and is correctly the page.
+
+**The UI face is no longer Inter.** `--sans` leads with `"Segoe UI Variable Text"`,
+then `-apple-system`, then the usual descent; `--num` is now `var(--sans)` so
+chrome and figures share one face (rule 14). Two reasons this is right rather than
+merely different: the reference screens themselves run system faces (San Francisco
+/ Segoe / Helvetica Neue / Lucida Grande), not a licensed brand face; and it keeps
+the file self-contained — no `@font-face`, no CDN. **Inter is deliberately absent
+from the stack**: leaving it first would make the change invisible on any machine
+that has it installed, which is exactly how the previous pass failed. Measured on
+the review machine: Segoe UI Variable Text renders 9% narrower than Inter, and
+**tabular figures are exact — 0.000px spread across all ten digits**, so numeric
+columns still align. IBM Plex Sans and Source Sans were considered and rejected:
+neither is installed locally and neither can be embedded without breaking
+self-containment.
+
+`--h-field:32px` is a new token — a filter-row field is an input-shaped box you
+read a value out of, not a chip you press, so it is taller than `--h-btn` and
+borders at `--border-strong`.
+
+**Trap: never put `overflow:hidden` on `.card.fx-table`.** The column heads are
+`position:sticky; top:var(--fx-stick)`, and an `overflow:hidden` ancestor becomes
+their containing block — the header row lands ~147px down the middle of the
+statement, under rows it is supposed to label. Observed and fixed. `#fxRoot
+.fx-table{overflow:visible}` exists for this reason; do not out-specify it. The
+sticky head also stopped painting `var(--bg)`: borrowing the page colour for a band
+inside a white card was only ever invisible because the page was near-white. It is
+`--n-50` now, a step lighter than the `--bg2` section rows, so the two filled bands
+never read as one.
+
+Verified: 60/60 views render, console clean, all 10 chrome themes pass AA, dark
+mode holds the boxy structure, numeric columns align, dropdowns still anchor under
+the taller fields.
+
+## 2026-08-28 — contrast, and ONE named FILTERS region
+
+**"The header and filter pretty much blends. There's no contrast"** (owner, on the
+boxy pass). Two planes were doing nothing:
+
+- **The header painted a tint, not a plane.** `.topbar` was
+  `color-mix(--bg 82%, transparent)` — once the page darkened it became a slightly
+  lighter wash of the page a few pixels above cards of a third colour. It is
+  `--surface` at 92% with a `--line2` edge now: the header is the top of the
+  CONTENT plane, so it takes the content surface.
+- **White fields on a white card behind an invisible hairline.** Measured: a field
+  against its ground was **1.06:1**. The command card is **two bands inside one
+  border** now — the tab band keeps the card's surface, the field band is a control
+  ground (`--n-100`) under a real rule, and the fields are white boxes standing on
+  it at 1.13:1 fill plus a 1.34:1 border. This is what the reference does: the
+  fields are the objects, the band is what they stand on.
+
+**ONE FILTERS REGION HEADER — `.kfh`** (owner's direction). The shell already drew
+a filter icon and the word *Filters* on the collapsible drawer that every non-Flux
+page uses; Flux had neither, so the same idea was named on 59 screens and anonymous
+on the one that is the reference for the rest. It is a primitive now — same icon
+(the shell's own path, `M2 3h12M4 8h8M6 13h4`, exported as `KFILT_IC`), same word,
+same band — sitting above whatever tabs and fields the surface carries:
+
+```
+⇶ FILTERS   2 active                              Clear all
+Period  Scope ¹  Workflow ¹  Variance  Basis │ Display  Saved Views  Actions
+[Period Jun 2026 ⌄]  [Compare May 2026 ⌄]  [Cadence Monthly ⌄]
+```
+
+The band owns the two facts that are region-wide, not tab-wide: **the count of
+every live filter across every tab** (the tab badges say *where* a filter is; this
+says whether the page is filtered at all), and **Clear all**, which reaches across
+all tabs and so belongs beside the count rather than trailing whichever row happens
+to be open. It repaints on its own in `syncFilterChrome()` via `fxHeadInner()` —
+safe, because unlike the field row it holds no input a reviewer could be typing
+into.
+
+**The strip says where the filters stop.** `.ktab-div` is a hairline before the
+first `cfg:1` tab. Display, Saved Views and Actions configure rather than filter and
+never carry a count, so one word must not claim all eight — the divider is what lets
+the band be called *Filters* honestly.
+
+`.filterbar-hd` (the platform drawer's header) was aligned to the same band — same
+icon size, same label type, `--line2` border, no shadow. It stays a button while it
+still opens a drawer.
+
+**Not yet done — the platform filter still uses the collapsible drawer.** The
+analysis is complete and the finding matters: of ~25 control groups in that drawer
+only **five are real** (`fundScope` · `regionScope` · `ownType` · `ccyMode` ·
+`periodType`/`periodVal`, bound to `F`). **Seven are dead controls** — `gfClassGrp`,
+`gfPeriodGrp`, `gfCompareGrp` on GL financial statements and `gtCatGrp`,
+`gtEntityGrp`, `gtViewGrp`, `gtRangeGrp` on Trending review are every one a
+`<select onchange="renderAll()">` with no id and no state binding, so choosing "By
+entity" or "Operating expenses" changes nothing. Nine more (`fx*Grp`) are Flux
+legacy that never render, because the drawer is hidden on Flux.
+
+## 2026-08-28 — the FILTERS band folds, and the platform adopts the format
+
+**The band is the toggle** (owner's direction). It reverses the "persistent inline
+fields" ruling for the OPEN/CLOSED state only — the fields are still one row under
+one tab strip, they just start folded, the way the drawer this band replaced always
+behaved. Folded on Flux the region is 35px and the statement opens 73px higher.
+
+**The count survives the fold, and that is load-bearing.** On a surface whose
+numbers get signed a reviewer must never read a filtered statement with no visible
+reason why. Collapsing hides WHICH filters are set, never THAT they are — the band
+keeps `N active` and Clear all. Clear all sits inside the toggle and so calls
+`event.stopPropagation()`; the band is a `role="button"` div, not a `<button>`,
+because a nested button is invalid (the same construction the shell's header used).
+`setFilterTab()` opens the region — choosing a category is asking to see its
+controls. `Alt+F` toggles it; on Flux that shortcut previously called the shell's
+`toggleFilters()`, which opened a drawer that is `display:none` there, so it did
+nothing at all.
+
+**THE PLATFORM FILTER IS NOW THE SAME OBJECT** (`#gfBar`), on every non-Flux
+surface. What it replaced was a three-column grid with a titled but empty
+"Comparison" column, native OS selects, a blue segmented capsule and a
+Reset / chip / Save-as-preset / Apply footer.
+
+- **`#filterCtrls` stays in the DOM and stays hidden.** `readFilters()` reads `F`
+  straight off those `<select>` elements, so they remain the state store and the
+  new fields drive them by setting `.value` and dispatching `change` — which fires
+  the control's own inline `onchange`. `readFilters()`, `onPeriodType()`,
+  `resetFilters()` and every downstream figure are untouched. **No handler is
+  duplicated and no data path moved.** Verified end to end: picking Fund II through
+  the field set `F.fund='F2'`.
+- **Options are read from the control being driven**, never restated in the
+  registry — the same "derive, never duplicate" rule the figures follow.
+- Tabs are per page: **Scope** (Fund · Region · Ownership) · **Period** ·
+  **Basis** (Currency), plus **Ledger** (`GL_DIMS` → `glSet`) on GL overview and
+  Account activity, so the ledger's four real dimensions became a tab instead of
+  being lost with the chips.
+- **A field with nothing to choose does not render.** "Which" exists only for a
+  single quarter or a single month.
+- The menu is the same `.pop`: a generic `g:<key>` branch, so the shell declares
+  its filters as data and the rendering, keyboard, anchoring, width and
+  selected-state all come from one place. Long lists get the search automatically.
+
+**SEVEN DEAD CONTROLS DELETED, not ported.** `gfClassGrp` · `gfPeriodGrp` ·
+`gfCompareGrp` (GL financial statements) and `gtCatGrp` · `gtEntityGrp` ·
+`gtViewGrp` · `gtRangeGrp` (Trending review) were each a
+`<select onchange="renderAll()">` with no id and no state binding — choosing "By
+entity" or "Operating expenses" changed not one figure on screen. A control that
+cannot act is a dead control.
+
+**The field CSS no longer belongs to Flux.** `#fxRoot .fxf` / `#fxRoot .fx-fields`
+became `:is(#fxRoot,#gfBar) …` — 27 rules, rewritten in place so compound selectors
+stay correct, and specificity is unchanged because `:is()` takes the highest of its
+arguments. Add a third surface by adding it to that `:is()`, never by copying the
+block.
+
+Verified: 60/60 views render, console clean, 10/10 chrome themes pass AA, the field
+→ select → `F` path works, the ledger field drives `GLF`, and reset clears both.
+
+## 2026-08-28 — the thread is a TIMELINE
+
+Owner's direction, from the reference's Interactions panel. The `.rw-msg` grammar
+of 2026-08-28 stands; four things about how it is drawn changed.
+
+**ONE vertical line, in the gutter.** Every message carried its own 2px rail beside
+its prose, so a thread of six was six short rails at six different heights with
+nothing connecting them — six marks for one idea. A single connector now runs
+behind the badges (`.rw-msg::before`, 1px `--line2`, at
+`calc(var(--rw-bleed) + 11px)`), which is what makes a thread read as one exchange
+over time rather than a stack of cards. The per-message rail is gone with it: a
+second vertical line beside the first is the box-in-box rule applied to strokes.
+`.rw-thread` and `.rw-grp` are **`gap:0`** and the spacing is padding — a gap would
+cut the connector between every pair.
+
+**The voice moved to the badge.** The rail carried it (accent for you, indigo for a
+Korvyn draft) while every avatar was cobalt — so the one element that could carry
+identity did not, and the accent marked a *message* rather than an interaction.
+Now: **a person is ramp (`--n-500`), YOU are the accent, a Korvyn draft is indigo**
+(rule 2 — indigo is the AI marker and never a second UI accent), an awaited voice
+stays a dashed hollow circle. The badge is a 22px rounded square (18px on a reply),
+opaque and `z-index:1`, so it covers the connector without needing a ring.
+
+**Title over meta.** The header was one baseline row with the time pushed to the far
+right, so on a 440px panel a long name and its timestamp sat at opposite edges with
+a void between them. `.who` is now `flex:0 0 100%` at `--fs-ui`; role and time fall
+to a quiet `--fs-label` line beneath, `.hd .sp` is retired, and the separator is
+drawn by `.role ~ .at::before` so it appears only when both halves exist.
+
+**Full-bleed, not inset.** Rows run to the panel's own edge — `--rw-bleed` is set on
+`.dw-body` and the row negates it with symmetric margins — so the tint reads as
+"this row" and not as a card that grew a background. Hover is `--surface2`; the
+message the composer is aimed at takes `--accent-bg` via a new `.aim` class, which
+is the one row genuinely *in play*.
+
+Verified in both densities: connector 1px at the badge centre, badge 22px/5px,
+`.who` full width with meta on its own line, message left edge = body left edge,
+`.tx` rail removed, `.aim` tint on the replied-to message, page mode unchanged,
+60/60 views, 10/10 themes AA.
+
+## 2026-08-28 — ONE filter affordance per surface
+
+**Collapsed on arrival.** Both regions already defaulted to folded, but the flag is
+session state, so a band left open while adjusting one page's filters greeted you
+open on the next. `paintTopbar()` now folds both whenever `TAB` changes
+(`_lastFiltTab`), through `gfOpen=false` and `KFX.collapseFilters()`. Switching the
+**statement** on Flux is not a page change and leaves the band as the reviewer set
+it.
+
+**Duplicate entry points removed** (owner: "I see quite a few double filter
+options"). Six surfaces carried a page-level **Filters** button *inside the content*
+that opened the very same panel the FILTERS band above it opens — `glActions`,
+`glSurfActions`, the comments toolbar, and the Requests / Data Room / Evidence
+headers — plus the GL chip bar's **+ Filter** button and its **Advanced context**
+link. All removed. The GL chips themselves stay: they are a display of what is on
+with per-chip removal, not a second way in.
+
+**`toggleFilters()` is this file's placeholder handler — 37 callers, and most have
+nothing to do with filtering.** After removing the duplicates, ~25 remain wired to
+it: **Actions ⌄**, **···** (More), **Export**, **Columns**, **New request** ×2,
+**+ New Report**, **Run Report**, **View calendar**, **+ Add / Plan**, **Save
+view**, **Save review**, **Assign owner**, **Download** ×2, **Link as related**,
+**Open source document**, the FP&A header's *All entities / USD / May 2026* pills,
+and several `<tr onclick>` rows. Each opens the filter panel instead of doing what
+it says.
+
+These were **deliberately left alone**: they are mislabelled placeholders, not
+duplicate filters, and deleting a primary CTA like "New request" or "Export" is a
+product decision, not a UI-consistency one. They are the largest remaining
+"no dead controls" debt in the file — worth a pass of their own, either wiring them
+or removing them.
+
+## 2026-08-28 — the page header's command cluster moves into the band
+
+Owner's direction: *"the export s/b inside filter tabs. Also, the ... + action
+button."* On the precedent Flux already set — **"Actions absorbs the ellipsis menu.
+The tab IS the menu, so its contents are the row; putting a menu inside a tab would
+be two clicks to reach one action."**
+
+The platform band gains a **cfg** tab, **Actions**, after the `.ktab-div` (added to
+`gfBarInner` too — it had only been in Flux's strip). `Export` and `···`/`Actions ⌄`
+are gone from every page header.
+
+**`glExport` and `glActions` are now empty strings.** That retires them at all 26
+call sites in two edits and with no change to any of them — they are interpolated,
+so an empty string is inert. Do not re-add a command cluster to `glHead()`.
+
+**`···` and "Actions ⌄" were not ported as buttons**, because neither ever had
+contents: both called `toggleFilters()`. The Actions *tab* is what they were
+pretending to be.
+
+**Export is real now.** `gfExport()` walks the page's primary visible `table.tbl` —
+after the filters, in the order on screen — and downloads a properly quoted CSV
+named from `VIEW_META`. `gfTable()` gates it: a page with no table offers Print
+alone, because a control that cannot act is a dead control, which is exactly what
+the button this replaced was. Verified: `account-activity.csv`, headers plus rows,
+commas inside dates and figures correctly quoted.
+
+One `···` survives, on `fdetail` — it calls `pickTab('findex')`, real navigation,
+not a filter placeholder.
+
+## 2026-08-28 — a collapsed rail must not hide navigation
+
+Reported by the owner: *"when I collapse left panel, GL options further expands.
+Shouldn't I have an extra drawer?"* — and the instinct was right; this was a real
+defect, not a cosmetic one.
+
+**What was wrong.** `body.rail-collapsed` sets `.railkids{display:none!important}`,
+but the group button still ran `toggleRailGroup(k); pickTab(...)`. So in a 56px
+rail, clicking **General Ledger**:
+
+1. flipped `railExpanded[k]` with **nothing visible to show for it** — the change
+   only surfaced the next time the rail was expanded, which is exactly the
+   "further expands" that was reported;
+2. **navigated to `glintel`**, a page nobody asked for; and
+3. left the group's **six children unreachable** — GL overview, Trial balance,
+   Account activity, Financial reporting, Flux analysis and Trending review had no
+   route at all until the rail was expanded again.
+
+**The fix is a flyout, in the product's ONE popover language.** `pop()` takes a
+third argument, `side`, and `popPlace()` honours it: beside the trigger, top
+aligned, flipping to the trigger's left if the right edge cannot take it and
+lifting off the bottom rather than running past the viewport. A 56px icon has no
+useful "under". The flyout therefore inherits the shared anchoring, widths,
+keyboard, roles and selected-row treatment for free.
+
+**`toggleRailGroup(k,el)` now returns false when it has handled the click itself**,
+and the inline handler reads `if(!toggleRailGroup('…',this))return;` — so a
+collapsed rail opens the children and does **not** navigate or flip hidden state,
+while an expanded rail behaves exactly as before. The group button also carries
+`data-pop`, so the outside-click handler leaves it alone and a second click closes
+its own flyout rather than reopening it.
+
+**`railFlyoutRows(label)` reads the rows off the rail the shell already painted** —
+never a second copy of the nav config — so an item added to the rail appears in the
+collapsed flyout with no further wiring.
+
+Verified: opens 6px to the right, top-aligned; lists all six children with the
+current page ticked; does not navigate; leaves `railExpanded` untouched; ↓ moves to
+the next row; Escape closes and returns focus to the rail button; a second click
+toggles it shut; picking a row navigates and closes. Covers every grouped rail item
+in the product, not just GL — `ledger` has one group of 6, `filings` two of 3 and 2.
+Expanded-rail behaviour unchanged. 60/60 views, 10/10 themes AA.
+
+**Note for a later pass:** the outside-click dismissal is bound to **`mousedown`**,
+not `click`. A synthetic `.click()` in a test will not trigger it — that cost a
+false "second click does not close" reading here.
+
+## 2026-08-28 — ONE PAGE TEMPLATE: title once, options in the band, then content
+
+Owner: *"when I click on each tab they have different views… have the standard
+options on top and the content will be based on the options."* Measured before the
+pass: **35 distinct opening shapes across 60 views**, and three causes.
+
+**THE PAGE STATES ITS NAME ONCE.** 23 views printed the title twice — once in the
+shell's title row from `VIEW_META`, again as an `h1` a few pixels below. `glHead()`
+now suppresses the `h1` when `glDupTitle()` says it repeats the topbar, comparing
+against `VIEW_META` directly so it does not depend on which paints first. A
+drill-down whose header names a *record* rather than the view keeps its title. This
+generalises the ruling Flux already had. **23 → 0.**
+
+**ONE HEADER COMPONENT.** `.fp-hd` was a second header with the same shape and its
+own class, so FP&A's seven views drifted from the other twenty-five. `fpHead()`
+delegates to `glHead()` and keeps only what is genuinely FP&A's — the
+illustrative-data marker. **`.fp-hd` in use: 7 → 0.**
+
+**THE PAGE'S OWN FILTERS MOVED INTO THE BAND.** Nine views rendered their own row
+of controls *inside the content*, below the band that is supposed to own options —
+GL intelligence alone had ten selects. They appear as a **More filters** tab (the
+owner's own vocabulary from the Phase 1 brief). **9 → 0.**
+
+They are **discovered, not registered**: every `.grp` in the current view holding a
+`<label>` and a bound `<select>` — the exact shape the retired shell drawer used, so
+the pages were already speaking this vocabulary. A page that adds a filter gains it
+in the band with no wiring, and no handler is duplicated: the field sets the select
+and the select's own `onchange` runs. Verified end to end on `glintel` — picking
+Entity through the band moved `gliEnt` from `all` to `Meridian DC Holdco`.
+
+45 of the 52 in-page selects are genuinely bound (`setGliF`, `setClFilter`,
+`setAxF`, `setAmF`, `setPolF`, `setDrF`, `setDrevF`, `setGlRecon*`). The 7 that are
+not carry no `onchange` and are **skipped rather than redrawn** — no dead controls.
+
+Two traps worth keeping:
+
+- **`gfPageGrps()` must NOT test visibility.** The source row is hidden once it has
+  moved, so a visibility test would stop finding it on the very next paint. It is
+  scoped to `#view-<TAB>` instead, which is what keeps the hidden `#filterCtrls`
+  store out of the result.
+- **`renderAll` is wrapped as `_renderAll(); paintTopbar();`** (line ~30593), so the
+  view has already re-rendered by the time `paintGfBar()` → `gfHidePageRow()` runs
+  and the fresh row is there to be stood down. `renderAll()` itself does not call
+  `paintTopbar`.
+
+The source row is hidden with `[data-gf-moved]`, never deleted, and a card left
+holding nothing but the row is hidden with it.
+
+Field values normalise `"All " + label` to just **"All"** — the page rows write
+their default as "All entity", and the label is already on the field.
+
+**What this pass deliberately did NOT do:** the content region itself. Distinct
+opening shapes went 35 → 33, because the variance that remains is `kpis` /
+`statrow` / `card` combinations *inside* the content, not the frame around it.
+Collapsing those needs a single `page({options, strip, body})` builder every view
+calls — the "full page template" option, which the owner deferred. The frame is
+standard now; the body is not.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

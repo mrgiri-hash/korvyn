@@ -49,7 +49,13 @@
   /* ---- 2. structural aliases. Render code keeps its existing names; the
      values now come from the ramp so there is exactly one place to tune. ---- */
   --surface:var(--n-0); --surface2:var(--n-25);
-  --bg:var(--n-50);     --bg2:var(--n-100);
+  /* MORE CONTRAST BETWEEN THE PLANES (2026-08-28, owner's direction). The page
+     was --n-50 (#F7F8FA) — three percent off the white cards standing on it, so
+     a "card" read as a hairline rectangle rather than as an object lifted off a
+     ground. It is --n-100 now: still quiet, but a card is unmistakably a card.
+     The DARK block is unchanged and must stay so — the ramp inverts there, so
+     --n-50 is already the darkest step and is correctly the page. */
+  --bg:var(--n-100);    --bg2:var(--n-100);
   /* --ink is BODY text (n-800); --ink-strong is headings and primary buttons
      (n-900). The spec separates them, so the tokens do too. */
   --ink:var(--n-800);   --ink-strong:var(--n-900);
@@ -266,6 +272,8 @@
   --h-chip:24px;             /* chips and small toggles                 */
   --h-btn-sm:26px;           /* small buttons                           */
   --h-btn:28px;              /* standard buttons                        */
+  --h-tab:32px;              /* tab rows — see the .ktabs primitive     */
+  --h-field:32px;            /* filter-row fields — taller than a button */
   --pad-card:13px;           /* card padding                            */
   --pad-content:var(--s-5);  /* page gutter                             */
   --pad-kpi:9px 16px;        /* KPI strip cells: 9 vertical, 16 horizontal */
@@ -273,9 +281,29 @@
   --pad-cell:0 10px;         /* table cells: height comes from --row-h  */
   --pad-btn:0 10px;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  /* ---- THE UI FACE (2026-08-28, owner's direction) --------------------------
+     Was Inter. The owner's reading of the Phase 1 pass was "I don't feel any
+     changes", and the type was part of that: Inter IS installed on the review
+     machine, so the app really was rendering it and nothing about the page had
+     moved. This is a deliberate, visible change of character.
+
+     OS-native, and that is the reference's own practice — the Zendesk screens
+     this pass works from run San Francisco / Segoe UI / Helvetica Neue /
+     Lucida Grande, not a licensed brand face. It also keeps the file
+     self-contained: no @font-face, no CDN, nothing to fetch. Segoe UI Variable
+     Text is Windows 11's optical-size text face and leads on that platform;
+     -apple-system resolves to San Francisco; the rest is the usual descent.
+
+     Inter is deliberately NOT in the stack. Leaving it first would mean the
+     change is invisible on any machine that has it installed, which is exactly
+     the failure this replaces. */
+  --sans:"Segoe UI Variable Text",-apple-system,BlinkMacSystemFont,"Segoe UI",
+         Roboto,"Helvetica Neue",Arial,sans-serif;
   --serif:"Newsreader",Georgia,serif;
-  --num:"Inter",var(--sans); /* Inter has excellent tabular figures */
+  /* CHROME AND FIGURES SHARE ONE FACE (rule 14 — never blend them). Identifiers
+     keep --mono. Tabular alignment comes from font-variant-numeric, which every
+     figure cell already sets, not from the family. */
+  --num:var(--sans);
 }
 [data-theme="dark"]{
   /* The ramp inverts: n-0 is still "card surface", n-900 is still "ink".
@@ -1394,8 +1422,8 @@ body.settings-open .main{margin-right:var(--panel-w)}
 .content{min-width:0}
 /* Sticks directly below the ribbon now that the connection strip is gone. */
 .topbar{position:sticky;top:var(--header-h);z-index:15;
-  background:color-mix(in srgb,var(--bg) 82%,transparent);
-  backdrop-filter:saturate(1.2) blur(10px);border-bottom:var(--rule);
+  background:color-mix(in srgb,var(--surface) 92%,transparent);
+  backdrop-filter:saturate(1.2) blur(10px);border-bottom:1px solid var(--line2);
   padding:12px 26px;display:flex;align-items:center;gap:16px}
 .tb-title{min-width:0}
 .tb-title h1{font-size:var(--fs-card);font-weight:var(--fw-medium);letter-spacing:-.01em;line-height:1.2;display:flex;align-items:center;gap:9px}
@@ -1779,15 +1807,144 @@ footer b{color:var(--muted)}
 .subnav button .n{font-size:var(--fs-micro);background:var(--neg-fill);color:var(--on-neg);border-radius:var(--radius);padding:1px 5px;font-weight:var(--fw-medium);font-family:var(--num)}
 .subnav button .n.q{background:var(--warn)}
 
+/* ---- TABS — ONE LANGUAGE (2026-08-28) --------------------------------------
+   One primitive for every tab row in the product. It existed three times in three
+   shapes: the statement picker at 36px tall on 8px/14px padding, the Flux command
+   bar at 30px on 0/10px, and the popover's Included|Excluded pair at 28px on 0/2px
+   — the same idea drawn three ways, on one screen, 70px apart. Text and a 2px
+   underline; no pill, no fill, no shadow, no radius. Separation is the hairline the
+   row sits on (rule 5).
+
+   TWO LEVELS, ONE VOCABULARY. Level 1 is where you ARE — the statement under
+   review — and takes the accent, because that is the page's primary navigation
+   and the accent carries interaction (rule 2). Level 2 is the command surface:
+   identical geometry, but its selected tab is INK, not accent. Two accent
+   underlines stacked 40px apart is the "competing tab rows" this pass removes;
+   with one accent on the screen the hierarchy reads without a second colour, a
+   second size or a second shape.
+
+   The strip scrolls before it wraps: with the review panel open the Flux bar loses
+   ~450px, and a two-word tab ("Saved Views") that breaks onto a second line
+   doubles the height of the row. */
+.ktabs{display:flex;align-items:center;gap:0;padding:0 2px;margin:0;
+  border-bottom:var(--rule);background:none;
+  white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+.ktabs::-webkit-scrollbar{display:none}
+.ktabs .ktab{position:relative;display:inline-flex;align-items:center;gap:6px;flex:none;
+  height:var(--h-tab);padding:0 12px;margin-bottom:-1px;
+  border:none;border-bottom:2px solid transparent;border-radius:0;background:none;
+  box-shadow:none;font:inherit;font-family:var(--sans);font-size:var(--fs-table);
+  font-weight:var(--fw-regular);color:var(--muted);white-space:nowrap;cursor:pointer;
+  transition:color .12s ease,border-color .12s ease}
+.ktabs .ktab:hover{color:var(--ink);background:none}
+.ktabs .ktab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;border-radius:3px}
+.ktabs .ktab.on{color:var(--accent-ink);border-bottom-color:var(--accent);
+  background:none;font-weight:var(--fw-medium)}
+.ktabs.lvl2 .ktab.on{color:var(--ink);border-bottom-color:var(--ink)}
+/* ---- LEVEL 1 AS A FOLDER TAB (2026-08-28, owner's direction) ----------------
+   The reference draws its primary tabs as boxes joined to the panel they open:
+   the selected tab is a white box whose bottom edge is the panel's top edge, so
+   the tab and its contents read as one object and the unselected tabs read as
+   what is behind it. This replaces the underline at level 1 only; .lvl2 keeps
+   the underline, because a command row inside a panel is not opening a panel.
+
+   The join is geometry: the tab has no bottom border and hangs 1px over the
+   panel's top border, painting its own surface across it. The strip therefore
+   must NOT carry a border-bottom of its own, and must sit above the panel in
+   the stacking order. */
+.ktabs.lvl1{border-bottom:none;position:relative;z-index:1;gap:2px}
+.ktabs.lvl1 .ktab{height:34px;padding:0 14px;margin-bottom:-1px;
+  border:1px solid transparent;border-bottom:none;border-radius:var(--radius) var(--radius) 0 0}
+.ktabs.lvl1 .ktab:hover{background:var(--surface2);color:var(--ink)}
+.ktabs.lvl1 .ktab.on{background:var(--surface);border-color:var(--line2);
+  color:var(--ink);border-bottom-color:transparent}
+/* the count is a quiet numeral, not a badge: it reports how many filters are on,
+   it is not action the reviewer owes anyone (design rule 12) */
+.ktabs .ktab-n{font-size:var(--fs-micro);color:var(--hint);font-variant-numeric:tabular-nums}
+.ktabs .ktab.on .ktab-n{color:var(--muted)}
+.ktabs .ktab-sp{flex:1 0 auto}
+/* A hairline between the tabs that FILTER and the tabs that CONFIGURE. The band
+   above is called Filters; Display, Saved Views and Actions are not filters and
+   never carry a count, so the strip says where the filters stop rather than
+   letting one word claim all eight. */
+.ktabs .ktab-div{flex:none;width:1px;height:16px;align-self:center;
+  margin:0 8px;background:var(--line2)}
+
+/* ---- FILTERS — ONE NAMED REGION HEADER (2026-08-28, owner's direction) ------
+   The shell already drew this icon and this word on the collapsible drawer that
+   every non-Flux page uses; Flux had neither, so the same idea was named on 59
+   screens and anonymous on the one that is the reference for the rest. It is a
+   primitive now: the same icon, the same word, the same band, above whatever
+   tabs and fields the surface carries.
+
+   It also gives the two region-wide facts a home. The count is every live filter
+   across every tab — the tab badges say WHERE a filter is, this says whether the
+   page is filtered at all — and Clear all reaches across all of them, so it
+   belongs beside the count rather than trailing the one row that happens to be
+   open. */
+.kfh{display:flex;align-items:center;gap:9px;padding:9px var(--s-3) 2px;
+  background:var(--surface);font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:.09em;font-weight:var(--fw-medium);color:var(--hint)}
+.kfh .ic{width:13px;height:13px;flex:none;opacity:.7}
+.kfh .kfh-n{text-transform:none;letter-spacing:0;font-size:var(--fs-label);
+  font-weight:var(--fw-regular);color:var(--muted);font-variant-numeric:tabular-nums}
+/* THE BAND IS THE TOGGLE (2026-08-28, owner's direction). It reverses the
+   "persistent inline fields" ruling for the open/closed state only — the fields
+   are still fields in one row under one tab strip, they just start folded, the
+   way the platform drawer this pass named already behaves. Same affordance,
+   same word, same icon, same gesture, on every surface.
+
+   THE COUNT SURVIVES THE FOLD, and that is load-bearing: on a surface whose
+   numbers get signed a reviewer must never read a filtered statement with no
+   visible reason why. Collapsing hides WHICH filters are set, never THAT they
+   are — the band keeps "N active" and Clear all. */
+.kfh{cursor:pointer;user-select:none}
+.kfh:hover{color:var(--muted)}
+.kfh:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:3px}
+.kfh .kfh-sp{flex:1}
+.kfh .kfh-car{flex:none;margin-left:8px;font-size:var(--fs-micro);color:var(--hint);
+  transition:transform .15s var(--ease)}
+.kfh[aria-expanded="true"] .kfh-car{transform:rotate(90deg)}
+/* folded: the band alone, and it keeps the card's full corner */
+:is(#fxRoot,#gfBar) .fx-filters.shut .fx-ftabs,
+:is(#fxRoot,#gfBar) .fx-filters.shut .fx-fields{display:none}
+:is(#fxRoot,#gfBar) .fx-filters.shut .kfh{padding-bottom:9px}
+/* the platform card, same object as the Flux one but standing on the page rather
+   than joined to a folder tab, so it keeps all four corners */
+#gfBar .fx-filters{background:var(--surface);border:1px solid var(--line2);
+  border-radius:var(--radius);overflow:hidden}
+.kfh .kfh-clr{border:none;background:none;cursor:pointer;
+  font:inherit;font-family:var(--sans);text-transform:none;letter-spacing:0;
+  font-size:var(--fs-label);font-weight:var(--fw-regular);color:var(--accent-ink);padding:0}
+.kfh .kfh-clr:hover{text-decoration:underline}
+.kfh .kfh-clr:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
 /* collapsible global-filter bar (sits under the sub-nav) */
 .filterbar{margin-bottom:14px}
+/* THE COLLAPSIBLE DRAWER IS RETIRED (2026-08-28, owner's direction). Its header
+   became the .kfh band and its controls became a tab strip over one field row —
+   the Flux format, on every surface. #filterCtrls STAYS IN THE DOM and stays
+   hidden: readFilters() reads F straight off those <select> elements, so they are
+   the state store and the new fields drive them by setting .value and dispatching
+   change. No handler is duplicated and no data path moved. */
+#filterbar>.filterbar-hd{display:none}
+/* a control that has moved into the FILTERS band does not also stand in the page */
+[data-gf-moved]{display:none!important}
+#filterbar>#filterCtrls{display:none!important}
+/* the platform drawer's header is the same band as .kfh — same icon, same word,
+   same type — so a reviewer meets one filter affordance across the product. It
+   stays a button while it still opens a drawer; when this surface adopts the
+   Flux tab + field row it becomes a plain .kfh like Flux's. */
 .filterbar-hd{display:flex;align-items:center;gap:10px;width:100%;font:inherit;font-family:var(--sans);
-  background:var(--surface);border:var(--rule);border-radius:var(--radius);padding:9px 14px;cursor:pointer;
-  color:var(--muted);transition:var(--dur-1) var(--ease);box-shadow:var(--shadow-sm)}
+  background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius);
+  padding:9px 14px;cursor:pointer;
+  color:var(--muted);transition:var(--dur-1) var(--ease);box-shadow:none}
 .filterbar-hd:hover{border-color:var(--line2);color:var(--ink)}
 .filterbar.open .filterbar-hd{border-radius:var(--radius) 10px 0 0;border-bottom-color:transparent}
 .filterbar-hd .ic{flex:none;opacity:.7}
-.filterbar-lbl{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:.09em;font-weight:var(--fw-medium);color:var(--hint)}
+.filterbar-lbl{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:.09em;
+  font-weight:var(--fw-medium);color:var(--hint)}
+.filterbar-hd .ic{width:13px;height:13px}
 .filterbar-state{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
   background:var(--bg2);border:var(--rule);border-radius:var(--radius-pill);padding:2px 11px}
 .filterbar-caret{margin-left:auto;font-size:var(--fs-micro);color:var(--hint);transition:transform .15s}
@@ -3153,29 +3310,73 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .scope{font-size:var(--fs-micro);color:var(--faint);margin-top:3px}
 #fxRoot .scope b{color:var(--muted);font-weight:var(--fw-medium)}
 /* ---------------------------------------------------------------- popover */
-.pop{position:fixed;z-index:95;background:var(--surface);border:var(--rule-strong);border-radius:var(--radius);
-  box-shadow:var(--shadow-lg);min-width:230px;max-width:330px;display:none;overflow:hidden}
+/* ---- THE DROPDOWN LANGUAGE (2026-08-28) -------------------------------------
+   ONE menu for every selector in the product, and the reference for the rest of
+   Korvyn. What was wrong, measured on the Flux command row: seventeen dropdowns
+   hanging off seventeen identical 180px fields opened at widths between 230px and
+   330px; the internal inset was 11px in the header, 9px in the search, 11px in the
+   footer and 7px in a row, so nothing lined up down the left edge; and a
+   single-select painted the SAME accent-filled checkbox a multi-select uses, so a
+   menu where one answer is possible looked like a menu where several are.
+
+   PREDICTABLE WIDTH. Two widths, both fixed: the standard menu, and .wide for the
+   dimension multi-selects and the materiality editor, which carry a second column
+   of figures or a form. A menu is never narrower than the control it hangs off.
+
+   ONE INSET. --pop-x is the left edge of every band — header, search, rows,
+   footer — so the label of a section and the text of its rows start on the same
+   pixel. Rows carry the inset as padding inside a 4px list gutter, which is what
+   lets the hover fill stop short of the menu's own border.
+
+   RESTRAINED OVERLAY. --shadow-md, not --shadow-lg: an anchored menu is a small
+   overlay a few pixels off its trigger, not a modal lifted off the page. A 44px
+   blur under a 1px border is two separations doing one job. */
+.pop{--pop-x:10px;position:fixed;z-index:95;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow-md);width:300px;max-width:calc(100vw - 16px);
+  display:none;overflow:hidden}
+.pop.wide{width:340px}
 .pop.on{display:block}
-.pop-h{padding:8px 11px;border-bottom:var(--rule);font-size:var(--fs-label);text-transform:uppercase;
-  letter-spacing:var(--tracking-label);color:var(--hint);font-weight:var(--fw-label);display:flex;align-items:center}
+.pop-h{padding:8px var(--pop-x);border-bottom:var(--rule);font-size:var(--fs-label);
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--hint);
+  font-weight:var(--fw-label);display:flex;align-items:center}
+/* a section label inside the menu, not the menu's own title — the separator is
+   the class, never an inline border-top written at twelve call sites */
+.pop-h.sec,.pop-l.sec{border-top:var(--rule)}
 .pop-h .clr{margin-left:auto;text-transform:none;letter-spacing:0;color:var(--accent-ink);cursor:pointer}
-.pop-s{padding:7px 9px;border-bottom:var(--rule)}
-.pop-s input{width:100%;height:26px;padding:0 7px;border:var(--rule-strong);border-radius:var(--radius);
-  background:var(--surface);color:var(--ink);font-size:var(--fs-table)}
+.pop-s{padding:7px var(--pop-x);border-bottom:var(--rule)}
+.pop-s input{width:100%;height:26px;padding:0 8px;border:1px solid var(--border-strong);
+  border-radius:var(--radius);background:var(--surface);color:var(--ink);font-size:var(--fs-table)}
+.pop-s input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .pop-l{max-height:262px;overflow-y:auto;padding:4px}
-.pop-o{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:var(--radius);cursor:pointer;
+.pop-o{display:flex;align-items:center;gap:8px;min-height:26px;
+  padding:5px calc(var(--pop-x) - 4px);border-radius:4px;cursor:pointer;
   font-size:var(--fs-table);color:var(--ink)}
 .pop-o:hover{background:var(--bg2)}
-.pop-o .bx{width:13px;height:13px;border:var(--rule-strong);border-radius:3px;flex:none;
-  display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:var(--on-accent)}
-.pop-o.on .bx{background:var(--accent-fill);border-color:var(--accent-fill)}
+.pop-o:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* SINGLE-SELECT IS A TICK, MULTI-SELECT IS A CHECKBOX. A box that fills in reads
+   as "one of several" — drawing it on Period or Cadence, where exactly one answer
+   can ever be true, promised a choice the menu does not offer. The tick sits in the
+   same 13px gutter, so the rows still align whichever menu this is. */
+.pop-o .bx{width:13px;height:13px;flex:none;border:none;background:none;border-radius:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;line-height:1;color:transparent}
+.pop-o.on .bx{color:var(--accent)}
+/* one answer is possible and one is chosen — the row itself carries it, which is
+   what makes the current selection obvious the moment the menu reopens */
+.pop-o.on:not(.ck){background:var(--accent-bg);color:var(--accent-ink)}
+.pop-o.on:not(.ck):hover{background:var(--accent-bg)}
+.pop-o.on:not(.ck) .sub{color:var(--accent-ink);opacity:.72}
+/* several are possible — the ticked box carries it and the row stays neutral,
+   because twelve accent-filled rows is the loud selected state this pass removes */
+.pop-o.ck.on{background:none;font-weight:var(--fw-medium)}
 .pop-o .sub{margin-left:auto;font-size:var(--fs-micro);color:var(--faint)}
 /* A STAR IN A ROW IS A CONTROL, NOT THE ROW'S OWN CHECKBOX. `.pop-o.on .bx` fills
    the box in the accent to mark the selected row, which on a saved-view row painted
    solid over the star and swallowed it — so the one view that IS loaded was the one
    whose favorite state you could not read. */
 .pop-o.on .bx.stx{background:none;border:none}
-.pop-b{padding:9px 11px;border-top:var(--rule)}
+.pop-b{padding:9px var(--pop-x);border-top:var(--rule)}
 .pop-b .fgrp{margin-bottom:8px}
 .pop-b .fgrp:last-child{margin-bottom:0}
 .pop-row{display:flex;gap:7px;align-items:flex-end}
@@ -3467,13 +3668,13 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
    Content first: four slim rows above the table, then the analysis. Every value
    resolves through the existing Korvyn tokens; nothing new is introduced. */
 
-/* statement tabs: text + hairline underline, no pill container */
-#subnav2.stmt-tabs{gap:0;padding:0 2px;margin:-2px 0 12px;border-bottom:var(--rule)}
-#subnav2.stmt-tabs button{padding:8px 14px;border-radius:0;background:none;box-shadow:none;
-  border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:var(--fw-regular)}
-#subnav2.stmt-tabs button:hover{background:none;color:var(--ink)}
-#subnav2.stmt-tabs button.on{color:var(--accent-ink);border-bottom-color:var(--accent);
-  background:none;font-weight:var(--fw-medium)}
+/* The statement picker draws from the shared .ktabs primitive now — it used to
+   restate the same underline treatment at its own height and padding. Only its
+   position in the page stack is declared here. The tighter bottom margin closes a
+   35px band of dead air that made the picker and the command bar read as two
+   unrelated toolbars instead of a header and the controls under it. */
+/* no gap: the folder tab's bottom edge IS the command panel's top edge */
+#subnav2.stmt-tabs{margin:-2px 0 0;padding:0;background:none;border:none}
 
 /* context bar */
 
@@ -3513,6 +3714,9 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 
 #fxRoot .fx-tbl th{white-space:nowrap}
 #fxRoot .fx-tbl td{height:34px}
+/* the header row and the section rows are the two filled bands in the card —
+   the header lighter, the sections a step down, so the two never read as one */
+#fxRoot .fx-tbl thead th{background:var(--n-50);border-bottom:1px solid var(--line2)}
 #fxRoot .fx-sec td{background:var(--bg2);font-size:var(--fs-label);text-transform:uppercase;
   letter-spacing:var(--tracking-label);color:var(--muted);font-weight:var(--fw-label);height:26px}
 #fxRoot .fx-tot td{font-weight:var(--fw-medium);border-top:var(--rule-strong);background:var(--surface2)}
@@ -3936,7 +4140,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-nm{font-size:var(--fs-ui);letter-spacing:-.014em}
 #fxRoot .rw-figs4{gap:var(--s-4);margin-top:var(--s-2);padding-top:var(--s-2)}
 #fxRoot .rw-figs4 b{font-size:var(--fs-card);font-weight:var(--fw-medium)}
-#fxRoot .fx-detail .dw-body{padding:var(--s-3) var(--s-4) var(--s-4)}
+#fxRoot .fx-detail .dw-body{padding:var(--s-3) var(--s-4) var(--s-4);--rw-bleed:var(--s-4)}
 #fxRoot .rw-sec{margin:var(--s-4) 0 var(--s-2);padding-top:var(--s-3)}
 #fxRoot .rw-state.soft{padding:var(--s-1) 0 var(--s-2);border-bottom:var(--rule)}
 #fxRoot .rw-state.soft .rw-verdict{color:var(--muted);font-weight:var(--fw-regular)}
@@ -4223,6 +4427,78 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-msg.reply .tx{border-left:none;padding-left:0;max-width:66ch}
 #fxRoot .rw-msg.reply .mt,
 #fxRoot .rw-msg.reply .cact{padding-left:0}
+/* ---- THE THREAD IS A TIMELINE (2026-08-28, owner's direction) ---------------
+   Reworked to the reference's Interactions panel. What changed and why:
+
+   ONE VERTICAL LINE, IN THE GUTTER. Every message used to carry its own 2px rail
+   beside its prose, so a thread of six was six short rails at six different
+   heights with nothing connecting them — six marks for one idea. There is now a
+   single connector running behind the badges, which is what makes a thread read
+   as one exchange over time rather than a stack of cards. The per-message rail is
+   gone with it; a second vertical line beside the first is the box-in-box rule
+   applied to strokes.
+
+   THE VOICE MOVED TO THE BADGE. The rail carried it (accent for you, indigo for a
+   Korvyn draft) while every avatar was cobalt — so the one element that could
+   carry identity did not, and the accent marked a message rather than an
+   interaction. Now: a person is ramp, YOU are the accent, a Korvyn draft is indigo
+   (rule 2 — indigo is the AI marker and never a second UI accent), and an awaited
+   voice stays a dashed hollow silhouette.
+
+   TITLE OVER META. The header was one baseline row with the time pushed to the far
+   right, so on a 440px panel a long name and its timestamp sat at opposite edges
+   with a void between them. The name is the title; time, role and provenance are
+   the quiet line under it, exactly as the reference stacks them.
+
+   FULL-BLEED, NOT INSET. Rows run edge to edge and the tint on the message in play
+   bleeds with them, so the highlight reads as "this row" and not as a card that
+   grew a background. Gaps are zero and the spacing is padding, which is also what
+   keeps the connector continuous — a gap would cut the line between every pair. */
+#fxRoot .rw-thread{gap:0;padding-top:0}
+#fxRoot .rw-grp{gap:0}
+#fxRoot .rw-msg{position:relative;align-items:flex-start;gap:var(--s-3);
+  padding:9px var(--rw-bleed,var(--s-3)) 11px;
+  margin-left:calc(-1 * var(--rw-bleed,var(--s-3)));
+  margin-right:calc(-1 * var(--rw-bleed,var(--s-3)));
+  transition:background .12s}
+/* the connector, behind the badges — the badge is opaque and covers it */
+#fxRoot .rw-msg::before{content:"";position:absolute;z-index:0;width:1px;
+  left:calc(var(--rw-bleed,var(--s-3)) + 11px);top:0;bottom:0;
+  background:var(--line2)}
+/* nothing hangs above the first badge */
+#fxRoot .rw-thread>.rw-grp:first-child>.rw-msg:first-child::before{top:20px}
+#fxRoot .rw-msg:hover{background:var(--surface2)}
+/* the message the composer is aimed at is the row in play */
+#fxRoot .rw-msg.aim{background:var(--accent-bg)}
+#fxRoot .rw-msg.aim:hover{background:var(--accent-bg)}
+
+/* the badge: a rounded square in the gutter, opaque, above the line */
+#fxRoot.aw .fx-detail .rw-msg .rw-av{width:22px;height:22px;border-radius:5px;
+  margin-right:0;position:relative;z-index:1;font-size:9px;
+  background:var(--n-500);color:var(--on-accent)}
+#fxRoot.aw .fx-detail .rw-msg.mine .rw-av{background:var(--accent)}
+#fxRoot.aw .fx-detail .rw-msg.ai .rw-av,
+#fxRoot.aw .fx-detail .rw-msg .rw-av.ai{background:var(--ai)}
+#fxRoot.aw .fx-detail .rw-msg.owed .rw-av.ghost{background:none;
+  border:1px dashed var(--border-strong);color:var(--muted);border-radius:50%}
+
+/* title on its own line, meta beneath it */
+#fxRoot .rw-msg .hd{display:flex;flex-wrap:wrap;align-items:baseline;
+  gap:0 7px;min-height:0}
+#fxRoot .rw-msg .hd .sp{display:none}
+#fxRoot .rw-msg .who{flex:0 0 100%;font-size:var(--fs-ui);line-height:1.35}
+#fxRoot .rw-msg .role,#fxRoot .rw-msg .at{font-size:var(--fs-label);color:var(--hint)}
+/* one separator between the two halves of the meta line, drawn only when both
+   halves are actually there */
+#fxRoot .rw-msg .role ~ .at::before{content:"\00b7";margin-right:7px;color:var(--n-300)}
+/* the prose stands under its own title, with no second rail beside it */
+#fxRoot .rw-msg .tx{padding-left:0;border-left:none;margin-top:4px}
+#fxRoot .rw-msg .mt,#fxRoot .rw-msg .cact{padding-left:0}
+/* replies branch off the connector and keep the badge column they indent to */
+#fxRoot .rw-replies{margin-left:calc(22px + var(--s-3));padding-left:var(--s-3)}
+#fxRoot .rw-msg.reply .rw-av{width:18px;height:18px;border-radius:4px;font-size:8px}
+#fxRoot .rw-msg.reply::before{left:calc(var(--rw-bleed,var(--s-3)) + 9px)}
+
 /* Reply is a quiet link, and only wakes on hover of its own message — a live
    affordance under every message turns the thread into a wall of buttons */
 #fxRoot .rw-msg .cact .rw-reply{opacity:0;transition:opacity .12s}
@@ -4731,8 +5007,8 @@ body.fx-dw-page #subnav2{display:none!important}
 /* sticky column heads and section rows: on a statement hundreds of lines long the
    reviewer must never lose which column or which section they are reading */
 #fxRoot .fx-table{overflow:visible}
-#fxRoot .fx-tbl thead th{position:sticky;z-index:3;background:var(--bg);
-  box-shadow:inset 0 -1px 0 var(--border-strong)}
+#fxRoot .fx-tbl thead th{position:sticky;z-index:3;background:var(--n-50);
+  box-shadow:inset 0 -1px 0 var(--line2)}
 #fxRoot .fx-tbl tr.fx-sec td{position:sticky;z-index:2;cursor:pointer}
 #fxRoot .fx-tbl tr.fx-sec td:hover{color:var(--ink)}
 #fxRoot .fx-sec .fold{display:inline-block;color:var(--faint);font-size:9px;margin-right:6px;
@@ -4848,16 +5124,16 @@ body.fx-dw-page #subnav2{display:none!important}
    toolbar it styled. */
 /* 6px like every other control in this band — the shared .seg draws var(--radius),
    which the mercury theme raises to 14px and turns into a capsule at 28px tall. */
-#fxRoot .fx-fields .seg{height:var(--h-btn);align-self:center;border-radius:6px}
-#fxRoot .fx-fields .btn-out,#fxRoot .fx-fields .btn-primary{
+:is(#fxRoot,#gfBar) .fx-fields .seg{height:var(--h-field);align-self:center;border-radius:6px}
+:is(#fxRoot,#gfBar) .fx-fields .btn-out,:is(#fxRoot,#gfBar) .fx-fields .btn-primary{
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;
-  height:var(--h-btn);padding:var(--pad-btn)}
-#fxRoot .fx-fields .btn-out.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
+  height:var(--h-field);padding:0 12px}
+:is(#fxRoot,#gfBar) .fx-fields .btn-out.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
 /* KFX icons are 13×13 on a 16 grid; .btn-out svg is 14px globally — pin the
    subtree so the two cannot disagree. Do not restyle the Views path (short third
    line is a list icon by design). */
-#fxRoot .fx-fields .fxi,#fxRoot .fx-fields .btn-out svg{width:13px;height:13px;flex:none}
-#fxRoot .fx-fields .btn-out .cue{color:var(--faint);font-size:9px}
+:is(#fxRoot,#gfBar) .fx-fields .fxi,:is(#fxRoot,#gfBar) .fx-fields .btn-out svg{width:13px;height:13px;flex:none}
+:is(#fxRoot,#gfBar) .fx-fields .btn-out .cue{color:var(--faint);font-size:9px}
 /* A labelled group. Display and Saved Views hold settings rather than filters, and
    the label is what stops them reading as an undifferentiated strip of buttons. */
 #fxRoot .fxg{display:inline-flex;align-items:center;gap:var(--s-2)}
@@ -4904,38 +5180,28 @@ body.fx-dw-page #subnav2{display:none!important}
 /* the tab strip: categories on a hairline, the active one attached to the field
    row below it so the two read as one object rather than two stacked bars */
 #fxRoot .fx-filters{margin-bottom:var(--s-3)}
-#fxRoot .fx-ftabs{display:flex;align-items:center;gap:var(--s-1);
-  border-bottom:var(--rule);padding:0 2px}
-/* nowrap is load-bearing: with the review panel open the bar loses ~450px, and a
-   two-word tab ("Saved Views") broke onto a second line and doubled the strip's
-   height. The strip scrolls before it wraps. */
-#fxRoot .fx-ftabs{overflow-x:auto;scrollbar-width:none}
-#fxRoot .fx-ftabs::-webkit-scrollbar{display:none}
-#fxRoot .fxt{position:relative;display:inline-flex;align-items:center;gap:6px;
-  flex:none;white-space:nowrap;
-  height:30px;padding:0 10px;border:none;background:none;font:inherit;
-  font-size:var(--fs-table);color:var(--muted);cursor:pointer;
-  border-bottom:2px solid transparent;margin-bottom:-1px}
-#fxRoot .fxt:hover{color:var(--ink)}
-#fxRoot .fxt:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-#fxRoot .fxt.on{color:var(--accent-ink);border-bottom-color:var(--accent);
-  font-weight:var(--fw-medium)}
-/* the count is a quiet numeral, not a badge: it reports how many filters are on,
-   it is not action the reviewer owes anyone (design rule 12) */
-#fxRoot .fxt-n{font-size:var(--fs-micro);color:var(--hint);
-  font-variant-numeric:tabular-nums}
-#fxRoot .fxt.on .fxt-n{color:var(--accent-ink)}
-#fxRoot .fxt-sp{flex:1}
+/* The command bar is the shared .ktabs primitive at level 2. Everything it used
+   to declare for itself — height, padding, underline, hover, focus, the count
+   numeral, nowrap-and-scroll — lives in the primitive now, so the statement
+   picker above it and this bar cannot drift apart again. */
 /* THE ONE PERSISTENT CTA. Restrained: standard button height, standard padding, on
    the tab bar rather than a toolbar of its own. It is the only filled control on
    the command surface, which is what makes it read as the primary action. */
-#fxRoot .fx-submit{flex:none;height:var(--h-btn);padding:var(--pad-btn);
-  white-space:nowrap;margin:0 2px 4px}
-#fxRoot .fx-fields{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center;
-  padding-top:var(--s-2);min-height:calc(var(--h-btn) + var(--s-2))}
+#fxRoot .fx-submit{flex:none;height:var(--h-field);padding:0 14px;
+  white-space:nowrap;margin:0 2px 3px}
+/* ONE ROW, AND IT STAYS ONE ROW. flex-wrap:wrap let the row become two the moment
+   the review panel took 440px off the width — which moves the statement down the
+   page at exactly the moment a reviewer needs it, and breaks the promise the tabs
+   exist to keep (one contextual row per tab). It scrolls instead, on the same
+   discipline as the tab strip above it. */
+:is(#fxRoot,#gfBar) .fx-fields{display:flex;flex-wrap:nowrap;gap:var(--s-2);align-items:center;
+  background:var(--n-100);padding:var(--s-2) var(--s-3);
+  min-height:calc(var(--h-field) + var(--s-2)*2);
+  overflow-x:auto;overflow-y:visible;scrollbar-width:none}
+:is(#fxRoot,#gfBar) .fx-fields::-webkit-scrollbar{display:none}
 /* Clear all trails the fields it clears, pushed to the far right of the row so it
    never reads as one more filter. */
-#fxRoot .fx-fields .fxf-clr{margin-left:auto}
+:is(#fxRoot,#gfBar) .fx-fields .fxf-clr{margin-left:auto}
 /* ONE FIELD SHAPE, EVERY TAB (2026-08-28). Two things made the row ragged:
 
    RADIUS. `.fxf` asked for var(--radius), and `body.fx-mercury #fxRoot.aw` sets
@@ -4948,28 +5214,48 @@ body.fx-dw-page #subnav2{display:none!important}
    the five tabs, so the row changed shape every time the tab changed. A fixed width
    makes the row identical on every tab; a long value ellipsises and keeps its full
    text in the tooltip — which is what the reference does too ("Requester organ…"). */
-#fxRoot .fxf{display:inline-flex;align-items:center;gap:6px;height:var(--h-btn);
-  padding:0 9px;border:1px solid var(--border);border-radius:6px;
+/* Taller and bordered harder than a button: in the reference a filter field is
+   an input-shaped box you read a value out of, not a chip you press. */
+:is(#fxRoot,#gfBar) .fxf{display:inline-flex;align-items:center;gap:6px;height:var(--h-field);
+  padding:0 10px;border:1px solid var(--line2);border-radius:6px;
   background:var(--surface);color:var(--ink);font-size:var(--fs-table);
   font-family:inherit;cursor:pointer;width:180px;flex:none;text-align:left;
   transition:border-color .12s,background .12s}
-#fxRoot .fxf:hover{border-color:var(--border-strong)}
-#fxRoot .fxf:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-#fxRoot .fxf .fxf-k{color:var(--muted);font-weight:var(--fw-regular);white-space:nowrap}
-#fxRoot .fxf .fxf-v{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#fxRoot .fxf .cue{margin-left:auto;color:var(--faint);font-size:9px;flex:none}
-#fxRoot .fxf.on{border-color:var(--accent-line);background:var(--accent-bg)}
-#fxRoot .fxf.on .fxf-k{color:var(--accent-ink)}
-#fxRoot .fxf.on .fxf-v{color:var(--accent-ink);font-weight:var(--fw-medium)}
+:is(#fxRoot,#gfBar) .fxf:hover{border-color:var(--border-strong)}
+:is(#fxRoot,#gfBar) .fxf:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+:is(#fxRoot,#gfBar) .fxf .fxf-k{color:var(--muted);font-weight:var(--fw-regular);white-space:nowrap}
+:is(#fxRoot,#gfBar) .fxf .fxf-v{color:var(--hint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:is(#fxRoot,#gfBar) .fxf .cue{margin-left:auto;color:var(--faint);font-size:9px;flex:none}
+/* THE ACCENT MARKS THE OPEN FIELD, NOT THE FILTERED ONE (2026-08-28).
+   A field that was narrowing the statement used to fill with --accent-bg inside an
+   --accent-line border, so a Scope row with three dimensions set was three cobalt
+   tablets in a row of five — the "excessive coloured pills / loud selected state"
+   this pass removes, and a misuse of the accent besides: rule 2 says the accent
+   carries INTERACTION. It does that here, on the field whose menu is open.
+
+   A narrowing filter is now stated the way the reference states it — by its
+   VALUE. At rest the value is --hint and reads "All" or "Any"; once it narrows,
+   the value inks up to --ink at 500 against a stronger border. The row is
+   monochrome either way, and the difference between "All" in grey and
+   "3 selected" in black is legible at a glance without a second colour.
+
+   The guarantee that a filtered statement always says so is unchanged and does not
+   rest on colour: every tab carries a live count of its own filters, and Clear all
+   appears at the end of the row the moment anything is set. */
+:is(#fxRoot,#gfBar) .fxf.on{border-color:var(--border-strong)}
+:is(#fxRoot,#gfBar) .fxf.on .fxf-v{color:var(--ink);font-weight:var(--fw-medium)}
+:is(#fxRoot,#gfBar) .fxf[aria-expanded="true"]{border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent)}
+:is(#fxRoot,#gfBar) .fxf[aria-expanded="true"] .cue{color:var(--accent)}
 /* Find is a field like any other — same width, same shape; its input fills the
    space the value would occupy rather than setting a width of its own. */
-#fxRoot .fxf-q{cursor:text}
-#fxRoot .fxf-q input{border:none;background:none;outline:none;font:inherit;
+:is(#fxRoot,#gfBar) .fxf-q{cursor:text}
+:is(#fxRoot,#gfBar) .fxf-q input{border:none;background:none;outline:none;font:inherit;
   color:var(--ink);flex:1;min-width:0;padding:0}
-#fxRoot .fxf-q input::placeholder{color:var(--faint)}
-#fxRoot .fxf-clr{border:none;background:none;color:var(--accent-ink);cursor:pointer;
+:is(#fxRoot,#gfBar) .fxf-q input::placeholder{color:var(--faint)}
+:is(#fxRoot,#gfBar) .fxf-clr{border:none;background:none;color:var(--accent-ink);cursor:pointer;
   font-size:var(--fs-label);font-family:inherit;padding:0 6px;margin-left:2px}
-#fxRoot .fxf-clr:hover{text-decoration:underline}
+:is(#fxRoot,#gfBar) .fxf-clr:hover{text-decoration:underline}
 
 /* ---- the dimension menu: Selected|Excluded, real checkboxes, Apply ----------
    A staged multi-select. The checkbox is a square (a tick alone reads as "done",
@@ -4978,13 +5264,11 @@ body.fx-dw-page #subnav2{display:none!important}
 /* Included | Excluded reads as a pair of tabs, not two buttons — the same
    underline grammar the command bar uses, so the popover feels like part of the
    surface that opened it rather than a widget from somewhere else. */
-.pop .pop-mode{display:flex;gap:var(--s-2);padding:0 10px;border-bottom:var(--rule)}
-.pop .pop-mode button{height:28px;padding:0 2px;border:none;background:none;
-  color:var(--muted);font:inherit;font-size:var(--fs-label);cursor:pointer;
-  border-bottom:2px solid transparent;margin-bottom:-1px}
-.pop .pop-mode button:hover{color:var(--ink)}
-.pop .pop-mode button.on{color:var(--accent-ink);border-bottom-color:var(--accent);
-  font-weight:var(--fw-medium)}
+/* Included | Excluded is a tab pair, so it is drawn by the tab primitive rather
+   than by a third hand-rolled underline. It stays level 2 — ink, not accent —
+   because the menu already belongs to the accent-marked field that opened it. */
+.pop .pop-mode{padding:0 calc(var(--pop-x) - 4px)}
+.pop .pop-mode .ktab{height:30px;padding:0 6px;font-size:var(--fs-label)}
 .pop .pop-o.ck{display:flex;align-items:center;gap:8px}
 .pop .ckb{flex:none;width:14px;height:14px;border:1px solid var(--border-strong);
   border-radius:3px;background:var(--surface);display:inline-flex;align-items:center;
@@ -4992,7 +5276,7 @@ body.fx-dw-page #subnav2{display:none!important}
 .pop .pop-o.ck:hover .ckb{border-color:var(--accent)}
 .pop .ckb.on{background:var(--accent);border-color:var(--accent);color:#fff}
 /* Clear left · state · Apply right — the standard footer for every multi-select. */
-.pop .pop-ft{display:flex;align-items:center;gap:10px;padding:8px 10px;
+.pop .pop-ft{display:flex;align-items:center;gap:10px;padding:8px var(--pop-x);
   border-top:var(--rule);background:var(--bg2)}
 .pop .pop-ftn{flex:1;font-size:var(--fs-micro);color:var(--hint);line-height:1.35;
   text-align:center}
@@ -5314,9 +5598,9 @@ body.fx-dw-page #subnav2{display:none!important}
 /* Icon-only star shares --h-btn with Table and the Mode segment. The .fx-vw
    wrapper it used to need retired with viewControls(); the rule follows the
    button into the Saved Views row. */
-#fxRoot .fx-fields .btn-out.star{
+:is(#fxRoot,#gfBar) .fx-fields .btn-out.star{
   height:var(--h-btn);padding:0 9px;justify-content:center;align-items:center}
-#fxRoot .fx-fields .btn-out.star svg{width:14px;height:14px}
+:is(#fxRoot,#gfBar) .fx-fields .btn-out.star svg{width:14px;height:14px}
 
 /* ---- PAGE CONTEXT + PERIOD NAVIGATOR ----------------------------------------
    Quiet but legible: the context line is the shared .sub, and the navigator below
@@ -5351,8 +5635,8 @@ body.fx-dw-page #subnav2{display:none!important}
 
 /* ---- smart filters ---------------------------------------------------------- */
 .pop-why{font-size:var(--fs-micro);color:var(--faint);line-height:1.35;margin-top:1px;white-space:normal}
-.pop-note{font-size:var(--fs-micro);color:var(--faint);padding:6px 8px 2px;border-top:var(--rule);
-  margin-top:4px}
+.pop-note{font-size:var(--fs-micro);color:var(--faint);
+  padding:6px calc(var(--pop-x) - 4px) 2px;border-top:var(--rule);margin-top:4px}
 .pop-o .sub{margin-left:auto;padding-left:10px;font-size:var(--fs-micro);color:var(--faint);white-space:nowrap}
 #fxScopeGrp .fsug{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;margin-bottom:6px}
 #fxScopeGrp .sug{border:1px solid var(--ai-line);background:var(--ai-bg);color:var(--ai-ink);
@@ -5421,12 +5705,66 @@ body.fx-dw-page #subnav2{display:none!important}
    inner band is un-boxed — type + hairlines separate, no box-in-box, no shadow.
    Supersedes the earlier floating-card treatment; the design pivoted to the Claude
    Design "Unboxed" 4b direction, which is truer to the system's own separation rule. */
-body.fx-mercury #fxRoot.aw{ --radius:14px; background:var(--surface);
-  border:1px solid var(--line); border-radius:14px; padding:14px 20px 8px; }
-body.fx-mercury #fxRoot .fx-work{ border:none; box-shadow:none; background:none;
-  border-radius:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-  margin:2px 0 6px; overflow:visible; }
-body.fx-mercury #fxRoot .card.fx-table{ border:none; box-shadow:none; background:none; border-radius:0; }
+/* THE SUBTREE NO LONGER REDEFINES THE RADIUS (2026-08-28). --radius:14px here was
+   a parallel design system inside one page: every control that asked for the
+   token got rounded into a capsule, which is why .fxf and .seg each had to pin 6px
+   back by hand and why the field row read as pills next to a 6px Submit button.
+   The card keeps a soft corner by declaring its own; nothing inherits it. */
+/* ---- BOXY (2026-08-28, owner's direction) -----------------------------------
+   SUPERSEDES "4b UNBOXED". That pass made the whole surface one flat white card
+   with un-boxed bands inside it; the owner reviewed it and chose the reference's
+   own structure instead — a light GROUND carrying white bordered cards.
+
+   The inversion is the whole idea: #fxRoot stops being the card and becomes the
+   ground. Nothing is boxed inside a box; each region is a card standing on the
+   page. Rule 11 ("one card per screen REGION") is honoured more literally than
+   the flat version honoured it — there is now exactly one card per region,
+   rather than one card for the entire screen.
+
+   Padding goes to zero so the regions align with the folder tabs above them,
+   which sit in the shell's box rather than this one.
+
+   NEVER use the margin shorthand on .fx-work or .fx-filters. The review
+   panel reserves its column with margin-right at a higher specificity, and a
+   shorthand later in this sheet silently zeroes that reservation — the trap
+   that kept the panel pinned below the status strip before. margin-bottom
+   only. */
+body.fx-mercury #fxRoot.aw{ background:none; border:none; border-radius:0; padding:0; }
+
+/* the command surface: one white card, joined to the folder tabs above it */
+body.fx-mercury #fxRoot.aw>.fx-filters{ background:var(--surface);
+  border:1px solid var(--line2); border-radius:0 var(--radius) var(--radius) var(--radius);
+  margin-top:0; margin-bottom:var(--s-3); padding:0; overflow:hidden; }
+:is(#fxRoot,#gfBar) .fx-ftabs{ padding:0 var(--s-3); border-bottom:1px solid var(--line2); }
+
+/* the worklist becomes stat tiles — a row of cards, each one figure over its
+   label, the way the reference states a count. It was an un-boxed strip between
+   two hairlines. */
+body.fx-mercury #fxRoot .fx-work{ display:flex; flex-wrap:nowrap; gap:var(--s-2);
+  border:none; box-shadow:none; background:none; border-radius:0; padding:0;
+  margin-top:0; margin-bottom:var(--s-3); overflow-x:auto; scrollbar-width:none; }
+body.fx-mercury #fxRoot .fx-work::-webkit-scrollbar{ display:none }
+#fxRoot.aw .fx-work .wl-seg,
+#fxRoot.aw .fx-work .wl-done,
+#fxRoot.aw .fx-work .wl-stat,
+#fxRoot.aw .fx-work .wl-tie{ flex:1 1 0; min-width:118px;
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+  gap:3px; padding:10px 14px; text-align:left;
+  background:var(--surface); border:1px solid var(--line2); border-radius:var(--radius); }
+#fxRoot.aw .fx-work .wl-seg:hover,
+#fxRoot.aw .fx-work .wl-done:hover{ background:var(--surface2); border-color:var(--line2); }
+#fxRoot.aw .fx-work .wl-seg.on{ background:var(--accent-bg); border-color:var(--accent-line);
+  box-shadow:none; }
+/* the spacer separated two halves of a strip; a row of tiles has no halves */
+#fxRoot.aw .fx-work .wl-sp{ display:none }
+#fxRoot.aw .fx-work .wl-tie{ justify-content:center; }
+
+/* the statement: a framed card with its caption as a header band */
+body.fx-mercury #fxRoot .card.fx-table{ background:var(--surface);
+  border:1px solid var(--line2); border-radius:var(--radius); box-shadow:none;
+  padding:0; }
+#fxRoot.aw .fx-table>.aw-caption{ margin:0; padding:9px 14px;
+  border-bottom:1px solid var(--line); background:var(--surface); }
 
 /* ---- THE REVIEW PANEL IS A FULL-HEIGHT DOCK (owner's direction, 2026-08-28) ----
    It runs the same band as the Korvyn assistant — from under the app header to the
@@ -5881,6 +6219,7 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
 
 <!-- GLOBAL FILTERS — collapsible bar just below the sub-nav -->
     <div class="filterbar" id="filterbar">
+      <div id="gfBar"></div>
       <div class="filterbar-hd" id="filterbarHd" role="button" tabindex="0" aria-expanded="false"
         aria-controls="filterCtrls" title="Show filters"
         onclick="if(!event.target.closest('.fb-extra'))toggleFilters()"
@@ -5948,20 +6287,10 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
           <div class="fstrip" id="fstrip" style="border:none;padding:0;margin:0"></div></div>
         </div></div>
         <div class="fsec"><div class="fsec-h">Analysis settings</div><div class="ctrls">
-        <div class="grp" id="gfClassGrp" style="display:none"><label>Reporting class</label>
-          <select onchange="renderAll()"><option>Consolidated</option><option>By entity</option></select></div>
-        <div class="grp" id="gfPeriodGrp" style="display:none"><label>Reporting period</label>
-          <select onchange="renderAll()"><option>Jun 2026</option><option>May 2026</option></select></div>
-        <div class="grp" id="gfCompareGrp" style="display:none"><label>Comparison</label>
-          <select onchange="renderAll()"><option>May 2026</option><option>Jun 2025</option></select></div>
-        <div class="grp" id="gtCatGrp" style="display:none"><label>Account category</label>
-          <select onchange="renderAll()"><option>Total revenue</option><option>Operating expenses</option></select></div>
-        <div class="grp" id="gtEntityGrp" style="display:none"><label>Entity</label>
-          <select onchange="renderAll()"><option>All entities</option></select></div>
-        <div class="grp" id="gtViewGrp" style="display:none"><label>View by</label>
-          <select onchange="renderAll()"><option>Monthly</option><option>Quarterly</option></select></div>
-        <div class="grp" id="gtRangeGrp" style="display:none"><label>Date range</label>
-          <select onchange="renderAll()"><option>Jan 2024 - Jun 2026</option></select></div>
+        <!-- SEVEN DEAD CONTROLS REMOVED (2026-08-28). gfClass/gfPeriod/gfCompare and
+             gtCat/gtEntity/gtView/gtRange were each a <select onchange="renderAll()">
+             with no id and no state binding: nothing read them, so choosing an option
+             changed not one figure. A control that cannot act is a dead control. -->
         <div class="grp" id="fxSortGrp" style="display:none"><label>Statement order</label>
           <select id="fxSort" onchange="KFX.setSort(this.value)">
             <option value="stmt">Statement order</option>
@@ -6964,17 +7293,22 @@ function setQuery(v){S.q=String(v||'');S.sel=null;paintGrid();paintKpi();paintDr
   const row=$('fxFields');
   if(row){
     const q=$('fxFieldSearch'); if(q&&q.parentNode)q.parentNode.classList.toggle('on',!!S.q);
-    const has=!!$('fxClrAll');
-    if(fxAnyFilter()&&!has)row.insertAdjacentHTML('beforeend',
-      `<button class="fxf-clr" id="fxClrAll" onclick="KFX.resetFilters()"
-        title="Reset every filter on every tab to its default">Clear all</button>`);
-    else if(!fxAnyFilter()&&has)$('fxClrAll').remove();
-    /* the Scope tab counts the query, so its badge has to move with it */
-    const t=$('fxFilters')&&$('fxFilters').querySelector('.fxt');
-    if(t){const n=fxTabCount(FX_FTABS[0]), b=t.querySelector('.fxt-n');
+    /* the band carries the across-all-tabs count and Clear all; it is safe to
+       repaint because it holds no input the reviewer could be typing into */
+    const kfh=$('fxKfh'); if(kfh)kfh.innerHTML=fxHeadInner();
+    /* EVERY TAB'S COUNT, KEYED BY THE TAB THAT OWNS THE FILTER. This read the
+       FIRST tab in the DOM and scored it against FX_FTABS[0] — Period — while the
+       comment (correctly) said the query belongs to Scope, so typing in Find
+       updated a count on the wrong tab and Scope's own count never moved. The
+       counts are the guarantee that a filtered statement always says so, so they
+       are looked up by tab id and refreshed together. */
+    const bar=$('fxFilters');
+    if(bar)FX_FTABS.forEach(tb=>{
+      const el=bar.querySelector('.ktab[data-tab="'+tb.k+'"]'); if(!el)return;
+      const n=fxTabCount(tb), b=el.querySelector('.ktab-n');
       if(n&&b)b.textContent=n;
-      else if(n&&!b)t.insertAdjacentHTML('beforeend',`<span class="fxt-n">${n}</span>`);
-      else if(!n&&b)b.remove();}
+      else if(n&&!b)el.insertAdjacentHTML('beforeend',`<span class="ktab-n">${n}</span>`);
+      else if(!n&&b)b.remove();});
   }}
 function setReason(id){
   const i=S.reason.indexOf(id);
@@ -7249,8 +7583,12 @@ function impactFor(dim,val){
    consolidation, and — the real one — "Selected vs Excluded" is not a decision you
    can read mid-build. The draft lives here; S is untouched until Apply. Cancel is
    simply closing the popover, so an abandoned draft changes nothing. */
-let popKind=null, popQ='', popEl=null, popDraft=null, popDraftX=false;
-function pop(kind,el){
+let popKind=null, popQ='', popEl=null, popDraft=null, popDraftX=false, popSide=false;
+/* `side` places the menu BESIDE its trigger instead of under it — for a 56px rail
+   icon there is no useful "under", and a flyout to the right is what a collapsed
+   rail has always meant. */
+function pop(kind,el,side){
+  popSide=!!side;
   const p=$('pop');
   /* Clicking the open trigger again closes it. This needs the outside-click handler to
      leave trigger clicks alone, or the two fight and the menu needs two clicks. */
@@ -7262,16 +7600,105 @@ function pop(kind,el){
   if(_d){ popDraft=S[_d.k].slice(); popDraftX=!!(S.excl&&S.excl[_d.k]); }
   else { popDraft=null; popDraftX=false; }
   if(el&&el.setAttribute)el.setAttribute('aria-expanded','true');
-  const r=el.getBoundingClientRect();
   p.classList.add('on');
   paintPop();
+  popPlace();
+  popFocusIn();
+}
+/* ---- PREDICTABLE ANCHORING (2026-08-28) -------------------------------------
+   Three things the two-line placement this replaces did not do.
+
+   It never ran again. The menu is position:fixed and was placed once, so scrolling
+   the statement left it hanging over unrelated rows while the field it belongs to
+   walked up the page — measured at 228px of drift after one scroll. It re-places
+   on scroll and resize now, and closes once the trigger has left the viewport,
+   because a menu anchored to something you cannot see is not anchored to anything.
+
+   It let each menu size itself. min-width:230px / max-width:330px meant seventeen
+   dropdowns hanging off seventeen identical 180px fields opened at widths from
+   230px to 330px. Width is fixed in CSS now; this only guarantees the menu is
+   never NARROWER than the control it belongs to, which is what keeps a wide
+   trigger (the Actions buttons) from getting a menu that looks unrelated to it.
+
+   It clamped rather than flipped. A menu that would overflow the right edge slid
+   along the viewport until it fitted, which detaches it from its trigger; it now
+   right-aligns to the trigger instead, and only clamps if even that overflows. */
+function popPlace(){
+  const p=$('pop'); if(!p||!popKind||!popEl||!popEl.getBoundingClientRect)return;
+  const r=popEl.getBoundingClientRect(), M=8;
+  p.style.minWidth=popSide?'0':Math.round(r.width)+'px';
   const w=p.offsetWidth, h=p.offsetHeight;
-  p.style.left=Math.max(8,Math.min(window.innerWidth-w-8,r.left))+'px';
-  p.style.top=(r.bottom+6+h>window.innerHeight?Math.max(8,r.top-h-6):r.bottom+6)+'px';
+  if(popSide){
+    /* beside the trigger, top-aligned; flip to its left if the right edge cannot
+       take it, and lift it off the bottom rather than running past the viewport */
+    let x=r.right+6; if(x+w>window.innerWidth-M)x=Math.max(M,r.left-w-6);
+    let y=r.top;     if(y+h>window.innerHeight-M)y=Math.max(M,window.innerHeight-h-M);
+    p.style.left=Math.round(x)+'px'; p.style.top=Math.round(y)+'px';
+    return;
+  }
+  let x=r.left;
+  if(x+w>window.innerWidth-M)x=r.right-w;
+  x=Math.max(M,Math.min(window.innerWidth-w-M,x));
+  const below=r.bottom+6, above=r.top-h-6;
+  p.style.left=Math.round(x)+'px';
+  p.style.top=Math.round((below+h>window.innerHeight-M&&above>=M)?above:below)+'px';
+}
+/* Opening a menu puts the caret where the next keystroke belongs: the search box
+   if the list is long enough to have one, otherwise the option currently in force
+   — which also scrolls a 30-row list to the current selection. */
+function popFocusIn(){
+  const p=$('pop'); if(!p)return;
+  const q=p.querySelector('.pop-s input'); if(q){q.focus();return;}
+  const o=p.querySelector('.pop-o.on')||p.querySelector('.pop-o');
+  if(o&&o.focus)o.focus();
+}
+/* ---- KEYBOARD IN THE MENU ---------------------------------------------------
+   Every option was a <div onclick>: not focusable, no role, no key handling — 0 of
+   6 rows reachable, measured. A dropdown that cannot be driven from the keyboard
+   is not an accessible control, and on this page every figure is filtered through
+   one. The rows are upgraded after paint rather than at the twenty call sites that
+   emit them, so one pass covers every menu, including any added later.
+
+   The role follows what the row actually offers, so a screen reader is told the
+   truth about whether one answer is possible or several. */
+function popEnhance(){
+  const p=$('pop'); if(!p)return;
+  p.setAttribute('role','menu');
+  p.querySelectorAll('.pop-o').forEach(o=>{
+    const multi=!!o.querySelector('.ckb'), pick=multi||!!o.querySelector('.bx');
+    o.setAttribute('role',multi?'menuitemcheckbox':pick?'menuitemradio':'menuitem');
+    if(pick)o.setAttribute('aria-checked',o.classList.contains('on')?'true':'false');
+    o.setAttribute('tabindex','-1');
+  });
+}
+function popKey(e){
+  if(!popKind)return;
+  const p=$('pop'); if(!p)return;
+  const inside=(p.contains&&p.contains(e.target))||e.target===popEl;
+  if(!inside)return;
+  const k=e.key;
+  if(k==='Escape'){
+    e.preventDefault(); e.stopPropagation();
+    const t=popEl; popClose(); if(t&&t.focus)t.focus(); return;
+  }
+  const rows=[...p.querySelectorAll('.pop-o')];
+  if(k==='ArrowDown'||k==='ArrowUp'||k==='Home'||k==='End'){
+    if(!rows.length)return;
+    e.preventDefault(); e.stopPropagation();
+    let i=rows.indexOf(document.activeElement);
+    if(k==='Home')i=0;
+    else if(k==='End')i=rows.length-1;
+    else if(i<0)i=(k==='ArrowDown'?0:rows.length-1);
+    else i=(i+(k==='ArrowDown'?1:-1)+rows.length)%rows.length;
+    rows[i].focus(); return;
+  }
+  if((k==='Enter'||k===' ')&&rows.indexOf(document.activeElement)>=0){
+    e.preventDefault(); e.stopPropagation(); document.activeElement.click();
+  }
 }
 function popClose(){
   if(popEl&&popEl.setAttribute)popEl.setAttribute('aria-expanded','false');
-  popKind=null; popEl=null; popDraft=null; popDraftX=false;
+  popKind=null; popEl=null; popDraft=null; popDraftX=false; popSide=false;
   const p=$('pop'); if(p)p.classList.remove('on');
 }
 function popSearch(v){popQ=v.toLowerCase();paintPop(true);}
@@ -7342,7 +7769,7 @@ function paintPop(keepFocus){
         return `<div class="pop-o ${on?'on':''}" onclick="KFX.cmpPick('${c.id}')">
           <span class="bx">${on?'\u2713':''}</span>${esc(c.nm)}
           <span class="sub">${esc(sub)}</span></div>`;}).join('')+`</div>`+
-      (S.compare==='custom'?`<div class="pop-h" style="border-top:var(--rule)">Which period</div>
+      (S.compare==='custom'?`<div class="pop-h sec">Which period</div>
         <div class="pop-l">`+PERIODS.slice().reverse().filter(p=>p.i<S.cur).map(p=>
           `<div class="pop-o ${S.prior===p.i?'on':''}" onclick="KFX.priorPick(${p.i})">
             <span class="bx">${S.prior===p.i?'\u2713':''}</span>${esc(p.lbl)}</div>`).join('')+`</div>`:'')+
@@ -7364,29 +7791,29 @@ function paintPop(keepFocus){
     h=`<div class="pop-h">Table</div><div class="pop-l">
         <div class="pop-o" onclick="KFX.popClose();KFX.openCols()">${ic('cols')} Columns…
           <span class="sub">${S.cols.length} shown</span></div></div>
-      <div class="pop-h" style="border-top:var(--rule)">Statement order</div><div class="pop-l">`+
+      <div class="pop-h sec">Statement order</div><div class="pop-l">`+
       [['stmt','Statement order','as the statement is laid out'],
        ['absd','Largest Δ amount','biggest movers first'],
        ['pctd','Largest Δ %','biggest proportional moves first'],
        ['resid','Largest residual','most unexplained first']]
       .map(([v,nm,d])=>`<div class="pop-o ${S.sort===v?'on':''}" onclick="KFX.setSort('${v}')">
         <span class="bx">${S.sort===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>
-      <div class="pop-h" style="border-top:var(--rule)">Row density</div><div class="pop-l">`+
+      <div class="pop-h sec">Row density</div><div class="pop-l">`+
       [['std','Standard','34px rows'],['dense','Dense','28px — more lines per screen']]
       .map(([v,nm,d])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
         <span class="bx">${S.dens===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`+
       /* the reach of the band is a property of Narrative, so it is only offered
          while that mode is on rather than sitting there greyed out */
-      (dm==='full'?`<div class="pop-h" style="border-top:var(--rule)">Narrative — which lines</div><div class="pop-l">`+
+      (dm==='full'?`<div class="pop-h sec">Narrative — which lines</div><div class="pop-l">`+
         [[false,'Material lines only','flagged, watched and review-required'],
          [true,'Every line with commentary','including immaterial lines that were explained']]
         .map(([v,nm,d])=>`<div class="pop-o ${!!S.fullAll===v?'on':''}" onclick="KFX.setFullAll(${v})">
           <span class="bx">${!!S.fullAll===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`
         :'')+
-      `<div class="pop-l" style="border-top:var(--rule)">
+      `<div class="pop-l sec">
         <div class="pop-o" onclick="KFX.foldAll(true)">Collapse all sections</div>
         <div class="pop-o" onclick="KFX.foldAll(false)">Expand all sections</div></div>
-      <div class="pop-l" style="border-top:var(--rule)">
+      <div class="pop-l sec">
         <div class="pop-o" onclick="KFX.toggleFocus()">${ic(S.focus?'focusOn':'focus')}
           ${S.focus?'Exit focus mode':'Focus mode'}<span class="sub">Alt+Z</span></div>
         <div class="pop-o" data-pop="units" onclick="KFX.pop('units',this)">${ic('units')} Units
@@ -7406,8 +7833,10 @@ function paintPop(keepFocus){
     h=`<div class="pop-h">Reason code${S.reason.length?`<span class="clr" onclick="KFX.clearReason()">Clear</span>`:''}</div>
       <div class="pop-l">`+opts.map(o=>{
         const on=S.reason.includes(o.id), n=tally[o.id]||0;
-        return `<div class="pop-o ${on?'on':''} ${n?'':'nil'}" onclick="KFX.setReason('${o.id}')">
-          <span class="bx">${on?'✓':''}</span>${esc(o.nm)}<span class="sub">${n||''}</span></div>`;}).join('')+
+        /* several codes can be true at once, so this is a checkbox, not a tick */
+        return `<div class="pop-o ck ${on?'on':''} ${n?'':'nil'}" onclick="KFX.setReason('${o.id}')">
+          <span class="ckb ${on?'on':''}" aria-hidden="true">${on?'✓':''}</span>${esc(o.nm)}
+          <span class="sub">${n||''}</span></div>`;}).join('')+
       `</div><div class="pop-b"><div class="rl-note">Filters to lines carrying an accepted
         explanation with one of these codes. Counts are lines on this statement.</div></div>`;
   }else if(popKind==='more'){
@@ -7417,6 +7846,40 @@ function paintPop(keepFocus){
        ['openMemo','Flux memo','memo',0],['printMemo','Print','print',0]]
       .map(([f,nm,k,n])=>`<div class="pop-o" onclick="KFX.popClose();KFX.${f}()">${ic(k)} ${nm}${
         n?`<span class="sub">${n} open</span>`:''}</div>`).join('')+`</div>`;
+  }else if(popKind&&popKind.indexOf('rail:')===0){
+    /* A COLLAPSED RAIL MUST NOT HIDE NAVIGATION (2026-08-28, owner's direction).
+       Collapsing set `.railkids{display:none!important}` while the group button
+       still called toggleRailGroup() — so the six General Ledger children became
+       unreachable, and the flipped state only surfaced later, which is why
+       re-opening the rail looked like the group had "further expanded".
+
+       The children open as an anchored flyout in the product's ONE popover
+       language, so a collapsed rail navigates with the same menu, keyboard and
+       anchoring as every other dropdown. Rows are read from what the rail already
+       rendered rather than from a second copy of the nav config. */
+    const lb=popKind.slice(5);
+    const rows=(typeof railFlyoutRows==='function')?railFlyoutRows(lb):[];
+    h=`<div class="pop-h">${esc(lb)}</div><div class="pop-l">`+
+      (rows.length?rows.map(r=>`<div class="pop-o ${r.on?'on':''}"
+        onclick="KFX.popClose();${r.go}">
+        <span class="bx">${r.on?'\u2713':''}</span>${esc(r.nm)}</div>`).join('')
+        :'<div class="rl-empty" style="padding:8px">No sub-pages.</div>')+`</div>`;
+  }else if(popKind&&popKind.indexOf('g:')===0){
+    /* THE PLATFORM FIELDS USE THE SAME MENU. One popover system for the product:
+       the shell declares its filters as data and the rendering, keyboard,
+       anchoring, widths and selected-state all come from this one place. */
+    const gk=popKind.slice(2), d=(typeof GFIELD==='function')?GFIELD(gk):null;
+    if(!d){popClose();return;}
+    const cur=d.get(), all=d.opts();
+    const os=all.filter(o=>!popQ||o.nm.toLowerCase().includes(popQ));
+    h=`<div class="pop-h">${esc(d.nm)}</div>`+
+      (all.length>12?`<div class="pop-s"><input id="popQ" type="search"
+        placeholder="Search ${esc(d.nm.toLowerCase())}\u2026" value="${esc(popQ)}"
+        oninput="KFX.popSearch(this.value)"></div>`:'')+
+      `<div class="pop-l">`+(os.length?os.map(o=>
+        `<div class="pop-o ${o.id===cur?'on':''}" onclick="gfPick('${gk}','${esc(o.id)}')">
+          <span class="bx">${o.id===cur?'\u2713':''}</span>${esc(o.nm)}</div>`).join('')
+        :'<div class="rl-empty" style="padding:8px">No match.</div>')+`</div>`;
   }else if(popKind&&popKind.indexOf('trend:')===0){
     const id=popKind.slice(6), ln=LINE(S.stmt,id), sl=activeSlices(), a=[];
     for(let k=Math.max(0,S.cur-11);k<=S.cur;k++)a.push({p:PERIODS[k],v:lineVal(S.stmt,id,k,'m','act',sl)});
@@ -7443,7 +7906,7 @@ function paintPop(keepFocus){
         ${esc(v.nm)}<span class="sub">${v.def?'default':(v.own?esc(v.own):'')}</span></div>`;};
     let first=true;
     const sect=(nm,list)=>{ if(!list.length)return '';
-      const s=`<div class="pop-h"${first?'':' style="border-top:var(--rule)"'}>${nm}</div>
+      const s=`<div class="pop-h ${first?'':'sec'}">${nm}</div>
         <div class="pop-l">`+list.map(row).join('')+`</div>`;
       first=false; return s; };
     const favs=take(S.views.filter(v=>v.fav),6);
@@ -7454,7 +7917,7 @@ function paintPop(keepFocus){
         ? sect('Favorites',favs)+sect('Recent',rec)+sect('My views',mine)+sect('Shared views',shd)
         : `<div class="pop-h">Views</div><div class="pop-l">
              <div class="rl-empty" style="padding:6px 8px">No saved views yet.</div></div>`)+
-      `<div class="pop-l" style="border-top:var(--rule)">
+      `<div class="pop-l sec">
         <div class="pop-o" onclick="KFX.saveView()">Save current view\u2026</div>
         <div class="pop-o" onclick="KFX.pop('manage',document.getElementById('pop'))">Manage views\u2026</div>
       </div>`;
@@ -7474,13 +7937,13 @@ function paintPop(keepFocus){
             <span title="Open on this view" onclick="event.stopPropagation();KFX.defView(${i})">${v.def?'default':'set default'}</span>
             ${v.sys?'':`<span onclick="event.stopPropagation();KFX.delView(${i})">remove</span>`}</span></div>`).join('')
         :'<div class="rl-empty" style="padding:6px 8px">No saved views yet.</div>')+`</div>
-      <div class="pop-h" style="border-top:var(--rule)">Filter presets<span class="clr"
+      <div class="pop-h sec">Filter presets<span class="clr"
         onclick="KFX.saveFilterPreset()">Save filters</span></div>
       <div class="pop-l">`+(S.presets.length?S.presets.map((x,i)=>
         `<div class="pop-o" onclick="KFX.loadPreset(${i})">${esc(x.nm)}
           <span class="sub" onclick="event.stopPropagation();KFX.delPreset(${i})">remove</span></div>`).join('')
         :'<div class="rl-empty" style="padding:6px 8px">No presets.</div>')+`</div>
-      <div class="pop-h" style="border-top:var(--rule)">Watchlist \u2014 statement lines${w.length?
+      <div class="pop-h sec">Watchlist \u2014 statement lines${w.length?
         `<span class="clr" onclick="KFX.clearWatch()">Clear</span>`:''}</div>
       <div class="pop-l">`+(w.length?w.map(k=>{const [st,id]=k.split('::');const ln=LINE(st,id);
         return `<div class="pop-o" onclick="KFX.gotoWatch('${st}','${id}')">
@@ -7522,10 +7985,18 @@ function paintPop(keepFocus){
     /* Every period the book holds, newest first, named the way the chosen cadence
        names it — a quarterly review picks Q2 2026, not Jun 2026. The stepper this
        replaced could only reach a neighbour; this reaches any period in one click. */
-    h=`<div class="pop-h">Period</div><div class="pop-l">`+
-      PERIODS.slice().reverse().map(p=>`<div class="pop-o ${S.cur===p.i?'on':''}"
+    /* 30 periods is a long list, and a long list gets a search — the same one the
+       dimension menus carry, so finding "Mar 2025" works the way finding an entity
+       does rather than being a scroll the reviewer has to eyeball. */
+    const pl=PERIODS.slice().reverse()
+      .filter(p=>!popQ||pLabel(p.i).toLowerCase().includes(popQ));
+    h=`<div class="pop-h">Period</div>
+      <div class="pop-s"><input id="popQ" type="search" placeholder="Search periods\u2026"
+        value="${esc(popQ)}" oninput="KFX.popSearch(this.value)"></div>
+      <div class="pop-l">`+(pl.length?pl.map(p=>`<div class="pop-o ${S.cur===p.i?'on':''}"
         onclick="KFX.setCur(${p.i});KFX.popClose()">
-        <span class="bx">${S.cur===p.i?'✓':''}</span>${esc(pLabel(p.i))}</div>`).join('')+
+        <span class="bx">${S.cur===p.i?'✓':''}</span>${esc(pLabel(p.i))}</div>`).join('')
+        :'<div class="rl-empty" style="padding:8px">No match.</div>')+
       `</div>`;
   }else if(popKind==='grain'){
     h=`<div class="pop-h">Cadence</div><div class="pop-l">`+
@@ -7611,10 +8082,10 @@ function paintPop(keepFocus){
       value="${esc(popQ)}" oninput="KFX.popSearch(this.value)"></div>`;
     /* the two readings of the same set, as an underlined pair \u2014 the label states what
        the chosen options will DO, which is the thing a list of checkboxes cannot say */
-    h+=`<div class="pop-mode" role="group" aria-label="How the selection applies">
-      <button class="${popDraftX?'':'on'}" aria-pressed="${popDraftX?'false':'true'}"
+    h+=`<div class="pop-mode ktabs lvl2" role="group" aria-label="How the selection applies">
+      <button class="ktab ${popDraftX?'':'on'}" aria-pressed="${popDraftX?'false':'true'}"
         onclick="KFX.popMode(false)" title="Keep only the options you tick">Included</button>
-      <button class="${popDraftX?'on':''}" aria-pressed="${popDraftX?'true':'false'}"
+      <button class="ktab ${popDraftX?'on':''}" aria-pressed="${popDraftX?'true':'false'}"
         onclick="KFX.popMode(true)" title="Keep everything except the options you tick">Excluded</button></div>`;
     h+=`<div class="pop-l">`;
     if(os.length){
@@ -7644,8 +8115,15 @@ function paintPop(keepFocus){
       <button class="btn-primary sm" onclick="KFX.popApply('${d.k}')">${verb}</button></div>`;
   }
   p.innerHTML=h;
+  /* the two fixed widths: the dimension multi-selects and the materiality editor
+     carry a second column of figures or a form, everything else is a plain list */
+  p.classList.toggle('wide',!!DIM(popKind)||popKind==='mat');
+  popEnhance();
   if(popKind==='mat')seg('segOp',thr().op);
   if(keepFocus){const q=$('popQ');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length);}}
+  /* searching a list changes the menu's height, so it is re-placed against its
+     trigger rather than being allowed to grow off the bottom of the screen */
+  popPlace();
 }
 
 /* ============================================================================
@@ -11355,7 +11833,9 @@ function cmtCard(c,lock,isReply){
      the single most common thing a reviewer does here. A locked line still reads;
      discussion is not a determination, so the lock does not remove it. */
   const canReply=!!c.id&&typeof caps==='function';
-  return `<div class="rw-msg ${mine?'mine':''} ${isReply?'reply':''}">
+  /* the row in play — what the composer is currently answering */
+  const aim=!!c.id&&S.cmtReplyTo===c.id;
+  return `<div class="rw-msg ${mine?'mine':''} ${isReply?'reply':''} ${aim?'aim':''}">
     <span class="rw-av" aria-hidden="true">${esc(rwInitials(c.who))}</span>
     <div class="bd">
       <div class="hd">
@@ -12372,7 +12852,12 @@ const FX_FTABS=[
 /* Dimensions that are NOT on the Scope row — reached through More. */
 const FX_MOREDIMS=['prop','cc'];
 let fxFTab='period';
-function setFilterTab(k){ fxFTab=k; paintFilterFields(); }
+/* folded on arrival (owner's direction) — the band states whether anything is
+   filtering; opening it states what */
+function toggleFilt(){ S.filtOpen=!S.filtOpen; paintFilterFields(); }
+/* choosing a category is asking to see its controls, so it opens the region if
+   it was folded — never the other way round */
+function setFilterTab(k){ fxFTab=k; S.filtOpen=true; paintFilterFields(); }
 /* One field by key. The dimensions go through fxDimField() for the Selected /
    Excluded wording; the rest state their own value. */
 function fxOneField(k){
@@ -12506,13 +12991,36 @@ function fxTabCount(t){
 function fxAnyFilter(){
   return FX_FTABS.reduce((n,t)=>n+fxTabCount(t),0)>0 || !!S.q;
 }
+/* THE PLATFORM FILTER ICON. Same path the shell draws on its own filter header,
+   so the two are literally the same mark rather than two drawings of one idea. */
+const KFILT_IC='<svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true">'+
+  '<path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+/* The band's contents, separate from the card so syncFilterChrome() can refresh
+   the count and Clear all without repainting the tabs and losing a caret. */
+function fxHeadInner(){
+  const n=FX_FTABS.reduce((a,t)=>a+fxTabCount(t),0);
+  return KFILT_IC+'<span class="kfh-l">Filters</span>'+
+    (n?`<span class="kfh-n">${n} active</span>`:'')+
+    '<span class="kfh-sp"></span>'+
+    /* Clear all is inside the toggle, so it must not toggle it. A nested <button>
+       is invalid inside a button, which is why the band is a role="button" div —
+       the same construction the shell's own filter header uses. */
+    (fxAnyFilter()?`<button class="kfh-clr" id="fxClrAll"
+      onclick="event.stopPropagation();KFX.resetFilters()"
+      title="Reset every filter on every tab to its default">Clear all</button>`:'')+
+    '<span class="kfh-car" aria-hidden="true">\u25B8</span>';
+}
 function fxFiltersInner(){
   const tab=FX_FTABS.find(t=>t.k===fxFTab)||FX_FTABS[0];
+  let divDone=false;
   const tabs=FX_FTABS.map(t=>{const n=fxTabCount(t), on=t.k===tab.k;
-    return `<button class="fxt ${on?'on':''}" role="tab" aria-selected="${on?'true':'false'}"
+    /* the strip says where the filters stop — see .ktab-div */
+    const div=(t.cfg&&!divDone)?(divDone=true,'<span class="ktab-div"></span>'):'';
+    return div+`<button class="ktab ${on?'on':''}" role="tab" data-tab="${t.k}"
+      tabindex="${on?0:-1}" aria-selected="${on?'true':'false'}"
       onclick="KFX.setFilterTab('${t.k}')"
       title="${esc(t.nm)}${n?' — '+n+' filter'+(n===1?'':'s')+' applied':''}">${esc(t.nm)}${
-      n?`<span class="fxt-n">${n}</span>`:''}</button>`;}).join('');
+      n?`<span class="ktab-n">${n}</span>`:''}</button>`;}).join('');
   /* THE CTA APPEARS ONLY WHEN IT CAN ACT, AND SAYS HOW MUCH (2026-08-28).
      It used to render unconditionally, so the single loudest control on the page —
      the only filled cobalt button — spent most of the close inert, answering a
@@ -12526,25 +13034,30 @@ function fxFiltersInner(){
      Submit already lives in the panel footer (exSubmit), gated on coverage and
      stating why when it is withheld. Two different actions, two right places. */
   const ready=(typeof caps==='function'&&caps().prepare)?readyToSubmit().length:0;
-  return `<div class="fx-ftabs" role="tablist" aria-label="Command categories">${tabs}
-      <span class="fxt-sp"></span>
+  const open=!!S.filtOpen;
+  return `<div class="kfh" id="fxKfh" role="button" tabindex="0"
+      aria-expanded="${open?'true':'false'}" aria-controls="fxFields"
+      title="${open?'Hide filters':'Show filters'}"
+      onclick="KFX.toggleFilt()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();KFX.toggleFilt();}"
+      >${fxHeadInner()}</div>
+    <div class="fx-ftabs ktabs lvl2" role="tablist" aria-label="Command categories">${tabs}
+      <span class="ktab-sp"></span>
       ${ready?`<button class="btn-primary fx-submit" onclick="KFX.submitAll()"
         title="Submit the ${ready} line${ready===1?'':'s'} whose explanation is complete"
         >Submit ${ready} ready line${ready===1?'':'s'}</button>`:''}
     </div>
     <div class="fx-fields" id="fxFields" role="tabpanel" aria-label="${esc(tab.nm)}">`+
     tab.f.map(fxOneField).join('')+
-    /* Clear all reaches across every tab, so it says so. It appears only when there
-       is something to clear, and never on a tab that configures rather than filters. */
-    ((!tab.cfg&&fxAnyFilter())?`<button class="fxf-clr" id="fxClrAll" onclick="KFX.resetFilters()"
-      title="Reset every filter on every tab to its default">Clear all</button>`:'')+
     `</div>`;
 }
 function paintFilterFields(){
-  const el=$('fxFilters'); if(el)el.innerHTML=fxFiltersInner();
+  const el=$('fxFilters'); if(!el)return;
+  el.classList.toggle('shut',!S.filtOpen);
+  el.innerHTML=fxFiltersInner();
 }
 function fxFilterFields(){
-  return `<div class="fx-filters" id="fxFilters">${fxFiltersInner()}</div>`;
+  return `<div class="fx-filters${S.filtOpen?'':' shut'}" id="fxFilters">${fxFiltersInner()}</div>`;
 }
 
 /* viewControls() is retired. The star and the Views menu are the Saved Views tab
@@ -12655,6 +13168,25 @@ function activeChips(){
    left it for the page header, which states them permanently and in full. What is
    left is the display scale \u2014 the one basis fact the header deliberately does not
    carry, because it changes how a figure READS rather than what it measures. */
+/* ---- THE PAGE CONTEXT LINE (2026-08-28) -------------------------------------
+   What a reviewer has to know before reading a single figure: which period,
+   measured against what, at what scope, in what currency. It is written into the
+   shell's own title row under the page name, so Corporate Flux states its identity
+   once — a header inside #fxRoot would put the page name on screen twice, which is
+   why glHead() was retired in the first place.
+
+   Every clause comes from the same function the matching control reads —
+   cmpPhrase for Period and Compare, scopeWord for Scope, ccyWord for Basis — so
+   the header and the fields cannot drift apart.
+
+   The cadence word drops out of a plain prior-period comparison: "Jun 2026 vs
+   May 2026 · Monthly" and "Q2 2026 vs Q1 2026 · Quarterly" both say the cadence
+   twice. Year-over-year and a custom comparison keep theirs, because there the
+   phrase alone does not carry it. */
+function pageContext(){
+  const cad=S.compare==='seq'?'':cadenceWord();
+  return [cmpPhrase(),scopeWord(),cad,ccyWord()].filter(Boolean).map(esc).join(' \u00b7 ');
+}
 function basisLine(){ return '$'+(S.units===1?'':uName()); }
 /* Every chip on screen comes off. Optional filters clear; a chosen setting returns to
    the default it was changed from. Comparison, cadence and units are absent because
@@ -12926,6 +13458,17 @@ function lineForAcct(acct){
     if(e.target.closest&&e.target.closest('[data-pop]'))return;  // a trigger: let pop() toggle
     popClose();
   },true);
+  /* capture, so the menu answers Escape and the arrows before the page-level
+     handler below sees them */
+  document.addEventListener('keydown',popKey,true);
+  const popTrack=()=>{
+    if(!popKind||!popEl||!popEl.getBoundingClientRect)return;
+    const r=popEl.getBoundingClientRect();
+    if(r.bottom<0||r.top>window.innerHeight||r.right<0||r.left>window.innerWidth){popClose();return;}
+    popPlace();
+  };
+  window.addEventListener('scroll',popTrack,{passive:true,capture:true});
+  window.addEventListener('resize',popTrack);
   document.addEventListener('keydown',e=>{
     if(!active())return;
     if(e.key==='Escape'){
@@ -12945,15 +13488,18 @@ function lineForAcct(acct){
       return;
     }
     if(fxKeys(e))return;
-    if(e.altKey&&(e.key==='f'||e.key==='F')){e.preventDefault();
-      if(typeof toggleFilters==='function')toggleFilters(); else openFilters();}
+    /* Alt+F called the SHELL's toggleFilters here, which opens a drawer that is
+       display:none on Flux — the shortcut did nothing at all. It toggles the
+       region the reviewer can actually see. */
+    if(e.altKey&&(e.key==='f'||e.key==='F')){e.preventDefault();toggleFilt();
+      const b=$('fxKfh'); if(b&&S.filtOpen)b.focus();}
     if(e.altKey&&(e.key==='z'||e.key==='Z')){e.preventDefault();toggleFocus();}
     if(e.altKey&&(e.key==='b'||e.key==='B')){e.preventDefault();if(typeof setFluxStmt==='function')setFluxStmt('bs');}
     if(e.altKey&&(e.key==='i'||e.key==='I')){e.preventDefault();if(typeof setFluxStmt==='function')setFluxStmt('is');}
   });
 })();
 
-return {basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popApply, popApplyClear, setFilterTab, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
+return {pageContext, toggleFilt, collapseFilters:()=>{S.filtOpen=false;}, basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popApply, popApplyClear, setFilterTab, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
 dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, cmtOwedToggle, cmtReply, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
 kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
@@ -18593,7 +19139,32 @@ function stPolicies(){
 }
 
 let railExpanded={};   // label -> bool
-function toggleRailGroup(k){ railExpanded[k]=!railExpanded[k]; paintRailRoles(); }
+/* The group's children, read off the rail the shell already painted — never a
+   second copy of the nav config, so a rail item added to NAV_CFG appears in the
+   collapsed flyout with no further wiring. */
+function railFlyoutRows(label){
+  const g=[...document.querySelectorAll('.rail .railrole')]
+    .find(b=>b.getAttribute('title')===label);
+  const box=g&&g.nextElementSibling;
+  if(!box||!box.classList.contains('railkids'))return [];
+  return [...box.children].map(k=>({
+    on:k.classList.contains('on'),
+    go:(k.getAttribute('onclick')||''),
+    nm:((k.querySelector('.lbl')||{}).textContent||'').trim()
+  }));
+}
+/* Returns FALSE when it has handled the click itself, so the inline handler knows
+   not to also navigate. In a collapsed rail the group icon opens its children
+   rather than flipping a state nobody can see and jumping to a page the reviewer
+   did not ask for. */
+function toggleRailGroup(k,el){
+  if(document.body.classList.contains('rail-collapsed')){
+    if(typeof KFX!=='undefined'&&KFX.pop)KFX.pop('rail:'+k,el||document.activeElement,true);
+    return false;
+  }
+  railExpanded[k]=!railExpanded[k]; paintRailRoles();
+  return true;
+}
 
 // ==================== GENERAL LEDGER INTELLIGENCE ====================
 // Korvyn reads the ERP; it does not post to it. Every figure below derives from COA
@@ -19415,9 +19986,14 @@ function fpHeadCtl(){
   <button class="selpill" onclick="toggleFilters()">${fpI('M3 4.5h10v9H3zM3 7h10M5.5 2.5v2M10.5 2.5v2')}May 2026 ${fpI('M4 6.5L8 10l4-3.5')}</button>
   <button class="btn-primary" onclick="toggleFilters()">+ Add / Plan ${fpI('M4 6.5L8 10l4-3.5')}</button>`;
 }
-function fpHead(t,s){ return `<div class="fp-hd"><div class="grow">
-  <h1>${t}<span class="infoi" title="Illustrative planning data">i</span></h1>
-  <div class="sub">${s}</div></div>${fpHeadCtl()}</div>`; }
+/* ONE PAGE HEADER, NOT TWO. .fp-hd was a second component with the same shape and
+   its own class, so FP&A's seven views drifted from the other twenty-five. It draws
+   from glHead now — same dedupe, same markup — and keeps only the one thing that is
+   genuinely FP&A's: the illustrative-data marker. */
+function fpHead(t,s){
+  return glHead(t+'<span class="infoi" title="Illustrative planning data">i</span>',
+    s, fpHeadCtl());
+}
 const fpTabs=(items,cur,setter)=>`<div class="ftabs">`+items.map(i=>
   `<button class="${cur===i[0]?'on':''}" onclick="${setter}('${i[0]}')">${i[1]}</button>`).join('')+`</div>`;
 
@@ -22102,18 +22678,44 @@ const CLOSE_LEG=()=>{const t=closeTotals();return [['Completed',t.done,'var(--po
   ['Not started',t.not,'var(--purple)'],['Blocked',t.blk,'var(--neg)']];};
 const glLegend=rows=>rows.map(r=>
   `<div class="legend"><span class="sw" style="background:${r[2]}"></span>${r[0]}<span class="n">${r[1]}</span></div>`).join('');
+/* THE PAGE STATES ITS NAME ONCE (2026-08-28, owner's direction). The shell's title
+   row already carries the page name from VIEW_META, so 23 views printed it twice —
+   once as chrome and again as an h1 a few pixels below. Flux retired its own h1 for
+   exactly this reason; this generalises that ruling to every page that uses the
+   shared header.
+
+   The h1 is kept only when it says something the topbar does not — a drill-down
+   whose header names the record rather than the view still gets its title. The
+   comparison is against VIEW_META directly rather than the rendered topbar, so it
+   does not depend on which paints first. */
+function glDupTitle(t){
+  const meta=(typeof VIEW_META!=='undefined'&&
+    (VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]))||{};
+  return String(meta.t||'').trim().toLowerCase()===String(t||'').trim().toLowerCase();
+}
 function glHead(t,s,actions){
-  return `<div class="gl-hd"><div class="grow"><h1>${t}</h1><div class="sub">${s}</div></div>${actions||''}</div>`;
+  return `<div class="gl-hd"><div class="grow">${
+    glDupTitle(t)?'':`<h1>${t}</h1>`}<div class="sub">${s}</div></div>${actions||''}</div>`;
 }
 /* "Pin to Workspace" is NOT here — it lives in the global topbar, which every page has.
    Putting it in glActions covered only the 11 pages that use this constant, and would have
    duplicated a control that belongs to the page frame rather than to a module. */
-const glActions=`<button class="btn-icon" onclick="toggleFilters()" title="More">&#183;&#183;&#183;</button>
-  <button class="btn-out" onclick="toggleFilters()">
-    <svg viewBox="0 0 16 16" fill="none"><path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Filters</button>
-  <button class="btn-primary" onclick="toggleFilters()">Actions ${glIc('M4 6.5L8 10l4-3.5')}</button>`;
-const glExport=`<button class="btn-out" onclick="toggleFilters()">
-  ${glIc('M8 2.5v8M4.8 7.6L8 10.8l3.2-3.2M3 13h10')}Export</button>`;
+/* THE PAGE HEADER NO LONGER CARRIES A COMMAND CLUSTER (2026-08-28, owner's
+   direction). First the duplicate "Filters" button went — it opened the very same
+   panel the FILTERS band above the content opens. Now the rest follows it into
+   that band's **Actions** tab, on exactly the precedent Flux set: "Actions absorbs
+   the ellipsis menu. The tab IS the menu, so its contents are the row — putting a
+   menu inside a tab would be two clicks to reach one action."
+
+   `···` (More) and "Actions ⌄" are not ported as buttons because neither ever
+   had contents: both opened the filter panel, like ~25 other placeholders wired to
+   toggleFilters(). The Actions TAB is what they were pretending to be, and it
+   renders only what the page can actually do.
+
+   Emptying these two constants retires them at all 26 call sites at once, with no
+   edit to any of them — they are interpolated, so an empty string is inert. */
+const glActions='';
+const glExport='';
 const glSaveView=`<button class="btn-primary" onclick="toggleFilters()">Save view</button>`;
 
 /* ============================================================================
@@ -22133,9 +22735,8 @@ function glSurface(el){ if(el)el.classList.add('acctsurf'); }
    button that glActions carries. That control opened the filter panel — the same
    thing the Filters button beside it did — so it was a menu that never appeared,
    which is precisely the dead control the shared conventions forbid. */
-const glSurfActions=`<button class="btn-out" onclick="toggleFilters()">
-    <svg viewBox="0 0 16 16" fill="none"><path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor"
-      stroke-width="1.5" stroke-linecap="round"/></svg>Filters</button>`+glExport;
+/* was a duplicate Filters button + Export; only Export is not the band's job */
+const glSurfActions=glExport;
 
 /* THE CONTEXT LINE. Flux's header answers "what am I looking at" in one line and
    so does this: scope, period, currency. Derived from the live GL filter state and
@@ -22423,9 +23024,7 @@ function glCtxChips(){
     <span class="lbl">Context</span>
     ${chips.map(c=>`<span class="fchip" title="${glEsc(c.title)}">${glEsc(c.label)}<span class="x"
       title="Remove this filter" onclick="glChipOff('${c.k||c.id}')">&times;</span></span>`).join('')}
-    <button class="fchip add" onclick="toggleFilters()">+ Filter</button>
     ${chips.length?`<span class="fclear" onclick="glReset()">Reset</span>`:''}
-    <span class="fclear" onclick="toggleFilters()">Advanced context</span>
   </div>`;
 }
 function glFromBanner(){
@@ -23291,8 +23890,6 @@ function fdCommentBlock(){
   const CST={open:{l:'Open',c:'ready'},progress:{l:'In progress',c:'info'},resolved:{l:'Resolved',c:'good'}};
   o+=`<div class="ctoolbar">
     <button class="btn-primary" onclick="setFDetailTab('review')">+ Add comment</button>
-    <button class="btn-out" onclick="toggleFilters()">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Filters</button>
     <span class="sp"></span>
     <span class="tgl ${fShowResolved?'on':''}" onclick="toggleResolved()">Show resolved<span class="track"><i></i></span></span>
     <select onchange="setCommentSort(this.value)" style="width:auto">
@@ -24606,7 +25203,7 @@ function renderDrReq(){
   const K=drKpi(), rows=drReqScope();
   let o=glHead('Requests',
     'Evidence and diligence requests across the enterprise — each scoped to the entities, funds and projects it supports.',
-    `<button class="btn-out" onclick="toggleFilters()">${glIc('M2 3h12M4 8h8M6 13h4')}Filters</button>
+    `
      <button class="btn-primary" onclick="toggleFilters()">New request</button>`);
 
   o+=`<div class="statrow">
@@ -24738,7 +25335,7 @@ function renderDrOver(){
   const K=drKpi(), A=drAttention();
   let o=glHead('Data Room',
     'Enterprise evidence, diligence, and financial support across the organization.',
-    `<button class="btn-out" onclick="toggleFilters()">${glIc('M2 3h12M4 8h8M6 13h4')}Filters</button>
+    `
      <button class="btn-primary" onclick="toggleFilters()">New request</button>`);
 
   // compact metric strip — restrained, not a tile dashboard
@@ -24898,7 +25495,7 @@ function renderDrEvid(){
   const K=drevKpi();
   let o=glHead('Evidence',
     'Every evidence item is a claim supported by links to source records — Korvyn holds the linkage and the state of the support, not the source of truth.',
-    `<button class="btn-out" onclick="toggleFilters()">${glIc('M2 3h12M4 8h8M6 13h4')}Filters</button>${glExport}`);
+    `${glExport}`);
 
   o+=`<div class="statrow">
     <div class="stat"><div class="sl">Tracked items</div><div class="sv">${K.tracked}</div>
@@ -29218,7 +29815,12 @@ function paintRailRoles(){
             extra=`<span class="rbadge ${it.mut?'mut':''} ${sv}">${n}</span>`; } }
         if(it.kids) extra=`<svg class="rchev" viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10l4-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         const open=!!railExpanded[it.label];
-        let out=`<button class="railrole ${active?'on':''} ${open?'exp':''}" title="${it.label}" onclick="${it.kids?`toggleRailGroup('${it.label}');`:''}${go}">${path(it.ic)}<span class="lbl">${it.label}</span>${extra}</button>`;
+        /* data-pop lets the outside-click handler leave this trigger alone, so a
+           second click on the same group closes its flyout instead of reopening it */
+        let out=`<button class="railrole ${active?'on':''} ${open?'exp':''}" title="${it.label}"${
+          it.kids?` data-pop="rail:${it.label}"`:''} onclick="${
+          it.kids?`if(!toggleRailGroup('${it.label}',this))return;`:''}${go}">${
+          path(it.ic)}<span class="lbl">${it.label}</span>${extra}</button>`;
         if(it.kids){
           out+=`<div class="railkids ${open?'open':''}">`+it.kids.map(k=>{
             const kon = k.seg ? (TAB==='findex'&&fIndexSeg===k.seg)
@@ -29500,19 +30102,64 @@ function paintSubnav2(){
      page inventing its own row of tabs inside the content. */
   if(TAB==='finrep' && finRepSub==='flux'){
     const names={is:'Income statement',bs:'Balance sheet',cf:'Cash flows',eq:'Equity'};
-    s2.className='subnav subnav2 stmt-tabs';
+    /* lvl1 = folder tabs, because this row opens the panel directly beneath it.
+       The GL branch below stays on the underline: it has no panel to join. */
+    s2.className='subnav subnav2 stmt-tabs ktabs lvl1';
     s2.innerHTML=['is','bs','cf','eq'].map(s=>
-      `<button class="${fluxStmt===s?'on':''}" onclick="setFluxStmt('${s}')">${names[s]}</button>`).join('');
+      `<button class="ktab ${fluxStmt===s?'on':''}" role="tab" data-tab="${s}"
+        tabindex="${fluxStmt===s?0:-1}" aria-selected="${fluxStmt===s?'true':'false'}"
+        onclick="setFluxStmt('${s}')">${names[s]}</button>`).join('');
+    s2.setAttribute('role','tablist');
+    s2.setAttribute('aria-label','Statement');
     if(typeof KFX!=='undefined')KFX.setStmtFromShell(fluxStmt);
     s2.style.display='flex';
   } else if(TAB==='glfin' && typeof STMTS!=='undefined'){
-    s2.className='subnav subnav2 stmt-tabs';
+    s2.className='subnav subnav2 stmt-tabs ktabs';
     s2.innerHTML=STMTS.map(x=>
-      `<button class="${glFinStmt===x[0]?'on':''}" onclick="setGlFinStmt('${x[0]}')">${x[1]}</button>`).join('');
+      `<button class="ktab ${glFinStmt===x[0]?'on':''}" role="tab" data-tab="${x[0]}"
+        tabindex="${glFinStmt===x[0]?0:-1}" aria-selected="${glFinStmt===x[0]?'true':'false'}"
+        onclick="setGlFinStmt('${x[0]}')">${x[1]}</button>`).join('');
+    s2.setAttribute('role','tablist');
+    s2.setAttribute('aria-label','Statement');
     s2.style.display='flex';
   } else { s2.style.display='none'; s2.innerHTML=''; }
   if(typeof paintFluxFilter==='function') paintFluxFilter();
 }
+
+/* ---- TAB ROWS: KEYBOARD (2026-08-28) ----------------------------------------
+   A tablist is walked with the arrow keys, and Tab moves PAST it into the panel it
+   controls. All eight Flux command tabs carried tabindex 0, so reaching the field
+   row underneath took nine presses of Tab and no arrow key did anything. One
+   delegated handler covers every .ktabs in the product, so a tab row added later is
+   keyboard-accessible without anyone remembering to wire it up.
+
+   Selecting a tab repaints the row, so the focused node is gone by the time click()
+   returns; the tab is found again by its id rather than held as a reference. */
+function ktabsRove(bar){
+  if(!bar)return;
+  const ts=[...bar.querySelectorAll('.ktab')];
+  const sel=ts.find(t=>t.classList.contains('on'))||ts[0];
+  ts.forEach(t=>t.setAttribute('tabindex',t===sel?'0':'-1'));
+}
+document.addEventListener('keydown',e=>{
+  const t=e.target&&e.target.closest?e.target.closest('.ktab'):null; if(!t)return;
+  const bar=t.closest('.ktabs'); if(!bar)return;
+  /* the Included|Excluded pair borrows the tab LOOK inside a menu; the menu's own
+     arrow keys walk its options, so this handler leaves it alone */
+  if(t.closest('.pop-mode'))return;
+  const ts=[...bar.querySelectorAll('.ktab')], i=ts.indexOf(t);
+  let n=-1;
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')n=(i+1)%ts.length;
+  else if(e.key==='ArrowLeft'||e.key==='ArrowUp')n=(i-1+ts.length)%ts.length;
+  else if(e.key==='Home')n=0;
+  else if(e.key==='End')n=ts.length-1;
+  else return;
+  e.preventDefault(); e.stopPropagation();
+  const key=ts[n].getAttribute('data-tab');
+  ts[n].click();
+  const again=key&&document.querySelector('.ktabs .ktab[data-tab="'+key+'"]');
+  if(again){ktabsRove(again.closest('.ktabs')); again.focus();}
+});
 
 // top bar title + crumb + spine ribbon depth per view
 const VIEW_META={
@@ -29591,21 +30238,40 @@ const VIEW_META={
 };
 
 
+/* COLLAPSED ON ARRIVAL (2026-08-28, owner's direction). Both regions default to
+   folded, but the open/closed flag is session state, so a band left open while
+   adjusting one page's filters used to greet you open on the next. It folds
+   whenever the page changes. Switching the STATEMENT on Flux is not a page change
+   and leaves the band as the reviewer set it. */
+let _lastFiltTab=null;
 function paintTopbar(){
   const m=VIEW_META[LENS+':'+TAB]||VIEW_META[TAB]||{t:'',c:''};
+  if(typeof TAB!=='undefined'&&TAB!==_lastFiltTab){
+    _lastFiltTab=TAB;
+    gfOpen=false;
+    if(typeof KFX!=='undefined'&&KFX.collapseFilters)KFX.collapseFilters();
+  }
   // The old segmented "provenance depth" bars were removed: they rendered an internal 1-5
   // scale that meant nothing to a finance user and could not be explained without product
   // jargon. VIEW_META still carries `depth`; it is simply no longer drawn.
   const tt=document.getElementById('tbTitle');
   if(tt)tt.textContent=m.t;
   const cr=document.getElementById('tbCrumb');
-  let crumb=m.c;
-  /* Flux names the statement under review rather than a static description. */
+  let crumb=m.c, ownHdr=false;
+  /* CORPORATE FLUX WRITES ITS OWN HEADER (2026-08-28). This row IS the page header
+     — title, then one quiet line under it — so the page is made readable here
+     rather than by adding a header block inside #fxRoot that would state the page
+     name a second time.
+
+     What it replaced: "Income statement · variance analysis". The statement tabs
+     sit directly beneath this line and already name the statement, and "variance
+     analysis" is what the page is called, not what it is scoped to. Both were the
+     page restating itself in the one place its context belongs. */
   if(TAB==='finrep'&&typeof finRepSub!=='undefined'&&finRepSub==='flux'){
-    const nm={is:'Income statement',bs:'Balance sheet',cf:'Cash flows',eq:'Equity'}[fluxStmt]||'';
-    crumb=nm+' \u00b7 variance analysis';
+    if(tt)tt.textContent='Corporate Flux';
+    if(typeof KFX!=='undefined'&&KFX.pageContext){crumb=KFX.pageContext(); ownHdr=true;}
   }
-  if(cr)cr.innerHTML=`<b>${LENSES[LENS].label}</b> · ${crumb}`;
+  if(cr)cr.innerHTML=ownHdr?crumb:`<b>${LENSES[LENS].label}</b> · ${crumb}`;
   // rail scope line + filter-bar state chip (same summary string)
   /* The chip no longer leads with "All funds". Entity scoping moved to the EntityTree in the
      topbar, and this bar now states what IT owns: currency and period. Fund, region and
@@ -29635,11 +30301,12 @@ function paintTopbar(){
   if(!fxHere)document.body.classList.remove('fx-dw-page');
   if(fhd)fhd.style.display='';
   if(fbar)fbar.style.display=fxHere?'none':'';
+  /* the platform filter is the Flux format now — band, tabs, one field row */
+  if(!fxHere&&typeof paintGfBar==='function')paintGfBar();
   if(fex)fex.innerHTML=(fxHere&&KFX.headerControls)?KFX.headerControls():'';
   /* each page's own filter controls live in the shared panel and appear on its page */
   const show=(id,on)=>{const e=document.getElementById(id); if(e)e.style.display=on?'':'none';};
-  ['gfClassGrp','gfPeriodGrp','gfCompareGrp'].forEach(id=>show(id,TAB==='glfin'));
-  ['gtCatGrp','gtEntityGrp','gtViewGrp','gtRangeGrp'].forEach(id=>show(id,TAB==='gltrend'));
+  /* the seven dead per-page selects they used to reveal are gone — see the markup */
   /* FLUX'S OWN CONTROLS WERE NEVER UNHIDDEN. Statement order, materiality and
      eliminations are fully implemented, declared display:none in the markup, and
      nothing in this function ever turned them on — which is why the statement could
@@ -29733,8 +30400,256 @@ function paintTopbar(){
   const lq=document.getElementById('lensqBig');
   if(lq){ lq.textContent=''; lq.style.display='none'; }
 }
+/* ============================================================================
+   THE PLATFORM FILTER — the Flux command surface, everywhere else
+   One collapsible FILTERS band, one tab strip, one contextual row of fields, and
+   the same popover Flux uses. Every field DRIVES AN EXISTING CONTROL rather than
+   holding state of its own: the <select> and .seg elements in #filterCtrls remain
+   the store readFilters() reads, so this is where you reach a filter, not how it
+   works — exactly the move Flux made.
+
+   SEVEN DEAD CONTROLS WERE NOT PORTED. gfClassGrp, gfPeriodGrp and gfCompareGrp on
+   GL financial statements, and gtCatGrp, gtEntityGrp, gtViewGrp and gtRangeGrp on
+   Trending review, were each a <select onchange="renderAll()"> with no id and no
+   state binding: choosing "By entity" or "Operating expenses" changed nothing on
+   screen. A control that cannot act is a dead control (shared conventions), so
+   they are deleted rather than redrawn.
+   ========================================================================== */
+let gfTab='scope', gfOpen=false;
+/* Options are read from the control being driven, never restated here — the same
+   "derive, never duplicate" rule the figures follow. */
+const GFIELDS={
+  fund:  {nm:'Fund',      sel:'fundScope'},
+  region:{nm:'Region',    sel:'regionScope'},
+  own:   {nm:'Ownership', sel:'ownType'},
+  /* period and currency are CONTEXT, not narrowing — a page always has one of
+     each, so there is no unfiltered state for them to differ from and they never
+     carry a count. Same ruling as Flux's Period, Materiality and Units. */
+  ptype: {nm:'Period',    sel:'periodType', ctx:1},
+  pval:  {nm:'Which',     sel:'periodVal',  ctx:1},
+  ccy:   {nm:'Currency',  seg:'ccyMode',    ctx:1},
+};
+function GFIELD(k){
+  if(k.indexOf('p:')===0){
+    const g=gfPageGrps()[+k.slice(2)]; if(!g)return null;
+    const s=g.querySelector('select');
+    return {nm:((g.querySelector('label').textContent)||'').trim(), pel:s,
+      opts:()=>[...s.options].map(o=>({id:o.value,nm:(o.textContent||'').trim()})),
+      get:()=>s.value, dflt:s.options[0]?s.options[0].value:''};
+  }
+  if(k.indexOf('gl:')===0){
+    const d=(typeof GL_DIMS!=='undefined')&&GL_DIMS.find(x=>x.k===k.slice(3));
+    if(!d)return null;
+    return {nm:d.nm, gl:d.k,
+      opts:()=>[{id:'all',nm:'All'}]
+        .concat(d.opts().map(v=>({id:String(v),nm:d.label?d.label(v):String(v)}))),
+      get:()=>GLF[d.k], dflt:'all'};
+  }
+  const f=GFIELDS[k]; if(!f)return null;
+  if(f.seg){
+    const p=document.getElementById(f.seg);
+    const bs=p?[...p.children]:[];
+    return {nm:f.nm, ctx:f.ctx, seg:f.seg,
+      opts:()=>bs.map(b=>({id:b.dataset.v,nm:b.textContent.trim()})),
+      get:()=>(p&&p.dataset.v)||(bs[0]&&bs[0].dataset.v)||'', dflt:bs[0]&&bs[0].dataset.v};
+  }
+  const el=document.getElementById(f.sel);
+  return {nm:f.nm, ctx:f.ctx, sel:f.sel,
+    opts:()=>el?[...el.options].map(o=>({id:o.value,nm:o.textContent.trim()})):[],
+    get:()=>el?el.value:'', dflt:el&&el.options[0]?el.options[0].value:''};
+}
+/* Setting goes through the control's OWN handler — dispatching change fires the
+   inline onchange, so renderAll()/onPeriodType() run exactly as they always did. */
+function gfPick(k,v){
+  const d=GFIELD(k); if(!d){KFX.popClose();return;}
+  if(d.pel){ d.pel.value=v; d.pel.dispatchEvent(new Event('change',{bubbles:true})); }
+  else if(d.gl){ glSet(d.gl,v); }
+  else if(d.seg){ const p=document.getElementById(d.seg);
+    const b=[...p.children].find(x=>x.dataset.v===v); if(b)b.click(); }
+  else { const el=document.getElementById(d.sel); if(el){ el.value=v;
+    el.dispatchEvent(new Event('change',{bubbles:true})); } }
+  KFX.popClose(); paintGfBar();
+}
+function gfVal(k){
+  const d=GFIELD(k); if(!d)return {v:'',on:false};
+  const cur=d.get(), o=d.opts().find(x=>x.id===cur);
+  let v=o?o.nm:(cur||'\u2014');
+  /* The page rows write their default option as "All " + the label, so a field
+     would read "Entity \u00b7 All entity". The label is already on the field \u2014 say the
+     word once, and the same word Flux says. */
+  const lb=String(d.nm||'').trim().toLowerCase().replace(/s$/,'');
+  if(/^all\b/i.test(v)&&v.slice(3).trim().toLowerCase().replace(/s$/,'')===lb)v='All';
+  return {v, on:!d.ctx&&cur!==d.dflt};
+}
+function gfCount(t){
+  if(t.cfg)return 0;
+  return t.f.reduce((n,k)=>n+(gfVal(k).on?1:0),0);
+}
+/* Which categories this page has. The ledger's four dimensions are real filters
+   with a real engine behind them (GL_DIMS -> glSet), so they get a tab of their
+   own on the pages that read them rather than being lost with the chips. */
+function gfTabs(){
+  const t=[{k:'scope', nm:'Scope',  f:['fund','region','own']},
+           {k:'period',nm:'Period', f:['ptype','pval']},
+           {k:'basis', nm:'Basis',  f:['ccy']}];
+  if(typeof TAB!=='undefined'&&['glact','glover'].indexOf(TAB)>=0&&typeof GL_DIMS!=='undefined')
+    t.splice(1,0,{k:'ledger',nm:'Ledger',f:['gl:ent','gl:acct','gl:erp','gl:ty']});
+  /* the page's own filters, in the owner's own vocabulary from the Phase 1 brief */
+  const pg=gfPageGrps();
+  if(pg.length)t.push({k:'page',nm:'More filters',f:pg.map((g,i)=>'p:'+i)});
+  /* cfg: configures/performs rather than filters, so it never carries a count and
+     sits after the .ktab-div */
+  t.push({k:'actions',nm:'Actions',f:['__actions'],cfg:1});
+  return t;
+}
+/* ---- THE PAGE'S OWN FILTERS, DISCOVERED NOT REGISTERED ----------------------
+   Nine views render their own row of controls inside the content — GL intelligence
+   alone had ten selects — which put a second set of options BELOW the band that is
+   supposed to own them. That is the same duplication the page-level "Filters"
+   button was, one level deeper.
+
+   They are read off what the page already rendered: every `.grp` holding a
+   <label> and a bound <select>, which is the exact shape the retired shell drawer
+   used, so the pages were already speaking this vocabulary. Nothing is registered
+   by hand — a page that adds a filter gains it in the band with no wiring — and no
+   handler is duplicated, because the field drives the select and the select's own
+   onchange runs. 45 of the 52 are genuinely bound (to setGliF, setClFilter, setAxF,
+   setAmF, setPolF, setDrF, setDrevF …); the 7 that are not carry no onchange and
+   are skipped rather than redrawn, on the no-dead-controls rule.
+
+   Visibility is deliberately NOT part of the test: the row is hidden once it has
+   moved, and a visibility test would then stop finding it on the next paint. */
+function gfPageGrps(){
+  const v=(typeof TAB!=='undefined')&&document.getElementById('view-'+TAB);
+  if(!v)return [];
+  return [...v.querySelectorAll('.grp')].filter(g=>{
+    const s=g.querySelector('select'), l=g.querySelector('label');
+    return !!(s&&l&&s.getAttribute('onchange'));
+  });
+}
+/* The source row stands down once its controls are in the band. A card that held
+   nothing but the row has nothing left to frame, so it goes too. */
+function gfHidePageRow(){
+  const boxes=new Set();
+  gfPageGrps().forEach(g=>{const c=g.closest('.ctrls')||g.parentElement; if(c)boxes.add(c);});
+  boxes.forEach(c=>{
+    c.setAttribute('data-gf-moved','');
+    const card=c.closest('.card'); if(!card)return;
+    const foot=card.querySelector('.filter-foot');
+    if(foot)foot.setAttribute('data-gf-moved','');
+    const live=[...card.children].filter(x=>!x.hasAttribute('data-gf-moved')
+      &&(x.textContent||'').trim());
+    if(!live.length)card.setAttribute('data-gf-moved','');
+  });
+}
+/* THE PAGE'S PRIMARY TABLE, or null. The Actions row offers Export only when there
+   is something to export — a control that cannot act is a dead control, and that
+   is precisely what the button this replaced was. */
+function gfTable(){
+  const v=document.getElementById('view-'+TAB);
+  if(!v)return null;
+  const t=[...v.querySelectorAll('table.tbl')]
+    .filter(x=>x.offsetParent!==null&&x.querySelectorAll('tr').length>1);
+  return t.length?t[0]:null;
+}
+/* A REAL EXPORT. The button this replaces called toggleFilters() and exported
+   nothing. This walks the table actually on screen — after the filters, in the
+   order the reviewer is reading it — so what lands in the file is what they see. */
+function gfExport(){
+  const t=gfTable(); if(!t)return;
+  const esc=s=>{s=String(s==null?'':s).replace(/\s+/g,' ').trim();
+    return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const csv=[...t.querySelectorAll('tr')]
+    .map(tr=>[...tr.children].map(c=>esc(c.innerText||c.textContent)).join(','))
+    .join(String.fromCharCode(13)+String.fromCharCode(10));
+  const nm=((typeof VIEW_META!=='undefined'&&VIEW_META[TAB]&&VIEW_META[TAB].t)||TAB)
+    .replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');
+  a.href=url; a.download=nm+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function gfPrint(){ window.print(); }
+const GF_IC={
+  export:'M8 2.5v8M4.8 7.6L8 10.8l3.2-3.2M3 13h10',
+  print:'M4.5 6V2.5h7V6M4.5 11.5h7v2h-7zM3 6h10v5H3z'};
+function gfActionsRow(){
+  const b=[];
+  if(gfTable())b.push(['gfExport','Export',GF_IC.export]);
+  b.push(['gfPrint','Print',GF_IC.print]);
+  return b.map(([f,nm,d])=>`<button class="btn-out" onclick="${f}()">
+    <svg viewBox="0 0 16 16" fill="none" width="13" height="13"><path d="${d}"
+      stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+      stroke-linejoin="round"/></svg>${nm}</button>`).join('');
+}
+function gfAny(){ return gfTabs().reduce((n,t)=>n+gfCount(t),0)>0; }
+function gfReset(){
+  ['fundScope','regionScope','ownType'].forEach(id=>{const el=document.getElementById(id);
+    if(el&&el.options[0]){el.value=el.options[0].value;}});
+  if(typeof GL_DIMS!=='undefined'&&typeof glReset==='function'&&
+     ['glact','glover'].indexOf(TAB)>=0) glReset(); else renderAll();
+  paintGfBar();
+}
+function gfToggle(){ gfOpen=!gfOpen; paintGfBar(); }
+function gfSetTab(k){ gfTab=k; gfOpen=true; paintGfBar(); }
+function gfField(k){
+  if(k==='__actions')return gfActionsRow();
+  const d=GFIELD(k); if(!d)return '';
+  /* nothing to choose is a dead control — "Which" exists only for a single
+     quarter or a single month, so it appears only then */
+  if(d.opts().length<2)return '';
+  const s=gfVal(k);
+  return `<button class="fxf ${s.on?'on':''}" data-pop="g:${k}" aria-expanded="false"
+    onclick="KFX.pop('g:${k}',this)" title="${esc2(d.nm)} \u00b7 ${esc2(s.v)}">
+    <span class="fxf-k">${esc2(d.nm)}</span>
+    <span class="fxf-v">${esc2(s.v)}</span><span class="cue">\u25be</span></button>`;
+}
+const esc2=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function gfBarInner(){
+  const tabs=gfTabs(), tab=tabs.find(t=>t.k===gfTab)||tabs[0];
+  const n=tabs.reduce((a,t)=>a+gfCount(t),0);
+  const head='<svg class="ic" viewBox="0 0 16 16" fill="none" aria-hidden="true">'+
+    '<path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'+
+    '<span class="kfh-l">Filters</span>'+
+    (n?`<span class="kfh-n">${n} active</span>`:'')+
+    '<span class="kfh-sp"></span>'+
+    (gfAny()?`<button class="kfh-clr" onclick="event.stopPropagation();gfReset()"
+      title="Reset every filter on every tab to its default">Clear all</button>`:'')+
+    '<span class="kfh-car" aria-hidden="true">\u25b8</span>';
+  let divDone=false;
+  const strip=tabs.map(t=>{const c=gfCount(t), on=t.k===tab.k;
+    /* the strip says where the filters stop — see .ktab-div */
+    const div=(t.cfg&&!divDone)?(divDone=true,'<span class="ktab-div"></span>'):'';
+    return div+`<button class="ktab ${on?'on':''}" role="tab" data-tab="${t.k}"
+      tabindex="${on?0:-1}" aria-selected="${on?'true':'false'}"
+      onclick="gfSetTab('${t.k}')"
+      title="${esc2(t.nm)}${c?' \u2014 '+c+' filter'+(c===1?'':'s')+' applied':''}">${esc2(t.nm)}${
+      c?`<span class="ktab-n">${c}</span>`:''}</button>`;}).join('');
+  return `<div class="fx-filters${gfOpen?'':' shut'}">
+    <div class="kfh" role="button" tabindex="0" aria-expanded="${gfOpen?'true':'false'}"
+      title="${gfOpen?'Hide filters':'Show filters'}" onclick="gfToggle()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();gfToggle();}"
+      >${head}</div>
+    <div class="fx-ftabs ktabs lvl2" role="tablist" aria-label="Filter categories">${strip}</div>
+    <div class="fx-fields" role="tabpanel" aria-label="${esc2(tab.nm)}">${
+      tab.f.map(gfField).join('')}</div></div>`;
+}
+function paintGfBar(){
+  const el=document.getElementById('gfBar'); if(!el)return;
+  const tabs=gfTabs(); if(!tabs.find(t=>t.k===gfTab))gfTab=tabs[0].k;
+  el.innerHTML=gfBarInner();
+  /* renderAll is wrapped as `_renderAll(); paintTopbar();`, so the view has already
+     re-rendered by the time this runs and the fresh row is here to be stood down */
+  gfHidePageRow();
+}
+
 // collapsible filter bar
 function toggleFilters(){
+  /* the drawer is retired; this now opens the band that replaced it, so Alt+F and
+     every "+ Add filter" affordance keep working */
+  if(typeof gfToggle==='function'&&document.getElementById('gfBar')){gfToggle();return;}
   const ctrls=document.getElementById('filterCtrls');
   const caret=document.getElementById('filterbarCaret');
   const bar=document.getElementById('filterbar');
