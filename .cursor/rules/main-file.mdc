@@ -61,6 +61,77 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   is scoped `.dw-page`, so neither leaks into the other. A derived classification
   pill (Routine / Material · explained / Needs review) and a reviewer initials
   avatar sit on the Explanation and Workflow blocks respectively.
+- **Flux filters are inline and TABBED BY CATEGORY, not a drawer** (2026-08-28, owner's
+  direction). The shared `#filterbar` drawer is hidden on Flux (`paintTopbar()` gates on
+  `fxHere`); filters live in `fxFilterFields()` → `.fx-filters` inside `#fxRoot`, as a tab
+  strip over ONE contextual row: `.fx-filters` = `.fx-ftabs` + `.fx-fields`, nothing else.
+  `FX_FTABS` = Period · Scope · Workflow · Variance · Basis · Display · Saved Views · Actions;
+  the last three are `cfg:1` (configure, not filter — never counted). Filter fields are a fixed
+  **180px × 28px × 6px radius on every tab** — pin the 6px explicitly, never inherit
+  `var(--radius)`, because `body.fx-mercury #fxRoot.aw` raises it to 14px and turns a 28px
+  control into a capsule (same trap for `.fx-fields .seg`); long values ellipsise and the
+  tooltip carries `label · value`. **There is no second
+  toolbar and there must not be one**: `pageActions()`/`viewControls()` are retired, Display
+  owns mode + Table. **Two display modes only** — `stmt` (Statement) and `full` (Narrative);
+  Review and Financials merged once they differed by a single column. Every retired key
+  (`status`, `nums`, `compact`, `review`, `cmt`) migrates on READ in `dispMode()` and anything
+  unrecognised falls back to Statement, never Narrative. The keyboard legend and handler both
+  derive from `DISP_MODES.length` — do not hard-code `1–3`. Display Saved Views owns the star + Views menu, Actions owns the ellipsis.
+  Rejected placements: above the tabs, below the fields, and the shell topbar. **Workflow**
+  not "Review" (Review is a display mode); **Variance** not "Movement". Submit is the one CTA
+  and renders ONLY when lines are ready, stating the count ("Submit 3 ready lines") — the
+  count and `submitAll()` share `readyToSubmit()` so they can never disagree. It stays on the
+  STATEMENT, never in the review panel: it is a bulk action over the current view, while the
+  per-line Submit already lives in the panel footer (`exSubmit`), gated on coverage. Property and
+  Cost center sit behind **More** (`FX_MOREDIMS`) but still count against Scope. Do not add
+  controls the engine cannot act on (currency, owner, GAAP basis, movement type were specified
+  and deliberately omitted). The review panel is a **full-height dock** in the Korvyn
+  assistant's band: `sizeDrawer()` pins it below whatever occupies its column, so the
+  full-width rows reserve that column instead — `.fx-work`/`.fx-focusline` at
+  `--fx-dw-w + 12px`, `.topbar`/`.secnav`/`.subnav` at `+48px` (wider container). Declare
+  these, never compute them from the drawer's own left edge — that is a feedback loop and the
+  panel walks off-screen. `body.fx-mercury #fxRoot .fx-work` sets a later `margin` shorthand,
+  so scope the reservation `#fxRoot.aw`; keep `.fxt` `white-space:nowrap`. **Full screen
+  (`S.dwPage`) SWAPS per tab, it does not scroll** — `dwPageCols()` reads `RW_LAYOUT.drawer`
+  so one registry drives both densities; Overview keeps the 3-column argument. All page chrome
+  hides under `body.fx-dw-page`; the statement tabs need `!important` (paintSubnav sets
+  `display` inline), and the class must be gated on `#fxRoot.offsetParent!==null` or it leaks
+  to other pages. `--rule`/`--rule-strong` are redeclared in the dark block — ramp-derived
+  aliases at `:root` otherwise substitute the LIGHT border and every dark hairline vanishes.
+  `#tbScope` (the topbar entity tree) is **hidden on Flux** — it
+  filters nothing here (`sliceOk()` never reads `F.entity`) and lists a different entity
+  vocabulary than the Scope tab, so it could contradict the scope actually in force; hidden
+  only on Flux, untouched elsewhere. `glHead()`/`periodNav()` no longer run on Flux: the header
+  restated what the tabs state, and the month stepper became the Period field. ONE popover
+  system (`#pop`) for every selector — anchored, never modal, one at a time, Escape/outside
+  closes; multi-selects staged with Search · Included|Excluded · Select all · Clear/Apply,
+  single-selects commit on click. Other pages keep the drawer —
+  do not delete it. **Each tab's live-filter count is load-bearing**: tabs hide filters, and
+  a signed statement must never be filtered for an invisible reason — do not drop the counts
+  without replacing that guarantee. Each dimension menu is a
+  **staged** multi-select (Search · Selected|Excluded · Select all · checkboxes · Apply):
+  it edits `popDraft`/`popDraftX` and commits only in `popApply()`, so the consolidation
+  is not recomputed per checkbox. Select all acts on the search-visible options only.
+  `S.excl[dim]` is a REAL filter through `dimOk()` in `sliceOk()`, not a label — it rides
+  in `snapshot()` beside the dimension arrays, and every scope renderer must spell the
+  exclusion ("Excl. 2", "All except 2 entities"), because the same list under the flag
+  means the opposite thing. An empty selection always clears the flag.
+- **The explanation and the comments are ONE conversation** (2026-08-28, owner's direction).
+  Every voice uses one grammar, `.rw-msg`: avatar in the gutter, identity on one line, words
+  against a rail. The explanation is the lead statement (`.lead`); a Korvyn draft wears indigo
+  `--ai`, never the cobalt accent; your own messages take `.mine`; awaited voices are hollow
+  silhouettes (`.owed`); the composer is the last message (`.comp`), not the first. Order is
+  load-bearing — thread, then composer, then who has not answered. `cmtField()` must never
+  repaint (it toggles `.live` and autosizes in place, or the caret is lost). "Awaiting a
+  comment" stays collapsed behind `S.cmtOwedOpen` with every action intact. **Replies are ONE
+  level deep by design**: every message has a stable id (`k:<key>` for a lineage contribution,
+  `id` for a discussion comment) and a reply stores `parent`; `cmtRootOf()` re-parents in
+  `cmtSave()`, so the STORED shape can never exceed two levels. The reply box renders inside
+  its group (`cmtComp` stands down while `S.cmtReplyTo` is set); the kind filter applies to
+  ROOTS only, or replies orphan; the draft is discarded on aim/un-aim; and `S.cmtReplyTo` must
+  clear in `pick()`, `pickAt()` and `closeDrawer()`. `cmtComp` is a
+  registry part: add it to BOTH `RW_LAYOUT.drawer.comments` and `RW_LAYOUT.page.rec`. The base
+  avatar rule is `#fxRoot.aw .fx-detail .rw-av`, so `.rw-av.ai` must match that specificity.
 - A **materiality threshold** (`r.req`) decides whether a line must be explained at all. A
   **tolerance** (`r.clear`) decides whether an explanation covers enough of the movement.
   They are different numbers — conflating them is how a line below the threshold ends up

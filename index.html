@@ -302,6 +302,13 @@
      white on chrome: a darker line on a dark surface reads as a smudge, not an edge. */
   --border:rgba(255,255,255,0.10);
   --border-strong:rgba(255,255,255,0.18);
+  /* --rule/--rule-strong are ramp-derived aliases declared at :root, so they were
+     substituting :root's LIGHT --border and every hairline in dark mode was drawing
+     rgba(20,24,36,.10) — a dark line on a dark surface, i.e. invisible. This is the
+     case the note above is about; redeclaring them here re-resolves them against
+     the dark borders. */
+  --rule:var(--hairline) solid var(--border);
+  --rule-strong:var(--hairline) solid var(--border-strong);
   --series-1:var(--n-300); --series-2:var(--n-500); --series-3:var(--accent-line); --series-4:var(--accent);
   /* Chrome goes DARKER than the content surface in dark mode, so the framing
      relationship survives the inversion (chrome 0.0056 < content 0.0099). The
@@ -1395,6 +1402,10 @@ body.settings-open .main{margin-right:var(--panel-w)}
 .tb-title .crumbline{font-size:var(--fs-label);color:var(--hint);margin-top:2px;letter-spacing:.01em}
 .tb-title .crumbline b{color:var(--muted);font-weight:var(--fw-medium)}
 .topbar-spacer{flex:1}
+/* The title may ellipsis rather than wrap; the topbar is a single row. */
+.topbar .tb-title{min-width:0}
+.topbar .tb-title h1,.topbar .tb-title .crumbline{
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:34px;height:34px;border-radius:var(--radius);border:var(--rule-strong);background:var(--surface);
   color:var(--muted);cursor:pointer;display:grid;place-items:center;transition:var(--dur-1) var(--ease)}
 .iconbtn:hover{border-color:var(--accent-line);color:var(--accent);background:var(--accent-bg)}
@@ -3180,7 +3191,28 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 #fxRoot .fx-row.watch td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 #fxRoot .fx-tot td{font-weight:var(--fw-medium);border-top:var(--rule-strong);background:var(--surface2)}
 #fxRoot .fx-name{display:flex;align-items:center;gap:7px;min-width:0}
-#fxRoot .fx-name .star{color:var(--faint);cursor:pointer;font-size:12px;line-height:1;flex:none}
+/* THE STAR HOLDS ITS GUTTER BUT NOT ITS INK (2026-08-28). Measured on the seeded
+   income statement: 15 stars rendered, 0 set. That is a permanent column of grey
+   outlines in the most valuable horizontal position in the table — immediately left
+   of the line name — for an action taken on maybe one line a period.
+
+   It is NOT decoration and does not get removed: starring forces a line to require
+   an explanation even below materiality, which is a materiality override and a real
+   control. So a SET star stays visible at rest — that is the whole point of a
+   watchlist — and an unset one appears on hover or keyboard focus. The gutter is
+   still reserved, because collapsing it would shift every line name sideways as the
+   pointer moves down the table.
+
+   OPACITY, NOT VISIBILITY. `visibility:hidden` takes the button out of the tab
+   order, which silently removed a real control from every keyboard user —
+   `opacity:0` keeps it reachable and it reveals itself on focus. */
+#fxRoot .fx-name .star{color:var(--faint);cursor:pointer;font-size:12px;line-height:1;flex:none;
+  opacity:0;transition:opacity .12s}
+#fxRoot .fx-name .star.on,
+#fxRoot tr:hover .fx-name .star,
+#fxRoot tr:focus-within .fx-name .star,
+#fxRoot .fx-name .star:focus{opacity:1}
+#fxRoot .fx-name .star.on{color:var(--warning)}
 #fxRoot .fx-name .caret{background:none;border:none;padding:0;margin:0;color:var(--faint);cursor:pointer;
   line-height:0;flex:none;display:inline-flex}
 #fxRoot .fx-name .caret svg{width:12px;height:12px;transition:transform .12s}
@@ -3911,16 +3943,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-state.soft .rw-figs{font-size:var(--fs-table);color:var(--hint);margin-top:2px;
   letter-spacing:normal}
 #fxRoot .rw-state.soft .rw-figs .who{font-size:var(--fs-table);color:var(--hint)}
-#fxRoot .rw-comp{margin-top:var(--s-2);padding:var(--s-3);background:var(--n-50);
-  border:var(--rule);border-radius:var(--radius)}
-#fxRoot .rw-comp textarea{width:100%;min-height:72px;resize:vertical;border:var(--rule-strong);
-  border-radius:var(--radius);padding:var(--s-2) var(--s-3);font:inherit;font-size:var(--fs-table);
-  color:var(--ink);background:var(--surface);line-height:1.45}
-#fxRoot .rw-comp textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
-#fxRoot .rw-comp .row{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;
-  margin-top:var(--s-2)}
-#fxRoot .rw-comp .scope{font-size:var(--fs-micro);color:var(--hint);flex:1;min-width:12ch}
-#fxRoot .rw-comp .sp{flex:1}
+/* .rw-comp retired with the boxed composer — the composer is a .rw-msg now. */
 #fxRoot .fx-detail .dw-foot{padding:var(--s-2) var(--s-4);border-top:var(--rule);
   background:var(--surface)}
 
@@ -4129,29 +4152,115 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   padding:6px 9px;font:inherit;font-size:var(--fs-table);color:var(--ink);cursor:pointer;border-radius:var(--radius)}
 #fxRoot .rw-cmenu button:hover{background:var(--bg2)}
 #fxRoot .rw-cmenu button.on{color:var(--ink-strong);font-weight:var(--fw-medium);background:var(--bg2)}
-#fxRoot .rw-cstream{border-top:var(--rule)}
-#fxRoot .rw-cm{padding:var(--s-3) 0;border-bottom:var(--rule)}
-#fxRoot .rw-cm .who{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink-strong);line-height:1.3}
-#fxRoot .rw-cm .role{font-size:var(--fs-micro);color:var(--muted);margin-top:1px}
-#fxRoot .rw-cm .at{font-size:var(--fs-micro);color:var(--faint);margin-top:1px;font-variant-numeric:tabular-nums}
-#fxRoot .rw-cm .tx{font-size:var(--fs-table);color:var(--ink);line-height:1.55;margin-top:6px;max-width:64ch}
-#fxRoot .rw-cm .refs{font-size:var(--fs-table);color:var(--muted);margin-top:5px;
-  padding-left:var(--s-2);border-left:2px solid var(--line2)}
-#fxRoot .rw-cm .ev{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap}
-/* a scope that owes a comment: the one place semantic colour is allowed here, as a
-   3px left border and nothing else (rule 8) — the same mark an exception carries */
-#fxRoot .rw-cm.owed{border-left:3px solid var(--sev-med);padding-left:9px}
-#fxRoot .rw-cm .owed-t{font-size:var(--fs-table);color:var(--muted);margin-top:4px}
-#fxRoot .rw-cm .cact{display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--s-2)}
-/* inline composer */
-/* the composer is a form, not a card — the textarea draws its own control border */
-#fxRoot .rw-comp{border:none;border-radius:0;padding:0;background:none;margin-bottom:var(--s-3)}
-#fxRoot .rw-comp textarea{width:100%;min-height:64px;border:var(--rule);border-radius:var(--radius);
-  padding:7px 8px;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--bg);resize:vertical}
-#fxRoot .rw-comp textarea:focus-visible{outline:2px solid var(--accent);outline-offset:0}
-#fxRoot .rw-comp .row{display:flex;align-items:center;gap:6px;margin-top:7px}
-#fxRoot .rw-comp .row .sp{flex:1}
-#fxRoot .rw-comp .scope{font-size:var(--fs-micro);color:var(--faint)}
+/* ===== THE CONVERSATION =====================================================
+   A message is a speaker and what they said, so it is laid out that way: the
+   avatar holds a gutter, the identity runs on one line with the time pushed to
+   the far end, and the words sit beneath against a rail. Messages separate by
+   SPACE, not by a hairline between every one — a rule under each speaker chopped
+   the thread into a table of rows and lost the sense of one continuous exchange.
+
+   The rail is the only structure the thread carries, and it is what makes a long
+   entity answer scannable beside a one-line question. Accent on your own
+   messages, ramp on everyone else's: colour distinguishes the voice you are
+   looking for, and nothing else (rules 2/3). */
+#fxRoot .rw-thread{display:flex;flex-direction:column;gap:var(--s-4);
+  padding-top:var(--s-2)}
+#fxRoot .rw-msg{display:flex;gap:var(--s-2);align-items:flex-start}
+#fxRoot .rw-msg .bd{flex:1;min-width:0}
+#fxRoot .rw-msg .hd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  min-height:20px}
+#fxRoot .rw-msg .hd .sp{flex:1}
+#fxRoot .rw-msg .who{font-size:var(--fs-table);font-weight:var(--fw-medium);
+  color:var(--ink-strong);line-height:1.3}
+/* "you" is a label, not a badge — it names the voice, it is not work owed (rule 12) */
+#fxRoot .rw-msg .who .you{margin-left:6px;font-size:var(--fs-micro);
+  font-weight:var(--fw-regular);color:var(--hint);text-transform:uppercase;
+  letter-spacing:var(--tracking-label)}
+#fxRoot .rw-msg .role{font-size:var(--fs-micro);color:var(--muted)}
+#fxRoot .rw-msg .at{font-size:var(--fs-micro);color:var(--faint);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+#fxRoot .rw-msg .tx{font-size:var(--fs-table);color:var(--ink);line-height:1.6;
+  margin-top:5px;max-width:72ch;
+  padding-left:var(--s-3);border-left:2px solid var(--line2)}
+#fxRoot .rw-msg.mine .tx{border-left-color:var(--accent-line)}
+#fxRoot .rw-msg .mt{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;
+  padding-left:var(--s-3);line-height:1.5}
+#fxRoot .rw-msg .mt .bad{color:var(--danger);font-weight:var(--fw-medium)}
+#fxRoot .rw-msg .mt.att{display:flex;align-items:center;gap:6px}
+#fxRoot .rw-msg .cact{display:flex;gap:6px;flex-wrap:wrap;margin-top:var(--s-2);
+  padding-left:var(--s-3)}
+/* an awaited voice is a silhouette: same geometry, hollow avatar, no rail */
+#fxRoot .rw-msg.owed .rw-av.ghost{background:none;color:var(--muted);
+  border:1px dashed var(--border-strong)}
+#fxRoot .rw-msg.owed .who{color:var(--muted);font-weight:var(--fw-regular)}
+
+/* the lead statement: the explanation, in the thread's grammar. Its prose keeps
+   --fs-card-adjacent measure and the <b> marks a Korvyn draft writes around its
+   quantified figures. */
+#fxRoot .rw-msg.lead{margin-bottom:var(--s-3)}
+#fxRoot .rw-msg .tx.nar{max-width:78ch}
+#fxRoot .rw-msg .tx.nar b{font-weight:var(--fw-medium);color:var(--ink-strong)}
+/* A generated author wears the AI identity, never the interaction accent (rule 2).
+   Matches the base avatar rule's specificity (`#fxRoot.aw .fx-detail .rw-av`),
+   which otherwise pins every avatar to cobalt. */
+#fxRoot.aw .fx-detail .rw-av.ai{background:var(--ai)}
+#fxRoot .rw-msg.ai .tx{border-left-color:var(--ai-line)}
+#fxRoot .rw-msg.lead .role{color:var(--hint)}
+#fxRoot .rw-msg.ai .role{color:var(--ai-ink)}
+
+/* ---- REPLIES, ONE LEVEL DEEP ------------------------------------------
+   A group is a root and its answers. The answers indent to the root's text
+   column — they line up under the words they are answering, not under the
+   avatar — and carry a single connecting rail so a run of three replies reads
+   as one exchange rather than three separate messages. Deeper nesting is
+   re-parented in cmtTree(); there is no third level to style. */
+#fxRoot .rw-grp{display:flex;flex-direction:column;gap:var(--s-3)}
+#fxRoot .rw-replies{margin-left:calc(20px + var(--s-2));
+  padding-left:var(--s-3);border-left:var(--rule);
+  display:flex;flex-direction:column;gap:var(--s-3)}
+/* a reply is a quieter voice than the message it answers */
+#fxRoot .rw-msg.reply .rw-av{width:17px;height:17px;font-size:8px}
+#fxRoot .rw-msg.reply .tx{border-left:none;padding-left:0;max-width:66ch}
+#fxRoot .rw-msg.reply .mt,
+#fxRoot .rw-msg.reply .cact{padding-left:0}
+/* Reply is a quiet link, and only wakes on hover of its own message — a live
+   affordance under every message turns the thread into a wall of buttons */
+#fxRoot .rw-msg .cact .rw-reply{opacity:0;transition:opacity .12s}
+#fxRoot .rw-msg:hover .cact .rw-reply,
+#fxRoot .rw-msg:focus-within .cact .rw-reply{opacity:1}
+#fxRoot .rw-replyto{font-size:var(--fs-micro);color:var(--hint);margin-bottom:5px;
+  display:flex;align-items:baseline;gap:8px}
+#fxRoot .rw-replyto b{color:var(--ink);font-weight:var(--fw-medium)}
+
+/* ---- the composer: the next message in the thread ---------------------- */
+#fxRoot .rw-msg.comp{margin-top:var(--s-4);padding-top:var(--s-4);
+  border-top:var(--rule)}
+#fxRoot .rw-msg.comp textarea{width:100%;border:var(--rule);border-radius:var(--radius);
+  padding:7px 9px;font:inherit;font-size:var(--fs-table);color:var(--ink);
+  background:var(--surface);resize:none;overflow:hidden;min-height:34px;
+  line-height:1.5;display:block}
+#fxRoot .rw-msg.comp textarea:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+/* the byline and the actions appear once there is something to post, so an empty
+   box reads as an invitation rather than as a form waiting to be filled in */
+#fxRoot .rw-msg.comp .row{display:none;align-items:center;gap:6px;margin-top:7px}
+#fxRoot .rw-msg.comp.live .row{display:flex}
+#fxRoot .rw-msg.comp .row .sp{flex:1}
+#fxRoot .rw-msg.comp .scope{font-size:var(--fs-micro);color:var(--faint)}
+
+/* ---- who has not answered: one line until asked for -------------------- */
+#fxRoot .rw-owed{margin-top:var(--s-4);border-top:var(--rule);padding-top:var(--s-3)}
+#fxRoot .rw-owed-hd{display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:none;padding:0;font:inherit;font-size:var(--fs-table);
+  color:var(--muted);cursor:pointer;text-align:left}
+#fxRoot .rw-owed-hd:hover{color:var(--ink)}
+#fxRoot .rw-owed-hd .cue{color:var(--faint);font-size:10px;flex:none}
+#fxRoot .rw-owed-hd .l{flex:none}
+#fxRoot .rw-owed-hd .mt{font-size:var(--fs-micro);color:var(--faint);
+  font-variant-numeric:tabular-nums}
+#fxRoot .rw-owed-hd .bad{margin-left:auto;font-size:var(--fs-micro);color:var(--danger)}
+#fxRoot .rw-owed .owedlist{padding-top:var(--s-3)}
+/* the conversation bar's awaiting count, beside the title */
+#fxRoot .rw-cawait{font-size:var(--fs-micro);color:var(--hint)}
 
 /* ---- SUPPORT: evidence + what is behind the number ------------------------ */
 #fxRoot .rw-fs{border-top:var(--rule);margin-top:var(--s-2)}
@@ -4205,8 +4314,7 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    #filterbar is shared shell chrome that lives outside #fxRoot and is used by every
    page, so it is gated on a body class and reads a mirrored copy of the width. */
 @media (min-width:1101px){
-  #fxRoot.dw-open .gl-hd,
-  #fxRoot.dw-open .fx-pnav,
+  #fxRoot.dw-open .fx-filters,
   #fxRoot.dw-open .fx-work,
   #fxRoot.dw-open .fx-focusline{margin-right:calc(var(--dw-w) + 12px)}
   body.fx-dw-open #filterbar{margin-right:calc(var(--fx-dw-w,440px) + 12px)}
@@ -4239,6 +4347,36 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    shadow anywhere inside. */
 #fxRoot.dw-page .wsplit.on{grid-template-columns:minmax(0,1fr)}
 #fxRoot.dw-page .wsplit.on>.card.fx-table{display:none}
+/* THE WORKING PAPER TAKES THE SCREEN (owner's direction, 2026-08-28). Page mode
+   already hides the statement; the command surface and the status strip describe
+   THAT statement — eight filter tabs, a Display mode, "Submit ready lines" and a
+   coverage strip, all acting on a grid that is not on screen — so they stand down
+   with it. They were costing ~215px at the top of the page, which is why the
+   working paper opened at y≈363 and a reviewer read a full-page document in the
+   bottom 60% of the screen.
+
+   The way back is not lost: the panel carries its own return strip ("‹ Income
+   statement flux · line 2 of 16 · Esc back to the statement") and Esc, both of
+   which restore the statement and this chrome with it. */
+#fxRoot.dw-page>.fx-filters,
+#fxRoot.dw-page>.fx-work,
+#fxRoot.dw-page>.fx-focusline{display:none}
+/* The shell rows go too, so the working paper occupies the band this app already
+   calls full screen: below the app header, right of the rail — the same box
+   `body.copilot-full .copilot` takes. The page title and the statement tabs are
+   both restatement here, because the paper carries its own title block and its
+   return strip names the statement it came from. Cleared by paintTopbar() the
+   moment Flux is not the active view, so these rows can never stay hidden on a
+   page that never set them. */
+/* !important is required, not lazy: paintSubnav() writes `s2.style.display='flex'`
+   as an INLINE style, and an inline style beats every normal author rule. Author
+   !important is the one thing that outranks it, and it is safer here than having
+   this mode reach into paintSubnav() and try to restore the right value on exit. */
+body.fx-dw-page .topbar,
+body.fx-dw-page .secnav,
+body.fx-dw-page .subnav,
+body.fx-dw-page #subnav,
+body.fx-dw-page #subnav2{display:none!important}
 /* --dw-w is never written in page mode, so returning to the drawer restores the
    reviewer's own persisted width rather than some value this mode invented */
 #fxRoot.dw-page .fx-detail{position:static;height:auto;max-height:none;overflow:visible;
@@ -4248,26 +4386,64 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 /* border-radius:0 is load-bearing: a sticky footer inside a rounded box overhangs
    its own corners, and the join reads as a rendering fault rather than a decision */
 
-/* ---- the header becomes the page's title block --------------------------- */
-#fxRoot.dw-page .fx-detail .dw-hd{position:static;display:block;
+/* ---- the header becomes the page's title block ---------------------------
+   ONE GRID, TWO COLUMNS. The header used to be three stacked full-width bands,
+   which left a wide dead gap beside the line name (2 lines) while the review
+   state opposite it ran to 4, and a second gap beside the hero. Laid out as a
+   grid the identity and the movement share the left column and the state owns
+   the right for both rows, so the two facts a reviewer scans — what moved, and
+   whether it is signable — sit side by side with no hole between them.
+
+   `display:contents` on .rw-idrow is what makes this CSS-only: .rw-id, .rw-state
+   and .rw-hact are its children, not the header's, and they cannot be placed in
+   the header's grid until the wrapper stops generating a box of its own. The
+   wrapper carries no border or background, so nothing is lost with it. */
+#fxRoot.dw-page .fx-detail .dw-hd{position:static;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:"from from" "id side" "hero side";
+  column-gap:var(--s-6);align-items:start;
   padding:var(--s-4) var(--s-5)}
-#fxRoot.dw-page .dw-hd .rw-idrow{gap:var(--s-6)}
+/* The return strip spans both columns and RESERVES the corner, because the window
+   controls sit in that same cell aligned to its end. Giving them a column of their
+   own put them at the left edge of a column the state block had already widened to
+   34ch — which is how the collapse and close icons ended up floating in the middle
+   of the header instead of in the panel's corner, where every other surface in this
+   app puts them. */
+#fxRoot.dw-page .fx-detail .dw-hd>.ws-from{grid-area:from;padding-right:76px}
+#fxRoot.dw-page .fx-detail .dw-hd>.rw-idrow{display:contents}
+#fxRoot.dw-page .fx-detail .dw-hd .rw-id{grid-area:id;min-width:0}
+#fxRoot.dw-page .fx-detail .dw-hd .rw-state{grid-area:side}
+/* the window controls join the return strip: both are "leave this view" */
+#fxRoot.dw-page .fx-detail .dw-hd .rw-hact{grid-area:from;
+  justify-self:end;align-self:center}
+#fxRoot.dw-page .fx-detail .dw-hd>.rw-hero{grid-area:hero}
+/* the scope word is the Scope tab's job — the header states the line, once */
+#fxRoot.dw-page .fx-detail .dw-hd .rw-sub2{display:none}
+/* THE SHORTCUT LEGEND STANDS DOWN IN FULL SCREEN. It spent a whole band of the
+   header teaching five keys, above the line the reviewer came to read. The two it
+   documents that are not otherwise reachable are both stated elsewhere: the "‹
+   Income statement flux" link is the way back that Esc duplicates, and the
+   statement's own .fx-keys row teaches the rest. The keys still work. */
+#fxRoot.dw-page .ws-from .keys{display:none}
 /* the line name stays at --fs-card. It gains its weight from being PAIRED with the
    hoisted verdict, not from a larger size — glHead already owns the 20px title, and
    two page titles stacked is the "said twice" fault this panel keeps removing. */
 #fxRoot.dw-page .rw-nm{white-space:normal}
 /* the review state is hoisted out of the body and set against the identity, so the
    verdict and the line are one glance rather than two */
-#fxRoot.dw-page .dw-hd .rw-state{flex:none;max-width:46ch;text-align:right;
-  padding-bottom:0;border-bottom:none}
+/* The state owns the right column for both rows, so it needs a width rather than a
+   flex basis — wide enough for the tolerance line, capped so it never crowds the
+   movement out of the left column. */
+#fxRoot.dw-page .dw-hd .rw-state{width:min(34ch,30vw);text-align:right;
+  text-wrap:pretty;padding-bottom:0;border-bottom:none}
+/* Under 1360px the two columns stop fitting side by side: the state drops to its own
+   full-width row beneath the hero and reads left, where a wrapped right-aligned
+   block would be ragged. */
 @media (max-width:1360px){
-  #fxRoot.dw-page .dw-hd .rw-state{flex:1 0 100%;text-align:left;max-width:none;
+  #fxRoot.dw-page .fx-detail .dw-hd{grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"from from" "id id" "hero hero" "side side"}
+  #fxRoot.dw-page .dw-hd .rw-state{width:auto;text-align:left;
     margin-top:var(--s-3);padding-top:var(--s-3);border-top:var(--rule)}
-  #fxRoot.dw-page .dw-hd .rw-idrow{flex-wrap:wrap}
-  /* the state wraps to its own row; the window controls must NOT follow it down and
-     strand themselves on a third row with nothing to sit beside */
-  #fxRoot.dw-page .dw-hd .rw-hact{order:1}
-  #fxRoot.dw-page .dw-hd .rw-state{order:2}
 }
 
 /* ---- the tab bar becomes an index, and sticks ---------------------------- */
@@ -4306,6 +4482,17 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   #fxRoot .rw-col.comp{border-top:none;padding-top:0;margin-top:0;
     border-left:var(--rule);padding-left:var(--s-5)}
 }
+/* ONE TAB, ONE COLUMN. Overview keeps the three-column argument; every other tab
+   in full screen is its own parts read straight down. The `.one` modifier must
+   beat the container queries above, which is why it is declared after them and
+   resets template-areas — a stale "judge comp rec" over a single .solo column
+   leaves the content in an unnamed area and it drops out of the grid. Prose is
+   capped so a 1,400px screen does not render a 200-character measure. */
+#fxRoot .rw-cols.one{grid-template-columns:minmax(0,1fr);grid-template-areas:none;
+  gap:var(--s-5)}
+#fxRoot .rw-col.solo{grid-area:auto;min-width:0;max-width:120ch}
+#fxRoot .rw-col.solo .rw-rg+.rw-rg{margin-top:var(--s-5);padding-top:var(--s-5);
+  border-top:var(--rule)}
 /* a mounted region. Its own .rw-sec is its label — the wrapper never adds a second */
 #fxRoot .rw-rg{margin-top:var(--s-6);padding-top:var(--s-5);border-top:var(--rule)}
 #fxRoot .rw-rg:first-child{margin-top:0;padding-top:0;border-top:none}
@@ -4322,7 +4509,21 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    never the heavy overlay shadow. The drawer already reads this way; the two
    densities now share one visual language. Regions keep their hairline rhythm
    INSIDE each column card, so nothing splits into confetti. */
-#fxRoot.dw-page .fx-detail{border:none;background:var(--bg)}
+/* THE SHEET IS FRAMED (owner's direction, 2026-08-28). With the page title, the
+   statement tabs and the command surface all standing down for full screen, an
+   unbordered sheet ran straight into the app chrome and the working paper had no
+   edge — you could not see where the document began. It now carries the same
+   hairline frame the docked panel has, so both densities read as the same object:
+   a bordered work surface on the content plane, separated by lightness and a
+   hairline, never by shadow (rule 5).
+
+   --rule-strong, not --rule: the docked panel reads as an edge because a white
+   surface sits against the gray body, so its hairline only has to confirm what the
+   lightness already says. The full-screen sheet keeps the gray body (its columns
+   are the white cards), so the border is doing the separating on its own and a
+   10%-alpha hairline disappears against the chrome. */
+#fxRoot.dw-page .fx-detail{border:var(--rule-strong);border-radius:var(--radius);
+  background:var(--bg);overflow:hidden}
 #fxRoot.dw-page .fx-detail .dw-hd{background:var(--surface);border-bottom:var(--rule)}
 #fxRoot.dw-page .fx-detail .dw-body{background:var(--bg)}
 #fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-5)}
@@ -4641,22 +4842,31 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    cell, among others) that would break the explanation band and the comment
    preview. It shares the grammar by declaring the same two rules, not by
    inheriting a layer built for a different table. */
-/* Toolbar actions sit on one row height. Global .gl-hd is flex-start (title vs
-   actions), which left Review / Table / star / Views stepping off --h-btn. */
-#fxRoot .gl-hd{align-items:center}
-#fxRoot .gl-hd .sub{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-#fxRoot .gl-hd .sub .sep{color:var(--n-300)}
-#fxRoot .gl-hd .sub b{color:var(--ink);font-weight:var(--fw-regular)}
-#fxRoot .gl-hd .seg{height:var(--h-btn);align-self:center}
-#fxRoot .gl-hd .btn-out,#fxRoot .gl-hd .btn-primary{
-  display:inline-flex;align-items:center;gap:6px;
+/* THE CONTEXTUAL ROW'S CONTROLS. Every tab's row — filters, display, saved views,
+   actions — draws from this one set of rules, so the eight tabs read as one
+   surface rather than eight little toolbars. .fx-acts is retired with the second
+   toolbar it styled. */
+/* 6px like every other control in this band — the shared .seg draws var(--radius),
+   which the mercury theme raises to 14px and turns into a capsule at 28px tall. */
+#fxRoot .fx-fields .seg{height:var(--h-btn);align-self:center;border-radius:6px}
+#fxRoot .fx-fields .btn-out,#fxRoot .fx-fields .btn-primary{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex:none;
   height:var(--h-btn);padding:var(--pad-btn)}
-#fxRoot .gl-hd .btn-out.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
+#fxRoot .fx-fields .btn-out.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
 /* KFX icons are 13×13 on a 16 grid; .btn-out svg is 14px globally — pin the
    subtree so the two cannot disagree. Do not restyle the Views path (short third
    line is a list icon by design). */
-#fxRoot .gl-hd .fxi,#fxRoot .gl-hd .btn-out svg{width:13px;height:13px;flex:none}
-#fxRoot .gl-hd .btn-out .cue{color:var(--faint);font-size:9px}
+#fxRoot .fx-fields .fxi,#fxRoot .fx-fields .btn-out svg{width:13px;height:13px;flex:none}
+#fxRoot .fx-fields .btn-out .cue{color:var(--faint);font-size:9px}
+/* A labelled group. Display and Saved Views hold settings rather than filters, and
+   the label is what stops them reading as an undifferentiated strip of buttons. */
+#fxRoot .fxg{display:inline-flex;align-items:center;gap:var(--s-2)}
+#fxRoot .fxg-l{font-size:var(--fs-label);color:var(--hint);
+  text-transform:uppercase;letter-spacing:var(--tracking-label);white-space:nowrap}
+#fxRoot .fxg+.fxg{margin-left:var(--s-3);padding-left:var(--s-3);
+  border-left:var(--rule)}       /* hairline between groups, never a card */
+#fxRoot .fxa-n{font-size:var(--fs-micro);color:var(--accent-ink);
+  font-variant-numeric:tabular-nums}
 #fxRoot .kpis{margin-bottom:6px}
 #fxRoot .fx-work{font-size:var(--fs-label);color:var(--hint);padding:2px 2px 10px;display:flex;gap:7px;flex-wrap:wrap}
 #fxRoot .fx-work .em{color:var(--muted);font-weight:var(--fw-medium)}
@@ -4673,14 +4883,123 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    (header → period → worklist → grid → method), not a second design language.
    Vertical budget target: chrome above the grid stays tight; Ask Korvyn defaults
    collapsed so the dock does not steal width on entry. */
-#fxRoot.aw>.gl-hd{margin-bottom:var(--s-2)}
-#fxRoot.aw>.fx-pnav{padding-bottom:var(--s-2)}
+/* the filter tabs are the first region in the workspace now — the page header and
+   the period navigator both retired into them (2026-08-28) */
+#fxRoot.aw>.fx-filters{margin-top:var(--s-1)}
 #fxRoot.aw>.fx-work{margin-bottom:var(--s-3)}
 #fxRoot.aw .aw-method{margin-top:var(--s-4);padding-top:var(--s-3);border-top:var(--rule);
   font-size:var(--fs-table);color:var(--hint);line-height:1.55;max-width:96ch}
 #fxRoot.aw .aw-method b{color:var(--muted);font-weight:var(--fw-medium)}
 #fxRoot.aw .aw-method .bad{color:var(--danger)}
 #fxRoot.aw .fx-keys{padding-top:var(--s-2)}
+
+/* ---- INLINE FILTER FIELDS (Flux) — the drawer, unfolded onto the page -------
+   Owner's direction 2026-08-28: a persistent Zendesk-style row of fields, one
+   per filter, replacing the shared collapsible drawer on Flux. Each field opens
+   the SAME popover the drawer used — the filter engine is untouched, only where
+   you reach it. Empty fields read "All"/"Any" so the row states the whole filter
+   surface at rest. Flat surfaces on the content plane (rule 5); only the popover
+   carries a shadow, because it is a true overlay. Accent marks a field that is
+   actually narrowing the population (rules 2/3) — an untouched row is monochrome. */
+/* the tab strip: categories on a hairline, the active one attached to the field
+   row below it so the two read as one object rather than two stacked bars */
+#fxRoot .fx-filters{margin-bottom:var(--s-3)}
+#fxRoot .fx-ftabs{display:flex;align-items:center;gap:var(--s-1);
+  border-bottom:var(--rule);padding:0 2px}
+/* nowrap is load-bearing: with the review panel open the bar loses ~450px, and a
+   two-word tab ("Saved Views") broke onto a second line and doubled the strip's
+   height. The strip scrolls before it wraps. */
+#fxRoot .fx-ftabs{overflow-x:auto;scrollbar-width:none}
+#fxRoot .fx-ftabs::-webkit-scrollbar{display:none}
+#fxRoot .fxt{position:relative;display:inline-flex;align-items:center;gap:6px;
+  flex:none;white-space:nowrap;
+  height:30px;padding:0 10px;border:none;background:none;font:inherit;
+  font-size:var(--fs-table);color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+#fxRoot .fxt:hover{color:var(--ink)}
+#fxRoot .fxt:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#fxRoot .fxt.on{color:var(--accent-ink);border-bottom-color:var(--accent);
+  font-weight:var(--fw-medium)}
+/* the count is a quiet numeral, not a badge: it reports how many filters are on,
+   it is not action the reviewer owes anyone (design rule 12) */
+#fxRoot .fxt-n{font-size:var(--fs-micro);color:var(--hint);
+  font-variant-numeric:tabular-nums}
+#fxRoot .fxt.on .fxt-n{color:var(--accent-ink)}
+#fxRoot .fxt-sp{flex:1}
+/* THE ONE PERSISTENT CTA. Restrained: standard button height, standard padding, on
+   the tab bar rather than a toolbar of its own. It is the only filled control on
+   the command surface, which is what makes it read as the primary action. */
+#fxRoot .fx-submit{flex:none;height:var(--h-btn);padding:var(--pad-btn);
+  white-space:nowrap;margin:0 2px 4px}
+#fxRoot .fx-fields{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center;
+  padding-top:var(--s-2);min-height:calc(var(--h-btn) + var(--s-2))}
+/* Clear all trails the fields it clears, pushed to the far right of the row so it
+   never reads as one more filter. */
+#fxRoot .fx-fields .fxf-clr{margin-left:auto}
+/* ONE FIELD SHAPE, EVERY TAB (2026-08-28). Two things made the row ragged:
+
+   RADIUS. `.fxf` asked for var(--radius), and `body.fx-mercury #fxRoot.aw` sets
+   --radius:14px — on a 28px control that is a perfect capsule, which is both the
+   "giant pills / rounded capsules" the brief rules out and a mismatch with the
+   Submit button beside it, which draws its own 6px. Pinned to 6px so the theme
+   cannot round it into a pill.
+
+   WIDTH. min/max let each field size to its content: 150 · 156 · 168 · 216 across
+   the five tabs, so the row changed shape every time the tab changed. A fixed width
+   makes the row identical on every tab; a long value ellipsises and keeps its full
+   text in the tooltip — which is what the reference does too ("Requester organ…"). */
+#fxRoot .fxf{display:inline-flex;align-items:center;gap:6px;height:var(--h-btn);
+  padding:0 9px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--ink);font-size:var(--fs-table);
+  font-family:inherit;cursor:pointer;width:180px;flex:none;text-align:left;
+  transition:border-color .12s,background .12s}
+#fxRoot .fxf:hover{border-color:var(--border-strong)}
+#fxRoot .fxf:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#fxRoot .fxf .fxf-k{color:var(--muted);font-weight:var(--fw-regular);white-space:nowrap}
+#fxRoot .fxf .fxf-v{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fxRoot .fxf .cue{margin-left:auto;color:var(--faint);font-size:9px;flex:none}
+#fxRoot .fxf.on{border-color:var(--accent-line);background:var(--accent-bg)}
+#fxRoot .fxf.on .fxf-k{color:var(--accent-ink)}
+#fxRoot .fxf.on .fxf-v{color:var(--accent-ink);font-weight:var(--fw-medium)}
+/* Find is a field like any other — same width, same shape; its input fills the
+   space the value would occupy rather than setting a width of its own. */
+#fxRoot .fxf-q{cursor:text}
+#fxRoot .fxf-q input{border:none;background:none;outline:none;font:inherit;
+  color:var(--ink);flex:1;min-width:0;padding:0}
+#fxRoot .fxf-q input::placeholder{color:var(--faint)}
+#fxRoot .fxf-clr{border:none;background:none;color:var(--accent-ink);cursor:pointer;
+  font-size:var(--fs-label);font-family:inherit;padding:0 6px;margin-left:2px}
+#fxRoot .fxf-clr:hover{text-decoration:underline}
+
+/* ---- the dimension menu: Selected|Excluded, real checkboxes, Apply ----------
+   A staged multi-select. The checkbox is a square (a tick alone reads as "done",
+   a box reads as "choose"), the mode pair states what the ticks will DO, and the
+   footer commits. Overlay, so this one surface is allowed its shadow (rule 5). */
+/* Included | Excluded reads as a pair of tabs, not two buttons — the same
+   underline grammar the command bar uses, so the popover feels like part of the
+   surface that opened it rather than a widget from somewhere else. */
+.pop .pop-mode{display:flex;gap:var(--s-2);padding:0 10px;border-bottom:var(--rule)}
+.pop .pop-mode button{height:28px;padding:0 2px;border:none;background:none;
+  color:var(--muted);font:inherit;font-size:var(--fs-label);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.pop .pop-mode button:hover{color:var(--ink)}
+.pop .pop-mode button.on{color:var(--accent-ink);border-bottom-color:var(--accent);
+  font-weight:var(--fw-medium)}
+.pop .pop-o.ck{display:flex;align-items:center;gap:8px}
+.pop .ckb{flex:none;width:14px;height:14px;border:1px solid var(--border-strong);
+  border-radius:3px;background:var(--surface);display:inline-flex;align-items:center;
+  justify-content:center;font-size:10px;line-height:1;color:transparent}
+.pop .pop-o.ck:hover .ckb{border-color:var(--accent)}
+.pop .ckb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+/* Clear left · state · Apply right — the standard footer for every multi-select. */
+.pop .pop-ft{display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border-top:var(--rule);background:var(--bg2)}
+.pop .pop-ftn{flex:1;font-size:var(--fs-micro);color:var(--hint);line-height:1.35;
+  text-align:center}
+.pop .pop-clr{border:none;background:none;color:var(--accent-ink);cursor:pointer;
+  font:inherit;font-size:var(--fs-label);padding:0}
+.pop .pop-clr:hover{text-decoration:underline}
+.pop .pop-clr[disabled]{color:var(--faint);cursor:default;text-decoration:none}
 
 /* ---- Inspect look (state-composed) — MUST sit after earlier .dw-/.rw- rules
    so the cascade actually changes what you see. Instrument tokens only.
@@ -4754,6 +5073,30 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 /* page mode gives the hero more room and lifts the figure a step */
 #fxRoot.dw-page .fx-detail .rw-hero-v{font-size:calc(var(--fs-hero) + 4px)}
 #fxRoot.dw-page .fx-detail .rw-hero-spark svg{max-width:420px}
+/* ---- FULL SCREEN READS THE HERO ACROSS, NOT DOWN -------------------------
+   The three sub-rows — figure, prior→current flow, sparkline — are stacked for
+   the 440px drawer, where stacking is the only option. On a full screen that
+   spent 125px of header and a wide band of empty space to the right of each
+   line. The same four facts fit on ONE row here, so the header loses ~65px and
+   the working paper starts that much higher.
+
+   The two right-hand labels (FAVORABLE, MAY '26 → JUN '26) drop their
+   margin-left:auto: it pushed them to the end of their own sub-row, which on a
+   single row would strand them mid-line. They now trail the fact each one
+   qualifies, which is where they read best anyway. */
+#fxRoot.dw-page .fx-detail .rw-hero{display:flex;align-items:center;
+  gap:var(--s-3) var(--s-5);flex-wrap:wrap;border-top:none;margin-top:0}
+#fxRoot.dw-page .fx-detail .rw-hero-top,
+#fxRoot.dw-page .fx-detail .rw-hero-flow{flex:none;margin-top:0}
+#fxRoot.dw-page .fx-detail .rw-hero-word,
+#fxRoot.dw-page .fx-detail .rw-hero-flow .pr{margin-left:0}
+/* The sparkline is the one part of the hero that can give: it is a shape cue, not
+   a figure, so it shrinks to whatever the row has left rather than wrapping the
+   whole hero onto a second line (which cost 42px once the state took a column). */
+#fxRoot.dw-page .fx-detail .rw-hero-spark{flex:1 1 110px;min-width:0;margin-top:0;
+  justify-content:flex-end}
+#fxRoot.dw-page .fx-detail .rw-hero-spark svg{min-width:0}
+#fxRoot.dw-page .fx-detail .rw-hero-spark svg{height:30px}
 #fxRoot.aw .fx-detail .dw-tabs{
   display:flex;
   padding:0 var(--s-2);
@@ -4947,12 +5290,6 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   border-top:var(--rule-strong);
 }
 #fxRoot.aw .fx-detail .dw-foot:empty{display:none}
-#fxRoot.aw .fx-detail .rw-comp{
-  background:var(--surface);
-  border:var(--rule);
-  border-radius:var(--radius);
-  padding:var(--s-3);
-}
 #fxRoot.aw .fx-detail .rw-ai{color:var(--ai-ink)}
 #fxRoot.aw .fx-detail .rw-ai:hover{color:var(--ai)}
 #fxRoot.aw .fx-detail .rw-anyway{
@@ -4974,10 +5311,12 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    second home, and the pair made the same view appear twice under two names. The
    star now acts on the loaded view and nothing else; the menu organises every
    view; the ••• holds the actions. No new tokens: these are .btn-out. */
-/* Icon-only star/overflow share --h-btn with Table and the Review segment. */
-#fxRoot .fx-vw{display:inline-flex;align-items:center;gap:6px;height:var(--h-btn)}
-#fxRoot .fx-vw .btn-out.star,#fxRoot .fx-vw .btn-out.ovf{
-  height:var(--h-btn);padding:0 11px;justify-content:center;align-items:center}
+/* Icon-only star shares --h-btn with Table and the Mode segment. The .fx-vw
+   wrapper it used to need retired with viewControls(); the rule follows the
+   button into the Saved Views row. */
+#fxRoot .fx-fields .btn-out.star{
+  height:var(--h-btn);padding:0 9px;justify-content:center;align-items:center}
+#fxRoot .fx-fields .btn-out.star svg{width:14px;height:14px}
 
 /* ---- PAGE CONTEXT + PERIOD NAVIGATOR ----------------------------------------
    Quiet but legible: the context line is the shared .sub, and the navigator below
@@ -5088,6 +5427,48 @@ body.fx-mercury #fxRoot .fx-work{ border:none; box-shadow:none; background:none;
   border-radius:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
   margin:2px 0 6px; overflow:visible; }
 body.fx-mercury #fxRoot .card.fx-table{ border:none; box-shadow:none; background:none; border-radius:0; }
+
+/* ---- THE REVIEW PANEL IS A FULL-HEIGHT DOCK (owner's direction, 2026-08-28) ----
+   It runs the same band as the Korvyn assistant — from under the app header to the
+   foot of the viewport — instead of starting wherever the page chrome happened to
+   end. It used to open at y≈365 on a 960px viewport, so a reviewer read the working
+   paper in the bottom 60% of the screen while the top 40% held chrome they were not
+   using.
+
+   THE MECHANISM IS STILL GEOMETRY, NOT Z-INDEX. sizeDrawer() pins the panel below
+   whatever still occupies its column, so the way to lift it is to make the page
+   chrome yield that column — not to raise the panel over the top of it, which would
+   bury live controls underneath. Every row that spans the full width therefore
+   reserves the drawer's track while it is open, exactly as .fx-filters already did:
+   the topbar, the statement tabs, and the status strip. With all three yielding,
+   the measured top falls to the close strip and the panel spans the full content
+   height on its own.
+
+   Specificity is deliberate: `body.fx-mercury #fxRoot .fx-work` sets a margin
+   shorthand later in this sheet, which silently zeroed the earlier reservation and
+   is why the status strip alone kept pushing the panel down. `#fxRoot.aw` outranks
+   it rather than relying on source order.
+
+   TWO INSETS, because there are two containers. Rows inside #fxRoot share the
+   workspace's box and so its padding; the shell rows above it (.topbar, the
+   statement tabs) sit in a wider one, and the same margin leaves them ~30px into
+   the drawer's column — enough to keep the panel pinned under the title row. They
+   therefore reserve a little more.
+
+   BOTH ARE DECLARED, NOT MEASURED. Setting these from sizeDrawer() off the drawer's
+   own left edge is a feedback loop: the inset changes the layout the next pass
+   measures, and the panel walks off the bottom of the viewport. Over-reserving by a
+   few pixels costs a hairline of unused width on rows whose right end is empty on
+   this page; under-reserving costs the whole feature. */
+@media (min-width:1101px){
+  body.fx-dw-open #fxRoot.aw .fx-work,
+  body.fx-dw-open #fxRoot.aw .fx-focusline{
+    margin-right:calc(var(--fx-dw-w,440px) + 12px)}
+  body.fx-dw-open .topbar,
+  body.fx-dw-open .secnav,
+  body.fx-dw-open .subnav{
+    margin-right:calc(var(--fx-dw-w,440px) + 48px)}
+}
 body.fx-mercury #fxRoot .wl-seg,
 body.fx-mercury #fxRoot .wl-done,
 body.fx-mercury #fxRoot .wl-stat{ padding:12px 22px 12px 0; border-right:none; }
@@ -6094,6 +6475,11 @@ const S={
   stmt:'is', grain:'m', compare:'seq', cur:CUR_DEFAULT, prior:CUR_DEFAULT-1,
   units:1000000,                    // display divisor label: 1=whole, 1000=thousands, 1e6=millions
   ent:[], seg:[], prop:[], cc:[], reg:[],
+  /* SELECTED vs EXCLUDED, per dimension (2026-08-28). The inline filter fields
+     offer both readings of the same chosen set — "only these" and "everything but
+     these" — so a reviewer can carve one entity out of the consolidation without
+     hand-picking the other twenty. false = the selection is what you keep. */
+  excl:{ent:false, seg:false, prop:false, cc:false, reg:false},
   profile:'close',
   dir:'all', show:'all', sort:'stmt',
   /* ---- THE FILTERS THE STATEMENT WAS MISSING -------------------------------
@@ -6107,6 +6493,9 @@ const S={
      cover   how far the explanation actually gets — including the two states a
              reviewer chases at the end of close: no evidence, and still on a draft */
   q:'', reason:[], thresh:'', cover:'all',
+  /* the awaiting-a-comment list is collapsed until asked for — see RWSEC.cmtOwed */
+  cmtOwedOpen:false,
+  cmtReplyTo:null,           // id of the message the composer is aimed at, or null
   glAll:false, glOpen:{}, sel:null, dwTab:'sum', jeAcct:null, jeOnly:'',
   /* ---- REVIEW WORKSPACE ----------------------------------------------------
      dwCollapsed keeps the LINE selected while giving the statement the width back,
@@ -6128,11 +6517,11 @@ const S={
   drvGl:false,               // terminal GL view once an account is pinned
   rwFullEx:false,            // the current explanation is expanded in place
   rwPeriods:false,           // History: the 13-period trend is disclosed
-  /* DISPLAY MODE — three layers over the same review, not three reports.
-     Stored values are the four-mode keys minus 'cmt' (retired); 'status'=Review,
-     'nums'=Financials, 'full'=Narrative. Legacy 'compact'/'review'/'cmt' are
-     migrated on read by dispMode() rather than rewritten in every stored snapshot. */
-  view:'status',             // status=Review | nums=Financials | full=Narrative  (legacy: compact, review, cmt)
+  /* DISPLAY MODE — two layers over the same review, not two reports.
+     'stmt'=Statement, 'full'=Narrative. Every retired key — 'status' (Review),
+     'nums' (Financials) and the older 'compact'/'review'/'cmt' — is migrated on
+     READ by dispMode(), so a saved view stored under any of them still opens. */
+  view:'stmt',               // stmt=Statement | full=Narrative  (legacy: status, nums, compact, review, cmt)
   fullAll:false,             // Narrative: which lines get a band — material only, or every explained line
   explFull:{},               // and which individual bands the reviewer expanded past the clamp
   narrExpand:false,          // Narrative: the global "Expand all narratives" state — transient, for print/screen-share
@@ -6141,7 +6530,12 @@ const S={
   focus:false,               // hide the summary chrome and give the table the screen
   fold:{},                   // collapsed statement sections
   elim:'inc',                // eliminations; favorite state is derived from the saved views
-  cols:['cur','pri','dlt','pctd','contrib','trend','cmt'],
+  /* 12-period trend is OFF by default (owner's direction, 2026-08-28). A sparkline
+     on every row is a second chart competing with the figures beside it, and the
+     question it answers — how has this line behaved over time — is one a reviewer
+     asks of ONE line, in the workspace, not of sixteen at once. Still one click
+     away under Display › Table › Columns. */
+  cols:['cur','pri','dlt','pctd','cmt'],
   views:[], presets:[], watch:{},
 };
 const COL_DEFS=[
@@ -6149,7 +6543,20 @@ const COL_DEFS=[
   {id:'pri',   nm:'Compared'},
   {id:'dlt',   nm:'\u0394 amount'},
   {id:'pctd',  nm:'\u0394 %'},
-  {id:'contrib',nm:'Contribution'},
+  /* 'contrib' (Contribution) is RETIRED, not hidden (owner's direction, 2026-08-28).
+     It measured |\u0394 line| \u00f7 \u03a3|\u0394 detail lines| and did not survive reading:
+       \u00b7 the name promised contribution to net income or contribution margin, and
+         delivered share of gross movement;
+       \u00b7 unsigned, so +1.4 and \u22121.4 both read 27% with identical bars \u2014 two movements
+         in opposite directions that partly cancel, shown as equal;
+       \u00b7 subtotals were measured against the SAME denominator as the detail lines
+         they contain, so Total revenue 40%, Total opex 40% and Net income 12% all
+         double-counted and the column summed well past 100%;
+       \u00b7 the bar drew at 2.2\u00d7 the true share, pegging full at 45.5%.
+     Removed from the registry as well as the default so a known-wrong measure is
+     not one click away in the column picker. If it comes back it needs a stated
+     basis and a signed reading \u2014 see the retired 'contrib' case in the cell
+     renderer, kept only so a stored view naming it cannot break the table. */
   {id:'share', nm:'% of statement'},
   {id:'trend', nm:'12-period trend'},
   {id:'bud',   nm:'Budget'},
@@ -6283,18 +6690,25 @@ function compareLabel(){
 /* ============================================================================
    9. AGGREGATION
    ========================================================================== */
+/* One dimension's test. A chosen set reads one of two ways — keep only these, or
+   keep everything but these — so the same list serves Selected and Excluded. */
+function dimOk(k,v){
+  const a=S[k]; if(!a.length)return true;
+  return (S.excl&&S.excl[k]) ? !a.includes(v) : a.includes(v);
+}
 function sliceOk(s){
   if(S.elim==='exc'&&s.seg==='corp')return false;
-  if(S.ent.length&&!S.ent.includes(s.ent))return false;
-  if(S.seg.length&&!S.seg.includes(s.seg))return false;
-  if(S.prop.length&&!S.prop.includes(s.prop))return false;
-  if(S.cc.length&&!S.cc.includes(s.cc))return false;
-  if(S.reg.length&&!S.reg.includes(s.reg))return false;
+  if(!dimOk('ent',s.ent))return false;
+  if(!dimOk('seg',s.seg))return false;
+  if(!dimOk('prop',s.prop))return false;
+  if(!dimOk('cc',s.cc))return false;
+  if(!dimOk('reg',s.reg))return false;
   return true;
 }
 let _cache={};
 function activeSlices(){
-  const k=[S.ent,S.seg,S.prop,S.cc,S.reg].map(a=>a.join(',')).join('|')+'|'+S.elim;
+  const k=[S.ent,S.seg,S.prop,S.cc,S.reg].map(a=>a.join(',')).join('|')+'|'+S.elim
+    +'|'+DIMS.map(d=>S.excl&&S.excl[d.k]?'x':'i').join('');
   if(_cache.k!==k){_cache={k,v:SLICES.filter(sliceOk)};}
   return _cache.v;
 }
@@ -6543,7 +6957,25 @@ function lineMatches(r){
    it left #fxRoot.dw-page holding the statement at display:none over a hidden panel — a
    blank page with no route back short of a reload. shut() is what tears the mode down,
    and shut() only runs inside paintDrawer. */
-function setQuery(v){S.q=String(v||'');S.sel=null;paintGrid();paintKpi();paintDrawer();syncFilterChrome();}
+/* Search repaints the grid but NOT the filter strip, so the input keeps focus and
+   the caret while you type. Clear all is the one part of the strip that depends on
+   the query, so it is toggled in place rather than by re-rendering the input. */
+function setQuery(v){S.q=String(v||'');S.sel=null;paintGrid();paintKpi();paintDrawer();syncFilterChrome();
+  const row=$('fxFields');
+  if(row){
+    const q=$('fxFieldSearch'); if(q&&q.parentNode)q.parentNode.classList.toggle('on',!!S.q);
+    const has=!!$('fxClrAll');
+    if(fxAnyFilter()&&!has)row.insertAdjacentHTML('beforeend',
+      `<button class="fxf-clr" id="fxClrAll" onclick="KFX.resetFilters()"
+        title="Reset every filter on every tab to its default">Clear all</button>`);
+    else if(!fxAnyFilter()&&has)$('fxClrAll').remove();
+    /* the Scope tab counts the query, so its badge has to move with it */
+    const t=$('fxFilters')&&$('fxFilters').querySelector('.fxt');
+    if(t){const n=fxTabCount(FX_FTABS[0]), b=t.querySelector('.fxt-n');
+      if(n&&b)b.textContent=n;
+      else if(n&&!b)t.insertAdjacentHTML('beforeend',`<span class="fxt-n">${n}</span>`);
+      else if(!n&&b)b.remove();}
+  }}
 function setReason(id){
   const i=S.reason.indexOf(id);
   i<0?S.reason.push(id):S.reason.splice(i,1);
@@ -6687,7 +7119,7 @@ function chips(el,list,arr,key){
 }
 function tog(k,v){const a=S[k],i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);S.sel=null;renderAll();
   if(popKind===k)paintPop();}
-function setAll(k){S[k]=[];S.sel=null;renderAll();if(popKind===k)paintPop();}
+function setAll(k){S[k]=[];if(S.excl)S.excl[k]=false;S.sel=null;renderAll();if(popKind===k)paintPop();}
 function seg(el,v){[...$(el).children].forEach(b=>b.classList.toggle('on',b.dataset.v===String(v)));}
 
 /* Dimensions are declared once. Adding one is a line here, not a new row of chrome. */
@@ -6736,6 +7168,7 @@ function paintFilters(){
 function scopeSentence(){
   const parts=[];
   DIMS.forEach(d=>{ const v=S[d.k]; if(v.length)parts.push(d.nm.toLowerCase()+': '+
+    ((S.excl&&S.excl[d.k])?'all except ':'')+
     v.map(x=>(d.opts().find(o=>o.id===x)||{nm:x}).nm.split(' \u2014 ')[0]).join(', ')); });
   const n=activeSlices().length;
   return `<b>${parts.length?parts.join(' \u00b7 '):'Consolidated, all entities'}</b> \u00b7 ${n} account\u00b7dimension slices \u00b7
@@ -6809,13 +7242,25 @@ function impactFor(dim,val){
    same place, in the same shape, as every other page's. */
 
 /* ---- popover: one element, positioned under whatever opened it ---- */
-let popKind=null, popQ='', popEl=null;
+/* STAGED SELECTION for the dimension popovers (owner's direction, 2026-08-28).
+   A dimension menu now composes a selection and commits it on Apply, rather than
+   re-running the statement on every checkbox. Two reasons it has to be staged:
+   picking four entities one at a time meant four full recomputes of a 600-entity
+   consolidation, and — the real one — "Selected vs Excluded" is not a decision you
+   can read mid-build. The draft lives here; S is untouched until Apply. Cancel is
+   simply closing the popover, so an abandoned draft changes nothing. */
+let popKind=null, popQ='', popEl=null, popDraft=null, popDraftX=false;
 function pop(kind,el){
   const p=$('pop');
   /* Clicking the open trigger again closes it. This needs the outside-click handler to
      leave trigger clicks alone, or the two fight and the menu needs two clicks. */
   if(popKind===kind){popClose();return;}
   popKind=kind; popQ=''; popEl=el||null;
+  /* seed the draft from what is actually applied, so the menu opens showing the
+     filter in force rather than an empty sheet */
+  const _d=DIM(kind);
+  if(_d){ popDraft=S[_d.k].slice(); popDraftX=!!(S.excl&&S.excl[_d.k]); }
+  else { popDraft=null; popDraftX=false; }
   if(el&&el.setAttribute)el.setAttribute('aria-expanded','true');
   const r=el.getBoundingClientRect();
   p.classList.add('on');
@@ -6826,10 +7271,46 @@ function pop(kind,el){
 }
 function popClose(){
   if(popEl&&popEl.setAttribute)popEl.setAttribute('aria-expanded','false');
-  popKind=null; popEl=null;
+  popKind=null; popEl=null; popDraft=null; popDraftX=false;
   const p=$('pop'); if(p)p.classList.remove('on');
 }
 function popSearch(v){popQ=v.toLowerCase();paintPop(true);}
+/* ---- staged multi-select handlers -----------------------------------------
+   Every one of these edits the DRAFT and repaints the menu only. The statement
+   does not move until popApply(), which is the whole point of staging. */
+function popTog(id){
+  if(!popDraft)return;
+  const i=popDraft.indexOf(id); i<0?popDraft.push(id):popDraft.splice(i,1);
+  paintPop(true);
+}
+/* Select all acts on WHAT THE SEARCH IS SHOWING, not on the whole dimension —
+   searching "Ashburn" then hitting Select all must not quietly select the twelve
+   properties you filtered away. It is a toggle: if every visible option is already
+   in the draft, it clears them. */
+function popAll(k){
+  const d=DIM(k); if(!d||!popDraft)return;
+  const vis=d.opts().filter(o=>!popQ||o.nm.toLowerCase().includes(popQ)).map(o=>o.id);
+  const every=vis.length&&vis.every(id=>popDraft.indexOf(id)>=0);
+  if(every) popDraft=popDraft.filter(id=>vis.indexOf(id)<0);
+  else vis.forEach(id=>{ if(popDraft.indexOf(id)<0)popDraft.push(id); });
+  paintPop(true);
+}
+function popMode(x){ popDraftX=!!x; paintPop(true); }
+/* Clear empties the draft AND commits it, because a reviewer who clicks Clear has
+   made the decision — making them then press Apply to mean it is a second gesture
+   for one intent. */
+function popApplyClear(k){ popDraft=[]; popApply(k); }
+function popApply(k){
+  const d=DIM(k); if(!d)return;
+  S[d.k]=(popDraft||[]).slice();
+  if(!S.excl)S.excl={};
+  /* an empty selection cannot be an exclusion of nothing — it is simply "All" */
+  S.excl[d.k]=S[d.k].length?popDraftX:false;
+  S.sel=null;
+  logA({act:S[d.k].length?(popDraftX?'excluded from the view':'scoped the view'):'cleared a scope filter',
+    detail:d.nm+(S[d.k].length?': '+S[d.k].join(', '):'')});
+  popClose(); renderAll();
+}
 function paintPop(keepFocus){
   const p=$('pop'); if(!popKind)return;
   let h='';
@@ -6840,7 +7321,17 @@ function paintPop(keepFocus){
       `<div class="pop-o" onclick="KFX.pop('show',document.getElementById('pop'))">Show<span class="sub">${
         S.show==='all'?'':'active'}</span></div>
        <div class="pop-o" onclick="KFX.pop('dir',document.getElementById('pop'))">Direction<span class="sub">${
-        S.dir==='all'?'':'active'}</span></div></div>`;
+        S.dir==='all'?'':'active'}</span></div>
+       <div class="pop-o" onclick="KFX.pop('reason',document.getElementById('pop'))">Reason code<span class="sub">${
+        S.reason.length?'active':''}</span></div>
+       <div class="pop-o" onclick="KFX.pop('cover',document.getElementById('pop'))">Explained<span class="sub">${
+        S.cover==='all'?'':'active'}</span></div>
+       <div class="pop-o" onclick="KFX.pop('thresh',document.getElementById('pop'))">Movement over<span class="sub">${
+        S.thresh!==''?'active':''}</span></div>
+       <div class="pop-o" onclick="KFX.pop('elim',document.getElementById('pop'))">Eliminations<span class="sub">${
+        S.elim!=='inc'?'active':''}</span></div>
+       <div class="pop-o" onclick="KFX.pop('mat',document.getElementById('pop'))">Materiality<span class="sub">${
+        esc(prof().nm)}</span></div></div>`;
   }else if(popKind==='cmp'){
     /* WHAT THIS PERIOD IS MEASURED AGAINST, stated as the period it resolves to
        rather than as the name of a setting. "Same period, prior year" is a rule;
@@ -6873,6 +7364,13 @@ function paintPop(keepFocus){
     h=`<div class="pop-h">Table</div><div class="pop-l">
         <div class="pop-o" onclick="KFX.popClose();KFX.openCols()">${ic('cols')} Columns…
           <span class="sub">${S.cols.length} shown</span></div></div>
+      <div class="pop-h" style="border-top:var(--rule)">Statement order</div><div class="pop-l">`+
+      [['stmt','Statement order','as the statement is laid out'],
+       ['absd','Largest Δ amount','biggest movers first'],
+       ['pctd','Largest Δ %','biggest proportional moves first'],
+       ['resid','Largest residual','most unexplained first']]
+      .map(([v,nm,d])=>`<div class="pop-o ${S.sort===v?'on':''}" onclick="KFX.setSort('${v}')">
+        <span class="bx">${S.sort===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>
       <div class="pop-h" style="border-top:var(--rule)">Row density</div><div class="pop-l">`+
       [['std','Standard','34px rows'],['dense','Dense','28px — more lines per screen']]
       .map(([v,nm,d])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
@@ -7020,27 +7518,130 @@ function paintPop(keepFocus){
         <div style="flex:1"><label style="font-size:var(--fs-label);color:var(--muted)">Residual tolerance</label>
           <input class="inp" id="inTol" type="number" step="0.1" style="width:100%" value="${t.tol}" onchange="KFX.setTol(this.value)"></div>
       </div></div>`;
+  }else if(popKind==='per'){
+    /* Every period the book holds, newest first, named the way the chosen cadence
+       names it — a quarterly review picks Q2 2026, not Jun 2026. The stepper this
+       replaced could only reach a neighbour; this reaches any period in one click. */
+    h=`<div class="pop-h">Period</div><div class="pop-l">`+
+      PERIODS.slice().reverse().map(p=>`<div class="pop-o ${S.cur===p.i?'on':''}"
+        onclick="KFX.setCur(${p.i});KFX.popClose()">
+        <span class="bx">${S.cur===p.i?'✓':''}</span>${esc(pLabel(p.i))}</div>`).join('')+
+      `</div>`;
+  }else if(popKind==='grain'){
+    h=`<div class="pop-h">Cadence</div><div class="pop-l">`+
+      [['m','Monthly','one month against the last'],['q','Quarterly','one quarter against the last'],
+       ['ytd','Year to date','opening of the year through this period'],
+       ['ttm','Trailing 12','the twelve months ending here']]
+      .map(([v,nm,d])=>`<div class="pop-o ${S.grain===v?'on':''}"
+        onclick="KFX.setGrain('${v}');KFX.popClose()">
+        <span class="bx">${S.grain===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+
+      `</div><div class="pop-b"><div class="rl-note">Cadence sets the window each figure covers;
+        the comparison sets what that window is measured against.</div></div>`;
+  }else if(popKind==='cover'){
+    const opts=[['all','Any coverage',''],['none','Nothing accepted','no explanation entered'],
+      ['part','Partly explained','under 90% of the movement'],['full','Fully explained','90% or more'],
+      ['gap','Missing evidence','explained but support still outstanding'],
+      ['kd','On a Korvyn draft','a generated draft, not yet accepted']];
+    h=`<div class="pop-h">Explained</div><div class="pop-l">`+
+      opts.map(([v,nm,d])=>`<div class="pop-o ${S.cover===v?'on':''}"
+        onclick="KFX.setCover('${v}');KFX.popClose()">
+        <span class="bx">${S.cover===v?'✓':''}</span>${nm}${d?`<span class="sub">${d}</span>`:''}</div>`).join('')+
+      `</div><div class="pop-b"><div class="rl-note">Filters to lines by how much of the movement
+        carries an accepted explanation.</div></div>`;
+  }else if(popKind==='elim'){
+    h=`<div class="pop-h">Eliminations</div><div class="pop-l">`+
+      [['inc','Included','intercompany eliminations are in the figures'],
+       ['exc','Excluded','statement shown before eliminations']]
+      .map(([v,nm,d])=>`<div class="pop-o ${S.elim===v?'on':''}"
+        onclick="KFX.setElim('${v}');KFX.popClose()">
+        <span class="bx">${S.elim===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`;
+  }else if(popKind==='thresh'){
+    const u=uName()||'$';
+    h=`<div class="pop-h">Movement over${S.thresh!==''?`<span class="clr"
+        onclick="KFX.setThresh('');KFX.popClose()">Clear</span>`:''}</div>
+      <div class="pop-b">
+        <div class="pop-row"><div style="flex:1">
+          <label style="font-size:var(--fs-label);color:var(--muted)">Show lines whose gross movement exceeds (${u})</label>
+          <input class="inp" type="number" step="0.1" min="0" style="width:100%" value="${esc(S.thresh)}"
+            placeholder="any" onchange="KFX.setThresh(this.value);KFX.popClose()"></div></div>
+        <div class="rl-note">An ad-hoc floor on top of the materiality policy — for a quick scan of the big movers.</div>
+      </div>`;
+  }else if(popKind==='dispmode'){
+    /* Each mode carries the sentence that says what it is FOR. As a segmented
+       control these were three bare words and the difference between Review and
+       Financials was invisible until you switched and watched a column vanish. */
+    h=`<div class="pop-h">Display mode</div><div class="pop-l">`+
+      DISP_MODES.map(([v,nm,d])=>`<div class="pop-o ${dispMode()===v?'on':''}"
+        onclick="KFX.setView('${v}');KFX.popClose()">
+        <span class="bx">${dispMode()===v?'✓':''}</span>${esc(nm)}
+        <span class="sub">${esc(d)}</span></div>`).join('')+
+      `</div><div class="pop-b"><div class="rl-note">All three read the same figures —
+        the mode decides how much review context sits beside them.</div></div>`;
+  }else if(popKind==='scopemore'){
+    /* PROGRESSIVE DISCLOSURE, not a second filter model. Each row opens that
+       dimension's own standard popover, so the deeper dimensions behave exactly
+       like the three on the row above them. */
+    h=`<div class="pop-h">More scope dimensions</div><div class="pop-l">`+
+      FX_MOREDIMS.map(k=>{const d=DIM(k), n=S[k].length;
+        return `<div class="pop-o ${n?'on':''}"
+          onclick="KFX.pop('${k}',document.getElementById('pop'))">${esc(d.nm)}
+          <span class="sub">${n?((S.excl&&S.excl[k])?'excl. '+n:n+' selected'):''}</span></div>`;}).join('')+
+      `</div><div class="pop-b"><div class="rl-note">Country, fund, HoldCo, project, ERP source and
+        ownership structure join this list as the model carries them.</div></div>`;
   }else if(popKind==='show'||popKind==='dir'){
     const list=popKind==='show'?SHOWS:DIRS, cur=popKind==='show'?S.show:S.dir;
-    h=`<div class="pop-h">${popKind==='show'?'Show':'Direction'}</div><div class="pop-l">`+
+    h=`<div class="pop-h">${popKind==='show'?'Status':'Direction'}</div><div class="pop-l">`+
       list.map(([v,nm])=>`<div class="pop-o ${cur===v?'on':''}"
         onclick="KFX.${popKind==='show'?'setShow':'setDir'}('${v}');KFX.popClose()">
         <span class="bx">${cur===v?'\u2713':''}</span>${nm}</div>`).join('')+`</div>`;
   }else{
+    /* ---- THE DIMENSION MENU: search \u00b7 Selected|Excluded \u00b7 checkbox list \u00b7 Apply
+       Staged, so the statement does not recompute per checkbox and so the
+       Selected/Excluded reading of the set can be changed before it is committed.
+       The impact preview stays: it is the one thing this menu had that a plain
+       checkbox list does not, and it is what makes filtering not blind. */
     const d=DIM(popKind); if(!d){popClose();return;}
-    const os=d.opts().filter(o=>!popQ||o.nm.toLowerCase().includes(popQ));
-    h=`<div class="pop-h">${d.nm}${S[d.k].length?`<span class="clr" onclick="KFX.setAll('${d.k}')">Clear</span>`:''}</div>`;
-    if(d.opts().length>7)h+=`<div class="pop-s"><input id="popQ" placeholder="Search ${d.nm.toLowerCase()}"
+    const all=d.opts();
+    const os=all.filter(o=>!popQ||o.nm.toLowerCase().includes(popQ));
+    const draft=popDraft||[];
+    const visAll=os.length&&os.every(o=>draft.indexOf(o.id)>=0);
+    const bx=on=>`<span class="ckb ${on?'on':''}" aria-hidden="true">${on?'\u2713':''}</span>`;
+    h=`<div class="pop-h">${esc(d.nm)}</div>`;
+    h+=`<div class="pop-s"><input id="popQ" type="search" placeholder="Search ${esc(d.nm.toLowerCase())}\u2026"
       value="${esc(popQ)}" oninput="KFX.popSearch(this.value)"></div>`;
-    h+=`<div class="pop-l">`+(os.length?os.map(o=>{const on=S[d.k].includes(o.id);
-      const im=os.length<=14?impactFor(d.k,o.id):null;
-      return `<div class="pop-o ${on?'on':''}" onclick="KFX.tog('${d.k}','${o.id}')">
-        <span class="bx">${on?'\u2713':''}</span>${esc(o.nm)}
-        <span class="sub">${im?(fmt(im.move)+' movement'+(im.flagged?' \u00b7 '+im.flagged+' flag':''))
-          :(o.sub?esc(o.sub):'')}</span></div>`;
-      }).join(''):'<div class="rl-empty" style="padding:8px">No match.</div>')+
-      (os.length<=14?`<div class="pop-note">Movement each option carries, and how many of its
-        lines breach ${esc(prof().nm)}.</div>`:'')+`</div>`;
+    /* the two readings of the same set, as an underlined pair \u2014 the label states what
+       the chosen options will DO, which is the thing a list of checkboxes cannot say */
+    h+=`<div class="pop-mode" role="group" aria-label="How the selection applies">
+      <button class="${popDraftX?'':'on'}" aria-pressed="${popDraftX?'false':'true'}"
+        onclick="KFX.popMode(false)" title="Keep only the options you tick">Included</button>
+      <button class="${popDraftX?'on':''}" aria-pressed="${popDraftX?'true':'false'}"
+        onclick="KFX.popMode(true)" title="Keep everything except the options you tick">Excluded</button></div>`;
+    h+=`<div class="pop-l">`;
+    if(os.length){
+      h+=`<div class="pop-o ck" onclick="KFX.popAll('${d.k}')">
+        ${bx(visAll)}<b>Select all</b>${popQ?`<span class="sub">${os.length} shown</span>`:''}</div>`;
+      h+=os.map(o=>{const on=draft.indexOf(o.id)>=0;
+        const im=os.length<=14?impactFor(d.k,o.id):null;
+        return `<div class="pop-o ck ${on?'on':''}" onclick="KFX.popTog('${o.id}')">
+          ${bx(on)}${esc(o.nm)}
+          <span class="sub">${im?(fmt(im.move)+' movement'+(im.flagged?' \u00b7 '+im.flagged+' flag':''))
+            :(o.sub?esc(o.sub):'')}</span></div>`;}).join('');
+      if(os.length<=14)h+=`<div class="pop-note">Movement each option carries, and how many of its
+        lines breach ${esc(prof().nm)}.</div>`;
+    } else h+='<div class="rl-empty" style="padding:8px">No match.</div>';
+    h+=`</div>`;
+    /* Clear left, Apply right \u2014 the standard footer for every multi-select on the
+       page. Apply states what it will do, because "Apply" over an empty draft reads
+       as a no-op when it actually clears the filter. */
+    const verb=!draft.length?'Show all'
+      :(popDraftX?`Exclude ${draft.length}`:`Apply ${draft.length}`);
+    h+=`<div class="pop-ft">
+      <button class="pop-clr" ${draft.length?'':'disabled'}
+        onclick="KFX.popMode(false);KFX.popApplyClear('${d.k}')">Clear</button>
+      <span class="pop-ftn">${draft.length
+        ? (popDraftX?'Everything except these':'Only these')
+        : 'Unfiltered'}</span>
+      <button class="btn-primary sm" onclick="KFX.popApply('${d.k}')">${verb}</button></div>`;
   }
   p.innerHTML=h;
   if(popKind==='mat')seg('segOp',thr().op);
@@ -7101,11 +7702,12 @@ function paintKpi(){
       <span class="sep">${tie.ok?'<span class="ok">\u2713 ties to TB</span>':'<span class="bad">TB out of balance</span>'}</span>
       <span class="fx-sp"></span>
       <button class="btn-out sm" data-pop="viewmode" onclick="KFX.pop('viewmode',this)">${ic('view')}${esc(dispName())}</button>
-      <button class="btn-out sm" onclick="KFX.openFilters()">${ic('filter')}Filters</button>
+      <button class="btn-out sm" data-pop="add" onclick="KFX.pop('add',this)">${ic('filter')}Filters</button>
       <button class="btn-primary sm" onclick="KFX.submitAll()">Submit</button>
       <button class="btn-out sm" onclick="KFX.toggleFocus()" title="Leave focus mode (Alt+Z)">${ic('focusOn')}</button>`:'';
   }
   if(wk)wk.style.display=S.focus?'none':'';
+  const ff=$('fxFilters'); if(ff)ff.style.display=S.focus?'none':'';
   const root=$('fxRoot'); if(root)root.classList.toggle('focused',!!S.focus);
 
   /* ---- THE WORKLIST BAR ------------------------------------------------------
@@ -7327,74 +7929,68 @@ function cell(c,r,totalD){
    Each indicator is a real button that opens the workspace at the tab that holds
    the thing it counts, so the count is never a dead end.
    ========================================================================== */
+/* ONE COLUMN, ONE SUBJECT: WHERE THIS LINE STANDS (rebuilt 2026-08-28).
+
+   It used to emit up to SIX indicators — needs-explanation, item count, coverage
+   percent, inherited/draft, document count, review status — in five visual
+   languages, so the column meant something different on every row. Measured on the
+   seeded income statement: 14 of 16 cells empty, and the 2 that were not carried
+   two entirely different compositions ("4 · 100% expl · In review" and "⚠ Needs
+   explanation"). A column whose meaning changes row to row cannot be scanned; it
+   can only be read one cell at a time, which is the opposite of what a status
+   column is for.
+
+   Now it answers one question with one word from a closed vocabulary, so a reviewer
+   scans the column and not the cells. Counts and coverage moved into the workspace,
+   where they can be acted on: they are INVENTORY, and rule 12 says inventory does
+   not compete with status. Coverage in particular was a number nobody could act on
+   at row height — "100% expl" beside "In review" says the same thing twice.
+
+   THE SEVERITY MARK IS THE ROW'S LEFT BORDER, NOT AN ICON HERE. Rule 8: severity is
+   a 3px left border and nothing else, never a dot, never a pill, never both. The
+   warning glyph was the second mark for a fact the border already carried. */
+const FXST={
+  need:   ['Needs explanation','need','Needs an explanation — open the review workspace','stack'],
+  ret:    ['Returned',         'need','Returned by the reviewer','sum'],
+  draft:  ['Draft ready',      '',    'Korvyn has drafted an explanation — no one has acted on it yet','sum'],
+  inherit:['Inherited',        '',    'Explained at a lower level','stack'],
+  review: ['In review',        'wait','Submitted — waiting on a reviewer','sum'],
+  done:   ['Reviewed',         'ok',  'Reviewed and signed off','sum'],
+};
 function cmtIndicators(r){
   if(r.acct||r.tot)return '';
   const rc=rec(r.id);
-  const n=rc?rc.items.length:0, ev=rc?evidenceFor(rc).length:0;
-  const id=r.id.replace(/'/g,"&#39;");
-  const go=(tab,lbl,body)=>`<button type="button" class="fxi-b" title="${esc(lbl)}"
-    aria-label="${esc(lbl)}" onclick="event.stopPropagation();KFX.pickAt('${id}','${tab}')">${body}</button>`;
-  const out=[];
-
-  /* ACTION FIRST. A line that owes an explanation says so before it says anything
-     about what it already has. */
-  let owed=false;
-  if(r.req&&!n&&(!rc||rc.status==='draft')){
-    owed=true;
-    out.push(go('stack','Needs an explanation — open the review workspace',
-      `${ic('need')}<span class="t need">Needs explanation</span>`));
-  }else if(rc&&rc.status==='returned'){
-    owed=true;
-    out.push(go('sum','Returned by the reviewer',`${ic('need')}<span class="t need">Returned</span>`));
-  }
-
-  if(n)out.push(go('stack',n+' explanation item'+(n===1?'':'s'),`${ic('cmt')}<span class="t">${n}</span>`));
-
-  /* HOW MUCH OF THE MOVEMENT IS EXPLAINED — the Review mode's coverage read, at row
-     height. Derived from the figures already on the row (the accepted items sum to
-     r.ex against the movement r.d), so it costs no record lookup and can never
-     disagree with the drawer's own coverage. Only on lines that owe an explanation
-     and have begun one; a line with nothing said says nothing here, and full
-     coverage is stated plainly rather than shouted. */
-  if(r.req&&n&&r.d){
-    const cov=Math.min(100,Math.abs(r.ex/r.d)*100);
-    out.push(go('sum',cov.toFixed(0)+'% of the movement is explained',
-      `<span class="t">${cov.toFixed(0)}% expl</span>`));
-  }
-
-  /* INHERITED COMMENTARY is a different fact from having your own, and it is the
-     one a reviewer most often misses — nothing at this level, but a level beneath
-     has already explained it. Derived, not stored: bestExplanation decides. */
-  if(!n){
+  const n=rc?rc.items.length:0;
+  /* Order is precedence, not preference: the first true statement wins, because a
+     line is in exactly one place in the review. */
+  let k=null;
+  if(rc&&rc.status==='returned')                    k='ret';
+  else if(rc&&rc.status==='approved'&&n)            k='done';
+  else if(rc&&rc.status==='submitted'&&n)           k='review';
+  else if(r.req&&!n&&(!rc||rc.status==='draft')){
     const best=bestExplanation(r,rc);
-    if(best.kind==='inherited')
-      out.push(go('stack','Inherited from a lower level — '+best.label,
-        `${ic('inherit')}<span class="t">Inherited</span>`));
-    /* A waiting Korvyn draft is worth a mark, but on a line that ALREADY says it
-       owes an explanation the word "Draft" beside "Needs explanation" is two labels
-       for one situation. It keeps the icon and gives up the word; the tooltip still
-       says what it is. */
-    else if(best.kind==='draft'&&r.req)
-      out.push(go('sum','Korvyn has drafted an explanation — no one has acted on it yet',
-        `${ic('cmt')}${owed?'':'<span class="t">Draft ready</span>'}`));
+    k=(best.kind==='draft')?'draft':'need';
   }
-
-  if(ev)out.push(go('evid',ev+' supporting document'+(ev===1?'':'s'),`${ic('clip')}<span class="t">${ev}</span>`));
-
-  /* The review's own state, and only once it is worth saying: a line still being
-     prepared is the normal case and says nothing. */
-  if(rc&&(rc.status==='submitted'||rc.status==='approved')&&n){
-    const s=rc.status==='approved'?['ok','Reviewed']:['wait','In review'];
-    out.push(go('sum','Review status: '+s[1],`<span class="t ${s[0]}">${s[1]}</span>`));
+  else if(!n){
+    const best=bestExplanation(r,rc);
+    if(best.kind==='inherited')k='inherit';
   }
-  return out.length?`<span class="fxind">${out.join('')}</span>`:'';
+  if(!k)return '';
+  const s=FXST[k], id=r.id.replace(/'/g,"&#39;");
+  return `<span class="fxind"><button type="button" class="fxi-b" title="${esc(s[2])}"
+    aria-label="${esc(s[2])}" onclick="event.stopPropagation();KFX.pickAt('${id}','${s[3]}')"
+    ><span class="t ${s[1]}">${esc(s[0])}</span></button></span>`;
 }
 
 /* Select a line AND land on the part of the workspace the reviewer asked for.
    pick() alone always opens Summary, which turns "I clicked the evidence count"
    into "now find evidence yourself". */
 function pickAt(id,tab){
-  if(S.sel!==id){S.sel=id;S.drvPath=[];S.drvGl=false;S.rwFullEx=false;S.rwPeriods=false;}
+  /* the walk ('n' / Next needing review) changes the line without closing the panel,
+     so per-line state has to be cleared here too — a reply aimed at a message on the
+     previous line would otherwise file its answer under a stranger */
+  if(S.sel!==id){S.sel=id;S.drvPath=[];S.drvGl=false;S.rwFullEx=false;S.rwPeriods=false;
+    S.cmtReplyTo=null;S.cmtDraft='';S.cmtOwedOpen=false;}
   S.dwTab=DW_TAB_ALIAS[tab]||'sum'; S.dwCollapsed=false; S.dwMenu=false;
   renderAll();
 }
@@ -7768,40 +8364,45 @@ function kdItemNote(d,o){
    synthesized narrative) but that a person choosing how to LOOK at a statement does
    not need. The two collapse into one reading mode:
 
-     Review     — financials + review context (status, counts, explained %,
-                  favorability, outstanding indicator). The default, and the answer
-                  for almost every session. Stored value 'status'.
-     Financials — the financial statement only, review chrome shed. Stored 'nums'.
-     Narrative  — one concise current explanation under each relevant line, the
+     Statement — the statement with whatever columns the reviewer chose. The
+                  default, and the answer for almost every session. Stored 'stmt'.
+     Narrative — one concise current explanation under each relevant line, the
                   reader opts into prose. Stored 'full'.
 
-   Order is the order a reviewer meets them, not alphabetical: Review first because
-   it is the default. The stored VALUES are unchanged from the four-mode era so no
-   saved view breaks — 'status'/'nums'/'full' keep their exact meaning, and the
-   retired 'cmt' migrates to Review in dispMode() (Comments was a working view, not
-   a reading one). */
+   Review and Financials were merged into Statement on 2026-08-28; see the note on
+   DISP_MODES below for why, and dispMode() for how every retired key still opens. */
+/* TWO MODES, NOT THREE (owner's direction, 2026-08-28). Review and Financials had
+   converged to a single column of difference: the mode was built to strip four
+   (`REVIEW_CHROME` = cmt · status · owner · resid) but only `cmt` still ships in the
+   default set, so "Financials" had become "Review minus the Explanation column" —
+   a whole display mode to hide one column that Table › Columns already toggles.
+
+   What is left is an honest pair: the working statement, and the narrative read.
+   Which columns the statement carries is now purely the reviewer's column choice,
+   which is where that decision belonged. Narrative still drops the Explanation
+   column, because in that mode the explanation is printed under the line and the
+   column would be the same words twice. */
 const DISP_MODES=[
-  ['status','Review',    'financials with review context — status, counts, explained %'],
-  ['nums',  'Financials','the financial statement only'],
-  ['full',  'Narrative', 'one concise explanation under each relevant line'],
+  ['stmt','Statement', 'the statement and the columns you have chosen'],
+  ['full','Narrative', 'one concise explanation under each relevant line'],
 ];
-const dispName=()=>{const m=DISP_MODES.find(x=>x[0]===dispMode());return m?m[1]:'Review';};
-/* MIGRATE ON READ. Saved views persist the raw value in S.view (snapshot() now
-   carries it), so every legacy key a stored view could hold has to keep resolving:
+const dispName=()=>{const m=DISP_MODES.find(x=>x[0]===dispMode());return m?m[1]:'Statement';};
+/* MIGRATE ON READ. Saved views persist the raw value in S.view (snapshot() carries
+   it), so every legacy key a stored view could hold has to keep resolving:
 
-     'compact' (original Review)  -> Review
-     'review'  (original Comments)-> Review   (Comments folded into Review)
-     'cmt'     (Comments)         -> Review
-     'status' / 'nums' / 'full'   -> themselves
+     'status'  (Review)      -> Statement
+     'nums'    (Financials)  -> Statement
+     'compact' / 'review' / 'cmt' (pre-2026 keys) -> Statement
+     'full'    (Narrative)   -> itself
 
-   ANYTHING UNRECOGNISED FALLS BACK TO REVIEW, never to Narrative: a corrupt or
-   future view value must not be able to open the statement with a paragraph under
-   every line. */
+   Migrating on read rather than rewriting means an old view opens correctly without
+   a migration pass over stored state. ANYTHING UNRECOGNISED FALLS BACK TO STATEMENT,
+   never to Narrative: a corrupt or future value must not be able to open the
+   statement with a paragraph under every line. */
 function dispMode(){
   const v=S.view;
-  if(v==='compact')return 'status';
-  if(v==='review'||v==='cmt')return 'status';   // Comments -> Review
-  return DISP_MODES.some(m=>m[0]===v)?v:'status';
+  if(v==='full')return 'full';
+  return DISP_MODES.some(m=>m[0]===v)?v:'stmt';
 }
 
 /* ---- WHICH NARRATIVE TO SHOW ------------------------------------------------
@@ -7987,10 +8588,19 @@ function paintGrid(){
      Favorability is NOT part of this set: it rides the Δ% cell and belongs to the
      numbers, not the review, so it survives in both modes. Review keeps the whole
      set, because inline context is the whole point of Review. */
+  /* Narrative prints the explanation under the line, so the Explanation COLUMN
+     beside it would be the same words twice — it is the one mode that still sheds
+     review chrome. Statement carries whatever columns the reviewer chose; hiding
+     them by mode as well was the second control over one decision. */
   const REVIEW_CHROME=['cmt','status','owner','resid'];
-  const hide=(mode==='nums'||mode==='full')?REVIEW_CHROME:[];
+  const hide=(mode==='full')?REVIEW_CHROME:[];
   const totalD=all.filter(r=>!r.hdr&&!r.tot).reduce((t,r)=>t+Math.abs(r.d),0);
-  const cols=S.cols.filter(c=>!hide.includes(c));
+  /* A RETIRED COLUMN MUST NOT TAKE THE TABLE DOWN WITH IT. S.cols is persisted in
+     saved views, so a view stored before a column was retired still names it —
+     hcell() then does COL_DEFS.find(...).nm on undefined and throws, taking the
+     whole statement with it. One filter, applied where header and body both read,
+     so the two can never disagree about how many cells there are. */
+  const cols=S.cols.filter(c=>!hide.includes(c)&&COL_DEFS.some(d=>d.id===c));
   /* SORTABLE HEADERS. The sort was fully implemented, wired to a <select> inside a
      filter group that was display:none and never unhidden — so the statement could
      not be ordered from the UI at all. The three columns worth sorting say so, carry
@@ -8262,12 +8872,19 @@ function pick(id){
      review' walk the worklist without leaving the page. */
   S.dwTab='sum'; S.dwCollapsed=false; S.dwMenu=false; S.dwPage=false; S.kdDraft=null;
   S.drvPath=[]; S.drvGl=false; S.rwFullEx=false; S.rwPeriods=false;
+  /* A reply is aimed at a message on THIS line; carrying it to the next one would
+     file an answer under a stranger. Same reason the drill and the expanded
+     explanation reset here. */
+  S.cmtReplyTo=null; S.cmtOwedOpen=false;
   renderAll();
 }
 function closeDrawer(){S.sel=null;S.dwCollapsed=false;S.dwMenu=false;S.dwPage=false;
-  S.cmtCompose=false;S.cmtDraft='';S.kdDraft=null;renderAll();}
+  S.cmtCompose=false;S.cmtDraft='';S.cmtReplyTo=null;S.cmtOwedOpen=false;
+  S.kdDraft=null;renderAll();}
 function resetFilters(){S.ent=[];S.seg=[];S.prop=[];S.cc=[];S.reg=[];S.dir='all';S.show='all';S.sort='stmt';
-  S.q='';S.reason=[];S.thresh='';S.cover='all';S.sel=null;renderAll();}
+  S.q='';S.reason=[];S.thresh='';S.cover='all';S.elim='inc';
+  S.excl={ent:false,seg:false,prop:false,cc:false,reg:false};
+  S.sel=null;renderAll();}
 /* Drill and filter are the same gesture: scoping from a decomposition row applies the
    filter to the whole view, so the grid, the KPIs and the memo all move together. */
 function scopeTo(dim,val){
@@ -8287,8 +8904,11 @@ function toggleTheme(){const b=document.body;b.dataset.theme=b.dataset.theme==='
    `fullAll` are the display state a view should reproduce; `narrExpand` is left out
    deliberately, because "expand every narrative" is a transient act for a print or a
    screen-share, not a property of the view (the spec: do not auto-expand all). */
+/* `excl` rides along with the dimension arrays it qualifies: a view that saved
+   "all entities except Corporate" and reloaded as "only Corporate" would be the
+   same list meaning the opposite thing. */
 function snapshot(){return JSON.parse(JSON.stringify({stmt:S.stmt,grain:S.grain,compare:S.compare,cur:S.cur,
-  prior:S.prior,units:S.units,ent:S.ent,seg:S.seg,prop:S.prop,cc:S.cc,reg:S.reg,profile:S.profile,
+  prior:S.prior,units:S.units,ent:S.ent,seg:S.seg,prop:S.prop,cc:S.cc,reg:S.reg,excl:S.excl,profile:S.profile,
   dir:S.dir,show:S.show,sort:S.sort,cols:S.cols,view:S.view,fullAll:S.fullAll}));}
 /* Favorites and saved views are the same objects; `fav` is just membership in the
    shortlist. A view can be favorited or unfavorited from anywhere it is listed, and
@@ -8640,9 +9260,16 @@ function sizeDrawer(){
     dt.style.left=dt.style.width=dt.style.top=dt.style.height='';
     const rt=$('fxRoot'); if(rt)rt.classList.remove('dw-tight','dw-tighter','dw-open');
     document.body.classList.remove('fx-dw-open');
+    /* ONLY WHILE FLUX IS ACTUALLY ON SCREEN. This runs from a resize observer and a
+       scroll handler, both of which fire on every page — and S.dwPage survives
+       navigation, so an unguarded add() left the topbar and the statement tabs
+       hidden on the General Ledger and the Trial balance. offsetParent is the
+       cheap, honest test: no layout box, not the visible page. */
+    document.body.classList.toggle('fx-dw-page',!!(rt&&rt.offsetParent!==null));
     document.body.style.removeProperty('--fx-dw-w');
     return;
   }
+  document.body.classList.remove('fx-dw-page');
   const full=sp.classList.contains('on')&&dt.style.display!=='none'
              &&sp.offsetParent!==null
              &&window.matchMedia('(min-width:1101px)').matches;
@@ -8686,6 +9313,7 @@ function sizeDrawer(){
      of empty panel straight over the statement the collapse just gave back. */
   dt.style.width=(S.dwCollapsed?Math.max(0,right-left):Math.max(280,right-left))+'px';
 
+
   /* WHERE THE TOP GOES, and why this is measured rather than declared.
      The drawer sits at z-index 8. Several page layers outrank it — #filterbar is
      position:relative z-30 and makes its own stacking context, .topbar is z-15,
@@ -8709,8 +9337,10 @@ function sizeDrawer(){
      while the panel was 440px wide and the button simply vanished; unmistakable once
      the panel could collapse to a 34px rail, which sliced the primary button in half.
      Measured like the rest of the chrome: the workspace begins below it. */
-  document.querySelectorAll('.ribbon,.cstrip,.topbar,#filterbar,#fxRoot .gl-hd,'+
-    '#fxRoot .fx-work,#fxRoot .fx-focusline').forEach(e=>{
+  /* .gl-hd left this list with the header itself — the actions moved to the topbar,
+     which is already measured. The filter tabs are now the first thing over the grid. */
+  document.querySelectorAll('.ribbon,.cstrip,.topbar,#filterbar,'+
+    '#fxRoot .fx-filters,#fxRoot .fx-work,#fxRoot .fx-focusline').forEach(e=>{
     const r=e.getBoundingClientRect();
     if(r.height<=0||r.width<=0)return;
     if(r.right<=left||r.left>=right)return;              // not over the drawer's column
@@ -8765,26 +9395,21 @@ function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTic
    only ever toggles a class — writing S.dwTab from a scroll handler would repaint the
    body mid-scroll and would collapse an open driver drill under the reader. */
 const RW_INDEX=['explain','drill','evid','cmtHead','trail'];
+/* The full-screen tab bar, in the drawer's OWN tab ids so one vocabulary drives
+   both densities. Drivers is a tab of its own here because the page has the width
+   to give the drill a screen; in the 440px drawer it stays an in-place drill from
+   Overview. Every id must exist in RW_LAYOUT.drawer or dwPageCols() falls back to
+   Overview rather than rendering an empty screen. */
+const FX_PAGETABS=[['sum','Overview'],['drive','Drivers'],['evid','Evidence'],
+  ['comments','Comments'],['hist','History']];
+/* THE SCROLL SPY IS GONE WITH THE SCROLLING INDEX. Full screen shows one tab's
+   content, so the active tab is the reviewer's choice — a spy that re-marked it
+   from scroll position would fight that choice the moment they scrolled inside the
+   tab they picked. What survives is the `scrolled` flag, which only drives the
+   shadow under the sticky tab bar. */
 function dwSpy(){
   const dt=$('fxDetail'); if(!dt)return;
-  if(!S.dwPage){dt.classList.remove('scrolled');return;}
-  dt.classList.toggle('scrolled',window.scrollY>4);
-  const tabs=$('fxDwTabs'); if(!tabs)return;
-  const stick=(dt.querySelector('.dw-tabs')||{getBoundingClientRect:()=>({bottom:0})})
-    .getBoundingClientRect().bottom;
-  let here=null, best=-Infinity;
-  dt.querySelectorAll('[data-rg]').forEach(sec=>{
-    const k=sec.getAttribute('data-rg');
-    if(RW_INDEX.indexOf(k)<0)return;                 // not a destination the index offers
-    const top=sec.getBoundingClientRect().top;
-    if(top<=stick+4&&top>best){best=top;here=k;}
-  });
-  // above the first region, the index reads as the first entry rather than as nothing
-  if(!here&&dt.querySelector('[data-rg]'))here=RW_INDEX.find(k=>dt.querySelector('#fxRg-'+k))||null;
-  if(here===S.dwRg)return;
-  S.dwRg=here;
-  tabs.querySelectorAll('button[data-go]').forEach(b=>
-    b.classList.toggle('on',b.getAttribute('data-go')===here));
+  dt.classList.toggle('scrolled',!!S.dwPage&&window.scrollY>4);
 }
 window.addEventListener('scroll',dwOnScroll,{passive:true});
 window.addEventListener('resize',syncStick);
@@ -8878,11 +9503,21 @@ function paintDrawer(){
   const on=t=>S.dwTab===t||(t==='sum'&&S.dwTab==='drive')||(t==='evid'&&S.dwTab==='support');
   let tb;
   if(S.dwPage){
-    const NM={explain:'Explanation',drill:'Drivers',evid:'Evidence',cmtHead:'Comments',trail:'History'};
-    const BADGE={evid:gaps?'<i class="dot"></i>':'',
-                 cmtHead:nSaid?`<span class="ct">${nSaid}</span>`:''};
-    tb=RW_INDEX.map(k=>`<button data-go="${k}" class="${S.dwRg===k?'on':''}"
-        onclick="KFX.dwGo('${k}')">${esc(NM[k])}${BADGE[k]||''}</button>`).join('');
+    /* FULL SCREEN SWAPS, IT NO LONGER SCROLLS (owner's direction, 2026-08-28).
+       This reverses "PAGE MODE NAVIGATION IS A SCROLL, NOT A SWAP": every region
+       used to be mounted at once and the tab bar jumped between them, so the whole
+       record was one ~2,400px document and a tab told you where you were rather
+       than what you were looking at. Full screen now shows the ACTIVE TAB'S
+       content, filling the screen — the same contract the drawer has always had.
+
+       The ids are the drawer's, so both densities are driven by one tab vocabulary
+       and one registry; only the layout differs. Overview keeps the three-column
+       argument, which is what the full page is FOR. */
+    tb=FX_PAGETABS.map(([id,nm])=>{
+      const badge=id==='evid'?(gaps?'<i class="dot"></i>':'')
+                 :id==='comments'?(nSaid?`<span class="ct">${nSaid}</span>`:''):'';
+      return `<button class="${on(id)?'on':''}"
+        onclick="KFX.dwTab('${id}')">${esc(nm)}${badge}</button>`;}).join('');
   }else{
     tb=[['sum','Overview',''],
         ['comments','Comments',nSaid?`<span class="ct">${nSaid}</span>`:''],
@@ -8933,8 +9568,11 @@ function dwTab(t){
   if(t==='jes'&&S.jeAcct){S.drvPath=[{dim:'acct',k:S.jeAcct,label:rwName('acct',S.jeAcct)}];S.drvGl=true;}
   if(!S.dwPage&&id!=='drive'&&S.dwTab==='drive'){S.drvPath=[];S.drvGl=false;}
   S.dwMenu=false;
-  S.dwTab=id;paintDrawer();
-  if(S.dwPage)dwGo(id==='drive'?'drill':id==='evid'?'evid':id==='comments'?'cmtHead':id==='hist'?'trail':'explain');
+  S.dwTab=id;
+  /* Full screen swaps the content, so a tab starts its own screen at the top —
+     inheriting the last tab's scroll offset would open Comments halfway down. */
+  if(S.dwPage)window.scrollTo(0,0);
+  paintDrawer();
 }
 /* PAGE MODE NAVIGATION IS A SCROLL, NOT A SWAP. Every region is already mounted, so
    the tab bar and the ••• menu jump to one — offset by the sticky chrome AND by the
@@ -8952,9 +9590,11 @@ function dwGo(key){
    log" are real destinations rather than three buttons opening the same scroll. */
 function histOpen(focus){
   S.histFocus=focus||'review';S.dwMenu=false;
-  // on the page History is not a destination — it is already down the record column
-  if(S.dwPage){paintDrawer();dwGo(focus==='prior'?'prior':'trail');return;}
-  S.dwTab='hist';paintDrawer();
+  /* History is a real tab in BOTH densities now that full screen swaps rather than
+     scrolls; histFocus still orders which block leads. */
+  S.dwTab='hist';
+  if(S.dwPage)window.scrollTo(0,0);
+  paintDrawer();
 }
 /* ---- panel controls --------------------------------------------------------
    Collapse keeps the selection and every piece of in-progress work; close drops
@@ -9027,13 +9667,19 @@ function dwHead(r,rc){
   let from='';
   if(S.dwPage){
     const rws=visible(rows()).filter(x=>!x.hdr&&!x.tot);
-    const at=rws.findIndex(x=>x.id===r.id);
+    /* `at` (the line's position in the walk) went with the "line 1 of 16" text it
+       was the only caller of. */
     const owed=rws.filter(x=>x.req&&!(x.status==='approved'&&x.clear)).length;
+    /* THE RETURN STRIP CARRIES THE WAY BACK AND THE WAY ON, AND NOTHING ELSE
+       (owner's direction, 2026-08-28). It used to trail three pieces of metadata —
+       the section, "line 1 of 16", "2 still need review" — none of which the
+       reviewer came to this page to read, and each of which is stated where it
+       belongs: the section heads the row in the statement behind this page, the
+       position is what the ‹ link and the Next button move through, and the count
+       is the worklist bar's job. `owed` still gates the Next button; it is the
+       count's TEXT that goes, not the fact behind it. */
     from=`<div class="ws-from">
       <button type="button" class="rw-lnk" onclick="KFX.dwPage()">‹ ${esc(stmtTitle())}</button>
-      ${r.sec?`<span class="sep">·</span><span>${esc(r.sec)}</span>`:''}
-      ${at>=0?`<span class="sep">·</span><span>line <b>${at+1}</b> of ${rws.length}</span>`:''}
-      ${owed?`<span class="sep">·</span><span><b>${owed}</b> still need review</span>`:''}
       <span class="sp"></span>
       ${owed?`<button class="btn-out sm" onclick="KFX.nextOpen()">Next needing review →</button>`:''}
       <span class="keys">
@@ -9626,8 +10272,13 @@ function rwState(r,rc,C){
   const clear=Math.abs(C.res)<=C.tol, n=rc.items.length;
   /* Below materiality is a quiet fact, not a section headline — soft keeps Overview
      monochrome and leaves space for explanation / drivers. */
+  /* The policy, and nothing else. "star to require an explanation" was an
+     instruction living in a status line: it told the reviewer how to operate a
+     control instead of telling them where the line stands, and it was the longest
+     clause in the header. The star is on the row in the statement, with its own
+     tooltip; a status reports, it does not teach. */
   if(!r.req)return {nm:'Below materiality',bad:0,soft:1,
-    figs:`<span class="who">${esc(prof().nm)} · star to require an explanation</span>`,
+    figs:`<span class="who">${esc(prof().nm)}</span>`,
     sub:''};
   if(rc.status==='approved'){
     const w=rwWho(rc.rev||PEOPLE.rev);
@@ -9805,11 +10456,29 @@ const RWSEC={
     /* best.text is UNESCAPED for a Korvyn draft and escaped for every other path.
        That is deliberate and load-bearing: kdNarrative() composes its own <b> marks
        around the quantified figures. Do not "tidy" this into one esc(). */
-    h+=`<div class="rw-nar">${best.kind==='draft'?best.text:esc(best.text)}</div>
-      <div class="rw-src">${best.kind==='draft'
-        ? 'Korvyn draft — not yet accepted by a preparer'
-        : rwSource(r,rc,best)}</div>
-      ${best.kind==='draft'?`<div class="rw-src">${kdSupportLine(r)}</div>`:''}`;
+    /* THE EXPLANATION IS THE FIRST STATEMENT IN THE THREAD, so it is written in the
+       thread's own grammar: an author in the gutter, the provenance beside the
+       name, the words against a rail. It used to be a wall of prose with its
+       authorship demoted to a caption underneath — which is how "Korvyn draft, not
+       yet accepted" ended up reading as a footnote rather than as the single most
+       important thing about the words above it.
+       A draft carries the AI identity (indigo --ai), never the cobalt accent: it is
+       generated, and rule 2 reserves indigo for exactly that. */
+    const draft=best.kind==='draft';
+    const auth=draft?'Korvyn':(rwWho(best.by||rc.by||'').nm||'Preparer');
+    h+=`<div class="rw-msg lead ${draft?'ai':''}">
+      <span class="rw-av ${draft?'ai':''}" aria-hidden="true">${draft?'K':esc(rwInitials(auth))}</span>
+      <div class="bd">
+        <div class="hd">
+          <span class="who">${esc(auth)}</span>
+          <span class="role">${draft
+            ? 'draft — not yet accepted by a preparer'
+            : rwSource(r,rc,best)}</span>
+        </div>
+        <div class="tx nar">${draft?best.text:esc(best.text)}</div>
+        ${draft?`<div class="mt">${kdSupportLine(r)}</div>`:''}
+      </div>
+    </div>`;
     if(best.kind==='draft'&&canPrep)h+=kdControls(r,rc);
     else if(canPrep)h+=`<div class="rw-lact" style="margin-top:var(--s-3)">
       <button class="btn-out sm" onclick="KFX.kdEdit()">Edit explanation</button>
@@ -9941,42 +10610,82 @@ const RWSEC={
      still owes a comment. Three parts because the page puts them in one column but
      the drawer stacks them behind one tab, and because "awaiting a comment" is a
      worklist that a controller works, not a continuation of the thread. */
+  /* THE THREAD READS TOP TO BOTTOM AND YOU WRITE AT THE END. It used to open with
+     a permanent 100px composer — asking the reviewer to write before they had read
+     a word — and then spend the rest of the tab on a chase-list. The order is now
+     the one every conversation has: who is talking, what was said, then the box to
+     say something, and only then the people who have not answered yet. */
   cmtHead(X){
     const said=X.cmt.said, showFilter=X.cmt.showFilter, fk=X.cmt.fk, kinds=X.cmt.kinds;
-    let h=`<div class="rw-cbar">
-    <div class="rw-sec" style="margin:0">Comments${said.length?`<span class="ct">${said.length}</span>`:''}</div>
+    const owed=X.cmt.owed;
+    return `<div class="rw-cbar">
+    <div class="rw-sec" style="margin:0">Conversation${
+      said.length?`<span class="ct">${said.length}</span>`:''}</div>
+    ${owed.length?`<span class="rw-cawait">${owed.length} awaiting</span>`:''}
     <span class="sp"></span>
     ${showFilter?`<div class="rw-cfil">
       <button aria-haspopup="menu" aria-expanded="${S.cmtMenu?'true':'false'}"
         onclick="event.stopPropagation();KFX.cmtMenu()">${
-        esc((CMT_KINDS.find(k=>k[0]===fk)||CMT_KINDS[0])[1])} comments <span class="cue">▾</span></button>
+        esc((CMT_KINDS.find(k=>k[0]===fk)||CMT_KINDS[0])[1])} <span class="cue">▾</span></button>
       ${S.cmtMenu?`<div class="rw-cmenu" role="menu" onclick="event.stopPropagation()">`+
         CMT_KINDS.filter(k=>k[0]==='all'||kinds.has(k[0])).map(k=>
           `<button class="${fk===k[0]?'on':''}" onclick="KFX.cmtFilter('${k[0]}')">${esc(k[1])}</button>`).join('')+
         `</div>`:''}
     </div>`:''}
   </div>`;
-    /* Composer stays open on this tab — explore and post without an extra click.
-       Lock does not block comments (discussion is not a determination). */
-    h+=cmtComposer(X.lock);
-    return h;
   },
 
   cmtStream(X){
     const said=X.cmt.said, owed=X.cmt.owed, shown=X.cmt.shown, fk=X.cmt.fk, lock=X.lock;
     if(!said.length&&!owed.length)
-      return `<div class="rw-quiet">No comments yet.${lock?'':
-      ' Add the first, or a contributing entity will as the review moves.'}</div>`;
-    if(shown.length)return `<div class="rw-cstream">`+shown.map(c=>cmtCard(c,lock)).join('')+`</div>`;
+      return `<div class="rw-quiet">Nothing said on this line yet.${lock?'':
+      ' Start the thread, or a contributing entity will as the review moves.'}</div>`;
+    if(shown.length){
+      /* Each root and its answers are ONE group, so a reply can never drift away
+         from what it answers when the list re-sorts or a filter changes. The reply
+         box renders inside the group it belongs to — a composer at the foot of the
+         page that claims to be "replying to L. Moreau" asks the reader to hold the
+         connection in their head. */
+      return `<div class="rw-thread">`+cmtTree(said,shown).map(g=>{
+        const replying=S.cmtReplyTo&&(S.cmtReplyTo===g.msg.id
+          ||g.replies.some(x=>x.id===S.cmtReplyTo));
+        return `<div class="rw-grp">`+cmtCard(g.msg,lock)+
+          (g.replies.length?`<div class="rw-replies">`+
+            g.replies.map(c=>cmtCard(c,lock,true)).join('')+`</div>`:'')+
+          (replying?`<div class="rw-replies">${cmtComposer(lock,g.msg)}</div>`:'')+
+        `</div>`;}).join('')+`</div>`;
+    }
     if(said.length)return `<div class="rw-quiet">No ${esc((CMT_KINDS.find(k=>k[0]===fk)||[])[1]||'').toLowerCase()} comments.</div>`;
-    return '';
+    return `<div class="rw-quiet">Nothing said yet.</div>`;
   },
 
+  /* The composer closes the thread rather than heading it — unless it has been
+     aimed at a message, in which case it is rendered inside that group instead and
+     this part stands down. Two composers on one screen is two carets. */
+  cmtComp(X){ return S.cmtReplyTo?'':cmtComposer(X.lock); },
+
+  /* WHO HAS NOT ANSWERED IS A WORKLIST, NOT THE CONVERSATION. Seven entities that
+     have said nothing were rendering seven full cards — 830px of "No comment yet"
+     above a thread that was often empty, which made the tab read as a chase-list
+     with a comment box attached. It collapses to one line stating the count and the
+     share of the movement still silent; opening it gives back every action it had
+     (Request, Chase, Record on behalf, withdraw), unchanged. */
   cmtOwed(X){
     const owedShown=X.cmt.owedShown;
     if(!owedShown.length)return '';
-    return `<div class="rw-sec">Awaiting a comment<span class="ct">${owedShown.length}</span></div>
-      <div class="rw-cstream">`+owedShown.map(c=>owedCard(c,X.lock)).join('')+`</div>`;
+    const open=!!S.cmtOwedOpen;
+    const amt=owedShown.reduce((t,c)=>t+(Math.abs(c.amt)||0),0);
+    const late=owedShown.filter(c=>c.req&&reqLate(c.req)).length;
+    return `<div class="rw-owed ${open?'on':''}">
+      <button type="button" class="rw-owed-hd" aria-expanded="${open?'true':'false'}"
+        onclick="KFX.cmtOwedToggle()">
+        <span class="cue" aria-hidden="true">${open?'▾':'▸'}</span>
+        <span class="l">${owedShown.length} ${owedShown.length===1?'entity has':'entities have'} not commented</span>
+        ${amt?`<span class="mt">${fmtS(amt)} of the movement</span>`:''}
+        ${late?`<span class="bad">${late} overdue</span>`:''}
+      </button>
+      ${open?`<div class="rw-thread owedlist">`+owedShown.map(c=>owedCard(c,X.lock)).join('')+`</div>`:''}
+    </div>`;
   },
 
   /* ---- SUPPORT, in two parts: what is attached, and where the number comes from.
@@ -10132,7 +10841,7 @@ const RW_LAYOUT={
        locked). This list is the material-line default the keys function returns. */
     sum:['state','explain','drivers','attn'],
     drive:['drill'],
-    comments:['cmtHead','cmtStream','cmtOwed'],
+    comments:['cmtHead','cmtStream','cmtComp','cmtOwed'],
     evid:['evid','source'],
     support:['evid','source'],   /* alias for any stale caller */
     /* History is a first-class tab; histFocus still orders which block leads */
@@ -10148,13 +10857,15 @@ const RW_LAYOUT={
   page:{
     judge:['explain','attn','reviewer'],
     comp:['drill','evid','source'],
-    rec:['prior','trend','cmtHead','cmtOwed','cmtStream','trail'],
+    /* the conversation reads in its own order here too: who is talking, what was
+       said, the box to reply, then who has not answered */
+    rec:['prior','trend','cmtHead','cmtStream','cmtComp','cmtOwed','trail'],
   },
 };
 const RW_RGNAME={explain:'Explanation',attn:'Needs attention',reviewer:'Workflow and review',
   drill:'Drivers',evid:'Evidence',source:'Financial source',prior:'Prior period',
   trend:'Period trend',cmtHead:'Comments',cmtOwed:'Awaiting a comment',
-  cmtStream:'Comment stream',trail:'Review history'};
+  cmtStream:'Comment stream',cmtComp:'Add a comment',trail:'Review history'};
 
 /* One dispatch for both densities. The drawer joins its parts; the page mounts each
    one in a labelled region so the tab bar can double as an index and the scroll spy
@@ -10193,11 +10904,31 @@ function dwBody(X){
     return html?`<section class="rw-rg" id="fxRg-${p}" data-rg="${p}"
       aria-label="${esc(RW_RGNAME[p]||p)}">${html}</section>`:'';
   }).join('')+`</div>`;
-  return `<div class="rw-cols">`+
-    col('judge',RW_LAYOUT.page.judge)+
-    col('comp',RW_LAYOUT.page.comp)+
-    col('rec',RW_LAYOUT.page.rec)+
-    `</div>`;
+  const cols=dwPageCols(X);
+  return `<div class="rw-cols ${cols.length===1?'one':''}">`+
+    cols.map(([k,keys])=>col(k,keys)).join('')+`</div>`;
+}
+/* WHICH COLUMNS THE FULL SCREEN SHOWS, for the active tab.
+
+   Overview is the three-column argument — judge / comp / rec — because that
+   composition IS what the full page is for: is this line defensible, what is the
+   chain down to the ERP, what is it judged against. Every other tab is that tab's
+   own parts, read from the SAME registry the drawer reads, in one wide column.
+
+   Reading the drawer's registry rather than declaring a second page registry is
+   what keeps the two densities honest: a part added to a drawer tab appears on the
+   full screen automatically, and there is no second list to forget. An unknown tab
+   falls back to Overview, so a stale S.dwTab can never render an empty screen. */
+function dwPageCols(X){
+  const t=S.dwTab||'sum';
+  if(t==='sum')return [['judge',RW_LAYOUT.page.judge],
+                       ['comp', RW_LAYOUT.page.comp],
+                       ['rec',  RW_LAYOUT.page.rec]];
+  const keys=RW_LAYOUT.drawer[t];
+  if(!keys||!keys.length)return [['judge',RW_LAYOUT.page.judge],
+                                 ['comp', RW_LAYOUT.page.comp],
+                                 ['rec',  RW_LAYOUT.page.rec]];
+  return [['solo',keys]];
 }
 
 
@@ -10538,6 +11269,13 @@ function rwGlList(r,filt){
        with the ask / record-on-behalf actions, in plain accounting language).
    The lineage model that fed the old tab is unchanged underneath — only its
    presentation is. */
+/* EVERY MESSAGE CARRIES A STABLE ID, because a reply has to point at one. The two
+   sources id differently and deliberately: a lineage contribution is identified by
+   the scope that authored it (`k:<key>`), a discussion comment by its own id. A
+   legacy comment seeded without one is backfilled here rather than at the call
+   site, so nothing downstream has to cope with an id-less message. */
+let cmtSeq=0;
+function cmtId(c,i){ if(!c.id)c.id='c'+(++cmtSeq)+'_'+i; return c.id; }
 function commentStream(r,rc){
   rc=rc||rec(r.id,true);
   const out=[];
@@ -10547,35 +11285,95 @@ function commentStream(r,rc){
       out.push({owed:true,kind:l.kind,scope:l.scope,who:String(l.who).split(',')[0],
         role:l.role||'',key:l.key,req:l.req,amt:l.amt});
     }else{
-      out.push({owed:false,kind:l.kind,scope:l.scope,who:String(l.who).split(',')[0],
+      out.push({owed:false,id:'k:'+l.key,kind:l.kind,scope:l.scope,who:String(l.who).split(',')[0],
         role:l.role||'',at:l.at,ver:l.ver&&l.ver!=='—'?l.ver:'',text:l.note,
         refs:l.refs||[],ev:l.ev||0,onBehalf:l.onBehalf,key:l.key,status:l.status});
     }
   });
-  (rc.comments||[]).forEach(c=>{const w=rwWho(c.by);
-    out.push({owed:false,kind:'corp',scope:c.scope||'Corporate',who:w.nm,role:w.role,
+  (rc.comments||[]).forEach((c,i)=>{const w=rwWho(c.by);
+    out.push({owed:false,id:cmtId(c,i),parent:c.parent||null,
+      kind:'corp',scope:c.scope||'Corporate',who:w.nm,role:w.role,
       at:c.at,ver:c.ver&&c.ver>1?('v'+c.ver):'',text:c.text,refs:[],ev:0,disc:true});});
   return out;
 }
+/* ---- THE THREAD TREE, ONE LEVEL DEEP ---------------------------------------
+   Replies nest under the message they answer and no further. That is a decision,
+   not a limitation: this is a review thread, not a forum — the question a reader
+   has is "what was said about this line", and a reply to a reply four levels in is
+   unreadable at 440px and tells an auditor nothing a flat answer does not. A reply
+   aimed at a reply is re-parented to the root of its branch, so the shape is always
+   root → answers, in time order.
+
+   The FILTER applies to roots only. Filtering to "Entity" and then hiding the
+   corporate reply that answers an entity's contribution would orphan the answer and
+   make the thread read as though nobody responded. */
+function cmtRootOf(id,byId){
+  let n=byId[id], guard=0;
+  while(n&&n.parent&&byId[n.parent]&&guard++<20)n=byId[n.parent];
+  return n?n.id:id;
+}
+function cmtTree(said,shown){
+  const byId={}; said.forEach(c=>{if(c.id)byId[c.id]=c;});
+  const kids={};
+  said.forEach(c=>{
+    if(!c.parent)return;
+    const root=cmtRootOf(c.parent,byId);
+    if(root===c.id)return;                       // a cycle can never become its own parent
+    (kids[root]=kids[root]||[]).push(c);
+  });
+  const roots=shown.filter(c=>!c.parent);
+  return roots.map(c=>({msg:c,replies:(kids[c.id]||[])}));
+}
 const CMT_KINDS=[['all','All'],['ent','Entity'],['reg','Regional'],['corp','Corporate']];
-function cmtCard(c,lock){
+/* ---- ONE MESSAGE IN THE THREAD --------------------------------------------
+   Four stacked divs — who / role / when / text — read like a database row, not
+   like somebody talking. A message is a speaker and what they said: the identity
+   leads on one line (avatar · name · role and scope, with the time pushed right),
+   the words sit under it against a rail, and everything else — attachments, what
+   it references, whose behalf it was recorded on — is quiet metadata beneath.
+
+   `mine` is not decoration. In a thread where a controller is reading their own
+   questions back among four entities' answers, knowing at a glance which voice is
+   yours is what makes it scannable; it shifts the rail to the accent and nothing
+   else, so the thread stays monochrome (rules 2/3). */
+function cmtCard(c,lock,isReply){
   /* MARKING A LEVEL'S REVIEW COMPLETE is a governance action on that scope's own
      review — the multinational close's per-level sign-off — not an approval of the
      comment's words. So it renders once the level has commented but its own review
      is still open, only for a reviewer, as one quiet link. The old "Review stack"
      tab held this; nothing else in the three-tab panel can. */
   const canReview=!lock&&c.key&&c.status&&c.status!=='approved'&&typeof caps==='function'&&caps().review;
-  return `<div class="rw-cm">
-    <div class="who">${esc(c.who)}</div>
-    <div class="role">${[c.role,c.scope].filter(Boolean).map(esc).join(' · ')}</div>
-    <div class="at">${esc(c.at||'')}${c.ver?' · '+esc(c.ver):''}</div>
-    ${c.text?`<div class="tx">${esc(c.text)}</div>`:''}
-    ${c.onBehalf?`<div class="refs">Recorded on behalf of ${esc(c.onBehalf)}</div>`:''}
-    ${c.refs&&c.refs.length?`<div class="refs">References ${c.refs.length} lower-level
-      explanation${c.refs.length===1?'':'s'}: ${esc(c.refs.join(', '))}</div>`:''}
-    ${c.ev?`<div class="ev"><span>${ic('clip')} ${c.ev} document${c.ev===1?'':'s'}</span></div>`:''}
-    ${canReview?`<div class="cact"><button type="button" class="rw-lnk"
-      onclick="KFX.lReview('${c.key}')">Mark this level reviewed</button></div>`:''}
+  const me=(typeof ME==='function')?ME():null;
+  const mine=!!(me&&c.who&&String(c.who).trim()===String(me.nm).trim());
+  const sub=[c.role,c.scope].filter(Boolean).map(esc).join(' · ');
+  const meta=[];
+  if(c.onBehalf)meta.push(`Recorded on behalf of ${esc(c.onBehalf)}`);
+  if(c.refs&&c.refs.length)meta.push(`References ${c.refs.length} lower-level explanation${
+    c.refs.length===1?'':'s'}: ${esc(c.refs.join(', '))}`);
+  /* Reply is offered on every message that has an id, including an entity's own
+     contribution — asking the entity that wrote the line to confirm something is
+     the single most common thing a reviewer does here. A locked line still reads;
+     discussion is not a determination, so the lock does not remove it. */
+  const canReply=!!c.id&&typeof caps==='function';
+  return `<div class="rw-msg ${mine?'mine':''} ${isReply?'reply':''}">
+    <span class="rw-av" aria-hidden="true">${esc(rwInitials(c.who))}</span>
+    <div class="bd">
+      <div class="hd">
+        <span class="who">${esc(c.who)}${mine?'<span class="you">you</span>':''}</span>
+        ${sub?`<span class="role">${sub}</span>`:''}
+        <span class="sp"></span>
+        <span class="at">${esc(c.at||'')}${c.ver?' · '+esc(c.ver):''}</span>
+      </div>
+      ${c.text?`<div class="tx">${esc(c.text)}</div>`:''}
+      ${meta.length?`<div class="mt">${meta.join(' · ')}</div>`:''}
+      ${c.ev?`<div class="mt att">${ic('clip')} ${c.ev} document${c.ev===1?'':'s'}</div>`:''}
+      ${(canReply||canReview)?`<div class="cact">
+        ${canReply?`<button type="button" class="rw-lnk rw-reply"
+          onclick="KFX.cmtReply('${esc(c.id)}')">Reply</button>`:''}
+        ${canReview?`<button type="button" class="rw-lnk"
+          onclick="KFX.lReview('${c.key}')">Mark this level reviewed</button>`:''}
+      </div>`:''}
+    </div>
   </div>`;
 }
 function owedCard(c,lock){
@@ -10593,26 +11391,48 @@ function owedCard(c,lock){
     if(c.req)b.push(`<button type="button" class="lnk" onclick="KFX.reqWithdraw('${c.req.id}')">withdraw</button>`);
     act=`<div class="cact">${b.join('')}</div>`;
   }
-  return `<div class="rw-cm owed">
-    <div class="who">${esc(c.who)}</div>
-    <div class="role">${[c.role,c.scope].filter(Boolean).map(esc).join(' · ')}</div>
-    <div class="owed-t">No comment yet${c.amt!=null?` · ${fmtS(c.amt)} of the movement`:''}.${
-      c.req?` Asked ${esc(c.req.at)}, due ${esc(c.req.due)}${reqLate(c.req)?' — <b>overdue</b>':''}${
-        c.req.chases.length?` · chased ${c.req.chases.length}×`:''}.`:''}</div>
-    ${act}
+  /* An awaited voice is a silhouette of a message: same geometry as a real one so
+     the list reads as "these people, no words yet", but hollow — outlined avatar,
+     no rail, the status where the sentence would be. */
+  const sub=[c.role,c.scope].filter(Boolean).map(esc).join(' · ');
+  return `<div class="rw-msg owed">
+    <span class="rw-av ghost" aria-hidden="true">${esc(rwInitials(c.who))}</span>
+    <div class="bd">
+      <div class="hd">
+        <span class="who">${esc(c.who)}</span>
+        ${sub?`<span class="role">${sub}</span>`:''}
+        <span class="sp"></span>
+        ${c.amt!=null?`<span class="at">${fmtS(c.amt)} of the movement</span>`:''}
+      </div>
+      <div class="mt">No comment yet.${
+        c.req?` Asked ${esc(c.req.at)}, due ${esc(c.req.due)}${reqLate(c.req)?' — <b class="bad">overdue</b>':''}${
+          c.req.chases.length?` · chased ${c.req.chases.length}×`:''}.`:''}</div>
+      ${act}
+    </div>
   </div>`;
 }
-function cmtComposer(lock){
+/* THE COMPOSER IS THE NEXT MESSAGE IN THE THREAD, so it wears the thread's own
+   geometry — your avatar in the gutter, the field where your words would be. It
+   stays quiet until you type: the byline and the Post/Clear pair only appear once
+   there is a draft to post, which is what stops an empty box from reading as a
+   form the reviewer is expected to fill in. */
+function cmtComposer(lock,replyTo){
   const me=ME();
-  return `<div class="rw-comp">
-    <textarea id="cmtIn" oninput="KFX.cmtField(this.value)"
-      placeholder="Write a note or question for the review team…"
-      aria-label="Comment">${esc(S.cmtDraft||'')}</textarea>
-    <div class="row"><span class="scope">Posting as ${esc(me.nm)} · ${esc(me.role)}${
-      lock?' · line is locked; comment is recorded after sign-off':''
-      }</span><span class="sp"></span>
-      <button class="btn-out sm" onclick="KFX.cmtCancel()">Clear</button>
-      <button class="btn-primary sm" onclick="KFX.cmtSave()">Post</button></div>
+  const has=!!(S.cmtDraft||'').trim();
+  return `<div class="rw-msg comp ${has?'live':''} ${replyTo?'reply':''}">
+    <span class="rw-av" aria-hidden="true">${esc(rwInitials(me.nm))}</span>
+    <div class="bd">
+      ${replyTo?`<div class="rw-replyto">Replying to <b>${esc(replyTo.who)}</b>
+        <button type="button" class="rw-lnk" onclick="KFX.cmtReply(null)">Cancel</button></div>`:''}
+      <textarea id="cmtIn" rows="1" oninput="KFX.cmtField(this.value)"
+        placeholder="${replyTo?'Write a reply…':'Write a note or question for the review team…'}"
+        aria-label="${replyTo?'Reply':'Comment'}">${esc(S.cmtDraft||'')}</textarea>
+      <div class="row"><span class="scope">Posting as ${esc(me.nm)} · ${esc(me.role)}${
+        lock?' · line is locked; comment is recorded after sign-off':''
+        }</span><span class="sp"></span>
+        <button class="btn-out sm" onclick="KFX.cmtCancel()">Clear</button>
+        <button class="btn-primary sm" onclick="KFX.cmtSave()">Post</button></div>
+    </div>
   </div>`;
 }
 /* ---- add-a-comment: a discussion note, never an approval --------------------
@@ -10628,7 +11448,28 @@ function addComment(){
 /* every keystroke lands here and NOTHING repaints — the same contract exField holds for
    the explanation editor. The composer is repainted by tab switches, filter changes and
    every renderAll, and each one of those used to throw away a half-typed comment. */
-function cmtField(v){ S.cmtDraft=v; }
+/* The composer reveals its byline and its Post/Clear pair the moment there is
+   something to post, and grows with the text — both done by touching the DOM
+   directly rather than repainting, because a repaint here would take the caret
+   with it. That is the same contract exField holds for the explanation editor. */
+function cmtField(v){
+  S.cmtDraft=v;
+  const t=document.getElementById('cmtIn'); if(!t)return;
+  const box=t.closest('.rw-msg'); if(box)box.classList.toggle('live',!!String(v||'').trim());
+  t.style.height='auto';
+  t.style.height=Math.min(220,Math.max(t.scrollHeight,22))+'px';
+}
+function cmtOwedToggle(){ S.cmtOwedOpen=!S.cmtOwedOpen; paintDrawer(); }
+/* Aiming the composer at a message. The half-typed draft is DISCARDED on the way
+   in and out: text written as a general note is not the same statement once it is
+   filed as an answer to one person, and silently re-filing it would put words in
+   the author's mouth. */
+function cmtReply(id){
+  S.cmtReplyTo=id||null; S.cmtDraft='';
+  if(id)S.dwTab='comments';
+  paintDrawer();
+  requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();});
+}
 function cmtCancel(){ S.cmtCompose=false; S.cmtDraft=''; paintDrawer();
   requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();}); }
 function cmtSave(){
@@ -10638,9 +11479,19 @@ function cmtSave(){
   const txt=String(S.cmtDraft||(t?t.value:'')||'').trim();
   if(!txt){toast('Nothing to post');if(t)t.focus();return;}
   const rc=rec(S.sel,true);
-  rc.comments.push({by:meStr(),at:stamp(),ts:Date.now(),text:txt,scope:'Corporate',ver:1});
-  logA({line:S.sel,who:meStr(),act:'added a comment',after:txt});
-  S.cmtCompose=false; S.cmtDraft=''; renderAll(); toast('Comment posted');
+  /* A reply is re-parented to the ROOT of the branch it was aimed at, so the stored
+     shape can only ever be one level deep — the renderer is not left to flatten a
+     tree it did not create. */
+  let parent=S.cmtReplyTo||null;
+  if(parent){
+    const byId={}; commentStream({id:S.sel},rc).forEach(c=>{if(c.id)byId[c.id]=c;});
+    parent=cmtRootOf(parent,byId);
+  }
+  rc.comments.push({by:meStr(),at:stamp(),ts:Date.now(),text:txt,scope:'Corporate',ver:1,
+    id:'c'+(++cmtSeq)+'_n',parent});
+  logA({line:S.sel,who:meStr(),act:parent?'replied to a comment':'added a comment',after:txt});
+  S.cmtCompose=false; S.cmtDraft=''; S.cmtReplyTo=null;
+  renderAll(); toast(parent?'Reply posted':'Comment posted');
   requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();});
 }
 function cmtFilter(k){ S.cmtFilter=k; S.cmtMenu=false; paintDrawer(); }
@@ -10940,17 +11791,24 @@ function exUnlock(){
       });
     });
 }
+/* WHAT "READY" MEANS, in one place. The CTA states this count and submitAll() acts
+   on it, so a button reading "Submit 3 ready lines" can never submit two or five.
+   SUBMIT WHAT IS READY, INCLUDING WHAT CAME BACK: an earlier version tested
+   status==='draft' only and skipped every returned line — the exact population a
+   preparer has just finished fixing — while the footer offered Submit on both. */
+function readyToSubmit(){
+  return rows().filter(r=>r.req&&!r.tot).filter(r=>{const rc=rec(r.id,true);
+    return rc.items.length&&Math.abs(r.res)<=thr().tol*matFac()
+      &&(rc.status==='draft'||rc.status==='returned');});
+}
 function submitAll(){
   if(!caps().prepare){toast('Your role is read-only on the close');return;}
-  let n=0;
-  /* SUBMIT WHAT IS READY, INCLUDING WHAT CAME BACK. This skipped every returned
-     line — the exact population a preparer has just finished fixing — because it
-     tested status==='draft' only, while the footer offers Submit on both. */
-  rows().filter(r=>r.req&&!r.tot).forEach(r=>{const rc=rec(r.id,true);
-    if(rc.items.length&&Math.abs(r.res)<=thr().tol*matFac()&&(rc.status==='draft'||rc.status==='returned')){
-      rc.status='submitted'; rc.revNote=''; rc.submittedBy=meStr(); rc.rev=null;
-      logA({line:r.id,who:meStr(),act:'submitted the line for review',
-        before:'needs review',after:'in review'});n++;}});
+  const ready=readyToSubmit();
+  ready.forEach(r=>{const rc=rec(r.id,true);
+    rc.status='submitted'; rc.revNote=''; rc.submittedBy=meStr(); rc.rev=null;
+    logA({line:r.id,who:meStr(),act:'submitted the line for review',
+      before:'needs review',after:'in review'});});
+  const n=ready.length;
   renderAll();toast(n?n+' line'+(n===1?'':'s')+' submitted for review':'Nothing is ready to submit');
 }
 
@@ -11350,14 +12208,23 @@ function cadenceWord(){
 /* The DOMINANT scope, said the way a person would say it: one entity or region by
    name, otherwise a count, and "Consolidated" when nothing is filtered. Listing
    five dimensions that are all empty is five phrases to say nothing. */
+/* An EXCLUDED set inverts this sentence. "2 entities" over a filter that removed
+   two of five names the wrong number and reads as a scope of two — so an exclusion
+   states what it took out, never what it kept. */
 function scopeWord(){
   const one=k=>{const d=DIM(k), v=S[k];
     return v.length===1?((d.opts().find(o=>o.id===v[0])||{nm:v[0]}).nm.split(' — ')[0]):null;};
-  if(S.ent.length) return one('ent') ||S.ent.length+' entities';
-  if(S.prop.length)return one('prop')||S.prop.length+' properties';
-  if(S.reg.length) return one('reg') ||S.reg.length+' regions';
-  if(S.seg.length) return one('seg') ||S.seg.length+' segments';
-  if(S.cc.length)  return one('cc')  ||S.cc.length+' cost centers';
+  const say=(k,plural)=>{
+    const n=S[k].length;
+    if(!(S.excl&&S.excl[k])) return one(k)||n+' '+plural;
+    const nm=one(k);
+    return 'All except '+(nm||(n+' '+plural));
+  };
+  if(S.ent.length) return say('ent','entities');
+  if(S.prop.length)return say('prop','properties');
+  if(S.reg.length) return say('reg','regions');
+  if(S.seg.length) return say('seg','segments');
+  if(S.cc.length)  return say('cc','cost centers');
   return 'Consolidated';
 }
 /* Reporting currency. The shell's local/USD toggle governs the portfolio pages;
@@ -11423,26 +12290,265 @@ function periodNav(){
       <span class="cue">▾</span></button></div>`;
 }
 
-/* ---- THE VIEW CONTROLS -----------------------------------------------------
-   One star, one menu, one overflow. See the note on the 'views' popover for why
-   Favorite and My views could not both exist. */
-function viewControls(){
+/* ============================================================================
+   INLINE FILTER FIELDS  (owner's direction, 2026-08-28)
+   A persistent row of fields — one per filter — that replaces the shared
+   collapsible drawer on Flux. Every field opens the SAME popover the drawer
+   opened, so nothing about the filter engine changes: this is where you reach a
+   filter, not how it works. A field at its default reads "All"/"Any", so the row
+   states the entire filter surface at rest the way the drawer's grid used to.
+   Colour lands only on a field that is genuinely narrowing the population — the
+   accent carries interaction, never decoration (rules 2/3). Materiality is
+   context, not a narrowing filter, so it never lights up. Search is a live input
+   rather than a popover, because setQuery() is the one filter that repaints
+   without a full re-render and so can filter as you type without losing focus. */
+function fxField(kind,label,val,on){
+  /* The tooltip carries label AND value: the fields are a fixed width so every tab's
+     row is the same shape, which means a long value ellipsises — "Monthly close
+     policy" in a 180px field — and the full text has to stay recoverable. */
+  return `<button class="fxf ${on?'on':''}" data-pop="${kind}" aria-expanded="false"
+    onclick="KFX.pop('${kind}',this)" title="${esc(label)} · ${esc(val)}">
+    <span class="fxf-k">${esc(label)}</span>
+    <span class="fxf-v">${esc(val)}</span><span class="cue">▾</span></button>`;
+}
+function fxDimField(d){
+  const v=S[d.k], on=v.length>0, x=!!(S.excl&&S.excl[d.k]);
+  /* An excluded set must never read like a selected one — "Meridian West" on a
+     field that is actually hiding Meridian West is the worst thing this row could
+     say, so the exclusion is spelt in the value itself. */
+  const one=v.length===1?(d.opts().find(o=>o.id===v[0])||{nm:v[0]}).nm.split(' — ')[0]:'';
+  const val=!on?'All'
+    :x?(v.length===1?'Excl. '+one:'Excl. '+v.length)
+      :(v.length===1?one:v.length+' selected');
+  return fxField(d.k,d.nm,val,on);
+}
+/* ============================================================================
+   THE COMMAND SURFACE — ONE TAB ARCHITECTURE
+   Owner's direction, 2026-08-28 (finalization pass). Everything the page commands
+   lives in ONE tab bar over ONE contextual row. There is no second toolbar: the
+   old Review|Financials|Narrative · Table · ☆ · Views · ••• strip is gone as a
+   standalone object, and each of its capabilities now sits in the tab that owns
+   the question it answers.
+
+   Each tab is named for the QUESTION it answers, not for the mechanism:
+     Period      — when am I analyzing, and against what
+     Scope       — what part of the enterprise
+     Workflow    — what requires action, explanation or approval
+     Variance    — what kind of movement am I looking for
+     Basis       — on what reporting basis are the figures stated
+     Display     — how do I want to view the analysis
+     Saved Views — which saved configuration
+     Actions     — what do I want to perform on this review
+
+   WORKFLOW, NOT "REVIEW". The filter family cannot be called Review while Review
+   is also a display mode — the same word would name two unrelated controls on one
+   surface. Likewise "Movement" became "Variance": the page is a variance analysis
+   and the tab should say so.
+
+   `cfg:1` marks a tab that configures rather than filters. Those never carry a
+   count, because there is no such thing as Display "narrowing" the statement.
+
+   A COUNT ON A FILTER TAB IS NOT DECORATION, it is the correctness fix that tabs
+   require. Hiding a filter behind a tab means a reviewer can be reading a filtered
+   statement with no visible reason why — unacceptable on a surface whose numbers
+   get signed. Every filter tab states how many of its filters are live, so the bar
+   still answers "is anything filtering this?" from any tab. Materiality, Units,
+   Period, Compare and Cadence never count: they are context, not narrowing —
+   there is no unfiltered state for them to differ from. */
+const FX_FTABS=[
+  {k:'period',  nm:'Period',      f:['per','cmp','grain']},
+  /* Entity · Segment · Region lead because they are the cuts a group controller
+     actually makes; Property and Cost center sit behind More. At enterprise scale
+     every dimension on the default row is a row nobody can read — progressive
+     disclosure is the point, not a shortage of space. */
+  {k:'scope',   nm:'Scope',       f:['ent','seg','reg','scopemore','q']},
+  {k:'workflow',nm:'Workflow',    f:['show','cover','reason']},
+  {k:'variance',nm:'Variance',    f:['mat','dir','thresh']},
+  {k:'basis',   nm:'Basis',       f:['elim','units']},
+  {k:'display', nm:'Display',     f:['__display'], cfg:1},
+  {k:'views',   nm:'Saved Views', f:['__views'],   cfg:1},
+  {k:'actions', nm:'Actions',     f:['__actions'], cfg:1},
+];
+/* Dimensions that are NOT on the Scope row — reached through More. */
+const FX_MOREDIMS=['prop','cc'];
+let fxFTab='period';
+function setFilterTab(k){ fxFTab=k; paintFilterFields(); }
+/* One field by key. The dimensions go through fxDimField() for the Selected /
+   Excluded wording; the rest state their own value. */
+function fxOneField(k){
+  const d=DIM(k); if(d)return fxDimField(d);
+  /* Period, Compare and Cadence replace the arrows-and-months navigator. They are
+     never "on": a flux always has a period, a comparison and a cadence, so there is
+     no unfiltered state for them to differ from — they are context, like Materiality
+     and Units, and they read as the period they RESOLVE TO rather than as a rule. */
+  if(k==='per')   return fxField('per','Period', pLabel(S.cur), false);
+  if(k==='cmp')   return fxField('cmp','Compare', cmpBtnLabel(), false);
+  if(k==='grain') return fxField('grain','Cadence', GRAIN_NM[S.grain]||'Monthly', false);
+  /* "Status", not "Show" — the control answers where a line stands in the review,
+     which is what the Workflow tab is for. */
+  if(k==='show')  return fxField('show','Status',
+    S.show==='all'?'All lines':(SHOWS.find(x=>x[0]===S.show)||[,S.show])[1], S.show!=='all');
+  if(k==='dir')   return fxField('dir','Direction',
+    S.dir==='all'?'Any':(DIRS.find(x=>x[0]===S.dir)||[,S.dir])[1], S.dir!=='all');
+  /* SCOPE OVERFLOW. A field, not a link, so it reads as one more dimension control;
+     it states how many of the dimensions behind it are live so nothing hides. */
+  if(k==='scopemore'){
+    const n=FX_MOREDIMS.reduce((a,x)=>a+(S[x].length?1:0),0);
+    return fxField('scopemore','More', n?n+' active':'None', n>0);
+  }
+  if(k==='reason')return fxField('reason','Reason code',
+    S.reason.length?(S.reason.length===1?(RSN[S.reason[0]]||S.reason[0]):S.reason.length+' codes'):'All',
+    S.reason.length>0);
+  if(k==='cover') return fxField('cover','Explained',
+    S.cover==='all'?'Any':{none:'Nothing accepted',part:'Partly',full:'Fully',
+      gap:'Missing evidence',kd:'Korvyn draft'}[S.cover]||S.cover, S.cover!=='all');
+  if(k==='thresh')return fxField('thresh','Movement over',
+    S.thresh!==''?('over '+S.thresh+uName()):'Any', S.thresh!=='');
+  if(k==='elim')  return fxField('elim','Eliminations',
+    S.elim==='inc'?'Included':'Excluded', S.elim!=='inc');
+  /* materiality decides which lines exist and units decide how they read — both
+     are context, so they are fields but never "on" fields */
+  if(k==='mat')   return fxField('mat','Materiality', prof().nm, false);
+  if(k==='units') return fxField('units','Units','$'+(S.units===1?'':uName()), false);
+  /* Find is a field in Scope like any other, not a fixture bolted to the strip:
+     narrowing to a line by name is the same act as narrowing to an entity. It is a
+     live input rather than a popover because setQuery() repaints the grid without
+     rebuilding this row, so it can filter as you type without losing the caret. */
+  if(k==='q') return `<span class="fxf fxf-q ${S.q?'on':''}"
+      title="Find a line by name or explanation text">
+      <span class="fxf-k">Find</span>
+      <input id="fxFieldSearch" type="search" placeholder="line or text" aria-label="Find a line"
+        value="${esc(S.q)}" oninput="KFX.setQuery(this.value)"
+        onkeydown="if(event.key==='Escape'){this.value='';KFX.setQuery('');}"></span>`;
+  if(k==='__display') return fxDisplayRow();
+  if(k==='__views')   return fxViewsRow();
+  if(k==='__actions') return fxActionsRow();
+  return '';
+}
+/* ---- CONFIGURATION ROWS ----------------------------------------------------
+   These three tabs configure rather than filter, so their rows are labelled
+   groups of controls rather than a line of value-bearing dropdowns. The group
+   label is what keeps them from reading as one more undifferentiated toolbar. */
+const fxGroup=(label,body)=>`<span class="fxg"><span class="fxg-l">${esc(label)}</span>${body}</span>`;
+
+/* DISPLAY absorbs the old Review|Financials|Narrative segmented control and the
+   Table menu. Review stays the default mode. */
+/* MODE IS A FIELD, NOT A SEGMENTED CONTROL (2026-08-28). It was the only control in
+   the whole command surface with a different shape — twelve 180px dropdowns and one
+   199px three-button capsule — which is exactly the inconsistency the tabs exist to
+   remove. A segmented control earns its width when the choice is flipped constantly
+   and the alternatives need to be visible at rest; this one is set once a session,
+   and each option needs a sentence to explain it, which a segment cannot carry and
+   a menu row can. The group labels go with it: every field states its own name. */
+function fxDisplayRow(){
+  const narr=dispMode()==='full';
+  const cur=(DISP_MODES.find(m=>m[0]===dispMode())||DISP_MODES[0])[1];
+  return fxField('dispmode','Mode',cur,false)+
+    /* rendered complete rather than filled in by after(), so a tab switch cannot
+       leave it blank — this row is rebuilt every time the tab changes */
+    `<button class="fxf" id="fxViewBtn" data-pop="viewmode" aria-expanded="false"
+      onclick="KFX.pop('viewmode',this)"
+      title="Table — ${S.cols.length} columns · ${S.dens==='dense'?'dense':'standard'} rows">
+      <span class="fxf-k">Table</span>
+      <span class="fxf-v">${S.cols.length} columns</span>
+      <span class="cue">▾</span></button>`+
+    (narr?`<button class="btn-out fx-narrbtn" onclick="KFX.toggleNarrExpand()"
+        aria-pressed="${S.narrExpand?'true':'false'}"
+        title="Open every narrative to its full length — for a CFO read, a screen-share or a print"
+        >${S.narrExpand?'Collapse all narratives':'Expand all narratives'}</button>`:'');
+}
+/* SAVED VIEWS absorbs the Views menu and the favorite star, which used to occupy
+   command-bar space permanently for something set once a session. */
+function fxViewsRow(){
   const v=curView();
-  return `<div class="fx-vw">
-    <button class="btn-out star" onclick="KFX.starCurrent()"
+  return fxGroup('View',
+      `<button class="fxf" data-pop="views" aria-expanded="false"
+        onclick="KFX.pop('views',this)" title="${v?'“'+esc(v.nm)+'” is loaded':'No saved view loaded'}">
+        <span class="fxf-k">View</span>
+        <span class="fxf-v">${v?esc(v.nm):'None'}</span><span class="cue">▾</span></button>`)+
+    `<button class="btn-out star" onclick="KFX.starCurrent()"
       aria-pressed="${v&&v.fav?'true':'false'}" aria-label="Favorite this view"
       title="${v?(v.fav?'Remove “'+esc(v.nm)+'” from favorites'
                        :'Add “'+esc(v.nm)+'” to favorites')
                :'Save the current configuration as a favorite'}">${
       v&&v.fav?ic('star','fill'):ic('star')}</button>
-    <button class="btn-out" data-pop="views" onclick="KFX.pop('views',this)" aria-expanded="false"
-      title="${v?'Views — “'+esc(v.nm)+'” is loaded':'Saved views'}">${ic('views')}Views
-      <span class="cue">▾</span></button>
-    <button class="btn-out ovf" data-pop="more" onclick="KFX.pop('more',this)" aria-expanded="false"
-      aria-label="More actions"
-      title="Explanation requests, audit log, export grid, flux memo, print">${ic('more')}</button>
-  </div>`;
+    <button class="btn-out" onclick="KFX.saveView()">Save current…</button>`;
 }
+/* ACTIONS absorbs the ellipsis menu. The tab IS the menu, so its contents are the
+   row — putting a menu inside a tab would be two clicks to reach one action. */
+function fxActionsRow(){
+  const n=reqOpen().length;
+  return [['openReqs','Explanation requests','cmt',n],
+          ['openAudit','Audit log','audit',0],['exportCsv','Export grid','export',0],
+          ['openMemo','Flux memo','memo',0],['printMemo','Print','print',0]]
+    .map(([f,nm,k,c])=>`<button class="btn-out" onclick="KFX.${f}()">${ic(k)}${esc(nm)}${
+      c?`<span class="fxa-n">${c}</span>`:''}</button>`).join('');
+}
+/* How many of a tab's filters are actually narrowing the statement. A tab marked
+   cfg configures rather than filters, so it never carries a count. */
+function fxTabCount(t){
+  if(t.cfg)return 0;
+  return t.f.reduce((n,k)=>{
+    if(DIM(k))       return n+(S[k].length?1:0);
+    if(k==='show')   return n+(S.show!=='all'?1:0);
+    if(k==='dir')    return n+(S.dir!=='all'?1:0);
+    if(k==='reason') return n+(S.reason.length?1:0);
+    if(k==='cover')  return n+(S.cover!=='all'?1:0);
+    if(k==='thresh') return n+(S.thresh!==''?1:0);
+    if(k==='elim')   return n+(S.elim!=='inc'?1:0);
+    if(k==='q')      return n+(S.q?1:0);
+    /* the dimensions behind More still count against Scope — a filter does not
+       stop existing because it is one level deeper */
+    if(k==='scopemore')return n+FX_MOREDIMS.reduce((a,x)=>a+(S[x].length?1:0),0);
+    return n;                       // mat, units, period, compare and cadence are context
+  },0);
+}
+function fxAnyFilter(){
+  return FX_FTABS.reduce((n,t)=>n+fxTabCount(t),0)>0 || !!S.q;
+}
+function fxFiltersInner(){
+  const tab=FX_FTABS.find(t=>t.k===fxFTab)||FX_FTABS[0];
+  const tabs=FX_FTABS.map(t=>{const n=fxTabCount(t), on=t.k===tab.k;
+    return `<button class="fxt ${on?'on':''}" role="tab" aria-selected="${on?'true':'false'}"
+      onclick="KFX.setFilterTab('${t.k}')"
+      title="${esc(t.nm)}${n?' — '+n+' filter'+(n===1?'':'s')+' applied':''}">${esc(t.nm)}${
+      n?`<span class="fxt-n">${n}</span>`:''}</button>`;}).join('');
+  /* THE CTA APPEARS ONLY WHEN IT CAN ACT, AND SAYS HOW MUCH (2026-08-28).
+     It used to render unconditionally, so the single loudest control on the page —
+     the only filled cobalt button — spent most of the close inert, answering a
+     click with "Nothing is ready to submit". That is the "no dead controls" rule,
+     and a permanent primary button that usually does nothing also teaches the
+     preparer to stop reading it.
+
+     It stays on the STATEMENT, not in the review panel: submitAll() acts on every
+     ready line in the current view, and a bulk action launched from inside one
+     line's working paper would submit lines the reviewer cannot see. The per-line
+     Submit already lives in the panel footer (exSubmit), gated on coverage and
+     stating why when it is withheld. Two different actions, two right places. */
+  const ready=(typeof caps==='function'&&caps().prepare)?readyToSubmit().length:0;
+  return `<div class="fx-ftabs" role="tablist" aria-label="Command categories">${tabs}
+      <span class="fxt-sp"></span>
+      ${ready?`<button class="btn-primary fx-submit" onclick="KFX.submitAll()"
+        title="Submit the ${ready} line${ready===1?'':'s'} whose explanation is complete"
+        >Submit ${ready} ready line${ready===1?'':'s'}</button>`:''}
+    </div>
+    <div class="fx-fields" id="fxFields" role="tabpanel" aria-label="${esc(tab.nm)}">`+
+    tab.f.map(fxOneField).join('')+
+    /* Clear all reaches across every tab, so it says so. It appears only when there
+       is something to clear, and never on a tab that configures rather than filters. */
+    ((!tab.cfg&&fxAnyFilter())?`<button class="fxf-clr" id="fxClrAll" onclick="KFX.resetFilters()"
+      title="Reset every filter on every tab to its default">Clear all</button>`:'')+
+    `</div>`;
+}
+function paintFilterFields(){
+  const el=$('fxFilters'); if(el)el.innerHTML=fxFiltersInner();
+}
+function fxFilterFields(){
+  return `<div class="fx-filters" id="fxFilters">${fxFiltersInner()}</div>`;
+}
+
+/* viewControls() is retired. The star and the Views menu are the Saved Views tab
+   (fxViewsRow); the ellipsis overflow is the Actions tab (fxActionsRow). */
 
 /* ============================================================================
    21. SHELL INTEGRATION
@@ -11450,46 +12556,22 @@ function viewControls(){
    is on the Flux review sub-tab and the statement picker is on BS or IS; Cash flows
    and Equity keep the original flux view, so nothing is lost.
    ========================================================================== */
+/* pageActions() is retired. Display mode and the Table menu are the Display tab;
+   Submit ready lines is the tab bar's one persistent CTA. There is no second
+   toolbar on this page and there must not be one. */
 function body(){
-  /* THE TOOLBAR OWNS THE MODE, NOT A MENU. "Display" was a 470px dropdown holding
-     six unrelated concerns — display mode, row density, section folding, columns,
-     focus mode, materiality and units — which is an overflow bucket wearing a name.
-     Materiality in particular is the policy that decides which lines exist on this
-     page; burying it under a menu called Display, beneath "Row density", was the
-     single worst piece of information architecture on the surface.
+  /* Analytical Workspace regions: filter tabs · worklist · grid (+ inspect) ·
+     method footnote.
 
-     Display mode is a three-state switch a reviewer changes constantly, so it is a
-     compact segmented control. The three labels — Review, Financials, Narrative —
-     are each one word, so the control shows them verbatim; the abbreviation hack the
-     four-mode control needed ("Full explanations" -> "Explanations") is gone with the
-     modes that required it. Everything structural about the TABLE (columns, density,
-     folding) stays in a menu, because that is table configuration and it is set once.
-     Materiality moves to the filter bar where the population is defined. */
-  const narr=dispMode()==='full';
-  const acts=`
-    <div class="seg fx-disp" role="group" aria-label="Display mode">
-      ${DISP_MODES.map(([v,nm])=>`<button class="${dispMode()===v?'on':''}"
-        onclick="KFX.setView('${v}')" title="${esc(nm)}">${esc(nm)}</button>`).join('')}
-    </div>
-    ${narr?`<button class="btn-out fx-narrbtn" onclick="KFX.toggleNarrExpand()"
-      title="Open every narrative to its full length — for a CFO read, a screen-share or a print"
-      aria-pressed="${S.narrExpand?'true':'false'}">${S.narrExpand?'Collapse narratives':'Expand all narratives'}</button>`:''}
-    <button class="btn-out" id="fxViewBtn" data-pop="viewmode" onclick="KFX.pop('viewmode',this)"
-      aria-expanded="false" title="Columns, row density, sections, focus mode"></button>
-    ${viewControls()}
-    <button class="btn-out" onclick="KFX.submitAll()">Submit ready lines</button>`;
-  /* ONE CONTEXT LINE, the same one the ledger pages carry: scope, comparison,
-     cadence, currency. It used to name the period and the entity count but not
-     what the period was measured AGAINST — the one fact that decides every delta
-     on the statement — and said "Sequential comparison" where a reviewer needs
-     "vs May 2026". The entity count left it because the scope word already says
-     the scope, and the units token left it because the filter bar states units. */
-  /* Analytical Workspace regions (Design Spec v1): header · period · worklist ·
-     grid (+ inspect) · method footnote. The retired KPI strip is gone — the
-     worklist bar already owns those counts as filters. Caption is not an H2. */
+     THE HEADER AND THE PERIOD NAVIGATOR ARE GONE (owner's direction, 2026-08-28).
+     Both were restatement once the filters became tabs: glHead's h1 duplicated the
+     shell's "Flux analysis" title (it had already been display:none for that
+     reason), and its context line — scope · comparison · cadence · currency — named
+     four things the Period, Scope and Basis tabs now each state as an editable
+     field. The arrows-and-months navigator became the Period tab's Period field,
+     which reaches ANY period in one click rather than only a neighbour. */
   return `<div id="fxRoot" class="aw">`+
-    glHead(esc(stmtTitle()), hdrContext(), acts)+
-    periodNav()+
+    fxFilterFields()+
     `<div class="fx-work" id="fxWork"></div>
     <div class="fx-focusline" id="fxFocusLine"></div>
     <div class="wsplit" id="fxSplit">
@@ -11536,6 +12618,13 @@ function activeChips(){
   DIMS.forEach(d=>{
     const v=S[d.k]; if(!v.length)return;
     const os=d.opts();
+    /* an excluded set says so on every chip — see fxDimField() for why */
+    if(S.excl&&S.excl[d.k]){
+      v.forEach(val=>c.push({id:'dim:'+d.k+':'+val, dim:d.k, val,
+        label:'Excl. '+(os.find(o=>o.id===val)||{nm:val}).nm.split(' — ')[0],
+        title:d.nm+' — excluded from the view'}));
+      return;
+    }
     v.forEach(val=>c.push({id:'dim:'+d.k+':'+val, dim:d.k, val,
       label:(os.find(o=>o.id===val)||{nm:val}).nm.split(' \u2014 ')[0], title:d.nm}));
   });
@@ -11584,6 +12673,8 @@ function chipOff(id){
   else if(id.indexOf('dim:')===0){
     const [,dim,val]=id.split(':');
     S[dim]=S[dim].filter(x=>x!==val);          // one value at a time, not the whole dimension
+    /* an empty list cannot be an exclusion of nothing — drop the flag with the last value */
+    if(!S[dim].length&&S.excl)S.excl[dim]=false;
   }
   else return;
   logA({act:'removed a filter',before:id});
@@ -11594,11 +12685,13 @@ function chipClick(id,el){
   if(id==='show')  return pop('show',el);
   if(id==='dir')   return pop('dir',el);
   if(id==='reason')return pop('reason',el);
-  if(id==='q'||id==='thresh'||id==='cover'){openFilters();
-    setTimeout(()=>{const e=$(id==='q'?'fxSearch':id==='thresh'?'fxThresh':'fxCover'); if(e)e.focus();},60);
-    return;}
+  if(id==='cover') return pop('cover',el);
+  if(id==='thresh')return pop('thresh',el);
+  if(id==='elim')  return pop('elim',el);
+  /* the drawer is gone on Flux; the text search is a live inline field now */
+  if(id==='q'){const e=$('fxFieldSearch'); if(e)e.focus(); return;}
   if(id.indexOf('dim:')===0)return pop(id.split(':')[1],el);
-  openFilters();
+  return pop('add',el||$('fxFields'));
 }
 
 /* THE FILTER BAR'S EXTRA SLOT IS NOW EMPTY ON FLUX, deliberately. It carried a
@@ -11618,7 +12711,8 @@ function basisTitle(){ return 'Display scale \u2014 set it under Table \u203a Un
 function ctxSummary(){
   const ents=new Set(activeSlices().map(x=>x.ent)).size;
   const cad={m:'Monthly',q:'Quarterly',ytd:'Year to date',ttm:'Trailing 12'}[S.grain];
-  const scope=S.ent.length?(S.ent.length+' entities selected'):'Consolidated';
+  const scope=S.ent.length
+    ?(S.ent.length+' entities '+((S.excl&&S.excl.ent)?'excluded':'selected')):'Consolidated';
   const cmp=S.compare==='budget'?'vs budget':S.compare==='fcst'?'vs forecast'
     :PERIODS[S.cur].short+' vs '+PERIODS[priorIndex()].short;
   return [scope,cmp,cad,'$'+(S.units===1?'':uName()),ents+' entit'+(ents===1?'y':'ies')].join(' \u00b7 ');
@@ -11650,16 +12744,15 @@ function after(){
   /* The scope summary, filter count, Favorite and My views all live in the shared
      filter header now; paintTopbar() renders them through headerControls(). */
   if(typeof paintTopbar==='function')paintTopbar();
-  /* ONE COMPACT CONTROL, AND IT NAMES THE MODE IT IS IN. Four permanent segmented
-     buttons would spend a fifth of the toolbar telling the reviewer about a choice
-     they make once a session; a button that reads "Display: Review" tells them what
-     they are looking at in the space of one control. */
-  /* the mode now lives in the segmented control beside this button, so the button
-     names what it actually holds: how the TABLE is built, not what it shows */
-  set('fxViewBtn',`${ic('cols')}Table <span class="cue">\u25be</span>`);
+  /* The Table button is rendered complete by fxDisplayRow(), stating its own column
+     count and density. It is NOT filled in here any more: this row is rebuilt on
+     every tab switch, and a label written only by after() came back blank. */
   /* a shortcut nobody can discover is a shortcut nobody uses */
   set('fxKeys',[['j k','move'],['\u21b5','open'],['e','explain'],['x','watch'],['g','ledger'],
-    ['n','next line needing review'],['/','find'],['1\u20133','display']]
+    /* derived, so retiring a mode cannot leave the legend promising a key that
+       no longer does anything */
+    ['n','next line needing review'],['/','find'],
+    [DISP_MODES.length>1?('1\u2013'+DISP_MODES.length):'1','display']]
     .map(([k,l])=>`<span><kbd>${k}</kbd>${l}</span>`).join(''));
   const mb=$('fxMatBtn'); if(mb)mb.innerHTML=esc(prof().nm)+' \u25be';
   const as=$('fxActiveScope'); if(as)as.textContent=activeScopeLine();
@@ -11860,8 +12953,8 @@ function lineForAcct(acct){
   });
 })();
 
-return {basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
-dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
+return {basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popApply, popApplyClear, setFilterTab, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
+dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, cmtOwedToggle, cmtReply, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
 kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
@@ -28533,8 +29626,15 @@ function paintTopbar(){
   /* One filter mechanism across the app: the same header, caret, panel and Reset/Apply
      on Flux analysis, Trending review and Financial reporting. Pages that need extra
      controls render them into the header's extra slot rather than adding a second bar. */
+  /* FLUX OWNS ITS FILTERS INLINE NOW (owner's direction, 2026-08-28). The shared
+     collapsible drawer is hidden on Flux — every filter it held is a persistent
+     field in fxFilterFields() inside #fxRoot — but stays for every other page. */
+  /* The full-screen working paper hides shell rows. sizeDrawer() only runs while
+     Flux is painting, so leaving Flux any other way (rail, ribbon, back) would
+     strand the topbar hidden on the next page. This runs on every page change. */
+  if(!fxHere)document.body.classList.remove('fx-dw-page');
   if(fhd)fhd.style.display='';
-  if(fbar)fbar.style.display='';
+  if(fbar)fbar.style.display=fxHere?'none':'';
   if(fex)fex.innerHTML=(fxHere&&KFX.headerControls)?KFX.headerControls():'';
   /* each page's own filter controls live in the shared panel and appear on its page */
   const show=(id,on)=>{const e=document.getElementById(id); if(e)e.style.display=on?'':'none';};
@@ -28611,8 +29711,22 @@ function paintTopbar(){
   if(fhd){ const open=!!(fc&&fc.hasAttribute&&!fc.hasAttribute('hidden'));
     fhd.title=open?'Hide filters':'Show filters';
     if(fhd.setAttribute)fhd.setAttribute('aria-expanded',open?'true':'false'); }
+  /* THE ENTITY-TREE SCOPE IS HIDDEN ON FLUX, for the same reason Fund, Region and
+     Ownership are (see above) — and more sharply. It is wired to no dimension the
+     flux statement reads: setting it to a single entity leaves every figure on the
+     statement identical, because sliceOk() filters on S.ent/seg/prop/cc/reg and
+     never on F.entity. Worse, the two do not even share a vocabulary — the tree
+     lists 4 legal entities (Meridian DC Holdco, Fleet DC OpCo …) while the Scope
+     tab lists 5 property entities (Meridian Ashburn Holdings …), so the header
+     could read "Fleet DC OpCo · 1 of 4 entities" over a statement the Scope tab had
+     narrowed to three entirely different entities. A scope control that contradicts
+     the scope in force is worse than no scope control. Scope is a tab now, and it
+     filters. Hidden rather than deleted: every other page does use this. */
   const tbs=document.getElementById('tbScope');
-  if(tbs && typeof etScopeHTML==='function') tbs.innerHTML=etScopeHTML();
+  if(tbs){
+    tbs.style.display=fxHere?'none':'';
+    if(!fxHere && typeof etScopeHTML==='function') tbs.innerHTML=etScopeHTML();
+  }
   const sb=document.getElementById('scopeBanner');
   if(sb && typeof etScopeBanner==='function') sb.innerHTML=etScopeBanner();
   // role-question sentence under the header removed per design — keep element empty & hidden
