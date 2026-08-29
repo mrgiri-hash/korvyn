@@ -145,6 +145,11 @@ not enterprise planning.
 
 ## 2026-08-25 — Flux inspect panel: four modes and the in-review freeze
 
+> **Partly superseded 2026-08-29** — the hero and the contribution-bar drivers are
+> gone; see *the inspect panel takes the reference's shape* below. The four MODES,
+> the freeze rule and the part registry still govern.
+
+
 The docked inspect panel (`#fxDetail` in `index.html`) composes itself to the line
 through `dwModeOf` / `dwOverviewKeys`. `RW_LAYOUT.drawer.sum` is the material-line
 default those keys return — not the only Overview. Do not restore a single
@@ -543,6 +548,10 @@ must match that specificity or every avatar stays cobalt.
 
 ## 2026-08-28 — the statement grid: status column, star gutter, default columns
 
+> **Amended 2026-08-29** — `FXST` gains `Ready` and `Explained`, and "Draft ready" is
+> now "Korvyn drafted". The one-word closed vocabulary is unchanged.
+
+
 **The Explanation column has ONE subject: where the line stands.** `cmtIndicators()`
 used to emit up to six indicators — needs-explanation, item count, coverage percent,
 inherited/draft, document count, review status — in five visual languages, so the
@@ -711,6 +720,11 @@ the page now reads **"Corporate Flux"**. Renaming a nav item is a navigation cha
 so it was not made unasked.
 
 ## 2026-08-28 — BOXY: the surface is a ground, its regions are the cards
+
+> **Superseded 2026-08-29 FOR THE INSPECT PANEL AND THE ASSISTANT**, which are
+> full-width bands on a sheet. The statement page still reads as cards on a ground,
+> and the `overflow:hidden` / sticky-header trap below still holds everywhere.
+
 
 Owner reviewed the pass above and its verdict was **"I don't feel any changes"** —
 fairly. Everything in it was structural, behavioural or sub-pixel: real fixes, but
@@ -893,6 +907,11 @@ Verified: 60/60 views render, console clean, 10/10 chrome themes pass AA, the fi
 → select → `F` path works, the ledger field drives `GLF`, and reset clears both.
 
 ## 2026-08-28 — the thread is a TIMELINE
+
+> **Superseded 2026-08-29** — the connector and full-bleed rows went with the card
+> treatment; a message is a bordered card now. The `.rw-msg` grammar and the
+> one-level reply shape are unchanged.
+
 
 Owner's direction, from the reference's Interactions panel. The `.rw-msg` grammar
 of 2026-08-28 stands; four things about how it is drawn changed.
@@ -1097,6 +1116,191 @@ opening shapes went 35 → 33, because the variance that remains is `kpis` /
 Collapsing those needs a single `page({options, strip, body})` builder every view
 calls — the "full page template" option, which the owner deferred. The frame is
 standard now; the body is not.
+
+## 2026-08-29 — the inspect panel takes the reference's shape: bands, one rail, one control set
+
+Owner's direction throughout, against `apps/review/index.html` — the inspector this
+panel is meant to match. **Read that file's `.fxi-*` CSS before changing this panel**;
+it is the specimen, and several rulings below are its own comments rather than new
+argument. The Flux review panel, its full-screen page and the Korvyn Assistant are
+now one object at three densities.
+
+**Overview is FIVE cards, the reference's five** — Explanation · Key drivers ·
+Workflow & review · Evidence · Comments. `state` (the NEEDS REVIEW band) and `attn`
+(Needs attention) are **not** among them, and their absence is the point: the
+reference has neither. Nothing they carried was lost, it moved where the reference
+carries it — the verdict is the classification pill on the Explanation card,
+coverage and residual are rows in Workflow & review, and the itemised blockers still
+render in full on the FULL PAGE (`RW_LAYOUT.page.judge`), which has the room a 440px
+dock does not. `cmtPeek` was deleted when the thread merged into Overview and
+**restored** when Comments went back to its own tab; it is a summary of a tab, so it
+only earns its place while that tab exists.
+
+**EVERY SECTION IS A FULL-WIDTH BAND ON A SHEET.** This **supersedes the 2026-08-28
+BOXY ruling** ("the surface is a ground, its regions are the cards") *for the inspect
+panel and the Assistant* — the statement page keeps its cards. A floating card needs
+a gutter, the gutter needs a scrollbar allowance, and the card needs its own padding
+inside that, which is how one panel ended up with **three left rails**: header text
+at 16, card edge at 27, card content and tabs at 42. Running the band edge to edge
+collapses all of it — the band pads to `--s-4` exactly as the header does, so every
+word in the panel starts on the same pixel. Separation is a hairline between bands,
+which is what rule 5 asks for anyway.
+
+Three traps, all of which cost a round of "still not aligned":
+
+- **Compare content to the HEADER, never cards to other cards.** A stack that is
+  uniformly wrong is uniformly symmetric. Full screen was inset 16px on both sides
+  while its header spanned the sheet, and every card-vs-card check passed.
+- **`.rw-col.solo{max-width:120ch}` capped the card, not the prose.** Every
+  single-column tab stopped ~500px short of the header. The measure limit belongs on
+  the paragraph (96ch); the card fills the sheet. The `judge` column already worked
+  this way — follow it.
+- **A scrollbar takes layout width, so chrome outside the scroller is wider than
+  bands inside it.** `scrollbar-gutter:stable` makes the reserve constant and the
+  header, tabs and footer take it as a right margin. `--dw-sbw` / `--cp-sbw` are
+  **measured at runtime** — a scrollbar's width is a platform fact, not a token.
+
+**The header is a FOUR-FIGURE BAND**, which **supersedes the 2026-08-25 hero**
+("push the visual language"). Current · Compared · Variance · Δ%, equal billing under
+their own labels, colour on the two variance cells alone. The hero said the same
+thing three rows deep and left the two balances a reviewer ties back to as the
+smallest text in the block. Weight is `--fw-medium`, not the reference's 700 — rule 7
+admits two weights and 700 is not one. The favourable/unfavourable word rides in the
+Variance cell's LABEL, and drops when the line did not move (`Variance · no movement`
+overflowed the band and said nothing the `0.0` did not).
+
+**Key drivers is a list that FOOTS**, which **retires the contribution bars** of
+2026-08-25. The reference's own note is the argument: the drivers foot to the header's
+variance, and that is what the Total row is for. The bars restated a percentage
+printed beside them and broke the footing — four independently scaled widths do not
+visibly add to a whole. Two things that must not come back:
+
+- **The unexplained residual is NOT a driver.** Drivers decompose what moved; the
+  residual measures how much of that movement nobody has ACCEPTED an explanation for.
+  Different axes over the same total — printing `0.9 + 0.3 + 0.2 + 1.4` under a Total
+  of `1.4` asks the reader to believe 2.8 = 1.4.
+- **The plug absorbs the rounding.** Deriving the remainder from true values leaves
+  the PRINTED column off by a tenth. A reviewer checking a column is not holding the
+  unrounded figures.
+
+**Evidence is a workpaper index** — File · Uploaded by · Ref. · Status. `Ref.` and
+`Status` are derived and honest about what this model knows: Ref. counts the accepted
+items citing a document, and the line's own sign-off IS the verification event, so an
+approved line reads Verified and everything else Pending. There is no separate
+document-approval workflow and inventing a badge for one would assert a control that
+does not exist. `evidenceDocs()` dedupes by name and is read by the tab count, the
+table AND the Overview card — `evidenceFor()` returns one row per CITATION, so
+counting it made the tab say 3 while the table listed 2.
+
+**History reads: the series → the memory → the log.** Balance & movement by period
+(two columns, newest first), prior-period explanation with its framing note, then
+Activity as a timeline with a round type badge per event. The badge is a tinted disc
+with a coloured glyph, **not** the reference's saturated disc with a white one:
+`--warning` is a dark amber in light mode and a LIGHT amber in dark, so a white glyph
+reads ~2:1 on half the themes. `histFocus` no longer reorders the sections — a tab
+whose sections move depending on how you arrived cannot be learned.
+
+**THE REVIEW CONVERSATION**
+
+- **A return posts its reason INTO the thread**, tagged at the preparer, marked
+  `Changes requested`. It went to `rc.revNote` — a field surfaced as a status caption
+  — so the trail read: Korvyn drafted, a preparer explained, and then the line was
+  inexplicably back with the preparer. `rc.revNote` is still written, so the footer
+  and grid are untouched. `cmtPost()` is the single writer for the thread.
+- **Every message states which side of the review is speaking** (`cmtRole`), derived
+  from the RECORD, never from a job title — a Controller is preparer on one line and
+  reviewer on the next, which is what `canReviewLine()` is about.
+- **A status pill renders only where a status exists.** The reference shows
+  Superseded / Included in rollup / Approved / Excluded because its rollup carries
+  them; a discussion comment here carries none and gets no pill rather than a
+  decorative one.
+
+**KORVYN DRAFTS EVERY LINE, not only the material ones.** The gate was `r.req`, so
+the population a reviewer most wants a fast read on — the lines nobody will work by
+hand — was the one place with no machine help. Materiality decides whether an
+explanation is REQUIRED; it was never a statement about whether Korvyn can write one.
+Strictly additive; the surviving guards are that a dismissed draft stays dismissed and
+that a line which did not move has nothing to explain. `bestExplanation(r,rc,noGen)`
+takes a third argument because the GRID asks about every visible row and only wants to
+know whether something is inherited — generating there would run `explainObj()` per
+row and materialise a `CMT` record for every line as a side effect of rendering.
+
+**The statement column gains `Ready` and `Explained`** (`FXST`), and this closed a
+hole rather than adding a word: with items accepted and the record still in draft,
+**no branch fired and the cell rendered EMPTY** — explaining a line erased its status.
+A written narrative with no items was worse, reading "Needs explanation" over an
+explanation somebody had written. `Ready` vs `Explained` is whether anyone is waiting:
+only a `req` line can be handed over. "Draft ready" was renamed **"Korvyn drafted"** —
+it meant the near-opposite of ready. `fxStateKey()` is the one derivation; the column
+and the hover peek both read it.
+
+**A HOVER PEEK on the Explanation cell** reads the words without opening anything.
+Deliberately NOT the `pop()` system — a pop traps focus and swallows the click heading
+for the panel underneath; this is a transient read. On an immaterial line the mark is
+a quiet indigo **K**, absent at rest and revealed on row hover or focus, the same
+discipline the star gutter uses (`opacity:0`, never `visibility:hidden`).
+
+**FULL SCREEN gains a General ledger tab** — every entry behind the line, NOT the
+drilled slice. The drill reaches journal entries only under the node you pinned and
+only after five clicks; this is the question a reviewer asks before signing. Rows link
+out through `erpLink()`, the app's existing "View in ERP" language.
+
+**WINDOW CONTROLS ARE ONE PRIMITIVE** across every docked panel — `#fxRoot .rw-ib`
+and `.cp-head .cp-tool` on one rule. They were drawn five ways: 26 vs 24px targets,
+15 vs 14px glyphs, `--muted` vs `--n-400`, two hover fills, a 2px cluster gap against
+9px. **A third panel joins that rule; it never copies the values.** The collapse
+chevron is gone in both — a chevron says "next", the arrow-into-a-bar says "fold this
+panel to the edge", which is what the control does.
+
+**THE KORVYN ASSISTANT TAKES THE SAME FORMAT.** Same bands, same rail at `--s-4`,
+same window controls, sentence-case section titles (the labels were already written in
+sentence case — only the CSS was shouting them), suggestions as rows in the band
+rather than boxes in it. The greeting keeps its indigo wash: that is Korvyn's own
+voice (rule 2), not decoration.
+
+**THE STATEMENT SHEDS COLUMNS RATHER THAN RUNNING UNDER THE PANEL.** With the review
+panel and the Assistant both open the table was **691px inside a 487px box**. Every
+column is `white-space:nowrap` so it cannot compress, and `.fx-table` is deliberately
+`overflow:visible` (an overflow ancestor breaks the sticky column heads — see the trap
+in the BOXY block), so the extra 204px drew *underneath* the panel with nothing on
+screen saying so. `fxShed()` drops columns by CLASS in a stated order — Δ%, then the
+analytics columns, then Explanation last because it is the column a reviewer scans —
+down to a floor of line + current + compared + Δ amount. Two rules:
+
+- **Hide by class, never by rebuilding the column set.** `S.cols` is what the reviewer
+  chose and must survive a resize.
+- **Measure the TRACK, not the table.** Hiding a column changes the table's width and
+  never the track's, which is what keeps this from looping.
+
+Body cells carry `data-c="<col>"`, injected at the one place cells are built, because
+the headers had `col-*` classes and the cells had nothing — a column could not be
+addressed as a column, and `:nth-child` is unsafe when the column SET is user-chosen.
+
+**`.ai` IS A GLOBAL COMPONENT, NOT A MODIFIER.** It is the AI answer panel (~line
+1469) and carries `display:none` until `.ai.show`. Used as a local modifier it renders
+the element at 0×0 with opacity 1. This bit twice in one session — once on the
+statement's Korvyn mark, once on the explanation prose. The token for the colour is
+`--ai`; the local modifier is `krv`. `.rw-av.ai` and `.rw-msg.ai` survive only because
+their own rules re-declare `display`.
+
+**Specificity notes worth keeping.** Three fixes failed silently before landing:
+`#fxRoot.dw-page .fx-detail .dw-body` ties with `#fxRoot.aw .fx-detail .dw-body` and
+loses on source order (use `#fxRoot.aw.dw-page`); the card-vs-inner-box override ties
+with `#fxRoot.aw:not(.dw-page) .fx-detail .rw-wf` and must sit BELOW it in the sheet;
+and `.rw-rg:first-child{border-top:none}` stripped a card's own top border until it
+was scoped `:not(.rw-card)` — invisible in light mode, a bright line in dark.
+
+**Verified:** 63 view keys render, 0 console errors, 10/10 chrome themes AA, dark mode
+holds in both densities. Band edges, rail identity, box-in-box, nested and collapsed
+cards, uppercase titles, truncated figures and header/body cell counts asserted across
+21 lines × 4 dock tabs, 6 page tabs and both Assistant tabs.
+
+**Known and NOT fixed here:** `kdAccept()` and `exPropose()`/`sugAllAccept()` both
+write `rc.items` from the same decomposition, so a preparer who uses both double-books
+the explanation — measured 100% explained · 0.0 residual, then 200% explained · 1.4
+residual. Two generators, two vocabularies ("Korvyn draft" / "Korvyn suggests"),
+neither aware of the other. Merging them is the next honest piece of work on this
+panel.
 
 ## Toolchain
 
