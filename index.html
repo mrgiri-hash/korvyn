@@ -2803,7 +2803,7 @@ body.settings-open .settingspanel{transform:none}
 .st-tbl td{padding:var(--pad-cell);height:34px}
 .st-tbl .st-sub{font-size:var(--fs-label);color:var(--n-500);margin-top:1px}
 .st-tbl tr.st-me td{background:var(--accent-bg)}
-.cp-head{display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:var(--rule);flex:none}
+.cp-head{display:flex;align-items:center;gap:9px;padding:10px var(--s-4);border-bottom:var(--rule);flex:none}
 .cp-mark{width:24px;height:24px;flex:none;display:grid;place-items:center;border:none;background:none;padding:0;cursor:default;border-radius:var(--radius);transition:var(--dur-1) var(--ease)}
 body.copilot-full .cp-mark{cursor:pointer}
 body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
@@ -2879,7 +2879,7 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .cp-hit .badge{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:.04em;font-weight:var(--fw-medium);padding:2px 6px;border-radius:var(--radius);flex:none}
 .cp-hit .amt{margin-left:auto;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:var(--fw-medium)}
 
-.cp-foot{flex:none;padding:10px 14px;border-top:var(--rule)}
+.cp-foot{flex:none;padding:10px var(--s-4);border-top:var(--rule)}
 /* Answer-scope chips — three, the active one filled --n-100. States what a question answers
    against when nothing is selected. */
 .cp-scope{display:flex;gap:6px;margin-bottom:9px}
@@ -2942,16 +2942,17 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 /* ---- copilot header controls ---- */
 /* Header tools are quiet — the close/collapse/full affordances sit in --n-400 until hovered,
    so they never compete with the title or the content. */
-.cp-head .cp-tool{width:24px;height:24px;border-radius:var(--radius);border:none;background:none;
-  color:var(--n-400);cursor:pointer;display:grid;place-items:center;transition:var(--dur-1) var(--ease);flex:none}
-.cp-head .cp-tool:hover{color:var(--ink);background:var(--n-100)}
+/* geometry, colour and hover come from the shared window-control primitive — see
+   "PANEL WINDOW CONTROLS" beside #fxRoot .rw-ib. Only the cluster lives here. */
+.cp-hact{display:flex;align-items:center;gap:2px;flex:none}
 
 /* ---- Korvyn AI: redesigned shell ---- */
 /* Grounding line — sits directly under the name in the header, not as its own band. */
 .cp-status{display:flex;align-items:center;gap:5px;padding:0;font-size:var(--fs-micro);color:var(--hint);
   border:none;flex:none;line-height:1.3}
 .cp-status .ok{width:11px;height:11px;color:var(--pos);flex:none}
-.cp-tabs{display:flex;gap:2px;padding:0 14px;border-bottom:var(--rule);flex:none}
+/* --s-4 LESS the tab button's own padding, so "Assistant" starts on the rail */
+.cp-tabs{display:flex;gap:2px;padding:0 calc(var(--s-4) - 12px);border-bottom:var(--rule);flex:none}
 .cp-tabs button{font:inherit;font-size:var(--fs-table);padding:8px 12px;border:none;background:none;color:var(--n-500);
   cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:var(--dur-1) var(--ease);display:flex;align-items:center;gap:6px}
 .cp-tabs button:hover{color:var(--ink)}
@@ -2961,30 +2962,55 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 /* the Insights count is information, not an alert — --n-400, quiet */
 .cp-tabs .ct{font-size:var(--fs-micro);font-weight:var(--fw-medium);color:var(--n-400);line-height:1.5}
 .cp-tabs button.on .ct{color:var(--n-500)}
-.cp-scroll{flex:1;overflow-y:auto;padding:12px 14px}
+/* ---- THE SAME BAND FORMAT AS THE FLUX REVIEW PANEL (2026-08-29, owner's
+   direction: "replicate the same format over to the Korvyn Assistant").
+
+   The assistant had the problem that panel had: three left rails. Content sat at 15,
+   the tab strip at 27 and the header title at 48, with the greeting and every
+   suggestion drawn as its own inset bordered box. Now the sheet runs edge to edge,
+   each section is a full-width band separated by a hairline, and everything lands on
+   ONE rail at --s-4 — header, tabs, band titles and rows alike. */
+.cp-scroll{flex:1;overflow-y:auto;padding:0 0 12px}
 .cp-scroll::-webkit-scrollbar{width:6px}
 .cp-scroll::-webkit-scrollbar-thumb{background:var(--line2);border-radius:var(--radius)}
 /* Welcome surface — an assistant greeting, deliberately not a chat bubble: full width,
    square-shouldered, barely-there tint. */
 /* The assistant is the AI plane — indigo (--ai), the reserved AI hue, not cobalt.
    Greeting reads as Korvyn's own voice: a barely-there indigo wash, not a chat bubble. */
+/* THE GUTTER, RESERVED AND MATCHED — the same fix the review panel needed. The
+   scroller's bar takes layout width, so its bands end short of a header that sits
+   outside the scroller; `stable` makes the reserve constant and the chrome takes it
+   as a right margin, so every band in the assistant ends on one edge. --cp-sbw is
+   measured at runtime (cpGutter) because a scrollbar's width is a platform fact. */
+.cp-scroll{scrollbar-gutter:stable}
+.cp-head,.cp-src,.cp-tabs,.cp-foot,.cp-util{margin-right:var(--cp-sbw,0px)}
+
+/* the greeting is the first band, not a floating card. It keeps the indigo wash —
+   that is Korvyn's own voice (rule 2) — and loses only the box around it. */
 .cp-hello{background:linear-gradient(180deg,var(--ai-bg),transparent);
-  border:1px solid var(--ai-line);border-radius:var(--radius);padding:15px 16px;margin-bottom:20px}
+  border:none;border-bottom:var(--rule);border-radius:0;
+  padding:15px var(--s-4);margin:0}
 .cp-hello .hi{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink);letter-spacing:-.01em}
 .cp-hello .hq{font-size:var(--fs-table);color:var(--muted);line-height:1.5;margin-top:3px}
 .cp-hello .hc{font-size:var(--fs-label);color:var(--hint);line-height:1.45;margin-top:8px;
   padding-top:8px;border-top:1px solid var(--ai-line)}
-.cp-lbl{font-size:var(--fs-micro);letter-spacing:.12em;text-transform:uppercase;color:var(--hint);
-  font-weight:var(--fw-medium);margin:4px 0 9px;display:flex;align-items:center;gap:6px}
+/* a band's title: sentence case at card size, on the rail — the same treatment the
+   review panel's .rw-sec carries inside a card. The label text is already written in
+   sentence case at every call site; only the CSS was shouting it. */
+.cp-lbl{font-size:var(--fs-card);letter-spacing:normal;text-transform:none;color:var(--ink);
+  font-weight:var(--fw-medium);margin:0;padding:14px var(--s-4) 9px;
+  display:flex;align-items:center;gap:6px;border-top:var(--rule)}
+.cp-scroll > * > .cp-lbl:first-child{border-top:none}
 .cp-lbl .sp{flex:1}
 /* Suggestions — single-line rows, --border outline, hover to --n-25 with --border-strong.
    Leading glyph and trailing indicator both --n-400. */
-.cp-card{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:var(--rule);
-  background:var(--n-0);border-radius:var(--radius);padding:8px 10px;cursor:pointer;
-  transition:var(--tr-ui),transform var(--dur-1) var(--ease);
-  font:inherit;margin-bottom:6px}
+/* a suggestion is a ROW in the band, not a box in it — hairline between, no border
+   of its own, no lift. Box-in-box is the thing the review panel had to undo. */
+.cp-card{display:flex;align-items:center;gap:6px;width:100%;text-align:left;border:none;
+  border-bottom:var(--rule);background:none;border-radius:0;padding:9px var(--s-4);cursor:pointer;
+  transition:var(--tr-ui);font:inherit;margin:0}
 /* AI-generated suggestions carry the indigo signal on hover and a whisper of lift */
-.cp-card:hover{border-color:var(--ai-line);background:var(--ai-bg);box-shadow:var(--shadow-card);transform:translateY(-1px)}
+.cp-card:hover{background:var(--ai-bg)}
 .cp-card .ci{width:14px;height:14px;color:var(--ai);display:grid;place-items:center;flex:none}
 .cp-card .ci svg{width:14px;height:14px}
 .cp-card .cb{flex:1;min-width:0;display:flex;align-items:baseline;gap:7px;min-height:0}
@@ -2996,11 +3022,13 @@ body.copilot-full .cp-mark:hover{background:var(--accent-bg)}
 .cp-card.deg .ci{color:var(--warning)}
 /* Recents — quieter than suggestions on purpose: no border, no fill, lighter type. */
 .cp-recent{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;cursor:pointer;
-  font:inherit;font-size:var(--fs-table);color:var(--muted);padding:6px 2px;text-align:left;transition:var(--dur-1) var(--ease);border-radius:var(--radius)}
+  font:inherit;font-size:var(--fs-table);color:var(--muted);padding:7px var(--s-4);text-align:left;
+  transition:var(--dur-1) var(--ease);border-radius:0}
 .cp-recent:hover{color:var(--accent)}
 .cp-recent .rt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cp-recent .rw{font-size:var(--fs-label);color:var(--faint);flex:none}
-.cp-viewall{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--accent);cursor:pointer;margin-top:8px;display:inline-block}
+.cp-viewall{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--accent);cursor:pointer;
+  margin:8px 0 0;padding:0 var(--s-4);display:inline-block}
 .cp-viewall:hover{text-decoration:underline}
 .cp-disc{font-size:var(--fs-micro);color:var(--n-400);text-align:center;margin-top:8px;line-height:1.4}
 /* ---- read-from block: one row per source an answer consulted --------------------------- */
@@ -3104,7 +3132,6 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 .askai:hover{color:var(--accent-ink)}
 .askai svg{width:12px;height:12px}
 
-.cp-head .cp-tool svg{width:14px;height:14px}
 .cp-head .cp-tool.on{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
 .cp-menu{position:relative}
 .cp-drop{position:absolute;right:0;top:32px;background:var(--surface);border:var(--rule-strong);border-radius:var(--radius);
@@ -4076,12 +4103,40 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 /* font-size is set even though these hold only an SVG: a <button> with no font-size
    inherits the UA's 13.3333px, which is a seventh size sitting in the panel's computed
    styles waiting for the first person to put a character in one (rule 6). */
-#fxRoot .rw-ib{width:22px;height:22px;border:none;background:none;color:var(--faint);
+/* THE WINDOW CONTROLS ARE CONTROLS, so they read as three distinct ones rather than
+   as three faint marks in a corner. --faint at 13px made collapse, full screen and
+   close nearly indistinguishable at a glance — and collapse (a chevron) and close
+   (a cross) do very different things to a panel someone is working in. They take
+   --muted at rest on a 26px target with a 15px glyph, and each one gets a surface on
+   hover so the boundary between them is visible before you click. Still no fill at
+   rest: this is chrome on a header, not a fourth action competing with the footer's
+   primary (rule 13). */
+/* ---- PANEL WINDOW CONTROLS — ONE PRIMITIVE FOR EVERY DOCKED PANEL -------------
+   (2026-08-29.) Collapse · full screen · close do the same three things in the review
+   panel and in the Korvyn Assistant, and were drawn five different ways: 26px vs
+   24px targets, 15px vs 14px glyphs, --muted vs --n-400 at rest, --surface2 vs
+   --n-100 on hover, a 2px cluster gap against a 9px one — and two different collapse
+   glyphs, a bare chevron in one and an arrow-into-a-bar in the other. A chevron says
+   "next"; the bar says "fold this panel to the edge", which is what the control does
+   in both places, so that is the one that survives.
+
+   Both selectors are listed here rather than given a shared class because the two
+   panels are separate subtrees with their own markup; adding a third panel means
+   adding it to THIS rule, never copying the values. */
+#fxRoot .rw-ib,
+.cp-head .cp-tool{width:26px;height:26px;border:none;background:none;color:var(--muted);
   cursor:pointer;border-radius:var(--radius);display:inline-flex;align-items:center;
-  justify-content:center;line-height:0;padding:0;font-size:var(--fs-table)}
-#fxRoot .rw-ib:hover{background:var(--bg2);color:var(--ink)}
-#fxRoot .rw-ib:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-#fxRoot .rw-ib svg{width:13px;height:13px}
+  justify-content:center;line-height:0;padding:0;font-size:var(--fs-ui);flex:none;
+  transition:background var(--dur-1) ease,color var(--dur-1) ease}
+#fxRoot .rw-ib:hover,
+.cp-head .cp-tool:hover{background:var(--surface2);color:var(--ink)}
+#fxRoot .rw-ib:focus-visible,
+.cp-head .cp-tool:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#fxRoot .rw-ib svg,
+.cp-head .cp-tool svg{width:15px;height:15px}
+/* the cluster: tight, so the three read as one control group rather than three
+   scattered marks in a corner */
+#fxRoot .rw-hact{display:flex;align-items:center;gap:2px}
 
 /* ---- collapsed: the panel becomes a rail and the line stays selected ------ */
 #fxRoot .rw-rail{display:none}
@@ -4256,19 +4311,103 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-r.sub{padding-left:0}
 #fxRoot .rw-r .sl{display:block;font-size:var(--fs-micro);color:var(--faint);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* KEY DRIVERS as a contribution visualization — each driver's share of the
-   movement drawn as a bar, so the shape of the variance reads at a glance instead
-   of being decoded from three percentages. The bar carries the same up/down the
-   value does (consistent with the grid, not new decoration); a faint ramp track
-   behind it makes the share legible even when small. */
-#fxRoot .drv-rows .rw-r.drv{border-bottom:none;padding-bottom:2px}
-#fxRoot .drv-bar{height:5px;background:var(--n-100);border-radius:var(--radius-pill);
-  overflow:hidden;margin:0 0 9px}
-#fxRoot .drv-bar:last-child{margin-bottom:2px}
-#fxRoot .drv-bar i{display:block;height:100%;border-radius:inherit;
-  background:var(--accent);transition:width var(--dur-2) var(--ease-emph)}
-#fxRoot .drv-bar.up i{background:var(--success)}
-#fxRoot .drv-bar.dn i{background:var(--danger)}
+/* KEY DRIVERS — the reference inspector's dotted list that FOOTS (.fxi-kd).
+   A name, a figure, and a ruled Total row that equals the movement, so the
+   decomposition can be checked rather than admired. It replaces a bar per driver:
+   three tinted rails restating a percentage printed beside them, which also broke
+   the footing — four independently scaled widths do not visibly add to the whole.
+   The dot is a 4px ramp mark, the one ornament the reference keeps. */
+/* the file list under Overview's Evidence row — inside the same hairline as its
+   header, the way the peek block holds its last message */
+#fxRoot .rw-flist{display:flex;flex-direction:column;gap:5px;padding:9px var(--s-3) 10px}
+#fxRoot .rw-flist .rw-doc{font-size:var(--fs-ui)}
+#fxRoot .rw-fmore{font-size:var(--fs-label);color:var(--faint)}
+
+/* ---- SUPPORTING DOCUMENTS — the reference's workpaper index. Same framed table
+   as the period trend, so History and Evidence read as one family. */
+#fxRoot .rw-docs{border:1px solid var(--line2);border-radius:var(--radius);overflow:hidden}
+#fxRoot .rw-docs table{width:100%;border-collapse:collapse;table-layout:fixed}
+#fxRoot .rw-docs th{background:var(--n-50);text-align:left;font-size:var(--fs-label);
+  font-weight:var(--fw-regular);color:var(--muted);padding:7px var(--s-3);
+  border-bottom:1px solid var(--line2);white-space:nowrap}
+#fxRoot .rw-docs th.num,#fxRoot .rw-docs td.num{text-align:right;font-variant-numeric:tabular-nums}
+#fxRoot .rw-docs td{padding:7px var(--s-3);border-bottom:var(--rule);
+  font-size:var(--fs-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fxRoot .rw-docs tbody tr:last-child td{border-bottom:none}
+#fxRoot .rw-docs th:nth-child(3),#fxRoot .rw-docs td:nth-child(3){width:44px}
+#fxRoot .rw-docs th:nth-child(4),#fxRoot .rw-docs td:nth-child(4){width:74px}
+#fxRoot .rw-doc{display:flex;align-items:center;gap:6px;min-width:0;
+  color:var(--ink);text-decoration:none}
+#fxRoot .rw-doc:hover .n{text-decoration:underline;color:var(--accent-ink)}
+#fxRoot .rw-doc .ic{flex:0 0 auto;color:var(--muted);font-size:var(--fs-label)}
+#fxRoot .rw-doc .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Pending is the resting state and stays monochrome; only Verified is a completed
+   fact worth a colour (rule 3 — state, never decoration). */
+#fxRoot .rw-dst{display:inline-block;font-size:var(--fs-label);font-weight:var(--fw-medium);
+  padding:1px 7px;border-radius:var(--radius-pill);
+  background:var(--surface2);color:var(--muted)}
+#fxRoot .rw-dst.ok{background:var(--success-bg);color:var(--success)}
+#fxRoot .rw-gaps{margin-top:var(--s-3)}
+/* the reference's dashed "+ Add document" — an empty slot, not a button competing
+   with the footer's one filled primary (rule 13) */
+#fxRoot .rw-add{display:block;width:100%;margin-top:var(--s-3);padding:9px;
+  background:none;border:1px dashed var(--border-strong);border-radius:var(--radius);
+  font:inherit;font-size:var(--fs-ui);color:var(--accent-ink);cursor:pointer}
+#fxRoot .rw-add:hover{background:var(--surface2)}
+#fxRoot .rw-add:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- BALANCE & MOVEMENT BY PERIOD — the reference's History table. A framed
+   block, hairlines inside, no per-cell borders (rule 11); the card edge takes
+   --line2 and the row dividers --line. Figures are tabular so the two numeric
+   columns align down the page. */
+#fxRoot .rw-per{border:1px solid var(--line2);border-radius:var(--radius);overflow:hidden}
+#fxRoot .rw-per table{width:100%;border-collapse:collapse}
+#fxRoot .rw-per th{background:var(--n-50);text-align:left;font-size:var(--fs-label);
+  font-weight:var(--fw-regular);color:var(--muted);padding:7px var(--s-3);
+  border-bottom:1px solid var(--line2);white-space:nowrap}
+#fxRoot .rw-per th.num,#fxRoot .rw-per td.num{text-align:right;font-variant-numeric:tabular-nums}
+#fxRoot .rw-per td{padding:7px var(--s-3);border-bottom:var(--rule);
+  font-size:var(--fs-ui);color:var(--ink);white-space:nowrap}
+#fxRoot .rw-per tbody tr:last-child td{border-bottom:none}
+
+/* ---- ACTIVITY — a timeline, not a list of paragraphs. A round type badge in the
+   gutter, the event as a title with its date pushed right, the particulars quiet
+   beneath. The badge is the ONE mark each event gets (rule 8) and the one place
+   this block spends colour, which it earns: these are transitions, and a
+   transition is a state. */
+#fxRoot .rw-act{display:flex;flex-direction:column}
+#fxRoot .rw-ac{position:relative;padding:9px 0 9px 30px;border-bottom:var(--rule)}
+#fxRoot .rw-ac:last-child{border-bottom:none}
+/* A TINTED DISC WITH A COLOURED GLYPH, not a saturated disc with a white one. The
+   reference can fill its circles because it ships one theme; here --warning is a
+   dark amber in light mode and a LIGHT amber in dark, so a white glyph would read
+   at about 2:1 on half the themes. The *-bg tokens are built to pair with their own
+   ink in both modes, which is exactly the guarantee this needs. */
+#fxRoot .rw-ac .bd{position:absolute;left:0;top:9px;width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:var(--fs-micro);line-height:1}
+#fxRoot .rw-ac .bd.ok{background:var(--success-bg);color:var(--success)}
+#fxRoot .rw-ac .bd.warn{background:var(--warning-bg);color:var(--warning)}
+#fxRoot .rw-ac .bd.ink{background:var(--accent-bg);color:var(--accent-ink)}
+#fxRoot .rw-ac .bd.mute{background:var(--surface2);color:var(--muted)}
+#fxRoot .rw-ac .w{display:flex;align-items:baseline;gap:var(--s-3)}
+#fxRoot .rw-ac .t{flex:1 1 auto;min-width:0;font-size:var(--fs-ui);color:var(--ink)}
+#fxRoot .rw-ac .at{flex:0 0 auto;font-size:var(--fs-label);color:var(--faint);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+#fxRoot .rw-ac .m{margin-top:2px;font-size:var(--fs-label);color:var(--muted);line-height:1.45}
+#fxRoot .rw-kd{list-style:none;margin:0;padding:0}
+#fxRoot .rw-kd li{display:flex;align-items:baseline;gap:var(--s-3);
+  padding:5px 0 5px 14px;position:relative;font-size:var(--fs-ui);color:var(--ink)}
+#fxRoot .rw-kd li::before{content:"";position:absolute;left:3px;top:10px;
+  width:4px;height:4px;border-radius:50%;background:var(--faint)}
+#fxRoot .rw-kd li.soft{color:var(--muted);font-style:italic}
+#fxRoot .rw-kd .n{flex:1 1 auto;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+#fxRoot .rw-kd .v{flex:0 0 auto;font-variant-numeric:tabular-nums}
+#fxRoot .rw-kd-tot{display:flex;justify-content:space-between;gap:var(--s-3);
+  margin-top:7px;padding-top:8px;border-top:1px solid var(--line2);
+  font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink)}
+#fxRoot .rw-kd-tot span:last-child{font-variant-numeric:tabular-nums}
 /* COVERAGE — the explained share as a fill, with a tick at the coverage the
    tolerance demands. Accent while it climbs, success once it clears the tick. */
 #fxRoot .rw-cover{margin-top:9px}
@@ -4387,6 +4526,21 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   margin-top:5px;max-width:72ch;
   padding-left:var(--s-3);border-left:2px solid var(--line2)}
 #fxRoot .rw-msg.mine .tx{border-left-color:var(--accent-line)}
+/* ---- A CHANGE REQUEST, IN THE THREAD ----------------------------------------
+   The one message in a review that carries an obligation, so it is the one that
+   states it. A WORD and a name — not a coloured card, not a pill and a dot: rule 8
+   allows a state exactly one mark, and this is a line's most consequential moment,
+   not its loudest. --warn carries it because a returned review IS an exception
+   state (rule 3 admits amber for state, never decoration), and the row's own tint
+   stays out of it so a thread of six does not become a wall of amber.
+
+   --warning, NOT --warn-ink: the latter is never declared anywhere in this file,
+   which is why its one other call site (.trace-def) carries a
+   var(--warn-ink,var(--warn)) fallback. --warning is declared in the light block AND
+   redeclared in the dark one, so it is safe on both planes. */
+#fxRoot .rw-chg{display:flex;align-items:center;gap:5px;margin:1px 0 4px;
+  font-size:var(--fs-label);font-weight:var(--fw-medium);color:var(--warning)}
+#fxRoot .rw-chg .to{color:var(--ink)}
 #fxRoot .rw-msg .mt{font-size:var(--fs-micro);color:var(--faint);margin-top:5px;
   padding-left:var(--s-3);line-height:1.5}
 #fxRoot .rw-msg .mt .bad{color:var(--danger);font-weight:var(--fw-medium)}
@@ -4488,6 +4642,110 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-msg .hd .sp{display:none}
 #fxRoot .rw-msg .who{flex:0 0 100%;font-size:var(--fs-ui);line-height:1.35}
 #fxRoot .rw-msg .role,#fxRoot .rw-msg .at{font-size:var(--fs-label);color:var(--hint)}
+/* the reference's small trailing pill on a workflow row ("4 days left") */
+#fxRoot .rw-wfp{margin-left:7px;font-size:var(--fs-label);font-weight:var(--fw-medium);
+  padding:1px 7px;border-radius:var(--radius-pill);
+  background:var(--surface2);color:var(--muted);white-space:nowrap}
+#fxRoot .rw-wfp.warn{background:var(--warning-bg);color:var(--warning)}
+
+/* the explanation itself: prose at full width, provenance quiet underneath */
+#fxRoot .rw-expl{font-size:var(--fs-ui);color:var(--ink);line-height:1.6}
+#fxRoot .rw-expl .sp{color:var(--ai);margin-right:5px}
+#fxRoot .rw-expl b{font-weight:var(--fw-medium)}
+#fxRoot .rw-prov{margin-top:8px;font-size:var(--fs-label);color:var(--faint)}
+
+/* ---- THE OVERVIEW CARD (2026-08-29 — the reference inspector's .fxi-card) -----
+   A bordered white card on the gray body, one per region. It is what turns a scroll
+   of labelled bands into a set of objects, and it is the same "one card per screen
+   REGION" the statement already follows (rule 11) — hairlines INSIDE the card, never
+   a second box within it. */
+#fxRoot .fx-detail .rw-card{background:var(--surface);border:1px solid var(--line2);
+  border-radius:var(--radius);padding:12px 14px;margin:0 0 10px}
+/* ---- IN THE DOCK THE CARD IS A FULL-WIDTH BAND (2026-08-29, owner's direction:
+   "the comments boxes should be of the same size like the header — full right panel,
+   no space in between").
+
+   A floating card needs a gutter, the gutter needs a scrollbar allowance, and the
+   card needs its own padding inside that — which is how one panel ended up with
+   THREE left rails: header text at 16, card edge at 27, card content and tabs at 42.
+   Running the band edge to edge collapses all of it: the card pads to --s-4 exactly
+   as the header does, so every word in the panel starts on the same pixel, and there
+   is no space left over to be asymmetric.
+
+   Separation is a hairline between bands, which is what rule 5 asks for anyway —
+   lightness and a hairline, never shadow. The full PAGE keeps floating cards: its
+   columns already supply the gutter, and a band running edge to edge across a
+   1,400px sheet is not a card, it is a stripe. */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-card{
+  border:none;border-bottom:var(--rule);border-radius:0;
+  padding:var(--s-4);margin:0}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-card:last-child{border-bottom:none}
+/* the message stream and composer are cards of their own (RW_NOCARD) — they take the
+   same band treatment or the Comments tab keeps a gutter the others have lost */
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body>.rw-msg{
+  border-left:none;border-right:none;border-top:none;border-radius:0;
+  padding:var(--s-4);margin:0}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-thread{padding:0}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-thread .rw-msg{
+  border-left-width:3px;border-right:none;border-radius:0;margin:0}
+/* A CARD STATES ITS OWN NAME, in sentence case at card size. The uppercase tracked
+   label belongs to a band on a page; inside a card it reads as a form legend and
+   makes five cards look like five forms. The rule above it goes too — the card edge
+   is the separation now, and a border under a border is the box-in-box rule. */
+#fxRoot .fx-detail .rw-card .rw-sec{font-size:var(--fs-card);text-transform:none;
+  letter-spacing:normal;color:var(--ink);font-weight:var(--fw-medium);
+  margin:0 0 var(--s-3);padding-top:0;border-top:none;display:flex;align-items:center;gap:var(--s-2)}
+#fxRoot .fx-detail .rw-card .rw-sec .ct{margin-left:0}
+/* the jump rows carry their own box elsewhere; inside a card the card IS the box */
+#fxRoot .fx-detail .rw-card .rw-peekwrap{border:none;border-radius:0;background:none}
+#fxRoot .fx-detail .rw-card button.rw-jump{box-shadow:none;border:none;background:none;
+  padding:0;font-size:var(--fs-card);color:var(--ink);font-weight:var(--fw-medium)}
+#fxRoot .fx-detail .rw-card button.rw-jump:hover{background:none;color:var(--accent-ink)}
+#fxRoot .fx-detail .rw-card .rw-flist{padding:9px 0 0}
+#fxRoot .fx-detail .rw-card .rw-peek{padding:8px 0 0;border-top:var(--rule);margin-top:8px}
+/* the last card should not leave a gap above the footer */
+#fxRoot .fx-detail .rw-card:last-child{margin-bottom:0}
+
+/* ---- THE MESSAGE AS A CARD (2026-08-29 — the reference inspector's Comments
+   tab). The timeline connector and full-bleed rows go with it: the reference gives
+   each message its own bordered white card on the gray body, which is the same
+   "one card per region" the rest of this panel now uses, and it lets a message
+   carry a category and a status without them floating in shared space.
+   The left rail is the one place a voice is marked (rules 2/3): ramp for a person,
+   accent for you, indigo for a Korvyn draft. */
+#fxRoot .fx-detail .rw-msg{background:var(--surface);border:1px solid var(--line2);
+  border-left:3px solid var(--n-300);border-radius:var(--radius);
+  padding:10px 12px;margin:0 0 8px}
+#fxRoot .fx-detail .rw-msg::before{display:none}          /* the connector line */
+#fxRoot .fx-detail .rw-msg.mine{border-left-color:var(--accent)}
+#fxRoot .fx-detail .rw-msg.lead.ai{border-left-color:var(--ai)}
+#fxRoot .fx-detail .rw-msg.chg{border-left-color:var(--warning)}
+#fxRoot .fx-detail .rw-msg.aim{background:var(--accent-bg)}
+#fxRoot .fx-detail .rw-msg:hover{background:var(--surface)}
+#fxRoot .fx-detail .rw-msg.owed{background:none;border-style:dashed}
+/* the category and its status, on one quiet row under the byline */
+#fxRoot .rw-mcat{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;margin:3px 0 5px}
+#fxRoot .rw-mcat .cat{font-size:var(--fs-label);color:var(--muted)}
+#fxRoot .rw-pill{font-size:var(--fs-label);font-weight:var(--fw-medium);
+  padding:1px 8px;border-radius:var(--radius-pill);
+  background:var(--surface2);color:var(--muted)}
+#fxRoot .rw-pill.ok{background:var(--success-bg);color:var(--success)}
+#fxRoot .rw-pill.warn{background:var(--warning-bg);color:var(--warning)}
+/* replies indent inside the thread rather than hanging off a connector */
+#fxRoot .rw-replies{margin-left:var(--s-4);padding-left:0}
+#fxRoot .rw-thread,#fxRoot .rw-grp{gap:0}
+
+/* WHICH SIDE OF THE REVIEW IS SPEAKING — the word, not a colour. The accent is
+   already spoken for on this row (it marks YOUR messages), and rule 8 gives a state
+   one mark: a colour encoding the same fact the word already states is the
+   pill-and-dot problem in another costume. Ink at 500 against a --hint meta line is
+   enough to catch the eye, and costs nothing from the palette. */
+#fxRoot .rw-msg .role .rw-rr{color:var(--ink);font-weight:var(--fw-medium);font-style:normal}
+/* WHO IS ON THE LINE, at the head of the thread rather than four rows deep on
+   another tab. Two facts, stated once, above the messages they explain. */
+#fxRoot .rw-parts{display:flex;flex-wrap:wrap;gap:0 var(--s-4);
+  margin:0 0 var(--s-3);font-size:var(--fs-label);color:var(--ink)}
+#fxRoot .rw-parts .rw-part i{font-style:normal;color:var(--hint);margin-right:5px}
 /* one separator between the two halves of the meta line, drawn only when both
    halves are actually there */
 #fxRoot .rw-msg .role ~ .at::before{content:"\00b7";margin-right:7px;color:var(--n-300)}
@@ -4539,6 +4797,25 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot .rw-cawait{font-size:var(--fs-micro);color:var(--hint)}
 
 /* ---- SUPPORT: evidence + what is behind the number ------------------------ */
+/* ---- THE FULL LEDGER, full screen only. A framed table, hairlines inside and no
+   per-cell borders (rule 11): the card edge takes --line2, the row dividers --line.
+   Scrolls in its own box so a wide ledger never makes the page scroll sideways. */
+#fxRoot .rw-glbar{display:flex;align-items:center;gap:var(--s-3);margin-bottom:var(--s-3)}
+#fxRoot .rw-glbar .sp{flex:1}
+#fxRoot .rw-glacc{font-size:var(--fs-label);color:var(--muted)}
+#fxRoot .rw-gl{border:1px solid var(--line2);border-radius:var(--radius);overflow-x:auto}
+#fxRoot .rw-gl table{width:100%;border-collapse:collapse}
+#fxRoot .rw-gl th{position:sticky;top:0;background:var(--n-50);text-align:left;
+  font-size:var(--fs-label);font-weight:var(--fw-regular);color:var(--muted);
+  padding:7px var(--s-3);border-bottom:1px solid var(--line2);white-space:nowrap}
+#fxRoot .rw-gl th.num,#fxRoot .rw-gl td.num{text-align:right}
+#fxRoot .rw-gl td{padding:8px var(--s-3);border-bottom:var(--rule);
+  font-size:var(--fs-ui);color:var(--ink);vertical-align:top}
+#fxRoot .rw-gl tbody tr:last-child td{border-bottom:none}
+#fxRoot .rw-gl tbody tr:hover td{background:var(--surface2)}
+#fxRoot .rw-gldt{white-space:nowrap;color:var(--muted)}
+#fxRoot .rw-glsub,#fxRoot .rw-glfl{font-size:var(--fs-label);color:var(--faint);margin-top:2px}
+#fxRoot .rw-glerp{margin-top:3px}
 #fxRoot .rw-fs{border-top:var(--rule);margin-top:var(--s-2)}
 #fxRoot .rw-fsr{display:flex;align-items:flex-start;gap:var(--s-3);padding:7px 0;border-bottom:var(--rule)}
 #fxRoot .rw-fsr .k{flex:none;width:96px;font-size:var(--fs-micro);text-transform:uppercase;
@@ -4692,7 +4969,11 @@ body.fx-dw-page #subnav2{display:none!important}
 /* the window controls join the return strip: both are "leave this view" */
 #fxRoot.dw-page .fx-detail .dw-hd .rw-hact{grid-area:from;
   justify-self:end;align-self:center}
-#fxRoot.dw-page .fx-detail .dw-hd>.rw-hero{grid-area:hero}
+/* The band and its sparkline stay inside ONE wrapper for exactly this reason: the
+   header is a grid here, and two children sharing `grid-area:hero` would stack on
+   top of each other rather than sit side by side. */
+#fxRoot.dw-page .fx-detail .dw-hd>.rw-figs{grid-area:hero;
+  display:flex;align-items:center;gap:var(--s-5);flex-wrap:wrap}
 /* the scope word is the Scope tab's job — the header states the line, once */
 #fxRoot.dw-page .fx-detail .dw-hd .rw-sub2{display:none}
 /* THE SHORTCUT LEGEND STANDS DOWN IN FULL SCREEN. It spent a whole band of the
@@ -4766,12 +5047,25 @@ body.fx-dw-page #subnav2{display:none!important}
    capped so a 1,400px screen does not render a 200-character measure. */
 #fxRoot .rw-cols.one{grid-template-columns:minmax(0,1fr);grid-template-areas:none;
   gap:var(--s-5)}
-#fxRoot .rw-col.solo{grid-area:auto;min-width:0;max-width:120ch}
+/* CAP THE PROSE, NOT THE CARD — the same rule the judge column already follows.
+   max-width on the column made every solo tab (Drivers, General ledger, Evidence,
+   Comments, History) a 120ch card sitting inside a full-width sheet, so its right
+   edge stopped ~500px short of the header band above it. A measure that long is
+   genuinely unreadable, but it is the paragraph that needs the limit, not the box
+   the paragraph is in. */
+#fxRoot .rw-col.solo{grid-area:auto;min-width:0}
+#fxRoot .rw-col.solo .rw-nar,
+#fxRoot .rw-col.solo .rw-expl,
+#fxRoot .rw-col.solo .rw-src,
+#fxRoot .rw-col.solo .rw-quiet{max-width:96ch}
 #fxRoot .rw-col.solo .rw-rg+.rw-rg{margin-top:var(--s-5);padding-top:var(--s-5);
   border-top:var(--rule)}
 /* a mounted region. Its own .rw-sec is its label — the wrapper never adds a second */
 #fxRoot .rw-rg{margin-top:var(--s-6);padding-top:var(--s-5);border-top:var(--rule)}
-#fxRoot .rw-rg:first-child{margin-top:0;padding-top:0;border-top:none}
+/* :not(.rw-card) — a card draws its own four sides and this reset would take one
+   of them off the first region in every column. It exists for a BARE region, whose
+   top hairline is a separator it does not need when nothing sits above it. */
+#fxRoot .rw-rg:not(.rw-card):first-child{margin-top:0;padding-top:0;border-top:none}
 #fxRoot .rw-rg:focus{outline:none}
 #fxRoot .rw-rg:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 
@@ -4801,17 +5095,52 @@ body.fx-dw-page #subnav2{display:none!important}
 #fxRoot.dw-page .fx-detail{border:var(--rule-strong);border-radius:var(--radius);
   background:var(--bg);overflow:hidden}
 #fxRoot.dw-page .fx-detail .dw-hd{background:var(--surface);border-bottom:var(--rule)}
-#fxRoot.dw-page .fx-detail .dw-body{background:var(--bg)}
+/* FULL SCREEN: THE COLUMNS RUN THE SHEET'S FULL WIDTH, like the header above them.
+   This was the misalignment the owner kept reporting and my checks kept missing: the
+   header band and the tab strip sit OUTSIDE the body and spanned the sheet edge to
+   edge (L1 R1), while the body's own --s-4 padding inset every column by 16px on
+   each side (L17 R17). Comparing cards to cards said "symmetric" and was useless —
+   the boxes were symmetric with each other and 16px narrower than the header.
+
+   The dock solved this by dropping the body's horizontal padding; the page needs the
+   same. The grid gap still separates the three columns from one another. */
+/* `#fxRoot.aw.dw-page`, not `#fxRoot.dw-page`: the rule this overrides is
+   `#fxRoot.aw .fx-detail .dw-body{padding:var(--s-4)}` — one id and three classes,
+   the same weight as a page rule written with only .dw-page, and declared LATER in
+   the sheet. A tie loses to source order, which is why the first attempt at this
+   left the columns inset at 17 while the header spanned to 1. */
+#fxRoot.aw.dw-page .fx-detail .dw-body{background:var(--bg);padding-left:0;padding-right:0}
 #fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-5)}
-#fxRoot.dw-page .fx-detail .rw-col{
-  background:var(--surface);
-  border:var(--rule);
-  border-radius:12px;
-  padding:var(--s-5);
-  margin:0;
+/* SAME FORMAT AS THE DOCK, AT THE RIGHT SCALE (2026-08-29, owner: "make sure same
+   format applies to full screen"). In the dock the PANEL is the sheet and the cards
+   are full-bleed bands inside it, separated by hairlines. On the page the COLUMN is
+   the sheet and the cards are the same bands inside that — so a region looks like
+   the same kind of object in both densities, and its content sits on its sheet's own
+   rail rather than being inset twice (once by the column's padding, once by the
+   card's).
+
+   The column keeps a border and a radius because a page has three of them side by
+   side on a gray body and each one has to read as its own document; the dock has one
+   and the panel frame already does that job. */
+#fxRoot.dw-page .fx-detail .rw-col{background:var(--surface);border:var(--rule);
+  border-radius:12px;padding:0;margin:0;overflow:hidden;
   box-shadow:0 1px 2px rgba(16,22,35,.04),0 3px 10px rgba(16,22,35,.05);
-}
-#fxRoot.dw-page .fx-detail .rw-sec{color:var(--muted);font-weight:var(--fw-medium)}
+  display:flex;flex-direction:column}
+/* the bands: full width of the sheet, hairline between, no box of their own */
+#fxRoot.dw-page .fx-detail .rw-card{border:none;border-bottom:var(--rule);
+  border-radius:0;padding:var(--s-4);margin:0}
+#fxRoot.dw-page .fx-detail .rw-col>.rw-card:last-child{border-bottom:none}
+#fxRoot.dw-page .fx-detail .rw-col>.rw-msg{border-left-width:3px;border-right:none;
+  border-top:none;border-radius:0;padding:var(--s-4);margin:0}
+/* The card supplies the separation, so the region's old hairline rhythm goes — but
+   :not(.rw-card) is load-bearing. Without it this rule out-specifies the card and
+   strips its OWN top border, leaving three-sided boxes that only show up when the
+   ramp inverts (caught in dark mode, where the missing border fell back to
+   currentColor and read as a bright line). A part in RW_NOCARD is still a bare
+   region and still needs the reset. */
+#fxRoot.dw-page .fx-detail .rw-rg:not(.rw-card){margin-top:0;padding-top:0;border-top:none}
+#fxRoot.dw-page .fx-detail .rw-col.solo .rw-rg:not(.rw-card)+.rw-rg:not(.rw-card){
+  margin-top:0;padding-top:0;border-top:none}
 @container (min-width:1180px){
   #fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-6)}
   /* prose stays readable, but the card fills its column — cap the narrative, not
@@ -4900,7 +5229,62 @@ body.fx-dw-page #subnav2{display:none!important}
 /* and the two that are simply where the review stands — stated, not shouted */
 #fxRoot .fxind .t.wait{color:var(--muted);font-size:var(--fs-label)}
 #fxRoot .fxind .t.ok{color:var(--success);font-size:var(--fs-label)}
+/* READY IS NOT GREEN. Green already means signed off two rows down, and a column
+   where "ready to submit" and "reviewed" share a colour cannot be scanned for the
+   thing a preparer is actually hunting. It earns its weight from the ramp instead
+   — full ink at 500 against the muted states — which is rule 7's second weight
+   doing exactly the job it exists for, and spends no colour (rules 2/3). */
+#fxRoot .fxind .t.rdy{color:var(--ink);font-weight:var(--fw-medium);font-size:var(--fs-label)}
+/* The Korvyn mark on a line that holds no position in the review. opacity:0, NEVER
+   visibility:hidden — the latter takes the button out of the tab order and silently
+   removes a real control from every keyboard user (the exact trap the star gutter
+   documented). It is reachable by Tab, and focus reveals it.
+
+   THE MODIFIER IS `krv`, NOT `ai`, AND THAT IS NOT A STYLE PREFERENCE. `.ai` is a
+   global component in this file — the AI answer panel at ~line 1469 — and it carries
+   `display:none` until `.ai.show`. A bare `.ai` on a span inside .fxind therefore
+   inherits that and the mark renders at 0×0 with opacity 1, which is exactly how it
+   failed here. `.rw-av.ai` and `.rw-msg.ai` in the panel survive the same collision
+   only because their own rules re-declare `display`. Do not reuse `ai` as a local
+   modifier; the token for the colour is `--ai` and that is the part to reach for. */
+#fxRoot .fxind .t.krv{color:var(--ai);font-size:var(--fs-label);font-weight:var(--fw-medium)}
+#fxRoot .fxi-k{opacity:0;transition:opacity .1s ease}
+#fxRoot tr:hover .fxi-k,#fxRoot .fxi-k:focus-visible,#fxRoot tr.sel .fxi-k{opacity:1}
+/* the shed itself — see fxShed(). Header and body are addressed the same way, by
+   the column they belong to, so the two can never disagree about how many cells a
+   row has. */
+#fxRoot.fx-shed-1 [data-c="pctd"],#fxRoot.fx-shed-1 th.col-pctd{display:none}
+#fxRoot.fx-shed-2 :is([data-c="pctd"],[data-c="share"],[data-c="trend"],[data-c="avg3"],[data-c="ann"],[data-c="bud"],[data-c="budv"]),
+#fxRoot.fx-shed-2 :is(th.col-pctd,th.col-share,th.col-trend,th.col-avg3,th.col-ann,th.col-bud,th.col-budv){display:none}
+#fxRoot.fx-shed-3 :is([data-c="pctd"],[data-c="share"],[data-c="trend"],[data-c="avg3"],[data-c="ann"],[data-c="bud"],[data-c="budv"],[data-c="resid"],[data-c="owner"],[data-c="status"],[data-c="cmt"]),
+#fxRoot.fx-shed-3 :is(th.col-pctd,th.col-share,th.col-trend,th.col-avg3,th.col-ann,th.col-bud,th.col-budv,th.col-resid,th.col-owner,th.col-status,th.col-cmt){display:none}
 #fxRoot .col-cmt{width:1%;white-space:nowrap}
+
+/* ---- THE EXPLANATION PEEK ---------------------------------------------------
+   A true overlay, so rule 5 admits the shadow — and --shadow-md, not lg, for the
+   same reason .pop takes md: this hangs off a cell, it is not a modal. Width is
+   capped in ch rather than px because the content is a paragraph and the measure is
+   what makes it readable; 46ch is the same measure the panel gives its prose. */
+#fxhov{position:fixed;z-index:60;width:46ch;max-width:calc(100vw - 16px);
+  background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius);
+  box-shadow:var(--shadow-md);padding:var(--s-3);
+  opacity:0;visibility:hidden;transition:opacity .09s ease;pointer-events:none}
+#fxhov.on{opacity:1;visibility:visible}
+#fxhov .fxhov-hd{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+#fxhov .fxhov-av{width:18px;height:18px;border-radius:5px;flex:0 0 18px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--accent);color:#fff;font-size:var(--fs-micro);font-weight:var(--fw-medium)}
+/* indigo is the AI marker and never a second UI accent (rule 2) */
+#fxhov .fxhov-av.krv{background:var(--ai)}
+#fxhov .fxhov-who{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink)}
+#fxhov .fxhov-lbl{font-size:var(--fs-label);color:var(--muted);margin-left:auto;white-space:nowrap}
+/* clamped, because this is a peek. The panel is where the whole argument is read. */
+#fxhov .fxhov-tx{font-size:var(--fs-ui);color:var(--ink);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+#fxhov .fxhov-tx b{font-weight:var(--fw-medium)}
+#fxhov .fxhov-ft{display:flex;align-items:center;gap:4px;margin-top:8px;padding-top:7px;
+  border-top:var(--rule);font-size:var(--fs-label);color:var(--faint)}
+#fxhov .fxhov-ft .sp{flex:1}
 
 /* The one-line ".cmt-line" preview row and its CSS were removed with the Comments
    display mode. Comments — the author-by-author history — live in the Review
@@ -5317,7 +5701,18 @@ body.fx-dw-page #subnav2{display:none!important}
    glyph + its Δ%), the two balances flow beneath as prior → current. Full-bleed to
    the panel edges, set off by hairlines top and bottom so it reads as the header's
    own instrument strip. Colour lands only on the variance (rules 2/3). */
-#fxRoot.aw .fx-detail .rw-hero{
+/* ---- THE FOUR-FIGURE BAND — the reference inspector's composition ------------
+   apps/review's .fxi-mets, brought across at the owner's direction (2026-08-29):
+   four equal cells, a figure over its own label, colour on the two variance cells
+   and nowhere else. It replaces .rw-hero, whose 28px figure, Δ%, FAVORABLE word and
+   prior→current flow said the same thing three rows deep and left the two balances
+   a reviewer ties back to as the smallest text in the block.
+
+   Weight is --fw-medium, not the reference's 700: rule 7 admits exactly two weights
+   in this file and 700 is not one of them. The figures still read as figures because
+   they are a size step up and tabular. */
+/* the wrapper is the full-width row; the band and the sparkline are its rows */
+#fxRoot.aw .fx-detail .rw-figs{
   flex:1 0 100%;
   margin:var(--s-3) calc(-1 * var(--s-4)) 0;
   padding:var(--s-3) var(--s-4);
@@ -5325,65 +5720,51 @@ body.fx-dw-page #subnav2{display:none!important}
   border-bottom:var(--rule);
   background:var(--surface);
 }
-#fxRoot.aw .fx-detail .rw-hero-top{display:flex;align-items:baseline;gap:var(--s-3);flex-wrap:wrap}
-#fxRoot.aw .fx-detail .rw-hero-v{
-  font-size:var(--fs-hero);font-weight:var(--fw-medium);
-  font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight);line-height:1.02;
+#fxRoot.aw .fx-detail .rw-mets{display:flex;gap:0}
+#fxRoot.aw .fx-detail .rw-met{flex:1 1 0;min-width:0}
+#fxRoot.aw .fx-detail .rw-met-v{
+  font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink);
+  font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-tight);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-#fxRoot.aw .fx-detail .rw-hero-pct{
-  font-size:var(--fs-card);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums;
+#fxRoot.aw .fx-detail .rw-met-k{
+  font-size:var(--fs-label);color:var(--faint);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-#fxRoot.aw .fx-detail .rw-hero-word{
-  margin-left:auto;align-self:center;
-  font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--hint);
+/* the trajectory sparkline closes the band, full width, a slim trend cue. Kept when
+   the hero went: it is the one thing in the old block the four cells cannot say, and
+   dropping a real signal is not the same act as removing clutter. */
+#fxRoot.aw .fx-detail .rw-hero-spark{
+  display:flex;align-items:center;gap:var(--s-3);margin-top:8px;
 }
-#fxRoot.aw .fx-detail .rw-hero-flow{
-  display:flex;align-items:baseline;gap:8px;margin-top:6px;
-  font-size:var(--fs-table);color:var(--muted);font-variant-numeric:tabular-nums;
-}
-#fxRoot.aw .fx-detail .rw-hero-flow .ar{color:var(--faint)}
-#fxRoot.aw .fx-detail .rw-hero-flow .cv{color:var(--ink);font-weight:var(--fw-medium)}
-#fxRoot.aw .fx-detail .rw-hero-flow .pr{
-  margin-left:auto;font-size:var(--fs-micro);text-transform:uppercase;
-  letter-spacing:var(--tracking-label);color:var(--hint);
-}
-/* the trajectory sparkline sits under the flow, full width, a slim trend cue */
-#fxRoot.aw .fx-detail .rw-hero-spark{display:flex;align-items:center;gap:var(--s-3);margin-top:8px}
-#fxRoot.aw .fx-detail .rw-hero-spark svg{flex:1;min-width:0;height:34px;display:block;max-width:360px}
+#fxRoot.aw .fx-detail .rw-hero-spark svg{flex:1;min-width:0;height:28px;display:block;max-width:360px}
 #fxRoot.aw .fx-detail .rw-hero-spark-n{
   flex:none;font-size:var(--fs-micro);text-transform:uppercase;
   letter-spacing:var(--tracking-label);color:var(--hint);white-space:nowrap;
 }
-/* page mode gives the hero more room and lifts the figure a step */
-#fxRoot.dw-page .fx-detail .rw-hero-v{font-size:calc(var(--fs-hero) + 4px)}
-#fxRoot.dw-page .fx-detail .rw-hero-spark svg{max-width:420px}
-/* ---- FULL SCREEN READS THE HERO ACROSS, NOT DOWN -------------------------
-   The three sub-rows — figure, prior→current flow, sparkline — are stacked for
-   the 440px drawer, where stacking is the only option. On a full screen that
-   spent 125px of header and a wide band of empty space to the right of each
-   line. The same four facts fit on ONE row here, so the header loses ~65px and
-   the working paper starts that much higher.
-
-   The two right-hand labels (FAVORABLE, MAY '26 → JUN '26) drop their
-   margin-left:auto: it pushed them to the end of their own sub-row, which on a
-   single row would strand them mid-line. They now trail the fact each one
-   qualifies, which is where they read best anyway. */
-#fxRoot.dw-page .fx-detail .rw-hero{display:flex;align-items:center;
-  gap:var(--s-3) var(--s-5);flex-wrap:wrap;border-top:none;margin-top:0}
-#fxRoot.dw-page .fx-detail .rw-hero-top,
-#fxRoot.dw-page .fx-detail .rw-hero-flow{flex:none;margin-top:0}
-#fxRoot.dw-page .fx-detail .rw-hero-word,
-#fxRoot.dw-page .fx-detail .rw-hero-flow .pr{margin-left:0}
-/* The sparkline is the one part of the hero that can give: it is a shape cue, not
-   a figure, so it shrinks to whatever the row has left rather than wrapping the
-   whole hero onto a second line (which cost 42px once the state took a column). */
-#fxRoot.dw-page .fx-detail .rw-hero-spark{flex:1 1 110px;min-width:0;margin-top:0;
-  justify-content:flex-end}
-#fxRoot.dw-page .fx-detail .rw-hero-spark svg{min-width:0}
-#fxRoot.dw-page .fx-detail .rw-hero-spark svg{height:30px}
+/* FULL SCREEN: the band is already a row, so it only needs its border back and the
+   sparkline told it may shrink — it is a shape cue, not a figure, and without this
+   it wrapped the header onto a second line once the state block took a column. */
+#fxRoot.dw-page .fx-detail .rw-figs{border:none;margin:0;padding:0;background:none}
+/* THE CELLS SIZE TO THEIR CONTENT HERE, they do not share the row equally. In the
+   dock four equal cells fill a 440px band exactly; dropped into the page header's
+   ~237px `hero` grid cell the same `flex:1 1 0` squeezed each to ~55px and the
+   fourth truncated to "▲ +6…  vs May…". A figure that ellipsises is not a figure. */
+#fxRoot.dw-page .fx-detail .rw-mets{flex:0 1 auto;gap:var(--s-5);flex-wrap:wrap}
+#fxRoot.dw-page .fx-detail .rw-met{flex:0 0 auto}
+#fxRoot.dw-page .fx-detail .rw-met-v,
+#fxRoot.dw-page .fx-detail .rw-met-k{overflow:visible;text-overflow:clip}
+#fxRoot.dw-page .fx-detail .rw-hero-spark{flex:1 1 110px;min-width:0;
+  margin-top:0;justify-content:flex-end}
+#fxRoot.dw-page .fx-detail .rw-hero-spark svg{min-width:0;height:26px}
 #fxRoot.aw .fx-detail .dw-tabs{
   display:flex;
-  padding:0 var(--s-2);
+  /* ONE RAIL FOR THE WHOLE PANEL. The header pads to --s-4 and so does every card,
+     so the tab strip pads to --s-4 LESS the first button's own padding and the word
+     "Overview" lands on the same pixel as "Tenant recoveries" above it and
+     "Explanation" below it. Nothing here compensates for a card inset or a scrollbar
+     gutter any more, because the cards are full-bleed and there is no gutter. */
+  padding:0 calc(var(--s-4) - 10px);
   background:var(--surface);
   border-bottom:var(--rule);
 }
@@ -5525,7 +5906,32 @@ body.fx-dw-page #subnav2{display:none!important}
    drawer is a docked surface, so a soft card shadow is within rule 5's "shadow for
    overlays", never the heavy overlay shadow. The body deepens to --bg2 so the
    white cards float off it; section labels take --muted for real hierarchy. */
-#fxRoot.aw:not(.dw-page) .fx-detail .dw-body{background:var(--bg2)}
+/* THE BODY HAS NO HORIZONTAL PADDING — the cards run the full width of the panel,
+   the way the header band does, so there is no gutter for a scrollbar to eat and no
+   inset for the tab strip to compensate for. This replaces `scrollbar-gutter:stable
+   both-edges`, which fixed the left/right asymmetry by reserving 10px on BOTH edges
+   and in doing so pushed the card content to a third rail 42px in, 26px right of the
+   header text above it. */
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body{background:var(--bg2);padding-left:0;padding-right:0;
+  /* A CLASSIC SCROLLBAR ALWAYS TAKES LAYOUT WIDTH, so a full-bleed band inside the
+     scroller ends short of a header band that is outside it — measured: header,
+     tabs and footer all reached the panel edge while every card stopped 10px early.
+     `stable` makes that reserve CONSTANT (present whether or not the content
+     overflows), which is what lets the chrome outside the scroller take the same
+     inset and every band share one right edge. Thin and quiet, so the strip reads as
+     a scrollbar rather than as a margin. */
+  scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:var(--n-300) transparent}
+/* THE CHROME OUTSIDE THE SCROLLER TAKES THE SAME INSET. --dw-sbw is measured at
+   runtime (sizeDrawer) because a scrollbar's width is a platform fact, not a design
+   token — hard-coding 10px would be right on this machine and wrong on a Mac. */
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-hd,
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-tabs,
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-foot{margin-right:var(--dw-sbw,0px)}
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body::-webkit-scrollbar{width:6px}
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body::-webkit-scrollbar-track{background:transparent}
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body::-webkit-scrollbar-thumb{
+  background:var(--n-300);border-radius:3px}
+#fxRoot.aw:not(.dw-page) .fx-detail .dw-body::-webkit-scrollbar-thumb:hover{background:var(--n-400)}
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-work,
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-rows,
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-attn,
@@ -5541,6 +5947,24 @@ body.fx-dw-page #subnav2{display:none!important}
   color:var(--muted);
   font-weight:var(--fw-medium);
 }
+
+/* ---- THE CARD IS THE BOX, AND NOTHING INSIDE IT IS (2026-08-29) --------------
+   Before the card rebuild these inner containers WERE the boxes — the 2026-08-25
+   pass above gives .rw-work, .rw-rows, .rw-attn, .rw-wf and the jump rows each their
+   own surface, border, radius and shadow. With a card now wrapping every section
+   they became boxes inside a box: measured on Explanation, the card title sat 15px
+   from the card edge and its own prose 31px. That is the misalignment on screen, and
+   it is rule 11 verbatim — one card per region, hairlines inside, never box-in-box.
+
+   IT LIVES HERE, BELOW THOSE RULES, ON PURPOSE. `#fxRoot.aw:not(.dw-page)
+   .fx-detail .rw-wf` is one id and four classes and so is any override of it that
+   also names .rw-card; a tie is broken by source order, so an identical rule written
+   400 lines earlier silently loses. Two attempts failed that way before this one —
+   the first under-specified, the second tied and lost. Do not move it up. */
+#fxRoot.aw .fx-detail .rw-card :is(.rw-work,.rw-rows,.rw-attn,.rw-wf,.rw-peekwrap,.rw-ev),
+#fxRoot.aw .fx-detail .rw-card button.rw-jump,
+#fxRoot.aw .fx-detail[data-dw-mode] .rw-card .rw-work{
+  background:none;border:none;border-radius:0;box-shadow:none;padding:0;margin-bottom:0}
 /* the metric band gets a hairline foot so it reads as the header's own strip,
    and the figures a touch more size for presence */
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-figs4{border-bottom:var(--rule)}
@@ -8319,6 +8743,16 @@ function statusPill(r){
   if(r.items)return r.clear?'<span class="pill wa">drafted</span>':'<span class="pill wa">partial</span>';
   return '<span class="pill bad">needs explanation</span>';
 }
+/* EVERY CELL SAYS WHICH COLUMN IT IS. The headers carry col-* classes but the body
+   cells never did, so a column could not be addressed as a column — which is what a
+   responsive rule needs, and what :nth-child cannot safely give when the column SET
+   is chosen by the reviewer. `data-c` is injected into whatever <td> the switch
+   returns rather than added at twenty call sites, so a column added later is covered
+   without touching this. */
+function cellTagged(c,r,totalD){
+  const h=cell(c,r,totalD);
+  return h.replace(/^(\s*<td)(\s|>)/, `$1 data-c="${c}"$2`);
+}
 function cell(c,r,totalD){
   const V=(i,g,b)=>r.acct?accVal([r.acct],i,g,b,activeSlices()):lineVal(S.stmt,r.id,i,g,b);
   switch(c){
@@ -8427,17 +8861,26 @@ function cell(c,r,totalD){
    THE SEVERITY MARK IS THE ROW'S LEFT BORDER, NOT AN ICON HERE. Rule 8: severity is
    a 3px left border and nothing else, never a dot, never a pill, never both. The
    warning glyph was the second mark for a fact the border already carried. */
+/* "DRAFT READY" WAS RENAMED TO "KORVYN DRAFTED" (2026-08-29, owner's direction).
+   With `ready` joining the vocabulary the two would have sat one row apart meaning
+   almost opposite things: "Korvyn wrote something and NOBODY has acted on it" beside
+   "a person has explained this and it can be submitted". The old label said ready
+   about the state that is precisely not. */
 const FXST={
   need:   ['Needs explanation','need','Needs an explanation — open the review workspace','stack'],
   ret:    ['Returned',         'need','Returned by the reviewer','sum'],
-  draft:  ['Draft ready',      '',    'Korvyn has drafted an explanation — no one has acted on it yet','sum'],
+  draft:  ['Korvyn drafted',   '',    'Korvyn has drafted an explanation — no one has acted on it yet','sum'],
+  ready:  ['Ready',            'rdy', 'Explained — ready to submit for review','sum'],
+  expl:   ['Explained',        '',    'Explained. Below materiality, so no review is required','sum'],
   inherit:['Inherited',        '',    'Explained at a lower level','stack'],
   review: ['In review',        'wait','Submitted — waiting on a reviewer','sum'],
   done:   ['Reviewed',         'ok',  'Reviewed and signed off','sum'],
 };
-function cmtIndicators(r){
-  if(r.acct||r.tot)return '';
-  const rc=rec(r.id);
+/* WHERE THE LINE STANDS, DERIVED ONCE. The column renders this word and the peek
+   reports it in its header; before this was extracted the peek read bestExplanation's
+   own label instead, so a line the column called "Ready" introduced itself as
+   "Draft" one hover later. Two names for one state on one screen. */
+function fxStateKey(r,rc){
   const n=rc?rc.items.length:0;
   /* Order is precedence, not preference: the first true statement wins, because a
      line is in exactly one place in the review. */
@@ -8445,20 +8888,140 @@ function cmtIndicators(r){
   if(rc&&rc.status==='returned')                    k='ret';
   else if(rc&&rc.status==='approved'&&n)            k='done';
   else if(rc&&rc.status==='submitted'&&n)           k='review';
+  /* A PERSON'S EXPLANATION EXISTS AND NOBODY HAS BEEN HANDED IT YET.
+
+     This branch was missing, and the hole was visible on screen: with items
+     accepted and the record still in draft, NOT ONE condition fired and the cell
+     rendered EMPTY — so the act of explaining a line erased its status. Measured on
+     the seeded statement: accept the Korvyn draft on Tenant recoveries and the
+     Explanation column goes blank. The narrative-only case was worse than blank —
+     it fell through to `need` and reported "Needs explanation" over an explanation
+     somebody had written, because bestExplanation() returns kind 'submitted' for a
+     stored narrative and the test below only rescues kind 'draft'.
+
+     READY vs EXPLAINED is whether anyone is waiting for it. Only a line that
+     REQUIRES review can be handed over — readyToSubmit() filters on r.req — so
+     calling a below-materiality line "Ready" would promise a hand-off that the
+     submit predicate will never honour. It is explained; nothing is owed. */
+  else if(rc&&(rc.status==='draft'||!rc.status)&&(n||rc.narr)) k=r.req?'ready':'expl';
   else if(r.req&&!n&&(!rc||rc.status==='draft')){
     const best=bestExplanation(r,rc);
     k=(best.kind==='draft')?'draft':'need';
   }
+  /* THE COLUMN STAYS QUIET ON AN IMMATERIAL LINE, even though Korvyn now drafts one.
+     This column's subject is WHERE THE LINE STANDS IN THE REVIEW, and an unaccepted
+     machine draft on a line nobody is required to explain is not a position in the
+     review — nothing is owed and nobody is waiting. Printing "Korvyn drafted" on all
+     sixteen rows would cost the column the only thing it is for: being scannable.
+     The draft is one hover away and one click into the panel, which is where a
+     reviewer goes to read words. `noGen` keeps this read from generating one. */
   else if(!n){
-    const best=bestExplanation(r,rc);
+    const best=bestExplanation(r,rc,true);
     if(best.kind==='inherited')k='inherit';
   }
-  if(!k)return '';
+  return k;
+}
+/* IS THERE A KORVYN DRAFT TO BE HAD — answered WITHOUT building one. Same predicate
+   as bestExplanation's draft branch, which is the point: two tests that can disagree
+   would put the mark on a line with no draft behind it, or hide one that has it. */
+function kdAvail(r,rc){
+  if(rc&&rc.kdDismissed)return false;
+  return !!(r.req||Math.abs(r.d)>0);
+}
+function cmtIndicators(r){
+  if(r.acct||r.tot)return '';
+  const rc=rec(r.id);
+  const k=fxStateKey(r,rc);
+  /* NO POSITION IN THE REVIEW, BUT KORVYN STILL HAS A READ. Korvyn drafts every line
+     now; an immaterial one is simply not waiting on anybody, so its mark is absent at
+     rest and appears on row hover or keyboard focus — the same discipline the star
+     gutter already uses, and for the same reason: this is the most valuable
+     horizontal space on the statement and a permanent column of marks nobody acts on
+     would spend it. Indigo, because rule 2 reserves --ai for exactly this and it must
+     never read as a second UI accent. */
+  if(!k){
+    if(!kdAvail(r,rc))return '';
+    const kid=r.id.replace(/'/g,"&#39;");
+    return `<span class="fxind"><button type="button" class="fxi-b fxi-k"
+      aria-label="Korvyn has drafted an explanation for this line — open it"
+      onclick="event.stopPropagation();KFX.pickAt('${kid}','sum')"
+      onmouseenter="KFX.hovShow(this,'${kid}')" onmouseleave="KFX.hovHide()"
+      onfocus="KFX.hovShow(this,'${kid}')" onblur="KFX.hovHide()"
+      ><span class="t krv">K</span></button></span>`;
+  }
   const s=FXST[k], id=r.id.replace(/'/g,"&#39;");
-  return `<span class="fxind"><button type="button" class="fxi-b" title="${esc(s[2])}"
+  /* NO `title` HERE. The peek below is the tooltip now, and a native title on the
+     same element opens its own box a second later on top of it — two tooltips for
+     one word. aria-label keeps the sentence for a screen reader, which is what the
+     title was actually earning. Focus opens the peek too, so it is not mouse-only. */
+  return `<span class="fxind"><button type="button" class="fxi-b"
     aria-label="${esc(s[2])}" onclick="event.stopPropagation();KFX.pickAt('${id}','${s[3]}')"
+    onmouseenter="KFX.hovShow(this,'${id}')" onmouseleave="KFX.hovHide()"
+    onfocus="KFX.hovShow(this,'${id}')" onblur="KFX.hovHide()"
     ><span class="t ${s[1]}">${esc(s[0])}</span></button></span>`;
 }
+
+/* ---- THE EXPLANATION PEEK --------------------------------------------------
+   Hovering the Explanation column reads the WORDS without opening anything, which
+   is the step the statement was missing: the column said where a line stood, and
+   the only way to learn what it actually said was to open the workspace and lose
+   your place in the statement. The peek is the first rung of the ladder —
+   column (where it stands) -> peek (what it says) -> panel (the argument) ->
+   full screen (the ledger under it).
+
+   It is DELIBERATELY NOT the `pop()` system, which every other menu on this page
+   uses. A pop is a committed, focus-trapping, click-dismissed overlay that owns the
+   keyboard; this is a transient read that must never steal focus or swallow the
+   click heading for the panel underneath. Same shadow token, opposite contract. */
+let HOV_EL=null, HOV_T=null;
+function hovNode(){
+  if(!HOV_EL){ HOV_EL=document.createElement('div'); HOV_EL.id='fxhov';
+    HOV_EL.setAttribute('role','tooltip'); document.body.appendChild(HOV_EL); }
+  return HOV_EL;
+}
+function hovShow(el,id){
+  clearTimeout(HOV_T);
+  const r=rows().find(x=>x.id===id); if(!r)return;
+  const rc=rec(r.id), best=bestExplanation(r,rc);
+  if(!best||!best.text){ hovHide(); return; }
+  const draft=best.kind==='draft';
+  const auth=draft?'Korvyn':(rwWho(best.by||(rc&&rc.prep)||'').nm||'Preparer');
+  const n=rc?rc.items.length:0;
+  const said=rc?(rc.comments||[]).length:0;
+  /* the column's own word, so the two never disagree about one line */
+  const sk=fxStateKey(r,rc);
+  const state=draft?'not yet accepted':(sk&&FXST[sk]?FXST[sk][0]:(best.label||''));
+  /* best.text is UNESCAPED for a Korvyn draft and escaped for every other path —
+     kdNarrative() composes its own <b> marks around the quantified figures. This is
+     the same load-bearing asymmetry RWSEC.explain() carries; do not tidy it into
+     one esc(). */
+  const node=hovNode();
+  node.innerHTML=`<div class="fxhov-hd">
+      <span class="fxhov-av${draft?' krv':''}">${draft?'K':esc(rwInitials(auth))}</span>
+      <span class="fxhov-who">${esc(auth)}</span>
+      <span class="fxhov-lbl">${esc(state)}</span>
+    </div>
+    <div class="fxhov-tx">${draft?best.text:esc(best.text)}</div>
+    <div class="fxhov-ft">${n?`${n} item${n===1?'':'s'}`:'not itemised'}${
+      said?` · ${said} comment${said===1?'':'s'}`:''} <span class="sp"></span>Click to open</div>`;
+  node.classList.add('on');
+  hovPlace(el,node);
+}
+/* Anchored to the CELL, not the cursor: a card that chases the pointer is unreadable
+   while you are still moving toward it. Prefers below-left so it never covers the
+   figure columns the reviewer is scanning, and flips above when the row is near the
+   foot of the viewport. */
+function hovPlace(el,node){
+  const b=el.getBoundingClientRect(), m=8;
+  const w=node.offsetWidth, h=node.offsetHeight;
+  let left=b.right-w, top=b.bottom+6;
+  if(top+h>window.innerHeight-m) top=Math.max(m,b.top-h-6);
+  left=Math.max(m,Math.min(left,window.innerWidth-w-m));
+  node.style.left=Math.round(left)+'px';
+  node.style.top=Math.round(top)+'px';
+}
+function hovHide(){ clearTimeout(HOV_T);
+  HOV_T=setTimeout(()=>{ if(HOV_EL)HOV_EL.classList.remove('on'); },60); }
 
 /* Select a line AND land on the part of the workspace the reviewer asked for.
    pick() alone always opens Summary, which turns "I clicked the evidence count"
@@ -8685,8 +9248,13 @@ function kdAttention(r,o){
     out.push({w:`Prior-period wording was carried forward — confirm the driver mix still holds.`});
   if(o.status==='submitted'&&pend.length)
     out.push({w:'Submitted for review while explanations below remain open.'});
+  /* THE REASON IS IN THE THREAD NOW, so this states the FACT and stops quoting the
+     words. exReturn() posts the reviewer's reason as a message — with their name,
+     the time and who is being asked to act — a few rows below this list, and
+     printing it here too put the same sentence on screen twice with the copy up here
+     stripped of everything that made it answerable. */
   if(o.status==='returned')
-    out.push({hi:1,w:'Returned by the reviewer'+(rc.revNote?': '+esc(rc.revNote):'.')});
+    out.push({hi:1,w:'Returned by the reviewer — the reason is in Comments.'});
   // dedupe by text
   const seen=new Set();
   return out.filter(x=>{const k=x.w;if(seen.has(k))return false;seen.add(k);return true;});
@@ -8900,7 +9468,13 @@ function dispMode(){
    Returns ONE narrative plus what it is, so the band can label its provenance
    instead of leaving the reader to guess whether they are reading commentary a
    controller has already reviewed or a machine's first draft. */
-function bestExplanation(r,rc){
+/* `noGen` is the GRID's read of this function. fxStateKey() asks about every visible
+   row and only ever wants to know whether something is INHERITED; with Korvyn now
+   drafting every line (below), generating one there would run explainObj() once per
+   row on first paint AND materialise a CMT record for every line on the statement as
+   a side effect of rendering it — kdraftFor() calls rec(id,true). The panel, which
+   asks about ONE line and actually shows the words, does not pass it. */
+function bestExplanation(r,rc,noGen){
   rc=rc||rec(r.id);
   const items=(rc&&rc.items)||[];
   /* rc.narr is the line's OWN narrative — what a person actually wrote or accepted.
@@ -8933,7 +9507,24 @@ function bestExplanation(r,rc){
      rejected went on being served as the line's current explanation — in the panel,
      in the grid band, in the Comments preview and in the memo — under the label
      "no one has acted on it yet". Somebody had acted. They said no. */
-  if(r.req&&!(rc&&rc.kdDismissed)){
+  /* KORVYN DRAFTS EVERY LINE, NOT ONLY THE MATERIAL ONES (2026-08-29, owner's
+     direction). The gate here was `r.req`, so opening a below-threshold line showed
+     an empty card and a "write one anyway" link — Korvyn was holding the same
+     decomposition it uses one row up and simply declining to use it. Materiality
+     decides whether an explanation is REQUIRED. It was never a statement about
+     whether Korvyn is able to write one, and conflating the two meant the immaterial
+     population — the lines a reviewer most wants a fast read on, because nobody is
+     going to work them by hand — was the one place with no machine help at all.
+
+     The change is strictly ADDITIVE: every line that received a draft before still
+     does. The two surviving guards are not about materiality —
+       · a dismissed draft stays dismissed. Somebody acted; they said no.
+       · a line that did not move has nothing to explain, and a manufactured
+         paragraph about a 0.0 movement is exactly the confident noise this engine
+         exists to prevent. (A required line is exempt: if it is flagged or starred,
+         the reviewer asked for words whatever the figure says.) */
+  if(!(rc&&rc.kdDismissed)&&(r.req||Math.abs(r.d)>0)){
+    if(noGen)return {kind:'none',label:'',text:'',by:'',at:'',n:0};
     // ONE narrative object feeds the drawer, the grid band and the memo
     const kd=kdraftFor(r);
     return {kind:'draft',label:'Korvyn draft',text:kd.text,by:'System generated',at:kd.at,n:0};
@@ -9079,6 +9670,13 @@ function paintGrid(){
      whole statement with it. One filter, applied where header and body both read,
      so the two can never disagree about how many cells there are. */
   const cols=S.cols.filter(c=>!hide.includes(c)&&COL_DEFS.some(d=>d.id===c));
+  /* THE SHED ORDER, when the statement's track is too narrow to hold them all.
+     Least-load-bearing first: Δ% restates the direction the Δ amount already shows,
+     the analytics columns are context, and Explanation — where the line stands — is
+     the last thing to go because it is the column a reviewer scans. The floor is
+     line + current + compared + Δ amount: below that it is not a variance statement.
+     Applied as a CSS class rather than by rebuilding the column set, so nothing in
+     S.cols is lost and re-widening restores it without a repaint. */
   /* SORTABLE HEADERS. The sort was fully implemented, wired to a <select> inside a
      filter group that was display:none and never unhidden — so the statement could
      not be ordered from the UI at all. The three columns worth sorting say so, carry
@@ -9152,7 +9750,7 @@ function paintGrid(){
            aria-label="General ledger accounts behind ${esc(r.l)}"
            onclick="event.stopPropagation();KFX.glTog('${r.id}')"><svg viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4"
            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}
-      </div></td>`+cols.map(c=>cell(c,r,totalD)).join('')+`</tr>`;
+      </div></td>`+cols.map(c=>cellTagged(c,r,totalD)).join('')+`</tr>`;
     /* NARRATIVE ROWS. Only under real financial lines — never a section header, a
        subtotal or a GL sub-row, because those are the statement's structure and a
        footnote under them would break the hierarchy the reader navigates by.
@@ -9207,7 +9805,7 @@ function glRows(r,cols,totalD){
     return `<tr class="fx-acct" style="cursor:pointer" title="Open the general ledger detail for this account"
       onclick="KFX.openAcct('${r.id}','${a}')"><td><span class="pill mono">${a}</span> ${esc(ACC[a].n)}
       <span class="lnk" style="font-size:var(--fs-micro);margin-left:6px">entries \u2192</span></td>`+
-      cols.map(c=>cell(c,ar,totalD)).join('')+`</tr>`;
+      cols.map(c=>cellTagged(c,ar,totalD)).join('')+`</tr>`;
   }).join('');
 }
 
@@ -9727,8 +10325,50 @@ function dwGripKey(ev){
    track is still there and still 37% wide, so measuring the table beside it gives
    the exact gap to fill. Re-run on every paint and on resize; fixed positioning
    needs no scroll handler. */
+/* THE SCROLLBAR'S WIDTH IS A PLATFORM FACT, so it is measured rather than declared.
+   `scrollbar-gutter:stable` on .dw-body keeps the reserve constant, so this reads the
+   same number whether or not the content currently overflows, and the header, tabs
+   and footer take it as a right margin — which is what makes every band in the panel
+   end on one edge instead of the chrome running 10px wider than the cards. */
+/* ---- THE STATEMENT SHEDS COLUMNS RATHER THAN RUNNING UNDER THE PANEL ----------
+   (2026-08-29.) With the review panel open — and more so with the Korvyn Assistant
+   open beside it — the statement's track is narrower than the table wants. Every
+   column is `white-space:nowrap`, so the table cannot compress: measured with both
+   panels open it was 691px inside a 487px box, and because `.fx-table` is
+   deliberately `overflow:visible` (an overflow ancestor would break the sticky
+   column heads — see the trap note on .card.fx-table) the extra 204px did not scroll
+   or clip. It simply drew underneath the review panel: Δ amount cut in half, Δ% and
+   Explanation gone, with nothing on screen saying so.
+
+   Columns are hidden by CLASS, not by rebuilding the column set: S.cols is what the
+   reviewer chose and must survive a resize, so re-widening has to restore them
+   without a repaint. Measuring the TRACK (not the table) is what keeps this from
+   looping — hiding a column changes the table's width, never the track's. */
+const FX_SHED=[['fx-shed-1',['pctd']],
+               ['fx-shed-2',['pctd','share','trend','avg3','ann','bud','budv']],
+               ['fx-shed-3',['pctd','share','trend','avg3','ann','bud','budv','resid','owner','status','cmt']]];
+function fxShed(){
+  const root=$('fxRoot'); if(!root||root.offsetParent===null)return;
+  const wrap=root.querySelector('.fx-table'); const tbl=wrap&&wrap.querySelector('table');
+  if(!wrap||!tbl)return;
+  FX_SHED.forEach(([c])=>root.classList.remove(c));
+  /* widen back first, then measure what the table actually needs at full width */
+  const track=wrap.clientWidth;
+  for(let i=0;i<FX_SHED.length;i++){
+    if(tbl.scrollWidth<=track+1)break;          // it fits — stop shedding
+    if(i)root.classList.remove(FX_SHED[i-1][0]);
+    root.classList.add(FX_SHED[i][0]);
+  }
+}
+function dwGutter(){
+  const dt=$('fxDetail'); if(!dt)return;
+  const b=dt.querySelector('.dw-body'); if(!b)return;
+  const w=Math.max(0,Math.round(b.offsetWidth-b.clientWidth));
+  dt.style.setProperty('--dw-sbw',w+'px');
+}
 function sizeDrawer(){
   const sp=$('fxSplit'), dt=$('fxDetail'); if(!sp||!dt)return;
+  dwGutter(); fxShed();
   /* PAGE MODE HAS NO TRACK TO MEASURE. The statement is hidden, so there is nothing
      to sit beside and nothing to measure against — a hidden card returns an all-zero
      rect, and the fixed panel would land 12px from the viewport edge, over the rail.
@@ -9868,7 +10508,11 @@ function syncStick(){
 /* rAF-throttled: the drawer's top edge tracks the filter bar scrolling out from
    over it, and the frozen header tracks the chrome above it */
 let dwTick=0;
-function dwOnScroll(){ if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;syncStick();sizeDrawer();dwSpy();}); }
+/* The peek is anchored to a cell, so a scroll strands it: it would hang in place
+   while the row it describes slides out from under it. Hidden rather than re-placed
+   — a transient read has no business following the reader down the page. */
+function dwOnScroll(){ if(HOV_EL&&HOV_EL.classList.contains('on'))hovHide();
+  if(dwTick)return; dwTick=requestAnimationFrame(()=>{dwTick=0;syncStick();sizeDrawer();dwSpy();}); }
 /* PAGE MODE: the tab bar doubles as an index, so it has to say where you are. This
    only ever toggles a class — writing S.dwTab from a scroll handler would repaint the
    body mid-scroll and would collapse an open driver drill under the reader. */
@@ -9878,8 +10522,8 @@ const RW_INDEX=['explain','drill','evid','cmtHead','trail'];
    to give the drill a screen; in the 440px drawer it stays an in-place drill from
    Overview. Every id must exist in RW_LAYOUT.drawer or dwPageCols() falls back to
    Overview rather than rendering an empty screen. */
-const FX_PAGETABS=[['sum','Overview'],['drive','Drivers'],['evid','Evidence'],
-  ['comments','Comments'],['hist','History']];
+const FX_PAGETABS=[['sum','Overview'],['drive','Drivers'],['gl','General ledger'],
+  ['evid','Evidence'],['comments','Comments'],['hist','History']];
 /* THE SCROLL SPY IS GONE WITH THE SCROLLING INDEX. Full screen shows one tab's
    content, so the active tab is the reviewer's choice — a spy that re-marked it
    from scroll position would fight that choice the moment they scrolled inside the
@@ -9959,8 +10603,9 @@ function paintDrawer(){
   let rail=dt.querySelector('.rw-rail');
   if(!rail){rail=document.createElement('div');rail.className='rw-rail';dt.appendChild(rail);}
   rail.innerHTML=`<button class="rw-ib" onclick="KFX.dwCollapse()" title="Expand the review workspace"
-      aria-label="Expand the review workspace"><svg viewBox="0 0 16 16" fill="none"><path d="M9.5 3.5L5 8l4.5 4.5"
-      stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      aria-label="Expand the review workspace"><svg viewBox="0 0 16 16" fill="none"><path
+      d="M6.5 3.2v9.6M13 5.8L10.8 8 13 10.2M10.8 8H8.6"
+      stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <span class="lbl">${esc(r.l)}</span>`;
   if(S.dwCollapsed){sizeDrawer();return;}
   // the active editor is whatever was parked on THIS line, never a leftover from another
@@ -9997,10 +10642,25 @@ function paintDrawer(){
       return `<button class="${on(id)?'on':''}"
         onclick="KFX.dwTab('${id}')">${esc(nm)}${badge}</button>`;}).join('');
   }else{
+    /* NO COMMENTS TAB. The thread is in Overview, under the explanation it answers —
+       see dwOverviewKeys. Keeping a tab here would restore the split it just closed
+       and make the same thread reachable two ways, which is how two surfaces start
+       drifting. Overview carries the count in the Conversation header instead, so
+       nothing that badge told a reviewer was lost. */
+    /* FOUR, as the reference has them. "Comments" keeps the owner's word for the
+       thread — the tab, its header and the Overview peek all say it now, where
+       "Conversation" was a second name for one object. */
+    /* COUNTS ON THE TABS, as the reference has them (Comments 5 · Evidence 3). The
+       Evidence tab carried a bare dot for "something is expected and missing" and no
+       count at all, so the strip could not answer "is there any support on this
+       line?" without opening it. Both now: the count is inventory, the dot is the
+       one thing that is action-required (rule 12), and Needs attention on Overview
+       states the gap in words either way. */
+    const nEv=evidenceDocs(rcT).length;
     tb=[['sum','Overview',''],
         ['comments','Comments',nSaid?`<span class="ct">${nSaid}</span>`:''],
-        ['evid','Evidence',gaps?'<i class="dot"></i>':''],
-        ['hist','History','']]
+        ['evid','Evidence',(nEv?`<span class="ct">${nEv}</span>`:'')+(gaps?'<i class="dot"></i>':'')],
+        ['hist','History',rcT.trail.length?`<span class="ct">${rcT.trail.length}</span>`:'']]
     .map(([id,nm,badge])=>`<button class="${on(id)?'on':''}" onclick="KFX.dwTab('${id}')">${esc(nm)}${badge}</button>`).join('');
   }
   $('fxDwTabs').innerHTML=tb;
@@ -10038,7 +10698,20 @@ function paintDrawer(){
      history/audit          -> History */
 const DW_TAB_ALIAS={explain:'sum',sum:'sum',stack:'sum',
   roll:'drive',drive:'drive',accts:'drive',jes:'drive',
-  comments:'comments',evid:'evid',support:'evid',hist:'hist',audit:'hist'};
+  /* `comments` resolves to Overview now — the thread lives there. Every existing
+     caller (the old peek, a stale saved state, KFX.pickAt(id,'comments')) therefore
+     lands on the conversation rather than on a tab that no longer exists. */
+  /* `details` was a tab this panel carried for part of one day; it resolves to
+     Overview, which is where everything it held now lives. */
+  comments:'comments',details:'sum',evid:'evid',support:'evid',hist:'hist',audit:'hist',gl:'gl'};
+/* `gl` exists only on the full page. Leaving it set while collapsing back to the
+   dock would render RW_LAYOUT.drawer.gl -> glfull() -> '' — an empty drawer with a
+   tab bar that does not contain the tab it is on. */
+const DW_PAGE_ONLY_TABS=['gl'];
+/* …and the mirror: tabs the DOCK has that the full page does not. Empty now that
+   Details is gone; kept because dwPage() reads it and the next dock-only tab should
+   land here rather than growing a second mechanism. */
+const DW_DOCK_ONLY_TABS=[];
 // switching tabs parks the draft; it used to null it and lose whatever was typed
 function dwTab(t){
   const id=DW_TAB_ALIAS[t]||'sum';
@@ -10096,7 +10769,16 @@ function dwPage(){
     /* focus mode trims the chrome that the page needs; leave it on the way in. The
        temporary flag dance is so the guard inside toggleFocus does not refuse us. */
     if(S.focus){S.dwPage=false;toggleFocus();S.dwPage=true;}
+    /* Details is a DOCK tab. The full page has no such split — its Overview is the
+       three-column argument, whose judge and comp columns already mount every part
+       Details holds — so opening full screen from Details lands on Overview rather
+       than on a solo column the page strip has no button for. */
+    if(DW_DOCK_ONLY_TABS.includes(S.dwTab))S.dwTab='sum';
     dwRet=window.scrollY;
+  }else if(DW_PAGE_ONLY_TABS.includes(S.dwTab)){
+    /* collapsing out of a tab the dock does not have. Overview, not Drivers: the
+       reviewer was reading the ledger, and the drill is a different question. */
+    S.dwTab='sum';
   }else if(S.drvPath.length){
     // a drill left open on the page is where the reviewer was; land back on it
     S.dwTab='drive';
@@ -10166,23 +10848,34 @@ function dwHead(r,rc){
         <span><kbd>Esc</kbd>back to the statement</span></span>
     </div>`;
   }
-  /* THE HERO. The movement IS the subject of a flux review, so it leads at hero
-     size — a big signed figure with a direction glyph and its Δ% — and the two
-     period balances sit quiet beneath as a "prior → current" flow. Everything is
-     read straight off the row; nothing is derived a second time here. */
+  /* THE FOUR-FIGURE BAND (2026-08-29, owner's direction — the reference inspector in
+     apps/review, .fxi-mets). This REPLACES the hero, and the reference's own note
+     says why better than a new argument would: the four figures "replace a single
+     big balance with the delta trailing it in parentheses; in a FLUX review the
+     movement is the subject, not a footnote to the balance, so all four get equal
+     billing under their own labels. Colour lands only on the two variance cells."
+
+     The hero it replaces said the same thing louder — a 28px signed figure, its Δ%,
+     a FAVORABLE word and a prior→current flow, stacked three rows deep — and the two
+     balances a reviewer ties back to were the smallest thing in it. Four equal cells
+     are quieter AND state more.
+
+     Two adaptations, both required by this file's own rules rather than taste:
+     weight is --fw-medium, because rule 7 admits exactly two weights and 700 is not
+     one of them; and the favourable/unfavourable word moves into the Variance cell's
+     LABEL, so the fact survives without spending a fourth row on it. */
   const dcls=r.d>0?'up':r.d<0?'dn':'n';
   const arrow=r.d>0?'&#9650;':r.d<0?'&#9660;':'';
-  const figs=`<div class="rw-hero">
-    <div class="rw-hero-top">
-      <b class="rw-hero-v dlt ${dcls}">${arrow?arrow+' ':''}${fmt(Math.abs(r.d))}${uName()}</b>
-      <span class="rw-hero-pct dlt ${dcls}">${r.pri?pct(r.dp):'—'}</span>
-      <span class="rw-hero-word">${esc(word)}</span>
-    </div>
-    <div class="rw-hero-flow">
-      <span class="pv">${r.pri?fmt(r.pri)+uName():'—'}</span>
-      <span class="ar" aria-hidden="true">&rarr;</span>
-      <span class="cv">${fmt(r.cur)}${uName()}</span>
-      <span class="pr">${esc(compareLabel())} &rarr; ${esc(PERIODS[S.cur].short)}</span>
+  const met=(v,k,cls)=>`<div class="rw-met"><div class="rw-met-v ${cls||''}">${v}</div>
+      <div class="rw-met-k">${k}</div></div>`;
+  const figs=`<div class="rw-figs">
+    <div class="rw-mets">
+      ${met(fmt(r.cur)+uName(), esc(PERIODS[S.cur].short))}
+      ${met(r.pri?fmt(r.pri)+uName():'&mdash;', esc(compareLabel()))}
+      ${met((arrow?arrow+' ':'')+fmt(Math.abs(r.d))+uName(),
+            'Variance'+(r.d?' &middot; '+esc(String(word).toLowerCase()):''), 'dlt '+dcls)}
+      ${met(r.pri?(arrow?arrow+' ':'')+pct(Math.abs(r.dp)):'&mdash;',
+            'vs '+esc(compareLabel()), 'dlt '+dcls)}
     </div>
     ${dwHeroSpark(r)}
   </div>`;
@@ -10194,7 +10887,7 @@ function dwHead(r,rc){
     <div class="rw-hact">
       ${S.dwPage?'':`<button class="rw-ib" onclick="KFX.dwCollapse()" title="Collapse the review workspace"
         aria-label="Collapse the review workspace"><svg viewBox="0 0 16 16" fill="none"><path
-        d="M6.5 3.5L11 8l-4.5 4.5" stroke="currentColor" stroke-width="1.5"
+        d="M9.5 3.2v9.6M3 5.8L5.2 8 3 10.2M5.2 8h2.2" stroke="currentColor" stroke-width="1.4"
         stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}
       <button class="rw-ib" onclick="KFX.dwPage()" aria-pressed="${S.dwPage?'true':'false'}"
         title="${S.dwPage?'Return to the docked review':'Open the full review page'}"
@@ -10704,6 +11397,19 @@ function evidenceFor(rc){
     out.push({f,fi,i:-1,scope:'Line level',what:'Supports the whole movement',by:f.by||rc.prep,at:f.at||''}));
   return out;
 }
+/* ONE ENTRY PER DOCUMENT, not per reference. evidenceFor() returns one row per
+   CITATION, so the same workpaper cited by three explanation items came back three
+   times — the tab strip counted 3 while the table, which dedupes, listed 2. The
+   count and the list have to be the same fact. `n` is the reference count. */
+function evidenceDocs(rc){
+  const by={}, out=[];
+  evidenceFor(rc).forEach(e=>{
+    const k=e.f.name;
+    if(!by[k]){ by[k]={e,n:0}; out.push(by[k]); }
+    by[k].n++;
+  });
+  return out;
+}
 /* THE SUPPORT THAT IS EXPECTED AND NOT THERE. An accepted explanation item with no
    document behind it is the thing an approver asks about first, so it is listed
    beside the documents that ARE attached rather than left to be noticed. Derived
@@ -10942,21 +11648,29 @@ const RWSEC={
        important thing about the words above it.
        A draft carries the AI identity (indigo --ai), never the cobalt accent: it is
        generated, and rule 2 reserves indigo for exactly that. */
+    /* THE EXPLANATION IS THE CARD'S BODY, not a message in a thread (2026-08-29 —
+       the reference inspector). It was rendered in the `.rw-msg` grammar: an avatar
+       in a gutter, a name line, a role-and-time line, then the prose, then a support
+       sentence — five rows of chrome around three lines of words, inside a card
+       whose title already says what it is.
+
+       The reference is prose first, provenance after: a sparkle marks generated
+       text, the paragraph reads at full width, and WHO wrote it and whether it has
+       been accepted is one quiet line beneath. The thread grammar still governs the
+       Comments tab, which is where messages actually are. */
     const draft=best.kind==='draft';
     const auth=draft?'Korvyn':(rwWho(best.by||rc.by||'').nm||'Preparer');
-    h+=`<div class="rw-msg lead ${draft?'ai':''}">
-      <span class="rw-av ${draft?'ai':''}" aria-hidden="true">${draft?'K':esc(rwInitials(auth))}</span>
-      <div class="bd">
-        <div class="hd">
-          <span class="who">${esc(auth)}</span>
-          <span class="role">${draft
-            ? 'draft — not yet accepted by a preparer'
-            : rwSource(r,rc,best)}</span>
-        </div>
-        <div class="tx nar">${draft?best.text:esc(best.text)}</div>
-        ${draft?`<div class="mt">${kdSupportLine(r)}</div>`:''}
-      </div>
-    </div>`;
+    /* NO `ai` CLASS HERE. `.ai` is the global AI answer panel (~line 1469) and it
+       carries display:none until `.ai.show` — putting it on a div that does not
+       redeclare display renders the paragraph at zero height. This is the second
+       time that collision has bitten in this file; the token for the colour is
+       --ai and the local modifier is `krv` where one is needed at all. */
+    h+=`<div class="rw-expl">
+      ${draft?'<span class="sp" aria-hidden="true">✦</span>':''}<span class="tx"
+        >${draft?best.text:esc(best.text)}</span></div>
+      <div class="rw-prov">${draft
+        ? 'Korvyn draft — not yet accepted by a preparer'
+        : esc(auth)+' · '+rwSource(r,rc,best)}</div>`;
     if(best.kind==='draft'&&canPrep)h+=kdControls(r,rc);
     else if(canPrep)h+=`<div class="rw-lact" style="margin-top:var(--s-3)">
       <button class="btn-out sm" onclick="KFX.kdEdit()">Edit explanation</button>
@@ -10997,21 +11711,46 @@ const RWSEC={
     if(!top.length){
       h+=`<div class="rw-quiet">No dimension of this line moved enough to isolate a driver.</div>`;
     }else{
-      h+=`<div class="rw-rows drv-rows">`+top.map(d=>{
-        const dir=d.d>0?'up':'dn';
-        const w=Math.max(4,Math.min(100,Math.round(Math.abs(d.pctOf))));
-        return `<div class="rw-r drv">
-        <span class="l">${esc(d.nm)}</span>
-        <span class="v dlt ${dir}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
-        <span class="p">${Math.round(d.pctOf)}%</span></div>
-        <div class="drv-bar ${dir}"><i style="width:${w}%"></i></div>`;}).join('')+`</div>`;
-      if(r.req&&Math.abs(C.res)>0.0005)
-        h+=`<div class="rw-rows"><div class="rw-r resid"><span class="l">Unexplained residual</span>
-        <span class="v ${Math.abs(C.res)>C.tol?'dlt dn':''}">${(C.res>0?'+':'')+fmtS(C.res)}</span>
-        <span class="p"></span></div></div>`;
-      h+=`<div class="rw-rows"><div class="rw-r tot"><span class="l">Movement</span>
-        <span class="v dlt ${r.d>0?'up':r.d<0?'dn':'n'}">${(r.d>0?'+':'')+fmtS(r.d)}</span>
-        <span class="p"></span></div></div>`;
+      /* A DOTTED LIST THAT FOOTS, not a stack of bars (2026-08-29, owner's direction
+         — the reference inspector's .fxi-kd). Its own note is the argument: "Key
+         drivers foot to the header's variance — that is what the Total row is for."
+
+         The bars were three tinted rails carrying a percentage the number beside them
+         already stated, and they broke the footing: three drivers and a residual
+         drawn as four independent widths do not visibly add up to the movement, so
+         the block showed a decomposition a reviewer could not check. A name, a
+         figure, and a ruled Total row can be checked at a glance — which is the whole
+         reason a flux inspector lists drivers at all. */
+      /* IT HAS TO ACTUALLY FOOT. Two things break the arithmetic if they are left in,
+         and both were in the first cut of this block:
+           · the top three are not all of them. Whatever the list does not show gets a
+             remainder row, so the column adds to the Total instead of merely sitting
+             above one that is bigger for no stated reason.
+           · the UNEXPLAINED RESIDUAL IS NOT A DRIVER and must not sit in this list.
+             Drivers decompose what moved; the residual measures how much of that
+             movement nobody has ACCEPTED an explanation for. They are different axes
+             over the same total — printing 0.9 + 0.3 + 0.2 + 1.4 under a Total of 1.4
+             asks the reader to believe 2.8 = 1.4. It is stated where it belongs, in
+             the review-state block above and in Needs attention. */
+      /* THE PLUG ABSORBS THE ROUNDING, the way a footing schedule does. Deriving the
+         remainder from the TRUE values leaves the PRINTED column off by a tenth
+         whenever the parts round independently — measured on the seeded statement:
+         Tenant recoveries printed 0.9 + 0.3 + 0.2 + 0.1 = 1.5 under a Total of 1.4,
+         and Rental revenue 0.5 under 0.6. A reviewer checking the column is not
+         holding the unrounded figures, so the column has to add up as printed. */
+      const rest=X.O.drivers.length-top.length;
+      const q=v=>{const f=uFac(), d=S.units===1?0:1, p=Math.pow(10,d);
+                  return Math.round(v/f*p)/p*f;};
+      const shown=top.reduce((t,d)=>t+q(d.d),0);
+      const gap=q(r.d)-shown;
+      h+=`<ul class="rw-kd">`+top.map(d=>
+        `<li><span class="n">${esc(d.nm)}</span><span class="v dlt ${d.d>0?'up':'dn'}"
+          >${(d.d>0?'+':'')+fmtS(d.d)}</span></li>`).join('')+
+        (Math.abs(gap)>0.0005?`<li class="soft"><span class="n">${
+          rest>0?rest+' other driver'+(rest===1?'':'s'):'Other movements'}</span>
+          <span class="v">${(gap>0?'+':'')+fmtS(gap)}</span></li>`:'')+`</ul>`;
+      h+=`<div class="rw-kd-tot"><span>Total</span>
+        <span class="dlt ${r.d>0?'up':r.d<0?'dn':'n'}">${(r.d>0?'+':'')+fmtS(r.d)}</span></div>`;
       h+=`<button type="button" class="rw-lnk" onclick="KFX.dwTab('drive')">View all drivers →</button>`;
     }
     return h;
@@ -11040,6 +11779,21 @@ const RWSEC={
       ['Review owner',`<span class="rw-av" aria-hidden="true">${esc(rwInitials(w.nm))}</span>`+
         esc(w.nm)+(w.role?` <span class="sub">${esc(w.role)}</span>`:'')],
       ['Prepared by',esc(p.nm)]];
+    /* COVERAGE LIVES HERE NOW. The review-state block that used to head Overview is
+       gone with the card rebuild — the reference has no such band — but "how much of
+       this movement is explained, and is it inside tolerance" is the fact a reviewer
+       signs against, so it moves in beside Status rather than off the panel. It is
+       one row, and it takes colour only when it is actually out of tolerance
+       (rule 3): a line within tolerance is not an exception. */
+    const C=X.C, r=X.r;
+    if(r.req&&Math.abs(r.d)>0){
+      const over=Math.abs(C.res)>C.tol;
+      rows.push(['Explained',
+        `${Math.round(Math.max(0,Math.min(100,C.cover)))}% <span class="sub">of the movement</span>`]);
+      rows.push(['Unexplained',
+        `<span class="${over?'dlt dn':''}">${fmtS(C.res)}</span>`+
+        `<span class="rw-wfp ${over?'warn':''}">tolerance ±${fmtS(C.tol)}</span>`]);
+    }
     if(rc.status!=='approved')
       rows.push(['Next',rc.status==='submitted'?esc(w.nm)+' has the line now'
         :`after ${esc(p.nm)} submits`]);
@@ -11051,19 +11805,36 @@ const RWSEC={
       `</div>`;
   },
 
-  /* the evidence count, as one line with a way in — the reference's collapsed row */
+  /* THE EVIDENCE CARD — count, a way in, AND the documents themselves (2026-08-29).
+     The reference's Overview lists the filenames under the header rather than
+     stopping at a number, and it is right to: "3" tells a reviewer there is support
+     but not whether it is the support they were looking for, which is the only
+     question this card is asked. Names only — uploader, reference count and status
+     are the Evidence tab's job and repeating them here would be that tab again. */
   evidRow(X){
-    const ev=evidenceFor(X.rc).length, gaps=evidenceGaps(X.rc).length;
-    return `<button type="button" class="rw-jump" onclick="KFX.dwTab('evid')">
-      <span class="l">Evidence</span><span class="ct">${ev}</span>
+    const docs=evidenceDocs(X.rc), gaps=evidenceGaps(X.rc).length;
+    const jump=`<button type="button" class="rw-jump" onclick="KFX.dwTab('evid')">
+      <span class="l">Evidence</span><span class="ct">${docs.length}</span>
       ${gaps?`<span class="gap">${gaps} expected</span>`:''}
       <span class="sp"></span><span class="cue">›</span></button>`;
+    if(!docs.length)return jump;
+    return `<div class="rw-peekwrap">${jump}<div class="rw-flist">`+
+      docs.slice(0,4).map(({e})=>`<a class="rw-doc" href="${e.f.url}"
+        download="${esc(e.f.name)}" title="${esc(e.f.name)}"
+        ><span class="ic" aria-hidden="true">▤</span><span class="n">${esc(e.f.name)}</span></a>`).join('')+
+      (docs.length>4?`<span class="rw-fmore">and ${docs.length-4} more</span>`:'')+
+      `</div></div>`;
   },
 
   /* COMMENTS, as a peek — the same collapsed row as evidence, plus the last thing
      said, so Overview answers "is there a conversation on this line?" before the
      reviewer opens the thread to work it. The count is quiet inventory; "awaiting"
-     is the only badge, because an owed comment is work, not a tally (rule 12). */
+     is the only badge, because an owed comment is work, not a tally (rule 12).
+
+     RESTORED 2026-08-29 (owner: "bring back all the options and UI"). It was deleted
+     earlier the same day when the thread was merged into Overview and this became a
+     peek at something already on screen. With Comments back as its own tab — the
+     reference's own structure — a summary on Overview is doing real work again. */
   cmtPeek(X){
     const said=X.cmt.said, owed=X.cmt.owed;
     const last=said.length?said[said.length-1]:null;
@@ -11096,6 +11867,22 @@ const RWSEC={
   cmtHead(X){
     const said=X.cmt.said, showFilter=X.cmt.showFilter, fk=X.cmt.fk, kinds=X.cmt.kinds;
     const owed=X.cmt.owed;
+    /* WHO IS ON THIS LINE, at the head of the thread they are talking in. The
+       Workflow & review block used to carry this four rows deep on another tab,
+       where a reader of the thread could not see it — so "I don't see the reviewer's
+       reply" was a fair reading of a thread whose messages all looked alike. Two
+       names, stated once, above the messages they explain. */
+    const rc=X.rc, p=rwWho(rc.prep);
+    /* rc.rev is only written at SIGN-OFF, so reading it alone left every returned
+       and in-review line saying "Prepared by …" and nothing else — the exact moment
+       a reader most needs the reviewer's name. returnedBy is a reviewer who has
+       already acted; PEOPLE.rev is who a submitted line is sitting with. */
+    const rv=rc.rev||rc.returnedBy||null;
+    const who=[`<span class="rw-part"><i>Prepared</i> ${esc(p.nm||'—')}</span>`];
+    if(rv)who.push(`<span class="rw-part"><i>${rc.rev?'Reviewed':'Reviewer'}</i> ${
+      esc(rwWho(rv).nm)}</span>`);
+    else if(rc.status==='submitted')who.push(
+      `<span class="rw-part"><i>With</i> ${esc(rwWho(PEOPLE.rev).nm)}</span>`);
     return `<div class="rw-cbar">
     <div class="rw-sec" style="margin:0">Conversation${
       said.length?`<span class="ct">${said.length}</span>`:''}</div>
@@ -11110,7 +11897,11 @@ const RWSEC={
           `<button class="${fk===k[0]?'on':''}" onclick="KFX.cmtFilter('${k[0]}')">${esc(k[1])}</button>`).join('')+
         `</div>`:''}
     </div>`:''}
-  </div>`;
+  </div>
+  <div class="rw-src" style="margin-top:0">The review conversation — notes, questions and
+    responses in order, so the whole thread is tracked. A message that asks for changes is an
+    <b>open item</b> and the line returns to its preparer until it is answered.</div>
+  <div class="rw-parts">${who.join('')}</div>`;
   },
 
   cmtStream(X){
@@ -11169,40 +11960,63 @@ const RWSEC={
   /* ---- SUPPORT, in two parts: what is attached, and where the number comes from.
      Two parts because on the page they belong in the Composition column at opposite
      ends of one chain — evidence closes the chain that Financial source opens. */
+  /* ---- SUPPORTING DOCUMENTS (2026-08-29 — the reference inspector's Evidence
+     tab). Was a list of rows carrying name · scope · uploader · date · size in one
+     run-on caption. The reference reads it as a TABLE — File · Uploaded by · Ref. ·
+     Status — because that is what a workpaper index is, and because four aligned
+     columns can be scanned for the one document that is missing a sign-off.
+
+     REF. and STATUS are DERIVED, never stored, and both are honest about what this
+     model actually knows:
+       Ref.   how many accepted explanation items cite this document. A workpaper
+              supporting four items is a different object from one supporting one,
+              and the count is already in rc.items.
+       Status the line's own review IS the verification event. A document on an
+              approved line has been signed over; anything else is Pending. There is
+              no separate document-verification workflow in this prototype and
+              inventing a badge for one would be asserting a control that does not
+              exist.
+     The expected-but-missing rows stay — an accepted item with nothing behind it is
+     what an approver asks about first — but they sit under the table as gaps rather
+     than pretending to be documents. */
   evid(X){
     const rc=X.rc, lock=X.lock;
     const ev=evidenceFor(rc), gaps=evidenceGaps(rc);
-    let h=`<div class="rw-sec">Evidence<span class="ct">${ev.length||''}</span></div>`;
-    if(!ev.length&&!gaps.length)
+    const verified=rc.status==='approved';
+    const docs=evidenceDocs(rc);
+    let h=`<div class="rw-sec">Supporting documents<span class="ct">${docs.length||''}</span></div>`;
+    if(!docs.length&&!gaps.length)
       h+=`<div class="rw-quiet">Nothing attached to this line yet. A reviewer will ask for support on any
       item that carries a material amount.</div>`;
-    else{
-      h+=`<div class="rw-ev">`;
-      ev.forEach(e=>{
-        h+=`<div class="rw-e">
-        <span class="mk" aria-hidden="true">✓</span>
-        <span class="w"><a class="nmx" href="${e.f.url}" download="${esc(e.f.name)}"
-            title="${esc(e.f.name)}">${esc(e.f.name)}</a>
-          <span class="mt">${esc(e.scope)} · ${esc(String(e.by).split(',')[0])}${
-            e.at?' · '+esc(e.at):''} · ${fmtBytes(e.f.size)}</span></span>
-        ${lock?'':`<button type="button" class="lnk" aria-label="Remove ${esc(e.f.name)}"
-          onclick="KFX.upDel(${e.i},${e.fi})">remove</button>`}</div>`;});
-      gaps.forEach(g=>{
-        h+=`<div class="rw-e gap">
+    if(docs.length){
+      h+=`<div class="rw-docs"><table class="tbl"><thead><tr><th>File</th><th>Uploaded by</th>
+        <th class="num">Ref.</th><th>Status</th></tr></thead><tbody>`;
+      docs.forEach(({e,n})=>{
+        h+=`<tr><td><a class="rw-doc" href="${e.f.url}" download="${esc(e.f.name)}"
+              title="${esc(e.f.name)}"><span class="ic" aria-hidden="true">▤</span
+              ><span class="n">${esc(e.f.name)}</span></a></td>
+          <td>${esc(String(e.by).split(',')[0])}</td>
+          <td class="num">${n}</td>
+          <td><span class="rw-dst ${verified?'ok':''}">${verified?'Verified':'Pending'}</span></td></tr>`;});
+      h+=`</tbody></table></div>`;
+    }
+    if(gaps.length){
+      h+=`<div class="rw-gaps">`+gaps.map(g=>`<div class="rw-e gap">
         <span class="mk" aria-hidden="true">○</span>
         <span class="w"><span class="nmx">Support for ${esc(g.what)}</span>
           <span class="mt">Expected — this explanation item has no document behind it</span></span>
         ${lock?'':`<button type="button" class="lnk"
-          onclick="document.getElementById('up${g.i}').click()">attach</button>`}</div>`;});
-      h+=`</div>`;
+          onclick="document.getElementById('up${g.i}').click()">attach</button>`}</div>`).join('')+`</div>`;
     }
     if(!lock){
       h+=`<input type="file" id="upLine" multiple class="hidden" onchange="KFX.upFiles(-1,this)">`;
       rc.items.forEach((it,i)=>{
         h+=`<input type="file" id="up${i}" multiple class="hidden" onchange="KFX.upFiles(${i},this)">`;});
-      h+=`<button type="button" class="rw-lnk"
-      onclick="document.getElementById('upLine').click()">Add support →</button>`;
+      h+=`<button type="button" class="rw-add"
+        onclick="document.getElementById('upLine').click()">+ Add document</button>`;
     }
+    h+=`<div class="rw-src">Documents are deduplicated by name — the same workpaper is never
+      listed twice; the reference count says how many explanation items cite it.</div>`;
     return h;
   },
 
@@ -11235,6 +12049,85 @@ const RWSEC={
     </div>`;
   },
 
+  /* ---- THE LEDGER UNDER THE LINE, WHOLE (2026-08-29, owner's direction) -------
+     "In full screen, full GL details — NOT only the selected rows — linked to the
+     ERP."
+
+     The drill already reaches journal entries, but only ever the ones under the
+     node you pinned, and only after walking seg -> reg -> ent -> prop -> acct.
+     Measured on Tenant recoveries: FIVE clicks to arrive at THREE entries out of
+     the ~60 that make up the movement. That is the right instrument for "why did
+     this specific property move" and the wrong one for "show me the ledger behind
+     this line", which is the question a reviewer asks before signing.
+
+     So this is deliberately NOT filtered by S.drvPath. It is every entry under
+     every account the line maps to, inside the statement's own scope — jes() reads
+     activeSlices(), so the entity/segment/property filters the reviewer set on the
+     statement still apply and this can never show a population the figure above it
+     excludes. The one filter it honours is S.jeOnly, which is shared with the drill
+     so Manual / Post-close means the same thing in both places.
+
+     FULL SCREEN ONLY, and that is a real judgment rather than a layout excuse: a
+     250-row ledger inside a 440px dock is a scroll with no context, and the drawer
+     already has the precise instrument for its width. */
+  glfull(X){
+    if(!X.page)return '';
+    const r=X.r, accts=lineAccts(S.stmt,r.id);
+    let all=[]; accts.forEach(a=>{ all=all.concat(jes(a)); });
+    all.sort((a,b)=>Math.abs(b.amt)-Math.abs(a.amt));
+    const posted=all.reduce((t,j)=>t+j.amt,0), nAll=all.length;
+    let list=all;
+    if(S.jeOnly==='manual')list=list.filter(j=>j.manual);
+    if(S.jeOnly==='post')  list=list.filter(j=>j.post);
+    const shownTot=list.reduce((t,j)=>t+j.amt,0);
+    const CAP=150, cut=list.length>CAP, rowsL=cut?list.slice(0,CAP):list;
+
+    let h=`<div class="rw-sec">General ledger<span class="ct">${list.length}${
+      S.jeOnly?' of '+nAll:''}</span></div>`;
+    if(!accts.length)return h+`<div class="rw-quiet">This line is not mapped to a modelled
+      account, so there is no ledger behind it.</div>`;
+    h+=`<div class="rw-glbar">
+      <div class="seg">
+        <button class="${!S.jeOnly?'on':''}" onclick="KFX.setJeOnly('')">All</button>
+        <button class="${S.jeOnly==='manual'?'on':''}" onclick="KFX.setJeOnly('manual')">Manual</button>
+        <button class="${S.jeOnly==='post'?'on':''}" onclick="KFX.setJeOnly('post')">Post-close</button>
+      </div>
+      <span class="sp"></span>
+      <span class="rw-glacc">${accts.length} account${accts.length===1?'':'s'} · ${
+        esc(PERIODS[S.cur].lbl)}</span></div>`;
+    if(!list.length)return h+`<div class="rw-quiet">No entries match this filter.</div>`;
+    h+=`<div class="rw-gl"><table class="tbl">
+      <thead><tr><th>Entry</th><th>Date</th><th>Account</th><th>Entity · property</th>
+        <th class="num">Amount</th><th>Source</th></tr></thead><tbody>`;
+    rowsL.forEach(j=>{
+      /* The flags a reviewer asks about first, and the only place colour is even
+         considered here — they are not states, so they stay ramp text (rule 3). */
+      const fl=[j.manual?'manual':'',j.post?'post-close':'',j.rev?'reversing':''].filter(Boolean);
+      h+=`<tr>
+        <td><span class="mono">${esc(j.id)}</span>${fl.length?
+          `<div class="rw-glfl">${fl.map(esc).join(' · ')}</div>`:''}</td>
+        <td class="rw-gldt">${esc(j.dt)}</td>
+        <td><span class="mono">${esc(j.acct)}</span>
+          <div class="rw-glsub">${esc(ACC[j.acct]?ACC[j.acct].n:'')}</div></td>
+        <td>${esc(rwName('ent',j.ent))}<div class="rw-glsub">${esc(propName(j.prop))}${
+          j.vend&&j.vend!=='—'?' · '+esc(j.vend):''}</div></td>
+        <td class="num dlt ${j.amt>0?'up':'dn'}">${(j.amt>0?'+':'')+fmtS(j.amt)}</td>
+        <td>${esc(j.src)}<div class="rw-glerp">${
+          typeof erpLink==='function'?erpLink(j.id,j.src):''}</div></td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    /* NO SILENT CAPS. If the list is bounded, say what was dropped — a table that
+       quietly stops at 150 reads as "that is all of them". */
+    if(cut)h+=`<div class="rw-src">Showing the ${CAP} largest of ${list.length} entries by
+      absolute amount. Narrow the scope on the statement to see the rest.</div>`;
+    h+=`<div class="rw-src">${esc(PERIODS[S.cur].lbl)} postings under this line total
+      ${fmtS(posted)} across ${nAll} entr${nAll===1?'y':'ies'}.
+      ${S.jeOnly?`Showing ${fmtS(shownTot)} of that — filtered, so the list does not foot.`
+                :'The entries shown foot to it.'}
+      Korvyn reads and reconciles the ledger; it never posts to it.</div>`;
+    return h;
+  },
+
   /* ---- HISTORY. A RESTRAINED CHRONOLOGICAL RECORD, grouped by month: the audit
      trail, append-only, before-and-after preserved, presented as a record rather
      than as a two-column log table.
@@ -11247,28 +12140,35 @@ const RWSEC={
     return `<button type="button" class="rw-back" onclick="KFX.dwTab('sum')">‹ Overview</button>`;
   },
 
+  /* ---- ACTIVITY (2026-08-29 — the reference inspector's History tab).
+     Was a month-grouped list of paragraphs. The reference reads it as a TIMELINE:
+     a round type badge in the gutter, the event as a title with its date pushed
+     right, and the particulars on a quiet line beneath — so a reader scans WHAT
+     HAPPENED down the badges and drops into the detail only where it matters.
+
+     The badge's colour is the one place semantic colour is spent here, and it is
+     earned: these are transitions, which is the definition of state (rule 3). It is
+     derived from the act text rather than stored, because logA() writes prose and
+     inventing a parallel `type` field would be a second thing to keep in step. */
   trail(X){
     const rc=X.rc;
-    const title={review:'Review history',prior:'Prior-period explanation',activity:'Activity log'}[X.lead]||'History';
-    let h=`<div class="rw-sec">${esc(title)}<span class="ct">${rc.trail.length||''}</span></div>`;
-    if(!rc.trail.length)h+=`<div class="rw-quiet">Nothing logged on this line yet.</div>`;
-    else{
-      let month='';
-      rc.trail.forEach(a=>{
-        const m=(a.ts?new Date(a.ts):new Date()).toLocaleDateString('en-US',
-        {month:'long',year:'numeric'}).toUpperCase();
-        if(m!==month){month=m;h+=`<div class="rw-hm">${esc(m)}</div>`;}
-        const w=rwWho(a.who);
-        h+=`<div class="rw-h">
-        <div class="w">${esc(a.act.charAt(0).toUpperCase()+a.act.slice(1))}</div>
-        <div class="m">${esc(w.nm)} · ${esc(a.t)}${a.id?' · '+esc(a.id):''}</div>
-        ${a.detail?`<div class="d">${esc(a.detail)}</div>`:''}
-        ${a.before!=null?`<div class="d">from: ${esc(String(a.before))}</div>`:''}
-        ${a.after!=null?`<div class="d">to: ${esc(String(a.after))}</div>`:''}
+    let h=`<div class="rw-sec">Activity<span class="ct">${rc.trail.length||''}</span></div>`;
+    if(!rc.trail.length)return h+`<div class="rw-quiet">Nothing logged on this line yet.</div>`;
+    h+=`<div class="rw-act">`;
+    rc.trail.forEach(a=>{
+      const k=rwActKind(a.act||'');
+      const w=rwWho(a.who);
+      const det=[a.detail, a.before!=null&&a.after!=null
+        ? String(a.before)+' → '+String(a.after) : null,
+        w.nm].filter(Boolean).join(' · ');
+      h+=`<div class="rw-ac">
+        <span class="bd ${k.t}" aria-hidden="true">${k.g}</span>
+        <div class="w"><span class="t">${esc(a.act.charAt(0).toUpperCase()+a.act.slice(1))}</span>
+          <span class="at">${esc(a.t||'')}</span></div>
+        ${det?`<div class="m">${esc(det)}</div>`:''}
       </div>`;});
-      h+=`<div class="rw-src">Append-only. Edits record the value before and after, so the record shows
-      what an explanation said at the moment its review completed.</div>`;
-    }
+    h+=`</div><div class="rw-src">Append-only. Edits record the value before and after, so the
+      record shows what an explanation said at the moment its review completed.</div>`;
     return h;
   },
 
@@ -11291,21 +12191,48 @@ const RWSEC={
       b+=`<button type="button" class="rw-lnk" onclick="KFX.exCarry()">Carry forward selectively →</button>`;
     return b;
     })();
-    if(X.lead==='prior'&&!X.page)
-      return `<div class="rw-sec">Prior-period explanation</div>`+
-        (pb || `<div class="rw-quiet">No prior-period explanation on this line.</div>`);
-    return pb;
+    /* The reference states WHAT this block is for before showing it, because
+       "prior-period explanation" is otherwise indistinguishable from "an old
+       comment": it is the last SIGNED-OFF wording, carried so the institutional
+       memory survives the close rather than being retyped every month. The empty
+       state says the same thing forwards. */
+    return `<div class="rw-sec">Prior-period explanation</div>
+      <div class="rw-src" style="margin-top:0">Carried from each prior period's
+      <b>final, signed-off</b> explanation — institutional memory, never re-entered
+      month to month.</div>`+
+      (pb || `<div class="rw-quiet">No prior-period explanation yet — this month's accepted
+        explanation becomes next month's history.</div>`);
   },
 
-  /* the 13-period trend. A disclosure in the drawer, where it would otherwise be a
-     permanent second sub-tab; resident on the page, which has the room for it. */
+  /* ---- BALANCE & MOVEMENT BY PERIOD (2026-08-29 — the reference inspector's
+     History tab). It was a 13-row, four-column table behind a "View the last 13
+     periods" disclosure; the reference shows six rows, two columns and no
+     disclosure, because on the History tab the trend IS the subject and a reader
+     should not have to ask for it.
+
+     Two columns, not four: BALANCE and MOVEMENT. The Δ% it drops was the third way
+     of saying the same thing on a table whose job is the shape of the series, and
+     the header band above already carries the period's own Δ%. Newest first, which
+     is the order somebody reading history actually wants and the order the
+     reference uses. */
   trend(X){
-    let h='';
-    if(!X.page)
-      h+=`<div style="margin-top:var(--s-4)">
-    <button type="button" class="rw-lnk" onclick="KFX.rwPeriods()">${
-      S.rwPeriods?'Hide the period trend':'View the last 13 periods →'}</button></div>`;
-    if(S.rwPeriods||X.page)h+=dwHist(X.r);
+    const sl=activeSlices(), n=X.page?13:6, a=[];
+    for(let i=Math.max(0,S.cur-n+1);i<=S.cur;i++)
+      a.push({p:PERIODS[i],v:lineVal(S.stmt,X.r.id,i,S.grain,'act',sl)});
+    /* rule 15 — a trend table needs an empty state, and one row is not a trend */
+    if(a.length<2)return `<div class="rw-sec">Balance &amp; movement by period</div>
+      <div class="rw-quiet">Fewer than two periods of history on this line.</div>`;
+    const rows=a.map((x,i)=>({p:x.p,v:x.v,d:i?x.v-a[i-1].v:null})).reverse();
+    let h=`<div class="rw-sec">Balance &amp; movement by period</div>
+      <div class="rw-per"><table class="tbl"><thead><tr><th>Period</th>
+      <th class="num">Balance</th><th class="num">Movement</th></tr></thead><tbody>`;
+    rows.forEach(x=>{
+      h+=`<tr><td>${esc(x.p.lbl)}</td><td class="num">${fmt(x.v)}${uName()}</td>
+        <td class="num ${x.d==null?'':'dlt '+(x.d>0?'up':x.d<0?'dn':'n')}">${
+          x.d==null?'—':(x.d>0?'+':'')+fmtS(x.d)+uName()}</td></tr>`;});
+    h+=`</tbody></table></div>
+      <div class="rw-src">Movement per period from the tied-out ledger — the quantitative
+      trend behind this line.</div>`;
     return h;
   },
 };
@@ -11322,10 +12249,17 @@ const RW_LAYOUT={
     comments:['cmtHead','cmtStream','cmtComp','cmtOwed'],
     evid:['evid','source'],
     support:['evid','source'],   /* alias for any stale caller */
-    /* History is a first-class tab; histFocus still orders which block leads */
-    get hist(){ return (S.histFocus||'review')==='prior'
-      ? ['prior','trail','trend']
-      : ['trail','prior','trend']; },
+    /* Registered here because dwPageCols() resolves a page tab through THIS
+       registry — one tab vocabulary for both densities. It does not put a General
+       ledger tab in the 440px dock: that strip is its own literal in paintDrawer(),
+       and glfull() returns '' off the full page anyway. */
+    gl:['glfull'],
+    /* THE REFERENCE'S ORDER, and it is an argument rather than a preference: the
+       quantitative series first (what this line has actually done), then the
+       institutional memory of how it was explained, then the log of who did what.
+       histFocus no longer reorders it — a tab whose sections move depending on how
+       you arrived cannot be learned. */
+    hist:['trend','prior','trail'],
   },
   /* THE FULL PAGE. Three columns, ordered as the reviewer's argument:
        judge — is this line defensible, and what is stopping it
@@ -11363,24 +12297,87 @@ function dwOverviewKeys(X){
      are the last three; each is a SUMMARY with a way through to its own tab, never a
      second copy of the tab. Drawer-only — page mode composes these in its columns
      from RW_LAYOUT.page, so adding them here cannot double them there. */
+  /* THE CONVERSATION IS ONE PLACE, AND IT IS HERE (2026-08-29, owner's direction:
+     "comments thread should be in one place — Korvyn draft, then the preparer edits
+     the explanation, reviewer comes in and makes comments for changes").
+
+     It used to be TWO places pretending to be one. The 2026-08-28 pass established
+     that a line's explanation and its comment thread are a single argument over time
+     and gave them a single grammar (.rw-msg), but left them on different tabs: the
+     explanation led Overview, the thread sat behind Comments, and Overview got
+     `cmtPeek` — a summary of the tab next door. So a reviewer standing at the point
+     of decision, with Return and Mark reviewed under their thumb, had nowhere on
+     screen to say WHY. They had to leave the verdict to find the box.
+
+     The thread now renders directly under the words it is about, so the explanation
+     is what it always claimed to be — the opening statement — and everything said
+     after it follows in the same column. cmtPeek is GONE rather than moved: a peek
+     at a thread you are already looking at is the second copy the registry warns
+     about, and the Comments tab is absorbed rather than added to, which is what
+     keeps the panel from growing while gaining this. */
+  /* FOUR TABS, AND THE REFERENCE'S OVERVIEW (2026-08-29, owner: "bring back all the
+     options and UI from the screenshot or prior version"). This restores the
+     composition apps/review's inspector uses and that this panel had before today's
+     passes: Explanation · Key drivers · Workflow & review · Evidence, with the state
+     block over it and Needs attention where something is blocking.
+
+     Comments returns to a tab of its own, which is what the reference does, and the
+     `cmtPeek` row at the foot of Overview answers "is there a conversation here?"
+     without opening it. What was built today and KEPT: the four-figure band, the
+     driver list that foots, per-message Preparer/Reviewer roles, change requests
+     posted into the thread, and the Ready state in the statement column. */
+  /* FIVE CARDS, THE REFERENCE'S FIVE: Explanation · Key drivers · Workflow & review ·
+     Evidence · Comments. `state` and `attn` are NOT among them, and dropping them is
+     the point rather than an oversight — the owner asked where Needs attention was
+     in the reference and the answer is that it is not there.
+
+     Nothing they carried is lost, it is carried where the reference carries it:
+       the verdict          -> the classification pill on the Explanation card
+       coverage / residual  -> rows in Workflow & review, beside Status
+       the itemised blockers-> Needs attention, still rendered in full on the FULL
+                               PAGE (RW_LAYOUT.page.judge), which has the room for it
+     A 440px dock does not, and stacking a red-bordered list of four warnings above
+     the explanation is what made this panel read as an alert log. */
   const tail=['reviewer','evidRow','cmtPeek'];
-  if(m==='inspect'){
-    if(editing||X.best.text)return ['state','explain','drivers',...tail];
-    return ['state','drivers','explainCue',...tail];
-  }
-  if(m==='locked')return ['state','explain','drivers',...tail];
-  return ['state','explain','drivers','attn',...tail];
+  if(m==='inspect'&&!(editing||X.best.text))return ['drivers','explainCue',...tail];
+  return ['explain','drivers',...tail];
 }
+/* Parts that are already cards — see dwBody. */
+const RW_NOCARD=['cmtStream','cmtComp'];
 function dwBody(X){
   const part=k=>{const f=RWSEC[k];return f?f(X):'';};
   if(!X.page){
     const keys=S.dwTab==='sum'?dwOverviewKeys(X):(RW_LAYOUT.drawer[S.dwTab]||dwOverviewKeys(X));
-    return keys.map(part).join('');
+    /* EVERY TAB IS A STACK OF CARDS (2026-08-29 — the reference inspector).
+       This was applied to Overview alone at first, which left three of the four tabs
+       floating uppercase labels and bare tables on the gray body while the fourth
+       read as a set of objects: one panel, two visual languages, depending on which
+       tab you were standing on.
+
+       The card is applied HERE, from the registry, so a part added later gets it for
+       free and cannot invent its own box — and so the sentence-case card title in
+       `.rw-card .rw-sec` reaches every section at once rather than being restyled
+       per tab.
+
+       RW_NOCARD is the box-in-box guard (rule 11), not an exception to the rule.
+       Those two parts render CARDS OF THEIR OWN — the message stream is a list of
+       message cards and the composer is one — so wrapping them would draw a border
+       around a stack of borders. */
+    return keys.map(k=>{const h=part(k); if(!h)return '';
+      return RW_NOCARD.includes(k)?h:`<section class="rw-card">${h}</section>`;}).join('');
   }
+  /* THE PAGE'S REGIONS ARE THE SAME CARDS THE DOCK USES. The full screen used to
+     card the COLUMN and separate the regions inside it with hairlines, so the two
+     densities drew the same content in two different languages: five white cards in
+     the dock, three white columns of hairline-separated bands on the page. Same
+     class here means the sentence-case title rule and the card treatment reach both
+     from one place. RW_NOCARD holds for the same reason it does in the dock. */
   const col=(k,keys)=>`<div class="rw-col ${k}">`+keys.map(p=>{
     const html=part(p);
-    return html?`<section class="rw-rg" id="fxRg-${p}" data-rg="${p}"
-      aria-label="${esc(RW_RGNAME[p]||p)}">${html}</section>`:'';
+    if(!html)return '';
+    const cls='rw-rg'+(RW_NOCARD.includes(p)?'':' rw-card');
+    return `<section class="${cls}" id="fxRg-${p}" data-rg="${p}"
+      aria-label="${esc(RW_RGNAME[p]||p)}">${html}</section>`;
   }).join('')+`</div>`;
   const cols=dwPageCols(X);
   return `<div class="rw-cols ${cols.length===1?'one':''}">`+
@@ -11417,6 +12414,10 @@ function dwPageCols(X){
    in Overview, where the draft is shown — the same actions the old "Review stack"
    lineage carried, minus the tab. Nothing here approves a comment. */
 function kdControls(r,rc){
+  /* Accept leads and Edit sits beside it, as the reference has them. Regenerate and
+     Dismiss stay — they are real moves on a machine draft and the reference simply
+     has no equivalent — but as quiet links pushed to the far end, so the card offers
+     one obvious action rather than four competing ones (rule 13). */
   return `<div class="rw-lact" style="margin-top:var(--s-3)">
       <button class="btn-primary sm" onclick="KFX.kdAccept()">Accept</button>
       <button class="btn-out sm" onclick="KFX.kdEdit()">Edit</button>
@@ -11754,6 +12755,19 @@ function rwGlList(r,filt){
    site, so nothing downstream has to cope with an id-less message. */
 let cmtSeq=0;
 function cmtId(c,i){ if(!c.id)c.id='c'+(++cmtSeq)+'_'+i; return c.id; }
+/* PREPARER OR REVIEWER, on THIS line. Matched on the stored author string, which is
+   "Name, Role" — the same value every action writes — so it agrees with the
+   segregation-of-duties check rather than guessing from a job title. A change
+   request is a reviewer's act by definition, which covers a reviewer who returns a
+   line before they are recorded as its `rev`. Anyone else is neither, and gets no
+   tag rather than a wrong one. */
+function cmtRole(c,rc){
+  const by=String(c.by||'');
+  if(!by||!rc)return '';
+  if(by===rc.prep)return 'Preparer';
+  if(c.chg||by===rc.rev||by===rc.returnedBy)return 'Reviewer';
+  return '';
+}
 function commentStream(r,rc){
   rc=rc||rec(r.id,true);
   const out=[];
@@ -11765,14 +12779,44 @@ function commentStream(r,rc){
     }else{
       out.push({owed:false,id:'k:'+l.key,kind:l.kind,scope:l.scope,who:String(l.who).split(',')[0],
         role:l.role||'',at:l.at,ver:l.ver&&l.ver!=='—'?l.ver:'',text:l.note,
-        refs:l.refs||[],ev:l.ev||0,onBehalf:l.onBehalf,key:l.key,status:l.status});
+        refs:l.refs||[],ev:l.ev||0,onBehalf:l.onBehalf,key:l.key,status:l.status,
+        cat:l.kind==='ent'?'Entity explanation':'Regional review'});
     }
   });
   (rc.comments||[]).forEach((c,i)=>{const w=rwWho(c.by);
     out.push({owed:false,id:cmtId(c,i),parent:c.parent||null,
       kind:'corp',scope:c.scope||'Corporate',who:w.nm,role:w.role,
-      at:c.at,ver:c.ver&&c.ver>1?('v'+c.ver):'',text:c.text,refs:[],ev:0,disc:true});});
+      at:c.at,ver:c.ver&&c.ver>1?('v'+c.ver):'',text:c.text,refs:[],ev:0,disc:true,
+      /* carried so the card can mark a change request and name who it is aimed at —
+         dropping them here would leave a return reading as an ordinary remark */
+      ask:c.ask||'',chg:!!c.chg,
+      cat:c.chg?'Change request':'Review comment',
+      /* WHICH SIDE OF THE REVIEW IS SPEAKING. A thread whose messages all read
+         "Name · Job title · Corporate" cannot answer the first question anybody
+         brings to it — did the reviewer come back on this? Job title does not
+         answer it either: a Controller can be the preparer on one line and the
+         reviewer on the next, which is exactly what canReviewLine() is about. It
+         is derived from the RECORD, per line, never from the person. */
+      revrole:cmtRole(c,rc)});});
   return out;
+}
+/* WHICH KIND OF EVENT AN AUDIT LINE IS, read off the prose logA() already writes.
+   Order is precedence: "returned the review" must not be caught by /review/ and
+   reported as an approval. Glyphs are text, not SVG — one character in a 20px badge
+   at --fs-micro, which is what the reference draws and what keeps this out of the
+   icon sprite. */
+const RW_ACTS=[
+  [/return|reopen/i,        {g:'↺', t:'warn'}],
+  [/submit/i,               {g:'↑', t:'warn'}],
+  [/reviewed|approv|lock/i, {g:'✓', t:'ok'}],
+  [/attach|upload|document|evidence/i, {g:'▤', t:'ok'}],
+  [/comment|replied|question/i, {g:'●', t:'ink'}],
+  [/assign|owner/i,         {g:'⇄', t:'warn'}],
+  [/dismiss|remov|delet/i,  {g:'×', t:'mute'}],
+];
+function rwActKind(act){
+  for(const [re,v] of RW_ACTS) if(re.test(act)) return v;
+  return {g:'•', t:'mute'};      // an explanation edit, an accepted draft, a threshold change
 }
 /* ---- THE THREAD TREE, ONE LEVEL DEEP ---------------------------------------
    Replies nest under the message they answer and no further. That is a decision,
@@ -11823,7 +12867,13 @@ function cmtCard(c,lock,isReply){
   const canReview=!lock&&c.key&&c.status&&c.status!=='approved'&&typeof caps==='function'&&caps().review;
   const me=(typeof ME==='function')?ME():null;
   const mine=!!(me&&c.who&&String(c.who).trim()===String(me.nm).trim());
-  const sub=[c.role,c.scope].filter(Boolean).map(esc).join(' · ');
+  /* The review role LEADS the meta line and the job title follows it: on a review
+     thread "Reviewer" is the fact and "Controller" is the detail. Scope is dropped
+     when it is 'Corporate' — every discussion comment carries it, so it was a column
+     of one repeated word down the whole thread saying nothing. */
+  const sub=[c.revrole?`<b class="rw-rr">${esc(c.revrole)}</b>`:'',
+    c.role?esc(c.role):'', (c.scope&&c.scope!=='Corporate')?esc(c.scope):'']
+    .filter(Boolean).join(' · ');
   const meta=[];
   if(c.onBehalf)meta.push(`Recorded on behalf of ${esc(c.onBehalf)}`);
   if(c.refs&&c.refs.length)meta.push(`References ${c.refs.length} lower-level explanation${
@@ -11835,7 +12885,23 @@ function cmtCard(c,lock,isReply){
   const canReply=!!c.id&&typeof caps==='function';
   /* the row in play — what the composer is currently answering */
   const aim=!!c.id&&S.cmtReplyTo===c.id;
-  return `<div class="rw-msg ${mine?'mine':''} ${isReply?'reply':''} ${aim?'aim':''}">
+  /* A CHANGE REQUEST IS NOT A REMARK, and the thread has to say so or a return reads
+     as one more opinion in a list. It takes the ONE mark the design system allows a
+     message to carry — a word, not a colour block — and names who is being asked, so
+     the next person to open the line can see at a glance that the ball is theirs.
+     `ask` holds "Name, Role"; only the name is shown, the way every other byline in
+     this thread is trimmed. */
+  const askNm=c.ask?String(c.ask).split(',')[0].trim():'';
+  /* THE STATUS PILL, and ONLY where this model actually holds a status. The
+     reference shows Superseded / Included in rollup / Approved / Excluded because
+     its rollup carries those states; here the lineage record carries its own review
+     status and a discussion comment carries none, so a comment gets no pill rather
+     than a decorative one. Inventing four states to match a screenshot would be
+     asserting a workflow that does not exist. */
+  const pill=c.chg?['Changes requested','warn']
+    :(c.status==='approved'?['Included in rollup','ok']
+    :(c.status==='submitted'?['In review','mute']:null));
+  return `<div class="rw-msg ${mine?'mine':''} ${isReply?'reply':''} ${aim?'aim':''} ${c.chg?'chg':''}">
     <span class="rw-av" aria-hidden="true">${esc(rwInitials(c.who))}</span>
     <div class="bd">
       <div class="hd">
@@ -11844,6 +12910,11 @@ function cmtCard(c,lock,isReply){
         <span class="sp"></span>
         <span class="at">${esc(c.at||'')}${c.ver?' · '+esc(c.ver):''}</span>
       </div>
+      ${(c.cat||pill)?`<div class="rw-mcat">
+        ${c.cat?`<span class="cat">${esc(c.cat)}</span>`:''}
+        ${pill?`<span class="rw-pill ${pill[1]}">${esc(pill[0])}</span>`:''}
+      </div>`:''}
+      ${c.chg&&askNm?`<div class="rw-chg"><span class="to">${esc(askNm)}</span> to update</div>`:''}
       ${c.text?`<div class="tx">${esc(c.text)}</div>`:''}
       ${meta.length?`<div class="mt">${meta.join(' · ')}</div>`:''}
       ${c.ev?`<div class="mt att">${ic('clip')} ${c.ev} document${c.ev===1?'':'s'}</div>`:''}
@@ -11952,6 +13023,20 @@ function cmtReply(id){
 }
 function cmtCancel(){ S.cmtCompose=false; S.cmtDraft=''; paintDrawer();
   requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();}); }
+/* ONE WRITER FOR THE THREAD. cmtSave() posts what a person typed and exReturn()
+   posts a change request; two push sites shaping their own records is how a renderer
+   ends up meeting a message with no id or no parent. `ask` names who is being asked
+   to act on it, `chg` marks it a request for changes rather than a remark. */
+function cmtPost(rc,txt,o){
+  o=o||{};
+  if(!rc.comments)rc.comments=[];
+  const m={by:meStr(),at:stamp(),ts:Date.now(),text:txt,scope:'Corporate',ver:1,
+    id:'c'+(++cmtSeq)+'_n',parent:o.parent||null};
+  if(o.ask)m.ask=o.ask;
+  if(o.chg)m.chg=1;
+  rc.comments.push(m);
+  return m;
+}
 function cmtSave(){
   const t=document.getElementById('cmtIn');
   /* the draft is the source of truth; #cmtIn is the fallback for the very first paint,
@@ -11967,8 +13052,7 @@ function cmtSave(){
     const byId={}; commentStream({id:S.sel},rc).forEach(c=>{if(c.id)byId[c.id]=c;});
     parent=cmtRootOf(parent,byId);
   }
-  rc.comments.push({by:meStr(),at:stamp(),ts:Date.now(),text:txt,scope:'Corporate',ver:1,
-    id:'c'+(++cmtSeq)+'_n',parent});
+  cmtPost(rc,txt,{parent});
   logA({line:S.sel,who:meStr(),act:parent?'replied to a comment':'added a comment',after:txt});
   S.cmtCompose=false; S.cmtDraft=''; S.cmtReplyTo=null;
   renderAll(); toast(parent?'Reply posted':'Comment posted');
@@ -12244,6 +13328,16 @@ function exReturn(){
   }
   ask('Return to preparer','What needs to change?',n=>{
     const rc2=rec(S.sel,true); rc2.status='returned'; rc2.revNote=n; rc2.returnedBy=meStr();
+    /* THE REASON FOR A RETURN IS THE MOST IMPORTANT THING A REVIEWER EVER WRITES ON
+       A LINE, AND IT WAS THE ONE THING THAT NEVER REACHED THE THREAD. It went to
+       rc.revNote — a field surfaced as a status caption — so the trail read: Korvyn
+       drafted, a preparer explained, and then, unaccountably, the line was back with
+       the preparer. The conversation could not say why, because the why was
+       somewhere else. It is a message now, from the reviewer, addressed to whoever
+       prepared the line, in the same stream as everything else said about it.
+       rc.revNote is still written: the footer and the grid read it, and this posts
+       ALONGSIDE that rather than replacing it, so no existing reader changes. */
+    cmtPost(rc2,n,{ask:rc2.prep||'',chg:1});
     logA({line:S.sel,who:meStr(),act:'returned the review to the preparer',
       before:'in review',after:'returned',detail:n});
     renderAll();});
@@ -13502,7 +14596,7 @@ function lineForAcct(acct){
 return {pageContext, toggleFilt, collapseFilters:()=>{S.filtOpen=false;}, basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popApply, popApplyClear, setFilterTab, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
 dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, cmtOwedToggle, cmtReply, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
-kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
+kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, hovShow, hovHide, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();
 
 </script>
@@ -31733,7 +32827,14 @@ function renderCpTabs(){
   box.innerHTML=`<button class="${cpTab==='assistant'?'on':''}" onclick="setCpTab('assistant')">Assistant</button>
     <button class="${cpTab==='insights'?'on':''}" onclick="setCpTab('insights')">Insights<span class="ct">${n}</span></button>`;
 }
-function setCpTab(v){ cpTab=v; renderCpHome(); renderCpTabs(); }
+/* see .cp-scroll above — the reserve is constant, so this reads the same number
+   whether or not the current tab overflows, and every band shares a right edge. */
+function cpGutter(){
+  const sc=document.getElementById('cpScroll'), cp=document.getElementById('copilot');
+  if(!sc||!cp)return;
+  cp.style.setProperty('--cp-sbw',Math.max(0,Math.round(sc.offsetWidth-sc.clientWidth))+'px');
+}
+function setCpTab(v){ cpTab=v; renderCpHome(); renderCpTabs(); cpGutter(); }
 // First name if the app knows it, else nothing — drives the welcome line.
 function cpUserName(){
   const el=document.querySelector('.um-nm');
@@ -31833,6 +32934,8 @@ function cpOpen(){
   document.body.classList.remove('copilot-collapsed','copilot-min');
   try{localStorage.setItem('korvyn.ai','0')}catch(e){}
   cpSyncMark();
+  /* measured after the panel is actually laid out — a hidden scroller reports 0 */
+  requestAnimationFrame(cpGutter);
 }
 // Collapse — hand the page back, keep the session warm, leave one small way in.
 function cpMinimize(){
@@ -32151,6 +33254,7 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
       </div>
     </div>
     <span class="sp"></span>
+    <div class="cp-hact">
     <button class="cp-tool" onclick="cpMinimize()" title="Collapse and continue working" aria-label="Collapse Korvyn AI, keep the session">
       <svg viewBox="0 0 16 16" fill="none"><path d="M9.5 3.2v9.6M3 5.8L5.2 8 3 10.2M5.2 8h2.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -32160,6 +33264,7 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
     <button class="cp-tool" onclick="cpClose()" title="Close" aria-label="Close Korvyn AI">
       <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     </button>
+    </div>
   </div>
   <!-- Source health, directly under the header. Painted by paintCpSrc(); persists across thread
        renders because renderCpHome() only touches #cpThread / #cpHome. -->
