@@ -1295,12 +1295,40 @@ holds in both densities. Band edges, rail identity, box-in-box, nested and colla
 cards, uppercase titles, truncated figures and header/body cell counts asserted across
 21 lines × 4 dock tabs, 6 page tabs and both Assistant tabs.
 
-**Known and NOT fixed here:** `kdAccept()` and `exPropose()`/`sugAllAccept()` both
-write `rc.items` from the same decomposition, so a preparer who uses both double-books
-the explanation — measured 100% explained · 0.0 residual, then 200% explained · 1.4
-residual. Two generators, two vocabularies ("Korvyn draft" / "Korvyn suggests"),
-neither aware of the other. Merging them is the next honest piece of work on this
-panel.
+**THE 200% DUPLICATION IS FIXED** (later the same day). `kdAccept()` and
+`exPropose()`/`sugAccept()`/`sugAllAccept()` each pushed into `rc.items` from the same
+decomposition and neither knew the other existed — `suggest()` walked
+`drivers(id).bySeg`, which IS `byDim(id,'seg')`, the very call `explainObj()` already
+made, then applied its own reason map and its own sentence. Using both, which the UI
+invited, took a line from 100% explained / 0.0 residual to **200% explained / 1.4
+residual** with no warning.
+
+Three changes, in this order of importance:
+
+1. **A driver carries a stable key onto the item it becomes** (`kdKey`, from
+   `kdKeyOf`), and every path that turns a driver into an item goes through
+   `kdAddDriver()`. Accepting the same driver twice is now impossible rather than
+   discouraged — the guard is in the WRITER, not in each call site. There are exactly
+   two `rc.items.push` sites left: that writer, and `exSave()` where a person types
+   an item from nothing.
+2. **`suggest()` builds from `explainObj(r).drivers`** with `kdReason` and
+   `kdItemNote` — one source, one reason mapping, one wording. It also filters out
+   drivers already on the line, so regenerating after accepting a draft proposes what
+   is genuinely left instead of offering the same four again. The unattributed
+   remainder is keyed `gap:rest` and measured against what the LINE holds, not against
+   the proposal list, or accepting a draft first would leave a gap that double-counts.
+3. **The key survives the item editor.** Without `kdKey` carried through `exSave()`,
+   editing a suggestion and then accepting the same driver from the draft would put it
+   on the line twice — the edit would have laundered away the only thing the guard
+   reads.
+
+Every path now **reports what it skipped** rather than quietly doing less than its
+button said ("3 drivers accepted, 1 already on the line").
+
+Verified across all 21 statement lines with the orders interleaved — draft→suggestions,
+suggestions→draft, draft twice, and edit-a-suggestion→draft: coverage never exceeds
+100%, no line accumulates duplicate items, and the edited item stays edited while the
+draft adds only the drivers it does not already hold.
 
 ## Toolchain
 

@@ -9293,17 +9293,26 @@ function kdAccept(){
   const src=o.drivers.filter(d=>Math.abs(d.d)>0).slice(0,6);
   if(!src.length){toast('No quantified driver to accept');return;}
   const edited=!!kd.edited;
-  src.forEach(d=>rc.items.push({amt:d.d,reason:kdReason(d),note:kdItemNote(d,o),ev:'',files:[],
-    src:edited?'korvyn-edited':'korvyn',by:meStr(),at:stamp()}));
+  /* SAY WHAT WAS SKIPPED. A driver already on the line is not added twice, and a
+     button that quietly does less than it claims is the same defect in a quieter
+     costume. */
+  let added=0, skipped=0;
+  src.forEach(d=>{ if(kdAddDriver(rc,d,o,edited))added++; else skipped++; });
+  if(!added){
+    toast(skipped?'Every Korvyn driver is already on this line':'Nothing to accept');
+    return;
+  }
   /* THE WORDS ON SCREEN ARE THE WORDS ACCEPTED. Without this the item notes would
      become the explanation and a preparer's edit would vanish at the moment they
      approved it — the one moment they were certain it had been kept. */
   rc.narr=kd.text; rc.narrBy=meStr(); rc.narrAt=stamp();
   rc.narrSrc=edited?'korvyn-edited':'korvyn';
   logA({line:S.sel,act:'accepted the Korvyn draft'+(edited?' as edited':' unchanged'),
-    detail:src.length+' driver'+(src.length===1?'':'s')+' accepted; draft '+('v'+kd.ver)});
+    detail:added+' driver'+(added===1?'':'s')+' accepted'+
+      (skipped?', '+skipped+' already on the line':'')+'; draft '+('v'+kd.ver)});
   if(rc.status==='returned')rc.status='draft';
-  renderAll(); toast('Korvyn draft accepted as the preparer explanation');
+  renderAll(); toast('Korvyn draft accepted as the preparer explanation'+
+    (skipped?' \u2014 '+skipped+' already on the line':''));
 }
 /* EDITING THE MACHINE'S WORDS MUST NOT ERASE THE MACHINE.
    This passed `sug:null`, so exSave() fell through to `src:'user'` and every trace
@@ -9382,6 +9391,41 @@ function kdReason(d){
   const a=String(d.k);
   return a.startsWith('159')?'dep':a.startsWith('15')?(d.d>=0?'add':'ret')
     :a.startsWith('27')?(d.d>=0?'add':'ret'):'time';
+}
+/* ============================================================================
+   ONE KORVYN CONTRIBUTION PER DRIVER, WHATEVER PATH ADDS IT.
+
+   There were two Korvyn generators over ONE decomposition, and neither knew the
+   other existed. kdAccept() took explainObj(r).drivers; exPropose()/suggest() took
+   drivers(id).bySeg — which IS byDim(id,'seg'), the very same call — and mapped it
+   to its own reason codes and its own wording. Both pushed into rc.items. Using
+   both, which the UI actively invited ("accept a Korvyn suggestion above" on one
+   surface, "Accept it under Explanation" on the other), double-booked the whole
+   explanation: measured on Tenant recoveries, 100% explained / 0.0 residual became
+   200% explained / 1.4 residual — a signable line taken to broken, silently.
+
+   A driver now carries a STABLE KEY onto the item it becomes, and every path that
+   turns a driver into an item goes through kdAddDriver(). Accepting the same driver
+   twice is therefore impossible rather than merely discouraged: the guard lives in
+   the writer, not in each of the three call sites that used to push their own. */
+function kdKeyOf(d){ return (d.kind||'seg')+':'+String(d.k); }
+function kdHasDriver(rc,key){ return !!key&&(rc.items||[]).some(it=>it.kdKey===key); }
+/* Returns true only when it actually added, so a caller can report what it SKIPPED
+   rather than quietly doing less than its button said. */
+function kdAddDriver(rc,d,o,edited){
+  const key=kdKeyOf(d);
+  if(kdHasDriver(rc,key))return false;
+  /* Two shapes reach this: a raw driver off explainObj(), and a suggestion that was
+     already given its reason and wording when it was proposed. Take what is there
+     rather than recomputing, or an edited suggestion would revert to the generated
+     sentence on the way in. */
+  rc.items.push({
+    amt:(d.amt!=null?d.amt:d.d),
+    reason:d.reason||kdReason(d),
+    note:d.note||kdItemNote(d,o),
+    ev:d.ev||'',files:[],
+    kdKey:key, src:edited?'korvyn-edited':'korvyn', by:meStr(), at:stamp()});
+  return true;
 }
 function kdItemNote(d,o){
   const sh=o.mv?Math.abs(d.d/o.mv*100):0;
@@ -10137,25 +10181,31 @@ function drivers(id){
 
 /* Draft explanation items straight from the decomposition. The reviewer edits and
    signs; they never start from an empty box. */
+/* SUGGESTIONS COME FROM THE SAME OBJECT THE DRAFT DOES. This used to walk
+   drivers(id).bySeg / rollforward(id).parts and apply its own reason map and its own
+   sentence — a second reading of a decomposition explainObj() had already made, which
+   is how one line could carry two Korvyn explanations of one movement in two
+   vocabularies. One source, one reason mapping (kdReason), one wording (kdItemNote).
+
+   Drivers ALREADY on the line are filtered out, so regenerating after accepting a
+   draft proposes what is genuinely left rather than offering the same four again. */
 function suggest(id,d){
-  const out=[];
-  if(S.stmt==='is'){
-    drivers(id).bySeg.slice(0,4).forEach(x=>{
-      const rmap={acq:'acq',dispo:'dispo',dev:'dev',lease:'dev',same:'vol',corp:'oth'};
-      out.push({amt:x.d,reason:rmap[x.k]||'oth',
-        note:segName(x.k)+' portfolio '+(x.d>=0?'contributed':'reduced')+' '+fmt(Math.abs(x.d))+
-             ' of the movement ('+fmt(x.pri)+' \u2192 '+fmt(x.cur)+').',ev:''});
-    });
-  }else{
-    rollforward(id).parts.slice(0,4).forEach(p=>{
-      const rr=p.acct.startsWith('159')?'dep':p.acct.startsWith('15')?(p.v>=0?'add':'ret')
-        :p.acct.startsWith('27')?(p.v>=0?'add':'ret'):'time';
-      out.push({amt:p.v,reason:rr,note:p.l+' of '+fmt(Math.abs(p.v))+' in the period.',ev:''});
-    });
-  }
-  const gap=d-out.reduce((t,x)=>t+x.amt,0);
-  if(Math.abs(gap)>thr().tol*matFac())out.push({amt:gap,reason:'oth',
-    note:'Remaining movement not attributed by the decomposition \u2014 confirm and describe.',ev:''});
+  const r=rows().find(x=>x.id===id); if(!r)return [];
+  const rc=rec(id,true), o=explainObj(r);
+  const out=o.drivers.filter(x=>Math.abs(x.d)>0.0005)
+    .filter(x=>!kdHasDriver(rc,kdKeyOf(x)))
+    .slice(0,6)
+    .map(x=>({k:x.k,kind:x.kind,nm:x.nm,d:x.d,pri:x.pri,cur:x.cur,
+      amt:x.d,reason:kdReason(x),note:kdItemNote(x,o),ev:''}));
+  /* The unattributed remainder is a proposal like any other, so it takes a key too —
+     otherwise it is the one row that can still be accepted twice. It is measured
+     against what the LINE already holds, not against this list alone: accepting a
+     draft first would otherwise leave a "gap" that double-counts what is explained. */
+  const held=(rc.items||[]).reduce((t,x)=>t+x.amt,0);
+  const gap=d-held-out.reduce((t,x)=>t+x.amt,0);
+  if(Math.abs(gap)>thr().tol*matFac()&&!kdHasDriver(rc,'gap:rest'))
+    out.push({k:'rest',kind:'gap',nm:'Unattributed',d:gap,amt:gap,reason:'oth',
+      note:'Remaining movement not attributed by the decomposition \u2014 confirm and describe.',ev:''});
   return out;
 }
 
@@ -13096,8 +13146,13 @@ function exPropose(){
 function sugAccept(i){
   const rc=rec(S.sel,true), x=rc.sugs[i];
   if(!x){toast('That suggestion is no longer there');paintDrawer();return;}
-  rc.items.push({amt:x.amt,reason:x.reason,note:x.note,ev:'',files:[],src:'korvyn',
-    by:meStr(),at:stamp()});
+  /* the same writer the draft uses — accepting a suggestion for a driver already on
+     the line is a no-op, not a second copy of it */
+  if(!kdAddDriver(rc,x,null,false)){
+    x.status='dismissed';
+    renderAll(); toast('That driver is already explained on this line');
+    return;
+  }
   x.status='accepted';
   logA({line:S.sel,act:'accepted a Korvyn suggestion',after:itemStr(x)});
   if(rc.status==='returned')rc.status='draft';
@@ -13116,14 +13171,22 @@ function sugDismiss(i){
   renderAll();
 }
 function sugAllAccept(){
-  const rc=rec(S.sel,true); let n=0;
-  rc.sugs.forEach((x,i)=>{if(x.status==='proposed'){sugAcceptQuiet(rc,x);n++;}});
-  logA({line:S.sel,act:'accepted all Korvyn suggestions',detail:n+' items'});
-  renderAll(); toast(n+' suggestion'+(n===1?'':'s')+' accepted');
+  const rc=rec(S.sel,true); let n=0, skip=0;
+  rc.sugs.forEach(x=>{ if(x.status!=='proposed')return;
+    if(sugAcceptQuiet(rc,x))n++; else skip++; });
+  logA({line:S.sel,act:'accepted all Korvyn suggestions',
+    detail:n+' items'+(skip?', '+skip+' already on the line':'')});
+  renderAll();
+  toast(n?n+' suggestion'+(n===1?'':'s')+' accepted'+
+      (skip?' \u2014 '+skip+' already explained':'')
+    :'Every suggestion is already on this line');
 }
+/* Through the same writer as the draft, so a suggestion and a draft can never both
+   add the same driver. Returns false when it was already there. */
 function sugAcceptQuiet(rc,x){
-  rc.items.push({amt:x.amt,reason:x.reason,note:x.note,ev:'',files:[],src:'korvyn',by:meStr(),at:stamp()});
-  x.status='accepted';
+  const ok=kdAddDriver(rc,x,null,false);
+  x.status=ok?'accepted':'dismissed';
+  if(!ok)return false;
 }
 function sugAllDismiss(){
   const rc=rec(S.sel,true); let n=0;
@@ -13232,9 +13295,15 @@ function exSave(){
        the Korvyn draft lands as korvyn-edited; only something typed from nothing is
        'user'. `fromKd` is what kdEdit sets, and without it the draft-edit path was
        indistinguishable from original human authorship. */
+    /* THE DRIVER KEY SURVIVES THE EDITOR. Without it, editing a suggestion and then
+       accepting the same driver from the draft would put it on the line twice — the
+       edit would have laundered away the only thing that makes the guard work. */
+    const sgKey=(exEdit.sug!=null&&rc.sugs&&rc.sugs[exEdit.sug])
+      ? kdKeyOf(rc.sugs[exEdit.sug]) : undefined;
     const it={amt,reason,note,ev,files:[],
       by:meStr(),at:stamp(),
       src:(exEdit.sug!=null||exEdit.fromKd)?'korvyn-edited':'user',
+      kdKey:sgKey,
       kdVer:exEdit.fromKd||undefined};
     rc.items.push(it);
     /* ONE ENTRY PER SAVE. Each branch is a different provenance story and only one
