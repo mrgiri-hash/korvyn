@@ -1330,6 +1330,850 @@ suggestions→draft, draft twice, and edit-a-suggestion→draft: coverage never 
 100%, no line accumulates duplicate items, and the edited item stays edited while the
 draft adds only the drivers it does not already hold.
 
+## 2026-08-29 — the full screen is brought onto the dock's grammar
+
+Owner's direction: refine the inspect panel and **review the full-screen version**,
+"make everything consistent". The pass above brought the DOCK onto the reference's
+shape and left the full page behind it on eight counts. Every one below was measured
+before it was changed, and every one is a case of the same rule being enforced at one
+density and not the other.
+
+**OVERVIEW MEANS THE SAME THING AT BOTH DENSITIES.** `RW_LAYOUT.page` mounted the FULL
+contents of four other tabs into the page's Overview — the drill, the evidence table
+and its financial source, the whole comment thread and composer, the period trend, the
+prior-period explanation and the activity log: **thirteen regions** against the dock's
+five. Since full screen started swapping rather than scrolling (2026-08-28), that left
+six tabs of which one contained five, so `evid`, `drill`, `prior`, `trend`, `trail` and
+the thread were each reachable two ways — which is exactly how the two compositions
+drifted apart in the first place.
+
+It is now the reference's five, in the three columns' own argument:
+
+| Column | Parts |
+|---|---|
+| **judge** — is this defensible, and what is stopping it | `explain` · `attn` |
+| **comp** — the decomposition and its support | `drivers` · `evidRow` |
+| **rec** — the record and the conversation | `reviewer` · `cmtPeek` |
+
+`attn` is the ONE page-only addition and that stays deliberate: the itemised blockers
+need room a 440px dock does not have. `evidRow` and `cmtPeek` are the same summaries
+the dock uses — a count and a chevron through to the tab, never a second copy of it.
+Everything that left is one click away on the tab that owns it, and each is now in
+exactly one place. **Do not re-mount a tab's full contents into Overview.**
+
+**`drivers()` had a hard `if(X.page)return ''`.** So the card the reference calls Key
+drivers — one of its five — did not exist at the density with the most room for it, and
+`drill` stood where it should have been **with no section title at all**: a nameless
+band in a stack of named ones. The guard is gone; the drill is the Drivers tab's own
+content, which is what that tab is for.
+
+**A SOLO TAB'S BANDS ARE THE SAME BANDS OVERVIEW'S COLUMNS DRAW.**
+`#fxRoot .rw-col.solo .rw-rg+.rw-rg` is one id and FOUR classes and so beat the page's
+card rule (one id, three) — so from the second band down every solo tab drew a 20px
+margin, a 20px top padding **and** a top border directly under the previous band's
+bottom border. Measured: Evidence and History at `20px 16px 16px` against Overview's
+flat `16px`, and History's middle band carrying `border-top:1px` *and*
+`border-bottom:1px` — **two hairlines 20px apart** where every other band in the panel
+has one. The `:not(.rw-card)` guard had been carried over from the rule above it, where
+it exists to stop a card losing its own top edge; here it excluded precisely the
+elements that needed the reset. Two rules now: the reset undoes the `.solo` separation,
+and a second restores the card's own `padding-top` — zeroing it for everything put the
+title hard against the hairline (caught on the first pass).
+
+**THE CARD TITLE IS ONE COLOUR.** `.rw-card .rw-sec` declares `color:var(--ink)` where
+the card treatment is defined and **neither density was getting it**:
+`#fxRoot.aw .fx-detail .rw-sec` (`--hint`) and `#fxRoot.aw:not(.dw-page) …` (`--muted`)
+are each declared later and each wins its tie on source order, so the same title
+rendered **n-600 in the dock and n-500 on the page** — two ramp steps apart, which reads
+as two kinds of heading rather than as a drift. Restored to the declared intent rather
+than picking a winner between the two accidents: a card states its own name, so the
+name is ink; the quiet tracked label those rules were written for is a BARE `.rw-sec`
+on a band, which they still govern.
+
+**ONE TAB ORDER AND ONE BADGE RULE.** The dock read Overview · Comments · Evidence ·
+History; the page read … Evidence · Comments · History — one vocabulary presented in
+two orders, so the tab a reviewer reaches for moved when the panel changed size. The
+page also showed a bare gap dot on Evidence and **nothing at all** on History, so the
+same tab answered "how much is here?" in the dock and refused to on the full screen.
+Both strips are declared as data now (`FX_DOCKTABS` beside `FX_PAGETABS`) and read one
+`badgeOf()` — the two hand-written literals with two badge rules inside them are what
+let the orders and the counts diverge. Rule 12 is unchanged: a `.ct` count is quiet
+inventory, the dot is the one thing action-owed. The two page-only analytical tabs sit
+together straight after Overview, which is the order the drill-down is walked.
+
+**THE WORKLIST TILES NEVER STOOD DOWN.** `#fxRoot.dw-page>.fx-work{display:none}` is one
+id and two classes; `body.fx-mercury #fxRoot .fx-work{display:flex}` is one id, two
+classes **and an element**, and later in the sheet — so the tiles out-specified their own
+stand-down and stayed on screen (measured `display:flex`, 64px) above a sheet whose
+whole point is to take the screen. Exactly the family of trap the neighbouring comment
+already warns about for the margin shorthand: **that subtree restyles rows page mode has
+already retired, so scope the restyle to the density that has the rows**
+(`#fxRoot:not(.dw-page)`), never by adding `!important` to the stand-down.
+
+**"Conversation" was still a second name for the thread.** The 2026-08-29 ruling above
+records that the tab, the header and the Overview peek all say *Comments*; the tab was
+renamed and **the card header was not**. Renamed at the one call site.
+
+**An empty state is still a band.** `cmtStream` is in `RW_NOCARD` because its normal
+output is a list of message cards — but with nothing to say it returns a bare
+`.rw-quiet`, which inherited padding from nothing and printed "Nothing said yet." hard
+against the panel edge, **16px left of every other word in the panel**. Same fault on the
+page, where the part mounts in a bare `.rw-rg`. One rule covers both.
+
+**The panel's one segmented control takes the panel's control shape.** Inherited from
+the global `.seg`, the General ledger filter was the only control in the inspector at
+`--h-btn` (28px) while every button beside it is a `.sm` at `--h-btn-sm` (26px), and its
+selected segment was a **filled cobalt** — a second filled primary competing with the
+footer's real one, which is rule 13. It takes the tinted selected state this app already
+uses for a chosen option everywhere else (`#fxRoot .tbtn.on`, the `.pop` single-select
+row).
+
+**Checked and found already correct**, so they are recorded rather than re-fixed: the
+tab strip's text rail (the button box starts 10px left of the rail, its *text* lands on
+it — `padding:0 calc(var(--s-4) - 10px)` plus the button's own 10px, by design); the
+`--s-4` content rail across header, bands and footer in both densities (237 on the page,
+982 in the dock, every element); and the scrollbar gutter reservation.
+
+**Verified:** 60/60 views render; **160/160** combinations of 16 statement lines × 4 dock
+tabs and 6 page tabs render with content; console clean; 10/10 chrome themes pass AA;
+dark mode holds in both densities with the ink title reading light-on-dark and no
+bright-line artifacts. Every band in every tab at both densities now measures
+`padding:16px` with a single bottom hairline and the last band in a column carrying
+none.
+
+**Still open, and deliberately not changed here** — the full page's solo tabs draw one
+bordered, 12px-radius column card on the gray body. That is the documented page
+treatment (three columns side by side each have to read as their own document), but with
+only ONE column it is a box inside the panel frame. Worth an owner's call rather than a
+unilateral change.
+
+## 2026-08-29 — comments follow the explanation they answer (peek and reply, not the thread)
+
+Owner: *"wouldn't it be much better from the UX perspective that the comments are right
+below the explanation — user/reviewer are making comments based on the explanation?"*
+Correct about the defect, and this is the third time this has been in play, so the
+numbers are recorded with the decision.
+
+**What was wrong.** `cmtPeek` closed Overview, fifth of five. Measured on a typical
+line in a 572px dock body: Explanation 0–229, Key drivers 229–441, Workflow & review
+441–637, Evidence 637–704, **Comments 704–771** — the last thing said about the line
+sat **132px below the fold and four cards away from the words it is about**. A reviewer
+who had just read an explanation and wanted to question it scrolled past the whole
+panel to find the box.
+
+**Why not the whole thread**, which is what the 2026-08-29 pass above briefly did before
+the reference composition was restored. The Comments tab measures **346px with an empty
+thread and 789px** on `ga`, the one seeded line with three messages. Mounted under the
+Explanation card that pushes Workflow & review — status, coverage, residual, who is
+next — from y=441 to **y≈1150: two screens below the words being judged**. The panel
+would bury the verdict under the conversation, which is the opposite failure.
+
+The argument that carried the inline version has also since been retired by another
+change: **a Return already posts its reason into the thread**, so the reviewer standing
+at the point of decision is no longer without a way to say why.
+
+**What shipped.** `cmtPeek` is SECOND — `['explain','cmtPeek','drivers','reviewer',
+'evidRow']` — and carries the last message plus `cmtComposer()`, the same one-line
+composer the Comments tab uses, which reveals its byline and Post/Clear only once there
+is a draft. The archive, the filters, the threaded replies and the "awaiting" worklist
+stay on the tab that owns them. Measured cost: the Comments card goes 67px → 145px
+(188px with a message), so Workflow & review moves 441 → 586 in the dock. **The verdict
+was already below the fold at 441 in a 554–613px body**; the state band at the top of
+the panel and the footer's actions are what is pinned, and neither moved.
+
+**The page follows** — `page.judge` is `['explain','cmtPeek','attn']`, `comp` is
+`['drivers','evidRow']`, `rec` is `['reviewer']` alone. On 1184px the three columns are
+all in view, so the peek was below no fold there — but the panel must not answer "where
+do I reply to this?" two different ways depending on its width.
+
+**THE REFERENCE'S CARD ORDER IS WHAT THIS TRADES AWAY**, knowingly: `apps/review` reads
+Explanation · Key drivers · Workflow & review · Evidence · Comments. Adjacency to the
+explanation beat matching that order. The five cards and their contents are otherwise
+untouched. **If this is ever reversed again, reverse the ORDER, not the composer** —
+the reply box beside the explanation is the thing that was actually asked for.
+
+**Standing down is not the same as disappearing.** `cmtComp` may render nothing while
+`S.cmtReplyTo` is set, because the composer it defers to is three rows above it inside
+the group it is aimed at. From Overview that box is on another tab, so the same silent
+stand-down just deletes the reply affordance — click Reply, come back to read the
+explanation, and the box is gone. The peek renders `.rw-peekaim` instead: one quiet line
+naming where the reply is, with a button back to it. Round-trips verified, including
+Cancel restoring the composer.
+
+**One composer, one caret** — the peek and `cmtComp` both emit `#cmtIn`, and they are on
+different tabs in both densities. Asserted: across **160** combinations of 16 lines × 4
+dock tabs and 6 page tabs there is never more than one `#cmtIn` in the document.
+
+**Verified end to end:** typing sets `.live` with no repaint (the caret contract
+`cmtField` holds); posting from Overview writes to the thread, moves the peek count
+0 → 1, updates the last-message line to what was written, updates the Comments tab
+badge, clears the draft and leaves the reviewer on Overview. 60/60 views · 160/160
+tab/density combinations · console clean · 10/10 chrome themes AA · dark mode holds in
+both densities · band grammar unchanged (every band still `padding:16px` with one bottom
+hairline).
+
+## 2026-08-29 — Overview, Evidence and History against the reference, card by card
+
+Owner's direction with the reference inspector's three screenshots. Everything here is
+either a structural gap against that specimen or a rule the panel was breaking to get
+closer to it. **Where the reference uses colour and this system does not, the system
+wins** — that ruling is made three times below and it is the through-line of the pass.
+
+**KEY DRIVERS FOOT IN PLAIN INK.** Every driver row and the Total carried
+`.dlt.up`/`.dlt.dn`, so a card whose entire job is a decomposition adding to a total
+rendered as four or five green figures over a green Total. Rule 3 read backwards: red,
+amber and green are STATE, "never decoration, never a series colour", and a driver
+amount is exactly a series value. The one state on the line is already coloured, once,
+in the header band's Variance cell. The explicit `+`/`−` sign carries direction
+losslessly — which is what a footing schedule uses — and survives greyscale and all ten
+chrome themes. The reference prints them plain too.
+
+**WORKFLOW & REVIEW GAINS A CLOCK, AND IT IS A REAL ONE.** The reference closes on
+"Target sign-off · Aug 5, 2026 · 4 days left"; this model has **no per-line sign-off
+target**, and inventing one would assert a control nobody built — the same reason the
+evidence table derives Verified/Pending from the line's own sign-off rather than badging
+a document-approval workflow that does not exist. What does exist is the explanation
+REQUEST raised on the line, with a real due date and a real lateness instant. The row is
+**Response due**, under its own honest name, and it is absent when no request is open
+rather than printing a placeholder. Matched on line AND statement AND period — a request
+raised against another comparison is not this line's clock.
+
+*Count days end-of-day to end-of-day.* `dueParts()` sets `dueTs` to 23:59:59.999 of the
+due day, so `Math.ceil((dueTs - Date.now())/864e5)` turns a request the controller chose
+as "In 5 days" into "**6 days left**" for all but the last second of today (observed).
+Measured against the end of today it is a whole number by construction and reads back
+exactly what was chosen.
+
+**A FILE STATES ITS TYPE.** Every document rendered the same `▤` glyph, so a reviewer
+scanning evidence could not tell the PDF approval from the XLSX rollforward without
+reading the extension off the end of a name the table truncates. The reference
+distinguishes them **by colour** — a red PDF icon, a green spreadsheet — which is not
+available here (rule 3; a file format is not a state). `fileKind()` renders a short
+monochrome tag instead: it sits at the START of the row so truncation cannot eat it, and
+gives the names a common left edge. One helper, read by the Overview card and the
+Evidence table both, so the two speak one vocabulary. 5.73:1 light, 6.62:1 dark.
+
+**"+ Add document" WAS AN EMPTY FIELD.** Its rule sits inside the comment composer's
+block and had picked up the composer's shape — solid hairline box, left-aligned muted
+text, `cursor:text` — on a control whose only act is to open a file picker. Dashed,
+centred, accent ink: what the reference draws and what the pattern means everywhere
+else. An outline, not a fill, so the footer's Submit is still the panel's one filled
+primary (rule 13).
+
+**THE ACTIVITY TIMELINE: THE GLYPH CARRIES THE KIND, COLOUR CARRIES THE STATE.** Four of
+`RW_ACTS`' seven rules painted a state colour on an event that is not a state —
+submitting and reassigning were amber, **attaching a document was green**, a comment took
+the accent — so a line worked normally for a week read as a column of alarms and
+successes, and three attachments in a row said "three things passed". Colour is now the
+two events that ARE states (approved; returned or reopened), so a healthy review reads
+monochrome and the one amber disc in a timeline is worth looking at.
+
+The table grew to ten rules and **every act string `logA()` actually writes now maps to a
+specific glyph — nothing falls through to the generic bullet** (asserted by evaluating
+the shipped `RW_ACTS` against all 27 of them). Order is precedence and three pairs were
+wrong or missing:
+
+- `/withdraw/` **never matched anything** — `logA` writes "with**drew** the explanation
+  request", which the longer stem misses; it fell through to `/request/` and reported a
+  withdrawal as a request. Match the stem, `/withdr/`.
+- `/request/` must precede `/explan/` — "requested an explanation from …" contains both.
+- "completed the review at …" reached no rule at all: `/reviewed/` does not match "the
+  review". It is named in the approval rule now.
+
+**A DENSITY CHANGE IS NOT AN AUDIT EVENT.** `dwPage()` logged "opened the full review
+page" / "returned to the docked workspace" into the LINE'S append-only record — a view
+toggle in a trail whose own caption promises that edits record the value before and
+after. Nothing changed, so there was nothing to record, and it was not harmless: reading
+one line at both densities during a single session drove its History count **from 0 to
+9** (observed), burying the two entries that were real. Worse, "returned to the docked
+workspace" matches `/return/`, so every collapse badged itself amber as though the
+reviewer had sent the line back to its preparer.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10
+chrome themes AA · band grammar unchanged (226 + 186 + 32 across the three shapes) ·
+never more than one `#cmtIn` · the trail holds at 4 entries across two full-screen
+round trips · new elements measured in both modes — type tag 5.73/6.62, Add document
+7.29/8.63, the due pill 6.32/7.32, the neutral activity badge 6.32/7.32.
+
+## 2026-08-29 — the content plane had no contrast gate, and it showed
+
+Owner, comparing a BlackLine screenshot: *"why does it look so clear — is it the font or
+the background?"* Neither, mostly. Their Analytics tab shows six objects; the Flux page
+renders 204 text nodes, 194 of them at 12px or smaller. That part is a product difference
+and not fixable by styling. What WAS fixable is the second cause: **a large share of this
+app's small text was painted in greys that fail WCAG AA**, and nothing checked it.
+
+**`check_chrome_themes.mjs` covers the CHROME plane — ribbon, rail, close strip — and it
+has been passing 10/10 the whole time.** The content plane had no gate at all. A DOM sweep
+of all 60 views in both modes found **3,641 text elements below the AA floor**, including
+the four period labels under the inspect panel's header figures (2.36:1), "Korvyn draft —
+not yet accepted by a preparer" (2.36:1) and the statement's "3 lines · 1 open" (2.09:1).
+
+**THE RAMP ALREADY SAID SO.** `--n-400`'s own comment is *"placeholder, disabled, trailing
+glyphs"* — and `--faint` pointed at it while **141 CSS rules and 9 JS literals used it as
+`color:` for real words**. This was documented misuse, not a judgment call. `--faint` is no
+longer a foreground: the only two survivors are a `::placeholder` and one `[disabled]`
+control, which are the two contrast exemptions WCAG actually grants.
+
+**`--hint` PASSED ON A CARD AND FAILED ON THE PAGE.** `#6B7285` reads 4.80:1 on `--surface`
+but **4.25:1 on `--bg` / `--n-100`** — so the same label cleared AA inside a card and failed
+on the page background and on every section-header bar. Light `--n-500` is nudged 30% toward
+n-600 (`#656C7F`): worst 4.64:1 across all six content surfaces, still a visible 1.24:1 step
+from n-600, dark ramp untouched. That makes the step's own stated role — "secondary text,
+labels" — true for the first time.
+
+**WHITE INK ON A SEMANTIC FILL INVERTS AND NOBODY HAD NOTICED.** `--on-accent` / `--on-neg`
+are `#FFFFFF` in BOTH token blocks. That is right in light mode (white clears AA on every
+semantic: warning 5.42, pos 5.40, neg 5.62, accent 5.50, accent-2 4.95) and wrong in dark,
+where the semantics go LIGHT: **2.19:1 on the dark amber, 2.21 on green, 2.68 on the
+accent** — measured on the close-timeline segments and the `.n.q` count badge, the two
+places a fill is coloured from DATA so no CSS rule states the pairing. New token
+**`--on-fill`**: white in light, `#141824` in dark, worst 5.40/5.77. It cannot be
+`var(--n-900)` — that step inverts too.
+
+Also: `.th-sort .ar` (the sort caret, an affordance) was painted in `--n-300`, a BORDER
+step, at 1.43:1; `.t.krv` used `--ai` (the surface hue) where `--ai-ink` is the reading
+colour, 4.47:1; and light `--accent-2` read 4.37:1 as a figure colour on `--bg`, nudged
+`#0E7C86` → `#0D757E` (4.83 on `--bg`, 5.47 on white).
+
+**Result: 3,641 → 0.** What remains is 21 elements across two separator classes — a `·`
+between two labels and a `›` between two lifecycle stages. Those are decoration, WCAG
+exempts decoration, and making them legible would make them compete with the text they
+separate. They are named in the checker's `DECORATIVE` list so the decision is recorded
+rather than passing silently; if either ever carries meaning it leaves that list rather
+than gaining an exception.
+
+### `tools/check_text_contrast.mjs` — the gate that was missing
+
+Three gates, one per way this happened, all static and all reading the tokens out of
+`index.html` rather than restating them:
+
+| Gate | Catches |
+|---|---|
+| **ROLE** | a TEXT token failing AA on any content surface in either mode — the `--hint` case |
+| **USE** | a NOT-A-FOREGROUND token appearing as a `color:`, in CSS **or in a JS style string** |
+| **ON-FILL** | `--on-fill` failing AA on any saturated semantic in either mode |
+
+The JS-literal arm is not belt-and-braces: after every CSS rule had been moved off
+`--faint`, the statement still rendered "Not applicable" at 2.36:1 because its colour was
+assembled in a template (`c:'var(--faint)'`). A CSS-only scan would have declared victory.
+
+**Negative-tested, because a gate that only ever passes is worthless.** Each of the three
+was re-broken in turn against a backup and each failed with the right message and exit 1 —
+ROLE reported `--hint on --bg = 4.25:1`, USE named both the CSS line and the JS literal,
+ON-FILL listed all five fills at 2.19–3.07.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10
+chrome themes still AA · 0 content text failures in light and dark. One scanner lesson
+worth keeping: **kill transitions before measuring computed colour.** `.cp-ubtn` and others
+carry `transition:` on all properties, so a sweep that flips the theme and measures
+immediately reads mid-transition values — that produced ~1,200 phantom failures until
+`*{transition:none!important}` went in.
+
+## 2026-08-29 — the card title steps up: `--fs-card` 15px → 17px
+
+Owner's direction, and the third of the three causes behind *"why does BlackLine look so
+clear"*. The first is density and is a product question; the second was contrast and is
+fixed above; this is the last one that is purely typographic.
+
+**A card has to resolve as ONE OBJECT before any of it is read**, and what carries that is
+the jump from its title to its body. At 15px/500 over 12px/400 the jump was **1.25× and one
+weight step** — which is why a screen of six cards read as one continuous field of text
+beside a reference whose titles step roughly 1.6×. 17px takes it to **1.42× on size alone.**
+
+**No third weight, deliberately.** Design rule 7 admits two — 400 and 500 — and the
+reference gets its jump partly from a heavier face. Buying the same effect with size keeps
+the rule intact; if 1.42× still reads soft, the next move is the owner's call to amend rule
+7, not a quiet 600 slipped in here.
+
+**Still six type sizes.** This changes a value in the scale, it does not add one:
+10 / 11 / 12 / 13 / **17** / 20.
+
+**What actually moved, checked rather than assumed.** `--fs-card` has 78 callers and is not
+only titles — the CSS also points figures, two search inputs and the rail wordmark at it, so
+the bump could have enlarged the wrong things. Swept every view for elements now computing
+to 17px: **115 card `h2`s, the panel's `.rw-sec` titles, `fr-title`, `trace-title`,
+`trace-chain-h`, `cp-title`, `cp-lbl`, `card-hd`** — all titles — plus the inspect panel's
+four header figures (`rw-met-v`) and one hero delta, where a step up suits them, and the
+Evidence/Comments jump rows, which are card titles. The at-risk callers I was watching
+(`.ai-body`, `.cmd input`, `.cmdk-in input`, `.residual`, `.det-c .v`, `.rail-name`) are
+**not in the DOM in any reachable state** — dead CSS for surfaces that no longer render. So
+nothing visible was wrongly enlarged, and nothing needed pinning back after all.
+
+**No layout gave way.** Overflow sweep over 13k elements across all 60 views before and
+after: **the same 10 groups both times**, every one pre-existing (SVG attribute artifacts
+and three 3px card-rounding cases). No new clipping, no new wrapping.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10
+chrome themes AA · content text gate clean · panel band grammar unchanged (128 bands at
+`padding:16px` with a bottom hairline, 61 last-in-column without).
+
+**What this step did NOT touch:** the font stack, the spacing scale, the weights, density.
+Verified against the diff — no `--sans`, `--num`, `--s-*`, `--fw-*` or `--h-*` token
+changed. (The two steps below then took the weight and the colour deliberately.)
+
+## 2026-08-29 — a third weight, and the quiet text scale one step darker
+
+Owner: *"complete all 3 steps"* — the remaining two levers from the BlackLine comparison,
+taken knowingly rather than by default.
+
+**A THIRD WEIGHT. THIS AMENDS DESIGN RULE 7**, which said "TWO font weights: 400 and 500".
+`--fw-strong:600` exists now and is spent on ONE thing: the title of a card or panel
+region. With `--fs-card` at 17px that puts a title at 1.42× its body on size and the rest
+of the distance on weight.
+
+- **It is not for figures.** Several `--fs-card` callers are amounts, not titles
+  (`.residual`, `.gltr-hero-d`, `.radar-card .capcol .amt`, `.fr-row.tot .fr-val`,
+  `.hm-node .n`). A heavier numeral says "this number is emphasised", which is a different
+  claim from "this block is called X". They stay at 500, which is why the rule that applies
+  600 **lists its selectors** instead of keying off `font-size:var(--fs-card)`.
+- **FONT-WEIGHT INHERITS, and a title is usually a flex row.** Bolding `.card h2` bolded
+  everything the card hangs beside its name: measured — "View by:", "($214M)", a
+  "Quarterly" button, the ▸ fold caret, six SVG percentages, and in the panel the jump
+  row's count, its "7 awaiting" and its "›". Only the title's own TEXT takes the weight;
+  `.card h2 > *` and friends reset element children to 500, and the jump row is targeted at
+  `.l` rather than at the button.
+- **The rule sits at the FOOT of the sheet.** Each member ties with what it overrides —
+  `.card h2` against `.card h2` — and a tie breaks on source order. `.rw-sec` needed one id
+  and FOUR classes to clear `#fxRoot.aw:not(.dw-page) .fx-detail .rw-sec`, which sets 500;
+  written with three it silently lost (caught in the sweep, not by reading).
+
+**AND THE BROWSER'S OWN BOLD WAS ALREADY A FOURTH WEIGHT.** `b`/`strong` are set to
+`--fw-medium` in about a dozen SCOPED rules, so a `<b>` inside those was fine and a bare one
+anywhere else fell through to the UA default `bolder` = **700**. Measured: **543 elements**
+across the app, undeclared, under a rule that admitted two. They now take `--fw-strong` —
+they are emphasis and are meant to be heavier, and de-bolding 543 of them would be a change
+made for tidiness rather than for reading. **The app now renders exactly three weights:
+400 (4,728) · 500 (2,303) · 600 (680). Nothing arrives from the user agent.**
+
+**THE QUIET TEXT SCALE MOVED ONE RAMP STEP DARKER.** `--muted` is the most-used text colour
+in the app — 61 of 204 text elements on the Flux page, more than `--ink` — and at 6.48:1 it
+was why a screen of labels read soft. Both quiet aliases step down one:
+
+| | was | now |
+|---|---|---|
+| `--ink-strong` n-900 | 17.71:1 | unchanged |
+| `--ink` n-800 | 14.12:1 | unchanged |
+| `--muted` | n-600 · 6.48 / 5.73 on `--bg` | **n-700 · 10.00 / 8.84** |
+| `--hint` | n-500 · 4.80 / 4.25 | **n-600 · 6.48 / 5.73** |
+
+Four levels, all clear of AA on every content surface in both modes, and the whole scale
+darker rather than one rule patched. n-500's own tuning (`#6B7285` → `#656C7F`) still stands
+and is still load-bearing — **85 rules name `var(--n-500)` directly** rather than going
+through `--hint`, and at the old value those read 4.25:1 on `--bg`.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10
+chrome themes AA · content gate clean, worst `--muted` 8.84 and `--hint` 5.73 · band grammar
+unchanged · dark mode holds · **overflow sweep identical to baseline** — the one panel row
+that overflows (`.rw-idrow`, 411>407) measures the same with `--fs-card` and `--fw-strong`
+forced back to their old values, so it is pre-existing and nothing is clipped (controls at
+1725 inside a panel edge at 1737).
+
+## 2026-08-29 — the type and density passes go PLATFORM-WIDE, and the CDN font dependency goes
+
+Owner: *"I need you to update the fonts/density etc for the entire platform — I can see that
+you did not [make] platform wide changes."* Correct on both counts, and the second one had a
+specific cause worth recording.
+
+**THE CHROME PLANE WAS EXCLUDED, AND THE CHROME IS WHAT YOU SEE ON EVERY SCREEN.** The
+contrast, weight and size passes above moved `--muted` / `--hint` / `--fs-card` /
+`--fw-strong`. The ribbon, rail and close strip do not use any of them — they run on
+`--chrome-text*`, driven by the ten theme definitions, and only **6 of 152** chrome rules
+reference `--muted`/`--hint` at all. So every one of those passes was genuinely platform-wide
+*across the 60 content views* and changed nothing about the frame around them. Measured
+before: ribbon nav 13px/400, rail items 12px/400, close strip 11px/500 — untouched.
+
+### The font was never the app's own
+
+`index.html` declared **zero `@font-face`** and carried
+`@import url('https://fonts.googleapis.com/css2?family=Inter&family=Newsreader&family=IBM+Plex+Mono')`.
+So two recorded claims were false: *"no build step, no external runtime dependencies"* and
+*"it keeps the file self-contained — no `@font-face`, no CDN"*. Every open made a network
+request, and offline or behind a locked-down network the whole type system silently fell
+back. **Inter was already being fetched and then not used**, because `--sans` led with Segoe.
+
+- **Inter is embedded** (71KB variable woff2, lifted from `apps/review`, which has shipped it
+  all along) and leads `--sans`. This does not overrule the 2026-08-28 decision, it retires
+  its reason: *"leaving it first would mean the change is invisible on any machine that has
+  it installed"* was an argument against relying on a LOCAL install. Embedded, every machine
+  renders the same face.
+- **IBM Plex Mono is embedded**, three weights — 400/500/600, matching the declared scale.
+  700 is deliberately not shipped: `b,strong` is pinned to 600, so nothing asks for it.
+- **Newsreader is dropped** and `--serif` falls back to Georgia. Three callers, all AI-panel
+  prose. A network dependency for three italic paragraphs is not a trade worth making.
+- **The `@import` is deleted.** `document.fonts` now lists exactly two families, both from
+  embedded payloads, and the page issues **no font network requests**. Self-containment is
+  true for the first time. +167KB on a 2.6MB file.
+
+**Inter is 6.5% wider than the face it replaced**, which in a `white-space:nowrap` app is a
+real risk. Swept all 60 views: overflow groups went **10 → 7** — the extra card padding
+resolved three pre-existing ones and Inter introduced none. **Tabular figures are exact,
+0.000px spread across all ten digits**, so every numeric column still aligns (rule 14).
+
+### Density, at the tokens
+
+Every value below was OFF the 4px `--s-*` scale the system declares, which is why the app
+read tight and slightly arbitrary rather than tight and deliberate. Each moves to the nearest
+step up, so the platform gains air in one place rather than in 800 rules:
+
+| token | was | now | reach |
+|---|---|---|---|
+| `--pad-card` | 13px | **16px** (`--s-4`) | 129 cards |
+| `--pad-cell` | 0 10px | **0 12px** (`--s-3`) | every table |
+| `--pad-kpi` | 9px 16px | **12px 16px** | every KPI strip |
+| `--pad-toolbar` | 7px | **8px** (`--s-2`) | every toolbar |
+| `--h-section` | 28px | **32px** | equal to `--h-tab` now |
+| `--row-h` | 40px | **44px** | 459 rows |
+
+**`--row-h` is the one that costs something** and it is the biggest single lever on how the
+product feels: +4px on every row in the product. Dial it back HERE, never in the rules that
+read it.
+
+**The reference implementation was opting out.** `#fxRoot .fx-tbl td{height:34px}` was the
+one table in the product ignoring `--row-h` — so the density pass would have moved every
+table except the screen the rest of the product is measured against. It derives from the
+token now (`calc(var(--row-h) - 4px)` = 40px), one step tighter for a stated reason: a flux
+statement puts 25 lines on screen and the review panel takes 440px of it.
+
+**Chrome joined the same scale**: rail items 12px → 13px (`--fs-ui`, matching the ribbon nav
+they belong to), rail rows 6px → 7/8px vertical, and the rail wordmark onto `--fw-strong`.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10 chrome
+themes AA · content text gate clean · **overflow 10 → 7** · rows 44 (459) / 40 (Flux) · card
+padding 16px on all 129 · no font network requests · digit spread 0.000px.
+
+**Still deliberately untouched:** how much is on a screen. Six objects versus 204 text nodes
+is a decision about what a flux reviewer needs in front of them, and it belongs to the
+product, not the stylesheet.
+
+## 2026-08-29 — control heights, line-height and the close strip onto the scale
+
+The token pass above moved the platform's look; this is the rule layer behind it, which
+had not moved. Three things, all measured before and after.
+
+**EIGHT CONTROL HEIGHTS BECAME THREE.** Across all 60 views, controls rendered at 22, 23,
+26, 28, 30, 31, 33 and 36px against four declared tokens — because **almost nothing set
+`height`**. The button family derived its box from `padding:9px` plus a line-height, so a
+control's size was whatever the font happened to make it; only ~9% landed on a token.
+
+Fixed at both ends. The tokens moved toward the air the density pass took —
+**`--h-btn` 28 → 32** (so a standard button, a tab and a filter field are finally the same
+height) and **`--h-btn-sm` 26 → 28**, with `--h-chip` 24 unchanged. Then the strays were
+given a height *from* a token and horizontal padding only: `.btn-out`, `.btn-primary`,
+`select`/`input[type=date]`, `.pgbtn`, `.det-b`, `.dt-btn`, `.selpill`, `.trace-act`,
+`.trace-open`, `.pipe-allbtn`, `.btn-x`, `.ftabs button`.
+
+**Result: 92% of controls on a token (241 of 261), three heights — 32 · 24 · 28.** The
+remaining 20 are unclassed one-offs in single views (bare `<button>` at 33/38/29, three bare
+inputs, `.trace-seg`); they are named here rather than swept, because each needs its own
+view opened to place it and none is a shared component.
+
+`.ftabs button` is on `--h-tab` now but is still **a second tab language** — the design
+system says to add a tab row with the `.ktabs` primitive, never by restyling buttons.
+Converting it is an HTML change across several views and is not in this pass; putting it on
+the token at least stops the product's two tab rows measuring 44px and 32px.
+
+**SIXTEEN LINE-HEIGHTS BECAME THREE.** `--lh-tight` / `--lh` / `--lh-relaxed` already
+existed with sensible values (1.2 / 1.5 / 1.62) and had **four callers**. The CSS carried
+1.02, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.42, 1.45, 1.5, 1.55, 1.6, 1.7 and 1.75
+as literals. **119 declarations** were bucketed to the nearest token; `line-height:1` (×18)
+and `0` (×5) are left alone, being glyph centring rather than typography. Every rendered
+line-height now derives from one of the three.
+
+**THE CLOSE STRIP'S LABELS WERE PROSE AT `--fs-micro`.** `.cstrip-l .tag` ("CLOSE") and
+`.cstrip-m .m .mk` ("Day", "Complete") sat at 10px, and rule 6 reserves micro for "counts,
+badge numerals, ornament captions ONLY". Both are uppercase tracked labels, which is what
+`--fs-label` is for — 10px → 11px on the strip that is on screen at all times.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10
+chrome themes AA · content text gate clean · overflow 7 groups, unchanged.
+
+**Deliberately NOT swept: the off-4px-scale spacing** — **1,089 declarations in the CSS and
+90 in template literals**. Each needs a round-up-or-down judgement, it would change the look
+a third time, and the regression risk is real for a diminishing return. It is gated instead.
+
+### `tools/check_spacing_scale.mjs` — a RATCHET, not a demand for zero
+
+The gate records what is there today and **fails if it grows**. New code lands on the scale,
+old code converges when a rule is touched for another reason, and the number only ever goes
+down. A gate that demanded zero would be red from the first run and switched off by the
+second.
+
+- **Per VALUE, not one total**, so ten fewer 7px cannot pay for ten more 13px.
+- **A value absent from the baseline fails on sight** — the actual case this exists to
+  catch is somebody typing `padding:15px` into a new rule.
+- **CSS and template literals are counted separately.** An inline style built in JS is the
+  same mistake somewhere a stylesheet linter would never look, and one budget must not hide
+  inside the other.
+- **`--baseline` prints the current map, through the same scanner the gate uses.** Recompute
+  it that way, never by hand: the first attempt at this baseline was written by a throwaway
+  script whose regex was escaped wrong, and it was 89 short.
+
+**A HALF-TOKENISED VALUE IS THE POINT, AND THE FIRST CUT MISSED IT.** Skipping any
+declaration mentioning `var()` was the obvious way to avoid counting tokens, and it silently
+ignored `padding:2px var(--s-2)` — a hard-coded literal sitting right beside a token, which
+is exactly the thing worth catching. It strips `var()`/`calc()`/`clamp()`/`min()`/`max()`
+sub-expressions instead and counts what is left, so a fully tokenised value reduces to
+nothing and a mixed one is caught. That correction alone found **44 more**.
+
+**Negative-tested on all four paths**: a new value fails as `NEW`, a half-tokenised value
+fails as `UP` on 7px, a fully tokenised value including `calc(var(--s-4) - 2px)` passes and
+counts nothing, and a genuine fix passes while printing the exact lowered baseline to paste.
+
+## 2026-08-29 — the numerals: one face, one scale, all tabular
+
+Owner: *"the fonts and number size/color texture, height, spacing are not consistent."*
+Right, and measuring it found three real faults the token passes had not touched — one of
+them introduced by this session's own work.
+
+**62 ELEMENTS WERE RENDERING IN ARIAL.** A `<button>` or `<select>` that sets `font-size`
+but no `font-family` falls through to the **user agent's** control font, which is Arial here.
+`font:inherit` was on some button rules and missing from others — `.selpill`, `.trace-row-*`,
+`.trace-act`, `.trace-open`, `.trace-seg`, `.btn-icon` — including **six figures**. That is
+not something that can be kept right rule by rule, so it is one reset:
+`button,input,select,textarea,optgroup{font-family:inherit}`. `<code>`/`<kbd>`/`<samp>` had
+the same hole on the other side, falling through to the UA's generic `monospace` instead of
+the IBM Plex Mono this file now embeds.
+
+**`--fs-figure` WAS SMALLER THAN `--fs-card`, AND THIS SESSION DID THAT.** The figure size
+sat one step ABOVE the card title at 16 vs 15. Raising the title to 17 and leaving the figure
+at 16 inverted it — every KPI value in the product became smaller than the heading above it,
+which is why the stat tiles stopped reading as figures. It is `var(--fs-page)` now: the role
+keeps its own name for its 17 callers and the platform renders one fewer size. A worklist
+figure hard-coding `font-size:22px` in the mercury block went with it.
+
+**THE SCALE IS NOW ACTUALLY THE SCALE.** Chart labels were the last holdouts — SVG `<text>`
+at 9, 15 and `size/4.4` (34px on a large donut), set as presentation attributes, which cannot
+take a `var()`. They are `style="font-size:var(--fs-*)"` now; the geometry-derived donut
+centre is capped with `min(calc(…), var(--fs-hero))` so it stays responsive without inventing
+a size. Eleven glyph rules at 8/9px went to `--fs-micro`.
+
+| measure | before | after |
+|---|---|---|
+| font families rendering | Inter, **Arial**, generic monospace | **Inter + IBM Plex Mono, nothing else** |
+| text sizes off the scale | 16 · 22 · 34 · 15 · 9 · 8 | **none** |
+| numerals tabular | 1649 / 1649 | 1649 / 1649 (this one was already right) |
+| distinct family/size/weight combos | 29 | **20** |
+
+**The declared scale, corrected:** `--fs-micro` 10 · `--fs-label` 11 · `--fs-table` 12 ·
+`--fs-ui` 13 · `--fs-card` 17 · `--fs-page` 20, plus `--fs-hero` 28. `--fs-figure` is an
+ALIAS of `--fs-page`, not a seventh size. The old note that `--fs-hero` "has exactly one
+caller" is stale — it has two.
+
+### The figures are monospace — rule 14 is honoured rather than amended
+
+Owner's call. `--num` was aliased to `--sans` on 2026-08-28, which read rule 14's second
+sentence ("Chrome uses Inter") and dropped its first ("All money, dates, IDs, deltas:
+monospace"). `--num` is `var(--mono)` — IBM Plex Mono, embedded — and **both halves hold at
+once because chrome does not use `--num` at all**: 0 of 152 chrome rules. The two faces never
+blend because they never meet.
+
+**MEASURED BEFORE SWITCHING, not after.** A monospace figure is **13.2% wider** —
+`(1,234,567.89)` goes 89px → 101px at 12px — and this is a dense product with seven numeric
+columns, so the risk was `fxShed()` silently dropping one. Tested by overriding `--num` live
+first: overflow groups 9 before / 9 after with **zero new**, the Flux statement still fitting
+its track exactly (1216 = 1216), and no column shed with the panel open or closed. The
+columns absorb it because their width is driven by the header text, not the figure — the
+sample cell measured *narrower* in mono, 133px against 139px.
+
+**THE SWITCH ALONE ONLY MOVED 75% OF THEM**, and the reason is the interesting part.
+
+- **Seven rules define `.num`** — `.dt`, `.tbl`, `.ic-mx`, `.tbl.fr-filing`, `#fxRoot .tbl`,
+  `.rw-docs`, `.rw-per`, `.acctsurf` — and exactly ONE set a font-family. The other six set
+  `text-align` and `font-variant-numeric` and let the family fall through, so flipping
+  `--num` moved some numeric columns and left others in Inter *in the same table*. One base
+  rule, `th.num,td.num{font-family:var(--num)}`, at the lowest specificity so each of those
+  rules keeps controlling its own alignment.
+- **THE `tabular-nums` HEURISTIC WAS WRONG, AND THE OWNER CAUGHT IT.** The first cut gave
+  `var(--num)` to every rule declaring `tabular-nums`, on the theory that a thing opting into
+  tabular figures IS a figure. **font-family inherits, and `tabular-nums` is routinely set on
+  a CONTAINER or a `th`** — so the sweep put the monospace face on ~700 WORD-bearing elements:
+  152 table headers ("Amount", "Age"), 284 `.ic-mini` sentences ("3 blockers"), 60 provenance
+  lines ("NetSuite · 10 min ago"). Three panels side by side then showed three different
+  faces. It shipped, and the owner saw it before I did — the lesson is to grep the RENDERED
+  result for words-in-the-figure-face after any family change, not to trust the CSS reasoning.
+
+**The face goes on the LEAF that holds the figure, never a container, header or label.** After
+the revert: `td.num` takes it and `th.num` does NOT (a column heading is a word), split out of
+the one rule that bundled them. The display figures are listed as an explicit set of leaf
+selectors (`.hst-v`, `.mc-v`, `.kpi .v`, `.fpkpi .vv`, `#fxRoot.aw .fx-detail .rw-met-v` …) so
+nothing inherits the face into a sibling label. Three rules that hard-coded `--num` on a
+phrase were freed (`.burn-lbl` "46% paid · 60% invoiced", `.pipecol-hd .tot`, `.card-sum`), and
+`.piv td.rowhdr` was pinned back to `--sans` where it had picked up the column's mono.
+
+**Result: pure words rendering in the figure face went 700 → 14**, and the 14 are value cells
+(`.det-c .v` = "✓ Balanced" / "Tie exactly") whose content is a figure most of the time and a
+word occasionally — forcing either face is wrong for the other, so they are left. **1,233
+numerals on the figure face, all tabular, 0 elements clipped.** Verified by spot check: the
+statement cells, the panel's four-figure band and the KPI tiles are mono; table headers, the
+band's period labels, pivot row headers and the whole Korvyn Assistant are Inter.
+
+**The ~300 numerals still in Inter are markup, not CSS**, and are left deliberately: unclassed
+`<td>` account codes that are LEFT-aligned beside a name (a `.num` would wrongly right-align
+them — they need their own class at ~10 template sites), and numbers inside sentences, which
+SHOULD stay Inter because a figure that switches face mid-sentence reads worse than one that
+does not.
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10 chrome
+themes AA · content text gate clean · spacing ratchet unchanged · 0 clipped elements · 14
+word-in-mono cells, all runtime-mixed value cells.
+
+### The inspect panel's tabs disagreed on the figure face — the leaf-list missed the panel's own
+
+Owner, looking at the docked Flux panel: *"each tab's fonts / color shading / numbers looks
+different."* Right, and specific: on Overview the header band read `60.0M` in mono but the Key
+drivers `+0.2` / `+0.6` right below it were **Inter**, while History and Evidence were all
+mono. Same panel, same kind of number, a different face per tab.
+
+Cause: the mono switch's leaf-selector list covered the STATEMENT and the KPI tiles but not
+the panel's own value classes, which each declared `tabular-nums` and no family and so fell to
+Inter — `.rw-kd .v`, `.rw-kd-tot span:last-child`, `.rw-r .v`, `.rw-r .p`, `.rw-tot .v`, plus
+`#fxRoot .rw-per td.num` / `.rw-docs td.num` which out-specify the base `td.num` rule and drop
+its family. All seven now take `var(--num)`.
+
+**And `.mono` — a class literally named monospace — rendered in Inter** everywhere except
+`.rw-fsr .v .mono`, because that was its only rule. The GL-drill account codes and JE ids
+(`class="mono"`, `"pill mono"`) were Inter. One global `.mono{font-family:var(--mono)}` fixes
+every use.
+
+**Result: all six dock tabs are 100% mono figures, 0 Inter, 0 words-in-mono.** The only
+numbers still Inter are `.ct` count badges ("Comments 5"), which sit inline with a word and
+are inventory (rule 12), not figures.
+
+**Spacing, same panel:** the Comments header (`.rw-cbar`) sat 12px above its content while
+every other card title uses 8px (the `.aw` override on `.rw-sec`), so that one card read
+looser. `.rw-cbar` margin-bottom `--s-3` → `--s-2`. Title-to-content gap is now 8px on every
+tab.
+
+### The inspect panel has a 4-STEP TYPE CONTRACT — everything conforms, in both densities
+
+Owner, still: *"you can't make such changes universally … spacing/fonts/color shading are
+inconsistent,"* and then *"the right flux panel is terrible."* Both fair. The pattern was
+reactive — fix a class, claim it, the owner finds the next. So this time the whole panel was
+audited element-by-element in both densities and forced onto ONE explicit scale:
+
+| step | size | use |
+|---|---|---|
+| title | 17px / 600 / `--ink` | card / section title (`.rw-sec`) |
+| **body** | **12px / 400 / `--ink` or `--muted`** | prose, list rows, tables, messages — everything |
+| meta | 11px / 400 / `--hint` | provenance, timestamps, secondary links |
+| count | 10px / 500 / `--hint` | badge numerals |
+
+**The body step was the whole problem.** Half the panel was 13px (`--fs-ui`) and half 12px
+(`--fs-table`) with no principle: Explanation prose, Key drivers, the Evidence table, the
+History balance table, comment author names, activity titles and the GL drill were all 13,
+while Workflow, Comments messages and counts were 12 — so the text changed size card to card
+and tab to tab. **Eleven rules** moved to `--fs-table`: `.rw-expl`, `.rw-kd li`, `.rw-kd-tot`,
+`.rw-figs .who`, `.rw-flist .rw-doc`, `.rw-docs td`, `.rw-per td`, `.rw-ac .t`, `.rw-who`,
+`.rw-msg .who`, `.rw-gl td`, plus the peek `.who`/`.tx`. 12px is the coherent choice because
+it matches the statement grid the panel hangs off. The four things that stay 13px are the
+panel HEADER identity (`.rw-nm` ×2) and controls (`.rw-ib`), not body.
+
+**Colour:** `.gap` ("7 awaiting") rendered `--sev-med` amber while the identical text in the
+Comments header (`.rw-cawait`) was neutral `--hint`. One fact, two colours → both `--hint`
+(a waiting-count is inventory, rule 12, not an alarm).
+
+**Two buttons, two sizes:** Accept (`.btn-primary.sm`, 12px) sat beside Edit
+(`.btn-out.sm`, 11px). Both `--fs-table` now.
+
+**Result, verified element-by-element in BOTH densities across all six tabs:** every body
+element is 12px, every meta 11px, every count 10px, every title 17px — no 13px anywhere, no
+off-scale size, no off-token colour (bar the decorative `--n-300` drill chevron), every
+figure mono. Three off-scale paddings (7px) fixed to 8px; spacing ratchet baseline lowered
+1089 → 1086.
+
+**The honest note:** this was still done by auditing one surface exhaustively, not by a
+mechanism that guarantees it platform-wide. The contract above is the standard; the panel now
+meets it. The next surface (statement, close screens, GL) would need the same element-level
+audit — a "figures are mono / text is on the 4-step scale / colour is a token" consistency
+gate over the RENDERED DOM would be the real universal fix, and does not exist yet.
+
+## 2026-08-29 — the Overview tab, made enterprise grade
+
+Owner: *"I will give you full liberty to make my overview tab enterprise grade."* The
+consistency passes above fixed drift; this is the hierarchy and polish that make a flux
+review panel read as enterprise software. Three structural faults, found by auditing every
+element rather than eyeballing:
+
+**THE SUBJECT WAS BURIED.** The line name — the panel's whole subject — rendered at
+**`--fs-ui` (13px)**, *smaller* than the section titles inside it (`--fs-card`, 17px). A
+reviewer's eye landed on "Explanation" before "Rental revenue". The line name is now
+**`--fs-page` (20px) / `--fw-strong` / `--ink-strong`** — it is the panel's title in the
+literal sense the token is named for, and it stays one line (ellipsis, not shrink) even for
+the longest name ("Transaction and acquisition costs" fits at 20px without clipping or
+colliding with the window controls, verified in both densities).
+
+**TWO LABEL/VALUE CARDS, THREE DIFFERENT TREATMENTS.** Workflow & review and Financial
+source are structurally identical — a stack of label:value rows — but drew nothing alike:
+
+| | label case | label size | value align | label col |
+|---|---|---|---|---|
+| Workflow (before) | sentence | 12px | RIGHT | 104px |
+| Financial source (before) | UPPERCASE | 10px | LEFT | 96px |
+| **both (after)** | **UPPERCASE tracked** | **11px `--fs-label`** | **LEFT** | **100px** |
+
+One field-row system now: an uppercase tracked `--muted` field label in a fixed 100px
+column, and a **left-aligned** value so every value starts on the same pixel and the card
+scans like a data sheet — not Workflow's old ragged right-align. This is the design
+system's own `--fs-label` treatment ("uppercase section label, tracked"), so the two cards
+are byte-identical in type and layout now (verified: label `11/500/UPPER/100px`, value
+`12/left` on both).
+
+**THE RESULT IS A STRICT 5-STEP HIERARCHY** from the six tokens, each with ONE role, and it
+holds across all six tabs in BOTH densities:
+
+| step | token | role |
+|---|---|---|
+| 20 | `--fs-page` | line name (subject) |
+| 17 | `--fs-card` | section titles · header figures |
+| 12 | `--fs-table` | all body — prose, rows, tables, messages |
+| 11 | `--fs-label` | UPPERCASE field labels |
+| 10 | `--fs-micro` | counts, captions |
+
+Verified element-by-element: **dock renders exactly {20,17,12,11,10}, three weights
+{400,500,600}, zero off-scale, zero off-token colour, every figure mono.** Page mode had two
+13px stragglers in the header's below-materiality note (`.rw-state.soft` inherited 13,
+pinned to `--fs-table`); after that, page mode is identically clean.
+
+Row padding moved 7px → `--s-2` (8px) on both cards — on-scale, and the spacing ratchet
+caught a 1px optical nudge I tried to add (removed it; baseline lowered 1086 → 1083).
+
+**Verified:** 60/60 views · 160/160 tab × density combinations · console clean · 10/10 chrome
+themes AA · content text gate clean · spacing ratchet green · long-name stress test passes ·
+both densities on the 5-step scale.
+
+**Still deliberately NOT done** (would need owner direction, not liberty): reordering the
+Overview cards, adding a header verdict band (the reference has none — the classification
+pill carries it), or touching the four-figure band's structure. This pass was hierarchy and
+consistency, which is what "enterprise grade" was missing.
+
+**Later (owner: "focus on UI") — the four-figure band became an instrument strip.** It read
+`gap:0`, four figures edge-to-edge as one blur; now each cell is divided by a hairline
+(`.rw-met + .rw-met` border-left) with `--s-3` breathing room, first/last cells flush to the
+band edges. The variance label was truncating ("Variance · fav…") in a ~100px cell — dropped
+to "Variance" since the cell's colour and its ▲/▼ arrow already carry favourable/unfavourable
+(the word still lives in the statement's F/U column and the Explanation). Verified: 0.5px
+dividers, no label truncation on any line, both densities, gates green.
+
+**Then (owner: "all three") — the variance leads, the pill is a badge, the sparkline is
+refined.**
+- **THE VARIANCE WAS NOT COLOURED, a real bug.** `#fxRoot.aw .fx-detail .rw-met-v{color:--ink}`
+  (1 id + 3 classes) out-specified `#fxRoot .dlt.up`/`.dn` (1 id + 2), so the variance
+  rendered slate on every line — against "colour lands only on the two variance cells".
+  Restored with `.rw-met-v.dlt.up{--pos}` / `.dn{--neg}` / `.n{--muted}` at matching
+  specificity. The variance amount also steps up one size (`.rw-met-v.hero` → `--fs-page`/20
+  vs 17 for Current/Prior), with a fixed 24px line box on `.rw-met-v` keeping all four labels
+  on one baseline. The variance now leads by SIZE and COLOUR — green favourable, red
+  unfavourable (verified both).
+- **The classification pill is a status badge**: UPPERCASE + `--tracking-label`, inline-flex,
+  so "NEEDS REVIEW" / "ROUTINE" read as deliberate tokens, not a soft wash.
+- **The sparkline** trades its flat 7%-opacity fill for a vertical gradient
+  (`linearGradient #rwSpkFill`, accent .16 → 0) and a hollow ring endpoint (surface fill,
+  accent stroke) instead of a solid dot.
+
+Verified: 16/16 lines render, gradient present, console clean, all three gates green (the
+spacing ratchet caught a 2px pill padding and made me revert it to 1px).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
@@ -1345,6 +2189,8 @@ Before concluding a tool is absent, search the filesystem, not just `PATH`. Pyth
 
 ```bash
 node tools/check_chrome_themes.mjs     # index.html chrome themes pass WCAG AA (10 themes)
+node tools/check_text_contrast.mjs    # index.html CONTENT text passes WCAG AA (both modes)
+node tools/check_spacing_scale.mjs     # index.html spacing stays on the 4px scale (ratchet)
 cd packages/core && npm run check      # core: typecheck + 78 tests + import boundary
 cd packages/agent && npm run dryrun    # agent: all tools resolve, no API call
 ```

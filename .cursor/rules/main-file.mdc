@@ -101,7 +101,37 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   so one registry drives both densities; Overview keeps the 3-column argument. All page chrome
   hides under `body.fx-dw-page`; the statement tabs need `!important` (paintSubnav sets
   `display` inline), and the class must be gated on `#fxRoot.offsetParent!==null` or it leaks
-  to other pages. `--rule`/`--rule-strong` are redeclared in the dark block — ramp-derived
+  to other pages. **That same `body.fx-mercury #fxRoot .fx-work` block also beat the page's
+  own `#fxRoot.dw-page>.fx-work{display:none}`** (one id + two classes + an element vs one id
+  + two classes, and later in the sheet), so the worklist tiles stayed on screen through full
+  screen — scope the mercury restyle `#fxRoot:not(.dw-page)`, never `!important` the
+  stand-down.
+- **Overview means the same thing at both densities** (2026-08-29, later). `RW_LAYOUT.page` is
+  the reference's FIVE — judge `explain`·`attn`, comp `drivers`·`evidRow`, rec
+  `reviewer`·`cmtPeek` — not the full contents of four other tabs (it used to mount 13 regions
+  against the dock's 5, so `evid`/`drill`/`prior`/`trend`/`trail`/the thread were each
+  reachable two ways). `attn` is the one page-only addition, because the itemised blockers need
+  room the dock has not. `evidRow`/`cmtPeek` are SUMMARIES with a chevron, never a second copy.
+  **Do not re-mount a tab's full contents into Overview**, and do not give a part an
+  `if(X.page)return ''` guard — `drivers()` had one, so Key drivers did not exist on the page
+  and the untitled `drill` stood in its place.
+- **Comments follow the explanation they answer** (2026-08-29, owner's direction). `cmtPeek`
+  is SECOND in Overview at both densities (`['explain','cmtPeek','drivers','reviewer','evidRow']`;
+  page `judge:['explain','cmtPeek','attn']`) and carries the last message plus `cmtComposer()`.
+  **PEEK AND REPLY, NEVER THE WHOLE THREAD** — the Comments tab is 346px empty and 789px with
+  three messages, which pushes Workflow & review to y≈1150 in a 572px dock body; the peek costs
+  67→145px and moves it 441→586. The archive, filters, threaded replies and the awaiting worklist
+  stay on the tab. This knowingly trades away the reference's card order (…Workflow & review ·
+  Evidence · Comments) — **if it is reversed, reverse the ORDER, not the composer.** The peek and
+  `cmtComp` both emit `#cmtIn` and are never on screen together; while `S.cmtReplyTo` is set the
+  peek renders `.rw-peekaim` (a line naming where the reply is, with a way back) rather than
+  standing down silently the way `cmtComp` can — `cmtComp`'s replacement is visible three rows
+  above it, the peek's is on another tab.
+- **One tab order, one badge rule.** `FX_DOCKTABS` and `FX_PAGETABS` are declared as data
+  beside each other and both read one `badgeOf()`; the four shared tabs keep their relative
+  order (Overview · Comments · Evidence · History) at both densities, with the two page-only
+  analytical tabs straight after Overview. Two hand-written literals with two badge rules
+  inside them is what let the orders and the counts diverge. `--rule`/`--rule-strong` are redeclared in the dark block — ramp-derived
   aliases at `:root` otherwise substitute the LIGHT border and every dark hairline vanishes.
   `#tbScope` (the topbar entity tree) is **hidden on Flux** — it
   filters nothing here (`sliceOk()` never reads `F.entity`) and lists a different entity
@@ -200,6 +230,8 @@ untouched.
 
 ```bash
 node tools/check_chrome_themes.mjs
+node tools/check_text_contrast.mjs    # index.html CONTENT text passes WCAG AA (both modes)
+node tools/check_spacing_scale.mjs     # index.html spacing stays on the 4px scale (ratchet)
 ```
 
 Then the browser sweep: open the file, drive every tab, assert each view rendered, console
