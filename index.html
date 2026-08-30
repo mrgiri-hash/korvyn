@@ -3642,6 +3642,19 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
 .pop-b .fgrp{margin-bottom:8px}
 .pop-b .fgrp:last-child{margin-bottom:0}
 .pop-row{display:flex;gap:7px;align-items:flex-end}
+/* MATERIALITY IMPACT — the policy's effect on the current variance population,
+   at the top of the menu so a threshold is chosen against what it captures. */
+.mat-impact{padding:var(--s-3);margin-bottom:var(--s-2);background:var(--n-100);
+  border:var(--rule);border-radius:var(--radius)}
+.mat-impact .mi-hd{display:flex;align-items:baseline;gap:var(--s-2)}
+.mat-impact .mi-fig{font-family:var(--num);font-size:var(--fs-page);font-weight:var(--fw-medium);
+  color:var(--ink-strong);font-variant-numeric:tabular-nums;line-height:var(--lh-tight)}
+.mat-impact .mi-lbl{font-size:var(--fs-table);color:var(--muted)}
+.mat-impact .mi-bar{height:6px;margin:var(--s-2) 0 var(--s-1);border-radius:999px;
+  background:var(--n-200);overflow:hidden}
+.mat-impact .mi-bar>i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.mat-impact .mi-cap{font-size:var(--fs-label);color:var(--hint)}
+.mat-impact .mi-cap b{color:var(--ink);font-weight:var(--fw-strong)}
 /* ---------------------------------------------------------------- card + table */
 /* flux grid specifics */
 #fxRoot .fx-sec td{background:var(--bg2);font-size:var(--fs-label);text-transform:uppercase;
@@ -4476,10 +4489,150 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    so every value starts on the same pixel and the card scans like a data sheet. */
 #fxRoot .rw-wfr{display:flex;align-items:baseline;gap:var(--s-3);padding:var(--s-2) 0;
   border-bottom:var(--rule);font-size:var(--fs-table)}
-#fxRoot .rw-wfr .k{flex:none;width:100px;font-size:var(--fs-label);text-transform:uppercase;
-  letter-spacing:var(--tracking-label);color:var(--muted);font-weight:var(--fw-label)}
-#fxRoot .rw-wfr .v{flex:1;min-width:0;color:var(--ink);text-align:left}
+/* SENTENCE CASE, matching the reference workflow card (2026-08-30, owner). The 11px
+   uppercase tracked label is the system's band-label treatment; inside this key→value
+   record it read as shouting, and the reference sets these in plain sentence case. */
+#fxRoot .rw-wfr .k{flex:none;width:100px;font-size:var(--fs-table);text-transform:none;
+  letter-spacing:normal;color:var(--muted);font-weight:var(--fw-regular)}
+/* Values right-align (2026-08-30, matching the reference workflow card the owner
+   supplied): the label reads down the left, the value returns down the right, so the
+   card scans as a clean key→value ledger. */
+#fxRoot .rw-wfr .v{flex:1;min-width:0;color:var(--ink);text-align:right}
 #fxRoot .rw-wfr .v .sub{color:var(--muted)}
+#fxRoot .rw-wfr .v .rw-wfst.warn{color:var(--warning);font-weight:var(--fw-medium)}
+#fxRoot .rw-wfr .v .rw-wfst.ok{color:var(--success);font-weight:var(--fw-medium)}
+/* the Reassign control sits on the Assigned-to row, quiet until wanted (Controllers/CAO) */
+#fxRoot .rw-wfr .v .rw-reassign{margin-left:var(--s-2);font-size:var(--fs-label);
+  color:var(--accent-ink);background:none;border:none;padding:0;cursor:pointer;
+  font-weight:var(--fw-medium)}
+#fxRoot .rw-wfr .v .rw-reassign:hover{text-decoration:underline}
+/* ---- REVIEW PROGRESS STEPPER (2026-08-30) — four connected steps; the travelled path
+   is green, the current step accent, a returned line amber back at Prepared. */
+#fxRoot .rw-flow{display:flex;align-items:flex-start;gap:0;margin:0 0 var(--s-4)}
+#fxRoot .rw-flowstep{flex:1 1 0;min-width:0;display:flex;flex-direction:column;
+  align-items:center;gap:var(--s-1);position:relative;text-align:center}
+#fxRoot .rw-flowstep::before{content:"";position:absolute;top:10px;left:-50%;width:100%;
+  height:2px;background:var(--line2);z-index:0}
+#fxRoot .rw-flowstep:first-child::before{display:none}
+#fxRoot .rw-flowdot{position:relative;z-index:1;width:22px;height:22px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-micro);
+  font-weight:var(--fw-medium);background:var(--surface);border:2px solid var(--line2);color:var(--muted)}
+#fxRoot .rw-flowlbl{font-size:var(--fs-label);color:var(--muted);line-height:var(--lh-tight)}
+#fxRoot .rw-flowstep.done .rw-flowdot{background:var(--success);border-color:var(--success);color:var(--on-fill)}
+#fxRoot .rw-flowstep.done::before,#fxRoot .rw-flowstep.now::before,#fxRoot .rw-flowstep.back::before{background:var(--success)}
+#fxRoot .rw-flowstep.now .rw-flowdot{background:var(--accent);border-color:var(--accent);color:#fff}
+#fxRoot .rw-flowstep.now .rw-flowlbl{color:var(--accent-ink);font-weight:var(--fw-medium)}
+#fxRoot .rw-flowstep.back .rw-flowdot{background:var(--warning);border-color:var(--warning);color:var(--on-fill)}
+#fxRoot .rw-flowstep.back .rw-flowlbl{color:var(--warning);font-weight:var(--fw-medium)}
+/* a resolved change request reads addressed; the preparer's Mark-addressed link */
+#fxRoot .rw-msg .cact .rw-addr{color:var(--accent-ink);font-weight:var(--fw-medium)}
+
+/* ---- THE REVIEW CONTROL BAR + QUEUE (full screen, 2026-08-30) --------------- */
+#fxRoot .ws-from.rw-ctrlbar{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap}
+#fxRoot .rw-cbact{display:inline-flex;align-items:center;gap:var(--s-2)}
+#fxRoot.aw .fx-detail .rw-clsb.neutral{background:var(--n-100);color:var(--muted)}
+#fxRoot .rw-cbprog{display:inline-flex;align-items:center;gap:var(--s-2);
+  font-size:var(--fs-label);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+#fxRoot .rw-cbprog b{color:var(--ink);font-weight:var(--fw-medium)}
+#fxRoot .rw-cbbar{display:inline-block;width:64px;height:5px;border-radius:3px;
+  background:var(--n-200);overflow:hidden;flex:none}
+#fxRoot .rw-cbbar i{display:block;height:100%;background:var(--success)}
+/* ---- THE OPEN-ITEMS RIBBON on the review desk ------------------------------- */
+#fxRoot .rw-openlist{display:flex;flex-direction:column;gap:var(--s-2)}
+#fxRoot .rw-openitem{display:flex;align-items:flex-start;gap:var(--s-2)}
+#fxRoot .rw-openitem .rw-openmk{flex:none;width:13px;height:13px;border-radius:50%;
+  border:2px solid var(--warning);background:none}
+#fxRoot .rw-openitem>.w{flex:1;min-width:0;background:none;border:none;padding:0;text-align:left;
+  cursor:pointer;font:inherit;display:flex;flex-direction:column}
+#fxRoot .rw-openitem>.w .t{font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
+#fxRoot .rw-openitem>.w:hover .t{color:var(--accent-ink)}
+#fxRoot .rw-openitem>.w .mt{font-size:var(--fs-label);color:var(--warning)}
+
+/* ---- THE REVIEW COMMAND HERO (full screen only, 2026-08-30) ----------------- */
+#fxRoot.dw-page .fx-detail .rw-hero2{display:flex;align-items:stretch;gap:var(--s-6);
+  flex-wrap:wrap;margin-top:var(--s-3)}
+#fxRoot .rw-hero2-mv{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;justify-content:center}
+#fxRoot .rw-hero2-fig{display:flex;align-items:baseline;gap:var(--s-3);flex-wrap:wrap}
+#fxRoot .rw-hero2-v{font-size:var(--fs-hero);font-weight:var(--fw-medium);
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:var(--lh-tight);color:var(--muted)}
+#fxRoot .rw-hero2-v.up{color:var(--pos)}
+#fxRoot .rw-hero2-v.dn{color:var(--neg)}
+#fxRoot .rw-hero2-wl{display:flex;flex-direction:column}
+#fxRoot .rw-hero2-wl b{font-size:var(--fs-label);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);font-weight:var(--fw-medium);color:var(--muted)}
+#fxRoot .rw-hero2-wl.up b{color:var(--pos-ink)}
+#fxRoot .rw-hero2-wl.dn b{color:var(--neg)}
+#fxRoot .rw-hero2-wl span{font-size:var(--fs-label);color:var(--muted);font-variant-numeric:tabular-nums}
+#fxRoot .rw-hero2-flow{margin-top:var(--s-2);font-size:var(--fs-page);color:var(--ink);font-variant-numeric:tabular-nums}
+#fxRoot .rw-hero2-flow b{font-weight:var(--fw-medium)}
+#fxRoot .rw-hero2-flow .ar{color:var(--hint)}
+#fxRoot .rw-hero2-flow .pd{display:block;font-size:var(--fs-label);color:var(--hint);
+  margin-top:var(--s-1);text-transform:uppercase;letter-spacing:var(--tracking-label)}
+#fxRoot .rw-hero2-spark{margin-top:var(--s-4);max-width:460px;display:flex;align-items:center;gap:var(--s-3)}
+#fxRoot .rw-hero2-spark svg{flex:1;min-width:0;height:44px}
+#fxRoot .rw-hero2-spark .k{flex:none;font-size:var(--fs-micro);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--hint);white-space:nowrap}
+#fxRoot.dw-page .fx-detail .rw-hero2-verdict{flex:1 1 340px;min-width:0;display:flex;
+  flex-direction:column;gap:var(--s-4);justify-content:center;
+  padding-left:var(--s-6);border-left:var(--rule)}
+#fxRoot .rw-hero2-verdict .rw-flow{margin-bottom:0}
+#fxRoot .rw-hero2-cov .rw-covbar{position:relative;height:9px;border-radius:5px;
+  background:var(--n-200);overflow:hidden}
+#fxRoot .rw-hero2-cov .rw-covbar i{display:block;height:100%;background:var(--accent)}
+#fxRoot .rw-hero2-covv{margin-top:var(--s-2);font-size:var(--fs-table);color:var(--muted);font-variant-numeric:tabular-nums}
+#fxRoot .rw-hero2-covv b{color:var(--ink);font-weight:var(--fw-medium)}
+#fxRoot .rw-hero2-covv .rw-resid-over{color:var(--warning);font-weight:var(--fw-medium)}
+#fxRoot .rw-hero2-act{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap}
+@container (max-width:860px){
+  #fxRoot.dw-page .fx-detail .rw-hero2-verdict{padding-left:0;border-left:none;
+    padding-top:var(--s-4);border-top:var(--rule);margin-top:var(--s-2)}
+}
+
+/* ---- #1 KORVYN'S READ — the generated verdict that leads the case (indigo, rule 2) */
+#fxRoot .rw-krvsum{display:flex;align-items:flex-start;gap:var(--s-2);
+  padding:var(--s-3) var(--s-4);border-radius:var(--radius);
+  background:var(--ai-bg);border:1px solid var(--ai-line);margin:0 0 var(--s-4)}
+#fxRoot .rw-krvsum-mk{color:var(--ai);flex:none;font-size:var(--fs-card);line-height:var(--lh-tight)}
+#fxRoot .rw-krvsum-tx{font-size:var(--fs-ui);color:var(--ink);line-height:var(--lh)}
+#fxRoot .rw-krvsum-tx b{color:var(--ai-ink);font-weight:var(--fw-medium)}
+#fxRoot .rw-krvsum.warn{background:var(--warning-bg);border-color:var(--warning-bg)}
+#fxRoot .rw-krvsum.warn .rw-krvsum-mk,#fxRoot .rw-krvsum.warn .rw-krvsum-tx b{color:var(--warning)}
+#fxRoot .rw-krvsum.ok{background:var(--pos-bg);border-color:var(--pos-bg)}
+#fxRoot .rw-krvsum.ok .rw-krvsum-mk,#fxRoot .rw-krvsum.ok .rw-krvsum-tx b{color:var(--pos-ink)}
+
+/* ---- #2 THE CONVERSATION IS THE CENTREPIECE — a wider review column on the desk */
+#fxRoot.dw-page .fx-detail .rw-cols.desk{grid-template-columns:minmax(0,1fr) minmax(460px,560px)}
+@container (min-width:1320px){
+  #fxRoot.dw-page .fx-detail .rw-cols.desk{grid-template-columns:minmax(0,1fr) minmax(520px,640px)}
+}
+
+/* ---- #3 IMMERSIVE — entering the full screen is entering a focused mode: more air */
+#fxRoot.dw-page .fx-detail .dw-hd{padding-bottom:var(--s-5)}
+#fxRoot.aw.dw-page .fx-detail .dw-body{padding-top:var(--s-6)}
+
+/* ---- #4 MOTION — a light entrance for the desk and the glide to the next line. One-shot
+   classes set by dwPage()/pickAt(), so a re-render never replays them; reduced-motion off. */
+@media (prefers-reduced-motion:no-preference){
+  @keyframes rwDeskIn{from{opacity:0;transform:translateY(10px) scale(.994)}to{opacity:1;transform:none}}
+  @keyframes rwGlide{from{opacity:.25;transform:translateY(6px)}to{opacity:1;transform:none}}
+  #fxRoot .fx-detail.dw-in{animation:rwDeskIn .30s cubic-bezier(.2,.7,.3,1)}
+  #fxRoot.dw-page .fx-detail .dw-body.dw-glide{animation:rwGlide .22s ease}
+}
+
+/* ---- THE OTHER TABS ON THE FULL SCREEN (2026-08-30) ------------------------- */
+/* DRIVERS: each row becomes a contribution bar — a light accent fill to its share of the
+   movement, so the decomposition reads as a chart, not a list. --sh is set per row in
+   dwDrivers; the residual/total rows carry none, so they stay unbarred. Full screen only —
+   the 440px dock stays a compact list. */
+#fxRoot.dw-page .fx-detail .rw-r{position:relative;overflow:hidden}
+#fxRoot.dw-page .fx-detail .rw-r::before{content:"";position:absolute;left:0;top:0;bottom:0;
+  width:var(--sh,0);background:var(--accent-bg);z-index:0}
+#fxRoot.dw-page .fx-detail .rw-r>*{position:relative;z-index:1}
+#fxRoot.dw-page .fx-detail .rw-r.resid::before,#fxRoot.dw-page .fx-detail .rw-r.tot::before{display:none}
+/* A SINGLE-COLUMN TAB (Drivers, General ledger, Evidence) is composed, not stretched: the
+   card holds a comfortable measure and centres under the full-width hero, so a short tab
+   reads as a document on the sheet rather than one lonely band across 1,250px. */
+#fxRoot.dw-page .fx-detail .rw-cols.one{max-width:1000px;margin-left:auto;margin-right:auto}
 
 /* ---- a row that is a way in: one line, a count, a chevron ----------------- */
 #fxRoot button.rw-jump{display:flex;width:100%;align-items:center;gap:var(--s-2);
@@ -4518,6 +4671,14 @@ body.dw-resizing{cursor:col-resize;user-select:none}
 #fxRoot button.rw-lnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #fxRoot .rw-quiet{font-size:var(--fs-table);color:var(--hint);line-height:var(--lh)}
 #fxRoot .rw-note{font-size:var(--fs-table);color:var(--muted);line-height:var(--lh)}
+/* materiality basis — why this line requires an explanation, cited against its own
+   movement. Neutral inset: materiality is context, not a state (rules 2/3). */
+#fxRoot .rw-basis{padding:var(--s-2) var(--s-3);margin-bottom:var(--s-3);
+  background:var(--n-100);border-radius:var(--radius);
+  font-size:var(--fs-table);color:var(--muted);line-height:var(--lh)}
+#fxRoot .rw-basis b{display:block;margin-bottom:var(--s-1);
+  font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--muted);font-weight:var(--fw-medium)}
 
 /* ---- A. review state. Typography only — never a KPI card. ----------------- */
 #fxRoot .rw-state{padding-bottom:var(--s-3);border-bottom:var(--rule)}
@@ -4916,7 +5077,10 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   gap:0 7px;min-height:0}
 #fxRoot .rw-msg .hd .sp{display:none}
 #fxRoot .rw-msg .who{flex:0 0 100%;font-size:var(--fs-table);line-height:var(--lh)}
-#fxRoot .rw-msg .role,#fxRoot .rw-msg .at{font-size:var(--fs-label);color:var(--hint)}
+/* the role is emphasised (2026-08-30, matching the reference: "· Entity preparer",
+   "· EMEA Controller" read at medium weight); the timestamp stays quiet. */
+#fxRoot .rw-msg .role{font-size:var(--fs-label);color:var(--muted);font-weight:var(--fw-medium)}
+#fxRoot .rw-msg .at{font-size:var(--fs-label);color:var(--hint)}
 /* the reference's small trailing pill on a workflow row ("4 days left") */
 #fxRoot .rw-wfp{margin-left:7px;font-size:var(--fs-label);font-weight:var(--fw-medium);
   padding:1px 7px;border-radius:var(--radius-pill);
@@ -4954,15 +5118,20 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    lightness and a hairline, never shadow. The full PAGE keeps floating cards: its
    columns already supply the gutter, and a band running edge to edge across a
    1,400px sheet is not a card, it is a stripe. */
+/* BORDERED CARDS ON A GROUND (2026-08-30, owner: implement the reference inspector).
+   This restores the reference's look — each section is a white rounded card with its
+   own border, floating on the grey panel body with a gutter between them — reversing
+   the 2026-08-28 "flat full-width bands, no gutter" treatment for the dock, which the
+   owner's reference screenshots do not use. */
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-card{
-  border:none;border-bottom:var(--rule);border-radius:0;
-  padding:var(--s-4);margin:0}
-#fxRoot.aw:not(.dw-page) .fx-detail .rw-card:last-child{border-bottom:none}
+  border:1px solid var(--line2);border-radius:var(--radius);
+  padding:var(--s-4);margin:0 0 var(--s-3)}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-card:last-child{margin-bottom:0}
 /* the message stream and composer are cards of their own (RW_NOCARD) — they take the
    same band treatment or the Comments tab keeps a gutter the others have lost */
 #fxRoot.aw:not(.dw-page) .fx-detail .dw-body>.rw-msg{
-  border-left:none;border-right:none;border-top:none;border-radius:0;
-  padding:var(--s-4);margin:0}
+  border:1px solid var(--line2);border-radius:var(--radius);
+  padding:var(--s-3);margin:0 0 var(--s-3)}
 /* AN EMPTY STATE IS STILL A BAND. cmtStream is in RW_NOCARD because its normal
    output is a list of message cards — but when there is nothing to say it returns a
    bare .rw-quiet, which inherited no padding from anything and so printed "Nothing
@@ -4970,9 +5139,20 @@ body.dw-resizing{cursor:col-resize;user-select:none}
    panel. Same fault in page mode, where the part mounts in a bare .rw-rg. */
 #fxRoot .fx-detail .dw-body>.rw-quiet,
 #fxRoot .fx-detail .rw-rg:not(.rw-card)>.rw-quiet{padding:var(--s-4)}
-#fxRoot.aw:not(.dw-page) .fx-detail .rw-thread{padding:0}
+/* THE COMMENTS ARE A THREAD, NOT BOXES (2026-08-30, owner: "rather than in boxes, I
+   prefer a thread"). The card border, radius and fill come off each message and a
+   single timeline rail runs down the avatar gutter, with the avatars as opaque beads
+   on it and replies branching to the right — so the exchange reads as one conversation
+   over time rather than a stack of forms. The voice is carried by the avatar colour
+   (accent for you, indigo for a Korvyn draft), not a per-box left border. */
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-thread{padding:0;position:relative}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-thread::before{
+  content:"";position:absolute;left:11px;top:20px;bottom:16px;width:1px;
+  background:var(--line);z-index:0}
 #fxRoot.aw:not(.dw-page) .fx-detail .rw-thread .rw-msg{
-  border-left-width:3px;border-right:none;border-radius:0;margin:0}
+  border:none;border-radius:0;background:none;
+  padding:var(--s-3) 0;margin:0}
+#fxRoot.aw:not(.dw-page) .fx-detail .rw-thread .rw-av{position:relative;z-index:1}
 /* A CARD STATES ITS OWN NAME, in sentence case at card size. The uppercase tracked
    label belongs to a band on a page; inside a card it reads as a form legend and
    makes five cards look like five forms. The rule above it goes too — the card edge
@@ -5418,6 +5598,19 @@ body.fx-dw-page #subnav2{display:none!important}
    left the columns inset at 17 while the header spanned to 1. */
 #fxRoot.aw.dw-page .fx-detail .dw-body{background:var(--bg);padding-left:0;padding-right:0}
 #fxRoot.dw-page .fx-detail .rw-cols{gap:var(--s-5)}
+/* THE REVIEW DESK (2026-08-30): two columns on the full screen — the case (left, at
+   reading width) and the review (right, wide enough for the live conversation). It
+   overrides the three-column argument grid, which would otherwise strand the review
+   column in a third track with an empty middle; stacks below 900px. */
+#fxRoot.dw-page .fx-detail .rw-cols.desk{
+  grid-template-columns:minmax(0,1fr) minmax(440px,520px);
+  grid-template-areas:"judge rec";gap:var(--s-6)}
+@container (min-width:1320px){
+  #fxRoot.dw-page .fx-detail .rw-cols.desk{grid-template-columns:minmax(0,1fr) minmax(500px,560px)}
+}
+@container (max-width:899px){
+  #fxRoot.dw-page .fx-detail .rw-cols.desk{grid-template-columns:1fr;grid-template-areas:"judge" "rec"}
+}
 /* SAME FORMAT AS THE DOCK, AT THE RIGHT SCALE (2026-08-29, owner: "make sure same
    format applies to full screen"). In the dock the PANEL is the sheet and the cards
    are full-bleed bands inside it, separated by hairlines. On the page the COLUMN is
@@ -5525,6 +5718,23 @@ body.fx-dw-page #subnav2{display:none!important}
 #fxRoot .fx-tbl.fxnarr .col-line{min-width:220px}
 #fxRoot .eb-tx{font-size:var(--fs-table);line-height:var(--lh);color:var(--ink)}
 #fxRoot .eb-none{color:var(--hint)}
+/* THE EXPLANATION COLUMN STILL SAYS WHOSE WORDS THESE ARE. Narrative sheds the status
+   indicator because the prose is the payload, but three states are NOT the line's settled
+   answer and must say so under the prose, mirroring the words the status column carries in
+   Statement mode: a Korvyn draft (indigo ✦ + a grey provenance line, exactly as the panel
+   marks it — the sparkle carries the --ai identity, rule 2, awaiting a preparer), a line
+   still OPEN FOR REVIEW (muted — sitting with the reviewer to review and finalise, the
+   column's own 'wait' treatment, stated not shouted), and a returned line (amber, the
+   panel's own change-request colour — action owed, which is what rule 3 admits state colour
+   for). An accepted, or signed-off explanation is final and reads as prose alone. */
+#fxRoot .eb-tx.eb-draft .eb-sp{color:var(--ai);margin-right:var(--s-1)}
+#fxRoot .eb-prov{margin-top:var(--s-2);font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
+#fxRoot .eb-prov.eb-rev{color:var(--muted)}
+#fxRoot .eb-prov.eb-ret{color:var(--warning)}
+/* the WHEN is meta, so it stays quiet grey inside a coloured state line — the state
+   carries the colour, the timestamp only says how fresh it is. Left in the sans face,
+   not mono: a date inside a running sentence reads worse switching face mid-line. */
+#fxRoot .eb-prov .eb-when{color:var(--hint)}
 /* ===== COMMENTARY INDICATORS =================================================
    "There is context here", at row height and no taller. The whole strip has to
    fit inside a 34px row beside tabular figures without ever being the reason a
@@ -5568,6 +5778,8 @@ body.fx-dw-page #subnav2{display:none!important}
    only because their own rules re-declare `display`. Do not reuse `ai` as a local
    modifier; the token for the colour is `--ai` and that is the part to reach for. */
 #fxRoot .fxind .t.krv{color:var(--ai-ink);font-size:var(--fs-label);font-weight:var(--fw-medium)}
+/* the "Korvyn drafted a starting point" mark beside a forced "Needs explanation" flag */
+#fxRoot .fxind .t.krvmk{color:var(--ai-ink);font-size:var(--fs-label);margin-left:var(--s-1)}
 #fxRoot .fxi-k{opacity:0;transition:opacity .1s ease}
 #fxRoot tr:hover .fxi-k,#fxRoot .fxi-k:focus-visible,#fxRoot tr.sel .fxi-k{opacity:1}
 /* the shed itself — see fxShed(). Header and body are addressed the same way, by
@@ -5605,6 +5817,24 @@ body.fx-dw-page #subnav2{display:none!important}
 #fxhov .fxhov-ft{display:flex;align-items:center;gap:4px;margin-top:8px;padding-top:7px;
   border-top:var(--rule);font-size:var(--fs-label);color:var(--hint)}
 #fxhov .fxhov-ft .sp{flex:1}
+
+/* ---- @-MENTION AUTOCOMPLETE (2026-08-30) — a body-level floating list, same family as
+   #fxhov: an anchored overlay, so rule 5 admits the shadow. */
+#cmtMentionPop{position:fixed;z-index:70;background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:var(--radius);box-shadow:var(--shadow-md);
+  padding:var(--s-1);max-height:264px;overflow-y:auto;display:none}
+#cmtMentionPop.on{display:block}
+#cmtMentionPop .cment-o{display:flex;align-items:center;gap:var(--s-2);width:100%;
+  background:none;border:none;padding:var(--s-2);border-radius:var(--radius);cursor:pointer;
+  text-align:left;font:inherit;color:var(--ink)}
+#cmtMentionPop .cment-o.on,#cmtMentionPop .cment-o:hover{background:var(--accent-bg)}
+#cmtMentionPop .cment-av{display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;
+  font-size:var(--fs-micro);font-weight:var(--fw-medium);flex:none}
+#cmtMentionPop .cment-nm{font-size:var(--fs-table);color:var(--ink);font-weight:var(--fw-medium)}
+#cmtMentionPop .cment-role{margin-left:auto;font-size:var(--fs-label);color:var(--hint);white-space:nowrap}
+/* an @-mention inside a posted message reads in the accent — a reference, not a control */
+#fxRoot .rw-msg .tx .rw-mention{color:var(--accent-ink);font-weight:var(--fw-medium)}
 
 /* The one-line ".cmt-line" preview row and its CSS were removed with the Comments
    display mode. Comments — the author-by-author history — live in the Review
@@ -6076,6 +6306,18 @@ body.fx-dw-page #subnav2{display:none!important}
 #fxRoot.aw .fx-detail .rw-met-v.dlt.up{color:var(--pos)}
 #fxRoot.aw .fx-detail .rw-met-v.dlt.dn{color:var(--neg)}
 #fxRoot.aw .fx-detail .rw-met-v.dlt.n{color:var(--muted)}
+/* the highlighted variance chip (2026-08-30 appeal pass). A soft state tint fills the
+   cell and rounds it, and the dividers on either side stand down so it reads as one
+   lifted answer rather than a shaded column of the strip. The figure deepens to the
+   -ink step for contrast on the tint. */
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero{border-radius:var(--radius)}
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero.up{background:var(--pos-bg)}
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero.dn{background:var(--neg-bg)}
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero,
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero + .rw-met{border-left:none}
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero.up .rw-met-v{color:var(--pos-ink)}
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero.up .rw-met-k{color:var(--pos-ink)}
+#fxRoot.aw .fx-detail .rw-met.rw-met-hero.dn .rw-met-k{color:var(--neg)}
 #fxRoot.aw .fx-detail .rw-met-k{
   font-size:var(--fs-label);color:var(--hint);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -6340,7 +6582,7 @@ body.fx-dw-page #subnav2{display:none!important}
    derived. State colour is the one place the panel is allowed it (rule 8). */
 #fxRoot.aw .fx-detail .rw-av{
   display:inline-flex;align-items:center;justify-content:center;
-  width:20px;height:20px;border-radius:50%;
+  width:22px;height:22px;border-radius:50%;
   background:var(--accent);color:#fff;
   font-size:var(--fs-micro);font-weight:var(--fw-medium);letter-spacing:.02em;
   margin-right:6px;flex:none;
@@ -6554,6 +6796,36 @@ body.fx-mercury #fxRoot .fx-work::-webkit-scrollbar{ display:none }
 /* the spacer separated two halves of a strip; a row of tiles has no halves */
 #fxRoot.aw .fx-work .wl-sp{ display:none }
 #fxRoot.aw .fx-work .wl-tie{ justify-content:center; }
+
+/* ---- THE STRIP IS AN INSTRUMENT (2026-08-30, owner: "full creative ability") ----
+   The tiles gained three reads the bare figures could not carry, all within the same
+   flat cards (rule 5) and the app's own state palette:
+     · the explained tile is a STACKED METER — signed (green) · explained (accent) ·
+       owed (amber) as a share of the gross movement, over a bare track for the part
+       below materiality; the movement's shape reads without decoding three numbers.
+     · signed-off carries a FILL BAR of done ÷ required.
+     · an exception tile takes a 3px STATE EDGE — rule 8's severity idiom, drawn as an
+       inset shadow so it adds no layout shift, and only when something is genuinely
+       owed, so a finished statement's strip is monochrome.
+   Every fill is a BACKGROUND, never text, so the on-fill contrast gate is not in play;
+   heights, radii and the edge are not spacing, so the 4px ratchet is not either. */
+#fxRoot.aw .fx-work .wl-gauge{ flex:1.6 1 0; }
+#fxRoot .wl-meter{ display:flex; width:100%; height:6px; border-radius:3px;
+  overflow:hidden; background:var(--n-200); margin-top:var(--s-1); }
+#fxRoot .wl-meter i{ display:block; height:100%; min-width:0; }
+#fxRoot .wl-m-sign{ background:var(--success); }
+#fxRoot .wl-m-expl{ background:var(--accent); }
+#fxRoot .wl-m-owed{ background:var(--warning); }
+#fxRoot .wl-mini{ width:100%; height:4px; border-radius:2px; overflow:hidden;
+  background:var(--n-200); margin-top:var(--s-1); }
+#fxRoot .wl-mini i{ display:block; height:100%; background:var(--success); }
+#fxRoot .wl-seg .n .pct,#fxRoot .wl-stat .n .pct{ font-size:var(--fs-card);
+  color:var(--hint); font-weight:var(--fw-medium); }
+#fxRoot.aw .fx-work .wl-seg.edge-act{ box-shadow:inset 3px 0 0 var(--accent); }
+#fxRoot.aw .fx-work .wl-seg.edge-warn{ box-shadow:inset 3px 0 0 var(--warning); }
+#fxRoot.aw .fx-work .wl-seg.edge-bad{ box-shadow:inset 3px 0 0 var(--danger); }
+#fxRoot.aw .fx-work .wl-seg.hero .n{ color:var(--accent-ink); }
+#fxRoot.aw .fx-work .wl-tie.ok{ color:var(--success); }
 
 /* the statement: a framed card with its caption as a header band */
 body.fx-mercury #fxRoot .card.fx-table{ background:var(--surface);
@@ -7833,6 +8105,57 @@ const fmtS=(v,dp)=>(v<0?'\u2212':'')+fmt(Math.abs(v),dp);
 function pct(v){return (v>=0?'+':'\u2212')+Math.abs(v).toFixed(1)+'%';}
 
 /* ============================================================================
+   MATERIALITY, LINKED TO THE VARIANCE. The policy is the single authority for
+   two questions a flux review answers about every line: is an explanation
+   REQUIRED (the threshold, r.req), and is the explanation SUFFICIENT to sign
+   (the residual tolerance). The helpers below express both in the SAME on-screen
+   unit as the figure they judge \u2014 "\u0394 1.4M exceeds 1.0M" is one comparison the
+   reviewer reads without converting \u2014 so the filter, the statement and the
+   inspect panel all cite the policy the same way and cannot drift.
+   Thresholds are stored in $M and converted once here (matFac); fmt renders in
+   the display unit and uName() carries its letter, so both sides always agree. */
+const matAbsThr=()=>thr().abs*matFac();          // $000 \u2014 the \u0394 bar
+const matTolThr=()=>thr().tol*matFac();          // $000 \u2014 the residual a signed line must clear
+/* the policy in one phrase: "1.0M and 5%" */
+function matRule(){const t=thr();return fmt(t.abs*matFac())+uName()+(t.op==='and'?' and ':' or ')+t.pct+'%';}
+/* WHY this line does or does not require an explanation, stated precisely against
+   the movement. kind: floor | imm | watch | mat. */
+function matBasis(r){
+  const t=thr(), U=uName();
+  if(r.small) return {material:false,kind:'floor',
+    why:'Both balances are under the '+fmt(t.floor*matFac())+U+' small-balance floor \u2014 no explanation is expected.'};
+  if(!r.flag && r.watch) return {material:true,kind:'watch',
+    why:'Flagged for review below materiality (reviewer watchlist) \u2014 an explanation is required by reviewer decision.'};
+  if(!r.req) return {material:false,kind:'imm',
+    why:'Below materiality ('+matRule()+', '+prof().nm+') \u2014 an explanation is optional.'};
+  const parts=[];
+  if(r.hitAbs) parts.push('\u0394 '+fmt(Math.abs(r.d))+U+' exceeds '+fmt(matAbsThr())+U);
+  if(r.hitPct) parts.push(Math.abs(r.dp).toFixed(1)+'% exceeds '+t.pct+'%');
+  return {material:true,kind:'mat',
+    why:'Material \u2014 '+parts.join(t.op==='and'?' and ':' or ')+', per '+prof().nm+'.'};
+}
+/* the current policy's effect on the CURRENT statement's variance population \u2014
+   what the reviewer is choosing when they move a threshold. Reads rows(), so it
+   counts exactly what the grid flags. */
+function matImpact(){
+  const rws=rows().filter(r=>!r.hdr&&!r.tot);
+  const gross=rws.reduce((a,r)=>a+Math.abs(r.d),0);
+  const mat=rws.filter(r=>r.flag), watch=rws.filter(r=>r.watch&&!r.flag), req=rws.filter(r=>r.req);
+  const matMove=mat.reduce((a,r)=>a+Math.abs(r.d),0);
+  return {total:rws.length, matN:mat.length, watchN:watch.length, reqN:req.length,
+    gross, matMove, cov:gross?Math.round(matMove/gross*100):0};
+}
+/* the governance banner for the inspect panel's Explanation card: the precise
+   reason this line requires an explanation, and the residual that makes it
+   signable. Neutral by design — materiality is context, not a state (rules 2/3);
+   the requirement it names is the control. C is coverOf(r,rc). */
+function matBasisRow(r,C){
+  const mb=matBasis(r);
+  const suff=mb.material?' Signable once the unexplained residual is within '+fmt(C.tol)+uName()+'.':'';
+  return `<div class="rw-basis"><b>Why required</b>${esc(mb.why)}${suff}</div>`;
+}
+
+/* ============================================================================
    8. PERIOD WINDOWS AND COMPARISON MODES
    ========================================================================== */
 function win(i,grain){                                 // inclusive [a,b] period window
@@ -7937,7 +8260,7 @@ const cKeyFor=(id,tag)=>cKeyFull(S.stmt,tag,id);
 function rec(id,make){
   const k=cKey(id);
   if(!CMT[k]&&make)CMT[k]={items:[],sugs:[],files:[],status:'draft',prep:meStr(),rev:null,revNote:'',
-    updated:null,trail:[],comments:[]};
+    assignee:null,updated:null,trail:[],comments:[]};
   /* `comments` is the discussion stream shown in the Comments tab — free-text notes
      and questions, distinct from `items` (the quantified explanation) and from the
      per-scope lineage notes. Older records were created before it existed, so it is
@@ -8025,8 +8348,15 @@ const reqOpen=()=>FXREQ.filter(q=>q.status==='open');
 /* Who a request belongs to resolves LIVE from the owner directory rather than from a
    snapshot taken when it was raised, so changing role in Settings re-sorts the queue
    instead of leaving a stale answer behind. */
-const reqMine  =()=>reqOpen().filter(q=>scopeOwner(q.scope).me);
-const reqRaised=()=>reqOpen().filter(q=>!scopeOwner(q.scope).me);
+/* A request belongs to a PERSON when it was raised by reassignment (kind 'person',
+   scope null), and to a SCOPE's owner otherwise. Resolving it live here — rather than
+   from a snapshot — keeps the queue correct when the acting role changes. */
+function reqOwnerRec(q){
+  if(q&&q.assignee)return {nm:q.assignee, role:q.assigneeRole||'', me:String(q.assignee).trim()===ME().nm};
+  return scopeOwner(q&&q.scope);
+}
+const reqMine  =()=>reqOpen().filter(q=>reqOwnerRec(q).me);
+const reqRaised=()=>reqOpen().filter(q=>!reqOwnerRec(q).me);
 /* Age and lateness are DERIVED. A request stored as "3 days old" is wrong by morning. */
 const reqAge =q=>Math.max(0,Math.floor((Date.now()-q.ts)/86400000));
 const reqLate=q=>!!(q.dueTs&&Date.now()>q.dueTs);
@@ -8068,7 +8398,7 @@ function rows(){
     if(small)flag=false;
     const r=rec(ln.id), ex=r?r.items.reduce((a,x)=>a+x.amt,0):0;
     const res=d-ex, tol=t.tol*matFac();
-    out.push({...ln,sec,cur,pri,d,dp,flag,watch,small,
+    out.push({...ln,sec,cur,pri,d,dp,flag,watch,small,hitAbs,hitPct,
       req:flag||watch, ex, res, clear:Math.abs(res)<=tol,
       status:r?r.status:'none', items:r?r.items.length:0,
       sev:Math.abs(d)>=t.abs*matFac()*3?'hi':'md'});
@@ -8090,6 +8420,7 @@ function visible(rws){
     if(S.show==='watch'&&!r.watch)return false;
     if(S.show==='mine'&&!(r.req&&r.status!=='approved'))return false;
     if(S.show==='ret'&&r.status!=='returned')return false;
+    if(S.show==='inrev'&&r.status!=='submitted')return false;
     /* ---- the four filters the statement was missing ----------------------- */
     if(!lineMatches(r))return false;
     return true;
@@ -8239,6 +8570,23 @@ function fxNextOpen(){
   }
   toast('Nothing left on this statement needs a reviewer'); return false;
 }
+/* WALK THE REVIEW QUEUE on the full screen — every visible line in turn, not only the
+   ones owed, so j/k step through the statement the way arrows step through the grid, but
+   without leaving the page. pickAt keeps S.dwPage, so the desk stays open on the next
+   line. */
+function dwQueueMove(dir){
+  const rws=visible(rows()).filter(x=>!x.hdr&&!x.tot);
+  if(!rws.length)return;
+  let i=rws.findIndex(x=>x.id===S.sel);
+  i=(i<0?0:(i+dir+rws.length)%rws.length);
+  pickAt(rws[i].id,'sum');
+}
+function dwFocusComposer(){
+  const t=document.getElementById('cmtIn');
+  if(t){t.focus();t.scrollIntoView({block:'center'});return;}
+  S.dwTab='sum'; paintDrawer();
+  setTimeout(()=>{const n=document.getElementById('cmtIn');if(n){n.focus();n.scrollIntoView({block:'center'});}},40);
+}
 function fxKeys(e){
   if(!active())return false;
   const t=e.target, tag=t&&t.tagName;
@@ -8250,11 +8598,21 @@ function fxKeys(e){
     return false;
   }
   const k=e.key;
-  /* the statement is hidden on the full review page, so the keys that move a cursor
-     through it have nothing to move. n (next line needing review), e, x and / still
-     do, and stay live — walking the worklist without leaving the page is the point. */
-  if(S.dwPage&&('jk'.indexOf(k)>=0||k==='ArrowDown'||k==='ArrowUp'||k==='Enter'||k==='g'
-    ||(k>='1'&&k<=String(DISP_MODES.length))))return false;
+  /* THE FULL-SCREEN REVIEW DESK IS KEYBOARD-FIRST (2026-08-30, owner). On the page, the
+     statement cursor is hidden, so j/k walk the review QUEUE instead of the grid, and
+     a/r/c act on the open line. n (next needing review), e, x, / still work. */
+  if(S.dwPage){
+    if(k==='a'){e.preventDefault();const rc=S.sel?rec(S.sel,true):null;
+      if(rc&&rc.status==='submitted'&&canReviewLine(rc))exApprove();
+      else toast('Nothing to approve on this line');return true;}
+    if(k==='r'){e.preventDefault();const rc=S.sel?rec(S.sel,true):null;
+      if(rc&&rc.status==='submitted'&&canReviewLine(rc))exReturn();
+      else toast('Nothing to return on this line');return true;}
+    if(k==='c'){e.preventDefault();dwFocusComposer();return true;}
+    if(k==='j'||k==='ArrowDown'){e.preventDefault();dwQueueMove(1);return true;}
+    if(k==='k'||k==='ArrowUp'){e.preventDefault();dwQueueMove(-1);return true;}
+    if(k==='Enter'||k==='g'||(k>='1'&&k<=String(DISP_MODES.length)))return false;
+  }
   if(k==='/'){e.preventDefault();openFilters();
     setTimeout(()=>{const s=$('fxSearch'); if(s)s.focus();},60); return true;}
   if(k==='j'||k==='ArrowDown'){e.preventDefault();fxMove(1);return true;}
@@ -8821,14 +9179,28 @@ function paintPop(keepFocus){
       `</div><div class="pop-b"><div class="rl-note">Thresholds are typed in the unit on screen and converted,
        so switching units never silently changes what is flagged.</div></div>`;
   }else if(popKind==='mat'){
-    const t=thr(),u=uName()||'$';
+    const t=thr(),u=uName()||'$',imp=matImpact();
+    /* THE IMPACT PANEL \u2014 what this policy does to the variance in front of you.
+       Materiality is a judgement about how much of the movement must be defended;
+       showing the captured share turns "is 1.0M right?" into a decision the reviewer
+       can see rather than guess. Reads rows(), so it counts exactly what the grid
+       flags, and repaints live as the thresholds move. */
+    const impPanel=`<div class="mat-impact">
+      <div class="mi-hd"><span class="mi-fig">${imp.reqN}</span>
+        <span class="mi-lbl">of ${imp.total} lines require an explanation${imp.watchN?` \u00b7 ${imp.watchN} watch-listed`:''}</span></div>
+      <div class="mi-bar" title="material movement as a share of the total"><i style="width:${imp.cov}%"></i></div>
+      <div class="mi-cap">${imp.matN} material \u00b7 captures <b>${imp.cov}%</b> of the ${fmt(imp.gross)}${uName()} gross movement</div>
+    </div>`;
     h=`<div class="pop-h">Materiality</div><div class="pop-l">`+
       PROFILES.map(pr=>`<div class="pop-o ${S.profile===pr.id?'on':''}" onclick="KFX.setProfile('${pr.id}')">
         <span class="bx">${S.profile===pr.id?'\u2713':''}</span>${pr.nm}
         <span class="sub">${pr[S.stmt].abs}${matName()} ${pr.op==='and'?'&':'|'} ${pr[S.stmt].pct}%</span></div>`).join('')+
       `</div><div class="pop-b">
+      ${impPanel}
       <div class="rl-note" style="margin-bottom:8px">Applies to the ${S.stmt==='bs'?'balance sheet':'income statement'};
-        each statement carries its own thresholds.</div>
+        each statement carries its own thresholds. <b>A line above this threshold requires an
+        explanation to submit and a reviewer note to sign off</b>, and is signable once its unexplained
+        residual is within ${fmt(matTolThr())}${uName()}.</div>
       <div class="pop-row fgrp">
         <div style="flex:1"><label style="font-size:var(--fs-label);color:var(--muted)">\u0394 exceeds (${u})</label>
           <input class="inp" id="inAbs" type="number" step="0.1" style="width:100%" value="${t.abs}" onchange="KFX.setAbs(this.value)"></div>
@@ -9028,6 +9400,7 @@ function paintKpi(){
   const unexp=req.reduce((t,r)=>t+Math.abs(r.res),0);
   const cov=grossD?(1-unexp/grossD)*100:100;
   const ret=rws.filter(r=>r.status==='returned').length;
+  const inrev=rws.filter(r=>r.status==='submitted').length;
   const tie=tieOut();
   const cell=(l,v,d,cl)=>`<div class="kpi${cl?' '+cl:''}"><div class="k">${l}</div>
     <div class="v">${v}</div><div class="d">${d}</div></div>`;
@@ -9076,20 +9449,42 @@ function paintKpi(){
      stays a one-click filter when it does). This keeps the strip compact without
      removing a single filter: every one is still reachable from the filter panel. */
   const rq=reqHere(), late=rq.filter(reqLate).length;
+  /* THE METER'S SEGMENTS — derived, never duplicated: the same figures the tiles
+     state, split by review state. signed + explained + owed span the REQUIRED
+     movement; the remainder is the part below materiality, which needs nothing and
+     is left as bare track. All as a share of the gross movement. */
+  const reqD=req.reduce((t,r)=>t+Math.abs(r.d),0);
+  const signedD=done.reduce((t,r)=>t+Math.abs(r.d),0);
+  const owedD=unexp;                                  // unexplained residual on required lines
+  const explD=Math.max(0,reqD-signedD-owedD);         // explained, required, not yet signed
+  const immatD=Math.max(0,grossD-reqD);               // movement below materiality
+  const pc=v=>grossD>0?(v/grossD*100):0;
+  const gaugeTip=grossD>0
+    ? `Of ${fmt(grossD)} gross movement — signed off ${pc(signedD).toFixed(0)}%, `
+      +`explained ${pc(explD).toFixed(0)}%, needs you ${pc(owedD).toFixed(0)}%, `
+      +`below materiality ${pc(immatD).toFixed(0)}%`
+    : 'No movement to explain this period';
   w.innerHTML=
-    seg('open',   open.length, open.length===1?'needs you':'need you','act',
+    /* need you is the hero — the one tile the reviewer acts on first, so it carries an
+       accent figure and an accent edge when it is non-zero, and recedes when it is not */
+    seg('open',   open.length, open.length===1?'needs you':'need you',
+        open.length?'hero edge-act':'',
         'Lines that require an explanation and are not yet signed off')+
-    seg('resid',  fmt(unexp),  'unexplained', unexp>0?'act':'',
+    seg('resid',  fmt(unexp),  'unexplained', unexp>0?'edge-warn':'',
         'Lines carrying a residual outside tolerance')+
-    /* coverage is the complement of unexplained — a display figure, not a filter,
-       so it reads as summary rather than as one more thing to click */
-    `<span class="wl-stat" title="Share of the gross movement covered by an accepted explanation">
-       <span class="n">${cov.toFixed(0)}%</span><span class="l">explained</span></span>`+
+    /* coverage is the complement of unexplained — a display figure, not a filter. It
+       now carries the stacked meter, so the one number also shows the shape of the
+       whole review at a glance. */
+    `<span class="wl-stat wl-gauge" title="${esc(gaugeTip)}">
+       <span class="n">${cov.toFixed(0)}<span class="pct">%</span></span><span class="l">explained</span>
+       <span class="wl-meter" aria-hidden="true"><i class="wl-m-sign" style="width:${pc(signedD).toFixed(1)}%"></i><i class="wl-m-expl" style="width:${pc(explD).toFixed(1)}%"></i><i class="wl-m-owed" style="width:${pc(owedD).toFixed(1)}%"></i></span>
+     </span>`+
     /* An exception segment appears when it has a count OR when it is the filter
        currently applied — so a filter can always be switched off from the same bar
        it was switched on, even after the count it isolated has fallen to zero. */
-    ((ret||S.show==='ret')? seg('ret', ret, 'returned', ret?'bad':'', 'Reviews returned to the preparer') : '')+
-    ((rq.length||S.show==='req')? seg('req', rq.length, 'requested', late?'bad':'',
+    ((ret||S.show==='ret')? seg('ret', ret, 'returned', ret?'bad edge-bad':'', 'Reviews returned to the preparer to address') : '')+
+    ((inrev||S.show==='inrev')? seg('inrev', inrev, 'in review', '', 'Lines submitted and waiting on a reviewer') : '')+
+    ((rq.length||S.show==='req')? seg('req', rq.length, 'requested', late?'bad edge-bad':'',
         late? late+' of '+rq.length+' explanation requests are past their due date'
             : 'Lines where an entity or region still owes an explanation you asked for') : '')+
     ((wch.length||S.show==='watch')? seg('watch', wch.length, 'watched', '', 'Lines you are watching below materiality') : '')+
@@ -9098,8 +9493,8 @@ function paintKpi(){
      <button type="button" class="wl-done ${req.length&&!open.length?'ok':''}"
        title="Signed off on this statement" onclick="KFX.setShow('all')">
        <span class="n">${done.length}<span class="of">/${req.length}</span></span>
-       <span class="l">signed off</span></button>
-     <span class="wl-tie ${tie.ok?'':'bad'}" title="${esc(tie.txt)}">${tie.ok?'&#10003; Ties to TB':'TB out of balance'}</span>`;
+       <span class="l">signed off</span>${req.length?`<span class="wl-mini" aria-hidden="true"><i style="width:${(done.length/req.length*100).toFixed(1)}%"></i></span>`:''}</button>
+     <span class="wl-tie ${tie.ok?'ok':'bad'}" title="${esc(tie.txt)}">${tie.ok?'&#10003; Ties to TB':'&#9888; TB out of balance'}</span>`;
 
   const chip=$('tieChip');
   if(chip){chip.classList.toggle('bad',!tie.ok);
@@ -9208,7 +9603,7 @@ function cell(c,r,totalD){
        medium on every row (.v-amt), not only when it breaches. Direction is the one
        hue rule 9 admits; .brk adds nothing extra now that the weight is always on. */
     case 'dlt':  return `<td class="num dlt v-amt ${r.d>0?'up':r.d<0?'dn':'n'}"
-      ${r.flag?`title="Breaches ${esc(prof().nm)} — ${fmt(thr().abs*matFac())} ${thr().op} ${thr().pct}% of the line"`:''}
+      ${r.req?`title="${esc(matBasis(r).why)}"`:''}
       >${fmt(r.d)}</td>`;
       /* ONE NEGATIVE CONVENTION PER STATEMENT. Current and Compared render through
          fmt(), which uses accounting parentheses; Δ rendered through fmtS(), which
@@ -9312,7 +9707,8 @@ function cell(c,r,totalD){
    about the state that is precisely not. */
 const FXST={
   need:   ['Needs explanation','need','Needs an explanation — open the review workspace','stack'],
-  ret:    ['Returned',         'need','Returned by the reviewer','sum'],
+  open:   ['Open',             'need','A reviewer comment is open — the preparer must address it before resubmitting','comments'],
+  ret:    ['Returned',         'rdy', 'Returned — all reviewer comments addressed; ready to resubmit','sum'],
   draft:  ['Korvyn drafted',   '',    'Korvyn has drafted an explanation — no one has acted on it yet','sum'],
   ready:  ['Ready',            'rdy', 'Explained — ready to submit for review','sum'],
   expl:   ['Explained',        '',    'Explained. Below materiality, so no review is required','sum'],
@@ -9329,7 +9725,13 @@ function fxStateKey(r,rc){
   /* Order is precedence, not preference: the first true statement wins, because a
      line is in exactly one place in the review. */
   let k=null;
-  if(rc&&rc.status==='returned')                    k='ret';
+  /* A RETURNED LINE FLAGS "OPEN" WHILE A REVIEWER COMMENT IS UNADDRESSED (2026-08-30,
+     owner: "the flux should flag open if the review comment hasn't been addressed"),
+     and only relaxes to "Returned · ready to resubmit" once every comment has a
+     response — the same reviewItems() gate exSubmit and the footer enforce, so the
+     statement, the panel and the action never disagree about whether the ball is with
+     the preparer. */
+  if(rc&&rc.status==='returned')                    k=reviewItems(rc).length?'open':'ret';
   else if(rc&&rc.status==='approved'&&n)            k='done';
   else if(rc&&rc.status==='submitted'&&n)           k='review';
   /* A PERSON'S EXPLANATION EXISTS AND NOBODY HAS BEEN HANDED IT YET.
@@ -9349,8 +9751,16 @@ function fxStateKey(r,rc){
      submit predicate will never honour. It is explained; nothing is owed. */
   else if(rc&&(rc.status==='draft'||!rc.status)&&(n||rc.narr)) k=r.req?'ready':'expl';
   else if(r.req&&!n&&(!rc||rc.status==='draft')){
-    const best=bestExplanation(r,rc);
-    k=(best.kind==='draft')?'draft':'need';
+    /* THE THRESHOLD FORCES THE FLUX (2026-08-30, owner: "instead of flagging using the
+       star, I want the system to flag/force writing the flux based on the threshold").
+       A line above materiality (or watched) reads "Needs explanation" whether or not
+       Korvyn has a draft waiting — the REQUIREMENT is the point, and a machine draft is a
+       starting point offered in the panel, not a substitute for a human explanation. This
+       reinstates the imperative flag that the softer "Korvyn drafted" label had hidden, so
+       the reviewer scans the column and sees exactly which lines the policy demands a flux
+       on. `kdAvail` still lets the peek and the panel surface Korvyn's draft to accelerate
+       it. */
+    k='need';
   }
   /* THE COLUMN STAYS QUIET ON AN IMMATERIAL LINE, even though Korvyn now drafts one.
      This column's subject is WHERE THE LINE STANDS IN THE REVIEW, and an unaccepted
@@ -9394,15 +9804,21 @@ function cmtIndicators(r){
       ><span class="t krv">K</span></button></span>`;
   }
   const s=FXST[k], id=r.id.replace(/'/g,"&#39;");
+  /* A "Needs explanation" line that Korvyn has already drafted carries a quiet indigo ✦ —
+     the requirement is stated in full (rule 3: the flag is the imperative), and the mark
+     says a starting point is one click away, so the reviewer knows they are not writing
+     from a blank page. */
+  const kdMk=(k==='need'&&kdAvail(r,rc))?`<span class="t krvmk" aria-hidden="true">✦</span>`:'';
   /* NO `title` HERE. The peek below is the tooltip now, and a native title on the
      same element opens its own box a second later on top of it — two tooltips for
      one word. aria-label keeps the sentence for a screen reader, which is what the
      title was actually earning. Focus opens the peek too, so it is not mouse-only. */
   return `<span class="fxind"><button type="button" class="fxi-b"
-    aria-label="${esc(s[2])}" onclick="event.stopPropagation();KFX.pickAt('${id}','${s[3]}')"
+    aria-label="${esc(s[2])}${k==='need'&&kdAvail(r,rc)?' — Korvyn has a draft ready':''}"
+    onclick="event.stopPropagation();KFX.pickAt('${id}','${s[3]}')"
     onmouseenter="KFX.hovShow(this,'${id}')" onmouseleave="KFX.hovHide()"
     onfocus="KFX.hovShow(this,'${id}')" onblur="KFX.hovHide()"
-    ><span class="t ${s[1]}">${esc(s[0])}</span></button></span>`;
+    ><span class="t ${s[1]}">${esc(s[0])}</span>${kdMk}</button></span>`;
 }
 
 /* ---- THE EXPLANATION PEEK --------------------------------------------------
@@ -9474,10 +9890,16 @@ function pickAt(id,tab){
   /* the walk ('n' / Next needing review) changes the line without closing the panel,
      so per-line state has to be cleared here too — a reply aimed at a message on the
      previous line would otherwise file its answer under a stranger */
-  if(S.sel!==id){S.sel=id;S.drvPath=[];S.drvGl=false;S.rwFullEx=false;S.rwPeriods=false;
+  const changed=S.sel!==id;
+  if(changed){S.sel=id;S.drvPath=[];S.drvGl=false;S.rwFullEx=false;S.rwPeriods=false;
     S.cmtReplyTo=null;S.cmtDraft='';S.cmtOwedOpen=false;}
   S.dwTab=DW_TAB_ALIAS[tab]||'sum'; S.dwCollapsed=false; S.dwMenu=false;
   renderAll();
+  /* MOTION: gliding to a new line on the full screen gives its body a one-shot fade, so
+     the review QUEUE reads as a flow. Only on a line change and only in page mode — a
+     tab switch or same-line repaint does not animate. */
+  if(changed&&S.dwPage)requestAnimationFrame(()=>{const b=document.getElementById('fxDwBody');
+    if(b){b.classList.remove('dw-glide');void b.offsetWidth;b.classList.add('dw-glide');}});
 }
 
 /* cmtPreview() — the one-line under-row preview — was removed with the Comments
@@ -9563,7 +9985,7 @@ function explainObj(r){
     quantified, quantPct,
     explained:C.ex, residual:C.res, covered:C.cover, clear:Math.abs(C.res)<=C.tol,
     items:rc.items, lower, approvedLower, evidence:ev,
-    prior:pr&&pr.items.length?{items:pr.items,period:PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl}:null,
+    prior:pr&&pr.items.length&&pr.status==='approved'?{items:pr.items,period:PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl}:null,
     status:rc.status, prep:rc.prep, rev:rc.rev,
     next:{draft:'preparer to complete and submit',returned:'preparer to address the review note',
           submitted:'reviewer to mark reviewed or return',approved:'complete'}[rc.status],
@@ -10042,8 +10464,35 @@ function narrCell(r){
   }
   /* THE FULL COMMENT (owner's direction). No clamp, no Expand — the Explanation column
      now has the room to print the whole explanation, so the reviewer reads it in place
-     rather than opening each one. */
-  return `<div class="eb-tx">${best.kind==='draft'?best.text:esc(best.text)}</div>`;
+     rather than opening each one.
+
+     A MARKER RESTORES WHAT NARRATIVE SHEDS: whether the words on screen are the line's
+     settled answer. Three states are not — a Korvyn draft waits on a preparer to review
+     and accept it; a submitted line is open with the reviewer to review and finalise; a
+     returned line carries a reviewer's change request the preparer must address before it
+     is final — and printing the prose alone let every one read as settled. The reviewer's
+     finalise controls (Mark reviewed / Return) live in the review panel footer, reached by
+     opening the row — deliberately not repeated per line in the statement (the 2026-08-28
+     ruling that retired bandApprove/bandReturn). An accepted or signed-off explanation is
+     final and reads as prose alone. best.text is UNESCAPED for a Korvyn draft (kdNarrative
+     composes its own <b> marks) and escaped for every other path. */
+  const draft=best.kind==='draft', returned=rc.status==='returned', inrev=rc.status==='submitted';
+  let h=`<div class="eb-tx${draft?' eb-draft':''}">${
+    draft?'<span class="eb-sp" aria-hidden="true">✦</span>':''}${
+    draft?best.text:esc(best.text)}</div>`;
+  if(draft)
+    h+=`<div class="eb-prov">Korvyn draft — preparer to review and approve</div>`;
+  else if(returned){
+    const rv=rwWho(rc.returnedBy||rc.rev||'').nm||'the reviewer';
+    h+=`<div class="eb-prov eb-ret">Changes requested by ${esc(rv)}${
+      rc.returnedAt?` <span class="eb-when">· ${esc(rc.returnedAt)}</span>`:''} — address before this is final${
+      rc.revNote?`: ${esc(rc.revNote)}`:''}</div>`;
+  }else if(inrev){
+    const rv=rwWho(rc.rev||PEOPLE.rev).nm||'the reviewer';
+    h+=`<div class="eb-prov eb-rev">Open for review — ${esc(rv)} to review and finalize${
+      rc.submittedAt?` <span class="eb-when">· submitted ${esc(rc.submittedAt)}</span>`:''}</div>`;
+  }
+  return h;
 }
 /* THE MODE IS THE CHOICE, NOT THE ROW. Bands used to be opened one row at a time;
    Narrative mode renders the band for every qualifying line at once, and the per-row
@@ -10292,10 +10741,10 @@ function matGuard(){
 function setProfile(v){const b=prof().nm;S.profile=v;
   logA({act:'materiality profile changed',before:b,after:prof().nm});renderAll();if(popKind==='mat')paintPop();}
 function setOp(v){if(!matGuard())return;const b=prof().op;prof().op=v;logA({act:'materiality rule changed',detail:prof().nm,before:b,after:v});renderAll();if(popKind==='mat')paintPop();}
-function setAbs(v){if(!matGuard())return;const b=prof()[S.stmt].abs;prof()[S.stmt].abs=+v;logA({act:'$ threshold changed',detail:prof().nm+' \u00b7 '+S.stmt.toUpperCase(),before:b,after:+v});renderAll();}
-function setPct(v){if(!matGuard())return;const b=prof()[S.stmt].pct;prof()[S.stmt].pct=+v;logA({act:'% threshold changed',detail:prof().nm+' \u00b7 '+S.stmt.toUpperCase(),before:b,after:+v});renderAll();}
-function setFloor(v){if(!matGuard())return;const b=prof().floor;prof().floor=+v;logA({act:'small-balance floor changed',before:b,after:+v});renderAll();}
-function setTol(v){if(!matGuard())return;const b=prof().tol;prof().tol=+v;logA({act:'residual tolerance changed',before:b,after:+v});renderAll();}
+function setAbs(v){if(!matGuard())return;const b=prof()[S.stmt].abs;prof()[S.stmt].abs=+v;logA({act:'$ threshold changed',detail:prof().nm+' \u00b7 '+S.stmt.toUpperCase(),before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
+function setPct(v){if(!matGuard())return;const b=prof()[S.stmt].pct;prof()[S.stmt].pct=+v;logA({act:'% threshold changed',detail:prof().nm+' \u00b7 '+S.stmt.toUpperCase(),before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
+function setFloor(v){if(!matGuard())return;const b=prof().floor;prof().floor=+v;logA({act:'small-balance floor changed',before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
+function setTol(v){if(!matGuard())return;const b=prof().tol;prof().tol=+v;logA({act:'residual tolerance changed',before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
 /* The shell's toggle keys off its own strip, which is hidden here, so open the panel
    directly and scroll it into view. */
 /* The shell's own toggle reads the hidden ATTRIBUTE and also drives the caret, the
@@ -10357,8 +10806,19 @@ function glTog(id){S.glOpen[id]=!S.glOpen[id];renderAll();}
    so this seeds the path rather than selecting a sub-tab that no longer exists. */
 function openAcct(line,acct){S.sel=line;S.jeAcct=acct;S.dwTab='drive';S.dwCollapsed=false;
   S.drvPath=[{dim:'acct',k:acct,label:rwName('acct',acct)}];S.drvGl=true;renderAll();}
-function star(id){const k=S.stmt+'::'+id;S.watch[k]=!S.watch[k];const on=!!S.watch[k];if(!on)delete S.watch[k];
-  logA({line:id,act:on?'added to watchlist':'removed from watchlist'});renderAll();}
+/* THE STAR IS A MATERIALITY OVERRIDE, SO IT IS A REVIEWER CONTROL (2026-08-30, owner:
+   "if the controller clicks the star … let's make sure we have a good control in place").
+   Watching a line forces a flux on it even below the threshold — and un-watching REMOVES a
+   requirement — which is the same governance decision as setting the threshold itself, so
+   it is gated the same way (caps().policy = Accounting Manager, Controller, CAO). A
+   preparer could otherwise quietly drop a line the reviewer had flagged. The actor is
+   recorded, because adding or removing a review obligation is a governance event. */
+function star(id){
+  if(!caps().policy){toast('Requiring a flux below materiality is a reviewer control');return;}
+  const k=S.stmt+'::'+id;S.watch[k]=!S.watch[k];const on=!!S.watch[k];if(!on)delete S.watch[k];
+  logA({line:id,who:meStr(),
+    act:on?'flagged for a flux below materiality (watchlist)':'removed the below-materiality flux flag'});
+  renderAll();}
 function clearWatch(){S.watch={};renderAll();}
 function gotoWatch(st,id){S.stmt=st;S.sel=id;renderAll();}
 function trend(id){pop('trend:'+id,$('fxGrid')||document.body);}
@@ -10961,8 +11421,13 @@ const RW_INDEX=['explain','drill','evid','cmtHead','trail'];
    tab a reviewer reached for moved when the panel changed size. The two page-only
    analytical tabs sit together straight after Overview, which is the order the
    drill-down is actually walked: what moved, what drove it, the entries behind it. */
+/* NO COMMENTS TAB ON THE FULL PAGE (2026-08-30): the Review Desk's right column IS the
+   live conversation, so a separate Comments tab would be the same thread reachable two
+   ways — the split the dock's Overview closed. The count still shows in the column's
+   Comments header. The dock keeps its Comments tab, where the 440px width has no room to
+   put the thread beside the explanation. */
 const FX_PAGETABS=[['sum','Overview'],['drive','Drivers'],['gl','General ledger'],
-  ['comments','Comments'],['evid','Evidence'],['hist','History']];
+  ['evid','Evidence'],['hist','History']];
 /* The dock's four, declared as data beside the page's six so the two strips are
    read from lists rather than from two hand-written literals with two badge rules
    inside them — which is how the orders and the counts drifted apart. */
@@ -11245,6 +11710,12 @@ function dwPage(){
   requestAnimationFrame(()=>{
     window.scrollTo(0,S.dwPage?0:dwRet);
     syncStick();
+    /* MOTION: a one-shot entrance when the desk opens. The class lives on #fxDetail,
+       which paintDrawer does not recreate, and a renderAll that DID recreate it would
+       drop the class — so the animation plays on an explicit open and never on a
+       re-render. `void offsetWidth` restarts it if the element is somehow reused. */
+    if(S.dwPage){const d=document.getElementById('fxDetail');
+      if(d){d.classList.remove('dw-in');void d.offsetWidth;d.classList.add('dw-in');}}
     if(afId){const t=document.getElementById(afId);
       if(t){t.focus();
         if(t.setSelectionRange&&ss!=null){try{t.setSelectionRange(ss,se);}catch(_){}}}}
@@ -11269,6 +11740,77 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(S.dwMenu||S.cmtMen
    read a word. Prior and current live in the statement immediately to the left; the
    review state leads the Summary, where the reviewer can act on it. So the header
    states the variance ONCE and stops. */
+/* ---- THE REVIEW CONTROL BAR (full screen, 2026-08-30) ----------------------
+   The state and the one or two moves that advance it, elevated into the header so a
+   reviewer's verdict is one glance and one click, never a scroll to the footer. It
+   shares its guards with the footer (canReviewLine, reviewItems, readyToSubmit), so the
+   two can never offer different actions; the footer keeps the "why" prose, the bar keeps
+   the action. */
+function dwStatePill(rc){
+  const open=reviewItems(rc).length;
+  const m={draft:['Needs review','neutral'],
+    returned:[open?'Open':'Returned',open?'warn':'neutral'],
+    submitted:['In review','neutral'],approved:['Reviewed & locked','ok']};
+  const s=m[rc.status]||m.draft;
+  return `<span class="rw-clsb ${s[1]}">${esc(s[0])}</span>`;
+}
+function dwCtrlBtns(r,rc){
+  const C=caps(), lock=rc.status==='approved';
+  if(rc.status==='submitted')
+    return canReviewLine(rc)
+      ? `<button class="btn-out sm" onclick="KFX.exReturn()">Return</button>`+
+        `<button class="btn-primary sm" onclick="KFX.exApprove()">Mark reviewed</button>`
+      : '';
+  if((rc.status==='draft'||rc.status==='returned')&&C.prepare&&r.req){
+    const open=rc.status==='returned'?reviewItems(rc):[];
+    if(open.length)return `<button class="btn-primary sm"
+      onclick="KFX.dwGo('cmtStream')">Address ${open.length} open</button>`;
+    if(readyToSubmit().some(x=>x.id===r.id))
+      return `<button class="btn-primary sm" onclick="KFX.exSubmit()">Submit</button>`;
+    return '';
+  }
+  if(lock&&C.reopen)return `<button class="btn-out sm" onclick="KFX.exUnlock()">Reopen</button>`;
+  return '';
+}
+/* ---- THE REVIEW COMMAND HERO (full screen, 2026-08-30) ---------------------
+   The full page is Korvyn's review surface, so its header is not the dock's quiet
+   four-figure band — it is a command hero. LEFT states the MOVEMENT with authority: the
+   variance at hero size, coloured, with the favourable/unfavourable verdict and Δ%, the
+   prior→current flow beneath, and the trajectory. RIGHT is the VERDICT cluster: the
+   progress stepper, a coverage instrument (the share a reviewer signs against, with the
+   residual), the state, and the one action that advances it. Everything a reviewer needs
+   to decide is above the fold, at a glance. The dock keeps the four-figure band. */
+function dwPageHero(r,rc){
+  const dcls=r.d>0?'up':r.d<0?'dn':'n';
+  const arrow=r.d>0?'&#9650;':r.d<0?'&#9660;':'';
+  const word=!r.d?'No movement'
+    :(S.stmt==='is'?(unfav(r)?'Unfavorable':'Favorable')
+                   :(Math.abs(r.cur)>Math.abs(r.pri)?'Increase':'Decrease'));
+  const C=coverOf(r,rc);
+  const cov=Math.round(Math.max(0,Math.min(100,C.cover)));
+  const over=Math.abs(C.res)>C.tol;
+  return `<div class="rw-hero2">
+    <div class="rw-hero2-mv">
+      <div class="rw-hero2-fig">
+        <span class="rw-hero2-v ${dcls}">${arrow?arrow+' ':''}${fmt(Math.abs(r.d))}</span>
+        <span class="rw-hero2-wl ${dcls}"><b>${esc(word)}</b>${
+          r.pri?`<span>${pct(Math.abs(r.dp))} vs ${esc(compareLabel())}</span>`:''}</span>
+      </div>
+      <div class="rw-hero2-flow">${fmt(r.pri)} <span class="ar">&rarr;</span> <b>${fmt(r.cur)}</b>
+        <span class="pd">${esc(compareLabel())} &rarr; ${esc(PERIODS[S.cur].short)} · $ in ${unitWord()}</span></div>
+      <div class="rw-hero2-spark">${dwHeroSpark(r)}<span class="k">13-period trend</span></div>
+    </div>
+    <div class="rw-hero2-verdict">
+      ${rwStepper(r,rc)}
+      ${r.req?`<div class="rw-hero2-cov">
+        <div class="rw-covbar"><i style="width:${cov}%"></i></div>
+        <div class="rw-hero2-covv"><b>${cov}%</b> explained${
+          r.d?` · <span class="${over?'rw-resid-over':''}">${fmtS(C.res)} residual</span> against ${fmtS(C.tol)} tolerance`:''}</div>
+      </div>`:''}
+      <div class="rw-hero2-act">${dwStatePill(rc)}${dwCtrlBtns(r,rc)}</div>
+    </div>
+  </div>`;
+}
 function dwHead(r,rc){
   const sgn=v=>(v>0?'+':'')+fmtS(v);
   /* Favourability is only meaningful where the statement has a favourable
@@ -11295,14 +11837,23 @@ function dwHead(r,rc){
        position is what the ‹ link and the Next button move through, and the count
        is the worklist bar's job. `owed` still gates the Next button; it is the
        count's TEXT that goes, not the fact behind it. */
-    from=`<div class="ws-from">
+    /* THE REVIEW QUEUE: how far the statement's review has got, so the full screen is a
+       place to clear a whole statement rather than inspect one line. Reviewed = required
+       lines signed off and inside tolerance; the same predicate the worklist "signed
+       off" tile and Mark-reviewed use. */
+    const reqL=rws.filter(x=>x.req);
+    const reviewedN=reqL.filter(x=>x.status==='approved'&&x.clear).length;
+    from=`<div class="ws-from rw-ctrlbar">
       <button type="button" class="rw-lnk" onclick="KFX.dwPage()">‹ ${esc(stmtTitle())}</button>
       <span class="sp"></span>
+      ${reqL.length?`<span class="rw-cbprog" title="Required lines signed off on this statement">
+        <span class="rw-cbbar"><i style="width:${Math.round(reviewedN/reqL.length*100)}%"></i></span>
+        <b>${reviewedN}</b> of ${reqL.length} reviewed</span>`:''}
       ${owed?`<button class="btn-out sm" onclick="KFX.nextOpen()">Next needing review →</button>`:''}
       <span class="keys">
-        <span><kbd>n</kbd>next line needing review</span><span><kbd>e</kbd>explain</span>
-        <span><kbd>x</kbd>watch</span><span><kbd>/</kbd>find</span>
-        <span><kbd>Esc</kbd>back to the statement</span></span>
+        <span><kbd>a</kbd>approve</span><span><kbd>r</kbd>return</span>
+        <span><kbd>c</kbd>comment</span><span><kbd>j</kbd>/<kbd>k</kbd>next/prev line</span>
+        <span><kbd>n</kbd>next needing review</span><span><kbd>Esc</kbd>back</span></span>
     </div>`;
   }
   /* THE FOUR-FIGURE BAND (2026-08-29, owner's direction — the reference inspector in
@@ -11323,15 +11874,20 @@ function dwHead(r,rc){
      LABEL, so the fact survives without spending a fourth row on it. */
   const dcls=r.d>0?'up':r.d<0?'dn':'n';
   const arrow=r.d>0?'&#9650;':r.d<0?'&#9660;':'';
-  const met=(v,k,cls)=>`<div class="rw-met"><div class="rw-met-v ${cls||''}">${v}</div>
+  const met=(v,k,cls,cellCls)=>`<div class="rw-met ${cellCls||''}"><div class="rw-met-v ${cls||''}">${v}</div>
       <div class="rw-met-k">${k}</div></div>`;
+  /* THE VARIANCE IS THE PANEL'S SUBJECT, so it reads as a highlighted answer chip in
+     the strip — a subtle favourable/unfavourable tint (rule 3: colour is state) that
+     lifts the movement out of four equal grey figures without spending a shadow or a
+     second size. r.d===0 stays neutral, so a line that did not move is not tinted. */
+  const heroCell=r.d>0?'rw-met-hero up':r.d<0?'rw-met-hero dn':'';
   const figs=`<div class="rw-figs">
     <div class="rw-unitcap" title="These figures are stated in ${ccyWord()} ${unitWord()}. Change the scale under Basis › Units.">$ in ${unitWord()}</div>
     <div class="rw-mets">
       ${met(fmt(r.cur), esc(PERIODS[S.cur].short))}
       ${met(r.pri?fmt(r.pri):'&mdash;', esc(compareLabel()))}
       ${met((arrow?arrow+' ':'')+fmt(Math.abs(r.d)),
-            'Variance', 'dlt hero '+dcls)}
+            'Variance', 'dlt hero '+dcls, heroCell)}
       ${met(r.pri?(arrow?arrow+' ':'')+pct(Math.abs(r.dp)):'&mdash;',
             'vs '+esc(compareLabel()), 'dlt '+dcls)}
     </div>
@@ -11341,7 +11897,6 @@ function dwHead(r,rc){
       <div class="rw-nm" title="${esc(r.l)}">${esc(r.l)}</div>
       <div class="rw-sub2">${esc(scopeWord())}</div>
     </div>
-    ${S.dwPage?RWSEC.state(dwCtx(r)):''}
     <div class="rw-hact">
       ${S.dwPage?'':`<button class="rw-ib" onclick="KFX.dwCollapse()" title="Collapse the review workspace"
         aria-label="Collapse the review workspace"><svg viewBox="0 0 16 16" fill="none"><path
@@ -11359,7 +11914,7 @@ function dwHead(r,rc){
         aria-label="Close the review workspace"><svg viewBox="0 0 16 16" fill="none"><path
         d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5"
         stroke-linecap="round"/></svg></button>
-    </div></div>`+figs;
+    </div></div>`+(S.dwPage?dwPageHero(r,rc):figs);
 }
 
 /* ---- workflow footer -------------------------------------------------------
@@ -11408,6 +11963,15 @@ function dwFoot(r,rc){
   }
   if(!r.req&&(rc.status==='draft'||rc.status==='returned'))return '';
   if(rc.status==='draft'||rc.status==='returned'){
+    /* THE BACK-AND-FORTH GATE. A returned line does not offer Submit until every
+       reviewer comment has a response — the control is here, at the point of action,
+       not only in exSubmit. */
+    const openRev=rc.status==='returned'?reviewItems(rc):[];
+    if(openRev.length&&C.prepare){
+      return `<span class="rw-fnote" style="color:var(--warning)">${openRev.length} reviewer
+        comment${openRev.length===1?'':'s'} to address</span><span class="sp"></span>
+        <button class="btn-primary sm" onclick="KFX.dwTab('comments')">Address comments</button>`;
+    }
     const ok=can&&C.prepare;
     const why=!C.prepare
       ? esc(me.role)+' is read-only on the close.'
@@ -12015,6 +12579,33 @@ function dwCtx(r){
     cmt:{all,said,owed,kinds,showFilter,fk,shown:said.filter(match),owedShown:owed.filter(match)}};
 }
 
+/* THE REVIEW PROGRESS STEPPER (2026-08-30, owner: enterprise flux). The line's place in
+   the flow, drawn as four connected steps: Korvyn draft → Prepared → In review →
+   Reviewed. The completed path is green, the current step accent, and a RETURNED line
+   reads as amber back at "Prepared" — so the one glance answers "where is this, and did
+   it come back?" It reads the same status the footer and grid do, so the three cannot
+   disagree about where a line stands. */
+function rwFlowStage(rc){
+  if(rc.status==='approved')return {i:3};
+  if(rc.status==='submitted')return {i:2};
+  if(rc.status==='returned')return {i:1,back:true};
+  if(rc.items.length||rc.narr)return {i:1};
+  return {i:0};
+}
+function rwStepper(r,rc){
+  const steps=[['Korvyn draft','Korvyn drafted the explanation'],
+    ['Prepared','A preparer accepted or wrote the explanation'],
+    ['In review','Submitted — with the reviewer'],
+    ['Reviewed','Reviewed and locked']];
+  const cur=rwFlowStage(rc);
+  return `<div class="rw-flow" role="group" aria-label="Review progress">`+
+    steps.map((s,i)=>{
+      const state=i<cur.i?'done':i===cur.i?(cur.back?'back':'now'):'todo';
+      return `<div class="rw-flowstep ${state}" title="${esc(s[1])}">
+        <span class="rw-flowdot">${i<cur.i?'✓':(i+1)}</span>
+        <span class="rw-flowlbl">${esc(s[0])}</span></div>`;
+    }).join('')+`</div>`;
+}
 /* Each part is (X) => html. The templates below are lifted VERBATIM from the five
    builders these replaced, indentation included — the whitespace inside a template
    literal is output, so re-indenting it to suit its new nesting would change the
@@ -12075,6 +12666,11 @@ const RWSEC={
       :((best.text&&best.kind!=='draft'&&r.clear)?['Material · explained','ok']
         :['Needs review','warn']);
     let h=`<div class="rw-sec">Explanation<span class="rw-clsb ${cls[1]}">${cls[0]}</span></div><div class="rw-work">`;
+    /* THE PRECISE LINK to materiality: when an explanation is required, the card
+       states WHY against this line's own movement, and what residual makes it
+       signable. So the requirement is never a bare flag — it cites the policy that
+       raised it and the tolerance that clears it. */
+    if(r.req)h+=matBasisRow(r,X.C);
     if(S.kdDraft!=null){
       // the words, and Save / Cancel on this card — one primary, not a second in the footer.
       return h+`<div class="exform">
@@ -12143,7 +12739,7 @@ const RWSEC={
       ${draft?'<span class="sp" aria-hidden="true">✦</span>':''}<span class="tx"
         >${draft?best.text:esc(best.text)}</span></div>
       <div class="rw-prov">${draft
-        ? 'Korvyn draft — not yet accepted by a preparer'
+        ? 'Korvyn draft'+(best.at?' · '+esc(best.at):'')+' — not yet accepted by a preparer'
         : esc(auth)+' · '+rwSource(r,rc,best)}</div>`;
     if(best.kind==='draft'&&canPrep)h+=kdControls(r,rc);
     else if(canPrep)h+=`<div class="rw-lact" style="margin-top:var(--s-3)">
@@ -12262,57 +12858,89 @@ const RWSEC={
      dominant avatar. Omitted once the review is complete, because the status block
      above already names who reviewed it ("REVIEWED · David Lee · Corporate
      Controller"), and repeating it would be the third time this panel said the same. */
+  /* WORKFLOW & REVIEW IS FOUR ROWS (2026-08-30, owner's direction: "make workflow very
+     simple"). Status · Review owner · Prepared by · Response due — the record of who
+     owns the review and by when, and nothing else. Coverage, residual, Next and Last
+     updated left this card: the coverage figure the reviewer signs against still rides
+     the header band and the statement's own status column, and stacking five metadata
+     rows here is exactly what made the record read as a form. */
+  /* OPEN ITEMS RIBBON (2026-08-30, owner: an "open items" checklist on the review desk,
+     so "what's left before I sign" is explicit). The unaddressed reviewer comments as a
+     short checklist at the top of the review column — a SUMMARY, like cmtPeek, not a
+     second copy of the thread: each row jumps to the comment it names, and the person it
+     is directed at gets the Address action (canAddress). Renders nothing when the line is
+     clean, so a healthy review desk does not carry an empty ribbon. */
+  /* KORVYN'S READ (2026-08-30, owner) — a generated one-line verdict that leads the case,
+     so a reviewer gets Korvyn's assessment before reading a word. It NARRATES the engine's
+     own figures (coverage, residual vs tolerance, open comments, state) and never computes
+     a new one — the AI-narrates-never-computes rule. Indigo, Korvyn's own voice (rule 2).
+     Page-only: it is the review desk's opening statement, and the dock has the hero's
+     coverage instrument in its place. */
+  krvSummary(X){
+    if(!X.page)return '';
+    const r=X.r, rc=X.rc, C=coverOf(r,rc);
+    const cov=Math.round(Math.max(0,Math.min(100,C.cover)));
+    const over=Math.abs(C.res)>C.tol, open=reviewItems(rc).length, st=rc.status;
+    let v, tone='ready';
+    if(st==='approved'){ v='Reviewed and locked — signed off and in the flux memo.'; tone='ok'; }
+    else if(!r.req){ v='Below materiality — no explanation is required on this line.'; tone='mute'; }
+    else if(open){ v=open+' open reviewer comment'+(open===1?'':'s')+' to address before this can go back to review.'; tone='warn'; }
+    else if(over){ v=fmt(Math.abs(C.res))+' of the movement is still unexplained against a '+fmt(Math.abs(C.tol))+' tolerance — not ready to submit.'; tone='warn'; }
+    else if(st==='submitted'){ v=cov+'% explained and within tolerance — ready for your sign-off.'; tone='ready'; }
+    else if(st==='returned'){ v='Every reviewer comment is addressed and it is within tolerance — ready to resubmit.'; tone='ready'; }
+    else { v=cov+'% explained and within tolerance — ready to submit for review.'; tone='ready'; }
+    return `<div class="rw-krvsum ${tone}">
+      <span class="rw-krvsum-mk" aria-hidden="true">✦</span>
+      <span class="rw-krvsum-tx"><b>Korvyn's read</b> · ${esc(v)}</span></div>`;
+  },
+  openItems(X){
+    const items=reviewItems(X.rc);
+    if(!items.length)return '';
+    return `<div class="rw-sec">Open items<span class="ct">${items.length}</span></div>
+      <div class="rw-openlist">`+items.map(c=>{
+        const askNm=c.ask?String(c.ask).split(',')[0].trim():'';
+        const id=String(c.id||'').replace(/'/g,'&#39;');
+        return `<div class="rw-openitem">
+          <span class="rw-openmk" aria-hidden="true"></span>
+          <button type="button" class="w" onclick="KFX.dwGo('cmtStream')">
+            <span class="t">${esc((c.text||'Change requested').slice(0,90))}</span>
+            <span class="mt">${askNm?'Awaiting '+esc(askNm):'Awaiting a response'}</span></button>
+          ${canAddress(c)?`<button type="button" class="rw-lnk"
+            onclick="event.stopPropagation();KFX.cmtResolve('${id}')">Address</button>`:''}
+        </div>`;}).join('')+`</div>`;
+  },
   reviewer(X){
-    const rc=X.rc;
+    const rc=X.rc, r=X.r;
     const w=rwWho(rc.rev||PEOPLE.rev), p=rwWho(rc.prep);
-    const st={draft:'Needs review',returned:'Returned to the preparer',
-      submitted:'In review',approved:'Reviewed and locked'}[rc.status]||'Needs review';
-    const rows=[['Status',esc(st)],
+    /* Status is the one word a reviewer scans for, so it is coloured only when it is a
+       genuine state (returned → amber, signed off → green); in review / needs review
+       are neutral (rule 3 — colour is state, not decoration). */
+    const stMap={draft:['Needs review',''],returned:['Returned to the preparer','warn'],
+      submitted:['In review',''],approved:['Reviewed and locked','ok']};
+    const st=stMap[rc.status]||stMap.draft;
+    /* ASSIGNED TO is the reassignable responder (defaults to the preparer); a Controller
+       or the CAO gets a Reassign control right on the row. Prepared-by is kept as the
+       historical author, but only once an explanation actually exists — so an unworked
+       line shows one owner, not the same name twice. */
+    const asg=lineAssignee(rc);
+    const rows=[
+      ['Status',`<span class="rw-wfst ${st[1]}">${esc(st[0])}</span>`],
       ['Review owner',`<span class="rw-av" aria-hidden="true">${esc(rwInitials(w.nm))}</span>`+
-        esc(w.nm)+(w.role?` <span class="sub">${esc(w.role)}</span>`:'')],
-      ['Prepared by',esc(p.nm)]];
-    /* COVERAGE LIVES HERE NOW. The review-state block that used to head Overview is
-       gone with the card rebuild — the reference has no such band — but "how much of
-       this movement is explained, and is it inside tolerance" is the fact a reviewer
-       signs against, so it moves in beside Status rather than off the panel. It is
-       one row, and it takes colour only when it is actually out of tolerance
-       (rule 3): a line within tolerance is not an exception. */
-    const C=X.C, r=X.r;
-    if(r.req&&Math.abs(r.d)>0){
-      const over=Math.abs(C.res)>C.tol;
-      rows.push(['Explained',
-        `${Math.round(Math.max(0,Math.min(100,C.cover)))}% <span class="sub">of the movement</span>`]);
-      rows.push(['Unexplained',
-        `<span class="${over?'dlt dn':''}">${fmtS(C.res)}</span>`+
-        `<span class="rw-wfp ${over?'warn':''}">tolerance ±${fmtS(C.tol)}</span>`]);
-    }
-    if(rc.status!=='approved')
-      rows.push(['Next',rc.status==='submitted'?esc(w.nm)+' has the line now'
-        :`after ${esc(p.nm)} submits`]);
-    /* WHEN SOMEBODY IS WAITING — real, or absent (2026-08-29). The reference's
-       Workflow card closes on "Target sign-off · Aug 5, 2026 · 4 days left", and
-       this model has NO per-line sign-off target. Inventing one would assert a
-       control nobody built — the same reason the evidence table derives
-       Verified/Pending from the line's own sign-off instead of badging a document
-       approval workflow that does not exist.
-
-       What does exist is the explanation request raised on this line, which carries
-       a real due date and a real lateness instant (`dueParts()` sets it to the END
-       of the due day, because "by Friday" means all of Friday). That is the date
-       somebody is genuinely waiting on, so it is the one this row states, under its
-       own name rather than the reference's. Matched on line AND statement AND
-       period: a request raised against another comparison is not this line's clock.
-       No open request, no row — never a placeholder date. */
+        `<span class="rw-wfnm">${esc(w.nm)}</span>`],
+      ['Assigned to',`<span class="rw-av" aria-hidden="true">${esc(rwInitials(asg))}</span>`+
+        `<span class="rw-wfnm">${esc(asg)}</span>`+
+        (canAssign()?`<button type="button" class="rw-reassign"
+          title="Reassign this line to another person" onclick="KFX.assignDialog()">Reassign</button>`:'')]];
+    if(rc.items.length||rc.narr)rows.push(['Prepared by',esc(p.nm)]);
+    /* The one date somebody is genuinely waiting on: the explanation request raised on
+       THIS line — a real due date and a real lateness instant. No open request, no row
+       — never a placeholder. (See the 2026-08-29 note on why this is "Response due" and
+       not the reference's invented per-line "Target sign-off".) */
     try{
       const due=reqOpen()
         .filter(q=>q.line===r.id&&q.stmt===S.stmt&&q.period===periodTag())
         .sort((a,b)=>a.dueTs-b.dueTs)[0];
       if(due){
-        /* COUNT DAYS AGAINST THE END OF TODAY, because dueTs is the end of the due
-           DAY — measuring it from `Date.now()` and rounding up turns a request the
-           controller chose as "In 5 days" into "6 days left" for all but the last
-           second of today (observed). End-of-day to end-of-day is a whole number of
-           days by construction, so this reads back exactly what was chosen. */
         const eod=new Date(); eod.setHours(23,59,59,999);
         const days=Math.round((due.dueTs-eod.getTime())/864e5), late=days<0, n=Math.abs(days);
         rows.push(['Response due',esc(due.due)+
@@ -12321,10 +12949,7 @@ const RWSEC={
             : days===0?'due today':days+' day'+(days===1?'':'s')+' left'}</span>`]);
       }
     }catch(e){}
-    if(rc.updated)rows.push(['Last updated',esc(rc.updated)]);
-    /* deliberately NO close-day row: the close strip states the close position on every
-       screen in the product, and a line's workflow block is not a second calendar. */
-    return `<div class="rw-sec">Workflow &amp; review</div><div class="rw-wf">`+
+    return `<div class="rw-sec">Workflow &amp; review</div>`+(X.page?'':rwStepper(r,rc))+`<div class="rw-wf">`+
       rows.map(([k,v])=>`<div class="rw-wfr"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')+
       `</div>`;
   },
@@ -12735,12 +13360,21 @@ const RWSEC={
   prior(X){
     const r=X.r, rc=X.rc;
     const pb=(()=>{
-    const pr=priorRec(r.id); if(!(pr&&pr.items.length))return '';
+    const pr=priorRec(r.id);
+    /* WIRED TO THE PRIOR PERIOD'S FINAL REVIEW (2026-08-30, owner: "make sure the
+       prior-period explanation is connected to the final review of the prior period").
+       Only an explanation that was actually SIGNED OFF (status 'approved') is
+       institutional memory; a prior draft, an in-review or a returned explanation is
+       work in progress that may still change, so surfacing it would carry forward
+       something that was never agreed. This gate is what makes the caption below true
+       rather than aspirational — before it, any prior record with items showed here. */
+    if(!(pr&&pr.items.length&&pr.status==='approved'))return '';
     const pl=PERIODS[Math.max(0,S.cur-(S.grain==='m'?1:S.grain==='q'?3:12))].lbl;
+    const rv=rwWho(pr.rev||'').nm;
     let b=`<div class="rw-hm">${esc(pl.toUpperCase())}</div>
-      <div class="rw-h"><div class="w">Prior-period explanation available</div>
-        <div class="m">${pr.items.length} item${pr.items.length===1?'':'s'} accepted · nothing carries
-          forward automatically</div></div>`;
+      <div class="rw-h"><div class="w">Signed-off explanation${rv?' · reviewed by '+esc(rv):''}</div>
+        <div class="m">${pr.items.length} item${pr.items.length===1?'':'s'}${
+          pr.updated?' · locked '+esc(pr.updated):''} · nothing carries forward automatically</div></div>`;
     b+=`<div class="rw-items">`+pr.items.map(it=>`<div class="rw-item">
         <span class="a">${fmtS(it.amt)}</span>
         <span class="k">${esc(RSN[it.reason]||it.reason)}</span>
@@ -12755,11 +13389,11 @@ const RWSEC={
        memory survives the close rather than being retyped every month. The empty
        state says the same thing forwards. */
     return `<div class="rw-sec">Prior-period explanation</div>
-      <div class="rw-src" style="margin-top:0">Carried from each prior period's
+      <div class="rw-src" style="margin-top:0">Carried from the prior period's
       <b>final, signed-off</b> explanation — institutional memory, never re-entered
       month to month.</div>`+
-      (pb || `<div class="rw-quiet">No prior-period explanation yet — this month's accepted
-        explanation becomes next month's history.</div>`);
+      (pb || `<div class="rw-quiet">No signed-off explanation from the prior period yet — a
+        prior explanation appears here only once its review was completed and locked.</div>`);
   },
 
   /* ---- BALANCE & MOVEMENT BY PERIOD (2026-08-29 — the reference inspector's
@@ -12805,8 +13439,12 @@ const RW_LAYOUT={
     sum:['state','explain','drivers','attn'],
     drive:['drill'],
     comments:['cmtHead','cmtStream','cmtComp','cmtOwed'],
-    evid:['evid','source'],
-    support:['evid','source'],   /* alias for any stale caller */
+    /* EVIDENCE IS ATTACHMENTS ONLY (2026-08-30, owner's direction: "the evidence tab
+       should have only evidence support like attachments"). Financial source moved off
+       this tab — it answers "where does the number come from", which is a Drivers/GL
+       question, not a support question. */
+    evid:['evid'],
+    support:['evid'],   /* alias for any stale caller */
     /* Registered here because dwPageCols() resolves a page tab through THIS
        registry — one tab vocabulary for both densities. It does not put a General
        ledger tab in the 440px dock: that strip is its own literal in paintDrawer(),
@@ -12845,13 +13483,27 @@ const RW_LAYOUT={
      different answers depending on its width, and the composer belongs beside the
      words either way. `rec` is the verdict alone now: Workflow & review IS the record
      this column was named for. */
+  /* THE PAGE OVERVIEW MEANS WHAT THE DOCK'S DOES (2026-08-30). Key drivers and the
+     evidence summary left Overview in both densities — each is its own page tab
+     (Drivers, Evidence) — so the three columns carry the same argument the dock
+     stacks: the explanation and its reply, the workflow record, and the itemised
+     blockers when something is genuinely stopping the line. */
+  /* THE FULL SCREEN IS THE REVIEW DESK (2026-08-30, owner: "the reviewer can come in to
+     the full screen and just review/address the open comments … a signature item").
+     Two columns, not three, and no page-only extras: the LEFT is the case under review —
+     the explanation, at reading width; the RIGHT is the review itself — the workflow
+     record with its progress stepper, then the whole live conversation (thread, the
+     awaiting worklist, and the composer) so a reviewer reads the argument on the left and
+     works the review — comment, address, question, sign off — entirely on the right,
+     without changing tabs. `attn` (Needs attention) is gone at the owner's direction: the
+     blockers a reviewer must clear are the open comments themselves, which are now the
+     subject of the right column rather than a separate list. */
   page:{
-    judge:['explain','cmtPeek','attn'],
-    comp:['drivers','evidRow'],
-    rec:['reviewer'],
+    judge:['krvSummary','explain'],
+    rec:['openItems','reviewer','cmtHead','cmtStream','cmtComp','cmtOwed'],
   },
 };
-const RW_RGNAME={explain:'Explanation',attn:'Needs attention',reviewer:'Workflow and review',
+const RW_RGNAME={explain:'Explanation',attn:'Needs attention',openItems:'Open items',krvSummary:"Korvyn's read",reviewer:'Workflow and review',
   drill:'Drivers',evid:'Evidence',source:'Financial source',prior:'Prior period',
   trend:'Period trend',cmtHead:'Comments',cmtOwed:'Awaiting a comment',
   cmtStream:'Comment stream',cmtComp:'Add a comment',trail:'Review history'};
@@ -12931,12 +13583,18 @@ function dwOverviewKeys(X){
      Explanation · Key drivers · Workflow & review · Evidence · Comments. Adjacency to
      the explanation beat matching that order; the five cards and their content are
      otherwise untouched. */
+  /* OVERVIEW IS EXPLANATION · CONVERSATION · WORKFLOW (2026-08-30, owner's direction:
+     "I don't want key drivers/evidence" on Overview). Key drivers and the evidence
+     summary left Overview entirely — each is a tab of its own (Drivers on the full
+     page, Evidence in both densities), so nothing is lost, and Overview stops being
+     five stacked cards a reviewer scrolls. What remains is the argument, the reply
+     box beside it, and the simplified Workflow & review record. */
   if(m==='inspect'&&!(editing||X.best.text))
-    return ['drivers','explainCue','cmtPeek','reviewer','evidRow'];
-  return ['explain','cmtPeek','drivers','reviewer','evidRow'];
+    return ['explainCue','cmtPeek','reviewer'];
+  return ['explain','cmtPeek','reviewer'];
 }
 /* Parts that are already cards — see dwBody. */
-const RW_NOCARD=['cmtStream','cmtComp'];
+const RW_NOCARD=['cmtStream','cmtComp','krvSummary'];
 function dwBody(X){
   const part=k=>{const f=RWSEC[k];return f?f(X):'';};
   if(!X.page){
@@ -12973,7 +13631,7 @@ function dwBody(X){
       aria-label="${esc(RW_RGNAME[p]||p)}">${html}</section>`;
   }).join('')+`</div>`;
   const cols=dwPageCols(X);
-  return `<div class="rw-cols ${cols.length===1?'one':''}">`+
+  return `<div class="rw-cols ${cols.length===1?'one':cols.length===2?'desk':''}">`+
     cols.map(([k,keys])=>col(k,keys)).join('')+`</div>`;
 }
 /* WHICH COLUMNS THE FULL SCREEN SHOWS, for the active tab.
@@ -12990,11 +13648,14 @@ function dwBody(X){
 function dwPageCols(X){
   const t=S.dwTab||'sum';
   if(t==='sum')return [['judge',RW_LAYOUT.page.judge],
-                       ['comp', RW_LAYOUT.page.comp],
                        ['rec',  RW_LAYOUT.page.rec]];
+  /* HISTORY IS TWO COLUMNS on the full screen — the quantitative series on the left,
+     the institutional memory (the signed-off prior explanation) and the activity log on
+     the right — so the tab fills the width the way Overview does rather than stacking one
+     narrow column of short blocks. */
+  if(t==='hist')return [['judge',['trend']],['rec',['prior','trail']]];
   const keys=RW_LAYOUT.drawer[t];
   if(!keys||!keys.length)return [['judge',RW_LAYOUT.page.judge],
-                                 ['comp', RW_LAYOUT.page.comp],
                                  ['rec',  RW_LAYOUT.page.rec]];
   return [['solo',keys]];
 }
@@ -13075,7 +13736,7 @@ function explAuthoring(r,rc,lock){
   h+=`<div class="dw-sec">Explanation items</div>
     ${lock?'':`<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn-out sm" onclick="KFX.exNew()">+ Add explanation</button>
-      ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length?
+      ${(()=>{const pr=priorRec(r.id);return pr&&pr.items.length&&pr.status==='approved'?
         `<button class="btn-out sm" onclick="KFX.exCarry()">Carry forward prior period</button>`:'';})()}
     </div>`}`;
   if(!rc.items.length)h+=`<div class="rl-empty">
@@ -13216,7 +13877,8 @@ function dwDrivers(r){
     const drv=O.drivers;
     const dim=S.stmt==='bs'?'acct':'seg';
     h+=`<div class="rw-rows">`+drv.map(d=>{
-      return `<button type="button" class="rw-r" onclick="KFX.drvInto('${dim}','${String(d.k).replace(/'/g,"&#39;")}')">
+      return `<button type="button" class="rw-r" style="--sh:${Math.max(2,Math.round(d.pctOf))}%"
+        onclick="KFX.drvInto('${dim}','${String(d.k).replace(/'/g,"&#39;")}')">
         <span class="l">${esc(d.nm)}</span>
         <span class="v dlt ${d.d>0?'up':'dn'}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
         <span class="p">${Math.round(d.pctOf)}%</span><span class="cv">›</span></button>`;}).join('');
@@ -13246,7 +13908,8 @@ function dwDrivers(r){
     h+=`<div class="rw-sec">By ${esc(RW_DIM[next].nm.toLowerCase())}<span class="ct">${rowsx.length}</span></div>
       <div class="rw-rows">`+rowsx.map(x=>{
         const sh=tot?Math.abs(x.d/tot*100):0;
-        return `<button type="button" class="rw-r" onclick="KFX.drvInto('${next}','${String(x.k).replace(/'/g,"&#39;")}')">
+        return `<button type="button" class="rw-r" style="--sh:${Math.max(2,Math.round(sh))}%"
+          onclick="KFX.drvInto('${next}','${String(x.k).replace(/'/g,"&#39;")}')">
           <span class="l">${esc(rwName(next,x.k))}
             <span class="sl">${fmt(x.pri)} → ${fmt(x.cur)}</span></span>
           <span class="v dlt ${x.d>0?'up':'dn'}">${(x.d>0?'+':'')+fmtS(x.d)}</span>
@@ -13382,7 +14045,7 @@ function commentStream(r,rc){
       at:c.at,ver:c.ver&&c.ver>1?('v'+c.ver):'',text:c.text,refs:[],ev:0,disc:true,
       /* carried so the card can mark a change request and name who it is aimed at —
          dropping them here would leave a return reading as an ordinary remark */
-      ask:c.ask||'',chg:!!c.chg,
+      ask:c.ask||'',chg:!!c.chg,resolved:!!c.resolved,mentions:c.mentions||null,
       cat:c.chg?'Change request':'Review comment',
       /* WHICH SIDE OF THE REVIEW IS SPEAKING. A thread whose messages all read
          "Name · Job title · Corporate" cannot answer the first question anybody
@@ -13486,6 +14149,14 @@ const CMT_KINDS=[['all','All'],['ent','Entity'],['reg','Regional'],['corp','Corp
    questions back among four entities' answers, knowing at a glance which voice is
    yours is what makes it scannable; it shifts the rail to the accent and nothing
    else, so the thread stays monochrome (rules 2/3). */
+/* highlight the @-mentions inside an escaped message body — escape first, then wrap the
+   already-escaped "@Name" tokens, so nothing typed can inject markup */
+function cmtHi(text,mentions){
+  let h=esc(String(text||''));
+  (mentions||[]).forEach(nm=>{ const tag=esc('@'+nm);
+    if(tag)h=h.split(tag).join('<span class="rw-mention">'+tag+'</span>'); });
+  return h;
+}
 function cmtCard(c,lock,isReply){
   /* MARKING A LEVEL'S REVIEW COMPLETE is a governance action on that scope's own
      review — the multinational close's per-level sign-off — not an approval of the
@@ -13526,7 +14197,7 @@ function cmtCard(c,lock,isReply){
      status and a discussion comment carries none, so a comment gets no pill rather
      than a decorative one. Inventing four states to match a screenshot would be
      asserting a workflow that does not exist. */
-  const pill=c.chg?['Changes requested','warn']
+  const pill=c.chg?(c.resolved?['Addressed','ok']:['Changes requested','warn'])
     :(c.status==='approved'?['Included in rollup','ok']
     :(c.status==='submitted'?['In review','mute']:null));
   return `<div class="rw-msg ${mine?'mine':''} ${isReply?'reply':''} ${aim?'aim':''} ${c.chg?'chg':''}">
@@ -13543,12 +14214,16 @@ function cmtCard(c,lock,isReply){
         ${pill?`<span class="rw-pill ${pill[1]}">${esc(pill[0])}</span>`:''}
       </div>`:''}
       ${c.chg&&askNm?`<div class="rw-chg"><span class="to">${esc(askNm)}</span> to update</div>`:''}
-      ${c.text?`<div class="tx">${esc(c.text)}</div>`:''}
+      ${c.text?`<div class="tx">${cmtHi(c.text,c.mentions)}</div>`:''}
       ${meta.length?`<div class="mt">${meta.join(' · ')}</div>`:''}
       ${c.ev?`<div class="mt att">${ic('clip')} ${c.ev} document${c.ev===1?'':'s'}</div>`:''}
-      ${(canReply||canReview)?`<div class="cact">
+      ${(canReply||canReview||(c.chg&&!c.resolved))?`<div class="cact">
         ${canReply?`<button type="button" class="rw-lnk rw-reply"
           onclick="KFX.cmtReply('${esc(c.id)}')">Reply</button>`:''}
+        ${c.id&&canAddress(c)?`<button type="button" class="rw-lnk rw-addr"
+          onclick="KFX.cmtResolve('${esc(c.id)}')">Mark addressed</button>`:''}
+        ${c.id&&typeof caps==='function'&&caps().review?`<button type="button" class="rw-lnk"
+          onclick="KFX.assignComment('${esc(c.id)}')">Add responder</button>`:''}
         ${canReview?`<button type="button" class="rw-lnk"
           onclick="KFX.lReview('${c.key}')">Mark this level reviewed</button>`:''}
       </div>`:''}
@@ -13604,7 +14279,9 @@ function cmtComposer(lock,replyTo){
       ${replyTo?`<div class="rw-replyto">Replying to <b>${esc(replyTo.who)}</b>
         <button type="button" class="rw-lnk" onclick="KFX.cmtReply(null)">Cancel</button></div>`:''}
       <textarea id="cmtIn" rows="1" oninput="KFX.cmtField(this.value)"
-        placeholder="${replyTo?'Write a reply…':'Write a note or question for the review team…'}"
+        onkeydown="if(KFX.cmtKey(event))return false;"
+        onblur="setTimeout(KFX.cmtMentionHide,150)"
+        placeholder="${replyTo?'Write a reply — @ mentions someone':'Write a note — @ mentions someone to respond'}"
         aria-label="${replyTo?'Reply':'Comment'}">${esc(S.cmtDraft||'')}</textarea>
       <div class="row"><span class="scope">Posting as ${esc(me.nm)} · ${esc(me.role)}${
         lock?' · line is locked; comment is recorded after sign-off':''
@@ -13637,6 +14314,65 @@ function cmtField(v){
   const box=t.closest('.rw-msg'); if(box)box.classList.toggle('live',!!String(v||'').trim());
   t.style.height='auto';
   t.style.height=Math.min(220,Math.max(t.scrollHeight,22))+'px';
+  cmtMentionScan(t);
+}
+/* ---- @-MENTION (2026-08-30, owner: "add a name by using @") ------------------
+   Typing @ in the composer opens a directory autocomplete; picking a person inserts
+   "@Name " and marks them mentioned. On post, each mentioned person is pulled into the
+   thread and — for a reviewer — notified in their queue (a 'query' obligation). The
+   scan matches @ + WORD chars only, so the trailing ". Patel" of an inserted name does
+   not keep the menu open; the user types "@Pat", picks "A. Patel", done. */
+let CMENT_EL=null, CMENT_LIST=[], CMENT_I=0;
+function cmentNode(){ if(!CMENT_EL){CMENT_EL=document.createElement('div');
+  CMENT_EL.id='cmtMentionPop'; CMENT_EL.setAttribute('role','listbox');
+  document.body.appendChild(CMENT_EL); } return CMENT_EL; }
+function cmtMentionHide(){ if(CMENT_EL){CMENT_EL.classList.remove('on');CMENT_EL.innerHTML='';}
+  CMENT_LIST=[]; CMENT_I=0; }
+function cmtMentionScan(t){
+  if(!t){return cmtMentionHide();}
+  const pos=t.selectionStart, before=t.value.slice(0,pos);
+  const m=/(^|\s)@(\w{0,20})$/.exec(before);
+  if(!m){return cmtMentionHide();}
+  const q=(m[2]||'').toLowerCase();
+  const list=pplDir().filter(p=>p.nm!==ME().nm)
+    .filter(p=>!q||p.nm.toLowerCase().replace(/[^a-z]/g,'').includes(q)||p.nm.toLowerCase().includes(q))
+    .slice(0,8);
+  if(!list.length){return cmtMentionHide();}
+  CMENT_LIST=list; CMENT_I=0;
+  const el=cmentNode();
+  el.innerHTML=list.map((p,i)=>`<button type="button" class="cment-o${i===0?' on':''}"
+    data-nm="${esc(p.nm)}" role="option"
+    onmousedown="event.preventDefault();KFX.cmtMentionPick('${esc(p.nm).replace(/'/g,'&#39;')}')"
+    ><span class="cment-av">${esc(rwInitials(p.nm))}</span><span class="cment-nm">${esc(p.nm)}</span>${
+      p.role?`<span class="cment-role">${esc(p.role)}</span>`:''}</button>`).join('');
+  const r=t.getBoundingClientRect();
+  el.style.left=Math.round(r.left)+'px';
+  el.style.top=Math.round(r.bottom+4)+'px';
+  el.style.width=Math.round(Math.min(320,Math.max(220,r.width)))+'px';
+  el.classList.add('on');
+}
+function cmtMentionPick(nm){
+  const t=document.getElementById('cmtIn'); if(!t){cmtMentionHide();return;}
+  const pos=t.selectionStart, before=t.value.slice(0,pos), after=t.value.slice(pos);
+  const nb=before.replace(/(^|\s)@(\w{0,20})$/, (mm,pre)=>pre+'@'+nm+' ');
+  t.value=nb+after; S.cmtDraft=t.value;
+  S.cmtMentions=S.cmtMentions||[]; if(S.cmtMentions.indexOf(nm)<0)S.cmtMentions.push(nm);
+  cmtMentionHide();
+  const np=nb.length; try{t.setSelectionRange(np,np);}catch(e){} t.focus();
+  const box=t.closest('.rw-msg'); if(box)box.classList.add('live');
+  t.style.height='auto'; t.style.height=Math.min(220,Math.max(t.scrollHeight,22))+'px';
+}
+/* keyboard on the composer: ↑/↓ move the mention menu, Enter/Tab pick, Esc close */
+function cmtKey(e){
+  if(!CMENT_LIST.length)return false;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();
+    CMENT_I=(CMENT_I+(e.key==='ArrowDown'?1:CMENT_LIST.length-1))%CMENT_LIST.length;
+    if(CMENT_EL)[...CMENT_EL.children].forEach((b,i)=>b.classList.toggle('on',i===CMENT_I));
+    return true;}
+  if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();
+    const p=CMENT_LIST[CMENT_I]; if(p)cmtMentionPick(p.nm); return true;}
+  if(e.key==='Escape'){e.preventDefault();cmtMentionHide();return true;}
+  return false;
 }
 function cmtOwedToggle(){ S.cmtOwedOpen=!S.cmtOwedOpen; paintDrawer(); }
 /* Aiming the composer at a message. The half-typed draft is DISCARDED on the way
@@ -13644,12 +14380,12 @@ function cmtOwedToggle(){ S.cmtOwedOpen=!S.cmtOwedOpen; paintDrawer(); }
    filed as an answer to one person, and silently re-filing it would put words in
    the author's mouth. */
 function cmtReply(id){
-  S.cmtReplyTo=id||null; S.cmtDraft='';
+  S.cmtReplyTo=id||null; S.cmtDraft=''; S.cmtMentions=[]; cmtMentionHide();
   if(id)S.dwTab='comments';
   paintDrawer();
   requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();});
 }
-function cmtCancel(){ S.cmtCompose=false; S.cmtDraft=''; paintDrawer();
+function cmtCancel(){ S.cmtCompose=false; S.cmtDraft=''; S.cmtMentions=[]; cmtMentionHide(); paintDrawer();
   requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();}); }
 /* ONE WRITER FOR THE THREAD. cmtSave() posts what a person typed and exReturn()
    posts a change request; two push sites shaping their own records is how a renderer
@@ -13662,6 +14398,7 @@ function cmtPost(rc,txt,o){
     id:'c'+(++cmtSeq)+'_n',parent:o.parent||null};
   if(o.ask)m.ask=o.ask;
   if(o.chg)m.chg=1;
+  if(o.mentions&&o.mentions.length)m.mentions=o.mentions.slice();
   rc.comments.push(m);
   return m;
 }
@@ -13680,10 +14417,23 @@ function cmtSave(){
     const byId={}; commentStream({id:S.sel},rc).forEach(c=>{if(c.id)byId[c.id]=c;});
     parent=cmtRootOf(parent,byId);
   }
-  cmtPost(rc,txt,{parent});
-  logA({line:S.sel,who:meStr(),act:parent?'replied to a comment':'added a comment',after:txt});
-  S.cmtCompose=false; S.cmtDraft=''; S.cmtReplyTo=null;
-  renderAll(); toast(parent?'Reply posted':'Comment posted');
+  /* @-MENTIONS pull people into the thread. Only names actually still in the text count
+     (the author may have deleted one after picking it). A reviewer's mention raises a
+     'query' obligation in that person's queue; a non-reviewer's is a reference only —
+     "add anyone to address the question" is a reviewer power, so only a reviewer creates
+     the obligation. */
+  const mentions=(S.cmtMentions||[]).filter(nm=>txt.indexOf('@'+nm)>=0);
+  cmtPost(rc,txt,{parent, mentions});
+  if(mentions.length&&typeof caps==='function'&&caps().review){
+    const r=rows().find(x=>x.id===S.sel);
+    if(r)mentions.forEach(nm=>{ if(nm!==ME().nm)raiseReq(r,nm,'Address this: '+txt.slice(0,120),'query'); });
+    logA({line:S.sel,who:meStr(),act:'asked '+mentions.join(', ')+' to address a comment',after:txt});
+  }else{
+    logA({line:S.sel,who:meStr(),act:parent?'replied to a comment':'added a comment',after:txt});
+  }
+  cmtMentionHide();
+  S.cmtCompose=false; S.cmtDraft=''; S.cmtReplyTo=null; S.cmtMentions=[];
+  renderAll(); toast(mentions.length?('Posted — '+mentions.join(', ')+' asked to respond'):(parent?'Reply posted':'Comment posted'));
   requestAnimationFrame(()=>{const n=document.getElementById('cmtIn');if(n)n.focus();});
 }
 function cmtFilter(k){ S.cmtFilter=k; S.cmtMenu=false; paintDrawer(); }
@@ -13908,6 +14658,11 @@ function exDel(i){
 }
 function exCarry(){
   const pr=priorRec(S.sel), rc=rec(S.sel,true), r=rows().find(x=>x.id===S.sel);
+  /* only the prior period's SIGNED-OFF explanation may be carried forward — the same
+     gate the prior-period card renders under, so the button can never carry something
+     the review never finalised */
+  if(!(pr&&pr.items.length&&pr.status==='approved')){
+    toast('The prior period has no signed-off explanation to carry forward');return;}
   const scale=r.d&&pr.items.length?r.d/pr.items.reduce((t,x)=>t+x.amt,0):1;
   rc.items=pr.items.map(x=>({...x,amt:x.amt*scale,note:'[recurring] '+x.note,files:[],
     by:meStr(),at:stamp(),src:'carried'}));
@@ -13929,9 +14684,30 @@ function exCarry(){
 function exSubmit(){
   const rc=rec(S.sel,true);
   if(!caps().prepare){toast('Your role is read-only on the close');return;}
-  rc.status='submitted'; rc.revNote=''; rc.submittedBy=meStr(); rc.rev=null;
+  /* THE GATE: a returned line cannot go back to the reviewer with review comments still
+     open. This is the enforced half of the back-and-forth — Submit does not even render
+     while items are open (see dwFoot), and this is the belt-and-braces if it is called
+     another way. */
+  const open=reviewItems(rc);
+  if(rc.status==='returned'&&open.length){
+    S.dwTab='comments';
+    toast(open.length+' reviewer comment'+(open.length===1?'':'s')+' still to address before resubmitting');
+    renderAll(); return;
+  }
+  const wasReturned=rc.status==='returned';
+  rc.status='submitted'; rc.revNote=''; rc.submittedBy=meStr(); rc.submittedAt=stamp(); rc.rev=null;
+  /* AUTO-ROUTE TO THE REVIEWER. Submitting hands the line to the reviewer seat and, on a
+     RESUBMIT after a return, notifies them that their comments were addressed and it is
+     back with them — closing the loop the return opened. */
+  rc.assignee=rwWho(PEOPLE.rev).nm;
+  const r=rows().find(x=>x.id===S.sel);
+  if(r&&wasReturned)raiseReq(r, rc.assignee, 'Re-review — the preparer addressed your comments.', 'review');
+  /* SUBMITTING DISCHARGES A REASSIGNMENT OBLIGATION on the preparer's side. */
+  FXREQ.forEach(q=>{ if(q.status==='open'&&q.kind==='person'&&(q.sub==='own'||q.sub==='return')
+      &&q.line===S.sel&&q.stmt===S.stmt&&q.period===periodTag()){
+    q.status='answered'; q.closedAt=stamp(); q.closedBy=meStr(); q.outcome='owner'; } });
   logA({line:S.sel,who:meStr(),act:'submitted the line for review',
-    before:'needs review',after:'in review'});
+    before:wasReturned?'returned':'needs review',after:'in review'});
   renderAll();
 }
 /* THE REVIEW IS WHAT COMPLETES, NOT THE COMMENTARY. This marks the financial
@@ -13945,15 +14721,31 @@ function exApprove(){
       : 'Your role cannot sign off a review');
     return;
   }
+  const r=rows().find(x=>x.id===S.sel);
+  /* A MATERIAL LINE REQUIRES A REVIEWER NOTE TO SIGN OFF (2026-08-30, owner: above the
+     reviewer-set materiality threshold, a comment is mandatory — both a preparer
+     explanation to submit AND a reviewer note to sign off). `r.req` IS "above materiality
+     or watched", the same predicate that already makes the explanation mandatory, so the
+     two halves of the control read from one threshold. The note is recorded as the
+     reviewer's sign-off in the thread and on the record; ask() refuses an empty value, so
+     the requirement cannot be clicked past. An immaterial line signs off without one —
+     nothing above the threshold is being asserted. */
+  if(r&&r.req){
+    ask('Sign off this material line','Your review note — why this movement is accepted…',
+      n=>exApproveDo(rc,n));
+    return;
+  }
+  exApproveDo(rc,'');
+}
+function exApproveDo(rc,note){
   rc.status='approved'; rc.rev=meStr();
+  if(note){ rc.revSignNote=note; rc.revSignAt=stamp(); cmtPost(rc,note,{}); }
   /* SNAPSHOT THE BASIS AT SIGN-OFF. rows() recomputes cur/pri/d live from the
      slices on every paint, while accepted items carry amounts frozen when they were
      accepted. Nothing captured the figures the reviewer actually signed, so a late
      entry or a restatement silently reopened a residual on a reviewed line and
      flipped it to "Reviewed, residual" — a state nobody chose and nobody was told
-     about. The memo admitted as much in its own footer: it reflected explanations
-     at the time of PRINTING, and could not be regenerated to match what was signed.
-     What was true at sign-off is recorded here, so a later drift is detectable
+     about. What was true at sign-off is recorded here, so a later drift is detectable
      rather than invisible. */
   const r=rows().find(x=>x.id===S.sel);
   if(r)rc.signed={cur:r.cur,pri:r.pri,d:r.d,res:r.res,
@@ -13962,8 +14754,14 @@ function exApprove(){
   logA({line:S.sel,who:meStr(),act:'marked the line reviewed and locked it',
     before:'in review',after:'reviewed',
     detail:rc.items.length+' explanation items · '+(rc.files||[]).length+
-      ' line attachments · signed against '+(r?fmtS(r.d):'—')+' movement under '+prof().nm});
-  renderAll(); toast('Marked reviewed — flows to the flux memo');
+      ' line attachments · signed against '+(r?fmtS(r.d):'—')+' movement under '+prof().nm+
+      (note?' · reviewer note recorded':'')});
+  renderAll();
+  /* THE REVIEW QUEUE GLIDES ON (full screen): signing a line advances to the next one
+     needing review, so a reviewer clears a whole statement without returning to it.
+     fxNextOpen shows its own "nothing left" toast when the statement is complete. */
+  if(S.dwPage){ if(fxNextOpen())toast('Reviewed — on to the next line'); }
+  else toast('Marked reviewed — flows to the flux memo');
 }
 function exReturn(){
   const rc=rec(S.sel,true);
@@ -13974,7 +14772,7 @@ function exReturn(){
     return;
   }
   ask('Return to preparer','What needs to change?',n=>{
-    const rc2=rec(S.sel,true); rc2.status='returned'; rc2.revNote=n; rc2.returnedBy=meStr();
+    const rc2=rec(S.sel,true); rc2.status='returned'; rc2.revNote=n; rc2.returnedBy=meStr(); rc2.returnedAt=stamp();
     /* THE REASON FOR A RETURN IS THE MOST IMPORTANT THING A REVIEWER EVER WRITES ON
        A LINE, AND IT WAS THE ONE THING THAT NEVER REACHED THE THREAD. It went to
        rc.revNote — a field surfaced as a status caption — so the trail read: Korvyn
@@ -13985,9 +14783,210 @@ function exReturn(){
        rc.revNote is still written: the footer and the grid read it, and this posts
        ALONGSIDE that rather than replacing it, so no existing reader changes. */
     cmtPost(rc2,n,{ask:rc2.prep||'',chg:1});
+    /* AUTO-ROUTE BACK TO THE PREPARER. The return hands the line to whoever prepared it
+       (or the standing preparer) and notifies them, so it lands in their queue as owed
+       and the response-due clock starts — the reviewer's comment does not sit unseen. */
+    const prepNm=rwWho(rc2.prep||PEOPLE.prep).nm;
+    rc2.assignee=prepNm;
+    const r=rows().find(x=>x.id===S.sel);
+    if(r&&prepNm!==ME().nm)raiseReq(r, prepNm, 'Address the review comments and resubmit.', 'return');
     logA({line:S.sel,who:meStr(),act:'returned the review to the preparer',
       before:'in review',after:'returned',detail:n});
     renderAll();});
+}
+
+/* ============================================================================
+   ASSIGNMENT — a line, and a single comment, can be handed to a named person
+   (2026-08-30, owner's direction: a Controller assigns a responder other than the
+   standard preparer, and the preparer is itself reassignable). This is the piece the
+   model was missing: ownership was FIXED per scope (ENT_OWNERS/REG_OWNERS) and the
+   preparer was whoever happened to act, so there was no assignee to move. Now there is
+   one, it defaults to the preparer, and every change is a recorded governance event.
+
+   THREE decisions, all the owner's: line AND per-comment are assignable; only a
+   Controller or the CAO may reassign (caps().reopen is exactly that gate — a preparer
+   requests, it does not hand ownership around); and the directory is the people already
+   in the data, never a second identity model.
+   ========================================================================== */
+/* The assignable roster — the entity/region owners already seeded, plus the standard
+   preparer/reviewer and the acting user. `cap` says who may hold a PREPARER assignment
+   ('prepare'/'both') as opposed to a review-only seat. */
+function pplDir(){
+  const seen={}, out=[];
+  const add=(nm,role,cap)=>{ nm=String(nm||'').split(',')[0].trim();
+    if(!nm||seen[nm])return; seen[nm]=1; out.push({id:nm,nm,role:role||'',cap:cap||'prepare'}); };
+  const me=ME(); add(me.nm, me.role, 'both');
+  add('J. Reyes','Senior Accountant','prepare');
+  add('A. Okafor','Controller','both');
+  add('M. Grant','CAO','both');
+  Object.values(ENT_OWNERS).forEach(o=>{ if(o&&!o.me)add(o.nm,o.role,'prepare'); });
+  Object.values(REG_OWNERS).forEach(o=>{ if(o&&!o.me)add(o.nm,o.role,'prepare'); });
+  return out;
+}
+/* Who the line is WITH now — the reassignable responder, distinct from the fixed scope
+   owner and from whoever historically prepared it. Defaults to the preparer, so a line
+   nobody has reassigned still answers "who owns this" truthfully. */
+function lineAssignee(rc){
+  if(rc&&rc.assignee)return rc.assignee;
+  const p=rc&&rc.prep?String(rc.prep).split(',')[0].trim():'';
+  return p||String(PEOPLE.prep).split(',')[0].trim();
+}
+/* Reassignment is a review-governance action: Controllers and the CAO only — caps().reopen
+   is that exact gate. A preparer can request an explanation or record one; it cannot hand
+   the line to someone else. */
+const canAssign=()=>caps().reopen;
+const pplOpts=(sel)=>pplDir().filter(p=>p.cap!=='review')
+  .map(p=>`<option value="${esc(p.id)}"${p.nm===sel?' selected':''}>${esc(p.nm)}${
+    p.role?' · '+esc(p.role):''}</option>`).join('');
+
+/* ---- reassign the whole line's responder ---------------------------------- */
+function assignDialog(){
+  if(!canAssign()){toast('Only a Controller or the CAO can reassign a line');return;}
+  if(!S.sel){toast('Open a line first');return;}
+  const rc=rec(S.sel,true), cur=lineAssignee(rc);
+  $('fxModal').innerHTML=`<h3>Reassign this line</h3><div class="mbody">
+    <div class="rl-note" style="margin-bottom:var(--s-4)">Currently with <b>${esc(cur)}</b>.
+      Handing it to someone else records a reassignment in the line's history and points the
+      response-due clock and any open request at them.</div>
+    <div class="fld"><label for="asgWho">Assign to</label>
+      <select class="inp" id="asgWho">${pplOpts(cur)}</select></div>
+    </div>
+    <div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Cancel</button>
+      <button class="btn-primary" id="asgOk">Reassign</button></div>`;
+  $('fxMask').classList.add('on');
+  setTimeout(()=>{const s=$('asgWho');if(s)s.focus();},30);
+  const ok=$('asgOk'); if(ok)ok.onclick=()=>assignLine(String(($('asgWho')||{}).value||''));
+}
+function assignLine(nm){
+  if(!canAssign()){toast('Only a Controller or the CAO can reassign a line');return;}
+  nm=String(nm||'').trim(); if(!nm)return;
+  const rc=rec(S.sel,true), was=lineAssignee(rc);
+  closeModal();
+  if(nm===was){toast('Already assigned to '+esc(nm));return;}
+  rc.assignee=nm;
+  const r=rows().find(x=>x.id===S.sel);
+  const notified=(r&&nm!==ME().nm)?notifyAssignee(r,rc,nm):null;
+  logA({line:S.sel,who:meStr(),act:'reassigned the line to '+nm,before:was,after:nm,
+    detail:notified?('notified '+nm+' — added to their request queue, due '+notified.due):''});
+  toast(notified?('Reassigned to '+esc(nm)+' — added to their queue'):('Reassigned to '+esc(nm)));
+  renderAll();
+}
+/* AUTO-NOTIFY (2026-08-30, owner). Reassignment raises a formal, person-targeted request
+   against the new assignee, so the hand-off lands in their queue (openReqs › Assigned to
+   you), drives the line's Response-due row and the worklist's "requested" count, and is
+   late-able like any other obligation — rather than being only an audit-trail entry.
+   ONE open obligation per line: a prior reassignment's request is withdrawn first, so the
+   register can never show a line owed by two people at once. Reassigning to yourself
+   raises nothing — there is no obligation to notify yourself of. */
+/* ONE writer for a person-targeted obligation. `sub` says what kind: 'own' is a whole-line
+   ownership hand-off (reassignment); 'query' is a reviewer pulling someone into a specific
+   comment to address a question. Both land in the person's queue, drive the line's
+   Response-due row and the worklist count, and are late-able. */
+function raiseReq(r,nm,ask,sub){
+  const p=pplDir().find(x=>x.nm===nm)||{nm,role:''};
+  const dp=dueParts(REQ_DUE_DEF);
+  const q={id:'R'+String(++_rqid).padStart(4,'0'),
+    stmt:S.stmt, period:periodTag(), line:r.id, lineLbl:r.l,
+    scope:null, kind:'person', sub:sub||'own', scopeNm:nm, assignee:nm, assigneeRole:p.role,
+    ask:ask, by:meStr(), at:stamp(), ts:Date.now(),
+    due:dp.due, dueTs:dp.dueTs, amt:r.d,
+    st:{stmt:S.stmt,grain:S.grain,compare:S.compare,cur:S.cur,prior:S.prior},
+    status:'open', chases:[], closedAt:null, closedBy:null, outcome:''};
+  FXREQ.unshift(q); return q;
+}
+function notifyAssignee(r,rc,nm){
+  /* one OWNERSHIP obligation per line — withdraw the prior reassignment's, never a query */
+  FXREQ.forEach(q=>{ if(q.status==='open'&&q.kind==='person'&&q.sub==='own'&&q.line===r.id
+      &&q.stmt===S.stmt&&q.period===periodTag()){
+    q.status='withdrawn'; q.closedAt=stamp(); q.closedBy=meStr(); q.outcome='reassigned'; } });
+  return raiseReq(r,nm,'Own and explain this line — reassigned to you.','own');
+}
+
+/* ---- bring a named person into a comment to address it -------------------------
+   Available to any REVIEWER (owner's direction: "reviewer be able to add anyone within
+   the comment section to address the question") — a lighter act than reassigning the
+   whole line, so its gate is caps().review, not the reopen gate the line hand-off uses.
+   It posts a directed request into the thread and raises a 'query' obligation in the
+   person's queue. The composer's @-mention is the inline path to the same thing. */
+function assignComment(cid){
+  if(!caps().review){toast('Only a reviewer can add a responder');return;}
+  if(!S.sel){return;}
+  const rc=rec(S.sel,true);
+  $('fxModal').innerHTML=`<h3>Add someone to respond</h3><div class="mbody">
+    <div class="rl-note" style="margin-bottom:var(--s-4)">Bring a specific person into this
+      thread to address the question. It posts a directed request, addressed to them, and
+      lands in their queue as owed until they respond.</div>
+    <div class="fld"><label for="acWho">Who should respond?</label>
+      <select class="inp" id="acWho">${pplOpts('')}</select></div>
+    <div class="fld"><label for="acAsk">What do you need from them?</label>
+      <textarea class="ta" id="acAsk" rows="3"
+        placeholder="e.g. confirm the driver split and attach the support"></textarea></div>
+    </div>
+    <div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Cancel</button>
+      <button class="btn-primary" id="acOk">Add responder</button></div>`;
+  $('fxMask').classList.add('on');
+  setTimeout(()=>{const s=$('acWho');if(s)s.focus();},30);
+  const ok=$('acOk'); if(ok)ok.onclick=()=>{
+    const who=String(($('acWho')||{}).value||'').trim();
+    const ask=String(($('acAsk')||{}).value||'').trim();
+    if(!who)return;
+    closeModal();
+    const r=rows().find(x=>x.id===S.sel);
+    cmtPost(rc, ask||('Please respond on this line.'), {ask:who, chg:1, parent:cid||null});
+    if(r&&who!==ME().nm)raiseReq(r, who, ask||('Respond on '+r.l), 'query');
+    logA({line:S.sel,who:meStr(),act:'asked '+who+' to respond',detail:ask||''});
+    toast('Added '+esc(who)+' to respond');
+    renderAll();
+  };
+}
+/* ============================================================================
+   THE BACK-AND-FORTH CONTROL — open review items gate re-submission
+   (2026-08-30, owner: "the back-and-forth review comments should have a robust
+   control"). A reviewer's Return is a formal change request; until the preparer has
+   RESPONDED to every one, the line cannot go back to the reviewer. This is what turns
+   the loop from an honour system into an enforced control: a returned line carries N
+   open review items, each must be addressed, and only then does Submit reappear.
+   ========================================================================== */
+/* open review items = change requests the reviewer raised that carry no response yet */
+function reviewItems(rc){
+  return ((rc&&rc.comments)||[]).filter(c=>c.chg&&!c.resolved);
+}
+/* WHO MAY ADDRESS A REVIEW COMMENT (2026-08-30, owner: "if the reviewer asked someone
+   to address, others shouldn't be able to answer that question"). A change request is
+   DIRECTED — `ask` names the person it is aimed at (the preparer on a plain Return, a
+   specific person on an Add-responder / @-mention). Only that person may mark it
+   addressed; a plain return with no named person falls back to whoever prepares the
+   line. This is the access half of the directed-question control — the request side is
+   already person-scoped by reqOwnerRec. */
+function canAddress(c){
+  if(!c||!c.chg||c.resolved)return false;
+  const askNm=c.ask?String(c.ask).split(',')[0].trim():'';
+  if(askNm)return ME().nm===askNm;
+  return caps().prepare;
+}
+/* the named person responds to one reviewer comment: the response is threaded under it
+   and the item is marked addressed, so the reviewer sees both the answer and that the
+   ball is back with them. Requires a response — resolving with silence is not addressing. */
+function cmtResolve(cid){
+  const rc=rec(S.sel,true);
+  const c=(rc.comments||[]).find(x=>x.id===cid);
+  if(!c){toast('That comment is no longer here');return;}
+  if(c.resolved){toast('Already addressed');return;}
+  const askNm=c.ask?String(c.ask).split(',')[0].trim():'';
+  if(askNm){ if(ME().nm!==askNm){
+      toast('Only '+askNm+' can address this — the reviewer directed it at them');return;} }
+  else if(!caps().prepare){toast('Only the preparer can address a review comment');return;}
+  ask('Respond to the reviewer','What did you change, or how is it addressed?',note=>{
+    const rc2=rec(S.sel,true);
+    const cc=(rc2.comments||[]).find(x=>x.id===cid);
+    if(cc){cc.resolved=true; cc.resolvedBy=meStr(); cc.resolvedAt=stamp();}
+    cmtPost(rc2, note, {parent:cid});
+    logA({line:S.sel,who:meStr(),act:'addressed a review comment',detail:note});
+    const left=reviewItems(rc2).length;
+    toast(left? ('Addressed — '+left+' review comment'+(left===1?'':'s')+' still open')
+              : 'All review comments addressed — you can resubmit');
+    renderAll();
+  });
 }
 /* REOPENING A SIGNED-OFF REVIEW IS THE MOST CONSEQUENTIAL ACTION ON THIS SURFACE,
    and it was the only one with no guard at all: one click, no confirmation, no
@@ -14019,6 +15018,9 @@ function exUnlock(){
    preparer has just finished fixing — while the footer offered Submit on both. */
 function readyToSubmit(){
   return rows().filter(r=>r.req&&!r.tot).filter(r=>{const rc=rec(r.id,true);
+    /* a returned line is only ready once every reviewer comment has been addressed —
+       the same gate exSubmit enforces, so the count and the action never disagree */
+    if(rc.status==='returned'&&reviewItems(rc).length)return false;
     return rc.items.length&&Math.abs(r.res)<=thr().tol*matFac()
       &&(rc.status==='draft'||rc.status==='returned');});
 }
@@ -14173,13 +15175,18 @@ function paintReqs(){ const m=$('fxMask');
 /* Lateness is the only thing on this list allowed state colour — everything else is
    inventory, and rule 12 says inventory renders quiet. */
 function reqRow(q,mode){
-  const own=scopeOwner(q.scope), open=q.status==='open', late=open&&reqLate(q);
+  const own=reqOwnerRec(q), open=q.status==='open', late=open&&reqLate(q);
+  const person=q.kind==='person';
   const a=[];
-  if(open&&mode==='in')
-    a.push(`<button class="btn-primary sm" onclick="KFX.reqReply('${q.id}',false)">Answer</button>`);
+  if(open&&mode==='in'){
+    /* a reassignment obligation is discharged by preparing the line, not by the scope
+       lineage-answer flow, so its primary action opens the line */
+    if(person)a.push(`<button class="btn-primary sm" onclick="KFX.reqGoto('${q.id}')">Open the line</button>`);
+    else a.push(`<button class="btn-primary sm" onclick="KFX.reqReply('${q.id}',false)">Answer</button>`);
+  }
   if(open&&mode==='out'){
     a.push(`<button class="btn-out sm" onclick="KFX.reqChase('${q.id}')">Chase</button>`);
-    a.push(`<button class="btn-out sm" onclick="KFX.reqReply('${q.id}',true)">Record on behalf</button>`);
+    if(!person)a.push(`<button class="btn-out sm" onclick="KFX.reqReply('${q.id}',true)">Record on behalf</button>`);
   }
   a.push(`<button type="button" class="lnk" onclick="KFX.reqGoto('${q.id}')">go to the line</button>`);
   if(open)a.push(`<button type="button" class="lnk" onclick="KFX.reqWithdraw('${q.id}')">withdraw</button>`);
@@ -14190,7 +15197,7 @@ function reqRow(q,mode){
       ? ' · withdrawn by '+esc(String(q.closedBy).split(',')[0]) : '';
   return `<div class="rq">
     <div class="rq-h"><b>${esc(q.lineLbl)}</b>
-      <span class="sc">· ${esc(q.scopeNm)} · ${esc(q.period)} · ${esc(q.stmt.toUpperCase())}</span></div>
+      <span class="sc">· ${person?'assigned to '+esc(q.scopeNm):esc(q.scopeNm)} · ${esc(q.period)} · ${esc(q.stmt.toUpperCase())}</span></div>
     <div class="rq-age ${late?'late':''}">${open?esc(reqAgeTxt(q)):esc(REQ_ST[q.status].nm)}<br>${
       open?(late?'overdue — was due ':'due ')+esc(q.due):esc(q.closedAt||'')}</div>
     <div class="rq-ask">“${esc(q.ask)}”</div>
@@ -14203,7 +15210,7 @@ function reqRow(q,mode){
 function exportReqs(){
   const head=['Request','Status','Statement','Period','Line','Scope','Owner','Owner role','Asked by',
     'Asked','Due','Overdue','Reminders','Last reminder','Ask','Closed','Closed by','Outcome'];
-  const body=FXREQ.map(q=>{const o=scopeOwner(q.scope);
+  const body=FXREQ.map(q=>{const o=reqOwnerRec(q);
     return [q.id,REQ_ST[q.status].nm,q.stmt.toUpperCase(),q.period,q.lineLbl,q.scopeNm,o.nm,o.role,
       q.by,q.at,q.due,(q.status==='open'&&reqLate(q))?'yes':'no',q.chases.length,
       q.chases.length?q.chases[0].at:'',q.ask,q.closedAt||'',q.closedBy||'',q.outcome||''];});
@@ -15239,7 +16246,7 @@ function lineForAcct(acct){
 })();
 
 return {pageContext, toggleFilt, collapseFilters:()=>{S.filtOpen=false;}, basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popApply, popApplyClear, setFilterTab, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
-dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, cmtOwedToggle, cmtReply, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
+dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, cmtOwedToggle, cmtReply, cmtResolve, cmtMentionPick, cmtMentionHide, cmtKey, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, assignDialog, assignLine, assignComment, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
 kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, hovShow, hovHide, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
 })();

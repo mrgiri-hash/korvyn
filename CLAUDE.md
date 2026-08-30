@@ -2174,6 +2174,249 @@ refined.**
 Verified: 16/16 lines render, gradient present, console clean, all three gates green (the
 spacing ratchet caught a 2px pill padding and made me revert it to 1px).
 
+## 2026-08-30 — the Explanation column tells the review state, with timestamps
+
+Owner's direction, several passes. In **Narrative** mode the Explanation column printed the
+prose alone, so a Korvyn draft read as a settled explanation and a returned line read as
+though nothing was owed — the honesty the *status* column carries in Statement mode was lost
+the moment the words appeared. `narrCell()` now emits a marker under the prose for the three
+states where the words are NOT the line's settled answer:
+
+- **Korvyn draft** — an indigo `✦` leads the prose and a grey `.eb-prov` line reads
+  *"Korvyn draft — preparer to review and approve"* (the panel's own draft treatment: sparkle
+  carries the `--ai` identity, rule 2).
+- **Open for review** (submitted) — muted *"Open for review — {reviewer} to review and
+  finalize · submitted {time}"*, the column's own `wait` treatment.
+- **Returned** — amber (`--warning`, the panel's change-request colour) *"Changes requested by
+  {reviewer} · {time} — address before this is final: {note}"*.
+
+An accepted or signed-off explanation is final and reads as prose alone. **Timestamps are
+stamped on the record**, not derived: `exSubmit` writes `rc.submittedAt`, `exReturn` writes
+`rc.returnedAt`, both via `stamp()`; the marker's `.eb-when` is quiet `--hint` and stays in
+the sans face (a date inside a running sentence reads worse switching face mid-line). The
+Korvyn draft's own timestamp (`best.at`) also shows in the panel's `.rw-prov`.
+
+## 2026-08-30 — the KPI strip is an instrument, and it tracks the review states
+
+The worklist tiles gained three visual reads within the same flat cards and the app's own
+state palette (owner: "full creative ability"):
+
+- the **explained** tile is a STACKED METER (`.wl-meter`) — signed (green `--success`) ·
+  explained (accent) · owed (amber `--warning`) as a share of the gross movement, over a bare
+  track for the part below materiality. Derived, never duplicated: the same figures the tiles
+  state, split by review state (`reqD`/`signedD`/`owedD`/`explD` in the worklist builder).
+- **signed-off** carries a `.wl-mini` fill bar of done ÷ required.
+- an exception tile takes a 3px STATE EDGE as an inset shadow (`.edge-act` cobalt for *need
+  you*, `.edge-warn` amber for *unexplained*, `.edge-bad` red for *returned*) — rule 8's
+  severity idiom, no layout shift, only when something is owed, so a finished strip is
+  monochrome. *Need you* is the hero (`.hero` → accent-ink figure); Ties-to-TB is a green/amber
+  status.
+
+Every fill is a BACKGROUND, never text (the on-fill gate is not in play); heights/radii/edges
+are not spacing (the 4px ratchet is not either). Later, the strip gained **`returned`** and
+**`in review`** segments (one-click filters via `S.show`, cased in `visible()`), so the KPI
+strip reflects the review state machine below.
+
+## 2026-08-30 — the inspect panel: simpler Overview, a thread, a variance chip
+
+Owner supplied the reference inspector's screenshots.
+
+- **Overview is Explanation · Conversation · Workflow** — Key drivers and Evidence left
+  Overview in BOTH densities (`dwOverviewKeys` → `['explain','cmtPeek','reviewer']`; each is
+  its own tab). `RW_LAYOUT.page` matched.
+- **Workflow & review is four rows** (`reviewer()`): Status (coloured only for a real state) ·
+  Review owner (avatar) · Assigned to · Prepared by · Response due. **Labels are sentence
+  case, values right-align** (`#fxRoot .rw-wfr .k/.v`) — matching the reference; the 11px
+  uppercase tracked label read as shouting inside a key→value record.
+- **Evidence is attachments only** (`RW_LAYOUT.drawer.evid=['evid']` — Financial source moved
+  off; it answers a Drivers/GL question, not a support one).
+- **The variance is a highlighted answer chip** in the four-figure band — a soft `--pos-bg` /
+  `--neg-bg` tint (`.rw-met-hero`) with the figure at the `-ink` step and the dividers around
+  it standing down, so the movement reads as one lifted answer.
+- **The comments are a THREAD, not boxes** (owner: "rather than in boxes, I prefer a thread").
+  The message border/fill/radius come off in the dock and a single timeline rail runs down the
+  avatar gutter (`.rw-thread::before` at `left:11px`, avatars as opaque beads, replies branch
+  right). This reverses the 2026-08-29 bordered-card ruling FOR THE COMMENTS THREAD only; the
+  section cards (Explanation/Workflow/Evidence) stay bordered cards on the ground. `cmtHi()`
+  highlights `@`-mentions.
+
+## 2026-08-30 — assignment, @-mention, and auto-notify
+
+The model had FIXED scope-owners (`ENT_OWNERS`/`REG_OWNERS`) and an accidental preparer, so
+there was nothing to reassign. Now there is.
+
+- **`pplDir()`** — one flat roster built from the seeded entity/region owners + the standard
+  preparer/reviewer + the acting user (no second identity model). **`lineAssignee(rc)`** — the
+  reassignable responder, defaults to the preparer. **`canAssign = ()=>caps().reopen`** —
+  Controllers and the CAO only (the owner's choice).
+- **Reassign** (Workflow card "Assigned to" row + `assignDialog`/`assignLine`) and per-comment
+  **Add responder** (`assignComment`, gated `caps().review`) both go through the audit trail
+  (the `⇄` reassign event that existed in `RW_ACTS` but nothing wrote).
+- **`@`-mention in the composer** (owner: "add a name by using @"): `cmtMentionScan` matches
+  `@` + word-chars (not the trailing `. Patel`, so an inserted name does not keep the menu
+  open), `cmtMentionPick` inserts `@Name` into `S.cmtMentions`, `cmtKey` drives ↑/↓/Enter/Esc.
+  On post, each still-present mention raises a notification for a reviewer.
+- **Auto-notify** (owner: "yes, auto notify"): reassignment and directed comments/mentions
+  raise a PERSON-TARGETED request via `raiseReq(r,nm,ask,sub)` — `sub:'own'` for a whole-line
+  hand-off (one per line, prior withdrawn), `sub:'return'`/`'query'` for the review loop and
+  comment asks. It lands in the person's queue (`reqOwnerRec(q)` resolves ownership by the
+  named person, not just the scope), drives the line's Response-due row and the worklist
+  count, and is late-able. `exSubmit` discharges the `own`/`return` obligations.
+
+## 2026-08-30 — the enforced review sequence and the back-and-forth control
+
+Owner: "add proper sequence … the control has to be strictly in place … the back-and-forth
+review comments should have a robust control."
+
+- **The review is a state machine** — Korvyn draft → Prepared → In review → Returned (loop) →
+  Reviewed — drawn as a **progress stepper** (`rwStepper`/`rwFlowStage`) in the Workflow card:
+  travelled path green, current step accent, a returned line amber back at *Prepared*.
+- **Open review items gate re-submission** (the robust control). `reviewItems(rc)` = change
+  requests (`c.chg && !c.resolved`). A returned line does not offer Submit while any are open —
+  the footer shows *"N reviewer comment(s) to address · Address comments"*, enforced in
+  `exSubmit`, `readyToSubmit` AND `dwFoot` so they cannot disagree. The preparer responds via
+  **`cmtResolve`** (a threaded reply is required; silence is not addressing), the comment reads
+  **Addressed**, and Submit returns.
+- **Auto-routing**: `exReturn` sets `rc.assignee = preparer` and notifies (`sub:'return'`);
+  `exSubmit` sets `rc.assignee = reviewer` and, on a resubmit, notifies (`sub:'review'`).
+- **The statement flags "Open"** while a review comment is unaddressed (`fxStateKey` →
+  `reviewItems(rc).length?'open':'ret'`; `FXST.open`), and relaxes to "Returned · ready to
+  resubmit" once addressed.
+- **A directed question is answered only by the named person** (owner: "others shouldn't be
+  able to answer that question"). `canAddress(c)` — if `c.ask` names a person, only they may
+  mark it addressed; a plain return falls back to the preparer. `cmtResolve` re-checks it.
+- **Prior-period explanation is wired to the prior period's FINAL review** (owner). The
+  `prior` card, `exCarry` and the AI context object now require `priorRec(id).status ===
+  'approved'` — a prior draft/in-review is work in progress, not institutional memory. Shows
+  the sign-off provenance (*"reviewed by … · locked …"*).
+
+## 2026-08-30 — the full screen is the REVIEW DESK, Korvyn's signature review surface
+
+Owner: "the reviewer can come in to the full screen and just review/address the open comments
+… a signature item … think big." Four moves, all built.
+
+**The layout is two columns, not three** (`RW_LAYOUT.page` = `{judge:['explain'],
+rec:['openItems','reviewer','cmtHead','cmtStream','cmtComp','cmtOwed']}`; `dwPageCols` returns
+two; `.rw-cols.desk` grid). LEFT is the case — the explanation at reading width. RIGHT is the
+review — the workflow record with its stepper, then the WHOLE live conversation, so a reviewer
+reads the argument on the left and works the review on the right without changing tabs.
+**Needs attention is gone** (the blockers are the open comments, now the subject of the right
+column) and **the Comments tab is removed from the page** (`FX_PAGETABS`) — Overview IS the
+conversation, so no second place for one thread. The dock keeps its Comments tab.
+
+1. **A review control bar in the header** — `dwStatePill(rc)` + `dwCtrlBtns(r,rc)` in the
+   `ws-from.rw-ctrlbar` strip: the state pill and the state-appropriate action (Return / Mark
+   reviewed / Address N open / Submit / Reopen). Shares its guards with `dwFoot`.
+2. **An open-items ribbon** (`openItems` part, page-only, top of the review column) — the
+   unaddressed reviewer comments as a checklist, each with *"Awaiting {person}"* and an Address
+   action for the person it is directed at. Renders nothing when clean.
+3. **A review-queue flow** — a progress meter in the header (*"N of M reviewed"* + `.rw-cbbar`),
+   **Next needing review →** (`fxNextOpen`), and **signing a line glides to the next**
+   (`exApprove` calls `fxNextOpen()` in `S.dwPage`).
+4. **Keyboard-first** — in `fxKeys` under `S.dwPage`: **a** approve · **r** return · **c**
+   comment (`dwFocusComposer`) · **j/k** next/prev line in the queue (`dwQueueMove`, walks the
+   visible rows, keeps the desk open via `pickAt`) · **n** next needing review · **Esc** back.
+
+Verified across the whole turn: the full loop (submit → return → "Open" flag + blocked
+resubmit → address → Submit → route → sign → glide) works; the control bar shows the right
+state+actions in every state; `j/k/c` drive the queue; 63/63 views render; console clean; all
+three gates pass (contrast, spacing unchanged at 1079/89, chrome 10/10) in this and every
+2026-08-30 pass above.
+
+## 2026-08-30 — the Review Desk becomes a command centre (hero, Korvyn's read, motion)
+
+Owner: "not totally sold or impressed … this can be the heart of Korvyn … think big." The
+desk was a bigger panel; these make it a command centre.
+
+- **THE COMMAND HERO** (`dwPageHero`, full page only — the dock keeps the four-figure band).
+  LEFT states the MOVEMENT with authority: the variance at `--fs-hero`, coloured, with the
+  favourable/unfavourable verdict and Δ%, the prior→current flow beneath, and the trajectory.
+  RIGHT is the VERDICT cluster: the progress stepper, a coverage instrument (the share a
+  reviewer signs against, with residual against tolerance), the state pill and the one action
+  that advances it (`dwStatePill` + `dwCtrlBtns`, shared with the footer's guards). Swapped in
+  at `S.dwPage?dwPageHero(r,rc):figs`; the stepper drops out of the Workflow card on the page
+  (`X.page?'':rwStepper`) and the state band leaves the idrow — the hero carries both.
+- **KORVYN'S READ** (`krvSummary` part, page-only, leads `page.judge`) — a generated one-line
+  verdict in Korvyn's indigo voice (`--ai-bg`/`--ai-line`), state-adaptive: indigo/ready when
+  clean, **amber** with open comments or residual over tolerance, **green** when signed off. It
+  NARRATES the engine's figures (coverage, residual, open count) — never computes one.
+- **THE FOUR EXPERIENCE MOVES** (owner: "all four"). #1 Korvyn's read (above). #2 the
+  conversation is the centrepiece — the review column widened to `minmax(520px,640px)` on the
+  desk grid. #3 immersive — more air entering full screen (`.dw-hd` padding, `.dw-body`
+  padding-top). #4 MOTION — a one-shot entrance (`.dw-in` set in `dwPage()` on #fxDetail, which
+  paintDrawer never recreates so a re-render cannot replay it) and a glide when the queue moves
+  to a new line (`.dw-glide` set in `pickAt()` only on a line change in page mode), both under
+  `@media (prefers-reduced-motion:no-preference)`.
+
+## 2026-08-30 — every full-screen tab, elevated (Drivers, GL, Evidence, History)
+
+Owner: "update the full screen UI for other tabs." The Overview desk was elevated; the other
+page tabs still rendered as one short card floating in empty gray. The command hero already
+heads every tab (it is in `dwHead`, not Overview); the bodies now use the screen too.
+
+- **DRIVERS is a contribution chart** — each drill row (`dwDrivers`) carries `--sh:<share>%`,
+  and a `::before` fills it with `--accent-bg` to that width, so the decomposition reads as a
+  horizontal bar chart footing to the movement. The residual/total rows carry no `--sh` and
+  stay unbarred. Full screen only; the 440px dock stays a compact list.
+- **HISTORY is two columns** — `dwPageCols('hist')` returns `[['judge',['trend']],
+  ['rec',['prior','trail']]]`: the period series on the left, the signed-off prior explanation
+  and the activity log on the right, filling the width like Overview.
+- **SINGLE-COLUMN TABS ARE COMPOSED, NOT STRETCHED** — `.rw-cols.one` is capped at 1000px and
+  centred under the full-width hero, so Drivers, General ledger (the 40-row ledger with its
+  All/Manual/Post-close filters and View-in-ERP links) and Evidence read as a document on the
+  sheet rather than one lonely band across 1,250px. That was the empty-space problem.
+
+Verified: 63/63 views, all five page tabs (`sum·drive·gl·evid·hist`) render with content, the
+driver bars size to share, History splits, GL is a full ledger, console clean, all three gates
+pass (spacing unchanged at 1079/89, chrome 10/10).
+
+## 2026-08-30 — materiality is the policy, and the policy is cited on every required line
+
+Owner: "enhance the materiality filter and link it precisely to the flux explanation/variance …
+make this enterprise grade." The threshold already drove `r.flag`→`r.req`; what was missing was
+that the policy was *chosen blind* and *cited nowhere*. Two moves, one principle: the materiality
+policy answers two questions about every line — is an explanation REQUIRED (the threshold) and is
+it SUFFICIENT to sign (the residual tolerance) — and both are now expressed in the SAME on-screen
+unit as the figure they judge, so the filter, the statement and the inspect panel cite the policy
+identically and cannot drift.
+
+**ONE SET OF HELPERS, defined once beside `fmt`/`pct`** (so `thr`/`prof`/`matFac`/`fmt`/`uName`
+are all in scope): `matAbsThr()`/`matTolThr()` (the two bars in $000), `matRule()` ("1.0M and 5%"),
+`matBasis(r)` and `matImpact()`. `rows()` now carries `hitAbs`/`hitPct` on every row so the basis
+can say WHICH bar breached without recomputing. **`matBasis(r)` is the single source** for why a
+line does/doesn't require an explanation — kind `floor|imm|watch|mat`, each a precise sentence:
+*"Material — Δ 1.4M exceeds 1.0M and 6.8% exceeds 5%, per Monthly close policy."* It reads the same
+whether it lands in a tooltip or a panel.
+
+**THE FILTER LEADS WITH A LIVE IMPACT PANEL** (`.mat-impact`, top of the `mat` popover). A
+materiality threshold is a judgement about how much of the movement must be defended, and it was
+being set with no sight of what it captured. The panel states **"N of M lines require an
+explanation"** over a coverage bar and **"K material · captures X% of the $Y gross movement"** —
+read from `rows()`, so it counts exactly what the grid flags. It **repaints live**: `setAbs`/
+`setPct`/`setFloor`/`setTol` all gained `if(popKind==='mat')paintPop()` (only `setOp`/`setProfile`
+had it). Verified: default 2 lines / 54%; `setAbs(0.5)` → 3 lines / 71% (Property taxes joins on
+the $ bar) with the grid's "Needs explanation" count moving in lockstep.
+
+**THE INSPECT PANEL CITES THE POLICY on every required line** — a neutral `.rw-basis` band at the
+top of the Explanation card (a tracked "WHY REQUIRED" label over the sentence), shown only when
+`r.req`: the precise breach (or the watchlist reason) **plus** *"Signable once the unexplained
+residual is within 0.5M."* — so the requirement is never a bare flag; it names the policy that
+raised it and the tolerance that clears it. Neutral by design: materiality is context, not a state
+(rules 2/3); the control is the requirement, not a colour. An immaterial line shows no band
+(explanation optional). The **statement Δ cell tooltip** now uses the same `matBasis(r).why` and
+covers watch-listed lines too, replacing the old `flag`-only "Breaches …" string that printed the
+threshold without a unit letter.
+
+**The star (below-materiality flag) folds into the identical workflow** and is now gated to
+`caps().policy` (Accounting Manager / Controller / CAO) — a preparer can no longer add OR remove a
+reviewer's mandatory-flux flag. A watch-listed line reads `r.watch→r.req`, so it gets the same
+"Needs explanation" flag, the same submit gate, and the same reviewer-note-at-sign-off as a
+threshold-material line; its basis band reads the reviewer-decision reason instead of a breach.
+
+Verified: 63/63 views · console clean · all three gates pass (contrast, spacing unchanged at
+1079/89, chrome 10/10) · impact panel live across abs/pct/op/floor/tol and profile · basis band
+correct for material, watch-listed and immaterial lines in the dock · Δ tooltip matches the band.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
