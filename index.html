@@ -5486,7 +5486,6 @@ body.fx-dw-page #subnav2{display:none!important}
 #fxRoot.dw-page .fx-keys,
 #fxRoot.dw-page .seg.fx-disp,
 #fxRoot.dw-page #fxViewBtn,
-#fxRoot.dw-page .fx-narrbtn,
 #fxRoot.dw-page .fx-detail>.dw-grip{display:none}
 
 /* ---- the way back. NOT a card: .fx-detail is already the one card of this
@@ -5508,30 +5507,24 @@ body.fx-dw-page #subnav2{display:none!important}
    Driven by dw-tight / dw-tighter, which sizeDrawer() sets from the room the table
    ACTUALLY has — a viewport media query cannot know how wide the reviewer dragged
    the workspace. The viewport rules below still cover the workspace-closed case. */
-/* ===== NARRATIVE BAND ========================================================
-   An inline band under the financial row — the Narrative mode's concise current
-   explanation, for reading the whole statement and its commentary together without
-   opening every line. It is deliberately SUBORDINATE to the row it explains: a very
-   quiet neutral ground, a hairline, and no card edge — the financial row stays the
-   object and this is its footnote. */
-#fxRoot .expl-band>td{background:var(--n-25);border-bottom:var(--rule);
-  padding:var(--s-2) var(--s-4) var(--s-3) 34px}
-#fxRoot .eb{max-width:78ch}         /* prose stays readable however wide the screen */
-/* The band opens on the narrative now. It used to lead with an "EXPLANATION" label
-   and a provenance pill (.eb-hd / .eb-k / .eb-src, removed with them): a caption
-   telling the reader that the paragraph below is a paragraph, and a coloured chip
-   passing a verdict on commentary that does not get verdicts. Who wrote it and
-   where the review stands are stated underneath, in words. */
+/* ===== NARRATIVE MODE: the comment lives IN the Explanation column ===========
+   Owner's direction across three passes: the current explanation reads on the RIGHT,
+   under the "EXPLANATION" header, and is the comment and nothing else. So Narrative
+   keeps the Explanation column (shed only from the other review modes) and prints the
+   comment straight into that column's cell, top-aligned beside the figures — no
+   separate band, no label, no author/status, no driver breakdown. The column widens
+   to give the prose a readable measure; the line caption gives up the width. */
+/* fill the card so the Explanation column takes the width the table was leaving empty
+   on the right — the prose column has by far the largest max-content, so the extra
+   space distributes to it and the comment gets more room before it truncates.
+   NB: the class is `fxnarr`, NOT `narr` — `.narr` is the app's prose utility and
+   carries max-width:72ch, which would cap the whole table at ~545px. */
+#fxRoot .fx-tbl.fxnarr{width:100%}
+#fxRoot .fx-tbl.fxnarr td{vertical-align:top}
+#fxRoot .fx-tbl.fxnarr :is(th,td).col-cmt{width:auto;min-width:340px;white-space:normal}
+#fxRoot .fx-tbl.fxnarr .col-line{min-width:220px}
 #fxRoot .eb-tx{font-size:var(--fs-table);line-height:var(--lh);color:var(--ink)}
-/* three lines, not four: Narrative keeps the row financially primary and defers the
-   rest to Expand (spec: 2–3 lines maximum, truncate elegantly) */
-#fxRoot .eb-tx.clip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-#fxRoot .eb-meta{font-size:var(--fs-micro);color:var(--hint);margin-top:5px;
-  display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-#fxRoot .eb-meta b{color:var(--muted);font-weight:var(--fw-regular)}
-/* the action is its own line, left-aligned under the metadata — pinned right it
-   drifted away from the narrative it belongs to as soon as the meta line wrapped */
-#fxRoot .eb-act{display:flex;gap:8px;align-items:center;margin-top:6px}
+#fxRoot .eb-none{color:var(--hint)}
 /* ===== COMMENTARY INDICATORS =================================================
    "There is context here", at row height and no taller. The whole strip has to
    fit inside a 34px row beside tabular figures without ever being the reason a
@@ -5806,8 +5799,6 @@ body.fx-dw-page #subnav2{display:none!important}
      PDF an auditor receives, so the pair travels together — which is also why this
      product has no "comments appendix" mode. */
   #fxRoot .fx-row{page-break-after:avoid}
-  #fxRoot .expl-band{page-break-inside:avoid;page-break-before:avoid}
-  #fxRoot .eb-tx.clip{-webkit-line-clamp:unset;display:block;overflow:visible}  /* print in full */
   #fxRoot .fx-sec{page-break-after:avoid}
   #fxRoot thead{display:table-header-group}           /* column heads repeat per page */
   /* the workspace is a working surface, never part of the printed package */
@@ -6060,6 +6051,12 @@ body.fx-dw-page #subnav2{display:none!important}
   border-bottom:var(--rule);
   background:var(--surface);
 }
+/* The display unit, stated once above the four figures — mirrors the statement's
+   "$ IN MILLIONS" caption so the bare figures read unambiguously without a "$" on
+   every cell. Full-width so it banners the band; tracks the Units control. */
+#fxRoot.aw .fx-detail .rw-unitcap{flex:0 0 100%;text-align:right;text-transform:uppercase;
+  letter-spacing:var(--tracking-label);font-size:var(--fs-label);color:var(--hint);
+  margin-bottom:var(--s-2);font-variant-numeric:tabular-nums}
 #fxRoot.aw .fx-detail .rw-mets{display:flex;gap:0;align-items:stretch}
 /* each figure is its own cell, divided by a hairline and given breathing room, so the
    four measurements read as an instrument strip rather than one run-on number. The
@@ -6564,6 +6561,11 @@ body.fx-mercury #fxRoot .card.fx-table{ background:var(--surface);
   padding:0; }
 #fxRoot.aw .fx-table>.aw-caption{ margin:0; padding:9px 14px;
   border-bottom:1px solid var(--line); background:var(--surface); }
+/* The one place the display unit is stated right above the numbers. States the
+   scale once — accounting-statement convention — so the bare figures in the grid
+   read unambiguously without a "$" on every cell. */
+#fxRoot .fx-table>.aw-caption .fx-unitcap{ margin-left:auto; font-variant-numeric:tabular-nums;
+  letter-spacing:var(--tracking-label); text-transform:uppercase; font-size:var(--fs-label); }
 
 /* ---- THE REVIEW PANEL IS A FULL-HEIGHT DOCK (owner's direction, 2026-08-28) ----
    It runs the same band as the Korvyn assistant — from under the app header to the
@@ -7820,6 +7822,8 @@ const matFac=()=>MAT_UNIT;
 /* what the user types and reads, in the unit the POLICY is written in, not the view */
 const matName=()=>'M';
 const uName=()=>S.units===1?'':(S.units===1000000?'M':'K');
+/* the unit spelt out, for captions that carry a sentence rather than a symbol */
+const unitWord=()=>S.units===1?'whole dollars':(S.units===1000000?'millions':'thousands');
 function fmt(v,dp){                                   // v is in $000
   const x=v/uFac(); const d=dp===undefined?(S.units===1?0:1):dp;
   const s=Math.abs(x).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -9260,7 +9264,7 @@ function cell(c,r,totalD){
        afford. The prose lives one click away in the Review Workspace or, in the two
        narrative modes, in its own row beneath the figures where it cannot push the
        numbers sideways and cannot widen the row it belongs to. */
-    case 'cmt':  return `<td class="col-cmt">${cmtIndicators(r)}</td>`;
+    case 'cmt':  return `<td class="col-cmt">${dispMode()==='full'?narrCell(r):cmtIndicators(r)}</td>`;
   }
   return '<td></td>';
 }
@@ -10018,83 +10022,28 @@ function bestExplanation(r,rc,noGen){
   return {kind:'none',label:'Explanation required',text:'',by:'',at:'',n:0};
 }
 
-/* ---- THE BAND ---------------------------------------------------------------
-   Metadata is derived from the same records the workspace reads, so the grid and
-   the workspace can never tell a reviewer two different things about one line. */
-function explBand(r,cols){
+/* ---- THE COMMENT IN THE EXPLANATION COLUMN ----------------------------------
+   Owner's direction (three passes): in Narrative the current explanation reads on the
+   RIGHT, under the "EXPLANATION" header, as just the comment. It is printed into the
+   Explanation column's own cell rather than a band below the row, so it lines up under
+   the column header and beside the figures it explains. Which lines carry a comment is
+   the same rule the band used — material or watched by default, every explained line
+   under 'Explain which lines' (S.fullAll) — so a line that would not have earned a
+   band keeps the quiet indicator instead. */
+function narrCell(r){
+  if(r.tot||r.acct)return cmtIndicators(r);
+  const rcx=rec(r.id);
+  const hasSaid=!!(rcx&&(rcx.items.length||rcx.status!=='draft'));
+  if(!(r.req||r.watch||(S.fullAll&&hasSaid)))return cmtIndicators(r);
   const rc=rec(r.id,true), best=bestExplanation(r,rc);
-  const stk=stackFor(r,rc), ev=evidenceFor(rc);
-  const entL=stk.filter(l=>l.kind==='ent');
-  const appr=stk.filter(l=>l.kind!=='ai'&&l.status==='approved').length;
-  const tot=stk.filter(l=>l.kind!=='ai').length;
-  /* Two ways a band opens to its full length: the reviewer expands THIS one, or the
-     global "Expand all narratives" is on (for a CFO read, a screen-share, a print).
-     Either satisfies "open"; the per-row Expand still toggles its own state so
-     collapsing all afterward leaves the ones a reviewer opened by hand alone. */
-  const open=!!S.explFull[r.id]||S.narrExpand;
-  /* The clamp is three lines (the spec's 2–3 maximum), so the row stays financially
-     primary; ~230 chars is about three lines at this measure, past which the Expand
-     control is worth showing. */
-  const long=(best.text||'').length>230;
-  const id=r.id.replace(/'/g,"&#39;");
-
-  let body;
   if(best.kind==='none'||!best.text){
-    body=`<div class="eb-tx" style="color:var(--hint)">No explanation on this line yet.
-      ${r.req?'One is required before it can be signed off.':''}</div>`;
-  }else{
-    body=`<div class="eb-tx ${long&&!open?'clip':''}">${best.kind==='draft'?best.text:esc(best.text)}</div>`;
-    /* hidden while Expand-all is on: a page of "Collapse" links under a printed
-       statement is noise, and the one global control already governs them */
-    if(long&&!S.narrExpand)body+=`<button type="button" class="lnk no-print" style="font-size:var(--fs-micro);margin-top:3px"
-      onclick="event.stopPropagation();KFX.explMore('${id}')">${open?'Collapse':'Expand'} &#8594;</button>`;
+    return `<div class="eb-tx eb-none">No explanation on this line yet.${
+      r.req?' One is required before it can be signed off.':''}</div>`;
   }
-
-  /* TWO METADATA LINES, AND THEY ANSWER DIFFERENT QUESTIONS.
-
-     WHO SAID THIS — author, role, scope, when. A comment is knowledge, and this
-     is its provenance. It carries no verdict, because the comment is not the
-     thing that gets reviewed.
-
-     HOW WELL IT COVERS, AND WHERE THE REVIEW STANDS — the coverage a reviewer
-     checks the narrative against, then the workflow state, stated separately and
-     named as a state rather than attached to the words above it. */
-  const C=coverOf(r,rc);
-  const w=rwWho(best.kind==='draft'?'Korvyn draft':(best.by||rc.prep));
-  const prov=[];
-  if(best.kind==='inherited')prov.push(esc(best.label));
-  prov.push(`<b>${esc(w.nm)}</b>`);
-  if(w.role)prov.push(esc(w.role));
-  if(best.at)prov.push(esc(best.at));
-
-  /* FOUR FACTS AND THE STATE, and deliberately not everything that is true. Entity
-     counts, levels reviewed and the residual all belong to this line and all live
-     one click away in the workspace; printed here, under every material line, they
-     turn a reading mode into a second dashboard. What survives is what a reader
-     checks the narrative against — how much it covers, out of how many drivers,
-     with how much support — and then where the review stands, said separately. */
-  const facts=[];
-  if(rc.items.length){
-    facts.push(`<b>${C.cover.toFixed(0)}%</b> explained`);
-    facts.push(`<b>${rc.items.length}</b> driver${rc.items.length===1?'':'s'}`);
-  }
-  if(ev.length)facts.push(`<b>${ev.length}</b> evidence`);
-  const stName={draft:'Needs review',returned:'Returned',submitted:'In review',approved:'Reviewed'}[rc.status];
-  facts.push(`Review status: <b>${esc(stName||'Needs review')}</b>`);
-  if(rc.status!=='approved')facts.push(`Next reviewer: <b>${esc(rwWho(rc.rev||PEOPLE.rev).nm)}</b>`);
-
-  /* ONE ACTION, and it is a destination rather than a decision. Mark reviewed and
-     Return used to sit here; repeated down a statement beside each explanation
-     they read as a verdict ON THAT EXPLANATION, which is exactly the semantics
-     this product does not have. The line's review is acted on in the workspace,
-     where the state and the action are in the same place. */
-  return `<tr class="expl-band"><td colspan="${cols.length+1}"><div class="eb">
-    ${body}
-    <div class="eb-meta">${prov.join(' · ')}</div>
-    <div class="eb-meta">${facts.join(' · ')}</div>
-    <div class="eb-act no-print"><button type="button" class="lnk"
-      onclick="event.stopPropagation();KFX.pick('${id}')">Open detail &#8594;</button></div>
-  </div></td></tr>`;
+  /* THE FULL COMMENT (owner's direction). No clamp, no Expand — the Explanation column
+     now has the room to print the whole explanation, so the reviewer reads it in place
+     rather than opening each one. */
+  return `<div class="eb-tx">${best.kind==='draft'?best.text:esc(best.text)}</div>`;
 }
 /* THE MODE IS THE CHOICE, NOT THE ROW. Bands used to be opened one row at a time;
    Narrative mode renders the band for every qualifying line at once, and the per-row
@@ -10141,11 +10090,12 @@ function paintGrid(){
      Favorability is NOT part of this set: it rides the Δ% cell and belongs to the
      numbers, not the review, so it survives in both modes. Review keeps the whole
      set, because inline context is the whole point of Review. */
-  /* Narrative prints the explanation under the line, so the Explanation COLUMN
-     beside it would be the same words twice — it is the one mode that still sheds
-     review chrome. Statement carries whatever columns the reviewer chose; hiding
-     them by mode as well was the second control over one decision. */
-  const REVIEW_CHROME=['cmt','status','owner','resid'];
+  /* Narrative prints the explanation INTO the Explanation column (owner's direction),
+     so that column is the one it keeps — the comment is the point of the mode. It still
+     sheds the other review chrome (status, owner, unexplained), which the workspace owns.
+     Statement carries whatever columns the reviewer chose; hiding them by mode as well
+     was the second control over one decision. */
+  const REVIEW_CHROME=['status','owner','resid'];
   const hide=(mode==='full')?REVIEW_CHROME:[];
   const totalD=all.filter(r=>!r.hdr&&!r.tot).reduce((t,r)=>t+Math.abs(r.d),0);
   /* A RETIRED COLUMN MUST NOT TAKE THE TABLE DOWN WITH IT. S.cols is persisted in
@@ -10198,7 +10148,8 @@ function paintGrid(){
     const gEl0=$('fxGrid');
     if(gEl0){gEl0.innerHTML=h;gEl0.className='tbl fx-tbl';}
     const gt0=$('fxGridTitle');
-    if(gt0)gt0.innerHTML=`<span class="est mute">0 of ${all.filter(r=>!r.hdr&&!r.tot).length} lines shown</span>`;
+    if(gt0)gt0.innerHTML=`<span class="est mute">0 of ${all.filter(r=>!r.hdr&&!r.tot).length} lines shown</span>`
+      +`<span class="est mute fx-unitcap" title="These figures are stated in ${ccyWord()} ${unitWord()}. Change the scale under Basis › Units.">$ in ${unitWord()}</span>`;
     return;
   }
   v.forEach(r=>{
@@ -10235,20 +10186,11 @@ function paintGrid(){
            onclick="event.stopPropagation();KFX.glTog('${r.id}')"><svg viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4"
            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}
       </div></td>`+cols.map(c=>cellTagged(c,r,totalD)).join('')+`</tr>`;
-    /* NARRATIVE ROWS. Only under real financial lines — never a section header, a
-       subtotal or a GL sub-row, because those are the statement's structure and a
-       footnote under them would break the hierarchy the reader navigates by.
-
-       The band cannot appear in Review or Financials. That is the whole decision:
-       the default statement is a statement, and prose is something a reviewer opts
-       into by choosing Narrative. Material and watched lines get a band by default;
-       'Explain which lines' (S.fullAll, in the Table menu) extends it to every line
-       that carries an explanation. */
-    if(mode==='full'&&!r.tot&&!r.acct){
-      const rcx=rec(r.id);
-      const hasSaid=!!(rcx&&(rcx.items.length||rcx.status!=='draft'));
-      if(r.req||r.watch||(S.fullAll&&hasSaid))h+=explBand(r,cols);
-    }
+    /* NARRATIVE puts the explanation in the Explanation column's own cell (narrCell,
+       via the 'cmt' case above) rather than a band below the row — so there is no
+       extra row to emit here. Which lines carry a comment is decided in narrCell:
+       material or watched by default, every explained line under 'Explain which lines'
+       (S.fullAll, in the Table menu). */
     if((S.glOpen[r.id]||S.glAll)&&!r.tot)h+=glRows(r,cols,totalD);
   });
   h+='</tbody>';
@@ -10258,7 +10200,7 @@ function paintGrid(){
      added '.fullx' (which never matched any rule). The Narrative band and its
      structure guards are keyed to the ROW class '.expl-band', not to the table, so
      the mode needs no hook on the grid element. */
-  if(gEl){gEl.innerHTML=h; gEl.className='tbl fx-tbl';}
+  if(gEl){gEl.innerHTML=h; gEl.className='tbl fx-tbl'+(mode==='full'?' fxnarr':'');}
   /* THE TABLE'S CAPTION IS NOT A SECOND PAGE TITLE. It used to repeat the page
      heading word for word and then restate the period and the units \u2014 three facts
      the header and the filter bar now carry permanently, one of them ten pixels
@@ -10270,7 +10212,8 @@ function paintGrid(){
      screen out of the whole statement, which is the filter-subset feedback a reviewer
      actually needs; it leads the caption now. */
   const gt=$('fxGridTitle');
-  if(gt)gt.innerHTML=`<span class="est mute" id="fxGridStatus"></span>`;
+  if(gt)gt.innerHTML=`<span class="est mute" id="fxGridStatus"></span>`
+    +`<span class="est mute fx-unitcap" title="These figures are stated in ${ccyWord()} ${unitWord()}. Change the scale under Basis › Units.">$ in ${unitWord()}</span>`;
   /* SHOWING X OF Y \u2014 the fact the table was never stating. The worklist bar owns
      "how much is signed off"; what this line owes the reviewer is whether they are
      looking at the whole statement or a slice of it, which is the question a filter
@@ -11383,10 +11326,11 @@ function dwHead(r,rc){
   const met=(v,k,cls)=>`<div class="rw-met"><div class="rw-met-v ${cls||''}">${v}</div>
       <div class="rw-met-k">${k}</div></div>`;
   const figs=`<div class="rw-figs">
+    <div class="rw-unitcap" title="These figures are stated in ${ccyWord()} ${unitWord()}. Change the scale under Basis › Units.">$ in ${unitWord()}</div>
     <div class="rw-mets">
-      ${met(fmt(r.cur)+uName(), esc(PERIODS[S.cur].short))}
-      ${met(r.pri?fmt(r.pri)+uName():'&mdash;', esc(compareLabel()))}
-      ${met((arrow?arrow+' ':'')+fmt(Math.abs(r.d))+uName(),
+      ${met(fmt(r.cur), esc(PERIODS[S.cur].short))}
+      ${met(r.pri?fmt(r.pri):'&mdash;', esc(compareLabel()))}
+      ${met((arrow?arrow+' ':'')+fmt(Math.abs(r.d)),
             'Variance', 'dlt hero '+dcls)}
       ${met(r.pri?(arrow?arrow+' ':'')+pct(Math.abs(r.dp)):'&mdash;',
             'vs '+esc(compareLabel()), 'dlt '+dcls)}
@@ -14723,8 +14667,9 @@ const fxGroup=(label,body)=>`<span class="fxg"><span class="fxg-l">${esc(label)}
    and each option needs a sentence to explain it, which a segment cannot carry and
    a menu row can. The group labels go with it: every field states its own name. */
 function fxDisplayRow(){
-  const narr=dispMode()==='full';
   const cur=(DISP_MODES.find(m=>m[0]===dispMode())||DISP_MODES[0])[1];
+  /* "Expand all narratives" is gone: Narrative now prints every comment in full in the
+     Explanation column, so there was nothing left for it to open (no dead controls). */
   return fxField('dispmode','Mode',cur,false)+
     /* rendered complete rather than filled in by after(), so a tab switch cannot
        leave it blank — this row is rebuilt every time the tab changes */
@@ -14733,11 +14678,7 @@ function fxDisplayRow(){
       title="Table — ${S.cols.length} columns · ${S.dens==='dense'?'dense':'standard'} rows">
       <span class="fxf-k">Table</span>
       <span class="fxf-v">${S.cols.length} columns</span>
-      <span class="cue">▾</span></button>`+
-    (narr?`<button class="btn-out fx-narrbtn" onclick="KFX.toggleNarrExpand()"
-        aria-pressed="${S.narrExpand?'true':'false'}"
-        title="Open every narrative to its full length — for a CFO read, a screen-share or a print"
-        >${S.narrExpand?'Collapse all narratives':'Expand all narratives'}</button>`:'');
+      <span class="cue">▾</span></button>`;
 }
 /* SAVED VIEWS absorbs the Views menu and the favorite star, which used to occupy
    command-bar space permanently for something set once a session. */
@@ -14982,7 +14923,8 @@ function activeChips(){
    phrase alone does not carry it. */
 function pageContext(){
   const cad=S.compare==='seq'?'':cadenceWord();
-  return [cmpPhrase(),scopeWord(),cad,ccyWord()].filter(Boolean).map(esc).join(' \u00b7 ');
+  const ccy=ccyWord()+', in '+unitWord();
+  return [cmpPhrase(),scopeWord(),cad,ccy].filter(Boolean).map(esc).join(' \u00b7 ');
 }
 function basisLine(){ return '$'+(S.units===1?'':uName()); }
 /* Every chip on screen comes off. Optional filters clear; a chosen setting returns to
