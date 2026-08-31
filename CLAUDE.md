@@ -2835,6 +2835,46 @@ Auditor → the observing lens) · the three new filters open exactly what their
 (`ready` and `myrev` both 0 and both render the empty state; `wprep` opens 6 lines) ·
 balance sheet renders the same five tiles.
 
+### The tile and the column were deriving one state twice
+
+Reported by the owner: with the rule at **2.0M or 5%** the statement marked FOUR lines
+"Needs explanation" and the tile said THREE.
+
+The odd line out was **Repairs and maintenance — 0.2 movement, +6.9%.** The percent bar
+makes it material, so it REQUIRES an explanation; and with a residual of 0.2 against a 0.5
+tolerance it is already `clear`, though nobody has written a word. The tile tested
+`!r.clear` and dropped it.
+
+**That is the threshold/tolerance conflation this file already warns about.** The
+THRESHOLD decides whether a line must be explained at all (`r.req`); the TOLERANCE decides
+whether an explanation covers enough of the movement (`r.clear`). Different numbers,
+different questions — `!clear` was answering the second while the column answered the
+first.
+
+**The fix is not a better predicate, it is one fewer.** `fxStateKey()` already decides what
+the Explanation column prints, so `fxStateOf(r)` wraps it and both the tile and the filter
+read it: *needs explanation* is now literally `fxStateOf(r)==='need'`. Same discipline as
+`rowReady()` feeding `readyToSubmit()`, the Ready filter and its tile — **one function,
+every reader**, with no second derivation left to drift.
+
+**THE FILTER CARRIED THE SAME FAULT, AND IT PREDATES THE WORKLIST PASS.**
+`S.show==='open'` is labelled "Needs explanation" in `SHOWS` and was
+`r.req && (draft||returned) && !r.clear` — so a material, entirely unexplained line whose
+movement is small has been invisible to its own filter for as long as the filter has
+existed. Fixed by the same one-liner.
+
+**Verified across six rules** — 2.0M or 5% · 1.0M and 5% · 0.25M or 2% · 5M or 10% · 0.1M
+or 1% · 10M and 20% — the tile and the column agree at every setting, on the income
+statement (4/4) and the balance sheet (12/12). Clicking the tile opens exactly those four
+lines (Tenant recoveries, Power and utilities, Repairs and maintenance, Property taxes) and
+every one is marked in the column. 60/60 views · console clean · three gates green.
+
+**The lesson is the one already written at the top of the Cursor rules and in memory:
+never pass replacement text through the shell.** This block itself was first inserted with
+a `node -e` one-liner inside double quotes, and the shell ate every backtick as a command
+substitution — the paragraph landed with its code spans replaced by empty strings and a
+terminal escape sequence. Write the text to a file and splice from the file.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

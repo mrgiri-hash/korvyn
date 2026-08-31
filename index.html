@@ -8540,7 +8540,12 @@ function visible(rws){
     if(S.dir==='dn'&&r.d>=0)return false;
     if(S.dir==='unfav'&&!unfav(r))return false;
     if(S.show==='flag'&&!r.flag)return false;
-    if(S.show==='open'&&!(r.req&&(r.status==='draft'||r.status==='returned')&&!r.clear))return false;
+    /* SHOWS calls this one "Needs explanation", so it must select exactly the lines
+       the column marks that way. It used to re-derive the state and test !r.clear,
+       which drops a material line whose movement is small enough to sit inside
+       tolerance with no explanation written at all — required, unexplained, and
+       invisible to its own filter. */
+    if(S.show==='open'&&fxStateOf(r)!=='need')return false;
     if(S.show==='resid'&&(!r.req||r.clear))return false;
     if(S.show==='watch'&&!r.watch)return false;
     if(S.show==='mine'&&!(r.req&&r.status!=='approved'))return false;
@@ -9671,7 +9676,9 @@ function paintKpi(){
   const nReady = rws.filter(rowReady).length;
   const nMyRev = req.filter(awaitingMyReview).length;
   const nWPrep = req.filter(withPreparer).length;
-  const nToExp = req.filter(r=>(r.status==='draft'||r.status==='returned')&&!r.clear).length;
+  /* exactly the lines whose Explanation cell reads "Needs explanation" — not a
+     second derivation of the same idea. See fxStateOf(). */
+  const nToExp = rws.filter(r=>fxStateOf(r)==='need').length;
 
   const pipe = L==='prep'
     /* NOT "to explain": this exact state is already called "Needs explanation" by
@@ -10025,6 +10032,10 @@ function kdAvail(r,rc){
   if(rc&&rc.kdDismissed)return false;
   return !!(r.req||Math.abs(r.d)>0);
 }
+/* The word the Explanation column prints for a line, so a tile or a filter can
+   count exactly what a reviewer is looking at. rec(r.id) matches how the column
+   itself resolves the record. */
+const fxStateOf=r=>(r.hdr||r.tot||r.acct)?null:fxStateKey(r,rec(r.id));
 function cmtIndicators(r){
   if(r.acct||r.tot)return '';
   const rc=rec(r.id);
