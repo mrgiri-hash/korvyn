@@ -2431,6 +2431,253 @@ Verified: 63/63 views · console clean · all three gates pass (contrast, spacin
 1079/89, chrome 10/10) · impact panel live across abs/pct/op/floor/tol and profile · basis band
 correct for material, watch-listed and immaterial lines in the dock · Δ tooltip matches the band.
 
+## 2026-08-31 — one dropdown model, and materiality is a level
+
+Owner: *"The dropdown options are not consistent. I want to simplify the entire filters
+ribbon … can we make each dropdown selectable by clicking on the box … re-do the Variance
+tab. The materiality options should be very simple. I don't need SEC, other add'l
+options."* Measured before the pass, the eight-tab ribbon opened **ten different kinds of
+menu**, and two of them were forms.
+
+**EVERY FILTER COMMITS ON CLICK.** The ribbon held two contradictory models. A
+single-select (Status, Direction, Period, Cadence, Eliminations, Units) committed on click
+and closed. A multi-select (Entity, Segment, Region, Property, Cost center) edited a DRAFT
+and did nothing at all until a `Clear / Unfiltered / Show all` footer was pressed — so
+ticking three entities and walking away left the statement unfiltered while three boxes
+read as chosen. **One surface cannot answer "did that take effect?" two ways.**
+
+The staging had two stated reasons and neither survived. Recompute cost is not real on this
+book — `renderAll()` is one frame. And "Included vs Excluded cannot be read mid-build" is
+answered better by making the mode a switch over a LIVE selection than by hiding the whole
+act behind Apply: you now watch the statement move as you flip it. Verified arithmetically
+complementary as before — Ashburn only 39.5 + all except 48.6 = 88.1 total revenue.
+
+`popDraft` / `popDraftX` are gone with the footer. **The menu renders from `S`, which is
+what the statement renders from, so the two cannot disagree.** `.pop-ft` / `.pop-ftn` /
+`.pop-clr` are retired; Clear moved into the header, where every other menu already carried
+it.
+
+**Only these | All except is a switch, and it appears only once something is chosen.** It
+was an `Included|Excluded` tab pair sitting permanently above the list — a control for a
+decision the reviewer had not reached yet, drawn in the `.ktab` primitive, which then
+needed an exception in the tab-strip arrow handler (`if(t.closest('.pop-mode'))return`).
+It is `.pop-sw` now, the chosen half takes `--accent-bg` (the same "one option is selected"
+treatment the single-select row uses, not a second idiom), and the keyboard exception is
+gone with the borrowed class. 5.73–10.48:1 in both modes.
+
+**THE TRIGGER DOES NOT SURVIVE ITS OWN FILTER — and this was a live bug, not a consequence
+of the change.** `renderAll()` rebuilds the field row, which destroys the button `#pop` is
+anchored to; `popPlace()` then measured a detached node, got a zero rect, and parked the
+menu in the **top-left corner of the window**. Measured on Reason code, which already
+committed live: **(609,302) → (8,6) on one click.**
+
+The fix went in `popPlace()`, **not in each commit path**. A first cut put it in the new
+`popLive()` and covered exactly the four handlers this pass rewrote, missing every other
+menu that repaints in place — `setReason`, `clearReason`, `setProfile`, `setSort`,
+`setDens`, `setFullAll`. **The guard belongs where the rectangle is read**, so it covers
+every caller including any added later. `popRebind()` re-acquires the trigger by its
+`data-pop` key, and when it cannot, the menu **stays put** rather than being placed against
+a zero rect. Verified 609,302 → 609,307 on Reason, Entity and Materiality; Escape still
+returns focus to the *rebuilt* trigger, and `popLive()` restores the focused row index so
+a checkbox list is still drivable from the keyboard.
+
+### Movement over became a list
+
+**It was the only control in the ribbon answered with a keyboard was the only control in the ribbon answered with a keyboard** — a bare
+number input in a menu of option lists, which is most of what "not consistent" was pointing
+at. It is a list of fixed amounts now, held in `$000` in `TH_STEPS` and rendered through
+the unit on screen, so it reads `0.5M / 1.0M / 2.5M` in millions and `500K / 1,000K` in
+thousands rather than offering "0.5" of whatever is current. `threshWord()` phrases it once
+for the menu row, the field and the chip — three places that were each formatting it their
+own way ("over 1.0M" in the row against "over 1M" in the field beside it).
+
+**And the list exposed a real bug in the control it replaced.** `S.thresh` is stored in
+DISPLAY units, so switching millions → thousands left `1` in the field and silently turned
+a **1.0M floor into a 1.0K one — a thousand times looser** — under a Units menu whose own
+note promises that "switching units never silently changes what is flagged". Invisible
+while the control was a box you had typed into yourself; obvious the moment it became a
+list of stated amounts. `setUnits()` re-expresses the value so the AMOUNT is unchanged.
+Materiality never had this fault: it is stored in $M and converted once through `matFac()`.
+
+### Two field-row faults, both in the row's own markup
+
+- **The Saved Views field printed its label twice** — "View **View** Standard review". It
+  was wrapped in `fxGroup('View', …)` around a field already labelled View, and was the one
+  control on the eight tabs not drawn by `fxField()`. `fxGroup()` and `.fxg` / `.fxg-l` are
+  retired with it: a group label exists to name a control that has none, and every control
+  in the row states its own name.
+- **The Table menu carried a nested Units row** while Units is a field on Basis — a second
+  entry point to one control, the duplication the 2026-08-28 pass removed everywhere else.
+- The Display mode note still said **"All three read the same figures"**; there have been
+  two modes since `DISP_MODES` was cut to Statement + Narrative.
+
+**Measured after.** Every filter tab's row is uniformly **180×32**. Across all 18 menus
+reachable from the ribbon: **0 non-search inputs** (was 5, in two menus), **every row
+clickable**, one anatomy — `pop-h → [pop-s] → pop-l → [pop-b]` — and one width, 300px,
+except the three dimension multi-selects at 340px, which carry a second column of figures.
+Search appears at one stated list length (>12) rather than always on some menus and never
+on others. `viewmode` and `views` keep their section stacks: they configure rather than
+filter and are not part of this vocabulary.
+
+**Verified:** 60/60 views render · console clean · 10/10 chrome themes AA · content text
+gate clean · spacing ratchet green (baseline **lowered** 1079 → 1077 with the retired
+footer and tab-pair rules; the gate caught a 6px I introduced in `.pop-sw` and it was put
+on the scale) · dark mode holds · Only these / All except arithmetically complementary ·
+keyboard drives every menu through a commit · Escape returns focus to the rebuilt trigger ·
+the platform band (`#gfBar`, `g:` menus) untouched and still committing on click.
+
+**Deliberately NOT done:** the Actions tab is still a row of buttons rather than fields —
+the tab IS the menu by the 2026-08-28 ruling, and putting a menu inside a tab would be two
+clicks to reach one action. The Reason code menu has 14 rows and no search, which is
+correct under the >12 rule only because it is not a dimension; if it grows, it takes the
+same search every other long list has.
+
+### Later the same day — the rule editor comes back, smaller
+
+Owner, with a mockup: *"I said simple like attached … the materiality options should be
+very simple."* **Simple meant a SMALLER FORM, not no form.** The pass above read it as "no
+form" and replaced the editor with a list of three named levels — which did not simplify
+the control, it removed the ability to set a threshold at all. Corrected: Amount · Percent ·
+Logic (Either|Both) · Residual tolerance, and one line.
+
+What stays gone is the NAMING. Monthly close policy / SEC / MD&A / Tight review were three
+presets over the same four numbers, and "SEC / MD&A" asserted a reporting basis this model
+does not carry — the same fault the evidence table avoids by deriving Verified/Pending from
+a line's own sign-off rather than badging a document-approval workflow nobody built. There
+is no policy NAME any more; **`prof()` survives as the one place that phrases the rule**, so
+the memo, the chips, the panel and the audit trail all say `1.0M and 5%` identically. Also
+gone: the `and/or` control's ability to build a rule no written policy states, the
+small-balance floor (a constant, not a threshold a reviewer sets), and the impact CARD.
+
+**A LIST APPLIES ON CLICK; A FORM APPLIES ON APPLY.** The rule editor is the one staged
+control left in the ribbon, and the split is a rule rather than an exception: you cannot
+half-type `0.25` without passing through `0`, and a statement that recomputed on every
+keystroke would flag every line in the book on the way to the value you meant. Cancel is
+what a list does not need and a form does. `Save as default` applies AND writes `S.matDef`,
+which is what clearing the rule returns to — so "default" is a real state rather than a
+second copy of Apply.
+
+**Staging is what earns the caption its place.** It is not a description, it is a
+measurement of the PENDING rule: *"3 of 16 lines require an explanation **(now 2)**"* — what
+Apply will do, before you press it, counted off `rows()` so it cannot drift from the grid.
+It inks up only while the draft would change the count, so it is silent until it has news.
+**The caption refreshes; the form does not** — `paintPop()` on every keystroke takes the
+caret with it, the same contract `cmtField()` and `exField()` hold, so `matCap()` rewrites
+only the line and the Logic pair.
+
+The capability gate stays (`caps().policy`) and the reason has not changed: drop the bar
+mid-close and a breaching line stops requiring an explanation, leaves the flagged count and
+drops out of the flux memo, which then prints the new rule as though it had been in force
+all period. **Do not remove the gate to make the form feel lighter.**
+
+`1.0`, not `1`: a whole number is padded to one decimal in a field labelled Amount ($M),
+because that is money. Only a whole number — rounding a typed `0.25` to `0.3` on the next
+paint would silently change the rule. The percent stays bare; 5% is not 5.0%.
+
+### ONE SELECTION AFFORDANCE, and no description at the bottom of a filter
+
+Owner: *"I said consistent dropdown — I see some options that get selected using the boxes,
+others don't … why do we need a description at the bottom of each filter?"*
+
+**Both were rules this file had written down, and both were wrong.** "Single-select is a
+TICK, multi-select is a CHECKBOX" produced exactly what was reported: a single-select drew a
+bare tick and filled the whole row with `--accent-bg`, a multi-select drew a square box and
+left the row neutral — two answers to "how do I choose this?" on one surface. **Every option
+row now carries the same 14px box, and no row fill**: the box IS the selected state, so a
+second one is redundant. The distinction that matters is still carried where it belongs —
+`.pop-o.ck` keeps the checkbox ROLE in `popEnhance()`, so a screen reader is told the truth
+about whether one answer is possible or several, while the eye reads one language.
+
+**The exception is tagged, not hand-written.** Three kinds of row cannot hold a box: More
+(each row opens another menu), a saved view (its gutter holds a favourite star, which is a
+control), and the Table menu's four commands. `popEnhance()` marks them `.nobox` after
+paint, and a `.nobox` row carries its selected state on the row — so no call site has to
+remember, and a menu added later is covered. A More row also gets a `›`, because a row that
+opens another menu must not read as an option that refuses to tick.
+
+**Nine menus carried a paragraph explaining the control above it.** A filter whose name and
+options do not say what it filters is not fixed by a footnote, and a footnote under every one
+turned a 26px option row into a 60px card. All nine are gone. Two captions survive and
+neither is prose: the rule editor's impact count, and the 12-period trend readout, which is a
+data popover rather than a filter.
+
+**And the same habit had spread onto the rows.** *"under 90% of the movement"* beside
+*"Partly explained"*, *"34px rows"* beside *"Standard"*, *"biggest movers first"* beside
+*"Largest Δ amount"* — a footnote per option. **The sub column carries a VALUE, never a
+sentence**: a resolved period on Compare, a movement figure on a dimension, a count on Reason
+code, `5 shown` and `Alt+Z` in the Table menu. Prose belongs to the option's own name or
+nowhere.
+
+**Measured after, across all 18 menus reachable from the ribbon:** every row is either boxed
+or `.nobox`-tagged (**no third state**), **zero footers**, one box at 14×14/3px, no selected-row
+fill, two widths (300px; 340px only for the three dimension lists, which carry a column of
+figures). 60/60 views · console clean · 10/10 chrome themes AA · content text gate clean
+(caption 6.48 light / 7.73 dark, Save as default 6.44/7.39, Either|Both 6.5/7.69) · spacing
+ratchet unchanged. Apply / Cancel / Save as default / reopen / clear all verified end to end,
+and the caret survives every keystroke in the form.
+
+### Later — SELECTED FILTERS: the tabs stay, and a slim strip says what is on
+
+Owner: *"the FILTERS are not intuitive. I got lost toggling different options from the
+tab … it should be something like this when the filters are selected"*, with a reference
+showing `Selected filters ›` followed by removable chips. And: *"I don't want to see a
+bulky strip that overtakes the filter."*
+
+**A DETOUR WORTH RECORDING: the eight-tab surface was replaced wholesale and the owner
+rejected it.** The reasoning behind that attempt was sound and is still true — thirteen
+filters behind eight tabs put at most three on screen, so ten were invisible at any
+moment, and the tab badges could only ever say a filter existed SOMEWHERE. But the fix
+was too big: it retired the tabs, the context/filters split and the whole command
+surface for a chip bar, and lost a layout the owner wants. **The defect was never the
+tabs. It was that nothing stated what was selected.** Reverted by replaying every
+accepted splice onto a clean base rather than unpicking the last one — which is the only
+safe way to undo one pass out of eight in a 2.9 MB single file.
+
+**What shipped is the small version of the same idea.** `fxSelStrip()` renders one line
+under the field row:
+
+```
+Selected filters ›   ⟨Entity: 2 selected ×⟩   ⟨Movement over: over 0.5M ×⟩   Clear all
+```
+
+- **It does not render at all when nothing is selected** — zero height, not an empty
+  band. An unfiltered page pays nothing for it. Measured: region 108px open / 35px
+  folded with no filters, +42px with the strip.
+- **It is the quietest row in the region.** Ramp chips on the surface, not the accent:
+  the tabs and fields are where you act, the strip is where you read, and a row of
+  cobalt tablets would shout louder than the controls above it (rule 2).
+- **A chip is two targets, and both are real buttons** — the body opens that filter,
+  the × removes it. Not one handler inspecting the event, so both are keyboard-reachable
+  and each says what it does.
+- **Clicking a chip goes to the tab that owns the filter AND opens its menu**, so the
+  strip and the tab strip can never disagree about where you are. The tab is derived
+  from `FX_FTABS` (`fxTabOf`), never a second list, and a dimension behind **More**
+  routes to Scope. The menu anchors to the FIELD, not to the chip — the menu belongs to
+  the control, and a chip disappears the moment its filter is cleared.
+
+**THE STRIP SURVIVES THE FOLD, and that is the point.** Collapsing hides WHICH controls
+are available; it must never hide WHAT is filtering the statement — on a surface whose
+numbers get signed, that guarantee is the reason the tab badges existed. Folded with two
+filters the whole region is 77px and still names both. `.fx-filters.shut` hides
+`.fx-ftabs` and `.fx-fields` and deliberately not `.fx-sel`.
+
+**ONE STATEMENT OF WHAT A FILTER READS.** `fxFilterState(k)` returns `{nm, on, val}` and
+is the single source for both the field and its chip — `fxDimField()` and the
+`show / dir / reason / cover / thresh / elim` branches of `fxOneField()` were each
+computing their own label and value, so a chip written separately would have drifted from
+the field within one change. The exclusion wording ("Excl. 2") is spelt in that one place,
+which is what stops a field that is HIDING Meridian West from reading "Meridian West".
+
+**The query owns a chip too** (`Find: “rent”`), so `setQuery()` calls `fxPaintSel()` — the
+strip repaints alone and never the row holding the input, because a repaint takes the
+caret with it (the contract `cmtField` and `exField` hold).
+
+**Verified:** 60/60 views · console clean · all three gates pass · every filter tab's row
+still 180×32 · strip absent at rest, 41px when present, identical text folded and open ·
+chip → correct tab + correct menu anchored to its field (including a More dimension) ·
+× removes one filter, Clear all removes the strip · caret survives typing in Find ·
+light and dark 6.48–14.12:1 on every element.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

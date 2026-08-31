@@ -139,18 +139,83 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   only on Flux, untouched elsewhere. `glHead()`/`periodNav()` no longer run on Flux: the header
   restated what the tabs state, and the month stepper became the Period field. ONE popover
   system (`#pop`) for every selector — anchored, never modal, one at a time, Escape/outside
-  closes; multi-selects staged with Search · Included|Excluded · Select all · Clear/Apply,
-  single-selects commit on click. Other pages keep the drawer —
-  do not delete it. **Each tab's live-filter count is load-bearing**: tabs hide filters, and
+  closes. Other pages keep the drawer — do not delete it.
+  **Each tab's live-filter count is load-bearing**: tabs hide filters, and
   a signed statement must never be filtered for an invisible reason — do not drop the counts
-  without replacing that guarantee. Each dimension menu is a
-  **staged** multi-select (Search · Selected|Excluded · Select all · checkboxes · Apply):
-  it edits `popDraft`/`popDraftX` and commits only in `popApply()`, so the consolidation
-  is not recomputed per checkbox. Select all acts on the search-visible options only.
-  `S.excl[dim]` is a REAL filter through `dimOk()` in `sliceOk()`, not a label — it rides
+  without replacing that guarantee.
+
+- **EVERY FILTER COMMITS ON CLICK** (2026-08-31, owner's direction). There is no staged
+  Apply anywhere in the ribbon; `popDraft`/`popDraftX`, `popApply()` and the
+  `.pop-ft` footer are retired. A multi-select writes straight to `S` and calls
+  `popLive()`, which re-renders and keeps the menu open, anchored and focused on the row
+  you were on. The menu renders from `S`, which is what the statement renders from, so the
+  two cannot disagree. **Do not reintroduce a draft.** Select all acts on the
+  search-visible options only; Clear lives in the header, like every other menu.
+  ONE MENU ANATOMY: `pop-h → [pop-s, only when >12 options] → pop-l`, every row clickable.
+  Width is 300px; only the dimension multi-selects take `.wide` (340px), because they carry
+  a second column of figures.
+- **A LIST APPLIES ON CLICK; A FORM APPLIES ON APPLY.** The explanation rule is the only
+  form and the only staged control: you cannot half-type `0.25` without passing through
+  `0`, and a statement recomputing per keystroke would flag every line on the way. Its
+  footer is Save as default · Cancel · Apply. Everything else is a list and commits at once.
+- **ONE SELECTION AFFORDANCE** (2026-08-31, owner). This REVERSES "single-select is a tick,
+  multi-select is a checkbox": that rule produced a bare tick + a filled `--accent-bg` row on
+  one menu and a square box + a neutral row on the next. Every option row carries the same
+  14px box and **no row fill** — the box is the selected state. `.pop-o.ck` still carries the
+  checkbox ROLE in `popEnhance()`, so the a11y distinction survives without a visual one.
+  A row that cannot hold a box (More, a saved view, a Table-menu command) is tagged `.nobox`
+  by `popEnhance()` and carries its state on the row — never hand-written at a call site.
+- **SELECTED FILTERS is a slim strip under the field row** (2026-08-31, owner). The eight
+  tabs stay; `fxSelStrip()` states what is on as `Name: value ×` chips. **It does not render
+  when nothing is selected** (zero height, not an empty band), it is ramp not accent (the
+  strip is where you read, the fields are where you act), and **it survives the fold** —
+  collapsing may hide which CONTROLS exist, never WHAT is filtering a statement whose
+  numbers get signed. A chip's body opens the owning tab and that filter's menu (anchored
+  to the FIELD, not the chip); its × removes just that filter. Both are real buttons.
+  `fxTabOf()` derives the tab from `FX_FTABS`, never a second list.
+  **`fxFilterState(k)` is the ONE statement of what a filter reads** — the field and its
+  chip both call it, so they cannot drift; the exclusion wording ("Excl. 2") lives there.
+  `setQuery()` calls `fxPaintSel()` so the strip repaints without rebuilding the row that
+  holds the search input.
+  *A wholesale replacement of the tab surface with a chip bar was built and REJECTED by the
+  owner — the defect was never the tabs, it was that nothing stated what was selected. Do
+  not retire the tabs.*
+- **NO DESCRIPTION AT THE BOTTOM OF A FILTER, AND NONE ON A ROW** (2026-08-31, owner). Nine
+  `.pop-b` footnotes explaining the control above them are gone; so are the row subs that
+  restated an option's own name. **The sub column carries a VALUE, never a sentence** — a
+  resolved period, a movement figure, a count. The two surviving captions are figures: the
+  rule editor's impact count and the 12-period trend readout.
+- **`popPlace()` calls `popRebind()` first, and this is load-bearing.** `renderAll()`
+  rebuilds the field row and DESTROYS the trigger `#pop` is anchored to; measuring a
+  detached node gives a zero rect and parks the menu at (8,6). The guard belongs where the
+  rectangle is read, not in each commit path — putting it in `popLive()` alone missed
+  `setReason`, `setSort`, `setDens` and `setFullAll`. When the trigger cannot
+  be recovered the menu stays put rather than being placed against a zero rect.
+- `S.excl[dim]` is a REAL filter through `dimOk()` in `sliceOk()`, not a label — it rides
   in `snapshot()` beside the dimension arrays, and every scope renderer must spell the
   exclusion ("Excl. 2", "All except 2 entities"), because the same list under the flag
-  means the opposite thing. An empty selection always clears the flag.
+  means the opposite thing. An empty selection always clears the flag. It is surfaced as
+  the `.pop-sw` **Only these | All except** switch, which appears only once something is
+  chosen — there is no reading of an empty set.
+- **The explanation rule is FOUR CONTROLS and no names** (2026-08-31, owner's mockup):
+  Amount · Percent · Logic (Either|Both) · Residual tolerance, in `S.mat`, with `S.matDef`
+  as what "Save as default" writes and what clearing returns to. The named profiles are
+  gone — `Monthly close policy` / `SEC / MD&A` / `Tight review` were three presets over the
+  same four numbers, and "SEC / MD&A" claimed a reporting basis this model does not carry.
+  **`prof()` is the ONE place that phrases the rule** (`prof().nm === matRule()`), so the
+  memo, the chips, the panel and the trail cannot drift; do not reintroduce a policy NAME
+  without a record behind it.
+  The `caps().policy` gate stays and `matCommit()` logs before/after: moving a bar mid-close
+  un-flags a breaching line and the flux memo then prints the new rule as though it had been
+  in force all period. **Do not remove the gate to make the form feel lighter.**
+  `matCap()` refreshes the impact caption WITHOUT repainting the form — a repaint takes the
+  caret, the same contract `cmtField()`/`exField()` hold.
+- Materiality thresholds live in $M and convert once through `matFac()`. `floor` is a
+  constant, not a control — it is the point below which two tiny balances are not worth
+  comparing, not a threshold a reviewer sets.
+- **`S.thresh` is in DISPLAY units**, so `setUnits()` must re-express it. Left alone,
+  millions → thousands turned a 1.0M floor into a 1.0K one. Materiality is stored in $M and
+  converted once through `matFac()`; the ad-hoc threshold is the one that needs converting.
 - **The explanation and the comments are ONE conversation** (2026-08-28, owner's direction).
   Every voice uses one grammar, `.rw-msg`: avatar in the gutter, identity on one line, words
   against a rail. The explanation is the lead statement (`.lead`); a Korvyn draft wears indigo

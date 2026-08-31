@@ -2136,7 +2136,10 @@ footer b{color:var(--muted)}
 /* folded: the band alone, and it keeps the card's full corner */
 :is(#fxRoot,#gfBar) .fx-filters.shut .fx-ftabs,
 :is(#fxRoot,#gfBar) .fx-filters.shut .fx-fields{display:none}
+/* .fx-sel is deliberately NOT hidden by the fold: collapsing must hide WHICH
+   controls are available, never WHAT is filtering the statement. */
 :is(#fxRoot,#gfBar) .fx-filters.shut .kfh{padding-bottom:9px}
+:is(#fxRoot,#gfBar) .fx-filters.shut .fx-sel{border-top:var(--rule)}
 /* the platform card, same object as the Flux one but standing on the page rather
    than joined to a folder tab, so it keeps all four corners */
 #gfBar .fx-filters{background:var(--surface);border:1px solid var(--line2);
@@ -3616,45 +3619,100 @@ body.copilot-min .ribai{background:rgba(107,163,245,.10)}
   font-size:var(--fs-table);color:var(--ink)}
 .pop-o:hover{background:var(--bg2)}
 .pop-o:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-/* SINGLE-SELECT IS A TICK, MULTI-SELECT IS A CHECKBOX. A box that fills in reads
-   as "one of several" — drawing it on Period or Cadence, where exactly one answer
-   can ever be true, promised a choice the menu does not offer. The tick sits in the
-   same 13px gutter, so the rows still align whichever menu this is. */
-.pop-o .bx{width:13px;height:13px;flex:none;border:none;background:none;border-radius:0;
+/* ---- ONE SELECTION AFFORDANCE, EVERY MENU ---------------------------------
+   Owner, 2026-08-31: "I see some options that get selected using the boxes, others
+   don't." Correct, and it had been written down as a rule: a single-select drew a
+   bare tick and filled the whole row with --accent-bg, a multi-select drew a square
+   box and left the row neutral. Two answers to "how do I choose this?" in one ribbon.
+
+   Every option row carries the SAME 14px box now, checked when it is on, and no row
+   fill — the box IS the selected state, so a second one is redundant. The distinction
+   that actually matters is still carried where it belongs: `.pop-o.ck` keeps the
+   checkbox ROLE in popEnhance(), so a screen reader is told the truth about whether
+   one answer is possible or several, while the eye reads one language.
+
+   `.stx` is excluded: that slot holds a favourite STAR on a saved-view row, which is
+   a control, not the row's own selected state. */
+.pop-o .bx:not(.stx),.pop .ckb{width:14px;height:14px;flex:none;
+  border:1px solid var(--border-strong);border-radius:3px;background:var(--surface);
   display:inline-flex;align-items:center;justify-content:center;
-  font-size:11px;line-height:1;color:transparent}
-.pop-o.on .bx{color:var(--accent)}
-/* one answer is possible and one is chosen — the row itself carries it, which is
-   what makes the current selection obvious the moment the menu reopens */
-.pop-o.on:not(.ck){background:var(--accent-bg);color:var(--accent-ink)}
-.pop-o.on:not(.ck):hover{background:var(--accent-bg)}
-.pop-o.on:not(.ck) .sub{color:var(--accent-ink);opacity:.72}
-/* several are possible — the ticked box carries it and the row stays neutral,
-   because twelve accent-filled rows is the loud selected state this pass removes */
-.pop-o.ck.on{background:none;font-weight:var(--fw-medium)}
+  font-size:10px;line-height:1;color:transparent}
+.pop-o:hover .bx:not(.stx),.pop .pop-o.ck:hover .ckb{border-color:var(--accent)}
+.pop-o.on .bx:not(.stx),.pop .ckb.on{background:var(--accent);border-color:var(--accent);
+  color:var(--on-fill)}
+.pop-o.on{font-weight:var(--fw-medium)}
+/* the exception the box rule needs: a row that cannot hold a box — More, which
+   opens another menu, and a saved view, whose gutter holds a favourite star —
+   carries its selected state on the row. Tagged by popEnhance(), never by hand. */
+.pop-o.on.nobox{background:var(--accent-bg);color:var(--accent-ink)}
+.pop-o.on.nobox .sub{color:var(--accent-ink);opacity:.72}
+.pop-o.into .sub{margin-left:auto}
+.pop-o.into .cue{margin-left:var(--s-2);color:var(--hint);font-size:var(--fs-table)}
+.pop-o.into .sub:empty+.cue{margin-left:auto}
+/* THE SUB COLUMN CARRIES A VALUE, NEVER A SENTENCE (owner, 2026-08-31) — a figure,
+   a resolved period, a count. Prose that only restates the option's own name was
+   removed from Cadence, Explained, Eliminations, Display mode and the Table menu;
+   what is left is data a reviewer is actually reading. */
 .pop-o .sub{margin-left:auto;font-size:var(--fs-micro);color:var(--hint)}
-/* A STAR IN A ROW IS A CONTROL, NOT THE ROW'S OWN CHECKBOX. `.pop-o.on .bx` fills
-   the box in the accent to mark the selected row, which on a saved-view row painted
-   solid over the star and swallowed it — so the one view that IS loaded was the one
-   whose favorite state you could not read. */
 .pop-o.on .bx.stx{background:none;border:none}
+/* ---- THE ONE SEGMENTED CONTROL INSIDE A MENU ------------------------------
+   Two equal halves of one choice: Either|Both on the explanation rule, and
+   Only these|All except on a dimension. ONE class, so the ribbon does not grow a
+   second capsule idiom. Tinted when chosen — the same treatment the option box
+   uses — never a filled cobalt, which would be a second primary (rule 13). */
+.pop .pop-seg{display:flex;gap:var(--s-1)}
+.pop .pop-seg button{flex:1;height:var(--h-field);padding:0 var(--s-2);
+  border:1px solid var(--line2);border-radius:6px;background:var(--surface);
+  color:var(--muted);font-family:inherit;font-size:var(--fs-table);
+  cursor:pointer;white-space:nowrap}
+.pop .pop-seg button:hover{border-color:var(--border-strong)}
+.pop .pop-seg button.on{background:var(--accent-bg);border-color:var(--accent);
+  color:var(--accent-ink);font-weight:var(--fw-medium)}
+.pop .pop-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* ---- THE RULE FORM --------------------------------------------------------
+   Label over field; two fields to a row where they are the two halves of one
+   comparison. The inputs take the figure face and tabular figures, because they
+   hold money and a percentage (rule 14). */
+.pop .pop-form{padding:var(--s-3) var(--pop-x)}
+.pop .pop-fr{display:flex;gap:var(--s-2);align-items:flex-end}
+.pop .pop-fr+.pop-fr{margin-top:var(--s-3)}
+.pop .pop-f{flex:1;min-width:0;display:block}
+.pop .pop-f>span{display:block;font-size:var(--fs-label);color:var(--muted);
+  margin-bottom:var(--s-1)}
+.pop .pop-f input{width:100%;height:var(--h-field);padding:0 var(--s-2);
+  border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);
+  color:var(--ink);font-family:var(--num);font-size:var(--fs-table);
+  font-variant-numeric:tabular-nums}
+.pop .pop-f input:focus{outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 1px var(--accent)}
+/* THE ONE CAPTION A MENU IS ALLOWED, and it is a measurement rather than a
+   description: what the pending rule will flag, counted off rows(). It inks up only
+   while the draft would change that count, so it is silent until it has news. */
+.pop .pop-cap{margin-top:var(--s-3);font-size:var(--fs-label);color:var(--hint)}
+.pop .pop-cap.chg{color:var(--ink)}
+.pop .pop-cap b{color:var(--ink);font-weight:var(--fw-strong)}
+/* ---- THE FORM'S FOOTER ----------------------------------------------------
+   A list has nothing to apply; a form does, and it needs a way out. This is the one
+   .pop-ft left in the ribbon. */
+.pop .pop-ft{display:flex;align-items:center;gap:var(--s-2);
+  padding:var(--s-2) var(--pop-x);border-top:var(--rule);background:var(--bg2)}
+.pop .pop-ftsp{flex:1}
+.pop .pop-lnk{border:none;background:none;color:var(--accent-ink);cursor:pointer;
+  font-family:inherit;font-size:var(--fs-table);padding:0}
+.pop .pop-lnk:hover{text-decoration:underline}
+.pop .pop-lnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+/* Only these | All except sits in its own band above the list, and only once
+   something is chosen — there is no reading of an empty set. */
+.pop .pop-sw{display:flex;align-items:center;gap:var(--s-2);
+  padding:var(--s-2) var(--pop-x);border-bottom:var(--rule);background:var(--bg2)}
 .pop-b{padding:9px var(--pop-x);border-top:var(--rule)}
 .pop-b .fgrp{margin-bottom:8px}
 .pop-b .fgrp:last-child{margin-bottom:0}
 .pop-row{display:flex;gap:7px;align-items:flex-end}
-/* MATERIALITY IMPACT — the policy's effect on the current variance population,
-   at the top of the menu so a threshold is chosen against what it captures. */
-.mat-impact{padding:var(--s-3);margin-bottom:var(--s-2);background:var(--n-100);
-  border:var(--rule);border-radius:var(--radius)}
-.mat-impact .mi-hd{display:flex;align-items:baseline;gap:var(--s-2)}
-.mat-impact .mi-fig{font-family:var(--num);font-size:var(--fs-page);font-weight:var(--fw-medium);
-  color:var(--ink-strong);font-variant-numeric:tabular-nums;line-height:var(--lh-tight)}
-.mat-impact .mi-lbl{font-size:var(--fs-table);color:var(--muted)}
-.mat-impact .mi-bar{height:6px;margin:var(--s-2) 0 var(--s-1);border-radius:999px;
-  background:var(--n-200);overflow:hidden}
-.mat-impact .mi-bar>i{display:block;height:100%;background:var(--accent);border-radius:999px}
-.mat-impact .mi-cap{font-size:var(--fs-label);color:var(--hint)}
-.mat-impact .mi-cap b{color:var(--ink);font-weight:var(--fw-strong)}
+/* MATERIALITY IMPACT is retired as a panel (2026-08-31). Every figure it carried
+   is still on screen — the flagged count moved onto the level rows it was judging,
+   and the captured share into the footer sentence — so the menu states its impact
+   in the same list every other dropdown uses instead of in a card inside a menu. */
 /* ---------------------------------------------------------------- card + table */
 /* flux grid specifics */
 #fxRoot .fx-sec td{background:var(--bg2);font-size:var(--fs-label);text-transform:uppercase;
@@ -6066,13 +6124,55 @@ body.fx-dw-page #subnav2{display:none!important}
    line is a list icon by design). */
 :is(#fxRoot,#gfBar) .fx-fields .fxi,:is(#fxRoot,#gfBar) .fx-fields .btn-out svg{width:13px;height:13px;flex:none}
 :is(#fxRoot,#gfBar) .fx-fields .btn-out .cue{color:var(--hint);font-size:var(--fs-micro)}
-/* A labelled group. Display and Saved Views hold settings rather than filters, and
-   the label is what stops them reading as an undifferentiated strip of buttons. */
-#fxRoot .fxg{display:inline-flex;align-items:center;gap:var(--s-2)}
-#fxRoot .fxg-l{font-size:var(--fs-label);color:var(--hint);
-  text-transform:uppercase;letter-spacing:var(--tracking-label);white-space:nowrap}
-#fxRoot .fxg+.fxg{margin-left:var(--s-3);padding-left:var(--s-3);
-  border-left:var(--rule)}       /* hairline between groups, never a card */
+/* ---- SELECTED FILTERS (2026-08-31) ---------------------------------------
+   A slim strip at the foot of the filter card stating what is currently selected.
+   It is deliberately the QUIETEST row in the region: the tabs and fields are where
+   you act, this is where you read. Hence a ramp chip rather than an accent one —
+   a row of cobalt tablets is exactly the loud selected state this system rules out
+   (rule 2), and the strip would then shout louder than the controls above it.
+
+   It renders only when something is selected, so an unfiltered page pays nothing
+   for it, and it survives the fold: with the region collapsed the strip is all that
+   is left, which is what makes folding safe on a surface whose numbers get signed. */
+:is(#fxRoot,#gfBar) .fx-sel{display:flex;flex-wrap:nowrap;align-items:center;
+  gap:var(--s-2);padding:var(--s-2) var(--s-3);border-top:var(--rule);
+  background:var(--surface);overflow-x:auto;overflow-y:visible;scrollbar-width:none}
+:is(#fxRoot,#gfBar) .fx-sel::-webkit-scrollbar{display:none}
+:is(#fxRoot,#gfBar) .fx-sel-l{flex:none;display:inline-flex;align-items:center;
+  gap:var(--s-1);font-size:var(--fs-label);font-weight:var(--fw-medium);
+  color:var(--ink);white-space:nowrap}
+:is(#fxRoot,#gfBar) .fx-sel-l .ch{color:var(--hint);font-size:var(--fs-table)}
+/* the chip: one control split in two targets — the body changes the filter, the ×
+   takes it off. They are separate BUTTONS rather than a click handler that inspects
+   the event, so both are reachable from the keyboard and each says what it does. */
+:is(#fxRoot,#gfBar) .selchip{flex:none;display:inline-flex;align-items:center;
+  height:var(--h-chip);border:1px solid var(--line2);border-radius:6px;
+  background:var(--surface);max-width:300px;overflow:hidden}
+:is(#fxRoot,#gfBar) .selchip:hover{border-color:var(--border-strong)}
+:is(#fxRoot,#gfBar) .selchip .b{border:none;background:none;cursor:pointer;
+  font-family:inherit;font-size:var(--fs-table);color:var(--ink);
+  padding:0 var(--s-2);height:100%;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:250px}
+/* the filter's NAME is the quiet half and its value the loud one — the same grammar
+   the field above uses (.fxf-k / .fxf-v), so the strip reads as the row's echo */
+:is(#fxRoot,#gfBar) .selchip .k{color:var(--muted);font-weight:var(--fw-regular)}
+:is(#fxRoot,#gfBar) .selchip .b:hover{color:var(--accent-ink)}
+:is(#fxRoot,#gfBar) .selchip .x{flex:none;border:none;background:none;cursor:pointer;
+  font-family:inherit;font-size:var(--fs-ui);line-height:1;color:var(--hint);
+  padding:0 var(--s-2) 0 var(--s-1);height:100%}
+:is(#fxRoot,#gfBar) .selchip .x:hover{color:var(--neg)}
+:is(#fxRoot,#gfBar) .selchip .b:focus-visible,
+:is(#fxRoot,#gfBar) .selchip .x:focus-visible{outline:2px solid var(--accent);
+  outline-offset:-2px;border-radius:4px}
+:is(#fxRoot,#gfBar) .fx-sel-clr{flex:none;border:none;background:none;
+  color:var(--accent-ink);cursor:pointer;font-family:inherit;
+  font-size:var(--fs-label);padding:0 var(--s-2)}
+:is(#fxRoot,#gfBar) .fx-sel-clr:hover{text-decoration:underline}
+:is(#fxRoot,#gfBar) .fx-sel-clr:focus-visible{outline:2px solid var(--accent);
+  outline-offset:2px;border-radius:3px}
+/* .fxg / .fxg-l are retired with fxGroup() (2026-08-31). A group label existed to
+   name a control that had none; every control in the row is an fxField() and every
+   fxField states its own name, so the label could only repeat one. */
 #fxRoot .fxa-n{font-size:var(--fs-micro);color:var(--accent-ink);
   font-variant-numeric:tabular-nums}
 #fxRoot .kpis{margin-bottom:6px}
@@ -6197,31 +6297,20 @@ body.fx-dw-page #subnav2{display:none!important}
    A staged multi-select. The checkbox is a square (a tick alone reads as "done",
    a box reads as "choose"), the mode pair states what the ticks will DO, and the
    footer commits. Overlay, so this one surface is allowed its shadow (rule 5). */
-/* Included | Excluded reads as a pair of tabs, not two buttons — the same
-   underline grammar the command bar uses, so the popover feels like part of the
-   surface that opened it rather than a widget from somewhere else. */
-/* Included | Excluded is a tab pair, so it is drawn by the tab primitive rather
-   than by a third hand-rolled underline. It stays level 2 — ink, not accent —
-   because the menu already belongs to the accent-marked field that opened it. */
-.pop .pop-mode{padding:0 calc(var(--pop-x) - 4px)}
-.pop .pop-mode .ktab{height:30px;padding:0 6px;font-size:var(--fs-label)}
+/* ONLY THESE | ALL EXCEPT — the two readings of one chosen set (2026-08-31).
+   It was an Included|Excluded tab pair sitting above the list, permanently, on a
+   menu where nothing was chosen yet: a control for a decision the reviewer had not
+   reached. It is a compact switch now, and it appears only once a selection exists,
+   because there is no reading of an empty set. The chosen half takes --accent-bg,
+   which is the same "one option is selected" treatment the .pop single-select row
+   uses — not a second selected-state idiom. */
+.pop .pop-sw-l{font-size:var(--fs-label);color:var(--hint);
+  text-transform:uppercase;letter-spacing:var(--tracking-label);white-space:nowrap}
 .pop .pop-o.ck{display:flex;align-items:center;gap:8px}
-.pop .ckb{flex:none;width:14px;height:14px;border:1px solid var(--border-strong);
-  border-radius:3px;background:var(--surface);display:inline-flex;align-items:center;
-  justify-content:center;font-size:10px;line-height:1;color:transparent}
-.pop .pop-o.ck:hover .ckb{border-color:var(--accent)}
-.pop .ckb.on{background:var(--accent);border-color:var(--accent);color:#fff}
-/* Clear left · state · Apply right — the standard footer for every multi-select. */
-.pop .pop-ft{display:flex;align-items:center;gap:10px;padding:8px var(--pop-x);
-  border-top:var(--rule);background:var(--bg2)}
-.pop .pop-ftn{flex:1;font-size:var(--fs-micro);color:var(--hint);line-height:var(--lh);
-  text-align:center}
-.pop .pop-clr{border:none;background:none;color:var(--accent-ink);cursor:pointer;
-  font:inherit;font-size:var(--fs-label);padding:0}
-.pop .pop-clr:hover{text-decoration:underline}
-/* a disabled control is the other WCAG contrast exemption, and it has to read as
-   unavailable beside the live Apply next to it */
-.pop .pop-clr[disabled]{color:var(--faint);cursor:default;text-decoration:none}
+/* .pop-ft / .pop-ftn / .pop-clr are retired with the staged Apply footer
+   (2026-08-31). Every filter commits on click, so there is nothing to apply and
+   nothing to state about an uncommitted draft; Clear moved into the header, where
+   every other menu already carries it. */
 
 /* ---- Inspect look (state-composed) — MUST sit after earlier .dw-/.rw- rules
    so the cascade actually changes what you see. Instrument tokens only.
@@ -7928,11 +8017,25 @@ const RSN=Object.fromEntries(REASONS.map(r=>[r.id,r.nm]));
 /* ============================================================================
    7. STATE
    ========================================================================== */
-const PROFILES=[
-  {id:'close', nm:'Monthly close policy', bs:{abs:10,pct:3},  is:{abs:1.0,pct:5},  op:'and',floor:1.0,tol:0.5,lock:0},
-  {id:'sec',   nm:'SEC / MD&A',           bs:{abs:50,pct:5},  is:{abs:5.0,pct:10}, op:'and',floor:10, tol:2.5,lock:1},
-  {id:'tight', nm:'Tight review',         bs:{abs:2.5,pct:1}, is:{abs:0.25,pct:2}, op:'or', floor:0.1,tol:0.1,lock:0},
-];
+/* ---- THE EXPLANATION RULE — FOUR CONTROLS, NO PROFILES --------------------
+   Owner's direction, 2026-08-31, with a mockup: Amount · Percent · Logic
+   (Either|Both) · Residual tolerance, and one precise line. "Simple" meant a
+   SMALLER form, not no form — an earlier pass in this session read it as "no form"
+   and replaced the editor with a list of three named levels, which was wrong: it
+   took away the ability to set a threshold at all.
+
+   What is gone is the naming. Monthly close policy / SEC / MD&A / Tight review were
+   three presets over the same four numbers, and "SEC / MD&A" asserted a reporting
+   basis this model does not carry — the same fault the evidence table avoids by
+   deriving Verified/Pending from a line's own sign-off rather than badging a
+   document-approval workflow nobody built. There is no policy NAME any more; the
+   rule is the policy, and prof() is the one place that phrases it, so the memo, the
+   chips, the panel and the audit trail all say it identically.
+
+   `floor` (the small-balance cut-off, read by matBasis kind 'floor') stays as a
+   constant. It is not in the mockup and it is not a threshold a reviewer sets — it
+   is the point below which two tiny balances are not worth comparing. */
+const MAT_DEFAULT={bs:{abs:10,pct:3}, is:{abs:1.0,pct:5}, op:'and', floor:1.0, tol:0.5};
 const S={
   stmt:'is', grain:'m', compare:'seq', cur:CUR_DEFAULT, prior:CUR_DEFAULT-1,
   units:1000000,                    // display divisor label: 1=whole, 1000=thousands, 1e6=millions
@@ -7942,7 +8045,12 @@ const S={
      these" — so a reviewer can carve one entity out of the consolidation without
      hand-picking the other twenty. false = the selection is what you keep. */
   excl:{ent:false, seg:false, prop:false, cc:false, reg:false},
-  profile:'close',
+  /* THE EXPLANATION RULE, edited in the Variance tab. It lives in S so a saved
+     view carries it like every other filter; a view stored under the retired
+     `profile` key simply leaves it alone and opens on the default. matDef is what
+     “Save as default” writes and what clearing the rule returns to. */
+  mat:JSON.parse(JSON.stringify(MAT_DEFAULT)),
+  matDef:JSON.parse(JSON.stringify(MAT_DEFAULT)),
   dir:'all', show:'all', sort:'stmt',
   /* ---- THE FILTERS THE STATEMENT WAS MISSING -------------------------------
      q       free text over the line name AND its explanation — the statement had
@@ -8030,8 +8138,16 @@ const COL_DEFS=[
   {id:'status',nm:'Status'},
   {id:'cmt',   nm:'Explanation'},
 ];
-const prof=()=>PROFILES.find(p=>p.id===S.profile)||PROFILES[0];
-const thr=()=>{const p=prof();return {abs:p[S.stmt].abs, pct:p[S.stmt].pct, op:p.op, floor:p.floor, tol:p.tol, lock:p.lock};};
+/* THERE IS NO POLICY NAME ANY MORE — THE RULE IS THE POLICY (2026-08-31).
+   prof() survives as the ONE place that phrases it, so the memo, the chips, the
+   inspect panel and the audit trail all name the rule identically instead of a
+   label that no longer exists. Do not reintroduce a name without a record behind
+   it: “SEC / MD&A” claimed a reporting basis this model does not carry. */
+const prof=()=>({nm:matRule()});
+const thr=()=>{const m=S.mat;return {abs:m[S.stmt].abs, pct:m[S.stmt].pct, op:m.op, floor:m.floor, tol:m.tol};};
+/* the rule as a cache key — impactFor() memoises per scope AND per rule, and used
+   to key on a profile id that no longer exists */
+const matSig=()=>{const t=thr();return t.abs+'|'+t.pct+'|'+t.op+'|'+t.floor;};
 
 /* ============================================================================
    WHO IS ACTING
@@ -8076,6 +8192,17 @@ const readOnly=()=>!caps().prepare;
 /* Units. Data is generated in $ thousands. uFac converts a display figure into that
    base — it is a FORMATTING concern and nothing else. */
 const uFac=()=>S.units===1?0.001:(S.units===1000000?1000:1);   // display unit -> $000
+/* the Movement over steps, as AMOUNTS in $000 — rendered through the unit on
+   screen so the menu reads 0.5M / 1.0M / 2.5M in millions and 500 / 1,000 /
+   2,500 in thousands, rather than offering "0.5" of whatever is current. */
+const TH_STEPS=[500,1000,2500,5000,10000];
+/* An ad-hoc threshold, phrased once and read by the menu row, the field and the
+   chip — three places that were each formatting it their own way. v is in
+   DISPLAY units (what S.thresh holds); the decimal is dropped once the figure is
+   big enough not to need it, so millions read "0.5M / 1.0M / 10M" and thousands
+   read "500K / 1,000K" rather than "1,000.0K". */
+const threshWord=v=>{const x=parseFloat(v); if(!isFinite(x))return '';
+  return 'over '+fmt(x*uFac(), x>=10?0:1)+uName();};
 /* MATERIALITY IS NOT A FORMATTING CONCERN.
    Thresholds used to be multiplied by uFac() at every read site, which meant the
    stored value 1.0 was interpreted in whatever unit happened to be on screen: $1M
@@ -8127,23 +8254,12 @@ function matBasis(r){
   if(!r.flag && r.watch) return {material:true,kind:'watch',
     why:'Flagged for review below materiality (reviewer watchlist) \u2014 an explanation is required by reviewer decision.'};
   if(!r.req) return {material:false,kind:'imm',
-    why:'Below materiality ('+matRule()+', '+prof().nm+') \u2014 an explanation is optional.'};
+    why:'Below materiality ('+matRule()+') \u2014 an explanation is optional.'};
   const parts=[];
   if(r.hitAbs) parts.push('\u0394 '+fmt(Math.abs(r.d))+U+' exceeds '+fmt(matAbsThr())+U);
   if(r.hitPct) parts.push(Math.abs(r.dp).toFixed(1)+'% exceeds '+t.pct+'%');
   return {material:true,kind:'mat',
-    why:'Material \u2014 '+parts.join(t.op==='and'?' and ':' or ')+', per '+prof().nm+'.'};
-}
-/* the current policy's effect on the CURRENT statement's variance population \u2014
-   what the reviewer is choosing when they move a threshold. Reads rows(), so it
-   counts exactly what the grid flags. */
-function matImpact(){
-  const rws=rows().filter(r=>!r.hdr&&!r.tot);
-  const gross=rws.reduce((a,r)=>a+Math.abs(r.d),0);
-  const mat=rws.filter(r=>r.flag), watch=rws.filter(r=>r.watch&&!r.flag), req=rws.filter(r=>r.req);
-  const matMove=mat.reduce((a,r)=>a+Math.abs(r.d),0);
-  return {total:rws.length, matN:mat.length, watchN:watch.length, reqN:req.length,
-    gross, matMove, cov:gross?Math.round(matMove/gross*100):0};
+    why:'Material \u2014 '+parts.join(t.op==='and'?' and ':' or ')+'.'};
 }
 /* the governance banner for the inspect panel's Explanation card: the precise
    reason this line requires an explanation, and the residual that makes it
@@ -8503,6 +8619,9 @@ function setQuery(v){S.q=String(v||'');S.sel=null;paintGrid();paintKpi();paintDr
       if(n&&b)b.textContent=n;
       else if(n&&!b)el.insertAdjacentHTML('beforeend',`<span class="ktab-n">${n}</span>`);
       else if(!n&&b)b.remove();});
+    /* the query carries a chip of its own, and the strip is not the row being
+       typed into, so it is safe to repaint while the caret stays put */
+    fxPaintSel();
   }}
 function setReason(id){
   const i=S.reason.indexOf(id);
@@ -8706,7 +8825,7 @@ function paintFilters(){
   $('selSort').value=S.sort;
   const t=thr();
   $('btnMat').innerHTML=`<span class="k" style="color:var(--muted)">Materiality</span>
-    <b>${esc(prof().nm)}</b> <span style="color:var(--muted)">${t.abs}${matName()} ${t.op==='and'?'and':'or'} ${t.pct}%</span>
+    <b>${esc(matRule())}</b>
     <span class="cue">\u25be</span>`;
   $('btnUnits').innerHTML=`<b>$${S.units===1?'':uName()}</b>
     <span style="color:var(--muted)">${S.units===1?'whole':(S.units===1000000?'millions':'thousands')}</span>
@@ -8776,7 +8895,7 @@ function paintStrip(){
    ========================================================================== */
 let _impact={};
 function impactFor(dim,val){
-  const key=S.stmt+'|'+dim+'|'+val+'|'+S.cur+'|'+S.grain+'|'+S.compare+'|'+S.profile+'|'+S.units
+  const key=S.stmt+'|'+dim+'|'+val+'|'+S.cur+'|'+S.grain+'|'+S.compare+'|'+matSig()+'|'+S.units
     +'|'+DIMS.map(d=>S[d.k].join(',')).join(';');
   if(_impact[key])return _impact[key];
   const save=S[dim], saveCache=_cache;
@@ -8804,7 +8923,7 @@ function impactFor(dim,val){
    consolidation, and — the real one — "Selected vs Excluded" is not a decision you
    can read mid-build. The draft lives here; S is untouched until Apply. Cancel is
    simply closing the popover, so an abandoned draft changes nothing. */
-let popKind=null, popQ='', popEl=null, popDraft=null, popDraftX=false, popSide=false;
+let popKind=null, popQ='', popEl=null, popSide=false;
 /* `side` places the menu BESIDE its trigger instead of under it — for a 56px rail
    icon there is no useful "under", and a flyout to the right is what a collapsed
    rail has always meant. */
@@ -8815,11 +8934,6 @@ function pop(kind,el,side){
      leave trigger clicks alone, or the two fight and the menu needs two clicks. */
   if(popKind===kind){popClose();return;}
   popKind=kind; popQ=''; popEl=el||null;
-  /* seed the draft from what is actually applied, so the menu opens showing the
-     filter in force rather than an empty sheet */
-  const _d=DIM(kind);
-  if(_d){ popDraft=S[_d.k].slice(); popDraftX=!!(S.excl&&S.excl[_d.k]); }
-  else { popDraft=null; popDraftX=false; }
   if(el&&el.setAttribute)el.setAttribute('aria-expanded','true');
   p.classList.add('on');
   paintPop();
@@ -8845,7 +8959,9 @@ function pop(kind,el,side){
    along the viewport until it fitted, which detaches it from its trigger; it now
    right-aligns to the trigger instead, and only clamps if even that overflows. */
 function popPlace(){
-  const p=$('pop'); if(!p||!popKind||!popEl||!popEl.getBoundingClientRect)return;
+  const p=$('pop'); if(!p||!popKind)return;
+  popRebind();
+  if(!popEl||!popEl.getBoundingClientRect||!document.body.contains(popEl))return;
   const r=popEl.getBoundingClientRect(), M=8;
   p.style.minWidth=popSide?'0':Math.round(r.width)+'px';
   const w=p.offsetWidth, h=p.offsetHeight;
@@ -8869,7 +8985,8 @@ function popPlace(){
    — which also scrolls a 30-row list to the current selection. */
 function popFocusIn(){
   const p=$('pop'); if(!p)return;
-  const q=p.querySelector('.pop-s input'); if(q){q.focus();return;}
+  const q=p.querySelector('.pop-s input, .pop-form input');
+  if(q){q.focus(); if(q.select)q.select(); return;}
   const o=p.querySelector('.pop-o.on')||p.querySelector('.pop-o');
   if(o&&o.focus)o.focus();
 }
@@ -8890,6 +9007,7 @@ function popEnhance(){
     o.setAttribute('role',multi?'menuitemcheckbox':pick?'menuitemradio':'menuitem');
     if(pick)o.setAttribute('aria-checked',o.classList.contains('on')?'true':'false');
     o.setAttribute('tabindex','-1');
+    o.classList.toggle('nobox',!o.querySelector('.bx:not(.stx), .ckb'));
   });
 }
 function popKey(e){
@@ -8901,6 +9019,11 @@ function popKey(e){
   if(k==='Escape'){
     e.preventDefault(); e.stopPropagation();
     const t=popEl; popClose(); if(t&&t.focus)t.focus(); return;
+  }
+  /* a form has no rows to walk; Enter is its commit, the way Enter activates a
+     list row below */
+  if(k==='Enter'&&p.querySelector('.pop-form')){
+    e.preventDefault(); e.stopPropagation(); matApply(); return;
   }
   const rows=[...p.querySelectorAll('.pop-o')];
   if(k==='ArrowDown'||k==='ArrowUp'||k==='Home'||k==='End'){
@@ -8919,45 +9042,98 @@ function popKey(e){
 }
 function popClose(){
   if(popEl&&popEl.setAttribute)popEl.setAttribute('aria-expanded','false');
-  popKind=null; popEl=null; popDraft=null; popDraftX=false; popSide=false;
+  popKind=null; popEl=null; popSide=false; matDraft=null;
   const p=$('pop'); if(p)p.classList.remove('on');
 }
+/* ---- EVERY FILTER COMMITS ON CLICK ----------------------------------------
+   Owner's direction, 2026-08-31: the dropdowns are to behave the way the
+   reference's do — click an option, it applies. The ribbon used to hold two
+   contradictory models. A single-select (Status, Direction, Period, Cadence,
+   Eliminations, Units) committed on click and closed. A multi-select (Entity,
+   Segment, Region, Property, Cost center) edited a DRAFT and did nothing at all
+   until a Clear / Show all footer was pressed — so ticking three entities and
+   walking away left the statement unfiltered while three boxes read as chosen.
+   One surface cannot answer "did that take effect?" two ways.
+
+   The staging existed for two stated reasons and neither survives. Recompute cost
+   is not real here — renderAll() on this book is one frame. And Included vs
+   Excluded "cannot be read mid-build" is answered better by making the mode a
+   visible switch over a LIVE selection than by hiding the whole act behind Apply:
+   you now watch the statement move as you flip it.
+
+   popDraft / popDraftX are gone with the footer. The menu renders from S, which is
+   what the statement renders from, so the two cannot disagree. */
+
+/* THE TRIGGER DOES NOT SURVIVE ITS OWN FILTER. renderAll() rebuilds the field row,
+   which destroys the button #pop is anchored to; popPlace() then measured a
+   detached node, got a zero rect, and parked the menu in the top-left corner of the
+   window. Measured on Reason code, which already committed live: (609,302) →
+   (8,6) on one click. Re-acquire the trigger by its data-pop key — the row is
+   rebuilt with the same markup — before anything asks it for a rectangle. */
+function popRebind(){
+  if(!popKind)return;
+  if(popEl&&document.body.contains(popEl))return;
+  const el=document.querySelector('#fxFields [data-pop="'+popKind+'"]')
+        || document.querySelector('#gfBar [data-pop="'+popKind+'"]')
+        || document.querySelector('[data-pop="'+popKind+'"]');
+  if(el){ popEl=el; if(el.setAttribute)el.setAttribute('aria-expanded','true'); }
+}
+/* apply → re-render → put the menu back exactly where it was, with the caret where
+   the reviewer left it. A repaint that steals focus to the search box on every tick
+   makes a checkbox list undrivable from the keyboard, so the row index is restored
+   unless the search is what was focused. */
+function popLive(){
+  const p0=$('pop');
+  const qWas=!!(p0&&document.activeElement&&document.activeElement.id==='popQ');
+  let idx=-1;
+  if(!qWas&&p0){ idx=[...p0.querySelectorAll('.pop-o')].indexOf(document.activeElement); }
+  renderAll(); popRebind(); paintPop(qWas); popPlace();
+  if(!qWas&&idx>=0){ const rs=[...$('pop').querySelectorAll('.pop-o')]; if(rs[idx])rs[idx].focus(); }
+}
 function popSearch(v){popQ=v.toLowerCase();paintPop(true);}
-/* ---- staged multi-select handlers -----------------------------------------
-   Every one of these edits the DRAFT and repaints the menu only. The statement
-   does not move until popApply(), which is the whole point of staging. */
+/* ---- multi-select: one option, applied ------------------------------------- */
 function popTog(id){
-  if(!popDraft)return;
-  const i=popDraft.indexOf(id); i<0?popDraft.push(id):popDraft.splice(i,1);
-  paintPop(true);
+  const d=DIM(popKind); if(!d)return;
+  const a=S[d.k], i=a.indexOf(id);
+  i<0?a.push(id):a.splice(i,1);
+  if(!S.excl)S.excl={};
+  /* there is no exclusion of nothing — emptying the list always returns to "All" */
+  if(!a.length)S.excl[d.k]=false;
+  S.sel=null;
+  logA({act:a.length?(S.excl[d.k]?'excluded from the view':'scoped the view'):'cleared a scope filter',
+    detail:d.nm+(a.length?': '+a.join(', '):'')});
+  popLive();
 }
 /* Select all acts on WHAT THE SEARCH IS SHOWING, not on the whole dimension —
    searching "Ashburn" then hitting Select all must not quietly select the twelve
    properties you filtered away. It is a toggle: if every visible option is already
-   in the draft, it clears them. */
+   chosen, it clears them. */
 function popAll(k){
-  const d=DIM(k); if(!d||!popDraft)return;
-  const vis=d.opts().filter(o=>!popQ||o.nm.toLowerCase().includes(popQ)).map(o=>o.id);
-  const every=vis.length&&vis.every(id=>popDraft.indexOf(id)>=0);
-  if(every) popDraft=popDraft.filter(id=>vis.indexOf(id)<0);
-  else vis.forEach(id=>{ if(popDraft.indexOf(id)<0)popDraft.push(id); });
-  paintPop(true);
-}
-function popMode(x){ popDraftX=!!x; paintPop(true); }
-/* Clear empties the draft AND commits it, because a reviewer who clicks Clear has
-   made the decision — making them then press Apply to mean it is a second gesture
-   for one intent. */
-function popApplyClear(k){ popDraft=[]; popApply(k); }
-function popApply(k){
   const d=DIM(k); if(!d)return;
-  S[d.k]=(popDraft||[]).slice();
+  const vis=d.opts().filter(o=>!popQ||o.nm.toLowerCase().includes(popQ)).map(o=>o.id);
+  const a=S[d.k];
+  const every=vis.length&&vis.every(id=>a.indexOf(id)>=0);
+  if(every) S[d.k]=a.filter(id=>vis.indexOf(id)<0);
+  else vis.forEach(id=>{ if(a.indexOf(id)<0)a.push(id); });
   if(!S.excl)S.excl={};
-  /* an empty selection cannot be an exclusion of nothing — it is simply "All" */
-  S.excl[d.k]=S[d.k].length?popDraftX:false;
-  S.sel=null;
-  logA({act:S[d.k].length?(popDraftX?'excluded from the view':'scoped the view'):'cleared a scope filter',
-    detail:d.nm+(S[d.k].length?': '+S[d.k].join(', '):'')});
-  popClose(); renderAll();
+  if(!S[d.k].length)S.excl[d.k]=false;
+  S.sel=null; popLive();
+}
+/* Only these | All except these. It is a reading of the same chosen set, so it is
+   meaningless with nothing chosen and is not offered then. */
+function popMode(x){
+  const d=DIM(popKind); if(!d||!S[d.k].length)return;
+  if(!S.excl)S.excl={};
+  if(!!S.excl[d.k]===!!x)return;
+  S.excl[d.k]=!!x; S.sel=null;
+  logA({act:x?'excluded from the view':'scoped the view', detail:d.nm+': '+S[d.k].join(', ')});
+  popLive();
+}
+function popClearDim(k){
+  const d=DIM(k); if(!d)return;
+  S[d.k]=[]; if(!S.excl)S.excl={}; S.excl[d.k]=false; S.sel=null;
+  logA({act:'cleared a scope filter',detail:d.nm});
+  popLive();
 }
 function paintPop(keepFocus){
   const p=$('pop'); if(!popKind)return;
@@ -8993,9 +9169,7 @@ function paintPop(keepFocus){
       (S.compare==='custom'?`<div class="pop-h sec">Which period</div>
         <div class="pop-l">`+PERIODS.slice().reverse().filter(p=>p.i<S.cur).map(p=>
           `<div class="pop-o ${S.prior===p.i?'on':''}" onclick="KFX.priorPick(${p.i})">
-            <span class="bx">${S.prior===p.i?'\u2713':''}</span>${esc(p.lbl)}</div>`).join('')+`</div>`:'')+
-      `<div class="pop-b"><div class="rl-note">Cadence \u2014 monthly, quarterly, year to date,
-        trailing 12 \u2014 is set in the filter panel and is stated in the page context above.</div></div>`;
+            <span class="bx">${S.prior===p.i?'\u2713':''}</span>${esc(p.lbl)}</div>`).join('')+`</div>`:'');
   }else if(popKind==='viewmode'){
     /* TABLE CONFIGURATION, AND NOTHING ELSE.
        This menu used to be called Display and held six unrelated concerns: display
@@ -9013,23 +9187,20 @@ function paintPop(keepFocus){
         <div class="pop-o" onclick="KFX.popClose();KFX.openCols()">${ic('cols')} Columns…
           <span class="sub">${S.cols.length} shown</span></div></div>
       <div class="pop-h sec">Statement order</div><div class="pop-l">`+
-      [['stmt','Statement order','as the statement is laid out'],
-       ['absd','Largest Δ amount','biggest movers first'],
-       ['pctd','Largest Δ %','biggest proportional moves first'],
-       ['resid','Largest residual','most unexplained first']]
-      .map(([v,nm,d])=>`<div class="pop-o ${S.sort===v?'on':''}" onclick="KFX.setSort('${v}')">
-        <span class="bx">${S.sort===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>
+      [['stmt','Statement order'],['absd','Largest Δ amount'],
+       ['pctd','Largest Δ %'],['resid','Largest residual']]
+      .map(([v,nm])=>`<div class="pop-o ${S.sort===v?'on':''}" onclick="KFX.setSort('${v}')">
+        <span class="bx">${S.sort===v?'✓':''}</span>${nm}</div>`).join('')+`</div>
       <div class="pop-h sec">Row density</div><div class="pop-l">`+
-      [['std','Standard','34px rows'],['dense','Dense','28px — more lines per screen']]
-      .map(([v,nm,d])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
-        <span class="bx">${S.dens===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`+
+      [['std','Standard'],['dense','Dense']]
+      .map(([v,nm])=>`<div class="pop-o ${S.dens===v?'on':''}" onclick="KFX.setDens('${v}')">
+        <span class="bx">${S.dens===v?'✓':''}</span>${nm}</div>`).join('')+`</div>`+
       /* the reach of the band is a property of Narrative, so it is only offered
          while that mode is on rather than sitting there greyed out */
       (dm==='full'?`<div class="pop-h sec">Narrative — which lines</div><div class="pop-l">`+
-        [[false,'Material lines only','flagged, watched and review-required'],
-         [true,'Every line with commentary','including immaterial lines that were explained']]
-        .map(([v,nm,d])=>`<div class="pop-o ${!!S.fullAll===v?'on':''}" onclick="KFX.setFullAll(${v})">
-          <span class="bx">${!!S.fullAll===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`
+        [[false,'Material lines only'],[true,'Every line with commentary']]
+        .map(([v,nm])=>`<div class="pop-o ${!!S.fullAll===v?'on':''}" onclick="KFX.setFullAll(${v})">
+          <span class="bx">${!!S.fullAll===v?'✓':''}</span>${nm}</div>`).join('')+`</div>`
         :'')+
       `<div class="pop-l sec">
         <div class="pop-o" onclick="KFX.foldAll(true)">Collapse all sections</div>
@@ -9037,8 +9208,7 @@ function paintPop(keepFocus){
       <div class="pop-l sec">
         <div class="pop-o" onclick="KFX.toggleFocus()">${ic(S.focus?'focusOn':'focus')}
           ${S.focus?'Exit focus mode':'Focus mode'}<span class="sub">Alt+Z</span></div>
-        <div class="pop-o" data-pop="units" onclick="KFX.pop('units',this)">${ic('units')} Units
-          <span class="sub">$${S.units===1?'':uName()}</span></div></div>`;
+      </div>`;
   }else if(popKind==='reason'){
     /* THE ONE DIMENSION YOU COULD RECORD BUT NEVER QUERY. The reason taxonomy is
        what makes commentary trendable — "show me everything explained as timing
@@ -9058,8 +9228,7 @@ function paintPop(keepFocus){
         return `<div class="pop-o ck ${on?'on':''} ${n?'':'nil'}" onclick="KFX.setReason('${o.id}')">
           <span class="ckb ${on?'on':''}" aria-hidden="true">${on?'✓':''}</span>${esc(o.nm)}
           <span class="sub">${n||''}</span></div>`;}).join('')+
-      `</div><div class="pop-b"><div class="rl-note">Filters to lines carrying an accepted
-        explanation with one of these codes. Counts are lines on this statement.</div></div>`;
+      `</div>`;
   }else if(popKind==='more'){
     h=`<div class="pop-h">Actions</div><div class="pop-l">`+
       [['openReqs','Explanation requests','cmt',reqOpen().length],
@@ -9176,46 +9345,56 @@ function paintPop(keepFocus){
       [[1,'Whole dollars'],[1000,'Thousands'],[1000000,'Millions']].map(([v,nm])=>
       `<div class="pop-o ${S.units===v?'on':''}" onclick="KFX.setUnits(${v});KFX.popClose()">
         <span class="bx">${S.units===v?'\u2713':''}</span>${nm}</div>`).join('')+
-      `</div><div class="pop-b"><div class="rl-note">Thresholds are typed in the unit on screen and converted,
-       so switching units never silently changes what is flagged.</div></div>`;
+      `</div>`;
   }else if(popKind==='mat'){
-    const t=thr(),u=uName()||'$',imp=matImpact();
-    /* THE IMPACT PANEL \u2014 what this policy does to the variance in front of you.
-       Materiality is a judgement about how much of the movement must be defended;
-       showing the captured share turns "is 1.0M right?" into a decision the reviewer
-       can see rather than guess. Reads rows(), so it counts exactly what the grid
-       flags, and repaints live as the thresholds move. */
-    const impPanel=`<div class="mat-impact">
-      <div class="mi-hd"><span class="mi-fig">${imp.reqN}</span>
-        <span class="mi-lbl">of ${imp.total} lines require an explanation${imp.watchN?` \u00b7 ${imp.watchN} watch-listed`:''}</span></div>
-      <div class="mi-bar" title="material movement as a share of the total"><i style="width:${imp.cov}%"></i></div>
-      <div class="mi-cap">${imp.matN} material \u00b7 captures <b>${imp.cov}%</b> of the ${fmt(imp.gross)}${uName()} gross movement</div>
-    </div>`;
-    h=`<div class="pop-h">Materiality</div><div class="pop-l">`+
-      PROFILES.map(pr=>`<div class="pop-o ${S.profile===pr.id?'on':''}" onclick="KFX.setProfile('${pr.id}')">
-        <span class="bx">${S.profile===pr.id?'\u2713':''}</span>${pr.nm}
-        <span class="sub">${pr[S.stmt].abs}${matName()} ${pr.op==='and'?'&':'|'} ${pr[S.stmt].pct}%</span></div>`).join('')+
-      `</div><div class="pop-b">
-      ${impPanel}
-      <div class="rl-note" style="margin-bottom:8px">Applies to the ${S.stmt==='bs'?'balance sheet':'income statement'};
-        each statement carries its own thresholds. <b>A line above this threshold requires an
-        explanation to submit and a reviewer note to sign off</b>, and is signable once its unexplained
-        residual is within ${fmt(matTolThr())}${uName()}.</div>
-      <div class="pop-row fgrp">
-        <div style="flex:1"><label style="font-size:var(--fs-label);color:var(--muted)">\u0394 exceeds (${u})</label>
-          <input class="inp" id="inAbs" type="number" step="0.1" style="width:100%" value="${t.abs}" onchange="KFX.setAbs(this.value)"></div>
-        <div class="seg" id="segOp" style="flex:none">
-          <button data-v="and" onclick="KFX.setOp('and')">and</button>
-          <button data-v="or" onclick="KFX.setOp('or')">or</button></div>
-        <div style="flex:1"><label style="font-size:var(--fs-label);color:var(--muted)">\u0394 %</label>
-          <input class="inp" id="inPct" type="number" step="0.5" style="width:100%" value="${t.pct}" onchange="KFX.setPct(this.value)"></div>
+    /* THE RULE EDITOR (owner's mockup, 2026-08-31). Four controls and a footer.
+       Amount and Percent share a row because they are the two halves of one
+       comparison; Logic is what joins them; the tolerance is what closes a line.
+
+       THIS IS THE ONE MENU IN THE RIBBON THAT STAGES, and the split is the rule
+       rather than an exception: a LIST applies on click, a FORM applies on Apply.
+       You cannot half-type "0.25" without passing through "0", and a statement that
+       recomputes on every keystroke would flag every line in the book on the way to
+       the value you meant. Cancel is what a list does not need and a form does.
+
+       The caption is the impact preview, and staging is what earns it a place: it
+       states what Apply WILL do before you press it, counted off rows() so it cannot
+       drift from the grid. */
+    const d=matDraft||thr(), U=matName(), now=matCount(S.mat), nxt=matCount(matRuleOf(d));
+    const nf=v=>Number.isInteger(+v)?(+v).toFixed(1):String(v);
+    const moved=nxt.n!==now.n;
+    h=`<div class="pop-h">Explanation rule</div>
+      <div class="pop-form">
+        <div class="pop-fr">
+          <label class="pop-f"><span>Amount ($${U})</span>
+            <input type="number" step="0.1" min="0" value="${nf(d.abs)}"
+              oninput="KFX.setAbs(this.value)"></label>
+          <label class="pop-f"><span>Percent (%)</span>
+            <input type="number" step="0.5" min="0" value="${d.pct}"
+              oninput="KFX.setPct(this.value)"></label>
+        </div>
+        <div class="pop-fr"><div class="pop-f"><span>Logic</span>
+          <div class="pop-seg">
+            <button class="${d.op==='or'?'on':''}" aria-pressed="${d.op==='or'}"
+              data-op="or" onclick="KFX.setOp('or')" title="Either the amount or the percent">Either</button>
+            <button class="${d.op==='and'?'on':''}" aria-pressed="${d.op==='and'}"
+              data-op="and" onclick="KFX.setOp('and')" title="Both the amount and the percent">Both</button>
+          </div></div></div>
+        <div class="pop-fr">
+          <label class="pop-f"><span>Residual tolerance ($${U})</span>
+            <input type="number" step="0.1" min="0" value="${nf(d.tol)}"
+              oninput="KFX.setTol(this.value)"></label>
+        </div>
+        <div class="pop-cap ${moved?'chg':''}">${nxt.n} of ${nxt.t} lines require an
+          explanation${moved?` <b>(now ${now.n})</b>`:''}.</div>
       </div>
-      <div class="pop-row fgrp">
-        <div style="flex:1"><label style="font-size:var(--fs-label);color:var(--muted)">Ignore below (${u})</label>
-          <input class="inp" id="inFloor" type="number" step="0.1" style="width:100%" value="${t.floor}" onchange="KFX.setFloor(this.value)"></div>
-        <div style="flex:1"><label style="font-size:var(--fs-label);color:var(--muted)">Residual tolerance</label>
-          <input class="inp" id="inTol" type="number" step="0.1" style="width:100%" value="${t.tol}" onchange="KFX.setTol(this.value)"></div>
-      </div></div>`;
+      <div class="pop-ft">
+        <button class="pop-lnk" onclick="KFX.matDefault()"
+          title="Apply this rule and open every future review on it">Save as default</button>
+        <span class="pop-ftsp"></span>
+        <button class="btn-out sm" onclick="KFX.popClose()">Cancel</button>
+        <button class="btn-primary sm" onclick="KFX.matApply()">Apply</button>
+      </div>`;
   }else if(popKind==='per'){
     /* Every period the book holds, newest first, named the way the chosen cadence
        names it — a quarterly review picks Q2 2026, not Jun 2026. The stepper this
@@ -9235,65 +9414,72 @@ function paintPop(keepFocus){
       `</div>`;
   }else if(popKind==='grain'){
     h=`<div class="pop-h">Cadence</div><div class="pop-l">`+
-      [['m','Monthly','one month against the last'],['q','Quarterly','one quarter against the last'],
-       ['ytd','Year to date','opening of the year through this period'],
-       ['ttm','Trailing 12','the twelve months ending here']]
-      .map(([v,nm,d])=>`<div class="pop-o ${S.grain===v?'on':''}"
+      [['m','Monthly'],['q','Quarterly'],['ytd','Year to date'],['ttm','Trailing 12']]
+      .map(([v,nm])=>`<div class="pop-o ${S.grain===v?'on':''}"
         onclick="KFX.setGrain('${v}');KFX.popClose()">
-        <span class="bx">${S.grain===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+
-      `</div><div class="pop-b"><div class="rl-note">Cadence sets the window each figure covers;
-        the comparison sets what that window is measured against.</div></div>`;
+        <span class="bx">${S.grain===v?'✓':''}</span>${nm}</div>`).join('')+
+      `</div>`;
   }else if(popKind==='cover'){
-    const opts=[['all','Any coverage',''],['none','Nothing accepted','no explanation entered'],
-      ['part','Partly explained','under 90% of the movement'],['full','Fully explained','90% or more'],
-      ['gap','Missing evidence','explained but support still outstanding'],
-      ['kd','On a Korvyn draft','a generated draft, not yet accepted']];
+    /* the option names carry the distinction; “under 90% of the movement” beside
+       “Partly explained” is the footnote habit moved onto the row */
+    const opts=[['all','Any coverage'],['none','Nothing accepted'],
+      ['part','Partly explained'],['full','Fully explained'],
+      ['gap','Missing evidence'],['kd','On a Korvyn draft']];
     h=`<div class="pop-h">Explained</div><div class="pop-l">`+
-      opts.map(([v,nm,d])=>`<div class="pop-o ${S.cover===v?'on':''}"
+      opts.map(([v,nm])=>`<div class="pop-o ${S.cover===v?'on':''}"
         onclick="KFX.setCover('${v}');KFX.popClose()">
-        <span class="bx">${S.cover===v?'✓':''}</span>${nm}${d?`<span class="sub">${d}</span>`:''}</div>`).join('')+
-      `</div><div class="pop-b"><div class="rl-note">Filters to lines by how much of the movement
-        carries an accepted explanation.</div></div>`;
+        <span class="bx">${S.cover===v?'✓':''}</span>${nm}</div>`).join('')+
+      `</div>`;
   }else if(popKind==='elim'){
     h=`<div class="pop-h">Eliminations</div><div class="pop-l">`+
-      [['inc','Included','intercompany eliminations are in the figures'],
-       ['exc','Excluded','statement shown before eliminations']]
-      .map(([v,nm,d])=>`<div class="pop-o ${S.elim===v?'on':''}"
+      [['inc','Included'],['exc','Excluded']]
+      .map(([v,nm])=>`<div class="pop-o ${S.elim===v?'on':''}"
         onclick="KFX.setElim('${v}');KFX.popClose()">
-        <span class="bx">${S.elim===v?'✓':''}</span>${nm}<span class="sub">${d}</span></div>`).join('')+`</div>`;
+        <span class="bx">${S.elim===v?'✓':''}</span>${nm}</div>`).join('')+`</div>`;
   }else if(popKind==='thresh'){
-    const u=uName()||'$';
-    h=`<div class="pop-h">Movement over${S.thresh!==''?`<span class="clr"
-        onclick="KFX.setThresh('');KFX.popClose()">Clear</span>`:''}</div>
-      <div class="pop-b">
-        <div class="pop-row"><div style="flex:1">
-          <label style="font-size:var(--fs-label);color:var(--muted)">Show lines whose gross movement exceeds (${u})</label>
-          <input class="inp" type="number" step="0.1" min="0" style="width:100%" value="${esc(S.thresh)}"
-            placeholder="any" onchange="KFX.setThresh(this.value);KFX.popClose()"></div></div>
-        <div class="rl-note">An ad-hoc floor on top of the materiality policy — for a quick scan of the big movers.</div>
-      </div>`;
+    /* MOVEMENT OVER IS A LIST, NOT A FORM (owner's direction, 2026-08-31). It was
+       the one control in the whole ribbon that answered with a keyboard instead of
+       a click — a bare number input in a menu of option lists — which is most of
+       what "the dropdown options are not consistent" was pointing at.
+
+       The steps are fixed AMOUNTS held in $000 and rendered through the unit on
+       screen, so the same menu reads 0.5M / 1.0M / 2.5M in millions and 500 / 1,000
+       / 2,500 in thousands rather than offering "0.5" of whatever is current.
+       S.thresh stays what it always was — a number in display units — so a saved
+       view written by the old input still loads; a stored value that is not one of
+       the steps renders as its own selected row rather than silently reading as
+       unfiltered. */
+    const U=uName(), cur=S.thresh===''?null:parseFloat(S.thresh);
+    const steps=TH_STEPS.map(v=>+(v/uFac()).toFixed(6));
+    if(cur!==null&&isFinite(cur)&&!steps.some(v=>Math.abs(v-cur)<1e-9))steps.push(cur);
+    steps.sort((a,b)=>a-b);
+    const row=(v,nm,on)=>`<div class="pop-o ${on?'on':''}"
+      onclick="KFX.setThresh('${v}');KFX.popClose()">
+      <span class="bx">${on?'✓':''}</span>${nm}</div>`;
+    h=`<div class="pop-h">Movement over</div><div class="pop-l">`+
+      row('','Any movement',cur===null)+
+      steps.map(v=>row(v,threshWord(v),cur!==null&&Math.abs(v-cur)<1e-9)).join('')+
+      `</div>`;
   }else if(popKind==='dispmode'){
     /* Each mode carries the sentence that says what it is FOR. As a segmented
        control these were three bare words and the difference between Review and
        Financials was invisible until you switched and watched a column vanish. */
     h=`<div class="pop-h">Display mode</div><div class="pop-l">`+
-      DISP_MODES.map(([v,nm,d])=>`<div class="pop-o ${dispMode()===v?'on':''}"
+      DISP_MODES.map(([v,nm])=>`<div class="pop-o ${dispMode()===v?'on':''}"
         onclick="KFX.setView('${v}');KFX.popClose()">
-        <span class="bx">${dispMode()===v?'✓':''}</span>${esc(nm)}
-        <span class="sub">${esc(d)}</span></div>`).join('')+
-      `</div><div class="pop-b"><div class="rl-note">All three read the same figures —
-        the mode decides how much review context sits beside them.</div></div>`;
+        <span class="bx">${dispMode()===v?'✓':''}</span>${esc(nm)}</div>`).join('')+
+      `</div>`;
   }else if(popKind==='scopemore'){
     /* PROGRESSIVE DISCLOSURE, not a second filter model. Each row opens that
        dimension's own standard popover, so the deeper dimensions behave exactly
        like the three on the row above them. */
     h=`<div class="pop-h">More scope dimensions</div><div class="pop-l">`+
       FX_MOREDIMS.map(k=>{const d=DIM(k), n=S[k].length;
-        return `<div class="pop-o ${n?'on':''}"
+        return `<div class="pop-o into ${n?'on':''}"
           onclick="KFX.pop('${k}',document.getElementById('pop'))">${esc(d.nm)}
-          <span class="sub">${n?((S.excl&&S.excl[k])?'excl. '+n:n+' selected'):''}</span></div>`;}).join('')+
-      `</div><div class="pop-b"><div class="rl-note">Country, fund, HoldCo, project, ERP source and
-        ownership structure join this list as the model carries them.</div></div>`;
+          <span class="sub">${n?((S.excl&&S.excl[k])?'excl. '+n:n+' selected'):''}</span>
+          <span class="cue">\u203a</span></div>`;}).join('')+
+      `</div>`;
   }else if(popKind==='show'||popKind==='dir'){
     const list=popKind==='show'?SHOWS:DIRS, cur=popKind==='show'?S.show:S.dir;
     h=`<div class="pop-h">${popKind==='show'?'Status':'Direction'}</div><div class="pop-l">`+
@@ -9301,60 +9487,53 @@ function paintPop(keepFocus){
         onclick="KFX.${popKind==='show'?'setShow':'setDir'}('${v}');KFX.popClose()">
         <span class="bx">${cur===v?'\u2713':''}</span>${nm}</div>`).join('')+`</div>`;
   }else{
-    /* ---- THE DIMENSION MENU: search \u00b7 Selected|Excluded \u00b7 checkbox list \u00b7 Apply
-       Staged, so the statement does not recompute per checkbox and so the
-       Selected/Excluded reading of the set can be changed before it is committed.
-       The impact preview stays: it is the one thing this menu had that a plain
-       checkbox list does not, and it is what makes filtering not blind. */
+    /* ---- THE DIMENSION MENU — one shape, shared with every other dropdown
+       Header (name · Clear) → search → rows → note. Identical anatomy to Status,
+       Direction, Period and the rest; the only thing that differs is that several
+       answers can be true at once, so the rows carry a checkbox instead of a tick
+       and the menu stays open. Nothing is staged: a tick IS the filter.
+
+       Only these | All except these appears once a selection exists, because it is
+       a reading of the chosen set and there is nothing to read at rest. */
     const d=DIM(popKind); if(!d){popClose();return;}
     const all=d.opts();
     const os=all.filter(o=>!popQ||o.nm.toLowerCase().includes(popQ));
-    const draft=popDraft||[];
-    const visAll=os.length&&os.every(o=>draft.indexOf(o.id)>=0);
-    const bx=on=>`<span class="ckb ${on?'on':''}" aria-hidden="true">${on?'\u2713':''}</span>`;
-    h=`<div class="pop-h">${esc(d.nm)}</div>`;
-    h+=`<div class="pop-s"><input id="popQ" type="search" placeholder="Search ${esc(d.nm.toLowerCase())}\u2026"
+    const sel=S[popKind]||[], xcl=!!(S.excl&&S.excl[popKind]);
+    const visAll=os.length&&os.every(o=>sel.indexOf(o.id)>=0);
+    const bx=on=>`<span class="ckb ${on?'on':''}" aria-hidden="true">${on?'✓':''}</span>`;
+    h=`<div class="pop-h">${esc(d.nm)}${sel.length?`<span class="clr"
+      onclick="KFX.popClearDim('${d.k}')">Clear</span>`:''}</div>`;
+    /* a search appears at the same list length it appears at everywhere else */
+    if(all.length>12)h+=`<div class="pop-s"><input id="popQ" type="search"
+      placeholder="Search ${esc(d.nm.toLowerCase())}…"
       value="${esc(popQ)}" oninput="KFX.popSearch(this.value)"></div>`;
-    /* the two readings of the same set, as an underlined pair \u2014 the label states what
-       the chosen options will DO, which is the thing a list of checkboxes cannot say */
-    h+=`<div class="pop-mode ktabs lvl2" role="group" aria-label="How the selection applies">
-      <button class="ktab ${popDraftX?'':'on'}" aria-pressed="${popDraftX?'false':'true'}"
-        onclick="KFX.popMode(false)" title="Keep only the options you tick">Included</button>
-      <button class="ktab ${popDraftX?'on':''}" aria-pressed="${popDraftX?'true':'false'}"
-        onclick="KFX.popMode(true)" title="Keep everything except the options you tick">Excluded</button></div>`;
+    if(sel.length)h+=`<div class="pop-sw" role="group" aria-label="How the selection applies">
+      <span class="pop-sw-l">Showing</span>
+      <div class="pop-seg">
+        <button class="${xcl?'':'on'}" aria-pressed="${xcl?'false':'true'}"
+          onclick="KFX.popMode(false)">Only these</button>
+        <button class="${xcl?'on':''}" aria-pressed="${xcl?'true':'false'}"
+          onclick="KFX.popMode(true)">All except</button></div></div>`;
     h+=`<div class="pop-l">`;
     if(os.length){
       h+=`<div class="pop-o ck" onclick="KFX.popAll('${d.k}')">
         ${bx(visAll)}<b>Select all</b>${popQ?`<span class="sub">${os.length} shown</span>`:''}</div>`;
-      h+=os.map(o=>{const on=draft.indexOf(o.id)>=0;
+      h+=os.map(o=>{const on=sel.indexOf(o.id)>=0;
         const im=os.length<=14?impactFor(d.k,o.id):null;
         return `<div class="pop-o ck ${on?'on':''}" onclick="KFX.popTog('${o.id}')">
           ${bx(on)}${esc(o.nm)}
-          <span class="sub">${im?(fmt(im.move)+' movement'+(im.flagged?' \u00b7 '+im.flagged+' flag':''))
+          <span class="sub">${im?(fmt(im.move)+' movement'+(im.flagged?' · '+im.flagged+' flag':''))
             :(o.sub?esc(o.sub):'')}</span></div>`;}).join('');
-      if(os.length<=14)h+=`<div class="pop-note">Movement each option carries, and how many of its
-        lines breach ${esc(prof().nm)}.</div>`;
     } else h+='<div class="rl-empty" style="padding:8px">No match.</div>';
     h+=`</div>`;
-    /* Clear left, Apply right \u2014 the standard footer for every multi-select on the
-       page. Apply states what it will do, because "Apply" over an empty draft reads
-       as a no-op when it actually clears the filter. */
-    const verb=!draft.length?'Show all'
-      :(popDraftX?`Exclude ${draft.length}`:`Apply ${draft.length}`);
-    h+=`<div class="pop-ft">
-      <button class="pop-clr" ${draft.length?'':'disabled'}
-        onclick="KFX.popMode(false);KFX.popApplyClear('${d.k}')">Clear</button>
-      <span class="pop-ftn">${draft.length
-        ? (popDraftX?'Everything except these':'Only these')
-        : 'Unfiltered'}</span>
-      <button class="btn-primary sm" onclick="KFX.popApply('${d.k}')">${verb}</button></div>`;
+
   }
   p.innerHTML=h;
-  /* the two fixed widths: the dimension multi-selects and the materiality editor
-     carry a second column of figures or a form, everything else is a plain list */
-  p.classList.toggle('wide',!!DIM(popKind)||popKind==='mat');
+  /* ONE MENU IS WIDER, AND ONLY ONE: a dimension list carries a second column of
+     figures (the movement each option holds). Materiality left this set when its
+     form became three rows — a plain list has no reason to be 40px wider. */
+  p.classList.toggle('wide',!!DIM(popKind));
   popEnhance();
-  if(popKind==='mat')seg('segOp',thr().op);
   if(keepFocus){const q=$('popQ');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length);}}
   /* searching a list changes the menu's height, so it is re-placed against its
      trigger rather than being allowed to grow off the bottom of the screen */
@@ -9372,10 +9551,8 @@ function paintRail(){
        <span class="nm">${esc(v.nm)}</span>
        <span class="del" onclick="event.stopPropagation();KFX.delView(${i})">\u00d7</span></div>`).join('')
     :'<div class="rl-empty">No saved views yet.</div>';
-  $('rlProfiles').innerHTML=PROFILES.map(p=>
-    `<div class="rl-item ${S.profile===p.id?'on':''}" onclick="KFX.setProfile('${p.id}')">
-       <span class="nm">${esc(p.nm)}</span>
-       <span class="ct">${p[S.stmt].pct}% / ${p.op==='and'?'&':'|'} ${p[S.stmt].abs}${matName()}</span></div>`).join('');
+  /* the rail's profile list is retired with the named profiles; this painter has
+     returned early since the shell took over the header popover anyway. */
   const w=Object.keys(S.watch).filter(k=>S.watch[k]);
   $('rlWatch').innerHTML=w.length?w.map(k=>{const [st,id]=k.split('::');const ln=LINE(st,id);
     return `<div class="rl-item" onclick="KFX.gotoWatch('${st}','${id}')">
@@ -10711,40 +10888,100 @@ function stepPeriod(n){
   if(k<0||k>=steps.length)return;
   setCur(steps[k].i);
 }
-function setUnits(v){S.units=+v;renderAll();}
+/* THE AD-HOC THRESHOLD IS AN AMOUNT, NOT A NUMBER (2026-08-31). S.thresh is held
+   in DISPLAY units, so switching millions → thousands left "1" in the field and
+   silently turned a 1.0M floor into a 1.0K one — a thousand times looser, under a
+   Units menu whose own note promises that "switching units never silently changes
+   what is flagged". Invisible while the control was a number box you had typed
+   into yourself; obvious the moment it became a list of stated amounts, which is
+   how it was found. Re-express the value in the new unit so the AMOUNT it means is
+   unchanged. Materiality never had this fault — it is stored in $M and converted
+   once through matFac(). */
+function setUnits(v){
+  const amt=S.thresh===''?null:parseFloat(S.thresh)*uFac();   // $000, in the OLD unit
+  S.units=+v;
+  if(amt!==null&&isFinite(amt))S.thresh=String(+(amt/uFac()).toFixed(6));
+  renderAll();
+}
 function setDir(v){S.dir=v;renderAll();}
 function setShow(v){S.show=v;renderAll();}
 function setSort(v){S.sort=v;renderAll();}
-/* ---- MATERIALITY IS A POLICY, AND POLICIES ARE GOVERNED --------------------
-   `lock` has been on the profile record since PROFILES was written \u2014 SEC / MD&A
-   declares lock:1 \u2014 and was read nowhere in the entire file. Every threshold setter
-   wrote straight through with no gate, so a locked policy was not locked and any
-   role could lower a threshold mid-close. That matters more than it sounds: drop
-   the threshold and a breaching line stops requiring an explanation, disappears
-   from the flagged count, and drops out of the flux memo \u2014 which then prints the
-   NEW threshold as though it had been in force all period.
+/* ---- THE RULE EDITOR'S DRAFT ----------------------------------------------
+   The one staged control in the ribbon, and the split is a rule rather than an
+   exception: A LIST APPLIES ON CLICK, A FORM APPLIES ON APPLY. You cannot half-type
+   "0.25" without passing through "0", and a statement that recomputed on every
+   keystroke would flag every line in the book on the way to the value you meant.
 
-   Two gates now. A locked profile cannot be edited by anyone; an unlocked one can
-   be edited only by a role that carries the policy capability. Selecting a
-   different profile is always allowed \u2014 that is choosing a lens, not rewriting one. */
-function matGuard(){
-  if(thr().lock){
-    toast(prof().nm+' is a locked policy \u2014 thresholds cannot be changed here');
-    if(popKind==='mat')paintPop(); return false;
-  }
-  if(!caps().policy){
-    toast('Your role cannot change materiality thresholds');
-    if(popKind==='mat')paintPop(); return false;
-  }
+   The draft is FLAT — the four values for the statement in front of you — because
+   that is what the form edits. matRuleOf() lifts it back into the per-statement
+   shape S.mat keeps, touching only the current statement's thresholds: editing the
+   income statement's rule must not silently move the balance sheet's. */
+let matDraft=null;
+const matD=()=>matDraft||(matDraft={abs:thr().abs,pct:thr().pct,op:thr().op,tol:thr().tol});
+const matRuleOf=d=>{
+  const m=JSON.parse(JSON.stringify(S.mat));
+  m[S.stmt]={abs:+d.abs||0, pct:+d.pct||0};
+  m.op=d.op; m.tol=+d.tol||0;
+  return m;
+};
+/* what a rule does to the statement in front of you. Reads rows(), so the preview
+   counts exactly what the grid would flag — there is no second threshold path. */
+function matCount(m){
+  const was=S.mat; S.mat=m;
+  let n=0,t=0;
+  try{const rs=rows().filter(r=>!r.hdr&&!r.tot); t=rs.length; n=rs.filter(r=>r.req).length;}
+  finally{S.mat=was;}
+  return {n,t};
+}
+/* THE CAPTION REFRESHES, THE FORM DOES NOT. paintPop() on every keystroke takes the
+   caret with it — the same contract cmtField() and exField() hold. Only the two
+   things that can change are rewritten: the impact line, and the Logic pair. */
+function matCap(){
+  const p=$('pop'); if(!p||popKind!=='mat')return;
+  const el=p.querySelector('.pop-cap'); if(!el)return;
+  const now=matCount(S.mat), nxt=matCount(matRuleOf(matD())), moved=nxt.n!==now.n;
+  el.className='pop-cap'+(moved?' chg':'');
+  el.innerHTML=nxt.n+' of '+nxt.t+' lines require an explanation'+
+    (moved?' <b>(now '+now.n+')</b>':'')+'.';
+}
+const setAbs=v=>{matD().abs=+v||0; matCap();};
+const setPct=v=>{matD().pct=+v||0; matCap();};
+const setTol=v=>{matD().tol=+v||0; matCap();};
+function setOp(v){
+  matD().op=v;
+  const p=$('pop'); if(p)p.querySelectorAll('.pop-seg button').forEach(b=>{
+    const on=b.dataset.op===v; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on);});
+  matCap();
+}
+/* ---- COMMITTING THE RULE IS A GOVERNED ACT --------------------------------
+   The `lock` flag went with the named profiles — there is no locked policy record
+   to honour when there is no policy record — but the capability gate stays, and the
+   reason it exists has not changed: drop the bar mid-close and a breaching line
+   stops requiring an explanation, leaves the flagged count and drops out of the flux
+   memo, which then prints the NEW rule as though it had been in force all period.
+   The change is logged with its before and after. Do not remove the gate to make the
+   form feel lighter. */
+function matEdit(){
+  if(caps().policy)return true;
+  toast('Your role cannot change the explanation rule');
+  return false;
+}
+function matCommit(act){
+  if(!matEdit())return false;
+  const before=matRule();
+  S.mat=matRuleOf(matD());
+  logA({act,detail:S.stmt.toUpperCase(),before,after:matRule()});
+  popClose(); renderAll();
   return true;
 }
-function setProfile(v){const b=prof().nm;S.profile=v;
-  logA({act:'materiality profile changed',before:b,after:prof().nm});renderAll();if(popKind==='mat')paintPop();}
-function setOp(v){if(!matGuard())return;const b=prof().op;prof().op=v;logA({act:'materiality rule changed',detail:prof().nm,before:b,after:v});renderAll();if(popKind==='mat')paintPop();}
-function setAbs(v){if(!matGuard())return;const b=prof()[S.stmt].abs;prof()[S.stmt].abs=+v;logA({act:'$ threshold changed',detail:prof().nm+' \u00b7 '+S.stmt.toUpperCase(),before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
-function setPct(v){if(!matGuard())return;const b=prof()[S.stmt].pct;prof()[S.stmt].pct=+v;logA({act:'% threshold changed',detail:prof().nm+' \u00b7 '+S.stmt.toUpperCase(),before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
-function setFloor(v){if(!matGuard())return;const b=prof().floor;prof().floor=+v;logA({act:'small-balance floor changed',before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
-function setTol(v){if(!matGuard())return;const b=prof().tol;prof().tol=+v;logA({act:'residual tolerance changed',before:b,after:+v});renderAll();if(popKind==='mat')paintPop();}
+function matApply(){ if(matCommit('explanation rule changed'))toast('Rule applied · '+matRule()); }
+/* Save as default applies AND makes it what a reset returns to, so "default" is a
+   real state rather than a second copy of Apply. */
+function matDefault(){
+  if(!matCommit('explanation rule saved as the default'))return;
+  S.matDef=JSON.parse(JSON.stringify(S.mat));
+  toast('Saved as the default rule');
+}
 /* The shell's toggle keys off its own strip, which is hidden here, so open the panel
    directly and scroll it into view. */
 /* The shell's own toggle reads the hidden ATTRIBUTE and also drives the caret, the
@@ -10871,7 +11108,7 @@ function toggleTheme(){const b=document.body;b.dataset.theme=b.dataset.theme==='
    "all entities except Corporate" and reloaded as "only Corporate" would be the
    same list meaning the opposite thing. */
 function snapshot(){return JSON.parse(JSON.stringify({stmt:S.stmt,grain:S.grain,compare:S.compare,cur:S.cur,
-  prior:S.prior,units:S.units,ent:S.ent,seg:S.seg,prop:S.prop,cc:S.cc,reg:S.reg,excl:S.excl,profile:S.profile,
+  prior:S.prior,units:S.units,ent:S.ent,seg:S.seg,prop:S.prop,cc:S.cc,reg:S.reg,excl:S.excl,mat:S.mat,
   dir:S.dir,show:S.show,sort:S.sort,cols:S.cols,view:S.view,fullAll:S.fullAll}));}
 /* Favorites and saved views are the same objects; `fav` is just membership in the
    shortlist. A view can be favorited or unfavorited from anywhere it is listed, and
@@ -15338,8 +15575,7 @@ function memoHtml(forPrint){
       <div class="memo-t">Flux analysis memo \u2014 ${S.stmt==='bs'?'Balance sheet':'Income statement'}</div>
       <div class="memo-s">${esc(periodTag())} \u00b7 ${esc(ctxSummary())}</div>
       <div class="memo-s">${memoByline(v)} \u00b7
-        ${esc(prof().nm)} (${t.abs}${matName()} ${t.op==='and'?'and':'or'} ${t.pct}%,
-        residual tolerance ${t.tol}${matName()})</div>
+        material when ${esc(matRule())} \u00b7 residual tolerance ${t.tol}${matName()}</div>
       <div class="memo-s">${v.length} line${v.length===1?'':'s'} require an explanation \u00b7
         ${done} signed off \u00b7 ${tieOut().ok?'ties to the trial balance':'DOES NOT TIE to the trial balance'}
         ${forPrint?'\u00b7 printed '+stamp():''}</div>
@@ -15540,15 +15776,10 @@ function fxField(kind,label,val,on){
     <span class="fxf-v">${esc(val)}</span><span class="cue">▾</span></button>`;
 }
 function fxDimField(d){
-  const v=S[d.k], on=v.length>0, x=!!(S.excl&&S.excl[d.k]);
-  /* An excluded set must never read like a selected one — "Meridian West" on a
-     field that is actually hiding Meridian West is the worst thing this row could
-     say, so the exclusion is spelt in the value itself. */
-  const one=v.length===1?(d.opts().find(o=>o.id===v[0])||{nm:v[0]}).nm.split(' — ')[0]:'';
-  const val=!on?'All'
-    :x?(v.length===1?'Excl. '+one:'Excl. '+v.length)
-      :(v.length===1?one:v.length+' selected');
-  return fxField(d.k,d.nm,val,on);
+  /* An excluded set must never read like a selected one — a field that is actually
+     HIDING Meridian West must not read "Meridian West". fxFilterState() spells the
+     exclusion once, for the field and its Selected-filters chip alike. */
+  const f=fxFilterState(d.k); return fxField(d.k,d.nm,f.val,f.on);
 }
 /* ============================================================================
    THE COMMAND SURFACE — ONE TAB ARCHITECTURE
@@ -15606,8 +15837,108 @@ function toggleFilt(){ S.filtOpen=!S.filtOpen; paintFilterFields(); }
 /* choosing a category is asking to see its controls, so it opens the region if
    it was folded — never the other way round */
 function setFilterTab(k){ fxFTab=k; S.filtOpen=true; paintFilterFields(); }
-/* One field by key. The dimensions go through fxDimField() for the Selected /
-   Excluded wording; the rest state their own value. */
+/* ---- ONE STATEMENT OF WHAT A FILTER READS ---------------------------------
+   The field and the Selected-filters chip say the same thing about the same
+   filter, so they are derived from ONE function rather than written twice. `on` is
+   what makes a filter a chip: a filter at its default is not "selected". */
+function fxFilterState(k){
+  const d=DIM(k);
+  if(d){
+    const v=S[k]||[], x=!!(S.excl&&S.excl[k]);
+    if(!v.length)return {nm:d.nm, on:false, val:'All'};
+    /* an excluded set must never read like a selected one — see fxDimField */
+    const one=v.length===1?(d.opts().find(o=>o.id===v[0])||{nm:v[0]}).nm.split(' — ')[0]:'';
+    return {nm:d.nm, on:true, val:x?(v.length===1?'Excl. '+one:'Excl. '+v.length)
+                                  :(v.length===1?one:v.length+' selected')};
+  }
+  if(k==='show')  return {nm:'Status', on:S.show!=='all',
+    val:S.show==='all'?'All lines':(SHOWS.find(x=>x[0]===S.show)||[,S.show])[1]};
+  if(k==='dir')   return {nm:'Direction', on:S.dir!=='all',
+    val:S.dir==='all'?'Any':(DIRS.find(x=>x[0]===S.dir)||[,S.dir])[1]};
+  if(k==='reason')return {nm:'Reason code', on:S.reason.length>0,
+    val:S.reason.length?(S.reason.length===1?(RSN[S.reason[0]]||S.reason[0])
+                                            :S.reason.length+' codes'):'All'};
+  if(k==='cover') return {nm:'Explained', on:S.cover!=='all',
+    val:S.cover==='all'?'Any':({none:'Nothing accepted',part:'Partly',full:'Fully',
+      gap:'Missing evidence',kd:'Korvyn draft'}[S.cover]||S.cover)};
+  if(k==='thresh')return {nm:'Movement over', on:S.thresh!=='',
+    val:S.thresh!==''?threshWord(S.thresh):'Any'};
+  if(k==='elim')  return {nm:'Eliminations', on:S.elim!=='inc',
+    val:S.elim==='inc'?'Included':'Excluded'};
+  if(k==='q')     return {nm:'Find', on:!!S.q, val:S.q?'“'+S.q+'”':''};
+  return {nm:'', on:false, val:''};
+}
+/* ---- SELECTED FILTERS — a slim strip, and only when there is something to say
+   Owner's direction, 2026-08-31, with a reference: the tabs stay, and a strip under
+   them states what is currently selected as removable chips.
+
+   This is the fix for "I got lost toggling different options from the tab". A tab
+   shows one category and hides seven, so the badge counts could only ever say a
+   filter exists SOMEWHERE. The strip says which filter, what it is set to, and
+   takes it off in one click — the thing the counts were standing in for.
+
+   IT MUST NOT OVERTAKE THE FILTER (owner). Three rules keep it slim:
+     · it does not render at all when nothing is selected — zero height, not an
+       empty band;
+     · one line, chips at --h-chip, quiet ramp rather than the accent (a row of
+       cobalt tablets is the loud selected state this system rules out — rule 2);
+     · it survives the FOLD. Collapsing the region hides the controls and keeps the
+       strip, which is what makes folding safe on a surface whose numbers get
+       signed: you can always see what is filtering, even with the tabs shut.
+
+   Clicking a chip goes to the tab that owns the filter AND opens its menu, so the
+   strip and the tab strip can never disagree about where you are. */
+const FX_SELKEYS=['ent','seg','reg','prop','cc','show','cover','reason','dir','thresh','elim','q'];
+/* which tab owns a filter — read from FX_FTABS, never a second list */
+const fxTabOf=k=>{
+  const t=FX_FTABS.find(t=>t.f.includes(k));
+  if(t)return t.k;
+  /* the dimensions behind More belong to Scope, which is where More lives */
+  return FX_MOREDIMS.includes(k)?'scope':'period';
+};
+const fxSelected=()=>FX_SELKEYS.map(k=>({k,...fxFilterState(k)})).filter(f=>f.on);
+function fxSelStrip(){
+  const on=fxSelected();
+  if(!on.length)return '';
+  return `<div class="fx-sel" id="fxSel">
+    <span class="fx-sel-l">Selected filters<span class="ch" aria-hidden="true">›</span></span>`+
+    on.map(f=>`<span class="selchip">
+      <button class="b" title="${esc(f.nm)}: ${esc(f.val)} — change this filter"
+        onclick="KFX.selGo('${f.k}')"
+        ><span class="k">${esc(f.nm)}:</span> ${esc(f.val)}</button>
+      <button class="x" title="Remove the ${esc(f.nm)} filter"
+        aria-label="Remove the ${esc(f.nm)} filter"
+        onclick="KFX.chipOff('${f.k}')">×</button></span>`).join('')+
+    `<button class="fx-sel-clr" onclick="KFX.resetFilters()"
+      title="Remove every filter">Clear all</button>
+  </div>`;
+}
+/* A chip is a way back to the control, not a dead label. Open the owning tab first
+   so the field is in the DOM, then hang the menu off that field rather than off the
+   chip — the menu belongs to the control, and anchoring it to the chip would leave
+   it pointing at a row that disappears the moment the filter is cleared. */
+function selGo(k){
+  const tab=fxTabOf(k);
+  setFilterTab(tab);
+  if(k==='q'){const e=$('fxFieldSearch'); if(e){e.focus();e.select();} return;}
+  const el=document.querySelector('#fxFields [data-pop="'+k+'"]')
+        || (FX_MOREDIMS.includes(k)?document.querySelector('#fxFields [data-pop="scopemore"]'):null)
+        || $('fxFields');
+  pop(k,el);
+}
+/* The strip repaints ALONE. setQuery() must not rebuild the field row — that row
+   holds the search input, and a repaint takes the caret with it (the same contract
+   cmtField and exField hold). */
+function fxPaintSel(){
+  const wrap=$('fxFilters'); if(!wrap)return;
+  const cur=$('fxSel'), html=fxSelStrip();
+  if(cur&&html){ cur.outerHTML=html; return; }
+  if(cur&&!html){ cur.remove(); return; }
+  if(html)wrap.insertAdjacentHTML('beforeend',html);
+}
+
+/* One field by key. Every filter field reads fxFilterState(), so a field and its
+   Selected-filters chip cannot describe one filter two different ways. */
 function fxOneField(k){
   const d=DIM(k); if(d)return fxDimField(d);
   /* Period, Compare and Cadence replace the arrows-and-months navigator. They are
@@ -15619,29 +15950,19 @@ function fxOneField(k){
   if(k==='grain') return fxField('grain','Cadence', GRAIN_NM[S.grain]||'Monthly', false);
   /* "Status", not "Show" — the control answers where a line stands in the review,
      which is what the Workflow tab is for. */
-  if(k==='show')  return fxField('show','Status',
-    S.show==='all'?'All lines':(SHOWS.find(x=>x[0]===S.show)||[,S.show])[1], S.show!=='all');
-  if(k==='dir')   return fxField('dir','Direction',
-    S.dir==='all'?'Any':(DIRS.find(x=>x[0]===S.dir)||[,S.dir])[1], S.dir!=='all');
+  if(['show','dir','reason','cover','thresh','elim'].includes(k)){
+    const f=fxFilterState(k); return fxField(k,f.nm,f.val,f.on);
+  }
   /* SCOPE OVERFLOW. A field, not a link, so it reads as one more dimension control;
      it states how many of the dimensions behind it are live so nothing hides. */
   if(k==='scopemore'){
     const n=FX_MOREDIMS.reduce((a,x)=>a+(S[x].length?1:0),0);
     return fxField('scopemore','More', n?n+' active':'None', n>0);
   }
-  if(k==='reason')return fxField('reason','Reason code',
-    S.reason.length?(S.reason.length===1?(RSN[S.reason[0]]||S.reason[0]):S.reason.length+' codes'):'All',
-    S.reason.length>0);
-  if(k==='cover') return fxField('cover','Explained',
-    S.cover==='all'?'Any':{none:'Nothing accepted',part:'Partly',full:'Fully',
-      gap:'Missing evidence',kd:'Korvyn draft'}[S.cover]||S.cover, S.cover!=='all');
-  if(k==='thresh')return fxField('thresh','Movement over',
-    S.thresh!==''?('over '+S.thresh+uName()):'Any', S.thresh!=='');
-  if(k==='elim')  return fxField('elim','Eliminations',
-    S.elim==='inc'?'Included':'Excluded', S.elim!=='inc');
   /* materiality decides which lines exist and units decide how they read — both
      are context, so they are fields but never "on" fields */
-  if(k==='mat')   return fxField('mat','Materiality', prof().nm, false);
+  /* the field states the RULE, which is the only thing there is to state now */
+  if(k==='mat')   return fxField('mat','Materiality', matRule(), false);
   if(k==='units') return fxField('units','Units','$'+(S.units===1?'':uName()), false);
   /* Find is a field in Scope like any other, not a fixture bolted to the strip:
      narrowing to a line by name is the same act as narrowing to an entity. It is a
@@ -15662,7 +15983,10 @@ function fxOneField(k){
    These three tabs configure rather than filter, so their rows are labelled
    groups of controls rather than a line of value-bearing dropdowns. The group
    label is what keeps them from reading as one more undifferentiated toolbar. */
-const fxGroup=(label,body)=>`<span class="fxg"><span class="fxg-l">${esc(label)}</span>${body}</span>`;
+/* fxGroup() is retired with its one caller (2026-08-31). Its job was to put a
+   label beside a control that had none; every control in the row is an fxField()
+   now and every fxField states its own name, so a group label could only ever
+   repeat one. `.fxg` / `.fxg-l` go with it. */
 
 /* DISPLAY absorbs the old Review|Financials|Narrative segmented control and the
    Table menu. Review stays the default mode. */
@@ -15691,11 +16015,10 @@ function fxDisplayRow(){
    command-bar space permanently for something set once a session. */
 function fxViewsRow(){
   const v=curView();
-  return fxGroup('View',
-      `<button class="fxf" data-pop="views" aria-expanded="false"
-        onclick="KFX.pop('views',this)" title="${v?'“'+esc(v.nm)+'” is loaded':'No saved view loaded'}">
-        <span class="fxf-k">View</span>
-        <span class="fxf-v">${v?esc(v.nm):'None'}</span><span class="cue">▾</span></button>`)+
+  /* THE FIELD STATES ITS OWN NAME. This was wrapped in fxGroup('View', …) around a
+     field already labelled View, so the row read "View  View  Standard review" —
+     and it was the one field on the eight tabs not drawn by fxField(). */
+  return fxField('views','View', v?v.nm:'None', !!v)+
     `<button class="btn-out star" onclick="KFX.starCurrent()"
       aria-pressed="${v&&v.fav?'true':'false'}" aria-label="Favorite this view"
       title="${v?(v.fav?'Remove “'+esc(v.nm)+'” from favorites'
@@ -15794,7 +16117,10 @@ function fxFiltersInner(){
     </div>
     <div class="fx-fields" id="fxFields" role="tabpanel" aria-label="${esc(tab.nm)}">`+
     tab.f.map(fxOneField).join('')+
-    `</div>`;
+    `</div>`+
+    /* outside the tabpanel and outside the fold: what is selected is true of the
+       whole region, not of whichever tab happens to be open */
+    fxSelStrip();
 }
 function paintFilterFields(){
   const el=$('fxFilters'); if(!el)return;
@@ -15896,13 +16222,13 @@ function activeChips(){
      able to see which one is in force without opening anything, and reach it in one
      click. It used to be two levels deep in a menu called Display. */
   c.push({id:'mat', fixed:1,      // context, not an optional filter: it cannot be "off"
-    label:prof().nm+' · '+thr().abs+matName()+' '+(thr().op==='and'?'&':'or')+' '+thr().pct+'%',
-    title:'Materiality policy — decides which lines require an explanation'});
+    label:matRule(),
+    title:'Explanation rule — decides which lines require an explanation'});
   if(S.q)c.push({id:'q', label:'“'+S.q+'”', title:'Text search'});
   if(S.reason.length)c.push({id:'reason',
     label:S.reason.length===1?(RSN[S.reason[0]]||S.reason[0]):S.reason.length+' reason codes',
     title:'Reason code'});
-  if(S.thresh!=='')c.push({id:'thresh', label:'over '+S.thresh+uName(), title:'Ad-hoc movement threshold'});
+  if(S.thresh!=='')c.push({id:'thresh', label:threshWord(S.thresh), title:'Ad-hoc movement threshold'});
   if(S.cover!=='all')c.push({id:'cover',
     label:{none:'Nothing accepted',part:'Partly explained',full:'Fully explained',
            gap:'Missing evidence',kd:'On a Korvyn draft'}[S.cover], title:'Explanation coverage'});
@@ -15943,7 +16269,7 @@ function chipOff(id){
   if(id==='show')      S.show='all';
   else if(id==='dir')  S.dir='all';
   else if(id==='elim') S.elim='inc';
-  else if(id==='mat')  S.profile='close';
+  else if(id==='mat')  S.mat=JSON.parse(JSON.stringify(S.matDef||MAT_DEFAULT));
   else if(id==='q')     S.q='';
   else if(id==='reason')S.reason=[];
   else if(id==='thresh')S.thresh='';
@@ -16008,7 +16334,7 @@ function filterCount(){
 function paintMethod(){
   const el=$('fxMethod'); if(!el)return;
   const t=thr(), tie=tieOut();
-  const mat=`${esc(prof().nm)} · material when ${t.abs}${matName()} ${t.op==='and'?'and':'or'} ${t.pct}% · residual tolerance ${t.tol}${matName()}`;
+  const mat=`Material when ${esc(matRule())} · residual tolerance ${t.tol}${matName()}`;
   const cad=cadenceWord();
   const cmp=`Compared ${esc(cmpPhrase())}${cad?' · '+esc(cad):''}`;
   const der='Figures derive from the GL by statement line; Korvyn does not restate balances';
@@ -16245,7 +16571,7 @@ function lineForAcct(acct){
   });
 })();
 
-return {pageContext, toggleFilt, collapseFilters:()=>{S.filtOpen=false;}, basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setProfile, setQuery, setReason, clearReason, setThresh, setCover, setOp, setAbs, setPct, setFloor, setTol, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popApply, popApplyClear, setFilterTab, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
+return {pageContext, toggleFilt, collapseFilters:()=>{S.filtOpen=false;}, basisLine, basisTitle, activeChips, chipOff, chipClick, impactFor, memoHtml, toggleFocus, setDens, foldSec, foldAll, headerControls, ctxSummary, filterCount, paintCols, colDrag, colDrop, colMove, colOff, colOn, colsReset, syncFilterChrome, starCurrent, curView, defView, matchView, openFilters, setView, setElim, loadFav, trend, setStmt, setGrain, setCompare, setCur, setPrior, cmpPick, priorPick, stepPeriod, setUnits, setDir, setShow, setSort, setQuery, setReason, clearReason, setThresh, setCover, setAbs, setPct, setOp, setTol, matApply, matDefault, toggleGl, glTog, openAcct, star, clearWatch, gotoWatch, pick, closeDrawer, resetFilters, saveView, loadView, favView, delView, saveFilterPreset, loadPreset, delPreset, tog, setAll, pop, popClose, popSearch, popTog, popAll, popMode, popClearDim, setFilterTab, selGo, dwTab, dwGripDown, dwGripKey, explMore, setFullAll, toggleNarrExpand, pickAt, lineForAcct,
 dwCollapse, dwMenu, dwPage, dwGo, nextOpen:fxNextOpen, histOpen, addComment, cmtCancel, cmtSave, cmtField, cmtFilter, cmtMenu, cmtOwedToggle, cmtReply, cmtResolve, cmtMentionPick, cmtMentionHide, cmtKey, viewAsReviewer, lRequest, lOnBehalf, lAnswer, lReview, assignDialog, assignLine, assignComment, drvInto, drvUp, drvRoot, drvGl, rwFullEx, rwPeriods,
 openReqs, exportReqs, reqReply, reqChase, reqWithdraw, reqGoto, reqMine, reqRaised, reqOverdue, reqOpen,
 kdAccept, kdEdit, kdField, kdCancel, kdSave, kdRegen, kdDismiss, kdRestore, exNew, exCancel, exField, exFill, exSave, exDel, exCarry, exSubmit, exApprove, exReturn, exUnlock, submitAll, exPropose, sugAccept, sugEdit, sugDismiss, sugAllAccept, sugAllDismiss, upFiles, upDel, setJeOnly, citeJe, scopeTo, openCols, closeModal, openAudit, exportAudit, exportCsv, openMemo, printMemo, hovShow, hovHide, body, after, paintPanel, scopeSummary, setStmtFromShell, active, renderAll, S};
@@ -32890,9 +33216,6 @@ function ktabsRove(bar){
 document.addEventListener('keydown',e=>{
   const t=e.target&&e.target.closest?e.target.closest('.ktab'):null; if(!t)return;
   const bar=t.closest('.ktabs'); if(!bar)return;
-  /* the Included|Excluded pair borrows the tab LOOK inside a menu; the menu's own
-     arrow keys walk its options, so this handler leaves it alone */
-  if(t.closest('.pop-mode'))return;
   const ts=[...bar.querySelectorAll('.ktab')], i=ts.indexOf(t);
   let n=-1;
   if(e.key==='ArrowRight'||e.key==='ArrowDown')n=(i+1)%ts.length;
