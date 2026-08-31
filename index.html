@@ -6808,9 +6808,10 @@ body.fx-dw-page #subnav2{display:none!important}
 #fxRoot .wl-sp{flex:1;border-right:var(--rule);min-width:12px}
 #fxRoot .wl-done{border-right:var(--rule)}
 #fxRoot .wl-done.ok .n{color:var(--success)}
-#fxRoot .wl-tie{display:flex;align-items:center;padding:0 14px;font-size:var(--fs-label);
-  color:var(--muted);white-space:nowrap}
-#fxRoot .wl-tie.bad{color:var(--danger);font-weight:var(--fw-medium)}
+/* .wl-tie is retired (2026-08-31, owner): the trial-balance tie is a CONTROL, not
+   a work item. paintMethod() states it under the statement and the memo prints it
+   at sign-off; tieOut() is unchanged and both still read it. A permanent green
+   tick in a bar of work counts teaches the eye to skip the bar. */
 @media (max-width:1240px){ #fxRoot .wl-seg,#fxRoot .wl-done{padding:8px 11px} }
 
 /* ===== FLUX — MERCURY MATCH (scoped, reversible via body.fx-mercury) =========
@@ -6873,8 +6874,12 @@ body.fx-mercury #fxRoot:not(.dw-page) .fx-work{ display:flex; flex-wrap:nowrap; 
 body.fx-mercury #fxRoot .fx-work::-webkit-scrollbar{ display:none }
 #fxRoot.aw .fx-work .wl-seg,
 #fxRoot.aw .fx-work .wl-done,
-#fxRoot.aw .fx-work .wl-stat,
-#fxRoot.aw .fx-work .wl-tie{ flex:1 1 0; min-width:118px;
+/* flex:1 1 AUTO, not 1 1 0. Equal-width tiles look tidy until the review panel takes
+   440px: every tile then shrinks to the same 141px, and the longest LABEL (the hero,
+   which is the one that matters) spills past its own tile edge while "explained" and
+   "reviewed" sit in slack they do not need. Sizing to content and sharing the
+   remainder keeps the whole strip on one row at every width. */
+#fxRoot.aw .fx-work .wl-stat{ flex:1 1 auto; min-width:118px;
   display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
   gap:3px; padding:10px 14px; text-align:left;
   background:var(--surface); border:1px solid var(--line2); border-radius:var(--radius); }
@@ -6884,7 +6889,6 @@ body.fx-mercury #fxRoot .fx-work::-webkit-scrollbar{ display:none }
   box-shadow:none; }
 /* the spacer separated two halves of a strip; a row of tiles has no halves */
 #fxRoot.aw .fx-work .wl-sp{ display:none }
-#fxRoot.aw .fx-work .wl-tie{ justify-content:center; }
 
 /* ---- THE STRIP IS AN INSTRUMENT (2026-08-30, owner: "full creative ability") ----
    The tiles gained three reads the bare figures could not carry, all within the same
@@ -6914,7 +6918,12 @@ body.fx-mercury #fxRoot .fx-work::-webkit-scrollbar{ display:none }
 #fxRoot.aw .fx-work .wl-seg.edge-warn{ box-shadow:inset 3px 0 0 var(--warning); }
 #fxRoot.aw .fx-work .wl-seg.edge-bad{ box-shadow:inset 3px 0 0 var(--danger); }
 #fxRoot.aw .fx-work .wl-seg.hero .n{ color:var(--accent-ink); }
-#fxRoot.aw .fx-work .wl-tie.ok{ color:var(--success); }
+/* the backstop: a label longer than its tile ellipsises and keeps its full text in
+   the tooltip every tile already carries — the same contract the filter fields hold. */
+#fxRoot.aw .fx-work :is(.wl-seg,.wl-done,.wl-stat) .l{ max-width:100%; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+/* .wl-lens is retired with the queue switch (2026-08-31, owner): the lens is a
+   fact about the role, so lensOf() derives it and there is nothing to press. */
 
 /* the statement: a framed card with its caption as a header band */
 body.fx-mercury #fxRoot .card.fx-table{ background:var(--surface);
@@ -8537,6 +8546,11 @@ function visible(rws){
     if(S.show==='mine'&&!(r.req&&r.status!=='approved'))return false;
     if(S.show==='ret'&&r.status!=='returned')return false;
     if(S.show==='inrev'&&r.status!=='submitted')return false;
+    /* the three the role-aware worklist added. Each is the SAME predicate its tile
+       counts, so a tile reading 3 can never open a statement of 2. */
+    if(S.show==='ready'&&!rowReady(r))return false;
+    if(S.show==='myrev'&&!awaitingMyReview(r))return false;
+    if(S.show==='wprep'&&!withPreparer(r))return false;
     /* ---- the four filters the statement was missing ----------------------- */
     if(!lineMatches(r))return false;
     return true;
@@ -8810,6 +8824,8 @@ const DIM=k=>DIMS.find(d=>d.k===k);
    the active-filter chips and the Show menu all read; a segment that sets S.show to a
    value missing from it renders an undefined label and takes the strip down with it. */
 const SHOWS=[['all','All lines'],['flag','Flagged only'],['open','Needs explanation'],
+  ['ready','Ready to submit'],['inrev','With a reviewer'],['myrev','Awaiting your review'],
+  ['wprep','With the preparer'],
   ['resid','Has unexplained residual'],['req','Explanation requested'],
   ['watch','Watchlist only'],['mine','Assigned to me'],
   ['ret','Returned by reviewer']];
@@ -9588,7 +9604,7 @@ function paintKpi(){
       <b>${S.stmt==='bs'?'Balance sheet':'Income statement'}</b>
       <span class="sep">${esc(periodTag())}</span>
       <span class="sep"><b>${req.length}</b> require explanation</span>
-      <span class="sep"><b>${done.length}/${req.length}</b> signed off</span>
+      <span class="sep"><b>${done.length}/${req.length}</b> reviewed</span>
       <span class="sep"><b>${cov.toFixed(0)}%</b> coverage</span>
       <span class="sep">${tie.ok?'<span class="ok">\u2713 ties to TB</span>':'<span class="bad">TB out of balance</span>'}</span>
       <span class="fx-sp"></span>
@@ -9610,7 +9626,7 @@ function paintKpi(){
 
      Colour discipline: a count that is zero is nothing to do, so it recedes. Only
      a genuine exception \u2014 work owed, a returned review, a broken tie \u2014 takes state
-     colour, which means a finished statement's bar is entirely monochrome. */
+     colour, so a finished statement's bar is entirely monochrome. */
   const w=$('fxWork'); if(!w)return;
   const seg=(id,n,label,cl,title)=>{
     const on=S.show===id, dim=!n&&!on;
@@ -9619,12 +9635,12 @@ function paintKpi(){
       onclick="KFX.setShow('${on?'all':id}')"><span class="n">${n}</span><span class="l">${esc(label)}</span></button>`;
   };
   /* THE ESSENTIALS ALWAYS, THE EXCEPTIONS ONLY WHEN THEY EXIST. The first review
-     decision needs: how much is owed (need you), the exposure (unexplained + the
-     coverage it is the complement of), what is done (signed off), and whether the
-     statement even ties. Returned / requested / watched / flagged are exceptions —
-     a zero of any of them is noise, so each appears only when it is non-zero (and
-     stays a one-click filter when it does). This keeps the strip compact without
-     removing a single filter: every one is still reachable from the filter panel. */
+     decision needs three facts and no more: how much is left (to review), the
+     exposure (unexplained, and the coverage it is the complement of), and how far
+     along it is (reviewed). Returned / in review / requested / watched are
+     exceptions: a zero of any of them is noise, so each appears only when it is
+     non-zero. No filter is lost. Every one is reachable from Workflow > Status,
+     and states itself in the Selected filters strip once it is on. */
   const rq=reqHere(), late=rq.filter(reqLate).length;
   /* THE METER'S SEGMENTS — derived, never duplicated: the same figures the tiles
      state, split by review state. signed + explained + owed span the REQUIRED
@@ -9641,37 +9657,87 @@ function paintKpi(){
       +`explained ${pc(explD).toFixed(0)}%, needs you ${pc(owedD).toFixed(0)}%, `
       +`below materiality ${pc(immatD).toFixed(0)}%`
     : 'No movement to explain this period';
+  /* ---- THE PIPELINE, READ FROM YOUR SIDE ---------------------------------
+     One review pipeline, two vantage points. Every tile is a one-click filter and
+     every count is derived from the record, so the strip can never claim work that
+     the footer would then refuse to let you do.
+
+       preparer   to explain  ->  ready to submit  ->  with reviewer
+       reviewer   awaiting your review  <-  you returned  <-  with preparer
+
+     The tile that is YOURS leads and takes the accent edge; the one you are waiting
+     on somebody else for is stated but never dressed as work. */
+  const L=lens();
+  const nReady = rws.filter(rowReady).length;
+  const nMyRev = req.filter(awaitingMyReview).length;
+  const nWPrep = req.filter(withPreparer).length;
+  const nToExp = req.filter(r=>(r.status==='draft'||r.status==='returned')&&!r.clear).length;
+
+  const pipe = L==='prep'
+    /* NOT "to explain": this exact state is already called "Needs explanation" by
+       FXST.need in the Explanation column, by the Status filter, and by the Selected
+       filters chip. A fourth phrasing on the tile is the same drift that had the bar
+       saying "signed off" while the column said "Reviewed". One state, one name. */
+    ? seg('open',  nToExp, 'needs explanation', nToExp?'hero edge-act':'',
+          'Required lines whose explanation does not yet cover the movement — your work')
+    + seg('ready', nReady, 'ready to submit', '',
+          'Explained inside tolerance and not yet handed to a reviewer')
+    + seg('inrev', inrev,  'with reviewer', '',
+          'Submitted and waiting on a reviewer — nothing for you to do')
+    : L==='watch'
+    /* READ-ONLY OWNS NOTHING, so nothing here is dressed as work: no hero, no accent
+       edge, and 'in review' rather than 'awaiting YOUR review' — caps().review is 0
+       for these roles, so the reviewer tile would have read a permanent zero for a
+       queue they are not allowed to hold. */
+    ? seg('inrev', inrev, 'in review', '', 'Submitted and waiting on a reviewer')
+    + seg('ret',   ret,   'returned', '', 'Sent back to the preparer and not yet resubmitted')
+    + seg('wprep', nWPrep,'with preparer', '', 'Required lines not yet handed over')
+    : seg('myrev', nMyRev, 'awaiting your review', nMyRev?'hero edge-act':'',
+          'Submitted lines you may review — a line you prepared is not one of them')
+    + seg('ret',   ret,    'you returned', ret?'bad edge-bad':'',
+          'Sent back to the preparer and not yet resubmitted')
+    + seg('wprep', nWPrep, 'with preparer', '',
+          'Required lines not yet handed over — nothing for you to do');
   w.innerHTML=
-    /* need you is the hero — the one tile the reviewer acts on first, so it carries an
-       accent figure and an accent edge when it is non-zero, and recedes when it is not */
-    seg('open',   open.length, open.length===1?'needs you':'need you',
-        open.length?'hero edge-act':'',
-        'Lines that require an explanation and are not yet signed off')+
-    seg('resid',  fmt(unexp),  'unexplained', unexp>0?'edge-warn':'',
-        'Lines carrying a residual outside tolerance')+
+    pipe+
     /* coverage is the complement of unexplained — a display figure, not a filter. It
-       now carries the stacked meter, so the one number also shows the shape of the
-       whole review at a glance. */
+       carries the stacked meter, so the one number also shows the shape of the whole
+       review at a glance, whichever side you are reading it from. */
     `<span class="wl-stat wl-gauge" title="${esc(gaugeTip)}">
        <span class="n">${cov.toFixed(0)}<span class="pct">%</span></span><span class="l">explained</span>
        <span class="wl-meter" aria-hidden="true"><i class="wl-m-sign" style="width:${pc(signedD).toFixed(1)}%"></i><i class="wl-m-expl" style="width:${pc(explD).toFixed(1)}%"></i><i class="wl-m-owed" style="width:${pc(owedD).toFixed(1)}%"></i></span>
      </span>`+
-    /* An exception segment appears when it has a count OR when it is the filter
-       currently applied — so a filter can always be switched off from the same bar
-       it was switched on, even after the count it isolated has fallen to zero. */
-    ((ret||S.show==='ret')? seg('ret', ret, 'returned', ret?'bad edge-bad':'', 'Reviews returned to the preparer to address') : '')+
-    ((inrev||S.show==='inrev')? seg('inrev', inrev, 'in review', '', 'Lines submitted and waiting on a reviewer') : '')+
+    /* An exception appears when it has a count OR when it is the filter currently
+       applied, so the bar never reports a state it is hiding. `returned` is an
+       exception on the PREPARER's side and a base tile on the reviewer's — it is
+       urgent work for one and a status for the other. */
+    ((L==='prep'&&(ret||S.show==='ret'))? seg('ret', ret, 'returned to you', ret?'bad edge-bad':'',
+        'A reviewer sent these back — address the comments, then resubmit') : '')+
+    /* A DUAL ROLE'S OTHER QUEUE, surfaced rather than switched to. A Controller who
+       prepared this statement reviews none of it, so this is silent exactly when the
+       preparer pipeline is the right one to show — and appears the moment somebody
+       else hands them a line. */
+    ((L==='prep'&&(nMyRev||S.show==='myrev'))? seg('myrev', nMyRev, 'awaiting your review',
+        nMyRev?'hero edge-act':'',
+        'Submitted lines you may review — a line you prepared is not one of them') : '')+
     ((rq.length||S.show==='req')? seg('req', rq.length, 'requested', late?'bad edge-bad':'',
         late? late+' of '+rq.length+' explanation requests are past their due date'
             : 'Lines where an entity or region still owes an explanation you asked for') : '')+
+    /* unexplained left the always-on set: it is the same fact as the gauge beside
+       it, in a different unit — the gauge IS the complement — and the per-line
+       figure is a column in the statement. It stays reachable from Workflow >
+       Status and returns as a tile while it is the active filter. */
+    ((S.show==='resid')? seg('resid', fmt(unexp), 'unexplained', 'edge-warn',
+        'Movement on required lines with no accepted explanation, outside tolerance') : '')+
     ((wch.length||S.show==='watch')? seg('watch', wch.length, 'watched', '', 'Lines you are watching below materiality') : '')+
-    ((flg.length||S.show==='flag')? seg('flag', flg.length, 'flagged', '', 'Lines breaching the materiality policy') : '')+
+    ((S.show==='flag')? seg('flag', flg.length, 'flagged', '', 'Lines breaching the materiality policy') : '')+
+    ((S.show==='mine')? seg('mine', req.filter(r=>r.status!=='approved').length, 'assigned to you', '', 'Lines assigned to you') : '')+
     `<span class="wl-sp"></span>
      <button type="button" class="wl-done ${req.length&&!open.length?'ok':''}"
-       title="Signed off on this statement" onclick="KFX.setShow('all')">
+       title="Lines reviewed and signed off, of those that require an explanation"
+       onclick="KFX.setShow('all')">
        <span class="n">${done.length}<span class="of">/${req.length}</span></span>
-       <span class="l">signed off</span>${req.length?`<span class="wl-mini" aria-hidden="true"><i style="width:${(done.length/req.length*100).toFixed(1)}%"></i></span>`:''}</button>
-     <span class="wl-tie ${tie.ok?'ok':'bad'}" title="${esc(tie.txt)}">${tie.ok?'&#10003; Ties to TB':'&#9888; TB out of balance'}</span>`;
+       <span class="l">reviewed</span>${req.length?`<span class="wl-mini" aria-hidden="true"><i style="width:${(done.length/req.length*100).toFixed(1)}%"></i></span>`:''}</button>`;
 
   const chip=$('tieChip');
   if(chip){chip.classList.toggle('bad',!tie.ok);
@@ -15253,14 +15319,70 @@ function exUnlock(){
    SUBMIT WHAT IS READY, INCLUDING WHAT CAME BACK: an earlier version tested
    status==='draft' only and skipped every returned line — the exact population a
    preparer has just finished fixing — while the footer offered Submit on both. */
-function readyToSubmit(){
-  return rows().filter(r=>r.req&&!r.tot).filter(r=>{const rc=rec(r.id,true);
-    /* a returned line is only ready once every reviewer comment has been addressed —
-       the same gate exSubmit enforces, so the count and the action never disagree */
-    if(rc.status==='returned'&&reviewItems(rc).length)return false;
-    return rc.items.length&&Math.abs(r.res)<=thr().tol*matFac()
-      &&(rc.status==='draft'||rc.status==='returned');});
+/* ---- WHOSE MOVE IS IT — THE SNAPSHOT READS FROM YOUR SIDE ------------------
+   Owner's direction, 2026-08-31: "the KPI should be a snapshot for both preparer
+   and reviewer and it should flip based on the credentials … preparer will see how
+   many flux explanations are needed, how many you need to sign off, what is with
+   the reviewer."
+
+   IT CANNOT FLIP ON THE TITLE ALONE, and that is the whole design problem.
+   FX_CAPS gives Accounting Manager, Controller and the CAO BOTH prepare and review
+   — three of the six roles, and every role that actually works a close. A strip
+   keyed on the job title would show those three people one queue and hide the
+   other.
+
+   What decides the side is the LINE, not the person: nobody reviews a line they
+   prepared (canReviewLine), so on any given line you are one or the other. The lens
+   therefore DERIVES from caps() where caps() is decisive, and is a switch where it
+   is not — an honest switch, because a controller genuinely has two queues and can
+   only work one at a time. Same discipline as cmtRole(), which reads which side is
+   speaking off the record rather than off a title.
+
+   A read-only role (FP&A, External Auditor) gets the reviewer lens: it is the
+   observing view, and neither tile it leads with invites an action they cannot take. */
+/* THE LENS IS DERIVED, NEVER CHOSEN (owner, 2026-08-31: "remove this — system
+   should update the KPI based on the role"). A switch was built and taken out: it
+   asked a reviewer to tell the product something the product already knows, and a
+   control that only ever restates a fact is one more thing to get wrong.
+
+   The mapping, and the one judgement in it:
+     prepare only (Asset Manager)          -> preparer
+     prepare AND review (Manager/Controller/CAO) -> preparer
+     read-only (FP&A, External Auditor)    -> reviewer, the observing view
+
+   A DUAL ROLE GETS THE PREPARER PIPELINE because you prepare before you review,
+   and because the reviewer pipeline for someone who prepared the statement is
+   three zeros: segregation of duties means nobody reviews a line they prepared,
+   so `awaiting your review` is empty precisely when you are the one who explained
+   it. Their review queue is not lost — it surfaces as an exception tile the moment
+   it is non-empty, which is the same discipline every other exception follows and
+   is what makes the switch unnecessary. */
+function lensOf(){
+  const c=caps();
+  return (!c.prepare&&!c.review) ? 'watch'        // read-only: observe, own nothing
+       : c.review&&!c.prepare     ? 'rev'
+       :                            'prep';
 }
+const lens=lensOf;
+/* READY TO HAND OVER, as ONE predicate. readyToSubmit() and the Ready filter both
+   read it, so the count, the filter and submitAll() can never disagree about which
+   lines are ready — the rule the Submit CTA already lives by. */
+function rowReady(r){
+  if(!r.req||r.tot||r.hdr)return false;
+  const rc=rec(r.id,true);
+  /* a returned line is only ready once every reviewer comment has been addressed —
+     the same gate exSubmit enforces */
+  if(rc.status==='returned'&&reviewItems(rc).length)return false;
+  return rc.items.length&&Math.abs(r.res)<=thr().tol*matFac()
+    &&(rc.status==='draft'||rc.status==='returned');
+}
+function readyToSubmit(){ return rows().filter(rowReady); }
+/* Lines waiting on a REVIEWER who may actually be you — a line you prepared is
+   somebody else's to review, and counting it here would put work in your queue that
+   segregation of duties forbids you to do. */
+const awaitingMyReview=r=>r.status==='submitted'&&caps().review&&String(r.prep||'')!==meStr();
+/* Still with the preparer: required, not handed over, not signed off. */
+const withPreparer=r=>r.req&&r.status!=='submitted'&&r.status!=='approved';
 function submitAll(){
   if(!caps().prepare){toast('Your role is read-only on the close');return;}
   const ready=readyToSubmit();

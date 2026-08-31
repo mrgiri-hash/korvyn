@@ -33,12 +33,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = readFileSync(join(ROOT, 'index.html'), 'utf8');
 
 /** Recorded 2026-08-29 with `node tools/check_spacing_scale.mjs --baseline`;
- *  lowered 2026-08-31 (6px 162→161, 10px 127→126) when the staged Apply footer and
+ *  lowered 2026-08-31 (6px 162→161, 10px 127→126, 14px 86→85) when the staged Apply footer and
  *  the Included|Excluded tab pair were retired from the popover.
  *  Lower these when a count drops; never raise them. */
 const BASELINE = {
   css: { 1: 64, 2: 117, 3: 69, 5: 76, 6: 161, 7: 115, 9: 131, 10: 126, 11: 48, 13: 22,
-    14: 86, 15: 14, 17: 5, 18: 25, 22: 3, 26: 9, 30: 2, 34: 1, 50: 1, 70: 1, 114: 1 },
+    14: 85, 15: 14, 17: 5, 18: 25, 22: 3, 26: 9, 30: 2, 34: 1, 50: 1, 70: 1, 114: 1 },
   inline: { 2: 5, 3: 10, 5: 7, 6: 25, 7: 4, 9: 6, 10: 13, 11: 3, 13: 1, 14: 7, 18: 8 },
 };
 

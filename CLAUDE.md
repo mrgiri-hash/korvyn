@@ -2678,6 +2678,163 @@ chip → correct tab + correct menu anchored to its field (including a More dime
 × removes one filter, Clear all removes the strip · caret survives typing in Find ·
 light and dark 6.48–14.12:1 on every element.
 
+## 2026-08-31 — the worklist bar: four tiles, and the review's own words
+
+Owner: *"simplify the KPI — I don't need TB tie out. Do we need to rename 'Need You'?
+Can we make this super helpful for users?"* Six tiles became four, and two of the three
+removals were duplicates rather than trims.
+
+**"NEED YOU" WAS NOT WHAT THE NUMBER MEANT.** It counts every required line not yet
+signed off, whoever holds it — including a line sitting with another entity that owes YOU
+an explanation, and a line you submitted that another reviewer is holding. Nothing in it
+is about you. A count that over-claims ownership is worse than a dull one, because a
+reviewer trusts it and works the wrong queue. (`SHOWS` has an *"Assigned to me"* filter
+whose predicate is `r.req && r.status!=='approved'` — the same population, equally
+un-personal. Now that `lineAssignee()` exists, that filter could be made honest; it has
+not been, and it is the obvious next fix here.)
+
+It reads **to review**, and its complement reads **reviewed**. The pair states progress in
+the same two words the review's own state machine uses: `FXST.done` is literally
+"Reviewed", while this bar had been calling the same state **"signed off"** — two names
+for one fact on one screen, which is exactly the drift this file's comments keep warning
+about. The focus line said "signed off" too and now says "reviewed".
+
+**FLAGGED WAS THE REAL CLUTTER, and it was a duplicate.** `flag` means "breaches the
+materiality policy", which at the start of a close is the SAME set as "to review" — the
+seeded statement rendered `2 FLAGGED` beside `2 TO REVIEW`, the same two lines counted
+twice — and that population is already stated by the explanation rule's own caption
+("2 of 16 lines require an explanation"). The filter is untouched and still reachable from
+Workflow › Status; the tile still appears when `flag` is the ACTIVE filter, so it can
+always be switched off from where it was switched on.
+
+**TIES TO TB IS GONE (owner).** It is a control, not a work item. `paintMethod()` states
+it under the statement and the memo prints it at sign-off — `tieOut()` is unchanged and
+both still read it. A permanent green tick in a bar of work counts teaches the eye to skip
+the bar. `.wl-tie` and its five CSS rules went with it.
+
+**What made two removals safe is the Selected filters strip.** An exception tile used to
+have to exist partly so a filter could be switched off from the same bar it was switched
+on; the chips do that now for every filter on the page. That is what let this bar shed a
+third of itself without losing a single entry point.
+
+**Measured:** 6 tiles → 4 (`2 to review · 2.8 unexplained · 46% explained · 0/2
+reviewed`), strip 75px, and the statement opens ~30px higher. Exceptions still appear on
+their own: driving one line to submitted put `1 IN REVIEW` back in the row, and it leaves
+again when the count returns to zero.
+
+**Verified:** 60/60 views · console clean · 10/10 chrome themes AA · content text gate
+clean · spacing ratchet green (baseline lowered 1077 → 1076 with the retired `.wl-tie`
+padding) · tiles still one-click filters, and the Selected filters chip appears when one
+is on · balance sheet renders the same four tiles.
+
+### The Δ% column is neutral ON PURPOSE — checked, not changed
+
+Owner: *"I see red/green colour on Amount but not on the %. It may be right but wanted to
+point this out."* It is right, and it is design rule 9: **colour at most two columns, the
+primary variance and its direction.** Measured on the rendered grid:
+
+| column | colour |
+|---|---|
+| Δ amount | `--pos` / `--neg` — `rgb(15,122,68)` on a favourable line |
+| Δ % | `--ink`, neutral — `rgb(59,66,86)` |
+| F / U mark | `--pos` / `--neg`, the SAME green as the amount |
+
+So colour does land twice on that pair — on the amount and on the favourability letter
+beside the percentage. Colouring the number as well would be the third rendering of one
+signal in one row, and on an income statement the sign and the favourability are not the
+same fact: an expense that ROSE is a negative Δ and unfavourable, while a revenue line
+that rose is positive and favourable. The letter is what carries that distinction; the
+percentage is a magnitude and stays quiet.
+
+**A per-line progress/coverage BAR COLUMN was considered and declined.** This file has
+already run that experiment: `contrib` was a bar-in-a-cell column and it was retired
+(2026-08-28) for reasons that apply again — 25 bars are a second chart competing with the
+figures beside them, and a bar scaled per row cannot be read against its neighbours. The
+same argument retired the 12-period sparkline from the default column set. Coverage is a
+question asked of ONE line, and the inspect panel already answers it with a coverage bar
+against the tolerance tick. If a per-line cue is ever wanted on the grid, the honest
+version is a micro-bar inside the Explanation cell for partly-explained lines only — a
+handful of rows, not every row — and it needs the owner's call, not a unilateral change.
+
+### Later the same day — the worklist reads from YOUR side of the review
+
+Owner: *"the KPI should be a snapshot for both preparer and reviewer and it should flip
+based on the credentials … preparer will see how many flux explanations are needed, how
+many you need to sign off, what is with the reviewer."*
+
+**ONE PIPELINE, READ FROM ONE END OR THE OTHER.** The tiles are the review's own states,
+ordered the way the work actually flows, and every one is a filter:
+
+| lens | tiles |
+|---|---|
+| **preparer** | `needs explanation` → `ready to submit` → `with reviewer` |
+| **reviewer** | `awaiting your review` · `you returned` · `with preparer` |
+| **read-only** | `in review` · `returned` · `with preparer` |
+
+Then `explained %` (with the stacked meter) and `reviewed N/M` on both.
+
+**IT CANNOT FLIP ON THE JOB TITLE, and that is the whole design problem.** `FX_CAPS`
+gives Accounting Manager, Controller and the CAO **both** prepare and review — three of
+six roles, and every role that actually works a close. A strip keyed on the title would
+show those three one queue and silently hide the other. What decides the side is the
+LINE: `canReviewLine()` means nobody reviews a line they prepared, so on any given line
+you are one or the other. Same discipline `cmtRole()` follows — read the side off the
+RECORD, never off a title.
+
+**A DUAL ROLE GETS THE PREPARER PIPELINE, and its review queue surfaces as an
+exception.** You prepare before you review; and the reviewer pipeline for someone who
+prepared the statement is three zeros, because `awaitingMyReview` excludes lines you
+prepared — it is empty *precisely when* you are the one who explained them. So the review
+queue is not lost: `awaiting your review` appears as an exception tile the moment it is
+non-empty, which is the discipline every other exception in this bar already follows.
+
+**A QUEUE SWITCH WAS BUILT AND REMOVED** (owner: *"remove this — system should update the
+KPI based on the role"*). A `Preparing | Reviewing` pair sat at the head of the strip for
+dual-cap roles. It asked a reviewer to tell the product something the product already
+knows, and a control that only restates a fact is one more thing to get wrong. `lensOf()`
+derives it; there is no `S.lens`, no stored preference and nothing to press.
+
+**READ-ONLY OWNS NOTHING, so its lens says so.** FP&A and External Auditor have
+`review:0`, which made `awaitingMyReview` a permanent zero — a tile promising a queue
+they are not allowed to hold. They get a third lens: the same pipeline in neutral words,
+no hero, no accent edge.
+
+**ONE PREDICATE, THREE READERS.** `rowReady(r)` is the whole definition of "ready to hand
+over" — explained inside tolerance, still with the preparer, and (if returned) every
+reviewer comment addressed. `readyToSubmit()` is now literally `rows().filter(rowReady)`,
+the `Ready to submit` filter is `!rowReady(r)`, and the tile counts the same. The Submit
+CTA already lived by that rule ("a button reading Submit 3 can never submit two"); the
+tile and the filter now live by it too, so a tile reading 3 cannot open a statement of 2.
+
+`SHOWS` gains **Ready to submit · With a reviewer · Awaiting your review · With the
+preparer**, so every tile is also reachable from Workflow › Status and names itself in the
+Selected filters strip once it is on.
+
+**`unexplained` left the always-on set.** It is the same fact as the gauge beside it in a
+different unit — the gauge IS its complement — and the per-line figure is already a column
+in the statement. Still a filter, and it returns as a tile while it is the active one.
+
+**THE HERO IS `needs explanation`, not "to explain"** (owner asked for a better name). Not
+taste — consistency: this exact state is already called *Needs explanation* by `FXST.need`
+in the Explanation column, by the Status filter and by the Selected filters chip. "To
+explain" was a fourth name for one state, which is the same drift that had this bar saying
+"signed off" while the column said "Reviewed".
+
+**And it exposed a real layout bug.** The tiles were `flex:1 1 0` — forced to equal width —
+so with the review panel taking 440px every tile shrank to 141px and the LONGEST label (the
+hero, the one that matters) spilled past its own tile edge, while `explained` and `reviewed`
+sat in slack they did not need. `flex:1 1 auto` sizes each tile to its content and shares the
+remainder: measured, no overflow and no truncation with the panel closed, with it open, or in
+the observing lens. An ellipsis backstop keeps a longer label added later from spilling, with
+the full text in the tooltip every tile already carries.
+
+**Verified:** 60/60 views · console clean · 10/10 chrome themes AA · content text gate
+clean · spacing ratchet green · five tiles in every lens · the strip flips correctly
+across all six roles (Asset Manager and the three dual roles → preparer; FP&A and External
+Auditor → the observing lens) · the three new filters open exactly what their tiles count
+(`ready` and `myrev` both 0 and both render the empty state; `wprep` opens 6 lines) ·
+balance sheet renders the same five tiles.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
