@@ -8,6 +8,20 @@ there; this file is the map and the shared rules.
 > the product. Everything under `apps/` is now a predecessor kept for reference — read from them,
 > edit them only if asked by name.
 
+> **THE LIVE BRANCH IS `design/ui-overhaul-phase1`, NOT `main`.** Check with `git branch --show-current`
+> before you read a line of `index.html`. `main` is seven commits behind and does not have the UI
+> overhaul: no inspect-panel hierarchy, no mono figures, no materiality impact filter. The two
+> branches render a visibly different Flux surface from an `index.html` of nearly identical size,
+> so **a file that looks plausible is not evidence you are on the right branch** — and neither is a
+> clean `git status`, which is equally clean on both.
+>
+> This is written down because it has already cost real work. On 2026-08-30 a session opened just
+> after a `checkout` from this branch to `main`, read `main`'s `index.html`, found it byte-identical
+> to `HEAD`, and concluded on that basis that nothing was missing — while the owner was looking at a
+> screen this branch renders and `main` cannot. **When the file disagrees with what the owner
+> describes, suspect the branch before you suspect the file.** Nothing was lost (the work was
+> committed and pushed here), but the reflog was the thing that should have been read first.
+
 | You're working in… | Read |
 |---|---|
 | **`index.html` — THE main file** | this document, then the file's own token/system comments |
