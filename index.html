@@ -590,6 +590,14 @@ b,strong{font-weight:var(--fw-strong)}
    never again silently leave the type system. font-size is deliberately NOT inherited:
    controls set their own, and forcing it would flatten the scale. */
 button,input,select,textarea,optgroup{font-family:inherit}
+/* AND A BUTTON HAS NO BORDER UNLESS IT ASKS FOR ONE (2026-09-01). A <button> that declares
+   only border-bottom — the row idiom used by every list in this product — inherits the user
+   agent's 2px OUTSET BLACK border on the other three sides. Measured before this rule: 98 of
+   187 buttons were painting one, including every Close attention row, every Assigned-to-me
+   row and the ribbon lens buttons; that is the heavy outlining reported on Close. The 16
+   buttons that declare a real border (.btn-out, .pop rows, the segmented controls) are
+   untouched — they set border explicitly and out-specify this reset. */
+button{border:0}
 /* and the same hole on the other side: <code>/<kbd>/<samp> with no rule fall through to
    the UA's generic `monospace`, not the face this file embeds. --mono is IBM Plex Mono. */
 code,kbd,samp,pre{font-family:var(--mono)}
@@ -769,36 +777,45 @@ body.at-home .ribbon-brand:hover .brand-lockup{opacity:1}
 .cstrip-l .tag{font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--chrome-text-mute);
   border:1px solid var(--chrome-border);border-radius:var(--radius-pill);padding:1px 7px}
 .cstrip-sep{flex:none;width:1px;height:16px;background:var(--chrome-border)}
-/* the pipeline: dot + label + count. Scrolls (hidden bar) rather than wrapping if it ever
-   exceeds the row; the right cluster stays pinned. */
-.cstrip-pipe{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:1px;overflow-x:auto;overflow-y:hidden}
+/* THE WORKSPACE TAG — the left cell on every NON-accounting workspace, where Accounting
+   carries its period chip. Same type as that chip (uppercase tracked label) so the strip
+   reads as one row of chrome at both shapes, but it is text, not a control: the workspace
+   is chosen in the ribbon above it and a second way in would be a duplicate entry point. */
+.cstrip-l .ctx-tag{font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--chrome-text);font-weight:var(--fw-medium)}
+/* CLAUSES — the middle of the strip at both shapes. A clause is label + value, and it is a
+   BUTTON when it has a page that owns it, plain text when it does not (no dead controls).
+   This replaces the six-stage close pipeline, whose dots, arrows and per-stage counts spent
+   the whole row restating the Close workspace on five screens that have no close. Its CSS is
+   retired with it. Scrolls rather than wraps — the row must stay one row. */
+.cstrip-pipe{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:0;overflow-x:auto;overflow-y:hidden}
 .cstrip-pipe::-webkit-scrollbar{height:0}
-.cstage{flex:none;display:flex;align-items:center;gap:7px;border:none;background:none;cursor:pointer;
-  color:var(--chrome-text-2);font:inherit;font-size:var(--fs-table);padding:0 9px;height:24px;
+.cclause{flex:none;display:flex;align-items:baseline;gap:var(--s-2);border:none;background:none;
+  color:var(--chrome-text-2);font:inherit;font-size:var(--fs-table);padding:0 var(--s-3);height:var(--h-chip);
   border-radius:var(--radius-xs);white-space:nowrap;transition:var(--dur-1) var(--ease)}
-.cstage:hover{background:var(--chrome-lift);color:var(--chrome-text)}
-.cstage[disabled]{cursor:default}
-.cstage[disabled],.cstage[disabled] .nm{color:var(--chrome-text-mute)}
-.cstage[disabled]:hover{background:none;color:var(--chrome-text-mute)}
-.cstage .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--chrome-text-mute)}
-.cstage[data-st="ok"] .dot{background:var(--success-on-chrome)}
-.cstage[data-st="warn"] .dot{background:var(--warning-on-chrome)}
-.cstage[data-st="err"] .dot{background:var(--danger-on-chrome)}
-.cstage .nm{color:var(--chrome-text);font-weight:var(--fw-regular)}
-.cstage .ct{color:var(--chrome-text-2)}
-.cstage-arrow{flex:none;color:var(--chrome-text-mute);opacity:.55;font-size:var(--fs-micro)}
-/* right cluster: derived metrics + the relocated period / as-of controls (#hdrCtl) */
+button.cclause{cursor:pointer}
+button.cclause:hover{background:var(--chrome-lift);color:var(--chrome-text)}
+button.cclause:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cclause.ro{cursor:default}
+.cclause .ck{font-size:var(--fs-label);letter-spacing:.05em;text-transform:uppercase;
+  color:var(--chrome-text-mute)}
+.cclause .cv{color:var(--chrome-text);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+/* State colour on a clause only when the clause IS a state — a degraded feed or a blocked
+   close. A healthy strip is monochrome, so the one coloured word on it is worth looking at. */
+.cclause .cv.warn{color:var(--warning-on-chrome)}
+.cclause .cv.bad{color:var(--danger-on-chrome)}
+/* right cluster: data freshness, then the relocated as-of / window controls (#hdrCtl) */
 .cstrip-r{flex:none;display:flex;align-items:center;gap:14px;white-space:nowrap}
-.cstrip-m{display:flex;align-items:center;gap:16px}
-.cstrip-m .m{display:flex;align-items:baseline;gap:5px}
-.cstrip-m .m .mk{font-size:var(--fs-label);letter-spacing:.05em;text-transform:uppercase;color:var(--chrome-text-mute)}
-.cstrip-m .m .mv{color:var(--chrome-text);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
-.cstrip-m .m .mv.bad{color:var(--danger-on-chrome)}
-.cstrip-m .m .mv.warn{color:var(--warning-on-chrome)}
-/* At tablet width, drop the metric labels then the left close-cycle label; the pipeline scrolls
-   and the controls stay reachable. The whole strip goes with the ribbon under 860 (mobile grid). */
-@media(max-width:1200px){ .cstrip-m .m .mk{display:none} }
-@media(max-width:1000px){ .cstrip-l .tag{display:none} }
+/* FRESHNESS — horizontal, so it reads the same on every workspace. Two lines inside the
+   36px row: what the data reaches, and when it was last read. This is the honest answer to
+   "how current is this screen" and it is NOT an accounting period. */
+.cstrip-fresh{display:flex;flex-direction:column;justify-content:center;gap:0;line-height:var(--lh-tight)}
+.cstrip-fresh .fv{font-size:var(--fs-label);color:var(--chrome-text);font-weight:var(--fw-medium)}
+.cstrip-fresh .fs{font-size:var(--fs-micro);color:var(--chrome-text-mute)}
+/* At tablet width the freshness detail line goes, then the workspace/period tag; the clause
+   row scrolls and the controls stay reachable. The strip goes with the ribbon under 860. */
+@media(max-width:1200px){ .cstrip-fresh .fs{display:none} }
+@media(max-width:1000px){ .cstrip-l .tag{display:none} .cstrip-fresh{display:none} }
 
 /* legacy rail sub-nav classes kept in case any render path references them (secnav uses its own styles) */
 .railtab{display:flex;align-items:center;gap:10px;border:none;background:none;cursor:pointer;
@@ -1552,8 +1569,9 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 
 
 /* ---- HOME sections -----------------------------------------------------------------------
-   Six fixed sections. No grid spans, no drag targets, no edit mode — a section is a .card and
-   the page is the order they appear in. */
+   THREE fixed sections — Needs your attention · Enterprise status · Recent decisions &
+   changes. No grid spans, no drag targets, no edit mode: a section is a .card and the page
+   is the order they appear in. */
 .hsec{margin-bottom:var(--s-4)}
 .hsec-hd{display:flex;align-items:baseline;gap:var(--s-2);margin-bottom:var(--s-3)}
 .hsec-hd h2{margin:0}
@@ -1562,10 +1580,131 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .hsec-go{margin-left:auto;font-size:var(--fs-label);font-weight:var(--fw-medium);
   color:var(--accent);cursor:pointer;white-space:nowrap}
 .hsec-go:hover{color:var(--accent-ink)}
+
+/* ---- THE 70/30 COMMAND COMPOSITION -------------------------------------------------------
+   The priority queue is the page and the Enterprise Pulse is a rail beside it. Two equal
+   columns would say your work and the enterprise's health matter the same amount, which is
+   not what a command centre is for. Stacks under 1180px, priority first — on a narrow screen
+   the rail is the thing that can wait. */
+.hgrid{display:grid;grid-template-columns:minmax(0,68fr) minmax(300px,32fr);
+  gap:var(--s-4);align-items:start}
+.hgrid-main,.hgrid-side{min-width:0}
+@media(max-width:1180px){ .hgrid{grid-template-columns:minmax(0,1fr)} }
+
+/* ---- THE PRIORITY QUEUE (.kq) — Needs your attention --------------------------------------
+   A WORK QUEUE, NOT A TABLE AND NOT OUTLINED FORM CONTROLS. One container, hairlines inside
+   it, and nothing else: no column headers, no sort carets, no per-row card, no radius. It was
+   a six-column grid — severity, module, title, meta, owner, chevron — all on one baseline,
+   which distributes the eye horizontally and buries the one thing worth scanning. It is
+   STACKED now: a quiet STATE · MODULE line, then the issue as the strongest text on the page,
+   then its business context. Titles line up in a column, so the page is scanned by reading
+   down them.
+
+   Severity is a 3px left strip and a small word (rule 8 — a border and never also a dot or a
+   pill), and only the two states that ARE states take colour. An approval, an exception and a
+   watch are ordinary work; five ramp steps of red and amber down one list is the alarm
+   fatigue rule 3 exists to prevent.
+
+   Rows are full-bleed to the card edge, so the hover tint reads as "this row" rather than as
+   a card that grew a background — the same discipline the inspect panel's thread uses. The
+   negative margin is paid for in width or the row falls short on the right. */
+.kq{display:flex;flex-direction:column}
+.kq-r{display:grid;grid-template-columns:minmax(0,1fr) auto 14px;align-items:center;
+  gap:var(--s-4);text-align:left;background:none;border:0;
+  border-left:3px solid transparent;border-bottom:1px solid var(--line);
+  padding:var(--s-3) var(--s-4) var(--s-3) calc(var(--s-4) - 3px);
+  margin:0 calc(var(--pad-card) * -1);width:calc(100% + var(--pad-card) * 2);
+  cursor:pointer;font:inherit;color:var(--ink);transition:var(--dur-1) var(--ease)}
+.kq-r:last-child{border-bottom:0}
+.kq-r:hover{background:var(--surface2)}
+.kq-r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kq-b{min-width:0;display:flex;flex-direction:column;gap:0}
+/* STATE · MODULE — the metadata line, quiet and above the title. It is context for the issue,
+   not a column of its own, so it never competes with the sentence beneath it. */
+.kq-h{display:flex;align-items:baseline;gap:var(--s-2);min-width:0}
+.kq-h .kq-s{font-size:var(--fs-label);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);color:var(--muted);white-space:nowrap}
+.kq-h .kq-m{font-size:var(--fs-label);color:var(--hint);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.kq-h .kq-m::before{content:"·";margin-right:var(--s-2);color:var(--n-300)}
+.kq-r[data-k="crit"]{border-left-color:var(--neg)}
+.kq-r[data-k="crit"] .kq-s{color:var(--neg)}
+.kq-r[data-k="rev"]{border-left-color:var(--warning)}
+.kq-r[data-k="rev"] .kq-s{color:var(--warning)}
+/* THE ISSUE IS THE STRONGEST TEXT ON THE PAGE — one step up from body, medium weight, ink.
+   This is the line the eye is meant to land on. */
+.kq-t{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink-strong);
+  letter-spacing:var(--tracking-tight);line-height:var(--lh-tight);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kq-d{font-size:var(--fs-table);color:var(--muted);line-height:var(--lh-tight);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* right-side metadata — owner, due, stage. Stacked, quiet, and it gives way before the title
+   does: it is what a reader checks AFTER deciding the row matters. */
+.kq-r2{display:flex;flex-direction:column;align-items:flex-end;gap:0;
+  font-size:var(--fs-label);color:var(--hint);white-space:nowrap;
+  font-variant-numeric:tabular-nums;text-align:right}
+.kq-c{width:14px;height:14px;color:var(--n-300);flex:none}
+.kq-r:hover .kq-c,.kst-r:hover .kq-c{color:var(--accent)}
+.kq-empty{padding:var(--s-4) 0;font-size:var(--fs-table);color:var(--muted)}
+/* PROGRESSIVE DISCLOSURE. Five items lead and the rest are one click away; the full inventory
+   is in My Work, Approvals and Exceptions. A queue that shows everything has no priority. */
+.kq-more{display:block;width:calc(100% + var(--pad-card) * 2);margin:0 calc(var(--pad-card) * -1);
+  padding:var(--s-3) var(--s-4);border:0;background:none;cursor:pointer;font:inherit;
+  text-align:left;font-size:var(--fs-label);font-weight:var(--fw-medium);color:var(--accent);
+  transition:var(--dur-1) var(--ease)}
+.kq-more:hover{background:var(--surface2)}
+.kq-more:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+@media(max-width:760px){ .kq-r{grid-template-columns:minmax(0,1fr) 14px} .kq-r2{display:none} }
+
+/* ---- ENTERPRISE PULSE (.kst) — the supporting rail ----------------------------------------
+   A STATUS PANEL, NOT A TABLE: no column headers, no sort, no scope restatement. Quieter than
+   the priority queue by every measure — smaller card, tighter rows, no severity strip — because
+   it answers "which parts of the enterprise have problems", which is orientation, not work. */
+.kst{display:flex;flex-direction:column}
+.kst-r{display:grid;grid-template-columns:minmax(0,1fr) auto 14px;align-items:center;
+  gap:var(--s-2);text-align:left;background:none;border:0;
+  border-bottom:1px solid var(--line);padding:var(--s-1) var(--s-4);
+  margin:0 calc(var(--pad-card) * -1);width:calc(100% + var(--pad-card) * 2);
+  cursor:pointer;font:inherit;color:var(--ink);transition:var(--dur-1) var(--ease)}
+.kst-r:last-child{border-bottom:0}
+.kst-r:hover{background:var(--surface2)}
+.kst-r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kst-b{min-width:0;display:flex;flex-direction:column;gap:0}
+.kst-m{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
+  line-height:var(--lh-tight);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kst-t{font-size:var(--fs-label);color:var(--muted);line-height:var(--lh-tight);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the attention value, and it appears only when something is owed — a healthy rail is
+   monochrome, so the one amber mark in it is worth looking at */
+.kst-a{font-size:var(--fs-label);color:var(--warning);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+
+/* ---- RECENT DECISIONS & CHANGES (.krc) — tertiary ------------------------------------------
+   One column, what happened and when. Smaller type than the priority queue and no metadata
+   beyond the age, so it cannot compete with the section it sits under. */
+.hrec{margin-top:var(--s-4)}
+.krc{display:flex;flex-direction:column}
+.krc-r{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;
+  gap:var(--s-4);text-align:left;background:none;border:0;
+  border-bottom:1px solid var(--line);padding:var(--s-2) var(--s-4);
+  margin:0 calc(var(--pad-card) * -1);width:calc(100% + var(--pad-card) * 2);
+  cursor:pointer;font:inherit;color:var(--ink);transition:var(--dur-1) var(--ease)}
+.krc-r:last-child{border-bottom:0}
+.krc-r:hover{background:var(--surface2)}
+.krc-r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.krc-t{font-size:var(--fs-table);color:var(--ink);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.krc-w{font-size:var(--fs-label);color:var(--hint);white-space:nowrap;
+  font-variant-numeric:tabular-nums;min-width:4ch;text-align:right}
+
+
 /* A STRIP, NOT CARDS. Six figures on one rule-separated line: no per-figure border, no basis
    line, no drill link. Cards invited all three, which is how a status line became a dashboard.
-   It wraps rather than scrolls, because a figure that is off-screen is not a position. */
+   It wraps rather than scrolls, because a figure that is off-screen is not a position.
+   Now used only by the surfaces that moved off Home Overview (Close position lives on
+   Accounting > Close); kept because those surfaces still render it. */
 .hstrip{display:flex;flex-wrap:wrap;gap:0;border:var(--rule);border-radius:var(--radius);
+  background:var(--surface);overflow:hidden}
   background:var(--surface);overflow:hidden}
 .hst{flex:1 1 150px;min-width:0;padding:var(--pad-kpi);border-right:var(--rule);
   display:flex;flex-direction:column;gap:2px}
@@ -2504,8 +2643,14 @@ footer b{color:var(--muted)}
 .cw-tbl tbody tr:hover .go{color:var(--accent)}
 
 /* ---- MY WORK · RECENT ACTIVITY — both secondary to attention ------------- */
-.cw-q .r{display:flex;align-items:center;gap:var(--s-3);padding:calc(var(--s-3) - 2px) var(--s-4);
-  border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;cursor:pointer}
+/* ASSIGNED TO ME — same discipline as the attention list (brief §12): hairline separators,
+   restrained hover, no outline. The border:0 before border-bottom is there for the
+   user-agent reason noted below; without it every row here drew a 2px outset black box. */
+.cw-q .r{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) var(--s-4);
+  margin:0 calc(var(--pad-card) * -1);border:0;width:calc(100% + var(--pad-card) * 2);
+  border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer;
+  transition:var(--dur-1) var(--ease)}
+.cw-q .r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .cw-q .r:last-child{border-bottom:none}
 .cw-q .r:hover{background:var(--surface2)}
 .cw-q .r .nm{font-size:var(--fs-table);color:var(--ink)}
@@ -2549,11 +2694,19 @@ footer b{color:var(--muted)}
 .cw-prog .pb i{display:block;height:100%;background:var(--accent)}
 .cw-sec{font-size:var(--fs-label);text-transform:uppercase;letter-spacing:var(--tracking-label);
   color:var(--muted);margin:var(--s-6) 0 var(--s-2)}
-/* WHAT REQUIRES ATTENTION — severity is a 3px left border and nothing else (rule 8) */
-.cw-att{border:1px solid var(--line2);border-radius:var(--radius);background:var(--surface);overflow:hidden}
-.cw-att .r{display:flex;align-items:center;gap:var(--s-3);padding:calc(var(--s-3) - 2px) var(--s-4);
+/* WHAT REQUIRES ATTENTION — severity is a 3px left border and nothing else (rule 8).
+   NO CONTAINER BOX (2026-09-01, brief §11). It was a bordered, radiused panel INSIDE a
+   bordered card — box-in-box, and the outer edge read as a heavy outline drawn round every
+   row. Rows now separate by a hairline and the severity strip, full-bleed to the card edge,
+   which is the enterprise work-queue idiom the brief asks for and the same treatment Home's
+   .kq uses. The border:0 on the row is load-bearing: these are <button> elements, and a
+   button that declares only border-bottom inherits the user agent's 2px outset default on
+   the other three sides — which is literally where the heavy dark outlines came from. */
+.cw-att{background:none}
+.cw-att .r{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) var(--s-4);
+  margin:0 calc(var(--pad-card) * -1);border:0;width:calc(100% + var(--pad-card) * 2);
   border-left:3px solid transparent;border-bottom:1px solid var(--line);cursor:pointer;
-  font-size:var(--fs-table);color:var(--ink);width:100%;background:none;text-align:left}
+  font-size:var(--fs-table);color:var(--ink);background:none;text-align:left}
 .cw-att .r:last-child{border-bottom:none}
 .cw-att .r:hover{background:var(--surface2)}
 .cw-att .r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
@@ -19182,7 +19335,15 @@ function etNodes(){
 /** Equity-method investees. A separate population, never merged into etNodes(). */
 function etInvest(){ return CONS_INVEST_ORDER.map(nm=>({nm,...CONS_INVEST[nm],invest:true})); }
 const etIsInvest=nm=>!!(nm&&CONS_INVEST[nm]);
-const etLabel=()=>F.entity&&F.entity!=='all'?F.entity:'Consolidated group';
+/* ENTERPRISE SCALE (2026-09-01, brief §9). Korvyn is designed for a group with hundreds of
+   legal entities; the prototype models a handful in full detail. Stating only the modelled
+   count made the product look like it was built for a four-entity company. ENT_TOTAL is the
+   size of the GROUP; CONS_ORDER is what is modelled here, and the scope control says both so
+   the representative slice is never mistaken for the whole enterprise. No rows are invented —
+   a fabricated 612-row tree would be worse than an honest four. */
+const ENT_TOTAL=612;
+const entTotalLabel=()=>ENT_TOTAL.toLocaleString('en-US')+' entities';
+const etLabel=()=>F.entity&&F.entity!=='all'?F.entity:'Consolidated Group';
 /** Ownership as the tree states it. The parent is the top of the structure, not a holding
     in itself, so it reads Parent rather than a percentage. */
 const etOwn=e=>e.parent?'Parent':(e.own==null?'&mdash;':(e.own*100).toFixed(e.own*100%1?1:0)+'%');
@@ -19195,8 +19356,8 @@ function etScopeHTML(){
      reads like any other entity, and every consolidated figure on the page would appear to
      be "for" an entity whose figures are not in the consolidation at all. */
   const note=inv?'equity method &#183; not consolidated'
-             :sel?'1 of '+CONS_ORDER.length+' entities'
-             :CONS_ORDER.length+' entities';
+             :sel?'1 of '+entTotalLabel()
+             :entTotalLabel();
   return `<button class="et-scope ${inv?'invest':''}" onclick="etOpen(event)"
       title="Scope every figure on this page">
     <span class="lbl">Scope</span>${etLabel()}
@@ -19229,12 +19390,15 @@ function etOpen(ev){
       <div class="et-why">${e.basis}</div>`;
   const parent=nodes.find(n=>n.parent), kids=nodes.filter(n=>!n.parent);
   const m=document.createElement('div'); m.className='et-pop'; m.id='wsPop';
-  m.innerHTML=`<div class="hd">Consolidation scope</div>
+  m.innerHTML=`<div class="hd">Consolidation scope
+      <span class="hd-note">${entTotalLabel()} in the group</span></div>
     <div class="et-node ${!F.entity||F.entity==='all'?'on':''}" onclick="etPick('all')">
       <span class="stdot" style="background:var(--n-300)"></span>
-      <span class="nm">Consolidated group</span>
+      <span class="nm">Consolidated Group</span>
       <span class="pctv own">100%</span><span class="et-meth" data-m="full">Full</span>
       <span class="pctv">&mdash;</span></div>
+    <div class="hd" style="margin-top:var(--s-3)">Principal entities
+      <span class="hd-note">${CONS_ORDER.length} of ${ENT_TOTAL.toLocaleString('en-US')} modelled in detail</span></div>
     <div class="etree">
       ${parent?node(parent,false):''}
       ${kids.map(k=>node(k,true)).join('')}
@@ -19558,74 +19722,291 @@ function detStatusAt(id,asof){
   DET_LOG.filter(e=>e.det===id&&e.ts<=asof).forEach(e=>{ st=e.next; });
   return st;
 }
+/* WINDOW AND AS-OF ARE GONE FROM THE TWO WORKSPACES THAT ALREADY ANSWER THE QUESTION
+   (2026-09-01, brief §7 and §14). The strip's own freshness readout — "Live · Jun 30, 2026 /
+   Last sync 10 min ago" — states how current the screen is; a second "AS OF · Live" control
+   beside it said the same word again, and on Home a "WINDOW · Inception to date" picker asked
+   an accounting-presentation question of an enterprise work queue that has no single period.
+   Two controls for one fact is the duplication this pass is removing everywhere else.
+
+   NOT DELETED, AND DELIBERATELY SO. `ASOF`, `hdrAsOf()` and `detStatusAt()` are the exact
+   replay of the append-only decision log and are what a certified / historical view will be
+   built on; `hdrPeriod()` still drives the window on every module that genuinely has one.
+   Both controls remain on those modules — Fixed Assets, Procurement, FP&A, Treasury,
+   Reporting — where the window is a real choice and no freshness line competes with it. */
 function paintHdrCtl(){
   const el=document.getElementById('hdrCtl'); if(!el) return;
   const per=({itd:'Inception to date',ytd:'Year to date',quarter:'Quarter',month:'Month'})[F.periodType]||'Window';
-  const onAcct=(typeof LENS!=='undefined'&&LENS==='ledger');
+  const lens=(typeof LENS!=='undefined')?LENS:'portfolio';
+  const onAcct=(lens==='ledger');       // period settled by the book; window is Presentation
+  const onHome=(lens==='portfolio');    // an enterprise queue spans periods; no window to pick
+  if(onAcct||onHome){ el.innerHTML=''; return; }
   el.innerHTML=`
-    ${onAcct?'':`<button class="hdr-btn" onclick="hdrPeriod(event)"
+    <button class="hdr-btn" onclick="hdrPeriod(event)"
       title="How much of the period to show">
-      <span class="k">Window</span>${per}</button>`}
+      <span class="k">Window</span>${per}</button>
     <button class="hdr-btn ${ASOF?'rewound':''}" onclick="hdrAsOf(event)"
       title="View decision state as it stood at a prior timestamp">
       <span class="k">As of</span>${ASOF||'Live'}</button>`;
 }
-/* ---- close-context strip (row 2 of the two-row shell) ------------------------------------
-   The whole content of the strip beneath the ribbon, and EVERY figure on it derives — nothing
-   authored, per the RECON_SCALE cautionary rule. Left: the close cycle. Centre: a linear close
-   pipeline whose per-stage state and count come from the same accessors the rest of the app
-   reads (srcHealth, CLOSE_TASKS via closeTotals/clBlocked, GL_RECON, csxEntities,
-   FILING_APPROVALS). Right: Day / completion / TB-delta, then #hdrCtl (period + as-of), which
-   paintHdrCtl fills right after this in the paint cycle. Chrome-token classes only. */
+/* ============================================================================
+   SHARED ENTERPRISE OBJECTS — one object, many contextual views (2026-09-01)
+   ============================================================================
+   Korvyn's architecture contract: ONE approval object appears in Home > Approvals
+   AND in the Accounting workspace that raised it, and it is the SAME object with
+   the same id, owner, status and history. It is NOT a HomeApproval and an
+   AccountingApproval that happen to agree today and drift tomorrow.
+
+   These accessors are the normalization layer. They do NOT hold data — every one
+   DERIVES from the array that already models the concept (FILING_APPROVALS,
+   CLOSE_TASKS, cpInsights(), amKpi()), and stamps on the identity and context an
+   enterprise object has to carry:
+
+     id · type · module · workspace · period · entityScope · owner · status ·
+     source · sourceObjectId · go (where the object is worked)
+
+   That is the traceability FOUNDATION (no graph, no lineage engine — just stable
+   identity and context on the objects that already exist). A page that wants "the
+   approvals for this period" filters kApprovals(); it does not build its own list.
+
+   PERIOD IS A PROPERTY OF THE OBJECT, NOT OF THE VIEWER. A Home queue legitimately
+   holds a Jun 2026 close task beside a Q2 reporting approval — which is exactly why
+   Home must not wear an accounting-period ribbon. Each object states its own period;
+   Home shows them side by side and says so. */
+const KMOD={ledger:'Accounting',filings:'Reporting',assets:'Fixed Assets',
+            procure:'Procurement',fpa:'FP&A',treasury:'Treasury',portfolio:'Enterprise'};
+/* The signed-in user in the two forms the book writes: initials on filing/approval
+   records, "F. Last" on close and reconciliation records. Matched on surname plus
+   first initial, which is the only thing the two forms share. */
+const kMe=()=>({ini:(typeof ME!=='undefined'&&ME)||'MG',
+                nm:(typeof USER_NAME!=='undefined'&&USER_NAME)||'Mitra Giri'});
+function kIsMe(who){
+  if(!who)return false; const m=kMe(); const w=String(who).trim();
+  if(w===m.ini||w===m.nm)return true;
+  const p=m.nm.split(/\s+/); if(p.length<2)return false;
+  return w===p[0][0]+'. '+p[p.length-1] || w===p[0]+' '+p[p.length-1];
+}
+
+/* APPROVALS — the enterprise approval queue. One source today (Reporting sign-off);
+   accounting entity certification is the next source to fold in, and when it is it
+   joins HERE rather than becoming a second queue. */
+function kApprovals(){
+  const out=[];
+  try{ FILING_APPROVALS.forEach((a,i)=>out.push({
+    id:'APR-F'+String(i+1).padStart(3,'0'), type:'approval',
+    module:'Reporting', workspace:'Filings', period:'Q2 2026', entityScope:'Consolidated Group',
+    item:a.item, context:a.sec, approver:a.who, owner:a.who,
+    status:a.st, requestedAt:a.dt, completedAt:a.st==='approved'?a.dt:null,
+    source:'FILING_APPROVALS', sourceObjectId:a.item, src:a,
+    go:"pickLens('filings');pickTab('fdetail');setFDetailTab('appr')"})); }catch(e){}
+  return out;
+}
+const kApprOpen=()=>kApprovals().filter(a=>a.status==='pending');
+
+/* TASKS — the enterprise work universe. Close checklist items are specialized work
+   objects stamped with the module, workspace and period they belong to; they are not
+   a separate task architecture. */
+function kTasks(){
+  const out=[];
+  try{ CLOSE_TASKS.forEach(t=>out.push({
+    id:t.id, type:'task',
+    module:'Accounting', workspace:'Close', period:(typeof viewLabel==='function'?viewLabel():'Jun 2026'),
+    entityScope:t.ent, item:t.nm, context:t.fn,
+    owner:t.own, reviewer:t.rev, status:t.st, due:t.due,
+    source:'CLOSE_TASKS', sourceObjectId:t.id, src:t,
+    go:"pickLens('ledger');pickTab('acctclose')"})); }catch(e){}
+  return out;
+}
+const kTaskOpen=()=>kTasks().filter(t=>t.status!=='done');
+const kTaskMine=()=>kTaskOpen().filter(t=>kIsMe(t.owner)||kIsMe(t.reviewer));
+
+/* EXCEPTIONS — the enterprise exception universe. cpInsights() is already the single
+   detector: every exception in the product is derived from live records by a rule, and
+   Accounting's exception command centre is a FILTERED VIEW of these, not a second
+   model. The `module` stamp is what makes that filter possible. */
+function kExceptions(){
+  const out=[];
+  try{ cpInsights().forEach((i,n)=>out.push({
+    id:'EXC-'+String(n+1).padStart(3,'0'), type:'exception',
+    module:i.mod||'Accounting', workspace:i.ws||'', period:(typeof viewLabel==='function'?viewLabel():'Jun 2026'),
+    entityScope:'Consolidated Group', item:i.t, context:i.d,
+    severity:i.sev, status:'open', owner:null,
+    source:'cpInsights', sourceObjectId:i.t, src:i, go:i.go})); }catch(e){}
+  return out;
+}
+
+/* ISSUES — accounting KNOWLEDGE objects (a capitalization conclusion, a revenue
+   question, an impairment assessment). Deliberately NOT merged into exceptions: an
+   issue is raised and reasoned by a person, an exception is detected by a rule. */
+function kIssues(){
+  const out=[];
+  try{ (amKpi().open||[]).forEach(x=>out.push({
+    id:x.id||('ISS-'+(x.nm||x.t||'')), type:'issue',
+    module:'Accounting', workspace:'Accounting Issues',
+    period:(typeof viewLabel==='function'?viewLabel():'Jun 2026'),
+    entityScope:x.ent||'Consolidated Group', item:x.t||x.nm, context:x.topic||'',
+    owner:x.own||null, status:x.st||'open',
+    source:'amKpi', sourceObjectId:x.id||null, src:x,
+    go:"pickLens('ledger');pickTab('issues')"})); }catch(e){}
+  return out;
+}
+
+/* MY WORK — the enterprise personal queue, assembled from the shared objects above
+   plus the determinations and review comments that already model themselves. There is
+   exactly ONE of these; Close may offer "assigned to me" as a filter over kTasks(),
+   never as a second queue. */
+function kMyWork(){
+  const out=[];
+  try{ cipScope().filter(p=>p.status==='ready'||p.status==='review').forEach(p=>out.push({
+    id:p.id, type:'determination', module:'Fixed Assets', workspace:'CIP',
+    period:'Current', entityScope:p.entity||'', item:p.name, context:p.id+' · PIS determination',
+    owner:kMe().ini, status:p.status, age:p.days+'d',
+    source:'CIP_PROJECTS', sourceObjectId:p.id,
+    go:"pickLens('assets');pickTab('cip')"})); }catch(e){}
+  kApprOpen().forEach(a=>out.push({...a, type:'approval', age:a.requestedAt,
+    go:"pickLens('portfolio');pickTab('approvals')"}));
+  try{ FILING_COMMENTS.filter(c=>c.st==='open').slice(0,3).forEach((c,i)=>out.push({
+    id:'CMT-'+String(i+1).padStart(3,'0'), type:'comment', module:'Reporting',
+    workspace:'Working papers', period:'Q2 2026', entityScope:'Consolidated Group',
+    item:c.t, context:c.sec, owner:kMe().ini, status:'open', age:c.dt,
+    source:'FILING_COMMENTS', sourceObjectId:c.t,
+    go:"pickLens('filings');pickTab('fdetail');setFDetailTab('review')"})); }catch(e){}
+  kTaskMine().slice(0,4).forEach(t=>out.push({...t, age:'due '+t.due}));
+  return out;
+}
+
+/* ---- THE CONTEXT STRIP (row 2 of the two-row shell) ---------------------------------------
+   ONE ROW, TWO SHAPES, CHOSEN BY WORKSPACE. It used to be the ACCOUNTING close strip on
+   every screen in the product — period, a six-stage close pipeline, close day, completion
+   and a TB delta, painted identically on Home, Fixed Assets, Procurement, FP&A, Treasury
+   and Reporting. That is accounting-period workflow leaking into five domains that do not
+   have an accounting period, and it made Home read as though the whole enterprise queue
+   belonged to Jun 2026.
+
+   The GLOBAL SHELL (ribbon, search, assistant, notifications, profile) is shared and
+   unchanged. This row is CONTEXTUAL and changes with the active workspace:
+
+     Accounting  →  the accounting period anchor + a restrained close read
+     everywhere   →  workspace + enterprise data health + freshness. No period.
+
+   EVERY FIGURE STILL DERIVES (RECON_SCALE rule) — srcHealth/GL_ERP for feeds, GL_CLOSE via
+   closeTotals/closePct and CLOSE_TASKS via clBlocked for the close, the shared objects
+   above for the enterprise counts. Nothing here is authored. */
+
+/* Feed freshness, read off the one place feed state lives. `thru` is how far the data
+   actually reaches; `sync` is when it was last read. Both are facts about the SOURCE,
+   which is why they are the same on every workspace — data health is horizontal. */
+function kFeed(){
+  try{ const h=srcHealth();
+    const fresh=(h.ok[0]||h.warn[0]||h.err[0]||{});
+    const thru=(h.ok[0]||{}).thru||fresh.thru||'';
+    return {degraded:h.degraded, worst:h.worst, sync:fresh.sync||'', thru};
+  }catch(e){ return {degraded:0, worst:'ok', sync:'', thru:''}; }
+}
+/* ONE CLOSE STATE, READ BY EVERYBODY (2026-09-01, brief §17). The Accounting context strip,
+   Home's Accounting status row and the Close workspace must never state three versions of
+   the same close. `closeStages()` on the Close page is the authority — it owns the canonical
+   three-stage model (Preparation · Review · Certification) and the rule that the live stage
+   is the first one not finished. This wraps it rather than re-deriving it: an earlier cut of
+   the strip had its own stage ladder that answered "Prepare" where the page said
+   "Preparation", which is exactly the two-independent-versions failure the brief names.
+
+   Falls back only if closeStages() is unreachable, and the fallback still says Preparation. */
+function kCloseState(){
+  let pct=0, blockers=0, stage='Preparation', stages=null;
+  try{ pct=closePct(); }catch(e){}
+  try{ blockers=clBlocked().length; }catch(e){}
+  try{ stages=closeStages(); const cur=stages.find(s=>s.on); if(cur)stage=cur.nm; }catch(e){}
+  return {pct, blockers, stage, stages};
+}
+const kCloseStage=()=>kCloseState().stage;
+/* One clause of the strip: a label, a value, and the page that owns it. A clause with no
+   destination is a readout, not a control — it renders as text rather than a dead button. */
+function kClause(label,value,go,title,state){
+  const inner=`<span class="ck">${label}</span><span class="cv ${state||''}">${value}</span>`;
+  return go ? `<button class="cclause" onclick="${go}" title="${title||label}">${inner}</button>`
+            : `<span class="cclause ro" title="${title||label}">${inner}</span>`;
+}
+
 function paintCloseStrip(){
   const el=document.getElementById('cstrip'); if(!el) return;
-  let pct=71,done=54,total=76,open=22,blk=0,unrec=0,unN=0,rdy=0,entN=4,apN=0;
-  try{ pct=closePct(); }catch(e){}
-  try{ const t=closeTotals(); done=t.done; total=closeTotal(); open=Math.max(0,total-done); }catch(e){}
-  try{ blk=clBlocked().length; }catch(e){}
-  try{ const d=GL_RECON.filter(r=>r.diff); unN=d.length; unrec=d.reduce((a,r)=>a+Math.abs(r.diff),0); }catch(e){}
-  try{ const E=csxEntities(); entN=E.length; rdy=E.filter(e=>e.st==='ready').length; }catch(e){}
-  try{ apN=FILING_APPROVALS.filter(a=>a.st==='pending').length; }catch(e){}
-  const h=srcHealth();
-  /* THE PERIOD COMES FROM THE BOOK, not from a string in CLOSE_DAYS. That constant
-     is still the source of the close CALENDAR (day 6 of 5, opened, due); it is no
-     longer a second opinion on which period this is. */
-  let per=viewLabel().toUpperCase(), dayTxt='6 of 5', dayOver=true;
-  try{ if(typeof CLOSE_DAYS!=='undefined'&&CLOSE_DAYS){
-      if(CLOSE_DAYS.actual){ dayTxt=CLOSE_DAYS.actual+' of '+CLOSE_DAYS.target;
-                             dayOver=CLOSE_DAYS.actual>CLOSE_DAYS.target; }
-  } }catch(e){}
-  const tbDelta=(typeof glK==='function')?'$'+glK(unrec*1000):String(unrec);
-  // pipeline stages — count DERIVED, dot state DERIVED; go routes to the owning module (real nav).
-  const stages=[
-    {nm:'Sync',    st:h.worst,              ct:h.degraded? h.degraded+' degraded' : h.ok.length+' sources', go:"openSources()"},
-    {nm:'Prepare', st:blk?'warn':'',        ct:open+' open',    go:"pickLens('ledger');pickTab('acctclose')"},
-    {nm:'Review',  st:unN?'warn':'ok',      ct:unN+' to clear', go:"pickLens('ledger');pickTab('glrecon')"},
-    {nm:'Approve', st:apN?'warn':'ok',      ct:apN+' to sign',  go:"pickLens('portfolio');pickTab('approvals')"},
-    {nm:'Lock',    st:rdy<entN?'warn':'ok', ct:rdy+' of '+entN, go:"pickLens('ledger');pickTab('consol')"},
-    {nm:'Analyze', st:'',                    ct:'awaiting lock', dis:true},
-  ];
-  const arrowSVG=`<svg class="cstage-arrow" width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const pipe=stages.map((s,i)=>{
-    const arrow=i?arrowSVG:'';
-    const attrs=`data-st="${s.st}"`+(s.dis?' disabled':` onclick="${s.go}"`);
-    return arrow+`<button class="cstage" ${attrs} title="${s.nm}"><span class="dot"></span><span class="nm">${s.nm}</span><span class="ct">${s.ct}</span></button>`;
-  }).join('');
+  const onAcct=(typeof LENS!=='undefined'&&LENS==='ledger');
+  el.setAttribute('data-ctx',onAcct?'accounting':'enterprise');
+  const f=kFeed();
+  /* Sync is enterprise data health and appears on BOTH shapes — a degraded feed matters to
+     Treasury and FP&A exactly as much as to the close. It routes to the page that owns feed
+     health, which is the entry point that page needs now that it is off the Accounting rail. */
+  const sync=kClause('Sync',
+    f.degraded ? f.degraded+' degraded' : 'All current',
+    "pickLens('ledger');pickTab('glsync')",
+    f.degraded ? f.degraded+' source feed'+(f.degraded===1?'':'s')+' degraded — open data / sync status'
+               : 'All source feeds current — open data / sync status',
+    f.degraded ? (f.worst==='err'?'bad':'warn') : '');
+  /* ONE FRESHNESS READOUT, and it is the only thing on the right of the strip now that
+     Window and As-of have stood down (brief §7, §14). Accounting states what the data
+     REACHES as well as when it was read, because a close is judged against a period end;
+     an enterprise queue has no single period end, so Home says only how current it is. */
+  const fresh=onAcct
+    ? `<div class="cstrip-fresh" title="Source data read ${f.sync||'recently'}${f.thru?', complete through '+f.thru:''}">
+      <span class="fv">Live${f.thru?' &#183; '+f.thru:''}</span>
+      <span class="fs">Last sync ${f.sync||'—'}</span></div>`
+    : `<div class="cstrip-fresh one" title="Source data last read ${f.sync||'recently'}">
+      <span class="fv">Updated ${f.sync||'—'}</span></div>`;
+
+  let left,mid;
+  if(onAcct){
+    /* ---- ACCOUNTING: the period is the workspace anchor, then one close read. ----
+       Completion, stage and blockers all come from kCloseState(), which wraps the Close
+       page's own closeStages(). Home's Accounting status row reads the same call, so the
+       three surfaces cannot disagree about where the close stands (brief §17). */
+    const cs=kCloseState();
+    const pct=cs.pct, blk=cs.blockers;
+    const per=(typeof viewLabel==='function'?viewLabel():'').toUpperCase();
+    left=`<button type="button" class="per" onclick="bookPeriodMenu(event)"
+        title="${periodChipTitle()}">${per}<span class="cue">&#9662;</span></button>
+      <span class="tag ${canEditPeriod()?'':'shut'}">${canEditPeriod()?'Open':'Closed'}</span>`;
+    mid=sync+kClause('Close',
+      pct+'% &#183; '+cs.stage+(blk?' &#183; '+blk+' blocker'+(blk===1?'':'s'):''),
+      "pickLens('ledger');pickTab('acctclose')",
+      'Close completion, the stage holding it, and blocking tasks — open the Close workspace',
+      blk?'warn':'');
+  } else {
+    /* ---- EVERY OTHER WORKSPACE: no accounting period, and none is implied. ----
+       Home additionally states what the enterprise queue is holding, because Home IS the
+       enterprise work command centre; the other domains get workspace + data health, which
+       is all a status row can honestly say about them today. Scope is NOT repeated here —
+       it is the topbar's #tbScope control and one control has one home. */
+    const lens=(typeof LENS!=='undefined'?LENS:'portfolio');
+    left=`<span class="ctx-tag">${KMOD[lens]||((LENSES[lens]||{}).label)||'Enterprise'}</span>`;
+    mid=sync;
+    if(lens==='portfolio'){
+      let mine=0,appr=0,exc=0;
+      try{ mine=kMyWork().length; }catch(e){}
+      try{ appr=kApprOpen().length; }catch(e){}
+      try{ exc=kExceptions().length; }catch(e){}
+      mid+=kClause('Needs you',mine+' item'+(mine===1?'':'s'),
+            "pickLens('portfolio');pickTab('mywork')",
+            'Your enterprise queue, across every module and period',mine?'warn':'')
+         + kClause('Approvals',String(appr),
+            "pickLens('portfolio');pickTab('approvals')",
+            'Approval objects awaiting sign-off, from every domain','')
+         + kClause('Exceptions',String(exc),
+            "pickLens('portfolio');pickTab('exceptions')",
+            'Open enterprise exceptions detected across every module','');
+    }
+  }
+  /* TB DELTA IS GONE FROM THE PERSISTENT SHELL (owner's direction). Unexplained, it read as
+     "the trial balance does not balance" on every screen in the product, permanently. The
+     underlying figure is untouched — GL_RECON still carries every difference, and it is
+     reported where it can be acted on: Reconciliations, the Accounting exception queue and
+     the Close workspace's attention rows. A validation difference is exception work, not a
+     chrome metric. Day and Complete went with the pipeline: the close CALENDAR belongs to
+     the Close workspace, and completion is now the Close clause's own figure. */
   el.innerHTML=`
-    <div class="cstrip-l">
-      <button type="button" class="per" onclick="bookPeriodMenu(event)"
-        title="${periodChipTitle()}">${per}<span class="cue">▾</span></button>
-      <span class="tag ${canEditPeriod()?'':'shut'}">${canEditPeriod()?'Open':'Closed'}</span></div>
+    <div class="cstrip-l">${left}</div>
     <div class="cstrip-sep"></div>
-    <div class="cstrip-pipe">${pipe}</div>
-    <div class="cstrip-r">
-      <div class="cstrip-m">
-        <span class="m"><span class="mk">Day</span><span class="mv ${dayOver?'warn':''}">${dayTxt}</span></span>
-        <span class="m"><span class="mk">Complete</span><span class="mv">${pct}%</span></span>
-        <span class="m"><span class="mk">TB delta</span><span class="mv ${unrec?'bad':''}">${tbDelta}</span></span>
-      </div>
-      <div class="hdr-ctl" id="hdrCtl"></div>
-    </div>`;
+    <div class="cstrip-pipe">${mid}</div>
+    <div class="cstrip-r">${fresh}<div class="hdr-ctl" id="hdrCtl"></div></div>`;
 }
 /* ---- THE PERIOD CONTROL LIVES IN THE CLOSE STRIP -------------------------
    It is chrome, not a filter, and it sits where it already sat: top-left, on every
@@ -20176,7 +20557,7 @@ function attnAmt(r){
 }
 
 /* ==========================================================================================
-   HOME — six sections, fixed order, no canvas.
+   HOME — a fixed composition, no canvas.
 
    Home was a widget workspace: a registry, 34 widgets, 15 templates, edit mode, publish, and
    a pin control on all 62 pages. Eleven of its sections were preview cards that advertised
@@ -20185,25 +20566,229 @@ function attnAmt(r){
    for. The configurability that survives is saved views and column config INSIDE tables:
    those change how you read a shared surface without changing what anyone else sees.
 
-   Home now composes six sections directly, in this order, and each one is work:
-     1 close position      where the close actually stands, as figures not cards
-     2 changed             a diff, windowed, so it does not decay into a feed
-     3 your queue          what is assigned to you, with due dates
-     4 cross-module        what is holding up close from OUTSIDE Accounting
-     5 detection triage    what Korvyn found, with the decision on it
-     6 capital & cost      the one financial strip that is a control, not a summary
+   It then composed SIX sections — close position, changed, your queue, cross-module blockers,
+   detection triage, capital & cost — each a complete working surface with its own table,
+   toolbar and column set. Individually defensible; collectively six applications in a scroll,
+   and four of the six were Accounting, so the enterprise command centre read as an accounting
+   dashboard. Home is three sections now (see the composition note below).
 
-   Nothing here advertises a module. Each module owns its own summary.
+   NOTHING WAS DELETED. Every surface that left still exists at the destination that owns it,
+   and each is reached from Home rather than reproduced on it:
+
+     Your queue            -> Home > My Work        (homeQueue, mounted there)
+     Detection triage      -> Home > Exceptions     (homeTriage, mounted there)
+     Cross-module blockers -> Home > Exceptions     (homeCrossBlockers, mounted there)
+     Changed this cycle    -> Home > Activity       (homeChanged, mounted there)
+     Close position        -> Accounting > Close    (the full stage model already there)
+     Capital & cost        -> Fixed Assets > Capital lifecycle, which already carries
+                              authorized budget / committed / open CIP / placed in service.
+                              homeCapitalControl() is kept and left unmounted rather than
+                              duplicated into a workspace that already answers it.
+
+   Nothing here advertises a module. Home summarizes shared objects; it does not reproduce
+   their working surfaces, and each module owns its own detail.
    ========================================================================================== */
+/* ============================================================================
+   HOME OVERVIEW — AN OPERATING CONSOLE, NOT A REPORT (2026-09-01)
+   ============================================================================
+   The information architecture was already right — priority work, enterprise status, recent
+   change — and it was drawn as two full-width tables, which is what made Home read as an
+   internal admin application. Tables answer "show me every record"; Home answers "what needs
+   me right now". Those are different questions and they want different objects.
+
+   THE COMPOSITION IS 70/30, and that is the whole visual argument: the priority queue is the
+   page, the Enterprise Pulse is a quieter rail beside it, and recent change sits underneath
+   both. Two equal cards would have said the enterprise's health matters as much as your work,
+   which is the opposite of what a command centre is for.
+
+     ┌───────────────────────────────────────────┬──────────────────────┐
+     │ Needs your attention          ~70%        │ Enterprise pulse ~30%│
+     │  STATE · MODULE                           │  Accounting        › │
+     │  Primary issue                            │  Fixed Assets      › │
+     │  business context            meta    ›    │  …                   │
+     ├───────────────────────────────────────────┴──────────────────────┤
+     │ Recent decisions & changes                                       │
+     └──────────────────────────────────────────────────────────────────┘
+
+   PROGRESSIVE DISCLOSURE. Five items lead; the rest are one click away and the full inventory
+   is in My Work, Approvals and Exceptions. A priority queue that shows everything has no
+   priority in it.
+
+   NO NEW DATA. Every row is the same shared object the domain queues read — kCloseState(),
+   homeBlockerRows(), kApprovals(), srcHealth(), homeChangeRows(). This pass changed how they
+   are composed and worded, not where they come from. */
 function renderOverview(){
   const el=$('view-overview'); if(!el)return;
-  el.innerHTML = homeClosePosition()
-               + homeChanged()
-               + homeQueue()
-               + homeCrossBlockers()
-               + homeTriage()
-               + homeCapitalControl();
+  /* No summary count line. The contextual strip two rows above already reads
+     "Needs you · 13 · Approvals · 2 · Exceptions · 10", and the brief's own instruction is to
+     omit it if it duplicates the header — which it would, exactly. */
+  el.innerHTML = `<div class="hgrid">
+      <div class="hgrid-main">${homeAttentionSec()}</div>
+      <div class="hgrid-side">${homeEnterprisePulse()}</div>
+    </div>` + homeRecent();
   if(typeof kbdRebind==='function') kbdRebind();
+}
+
+/* ---- 1. NEEDS YOUR ATTENTION -------------------------------------------------------------
+   THE SAME SHARED OBJECTS the domain queues read — kCloseState(), homeBlockerRows() (Fixed
+   Assets CIP_PROJECTS, Procurement PROC_RETAINAGE, Treasury TR_COVENANTS), kApprovals() and
+   srcHealth(). Nothing here is authored and nothing is a second copy; every row opens the
+   object where it is worked.
+
+   RANKED BY WHAT STOPS OTHER WORK FIRST, then by financial impact, because a blocker holds up
+   people and an amount only holds up a number.
+
+   THE LANGUAGE IS THE INTELLIGENCE. "June close blocked by 4 items" beats "4 accounting
+   exceptions"; "$48.0M CIP transfer awaiting PIS determination" beats "Fixed asset review
+   required". Same records either way — the difference is whether the row states the business
+   consequence or the object type. No summary boxes, no sparkles: prioritisation and precise
+   wording ARE the intelligence. */
+const KSEV={crit:{l:'Critical',r:0},rev:{l:'Review',r:1},appr:{l:'Approval',r:2},
+            exc:{l:'Exception',r:3},watch:{l:'Watch',r:4},data:{l:'Data',r:5}};
+/* FIVE ITEMS, AND THE REST ARE NOT HERE. Home is a curated view of the highest-priority
+   work; expanding it in place would turn the one page that is meant to be selective into
+   the queue it links to. The count is stated so the five read as a selection. */
+const HOME_LEAD=5;
+function kAttention(){
+  const rows=[];
+  const put=o=>rows.push(o);
+  /* Accounting — the close, as ONE row. The six-figure close position block belongs to
+     Accounting > Close and stays there; this is the enterprise read of it. */
+  try{ const cs=kCloseState();
+    if(cs.blockers){ const ents=[...new Set(clBlocked().map(b=>b.ent))].length;
+      put({kind:'crit', mod:'Accounting',
+        t:perLabel(viewPeriod())+' close blocked by '+cs.blockers+' item'+(cs.blockers===1?'':'s'),
+        sub:ents+' entit'+(ents===1?'y':'ies')+' affected',
+        meta:cs.stage+' &#183; '+cs.pct+'% complete', own:'',
+        rank:0, go:"pickLens('ledger');pickTab('acctclose')"}); } }catch(e){}
+  /* Fixed Assets · Procurement · Treasury — the cross-module blockers, already modelled.
+     `nm`/`why` are the subject and the ask; the composed sentence stays with the table. */
+  try{ homeBlockerRows().forEach(b=>put({
+    kind:b.sev==='high'?(b.mod==='Fixed Assets'?'rev':'exc'):'watch',
+    mod:b.mod, t:b.nm||b.t, sub:b.why||b.blocks||'',
+    /* a 0-day age says nothing — it means tested today, which the row is not about */
+    own:b.own||'', meta:b.age?(b.age+'d open'):'',
+    rank:(b.sev==='high'?1:3)-((b.amt||0)/1e12), go:b.go})); }catch(e){}
+  /* Reporting — the shared approval objects */
+  try{ kApprOpen().forEach(a=>put({kind:'appr', mod:a.module,
+    t:a.item+' awaiting sign-off', sub:a.context||'', own:a.approver||'',
+    meta:a.period, rank:2, go:"pickLens('portfolio');pickTab('approvals')"})); }catch(e){}
+  /* Integrations — a degraded feed is enterprise work, not an accounting footnote */
+  try{ const h=srcHealth();
+    h.err.concat(h.warn).forEach(s=>put({kind:'data', mod:'Integrations',
+      t:s.nm+(s.st==='err'?' feed unreachable':' feed delayed'),
+      sub:s.ent+' entit'+(s.ent===1?'y':'ies')+' affected &#183; last read '+(s.since||s.sync),
+      own:'', meta:'', rank:s.st==='err'?1.5:4,
+      go:"pickLens('ledger');pickTab('glsync')"})); }catch(e){}
+  return rows.sort((a,b)=>a.rank-b.rank||(KSEV[a.kind].r-KSEV[b.kind].r));
+}
+function homeAttentionSec(){
+  const all=kAttention();
+  const rows=all.slice(0,HOME_LEAD);
+  return `<div class="card hsec hpri"><div class="hsec-hd">
+      <h2>Needs your attention</h2>
+      <span class="grow"></span>
+      <span class="hsec-go" onclick="pickTab('mywork')">My work &#8594;</span>
+    </div>
+    ${rows.length?`<div class="kq">${rows.map(r=>`<button class="kq-r" data-k="${r.kind}" onclick="${r.go}">
+      <span class="kq-b">
+        <span class="kq-h"><span class="kq-s">${KSEV[r.kind].l}</span><span class="kq-m">${r.mod}</span></span>
+        <span class="kq-t">${r.t}</span>
+        ${r.sub?`<span class="kq-d">${r.sub}</span>`:''}
+      </span>
+      <span class="kq-r2">${[r.meta,r.own].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</span>
+      <svg class="kq-c" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>`).join('')}</div>
+    ${all.length>rows.length?`<button class="kq-more" onclick="pickTab('mywork')">View all ${all.length} &#8594;</button>`:''}`
+    :`<div class="kq-empty">Nothing across Korvyn is waiting on you.</div>`}</div>`;
+}
+
+/* ---- 2. ENTERPRISE PULSE -----------------------------------------------------------------
+   A STATUS PANEL, NOT A TABLE. No column headers, no sort, no scope restatement — the scope
+   is the topbar's own control and saying it again inside the body is the duplication this
+   whole pass removes. One compact row per domain: the module, one short status sentence, an
+   optional attention value, a chevron.
+
+   Accounting appears here exactly ONCE and reads the same kCloseState() the Accounting strip
+   and the Close page read, so the three cannot disagree. */
+function homeEnterprisePulse(){
+  const R=[];
+  const put=(mod,txt,att,go)=>R.push({mod,txt,att:att||'',go});
+  try{ const cs=kCloseState();
+    put('Accounting', perLabel(viewPeriod())+' close &#183; '+cs.pct+'%',
+      cs.blockers?cs.blockers+' blockers':'', "pickLens('ledger');pickTab('acctclose')"); }catch(e){}
+  try{ const risk=CIP_PROJECTS.filter(p=>p.status==='review').length;
+    put('Fixed Assets', risk?risk+' PIS determination'+(risk===1?'':'s')+' at risk':'No determinations at risk',
+      '', "pickLens('assets');pickTab('cip')"); }catch(e){}
+  try{ const r=PROC_RETAINAGE.filter(x=>x.st==='blocked');
+    const amt=PROC_RETAINAGE.reduce((s,x)=>s+(x.amt||0),0);
+    put('Procurement', r.length?money(amt)+' blocked':'No blocked commitments',
+      r.length?r.length+' critical':'', "pickLens('procure');pickTab('vendors')"); }catch(e){}
+  try{ const w=TR_COVENANTS.filter(c=>covStatus(c)!=='pass');
+    put('Treasury', w.length?w.length+' covenant watch'+(w.length===1?'':'es'):'All covenants passing',
+      '', "pickLens('treasury');pickTab('fpcash')"); }catch(e){}
+  try{ const p=kApprOpen().length;
+    put('Reporting', p?p+' approval'+(p===1?'':'s')+' pending':'All approvals signed',
+      '', "pickLens('portfolio');pickTab('approvals')"); }catch(e){}
+  try{ const h=srcHealth();
+    put('Integrations', h.degraded?h.degraded+' degraded source'+(h.degraded===1?'':'s')
+        :GL_ERP.length+' sources current',
+      '', "pickLens('ledger');pickTab('glsync')"); }catch(e){}
+  return `<div class="card hsec hpulse"><div class="hsec-hd"><h2>Enterprise pulse</h2></div>
+    <div class="kst">${R.map(r=>`<button class="kst-r" onclick="${r.go}">
+      <span class="kst-b"><span class="kst-m">${r.mod}</span>
+        <span class="kst-t">${r.txt}</span></span>
+      ${r.att?`<span class="kst-a">${r.att}</span>`:''}
+      <svg class="kq-c" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>`).join('')}</div></div>`;
+}
+
+/* ---- 3. RECENT DECISIONS & CHANGES -------------------------------------------------------
+   TERTIARY, and drawn that way: one column, what happened and when, nothing else. The same
+   homeChangeRows() feed the full Changed table reads — consolidation deltas, continuous-close
+   signals, the append-only decision log and sign-off state. The six columns, the window
+   segmented control and the 17-row table are the working surface and they live intact on
+   Home > Activity, which is where a full log belongs. */
+function homeRecent(){
+  let rows=[], now=0;
+  try{ const all=homeChangeRows(); now=homeFeedNow(all);
+    rows=all.slice()
+    .sort((a,b)=>{const x=Date.parse(b.ts),y=Date.parse(a.ts);
+      return (isNaN(x)?0:x)-(isNaN(y)?0:y);}).slice(0,5); }catch(e){}
+  return `<div class="card hsec hrec"><div class="hsec-hd">
+      <h2>Recent decisions &amp; changes</h2>
+      <span class="grow"></span>
+      <span class="hsec-go" onclick="pickTab('activity')">View activity &#8594;</span>
+    </div>
+    ${rows.length?`<div class="krc">${rows.map(r=>`<button class="krc-r" onclick="${r.go}">
+      <span class="krc-t">${r.plain||r.what}</span>
+      <span class="krc-w">${homeAgo(r.ts,now)}</span>
+    </button>`).join('')}</div>`
+    :`<div class="kq-empty">Nothing has changed since the last close cycle.</div>`}</div>`;
+}
+/* A relative age, because "31 min ago" is what a feed reads and an absolute stamp is what a
+   log reads. Falls back to the raw stamp rather than inventing one when it cannot parse.
+
+   ANCHORED TO THE FEED'S OWN NEWEST EVENT, not to CONS_ASOF and not to the wall clock.
+   CONS_ASOF is the consolidation as-of date (Jun 30) while the change stamps run into
+   Jul 20, so measuring against it made every delta negative and printed "just now" on all
+   six rows — the same figure six times, which is no information at all. The wall clock is
+   worse: this is seeded data, so a real "now" would render it as months old and the age
+   would drift every day the prototype is opened. The newest event in the feed IS now from
+   the feed's point of view, which is how a live feed reads and is stable across sessions. */
+function homeFeedNow(rows){
+  let n=0; (rows||[]).forEach(r=>{const t=Date.parse(r.ts); if(!isNaN(t)&&t>n)n=t;});
+  const c=Date.parse(CONS_ASOF);
+  return n||(isNaN(c)?0:c);
+}
+function homeAgo(ts,now){
+  const t=Date.parse(ts); if(isNaN(t)) return ts||'&mdash;';
+  const base=now||Date.parse(CONS_ASOF);
+  const mins=Math.round((base-t)/60000);
+  if(mins<1) return 'just now';
+  if(mins<60) return mins+'m';
+  const h=Math.round(mins/60); if(h<24) return h+'h';
+  const d=Math.round(h/24); return d+'d';
 }
 
 /* ---- 1. CLOSE POSITION -------------------------------------------------------------------
@@ -20301,22 +20886,49 @@ function homeWinStart(rows){
 }
 const homeWinLabel=start=>isNaN(start)?'all time'
   :'since '+new Date(start).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+/* TWO WORDINGS, ONE EVENT. `what` is the immutable, system-precise line the Activity
+   workspace prints — it names the subsystem, the rule and the state transition, and an audit
+   record has to. `plain` is the same event said the way a controller would say it, and it is
+   what Home Overview shows: a curated page should report what happened, not expose internal
+   event terminology. "Detection dismissed — Policy document extraction" and "Policy document
+   extraction dismissed" are the same object; only one of them belongs on a command centre.
+
+   Both are built HERE, from the same source record, so they can never describe different
+   events — the same discipline homeBlockerRows() follows with `t` versus `nm`/`why`. */
 function homeChangeRows(){
   const rows=[];
-  const push=(ts,what,ent,fig,delta,go,src)=>rows.push({ts,what,ent:ent||null,fig:fig||'',delta:delta||'',go,src});
+  const push=(ts,what,ent,fig,delta,go,src,plain)=>rows.push({ts,what,ent:ent||null,
+    fig:fig||'',delta:delta||'',go,src,plain:plain||what});
+  /* the consolidation feed already writes a headline and a detail — the headline IS the
+     business statement, so plain is simply the sentence without the supporting clause */
   try{ CONS_DELTA.forEach(d=>push(d.ts,d.t+' — '+d.d,d.ent,'',d.dir==='up'?'improved':'degraded',
-      "pickLens('ledger');pickTab('consol')",'Consolidation')); }catch(e){}
+      "pickLens('ledger');pickTab('consol')",'Consolidation',
+      d.t+(d.ent?' &#183; '+d.ent:''))); }catch(e){}
+  /* a continuous-close signal records what CHANGED (`ch`) and what the item now IS (`cur`).
+     The audit line wants the change; a reader wants the resulting state. */
   try{ CC_SIGNALS.forEach(s=>push(s.at||'',s.item+' — '+s.ch,s.ent,'','disturbed',
-      "pickLens('ledger');pickTab('contclose')",'Continuous close')); }catch(e){}
+      "pickLens('ledger');pickTab('contclose')",'Continuous close',
+      /* a middot, not a dash: several `cur` values carry their own em dash, and joining
+         with a second one produced 'GBP translation rate — stale rate — translation blocked' */
+      String(s.item).split(' — ')[0]+' &#183; '+String(s.cur||s.ch).toLowerCase())); }catch(e){}
   /* DET_LOG carries prior AND new value, which is the only place Korvyn can state a delta
      exactly rather than describe one. It is empty until a decision is taken in-session — that
      is correct, not a gap: nothing has changed if nobody has changed anything. */
-  try{ DET_LOG.forEach(e=>push(e.ts,'Detection '+e.action+'ed — '+e.rule,null,e.det,
+  /* Past tense comes from AUDIT_ACT, the table that owns these labels — never from gluing
+     "ed" onto the action id, which produced "Detection escalateed". */
+  try{ DET_LOG.forEach(e=>{
+    const act=((typeof AUDIT_ACT!=='undefined'&&AUDIT_ACT[e.action])||(e.action+'d')).toLowerCase();
+    /* The rule is the subject and the act is the verb — "Reconciliation variance threshold
+       assigned to J. Lindqvist" — and an assignment names who now holds it, because that is
+       the fact a reader of a change feed actually wants. */
+    const plain=e.rule+' '+act+(/assign/.test(e.action)&&e.newOwner?' to '+e.newOwner:'');
+    push(e.ts,'Detection '+act+' — '+e.rule,null,e.det,
       (DET_STATUS[e.prior]||e.prior)+' → '+(DET_STATUS[e.next]||e.next),
-      "pickLens('portfolio');pickTab('overview')",'Detection queue')); }catch(e){}
+      "pickLens('portfolio');pickTab('activity')",'Detection queue',plain); }); }catch(e){}
   try{ FILING_APPROVALS.filter(a=>a.st==='approved').forEach(a=>
       push(a.dt,'Approval landed — '+a.item,null,a.sec,'signed off by '+a.who,
-      "pickTab('approvals')",'Sign-off')); }catch(e){}
+      "pickTab('approvals')",'Sign-off',
+      a.item+' approved'+(typeof teamNm==='function'?' by '+teamNm(a.who):''))); }catch(e){}
   return rows.filter(r=>etIn(r.ent));
 }
 function homeChanged(){
@@ -20411,24 +21023,40 @@ function homeBlockerRows(){
   const age=d=>{ if(!d) return null;
     const t=Date.parse(d); if(isNaN(t)) return null;
     return Math.max(0,Math.round((Date.parse(CONS_ASOF)-t)/86400000)); };
-  try{ CIP_PROJECTS.filter(p=>p.status==='review').forEach(p=>rows.push({
-    sev:'high', t:p.name+' — CIP transfer awaiting determination', mod:'Fixed Assets',
-    ent:p.entity, src:p.id, amt:p.cip, age:null, own:(typeof wsOwner==='function'?wsOwner(p.id):''),
-    blocks:'Placed-in-service carve, and the depreciation that follows it',
-    go:"pickLens('assets');pickTab('cip')"})); }catch(e){}
-  try{ PROC_RETAINAGE.forEach(r=>rows.push({
-    sev:r.st==='blocked'?'high':'med', t:r.vendor+' — retainage held, '+r.rel.toLowerCase()+' outstanding',
-    mod:'Procurement', ent:r.ent, src:r.id, amt:r.amt, age:age(r.held), own:r.own,
-    blocks:'Release of '+money(r.amt)+' and closing account 22000',
-    go:"pickLens('procure');pickTab('vendors')"})); }catch(e){}
+  /* EACH ROW CARRIES ITS SUBJECT AND ITS ASK SEPARATELY (`nm` / `why`) as well as the composed
+     sentence (`t`) the blocker TABLE prints. One derivation, two presentations: the table wants
+     a single scannable line, Home's priority queue wants a strong title over a quiet context
+     line, and splitting a composed string on an em dash to get them back would be guesswork.
+     Nothing is duplicated — `t` is still built from `nm` and `why` right here. */
+  try{ CIP_PROJECTS.filter(p=>p.status==='review').forEach(p=>{
+    const nm=p.name, why=money(p.cip)+' CIP transfer awaiting PIS determination';
+    rows.push({sev:'high', nm, why, t:nm+' — CIP transfer awaiting determination', mod:'Fixed Assets',
+      ent:p.entity, src:p.id, amt:p.cip, age:null, own:(typeof wsOwner==='function'?wsOwner(p.id):''),
+      blocks:'Placed-in-service carve, and the depreciation that follows it',
+      go:"pickLens('assets');pickTab('cip')"}); }); }catch(e){}
+  try{ PROC_RETAINAGE.forEach(r=>{
+    const nm=r.vendor, why=money(r.amt)+' retainage held &#183; '+r.rel.toLowerCase()+' outstanding';
+    rows.push({sev:r.st==='blocked'?'high':'med', nm, why,
+      t:nm+' — retainage held, '+r.rel.toLowerCase()+' outstanding',
+      mod:'Procurement', ent:r.ent, src:r.id, amt:r.amt, age:age(r.held), own:r.own,
+      blocks:'Release of '+money(r.amt)+' and closing account 22000',
+      go:"pickLens('procure');pickTab('vendors')"}); }); }catch(e){}
   try{ TR_COVENANTS.forEach(c=>{ const st=covStatus(c); if(st==='pass') return;
-    rows.push({
-      sev:st==='fail'?'high':'med',
-      t:c.nm+' — '+(st==='fail'
+    const fail=(st==='fail');
+    /* The SUBJECT is the covenant and where it actually stands — "Interest coverage 1.94x" —
+       and the ASK is what that breaches. A reader scanning titles gets the number without
+       having to read the clause. */
+    const nm=c.nm+(fail?' '+covFmt(c,c.act):'');
+    const why=fail?('Below the '+(c.op==='min'?'minimum':'maximum')+' covenant threshold of '+covFmt(c,c.thr))
+                  :'Not yet computable for this period';
+    rows.push({sev:fail?'high':'med', nm, why,
+      t:c.nm+' — '+(fail
         ? covFmt(c,c.act)+' against a '+(c.op==='min'?'minimum':'maximum')+' of '+covFmt(c,c.thr)
         : 'not yet computable'),
       mod:'Treasury', ent:c.ent, src:c.id, amt:null, age:age(c.tested), own:c.own,
-      blocks:c.blocks, go:"pickLens('treasury');pickTab('cash')"}); }); }catch(e){}
+      /* was pickTab('cash'), which is not a tab in this lens — the Treasury rail's own
+         destination is fpcash. A dead link matters more now the row leads Home. */
+      blocks:c.blocks, go:"pickLens('treasury');pickTab('fpcash')"}); }); }catch(e){}
   return rows.filter(r=>etIn(r.ent));
 }
 function homeCrossBlockers(){
@@ -23031,36 +23659,62 @@ const RAIL_SPEC={
     {tab:'fpdriver',label:'Driver Planning',    ic:'M8 13A5 5 0 118 3a5 5 0 010 10zM8 8l2.5-2'},
     {tab:'fpmgmt',  label:'Management Reporting',ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5M5.5 11h3'},
   ],
+  /* ACCOUNTING — a FLAT domain workspace, not an ERP folder tree (2026-09-01).
+     Korvyn does not replace the ERP general ledger, so it must not present one. The
+     expandable "General Ledger" group held six children, four of which are not ledger
+     pages at all: Financials, Flux and Trending are accounting REVIEW surfaces built on
+     the governed financial data layer, and filing them under a GL folder said the
+     opposite. Trial balance and Account activity ARE direct ledger review destinations
+     and now stand on their own under `Ledger`.
+
+     EVERY ROUTE REMOVED FROM THIS RAIL STILL EXISTS. `glintel`, `glover`, `glclose`,
+     `glreports`, `glsync` and `exceptions` are all still in LENSES.ledger.tabs, so a
+     saved link, a pin, or a cross-page jump into any of them still resolves. What
+     changed is navigation ownership, not functionality:
+       glintel / glover  — GL landing + consolidated-position overview. Their unique
+                           content (total assets / liabilities / equity / NI over the
+                           GL surface) is the ledger's own; reachable from Trial
+                           balance and Account activity, which is where a reviewer is
+                           when they want it.
+       glreports         — a generic "Reports" inside Accounting competing with the
+                           top-level Reporting module. One purpose, one owner.
+       glsync            — reached from the Accounting context strip's Sync clause,
+                           which is the thing that reports feed health.
+       exceptions        — Home owns the enterprise exception universe. Accounting
+                           surfaces exceptions CONTEXTUALLY (Close blockers,
+                           reconciliation exceptions, unmatched IC pairs); the
+                           `ledger:exceptions` page remains as a FILTERED VIEW of the
+                           same detected exceptions, not a second data model. */
   ledger:[
-    // Was {head:'Accounting'} — the module names itself in the ribbon and the crumb, so the
-    // head now names what this group actually is.
-    {head:'Close & ledger'},
+    // The module names itself in the ribbon and the crumb, so the head names the GROUP.
+    {head:'Close & review'},
     {tab:'acctover', label:'Overview',        ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'acctclose',label:'Close',           ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
       badge:()=>clBlocked().length, sev:()=>'block'},   // blocked tasks stop the close
-    {tab:'glintel',  label:'General Ledger',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M8 6.5v6',
-      kids:[{label:'GL overview',        sub:null, tab:'glover'},
-            {label:'Trial balance',      sub:null, tab:'tb'},
-            {label:'Account activity',   sub:null, tab:'glact'},
-            {label:'Financial reporting',sub:null, tab:'glfin'},
-            {label:'Flux analysis',      sub:null, tab:'finrep'},
-            {label:'Trending review',    sub:null, tab:'gltrend'}]},
+    {tab:'glfin',    label:'Financials',      ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5M5.5 11h3'},
+    {tab:'finrep',   label:'Flux',            ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
+    {tab:'gltrend',  label:'Trending',        ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4'},
     {tab:'glrecon',  label:'Reconciliations', ic:'M3 5.5h7l-2-2M13 10.5H6l2 2',
       badge:()=>GL_RECON.filter(r=>r.st==='over').length, sev:()=>'warn'},   // overdue, at risk
     {tab:'icomp',    label:'Intercompany',    ic:'M8 2v12M3 5h10M3 11h10',
       badge:()=>icUnmatched().length},
     {tab:'consol',   label:'Consolidation',   ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11'},
-    // An infinity loop, not the sync arrows — "Data / sync status" sits in this same rail
-    // and owns that glyph. Continuous Close is close work that never stops, not a feed.
+    // An infinity loop, not the sync arrows — a feed is not close work that never stops.
     {tab:'contclose',label:'Continuous Close', ic:'M8 8c0-1.33-1.16-2.4-2.6-2.4S2.8 6.67 2.8 8s1.16 2.4 2.6 2.4S8 9.33 8 8zm0 0c0 1.33 1.16 2.4 2.6 2.4s2.6-1.07 2.6-2.4-1.16-2.4-2.6-2.4S8 6.67 8 8z'},
+    /* LEDGER — the two direct ledger review destinations, and deliberately only two.
+       Korvyn reads the ERP's general ledger; it does not keep a second one. */
+    {head:'Ledger'},
+    {tab:'tb',       label:'Trial balance',   ic:'M3 2h10v12H3zM3 6h10M8 6v8'},
+    {tab:'glact',    label:'Account activity',ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M5.5 9.5h5'},
+    /* GOVERNANCE — accounting KNOWLEDGE objects. An Accounting Issue (a capitalization
+       conclusion, a revenue-recognition question, an impairment assessment) is a
+       judgment somebody raised and must defend; an exception is something a rule
+       detected. Different concepts, deliberately not merged, and Issues is NOT filed
+       under Exceptions for that reason. */
     {head:'Governance'},
-    {tab:'exceptions',label:'Exceptions',     ic:'M8 2.5L14.5 13.5h-13zM8 6.5v3', badge:()=>cpInsights().length},
     {tab:'issues',   label:'Accounting Issues',ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01',
       badge:()=>amKpi().open.length},
     {tab:'admin',    label:'Policies',        ic:'M8 2.2l5.2 2.3v4c0 3-2.2 4.9-5.2 5.6-3-.7-5.2-2.6-5.2-5.6v-4z'},
-    {head:'Reports'},
-    {tab:'glreports',label:'Reports',         ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
-    {tab:'glsync',   label:'Data / sync status',ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5'},
   ],
   filings:[
     {head:'SEC filings'},
@@ -24864,7 +25518,13 @@ function closeAttention(){
    ========================================================================== */
 let cwTab='over';
 function setCwTab(t){ cwTab=t; renderAll(); }
-const CW_TABS=[['over','Overview'],['mine','My work'],['all','All work']];
+/* THE CLOSE PAGE DOES NOT OWN A SECOND 'My Work' UNIVERSE (2026-09-01). Home > My Work is
+   the enterprise personal queue; a tab of the same name inside one workspace read as a rival
+   one. Renamed, not rebuilt: these are the same close work objects (kTasks()) at two
+   emphases — the whole board, and the slice assigned to you. 'Assigned to me' says filter,
+   which is what it is. The eventual model is one Close Work tab with owner/status/entity
+   filters; that is a page rebuild and is deliberately not done in this increment. */
+const CW_TABS=[['over','Overview'],['mine','Assigned to me'],['all','Close work']];
 
 /* WORKFLOW STATUS LANGUAGE, one closed vocabulary for the whole page (brief §5).
    No "Good"/"Okay"/"Done" — a close has states, and they are these. Colour is
@@ -25189,7 +25849,7 @@ function closeOverview(){
     ${closeCert()}
 
     <div class="grid2gl" style="margin-top:var(--s-5)">
-      <div class="card" style="margin:0"><h2>My work
+      <div class="card" style="margin:0"><h2>Assigned to me
         <span class="cardlink" onclick="setCwTab('mine')">Open queue</span></h2>
         <div class="cw-q">${mine.length?mine.slice(0,4).map(cwQRow).join('')
           :'<div class="cw-none">Nothing is assigned to you.</div>'}</div></div>
@@ -25204,7 +25864,7 @@ const cwQRow=x=>`<button class="r" onclick="${cwLink(x.tab,x.go)}">
       <span class="go">›</span></span></button>`;
 function closeMineTab(){
   const mine=closeMine();
-  return `<div class="card"><h2>My work
+  return `<div class="card"><h2>Assigned to me
       <span class="note">${mine.length} item${mine.length===1?'':'s'} assigned to ${glEsc(cwMe())} in ${glEsc(perLabel(viewPeriod()))}</span></h2>
     <div class="cw-q">${mine.length?mine.map(cwQRow).join('')
       :'<div class="cw-none">Nothing is assigned to you in this period.</div>'}</div></div>`;
@@ -25230,8 +25890,9 @@ function renderAcctClose(){
      the headline, blockers and overdue lead Needs attention, and the entity table below
      is unchanged. glHead went with them — the workspace states its own identity. */
   let o=closeShell();
-  /* Overview and My work are their own compositions; All work is everything that
-     was already on this page. One page, three emphases, no third architecture. */
+  /* Overview and Assigned to me are their own compositions; Close work is everything that
+     was already on this page. One page, three emphases, no third architecture — and the
+     records are the SHARED close work objects, the same ones Home > My Work aggregates. */
   if(cwTab==='over'){ el.innerHTML=o+closeOverview(); return; }
   if(cwTab==='mine'){ el.innerHTML=o+closeMineTab(); return; }
 
@@ -27532,7 +28193,7 @@ function renderGLFin(){
   const STMTS=[['is','Income statement'],['bs','Balance sheet'],['cf','Cash flow statement'],['eq','Equity'],['ffo','FFO / AFFO']];
 
   glSurface(el);
-  let o=glHead('Financial reporting',glCtx(['in thousands']),glExport+glSaveView);
+  let o=glHead('Financials',glCtx(['in thousands']),glExport+glSaveView);
   /* the statement picker is rendered by paintSubnav2, in the same tier flux uses */
   /* reporting class, currency, period and comparison now live in the shared filter panel */
 
@@ -27782,7 +28443,7 @@ function renderGLTrend(){
   const dcls=chg>=0?'up':'dn', arr=chg>=0?'&#9650;':'&#9660;';
   const step=glTrendWin==='q'?'QoQ':'MoM', unit=glTrendWin==='q'?'quarterly':'monthly';
   glSurface(el);
-  let o=glHead('Trending review',glCtx([ser.span]),glExport+glSaveView);
+  let o=glHead('Trending',glCtx([ser.span]),glExport+glSaveView);
   /* THE WINDOW IS A PAGE FILTER, discovered into the FILTERS band by gfPageGrps()
      like every other page's own controls — a bound <select> in a labelled .grp is
      the vocabulary that discovery reads, so this needs no wiring of its own. */
@@ -28625,59 +29286,78 @@ function fdApprovals(f){
 // GL_*, fluxComments). Nothing here introduces a parallel number set.
 const ME='MG';                       // the signed-in user, per the top-bar avatar
 
+/* HOME OWNS THE ENTERPRISE PERSONAL QUEUE, and there is exactly one of it.
+   Both views below now read the SHARED objects (kMyWork / kApprovals) rather than
+   reaching into FILING_APPROVALS, CIP_PROJECTS and FILING_COMMENTS themselves — so a
+   record that appears here and in the workspace that raised it is the same object with
+   the same id, owner and status, and Close's "assigned to me" is a FILTER over kTasks(),
+   never a second queue.
+
+   EVERY ROW STATES ITS OWN PERIOD. A Home queue legitimately spans Jun 2026 close work,
+   a Q2 reporting approval and a current fixed-asset determination; the column says so
+   rather than letting a period ribbon claim the lot. */
 function renderMyWork(){
   const el=$('view-mywork'); if(!el)return;
-  const mine=cipScope().filter(p=>p.status==='ready'||p.status==='review');
-  const appr=FILING_APPROVALS.filter(a=>a.st==='pending');
-  const cmts=FILING_COMMENTS.filter(c=>c.st==='open');
-  const secs=filingSections(fOpen()).filter(s=>s.own===ME&&s.st!=='done');
+  const work=kMyWork();
+  const byType=t=>work.filter(w=>w.type===t).length;
+  const appr=kApprOpen();
   let o=`<div class="kpis">
-    <div class="kpi lenshi"><div class="k">Open determinations</div><div class="v">${mine.length}</div>
-      <div class="d">CIP awaiting a PIS call</div><div class="lenstag">&#9656; assigned to me</div></div>
+    <div class="kpi lenshi"><div class="k">Needs you</div><div class="v">${work.length}</div>
+      <div class="d">across every module and period</div><div class="lenstag">&#9656; assigned to me</div></div>
     <div class="kpi ${appr.length?'flag':''}"><div class="k">Awaiting my approval</div><div class="v">${appr.length}</div>
-      <div class="d">filing sections</div></div>
-    <div class="kpi"><div class="k">Open comments</div><div class="v">${cmts.length}</div>
-      <div class="d">across working papers</div></div>
-    <div class="kpi"><div class="k">My sections</div><div class="v">${secs.length}</div>
-      <div class="d">not yet complete</div></div>
+      <div class="d">approval objects</div></div>
+    <div class="kpi"><div class="k">Open determinations</div><div class="v">${byType('determination')}</div>
+      <div class="d">CIP awaiting a PIS call</div></div>
+    <div class="kpi"><div class="k">Close tasks</div><div class="v">${byType('task')}</div>
+      <div class="d">assigned to me this close</div></div>
   </div>
   <div class="card"><h2>What needs me<span class="note">across every module</span></h2>
-    <div class="subhead">One queue drawn from the same records the module views read &#8212; determinations from
-      Fixed Assets, approvals and comments from Reporting.</div>
-    <table class="tbl"><thead><tr><th>Item</th><th>Module</th><th>Type</th><th>Age / due</th><th>Status</th></tr></thead><tbody>`;
-  mine.slice(0,4).forEach(p=>{o+=`<tr class="row-click" onclick="pickLens('assets');pickTab('cip')">
-    <td><b>${p.name}</b><div class="note" style="margin:0">${p.id} &#183; PIS determination</div></td>
-    <td>Fixed Assets</td><td>Determination</td>
-    <td class="num" ${p.days>30?'style="color:var(--neg);font-weight:var(--fw-medium)"':''}>${p.days}d</td>
-    <td><span class="pill ${p.status==='ready'?'ready':'info'}">${p.status}</span></td></tr>`;});
-  appr.forEach(a=>{o+=`<tr class="row-click" onclick="pickLens('portfolio');pickTab('approvals')">
-    <td><b>${a.item}</b><div class="note" style="margin:0">${a.sec}</div></td>
-    <td>Reporting</td><td>Approval</td><td>${a.dt}</td>
-    <td><span class="pill ready">Pending</span></td></tr>`;});
-  cmts.slice(0,3).forEach(c=>{o+=`<tr class="row-click" onclick="pickLens('filings');pickTab('fdetail');setFDetailTab('review')">
-    <td><b>${c.t}</b><div class="note" style="margin:0">${c.sec}</div></td>
-    <td>Reporting</td><td>Comment</td><td>${c.dt}</td>
-    <td><span class="pill ready">Open</span></td></tr>`;});
-  el.innerHTML=o+`</tbody></table></div>`;
+    <div class="subhead">One queue drawn from the same shared objects the module views read &#8212;
+      determinations from Fixed Assets, close tasks from Accounting, approvals and comments from
+      Reporting. Each row opens the object where it is worked.</div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Module</th><th>Type</th><th>Period</th><th>Age / due</th><th>Status</th></tr></thead><tbody>
+    ${work.map(w=>`<tr class="row-click" onclick="${w.go}">
+      <td><b>${w.item}</b><div class="note" style="margin:0">${w.context||w.id}</div></td>
+      <td>${w.module}</td><td style="text-transform:capitalize">${w.type}</td>
+      <td>${w.period}</td><td>${w.age||''}</td>
+      <td><span class="pill ${w.status==='ready'?'ready':(w.status==='blk'?'flag':'info')}">${w.status}</span></td></tr>`).join('')}
+    </tbody></table></div>`;
+  /* THE FULL QUEUE LIVES HERE (2026-09-01, brief §5). "Your queue" — every open exception and
+     close task with its sortable columns and its bulk Assign-to-me / open-checklist actions —
+     was a working surface on Home Overview. My Work is the destination the brief names, and it
+     is where a working surface belongs; the section above is the personal cut, this is the
+     whole board. Same rows, same actions, one mount point moved. */
+  try{ o+=homeQueue(); }catch(e){}
+  el.innerHTML=o;
 }
 
+/* HOME OWNS THE ENTERPRISE APPROVAL QUEUE. One approval object, shown here and in the
+   workspace that raised it — never a HomeApproval beside an AccountingApproval. The
+   objects carry module / workspace / period / entityScope, so a domain page filters this
+   list rather than keeping its own. */
 function renderApprovals(){
   const el=$('view-approvals'); if(!el)return;
-  const pend=FILING_APPROVALS.filter(a=>a.st==='pending');
-  const done=FILING_APPROVALS.filter(a=>a.st==='approved');
+  const all=kApprovals();
+  const pend=all.filter(a=>a.status==='pending');
+  const done=all.filter(a=>a.status==='approved');
+  const mods=[...new Set(all.map(a=>a.module))];
   let o=`<div class="kpis">
     <div class="kpi lenshi"><div class="k">Pending</div><div class="v">${pend.length}</div>
       <div class="d">awaiting sign-off</div><div class="lenstag">&#9656; approval queue</div></div>
-    <div class="kpi"><div class="k">Approved</div><div class="v">${done.length}</div><div class="d">this filing cycle</div></div>
-    <div class="kpi"><div class="k">Locked periods</div><div class="v">4</div><div class="d">immutable once signed</div></div>
+    <div class="kpi"><div class="k">Approved</div><div class="v">${done.length}</div><div class="d">this cycle</div></div>
+    <div class="kpi"><div class="k">Domains</div><div class="v">${mods.length}</div><div class="d">${mods.join(' &#183; ')}</div></div>
     <div class="kpi good"><div class="k">Audit trail</div><div class="v">Intact</div><div class="d">no post-lock edits</div></div>
   </div>
-  <div class="card"><h2>Approval queue<span class="note">sign-off is what makes a determination defensible</span></h2>
-    <table class="tbl"><thead><tr><th>Item</th><th>Section</th><th>Approver</th><th>Requested</th><th>Status</th></tr></thead><tbody>
-    ${FILING_APPROVALS.map(a=>{const t=APPR_ST[a.st];return `<tr class="row-click" onclick="pickLens('filings');pickTab('fdetail');setFDetailTab('appr')">
-      <td><b>${a.item}</b></td><td>${a.sec}</td>
-      <td>${avatar(a.who)} <span style="font-size:var(--fs-table)">${teamNm(a.who)}</span></td>
-      <td>${a.dt}</td><td><span class="pill ${t.c}">${t.l}</span></td></tr>`;}).join('')}
+  <div class="card"><h2>Approval queue<span class="note">every domain &#183; one shared object</span></h2>
+    <div class="subhead">Approvals aggregate from every module. Each row is the same object the
+      originating workspace shows &#8212; same id, owner, status and history &#8212; and opens where
+      it is signed.</div>
+    <table class="tbl"><thead><tr><th>Item</th><th>Module</th><th>Context</th><th>Period</th><th>Approver</th><th>Requested</th><th>Status</th></tr></thead><tbody>
+    ${all.map(a=>{const t=APPR_ST[a.status]||{c:'',l:a.status};return `<tr class="row-click" onclick="${a.go}">
+      <td><b>${a.item}</b><div class="note" style="margin:0">${a.id}</div></td>
+      <td>${a.module}</td><td>${a.context}</td><td>${a.period}</td>
+      <td>${avatar(a.approver)} <span style="font-size:var(--fs-table)">${teamNm(a.approver)}</span></td>
+      <td>${a.requestedAt}</td><td><span class="pill ${t.c}">${t.l}</span></td></tr>`;}).join('')}
     </tbody></table></div>`;
   el.innerHTML=o;
 }
@@ -29449,6 +30129,12 @@ function renderExceptions(){
       <td><span class="pill ${i.sev==='neg'?'flag':(i.sev==='warn'?'ready':'info')}">${i.sev==='neg'?'high':(i.sev==='warn'?'medium':'low')}</span></td>
       <td><b>${i.t}</b></td><td class="note" style="margin:0">${i.d}</td></tr>`).join('')}
     </tbody></table></div>`;
+  /* THE EXCEPTION UNIVERSE LIVES HERE (2026-09-01, brief §5). Detection triage and the
+     cross-module blocker list were full working surfaces on Home Overview; they are
+     exceptions, so they moved to the page that owns exceptions rather than being deleted.
+     Same functions, same data, same interactions — only the mount point changed. */
+  try{ o+=homeCrossBlockers(); }catch(e){}
+  try{ o+=homeTriage(); }catch(e){}
   el.innerHTML=o;
 }
 
@@ -29475,7 +30161,7 @@ function renderActivity(){
       <td class="al-chg">${e.prior?`<span class="al-pill">${DET_STATUS[e.prior]||e.prior}</span> → `:''}<span class="al-pill on">${DET_STATUS[e.next]||AUDIT_ACT[e.action]||e.next}</span></td>
       <td>${srcNote}</td></tr>`;
   }).join('');
-  el.innerHTML=`<div class="card">
+  let o=`<div class="card">
     <h2>Activity log<span class="note">${log.length} decision${log.length===1?'':'s'} · append-only</span>
       <span class="grow" style="flex:1"></span>
       ${rewound?`<span class="al-rewound">Rewound to ${ASOF}</span>`:''}
@@ -29483,13 +30169,19 @@ function renderActivity(){
     <div class="al-note">Every decision on a detection writes actor, timestamp, prior and new
       value, the owner hand-off, and the state of every source feed at the moment of the decision
       — so the record answers <b>what did we know when we signed off</b>. Nothing here is ever
-      edited or deleted. Rewind with the <b>As of</b> control in the header to see the log as it
-      stood at a prior timestamp.</div>
+      edited or deleted.</div>
     ${log.length?`<div class="tblwrap"><table class="tbl al-tbl">
       <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Prior → new</th><th>Sources at decision</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`
       :`<div class="note" style="padding:var(--s-6);text-align:center">No decisions recorded${rewound?' before '+ASOF:' yet'}. The queue writes an entry every time you accept, dismiss, assign, reassign or escalate a detection.</div>`}
   </div>`;
+  /* THE FULL CHANGE RECORD LIVES HERE (2026-09-01, brief §5). "Changed this close cycle" —
+     the six-column table with its own window control, assembled from the consolidation change
+     feed, continuous-close detections, the append-only decision log and sign-off state — was a
+     working surface on Home Overview. Overview now carries a six-row summary of the same feed
+     and links here; the table itself moved intact rather than being deleted. */
+  try{ o+=homeChanged(); }catch(e){}
+  el.innerHTML=o;
 }
 
 function renderDocuments(){
@@ -34335,7 +35027,14 @@ function renderAll(){
   if(TAB==='traceexc')renderTraceExc();
   // Product-philosophy copy does not belong in a persistent application footer. The
   // prototype marker lives in the topbar chip; this line stays to scope + period only.
-  $('footer').innerHTML=`<b>KORVYN</b> · ${LENSES[LENS].label} · ${periodLabel()} · figures illustrative`;
+  /* THE FOOTER STATES THE CONTEXT THE PAGE ACTUALLY HAS. It printed periodLabel() — the
+     presentation window — on every surface, so Home read "inception-to-date" after the
+     window picker stood down there (an enterprise queue spans periods and has no window),
+     and Accounting read a window rather than the book period it is anchored to. Each
+     workspace now states its own: the book period on Accounting, nothing on Home. */
+  const fctx=(LENS==='ledger')?(typeof perLabel==='function'?perLabel(viewPeriod()):'')
+           :(LENS==='portfolio')?'' : periodLabel();
+  $('footer').innerHTML=`<b>KORVYN</b> · ${LENSES[LENS].label}${fctx?' · '+fctx:''} · figures illustrative`;
 }
 
 // init
@@ -34795,9 +35494,9 @@ const VIEW_META={
   fpdriver:{t:'Driver Planning',c:'Operating drivers behind the plan',depth:3},
   fpmgmt:{t:'Management Reporting',c:'Financial and operational report distribution',depth:2},
   glover:{t:'Overview',c:'Consolidated position · system status · close progress',depth:4},
-  glfin:{t:'Financial reporting',c:'Statements derived from the trial balance',depth:4},
+  glfin:{t:'Financials',c:'Period financial statements derived from the trial balance',depth:4},
   glact:{t:'Account activity',c:'Transaction-level activity by account',depth:3},
-  gltrend:{t:'Trending review',c:'Account trends over time',depth:3},
+  gltrend:{t:'Trending',c:'Account trends over time, anchored to the selected period',depth:3},
   glrecon:{t:'Reconciliations',c:'Account reconciliation status and review',depth:3},
   glclose:{t:'Close status',c:'Period close progress across entities',depth:3},
   glreports:{t:'Reports',c:'Standard ledger outputs',depth:2},
@@ -34815,7 +35514,7 @@ const VIEW_META={
   admin:{t:'Admin',c:'Capitalization policy · thresholds, roles, sign-off matrix',depth:2},
   // Lens-scoped override — Accounting's Policies is the governed repository, not admin settings.
   'ledger:admin':{t:'Policies',c:'Enterprise policy repository and governance library',depth:4},
-  overview:{t:'Overview',c:'Enterprise status · attention queue · capital position',depth:5},
+  overview:{t:'Overview',c:'Enterprise status and work requiring your attention',depth:5},
   traceexc:{t:'Traceability',c:'Exception · provenance chain · identity from ingested source',depth:5},
   lifecycle:{t:'Property lifecycle',c:'Stage → Market → Site · the portfolio in motion',depth:5},
   pis:{t:'Placed-in-service',c:'Campus → Hall · CIP carve into depreciating assets',depth:4},
@@ -35263,8 +35962,29 @@ function gfBarInner(){
     <div class="fx-fields" role="tabpanel" aria-label="${esc2(tab.nm)}">${
       tab.f.map(gfField).join('')}</div></div>`;
 }
+/* THE FILTERS BAND DOES NOT RENDER WHERE IT CANNOT HELP (2026-09-01, brief §6 and §10).
+   Two surfaces, both for the same reason — the band was 35px of chrome offering nothing the
+   page needs:
+     Home Overview   an enterprise command centre spanning modules and periods. Its band held
+                     Scope (which is the topbar's own control), Period (an accounting question
+                     this page does not ask) and Basis. Zero page filters. Advanced filtering
+                     belongs to My Work, Exceptions and Activity, which are the working
+                     surfaces and keep their own.
+     Close Overview  and Assigned to me — orientation views with nothing to filter.
+   CLOSE WORK KEEPS ITS BAND, and that is why this is a STATE test rather than a view test:
+   that tab carries five REAL page filters (Entity, Function, Owner, Status, Due date)
+   discovered by gfPageGrps(). Standing the band down on the whole acctclose view would
+   silently delete them. */
+function gfBarHidden(){
+  if(typeof TAB==='undefined')return false;
+  if(TAB==='overview' && (typeof LENS==='undefined'||LENS==='portfolio'))return true;
+  if(TAB==='acctclose' && (typeof cwTab==='undefined'||cwTab!=='all'))return true;
+  return false;
+}
 function paintGfBar(){
   const el=document.getElementById('gfBar'); if(!el)return;
+  if(gfBarHidden()){ el.innerHTML=''; el.style.display='none'; gfHidePageRow(); return; }
+  el.style.display='';
   const tabs=gfTabs(); if(!tabs.find(t=>t.k===gfTab))gfTab=tabs[0].k;
   el.innerHTML=gfBarInner();
   /* renderAll is wrapped as `_renderAll(); paintTopbar();`, so the view has already
