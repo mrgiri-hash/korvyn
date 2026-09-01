@@ -1038,9 +1038,8 @@ body.copilot-collapsed .ribai-dot.on{display:block}
   padding:2px var(--s-2) var(--s-2) calc(var(--s-4) + var(--s-4));margin-top:-2px}
 .et-pop .hd .hd-note{text-transform:none;letter-spacing:0;font-weight:var(--fw-regular);
   color:var(--hint);margin-left:var(--s-1)}
-.et-scope .pctv{color:var(--n-500);font-size:var(--fs-label);font-weight:var(--fw-regular)}
-.et-scope.invest{border-color:var(--border-strong)}
-.et-scope.invest .pctv{color:var(--warning)}
+/* .et-scope.invest is retired with the single-entity scope model — an equity investee is
+   now one entity type among several and takes the same .one treatment as any other. */
 /* The topbar shares a grid column with .main, so this MUST stay shrinkable. A flex:none child
    holding a long entity name here is what put every page into horizontal overflow last time
    (.hdr-ctl, at 805px).
@@ -1069,14 +1068,95 @@ body.copilot-collapsed .ribai-dot.on{display:block}
 .et-scope:hover{border-color:var(--accent-line);color:var(--accent-ink)}
 .et-scope .lbl{font-size:var(--fs-label);letter-spacing:var(--tracking-label);
   text-transform:uppercase;color:var(--n-500);font-weight:var(--fw-label)}
-.et-pop{position:fixed;z-index:80;width:376px;background:var(--surface);
+.et-pop{position:fixed;z-index:80;width:400px;background:var(--surface);
   border:var(--rule-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);
-  padding:var(--s-3)}
+  padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:min(560px,80vh)}
 .et-pop .hd{font-size:var(--fs-label);font-weight:var(--fw-label);
   letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--n-500);
   margin-bottom:var(--s-2)}
 .et-pop .ft{margin-top:var(--s-3);padding-top:var(--s-2);border-top:var(--rule);
   font-size:var(--fs-label);color:var(--n-500)}
+
+/* ---- THE ENTERPRISE SCOPE PICKER ----------------------------------------------------------
+   Search first, then recent, then saved, then a browse that DRILLS. At 612 entities the tree
+   this replaced is not a control: it rendered every node at once, which works at four and
+   fails at four hundred. Nothing here ever shows more than one level's children, and the panel
+   scrolls its body while the header, the search field and the summary stay put — so the two
+   things a reviewer needs (where am I, what will I get) never leave the screen. */
+.etp-hd{display:flex;align-items:baseline;gap:var(--s-2);flex:none;
+  padding:var(--s-3) var(--s-4) var(--s-2);font-size:var(--fs-label);
+  font-weight:var(--fw-label);letter-spacing:var(--tracking-label);text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--line)}
+/* the hierarchy and the version that resolved this scope, stated on the panel rather than
+   buried — a population is only meaningful against the structure that produced it */
+.etp-hv{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:var(--fw-regular);
+  color:var(--hint);font-variant-numeric:tabular-nums}
+.etp-q{flex:none;padding:var(--s-3) var(--s-4);border-bottom:1px solid var(--line)}
+.etp-q input{width:100%;height:var(--h-field);border:1px solid var(--border-strong);
+  border-radius:var(--radius-xs);background:var(--surface);color:var(--ink);
+  font:inherit;font-size:var(--fs-table);padding:0 var(--s-3)}
+.etp-q input::placeholder{color:var(--faint)}
+.etp-q input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+.etp-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding-bottom:var(--s-2)}
+.etp-sec{font-size:var(--fs-label);font-weight:var(--fw-label);
+  letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--hint);
+  padding:var(--s-3) var(--s-4) var(--s-1)}
+.etp-sec:empty{display:none;padding:0}
+/* A ROW IS TWO TARGETS: the body selects the scope, the chevron drills into it. One handler
+   inspecting the event would make "choose EMEA" and "look inside EMEA" the same gesture, and
+   there would be no way to scope to a region without entering it. Both are real buttons, so
+   both are keyboard-reachable and each says what it does. */
+.etp-r{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:var(--s-2);width:100%;text-align:left;background:none;border:0;
+  padding:var(--s-2) var(--s-4);cursor:pointer;color:var(--ink);
+  font-size:var(--fs-table);transition:var(--dur-1) var(--ease)}
+.etp-r:hover{background:var(--surface2)}
+.etp-r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.etp-r.on{background:var(--accent-bg)}
+.etp-r.on .etp-n{color:var(--accent-ink)}
+.etp-b{min-width:0;display:flex;flex-direction:column;gap:0}
+.etp-n{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
+  line-height:var(--lh-tight);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* enough context to tell two similarly named entities apart, and no more — country, holding
+   group, functional currency, ERP platform */
+.etp-s{font-size:var(--fs-label);color:var(--hint);line-height:var(--lh-tight);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.etp-r>span:last-child,.etp-r .etp-right{display:flex;align-items:center;gap:var(--s-2);flex:none}
+.etp-ct{font-size:var(--fs-label);color:var(--muted);font-variant-numeric:tabular-nums;
+  min-width:4ch;text-align:right}
+/* "book" marks an entity that carries real figures in this prototype. The rest are
+   representative structure, and saying so is better than letting a reviewer open one and find
+   an empty page. */
+.etp-tag{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tracking-label);
+  color:var(--n-600);background:var(--n-100);border-radius:var(--radius-xs);
+  padding:0 var(--s-1);line-height:calc(var(--s-4) + var(--s-1))}
+.etp-dr{display:flex;align-items:center;justify-content:center;width:24px;height:24px;
+  border:0;background:none;cursor:pointer;color:var(--hint);border-radius:var(--radius-xs);
+  transition:var(--dur-1) var(--ease)}
+.etp-dr:hover{background:var(--accent-bg);color:var(--accent)}
+.etp-dr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.etp-c{width:14px;height:14px}
+/* the breadcrumb back — one level at a time, which is what makes a deep hierarchy walkable */
+.etp-back{display:flex;align-items:center;gap:var(--s-2);width:100%;text-align:left;
+  background:none;border:0;border-bottom:1px solid var(--line);padding:var(--s-2) var(--s-4);
+  cursor:pointer;font:inherit;font-size:var(--fs-table);font-weight:var(--fw-medium);
+  color:var(--accent);transition:var(--dur-1) var(--ease)}
+.etp-back:hover{background:var(--surface2)}
+.etp-back:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.etp-back svg{width:14px;height:14px;flex:none}
+.etp-none{padding:var(--s-4);font-size:var(--fs-table);color:var(--muted)}
+/* A SUMMARY, NOT A DASHBOARD INSIDE A POPOVER. What the current scope resolves to, derived:
+   population, countries, ERP instances, functional currencies, and the hierarchy version. */
+.etp-sum{flex:none;border-top:1px solid var(--line2);background:var(--n-50);
+  padding:var(--s-3) var(--s-4)}
+.etp-sn{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)}
+.etp-sf{font-size:var(--fs-label);color:var(--muted);margin-top:var(--s-1)}
+.etp-sf .sep{margin:0 var(--s-1);color:var(--n-300)}
+.etp-sv{font-size:var(--fs-label);color:var(--hint);margin-top:var(--s-1);
+  font-variant-numeric:tabular-nums}
+.etp-sv b{color:var(--warning);font-weight:var(--fw-medium)}
+.et-scope .pctv{color:var(--n-500);font-size:var(--fs-label);font-weight:var(--fw-regular)}
+.et-scope.one{border-color:var(--border-strong)}
 
 /* ---- DataTable --------------------------------------------------------------
    One table for every list surface. Severity is a 3px left border and nothing
@@ -18184,6 +18264,7 @@ function setPeriod(k){
      cycle, so a period change repainted every figure and left the strip naming the
      period you had just left. Order matters: paintCloseStrip rebuilds the markup
      including the #hdrCtl container that paintHdrCtl then fills. */
+  try{ if(typeof scopeSyncVersion==='function')scopeSyncVersion(); }catch(e){}
   try{ if(typeof paintCloseStrip==='function')paintCloseStrip();
        if(typeof paintHdrCtl==='function')paintHdrCtl(); }catch(e){}
 }
@@ -19324,6 +19405,354 @@ function provChip(p){
 }
 
 /* ==========================================================================================
+   ENTERPRISE CONTEXT — the organizational model and the governed scope (2026-09-01)
+   ==========================================================================================
+   Korvyn is designed for a group with 500–600+ legal entities across multiple holding
+   structures, funds, countries, ERP instances, charts of accounts and functional currencies.
+   Scope could therefore never be an entity dropdown: `F.entity` was a single entity NAME and
+   `etIn()` an exact string match against it, which is a four-entity control wearing an
+   enterprise label.
+
+   FIVE CONTEXT DIMENSIONS, AND THEY ARE NOT THE SAME KIND OF THING.
+
+     ENTERPRISE SCOPE   which organizational population am I viewing   — HORIZONTAL
+     PRESENTATION CCY   how are values stated                          — HORIZONTAL
+     REPORTING BASIS    US GAAP / IFRS / statutory / management        — HORIZONTAL
+     SCENARIO           actual / budget / forecast                     — HORIZONTAL
+     ACCOUNTING PERIOD  which set of books am I working in             — ACCOUNTING ONLY
+
+   The first four live in ENTCTX and persist across every module. The period does NOT join
+   them and must not: an enterprise work queue legitimately spans periods, which is the whole
+   reason Home wears no period ribbon. BOOK/VIEW keep owning the period, untouched.
+
+   THE MODELLED BOOK IS NOT THE ENTERPRISE, and conflating them would be the RECON_SCALE
+   mistake in a new place. This prototype carries a real book for FOUR consolidated entities
+   plus one equity-method investee — every close task, reconciliation, intercompany pair and
+   consolidated figure derives from those. ORG adds a REPRESENTATIVE organizational structure
+   around them: 13 named entities and aggregate counts totalling 612. The representative
+   entities carry no figures and are not pretending to; `scopeEntities()` resolves a scope to
+   the MODELLED names only, so a scope with no modelled entity empties the lists and says so
+   (the same honest behaviour scoping to the equity investee already has) rather than
+   inventing rows. Never add a representative entity to CONS_ORDER.
+   ========================================================================================== */
+
+/* ---- HIERARCHIES. An enterprise has more than one valid organizational tree, and forcing
+   them into one is how a reporting region ends up masquerading as an owner. Two are modelled:
+   REPORTING (region → country → holding group → entity), which is the default because it is
+   how management reads the group, and LEGAL OWNERSHIP (parent → subsidiary → subsidiary),
+   which is how the entities actually own one another. A fund hierarchy is the next one and
+   slots in as a third `h` value with no structural change. */
+const ORG_HIERARCHIES={
+  reporting:{id:'reporting', name:'Reporting hierarchy', sub:'Region · country · holding group',
+             dflt:true},
+  legal:    {id:'legal',     name:'Legal ownership',     sub:'Parent · subsidiary'},
+};
+/* ---- EFFECTIVE-DATED VERSIONS. Structure changes — entities are acquired, sold, moved to a
+   new holding company, re-regioned — and history must not be overwritten. Each version states
+   when it took effect; `orgVersionAt()` picks the one in force at a date. Accounting resolves
+   at PERIOD END so a Jun 2026 statement is scoped by the Jun 2026 structure; Home resolves at
+   the latest version, because an enterprise queue is about now. No temporal engine — the
+   version is stamped onto the scope object so a future Trace can answer "which hierarchy
+   resolved this population". */
+const ORG_VERSIONS=[
+  {v:'2026.07', from:'2026-07-01', note:'Netherlands holding structure effective'},
+  {v:'2026.06', from:'2026-06-01', note:'APAC re-regioned under the Singapore holding'},
+  {v:'2026.01', from:'2026-01-01', note:'Opening structure'},
+];
+function orgVersionAt(dateStr){
+  const d=dateStr||'9999-12-31';
+  return (ORG_VERSIONS.find(x=>x.from<=d)||ORG_VERSIONS[ORG_VERSIONS.length-1]).v;
+}
+const orgLatestVersion=()=>ORG_VERSIONS[0].v;
+/* THE PERIOD END AS AN ISO DATE. perEnd() returns a DISPLAY string ("Jun 30, 2026"), and
+   comparing that to an ISO effectiveFrom is a string comparison between letters and digits —
+   it silently never matched, so Accounting resolved the latest version on every period
+   (observed: Jun 2026 resolving 2026.07, which took effect the day after that period ended).
+   The key is already YYYY-MM, so the end of the month is arithmetic, not formatting. */
+function perEndISO(key){
+  const m=/^(\d{4})-(\d{2})$/.exec(String(key||'')); if(!m) return null;
+  const y=+m[1], mo=+m[2];
+  const d=new Date(Date.UTC(y, mo, 0)).getUTCDate();   // day 0 of next month = last of this
+  return m[1]+'-'+m[2]+'-'+String(d).padStart(2,'0');
+}
+/* Accounting resolves at the END of the selected period, so a Jun 2026 statement is scoped by
+   the structure that was in force in Jun 2026 and a later reorganisation cannot silently
+   rewrite it. Everywhere else resolves at the latest version, because an enterprise queue is
+   about now. This is the ONE place that distinction is made, so no page can make it
+   differently. */
+function orgVersionForLens(){
+  try{ if(typeof LENS!=='undefined'&&LENS==='ledger'&&typeof viewPeriod==='function'){
+    const iso=perEndISO(viewPeriod()); if(iso) return orgVersionAt(iso); } }catch(e){}
+  return orgLatestVersion();
+}
+/* THE SELECTION IS STABLE; THE RESOLUTION FOLLOWS THE WORKSPACE. The scope object holds what
+   was chosen — id, type, hierarchy, rules — and `hierarchyVersion` records which structure
+   resolved it HERE. Moving between Home and Accounting, or changing the accounting period,
+   re-resolves it, which is the whole point of an effective-dated model: the same "EMEA" is a
+   different population in Jun 2026 than it is today, and a figure signed in Accounting must
+   stamp the version that produced its population, not the one that happens to be latest. */
+function scopeSyncVersion(){
+  const v=orgVersionForLens();
+  if(ENTCTX.scope.hierarchyVersion===v) return;
+  const kind=ENTCTX.scope.type==='saved'?'saved':ENTCTX.scope.type==='entity'?'entity':'node';
+  const s=scopeResolve(kind,ENTCTX.scope.id);
+  if(s) ENTCTX.scope=s;
+}
+
+/* ---- NODES. A FLAT LIST WITH A PARENT POINTER, never nested objects — depth is then a
+   property of the data rather than of the code, which is what "not every enterprise uses every
+   level" requires. A node's count is DERIVED from its children wherever it has any; only
+   leaves carry an authored number, so 612 is a sum and not a claim. `n` on a leaf is the
+   representative population of that branch. */
+const ORG_NODES=[
+  {id:'grp',    h:'reporting', parent:null,     type:'group',   name:'Consolidated Group'},
+  {id:'na',     h:'reporting', parent:'grp',    type:'region',  name:'North America'},
+  {id:'na-us',  h:'reporting', parent:'na',     type:'country', name:'United States'},
+  {id:'na-dev', h:'reporting', parent:'na-us',  type:'holdco',  name:'Development Holdings', n:84},
+  {id:'na-ops', h:'reporting', parent:'na-us',  type:'holdco',  name:'Operating Holdings',   n:96},
+  {id:'na-corp',h:'reporting', parent:'na-us',  type:'holdco',  name:'Corporate & other',    n:68},
+  {id:'na-ca',  h:'reporting', parent:'na',     type:'country', name:'Canada',               n:38},
+  {id:'emea',   h:'reporting', parent:'grp',    type:'region',  name:'EMEA'},
+  {id:'em-uk',  h:'reporting', parent:'emea',   type:'country', name:'United Kingdom',       n:52},
+  {id:'em-ie',  h:'reporting', parent:'emea',   type:'country', name:'Ireland',              n:41},
+  {id:'em-de',  h:'reporting', parent:'emea',   type:'country', name:'Germany',              n:37},
+  {id:'em-nl',  h:'reporting', parent:'emea',   type:'country', name:'Netherlands',          n:31},
+  {id:'em-oth', h:'reporting', parent:'emea',   type:'country', name:'Other EMEA',           n:45},
+  {id:'apac',   h:'reporting', parent:'grp',    type:'region',  name:'APAC'},
+  {id:'ap-sg',  h:'reporting', parent:'apac',   type:'country', name:'Singapore',            n:28},
+  {id:'ap-jp',  h:'reporting', parent:'apac',   type:'country', name:'Japan',                n:24},
+  {id:'ap-au',  h:'reporting', parent:'apac',   type:'country', name:'Australia',            n:26},
+  {id:'ap-oth', h:'reporting', parent:'apac',   type:'country', name:'Other APAC',           n:42},
+];
+const orgKids=id=>ORG_NODES.filter(n=>n.parent===id&&n.h===orgHier());
+const orgNode=id=>ORG_NODES.find(n=>n.id===id);
+/* DERIVED, memoised per hierarchy. A node with children is the sum of them; a leaf states its
+   own representative population plus any entities filed directly on it. */
+let _orgN={};
+function orgCount(id){
+  if(_orgN[id]!=null) return _orgN[id];
+  const n=orgNode(id); if(!n) return 0;
+  const kids=ORG_NODES.filter(x=>x.parent===id&&x.h===n.h);
+  const v=kids.length ? kids.reduce((s,k)=>s+orgCount(k.id),0) : (n.n||0);
+  _orgN[id]=v; return v;
+}
+
+/* ---- ENTITIES. The conceptual enterprise entity, carrying what a multinational actually
+   needs to be scoped, consolidated and traced by — ERP platform AND instance (one platform
+   can run several), chart of accounts, accounting framework, functional currency (an ENTITY
+   attribute, never to be confused with the user's presentation currency), ownership and
+   consolidation method, and the effective dates that let structure change without rewriting
+   history.
+
+   `modelled:true` marks the five that carry real figures and appear in CONS_ENT / CONS_INVEST.
+   The rest are representative: they exist so the picker and the counts describe an enterprise
+   rather than a four-entity company, and they are honest about carrying no book. */
+const ORG_ENTITIES=[
+  {id:'MDH', legalName:'Meridian DC Holdco LLC', displayName:'Meridian DC Holdco', code:'MDH',
+   entityType:'holdco', node:'na-dev', legalParent:'REIT', region:'North America', country:'United States',
+   functionalCurrency:'USD', erpPlatform:'NetSuite', erpInstance:'US Production',
+   chartOfAccounts:'US Development CoA', accountingFramework:'US GAAP', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', reitTrs:'REIT', status:'active',
+   effectiveFrom:'2021-01-01', effectiveTo:null, modelled:'Meridian DC Holdco'},
+  {id:'SVPO', legalName:'South Valley Property Owner LLC', displayName:'South Valley', code:'SVPO',
+   entityType:'legal', node:'na-dev', legalParent:'MDH', region:'North America', country:'United States',
+   functionalCurrency:'USD', erpPlatform:'NetSuite', erpInstance:'US Production',
+   chartOfAccounts:'US Development CoA', accountingFramework:'US GAAP', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', reitTrs:'REIT', property:'South Valley Campus',
+   status:'active', effectiveFrom:'2023-04-01', effectiveTo:null},
+  {id:'PRPO', legalName:'Peru Ridge Property Owner LLC', displayName:'Peru Ridge', code:'PRPO',
+   entityType:'legal', node:'na-dev', legalParent:'MDH', region:'North America', country:'United States',
+   functionalCurrency:'USD', erpPlatform:'NetSuite', erpInstance:'US Production',
+   chartOfAccounts:'US Development CoA', accountingFramework:'US GAAP', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', reitTrs:'REIT', property:'Peru Ridge Campus',
+   status:'active', effectiveFrom:'2024-02-01', effectiveTo:null},
+  {id:'FDO', legalName:'Fleet DC OpCo LLC', displayName:'Fleet DC OpCo', code:'FDO',
+   entityType:'legal', node:'na-ops', legalParent:'REIT', region:'North America', country:'United States',
+   functionalCurrency:'USD', erpPlatform:'Oracle ERP Cloud', erpInstance:'Americas',
+   chartOfAccounts:'US Operating CoA', accountingFramework:'US GAAP', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', reitTrs:'TRS', status:'active',
+   effectiveFrom:'2021-01-01', effectiveTo:null, modelled:'Fleet DC OpCo'},
+  {id:'RDC', legalName:'Ridgeline Data Campus JV LLC', displayName:'Ridgeline Data Campus JV', code:'RDC',
+   entityType:'jv', node:'na-ops', legalParent:'REIT', region:'North America', country:'United States',
+   functionalCurrency:'USD', erpPlatform:'—', erpInstance:'—',
+   chartOfAccounts:'—', accountingFramework:'US GAAP', fiscalCalendar:'Dec-31',
+   ownershipPercent:.51, consolidationMethod:'equity', status:'active',
+   effectiveFrom:'2022-09-01', effectiveTo:null, modelled:'Ridgeline Data Campus JV'},
+  {id:'MCH', legalName:'Meridian Canada Holdings ULC', displayName:'Meridian Canada', code:'MCH',
+   entityType:'holdco', node:'na-ca', legalParent:'REIT', region:'North America', country:'Canada',
+   functionalCurrency:'CAD', erpPlatform:'NetSuite', erpInstance:'US Production',
+   chartOfAccounts:'US Development CoA', accountingFramework:'US GAAP', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2022-06-01', effectiveTo:null},
+  {id:'MPC', legalName:'Meridian Property Co Limited', displayName:'Meridian Property Co', code:'MPC',
+   entityType:'legal', node:'em-ie', legalParent:'REIT', region:'EMEA', country:'Ireland',
+   functionalCurrency:'EUR', erpPlatform:'SAP S/4HANA', erpInstance:'EMEA',
+   chartOfAccounts:'EMEA Statutory CoA', accountingFramework:'IFRS', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2021-01-01', effectiveTo:null, modelled:'Meridian Property Co'},
+  {id:'MMC', legalName:'Meridian Management Co Ltd', displayName:'Meridian Management Co', code:'MMC',
+   entityType:'legal', node:'em-uk', legalParent:'REIT', region:'EMEA', country:'United Kingdom',
+   functionalCurrency:'GBP', erpPlatform:'SAP S/4HANA', erpInstance:'EMEA',
+   chartOfAccounts:'EMEA Statutory CoA', accountingFramework:'IFRS', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2021-01-01', effectiveTo:null, modelled:'Meridian Management Co'},
+  {id:'MDE', legalName:'Meridian Deutschland GmbH', displayName:'Meridian Deutschland', code:'MDE',
+   entityType:'legal', node:'em-de', legalParent:'MPC', region:'EMEA', country:'Germany',
+   functionalCurrency:'EUR', erpPlatform:'SAP S/4HANA', erpInstance:'EMEA',
+   chartOfAccounts:'EMEA Statutory CoA', accountingFramework:'Local statutory', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2023-01-01', effectiveTo:null},
+  {id:'MNL', legalName:'EMEA Infrastructure Holdings BV', displayName:'EMEA Infrastructure Holdings',
+   code:'MNL', entityType:'holdco', node:'em-nl', legalParent:'MPC', region:'EMEA', country:'Netherlands',
+   functionalCurrency:'EUR', erpPlatform:'SAP S/4HANA', erpInstance:'EMEA',
+   chartOfAccounts:'EMEA Statutory CoA', accountingFramework:'IFRS', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2026-07-01', effectiveTo:null},
+  {id:'MSG', legalName:'Singapore Data Infrastructure Pte Ltd', displayName:'Singapore Data Infrastructure',
+   code:'MSG', entityType:'holdco', node:'ap-sg', legalParent:'REIT', region:'APAC', country:'Singapore',
+   functionalCurrency:'SGD', erpPlatform:'JD Edwards', erpInstance:'APAC',
+   chartOfAccounts:'APAC CoA', accountingFramework:'IFRS', fiscalCalendar:'Dec-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2022-03-01', effectiveTo:null},
+  {id:'MJP', legalName:'Meridian Japan KK', displayName:'Meridian Japan', code:'MJP',
+   entityType:'legal', node:'ap-jp', legalParent:'MSG', region:'APAC', country:'Japan',
+   functionalCurrency:'JPY', erpPlatform:'JD Edwards', erpInstance:'APAC',
+   chartOfAccounts:'APAC CoA', accountingFramework:'Local statutory', fiscalCalendar:'Mar-31',
+   ownershipPercent:1, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2023-06-01', effectiveTo:null},
+  {id:'MAU', legalName:'Meridian Australia Pty Ltd', displayName:'Meridian Australia', code:'MAU',
+   entityType:'legal', node:'ap-au', legalParent:'MSG', region:'APAC', country:'Australia',
+   functionalCurrency:'AUD', erpPlatform:'JD Edwards', erpInstance:'APAC',
+   chartOfAccounts:'APAC CoA', accountingFramework:'IFRS', fiscalCalendar:'Jun-30',
+   ownershipPercent:.80, consolidationMethod:'full', status:'active',
+   effectiveFrom:'2024-01-01', effectiveTo:null},
+];
+/* The legal-ownership root. It is an entity in the legal tree and NOT a reporting node, which
+   is exactly the distinction two hierarchies exist to keep. */
+const ORG_LEGAL_ROOT={id:'REIT', legalName:'Meridian Global Portfolio REIT', displayName:'Meridian Global Portfolio REIT',
+  code:'MGP-REIT', entityType:'group', region:'North America', country:'United States',
+  functionalCurrency:'USD', accountingFramework:'US GAAP', ownershipPercent:1,
+  consolidationMethod:'full', reitTrs:'REIT', status:'active'};
+const orgEntity=id=>(id==='REIT'?ORG_LEGAL_ROOT:ORG_ENTITIES.find(e=>e.id===id));
+/* every ancestor of a node, nearest first — the picker's breadcrumb and the entity result's
+   context line both read this, so they cannot describe different placements */
+function orgPath(nodeId){
+  const out=[]; let n=orgNode(nodeId);
+  while(n){ out.push(n); n=n.parent?orgNode(n.parent):null; }
+  return out;
+}
+/* entities filed under a node, at any depth */
+function orgEntitiesUnder(nodeId){
+  const ids=new Set(); const walk=id=>{ ids.add(id); ORG_NODES.filter(n=>n.parent===id).forEach(k=>walk(k.id)); };
+  walk(nodeId);
+  return ORG_ENTITIES.filter(e=>ids.has(e.node));
+}
+
+/* ---- SAVED SCOPES. A reusable governed population, and deliberately NOT a flat label: a
+   saved scope carries selection RULES plus explicit include/exclude id lists, which is the
+   shape an "include North America Development, exclude dormant entities" scope needs. The
+   builder is not in this increment; the object is, so the builder does not have to migrate it. */
+const ORG_SAVED=[
+  {id:'sv-globdev', name:'Global Development', n:142,
+   selectionRules:[{node:'na-dev'},{node:'em-nl'},{node:'ap-sg'}], includedEntityIds:[], excludedEntityIds:[]},
+  {id:'sv-emeaops', name:'EMEA Operations', n:118,
+   selectionRules:[{node:'emea'}], includedEntityIds:[], excludedEntityIds:['MNL']},
+  {id:'sv-usdc',    name:'US Data Centers', n:96,
+   selectionRules:[{node:'na-ops'}], includedEntityIds:[], excludedEntityIds:[]},
+  {id:'sv-reit',    name:'REIT Entities', n:204,
+   selectionRules:[{reitTrs:'REIT'}], includedEntityIds:[], excludedEntityIds:[]},
+  {id:'sv-corp',    name:'Corporate Only', n:68,
+   selectionRules:[{node:'na-corp'}], includedEntityIds:[], excludedEntityIds:[]},
+];
+
+/* ==========================================================================================
+   THE SHARED ENTERPRISE CONTEXT
+   ==========================================================================================
+   ONE object, read by every module. Not one per module — that is how four screens ended up
+   with four opinions about the period before BOOK/VIEW, and scope would have gone the same
+   way. Currency, reporting basis and scenario are declared and carried but NOT yet given
+   pickers: the point of declaring them now is that adding a control later is a UI change
+   rather than a state migration.
+
+   presentationCurrency is a USER/REPORTING choice and is deliberately a different field from
+   entity.functionalCurrency, which is an attribute of the entity. Conflating them is how a
+   consolidated statement ends up claiming a GBP entity reports in GBP because the viewer does.
+
+   The scope carries STABLE IDS and the hierarchy version that resolved it, never display text
+   alone — so a future Trace can answer "what population was this signed against, and which
+   structure produced it" without re-deriving anything. */
+const ENTCTX={
+  scope:{id:'grp', name:'Consolidated Group', type:'group', entityCount:0,
+         hierarchyId:'reporting', hierarchyVersion:null,
+         selectionRules:null, includedEntityIds:[], excludedEntityIds:[]},
+  presentationCurrency:'USD',   // USD | EUR | GBP | local | constant — no picker yet
+  reportingBasis:'us-gaap',     // us-gaap | ifrs | statutory | management — no picker yet
+  scenario:'actual',            // actual | budget | forecast — no picker yet
+};
+const orgHier=()=>ENTCTX.scope.hierarchyId||'reporting';
+/* a local escape — esc2 is declared 17k lines below this block, and a model should not
+   depend on the evaluation order of a helper it does not own */
+const orgEsc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+/* Recent scopes, most recent first. Ids only — the display is re-derived, so a renamed node
+   cannot leave a stale label in the list. */
+let ORG_RECENT=['grp'];
+
+/* THE RESOLVER. A scope of any type resolves to (a) an enterprise population count, which is
+   representative, and (b) the MODELLED entity names it covers, which is what every list on
+   every page actually filters by. Keeping those two separate is the whole honesty of this
+   model: the picker describes a 612-entity enterprise while the figures describe the book
+   that exists. */
+function scopeResolve(kind,id){
+  const V=orgVersionForLens();
+  if(kind==='saved'){
+    const s=ORG_SAVED.find(x=>x.id===id); if(!s) return null;
+    const ents=[]; (s.selectionRules||[]).forEach(r=>{ if(r.node) orgEntitiesUnder(r.node).forEach(e=>ents.push(e));
+      if(r.reitTrs) ORG_ENTITIES.filter(e=>e.reitTrs===r.reitTrs).forEach(e=>ents.push(e)); });
+    const keep=ents.filter(e=>(s.excludedEntityIds||[]).indexOf(e.id)<0);
+    return {id:s.id, name:s.name, type:'saved', entityCount:s.n, hierarchyId:orgHier(),
+      hierarchyVersion:V, selectionRules:s.selectionRules,
+      includedEntityIds:keep.map(e=>e.id), excludedEntityIds:s.excludedEntityIds||[]};
+  }
+  if(kind==='entity'){
+    const e=orgEntity(id); if(!e) return null;
+    return {id:e.id, name:e.displayName, type:'entity', entityCount:1, hierarchyId:orgHier(),
+      hierarchyVersion:V, selectionRules:null, includedEntityIds:[e.id], excludedEntityIds:[]};
+  }
+  const n=orgNode(id); if(!n) return null;
+  return {id:n.id, name:n.name, type:n.type, entityCount:orgCount(n.id), hierarchyId:orgHier(),
+    hierarchyVersion:V, selectionRules:[{node:n.id}],
+    includedEntityIds:orgEntitiesUnder(n.id).map(e=>e.id), excludedEntityIds:[]};
+}
+/* THE MODELLED NAMES a scope covers — the single bridge between the enterprise model and the
+   book. Everything that filters by entity goes through etIn(), which reads this. */
+function scopeModelled(){
+  const inc=ENTCTX.scope.includedEntityIds||[];
+  const exc=ENTCTX.scope.excludedEntityIds||[];
+  return ORG_ENTITIES.filter(e=>e.modelled&&inc.indexOf(e.id)>=0&&exc.indexOf(e.id)<0)
+    .map(e=>e.modelled);
+}
+function setScope(kind,id){
+  const s=scopeResolve(kind,id); if(!s) return;
+  ENTCTX.scope=s;
+  ORG_RECENT=[ (kind==='saved'?'sv:':kind==='entity'?'en:':'')+id,
+    ...ORG_RECENT.filter(x=>x!==((kind==='saved'?'sv:':kind==='entity'?'en:':'')+id))].slice(0,4);
+  /* LEGACY BRIDGE. `F.entity` is a single entity NAME read by provForScope(), the command
+     palette, the Korvyn-answer scope and the equity-investee banner. It stays correct rather
+     than being rewritten at six call sites: it holds the name when the scope IS one modelled
+     entity, and null otherwise, which is exactly what those readers already expect. */
+  const m=scopeModelled();
+  try{ F.entity=(s.type==='entity'&&m.length===1)?m[0]:null; }catch(e){}
+  wsClosePop();
+  if(typeof renderAll==='function') renderAll();
+  if(typeof paintTopbar==='function') paintTopbar();
+}
+/* the scope in force, as the whole group when nothing narrower is chosen */
+function scopeBoot(){
+  _orgN={};
+  const s=scopeResolve('node','grp'); if(s) ENTCTX.scope=s;
+}
+/* ==========================================================================================
    PHASE 2 — ENTITY TREE
    The primary scoping control. Ownership, elimination pairs and per-node close status all
    derive from CONS_ENT / csxEntities() / icxPairs(); nothing here is authored.
@@ -19349,81 +19778,188 @@ const etLabel=()=>F.entity&&F.entity!=='all'?F.entity:'Consolidated Group';
 const etOwn=e=>e.parent?'Parent':(e.own==null?'&mdash;':(e.own*100).toFixed(e.own*100%1?1:0)+'%');
 const etMeth=m=>{ const x=CONS_METHODS[m]; return x?`<span class="et-meth" data-m="${m}" title="${x.d}">${x.l}</span>`:''; };
 
+/* ---- THE SCOPE CHIP. Same place, same compact form (the brief's §10) — it reads ENTCTX
+   rather than a single entity name, so it can state a region, a country, a holding group, a
+   saved scope or one entity with the same control. */
 function etScopeHTML(){
-  const sel=F.entity&&F.entity!=='all';
-  const inv=sel&&etIsInvest(F.entity);
-  /* An equity-method scope is named as such on the control itself. Without it the label
-     reads like any other entity, and every consolidated figure on the page would appear to
-     be "for" an entity whose figures are not in the consolidation at all. */
-  const note=inv?'equity method &#183; not consolidated'
-             :sel?'1 of '+entTotalLabel()
-             :entTotalLabel();
-  return `<button class="et-scope ${inv?'invest':''}" onclick="etOpen(event)"
-      title="Scope every figure on this page">
-    <span class="lbl">Scope</span>${etLabel()}
+  const s=ENTCTX.scope;
+  const n=s.entityCount||0;
+  const note=(s.type==='saved'?'Saved scope &#183; ':'')
+    + n.toLocaleString('en-US')+' entit'+(n===1?'y':'ies');
+  return `<button class="et-scope ${s.type==='entity'?'one':''}" onclick="etOpen(event)"
+      title="Enterprise scope — ${orgEsc(s.name)} · ${orgEsc(note.replace(/&#183;/g,'·'))} · ${ORG_HIERARCHIES[s.hierarchyId].name} ${s.hierarchyVersion||''}">
+    <span class="lbl">Scope</span>${orgEsc(s.name)}
     <span class="pctv">${note}</span></button>`;
 }
+
+/* ==========================================================================================
+   THE ENTERPRISE SCOPE PICKER
+   ==========================================================================================
+   SEARCH FIRST, THEN RECENT, THEN SAVED, THEN BROWSE — and browse DRILLS rather than expands.
+   A 612-node tree is not navigable and a 612-row select is not a control; what works at this
+   scale is the pattern Linear and Stripe use for large populations: type to find, or step down
+   one level at a time with a breadcrumb back. Nothing on screen ever exceeds one level's worth
+   of children.
+
+   It is a popover anchored to the chip, in the shell's own #wsPop mechanism, so it inherits
+   the placement, the outside-click dismissal and the escape behaviour every other menu has.
+   NOT a modal and not a full-screen admin experience: choosing a scope is routine.           */
+let etDrill='grp', etQ='';
 function etOpen(ev){
   ev.stopPropagation(); wsClosePop();
-  const nodes=etNodes(), inv=etInvest();
-  let pairs=[]; try{ pairs=icxPairs(); }catch(e){}
-  /* csxEntities() returns LOWERCASE status ('blocked' | 'ready' | 'prog'). This compared
-     against 'Blocked'/'Ready', so neither branch could ever match and every node fell through
-     to the amber default — the tree showed four identical dots whatever the close was doing.
-     A status indicator that cannot vary is worse than none: it reads as information. */
-  const dot=e=>{ const s=(e.cs&&e.cs.st||'').toLowerCase();
-    return s==='blocked'?'var(--sev-high)':s==='ready'?'var(--prov-ok)':s?'var(--sev-med)':'var(--n-300)'; };
-  const q=nm=>nm.replace(/'/g,"\\'");
-  const node=(e,kid)=>`<div class="et-node ${kid?'kid':''} ${F.entity===e.nm?'on':''}"
-      onclick="etPick('${q(e.nm)}')">
-      <span class="stdot" style="background:${dot(e)}"></span>
-      <span class="nm">${e.nm}</span>
-      <span class="pctv own">${etOwn(e)}</span>
-      ${etMeth(e.meth)}
-      <span class="pctv">${e.cs?e.cs.score+'%':'&mdash;'}</span></div>`;
-  const iNode=e=>`<div class="et-node kid ${F.entity===e.nm?'on':''}" onclick="etPick('${q(e.nm)}')">
-      <span class="stdot" style="background:var(--n-300)"></span>
-      <span class="nm">${e.nm}</span>
-      <span class="pctv own">${(e.own*100).toFixed(0)}%</span>
-      ${etMeth(e.meth)}
-      <span class="pctv">&mdash;</span></div>
-      <div class="et-why">${e.basis}</div>`;
-  const parent=nodes.find(n=>n.parent), kids=nodes.filter(n=>!n.parent);
+  etDrill=(ENTCTX.scope.type==='saved'||ENTCTX.scope.type==='entity')?'grp':(ENTCTX.scope.id||'grp');
+  etQ='';
   const m=document.createElement('div'); m.className='et-pop'; m.id='wsPop';
-  m.innerHTML=`<div class="hd">Consolidation scope
-      <span class="hd-note">${entTotalLabel()} in the group</span></div>
-    <div class="et-node ${!F.entity||F.entity==='all'?'on':''}" onclick="etPick('all')">
-      <span class="stdot" style="background:var(--n-300)"></span>
-      <span class="nm">Consolidated Group</span>
-      <span class="pctv own">100%</span><span class="et-meth" data-m="full">Full</span>
-      <span class="pctv">&mdash;</span></div>
-    <div class="hd" style="margin-top:var(--s-3)">Principal entities
-      <span class="hd-note">${CONS_ORDER.length} of ${ENT_TOTAL.toLocaleString('en-US')} modelled in detail</span></div>
-    <div class="etree">
-      ${parent?node(parent,false):''}
-      ${kids.map(k=>node(k,true)).join('')}
-    </div>
-    ${inv.length?`<div class="hd" style="margin-top:var(--s-3)">Equity-method investments
-      <span class="hd-note">not consolidated</span></div>
-      <div class="etree">${inv.map(iNode).join('')}</div>`:''}
-    ${pairs.length?`<div class="hd" style="margin-top:var(--s-3)">Elimination pairs</div>
-      ${pairs.map(p=>`<div class="et-elim"><span>${p.a} &#8596; ${p.b}</span>
-        <span>${p.diff?money(p.diff):'nil'}</span></div>`).join('')}`:''}
-    <div class="ft">Ownership, method and close readiness derive from the consolidation model.
-      Method is the basis of inclusion &mdash; ownership alone does not determine it.
-      Selecting a node scopes the figures on this page.</div>`;
+  m.innerHTML=etPopBody();
   wsPlace(m,ev.currentTarget.getBoundingClientRect());
+  const i=document.getElementById('etQ'); if(i) i.focus();
 }
-function etPick(nm){
-  F.entity=(nm==='all')?null:nm;
-  wsClosePop();
-  if(typeof renderAll==='function') renderAll();
+/* Repaints the BODY only, never the popover, so the anchor is not re-measured and the panel
+   cannot walk across the screen mid-drill (the same trap popPlace() carries a guard for). */
+function etRepaint(){ const m=document.getElementById('wsPop'); if(m) m.innerHTML=etPopBody(); }
+function etGo(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation(); etDrill=id; etQ='';
+  etRepaint(); const i=document.getElementById('etQ'); if(i) i.focus(); }
+function etSearch(v){ etQ=v;
+  const m=document.getElementById('wsPop'); if(!m) return;
+  /* the RESULTS repaint, never the input — a repaint takes the caret with it, the same
+     contract cmtField() and exField() hold on the flux panel */
+  const r=m.querySelector('.etp-body'); if(r) r.innerHTML=etPopInner();
 }
-/** Shared scope test so every surface filters identically. An equity-method investee is in
-    NO consolidated population, so scoping to one correctly empties every group surface —
-    that is the honest answer, and etScopeBanner() says so rather than leaving it looking
-    like a page that failed to load. */
-const etIn=ent=>!F.entity||F.entity==='all'||ent===F.entity;
+
+/* SEARCH matches legal name, display name, code, country, region, holding group and property —
+   the things somebody actually types. A result states enough to tell two similarly named
+   entities apart (country, holding group, functional currency, ERP instance) and no more. */
+function etMatches(q){
+  const t=String(q||'').trim().toLowerCase(); if(t.length<1) return {ents:[],nodes:[],saved:[]};
+  const hit=v=>String(v||'').toLowerCase().indexOf(t)>=0;
+  const ents=ORG_ENTITIES.filter(e=>hit(e.legalName)||hit(e.displayName)||hit(e.code)
+    ||hit(e.country)||hit(e.region)||hit(e.property)||hit(e.project)
+    ||hit((orgNode(e.node)||{}).name)).slice(0,8);
+  const nodes=ORG_NODES.filter(n=>n.h===orgHier()&&hit(n.name)).slice(0,6);
+  const saved=ORG_SAVED.filter(s=>hit(s.name)).slice(0,4);
+  return {ents,nodes,saved};
+}
+/* The context line names the country, the holding group, the functional currency and the ERP
+   platform — enough to tell two similarly named entities apart. The holding group is dropped
+   when it IS the country: an entity filed directly on a country node read "Germany · Germany
+   · EUR · SAP S/4HANA", which spends a clause saying nothing. */
+const etEntSub=e=>{
+  const hold=orgNode(e.node);
+  const grp=(hold&&hold.name!==e.country)?hold.name:'';
+  return [e.country, grp, e.functionalCurrency,
+          e.erpPlatform&&e.erpPlatform!=='—'?e.erpPlatform:''].filter(Boolean).join(' &#183; ');
+};
+/* the trailing cell is ONE grid child holding the count and the drill button — two siblings
+   in a two-column grid wrap onto an implicit third row, which dropped the chevron below its
+   own row (observed) */
+const etRow=(cls,go,nm,sub,right)=>`<div class="etp-r ${cls||''}" role="button" tabindex="0"
+    onclick="${go}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${go}}">
+    <span class="etp-b"><span class="etp-n">${nm}</span>${sub?`<span class="etp-s">${sub}</span>`:''}</span>
+    <span class="etp-right">${right||''}</span></div>`;
+const etChev=`<svg class="etp-c" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const etCount=n=>`<span class="etp-ct">${n.toLocaleString('en-US')}</span>`;
+
+function etPopBody(){
+  return `<div class="etp-hd">Scope
+      <span class="etp-hv">${ORG_HIERARCHIES[orgHier()].name} &#183; ${orgVersionForLens()}</span></div>
+    <div class="etp-q"><input id="etQ" type="text" autocomplete="off" spellcheck="false"
+      placeholder="Search entities, groups or regions…"
+      value="${orgEsc(etQ)}" oninput="etSearch(this.value)"></div>
+    <div class="etp-body">${etPopInner()}</div>`;
+}
+function etPopInner(){
+  if(etQ.trim()){
+    const r=etMatches(etQ);
+    const none=!r.ents.length&&!r.nodes.length&&!r.saved.length;
+    if(none) return `<div class="etp-none">No entity, group or region matches “${orgEsc(etQ)}”.</div>`;
+    return (r.nodes.length?`<div class="etp-sec">Groups &amp; regions</div>`
+        +r.nodes.map(n=>etRow('',`setScope('node','${n.id}')`,orgEsc(n.name),
+          orgPath(n.id).slice(1).map(p=>orgEsc(p.name)).join(' &#183; '),etCount(orgCount(n.id)))).join(''):'')
+      + (r.saved.length?`<div class="etp-sec">Saved scopes</div>`
+        +r.saved.map(s=>etRow('',`setScope('saved','${s.id}')`,orgEsc(s.name),'Saved scope',etCount(s.n))).join(''):'')
+      + (r.ents.length?`<div class="etp-sec">Entities</div>`
+        +r.ents.map(e=>etRow('',`setScope('entity','${e.id}')`,orgEsc(e.legalName),etEntSub(e),
+          e.modelled?'<span class="etp-tag">book</span>':'')).join(''):'');
+  }
+  const cur=orgNode(etDrill)||orgNode('grp');
+  const kids=orgKids(cur.id);
+  const ents=ORG_ENTITIES.filter(e=>e.node===cur.id);
+  const atRoot=(cur.id==='grp');
+  /* RECENT and SAVED lead at the root, because a reviewer returning to a scope they used an
+     hour ago should not have to drill for it. They are not repeated once you are inside the
+     hierarchy — that is browse, and mixing the two would put three ways to pick one thing on
+     one screen. */
+  const recent=atRoot&&!etQ?`<div class="etp-sec">Recent</div>`+ORG_RECENT.map(k=>{
+      const kind=k.indexOf('sv:')===0?'saved':k.indexOf('en:')===0?'entity':'node';
+      const id=k.replace(/^(sv|en):/,'');
+      const s=scopeResolve(kind,id); if(!s) return '';
+      return etRow(ENTCTX.scope.id===s.id?'on':'',`setScope('${kind}','${id}')`,orgEsc(s.name),
+        s.type==='saved'?'Saved scope':s.type,etCount(s.entityCount));
+    }).join(''):'';
+  const saved=atRoot&&!etQ?`<div class="etp-sec">Saved scopes</div>`
+    +ORG_SAVED.map(s=>etRow(ENTCTX.scope.id===s.id?'on':'',`setScope('saved','${s.id}')`,
+      orgEsc(s.name),'Reusable governed population',etCount(s.n))).join(''):'';
+  const crumb=atRoot?'':`<button class="etp-back" onclick="etGo('${cur.parent||'grp'}',event)">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ${orgEsc(cur.name)}</button>`;
+  const browse=`<div class="etp-sec">${atRoot?'Browse':''}</div>${crumb}`
+    + (atRoot?etRow(ENTCTX.scope.id==='grp'?'on':'',`setScope('node','grp')`,'Consolidated Group',
+        'Every entity in the group',etCount(orgCount('grp'))+etDrillBtn('grp')):'')
+    + kids.map(k=>{
+        const n=orgCount(k.id), deeper=orgKids(k.id).length||ORG_ENTITIES.filter(e=>e.node===k.id).length;
+        return etRow(ENTCTX.scope.id===k.id?'on':'',`setScope('node','${k.id}')`,orgEsc(k.name),k.type,
+          etCount(n)+(deeper?etDrillBtn(k.id):''));
+      }).join('')
+    + (ents.length?`<div class="etp-sec">Entities here</div>`
+        +ents.map(e=>etRow(ENTCTX.scope.id===e.id?'on':'',`setScope('entity','${e.id}')`,
+          orgEsc(e.legalName),etEntSub(e),e.modelled?'<span class="etp-tag">book</span>':'')).join(''):'');
+  return recent+saved+browse+etScopeSummary();
+}
+/* THE ROW SELECTS AND THE CHEVRON DRILLS — two targets, two acts, both real buttons. One
+   handler inspecting the click target would make "choose EMEA" and "look inside EMEA" the
+   same gesture, and a reviewer would have no way to pick a region without entering it. */
+const etDrillBtn=id=>`<button class="etp-dr" title="Browse inside"
+  onclick="etGo('${id}',event)">${etChev}</button>`;
+
+/* A RESTRAINED SUMMARY, not a dashboard inside a popover. It states what the current scope
+   actually resolves to, derived: the population, the countries, ERP instances and functional
+   currencies it spans, and the hierarchy version that produced it. */
+function etScopeSummary(){
+  const s=ENTCTX.scope;
+  const ids=new Set(s.includedEntityIds||[]);
+  const ents=ORG_ENTITIES.filter(e=>ids.has(e.id)&&(s.excludedEntityIds||[]).indexOf(e.id)<0);
+  const u=(k)=>new Set(ents.map(e=>e[k]).filter(Boolean)).size;
+  const modelled=scopeModelled().length;
+  const facts=[
+    s.entityCount.toLocaleString('en-US')+' entit'+(s.entityCount===1?'y':'ies'),
+    u('country')+' countr'+(u('country')===1?'y':'ies'),
+    u('erpInstance')+' ERP instance'+(u('erpInstance')===1?'':'s'),
+    u('functionalCurrency')+' functional currenc'+(u('functionalCurrency')===1?'y':'ies'),
+  ];
+  return `<div class="etp-sum">
+    <div class="etp-sn">${orgEsc(s.name)}</div>
+    <div class="etp-sf">${facts.join('<span class="sep">&#183;</span>')}</div>
+    <div class="etp-sv">${ORG_HIERARCHIES[s.hierarchyId].name} &#183; version ${s.hierarchyVersion}
+      ${modelled?'':' &#183; <b>no modelled book</b>'}</div>
+  </div>`;
+}
+
+function etPick(nm){ /* legacy entry point — a display name, resolved to the governed scope */
+  if(nm==='all'){ setScope('node','grp'); return; }
+  const e=ORG_ENTITIES.find(x=>x.modelled===nm||x.displayName===nm||x.legalName===nm);
+  if(e) setScope('entity',e.id); else setScope('node','grp');
+}
+/** Shared scope test so every surface filters identically. It reads the RESOLVED population
+    rather than a single name, so a region, a country, a holding group or a saved scope all
+    filter with the one predicate. An equity-method investee is in NO consolidated population,
+    so scoping to one correctly empties every group surface — that is the honest answer, and
+    etScopeBanner() says so rather than leaving it looking like a page that failed to load.
+    A scope covering no modelled entity behaves the same way, for the same reason. */
+const etIn=ent=>{
+  if(ENTCTX.scope.id==='grp') return true;      // the whole group — no narrowing
+  if(!ent) return true;                          // an unattributed row is not entity-scoped
+  return scopeModelled().indexOf(ent)>=0;
+};
 /* Two populations are on screen at once when an equity investee is scoped, and the banner has
    to name BOTH or it will be contradicted by the page underneath it.
      - Surfaces that filter by entity (every DataTable, via etIn) go empty. Correct.
@@ -19621,6 +20157,8 @@ function emptyState(title,hint){
     ${hint?`<div class="es-h">${hint}</div>`:''}`;
 }
 dtLoad();
+/* resolve the opening scope — the whole group — before anything paints */
+scopeBoot();
 
 /* ==========================================================================================
    PHASE 6 — CHROME: connection strip, period + data-as-of, command palette, keyboard nav.
@@ -20107,6 +20645,7 @@ function setPeriodHard(k){
   VIEW.period=k;
   try{ if(typeof KFX!=='undefined'&&KFX.syncPeriod)KFX.syncPeriod(k); }catch(e){}
   renderAll();
+  try{ if(typeof scopeSyncVersion==='function')scopeSyncVersion(); }catch(e){}
   try{ if(typeof paintCloseStrip==='function')paintCloseStrip();
        if(typeof paintHdrCtl==='function')paintHdrCtl(); }catch(e){}
 }
@@ -27972,15 +28511,25 @@ function glSurface(el){ if(el)el.classList.add('acctsurf'); }
 const glSurfActions=glExport;
 
 /* THE CONTEXT LINE. Flux's header answers "what am I looking at" in one line and
-   so does this: scope, period, currency. Derived from the live GL filter state and
-   the shell's own period, never re-stated as prose. */
+   so does this: period, currency, and any narrowing the page itself applies.
+
+   SCOPE IS STATED ONCE, ON THE CHIP (2026-09-01, brief §20). This line opened with
+   "Consolidated Group" unconditionally, which both repeated the scope control and
+   CONTRADICTED it the moment anything narrower was chosen — observed with the chip reading
+   "EMEA · 206 entities" above a page whose own subhead claimed Consolidated Group. The GL's
+   entity FILTER is a different thing and is still named when it is set: it narrows WITHIN
+   the enterprise scope rather than restating it.
+
+   The currency comes from ENTCTX.presentationCurrency, which is a USER/REPORTING choice and
+   deliberately not an entity attribute. There is no picker for it yet; reading it here is
+   what makes adding one later a UI change rather than a hunt through hard-coded "USD". */
 function glCtx(extra){
   const parts=[];
-  parts.push(`<b>${GLF.ent==='all'?'Consolidated Group':glEsc(GLF.ent)}</b>`);
+  if(GLF.ent!=='all') parts.push(`<b>${glEsc(GLF.ent)}</b>`);
   /* the period is INHERITED, never stated as a literal — this one line reaches
      every General Ledger page's subhead */
   parts.push(perLabel(viewPeriod()));
-  parts.push('USD');
+  parts.push((typeof ENTCTX!=='undefined'&&ENTCTX.presentationCurrency||'USD').toUpperCase());
   (extra||[]).forEach(x=>parts.push(x));
   return parts.join('<span class="sep">·</span>');
 }
@@ -35157,6 +35706,8 @@ function paintRailRoles(){
   // it (re)builds the strip's markup including the #hdrCtl container that paintHdrCtl then fills.
   if(typeof paintSources==='function') paintSources();      // no-op now (#ribSrc removed); kept harmless
   if(typeof paintCpSrc==='function') paintCpSrc();
+  /* the scope re-resolves against the workspace before the chrome that states it paints */
+  if(typeof scopeSyncVersion==='function') scopeSyncVersion();
   if(typeof paintCloseStrip==='function') paintCloseStrip();
   if(typeof paintHdrCtl==='function') paintHdrCtl();
 }
