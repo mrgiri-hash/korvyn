@@ -2875,6 +2875,266 @@ a `node -e` one-liner inside double quotes, and the shell ate every backtick as 
 substitution — the paragraph landed with its code spans replaced by empty strings and a
 terminal escape sequence. Write the text to a file and splice from the file.
 
+## 2026-08-31 — the trend column stays a line; the bar was built twice and rejected twice
+
+Owner: *"12 month trend — can we add horizontal bar instead? Also can we add MoM or QoQ
+change options?"* → *"I meant one straight horizontal bar."* → *"where is the color?"* →
+**"forget about the bar — I don't like it. I can't tell how that is relevant when it only
+shows one bar. How is this helpful?"**
+
+It was not helpful, and the reason is worth writing down so it is not attempted a third
+time.
+
+**A SINGLE BAR OF THE CURRENT MOVEMENT RESTATES THE Δ AMOUNT COLUMN.** Same number, same
+sign, same green/red, two columns away. The only thing it added over the figure was
+pre-attentive magnitude — which line moved most — and **the statement already answers that
+better**: the Δ Amount header sorts by largest movement in one click. A column that
+duplicates its neighbour and loses to a control that already exists has no argument left.
+
+Colouring it is what made the duplication obvious. The accent version at least looked like a
+different kind of information; once it was green and red it was visibly the Δ column drawn
+again. That the owner saw it immediately after the colour landed is the whole story.
+
+**Its shared scale also mixed subtotals with detail lines**, so the longest bar on the income
+statement was Total revenue — longest because it is a sum, which tells a reviewer nothing.
+
+**THE ONLY NON-REDUNDANT JOB THIS COLUMN HAS IS CONTEXT**: *is this month's movement normal
+for this line, or the first of its kind in a year?* That question needs HISTORY, which is
+exactly what one bar cannot carry and what the sparkline does. So the column is the line
+again, byte-identical to what shipped, and still off by default.
+
+**Two shapes were rejected on the way**, both at the owner's direction: eleven bars of
+period-over-period change (a bar-sparkline — *"I meant one straight horizontal bar"*), and
+then the single bar. **If a MoM/QoQ basis is ever wanted again, it belongs on a control that
+shows a SERIES, not on one that shows a single number.**
+
+### What was kept, because it was real
+
+Three fixes found while building the thing that got reverted. They are unrelated to the bar
+and they stay.
+
+- **`colOn()` APPENDED, so every newly enabled column landed after Explanation** — the widest
+  and only text column, which belongs last (owner: *"why is the trend behind the explanation?
+  The sequence is flawed"*). A new column now takes the first slot whose `COL_DEFS` position
+  is later than its own. Columns already on screen keep whatever order the reviewer dragged
+  them into; this decides only where a NEW one lands, which is the part nobody was choosing.
+  Verified: `trend`, `resid` and `share` each land in their canonical slot, all before
+  Explanation.
+- **`COLS_DEFAULT` still listed `contrib`**, retired 2026-08-28 and gone from `COL_DEFS`.
+  "Reset to default" wrote a dead id back into `S.cols`. `renderGrid()` filtered it out, which
+  is why the table never broke — but the picker and any saved view taken after a reset carried
+  the ghost.
+- **`colName()`** is the one namer for a column, so a header and the column picker cannot
+  disagree.
+
+### And a latent dark-mode bug, app-wide
+
+`--pos` / `--neg` / `--warn` / `--neu` are declared in `:root` as `var(--success)` and
+friends. **A custom property resolves where it is DECLARED**, so they resolved against html's
+LIGHT semantics and inherited down as frozen light values — `[data-theme="dark"]` redefines
+`--success` on BODY, too late. Measured before the fix: a favourable Δ rendered `#0F7A44` on
+a `#171A21` surface, **about 2:1**. Every green and red figure was affected — the Δ amount,
+the F/U mark, the unexplained residual, the worklist meter.
+
+**The dark block's own comment states the rule and was not followed**: *"if you add a
+ramp-derived alias to `:root`, add it here too."* `--pos-ink` had been re-declared there and
+its three siblings had not, which is how it went unseen. `--neutral` had to be re-resolved
+first, or `--neu` would have inherited the same freeze one link down the chain.
+
+After: dark `--pos` `#46C489` at **7.89:1**, `--neg` `#F0685E` at **5.68:1**.
+
+**THE STATIC GATE CANNOT SEE THIS.** `check_text_contrast.mjs` resolves `--pos` → `--success`
+analytically and gets the dark value, so it passed throughout. Only the RENDERED colour shows
+the freeze. A gate for this class of bug has to read computed style in a browser; it does not
+exist yet and is the obvious next tool.
+
+**Verified after the revert:** 60/60 views · console clean · three gates green · the trend
+column renders the line again (2 paths, 0 rects) and sits before Explanation · the Table menu
+is back to Table · Statement order · Row density.
+
+## 2026-08-31 — three borrowings from the design comps
+
+Owner supplied three comps of this screen and asked for a read on them, then: *"let's start
+with 1–3."* The filter tab architecture is explicitly out of scope. What follows is what was
+worth taking; the rest of the read is in the response, not here.
+
+### 1. The Δ pair shares one header
+
+"Δ amount" and "Δ %" are ONE measure in two units, and the header row read them as two
+unrelated columns — the Δ glyph twice and the word that ties them, *change*, nowhere. They
+sit under a single **CHANGE** span now with `$` and `%` beneath, which is what a financial
+statement does on paper.
+
+**THE SPAN IS CONDITIONAL, and that is the whole trick.** `fxShed()` hides Δ% by CLASS when
+the track narrows, so a hard `colspan=2` would keep spanning two columns while only one
+existed and drag every heading to its right one cell out of line. The group renders only when
+BOTH are in the column set, and `fxShed()` syncs the colspan when it sheds — a colspan is an
+attribute, the one thing a class cannot hide. Verified: panel open → colspan 1, panel closed
+→ colspan 2, header and body cell counts equal (8/8) throughout.
+
+**ONE VALUE DRIVES BOTH ROWS, or they overlap.** The sub-row pins at
+`--fx-stick + --fx-hgrp-h`, so that height cannot be guessed. Set at 20px against a row that
+rendered 32px, the sub-row pinned **12px into the row above** and the pair sat over the first
+body rows (measured: header 150–204, first body cell top 178). The group cell is the only
+cell in row 1 that is not `rowspan="2"`, so its height IS row 1's height — it is pinned to
+the same token the offset uses and the two can no longer disagree. Verified at three scroll
+positions: the rows abut at exactly 0px.
+
+### 2. Comments and Support as count columns
+
+Both figures existed and were reachable only inside the panel. On the row they answer "which
+lines already carry a conversation, and which carry documents" while a reviewer scans.
+
+**Inventory, not a badge** (rule 12): a quiet grey numeral beside its icon, never a filled
+pill — which is the thing to avoid from comp #2, where a green "Reviewed" pill on 18 of 21
+rows is a wall of decoration. **An empty cell is an em dash, not a `0`**: two dozen zeroes
+stop the eye on exactly the rows with nothing to say.
+
+Support counts **documents**, not citations — `evidenceDocs()` dedupes by file name, which is
+the list the Evidence tab and its badge already read. Counting `evidenceFor()` would say 3
+where the tab lists 2. Both columns are OFF by default and shed with the analytics group,
+before Explanation. Verified live: the seeded thread on General and administrative reads 3,
+and posting a comment moved Tenant recoveries from — to 1.
+
+### 3. A driver states its share — it already did, and it was broken
+
+The comps show Key drivers with a share per driver. **We already print it**, in `dwDrivers()`,
+which is the drivers view that actually renders.
+
+**`RWSEC.drivers` — the reference's Key drivers card, `.rw-kd` — IS ORPHANED.** It is still
+listed in `RW_LAYOUT.drawer.sum`, but Overview has been state-composed by `dwOverviewKeys()`
+since 2026-08-30 and that returns `['explain','cmtPeek','reviewer']`, and `RW_LAYOUT.page` was
+rebuilt as the two-column Review Desk. Swept the rendered DOM for `.rw-kd` across 6 tabs × 2
+densities × 6 lines: **zero hits.** The share was added there first and reverted; the part is
+left in place and NAMED as orphaned, because it is the reference composition and is what to
+mount if that card ever returns.
+
+**AND THE LIVE ONE HAD THE `contrib` BUG.** Found while looking for the card: *Site operations
+and staffing* moved 0.0 and its drivers read **23474% · 19460% · 11119% · 7005%** — four
+drivers of ±0.0 that very nearly cancel, divided by the almost-nothing they leave behind.
+
+That is exactly the fault that retired `contrib`, surviving in the one place a share is still
+printed: **a percentage is only meaningful while its denominator can carry one.** Below half a
+display unit the total rounds to 0.0 on screen and a percentage of it is noise however it is
+computed. `shareOf(v,tot)` returns `null` there and the row prints no share — the AMOUNTS
+carry the decomposition on their own, which is what a footing schedule does anyway. One
+helper, so the root drivers, the drill rows and the bar widths cannot disagree about when a
+share exists.
+
+Verified after: Site operations blank with 0% bars; Power and utilities 69 + 18 + 8 + 5 = 100;
+Rental revenue 37 + 35 + 23 + 5 = 100; drilled one level (Power → by region) 56 + 23 + 21 = 100.
+
+**Verified overall:** 60/60 views · console clean · three gates green (the ratchet caught a
+2px sub-row padding and it went to `--s-1`) · header and body cell counts equal with the
+columns on and off and with the panel open and closed · both statements render the two-row
+header.
+
+### Later — the defaults, and the period columns name their period
+
+Owner, on the pass above: *"I wouldn't make 12-month trend a default view. Also, instead of
+saying current and compared — please add the month on the header. And I didn't like comments
+and support columns — you can either remove or leave as an option."*
+
+**THE TWO DEFAULTS HAD DRIFTED.** `S.cols` (what a session opens on) never held the trend
+column; `COLS_DEFAULT` (what "Reset to default" writes) did. So a reset handed the column
+back and looked like the product had turned it on. They agree now, and that is the rule: a
+reset must return you to what a new session opens on, not to a different set.
+
+The trend column and the two count columns are all OPTIONS — real, listed in `COL_DEFS`, one
+click away in Display › Table › Columns, off until somebody asks. Comments and Support were
+never in either default; they stay available rather than being deleted, which is the lighter
+of the two options the owner offered.
+
+**THE PERIOD COLUMNS NAME THEIR PERIOD.** "Current" and "Compared" are ROLES; a reviewer
+reading a statement wants the period, and all three comps put the month on the header. A
+figure under a column headed **Jun 2026** needs no decoding, and a printed or exported
+statement carries its own dates.
+
+**TWO NAMES, TWO JOBS.** `colHead()` is what the header says; `colName()` stays the stable
+role name for the column PICKER, the sort tooltip and the shed order — "turn off Jun 2026" is
+meaningless in a list of columns, and the wording would change every month. Compared resolves
+through `cmpBtnLabel()`, so it reads **Budget** or **Forecast** when that is what the
+statement is measured against rather than inventing a date for a comparison that has none,
+and `pLabel()` carries the cadence.
+
+Verified across every basis: monthly `Jun 2026 | May 2026`, quarterly `Q2 2026 | Q1 2026`,
+year-over-year `Jun 2026 | Jun 2025`, budget `Jun 2026 | Budget`, and stepping a period back
+`May 2026 | Apr 2026`. The picker still reads Current · Compared · Δ amount · Δ % ·
+Explanation.
+
+**Worth an owner's call, not taken here:** with dates on the header the column ORDER reads
+backwards — `Jun 2026 | May 2026 | Change` is newest-first, where a variance statement is
+normally read left to right as prior → current → change, which is what all three comps do.
+Flipping `cur` and `pri` in `COL_DEFS` (and so in the canonical insert order) would fix it,
+but column order is the reviewer's to set and it was not asked for.
+
+**Verified:** 60/60 views · console clean · three gates green · header and body cell counts
+equal with all three optional columns on (9/9) · both statements.
+
+## 2026-08-31 — the income statement is PUBLISHED: costs positive, colour on favourability
+
+Owner: *"you have operating expenses as all −ve. Why? This is flawed reporting."*
+
+**It was a convention, not a bug — and the wrong convention for this surface.** Every account
+carries its natural sign, so an expense is negative and every subtotal is a plain SUM of its
+children: Net operating income was literally Total revenue **plus** Total operating expenses.
+That is coherent management reporting. A published income statement does the opposite —
+expenses POSITIVE, the column footing by convention (revenue less expenses) rather than by
+addition — and on a screen called Income Statement Flux under Financial reporting, that is
+what a controller expects.
+
+You can have one or the other, not both. This is the published presentation, done as a
+**display layer** so the engine keeps its additive arithmetic:
+
+| | |
+|---|---|
+| `lineRaw()` | natural sign; the subtotal recursion runs on this, so Total opex is still the SUM of its children and NOI is still Total revenue PLUS Total opex |
+| `lineVal()` | `lineRaw` × the line's display sign — every caller outside the recursion reads this, so the grid, the panel, the memo, the sparkline and the export flip together and none can disagree |
+
+**ONE FLAG ON THE LINE, NEVER A GUESS FROM THE SECTION.** `exp:1` marks a line whose natural
+balance is a cost. Section membership would be wrong: *Gain on disposition* sits under
+Non-operating beside Depreciation and is a credit — flipping it would report a gain as a loss.
+**The balance sheet is untouched**: contra-accounts there are legitimately negative in a
+published balance sheet, and there is no favourable direction to key a sign off.
+
+**THE DECOMPOSITION HAD TO FLIP WITH THE LINE.** `byDim()` and `rwAgg()` sum the raw slices
+and bypass `lineVal` entirely, so without the same sign the header would read a +1.4 expense
+increase while its drivers read −1.0 / −0.2 / −0.1 — the card would not foot to the movement it
+sits under, which is the one thing Key drivers exists to do. Same for account sub-rows
+(`acctSgn`, resolved through the line the account rolls up to via `COA.c`).
+
+### unfav() was a coincidence waiting to break
+
+The old body read `(r.cur<0 && r.d<0) || (r.cur>=0 && r.d<0)` — which is `r.d<0` on **both**
+branches, identical to the balance-sheet rule sitting beside it. It looked like it
+distinguished revenue from expense and did not. It produced correct F/U marks only BECAUSE
+expenses were carried negative, so a rising cost happened to be a falling number. Publish the
+statement and the coincidence breaks: a rising cost is +1.4 and would have read **Favorable**.
+Stated properly it is the same rule the accounting is — revenue up is good, cost up is bad.
+
+**COLOUR FOLLOWS FAVOURABILITY, THE ARROW FOLLOWS THE SIGN.** The Δ cell, the panel's
+four-figure band and the full-screen hero all key colour on `unfav()`; component amounts
+(drivers, drill nodes) go through `unfavOn(id,d)`, the same rule applied to a part of the
+movement. On the balance sheet `unfav()` is `d<0`, so this is exactly the sign rule it
+replaces. Tying the ARROW to favourability too was tried and reverted within the pass: it made
+an up-arrow mean "good", so a cost that FELL 0.2 rendered as a green up-arrow — which reads as
+a cost that rose. Two facts, two channels.
+
+**Verified end to end:**
+
+| line | Δ | grid | panel | drivers |
+|---|---|---|---|---|
+| Power and utilities (cost rose) | +1.4 | red ▼‑class, **U** | ▲ 1.4 red | all red, foot to 1.4 |
+| Repairs and maintenance (cost fell) | (0.2) | green, **F** | ▼ 0.2 green | all green |
+| Tenant recoveries (revenue rose) | +1.4 | green, **F** | ▲ 1.4 green | all green |
+
+Footing on screen: Total revenue 88.1 − Total opex 30.0 = NOI 58.1; NOI − G&A − Txn = EBITDA
+57.3; EBITDA − D&A − interest − tax = Net income 28.1. All check. The six opex lines sum to
+30.1 against a stated 30.0 — display rounding at 1dp, present before this change and unrelated
+to sign.
+
+60/60 views · console clean · three gates green · balance sheet unchanged.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

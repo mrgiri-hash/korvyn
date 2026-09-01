@@ -478,6 +478,29 @@
   --success:#46C489; --success-bg:#12281E;
   --pos-ink:#7FD9A0;
 
+  /* AND THE SHORT-NAME ALIASES OF THAT TRIO, for the reason this block's own comment
+     gives above: --pos/--neg/--warn/--neu are declared in :root as var(--success) and
+     friends, so they resolved against html's LIGHT semantics and inherited down as
+     frozen light values. --pos-ink was re-declared here and its three siblings were
+     not, which is how it went unseen.
+
+     Every green and red figure in the app was affected, not one column: the delta
+     amount, the F/U mark, the unexplained residual, the worklist meter. Measured in
+     dark mode before this line existed — a favourable delta rendered #0F7A44 on a
+     #171A21 surface, about 2:1.
+
+     The static contrast gate did not catch it because it resolves --pos to --success
+     analytically and gets the dark value; only the RENDERED colour shows the freeze.
+     If a gate is ever added for this, it has to read computed style in the browser. */
+  --neg:var(--danger);   --neg-bg:var(--danger-bg);
+  --warn:var(--warning); --warn-bg:var(--warning-bg);
+  --pos:var(--success);  --pos-bg:var(--success-bg);
+  /* --neutral is itself a RAMP alias declared only in :root, so re-declaring --neu
+     against it would inherit the same frozen light value. It has to be re-resolved
+     here first. Exactly the chain this block warns about. */
+  --neutral:var(--n-600); --neutral-bg:var(--n-100);
+  --neu:var(--neutral);  --neu-bg:var(--neutral-bg);
+
   --teal:#3FB0BA; --teal-bg:#122A2C;
 
   /* Severity marks lighten so a 3px border still reads against a dark surface. */
@@ -4891,6 +4914,34 @@ body.dw-resizing{cursor:col-resize;user-select:none}
   margin-top:var(--s-2);padding-top:var(--s-2);border-top:1px solid var(--line2);
   font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)}
 #fxRoot .rw-kd-tot span:last-child{font-family:var(--num);font-variant-numeric:tabular-nums}
+/* ---- THE TWO-ROW HEADER (2026-08-31) -------------------------------------
+   The Δ pair sits under one CHANGE span. Two rows means two sticky offsets: the top
+   row pins at --fx-stick as it always has, the sub-row pins directly beneath it. The
+   offset is a token rather than a measured value, so it cannot drift out of step
+   with the row it sits under — change one, change both. */
+/* ONE VALUE DRIVES BOTH, or the two rows overlap. The sub-row pins at
+   --fx-stick + the height of the row above it, so that height cannot be guessed: set
+   at 20px against a row that rendered 32px, the sub-row pinned 12px INTO the row
+   above and the pair sat over the first body rows (measured: header 150-204, first
+   body cell top 178). The group cell is the only cell in row 1 that is not
+   rowspan="2", so its height IS row 1's height — pin it to the same token the offset
+   uses and the two can never disagree. */
+#fxRoot{--fx-hgrp-h:24px}
+#fxRoot .fx-tbl th.col-chg-grp{height:var(--fx-hgrp-h);box-sizing:border-box;
+  text-align:center;padding-top:0;padding-bottom:0;border-bottom:1px solid var(--line2)}
+#fxRoot .fx-tbl thead tr.hsub th{top:calc(var(--fx-stick) + var(--fx-hgrp-h));
+  padding-top:var(--s-1)}
+/* a column standing beside the group spans both rows, so its label sits on the
+   baseline of the pair rather than floating above them */
+#fxRoot .fx-tbl thead th[rowspan]{vertical-align:bottom}
+/* ---- COUNT COLUMNS -------------------------------------------------------
+   Comments and Support: inventory, so a quiet grey numeral beside its icon and never
+   a filled badge (rule 12). An empty cell is an em dash rather than a 0 — two dozen
+   zeroes stop the eye on exactly the rows that have nothing to say. */
+#fxRoot .col-cnt{width:64px;white-space:nowrap;color:var(--muted)}
+#fxRoot .col-cnt .ic{width:12px;height:12px;margin-right:4px;opacity:.55;
+  vertical-align:-1px}
+#fxRoot .col-cnt.nil{color:var(--hint)}
 /* COVERAGE — the explained share as a fill, with a tick at the coverage the
    tolerance demands. Accent while it climbs, success once it clears the tick. */
 #fxRoot .rw-cover{margin-top:9px}
@@ -7968,24 +8019,24 @@ const LINES={
   {id:'otherrev',l:'Other property revenue'},
   {id:'totrev',  l:'Total revenue', tot:['rent','recov','otherrev'],grand:1},
   {sec:'Property operating expenses'},
-  {id:'power',   l:'Power and utilities'},
-  {id:'siteops', l:'Site operations and staffing'},
-  {id:'rm',      l:'Repairs and maintenance'},
-  {id:'ptax',    l:'Property taxes'},
-  {id:'ins',     l:'Insurance'},
-  {id:'grlease', l:'Ground lease expense'},
-  {id:'totopex', l:'Total property operating expenses', tot:['power','siteops','rm','ptax','ins','grlease']},
+  {id:'power',   l:'Power and utilities', exp:1},
+  {id:'siteops', l:'Site operations and staffing', exp:1},
+  {id:'rm',      l:'Repairs and maintenance', exp:1},
+  {id:'ptax',    l:'Property taxes', exp:1},
+  {id:'ins',     l:'Insurance', exp:1},
+  {id:'grlease', l:'Ground lease expense', exp:1},
+  {id:'totopex', l:'Total property operating expenses', tot:['power','siteops','rm','ptax','ins','grlease'], exp:1},
   {id:'noi',     l:'Net operating income', tot:['totrev','totopex'],grand:1},
   {sec:'Corporate and other'},
-  {id:'ga',      l:'General and administrative'},
-  {id:'txn',     l:'Transaction and acquisition costs'},
+  {id:'ga',      l:'General and administrative', exp:1},
+  {id:'txn',     l:'Transaction and acquisition costs', exp:1},
   {id:'ebitda',  l:'Adjusted EBITDA', tot:['noi','ga','txn']},
   {sec:'Non-operating'},
-  {id:'da',      l:'Depreciation and amortization'},
-  {id:'int',     l:'Interest expense, net of capitalized'},
-  {id:'othere',  l:'Loss on debt extinguishment'},
+  {id:'da',      l:'Depreciation and amortization', exp:1},
+  {id:'int',     l:'Interest expense, net of capitalized', exp:1},
+  {id:'othere',  l:'Loss on debt extinguishment', exp:1},
   {id:'gain',    l:'Gain on disposition'},
-  {id:'tax',     l:'Income tax expense'},
+  {id:'tax',     l:'Income tax expense', exp:1},
   {id:'ni',      l:'Net income', tot:['ebitda','da','int','othere','gain','tax'],grand:1},
  ]
 };
@@ -8145,6 +8196,10 @@ const COL_DEFS=[
   {id:'resid', nm:'Unexplained'},
   {id:'owner', nm:'Owner'},
   {id:'status',nm:'Status'},
+  /* what the row already carries, surfaced so a reviewer can see which lines have a
+     conversation and which have documents without opening each one */
+  {id:'cmts',  nm:'Comments'},
+  {id:'supp',  nm:'Support'},
   {id:'cmt',   nm:'Explanation'},
 ];
 /* THERE IS NO POLICY NAME ANY MORE — THE RULE IS THE POLICY (2026-08-31).
@@ -8364,10 +8419,46 @@ function accVal(accts,i,grain,basis,slices){
   });
   return t;
 }
-function lineVal(stmt,id,i,grain,basis,slices){
+/* ============================================================================
+   THE ENGINE IS ADDITIVE; THE STATEMENT IS PUBLISHED
+   Owner, 2026-08-31: "you have operating expenses as all −ve. Why? This is flawed
+   reporting." Fair. The model carries every account at its NATURAL sign, so an
+   expense is negative and every subtotal is a plain sum of its children — Net
+   operating income is literally Total revenue + Total operating expenses. That is
+   coherent management reporting and it is not what a published income statement
+   looks like: there, expenses are POSITIVE and the column foots by convention
+   (revenue less expenses) rather than by addition.
+
+   You can have one or the other, not both. This is the published presentation, done
+   as a DISPLAY layer so the engine keeps its additive arithmetic:
+
+     lineRaw()  natural sign. The recursion for subtotals runs on this, so
+                Total opex is still the SUM of its children and NOI is still
+                Total revenue PLUS Total opex.
+     lineVal()  lineRaw x the line's display sign. Every caller outside the
+                recursion reads this, so the grid, the panel, the memo, the
+                sparkline and the export all flip together and none of them can
+                disagree with another.
+
+   ONE FLAG, ON THE LINE, NOT A GUESS FROM THE SECTION. `exp:1` marks a line whose
+   natural balance is a cost. Section membership would be wrong: "Gain on
+   disposition" sits under Non-operating beside Depreciation and is a credit, and
+   flipping it would report a gain as a loss.
+
+   THE BALANCE SHEET IS NOT TOUCHED. Contra-accounts there (accumulated
+   depreciation) are legitimately negative in a published balance sheet, and there is
+   no favourable direction to key a sign off. lineSgn returns +1 for every bs line. */
+const lineSgn=(stmt,id)=>{const ln=LINE(stmt,id);return (ln&&ln.exp)?-1:1;};
+/* the sign for an ACCOUNT, resolved through the line it rolls up to (COA carries the
+   line id on `c`), so a drilled sub-row cannot read negative under a positive line */
+const acctSgn=a=>{const c=(ACC[a]||{}).c;return c?lineSgn(S.stmt,c):1;};
+function lineRaw(stmt,id,i,grain,basis,slices){
   const ln=LINE(stmt,id);
-  if(ln&&ln.tot)return ln.tot.reduce((t,m)=>t+lineVal(stmt,m,i,grain,basis,slices),0);
+  if(ln&&ln.tot)return ln.tot.reduce((t,m)=>t+lineRaw(stmt,m,i,grain,basis,slices),0);
   return accVal(LINE_ACCTS[id]||[],i,grain,basis,slices);
+}
+function lineVal(stmt,id,i,grain,basis,slices){
+  return lineRaw(stmt,id,i,grain,basis,slices)*lineSgn(stmt,id);
 }
 
 /* ============================================================================
@@ -8769,9 +8860,23 @@ function fxKeys(e){
 }
 
 /* an unfavorable movement: expense up or revenue/asset down */
+/* FAVOURABILITY IS NOT THE SIGN, and it never was — the old body read
+     (r.cur<0 && r.d<0) || (r.cur>=0 && r.d<0)
+   which is `r.d<0` on both branches: identical to the balance-sheet rule it sits
+   beside. It produced correct F/U marks only BECAUSE expenses were carried
+   negative, so a rising cost happened to be a falling number. Publish the statement
+   and that coincidence breaks: a rising cost is now +1.4 and would have read
+   Favorable. Stated properly, it is the same rule the accounting is: revenue up is
+   good, cost up is bad. */
+/* the same rule for a COMPONENT amount under a line — a driver, a drill node, a
+   subtotal of the thing you are standing in. It is the line's own favourability
+   applied to a part of its movement, so a cost driver that ROSE reads unfavourable
+   exactly as the line does. */
+const unfavOn=(id,d)=>unfav({id,d});
 function unfav(r){
-  if(S.stmt==='is')return (r.cur<0&&r.d<0)||(r.cur>=0&&r.d<0);
-  return r.d<0;
+  if(S.stmt!=='is')return r.d<0;
+  const ln=LINE('is',r.id);
+  return (ln&&ln.exp)?r.d>0:r.d<0;
 }
 
 /* Inline icons, 13px on a 16 grid at the shell's 1.25 stroke. Every control that reads
@@ -9207,6 +9312,7 @@ function paintPop(keepFocus){
     h=`<div class="pop-h">Table</div><div class="pop-l">
         <div class="pop-o" onclick="KFX.popClose();KFX.openCols()">${ic('cols')} Columns…
           <span class="sub">${S.cols.length} shown</span></div></div>
+      `+`
       <div class="pop-h sec">Statement order</div><div class="pop-l">`+
       [['stmt','Statement order'],['absd','Largest Δ amount'],
        ['pctd','Largest Δ %'],['resid','Largest residual']]
@@ -9763,10 +9869,37 @@ function tieOut(){
 /* ============================================================================
    15. GRID
    ========================================================================== */
+/* THE 12-PERIOD TREND IS A LEVEL LINE, and the bar experiment is retired.
+
+   Owner, 2026-08-31: "forget about the bar — I don't like it. I can't tell how that
+   is relevant when it only shows one bar. How is this helpful?" It was not, and the
+   reasoning is worth keeping so it is not tried a third time:
+
+   A SINGLE BAR OF THE CURRENT MOVEMENT RESTATES THE Δ AMOUNT COLUMN. Same number,
+   same sign, same green/red, two columns away. The only thing it added over the
+   figure was pre-attentive magnitude — which line moved most — and the statement
+   ALREADY answers that better: the Δ Amount header sorts by largest movement in one
+   click. A column that duplicates a neighbour and loses to an existing control has no
+   argument left.
+
+   Worse, its shared scale mixed subtotals with detail lines, so the longest bar on
+   the income statement was Total revenue — longest because it is a sum, which tells a
+   reviewer nothing.
+
+   THE ONLY NON-REDUNDANT JOB THIS COLUMN HAS IS CONTEXT: is this month's movement
+   normal for this line, or the first of its kind in a year? That question needs
+   HISTORY, which is exactly what a single bar cannot carry and what the line does. So
+   the column is the line again, unchanged from what shipped, and off by default.
+
+   Rejected on the way here, both at the owner's direction: eleven bars of
+   period-over-period change (a bar-sparkline — "I meant one straight horizontal
+   bar"), and then the single bar itself. If a MoM/QoQ basis is ever wanted, it
+   belongs on a control that shows a SERIES, not on one that shows one number. */
 function spark(r){
   const sl=activeSlices(),n=12,a=[],lab=[];
   for(let i=Math.max(0,S.cur-n+1);i<=S.cur;i++){
-    a.push(r.acct?accVal([r.acct],i,'m','act',sl):lineVal(S.stmt,r.id,i,'m','act',sl));
+    a.push(r.acct?accVal([r.acct],i,'m','act',sl)*acctSgn(r.acct)
+                 :lineVal(S.stmt,r.id,i,'m','act',sl));
     lab.push(PERIODS[i].short);}
   const hi=Math.max(...a),lo=Math.min(...a),rg=(hi-lo)||1,W=64,H=16;
   const xy=a.map((v,i)=>[i*(W/(a.length-1||1)),H-2-((v-lo)/rg)*(H-4)]);
@@ -9787,7 +9920,8 @@ function spark(r){
 function dwHeroSpark(r){
   const sl=activeSlices(),n=13,a=[];
   for(let i=Math.max(0,S.cur-n+1);i<=S.cur;i++)
-    a.push(r.acct?accVal([r.acct],i,'m','act',sl):lineVal(S.stmt,r.id,i,'m','act',sl));
+    a.push(r.acct?accVal([r.acct],i,'m','act',sl)*acctSgn(r.acct)
+                 :lineVal(S.stmt,r.id,i,'m','act',sl));
   if(a.length<3)return '';
   const hi=Math.max(...a),lo=Math.min(...a),rg=(hi-lo)||1,W=240,H=34,pad=4;
   const x=i=>(i*(W/(a.length-1))).toFixed(1);
@@ -9843,7 +9977,8 @@ function cellTagged(c,r,totalD){
   return h.replace(/^(\s*<td)(\s|>)/, `$1 data-c="${c}"$2`);
 }
 function cell(c,r,totalD){
-  const V=(i,g,b)=>r.acct?accVal([r.acct],i,g,b,activeSlices()):lineVal(S.stmt,r.id,i,g,b);
+  const V=(i,g,b)=>r.acct?accVal([r.acct],i,g,b,activeSlices())*acctSgn(r.acct)
+                         :lineVal(S.stmt,r.id,i,g,b);
   switch(c){
     case 'cur':  return `<td class="num">${fmt(r.cur)}</td>`;
     /* Compared is the baseline the variance is measured FROM — reference, not the
@@ -9852,7 +9987,10 @@ function cell(c,r,totalD){
     /* THE VARIANCE IS THE COLUMN A REVIEWER SCANS, so it carries the most weight:
        medium on every row (.v-amt), not only when it breaches. Direction is the one
        hue rule 9 admits; .brk adds nothing extra now that the weight is always on. */
-    case 'dlt':  return `<td class="num dlt v-amt ${r.d>0?'up':r.d<0?'dn':'n'}"
+    /* COLOUR FOLLOWS FAVOURABILITY, NOT SIGN. On the balance sheet unfav() is d<0,
+       so this is exactly the sign rule it replaces; on a published income statement
+       a cost that ROSE is a positive number and must still read red. */
+    case 'dlt':  return `<td class="num dlt v-amt ${r.d===0?'n':unfav(r)?'dn':'up'}"
       ${r.req?`title="${esc(matBasis(r).why)}"`:''}
       >${fmt(r.d)}</td>`;
       /* ONE NEGATIVE CONVENTION PER STATEMENT. Current and Compared render through
@@ -9881,6 +10019,23 @@ function cell(c,r,totalD){
     case 'contrib':{const sh=totalD?Math.abs(r.d)/totalD*100:0;
       return `<td class="col-contrib"><span class="cnum">${sh<0.5&&sh>0?'<1':Math.round(sh)}%</span>
         <span class="ctrack"><i style="width:${Math.min(100,sh*2.2).toFixed(1)}%"></i></span></td>`;}
+    /* ---- COMMENTS AND SUPPORT, ON THE ROW (2026-08-31) ---------------------
+       From the comps: a reviewer scanning the statement wants to know which lines
+       already carry a conversation and which carry documents, without opening each
+       one. Both figures existed and were only reachable inside the panel.
+
+       INVENTORY, NOT A BADGE (rule 12). These are counts of what is there, not work
+       owed, so they are quiet grey numerals with the icon — never a filled pill. A
+       zero renders as an em dash rather than a 0, so a scan reads presence and the
+       eye is not stopped by two dozen zeroes.
+
+       Support counts DOCUMENTS, not citations: evidenceDocs() dedupes by file name,
+       which is the same list the Evidence tab and its badge read. Counting
+       evidenceFor() instead would say 3 where the tab lists 2. */
+    case 'cmts': { const rc=rec(r.id), n=rc?(rc.comments||[]).length:0;
+      return `<td class="num col-cnt ${n?'':'nil'}">${n?ic('cmt')+n:'—'}</td>`; }
+    case 'supp': { const rc=rec(r.id), n=rc?evidenceDocs(rc).length:0;
+      return `<td class="num col-cnt ${n?'':'nil'}">${n?ic('clip')+n:'—'}</td>`; }
     case 'share':{const tot=lineVal(S.stmt,S.stmt==='bs'?'ta':'totrev',S.cur,S.grain,'act');
       return `<td class="num">${tot?(r.cur/tot*100).toFixed(1)+'%':'\u2014'}</td>`;}
     /* col-trend, not just num: the HEADER carried the class and the body cell did
@@ -10822,19 +10977,46 @@ function paintGrid(){
      restores it, because a financial statement's own order is a meaningful view and
      not merely "unsorted". */
   const SORTCOL={dlt:'absd', pctd:'pctd', resid:'resid'};
-  const hcell=c=>{
-    const num=!['owner','status','cmt','contrib','trend'].includes(c);
+  /* `span` is the rowspan a column takes when the Δ pair is grouped (2 = it stands
+     beside a two-row group, 0 = it IS one of the grouped pair, in the sub-row).
+     `as` overrides the label, so the sub-row reads "$" and "%" under CHANGE rather
+     than repeating the Δ glyph the span already carries. */
+  const hcell=(c,span,as)=>{
+    const num=!['owner','status','cmt','contrib','trend','cmts','supp'].includes(c);
     const key=SORTCOL[c], on=key&&S.sort===key;
-    const nm=COL_DEFS.find(x=>x.id===c).nm;
-    if(!key)return `<th class="col-${c} ${num?'num':''}">${nm}</th>`;
-    return `<th class="col-${c} ${num?'num':''} sortable ${on?'sorted':''}"
+    const nm=colName(c), lbl=as||colHead(c);
+    const rs=span===2?' rowspan="2"':'';
+    if(!key)return `<th class="col-${c} ${num?'num':''}"${rs}>${lbl}</th>`;
+    return `<th class="col-${c} ${num?'num':''} sortable ${on?'sorted':''}"${rs}
       aria-sort="${on?'descending':'none'}">
       <button type="button" class="th-sort" onclick="KFX.setSort('${on?'stmt':key}')"
         title="${on?'Back to statement order':'Sort by largest '+nm.toLowerCase()}">
-        ${nm}<span class="ar" aria-hidden="true">${on?'▼':'▾'}</span></button></th>`;
+        ${lbl}<span class="ar" aria-hidden="true">${on?'▼':'▾'}</span></button></th>`;
   };
-  let h=`<thead><tr><th class="col-line">${S.stmt==='bs'?'Balance sheet line':'Income statement line'}</th>`+
-    cols.map(hcell).join('')+`</tr></thead><tbody>`;
+  /* ---- THE Δ PAIR SHARES ONE HEADER (2026-08-31, from the comps) ----------
+     "Δ amount" and "Δ %" are one measure in two units, and the header row read them
+     as two unrelated columns — the Δ glyph twice, and the word that ties them
+     ("change") nowhere. They sit under a single CHANGE span now, with `$` and `%`
+     beneath it, which is what every financial statement does on paper.
+
+     THE SPAN IS CONDITIONAL, and that is the whole trick. fxShed() hides Δ% by CLASS
+     when the track narrows, so a hard colspan=2 would keep spanning two columns
+     while only one existed and drag every heading one cell left. The group renders
+     only when BOTH are in the column set, and fxShed() syncs the colspan when it
+     sheds — see the note there. With either column alone the header is the plain
+     single row it has always been. */
+  const grouped=cols.includes('dlt')&&cols.includes('pctd');
+  const hcellTop=c=>{
+    if(grouped&&c==='pctd')return '';                 // consumed by the span
+    if(grouped&&c==='dlt')return `<th class="col-chg-grp num" colspan="2"
+      id="fxChgGrp">Change</th>`;
+    return hcell(c,2);
+  };
+  let h=`<thead><tr><th class="col-line" ${grouped?'rowspan="2"':''}>${
+      S.stmt==='bs'?'Balance sheet line':'Income statement line'}</th>`+
+    cols.map(hcellTop).join('')+`</tr>`+
+    (grouped?`<tr class="hsub">`+hcell('dlt',0,'$')+hcell('pctd',0,'%')+`</tr>`:'')+
+    `</thead><tbody>`;
 
   /* THE EMPTY STATE. visible() can legitimately return nothing — Returned with none
      returned, a watchlist that is empty, a search that matches no line. The table
@@ -11305,7 +11487,12 @@ function byDim(id,dim){
     if(pit){map[k].cur+=s.act[cb];map[k].pri+=s[pb][pb2];}
     else{for(let i=ca;i<=cb;i++)map[k].cur+=s.act[i];for(let i=pa;i<=pb2;i++)map[k].pri+=s[pb][i];}
   });
-  return Object.entries(map).map(([k,v])=>({k,cur:v.cur,pri:v.pri,d:v.cur-v.pri}))
+  /* THE DRIVERS FLIP WITH THE LINE THEY DECOMPOSE. byDim sums the raw slices, so
+     without this the header would read a +1.4 expense increase while its drivers
+     read −1.0 / −0.2 / −0.1 and the card would not foot to the movement it sits
+     under — the one thing Key drivers exists to do. */
+  const g=lineSgn(S.stmt,id);
+  return Object.entries(map).map(([k,v])=>({k,cur:v.cur*g,pri:v.pri*g,d:(v.cur-v.pri)*g}))
     .filter(x=>Math.abs(x.d)>0.001).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
 }
 const segName=k=>(SEGS.find(s=>s.id===k)||{nm:k}).nm;
@@ -11552,7 +11739,7 @@ function dwGripKey(ev){
    without a repaint. Measuring the TRACK (not the table) is what keeps this from
    looping — hiding a column changes the table's width, never the track's. */
 const FX_SHED=[['fx-shed-1',['pctd']],
-               ['fx-shed-2',['pctd','share','trend','avg3','ann','bud','budv']],
+               ['fx-shed-2',['pctd','share','trend','avg3','ann','bud','budv','cmts','supp']],
                ['fx-shed-3',['pctd','share','trend','avg3','ann','bud','budv','resid','owner','status','cmt']]];
 function fxShed(){
   const root=$('fxRoot'); if(!root||root.offsetParent===null)return;
@@ -11566,6 +11753,13 @@ function fxShed(){
     if(i)root.classList.remove(FX_SHED[i-1][0]);
     root.classList.add(FX_SHED[i][0]);
   }
+  /* THE CHANGE SPAN IS THE ONE THING A CLASS CANNOT SHED. Every other column hides
+     itself with display:none; a colspan is an attribute, so a span left at 2 over a
+     shed Δ% would drag every heading to its right one cell out of line. Sync it
+     here, where the shedding is decided, rather than measuring anywhere else. */
+  const grp=$('fxChgGrp');
+  if(grp){const pc=tbl.querySelector('thead tr.hsub th.col-pctd');
+    grp.colSpan=(pc&&pc.offsetParent!==null)?2:1;}
 }
 function dwGutter(){
   const dt=$('fxDetail'); if(!dt)return;
@@ -12095,7 +12289,16 @@ function dwCtrlBtns(r,rc){
    residual), the state, and the one action that advances it. Everything a reviewer needs
    to decide is above the fold, at a glance. The dock keeps the four-figure band. */
 function dwPageHero(r,rc){
-  const dcls=r.d>0?'up':r.d<0?'dn':'n';
+  /* DIRECTION FOLLOWS FAVOURABILITY, NOT SIGN — the same rule the statement's Δ
+     column uses. With the income statement published (costs positive), a cost that
+     ROSE is +1.4 and must still read red and point down. On the balance sheet
+     unfav() is d<0, so this is exactly the sign rule it replaces. */
+  const dcls=r.d===0?'n':unfav(r)?'dn':'up';
+  /* THE ARROW IS THE SIGN, THE COLOUR IS THE VERDICT. Tying both to favourability
+     made an up-arrow mean "good", so a cost that FELL 0.2 rendered as a green up
+     arrow — which reads as a cost that rose. They are two different facts and each
+     gets its own channel: the arrow says which way the number went, the colour says
+     whether that is welcome. */
   const arrow=r.d>0?'&#9650;':r.d<0?'&#9660;':'';
   const word=!r.d?'No movement'
     :(S.stmt==='is'?(unfav(r)?'Unfavorable':'Favorable')
@@ -12186,7 +12389,16 @@ function dwHead(r,rc){
      weight is --fw-medium, because rule 7 admits exactly two weights and 700 is not
      one of them; and the favourable/unfavourable word moves into the Variance cell's
      LABEL, so the fact survives without spending a fourth row on it. */
-  const dcls=r.d>0?'up':r.d<0?'dn':'n';
+  /* DIRECTION FOLLOWS FAVOURABILITY, NOT SIGN — the same rule the statement's Δ
+     column uses. With the income statement published (costs positive), a cost that
+     ROSE is +1.4 and must still read red and point down. On the balance sheet
+     unfav() is d<0, so this is exactly the sign rule it replaces. */
+  const dcls=r.d===0?'n':unfav(r)?'dn':'up';
+  /* THE ARROW IS THE SIGN, THE COLOUR IS THE VERDICT. Tying both to favourability
+     made an up-arrow mean "good", so a cost that FELL 0.2 rendered as a green up
+     arrow — which reads as a cost that rose. They are two different facts and each
+     gets its own channel: the arrow says which way the number went, the colour says
+     whether that is welcome. */
   const arrow=r.d>0?'&#9650;':r.d<0?'&#9660;':'';
   const met=(v,k,cls,cellCls)=>`<div class="rw-met ${cellCls||''}"><div class="rw-met-v ${cls||''}">${v}</div>
       <div class="rw-met-k">${k}</div></div>`;
@@ -13145,6 +13357,12 @@ const RWSEC={
          Nothing is lost: the explicit +/− sign carries direction losslessly, which
          is what a footing schedule uses, and it survives greyscale and every one of
          the ten chrome themes. */
+      /* NOTE: this card is ORPHANED — dwOverviewKeys() has not returned `drivers`
+         since 2026-08-30 and RW_LAYOUT.page is the two-column desk, so `.rw-kd` is
+         rendered in neither density (swept: 6 tabs x 2 densities x 6 lines, zero
+         hits). The LIVE drivers view is dwDrivers(), which already prints each
+         driver's share. Kept because it is the reference's Key drivers composition
+         and is what to mount if that card ever returns to Overview. */
       h+=`<ul class="rw-kd">`+top.map(d=>
         `<li><span class="n">${esc(d.nm)}</span><span class="v"
           >${(d.d>0?'+':'')+fmtS(d.d)}</span></li>`).join('')+
@@ -14125,7 +14343,9 @@ function rwAgg(id,dim,filt){
     else{for(let i=ca;i<=cb;i++)map[key].cur+=s.act[i];
          for(let i=pa;i<=pb2;i++)map[key].pri+=s[pb][i];}
   });
-  return Object.entries(map).map(([k,v])=>({k,cur:v.cur,pri:v.pri,d:v.cur-v.pri}))
+  /* same flip as byDim: the drill is the same decomposition one level down */
+  const g=lineSgn(S.stmt,id);
+  return Object.entries(map).map(([k,v])=>({k,cur:v.cur*g,pri:v.pri*g,d:(v.cur-v.pri)*g}))
     .filter(x=>Math.abs(x.d)>0.001).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
 }
 /* The next level worth showing: the first dimension not already pinned that
@@ -14149,6 +14369,12 @@ function drvGl(v){S.drvGl=!!v;paintDrawer();}
 function rwFullEx(){S.rwFullEx=!S.rwFullEx;paintDrawer();}
 function rwPeriods(){S.rwPeriods=!S.rwPeriods;paintDrawer();}
 
+/* A SHARE NEEDS A DENOMINATOR THAT CAN CARRY ONE. Below half a display unit the
+   total rounds to 0.0 on screen, and a percentage of it is noise however it is
+   computed — Site operations and staffing rendered 23474%. One helper, so the root
+   drivers, the drill rows and the bar widths cannot disagree about when a share
+   exists. */
+const shareOf=(v,tot)=>Math.abs(tot)<0.05*uFac()?null:Math.round(Math.abs(v/tot)*100);
 function dwDrivers(r){
   const rc=rec(r.id,true), C=coverOf(r,rc), O=explainObj(r);
   const path=S.drvPath||[], filt=rwFilt();
@@ -14177,7 +14403,7 @@ function dwDrivers(r){
     tot=row?row.d:0;
   }
   h+=`<div class="rw-tot"><span class="l">${node?esc(node.label):'Drivers'}</span>
-    <span class="v dlt ${tot>0?'up':tot<0?'dn':'n'}">${(tot>0?'+':'')+fmtS(tot)}</span></div>`;
+    <span class="v dlt ${tot===0?'n':unfavOn(r.id,tot)?'dn':'up'}">${(tot>0?'+':'')+fmtS(tot)}</span></div>`;
 
   /* THE GENERAL LEDGER — the end of the drill. Only reachable once an account is
      pinned, because an entry belongs to an account and to nothing above it. */
@@ -14191,11 +14417,12 @@ function dwDrivers(r){
     const drv=O.drivers;
     const dim=S.stmt==='bs'?'acct':'seg';
     h+=`<div class="rw-rows">`+drv.map(d=>{
-      return `<button type="button" class="rw-r" style="--sh:${Math.max(2,Math.round(d.pctOf))}%"
+      const sh=shareOf(d.d,r.d);
+      return `<button type="button" class="rw-r" style="--sh:${sh==null?0:Math.max(2,sh)}%"
         onclick="KFX.drvInto('${dim}','${String(d.k).replace(/'/g,"&#39;")}')">
         <span class="l">${esc(d.nm)}</span>
-        <span class="v dlt ${d.d>0?'up':'dn'}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
-        <span class="p">${Math.round(d.pctOf)}%</span><span class="cv">›</span></button>`;}).join('');
+        <span class="v dlt ${unfavOn(r.id,d.d)?'dn':'up'}">${(d.d>0?'+':'')+fmtS(d.d)}</span>
+        <span class="p">${sh==null?'':sh+'%'}</span><span class="cv">›</span></button>`;}).join('');
     if(r.req)h+=`<div class="rw-r resid"><span class="l">Unexplained residual</span>
       <span class="v ${Math.abs(C.res)>C.tol?'dlt dn':''}">${(C.res>0?'+':'')+fmtS(C.res)}</span>
       <span class="p"></span><span class="cv"></span></div>`;
@@ -14221,12 +14448,12 @@ function dwDrivers(r){
     const rowsx=rwAgg(r.id,next,filt);
     h+=`<div class="rw-sec">By ${esc(RW_DIM[next].nm.toLowerCase())}<span class="ct">${rowsx.length}</span></div>
       <div class="rw-rows">`+rowsx.map(x=>{
-        const sh=tot?Math.abs(x.d/tot*100):0;
-        return `<button type="button" class="rw-r" style="--sh:${Math.max(2,Math.round(sh))}%"
+        const sh=shareOf(x.d,tot);
+        return `<button type="button" class="rw-r" style="--sh:${sh==null?0:Math.max(2,sh)}%"
           onclick="KFX.drvInto('${next}','${String(x.k).replace(/'/g,"&#39;")}')">
           <span class="l">${esc(rwName(next,x.k))}
             <span class="sl">${fmt(x.pri)} → ${fmt(x.cur)}</span></span>
-          <span class="v dlt ${x.d>0?'up':'dn'}">${(x.d>0?'+':'')+fmtS(x.d)}</span>
+          <span class="v dlt ${unfavOn(r.id,x.d)?'dn':'up'}">${(x.d>0?'+':'')+fmtS(x.d)}</span>
           <span class="p">${Math.round(sh)}%</span><span class="cv">›</span></button>`;}).join('')+`</div>`;
   }
   if(filt.acct)
@@ -15609,10 +15836,19 @@ function openCols(){
   $('fxMask').classList.add('on');
   paintCols();
 }
-const COLS_DEFAULT=['cur','pri','dlt','pctd','contrib','trend','cmt'];
+/* `contrib` is RETIRED (2026-08-28) and is no longer in COL_DEFS, so “Reset to
+   default” was writing a dead id back into S.cols. renderGrid() filters it out, which
+   is why the table never broke — but the stored set and the column picker disagreed
+   with the statement, and a saved view taken after a reset carried the ghost. */
+/* Kept in step with S.cols above by hand: they are two statements of one default,
+   and a reset that lands somewhere the product never opens on is a reset nobody
+   can predict. The 12-period trend and the two count columns are OPTIONS — real,
+   listed in COL_DEFS, one click away in Display > Table > Columns, and off until
+   somebody asks for them. */
+const COLS_DEFAULT=['cur','pri','dlt','pctd','cmt'];
 function paintCols(){
   const on=$('colOn'), off=$('colOff'); if(!on)return;
-  const nm=id=>(COL_DEFS.find(c=>c.id===id)||{nm:id}).nm;
+  const nm=colName;
   on.innerHTML=S.cols.map((id,k)=>`<div class="colrow" draggable="true" data-i="${k}"
       ondragstart="KFX.colDrag(${k})" ondragover="event.preventDefault()" ondrop="KFX.colDrop(${k})">
       <span class="grip" title="Drag to reorder">\u283f</span>
@@ -15647,9 +15883,18 @@ function colOff(i){
   logA({act:'removed a table column',before:id});
   paintCols(); paintGrid();
 }
+const colOrd=c=>{const i=COL_DEFS.findIndex(x=>x.id===c);return i<0?99:i;};
+/* ONE NAMER FOR A COLUMN, so the header and the picker can never disagree about what
+   a column is called. */
+const colName=id=>(COL_DEFS.find(c=>c.id===id)||{nm:id}).nm;
+/* what the HEADER says, which is not always what the column is called */
+const colHead=id=>id==='cur'?pLabel(S.cur)
+                :id==='pri'?cmpBtnLabel()
+                :colName(id);
 function colOn(id){
   if(S.cols.includes(id))return;
-  S.cols=S.cols.concat([id]);
+  const at=S.cols.findIndex(c=>colOrd(c)>colOrd(id));
+  S.cols=at<0?S.cols.concat([id]):S.cols.slice(0,at).concat([id],S.cols.slice(at));
   logA({act:'added a table column',after:id});
   paintCols(); paintGrid();
 }

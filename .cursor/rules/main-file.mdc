@@ -195,6 +195,64 @@ build step, no external runtime dependencies. Open it in a browser to run it.
   control rather than a work item — `paintMethod()` and the memo still state it, `tieOut()`
   is unchanged. An exception tile still renders when it is the ACTIVE filter, and the
   Selected filters chips are the general off-switch that made those removals safe.
+- **The 12-period trend column is a LEVEL LINE and stays one.** A horizontal bar was built
+  twice and rejected twice (2026-08-31, owner): eleven change bars, then a single diverging
+  bar. **A single bar of the current movement restates the Δ Amount column** — same number,
+  same sign, same green/red, two columns away — and the only thing it added, "which line
+  moved most", is answered better by sorting on the Δ Amount header. Its shared scale also
+  made the longest bar a SUBTOTAL. **The column’s only non-redundant job is CONTEXT** — is
+  this movement normal for this line — which needs history, which is what the line carries
+  and one bar cannot. If a MoM/QoQ basis is wanted, put it on a control that shows a SERIES.
+- **The Δ pair sits under one CHANGE span** (2026-08-31, from the comps). Two header rows.
+  **The span is CONDITIONAL and `fxShed()` syncs its colspan** — a colspan is an attribute,
+  the one thing a class cannot hide, so a span left at 2 over a shed Δ% drags every heading
+  to its right out of line. **One token drives both rows**: the sub-row pins at
+  `--fx-stick + --fx-hgrp-h` and the group cell (the only row-1 cell without `rowspan="2"`)
+  is pinned to that same token — guess the height and the rows overlap and sit over the body.
+- **THE INCOME STATEMENT IS PUBLISHED: costs POSITIVE** (2026-08-31, owner). The engine stays
+  additive — `lineRaw()` keeps natural signs and runs the subtotal recursion; `lineVal()` is
+  `lineRaw × lineSgn()` and is what every other caller reads. A line is tagged `exp:1`;
+  NEVER infer it from the section (Gain on disposition sits among costs and is a credit).
+  The balance sheet is untouched. **`byDim()`/`rwAgg()` bypass `lineVal`** and sum raw slices,
+  so they carry `lineSgn` too — without it the drivers stop footing to the header variance.
+  Account sub-rows use `acctSgn` (resolved through `COA.c`).
+- **COLOUR FOLLOWS FAVOURABILITY, THE ARROW FOLLOWS THE SIGN.** `unfav()` used to be `r.d<0`
+  on both of its branches and worked only because costs were negative; it is stated properly
+  now (`ln.exp ? d>0 : d<0`). Component amounts use `unfavOn(id,d)`. Tying the ARROW to
+  favourability was tried and reverted: an up-arrow then meant "good", so a cost that FELL
+  rendered as a green up-arrow.
+- **`colHead()` names the HEADER, `colName()` names the COLUMN.** The header carries the
+  period (`Jun 2026`, `Q2 2026`, or `Budget` via `cmpBtnLabel()`); the picker, the sort
+  tooltip and the shed order keep `Current`/`Compared`, because "turn off Jun 2026" is
+  meaningless in a column list and would reword every month.
+- **`S.cols` and `COLS_DEFAULT` are two statements of ONE default and must agree.** They had
+  drifted (trend was in the reset set and not the opening set), so "Reset to default" landed
+  somewhere a session never opens on. `trend`, `cmts` and `supp` are OPTIONS: in `COL_DEFS`,
+  one click away in Display > Table > Columns, and in neither default.
+- **`cmts` / `supp` are INVENTORY columns** (rule 12): quiet grey numeral + icon, never a
+  filled pill, and an em dash rather than `0`. Support counts `evidenceDocs()` (deduped by
+  file name, the list the Evidence tab reads), never `evidenceFor()`, which counts citations.
+- **`RWSEC.drivers` (`.rw-kd`) IS ORPHANED** — `dwOverviewKeys()` has not returned `drivers`
+  since 2026-08-30 and `RW_LAYOUT.page` is the two-column desk. Swept: 6 tabs × 2 densities ×
+  6 lines, zero hits. The LIVE drivers view is `dwDrivers()`. Do not "fix" the orphan and
+  think you changed the screen.
+- **`shareOf(v,tot)` is the ONE gate on printing a share.** A percentage is only meaningful
+  while its denominator can carry one: below half a display unit the total rounds to 0.0 on
+  screen and the share explodes (measured 23474% on a line that moved 0.0 — the `contrib`
+  fault, surviving in the one place a share is still printed). It returns null there and the
+  amounts carry the decomposition alone.
+- **`colOn()` inserts in `COL_DEFS` order, never appends** — appending put every newly
+  enabled column after Explanation, which is the widest and only text column and belongs
+  last. Manual `colMove` order is preserved; this decides only where a NEW column lands.
+  `colName()` is the one namer, so the header and the picker agree.
+- **A CUSTOM PROPERTY RESOLVES WHERE IT IS DECLARED.** `--pos`/`--neg`/`--warn`/`--neu` were
+  declared only in `:root` as `var(--success)` and friends, so they froze the LIGHT value and
+  inherited it into dark mode — every green/red figure in the app rendered ~2:1 on the dark
+  surface. The `[data-theme="dark"]` block’s own comment states the rule ("if you add a
+  ramp-derived alias to `:root`, add it here too") and it had been applied to `--pos-ink`
+  alone. Re-declare the alias AND anything it derives from (`--neutral`) in that block.
+  **The static contrast gate cannot see this** — it resolves `--pos` analytically and gets the
+  dark value; only computed style in a browser shows the freeze.
 - **Δ% IS NEUTRAL ON PURPOSE** (rule 9: colour at most two columns). Colour lands on the Δ
   amount and on the F/U mark beside the percentage — the same green/red — and a third
   rendering of one signal is what colouring the number would be. On an income statement the
