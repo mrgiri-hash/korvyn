@@ -28,6 +28,69 @@ build step, no external runtime dependencies. Open it in a browser to run it.
 
 ## Structural facts worth knowing before you edit
 
+- **THE PERIOD IS A PROPERTY OF THE BOOK, NOT A FILTER** (2026-09-01, owner). `BOOK.open` is
+  the period that accepts work; `VIEW.period` is what you are looking at and defaults to it.
+  Conflating them is the bug that gave one screen three different periods. The register lives
+  in the SHELL because it is platform state — **the flux block is WRAPPED, so nothing declared
+  in it is reachable from the close strip** (the first cut put it there and the strip threw on
+  load). `KFX.syncPeriod(k)` is the only bridge and is called BY `setPeriod()`, never the
+  reverse; `S.cur` is a cursor into the flux calendar, not a period of record, and cannot be
+  seeded from `VIEW.period` because `S` is built before the shell runs.
+- **`setPeriod()` is the ONE writer, and it must repaint the chrome itself** — `renderAll()`
+  does not touch the close strip, which rides the nav paint cycle. Call `paintCloseStrip()`
+  then `paintHdrCtl()`, in that order.
+- **`canEditPeriod(sec)` is the guard every edit surface asks**, and it is SEPARATE from
+  `caps()`: a Controller cannot edit a closed period, and an open period does not make you a
+  reviewer. Both must hold. Absence from `BOOK.periods` reads as CLOSED — silence is not
+  permission. `CLOSE_FUNCS` is the section vocabulary for locks.
+- **Close/reopen is gated to Controller / CAO, confirmed in a PANEL, and recorded** in the
+  period’s own history. Closing advances `BOOK.open` to the next month; closing the LAST
+  period opens nothing and the whole platform goes read-only, which needs no special case.
+  `setPeriodHard()` exists because `setPeriod()` short-circuits on an unchanged key — the
+  reopen case, where the period is the same and its STATUS is not.
+- **THE SELECTED PERIOD IS THE ACCOUNTING WORKSPACE'S CONTEXT, and pages INHERIT it.** Never
+  write a period literal into a page: `periodCtxLine(tab)` states each page's own shape and
+  `perLong` / `perEnd` / `perRange` / `perQtr` / `perWindow` / `perAdd` are the words. Month
+  arithmetic is on the period KEY, never on `Date`. `glCtx()` is the reach — it is the subhead
+  of every General Ledger page.
+- **PERIOD is not PRESENTATION.** `F.periodType` is a WINDOW WIDTH (Monthly · Quarterly · YTD),
+  not a period, and on Accounting it renders **only on Financials**, the one page whose figures
+  it moves. A balance sheet scales nothing and drops the YTD pair — it answers "as of".
+- **FLUX COMPARISONS ARE DETERMINISTIC** (`FX_VIEWS`): MoM · QoQ · YoY · YTD · 6M · 12M ·
+  Budget · Forecast, each a NAMED PAIR of `grain` + `compare`, always anchored to the book's
+  period. **No date picker, and never restore `custom`.** The view is DERIVED from the pair
+  (`fxViewId()`), so saved views migrate on read and anything unknown resolves to MoM.
+  `priorForView(v)` is the ONE prior rule: a window grain compares against the window
+  immediately before it.
+- **Trending is anchored** — `trendSeries()` is the single source for the chart, its statistics
+  and the header line, and never runs past the selected period.
+- **The Close workspace ORCHESTRATES; it never duplicates.** Each row reads the target
+  workspace's own data and navigates to it — the period needs no argument because it is global.
+  Do not put KPI cards back on it.
+- **The period dropdown NAVIGATES ("View Jun 2026 Close →"); it does not close the ledger.**
+  The ERP is the system of record for posting status. `closePeriod()`/`reopenPeriod()` live in
+  the Close workspace header, gated by `PERIOD_CAPS`.
+- **`PERIOD_CAPS` IS THE ONE TABLE for who may lock and unlock a period**, read by the close
+  strip's menu AND by Settings' sign-off matrix. They were two literals and had already
+  disagreed. A **Controller locks; only the Chief Accounting Officer reopens** — close and
+  reopen are separate capabilities, so never gate `reopenPeriod()` on `canClosePeriod()`.
+  A role absent from the table has neither.
+- **The strip tag states the period's STATUS — `Open` / `Closed`, never the verb `Close`.**
+  It read "CLOSE" beside an open period, which looked like a button and meant the opposite.
+- **A gate that refuses the DEFAULT role must offer a way through.** `USER_ROLE` opens as
+  Accounting Manager, which cannot close a period, so the menu carries `Act as Controller`
+  (the prototype's own role switch, an OUTLINE so the commit stays the one filled control).
+  It is not an access request and must not read as one.
+- **`.ws-menu` IS A WHITE CONTENT-PLANE POPOVER** even though the ribbon opens it. Never use
+  `--chrome-*` inside it: it rendered text at 1.17:1 on white, and the static gate cannot see
+  it because those tokens are checked against chrome surfaces. A document handler also
+  dismisses `#wsPop` on any click inside, so a button that REPLACES the menu body must call
+  `event.stopPropagation()`; and set a WIDTH, not just a min-width, or a sentence stretches
+  the menu to its own length.
+- **`F.periodType` is a window WIDTH, not a period.** `windowMonths()` anchors itd/ytd/
+  quarter/month to `VIEW.period`. `pickLens()` may set a width; it may NOT move the book.
+
+
 - `<script id="egl-data">` is a **baked data snapshot**, not an import. It is serialised
   by `packages/core/tools/emit_enterprise_gl.mjs` and read by exactly one view,
   `view-egl`. This is the only bridge between `packages/` and the prototypes, and it is

@@ -3135,6 +3135,383 @@ to sign.
 
 60/60 views · console clean · three gates green · balance sheet unchanged.
 
+## 2026-09-01 — THE PERIOD IS A PROPERTY OF THE BOOK (stage 1 of 3)
+
+Owner: *"we need to work on the period — which is super important. People will be working
+one period at a time. How do you make this default and static? I believe you need to
+change/update the architecture."* Then, decisively: *"this should apply to the entire
+platform"*, and on where it comes from — *"we have the open/close period, regular accounting
+stuff. Each section can be locked/unlocked but once the period is closed, everything becomes
+final."*
+
+**NO SCREEN DICTATES THE PERIOD.** That is the answer to the question, and it is why the
+period could never be made sticky as a filter: a filter belongs to a view, and four views
+each owning one produced four answers. Measured before the change, on ONE screen:
+
+| | said | from |
+|---|---|---|
+| the close strip | `JUN 2026` | `CLOSE_DAYS.period` — a hard-coded string |
+| the topbar chip | `Inception to date` | `F.periodType`, defaulting to `itd` |
+| the statement | `Jun 2026` | `S.cur`, a private cursor |
+
+**And it reset.** `pickLens()` wrote the lens's own `filters.periodType` back over whatever
+had been chosen, so picking a period on Flux and opening Reconciliations silently returned
+you to inception-to-date.
+
+### The model
+
+    BOOK.open     the period the book ACCEPTS WORK IN. One at a time. It moves only
+                  through a governed close/reopen, never by navigating.
+    VIEW.period   what you are LOOKING AT. Defaults to BOOK.open. You may look back at a
+                  closed period; doing so is reading, not working.
+
+Conflating those two is the bug. `BOOK.periods` is the register — status, who signed it
+off and when, and a per-section lock map. **Absence means closed**: silence is not
+permission.
+
+**A SECTION IS THE UNIT OF LOCK, and the sections already existed.** `CLOSE_FUNCS` is the
+close checklist's own function list (Cash & banking, Revenue & billing, Fixed assets & CIP
+…) — exactly what a controller locks one at a time. A locked section is final while the
+period is still open; closing the period locks every section at once, so `sectionLocked()`
+returns true for everything the moment status leaves `open`.
+
+**`canEditPeriod(sec)` is the one predicate every edit surface will ask**, and it is
+deliberately SEPARATE from role capability: being a Controller does not make a closed period
+editable, and an open period does not make you a reviewer. Both have to hold.
+`periodBlockReason()` returns the sentence rather than a bare false — *"Apr 2026 is closed
+— signed off by M. Giri, Controller on May 5, 2026. Switch to Jun 2026 to make changes."*
+
+### It lives in the SHELL, and that cost a round
+
+The first cut put the register beside `PERIODS` inside the flux module and **the close strip
+threw on load**: that script block is wrapped, so nothing declared in it is reachable from
+the shell. The same mistake then repeated in `bookPeriodMenu()`, which walked `PERIODS` and
+`pKey()` — the handler threw and the menu silently never opened.
+
+The boundary is real and worth stating: **two script blocks, and the flux one is wrapped.**
+The shell can call `KFX.*`; nothing else crosses. The register is platform state, so it
+belongs in the shell, and the dependency runs the right way round — the flux cursor READS
+the book. `KFX.syncPeriod(k)` is the only bridge, called BY `setPeriod()`, never the
+reverse. `S.cur` cannot be seeded from `VIEW.period` either: `S` is built while the flux
+block evaluates and the shell has not run yet.
+
+### The control
+
+The close strip's `JUN 2026` is now the period control — already top-left on all 60 views,
+which is where a period belongs. It is chrome, not a filter. The word beside it says whether
+the book accepts work: **CLOSE** while open, **CLOSED** (amber) while you are reading
+history. The menu lists every period with its status and names the open one at the foot.
+
+`setPeriod()` is the ONE writer. It also repaints the chrome explicitly, because
+**`renderAll()` does not** — the close strip rides the nav's paint cycle, so the first
+version repainted every figure and left the strip naming the period you had just left.
+Order matters: `paintCloseStrip` rebuilds the markup including the `#hdrCtl` container that
+`paintHdrCtl` then fills.
+
+`windowMonths()` keeps `itd` / `ytd` / `quarter` / `month` but they are **window WIDTHS
+anchored to `VIEW.period`** now, not periods: every one ends at the book's period instead of
+at whatever a stale `periodVal` happened to name. A fixed-asset rollforward still gets
+inception-to-date — that is a wider window on Jun 2026, not a different period. No figures
+moved, because each view keeps the width it declared.
+
+**Verified:** 60/60 views · console clean on a fresh tab · three gates green · the strip, the
+statement and the book agree · setting the period from the strip moves Flux, and setting it
+from Flux's Period field moves the strip · **it survives `pickLens('portfolio')` →
+`pickLens('ledger')` → `pickTab('glrecon')`** · a closed period reads CLOSED with
+`canEditPeriod()` false and a precise reason.
+
+### Still to build — stages 2 and 3
+
+1. **Enforcement.** `canEditPeriod()` exists and nothing asks it yet. Every edit surface
+   needs the guard: explanations, comments, sign-off, requests, assignment, the star, saved
+   views. Plus one read-only banner so a closed period announces itself rather than failing
+   at the click.
+2. **Section locks.** `BOOK.periods[k].locks` is honoured by `sectionLocked()` and nothing
+   writes it. Needs the lock/unlock control on the close checklist, role-gated to
+   `caps().reopen`, with an audit entry — and the close/reopen transition itself.
+
+### Later — the close and reopen, which the register shipped without
+
+Owner: *"where is my period close/open?"* Fair: the previous pass built the register and the
+picker but not the one act they exist to record, so the book could be READ in any period and
+MOVED to none.
+
+**WHO.** Gated to the roles `FX_CAPS` already grants `reopen` — Controller and Chief
+Accounting Officer, whose own role descriptions say they "review, approve and lock" and
+"determine, lock and can reopen". Everyone else sees the state and is told who can change it,
+rather than a control that refuses them at the click.
+
+**CLOSING ADVANCES THE BOOK.** A close is not a switch on one period, it is a hand-off: this
+period becomes final and the next one opens. Closing the LAST period in the calendar opens
+nothing, and the book is then final everywhere — the owner's own "once the period is closed,
+everything becomes final". That needs no special case: `bookStatus(BOOK.open)` is no longer
+`open`, so `canEditPeriod()` is false on every surface.
+
+**IT IS RECORDED.** Each transition appends to the period's own history with who, what role
+and when, and that record is what the menu and `periodBlockReason()` read back. Verified:
+close then reopen leaves *"closed the period — Mitra Giri, Controller"* and *"reopened the
+period — Mitra Giri, Chief Accounting Officer"*.
+
+**THE CONFIRMATION IS A PANEL, NOT A BROWSER DIALOG**, and it states the consequence in full —
+which period becomes final, which one opens, and that there may be none. It replaces the menu
+body in place; `periodMenuBody()` is split out so Cancel can restore the list without
+re-anchoring the menu to the Cancel button.
+
+**Three things that had to be got right, each of which failed first:**
+
+- **A document handler dismisses `#wsPop` on any click inside it**, so the confirmation
+  rendered into a menu that was removed in the same tick — the panel simply never appeared.
+  Every action button calls `event.stopPropagation()` first.
+- **`min-width` is not a width.** The confirmation body is a sentence, and with only a min the
+  menu grew to the width of that sentence: a 900px popover hanging off a chip in the corner.
+  It is a fixed 300px.
+- **CONTENT TOKENS, NOT CHROME.** `.ws-menu` is a WHITE popover on the content plane even
+  though it is launched from the dark ribbon. `--chrome-text` put the period name at
+  **1.17:1** on white and `--chrome-text-mute` put the sentence at **3.81:1**, under the AA
+  floor. Now 14.12:1 and 10:1. **The static text gate does not see this** — those tokens are
+  scoped to the chrome plane, which it checks against chrome surfaces. Judge a token by the
+  surface it lands on, not by the control that opened it.
+
+**`setPeriodHard()` exists because `setPeriod()` short-circuits on an unchanged key** —
+exactly the case after a reopen, where the period is the same and its STATUS is not.
+
+**Verified:** close → strip reads `JUN 2026 · CLOSED`, `canEditPeriod()` false, reason precise ·
+reopen → `CLOSE`, editable, both entries in history · a non-admin sees the state and no
+control · Cancel restores the list and stays anchored · 60/60 views · console clean · three
+gates green.
+
+**Still open — the enforcement.** `canEditPeriod()` is now reachable, correct, and asked by
+nothing. The next stage is threading it through the edit surfaces (explanations, comments,
+sign-off, requests, assignment, the star) with one read-only banner, plus writing
+`BOOK.periods[k].locks` from a section control on the close checklist.
+
+**And a process note, because this is the third time.** This block was first inserted with a
+`node -e` one-liner and the shell ate every backtick as a command substitution — the
+paragraph landed with its code spans blanked out. The rule is already written at the top of
+the Cursor rules and in memory: **never pass replacement text through the shell.** Write it to
+a file and splice from the file.
+
+### Later — the close was unreachable, and two literals disagreed about who may reopen
+
+Owner: *"how do i close the period?"* The control shipped in the pass above and the owner
+could not find it. Three separate causes, all real:
+
+**THE STRIP SAID `CLOSE` BESIDE A PERIOD THAT WAS OPEN.** `.cstrip-l .tag` rendered
+**Close** while the book accepted work and **Closed** once it did not — so the one place a
+controller would look for "close the period" carried the word and no control, and the word
+meant the OPPOSITE of the state it was reporting. It reads **Open** / **Closed** now, which
+is the vocabulary the menu's own period list already uses. One word, one meaning.
+
+**THE DEFAULT IDENTITY CAN NEVER CLOSE.** `USER_ROLE` is *Accounting Manager*, whose role
+text is "Prepares and reviews" — correctly not a period admin. So the product as it opens
+shows the gate's polite refusal and nothing else, and testing the close meant a trip through
+Settings › Roles & access. The refusal now carries the prototype's OWN role switch —
+**Act as Controller** — beside the sentence explaining why it is needed. Settings already
+says the role "is switchable here so you can preview each"; this is that same device at the
+point of refusal. It is **not** an access request and must not be made to read like one: in
+a real deployment an admin assigns the role and this button does not exist. It is an
+OUTLINE, so the menu's one filled control is still the act itself (rule 13).
+
+**AND THE POLICY WAS STATED TWICE, IN CONFLICT.** Settings' sign-off matrix said Controller
+may lock but **not reopen**; `reopenPeriod()` was gated on `canClosePeriod()`, which admitted
+both Controller and CAO. Two hand-written literals for one policy, already drifted — the
+exact failure the rest of this file keeps collapsing. **`PERIOD_CAPS` is now the one table**,
+read by the period control AND by the matrix, and the matrix wins the disagreement because it
+is the declared policy: a **Controller locks the period, only the Chief Accounting Officer
+reopens it.** Close and reopen are separate capabilities and the menu names the right role
+for each. A role absent from the table has neither — silence is not permission.
+
+The matrix also now lists **Accounting Manager**, the default identity. A role whose standing
+is missing from the table cannot be checked against the wall it hits, which is most of why
+this took a session to notice.
+
+**Verified:** strip reads `JUN 2026 · OPEN` · the menu as Accounting Manager states the rule,
+names the signed-in role and offers Act as Controller · one click reaches **Close Jun 2026** ·
+the confirmation, the commit, the advance and the audit entry all unchanged · a **Controller
+is refused the reopen** and offered *Act as Chief Accounting Officer*, who gets it · history
+reads `closed the period — Mitra Giri, Controller` then `reopened the period — Mitra Giri,
+Chief Accounting Officer` · matrix renders `Accounting Manager Yes/No/No · Controller
+Yes/Yes/No · CAO Yes/Yes/Yes` · 60/60 views · console clean · three gates green · the act-as
+button 14:1 and the note 11.5:1 on the white menu.
+
+**Checked and found clean, recorded so it is not re-chased:** `VIEW.period` was instrumented
+with a setter trap and every one of the 63 view keys driven through `pickTab()` — **zero
+moves, synchronous or asynchronous.** No view silently changes the working period; a stray
+`MAY 2026` seen mid-session was the test harness clicking a period row, not the app.
+
+## 2026-09-01 — THE PERIOD IS THE WORKSPACE (stage 2 of 3): every Accounting page inherits it
+
+Owner's brief: make the selected accounting period the persistent financial context for the
+whole Accounting workspace. **PERIOD** = what period am I working in · **SCOPE** = what
+organisation am I viewing · **VIEW** = how do I want to analyse it. Stage 1 built the register
+(`BOOK` / `VIEW`); this is the stage where the pages actually read it.
+
+**A PAGE THAT HARD-CODES THE PERIOD CANNOT INHERIT ONE.** Measured before: 60 literal
+`Jun 2026` and 69 `Jun 30, 2026` in the file, and the worst of them was `glCtx()` — the subhead
+of **every** General Ledger page — which pushed the string `'Jun 2026'`. `periodCtxLine(tab)` is
+the one place that turns the selected key into each page's own shape, and `perLong` / `perEnd` /
+`perRange` / `perQtr` / `perWindow` / `perAdd` are the words it is built from. Month arithmetic
+is on the KEY, never on `Date`, so nothing can drift a day.
+
+| Page | States |
+|---|---|
+| Close | `June 2026 Close` · `June 1 – June 30, 2026` |
+| Financials | the presentation window — `Jun 2026` · `Q2 2026` · `Jan–Jun 2026` |
+| Trial balance · Reconciliations · Intercompany | `As of Jun 30, 2026` |
+| Flux | `Jun 2026 vs May 2026` |
+| Trending | the window on screen — `Jul 2025–Jun 2026` |
+| Consolidation · Exceptions · Accounting Issues | `June 2026` / `June 2026 close` |
+
+Verified end to end: one `setPeriod('2026-03')` from the header moves all of them, and the
+selection survives `ledger → portfolio → fpa → ledger`.
+
+### PRESENTATION IS NOT PERIOD, and it appears only where it acts
+
+`F.periodType` was a *period* control offering "Single month" plus a **Which** picker — a second
+way to choose the period, which is exactly the redundancy the brief removes. On Accounting it is
+**Presentation** now (Monthly · Quarterly · YTD), it drives the same `#periodType` element so no
+data path moved, and **Which is gone**: the quarter and the month are the selected period's own.
+
+**It renders on Financials and nowhere else.** Every other Accounting page either reads no window
+or answers "as of", so a control there could not change a figure — and a control that cannot act
+is a dead control. Measured before deciding: switching the window moves figures on **glfin only**,
+across all six Accounting pages tested. That is also why the lens default moved `itd → month` —
+inception-to-date is not a presentation *of* a period, and nothing but Financials noticed.
+
+**And the balance sheet stops being scaled.** The statement rendered every line as `cur` and
+`cur * 6` under a heading that read "YTD Jun 2026" — including the balance sheet, whose balances
+were being multiplied by six. A balance answers "as of" and has no window to widen: it scales
+nothing, heads its columns `As of Jun 30, 2026` / `As of May 31, 2026`, and drops the YTD pair.
+When the presentation IS year-to-date the period pair and the YTD pair are the same two figures,
+so the duplicate is dropped there too.
+
+### FLUX: THE COMPARISON IS DETERMINISTIC
+
+Three controls became one. **Period, Compare and Cadence** were an open-ended "Period A vs
+Period B" — the Compare menu even carried a `custom` branch listing every prior period in the
+calendar, a second way to move the period that never went through the book. They are one **View**
+field on a **Comparison** tab, and each option is a NAMED PAIR of a window and a basis the engine
+already understood, so no figure path moved:
+
+| View | Resolves to | `grain` · `compare` |
+|---|---|---|
+| MoM | Jun 2026 vs May 2026 | `m` · `seq` |
+| QoQ | Q2 2026 vs Q1 2026 | `q` · `seq` |
+| YoY | Jun 2026 vs Jun 2025 | `m` · `yoy` |
+| YTD | Jan–Jun 2026 vs Jan–Jun 2025 | `ytd` · `yoy` |
+| 6M Trend | Jan–Jun 2026 | `t6` · `seq` |
+| 12M Trend | Jul 2025–Jun 2026 | `ttm` · `seq` |
+| Budget · Forecast | Jun 2026 vs budget / forecast | `m` · `budget` / `fcst` |
+
+**The view is DERIVED from the pair, never stored beside it** (`fxViewId()`), so a saved view
+taken before this change still opens and anything unrecognised — the retired `custom` among them
+— resolves to MoM rather than to a comparison nobody chose. Same migrate-on-read discipline
+`dispMode()` follows.
+
+**ONE PRIOR RULE.** `priorForView(v)` replaces the branch-per-basis: a window grain compares
+against the window immediately before it, so `q`, `6M` and `12M` all follow one line instead of
+three. `win()` gained `t6` and nothing else.
+
+**A TREND VIEW NAMES ITS WINDOW, NOT A PAIR** — "Jan–Jun 2026", per the brief. Its compared
+column then names the prior window itself (`cmpBtnLabel()` → `Jul–Dec 2025`), so nothing on the
+statement is unlabelled. Budget and Forecast were KEPT: they are equally deterministic — same
+period, a different basis — and dropping them would have removed real function. What is gone is
+the arbitrary date picker.
+
+**`cadenceWord()` is retired to an empty string.** It existed to add "Monthly" beside a phrase
+that did not carry its own window; every view's phrase now names the window on both sides of the
+`vs`, so a cadence word would say it twice.
+
+**THE HEADER LEADS WITH THE COMPARISON** (brief §5). The page is **Flux** — not "Corporate Flux";
+an adjective that never changes was competing with the line that does — and the comparison is
+marked `.tb-cmp` (ink at `--fs-ui` against `--fs-label --hint` beside it), so it reads as the
+subject of the page rather than as crumb. A reviewer never has to open a filter to know what the
+figures are.
+
+### TRENDING IS ANCHORED, AND WAS NOT
+
+It rendered a fixed 30-month series ending at a hard-coded Jun 2026 with **no window control at
+all** — so once the book can open in any period it would have shown months *after* the period
+under review. `trendSeries()` is one function read by the chart, the statistics beside it and the
+header line, so they cannot describe different spans: 6 months · 12 months · Quarterly (four
+quarters, each the SUM of its months, not every third month) · Full history, every one ending AT
+the selected period. The window is a bound `<select>` in a labelled `.grp`, which is the
+vocabulary `gfPageGrps()` already discovers — so it needed no wiring of its own. Its growth
+figure is annualised from the window on screen; it used to divide by a hard-coded 2.5 years.
+
+### THE CLOSE WORKSPACE IS AN ORCHESTRATION CENTRE, NOT A DASHBOARD
+
+The page opened on **seven KPI cards** — close period, completion, days remaining, tasks
+completed, tasks overdue, blockers, entity completion — which is the "dense dashboard full of
+KPIs" the brief rules out, and which answered *how much is there* six times before answering
+*what needs me* once. It now opens on the four questions the brief names: where are we, what
+requires attention, what work remains, what can I drill into.
+
+**Nothing is duplicated.** Every row states where a workspace stands, read from that workspace's
+OWN data (`GL_RECON`, `icUnmatched()`, `consolReady()`, `amKpi()`, and `KFX.fluxStats()` — a new
+export that walks the same `rows()` the statement renders, so the orchestration page and the page
+it links to cannot disagree about the count), and hands the reviewer to it. **The period needs no
+argument passed**: it is global, so the destination inherits it. Severity on the attention rows is
+a 3px left border and nothing else (rule 8); the meters are 60px glances beside the fraction that
+is the actual fact. Every figure the seven cards carried survives — completion is the headline,
+blockers and overdue lead Needs attention, the entity table below is untouched.
+
+### THE DROPDOWN NAVIGATES; IT DOES NOT CLOSE THE LEDGER
+
+Owner: *"Korvyn should not imply that clicking a simple dropdown button directly closes the
+accounting ledger. The ERP remains the source of truth."* Right — and it was the primary action
+of the menu. The footer is **"View Jun 2026 Close →"** now. `closePeriod()` / `reopenPeriod()`
+are untouched, still gated by `PERIOD_CAPS`, and moved to the **Close workspace's own header**,
+which is where the close is orchestrated and where its governance act belongs.
+
+### TWO CONTROLS LABELLED "PERIOD" ON ONE STRIP
+
+The close strip carried the master period chip on the left (`JUN 2026`) and, on the right, a
+second chip labelled **Period** reading *"Month"*. It has never shown a period — it shows the
+window width. It is named **Window** now, and on the Accounting workspace it does not render at
+all: the window is Presentation and the period is the book's. Every other module keeps it, having
+no global period to inherit.
+
+### A live bug found while mapping, and fixed
+
+`windowMonths()`'s quarter branch read `PERIODS[viewIdx()]` — `viewIdx()` does not exist and
+`PERIODS` belongs to the wrapped flux module, so the function **threw** the moment anyone chose
+Quarterly. It never fired because the default was inception-to-date; making Quarterly a
+first-class presentation is exactly what would have surfaced it. It computes the quarter from the
+period key now, in shell arithmetic.
+
+### Structural, not built (brief §3/§14)
+
+`closeVersion` is read off the period record and rendered when present. **Nothing writes it** and
+no version management exists — this is the shape being reserved, not a feature being claimed.
+Deliberately not built: the ERP close API, a certification engine, close-version history,
+restatement, workflow automation, a new permissions architecture, a snapshot engine.
+
+**Verified:** **180/180** — all 60 views rendered in each of three periods (Jun 2026, Mar 2026,
+Dec 2025) · console clean · three gates green (the spacing ratchet caught six off-scale values in
+the new Close CSS and they were put on the scale; baselines unchanged at 1076/89) · the six Flux
+views resolve exactly as specified and re-anchor when the period moves · Trending never runs past
+the selected period in any of its four windows · Presentation renders on Financials alone and
+moves only its figures · the balance sheet scales nothing · the close action is offered to a
+Controller and withheld from an Accounting Manager · the period survives a module round-trip.
+
+### Still on independent period state — the next increment
+
+- **`ASOF`** (the "As of · Live" rewind beside the window chip) is a separate time axis and was
+  deliberately left alone; it answers "as the record stood at a timestamp", not "which accounting
+  period", and conflating the two would be the same mistake this pass undid.
+- **`CLOSE_DAYS`** still carries authored `opened` / `due` / `remaining` and the close timeline's
+  `DAYS` axis is a literal `Jul 1 … Jul 8`, so the close CALENDAR does not move with the period
+  even though the close itself does.
+- **`IC_ASOF='2026-06-30'`**, `gliAsOf`'s "Full period · Jun 30" and the remaining hard-coded
+  dates inside sample DATA. Data is data; the labels above it are what matter and those now
+  derive.
+- **`glfin`'s prior-period factor** is still the illustrative `P = 0.982` rather than a period
+  lookup, so its comparative column is proportional rather than sourced.
+- **The GL engine reads its own book**, not `windowMonths()` — anchoring GL FIGURES to the period
+  (rather than only their labels) is the real stage-3 work, alongside the `canEditPeriod()`
+  enforcement stage 1 left open.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
