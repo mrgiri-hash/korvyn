@@ -3512,6 +3512,140 @@ Controller and withheld from an Accounting Manager · the period survives a modu
   (rather than only their labels) is the real stage-3 work, alongside the `canEditPeriod()`
   enforcement stage 1 left open.
 
+## 2026-09-01 — the Close workspace becomes an operating surface, not a dashboard
+
+Owner's brief: Close must answer four questions immediately — where are we, what is
+preventing completion, what needs *me*, and where do I go next — and it is the
+**orchestration layer**, not a place to do the accounting. Financials, Flux,
+Reconciliations, Intercompany, Consolidation and Accounting Issues keep their own
+workspaces; Close states their readiness and routes into them.
+
+**ONE PAGE, THREE EMPHASES, NO THIRD ARCHITECTURE.** `Overview · My work · All work`
+is a `.ktabs.lvl2` strip — the design-system tab primitive, not a new component — and
+all three share the same header, status strip and switcher. **All work is what was
+already on this page**: the close timeline, blockers, entity completion and the
+filtered checklist, reused whole rather than rebuilt. Overview and My work are new
+compositions over the same data.
+
+### The status strip, and why the three stages do not sum to the headline
+
+One integrated strip, not three KPI cards. The headline is `closePct()` — **the same
+figure the ribbon has always shown**, so the page cannot contradict the chrome above
+it. Beneath it the three stages (brief §6) each state their **own fraction**:
+
+| Stage | Measures | Today |
+|---|---|---|
+| Preparation | checklist tasks complete | 54 / 76 |
+| Review | reconciliations reviewed + flux signed off + entities consolidated | 25 / 51 |
+| Certification | entity sign-offs | 0 / 4 |
+
+They are not slices of one number and are not presented as if they were: preparing the
+book, reviewing it and certifying it are different work over different objects, and
+printing each denominator is cheaper than a footnote explaining a weighted total.
+**Certification reads zero honestly** — nothing signs off yet, and borrowing a figure
+from the stage before it would assert a control that does not exist.
+
+### Needs attention is the section that dominates, and materiality decides its order
+
+Six rows maximum, **ranked by financial impact with blocking work ahead of everything**
+— a blocker stops other work, which no amount does. Each row carries the figure that
+ranks it, the entity or pair it belongs to, the owner the record names, and a route.
+
+**ONE MONEY UNIT AT THE EDGE.** The book states reconciliation and flux figures in
+`$000` and intercompany in `$M`. Ranked in their own units, a 1.4M flux line sorted
+above a 2.3M intercompany break — the exact "treat $18.4M like $2,300" failure the
+brief calls out, arriving through unit drift rather than through indifference.
+Everything is converted to `$000` once, on the way in, so the ranking and the wording
+read one scale.
+
+### Close work is a table, and every count comes from the workspace it describes
+
+`GL_RECON` · `GL_IC` · `GL_CONSOL` · `CLOSE_TASKS` · `amKpi()` · `KFX.fluxStats()`,
+which walks the same `rows()` the flux statement renders. There is no headline authored
+over a table that says something else (the `RECON_SCALE` rule). **Two fields ARE
+authored and are named as such in the code**: the owning team and the last-activity
+time. This prototype models no org chart and no event log, and inventing a derivation
+for them would be worse than saying they are placeholders.
+
+**Status is one closed vocabulary** (`CW_ST`, brief §5) — Not started · In progress ·
+Prepared · Pending review · Review required · Blocked · Exception · Ready · Ready for
+certification · Certified. No "Good"/"Okay"/"Done". Colour is on **blocked and
+exception only**; everything else is the neutral `.pill`, so the table is not a rainbow.
+
+### A ROW'S ROUTE IS AN INDEX, NOT A STRING OF CODE
+
+The first cut put the destination's filter call into the onclick as text —
+`cwOpen('finrep', "KFX.setShow('need')")` — which **terminates the double-quoted
+attribute at its own first inner quote**, so the handler was truncated and every
+attention row silently did nothing. Escaping it would have worked and would still have
+been a page that builds code out of strings. `cwLink()` files the route as a FUNCTION
+while the row renders and returns the index; `CW_ROUTES` is reset at the top of
+`closeShell()`, or every repaint would append another copy of every destination
+(asserted: 17 routes after one paint and after four).
+
+Verified end to end — each row lands on the right workspace **with the destination's
+own filter applied**, in the period the book is open in:
+
+| Row | Lands on |
+|---|---|
+| Flux · material variances | `finrep`, `S.show='need'` |
+| Reconciliations · awaiting review | `glrecon`, `glReconFilter='prog'` |
+| Close checklist · blocked | `acctclose`, `clFilter.st='blk'` |
+| Intercompany · unmatched | `icomp` |
+
+**The period is never passed.** It is global, so the destination inherits whatever the
+book is open in — which is the whole point of the increment before this one.
+
+### My work is wired, not mocked — and the two name forms did not match
+
+It reads the owner recorded on the close task and on the reconciliation against the
+signed-in user. The app already has both, so building an authorization model to answer
+"what is mine" would be a framework written to avoid reading a field.
+
+**The book writes owners as `M. Giri` and the session knows `Mitra Giri`**, so a string
+compare found **1 of 16** items that are actually mine. `cwIsMe()` matches on surname
+plus first initial, the only thing the two forms share. 9 items now.
+
+### Certification reports; it does not act
+
+Understated block (brief §11): *Not ready · 6 items must be cleared before this period
+can be certified · View blockers*. **No close button** — the governance act is the
+period control in this page's header, gated by `PERIOD_CAPS`, and there is no ERP close
+posting here. Every attention item is a certification gate, so the count is the
+attention count and the sentence says what it gates rather than calling six things
+"blocking" when four of them block only the sign-off.
+
+### Judgment calls worth recording
+
+- **Close readiness (brief §10) was omitted.** The brief offered it conditionally —
+  "if this makes the page too repetitive, prioritize the Close Work table" — and it is
+  the Close Work table with fewer columns. One statement of where a workstream stands.
+- **No filter ribbon on Overview** (brief §15, which prefers none). The page shows six
+  attention rows and seven workstreams; there is nothing to filter yet.
+- **No contextual drawer** (brief §18). The only docked panel in the product is the
+  flux inspect panel, which is flux-scoped; the brief says not to build a new drawer
+  architecture, so rows navigate. `openCloseTask()` still expands a task inline on
+  All work, which is the pattern this page already had.
+- **Entity names were left alone.** The brief lists credible enterprise names as
+  examples; the book's own — Meridian DC Holdco, Fleet DC OpCo, Meridian Property Co —
+  are already of that kind, and renaming the entity set would ripple through every
+  workspace for no gain. Global texture comes from what is already modelled: EUR and
+  GBP entities, four legal entities, eight close functions, 45 reconciliations.
+
+**Verified:** **360/360** — all 60 views rendered across 3 Close tabs × 2 periods ·
+console clean · three gates green (the ratchet caught five off-scale values in the new
+CSS; they were derived from tokens and the baseline is unchanged at 1076/89) · every
+route lands filtered and in period · the route table is stable across repaints · the
+hierarchy measures header → strip → tabs → attention → work → certification, with
+attention 453px tall against activity's secondary placement below the fold · type on
+the 5-step scale (20 / 12 / 11) and every new element 5.62:1 or better.
+
+**One tooling note.** The Browser pane's screenshots went stale mid-session — the DOM
+returned correct live state while the pane painted a previous view — and this session
+could not start its own server (five already running from other chats). Verification
+fell back to computed geometry, computed colour and rendered text, which is stronger
+evidence than a screenshot anyway; the visual was confirmed on the last good frame.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
