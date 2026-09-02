@@ -34,21 +34,17 @@ there; this file is the map and the shared rules.
 
 ## Editors and AI tooling
 
-**This file and its four subtree siblings are the source of truth.** Cursor does not read
-`CLAUDE.md`, so the same guidance is mirrored into [`.cursor/rules/`](.cursor/rules/) as six
-scoped `.mdc` rules:
+**This file and its four subtree siblings are the SOLE source of truth.** There is no mirror to
+keep in step, and none should be recreated unless the owner asks for one.
 
-| Rule | Scope |
-|---|---|
-| `project.mdc` | always on — the map, the thesis, shared conventions, toolchain, checks |
-| `design-system.mdc` | `index.html`, `apps/**/*.html`, `design-system/**` |
-| `main-file.mdc` | `index.html` |
-| `core.mdc` · `agent.mdc` | `packages/core/**` · `packages/agent/**` |
-| `legacy-apps.mdc` | `apps/**` |
-
-Those rules carry the non-negotiables inline and link back here for detail. **When you
-change a rule in a `CLAUDE.md`, change it in the matching `.mdc` too** — a mirror that has
-drifted is worse than no mirror, because each editor then enforces a different repo.
+**The `.cursor/rules/` mirror was retired 2026-09-02** (owner: Cursor is no longer in use). It
+was six scoped `.mdc` files restating these documents for an editor that cannot read them, and
+it carried no unique authority — `project.mdc`'s own opening said so: *"These rules are a
+summary, not the authority. When they and a `CLAUDE.md` disagree, the `CLAUDE.md` wins."* So
+nothing was lost with it, and the standing cost of the arrangement went too: every rule change
+had to be made twice, and a mirror that drifted was worse than no mirror because each editor
+then enforced a different repo. The files are in git history if a future editor ever needs the
+same treatment.
 
 ## UI / Design System — read before any UI work
 
@@ -2869,8 +2865,8 @@ statement (4/4) and the balance sheet (12/12). Clicking the tile opens exactly t
 lines (Tenant recoveries, Power and utilities, Repairs and maintenance, Property taxes) and
 every one is marked in the column. 60/60 views · console clean · three gates green.
 
-**The lesson is the one already written at the top of the Cursor rules and in memory:
-never pass replacement text through the shell.** This block itself was first inserted with
+**The lesson is the one already written in memory: never pass replacement text through the
+shell.** This block itself was first inserted with
 a `node -e` one-liner inside double quotes, and the shell ate every backtick as a command
 substitution — the paragraph landed with its code spans replaced by empty strings and a
 terminal escape sequence. Write the text to a file and splice from the file.
@@ -3287,9 +3283,9 @@ sign-off, requests, assignment, the star) with one read-only banner, plus writin
 
 **And a process note, because this is the third time.** This block was first inserted with a
 `node -e` one-liner and the shell ate every backtick as a command substitution — the
-paragraph landed with its code spans blanked out. The rule is already written at the top of
-the Cursor rules and in memory: **never pass replacement text through the shell.** Write it to
-a file and splice from the file.
+paragraph landed with its code spans blanked out. The rule is already written in memory:
+**never pass replacement text through the shell.** Write it to a file and splice from the
+file.
 
 ### Later — the close was unreachable, and two literals disagreed about who may reopen
 
@@ -3645,6 +3641,535 @@ returned correct live state while the pane painted a previous view — and this 
 could not start its own server (five already running from other chats). Verification
 fell back to computed geometry, computed colour and rendered text, which is stronger
 evidence than a screenshot anyway; the visual was confirmed on the last good frame.
+
+## 2026-09-02 — RECONCILIATIONS R1: the work unit is a governed reconciliation group
+
+Owner's brief, stage 1 of an eight-increment roadmap. The page this replaces listed one row per
+(account, entity) out of `GL_RECON` and asked a preparer to tick accounts off. That model is
+rejected: the chain is
+
+```
+ERP GL / TB -> approved account mapping -> canonical account
+            -> financial statement line -> RECONCILIATION GROUP
+```
+
+and every one of those layers already existed in this file. **Nothing in R1 re-declares a chart
+of accounts, a trial balance, an entity hierarchy, a period selector or a balance.** Amounts come
+from `fsAmount()` — the same governed object Financials, Trending and Flux read — so a
+reconciliation and a statement cannot disagree about what the ledger says.
+
+### TWO OBJECTS, AND THE DISTINCTION IS THE WHOLE DESIGN
+
+| | |
+|---|---|
+| **`ReconciliationDefinition`** | PERSISTS ACROSS PERIODS. `REC-CIP-ELECTRICAL` is one governed, effective-dated, versioned configuration — not a new record every month. |
+| **`ReconciliationInstance`** | ONE PER (definition, period, scope, reporting lens). `REC-CIP-ELECTRICAL-2026-06`. |
+
+**Instances are DERIVED on demand, never stored** — that is what keeps the register from becoming
+a second set of balances. Change the period and every figure re-resolves from the statement
+engine. Verified across Jun / May / Apr 2026: one definition, three instances, three fingerprints,
+and June's beginning is May's trial balance exactly.
+
+**The ONLY thing stored is workflow state** (`RC_STATE`, seeded from `RC_SEED`). A review status
+is a fact about people and cannot be derived from a balance. **There is no
+`reconciliationPageStatus[]` and there must not be one** — the Control Center, the workspace and
+Close all read `rcState()` / `reconReadiness()`.
+
+### THE ROLL-FORWARD, AND WHY NOTHING IS STORED TWICE
+
+```
+beginning + activity + other = endingCalculated
+difference = endingCalculated - trialBalance
+```
+
+**Neither `endingCalculated` nor `difference` is stored.** Both derive, every time.
+
+- **BEGINNING IS THE PRIOR PERIOD'S GOVERNED ENDING BALANCE** — literally
+  `fsAmount(line, prior).reported`, the same object Financials prints for May and Flux uses as its
+  comparison. There is no separately maintained opening balance, so June cannot drift from May.
+- **TRIAL BALANCE IS THE GOVERNED REPORTED BALANCE** — `fsAmount(line, period).reported`. No
+  second TB store exists anywhere in the module.
+- **ACTIVITY IS THE RESIDUAL OF THE GOVERNED MOVEMENT IN R1**, less any stated
+  `r1ActivityVariance`. That is an honest prototype and is named as one in the code: R2 replaces
+  it with the transaction population and the field disappears with it. Where a variance IS stated,
+  the activity population genuinely does not explain the movement and **the reconciliation does
+  not tie** — which is the point, and is how the untied cases exist without storing a difference.
+
+Verified on the CIP reference model: 3,942.0 + 254.0 + 14.2 = 4,210.2 = TB, difference 0, and
+4,210.2 is byte-identical to Financials, Trending and Flux current. **Zero mismatches across all
+35 reconciled financial lines**, on both TB and beginning.
+
+**A GROUP'S SHARE OF ITS LINE IS ALLOCATED WITH THE LAST GROUP TAKING THE REMAINDER**, on every
+component independently — the same plug discipline the Flux key-drivers card uses and for the same
+reason: four independently rounded figures do not visibly add up. The four CIP groups foot to CIP
+on every column (verified: beginning 3,942.0, activity 254.0, other 14.2, TB 4,210.2).
+
+**A SINGLE-GROUP LINE IS CARRIED AT FULL PRECISION, NOT AT THE DISPLAY DECIMAL.** Rounding to 1dp
+is what makes a SPLIT foot on the printed column; applied to a line with one group it put the
+reconciliation a rounding step away from the statement it exists to tie to — 32 lines were off by
+up to 0.05 before this was fixed. `rcN()` / `fsM()` round once, on the way to the screen.
+
+### THE POPULATION COMES FROM THE MAPPING, NEVER FROM A LIST ON THIS PAGE
+
+`accountPopulationRule` is read against `MAPPINGS` through `mapResolve()` AT THE PERIOD. Nothing
+in `RECON_DEFS` names a source account. Three things come back besides the population, and each
+answers a question the brief asks:
+
+- **`candidates`** — an UNMAPPED account Korvyn attributes here and cannot place. Surfaced on the
+  row, above the table and in the workspace, never silently excluded, and it makes the tie status
+  **Incomplete**. The worked case is `99120 Suspense - Unclassified` under Other Current Assets.
+- **`contested`** — an account a RIVAL mapping rule would place in this group instead. `471100
+  Electrical Installation` is the worked case: a chart-of-accounts rule says Electrical
+  Infrastructure, a German entity-group rule says Mechanical, neither was filed as an override.
+  Whichever group loses still has to know the account is claimed.
+- **`rcPopulationDelta()`** — the population compared against the prior period's resolution of the
+  same rule. Electrical CIP genuinely gains `15010` at 2026-06 because MV-2026-06-4 split the US
+  and German capex accounts. A mapping change reads as a population change, not as an unexplained
+  movement.
+
+**A CONTESTED POPULATION IS NOT AN INCOMPLETE ONE.** Both rival rules put 471100 on FS-CIP and in
+RG-CIP, so the LINE's population is complete and only the split between two groups is contested.
+It is flagged, and it does not change the tie status. An UNMAPPED account is different: the
+balance is attributable to nothing, so the population is not settled and Incomplete outranks the
+arithmetic.
+
+### SIX STATE DIMENSIONS, NEVER ONE BOOLEAN
+
+`tie` · `movement` · `support` · `preparation` · `review` · `final`. A reconciliation that ties is
+not one that is done: it can tie mechanically, still be missing its project roll-forward, and
+still be sitting with a reviewer. **`final` is DERIVED from the other five and is not settable**,
+and where it reads Open the panel states WHY in a sentence rather than leaving six pills to be
+cross-read.
+
+**TIE STATUS IS DERIVED AND CANNOT BE SET.** `rcTieStatus()` reads the population and the
+materiality policy's tolerance; a user cannot mark an untied reconciliation Tied. **Support is
+derived from its REQUIREMENTS**, not typed — a DERIVED requirement is satisfied by a governed
+population Korvyn already holds, an ATTACHED one needs a document and reads Pending, which is R4.
+A support requirement is not an attachment: *"project roll-forward is required and has not been
+provided"* is a control statement that exists before any file does.
+
+### THE CONTROL CENTER
+
+A dense financial workpaper in the idiom Financials and Trending already established — `.fsx-bar`,
+`.fsx-cx`, `.fsx-card`, `.amap-panel`, `.ktabs.lvl2`, `.pop`. **Nothing here introduces a second
+table language, a second dropdown or a second docked panel.**
+
+- **The page states its context once**, in the shell's own title row: *"Jun 2026 · USD · Corporate
+  Consolidated · US GAAP"*. No second period picker, no second entity selector — Scope is
+  inherited and untouched.
+- **Eleven columns**: account / group · Beg · Activity · Other · End · TB · Diff · MoM · Tie ·
+  Support · Review. Hairlines, tabular mono figures, indentation for hierarchy, row height one
+  step tighter than the platform (`calc(var(--row-h) - 12px)`) because this surface puts
+  forty-five lines and eleven columns on one screen. Derived from the token, never a literal.
+- **The FS hierarchy is reused and PRUNED** to the branches that carry reconciliations. A section
+  with nothing under it is noise, and rendering 40 empty financial lines would be the giant list
+  of accounts this page exists to remove. **A section row is a LABEL BAND, not a total** — a sum
+  across reconciliations is not itself a reconciliation and printing one would invite a reader to
+  tie to it.
+- **ONE compact status summary line**, not KPI cards: *"38 required reconciliations · 35 tied ·
+  22 approved · 6 in review · 2 returned · 3 untied · 2 overdue · 5 support exceptions"*. Every
+  count is a filter, so reading the position and opening it are the same gesture, and every count
+  derives from `reconReadiness()`.
+- **Quick views are READINGS of the same instances**, never separate pages.
+- **MoM is neutral** (rule: sign is not favourability on a balance sheet — a rising asset and a
+  rising liability are both positive and mean opposite things). Only the difference takes colour.
+- Severity is a quiet word tag and only when something is owed, so a healthy screen carries none.
+  An inventory fraction (CIP's `2/4` support) is grey text, never a badge.
+
+**A `.rcx-r.ln td` rule sets ink at (0,2,1)**, so `.rcx-diff` and `.rcx-mom` have to match that
+specificity and sit below it or a financial-line row prints its difference in ink. Caught by
+measuring computed colour, not by reading.
+
+**FSLINES NAMES ARE PRE-ESCAPED HTML** and are rendered raw, exactly as Financials and Trending
+render them; a definition name is plain text this page authored and IS escaped. Escaping both
+printed `Furniture &amp;amp; Equipment`.
+
+### THE DOCKED WORKSPACE — six tabs, no modal
+
+Summary · Roll-forward · Activity · Support · Review · Trace, in `.amap-panel`. Verified: **228/228
+combinations of 38 definitions × 6 tabs render with content.**
+
+- **Roll-forward** is an Excel-like workpaper and every row is a `RollforwardComponent`, so what is
+  on screen IS the object model. It closes by naming the component types the model carries and
+  this increment does not calculate — FX translation, ERP remeasurement, elimination. **FX is
+  deliberately not buried inside Other**, because that is exactly the decision R3 would have to
+  unpick. `REPORTING_ADJUSTMENT` is a separate component type from `GL_ACTIVITY` forever: a Korvyn
+  reporting overlay is not an ERP posting and the trace has to keep saying so.
+- **Activity** resolves the population's IDENTITY and size, not its transactions — accounts,
+  canonical accounts, transaction count, ERP systems, `activityPopulationId`, mapping version.
+  R2's grid, drill and download resolve the SAME id; they are not a different query. Transaction
+  count is derived from the population (accounts × entities × a stable per-account rate) so it
+  moves when the population moves instead of contradicting it. **A population with no modelled
+  source account does not get to claim four ERP systems** — it says so.
+- **Trace** answers "where did this number come from" as one vertical chain in the idiom
+  Financials already uses: group → definition → financial line → mapping version → canonical
+  accounts → source accounts → activity population → trial balance → ERP sources, then the
+  reporting-adjustment disclosure and the fingerprint.
+- **Submit / Approve / Add support / View activity render disabled with the increment they belong
+  to in their title.** They are not dead controls pretending to work, and they are not absent —
+  the shape of the workflow is visible and honestly dated.
+
+### THE FINGERPRINT AND THE REVISION, BUILT NOW SO THEY DO NOT NEED A REWRITE
+
+`reconciliationFingerprint` carries `sourceTBVersion` · `sourceGLSnapshotId` · `mappingVersion` ·
+`hierarchyVersion` · `definitionVersion` · `statementVersion` · `reportingLensId` · `fxRateSetId` ·
+`consolidationRuleSetId` · `dataAsOf`, plus an FNV digest of all of them so comparing two
+fingerprints is one string compare. The instance carries `revision`, `priorCertifiedInstanceId`,
+`reReviewRequired` and `changeSetId`. **R1 records them; the "data changed after sign-off"
+detection and the amendment workflow are R6.** Verified: the three period instances of one
+definition produce three different digests.
+
+### REPORTING LENS — the third axis, and only one of four is built
+
+`REPORTING_LENSES` carries Corporate Consolidated · EMEA Reporting Group · Germany Statutory · US
+Tax Group, each with its hierarchy, basis, presentation currency, consolidation rule set and FX
+rate set. **It is NOT a second entity selector** — Scope answers "which entities" and is
+untouched; a lens answers "under which basis, in which currency, against which hierarchy".
+
+**Only the corporate lens is built.** Translation, consolidation rule sets and statutory adjustment
+engines do not exist, and a lens that silently returned US-GAAP-USD figures under a "Germany
+Statutory" label would be a lie with a picker on it. The other three render **disabled with the
+reason in their title** — the same treatment Financials gives the Cash Flow and Equity statements
+it declares but has not built. Hiding them would make the architecture invisible and make the menu
+lie about the choice.
+
+### THE PAGE'S MENUS JOIN THE ONE POPOVER SYSTEM
+
+`RCFIELD(k)` is the same descriptor shape `GFIELD(k)` is, and `paintPop()` gained an `rc:` branch
+beside the `g:` one — so rendering, keyboard, anchoring, width and selected state all come from one
+place. **A new page does not get a new dropdown.** `popRebind()`'s generic `[data-pop=…]` fallback
+already re-acquires the trigger after `renderAll()`, so the menu survives its own filter.
+
+### CLOSE CONSUMES THE SHARED READINESS OBJECT
+
+`reconReadiness(period, scope)` returns `totalRequired` / `tiedCount` / `untiedCount` /
+`incompleteCount` / `readyForReviewCount` / `inReviewCount` / `approvedCount` / `returnedCount` /
+`overdueCount` / `supportExceptionCount` / `reReviewRequiredCount` — every one a count of
+instances. `cwRecon()` reads it in the same guarded shape `cwFlux()` uses and for the same reason,
+so a close cannot report a reconciliation position the Reconciliations page does not show. The
+Close workstream row and the Review stage both moved onto it (22/38 and Review 24/44).
+
+### LEGACY — `GL_RECON` SURVIVES, AND RETIRING IT IS NOT THIS INCREMENT'S JOB
+
+`GL_RECON` has ~50 consumers across Home, Close, Exceptions, My Work, Issues, Consolidation, the
+Controller command centre and Ask Korvyn, and it is the only entity-level reconciliation data in
+the file. It stays, and it stays the fallback in `cwRecon()`. **What is retired is the page**:
+`glvReconWork` / `glvReconDetail` / `glReconWork` / `glReconSel` and the `setGlRecon*` setters are
+now orphaned as far as this view is concerned — a legacy deep link such as
+`setGlReconSel('15000|Meridian DC Holdco')` still navigates to Reconciliations but lands on the
+Control Center rather than on that account's pane. **That is the largest piece of debt this
+increment leaves**, and it belongs to R5, when the review workflow gives the entity-level
+reconciliation a real home.
+
+### DELIBERATELY NOT BUILT (each named in the model, none faked)
+
+Transaction-level activity grid, journal drill and export (R2) · sophisticated multi-currency, FX
+bridge, elimination and statutory engines (R3) · Add support, evidence versioning, Excel publish
+(R4) · submit / return / approve / sign-off (R5) · 12-month audit roll-forward and audit package
+(R6) · Excel add-in (R7) · specialised reconciliation methods (R8). AI and Data Room integration
+are not in R1 either.
+
+**Verified:** 62/62 views render · 228/228 definition × tab combinations render with content ·
+console clean on a fresh load · 10/10 chrome themes AA · content text gate clean (new elements
+4.81–14.12 light, 5.56–13.53 dark) · spacing ratchet unchanged at 1072/88 · dark mode holds in
+both densities · the roll-forward is exact for all 38 instances · the four CIP groups foot to CIP
+on every column · Recon TB = Financials = Trending = Flux current = 4,210.2 and Recon beginning =
+Financials May = 3,942.0 · zero TB or beginning mismatches across all 35 reconciled lines · the
+period survives a module round-trip and the register re-resolves for Jun / May / Apr.
+
+## 2026-09-02 — RECONCILIATIONS R2: the accounting proof under the roll-forward
+
+R1 built the object model and the Control Center. R2 is the layer that makes a reconciliation
+DEFENSIBLE rather than merely stated:
+
+```
+reconciliation group -> source GL accounts -> current-period GL activity
+                     -> transactions / journals / invoices -> ERP source
+```
+
+**THE PROOF IS ARITHMETIC, NOT ASSERTION.** Every level foots into the one above by
+construction. Measured on the reference model, Electrical CIP at Jun 2026:
+
+| | |
+|---|---|
+| 237 transactions | debit 96.697 − credit 2.897 = **net 93.800** |
+| 4 source accounts | activity 36.083 + 29.271 + 20.437 + 8.009 = **93.800** |
+| the group | beginning 1,454.6 + activity 93.8 + other 5.2 = ending 1,553.6 = **TB 1,553.6** |
+
+`populationDifference` prints an em dash because it IS nothing, not because it rounds to
+nothing.
+
+### NO TRANSACTION MATCHING, AND NONE MUST BE ADDED
+
+Nothing in this module is Matched / Unmatched / Checked, and no line is manually certified.
+Activity lines are SOURCE FACTS a preparer inspects for composition, materiality and
+exceptions. Transaction matching is a different reconciliation METHOD and belongs to R8.
+**Material activity is a LENS, not a classification** — filtering to it helps work a large
+population and records nothing about what was looked at.
+
+### THE POPULATION HAS DEPTH BECAUSE THE MAPPING DOES
+
+R1's groups resolved one or two modelled accounts each, which proves an architecture and
+cannot prove an account-level tie-out. Eleven source accounts and fifteen mappings were added
+**to the governed spine**, not to this page — that is the whole point of the R1 ruling that a
+population is whatever the mapping resolves. Purely additive: no existing account, mapping or
+version changed, so Account Mapping, Financials, Trending and Flux read exactly what they read
+before, and `SRC_TOTAL` / `SRC_UNMAPPED` are untouched because these are modelled samples OF
+the estate.
+
+Electrical CIP now resolves 4 accounts, Mechanical 4, Generators 2, Cooling/Other 8,
+Accruals 2.
+
+**ACCOUNT NUMBER IS NOT IDENTITY, and the tie-out demonstrates it.** Electrical CIP holds two
+accounts numbered **15010** — `CIP - Electrical` in NetSuite US Development and
+`Property Electrical Works` in the JD Edwards legacy book. `sacct()` keys on instance + chart +
+code, so they cannot be merged by number, and the row states its ERP, instance and chart of
+accounts beneath the name.
+
+### THE SOURCE ACCOUNT ROLL-UP
+
+Beginning, other and trial balance are each account's share of the group's, with the LAST
+account taking the remainder — the same plug the groups use under their financial line, and for
+the same reason. Shares derive from the account's own modelled balance, a real attribute rather
+than a weight invented here.
+
+**ACTIVITY IS THEN THE ACCOUNT'S OWN RESIDUAL, and the account named by `varianceOn` carries
+the group's stated variance.** That is what makes an account-level difference roll INTO the
+group difference instead of sitting beside it — Accrued Expenses is out by (6.4) and the
+tie-out says immediately that it is `21100 Accrued Capital Costs`, not `21000`:
+
+```
+21000  Accrued Expenses - Operating   243.3  +2.1   —   245.4   245.4     —    Tied
+21100  Accrued Capital Costs          147.3  (5.1)  —   142.2   148.6   (6.4)  Difference
+Total  Accrued Expenses · 2 accounts  390.7  (3.1)  —   387.6   394.0   (6.4)  Difference
+```
+
+That is §54's reviewer story working: open an untied reconciliation, see which GL account is
+out, drill to its journals.
+
+### POSTING PERIOD IS THE FILTER; TRANSACTION DATE IS METADATA
+
+A June reconciliation contains everything POSTED to June — including an invoice dated May 29 —
+and excludes a July-posted item dated Jun 30. Both dates are on every transaction.
+
+**AND THE BOUNDARY IS PROVED RATHER THAN ASSERTED.** An excluded transaction is invisible by
+definition, so `rcBoundary()` generates the NEXT period's population and filters it for items
+dated in THIS one. Those are exactly the rows a reader would otherwise have to take on trust.
+Nothing is stored; both sets come from the same deterministic generator. On Electrical CIP:
+*45 dated before Jun 2026 are included because they were posted to it ($15.6M); 54 dated in Jun
+2026 are excluded because they were posted to Jul 2026.* Verified: **0** transactions in the
+June population carry a posting period other than June.
+
+### THE TRANSACTION MODEL
+
+Deterministic from (sourceAccountId, period) — a reload, a re-render and an export produce
+byte-identical rows, which is what lets an export reconcile to the screen. Weights are scaled so
+the population sums EXACTLY to the target and the last row absorbs the rounding; ~15% carry the
+opposite sign, so a net activity figure is a real net rather than a column of debits.
+
+Every §10 field is carried: source transaction id · posting date and period · transaction date
+and period · source account id, GL number and name · canonical account · journal number and
+line · invoice and document number · memo and description · entity id and name · project ·
+vendor · debit / credit / net · the three currencies and their three amounts · ERP platform,
+instance id and name · source reference and, where one exists, a source URL.
+
+**THE CANONICAL ACCOUNT IS A PROPERTY OF THE MAPPING, NOT OF THE SOURCE ACCOUNT.**
+`SRC_ACCOUNTS` carries no `canon` — `rcPopulation()` adds it when the mapping resolves — so the
+generator reading it off the account row got `undefined` and the trace printed an em dash. It
+resolves through `mapResolve()` now. Worth remembering: an account row and a POPULATION row are
+different objects.
+
+**A DEEP LINK EXISTS ONLY WHERE THE INSTANCE PUBLISHES ONE.** Two of the seven ERP instances do;
+the rest state *"Source reference available"* and offer no button. Measured: 97 of 97 NetSuite
+transactions carry a URL, **0 of the JD Edwards ones do**. Nothing fabricates a URL.
+
+### THE ACTIVITY DETAIL CANVAS
+
+`View activity` **replaces the Control Center on the main canvas** — not a modal, and not a
+twenty-column grid squeezed into the 420px dock. Period, scope, reporting lens and the selected
+reconciliation are all inherited; nothing is passed and nothing is re-chosen; the return strip
+goes back to the reconciliation that was open, with its Activity tab selected.
+
+Four tabs over one population: **Accounts** (the tie-out, rows expand into their transactions) ·
+**Transactions** (the whole population, one search, compact filters, sticky head, frozen
+identifier, 50 a page) · **Composition** · **Population** (source-account membership and the
+mapping rule that put each account there).
+
+**ONE POPULATION, ONE ID.** The narrow summary, this canvas, the grid, every download and the
+Trace all resolve the same `activityPopulationId`. There is no second query with its own total
+anywhere in the module, and `rcActivityPopulation()` now COUNTS its transactions off the
+population rather than deriving a size from a hash — which is what R1 declared the object for.
+
+**The control total is the point of the header** (§18): a transaction count without its total
+proves nothing, so debit, credit, net, the reconciliation activity and the population difference
+are printed together.
+
+**The tie bar is sticky** — beginning, activity, other, calculated ending, trial balance,
+difference, above whatever transaction the reader has drilled to.
+
+### EXCEPTIONS ARE STATED WITH THEIR AMOUNT, THEIR CAUSE AND THEIR ROUTE
+
+- **UNMAPPED ACTIVITY.** `78410 Commissioning Services` is unmapped at June and a DRAFT rule in
+  mapping v2026.07.1 places it in CIP from July — which is `MV-2026-07-1`'s own recorded note
+  ("commissioning costs"), not an invention. So 48 transactions totalling +$1.2M sit in the
+  ledger and in no reconciliation population. It is disclosed with its amount and a route to
+  Account Mapping, and **it makes the tie status Incomplete**.
+
+  **This changed the CIP reference model from Tied to Incomplete, deliberately.** §22 is
+  explicit that unmapped activity can do so "even if the numerical ending happens to equal the
+  TB", and it does: CIP's arithmetic still ties (difference —, TB 4,210.2, identical to
+  Financials), and its POPULATION is not complete. Hiding that to keep the flagship line green
+  would be the one failure a reconciliation engine must not commit. Readiness went 35 tied → 34
+  tied, 1 incomplete → 2.
+
+- **CONTESTED POPULATION, now defined.** Two live mapping rules disagree about `471100
+  Electrical Installation` and neither was filed as an override, so it sits in Mechanical while
+  Electrical has a live claim on it — $16.5M of movement. The balance is **not missing**, which
+  is why this is not an incomplete population and does not change the tie; what moves when the
+  conflict is resolved is the SPLIT between two groups, and both sides are told.
+
+- **SOURCE CHANGED** (§21, §45). `sourceGLVersion` is the snapshot the population was generated
+  against; when the live GL version has moved past it the population reads **Changed** and says
+  so instead of quietly serving stale activity. `rcRefreshPopulation()` re-stamps it and bumps
+  `populationVersion` — a real action with a real effect, not a button that reports success.
+  Verified: `changed → refresh → current`.
+
+### THE REPORTING ADJUSTMENT IS NOT GL ACTIVITY
+
+It is a governed Korvyn overlay with its own basis, scope and approval. It is **not posted to
+the ERP**, **not in the transaction population**, and is never given a source journal number
+because it does not have one. It renders as its own band beside the population — component
+type, amount, source, *In the GL population: No* — over the governed adjustment itself
+(`RA-2026-06-001`, read from `fsAdjForLine()`; there is no second adjustment store) with a route
+to it. Verified: 0 transactions of an adjustment type in any population.
+
+### DOWNLOAD, MANIFEST AND VALIDATION
+
+One column set (**34 columns**, every one §30 asks for), one row builder, two encodings. The
+Excel file is a real workbook Excel opens natively — an HTML-table workbook with the Excel mime
+and the manifest as its first block — which keeps the page self-contained: no library, no CDN,
+no build step.
+
+**EVERY EXPORT IS VALIDATED BEFORE IT IS WRITTEN.** The sum of the exported reporting amounts is
+compared against the population amount and a mismatch **refuses** rather than quietly
+succeeding. Negative-tested by forcing a difference: no blob was created, and the manifest
+recorded `valid:false` with the difference. An export that does not reconcile to the screen is
+the one failure this feature exists to prevent.
+
+Three scopes, all validated: whole population (237 rows / $93.8M), one source account (63 rows /
+$20.437M, every row that account), and the same in either format. The manifest — export id,
+instance, population, period, scope, lens, component, counts, amounts, difference, validation,
+mapping and GL versions, data as of, by and at — is shown in an **Exports this session** block
+beside the population it describes rather than in an export-management module.
+
+### TRACE, EXTENDED
+
+- **Population** (§35): the reconciliation Trace now steps GL Activity component → activity
+  population (count, amount, population version, mapping version, data as of) → journals and
+  invoices → ERP, and the population step opens the Activity canvas.
+- **Source account** (§36): identity, why the number alone is not identity, chart, ERP, entity
+  reach, mapping, the account's own tie-out, and the chain group → line → canonical → account →
+  activity → ERP.
+- **Transaction** (§37): ERP transaction → source account → canonical → reconciliation group →
+  roll-forward component → reconciliation → financial line, then the four surfaces that read
+  that line — Financials, Trending, Flux, this reconciliation — which is real shared lineage
+  (`fsAmount(financialLineId)`), not a claim.
+
+### A CLASS NAME COLLISION ATE THE CONTROL CENTER'S OWN CONTROL ROW
+
+Reported by the owner: *"I see some hidden selections."* Correct, and worth recording because
+nothing failed loudly.
+
+`.rcx-bar` was already R1's statement-picker row (`class="fsx-bar rcx-bar"`) when R2 declared it
+again as the Composition tab's 6px share bar:
+
+```css
+.rcx-bar{display:block;height:6px;background:var(--n-100);overflow:hidden}
+```
+
+A single-class selector later in the sheet wins, so the header row collapsed from 53px to 21px
+with `overflow:hidden` — which **hid the Reporting-lens field and the readiness count entirely**,
+cut the Balance Sheet / Income Statement tabs in half, and let `.fsx-pick` overflow underneath
+the quick-view row. No console error, no layout jump, no gate failure: the three gates check
+contrast, chrome themes and the spacing scale, and none of them looks at whether an element
+clips its own children.
+
+Renamed to **`.rcx-sharebar`**, which is what it is. **A prefix is not a namespace — check the
+name before you declare it.**
+
+**A CLIPPING SWEEP IS NOW PART OF THE CHECK for this module**, because a static gate cannot see
+this: walk every element on the surface and flag any that clips its own content without
+`overflow:auto` or `text-overflow:ellipsis`. It found the collision immediately and one genuine
+second case — the Population tab's ERP cell cut "JD Edwards Legacy North America" mid-glyph
+(193px of content in a 167px cell) because `.rcx-tbl td` is nowrap and the base table rule clips.
+`.rcx-acctsrc` ellipsises now and the cell carries the full text in its title. Verified: **0
+clipped elements** across the Control Center and all four Activity tabs on three reconciliations.
+
+### A CONTROL THAT REFUSES MUST SAY WHY, ON THE CONTROL
+
+Reported by the owner: *"reporting lens for different reporting group is not clickable."*
+
+The refusal is correct and stays. A lens restates the population under a different **basis,
+currency AND hierarchy** at once, so selecting EMEA has to re-express every figure in EUR under
+IFRS — R3's FX bridge and consolidation engine. Dividing by a rate to make the control feel
+alive would break the invariant the whole module rests on: that a reconciliation and the
+statement read the same governed amount. **Do not make these selectable before the engine
+exists.**
+
+What was wrong was the PRESENTATION, and it was the same fault as the R1 phase buttons: the
+reason lived in a `title`, which is hover-only, so the row read as a control that silently
+refused. Three fixes:
+
+- the reason is **on the row**, in words, not in a tooltip;
+- the row drops the tick gutter (it can never be ticked) and carries `aria-disabled="true"`
+  instead of being announced as a radio option a reader could pick;
+- a footer note says what a lens IS and that R3 makes the rest selectable, so the menu explains
+  itself rather than leaving three dead rows.
+
+**A REASON ON A MENU ROW IS A CLAUSE, NOT A PARAGRAPH.** The first cut used the full sentences
+and added the hierarchy to each subtitle; rows went to 96px, `.pop-l` hit its 262px cap and
+scrolled, and the fourth lens fell below the fold — a menu hiding an option in order to explain
+why another one is unavailable. Short clause, currency and basis only in the subtitle, and the
+argument in the footer: rows 28/57/73/73, no scroll in either axis.
+
+Two defects found while checking, both fixed:
+
+- **`setRcLens()` did not close its menu.** Every other single-select in the module calls
+  `KFX.popClose()`; this one re-rendered and left the menu hanging open over the statement,
+  re-anchored by `popRebind()`. The app's own 2026-08-31 ruling is that a single-select commits
+  on click and closes.
+- **`.pop-l` scrolled sideways.** Only `overflow-y` was declared, so `overflow-x` computes to
+  `auto` and the vertical scrollbar's own 17px produced a horizontal one under it. A menu list
+  never scrolls sideways — `overflow-x:hidden`.
+
+### PERFORMANCE
+
+The grid **pages** (50 a row) rather than rendering the population; the footer totals are the
+whole filtered set, not the page. `rcTxPool`, `rcAcctRows`, `rcDefForSrc` and
+`rcUnmappedActivity` are memoised per (key, period, lens) — the last one because
+`reconReadiness()` resolves 38 instances a render and the unmapped scan walks every source
+account through `mapResolve()`. Measured: **91ms** to render the Control Center with all 38
+instances resolved.
+
+### WHAT R2 DELIBERATELY DID NOT BUILD
+
+R3 FX bridge / dual-currency reconciliation / eliminations / statutory · R4 support upload and
+versioning · R5 submit / return / approve · R6 audit package · R7 Excel add-in · R8 transaction
+matching. The three placeholder actions R1 left now **state their phase visibly** (`R4`, `R5`)
+rather than hiding the reason in a tooltip.
+
+**Legacy to retire later:** `glTxns()` / `GL_ACT` — the Account Activity browser — is built on
+the LEGACY `COA` account codes, carries none of §10's fields and cannot be filtered by
+`sourceAccountId` or `activityPopulationId`. §38 asks for one transaction browser; the honest
+position is that there are two until `glact` is re-pointed at the governed model, and that is
+its own pass rather than a side effect of this one.
+
+**Verified:** 62/62 views · 152/152 definition × activity-tab combinations · all 18 acceptance
+tests pass · console clean on a fresh load · 10/10 chrome themes AA · content text gate clean
+(new elements 4.81–14.12 light, 7.19+ dark) · spacing ratchet unchanged at 1072/88 · dark mode
+holds · accounts foot to the group on every column · the population's net equals the GL Activity
+component exactly · exports reconcile and a forced mismatch refuses · 0 out-of-period
+transactions in a period population.
 
 ## Toolchain
 
