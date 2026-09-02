@@ -1711,6 +1711,138 @@ body.amap-open .main{padding-right:calc(420px + var(--s-4))}
 @media(max-width:1200px){ .fxg-drv{max-width:160px} }
 
 
+
+/* ---- FLUX — WORKFLOW, REVIEW AND SIGN-OFF (step 7C) ----------------------------------------
+   §78 — the financial variance stays primary. Workflow is initials, one quiet word and one
+   action; there is no board, no coloured row and no ticket chrome. Amber appears only where
+   something is genuinely owed (rule 3), and the accent only on the action a person can take. */
+.fxw-own{display:inline-flex;align-items:baseline;gap:var(--s-2);min-width:0}
+.fxw-own .ini{flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:var(--radius-xs);background:var(--n-100);
+  color:var(--muted);font-size:var(--fs-micro);font-weight:var(--fw-medium);
+  letter-spacing:0;align-self:center}
+.fxw-own .nm{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fxw-own .tm{font-size:var(--fs-label);color:var(--hint);white-space:nowrap}
+.fxw-od{margin-left:var(--s-2);font-size:var(--fs-label);color:var(--warning);white-space:nowrap}
+/* ONE ACTION PER ROW, and it is a quiet outline until it is hovered — a column of filled
+   buttons down a financial statement is the ticketing look this must not have. */
+.fxw-act{border:var(--rule-strong);background:var(--surface);color:var(--muted);
+  font:inherit;font-size:var(--fs-label);height:var(--h-btn-sm);padding:0 var(--s-2);
+  border-radius:var(--radius-xs);cursor:pointer;white-space:nowrap}
+.fxw-act:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-bg)}
+.fxg-tbl td.fxw-c{text-align:right}
+.fxw-ck{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;vertical-align:middle}
+
+/* the quick filters — chips beside the search, not a second ribbon */
+.fxw-quick{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);
+  padding:0 0 var(--s-3);margin-bottom:var(--s-3);border-bottom:1px solid var(--line)}
+.fxw-quick button{border:1px solid var(--border-strong);background:var(--surface);
+  color:var(--muted);font:inherit;font-size:var(--fs-label);height:var(--h-btn-sm);
+  padding:0 var(--s-3);border-radius:var(--radius-xs);cursor:pointer;white-space:nowrap}
+.fxw-quick button.on{background:var(--accent-bg);color:var(--accent-ink);border-color:var(--accent)}
+.fxw-quick button .ct{margin-left:var(--s-2);font-variant-numeric:tabular-nums;color:var(--hint)}
+.fxw-quick button.on .ct{color:var(--accent-ink)}
+.fxw-quick .sel{font-size:var(--fs-label);color:var(--ink);font-weight:var(--fw-medium)}
+.fxw-quick .n{margin-left:auto;font-size:var(--fs-label);color:var(--hint)}
+.fxw-quick .fsx-link{margin-left:0}
+
+/* §46 / §49 — the readiness band. One line, the sign-off action at its end. */
+.fxw-band{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-2) var(--s-4);
+  padding:var(--s-3) var(--s-4);margin-bottom:var(--s-3);background:var(--n-50);
+  border-left:3px solid var(--n-400);font-size:var(--fs-label);color:var(--muted)}
+.fxw-band.warn{border-left-color:var(--warning)}
+.fxw-band b{color:var(--ink);font-weight:var(--fw-medium);font-variant-numeric:tabular-nums}
+.fxw-band .st{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)}
+.fxw-band .st.warn{color:var(--warning)}
+.fxw-band .a.warn b{color:var(--warning)}
+.fxw-band .grow{flex:1}
+.fxw-band .so{color:var(--hint);font-variant-numeric:tabular-nums}
+.fxw-stale{flex:1 1 100%;color:var(--warning);line-height:var(--lh)}
+
+/* ---- the anchored popover. Its own primitive because the shell has none: pop() lives inside
+   the legacy Flux closure and its content switch cannot take a new kind from outside. */
+.fxw-pop{position:fixed;z-index:90;width:320px;background:var(--surface);
+  border:var(--rule-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);
+  padding:var(--s-3)}
+.fxw-ph{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
+  padding-bottom:var(--s-2)}
+.fxw-pn{font-size:var(--fs-label);color:var(--muted);line-height:var(--lh);
+  padding-bottom:var(--s-2)}
+.fxw-pn b{color:var(--ink);font-weight:var(--fw-medium)}
+.fxw-pk{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-2);
+  padding:var(--s-2) 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  margin-bottom:var(--s-2);font-size:var(--fs-table)}
+.fxw-pk .n{color:var(--ink);font-weight:var(--fw-medium);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fxw-pk .v{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fxw-f{display:grid;grid-template-columns:82px minmax(0,1fr);gap:var(--s-2);
+  align-items:center;padding:var(--s-1) 0;font-size:var(--fs-table);color:var(--muted)}
+.fxw-f.tall{align-items:start}
+.fxw-f select,.fxw-f input,.fxw-f textarea{width:100%;min-width:0;font:inherit;
+  font-size:var(--fs-table);color:var(--ink);border:1px solid var(--border-strong);
+  border-radius:var(--radius-xs);background:var(--surface);padding:0 var(--s-2);
+  height:var(--h-field)}
+.fxw-f textarea{height:auto;padding:var(--s-2);line-height:var(--lh);resize:vertical}
+.fxw-f select:focus,.fxw-f input:focus,.fxw-f textarea:focus{outline:2px solid var(--accent);
+  outline-offset:-1px}
+.fxw-pa{display:flex;flex-wrap:wrap;gap:var(--s-2);padding-top:var(--s-2)}
+.fxw-err{margin:var(--s-2) 0 0;padding:var(--s-2);background:var(--n-50);
+  border-left:3px solid var(--warning);font-size:var(--fs-label);color:var(--warning);
+  line-height:var(--lh)}
+/* §30 — the segregation-of-duties refusal reads as a control, not as an error */
+.fxw-sod{margin:var(--s-2) 0 0;padding:var(--s-2);background:var(--n-50);
+  border-left:3px solid var(--warning);font-size:var(--fs-label);color:var(--muted);
+  line-height:var(--lh)}
+.fxw-note{font-size:var(--fs-label);color:var(--hint);line-height:var(--lh);padding-top:var(--s-2)}
+
+/* §17 — the submitted package, so a reviewer never reconstructs it from the live surface */
+.fxw-pkg{margin:var(--s-2) 0 var(--s-3);border:var(--rule);border-radius:var(--radius-xs);
+  background:var(--n-25);padding:var(--s-3)}
+.fxw-pkg .hd{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-2);
+  padding-bottom:var(--s-2);border-bottom:1px solid var(--line);margin-bottom:var(--s-2)}
+.fxw-pkg .hd .t{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)}
+.fxw-pkg .hd .v{font-size:var(--fs-label);color:var(--muted);font-variant-numeric:tabular-nums}
+.fxw-pkg .gr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s-2)}
+.fxw-pkg .c{display:flex;flex-direction:column;gap:var(--s-1);min-width:0}
+.fxw-pkg .k{font-size:var(--fs-label);color:var(--muted);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fxw-pkg .c .v{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.fxw-pkg .mt{font-size:var(--fs-label);color:var(--hint);line-height:var(--lh);
+  padding-top:var(--s-2)}
+.fxw-pkg .mt b{color:var(--ink);font-weight:var(--fw-medium)}
+/* §18 / §52 / §62 — the facts moved under a decision, said plainly */
+.fxw-flag{margin:var(--s-2) 0 0;padding:var(--s-2);background:var(--n-50);
+  border-left:3px solid var(--warning);font-size:var(--fs-label);color:var(--muted);
+  line-height:var(--lh)}
+/* §25 — a returned item states who returned it and why, prominently and without alarm */
+.fxw-ret{margin:var(--s-3) 0 0;padding:var(--s-3);background:var(--n-50);
+  border-left:3px solid var(--warning);font-size:var(--fs-label);color:var(--muted);
+  line-height:var(--lh)}
+.fxw-ret b{display:block;color:var(--ink);font-weight:var(--fw-medium)}
+.fxw-ret .rs{display:block;color:var(--warning);padding-top:var(--s-1)}
+.fxw-ret .cm{display:block;color:var(--muted);padding-top:var(--s-1)}
+.fxw-ret .dt{display:block;color:var(--hint);padding-top:var(--s-1);
+  font-variant-numeric:tabular-nums}
+/* the activity list and the sign-off register share one row grammar */
+.fxw-act-l,.fxw-so-l{display:flex;flex-direction:column}
+.fxw-ae{display:grid;grid-template-columns:118px minmax(0,1fr);gap:var(--s-2);
+  align-items:baseline;padding:var(--s-2) 0;border-bottom:1px solid var(--line);
+  font-size:var(--fs-table)}
+.fxw-ae:last-child{border-bottom:0}
+.fxw-ae .ty{font-size:var(--fs-label);color:var(--muted);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);overflow:hidden;text-overflow:ellipsis}
+.fxw-ae .t{color:var(--ink);min-width:0}
+.fxw-ae .cm{display:block;color:var(--muted);line-height:var(--lh)}
+.fxw-ae .w{grid-column:2;font-size:var(--fs-label);color:var(--hint);
+  font-variant-numeric:tabular-nums;line-height:var(--lh)}
+.fxw-so{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:var(--s-2);
+  align-items:baseline;padding:var(--s-2) 0;border-bottom:1px solid var(--line);
+  font-size:var(--fs-table)}
+.fxw-so:last-child{border-bottom:0}
+.fxw-so .v{color:var(--hint);font-variant-numeric:tabular-nums}
+.fxw-so .t{color:var(--ink);min-width:0}
+.fxw-so .t .w{display:block;font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
 /* ---- FLUX — THE DRIVER BRIDGE AND THE EXPLANATION SURFACES (step 7B) -----------------------
    Panel content, in the panel's own 4-step type contract: 17px section titles, 12px body,
    11px meta, 10px counts. No new colour: the bridge bar is the accent, a negative leg is the
@@ -21338,6 +21470,9 @@ function kMyWork(){
     source:'FILING_COMMENTS', sourceObjectId:c.t,
     go:"pickLens('filings');pickTab('fdetail');setFDetailTab('review')"})); }catch(e){}
   kTaskMine().slice(0,4).forEach(t=>out.push({...t, age:'due '+t.due}));
+  /* §56 — FLUX REVIEW ITEMS ARE THE SAME OBJECT, not a copy. A preparer sees one item here
+     and in Accounting > Flux; there is no FluxTask beside the review item. */
+  try{ if(typeof fxWorkItems==='function') fxWorkItems().forEach(w=>out.push(w)); }catch(e){}
   return out;
 }
 
@@ -27043,8 +27178,22 @@ function closeStages(){
   st.forEach(s=>s.on=(s===cur));
   return st;
 }
-const cwFlux=()=>{try{return (typeof KFX!=='undefined'&&KFX.fluxStats)?KFX.fluxStats()
-  :{req:0,done:0,top:null};}catch(e){return {req:0,done:0,top:null};}};
+/* §55 — CLOSE READS THE REAL FLUX READINESS. It used to call KFX.fluxStats(), which counts the
+   LEGACY flux module's own lines — a population the governed statement does not share, so the
+   Close workspace reported a Flux position from a page nobody opens any more. It now reads
+   fxFluxReadiness(), the same object the Flux readiness band renders, and falls back to the
+   legacy count only if the governed engine is unavailable. */
+const cwFlux=()=>{
+  try{ if(typeof fxFluxReadiness==='function'){
+    const r=fxFluxReadiness();
+    const top=r.outstanding.map(id=>({nm:(fsLine(id)||{}).name||id,
+      d:fxCompare(id).varianceAmount}))
+      .sort((a,b)=>Math.abs(b.d)-Math.abs(a.d))[0]||null;
+    return {req:r.reviewRequired, done:r.approvedCount, top, readiness:r};
+  } }catch(e){}
+  try{ return (typeof KFX!=='undefined'&&KFX.fluxStats)?KFX.fluxStats()
+    :{req:0,done:0,top:null};}catch(e){return {req:0,done:0,top:null};}
+};
 
 /* ---- THE WORKSTREAMS ------------------------------------------------------
    One row per workspace: what it is, where it stands, who owns it, how much is
@@ -32777,7 +32926,29 @@ function fxDriverSupport(d){
 
 /* ---- THE DRIVERS. One object per §2, with a stable id that is not its label. */
 function fxDriverId(lineId,dim,key){ return 'DRV-'+lineId+'-'+dim+'-'+key; }
+/* ---- THE DRIVER ENGINE IS MEMOISED PER RENDER, and it has to be. Every line resolves its
+   whole account population through mapResolve at two periods; 7B could afford to recompute it
+   because only the visible rows asked. 7C asks far more often — the readiness band walks every
+   line, each of the four quick-filter counts walks them again, and each walk asks for the
+   drivers behind a status — so one render of a 37-line statement was recomputing the engine
+   several hundred times and the page stopped responding (observed: a 30s timeout driving the
+   acceptance run).
+
+   THE KEY IS THE WHOLE INPUT SET. Statement, scope, both periods and the comparison type, plus
+   a generation counter every driver mutation bumps. A cache that misses an input silently
+   serves a stale figure into a signed statement, so nothing is left implicit. */
+let FX_GEN=0, _fxDrvC={}, _fxDrvK='';
+const fxBump=()=>{ FX_GEN++; };
+function fxDriversKey(){ const cc=fxComparison();
+  return FX_GEN+'|'+fxStmt+'|'+ENTCTX.scope.id+'|'+cc.curK+'|'+cc.cmpK+'|'+cc.type; }
 function fxDrivers(lineId,dimOverride){
+  const k=fxDriversKey();
+  if(k!==_fxDrvK){ _fxDrvC={}; _fxDrvK=k; }
+  const ck=lineId+'|'+(dimOverride||fxDrvDim);
+  if(_fxDrvC[ck]) return _fxDrvC[ck];
+  return (_fxDrvC[ck]=fxDriversCompute(lineId,dimOverride));
+}
+function fxDriversCompute(lineId,dimOverride){
   const dim=dimOverride||(fxDrvDim==='primary'?fxDriverBasis(lineId):fxDrvDim);
   const c=fxCompare(lineId), v=c.varianceAmount, cc=fxComparison();
   const L=fxLineLegs(lineId);
@@ -32907,18 +33078,22 @@ function fxDrvReclass(id,type,rationale){
   if(Math.abs(d.amount)>=fxResidTolerance()&&!String(rationale||'').trim()){
     fxDrvErr='A rationale is required to reclassify a driver of '+fsM(Math.abs(d.amount))+'.';
     renderFluxGov(); return; }
+  fxBump();
   FX_DRV_EDITS[id]={...(FX_DRV_EDITS[id]||{}), type, rationale:String(rationale||'').trim(),
     by:fxActor(), at:fxComparison().curK};
   fxExplLog(fxSel,'driver','Driver reclassified as '+(FX_DRIVER_TYPES[type]||type)+
     ' — '+d.label+' '+fsM(d.amount));
+  fxWfOnFactsChanged(fxSel,'Driver reclassified');
   fxDrvErr=''; fxDrvEditId=null; renderFluxGov();
 }
 function fxDrvExclude(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
   const D=fxDrivers(fxSel), d=D.drivers.find(x=>x.id===id); if(!d) return;
+  fxBump();
   FX_DRV_EDITS[id]={...(FX_DRV_EDITS[id]||{}), excluded:!(FX_DRV_EDITS[id]||{}).excluded,
     by:fxActor()};
   fxExplLog(fxSel,'driver',(FX_DRV_EDITS[id].excluded?'Excluded':'Restored')+
     ' driver — '+d.label);
+  fxWfOnFactsChanged(fxSel,'Driver set changed');
   renderFluxGov();
 }
 /* §29 / §30 — a hand-entered driver is validated against the variance BEFORE it is accepted.
@@ -32932,15 +33107,17 @@ function fxDrvAdd(){
   if(isNaN(amt)||!amt){ fxDrvErr='A driver needs an amount in $M.'; renderFluxGov(); return; }
   if(!String(why).trim()){ fxDrvErr='A hand-entered driver needs a rationale.'; renderFluxGov(); return; }
   const cc=fxComparison();
+  fxBump();
   FX_DRV_ADDED.push({id:'DRV-USER-'+(++_fxAddSeq), financialLineId:fxSel,
     scopeId:ENTCTX.scope.id, currentPeriodId:cc.curK, comparisonPeriodId:cc.cmpK,
     label:String(lbl).trim(), amount:+amt.toFixed(3), driverType:ty,
     rationale:String(why).trim(), by:fxActor()});
   fxExplLog(fxSel,'driver','Driver added — '+String(lbl).trim()+' '+fsM(+amt));
+  fxWfOnFactsChanged(fxSel,'Driver added');
   fxDrvErr=''; fxDrvAddOpen=false; renderFluxGov();
 }
 function fxDrvAddRemove(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
-  FX_DRV_ADDED=FX_DRV_ADDED.filter(a=>a.id!==id); renderFluxGov(); }
+  fxBump(); FX_DRV_ADDED=FX_DRV_ADDED.filter(a=>a.id!==id); renderFluxGov(); }
 let fxDrvErr='', fxDrvAddOpen=false, fxDrvEditId=null;
 function fxDrvAddToggle(ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
   fxDrvAddOpen=!fxDrvAddOpen; fxDrvErr=''; renderFluxGov(); }
@@ -33200,6 +33377,8 @@ function fxNarrSave(ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
   const after=fxDrivers(fxSel);
   if(Math.abs(after.quantified-before.quantified)>0.0005)
     console.error('fxNarrSave changed driver amounts — the two stores are not separate');
+  /* §18 / §62 — the words moved under a decision. The decision is preserved and the item is. */
+  fxWfOnFactsChanged(fxSel,'Explanation edited');
   fxNarrEdit=false; fxNarrDraft=null; fxNarrErr=''; renderFluxGov();
 }
 function fxShowMoreToggle(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
@@ -33208,15 +33387,23 @@ function fxShowMoreToggle(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation()
 /* ---- §45 — IS AN EXPLANATION REQUIRED? Two independent questions, kept apart: is the
    variance material, and is what remains unsupported within tolerance. A line can be material
    with an acceptable residual (nothing owed) or immaterial with an unacceptable one. */
-function fxExplRequired(lineId){
+/* THE WORKFLOW OWNS THE STATUS (7C). It used to come off the explanation object, which could
+   only ever say draft or approved and knew nothing about who held the line. `raw` breaks the
+   one cycle this creates: fxWfEnsure and fxWfStatus need to know whether an explanation is
+   REQUIRED before any workflow record exists, and asking the workflow that question would ask
+   itself. Every other caller gets the workflow's own answer. */
+function fxExplRequired(lineId,raw){
   const m=fxMateriality(lineId), D=fxDrivers(lineId);
-  const required=m.material||!D.residualWithinTolerance;
+  /* leaf-only, for the reason fxReviewRequirement states: a subtotal is the sum of lines that
+     each owe their own explanation, so it owes none of its own */
+  const required=!fsKids(lineId).length&&(m.material||!D.residualWithinTolerance);
   const e=fxExplanationObj(lineId);
-  let status=e?e.status:(required?'needed':'notreq');
-  if(!e&&!required) status='notreq';
+  let status;
+  if(raw){ status=e?e.status:(required?'needed':'notreq'); if(!e&&!required) status='notreq'; }
+  else status=fxWfStatus(lineId);
   return {required, material:m.material, residualWithinTolerance:D.residualWithinTolerance,
     residual:D.residual, tolerance:D.tolerance, status,
-    st:FX_EXPL_STATUS[status]||FX_EXPL_STATUS.notreq,
+    st:(FX_WF_STATUS[status]||FX_EXPL_STATUS[status]||FX_EXPL_STATUS.notreq),
     /* §8 — a residual over tolerance is owed an explanation EVEN WHERE PROSE EXISTS. Having
        written a paragraph is not the same as having supported the number. */
     residualOwed:!D.residualWithinTolerance};
@@ -33246,14 +33433,1132 @@ function fxReadiness(){
       else attention++; }
     wVar+=Math.abs(D.variance); wExpl+=Math.abs(D.explained);
   });
+  const wf=fxFluxReadiness();
   return {total:lines.length, materialLines:material, explanationsRequired:required,
     explanationsComplete:complete, requireAttention:attention,
+    /* the workflow's own counts, so the coverage line and the readiness band agree */
+    approvedCount:wf.approvedCount, reviewRequired:wf.reviewRequired,
+    submittedCount:wf.submittedCount, readinessStatus:wf.readinessStatus,
     /* WEIGHTED BY MOVEMENT, not a mean of percentages: a 95%-covered $2M line and a
        20%-covered $900M line do not average to 57% of anything a controller cares about. */
     weightedCoverage:wVar?Math.round((wExpl/wVar)*100):0,
-    reviewedLines:complete, approvedLines:0,
+    reviewedLines:complete, approvedLines:wf.approvedCount,
     /* legacy callers (Close reads needsExplanation) — kept so nothing downstream breaks */
     needsExplanation:attention, reviewed:lines.length-attention};
+}
+
+
+/* ==========================================================================================
+   FLUX — ASSIGNMENT, REVIEW, APPROVAL AND SIGN-OFF (2026-09-02, step 7C)
+   ==========================================================================================
+   7B made the explanation a structured object with measured support. This makes it a
+   CONTROLLED REVIEW: a material line is assigned, prepared, submitted, reviewed and either
+   returned or approved, and the statement itself is signed off once every required line is.
+
+   TWO LEVELS OF SIGN-OFF, KEPT APART (§68). A reviewer APPROVES a line; a final reviewer
+   SIGNS OFF the statement's whole comparison. The first is a judgement about one explanation,
+   the second is a certification that the population is complete — and collapsing them would
+   let one approval certify a statement.
+
+   COVERAGE IS NOT APPROVAL (§4). Nothing in this file promotes a line because it reached 100%
+   explained. Explanation completeness is a measurement; approval is a person's decision, and
+   the only code that writes `approved` is the reviewer's own action.
+
+   A DECISION IS IMMUTABLE (§61). Approvals and returns are appended to `reviewCycles` and are
+   never rewritten. When the facts beneath an approval change, the approval STAYS in history
+   and the item moves to Re-review required — the record of what was approved, on what version,
+   by whom, survives the thing it was approved against changing.                              */
+
+/* §2 — EIGHT LIFECYCLE STATES PLUS ONE. The brief lists eight; `rereview` is the ninth and it
+   is the state §52, §62 and §64 all name in words ("Re-review required"). It is stored rather
+   than derived so the reason and the invalidating event survive a reload. */
+const FX_WF_STATUS={
+  notreq:  {l:'Not required',    c:'',     o:0},
+  needed:  {l:'Needs explanation',c:'warn', o:1},
+  assigned:{l:'Assigned',        c:'info', o:2},
+  draft:   {l:'Draft',           c:'info', o:3},
+  ready:   {l:'Ready for review',c:'info', o:4},
+  inreview:{l:'In review',       c:'info', o:5},
+  returned:{l:'Returned',        c:'warn', o:6},
+  rereview:{l:'Re-review required',c:'warn',o:7},
+  approved:{l:'Approved',        c:'ok',   o:8},
+};
+/* §58 — the audit-friendly event vocabulary. Every transition writes one; nothing mutates an
+   item without leaving one behind. */
+const FX_WF_EVENTS={
+  ASSIGNED:'Assigned', REASSIGNED:'Reassigned', DRAFT_STARTED:'Drafting started',
+  SUBMITTED:'Submitted for review',
+  REVIEW_STARTED:'Review started', RETURNED:'Returned', RESUBMITTED:'Resubmitted',
+  APPROVED:'Approved', SIGNOFF_INVALIDATED:'Sign-off invalidated',
+  REVIEW_SIGNED_OFF:'Flux review signed off', REOPENED:'Re-review required'};
+/* §24 — a return needs a REASON from a closed list; a free comment is optional beside it. A
+   blank return is refused. */
+const FX_RETURN_REASONS=[
+  'Residual exceeds tolerance','Entity-level support needed','Driver does not reconcile',
+  'Narrative unsupported by evidence','Additional evidence required','Incorrect classification',
+  'Other'];
+/* §33 / §34 — reviewer levels exist so 7D can add stages without re-keying anything. One
+   active reviewer is implemented; `reviewStages` is carried on the item and stays length 1. */
+const FX_REVIEWER_LEVELS=['Entity Controller','Regional Controller','Corporate Accounting',
+  'Corporate Controller'];
+
+/* ---- §7 / §8 / §9 — THE DIRECTORY. Owner, preparer and reviewer are three separate fields
+   even where a prototype fills two of them with one person: an owning TEAM with a named
+   preparer and a different reviewer is the shape a real close has, and collapsing them into a
+   single `user` is the thing that cannot be un-collapsed later.
+
+   The names are the ones this file already uses — the evidence register's owners, the close
+   task owners, the reporting-adjustment owners — so a person who owns evidence for South
+   Valley is the same person Flux can assign it to. Teams come from the enterprise hierarchy. */
+const FX_TEAMS=[
+  {id:'TM-DEV', name:'Development Accounting', node:'na-dev'},
+  {id:'TM-CORP',name:'Corporate Accounting',   node:'grp'},
+  {id:'TM-EMEA',name:'EMEA Accounting',        node:'emea'},
+  {id:'TM-APAC',name:'APAC Accounting',        node:'apac'},
+  {id:'TM-OPS', name:'Operations Accounting',  node:'na-ops'},
+];
+const fxTeam=id=>FX_TEAMS.find(t=>t.id===id)||null;
+const FX_PEOPLE=[
+  {id:'U-OKAFOR', nm:'A. Okafor',    team:'TM-DEV',  role:'Development Accounting',
+   level:'Entity Controller',    prepare:1, review:1},
+  {id:'U-TAN',    nm:'L. Tan',       team:'TM-DEV',  role:'Senior Accountant',
+   level:'Entity Controller',    prepare:1, review:0},
+  {id:'U-PARK',   nm:'J. Park',      team:'TM-CORP', role:'Internal Controls',
+   level:'Corporate Accounting', prepare:1, review:1},
+  {id:'U-LEE',    nm:'S. Lee',       team:'TM-CORP', role:'Treasury Accounting',
+   level:'Corporate Accounting', prepare:1, review:0},
+  {id:'U-REYES',  nm:'M. Reyes',     team:'TM-OPS',  role:'Operations Accounting',
+   level:'Entity Controller',    prepare:1, review:0},
+  {id:'U-PATEL',  nm:'S. Patel',     team:'TM-CORP', role:'Corporate Accounting',
+   level:'Corporate Controller', prepare:0, review:1},
+  {id:'U-SCHNEID',nm:'M. Schneider', team:'TM-EMEA', role:'EMEA Accounting',
+   level:'Regional Controller',  prepare:1, review:1},
+  {id:'U-WEBER',  nm:'S. Weber',     team:'TM-EMEA', role:'Regional Controller',
+   level:'Regional Controller',  prepare:0, review:1},
+  {id:'U-LIND',   nm:'J. Lindqvist', team:'TM-APAC', role:'APAC Accounting',
+   level:'Regional Controller',  prepare:1, review:1},
+];
+/* the signed-in user is a first-class member of the directory, resolved from the shell rather
+   than declared twice — switching role in Settings changes what they may do here */
+/* WHAT THE SIGNED-IN ROLE MAY DO HERE. `ME()` and `caps()` are the legacy Flux module's and
+   live inside its closure — reachable only through KFX, and KFX exports neither. This is the
+   shell-scope reading of the SAME six roles the settings matrix already publishes, and it
+   carries only the two capabilities this workflow asks about. If FX_CAPS in the closure gains
+   or loses a role, this table is the one that has to follow it. */
+const FX_WF_CAPS={
+  'Accounting Manager':      {prepare:1, review:1},
+  'Controller':              {prepare:1, review:1},
+  'Chief Accounting Officer':{prepare:1, review:1},
+  'Asset Manager':           {prepare:1, review:0},
+  'FP&A Analyst':            {prepare:0, review:0},
+  'External Auditor':        {prepare:0, review:0},
+};
+function fxMe(){
+  const nm=fxActor();
+  const known=FX_PEOPLE.find(p=>p.nm===nm);
+  if(known) return known;
+  const role=(typeof USER_ROLE!=='undefined'&&USER_ROLE)||'Accounting Manager';
+  const c=FX_WF_CAPS[role]||FX_WF_CAPS['FP&A Analyst'];
+  return {id:'U-ME', nm, team:'TM-CORP', role,
+    level:'Corporate Controller', prepare:c.prepare, review:c.review, me:1};
+}
+const fxPerson=id=>FX_PEOPLE.find(p=>p.id===id)||(fxMe().id===id?fxMe():null);
+const fxPersonName=id=>{const p=fxPerson(id);return p?p.nm:(id||'');};
+function fxInitials(id){
+  const nm=fxPersonName(id); if(!nm) return '';
+  const parts=String(nm).replace(/\./g,' ').trim().split(/\s+/);
+  return (parts[0][0]+(parts[parts.length-1][0]||'')).toUpperCase();
+}
+const fxPersonTeam=id=>{const p=fxPerson(id);return p?(fxTeam(p.team)||{}).name||'':'';};
+
+/* ---- THE WORKING CLOCK. Anchored to the OPEN ACCOUNTING PERIOD, not to the wall clock. The
+   book opens in Jun 2026 and a close runs into the first week of July; against a real "today"
+   every seeded due date would be two months overdue and the overdue signal would mean nothing.
+   One function, so due dates, overdue and every event stamp agree. */
+function fxWfNow(){
+  const k=(typeof viewPeriod==='function')?viewPeriod():'2026-06';
+  const d=new Date(perEndISO(k)+'T12:00:00');
+  d.setDate(d.getDate()+5);               // the close working week for that period
+  return d;
+}
+const fxWfToday=()=>fxWfNow().toISOString().slice(0,10);
+function fxWfDate(iso){
+  if(!iso) return '';
+  const d=new Date(String(iso).length<=10?iso+'T12:00:00':iso);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function fxWfStamp(){
+  const d=fxWfNow();
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+
+    new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+const fxWfPlusDays=n=>{const d=fxWfNow(); d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);};
+
+/* ---- §1 — THE REVIEW ITEM. Keyed by a stable composite id and never by the line's label: a
+   financial line renamed in the statement definition must not orphan its review. One item per
+   (line x scope x comparison), because "why did it move" is a statement about a PAIR of
+   periods and a Jun-vs-May review is not a Jun-vs-Jun-2025 review. */
+let FX_WF=[], FX_WF_SEQ=0;
+function fxWfId(lineId,level,groupId){
+  const cc=fxComparison();
+  return 'FRI-'+(level==='accountGroup'?lineId+'-'+groupId:lineId)
+    +'-'+ENTCTX.scope.id+'-'+cc.curK+'-'+cc.type;
+}
+function fxWfFind(lineId){ return FX_WF.find(w=>w.reviewItemId===fxWfId(lineId))||null; }
+/* the item, created on demand. A statement nobody has touched carries NO workflow records —
+   the store stays the size of the work actually done rather than of the statement. */
+function fxWfEnsure(lineId){
+  let w=fxWfFind(lineId); if(w) return w;
+  const cc=fxComparison(), c=fxCompare(lineId), R=fxExplRequired(lineId,1);
+  const e=fxExplanationObj(lineId);
+  w={reviewItemId:fxWfId(lineId), reviewId:(fsReview(lineId)||{}).id||null,
+    financialComparisonId:c.currentAmountId+'|'+c.comparisonAmountId,
+    financialLineId:lineId, level:'line', accountGroupId:null,
+    scopeId:ENTCTX.scope.id, currentPeriodId:cc.curK, comparisonPeriodId:cc.cmpK,
+    comparisonType:cc.type, explanationId:e?e.id:null,
+    workflowStatus:R.required?'needed':'notreq',
+    ownerUserId:null, preparerUserId:null, reviewerUserId:null,
+    assignedBy:null, assignedAt:null, dueAt:null,
+    submittedBy:null, submittedAt:null, reviewedBy:null, reviewedAt:null,
+    reviewStartedAt:null, approvedBy:null, approvedAt:null,
+    returnedBy:null, returnedAt:null, returnReason:null,
+    signOffVersion:null, priority:R.material?'high':'normal',
+    materialityStatus:R.material?'material':'immaterial',
+    /* §34 — one stage today; the array is what 7D adds entity and regional stages to */
+    reviewStages:[{stage:1, level:'Corporate Controller', reviewerUserId:null, decision:null}],
+    /* §27 — one entry per submission, carrying its decision. Append-only. */
+    reviewCycles:[], events:[],
+    /* §75 — escalation metadata, carried and unused: no engine, no routing */
+    escalationLevel:0, escalationReason:null,
+    rereviewReason:null,
+    createdAt:fxWfToday(), updatedAt:fxWfToday(), seq:++FX_WF_SEQ};
+  FX_WF.push(w); return w;
+}
+/* the EFFECTIVE status. A record's stored status wins; a line with no record answers from
+   materiality, so an untouched statement still reads Needs explanation where it should. */
+function fxWfStatus(lineId){
+  const w=fxWfFind(lineId);
+  if(w) return w.workflowStatus;
+  const R=fxExplRequired(lineId,1);
+  return R.required?'needed':'notreq';
+}
+const fxWfSt=lineId=>FX_WF_STATUS[fxWfStatus(lineId)]||FX_WF_STATUS.notreq;
+function fxWfEvent(w,type,extra){
+  const from=w.workflowStatus;
+  w.events.push({workflowEventId:'WFE-'+w.reviewItemId+'-'+(w.events.length+1),
+    reviewItemId:w.reviewItemId, eventType:type, actorUserId:fxMe().id,
+    actorName:fxMe().nm, timestamp:fxWfStamp(), date:fxWfToday(),
+    fromStatus:from, toStatus:(extra&&extra.to)||from,
+    comment:(extra&&extra.comment)||null,
+    relatedVersionId:(extra&&extra.version)||null});
+  if(extra&&extra.to) w.workflowStatus=extra.to;
+  w.updatedAt=fxWfToday();
+  return w;
+}
+
+/* ---- THE SUBMITTED PACKAGE, AND HOW WE KNOW IT CHANGED (§17, §18, §62, §63, §64).
+   A fingerprint of the FACTS a decision was made against: the explanation version, the driver
+   set with its amounts and support, and the evidence references. One function answers all four
+   sections — "has anything moved since this package was submitted or approved" — because they
+   are the same question asked at two different points in the lifecycle. */
+function fxDriverFingerprint(lineId){
+  const D=fxDrivers(lineId);
+  return D.drivers.filter(d=>!d.excluded)
+    .map(d=>d.id+':'+d.amount.toFixed(3)+':'+d.supportStatus).sort().join('|');
+}
+function fxEvidenceFingerprint(lineId){
+  const D=fxDrivers(lineId);
+  return [...new Set(D.drivers.filter(d=>!d.excluded)
+    .flatMap(d=>(d.evidence||[]).map(e=>e.id+':'+e.st)))].sort().join('|');
+}
+function fxPackage(lineId){
+  const D=fxDrivers(lineId), e=fxExplanationObj(lineId);
+  return {explanationVersion:e?e.version:0, explanationId:e?e.id:null,
+    driverFingerprint:fxDriverFingerprint(lineId),
+    evidenceFingerprint:fxEvidenceFingerprint(lineId),
+    driverCount:D.drivers.filter(d=>!d.excluded).length,
+    evidenceCount:D.evidenceCount, coverage:D.coverage, residual:D.residual,
+    variance:D.variance, supportQuality:fxSupportQuality(lineId,D).k};
+}
+/* what changed between a recorded package and the facts as they stand now, in the words a
+   reviewer needs — "the drivers moved" is actionable, "the fingerprint differs" is not */
+function fxPackageDrift(lineId,pkg){
+  if(!pkg) return [];
+  const now=fxPackage(lineId), out=[];
+  if(now.explanationVersion!==pkg.explanationVersion)
+    out.push('the explanation was edited (v'+pkg.explanationVersion+' → v'+now.explanationVersion+')');
+  if(now.driverFingerprint!==pkg.driverFingerprint) out.push('the quantified drivers changed');
+  if(now.evidenceFingerprint!==pkg.evidenceFingerprint) out.push('the linked evidence changed');
+  if(Math.abs(now.variance-pkg.variance)>0.05)
+    out.push('the variance moved by '+fsM(Math.abs(now.variance-pkg.variance)));
+  return out;
+}
+const fxOpenCycle=w=>(w&&w.reviewCycles||[]).slice().reverse()
+  .find(c=>c.decision===null||c.decision===undefined)||null;
+const fxApprovedCycle=w=>(w&&w.reviewCycles||[]).slice().reverse()
+  .find(c=>c.decision==='approved')||null;
+
+/* ---- §6 / §28 / §29 — ASSIGNMENT. Owner, preparer, reviewer and a due date, with every
+   change appended rather than overwritten. Reassignment names who it moved from. */
+function fxAssign(lineId,owner,preparer,reviewer,due,reason){
+  const w=fxWfEnsure(lineId);
+  const prev={owner:w.ownerUserId, preparer:w.preparerUserId, reviewer:w.reviewerUserId};
+  const first=!w.assignedAt;
+  w.ownerUserId=owner||w.ownerUserId;
+  w.preparerUserId=preparer||w.preparerUserId;
+  w.reviewerUserId=reviewer||w.reviewerUserId;
+  w.dueAt=due||w.dueAt;
+  w.assignedBy=fxMe().id; w.assignedAt=fxWfToday();
+  if(w.reviewStages[0]) w.reviewStages[0].reviewerUserId=w.reviewerUserId;
+  const changed=[];
+  if(prev.preparer&&prev.preparer!==w.preparerUserId)
+    changed.push('preparer '+fxPersonName(prev.preparer)+' → '+fxPersonName(w.preparerUserId));
+  if(prev.reviewer&&prev.reviewer!==w.reviewerUserId)
+    changed.push('reviewer '+fxPersonName(prev.reviewer)+' → '+fxPersonName(w.reviewerUserId));
+  /* ASSIGNING DOES NOT ADVANCE WORK THAT IS ALREADY UNDER WAY. A line in Draft that gets a new
+     reviewer stays in Draft; only a line that had nobody moves to Assigned. */
+  const to=(w.workflowStatus==='needed'||w.workflowStatus==='notreq')?'assigned':w.workflowStatus;
+  fxWfEvent(w, first?'ASSIGNED':'REASSIGNED', {to,
+    comment:(reason||'')+(changed.length?(reason?' · ':'')+changed.join(', '):'')});
+  return w;
+}
+/* §15 / §16 — SUBMISSION REQUIREMENTS. A narrative and at least one quantified driver. The
+   residual is deliberately NOT a gate: "Residual exceeds tolerance" is one of the reviewer's
+   own return reasons (§24), so a line with an unsupported residual is exactly the kind of
+   package a reviewer is meant to see and judge — blocking it here would move that judgement
+   out of the review and into a validation rule. */
+function fxCanSubmit(lineId){
+  const e=fxExplanationObj(lineId), D=fxDrivers(lineId), w=fxWfFind(lineId);
+  const miss=[];
+  if(!e||!String(e.narrative||'').trim()) miss.push('an explanation has not been recorded');
+  if(!D.drivers.filter(d=>!d.excluded).length) miss.push('no quantified driver');
+  if(D.mismatch) miss.push('the drivers do not reconcile to the variance');
+  const st=w?w.workflowStatus:fxWfStatus(lineId);
+  const stateOk=['assigned','draft','returned','rereview','needed'].indexOf(st)>=0;
+  return {ok:!miss.length&&stateOk, missing:miss, stateOk, status:st};
+}
+function fxSubmit(lineId){
+  const g=fxCanSubmit(lineId); if(!g.ok) return {ok:false, ...g};
+  const w=fxWfEnsure(lineId), pkg=fxPackage(lineId);
+  const resub=w.reviewCycles.length>0;
+  w.reviewCycles.push({reviewCycleId:w.reviewItemId+'-C'+(w.reviewCycles.length+1),
+    cycle:w.reviewCycles.length+1, submissionVersion:w.reviewCycles.length+1,
+    submittedBy:fxMe().id, submittedAt:fxWfStamp(), submittedDate:fxWfToday(),
+    reviewerUserId:w.reviewerUserId,
+    /* §16 / §17 — the package is PINNED here. Later draft edits cannot reach back into it. */
+    package:pkg,
+    decision:null, decidedBy:null, decidedAt:null, returnReason:null, comment:null});
+  w.submittedBy=fxMe().id; w.submittedAt=fxWfStamp();
+  w.explanationId=pkg.explanationId;
+  fxWfEvent(w, resub?'RESUBMITTED':'SUBMITTED', {to:'ready',
+    version:'v'+pkg.explanationVersion,
+    comment:'Explanation v'+pkg.explanationVersion+' · '+pkg.driverCount+' drivers · '+
+      pkg.evidenceCount+' evidence · '+pkg.coverage+'% coverage'});
+  return {ok:true, item:w};
+}
+function fxStartReview(lineId){
+  const w=fxWfEnsure(lineId);
+  if(w.workflowStatus!=='ready') return w;
+  w.reviewedBy=fxMe().id; w.reviewStartedAt=fxWfStamp();
+  return fxWfEvent(w,'REVIEW_STARTED',{to:'inreview'});
+}
+/* ---- §30 — SEGREGATION OF DUTIES. Holding a reviewer role is necessary and not sufficient:
+   nobody approves a material explanation they prepared or submitted, whatever their title.
+   It is a function of the RECORD, not of a global — the same controller who prepared one line
+   reviews the rest of the statement normally. */
+function fxCanApprove(lineId){
+  const w=fxWfFind(lineId); if(!w) return {ok:false, why:'Nothing has been submitted.'};
+  const me=fxMe();
+  if(['ready','inreview'].indexOf(w.workflowStatus)<0)
+    return {ok:false, why:'This item is not awaiting a review decision.'};
+  if(!me.review) return {ok:false, why:'Your role does not carry review authority.'};
+  const cyc=fxOpenCycle(w);
+  const prepared=w.preparerUserId===me.id||(cyc&&cyc.submittedBy===me.id);
+  if(prepared&&w.materialityStatus==='material')
+    return {ok:false, sod:1,
+      why:'Reviewer must be different from preparer. You prepared or submitted this material '+
+        'explanation, so it needs a second reviewer to sign it off.'};
+  return {ok:true};
+}
+function fxApprove(lineId,note){
+  const g=fxCanApprove(lineId); if(!g.ok) return {ok:false, ...g};
+  const w=fxWfEnsure(lineId), cyc=fxOpenCycle(w);
+  const pkg=cyc?cyc.package:fxPackage(lineId);
+  if(cyc){ cyc.decision='approved'; cyc.decidedBy=fxMe().id; cyc.decidedAt=fxWfStamp();
+    cyc.comment=String(note||'').trim()||null; cyc.approvedPackage=pkg; }
+  w.approvedBy=fxMe().id; w.approvedAt=fxWfStamp();
+  w.reviewedBy=w.reviewedBy||fxMe().id; w.reviewedAt=fxWfStamp();
+  w.signOffVersion=(w.signOffVersion||0)+1;
+  w.rereviewReason=null;
+  if(w.reviewStages[0]) w.reviewStages[0].decision='approved';
+  fxWfEvent(w,'APPROVED',{to:'approved', version:'v'+pkg.explanationVersion,
+    comment:String(note||'').trim()||null});
+  return {ok:true, item:w};
+}
+/* §24 / §25 — a return carries a reason from the closed list and preserves the submission it
+   rejected. The cycle is CLOSED with the decision; the next submission opens a new one. */
+function fxReturn(lineId,reason,comment){
+  if(!String(reason||'').trim()) return {ok:false, why:'A return needs a reason.'};
+  const w=fxWfEnsure(lineId);
+  if(['ready','inreview'].indexOf(w.workflowStatus)<0)
+    return {ok:false, why:'This item is not awaiting a review decision.'};
+  const cyc=fxOpenCycle(w);
+  if(cyc){ cyc.decision='returned'; cyc.decidedBy=fxMe().id; cyc.decidedAt=fxWfStamp();
+    cyc.returnReason=reason; cyc.comment=String(comment||'').trim()||null; }
+  w.returnedBy=fxMe().id; w.returnedAt=fxWfStamp(); w.returnReason=reason;
+  w.reviewedBy=w.reviewedBy||fxMe().id;
+  /* §75 — a second return raises the escalation metadata. Carried, never acted on. */
+  const returns=w.reviewCycles.filter(c=>c.decision==='returned').length;
+  if(returns>1){ w.escalationLevel=returns-1;
+    w.escalationReason='Returned '+returns+' times'; }
+  fxWfEvent(w,'RETURNED',{to:'returned', comment:reason+
+    (String(comment||'').trim()?' · '+String(comment).trim():'')});
+  return {ok:true, item:w};
+}
+
+/* ---- §18 / §62 / §63 / §64 — WHEN THE FACTS MOVE UNDER A DECISION. One function, called
+   after every edit that can change a package: a narrative save, a driver reclassification, an
+   exclusion, a hand-entered driver. It never rewrites a decision — it moves the ITEM and says
+   why, leaving the approval or the pending submission intact in `reviewCycles`.
+
+     Ready for review  ->  Draft        the pending package is superseded; resubmit required
+     Approved          ->  Re-review    the approval stands in history; the line is open again
+
+   Anything else is left alone: editing a Draft is what a Draft is for. */
+function fxWfOnFactsChanged(lineId,what){
+  const w=fxWfFind(lineId); if(!w) return null;
+  /* §3 — DRAFT IS WORK IN PROGRESS, and work starting is what puts an item there. An assigned
+     line whose preparer has begun writing is no longer merely Assigned, and leaving it there
+     made the two states indistinguishable on the board. */
+  if(w.workflowStatus==='assigned'||w.workflowStatus==='needed')
+    return fxWfEvent(w,'DRAFT_STARTED',{to:'draft', comment:what||'Explanation work started'});
+  if(w.workflowStatus==='ready'||w.workflowStatus==='inreview'){
+    const cyc=fxOpenCycle(w);
+    const drift=cyc?fxPackageDrift(lineId,cyc.package):[];
+    if(!drift.length) return w;
+    if(cyc){ cyc.decision='superseded'; cyc.decidedAt=fxWfStamp();
+      cyc.comment='Superseded by changes made after submission'; }
+    w.rereviewReason='Changes made after submission: '+drift.join('; ')+'. Resubmit required.';
+    return fxWfEvent(w,'REOPENED',{to:'draft', comment:w.rereviewReason});
+  }
+  if(w.workflowStatus==='approved'){
+    const cyc=fxApprovedCycle(w);
+    const drift=cyc?fxPackageDrift(lineId,cyc.package):[];
+    if(!drift.length) return w;
+    w.rereviewReason='Approved on '+(cyc?fxWfDate(cyc.submittedDate):'')+', then '+
+      drift.join('; ')+'. The approval is preserved and the line needs a new review.';
+    return fxWfEvent(w,'REOPENED',{to:'rereview', comment:(what||'Facts changed')+
+      ' · '+drift.join('; ')});
+  }
+  return w;
+}
+
+/* ---- §31 / §32 — WHAT REQUIRES WHAT. Read from the shared materiality metadata, never a
+   second engine. `requiredReviewerLevel` scales with size so a $268M line is a Corporate
+   Controller's signature and a small one is not; nothing enforces the level yet. */
+function fxReviewRequirement(lineId){
+  const m=fxMateriality(lineId), D=fxDrivers(lineId);
+  /* §73 — A WORKFLOW ATTACHES TO A FINANCIAL LINE, NOT TO A SUBTOTAL. Every section is
+     material by variance, so without this the statement offered to assign "Assets" and
+     "Property, Plant & Equipment" to a person — and a subtotal has no preparer, because it is
+     the sum of lines that each have one. This is the same boundary 7B drew when the narrative
+     band went leaf-only: explanation ownership lives at the line and below it, never above. */
+  const leaf=!fsKids(lineId).length;
+  const requiresExplanation=leaf&&(m.material||!D.residualWithinTolerance);
+  return {leaf, requiresExplanation,
+    /* formal review is for MATERIAL items — §31's whole point is not to assign dozens of
+       immaterial rows. A small line with an over-tolerance residual owes an explanation but
+       not a signature. */
+    requiresReview:leaf&&m.material,
+    requiresEvidence:leaf&&m.material&&Math.abs(D.variance)>=m.threshold,
+    requiredReviewerLevel:Math.abs(D.variance)>=m.threshold*2?'Corporate Controller'
+      :(m.material?'Regional Controller':'Entity Controller'),
+    material:m.material, threshold:m.threshold, tolerance:D.tolerance};
+}
+/* §42 — overdue is measured against the period's own working clock */
+function fxWfOverdue(lineId){
+  const w=fxWfFind(lineId);
+  if(!w||!w.dueAt||w.workflowStatus==='approved'||w.workflowStatus==='notreq') return false;
+  return w.dueAt<fxWfToday();
+}
+
+/* ---- §14 / §70 — THE ONE ACTION THAT MATTERS, chosen by state AND by who is looking. A
+   preparer sees Continue and Submit; a reviewer sees Review, Approve and Return; anyone else
+   sees View. Every row does not carry every button. */
+function fxWfAction(lineId){
+  const w=fxWfFind(lineId), st=fxWfStatus(lineId), me=fxMe();
+  const req=fxReviewRequirement(lineId);
+  if(st==='notreq') return {k:'view', l:'View'};
+  const isPrep=w&&(w.preparerUserId===me.id||w.ownerUserId===me.id);
+  const isRev=w&&w.reviewerUserId===me.id;
+  if(st==='needed') return (me.review||me.prepare)&&req.requiresReview
+    ?{k:'assign', l:'Assign'}:{k:'open', l:'Explain'};
+  if(st==='assigned'||st==='draft') return {k:'open', l:isPrep?'Continue':'Open'};
+  if(st==='returned'||st==='rereview') return {k:'open', l:isPrep?'Revise':'Open'};
+  if(st==='ready') return isRev||me.review?{k:'review', l:'Review'}:{k:'open', l:'View'};
+  if(st==='inreview') return isRev||me.review?{k:'review', l:'Continue review'}
+    :{k:'open', l:'View'};
+  if(st==='approved') return {k:'open', l:'View'};
+  return {k:'open', l:'Open'};
+}
+
+/* ---- §40 / §41 / §76 — THE QUICK FILTERS. They narrow the SAME review objects the table
+   already renders; there is no second Flux task list anywhere in this build. */
+const FX_WF_QUICK=[['','All lines'],['mine','Assigned to me'],['myrev','Needs my review'],
+  ['over','Overdue'],['open','Requires attention']];
+let fxWfQuick='';
+function setFxWfQuick(q){ fxWfQuick=q; renderFluxGov(); }
+function fxWfQuickMatch(lineId){
+  if(!fxWfQuick) return true;
+  const w=fxWfFind(lineId), me=fxMe(), st=fxWfStatus(lineId);
+  if(fxWfQuick==='mine') return !!w&&(w.preparerUserId===me.id||w.ownerUserId===me.id)
+    &&st!=='approved';
+  if(fxWfQuick==='myrev') return !!w&&w.reviewerUserId===me.id
+    &&(st==='ready'||st==='inreview');
+  if(fxWfQuick==='over') return fxWfOverdue(lineId);
+  if(fxWfQuick==='open') return ['needed','assigned','draft','returned','rereview']
+    .indexOf(st)>=0;
+  return true;
+}
+
+/* ---- §46 / §47 / §48 — STATEMENT READINESS, DERIVED. Every count walks the review items and
+   the same per-line functions the rows render from, so the summary and the table cannot
+   disagree. Nothing here is maintained by hand. */
+const FX_READY_ST={notstarted:{l:'Not started',c:''}, prog:{l:'In progress',c:'info'},
+  final:{l:'Ready for final review',c:'info'}, complete:{l:'Complete',c:'ok'},
+  rereview:{l:'Re-review required',c:'warn'}};
+function fxFluxReadiness(){
+  const root=fsDef(fxStmt).root, lines=[];
+  const walk=id=>{const k=fsKids(id); if(!k.length){lines.push(id);return;} k.forEach(x=>walk(x.id));};
+  FSLINES.filter(f=>f.parent===root).forEach(x=>walk(x.id));
+  const cc=fxComparison();
+  let material=0, required=0, complete=0, submitted=0, approved=0, returned=0, overdue=0,
+      residualEx=0, evidenceEx=0, assigned=0, rereview=0, wVar=0, wExpl=0;
+  lines.forEach(id=>{
+    const req=fxReviewRequirement(id), D=fxDrivers(id), st=fxWfStatus(id), w=fxWfFind(id);
+    if(req.material) material++;
+    if(req.requiresExplanation){
+      required++;
+      const e=fxExplanationObj(id);
+      if(e&&String(e.narrative||'').trim()) complete++;
+      if(!D.residualWithinTolerance) residualEx++;
+      if(req.requiresEvidence&&!D.evidenceCount) evidenceEx++;
+    }
+    if(w&&w.assignedAt) assigned++;
+    if(st==='ready'||st==='inreview') submitted++;
+    if(st==='approved') approved++;
+    if(st==='returned') returned++;
+    if(st==='rereview') rereview++;
+    if(fxWfOverdue(id)) overdue++;
+    wVar+=Math.abs(D.variance); wExpl+=Math.abs(D.explained);
+  });
+  /* §31 — only lines that require FORMAL REVIEW count toward sign-off. An immaterial line
+     owed an explanation is not owed a signature. */
+  const reviewRequired=lines.filter(id=>fxReviewRequirement(id).requiresReview);
+  const reviewApproved=reviewRequired.filter(id=>fxWfStatus(id)==='approved').length;
+  const so=fxSignOffCurrent();
+  let readiness='notstarted';
+  if(rereview||(so&&fxSignOffStale(so).stale)) readiness='rereview';
+  else if(reviewRequired.length&&reviewApproved===reviewRequired.length)
+    readiness=so?'complete':'final';
+  else if(assigned||submitted||approved||complete) readiness='prog';
+  return {reviewId:'FLUXREV-'+fxStmt+'-'+ENTCTX.scope.id+'-'+cc.curK+'-'+cc.type,
+    periodId:cc.curK, comparisonPeriodId:cc.cmpK, scopeId:ENTCTX.scope.id,
+    comparisonType:cc.type, statement:fxStmt,
+    totalLines:lines.length, totalMaterialItems:material,
+    explanationRequired:required, explanationComplete:complete,
+    reviewRequired:reviewRequired.length, approvedCount:reviewApproved,
+    submittedCount:submitted, returnedCount:returned, rereviewCount:rereview,
+    assignedCount:assigned, overdueCount:overdue,
+    residualExceptions:residualEx, evidenceExceptions:evidenceEx,
+    weightedCoverage:wVar?Math.round((wExpl/wVar)*100):0,
+    outstanding:reviewRequired.filter(id=>fxWfStatus(id)!=='approved'),
+    readinessStatus:readiness, st:FX_READY_ST[readiness], signOff:so};
+}
+
+/* ---- §49 / §50 / §51 — FINAL FLUX SIGN-OFF. A governed milestone over the whole comparison,
+   pinning the governed VERSIONS rather than copying the data they describe. Versioned: a
+   second sign-off never overwrites the first (§53). */
+let FX_SIGNOFF=[];
+function fxSignOffKey(){ const cc=fxComparison();
+  return fxStmt+'|'+ENTCTX.scope.id+'|'+cc.curK+'|'+cc.type; }
+const fxSignOffAll=()=>FX_SIGNOFF.filter(s=>s.key===fxSignOffKey())
+  .sort((a,b)=>b.signOffVersion-a.signOffVersion);
+const fxSignOffCurrent=()=>fxSignOffAll()[0]||null;
+/* §52 — WHAT THE SIGN-OFF WAS TAKEN AGAINST. A fingerprint of the approved population: each
+   line, its variance and the explanation version that was approved. If any of it moves while
+   the period is still open, the sign-off is not silently still Complete. */
+/* IT MUST NOT ASK THE READINESS OBJECT ANYTHING. `fxFluxReadiness()` calls `fxSignOffStale()`
+   to decide whether a recorded sign-off still holds, and that calls this — so a single
+   `fxFluxReadiness()` here recursed until the stack ran out, the moment a first sign-off
+   existed (observed). The fingerprint reads the lines and their approvals directly. */
+function fxSignOffFingerprint(){
+  const ids=[];
+  const root=fsDef(fxStmt).root;
+  const walk=id=>{const k=fsKids(id); if(!k.length){ids.push(id);return;} k.forEach(x=>walk(x.id));};
+  FSLINES.filter(f=>f.parent===root).forEach(x=>walk(x.id));
+  return ids.filter(id=>fxReviewRequirement(id).requiresReview).map(id=>{
+    const w=fxWfFind(id), c=fxApprovedCycle(w);
+    return id+':'+fxCompare(id).varianceAmount.toFixed(3)+':'+
+      (c?c.package.explanationVersion:0);
+  }).sort().join('|');
+}
+function fxSignOff(note){
+  const r=fxFluxReadiness();
+  if(r.readinessStatus!=='final'&&r.readinessStatus!=='rereview')
+    return {ok:false, why:'Every required line must be approved before the review can be signed off.'};
+  const me=fxMe();
+  if(!me.review) return {ok:false, why:'Your role does not carry review authority.'};
+  const cc=fxComparison(), a=fsAmount(fsDef(fxStmt).root,cc.curK,cc.curMonths);
+  const prev=fxSignOffCurrent();
+  const s={signOffId:'FXSO-'+fxSignOffKey().replace(/\|/g,'-')+'-v'+((prev?prev.signOffVersion:0)+1),
+    key:fxSignOffKey(), reviewId:r.reviewId, signOffVersion:(prev?prev.signOffVersion:0)+1,
+    statement:fxStmt, scopeId:ENTCTX.scope.id, periodId:cc.curK,
+    comparisonPeriodId:cc.cmpK, comparisonType:cc.type,
+    signedOffBy:me.id, signedOffName:me.nm, signedOffRole:me.level,
+    signedOffAt:fxWfStamp(), signedOffDate:fxWfToday(),
+    approvedItemCount:r.approvedCount, requiredItemCount:r.reviewRequired,
+    note:String(note||'').trim()||null,
+    reason:prev?'Re-review after changes to the approved population':null,
+    /* §51 — REFERENCES, not copies: the governed versions the statement was produced under */
+    mappingVersion:a.mappingVersion, enrichmentVersion:a.enrichmentVersion,
+    hierarchyVersion:a.hierarchyVersion, statementVersion:a.statementVersion,
+    dataAsOf:a.dataAsOf,
+    fingerprint:fxSignOffFingerprint()};
+  FX_SIGNOFF.push(s);
+  /* the milestone is recorded on every line it certifies, so a line's own trace can name it */
+  const root=fsDef(fxStmt).root, ids=[];
+  const walk=id=>{const k=fsKids(id); if(!k.length){ids.push(id);return;} k.forEach(x=>walk(x.id));};
+  FSLINES.filter(f=>f.parent===root).forEach(x=>walk(x.id));
+  ids.filter(id=>fxReviewRequirement(id).requiresReview).forEach(id=>{
+    const w=fxWfFind(id); if(w) fxWfEvent(w,'REVIEW_SIGNED_OFF',
+      {comment:'Flux review sign-off '+s.signOffId}); });
+  return {ok:true, signOff:s};
+}
+/* §52 — has anything moved since. Compared against the fingerprint the sign-off pinned. */
+function fxSignOffStale(s){
+  if(!s) return {stale:false};
+  const now=fxSignOffFingerprint();
+  if(now===s.fingerprint) return {stale:false};
+  return {stale:true, why:'The approved population has changed since '+s.signOffId+
+    ' was recorded. The sign-off is preserved; the statement needs a new review.'};
+}
+
+/* ---- §56 — SHARED WORK OBJECTS. Flux review items surface in Home > My Work through the
+   SAME shape every other queue uses, so a preparer sees one item in two places rather than
+   two tasks. `objectType`/`objectId` are what a future notification or escalation would key
+   on; nothing duplicates the item. */
+function fxWorkItems(){
+  const me=fxMe(), out=[];
+  FX_WF.forEach(w=>{
+    if(w.workflowStatus==='approved'||w.workflowStatus==='notreq') return;
+    const mine=w.preparerUserId===me.id||w.ownerUserId===me.id;
+    const toReview=w.reviewerUserId===me.id&&
+      (w.workflowStatus==='ready'||w.workflowStatus==='inreview');
+    if(!mine&&!toReview) return;
+    const n=fsLine(w.financialLineId)||{};
+    out.push({id:w.reviewItemId, type:toReview?'review':'explanation',
+      module:'Accounting', workspace:'Flux', period:perLabel(w.currentPeriodId),
+      entityScope:(ENTCTX.scope.name||''), item:n.name+' explanation',
+      context:(FX_WF_STATUS[w.workflowStatus]||{}).l+
+        (w.dueAt?' · due '+fxWfDate(w.dueAt):''),
+      owner:fxInitials(w.ownerUserId||w.preparerUserId),
+      status:w.workflowStatus==='ready'?'ready':(fxWfOverdue(w.financialLineId)?'blk':'info'),
+      age:w.dueAt?'due '+fxWfDate(w.dueAt):'',
+      /* the shared work-object contract */
+      objectType:'FLUX_REVIEW', objectId:w.reviewItemId,
+      source:'FX_WF', sourceObjectId:w.reviewItemId,
+      go:"pickLens('ledger');pickTab('finrep');fxPick('"+w.financialLineId+"')"});
+  });
+  return out;
+}
+
+/* ==========================================================================================
+   THE WORKFLOW SURFACES (step 7C)
+   ==========================================================================================
+   §78 — WORKFLOW LIVES INSIDE A FINANCIAL REVIEW SURFACE, IT DOES NOT REPLACE ONE. The
+   variance stays the subject: an owner is initials, a status is one quiet word, and the row
+   carries ONE action chosen by state rather than a toolbar of every possible transition. No
+   coloured rows, no ticket language, no board.                                              */
+
+let fxWfPop=null, fxWfPopAnchor=null, fxWfErr='', fxWfNote='',
+    fxWfSel={}, fxWfBulk=false, fxWfHistOpen=false;
+const fxWfSelIds=()=>Object.keys(fxWfSel).filter(k=>fxWfSel[k]);
+
+/* ---- §6 — THE ASSIGN POPOVER. Anchored to the control that opened it, four fields, no
+   modal. It is its own primitive because the shell has none: `pop()` lives inside the legacy
+   Flux module's closure and is reachable only as KFX.pop, whose content switch cannot take a
+   new kind from outside. */
+function fxWfOpenPop(kind,lineId,ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  fxWfPop={kind, lineId, bulk:lineId===null};
+  fxWfPopAnchor=(ev&&ev.currentTarget&&ev.currentTarget.getAttribute('data-fxw'))||null;
+  fxWfErr=''; renderFluxGov(); fxWfPlace();
+}
+function fxWfClosePop(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  fxWfPop=null; fxWfPopAnchor=null; fxWfErr=''; renderFluxGov(); }
+function fxWfPlace(){
+  const p=document.getElementById('fxwPop'); if(!p) return;
+  const a=fxWfPopAnchor?document.querySelector('[data-fxw="'+fxWfPopAnchor+'"]'):null;
+  /* THE TRIGGER DOES NOT SURVIVE ITS OWN RE-RENDER. renderFluxGov() rebuilds the table, so the
+     button the popover was anchored to is a different element by the time this runs — it is
+     re-acquired by its stable `data-fxw` key, and when it cannot be found the popover stays
+     where it is rather than being placed against a zero rect in the top-left corner. */
+  if(!a) return;
+  const r=a.getBoundingClientRect(), w=p.offsetWidth||320, h=p.offsetHeight||260;
+  let left=Math.min(r.right-w, innerWidth-w-12), top=r.bottom+6;
+  if(top+h>innerHeight-12) top=Math.max(12, r.top-h-6);
+  p.style.left=Math.max(12,left)+'px'; p.style.top=top+'px';
+}
+/* one dismissal path, bound once */
+if(typeof window!=='undefined'&&!window._fxWfDismiss){
+  window._fxWfDismiss=1;
+  document.addEventListener('mousedown',e=>{
+    if(!fxWfPop) return;
+    if(e.target.closest&&(e.target.closest('#fxwPop')||e.target.closest('[data-fxw]'))) return;
+    fxWfPop=null; fxWfPopAnchor=null; renderFluxGov();
+  });
+  addEventListener('scroll',()=>{ if(fxWfPop) fxWfPlace(); },true);
+  addEventListener('resize',()=>{ if(fxWfPop) fxWfPlace(); });
+}
+/* §9 — a person reads as name over team, never a bare id in a long select */
+function fxWfPeopleOpts(id,filter){
+  const me=fxMe();
+  const all=[me].concat(FX_PEOPLE.filter(p=>p.nm!==me.nm))
+    .filter(p=>!filter||filter(p));
+  return all.map(p=>`<option value="${p.id}" ${id===p.id?'selected':''}>${
+    glEsc(p.nm)} — ${glEsc(fxTeam(p.team)?fxTeam(p.team).name:p.role)}</option>`).join('');
+}
+function fxWfTeamOpts(id){
+  return `<option value="">—</option>`+FX_TEAMS.map(t=>`<option value="${t.id}" ${
+    id===t.id?'selected':''}>${glEsc(t.name)}</option>`).join('');
+}
+function fxWfPopHTML(){
+  if(!fxWfPop) return '';
+  const k=fxWfPop.kind, lineId=fxWfPop.lineId;
+  let body='';
+  if(k==='assign'){
+    const ids=fxWfPop.bulk?fxWfSelIds():[lineId];
+    const w=fxWfPop.bulk?null:fxWfFind(lineId);
+    const req=fxWfPop.bulk?null:fxReviewRequirement(lineId);
+    const defPrep=w&&w.preparerUserId||'U-OKAFOR';
+    const defRev=w&&w.reviewerUserId||'U-PATEL';
+    const defTeam=w&&w.ownerTeam||'TM-DEV';
+    body=`<div class="fxw-ph">${fxWfPop.bulk
+      ?'Assign '+ids.length+' line'+(ids.length===1?'':'s')
+      :(w&&w.assignedAt?'Reassign':'Assign')+' — '+glEsc((fsLine(lineId)||{}).name||'')}</div>
+      ${req?`<div class="fxw-pn">${glEsc(req.requiredReviewerLevel)} review${
+        req.requiresEvidence?' · evidence required':''}</div>`:''}
+      <label class="fxw-f"><span>Owner team</span>
+        <select id="fxwTeam">${fxWfTeamOpts(defTeam)}</select></label>
+      <label class="fxw-f"><span>Preparer</span>
+        <select id="fxwPrep">${fxWfPeopleOpts(defPrep,p=>p.prepare)}</select></label>
+      <label class="fxw-f"><span>Reviewer</span>
+        <select id="fxwRev">${fxWfPeopleOpts(defRev,p=>p.review)}</select></label>
+      <label class="fxw-f"><span>Due</span>
+        <input id="fxwDue" type="date" value="${(w&&w.dueAt)||fxWfPlusDays(4)}"></label>
+      ${w&&w.assignedAt?`<label class="fxw-f"><span>Reason</span>
+        <input id="fxwWhy" type="text" placeholder="Why the assignment changed"></label>`:''}
+      ${fxWfErr?`<div class="fxw-err">${glEsc(fxWfErr)}</div>`:''}
+      <div class="fxw-pa">
+        <button class="btn-primary sm" onclick="fxWfDoAssign(event)">${
+          fxWfPop.bulk?'Assign '+ids.length:'Assign'}</button>
+        <button class="btn-out sm" onclick="fxWfClosePop(event)">Cancel</button></div>`;
+  }
+  if(k==='approve'){
+    const D=fxDrivers(lineId), pkg=fxPackage(lineId), n=fsLine(lineId)||{};
+    const w=fxWfFind(lineId), cyc=fxOpenCycle(w);
+    const g=fxCanApprove(lineId);
+    /* §22 — a lightweight confirmation that states WHAT is being approved, not a warning */
+    body=`<div class="fxw-ph">Approve this Flux explanation?</div>
+      <div class="fxw-pk"><span class="n">${glEsc(n.name||'')}</span>
+        <span class="v mono">${D.variance>0?'+':''}${fsM(D.variance)}</span></div>
+      <div class="fxw-pn">${(cyc?cyc.package:pkg).coverage}% explained · ${
+        fsM((cyc?cyc.package:pkg).residual)} residual</div>
+      <div class="fxw-pn">You are approving explanation <b>v${
+        (cyc?cyc.package:pkg).explanationVersion}</b>, its ${
+        (cyc?cyc.package:pkg).driverCount} quantified drivers and ${
+        (cyc?cyc.package:pkg).evidenceCount} linked evidence item${
+        (cyc?cyc.package:pkg).evidenceCount===1?'':'s'}.</div>
+      <label class="fxw-f tall"><span>Note</span>
+        <textarea id="fxwNote" rows="2" placeholder="Optional review note"></textarea></label>
+      ${!g.ok?`<div class="fxw-err">${glEsc(g.why)}</div>`:''}
+      ${fxWfErr?`<div class="fxw-err">${glEsc(fxWfErr)}</div>`:''}
+      <div class="fxw-pa">
+        <button class="btn-out sm" onclick="fxWfClosePop(event)">Cancel</button>
+        <button class="btn-primary sm" ${g.ok?'':'disabled'}
+          onclick="fxWfDoApprove(event)">Approve</button></div>`;
+  }
+  if(k==='return'){
+    body=`<div class="fxw-ph">Return for further work</div>
+      <label class="fxw-f"><span>Reason</span>
+        <select id="fxwReason">${FX_RETURN_REASONS.map(r=>
+          `<option value="${glEsc(r)}">${glEsc(r)}</option>`).join('')}</select></label>
+      <label class="fxw-f tall"><span>Comment</span>
+        <textarea id="fxwRc" rows="3" placeholder="What the preparer needs to do"></textarea></label>
+      ${fxWfErr?`<div class="fxw-err">${glEsc(fxWfErr)}</div>`:''}
+      <div class="fxw-pa">
+        <button class="btn-primary sm" onclick="fxWfDoReturn(event)">Return</button>
+        <button class="btn-out sm" onclick="fxWfClosePop(event)">Cancel</button></div>
+      <div class="fxw-pn">A return is a workflow decision and is recorded with its reason. The
+        submission it rejects is preserved.</div>`;
+  }
+  if(k==='signoff'){
+    const r=fxFluxReadiness(), cc=fxComparison();
+    const prev=fxSignOffCurrent();
+    body=`<div class="fxw-ph">Sign off the Flux review</div>
+      <div class="fxw-pk"><span class="n">${glEsc(fsDef(fxStmt).name.replace('Consolidated ',''))} Flux</span>
+        <span class="v">${glEsc(cc.label)}</span></div>
+      <div class="fxw-pn"><b>${r.approvedCount} of ${r.reviewRequired}</b> required lines
+        approved · ${r.weightedCoverage}% variance coverage · scope ${
+        glEsc(ENTCTX.scope.name)}</div>
+      <div class="fxw-pn">This pins the governed versions the statement was produced under
+        — mapping, enrichment, hierarchy and statement — and the approved explanation
+        version of every line. It does not copy the data.</div>
+      ${prev?`<div class="fxw-pn">This will be <b>v${prev.signOffVersion+1}</b>. Version ${
+        prev.signOffVersion} is preserved.</div>`:''}
+      <label class="fxw-f tall"><span>Note</span>
+        <textarea id="fxwSoNote" rows="2" placeholder="Optional certification note"></textarea></label>
+      ${fxWfErr?`<div class="fxw-err">${glEsc(fxWfErr)}</div>`:''}
+      <div class="fxw-pa">
+        <button class="btn-out sm" onclick="fxWfClosePop(event)">Cancel</button>
+        <button class="btn-primary sm" onclick="fxWfDoSignOff(event)">Sign off review</button></div>`;
+  }
+  return `<div class="fxw-pop" id="fxwPop">${body}</div>`;
+}
+const fxwVal=id=>{const e=document.getElementById(id);return e?e.value:'';};
+function fxWfDoAssign(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const prep=fxwVal('fxwPrep'), rev=fxwVal('fxwRev'), due=fxwVal('fxwDue'),
+        team=fxwVal('fxwTeam'), why=fxwVal('fxwWhy');
+  if(!prep||!rev){ fxWfErr='A preparer and a reviewer are both needed.'; renderFluxGov(); return; }
+  /* §30 — the SoD control is stated at assignment, not only at approval: assigning one person
+     to both roles on a material line is a control failure a reviewer should not discover at
+     the moment they try to sign. */
+  const ids=fxWfPop.bulk?fxWfSelIds():[fxWfPop.lineId];
+  const material=ids.some(id=>fxReviewRequirement(id).material);
+  if(prep===rev&&material){
+    fxWfErr='Reviewer must be different from preparer on a material line.';
+    renderFluxGov(); return; }
+  ids.forEach(id=>{ const w=fxAssign(id,prep,prep,rev,due,why); w.ownerTeam=team; });
+  fxWfPop=null; fxWfErr=''; fxWfSel={}; renderFluxGov();
+}
+function fxWfDoApprove(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const r=fxApprove(fxWfPop.lineId, fxwVal('fxwNote'));
+  if(!r.ok){ fxWfErr=r.why; renderFluxGov(); return; }
+  fxWfPop=null; fxWfErr=''; renderFluxGov();
+}
+function fxWfDoReturn(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const r=fxReturn(fxWfPop.lineId, fxwVal('fxwReason'), fxwVal('fxwRc'));
+  if(!r.ok){ fxWfErr=r.why; renderFluxGov(); return; }
+  fxWfPop=null; fxWfErr=''; renderFluxGov();
+}
+function fxWfDoSignOff(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const r=fxSignOff(fxwVal('fxwSoNote'));
+  if(!r.ok){ fxWfErr=r.why; renderFluxGov(); return; }
+  fxWfPop=null; fxWfErr=''; renderFluxGov();
+}
+function fxWfSubmit(lineId,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const r=fxSubmit(lineId);
+  if(!r.ok){ fxWfErr=r.missing?('Cannot submit: '+r.missing.join(', ')+'.'):r.why; }
+  renderFluxGov();
+}
+function fxWfStart(lineId,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  fxStartReview(lineId); renderFluxGov(); }
+function fxWfRowAct(lineId,kind,ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  if(kind==='assign'){ fxWfOpenPop('assign',lineId,ev); return; }
+  fxPick(lineId);
+  if(kind==='review'){ setFxTab('rev'); }
+}
+function fxWfToggleSel(id,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  fxWfSel[id]=!fxWfSel[id]; renderFluxGov(); }
+function fxWfBulkToggle(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+  fxWfBulk=!fxWfBulk; fxWfSel={}; renderFluxGov(); }
+
+/* ---- §11 / §12 / §13 — THE ROW. Owner as initials with the name in the tooltip, status as
+   one quiet word, and ONE action. */
+function fxWfOwnerCell(lineId){
+  const w=fxWfFind(lineId), st=fxWfStatus(lineId);
+  if(st==='notreq') return '<span class="amap-dim">&mdash;</span>';
+  if(!w||!w.preparerUserId) return '<span class="amap-dim">unassigned</span>';
+  const who=w.preparerUserId, rv=w.reviewerUserId;
+  return `<span class="fxw-own" title="${glEsc('Preparer '+fxPersonName(who)+
+      (fxPersonTeam(who)?' · '+fxPersonTeam(who):'')+
+      (rv?'  —  Reviewer '+fxPersonName(rv):''))}">
+    <span class="ini">${glEsc(fxInitials(who))}</span>
+    <span class="nm">${glEsc(fxPersonName(who))}</span></span>`;
+}
+function fxWfStatusCell(lineId){
+  const st=fxWfStatus(lineId), s=FX_WF_STATUS[st]||FX_WF_STATUS.notreq;
+  const over=fxWfOverdue(lineId);
+  if(st==='notreq') return '<span class="amap-dim">&mdash;</span>';
+  return `<span class="trx-sig ${s.c==='ok'?'':s.c}">${glEsc(s.l)}</span>${
+    over?'<span class="fxw-od" title="Past its due date">Overdue</span>':''}`;
+}
+function fxWfActionCell(lineId){
+  const a=fxWfAction(lineId);
+  if(a.k==='view'&&fxWfStatus(lineId)==='notreq') return '';
+  return `<button class="fxw-act" data-fxw="row-${lineId}"
+    onclick="fxWfRowAct('${lineId}','${a.k}',event)">${glEsc(a.l)}</button>`;
+}
+
+/* ---- §15 / §38 — THE WORKFLOW BLOCK IN SUMMARY. Who holds it, who reviews it, when it is
+   due, and the one action available to whoever is looking. */
+function fxWfSummaryBlock(lineId){
+  const w=fxWfFind(lineId), st=fxWfStatus(lineId), s=FX_WF_STATUS[st]||FX_WF_STATUS.notreq;
+  const req=fxReviewRequirement(lineId);
+  if(!req.requiresExplanation&&!w) return '';
+  const row=(k,v)=>`<div class="amp-r"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  let o=`<div class="amp-sec">Review</div>
+    ${row('Status',`<span class="trx-sig ${s.c==='ok'?'':s.c}">${glEsc(s.l)}</span>${
+      fxWfOverdue(lineId)?' <span class="fxw-od">Overdue</span>':''}`)}`;
+  if(w&&w.preparerUserId){
+    o+=row('Owner',glEsc(w.ownerTeam?(fxTeam(w.ownerTeam)||{}).name||'':fxPersonTeam(w.preparerUserId)))
+      +row('Preparer',fxWfPersonChip(w.preparerUserId))
+      +row('Reviewer',w.reviewerUserId?fxWfPersonChip(w.reviewerUserId):'<span class="amap-dim">unassigned</span>')
+      +(w.dueAt?row('Due',glEsc(fxWfDate(w.dueAt))+(fxWfOverdue(lineId)
+        ?' <span class="fxw-od">Overdue</span>':'')):'');
+  } else {
+    o+=row('Assignment','<span class="amap-dim">not yet assigned</span>')
+      +row('Review level',glEsc(req.requiredReviewerLevel));
+  }
+  const cyc=w?fxOpenCycle(w):null, appr=w?fxApprovedCycle(w):null;
+  if(cyc) o+=row('Submitted',glEsc(fxPersonName(cyc.submittedBy))+
+    ' <span class="amap-dim">'+cyc.submittedAt+'</span>');
+  if(appr) o+=row('Approved',glEsc(fxPersonName(appr.decidedBy))+
+    ' <span class="amap-dim">'+appr.decidedAt+'</span>');
+  if(w&&w.rereviewReason) o+=`<div class="fxw-flag">${glEsc(w.rereviewReason)}</div>`;
+  if(w&&w.workflowStatus==='returned'){
+    const rc=(w.reviewCycles||[]).slice().reverse().find(c=>c.decision==='returned');
+    o+=`<div class="fxw-ret"><b>Returned by ${glEsc(fxPersonName(w.returnedBy))}</b>
+      <span class="rs">${glEsc(w.returnReason)}</span>
+      ${rc&&rc.comment?`<span class="cm">${glEsc(rc.comment)}</span>`:''}
+      <span class="dt">${glEsc(w.returnedAt||'')}</span></div>`;
+  }
+  o+=fxWfActions(lineId);
+  return o;
+}
+const fxWfPersonChip=id=>`<span class="fxw-own"><span class="ini">${glEsc(fxInitials(id))}</span>
+  <span class="nm">${glEsc(fxPersonName(id))}</span>${fxPersonTeam(id)
+  ?'<span class="tm">'+glEsc(fxPersonTeam(id))+'</span>':''}</span>`;
+
+/* §70 — role-aware actions. A preparer is offered Submit; a reviewer Approve and Return; a
+   line nobody has assigned is offered Assign to whoever may assign it. */
+function fxWfActions(lineId){
+  const w=fxWfFind(lineId), st=fxWfStatus(lineId), me=fxMe();
+  const req=fxReviewRequirement(lineId);
+  const isPrep=w&&(w.preparerUserId===me.id||w.ownerUserId===me.id);
+  const isRev=w&&w.reviewerUserId===me.id;
+  const sub=fxCanSubmit(lineId);
+  let btns=[];
+  if(st==='notreq') return '';
+  if(!w||!w.assignedAt) btns.push(`<button class="btn-primary sm" data-fxw="sum-${lineId}"
+    onclick="fxWfOpenPop('assign','${lineId}',event)">Assign</button>`);
+  else if(['assigned','draft','returned','rereview'].indexOf(st)>=0){
+    if(sub.ok) btns.push(`<button class="btn-primary sm"
+      onclick="fxWfSubmit('${lineId}',event)">Submit for review</button>`);
+    btns.push(`<button class="btn-out sm" onclick="setFxTab('rev');fxNarrOpen(event)">${
+      isPrep?'Edit explanation':'Open explanation'}</button>`);
+    btns.push(`<button class="btn-out sm" data-fxw="sum-${lineId}"
+      onclick="fxWfOpenPop('assign','${lineId}',event)">Reassign</button>`);
+  }
+  else if(st==='ready'||st==='inreview'){
+    if(me.review){
+      if(st==='ready') btns.push(`<button class="btn-out sm"
+        onclick="fxWfStart('${lineId}',event)">Start review</button>`);
+      btns.push(`<button class="btn-primary sm" data-fxw="sum-${lineId}"
+        onclick="fxWfOpenPop('approve','${lineId}',event)">Approve</button>`);
+      btns.push(`<button class="btn-out sm" data-fxw="sumr-${lineId}"
+        onclick="fxWfOpenPop('return','${lineId}',event)">Return</button>`);
+    } else btns.push(`<button class="btn-out sm" onclick="setFxTab('rev')">View submission</button>`);
+  }
+  else if(st==='approved'){
+    btns.push(`<button class="btn-out sm" onclick="setFxTab('trace')">View approval history</button>`);
+  }
+  let note='';
+  /* the missing list is phrased as PROBLEMS ("an explanation has not been recorded"), so the
+     frame has to be too — "Submit is available once an explanation has not been recorded"
+     was the sentence this produced. */
+  if(['assigned','draft','returned','rereview'].indexOf(st)>=0&&!sub.ok&&sub.missing.length)
+    note=`<div class="fxw-note">Not ready to submit &#8212; ${glEsc(sub.missing.join(' and '))}.</div>`;
+  if((st==='ready'||st==='inreview')&&me.review){
+    const g=fxCanApprove(lineId);
+    if(!g.ok&&g.sod) note=`<div class="fxw-sod">${glEsc(g.why)}</div>`;
+  }
+  if(fxWfErr) note=`<div class="fxw-err">${glEsc(fxWfErr)}</div>`+note;
+  return `<div class="amp-acts">${btns.join('')}</div>${note}`;
+}
+
+/* ---- §19 — THE REVIEWER'S HEADER. What was submitted, by whom, when, and against which
+   figures — so a reviewer never has to reconstruct the package from the live surface. */
+function fxWfSubmissionCard(lineId){
+  const w=fxWfFind(lineId); if(!w||!w.reviewCycles.length) return '';
+  const cyc=fxOpenCycle(w)||fxApprovedCycle(w)||w.reviewCycles[w.reviewCycles.length-1];
+  const p=cyc.package, drift=fxPackageDrift(lineId,p);
+  return `<div class="fxw-pkg">
+    <div class="hd"><span class="t">Submitted package</span>
+      <span class="v">v${p.explanationVersion}</span></div>
+    <div class="gr">
+      <div class="c"><span class="k">Explanation</span><span class="v">v${p.explanationVersion}</span></div>
+      <div class="c"><span class="k">Drivers</span><span class="v mono">${p.driverCount}</span></div>
+      <div class="c"><span class="k">Evidence</span><span class="v mono">${p.evidenceCount}</span></div>
+      <div class="c"><span class="k">Coverage</span><span class="v mono">${p.coverage}%</span></div>
+    </div>
+    <div class="mt">Submitted by <b>${glEsc(fxPersonName(cyc.submittedBy))}</b>
+      &#183; ${cyc.submittedAt} &#183; submission v${cyc.submissionVersion}
+      ${cyc.decision?' &#183; '+glEsc(cyc.decision):''}</div>
+    ${drift.length?`<div class="fxw-flag">Changes made after submission &#8212;
+      ${glEsc(drift.join('; '))}. Resubmit required.</div>`:''}</div>`;
+}
+
+/* ---- §37 — REVIEW ACTIVITY. One list, newest first, every workflow event and every decision
+   in the order they happened. Not a second feed and not a chat. */
+function fxWfActivity(lineId){
+  const w=fxWfFind(lineId);
+  if(!w||!w.events.length) return `<div class="amp-sec">Review activity</div>
+    <div class="enr-none">No workflow activity on this comparison.</div>`;
+  return `<div class="amp-sec">Review activity</div>
+    <div class="fxw-act-l">${w.events.slice().reverse().map(e=>{
+      const to=FX_WF_STATUS[e.toStatus]||{};
+      return `<div class="fxw-ae">
+        <span class="ty">${glEsc(FX_WF_EVENTS[e.eventType]||e.eventType)}</span>
+        <span class="t">${glEsc(e.actorName)}
+          ${e.comment?`<span class="cm">${glEsc(e.comment)}</span>`:''}</span>
+        <span class="w">${e.timestamp}${e.fromStatus!==e.toStatus
+          ?' &#183; '+glEsc((FX_WF_STATUS[e.fromStatus]||{}).l||e.fromStatus)+
+            ' &#8594; '+glEsc(to.l||e.toStatus):''}</span></div>`;}).join('')}</div>
+    ${w.reviewCycles.length>1?`<div class="fxw-note">${w.reviewCycles.length} submissions
+      &#8212; each is preserved with its own package and decision.</div>`:''}`;
+}
+
+/* ---- §46 / §49 — THE READINESS BAND. One restrained line above the statement, and the final
+   sign-off action beside it, offered only when the criteria are met. Not KPI cards. */
+function fxWfReadinessBand(){
+  const r=fxFluxReadiness();
+  if(!r.reviewRequired) return '';
+  const so=r.signOff, stale=so?fxSignOffStale(so):{stale:false};
+  const me=fxMe();
+  const canSign=(r.readinessStatus==='final'||(stale.stale&&r.approvedCount===r.reviewRequired))
+    &&me.review;
+  return `<div class="fxw-band ${r.st.c==='warn'?'warn':''}">
+    <span class="st ${r.st.c==='ok'?'ok':(r.st.c==='warn'?'warn':'')}">${glEsc(r.st.l)}</span>
+    <span class="a"><b>${r.approvedCount}</b> of ${r.reviewRequired} required line${
+      r.reviewRequired===1?'':'s'} approved</span>
+    ${r.submittedCount?`<span class="a"><b>${r.submittedCount}</b> awaiting review</span>`:''}
+    ${r.returnedCount?`<span class="a warn"><b>${r.returnedCount}</b> returned</span>`:''}
+    ${r.overdueCount?`<span class="a warn"><b>${r.overdueCount}</b> overdue</span>`:''}
+    ${r.residualExceptions?`<span class="a"><b>${r.residualExceptions}</b> residual exception${
+      r.residualExceptions===1?'':'s'}</span>`:''}
+    <span class="grow"></span>
+    ${so?`<span class="so">${glEsc(so.signOffId)} &#183; ${glEsc(so.signedOffName)} &#183;
+      ${glEsc(fxWfDate(so.signedOffDate))}</span>`:''}
+    ${canSign?`<button class="btn-primary sm" data-fxw="signoff"
+      onclick="fxWfOpenPop('signoff',null,event)">${so?'Sign off again':'Sign off Flux review'}</button>`
+      :(r.outstanding.length?`<button class="fsx-link"
+        onclick="setFxWfQuick('open')">${r.outstanding.length} outstanding &#8594;</button>`:'')}
+    ${stale.stale?`<span class="fxw-stale">${glEsc(stale.why)}</span>`:''}
+  </div>`;
+}
+
+/* §40 / §41 / §76 — the quick filters, beside the search where the other narrowing controls
+   already are. Five chips, not a workflow ribbon. */
+function fxWfQuickBar(){
+  const r=fxFluxReadiness();
+  const n=k=>{
+    const root=fsDef(fxStmt).root, ids=[];
+    const walk=id=>{const kk=fsKids(id); if(!kk.length){ids.push(id);return;} kk.forEach(x=>walk(x.id));};
+    FSLINES.filter(f=>f.parent===root).forEach(x=>walk(x.id));
+    const save=fxWfQuick; fxWfQuick=k;
+    const c=ids.filter(id=>fxWfQuickMatch(id)&&fxWfStatus(id)!=='notreq').length;
+    fxWfQuick=save; return c;
+  };
+  return `<div class="fxw-quick">${FX_WF_QUICK.map(([k,l])=>{
+    const c=k?n(k):0;
+    return `<button class="${fxWfQuick===k?'on':''}" onclick="setFxWfQuick('${k}')">${l}${
+      k?`<span class="ct">${c}</span>`:''}</button>`;}).join('')}
+    ${fxWfBulk?`<span class="sel">${fxWfSelIds().length} selected</span>
+      <button class="btn-out sm" data-fxw="bulk" ${fxWfSelIds().length?'':'disabled'}
+        onclick="fxWfOpenPop('assign',null,event)">Assign selected</button>
+      <button class="btn-out sm" onclick="fxWfBulkToggle(event)">Done</button>`
+      :`<button class="fsx-link" onclick="fxWfBulkToggle(event)">Select lines</button>`}
+    <span class="n">Approval is deliberate and is never bulk.</span></div>`;
+}
+
+/* ---- §39 / §77 — FULL EXPLANATIONS CARRIES THE WORKFLOW. A reviewer scanning the statement
+   sees the narrative, its coverage, who holds it and where it stands, and goes straight in. */
+function fxWfBandLine(lineId){
+  const st=fxWfStatus(lineId); if(st==='notreq') return '';
+  const w=fxWfFind(lineId), s=FX_WF_STATUS[st]||{}, a=fxWfAction(lineId);
+  return `<span class="sep">&#183;</span>${w&&w.preparerUserId
+      ?glEsc(fxPersonName(w.preparerUserId)):'<span class="amap-dim">unassigned</span>'}
+    <span class="sep">&#183;</span><span class="${s.c==='warn'?'warn':''}">${glEsc(s.l)}</span>
+    ${fxWfOverdue(lineId)?'<span class="fxw-od">Overdue</span>':''}
+    <span class="grow"></span>
+    <button class="fsx-link" onclick="fxWfRowAct('${lineId}','${a.k}',event)">${glEsc(a.l)} &#8594;</button>`;
+}
+
+/* ---- §59 / §60 — DECISION LINEAGE. The data lineage 7B built, then who decided what, on
+   which version, and when — ending at the statement-level sign-off the line was certified by. */
+function fxWfTraceBlock(lineId){
+  const w=fxWfFind(lineId);
+  const so=fxSignOffCurrent();
+  if(!w||!w.events.length) return `<div class="amp-sec">Decision lineage</div>
+    <div class="enr-none">No review decision has been recorded on this comparison.</div>`;
+  const step=(k,v,s)=>`<div class="amp-tr-s"><span class="k">${k}</span>
+    <span class="v">${v}</span>${s?`<span class="s">${s}</span>`:''}</div>`;
+  const arr=t=>`<div class="amp-tr-a">${t}</div>`;
+  let o=`<div class="amp-sec">Decision lineage</div><div class="amp-tr">`;
+  if(w.assignedAt) o+=step('Assigned',glEsc(fxPersonName(w.preparerUserId)),
+    'by '+glEsc(fxPersonName(w.assignedBy))+' &#183; '+glEsc(fxWfDate(w.assignedAt))+
+    (w.dueAt?' &#183; due '+glEsc(fxWfDate(w.dueAt)):''))+arr('prepared by');
+  w.reviewCycles.forEach((c,i)=>{
+    o+=step('Submission v'+c.submissionVersion,
+      'Explanation v'+c.package.explanationVersion,
+      glEsc(fxPersonName(c.submittedBy))+' &#183; '+c.submittedAt+' &#183; '+
+      c.package.driverCount+' drivers &#183; '+c.package.evidenceCount+' evidence &#183; '+
+      c.package.coverage+'% coverage');
+    if(c.decision==='returned') o+=arr('returned')+
+      step('Returned',glEsc(c.returnReason||''),
+        glEsc(fxPersonName(c.decidedBy))+' &#183; '+c.decidedAt+
+        (c.comment?' &#183; '+glEsc(c.comment):''))+arr('revised and');
+    else if(c.decision==='approved') o+=arr('reviewed by')+
+      step('Approved',glEsc(fxPersonName(c.decidedBy)),
+        c.decidedAt+' &#183; explanation v'+c.package.explanationVersion+
+        (c.comment?' &#183; '+glEsc(c.comment):''));
+    else if(c.decision==='superseded') o+=arr('superseded by later edits')+
+      step('Superseded','Resubmit required',glEsc(c.comment||''));
+    else o+=arr('awaiting a decision from')+
+      step('Reviewer',glEsc(fxPersonName(c.reviewerUserId||w.reviewerUserId)),
+        (FX_WF_STATUS[w.workflowStatus]||{}).l||'');
+    if(i<w.reviewCycles.length-1) o+='';
+  });
+  if(w.rereviewReason) o+=arr('then')+step('Re-review required',
+    (FX_WF_STATUS[w.workflowStatus]||{}).l||'',glEsc(w.rereviewReason));
+  /* §60 — the line's certification, and the population it was certified with */
+  if(so&&fxWfStatus(lineId)==='approved') o+=arr('certified in')+
+    step('Flux review sign-off',glEsc(so.signOffId),
+      glEsc(so.signedOffName)+' &#183; '+glEsc(so.signedOffRole)+' &#183; '+so.signedOffAt+
+      ' &#183; '+so.approvedItemCount+' of '+so.requiredItemCount+' required lines &#183; '+
+      'mapping v'+glEsc(so.mappingVersion)+' &#183; statement v'+glEsc(so.statementVersion));
+  return o+`</div>`;
+}
+
+/* the sign-off register, shown where the statement is certified rather than on a line */
+function fxWfSignOffHistory(){
+  const all=fxSignOffAll(); if(!all.length) return '';
+  return `<div class="amp-sec">Flux review sign-off</div>
+    <div class="fxw-so-l">${all.map(s=>{const stale=fxSignOffStale(s);
+      return `<div class="fxw-so">
+      <span class="v">v${s.signOffVersion}</span>
+      <span class="t"><b>${glEsc(s.signedOffName)}</b> &#183; ${glEsc(s.signedOffRole)}
+        <span class="w">${s.signedOffAt} &#183; ${s.approvedItemCount} of ${s.requiredItemCount}
+          required lines &#183; mapping v${glEsc(s.mappingVersion)} &#183;
+          enrichment v${glEsc(s.enrichmentVersion)} &#183; statement v${glEsc(s.statementVersion)}</span>
+        ${s.note?`<span class="w">${glEsc(s.note)}</span>`:''}
+        ${s.reason?`<span class="w">${glEsc(s.reason)}</span>`:''}</span>
+      <span class="s">${stale.stale&&s===all[0]?'<span class="fxw-od">Superseded by change</span>':''}</span>
+    </div>`;}).join('')}</div>`;
 }
 
 /* ---- fxState is kept as the ONE row-state accessor every older caller already uses — the
@@ -33272,12 +34577,25 @@ const FX_ROLL_LABEL=k=>k==='material'?'Material':((FX_EXPL_STATUS[k]||{}).l||'')
 
 /* ---- THE TABLE. Same hierarchy, same ids, same expand/collapse as Financials and Trending. */
 function fxRows(){
-  const root=fsDef(fxStmt).root, out=[];
+  const root=fsDef(fxStmt).root; let out=[];
   const q=fxQ.trim().toLowerCase();
+  /* A QUICK FILTER MUST SHOW ITS MATCHES WHATEVER IS FOLDED. The walk only descends into an
+     OPEN section, so a line assigned to you inside a collapsed part of the statement never
+     reached the filter and "Assigned to me · 1" opened an empty table (observed). The matches
+     are resolved first and their ancestors are forced open for this render — the reviewer's
+     own fold state in `fxOpen` is not touched, so clearing the filter restores it. */
+  let force=null;
+  if(fxWfQuick){
+    force=new Set(); const all=[];
+    const collect=id=>{const k=fsKids(id); if(!k.length){all.push(id);return;} k.forEach(x=>collect(x.id));};
+    FSLINES.filter(f=>f.parent===root).forEach(x=>collect(x.id));
+    all.filter(id=>fxWfQuickMatch(id)).forEach(id=>{
+      let n=fsLine(id); while(n&&n.parent){ force.add(n.parent); n=fsLine(n.parent); } });
+  }
   const walk=(id,depth)=>{
     const n=fsLine(id); if(!n) return;
     const kids=fsKids(id);
-    const open=fxOpen[id]!==undefined?fxOpen[id]:(depth<1);
+    const open=(force&&force.has(id))||(fxOpen[id]!==undefined?fxOpen[id]:(depth<1));
     /* ONLY A LEAF FINANCIAL LINE DRILLS. A section or a group already has children on the
        statement, and hanging account groups off it as well would put a line's accounts under
        its parent as though they were siblings of the line. */
@@ -33290,6 +34608,21 @@ function fxRows(){
     if(kids.length&&open) out.push({kind:'total', node:n, depth, total:1});
   };
   FSLINES.filter(f=>f.parent===root).forEach(s=>walk(s.id,0));
+  /* §40 / §41 — the quick filters narrow the SAME rows. A leaf line that does not match drops
+     out with its drill; a parent survives only if a descendant did, so the hierarchy above a
+     match is never orphaned. */
+  if(fxWfQuick){
+    const keep=new Set();
+    out.forEach(r=>{ if(r.kind==='line'&&!fsKids(r.node.id).length&&fxWfQuickMatch(r.node.id))
+      keep.add(r.node.id); });
+    const anc=new Set();
+    keep.forEach(id=>{ let n=fsLine(id); while(n&&n.parent){ anc.add(n.parent); n=fsLine(n.parent); } });
+    out=out.filter(r=>{
+      if(r.kind==='total') return false;
+      if(r.kind!=='line') return keep.has(r.lineId);
+      return keep.has(r.node.id)||anc.has(r.node.id);
+    });
+  }
   if(!q) return out;
   /* §27 — ONE search box, over the level on screen. A financial line survives because its own
      name matched OR because one of its account groups or source accounts did; dropping the
@@ -33303,7 +34636,7 @@ function fxRows(){
 }
 function fxBodyHTML(){
   const c=fxComparison();
-  const cols=fxDisp==='numbers'?5:7;
+  const cols=fxDisp==='numbers'?5:9;
   return fxRows().map(r=>{
     /* a drill row is a row of THIS table, rendered through one cell builder so the statement
        and its account detail can never disagree about how many columns exist */
@@ -33328,16 +34661,23 @@ function fxBodyHTML(){
        badge rather than joining it — a row carrying "Material", "Draft" and a percentage says
        one thing three ways. */
     const sig=r.total?null:fxRowSignal(n.id);
+    /* §11 / §12 / §13 — EXPLANATION, OWNER, STATUS, ACTION. Four columns and no more: the
+       explanation column carries coverage beside the driver that leads it, the owner is
+       initials, the status is one word, and the action is chosen by state so a row never
+       shows every transition it could take. */
     const revCells=fxDisp==='numbers'?''
-      :`<td class="fxg-drv">${sig&&sig.primary?glEsc(sig.primary.label)+
-          ' <span class="amap-dim">'+(sig.primary.amount>0?'+':'')+fsM(sig.primary.amount)+'</span>':''}</td>
-        <td class="fxg-st">${sig?`${cm.varianceAmount
+      :`<td class="fxg-drv">${sig?`${cm.varianceAmount
           /* a line that did not move has nothing to explain, and printing "0%" against it reads
              as a coverage failure rather than as an absence of anything to cover */
-          ?`<span class="fxg-cvg ${sig.owed?'owed':''}">${sig.coverage}%</span>`:''}
-          <span class="trx-sig ${sig.st.c}"> ${glEsc(sig.st.l)}</span>`:''}</td>`;
+          ?`<span class="fxg-cvg ${sig.owed?'owed':''}">${sig.coverage}%</span> `:''}${
+          sig.primary?glEsc(sig.primary.label):''}`:''}</td>
+        <td class="fxg-ow">${r.total?'':fxWfOwnerCell(n.id)}</td>
+        <td class="fxg-st">${r.total?'':fxWfStatusCell(n.id)}</td>
+        <td class="fxw-c">${r.total?'':fxWfActionCell(n.id)}</td>`;
     let row=`<tr class="${cls.join(' ')}"${r.total?'':` onclick="fxPick('${n.id}')"`}>
-      <td class="trx-nm">${caret}<span class="t">${label}</span></td>
+      <td class="trx-nm">${caret}${(fxWfBulk&&!r.total&&!r.kids&&fxWfStatus(n.id)!=='notreq')
+        ?`<input type="checkbox" class="fxw-ck" ${fxWfSel[n.id]?'checked':''}
+          onclick="fxWfToggleSel('${n.id}',event)">`:''}<span class="t">${label}</span></td>
       <td class="num fxg-p">${fsM(cm.comparisonAmount*sgn)}</td>
       <td class="num fxg-c">${fsM(cm.currentAmount*sgn)}</td>
       <td class="num fxg-v">${cm.varianceAmount>0?'+':''}${fsM(cm.varianceAmount*sgn)}</td>
@@ -33386,10 +34726,13 @@ function renderFluxGov(){
     ? `<tr class="fxg-grp"><th></th><th class="num" colspan="2">Financial position</th>
        <th class="num vg" colspan="2">Variance</th></tr>`
     : `<tr class="fxg-grp"><th></th><th class="num" colspan="2">Financial position</th>
-       <th class="num vg" colspan="2">Variance</th><th colspan="2">Review</th></tr>`;
+       <th class="num vg" colspan="2">Variance</th><th colspan="4">Review</th></tr>`;
   /* §47 — ONE compact statement-level line. Not a KPI strip, and it stands down entirely
      when nothing on the statement requires an explanation. */
   o+=fxCoverageLine();
+  /* §46 / §49 — readiness and the final sign-off action, then the quick filters */
+  o+=fxWfReadinessBand();
+  o+=fxWfQuickBar();
   /* §13 — the unmapped population is exposed above the statement it is absent from, and
      only where the level being read makes it relevant to the reader. */
   if(fxLevel!=='line') o+=fxUnmappedBand();
@@ -33399,7 +34742,7 @@ function renderFluxGov(){
       <th class="num">${glEsc(fxColLabel(c.cmpK,c.cmpMonths))}</th>
       <th class="num">${glEsc(fxColLabel(c.curK,c.curMonths))}</th>
       <th class="num vg">&#916; $</th><th class="num vg">&#916; %</th>
-      ${fxDisp==='numbers'?'':'<th>Primary driver</th><th>Status</th>'}</tr></thead>
+      ${fxDisp==='numbers'?'':'<th>Explanation</th><th>Owner</th><th>Status</th><th></th>'}</tr></thead>
     <tbody id="fxgBody">${fxBodyHTML()}</tbody></table></div>
     <div class="fsx-foot">In millions of ${glEsc((ENTCTX.presentationCurrency||'USD').toUpperCase())}
       unless a billion is stated &#183; both periods are the governed Financial Statement amounts,
@@ -33408,7 +34751,8 @@ function renderFluxGov(){
       are <b>compositions of the line's own amount</b>, weighted by the mapped source-account
       population resolved at each period &#8212; Korvyn holds no separate group or account balance`}</div>
   </div>`;
-  el.innerHTML=o+fxPanel();
+  el.innerHTML=o+fxPanel()+fxWfPopHTML();
+  if(fxWfPop) fxWfPlace();
   document.body.classList.toggle('amap-open',!!(fxSel||fxAcctSel));
 }
 function fxColLabel(k,months){
@@ -33706,11 +35050,8 @@ function fxSumTab(){
       ${prior.by?'<span class="by">'+glEsc(prior.by)+'</span>':''}</div>
       <div class="t">${glEsc(prior.narrative)}</div></div>`;
 
-  o+=`<div class="fxv-next"><span class="k">Next</span>
-    ${R.required&&R.status!=='ready'
-      ?'This line is at <b>'+glEsc(R.st.l)+'</b>. Assignment, review routing and sign-off arrive in the next increment.'
-      :'No action outstanding on this comparison.'}</div>
-    <div class="amp-acts">
+  o+=fxWfSummaryBlock(fxSel);
+  o+=`<div class="amp-acts">
       <button class="btn-out sm" onclick="setFxTab('drv')">Drivers &#8594;</button>
       <button class="btn-out sm" onclick="fxGoTrend()">View trend &#8594;</button>
       <button class="btn-out sm" onclick="fxGoFin()">Open in Financials &#8594;</button></div>`;
@@ -33720,11 +35061,14 @@ function fxSumTab(){
 /* ---- REVIEW — the narrative, its versions, and what supports it from below. */
 function fxRevTab(){
   const e=fxExplanationObj(fxSel), R=fxExplRequired(fxSel), cc=fxComparison();
+  /* §37 — WORKFLOW, then the submitted package, then the explanation, then the activity. The
+     order is the reviewer's: where does this stand, what am I looking at, what does it say,
+     what happened to it. */
+  const wfTop=fxWfSummaryBlock(fxSel)+fxWfSubmissionCard(fxSel);
   const nar=fxNarrative(fxSel), F=fxExplFacts(fxSel);
   const sup=fxSupportingExplanations(e);
   const row=(x,y)=>`<div class="amp-r"><span class="k">${x}</span><span class="v">${y}</span></div>`;
-  let o=`<div class="amp-sec">Explanation</div>
-    ${row('Status',`<span class="trx-sig ${R.st.c}">${glEsc(R.st.l)}</span>`)}
+  let o=wfTop+`<div class="amp-sec">Explanation</div>
     ${row('Comparison',glEsc(cc.label))}
     ${e?row('Version','v'+e.version+' <span class="amap-dim">'+
       glEsc(FX_EXPL_SOURCES[e.sourceType]||e.sourceType)+'</span>'):''}
@@ -33781,6 +35125,7 @@ function fxRevTab(){
       review stack is built.</div>`;
 
   /* §39 / §40 — history lives here rather than becoming a fourth primary tab */
+  o+=fxWfActivity(fxSel);
   if(e&&e.versions&&e.versions.length) o+=`<div class="amp-sec">History</div>
     <div class="fxv-vers">${e.versions.slice().reverse().map(v=>`<div class="fxv-v">
       <span class="n">v${v.v}</span>
@@ -33884,7 +35229,9 @@ function fxTraceTab(){
         <span class="v">${fxSupportingExplanations(e).length} referenced</span>
         <span class="s">${fxSupportingExplanations(e).map(s=>glEsc(
           (canon(s.accountGroupId)||{}).name||s.level)).join(' &#183; ')}</span></div>`:''}
-    </div>`;
+    </div>
+    ${fxWfTraceBlock(fxSel)}
+    ${fxWfSignOffHistory()}`;
 }
 
 /* ---- §24 / §25 — FULL EXPLANATIONS. The narrative under the row it explains, two to four
@@ -33914,8 +35261,7 @@ function fxFullBand(lineId,cols){
           D.residualWithinTolerance?'':'warn'}">${fsM(Math.abs(D.residual))} unsupported,
           ${D.residualWithinTolerance?'within':'above'} the ${fsM(D.tolerance)} tolerance</span>`:''}
         ${nar.source==='seeded'?'<span class="sep">&#183;</span><span class="amap-dim">system seeded</span>':''}
-        <span class="grow"></span>
-        <button class="fsx-link" onclick="fxPick('${lineId}');event.stopPropagation()">Open detail &#8594;</button></div>
+        ${fxWfBandLine(lineId)}</div>
     </div></td></tr>`;
 }
 
@@ -34488,6 +35834,10 @@ function fxCaret(open,onclick){
 }
 function fxDrillRowHTML(r,sgn,cols){
   const rev=cols>5;
+  /* the drill rows carry the two analytical cells they always had; owner and status are
+     LINE-level facts, so a group or account row leaves those two columns empty rather than
+     repeating the line's assignment on every child */
+  const wfPad=rev?'<td class="fxg-ow"></td><td class="fxw-c"></td>':'';
   if(r.kind==='group'){
     const g=r.g, st=fxChildState(g.v,g.cmp);
     const sel=fxAcctSel&&fxAcctSel.line===r.lineId&&fxAcctSel.group===g.canonId;
@@ -34499,7 +35849,7 @@ function fxDrillRowHTML(r,sgn,cols){
         :'<span class="amap-dim">estate only</span>')}</td>
       <td class="fxg-st">${g.mapImpact&&Math.abs(g.mapImpact)>0.05
         ?`<span class="fxa-recl" title="Classification change between the two periods">Classification change ${g.mapImpact>0?'+':''}${fsM(g.mapImpact*(sgn||1))}</span>`
-        :(st.l?`<span class="trx-sig ${st.c}">${st.l}</span>`:'')}</td>`:'';
+        :(st.l?`<span class="trx-sig ${st.c}">${st.l}</span>`:'')}</td>`+wfPad:'';
     return `<tr class="fxg-r fxa-r fxa-g${g.direct?' fxa-rest':''} d${Math.min(r.depth,3)}${sel?' on':''}"
         ${g.direct?'':`onclick="fxDrillToggle('${r.lineId}','${g.canonId}',event)"`}>
       <td class="trx-nm">${g.direct?'<span class="fsx-cx sp"></span>'
@@ -34523,7 +35873,7 @@ function fxDrillRowHTML(r,sgn,cols){
       <td class="fxg-st">${r.r.changed
         ?`<span class="fxa-recl" title="This account resolved a different classification in the comparison period">${
           fxChangeWord(r.r.prior.mapping&&r.r.prior.mapping.canon,res.mapping&&res.mapping.canon)}</span>`
-        :(res.status==='mapped'?'':`<span class="amap-st ${ms.c||''}">${glEsc(ms.l||'')}</span>`)}</td>`:'';
+        :(res.status==='mapped'?'':`<span class="amap-st ${ms.c||''}">${glEsc(ms.l||'')}</span>`)}</td>`+wfPad:'';
     return `<tr class="fxg-r fxa-r fxa-a d${Math.min(r.depth,3)}${sel?' on':''}"
         onclick="fxPickAcct('${r.lineId}','${r.canonId}','${a.id}',event)">
       <td class="trx-nm"><span class="fsx-cx sp"></span>
@@ -34544,7 +35894,7 @@ function fxDrillRowHTML(r,sgn,cols){
   }
   if(r.kind==='rest'){
     const extra=cols>5?`<td class="fxg-drv"><span class="amap-dim">not individually modelled</span></td>
-      <td class="fxg-st"></td>`:'';
+      <td class="fxg-st"></td>`+wfPad:'';
     /* the qualifier is the Primary driver column's job wherever that column exists — printing
        it in the name cell too said "not individually modelled" twice on one row and pushed the
        name 64px over the sticky column onto the first figure */
@@ -34556,7 +35906,7 @@ function fxDrillRowHTML(r,sgn,cols){
   }
   if(r.kind==='adj'){
     const extra=cols>5?`<td class="fxg-drv"><span class="amap-dim">Korvyn overlay</span></td>
-      <td class="fxg-st"><span class="amap-st info">Not posted to ERP</span></td>`:'';
+      <td class="fxg-st"><span class="amap-st info">Not posted to ERP</span></td>`+wfPad:'';
     return `<tr class="fxg-r fxa-r fxa-adj d${Math.min(r.depth,3)}">
       <td class="trx-nm"><span class="fsx-cx sp"></span>
         <span class="t">Korvyn reporting adjustment</span>
