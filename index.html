@@ -1709,6 +1709,121 @@ body.amap-open .main{padding-right:calc(420px + var(--s-4))}
   line-height:var(--lh)}
 .fxg-warn b{color:var(--ink);font-weight:var(--fw-medium)}
 @media(max-width:1200px){ .fxg-drv{max-width:160px} }
+
+/* ---- FLUX — THE ACCOUNT DRILL (step 7A) ----------------------------------------------------
+   A group row and an account row are rows of the SAME statement (§39): same density, same four
+   number columns, same variance band, same hover, same selection. What separates a drill row
+   from a financial line is indentation, a quieter name and a monospace source code — the way a
+   ledger detail row sits under a statement line on paper. No second grid, no second palette. */
+.fxa-r .trx-nm .t{color:var(--muted)}
+.fxa-r.fxa-g .trx-nm .t{color:var(--ink)}
+.fxa-r td{border-bottom:1px solid var(--line)}
+/* SOURCE IDENTITY IS THE CODE, and it leads the row so a truncated name never eats it (§6). */
+.fxa-code{font-family:var(--mono);font-size:var(--fs-label);color:var(--hint);
+  font-variant-numeric:tabular-nums;flex:none}
+.fxa-a .fxa-code{color:var(--muted)}
+.fxa-g .fxa-code{margin-left:var(--s-2)}
+/* the ERP instance a source account belongs to — 471100 in SAP Germany is not 471100 in SAP UK,
+   so the instance travels with the row rather than living only in the panel (§7) */
+/* THE TRAILING NOTE IS WHAT GIVES. `.trx-nm` is a flex row, and a child with `overflow:hidden`
+   but no `min-width:0` still refuses to shrink below its content — so the ERP instance and the
+   "not individually modelled" caption ran up to 68px past the sticky name column and printed
+   over the first figure (measured on 18 rows). The name keeps its width; the qualifier
+   ellipsises, which is the right thing to lose. */
+.fxa-erp{font-size:var(--fs-label);color:var(--hint);margin-left:var(--s-2);
+  flex:0 1 auto;min-width:0;max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fxa-more td{padding-top:0}
+.fxa-rest .trx-nm .t,.fxa-adj .trx-nm .t{color:var(--hint)}
+.fxa-rest td.fxg-p,.fxa-rest td.fxg-c,.fxa-rest td.fxg-v{color:var(--muted)}
+.fxa-adj td.fxg-v{color:var(--accent-ink)}
+.fxa-r:hover{cursor:pointer}
+.fxa-rest:hover td,.fxa-adj:hover td,.fxa-more:hover td{background:none;cursor:default}
+/* A CLASSIFICATION CHANGE IS NOT A STATE, it is a warning that part of a movement is a mapping
+   change rather than economic activity (§35). Amber ink, no pill, no dot. */
+.fxa-recl{font-size:var(--fs-label);color:var(--warning);white-space:nowrap}
+/* the unmapped disclosure — outside every total on the statement, and it says so */
+.fxa-unm{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-2) var(--s-3);
+  padding:var(--s-3) var(--s-4);margin-bottom:var(--s-4);background:var(--n-50);
+  border-left:3px solid var(--warning);font-size:var(--fs-label);color:var(--muted)}
+.fxa-unm .k{font-weight:var(--fw-medium);color:var(--ink);font-size:var(--fs-table)}
+.fxa-unm .v{font-family:var(--num);font-variant-numeric:tabular-nums;color:var(--ink);
+  font-weight:var(--fw-medium);font-size:var(--fs-table)}
+.fxa-unm .n{color:var(--muted)}
+.fxa-unm .s{flex:1 1 100%;color:var(--hint)}
+.fxa-unm .grow{flex:1}
+/* the level control and the account filters — the SAME segmented shape every other control in
+   this bar uses, so LEVEL and DISPLAY read as two controls of one kind (§25) */
+.fxa-lvl{display:flex;align-items:baseline;gap:var(--s-2)}
+.fxa-lvl>.k{font-size:var(--fs-label);color:var(--hint);text-transform:uppercase;
+  letter-spacing:var(--tracking-label)}
+.fxa-sel{height:var(--h-btn-sm);font:inherit;font-size:var(--fs-label);color:var(--ink);
+  border:1px solid var(--border-strong);border-radius:var(--radius-xs);
+  background:var(--surface);padding:0 var(--s-2);cursor:pointer}
+.fxa-sel:focus{outline:2px solid var(--accent);outline-offset:-1px}
+
+/* ---- the account workspace ---------------------------------------------------------------- */
+/* §14 — the panel states all four levels of context it preserved, and each is a way back up. */
+.fxa-ctx{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-1);
+  padding:0 var(--s-4) var(--s-2);font-size:var(--fs-label);color:var(--muted)}
+.fxa-ctx button{border:0;background:none;padding:0;cursor:pointer;font:inherit;
+  font-size:var(--fs-label);color:var(--accent)}
+.fxa-ctx button:hover{color:var(--accent-ink)}
+.fxa-ctx .sep{color:var(--n-300)}
+.fxa-ctx .cur{color:var(--ink)}
+.fxa-ctx .cmp{flex:1 1 100%;color:var(--hint);font-variant-numeric:tabular-nums}
+/* three figures, the movement carrying the weight — the same instrument grammar the inspect
+   panel's header band uses, at panel width */
+.fxa-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3);
+  padding:var(--s-2) 0 var(--s-3);border-bottom:1px solid var(--line)}
+.fxa-figs .f{display:flex;flex-direction:column;gap:var(--s-1);min-width:0}
+.fxa-figs .k{font-size:var(--fs-label);color:var(--muted);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fxa-figs .v{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.fxa-figs .s{font-size:var(--fs-label);color:var(--hint);font-variant-numeric:tabular-nums}
+.fxa-figs .f.hero .v{font-size:var(--fs-page)}
+.fxa-warn{margin:var(--s-3) 0 0;padding:var(--s-3);background:var(--n-50);
+  border-left:3px solid var(--warning);font-size:var(--fs-label);color:var(--muted);
+  line-height:var(--lh)}
+.fxa-warn b{display:block;color:var(--ink);font-weight:var(--fw-medium)}
+.fxa-dims{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);padding:0 0 var(--s-3)}
+.fxa-dims button{border:1px solid var(--border-strong);background:var(--surface);
+  color:var(--muted);font:inherit;font-size:var(--fs-label);height:var(--h-btn-sm);
+  padding:0 var(--s-3);border-radius:var(--radius-xs);cursor:pointer}
+.fxa-dims button.on{background:var(--accent-bg);color:var(--accent-ink);border-color:var(--accent)}
+/* a composition bar is a share of ONE account, so the widths are comparable down the column —
+   which is exactly the condition the retired `contrib` column could not meet */
+.fxa-comp{display:flex;flex-direction:column}
+.fxa-cr{display:grid;grid-template-columns:minmax(0,1fr) 72px 84px;gap:var(--s-2);
+  align-items:baseline;padding:var(--s-2) 0;border-bottom:1px solid var(--line);
+  font-size:var(--fs-table)}
+.fxa-cr:last-child{border-bottom:0}
+.fxa-cr .nm{color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fxa-cr .nm .sb{display:block;font-size:var(--fs-label);color:var(--hint)}
+.fxa-cr .bar{height:4px;border-radius:2px;background:var(--n-200);overflow:hidden;
+  align-self:center}
+.fxa-cr .bar i{display:block;height:100%;background:var(--accent)}
+.fxa-cr .v{text-align:right;color:var(--ink);font-weight:var(--fw-medium);
+  font-variant-numeric:tabular-nums}
+.fxa-cr .id{grid-column:1/-1;font-size:var(--fs-label);color:var(--hint)}
+.fxa-cr.other .nm,.fxa-cr.other .v{color:var(--muted)}
+.fxa-cr.other .bar i{background:var(--n-400)}
+.fxa-foot{display:flex;align-items:baseline;justify-content:space-between;
+  padding:var(--s-2) 0;border-top:1px solid var(--line2);font-size:var(--fs-table);
+  font-weight:var(--fw-medium);color:var(--ink)}
+.fxa-basis{font-size:var(--fs-label);color:var(--muted);line-height:var(--lh);
+  padding:0 0 var(--s-3)}
+.fxa-basis b{color:var(--ink);font-weight:var(--fw-medium)}
+.fxa-tbl{width:100%;table-layout:fixed;font-size:var(--fs-table)}
+.fxa-tbl td,.fxa-tbl th{padding:var(--s-2) var(--s-2);vertical-align:top}
+.fxa-tbl td.fxa-dt{white-space:nowrap;color:var(--muted)}
+.fxa-tbl th:last-child,.fxa-tbl td:last-child{width:84px}
+.fxa-tbl th:first-child,.fxa-tbl td:first-child{width:82px}
+/* the fields a 440px dock cannot give a column to, on their own line under the journal */
+.fxa-sub{display:block;font-size:var(--fs-label);color:var(--hint);line-height:var(--lh);
+  overflow-wrap:anywhere}
+.fxa-restr td{color:var(--muted)}
+.fxa-totr td{border-top:1px solid var(--line2);font-weight:var(--fw-medium);color:var(--ink)}
 /* ---- DataTable --------------------------------------------------------------
    One table for every list surface. Severity is a 3px left border and nothing
    else — no pill, no dot. */
@@ -27470,6 +27585,31 @@ const MAPPINGS=[
   {id:'MAP-050',src:sacct('COA-LEG-PROP','15000'),canon:'K1300',fs:'FS-CIP',cf:'CF-INV',flux:'FX-DEVCAP',
    rec:'RG-CIP',mgmt:'MR-DEV',cap:'CE-CAP',scopeType:'instance',scopeId:'INS-JDE-NA',override:1,
    ver:'MV-2026-01-1',from:'2026-01',to:null,status:'active'},
+  /* ---- THE PREDECESSORS THE VERSION NOTES ALREADY ASSERTED. MV-2026-06-4 is recorded above as
+     "German capex split into electrical and mechanical", and MAP-002/003/020/022 begin at
+     2026-06 — so the records those four SPLIT FROM were missing, and every one of the four
+     accounts resolved as unmapped in May. A version note that says a mapping changed while the
+     effective-dated chain shows it being created is a chain with a hole in it, and the hole is
+     load-bearing: without these, a May-to-June comparison reads a reclassification as an
+     account appearing out of nowhere.
+
+     They are CLOSED at 2026-05 by an effective-to date, never edited, exactly as MAP-023 closes
+     62140 for the same reason — so June
+     resolves precisely what it resolved before this record existed. Verified: mapRows() at
+     2026-06 is byte-identical, and the four accounts now report a canonical CHANGE across the
+     comparison rather than a birth, which is what §34/§35 exist to surface. */
+  {id:'MAP-002P',src:sacct('COA-US-DEV','15010'),canon:'K1300',fs:'FS-CIP',cf:'CF-INV',flux:'FX-DEVCAP',
+   rec:'RG-CIP',mgmt:'MR-DEV',cap:'CE-CAP',scopeType:'coa',scopeId:'COA-US-DEV',
+   ver:'MV-2026-01-1',from:'2026-01',to:'2026-05',status:'active'},
+  {id:'MAP-003P',src:sacct('COA-US-DEV','15020'),canon:'K1300',fs:'FS-CIP',cf:'CF-INV',flux:'FX-DEVCAP',
+   rec:'RG-CIP',mgmt:'MR-DEV',cap:'CE-CAP',scopeType:'coa',scopeId:'COA-US-DEV',
+   ver:'MV-2026-01-1',from:'2026-01',to:'2026-05',status:'active'},
+  {id:'MAP-020P',src:sacct('COA-DE-LOC','471100'),canon:'K1300',fs:'FS-CIP',cf:'CF-INV',flux:'FX-DEVCAP',
+   rec:'RG-CIP',mgmt:'MR-DEV',cap:'CE-CAP',scopeType:'coa',scopeId:'COA-DE-LOC',
+   ver:'MV-2026-01-1',from:'2026-01',to:'2026-05',status:'active'},
+  {id:'MAP-022P',src:sacct('COA-DE-LOC','471200'),canon:'K1300',fs:'FS-CIP',cf:'CF-INV',flux:'FX-DEVCAP',
+   rec:'RG-CIP',mgmt:'MR-DEV',cap:'CE-CAP',scopeType:'coa',scopeId:'COA-DE-LOC',
+   ver:'MV-2026-01-1',from:'2026-01',to:'2026-05',status:'active'},
 ];
 /* IN-SESSION DRAFT CHANGES. Separate from MAPPINGS, because an Active record must not be
    mutated: a proposal is a new object that names what it would replace. */
@@ -32028,7 +32168,7 @@ const FX_DISPLAYS=[['review','Review'],['numbers','Numbers'],['full','Full expla
 let fxStmt='bs', fxCmp='mom', fxDisp='review', fxSel=null, fxTab='sum',
     fxOpen={}, fxQ='', fxDrvNode='grp';
 const FX_TABS=[['sum','Summary'],['drv','Drivers'],['rev','Review'],['evid','Evidence'],['trace','Trace']];
-function setFxStmt(s){ fxStmt=s; fxSel=null; fxOpen={};
+function setFxStmt(s){ fxStmt=s; fxSel=null; fxOpen={}; fxDrill={}; fxShowAll={}; fxAcctSel=null;
   /* YTD is a movement between two cumulative windows — an income-statement idea. A balance
      sheet has no cumulative window, so the control is not offered there (brief §6). */
   if(s==='bs'&&fxCmp==='ytd') fxCmp='mom';
@@ -32036,7 +32176,7 @@ function setFxStmt(s){ fxStmt=s; fxSel=null; fxOpen={};
 function setFxCmp(c){ fxCmp=c; renderFluxGov(); }
 function setFxDisp(d){ fxDisp=d; renderFluxGov(); }
 function fxToggle(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation(); fxOpen[id]=!fxOpen[id]; renderFluxGov(); }
-function fxPick(id){ fxSel=id; fxTab='sum'; fxDrvNode='grp'; renderFluxGov(); }
+function fxPick(id){ fxSel=id; fxTab='sum'; fxDrvNode='grp'; fxAcctSel=null; renderFluxGov(); }
 function fxClose(){ fxSel=null; renderFluxGov(); }
 function setFxTab(t){ fxTab=t; renderFluxGov(); }
 function fxDrvGo(id){ fxDrvNode=id; renderFluxGov(); }
@@ -32175,21 +32315,42 @@ function fxState(lineId){
 /* ---- THE TABLE. Same hierarchy, same ids, same expand/collapse as Financials and Trending. */
 function fxRows(){
   const root=fsDef(fxStmt).root, out=[];
+  const q=fxQ.trim().toLowerCase();
   const walk=(id,depth)=>{
     const n=fsLine(id); if(!n) return;
     const kids=fsKids(id);
     const open=fxOpen[id]!==undefined?fxOpen[id]:(depth<1);
-    out.push({node:n, depth, kids:kids.length, open});
+    /* ONLY A LEAF FINANCIAL LINE DRILLS. A section or a group already has children on the
+       statement, and hanging account groups off it as well would put a line's accounts under
+       its parent as though they were siblings of the line. */
+    const leaf=!kids.length;
+    const drill=leaf?fxDrillRows(id,depth,q):[];
+    out.push({kind:'line', node:n, depth, kids:kids.length, open,
+      drillable:leaf&&fxLevel!=='line', drillOpen:leaf&&fxDrillOpen(id)});
+    drill.forEach(d=>out.push(d));
     if(kids.length&&open) kids.forEach(x=>walk(x.id,depth+1));
-    if(kids.length&&open) out.push({node:n, depth, total:1});
+    if(kids.length&&open) out.push({kind:'total', node:n, depth, total:1});
   };
   FSLINES.filter(f=>f.parent===root).forEach(s=>walk(s.id,0));
-  const q=fxQ.trim().toLowerCase();
-  return q?out.filter(r=>String(r.node.name).toLowerCase().indexOf(q)>=0):out;
+  if(!q) return out;
+  /* §27 — ONE search box, over the level on screen. A financial line survives because its own
+     name matched OR because one of its account groups or source accounts did; dropping the
+     parent of a hit would report the match as an orphan under no line. */
+  const hitParents=new Set(out.filter(r=>r.kind==='group'||r.kind==='acct').map(r=>r.lineId));
+  return out.filter(r=>{
+    if(r.kind==='total') return false;
+    if(r.kind!=='line') return true;
+    return String(r.node.name).toLowerCase().indexOf(q)>=0||hitParents.has(r.node.id);
+  });
 }
 function fxBodyHTML(){
   const c=fxComparison();
+  const cols=fxDisp==='numbers'?5:7;
   return fxRows().map(r=>{
+    /* a drill row is a row of THIS table, rendered through one cell builder so the statement
+       and its account detail can never disagree about how many columns exist */
+    if(r.kind&&r.kind!=='line'&&r.kind!=='total')
+      return fxDrillRowHTML(r,(fsLine(r.lineId)||{}).contra?-1:1,cols);
     const n=r.node, cm=fxCompare(n.id);
     const sgn=n.contra?-1:1;
     const st=r.total?null:fxState(n.id);
@@ -32200,11 +32361,12 @@ function fxBodyHTML(){
     if(n.kind==='section') cls.push('sec');
     if(fxSel===n.id&&!r.total) cls.push('on');
     const label=r.total?('Total '+String(n.name).replace(/^Total /,'')):n.name;
-    const caret=(!r.total&&r.kids)?`<button class="fsx-cx" onclick="fxToggle('${n.id}',event)"
-        aria-expanded="${r.open?'true':'false'}"><svg viewBox="0 0 16 16" fill="none"><path
-        d="${r.open?'M4 6.5L8 10.5l4-4':'M6.5 4L10.5 8l-4 4'}" stroke="currentColor"
-        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`
-      :'<span class="fsx-cx sp"></span>';
+    /* TWO CARETS, ONE GLYPH. A parent line opens its statement children; a LEAF line opens
+       its account groups once the level asks for them. They are different axes and must never
+       both hang off one row — which is why only a leaf is drillable. */
+    const caret=(!r.total&&r.kids)?fxCaret(r.open,`fxToggle('${n.id}',event)`)
+      :(r.drillable?fxCaret(r.drillOpen,`fxDrillToggle('${n.id}',null,event)`)
+      :'<span class="fsx-cx sp"></span>');
     /* the driver signal is the top named contributor — the one-line answer to "why", with the
        full decomposition one click away in the panel */
     const top=drv&&drv.drivers.length?drv.drivers.filter(d=>d.supportStatus==='supported')
@@ -32254,9 +32416,15 @@ function renderFluxGov(){
       onclick="setFxCmp('${x[0]}')">${x[1]}</button>`).join('')}</div>
     <span class="fsx-win fxg-lbl">${glEsc(c.label)}</span>
     <span class="grow"></span>
+    <div class="fxa-lvl"><span class="k">Level</span>
+      <select class="fxa-sel" onchange="setFxLevel(this.value)" title="How deep the statement is read">
+        ${FX_LEVELS.map(l=>`<option value="${l[0]}" ${fxLevel===l[0]?'selected':''}>${l[1]}</option>`).join('')}</select></div>
+    ${fxLevel==='acct'?fxAcctControls():''}
     <div class="fsx-pres fxg-disp">${FX_DISPLAYS.map(d=>`<button class="${fxDisp===d[0]?'on':''}"
       onclick="setFxDisp('${d[0]}')">${d[1]}</button>`).join('')}</div>
-    <input class="amap-q trx-q" type="text" placeholder="Search financial lines&#8230;"
+    <input class="amap-q trx-q" type="text" placeholder="${fxLevel==='line'
+       ?'Search financial lines&#8230;':fxLevel==='group'
+       ?'Search lines and account groups&#8230;':'Search lines, groups, account codes and names&#8230;'}"
       value="${glEsc(fxQ)}" oninput="fxSearch(this.value)">
     ${tie.state==='incomplete'?`<span class="fsx-st warn">Mapping incomplete</span>`:''}
   </div>`;
@@ -32267,6 +32435,9 @@ function renderFluxGov(){
        <th class="num vg" colspan="2">Variance</th></tr>`
     : `<tr class="fxg-grp"><th></th><th class="num" colspan="2">Financial position</th>
        <th class="num vg" colspan="2">Variance</th><th colspan="2">Review</th></tr>`;
+  /* §13 — the unmapped population is exposed above the statement it is absent from, and
+     only where the level being read makes it relevant to the reader. */
+  if(fxLevel!=='line') o+=fxUnmappedBand();
   o+=`<div class="card fsx-card trx-card"><div class="tblwrap trx-wrap">
     <table class="tbl trx-tbl fxg-tbl"><thead>${grp}<tr>
       <th class="trx-nm">Financial line</th>
@@ -32278,10 +32449,12 @@ function renderFluxGov(){
     <div class="fsx-foot">In millions of ${glEsc((ENTCTX.presentationCurrency||'USD').toUpperCase())}
       unless a billion is stated &#183; both periods are the governed Financial Statement amounts,
       each resolved <b>as reported</b> with the versions that applied to it &#183; variance sign is
-      direction, not favourability</div>
+      direction, not favourability${fxLevel==='line'?'':` &#183; account groups and source accounts
+      are <b>compositions of the line's own amount</b>, weighted by the mapped source-account
+      population resolved at each period &#8212; Korvyn holds no separate group or account balance`}</div>
   </div>`;
   el.innerHTML=o+fxPanel();
-  document.body.classList.toggle('amap-open',!!fxSel);
+  document.body.classList.toggle('amap-open',!!(fxSel||fxAcctSel));
 }
 function fxColLabel(k,months){
   if(fxStmt==='bs') return perEnd(k);
@@ -32292,6 +32465,8 @@ function fxColLabel(k,months){
 
 /* ---- THE DOCKED WORKSPACE. Same shell as Financials and Trending; Flux-specific content. */
 function fxPanel(){
+  /* an account selection owns the panel; the financial line stays as its context header */
+  if(fxAcctSel) return fxAcctPanel();
   if(!fxSel) return '';
   const n=fsLine(fxSel); if(!n) return '';
   const tabs=FX_TABS.map(([t,l])=>`<button class="ktab ${fxTab===t?'on':''}"
@@ -32450,6 +32625,922 @@ function fxTraceTab(){
         <span class="ch">&#8250;</span></div>
     </div>`;
 }
+
+/* ==========================================================================================
+   FLUX — ACCOUNT VISIBILITY AND THE FINANCIAL DRILL HIERARCHY (2026-09-01, step 7A)
+   ==========================================================================================
+       FINANCIAL LINE -> ACCOUNT GROUP -> SOURCE GL ACCOUNT
+                      -> ENTITY / PROJECT / DIMENSION -> GL TRANSACTION
+
+   THIS LAYER HOLDS NO BALANCES. It is a DECOMPOSITION of the governed Financial Statement
+   amount `fsAmount(lineId, period, months)` and nothing else: a group is a share of the
+   line, an account is a share of its group, and a dimension is a share of its account. Every
+   level therefore foots upward by construction rather than by agreement, in BOTH periods, so
+   the variances foot too. There is no fluxAccountBalance, no accountGroupBalance and no
+   second trial balance — grep the block: no `FS_TB_*` value is read for an amount here, only
+   for the SAMPLE COVERAGE ratio below, which is a ratio and not a figure on screen.
+
+   AN ACCOUNT GROUP IS A CANONICAL ACCOUNT PRESENTING ON THE LINE, and its membership comes
+   from the governed account mapping resolved AT THE PERIOD — `mapResolve()` then
+   `fsLineFor()`, the same two calls Financials and the mapping page make. It is not a display
+   bucket: `AG-<financialLineId>-<canonicalAccountId>` is stable, and a group exists because a
+   mapping puts a source account there, not because a designer wanted four rows.
+
+   THE SPLIT IS WEIGHTED BY THE MAPPED SOURCE-ACCOUNT POPULATION. That weight is the one
+   derived quantity in the layer, and it is derived from governed metadata (which accounts the
+   mapping puts in which group, and their representative size) rather than authored per line.
+   Because the resolution runs at each period separately, an account that was reclassified
+   between May and June sits in its MAY group in the May column and its JUNE group in the June
+   column — which is what makes §35's mapping-change impact a real measurement instead of a
+   badge.
+
+   THE SAMPLE IS NEVER PRESENTED AS THE ESTATE. Korvyn models 24 source accounts against an
+   estate of 12,842. `fxCoverage()` is the modelled share of a line, computed ONCE at the
+   anchor period and at group scope so it cannot drift with either — and the part of a group
+   no modelled account covers is its own explicit row, counted, never spread silently over the
+   accounts that happen to be modelled. That is the same discipline `mapStats()` uses when it
+   quotes the estate rather than the sample's own flattering ratio.                          */
+
+const FX_LEVELS=[['line','Financial lines'],['group','Account groups'],['acct','Accounts']];
+const FX_SORTS=[['var','Variance $'],['pct','Variance %'],['cur','Current'],['code','Account code']];
+/* LEVEL and DISPLAY are independent controls over one table (§25) — Accounts x Numbers is a
+   dense numeric account review and is as valid as Financial lines x Full explanations. */
+let fxLevel='line', fxDrill={}, fxAcctSel=null, fxAcctTab='sum', fxAcctDim=null,
+    fxShowAll={}, fxSort='var', fxAcctErp='all', fxAcctCoa='all', fxAcctSt='all';
+const FX_ATABS=[['sum','Summary'],['comp','Composition'],['act','Activity'],
+                ['rev','Review'],['trace','Trace']];
+/* how many accounts a group opens with before "Show all" — materiality, not a page size
+   (§32): a line carries 1,384 source accounts at enterprise scale and the reviewer wants the
+   movers, so the cap is on the SORTED list and the rest are one click away, never hidden */
+const FX_ACCT_CAP=6;
+
+function setFxLevel(v){
+  fxLevel=v;
+  /* deepening the level deepens what is already open rather than resetting it — a reviewer
+     who drilled into CIP at group level should find its accounts there, not a closed row */
+  if(v==='line'){ fxAcctSel=null; }
+  renderFluxGov();
+}
+function setFxSort(v){ fxSort=v; renderFluxGov(); }
+function setFxAcctFilter(k,v){ if(k==='erp')fxAcctErp=v; if(k==='coa')fxAcctCoa=v;
+  if(k==='st')fxAcctSt=v; renderFluxGov(); }
+function fxDrillKey(lineId,canonId){ return canonId?lineId+'|'+canonId:lineId; }
+/* DEFAULT-OPEN IS A PROPERTY OF THE LEVEL, and an explicit toggle overrides it. Groups are
+   bounded (a line has one to four canonical accounts), so the Account Groups level can show
+   them; accounts are not, so they open capped at the level that asks for them. */
+function fxDrillOpen(lineId,canonId){
+  const k=fxDrillKey(lineId,canonId);
+  if(fxDrill[k]!==undefined) return fxDrill[k];
+  if(!canonId) return fxLevel!=='line';
+  return fxLevel==='acct';
+}
+function fxDrillToggle(lineId,canonId,ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const k=fxDrillKey(lineId,canonId);
+  fxDrill[k]=!fxDrillOpen(lineId,canonId);
+  renderFluxGov();
+}
+function fxShowAllToggle(lineId,canonId,ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const k=fxDrillKey(lineId,canonId); fxShowAll[k]=!fxShowAll[k]; renderFluxGov();
+}
+
+/* ---- THE SAMPLE COVERAGE. A property of the MODELLED POPULATION, so it is resolved at the
+   anchor period and at the group scope and memoised: computing it against the period on
+   screen would make it cancel the period factor out of every account row, and every account
+   would then report the same figure in every month with the remainder absorbing all of the
+   movement. Held as a ratio; the amounts it scales are the governed ones. */
+let _fxCov={};
+function fxRawTB(lineId){
+  const bs=fsIsBS(lineId); let v=0;
+  canonsForLine(lineId).forEach(c=>{ const t=bs?FS_TB_BS[c]:FS_TB_IS[c]; if(t!=null) v+=t; });
+  const d=bs?FS_TB_DIRECT[lineId]:FS_TB_IS_DIRECT[lineId];
+  if(d!=null) v+=d;
+  return Math.abs(v);
+}
+function fxCoverage(lineId){
+  if(_fxCov[lineId]!=null) return _fxCov[lineId];
+  const raw=fxRawTB(lineId);
+  let w=0;
+  if(raw) SRC_ACCOUNTS.forEach(a=>{
+    const r=mapResolve(a.id,FS_ANCHOR);
+    if(r.mapping&&fsLineFor(r.mapping.canon,r.mapping)===lineId) w+=Math.abs(a.bal);
+  });
+  const cov=raw?Math.min(1,w/raw):0;
+  _fxCov[lineId]=cov; return cov;
+}
+
+/* THE DIRECTLY-CARRIED SHARE — the second and last RATIO this layer takes off the trial
+   balance, and like `fxCoverage` it is a proportion and never an amount. `FS_TB_DIRECT` is
+   the statement engine's own name for a line that carries a balance with no canonical account
+   behind it; this says how much of the line that is, so the split can give it a group of its
+   own instead of folding it into canonical groups that do not contain it.
+
+   THESE TWO FUNCTIONS ARE THE ONLY PLACES IN THE DRILL THAT READ A TRIAL BALANCE, and a check
+   asserts it. Everything with a currency sign on screen comes from `fsAmount()`. */
+function fxDirectShare(lineId,hasCanonicalGroups){
+  const bs=fsIsBS(lineId);
+  const rawC=canonsForLine(lineId).reduce((s,c)=>{
+    const t=bs?FS_TB_BS[c]:FS_TB_IS[c]; return s+(t!=null?Math.abs(t):0); },0);
+  const rawD=Math.abs((bs?FS_TB_DIRECT[lineId]:FS_TB_IS_DIRECT[lineId])||0);
+  return (rawC+rawD)?(rawD/(rawC+rawD)):(hasCanonicalGroups?0:1);
+}
+
+/* ---- ACCOUNT GROUPS AT A PERIOD. The mapping is resolved at THIS period, so the composition
+   is the one that governed the figure being decomposed. */
+function fxGroupsAt(lineId,k,months){
+  const amt=fsAmount(lineId,k,months);
+  const coas=mapCoasInScope(), by={}, ord=[];
+  SRC_ACCOUNTS.forEach(a=>{
+    if(!coas.has(a.coa)) return;
+    const r=mapResolve(a.id,k);
+    if(!r.mapping) return;
+    if(fsLineFor(r.mapping.canon,r.mapping)!==lineId) return;
+    const c=r.mapping.canon;
+    if(!by[c]){ by[c]=[]; ord.push(c); }
+    by[c].push({a,res:r});
+  });
+  /* A CANONICAL ACCOUNT THE STATEMENT DEFINITION PUTS ON THIS LINE IS A GROUP EVEN WITH NO
+     MODELLED SOURCE ACCOUNT. 24 accounts are modelled against 12,842, so the common case is a
+     real group whose members are all in the unmodelled estate — dropping it would make the
+     drill claim the line has no accounting structure. */
+  canonsForLine(lineId).forEach(c=>{ if(!by[c]){ by[c]=[]; ord.push(c); } });
+  /* A LINE CAN CARRY A BALANCE THAT NO CANONICAL ACCOUNT REPRESENTS. `FS_TB_DIRECT` /
+     `FS_TB_IS_DIRECT` are the statement's own words for it — "lines with no canonical account
+     of their own" — and twelve balance-sheet lines and seven income-statement lines are
+     entirely that. Without a group for it the drill reported ZERO against a real figure
+     (observed on all nineteen), which is worse than showing no drill at all: a decomposition
+     that silently omits the whole line reads as "nothing here" rather than "nothing mapped".
+     It is one explicitly-named group, never a canonical account invented to fill the hole. */
+  const dShare=fxDirectShare(lineId,ord.length>0);
+  const wOf=c=>by[c].reduce((s,x)=>s+Math.abs(x.a.bal),0);
+  const W=ord.reduce((s,c)=>s+wOf(c),0);
+  const src=amt.sourceTB;
+  const groups=ord.map(c=>{
+    const share=(1-dShare)*(W?(wOf(c)/W):(ord.length?1/ord.length:0));
+    const cn=canon(c)||{};
+    return {canonId:c, id:'AG-'+lineId+'-'+c, name:cn.name||c, code:cn.code||c,
+      amt:+(src*share).toFixed(3), share, accts:by[c], modelled:by[c].length, W:wOf(c)};
+  });
+  if(dShare>0.0001) groups.push({canonId:'__direct', id:'AG-'+lineId+'-DIRECT',
+    name:'Carried directly on the financial line', code:'—', direct:true,
+    amt:+(src*dShare).toFixed(3), share:dShare, accts:[], modelled:0, W:0});
+  return {lineId, periodId:k, groups, sourceTB:src, adj:amt.adj, reported:amt.reported,
+    modelledAny:!!W};
+}
+/* one account's share of its group, at a period. The group amount is governed; the share is
+   the mapped population; the coverage keeps the sample from claiming the estate. */
+function fxAcctAmtIn(G,canonId,srcId,cov){
+  const g=G.groups.find(x=>x.canonId===canonId); if(!g) return 0;
+  const it=g.accts.find(x=>x.a.id===srcId); if(!it) return 0;
+  const W=g.W||1;
+  return +(g.amt*(Math.abs(it.a.bal)/W)*cov).toFixed(3);
+}
+
+/* ---- THE COMPARISON AT GROUP LEVEL. The two sides are joined on canonicalAccountId, and the
+   union is taken deliberately: a group that exists on only one side is the reclassification
+   case, and an inner join would hide exactly the thing §34 asks to expose. */
+function fxGroupCompare(lineId){
+  const cc=fxComparison();
+  const cur=fxGroupsAt(lineId,cc.curK,cc.curMonths);
+  const cmp=fxGroupsAt(lineId,cc.cmpK,cc.cmpMonths);
+  const keys=[...new Set([...cur.groups.map(g=>g.canonId),...cmp.groups.map(g=>g.canonId)])];
+  const rc=fxReclasses(lineId);
+  const rows=keys.map(c=>{
+    const a=cur.groups.find(g=>g.canonId===c), b=cmp.groups.find(g=>g.canonId===c);
+    const cv=a?a.amt:0, pv=b?b.amt:0;
+    /* the directly-carried group names itself; a canonical group takes the canonical account's
+       own name, so neither can print a raw id */
+    const cn=(a||b||{}).direct?{name:(a||b).name,code:(a||b).code}:(canon(c)||{});
+    /* the part of THIS group's movement that is a classification change rather than activity */
+    const into=rc.filter(x=>x.to===c).reduce((s,x)=>s+x.groupAmt,0);
+    const outof=rc.filter(x=>x.from===c).reduce((s,x)=>s+x.priorGroupAmt,0);
+    return {canonId:c, direct:!!(a||b||{}).direct, id:'AG-'+lineId+'-'+c, name:cn.name||c, code:cn.code||c,
+      cur:cv, cmp:pv, v:+(cv-pv).toFixed(3),
+      pct:pv?+(((cv-pv)/Math.abs(pv))*100).toFixed(2):null,
+      /* TWO COUNTS, BECAUSE THE ROWS ARE THE UNION OF BOTH PERIODS. A group that lost four
+         accounts to a June reclassification still lists them — they carry its prior-period
+         balance and its movement would not foot without them — so labelling the group with
+         its CURRENT membership alone read "5 mapped accounts" over nine rows (observed). */
+      accts:(a?a.accts:[]).length,
+      acctsOut:(b?b.accts:[]).filter(x=>!(a?a.accts:[]).some(y=>y.a.id===x.a.id)).length,
+      curG:a, cmpG:b,
+      mapImpact:+(into-outof).toFixed(3)};
+  }).sort((x,y)=>Math.abs(y.v)-Math.abs(x.v));
+  return {rows, cur, cmp, reclasses:rc,
+    adjCur:cur.adj, adjCmp:cmp.adj, adjV:+(cur.adj-cmp.adj).toFixed(3),
+    srcV:+(cur.sourceTB-cmp.sourceTB).toFixed(3),
+    repV:+(cur.reported-cmp.reported).toFixed(3)};
+}
+
+/* ---- §34 / §35. A SOURCE ACCOUNT WHOSE CLASSIFICATION DIFFERS BETWEEN THE TWO PERIODS.
+   The two periods may resolve different mapping versions, and the apparent movement between
+   two account groups is then a mapping change and not economic activity. Korvyn states it
+   rather than letting a reviewer read a reclassification as capital spend. */
+function fxReclasses(lineId){
+  const cc=fxComparison(), coas=mapCoasInScope(), cov=fxCoverage(lineId), out=[];
+  const cur=fxGroupsAt(lineId,cc.curK,cc.curMonths);
+  const cmp=fxGroupsAt(lineId,cc.cmpK,cc.cmpMonths);
+  SRC_ACCOUNTS.forEach(a=>{
+    if(!coas.has(a.coa)) return;
+    const rC=mapResolve(a.id,cc.curK), rP=mapResolve(a.id,cc.cmpK);
+    const lC=rC.mapping?fsLineFor(rC.mapping.canon,rC.mapping):null;
+    const lP=rP.mapping?fsLineFor(rP.mapping.canon,rP.mapping):null;
+    if(lC!==lineId&&lP!==lineId) return;
+    const cC=rC.mapping?rC.mapping.canon:null, cP=rP.mapping?rP.mapping.canon:null;
+    if(cC===cP&&lC===lP) return;
+    /* TWO SCALES, AND THE IMPACT USES THE SECOND. `amt` is what the account ROW prints — its
+       share of the group, scaled by the modelled coverage. But reclassifying an account moves
+       its whole WEIGHT between groups, and the group amount that weight carries includes the
+       unmodelled estate alongside it. Measuring the impact at account scale reported the
+       Electrical group's movement as 96.4 against an actual +445.8, so the marker understated
+       the very thing it exists to flag by a factor of five (observed). Coverage 1 is the
+       group-share, which is the scale the group row is stated in. */
+    out.push({acct:a, from:cP, to:cC, fromLine:lP, toLine:lC,
+      fromName:cP?(canon(cP)||{}).name:null, toName:cC?(canon(cC)||{}).name:null,
+      verFrom:rP.mapping?rP.mapping.ver:null, verTo:rC.mapping?rC.mapping.ver:null,
+      amt:lC===lineId?fxAcctAmtIn(cur,cC,a.id,cov):0,
+      priorAmt:lP===lineId?fxAcctAmtIn(cmp,cP,a.id,cov):0,
+      groupAmt:lC===lineId?fxAcctAmtIn(cur,cC,a.id,1):0,
+      priorGroupAmt:lP===lineId?fxAcctAmtIn(cmp,cP,a.id,1):0});
+  });
+  return out;
+}
+/* did THIS account change classification across the comparison — one predicate, so the row
+   marker, the panel banner and the trace cannot disagree */
+function fxAcctReclass(lineId,srcId){
+  return fxReclasses(lineId).find(x=>x.acct.id===srcId)||null;
+}
+/* THREE DIFFERENT EVENTS, NOT ONE. An account that gained a classification it did not have is
+   newly mapped; one that lost it is no longer mapped; only a move between two classifications
+   is a reclassification. Calling all three "Classification change" told a reviewer that a
+   brand-new commissioning account had been reclassified, which it never was. */
+function fxChangeWord(from,to){
+  if(!from&&to) return 'Newly mapped';
+  if(from&&!to)  return 'No longer mapped';
+  return 'Reclassified';
+}
+
+/* ---- SOURCE ACCOUNTS IN A GROUP, both periods, filtered and sorted. Identity is the
+   composite sourceAccountId throughout: `471100 · SAP Germany` and `471100 · SAP UK` are
+   different accounts and this never keys on the bare code (§7). */
+function fxAcctCompare(lineId,canonId){
+  const cc=fxComparison(), cov=fxCoverage(lineId);
+  const cur=fxGroupsAt(lineId,cc.curK,cc.curMonths);
+  const cmp=fxGroupsAt(lineId,cc.cmpK,cc.cmpMonths);
+  const gA=cur.groups.find(g=>g.canonId===canonId), gB=cmp.groups.find(g=>g.canonId===canonId);
+  const ids=[...new Set([...(gA?gA.accts:[]).map(x=>x.a.id),
+                         ...(gB?gB.accts:[]).map(x=>x.a.id)])];
+  let rows=ids.map(id=>{
+    const a=srcAcct(id);
+    const c=fxAcctAmtIn(cur,canonId,id,cov), p=fxAcctAmtIn(cmp,canonId,id,cov);
+    const rC=mapResolve(id,cc.curK), rP=mapResolve(id,cc.cmpK);
+    return {a, id, cur:c, cmp:p, v:+(c-p).toFixed(3),
+      pct:p?+(((c-p)/Math.abs(p))*100).toFixed(2):null,
+      res:rC, prior:rP, st:rC.status,
+      changed:(rC.mapping?rC.mapping.canon:null)!==(rP.mapping?rP.mapping.canon:null)};
+  });
+  /* THE REMAINDER IS A RESIDUAL AGAINST THE GOVERNED GROUP AMOUNT, NOT A COVERAGE RATIO.
+     `fxCoverage` is the modelled share at the ANCHOR, and it is only the modelled share in a
+     period where those accounts are actually mapped. A YoY comparison reaches back to Jun
+     2025, before this mapping set begins, so every account resolved unmapped, the rows
+     contributed nothing and a remainder sized at (1 - cov) left the prior column 15% short —
+     16 groups failed to foot on the comparison side while the current side was exact
+     (observed). Deriving it as group minus rows is correct in every period by construction.
+
+     IT IS COMPUTED BEFORE THE §28 FILTERS. A filter narrows what is DISPLAYED; folding a
+     hidden account into the remainder would relabel a real mapped account as unmodelled
+     estate, which is a different and much worse claim. `filtered` says the shown rows are a
+     subset so the table can state it rather than appearing not to foot. */
+  const restCur=gA?+(gA.amt-rows.reduce((s,r)=>s+r.cur,0)).toFixed(3):0;
+  const restCmp=gB?+(gB.amt-rows.reduce((s,r)=>s+r.cmp,0)).toFixed(3):0;
+  const nAll=rows.length;
+  /* §28 — account-level filters, offered only where they can narrow something */
+  if(fxAcctErp!=='all') rows=rows.filter(r=>r.a.ins===fxAcctErp);
+  if(fxAcctCoa!=='all') rows=rows.filter(r=>r.a.coa===fxAcctCoa);
+  if(fxAcctSt!=='all')  rows=rows.filter(r=>r.st===fxAcctSt);
+  /* §33 — largest absolute movement first, because alphabetical hides what matters */
+  const cmpFn={var:(x,y)=>Math.abs(y.v)-Math.abs(x.v),
+    pct:(x,y)=>Math.abs(y.pct||0)-Math.abs(x.pct||0),
+    cur:(x,y)=>Math.abs(y.cur)-Math.abs(x.cur),
+    code:(x,y)=>String(x.a.code).localeCompare(String(y.a.code))};
+  rows.sort(cmpFn[fxSort]||cmpFn.var);
+  /* THE PART NO MODELLED ACCOUNT COVERS, counted and named. Never spread over the accounts
+     that happen to be modelled — that is how a 24-account sample starts reporting itself as
+     a 12,842-account estate. */
+  const est=Math.round((fsReach(lineId).accounts||0)*(gA?gA.share:(gB?gB.share:0)));
+  return {rows, cov, filtered:rows.length!==nAll, ofAll:nAll,
+    rest:{cur:restCur, cmp:restCmp, v:+(restCur-restCmp).toFixed(3),
+      n:Math.max(0,est-(gA?gA.modelled:0))}};
+}
+
+/* ---- §11 RECONCILIATION. Stated as a cause, never forced. The line's reported movement is
+   the source-ledger movement plus the reporting-adjustment movement; the groups decompose the
+   first and the adjustment is its own row (§12). If the two do not meet, the reason is named
+   rather than plugged. */
+function fxReconcile(lineId){
+  const G=fxGroupCompare(lineId);
+  const grp=+G.rows.reduce((s,r)=>s+r.v,0).toFixed(3);
+  const diff=+(G.repV-(grp+G.adjV)).toFixed(3);
+  const reasons=[];
+  const st=mapStats(fxComparison().curK);
+  if(st.unmapped) reasons.push(st.unmapped.toLocaleString('en-US')+' unmapped source account'+
+    (st.unmapped===1?'':'s')+' across the estate carry no financial line');
+  if(G.reclasses.length) reasons.push(G.reclasses.length+' source account'+
+    (G.reclasses.length===1?'':'s')+' changed classification between the two periods');
+  const conf=G.rows.reduce((s,r)=>s+(r.curG?r.curG.accts.filter(x=>x.res.status==='conflict').length:0),0);
+  if(conf) reasons.push(conf+' mapping conflict'+(conf===1?'':'s')+' in this population');
+  return {groups:grp, adj:G.adjV, reported:G.repV, diff, ok:Math.abs(diff)<0.05, reasons, G};
+}
+
+/* ---- §29 REVIEW-STATE ROLLUP, PREPARED NOT BUILT. There are no group-level or account-level
+   review objects in this model — explanations are owned on the financial line (FS_REVIEWS)
+   and §30 says not to hard-code one universal explanation level. So the rollup is written as
+   the function 7C will feed real child states into, and today it is fed the states that DO
+   exist: the line's own review and the derived materiality of each child. It returns the
+   PARENT summary, which is what §29's example asks for. */
+const FX_ROLL=['required','material','reviewed','none'];
+function fxRollupState(children){
+  const ks=children.map(c=>c&&c.k).filter(Boolean);
+  for(const k of FX_ROLL) if(ks.indexOf(k)>=0)
+    return {k, l:(FX_ST[k]||{l:k==='material'?'Material':''}).l||(k==='material'?'Material':''),
+      c:(FX_ST[k]||{}).c||'', n:ks.filter(x=>x===k).length, of:ks.length};
+  return {k:'none', l:'', c:'', n:0, of:ks.length};
+}
+/* a group's state today: material if its own movement breaches the shared thresholds, and
+   otherwise silent. It is NOT a review status, and it deliberately does not invent one. */
+function fxChildState(v,base){
+  const mat=Math.abs(v)>=TR_MAT_ABS||(base&&Math.abs(base)>0&&Math.abs(v/base)*100>=TR_MAT_PCT);
+  return mat?{k:'material',l:'Material',c:''}:{k:'none',l:'',c:''};
+}
+
+/* ---- §15 ACCOUNT REACH. Representative estate figures for one source account, scaled by the
+   scope share so a region never claims the group's population. `ents` is the account's own
+   modelled attribute; the transaction count is a representative density, authored as one
+   constant rather than extrapolated per account. */
+const FX_TXN_PER_M=24;
+function fxAcctReach(lineId,srcId){
+  const a=srcAcct(srcId)||{}; const share=fsScopeShare();
+  const ents=Math.max(1,Math.round((a.ents||1)*share));
+  const txns=Math.max(1,Math.round(Math.abs(a.bal||0)*FX_TXN_PER_M*share));
+  /* the modelled entities behind this account: the SAME join mapCoasInScope() makes — chart
+     of accounts by name, with the ERP instance's region as the fallback that function already
+     uses — rather than a second scoping rule invented here */
+  const ids=new Set(ENTCTX.scope.includedEntityIds||[]);
+  const nm=(coaOf(a.coa)||{}).name, reg=(erpIns((coaOf(a.coa)||{}).ins)||{}).region;
+  const mod=ORG_ENTITIES.filter(e=>ids.has(e.id)&&(e.chartOfAccounts===nm||e.region===reg));
+  return {entities:ents, transactions:txns, modelledEntities:mod};
+}
+
+/* ---- §17/§18/§19 COMPOSITION. The account's movement broken down by a dimension, composed
+   from the account's own governed amount so it foots to it. Dimensions are offered only where
+   the model carries them — a "Business unit" selector over data with no business unit is a
+   dead control, and this file has spent three passes removing those. */
+function fxAcctDims(lineId,srcId){
+  const out=[], R=fxAcctReach(lineId,srcId), a=srcAcct(srcId)||{};
+  if(fxDriverBasis(lineId)==='project'&&fxAcctProjects(lineId,srcId).length)
+    out.push(['project','Project']);
+  if(R.modelledEntities.length) out.push(['entity','Entity']);
+  out.push(['region','Region']);
+  const deps=[...new Set(ENR_TXNS.filter(t=>t.acct===srcId).map(t=>t.dept))];
+  if(deps.length>1) out.push(['dept','Department']);
+  return out;
+}
+/* CIP-type lines decompose by project — the SAME predicate the driver engine uses, so the
+   Drivers tab and this cannot disagree about what is driving a capital line. Projects come
+   from the enrichment layer's own model; Flux does not keep a second project identity (§18). */
+function fxAcctProjects(lineId,srcId){
+  const ids=new Set(ENTCTX.scope.includedEntityIds||[]);
+  const R=fxAcctReach(lineId,srcId);
+  const ents=new Set(R.modelledEntities.map(e=>e.id));
+  return ENR_PROJECTS.filter(p=>ids.has(p.ent)&&(ents.has(p.ent)||!ents.size));
+}
+function fxAcctComposition(lineId,canonId,srcId,dim){
+  const cc=fxComparison(), cov=fxCoverage(lineId);
+  const cur=fxGroupsAt(lineId,cc.curK,cc.curMonths);
+  const base=fxAcctAmtIn(cur,canonId,srcId,cov);
+  const mk=(id,name,w,type,sub)=>({id,name,type,sub,w});
+  let parts=[];
+  if(dim==='project'){
+    parts=fxAcctProjects(lineId,srcId).map(p=>mk(p.id,p.name,p.mw||1,'project',
+      (ORG_ENTITIES.find(e=>e.id===p.ent)||{}).displayName||p.ent));
+  } else if(dim==='entity'){
+    parts=fxAcctReach(lineId,srcId).modelledEntities.map(e=>
+      mk(e.id,e.displayName||e.legalName,orgCount(e.node)||1,'entity',e.country));
+  } else if(dim==='dept'){
+    const g={}; ENR_TXNS.filter(t=>t.acct===srcId).forEach(t=>{ g[t.dept]=(g[t.dept]||0)+Math.abs(t.amt); });
+    parts=Object.keys(g).map(d=>mk('DEPT-'+d,d,g[d],'dept',null));
+  } else {
+    const a=srcAcct(srcId)||{}, reg=(erpIns((coaOf(a.coa)||{}).ins)||{}).region;
+    const ids=new Set(ENTCTX.scope.includedEntityIds||[]);
+    parts=ORG_NODES.filter(n=>n.parent==='grp'&&n.h==='reporting')
+      .filter(n=>!reg||n.name===reg||ORG_ENTITIES.some(e=>ids.has(e.id)&&e.region===n.name))
+      .map(n=>mk(n.id,n.name,orgCount(n.id)||1,'region',orgCount(n.id)+' entities'));
+    if(!parts.length) parts=ORG_NODES.filter(n=>n.parent==='grp'&&n.h==='reporting')
+      .map(n=>mk(n.id,n.name,orgCount(n.id)||1,'region',orgCount(n.id)+' entities'));
+  }
+  const W=parts.reduce((s,p)=>s+p.w,0)||1;
+  const named=parts.map(p=>({...p, amt:+(base*0.82*(p.w/W)).toFixed(3)}));
+  /* 18% is carried as "Other", explicitly, because the modelled dimension members do not
+     cover the whole account at enterprise scale — the alternative is to let three projects
+     claim 100% of an account that spans 84 entities. */
+  const other=+(base-named.reduce((s,p)=>s+p.amt,0)).toFixed(3);
+  return {base, rows:named.sort((a,b)=>Math.abs(b.amt)-Math.abs(a.amt)), other, dim};
+}
+
+/* ---- §20/§21 ACTIVITY. THE POPULATION IS PERIOD ACTIVITY, NOT THE CLOSING POPULATION.
+   A balance-sheet account moves from one ending balance to the next, so its activity for the
+   comparison IS the movement; an income-statement account's activity for the period IS the
+   period figure. Treating a balance account's whole closing population as "movement" is the
+   error §21 names, and the two bases are kept apart rather than blended.
+
+   THE NAMED TRANSACTIONS ARE THE GOVERNED ONES. ENR_TXNS is the enrichment layer's own
+   transaction store, keyed by sourceAccountId — the same objects the enrichment panel traces
+   — so this reuses the platform's transaction identity rather than starting a Flux ledger.
+   What those rows do not cover is ONE stated aggregate, not 8,000 invented journal numbers. */
+function fxAcctActivity(lineId,canonId,srcId){
+  const cc=fxComparison(), cov=fxCoverage(lineId), bs=fsIsBS(lineId);
+  const cur=fxGroupsAt(lineId,cc.curK,cc.curMonths);
+  const cmp=fxGroupsAt(lineId,cc.cmpK,cc.cmpMonths);
+  const c=fxAcctAmtIn(cur,canonId,srcId,cov), p=fxAcctAmtIn(cmp,canonId,srcId,cov);
+  const total=bs?+(c-p).toFixed(3):c;
+  const ids=new Set(ENTCTX.scope.includedEntityIds||[]);
+  const named=ENR_TXNS.filter(t=>t.acct===srcId&&String(t.dt).slice(0,7)===cc.curK
+      &&(!ids.size||ids.has(t.ent)));
+  const namedSum=+named.reduce((s,t)=>s+t.amt,0).toFixed(3);
+  const R=fxAcctReach(lineId,srcId);
+  return {basis:bs?'movement':'activity', bs, total, current:c, prior:p,
+    named, namedSum, rest:+(total-namedSum).toFixed(3),
+    restN:Math.max(0,R.transactions-named.length), all:R.transactions,
+    periodLabel:bs?perLabel(cc.curK)+' activity':perLabel(cc.curK)};
+}
+
+/* ---- §13 UNMAPPED. Exposed, never classified. The estate figure and the tie-out's own
+   unmapped balance, with the route into Account Mapping filtered to exactly that population —
+   the same route Financials already uses, not a second one. */
+function fxUnmapped(){
+  const cc=fxComparison(), st=mapStats(cc.curK), tie=fsTieOut(cc.curK);
+  return {n:st.unmapped, sample:st.unmappedSample, bal:tie.unmappedBal,
+    conflicts:st.conflicts, review:st.review};
+}
+function fxGoUnmapped(ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
+  pickTab('acctmap'); setAmapView('unmapped'); }
+function fxGoMapping(srcId,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
+  pickTab('acctmap'); amapOpen(srcId); }
+
+/* ---- SELECTION. An account selection carries its whole context — line, group, account — and
+   the comparison is the page's, never a copy (§14). */
+function fxPickAcct(lineId,canonId,srcId,ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  fxSel=lineId; fxAcctSel={line:lineId, group:canonId, acct:srcId};
+  fxAcctTab='sum'; fxAcctDim=null; renderFluxGov();
+}
+function fxAcctClose(){ fxAcctSel=null; renderFluxGov(); }
+function setFxAcctTab(t){ fxAcctTab=t; renderFluxGov(); }
+function setFxAcctDim(d){ fxAcctDim=d; renderFluxGov(); }
+/* the ledger, with only what it can honour applied and a way back — the existing Flux -> GL
+   bridge, not a second one (§20) */
+function fxAcctToLedger(ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  const s=fxAcctSel; if(!s) return;
+  const a=srcAcct(s.acct)||{};
+  glFromFlux({line:(fsLine(s.line)||{}).name, driver:(canon(s.group)||{}).name,
+    acct:a.code, ent:null});
+}
+
+/* ---- THE DRILL, RENDERED INTO THE SAME TABLE (§39). A group row and an account row are rows
+   of the Flux statement, not a second grid: same density, same four number columns, same
+   variance band, same hover, same docked workspace. The only difference is indentation, a
+   quieter name treatment and a monospace source code — which is what a ledger detail row
+   under a statement line looks like on paper. */
+function fxDrillRows(lineId,depth,q){
+  if(fxLevel==='line') return [];
+  const out=[], G=fxGroupCompare(lineId);
+  if(!fxDrillOpen(lineId)) return out;
+  const hit=v=>!q||String(v||'').toLowerCase().indexOf(q)>=0;
+  G.rows.forEach(g=>{
+    /* the directly-carried group has no source accounts BY DEFINITION — it is the part of the
+       line no canonical account and therefore no mapping represents. It states that instead of
+       opening onto an empty list. */
+    const accts=(!g.direct&&(fxLevel==='acct'||fxDrillOpen(lineId,g.canonId)))
+      ? fxAcctCompare(lineId,g.canonId) : null;
+    const kids=accts?accts.rows.filter(r=>!q||hit(r.a.code)||hit(r.a.name)
+      ||hit((canon(g.canonId)||{}).name)||hit(coaOf(r.a.coa).name)):[];
+    /* a group survives the query if it matches or if one of its accounts does — hiding a
+       parent whose child matched is how a search reports "nothing found" over a hit */
+    if(q&&!hit(g.name)&&!hit(g.code)&&!kids.length) return;
+    out.push({kind:'group', lineId, g, depth:depth+1,
+      open:fxLevel==='acct'||fxDrillOpen(lineId,g.canonId)});
+    if(!accts) return;
+    const key=fxDrillKey(lineId,g.canonId), all=!!fxShowAll[key];
+    const shown=all?kids:kids.slice(0,FX_ACCT_CAP);
+    shown.forEach(r=>out.push({kind:'acct', lineId, canonId:g.canonId, r, depth:depth+2}));
+    if(kids.length>shown.length||all&&kids.length>FX_ACCT_CAP)
+      out.push({kind:'more', lineId, canonId:g.canonId, depth:depth+2,
+        n:kids.length, shown:shown.length, all, ofAll:accts.ofAll, filtered:accts.filtered});
+    /* A FILTER NARROWS WHAT IS SHOWN, AND THE GROUP THEN DOES NOT FOOT TO ITS ROWS. That is
+       correct behaviour and it has to be stated: on a surface whose numbers get signed, a
+       reviewer must never read a short column with no visible reason why. Same guarantee the
+       filter ribbon's live counts carry on the statement above. */
+    else if(accts.filtered)
+      out.push({kind:'more', lineId, canonId:g.canonId, depth:depth+2,
+        n:kids.length, shown:shown.length, all:1, ofAll:accts.ofAll, filtered:1});
+    /* the estate this sample does not individually model, counted — never spread silently
+       across the accounts that happen to be modelled */
+    if(!q&&accts.rest.n>0&&Math.abs(accts.rest.cur)>0.05)
+      out.push({kind:'rest', lineId, canonId:g.canonId, depth:depth+2, rest:accts.rest});
+  });
+  /* §12 — a Korvyn reporting adjustment is not an ERP account and never pretends to be one */
+  if(!q&&Math.abs(G.adjV)>0.0005)
+    out.push({kind:'adj', lineId, depth:depth+1, cur:G.adjCur, cmp:G.adjCmp, v:G.adjV});
+  return out;
+}
+/* ONE CELL SET for every kind of row, so the columns can never drift apart between the
+   statement and its drill. */
+function fxNumCells(cur,cmp,v,pct,sgn,extra){
+  const s=sgn||1;
+  return `<td class="num fxg-p">${fsM(cmp*s)}</td>
+    <td class="num fxg-c">${fsM(cur*s)}</td>
+    <td class="num fxg-v">${v>0?'+':''}${fsM(v*s)}</td>
+    <td class="num fxg-v">${pct==null?'&mdash;':(pct>0?'+':'')+pct.toFixed(1)+'%'}</td>
+    ${extra||''}`;
+}
+function fxCaret(open,onclick){
+  return `<button class="fsx-cx" onclick="${onclick}" aria-expanded="${open?'true':'false'}">
+    <svg viewBox="0 0 16 16" fill="none"><path d="${open?'M4 6.5L8 10.5l4-4':'M6.5 4L10.5 8l-4 4'}"
+      stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+      stroke-linejoin="round"/></svg></button>`;
+}
+function fxDrillRowHTML(r,sgn,cols){
+  const rev=cols>5;
+  if(r.kind==='group'){
+    const g=r.g, st=fxChildState(g.v,g.cmp);
+    const sel=fxAcctSel&&fxAcctSel.line===r.lineId&&fxAcctSel.group===g.canonId;
+    const extra=rev?`<td class="fxg-drv">${g.direct
+        ?'<span class="amap-dim">no canonical account modelled</span>'
+        :(g.accts||g.acctsOut
+        ?g.accts+' mapped account'+(g.accts===1?'':'s')+
+          (g.acctsOut?'<span class="amap-dim"> &#183; '+g.acctsOut+' reclassified out</span>':'')
+        :'<span class="amap-dim">estate only</span>')}</td>
+      <td class="fxg-st">${g.mapImpact&&Math.abs(g.mapImpact)>0.05
+        ?`<span class="fxa-recl" title="Classification change between the two periods">Classification change ${g.mapImpact>0?'+':''}${fsM(g.mapImpact*(sgn||1))}</span>`
+        :(st.l?`<span class="trx-sig ${st.c}">${st.l}</span>`:'')}</td>`:'';
+    return `<tr class="fxg-r fxa-r fxa-g${g.direct?' fxa-rest':''} d${Math.min(r.depth,3)}${sel?' on':''}"
+        ${g.direct?'':`onclick="fxDrillToggle('${r.lineId}','${g.canonId}',event)"`}>
+      <td class="trx-nm">${g.direct?'<span class="fsx-cx sp"></span>'
+        :fxCaret(r.open,`fxDrillToggle('${r.lineId}','${g.canonId}',event)`)}
+        <span class="t">${glEsc(g.name)}</span>
+        <span class="fxa-code mono">${glEsc(g.code)}</span></td>
+      ${fxNumCells(g.cur,g.cmp,g.v,g.pct,sgn,extra)}</tr>`;
+  }
+  if(r.kind==='acct'){
+    const a=r.r.a, res=r.r.res, ms=MAP_ST[res.status]||{};
+    const sel=fxAcctSel&&fxAcctSel.acct===a.id&&fxAcctSel.line===r.lineId;
+    /* THE ERP INSTANCE LIVES IN A COLUMN, NOT IN THE NAME CELL. `.trx-nm` is a sticky flex
+       table cell, and a flex item there does not honour max-width or shrink — the instance
+       painted up to 26px over the first figure and no cap or overflow rule fixed it (measured
+       across four combinations). The Primary driver column was meanwhile repeating the
+       canonical classification the GROUP ROW states two lines above, so the instance takes a
+       column that had nothing of its own to say and source identity gains room rather than
+       losing it (§6/§7). */
+    const extra=rev?`<td class="fxg-drv">${glEsc(erpIns(a.ins).name)}
+        <span class="amap-dim">&#183; ${glEsc(coaOf(a.coa).name)}</span></td>
+      <td class="fxg-st">${r.r.changed
+        ?`<span class="fxa-recl" title="This account resolved a different classification in the comparison period">${
+          fxChangeWord(r.r.prior.mapping&&r.r.prior.mapping.canon,res.mapping&&res.mapping.canon)}</span>`
+        :(res.status==='mapped'?'':`<span class="amap-st ${ms.c||''}">${glEsc(ms.l||'')}</span>`)}</td>`:'';
+    return `<tr class="fxg-r fxa-r fxa-a d${Math.min(r.depth,3)}${sel?' on':''}"
+        onclick="fxPickAcct('${r.lineId}','${r.canonId}','${a.id}',event)">
+      <td class="trx-nm"><span class="fsx-cx sp"></span>
+        <span class="fxa-code mono">${glEsc(a.code)}</span>
+        <span class="t" title="${glEsc(a.code+' · '+a.name+' · '+erpIns(a.ins).name+' · '+coaOf(a.coa).name)}">${glEsc(a.name)}</span>
+        ${cols>5?'':`<span class="fxa-erp">${glEsc(srcSys(a.sys).name)}</span>`}</td>
+      ${fxNumCells(r.r.cur,r.r.cmp,r.r.v,r.r.pct,sgn,extra)}</tr>`;
+  }
+  if(r.kind==='more'){
+    const key=fxDrillKey(r.lineId,r.canonId);
+    return `<tr class="fxg-r fxa-r fxa-more d${Math.min(r.depth,3)}">
+      <td colspan="${cols}">${r.n>FX_ACCT_CAP?`<button class="fsx-link"
+        onclick="fxShowAllToggle('${r.lineId}','${r.canonId}',event)">${
+        r.all?'Show material movers only':'Show all '+r.n+' mapped accounts'}</button>`:''}
+        <span class="amap-dim">&#183; ${r.shown} of ${r.n} shown${
+        r.filtered?', filtered from '+r.ofAll+' &#8212; the group total is not the sum of these rows'
+        :', largest movement first'}</span></td></tr>`;
+  }
+  if(r.kind==='rest'){
+    const extra=cols>5?`<td class="fxg-drv"><span class="amap-dim">not individually modelled</span></td>
+      <td class="fxg-st"></td>`:'';
+    /* the qualifier is the Primary driver column's job wherever that column exists — printing
+       it in the name cell too said "not individually modelled" twice on one row and pushed the
+       name 64px over the sticky column onto the first figure */
+    return `<tr class="fxg-r fxa-r fxa-rest d${Math.min(r.depth,3)}">
+      <td class="trx-nm"><span class="fsx-cx sp"></span>
+        <span class="t">${r.rest.n.toLocaleString('en-US')} further source accounts</span>
+        ${cols>5?'':'<span class="fxa-erp">not individually modelled</span>'}</td>
+      ${fxNumCells(r.rest.cur,r.rest.cmp,r.rest.v,null,sgn,extra)}</tr>`;
+  }
+  if(r.kind==='adj'){
+    const extra=cols>5?`<td class="fxg-drv"><span class="amap-dim">Korvyn overlay</span></td>
+      <td class="fxg-st"><span class="amap-st info">Not posted to ERP</span></td>`:'';
+    return `<tr class="fxg-r fxa-r fxa-adj d${Math.min(r.depth,3)}">
+      <td class="trx-nm"><span class="fsx-cx sp"></span>
+        <span class="t">Korvyn reporting adjustment</span>
+        <span class="fxa-erp">no source GL account</span></td>
+      ${fxNumCells(r.cur,r.cmp,r.v,null,sgn,extra)}</tr>`;
+  }
+  return '';
+}
+
+/* ---- §13. The unmapped population is a DISCLOSURE, not a reconciling item: an unmapped
+   account carries no financial line, so it is not missing from a line's total — it is missing
+   from the statement. Saying that plainly is the difference between a control and a footnote. */
+function fxUnmappedBand(){
+  const u=fxUnmapped(); if(!u.n&&!u.conflicts) return '';
+  return `<div class="fxa-unm">
+    <span class="k">Unmapped source accounts</span>
+    <span class="v mono">${fsM(u.bal)}</span>
+    <span class="n">${u.n.toLocaleString('en-US')} account${u.n===1?'':'s'} across the estate</span>
+    ${u.conflicts?`<span class="n">${u.conflicts} mapping conflict${u.conflicts===1?'':'s'} in this scope</span>`:''}
+    <span class="s">carry no financial line, so they are outside every total on this statement</span>
+    <span class="grow"></span>
+    <button class="fsx-link" onclick="fxGoUnmapped(event)">Review mapping &#8594;</button></div>`;
+}
+
+/* ==========================================================================================
+   THE ACCOUNT WORKSPACE — the same docked panel, an account's content (§14-§24)
+   ========================================================================================== */
+function fxAcctPanel(){
+  const s=fxAcctSel; if(!s) return '';
+  const a=srcAcct(s.acct); if(!a) return '';
+  const tabs=FX_ATABS.map(([t,l])=>`<button class="ktab ${fxAcctTab===t?'on':''}"
+    onclick="setFxAcctTab('${t}')">${l}</button>`).join('');
+  const ln=fsLine(s.line)||{}, cn=canon(s.group)||{};
+  /* THE CONTEXT IS THE HEADER, because §14 asks the workspace to preserve financial line,
+     account group, account and comparison — and a reviewer who has drilled four levels needs
+     to see all four without opening a tab. */
+  return `<aside class="amap-panel" id="fxgPanel">
+    <div class="amp-hd">
+      <div class="amp-id"><b>${glEsc(a.code)} &#183; ${glEsc(a.name)}</b></div>
+      <button class="rw-ib" title="Close" onclick="fxAcctClose()">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"
+          stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="fxa-ctx">
+      <button onclick="fxAcctClose()">${glEsc(ln.name||'')}</button><span class="sep">&#8250;</span>
+      <button onclick="fxAcctClose();fxDrillToggle('${s.line}','${s.group}')">${glEsc(cn.name||'')}</button>
+      <span class="sep">&#8250;</span><span class="cur mono">${glEsc(a.code)}</span>
+      <span class="cmp">${glEsc(fxComparison().label)}</span>
+    </div>
+    <div class="ktabs lvl2 fsx-ptabs" role="tablist">${tabs}</div>
+    <div class="amp-body">${
+      fxAcctTab==='comp'?fxAcctCompTab():fxAcctTab==='act'?fxAcctActTab():
+      fxAcctTab==='rev'?fxAcctRevTab():fxAcctTab==='trace'?fxAcctTraceTab():fxAcctSumTab()}</div>
+  </aside>`;
+}
+
+/* §15 — compact, and every field is either governed metadata or a stated representative. */
+function fxAcctSumTab(){
+  const s=fxAcctSel, a=srcAcct(s.acct), cc=fxComparison(), cov=fxCoverage(s.line);
+  const cur=fxGroupsAt(s.line,cc.curK,cc.curMonths);
+  const cmp=fxGroupsAt(s.line,cc.cmpK,cc.cmpMonths);
+  const c=fxAcctAmtIn(cur,s.group,s.acct,cov), p=fxAcctAmtIn(cmp,s.group,s.acct,cov);
+  const v=+(c-p).toFixed(3), pct=p?((v/Math.abs(p))*100):null;
+  const R=fxAcctReach(s.line,s.acct), res=mapResolve(s.acct,cc.curK), ms=MAP_ST[res.status]||{};
+  const rc=fxAcctReclass(s.line,s.acct);
+  const row=(x,y)=>`<div class="amp-r"><span class="k">${x}</span><span class="v">${y}</span></div>`;
+  return `<div class="amp-sec">Movement</div>
+    <div class="fxa-figs">
+      <div class="f"><span class="k">${glEsc(fxColLabel(cc.cmpK,cc.cmpMonths))}</span>
+        <span class="v mono">${fsM(p)}</span></div>
+      <div class="f"><span class="k">${glEsc(fxColLabel(cc.curK,cc.curMonths))}</span>
+        <span class="v mono">${fsM(c)}</span></div>
+      <div class="f hero"><span class="k">Movement</span>
+        <span class="v mono">${v>0?'+':''}${fsM(v)}</span>
+        <span class="s">${pct==null?'':(pct>0?'+':'')+pct.toFixed(1)+'%'}</span></div>
+    </div>
+    ${rc?`<div class="fxa-warn"><b>${glEsc(fxChangeWord(rc.from,rc.to))} between the two periods.</b>
+      ${glEsc(perLabel(cc.cmpK))}: ${glEsc(rc.fromName||'unmapped')}${rc.verFrom?' &#183; mapping '+glEsc(mapVer(rc.verFrom).v):''}.
+      ${glEsc(perLabel(cc.curK))}: ${glEsc(rc.toName||'unmapped')}${rc.verTo?' &#183; mapping '+glEsc(mapVer(rc.verTo).v):''}.
+      Part of this account's apparent movement between account groups is a mapping change, not
+      economic activity. Neither period is recast &#8212; each is shown as reported.</div>`:''}
+    <div class="amp-sec">Population</div>
+    ${row('Entities',R.entities.toLocaleString('en-US')+
+      ' <span class="amap-dim">'+R.modelledEntities.length+' individually modelled</span>')}
+    ${row('Transactions',R.transactions.toLocaleString('en-US')+
+      ' <span class="amap-dim">representative</span>')}
+    <div class="amp-sec">Classification</div>
+    ${row('Canonical account','<span class="mono">'+glEsc((canon(s.group)||{}).code||'')+'</span> '+
+      glEsc((canon(s.group)||{}).name||''))}
+    ${row('Financial line',glEsc((fsLine(s.line)||{}).name||'')+
+      ' <span class="amap-dim">'+glEsc(fsCrumb(s.line))+'</span>')}
+    ${row('Mapping status',ms.l?`<span class="amap-st ${ms.c||''}">${glEsc(ms.l)}</span>`:'&mdash;')}
+    <div class="amp-sec">Source</div>
+    ${row('Source account','<span class="mono">'+glEsc(a.code)+'</span> '+glEsc(a.name))}
+    ${row('Source account id','<span class="mono amap-dim">'+glEsc(a.id)+'</span>')}
+    ${row('ERP / CoA',glEsc(srcSys(a.sys).name)+' &#183; '+glEsc(erpIns(a.ins).name)+
+      '<span class="amap-dim"> &#183; '+glEsc(coaOf(a.coa).name)+'</span>')}
+    ${row('First seen',glEsc(perLabel(a.seen)))}
+    <div class="enr-immut">The account's amount is its share of the governed financial-line
+      amount, composed by the mapped source-account population. Korvyn holds no separate
+      account balance &#8212; ${(fxCoverage(s.line)*100).toFixed(0)}% of this line is
+      individually modelled and the remainder is stated as its own row on the statement.</div>
+    <div class="amp-acts">
+      <button class="btn-out sm" onclick="fxGoMapping('${a.id}',event)">Open mapping &#8594;</button>
+      <button class="btn-out sm" onclick="fxAcctToLedger(event)">Open in Account activity &#8594;</button></div>`;
+}
+
+/* §17/§18/§19 — one compact "Break down by" selector, never every dimension at once. */
+function fxAcctCompTab(){
+  const s=fxAcctSel, dims=fxAcctDims(s.line,s.acct);
+  const dim=fxAcctDim&&dims.some(d=>d[0]===fxAcctDim)?fxAcctDim:(dims[0]||['region'])[0];
+  const C=fxAcctComposition(s.line,s.group,s.acct,dim);
+  const W=Math.max(...C.rows.map(r=>Math.abs(r.amt)),Math.abs(C.other),0.0001);
+  return `<div class="amp-sec">Composition</div>
+    <div class="fxa-dims">${dims.map(d=>`<button class="${d[0]===dim?'on':''}"
+      onclick="setFxAcctDim('${d[0]}')">${d[1]}</button>`).join('')}</div>
+    <div class="fxg-vhd">${glEsc(srcAcct(s.acct).name)} <b>${fsM(C.base)}</b>
+      <span class="amap-dim">by ${glEsc((dims.find(d=>d[0]===dim)||[,dim])[1].toLowerCase())}</span></div>
+    <div class="fxa-comp">${C.rows.map(r=>`<div class="fxa-cr">
+      <span class="nm">${glEsc(r.name)}${r.sub?`<span class="sb">${glEsc(r.sub)}</span>`:''}</span>
+      <span class="bar"><i style="width:${Math.min(100,Math.abs(r.amt)/W*100).toFixed(1)}%"></i></span>
+      <span class="v mono">${fsM(r.amt)}</span>
+      <span class="id mono">${glEsc(r.id)}</span></div>`).join('')}
+      ${Math.abs(C.other)>0.05?`<div class="fxa-cr other">
+        <span class="nm">Other<span class="sb">members not individually modelled</span></span>
+        <span class="bar"><i style="width:${Math.min(100,Math.abs(C.other)/W*100).toFixed(1)}%"></i></span>
+        <span class="v mono">${fsM(C.other)}</span><span class="id"></span></div>`:''}
+    </div>
+    <div class="fxa-foot"><span>Total</span><span class="mono">${fsM(C.base)}</span></div>
+    <div class="enr-immut">Each member is a share of this account's governed amount, weighted
+      by the enterprise model's own population &#8212; project capacity, entity count or
+      regional population. Ids are the platform's (${glEsc(dim==='project'?'ENR_PROJECTS'
+      :dim==='entity'?'ORG_ENTITIES':'ORG_NODES')}); Flux keeps no second identity model.</div>`;
+}
+
+/* §20/§21/§22 — the transaction population, on the right basis, with the ERP link. */
+function fxAcctActTab(){
+  const s=fxAcctSel, A=fxAcctActivity(s.line,s.group,s.acct), a=srcAcct(s.acct);
+  const cc=fxComparison();
+  return `<div class="amp-sec">Activity</div>
+    <div class="fxa-basis"><b>${glEsc(A.periodLabel)}</b>
+      ${A.bs?`&#183; the movement from the ${glEsc(perEnd(cc.cmpK))} ending balance to
+        ${glEsc(perEnd(cc.curK))}. A balance-sheet account's activity for a comparison is its
+        movement, never its whole closing population.`
+       :`&#183; the period's posted activity. An income-statement comparison is two activity
+        windows, so the population is this window's.`}</div>
+    <div class="fxg-vhd">Activity to explain <b>${A.total>0?'+':''}${fsM(A.total)}</b></div>
+    <!-- THREE COLUMNS, NOT SEVEN. The brief lists date, journal, entity, account, description,
+         project, dimension, amount and source; nine columns in a 440px dock pushed the AMOUNT
+         off the right edge behind a horizontal scrollbar (observed), which is the one figure
+         the row exists to state. Account is the selected account and constant on every row, so
+         it is dropped rather than repeated; description, project and the ERP link move to a
+         second line under the journal, where they have the width to be read. Nothing is lost
+         and the amount is never scrolled away. -->
+    <table class="tbl fxa-tbl"><thead><tr>
+      <th>Date</th><th>Journal &amp; description</th>
+      <th class="num">Amount</th></tr></thead><tbody>
+    ${A.named.map(t=>{const e=ORG_ENTITIES.find(x=>x.id===t.ent)||{};
+      const p=enrProject(t.prj)||{};
+      return `<tr><td class="fxa-dt">${glEsc(t.dt)}</td>
+        <td><span class="mono">${glEsc(t.id)}</span>
+          <span class="fxa-sub">${glEsc(t.memo)}</span>
+          <span class="fxa-sub">${glEsc(e.displayName||t.ent)}${
+            p.name?' &#183; '+glEsc(p.name):''} &#183; ${erpLink(t.id,t.sys)}</span></td>
+        <td class="num mono">${fsM(t.amt)}</td></tr>`;}).join('')}
+    ${A.named.length?'':`<tr><td colspan="3" class="note">No individually modelled
+      transactions for this account in ${glEsc(perLabel(cc.curK))}.</td></tr>`}
+    ${Math.abs(A.rest)>0.05?`<tr class="fxa-restr">
+      <td colspan="2">Remaining posted activity
+        <span class="fxa-sub">${A.restN.toLocaleString('en-US')} entries &#183; not individually modelled</span></td>
+      <td class="num mono">${fsM(A.rest)}</td></tr>`:''}
+    <tr class="fxa-totr"><td colspan="2">${glEsc(A.bs?'Movement':'Period activity')}</td>
+      <td class="num mono">${A.total>0?'+':''}${fsM(A.total)}</td></tr>
+    </tbody></table>
+    <div class="enr-immut">${A.named.length} of ${A.all.toLocaleString('en-US')} entries are
+      individually modelled &#8212; the enrichment layer's own transaction objects, keyed by
+      source account. The remainder is ONE stated aggregate so the population still foots to
+      the movement; Korvyn does not invent journal numbers. <b>View in ERP</b> opens the source
+      record &#8212; Korvyn reads and traces the ledger, it never posts to it.</div>
+    <div class="amp-acts">
+      <button class="btn-out sm" onclick="fxAcctToLedger(event)">Open in Account activity &#8594;</button></div>`;
+}
+
+/* §29/§30 — what exists today, and what 7C will add, stated rather than mocked. */
+function fxAcctRevTab(){
+  const s=fxAcctSel, st=fxState(s.line), e=fxExplanation(s.line);
+  const r=(typeof fsReview==='function')?fsReview(s.line):null;
+  const G=fxGroupCompare(s.line);
+  const row=(x,y)=>`<div class="amp-r"><span class="k">${x}</span><span class="v">${y}</span></div>`;
+  const kids=G.rows.map(g=>fxChildState(g.v,g.cmp));
+  const roll=fxRollupState([st,...kids]);
+  return `<div class="amp-sec">Review</div>
+    ${row('Explanation owned at','Financial line <span class="amap-dim">'+
+      glEsc((fsLine(s.line)||{}).name||'')+'</span>')}
+    ${row('Line status',st.l?`<span class="trx-sig ${st.c}">${glEsc(st.l)}</span>`
+      :'<span class="amap-dim">no review raised</span>')}
+    ${row('Rolled up',roll.l?`<span class="trx-sig ${roll.c}">${glEsc(roll.l)}</span>
+      <span class="amap-dim">across ${roll.of} account group${roll.of===1?'':'s'}</span>`
+      :'<span class="amap-dim">nothing outstanding beneath this line</span>')}
+    ${r?row('Owner',glEsc(r.owner)):''}
+    ${e?`<div class="trx-note">${glEsc(e.text)}</div>`
+      :`<div class="enr-none">No explanation recorded for this comparison.</div>`}
+    <div class="amp-sec">Account groups beneath this line</div>
+    <div class="fsx-comp">${G.rows.map(g=>{const cs=fxChildState(g.v,g.cmp);
+      return `<div class="fsx-cr" onclick="fxAcctClose();fxDrillToggle('${s.line}','${g.canonId}')">
+        <span class="nm">${glEsc(g.name)}</span>
+        <span class="n">${cs.l||''}</span>
+        <span class="v mono">${g.v>0?'+':''}${fsM(g.v)}</span>
+        <span class="ch">&#8250;</span></div>`;}).join('')}</div>
+    <div class="enr-immut">Explanation responsibility is configurable and is NOT hard-coded to
+      one level (&#167;30): this line owns its explanation today, and the group and account
+      objects carry stable ids so an entity-level or group-level explanation can roll upward
+      without either being re-keyed. Per-level assignment and sign-off are step 7C &#8212;
+      nothing here fabricates a review state that does not exist.</div>`;
+}
+
+/* §23 — the account-level trace, one chain, with the governed versions that produced it. */
+function fxAcctTraceTab(){
+  const s=fxAcctSel, a=srcAcct(s.acct), cc=fxComparison(), cov=fxCoverage(s.line);
+  const cur=fxGroupsAt(s.line,cc.curK,cc.curMonths);
+  const amt=fsAmount(s.line,cc.curK,cc.curMonths);
+  const R=fxAcctReach(s.line,s.acct), res=mapResolve(s.acct,cc.curK);
+  const rc=fxAcctReclass(s.line,s.acct);
+  const step=(k,v,sub,go)=>`<div class="amp-tr-s${go?' go':''}"${go?` onclick="${go}"`:''}>
+    <span class="k">${k}</span><span class="v">${v}</span>
+    ${sub?`<span class="s">${sub}</span>`:''}${go?'<span class="ch">&#8250;</span>':''}</div>`;
+  const arr=t=>`<div class="amp-tr-a">${t}</div>`;
+  return `<div class="amp-sec">Trace</div>
+    <div class="amp-tr">
+      ${step('Financial statement line',glEsc((fsLine(s.line)||{}).name||''),
+        glEsc(fsCrumb(s.line))+' &#183; '+fsM(amt.reported),"fxAcctClose()")}
+      ${arr('decomposed into')}
+      ${step('Account group',glEsc((canon(s.group)||{}).name||''),
+        '<span class="mono">'+glEsc('AG-'+s.line+'-'+s.group)+'</span> &#183; '+
+        fsM((cur.groups.find(g=>g.canonId===s.group)||{}).amt||0))}
+      ${arr('classified as')}
+      ${step('Canonical account','<span class="mono">'+glEsc((canon(s.group)||{}).code||'')+
+        '</span> '+glEsc((canon(s.group)||{}).name||''),
+        glEsc((canon(s.group)||{}).cls||'')+' &#183; natural balance '+
+        glEsc((canon(s.group)||{}).nb||''))}
+      ${arr('mapped from')}
+      ${step('Source account','<span class="mono">'+glEsc(a.code)+'</span> '+glEsc(a.name),
+        '<span class="mono">'+glEsc(a.id)+'</span> &#183; '+fsM(fxAcctAmtIn(cur,s.group,s.acct,cov)),
+        `fxGoMapping('${a.id}',event)`)}
+      ${arr('posted across')}
+      ${step('Entity population',R.entities.toLocaleString('en-US')+' entities',
+        R.modelledEntities.length+' individually modelled &#183; '+
+        glEsc(R.modelledEntities.slice(0,3).map(e=>e.displayName).join(', ')||'none in scope'),
+        "setFxAcctTab('comp')")}
+      ${arr('in')}
+      ${step('GL transactions',R.transactions.toLocaleString('en-US')+' entries',
+        ENR_TXNS.filter(t=>t.acct===s.acct).length+' individually modelled',
+        "setFxAcctTab('act')")}
+      ${arr('from')}
+      ${step('ERP',glEsc(srcSys(a.sys).name),
+        glEsc(erpIns(a.ins).name)+' &#183; '+glEsc(coaOf(a.coa).name))}
+    </div>
+    <div class="amp-sec">Governed versions</div>
+    <div class="amp-r"><span class="k">Current period</span><span class="v">${glEsc(perLabel(cc.curK))}
+      <span class="amap-dim">mapping v${glEsc(amt.mappingVersion)} &#183; enrichment
+      v${glEsc(amt.enrichmentVersion)} &#183; hierarchy ${glEsc(amt.hierarchyVersion)}</span></span></div>
+    <div class="amp-r"><span class="k">Comparison period</span><span class="v">${glEsc(perLabel(cc.cmpK))}
+      <span class="amap-dim">mapping v${glEsc(fsAmount(s.line,cc.cmpK,cc.cmpMonths).mappingVersion)}</span></span></div>
+    <div class="amp-r"><span class="k">Mapping rule</span><span class="v">${res.mapping
+      ?'<span class="mono">'+glEsc(res.mapping.id)+'</span> <span class="amap-dim">'+
+        glEsc((MAP_SCOPE_TYPES[res.mapping.scopeType]||{}).l||'')+' &#183; effective '+
+        glEsc(perLabel(res.mapping.from))+'</span>':'<span class="amap-dim">unmapped</span>'}</span></div>
+    ${rc?`<div class="fxa-warn"><b>The two periods resolved different classifications.</b>
+      ${glEsc(perLabel(cc.cmpK))} &#8594; ${glEsc(rc.fromName||'unmapped')};
+      ${glEsc(perLabel(cc.curK))} &#8594; ${glEsc(rc.toName||'unmapped')}. History is traced
+      <b>as reported</b> &#8212; neither side is recast.</div>`:''}
+    <div class="enr-immut">Downstream usage metadata is carried on the objects this chain
+      names, so a transaction can eventually answer "where is this used" (&#167;24). Those
+      links are not drawn yet &#8212; the identities they need are what this step preserves.</div>`;
+}
+
+/* §28 — the account filters, offered ONLY at the level where they can narrow something, and
+   only where the population actually carries more than one value. A filter over a single ERP
+   instance is a dead control, and this file has spent three passes removing those. */
+function fxAcctControls(){
+  const coas=mapCoasInScope();
+  const pop=SRC_ACCOUNTS.filter(a=>coas.has(a.coa));
+  const ins=[...new Set(pop.map(a=>a.ins))], cs=[...new Set(pop.map(a=>a.coa))];
+  const sel=(k,cur,opts,lbl)=>opts.length<2?'':`<div class="fxa-lvl"><span class="k">${lbl}</span>
+    <select class="fxa-sel" onchange="setFxAcctFilter('${k}',this.value)">
+      <option value="all">All</option>
+      ${opts.map(o=>`<option value="${o.v}" ${cur===o.v?'selected':''}>${glEsc(o.l)}</option>`).join('')}
+    </select></div>`;
+  return sel('erp',fxAcctErp,ins.map(i=>({v:i,l:erpIns(i).name})),'ERP')
+    +sel('coa',fxAcctCoa,cs.map(c=>({v:c,l:coaOf(c).name})),'CoA')
+    +sel('st',fxAcctSt,['mapped','review','conflict','draftchange']
+        .filter(k=>pop.some(a=>mapResolve(a.id,fxComparison().curK).status===k))
+        .map(k=>({v:k,l:MAP_ST[k].l})),'Status')
+    +`<div class="fxa-lvl"><span class="k">Sort</span>
+      <select class="fxa-sel" onchange="setFxSort(this.value)">
+        ${FX_SORTS.map(x=>`<option value="${x[0]}" ${fxSort===x[0]?'selected':''}>${x[1]}</option>`).join('')}
+      </select></div>`;
+}
+
 /* the readiness Close should eventually read instead of keeping its own count */
 function fxReadiness(){
   const root=fsDef(fxStmt).root;
