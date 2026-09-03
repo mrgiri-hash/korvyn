@@ -4171,6 +4171,264 @@ holds · accounts foot to the group on every column · the population's net equa
 component exactly · exports reconcile and a forced mismatch refuses · 0 out-of-period
 transactions in a period population.
 
+## 2026-09-03 — RECONCILIATIONS R2.1: the beginning balance is what the prior period reported
+
+A surgical pass over R1/R2, not a redesign: the page shell, the visual family, the dense table, the
+docked workspace, the Activity Detail layout and its four tabs are unchanged. What changed is
+accounting integrity, and then the clarity around it.
+
+### THE BEGINNING BALANCE IS AS REPORTED — this was a misstatement, not a refinement
+
+R2 allocated the prior period's line balance across the CURRENT groups by their declared shares, and
+allocated each group's beginning across the CURRENT accounts. Both silently recast May under June's
+rules. What that produced was not a rounding artifact:
+
+> Mapping v2026.06.4 split the US and German capex accounts out of the generic CIP bucket. In MAY,
+> **Mechanical CIP had no accounts at all** and Electrical CIP had one. June nonetheless reported a
+> **$993.4M May beginning for Mechanical** — and because activity is the residual, booked the whole
+> reclassification as **June operating activity**.
+
+The bridge is explicit now, and every level foots:
+
+```
+beginning          the prior period's balance of the accounts THIS GROUP HELD THEN
++ classification   the opening balance of accounts that joined the group less those that left,
+  change           valued at the prior period end — membership moving, not money
++ GL activity      what the ledger actually posted in the period
++ adj./other       the governed reporting overlay
+= ending           = trial balance
+```
+
+| Jun 2026 | beginning | + activity | + classification | + adj. | = ending / TB |
+|---|---|---|---|---|---|
+| Electrical CIP | 57.2 | 30.9 | **+612.5** | 5.2 | 705.8 |
+| Mechanical CIP | **0** | 32.7 | **+671.8** | 3.6 | 708.1 |
+| Generators | 349.0 | 16.5 | 0 | 2.3 | 367.8 |
+| Cooling / Other | 3,535.8 | 173.9 | **−1,284.3** | 3.1 | 2,428.4 |
+| **CIP line** | **3,942.0** | 254.0 | **0** | 14.2 | **4,210.2** |
+
+**THE PIECES FOOT BOTH WAYS.** `rcAcctBalance()` gives an account its share of its FINANCIAL LINE's
+governed balance at a period, with the last account taking the remainder — so accounts sum to the
+line exactly, and a move between two groups on one line contributes +x to one and −x to the other
+and **nets to nothing at line level**. Financials, Trending and Flux are untouched, and every
+reconciled line still ties to the statement at both ends in Jun, May and Apr.
+
+**THIS IS NOT A HISTORICAL RECAST ENGINE and must not become one.** It resolves the prior period
+with the prior period's mapping and states the difference. Restating history under today's rules is
+a separate governed act, and R2.1 does not perform it.
+
+**A line Korvyn models no source accounts for falls back to the declared share** — goodwill and
+transformers have no population to compare and must not be given a fabricated one.
+
+**`CLASSIFICATION_CHANGE` is a first-class component** (source `ACCOUNT_MAPPING`), carrying the prior
+and current mapping versions and the affected source account ids. It is emitted only when membership
+actually moved.
+
+**THE TIE-OUT CARRIES THE ACCOUNTS THAT LEFT.** A row for an account held at the prior period end and
+gone now opens with its as-reported balance, has the classification column take it straight back out,
+and ends at nothing. Without those rows the accounts would sum to less than the beginning they are
+supposed to explain.
+
+**MoM MEASURES MOVEMENT, NOT RECLASSIFICATION.** With the bridge in place Electrical opened at 57.2
+and closed at 705.8, so the old MoM read **1,134%** — a number describing a mapping version. The base
+is restated for the classification change, as a comparative always is, and the four CIP groups become
+comparable again: 5.4 / 5.4 / 5.4 / 7.9 against the line's 6.8.
+
+### DATES, EVERYWHERE A BALANCE IS NAMED
+
+`BEG` and `END` said nothing about WHICH balances. Two-line headers now, derived from the selected
+period and nothing hard-coded — choose Jul 2026 and they read Jun 30 / Jul / Jul 31 on their own:
+
+```
+BEGINNING   ACTIVITY   ADJ./OTHER   ENDING    TB        DIFF   MOM
+May 31      Jun                     Jun 30    Jun 30
+```
+
+The same clarity in the docked roll-forward (*Beginning balance · May 31, 2026 · as reported*,
+*Jun 2026 GL activity*, *Calculated ending balance · Jun 30, 2026*), in the Summary figures, and in
+the Activity Detail tie bar.
+
+### "OTHER" NAMES ITSELF
+
+`ADJ./OTHER` in the compact parent tables; in the detailed roll-forward the actual component —
+**Reporting adjustment**, **Classification change** — because the system can now distinguish them and
+hiding a known component behind "Other" is a choice to say less than is known. FX translation, ERP
+remeasurement and eliminations stay declared for R3 and deliberately outside "Other".
+
+### THE REPORTING LENS
+
+Restrained metadata, not roadmap prose: a compact `Coming in R3` tag beside the name, currency and
+basis on the right, no tick gutter on a row that can never be ticked, `aria-disabled`, and the
+argument removed from the menu entirely — it lives in the code and this record. The first cut put
+whole sentences on each row; rows went to 96px, the list hit its cap and scrolled the fourth lens out
+of sight, which is a menu hiding an option in order to explain why another is unavailable.
+
+### WORDING, IN AN ACCOUNTANT'S REGISTER
+
+*"Held by the narrower rule; a rival rule at the same precedence claims it"* is precedence mechanics,
+and precedence is not what a reviewer needs while reading a balance. Now:
+
+> **Population conflict · $182.5M**
+> GL 471100 · Electrical Installation is currently included in Mechanical CIP but is also claimed by
+> another active mapping rule.
+> Total Construction in Progress is unaffected, but the allocation between the groups may change when
+> the mapping conflict is resolved. **Review population →**
+
+The mechanics stay one click away in Population and Trace. The CONTESTED badge explains itself on
+hover (*Competing mapping rule*). Population statuses are one word — In population · Contested ·
+Pending mapping · Claimed · Unmapped — with the explanation in the cell's title, not inside it.
+`Final` reads **Overall** (display only; `finalStatus` is unchanged).
+
+### USABILITY
+
+- **Identity survives a horizontal scroll.** GL # and GL name freeze on the tie-out and the
+  population; posting date, GL # and GL name on the transaction grid. Far enough to keep identity,
+  near enough to leave usable width.
+- **The Accounts tab is `GL account tie-out`**, with a caption stating what it foots to.
+- Transactions lead with the identity and document columns and put transaction date, document #,
+  line #, debit/credit and the functional amounts behind **More columns**. The full model is preserved.
+- The search placeholder **fits** — it was truncating itself at 150px.
+- The Activity Detail header leads with the group, the period, the amount and the counts;
+  reconciliation, population, population version, source GL version, mapping and hierarchy versions,
+  lens and scope fold into **View provenance**.
+
+### THE REPORTING ADJUSTMENT EXAMPLE WAS INCOHERENT
+
+`RA-2026-06-001` was `basis:'management'` and read *"not capitalised under US GAAP"* — while being
+APPROVED, therefore moving the reported figure, on a page presenting Corporate Consolidated / US
+GAAP. **A US GAAP statement cannot include an amount its own note says US GAAP excludes.** It is a US
+GAAP presentation overlay now: *"Approved reclassification of commissioning-related project costs to
+Construction in Progress, pending the ERP reclass entry."* — the treatment is right, the ERP has not
+caught up, and the overlay still says plainly that no journal exists behind it. Display only; no
+figure moved.
+
+### PROTOTYPE ACTIONS DO NOT SPEAK OUR ROADMAP
+
+`R4` / `R5` were our vocabulary, not the product's. The disabled controls name the PHASE OF THE
+PRODUCT — *Support & Evidence phase*, *Review & Sign-off phase* — and remain unpressable. Nothing may
+imply evidence was attached or an approval happened.
+
+**Verified:** 62/62 views · 152/152 definition × activity-tab combinations · console clean · 10/10
+chrome themes AA · content text gate clean · spacing ratchet unchanged at 1072/88 · 0 clipped
+elements · every reconciled line ties to Financials at both ends across Jun/May/Apr · every
+instance's roll-forward exact · accounts foot to their group on every column · exports still validate
+· no transaction-matching workflow introduced · no theme, shell or layout redesign · R3 not started.
+
+## 2026-09-03 — RECONCILIATIONS R3: reporting lenses, FX and consolidation bridges
+
+**THERE IS STILL ONE LEDGER.** No IFRS ledger, no statutory ledger, no tax ledger, no currency
+ledger. Every lens reads the same source facts; what differs is the governed, versioned
+interpretation stacked above them:
+
+```
+ERP GL / TB -> functional-currency facts -> accounting basis -> FX translation
+            -> consolidation / eliminations -> reporting adjustments -> lens balance
+```
+
+### THE PRESENTATION AMOUNT IS THE ANCHOR; THE FUNCTIONAL AMOUNT IS DERIVED FROM IT
+
+A modelling choice, and the one that keeps cross-surface consistency true. Under the corporate
+lens every factor in `rcLensLine()` is 1 or 0 and the result is `fsAmount().reported` byte for
+byte — so a reconciliation and Financials cannot drift. Functional = presentation ÷ period-end
+rate is exact and invertible; nothing is fabricated in either direction.
+
+**The US GAAP lens starts from the REPORTED figure; every other basis starts from the LEDGER.**
+`fsAmount().reported` is source TB plus the approved US GAAP presentation overlays, so under IFRS
+or local GAAP those overlays are not in force: the base is `sourceTB` with that basis's own
+adjustments instead. Otherwise an IFRS balance would silently carry a US GAAP presentation
+decision.
+
+### THE TRANSLATION EFFECT IS A PLUG, AND IT IS THE RIGHT ONE
+
+```
+functional movement           Fmove = Fclose − Fopen
+that movement at the average  Pmove = Fmove × rateAvg
+translation effect            FX    = (Pclose − Popen) − Pmove
+```
+
+The standard CTA derivation. Exactly zero when the rates do not move or the entity already
+reports in the presentation currency — which is why **Germany Statutory shows no FX at all**
+(a EUR lens over a EUR-functional filing entity translates nothing) and **US Tax shows none**.
+That is the architecture working, not an omission.
+
+### THREE FX CATEGORIES, AND THEY CANNOT DOUBLE-COUNT
+
+| | |
+|---|---|
+| **ERP-posted remeasurement** | a real `FXR` journal with a real JE number, inside GL activity, drillable to the transaction. Classified out for visibility — *"of which ERP remeasurement · 7 posted journals · included in GL activity above"* — never added again |
+| **Reporting translation / CTA** | derived from balances and rates. **No journal number is invented.** Its own drill shows the calculation, the rate set, its source, version and approval |
+| **Reporting-lens currency effect** | carried by the lens's own rate set and presentation currency, stamped into the fingerprint |
+
+They are computed from different things — one from the transaction population, one from balances
+and rates — so overlap is structurally impossible. Measured on Mechanical CIP: remeasurement
+$1.507M (7 journals) against derived translation $1.446M (no journal).
+
+### ELIMINATIONS ARE EMBEDDED, NOT ADDED — this was a real error caught in verification
+
+The first cut subtracted eliminations from the lens balance, which put the corporate CIP
+reconciliation **3.789 below Financials**. A consolidated statement is *already* net of group
+eliminations; subtracting them again double-counts. The elimination is now carried as a
+**disclosure of what the level contains**, and the roll-forward shows its **period movement**,
+carved out of activity so a consolidation effect is never reported as operating movement. Same
+treatment for basis adjustments where they are additive to the ledger base.
+
+### A GROUP WITH NO ACCOUNTS IS NOTHING, NOT A SHARE — the second error caught
+
+R2.1's fallback gave a group with no modelled accounts its declared share of the line. With
+siblings using real account balances that share was **added on top**: Mechanical CIP contributed
+993.4 at May for a group that held nothing, and CIP read 4,935.4 against a statement of 3,942.0.
+**A declared share is only safe when every sibling uses one.** The fallback now applies only when
+the LINE itself models no accounts; an account-modelled line gives an empty group zero.
+
+### THE FOUR LENSES ARE OPERATIONAL
+
+| Lens | Population | Basis | Currency | Eliminations | CIP Jun 2026 |
+|---|---|---|---|---|---|
+| Corporate Consolidated | 612 entities | US GAAP | USD | CRS-CORP-2026 | **4,210.2 USD** = Financials |
+| EMEA Reporting Group | 206 EMEA entities | IFRS | EUR | CRS-EMEA-2026 | 1,316.1 EUR |
+| Germany Statutory | 37 German filing entities | Local GAAP | EUR | **none — single filing population** | 232.9 EUR |
+| US Tax Group | 248 US tax entities | Tax | USD | CRS-US-TAX | 1,693.2 USD |
+
+Switching one changes the population, the basis, the presentation currency, the rate set, the
+eliminations, every balance, the roll-forward and the trace. **The basis lives inside the lens**
+so an impossible combination — IFRS under the US tax hierarchy — cannot be selected at all, and
+there is no separate GAAP dropdown. A lens narrower than the scope chip says so on the page
+rather than letting a reader assume the chip governs.
+
+### THE ROLL-FORWARD CARRIES EVERY COMPONENT, EACH WITH A DRILL
+
+Beginning · GL activity (*of which ERP remeasurement*) · Mapping / classification · FX
+translation → **FX bridge** · Eliminations → **Consolidation trace** · Basis adjustment →
+**Basis bridge** · Reporting adjustment → the governed adjustment · Calculated ending · Trial
+balance · Difference. Labels are accountant-facing; the raw enums appear only in Trace and
+provenance.
+
+The **basis bridge** closes with the caveat that matters: the lenses cover different populations
+and currencies as well as different bases, *"so these are not four measurements of one number —
+they are four governed answers to four different questions over the same ledger."*
+
+### FINGERPRINT AND TRACE
+
+The fingerprint now pins `reportingLensId`, `reportingLensVersion`, `reportingBasis`,
+`presentationCurrency`, `fxRateSetId`, `consolidationRuleSetVersion` and
+`reportingAdjustmentSetVersion` alongside the R1/R2 versions — so a later policy or rate change
+cannot silently rewrite a certified balance. Trace now opens at the lens (basis, jurisdiction,
+version) → presentation currency and rate set → population and hierarchy → consolidation rules →
+adjustment set → and only then the reconciliation objects.
+
+### WHAT R3 DID NOT DO
+
+No second ledger. No UI redesign — shell, Control Center, workspace, Activity Detail and its four
+tabs, filter and dropdown behaviour all unchanged. R4 (evidence), R5 (sign-off), R6 (audit
+package), R7 (Excel add-in) and R8 (specialised engines) are untouched. Rate drift is
+representative and stated as such; this is not a treasury administration module.
+
+**Verified:** 62/62 views · 608 lens × definition × activity-tab combinations · every
+roll-forward foots in all four lenses · corporate reconciliation = Financials at both ends across
+Jun/May/Apr/Mar · every derived drill renders under three lenses · exports still validate ·
+console clean · 10/10 chrome themes AA · content text gate clean · spacing ratchet unchanged at
+1072/88.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
