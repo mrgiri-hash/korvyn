@@ -4429,6 +4429,214 @@ Jun/May/Apr/Mar · every derived drill renders under three lenses · exports sti
 console clean · 10/10 chrome themes AA · content text gate clean · spacing ratchet unchanged at
 1072/88.
 
+## 2026-09-03 — RECONCILIATIONS R3.1: currency integrity and traceability refinement
+
+Not a redesign. The Control Center, the docked workspace, Activity Detail and its four tabs,
+the table hierarchy, the filters and the lens control are all where R3 left them. What changed
+is that the figures now say what currency they are in, the trace reads as accounting before it
+reads as lineage, and nothing in provenance is blank.
+
+### THE STALE "$" HAD ONE ROOT CAUSE, AND IT WAS NOT THE LENS
+
+Under Germany Statutory the Summary printed `$3.2M · +$1.5M · $39.0M` over a footer that said
+"In millions of EUR". The engine was right — `rcLensLine()` had translated every figure into
+EUR — and the FORMATTER was `fsM()`, Financials' own, which prints "$" because Financials
+presents the corporate lens. Sixty-four call sites in this module were calling a formatter that
+had no idea a lens existed.
+
+**`rcM()` is that formatter with the symbol resolved from the selected lens's presentation
+currency** (`RC_CCY` · `ccySym()` · `ccyFmt()`), so switching the lens moves every figure on
+the page without a template being touched. Pass a currency to state a specific one (a
+transaction's own, an entity's functional); omit it and the lens governs. USD/EUR/GBP/CAD/
+AUD/SGD/JPY carry a glyph; CHF and the Nordic currencies are written as their code, which is
+what a treasury does. **`fsM()` is untouched and still Financials' formatter** — the two are
+separate because they answer different questions.
+
+The context line had the same disease one level up: `glCtx()` read
+`ENTCTX.presentationCurrency`, which is the enterprise's, so EMEA read "USD · EMEA Reporting
+Group · IFRS". It takes an optional currency now and Reconciliations passes the lens's.
+
+### THE BLANK VERSIONS HAD ONE ROOT CAUSE TOO
+
+`rcInstance()` reads `mappingVersion`, `hierarchyVersion`, `statementVersion` and `dataAsOf` off
+`amounts.currentAmount`. R3 changed that object from `fsAmount()`'s to `rcLensLine()`'s and the
+four fields were left behind — so every trace printed "v" and a blank, and the export manifest
+stamped `undefined`. `rcLensLine()` now carries them; the hierarchy version is the LENS's (a
+lens names its own hierarchy). Two callers also read `L.fxRateSetId`, which never existed (the
+lens holds a prefix), and printed "rate set undefined" — `rcFxSetId(L,p)` is the one derivation.
+
+**Data as of is an instant.** The feed reports "10 min ago", which is right for a health strip
+and wrong for provenance: a snapshot statement has to survive being read next week.
+`rcDataAsOf(p)` is the morning-after-close GL extract, derived from the period, stated as
+representative. Financials still shows the relative feed time; that is outside this brief.
+
+### CURRENCY · LOCAL IS GONE FROM THIS PAGE
+
+The platform Basis tab's `Currency · USD | Local` field rendered on Reconciliations and did
+nothing there — `sliceOk`-style, it moved no figure — while claiming a choice the lens had
+already made. "Local" also has no meaning for a consolidated multi-currency population. `gfTabs()`
+omits the Basis tab on `glrecon` only; every other page keeps it. Functional detail lives where
+it can be honest: the entity drill (**By functional currency**) and the transaction grid, which
+state each entity's and each transaction's own currency. Where functional equals presentation
+the entity view prints "= reported" rather than the same EUR twice (§8).
+
+### ADJ./OTHER OPENS
+
+The one compact column can hold five governed components, and a reader who met "+617.7" had to
+open Trace to learn it was a mapping bridge. The cell keeps its hover title and gains a click:
+`rcAdjPeek()` anchors a small card under the cell — every component, the material ones with
+their amount, the rest as a dash — and the route to the roll-forward. A financial-line cell sums
+its groups component by component, which is how the CIP line correctly shows the classification
+change netting to nothing while its groups show ±600M. **Deliberately not `pop()`**: a pop is an
+option list that traps focus; this is a transient read, the discipline the Flux Explanation peek
+follows. It closes on outside click, Escape, any scroll and every repaint.
+
+### TRACE: TWO SECTIONS, THE ACCOUNTING FIRST
+
+**How this balance is built** — opening balance → GL activity (of which ERP remeasurement,
+included and not added again) → mapping / classification change → basis adjustment → FX
+translation → consolidation / elimination → reporting adjustment → reported ending balance →
+trial balance / Financials. One `.rcx-tn` node per component, and every material node opens the
+surface that supports it. A component that does not apply says so in a clause — *"FX
+translation · Not required · EUR → EUR"* — quieter than one carrying money, never as a block.
+
+**Provenance** — lens (id, version), basis (jurisdiction), presentation currency, functional
+currencies, population, hierarchy (version), mapping (version, state), statement definition
+(version), FX rate set, consolidation rules (`N/A — single filing population` where there are
+none), reporting adjustment set, reconciliation definition (version, effective), GL snapshot,
+TB snapshot (now the lens's: `TB-2026-06-DE-STAT`), data as of, revision, fingerprint. **No
+blank and no bare "v".**
+
+The R1/R2 chain is kept whole under **Show technical lineage** — it was reordered, not removed.
+
+### THE BASIS BRIDGE HOLDS THE CURRENCY STILL
+
+Three things can differ between two lenses — basis, currency and population — and a bridge that
+lets all three move at once is a number nobody can read. `rcBasisBody()` is now three tables:
+this lens's bridge (source → adjustment → basis balance, in its own currency); **every basis
+over this population in this currency**, so the only thing that moves down the column is the
+basis; and the other lenses in their own currency AND translated into this one at the
+period-end cross rate, in two columns, with the caveat that their populations differ. FX trace
+and consolidation trace stay their own panes.
+
+### A TRANSACTION BELONGS TO AN ENTITY THE LENS INCLUDES
+
+Found from the EMEA composition frame: broken down by functional currency it read **USD and
+CAD** — under a lens whose population is 206 EMEA entities. `rcTxPool()` drew a transaction's
+entity from every entity that posts to the account, ignoring the lens, while
+`rcEntityBalances()` had already narrowed to the lens population. The pool now applies the same
+rule (the account's entities within the lens, else the lens's first entity), so Composition,
+the transaction grid, the entity filter and the functional-currency list all describe the
+population the balance was resolved over. Amounts are targets and did not move; exports still
+validate; population difference is still nothing. The remeasurement rule was widened with it:
+an FXR journal survives where the entity's functional currency differs from the presentation
+currency **or the document was denominated in a third currency** (a EUR entity's USD invoice),
+so a EUR-functional population under a EUR lens still shows the ERP remeasurement it really
+posts rather than losing it with the foreign entities.
+
+### A DRILL OPENED FROM THE DOCK NOW RENDERS
+
+Pre-existing R3 gap found while wiring the trace routes: `rcDrillPane()` was mounted only by
+Activity Detail, so the roll-forward's **FX bridge / Consolidation trace / Basis bridge** buttons
+in the docked panel set `rcDrill` and drew nothing. The drill takes the panel's place while open
+and Close returns to it.
+
+### SMALLER, EACH REAL
+
+- `rcN()` and `ccyFmt()` print an em dash for nothing and `<0.1` / `<€0.1M` for a figure that is
+  real but below the display precision — never `($0.0M)` (§16).
+- "Mapping / classification" reads **"Mapping / classification change"** in the roll-forward,
+  the tie bar and the Adj./Other title (§14).
+- The Activity tab and the Activity Detail provenance state presentation currency, functional
+  currencies, basis and rate set (§22, §23). `functionalCurrency` on the instance is the actual
+  list, not "multi-currency population".
+- Composition's Activity column names its currency (§26). The export manifest carries
+  `presentationCurrency` and `reportingBasis`.
+- `reconAiContext()` returns the structured context §43 lists — lens, basis, currency,
+  population, versions, rate set, rules, adjustment set, and the open instance with its
+  fingerprint and amounts — and `cpContext()` renders its one line in the assistant:
+  *"Looking at: Reconciliations · Jun 2026 · EUR · Germany Statutory · Local GAAP · Electrical
+  CIP · REC-CIP-ELECTRICAL-2026-06"*. No AI surface was built.
+
+### CROSS-SURFACE, STATED HONESTLY
+
+Financials, Trending and Flux have no lens selector; they present the corporate lens (USD ·
+US GAAP), and the corporate lens in Reconciliations resolves `fsAmount().reported` byte for byte,
+so the four agree there. Under any other lens the Trace's last node says so — *"Financials
+presents Corporate Consolidated · USD; this balance is that figure restated under the lens"* —
+rather than letting **Open Financials** imply a EUR statement exists. Giving those pages a lens is
+R3.5 and was not started.
+
+**Verified:** 62/62 views render · console clean · 10/10 chrome themes AA · content text gate
+clean · spacing ratchet unchanged at 1072/88 · all four lenses: 0 foreign symbols on the page or
+in any dock tab, Activity Detail tab or drill · the switching cycle Corporate → EMEA → Germany →
+US Tax → Corporate leaves no stale currency, basis, population, rate set, rule set or adjustment
+set · the peek opens on click, suppresses the row click, closes on outside click and Escape · the
+Basis tab is absent on `glrecon` and present elsewhere · 273 numeric grid cells, none reading
+`0.0`.
+
+## 2026-09-03 — context-preserving navigation: trace → inspect → return
+
+Owner's brief: a link from Reconciliations to Financials, Flux, Account Mapping, Trending or
+the adjustment must land on the governed object it names, never on a module's front door, and
+the user must be able to come back to exactly the work they left — without relying on the
+browser's Back and without an ERP-style breadcrumb chain.
+
+### THE MODEL IS NAVIGATION STATE, NOT FINANCIAL STATE
+
+`NAVCTX` (shell) holds one origin: `originSurface` · `originObjectId` · `originTab` ·
+`originLabel` · `originContext` · `periodId` · `scopeId` · `reportingLensId` ·
+`financialLineId` · `reconciliationGroupId` · `activityPopulationId` · `comparisonId` ·
+`mappingVersion` · `sourceAccountId` · `scrollPosition` · and the origin's own `restore()`.
+Nothing in it is a balance; every figure re-derives on return. `navGo(ctx, dest)` sets it and
+runs the destination; `navReturn()` calls the origin's restore; `paintNavRet()` is painted by
+the `renderAll` wrapper after every render, so the strip is on the destination and nowhere else.
+
+**ONE HOP, BY DESIGN.** The context is dropped the moment the user is on any tab other than the
+destination it was created for. A return strip that survives three pages of wandering is a
+breadcrumb chain. The shell's history stack (the title-row chevron) is untouched and still
+works beside it.
+
+**THE STRIP IS ONE LINE** (`#navRet`, `.navret`): *← Back to Electrical CIP reconciliation ·
+Jun 2026 · Germany Statutory · Trace*, and, when the lens is not corporate, the note that
+Financials, Flux and Trending present Corporate Consolidated · USD — stated on the strip rather
+than letting the destination imply a EUR statement exists.
+
+### THE ORIGIN SNAPSHOTS ITS OWN UI AND NOTHING ELSE
+
+`rcNavCtx()` (Reconciliations) is the one place the origin is described; `rcRestore()` the one
+place it is reinstated: lens, selected row, dock tab, Activity Detail and its tab, quick view,
+search, status and reviewer filters, expanded lines, open drill, folded lineage, activity
+filters, expanded accounts, page scroll and dock scroll. The period and the enterprise scope are
+the book's and the enterprise's: they are put back only if the user moved them while away, and
+through their own writers (`setPeriod`, `ENTCTX.scope`).
+
+**The dock animates in, and a scrollTop set during the entrance clamps to zero** (observed):
+the restore re-applies the scroll on a short retry until it sticks.
+
+### EVERY OUTBOUND LINK LANDS ON THE OBJECT
+
+Nineteen call sites in the module went through `rcGo*`; the only `pickTab` calls left in it are
+inside those functions and the restore.
+
+| link | lands on |
+|---|---|
+| Open Financials · Financial line · Open the adjustment | `fsReveal(lineId)`: the right statement, every ancestor opened, the row selected and scrolled to; `adj` tab where asked |
+| Open Flux | the Flux statement line the population's accounts roll into (`KFX.lineForAcct`), else the `RC_FS_FLUX` crosswalk — a NAVIGATION aid between two statement models with no shared id, not a second mapping; unifying them is R3.5. `comparisonId` is recorded from Flux's own grain/compare |
+| Review mapping · Account mapping | the account open (`amapOpen`), or the group's rules on screen — searched by the canonical account its rule names, else its mapping group, else its financial line, because the mapping rows carry those and not the definition's name |
+| Incomplete mapping banner | Account Mapping filtered to Unmapped |
+| Trending | the line selected with its ancestors opened |
+| Open the adjustment (band) | Data Enrichment on the adjustment |
+| ERP sources | Sync, with the return |
+| View activity | unchanged — it already resolves the exact `activityPopulationId` on this surface |
+
+**Verified:** Financials arrives on FS-CIP with PP&E opened and the row selected, the strip
+reads the origin and survives a tab change inside Financials; return restores lens, row, tab,
+page scroll and dock scroll; Flux arrives on `recost` on the balance sheet with `m/seq` recorded;
+Mapping arrives on the account or the group's rules; Trending arrives on FS-CIP; navigating to
+an unrelated tab clears the context and hides the strip; 62/62 views render; console clean;
+three gates green.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

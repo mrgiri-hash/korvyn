@@ -1685,9 +1685,46 @@ body.amap-open .main{padding-right:calc(420px + var(--s-4))}
 /* a classified SUBcomponent — inside the line above it, not added to it (R3 §31) */
 .rcx-rf.sub .l{padding-left:var(--s-6);color:var(--muted)}
 .rcx-rf.sub .v{color:var(--muted)}
-/* a compact cell carrying more than one component says so with a hairline underline */
-.rcx-tbl td.rcx-multi{text-decoration:underline dotted var(--border-strong);
-  text-underline-offset:3px;cursor:help}
+/* a compact Adj./Other cell that carries anything says so with a hairline underline and
+   opens its breakdown on click (R3.1 §13) */
+.rcx-tbl td.rcx-adjc{text-decoration:underline dotted var(--border-strong);
+  text-underline-offset:3px;cursor:pointer}
+.rcx-tbl td.rcx-adjc:hover{color:var(--accent-ink)}
+/* the breakdown card — a transient read anchored to the cell. A true overlay, so it is the
+   one thing on this page allowed the overlay shadow (rule 5); it is not a menu and not .pop */
+.rcx-peek{position:fixed;z-index:95;width:300px;max-width:calc(100vw - 16px);
+  background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius-xs);
+  box-shadow:var(--shadow-md);padding:var(--s-2) var(--s-3);font-size:var(--fs-table);
+  color:var(--ink)}
+.rcx-peek-h{display:flex;justify-content:space-between;gap:var(--s-3);
+  padding-bottom:var(--s-2);border-bottom:1px solid var(--line2);font-weight:var(--fw-medium)}
+.rcx-peek-r{display:flex;justify-content:space-between;gap:var(--s-3);padding:var(--s-1) 0;
+  border-bottom:1px solid var(--line)}
+.rcx-peek-r.nil{color:var(--hint)}
+.rcx-peek-r b,.rcx-peek-h b{font-weight:var(--fw-medium);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+.rcx-peek-n{padding-top:var(--s-2);font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
+.rcx-peek-n .fsx-link{display:block;margin-top:var(--s-1);padding:0}
+/* ---- TRACE · HOW THIS BALANCE IS BUILT (R3.1 §18). One compact node per component: label
+   left, figure right, the clause and the route beneath. A node that does not apply (`.na`)
+   reads quieter than one that carries money; the two balances (`.tot`) carry an edge. The
+   connector between nodes is a short hairline, not a labelled arrow — the labels are the
+   nodes. */
+.rcx-tn{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 var(--s-3);
+  align-items:baseline;padding:var(--s-2) var(--s-3);background:var(--n-50);
+  border-radius:var(--radius-xs)}
+.rcx-tn .k{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)}
+.rcx-tn .v{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink);
+  text-align:right;white-space:nowrap}
+.rcx-tn .s{grid-column:1/-1;font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
+.rcx-tn .a{grid-column:1/-1;padding-top:var(--s-1)}
+.rcx-tn.na .k,.rcx-tn.na .v{color:var(--muted);font-weight:var(--fw-regular)}
+.rcx-tn.tot{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line2)}
+.rcx-ta{height:var(--s-3);margin-left:var(--s-3);border-left:1px solid var(--line2)}
+.rcx-tracehd{display:flex;align-items:baseline;gap:var(--s-2);padding:var(--s-1) 0 var(--s-2);
+  font-size:var(--fs-table)}
+.rcx-tracehd .amt{font-family:var(--num);font-variant-numeric:tabular-nums;
+  font-size:var(--fs-card);font-weight:var(--fw-strong);color:var(--ink)}
 .rcx-rf.tot{border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}
 .rcx-rf.tot .l,.rcx-rf.tot .v{font-weight:var(--fw-medium)}
 .rcx-rf.diff{border-top:1px solid var(--line2);border-bottom:0}
@@ -1939,7 +1976,8 @@ body.amap-open .main{padding-right:calc(420px + var(--s-4))}
 .rcx-je-tbl{table-layout:auto;width:100%;margin-top:var(--s-2)}
 .rcx-je-tbl th,.rcx-je-tbl td{padding:var(--s-2) var(--s-2);font-size:var(--fs-table);
   border-bottom:1px solid var(--line);text-align:left}
-.rcx-je-tbl th{font-size:var(--fs-label);color:var(--muted)}
+/* a heading may wrap in a 420px dock; the figures beneath it never do */
+.rcx-je-tbl th{font-size:var(--fs-label);color:var(--muted);white-space:normal}
 .rcx-je-tbl td.num,.rcx-je-tbl th.num{text-align:right;font-family:var(--num);
   font-variant-numeric:tabular-nums}
 .rcx-je-tbl tr.here td{background:var(--accent-bg)}
@@ -3429,6 +3467,20 @@ body.settings-open .main{margin-right:var(--panel-w)}
    capped at a consumer max-width. A generous ceiling keeps very wide monitors from stretching
    line lengths past readability without wasting a 1920 display. */
 .content{padding:16px var(--pad-content) 32px;max-width:1760px;width:100%;margin:0 auto}
+/* CONTEXTUAL RETURN (2026-09-03). One quiet line at the top of the content: the way back to
+   the working object a cross-module link came from, and the context it carries. Not a
+   breadcrumb chain — one origin, one control, gone the moment the user is anywhere else. */
+.navret{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s-2) var(--s-4);
+  min-height:var(--h-section);margin-bottom:var(--s-3);padding:0 var(--s-3);
+  border:1px solid var(--line2);border-radius:var(--radius-xs);background:var(--surface);
+  font-size:var(--fs-table)}
+/* `display:flex` would otherwise beat the hidden attribute and leave an empty box (observed) */
+.navret[hidden]{display:none}
+.navret-b{border:0;background:none;padding:0;font:inherit;font-size:var(--fs-table);
+  font-weight:var(--fw-medium);color:var(--accent);cursor:pointer;white-space:nowrap}
+.navret-b:hover{color:var(--accent-ink);text-decoration:underline}
+.navret-c{color:var(--muted)}
+.navret-n{color:var(--hint);font-size:var(--fs-label)}
 
 /* ---- global command bar (spotlight style) ---- */
 .cmdwrap{margin-bottom:18px}
@@ -9392,6 +9444,9 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
   </div>
 
   <div class="content">
+    <!-- CONTEXTUAL RETURN (2026-09-03) — painted by paintNavRet() when a cross-module link
+         carried its origin; one line, one control, hidden everywhere else -->
+    <div class="navret" id="navRet" hidden></div>
     <!-- AI INTRO STRIP (the copilot on the right is the hub) -->
     <div class="lensq" id="lensqBig"></div>
 
@@ -31779,13 +31834,17 @@ const glSurfActions=glExport;
    The currency comes from ENTCTX.presentationCurrency, which is a USER/REPORTING choice and
    deliberately not an entity attribute. There is no picker for it yet; reading it here is
    what makes adding one later a UI change rather than a hunt through hard-coded "USD". */
-function glCtx(extra){
+function glCtx(extra,ccy){
   const parts=[];
   if(GLF.ent!=='all') parts.push(`<b>${glEsc(GLF.ent)}</b>`);
   /* the period is INHERITED, never stated as a literal — this one line reaches
      every General Ledger page's subhead */
   parts.push(perLabel(viewPeriod()));
-  parts.push((typeof ENTCTX!=='undefined'&&ENTCTX.presentationCurrency||'USD').toUpperCase());
+  /* a page whose context sets its own presentation currency — Reconciliations under a
+     reporting lens (R3.1 §3, §9) — states THAT one; every other GL page reads the
+     enterprise's. The EMEA lens read "USD · EMEA Reporting Group · IFRS" because this line
+     never asked. */
+  parts.push((ccy||(typeof ENTCTX!=='undefined'&&ENTCTX.presentationCurrency)||'USD').toUpperCase());
   (extra||[]).forEach(x=>parts.push(x));
   return parts.join('<span class="sep">·</span>');
 }
@@ -32407,6 +32466,24 @@ function setFsPres(p){ fsPres=p; renderGLFin(); }
 function fsToggle(id,ev){ if(ev&&ev.stopPropagation)ev.stopPropagation();
   fsOpen[id]=!fsOpen[id]; renderGLFin(); }
 function fsPick(id){ fsSel=id; fsTab='sum'; fsCompNode='grp'; renderGLFin(); }
+/* ---- REVEAL A LINE (2026-09-03). A cross-module link lands on the line it names: the right
+   statement, every ancestor opened, the row selected and scrolled into view. Navigation, not
+   state — the figure on the row is whatever `fsAmount()` says. */
+function fsAncestors(id){ const out=[]; let n=fsLine(id);
+  while(n&&n.parent){ out.push(n.parent); n=fsLine(n.parent); } return out; }
+function fsStmtOf(id){ const anc=fsAncestors(id); const top=anc.length?anc[anc.length-1]:id;
+  const d=FS_DEFS.find(x=>x.root===top); return d?d.type:null; }
+function fsReveal(id){
+  if(!fsLine(id)) return;
+  const st=fsStmtOf(id); if(st&&st!==fsStmt){ fsStmt=st; fsOpen={}; }
+  if(!Object.keys(fsOpen).length) fsOpen=fsDefaultOpen(fsDef(fsStmt).root);
+  fsAncestors(id).forEach(a=>{ fsOpen[a]=true; });
+  fsPick(id);
+  /* nearest, not center: a row already on screen stays where it is, and the return strip at
+     the top of the page is not scrolled away for a line three rows down */
+  requestAnimationFrame(()=>{ const r=document.querySelector('#view-glfin .fsx-r.on');
+    if(r) r.scrollIntoView({block:'nearest'}); });
+}
 function fsCloseSel(){ fsSel=null; renderGLFin(); }
 function setFsTab(t){ fsTab=t; renderGLFin(); }
 function fsCompGo(id){ fsCompNode=id; renderGLFin(); }
@@ -38023,7 +38100,15 @@ function rcLensLine(lineId,k,lensId){
     populationShare:share, populationAmount:pop,
     presentationCurrency:L.presentationCurrency, rate, rateType:rType,
     currencyAmount:cur, basisAdjustment:basis, elimination:elim, eliminationEmbedded:true,
-    reported:+(cur+basis).toFixed(3)};
+    reported:+(cur+basis).toFixed(3),
+    /* R3.1 §21 — THE VERSIONS RIDE WITH THE FIGURE. `rcInstance()` reads mapping, hierarchy,
+       statement and data-as-of off this object; R3 swapped the object from `fsAmount()`'s to
+       this one and they were left behind, which is why every trace printed "v" and a blank.
+       The hierarchy is the LENS's (a lens names its own hierarchy), the rest is the governed
+       statement's. */
+    mappingVersion:A.mappingVersion, enrichmentVersion:A.enrichmentVersion,
+    hierarchyVersion:L.hierarchyVersion||A.hierarchyVersion,
+    statementVersion:A.statementVersion, dataAsOf:rcDataAsOf(p)};
   return (_rcLensBalCache[ck]=out);
 }
 
@@ -38359,7 +38444,9 @@ function rcComponents(inst){
    stable digest of the fields above it — comparing two fingerprints is one string compare. */
 function rcFingerprint(inst){
   const L=rcLens(inst.reportingLensId);
-  const f={sourceTBVersion:'TB-'+inst.periodId+'-'+inst.scopeId,
+  /* the TB and GL snapshots are the LENS's — a certified Germany Statutory balance was read
+     off the German filing population's trial balance, not the group's */
+  const f={sourceTBVersion:'TB-'+inst.periodId+'-'+L.reportingLensId.replace(/^RL-/,''),
     sourceGLSnapshotId:'GLS-'+inst.periodId+'-'+L.reportingLensId,
     mappingVersion:inst.mappingVersion, hierarchyVersion:inst.hierarchyVersion,
     definitionVersion:inst.definitionVersion, statementVersion:inst.statementVersion,
@@ -38479,6 +38566,9 @@ function rcInstance(defId,k,lensId){
   const p=k||viewPeriod(), L=rcLens(lensId), scope=ENTCTX.scope;
   const amounts=rcAmounts(def,p), pop=rcPopulation(def,p);
   const st=rcState(defId);
+  /* R3.1 §5, §22 — the functional currencies the population ACTUALLY holds, read off the
+     entity contributions. "multi-currency population" was a placeholder and it printed as one. */
+  const fccy=[...new Set(rcEntityBalances(def,p,L.reportingLensId).map(e=>e.functionalCurrency))];
   const inst={
     reconciliationInstanceId:defId+'-'+p,
     reconciliationDefinitionId:defId,
@@ -38488,9 +38578,10 @@ function rcInstance(defId,k,lensId){
     mappingVersion:amounts.currentAmount.mappingVersion,
     hierarchyVersion:amounts.currentAmount.hierarchyVersion,
     statementVersion:amounts.currentAmount.statementVersion,
-    functionalCurrency:'multi-currency population',
-    presentationCurrency:L.presentationCurrency,
-    currencyBasis:def.currencyBasis, fxRateSetId:L.fxRateSetId,
+    functionalCurrencies:fccy,
+    functionalCurrency:fccy.join(' · ')||L.presentationCurrency,
+    presentationCurrency:L.presentationCurrency, reportingBasis:L.reportingBasis,
+    currencyBasis:def.currencyBasis, fxRateSetId:rcFxSetId(L,p),
     beginningBalance:amounts.beginning, activityAmount:amounts.activityAmount,
     classificationChange:amounts.classificationChange,
     otherMovementAmount:amounts.otherMovementAmount,
@@ -38604,7 +38695,7 @@ function rcTraceTog(k){ rcTraceOpen[k]=!rcTraceOpen[k]; renderAll(); }
 
 /* ONE COMPACT NUMBER FORMAT for the grid — millions, one decimal, parentheses for a credit,
    an em dash for nothing. The unit is stated once in the table foot rather than on 400 cells;
-   the workspace uses fsM() where a single figure can afford to carry its own unit. */
+   the workspace uses rcM() where a single figure can afford to carry its own unit. */
 /* ---- COLUMN DATES, DERIVED FROM THE PERIOD (R2.1 §3, §29). "BEG" and "END" said nothing about
    WHICH balances they were; a reconciliation column that does not name its date makes a reader
    check the header of the page to know whether the beginning is May or April. Two-line headers,
@@ -38617,10 +38708,54 @@ function rcColHead(nm,sub,cls,title){
     +'<span class="rcx-h1">'+nm+'</span>'
     +(sub?'<span class="rcx-h2">'+sub+'</span>':'')+'</th>';
 }
+/* R3.1 §16, §41 — ZERO IS A DASH, NOT "0.0". A grid cell that rounds to nothing prints an em
+   dash; a cell that is genuinely non-zero but below the display precision says so ("<0.1")
+   rather than pretending to be zero, because a reconciliation column is read for whether
+   something is there. `(<0.1)` for a credit keeps the sign convention of the column. */
 function rcN(v){ if(v==null||isNaN(v)) return '&mdash;';
-  if(Math.abs(v)<0.05) return '&mdash;';
-  const s=Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const n=Math.abs(v);
+  if(n<0.0005) return '&mdash;';
+  if(n<0.05) return v<0?'(&lt;0.1)':'&lt;0.1';
+  const s=n.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
   return v<0?'('+s+')':s; }
+
+/* ==========================================================================================
+   CURRENCY (R3.1 §7). ONE FORMATTER, AND THE SYMBOL COMES FROM THE CONTEXT.
+   ==========================================================================================
+   `rcM()` is the Financials formatter and it prints "$" because Financials presents the
+   corporate lens. This module presents whichever lens is selected, and every "$" it printed
+   under Germany Statutory or EMEA came from calling `rcM()` in a template that had no idea a
+   lens existed — 60-odd call sites, one root cause. `rcM()` is that formatter with the symbol
+   resolved from the SELECTED LENS's presentation currency, so switching the lens moves every
+   figure on the page without a template being touched. Pass a currency to state a specific
+   one (a transaction's own, an entity's functional); omit it and the lens governs.
+
+   The symbol table is a table, not two branches: CHF and the Nordic currencies have no glyph
+   and are written as their code, which is what a treasury does. */
+const RC_CCY={USD:'$',EUR:'€',GBP:'£',CAD:'C$',AUD:'A$',SGD:'S$',JPY:'¥',
+  CHF:'CHF ',SEK:'SEK ',PLN:'PLN ',DKK:'DKK ',NOK:'NOK '};
+const ccySym=c=>RC_CCY[c]||(String(c||'')+' ');
+const rcCcy=()=>rcLens().presentationCurrency;
+/* millions at one decimal, billions at three so 4,196.0M reads 4.196B and still ties to the
+   column; parentheses for a credit; an em dash for nothing; "<sym0.1M" for a figure that is
+   real but below the display precision (§16) */
+function ccyFmt(v,ccy){
+  if(v==null||isNaN(v)) return '&mdash;';
+  const n=Math.abs(v), s=ccySym(ccy||rcCcy());
+  if(n<0.0005) return '&mdash;';
+  const t=n<0.05 ? '&lt;'+s+'0.1M' : n>=1000 ? s+(n/1000).toFixed(3)+'B' : s+n.toFixed(1)+'M';
+  return v<0?'('+t+')':t;
+}
+const rcM=(v,ccy)=>ccyFmt(v,ccy);
+/* the lens's rate set for a period — the lens carries a PREFIX, and two call sites had read a
+   `fxRateSetId` off it that never existed, printing "rate set undefined" */
+const rcFxSetId=(L,p)=>(L||rcLens()).fxRateSetPrefix+'-'+(p||viewPeriod());
+/* DATA AS OF IS AN INSTANT, NEVER "10 min ago" (§21). The feed reports its freshness
+   relatively, which is right for a health strip and wrong for provenance: a snapshot statement
+   has to survive being read next week. The population is read at the morning-after-close GL
+   extract, derived from the period so it moves with it. Representative, and stated as such. */
+function rcDataAsOf(k){ const n=perParts(perAdd(k||viewPeriod(),1));
+  return PMN[n.m]+' 1, '+n.y+' · 06:42'; }
 function rcPctN(v){ if(v==null||isNaN(v)) return '&mdash;';
   const s=Math.abs(v).toFixed(1)+'%'; return v<0?'('+s+')':s; }
 const rcPill=(map,k,sm)=>{const s=map[k]||{l:k,c:''};
@@ -38715,16 +38850,14 @@ function rcBodyHTML(){
       +'<td class="num">'+rcN(a.activityAmount)+'</td>'
       +(()=>{ /* §30 — one column, and the hover states what it is made of rather than adding
                  five permanent columns to a table that has to stay readable */
-        const parts=[];
-        if(Math.abs(a.classificationChange||0)>=0.05) parts.push('Mapping / classification '+rcN(a.classificationChange));
-        if(Math.abs(a.fxTranslation||0)>=0.05) parts.push('FX translation '+rcN(a.fxTranslation));
-        if(Math.abs(a.elimination||0)>=0.05) parts.push('Eliminations '+rcN(a.elimination));
-        if(Math.abs(a.basisAdjustment||0)>=0.05) parts.push('Basis adjustment '+rcN(a.basisAdjustment));
-        if(Math.abs(a.otherMovementAmount||0)>=0.05) parts.push('Reporting adjustment '+rcN(a.otherMovementAmount));
-        const tot=+((a.otherMovementAmount||0)+(a.classificationChange||0)+(a.fxTranslation||0)
-          +(a.elimination||0)+(a.basisAdjustment||0)).toFixed(3);
-        return '<td class="num'+(parts.length>1?' rcx-multi':'')+'"'
-          +(parts.length?' title="'+glEsc(parts.join(' \u00b7 '))+'"':'')+'>'+rcN(tot)+'</td>';})()
+        /* R3.1 \u00a713 \u2014 and a CLICK opens the breakdown as a card, so a +617.7 never has to
+           be decoded in Trace */
+        const parts=rcAdjParts(a), tot=rcAdjTotal(a);
+        const key=r.inst?r.inst.reconciliationDefinitionId:('line:'+r.node.id);
+        return '<td class="num'+(parts.length?' rcx-adjc':'')+'"'
+          +(parts.length?' title="'+glEsc(parts.map(x=>x.l+' '+rcN(x.v)).join(' \u00b7 '))
+            +' \u2014 click for the breakdown" onclick="rcAdjPeek(\''+key+'\',this,event)"':'')
+          +'>'+rcN(tot)+'</td>';})()
       +'<td class="num">'+rcN(a.endingCalculatedBalance)+'</td>'
       +'<td class="num">'+rcN(a.trialBalanceAmount)+'</td>'
       +'<td class="num'+(Math.abs(a.difference)>=0.05?' rcx-diff':'')+'">'+rcN(a.difference)+'</td>'
@@ -38737,6 +38870,65 @@ function rcBodyHTML(){
 function rcPaintCount(){
   const el=document.getElementById('rcCount'); if(!el) return;
   el.textContent=rcRows().filter(r=>r.kind!=='sec').length+' shown';
+}
+
+/* ---- ADJ./OTHER SAYS WHAT IT IS MADE OF (R3.1 §13, §39). One column carries up to five
+   governed components, and a reader who met "+617.7" had to open Trace to learn it was a
+   mapping bridge. The cell keeps its hover title and gains a click: a small card anchored
+   under the cell listing every component — the material ones with their amount, the rest as
+   a dash so the absence is stated — and the route to the roll-forward.
+
+   DELIBERATELY NOT THE pop() SYSTEM. A pop is an option list that traps focus; this is a
+   transient read, the same discipline the Flux Explanation peek follows. It closes on an
+   outside click, Escape, any scroll, and every repaint (`renderGLRecon` calls
+   `rcPeekClose()` first), so it can never outlive the cell it was anchored to.             */
+const RC_ADJ_PARTS=[['classificationChange','Mapping / classification change'],
+  ['fxTranslation','FX translation'],['elimination','Eliminations'],
+  ['basisAdjustment','Basis adjustment'],['otherMovementAmount','Reporting adjustment']];
+function rcAdjParts(a){ return RC_ADJ_PARTS.map(x=>({k:x[0],l:x[1],v:a[x[0]]||0}))
+  .filter(x=>Math.abs(x.v)>=0.0005); }
+function rcAdjTotal(a){ return +RC_ADJ_PARTS.reduce((s,x)=>s+(a[x[0]]||0),0).toFixed(3); }
+function rcPeekClose(){ const p=document.getElementById('rcPeek'); if(p) p.remove();
+  document.removeEventListener('mousedown',rcPeekOut);
+  document.removeEventListener('keydown',rcPeekKey); }
+function rcPeekOut(e){ const p=document.getElementById('rcPeek');
+  if(p&&!p.contains(e.target)) rcPeekClose(); }
+function rcPeekKey(e){ if(e.key==='Escape') rcPeekClose(); }
+function rcAdjPeek(key,el,ev){
+  if(ev&&ev.stopPropagation) ev.stopPropagation();
+  rcPeekClose();
+  const k=viewPeriod(), L=rcLens();
+  let a, title, act='';
+  if(key.indexOf('line:')===0){
+    /* a financial line's cell is the sum of its groups' components, component by component */
+    const roll=rcLineRoll(key.slice(5),k); if(!roll) return;
+    a={}; RC_ADJ_PARTS.forEach(x=>a[x[0]]=+roll.instances
+      .reduce((s,i)=>s+(i.amounts[x[0]]||0),0).toFixed(3));
+    title=(fsLine(key.slice(5))||{}).name||'';
+  }else{
+    const def=rcDef(key); if(!def) return;
+    a=rcAmounts(def,k); title=glEsc(def.name);
+    act='<button class="fsx-link" onclick="rcPeekClose();rcPick(\''+key
+      +'\');setRcTab(\'roll\')">Open roll-forward &#8594;</button>';
+  }
+  const tot=rcAdjTotal(a);
+  const d=document.createElement('div'); d.id='rcPeek'; d.className='rcx-peek';
+  d.setAttribute('role','dialog'); d.setAttribute('aria-label','Adj./Other breakdown');
+  d.innerHTML='<div class="rcx-peek-h"><span>'+title+' · Adj./Other</span><b class="mono">'
+    +(tot>0?'+':'')+rcM(tot)+'</b></div>'
+    +RC_ADJ_PARTS.map(x=>{ const v=a[x[0]]||0, nil=Math.abs(v)<0.0005;
+      return '<div class="rcx-peek-r'+(nil?' nil':'')+'"><span>'+x[1]+'</span><b class="mono">'
+        +(nil?'&mdash;':(v>0?'+':'')+rcM(v))+'</b></div>'; }).join('')
+    +'<div class="rcx-peek-n">Governed components in '+glEsc(L.presentationCurrency)
+    +' · none is an ERP posting'+act+'</div>';
+  document.body.appendChild(d);
+  const r=el.getBoundingClientRect(), w=d.offsetWidth, h=d.offsetHeight;
+  let x=Math.min(r.right-w, window.innerWidth-w-8); if(x<8) x=8;
+  let y=r.bottom+4; if(y+h>window.innerHeight-8) y=Math.max(8,r.top-h-4);
+  d.style.left=x+'px'; d.style.top=y+'px';
+  setTimeout(()=>{ document.addEventListener('mousedown',rcPeekOut);
+    document.addEventListener('keydown',rcPeekKey);
+    document.addEventListener('scroll',rcPeekClose,{capture:true,once:true}); },0);
 }
 
 /* ---- ONE COMPACT STATUS SUMMARY (§35), not a strip of cards. Every count is a filter, so a
@@ -38763,15 +38955,18 @@ function renderGLRecon(){
   /* R2 — THE MAIN CANVAS TRANSITIONS INTO ACTIVITY DETAIL rather than opening a modal or
      squeezing a twenty-column grid into the 420px dock (§4). Period, scope, reporting lens and
      the selected reconciliation are all inherited; the return strip goes back to it. */
+  rcPeekClose();
   if(rcAct) return rcRenderActivity(el);
   const k=viewPeriod(), L=rcLens(), R=reconReadiness(k);
   const def=fsDef(rcStmt);
 
   /* THE PAGE STATES ITS CONTEXT ONCE (§22). The period is the book's and is already in the
      shell title row; this line carries only what the page adds — the reporting lens, the
-     currency and the basis. There is no second period picker and no second entity selector. */
+     currency and the basis. There is no second period picker and no second entity selector.
+     R3.1 §9 — the currency is THE LENS's: "Jun 2026 · EUR · EMEA Reporting Group · IFRS",
+     derived from the same object the figures below are, so the line cannot contradict them. */
   let o=glHead('Reconciliations',glCtx([glEsc(L.name),
-    glEsc(rcBasisLabel(L.reportingBasis))]),'');
+    glEsc(rcBasisLabel(L.reportingBasis))],L.presentationCurrency),'');
 
   o+='<div class="fsx-bar rcx-bar">'
     +'<div class="fsx-pick ktabs lvl2" role="tablist">'
@@ -38822,7 +39017,7 @@ function renderGLRecon(){
     +(unset.length===1?'has':'have')+' a source account Korvyn attributes to '
     +(unset.length===1?'its':'their')+' population that is not mapped, so the population is not '
     +'settled and the tie status reads Incomplete. The balance is disclosed here rather than '
-    +'excluded in silence.<button class="fsx-link" onclick="pickTab(\'acctmap\');setAmapView(\'unmapped\')">Review mapping &#8594;</button></div>';
+    +'excluded in silence.<button class="fsx-link" onclick="rcGoMapping(null,null,\'unmapped\')">Review mapping &#8594;</button></div>';
 
   o+='<div class="card fsx-card rcx-card"><div class="rcx-wrap">'
     +'<table class="tbl rcx-tbl"><thead><tr>'
@@ -38850,8 +39045,13 @@ function renderGLRecon(){
     +'Entity-level reconciliations roll up beneath them and are not modelled in this increment.</span>'
     +'</div></div>';
 
-  el.innerHTML=o+rcPanel();
-  document.body.classList.toggle('amap-open',!!rcSel);
+  /* R3.1 — A DRILL OPENED FROM THE DOCK RENDERS. The FX bridge, consolidation trace, basis
+     bridge and entity view are launched from the roll-forward and the Trace, both of which
+     live in the docked panel; `rcDrillPane()` was only ever mounted by Activity Detail, so
+     from here the click set `rcDrill` and drew nothing (observed). The drill is the same
+     dock idiom, so it takes the panel's place while open and Close returns to the panel. */
+  el.innerHTML=o+(rcDrill?rcDrillPane():rcPanel());
+  document.body.classList.toggle('amap-open',!!(rcSel||rcDrill));
 }
 
 /* ==========================================================================================
@@ -38888,28 +39088,28 @@ function rcSumTab(def,inst){
   return '<div class="amp-sec">'+glEsc(perLabel(k))+'</div>'
     +'<div class="rcx-figs">'
     /* §4 — an accounting schedule names its dates: the beginning is the PRIOR period end */
-    +fig('Beginning '+rcDayMon(perAdd(k,-1)),fsM(a.beginning))
-    +fig(PMN[perParts(k).m]+' activity',(a.activityAmount>0?'+':'')+fsM(a.activityAmount))
+    +fig('Beginning '+rcDayMon(perAdd(k,-1)),rcM(a.beginning))
+    +fig(PMN[perParts(k).m]+' activity',(a.activityAmount>0?'+':'')+rcM(a.activityAmount))
     +fig('Adj./Other',(a.otherMovementAmount||a.classificationChange)
        ? ((a.otherMovementAmount+a.classificationChange>0?'+':'')
-          +fsM(+(a.otherMovementAmount+a.classificationChange).toFixed(3))):'—')
-    +fig('Ending '+rcDayMon(k),fsM(a.endingCalculatedBalance))
-    +fig('Trial balance '+rcDayMon(k),fsM(a.trialBalanceAmount))
-    +fig('Difference',Math.abs(a.difference)<0.05?'—':fsM(a.difference),
+          +rcM(+(a.otherMovementAmount+a.classificationChange).toFixed(3))):'—')
+    +fig('Ending '+rcDayMon(k),rcM(a.endingCalculatedBalance))
+    +fig('Trial balance '+rcDayMon(k),rcM(a.trialBalanceAmount))
+    +fig('Difference',Math.abs(a.difference)<0.05?'—':rcM(a.difference),
         Math.abs(a.difference)>=0.05?'bad':'')
     +'</div>'
     +'<div class="rcx-mombar"><span class="k">'+PMN[perParts(k).m]+' movement</span>'
-    +'<span class="v mono">'+(a.movement>0?'+':'')+fsM(a.movement)+'</span>'
+    +'<span class="v mono">'+(a.movement>0?'+':'')+rcM(a.movement)+'</span>'
     +'<span class="p mono">'+rcPctN(a.momPercent)+'</span>'
     /* §27 — Flux answers WHY it moved. The route exists; the integration does not, and is not
        claimed. */
-    +'<button class="fsx-link" onclick="pickTab(\'finrep\')">Open Flux &#8594;</button></div>'
+    +'<button class="fsx-link" onclick="rcGoFlux(\''+def.reconciliationDefinitionId+'\')">Open Flux &#8594;</button></div>'
     +'<div class="amp-sec">Status</div>'
     +rcRow('Tie',rcPill(RC_TIE,inst.tieStatus)+'<span class="rcx-note-i">'+glEsc(
         inst.tieStatus==='tied'
           ? (RC_MATERIALITY[def.materialityPolicyId]||{}).l+' · within tolerance'
         : inst.tieStatus==='difference'
-          ? 'out by '+fsM(Math.abs(a.difference))
+          ? 'out by '+rcM(Math.abs(a.difference))
           : 'the account population is not settled')+'</span>')
     +rcRow('Movement',rcPill(RC_MOVE,inst.movementStatus))
     +rcRow('Support',rcPill(RC_SUPPORT,inst.supportStatus))
@@ -38924,8 +39124,7 @@ function rcSumTab(def,inst){
         inst.reviewStatus!=='approved'?'review is '+RC_REVIEW[inst.reviewStatus].l.toLowerCase():'']
         .filter(Boolean).join('; ')+'.</div>':'')
     +'<div class="amp-sec">Context</div>'
-    +rcRow('Financial line','<span class="rcx-lk" onclick="pickTab(\'glfin\');fsPick(\''
-      +def.financialLineId+'\')">'+((fsLine(def.financialLineId)||{}).name||'')+'</span>'
+    +rcRow('Financial line','<span class="rcx-lk" onclick="rcGoFinancials(\''+def.reconciliationDefinitionId+'\')">'+((fsLine(def.financialLineId)||{}).name||'')+'</span>'
       +' <span class="mono amap-dim">'+def.financialLineId+'</span>')
     +rcRow('Reconciliation group','<span class="mono">'+glEsc(def.reconciliationGroupId)+'</span>')
     +rcRow('Method',glEsc((RC_METHODS[def.reconciliationMethod]||{}).l))
@@ -38934,16 +39133,19 @@ function rcSumTab(def,inst){
     +rcRow('Reporting basis',glEsc(rcBasisLabel(rcLens(inst.reportingLensId).reportingBasis))
       +(rcLens(inst.reportingLensId).jurisdiction?' <span class="amap-dim">'
         +glEsc(rcLens(inst.reportingLensId).jurisdiction)+'</span>':''))
+    /* R3.1 \u00a75, \u00a78 \u2014 the presentation currency is the lens's; the functional currencies are
+       the population's own, and when they are one and the same the panel says so once
+       rather than printing EUR twice */
     +rcRow('Presentation currency',glEsc(inst.presentationCurrency)
-      +' <span class="amap-dim">'+glEsc(rcLens(inst.reportingLensId).hierarchyName)+'</span>')
-    +rcRow('Functional currencies',(()=>{const cc=[...new Set(rcEntityBalances(def,inst.periodId)
-        .map(e=>e.functionalCurrency))];
-      return cc.length+' represented <span class="amap-dim">'+cc.join(' \u00b7 ')+'</span>';})())
+      +' <span class="amap-dim">set by the reporting lens</span>')
+    +rcRow('Hierarchy',glEsc(rcLens(inst.reportingLensId).hierarchyName)
+      +' <span class="amap-dim">v'+glEsc(inst.hierarchyVersion)+'</span>')
+    +rcRow('Functional currencies',(()=>{const cc=inst.functionalCurrencies||[];
+      if(cc.length===1&&cc[0]===inst.presentationCurrency) return glEsc(cc[0])
+        +' <span class="amap-dim">same as presentation \u2014 nothing to translate</span>';
+      return cc.length+' represented <span class="amap-dim">'+cc.map(glEsc).join(' \u00b7 ')+'</span>';})())
     +rcRow('Scope',glEsc(ENTCTX.scope.name)+' · '
       +ENTCTX.scope.entityCount.toLocaleString('en-US')+' entities')
-    +rcRow('Currency',glEsc(inst.presentationCurrency)+' <span class="amap-dim">'
-      +glEsc(String(def.currencyBasis).toLowerCase())+' basis · functional is '
-      +glEsc(inst.functionalCurrency)+'</span>')
     +rcRow('Frequency',glEsc(String(def.frequency).toLowerCase()))
     +rcRow('Revision',glEsc(inst.revision)
       +(inst.reReviewRequired?' <span class="rcx-od">re-review required</span>':''))
@@ -38961,7 +39163,7 @@ function rcRollTab(def,inst){
   const a=inst.amounts;
   const line=(l,v,cls,note)=>'<div class="rcx-rf'+(cls?' '+cls:'')+'">'
     +'<span class="l">'+l+(note?'<span class="n">'+note+'</span>':'')+'</span>'
-    +'<span class="v mono">'+(v==null?'':fsM(v))+'</span></div>';
+    +'<span class="v mono">'+(v==null?'':rcM(v))+'</span></div>';
   const comps=inst.components;
   const gl=comps.find(c=>c.componentType==='GL_ACTIVITY');
   const ra=comps.find(c=>c.componentType==='REPORTING_ADJUSTMENT');
@@ -38980,9 +39182,11 @@ function rcRollTab(def,inst){
     /* §31 — ERP remeasurement is INSIDE the activity above and is stated, never added again */
     +(rem.count?'<div class="rcx-rf ind sub"><span class="l">of which ERP remeasurement'
       +'<span class="n">'+rem.count+' posted journals \u2014 included in GL activity above, shown '
-      +'separately because it is FX</span></span><span class="v mono">'+fsM(rem.amount)
+      +'separately because it is FX</span></span><span class="v mono">'+rcM(rem.amount)
       +'</span></div>':'')
-    +(cc?line('Mapping / classification',cc.amount,'ind',
+    /* R3.1 §14 — "change": this is a period BRIDGE caused by the population moving, and the
+       label has to say so or it reads as a standing allocation */
+    +(cc?line('Mapping / classification change',cc.amount,'ind',
         'Accounts moved between groups \u00b7 mapping v'+a.priorMappingVersion+' \u2192 v'
         +a.currentMappingVersion+' \u00b7 opening balance at '+perEnd(pv)):'')
     +(Math.abs(a.fxTranslation)>=0.0005
@@ -38990,34 +39194,34 @@ function rcRollTab(def,inst){
         +'<span class="n">Derived reporting translation to '+glEsc(L.presentationCurrency)
         +' \u00b7 rate set '+glEsc(L.fxRateSetPrefix+'-'+pk)+' \u00b7 not an ERP posting'
         +drill('fx','FX bridge')+'</span></span>'
-        +'<span class="v mono">'+fsM(a.fxTranslation)+'</span></div>':'')
+        +'<span class="v mono">'+rcM(a.fxTranslation)+'</span></div>':'')
     +(Math.abs(a.elimination)>=0.0005
       ? '<div class="rcx-rf ind"><span class="l">Eliminations'
         +'<span class="n">Consolidation rule set '+glEsc(L.consolidationRuleSetId||'\u2014')
         +' \u00b7 not an ERP posting'+drill('elim','Consolidation trace')+'</span></span>'
-        +'<span class="v mono">'+fsM(a.elimination)+'</span></div>':'')
+        +'<span class="v mono">'+rcM(a.elimination)+'</span></div>':'')
     +(Math.abs(a.basisAdjustment)>=0.0005
       ? '<div class="rcx-rf ind"><span class="l">'+glEsc(rcBasisLabel(L.reportingBasis))
         +' basis adjustment<span class="n">Applies under this reporting lens only'
         +drill('basis','Basis bridge')+'</span></span>'
-        +'<span class="v mono">'+fsM(a.basisAdjustment)+'</span></div>':'')
+        +'<span class="v mono">'+rcM(a.basisAdjustment)+'</span></div>':'')
     +'<div class="rcx-rf ind"><span class="l">Reporting adjustment'+(ra.amount
       ?'<span class="n">Korvyn reporting adjustment — not posted to the ERP</span>':'')
-      +'</span><span class="v mono">'+(ra.amount?fsM(ra.amount):'&mdash;')+'</span></div>'
+      +'</span><span class="v mono">'+(ra.amount?rcM(ra.amount):'&mdash;')+'</span></div>'
     +line('Calculated ending balance',a.endingCalculatedBalance,'tot',perEnd(pk))
     +line('Trial balance',a.trialBalanceAmount,'',perEnd(pk)+' \u00b7 governed reported balance')
     +'<div class="rcx-rf diff'+(Math.abs(a.difference)>=0.05?' bad':'')+'">'
       +'<span class="l">Difference</span><span class="v mono">'
-      +(Math.abs(a.difference)<0.05?'&mdash;':fsM(a.difference))+'</span></div>'
+      +(Math.abs(a.difference)<0.05?'&mdash;':rcM(a.difference))+'</span></div>'
     +'</div>'
     +(Math.abs(a.difference)>=0.05?'<div class="rcx-why">The GL activity population reports '
-      +fsM(def.r1ActivityVariance)+' less than the governed balance movement. Until that is '
+      +rcM(def.r1ActivityVariance)+' less than the governed balance movement. Until that is '
       +'explained the reconciliation does not tie, and no review state can change that.</div>':'')
     +'<div class="amp-sec">Components</div>'
     +'<div class="rcx-cmp">'+comps.map(c=>'<div class="rcx-cmp-r">'
       +'<span class="t mono">'+c.componentType+'</span>'
       +'<span class="s">'+glEsc(c.sourceType)+'</span>'
-      +'<span class="v mono">'+fsM(c.amount)+'</span></div>').join('')+'</div>'
+      +'<span class="v mono">'+rcM(c.amount)+'</span></div>').join('')+'</div>'
     +'<div class="enr-immut">Components the model carries and does not yet calculate separately: '
     +Object.keys(RC_COMPONENT_TYPES).filter(t=>!RC_COMPONENT_TYPES[t].r1)
       .map(t=>RC_COMPONENT_TYPES[t].l).join(', ')+'. FX is deliberately not buried inside Other.</div>';
@@ -39034,7 +39238,7 @@ function rcActTab(def,inst){
   const ap=inst.activityPopulation, p=inst.periodId;
   const unm=rcUnmappedActivity(def,p), ver=rcPopVersion(def,p);
   return '<div class="amp-sec">'+glEsc(perLabel(p))+' activity</div>'
-    +'<div class="rcx-actv"><span class="v mono">'+(ap.amount>0?'+':'')+fsM(ap.amount)+'</span>'
+    +'<div class="rcx-actv"><span class="v mono">'+(ap.amount>0?'+':'')+rcM(ap.amount)+'</span>'
     +'<span class="l">GL activity population</span></div>'
     +rcRow('Source accounts',ap.accountCount
       ? ap.accountCount+' <span class="amap-dim">of '
@@ -39048,6 +39252,10 @@ function rcActTab(def,inst){
     +rcRow('Status','<span class="pill '+RC_POP_ST[ap.status].c+' sm">'+RC_POP_ST[ap.status].l+'</span>')
     +rcRow('Mapping','v'+glEsc(ap.mappingVersion))
     +rcRow('Data as of',glEsc(ap.dataAsOf))
+    /* R3.1 §22 — the currency the population is stated in, and the currencies it holds */
+    +rcRow('Presentation currency',glEsc(inst.presentationCurrency)
+      +' <span class="amap-dim">set by the reporting lens</span>')
+    +rcRow('Functional currencies',glEsc(inst.functionalCurrency))
     /* §45 — STALE ACTIVITY IS NEVER SERVED IN SILENCE. */
     +(ver.stale?'<div class="rcx-why warn"><b>Source changed.</b> New activity has been detected '
       +'since this population was generated ('+glEsc(ver.sourceGLVersion)+' \u2192 '
@@ -39056,10 +39264,9 @@ function rcActTab(def,inst){
       +def.reconciliationDefinitionId+'\')">Refresh reconciliation</button></div></div>':'')
     +(unm.length?'<div class="rcx-why warn"><b>Unmapped activity.</b> '
       +unm.map(u=>u.transactions.length.toLocaleString('en-US')+' transactions \u00b7 '
-        +fsM(u.amount)+' on '+glEsc(u.account.code)+' '+glEsc(u.account.name)).join('; ')
+        +rcM(u.amount)+' on '+glEsc(u.account.code)+' '+glEsc(u.account.name)).join('; ')
       +' \u2014 excluded from the population and disclosed, never dropped in silence.'
-      +'<div class="amp-acts"><button class="btn-out sm" onclick="pickTab(\'acctmap\');amapOpen(\''
-      +unm[0].account.id+'\')">Review mapping &#8594;</button></div></div>':'')
+      +'<div class="amp-acts"><button class="btn-out sm" onclick="rcGoMapping(\''+def.reconciliationDefinitionId+'\',\''+unm[0].account.id+'\')">Review mapping &#8594;</button></div></div>':'')
     +rcPopDeltaHTML(def,inst)
     +'<div class="amp-acts"><button class="btn-primary sm" onclick="rcOpenActivity(\''
     +def.reconciliationDefinitionId+'\')">View activity &#8594;</button></div>';
@@ -39136,32 +39343,163 @@ function rcRevTab(def,inst){
     +'<span class="rcx-phase">Review &amp; Sign-off phase</span></div>';
 }
 
-/* ---- TRACE (§34). The signature question — where did this number come from — answered as one
-   vertical chain across every governed layer, in the same idiom Financials already uses.
-   Deliberately not every transaction: a reader wants the path. */
+/* ---- TRACE (§34; rebuilt R3.1 §17-§21, §32). TWO SECTIONS, THE ACCOUNTING FIRST.
+
+   A · HOW THIS BALANCE IS BUILT — the roll-forward as an accountant reads it: opening balance
+   to trial balance, one compact node per component, and every material node opening the
+   surface that supports it (View activity, Review mapping / population, View FX trace, View
+   consolidation trace, Open basis bridge, Open Financials). A component that does not apply
+   states so in a clause — "Not required · EUR → EUR" — never as a block, and a component that
+   applies with nothing in it prints a dash rather than disappearing, because "there was no
+   elimination on this line" is a fact a reviewer wants stated.
+
+   B · PROVENANCE — every governed object and version the figure was produced under, and none
+   of them blank. Where something is genuinely absent it reads "N/A — reason".
+
+   THE TECHNICAL LINEAGE IS KEPT, folded beneath. R1/R2's chain (lens → population → rules →
+   definition → line → mapping → canonical → source → population → journals → TB → ERP) was
+   correct and too linear to read first; it was moved, not removed.                          */
 function rcTraceTab(def,inst){
+  const L=rcLens(inst.reportingLensId), f=inst.fingerprint;
+  const a=inst.amounts, p=inst.periodId, pv=perAdd(p,-1), ap=inst.activityPopulation;
+  const dId=def.reconciliationDefinitionId, fl=fsLine(def.financialLineId)||{};
+  const sgn=v=>(v>0?'+':'')+rcM(v);
+  const node=(k,v,s,go,cls)=>'<div class="rcx-tn'+(cls?' '+cls:'')+'">'
+    +'<span class="k">'+k+'</span><span class="v mono">'+v+'</span>'
+    +(s?'<span class="s">'+s+'</span>':'')
+    +(go?'<span class="a"><button class="rcx-lk2" onclick="'+go[0]+'">'+go[1]+' &#8250;</button></span>':'')
+    +'</div>';
+  const down='<div class="rcx-ta"></div>';
+  const rem=rcRemeasurement(def,p);
+  const fx=rcFxEffect(def,p,L.reportingLensId);
+  const foreign=fx.entities.filter(e=>e.foreign);
+  const fccy=inst.functionalCurrencies&&inst.functionalCurrencies.length
+    ? inst.functionalCurrencies : [L.presentationCurrency];
+  const usGaap=L.reportingBasis==='US_GAAP';
+  const basisAdj=rcBasisAdjFor(def.financialLineId,L.reportingBasis);
+  const elimRules=rcElimFor(def.financialLineId,L.consolidationRuleSetId);
+  const corp=REPORTING_LENSES[0];
+  const nil=v=>Math.abs(v||0)<0.0005;
+  const nodes=[];
+  nodes.push(node('Source opening balance',rcM(a.beginning),
+    perEnd(pv)+' · as reported'+(a.asReported?'':' · declared share of the line'),
+    null));
+  nodes.push(node(PMN[perParts(p).m]+' GL activity',sgn(a.activityAmount),
+    ap.transactionCount.toLocaleString('en-US')+' transactions · '+ap.erpSystems.length
+    +' ERP system'+(ap.erpSystems.length===1?'':'s')
+    +(rem.count?'<br>of which ERP remeasurement '+sgn(rem.amount)+' · '+rem.count
+      +' posted journals · included in GL activity, not added again':''),
+    ["rcOpenActivity('"+dId+"')",'View activity']));
+  if(!nil(a.classificationChange))
+    nodes.push(node('Mapping / classification change',sgn(a.classificationChange),
+      'mapping v'+glEsc(a.priorMappingVersion)+' → v'+glEsc(a.currentMappingVersion)
+      +' · opening balance of accounts that moved, at '+perEnd(pv)+' — not activity',
+      ["rcOpenActivity('"+dId+"');setRcActTab('pop')",'Review mapping / population']));
+  if(!usGaap)
+    nodes.push(node(glEsc(rcBasisLabel(L.reportingBasis))+' basis adjustment',
+      nil(a.basisAdjustment)?'&mdash;':sgn(a.basisAdjustment),
+      basisAdj.length
+        ? basisAdj.map(x=>'<span class="mono">'+glEsc(x.id)+'</span>').join(' · ')
+          +' · period movement in the governed basis overlay'
+        : 'no basis adjustment on this line under '+glEsc(rcBasisLabel(L.reportingBasis)),
+      ["rcOpenDrill('basis',null,'"+dId+"')",'Open basis bridge'],
+      nil(a.basisAdjustment)?'na':''));
+  if(foreign.length)
+    nodes.push(node('FX translation',nil(a.fxTranslation)?'&mdash;':sgn(a.fxTranslation),
+      foreign.length+' '+(foreign.length===1?'entity':'entities')+' translated to '
+      +glEsc(L.presentationCurrency)+' · rate set <span class="mono">'
+      +glEsc(rcFxSetId(L,p))+'</span> · not an ERP posting',
+      ["rcOpenDrill('fx',null,'"+dId+"')",'View FX trace']));
+  else
+    nodes.push(node('FX translation','Not required',
+      fccy.map(glEsc).join(' · ')+' → '+glEsc(L.presentationCurrency)
+      +' · every entity in the population already reports in the presentation currency',
+      null,'na'));
+  if(L.consolidationRuleSetId)
+    nodes.push(node('Consolidation / elimination',nil(a.elimination)?'&mdash;':sgn(a.elimination),
+      'rule set <span class="mono">'+glEsc(L.consolidationRuleSetId)+'</span> · '
+      +(elimRules.length||'no')+' rule'+(elimRules.length===1?'':'s')+' on this line'
+      +(elimRules.length?' · period movement in the eliminated balance':''),
+      ["rcOpenDrill('elim',null,'"+dId+"')",'View consolidation trace'],
+      nil(a.elimination)?'na':''));
+  else
+    nodes.push(node('Consolidation / elimination','Not required',
+      'single statutory filing population · nothing to eliminate',null,'na'));
+  if(!nil(a.otherMovementAmount))
+    nodes.push(node('Reporting adjustment',sgn(a.otherMovementAmount),
+      'Korvyn reporting overlay · not posted to the ERP',
+      ["rcGoFinancials('"+def.reconciliationDefinitionId+"','adj')",'Open the adjustment']));
+  nodes.push(node('Reported ending balance',rcM(a.endingCalculatedBalance),
+    perEnd(p)+' · calculated from the components above',
+    ["setRcTab('roll')",'Open roll-forward'],'tot'));
+  nodes.push(node('Trial balance / Financials',rcM(a.trialBalanceAmount),
+    rcPill(RC_TIE,inst.tieStatus,1)
+    +(inst.tieStatus==='difference'?' out by '+rcM(Math.abs(a.difference)):'')
+    +(L.reportingLensId===corp.reportingLensId
+      ? ' · the same governed figure Financials prints'
+      : ' · Financials presents '+glEsc(corp.name)+' · '+glEsc(corp.presentationCurrency)
+        +'; this balance is that figure restated under the lens'),
+    ["rcGoFinancials('"+def.reconciliationDefinitionId+"')",'Open Financials'],'tot'));
+
+  const na=why=>'<span class="amap-dim">N/A — '+why+'</span>';
+  const mono=s=>'<span class="mono">'+glEsc(s)+'</span>';
+  const dim=s=>' <span class="amap-dim">'+s+'</span>';
+  const prov=''
+    +rcRow('Reporting lens',glEsc(L.name)+dim(mono(L.reportingLensId)+' · v'+L.version))
+    +rcRow('Reporting basis',glEsc(rcBasisLabel(L.reportingBasis))+dim(glEsc(L.jurisdiction)))
+    +rcRow('Presentation currency',glEsc(L.presentationCurrency))
+    +rcRow('Functional currencies',fccy.map(glEsc).join(' · '))
+    +rcRow('Population',rcLensCount(L.reportingLensId).toLocaleString('en-US')+' '
+      +glEsc(L.populationLabel))
+    +rcRow('Hierarchy',glEsc(L.hierarchyName)+dim('v'+glEsc(inst.hierarchyVersion)))
+    +rcRow('Mapping','v'+glEsc(inst.mappingVersion)
+      +dim(glEsc(MAP_STATES[mapVersionFor(p).status].l)))
+    +rcRow('Statement definition',mono(L.statementDefinitionId)+dim('v'+glEsc(inst.statementVersion)))
+    +rcRow('FX rate set',mono(f.fxRateSetId)+(foreign.length?'':dim('no translation required')))
+    +rcRow('Consolidation rules',L.consolidationRuleSetId?mono(L.consolidationRuleSetId)
+      :na('single filing population'))
+    +rcRow('Reporting adjustment set',mono(L.reportingAdjustmentSetId))
+    +rcRow('Reconciliation definition',mono(dId)
+      +dim('v'+def.version+' · effective '+glEsc(def.effectiveFrom)))
+    +rcRow('GL snapshot',mono(f.sourceGLSnapshotId))
+    +rcRow('TB snapshot',mono(f.sourceTBVersion))
+    +rcRow('Data as of',glEsc(f.dataAsOf))
+    +rcRow('Revision',glEsc(inst.revision)
+      +(inst.reReviewRequired?' <span class="rcx-od">re-review required</span>':''))
+    +rcRow('Fingerprint',mono(f.hash));
+
+  const open=!!rcTraceOpen.lineage;
+  return '<div class="rcx-tracehd"><span>'+glEsc(def.name)+'</span>'
+    +'<span class="amt">'+rcM(inst.trialBalanceAmount)+'</span>'
+    +'<span class="amap-dim">'+glEsc(L.name)+' · '+glEsc(rcBasisLabel(L.reportingBasis))
+    +' · '+glEsc(L.presentationCurrency)+'</span></div>'
+    +'<div class="amp-sec">How this balance is built</div>'
+    +'<div class="amp-tr">'+nodes.join(down)+'</div>'
+    +'<div class="amp-sec">Provenance</div>'
+    +prov
+    +'<div class="amp-acts"><button class="rcx-prov-b" onclick="rcTraceTog(\'lineage\')">'
+    +(open?'Hide':'Show')+' technical lineage '+(open?'&#9662;':'&#9656;')+'</button></div>'
+    +(open?rcTraceLineage(def,inst):'');
+}
+/* the R1/R2 chain, unchanged — every governed layer between the lens and the ERP */
+function rcTraceLineage(def,inst){
   const pop=inst.population, L=rcLens(inst.reportingLensId), f=inst.fingerprint;
   const reach=fsReach(def.financialLineId,inst.periodId);
   const step=(k,v,s,go)=>'<div class="amp-tr-s'+(go?' go':'')+'"'+(go?' onclick="'+go+'"':'')+'>'
     +'<span class="k">'+k+'</span><span class="v">'+v+'</span>'
     +(s?'<span class="s">'+s+'</span>':'')+(go?'<span class="ch">&#8250;</span>':'')+'</div>';
   const arrow=t=>'<div class="amp-tr-a">'+t+'</div>';
-  const LL=rcLens(inst.reportingLensId);
-  return '<div class="amp-sec">Trace</div>'
-    +'<div class="fsx-tracehd">'+glEsc(def.name)+' · <b>'+fsM(inst.trialBalanceAmount)+'</b>'
-    +' <span class="amap-dim">'+glEsc(LL.presentationCurrency)+' · '
-    +glEsc(rcBasisLabel(LL.reportingBasis))+'</span></div>'
+  const LL=L;
+  return '<div class="amp-sec">Technical lineage</div>'
     +'<div class="amp-tr">'
-    /* §38 — the chain starts at the lens, because the lens is what decides which population,
-       basis, hierarchy, rate set and rule set produced the figure */
     +step('Reporting lens',glEsc(LL.name),'v'+LL.version+' · '+glEsc(rcBasisLabel(LL.reportingBasis))
       +' · '+glEsc(LL.jurisdiction))
     +arrow('presents in')
     +step('Presentation currency',glEsc(LL.presentationCurrency),
-      'rate set <span class="mono">'+glEsc(LL.fxRateSetPrefix+'-'+inst.periodId)+'</span>')
+      'rate set <span class="mono">'+glEsc(f.fxRateSetId)+'</span>')
     +arrow('over')
     +step('Population',rcLensCount(LL.reportingLensId).toLocaleString('en-US')+' '
-      +glEsc(LL.populationLabel),glEsc(LL.hierarchyName)+' · hierarchy '+glEsc(LL.hierarchyVersion))
+      +glEsc(LL.populationLabel),glEsc(LL.hierarchyName)+' · hierarchy v'+glEsc(inst.hierarchyVersion))
     +arrow('consolidated by')
     +step('Consolidation rules',glEsc(LL.consolidationRuleSetId||'none — single filing population'),
       LL.consolidationRuleSetId?'eliminations apply':'nothing to eliminate')
@@ -39177,11 +39515,11 @@ function rcTraceTab(def,inst){
     +arrow('presents on')
     +step('Financial line',(fsLine(def.financialLineId)||{}).name||'',
       '<span class="mono">'+def.financialLineId+'</span> · '+fsCrumb(def.financialLineId),
-      "pickTab('glfin');fsPick('"+def.financialLineId+"')")
+      "rcGoFinancials('"+def.reconciliationDefinitionId+"')")
     +arrow('mapped by')
     +step('Account mapping',glEsc(MAP_SETS[0].name),
       'v'+glEsc(inst.mappingVersion)+' · '+glEsc(MAP_STATES[mapVersionFor(inst.periodId).status].l),
-      "pickTab('acctmap')")
+      "rcGoMapping('"+def.reconciliationDefinitionId+"')")
     +arrow('canonical')
     +step('Canonical accounts',pop.canonicalAccountIds.length||reach.canonicals,
       pop.canonicalAccountIds.map(c=>glEsc((canon(c)||{}).name||c)).join(' · ')||'&mdash;')
@@ -39194,7 +39532,7 @@ function rcTraceTab(def,inst){
         : 'none modelled in this prototype', "setRcTab('act')")
     +arrow('posted into')
     +step('Activity component','GL activity',
-      (inst.amounts.activityAmount>0?'+':'')+fsM(inst.amounts.activityAmount)
+      (inst.amounts.activityAmount>0?'+':'')+rcM(inst.amounts.activityAmount)
       +' · <span class="mono">'
       +glEsc((inst.components.find(c=>c.componentType==='GL_ACTIVITY')||{}).rollforwardComponentId||'')
       +'</span>')
@@ -39202,7 +39540,7 @@ function rcTraceTab(def,inst){
     +step('Activity population',
       inst.activityPopulation.transactionCount.toLocaleString('en-US')+' transactions',
       '<span class="mono">'+glEsc(inst.activityPopulation.activityPopulationId)+'</span> · '
-      +fsM(inst.activityPopulation.amount)
+      +rcM(inst.activityPopulation.amount)
       +' · '+glEsc(inst.activityPopulation.populationVersion)
       +' · mapping v'+glEsc(inst.activityPopulation.mappingVersion)
       +' · '+glEsc(inst.activityPopulation.dataAsOf),
@@ -39213,7 +39551,7 @@ function rcTraceTab(def,inst){
       'journal line, invoice, vendor and project detail per transaction',
       "rcOpenActivity('"+def.reconciliationDefinitionId+"')")
     +arrow('resolves to')
-    +step('Trial balance',fsM(inst.trialBalanceAmount),
+    +step('Trial balance',rcM(inst.trialBalanceAmount),
       'Governed reported balance · '+glEsc(perEnd(inst.periodId)))
     +arrow('read from')
     +step('ERP sources',inst.activityPopulation.erpSystems.length
@@ -39221,30 +39559,17 @@ function rcTraceTab(def,inst){
         +(inst.activityPopulation.erpSystems.length===1?'':'s')
       : '&mdash;',
       inst.activityPopulation.erpSystems.map(glEsc).join(' · ')
-        ||'no modelled source account resolves into this population', "pickTab('glsync')")
+        ||'no modelled source account resolves into this population', "rcGoSync('"+def.reconciliationDefinitionId+"')")
     +'</div>'
     /* §43 — a reporting adjustment is NOT an ERP posting, and the trace has to keep saying so */
     +(inst.otherMovementAmount?'<div class="amp-sec">Reporting adjustment</div>'
-      +'<div class="enr-immut">'+fsM(inst.otherMovementAmount)+' of the movement is a Korvyn '
+      +'<div class="enr-immut">'+rcM(inst.otherMovementAmount)+' of the movement is a Korvyn '
       +'reporting overlay, <b>not posted to the ERP</b>. It is carried as a '
       +'<span class="mono">REPORTING_ADJUSTMENT</span> component and never merged into GL activity.'
-      +'<button class="fsx-link" onclick="pickTab(\'glfin\');fsPick(\''+def.financialLineId
-      +'\');setFsTab(\'adj\')">Open the adjustment &#8594;</button></div>':'')
-    +'<div class="amp-sec">Fingerprint</div>'
-    +'<div class="enr-immut">Everything that produced these figures, so a later increment can '
-    +'detect that data changed after sign-off. R1 records it; the amendment workflow is R6.</div>'
-    +rcRow('Digest','<span class="mono">'+glEsc(f.hash)+'</span>')
-    +rcRow('Source TB','<span class="mono">'+glEsc(f.sourceTBVersion)+'</span>')
-    +rcRow('GL snapshot','<span class="mono">'+glEsc(f.sourceGLSnapshotId)+'</span>')
-    +rcRow('Mapping version','v'+glEsc(f.mappingVersion))
-    +rcRow('Hierarchy version',glEsc(f.hierarchyVersion||'—'))
-    +rcRow('Definition version','v'+f.definitionVersion)
-    +rcRow('Statement version','v'+glEsc(f.statementVersion))
-    +rcRow('Reporting lens',glEsc(L.name)+' <span class="mono amap-dim">'+f.reportingLensId+'</span>')
-    +rcRow('FX rate set','<span class="mono">'+glEsc(f.fxRateSetId)+'</span>')
-    +rcRow('Consolidation rules','<span class="mono">'+glEsc(f.consolidationRuleSetId)+'</span>')
-    +rcRow('Data as of',glEsc(f.dataAsOf))
-    +rcRow('Revision',glEsc(inst.revision));
+      +'<button class="fsx-link" onclick="rcGoFinancials(\''+def.reconciliationDefinitionId+'\',\'adj\')">Open the adjustment &#8594;</button></div>':'')
+    +'<div class="enr-immut">Everything above is what produced these figures, pinned in the '
+    +'fingerprint <span class="mono">'+glEsc(f.hash)+'</span> so a later increment can detect '
+    +'that data changed after sign-off.</div>';
 }
 /* a due date is stored ISO and read back in the product's own date words */
 function perFromISO(iso){
@@ -39428,7 +39753,16 @@ function rcTxPool(srcId,k){
   const a=srcAcct(srcId); if(!a) return (_rcTxCache[ck]=[]);
   const target=rcTxTarget(srcId,p);
   const n=24+rcH(srcId,'n'+p)%80;
-  const ents=rcEntitiesFor(a), plat=srcSys(a.sys).name, insNm=erpIns(a.ins).name;
+  /* R3.1 §5, §26 — A TRANSACTION BELONGS TO AN ENTITY IN THE LENS POPULATION. The pool used
+     to draw its entity from every entity that posts to the account, so under EMEA the
+     composition by functional currency read USD and CAD — entities the lens excludes. The
+     same rule `rcEntityBalances()` already applies: the account's entities narrowed to the
+     lens, and when none of them is in the lens, the lens's first entity carries it. */
+  const _lensIds=new Set(rcLensEntities(rcLensId).map(e=>e.id));
+  let ents=rcEntitiesFor(a).filter(e=>_lensIds.has(e.id));
+  if(!ents.length) ents=rcLensEntities(rcLensId).slice(0,1);
+  if(!ents.length) ents=rcEntitiesFor(a);
+  const plat=srcSys(a.sys).name, insNm=erpIns(a.ins).name;
   const pp=perParts(p), days=perDays(p);
   const mres=mapResolve(a.id,p), mcanon=mres.mapping?mres.mapping.canon:null;
   const cur=(canon(mcanon)||{});
@@ -39450,9 +39784,17 @@ function rcTxPool(srcId,k){
     const ty=rcWeightedType(srcId,p,i);
     let t=rcTxType(ty);
     const e=ents[rcH(srcId,p+'e'+i)%ents.length];
+    const fc0=e.functionalCurrency||'USD';
+    /* a third transaction currency happens on cross-border procurement and is the case R3's
+       bridge has to survive; it is metadata here and nothing is remeasured */
+    const tc=(rcFrac(srcId,p+'tc'+i)<0.12)
+      ? rcPickOf(['USD','EUR','GBP'].filter(x=>x!==fc0),srcId,p+'tcp'+i) : fc0;
     /* a remeasurement journal only exists where the entity actually holds a foreign-currency
-       position — on a USD entity under a USD lens it becomes an ordinary journal */
-    if(t.id==='FXR'&&e.functionalCurrency===(rcLens().presentationCurrency||'USD')) t=rcTxType('JE');
+       position — its functional currency differs from the presentation currency, or the
+       document itself was denominated in a currency other than its functional one (a EUR
+       entity's USD invoice). Otherwise it becomes an ordinary journal. */
+    if(t.id==='FXR'&&e.functionalCurrency===(rcLens().presentationCurrency||'USD')&&tc===fc0)
+      t=rcTxType('JE');
     /* POSTING DATE IS IN THE PERIOD, ALWAYS — that is what makes this the period's population.
        The TRANSACTION date is the source document's own, and roughly a fifth of them fall in
        the prior month, which is the ordinary case §16 exists to describe. */
@@ -39461,12 +39803,8 @@ function rcTxPool(srcId,k){
     const prev=perAdd(p,-1), pv=perParts(prev);
     const td=early ? {y:pv.y,m:pv.m,d:1+rcH(srcId,p+'td'+i)%perDays(prev)}
                    : {y:pp.y,m:pp.m,d:Math.max(1,pd-(rcH(srcId,p+'lag'+i)%6))};
-    const fc=e.functionalCurrency||'USD';
-    /* a third transaction currency happens on cross-border procurement and is the case R3's
-       bridge has to survive; it is metadata here and nothing is remeasured */
-    const tc=(rcFrac(srcId,p+'tc'+i)<0.12)
-      ? rcPickOf(['USD','EUR','GBP'].filter(x=>x!==fc),srcId,p+'tcp'+i) : fc;
-    const reporting=amt;                                   // $M, lens currency
+    const fc=fc0;
+    const reporting=amt;                                   // millions, lens currency
     const functional=+(reporting/rcRate(fc)).toFixed(3);
     const transaction=+(reporting/rcRate(tc)).toFixed(3);
     const seq=100000+rcH(srcId,p+'j'+i)%899999;
@@ -39847,6 +40185,8 @@ function rcBuildExport(defId,srcId){
   const manifest={exportId:'EXP-'+p+'-'+(++_rcExpSeq),
     reconciliationInstanceId:ctx.instanceId, activityPopulationId:ctx.populationId,
     periodId:p, scopeId:inst.scopeId, reportingLensId:inst.reportingLensId,
+    /* R3.1 §10 — the export states the currency and basis its amounts are in */
+    presentationCurrency:inst.presentationCurrency, reportingBasis:inst.reportingBasis,
     componentType:'GL_ACTIVITY',
     sourceAccountId:srcId||null,
     transactionCount:rows.length, exportedAmount:actual, expectedAmount:expected,
@@ -40004,7 +40344,7 @@ function rcRenderActivity(el){
         ${glEsc(rcBasisLabel(L.reportingBasis))}</div>
     </div>
     <div class="rcx-ahd-facts">
-      ${rcFact('Amount',(a.activityAmount>0?'+':'')+fsM(a.activityAmount),'hero')}
+      ${rcFact('Amount',(a.activityAmount>0?'+':'')+rcM(a.activityAmount),'hero')}
       ${rcFact('Accounts',ap.accountCount)}
       ${rcFact('Transactions',ap.transactionCount.toLocaleString('en-US'))}
       ${rcFact('ERP instances',ap.erpInstanceCount)}
@@ -40021,8 +40361,12 @@ function rcRenderActivity(el){
         <span><i>Population version</i><b class="mono">${glEsc(ap.populationVersion)}</b></span>
         <span><i>Source GL version</i><b class="mono">${glEsc(ap.sourceGLVersion)}</b></span>
         <span><i>Mapping version</i><b class="mono">v${glEsc(ap.mappingVersion)}</b></span>
-        <span><i>Hierarchy version</i><b class="mono">${glEsc(inst.hierarchyVersion||'—')}</b></span>
+        <span><i>Hierarchy version</i><b class="mono">v${glEsc(inst.hierarchyVersion)}</b></span>
         <span><i>Reporting lens</i><b class="mono">${glEsc(ap.reportingLensId)}</b></span>
+        <span><i>Reporting basis</i><b>${glEsc(rcBasisLabel(L.reportingBasis))}</b></span>
+        <span><i>Presentation currency</i><b>${glEsc(L.presentationCurrency)}</b></span>
+        <span><i>Functional currencies</i><b>${glEsc(inst.functionalCurrency)}</b></span>
+        <span><i>FX rate set</i><b class="mono">${glEsc(rcFxSetId(L,p))}</b></span>
         <span><i>Scope</i><b class="mono">${glEsc(ap.scopeId)}</b></span>
         <span><i>Data as of</i><b>${glEsc(ap.dataAsOf)} &#183; books through ${glEsc(kFeed().thru)}</b></span>
       </div>`:''}
@@ -40036,7 +40380,7 @@ function rcRenderActivity(el){
     ${rcTie('Beginning',a.beginning,'',rcDayMon(perAdd(p,-1)))}
     ${rcTie('+ '+PMN[perParts(p).m]+' activity',a.activityAmount,'act')}
     ${Math.abs(a.classificationChange)>=0.0005
-      ? rcTie('+ Classification',a.classificationChange,'','mapping v'+a.currentMappingVersion):''}
+      ? rcTie('+ Classification change',a.classificationChange,'','mapping v'+a.currentMappingVersion):''}
     ${rcTie('+ Adj./Other',a.otherMovementAmount)}
     ${rcTie('= Ending',a.endingCalculatedBalance,'tot',rcDayMon(p))}
     ${rcTie('Trial balance',a.trialBalanceAmount,'',rcDayMon(p))}
@@ -40054,14 +40398,14 @@ function rcRenderActivity(el){
     <button class="fsx-link" onclick="rcRefreshPopulation('${def.reconciliationDefinitionId}')">Refresh reconciliation &#8594;</button></div>`;
   unm.forEach(u=>{ o+=`<div class="rcx-exc warn">
     <b>Unmapped activity.</b> ${u.transactions.length.toLocaleString('en-US')} transactions
-    totalling ${(u.amount>0?'+':'')+fsM(u.amount)} posted to
+    totalling ${(u.amount>0?'+':'')+rcM(u.amount)} posted to
     <span class="mono">${glEsc(u.account.code)}</span> ${glEsc(u.account.name)}
     (${glEsc(coaOf(u.account.coa).name)}), which has no approved mapping for ${perLabel(p)}.
     ${glEsc(u.why)} It is <b>excluded from the population below and disclosed here</b>, and the
     reconciliation reads Incomplete until the mapping is approved.
-    <button class="fsx-link" onclick="pickTab('acctmap');amapOpen('${u.account.id}')">Review mapping &#8594;</button></div>`; });
+    <button class="fsx-link" onclick="rcGoMapping('${def.reconciliationDefinitionId}','${u.account.id}')">Review mapping &#8594;</button></div>`; });
   if(con.length) o+=`<div class="rcx-exc">
-    <b>Population conflict · ${fsM(con.reduce((s,c)=>s+Math.abs(c.amount),0))}</b>
+    <b>Population conflict · ${rcM(con.reduce((s,c)=>s+Math.abs(c.amount),0))}</b>
     ${con.map(c=>'<div class="rcx-exc-l">GL <span class="mono">'+glEsc(c.account.code)+'</span> · '
       +glEsc(c.account.name)+' '+glEsc(c.why)+'</div>').join('')}
     <div class="rcx-exc-l">Total ${glEsc((fsLine(def.financialLineId)||{}).name||'')} is unaffected,
@@ -40073,20 +40417,20 @@ function rcRenderActivity(el){
     <div class="rcx-ctrl-h">Source population</div>
     <div class="rcx-ctrl-g">
       ${rcCtrl('Transactions',ap.transactionCount.toLocaleString('en-US'))}
-      ${rcCtrl('Debit total',fsM(ap.debitTotal))}
-      ${rcCtrl('Credit total',fsM(ap.creditTotal))}
-      ${rcCtrl('Net activity',(ap.netAmount>0?'+':'')+fsM(ap.netAmount))}
-      ${rcCtrl('Reconciliation activity',(ap.amount>0?'+':'')+fsM(ap.amount))}
+      ${rcCtrl('Debit total',rcM(ap.debitTotal))}
+      ${rcCtrl('Credit total',rcM(ap.creditTotal))}
+      ${rcCtrl('Net activity',(ap.netAmount>0?'+':'')+rcM(ap.netAmount))}
+      ${rcCtrl('Reconciliation activity',(ap.amount>0?'+':'')+rcM(ap.amount))}
       ${rcCtrl('Population difference',Math.abs(ap.populationDifference)<0.0005?'&mdash;'
-        :fsM(ap.populationDifference),Math.abs(ap.populationDifference)>=0.0005?'bad':'')}
+        :rcM(ap.populationDifference),Math.abs(ap.populationDifference)>=0.0005?'bad':'')}
     </div>
     <div class="rcx-ctrl-n">${bnd.includedDatedPrior.length} transaction${bnd.includedDatedPrior.length===1?'':'s'}
       dated before ${perLabel(p)} ${bnd.includedDatedPrior.length===1?'is':'are'} included because
       ${bnd.includedDatedPrior.length===1?'it was':'they were'} posted to it
-      (${fsM(bnd.inAmt)}); ${bnd.excludedDatedHere.length} dated in ${perLabel(p)}
+      (${rcM(bnd.inAmt)}); ${bnd.excludedDatedHere.length} dated in ${perLabel(p)}
       ${bnd.excludedDatedHere.length===1?'is':'are'} excluded because
       ${bnd.excludedDatedHere.length===1?'it was':'they were'} posted to ${perLabel(bnd.nextPeriod)}
-      (net ${fsM(bnd.exAmt)}). The population resolves by <b>posting period</b>, never by document date.
+      (net ${rcM(bnd.exAmt)}). The population resolves by <b>posting period</b>, never by document date.
       <button class="fsx-link" onclick="setRcActTab('txns');rcActSetF('flag','prior-dated')">Show the prior-dated items &#8594;</button></div>
   </div>`;
 
@@ -40121,7 +40465,7 @@ function rcAdjBand(def,inst,p){
       <span class="rcx-noterp">Not posted to the ERP</span></div>
     <div class="rcx-adj-g">
       ${rcCtrl('Component','REPORTING_ADJUSTMENT')}
-      ${rcCtrl('Amount',(share>0?'+':'')+fsM(share))}
+      ${rcCtrl('Amount',(share>0?'+':'')+rcM(share))}
       ${rcCtrl('Source','Korvyn Reporting')}
       ${rcCtrl('In the GL population','No')}
     </div>
@@ -40130,8 +40474,8 @@ function rcAdjBand(def,inst,p){
       <div class="m">${glEsc((fsLine(l.adj.fromFs)||{}).name||'')} &#8594;
         ${glEsc((fsLine(l.adj.toFs)||{}).name||'')} &#183; ${glEsc(RPT_BASIS[l.adj.basis]||l.adj.basis)}
         &#183; ${glEsc(l.adj.scopeName)} &#183; ${l.adj.appr?'approved by '+glEsc(l.adj.appr):'awaiting approval'}
-        ${l.adj.at?' &#183; '+glEsc(l.adj.at):''} &#183; ${fsM(l.amt)} on ${glEsc(line)}</div>
-      <button class="fsx-link" onclick="pickTab('enrich');setEnrView('rpt');enrOpenRpt('${l.adj.id}')">Open the adjustment &#8594;</button>
+        ${l.adj.at?' &#183; '+glEsc(l.adj.at):''} &#183; ${rcM(l.amt)} on ${glEsc(line)}</div>
+      <button class="fsx-link" onclick="rcGoAdjustment('${def.reconciliationDefinitionId}','${l.adj.id}')">Open the adjustment &#8594;</button>
     </div>`).join(''):`<div class="rcx-adj-r"><div class="m">The movement is this group's allocated
       share of an approved reporting overlay on ${glEsc(line)}.</div></div>`}
     <div class="rcx-adj-n">This amount is a Korvyn reporting overlay. The trial balance figure the
@@ -40143,7 +40487,7 @@ const rcFact=(k,v,c)=>'<div class="rcx-fact'+(c?' '+c:'')+'"><span class="k">'+k
   +'</span><span class="v">'+v+'</span></div>';
 const rcTie=(k,v,c,d)=>'<span class="rcx-tie'+(c?' '+c:'')+'"><i>'+k
   +(d?'<em>'+d+'</em>':'')+'</i><b class="mono">'
-  +(Math.abs(v)<0.05?'&mdash;':fsM(v))+'</b></span>';
+  +(Math.abs(v)<0.05?'&mdash;':rcM(v))+'</b></span>';
 const rcCtrl=(k,v,c)=>'<div class="rcx-ctrl-i'+(c?' '+c:'')+'"><span class="k">'+k
   +'</span><span class="v mono">'+v+'</span></div>';
 
@@ -40221,7 +40565,7 @@ function rcAcctPane(def,inst,rows){
     <td>${rcPill(RC_TIE,inst.tieStatus,1)}</td><td></td></tr>`;
   o+=`</tbody></table></div>
     <div class="fsx-foot">Source accounts foot to the reconciliation group's GL Activity
-      component: ${(a.activityAmount>0?'+':'')+fsM(a.activityAmount)}. In millions of
+      component: ${(a.activityAmount>0?'+':'')+rcM(a.activityAmount)}. In millions of
       ${glEsc(rcLens().presentationCurrency)}. Expand an account for its transactions.</div></div>`;
   return o;
 }
@@ -40233,7 +40577,7 @@ function rcAcctTxns(def,r,tx){
   return `<div class="rcx-subwrap">
     <div class="rcx-subhd"><b>${glEsc(r.glAccountNumber)} &#183; ${glEsc(r.glAccountName)}</b>
       <span>${tx.length.toLocaleString('en-US')} transactions &#183;
-        ${(r.activityAmount>0?'+':'')+fsM(r.activityAmount)}</span>
+        ${(r.activityAmount>0?'+':'')+rcM(r.activityAmount)}</span>
       <span class="grow"></span>
       <button class="fsx-link" onclick="event.stopPropagation();setRcActTab('txns');rcActSetF('acct','${r.sourceAccountId}')">All ${tx.length.toLocaleString('en-US')} transactions &#8594;</button>
       <button class="fsx-link" onclick="event.stopPropagation();rcExport('${def.reconciliationDefinitionId}','xls','${r.sourceAccountId}')">Download this account</button>
@@ -40268,7 +40612,7 @@ function rcTxnsPane(def,inst){
     ${rcActField('ccy','Currency')}
     ${rcActField('flag','Flags')}
     <button class="rcx-qv-b ${rcActF.mat?'on':''}" onclick="rcActMat()"
-      title="Transactions at or above ${fsM(rcMatThreshold(def))}">Material activity</button>
+      title="Transactions at or above ${rcM(rcMatThreshold(def))}">Material activity</button>
     <span class="grow"></span>
     <button class="fsx-link" onclick="rcToggleCols()">${rcMoreCols?'Fewer columns':'More columns'}</button>
     ${filtered?`<button class="fsx-link" onclick="rcActFReset();rcActSearch('');renderAll()">Clear</button>`:''}
@@ -40343,10 +40687,10 @@ function rcTxRow(t,compact){
 function rcTxFootHTML(all,net,ap,page,pages){
   const full=all.length===ap.transactionCount;
   return `${all.length.toLocaleString('en-US')} of ${ap.transactionCount.toLocaleString('en-US')}
-    transactions &#183; net ${(net>0?'+':'')+fsM(net)}
-    ${full?`&#183; population ${(ap.amount>0?'+':'')+fsM(ap.amount)} &#183; difference
-      ${Math.abs(net-ap.amount)<0.0005?'&mdash;':fsM(net-ap.amount)}`
-      :`&#183; filtered from ${(ap.amount>0?'+':'')+fsM(ap.amount)}`}
+    transactions &#183; net ${(net>0?'+':'')+rcM(net)}
+    ${full?`&#183; population ${(ap.amount>0?'+':'')+rcM(ap.amount)} &#183; difference
+      ${Math.abs(net-ap.amount)<0.0005?'&mdash;':rcM(net-ap.amount)}`
+      :`&#183; filtered from ${(ap.amount>0?'+':'')+rcM(ap.amount)}`}
     &#183; <span class="mono">${glEsc(ap.activityPopulationId)}</span>
     <span class="rcx-foot-n">${RC_PAGE} rows a page &#183; the grid pages rather than rendering
       the population; the totals above are the whole filtered set, not the page.</span>`;
@@ -40374,11 +40718,11 @@ function rcCompPane(def){
     <button class="rcx-f sm" data-pop="rc:comp" onclick="KFX.pop('rc:comp',this)">
       <span class="k">Break down by</span><span class="v">${glEsc(dim)}</span></button>
     <span class="grow"></span>
-    <button class="fsx-link" onclick="pickTab('finrep')">Open Flux &#8594;</button>
+    <button class="fsx-link" onclick="rcGoFlux('${def.reconciliationDefinitionId}')">Open Flux &#8594;</button>
   </div>
   <div class="card fsx-card rcx-card"><div class="rcx-wrap">
     <table class="tbl rcx-tbl"><thead><tr><th class="rcx-nm">${glEsc(dim)}</th>
-      <th class="num">Transactions</th><th class="num">Activity</th><th class="num">Share</th>
+      <th class="num">Transactions</th><th class="num">Activity (${glEsc(rcCcy())})</th><th class="num">Share</th>
       <th class="rcx-barcol"></th></tr></thead><tbody>
     ${rows.map(r=>`<tr class="rcx-r"><td class="rcx-nm"><span class="t">${glEsc(r.key)}</span></td>
       <td class="num">${r.count.toLocaleString('en-US')}</td>
@@ -40387,8 +40731,9 @@ function rcCompPane(def){
       <td class="rcx-barcol"><span class="rcx-sharebar"><i style="width:${Math.min(100,r.share)}%"></i></span></td>
       </tr>`).join('')}
     </tbody></table></div>
-    <div class="fsx-foot">Composition shows where the activity sits. Use Flux for causal
-      explanation.</div></div>`;
+    <div class="fsx-foot">Composition shows where the activity sits, in millions of
+      ${glEsc(rcCcy())} — the reporting lens's presentation currency, whatever the functional
+      currency of the entity that posted it. Use Flux for causal explanation.</div></div>`;
 }
 
 /* ---- POPULATION (§24) — the exact source-account membership and the rule that put each
@@ -40418,13 +40763,13 @@ function rcPopPane(def,p){
     ${pop.contested.map(a=>row(a,'<span class="pill warn sm">Claimed</span>',a.mapId,
        'Claimed by an active mapping rule for this group; currently included elsewhere')).join('')}
     ${unm.map(u=>row(u.account,'<span class="pill warn sm">Unmapped</span>',
-       u.mapping.id+' (draft)','Excluded from the population — '+fsM(u.amount)+' of activity')).join('')}
+       u.mapping.id+' (draft)','Excluded from the population — '+rcM(u.amount)+' of activity')).join('')}
     ${pop.candidates.map(a=>row(a,'<span class="pill warn sm">Unmapped</span>','&mdash;',a.why)).join('')}
     </tbody></table></div>
     <div class="fsx-foot">Membership is resolved by the governed account mapping at
       ${perLabel(p)} &#183; mapping v${glEsc(mapVersionFor(p).v)}. Changing it is a mapping
       decision, not a reconciliation one.
-      <button class="fsx-link" onclick="pickTab('acctmap')">Open Account Mapping &#8594;</button></div></div>`;
+      <button class="fsx-link" onclick="rcGoMapping('${def.reconciliationDefinitionId}')">Open Account Mapping &#8594;</button></div></div>`;
 }
 
 /* ---- EXPORT HISTORY / MANIFEST (§31, §32). Shown where the export happened, so the manifest
@@ -40439,8 +40784,8 @@ function rcExportPane(){
       <td class="mono">${glEsc(m.activityPopulationId)}${m.sourceAccountId
         ?' <span class="rcx-acctsrc">'+glEsc(srcAcct(m.sourceAccountId).code)+' only</span>':''}</td>
       <td class="num">${m.transactionCount.toLocaleString('en-US')}</td>
-      <td class="num">${fsM(m.exportedAmount)}</td>
-      <td class="num${m.valid?'':' rcx-diff'}">${m.valid?'&mdash;':fsM(m.difference)}</td>
+      <td class="num">${rcM(m.exportedAmount)}</td>
+      <td class="num${m.valid?'':' rcx-diff'}">${m.valid?'&mdash;':rcM(m.difference)}</td>
       <td>${m.valid?'<span class="pill good sm">Validated</span>'
         :'<span class="pill flag sm">Export validation failed</span>'}</td>
       <td>${glEsc(m.exportedBy)}</td><td>${glEsc(m.exportedAt)}</td></tr>`).join('')}
@@ -40526,7 +40871,7 @@ function rcInvBody(txId,srcId){
       ${rcRow('Entity',glEsc(v.entityName))}
       ${rcRow('Project',v.projectName?glEsc(v.projectName):'<span class="amap-dim">none recorded</span>')}
       ${rcRow('Amount',rcN(v.amount)+' '+glEsc(v.currency)
-        +(v.currency!==v.reportingCurrency?' <span class="amap-dim">'+fsM(v.reportingAmount)+' '
+        +(v.currency!==v.reportingCurrency?' <span class="amap-dim">'+rcM(v.reportingAmount)+' '
           +glEsc(v.reportingCurrency)+'</span>':''))}
       ${rcRow('Description',glEsc(v.description))}
       <div class="amp-acts"><button class="btn-out sm"
@@ -40549,7 +40894,7 @@ function rcTxTraceBody(txId,srcId){
   return {title:glEsc(t.sourceTransactionId.split('-').slice(-1)[0]+' · '+t.typeLabel),
     sub:glEsc(t.journalNumber),
     html:`<div class="amp-sec">Transaction</div>
-      ${rcRow('Amount','<b>'+(t.reportingAmount>0?'+':'')+fsM(t.reportingAmount)+'</b> '
+      ${rcRow('Amount','<b>'+(t.reportingAmount>0?'+':'')+rcM(t.reportingAmount)+'</b> '
         +glEsc(t.reportingCurrency))}
       ${rcRow('Posting date',glEsc(t.postingDate)+' <span class="amap-dim">period '
         +glEsc(perLabel(t.postingPeriod))+'</span>')}
@@ -40568,7 +40913,7 @@ function rcTxTraceBody(txId,srcId){
       ${rcRow('Transaction',rcN(t.transactionAmount)+' '+glEsc(t.transactionCurrency))}
       ${rcRow('Functional',rcN(t.functionalAmount)+' '+glEsc(t.functionalCurrency))}
       ${rcRow('Reporting',rcN(t.reportingAmount)+' '+glEsc(t.reportingCurrency)
-        +' <span class="amap-dim">rate set '+glEsc(rcLens().fxRateSetId)+'</span>')}
+        +' <span class="amap-dim">rate set '+glEsc(rcFxSetId(rcLens(),p))+'</span>')}
       ${t.flags.length?`<div class="amp-sec">Flags</div>
         <div class="rcx-flaglist">${t.flags.map(f=>'<span>'+glEsc((RC_TX_FLAGS[f]||{l:f}).l)+'</span>').join('')}</div>`:''}
       <div class="amp-sec">Trace</div>
@@ -40586,19 +40931,19 @@ function rcTxTraceBody(txId,srcId){
           '<span class="mono">'+glEsc(def.reconciliationGroupId)+'</span>')}
         ${arrow('as')}
         ${step('Roll-forward component','GL activity',
-          (inst.amounts.activityAmount>0?'+':'')+fsM(inst.amounts.activityAmount))}
+          (inst.amounts.activityAmount>0?'+':'')+rcM(inst.amounts.activityAmount))}
         ${arrow('of')}
         ${step('Reconciliation','<span class="mono">'+glEsc(inst.reconciliationInstanceId)+'</span>',
           perLabel(p)+' &#183; '+glEsc(rcLens().name))}
         ${arrow('presents on')}
         ${step('Financial line',glEsc(fl.name||''),'<span class="mono">'+def.financialLineId+'</span>',
-          "pickTab('glfin');fsPick('"+def.financialLineId+"')")}
+          "rcGoFinancials('"+def.reconciliationDefinitionId+"')")}
       </div>
       <div class="amp-sec">The same line is read by</div>
       <div class="rcx-used">
-        <button onclick="pickTab('glfin');fsPick('${def.financialLineId}')">Financials</button>
-        <button onclick="pickTab('gltrend')">Trending</button>
-        <button onclick="pickTab('finrep')">Flux</button>
+        <button onclick="rcGoFinancials('${def.reconciliationDefinitionId}')">Financials</button>
+        <button onclick="rcGoTrending('${def.reconciliationDefinitionId}')">Trending</button>
+        <button onclick="rcGoFlux('${def.reconciliationDefinitionId}')">Flux</button>
         <button onclick="rcCloseDrill()">This reconciliation</button>
       </div>
       <div class="rcx-jenote">All four read <span class="mono">fsAmount('${def.financialLineId}')</span>
@@ -40626,8 +40971,8 @@ function rcFxBody(defId){
     ${go?'<span class="ch">&#8250;</span>':''}</div>`;
   const arrow=x=>`<div class="amp-tr-a">${x}</div>`;
   const top=fx.byEntity[0];
-  return {title:'FX translation', sub:fsM(a.fxTranslation),
-    html:`<div class="rcx-actv"><span class="v mono">${a.fxTranslation>0?'+':''}${fsM(a.fxTranslation)}</span>
+  return {title:'FX translation', sub:rcM(a.fxTranslation),
+    html:`<div class="rcx-actv"><span class="v mono">${a.fxTranslation>0?'+':''}${rcM(a.fxTranslation)}</span>
       <span class="l">Derived reporting translation to ${glEsc(L.presentationCurrency)}</span></div>
     <div class="rcx-why">This is <b>not an ERP posting</b> and has no journal number. It is the
       difference between the movement translated at the average rate and the movement the
@@ -40642,7 +40987,7 @@ function rcFxBody(defId){
         <td class="num mono">${c.rateOpen.toFixed(4)}</td>
         <td class="num mono">${c.rateAvg.toFixed(4)}</td>
         <td class="num mono">${c.rateEnd.toFixed(4)}</td>
-        <td class="num mono">${fsM(c.amount)}</td></tr>`).join('')}
+        <td class="num mono">${rcM(c.amount)}</td></tr>`).join('')}
       </tbody></table>`:`<div class="amp-empty">Every entity in this population already reports in
       ${glEsc(L.presentationCurrency)}, so there is nothing to translate.</div>`}
     ${fx.byEntity.length?`<div class="amp-sec">By entity</div>
@@ -40652,7 +40997,7 @@ function rcFxBody(defId){
         <span class="rcx-acctsrc">${glEsc(e.country)}</span></td>
         <td>${glEsc(e.functionalCurrency)}</td>
         <td class="num mono">${rcN(e.functionalClosing)}</td>
-        <td class="num mono">${fsM(e.fxTranslation)}</td></tr>`).join('')}
+        <td class="num mono">${rcM(e.fxTranslation)}</td></tr>`).join('')}
       </tbody></table>`:''}
     ${top?`<div class="amp-sec">Trace &#183; ${glEsc(top.entityName)}</div>
     <div class="amp-tr">
@@ -40664,7 +41009,7 @@ function rcFxBody(defId){
         'closing '+rcN(top.functionalClosing)+' '+glEsc(top.functionalCurrency))}
       ${arrow('translated to')}
       ${step('Reporting currency',glEsc(L.presentationCurrency),
-        'closing '+fsM(top.reportedClosing))}
+        'closing '+rcM(top.reportedClosing))}
       ${arrow('method')}
       ${step('Translation method','Period-end for balances, average for movement',
         'balance sheet at the closing rate; the period movement at the average')}
@@ -40673,7 +41018,7 @@ function rcFxBody(defId){
         glEsc(rs.source)+' &#183; '+glEsc(rs.version)+' &#183; '+glEsc(rs.status)
         +' &#183; approved by '+glEsc(rs.approvedBy)+' '+glEsc(rs.approvedAt))}
       ${arrow('calculation')}
-      ${step('Effect',fsM(top.fxTranslation),
+      ${step('Effect',rcM(top.fxTranslation),
         '('+rcN(top.reportedClosing)+' &#8722; '+rcN(top.reportedOpening)+') &#8722; ('
         +rcN(top.functionalMovement)+' &#215; '+top.rateAvg.toFixed(4)+')')}
     </div>`:''}
@@ -40689,8 +41034,8 @@ function rcElimBody(defId){
     ${s?`<span class="s">${s}</span>`:''}</div>`;
   const arrow=x=>`<div class="amp-tr-a">${x}</div>`;
   const r=rules[0];
-  return {title:'Eliminations', sub:fsM(a.elimination),
-    html:`<div class="rcx-actv"><span class="v mono">${fsM(a.elimination)}</span>
+  return {title:'Eliminations', sub:rcM(a.elimination),
+    html:`<div class="rcx-actv"><span class="v mono">${rcM(a.elimination)}</span>
       <span class="l">Consolidation effect on the period</span></div>
     ${L.consolidationRuleSetId?'':`<div class="rcx-why">${glEsc(L.name)} is a single filing
       population and consolidates nothing, so it carries no eliminations. That is the lens
@@ -40719,32 +41064,59 @@ function rcElimBody(defId){
         ${step('Account population',glEsc((fsLine(def.financialLineId)||{}).name||''),
           rcPopulation(def,p).accounts.length+' source accounts')}
         ${arrow('eliminates')}
-        ${step('Effect',fsM(a.elimination),'movement in the eliminated balance for '+perLabel(p))}
+        ${step('Effect',rcM(a.elimination),'movement in the eliminated balance for '+perLabel(p))}
       </div>`:''}
     <div class="rcx-srcref">Not posted to the ERP, so no journal number is shown. Where a source
       system does post consolidation journals they arrive as ordinary GL activity instead.</div>`};
 }
-/* §25, §54 — the basis bridge. Not a second ledger and not a comparison application: one
-   population, one set of source facts, and the governed adjustments that differ by basis. */
+/* §25, §54; rebuilt R3.1 §28-§30 — THE BASIS BRIDGE, WITH THE CURRENCY HELD STILL.
+   Not a second ledger and not a comparison application: one population, one set of source
+   facts, and the governed adjustments that differ by basis.
+
+   THREE THINGS CAN DIFFER BETWEEN TWO LENSES — basis, currency and population — and a bridge
+   that lets all three move at once is a number nobody can read. So:
+
+     A  this lens's bridge     source → basis adjustment → basis balance, in the lens's currency
+     B  every basis, same      the SAME population in the SAME currency under each basis, so the
+        population, same ccy   only thing that moves down the column is the accounting basis
+     C  the other lenses       their own reported balance in their own currency AND translated
+                               into this lens's at the period-end cross rate, stated as two
+                               columns — the currency effect is never folded into the basis one
+
+   Nothing here fabricates: A and B are `rcLensLine()` arithmetic over this lens's population,
+   and C's translation uses the same rate set the roll-forward does.                         */
 function rcBasisBody(defId){
   const def=rcDef(defId); if(!def) return null;
-  const p=viewPeriod(), L=rcLens(), line=def.financialLineId;
+  const p=viewPeriod(), L=rcLens(), line=def.financialLineId, P=L.presentationCurrency;
   const here=rcLensLine(line,p,L.reportingLensId);
+  const A=fsAmount(line,p);
   const others=REPORTING_LENSES.filter(x=>x.reportingLensId!==L.reportingLensId);
   const row=(k,v,c)=>`<div class="rcx-rf${c?' '+c:''}"><span class="l">${k}</span>
     <span class="v mono">${v}</span></div>`;
+  const usGaap=L.reportingBasis==='US_GAAP';
   const adj=rcBasisAdjFor(line,L.reportingBasis);
-  return {title:'Basis bridge', sub:glEsc(rcBasisLabel(L.reportingBasis)),
-    html:`<div class="amp-sec">${glEsc((fsLine(line)||{}).name||'')} &#183; ${perLabel(p)}</div>
+  /* the ledger base for THIS population in THIS currency, before any basis decision */
+  const srcP=+(A.sourceTB*here.populationShare/here.rate).toFixed(3);
+  const ovlP=+(A.adj*here.populationShare/here.rate).toFixed(3);
+  const bases=[...new Set(REPORTING_LENSES.map(x=>x.reportingBasis))];
+  const basisAdjP=b=>b==='US_GAAP'?ovlP
+    :+rcBasisAdjFor(line,b).reduce((s,x)=>s+srcP*x.pct,0).toFixed(3);
+  const sgn=v=>(v>0?'+':'')+rcM(v,P);
+  return {title:'Basis bridge', sub:glEsc(rcBasisLabel(L.reportingBasis))+' · '+glEsc(P),
+    html:`<div class="amp-sec">${glEsc((fsLine(line)||{}).name||'')} &#183; ${perLabel(p)} &#183; ${glEsc(P)}</div>
     <div class="rcx-why">One population, one set of source facts. A different reporting basis
       does not produce a different ledger &#8212; it produces different governed, approved,
-      versioned adjustments over the same facts.</div>
+      versioned adjustments over the same facts. Everything on this card is stated in
+      <b>${glEsc(P)}</b>; currency translation is a separate bridge and is never mixed in.</div>
     <div class="rcx-rfw">
-      ${row('Source trial balance &#183; '+glEsc(L.presentationCurrency),fsM(here.currencyAmount))}
-      ${adj.length?adj.map(x=>row(glEsc(rcBasisLabel(x.basis))+' &#183; '+glEsc(x.id),
-        fsM(here.currencyAmount*x.pct),'ind')).join('')
-        :row('No basis adjustment on this line','&mdash;','ind')}
-      ${row(glEsc(rcBasisLabel(L.reportingBasis))+' reported balance',fsM(here.reported),'tot')}
+      ${row('Source trial balance &#183; '+glEsc(P),rcM(srcP,P))}
+      ${usGaap
+        ? row('US GAAP presentation overlay',Math.abs(ovlP)<0.0005?'&mdash;':sgn(ovlP),'ind')
+        : adj.length
+          ? adj.map(x=>row(glEsc(rcBasisLabel(x.basis))+' basis adjustment &#183; '
+              +'<span class="mono">'+glEsc(x.id)+'</span>',sgn(srcP*x.pct),'ind')).join('')
+          : row('No '+glEsc(rcBasisLabel(L.reportingBasis))+' basis adjustment on this line','&mdash;','ind')}
+      ${row(glEsc(rcBasisLabel(L.reportingBasis))+' reported balance',rcM(here.reported,P),'tot')}
     </div>
     ${adj.length?`<div class="amp-sec">Adjustment detail</div>
       ${adj.map(x=>`<div class="rcx-adj-r"><div class="t"><span class="mono">${glEsc(x.id)}</span>
@@ -40752,21 +41124,41 @@ function rcBasisBody(defId){
         <div class="m">${glEsc(rcBasisLabel(x.basis))} basis &#183; approved by
         ${glEsc(x.approvedBy)} &#183; ${glEsc(x.at)} &#183;
         <b>not posted to the ERP</b></div></div>`).join('')}`:''}
+    <div class="amp-sec">Every basis over this population &#183; ${glEsc(P)}</div>
+    <div class="rcx-why">Population and currency held constant &#8212; the only thing that
+      moves down this column is the accounting basis.</div>
+    <table class="tbl rcx-je-tbl"><thead><tr><th>Basis</th>
+      <th class="num">Source</th><th class="num">Adj.</th>
+      <th class="num">Balance</th></tr></thead><tbody>
+      ${bases.map(b=>{const d=basisAdjP(b); return `<tr class="${b===L.reportingBasis?'here':''}">
+        <td>${glEsc(rcBasisLabel(b))}${b===L.reportingBasis?'<span class="rcx-here">current</span>':''}</td>
+        <td class="num mono">${rcN(srcP)}</td>
+        <td class="num mono">${Math.abs(d)<0.0005?'&mdash;':(d>0?'+':'')+rcN(d)}</td>
+        <td class="num mono">${rcN(+(srcP+d).toFixed(3))}</td></tr>`;}).join('')}
+    </tbody></table>
     <div class="amp-sec">The same line under the other lenses</div>
     <table class="tbl rcx-je-tbl"><thead><tr><th>Reporting lens</th><th>Basis</th>
-      <th class="num">Reported</th></tr></thead><tbody>
-      <tr class="here"><td>${glEsc(L.name)}<span class="rcx-here">current</span></td>
+      <th class="num">Reported</th><th class="num">In ${glEsc(P)}</th></tr></thead><tbody>
+      <tr class="here"><td>${glEsc(L.name)}<span class="rcx-here">current</span>
+          <span class="rcx-acctsrc">${rcLensCount(L.reportingLensId).toLocaleString('en-US')} ${glEsc(L.populationLabel)}</span></td>
         <td>${glEsc(rcBasisLabel(L.reportingBasis))}</td>
-        <td class="num mono">${rcN(here.reported)} ${glEsc(L.presentationCurrency)}</td></tr>
+        <td class="num mono">${rcM(here.reported,P)}</td>
+        <td class="num mono">${rcM(here.reported,P)}</td></tr>
       ${others.map(x=>{const o=rcLensLine(line,p,x.reportingLensId);
+        const xr=rcCross(x.presentationCurrency,P,p,'PERIOD_END');
+        const norm=+(o.reported*xr).toFixed(3);
         return `<tr><td><button class="rcx-lk2" onclick="setRcLens('${x.reportingLensId}')">${glEsc(x.name)}</button>
           <span class="rcx-acctsrc">${rcLensCount(x.reportingLensId).toLocaleString('en-US')} ${glEsc(x.populationLabel)}</span></td>
           <td>${glEsc(rcBasisLabel(x.reportingBasis))}</td>
-          <td class="num mono">${rcN(o.reported)} ${glEsc(x.presentationCurrency)}</td></tr>`;}).join('')}
+          <td class="num mono">${rcM(o.reported,x.presentationCurrency)}</td>
+          <td class="num mono">${x.presentationCurrency===P?'<span class="amap-dim">same</span>'
+            :rcM(norm,P)+'<span class="rcx-acctsrc">at '+xr.toFixed(4)+'</span>'}</td></tr>`;}).join('')}
     </tbody></table>
-    <div class="rcx-jenote">The lenses cover different populations and currencies as well as
-      different bases, so these are not four measurements of one number &#8212; they are four
-      governed answers to four different questions over the same ledger.</div>`};
+    <div class="rcx-jenote">The lenses cover different <b>populations</b> as well as different
+      bases and currencies, so these are not four measurements of one number &#8212; they are
+      four governed answers to four different questions over the same ledger. The "In ${glEsc(P)}"
+      column removes the currency difference at the period-end rate and nothing else; the
+      table above it removes the population difference as well.</div>`};
 }
 /* §17, §34, §48 — the entity view: functional balance, reported contribution, and the rate
    between them. A mixed-currency group never shows a "local currency total". */
@@ -40789,7 +41181,9 @@ function rcEntsBody(defId){
       </tr></thead><tbody>
       ${Object.values(byCcy).sort((a,b)=>Math.abs(b.reported)-Math.abs(a.reported))
         .map(c=>`<tr><td>${glEsc(c.ccy)}</td><td class="num">${c.n}</td>
-        <td class="num mono">${rcN(c.functional)} ${glEsc(c.ccy)}</td>
+        <td class="num mono">${c.ccy===L.presentationCurrency
+          ?'<span class="amap-dim" title="Functional currency is the presentation currency — one amount, stated once">= reported</span>'
+          :rcN(c.functional)+' '+glEsc(c.ccy)}</td>
         <td class="num mono">${rcN(c.reported)}</td></tr>`).join('')}
     </tbody></table>
     <div class="amp-sec">Entity contribution</div>
@@ -40799,7 +41193,8 @@ function rcEntsBody(defId){
       ${ents.map(e=>`<tr><td>${glEsc(e.entityName)}
         <span class="rcx-acctsrc">${glEsc(e.country)} &#183; ${glEsc(e.functionalCurrency)}
         ${e.foreign?'&#183; rate '+e.rateEnd.toFixed(4):''}</span></td>
-        <td class="num mono">${rcN(e.functionalClosing)} ${glEsc(e.functionalCurrency)}</td>
+        <td class="num mono">${e.foreign?rcN(e.functionalClosing)+' '+glEsc(e.functionalCurrency)
+          :'<span class="amap-dim" title="Functional currency is the presentation currency — one amount, stated once">= reported</span>'}</td>
         <td class="num mono">${rcN(e.reportedClosing)}</td>
         <td class="num mono">${Math.abs(e.fxTranslation)<0.0005?'&mdash;':rcN(e.fxTranslation)}</td>
         </tr>`).join('')}
@@ -40833,13 +41228,13 @@ function rcAcctTraceBody(srcId){
       ${rcRow('Mapping','<span class="mono">'+glEsc(res.mapping?res.mapping.id:'—')+'</span> &#183; '
         +glEsc((MAP_ST[res.status]||{l:res.status}).l))}
       <div class="amp-sec">${perLabel(p)} tie-out</div>
-      ${rcRow('Beginning',fsM(r.beginningBalance||0))}
-      ${rcRow('Activity',((r.activityAmount||0)>0?'+':'')+fsM(r.activityAmount||0))}
-      ${rcRow('Other',r.otherMovementAmount?fsM(r.otherMovementAmount):'&mdash;')}
-      ${rcRow('Calculated ending',fsM(r.endingCalculatedBalance||0))}
-      ${rcRow('Trial balance',fsM(r.trialBalanceAmount||0))}
+      ${rcRow('Beginning',rcM(r.beginningBalance||0))}
+      ${rcRow('Activity',((r.activityAmount||0)>0?'+':'')+rcM(r.activityAmount||0))}
+      ${rcRow('Other',r.otherMovementAmount?rcM(r.otherMovementAmount):'&mdash;')}
+      ${rcRow('Calculated ending',rcM(r.endingCalculatedBalance||0))}
+      ${rcRow('Trial balance',rcM(r.trialBalanceAmount||0))}
       ${rcRow('Difference',Math.abs(r.difference||0)<0.0005?'&mdash;'
-        :'<span class="rcx-diff">'+fsM(r.difference)+'</span>')}
+        :'<span class="rcx-diff">'+rcM(r.difference)+'</span>')}
       ${rcRow('Transactions',tx.length.toLocaleString('en-US'))}
       <div class="amp-sec">Trace</div>
       <div class="amp-tr">
@@ -40853,14 +41248,14 @@ function rcAcctTraceBody(srcId){
         ${arrow('sourced from')}
         ${step('Source account',glEsc(a.code),glEsc(a.name))}
         ${arrow(perLabel(p)+' activity')}
-        ${step('Activity',((r.activityAmount||0)>0?'+':'')+fsM(r.activityAmount||0),
+        ${step('Activity',((r.activityAmount||0)>0?'+':'')+rcM(r.activityAmount||0),
           tx.length.toLocaleString('en-US')+' transactions',
           "rcCloseDrill();setRcActTab('txns');rcActSetF('acct','"+srcId+"')")}
         ${arrow('read from')}
-        ${step('ERP',glEsc(srcSys(a.sys).name),glEsc(erpIns(a.ins).name),"pickTab('glsync')")}
+        ${step('ERP',glEsc(srcSys(a.sys).name),glEsc(erpIns(a.ins).name),"rcGoSync('"+def.reconciliationDefinitionId+"')")}
       </div>
       <div class="amp-acts">
-        <button class="btn-out sm" onclick="pickTab('acctmap');amapOpen('${a.id}')">Account mapping &#8594;</button>
+        <button class="btn-out sm" onclick="rcGoMapping('${def.reconciliationDefinitionId}','${a.id}')">Account mapping &#8594;</button>
         <button class="btn-out sm" onclick="rcExport('${def.reconciliationDefinitionId}','csv','${a.id}')">Download this account</button>
       </div>`};
 }
@@ -40906,6 +41301,176 @@ function rcR2Field(k){
       set:v=>{ KFX.popClose(); if(def) rcExport(def.reconciliationDefinitionId,v); }}; }
   return null;
 }
+
+
+/* ==========================================================================================
+   R3.1 §43 — THE INTELLIGENCE LAYER RESOLVES THE SELECTED CONTEXT, not a default one
+   ==========================================================================================
+   Everything a question like "why is Electrical CIP €39.0M under Germany Statutory?" needs is
+   the set of governed objects that rendered the page: the lens, its basis, its currency, its
+   population, the mapping and hierarchy versions, the rate set, the consolidation rules, the
+   adjustment set and — when one is open — the reconciliation instance, its population and its
+   fingerprint. This is that object, read from the same functions the page reads. Data only;
+   no AI surface is built here. `cpContext()` renders its one-line form in the assistant.   */
+function reconAiContext(){
+  const p=viewPeriod(), L=rcLens();
+  const out={surface:'reconciliations', periodId:p,
+    reportingLensId:L.reportingLensId, reportingLensName:L.name, reportingLensVersion:'v'+L.version,
+    reportingBasis:L.reportingBasis, reportingBasisLabel:rcBasisLabel(L.reportingBasis),
+    jurisdiction:L.jurisdiction, presentationCurrency:L.presentationCurrency,
+    population:{count:rcLensCount(L.reportingLensId), label:L.populationLabel,
+      hierarchyId:L.hierarchyId, hierarchyName:L.hierarchyName, hierarchyVersion:L.hierarchyVersion},
+    scopeId:ENTCTX.scope.id, scopeName:ENTCTX.scope.name,
+    mappingVersion:mapVersionFor(p).v, fxRateSetId:rcFxSetId(L,p),
+    consolidationRuleSetId:L.consolidationRuleSetId,
+    reportingAdjustmentSetId:L.reportingAdjustmentSetId,
+    statementDefinitionId:L.statementDefinitionId, dataAsOf:rcDataAsOf(p),
+    reconciliationDefinitionId:null, reconciliationInstanceId:null, reconciliationName:null,
+    activityPopulationId:null, fingerprint:null, amounts:null};
+  const sel=rcAct||rcSel;
+  if(sel){ const def=rcDef(sel), inst=def?rcInstance(sel,p):null;
+    if(inst) Object.assign(out,{reconciliationDefinitionId:sel,
+      reconciliationInstanceId:inst.reconciliationInstanceId, reconciliationName:def.name,
+      financialLineId:def.financialLineId,
+      activityPopulationId:inst.activityPopulation.activityPopulationId,
+      functionalCurrencies:inst.functionalCurrencies, fingerprint:inst.fingerprint,
+      amounts:{presentationCurrency:L.presentationCurrency,
+        beginning:inst.beginningBalance, activity:inst.activityAmount,
+        classificationChange:inst.classificationChange, fxTranslation:inst.amounts.fxTranslation,
+        elimination:inst.amounts.elimination, basisAdjustment:inst.amounts.basisAdjustment,
+        reportingAdjustment:inst.otherMovementAmount, ending:inst.endingCalculatedBalance,
+        trialBalance:inst.trialBalanceAmount, difference:inst.difference,
+        tieStatus:inst.tieStatus, reviewStatus:inst.reviewStatus}}); }
+  return out;
+}
+
+
+/* ==========================================================================================
+   NAVIGATION FROM A RECONCILIATION (2026-09-03) — trace → inspect → return
+   ==========================================================================================
+   Every outbound link states its origin and lands on the governed object it names: the
+   financial line in Financials (statement chosen, ancestors opened, row selected and scrolled
+   to), the statement line in Flux, the account or the group's own rules in Account Mapping,
+   the line in Trending, the adjustment in Data Enrichment, the source system in Sync. No link
+   from this page lands on a module's front door when the object is known.
+
+   `rcNavCtx()` is the ONE place the origin is described and `rcRestore()` the one place it is
+   reinstated. The snapshot is this page's UI — lens, row, tab, canvas, filters, expanded
+   groups, open drill, scroll — never a figure. The period and the enterprise scope are the
+   book's and the enterprise's, not this page's: they are put back only if the user moved them
+   while away, and only through their own writers.                                          */
+function rcNavCtx(def,inst,extra){
+  const L=rcLens(), body=document.querySelector('#rcPanel .amp-body, #rcDrillPanel .amp-body');
+  const snap={lens:rcLensId, rcSel, rcTab, rcAct, rcAcTab, rcQV, rcQ, rcStatusF, rcReviewerF,
+    rcStmt, rcCompDim, rcActPage, rcProvOpen, rcMoreCols,
+    rcOpen:Object.assign({},rcOpen), rcDrill:rcDrill?Object.assign({},rcDrill):null,
+    rcTraceOpen:Object.assign({},rcTraceOpen), rcActF:Object.assign({},rcActF),
+    rcExpand:Object.assign({},rcExpand),
+    scrollY:window.scrollY, panelScroll:body?body.scrollTop:0,
+    period:viewPeriod(), scope:ENTCTX.scope};
+  const where=rcAct?'Activity detail':rcDrill?'drill':rcSel
+    ?(RC_TABS.find(t=>t[0]===rcTab)||['',''])[1]:'Control Center';
+  return Object.assign({
+    originSurface:'reconciliations', originTab:'glrecon',
+    originObjectId:inst?inst.reconciliationInstanceId:null,
+    originLabel:def?def.name+' reconciliation':'Reconciliations',
+    originContext:perLabel(snap.period)+' · '+L.name+(where?' · '+where:''),
+    periodId:snap.period, scopeId:ENTCTX.scope.id, reportingLensId:L.reportingLensId,
+    financialLineId:def?def.financialLineId:null,
+    reconciliationGroupId:def?def.reconciliationGroupId:null,
+    activityPopulationId:inst?inst.activityPopulation.activityPopulationId:null,
+    comparisonId:null, mappingVersion:mapVersionFor(snap.period).v, sourceAccountId:null,
+    scrollPosition:snap.scrollY, restore:()=>rcRestore(snap)}, extra||{});
+}
+function rcRestore(s){
+  if(typeof LENS!=='undefined'&&LENS!=='ledger') pickLens('ledger');
+  try{ if(s.period&&s.period!==viewPeriod()) setPeriod(s.period); }catch(e){}
+  try{ if(s.scope&&ENTCTX.scope&&ENTCTX.scope.id!==s.scope.id) ENTCTX.scope=s.scope; }catch(e){}
+  rcLensId=s.lens; rcClearCaches();
+  rcSel=s.rcSel; rcTab=s.rcTab; rcAct=s.rcAct; rcAcTab=s.rcAcTab; rcQV=s.rcQV; rcQ=s.rcQ;
+  rcStatusF=s.rcStatusF; rcReviewerF=s.rcReviewerF; rcStmt=s.rcStmt; rcCompDim=s.rcCompDim;
+  rcActPage=s.rcActPage; rcProvOpen=s.rcProvOpen; rcMoreCols=s.rcMoreCols;
+  rcOpen=s.rcOpen; rcDrill=s.rcDrill; rcTraceOpen=s.rcTraceOpen; rcActF=s.rcActF;
+  rcExpand=s.rcExpand;
+  pickTab('glrecon');
+  /* the dock animates in, and a scrollTop set while its height is still small clamps to
+     zero (observed) — so the scroll is re-applied until it sticks or the entrance is over */
+  let tries=0; const put=()=>{ window.scrollTo(0,s.scrollY||0);
+    const b=document.querySelector('#rcPanel .amp-body, #rcDrillPanel .amp-body');
+    if(b) b.scrollTop=s.panelScroll||0;
+    const ok=!b||Math.abs(b.scrollTop-(s.panelScroll||0))<2;
+    if(!ok&&++tries<12) setTimeout(put,50); };
+  requestAnimationFrame(put);
+}
+/* the statements present the corporate lens; a link from any other lens says so on the
+   return strip rather than letting the destination imply a EUR statement exists */
+const rcNavLensNote=L=>L.reportingLensId===REPORTING_LENSES[0].reportingLensId?''
+  :'Financials, Flux and Trending present '+REPORTING_LENSES[0].name+' · '
+   +REPORTING_LENSES[0].presentationCurrency+'; this line is restated under '+L.name+' here.';
+function rcGoFinancials(defId,tab){
+  const def=rcDef(defId), inst=def?rcInstance(defId):null, L=rcLens();
+  const line=def?def.financialLineId:null;
+  navGo(rcNavCtx(def,inst,{note:rcNavLensNote(L)}),()=>{
+    pickTab('glfin'); if(line){ fsReveal(line); if(tab) setFsTab(tab); } });
+}
+/* THE FLUX LINE A RECONCILIATION ROLLS INTO. Two models with no shared id: Flux's statement
+   lines are its own (`recost`, `accrued` …) and are reached through the account codes the
+   population holds — the same route the ledger inspector takes — and a line whose accounts
+   Flux does not carry falls back to the crosswalk below. The crosswalk is a NAVIGATION aid,
+   not a second mapping; unifying the two statement models is R3.5. */
+const RC_FS_FLUX={'FS-CASH':'cash','FS-RCASH':'cash','FS-AR':'ar','FS-PRE':'otherca',
+  'FS-OCA':'otherca','FS-LAND':'recost','FS-CIP':'recost','FS-BLDG':'recost','FS-ELEC':'recost',
+  'FS-MECH':'recost','FS-GEN':'recost','FS-COOL':'recost','FS-XFMR':'recost','FS-UPS':'recost',
+  'FS-NET':'recost','FS-FF':'recost','FS-PPE':'recost','FS-ACCDEP':'accumdep','FS-ROU':'rou',
+  'FS-GW':'intang','FS-INTAN':'intang','FS-OA':'othera','FS-ICR':'othera','FS-AP':'ap',
+  'FS-CPAY':'ap','FS-ACC':'accrued','FS-RET':'reten','FS-DEF':'defrev','FS-LEASE':'leaseliab',
+  'FS-DEBTC':'debt','FS-DEBTL':'debt','FS-ICP':'otherl','FS-OL':'otherl','FS-CAP':'contrib',
+  'FS-RE':'re','FS-OCI':'aoci','FS-CTA':'aoci'};
+function rcFluxLineFor(def){
+  if(!def) return null;
+  try{ const pop=rcPopulation(def);
+    for(const a of pop.accounts){ const r=KFX.lineForAcct(a.code); if(r) return r; } }catch(e){}
+  const id=RC_FS_FLUX[def.financialLineId]; return id?{stmt:'bs',id}:null;
+}
+function rcGoFlux(defId){
+  const def=rcDef(defId), inst=def?rcInstance(defId):null, L=rcLens();
+  const rel=rcFluxLineFor(def);
+  let cmp=null; try{ cmp=KFX.S.grain+'/'+KFX.S.compare; }catch(e){}
+  navGo(rcNavCtx(def,inst,{comparisonId:cmp, fluxLineId:rel?rel.id:null, note:rcNavLensNote(L)}),()=>{
+    if(rel) glToFlux(rel.stmt,rel.id);
+    else{ pickTab('finrep'); try{ KFX.setStmtFromShell('bs'); renderAll(); }catch(e){} } });
+}
+/* the account open, or the group's own rules on screen — never the mapping front door */
+function rcGoMapping(defId,srcId,view){
+  const def=defId?rcDef(defId):null, inst=def?rcInstance(defId):null;
+  const a=srcId?srcAcct(srcId):null;
+  navGo(rcNavCtx(def,inst,{sourceAccountId:srcId||null,
+      canonicalAccountId:a&&a.canon?a.canon:null, mappingView:view||'all'}),()=>{
+    pickTab('acctmap'); amapView=view||'all'; amapPick={};
+    /* the mapping rows carry the CANONICAL account, the mapping-level group and the financial
+       line — not the reconciliation definition's name — so the group's rules are found by the
+       canonical account its rule names, else its mapping group, else its financial line */
+    amapQ=(!srcId&&def)?rcMapQuery(def):'';
+    if(srcId) amapOpen(srcId); else renderAcctMap(); });
+}
+function rcMapQuery(def){
+  const rule=def.accountPopulationRule||{};
+  if(rule.canon&&rule.canon.length) return (canon(rule.canon[0])||{}).name||rule.canon[0];
+  if(rule.recGroup){ try{ const n=taxName('rec',rule.recGroup); if(n) return n; }catch(e){} }
+  return (fsLine(def.financialLineId)||{}).name||def.name;
+}
+function rcGoTrending(defId){
+  const def=rcDef(defId), inst=def?rcInstance(defId):null, L=rcLens();
+  const line=def?def.financialLineId:null;
+  navGo(rcNavCtx(def,inst,{note:rcNavLensNote(L)}),()=>{ pickTab('gltrend');
+    if(line){ try{ const st=fsStmtOf(line); if(st&&st!==trStmt){ trStmt=st; trOpen={}; }
+      fsAncestors(line).forEach(id=>{ trOpen[id]=true; }); trPick(line); }catch(e){} } });
+}
+function rcGoSync(defId){ const def=defId?rcDef(defId):null, inst=def?rcInstance(defId):null;
+  navGo(rcNavCtx(def,inst),()=>pickTab('glsync')); }
+function rcGoAdjustment(defId,adjId){ const def=rcDef(defId), inst=def?rcInstance(defId):null;
+  navGo(rcNavCtx(def,inst,{adjustmentId:adjId}),()=>{ pickTab('enrich'); setEnrView('rpt');
+    enrOpenRpt(adjId); }); }
 
 // ---------------------------------------------------------------- 8. Close status
 function renderGLClose(){
@@ -47980,7 +48545,14 @@ function gfTabs(){
            (typeof LENS!=='undefined'&&LENS==='ledger')
              ? (TAB==='glfin' ? {k:'period',nm:'Presentation', f:['pres']} : null)
              : {k:'period',nm:'Period', f:['ptype','pval']},
-           {k:'basis', nm:'Basis',  f:['ccy']}].filter(Boolean);
+           /* NOT ON RECONCILIATIONS (R3.1 §4, §11). The reporting lens sets the presentation
+              currency and the basis together, so a "Currency · USD | Local" field beside it
+              was a second answer to a settled question — and "Local" has no meaning for a
+              consolidated multi-currency population (EMEA holds EUR, GBP, CHF …). It never
+              moved a figure on this page either. Functional detail is where it belongs: the
+              entity drill and the transaction grid, which state each entity's own currency. */
+           (typeof TAB!=='undefined'&&TAB==='glrecon')
+             ? null : {k:'basis', nm:'Basis',  f:['ccy']}].filter(Boolean);
   if(typeof TAB!=='undefined'&&['glact','glover'].indexOf(TAB)>=0&&typeof GL_DIMS!=='undefined')
     t.splice(1,0,{k:'ledger',nm:'Ledger',f:['gl:ent','gl:acct','gl:erp','gl:ty']});
   /* the page's own filters, in the owner's own vocabulary from the Phase 1 brief */
@@ -48183,7 +48755,8 @@ renderTabs=function(){ _renderTabs(); paintRailNav(); };
 const _showTab=showTab;
 showTab=function(){ _showTab(); paintRailNav(); document.body.classList.remove('nav-open'); };
 const _renderAll=renderAll;
-renderAll=function(){ _renderAll(); paintTopbar(); };
+renderAll=function(){ _renderAll(); paintTopbar();
+  if(typeof paintNavRet==='function') paintNavRet(); };
 
 /* ⌘/Ctrl-K opens the command palette — the single search-and-ask surface. There is exactly ONE
    handler for this chord now (the cmdk keydown listener); this second one, left over from the
@@ -48905,6 +49478,18 @@ const CP_CARDS={
 };
 // Context line: what the assistant is looking at right now, including page filters.
 function cpContext(){
+  // Accounting > Reconciliations — the selected REPORTING LENS is the context (R3.1 §43).
+  // The sentence is what the assistant shows; `reconAiContext()` is the structured object
+  // the intelligence layer resolves — lens, basis, currency, population, versions, rate set,
+  // rules, adjustment set and the open instance — so "why is Electrical CIP €39.0M under
+  // Germany Statutory?" is answered from the objects that rendered the page.
+  if(TAB==='glrecon' && LENS==='ledger' && typeof reconAiContext==='function'){
+    try{ const c=reconAiContext();
+      const f=[perLabel(c.periodId)+' · '+c.presentationCurrency+' · '+c.reportingLensName
+        +' · '+c.reportingBasisLabel];
+      if(c.reconciliationName) f.push(c.reconciliationName+' · '+c.reconciliationInstanceId);
+      return 'Looking at: Reconciliations · '+f.join(' · '); }catch(e){}
+  }
   // Accounting > Exceptions (shared tab id — only when the ledger lens is active).
   // Accounting > Issues (shared tab id — only in the ledger lens).
   // Data Room module — scope plus what the user is looking at.
@@ -49474,6 +50059,54 @@ function nsChip(type,key,meta){
     <svg viewBox="0 0 16 16" width="11" height="11" fill="none"><path d="M6 3H3v10h10V10M9 3h4v4M13 3L7 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>NetSuite<span class="ns-id">#${id}</span></span>`;
 }
 
+
+// ============================================================ NAVIGATION CONTEXT (2026-09-03)
+/* CONTEXT-PRESERVING CROSS-MODULE NAVIGATION. A link from one working surface to another
+   carries WHERE IT CAME FROM — the surface, the object, the tab, the period, the scope, the
+   reporting lens and the governed ids the destination should land on — and the destination
+   shows ONE restrained return control that puts the user back exactly where they were.
+
+   THIS IS NAVIGATION STATE, NOT FINANCIAL STATE. Nothing here holds a balance; every figure
+   re-derives on return from the same engines. What an origin snapshots is its own UI — which
+   row, which tab, which panel, which filters, where it was scrolled — and its `restore()`
+   reinstates that and nothing else.
+
+   ONE HOP, BY DESIGN. The context lives while the user is on the destination it was created
+   for; navigating anywhere else drops it, because a return strip that survives three pages of
+   wandering is a breadcrumb chain, which this deliberately is not. The shell's own history
+   stack (the title-row chevron) is untouched and still works beside it.
+
+   The shape, so any surface can be an origin:
+     originSurface · originObjectId · originTab · originLabel · originContext
+     periodId · scopeId · reportingLensId · financialLineId · reconciliationGroupId
+     activityPopulationId · comparisonId · mappingVersion · sourceAccountId · scrollPosition
+     restore()   — the origin's own function; the shell never reaches into a module's state  */
+let NAVCTX=null;
+function navGo(ctx,dest){
+  NAVCTX=Object.assign({at:Date.now()},ctx||{});
+  try{ dest(); }catch(e){ console.error('navGo',e); }
+  if(NAVCTX){ NAVCTX.destTab=TAB; NAVCTX.destLens=LENS; }
+  paintNavRet();
+}
+function navReturn(){
+  const c=NAVCTX; NAVCTX=null; if(!c) return;
+  if(typeof c.restore==='function') c.restore(); else pickTab(c.originTab);
+  paintNavRet();
+}
+function navClear(){ NAVCTX=null; paintNavRet(); }
+/* painted after every render (the renderAll wrapper), so the strip appears on the destination
+   and disappears the moment the user is anywhere else */
+function paintNavRet(){
+  const el=document.getElementById('navRet'); if(!el) return;
+  if(NAVCTX&&NAVCTX.destTab&&(TAB!==NAVCTX.destTab||LENS!==NAVCTX.destLens)) NAVCTX=null;
+  if(!NAVCTX||!NAVCTX.destTab){ el.hidden=true; el.innerHTML=''; return; }
+  const c=NAVCTX, esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  el.innerHTML='<button class="navret-b" onclick="navReturn()">&#8592; Back to '
+    +esc(c.originLabel||'where you were')+'</button>'
+    +(c.originContext?'<span class="navret-c">'+esc(c.originContext)+'</span>':'')
+    +(c.note?'<span class="navret-n">'+esc(c.note)+'</span>':'');
+  el.hidden=false;
+}
 
 // ============================================================ NAV HISTORY + BACK
 // Records a snapshot (view + filters + drill state) on every navigation so the
