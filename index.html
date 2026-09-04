@@ -28040,8 +28040,11 @@ const cwFlux=()=>{
    the source for the entity-level exception lists elsewhere on this page — retiring it is
    R5 work, not a side effect of this one. */
 const cwRecon=()=>{
-  try{ if(typeof reconReadiness==='function'){
-    const R=reconReadiness();
+  try{ if(typeof getReconciliationReadiness==='function'){
+    /* R5.1 §10 — period, scope AND reporting lens, from the one selector. Close counts
+       nothing of its own: every figure below is a count of ReconciliationInstance objects
+       resolved by the Reconciliations module itself. */
+    const R=getReconciliationReadiness(viewPeriod(), ENTCTX.scope.id, undefined);
     return {done:R.approvedCount, tot:R.totalRequired,
       open:R.totalRequired-R.approvedCount, readiness:R}; } }catch(e){}
   return {done:GL_RECON.filter(r=>r.st==='done').length, tot:GL_RECON.length,
@@ -37919,7 +37922,8 @@ const RC_MOVE  ={na:{l:'Not required',c:''},need:{l:'Needs review',c:'warn'},don
 const RC_SUPPORT={notstarted:{l:'Not started',c:''},incomplete:{l:'Incomplete',c:'warn'},
                   complete:{l:'Complete',c:''},stale:{l:'Stale',c:'warn'},
                   review:{l:'Review required',c:'warn'}};
-const RC_PREP  ={ns:{l:'Not started',c:''},prog:{l:'In progress',c:''},ready:{l:'Ready for review',c:''}};
+const RC_PREP  ={ns:{l:'Not started',c:''},prog:{l:'In progress',c:''},
+                 ready:{l:'Ready for review',c:''},sub:{l:'Submitted',c:''}};
 const RC_REVIEW={pending:{l:'Pending',c:''},inreview:{l:'In review',c:'info'},
                  returned:{l:'Returned',c:'bad'},approved:{l:'Approved',c:'good'}};
 const RC_FINAL ={open:{l:'Open',c:'warn'},complete:{l:'Complete',c:'good'},
@@ -39877,8 +39881,10 @@ function rcTieStatus(def,amounts,pop,k){
 /* ---- FINAL STATUS IS NOT TIE STATUS (§20). It is the conjunction of all five, and it is the
    only status on this page that is a conclusion rather than an observation. */
 function rcFinalStatus(inst){
-  if(!canEditPeriod()&&inst.reviewStatus==='approved') return 'certified';
   if(inst.reReviewRequired) return 'rereview';
+  if(inst.signOff&&inst.signOff.status==='CERTIFIED'&&inst.reviewStatus==='approved')
+    return 'certified';
+  if(!canEditPeriod()&&inst.reviewStatus==='approved') return 'certified';
   /* §32.F — NOT COMPLETE SOLELY BECAUSE THE ROLL-FORWARD TIES. A method that requires a proof
      source requires it to agree. */
   const proofOk=(inst.proofStatus==='na'||inst.proofStatus==='complete'
@@ -39981,6 +39987,8 @@ function rcInstance(defId,k,lensId){
   inst.signOff=rcSignOff(inst.reconciliationInstanceId);
   inst.reviewSubmission=rcCurrentSub(inst.reconciliationInstanceId);
   inst.reviewCycle=inst.reviewSubmission?inst.reviewSubmission.submissionCycle:0;
+  if(inst.reviewSubmission&&inst.reviewSubmission.status!=='RETURNED')
+    inst.preparationStatus='sub';
   const _rr=rcRereviewState(def,inst);
   if(_rr&&_rr.changed) inst.reReviewRequired=true;
   inst.rereview=_rr;
@@ -40035,15 +40043,18 @@ function rcLineRoll(lineId,k){
 const RC_SEV={info:{l:'Info',c:''}, warn:{l:'Warning',c:'warn'}, block:{l:'Blocking',c:'bad'}};
 function rcReadiness(def,inst){
   const B=[], W=[], I=[];
-  const add=(sev,code,l,why)=>(sev==='block'?B:sev==='warn'?W:I).push({code,l,why,severity:sev});
+  const add=(sev,code,l,why,go)=>(sev==='block'?B:sev==='warn'?W:I)
+    .push({code,l,why,severity:sev,go:go||null});
   const tol=(RC_MATERIALITY[def.materialityPolicyId]||{tol:0.05}).tol;
 
   /* TIE — an incomplete population is a different failure from a difference, and it outranks
      one: a balance attributable to nothing cannot be said to tie or not tie. */
   if(inst.tieStatus==='incomplete')
     add('block','POP_INCOMPLETE','Account population incomplete',
-      'One or more source accounts attributed here are not mapped, so the population is not '
-      +'settled. Resolve the mapping before this can be submitted.');
+      'One or more source accounts attributed here are not governed by an approved mapping, '
+      +'so the population is not settled. This cannot be submitted with a warning — an '
+      +'unsettled population means the balance is attributable to nothing.',
+      ['Review mapping','rcGoMapping(\''+def.reconciliationDefinitionId+'\')']);
   else if(inst.tieStatus==='difference')
     add('block','UNTIED','Untied difference outside tolerance',
       'The reconciliation is out by '+rcM(inst.amounts.difference)+' against a tolerance of '
@@ -40068,7 +40079,8 @@ function rcReadiness(def,inst){
   if(miss.length)
     add('block','SUPPORT_MISSING',miss.length+' required support item'
       +(miss.length>1?'s':'')+' missing',
-      miss.map(r=>r.requirement.name).join(' · ')+' — required and not provided.');
+      miss.map(r=>r.requirement.name).join(' · ')+' — required and not provided.',
+      ['Add support','rcTab=\'sup\';renderAll()']);
   if(drift.length)
     add('warn','SUPPORT_DRIFT',drift.length+' support item'+(drift.length>1?'s':'')
       +' needs review',
@@ -40078,7 +40090,8 @@ function rcReadiness(def,inst){
      state the rest of the product reads, not a second one. */
   if(inst.movementStatus==='need')
     add('block','MOVEMENT','Movement review incomplete',
-      'The period movement has not been reviewed or explained.');
+      'The period movement has not been reviewed or explained.',
+      ['Review movement','rcMovementReviewed(\''+def.reconciliationDefinitionId+'\')']);
 
   /* POPULATION AND MAPPING — a contested account does not stop the balance being complete, so
      it warns; a changed source population under a submitted package does not. */
@@ -40158,6 +40171,23 @@ function rcBuildSubmission(def,inst,cycle){
     movementReviewState:inst.movementStatus,
     fluxReferenceIds:[def.financialLineId],
     reconciliationFingerprint:inst.fingerprint.hash,
+    /* §5 — A CYCLE IS A NEW PACKAGE AND MUST BE IDENTIFIABLE AS ONE.
+       Observed on the Mechanical resubmission: cycles 1 and 2 carried the SAME fingerprint,
+       because the governed sources had not moved — only the support had. That is right for the
+       fingerprint's own job and useless as package identity.
+
+       TWO FINGERPRINTS, TWO QUESTIONS:
+         reconciliationFingerprint  what the BALANCE was resolved from — TB, GL snapshot,
+                                    mapping, lens, rate set. This is what re-review compares,
+                                    because it is what can move under a signed conclusion.
+         packageFingerprint         what the REVIEWER SAW — the above plus the exact evidence
+                                    versions pinned into this package. Two cycles over
+                                    unchanged sources with different support are different
+                                    packages, and this is the hash that says so.
+       One hasher for both, so a digest computed anywhere is the same digest. */
+    packageFingerprint:rcFpHash(Object.assign({},inst.fingerprint,
+      {supportVersions:evs.map(e=>e.evidenceVersionId).slice().sort().join(','),
+       submissionCycle:cycle})),
     fingerprintDetail:Object.assign({},inst.fingerprint),
     dataAsOf:inst.dataAsOf,
     amountsAtSubmission:{beginning:inst.amounts.beginning,
@@ -40214,14 +40244,22 @@ function rcCanAct(def,inst,stage){
 }
 
 /* ---- EVENTS (§24) ---------------------------------------------------------------------- */
+const rcLastEventAt=id=>{ const e=rcEventsFor(id); return e.length?e[e.length-1].at:null; };
+/* the instant an action should carry: what it asked for, or the last event on this
+   reconciliation if that is later */
+function rcEventAt(inst,at){
+  const last=rcLastEventAt(inst.reconciliationInstanceId);
+  return last?rcLaterOf(at||rcNowStamp(),last):(at||rcNowStamp());
+}
 function rcEvent(def,inst,type,extra){
+  const _at=rcEventAt(inst,(extra||{}).at);
   RC_EVENTS.push(Object.assign({
-    eventId:rcNextId('EV5'), at:rcNowStamp(), timestamp:Date.now(),
+    eventId:rcNextId('EV5'), timestamp:Date.now(),
     user:rcMe().nm, role:rcMe().role,
     reconciliationInstanceId:inst.reconciliationInstanceId,
     reconciliationDefinitionId:def.reconciliationDefinitionId,
     type, label:RC_EVT[type]||type,
-    fingerprint:inst.fingerprint.hash}, extra||{}));
+    fingerprint:inst.fingerprint.hash}, extra||{}, {at:_at}));
 }
 const rcEventsFor=id=>RC_EVENTS.filter(e=>e.reconciliationInstanceId===id);
 
@@ -40237,6 +40275,91 @@ function rcNote(inst,kind,text,extra){
     reconciliationInstanceId:inst.reconciliationInstanceId}, extra||{}));
 }
 const rcNotesFor=id=>RC_NOTES.filter(n=>n.reconciliationInstanceId===id);
+
+/* ==========================================================================================
+   R5.1 §1 — ONE AUTHORITATIVE REVIEW CHRONOLOGY
+   ==========================================================================================
+   THE DEFECT THIS EXISTS TO PREVENT, observed on Land: the Decision History read
+
+       Jul 3 11:00 submitted · Jul 4 09:30 approved · Jul 5 09:30 approved
+       Jul 3 22:41 FINAL SIGN-OFF
+
+   while the Sign-off card beside it read "Certified Jul 5, 2026 · 09:30". A certification
+   dated before the approvals it rests on is not a display bug — it is the control failing.
+   The cause was two independently generated timestamps for ONE event: `rcSignOffCreate` wrote
+   `certifiedAt` from the caller and its own audit event from the wall clock.
+
+   Three things fix it, in this order of importance:
+
+     1. ONE TIMESTAMP PER EVENT. `rcSignOffCreate` takes the instant and uses it for the
+        sign-off record AND its event. Nothing in this module may generate a second.
+     2. AN INSTANT CANNOT PRECEDE WHAT IT DEPENDS ON. `rcLaterOf` clamps a certification to
+        the last decision it cites, so an out-of-order instant is impossible to record rather
+        than merely discouraged.
+     3. A GUARD THAT FAILS. `rcChronologyErrors` walks the real objects and reports any
+        violation, so a future seed or workflow change cannot reintroduce this silently.      */
+const RC_MON={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+/* the module's stamps are display strings ("Jul 5, 2026 · 09:30"); comparison needs an
+   instant, and parsing it in one place is what stops three renderers each guessing */
+function rcTs(s){
+  if(!s) return 0;
+  const m=String(s).match(/([A-Z][a-z]{2})\s+(\d{1,2}),\s*(\d{4})(?:[^\d]*(\d{1,2}):(\d{2}))?/);
+  if(!m) return 0;
+  return Date.UTC(+m[3], RC_MON[m[1]]||0, +m[2], m[4]?+m[4]:0, m[5]?+m[5]:0);
+}
+const rcLaterOf=(a,b)=>(rcTs(a)>=rcTs(b)?a:b);
+
+/* §1 — THE GUARD. Returns a list of violations; empty is the only acceptable result. It reads
+   the same objects the panel renders, never a parallel log, so it cannot pass while the screen
+   is wrong. */
+function rcChronologyErrors(inst){
+  const id=inst.reconciliationInstanceId, out=[];
+  const say=(m)=>out.push(id+': '+m);
+  rcSubsFor(id).forEach(sub=>{
+    const decs=rcDecsFor(sub.reviewSubmissionId);
+    let prev=sub.submittedAt;
+    decs.forEach(d=>{
+      if(rcTs(d.decisionAt)<rcTs(sub.submittedAt))
+        say('decision '+d.stageLabel+' '+d.decisionAt+' precedes submission '+sub.submittedAt);
+      if(rcTs(d.decisionAt)<rcTs(prev))
+        say('decision '+d.stageLabel+' '+d.decisionAt+' precedes the decision before it '+prev);
+      prev=d.decisionAt;
+    });
+  });
+  /* CYCLE ORDER — a resubmission answers a return and cannot precede it */
+  const subs=rcSubsFor(id);
+  subs.forEach((sub,n)=>{
+    if(!n) return;
+    const pd=rcDecsFor(subs[n-1].reviewSubmissionId);
+    const prevEnd=pd.length?pd[pd.length-1].decisionAt:subs[n-1].submittedAt;
+    if(rcTs(sub.submittedAt)<rcTs(prevEnd))
+      say('cycle '+sub.submissionCycle+' submitted '+sub.submittedAt
+        +' precedes the end of cycle '+subs[n-1].submissionCycle+' ('+prevEnd+')');
+  });
+  /* THE TRAIL ITSELF — append-only means non-decreasing */
+  const evs=rcEventsFor(id);
+  evs.forEach((e,n)=>{ if(n&&rcTs(e.at)<rcTs(evs[n-1].at))
+    say('event "'+e.label+'" at '+e.at+' precedes the event before it ('+evs[n-1].at+')'); });
+  const so=rcSignOff(id);
+  if(so){
+    const sub=rcSubsFor(id).find(s=>s.reviewSubmissionId===so.finalReviewSubmissionId);
+    const decs=sub?rcDecsFor(sub.reviewSubmissionId):[];
+    const last=decs.length?decs[decs.length-1].decisionAt:(sub?sub.submittedAt:null);
+    if(last&&rcTs(so.certifiedAt)<rcTs(last))
+      say('certified '+so.certifiedAt+' precedes the final approval '+last);
+    /* AND THE EVENT MUST AGREE WITH THE RECORD — this is the half that was actually wrong */
+    const ev=rcEventsFor(id).filter(e=>e.type==='FINAL_SIGNED_OFF').pop();
+    if(ev&&ev.at!==so.certifiedAt)
+      say('the sign-off event ('+ev.at+') and the sign-off record ('+so.certifiedAt
+        +') are different instants');
+  }
+  return out;
+}
+/* the whole book, for the acceptance test and for anything later that wants to assert it */
+function rcChronologyCheck(k){
+  const p=k||viewPeriod(); rcRevSeed();
+  return rcInstances(p).reduce((a,i)=>a.concat(rcChronologyErrors(i)),[]);
+}
 
 /* ==========================================================================================
    R5 — THE ACTIONS
@@ -40277,10 +40400,12 @@ function rcSubmitReview(defId){
   const st=rcState(defId);
   const prior=rcSubsFor(inst.reconciliationInstanceId);
   const cycle=prior.length+1;
-  const sub=rcBuildSubmission(def,inst,cycle);
+  const when=rcEventAt(inst,null);
+  const sub=Object.freeze(Object.assign({},rcBuildSubmission(def,inst,cycle),
+    {submittedAt:when}));
   RC_SUBS.push(sub);
   rcEvent(def,inst,cycle>1?'RESUBMITTED':'SUBMITTED',
-    {submissionId:sub.reviewSubmissionId, submissionCycle:cycle,
+    {submissionId:sub.reviewSubmissionId, submissionCycle:cycle, at:when,
      beforeState:st.review, afterState:'inreview',
      comment:R.warningIssues.length?R.warningIssues.length+' warning(s) submitted over':null});
   st.prep='ready'; st.review='inreview'; st.returnNote=null;
@@ -40305,21 +40430,25 @@ function rcApproveStage(defId){
     return;
   }
   const st=rcState(defId);
+  const _prior=rcDecsFor(A.sub.reviewSubmissionId);
+  const _after=_prior.length?_prior[_prior.length-1].decisionAt:A.sub.submittedAt;
   const d={reviewDecisionId:rcNextId('RD'), reviewSubmissionId:A.sub.reviewSubmissionId,
     reviewStageId:A.stage.reviewStageId, stageLabel:rcStageLabel(A.stage),
     stageSequence:A.stage.sequence, decision:'APPROVED',
     reviewerUserId:null, reviewerName:rcMe().nm, reviewerRole:rcMe().role,
-    decisionAt:rcNowStamp(), comment:null,
+    decisionAt:rcLaterOf(rcNowStamp(),_after), comment:null,
     fingerprintReviewed:A.sub.reconciliationFingerprint,
     evidenceVersionsReviewed:A.sub.supportEvidenceVersionIds.slice()};
   RC_DECS.push(d);
-  rcEvent(def,inst,'APPROVED',{submissionId:A.sub.reviewSubmissionId,
+  rcEvent(def,inst,'APPROVED',{submissionId:A.sub.reviewSubmissionId, at:d.decisionAt,
     reviewStageId:A.stage.reviewStageId, beforeState:'inreview',
     afterState:(A.index+1>=A.stages.length)?'approved':'inreview',
     comment:rcStageLabel(A.stage)});
   if(A.index+1>=A.stages.length){
     st.review='approved';
-    rcSignOffCreate(def,rcInstance(defId),A.sub);
+    /* §1 — the final approval and the certification are the same event here, so they share the
+       instant rather than each generating one */
+    rcSignOffCreate(def,rcInstance(defId),A.sub,d.decisionAt);
   }
   renderAll();
 }
@@ -40328,17 +40457,25 @@ function rcApproveStage(defId){
    object an audit package cites. Keeping them apart is what lets a later policy add a
    certification step, or a period close certify a book of approvals, without rewriting what
    any individual reviewer decided. */
-function rcSignOffCreate(def,inst,sub){
+function rcSignOffCreate(def,inst,sub,at){
   RC_SUBS=RC_SUBS.map(s=>s.reviewSubmissionId===sub.reviewSubmissionId
     ? Object.freeze(Object.assign({},s,{status:'APPROVED'})) : s);
+  /* §1 — THE CERTIFICATION INSTANT IS THE FINAL APPROVAL'S, OR LATER. Never earlier: a
+     certification that predates an approval it rests on is the control failing, not a display
+     bug. Passing it in and clamping it here means there is exactly one instant, used by the
+     record and by its audit event, and it cannot be generated twice. */
+  const decs=rcDecsFor(sub.reviewSubmissionId);
+  const lastDec=decs.length?decs[decs.length-1].decisionAt:sub.submittedAt;
+  const when=rcLaterOf(at||rcNowStamp(), lastDec);
   const so={reconciliationSignOffId:rcNextId('SO'),
     reconciliationInstanceId:inst.reconciliationInstanceId,
     reconciliationRevision:inst.revision,
     finalReviewSubmissionId:sub.reviewSubmissionId, signOffVersion:1,
-    certifiedBy:rcMe().nm, certifiedByRole:rcMe().role, certifiedAt:rcNowStamp(),
+    certifiedBy:rcMe().nm, certifiedByRole:rcMe().role, certifiedAt:when,
     period:inst.periodId, scope:inst.scopeId, reportingLensId:inst.reportingLensId,
     reportingBasis:inst.reportingBasis,
     fingerprint:sub.reconciliationFingerprint,
+    packageFingerprint:sub.packageFingerprint,
     definitionVersion:sub.definitionVersion, mappingVersion:sub.mappingVersion,
     hierarchyVersion:sub.hierarchyVersion, sourceTBVersion:sub.sourceTBVersion,
     sourceGLVersion:sub.sourceGLVersion,
@@ -40347,7 +40484,7 @@ function rcSignOffCreate(def,inst,sub){
     finalConclusion:sub.preparerConclusion,
     status:'CERTIFIED'};
   RC_SIGNOFFS[inst.reconciliationInstanceId]=Object.freeze(so);
-  rcEvent(def,inst,'FINAL_SIGNED_OFF',{submissionId:sub.reviewSubmissionId,
+  rcEvent(def,inst,'FINAL_SIGNED_OFF',{submissionId:sub.reviewSubmissionId, at:when,
     beforeState:'approved', afterState:'certified'});
   return so;
 }
@@ -40417,6 +40554,19 @@ function rcConcSave(defId){
   st.conclusion=el.value.trim()||null;
   if(st.prep==='ns') st.prep='prog';
   rcConcOpen=false; renderAll();
+}
+/* §5, and R5 §4's preparer action list. This records that the preparer has reviewed the
+   period movement for reconciliation purposes. It does NOT write a flux explanation — that
+   belongs to Flux, over the same financial line, and this panel links to it rather than
+   duplicating it. */
+function rcMovementReviewed(defId){
+  const def=rcDef(defId), inst=rcInstance(defId), st=rcState(defId);
+  if(st.move!=='need') return;
+  if(!rcCaps().prepare){ alert('Your role is read-only on this reconciliation.'); return; }
+  st.move='done';
+  rcEvent(def,inst,'PREPARATION_STARTED',{beforeState:'movement needs review',
+    afterState:'movement complete', comment:'Movement reviewed for reconciliation purposes'});
+  renderAll();
 }
 function rcStartPrep(defId){
   const def=rcDef(defId), inst=rcInstance(defId), st=rcState(defId);
@@ -40523,9 +40673,10 @@ function rcRevSeed(){
       comment:rcStageLabel(A.stage)});
     if(A.index+1>=A.stages.length){
       const st=rcState(dId); st.review='approved';
-      const so=rcSignOffCreate(def,rcInstance(dId,P,'RL-CORP'),A.sub);
-      RC_SIGNOFFS[inst.reconciliationInstanceId]=Object.freeze(
-        Object.assign({},so,{certifiedAt:at}));
+      /* the instant goes IN rather than being patched over the result — patching it left the
+         sign-off record and its audit event on two different days, which is the defect §1
+         exists to remove */
+      rcSignOffCreate(def,rcInstance(dId,P,'RL-CORP'),A.sub,at);
     }
     return d;
   };
@@ -40563,7 +40714,7 @@ function rcRevSeed(){
     +'the approved transfer schedule. Capitalised interest is computed on the weighted average '
     +'accumulated expenditure at the policy rate. No unexplained balance remains.');
   as('L. Tan','Accounting Manager',()=>{ submit('REC-CIP-ELECTRICAL','Jul 3, 2026 · 15:21'); });
-  as('R. Gomez','Controller',()=>{ approve('REC-CIP-ELECTRICAL','Jul 4, 2026 · 08:12'); });
+  as('J. Park','Controller',()=>{ approve('REC-CIP-ELECTRICAL','Jul 4, 2026 · 08:12'); });
   as('M. Giri','Controller',()=>{ ret('REC-CIP-ELECTRICAL','MOVEMENT',
     'The capitalised interest workpaper predates the June activity re-extract. Confirm the '
     +'weighted average expenditure against the current population before this goes to the '
@@ -40575,8 +40726,10 @@ function rcRevSeed(){
      returning stage would be cheaper and would break exactly the guarantee this increment
      exists to provide. */
   as('L. Tan','Accounting Manager',()=>{ submit('REC-CIP-ELECTRICAL','Jul 5, 2026 · 09:47'); });
-  as('R. Gomez','Controller',()=>{ approve('REC-CIP-ELECTRICAL','Jul 5, 2026 · 14:02'); });
-  as('M. Giri','Controller',()=>{ approve('REC-CIP-ELECTRICAL','Jul 6, 2026 · 10:25'); });
+  as('J. Park','Controller',()=>{ approve('REC-CIP-ELECTRICAL','Jul 5, 2026 · 14:02'); });
+  /* STOPS HERE ON PURPOSE (§4): Corporate Accounting is the current actionable stage and the
+     Corporate Controller behind it is pending and not actionable, which is the ordered
+     multi-stage case the book otherwise had nowhere to show. */
 
   /* ---- B · MECHANICAL CIP — the return and resubmit cycle, exactly as §10 sets it out.
      Cycle 1 is returned and stays in history; cycle 2 is a new package. */
@@ -40584,7 +40737,7 @@ function rcRevSeed(){
     'June mechanical installation cost on the South Valley project. The transfer schedule is '
     +'outstanding with the project team.');
   as('M. Reyes','Accounting Manager',()=>{ submit('REC-CIP-MECHANICAL','Jul 3, 2026 · 09:40'); });
-  as('R. Gomez','Controller',()=>{ ret('REC-CIP-MECHANICAL','SUPPORT',
+  as('J. Park','Controller',()=>{ ret('REC-CIP-MECHANICAL','SUPPORT',
     'Transfers to Buildings in the period are not evidenced. Provide the transfer schedule and '
     +'the project roll-forward before resubmission.','Jul 4, 2026 · 08:05'); });
 
@@ -40628,6 +40781,28 @@ function rcRevSeed(){
        fingerprint — not the one the balance happens to have today */
     if(pinned) RC_SIGNOFFS[inst.reconciliationInstanceId]=Object.freeze(
       Object.assign({},RC_SIGNOFFS[inst.reconciliationInstanceId],{fingerprint:pinned}));
+    /* a required workpaper was republished after the certification — the second kind of
+       dependency the comparison has to notice */
+    (function(){
+      const g=rcSupportGraph(rcDef(dId),P,'RL-CORP',inst);
+      const hit=g.requirements.find(r=>r.evidence.length&&!r.evidence[0].ev.generated);
+      if(!hit) return;
+      const ev=hit.evidence[0].ev, v=ev.versions[ev.versions.length-1];
+      ev.versions.forEach(x=>{ if(x.status==='current') x.status='superseded'; });
+      const nv={evidenceVersionId:ev.evidenceId+'-v'+(v.version+1), evidenceId:ev.evidenceId,
+        version:v.version+1, fileName:v.fileName, fileKind:v.fileKind,
+        sourceFingerprint:null, seedDrift:null,
+        dataAsOf:'Jul 6, 2026 \u00b7 06:42', uploadedAt:'Jul 6, 2026 \u00b7 06:42',
+        uploadedBy:rcPerson(rcDef(dId).preparerUserId).nm, amountSupported:null,
+        populationFingerprint:null, status:'current', supersedesVersionId:v.evidenceVersionId};
+      ev.versions.push(nv); ev.currentVersionId=nv.evidenceVersionId;
+      EV_RELS.forEach(r=>{ if(r.evidenceId===ev.evidenceId
+        && r.reconciliationInstanceId===inst.reconciliationInstanceId){
+        r.evidenceVersionId=nv.evidenceVersionId; r.sourceFingerprint=null; } });
+      rcEvent(rcDef(dId),inst,'SUPPORT_CHANGED',{at:'Jul 6, 2026 \u00b7 06:42',
+        beforeState:'certified', afterState:'rereview',
+        comment:ev.title+' republished as v'+nv.version});
+    })();
     rcEvent(rcDef(dId),inst,'SOURCE_CHANGED',{at:'Jul 6, 2026 · 06:42',
       beforeState:'certified', afterState:'rereview',
       comment:'GL snapshot re-extracted after sign-off'});
@@ -40715,8 +40890,18 @@ function reconReadiness(k,scopeId){
                 issues:x.readiness.blockingIssues.map(b=>b.code)})),
     completeCount:n(x=>x.finalStatus==='complete'||x.finalStatus==='certified'),
     openCount:n(x=>x.finalStatus==='open'||x.finalStatus==='rereview'),
+    /* §10's vocabulary, derived from the same instances — no counter is stored anywhere */
+    required:ins.length,
+    certifiedCount:n(x=>x.finalStatus==='certified'),
+    blockingCount:n(x=>x.readiness&&x.readiness.blockingIssues.length>0),
     instances:ins};
+  if(lensId&&lensId!==keepLens){ rcLensId=keepLens; rcClearCaches(); }
+  return out;
 }
+/* §10 — THE SELECTOR UNDER THE NAME THE BRIEF USES. One implementation, two names: a second
+   function computing the same counts is the duplicate store this module keeps refusing. */
+const getReconciliationReadiness=(period,scope,reportingLens)=>
+  reconReadiness(period,scope,reportingLens);
 
 /* ==========================================================================================
    THE RECONCILIATION CONTROL CENTER (§21-§27, §35, §36, §50)
@@ -40966,13 +41151,26 @@ function rcBodyHTML(){
       +'<td class="num rcx-mom">'+rcPctN(a.momPercent)+'</td>'
       +'<td>'+rcPill(RC_TIE,a.tieStatus,1)+'</td>'
       +'<td>'+sup+'</td>'
-      +'<td>'+rcPill(RC_REVIEW,a.reviewStatus,1)
-        +(a.reReviewRequired?' <span class="rcx-rr" title="The signed package no longer '
-          +'describes the current balance">re-review</span>':'')
-        +(a.reviewStatus==='inreview'&&a.activeStage
-          ? '<span class="rcx-stg" title="'+glEsc(rcStageLabel(a.activeStage))+'">'
-            +(a.reviewStageIndex+1)+'/'+a.reviewStageCount+'</span>' : '')
-        +'</td></tr>';
+      +(function(){
+          const st=a.activeStage;
+          const ctx=st?[rcStageLabel(st)+' · stage '+(a.reviewStageIndex+1)+' of '
+              +a.reviewStageCount,
+            'Preparer '+rcPerson(a.preparerUserId).nm,
+            st.assignedUserId?'Reviewer '+rcPerson(st.assignedUserId).nm:null,
+            a.due?'Due '+perFromISO(a.due)+(a.overdue?' — overdue':''):null,
+            a.readiness&&a.readiness.blockingIssues.length
+              ? a.readiness.blockingIssues.length+' blocking' : 'no blockers'
+            ].filter(Boolean).join(' · '):'';
+          return '<td'+(ctx?' title="'+glEsc(ctx)+'"':'')+'>'
+            +rcPill(RC_REVIEW,a.reviewStatus,1)
+            +(a.reReviewRequired?' <span class="rcx-rr" title="The signed package no longer '
+              +'describes the current balance">re-review</span>':'')
+            +(a.reviewStatus==='inreview'&&st
+              ? (rcQV==='mine'
+                  ? '<span class="rcx-stg">'+glEsc(rcStageLabel(st))+'</span>'
+                  : '<span class="rcx-stg">'+(a.reviewStageIndex+1)+'/'
+                    +a.reviewStageCount+'</span>') : '')
+            +'</td></tr>'; })();
   }).join('');
 }
 function rcPaintCount(){
@@ -42652,7 +42850,12 @@ function rcReviewTrace(def,inst){
   if(!subs.length) return '';
   const so=rcSignOff(id);
   const rr=rcRereviewState(def,inst);
-  let o='<div class="amp-sec">Review and sign-off</div><div class="rcx-evl">';
+  const wf=rcWorkflow(def);
+  let o='<div class="amp-sec">Review and sign-off</div>'
+    +'<div class="rcx-evl"><div class="rcx-ev"><span class="n">Review policy</span>'
+    +'<span class="m">'+glEsc(wf.name)+' · '+glEsc(wf.reviewWorkflowId)+' v'
+    +glEsc(wf.version)+' · '+rcReviewStages(def).length+' required stages · '
+    +glEsc((RC_SOD[wf.segregationOfDutiesPolicy]||{l:''}).l.toLowerCase())+'</span></div>';
   subs.forEach(s=>{
     const decs=rcDecsFor(s.reviewSubmissionId);
     const ret=decs.find(d=>d.decision==='RETURNED');
@@ -42663,7 +42866,8 @@ function rcReviewTrace(def,inst){
           :(s.status==='OPEN'?'In review':'Closed')))+'</span></span>'
       +'<span class="m">'+glEsc(s.submittedAt)+' · '+glEsc(s.submittedBy)+' · '
         +s.supportEvidenceVersionIds.length+' support versions · '
-        +'<span class="mono">'+glEsc(s.reconciliationFingerprint)+'</span></span>'
+        +'<span class="mono">'+glEsc(s.packageFingerprint||s.reconciliationFingerprint)
+        +'</span></span>'
       +'</div>';
     decs.forEach(d=>{
       o+='<div class="rcx-ev'+(d.decision==='RETURNED'?' warn':'')+'">'
@@ -43727,7 +43931,9 @@ function rcRevTab(def,inst){
       o+='<div class="rcx-rdi '+(x.severity==='block'?'bad':'warn')+'">'
         +'<span class="n">'+glEsc(x.l)+'</span>'
         +'<span class="s">'+glEsc(RC_SEV[x.severity].l)+'</span>'
-        +'<span class="w">'+glEsc(x.why)+'</span></div>';
+        +'<span class="w">'+glEsc(x.why)
+        +(x.go?' <button class="rcx-lk2" onclick="'+x.go[1]+'">'+glEsc(x.go[0])
+          +' &#8250;</button>':'')+'</span></div>';
     });
   }
 
@@ -43741,7 +43947,9 @@ function rcRevTab(def,inst){
         +glEsc(sub.submittedBy)+'</span>')
       +rcRow('Submission','Cycle '+sub.submissionCycle+' · revision '+glEsc(sub.revision)
         +' <span class="amap-dim">'+glEsc(sub.reviewSubmissionId)+'</span>')
-      +rcRow('Fingerprint','<span class="mono">'+glEsc(sub.reconciliationFingerprint)+'</span>')
+      +rcRow('Package','<span class="mono">'+glEsc(sub.packageFingerprint||'—')+'</span>'
+        +' <span class="amap-dim">governed sources '
+        +glEsc(sub.reconciliationFingerprint)+'</span>')
       +rcRow('Support',sub.supportPackage.filter(p=>p.stateAtSubmission==='current').length
         +' of '+sub.supportRequirementStatusSnapshot.length+' required current')
       +rcRow('Movement',glEsc((RC_MOVE[sub.movementReviewState]||{l:''}).l)
@@ -43850,7 +44058,16 @@ function rcRevActions(def,inst,A,RD){
       +glEsc(rcStageLabel(A.stage))+'</button>'
       +'<button class="btn-out sm" onclick="rcReturnOpen(\''+dId+'\')">Return</button>'
       +'<button class="btn-out sm" onclick="rcClarifyOpen(\''+dId+'\')">Request clarification</button>';
-    if(sod) notes.push(['bad','Segregation of duties conflict',sod]);
+    if(sod){
+      const wf=rcWorkflow(def);
+      const who=A.stage.assignedUserId?rcPerson(A.stage.assignedUserId).nm:null;
+      notes.push(['bad','Segregation of duties conflict', sod
+        +' Required approving role: '+RC_STAGE_TYPES[A.stage.stageType].l+'.'
+        +(who?' Eligible reviewer: '+who+'.':'')
+        +' Policy '+wf.reviewWorkflowId+' v'+wf.version+' — '
+        +(RC_SOD[wf.segregationOfDutiesPolicy]||{l:''}).l.toLowerCase()+'.'
+        +' No policy exception is recorded on this reconciliation.']);
+    }
     else if(!rcCanAct(def,inst,A.stage))
       notes.push(['warn','Not your stage','This stage requires '
         +RC_STAGE_TYPES[A.stage.stageType].l+'. Your role does not hold that approval.']);
