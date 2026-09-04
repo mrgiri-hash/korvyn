@@ -42602,10 +42602,606 @@ function kMyWork(){
       out.push({t:'DUE_SOON', def, i, what:'Prepare '+def.name,
         why:i.readiness.label});
   });
+  /* R5.7B §37 — delta and revalidation are readings of the reconciliation, not new tasks */
+  try{ rcCpSeed();
+    rcInstances(p).forEach(i=>{
+      const def=rcDef(i.reconciliationDefinitionId);
+      if(!kCanViewObject(def,i,acc).ok) return;
+      const o=rcOwnerOf(def,i,'REVIEWER');
+      if(o.id!==me.userId&&def.preparerUserId!==me.userId) return;
+      const dd=rcReviewDelta(def,i);
+      if(!dd.reviewed) return;
+      if(dd.reviewImpactStatus==='REVALIDATION_REQUIRED')
+        out.push({t:'RE_REVIEW_REQUIRED', def, i, what:'Revalidate '+def.name,
+          why:dd.impactWhy});
+      else if(dd.reviewImpactStatus==='REVIEW_DELTA_AVAILABLE')
+        out.push({t:'DELTA', def, i, what:'Review delta — '+def.name, why:dd.impactWhy});
+    });
+  }catch(e){}
   kNotifsFor(me.userId).filter(n=>!n.readAt).forEach(n=>out.push({t:n.type, notif:n,
     what:(KNOTIF_TYPES[n.type]||n.type)+' · '+(n.context.by||''),
     why:n.context.text||''}));
   return out;
+}
+
+/* ==========================================================================================
+   R5.7B — CONTINUOUS / PRE-CLOSE REVIEW (2026-09-04)
+   ==========================================================================================
+   REVIEW DOES NOT BEGIN WHEN THE BOOKS CLOSE. A controller who cannot start until the ERP is
+   shut has three days to review a month, and the source keeps moving anyway — late AP, a
+   reclass, an FX set, a mapping version. So the product has to hold two ideas at once:
+
+     LIVE STATE      what the governed sources say right now. Never frozen (§35).
+     REVIEWED STATE  the exact state a reviewer inspected, recorded and immutable.
+
+   The gap between them is the whole increment. "Reviewed through Jun 27, 4:15 PM" is a true
+   and useful statement that is NOT "June is final" — and a product that only offers
+   `reviewed: true` cannot say it.
+
+   A CHECKPOINT IS NOT A SUBMISSION (§16). Checkpoints are supporting review history, made
+   against a moving target on purpose. The formal package is created once, at submission, and
+   the two must never be conflated: a pre-close checkpoint is not something anyone signed. */
+
+const RC_CP_TYPES={PRE_CLOSE_REVIEW:'Pre-close review', MOVEMENT_REVIEW:'Movement reviewed',
+  SUPPORT_REVIEW:'Support reviewed', BALANCE_REVIEW:'Balance reviewed',
+  FULL_REVIEW:'Full review'};
+const RC_IMPACT={
+  NO_CHANGE:{l:'No change since review', c:''},
+  IMMATERIAL_CHANGE:{l:'Immaterial change', c:''},
+  REVIEW_DELTA_AVAILABLE:{l:'Review delta available', c:'info'},
+  MATERIAL_CHANGE:{l:'Material change', c:'warn'},
+  REVALIDATION_REQUIRED:{l:'Revalidation required', c:'bad'},
+};
+let RC_CHECKPOINTS=[];
+
+/* ---- WHAT THE LEDGER SAID AS OF AN INSTANT.
+   The activity population is deterministic per (account, period) and every transaction carries
+   its own posting date, so "what had posted by Jun 27" is DERIVED rather than remembered. That
+   is what makes a seeded checkpoint honest: its observed balance is the balance that actually
+   existed at that moment, not a number chosen to make a delta appear. */
+function rcTxAsOf(def,period,throughTs){
+  const pop=rcPopulation(def,period);
+  const all=[], after=[];
+  (pop.sourceAccountIds||[]).forEach(sid=>{
+    (rcTxPool(sid,period)||[]).forEach(t=>{
+      all.push(t);
+      if(throughTs&&rcTs(t.postingDate)>rcTs(throughTs)) after.push(t);
+    });
+  });
+  const sum=a=>a.reduce((x,t)=>x+(t.netAmount||0),0);
+  return {all, after, activityAfter:sum(after), activityAll:sum(all)};
+}
+/* ---- §4 — THE CHECKPOINT. Immutable by construction: frozen on creation, never edited, and a
+   later review makes a NEW one (§34). Overwriting would destroy the one thing this object is
+   for — the record of what somebody actually looked at. */
+function rcCheckpointCreate(def,inst,type,components,throughTs){
+  const through=throughTs||rcNowStamp();
+  const g=(function(){ try{ return rcSupportGraph(def,inst.periodId,inst.reportingLensId,inst); }
+    catch(e){ return {requirements:[]}; } })();
+  const evs=[];
+  (g.requirements||[]).forEach(r=>r.evidence.forEach(x=>{ if(x.ver)
+    evs.push(x.ver.evidenceVersionId); }));
+  const t=rcTxAsOf(def,inst.periodId,through);
+  const cp={
+    reviewCheckpointId:kNextId('CP'),
+    reconciliationInstanceId:inst.reconciliationInstanceId,
+    reconciliationDefinitionId:def.reconciliationDefinitionId,
+    reviewedByUserId:kActor().userId, reviewedByName:kActor().name,
+    reviewedAt:rcNowStamp(), reviewedThroughTimestamp:through,
+    /* §24 — THE CHECKPOINT IS TIED TO A FINANCIAL CONTEXT. A Corporate checkpoint says nothing
+       about the Germany Statutory view of the same accounts, and reusing it would be a
+       reviewer being told they had already looked at figures they have never seen. */
+    periodId:inst.periodId, scopeId:inst.scopeId, reportingLensId:inst.reportingLensId,
+    reportingBasis:inst.reportingBasis, currency:inst.presentationCurrency,
+    balanceObserved:inst.amounts.trialBalanceAmount-t.activityAfter,
+    tbAmountObserved:inst.amounts.trialBalanceAmount-t.activityAfter,
+    calculatedEndingObserved:inst.amounts.endingCalculatedBalance-t.activityAfter,
+    activityObserved:inst.amounts.activityAmount-t.activityAfter,
+    transactionCountObserved:t.all.length-t.after.length,
+    sourceFingerprint:Object.assign({},inst.fingerprint),
+    tbSnapshotId:inst.fingerprint.sourceTBVersion,
+    glSnapshotId:inst.fingerprint.sourceGLSnapshotId,
+    mappingVersion:inst.mappingVersion, hierarchyVersion:inst.hierarchyVersion,
+    fxRateSetId:inst.fxRateSetId,
+    reportingAdjustmentSetId:(rcLens(inst.reportingLensId)||{}).reportingAdjustmentSetId,
+    activityPopulationIds:[inst.activityPopulation.activityPopulationId],
+    supportEvidenceVersionIds:evs,
+    reviewedComponents:components||['BALANCE','MOVEMENT','SUPPORT'],
+    reviewCommentIds:[], exceptionIds:[],
+    checkpointType:type||'PRE_CLOSE_REVIEW', status:'ACTIVE'};
+  RC_CHECKPOINTS.push(Object.freeze(cp));
+  return cp;
+}
+/* §24 — resolved against the EXACT context, newest first */
+function rcCheckpoints(inst){
+  return RC_CHECKPOINTS.filter(c=>c.reconciliationInstanceId===inst.reconciliationInstanceId
+    &&c.reportingLensId===inst.reportingLensId&&c.scopeId===inst.scopeId
+    &&c.status==='ACTIVE');
+}
+const rcLastCheckpoint=inst=>{ const a=rcCheckpoints(inst); return a.length?a[a.length-1]:null; };
+
+/* ==========================================================================================
+   §6 — THE DELTA. What has moved since the reviewer last looked.
+   ==========================================================================================
+   Every figure below is DERIVED by comparing the checkpoint's own record against the current
+   governed state. Nothing is stored as "the delta" — a stored delta is a third number that can
+   disagree with the two it came from.                                                        */
+function rcReviewDelta(def,inst){
+  const cp=rcLastCheckpoint(inst);
+  if(!cp) return {checkpoint:null, status:'NO_REVIEW', reviewed:false};
+  const t=rcTxAsOf(def,inst.periodId,cp.reviewedThroughTimestamp);
+  const balNow=inst.amounts.trialBalanceAmount;
+  const balDelta=balNow-cp.balanceObserved;
+  const g=(function(){ try{ return rcSupportGraph(def,inst.periodId,inst.reportingLensId,inst); }
+    catch(e){ return {requirements:[]}; } })();
+  const evNow=[]; (g.requirements||[]).forEach(r=>r.evidence.forEach(x=>{ if(x.ver)
+    evNow.push({id:x.ver.evidenceVersionId, v:x.ver.version, title:x.ev.title,
+      evidenceId:x.ev.evidenceId}); }));
+  const evChanged=evNow.filter(e=>cp.supportEvidenceVersionIds.indexOf(e.id)<0);
+  /* §25, §26, §27 — STRUCTURAL CHANGES ARE NAMED SEPARATELY. A mapping change and a late
+     invoice are both "the number moved" and are not the same finding: one changes what the
+     population IS, the other changes what is in it. */
+  const mappingChanged=cp.mappingVersion!==inst.mappingVersion;
+  const fxChanged=cp.fxRateSetId!==inst.fxRateSetId;
+  const adjChanged=cp.reportingAdjustmentSetId
+    !==(rcLens(inst.reportingLensId)||{}).reportingAdjustmentSetId;
+  const glChanged=cp.glSnapshotId!==inst.fingerprint.sourceGLSnapshotId;
+  const tbChanged=cp.tbSnapshotId!==inst.fingerprint.sourceTBVersion;
+  const popChanged=cp.activityPopulationIds
+    .indexOf(inst.activityPopulation.activityPopulationId)<0;
+  const vendors=[...new Set(t.after.map(x=>x.vendorId).filter(Boolean))];
+  const journals=[...new Set(t.after.map(x=>x.journalNumber).filter(Boolean))];
+  const projects=[...new Set(t.after.map(x=>x.projectId).filter(Boolean))];
+  const entities=[...new Set(t.after.map(x=>x.entityId).filter(Boolean))];
+  const d={
+    reviewCheckpointId:cp.reviewCheckpointId, checkpoint:cp, reviewed:true,
+    currentFingerprint:inst.fingerprint.hash,
+    balanceDelta:balDelta, activityDelta:t.activityAfter,
+    newTransactionCount:t.after.length, removedTransactionCount:0,
+    changedTransactionCount:0,
+    newJournalCount:journals.length, newVendorCount:vendors.length,
+    newEntityCount:entities.length, newProjectCount:projects.length,
+    newTransactions:t.after,
+    mappingChanged, fxChanged, reportingAdjustmentChanged:adjChanged,
+    glSnapshotChanged:glChanged, tbSnapshotChanged:tbChanged,
+    supportChanged:evChanged.length>0, changedEvidence:evChanged,
+    subledgerChanged:false, externalProofChanged:false,
+    changedPopulationIds:popChanged?[inst.activityPopulation.activityPopulationId]:[],
+    changedComponentIds:[].concat(t.after.length?['GL_ACTIVITY']:[],
+      mappingChanged?['CLASSIFICATION_CHANGE']:[], fxChanged?['FX_TRANSLATION']:[]),
+  };
+  Object.assign(d, rcImpact(def,inst,d));
+  return d;
+}
+/* ---- §7 — IMPACT IS A POLICY QUESTION, NOT A DIFF.
+   Treating every refresh as a re-review is how a reviewer learns to ignore the signal; treating
+   none of them as one is how a material posting slips past. The bar is the reconciliation's own
+   materiality policy — the same tolerance the tie uses — so the answer is defensible rather
+   than tuned. A STRUCTURAL change outranks an amount: a mapping version that moves what the
+   population contains invalidates a review of a different population, however small the money. */
+function rcImpact(def,inst,d){
+  const tol=(RC_MATERIALITY[def.materialityPolicyId]||{tol:0.05}).tol;
+  const bar=Math.max(tol,Math.abs(inst.amounts.trialBalanceAmount)*0.005);
+  const amt=Math.abs(d.balanceDelta);
+  const structural=[];
+  if(d.mappingChanged) structural.push('the account mapping changed');
+  if(d.fxChanged) structural.push('the FX rate set changed');
+  if(d.reportingAdjustmentChanged) structural.push('the reporting adjustment set changed');
+  if(d.changedPopulationIds.length) structural.push('the activity population was regenerated');
+  let status, why;
+  if(structural.length){
+    status='REVALIDATION_REQUIRED';
+    why=structural.join(' and ')+' since this was reviewed, so the checkpoint describes a '
+      +'different population.';
+  } else if(!d.newTransactionCount&&amt<0.0005&&!d.supportChanged){
+    status='NO_CHANGE'; why='Nothing has moved since the checkpoint.';
+  } else if(amt>=bar){
+    status='REVALIDATION_REQUIRED';
+    why=rcM(amt)+' has moved since review, above the '+rcM(bar)+' bar this reconciliation '
+      +'is reviewed against.';
+  } else if(amt>0&&amt<tol&&!d.supportChanged){
+    status='IMMATERIAL_CHANGE';
+    const shown=amt<0.05?('$'+Math.round(amt*1000)+'K'):rcM(amt);
+    why=shown+' has moved across '+d.newTransactionCount+' late posting'
+      +(d.newTransactionCount===1?'':'s')+', inside the '
+      +(tol<0.05?('$'+Math.round(tol*1000)+'K'):rcM(tol))
+      +' tolerance this reconciliation is reviewed against. No re-review is required.';
+  } else {
+    status='REVIEW_DELTA_AVAILABLE';
+    why=(d.newTransactionCount?d.newTransactionCount+' new transaction'
+      +(d.newTransactionCount>1?'s':''):'Changes')
+      +(d.supportChanged?' and '+d.changedEvidence.length+' support change'
+        +(d.changedEvidence.length>1?'s':''):'')
+      +' since review — inspectable as a delta rather than a full re-read.';
+  }
+  return {reviewImpactStatus:status, materialityAssessment:{bar, amount:amt, tolerance:tol},
+    impactWhy:why, structuralReasons:structural};
+}
+/* ---- §22 — REVIEW COVERAGE, and only where it means something.
+   Coverage is the reviewed share of the activity POPULATION, which is a real ratio because both
+   halves are the same governed set of transactions. It is not an opinion and it is not an AI
+   score; where there is no checkpoint there is no coverage, and the field says so rather than
+   reporting zero as though somebody had reviewed nothing on purpose. */
+function rcReviewCoverage(def,inst){
+  const cp=rcLastCheckpoint(inst);
+  if(!cp) return {reviewed:false, coveragePct:null, label:'Not yet reviewed'};
+  const t=rcTxAsOf(def,inst.periodId,cp.reviewedThroughTimestamp);
+  const tot=t.all.length||1;
+  const pct=Math.round(((tot-t.after.length)/tot)*100);
+  return {reviewed:true, coveragePct:pct,
+    reviewedCount:tot-t.after.length, totalCount:tot,
+    unreviewedAmount:t.activityAfter,
+    label:pct+'% of the activity population reviewed through '+cp.reviewedThroughTimestamp};
+}
+/* ---- §11, §12 — A COMMENT CARRIES WHAT IT WAS ABOUT.
+   "This $18.2M increase is entirely transformer invoices" is a QUANTITATIVE claim about a
+   figure that has since moved; "this account supports South Valley Phase I" is not. The
+   difference is whether the comment named an amount, and the comment records the amount and
+   fingerprint it was written against so the question can be answered deterministically rather
+   than guessed at. NO AI DECIDES THIS: a comment naming a figure whose figure has changed is
+   flagged; everything else is left alone. */
+const RC_CMT_REL={CURRENT:{l:'Current',c:''},
+  POTENTIALLY_IMPACTED:{l:'Potentially impacted',c:''},
+  NEEDS_REVALIDATION:{l:'Needs revalidation',c:'warn'},
+  HISTORICAL:{l:'Historical',c:''}};
+function rcCommentRelevance(note,def,inst){
+  if(!note||!note.observed) return {state:'CURRENT', why:null};
+  const bal=inst.amounts.trialBalanceAmount;
+  const moved=Math.abs(bal-(note.observed.balance||bal));
+  const tol=(RC_MATERIALITY[def.materialityPolicyId]||{tol:0.05}).tol;
+  /* HISTORICAL — written against a package that has since been superseded */
+  if(note.observed.fingerprint&&note.observed.fingerprint!==inst.fingerprint.hash&&moved<=tol
+     &&!note.quantitative) return {state:'CURRENT', why:null};
+  /* a structural change puts ANY comment in doubt: the population it describes has moved */
+  const structural=note.observed.mappingVersion
+    &&note.observed.mappingVersion!==inst.mappingVersion;
+  if(structural)
+    return {state:'POTENTIALLY_IMPACTED',
+      why:'The account mapping has changed since this was written, so the population it '
+        +'describes may not be the same one.'};
+  if(note.quantitative&&moved>tol)
+    return {state:'NEEDS_REVALIDATION',
+      why:'This comment states a figure and the balance has moved '+rcM(moved)
+        +' since it was written, so its conclusion may no longer describe the movement.'};
+  /* everything else stands. A comment about what an account IS does not expire because
+     another invoice posted to it. */
+  return {state:'CURRENT', why:null};
+}
+/* ---- §14, §15 — A PRE-CLOSE ISSUE. Reuses the note store rather than becoming an issue
+   product: it is a review observation with a status and a subject. What it adds is the
+   SOURCE REFERENCE, so when the ledger moves underneath it the discussion survives and says
+   what changed rather than quietly losing its subject. */
+const RC_ISSUE_ST={open:{l:'Open',c:'warn'}, resolved:{l:'Resolved',c:'good'},
+  noissue:{l:'No issue',c:''}, superseded:{l:'Superseded by source change',c:''}};
+let RC_PRECLOSE_ISSUES=[];
+function rcIssueRaise(defId,txId,amount,text){
+  const def=rcDef(defId), inst=rcInstance(defId);
+  const iss={issueId:kNextId('PI'), reconciliationDefinitionId:defId,
+    reconciliationInstanceId:inst.reconciliationInstanceId,
+    sourceTransactionId:txId||null, amountObserved:amount||null,
+    text:text||'', status:'open',
+    observedFingerprint:inst.fingerprint.hash,
+    observedMapping:inst.mappingVersion,
+    raisedBy:kActor().name, raisedAt:rcNowStamp(), periodId:inst.periodId,
+    reportingLensId:inst.reportingLensId, resolution:null};
+  RC_PRECLOSE_ISSUES.push(iss);
+  rcEvent(def,inst,'CLARIFICATION_REQUESTED',{comment:'Pre-close issue raised — '+iss.text});
+  renderAll(); return iss;
+}
+const rcIssuesFor=id=>RC_PRECLOSE_ISSUES.filter(i=>i.reconciliationInstanceId===id);
+/* §15 — the issue's subject may have moved. Stated, never auto-closed: whether a source change
+   resolves an issue is the reviewer's call, and the product's job is to tell them it happened. */
+function rcIssueDrift(iss,inst){
+  if(iss.observedMapping!==inst.mappingVersion)
+    return 'The account mapping moved from v'+iss.observedMapping+' to v'+inst.mappingVersion
+      +' after this was raised. The classification it describes may already have changed.';
+  if(iss.observedFingerprint!==inst.fingerprint.hash)
+    return 'The governed source has changed since this was raised.';
+  return null;
+}
+
+/* ---- §5, §31 — THE PRE-CLOSE BLOCK. Compact, near the top of Review, and it says three
+   things a status word cannot: what was reviewed, what the data says now, and what moved. */
+function rcPreCloseBlock(def,inst){
+  const d=rcReviewDelta(def,inst);
+  const cov=rcReviewCoverage(def,inst);
+  if(!d.reviewed){
+    if(inst.reviewStatus==='approved') return '';
+    return '<div class="amp-sec">Pre-close review</div>'
+      +'<div class="rcx-quiet2">Not yet reviewed. Source data is live — you can review now and '
+      +'record what you saw, without claiming the period is final.</div>'
+      +(rcCanPrepare(def,inst).ok||kCan('APPROVE_RECONCILIATION')
+        ?'<div class="amp-acts"><button class="btn-out sm" onclick="rcMarkReviewed(\''
+          +def.reconciliationDefinitionId+'\')">Mark reviewed through now</button></div>':'');
+  }
+  const st=RC_IMPACT[d.reviewImpactStatus]||{l:d.reviewImpactStatus,c:''};
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  return '<div class="amp-sec">Pre-close review</div>'
+    +row('Last reviewed',glEsc(d.checkpoint.reviewedThroughTimestamp)
+      +' <span class="amap-dim">'+glEsc(d.checkpoint.reviewedByName)+' · '
+      +glEsc(d.checkpoint.reviewCheckpointId)+'</span>')
+    +row('Current data',glEsc(inst.dataAsOf))
+    +row('Change since review',(Math.abs(d.balanceDelta)<0.0005?'&mdash;'
+      :'<span class="mono">'+(d.balanceDelta>0?'+':'')+rcM(d.balanceDelta)+'</span>')
+      +(d.newTransactionCount?' <span class="amap-dim">'+d.newTransactionCount
+        +' new transaction'+(d.newTransactionCount>1?'s':'')+'</span>':''))
+    +row('Status',rcPill(RC_IMPACT,d.reviewImpactStatus))
+    +(cov.coveragePct!=null?row('Coverage',cov.coveragePct+'% <span class="amap-dim">'
+      +cov.reviewedCount+' of '+cov.totalCount+' transactions reviewed through the checkpoint'
+      +'</span>'):'')
+    +'<div class="rcx-quiet2">'+glEsc(d.impactWhy)+'</div>'
+    +(d.reviewImpactStatus!=='NO_CHANGE'
+      ?'<div class="amp-acts"><button class="btn-out sm" onclick="rcOpenDelta(\''
+        +def.reconciliationDefinitionId+'\')">Review changes</button>'
+        +'<button class="btn-out sm" onclick="rcMarkReviewed(\''
+        +def.reconciliationDefinitionId+'\')">Mark reviewed through now</button></div>':'');
+}
+/* ---- §8, §33 — CHANGES SINCE YOUR LAST REVIEW. The signature behaviour: a reviewer inspects
+   what moved, not the whole reconciliation again. */
+function rcDeltaPanel(def,inst){
+  const d=rcReviewDelta(def,inst);
+  if(!d.reviewed) return '<div class="rcx-quiet2">No checkpoint to compare against.</div>';
+  const dId=def.reconciliationDefinitionId;
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  let o='<div class="amp-acts"><button class="btn-out sm" onclick="rcCloseDelta()">'
+    +'&#8592; Back to review</button></div>'
+    +'<div class="rcx-tracehd"><span>Changes since your last review</span>'
+    +'<span class="amt">'+(d.balanceDelta>0?'+':'')+rcM(d.balanceDelta)+'</span>'
+    +'<span class="amap-dim">'+glEsc(def.name)+' · reviewed through '
+    +glEsc(d.checkpoint.reviewedThroughTimestamp)+'</span></div>'
+    +'<div class="amp-sec">Financial change</div>'
+    +row('Reviewed balance','<span class="mono">'+rcM(d.checkpoint.balanceObserved)+'</span>'
+      +' <span class="amap-dim">'+glEsc(d.checkpoint.reviewedThroughTimestamp)+'</span>')
+    +row('Current balance','<span class="mono">'+rcM(inst.amounts.trialBalanceAmount)+'</span>'
+      +' <span class="amap-dim">'+glEsc(inst.dataAsOf)+'</span>')
+    +row('Delta','<span class="mono">'+(d.balanceDelta>0?'+':'')+rcM(d.balanceDelta)+'</span>')
+    +row('Assessment',rcPill(RC_IMPACT,d.reviewImpactStatus)+' <span class="amap-dim">'
+      +glEsc(d.impactWhy)+'</span>');
+  o+='<div class="amp-sec">New activity</div>';
+  if(!d.newTransactionCount) o+='<div class="rcx-quiet2">No transactions have posted since '
+    +'the checkpoint.</div>';
+  else {
+    o+='<div class="rcx-evl">'
+      +'<div class="rcx-ev"><span class="n">'+d.newTransactionCount+' new journal line'
+        +(d.newTransactionCount>1?'s':'')+'</span>'
+        +'<span class="s"><span class="mono">'+(d.activityDelta>0?'+':'')
+        +rcM(d.activityDelta)+'</span></span>'
+        +'<span class="m">'+d.newJournalCount+' journals · '+d.newVendorCount+' vendors · '
+        +d.newProjectCount+' projects · '+d.newEntityCount+' entities</span></div></div>'
+      /* §9 — every delta drills to the exact rows */
+      +'<div class="rcx-wrap"><table class="tbl rcx-tbl"><thead><tr><th>Posted</th><th>JE</th>'
+      +'<th>Account</th><th>Entity</th><th>Project</th><th>Vendor</th>'
+      +'<th class="num">Amount</th><th>Source</th></tr></thead><tbody>'
+      +d.newTransactions.slice(0,40).map(t=>'<tr><td class="mono">'+glEsc(t.postingDate)+'</td>'
+        +'<td class="mono">'+glEsc(t.journalNumber)+'</td>'
+        +'<td>'+glEsc(t.glAccountNumber)+' '+glEsc(t.glAccountName)+'</td>'
+        +'<td>'+glEsc(t.entityName)+'</td><td>'+glEsc(t.projectName||'—')+'</td>'
+        +'<td>'+glEsc(t.vendorName||'—')+'</td>'
+        +'<td class="num mono">'+rcM(t.netAmount)+'</td>'
+        +'<td class="amap-dim">'+glEsc(t.erpPlatform)+'</td></tr>').join('')
+      +'</tbody></table></div>'
+      +(d.newTransactions.length>40?'<div class="rcx-quiet2">Showing 40 of '
+        +d.newTransactions.length+'.</div>':'');
+  }
+  /* §25, §26 — structural changes, named */
+  o+='<div class="amp-sec">Structural changes</div>';
+  const struct=[];
+  if(d.mappingChanged) struct.push(['Mapping changed since review',
+    'v'+d.checkpoint.mappingVersion+' → v'+inst.mappingVersion,
+    'The population this reconciliation resolves may have moved. A checkpoint taken under the '
+    +'prior mapping describes a different set of accounts.']);
+  if(d.fxChanged) struct.push(['FX rates changed since review',
+    glEsc(d.checkpoint.fxRateSetId)+' → '+glEsc(inst.fxRateSetId),
+    'Reporting translation is derived from the rate set. ERP-posted remeasurement is inside GL '
+    +'activity above and is not this.']);
+  if(d.reportingAdjustmentChanged) struct.push(['Reporting adjustments changed',
+    glEsc(d.checkpoint.reportingAdjustmentSetId||'—')+' → '
+    +glEsc((rcLens(inst.reportingLensId)||{}).reportingAdjustmentSetId||'—'),'']);
+  if(d.glSnapshotChanged) struct.push(['GL snapshot changed',
+    glEsc(d.checkpoint.glSnapshotId)+' → '+glEsc(inst.fingerprint.sourceGLSnapshotId),'']);
+  o+=struct.length?'<div class="rcx-evl">'+struct.map(s=>'<div class="rcx-ev warn">'
+      +'<span class="n">'+glEsc(s[0])+'</span><span class="m">'+s[1]+'</span>'
+      +(s[2]?'<span class="w">'+glEsc(s[2])+'</span>':'')+'</div>').join('')+'</div>'
+    :'<div class="rcx-quiet2">No mapping, FX or reporting-adjustment change since the '
+      +'checkpoint.</div>';
+  /* §27 — support */
+  o+='<div class="amp-sec">Support changes</div>';
+  o+=d.changedEvidence.length?'<div class="rcx-evl">'+d.changedEvidence.map(e=>{
+      const prior=(d.checkpoint.supportEvidenceVersionIds||[])
+        .filter(x=>x.indexOf(e.evidenceId)===0).pop();
+      return '<div class="rcx-ev warn"><span class="n">'+glEsc(e.title)+'</span>'
+        +'<span class="m">'+(prior?glEsc(prior.split('-').pop())+' → ':'')+'v'+e.v
+        +' · not associated with the prior checkpoint</span></div>'; }).join('')+'</div>'
+    :'<div class="rcx-quiet2">No required support has changed since the checkpoint.</div>';
+  /* §14 — open issues raised during pre-close */
+  const iss=rcIssuesFor(inst.reconciliationInstanceId);
+  if(iss.length){
+    o+='<div class="amp-sec">Open issues</div><div class="rcx-evl">'
+      +iss.map(i=>{ const drift=rcIssueDrift(i,inst);
+        return '<div class="rcx-ev'+(i.status==='open'?' warn':'')+'">'
+        +'<span class="n">'+glEsc(i.text)+'</span>'
+        +'<span class="s"><span class="pill sm '+(RC_ISSUE_ST[i.status]||{}).c+'">'
+          +glEsc((RC_ISSUE_ST[i.status]||{l:i.status}).l)+'</span></span>'
+        +'<span class="m">'+glEsc(i.raisedBy)+' · '+glEsc(i.raisedAt)
+          +(i.sourceTransactionId?' · '+glEsc(i.sourceTransactionId):'')
+          +(i.amountObserved!=null?' · '+rcM(i.amountObserved):'')+'</span>'
+        +(drift?'<span class="w">'+glEsc(drift)+'</span>':'')+'</div>'; }).join('')+'</div>';
+  }
+  o+='<div class="amp-acts"><button class="btn-primary sm" onclick="rcMarkReviewed(\''
+    +dId+'\')">Mark delta reviewed</button>'
+    +'<button class="btn-out sm" onclick="rcCloseDelta()">Close</button></div>'
+    +'<div class="rcx-jenote">Marking the delta reviewed records a NEW checkpoint. '
+    +glEsc(d.checkpoint.reviewCheckpointId)+' is kept: a checkpoint is the record of what '
+    +'somebody actually looked at, and overwriting it would destroy the only thing it is '
+    +'for.</div>';
+  return o;
+}
+/* ---- §20 — THE REVIEW TIMELINE. Checkpoints and workflow events on one axis, because a
+   reviewer asking "what happened to this reconciliation" does not think of them as two lists. */
+function rcReviewTimeline(def,inst){
+  const rows=[];
+  rcCheckpoints(inst).forEach(c=>rows.push({at:c.reviewedThroughTimestamp,
+    who:c.reviewedByName, what:(RC_CP_TYPES[c.checkpointType]||c.checkpointType)
+      +' · '+c.reviewCheckpointId,
+    sub:'balance observed '+rcM(c.balanceObserved)}));
+  rcEventsFor(inst.reconciliationInstanceId).forEach(e=>rows.push({at:e.at, who:e.user,
+    what:e.label, sub:e.comment||''}));
+  rcIssuesFor(inst.reconciliationInstanceId).forEach(i=>rows.push({at:i.raisedAt,
+    who:i.raisedBy, what:'Pre-close issue', sub:i.text}));
+  rows.sort((a,b)=>rcTs(a.at)-rcTs(b.at));
+  if(!rows.length) return '';
+  return '<div class="amp-sec">Review timeline</div><div class="rcx-hist">'
+    +rows.map(r=>'<div class="rcx-he"><span class="d">'+glEsc(r.at)+'</span>'
+      +'<span class="u">'+glEsc(r.who)+'</span>'
+      +'<span class="n">'+glEsc(r.what)+'</span>'
+      +(r.sub?'<span class="w">'+glEsc(r.sub)+'</span>':'')+'</div>').join('')+'</div>';
+}
+/* ---- §28, §34 — THE ACTIONS. Restrained: mark reviewed, open the delta, raise an issue.
+   Certification is NOT among them — a pre-close checkpoint is not a package anybody signed,
+   and offering to certify from here would be exactly the conflation §16 forbids. */
+let rcDeltaOpen=null;
+function rcOpenDelta(defId){ rcDeltaOpen=defId; renderAll(); }
+function rcCloseDelta(){ rcDeltaOpen=null; renderAll(); }
+function rcMarkReviewed(defId,type){
+  const def=rcDef(defId), inst=rcInstance(defId);
+  /* reviewing is reading; anyone who may VIEW the reconciliation may record what they saw.
+     Recording it under somebody who cannot see it would be the checkpoint lying. */
+  const may=kCanViewObject(def,inst);
+  if(!may.ok){ alert('Cannot record a review\n\n'+may.why); return; }
+  const cp=rcCheckpointCreate(def,inst,type||'PRE_CLOSE_REVIEW',null,rcNowStamp());
+  rcEvent(def,inst,'REVIEW_OPENED',{comment:'Reviewed through '+cp.reviewedThroughTimestamp
+    +' · '+cp.reviewCheckpointId+' · balance observed '+rcM(cp.balanceObserved)});
+  rcDeltaOpen=null; renderAll();
+}
+/* ---- §36 — NOTIFY ON MATERIALITY, NOT ON EVERY REFRESH. A notification per API sync is a
+   notification nobody reads, which is worse than none: it teaches the reviewer that the badge
+   means nothing. Only a status the policy calls material raises one. */
+function rcDeltaNotify(period){
+  const p=period||viewPeriod();
+  rcDefsActive(p).forEach(def=>{
+    const inst=rcInstance(def.reconciliationDefinitionId,p);
+    const d=rcReviewDelta(def,inst);
+    if(!d.reviewed) return;
+    if(d.reviewImpactStatus!=='REVALIDATION_REQUIRED'
+      &&d.reviewImpactStatus!=='MATERIAL_CHANGE') return;
+    const owner=rcOwnerOf(def,inst,'REVIEWER');
+    if(!owner.id) return;
+    const dup=KNOTIFS.some(n=>n.recipient===owner.id
+      &&n.context.reviewCheckpointId===d.reviewCheckpointId);
+    if(dup) return;
+    kNotify(owner.id, d.mappingChanged?'MAPPING_CHANGED_SINCE_REVIEW'
+      :(d.supportChanged?'SUPPORT_CHANGED_SINCE_REVIEW':'REVALIDATION_REQUIRED'),
+      'RECONCILIATION', inst.reconciliationInstanceId,
+      {reconciliationDefinitionId:def.reconciliationDefinitionId,
+       reconciliationInstanceId:inst.reconciliationInstanceId, tab:'rev',
+       periodId:p, reportingLensId:inst.reportingLensId,
+       reviewCheckpointId:d.reviewCheckpointId, by:'Source sync',
+       text:d.impactWhy});
+  });
+}
+/* ---- §21 — WHAT CONTINUOUS CLOSE CONSUMES. Derived signals over the same objects; Continuous
+   Close is not redesigned and stores nothing of its own. */
+function reconReviewSignals(period,lensId){
+  const p=period||viewPeriod();
+  const out={periodId:p, reportingLensId:lensId||rcLensId, items:[],
+    reviewedCount:0, deltaCount:0, revalidationCount:0, neverReviewedCount:0,
+    unreviewedDeltaAmount:0, unreviewedTransactionCount:0, materialChangesSinceReview:0};
+  rcDefsActive(p).forEach(def=>{
+    const inst=rcInstance(def.reconciliationDefinitionId,p,lensId);
+    const d=rcReviewDelta(def,inst);
+    const cov=rcReviewCoverage(def,inst);
+    const it={reconciliationDefinitionId:def.reconciliationDefinitionId, name:def.name,
+      reviewCoverage:cov.coveragePct, lastReviewedAt:d.reviewed
+        ? d.checkpoint.reviewedThroughTimestamp : null,
+      currentDataAsOf:inst.dataAsOf,
+      unreviewedDeltaAmount:d.reviewed?d.activityDelta:0,
+      unreviewedTransactionCount:d.reviewed?d.newTransactionCount:0,
+      materialChangesSinceReview:d.reviewed&&(d.reviewImpactStatus==='REVALIDATION_REQUIRED'
+        ||d.reviewImpactStatus==='MATERIAL_CHANGE')?1:0,
+      revalidationRequired:d.reviewed&&d.reviewImpactStatus==='REVALIDATION_REQUIRED',
+      supportChangesSinceReview:d.reviewed&&d.changedEvidence?d.changedEvidence.length:0,
+      openIssues:rcIssuesFor(inst.reconciliationInstanceId).filter(i=>i.status==='open').length,
+      reviewImpactStatus:d.reviewed?d.reviewImpactStatus:'NEVER_REVIEWED'};
+    out.items.push(it);
+    if(!d.reviewed) out.neverReviewedCount++;
+    else {
+      out.reviewedCount++;
+      out.unreviewedDeltaAmount+=it.unreviewedDeltaAmount;
+      out.unreviewedTransactionCount+=it.unreviewedTransactionCount;
+      out.materialChangesSinceReview+=it.materialChangesSinceReview;
+      if(it.revalidationRequired) out.revalidationCount++;
+      else if(d.reviewImpactStatus==='REVIEW_DELTA_AVAILABLE') out.deltaCount++;
+    }
+  });
+  return out;
+}
+
+/* ---- SEEDED PRE-CLOSE HISTORY (§40, §41, §42).
+   Every checkpoint below is created by `rcCheckpointCreate` at an earlier
+   `reviewedThroughTimestamp`, so its observed balance is DERIVED by removing the activity that
+   posted after it. Nothing is asserted: the delta these produce is the real arithmetic of the
+   transactions the population already holds. */
+let _rcCpSeeded=false;
+function rcCpSeed(){
+  if(_rcCpSeeded) return; _rcCpSeeded=true;
+  const P='2026-06';
+  const as=(nm,fn)=>{ const k=window.USER_NAME;
+    try{ window.USER_NAME=nm; fn(); } finally{ window.USER_NAME=k; } };
+  const cp=(dId,nm,through,type)=>{ const def=rcDef(dId); if(!def) return;
+    const inst=rcInstance(dId,P,'RL-CORP');
+    as(nm,()=>{ const c=rcCheckpointCreate(def,inst,type||'PRE_CLOSE_REVIEW',null,through);
+      rcEvent(def,inst,'REVIEW_OPENED',{at:through,
+        comment:'Reviewed through '+through+' · '+c.reviewCheckpointId
+          +' · balance observed '+rcM(c.balanceObserved)}); }); };
+  /* §40 — Electrical CIP: reviewed on the 27th, activity has posted since. */
+  cp('REC-CIP-ELECTRICAL','M. Giri','Jun 27, 2026 · 16:15','MOVEMENT_REVIEW');
+  /* §42 — THE IMMATERIAL CASE, and the reconciliation was chosen rather than the number
+     tuned: Retainage takes exactly one late journal of 0.011M against a 0.05M tolerance. A
+     checkpoint timed to produce a convenient delta would be a demonstration of nothing. */
+  cp('REC-RETAINAGE','M. Giri','Jun 29, 2026 · 23:00','BALANCE_REVIEW');
+  cp('REC-CIP-GENERATORS','M. Giri','Jun 29, 2026 · 09:40','BALANCE_REVIEW');
+  /* §41 — a material one, and its mapping moved afterwards, so it revalidates for a
+     structural reason rather than an amount. */
+  cp('REC-CIP-MECHANICAL','J. Park','Jun 26, 2026 · 11:05','PRE_CLOSE_REVIEW');
+  /* §11 — a pre-close comment that names a figure, and one that does not. The first becomes
+     Needs revalidation as the balance moves; the second stays Current. */
+  (function(){
+    const def=rcDef('REC-CIP-ELECTRICAL'), inst=rcInstance('REC-CIP-ELECTRICAL',P,'RL-CORP');
+    const cpt=rcLastCheckpoint(inst);
+    as('M. Giri',()=>{
+      RC_NOTES.push({noteId:kNextId('RN'), kind:'reviewer',
+        text:'The 18.2M increase this period is entirely South Valley transformer invoices.',
+        author:'M. Giri', role:'Corporate Accounting', at:'Jun 27, 2026 · 16:20',
+        reconciliationInstanceId:inst.reconciliationInstanceId,
+        quantitative:true,
+        observed:{balance:cpt?cpt.balanceObserved:inst.amounts.trialBalanceAmount,
+          fingerprint:inst.fingerprint.hash, dataAsOf:'Jun 27, 2026 · 16:15',
+          checkpointId:cpt?cpt.reviewCheckpointId:null}});
+      RC_NOTES.push({noteId:kNextId('RN'), kind:'reviewer',
+        text:'This group carries South Valley Phase I construction only; Phase II is tracked '
+          +'under the Mechanical group.',
+        author:'M. Giri', role:'Corporate Accounting', at:'Jun 27, 2026 · 16:22',
+        reconciliationInstanceId:inst.reconciliationInstanceId,
+        quantitative:false,
+        observed:{balance:cpt?cpt.balanceObserved:inst.amounts.trialBalanceAmount,
+          fingerprint:inst.fingerprint.hash, dataAsOf:'Jun 27, 2026 · 16:15',
+          checkpointId:cpt?cpt.reviewCheckpointId:null}});
+      /* §14, §15 — an issue raised against a specific posting */
+      const t=(rcTxPool('SRC-US-DEV-15011',P)||[])[0];
+      RC_PRECLOSE_ISSUES.push({issueId:kNextId('PI'),
+        reconciliationDefinitionId:'REC-CIP-ELECTRICAL',
+        reconciliationInstanceId:inst.reconciliationInstanceId,
+        sourceTransactionId:t?t.journalNumber:'JE-48133',
+        amountObserved:t?t.netAmount:7.8,
+        text:'Possible classification issue — this posting looks like Buildings rather than '
+          +'Electrical CIP.',
+        status:'open', observedFingerprint:inst.fingerprint.hash,
+        observedMapping:'2026.06.3',
+        raisedBy:'M. Giri', raisedAt:'Jun 27, 2026 · 16:35', periodId:P,
+        reportingLensId:'RL-CORP', resolution:null});
+    });
+  })();
+  try{ rcDeltaNotify(P); }catch(e){}
 }
 
 /* ==========================================================================================
@@ -43241,6 +43837,18 @@ function rcBodyHTML(){
             +rcPill(RC_REVIEW,a.reviewStatus,1)
             +(a.reReviewRequired?' <span class="rcx-rr" title="The signed package no longer '
               +'describes the current balance">re-review</span>':'')
+            +(function(){ /* R5.7B §30 — compact, and only when there is something to say */
+                try{ const dd=rcReviewDelta(rcDef(a.reconciliationDefinitionId),a);
+                  if(!dd.reviewed) return '';
+                  if(dd.reviewImpactStatus==='REVALIDATION_REQUIRED')
+                    return '<span class="rcx-rr" title="'+glEsc(dd.impactWhy)
+                      +'">revalidation</span>';
+                  if(dd.reviewImpactStatus==='REVIEW_DELTA_AVAILABLE')
+                    return '<span class="rcx-stg" title="'+glEsc(dd.impactWhy)+'">+'
+                      +rcM(Math.abs(dd.balanceDelta))+' new</span>';
+                  return '<span class="rcx-stg" title="Reviewed through '
+                    +glEsc(dd.checkpoint.reviewedThroughTimestamp)+'">reviewed</span>';
+                }catch(e){ return ''; } })()
             +(a.reviewStatus==='inreview'&&st
               ? (rcQV==='mine'
                   ? '<span class="rcx-stg">'+glEsc(rcStageLabel(st))+'</span>'
@@ -45942,6 +46550,9 @@ function rcEvNewVersion(evId){
    needs to know which stage is theirs, not to admire a graph. */
 function rcRevTab(def,inst){
   const dId=def.reconciliationDefinitionId;
+  rcCpSeed();
+  /* §33 — the delta is a focused surface, not a section buried under the package */
+  if(rcDeltaOpen===dId) return rcDeltaPanel(def,inst);
   const wf=rcWorkflow(def), st=rcState(dId);
   const A=rcActiveStage(def,inst);
   const RD=rcReadiness(def,inst);
@@ -45950,6 +46561,9 @@ function rcRevTab(def,inst){
   const due=def.due?perFromISO(def.due):'—';
   let o='';
 
+  /* R5.7B §31 — what was reviewed, what the data says now, what moved. Above the control
+     states because a reviewer returning to a live reconciliation asks this first. */
+  o+=rcPreCloseBlock(def,inst);
   /* ---- 1 · REVIEW STATUS. The six control dimensions stay six (§1). */
   o+='<div class="amp-sec">Review status</div>'
     +rcRow('Preparation',rcPill(RC_PREP,inst.preparationStatus))
@@ -46098,7 +46712,16 @@ function rcRevTab(def,inst){
         +glEsc(n.at)
         +((n.mentions||[]).length?' · mentioned '
           +glEsc(n.mentions.map(u=>rcPerson(u).nm).join(', ')):'')
-        +'</span></div>'; }).join('')+'</div>';
+        +(n.observed?' · observed '+rcM(n.observed.balance)+' at '
+          +glEsc(n.observed.dataAsOf||''):'')
+        +'</span>'
+        +(function(){ /* §12 — a comment that named a figure whose figure has moved */
+            if(!n.observed) return '';
+            const rel=rcCommentRelevance(n,def,inst);
+            if(rel.state==='CURRENT') return '';
+            return '<span class="w"><span class="pill sm '
+              +(RC_CMT_REL[rel.state]||{}).c+'">'+glEsc((RC_CMT_REL[rel.state]||{l:''}).l)
+              +'</span> '+glEsc(rel.why||'')+'</span>'; })()+'</div>'; }).join('')+'</div>';
   }
 
   /* ---- 6 · HISTORY (§26). The workpaper history, oldest first, as an accountant reads one. */
@@ -46113,6 +46736,7 @@ function rcRevTab(def,inst){
       +'</div>';
   }
 
+  o+=rcReviewTimeline(def,inst);
   /* §13 — THE SIGN-OFF, stated as its own object rather than as a green word on the review. */
   if(so){
     o+='<div class="amp-sec">Sign-off</div>'
