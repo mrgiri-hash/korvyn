@@ -1401,6 +1401,15 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
   padding:0 var(--s-1)}
 .rcx-note.kmn-hit{border-left-color:var(--accent);background:var(--accent-bg)}
 /* permissions as compact tokens — a list a reader scans, never a checkbox matrix */
+/* the Settings panel’s label/value rows — assigned roles, lens access, authority. Compact
+   rows in the panel’s own grammar, never a matrix. */
+.st-lr{display:flex;align-items:baseline;gap:var(--s-2);padding:var(--s-1) 0;
+  border-bottom:var(--rule)}
+.st-lr:last-of-type{border-bottom:none}
+.st-lr .n{flex:1;min-width:0;font-size:var(--fs-table);color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-lr .v{font-size:var(--fs-label);color:var(--muted);white-space:nowrap}
+.st-lr .v.off{color:var(--hint)}
 .kperms{display:flex;flex-wrap:wrap;gap:var(--s-1);padding:var(--s-2) var(--s-3)}
 .kperm{font-size:var(--fs-label);color:var(--muted);background:var(--n-50);
   border:var(--rule);border-radius:var(--radius-xs);padding:var(--s-1) var(--s-2);
@@ -26377,32 +26386,110 @@ function stAppearance(){
 }
 /* Roles & access: the current user's role (switchable — it re-gates the UI), what it permits,
    and the sign-off matrix. This is the "roles" home the settings request asked for. */
+/* ---- §1 — ASSIGNED ROLE IS NOT PREVIEW ROLE, AND THE OLD PANEL CONFLATED THEM.
+   "YOUR ROLE [Accounting Manager ▾]" put a dropdown under a heading that names what the user
+   IS, which reads as though a normal user picks their own authority. In production nobody
+   does: an administrator assigns roles and the user sees them. The two facts are now two
+   blocks — what you HOLD (read-only, resolved from the access layer) and what the prototype
+   is PREVIEWING (labelled as such, and only there because this is a prototype).
+
+   The sign-off matrix below it is replaced too. "Determine / Lock / Reopen" described period
+   administration and was being read as reconciliation authority, and "Lock" in particular
+   implied that certification freezes something. It does not — a certification records that a
+   governed package was accepted; the ERP stays open and the period control is a separate act. */
 function stAccess(){
-  const r=userRole();
-  /* Lock and Reopen are READ from PERIOD_CAPS, never restated — this table and the
-     period control are the same policy and had already drifted apart once: it said
-     only the CAO may reopen while the period menu offered Reopen to a Controller too.
-     Accounting Manager is listed because it is the DEFAULT identity, and a role whose
-     standing is absent from the matrix cannot be checked against the wall it hits. */
-  const yn=(rl,c)=>((PERIOD_CAPS[rl]||{})[c]===1?'Yes':'No');
-  const matrix=[['Accounting Manager','Yes'],['Asset Manager','Yes'],['Controller','Yes'],
-    ['Chief Accounting Officer','Yes'],['External Auditor','View']]
-    .map(m=>[m[0],m[1],yn(m[0],'lock'),yn(m[0],'reopen')]);
-  return `<div class="st-sec">Your role</div>
-    <div class="st-user"><span class="avatar av-solid">MG</span>
-      <div><div class="st-un">Mitra Giri</div><div class="st-ur">${USER_ROLE}${WS_ADMIN?' · admin':' · standard'}</div></div></div>
-    <select class="st-select wide" onchange="setUserRole(this.value)">
-      ${USER_ROLES.map(x=>`<option value="${x.id}" ${x.id===USER_ROLE?'selected':''}>${x.id}</option>`).join('')}
+  const acc=kAccess(), me=kActor();
+  const roles=(me.roles||[]).map(r=>KROLES[r]).filter(Boolean);
+  const scopeTxt=(acc.scopeObjects||[]).map(s=>s.name
+    +' · '+(s.entityCount||0).toLocaleString('en-US')+' entities').join('<br>');
+  const lensRows=REPORTING_LENSES.map(L=>{
+    const lv=acc.effectiveReportingLenses[L.reportingLensId]||'NONE';
+    return '<div class="st-lr"><span class="n">'+L.name+'</span>'
+      +'<span class="v'+(lv==='NONE'?' off':'')+'">'
+      +(lv==='NONE'?'No access':lv.charAt(0)+lv.slice(1).toLowerCase())+'</span></div>';
+  }).join('');
+  const acts=['PREPARE','APPROVE','CERTIFY','ASSIGN']
+    .filter(a=>acc.workflowAuthorities.some(w=>w.action===a));
+  /* §9 — the authority summary that replaces Determine / Lock / Reopen. Four columns that are
+     actually the four things this product governs, read off KAUTH and the permission sets so
+     the table and the engine cannot disagree. */
+  const SUMMARY=['ACCOUNTANT','ACCOUNTING_MANAGER','REGIONAL_CONTROLLER',
+    'CORPORATE_CONTROLLER','CHIEF_ACCOUNTING_OFFICER','EXTERNAL_AUDITOR','FINANCE_ADMIN'];
+  const cell=(rid,act)=>{
+    const R=KROLES[rid]||{permissions:[]};
+    const perm={PREPARE:'PREPARE_RECONCILIATION', REVIEW:'RETURN_RECONCILIATION',
+      APPROVE:'APPROVE_RECONCILIATION', CERTIFY:'CERTIFY_RECONCILIATION'}[act];
+    if((R.permissions||[]).indexOf(perm)<0)
+      return rid==='EXTERNAL_AUDITOR'&&act==='PREPARE'
+        ? '<span class="tag stg">View only</span>'
+        : (rid==='FINANCE_ADMIN'&&act==='PREPARE'
+          ? '<span class="tag stg">Admin only</span>' : '<span class="tag open">No</span>');
+    const w=KAUTH.filter(x=>x.roleId===rid
+      &&x.action===(act==='CERTIFY'?'CERTIFY':act==='APPROVE'?'APPROVE':'PREPARE'));
+    if(act==='APPROVE'&&w.length&&w[0].materialityMax!=null)
+      return '<span class="tag stg">Limited</span>';
+    return '<span class="tag done">Yes</span>';
+  };
+  return `<div class="st-sec">Assigned roles <span class="st-scope">set by an administrator</span></div>
+    <div class="st-user"><span class="avatar av-solid">${glEsc(me.name.replace(/[^A-Z]/g,'').slice(0,2))}</span>
+      <div><div class="st-un">${glEsc(me.name)}</div><div class="st-ur">${glEsc(me.title||'')}</div></div></div>
+    ${roles.map(r=>`<div class="st-lr"><span class="n"><b>${glEsc(r.name)}</b></span>
+      <span class="v">${glEsc(r.roleType.toLowerCase())}</span></div>`).join('')}
+    <div class="st-note">Roles are assigned by an authorized administrator and are read-only
+      here. Effective access is the union of every role, narrowed by scope and reporting-lens
+      access.</div>
+    <div class="st-sec">Organizational scope</div>
+    <div class="st-note">${scopeTxt}</div>
+    <div class="st-sec">Reporting lens access</div>
+    ${lensRows}
+    <div class="st-sec">Workflow authority</div>
+    <div class="st-note">${acts.length?glEsc(acts.join(' · ').toLowerCase()):'none'}${
+      acts.indexOf('CERTIFY')>=0
+        ? '<br>Cannot independently certify your own preparation.' : ''}</div>
+    <div class="st-sec">Preview experience as <span class="st-scope">prototype only</span></div>
+    <select class="st-select wide" onchange="stPreviewRole(this.value)">
+      ${kUsers().map(u=>`<option value="${u.userId}" ${u.userId===me.userId?'selected':''}>${
+        glEsc(u.name)} — ${glEsc((KROLES[(u.roles||[])[0]]||{name:''}).name)}</option>`).join('')}
     </select>
-    <div class="st-note">${r.det}</div>
-    <div class="st-note">Switching role re-gates the UI live — for example, only an admin role may
-      set the organisation chrome default. In a real deployment the role is assigned by an admin
-      and the user never picks it; it is switchable here so you can preview each.</div>
-    <div class="st-sec">Sign-off matrix <span class="st-scope">who can lock what</span></div>
-    <table class="tbl st-tbl"><thead><tr><th>Role</th><th>Determine</th><th>Lock</th><th>Reopen</th></tr></thead><tbody>
-      ${matrix.map(m=>`<tr${m[0]===USER_ROLE?' class="st-me"':''}><td><b>${m[0]}</b>${m[0]===USER_ROLE?' <span class="st-tag cur">you</span>':''}</td>`+
-        m.slice(1).map(c=>`<td><span class="tag ${c==='Yes'?'done':c==='View'?'stg':'open'}">${c}</span></td>`).join('')+`</tr>`).join('')}
-    </tbody></table>`;
+    <div class="st-note">Used to preview how Korvyn changes by role. In production, roles are
+      assigned by authorized administrators and this control does not exist. It changes
+      defaults, available actions and visible scope — never a figure.</div>
+    <div class="st-sec">Role authority <span class="st-scope">what each role may do</span></div>
+    <table class="tbl st-tbl"><thead><tr><th>Role</th><th>Prepare</th><th>Review</th>
+      <th>Approve</th><th>Certify</th></tr></thead><tbody>
+      ${SUMMARY.map(rid=>`<tr${(me.roles||[]).indexOf(rid)>=0?' class="st-me"':''}>
+        <td><b>${glEsc((KROLES[rid]||{name:rid}).name)}</b></td>
+        <td>${cell(rid,'PREPARE')}</td><td>${cell(rid,'REVIEW')}</td>
+        <td>${cell(rid,'APPROVE')}</td><td>${cell(rid,'CERTIFY')}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="st-note">Certification records that a governed package was accepted. It does
+      not close the ERP and does not freeze the ledger — locking a period is a separate
+      governed act with its own authority.</div>`;
+}
+/* THE PREVIEW SWITCH. It moves the SESSION IDENTITY, which is what the access layer reads, so
+   everything downstream — scope, lens, authority, defaults, My Work — follows from one change
+   rather than from a role string sprayed across the UI. */
+function stPreviewRole(userId){
+  const u=kUser(userId); if(!u) return;
+  window.USER_NAME=u.name;
+  /* the shell's own role label follows, so the ribbon does not contradict the preview */
+  const r=(KROLES[(u.roles||[])[0]]||{}).name;
+  const shellRole={'Accountant':'Asset Manager','Senior Accountant':'Asset Manager',
+    'Accounting Manager':'Accounting Manager','Entity Controller':'Controller',
+    'Regional Controller':'Controller','Corporate Accounting':'Accounting Manager',
+    'Corporate Controller':'Controller','Chief Accounting Officer':'Chief Accounting Officer',
+    'Treasury':'Accounting Manager','Internal Audit':'FP&A Analyst',
+    'External Auditor':'External Auditor','Finance Platform Admin':'FP&A Analyst'}[r];
+  if(shellRole&&typeof setUserRole==='function') setUserRole(shellRole);
+  _kQvApplied=false; rcSel=null; kApplyRoleDefaults();
+  /* §17 — AN ADMIN LANDS IN ADMINISTRATION. The experience profile already names the view;
+     honouring it here is what makes 'the runtime consumes the rules' true rather than stated.
+     Only when the profile asks for it: nobody else is moved off the page they were on. */
+  const home=kAccess().experienceProfile.defaultHomeView;
+  if(home==='admin'){ try{ pickLens('admin'); pickTab('admin'); }catch(e){} }
+  document.querySelectorAll('.ribuser-id .rl').forEach(e=>e.textContent=r||'');
+  const rb=document.querySelector('.ribuser'); if(rb) rb.title=u.name+' · '+(r||'');
+  renderSettings(); if(typeof renderAll==='function') renderAll();
 }
 function stPolicies(){
   const thr=[['Capitalization floor','ASC 360-10','$5,000','Individual asset'],
@@ -40464,6 +40551,12 @@ const KSCOPES={
     projectIds:['ASHBURN','SOUTHVALLEY'], effectiveFrom:'2026-01', effectiveTo:null},
   'SC-TRES'    :{scopeId:'SC-TRES', name:'Treasury', scopeType:'FUNCTION',
     entityCount:612, entityIds:[], effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-SV'      :{scopeId:'SC-SV', name:'South Valley Project Accounting',
+    scopeType:'PROJECT', entityCount:14, projectIds:['SOUTHVALLEY'],
+    businessUnitIds:['DEV'], entityIds:[], effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-AMER-W'  :{scopeId:'SC-AMER-W', name:'Americas West', scopeType:'REGION',
+    entityCount:96, regionIds:['AMER'], entityIds:[],
+    effectiveFrom:'2026-01', effectiveTo:null},
   'SC-AUDIT'   :{scopeId:'SC-AUDIT', name:'Audit — certified population', scopeType:'AUDIT',
     entityCount:612, entityIds:[], effectiveFrom:'2026-06', effectiveTo:'2026-12'},
 };
@@ -40481,12 +40574,12 @@ const kLensRank=l=>KLENS_LEVELS.indexOf(l||'NONE');
    user is authorised to see would be a permission pretending to be a preference. */
 const KXP={
   'XP-PREPARER':{experienceProfileId:'XP-PREPARER', defaultHomeView:'mywork',
-    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'mine_prep',
+    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'assigned',
     defaultFluxView:'assigned', preferredInformationDensity:'detailed',
     defaultRiskFilter:'all', showPreparationActions:1, showReviewActions:0,
     showCertificationActions:0, showAdminActions:0, aiResponseMode:'TASK'},
   'XP-MANAGER':{experienceProfileId:'XP-MANAGER', defaultHomeView:'mywork',
-    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'returned',
+    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'team',
     defaultFluxView:'team', preferredInformationDensity:'detailed',
     defaultRiskFilter:'all', showPreparationActions:1, showReviewActions:1,
     showCertificationActions:0, showAdminActions:0, aiResponseMode:'TEAM'},
@@ -40502,6 +40595,7 @@ const KXP={
     showCertificationActions:1, showAdminActions:0, aiResponseMode:'ENTERPRISE'},
   'XP-AUDIT':{experienceProfileId:'XP-AUDIT', defaultHomeView:'documents',
     defaultAccountingView:'glrecon', defaultReconciliationQuickView:'certified',
+    /* §16 — read only. The profile says so, and the permission set enforces it. */
     defaultFluxView:'approved', preferredInformationDensity:'detailed',
     defaultRiskFilter:'all', showPreparationActions:0, showReviewActions:0,
     showCertificationActions:0, showAdminActions:0, aiResponseMode:'EVIDENCE'},
@@ -40542,6 +40636,16 @@ const KAUTH=[
     scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
     riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
     independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-CAO-CERT', roleId:'CHIEF_ACCOUNTING_OFFICER', action:'CERTIFY',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
+    riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
+    independenceRequirement:'PREPARER_NE_FINAL_APPROVER'},
+  {authorityId:'WA-CAO-APPR', roleId:'CHIEF_ACCOUNTING_OFFICER', action:'APPROVE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
+    riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
+    independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-AM-PREP', roleId:'ASSET_MANAGER', action:'PREPARE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null},
   {authorityId:'WA-CC-CERT', roleId:'CORPORATE_CONTROLLER', action:'CERTIFY',
     scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
     riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
@@ -40644,6 +40748,24 @@ const KROLES={
     defaultReportingLensPolicy:'ALL',
     administrativePrivileges:['USERS','ROLES','LENSES','INTEGRATIONS'],
     status:'ACTIVE', version:'1.0'},
+  CHIEF_ACCOUNTING_OFFICER:{roleId:'CHIEF_ACCOUNTING_OFFICER',
+    name:'Chief Accounting Officer', roleType:'FUNCTIONAL',
+    description:'Ultimate accounting authority. Certifies and may reopen a closed period.',
+    permissions:P_REV.concat(['ASSIGN_WORK','VIEW_BANK_DETAIL','VIEW_AUDIT_PACKAGE',
+      'CERTIFY_RECONCILIATION','PUBLISH_EXCEL_ARTIFACT','VIEW_SENSITIVE_PAYROLL']),
+    experienceProfileId:'XP-CORP-CTRL', defaultScopePolicy:'ENTERPRISE',
+    defaultReportingLensPolicy:'ALL', administrativePrivileges:[],
+    status:'ACTIVE', version:'1.0'},
+  ASSET_MANAGER:{roleId:'ASSET_MANAGER', name:'Asset Manager', roleType:'FUNCTIONAL',
+    description:'Prepares fixed-asset determinations. No review authority.',
+    permissions:P_PREP, experienceProfileId:'XP-PREPARER',
+    defaultScopePolicy:'ASSIGNED', defaultReportingLensPolicy:'CORPORATE_ONLY',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.0'},
+  FPA_ANALYST:{roleId:'FPA_ANALYST', name:'FP&A Analyst', roleType:'ANALYTICAL',
+    description:'Explains reported figures. Read-only on the close.',
+    permissions:['VIEW_FINANCIALS'], experienceProfileId:'XP-AUDIT',
+    defaultScopePolicy:'ENTERPRISE', defaultReportingLensPolicy:'CORPORATE_ONLY',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.0'},
   SYSTEM_ADMIN:{roleId:'SYSTEM_ADMIN', name:'System Administrator',
     roleType:'ADMINISTRATIVE', description:'Platform configuration and integrations.',
     permissions:['ADMINISTER_ROLES','ADMINISTER_INTEGRATIONS'],
@@ -40663,7 +40785,8 @@ const kRole=id=>KROLES[id]||null;
    a workflow record cannot disagree about who somebody is. `kUsers()` merges the two. */
 const KUSER_ACCESS={
   'U-LT':{title:'Senior Accountant, Development Accounting', roles:['SENIOR_ACCOUNTANT'],
-    scopes:['SC-DEV'], teams:['TM-DEV'], status:'ACTIVE', lastActive:'12 min ago',
+    scopes:['SC-DEV','SC-SV'], teams:['TM-DEV','TM-CIP'], status:'ACTIVE',
+    lastActive:'12 min ago',
     lens:{'RL-CORP':'PREPARE'}},
   'U-MR':{title:'Accountant, Development Accounting', roles:['ACCOUNTANT'],
     scopes:['SC-DEV'], teams:['TM-DEV'], status:'ACTIVE', lastActive:'1 hr ago',
@@ -40673,7 +40796,8 @@ const KUSER_ACCESS={
      authorization purposes. A primary role drives display defaults only. */
   'U-MG':{title:'Director, Corporate Accounting',
     roles:['CORPORATE_ACCOUNTING','REGIONAL_CONTROLLER'],
-    scopes:['SC-GROUP','SC-AMER'], teams:['TM-CORP'], status:'ACTIVE', lastActive:'now',
+    scopes:['SC-GROUP','SC-AMER'], teams:['TM-CORP','TM-CIP'], status:'ACTIVE',
+    lastActive:'now',
     lens:{'RL-CORP':'CERTIFY','RL-EMEA':'REVIEW','RL-DE-STAT':'VIEW','RL-US-TAX':'VIEW'},
     me:1},
   'U-JP':{title:'Regional Controller, EMEA', roles:['REGIONAL_CONTROLLER'],
@@ -40693,8 +40817,8 @@ const KUSER_ACCESS={
   'U-DK':{title:'Manager, Revenue Accounting', roles:['ACCOUNTING_MANAGER'],
     scopes:['SC-AMER'], teams:['TM-REV'], status:'ACTIVE', lastActive:'yesterday',
     lens:{'RL-CORP':'REVIEW','RL-EMEA':'NONE','RL-DE-STAT':'NONE','RL-US-TAX':'VIEW'}},
-  'U-RG':{title:'Entity Controller, Americas', roles:['ENTITY_CONTROLLER'],
-    scopes:['SC-AMER'], teams:['TM-CTRL'], status:'ACTIVE', lastActive:'5 hr ago',
+  'U-RG':{title:'Entity Controller, Americas West', roles:['ENTITY_CONTROLLER'],
+    scopes:['SC-AMER-W'], teams:['TM-CTRL'], status:'ACTIVE', lastActive:'5 hr ago',
     lens:{'RL-CORP':'REVIEW','RL-US-TAX':'VIEW'}},
   'U-PN':{title:'Entity Controller, Germany', roles:['ENTITY_CONTROLLER'],
     scopes:['SC-DE'], teams:['TM-CTRL'], status:'ACTIVE', lastActive:'yesterday',
@@ -40746,6 +40870,12 @@ function kActor(){
    window; it does not lend identity, and it never rewrites a decision already recorded — the
    delegate's own name goes on anything they approve. */
 let KDELEGATIONS=[
+  {delegationId:'DL-0002', delegatorUserId:'U-JP', delegateUserId:'U-RG',
+    authorityScope:{actions:['APPROVE','RETURN'], scopeIds:['SC-AMER-W'],
+      reportingLensIds:['RL-CORP']},
+    effectiveFrom:'2026-07-01', effectiveTo:'2026-07-12',
+    reason:'Regional reconciliation review — Americas West coverage',
+    status:'ACTIVE', createdBy:'M. Giri', createdAt:'Jun 26, 2026 · 09:12'},
   {delegationId:'DL-0001', delegatorUserId:'U-JP', delegateUserId:'U-PN',
     authorityScope:{actions:['APPROVE','RETURN'], scopeIds:['SC-EMEA'],
       reportingLensIds:['RL-EMEA','RL-DE-STAT']},
@@ -40755,6 +40885,60 @@ let KDELEGATIONS=[
 ];
 const kDelegationsFor=uid=>KDELEGATIONS.filter(d=>d.delegateUserId===uid
   && d.status==='ACTIVE' && d.effectiveFrom<=RC_TODAY && d.effectiveTo>=RC_TODAY);
+
+/* ==========================================================================================
+   R5.6 — ROLE ARCHITECTURE COMPLETION (2026-09-04)
+   ==========================================================================================
+   R5.5 built the access layer. This finishes the parts a user actually meets: the teams work
+   is assigned to, the accounting hierarchy the roles anchor to, the queue an accountant opens
+   on, and — the one that was a genuine mental-model error — the difference between the roles
+   a user HOLDS and the role a prototype is PREVIEWING.                                       */
+
+/* ---- §10 — TEAMS. A first-class object, not a label.
+   R1 carried `RC_TEAMS` as a name map because nothing read more than the name. A team is an
+   assignment target now (§24), so it needs a scope, a workflow responsibility and a roster —
+   and the roster is DERIVED from the users who name the team, never listed twice. */
+const KTEAMS={
+  'TM-CORP':{teamId:'TM-CORP', name:'Corporate Accounting', scopeId:'SC-GROUP',
+    responsibility:'Group-level review, technical accounting and certification',
+    eligibleRoles:['CORPORATE_ACCOUNTING','CORPORATE_CONTROLLER','CHIEF_ACCOUNTING_OFFICER'],
+    categories:['Consolidation','Intangibles','Equity'], status:'ACTIVE'},
+  'TM-DEV':{teamId:'TM-DEV', name:'Development Accounting', scopeId:'SC-DEV',
+    responsibility:'Construction-in-progress preparation and project cost',
+    eligibleRoles:['ACCOUNTANT','SENIOR_ACCOUNTANT','ACCOUNTING_MANAGER'],
+    categories:['CIP','Fixed assets'], status:'ACTIVE'},
+  'TM-CIP':{teamId:'TM-CIP', name:'CIP Review Team', scopeId:'SC-DEV',
+    responsibility:'Independent review of construction-in-progress reconciliations',
+    eligibleRoles:['ACCOUNTING_MANAGER','REGIONAL_CONTROLLER','CORPORATE_ACCOUNTING'],
+    categories:['CIP'], status:'ACTIVE'},
+  'TM-TRES':{teamId:'TM-TRES', name:'Treasury Review', scopeId:'SC-TRES',
+    responsibility:'Cash, bank and debt reconciliation and review',
+    eligibleRoles:['TREASURY','CORPORATE_CONTROLLER'],
+    categories:['Cash','Debt'], status:'ACTIVE'},
+  'TM-CTRL':{teamId:'TM-CTRL', name:'EMEA Controllers', scopeId:'SC-EMEA',
+    responsibility:'Entity and regional control across EMEA',
+    eligibleRoles:['ENTITY_CONTROLLER','REGIONAL_CONTROLLER'],
+    categories:['All balance sheet'], status:'ACTIVE'},
+  'TM-AUD':{teamId:'TM-AUD', name:'Internal Audit', scopeId:'SC-GROUP',
+    responsibility:'Independent assurance. Reads the close, changes nothing.',
+    eligibleRoles:['INTERNAL_AUDIT'], categories:[], status:'ACTIVE'},
+  'TM-GLOB':{teamId:'TM-GLOB', name:'Global Accounting', scopeId:'SC-GROUP',
+    responsibility:'Intercompany and cross-border reconciliation',
+    eligibleRoles:['ACCOUNTING_MANAGER'], categories:['Intercompany'], status:'ACTIVE'},
+  'TM-REV':{teamId:'TM-REV', name:'Revenue Accounting', scopeId:'SC-AMER',
+    responsibility:'Revenue, receivables and deferred revenue',
+    eligibleRoles:['ACCOUNTING_MANAGER'], categories:['Revenue','AR'], status:'ACTIVE'},
+  'TM-EXT':{teamId:'TM-EXT', name:'External Audit', scopeId:'SC-AUDIT',
+    responsibility:'Time-bound read access to certified packages',
+    eligibleRoles:['EXTERNAL_AUDITOR'], categories:[], status:'ACTIVE'},
+  'TM-PLAT':{teamId:'TM-PLAT', name:'Finance Platform', scopeId:'SC-GROUP',
+    responsibility:'Platform configuration. No accounting workflow authority.',
+    eligibleRoles:['FINANCE_ADMIN','SYSTEM_ADMIN'], categories:[], status:'ACTIVE'},
+};
+const kTeam=id=>KTEAMS[id]||null;
+/* MEMBERSHIP IS DERIVED. A user names their teams; a team does not name its users. Two lists
+   of the same fact drift, and the one that drifts is always the one nobody edits. */
+const kTeamMembers=tid=>kUsers().filter(u=>(u.teams||[]).indexOf(tid)>=0);
 
 /* ==========================================================================================
    §41 — resolveEffectiveAccess(user, context)
@@ -41432,8 +41616,11 @@ function kAssignCommit(){
    The experience profile picks which quick view a reconciliation surface OPENS on; every other
    authorised view stays one click away. If a default ever hid work a user may act on, it would
    be a permission wearing a preference's clothes. */
-const KQV_BY_XP={mine_prep:'ready', returned:'returned', mine:'mine',
-  rereview:'rereview', certified:'all', all:'all'};
+/* the profile names a view in ITS OWN vocabulary and this maps it to the strip's id, so a
+   quick view can be renamed without touching thirteen role definitions */
+const KQV_BY_XP={assigned:'assigned', team:'team', returned:'returned', mine:'mine',
+  rereview:'rereview', certified:'certified', all:'all',
+  mine_prep:'assigned'};   // migrate the R5.5 id on read
 let _kQvApplied=false;
 function kApplyRoleDefaults(){
   if(_kQvApplied) return; _kQvApplied=true;
@@ -41481,15 +41668,16 @@ function kAssignPanel(def,inst){
    Configuration surfaces, in the product's own table grammar. Progressive disclosure by
    design (§19): a role opens on what it IS and what it may DO, not on a matrix of every
    permission — a first screen of two hundred checkboxes is the IAM console §44 rules out.  */
-let kAdmSub='users', kAdmUser=null, kAdmRole=null;
-function setKAdm(s){ kAdmSub=s; kAdmUser=null; kAdmRole=null; renderAll(); }
+let kAdmSub='users', kAdmUser=null, kAdmRole=null, kAdmTeam=null;
+function setKAdm(s){ kAdmSub=s; kAdmUser=null; kAdmRole=null; kAdmTeam=null; renderAll(); }
+function kOpenTeam(id){ kAdmTeam=id; renderAll(); }
 function kOpenUser(id){ kAdmUser=id; renderAll(); }
 function kOpenRole(id){ kAdmRole=id; renderAll(); }
 
 function kAdminSettings(){
   const gate=kCanAdminister('ROLES');
-  const tabs=[['users','Users & Teams'],['roles','Roles & Access'],['deleg','Delegations'],
-    ['lenses','Reporting Lenses'],['policies','Review Policies']];
+  const tabs=[['users','Users'],['roles','Roles'],['teams','Teams'],
+    ['deleg','Delegations'],['lenses','Reporting Lenses'],['policies','Review Policies']];
   let o='<div class="card"><h2>Settings<span class="note">organization · access · governance'
     +'</span></h2>'
     +'<div class="subhead">Settings holds the RULES. The product consumes them: a controller '
@@ -41502,6 +41690,7 @@ function kAdminSettings(){
     +glEsc((KROLES[kAccess().primaryRoleId]||{name:''}).name)
     +'. Configuration is shown so the governing rules are inspectable.</div>';
   o+= kAdmSub==='roles' ? (kAdmRole?kRoleDetail(kAdmRole):kRolesList())
+    : kAdmSub==='teams' ? (kAdmTeam?kTeamDetail(kAdmTeam):kTeamsList())
     : kAdmSub==='deleg' ? kDelegList()
     : kAdmSub==='lenses' ? kLensMatrix()
     : kAdmSub==='policies' ? kPolicyList()
@@ -41511,17 +41700,22 @@ function kAdminSettings(){
 function kUsersList(){
   const us=kUsers();
   return '<table class="tbl"><thead><tr><th>Name</th><th>Title</th><th>Primary role</th>'
-    +'<th>Team</th><th>Scope</th><th>Status</th><th>Last active</th></tr></thead><tbody>'
+    +'<th>Teams</th><th>Scope</th><th>Lens access</th><th>Status</th></tr></thead><tbody>'
     +us.map(u=>{ const a=resolveEffectiveAccess(u);
       return '<tr class="rcx-r" onclick="kOpenUser(\''+u.userId+'\')">'
       +'<td><b>'+glEsc(u.name)+'</b>'+(u.me?' <span class="st-tag cur">you</span>':'')+'</td>'
       +'<td>'+glEsc(u.title||'')+'</td>'
       +'<td>'+glEsc((KROLES[a.primaryRoleId]||{name:'—'}).name)
         +((u.roles||[]).length>1?' <span class="amap-dim">+'+((u.roles.length-1))+'</span>':'')+'</td>'
-      +'<td>'+glEsc(rcTeam(u.teamId))+'</td>'
+      +'<td>'+glEsc((u.teams||[]).map(t=>(KTEAMS[t]||{name:t}).name).join(', '))+'</td>'
       +'<td>'+glEsc((u.scopes||[]).map(s=>(kScope(s)||{name:s}).name).join(', '))+'</td>'
-      +'<td><span class="pill sm">'+glEsc(u.status)+'</span></td>'
-      +'<td class="amap-dim">'+glEsc(u.lastActive||'')+'</td></tr>'; }).join('')
+      +'<td class="amap-dim">'+(function(){
+          const lv=Object.keys(a.effectiveReportingLenses)
+            .filter(l=>kLensRank(a.effectiveReportingLenses[l])>0);
+          return lv.length?lv.length+' of '+REPORTING_LENSES.length
+            +' · '+glEsc(lv.map(l=>a.effectiveReportingLenses[l].toLowerCase())
+              .filter((v,i,s)=>s.indexOf(v)===i).join('/')) : 'none'; })()+'</td>'
+      +'<td><span class="pill sm">'+glEsc(u.status)+'</span></td></tr>'; }).join('')
     +'</tbody></table>'
     +'<div class="cardfoot">'+us.length+' users · roles, scope and lens access are assigned '
     +'here and consumed everywhere. There is no second identity store: these are the same '
@@ -41570,6 +41764,13 @@ function kUserDetail(id){
         +'</tbody></table>'
       : '<div class="rcx-quiet2">No workflow authority. This user configures the platform and '
         +'holds no accounting approval — an administrator is not an approver.</div>')
+    +'<div class="amp-sec">Independence</div>'
+    +row('Segregation of duties',
+      a.workflowAuthorities.some(w=>w.action==='CERTIFY')
+        ? 'Cannot independently certify their own preparation'
+        : (a.workflowAuthorities.some(w=>w.action==='APPROVE')
+          ? 'Cannot approve a reconciliation they prepared'
+          : 'No approval authority — independence not engaged'))
     +'<div class="amp-sec">Delegations</div>'
     +(a.delegations.length?a.delegations.map(d=>row(rcPerson(d.delegatorUserId).nm+' → '+u.name,
         glEsc(d.authorityScope.actions.join(', '))+' · '+glEsc(d.effectiveFrom)+' to '
@@ -41636,6 +41837,58 @@ function kRoleDetail(id){
       xp.showAdminActions?'administration':null].filter(Boolean).join(' · ')||'read only')
     +'<div class="rcx-jenote">The experience profile governs defaults and priorities only. It '
     +'changes what this role is shown FIRST, never what any figure is.</div>';
+}
+/* ---- §10 — TEAMS. A team is an assignment target and a scope, so it gets a list and a
+   detail. Membership is derived from the users; nothing here restates a roster. */
+function kTeamsList(){
+  return '<table class="tbl"><thead><tr><th>Team</th><th class="num">Members</th><th>Scope</th>'
+    +'<th>Workflow responsibility</th><th>Categories</th><th>Status</th></tr></thead><tbody>'
+    +Object.keys(KTEAMS).map(id=>{ const t=KTEAMS[id], m=kTeamMembers(id);
+      const s=kScope(t.scopeId)||{name:t.scopeId, entityCount:0};
+      return '<tr class="rcx-r" onclick="kOpenTeam(\''+id+'\')">'
+      +'<td><b>'+glEsc(t.name)+'</b></td>'
+      +'<td class="num">'+m.length+'</td>'
+      +'<td>'+glEsc(s.name)+' <span class="amap-dim">'
+        +(s.entityCount||0).toLocaleString('en-US')+' entities</span></td>'
+      +'<td class="amap-dim">'+glEsc(t.responsibility)+'</td>'
+      +'<td class="amap-dim">'+glEsc((t.categories||[]).join(', ')||'—')+'</td>'
+      +'<td><span class="pill sm">'+glEsc(t.status)+'</span></td></tr>'; }).join('')
+    +'</tbody></table>'
+    +'<div class="cardfoot">A stage may be assigned to a team so a close does not stop when '
+    +'one controller is away. The decision still records the individual who made it — an '
+    +'approval attributed to an abstract team is an approval nobody made.</div>';
+}
+function kTeamDetail(id){
+  const t=KTEAMS[id], m=kTeamMembers(id), s=kScope(t.scopeId)||{};
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  const dl=KDELEGATIONS.filter(d=>m.some(u=>u.userId===d.delegatorUserId
+    ||u.userId===d.delegateUserId));
+  return '<div class="amp-acts"><button class="btn-out sm" onclick="kOpenTeam(null)">'
+    +'&#8592; All teams</button></div>'
+    +'<div class="amp-sec">Overview</div>'
+    +row('Team',glEsc(t.name))
+    +row('Responsibility','<span class="amap-dim">'+glEsc(t.responsibility)+'</span>')
+    +row('Default scope',glEsc(s.name||t.scopeId)+' <span class="amap-dim">'
+      +(s.entityCount||0).toLocaleString('en-US')+' entities</span>')
+    +row('Reconciliation categories',glEsc((t.categories||[]).join(', ')||'—'))
+    +'<div class="amp-sec">Members</div>'
+    +'<table class="tbl"><thead><tr><th>Name</th><th>Title</th><th>Role</th>'
+    +'<th>Scope</th></tr></thead><tbody>'
+    +m.map(u=>'<tr class="rcx-r" onclick="setKAdm(\'users\');kOpenUser(\''+u.userId+'\')">'
+      +'<td><b>'+glEsc(u.name)+'</b></td><td>'+glEsc(u.title||'')+'</td>'
+      +'<td>'+glEsc((KROLES[(u.roles||[])[0]]||{name:''}).name)+'</td>'
+      +'<td class="amap-dim">'+glEsc((u.scopes||[]).map(x=>(kScope(x)||{name:x}).name)
+        .join(', '))+'</td></tr>').join('')
+    +'</tbody></table>'
+    +'<div class="amp-sec">Eligible review roles</div>'
+    +'<div class="kperms">'+(t.eligibleRoles||[]).map(r=>'<span class="kperm">'
+      +glEsc((KROLES[r]||{name:r}).name)+'</span>').join('')+'</div>'
+    +'<div class="amp-sec">Delegations touching this team</div>'
+    +(dl.length?dl.map(d=>row(rcPerson(d.delegatorUserId).nm+' → '
+        +rcPerson(d.delegateUserId).nm,
+        glEsc(d.authorityScope.actions.join(', ').toLowerCase())+' · '
+        +glEsc(d.effectiveFrom)+' to '+glEsc(d.effectiveTo))).join('')
+      :'<div class="rcx-quiet2">None.</div>');
 }
 function kDelegList(){
   return '<table class="tbl"><thead><tr><th>From</th><th>To</th><th>Authority</th>'
@@ -42047,6 +42300,8 @@ const RC_TABS=[['sum','Summary'],['roll','Roll-forward'],['act','Activity'],
 /* §36 — quick views are READINGS of the same instances, never separate pages. */
 const RC_QV=[
   ['all',    'All',                i=>true],
+  ['assigned','Assigned to me',    i=>rcAssignedToMe(i)],
+  ['team',   'My team\u2019s work',   i=>rcMyTeamWork(i)],
   ['mine',   'Needs my review',    i=>rcMineNow(i)],
   ['returned','Returned',          i=>i.reviewStatus==='returned'],
   ['ready',  'Ready for review',   i=>i.reviewStatus!=='approved'&&i.reviewStatus!=='inreview'
@@ -42057,11 +42312,40 @@ const RC_QV=[
      a reconciliation whose only support is governed data does not appear here. */
   ['support','Support exceptions', i=>['incomplete','notstarted','stale','review']
     .indexOf(i.supportStatus)>=0],
+  ['certified','Certified',        i=>i.finalStatus==='certified'||i.finalStatus==='complete'],
   ['overdue','Overdue',            i=>i.overdue],
 ];
 /* §20 — MINE MEANS THE STAGE THAT IS WAITING ON ME. A stage names a person and a team; both
    count, because a close cannot stop while one controller is on leave, and the decision
    records who actually acted rather than who was nominated. */
+function rcOwnedByMe(i){
+  const me=(typeof kActor==='function')?kActor():null; if(!me) return false;
+  const def=rcDef(i.reconciliationDefinitionId);
+  return !!def && def.preparerUserId===me.userId;
+}
+/* §12 — what still needs ME. Preparation not started or in progress · returned to me ·
+   required support missing · a blocking condition · movement review outstanding · overdue.
+   Deliberately NOT "ready for review": at that point the preparer owns no action. */
+function rcAssignedToMe(i){
+  if(!rcOwnedByMe(i)) return false;
+  if(i.reviewStatus==='inreview'||i.reviewStatus==='approved') return false;  // held elsewhere
+  if(i.finalStatus==='certified') return false;
+  if(i.reviewStatus==='returned') return true;
+  if(i.preparationStatus==='ns'||i.preparationStatus==='prog') return true;
+  if(i.readiness&&i.readiness.blockingIssues.length) return true;
+  if(i.overdue) return true;
+  return false;
+}
+/* §13 — the manager's population: everything the teams they belong to are accountable for,
+   which is wider than their own preparation and narrower than the enterprise. */
+function rcMyTeamWork(i){
+  const me=(typeof kActor==='function')?kActor():null; if(!me) return false;
+  const teams=me.teams||[];
+  const def=rcDef(i.reconciliationDefinitionId);
+  if(!def) return false;
+  if(teams.indexOf(def.ownerTeamId)<0&&!rcMineNow(i)) return false;
+  return i.finalStatus!=='certified'&&i.finalStatus!=='complete';
+}
 function rcMineNow(i){
   if(i.reviewStatus!=='inreview'||!i.activeStage) return false;
   const s=i.activeStage;
