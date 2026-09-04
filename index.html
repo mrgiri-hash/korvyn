@@ -20388,10 +20388,10 @@ const LENSES={
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'6 entities · 4 currencies · validated',
     tabs:['egl'] },
-  admin:{ id:'admin', label:'Admin', icon:'admin',
-    q:'What policy thresholds and roles govern the capitalization judgment?',
+  admin:{ id:'admin', label:'Settings', icon:'admin',
+    q:'Who may do what, over which entities, under which reporting basis?',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
-    hint:'policy · thresholds · roles',
+    hint:'users · roles · teams · delegations · policy',
     tabs:['admin'] },
   treasury:{ id:'treasury', label:'Treasury', icon:'fpa',
     q:'Where is cash, how long does it last, and what is committed against the facility?',
@@ -26464,11 +26464,22 @@ function stAccess(){
     </tbody></table>
     <div class="st-note">Certification records that a governed package was accepted. It does
       not close the ERP and does not freeze the ledger — locking a period is a separate
-      governed act with its own authority.</div>`;
+      governed act with its own authority.</div>
+    <div class="amp-acts"><button class="btn-out sm" onclick="stOpenFullSettings()">
+      Open full settings &#8594;</button></div>
+    <div class="st-note">Users, roles, teams, delegations, reporting-lens access and review
+      policies, at full width.</div>`;
 }
 /* THE PREVIEW SWITCH. It moves the SESSION IDENTITY, which is what the access layer reads, so
    everything downstream — scope, lens, authority, defaults, My Work — follows from one change
    rather than from a role string sprayed across the UI. */
+/* the full-width configuration surface. Closes the panel first — two settings surfaces open
+   at once is two answers to the same question. */
+function stOpenFullSettings(){
+  closeSettings();
+  kAdmSub='users'; kAdmUser=null; kAdmRole=null; kAdmTeam=null;
+  try{ pickLens('admin'); pickTab('admin'); }catch(e){}
+}
 function stPreviewRole(userId){
   const u=kUser(userId); if(!u) return;
   window.USER_NAME=u.name;
@@ -54646,7 +54657,8 @@ const VIEW_META={
   // Lens-scoped override — Accounting's Issues is the decision workspace, not the control view.
   'ledger:issues':{t:'Accounting Issues',c:'Judgment · research · analysis · conclusion · approval',depth:4},
   archives:{t:'Archives',c:'Locked periods · retained determination evidence',depth:3},
-  admin:{t:'Admin',c:'Capitalization policy · thresholds, roles, sign-off matrix',depth:2},
+  admin:{t:'Settings',c:'Users · roles · teams · delegations · reporting-lens access · policy',
+    depth:2},
   // Lens-scoped override — Accounting's Policies is the governed repository, not admin settings.
   'ledger:admin':{t:'Policies',c:'Enterprise policy repository and governance library',depth:4},
   acctmap:{t:'Account Mapping',c:'Govern source accounts into Korvyn\u2019s enterprise financial model',depth:5},
