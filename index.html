@@ -11994,7 +11994,7 @@ function paintPop(keepFocus){
     h=`<div class="pop-h">Actions</div><div class="pop-l">`+
       [['openReqs','Explanation requests','cmt',reqOpen().length],
        ['openAudit','Audit log','audit',0],['exportCsv','Export grid','export',0],
-       ['openMemo','Flux memo','memo',0],['printMemo','Print','print',0]]
+       ['openMemo','Flux Review memo','memo',0],['printMemo','Print','print',0]]
       .map(([f,nm,k,n])=>`<div class="pop-o" onclick="KFX.popClose();KFX.${f}()">${ic(k)} ${nm}${
         n?`<span class="sub">${n} open</span>`:''}</div>`).join('')+`</div>`;
   }else if(popKind&&popKind.indexOf('rail:')===0){
@@ -18610,7 +18610,7 @@ function memoHtml(forPrint){
   const done=v.filter(r=>{const rc=CMT[cKey(r.id)];return rc&&rc.status==='approved'&&r.clear;}).length;
   let h=`<div class="memo">
     <div class="memo-hd">
-      <div class="memo-t">Flux analysis memo \u2014 ${S.stmt==='bs'?'Balance sheet':'Income statement'}</div>
+      <div class="memo-t">Flux Review memo \u2014 ${S.stmt==='bs'?'Balance sheet':'Income statement'}</div>
       <div class="memo-s">${esc(periodTag())} \u00b7 ${esc(ctxSummary())}</div>
       <div class="memo-s">${memoByline(v)} \u00b7
         material when ${esc(matRule())} \u00b7 residual tolerance ${t.tol}${matName()}</div>
@@ -18643,7 +18643,7 @@ function memoHtml(forPrint){
 }
 
 function openMemo(){
-  $('fxModal').innerHTML=`<h3>Flux memo</h3><div class="mbody">${memoHtml(false)}</div>
+  $('fxModal').innerHTML=`<h3>Flux Review memo</h3><div class="mbody">${memoHtml(false)}</div>
     <div class="mfoot"><button class="btn-out" onclick="KFX.closeModal()">Close</button>
       <button class="btn-out" onclick="KFX.exportCsv()">Export grid</button>
       <button class="btn-primary" onclick="KFX.printMemo()">Print / save as PDF</button></div>`;
@@ -19075,7 +19075,7 @@ function fxActionsRow(){
   const n=reqOpen().length;
   return [['openReqs','Explanation requests','cmt',n],
           ['openAudit','Audit log','audit',0],['exportCsv','Export grid','export',0],
-          ['openMemo','Flux memo','memo',0],['printMemo','Print','print',0]]
+          ['openMemo','Flux Review memo','memo',0],['printMemo','Print','print',0]]
     .map(([f,nm,k,c])=>`<button class="btn-out" onclick="KFX.${f}()">${ic(k)}${esc(nm)}${
       c?`<span class="fxa-n">${c}</span>`:''}</button>`).join('');
 }
@@ -21048,7 +21048,7 @@ const TABS=[
   // Placed-in-service, which is the asset actually in service.
   {id:'cip',     label:'Capitalization',ic:'M8 2v6.4M5.6 6.2L8 8.6l2.4-2.4M2.5 10.5v3h11v-3'},
   {id:'caplabor',label:'Capitalized labor',ic:'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 14v-1a5 5 0 0110 0v1M11.5 6.5l1.5-1 1.5 1'},
-  {id:'finrep',  label:'Flux analysis',ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
+  {id:'finrep',  label:'Flux Review',ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
   {id:'filing',  label:'Filing view',ic:'M4 2h6l3 3v9H4zM9 2v3h3M6 8h5M6 11h3'},
   {id:'tb',      label:'Trial balance',ic:'M3 2h10v12H3zM3 6h10M8 6v8'},
 ];
@@ -25444,7 +25444,7 @@ function csvResults(){
 
   o+=`<div class="card"><h2>${M.t}<span class="note">consolidated &#183; ${CONS_RPT} &#183; Jun 2026</span>
       <span class="cardlink" onclick="pickTab('finrep')">Financial reporting</span></h2>
-    <div class="subhead">Derived from the same trial balance as Financial reporting and Flux review —
+    <div class="subhead">Derived from the same trial balance as Financial reporting and Flux Review —
       one derivation, so the three views cannot disagree. Korvyn owns that the numbers tie; it does not
       replace the statement-authoring workflow.</div>
     <table class="tbl"><thead><tr><th>Line</th><th class="num">Current</th>
@@ -26765,7 +26765,7 @@ const RAIL_SPEC={
       badge:()=>{try{return enrStats().needsReview;}catch(e){return 0;}}},
     {head:'Financial review'},
     {tab:'glfin',    label:'Financials',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5M5.5 11h3'},
-    {tab:'finrep',   label:'Flux',              ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
+    {tab:'finrep',   label:'Flux Review',       ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
     {tab:'gltrend',  label:'Trending',          ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4'},
     {head:'Close & control'},
     {tab:'glrecon',  label:'Reconciliations',   ic:'M3 5.5h7l-2-2M13 10.5H6l2 2',
@@ -28645,7 +28645,7 @@ function closeWork(){
   return [
     {nm:'Checklist',        tab:'acctclose', done:t.done,  tot:tot,          self:1},
     {nm:'Reconciliations',  tab:'glrecon',   done:recDone, tot:GL_RECON.length},
-    {nm:'Flux',             tab:'finrep',    done:fx.done, tot:fx.req},
+    {nm:'Flux Review',      tab:'finrep',    done:fx.done, tot:fx.req},
     {nm:'Financials',       tab:'glfin',     ready:1},
     {nm:'Intercompany',     tab:'icomp',     open:icU},
     {nm:'Consolidation',    tab:'consol',    done:consR,   tot:consT},
@@ -28730,7 +28730,7 @@ function closeStages(){
     {k:'prep', nm:'Preparation',   done:t.done, tot:tot,
      det:'Checklist tasks complete'},
     {k:'rev',  nm:'Review',        done:rvDone, tot:rvTot,
-     det:'Reconciliations reviewed, flux signed off, entities consolidated'},
+     det:'Reconciliations reviewed, Flux Review signed off, entities consolidated'},
     {k:'cert', nm:'Certification', done:ceDone, tot:ceTot,
      det:'Entity sign-offs — not yet enabled'},
   ];
@@ -28792,7 +28792,7 @@ function closeWork(){
      done:t.done, tot:tot, open:tot-t.done, st:blk?'blocked':'prog'},
     {nm:'Reconciliations', tab:'glrecon',   team:'Controllership',       seen:'24 min ago',
      done:cwRec.done, tot:cwRec.tot, open:cwRec.open, st:cwRec.open?'review':'ready'},
-    {nm:'Flux',            tab:'finrep',    team:'FP&A / Accounting',    seen:'31 min ago',
+    {nm:'Flux Review',     tab:'finrep',    team:'FP&A / Accounting',    seen:'31 min ago',
      done:fx.done, tot:fx.req, open:fx.req-fx.done, st:(fx.req-fx.done)?'review':'ready'},
     {nm:'Financials',      tab:'glfin',     team:'Corporate Accounting', seen:'18 min ago',
      st:'pending', open:0},
@@ -28841,7 +28841,7 @@ function closeAttention(){
   /* 4. flux lines the policy requires an explanation for */
   const fx=cwFlux(), owed=fx.req-fx.done;
   if(owed>0)a.push({sev:'Explanation missing', rank:(fx.top?Math.abs(fx.top.d):0),
-    ws:'Flux', hd:owed+' material variance'+(owed===1?'':'s')+' require explanation',
+    ws:'Flux Review', hd:owed+' material variance'+(owed===1?'':'s')+' require explanation',
     cx:fx.top?('Largest: '+fx.top.nm+' '+(fx.top.d>=0?'+':'−')+cwMoney(fx.top.d)):'',
     own:'FP&A / Accounting', due:'', tab:'finrep', go:()=>KFX.setShow('need')});
   /* 5. technical accounting matters still open */
@@ -29775,7 +29775,7 @@ function mapStats(periodKey){
 }
 /* DOWNSTREAM USE — lineage metadata, not a wiring diagram. These are the surfaces that will
    consume a mapping; naming them is what makes the trace preview honest about reach. */
-const MAP_USED_BY=['Financials','Flux','Trending','Reconciliations'];
+const MAP_USED_BY=['Financials','Flux Review','Trending','Reconciliations'];
 const MAP_USED_LATER=['Reporting','Excel','Ask Korvyn'];
 /* ==========================================================================================
    ACCOUNT MAPPING — the working surface (2026-09-01)
@@ -30855,7 +30855,7 @@ function enrTrace(r,txn,acct){
     glEsc((ENR_SRC[r.src]||{}).l)+' &#183; '+glEsc((ENR_STATES[r.state]||{}).l));
   if(r.appr){ o+=arrow('approved by'); o+=step('Decision',glEsc(r.appr),glEsc(r.at||'')); }
   o+=arrow('used by');
-  o+=`<div class="amp-tr-u">${['Flux','Reconciliations','Financial Reporting'].map(x=>`<span>${x}</span>`).join('')}
+  o+=`<div class="amp-tr-u">${['Flux Review','Reconciliations','Financial Reporting'].map(x=>`<span>${x}</span>`).join('')}
     ${['Excel','Ask Korvyn'].map(x=>`<span class="later">${x}</span>`).join('')}</div></div>`;
   return o;
 }
@@ -35352,7 +35352,7 @@ const FX_WF_EVENTS={
   SUBMITTED:'Submitted for review',
   REVIEW_STARTED:'Review started', RETURNED:'Returned', RESUBMITTED:'Resubmitted',
   APPROVED:'Approved', SIGNOFF_INVALIDATED:'Sign-off invalidated',
-  REVIEW_SIGNED_OFF:'Flux review signed off', REOPENED:'Re-review required'};
+  REVIEW_SIGNED_OFF:'Flux Review signed off', REOPENED:'Re-review required'};
 /* §24 — a return needs a REASON from a closed list; a free comment is optional beside it. A
    blank return is refused. */
 const FX_RETURN_REASONS=[
@@ -35898,7 +35898,7 @@ function fxSignOff(note){
   FSLINES.filter(f=>f.parent===root).forEach(x=>walk(x.id));
   ids.filter(id=>fxReviewRequirement(id).requiresReview).forEach(id=>{
     const w=fxWfFind(id); if(w) fxWfEvent(w,'REVIEW_SIGNED_OFF',
-      {comment:'Flux review sign-off '+s.signOffId}); });
+      {comment:'Flux Review sign-off '+s.signOffId}); });
   return {ok:true, signOff:s};
 }
 /* §52 — has anything moved since. Compared against the fingerprint the sign-off pinned. */
@@ -35924,7 +35924,7 @@ function fxWorkItems(){
     if(!mine&&!toReview) return;
     const n=fsLine(w.financialLineId)||{};
     out.push({id:w.reviewItemId, type:toReview?'review':'explanation',
-      module:'Accounting', workspace:'Flux', period:perLabel(w.currentPeriodId),
+      module:'Accounting', workspace:'Flux Review', period:perLabel(w.currentPeriodId),
       entityScope:(ENTCTX.scope.name||''), item:n.name+' explanation',
       context:(FX_WF_STATUS[w.workflowStatus]||{}).l+
         (w.dueAt?' · due '+fxWfDate(w.dueAt):''),
@@ -36072,7 +36072,7 @@ function fxWfPopHTML(){
   if(k==='signoff'){
     const r=fxFluxReadiness(), cc=fxComparison();
     const prev=fxSignOffCurrent();
-    body=`<div class="fxw-ph">Sign off the Flux review</div>
+    body=`<div class="fxw-ph">Sign off the Flux Review</div>
       <div class="fxw-pk"><span class="n">${glEsc(fsDef(fxStmt).name.replace('Consolidated ',''))} Flux</span>
         <span class="v">${glEsc(cc.label)}</span></div>
       <div class="fxw-pn"><b>${r.approvedCount} of ${r.reviewRequired}</b> required lines
@@ -36319,7 +36319,7 @@ function fxWfReadinessBand(){
     ${so?`<span class="so">${glEsc(so.signOffId)} &#183; ${glEsc(so.signedOffName)} &#183;
       ${glEsc(fxWfDate(so.signedOffDate))}</span>`:''}
     ${canSign?`<button class="btn-primary sm" data-fxw="signoff"
-      onclick="fxWfOpenPop('signoff',null,event)">${so?'Sign off again':'Sign off Flux review'}</button>`
+      onclick="fxWfOpenPop('signoff',null,event)">${so?'Sign off again':'Sign off Flux Review'}</button>`
       :(r.outstanding.length?`<button class="fsx-link"
         onclick="setFxWfQuick('open')">${r.outstanding.length} outstanding &#8594;</button>`:'')}
     ${stale.stale?`<span class="fxw-stale">${glEsc(stale.why)}</span>`:''}
@@ -36402,7 +36402,7 @@ function fxWfTraceBlock(lineId){
     (FX_WF_STATUS[w.workflowStatus]||{}).l||'',glEsc(w.rereviewReason));
   /* §60 — the line's certification, and the population it was certified with */
   if(so&&fxWfStatus(lineId)==='approved') o+=arr('certified in')+
-    step('Flux review sign-off',glEsc(so.signOffId),
+    step('Flux Review sign-off',glEsc(so.signOffId),
       glEsc(so.signedOffName)+' &#183; '+glEsc(so.signedOffRole)+' &#183; '+so.signedOffAt+
       ' &#183; '+so.approvedItemCount+' of '+so.requiredItemCount+' required lines &#183; '+
       'mapping v'+glEsc(so.mappingVersion)+' &#183; statement v'+glEsc(so.statementVersion));
@@ -36412,7 +36412,7 @@ function fxWfTraceBlock(lineId){
 /* the sign-off register, shown where the statement is certified rather than on a line */
 function fxWfSignOffHistory(){
   const all=fxSignOffAll(); if(!all.length) return '';
-  return `<div class="amp-sec">Flux review sign-off</div>
+  return `<div class="amp-sec">Flux Review sign-off</div>
     <div class="fxw-so-l">${all.map(s=>{const stale=fxSignOffStale(s);
       return `<div class="fxw-so">
       <span class="v">v${s.signOffVersion}</span>
@@ -36563,7 +36563,7 @@ function renderFluxGov(){
   const c=fxComparison();
   const cmps=FX_CMPS.filter(x=>!(fxStmt==='bs'&&x[0]==='ytd'));
   const tie=fsTieOut(c.curK);
-  let o=glHead('Flux',govCtx(),glExport);
+  let o=glHead('Flux Review',govCtx(),glExport);
   o+=`<div class="fsx-bar">
     <div class="fsx-pick ktabs lvl2" role="tablist">
       ${FS_DEFS.filter(d=>d.built).map(d=>`<button class="ktab ${fxStmt===d.type?'on':''}"
@@ -46669,7 +46669,7 @@ function rcSumTab(def,inst){
     +'<span class="p mono">'+rcPctN(a.momPercent)+'</span>'
     /* §27 — Flux answers WHY it moved. The route exists; the integration does not, and is not
        claimed. */
-    +'<button class="fsx-link" onclick="rcGoFlux(\''+def.reconciliationDefinitionId+'\')">Open Flux &#8594;</button></div>'
+    +'<button class="fsx-link" onclick="rcGoFlux(\''+def.reconciliationDefinitionId+'\')">Open Flux Review &#8594;</button></div>'
     /* R3.5 §32 — THE METHOD DECIDES WHICH PRIMARY CONTROL APPEARS. A balance roll-forward
        already states its control in the figures above (calculated ending against the trial
        balance), so CIP's Summary is untouched; every other method adds the proof it actually
@@ -47393,7 +47393,7 @@ function rcRevTab(def,inst){
       +rcRow('Support',sub.supportPackage.filter(p=>p.stateAtSubmission==='current').length
         +' of '+sub.supportRequirementStatusSnapshot.length+' required current')
       +rcRow('Movement',glEsc((RC_MOVE[sub.movementReviewState]||{l:''}).l)
-        +' <button class="rcx-lk2" onclick="rcGoFlux(\''+dId+'\')">View Flux &#8250;</button>')
+        +' <button class="rcx-lk2" onclick="rcGoFlux(\''+dId+'\')">View Flux Review &#8250;</button>')
       +'<div class="rcx-pkg">'
       +sub.supportPackage.map(p=>'<div class="rcx-pk"><span class="n">'+glEsc(p.title)+'</span>'
         +'<span class="v">'+(p.generated?'system generated':'v'+p.version)+'</span></div>').join('')
@@ -49014,7 +49014,7 @@ function rcCompPane(def){
     <button class="rcx-f sm" data-pop="rc:comp" onclick="KFX.pop('rc:comp',this)">
       <span class="k">Break down by</span><span class="v">${glEsc(dim)}</span></button>
     <span class="grow"></span>
-    <button class="fsx-link" onclick="rcGoFlux('${def.reconciliationDefinitionId}')">Open Flux &#8594;</button>
+    <button class="fsx-link" onclick="rcGoFlux('${def.reconciliationDefinitionId}')">Open Flux Review &#8594;</button>
   </div>
   <div class="card fsx-card rcx-card"><div class="rcx-wrap">
     <table class="tbl rcx-tbl"><thead><tr><th class="rcx-nm">${glEsc(dim)}</th>
@@ -49252,7 +49252,7 @@ function rcTxTraceBody(txId,srcId){
       <div class="rcx-used">
         <button onclick="rcGoFinancials('${def.reconciliationDefinitionId}')">Financials</button>
         <button onclick="rcGoTrending('${def.reconciliationDefinitionId}')">Trending</button>
-        <button onclick="rcGoFlux('${def.reconciliationDefinitionId}')">Flux</button>
+        <button onclick="rcGoFlux('${def.reconciliationDefinitionId}')">Flux Review</button>
         <button onclick="rcCloseDrill()">This reconciliation</button>
       </div>
       <div class="rcx-jenote">All four read <span class="mono">fsAmount('${def.financialLineId}')</span>
@@ -50805,7 +50805,7 @@ function rcDownstreamImpact(defId,k,lensId){
     {name:'Financials', note:line.name+' at '+perEnd(k)+' and every period after it',
      go:()=>rcGoFinancials(defId)},
     {name:'Trending',   note:'the '+line.name+' series', go:()=>rcGoTrending(defId)},
-    {name:'Flux',       note:'the '+perLabel(k)+' movement and its explanation',
+    {name:'Flux Review', note:'the '+perLabel(k)+' movement and its explanation',
      go:()=>rcGoFlux(defId)},
   ];
   ['QUARTER','FULL_YEAR'].forEach(h=>{
@@ -52524,7 +52524,7 @@ function rcMpTrace(def,mp){
     +[['Financials','the '+((fsLine(def.financialLineId)||{}).name||'')+' balance',
        'rcGoFinancials(\''+dId+'\')'],
       ['Trending','the '+mp.monthsOpen+'-period series','rcGoTrending(\''+dId+'\')'],
-      ['Flux','each period’s movement and its explanation','rcGoFlux(\''+dId+'\')'],
+      ['Flux Review','each period’s movement and its explanation','rcGoFlux(\''+dId+'\')'],
       ['Close','reconciliation readiness for each period in the horizon',''],
       ['Audit package',pkgs.length+' generated','']]
       .map(x=>'<div class="rcx-imp-r'+(x[2]?' go':'')+'"'
@@ -53342,7 +53342,7 @@ function fdReview(f){
   const PRI={high:'flag',med:'ready',low:'info'};
   return `<div class="card">
     <h2>Review &amp; comments<span class="note">${open} open &#183; ${res} resolved</span></h2>
-    <div class="subhead">Review threads on the filing. These are distinct from Flux review commentary in
+    <div class="subhead">Review threads on the filing. These are distinct from Flux Review commentary in
       General Ledger &#8212; those explain movements, these clear the document.</div>
     <table class="tbl"><thead><tr><th>Comment</th><th>Section</th><th>Reviewer</th><th>Date</th><th>Status</th><th>Priority</th></tr></thead><tbody>
     ${FILING_COMMENTS.map(c=>`<tr>
@@ -56720,7 +56720,7 @@ function renderArchives(){
     h+=`</tbody></table></div>`;
   } else {
     h+=`<div class="card"><div class="note">No locked flux commentary yet &#8212; lock a note in
-        General Ledger &#8594; Financial reporting &#8594; Flux review and it is retained here.</div></div>`;
+        Accounting &#8594; Flux Review and it is retained here.</div></div>`;
   }
   el.innerHTML=h;
 }
@@ -58095,7 +58095,7 @@ function renderFiling(){
     if(st===fxStmt && c && c.locked){ notes.push({per,line,c}); }
   });
   const anyFluxForStmt = Object.keys(fluxComments||{}).some(k=>k.split('::')[0]===fxStmt);
-  h+=`<div class="fr-title" style="margin-top:22px">Disclosure notes <span style="font-weight:var(--fw-regular);font-size:var(--fs-table);color:var(--muted)">· from flux review sign-off</span>
+  h+=`<div class="fr-title" style="margin-top:22px">Disclosure notes <span style="font-weight:var(--fw-regular);font-size:var(--fs-table);color:var(--muted)">· from Flux Review sign-off</span>
       <span class="flux-status ${notes.length&&anyFluxForStmt?'ok':'pending'}" style="float:right">${notes.length?'✓ '+notes.length+' signed-off note'+(notes.length>1?'s':''):'no signed-off notes yet'}</span></div>`;
   if(notes.length){
     h+=`<div class="fr-disc">`+notes.map(n=>
@@ -58103,7 +58103,7 @@ function renderFiling(){
         <div class="fr-disc-text">${n.c.text}</div>
         <div class="flux-meta">signed off · ${n.c.by} · ${n.c.at}</div></div>`).join('')+`</div>`;
   } else {
-    h+=`<div class="note">Locked flux-review explanations for this statement will appear here as draft disclosure notes, each carrying its sign-off (who / when). Lock a comment in Financial reporting → Flux review to flow it through.</div>`;
+    h+=`<div class="note">Locked Flux Review explanations for this statement will appear here as draft disclosure notes, each carrying its sign-off (who / when). Lock a comment in Accounting → Flux Review to flow it through.</div>`;
   }
 
   h+=`<div class="note">Presentation is illustrative and derived from the consolidated trial balance; comparative-period columns use illustrative prior-period factors. In a real deployment, prior periods are pulled from the historical ledger and the statements are handed — already tied — to the disclosure/XBRL pipeline. KORVYN owns that the numbers tie; it does not replace the filing-assembly platform.</div></div>`;
@@ -58219,7 +58219,7 @@ function renderFinRep(){
   const signedOff = flaggedCount>0 && explainedCount>=flaggedCount && lockedCount>=flaggedCount;
 
   h+=`<div class="card"><div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <h2 style="margin:0">Flux review — ${model.title}<span class="note">${P.pri.lbl} → ${P.cur.lbl} · ${P.compare} · ${itd?'change in ITD balances':'movement'}</span></h2>
+      <h2 style="margin:0">Flux Review — ${model.title}<span class="note">${P.pri.lbl} → ${P.cur.lbl} · ${P.compare} · ${itd?'change in ITD balances':'movement'}</span></h2>
       <span class="note" style="font-size:var(--fs-label)">Set the range in <b>Filters ▸ Flux range</b> above</span>
     </div>
     <div class="subhead">${itd
@@ -59666,7 +59666,7 @@ const VIEW_META={
   tb:{t:'Trial balance',c:'Every account · GL balance vs. spine-derived vs. variance',depth:5},
   /* the page is called Flux and its own header says so; a second name here makes glDupTitle
      miss the match and the h1 print twice */
-  finrep:{t:'Flux',c:'Variance between two governed periods, explained and signed off',depth:5},
+  finrep:{t:'Flux Review',c:'Variance between two governed periods, explained and signed off',depth:5},
   filing:{t:'Filing view',c:'10-Q / 10-K presentation · comparative periods · consolidated',depth:5},
 };
 
@@ -59701,10 +59701,10 @@ function paintTopbar(){
      analysis" is what the page is called, not what it is scoped to. Both were the
      page restating itself in the one place its context belongs. */
   if(TAB==='finrep'&&typeof finRepSub!=='undefined'&&finRepSub==='flux'){
-    /* "Flux", not "Corporate Flux" (brief §5): the identity is the module plus the
-       comparison beneath it, and an adjective in the title is a word that never
-       changes competing with the line that does. */
-    if(tt)tt.textContent='Flux';
+    /* "Flux Review", not "Corporate Flux Review" (brief §5): the identity is the module
+       plus the comparison beneath it, and an adjective in the title is a word that never
+       changes competing with the line that does. Renamed from "Flux" 2026-09-04. */
+    if(tt)tt.textContent='Flux Review';
     /* the comparison IS the context — a reviewer must never have to open a control to know
        what two periods are being compared (brief §7) */
     if(typeof FLUX_GOV!=='undefined'&&FLUX_GOV&&typeof fxComparison==='function'){

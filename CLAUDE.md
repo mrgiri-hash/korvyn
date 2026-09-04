@@ -5117,6 +5117,47 @@ R7 / Korvyn for Excel · a separate audit application · a second period model �
 per-lens divergent close states beyond what `fcal(period, scope, lens)` already keys on (the
 signature carries them; the seeded book has one enterprise close) · AI surfaces.
 
+## 2026-09-04 — the module is named FLUX REVIEW
+
+Owner’s direction. **User-facing names only — not one identifier moved.** The tab id is still
+`finrep`, and `FX_*`, `#fxRoot`, `KFX`, `FLUX_GOV`, `rcGoFlux()` and every function name are
+untouched: renaming those is a refactor of several hundred symbols with no product change and
+real risk.
+
+**35 references renamed**, found in two passes that must both be run — a source scan for the
+declared strings, and a DOM sweep across every view for what a user actually SEES. The sweep
+caught three the source scan could not: the shell title row **assigns** the page name
+(`tt.textContent='Flux'`) rather than declaring it, and it is the one place the name is read
+largest; plus `View Flux ›` in the drivers card and the Close review stage’s own description.
+
+Renamed: the rail item and the tab registry · `VIEW_META.finrep` · the page title · the Cash
+flows / Equity flux view’s heading · Close’s workstream rows and its review-stage description ·
+the attention row · `MAP_USED_BY` · the Trace “where used” list · My Work’s workspace · the
+Reconciliations routes (`Open Flux Review →`, `View Flux Review ›`, the Drivers button, the
+downstream-impact row) · the memo (menu item, modal heading, printed title) · and the sign-off
+vocabulary, which already said the right words and is now capitalised as a proper noun.
+
+**Two navigation paths were stale as well as unrenamed** and were corrected with it: two notes
+still read “General Ledger → Financial reporting → Flux review”, a path the rail has not used
+since 2026-08-28. They read **Accounting → Flux Review**.
+
+**DELIBERATELY NOT RENAMED — the domain terms that contain the word.** A flux is a movement
+between two periods; that word is the accounting, not the product name, and “Flux Review group”
+would read wrong:
+
+| Left as-is | What it is |
+|---|---|
+| **Flux group** | a mapping taxonomy (`TAXONOMIES.flux`) — a dimension of the chart |
+| **Flux Driver** | an enrichment field (`EF-FLUX`) |
+| **Flux range / comparison / scope** | filter-group labels on the legacy `#filterCtrls` store and the Cash flows / Equity view |
+| **flux explanations / commentary / notes** | the accounting artefacts a review produces |
+
+**Verified:** 66/66 views · console clean · 4/4 gates · FS-CIP 4,210.2 · `rcChronologyCheck()` = 0
+· R6 intact (FY2025 foots, 12/12 certified) · the control calendar unchanged · the
+Reconciliation → Flux Review → return round trip still preserves context · a DOM sweep across
+every view finds no bare “Flux” naming the module.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
