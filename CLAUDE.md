@@ -5598,6 +5598,177 @@ Reporting Package with the same three roles.
 sub-surface combinations · 10 targeted confirmations pass in the product · 4/4 gates ·
 FS-CIP **4,210.2** · chronology 0 · 548 + 41 + 23 = 612.
 
+## 2026-09-04 — R7.1: Korvyn for Excel, the connected workspace foundation
+
+**KORVYN OWNS GOVERNED FINANCIAL TRUTH. EXCEL IS A CONNECTED WORKSPACE.** Not Download to
+Excel, not an export, not an attachment manager, and not a second financial database.
+
+**NOTHING IN THIS MODULE STORES A BALANCE.** Every connected object RESOLVES through the same
+services the web reads — `fsAmount()`, `rcInstance()`, `rcAcctRows()`, `rcActivityPopulation()`,
+`consolBridge()`, `mrpSchedule()`. Remove the whole module and not one number in the product
+moves. The canary is unchanged: **FS-CIP Jun 2026 = 4,210.2**, on both surfaces.
+
+### It is its own module, not a feature of Accounting
+
+A horizontal surface spanning every governed object, so it is a lens reached from the More
+launcher exactly as Data Room and Data & Governance are — `xl`, two views: **Workspace**
+(the task pane and the workbook) and **Connected workbooks** (the register).
+
+### FOUR PRIMITIVES
+
+| | |
+|---|---|
+| **INSERT** | put a governed object into a workbook, still connected |
+| **REFRESH** | update only the connected region, never the workbook around it |
+| **TRACE** | how this amount is built, and where it is used |
+| **PUBLISH** | send completed work back as governed evidence |
+
+### THE THREE OWNERSHIP MODELS ARE A FIELD, NOT A CONVENTION
+
+`XL_MODES` — **OBJECT** (Korvyn owns values and structure), **WORKPAPER** (Korvyn owns the
+source population, the user owns the analysis), **EVIDENCE** (published back). `mode` is
+carried on every connected object and on every catalogue entry, which is what stops a connected
+statement and an analytical workpaper being treated as the same thing.
+
+### THE FINANCIAL CONTEXT IS CAPTURED, NEVER DEFAULTED
+
+`xlContext()` reads `viewPeriod()`, `ENTCTX.scope`, `rcLens()` and `fcal()` — the same objects
+the web uses. A workbook inserted from a lens carries THAT lens; there is no fall-back to
+Corporate Consolidated, because a fall-back is exactly how a Germany Statutory workbook would
+silently come back in USD under US GAAP.
+
+### REFRESH: SIX STATES, AND THE DATA / STRUCTURE SPLIT IS THE WHOLE OF §12
+
+**THE STATE IS DERIVED, NEVER STORED.** Two fingerprints are compared against what the governed
+services say NOW — `xlStructureFp()` (object type, lens, scope, mapping, hierarchy, statement
+version, column set, row count) and `xlDataFp()` (the values themselves).
+
+- A **data change** replaces values in place; the workbook is untouched.
+- A **STRUCTURE change** can add or remove ROWS, so it asks first. Refreshing underneath
+  somebody's formulas without warning is the one thing §10 forbids.
+- A **CERTIFIED period is PINNED**: `refreshPolicy` is `PINNED_AS_REPORTED` and a later mapping
+  change does not rewrite it. As reported is the default and stays the default; a recast is an
+  explicit request.
+- **REFRESH AVAILABLE** is distinct from **SOURCE CHANGED** on purpose — "there may be
+  something new" is not "a figure you are looking at has moved".
+- **OFFLINE** keeps the last refreshed values visible and deletes nothing.
+
+**EVERY SEEDED STATE IS DETECTED, NOT FLAGGED.** The seed sets no status field:
+
+| State | Why it is genuinely true |
+|---|---|
+| Source changed | R6.2's May reclassification landed after the range was inserted, and May is June's opening — a real cascade |
+| Structure changed | the stored fingerprint is the REAL May resolve; the June mapping split the capex accounts, so the shape moved |
+| Refresh available | `lastRefreshAt` is older than the source `dataAsOf`, compared as instants |
+| Certified · pinned | May 2026 is closed, read from `fcal()` |
+
+**BOOT ORDER IS LOAD-BEARING AND THE CALL SITE SAYS SO.** `xlSeed()` runs immediately before
+`mrpSeedHistory()`. The published workpaper captures its dependencies' fingerprints as they
+stand; `mrpSeedHistory()` then posts the May placed-in-service reclassification. Reverse the two
+lines and the artifact correctly reads Current, because nothing would have changed after it.
+**One governed change now demonstrates three things** — R6's re-review detection, R6.2's package
+republication, and this.
+
+### LARGE POPULATIONS: THE WORKBOOK HOLDS THE QUERY, NOT THE ROWS
+
+A CIP activity query resolves **3,128,400 rows** (`XL_POP_SCALE` states the enterprise multiple
+once rather than sprinkling a big number through the UI). `xlInsert` refuses and returns the
+count with five ways to proceed — summarise server-side (340 rows), narrow the query, sample
+500 marked as never publishable, keep it as a connected query (0 rows in the workbook), or
+generate a background extract. Excel is never handed a volume it cannot hold.
+
+### TRACE: TWO QUESTIONS, AND THEY ARE DIFFERENT QUESTIONS
+
+*Connected range → Financial line → Reconciliation groups → Source accounts → Entities → GL
+population → ERP source*, and *Financials · Flux Review · Trending · Reconciliation ·
+Management Reporting Package · Audit*. Every node routes into the governed object in Korvyn.
+Technical ids are carried and not shown by default.
+
+**THE FINANCIAL LINE IS RESOLVED BY OBJECT TYPE.** A reconciliation object carries a DEFINITION
+id; taking it for a line id silently lost the accounting half of the trace — no source accounts,
+no reconciliation groups. And `rcPopulation()` takes a definition OBJECT, not an id: passing the
+id returned an empty account list, which dropped the source-account step. Both caught by
+asserting the node NAMES, not by reading the chain.
+
+### PUBLISH: EVIDENCE, AND ONLY EVIDENCE
+
+`PublishedExcelArtifact` is `Object.freeze`n, versioned, and supersedes its predecessor with the
+prior version retained. It carries `sourceDependencies`, `connectedObjectDependencies`,
+`sourceFingerprints`, `structureFingerprints`, `mappingVersions`, `enrichmentVersions` and
+`fxRateSets` — which is what makes staleness detectable later by comparison rather than by a
+flag. `xlArtifactState()` never overwrites the workpaper; it reports that a reviewer should
+look.
+
+**`postsToErp:false` and `altersGovernedFigure:false` are FIELDS on the artifact**, not a
+promise in prose. **NOTHING ANYWHERE POSTS AN ERP JOURNAL**, and Publish cannot alter a governed
+figure — it references one.
+
+### PERMISSIONS: THE SAME RESOLVER, NO SECOND SECURITY MODEL
+
+`xlCanInsert()` asks `kCanUseLens(kAccess(), lensId, 'VIEW')` — R5.5's own resolver. A
+spreadsheet connection is a different transport, not a different permission model. Verified
+against the roster: A. Johnson (`RL-DE-STAT: NONE`) is refused Germany Statutory by name and
+allowed Corporate; a read-only user may retrieve and may not publish. The actor is a parameter
+so the refusal is testable and so a future "acting as" preview resolves identically.
+
+**`setUserRole()` IS THE PROTOTYPE ROLE SWITCH AND DOES NOT MOVE `kActor()`.** Testing the gate
+through it reports a false pass — the resolver always answered for M. Giri, who has VIEW on
+every lens. Drive `resolveEffectiveAccess(userId)` for a real user instead.
+
+### WEB / EXCEL CONTINUITY
+
+**Open in Excel** on Financials (line panel), Reconciliations (roll-forward and activity
+population), Flux Review and the Reporting Package's supporting schedules — one restrained
+contextual action per governed object, never a button on every row. Verified round trip:
+FS-CIP opens in Excel at 4,210.2 in the same context, and Trace returns to the same line on the
+same statement in the same period. **There is no duplicate financial model.**
+
+### The workbook canvas is not a spreadsheet application
+
+It renders what a connected workbook IS: a bordered connected range with a tag and its state,
+the user's own title, notes and formulas around it, sheet tabs, and a compact task pane. Nothing
+edits a cell, evaluates a formula or owns a value. Excel columns have WIDTHS — a fixed table of
+eight equal columns truncated every label in the connected range, which is the one thing on the
+sheet that has to be readable.
+
+### Traps
+
+- **Never pass replacement text through the shell — FIFTH TIME.** A quoted heredoc ate `\\'`
+  twice in this increment, once producing `onclick="rcExcel(''` and a parse failure. Write the
+  splice script with the Write tool.
+- **`\\u00b7` IN A SPLICE ANCHOR IS SEVEN LITERAL CHARACTERS.** Node parses `\\` to one
+  backslash and leaves `u00b7` as text, so the anchor never matches. An anchor needs the real
+  character; a REPLACEMENT keeps its escapes, because those land inside a JS literal.
+- A prefix is not a namespace: every `.xl-*` name was greped before being declared, and every
+  child class (`.k`, `.n`, `.s`, `.m`, `.h`, `.t`) is scoped to its parent — those are far too
+  common to declare bare. The duplicate-class gate confirms 63/63 unchanged.
+
+### Verified
+
+**195 view renders** across 3 periods, 0 errors, 0 empty · **18 workbook × sheet × pane
+combinations** · **all 16 acceptance tests in §40 pass, run in the product** · console clean ·
+**4/4 gates** (chrome themes 10/10, content contrast, spacing ratchet unchanged at 1072/88, css
+duplicates 63/63) · 0 clipped elements · dark mode holds · **FS-CIP 4,210.2 on both surfaces** ·
+R6/R6.1/R6.2 intact (612-entity consolidation, 3 active packages, chronology 0).
+
+### R7.1 deliberately stops here (§37)
+
+No general controlled write-back. No Office add-in manifest, no OfficeJS, no real .xlsx
+generation, no live Excel connection — this is the object model and the product surface. No AI
+in Excel: `xlTrace`, `xlSize` and the connected-object context are the grounded objects a future
+answer would consume, and nothing generates. **No ERP journal write-back exists and none is
+reachable.**
+
+### Open, and worth an owner's call
+
+- **The workbook canvas is a representation, not a real spreadsheet.** Cell editing, formula
+  evaluation and range selection by drag are all absent by design; if the prototype ever needs
+  to demonstrate a user editing around a connected range, that is a decision to make explicitly
+  rather than by drift.
+- **`XL_POP_SCALE` (13,200) is the stated enterprise multiple over the modelled sample.** It is
+  what makes the large-population protection real; a deployment reads the true count from the
+  query engine.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
