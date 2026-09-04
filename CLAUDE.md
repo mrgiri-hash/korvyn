@@ -4734,6 +4734,228 @@ R6 annual/audit and the post-certification amendment workflow · R7 Excel add-in
 matching, depreciation and amortization engines · SSO/SCIM/DLP/impersonation · a security-event
 console · AI surfaces of any kind (the data is structured; nothing is generated).
 
+## 2026-09-04 — RECONCILIATIONS R6: multi-period, quarterly, annual, audit and certified history
+
+**READ THE R3.2 → R5.7B BLOCK ABOVE FIRST.** R6 rebuilt nothing in it. What it adds is the layer
+that turns one governed reconciliation reviewed in one period into a financial control HISTORY.
+
+```
+ONE persistent ReconciliationDefinition
++ MANY period instances, DERIVED, never stored
++ a governed CERTIFICATION FREQUENCY   policy: how often a conclusion is required
++ a user-chosen VIEW HORIZON           analysis: how much history is on screen
+= IMMUTABLE certified history
+```
+
+**FREQUENCY AND HORIZON ARE NOT THE SAME THING, and conflating them is the bug this increment
+exists to avoid.** A monthly reconciliation may be read year-to-date; a quarterly one still shows
+its months; a goodwill reconciliation certified once a year still consumes twelve months of
+governed history. **A VIEW HORIZON NEVER CREATES A FINANCIAL TRUTH** — `rcHorizonPeriods()`
+returns period keys, `rcMultiPeriod()` resolves each one through `rcAmounts()`, and the totals
+are sums of those. **There is no quarterly or annual balance store and there must not be one.**
+
+### The objects R6 adds
+
+| Object | Where |
+|---|---|
+| CertificationPolicy / frequency | `RC_CERT_FREQ` · `RC_CERT_POLICY` · `rcFreqOf` · `rcCertRequiredAt` |
+| ViewHorizon | `RC_HORIZONS` · `rcHorizon` / `rcHzAnchor` · `rcHorizonPeriods` |
+| PeriodBridge | `rcPeriodBridge` — one month as a bridge row, cached |
+| MultiPeriodRollforward | `rcMultiPeriod` — the quarter / year workpaper |
+| Activity matrix | `rcActivityMatrix` · `rcActivityByType` · `RC_ACT_TAXONOMY` |
+| CertifiedReconciliationVersion | `rcCertOf` / `rcCertBuild` → `RC_CERT_STORE` (frozen) |
+| Amendment versions | `RC_CERT_AMEND` · `rcAmendCertify` · `rcVersionBridge` |
+| CertificationInstance | `RC_CERT_INSTANCES` · `rcCertifyHorizon` · `rcCertReadiness` |
+| PostCloseChange | `RC_POSTCLOSE` · `rcPostClosePost` · `fsPostCloseDelta` |
+| Evidence coverage | `rcEvidenceCoverage` — references, never copies |
+| AuditPackage + Manifest | `RC_PACKAGES` · `rcPackageBuild` · `rcPackageExport` |
+
+### THE GOVERNED SPINE WAS RE-DATED, AND THAT IS THE ENABLING CHANGE
+
+There was no reconciliation history to roll forward: the opening mapping set was effective
+**2026-01**, so `rcLineAccts()` resolved nothing before it, every group's opening balance for any
+2025 period was zero, and an annual roll-forward could not exist. `MV-2026-01-1` is now
+**`MV-2024-01-1` / `2024.01.1`, effective `2024-01`**, and the thirty rules it governs moved with
+it; `RC_DEF_BASE`, the support requirements, the six review workflows and the assignment rules are
+effective from the same month. **Nothing about the June 2026 split changed** — `MV-2026-06-4`
+still introduces the German capex split and `mapVersionFor()` still returns it from June onward.
+An opening mapping set dated the month the prototype's calendar happens to start was an artifact,
+not an accounting fact. `2026.01.1` no longer exists as a version label.
+
+**What that unlocks:** FY2025 is a COMPLETE governed year — opening $43.573M at Dec 31 2024,
+twelve months, 12/12 certified, ending $47.662M = TB, difference nil, continuity unbroken. FY2026
+is in progress: Jan–Jun governed, **Jul–Dec render as "not yet opened" and carry no figures**,
+because a period after `BOOK.open` has not happened and `fsPeriodFactor()` is a statement about
+the months it covers, not a growth law. Extrapolating them would have been the easy lie.
+
+### AS-REPORTED IS THE DEFAULT AND THE CONTROL
+
+Each period resolves under ITS OWN mapping version — `rcAmounts()` has done this since R2.1 — so
+a December mapping change cannot silently recast January. Where membership genuinely moved, the
+`CLASSIFICATION_CHANGE` component says so in the month it happened, which is why the annual
+roll-forward foots without recasting anything. **Analytical recast is NOT implemented**; if it
+ever is, it is a labelled alternative view and never the default. The horizon band states the
+basis and names every mapping version in force ("3 mapping versions in force (2024.01.1,
+2026.05.3, 2026.06.4)").
+
+### THE CONTINUITY CONTROL WAS WRONG FIRST, AND THE FIX IS THE ACCOUNTING
+
+The first cut tested `beginning[i] == calculatedEnding[i-1]`. **A month's opening is the prior
+period's AS-REPORTED governed ending balance — the prior TRIAL BALANCE** — and those two are the
+same figure only when the prior month tied. So it reported a continuity break on every untied
+reconciliation in every month (11 each on Intercompany Receivable and Accrued Expenses), which is
+not a break at all: it is the difference the reconciliation already discloses, counted twice.
+
+**What the untied months DO cost is the year's footing, and that is real.** If a month's
+calculated ending is 6.4 below its trial balance and the next month opens at that trial balance,
+the year's opening plus its movement is short by exactly the differences that were never carried.
+`openingResets` states that as its own line — *"Unreconciled difference at prior month end"* — so
+the roll-forward foots AND the reader is told the reconciliation did not tie in those months. It
+is a disclosure, not a plug. All 38 definitions now foot and hold continuity across every horizon.
+
+### THE ACTIVITY MATRIX CLASSIFIES A REAL POPULATION
+
+**The activity schema is the governed transaction taxonomy, not a category list invented for this
+view.** `RC_TX_TYPES` already classifies every row of every activity population — vendor invoice,
+capitalised interest, transfer, reclassification, accrual, reversal, journal, ERP remeasurement —
+so each cell drills to the exact transactions behind it. `RC_ACT_TAXONOMY` holds the per-method
+WORDING only: a CIP schedule calls a transfer "Transfers", a register calls the same governed
+movement "Transfers from CIP". **This is what R1's declared-but-unbuilt `AS-CIP-FULL` was for**;
+the registry entry is `built:1` now and names what it resolves to.
+
+**A LINE WITH NO MODELLED POPULATION IS NOT A FOOTING FAILURE.** Several definitions resolve their
+balance from the governed statement and model no source accounts (goodwill, transformers, land),
+so there is nothing to classify. Left alone the matrix printed the non-GL components only and
+reported "does not foot to the roll-forward movement" on **216 of 304** combinations — a red flag
+on a condition the reader can do nothing about. The activity is stated as one honest row named
+`GL activity` with the reason. 304/304 matrices foot; 78 carry a real classification.
+
+### CERTIFIED HISTORY IS FROZEN, AND THE IMMUTABILITY IS MECHANICAL
+
+`rcCertOf()` materialises a certified month once, deterministically, `Object.freeze`s it into
+`RC_CERT_STORE`, and never recomputes it. A post-close journal changes the CURRENT resolution and
+leaves the record untouched — which is what makes `sourceChanged` a DETECTION rather than an
+assertion. Certified history is seeded governance exactly as `RC_SEED` is: `RC_CERTIFIED_THROUGH`
+defaults to the last closed period, nothing at or after `BOOK.open` is claimed (the open period is
+R5's), and nothing before `RC_HISTORY_FROM`.
+
+**A POST-CLOSE JOURNAL IS SOURCE TRUTH, NOT A KORVYN OVERLAY.** It is added in `fsOwnTB()` — the
+one place a source balance is resolved — so Financials, Trending, Flux and Reconciliations all
+move together after a legitimate reopened-period adjustment (memo §21.8). Verified: a $4.2M late
+accrual on May 2026 Electrical CIP moves the June reconciliation 705.833 → 710.033 **and FS-CIP
+June 4,210.2 → 4,214.4**, while certified v1 stays at 57.188 with fingerprint `FP-76074653`.
+Routing it through `RPT_ADJUSTMENTS` would have made an ERP posting a reporting overlay, which is
+the distinction R2.1 spent a pass establishing.
+
+**And it lands on the ACCOUNT it was posted to.** `rcAcctBalance()` carves the post-close amount
+out before the weighted split and adds it back to its own account, so the bridge can name GL 15010
+instead of spreading one journal across four CIP groups.
+
+**`rcAsCertified()` IS A FLAG, NOT A CACHE FLUSH.** The first cut dropped every cache on entry and
+exit because `_rcLensBalCache` and `_fsCtaPlugCache` key on line/period/lens and not on the
+generation. It was correct and unusable — an annual Control Center resolves several hundred
+certified records and paid two full rebuilds for each. Those two keys now carry `_rcMapGen()`,
+which folds in the post-close generation and the as-certified flag, so the two resolutions cannot
+serve each other's numbers and nothing is flushed. **38 definitions × 12 months: 95ms cold, 1ms warm.**
+
+### THE CERTIFICATION CALENDAR REACHES THE CLOSE
+
+`rcCertRequiredAt()` decides whether a conclusion is owed at a period end. **Overdue is a required
+conclusion past its date**: a lender-covenant reconciliation is prepared and reviewed monthly and
+CERTIFIED quarterly, and counting it overdue in April and May reports a breach of a control that
+was never due (memo §28.6). `reconReadiness()` separates the populations — `overdueCount` counts
+the required ones, `overdueAllCount` keeps the raw number. Measured: May 2026 overdue 18 → 15,
+June (a quarter end) 17 → 16. Seeded policy: Cash and CIP monthly, **Long-Term and Current Debt
+quarterly**, **Goodwill annual**, **Intangibles event-driven** (one declared control event, the
+Ridgeline PPA at 2026-03). All four frequencies are exercised; no valuation or impairment engine
+is implied by the annual one.
+
+### THE SURFACE: NO SECOND CONTROL CENTER, NO ANNUAL APPLICATION
+
+The horizon is one more field in the bar the page already has (`rcR6Field` → the same `RCFIELD`
+descriptor shape, so the menus get the one popover system's keyboard, anchoring and widths for
+nothing). The anchor field renders only for Quarter and Full year — the "to date" horizons are
+anchored on the working period by definition. The grid **re-heads itself** (Opening / Movement /
+Ending / TB / Diff / Change / Tie / Certified / Conclusion) and resolves **endpoints only** for 38
+definitions; the monthly detail is one click away in the workspace, which is §52's progressive
+disclosure. The workspace keeps its six tabs and changes what they are ABOUT: Roll-forward gains a
+**By month / By activity** switch, Support becomes the evidence coverage matrix, Review becomes
+the certification history and the horizon conclusion, Trace extends month → certification → package.
+
+**Audit packages are governed OUTPUTS, not a module.** `rcPackageBuild()` builds the package and
+its manifest together, because a package whose manifest is assembled later is one nobody can
+reproduce. Support is **inherited by reference** — 48 evidence version ids for FY2025, never a
+thirteenth copy of the same workpaper. A DELIVERED package is immutable: an amendment marks it
+SUPERSEDED with a reason and names its replacement; AP-2026-001 is retained exactly as delivered.
+
+**The GL export is the SAME export.** R2 built one 34-column set, two encodings, one manifest
+register and the rule that an export which does not reconcile is REFUSED. R6 extracted the write
+half as `rcWriteExport()` and widened the SCOPE to a period range — `rcExport()` is now a
+one-liner over it. **The context columns became per-row**: a row in a twelve-month export is a
+fact about its own month and carries the versions in force then, so `ctx` may be a function of the
+row. Verified: 649 transactions, $3.571M, difference 0, valid.
+
+### TRAPS THAT EACH COST A ROUND
+
+- **A PREFIX IS NOT A NAMESPACE — third time.** `.rcx-hist` (a flex column for Review timeline)
+  and `.rcx-chain` (the Trace chain) were already declared. The certified-history TABLE inherited
+  `display:flex`, its `table-layout:fixed` was applied and ignored, and the lineage stack silently
+  re-gapped the existing Trace. No console error, no gate failure. **`tools/check_css_duplicates.mjs`
+  now gates it** — a ratchet over the 63 names legitimately declared twice today, failing when a
+  new one appears. Negative-tested by reintroducing the exact `.rcx-hist` collision.
+- **Two base rules written for the full-width grid, inherited by the 440px dock.**
+  `.rcx-tbl td.rcx-nm` pins `min-width:260px`, and `.rcx-nm` is `display:flex` — so a child set to
+  `display:block` is still a flex ITEM and the certifier would not stack under the period however
+  it was declared. Both are overridden for R6's dock tables only. And `.rcx-tbl td` pins the row
+  height, which clipped the second line into the row below.
+- **`.rcx-tn` is a two-column grid.** R6's block children need `grid-column:1/-1` or the heading
+  and its body land in adjacent cells and overlap. R6's state border is `st-ok`/`st-warn`/`st-bad`,
+  NOT a reuse of `.bad`: `.rcx-tn.bad` already exists as a bare `border-left-color` with no
+  border-style — inert by construction — and giving it a border would have changed every existing
+  Trace node it lands on.
+- **SPLICING AFTER THE LAST STATEMENT OF A FUNCTION IS NOT SPLICING AFTER THE FUNCTION.** Part B
+  and Part C both landed inside a function body as unreachable code. The file parsed, the app
+  loaded, and every symbol in the block was simply undefined. An 'after' splice must assert that
+  the next line is a `}` at column 0.
+- **AN AMENDMENT CHANGES A DERIVED STATE, SO THE DERIVATION MUST BE DROPPED.** `rcPeriodBridge()`
+  caches on the post-close generation, and certifying an amendment posts nothing — so a month went
+  on reading "changed after certification" after it had been amended. `rcAmendCertify()` and
+  `rcCertifyHorizon()` clear `_rcBridgeCache` / `_rcActCache`.
+- **Role defaults clear the selection.** `kApplyRoleDefaults()` runs inside `rcRows()` and calls
+  `setRcQV()`, which nulls `rcSel`. After `setUserRole()`, render once to let it settle before
+  selecting anything — this is R5.6 behaviour, not R6's, and it cost several screenshots.
+- **Never pass replacement text through the shell.** A quoted heredoc still ate `\\'` and produced
+  an anchor that could not match. Write the splice script with the Write tool.
+
+### Verified
+
+62/62 view keys (65 including the three lens-scoped ones) · **2,736 horizon × definition × tab ×
+roll-mode combinations render with content, 0 errors, 0 empty** · **304/304 activity matrices
+foot** · every definition foots and holds continuity across 8 horizons · reconciliation groups tie
+to Financials at Jun 2024 through Jun 2026 · `rcChronologyCheck()` = 0 · console clean on a fresh
+load · **all four gates pass** (chrome themes 10/10, content contrast, spacing ratchet unchanged at
+1072/88, css duplicates 63/63) · **all 43 acceptance tests in brief §56–§60 pass**, run in the
+product.
+
+### Deliberately NOT built (R7 and beyond)
+
+The Excel add-in · the full Data Room and PBC request workflow · an audit portal or auditor
+messaging · audit confirmations · transaction-matching expansion · autonomous AI certification ·
+ERP journal posting · a valuation or tax-provision engine · analytical recast to the current
+mapping. **AI surfaces of any kind:** the objects are structured for grounding (`rcMultiPeriod`,
+`rcVersionBridge`, `rcDownstreamImpact`, the package manifest) and nothing is generated.
+
+### Open, and worth an owner's call
+
+- **The 12-column annual by-activity matrix scrolls horizontally in the 440px dock.** That is the
+  documented pattern for wide content and a quarter fits comfortably, but a year is tight. The
+  honest alternative is opening the annual matrix on the main canvas the way Activity Detail does
+  — which is a layout decision, not a defect, so it was not made unasked.
+- **`RC_CERTIFIED_THROUGH` is empty**, so every definition's certified history runs to the last
+  closed period. A real deployment configures it per definition.
+- The event-driven example uses Intangible Assets with one declared control event. If acquisition
+  accounting is ever modelled properly, that policy entry is where it attaches.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
@@ -4751,6 +4973,7 @@ Before concluding a tool is absent, search the filesystem, not just `PATH`. Pyth
 node tools/check_chrome_themes.mjs     # index.html chrome themes pass WCAG AA (10 themes)
 node tools/check_text_contrast.mjs    # index.html CONTENT text passes WCAG AA (both modes)
 node tools/check_spacing_scale.mjs     # index.html spacing stays on the 4px scale (ratchet)
+node tools/check_css_duplicates.mjs    # no class name newly claimed by a second component (ratchet)
 cd packages/core && npm run check      # core: typecheck + 78 tests + import boundary
 cd packages/agent && npm run dryrun    # agent: all tools resolve, no API call
 ```
