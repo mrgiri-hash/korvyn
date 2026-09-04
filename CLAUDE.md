@@ -4637,6 +4637,103 @@ Mapping arrives on the account or the group's rules; Trending arrives on FS-CIP;
 an unrelated tab clears the context and hides the strip; 62/62 views render; console clean;
 three gates green.
 
+## 2026-09-04 — RECONCILIATIONS R3.2 → R5.7B: the objects R6 has to build on
+
+Nine increments in one entry, at the density a later session needs rather than nine
+retrospectives. The commit messages carry the full reasoning (`git log` from `30f60fd`
+onward); this is the map, the invariants and the traps.
+
+**READ THIS BEFORE STARTING R6 (Annual / Audit).** Every object an audit package needs
+already exists. Rebuilding any of them is the failure mode this block is written to prevent.
+
+### The governed objects, and which increment owns each
+
+| Object | Owns | Where it lives |
+|---|---|---|
+| `ReconciliationDefinition` / `Instance` | R1 | `RECON_DEFS`, `rcInstance()` — instances DERIVE, never stored |
+| `ActivityPopulation` + transactions | R2 | `rcPopulation`, `rcTxPool(srcId, period)` |
+| `ReportingLens` | R3 | `REPORTING_LENSES`, `rcLensLine()` — all four built |
+| `FinancialContext` / deep links | R3.2 | `NAVCTX`, `fcGo()` |
+| `ReconciliationMethod` + `ReconciliationSource` | R3.5 | `RC_METHODS`, `rcMethodModel()`, `proofStatus` |
+| `SupportRequirement` / `EvidenceObject` / `EvidenceVersion` / `EvidenceRelationship` | R4 | `RC_SUPPORT_REQS`, `EVIDENCE`, `EV_RELS`, `rcSupportGraph()` |
+| `ReviewWorkflow` / `ReviewStage` / `ReviewSubmission` / `ReviewDecision` / `ReconciliationSignOff` | R5 | `RC_WORKFLOWS`, `RC_SUBS`, `RC_DECS`, `RC_SIGNOFFS`, `RC_EVENTS` |
+| Chronology guard | R5.1 | `rcChronologyCheck()` — must stay at zero |
+| Roles / scope / lens access / authority / mentions | R5.5–R5.6 | `KROLES`, `KSCOPES`, `KTEAMS`, `KAUTH`, `resolveEffectiveAccess()` |
+| `ReconciliationAssignmentRule` / delegation | R5.7A | `RC_ASSIGN_RULES`, `KDELEGATIONS`, `rcResolveAssignment()` |
+| `ReviewCheckpoint` / `ReviewDelta` | R5.7B | `RC_CHECKPOINTS`, `rcReviewDelta()`, `reconReviewSignals()` |
+
+### The invariants — break any of these and the module stops being defensible
+
+1. **ONE AMOUNT SERVICE.** Every figure resolves through `fsAmount()` / `rcLensLine()`. The
+   corporate lens returns `fsAmount().reported` byte for byte, which is why Financials, Flux,
+   Trending and Reconciliations agree. FS-CIP = **4,210.2** is the canary: if it moves,
+   something has grown a second balance store.
+2. **THREE FINGERPRINTS, THREE QUESTIONS.** `reconciliationFingerprint` = what the BALANCE was
+   resolved from (this is what re-review compares). `packageFingerprint` = what the REVIEWER
+   SAW, including pinned evidence versions. The R4 EVIDENCE fingerprint uses different key
+   names again (`glSnapshotId` vs `sourceGLSnapshotId`) — comparing one with the other's
+   vocabulary silently finds no drift, which shipped once. `rcFpHash()` is the only hasher.
+3. **IMMUTABLE MEANS FROZEN.** Submissions, sign-offs and checkpoints are `Object.freeze`d and
+   never edited. A correction is a NEW version / cycle / checkpoint.
+4. **ONE INSTANT PER EVENT.** `rcEventAt()` clamps every audit event to the one before it. Two
+   independently generated timestamps for one event is the Land defect (a certification dated
+   before its own approvals).
+5. **PERMISSION ≠ AUTHORITY ≠ INDEPENDENCE.** `kCanApprove()` is all three, in that order, and
+   permission never absorbs SoD. Every check takes the actor and the object; no module reads a
+   role name.
+6. **ASSIGNMENT CANNOT GRANT PERMISSION** and **DELEGATION CANNOT EXCEED THE DELEGATOR.** Both
+   surface as findings rather than silent upgrades.
+7. **A MENTION IS NOT AN ASSIGNMENT.** Different objects, different actions, only one gated on
+   `ASSIGN_WORK`.
+8. **NO SOURCE FREEZE.** Only submission and certification pin snapshots. Pre-close checkpoints
+   are made against a moving target on purpose and are NOT the formal package.
+9. **AI CONTEXT IS ASSEMBLED AFTER ACCESS RESOLUTION** (`kAiContext()`), never redacted after.
+
+### What R6 already has, and must not rebuild
+
+An audit package is an assembly of objects that exist:
+
+- the certified `ReconciliationSignOff` and the `ReviewSubmission` it cites;
+- every `ReviewDecision` on that submission, with the reviewer who actually acted and
+  `actingUnderDelegationId` where a delegation was used;
+- the pinned `supportEvidenceVersionIds` and their `EvidenceRelationship`s;
+- the `ReviewCheckpoint` history — what was looked at before submission, and by whom;
+- `rcAssignTrace()` (why this person owned it) and `rcReviewTrace()` (who decided what);
+- the append-only `RC_EVENTS` trail.
+
+`VIEW_AUDIT_PACKAGE` is already a permission; `EXTERNAL_AUDITOR` already resolves to certified
+work only (18 of 38 instances) and `XP-AUDIT` already opens on the Certified quick view.
+**R6 is a reading of these, plus retention and export — not a new record.**
+
+### Traps that have each cost a round
+
+- **`ME` and `caps()` live in the flux closure.** In the shell, `ME` is a two-letter initials
+  CONSTANT, so `ME()` fails at run time, not parse time. Shell scope uses `rcMe()`/`rcCaps()`;
+  the access layer's actor is `kActor()`, which reads `USER_NAME` — never `cwMe()`, which reads
+  a rendered DOM element and silently answers for the wrong person.
+- **`pickTab` will not object to a tab the current lens does not declare.** It falls through to
+  the lens's first tab. Settings is `pickLens('admin'); pickTab('admin')`.
+- **A prefix is not a namespace.** `.rcx-bar` was declared twice and a single-class selector
+  later in the sheet ate the Control Center's own header row. Grep the name before declaring it.
+- **A splice script that fails mid-way loses every earlier edit** — the write is at the end.
+  This has bitten four times.
+- **Never pass replacement text through the shell**; write it to a file and splice from the file.
+- **`sed -i` rewrites the whole file's line endings.** The working tree is CRLF; restore it with
+  node if a shell tool flattens it.
+- Verification runs on the python server in `.claude/launch.json` (`preview_start {name:'main'}`),
+  not `file://`.
+
+### The standing verification set
+
+62/62 views · 912 lens × definition × tab combinations · `rcChronologyCheck()` = 0 ·
+0 console errors · 0 clipped elements · the three gates · FS-CIP = 4,210.2.
+
+### Deliberately deferred
+
+R6 annual/audit and the post-certification amendment workflow · R7 Excel add-in · transaction
+matching, depreciation and amortization engines · SSO/SCIM/DLP/impersonation · a security-event
+console · AI surfaces of any kind (the data is structured; nothing is generated).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
