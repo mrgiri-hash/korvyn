@@ -9,8 +9,7 @@ determination-and-defense layer — the ASC 360 / 835-20 capitalization judgment
 project-cost systems and the GL.
 
 > Working guidance for this repo lives in [`CLAUDE.md`](CLAUDE.md) (and a `CLAUDE.md` next to
-> each subtree). Read it before editing. The same guidance is mirrored for Cursor in
-> [`.cursor/rules/`](.cursor/rules/) — keep the two in step.
+> each subtree). Read it before editing — those files are the only source of truth.
 
 ## Layout
 
