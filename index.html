@@ -1410,6 +1410,9 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .st-lr .v{font-size:var(--fs-label);color:var(--muted);white-space:nowrap}
 .st-lr .v.off{color:var(--hint)}
+/* the delegation form’s stage checkboxes — a row of choices, not a matrix */
+.kchk{display:inline-flex;align-items:center;gap:var(--s-1);font-size:var(--fs-label);
+  color:var(--muted);padding-right:var(--s-3)}
 .kperms{display:flex;flex-wrap:wrap;gap:var(--s-1);padding:var(--s-2) var(--s-3)}
 .kperm{font-size:var(--fs-label);color:var(--muted);background:var(--n-50);
   border:var(--rule);border-radius:var(--radius-xs);padding:var(--s-1) var(--s-2);
@@ -38822,6 +38825,9 @@ const RECON_DEFS=[
      four groups foot to the line. */
   rcD({id:'REC-CIP-ELECTRICAL', name:'Electrical CIP', financialLineId:'FS-CIP',
     reconciliationGroupId:'REC-GRP-CIP-ELEC', share:0.369,
+    /* R5.7A §9 — the fund and entity a layered assignment rule can name. Dimensions of the
+       population, not new financial facts: nothing below changes a balance. */
+    fundIds:['FUND-III'], entityIds:['ENT-SV-OWNER'],
     description:'Electrical infrastructure under construction — switchgear, distribution, feeders.',
     accountPopulationRule:{recGroup:'RG-CIP', canon:['K1330']},
     activitySchemaId:'AS-BASIC-R1',
@@ -38902,6 +38908,8 @@ const RECON_DEFS=[
     ownerTeamId:'TM-DEV', preparerUserId:'U-LT', reviewerUserIds:['U-JP'], due:'2026-07-05'}),
 
   // ---- OTHER ASSETS ---------------------------------------------------------------------
+  /* R5.7A §21 — the preparer must hold PREPARE access to the lens the reconciliation is
+     resolved under; these five named a regional controller who holds VIEW. */
   rcD({id:'REC-ROU', name:'Right-of-Use Assets', financialLineId:'FS-ROU',
     reconciliationGroupId:'REC-GRP-ROU', description:'ASC 842 right-of-use assets, schedule to GL.',
     reconciliationMethod:'SCHEDULE_SUPPORTED',
@@ -40558,7 +40566,8 @@ const KSCOPES={
     entityCount:248, regionIds:['AMER'], entityIds:[],
     effectiveFrom:'2026-01', effectiveTo:null},
   'SC-DEV'     :{scopeId:'SC-DEV', name:'Development & Construction Accounting',
-    scopeType:'BUSINESS_UNIT', entityCount:64, businessUnitIds:['DEV'], entityIds:[],
+    scopeType:'BUSINESS_UNIT', entityCount:64, businessUnitIds:['DEV'],
+    regionIds:['AMER'], fundIds:['FUND-III'], entityIds:[],
     projectIds:['ASHBURN','SOUTHVALLEY'], effectiveFrom:'2026-01', effectiveTo:null},
   'SC-TRES'    :{scopeId:'SC-TRES', name:'Treasury', scopeType:'FUNCTION',
     entityCount:612, entityIds:[], effectiveFrom:'2026-01', effectiveTo:null},
@@ -41287,6 +41296,323 @@ function kAiContext(objectCtx){
 }
 
 /* ==========================================================================================
+   R5.7A — RECONCILIATION ASSIGNMENT, OWNERSHIP AND DELEGATION (2026-09-04)
+   ==========================================================================================
+   OWNERSHIP IS RESOLVED FROM RULES, NOT TYPED ONTO 38 RECONCILIATIONS EVERY MONTH. At 612
+   entities that is the difference between a close that starts and one that starts with a
+   spreadsheet of who has what.
+
+   ASSIGNMENT AND DELEGATION ARE DIFFERENT ACTS AND MUST NEVER MERGE (§16):
+
+     Assignment  who OWNS this stage. Persistent, effective-dated, derived from rules.
+     Delegation  who may ACT while the owner is away. The owner does not change, the window
+                 is bounded, and the decision records the person who actually made it.
+
+   Recording a delegate's approval under the delegator's name is the failure this design
+   exists to prevent: it is a signature nobody wrote.
+
+   NO SECOND OWNERSHIP STORE. R1 put `preparerUserId` and `reviewerUserIds` on the definition;
+   those are read here as the ENTERPRISE DEFAULT RULE and nowhere else, so there is exactly one
+   answer to "who owns this" and the rules are it.                                            */
+
+/* ---- §4 — SPECIFICITY IS A SCORE, NOT AN ORDERING.
+   "First matching rule wins" makes correctness depend on the order somebody typed rules in,
+   which nobody can reason about at 200 rules. Each dimension carries a weight reflecting how
+   much of the population it narrows; the rule that narrows most wins, and an exact tie is a
+   CONFLICT rather than a coin toss (§20). The weights are powers of two so a more specific
+   dimension can never be out-voted by a pile of vaguer ones. */
+const RC_AR_WEIGHTS={
+  sourceAccountIds:64,            // one GL account in one entity — the sharpest cut there is
+  canonicalAccountIds:32,
+  accountGroupIds:24,
+  reconciliationDefinitionId:16,
+  projectIds:16, propertyIds:16,
+  reconciliationGroupId:8, entityIds:8,
+  financialLineId:4, fundIds:4,
+  regionIds:2, countryIds:2, businessUnitIds:2, reportingLensIds:2,
+  scopeId:1, reconciliationMethods:1,
+};
+const RC_AR_DIMS=Object.keys(RC_AR_WEIGHTS);
+function rcArScore(r){
+  return RC_AR_DIMS.reduce((a,k)=>{
+    const v=r[k];
+    if(v==null) return a;
+    if(Array.isArray(v)) return v.length?a+RC_AR_WEIGHTS[k]:a;
+    return a+RC_AR_WEIGHTS[k];
+  },0);
+}
+const RC_STAGE_ASSIGN=['PREPARER','REVIEWER','SPECIALIST_REVIEWER','FINAL_CERTIFIER'];
+
+/* ---- THE RULES. Read top to bottom as an inheritance story: the enterprise default, then
+   the function that owns a domain, then the project that overrides it, then the one account
+   somebody insisted on. Every one of these is a real §5–§9 case. */
+function rcAR(o){ return Object.assign({assignmentRuleId:o.id, assigneeType:o.team?'TEAM':'USER',
+  effectiveFrom:'2026-01', effectiveTo:null, priority:0, status:'ACTIVE', version:'1.0',
+  createdBy:'M. Giri', createdAt:'Jan 6, 2026',
+  approvedBy:'S. Lee', approvedAt:'Jan 8, 2026'}, o,
+  {specificityScore:rcArScore(o)}); }
+let RC_ASSIGN_RULES=[
+  /* ENTERPRISE DEFAULT (§4's floor). Reads the definition's own preparer and reviewers, so
+     R1's fields become the default RULE rather than a competing store. */
+  rcAR({id:'AR-0001', name:'Enterprise default — definition owner',
+    workflowStageType:'PREPARER', assigneeType:'DEFINITION', scopeId:'SC-GROUP'}),
+  rcAR({id:'AR-0002', name:'Enterprise default — definition reviewer',
+    workflowStageType:'REVIEWER', assigneeType:'DEFINITION', scopeId:'SC-GROUP'}),
+  rcAR({id:'AR-0003', name:'Corporate Consolidated — default review',
+    reportingLensIds:['RL-CORP'], workflowStageType:'REVIEWER',
+    team:1, assigneeTeamId:'TM-CORP', requiredRoleId:'CORPORATE_ACCOUNTING'}),
+  /* §7 — ACCOUNT GROUP. Construction in progress is prepared by Development Accounting and
+     reviewed by the CIP Review Team, wherever it appears, unless something narrower says so. */
+  rcAR({id:'AR-0101', name:'CIP — preparation', accountGroupIds:['RG-CIP'],
+    scopeId:'SC-DEV', workflowStageType:'PREPARER', team:1, assigneeTeamId:'TM-DEV',
+    requiredRoleId:'ACCOUNTANT'}),
+  rcAR({id:'AR-0102', name:'CIP — regional review', accountGroupIds:['RG-CIP'],
+    scopeId:'SC-DEV', workflowStageType:'REVIEWER', team:1, assigneeTeamId:'TM-CIP',
+    requiredRoleId:'ACCOUNTING_MANAGER'}),
+  /* §9 — FUND + REGION + PROJECT + GROUP. The layered case, and it beats the group rule
+     because project and entity narrow it further. */
+  rcAR({id:'AR-0140', name:'South Valley Electrical CIP',
+    reconciliationGroupId:'REC-GRP-CIP-ELEC', projectIds:['SOUTHVALLEY'],
+    regionIds:['AMER'], fundIds:['FUND-III'], reportingLensIds:['RL-CORP'],
+    workflowStageType:'PREPARER', assigneeUserId:'U-MR'}),
+  rcAR({id:'AR-0141', name:'South Valley Electrical CIP — review',
+    reconciliationGroupId:'REC-GRP-CIP-ELEC', projectIds:['SOUTHVALLEY'],
+    regionIds:['AMER'], fundIds:['FUND-III'], reportingLensIds:['RL-CORP'],
+    workflowStageType:'REVIEWER', assigneeUserId:'U-RG'}),
+  /* §6 — ONE GL ACCOUNT, ONE ENTITY, ONE LENS. The sharpest override in the model, and the
+     one §5's inheritance display is built to explain. */
+  rcAR({id:'AR-0184', name:'GL 15011 Electrical Equipment — South Valley',
+    sourceAccountIds:['SRC-US-DEV-15011'], entityIds:['ENT-SV-OWNER'],
+    reportingLensIds:['RL-CORP'], workflowStageType:'PREPARER',
+    assigneeUserId:'U-LT', createdAt:'Mar 2, 2026', version:'1.1'}),
+  /* §8 — THE SAME FACTS, A DIFFERENT LENS, A DIFFERENT OWNER. Germany statutory work is
+     prepared and reviewed inside Germany; the consolidated view of the same accounts is not. */
+  rcAR({id:'AR-0210', name:'Germany Statutory — preparation',
+    reportingLensIds:['RL-DE-STAT'], accountGroupIds:['RG-CIP','RG-CASH','RG-AP'],
+    workflowStageType:'PREPARER', team:1, assigneeTeamId:'TM-CTRL',
+    requiredRoleId:'ENTITY_CONTROLLER'}),
+  rcAR({id:'AR-0211', name:'Germany Statutory — entity controller review',
+    reportingLensIds:['RL-DE-STAT'], accountGroupIds:['RG-CIP','RG-CASH','RG-AP'],
+    workflowStageType:'REVIEWER', assigneeUserId:'U-PN'}),
+  rcAR({id:'AR-0220', name:'EMEA consolidated — review',
+    regionIds:['EMEA'], reportingLensIds:['RL-CORP','RL-EMEA'],
+    workflowStageType:'REVIEWER', team:1, assigneeTeamId:'TM-CTRL',
+    requiredRoleId:'REGIONAL_CONTROLLER'}),
+  /* §3 — CERTIFICATION IS ITS OWN STAGE AND ITS OWN OWNER. Nobody prepares and certifies. */
+  rcAR({id:'AR-0300', name:'Enterprise final certification',
+    scopeId:'SC-GROUP', workflowStageType:'FINAL_CERTIFIER', assigneeUserId:'U-SL'}),
+  /* §1 — method-based ownership: bank work belongs to Treasury wherever it appears */
+  rcAR({id:'AR-0310', name:'Bank reconciliations — Treasury',
+    reconciliationMethods:['BANK_RECONCILIATION'], scopeId:'SC-TRES',
+    workflowStageType:'SPECIALIST_REVIEWER', assigneeUserId:'U-AJ'}),
+  /* §20's worked CONFLICT: two rules, identical specificity, different preparer, both live.
+     Deliberately left unresolved so the detection has something true to find. */
+  rcAR({id:'AR-0401', name:'Accruals — corporate preparation',
+    financialLineId:'FS-ACC', regionIds:['EMEA'],
+    workflowStageType:'PREPARER', assigneeUserId:'U-DK'}),
+  rcAR({id:'AR-0402', name:'Accruals — revenue team preparation',
+    financialLineId:'FS-ACC', regionIds:['EMEA'],
+    workflowStageType:'PREPARER', assigneeUserId:'U-JL'}),
+];
+const rcAssignRule=id=>RC_ASSIGN_RULES.find(r=>r.assignmentRuleId===id)||null;
+
+/* ---- §13, §23 — PERIOD-SPECIFIC OVERRIDES.
+   Operational reassignment is almost always "for this month". Writing it into the permanent
+   rule would rewrite next month's ownership too, and — worse — would make a certified June
+   read as though somebody else had always owned it. An override is a separate, dated record;
+   the rule is untouched. */
+let RC_ASSIGN_OVERRIDES=[];
+const rcOverrideFor=(defId,period,stage)=>RC_ASSIGN_OVERRIDES
+  .find(o=>o.reconciliationDefinitionId===defId&&o.periodId===period
+    &&o.workflowStageType===stage&&o.status==='ACTIVE')||null;
+
+/* ---- §14 — RECONCILIATION DELEGATION. Extends R5.5's delegation with the stage types and
+   the reconciliation dimensions this increment needs. Same store, so a user has ONE list of
+   who is covering them rather than two that disagree. */
+function rcDelegationsActive(uid,period){
+  const today=RC_TODAY;
+  return KDELEGATIONS.filter(d=>d.delegateUserId===uid&&d.status==='ACTIVE'
+    &&d.effectiveFrom<=today&&d.effectiveTo>=today);
+}
+/* which delegations let THIS person act on THIS reconciliation at THIS stage */
+function rcDelegationFor(uid,def,inst,stage){
+  return rcDelegationsActive(uid,inst?inst.periodId:viewPeriod()).filter(d=>{
+    const st=d.delegatedStageTypes||d.authorityScope&&d.authorityScope.actions||[];
+    /* R5.5 wrote delegations in ACTION vocabulary (APPROVE/RETURN); R5.7A writes them in
+       STAGE vocabulary. Accept both rather than migrating a store the product is still
+       filling — the mapping is one line and a migration pass is a risk for no gain. */
+    const stageOk=!st.length
+      || st.indexOf(stage)>=0
+      || (stage!=='PREPARER'&&(st.indexOf('APPROVE')>=0||st.indexOf('REVIEWER')>=0))
+      || (stage==='PREPARER'&&st.indexOf('PREPARE')>=0);
+    if(!stageOk) return false;
+    const sc=d.scopeId||(d.authorityScope&&(d.authorityScope.scopeIds||[])[0]);
+    const lens=(d.reportingLensIds||(d.authorityScope&&d.authorityScope.reportingLensIds)||[]);
+    if(lens.length&&inst&&lens.indexOf(inst.reportingLensId)<0) return false;
+    if((d.reconciliationDefinitionIds||[]).length
+      &&d.reconciliationDefinitionIds.indexOf(def.reconciliationDefinitionId)<0) return false;
+    if((d.projectIds||[]).length){
+      const proj=(kScope(sc)||{}).projectIds||[];
+      if(!proj.length) return false;
+    }
+    return true;
+  });
+}
+/* ---- WHAT A RECONCILIATION LOOKS LIKE TO A RULE. Resolved once and handed to every matcher,
+   so a dimension is read from the governed model in exactly one place. Nothing here invents a
+   fact: the population comes from the mapping, the project and fund from the definition and
+   its scope, the lens from the instance. */
+function rcAssignFacts(def,inst,lensId){
+  const p=inst?inst.periodId:viewPeriod();
+  const L=lensId||(inst?inst.reportingLensId:rcLensId);
+  let pop={accounts:[],canon:[]};
+  try{ const P=rcPopulation(def,p);
+    pop.accounts=P.sourceAccountIds||[]; pop.canon=P.canonicalAccountIds||[];
+  }catch(e){}
+  const scope=kScope((def.applicableScopeIds||[])[0])||null;
+  const team=KTEAMS[def.ownerTeamId]||null;
+  const teamScope=team?kScope(team.scopeId):null;
+  return {
+    reconciliationDefinitionId:def.reconciliationDefinitionId,
+    reconciliationGroupId:def.reconciliationGroupId,
+    financialLineId:def.financialLineId,
+    accountGroupIds:[(def.accountPopulationRule||{}).recGroup].filter(Boolean),
+    sourceAccountIds:pop.accounts, canonicalAccountIds:pop.canon,
+    reportingLensId:L,
+    reconciliationMethod:rcMethodId(def),
+    /* the dimensions the definition reaches THROUGH its owning team's scope — a project or a
+       region is a property of the population, and the team's scope is where this model
+       carries it */
+    projectIds:(teamScope&&teamScope.projectIds)||[],
+    regionIds:(teamScope&&teamScope.regionIds)||[],
+    countryIds:(teamScope&&teamScope.countryIds)||[],
+    businessUnitIds:(teamScope&&teamScope.businessUnitIds)||[],
+    fundIds:def.fundIds||(teamScope&&teamScope.fundIds)||[],
+    entityIds:def.entityIds||[],
+    scopeIds:[team?team.scopeId:null,'SC-GROUP'].filter(Boolean),
+    periodId:p,
+  };
+}
+/* does a rule apply? EVERY stated dimension must match; an unstated one is a wildcard. The
+   asymmetry is the point — a rule that names nothing applies everywhere and scores nothing. */
+function rcArMatches(r,F,stage){
+  if(r.workflowStageType!==stage) return false;
+  if(r.status!=='ACTIVE') return false;
+  /* §23 — EFFECTIVE-DATED. A rule that starts in July does not own June, which is what keeps
+     a certified June reading L. Tan after the rule changes. */
+  if(r.effectiveFrom&&r.effectiveFrom>F.periodId) return false;
+  if(r.effectiveTo&&r.effectiveTo<F.periodId) return false;
+  const one=(rv,fv)=>{ if(rv==null) return true;
+    const a=[].concat(rv), b=[].concat(fv||[]);
+    return a.some(x=>b.indexOf(x)>=0); };
+  if(r.reconciliationDefinitionId
+    &&r.reconciliationDefinitionId!==F.reconciliationDefinitionId) return false;
+  if(r.reconciliationGroupId
+    &&r.reconciliationGroupId!==F.reconciliationGroupId) return false;
+  if(r.financialLineId&&r.financialLineId!==F.financialLineId) return false;
+  if(!one(r.accountGroupIds,F.accountGroupIds)) return false;
+  if(!one(r.sourceAccountIds,F.sourceAccountIds)) return false;
+  if(!one(r.canonicalAccountIds,F.canonicalAccountIds)) return false;
+  if(!one(r.reportingLensIds,[F.reportingLensId])) return false;
+  if(!one(r.reconciliationMethods,[F.reconciliationMethod])) return false;
+  if(!one(r.projectIds,F.projectIds)) return false;
+  if(!one(r.propertyIds,F.projectIds)) return false;
+  if(!one(r.regionIds,F.regionIds)) return false;
+  if(!one(r.countryIds,F.countryIds)) return false;
+  if(!one(r.businessUnitIds,F.businessUnitIds)) return false;
+  if(!one(r.fundIds,F.fundIds)) return false;
+  if(!one(r.entityIds,F.entityIds)) return false;
+  if(r.scopeId&&F.scopeIds.indexOf(r.scopeId)<0) return false;
+  return true;
+}
+/* ---- §4, §5, §20 — THE RESOLUTION. Returns the winner, the chain it inherited from, and any
+   conflict — never a bare user id, because "who owns this" and "why" are the same question on
+   this surface and answering only the first is what makes ownership unauditable. */
+function rcResolveAssignment(def,inst,stage,lensId){
+  const F=rcAssignFacts(def,inst,lensId);
+  const hits=RC_ASSIGN_RULES.filter(r=>rcArMatches(r,F,stage))
+    .sort((a,b)=>b.specificityScore-a.specificityScore
+      ||(b.priority||0)-(a.priority||0));
+  const out={stage, rules:hits, chain:hits, conflict:null,
+    assigneeUserId:null, assigneeTeamId:null, assigneeType:null,
+    rule:null, source:null, override:null};
+  if(!hits.length) return out;
+  const top=hits[0];
+  /* §20 — EQUAL SPECIFICITY AND A DIFFERENT ANSWER IS A CONFLICT, NOT A TIEBREAK. Picking one
+     silently would give a close a preparer nobody agreed on, and the wrong person would find
+     out by not being asked. */
+  const tied=hits.filter(r=>r.specificityScore===top.specificityScore);
+  const distinct=[...new Set(tied.map(r=>r.assigneeUserId||r.assigneeTeamId||'DEF'))];
+  if(tied.length>1&&distinct.length>1){
+    out.conflict={rules:tied.map(r=>r.assignmentRuleId), assignees:distinct,
+      why:tied.length+' rules match at the same specificity ('+top.specificityScore
+        +') and name different owners'};
+  }
+  out.rule=top; out.assigneeType=top.assigneeType;
+  if(top.assigneeType==='DEFINITION'){
+    out.source='definition default';
+    if(stage==='PREPARER') out.assigneeUserId=def.preparerUserId;
+    else {
+      const declared=def.reviewerUserIds||[];
+      const need=F.reportingLensId;
+      const able=declared.find(u=>{ const uu=kUser(u); if(!uu) return false;
+        return kCanUseLens(resolveEffectiveAccess(uu),need,'REVIEW'); });
+      out.assigneeUserId=able||declared[0]||null;
+      if(able&&declared[0]&&able!==declared[0]) out.source='definition default · '
+        +rcPerson(declared[0]).nm+' has no review access to this lens';
+    }
+  } else if(top.assigneeType==='TEAM'){
+    out.assigneeTeamId=top.assigneeTeamId; out.source='team assignment';
+  } else { out.assigneeUserId=top.assigneeUserId; out.source='rule'; }
+  /* §13 — a period override sits ON TOP of the resolved rule and never replaces it */
+  const ov=rcOverrideFor(def.reconciliationDefinitionId,F.periodId,stage);
+  if(ov){ out.override=ov; out.assigneeUserId=ov.assigneeUserId; out.assigneeTeamId=null;
+    out.assigneeType='USER'; out.source='period override'; }
+  /* §21 — ASSIGNMENT CANNOT GRANT PERMISSION. A rule naming somebody who lacks the access the
+     stage needs is an INVALID assignment, not a promotion. Surfaced, never silently upgraded. */
+  const uid=out.assigneeUserId;
+  if(uid){
+    const acc=resolveEffectiveAccess(kUser(uid));
+    const need=stage==='PREPARER'?'PREPARE':'REVIEW';
+    if(!kCanUseLens(acc,F.reportingLensId,need))
+      out.invalid='Assigned to '+rcPerson(uid).nm+', who does not hold '+need
+        +' access to the '+((rcLens(F.reportingLensId)||{}).name||F.reportingLensId)+' lens.';
+    else if(kUser(uid).status!=='ACTIVE')
+      out.invalid='Assigned to an inactive user.';
+  }
+  return out;
+}
+/* the resolved owner as a NAME, for the places that only need one */
+function rcOwnerOf(def,inst,stage){
+  const a=rcResolveAssignment(def,inst,stage);
+  if(a.assigneeUserId) return {id:a.assigneeUserId, nm:rcPerson(a.assigneeUserId).nm,
+    team:null, a};
+  if(a.assigneeTeamId) return {id:null, nm:(KTEAMS[a.assigneeTeamId]||{name:''}).name,
+    team:a.assigneeTeamId, a};
+  return {id:null, nm:'—', team:null, a};
+}
+/* ---- §20 — THE CONFLICT SWEEP. Every reconciliation, every stage, every reason a rule set
+   can be wrong. Reported, never resolved. */
+function rcAssignConflicts(period,lensId){
+  const p=period||viewPeriod(), out=[];
+  rcDefsActive(p).forEach(def=>{
+    const inst=rcInstance(def.reconciliationDefinitionId,p,lensId);
+    ['PREPARER','REVIEWER'].forEach(stage=>{
+      const a=rcResolveAssignment(def,inst,stage,lensId);
+      if(a.conflict) out.push({def, stage, kind:'CONFLICT', why:a.conflict.why,
+        rules:a.conflict.rules});
+      else if(a.invalid) out.push({def, stage, kind:'INVALID', why:a.invalid,
+        rules:a.rule?[a.rule.assignmentRuleId]:[]});
+      else if(!a.assigneeUserId&&!a.assigneeTeamId)
+        out.push({def, stage, kind:'UNASSIGNED',
+          why:'No assignment rule resolves a '+stage.toLowerCase()+' for this reconciliation.',
+          rules:[]});
+    });
+  });
+  return out;
+}
+
+/* ==========================================================================================
    R5 — THE ACTIONS
    ==========================================================================================
    Each one validates, writes the governed record, and only then moves the status word. The
@@ -41357,10 +41683,19 @@ function rcApproveStage(defId){
   const st=rcState(defId);
   const _prior=rcDecsFor(A.sub.reviewSubmissionId);
   const _after=_prior.length?_prior[_prior.length-1].decisionAt:A.sub.submittedAt;
+  /* §16 — THE DECISION IS THE DELEGATE'S. The owner is recorded beside it, never instead
+     of it: an approval attributed to the person who was away is a signature nobody wrote. */
+  const _me=kActor();
+  const _own=rcOwnerOf(def,inst,'REVIEWER');
+  const _viaD=(_own.id&&_own.id!==_me.userId)
+    ? KDELEGATIONS.find(x=>x.delegatorUserId===_own.id&&x.delegateUserId===_me.userId
+        &&x.status==='ACTIVE'&&x.effectiveFrom<=RC_TODAY&&x.effectiveTo>=RC_TODAY) : null;
   const d={reviewDecisionId:rcNextId('RD'), reviewSubmissionId:A.sub.reviewSubmissionId,
     reviewStageId:A.stage.reviewStageId, stageLabel:rcStageLabel(A.stage),
     stageSequence:A.stage.sequence, decision:'APPROVED',
-    reviewerUserId:null, reviewerName:rcMe().nm, reviewerRole:rcMe().role,
+    actingUnderDelegationId:_viaD?_viaD.delegationId:null,
+    delegatedFromUserId:_viaD?_viaD.delegatorUserId:null,
+    reviewerUserId:_me.userId, reviewerName:rcMe().nm, reviewerRole:rcMe().role,
     decisionAt:rcLaterOf(rcNowStamp(),_after), comment:null,
     fingerprintReviewed:A.sub.reconciliationFingerprint,
     evidenceVersionsReviewed:A.sub.supportEvidenceVersionIds.slice()};
@@ -41669,8 +42004,16 @@ function kAssignPanel(def,inst){
     +'someone in a comment.</div>'
     +'<div class="rcx-evl">'+rows+'</div>'
     +'<div class="amp-acts"><button class="btn-primary sm"'+(d.target?'':' disabled')
-    +' onclick="kAssignCommit()">Assign</button>'
-    +'<button class="btn-out sm" onclick="kAssignCancel()">Cancel</button></div></div>';
+    +' onclick="kAssignCommitScoped(\'period\')">Change for '
+    +glEsc(perLabel(inst.periodId))+' only</button>'
+    +'<button class="btn-out sm"'+(d.target?'':' disabled')
+    +' onclick="kAssignCommitScoped(\'permanent\')">Change ongoing ownership</button>'
+    +'<button class="btn-out sm" onclick="kAssignCancel()">Cancel</button></div>'
+    +'<div class="rcx-jenote">A period change records an override for '
+    +glEsc(perLabel(inst.periodId))+' and leaves the assignment rule alone — which is what '
+    +'keeps a certified period reading the owner who actually worked it. Changing ongoing '
+    +'ownership closes the current rule and opens a new version from this period forward.'
+    +'</div></div>';
 }
 
 /* ==========================================================================================
@@ -41680,7 +42023,8 @@ function kAssignPanel(def,inst){
    design (§19): a role opens on what it IS and what it may DO, not on a matrix of every
    permission — a first screen of two hundred checkboxes is the IAM console §44 rules out.  */
 let kAdmSub='users', kAdmUser=null, kAdmRole=null, kAdmTeam=null;
-function setKAdm(s){ kAdmSub=s; kAdmUser=null; kAdmRole=null; kAdmTeam=null; renderAll(); }
+function setKAdm(s){ kAdmSub=s; kAdmUser=null; kAdmRole=null; kAdmTeam=null; kAdmRule=null;
+  kDelegDraft=null; renderAll(); }
 function kOpenTeam(id){ kAdmTeam=id; renderAll(); }
 function kOpenUser(id){ kAdmUser=id; renderAll(); }
 function kOpenRole(id){ kAdmRole=id; renderAll(); }
@@ -41688,7 +42032,8 @@ function kOpenRole(id){ kAdmRole=id; renderAll(); }
 function kAdminSettings(){
   const gate=kCanAdminister('ROLES');
   const tabs=[['users','Users'],['roles','Roles'],['teams','Teams'],
-    ['deleg','Delegations'],['lenses','Reporting Lenses'],['policies','Review Policies']];
+    ['assign','Assignments'],['deleg','Delegations'],
+    ['lenses','Reporting Lenses'],['policies','Review Policies']];
   let o='<div class="card"><h2>Settings<span class="note">organization · access · governance'
     +'</span></h2>'
     +'<div class="subhead">Settings holds the RULES. The product consumes them: a controller '
@@ -41702,7 +42047,8 @@ function kAdminSettings(){
     +'. Configuration is shown so the governing rules are inspectable.</div>';
   o+= kAdmSub==='roles' ? (kAdmRole?kRoleDetail(kAdmRole):kRolesList())
     : kAdmSub==='teams' ? (kAdmTeam?kTeamDetail(kAdmTeam):kTeamsList())
-    : kAdmSub==='deleg' ? kDelegList()
+    : kAdmSub==='assign' ? (kAdmRule?kRuleDetail(kAdmRule):kAssignList())
+    : kAdmSub==='deleg' ? kDelegForm()+kDelegList()
     : kAdmSub==='lenses' ? kLensMatrix()
     : kAdmSub==='policies' ? kPolicyList()
     : (kAdmUser?kUserDetail(kAdmUser):kUsersList());
@@ -41849,6 +42195,294 @@ function kRoleDetail(id){
     +'<div class="rcx-jenote">The experience profile governs defaults and priorities only. It '
     +'changes what this role is shown FIRST, never what any figure is.</div>';
 }
+/* ---- §10, §11 — SETTINGS: ASSIGNMENTS. One table, one detail, in the surface Roles & access
+   already is. No rule builder: the rules are configuration a controller reads far more often
+   than they write, and a builder is the thing that turns a readable model into a form. */
+let kAdmRule=null;
+function kOpenRule(id){ kAdmRule=id; renderAll(); }
+function kAssignList(){
+  const p=viewPeriod();
+  const applies=r=>{
+    const parts=[];
+    if(r.sourceAccountIds) parts.push('GL '+r.sourceAccountIds.map(a=>a.split('-').pop()).join(', '));
+    if(r.accountGroupIds) parts.push(r.accountGroupIds.join(', '));
+    if(r.reconciliationGroupId) parts.push(r.reconciliationGroupId.replace('REC-GRP-',''));
+    if(r.financialLineId) parts.push(r.financialLineId);
+    if(r.projectIds) parts.push(r.projectIds.join(', '));
+    if(r.entityIds) parts.push(r.entityIds.map(e=>e.replace('ENT-','')).join(', '));
+    if(r.regionIds) parts.push(r.regionIds.join(', '));
+    if(r.fundIds) parts.push(r.fundIds.join(', '));
+    if(r.reportingLensIds) parts.push(r.reportingLensIds
+      .map(l=>(rcLens(l)||{name:l}).name).join(', '));
+    if(r.reconciliationMethods) parts.push(rcMethodLabel({reconciliationMethod:r.reconciliationMethods[0]}));
+    if(!parts.length&&r.scopeId) parts.push((kScope(r.scopeId)||{name:r.scopeId}).name);
+    return parts.join(' · ');
+  };
+  const who=r=>r.assigneeType==='TEAM'?(KTEAMS[r.assigneeTeamId]||{name:''}).name+' (team)'
+    :r.assigneeType==='DEFINITION'?'Definition owner'
+    :rcPerson(r.assigneeUserId).nm;
+  /* INHERITED vs OVERRIDE is a reading of the rule set, not a flag on the rule: a rule is an
+     override when a less specific rule for the same stage would also have matched. */
+  const kind=r=>{
+    const looser=RC_ASSIGN_RULES.filter(x=>x!==r&&x.workflowStageType===r.workflowStageType
+      &&x.specificityScore<r.specificityScore);
+    return looser.length?'Override':'Inherited';
+  };
+  const rows=RC_ASSIGN_RULES.slice().sort((a,b)=>b.specificityScore-a.specificityScore);
+  return '<table class="tbl"><thead><tr><th>Assignment</th><th>Applies to</th><th>Stage</th>'
+    +'<th>Assignee</th><th>Inherited / override</th><th class="num">Specificity</th>'
+    +'<th>Effective</th><th>Status</th></tr></thead><tbody>'
+    +rows.map(r=>'<tr class="rcx-r" onclick="kOpenRule(\''+r.assignmentRuleId+'\')">'
+      +'<td><b>'+glEsc(r.name)+'</b><div class="amap-dim mono">'+glEsc(r.assignmentRuleId)+'</div></td>'
+      +'<td class="amap-dim">'+glEsc(applies(r)||'everything')+'</td>'
+      +'<td>'+glEsc(r.workflowStageType.toLowerCase().replace('_',' '))+'</td>'
+      +'<td>'+glEsc(who(r))+'</td>'
+      +'<td class="amap-dim">'+kind(r)+'</td>'
+      +'<td class="num">'+r.specificityScore+'</td>'
+      +'<td class="amap-dim mono">'+glEsc(r.effectiveFrom)+(r.effectiveTo?' → '+r.effectiveTo:' →')+'</td>'
+      +'<td><span class="pill sm">'+glEsc(r.status)+'</span></td></tr>').join('')
+    +'</tbody></table>'
+    +(function(){ const c=rcAssignConflicts(p,rcLensId);
+      return c.length?'<div class="rcx-why warn"><b>'+c.length+' assignment finding'
+        +(c.length>1?'s':'')+'.</b> '+glEsc(c.map(x=>x.def.name+' · '
+        +x.stage.toLowerCase()+' — '+x.why).join(' · '))
+        +' Korvyn does not choose between rules of equal specificity; the rule set is corrected '
+        +'rather than the conflict resolved silently.</div>':''; })()
+    +'<div class="cardfoot">Ownership resolves from these rules — most specific wins, and an '
+    +'exact tie is a finding rather than a tiebreak. Nothing here changes a balance: an '
+    +'assignment governs who works a reconciliation, never what it says.</div>';
+}
+function kRuleDetail(id){
+  const r=rcAssignRule(id); if(!r) return '';
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  const dim=(k,l)=>r[k]==null?'':row(l,glEsc([].concat(r[k]).join(', ')));
+  /* the rules this one beats and the ones that beat it — inheritance made literal */
+  const same=RC_ASSIGN_RULES.filter(x=>x.workflowStageType===r.workflowStageType);
+  const parents=same.filter(x=>x.specificityScore<r.specificityScore)
+    .sort((a,b)=>b.specificityScore-a.specificityScore);
+  const children=same.filter(x=>x.specificityScore>r.specificityScore)
+    .sort((a,b)=>a.specificityScore-b.specificityScore);
+  return '<div class="amp-acts"><button class="btn-out sm" onclick="kOpenRule(null)">'
+    +'&#8592; All assignments</button></div>'
+    +'<div class="amp-sec">Scope</div>'
+    +dim('sourceAccountIds','Source accounts')+dim('canonicalAccountIds','Canonical accounts')
+    +dim('accountGroupIds','Account group')
+    +(r.reconciliationDefinitionId?row('Reconciliation',glEsc(r.reconciliationDefinitionId)):'')
+    +(r.reconciliationGroupId?row('Reconciliation group',glEsc(r.reconciliationGroupId)):'')
+    +(r.financialLineId?row('Financial line',glEsc(r.financialLineId)):'')
+    +dim('entityIds','Entities')+dim('regionIds','Regions')+dim('countryIds','Countries')
+    +dim('fundIds','Funds')+dim('businessUnitIds','Business units')
+    +dim('projectIds','Projects')+dim('propertyIds','Properties')
+    +(r.scopeId?row('Scope',glEsc((kScope(r.scopeId)||{name:r.scopeId}).name)):'')
+    +(r.reportingLensIds?row('Reporting lens',
+      glEsc(r.reportingLensIds.map(l=>(rcLens(l)||{name:l}).name).join(', '))):'')
+    +dim('reconciliationMethods','Method')
+    +'<div class="amp-sec">Workflow</div>'
+    +row('Stage',glEsc(r.workflowStageType.toLowerCase().replace('_',' ')))
+    +row('Assignee',r.assigneeType==='TEAM'
+      ? glEsc((KTEAMS[r.assigneeTeamId]||{name:''}).name)+' <span class="amap-dim">team</span>'
+      : r.assigneeType==='DEFINITION'
+        ? 'The definition’s own owner <span class="amap-dim">enterprise default</span>'
+        : glEsc(rcPerson(r.assigneeUserId).nm))
+    +(r.requiredRoleId?row('Required role',
+      glEsc((KROLES[r.requiredRoleId]||{name:r.requiredRoleId}).name)):'')
+    +'<div class="amp-sec">Inheritance</div>'
+    +row('Specificity',r.specificityScore+' <span class="amap-dim">summed across every stated '
+      +'dimension; the highest score wins</span>')
+    +(parents.length?row('Overrides',glEsc(parents.slice(0,4)
+      .map(x=>x.name+' ('+x.specificityScore+')').join(' → '))):'')
+    +(children.length?row('Overridden by',glEsc(children.slice(0,4)
+      .map(x=>x.name+' ('+x.specificityScore+')').join(', '))):'')
+    +'<div class="amp-sec">Effectivity</div>'
+    +row('From',glEsc(r.effectiveFrom))+row('To',glEsc(r.effectiveTo||'open'))
+    +row('Version','v'+glEsc(r.version)+' · '+glEsc(r.status))
+    +'<div class="amp-sec">Audit</div>'
+    +row('Created',glEsc(r.createdBy)+' · '+glEsc(r.createdAt))
+    +(r.approvedBy?row('Approved',glEsc(r.approvedBy)+' · '+glEsc(r.approvedAt)):'')
+    +'<div class="rcx-jenote">Changing a rule creates a new version rather than editing this '
+    +'one, so a certified period keeps the ownership it was certified under.</div>';
+}
+function kDelegForm(){
+  const d=kDelegDraft;
+  if(!d) return '<div class="amp-acts"><button class="btn-out sm" onclick="kDelegOpen()">'
+    +'+ Delegate my reconciliations</button></div>';
+  const me=kActor();
+  const cands=kUsers().filter(u=>u.userId!==me.userId);
+  return '<div class="rcx-add"><div class="amp-sec">Delegate my reconciliations</div>'
+    +'<div class="rcx-quiet2">Your ownership does not change. The person you name may act on '
+    +'your assigned stages during the window, and anything they approve is recorded under '
+    +'their name.</div>'
+    +'<div class="amp-f"><span>Delegate</span><select class="rcx-q" onchange="kDelegSet(\'to\',this.value)">'
+    +'<option value="">Choose…</option>'
+    +cands.map(u=>'<option value="'+u.userId+'"'+(d.to===u.userId?' selected':'')+'>'
+      +glEsc(u.name)+' — '+glEsc(u.title||'')+'</option>').join('')+'</select></div>'
+    +'<div class="amp-f"><span>From</span><input class="rcx-q" type="date" value="'
+      +glEsc(d.from)+'" onchange="kDelegSet(\'from\',this.value)"></div>'
+    +'<div class="amp-f"><span>To</span><input class="rcx-q" type="date" value="'
+      +glEsc(d.to2)+'" onchange="kDelegSet(\'to2\',this.value)"></div>'
+    +'<div class="amp-f"><span>Scope</span><select class="rcx-q" onchange="kDelegSet(\'scope\',this.value)">'
+    +(kAccess().effectiveScopes.map(s=>'<option value="'+s+'"'+(d.scope===s?' selected':'')+'>'
+      +glEsc((kScope(s)||{name:s}).name)+'</option>').join(''))+'</select></div>'
+    +'<div class="amp-f"><span>Stages</span><span>'
+    +RC_STAGE_ASSIGN.map(s=>'<label class="kchk"><input type="checkbox"'
+      +(d.stages.indexOf(s)>=0?' checked':'')+' onchange="kDelegStage(\''+s+'\')"> '
+      +glEsc(s.toLowerCase().replace('_',' '))+'</label>').join('')+'</span></div>'
+    +'<div class="amp-f"><span>Reason</span><input class="rcx-q" type="text" value="'
+      +glEsc(d.reason)+'" placeholder="PTO, leave, coverage…" '
+      +'onchange="kDelegSet(\'reason\',this.value)"></div>'
+    +(d.error?'<div class="rcx-why bad"><b>Cannot delegate.</b> '+glEsc(d.error)+'</div>':'')
+    +'<div class="amp-acts"><button class="btn-primary sm" onclick="kDelegCommit()">'
+    +'Create delegation</button>'
+    +'<button class="btn-out sm" onclick="kDelegCancel()">Cancel</button></div></div>';
+}
+/* ---- §17 — OUT-OF-OFFICE COVERAGE. Delegate, dates, scope, stages, reason. No calendar, no
+   approval workflow; §15's rules are enforced at commit rather than described in a form. */
+let kDelegDraft=null;
+function kDelegOpen(){ const me=kActor();
+  kDelegDraft={to:null, from:RC_TODAY, to2:'2026-07-14',
+    scope:(me.scopes||['SC-GROUP'])[0], stages:['PREPARER'], reason:'', error:null};
+  renderAll(); }
+function kDelegCancel(){ kDelegDraft=null; renderAll(); }
+function kDelegSet(k,v){ if(kDelegDraft){ kDelegDraft[k]=v; kDelegDraft.error=null; renderAll(); } }
+function kDelegStage(s){ if(!kDelegDraft) return;
+  const i=kDelegDraft.stages.indexOf(s);
+  if(i<0) kDelegDraft.stages.push(s); else kDelegDraft.stages.splice(i,1);
+  renderAll(); }
+function kDelegCommit(){
+  const d=kDelegDraft; if(!d) return;
+  const me=kActor(), meAcc=kAccess();
+  if(!d.to){ d.error='Choose someone to delegate to.'; renderAll(); return; }
+  if(!d.from||!d.to2||d.to2<d.from){ d.error='A delegation needs a start and an end date.';
+    renderAll(); return; }
+  const del=kUser(d.to), delAcc=resolveEffectiveAccess(del);
+  /* §15 — A DELEGATION CANNOT EXCEED THE DELEGATOR'S AUTHORITY, and it cannot grant the
+     delegate access they do not hold. Both directions, because either alone lets a delegation
+     become a promotion. */
+  const stages=d.stages.slice();
+  if(!stages.length){ d.error='Choose at least one stage.'; renderAll(); return; }
+  const mineActions=meAcc.workflowAuthorities.map(w=>w.action);
+  const wants=stages.map(s=>s==='PREPARER'?'PREPARE':'APPROVE');
+  const beyond=wants.filter(a=>mineActions.indexOf(a)<0);
+  if(beyond.length){
+    d.error='You cannot delegate '+beyond.join(', ').toLowerCase()
+      +' — it is not authority you hold.'; renderAll(); return; }
+  const lensNeed=stages.indexOf('PREPARER')>=0?'PREPARE':'REVIEW';
+  const lenses=Object.keys(meAcc.effectiveReportingLenses)
+    .filter(l=>kLensRank(meAcc.effectiveReportingLenses[l])>0);
+  const ok=lenses.filter(l=>kCanUseLens(delAcc,l,lensNeed));
+  if(!ok.length){
+    d.error=del.name+' does not hold '+lensNeed.toLowerCase()
+      +' access to any reporting lens you could delegate. A delegation lends authority; it '
+      +'cannot grant access.'; renderAll(); return; }
+  /* §15, §17 — SoD SURVIVES DELEGATION. The delegate must not end up reviewing their own
+     preparation on anything the delegation would reach. */
+  const clash=rcDefsActive(viewPeriod()).filter(def=>{
+    if(stages.indexOf('PREPARER')>=0) return false;
+    return def.preparerUserId===d.to; });
+  if(clash.length&&stages.indexOf('REVIEWER')>=0){
+    d.error=del.name+' prepares '+clash.length+' reconciliation'+(clash.length>1?'s':'')
+      +' in this scope ('+clash.slice(0,2).map(x=>x.name).join(', ')
+      +'). Delegating review to them would put the same person on both sides of it.';
+    renderAll(); return; }
+  KDELEGATIONS.push({delegationId:kNextId('DL'), delegatorUserId:me.userId,
+    delegateUserId:d.to, delegatedStageTypes:stages,
+    scopeId:d.scope, reportingLensIds:ok,
+    authorityScope:{actions:wants, scopeIds:[d.scope], reportingLensIds:ok},
+    effectiveFrom:d.from, effectiveTo:d.to2, reason:d.reason||'Coverage',
+    status:'ACTIVE', createdBy:me.name, createdAt:rcNowStamp()});
+  kDelegDraft=null; renderAll();
+}
+
+/* ---- §13 — ASSIGN TO… IS TWO DIFFERENT ACTS AND THE USER PICKS WHICH.
+   Operational reassignment is almost always "for this month"; writing it into the rule would
+   change next month too, and would make a certified June read as though somebody else had
+   always owned it. So the choice is explicit and the default is the period override. */
+function kAssignCommitScoped(mode){
+  const d=kAssignDraft; if(!d||!d.target) return;
+  const def=rcDef(d.defId), inst=rcInstance(d.defId);
+  const chk=kCanAssign(def,inst);
+  if(!chk.ok){ alert('Cannot reassign\n\n'+chk.why); return; }
+  const to=kUser(d.target);
+  /* §21 again — reassignment is an assignment, and an assignment cannot grant access */
+  const acc=resolveEffectiveAccess(to);
+  if(!kCanUseLens(acc,inst.reportingLensId,'PREPARE')){
+    alert('Cannot reassign\n\n'+to.name+' does not hold prepare access to the '
+      +((rcLens(inst.reportingLensId)||{}).name)+' lens. Assignment cannot grant it.');
+    return; }
+  const from=rcOwnerOf(def,inst,'PREPARER').nm;
+  if(mode==='period'){
+    RC_ASSIGN_OVERRIDES=RC_ASSIGN_OVERRIDES
+      .filter(o=>!(o.reconciliationDefinitionId===d.defId&&o.periodId===inst.periodId
+        &&o.workflowStageType==='PREPARER'));
+    RC_ASSIGN_OVERRIDES.push({overrideId:kNextId('AO'),
+      reconciliationDefinitionId:d.defId, periodId:inst.periodId,
+      workflowStageType:'PREPARER', assigneeUserId:d.target,
+      reason:d.reason||null, createdBy:kActor().name, createdAt:rcNowStamp(),
+      previousOwner:from, status:'ACTIVE'});
+    rcEvent(def,inst,'PREPARATION_STARTED',{beforeState:'preparer '+from,
+      afterState:'preparer '+to.name,
+      comment:'Reassigned for '+perLabel(inst.periodId)+' only by '+kActor().name
+        +' — the permanent assignment rule is unchanged'});
+  } else {
+    /* §24 — a permanent change is a NEW VERSION of the rule, effective from this period. The
+       old one is closed rather than edited, so a certified period keeps its own ownership. */
+    const cur=rcResolveAssignment(def,inst,'PREPARER');
+    if(cur.rule&&cur.rule.assigneeType!=='DEFINITION'){
+      cur.rule.effectiveTo=perAdd(inst.periodId,-1);
+    }
+    RC_ASSIGN_RULES.push(rcAR({id:kNextId('AR'),
+      name:def.name+' — preparation',
+      reconciliationDefinitionId:def.reconciliationDefinitionId,
+      reportingLensIds:[inst.reportingLensId],
+      workflowStageType:'PREPARER', assigneeUserId:d.target,
+      effectiveFrom:inst.periodId, version:'1.0',
+      createdBy:kActor().name, createdAt:rcNowStamp(), approvedBy:null, approvedAt:null}));
+    rcEvent(def,inst,'PREPARATION_STARTED',{beforeState:'preparer '+from,
+      afterState:'preparer '+to.name,
+      comment:'Ongoing ownership changed by '+kActor().name+' from '+perLabel(inst.periodId)
+        +' — prior periods keep the owner they were worked under'});
+  }
+  kNotify(d.target,'ASSIGNED','RECONCILIATION',inst.reconciliationInstanceId,
+    {reconciliationDefinitionId:d.defId, reconciliationInstanceId:inst.reconciliationInstanceId,
+     tab:'rev', periodId:inst.periodId, reportingLensId:inst.reportingLensId,
+     by:kActor().name, text:'You are now the preparer of '+def.name
+       +(mode==='period'?' for '+perLabel(inst.periodId):'')});
+  kAssignDraft=null; renderAll();
+}
+/* ---- §25 — WHY IS THIS PERSON THE PREPARER? The chain, compactly, wherever ownership shows. */
+function rcAssignTrace(def,inst){
+  const out=[];
+  ['PREPARER','REVIEWER'].forEach(stage=>{
+    const a=rcResolveAssignment(def,inst,stage);
+    const who=a.assigneeUserId?rcPerson(a.assigneeUserId).nm
+      :(a.assigneeTeamId?(KTEAMS[a.assigneeTeamId]||{name:''}).name+' (team)':'—');
+    out.push('<div class="rcx-ev'+(a.conflict||a.invalid?' warn':'')+'">'
+      +'<span class="n">'+glEsc(stage.charAt(0)+stage.slice(1).toLowerCase())+' · '
+        +glEsc(who)+'</span>'
+      +'<span class="s"><span class="pill sm'+(a.override?' warn':'')+'">'
+        +glEsc(a.override?'Period override':(a.rule?a.rule.assignmentRuleId:'unassigned'))
+        +'</span></span>'
+      +'<span class="m">'+glEsc(a.chain.map(r=>r.assignmentRuleId+' ('+r.specificityScore+')')
+        .join(' › ')||'no rule')+'</span>'
+      +(a.conflict?'<span class="w">'+glEsc(a.conflict.why)+'</span>':'')
+      +(a.invalid?'<span class="w">'+glEsc(a.invalid)+'</span>':'')
+      +'</div>');
+    /* §16 — an active delegation is shown BESIDE the owner, never instead of them */
+    const dl=a.assigneeUserId?rcDelegationFor(a.assigneeUserId,def,inst,stage):[];
+    KDELEGATIONS.filter(d=>d.delegatorUserId===a.assigneeUserId&&d.status==='ACTIVE'
+      &&d.effectiveFrom<=RC_TODAY&&d.effectiveTo>=RC_TODAY).forEach(d=>{
+      out.push('<div class="rcx-ev"><span class="n">Delegated to '
+        +glEsc(rcPerson(d.delegateUserId).nm)+'</span>'
+        +'<span class="m">'+glEsc(d.effectiveFrom)+' → '+glEsc(d.effectiveTo)+' · '
+        +glEsc(d.reason)+' · owner remains '+glEsc(rcPerson(a.assigneeUserId).nm)
+        +'</span></div>'); });
+  });
+  return '<div class="amp-sec">Ownership</div><div class="rcx-evl">'+out.join('')+'</div>'
+    +'<div class="rcx-jenote">Ownership resolves from assignment rules, most specific first. '
+    +'A delegation lends authority for a window and does not change the owner; a decision is '
+    +'always recorded under the person who actually made it.</div>';
+}
+
 /* ---- §10 — TEAMS. A team is an assignment target and a scope, so it gets a list and a
    detail. Membership is derived from the users; nothing here restates a roster. */
 function kTeamsList(){
@@ -42032,6 +42666,15 @@ function rcRereviewState(def,inst){
    The identity is switched per act (`_rcAs`) because a review is a sequence of DIFFERENT
    people, and segregation of duties is meaningless if the seed signs everything as one. */
 let _rcRevSeeded=false;
+/* R5.7A §21 — five definitions named a preparer who does not hold PREPARE access to the
+   corporate lens. Repointed to the eligible owner on the team that already owns each
+   definition, at source, because a preparer who cannot open their own reconciliation is bad
+   data rather than a state worth demonstrating. */
+(function(){
+  const fix={'REC-ROU':'U-JL','REC-AP':'U-DK','REC-ACCRUALS':'U-DK',
+             'REC-LEASE':'U-JL','REC-DEBT-LT':'U-AJ'};
+  Object.keys(fix).forEach(k=>{ const d=rcDef(k); if(d) d.preparerUserId=fix[k]; });
+})();
 function rcRevSeed(){
   if(_rcRevSeeded) return; _rcRevSeeded=true;
   const P='2026-06';
@@ -44284,7 +44927,8 @@ function rcReviewTrace(def,inst){
   const so=rcSignOff(id);
   const rr=rcRereviewState(def,inst);
   const wf=rcWorkflow(def);
-  let o='<div class="amp-sec">Review and sign-off</div>'
+  let o=rcAssignTrace(def,inst)
+    +'<div class="amp-sec">Review and sign-off</div>'
     +'<div class="rcx-evl"><div class="rcx-ev"><span class="n">Review policy</span>'
     +'<span class="m">'+glEsc(wf.name)+' · '+glEsc(wf.reviewWorkflowId)+' v'
     +glEsc(wf.version)+' · '+rcReviewStages(def).length+' required stages · '
@@ -44307,7 +44951,9 @@ function rcReviewTrace(def,inst){
         +'<span class="n">'+glEsc(d.stageLabel)+' · '
           +glEsc(d.decision==='APPROVED'?'Approved':'Returned')+'</span>'
         +'<span class="m">'+glEsc(d.reviewerName)+' · '+glEsc(d.reviewerRole)+' · '
-          +glEsc(d.decisionAt)+'</span>'
+          +glEsc(d.decisionAt)
+          +(d.delegatedFromUserId?' · acting under delegation from '
+            +glEsc(rcPerson(d.delegatedFromUserId).nm):'')+'</span>'
         +(d.returnComment?'<span class="w">'+glEsc(rcReturnReason(d.returnReasonCategory))
           +' — '+glEsc(d.returnComment)+'</span>':'')+'</div>';
     });
@@ -45309,8 +45955,19 @@ function rcRevTab(def,inst){
     +rcRow('Preparation',rcPill(RC_PREP,inst.preparationStatus))
     +rcRow('Review',rcPill(RC_REVIEW,inst.reviewStatus))
     +rcRow('Overall',rcPill(RC_FINAL,inst.finalStatus))
-    +rcRow('Preparer',glEsc(rcPerson(def.preparerUserId).nm)
-      +' <span class="amap-dim">'+glEsc(rcTeam(def.ownerTeamId))+'</span>')
+    +(function(){ /* §12 — DERIVED, never read off the definition. The subtle marker is the
+         only thing on this row that is not the answer itself. */
+        const o=rcOwnerOf(def,inst,'PREPARER'), a=o.a;
+        const dl=o.id?KDELEGATIONS.filter(d=>d.delegatorUserId===o.id&&d.status==='ACTIVE'
+          &&d.effectiveFrom<=RC_TODAY&&d.effectiveTo>=RC_TODAY):[];
+        return rcRow('Preparer',glEsc(o.nm)
+          +' <span class="amap-dim">'+glEsc(o.team?'team':rcTeam(def.ownerTeamId))+'</span>'
+          +(a.override?' <span class="rcx-rr">'+glEsc(perLabel(inst.periodId))
+            +' override</span>':'')
+          +(a.conflict?' <span class="rcx-rr">assignment conflict</span>':''))
+        +(dl.length?rcRow('Delegated to',glEsc(rcPerson(dl[0].delegateUserId).nm)
+          +' <span class="amap-dim">'+glEsc(dl[0].effectiveFrom)+' → '
+          +glEsc(dl[0].effectiveTo)+' · owner unchanged</span>'):''); })()
     +rcRow('Due',glEsc(due)+(inst.overdue?' <span class="rcx-od">overdue</span>':''));
 
   /* §14 — DATA CHANGED AFTER APPROVAL. Stated before anything else, because every fact below
