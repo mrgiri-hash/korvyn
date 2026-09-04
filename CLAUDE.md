@@ -5086,6 +5086,12 @@ only the order and the group names changed. **Account Mapping and Data Enrichmen
 foundation because that is where they act: they interpret and organise the trial balance's facts,
 they do not create them** — the brief's §2 boundary, made structural.
 
+> **Superseded 2026-09-04 by R6.2** — see *Financials is a DOMAIN* below. `Financial foundation`
+> is gone as a user-facing group, Reconciliations moved into Financial review, Account Mapping
+> and Data Enrichment into Governance, and Consolidation left the rail for Financials. The
+> principle in this paragraph — the rail is the workflow, not the architecture — is what R6.2
+> carried further, not what it reversed.
+
 **Audit History, not "Audit"** (§25). Active readiness belongs to the current period; naming the
 page Audit would promise a workspace that §15 says must not exist.
 
@@ -5270,6 +5276,280 @@ still carries only identity fields and no vendor, department, project or phase.
 R7 / Korvyn for Excel · a rules engine · an AI proposal UI (the `ai` provenance and the
 Proposed → Reviewed → Accepted states are declared and one seeded value is `proposed`, but
 nothing generates) · normalization of anything beyond vendor and department.
+
+## 2026-09-04 — R6.2: Financials is a DOMAIN — statements, consolidation, reporting package
+
+Owner's brief. Three closely connected experiences on one page, not three applications:
+
+```
+STATEMENTS         presents the governed result for Period x Scope x Lens x Basis
+CONSOLIDATION      establishes and validates the group-level financial population
+REPORTING PACKAGE  publishes that result to CFO / CEO / Board
+```
+
+**READ THE R3.2 → R6.1 BLOCKS ABOVE FIRST.** R6.2 rebuilt none of it. Every figure still
+resolves through `fsAmount()` / `rcLensLine()`, the period is still `BOOK.open` vs
+`VIEW.period`, and the canary is unmoved: **FS-CIP Jun 2026 = 4,210.2**.
+
+### The navigation, and what it says about the product
+
+`Financial foundation` is gone as a user-facing group — it named an architectural layer, not
+a thing anyone does. The rail is the accountant's workflow now: **Current period** ·
+**Financial review** (Trial balance · Account activity · Financials · Flux Review · Trending ·
+**Reconciliations**) · **Close & control** (Close · Continuous Close · Intercompany) ·
+**Governance** (Account Mapping · Data Enrichment · Accounting Issues · Policies · Audit
+History).
+
+- **Reconciliations moved into Financial review** because the flow is TB → statements →
+  analysis → **proof**, and proof belongs beside the thing it proves.
+- **Account Mapping and Data Enrichment are governance**: they are the versioned
+  interpretation over the ledger, maintained on their own cadence, not a step in a close.
+- **Account activity stays beside the Trial balance** and is deliberately not a workflow step.
+  TB is the summary, account activity is its detail, and every Trace in the product drills
+  through it. The brief left its placement open; this is the one place a reader looks for GL
+  detail.
+- **CONSOLIDATION IS NO LONGER A RAIL PEER.** `pickTab('consol')` redirects to Financials ›
+  Consolidation, so all ~20 deep links — Home, Close, Continuous Close, My Work, Issues, the
+  entity explorer, Ask Korvyn, several followed by `setCsSub(...)` — keep working unedited.
+  The `consol` view id stays mounted and unreachable rather than being removed from the lens's
+  tab list, which is the lower-risk half of that trade.
+
+### THE FINANCIALS / CONSOLIDATION BOUNDARY IS EXECUTABLE, NOT A COMMENT
+
+`fnCanEditConsol()` returns `{ok:false, why}` unconditionally and every adjustment affordance
+on the page asks it. Financials DISPLAYS FX, eliminations, adjustments, NCI and entity
+contribution and lets a reader Trace all of them; creation, review and approval belong to the
+governed consolidation process that owns the population. A boundary that lives only in prose
+is a boundary that rots.
+
+The seven consolidation views moved INSIDE the Financials Consolidation body (`fnConsolBar`),
+so the shell's sub-view row never carries two levels of the same idea. Their data and every
+`csv*` renderer are unchanged.
+
+### Consolidation gained the architecture it was missing
+
+`consolPerimeter` · `consolNCI` · `consolElimFor` · `consolElimCompleteness` · `consolBridge` ·
+`consolRun` · `CONSOL_ADJ_TYPES`, plus two views — **Perimeter & ownership** and
+**Entity-to-group bridge**.
+
+- **An entity is inside the perimeter because its METHOD places it there**, read from
+  `CONS_ENT` / `CONS_INVEST`, never a second list. Ownership and contribution are shown as
+  different facts, which is what makes the 51%-held equity-method JV legible instead of
+  looking like a consolidation error.
+- **A COMPONENT THIS BUILD DOES NOT CALCULATE IS NAMED, NOT ZEROED.** `CONSOL_ADJ_TYPES` marks
+  three live (elimination, reporting, translation) and four declared-not-calculated (NCI
+  allocation, ownership change, fair value / PPA, equity pick-up). An engine that quietly
+  reported nil for a step acquisition would be worse than one that says it does not model
+  them — the reader would take the zero for an answer.
+- **NCI IS A MEASURED NIL, not an omission.** Every consolidated subsidiary is wholly owned;
+  the one majority holding that is not is equity method and outside the perimeter. The
+  function exists so the bridge can state the step rather than leave it out.
+- **A STATUTORY LENS IS NOT A GROUP CONSOLIDATION.** `consolidates` is read off the lens's own
+  `consolidationRuleSetId` (R3 already models Germany Statutory without one), so corporate
+  consolidation logic is never forced onto a single filing population.
+- **A CLOSED PERIOD'S CONSOLIDATION CONCLUDED.** `consolRun` short-circuits for any period the
+  book has closed. The entity gates (`csxEntities`, `GL_CLOSE`, `CONS_FX`) describe the
+  CURRENT close; reporting them against history would raise a live blocker on a period that
+  was certified months ago.
+
+### THE ENTITY-TO-GROUP BRIDGE FOOTS BY CONSTRUCTION
+
+```
+entity trial balances, translated       A
++ intercompany eliminations             E     (signed effects ON the line)
++ ownership / NCI effects               N
+= group trial balance                         fsAmount().sourceTB
++ reporting adjustments                       fsAmount().adj
+= consolidated governed amount                fsAmount().reported
+```
+
+**A IS DERIVED FROM THE GROUP, NOT AGGREGATED INTO IT.** Korvyn holds one governed amount per
+financial line; the entity columns are its composition, weighted by `CONS_ENT.share` with the
+last entity taking the remainder — the same plug discipline the reconciliation groups use, and
+for the same reason. **Remove the bridge and not one figure in the product moves.** Verified:
+every leaf line of both statements foots, in every period tested.
+
+**The intercompany lines are what make it real.** FS-ICR and FS-ICP are nil at group level
+because they eliminate in full; the bridge shows $325.9M aggregated, ($325.9M) eliminated,
+$0.0M group. And the elimination is a control that can FAIL: $3.6M of the population is
+unmatched, so the statement's nil is an **unproven elimination**, disclosed as such rather
+than being read as a completed one.
+
+**Both effects are signed effects ON the line.** The first cut negated them a second time on
+the way out and the two intercompany lines were the only ones that did not foot — which is how
+it was caught. Eliminating a receivable and eliminating the reciprocal payable are BOTH
+negative, because the two lines are stored with the sign their own side of the balance sheet
+uses.
+
+**Two shapes, two components.** The bridge STEPS are not the entity table's shape. Folded into
+it as colspan rows, a one-sentence NCI note landed in a `white-space:nowrap` cell and stretched
+the table to **1,719px inside a 924px card** — so the amount column, the one thing the bridge
+exists to show, sat off screen at the default scroll position. A wide entity table that may
+scroll, and a three-part step list that never does.
+
+### THE MANAGEMENT REPORTING PACKAGE
+
+`MRP_TEMPLATES` · `MRP_SECTION_TYPES` · `MRP_SCHEDULES` · `MRP_PACKAGES` · `mrpLive` ·
+`mrpFreeze` · `mrpDistribute` · `mrpChangeImpact` · `mrpReadiness` · `mrpAiContext`.
+
+**IT IS NOT THE AUDIT PACKAGE, and the two must not converge.** Both consume the same governed
+financial model and answer different questions for different audiences. Nothing in R6.2 touches
+`RC_PACKAGES`, `rcPackageBuild` or `auditReadiness`; a management package cites certification
+STATE and never carries the certification evidence.
+
+**1. PERIOD-DRIVEN, NEVER USER-CREATED.** `mrpActiveTemplates()` reads the
+FinancialControlCalendar. Measured: **May (a month end) activates 1** template, **June (a
+quarter end) activates 3** — Corporate Monthly, Corporate Quarterly, Board — and **Dec 2025 (a
+year end) activates 4**, adding the FY Annual & Board package. A template with an external
+`trigger` (lender, fund) is never activated by the accounting calendar. **A period that has not
+opened activates nothing**: Dec 2026 is a year end and returns **0**, reading "no package due"
+over a list of what its horizons will require, rather than assembling a package against a
+period nobody can post to. That last case is worth stating precisely because the obvious
+assertion — "a year end activates four" — is true of Dec 2025 and false of Dec 2026, and the
+difference is the whole point.
+
+**2. COMMENTARY IS REUSED, NEVER RETYPED.** A section holds `approvedNarrativeReferences` — ids
+into `FX_EXPL` — and resolves the text, its author, its reviewer and its approval at render
+time. Asserted by serialising the whole package object and searching it for the prose: **zero
+hits.** The provenance line reads *Flux Review › FS-CIP › Jun 2026 vs May 2026 ›
+EXPL-FS-CIP-2026-06-mom v3 › drafted by A. Okafor › approved by Corporate Accounting · Jul 2,
+2026*. The package reports where an explanation stands; it never re-approves one.
+
+**3. LARGE POPULATIONS ARE MANIFESTS, NOT ROWS.** A supporting schedule is a governed query
+definition with a row count, an amount total, a fingerprint and a delivery mode. Two of the
+June package's nine resolve **1.28M and 3.96M rows** and are background exports (CSV /
+Parquet); the audit extract declares **41.2M**. The browser renders the manifest and the
+aggregation. A schedule's amount is the governed line it aggregates, so an export reconciles
+to the package by construction.
+
+**4. A PUBLISHED PACKAGE IS IMMUTABLE.** `Object.freeze`, versioned, superseded with a reason
+and a replacement. Seeded history is confined to CLOSED periods — publishing the open period
+would contradict R6.1.
+
+### TEMPLATE INHERITANCE — a variant states only its difference
+
+`mrpTemplate()` resolves `extends` → parent sections → `drop` → `replace` → `add`. The chain
+the brief names is real: **Corporate Monthly → Americas Monthly → South Valley Monthly**, the
+last resolving 7 sections having dropped Liquidity and replaced Capex, without restating the
+six it inherits. Copying a template that shares eleven sections is how a reporting library
+drifts: change the corporate income statement and five copies keep the old one.
+
+### CHANGE IMPACT AFTER PUBLICATION — and why the fingerprint had to pin the FIGURES
+
+`mrpChangeImpact` compares the published fingerprint field by field against the live one, each
+field carrying its own severity. **Version ids alone are not enough**: a post-close journal or a
+newly approved reporting adjustment moves a published figure without moving a single version
+label, and a package reporting "no impact" in that case would be worse than one with no
+detection at all. `mrpStatementDigest` hashes every leaf line of every statement the template
+presents — the amounts a reader of the package actually saw.
+
+Measured: **April v1 → Republication required** (unresolved, a change landed after it went to
+the CFO), **May v1 → superseded by v2**, **May v2 and both March packages → No change**.
+
+### THE DEMONSTRATION IS A REPORTING ADJUSTMENT, NOT A POST-CLOSE JOURNAL
+
+This distinction cost a round and is worth keeping. A post-close ERP posting rolls FORWARD —
+May's balance is June's opening — so seeding two of them to demonstrate a reporting-package
+feature moved the working period's headline figure: **FS-CIP June went 4,210.2 → 4,211.8**,
+observed before it was reverted. A reporting adjustment is period-scoped by construction
+(`fsAmount(line, period).adj` resolves that period's adjustments), so it changes the period
+whose package was published and nothing after it. R6's post-close mechanism is untouched; it
+is simply not the right instrument for a demonstration.
+
+**THE PAIR OF LINES IS ALSO CHOSEN, NOT ARBITRARY.** Any adjustment to May moves a June-vs-May
+variance, and one on a line the June flux review is built around silently changes which lines
+require an explanation — measured: an FS-UTIL adjustment dropped Utilities out of the June
+required set and took Material Variances from 2/2 to 1/1. **CIP → Buildings** (assets placed in
+service) leaves the required population identical, verified with and without the seed: IS
+[FS-UTIL, FS-RM], BS [FS-CIP, FS-RE]. It is also the placed-in-service determination this
+product is about.
+
+**Known and accepted consequence:** the two seeded closed-period amendments make R6's own
+"changed after certification" detection fire, so Q2 audit readiness reads **78 of 104** where
+CLAUDE.md previously recorded 86. Verified by removing the seed and re-reading (86/104) and
+restoring it (78/104). That is the R6 architecture working on a real governed change, and one
+change now demonstrates both the R6 re-review path and the R6.2 republication path.
+
+### Two readings of one object
+
+**The workspace** (§41) is compact stacked cards — readiness, content, commentary, schedules,
+outputs, history, template — and deliberately not a wizard. **The published view** (§29) is
+what an executive receives: title, context, version, approver, amendment reason, contents, key
+movements and their provenance, and no preparation control anywhere.
+
+**Every readiness state is read from the workspace that owns it** — `fsTieOut`,
+`fxFluxReadiness`, `reconReadiness`, `consolRun`, `amKpi`, `mrpSchedule`. There is no
+"reporting package reconciliation complete = yes" and there must not be one.
+
+**A statement that does not balance blocks the package; an incomplete mapping does not.** The
+unmapped population is a disclosed exclusion that Financials already states above the
+statement, and treating a permanent estate-wide condition as a blocker would make the package
+permanently unpublishable — a rule that reports nothing.
+
+### Two upstream fixes R6.2 required, both defects in their own right
+
+- **`fxWfStatus` ignored a seeded explanation's own status.** The workflow store stays the size
+  of the work actually done (`fxWfEnsure` creates on demand), so a line nobody has touched has
+  no record — and an explanation seeded as approved was reading "Needs explanation" purely
+  because of that absence. The explanation's own status now speaks for the line until a
+  workflow record supersedes it.
+- **`fxFluxReadiness()` took no statement argument**, so it answered for whichever statement a
+  user last left the Flux Review page on. A package section's readiness must not depend on
+  that. `fxFluxReadiness(stmt)` — omitted, it is the page's own statement exactly as before.
+  Do not shadow `fxStmt` with a local of the same name: it is a module-level `let` and not on
+  `window`, so the outer value becomes unreachable (caught immediately).
+
+### Traps, each of which cost a round
+
+- **AN HTML ENTITY INSIDE `glEsc()` REACHES THE SCREEN AS ITS OWN SOURCE TEXT.** Nine call
+  sites; one printed `CFO &#183; CEO` in the distribution column. Sweep the RENDERED DOM for
+  `/&#\d+;|&[a-z]{2,8};/` in leaf text nodes — the source is not where this is visible.
+- **A FINANCIAL LINE NAME IS PRE-ESCAPED HTML** and is rendered RAW everywhere else (R1 recorded
+  this). Six R6.2 call sites escaped it again and printed `Furniture &amp;amp; Equipment`.
+- **A BACKTICK INSIDE AN HTML COMMENT INSIDE A TEMPLATE LITERAL TERMINATES THE LITERAL.** A
+  comment reading ``a `white-space:nowrap` cell`` broke the whole script block with
+  "Unexpected identifier 'white'".
+- **Never pass replacement text through the shell — FOURTH TIME.** A quoted heredoc still ate
+  `\\'` and `\"`, producing `onclick="setCsSub(''+v[0]+'')"`. Write the splice script with the
+  Write tool.
+- **A prefix is not a namespace.** `.mrp-*` and `.csx-*` were greped before being declared; the
+  duplicate-class gate confirms 63/63 unchanged.
+- `--n-400` is gated as a non-foreground token. The disclosure caret took `--muted` because it
+  is an AFFORDANCE; the two `›` separators took `--n-300`, which is what `.rw-figs .sep` and
+  `.ws-from .sep` already use, and they are named in the checker's DECORATIVE list.
+
+### Verified
+
+**189 view renders** (63 views x 3 periods) with 0 errors and 0 empty · **40 Financials
+sub-surface combinations** (3 periods x statements / 9 consolidation views / active package
+templates) · **all 20 acceptance tests pass, run in the product** · console clean on a fresh
+load · **4/4 gates** (chrome themes 10/10, content contrast, spacing ratchet unchanged at
+1072/88, css duplicates 63/63) · **0 clipped elements** and **0 raw HTML entities** across every
+new surface · dark mode holds · every bridge line foots · FS-CIP = **4,210.2** · R6/R6.1 intact
+(FY2025 foots, chronology 0, the control calendar unchanged).
+
+### Deliberately not built
+
+The PowerPoint generation engine (the object model treats pptx as a first-class governed
+output; nothing renders a deck) · a slide designer of any kind · the server-side query engine
+behind a SERVER-mode schedule · email or distribution delivery (the RECORD is carried; no
+integration) · a consolidation posting engine, statutory adjustment engine, NCI allocation,
+step acquisition or purchase accounting · analytical recast · **R7 / Korvyn for Excel** · **AI
+surfaces of any kind** — `mrpAiContext()` structures the objects a grounded answer would need
+and nothing generates.
+
+### Open, and worth an owner's call
+
+- **The regional and programme template variants are declared and not activated.** Americas
+  Monthly and South Valley Monthly resolve correctly and prove the inheritance chain, but the
+  corporate calendar activates the corporate line only; wiring a variant to a scope is a
+  deployment configuration decision.
+- **`mrpPublish` is reachable and nothing calls it from the UI.** Publication is gated
+  (`canPerformActivePeriodAction` plus every section ready) and June is legitimately not ready,
+  so a publish button would spend the close refusing. It belongs on the readiness card once a
+  period can actually reach READY.
+- **The `consol` view id is mounted and unreachable.** Removing it from the lens's tab list
+  would delete the div several lookups still name; it is inert, and tidying it is its own pass.
 
 ## Toolchain
 

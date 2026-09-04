@@ -122,7 +122,12 @@ const ON_FILL = '--on-fill';
  *  and making them legible would make them compete with the text they separate. If either
  *  ever carries meaning it leaves this list; it does not gain an exception. */
 const DECORATIVE = ['.crumbs .sep', '.sub .sep', '.trace-life-sep', '.rw-meta .sep',
-  '.rw-figs .sep', '.ws-from .sep', '.rw-msg .role ~ .at::before'];
+  '.rw-figs .sep', '.ws-from .sep', '.rw-msg .role ~ .at::before',
+  /* R6.2 — the provenance and template-inheritance chains separate two labels with a
+     bare '›'. Same call as the rules above it: WCAG exempts decoration, and making
+     the separator legible would make it compete with the labels it separates. If either
+     ever carries meaning it leaves this list rather than gaining an exception. */
+  '.mrp-nar-p .s', '.mrp-chain .s'];
 
 // ---- run ----------------------------------------------------------------------------------
 let failed = 0;
