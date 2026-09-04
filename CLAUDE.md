@@ -4956,6 +4956,167 @@ mapping. **AI surfaces of any kind:** the objects are structured for grounding (
 - The event-driven example uses Intangible Assets with one declared control event. If acquisition
   accounting is ever modelled properly, that policy entry is where it attaches.
 
+## 2026-09-04 — R6.1: the period is an operating state, and the calendar decides the work
+
+R6 gave a reconciliation a certification FREQUENCY and the user a VIEW HORIZON. What it did not
+do is decide WHICH WORK IS ACTIVE, so the product still behaved as though you pick a period and
+then pick what to do in it. That is backwards for a close.
+
+```
+CurrentControlPeriod        the one period the enterprise is working in
++ FinancialControlCalendar  what it requires at this scope, lens and basis
+= the active work, resolved — never chosen from a menu
+```
+
+**NO THIRD PERIOD VARIABLE.** `BOOK.open` is still what the book accepts work in and
+`VIEW.period` is still what you are looking at. R6.1 adds the CONTROL state around them —
+upcoming, pre-close, open, ready to finalise, certified — and what that state implies.
+
+### Where it lives
+
+| Concept | Function |
+|---|---|
+| Period lifecycle | `PERIOD_STATES` · `controlPeriodState()` · `controlPeriodExceptions()` |
+| Fiscal calendar | `FISCAL` · `isQuarterEnd` · `isYearEnd` · `controlHorizons()` |
+| The calendar | `financialControlCalendar()` / `fcal()` — cached, cleared with the recon caches |
+| Audit horizon | `auditHorizon()` — resolved, never selected |
+| Audit readiness | `auditControls()` · `auditReadiness()` · `rcAuditGenerate()` |
+| Provenance | `controlProvenance()` — why this control is active, in one sentence |
+| The guard | `canPerformActivePeriodAction()` · `rcGate()` · `rcPeriodActive()` |
+| Amendment mode | `RC_AMENDMENT_MODE` · `wpAmendStart/End()` |
+| Current Period | `renderCurrentPeriod()` · `wpLens()` · `wpNextAction()` · `wpStages()` |
+| Audit History | `renderAuditHistory()` |
+
+### JUNE IS A QUARTER END AND KORVYN KNOWS IT
+
+`controlHorizons()` resolves month-end + Q2-end in June and month-end + Q4-end + FY-end in
+December. Measured: Jun requires **34 monthly + 2 quarterly + 0 annual**; May requires **34 + 0 +
+0**; Dec requires **34 + 2 + 1**. The user never answers "should I do the Q2 reconciliation now?"
+and never activates year-end work by hand.
+
+**AND THE VIEW HORIZON STILL CREATES NO WORK.** R6's distinction is load-bearing and untouched:
+`rcHorizon` selects periods to LOOK at, `controlHorizons()` resolves what is DUE, and switching
+the Control Center to FY2025 leaves both the required-control set and the audit horizon
+unchanged (asserted).
+
+### TWO CORRECTIONS THE FIRST CUT NEEDED
+
+**PRE-CLOSE IS AN ACCOUNTING FACT, NOT A DAY COUNT.** It first read off days elapsed since the
+period end, which made the working period read "Open" at day 6 while the ERP period was still
+accepting postings — the opposite of what pre-close means. It is the SOURCE state: while the
+source period is open the data is still arriving, which is exactly the condition R5.7B's
+checkpoints exist for. No day constant, and it cannot drift with the prototype's clock.
+
+**AN EXCEPTION ON ONE RECONCILIATION IS NOT THE PERIOD'S STATE.** Returned work and re-review
+first won the state test, so two lines out of thirty-eight renamed the whole close and the header
+stopped saying where the close actually was. The lifecycle state is the position; exceptions are
+counted alongside it in `C.exceptions` and surfaced where they can be acted on. For a CLOSED
+period they ARE the state, because nothing else can be true of a period whose work is finished.
+
+### THE GUARD IS IN THE WRITERS, NOT ONLY ON THE BUTTONS
+
+`canPerformActivePeriodAction()` is asked inside `rcSubmitReview`, `rcApproveStage`,
+`rcStartPrep`, `rcMarkReady`, `rcReturnCommit`, `rcCertifyHorizon` and `rcPkgOpen`. It is
+deliberately a THIRD question after capability and independence: being a Controller does not make
+a certified period writable, and an open period does not make you a reviewer. Verified —
+preparing in May leaves `rcState` byte-identical and reports *"May 2026 is certified history and
+is read only. To prepare in it, a Controller or the Chief Accounting Officer must start an
+amendment or request a reopen."*
+
+**AND THE CONTROLS STAND DOWN, WHICH IS THE OTHER HALF.** The writer refusing is the guarantee;
+it is not the experience. Opening May still showed "Mark reviewed through now", the readiness
+actions and the review workflow exactly as the working period does — a control that will refuse
+is worse than one that is not there. `rcCanPrepare()` and `rcRevActions()` are the two single
+gates the panel already routed through, so adding the period to them stands every preparation and
+review control down at once. **Everything still READS** — roll-forward, activity, support,
+decisions, certification — which is the whole point of history being reachable.
+
+### AUDIT IS PERIOD-DRIVEN AND THE PACKAGE ASSEMBLES ITSELF
+
+R6 left the AuditPackage as a thing a user CREATES for any horizon they could name — the
+free-form period-selection workspace the brief rules out. `auditHorizon()` resolves it from the
+control period (a month audits the month, a quarter end the quarter, a year end the year), and
+`rcPkgOpen()` now refuses anything else by name: *"An audit package is generated over the current
+control horizon — quarter-end, Q2 2026. FY2025 is history: its packages open and read, and a
+change to them goes through an amendment."*
+
+`auditReadiness()` counts the (definition, period) conclusions the horizon requires and how many
+carry a governed one. Measured: **Q2 2026 — 86 of 104 controls ready, Assembling**, with the
+outstanding ones named; May 2026 — 34 of 34, Ready; Dec 2026 — 191 of 209 over FY2026. The
+package completes itself; nothing has to be remembered.
+
+`rcHorizonPackage` / `rcAuditGenerate` add a HORIZON-level package beside R6's per-definition
+one, reusing the same manifest discipline. **R6's package, its manifest, its supersession and its
+amendment bridge are untouched.**
+
+### THE SURFACES
+
+**The Accounting landing page is the Current Period workspace.** `renderAcctOver` is retired to a
+delegation (the legacy body is kept as `renderAcctOverLegacy` and nothing calls it) so every deep
+link still lands. What it replaced was seven KPI cards titled "Controller command centre" — the
+startup dashboard the brief rules out. It now answers one question, role-aware: **what do I need
+to do next.** Header (period · lens · basis · currency · state · data through), a restrained
+PREPARE → REVIEW → CERTIFY → AUDIT READY indicator, the period's exceptions as one-click filters,
+the work table (WORK · OWNER · STATE · NEXT ACTION), the controls active this period with a
+`why`, and the audit package assembling.
+
+**THE ROLE → QUEUE MAPPING USES DECLARED POLICY, and the first cut used the wrong field.**
+`FX_CAPS.policy` is 1 for the Accounting Manager, so testing `reopen||policy` first gave a manager
+the CERTIFICATION queue — the one queue that is not theirs — and `FX_CAPS.reopen` is 1 for both
+the Controller and the CAO, so it cannot tell them apart at all. `PERIOD_CAPS` already declares
+that distinction (a Controller LOCKS a period, only the CAO REOPENS one) and is the table the
+sign-off matrix and the period control both read. Resolved: Asset Manager → my preparation work ·
+Accounting Manager → my team's work and blockers · Controller → needs my review · CAO →
+certification readiness · External Auditor → certified and audit-ready work.
+
+**A CONTROL THAT OWES NO CONCLUSION THIS PERIOD OWES NO ACTION.** The first cut asked for
+"Complete preparation" on Goodwill in June — an annual control next due in December. It is
+de-prioritised, not hidden: the row reads *Not due this period · next due Dec 2026*, sorts below
+everything owed, and is passive.
+
+**The period navigator is CURRENT / HISTORY / UPCOMING.** It listed twelve months as twelve equal
+choices, which is what makes a period read as a filter. Upcoming periods derive from the calendar
+rather than from `MONTHS`, which stops at the working period.
+
+**The rail follows the financial lifecycle** (§24): Current period · Financial foundation (trial
+balance, account activity, account mapping, data enrichment) · Financial review (financials, flux,
+trending) · Close & control (reconciliations, intercompany, consolidation, close, continuous
+close) · Governance (issues, policies, audit history). Same components and same visual language;
+only the order and the group names changed. **Account Mapping and Data Enrichment moved into the
+foundation because that is where they act: they interpret and organise the trial balance's facts,
+they do not create them** — the brief's §2 boundary, made structural.
+
+**Audit History, not "Audit"** (§25). Active readiness belongs to the current period; naming the
+page Audit would promise a workspace that §15 says must not exist.
+
+**Close consumes the one calendar** (§30). Its header states the control period title, its state
+and its horizons — "Jun 2026 · Q2 2026 close · Month-end + Quarter-end · 34 monthly · 2 quarterly
+controls required". `closeStages()`, `closePct()` and the checklist are untouched.
+
+### Two small fixes made along the way
+
+- **`REC-FF`'s name carried a pre-escaped entity** copied from the FSLINES name (which IS rendered
+  raw). Escaped again on every definition render it read `Furniture &amp;amp; Equipment` in the
+  Control Center, the multi-period grid and the work table. The definition name is plain text now,
+  per R1's own rule; the financial line's name is untouched.
+- **`--n-400` as `border-left-color`** tripped the content-contrast gate's USE arm. The gate is
+  right: n-400's declared role is borders and placeholders and the arm catches any `color`
+  property. It uses `--border-strong`.
+
+### Verified
+
+66/66 views · **3,192** period × horizon × definition × tab combinations render with content, 0
+errors, 0 empty · console clean on a fresh load · **4/4 gates** · FS-CIP 4,210.2 and the
+reconciliation groups still tie to it · `rcChronologyCheck()` = 0 · R6 intact (FY2025 foots, holds
+continuity, 12/12 certified, the activity matrix reconciles) · **all 22 acceptance tests in the
+brief pass, run in the product.**
+
+### Deliberately not done
+
+R7 / Korvyn for Excel · a separate audit application · a second period model · per-entity or
+per-lens divergent close states beyond what `fcal(period, scope, lens)` already keys on (the
+signature carries them; the seeded book has one enterprise close) · AI surfaces.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
