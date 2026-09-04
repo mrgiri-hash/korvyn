@@ -1335,6 +1335,65 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 @media(max-width:1200px){ :root{--dock-w:380px} }
 
 
+/* ---- R4 · SUPPORT AND EVIDENCE ------------------------------------------------------------
+   Dense control rows in the module's existing grammar. Deliberately NOT an upload surface:
+   no drop zone, no thumbnail, no folder, no card. An evidence row is a row like any other row
+   in this product, and its state is a pill like any other state. */
+.rcx-evl{display:flex;flex-direction:column;gap:var(--s-2);padding:var(--s-2) 0}
+.rcx-ev{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 var(--s-2);
+  padding:var(--s-2) var(--s-3);background:var(--n-50);border-radius:var(--radius-xs);
+  border-left:3px solid transparent}
+.rcx-ev[role=button]{cursor:pointer}
+.rcx-ev[role=button]:hover{background:var(--accent-bg)}
+.rcx-ev[role=button]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.rcx-ev.warn{border-left-color:var(--warning)}
+.rcx-ev.bad{border-left-color:var(--neg)}
+.rcx-ev.on{background:var(--accent-bg);border-left-color:var(--accent)}
+.rcx-ev.off{opacity:.55;cursor:default}
+.rcx-ev .n{grid-column:1;font-size:var(--fs-table);color:var(--ink)}
+.rcx-ev .s{grid-column:2;grid-row:1;text-align:right;white-space:nowrap}
+.rcx-ev .m{grid-column:1;font-size:var(--fs-label);color:var(--hint);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-ev .w{grid-column:1/3;font-size:var(--fs-label);color:var(--muted);line-height:var(--lh)}
+.rcx-ev .d{grid-column:1/3;font-size:var(--fs-label);color:var(--warning);
+  line-height:var(--lh);padding-top:var(--s-1)}
+.rcx-req{color:var(--neg)}
+/* the one-line answer the tab opens with: a count of REQUIREMENTS met, never a count of files */
+.rcx-supbar{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
+  background:var(--n-50);border-radius:var(--radius-xs)}
+.rcx-supbar .k{flex:1;min-width:0;font-size:var(--fs-table);color:var(--ink)}
+/* the Control Center cell: a fraction, because "2/4" says more than "Incomplete" in less room */
+.rcx-supfrac{font-family:var(--num);font-variant-numeric:tabular-nums;
+  font-size:var(--fs-table);color:var(--muted)}
+.rcx-supfrac.warn{color:var(--warning)}
+/* §9 — the Support block under an amount. Indented to the amount it answers and quieter than
+   it, because the figure is the subject and this is its footnote; a row is a button because
+   every item opens its own evidence. */
+.rcx-assup{padding:var(--s-1) 0 var(--s-2) var(--s-4)}
+.rcx-assup .k{display:block;font-size:var(--fs-label);color:var(--hint);
+  letter-spacing:var(--tracking-label);text-transform:uppercase;padding-bottom:var(--s-1)}
+.rcx-as{display:grid;grid-template-columns:minmax(0,1fr) auto;width:100%;text-align:left;
+  gap:0 var(--s-2);padding:var(--s-1) var(--s-2);border:none;background:none;font:inherit;
+  font-family:var(--sans);border-radius:var(--radius-xs);cursor:pointer}
+.rcx-as:hover{background:var(--accent-bg)}
+.rcx-as:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.rcx-as .n{grid-column:1;font-size:var(--fs-table);color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-as .w{grid-column:1;font-size:var(--fs-label);color:var(--hint);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-as .s{grid-column:2;grid-row:1/3;align-self:center;font-size:var(--fs-label);
+  color:var(--muted);white-space:nowrap}
+.rcx-as .s.warn{color:var(--warning)}
+/* + Add support — three steps inline in the panel, not a modal and not a wizard */
+.rcx-add{margin-top:var(--s-3);padding:var(--s-3);border:var(--rule);border-radius:var(--radius)}
+.rcx-steps{display:flex;gap:var(--s-2);padding-bottom:var(--s-2)}
+.rcx-steps .rcx-step{flex:1;min-width:0;height:var(--h-btn-sm);border:none;background:var(--n-100);
+  border-radius:var(--radius-xs);font:inherit;font-family:var(--sans);
+  font-size:var(--fs-label);color:var(--muted);cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rcx-steps .rcx-step.on{background:var(--accent-bg);color:var(--accent-ink)}
+.rcx-steps .rcx-step.done{color:var(--ink)}
+
 /* ---- R3.5 · METHOD AND SOURCE ------------------------------------------------------------
    Everything below reuses the module's existing grammar — the band, the `.rcx-rf` workpaper
    row, the pill, the hairline — so a method-specific tab reads as the same panel it opens in.
@@ -37777,7 +37836,8 @@ const RC_ACT_SCHEMAS={
 const RC_TIE   ={tied:{l:'Tied',c:''},difference:{l:'Difference',c:'bad'},incomplete:{l:'Incomplete',c:'warn'}};
 const RC_MOVE  ={na:{l:'Not required',c:''},need:{l:'Needs review',c:'warn'},done:{l:'Complete',c:''}};
 const RC_SUPPORT={notstarted:{l:'Not started',c:''},incomplete:{l:'Incomplete',c:'warn'},
-                  complete:{l:'Complete',c:''},stale:{l:'Stale',c:'warn'}};
+                  complete:{l:'Complete',c:''},stale:{l:'Stale',c:'warn'},
+                  review:{l:'Review required',c:'warn'}};
 const RC_PREP  ={ns:{l:'Not started',c:''},prog:{l:'In progress',c:''},ready:{l:'Ready for review',c:''}};
 const RC_REVIEW={pending:{l:'Pending',c:''},inreview:{l:'In review',c:'info'},
                  returned:{l:'Returned',c:'bad'},approved:{l:'Approved',c:'good'}};
@@ -37797,21 +37857,456 @@ const RC_MATERIALITY={
    does. DERIVED requirements are satisfied by a governed population Korvyn already holds
    (the GL activity population is the worked example); ATTACHED ones need a document, which is
    R4's workflow and is why they read Pending here rather than offering an upload. */
+/* ==========================================================================================
+   R4 — GOVERNED SUPPORT AND EVIDENCE (2026-09-03)
+   ==========================================================================================
+   SUPPORT IS NOT A FOLDER OF ATTACHMENTS. It is a governed relationship, and the object that
+   carries it is the RELATIONSHIP rather than the file:
+
+       reconciliation -> component / balance / exception
+                      -> evidence -> version -> source -> owner -> lineage
+
+   Three objects, kept apart on purpose:
+
+     SupportRequirement   what the CONTROL demands. It exists before any file does — "a project
+                          roll-forward is required and has not been provided" is a statement
+                          about the control, not about a missing upload.
+     EvidenceObject       a thing that exists once and can substantiate many reconciliations.
+                          Reusing it must never duplicate it (§8, TEST 6).
+     EvidenceRelationship what a specific VERSION of that evidence substantiates, on a specific
+                          reconciliation instance, for a specific component and amount.
+
+   The relationship is why this module can say "3 of 4 required support items current" instead
+   of "3 attachments" — a count of files answers no control question at all. */
+
+/* ---- SUPPORT REQUIREMENTS (§3). Governed, versioned, effective-dated, and each one states
+   WHAT IT IS REQUIRED FOR — a relationship type, so a requirement and the evidence that
+   satisfies it are talking about the same thing. */
+const RC_SUP_TYPES={
+  GENERATED_POPULATION:{l:'Governed population'}, EXTERNAL_STATEMENT:{l:'External statement'},
+  SCHEDULE:{l:'Schedule'}, WORKPAPER:{l:'Workpaper'}, REGISTER:{l:'Register'},
+  SUBLEDGER_REPORT:{l:'Subledger report'}, MEMO:{l:'Memo'}, CONFIRMATION:{l:'Confirmation'}};
+function SR(o){ return Object.assign({
+  supportRequirementId:o.id, reconciliationDefinitionId:null,
+  requiredFrequency:'MONTHLY', applicableComponentType:null, materialityCondition:null,
+  reportingLensEligibility:'ALL', scopeRule:'ANY',
+  effectiveFrom:'2026-01', effectiveTo:null, version:1, status:'ACTIVE',
+  generated:0}, o); }
 const RC_SUPPORT_REQS={
-  'SR-GL-ACTIVITY' :{l:'GL activity population',      src:'DERIVED'},
-  'SR-SUBLEDGER'   :{l:'Subledger tie-out',           src:'DERIVED'},
-  'SR-PROJECT-RF'  :{l:'Project roll-forward',        src:'ATTACHED'},
-  'SR-TRANSFERS'   :{l:'Transfers schedule',          src:'ATTACHED'},
-  'SR-BANK-STMT'   :{l:'Bank statement',              src:'ATTACHED'},
-  'SR-AGING'       :{l:'Aging schedule',              src:'ATTACHED'},
-  'SR-AMORT'       :{l:'Amortisation schedule',       src:'ATTACHED'},
-  'SR-DEBT-SCHED'  :{l:'Debt schedule',               src:'ATTACHED'},
-  'SR-LEASE-SCHED' :{l:'Lease schedule',              src:'ATTACHED'},
-  'SR-IC-CONFIRM'  :{l:'Intercompany confirmation',   src:'ATTACHED'},
-  'SR-FA-ROLL'     :{l:'Fixed asset roll-forward',    src:'ATTACHED'},
-  'SR-EQUITY-ROLL' :{l:'Equity roll-forward',         src:'ATTACHED'},
-  'SR-VALUATION'   :{l:'Valuation / impairment memo', src:'ATTACHED'},
+  /* generated:1 — Korvyn already holds the governed population, so nobody uploads it (§10) */
+  'SR-GL-ACTIVITY':SR({id:'SR-GL-ACTIVITY', name:'GL activity population',
+    description:'The governed transaction population behind the period movement.',
+    supportType:'GENERATED_POPULATION', requiredFor:'GL_ACTIVITY',
+    applicableComponentType:'GL_ACTIVITY', generated:1}),
+  'SR-TB-POP':SR({id:'SR-TB-POP', name:'Trial balance population',
+    description:'The governed trial balance the ending balance is compared to.',
+    supportType:'GENERATED_POPULATION', requiredFor:'ENDING_BALANCE',
+    applicableComponentType:'TRIAL_BALANCE', generated:1}),
+  'SR-SUBLEDGER':SR({id:'SR-SUBLEDGER', name:'Subledger population',
+    description:'The governed subledger balance the control account is compared to.',
+    supportType:'SUBLEDGER_REPORT', requiredFor:'SUBLEDGER_BALANCE',
+    applicableComponentType:'SUBLEDGER', generated:1}),
+  'SR-PROJECT-RF':SR({id:'SR-PROJECT-RF', name:'Project roll-forward',
+    description:'Project-level roll-forward of construction cost supporting the whole reconciliation.',
+    supportType:'WORKPAPER', requiredFor:'ENTIRE_RECONCILIATION'}),
+  'SR-TRANSFERS':SR({id:'SR-TRANSFERS', name:'Transfers schedule',
+    description:'Schedule of costs transferred to fixed assets on placement in service.',
+    supportType:'SCHEDULE', requiredFor:'SPECIFIC_ACTIVITY_COMPONENT',
+    applicableComponentType:'TRANSFERS'}),
+  'SR-CAPINT':SR({id:'SR-CAPINT', name:'Capitalized interest workpaper',
+    description:'ASC 835-20 capitalised interest calculation for the period.',
+    supportType:'WORKPAPER', requiredFor:'SPECIFIC_ACTIVITY_COMPONENT',
+    applicableComponentType:'CAPITALIZED_INTEREST'}),
+  'SR-BANK-STMT':SR({id:'SR-BANK-STMT', name:'Bank / trustee statement',
+    description:'The external closing statement the ledger balance is proved against.',
+    supportType:'EXTERNAL_STATEMENT', requiredFor:'EXTERNAL_BALANCE'}),
+  'SR-BANK-REC':SR({id:'SR-BANK-REC', name:'Bank reconciliation evidence',
+    description:'The bridge from the statement balance to the ledger, item by item.',
+    supportType:'WORKPAPER', requiredFor:'RECONCILING_ITEM'}),
+  'SR-RESTRICTION':SR({id:'SR-RESTRICTION', name:'Restriction agreement',
+    description:'The instrument that establishes the restriction on the balance.',
+    supportType:'CONFIRMATION', requiredFor:'ENTIRE_RECONCILIATION'}),
+  'SR-AMORT':SR({id:'SR-AMORT', name:'Amortization schedule',
+    description:'The governed schedule carrying the expected balance and the expected charge.',
+    supportType:'SCHEDULE', requiredFor:'ENDING_BALANCE'}),
+  'SR-AGING':SR({id:'SR-AGING', name:'Aging schedule',
+    description:'Aged detail of the subledger population.', supportType:'SUBLEDGER_REPORT',
+    requiredFor:'SUBLEDGER_BALANCE'}),
+  'SR-FA-ROLL':SR({id:'SR-FA-ROLL', name:'Fixed asset register',
+    description:'Gross cost and accumulated depreciation by asset class.',
+    supportType:'REGISTER', requiredFor:'ENDING_BALANCE'}),
+  'SR-DEPR-ROLL':SR({id:'SR-DEPR-ROLL', name:'Depreciation roll-forward',
+    description:'Expected charge by asset class against what the ledger posted.',
+    supportType:'SCHEDULE', requiredFor:'SPECIFIC_ACTIVITY_COMPONENT',
+    applicableComponentType:'DEPRECIATION'}),
+  'SR-DEBT-SCHED':SR({id:'SR-DEBT-SCHED', name:'Debt schedule',
+    description:'Principal, accretion and interest by instrument.', supportType:'SCHEDULE',
+    requiredFor:'ENDING_BALANCE'}),
+  'SR-LENDER-STMT':SR({id:'SR-LENDER-STMT', name:'Lender statement',
+    description:'The counterparty statement of outstanding principal.',
+    supportType:'EXTERNAL_STATEMENT', requiredFor:'EXTERNAL_BALANCE'}),
+  'SR-LEASE-SCHED':SR({id:'SR-LEASE-SCHED', name:'Lease schedule',
+    description:'ASC 842 lease liability and right-of-use roll-forward.', supportType:'SCHEDULE',
+    requiredFor:'ENDING_BALANCE'}),
+  'SR-ACCRUAL-SCHED':SR({id:'SR-ACCRUAL-SCHED', name:'Accrual schedule',
+    description:'The basis for each accrued amount at the period end.', supportType:'SCHEDULE',
+    requiredFor:'ENDING_BALANCE'}),
+  'SR-SETTLEMENT':SR({id:'SR-SETTLEMENT', name:'Subsequent settlement evidence',
+    description:'Post-period settlement supporting the accrued estimate.', supportType:'MEMO',
+    requiredFor:'ENTIRE_RECONCILIATION'}),
+  'SR-IC-CONFIRM':SR({id:'SR-IC-CONFIRM', name:'Intercompany confirmation',
+    description:'Counterparty agreement of the intercompany balance.',
+    supportType:'CONFIRMATION', requiredFor:'ENTIRE_RECONCILIATION'}),
+  'SR-EQUITY-ROLL':SR({id:'SR-EQUITY-ROLL', name:'Equity roll-forward',
+    description:'Movements in contributed capital and retained earnings.', supportType:'SCHEDULE',
+    requiredFor:'ENTIRE_RECONCILIATION'}),
+  'SR-VALUATION':SR({id:'SR-VALUATION', name:'Valuation / impairment memo',
+    description:'The judgement supporting the carrying value.', supportType:'MEMO',
+    requiredFor:'ENTIRE_RECONCILIATION'}),
 };
+/* which generated requirement a connected proof source answers — one mapping, read by the
+   requirement filter below and by `rcGeneratedEvidence` */
+const RC_SRC_REQ={AP_SUBLEDGER:'SR-SUBLEDGER', AR_SUBLEDGER:'SR-SUBLEDGER',
+  ERP_SUBLEDGER:'SR-SUBLEDGER', FIXED_ASSET_REGISTER:'SR-FA-ROLL',
+  PREPAID_SCHEDULE:'SR-AMORT', GOVERNED_SCHEDULE:'SR-AMORT',
+  BANK_STATEMENT:'SR-BANK-STMT', BANK_FEED:'SR-BANK-STMT'};
+/* the requirement set a definition carries, resolved for the period and lens (§3) */
+function rcRequirements(def,k,lensId){
+  const p=k||viewPeriod(), L=rcLens(lensId);
+  /* A GENERATED REQUIREMENT NEEDS THE SOURCE THAT GENERATES IT — the same discipline R3.5
+     applies to methods. R1 wrote requirement lists as descriptive metadata long before anything
+     read them, so several definitions ask for a "subledger population" while declaring no
+     subledger source. Such a requirement can be satisfied by nothing: not by the connected
+     source, which does not exist, and not by an upload, because Korvyn would then be asking a
+     preparer to hand-key a population it is supposed to resolve. Reporting it Missing every
+     month would be an exception nobody can clear. GL activity is the exception to the
+     exception: every reconciliation has a governed GL population by construction. */
+  const srcReqs=(def.supportingSourceDefinitions||[])
+    .map(s=>RC_SRC_REQ[s.sourceType]).filter(Boolean);
+  const always={'SR-GL-ACTIVITY':1,'SR-TB-POP':1};
+  return (def.supportRequirementIds||[]).map(id=>RC_SUPPORT_REQS[id]).filter(Boolean)
+    .filter(r=>r.status==='ACTIVE' && r.effectiveFrom<=p && (!r.effectiveTo||r.effectiveTo>=p))
+    .filter(r=>r.reportingLensEligibility==='ALL'
+      ||[].concat(r.reportingLensEligibility).indexOf(L.reportingLensId)>=0)
+    .filter(r=>!r.generated || always[r.supportRequirementId]
+      || srcReqs.indexOf(r.supportRequirementId)>=0);
+}
+
+/* ---- THE RELATIONSHIP TYPES (§6). What a piece of evidence can be said to substantiate. */
+const RC_REL_TYPES={
+  ENTIRE_RECONCILIATION:{l:'Entire reconciliation'},
+  BEGINNING_BALANCE:{l:'Beginning balance'},
+  ENDING_BALANCE:{l:'Ending balance'},
+  GL_ACTIVITY:{l:'GL activity'},
+  SPECIFIC_ACTIVITY_COMPONENT:{l:'Specific activity component'},
+  FX:{l:'FX translation'},
+  REPORTING_ADJUSTMENT:{l:'Reporting adjustment'},
+  SUBLEDGER_BALANCE:{l:'Subledger balance'},
+  EXTERNAL_BALANCE:{l:'External balance'},
+  RECONCILING_ITEM:{l:'Reconciling item'},
+  SPECIFIC_EXCEPTION:{l:'Specific exception'},
+};
+/* ---- EVIDENCE CLASSES (§4). One object shape for every file type — a bank statement and an
+   Excel workpaper differ by CLASS and SOURCE, never by having their own structure. */
+const RC_EV_CLASS={
+  REQUIRED_SUPPORT:{l:'Required support'}, SUPPLEMENTAL_SUPPORT:{l:'Supplemental'},
+  SUPPORTING_CALCULATION:{l:'Calculation'}, SOURCE_REPORT:{l:'Source report'},
+  ERP_REPORT:{l:'ERP report'}, BANK_STATEMENT:{l:'Bank statement'},
+  SUBLEDGER_REPORT:{l:'Subledger report'}, KORVYN_OBJECT:{l:'Korvyn object'},
+  EXCEL_ARTIFACT:{l:'Excel workpaper'}, AUDIT_EVIDENCE:{l:'Audit evidence'}};
+/* §5 — the states an EvidenceVersion can be in. Superseded is not deleted: it is the version a
+   past approval consumed and it must stay readable forever. */
+const RC_EV_ST={
+  current:{l:'Current', c:''},
+  review:{l:'Review required', c:'warn'},
+  stale:{l:'Stale', c:'warn'},
+  superseded:{l:'Superseded', c:''},
+  missing:{l:'Missing', c:'bad'}};
+
+/* ==========================================================================================
+   THE EVIDENCE STORE
+   ==========================================================================================
+   IN MEMORY, LIKE EVERY OTHER WORKFLOW STORE IN THIS FILE. A reload restores the seed; nothing
+   here is a financial balance, so nothing here needs to survive one.
+
+   ONLY ATTACHED EVIDENCE IS STORED. The governed populations — GL activity, the trial balance,
+   the subledger, the mapping, the FX rate set — are DERIVED on demand (§10) exactly like every
+   figure in this module, because storing a copy of a population Korvyn can resolve is how the
+   copy and the population start to disagree. */
+const EVIDENCE={};        // evidenceId -> EvidenceObject (versions[] inside)
+const EV_RELS=[];         // EvidenceRelationship[]
+let _evSeq=0;
+function evNextId(pfx){ return pfx+'-'+String(++_evSeq).padStart(4,'0'); }
+
+/* ---- THE FINGERPRINT AN EVIDENCE VERSION WAS PUBLISHED AGAINST (§11).
+   A workpaper is only as current as the governed data it was built from. This snapshots the
+   dependencies that can invalidate it; comparing two of them is what makes staleness a
+   derivation rather than an opinion. */
+function rcEvidenceFingerprint(def,k,lensId,inst0){
+  const p=k||viewPeriod(), L=rcLens(lensId);
+  /* THE INSTANCE IS THREADED IN, NEVER RE-RESOLVED. `rcInstance` computes support status, which
+     reads this — resolving the instance here would be an infinite recursion, and a cache would
+     only hide it behind a first-call failure. Every caller inside the instance build passes the
+     half-built object; every caller outside passes nothing and gets a fresh resolution. */
+  const inst=inst0||rcInstance(def.reconciliationDefinitionId,p,L.reportingLensId);
+  const f=inst?inst.fingerprint:{};
+  let popId=null, popVer=null;
+  try{ const ap=inst.activityPopulation; popId=ap.activityPopulationId;
+       popVer=ap.populationVersion||ap.sourceGLVersion||null; }catch(e){}
+  return {glSnapshotId:f.sourceGLSnapshotId||null, tbVersion:f.sourceTBVersion||null,
+    mappingVersion:f.mappingVersion||null, hierarchyVersion:f.hierarchyVersion||null,
+    reportingLensId:L.reportingLensId, fxRateSetId:rcFxSetId(L,p),
+    consolidationRuleSetId:L.consolidationRuleSetId||null,
+    reportingAdjustmentSetId:L.reportingAdjustmentSetId||null,
+    activityPopulationId:popId, activityPopulationVersion:popVer,
+    periodId:p, scopeId:ENTCTX.scope.id};
+}
+/* WHICH DEPENDENCIES MOVED. Named, because "stale" without a reason is an accusation rather
+   than a finding — the workpaper's author needs to know WHAT changed underneath them. */
+const RC_FP_LABELS={glSnapshotId:'GL snapshot', tbVersion:'trial balance',
+  mappingVersion:'account mapping', hierarchyVersion:'hierarchy',
+  reportingLensId:'reporting lens', fxRateSetId:'FX rate set',
+  consolidationRuleSetId:'consolidation rules', reportingAdjustmentSetId:'reporting adjustments',
+  activityPopulationId:'activity population', activityPopulationVersion:'activity population'};
+function rcFingerprintDrift(was,now){
+  if(!was||!now) return [];
+  return Object.keys(RC_FP_LABELS)
+    .filter(kk=>was[kk]!=null&&now[kk]!=null&&was[kk]!==now[kk])
+    .map(kk=>({key:kk, label:RC_FP_LABELS[kk], from:was[kk], to:now[kk]}));
+}
+/* §11, §12 — THE STALENESS DERIVATION, AND IT IS DELIBERATELY GRADED.
+   A changed GL snapshot or activity population means the numbers the workpaper was built on
+   moved: REVIEW REQUIRED, because the author has to look, not because the paper is wrong. A
+   changed mapping, lens or rate set changes the POPULATION or the basis the paper describes,
+   which is a stronger statement: STALE. Declaring everything invalid on any drift would train
+   a preparer to ignore the flag, which is worse than not having one. */
+const RC_FP_HARD=['mappingVersion','reportingLensId','fxRateSetId','hierarchyVersion',
+  'consolidationRuleSetId','reportingAdjustmentSetId','activityPopulationId'];
+function rcEvidenceState(ver,def,k,lensId,inst,rel){
+  if(!ver) return {state:'missing', drift:[]};
+  if(ver.status==='superseded') return {state:'superseded', drift:[]};
+  const now=rcEvidenceFingerprint(def,k,lensId,inst);
+  const was=rcEvVerFingerprint(ver,def,k,lensId,inst,rel);
+  const drift=rcFingerprintDrift(was,now);
+  if(!drift.length) return {state:'current', drift:[]};
+  const hard=drift.some(d=>RC_FP_HARD.indexOf(d.key)>=0);
+  return {state:hard?'stale':'review', drift};
+}
+
+/* ==========================================================================================
+   THE SEED (§13, §14, §15)
+   ==========================================================================================
+   Representative attached evidence, created the way a preparer would create it: an
+   EvidenceObject, a version, and a relationship saying what that version substantiates.
+
+   THE FINGERPRINT IS CAPTURED ON FIRST READ, NOT AUTHORED. A seeded workpaper is "published
+   against whatever the governed data says today", which is what makes it Current honestly
+   rather than by assertion. The one deliberately-drifted example overrides a single dependency
+   so the real comparison path is exercised rather than a flag being set. */
+const EV_SEED=[
+  {def:'REC-CIP-ELECTRICAL', req:'SR-PROJECT-RF', rel:'ENTIRE_RECONCILIATION',
+   title:'Electrical CIP project roll-forward — Jun 2026', cls:'EXCEL_ARTIFACT',
+   src:'EXCEL_PUBLISHED', file:'Electrical-CIP-Rollforward-2026-06.xlsx', kind:'XLSX',
+   owner:'U-LT', system:'Korvyn published workpaper', ref:'WP-CIP-ELEC-2026-06',
+   desc:'Project-by-project roll-forward of electrical construction cost, tying to the '
+     +'governed activity population.',
+   /* §5 — REPUBLISHED, AND THE FIRST VERSION SURVIVES IT. Two projects were re-scoped after
+      the first publication, so the preparer published again. v1 is not overwritten and is not
+      deleted: an approval that consumed it has to remain reproducible, which is the whole
+      reason a version is a first-class object rather than a field on the evidence. */
+   priorVersions:[{file:'Electrical-CIP-Rollforward-2026-06.xlsx',
+     at:'Jul 1, 2026 · 17:20',
+     note:'Superseded — republished after the Ashburn and South Valley project scopes were '
+       +'corrected.'}]},
+  {def:'REC-CIP-ELECTRICAL', req:'SR-TRANSFERS', rel:'SPECIFIC_ACTIVITY_COMPONENT',
+   component:'TRANSFERS',
+   title:'Transfers to fixed assets — Jun 2026', cls:'SUPPORTING_CALCULATION',
+   src:'UPLOAD', file:'CIP-Transfers-2026-06.xlsx', kind:'XLSX',
+   owner:'U-LT', system:'Uploaded', ref:'WP-TRF-2026-06',
+   desc:'Costs placed in service in the period and transferred out of CIP.'},
+  /* §11 — THE DRIFTED EXAMPLE. Published before the June activity was re-extracted, so the
+     numbers underneath it moved. Review required, not Stale: the population is the same
+     population, its content changed, and the author has to look. */
+  {def:'REC-CIP-ELECTRICAL', req:'SR-CAPINT', rel:'SPECIFIC_ACTIVITY_COMPONENT',
+   component:'CAPITALIZED_INTEREST',
+   title:'Capitalized interest — ASC 835-20 — Jun 2026', cls:'SUPPORTING_CALCULATION',
+   src:'EXCEL_PUBLISHED', file:'CapInterest-2026-06.xlsx', kind:'XLSX',
+   owner:'U-SL', system:'Korvyn published workpaper', ref:'WP-CAPINT-2026-06',
+   desc:'Weighted average accumulated expenditure and the capitalisation rate applied.',
+   drift:{glSnapshotId:'-v1'}},
+  {def:'REC-CIP-ELECTRICAL', supplemental:1, rel:'ENTIRE_RECONCILIATION',
+   title:'South Valley mechanical allocation analysis', cls:'SUPPLEMENTAL_SUPPORT',
+   src:'UPLOAD', file:'SouthValley-Allocation.xlsx', kind:'XLSX',
+   owner:'U-MR', system:'Uploaded', ref:'WP-SV-ALLOC',
+   desc:'How shared mechanical cost was split between the electrical and mechanical groups.',
+   /* §23.6 — ONE OBJECT, TWO RELATIONSHIPS. This analysis divides one pool of cost between
+      two reconciliations, so both rely on it and neither owns a copy. Linking it a second
+      time creates a RELATIONSHIP, never a second EvidenceObject — otherwise a correction
+      would have to be made twice and the two copies could disagree. */
+   also:[{def:'REC-CIP-MECHANICAL', rel:'ENTIRE_RECONCILIATION'}]},
+  {def:'REC-CIP-ELECTRICAL', supplemental:1, rel:'ENTIRE_RECONCILIATION',
+   title:'Project commissioning correspondence', cls:'AUDIT_EVIDENCE',
+   src:'UPLOAD', file:'Commissioning-Correspondence.pdf', kind:'PDF',
+   owner:'U-MR', system:'Uploaded', ref:'DOC-COMM-0412',
+   desc:'Vendor confirmation of commissioning dates supporting the transfer timing.'},
+  /* §13 — MECHANICAL CIP IS THE INCOMPLETE CASE: the roll-forward and the transfers schedule
+     were never provided, so it reports 2 of 4. */
+  {def:'REC-CIP-MECHANICAL', req:'SR-CAPINT', rel:'SPECIFIC_ACTIVITY_COMPONENT',
+   component:'CAPITALIZED_INTEREST',
+   title:'Capitalized interest — ASC 835-20 — Jun 2026 (mechanical)',
+   cls:'SUPPORTING_CALCULATION', src:'EXCEL_PUBLISHED', file:'CapInterest-Mech-2026-06.xlsx',
+   kind:'XLSX', owner:'U-SL', system:'Korvyn published workpaper', ref:'WP-CAPINT-M-2026-06',
+   desc:'Capitalised interest attributable to mechanical construction in the period.'},
+  /* §14 — RESTRICTED CASH. The statement itself is a connected source and is generated; what a
+     preparer adds is the bridge and the instrument that establishes the restriction. */
+  {def:'REC-RCASH', req:'SR-BANK-REC', rel:'RECONCILING_ITEM',
+   title:'Escrow bank reconciliation — Jun 2026', cls:'SUPPORTING_CALCULATION',
+   src:'EXCEL_PUBLISHED', file:'Escrow-BankRec-2026-06.xlsx', kind:'XLSX',
+   owner:'U-AJ', system:'Korvyn published workpaper', ref:'WP-BREC-ESC-2026-06',
+   desc:'Statement balance bridged to the ledger: deposits in transit and outstanding items.'},
+  {def:'REC-RCASH', req:'SR-RESTRICTION', rel:'ENTIRE_RECONCILIATION',
+   title:'Reserve account control agreement', cls:'AUDIT_EVIDENCE',
+   src:'UPLOAD', file:'Reserve-Control-Agreement.pdf', kind:'PDF',
+   owner:'U-AJ', system:'Uploaded', ref:'DOC-RCA-2024-11',
+   desc:'The lender agreement establishing the restriction over these balances.'},
+];
+let _evSeeded=false;
+function rcEvSeed(){
+  if(_evSeeded) return; _evSeeded=true;
+  EV_SEED.forEach(s=>{
+    const def=rcDef(s.def); if(!def) return;
+    const eid=evNextId('EV');
+    EVIDENCE[eid]={evidenceId:eid, title:s.title, evidenceClass:s.cls,
+      sourceType:s.src, generated:0,
+      ownerUserId:s.owner, ownerTeamId:def.ownerTeamId,
+      period:null, scope:null, reportingLensId:null, currency:null,
+      status:'ACTIVE', createdAt:'Jul 2, 2026', createdBy:rcPerson(s.owner).nm,
+      sourceSystem:s.system, sourceReference:s.ref, description:s.desc,
+      lineageMetadata:{publishedFrom:s.src==='EXCEL_PUBLISHED'?'Excel':'Upload'},
+      currentVersionId:null,   // set below, once the version list is built
+      versions:[]};
+    /* THE PRIOR VERSIONS FIRST, so version numbers ascend and the current one is genuinely
+       last. A superseded version keeps its own file, its own instant and its own author. */
+    (s.priorVersions||[]).forEach((pv,i)=>{
+      const pid=eid+'-v'+(i+1);
+      EVIDENCE[eid].versions.push({evidenceVersionId:pid, evidenceId:eid, version:i+1,
+        fileName:pv.file, fileKind:s.kind,
+        sourceFingerprint:null, seedDrift:null,
+        dataAsOf:pv.at, uploadedAt:pv.at,
+        uploadedBy:rcPerson(s.owner).nm, amountSupported:null,
+        populationFingerprint:null, status:'superseded', supersedesVersionId:null,
+        note:pv.note});
+    });
+    const vn=(s.priorVersions||[]).length+1;
+    const vid2=eid+'-v'+vn;
+    EVIDENCE[eid].currentVersionId=vid2;
+    EVIDENCE[eid].versions.push({evidenceVersionId:vid2, evidenceId:eid, version:vn,
+      fileName:s.file, fileKind:s.kind,
+      sourceFingerprint:null,            // captured on first read for the period
+      seedDrift:s.drift||null,
+      dataAsOf:'Jul 2, 2026 · 09:15', uploadedAt:'Jul 2, 2026 · 09:15',
+      uploadedBy:rcPerson(s.owner).nm, amountSupported:null,
+      populationFingerprint:null, status:'current',
+      supersedesVersionId:vn>1?(eid+'-v'+(vn-1)):null});
+    const rel=(d,r,req,comp)=>EV_RELS.push({evidenceRelationshipId:evNextId('ER'),
+      evidenceId:eid, evidenceVersionId:vid2,
+      reconciliationInstanceId:d+'-2026-06',
+      supportRequirementId:req||null,
+      relationshipType:r, rollforwardComponentId:comp||null,
+      activityPopulationId:null, exceptionId:null,
+      supportedAmount:null, supportedPopulationId:null,
+      period:'2026-06', scope:'grp', reportingLensId:'RL-CORP',
+      createdBy:rcPerson(s.owner).nm, createdAt:'Jul 2, 2026 · 09:15'});
+    rel(s.def, s.rel, s.supplemental?null:s.req, s.component);
+    (s.also||[]).forEach(a=>rel(a.def, a.rel, a.req||null, a.component));
+  });
+  /* ---- THE REST OF THE BOOK, SEEDED AS A CLOSE IN PROGRESS.
+     Without this every attached requirement in 38 reconciliations reads Missing, which is
+     technically honest for an empty book and useless as a demonstration: an exception list of
+     32 answers no question, and the Control Center would report a close nobody had started.
+     So the ordinary reconciliations get their workpaper, and the EXCEPTIONS are the ones this
+     increment set out to show — Mechanical CIP short two items, the AP aging never provided,
+     Electrical CIP's capitalised interest published before the activity moved, the prepaid
+     schedule revised underneath its reconciliation, and Construction Payables' subledger
+     never delivered. Those five are the seed's whole point; the rest is background. */
+  const LEAVE_MISSING={'REC-CIP-MECHANICAL':['SR-PROJECT-RF','SR-TRANSFERS'],
+    'REC-AP':['SR-AGING']};
+  RECON_DEFS.forEach(def=>{
+    const dId=def.reconciliationDefinitionId;
+    rcRequirements(def,'2026-06','RL-CORP').forEach(req=>{
+      if(req.generated) return;
+      if((LEAVE_MISSING[dId]||[]).indexOf(req.supportRequirementId)>=0) return;
+      const instId=dId+'-2026-06';
+      if(EV_RELS.some(r=>r.reconciliationInstanceId===instId
+        && r.supportRequirementId===req.supportRequirementId)) return;
+      const eid=evNextId('EV'), vid=eid+'-v1';
+      const own=def.preparerUserId;
+      EVIDENCE[eid]={evidenceId:eid,
+        title:req.name+' — '+perLabel('2026-06')+' · '+def.name,
+        evidenceClass:req.supportType==='EXTERNAL_STATEMENT'?'BANK_STATEMENT'
+          :req.supportType==='MEMO'||req.supportType==='CONFIRMATION'?'AUDIT_EVIDENCE'
+          :req.supportType==='REGISTER'||req.supportType==='SUBLEDGER_REPORT'?'SUBLEDGER_REPORT'
+          :'SUPPORTING_CALCULATION',
+        sourceType:'UPLOAD', generated:0,
+        ownerUserId:own, ownerTeamId:def.ownerTeamId,
+        period:null, scope:null, reportingLensId:null, currency:null,
+        status:'ACTIVE', createdAt:'Jul 2, 2026', createdBy:rcPerson(own).nm,
+        sourceSystem:'Uploaded', sourceReference:'WP-'+dId.replace(/^REC-/,'')+'-2026-06',
+        description:req.description, lineageMetadata:{seeded:true},
+        currentVersionId:vid,
+        versions:[{evidenceVersionId:vid, evidenceId:eid, version:1,
+          fileName:req.name.replace(/[^A-Za-z0-9]+/g,'-')+'-2026-06.xlsx', fileKind:'XLSX',
+          sourceFingerprint:null, seedDrift:null,
+          dataAsOf:'Jul 2, 2026 · 08:40', uploadedAt:'Jul 2, 2026 · 08:40',
+          uploadedBy:rcPerson(own).nm, amountSupported:null,
+          populationFingerprint:null, status:'current', supersedesVersionId:null}]};
+      EV_RELS.push({evidenceRelationshipId:evNextId('ER'),
+        evidenceId:eid, evidenceVersionId:vid, reconciliationInstanceId:instId,
+        supportRequirementId:req.supportRequirementId,
+        relationshipType:req.requiredFor, rollforwardComponentId:req.applicableComponentType||null,
+        activityPopulationId:null, exceptionId:null,
+        supportedAmount:null, supportedPopulationId:null,
+        period:'2026-06', scope:'grp', reportingLensId:'RL-CORP',
+        createdBy:rcPerson(own).nm, createdAt:'Jul 2, 2026 · 08:40'});
+    });
+  });
+}
+/* THE FINGERPRINT IS CAPTURED ONCE, ON FIRST READ. A seeded version has none until somebody
+   looks at it, at which point it records the governed data as it stands — which is what
+   "published against this" means. `seedDrift` shifts one dependency so the drifted example is
+   produced by the real comparison rather than by a flag. */
+/* THE FINGERPRINT IS CAPTURED ON THE RELATIONSHIP, NOT ONCE PER VERSION, and that distinction
+   is load-bearing rather than tidy. Some dependencies are global to the period and the lens —
+   the GL snapshot, the trial balance, the mapping, the rate set — but the ACTIVITY POPULATION
+   is a property of one reconciliation. A version is deliberately reusable (§6: one object,
+   many relationships), so a single allocation analysis relied on by two CIP groups was
+   capturing whichever group happened to read it first and then reporting STALE on the other,
+   for no reason but being shared. That is a false positive on the one control this increment
+   exists to make trustworthy, and the comment on RC_FP_HARD says why it matters: a flag that
+   fires without cause trains a preparer to ignore the flag.
+
+   The relationship is what §6 already defines as "this version substantiates this instance",
+   so it is the right place to record what the data looked like at that moment. A relationship
+   with no fingerprint yet captures one on first read; `ver.sourceFingerprint` is still written
+   the first time so the evidence drill can state what the version itself was published
+   against, and it is never what staleness is judged from. */
+function rcEvVerFingerprint(ver,def,k,lensId,inst,rel){
+  if(!ver) return null;
+  const stamp=()=>{
+    const fp=rcEvidenceFingerprint(def,k,lensId,inst);
+    if(ver.seedDrift) Object.keys(ver.seedDrift).forEach(kk=>{
+      if(fp[kk]!=null) fp[kk]=String(fp[kk])+ver.seedDrift[kk]; });
+    return fp;
+  };
+  if(!ver.sourceFingerprint){
+    ver.sourceFingerprint=stamp();
+    ver.populationFingerprint=ver.sourceFingerprint.activityPopulationId||null;
+  }
+  if(!rel) return ver.sourceFingerprint;
+  if(!rel.sourceFingerprint) rel.sourceFingerprint=stamp();
+  return rel.sourceFingerprint;
+}
+
 const RC_SUP_ST={available:{l:'Available'},complete:{l:'Complete'},pending:{l:'Pending'},
                  na:{l:'Not required'},stale:{l:'Stale'}};
 /* ---- REVIEW POLICY (§38). `reviewStages[]` is architected NOW so the later workflow does not
@@ -37883,7 +38378,7 @@ const RECON_DEFS=[
     reconciliationGroupId:'REC-GRP-RCASH', description:'Escrow, reserve and lender-restricted balances.',
     reconciliationMethod:'BANK_RECONCILIATION', materialityPolicyId:'MP-CASH',
     accountPopulationRule:{recGroup:'RG-CASH', canon:['K1010']},
-    supportRequirementIds:['SR-GL-ACTIVITY','SR-BANK-STMT'],
+    supportRequirementIds:['SR-GL-ACTIVITY','SR-BANK-STMT','SR-BANK-REC','SR-RESTRICTION'],
     ownerTeamId:'TM-TRES', preparerUserId:'U-AJ', reviewerUserIds:['U-SL'], due:'2026-07-03'}),
   rcD({id:'REC-AR', name:'Accounts Receivable', financialLineId:'FS-AR',
     reconciliationGroupId:'REC-GRP-AR', description:'Tenant and colocation receivables, subledger to GL.',
@@ -37923,14 +38418,14 @@ const RECON_DEFS=[
     description:'Electrical infrastructure under construction — switchgear, distribution, feeders.',
     accountPopulationRule:{recGroup:'RG-CIP', canon:['K1330']},
     activitySchemaId:'AS-BASIC-R1',
-    supportRequirementIds:['SR-GL-ACTIVITY','SR-PROJECT-RF','SR-TRANSFERS'],
+    supportRequirementIds:['SR-GL-ACTIVITY','SR-PROJECT-RF','SR-TRANSFERS','SR-CAPINT'],
     reviewPolicyId:'RP-THREE-STAGE',
     ownerTeamId:'TM-DEV', preparerUserId:'U-LT', reviewerUserIds:['U-MG'], due:'2026-07-06'}),
   rcD({id:'REC-CIP-MECHANICAL', name:'Mechanical CIP', financialLineId:'FS-CIP',
     reconciliationGroupId:'REC-GRP-CIP-MECH', share:0.252,
     description:'Mechanical infrastructure under construction — chilled water, air handling, piping.',
     accountPopulationRule:{recGroup:'RG-CIP', canon:['K1340']},
-    supportRequirementIds:['SR-GL-ACTIVITY','SR-PROJECT-RF','SR-TRANSFERS'],
+    supportRequirementIds:['SR-GL-ACTIVITY','SR-PROJECT-RF','SR-TRANSFERS','SR-CAPINT'],
     reviewPolicyId:'RP-THREE-STAGE',
     ownerTeamId:'TM-DEV', preparerUserId:'U-MR', reviewerUserIds:['U-MG'], due:'2026-07-06'}),
   rcD({id:'REC-CIP-GENERATORS', name:'Generators', financialLineId:'FS-CIP',
@@ -38922,23 +39417,154 @@ function rcState(id){
 /* SUPPORT IS DERIVED FROM ITS REQUIREMENTS, not set as a word (§32). A DERIVED requirement is
    satisfied by a governed population Korvyn already holds; an ATTACHED one needs a document,
    which is R4 — so it defaults to Pending and says so rather than pretending to be satisfied. */
-function rcSupportRows(def){
-  const st=rcState(def.reconciliationDefinitionId);
-  return (def.supportRequirementIds||[]).map(id=>{
-    const r=RC_SUPPORT_REQS[id]||{l:id,src:'ATTACHED'};
-    const s=st.sup[id]||(r.src==='DERIVED'?'available':'complete');
-    return {id, label:r.l, source:r.src, state:s, required:s!=='na'};
+
+/* ==========================================================================================
+   SOURCE-GENERATED EVIDENCE (§10)
+   ==========================================================================================
+   Some support exists because Korvyn already holds the governed data. Nobody uploads a trial
+   balance to a system that resolved it. These are EvidenceObjects like any other — same shape,
+   same relationship model, same versioning vocabulary — but they are DERIVED per period and
+   lens, carry the population's own identity and fingerprint, and cannot be edited or deleted.
+
+   THEY ARE NEVER "MISSING". A generated requirement is satisfied by the population existing;
+   if the population itself is unavailable (a subledger that did not arrive), the SOURCE says
+   so through R3.5's proof status and the evidence follows it rather than inventing a file. */
+function rcGeneratedEvidence(def,k,lensId,inst0){
+  const p=k||viewPeriod(), L=rcLens(lensId), C=L.presentationCurrency;
+  const inst=inst0||rcInstance(def.reconciliationDefinitionId,p,L.reportingLensId);
+  if(!inst) return [];
+  const fp=rcEvidenceFingerprint(def,p,L.reportingLensId,inst);
+  const out=[];
+  const mk=(id,title,cls,reqId,relType,amt,ref,sys,note)=>({
+    evidenceId:def.reconciliationDefinitionId+'-'+id+'-'+p,
+    title, evidenceClass:cls, sourceType:'KORVYN_GENERATED', generated:1,
+    ownerUserId:null, ownerTeamId:def.ownerTeamId,
+    period:p, scope:ENTCTX.scope.id, reportingLensId:L.reportingLensId, currency:C,
+    status:'ACTIVE', createdAt:rcDataAsOf(p), createdBy:'Korvyn',
+    sourceSystem:sys, sourceReference:ref, note:note||null,
+    requirementId:reqId, relationshipType:relType, supportedAmount:amt,
+    versions:[{evidenceVersionId:def.reconciliationDefinitionId+'-'+id+'-'+p+'-v1',
+      version:1, sourceFingerprint:fp, dataAsOf:inst.dataAsOf,
+      uploadedAt:rcDataAsOf(p), uploadedBy:'Korvyn', amountSupported:amt,
+      populationFingerprint:ref, status:'current', supersedesVersionId:null,
+      fileName:null, fileKind:'POPULATION'}],
+    currentVersionId:def.reconciliationDefinitionId+'-'+id+'-'+p+'-v1'});
+  const ap=inst.activityPopulation||{};
+  out.push(mk('EV-GLACT','GL activity population','KORVYN_OBJECT','SR-GL-ACTIVITY','GL_ACTIVITY',
+    inst.activityAmount, ap.activityPopulationId||'—',
+    (ap.erpSystems&&ap.erpSystems.length?ap.erpSystems.join(' · '):'Governed general ledger'),
+    (ap.transactionCount!=null?ap.transactionCount.toLocaleString('en-US')+' transactions':null)));
+  const led=(inst.sources||[]).find(s=>s.role==='LEDGER');
+  out.push(mk('EV-TB','Trial balance population','KORVYN_OBJECT','SR-TB-POP','ENDING_BALANCE',
+    inst.trialBalanceAmount, led?led.sourceReference:'—',
+    led?led.systemName:'Governed general ledger', 'resolved, not uploaded'));
+  /* a connected proof source becomes evidence in its own right — the subledger, the register,
+     the schedule, the statement — and follows the source's own condition (§16) */
+  (inst.sources||[]).filter(s=>s.role!=='LEDGER').forEach((s,i)=>{
+    const reqId=(s.sourceType==='AP_SUBLEDGER'||s.sourceType==='AR_SUBLEDGER'
+      ||s.sourceType==='ERP_SUBLEDGER')?'SR-SUBLEDGER'
+      :s.sourceType==='FIXED_ASSET_REGISTER'?'SR-FA-ROLL'
+      :s.sourceType==='PREPAID_SCHEDULE'||s.sourceType==='GOVERNED_SCHEDULE'?'SR-AMORT'
+      :(s.sourceType==='BANK_STATEMENT'||s.sourceType==='BANK_FEED')?'SR-BANK-STMT':null;
+    if(!reqId) return;
+    const cls=s.sourceType==='BANK_STATEMENT'||s.sourceType==='BANK_FEED'?'BANK_STATEMENT'
+      :s.sourceType==='FIXED_ASSET_REGISTER'?'SUBLEDGER_REPORT'
+      :s.sourceType==='PREPAID_SCHEDULE'||s.sourceType==='GOVERNED_SCHEDULE'?'SUPPORTING_CALCULATION'
+      :'SUBLEDGER_REPORT';
+    const rel=(s.sourceType==='BANK_STATEMENT'||s.sourceType==='BANK_FEED')?'EXTERNAL_BALANCE'
+      :s.sourceType==='PREPAID_SCHEDULE'||s.sourceType==='GOVERNED_SCHEDULE'?'ENDING_BALANCE'
+      :'SUBLEDGER_BALANCE';
+    const e=mk('EV-SRC'+i,(RC_SRC_TYPES[s.sourceType]||{l:s.sourceType}).l,cls,reqId,rel,
+      s.amount,s.sourceReference||'—',s.systemName,null);
+    e.sourceType=s.sourceType; e.connectedSourceId=s.reconciliationSourceId;
+    e.sourceUrl=s.sourceUrl||null;
+    /* the evidence cannot be healthier than the source it reads */
+    if(s.status==='UNAVAILABLE'){ e.versions=[]; e.currentVersionId=null; e.unavailable=s.note; }
+    else if(s.status==='CHANGED'||s.status==='STALE'){ e.versions[0].status='review';
+      e.sourceChanged=s.note; }
+    out.push(e);
   });
+  return out;
 }
-function rcSupportStatus(def){
-  const rows=rcSupportRows(def).filter(r=>r.required);
-  if(!rows.length) return 'complete';
-  if(rows.some(r=>r.state==='stale')) return 'stale';
-  const ok=rows.filter(r=>r.state==='available'||r.state==='complete').length;
-  if(ok===rows.length) return 'complete';
-  if(ok===0) return 'notstarted';
-  return 'incomplete';
+
+/* ---- THE EVIDENCE GRAPH FOR ONE RECONCILIATION (§6, §12).
+   Requirements on one axis, evidence relationships on the other, and the state of each pairing
+   derived rather than typed. This is the single function the Support tab, the Control Center,
+   the Trace and the future AI layer all read. */
+function rcSupportGraph(def,k,lensId,inst0){
+  rcEvSeed();
+  const p=k||viewPeriod(), L=rcLens(lensId);
+  const reqs=rcRequirements(def,p,L.reportingLensId);
+  const gen=rcGeneratedEvidence(def,p,L.reportingLensId,inst0);
+  const dId=def.reconciliationDefinitionId, instId=dId+'-'+p;
+  /* attached evidence reaches this reconciliation only through a RELATIONSHIP */
+  const rels=EV_RELS.filter(r=>r.reconciliationInstanceId===instId
+    && r.reportingLensId===L.reportingLensId);
+  const rows=reqs.map(req=>{
+    /* §10 — GENERATED IS A PROPERTY OF WHAT IS AVAILABLE, NOT ONLY OF THE REQUIREMENT.
+       "Fixed asset register" and "Bank statement" are requirements a preparer would normally
+       satisfy by hand — but when the reconciliation has that source CONNECTED, Korvyn already
+       holds it and asking for an upload would be asking for a copy of something it can resolve.
+       So the connected source is checked first, and the requirement falls through to attached
+       evidence only when no source answers it. */
+    const genHit=gen.find(x=>x.requirementId===req.supportRequirementId);
+    if(req.generated||genHit){
+      const e=genHit;
+      const v=e&&e.versions.length?e.versions[e.versions.length-1]:null;
+      const st=e&&e.unavailable?{state:'missing',drift:[]}
+        :(v&&v.status==='review')?{state:'review',drift:[]}
+        :rcEvidenceState(v,def,p,L.reportingLensId,inst0);
+      return {requirement:req, required:true, generated:true, evidence:e?[{ev:e,ver:v,
+        rel:{relationshipType:e.relationshipType, supportedAmount:e.supportedAmount,
+          evidenceId:e.evidenceId}, state:st}]:[], state:e?st.state:'missing',
+        note:e?(e.unavailable||e.sourceChanged||e.note):null};
+    }
+    const mine=rels.filter(r=>r.supportRequirementId===req.supportRequirementId);
+    const items=mine.map(r=>{
+      const e=EVIDENCE[r.evidenceId];
+      const v=e?e.versions.find(x=>x.evidenceVersionId===r.evidenceVersionId):null;
+      return {ev:e, ver:v, rel:r, state:rcEvidenceState(v,def,p,L.reportingLensId,inst0,r)};
+    }).filter(x=>x.ev);
+    /* the WEAKEST link decides the requirement: one stale workpaper is not offset by a current one */
+    const order=['missing','stale','review','superseded','current'];
+    const state=items.length
+      ? items.map(x=>x.state.state).sort((a,b)=>order.indexOf(a)-order.indexOf(b))[0]
+      : 'missing';
+    return {requirement:req, required:true, generated:false, evidence:items, state};
+  });
+  /* SUPPLEMENTAL — evidence attached to this reconciliation that answers no requirement. It is
+     not noise: an allocation analysis or a piece of correspondence is often the thing a
+     reviewer actually reads, and it must not be counted against the required set. */
+  const supp=rels.filter(r=>!r.supportRequirementId).map(r=>{
+    const e=EVIDENCE[r.evidenceId];
+    const v=e?e.versions.find(x=>x.evidenceVersionId===r.evidenceVersionId):null;
+    return {ev:e, ver:v, rel:r, state:rcEvidenceState(v,def,p,L.reportingLensId,inst0,r)};
+  }).filter(x=>x.ev);
+  const done=rows.filter(r=>r.state==='current').length;
+  return {reconciliationInstanceId:instId, periodId:p, reportingLensId:L.reportingLensId,
+    requirements:rows, supplemental:supp, generated:gen,
+    requiredCount:rows.length, satisfiedCount:done,
+    missing:rows.filter(r=>r.state==='missing'),
+    stale:rows.filter(r=>r.state==='stale'),
+    review:rows.filter(r=>r.state==='review')};
 }
+/* §12 — SUPPORT STATUS IS DERIVED, AND IT IS INDEPENDENT OF TIE. A reconciliation can tie
+   perfectly and be entirely unsupported; that combination is not a contradiction, it is the
+   normal state of a reconciliation halfway through a close. */
+function rcSupportStatus(def,k,lensId,inst0){
+  const g=rcSupportGraph(def,k,lensId,inst0);
+  if(!g.requiredCount) return 'complete';
+  if(g.missing.length) return g.satisfiedCount?'incomplete':'notstarted';
+  if(g.stale.length)   return 'stale';
+  if(g.review.length)  return 'review';
+  return 'complete';
+}
+/* the compact fraction the Control Center shows (§19) */
+function rcSupportFrac(def,k,lensId,inst0){
+  const g=rcSupportGraph(def,k,lensId,inst0);
+  return g.requiredCount?(g.satisfiedCount+'/'+g.requiredCount):'—';
+}
+
 /* ---- TIE STATUS IS DERIVED AND CANNOT BE SET (§19). Incomplete outranks Difference: if the
    population is not settled, the arithmetic is not the question. */
 /* R3.5 §35 — THE TIE IS MECHANICAL AND METHOD-AWARE. The ledger control is first and is never
@@ -39008,7 +39634,10 @@ function rcInstance(defId,k,lensId){
     movement:amounts.movement, momPercent:amounts.momPercent,
     amounts, population:pop,
     movementStatus:st.move, preparationStatus:st.prep, reviewStatus:st.review,
-    supportStatus:rcSupportStatus(def),
+    /* R4 — DERIVED FROM THE EVIDENCE GRAPH, and it cannot be resolved here: the graph reads the
+       instance's own fingerprint and activity population, which do not exist yet. It is
+       computed below, once they do. */
+    supportStatus:'notstarted',
     revision:'v'+st.revision, priorCertifiedInstanceId:st.priorCertifiedInstanceId,
     reReviewRequired:st.reReviewRequired, changeSetId:st.changeSetId,
     ownerTeamId:def.ownerTeamId, preparerUserId:def.preparerUserId,
@@ -39036,9 +39665,13 @@ function rcInstance(defId,k,lensId){
   inst.proofResult=rcProofResult(def,inst);
   inst.components=rcComponents(inst);
   inst.activityPopulation=rcActivityPopulation(inst);
+  inst.fingerprint=rcFingerprint(inst);
+  /* R4 §12 — the evidence graph needs the fingerprint above, so support resolves here and the
+     overall conclusion is taken after it. */
+  inst.supportStatus=rcSupportStatus(def,p,L.reportingLensId,inst);
+  inst.supportGraph=null;          // resolved on demand; never cached onto the instance
   inst.finalStatus=rcFinalStatus(inst);
   inst.overdue=rcOverdue(def,inst);
-  inst.fingerprint=rcFingerprint(inst);
   return inst;
 }
 const rcInstances=k=>rcDefsActive(k).map(d=>rcInstance(d.reconciliationDefinitionId,k));
@@ -39111,7 +39744,10 @@ const RC_QV=[
                                       &&(i.reviewerUserIds||[]).some(u=>cwIsMe(rcPerson(u).nm))],
   ['returned','Returned',          i=>i.reviewStatus==='returned'],
   ['untied', 'Untied',             i=>i.tieStatus!=='tied'],
-  ['support','Support exceptions', i=>i.supportStatus!=='complete'],
+  /* R4 §19 — MISSING, STALE OR REVIEW REQUIRED. A generated population is never "missing", so
+     a reconciliation whose only support is governed data does not appear here. */
+  ['support','Support exceptions', i=>['incomplete','notstarted','stale','review']
+    .indexOf(i.supportStatus)>=0],
   ['overdue','Overdue',            i=>i.overdue],
 ];
 function setRcStmt(s){ rcStmt=s; rcSel=null; renderAll(); }
@@ -39296,7 +39932,12 @@ function rcBodyHTML(){
     const sup=isLine&&r.roll
       ? '<span class="rcx-frac" title="Reconciliation groups with complete support">'
         +r.roll.supportOk+'/'+r.roll.count+'</span>'
-      : rcPill(RC_SUPPORT,(r.inst||r.roll).supportStatus,1);
+      : (function(){ /* R4 §19 — the derived fraction, with the word only when it is not a
+           plain count. "2/4" says more than "Incomplete" and takes less room. */
+          const i=r.inst, s=i.supportStatus;
+          const fr=rcSupportFrac(rcDef(i.reconciliationDefinitionId),i.periodId,i.reportingLensId);
+          return '<span class="rcx-supfrac'+(s==='complete'?'':' warn')+'" title="'
+            +glEsc((RC_SUPPORT[s]||{l:s}).l)+'">'+fr+'</span>'; })();
     const click=r.inst?' onclick="rcPick(\''+def.reconciliationDefinitionId+'\')"':'';
     return '<tr class="'+cls.join(' ')+'"'+click+'>'
       +'<td class="rcx-nm">'+caret+'<span class="t">'+label+'</span>'+meth+flag+cont+srcf+ov+'</td>'
@@ -40925,6 +41566,101 @@ function rcMethodTrace(def,inst){
   o+='<div class="amp-sec">Source systems</div>'+rcSourceStrip(def,inst);
   return o;
 }
+/* ---- R4 §9 — AMOUNT TO SUPPORT.
+   The amount drills already answer "where did this number come from": population, transactions,
+   ERP. This answers the second question a reviewer asks of the same figure — "and what
+   substantiates it?" — in the same place, so the two are not on different tabs.
+
+   THE DISTINCTION THE WORDING PROTECTS: a document does not create a balance. The ledger does.
+   Evidence substantiates the accounting CONCLUSION about the balance, which is why this block
+   is titled Support rather than Source, and why the generated population reads "governed
+   population" rather than being dressed up as a workpaper somebody produced.
+
+   Which evidence answers which amount is read off the RELATIONSHIP (§6), never off the file:
+   a relationship states what it substantiates, so the mapping below is the only place that
+   knowledge lives and a new relationship type is one entry, not a search of the renderers. */
+const RC_AMT_REL={
+  beginning:['BEGINNING_BALANCE'],
+  activity :['GL_ACTIVITY','SPECIFIC_ACTIVITY_COMPONENT'],
+  ending   :['ENDING_BALANCE','ENTIRE_RECONCILIATION','SUBLEDGER_BALANCE','EXTERNAL_BALANCE'],
+  adj      :['REPORTING_ADJUSTMENT'],
+  fx       :['FX']};
+function rcAmtSupport(def,inst,key){
+  const want=RC_AMT_REL[key]; if(!want) return '';
+  const g=rcSupportGraph(def,inst.periodId,inst.reportingLensId,inst);
+  const seen={}, items=[];
+  const take=(x)=>{
+    if(!x.ev||!x.rel) return;
+    if(want.indexOf(x.rel.relationshipType)<0) return;
+    if(seen[x.ev.evidenceId]) return; seen[x.ev.evidenceId]=1;
+    items.push(x);
+  };
+  g.requirements.forEach(r=>r.evidence.forEach(take));
+  g.supplemental.forEach(take);
+  if(!items.length) return '';
+  const dId=def.reconciliationDefinitionId;
+  const row=x=>{
+    const st=RC_EV_ST[x.state.state]||{l:x.state.state,c:''};
+    /* WHAT IT SUPPORTS, stated as the record holds it: a figure where the relationship carries
+       one, the component where it names a component, the relationship's own words otherwise.
+       Nothing is inferred from the amount beside it — a supported amount is an assertion the
+       preparer made, not arithmetic this block is entitled to perform. */
+    const what=x.rel.supportedAmount!=null ? 'supports '+rcM(x.rel.supportedAmount)
+      : x.rel.rollforwardComponentId ? 'supports '+glEsc(rcCompWord(x.rel.rollforwardComponentId))
+      : (RC_REL_TYPES[x.rel.relationshipType]||{l:''}).l.toLowerCase();
+    return '<button class="rcx-as" onclick="rcOpenDrill(\'ev\',\''+glEsc(x.ev.evidenceId)
+      +'\',\''+dId+'\')">'
+      +'<span class="n">'+glEsc(x.ev.title)+'</span>'
+      +'<span class="w">'+(x.ev.generated?'governed population':'v'
+        +(x.ver?x.ver.version:1))+' · '+what+'</span>'
+      +'<span class="s'+(st.c?' '+st.c:'')+'">'+glEsc(st.l)+'</span></button>';
+  };
+  return '<div class="rcx-assup"><span class="k">Support</span>'
+    +items.map(row).join('')+'</div>';
+}
+/* the component word a reviewer would use, not the enum */
+function rcCompWord(c){
+  return ({GL_ACTIVITY:'GL activity', TRANSFERS:'transfers to fixed assets',
+    CAPITALIZED_INTEREST:'capitalized interest', DEPRECIATION:'depreciation',
+    CLASSIFICATION_CHANGE:'classification change', REPORTING_ADJUSTMENT:'reporting adjustment',
+    BEGINNING:'beginning balance', ENDING_CALCULATED:'calculated ending balance',
+    TRIAL_BALANCE:'trial balance'}[c])
+    || String(c||'').toLowerCase().replace(/_/g,' ');
+}
+/* ---- R4 §18 — THE EVIDENCE LEG OF THE TRACE. It reads both directions: what substantiates
+   this conclusion, and where else each item is relied on. Kept to one line per item; the
+   version history and the relationship list are one click away in the evidence drill. */
+function rcEvidenceTrace(def,inst){
+  const g=rcSupportGraph(def,inst.periodId,inst.reportingLensId,inst);
+  if(!g.requiredCount&&!g.supplemental.length) return '';
+  const dId=def.reconciliationDefinitionId;
+  const row=r=>{
+    const st=RC_EV_ST[r.state]||{l:r.state,c:''};
+    const first=r.evidence[0];
+    const uses=first?EV_RELS.filter(x=>x.evidenceId===first.ev.evidenceId).length:0;
+    return '<div class="rcx-ev'+(r.state==='current'?'':(r.state==='missing'?' bad':' warn'))+'"'
+      +(first?' role="button" tabindex="0" onclick="rcOpenDrill(\'ev\',\''
+        +glEsc(first.ev.evidenceId)+'\',\''+dId+'\')"':'')+'>'
+      +'<span class="n">'+glEsc(r.requirement.name)+'</span>'
+      +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
+      +'<span class="m">'+(first
+        ? glEsc(first.ev.generated?'governed population':'v'+(first.ver?first.ver.version:1))
+          +(uses>1?' · relied on by '+uses+' reconciliations':'')
+        : 'not provided')+'</span>'
+      +'<span class="w">'+glEsc((RC_REL_TYPES[r.requirement.requiredFor]
+        ||{l:r.requirement.requiredFor}).l)+'</span></div>';
+  };
+  return '<div class="amp-sec">Required support</div>'
+    +'<div class="rcx-evl">'+g.requirements.map(row).join('')+'</div>'
+    +(g.supplemental.length?'<div class="amp-sec">Supplemental</div><div class="rcx-evl">'
+      +g.supplemental.map(x=>'<div class="rcx-ev" role="button" tabindex="0"'
+        +' onclick="rcOpenDrill(\'ev\',\''+glEsc(x.ev.evidenceId)+'\',\''+dId+'\')">'
+        +'<span class="n">'+glEsc(x.ev.title)+'</span>'
+        +'<span class="m">'+glEsc((RC_EV_CLASS[x.ev.evidenceClass]||{l:''}).l)+'</span></div>')
+        .join('')+'</div>':'')
+    +'<div class="rcx-jenote">Evidence substantiates the accounting conclusion; it does not '
+    +'create the balance. The ledger does that, and the chain above is how it got there.</div>';
+}
 
 /* ==========================================================================================
    AMOUNT TO PROOF (§9, §53) — the drills every method-specific figure resolves to
@@ -41122,6 +41858,9 @@ function rcBegBody(defId){
         : '')
       +'<div class="amp-acts"><button class="btn-out sm" onclick="rcOpenDrill(\'src\',\'LEDGER\',\''
       +defId+'\')">Open prior trial balance &#8594;</button></div>'
+      /* §9 — the same Support block the roll-forward carries, so one amount answers "what
+         substantiates this?" identically wherever it is opened from. */
+      +rcAmtSupport(def,rcInstance(defId,p,L.reportingLensId),'beginning')
       +'<div class="rcx-jenote">There is no separately maintained opening balance. This is the '
       +'prior period&#8217;s reported figure, resolved with the mapping that applied then.</div>'};
 }
@@ -41358,9 +42097,11 @@ function rcRollTab(def,inst){
   return '<div class="amp-sec">'+glEsc(perLabel(pk))+' roll-forward</div>'
     +'<div class="rcx-rfw">'
     +line('Beginning balance',a.beginning,'',perEnd(pv)+' \u00b7 as reported')
+    +rcAmtSupport(D,inst,'beginning')
     +'<div class="rcx-rf-h">Movement</div>'
     +line(perLabel(pk)+' GL activity',gl.amount,'ind','ERP ledger \u00b7 '
       +inst.activityPopulation.transactionCount.toLocaleString('en-US')+' transactions')
+    +rcAmtSupport(D,inst,'activity')
     /* §6 — a known component is named, never hidden behind "Other" */
     /* §31 — ERP remeasurement is INSIDE the activity above and is stated, never added again */
     +(rem.count?'<div class="rcx-rf ind sub"><span class="l">of which ERP remeasurement'
@@ -41393,6 +42134,7 @@ function rcRollTab(def,inst){
       +'</span><span class="v mono">'+(ra.amount?rcM(ra.amount):'&mdash;')+'</span></div>'
     +line('Calculated ending balance',a.endingCalculatedBalance,'tot',perEnd(pk))
     +line('Trial balance',a.trialBalanceAmount,'',perEnd(pk)+' \u00b7 governed reported balance')
+    +rcAmtSupport(D,inst,'ending')
     +'<div class="rcx-rf diff'+(Math.abs(a.difference)>=0.05?' bad':'')+'">'
       +'<span class="l">Difference</span><span class="v mono">'
       +(Math.abs(a.difference)<0.05?'&mdash;':rcM(a.difference))+'</span></div>'
@@ -41507,27 +42249,333 @@ function rcPopDeltaHTML(def,inst){
 
 /* ---- SUPPORT (§32). REQUIREMENTS, which exist before any document does — the distinction the
    later evidence workflow hangs on. Nothing here uploads anything. */
+
+/* ==========================================================================================
+   THE SUPPORT TAB (§7, §21)
+   ==========================================================================================
+   It answers four questions in the order a preparer asks them: what is required, what has been
+   provided, what is missing or stale, and what each item actually supports. Dense control rows
+   in the module's own grammar — no upload dashboard, no drop zone, no folder tree, no cards. */
+let rcAddSup=null;   // the in-panel Add-support draft, or null
+
+function rcEvIcon(k){ return glEsc(k||'DOC'); }
+function rcSupRow(r){
+  const st=RC_EV_ST[r.state]||{l:r.state,c:''};
+  const req=r.requirement;
+  const first=r.evidence[0];
+  const ev=first?first.ev:null, ver=first?first.ver:null;
+  const drift=first&&first.state&&first.state.drift?first.state.drift:[];
+  const what=first
+    ? (RC_REL_TYPES[first.rel.relationshipType]||{l:first.rel.relationshipType}).l
+      +(first.rel.rollforwardComponentId?' · '+glEsc(String(first.rel.rollforwardComponentId)
+        .replace(/_/g,' ').toLowerCase()):'')
+    : (RC_REL_TYPES[req.requiredFor]||{l:req.requiredFor}).l;
+  const amt=first&&first.rel.supportedAmount!=null
+    ? rcM(first.rel.supportedAmount) : (ev&&ev.supportedAmount!=null?rcM(ev.supportedAmount):null);
+  return '<div class="rcx-ev'+(r.state==='missing'?' bad':(r.state==='current'?'':' warn'))+'"'
+    +(ev?' role="button" tabindex="0" onclick="rcOpenDrill(\'ev\',\''+glEsc(ev.evidenceId)
+      +'\',\''+glEsc(rcSel||'')+'\')"':'')+'>'
+    +'<span class="n">'+glEsc(req.name)+'</span>'
+    +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
+    +'<span class="m">'+(ev
+        ? glEsc(ev.generated?'Korvyn generated':(RC_EV_CLASS[ev.evidenceClass]||{l:''}).l)
+          +(ver&&ver.fileName?' · <span class="mono">'+glEsc(ver.fileName)+'</span>':'')
+          +(ver?' · v'+ver.version:'')
+        : '<span class="rcx-req">Required &#183; not provided</span>')+'</span>'
+    +'<span class="w">Supports: '+what+(amt?' &#183; '+amt:'')+'</span>'
+    +(drift.length?'<span class="d">'+glEsc(drift.map(d=>d.label).join(', '))
+      +' changed after this was published</span>':'')
+    +(r.note&&!ev?'<span class="d">'+glEsc(r.note)+'</span>':'')
+    +'</div>';
+}
 function rcSupTab(def,inst){
-  const rows=rcSupportRows(def);
-  const st=s=>'<span class="rcx-sup '+s+'">'+(RC_SUP_ST[s]||{l:s}).l+'</span>';
-  return '<div class="amp-sec">Required support</div>'
-    +'<div class="rcx-sup-l">'+rows.map(r=>'<div class="rcx-sup-r">'
-      +'<span class="t">'+glEsc(r.label)+'</span>'
-      +'<span class="s">'+(r.source==='DERIVED'?'Derived by Korvyn':'Document required')+'</span>'
-      +st(r.state)+'</div>').join('')+'</div>'
-    +rcRow('Support status',rcPill(RC_SUPPORT,inst.supportStatus))
-    +'<div class="amp-sec">Supplemental support</div>'
-    +'<div class="amp-empty">None. Supplemental attachments, versioning and the Add support '
-    +'workflow arrive in R4.</div>'
-    /* R2.1 §31/§32 — "R4" is our roadmap vocabulary, not the product's. The control states the
-       PHASE OF THE PRODUCT it belongs to, and it cannot be pressed: nothing here may imply that
-       evidence was attached. */
-    +'<div class="amp-acts"><button class="btn-out sm" disabled'
-    +' title="Available in the Support &amp; Evidence phase">Add support</button>'
-    +'<span class="rcx-phase">Support &amp; Evidence phase</span></div>'
-    +'<div class="enr-immut">A support REQUIREMENT is not an attachment. "Project roll-forward '
-    +'is required and has not been provided" is a control statement that exists before any file '
-    +'does, which is why this tab lists requirements and their state rather than a folder.</div>';
+  const p=inst.periodId, dId=def.reconciliationDefinitionId;
+  const g=rcSupportGraph(def,p,inst.reportingLensId,inst);
+  let o='<div class="amp-sec">Required support</div>'
+    +'<div class="rcx-supbar"><span class="k">'+g.satisfiedCount+' of '+g.requiredCount
+    +' required support items current</span>'
+    +'<span class="v"><span class="pill '+((RC_SUPPORT[inst.supportStatus]||{}).c||'')+' sm">'
+    +glEsc((RC_SUPPORT[inst.supportStatus]||{l:inst.supportStatus}).l)+'</span></span></div>'
+    +'<div class="rcx-evl">'+g.requirements.map(rcSupRow).join('')+'</div>';
+  o+='<div class="amp-sec">Supplemental support</div>';
+  o+=g.supplemental.length
+    ? '<div class="rcx-evl">'+g.supplemental.map(x=>{
+        const st=RC_EV_ST[x.state.state]||{l:x.state.state,c:''};
+        return '<div class="rcx-ev" role="button" tabindex="0" onclick="rcOpenDrill(\'ev\',\''
+          +glEsc(x.ev.evidenceId)+'\',\''+dId+'\')">'
+          +'<span class="n">'+glEsc(x.ev.title)+'</span>'
+          +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
+          +'<span class="m">'+glEsc((RC_EV_CLASS[x.ev.evidenceClass]||{l:''}).l)
+          +(x.ver&&x.ver.fileName?' · <span class="mono">'+glEsc(x.ver.fileName)+'</span>':'')
+          +'</span>'
+          +'<span class="w">'+glEsc(x.ev.description||'')+'</span></div>';}).join('')+'</div>'
+    : '<div class="amp-empty">None attached.</div>';
+  o+=rcAddSupPanel(def,inst);
+  o+='<div class="enr-immut">A support REQUIREMENT is not an attachment. Korvyn holds the '
+    +'governed populations itself, so nobody uploads a trial balance; what a preparer provides '
+    +'is the judgement a ledger cannot carry &#8212; a roll-forward, a schedule, an agreement '
+    +'&#8212; and each one records what it substantiates, not merely that it exists.</div>';
+  return o;
+}
+
+/* ---- "+ ADD SUPPORT" (§8). Four steps, in the panel, in the module's own controls. Not a
+   modal, not a wizard: the period, scope and reporting lens are the reconciliation's own and
+   are never re-asked. */
+function rcAddSupOpen(defId){
+  const def=rcDef(defId); if(!def) return;
+  rcAddSup={defId, step:1, source:null, evidenceId:null, file:null,
+    rel:null, component:null, requirementId:null, desc:'', owner:def.preparerUserId,
+    amount:null};
+  renderAll();
+}
+function rcAddSupSet(k,v){ if(!rcAddSup) return;
+  rcAddSup[k]=v;
+  if(k==='source'&&v!=='LINK_EXISTING') rcAddSup.evidenceId=null;
+  if(k==='rel'&&v!=='SPECIFIC_ACTIVITY_COMPONENT') rcAddSup.component=null;
+  try{ KFX.popClose(); }catch(e){}
+  renderAll(); }
+function rcAddSupStep(n){ if(rcAddSup){ rcAddSup.step=n; renderAll(); } }
+function rcAddSupCancel(){ rcAddSup=null; renderAll(); }
+/* the requirement a chosen relationship type answers, if any — so a preparer never has to pick
+   the requirement AND the thing it supports and keep them consistent */
+function rcAddSupReq(def,rel,component){
+  const reqs=rcRequirements(def);
+  const m=reqs.filter(r=>!r.generated&&r.requiredFor===rel);
+  if(!m.length) return null;
+  if(component){ const c=m.find(r=>r.applicableComponentType===component); if(c) return c; }
+  return m[0];
+}
+function rcAddSupSave(){
+  if(!rcAddSup) return;
+  const d=rcAddSup, def=rcDef(d.defId); if(!def) return;
+  const p=viewPeriod(), L=rcLens();
+  const req=rcAddSupReq(def,d.rel,d.component);
+  let eid=d.evidenceId;
+  /* TEST 6 — REUSING AN EVIDENCE OBJECT MUST NOT DUPLICATE IT. Linking an existing item creates
+     a RELATIONSHIP and nothing else; the object, its owner and its version history stay single. */
+  if(!eid){
+    eid=evNextId('EV');
+    const vid=eid+'-v1';
+    EVIDENCE[eid]={evidenceId:eid,
+      title:d.file||(req?req.name:'Support')+' — '+perLabel(p),
+      evidenceClass:d.source==='LINK_SOURCE'?'SOURCE_REPORT'
+        :d.source==='LINK_KORVYN'?'KORVYN_OBJECT'
+        :d.source==='EXCEL_PUBLISH'?'EXCEL_ARTIFACT'
+        :(req?'REQUIRED_SUPPORT':'SUPPLEMENTAL_SUPPORT'),
+      sourceType:d.source, generated:0,
+      ownerUserId:d.owner, ownerTeamId:def.ownerTeamId,
+      period:null, scope:null, reportingLensId:null, currency:null,
+      status:'ACTIVE', createdAt:rcNowStamp(), createdBy:rcPerson(USER_ROLE?d.owner:d.owner).nm,
+      sourceSystem:d.source==='UPLOAD'?'Uploaded':'Linked', sourceReference:null,
+      description:d.desc||null, lineageMetadata:{addedFrom:'Reconciliations'},
+      currentVersionId:vid,
+      versions:[{evidenceVersionId:vid, evidenceId:eid, version:1,
+        fileName:d.file||null, fileKind:(d.file||'').split('.').pop().toUpperCase()||'DOC',
+        sourceFingerprint:null, dataAsOf:rcNowStamp(), uploadedAt:rcNowStamp(),
+        uploadedBy:rcPerson(d.owner).nm, amountSupported:d.amount,
+        populationFingerprint:null, status:'current', supersedesVersionId:null}]};
+  }
+  const ev=EVIDENCE[eid];
+  EV_RELS.push({evidenceRelationshipId:evNextId('ER'),
+    evidenceId:eid, evidenceVersionId:ev.currentVersionId,
+    reconciliationInstanceId:d.defId+'-'+p,
+    supportRequirementId:req?req.supportRequirementId:null,
+    relationshipType:d.rel, rollforwardComponentId:d.component||null,
+    activityPopulationId:null, exceptionId:null,
+    supportedAmount:d.amount, supportedPopulationId:null,
+    period:p, scope:ENTCTX.scope.id, reportingLensId:L.reportingLensId,
+    createdBy:rcPerson(d.owner).nm, createdAt:rcNowStamp()});
+  rcAddSup=null; renderAll();
+}
+const rcNowStamp=()=>{const n=perParts(perAdd(viewPeriod(),1));
+  return PMN[n.m]+' 3, '+n.y+' · '+new Date().getHours().toString().padStart(2,'0')+':'
+    +new Date().getMinutes().toString().padStart(2,'0');};
+
+const RC_ADD_SOURCES=[
+  ['UPLOAD','Upload a file','a document or workbook from this machine'],
+  ['LINK_EXISTING','Link existing Korvyn evidence','reuse an item already in Korvyn'],
+  ['LINK_SOURCE','Link a source / ERP report','a report the connected system publishes'],
+  ['LINK_KORVYN','Link a Korvyn object','a governed population, schedule or adjustment'],
+  ['EXCEL_PUBLISH','Publish from Excel','a governed workbook published into Korvyn'],
+];
+function rcAddSupPanel(def,inst){
+  const dId=def.reconciliationDefinitionId;
+  if(!rcAddSup||rcAddSup.defId!==dId)
+    return '<div class="amp-acts"><button class="btn-out sm" onclick="rcAddSupOpen(\''+dId+'\')">'
+      +'+ Add support</button></div>';
+  const d=rcAddSup, p=inst.periodId, L=rcLens(inst.reportingLensId);
+  const step=(n,t)=>'<button class="rcx-step'+(d.step===n?' on':'')+(d.step>n?' done':'')+'"'
+    +' onclick="rcAddSupStep('+n+')">'+n+'. '+t+'</button>';
+  let o='<div class="rcx-add"><div class="rcx-steps">'
+    +step(1,'Source')+step(2,'What it supports')+step(3,'Detail')+'</div>';
+  if(d.step===1){
+    o+='<div class="rcx-evl">'+RC_ADD_SOURCES.map(([k,t,s])=>{
+      const off=(k==='EXCEL_PUBLISH');
+      return '<div class="rcx-ev'+(d.source===k?' on':'')+(off?' off':'')+'"'
+        +(off?' title="Available in the Excel phase"'
+            :' role="button" tabindex="0" onclick="rcAddSupSet(\'source\',\''+k+'\')"')+'>'
+        +'<span class="n">'+glEsc(t)+'</span>'
+        +'<span class="w">'+glEsc(s)+(off?' · Excel phase':'')+'</span></div>';}).join('')+'</div>';
+    if(d.source==='UPLOAD')
+      o+='<div class="amp-f"><span>File</span><input class="rcx-q" type="text" '
+        +'placeholder="Project-Rollforward-2026-06.xlsx" value="'+glEsc(d.file||'')+'" '
+        +'oninput="rcAddSup.file=this.value"></div>'
+        +'<div class="rcx-why">A prototype records the file name and its version; no bytes are '
+        +'stored and nothing is transmitted anywhere.</div>';
+    if(d.source==='LINK_EXISTING'){
+      const others=Object.values(EVIDENCE).filter(e=>!e.generated);
+      o+='<div class="rcx-evl">'+(others.length?others.map(e=>
+        '<div class="rcx-ev'+(d.evidenceId===e.evidenceId?' on':'')+'" role="button" tabindex="0"'
+        +' onclick="rcAddSupSet(\'evidenceId\',\''+glEsc(e.evidenceId)+'\')">'
+        +'<span class="n">'+glEsc(e.title)+'</span>'
+        +'<span class="m">'+glEsc((RC_EV_CLASS[e.evidenceClass]||{l:''}).l)+' · v'
+        +e.versions.length+'</span>'
+        +'<span class="w">'+glEsc(e.description||'')+'</span></div>').join('')
+        :'<div class="amp-empty">No reusable evidence yet.</div>')+'</div>'
+        +'<div class="rcx-why">Linking an existing item creates a relationship. The evidence '
+        +'object, its owner and its version history stay single &#8212; it is never copied.</div>';
+    }
+    if(d.source==='LINK_SOURCE'||d.source==='LINK_KORVYN'){
+      const srcs=(inst.sources||[]).filter(s=>s.role!=='LEDGER');
+      o+='<div class="rcx-evl">'+(srcs.length?srcs.map(s=>
+        '<div class="rcx-ev" role="button" tabindex="0" onclick="rcAddSupSet(\'file\',\''
+        +glEsc(s.sourceReference||s.systemName)+'\')">'
+        +'<span class="n">'+glEsc(s.systemName)+'</span>'
+        +'<span class="m">'+glEsc((RC_SRC_TYPES[s.sourceType]||{l:s.sourceType}).l)+'</span>'
+        +'<span class="w"><span class="mono">'+glEsc(s.sourceReference||'')+'</span></span></div>')
+        .join(''):'<div class="amp-empty">This reconciliation has no connected proof source.</div>')
+        +'</div>';
+    }
+    o+='<div class="amp-acts"><button class="btn-primary sm"'
+      +(d.source&&(d.source!=='LINK_EXISTING'||d.evidenceId)?'':' disabled')
+      +' onclick="rcAddSupStep(2)">Next</button>'
+      +'<button class="btn-out sm" onclick="rcAddSupCancel()">Cancel</button></div>';
+  }
+  else if(d.step===2){
+    o+='<div class="rcx-evl">'+Object.keys(RC_REL_TYPES).map(k=>
+      '<div class="rcx-ev'+(d.rel===k?' on':'')+'" role="button" tabindex="0"'
+      +' onclick="rcAddSupSet(\'rel\',\''+k+'\')">'
+      +'<span class="n">'+glEsc(RC_REL_TYPES[k].l)+'</span></div>').join('')+'</div>';
+    if(d.rel==='SPECIFIC_ACTIVITY_COMPONENT'){
+      const comps=(inst.components||[]).map(c=>c.componentType)
+        .concat(['TRANSFERS','CAPITALIZED_INTEREST','DEPRECIATION'])
+        .filter((v,i,a)=>a.indexOf(v)===i);
+      o+='<div class="amp-sec">Which component</div><div class="rcx-evl">'
+        +comps.map(c=>'<div class="rcx-ev'+(d.component===c?' on':'')+'" role="button"'
+        +' tabindex="0" onclick="rcAddSupSet(\'component\',\''+glEsc(c)+'\')">'
+        +'<span class="n">'+glEsc(String(c).replace(/_/g,' ').toLowerCase())+'</span></div>')
+        .join('')+'</div>';
+    }
+    const req=rcAddSupReq(def,d.rel,d.component);
+    if(d.rel) o+='<div class="rcx-why">'+(req
+      ? 'This will satisfy the required support item <b>'+glEsc(req.name)+'</b>.'
+      : 'No required support item asks for this, so it will be recorded as supplemental support.')
+      +'</div>';
+    o+='<div class="amp-acts"><button class="btn-primary sm"'+(d.rel?'':' disabled')
+      +' onclick="rcAddSupStep(3)">Next</button>'
+      +'<button class="btn-out sm" onclick="rcAddSupStep(1)">Back</button>'
+      +'<button class="btn-out sm" onclick="rcAddSupCancel()">Cancel</button></div>';
+  }
+  else {
+    o+='<div class="amp-f"><span>Description</span><input class="rcx-q" type="text" '
+      +'placeholder="What this substantiates and why" value="'+glEsc(d.desc||'')+'" '
+      +'oninput="rcAddSup.desc=this.value"></div>'
+      +'<div class="amp-f"><span>Supported amount</span><input class="rcx-q" type="text" '
+      +'placeholder="optional" value="'+(d.amount==null?'':d.amount)+'" '
+      +'oninput="rcAddSup.amount=this.value===\'\'?null:parseFloat(this.value)"></div>'
+      /* §8 — THE CONTEXT IS INHERITED AND IS NOT RE-ASKED. Period, scope and lens belong to the
+         reconciliation; making a preparer retype them is how a relationship ends up filed
+         against a context nobody chose. */
+      +'<div class="amp-sec">Inherited context</div>'
+      +rcRow('Period',glEsc(perLabel(p)))
+      +rcRow('Scope',glEsc(ENTCTX.scope.name))
+      +rcRow('Reporting lens',glEsc(L.name)+' <span class="amap-dim">'
+        +glEsc(L.presentationCurrency)+' · '+glEsc(rcBasisLabel(L.reportingBasis))+'</span>')
+      +rcRow('Owner',glEsc(rcPerson(d.owner).nm))
+      +'<div class="amp-acts"><button class="btn-primary sm" onclick="rcAddSupSave()">'
+      +'Add support</button>'
+      +'<button class="btn-out sm" onclick="rcAddSupStep(2)">Back</button>'
+      +'<button class="btn-out sm" onclick="rcAddSupCancel()">Cancel</button></div>';
+  }
+  return o+'</div>';
+}
+
+/* ---- THE EVIDENCE DETAIL AND ITS VERSIONS (§5, §9) --------------------------------------- */
+function rcEvBody(evId,defId){
+  const def=rcDef(defId)||rcDef(rcSel); if(!def) return null;
+  const p=viewPeriod(), L=rcLens();
+  const inst=rcInstance(def.reconciliationDefinitionId,p,L.reportingLensId);
+  const g=rcSupportGraph(def,p,L.reportingLensId,inst);
+  let hit=null;
+  g.requirements.forEach(r=>r.evidence.forEach(x=>{ if(x.ev.evidenceId===evId) hit=x; }));
+  g.supplemental.forEach(x=>{ if(x.ev.evidenceId===evId) hit=x; });
+  if(!hit) return null;
+  const e=hit.ev, st=RC_EV_ST[hit.state.state]||{l:hit.state.state,c:''};
+  const rels=EV_RELS.filter(r=>r.evidenceId===evId);
+  return {title:glEsc(e.title), sub:glEsc(e.generated?'Korvyn generated':e.sourceReference||''),
+    html:'<div class="amp-sec">Evidence</div>'
+      +rcRow('Status','<span class="pill '+(st.c||'')+'">'+glEsc(st.l)+'</span>')
+      +rcRow('Class',glEsc((RC_EV_CLASS[e.evidenceClass]||{l:e.evidenceClass}).l))
+      +rcRow('Source',glEsc(e.sourceSystem||'—')
+        +(e.generated?' <span class="amap-dim">resolved from governed data, not uploaded</span>':''))
+      +rcRow('Owner',glEsc(e.ownerUserId?rcPerson(e.ownerUserId).nm:'Korvyn'))
+      +rcRow('Reference','<span class="mono">'+glEsc(e.sourceReference||'—')+'</span>')
+      +(e.description?rcRow('Description',glEsc(e.description)):'')
+      +(hit.state.drift&&hit.state.drift.length
+        ? '<div class="rcx-changed"><b>Source changed after this was published.</b> '
+          +glEsc(hit.state.drift.map(d=>d.label).join(', '))
+          +' moved underneath this evidence, so the conclusion it supported needs a look. '
+          +'It is not declared wrong &#8212; the author has to decide.</div>' : '')
+      +'<div class="amp-sec">What it supports</div>'
+      +(rels.length?rels.map(r=>'<div class="rcx-ev">'
+        +'<span class="n">'+glEsc((RC_REL_TYPES[r.relationshipType]||{l:r.relationshipType}).l)
+        +(r.rollforwardComponentId?' · '+glEsc(String(r.rollforwardComponentId)
+          .replace(/_/g,' ').toLowerCase()):'')+'</span>'
+        +'<span class="m">'+glEsc(r.reconciliationInstanceId)+'</span>'
+        +'<span class="w">'+glEsc(perLabel(r.period))+' · '
+        +glEsc(rcLens(r.reportingLensId).name)
+        +(r.supportedAmount!=null?' · '+rcM(r.supportedAmount):'')+'</span></div>').join('')
+        : '<div class="rcx-ev"><span class="n">'
+          +glEsc((RC_REL_TYPES[e.relationshipType]||{l:e.relationshipType||'—'}).l)+'</span>'
+          +'<span class="w">generated for this reconciliation</span></div>')
+      +'<div class="rcx-jenote">This is the evidence graph, and it reads both ways: an auditor '
+      +'asks what supports a balance, a preparer asks where else a workpaper is relied on.</div>'
+      +'<div class="amp-sec">Versions</div>'
+      +'<div class="rcx-wrap"><table class="tbl rcx-tbl"><thead><tr>'
+      +'<th class="rcx-nm">Version</th><th>File / population</th><th>Published</th>'
+      +'<th>By</th><th>Status</th></tr></thead><tbody>'
+      +e.versions.map(v=>'<tr'+(v.evidenceVersionId===e.currentVersionId?' class="here"':'')+'>'
+        +'<td class="rcx-nm"><span class="t">v'+v.version+'</span>'
+        +(v.supersedesVersionId?'<span class="rcx-acctsrc">supersedes v'+(v.version-1)+'</span>':'')
+        +'</td>'
+        +'<td class="mono">'+glEsc(v.fileName||v.populationFingerprint||'—')+'</td>'
+        +'<td>'+glEsc(v.uploadedAt||'—')+'</td>'
+        +'<td>'+glEsc(v.uploadedBy||'—')+'</td>'
+        +'<td>'+glEsc((RC_EV_ST[v.status]||{l:v.status}).l)+'</td></tr>').join('')
+      +'</tbody></table></div>'
+      +'<div class="rcx-jenote"><b>A version consumed by an approval is never replaced.</b> '
+      +'Publishing again creates v2 and marks v1 superseded; v1 stays readable, because the '
+      +'conclusion that relied on it has to remain reproducible.</div>'
+      +(e.generated?'':'<div class="amp-acts"><button class="btn-out sm" onclick="rcEvNewVersion(\''
+        +glEsc(evId)+'\')">Publish new version</button></div>')};
+}
+/* §5, TEST 7 — v1 IS IMMUTABLE. A new version supersedes it; it is not overwritten. */
+function rcEvNewVersion(evId){
+  const e=EVIDENCE[evId]; if(!e) return;
+  const prev=e.versions[e.versions.length-1];
+  prev.status='superseded';
+  const vid=evId+'-v'+(prev.version+1);
+  e.versions.push({evidenceVersionId:vid, evidenceId:evId, version:prev.version+1,
+    fileName:prev.fileName, fileKind:prev.fileKind,
+    sourceFingerprint:null, dataAsOf:rcNowStamp(), uploadedAt:rcNowStamp(),
+    uploadedBy:rcPerson(e.ownerUserId).nm, amountSupported:prev.amountSupported,
+    populationFingerprint:null, status:'current', supersedesVersionId:prev.evidenceVersionId});
+  e.currentVersionId=vid;
+  /* every relationship pointing at the old version now points at the new one; the old version
+     object itself is untouched and stays in the history */
+  EV_RELS.forEach(r=>{ if(r.evidenceId===evId&&r.evidenceVersionId===prev.evidenceVersionId)
+    r.evidenceVersionId=vid; });
+  renderAll();
 }
 
 /* ---- REVIEW (§33). Who prepares, who reviews, when it is due, where it stands. The stage
@@ -41701,6 +42749,13 @@ function rcTraceTab(def,inst){
     +rcMethodTrace(def,inst)
     +'<div class="amp-sec">How this balance is built</div>'
     +'<div class="amp-tr">'+nodes.join(down)+'</div>'
+    /* R4 §18 — THE EVIDENCE LEG BELONGS IN THE READABLE HALF OF THE TRACE. It was appended
+       to `rcMethodTrace`, which returns nothing at all on a balance roll-forward, so on CIP —
+       the reference implementation — it rendered on no screen. It is also the wrong place on
+       the methods where it did render: what substantiates a conclusion is accounting, not
+       technical lineage, so it reads after HOW THIS BALANCE IS BUILT and before PROVENANCE
+       rather than behind "Show technical lineage". */
+    +rcEvidenceTrace(def,inst)
     +'<div class="amp-sec">Provenance</div>'
     +prov
     +'<div class="amp-acts"><button class="rcx-prov-b" onclick="rcTraceTog(\'lineage\')">'
@@ -43050,6 +44105,7 @@ function rcDrillPane(){
             : kind==='match'    ? rcMatchBody(txId,srcId)
             : kind==='matchset' ? rcMatchSetBody(srcId)
             : kind==='beg'      ? rcBegBody(srcId)
+            : kind==='ev'       ? rcEvBody(txId,srcId)
             : kind==='subled'   ? rcSubledBody(srcId)
             : kind==='sched'    ? rcSchedBody(srcId)
             : kind==='register' ? rcRegisterBody(srcId)
