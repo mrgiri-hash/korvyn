@@ -22438,6 +22438,42 @@ const etIsInvest=nm=>!!(nm&&CONS_INVEST[nm]);
    a fabricated 612-row tree would be worse than an honest four. */
 const ENT_TOTAL=612;
 const entTotalLabel=()=>ENT_TOTAL.toLocaleString('en-US')+' entities';
+/* ==========================================================================================
+   THE CONSOLIDATION POPULATION (2026-09-04 cleanup)
+   ==========================================================================================
+   The Financials header said "Consolidated Group · 612 entities" while the consolidation
+   status screen said "TOTAL ENTITIES 4" — the modelled book presented as the whole enterprise,
+   which reads as a four-entity company however carefully the rest of the surface is built.
+
+   THE FOUR MODELLED ENTITIES ARE AN EXCEPTION SUBSET, NOT THE POPULATION. All four are
+   currently blocked, so they are exactly what a consolidation control tower should have on
+   screen; what was missing is the population they are a subset OF.
+
+   The counts below are AUTHORED AGGREGATES for the entities NOT modelled in detail — the same
+   device ORG_NODES already uses, where "leaves carry an authored number, so 612 is a sum and
+   not a claim". They are deliberately NOT a scaling of the four modelled entities: that is the
+   RECON_SCALE mistake, and four blocked entities scaled to 612 would report an enterprise in
+   total failure. `csxPopulation()` adds the modelled entities' OWN states to these, so the
+   rows on screen are genuinely inside the totals above them and "4 shown of 23 blocked" is
+   arithmetic rather than a caption. */
+const CONS_POP_OTHER={ready:548, prog:41, blocked:19, submitted:571};
+function csxPopulation(){
+  const K=csxKpi(), O=CONS_POP_OTHER;
+  const modelled=CONS_ORDER.length;
+  const total=O.ready+O.prog+O.blocked+modelled;      // 608 + 4 = ENT_TOTAL
+  return {
+    total, modelled, enterprise:ENT_TOTAL,
+    ready:O.ready+K.ready.length,
+    prog:O.prog+K.prog.length,
+    blocked:O.blocked+K.blocked.length,
+    submitted:O.submitted+K.submitted.length,
+    /* what the rows beneath actually show, so the label can state it exactly */
+    shownBlocked:K.blocked.length, shownProg:K.prog.length, shownReady:K.ready.length,
+    /* the control: the authored remainder plus the modelled book must be the enterprise */
+    reconciles:total===ENT_TOTAL,
+  };
+}
+const csxPopPct=(n,d)=>d?Math.round(n/d*100):0;
 const etLabel=()=>F.entity&&F.entity!=='all'?F.entity:'Consolidated Group';
 /** Ownership as the tree states it. The parent is the top of the structure, not a holding
     in itself, so it reads Parent rather than a percentage. */
@@ -25287,23 +25323,25 @@ function csxFilterBar(){
 
 // ---------------- 1. Status: the control tower ----------------
 function csvStatus(){
-  const K=csxKpi(), E=K.E;
+  const K=csxKpi(), E=K.E, POP=csxPopulation();
+  /* THE HEADLINE IS THE POPULATION, NOT THE MODELLED BOOK. The four entity rows below are the
+     exception subset inside these counts, and they say so. */
   let o=`<div class="kpis">
     <div class="kpi lenshi"><div class="kpi-ic"><span class="kpi-chip chip-blue">${glIc('M2.5 3.5h11v9h-11zM2.5 6.5h11')}</span>
-      <div><div class="k" style="margin:0">Total entities</div><div class="v">${E.length}</div></div></div>
-      <div class="d">${CONS_REGIONS.length} regions &#183; ${[...new Set(CONS_ORDER.map(n=>CONS_ENT[n].ctry))].length} countries</div>
+      <div><div class="k" style="margin:0">Total entities</div><div class="v">${POP.total.toLocaleString('en-US')}</div></div></div>
+      <div class="d">${glEsc(ENTCTX.scope.name)} &#183; ${POP.modelled} modelled in detail</div>
       <span class="askai" onclick="csDrill('entities')">${glIc('M6 3l5 5-5 5')}Entity readiness</span></div>
     <div class="kpi good"><div class="kpi-ic"><span class="kpi-chip chip-green">${glIc('M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5')}</span>
-      <div><div class="k" style="margin:0">Ready</div><div class="v">${K.ready.length}</div></div></div>
-      <div class="d">no open blockers</div>
+      <div><div class="k" style="margin:0">Ready</div><div class="v">${POP.ready.toLocaleString('en-US')}</div></div></div>
+      <div class="d">no open blockers &#183; ${csxPopPct(POP.ready,POP.total)}% of the population</div>
       <span class="askai" onclick="csDrill('entities','ready')">${glIc('M6 3l5 5-5 5')}Show ready</span></div>
     <div class="kpi warn"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2')}</span>
-      <div><div class="k" style="margin:0">In progress</div><div class="v">${K.prog.length}</div></div></div>
+      <div><div class="k" style="margin:0">In progress</div><div class="v">${POP.prog.toLocaleString('en-US')}</div></div></div>
       <div class="d">open, not blocked</div>
       <span class="askai" onclick="csDrill('entities','prog')">${glIc('M6 3l5 5-5 5')}Show in progress</span></div>
-    <div class="kpi ${K.blocked.length?'flag':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M8 2.5L14.5 13.5h-13zM8 6.5v3')}</span>
-      <div><div class="k" style="margin:0">Blocked</div><div class="v">${K.blocked.length}</div></div></div>
-      <div class="d">critical blockers open</div>
+    <div class="kpi ${POP.blocked?'flag':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-amber">${glIc('M8 2.5L14.5 13.5h-13zM8 6.5v3')}</span>
+      <div><div class="k" style="margin:0">Blocked</div><div class="v">${POP.blocked.toLocaleString('en-US')}</div></div></div>
+      <div class="d">critical blockers open &#183; ${POP.shownBlocked} shown below</div>
       <span class="askai" onclick="csDrill('entities','blocked')">${glIc('M6 3l5 5-5 5')}Show blocked</span></div>
     <div class="kpi ${K.elimLeft?'warn':'good'}"><div class="kpi-ic"><span class="kpi-chip chip-purple">${glIc('M8 2v12M3 5h10M3 11h10')}</span>
       <div><div class="k" style="margin:0">Eliminations remaining</div><div class="v">${K.elimLeft}</div></div></div>
@@ -25321,8 +25359,9 @@ function csvStatus(){
       <span class="cardlink" onclick="csDrill('excep')">What is holding it down</span></h2>
       <div class="donut-wrap">${glDonut(K.score,150,'readiness')}
         <div style="flex:1;min-width:180px">
-          <div class="subhead" style="margin-bottom:10px">Weighted across the six gates every entity must clear.
-            The score falls automatically as any gate slips.</div>
+          <div class="subhead" style="margin-bottom:10px">Weighted across the six gates every entity must clear,
+            over the ${POP.modelled} entities modelled in detail. The score falls automatically as any
+            gate slips.</div>
           ${['Close','Reconciliations','Intercompany','Translation','Submission','Elimination'].map(k=>{
             const v=Math.round(E.reduce((s,e)=>s+(e.parts.find(p=>p.k===k)||{v:0}).v,0)/E.length);
             const w=Math.round((E[0].parts.find(p=>p.k===k)||{w:0}).w*100);
@@ -25333,24 +25372,28 @@ function csvStatus(){
               <span class="ic-mini" style="color:var(--hint)">w ${w}%</span></div>`;}).join('')}
         </div></div></div>
     <div class="card" style="margin:0"><h2>Financial statement completion</h2>
-      <div class="donut-wrap">${glDonut(K.fsPct,150,'complete')}
+      <div class="donut-wrap">${glDonut(csxPopPct(POP.submitted,POP.total),150,'complete')}
         <div style="flex:1;min-width:150px">${glLegend([
-          ['Submitted &amp; eliminated',K.submitted.length,'var(--pos)'],
-          ['Open',E.length-K.submitted.length,'var(--warn)']])}
+          ['Submitted &amp; eliminated',POP.submitted,'var(--pos)'],
+          ['Open',POP.total-POP.submitted,'var(--warn)']])}
         <div class="note" style="margin-top:10px">Consolidated statements cannot be issued until every
           entity has submitted and its eliminations have cleared.</div>
         <div class="cardfoot" style="margin-top:10px"><span class="extlink" onclick="csDrill('results')">Consolidated results</span>
           <span class="extlink" onclick="pickTab('finrep')">Financial reporting</span></div></div></div></div>
   </div>`;
 
-  // entity hierarchy
-  o+=`<div class="card"><h2>Entity readiness<span class="note">${E.length} legal entities &#183; as of Jun 30, 2026</span>
+  // entity hierarchy — the exception subset, named as one
+  o+=`<div class="card"><h2>Highest-priority exceptions<span class="note">${E.length} of
+      ${POP.blocked.toLocaleString('en-US')} blocked entities shown &#183; as of ${perEnd(viewPeriod())}</span>
       <span class="cardlink" onclick="csDrill('entities')">Full detail</span></h2>
-    <div class="subhead">Parent, region, country, legal entity. Status rolls up from Close,
-      Reconciliations and Intercompany — this page does not keep its own copy of those.</div>
+    <div class="subhead">The entities carrying the largest open blockers, out of a consolidation
+      population of ${POP.total.toLocaleString('en-US')}. Parent, region, country, legal entity;
+      status rolls up from Close, Reconciliations and Intercompany — this page does not keep its
+      own copy of those.</div>
     ${csxHierarchy(E)}
-    <div class="cardfoot">${K.ready.length} ready &#183; ${K.prog.length} in progress &#183;
-      ${K.blocked.length} blocked
+    <div class="cardfoot">Population: ${POP.ready.toLocaleString('en-US')} ready &#183;
+      ${POP.prog.toLocaleString('en-US')} in progress &#183;
+      ${POP.blocked.toLocaleString('en-US')} blocked
       <span class="cardlink" onclick="pickTab('acctover')">Accounting overview</span></div></div>`;
 
   // since yesterday
@@ -25397,9 +25440,11 @@ function csxHierarchy(E){
 function csvEntities(){
   const E=csxScope();
   let o=csxFilterBar();
-  o+=`<div class="card"><h2>Entity readiness<span class="note">${E.length} of ${CONS_ORDER.length} shown</span></h2>
-    <div class="subhead">Every column is a roll-up of a module that already owns that number.
-      Click an entity to see why it is not ready.</div>
+  o+=`<div class="card"><h2>Entity readiness<span class="note">${E.length} shown of
+      ${csxPopulation().total.toLocaleString('en-US')} in the consolidation population</span></h2>
+    <div class="subhead">The entities modelled in detail — an exception subset, not the whole
+      population. Every column is a roll-up of a module that already owns that number. Click an
+      entity to see why it is not ready.</div>
     <table class="tbl"><thead><tr><th>Entity</th><th>Region / country</th><th>Functional</th>
       <th>Close</th><th>Recs</th><th>Intercompany</th><th>Translation</th><th>Score</th>
       <th>Status</th><th>Reviewer</th></tr></thead><tbody>
@@ -25801,7 +25846,12 @@ function consolPerimeter(k,lensId){
     population:L&&L.population?L.population:null,
     populationLabel:L?L.populationLabel:'entities',
     included, excluded,
-    entitiesIncluded:included.length, entitiesExcluded:excluded.length,
+    /* THE PERIMETER IS THE POPULATION, NOT THE MODELLED BOOK (2026-09-04 cleanup). `included`
+       is the four entities carried in full detail; `entitiesIncluded` is how many entities the
+       consolidation actually spans, so a header reading "4 entities" beside a scope chip
+       reading "612 entities" is no longer possible. */
+    entitiesIncluded:(typeof csxPopulation==='function')?csxPopulation().total:included.length,
+    entitiesExcluded:excluded.length,
     modelled:included.length,
   };
 }
@@ -25979,7 +26029,9 @@ function consolRun(k,lensId){
     hierarchyId:P.hierarchyId, hierarchyVersion:P.hierarchyVersion,
     presentationCurrency:P.presentationCurrency,
     entitiesIncluded:P.entitiesIncluded, entitiesExcluded:P.entitiesExcluded,
-    entitiesReady:E.filter(e=>e.st==='ready').length,
+    /* the population's ready count, so "N of M entities ready" is the same M the perimeter,
+       the header and the scope chip all state */
+    entitiesReady:csxPopulation().ready, entitiesModelled:P.modelled,
     status, st:CONSOL_RUN_ST[status], pct:K.score,
     elimination:comp, cta:K.cta, blocking, perimeter:P,
     why:status==='COMPLETE'?'Every entity in the perimeter has submitted, translated and '+
@@ -26006,7 +26058,8 @@ function csvPerimeter(){
   const pct=v=>v==null?'&#8212;':(v*100).toFixed(v*100%1?1:0)+'%';
   let o=`<div class="statrow">
     <div class="stat"><div class="sl">Consolidation perimeter</div>
-      <div class="sv">${P.entitiesIncluded}</div><div class="sd">entities consolidated</div></div>
+      <div class="sv">${P.entitiesIncluded.toLocaleString('en-US')}</div>
+      <div class="sd">entities consolidated · ${P.modelled} modelled in detail</div></div>
     <div class="stat"><div class="sl">Outside the perimeter</div>
       <div class="sv">${P.entitiesExcluded}</div><div class="sd">equity-method holdings</div></div>
     <div class="stat"><div class="sl">Non-controlling interest</div>
@@ -26015,11 +26068,13 @@ function csvPerimeter(){
       <div class="sv">${glEsc(R.st.l)}</div><div class="sd">${glEsc(R.runId)}</div></div>
   </div>`;
   o+=`<div class="card"><h2>Consolidated entities
-      <span class="note">${glEsc(P.lensName)} &#183; ${glEsc(P.consolidationRuleSetId)}</span></h2>
-    <div class="subhead">An entity is inside the perimeter because its consolidation METHOD
-      places it there, not because a second list names it. Ownership and contribution are
-      different facts and are shown as such: contribution is the entity&#8217;s slice of a
-      consolidated figure, ownership is what the group holds.</div>
+      <span class="note">${P.modelled} of ${P.entitiesIncluded.toLocaleString('en-US')} shown &#183;
+      ${glEsc(P.lensName)} &#183; ${glEsc(P.consolidationRuleSetId)}</span></h2>
+    <div class="subhead">The entities modelled in detail, out of a consolidation population of
+      ${P.entitiesIncluded.toLocaleString('en-US')}. An entity is inside the perimeter because its
+      consolidation METHOD places it there, not because a second list names it. Ownership and
+      contribution are different facts and are shown as such: contribution is the entity&#8217;s
+      slice of a consolidated figure, ownership is what the group holds.</div>
     <table class="tbl"><thead><tr><th>Entity</th><th>Country</th><th>Business unit</th>
       <th>Functional</th><th class="num">Ownership</th><th class="num">NCI</th>
       <th>Method</th><th class="num">Contribution</th><th>Basis</th></tr></thead><tbody>
@@ -26033,7 +26088,8 @@ function csvPerimeter(){
       <td class="num">${pct(e.contribution)}</td>
       <td class="ic-mini">${e.because}</td></tr>`).join('')}
     </tbody></table>
-    <div class="cardfoot">${P.entitiesIncluded} entities &#183; hierarchy
+    <div class="cardfoot">${P.entitiesIncluded.toLocaleString('en-US')} entities in the
+      consolidation population &#183; ${P.modelled} modelled in detail below &#183; hierarchy
       ${glEsc(P.hierarchyId)} v${glEsc(P.hierarchyVersion)} &#183; presented in
       ${glEsc(P.presentationCurrency)}</div></div>`;
 
@@ -26113,7 +26169,7 @@ function csvBridge(){
 
   /* the summary: every line, every step, footing to the governed consolidated amount */
   o+=`<div class="card"><h2>Entity-to-group bridge
-      <span class="note">${glEsc(P.lensName)} &#183; ${P.entitiesIncluded} entities &#183;
+      <span class="note">${glEsc(P.lensName)} &#183; ${P.entitiesIncluded.toLocaleString('en-US')} entities &#183;
       ${glEsc(P.presentationCurrency)}</span></h2>
     <div class="subhead">Entity trial balances, translated, less intercompany eliminations and
       ownership effects, give the group trial balance; the governed reporting adjustments give
@@ -26145,7 +26201,12 @@ function csvBridge(){
 
   /* the selected line, entity by entity, with the translation stated where it happens */
   o+=`<div class="card"><h2>${B.financialLineName}
-      <span class="note">entity composition &#183; ${glEsc(perEnd(k))}</span></h2>
+      <span class="note">entity composition &#183; ${P.modelled} reporting entities &#183;
+      ${glEsc(perEnd(k))}</span></h2>
+    <div class="subhead">The line's composition across the reporting entities modelled in
+      detail. The ${P.entitiesIncluded.toLocaleString('en-US')}-entity population rolls into
+      these through the consolidation hierarchy; the bridge below is the same either way,
+      because Korvyn holds one governed amount per line.</div>
     <table class="tbl"><thead><tr><th>Entity</th><th>Functional</th>
       <th class="num">Functional balance</th><th class="num">Rate</th>
       <th class="num">${glEsc(P.presentationCurrency)} balance</th>
@@ -26238,7 +26299,7 @@ function fnConsolBar(){
       +glEsc(v[1])+'</button>').join('')
     +'</div><span class="grow"></span>'
     +'<span class="fsx-st '+(R.st.c||'')+'" title="'+glEsc(R.why)+'">'+glEsc(R.st.l)+'</span>'
-    +'<span class="fsx-ready">'+glEsc(R.entitiesIncluded)+' entities · '
+    +'<span class="fsx-ready">'+R.entitiesIncluded.toLocaleString('en-US')+' entities · '
     +glEsc(R.reportingLensId)+'</span></div>';
 }
 function renderConsol(){ const el=$('view-consol'); if(el) el.innerHTML=fnConsolBody(); }
@@ -27437,10 +27498,14 @@ const RAIL_SPEC={
        architectural layer, not a thing anyone does. Account Mapping and Data Enrichment are
        GOVERNANCE — they are the versioned interpretation over the ledger, maintained on their
        own cadence, not a step in a monthly close.
-       ACCOUNT ACTIVITY STAYS BESIDE THE TRIAL BALANCE and is deliberately not a workflow step
-       (brief §3): TB is the summary, account activity is its detail, and every Trace in the
-       product drills through it. The brief leaves its placement open; this is the one place a
-       reader looks for GL detail.
+       ACCOUNT ACTIVITY IS PROOF, NOT A REVIEW STEP (2026-09-04 cleanup). It sat between
+       Trial balance and Financials, which put a drill-through surface in the middle of the
+       five-step review sequence and gave it the same weight as the steps around it. The
+       sequence is TB -> Financials -> Flux Review -> Trending -> Reconciliations and nothing
+       else; account activity is what those five DRILL INTO, reached from a Trace, an account
+       row or a population. It keeps a rail entry under LEDGER & DETAIL so a reader who wants
+       raw GL can still get there directly, deliberately below the review flow rather than
+       inside it.
        CONSOLIDATION IS NO LONGER A RAIL PEER. It moved into Financials, where it belongs:
        it establishes the population Financials presents (§3, §4). `pickTab('consol')` still
        works and lands on Financials -> Consolidation, so the ~20 deep links into it are
@@ -27449,12 +27514,13 @@ const RAIL_SPEC={
     {tab:'acctover', label:'Current Period',    ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M5.5 2v3M10.5 2v3'},
     {head:'Financial review'},
     {tab:'tb',       label:'Trial balance',     ic:'M3 2h10v12H3zM3 6h10M8 6v8'},
-    {tab:'glact',    label:'Account activity',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M5.5 9.5h5'},
     {tab:'glfin',    label:'Financials',        ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M5.5 8.5h5M5.5 11h3'},
     {tab:'finrep',   label:'Flux Review',       ic:'M3 2h7l3 3v9H3zM5 7h6M5 10h6M5 13h4'},
     {tab:'gltrend',  label:'Trending',          ic:'M2 13V3M2 13h12M4.5 10.5l3-3 2 2 3.5-4'},
     {tab:'glrecon',  label:'Reconciliations',   ic:'M3 5.5h7l-2-2M13 10.5H6l2 2',
       badge:()=>GL_RECON.filter(r=>r.st==='over').length, sev:()=>'warn'},   // overdue, at risk
+    {head:'Ledger & detail'},
+    {tab:'glact',    label:'Account activity',  ic:'M2.5 3.5h11v9h-11zM2.5 6.5h11M5.5 9.5h5'},
     {head:'Close & control'},
     {tab:'acctclose',label:'Close',             ic:'M8 14A6 6 0 108 2a6 6 0 000 12zM5.5 8l1.8 1.8L10.5 6.5',
       badge:()=>clBlocked().length, sev:()=>'block'},   // blocked tasks stop the close

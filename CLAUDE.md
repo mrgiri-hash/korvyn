@@ -5304,10 +5304,10 @@ History).
   analysis → **proof**, and proof belongs beside the thing it proves.
 - **Account Mapping and Data Enrichment are governance**: they are the versioned
   interpretation over the ledger, maintained on their own cadence, not a step in a close.
-- **Account activity stays beside the Trial balance** and is deliberately not a workflow step.
-  TB is the summary, account activity is its detail, and every Trace in the product drills
-  through it. The brief left its placement open; this is the one place a reader looks for GL
-  detail.
+- **Account activity is proof, not a review step** (corrected the same day — see the cleanup
+  note at the end of this block). It first went between Trial balance and Financials, which
+  put a drill-through surface in the middle of the five-step sequence and gave it the same
+  weight as the steps around it. It now sits under **Ledger & detail**, below the review flow.
 - **CONSOLIDATION IS NO LONGER A RAIL PEER.** `pickTab('consol')` redirects to Financials ›
   Consolidation, so all ~20 deep links — Home, Close, Continuous Close, My Work, Issues, the
   entity explorer, Ask Korvyn, several followed by `setCsSub(...)` — keep working unedited.
@@ -5550,6 +5550,53 @@ and nothing generates.
   period can actually reach READY.
 - **The `consol` view id is mounted and unreachable.** Removing it from the lens's tab list
   would delete the div several lookups still name; it is inert, and tidying it is its own pass.
+
+### Later the same day — two corrections, no redesign
+
+**ACCOUNT ACTIVITY LEFT THE REVIEW SEQUENCE.** Financial review is TB → Financials → Flux
+Review → Trending → Reconciliations and nothing else; account activity is what those five
+DRILL INTO. Sitting between Trial balance and Financials it had the same rail weight as a
+review step, which is the opposite of what a proof surface should read as. It keeps an entry
+under a new **Ledger & detail** group so a reader who wants raw GL can still reach it
+directly, deliberately below the flow rather than inside it. Every drill-through into it
+(Trace, an account row, a population) is unchanged.
+
+**THE CONSOLIDATION SCREEN SAID "TOTAL ENTITIES 4" UNDER A SCOPE CHIP READING "612
+ENTITIES".** The modelled book was being presented as the whole enterprise, which reads as a
+four-entity company however carefully the rest of the surface is built. `csxPopulation()` is
+the one derivation now: **612 total · 548 ready · 41 in progress · 23 blocked**, and it
+reconciles by construction (`reconciles` is asserted from the same figures the screen prints).
+
+**THE FOUR MODELLED ENTITIES ARE INSIDE THOSE TOTALS, NOT BESIDE THEM.** `CONS_POP_OTHER`
+authors the counts for the entities NOT modelled in detail (548 / 41 / 19 = 608) and
+`csxPopulation()` adds the modelled entities' OWN states, so 19 + 4 blocked = 23 and the list
+beneath is arithmetic rather than a caption: *Highest-priority exceptions · 4 of 23 blocked
+entities shown*. All four modelled entities are in fact blocked, which is exactly what a
+consolidation control tower should have on screen — what was missing was the population they
+are a subset of.
+
+**THE AGGREGATES ARE AUTHORED, NOT SCALED.** This is the same device `ORG_NODES` already uses
+("leaves carry an authored number, so 612 is a sum and not a claim"). Scaling four blocked
+entities to 612 is the `RECON_SCALE` mistake and would have reported an enterprise in total
+failure. Nothing is invented as a ROW: no fabricated 612-entity tree, and the entity table,
+the hierarchy and the bridge composition still show only what is genuinely modelled.
+
+Four other places stated the same number and now read the population: the Consolidation header
+strip, the perimeter card and its entity table, the entity-to-group bridge card, and
+`consolRun().entitiesReady`, which is what the Reporting Package's Regional / Consolidation
+section quotes. Two figures stay deliberately scoped to the modelled book and say so on the
+card — the **readiness score** (a weighted average over the six gates, which only the modelled
+entities carry) and the **bridge's entity composition**, whose note states that the
+612-entity population rolls into those reporting entities and that the bridge foots either
+way, because Korvyn holds one governed amount per line.
+
+**Nothing else changed.** No new dashboards, cards, tabs or workflows; no print / preview /
+download controls; no CFO/CEO redesign; Financials still carries Statements · Consolidation ·
+Reporting Package with the same three roles.
+
+**Verified:** 189 view renders across 3 periods, 0 errors, 0 empty · 11 Financials
+sub-surface combinations · 10 targeted confirmations pass in the product · 4/4 gates ·
+FS-CIP **4,210.2** · chronology 0 · 548 + 41 + 23 = 612.
 
 ## Toolchain
 
