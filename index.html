@@ -9907,6 +9907,52 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
 .wp-bar{height:6px;background:var(--n-100);border-radius:var(--radius-xs);overflow:hidden}
 .wp-bar i{display:block;height:100%;background:var(--accent)}
 
+
+/* ---- Account Mapping / Data Enrichment boundary, and the three attribute classes ---- */
+.enr-bd{display:flex;gap:var(--s-4);flex-wrap:wrap;padding:var(--s-3);margin-bottom:var(--s-3);
+  background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius)}
+.enr-bd-r{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:var(--s-1)}
+.enr-bd-r .k{font-size:var(--fs-label);color:var(--muted);text-transform:uppercase;
+  letter-spacing:var(--tracking-label)}
+.enr-bd-r .v{font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
+.enr-bd-r .v b{font-weight:var(--fw-medium)}
+.enr-bd-go{color:var(--accent-ink);cursor:pointer;white-space:nowrap}
+.enr-bd-go:hover{text-decoration:underline}
+
+/* the source record an enrichment sits over */
+.enr-src-hd{display:flex;align-items:baseline;gap:var(--s-2);flex-wrap:wrap;
+  padding:var(--s-2) var(--s-3);background:var(--n-50);border-radius:var(--radius-xs)}
+.enr-src-a{flex:1 1 100%;display:flex;align-items:baseline;gap:var(--s-2)}
+.enr-src-m{font-size:var(--fs-table);color:var(--ink)}
+.enr-src-b{flex:1 1 auto;font-size:var(--fs-label);color:var(--hint)}
+.enr-src-v{font-size:var(--fs-table);font-weight:var(--fw-medium);color:var(--ink)}
+.enr-imm{padding:var(--s-2) 0;font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
+.enr-cls-d{padding:0 0 var(--s-2);font-size:var(--fs-label);color:var(--hint);
+  line-height:var(--lh)}
+
+/* the attribute table — source value, the arrow to its normalized form, the governed value */
+.enr-attbl th.rcx-nm,.enr-attbl td.rcx-nm{min-width:0;max-width:none}
+.enr-attbl td{height:auto;padding-top:var(--s-2);padding-bottom:var(--s-2)}
+.enr-from{color:var(--muted)}
+.enr-arw{padding:0 var(--s-2);color:var(--n-300)}
+.enr-nz{color:var(--accent-ink)}
+.enr-lock{font-size:var(--fs-label);color:var(--muted);border:1px solid var(--border);
+  border-radius:var(--radius-xs);padding:0 var(--s-1)}
+
+/* inline trace */
+.enr-tr td{background:var(--n-50);padding:var(--s-3) !important;white-space:normal}
+/* `.rcx-tbl td` is nowrap, which is right for a figure column and wrong for a sentence:
+   the trace's 'where it came from' clauses ran off the 440px panel edge. */
+.enr-attbl td{white-space:normal}
+.enr-tr-b{display:flex;gap:var(--s-4);flex-wrap:wrap}
+.enr-tr-h{flex:1 1 100%;font-size:var(--fs-label);color:var(--muted);
+  text-transform:uppercase;letter-spacing:var(--tracking-label);padding-top:var(--s-2)}
+.enr-tr-h:first-child{padding-top:0}
+.enr-tr-r{flex:1 1 100%;display:flex;gap:var(--s-2);font-size:var(--fs-label);
+  line-height:var(--lh)}
+.enr-tr-r .k{flex:0 0 132px;color:var(--muted)}
+.enr-tr-r .v{flex:1 1 auto;min-width:0;color:var(--ink)}
+
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -12015,13 +12061,15 @@ function paintPop(keepFocus){
         onclick="KFX.popClose();${r.go}">
         <span class="bx">${r.on?'\u2713':''}</span>${esc(r.nm)}</div>`).join('')
         :'<div class="rl-empty" style="padding:8px">No sub-pages.</div>')+`</div>`;
-  }else if(popKind&&popKind.indexOf('rc:')===0){
+  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0)){
+    /* `enr:` and `rc:` share one descriptor shape and therefore one renderer. A new page
+       does not get a new dropdown. */
     /* RECONCILIATIONS USE THE SAME MENU. `RCFIELD` is the same descriptor shape `GFIELD`
        is, so the rendering, keyboard, anchoring, width and selected state all come from
        this one place — a new page does not get a new dropdown. A DECLARED-BUT-UNBUILT
        option (three of the four reporting lenses) renders disabled with its reason rather
        than being hidden: the architecture carries them and only one is engined. */
-    const rk=popKind.slice(3), rd=(typeof RCFIELD==='function')?RCFIELD(rk):null;
+    const rk=popKind.slice(popKind.indexOf(':')+1), rd=(typeof RCFIELD==='function')?RCFIELD(rk):null;
     if(!rd){popClose();return;}
     const rcur=rd.get(), rall=rd.opts();
     const ros=rall.filter(o=>!popQ||o.nm.toLowerCase().includes(popQ));
@@ -29862,6 +29910,100 @@ function amapRowsHTML(){
   }).join('');
 }
 
+/* ==========================================================================================
+   THE ATTRIBUTE VIEW OF ONE OBJECT — source, normalized, governed (brief §6, §13, §14)
+   ==========================================================================================
+   The distinction only becomes real when a reader can see the three classes on one object at
+   once. This is that view: for a transaction it shows what the ERP sent, what Korvyn
+   standardised it to (with the source still there), and what Korvyn classified on top — each
+   row naming its provenance and, where one exists, the rule that produced it.                */
+function enrObjPanel(objType,objId){
+  const rows=enrAttrRows(objType,objId);
+  if(!rows.length) return '';
+  const t=(objType==='txn')?enrTxn(objId):null;
+  const grp=c=>rows.filter(r=>r.cls===c);
+  const money=v=>(typeof glK==='function')?glK(v*1000000):(v.toFixed(1)+'M');
+
+  /* the source record, stated as the fact everything else sits over */
+  let o='<div class="amp-sec">Source transaction</div>';
+  if(t) o+='<div class="enr-src-hd">'
+    +'<div class="enr-src-a"><span class="mono">'+glEsc(t.id)+'</span>'
+    +'<span class="enr-src-m">'+glEsc(t.memo)+'</span></div>'
+    +'<div class="enr-src-b">'+glEsc(srcAcctLabel(t.acct))
+    +' &#183; '+glEsc(t.sys)+' &#183; '+glEsc(t.dt)+'</div>'
+    +'<div class="enr-src-v mono">'+money(t.amt)+' '+glEsc(t.ccy)+'</div>'
+    +'</div>'
+    +'<div class="enr-imm">The amount, the account, the posting date, the journal and the '
+    +'trial balance are ERP facts. Nothing on this page changes them.</div>';
+
+  const block=(cls,note)=>{
+    const rs=grp(cls); if(!rs.length) return '';
+    const C=ENR_CLASSES[cls];
+    return '<div class="amp-sec">'+glEsc(C.l)+'</div>'
+      +'<div class="enr-cls-d">'+glEsc(C.d)+(note?' '+note:'')+'</div>'
+      +'<div class="rcx-wrap"><table class="tbl rcx-tbl enr-attbl"><tbody>'
+      +rs.map((r,i)=>'<tr class="rcx-qr'+(enrAttrSel===cls+'|'+i?' on':'')
+        +'" onclick="enrAttrPick(\''+cls+'|'+i+'\')">'
+        +'<td class="rcx-nm"><span class="t">'+glEsc(r.attribute)+'</span></td>'
+        +'<td>'+(cls==='NORMALIZED'
+            ? '<span class="enr-from">'+glEsc(r.sourceValue)+'</span>'
+              +'<span class="enr-arw">&#8594;</span><b>'+glEsc(r.normalizedValue)+'</b>'
+            : '<b>'+glEsc(r.value)+'</b>')
+          +(r.inheritedFrom?'<div class="amap-sub">inherited from '
+            +glEsc(r.inheritedFrom)+'</div>':'')+'</td>'
+        +'<td>'+(r.immutable
+            ? '<span class="enr-lock" title="Source fact — read only">Source</span>'
+            : enrSrcTag(r.provenance))
+          +(r.ruleId?'<span class="amap-sub mono">'+glEsc(r.ruleId)+'</span>':'')+'</td>'
+        +'<td><span class="amap-st '+((ENR_STATES[r.state]||{}).c||'')+'">'
+          +glEsc((ENR_STATES[r.state]||{l:r.state}).l)+'</span></td></tr>'
+        +(enrAttrSel===cls+'|'+i?'<tr class="enr-tr"><td colspan="4">'
+          +enrAttrTraceHTML(r,objType,objId)+'</td></tr>':'')).join('')
+      +'</tbody></table></div>';
+  };
+  o+=block('SOURCE');
+  o+=block('NORMALIZED');
+  o+=block('GOVERNED');
+  return o;
+}
+let enrAttrSel=null;
+function enrAttrPick(k){ enrAttrSel=(enrAttrSel===k)?null:k; renderEnrich(); }
+/* TRACE, INLINE (brief §14). Where the attribute came from, and where it is used — both read
+   from objects that already exist rather than asserted. */
+function enrAttrTraceHTML(row,objType,objId){
+  const T=enrAttrTrace(row,objType,objId);
+  const list=(hd,items)=>'<div class="enr-tr-h">'+hd+'</div>'
+    +items.map(x=>'<div class="enr-tr-r"><span class="k">'+glEsc(x.l)+'</span>'
+      +'<span class="v">'+glEsc(x.d||'')+'</span></div>').join('');
+  return '<div class="enr-tr-b">'
+    +list('Where it came from',T.from)
+    +list('Where it is used',T.used)
+    +'</div>';
+}
+/* a source account's own label, so the panel names the account rather than its id */
+function srcAcctLabel(id){
+  const a=(typeof srcAcct==='function')?srcAcct(id):null;
+  return a?(a.code+' '+a.name):String(id||'');
+}
+/* THE OTHER HALF OF THE BOUNDARY (brief §1, §10). Account Mapping decides a source account's
+   IDENTITY in the reporting structure — canonical account, group, financial statement line,
+   cash-flow category, hierarchy — and must not become a generic transaction-tagging tool. The
+   context attributes belong to Data Enrichment, and this says so with the route rather than
+   leaving a reader to find out by hunting for a field that is deliberately not here. */
+function amapBoundary(){
+  return '<div class="enr-bd">'
+    +'<div class="enr-bd-r"><span class="k">This page</span>'
+    +'<span class="v">Governed <b>identity</b> — where a source GL account belongs in the '
+    +'reporting structure: canonical account, account group, financial statement line, '
+    +'cash-flow category and hierarchy. Trial Balance, Financials, Flux Review, Trending, '
+    +'Reconciliations and Reporting all read it.</span></div>'
+    +'<div class="enr-bd-r"><span class="k">Data Enrichment</span>'
+    +'<span class="v">Governed <b>context</b> over financial objects — capital / expense, asset '
+    +'class, project phase, vendor and department normalization, flux driver, policy reference. '
+    +'Vendor, project and department context is governed there, not here. '
+    +'<span class="enr-bd-go" onclick="pickTab(\'enrich\')">Open Data Enrichment &#8594;'
+    +'</span></span></div></div>';
+}
 function renderAcctMap(){
   const el=$('view-acctmap'); if(!el)return;
   glSurface(el);
@@ -29874,6 +30016,7 @@ function renderAcctMap(){
   const picked=amapPicked();
   let o=glHead('Account Mapping',
     'Govern source accounts into Korvyn&#8217;s enterprise financial model',glExport);
+  o+=amapBoundary();
   o+=amapStrip();
   o+=`<div class="card amap-card">
     <div class="ktabs lvl2 amap-tabs" role="tablist">${tabs}</div>
@@ -30270,6 +30413,10 @@ const ENR_TXNS=[
   {id:'JE-294870', acct:'SRC-US-DEV-78410', ent:'PRPO', dt:'2026-06-28', amt:4.6, ccy:'USD',
    dept:'Engineering', prj:'PRJ-PR-002', vendor:'Jacobs', memo:'Level 5 commissioning services',
    sys:'NetSuite'},
+  /* the worked example — see the note above the attribute classes */
+  {id:'JE-295204', acct:'SRC-US-DEV-15010', ent:'SVPO', dt:'2026-06-24', amt:7.8, ccy:'USD',
+   dept:'DC Construction', prj:'PRJ-SV-001', vendor:'Siemens',
+   memo:'Transformer package — South Valley Hall C', sys:'NetSuite'},
 ];
 const enrTxn=id=>ENR_TXNS.find(t=>t.id===id)||null;
 const ENR_PROJECTS=[
@@ -30279,12 +30426,263 @@ const ENR_PROJECTS=[
 ];
 const enrProject=id=>ENR_PROJECTS.find(p=>p.id===id)||null;
 
+/* ==========================================================================================
+   ACCOUNT MAPPING vs DATA ENRICHMENT — THE THREE ATTRIBUTE CLASSES (2026-09-04)
+   ==========================================================================================
+   Two governance layers over the same source facts, and they answer different questions:
+
+     ACCOUNT MAPPING     "where does this source GL account belong in the governed financial
+                         reporting structure?"  — canonical account, account group, financial
+                         statement line, cash-flow category, hierarchy. It decides IDENTITY,
+                         and Trial Balance, Financials, Flux Review, Trending, Reconciliations
+                         and Reporting all read it.
+
+     DATA ENRICHMENT     "what additional governed context should Korvyn associate with this
+                         transaction, account or population?" — capex/opex, asset class, CIP
+                         category, project phase, flux driver, policy reference. It decides
+                         CONTEXT, and it never touches identity.
+
+   NEITHER TOUCHES A SOURCE FACT. The ERP owns the amount, the debit/credit, the posted
+   account, the journal and the trial balance. `ENR_SOURCE_IMMUTABLE` already declared that
+   boundary for the model; what was missing is the layer that makes it VISIBLE — an attribute
+   whose source value has been standardised must still show what the source said.
+
+   THREE CLASSES, AND THE DISTINCTION IS THE WHOLE POINT. Before this the model carried
+   PROVENANCE (`ENR_SRC` — where a value came from: ERP, rule, user, Excel, API) but not
+   CLASS (what KIND of attribute it is). Those are different: a vendor read from the ERP and a
+   vendor Korvyn standardised both have provenance, and only one of them is a source fact.   */
+const ENR_CLASSES={
+  SOURCE:     {id:'SOURCE',     l:'Source',
+    short:'Source', c:'',
+    d:'Read from the ERP exactly as received. Korvyn never changes it and never overwrites it.'},
+  NORMALIZED: {id:'NORMALIZED', l:'Normalized',
+    short:'Normalized', c:'info',
+    d:'A Korvyn-standardised form of a source value. The source value is preserved alongside it; both are always available.'},
+  GOVERNED:   {id:'GOVERNED',   l:'Governed enrichment',
+    short:'Enriched', c:'',
+    d:'A Korvyn classification that is not present in the source system, applied by a governed rule or a person and versioned.'},
+};
+const enrClass=c=>ENR_CLASSES[c]||ENR_CLASSES.GOVERNED;
+
+/* ---- THE SOURCE ATTRIBUTES a transaction carries out of the ERP. Declared so the page can
+   show them as SOURCE and prove they are untouched — not so Korvyn can edit them. Each names
+   the field on the transaction record it reads, which is why nothing here can drift from the
+   data: if the field is absent the attribute simply does not appear. */
+const ENR_SOURCE_ATTRS=[
+  {id:'SA-VENDOR', label:'Vendor',       f:'vendor', normKey:'vendor'},
+  {id:'SA-DEPT',   label:'Department',   f:'dept',   normKey:'dept'},
+  {id:'SA-PROJECT',label:'Project',      f:'prj',    resolve:id=>{const p=enrProject(id);
+    return p?p.name:id;}},
+  {id:'SA-ENTITY', label:'Entity',       f:'ent'},
+  {id:'SA-CCY',    label:'Currency',     f:'ccy'},
+  {id:'SA-SYS',    label:'Source system',f:'sys'},
+];
+
+/* ---- NORMALIZATION. A governed, versioned standardisation of a source value — never an edit
+   of it. `sourceValue` and `normalizedValue` are both carried, both rendered, and Trace shows
+   which rule produced the second from the first.
+
+   IT IS A MAP, NOT A REWRITE. The ERP still says "DC Construction"; Korvyn additionally knows
+   that means "Development & Construction". A reader who wants the source gets the source. */
+const ENR_NORMALIZE={
+  vendor:[
+    {id:'NR-V-01', from:'Siemens',              to:'Siemens Energy',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1',
+     note:'Legal-entity suffix and trading-name variants consolidated to the group vendor.'},
+    {id:'NR-V-02', from:'GE Vernova LLC',       to:'GE Vernova',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1'},
+    {id:'NR-V-03', from:'Vertiv',               to:'Vertiv Systems',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1'},
+    {id:'NR-V-04', from:'Turner Construction',  to:'Turner Construction Company',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1'},
+  ],
+  dept:[
+    {id:'NR-D-01', from:'DC Construction', to:'Development & Construction',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1',
+     note:'Source cost-centre names differ by ERP instance; the reporting department is one value.'},
+    {id:'NR-D-02', from:'Facilities',      to:'Facilities Operations',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1'},
+    {id:'NR-D-03', from:'Engineering',     to:'Engineering & Commissioning',
+     by:'Corporate Accounting', at:'Jan 6, 2026', ver:'2026.05.1'},
+  ],
+};
+function enrNormRule(key,sourceValue){
+  return (ENR_NORMALIZE[key]||[]).find(r=>r.from===sourceValue)||null;
+}
+const enrNormalize=(key,v)=>{ const r=enrNormRule(key,v); return r?r.to:null; };
+
+/* ---- ENRICHMENT RULES — ARCHITECTURE, NOT AN ENGINE (brief §7). Declared with their
+   conditions and what they propose, and REFERENCED by the values they produced, so provenance
+   can name the rule instead of saying "Korvyn Rule" and stopping there. Nothing evaluates them
+   at write time and nothing should until the engine is built; what this buys is that when it
+   is, the rules already exist as objects with ids the existing values point at. */
+const ENR_RULES=[
+  {id:'ER-01', label:'Electrical equipment from Siemens',
+   when:[{attr:'Vendor', op:'is', val:'Siemens Energy'},
+         {attr:'Account group', op:'is', val:'Electrical CIP'}],
+   then:{field:'EF-ASSET', val:'Electrical Infrastructure'},
+   status:'active', ver:'2026.06.2', by:'Corporate Accounting', at:'Jun 4, 2026'},
+  {id:'ER-02', label:'Commissioning cost is a commissioning phase',
+   when:[{attr:'Project', op:'is', val:'South Valley Campus — Hall C'},
+         {attr:'Cost type', op:'is', val:'Commissioning'}],
+   then:{field:'EF-PHASE', val:'Commissioning'},
+   status:'active', ver:'2026.06.2', by:'Corporate Accounting', at:'Jun 4, 2026'},
+  {id:'ER-03', label:'CIP accounts are capitalised by policy',
+   when:[{attr:'Account group', op:'is', val:'CIP'}],
+   then:{field:'EF-CAPEX', val:'Capital'},
+   status:'active', ver:'2026.05.1', by:'Corporate Accounting', at:'Jan 6, 2026',
+   policy:'Capitalization Policy §4.2'},
+  {id:'ER-04', label:'Transformer equipment at South Valley',
+   when:[{attr:'Vendor', op:'is', val:'Siemens Energy'},
+         {attr:'Project', op:'is', val:'South Valley Campus — Hall C'},
+         {attr:'Account group', op:'is', val:'Electrical CIP'}],
+   then:{field:'EF-EQP', val:'Switchgear'},
+   status:'active', ver:'2026.06.2', by:'A. Okafor', at:'Jun 4, 2026',
+   note:'A reusable population rule — every transaction meeting it inherits the class without '
+       +'being tagged row by row (brief §5).'},
+];
+const enrRule=id=>ENR_RULES.find(r=>r.id===id)||null;
+
+/* ==========================================================================================
+   THE ATTRIBUTE VIEW OF ONE OBJECT (brief §6, §13)
+   ==========================================================================================
+   Source, normalized and governed side by side for a transaction, an account or a project —
+   the single place the distinction is legible rather than asserted. Every row states its class,
+   its provenance and, where one exists, the rule that produced it.                          */
+function enrAttrRows(objType,objId){
+  const out=[];
+  const t=(objType==='txn')?enrTxn(objId):null;
+  /* A · SOURCE and B · NORMALIZED. Both come off the same source record; the normalized row
+     appears only where a governed normalization rule actually matched, so nothing claims a
+     standardisation that was not made. */
+  if(t) ENR_SOURCE_ATTRS.forEach(a=>{
+    const raw=t[a.f]; if(raw==null||raw==='') return;
+    const shown=a.resolve?a.resolve(raw):raw;
+    out.push({cls:'SOURCE', attribute:a.label, attributeId:a.id,
+      sourceValue:shown, normalizedValue:null, enrichedValue:null, value:shown,
+      provenance:'erp', sourceSystem:t.sys, sourceObjectId:t.id,
+      state:'approved', scope:t.ent, immutable:1,
+      why:'Read from '+t.sys+' as received. Korvyn does not change a source attribute.'});
+    if(!a.normKey) return;
+    const r=enrNormRule(a.normKey,raw);
+    if(!r) return;
+    out.push({cls:'NORMALIZED', attribute:a.label, attributeId:a.id+'-N',
+      sourceValue:shown, normalizedValue:r.to, enrichedValue:null, value:r.to,
+      provenance:'rule', ruleId:r.id, sourceSystem:t.sys, sourceObjectId:t.id,
+      by:r.by, at:r.at, ver:r.ver, state:'approved', scope:t.ent,
+      why:'Standardised from the source value "'+shown+'". The source value is preserved.'});
+  });
+  /* C · GOVERNED ENRICHMENT. Read from `ENR_VALUES` through the layer resolver the page
+     already uses, so what the panel shows and what the grid shows cannot disagree. */
+  const vals=(typeof enrResolveAll==='function')?enrResolveAll(objType,objId)
+    :ENR_VALUES.filter(v=>v.obj===objType&&v.objId===objId);
+  vals.forEach(v=>{
+    const f=enrField(v.field); if(!f) return;
+    out.push({cls:'GOVERNED', attribute:f.label, attributeId:f.id, valueId:v.id,
+      sourceValue:null, normalizedValue:null, enrichedValue:v.val, value:v.val,
+      provenance:v.src, ruleId:v.ruleId||null, by:v.by, at:v.at, ver:v.ver,
+      state:v.state, scope:v.objId===objId?(t?t.ent:''):'', inheritedFrom:v.inheritedFrom||null,
+      why:v.reason||f.desc||''});
+  });
+  return out;
+}
+/* the governed values that reach an object, including what it inherits from a higher layer.
+   `ENR_LAYER` already declares the precedence (txn > prj > acct > canon); this walks it. */
+function enrResolveAll(objType,objId){
+  const own=ENR_VALUES.filter(v=>v.obj===objType&&v.objId===objId&&v.state!=='rejected');
+  if(objType!=='txn') return own;
+  const t=enrTxn(objId); if(!t) return own;
+  const have=new Set(own.map(v=>v.field));
+  const inherit=[];
+  [['prj',t.prj],['acct',t.acct]].forEach(([ot,oid])=>{
+    if(!oid) return;
+    ENR_VALUES.filter(v=>v.obj===ot&&v.objId===oid&&v.state==='approved').forEach(v=>{
+      if(have.has(v.field)) return;
+      have.add(v.field);
+      inherit.push(Object.assign({},v,{inheritedFrom:(ENR_OBJS[ot]||ot)+' · '+oid}));
+    });
+  });
+  return own.concat(inherit);
+}
+
+/* ---- TRACE (brief §14). Where an attribute came from, and where it is used. Both answers are
+   read from objects that already exist — the rule, the source record, the mapping, the
+   surfaces that consume enrichment — so nothing here asserts a lineage it cannot show. */
+function enrAttrTrace(row,objType,objId){
+  const out={from:[], used:[]};
+  if(!row) return out;
+  const t=(objType==='txn')?enrTxn(objId):null;
+  if(row.cls==='SOURCE'){
+    out.from=[
+      {l:'Source attribute', d:row.attribute+' = '+row.sourceValue},
+      {l:'Source system', d:(row.sourceSystem||'')+(row.sourceObjectId?' · '+row.sourceObjectId:'')},
+      {l:'Korvyn', d:'Read as received. Not normalised, not enriched, never overwritten.'}];
+  }else if(row.cls==='NORMALIZED'){
+    const r=enrRule&&row.ruleId?null:null;
+    const nr=(ENR_NORMALIZE[Object.keys(ENR_NORMALIZE).find(k=>
+      (ENR_NORMALIZE[k]||[]).some(x=>x.id===row.ruleId))]||[])
+      .find(x=>x.id===row.ruleId)||null;
+    out.from=[
+      {l:'Source value', d:row.sourceValue+(row.sourceSystem?' · '+row.sourceSystem:'')},
+      {l:'Normalization rule', d:(row.ruleId||'')+(nr&&nr.note?' — '+nr.note:'')},
+      {l:'Normalized value', d:row.normalizedValue},
+      {l:'Governed by', d:(row.by||'')+(row.at?' · '+row.at:'')
+        +(row.ver?' · enrichment v'+row.ver:'')}];
+  }else{
+    const rl=row.ruleId?enrRule(row.ruleId):null;
+    out.from=[
+      {l:'Governed enrichment', d:row.attribute+' = '+row.enrichedValue},
+      {l:'Applied by', d:rl?('Rule '+rl.id+' — '+rl.label)
+        :((ENR_SRC[row.provenance]||{}).l||row.provenance)+(row.by?' · '+row.by:'')},
+      rl?{l:'Rule condition', d:rl.when.map(c=>c.attr+' '+c.op+' '+c.val).join(' AND ')}:null,
+      {l:'Effective', d:(row.at||'')+(row.ver?' · enrichment v'+row.ver:'')},
+      row.inheritedFrom?{l:'Inherited from', d:row.inheritedFrom}:null,
+      {l:'Applied to', d:(ENR_OBJS[objType]||objType)+' '+objId}
+    ].filter(Boolean);
+  }
+  /* WHERE IT IS USED. A source attribute is consumed everywhere the transaction is; a governed
+     classification is consumed by the surfaces that read enrichment. Stated per class rather
+     than as one list, because they are not used the same way. */
+  out.used=(row.cls==='SOURCE'||row.cls==='NORMALIZED')
+    ? [{l:'Activity population', d:'the transaction grid, its filters and every export'},
+       {l:'Reconciliations', d:'population composition by vendor, entity and project'},
+       {l:'Audit package', d:'the exact GL detail behind a movement'}]
+    : [{l:'Flux Review', d:'movement drivers and the explanation behind a variance'},
+       {l:'Reconciliations', d:'group membership, activity classification and support'},
+       {l:'Fixed Assets', d:'component class, useful life and the placed-in-service decision'},
+       {l:'Reporting', d:'management categories and presentation overlays'},
+       {l:'Audit package', d:'the governed context cited with the certified conclusion'}];
+  return out;
+}
 /* ---- THE VALUES. Each carries its object, its field, its value, its provenance, its
    governance state and its effective window. `parent` records what it INHERITS FROM or
    OVERRIDES, which is what lets the panel state which layer won instead of leaving a reader
    to guess. Excel and AI provenance fields (`workbookId` / `cellRef` / `proposalId` /
    `modelVersion`) are declared on the shape and unused — see the boundary above. */
 let ENR_VALUES=[
+  /* THE WORKED EXAMPLE'S GOVERNED LAYER (brief §13). Five classifications the source system
+     does not carry, four from declared rules and one a person's decision. Nothing here
+     changes the amount, the account, the vendor or the department. */
+  {id:'EV-101',obj:'txn',objId:'JE-295204',field:'EF-CAPEX',val:'Capital',
+   src:'rule',ruleId:'ER-03',by:'Korvyn',at:'Jun 24, 2026',state:'approved',
+   from:'2026-06',to:null,ver:'EV-2026-06-2',
+   reason:'CIP account — capitalised by policy (Capitalization Policy §4.2)'},
+  {id:'EV-102',obj:'txn',objId:'JE-295204',field:'EF-ASSET',val:'Electrical Infrastructure',
+   src:'rule',ruleId:'ER-01',by:'Korvyn',at:'Jun 24, 2026',state:'approved',
+   from:'2026-06',to:null,ver:'EV-2026-06-2',
+   reason:'Vendor and account group together identify the component class'},
+  {id:'EV-103',obj:'txn',objId:'JE-295204',field:'EF-EQP',val:'Switchgear',
+   src:'rule',ruleId:'ER-04',by:'A. Okafor',at:'Jun 24, 2026',state:'approved',
+   from:'2026-06',to:null,ver:'EV-2026-06-2',
+   reason:'Population rule — every transaction meeting it inherits the class'},
+  {id:'EV-104',obj:'txn',objId:'JE-295204',field:'EF-FLUX',val:'New Capacity',
+   src:'user',by:'L. Tan',at:'Jun 26, 2026',state:'approved',appr:'Corporate Accounting',
+   from:'2026-06',to:null,ver:'EV-2026-06-2',
+   reason:'Movement driver for the June flux explanation'},
+  {id:'EV-105',obj:'txn',objId:'JE-295204',field:'EF-PHASE',val:'Construction',
+   src:'rule',ruleId:'ER-02',by:'Korvyn',at:'Jun 24, 2026',state:'proposed',
+   from:'2026-06',to:null,ver:'EV-2026-06-2',
+   reason:'Proposed from the project phase — awaiting the owner’s confirmation'},
   // account-level classification, the inherited layer
   {id:'EV-001',obj:'acct',objId:'SRC-US-DEV-15010',field:'EF-CAPEX',val:'Capital',
    src:'rule',by:'Corporate Accounting',at:'Jan 6, 2026',state:'approved',
@@ -30518,6 +30916,9 @@ function enrVisible(){
   let rows=enrRows();
   if(enrView==='review') rows=rows.filter(r=>r.state==='pending'||r.state==='proposed');
   if(enrView==='over_r') rows=rows.filter(r=>r.isOverride);
+  /* brief §11 — attribute class and the object it applies to */
+  if(enrClsF!=='all')     rows=rows.filter(r=>enrRowClass(r)===enrClsF);
+  if(enrAppliesF!=='all') rows=rows.filter(r=>r.obj===enrAppliesF);
   const t=enrQ.trim().toLowerCase();
   if(t){ const hit=v=>String(v||'').toLowerCase().indexOf(t)>=0;
     rows=rows.filter(r=>hit(r.objL.main)||hit(r.objL.sub)||hit(r.val)||hit(r.f&&r.f.label)
@@ -30562,7 +30963,7 @@ function enrRowsHTML(){
   if(enrView==='defs') return enrDefsHTML();
   if(enrView==='rpt')  return enrRptHTML();
   const rows=enrVisible();
-  if(!rows.length) return `<tr><td colspan="8" class="amap-none">No enrichment value matches this view.</td></tr>`;
+  if(!rows.length) return `<tr><td colspan="9" class="amap-none">No enrichment value matches this view.</td></tr>`;
   return rows.map(r=>{
     const st=ENR_STATES[r.state]||{l:r.state,c:''};
     return `<tr class="row-click${enrSel===r.id?' on':''}" onclick="enrOpen('${r.id}')">
@@ -30571,7 +30972,9 @@ function enrRowsHTML(){
           aria-checked="${enrPick[r.id]?'true':'false'}"></span></td>
       <td><b class="mono">${glEsc(r.objL.main)}</b><div class="amap-sub">${glEsc(r.objL.sub)}</div></td>
       <td>${glEsc(r.scopeL)}<div class="amap-sub">${glEsc(ENR_OBJS[r.obj]||r.obj)}</div></td>
-      <td>${glEsc(r.f?r.f.label:r.field)}</td>
+      <td>${glEsc(r.f?r.f.label:r.field)}
+        <div class="amap-sub">${glEsc(ENR_CLASSES.GOVERNED.short)}</div></td>
+      <td>${enrRowSourceCell(r)}</td>
       <td><b>${glEsc(r.val)}</b>${r.inheritedVal?`<div class="amap-sub">from
         <span class="enr-inh">${glEsc(r.inheritedVal)}</span></div>`:''}</td>
       <td>${enrSrcTag(r.src,r.isOverride)}</td>
@@ -30621,6 +31024,42 @@ function enrRptHTML(){
   }).join('');
 }
 
+/* THE TWO GOVERNANCE LAYERS, NAMED WHERE THEY ARE CONFUSED. Account Mapping decides a source
+   account's IDENTITY in the reporting structure; Data Enrichment decides the CONTEXT attached
+   to a financial object. Neither touches a source fact. Stated on both pages, once, with the
+   route to the other — a reader who lands on the wrong one should be able to tell in a line. */
+function enrBoundary(){
+  return '<div class="enr-bd">'
+    +'<div class="enr-bd-r"><span class="k">This page</span>'
+    +'<span class="v">Governed <b>context</b> over financial objects — capital / expense, asset '
+    +'class, project phase, vendor and department normalization, flux driver, policy reference. '
+    +'It never changes a source amount, account, journal or trial balance.</span></div>'
+    +'<div class="enr-bd-r"><span class="k">Account Mapping</span>'
+    +'<span class="v">Governed <b>identity</b> — where a source account belongs in the reporting '
+    +'structure: canonical account, account group, financial statement line, hierarchy. '
+    +'<span class="enr-bd-go" onclick="pickTab(\'acctmap\')">Open Account Mapping &#8594;'
+    +'</span></span></div></div>';
+}
+/* THE ATTRIBUTE CLASS FILTER (brief §11). Source / Normalized / Governed enrichment, and the
+   object a value applies to. Both narrow the same row set; neither is a second query. */
+let enrClsF='all', enrAppliesF='all';
+function setEnrCls(v){ enrClsF=v; enrSel=null; try{KFX.popClose();}catch(e){} renderEnrich(); }
+function setEnrApplies(v){ enrAppliesF=v; enrSel=null; try{KFX.popClose();}catch(e){} renderEnrich(); }
+/* A STORED ENR_VALUE IS ALWAYS A GOVERNED ENRICHMENT. Source and normalized attributes are read
+   off the source record and are deliberately NOT rows in this store — putting them here would
+   be the second copy of a source fact the whole module refuses. The grid says so on every row,
+   and the other two classes are reached through the object panel, which is where they live. */
+const enrRowClass=r=>'GOVERNED';
+/* the source fact an enrichment sits over, for the grid's Source value column. An account- or
+   line-level enrichment has no single source transaction beneath it and says so. */
+function enrRowSourceCell(r){
+  const t=(r.obj==='txn')?enrTxn(r.objId):null;
+  if(!t) return '<span class="amap-dim">—</span>';
+  const v=enrNormalize('vendor',t.vendor), d=enrNormalize('dept',t.dept);
+  return '<span class="amap-dim">'+glEsc(t.vendor)+(v?' <span class="enr-nz">→ '+glEsc(v)+'</span>':'')
+    +'</span><div class="amap-sub">'+glEsc(t.dept)
+    +(d?' <span class="enr-nz">→ '+glEsc(d)+'</span>':'')+'</div>';
+}
 function renderEnrich(){
   const el=$('view-enrich'); if(!el)return;
   glSurface(el);
@@ -30634,16 +31073,26 @@ function renderEnrich(){
     ? ['','Field','Category','Applies to','Type','Approval','Required','Version']
     : enrView==='rpt'
     ? ['','Adjustment','Scope &#183; basis','Reclassification','Amount','Posting','Status','Period']
-    : ['','Source object','Entity / scope','Field','Value','Source','Status','Effective'];
+    : ['','Source object','Entity / scope','Attribute','Source value',
+       'Normalized / enriched value','Provenance','Status','Effective'];
   const picked=enrPicked();
+  /* the description is the topbar crumb; this line carries the CONTEXT the page was
+     resolved under, and the boundary block below states what it governs. */
   let o=glHead('Data Enrichment',
-    'Govern financial and operational attributes layered over source accounting data',glExport);
+    glCtx([glEsc(enrVersionFor().v)+' enrichment set']),glExport);
+  o+=enrBoundary();
   o+=enrStrip();
   o+=`<div class="card amap-card">
     <div class="ktabs lvl2 amap-tabs" role="tablist">${tabs}</div>
     <div class="amap-bar">
       <input class="amap-q" type="text" placeholder="Search object, field, value or source&#8230;"
         value="${glEsc(enrQ)}" oninput="enrSearch(this.value)">
+      <button class="rcx-f sm" data-pop="enr:cls" onclick="KFX.pop('enr:cls',this)">
+        <span class="k">Attribute type</span><span class="v">${enrClsF==='all'?'All'
+          :glEsc(ENR_CLASSES[enrClsF].l)}</span></button>
+      <button class="rcx-f sm" data-pop="enr:applies" onclick="KFX.pop('enr:applies',this)">
+        <span class="k">Applies to</span><span class="v">${enrAppliesF==='all'?'All'
+          :glEsc(ENR_OBJS[enrAppliesF]||enrAppliesF)}</span></button>
       <span class="grow"></span>
       <span class="amap-ct" id="enrCount">${enrView==='defs'?ENR_FIELDS.length
         :enrView==='rpt'?RPT_ADJUSTMENTS.length
@@ -30683,7 +31132,8 @@ function enrPanel(){
         <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
     <div class="amp-body">
-      <div class="amp-sec">Summary</div>
+      ${enrObjPanel(r.obj,r.objId)}
+      <div class="amp-sec">This value</div>
       ${row('Object',glEsc(ENR_OBJS[r.obj]||r.obj)+' &#183; <span class="mono">'+glEsc(r.objId)+'</span>')}
       ${row('Field',glEsc(f?f.label:r.field)+' <span class="amap-dim">'+glEsc(f?ENR_CATS[f.cat].l:'')+'</span>')}
       ${row('Current value','<b>'+glEsc(r.val)+'</b>')}
@@ -47857,6 +48307,14 @@ function RCFIELD(k){
      multi-period controls get the one popover system's keyboard, anchoring, width and
      selected state without a menu of their own. */
   const r6=(typeof rcR6Field==='function')?rcR6Field(k):null; if(r6) return r6;
+  /* Data Enrichment's two filters — the attribute class and the object it applies to. */
+  if(k==='cls') return {nm:'Attribute type', get:()=>enrClsF,
+    opts:()=>[{id:'all',nm:'All'}].concat(Object.keys(ENR_CLASSES).map(c=>({id:c,
+      nm:ENR_CLASSES[c].l, sub:ENR_CLASSES[c].d}))), set:setEnrCls};
+  if(k==='applies') return {nm:'Applies to', get:()=>enrAppliesF,
+    opts:()=>[{id:'all',nm:'All'}].concat(Object.keys(ENR_OBJS).map(o=>({id:o,
+      nm:ENR_OBJS[o], sub:ENR_VALUES.filter(v=>v.obj===o).length+' governed values'}))),
+    set:setEnrApplies};
   if(k==='pkgpurpose') return {nm:'Purpose', get:()=>(rcPkgDraft||{}).purpose,
     opts:()=>RC_PKG_PURPOSE.map(p=>({id:p[0], nm:p[1]})),
     set:v=>rcPkgSet('purpose',v)};
@@ -59647,7 +60105,7 @@ const VIEW_META={
   // Lens-scoped override — Accounting's Policies is the governed repository, not admin settings.
   'ledger:admin':{t:'Policies',c:'Enterprise policy repository and governance library',depth:4},
   acctmap:{t:'Account Mapping',c:'Govern source accounts into Korvyn\u2019s enterprise financial model',depth:5},
-  enrich:{t:'Data Enrichment',c:'Govern financial and operational attributes layered over source accounting data',depth:5},
+  enrich:{t:'Data Enrichment',c:'Governed business and accounting attributes layered over source financial facts',depth:5},
   overview:{t:'Overview',c:'Enterprise status and work requiring your attention',depth:5},
   traceexc:{t:'Traceability',c:'Exception · provenance chain · identity from ingested source',depth:5},
   lifecycle:{t:'Property lifecycle',c:'Stage → Market → Site · the portfolio in motion',depth:5},

@@ -5158,6 +5158,119 @@ Reconciliation → Flux Review → return round trip still preserves context · 
 every view finds no bare “Flux” naming the module.
 
 
+## 2026-09-04 — Account Mapping vs Data Enrichment: three attribute classes
+
+Owner's direction, a focused clarification rather than a redesign. The two pages existed and
+both worked; what was missing was the line between them and the layer that makes it visible.
+
+```
+ACCOUNT MAPPING    governed IDENTITY   — where a source GL account belongs in the reporting
+                   structure: canonical account, group, financial statement line, cash-flow
+                   category, hierarchy. Trial Balance, Financials, Flux Review, Trending,
+                   Reconciliations and Reporting all read it.
+
+DATA ENRICHMENT    governed CONTEXT    — capital / expense, asset class, project phase, vendor
+                   and department normalization, flux driver, policy reference.
+
+NEITHER TOUCHES A SOURCE FACT.
+```
+
+### The three attribute classes, and why the model needed them
+
+`ENR_SRC` already carried PROVENANCE — where a value came from: ERP, rule, user, Excel, API.
+It did not carry CLASS, which is a different question: **a vendor read from the ERP and a vendor
+Korvyn standardised both have provenance, and only one of them is a source fact.**
+
+| Class | Meaning |
+|---|---|
+| **SOURCE** | Read from the ERP exactly as received. Never changed, never overwritten. |
+| **NORMALIZED** | A Korvyn-standardised form of a source value — the source value is preserved beside it. |
+| **GOVERNED** | A Korvyn classification not present in the source system, applied by a rule or a person, versioned. |
+
+`ENR_NORMALIZE` is the map (vendor `Siemens → Siemens Energy`, department
+`DC Construction → Development & Construction`), and it is a MAP, NOT A REWRITE: the ERP still
+says "DC Construction" and Korvyn additionally knows what that means. `enrAttrRows()` returns
+all three classes for one object; the normalized row appears only where a rule actually matched,
+so nothing claims a standardisation that was not made.
+
+### THE WORKED EXAMPLE USES THIS BOOK'S OWN CHART
+
+The brief illustrates it with "18430 Electrical Equipment". This book's electrical CIP account
+is **15010 CIP - Electrical**, and inventing 18430 would create a source account that maps to
+nothing and reconciles to nothing — the duplicate source truth the whole module refuses. The
+accounting is identical: `JE-295204`, a $7.8M Siemens transformer package at South Valley,
+booked to electrical CIP by the DC Construction department. Its source values are deliberately
+the **un-normalised** ones, because that is what an ERP actually sends and it is what makes the
+normalization layer visible rather than theoretical.
+
+### Rules are architecture, not an engine (brief §7)
+
+`ENR_RULES` declares four with their conditions and what they propose, and the values they
+produced now REFERENCE them by id — so provenance reads *"Rule ER-01 — Electrical equipment
+from Siemens · Vendor is Siemens Energy AND Account group is Electrical CIP"* instead of
+"Korvyn Rule" and stopping there. Nothing evaluates them at write time. What this buys is that
+when the engine is built the rules already exist as objects the existing values point at.
+`ER-04` is deliberately a POPULATION rule (vendor + project + account group), which is §5's
+point: a reusable governed rule rather than tagging every row.
+
+### The surface
+
+- **The subtitle** is the brief's own sentence, and it is said ONCE — it went into the topbar
+  crumb (`VIEW_META.enrich.c`), where every other page carries its description, and glHead's
+  second argument became the CONTEXT line, which is the pattern Reconciliations already follows.
+  The first cut had the new sentence sitting under a near-identical old one.
+- **The boundary block** renders on BOTH pages, each naming itself, the other, and the route
+  across. A reader who lands on the wrong page can tell in a line.
+- **The grid gains a Source value column** — an enrichment sits over a source fact and a reader
+  must see the fact it sits over. It shows the normalization inline (`Siemens → Siemens Energy`).
+- **Attribute type / Applies to filters**, through `RCFIELD` and the one popover system — the
+  `enr:` prefix reads the same descriptors through the same renderer as `rc:`. A new page does
+  not get a new dropdown.
+- **The object panel** shows the three classes side by side under the source record, with the
+  immutability stated on it: *"The amount, the account, the posting date, the journal and the
+  trial balance are ERP facts. Nothing on this page changes them."*
+- **Trace, inline** (§14): where the attribute came from — the rule, its condition, the effective
+  version, what it was applied to — and where it is used, stated per class because a source
+  attribute and a governed classification are not consumed the same way.
+
+**A STORED `ENR_VALUE` IS ALWAYS A GOVERNED ENRICHMENT.** Source and normalized attributes are
+read off the source record and are deliberately NOT rows in that store; putting them there would
+be the second copy of a source fact. The grid says so on every row and the other two classes are
+reached through the object panel, which is where they live.
+
+### The name stays "Data Enrichment"
+
+The brief prefers a rename only for a clear UX benefit and there is none: "Financial
+Classification" is narrower than what the page holds (operational attributes, derived measures,
+reporting overlays) and "Accounting Enrichment" is the same word with a longer prefix.
+
+### TWO TOOLING TRAPS, BOTH OF WHICH BIT
+
+- **`String.replace` interprets `$'` in the REPLACEMENT.** A block of JS that formats currency
+  with `'$'+v` contains `$'` — "everything after the match" — and splicing it grew the 4.6 MB
+  file to **6.7 MB in one call, with no error**. `.safe.js` now does every substitution through
+  `split/join` or a function replacer, which are never interpreted. **Never pass a code block to
+  `String.replace` as a replacement string.**
+- **`git checkout index.html` hands the file back with LF.** The git blob is LF and the working
+  tree was CRLF, so every multi-line anchor written against CRLF then matched zero times — with
+  a confusing "anchor occurs 0" on text that is visibly present. `.safe.js` detects the file's
+  own line ending. **The file is now uniformly LF**, which is what git stores anyway; the earlier
+  note that the working tree is CRLF no longer holds after a checkout.
+
+### Verified
+
+66/66 views · console clean · 4/4 gates · **all 11 acceptance tests pass, run in the product** ·
+FS-CIP 4,210.2 and the reconciliation groups still tie to it · adding and removing a governed
+enrichment moves neither the statement nor the trial balance by a thousandth · R6/R6.1 intact
+(FY2025 foots, 12/12 certified, the control calendar unchanged) · Account Mapping's rule shape
+still carries only identity fields and no vendor, department, project or phase.
+
+### Not done
+
+R7 / Korvyn for Excel · a rules engine · an AI proposal UI (the `ai` provenance and the
+Proposed → Reviewed → Accepted states are declared and one seeded value is `proposed`, but
+nothing generates) · normalization of anything beyond vendor and department.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
