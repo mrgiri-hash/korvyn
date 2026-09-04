@@ -1378,6 +1378,33 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .rcx-stg{font-family:var(--num);font-variant-numeric:tabular-nums;
   font-size:var(--fs-label);color:var(--hint);padding-left:var(--s-1)}
 .rcx-rr{font-size:var(--fs-label);color:var(--warning);white-space:nowrap}
+/* ---- R5.5 · ROLE, ACCESS AND COLLABORATION ------------------------------------------------
+   The @mention picker is a completion, not a decision: anchored to the composer, one open at a
+   time, and the only overlay here — so it is the only thing carrying a shadow (rule 5). */
+.kmn-pop{position:fixed;z-index:1200;background:var(--surface);border:var(--rule-strong);
+  border-radius:var(--radius);box-shadow:var(--shadow-md);overflow:hidden;max-height:280px;
+  overflow-y:auto}
+.kmn-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:0 var(--s-2);
+  width:100%;text-align:left;padding:var(--s-2) var(--s-3);border:none;background:none;
+  font:inherit;font-family:var(--sans);cursor:pointer;align-items:baseline}
+.kmn-row:hover,.kmn-row:focus-visible{background:var(--accent-bg);outline:none}
+.kmn-row .av{grid-row:1/3;align-self:center;width:24px;height:24px;border-radius:var(--radius-xs);
+  background:var(--accent);color:var(--on-fill);font-size:var(--fs-micro);
+  display:flex;align-items:center;justify-content:center}
+.kmn-row .n{font-size:var(--fs-table);color:var(--ink)}
+.kmn-row .w{font-size:var(--fs-label);color:var(--hint);white-space:nowrap}
+.kmn-row .t{grid-column:2/4;font-size:var(--fs-label);color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* a mention in prose reads as a person — the accent marks an interaction, which is what a
+   request for someone's attention is (rule 2) */
+.kmn{color:var(--accent-ink);background:var(--accent-bg);border-radius:var(--radius-xs);
+  padding:0 var(--s-1)}
+.rcx-note.kmn-hit{border-left-color:var(--accent);background:var(--accent-bg)}
+/* permissions as compact tokens — a list a reader scans, never a checkbox matrix */
+.kperms{display:flex;flex-wrap:wrap;gap:var(--s-1);padding:var(--s-2) var(--s-3)}
+.kperm{font-size:var(--fs-label);color:var(--muted);background:var(--n-50);
+  border:var(--rule);border-radius:var(--radius-xs);padding:var(--s-1) var(--s-2);
+  font-family:var(--mono)}
 /* ---- R5 · REVIEW, CONTROL AND SIGN-OFF ----------------------------------------------------
    Compact control rows in the grammar this panel already speaks. Deliberately NOT a workflow
    canvas: no stepper graphic, no cards, no celebration. A reviewer needs to see which stage is
@@ -9974,6 +10001,9 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
 <div class="view" id="view-issues"></div>
 <div class="view" id="view-archives"></div>
 <div class="view" id="view-admin"></div>
+<!-- R5.5 - the @mention picker. ONE host for the whole app, anchored to whichever composer is
+     being typed into, because a completion popup per composer is how two of them end up open. -->
+<div id="kMentionPop" class="kmn-pop" hidden></div>
 <div class="view" id="view-acctmap"></div>
 <div class="view" id="view-enrich"></div>
 <div class="view" id="view-traceexc"></div>
@@ -40362,6 +40392,706 @@ function rcChronologyCheck(k){
 }
 
 /* ==========================================================================================
+   R5.5 — ROLE, SCOPE, ACCESS AND COLLABORATION (2026-09-04)
+   ==========================================================================================
+   ONE GOVERNED FINANCIAL TRUTH, ROLE-APPROPRIATE EXPERIENCES. A role changes what you may
+   reach, what you are shown first and what you may DO. It never changes what a balance is —
+   there is no per-role financial data anywhere below, and there must never be.
+
+   FOUR CONCEPTS, DELIBERATELY NOT ONE OBJECT (§2). Collapsing them is the mistake every
+   permission model makes once and cannot undo:
+
+     Functional role   what you are — ACCOUNTING_MANAGER
+     Scope             which part of the enterprise — EMEA, 206 entities
+     Workflow role     what you are ON THIS RECONCILIATION — preparer here, reviewer there
+     Authority         what you may do, given all three, plus independence
+
+   One person is all four at once and they disagree constantly: a Corporate Accounting manager
+   is the PREPARER of the reconciliation they wrote and a REVIEWER of the next one, and their
+   permission to approve does not survive that difference. R5.1's SoD control already knew
+   this; R5.5 is the layer that lets every other surface know it too.
+
+   NO SECOND IDENTITY STORE. `RC_PEOPLE` is the roster the module already had; it is EXTENDED
+   here with roles, scope and teams rather than shadowed by a `USERS` table that would drift
+   from it within one increment.                                                              */
+
+/* ---- PERMISSIONS (§7). Object access, kept separate from workflow authority — holding
+   APPROVE_RECONCILIATION is necessary and never sufficient (§10). */
+const KPERMS={
+  VIEW_FINANCIALS:'View financial statements and balances',
+  VIEW_GL_DETAIL:'View general ledger transaction detail',
+  VIEW_BANK_DETAIL:'View bank and treasury account detail',
+  VIEW_SENSITIVE_PAYROLL:'View payroll-sensitive accounts',
+  PREPARE_RECONCILIATION:'Prepare reconciliations',
+  ADD_SUPPORT:'Attach and link supporting evidence',
+  EDIT_PREPARER_CONCLUSION:'Write the preparer conclusion',
+  SUBMIT_RECONCILIATION:'Submit a reconciliation for review',
+  RETURN_RECONCILIATION:'Return a reconciliation to its preparer',
+  APPROVE_RECONCILIATION:'Approve a review stage',
+  CERTIFY_RECONCILIATION:'Perform final certification',
+  ASSIGN_WORK:'Change the accountable owner of work',
+  MENTION_USERS:'Mention colleagues on governed objects',
+  VIEW_AUDIT_PACKAGE:'View certified audit packages',
+  EXPORT_GL_DETAIL:'Export transaction-level detail',
+  PUBLISH_EXCEL_ARTIFACT:'Publish a governed workbook into Korvyn',
+  ADMINISTER_RECONCILIATION_DEFINITIONS:'Configure reconciliation definitions',
+  ADMINISTER_ROLES:'Configure roles, scope and access',
+  ADMINISTER_REPORTING_LENSES:'Configure reporting lenses',
+  ADMINISTER_INTEGRATIONS:'Configure source-system integrations',
+};
+/* THE FRONT END IS NOT THE ENFORCEMENT POINT (§7). Every check below runs through
+   `kCan()`, which takes the acting user and the object rather than reading a global — so the
+   same call is what a service would make, and hiding a button is the CONSEQUENCE of a denied
+   check rather than the check itself. */
+
+/* ---- ORGANIZATIONAL SCOPE (§5). Access to a population, expressed the way the enterprise is
+   actually shaped, and never hard-coded into a module. */
+const KSCOPES={
+  'SC-GROUP'   :{scopeId:'SC-GROUP', name:'Corporate Group', scopeType:'ENTERPRISE',
+    entityCount:612, regionIds:['AMER','EMEA','APAC'], entityIds:[],
+    effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-EMEA'    :{scopeId:'SC-EMEA', name:'EMEA Reporting Group', scopeType:'REGION',
+    entityCount:206, regionIds:['EMEA'], entityIds:[],
+    effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-DE'      :{scopeId:'SC-DE', name:'Germany Statutory Team', scopeType:'COUNTRY',
+    entityCount:37, regionIds:['EMEA'], countryIds:['DE'], entityIds:[],
+    effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-AMER'    :{scopeId:'SC-AMER', name:'Americas Controller Scope', scopeType:'REGION',
+    entityCount:248, regionIds:['AMER'], entityIds:[],
+    effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-DEV'     :{scopeId:'SC-DEV', name:'Development & Construction Accounting',
+    scopeType:'BUSINESS_UNIT', entityCount:64, businessUnitIds:['DEV'], entityIds:[],
+    projectIds:['ASHBURN','SOUTHVALLEY'], effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-TRES'    :{scopeId:'SC-TRES', name:'Treasury', scopeType:'FUNCTION',
+    entityCount:612, entityIds:[], effectiveFrom:'2026-01', effectiveTo:null},
+  'SC-AUDIT'   :{scopeId:'SC-AUDIT', name:'Audit — certified population', scopeType:'AUDIT',
+    entityCount:612, entityIds:[], effectiveFrom:'2026-06', effectiveTo:'2026-12'},
+};
+const kScope=id=>KSCOPES[id]||null;
+
+/* ---- REPORTING LENS ACCESS (§6). REACHING A POPULATION IS NOT REACHING EVERY BASIS.
+   A German entity controller reads the group's consolidated figures and REVIEWS only the
+   statutory ones; the US tax lens is none of their business. Held per role, refined per user. */
+const KLENS_LEVELS=['NONE','VIEW','PREPARE','REVIEW','CERTIFY','ADMINISTER'];
+const kLensRank=l=>KLENS_LEVELS.indexOf(l||'NONE');
+
+/* ---- EXPERIENCE PROFILES (§11). PRESENTATION AND DEFAULTS ONLY.
+   Same modules, same components, same figures — a different opening question. Nothing in this
+   object may change a number, and nothing in it is a permission: a default that hid work a
+   user is authorised to see would be a permission pretending to be a preference. */
+const KXP={
+  'XP-PREPARER':{experienceProfileId:'XP-PREPARER', defaultHomeView:'mywork',
+    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'mine_prep',
+    defaultFluxView:'assigned', preferredInformationDensity:'detailed',
+    defaultRiskFilter:'all', showPreparationActions:1, showReviewActions:0,
+    showCertificationActions:0, showAdminActions:0, aiResponseMode:'TASK'},
+  'XP-MANAGER':{experienceProfileId:'XP-MANAGER', defaultHomeView:'mywork',
+    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'returned',
+    defaultFluxView:'team', preferredInformationDensity:'detailed',
+    defaultRiskFilter:'all', showPreparationActions:1, showReviewActions:1,
+    showCertificationActions:0, showAdminActions:0, aiResponseMode:'TEAM'},
+  'XP-CONTROLLER':{experienceProfileId:'XP-CONTROLLER', defaultHomeView:'acctover',
+    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'mine',
+    defaultFluxView:'material', preferredInformationDensity:'summary',
+    defaultRiskFilter:'material', showPreparationActions:0, showReviewActions:1,
+    showCertificationActions:1, showAdminActions:0, aiResponseMode:'RISK'},
+  'XP-CORP-CTRL':{experienceProfileId:'XP-CORP-CTRL', defaultHomeView:'acctover',
+    defaultAccountingView:'acctclose', defaultReconciliationQuickView:'rereview',
+    defaultFluxView:'material', preferredInformationDensity:'summary',
+    defaultRiskFilter:'material', showPreparationActions:0, showReviewActions:1,
+    showCertificationActions:1, showAdminActions:0, aiResponseMode:'ENTERPRISE'},
+  'XP-AUDIT':{experienceProfileId:'XP-AUDIT', defaultHomeView:'documents',
+    defaultAccountingView:'glrecon', defaultReconciliationQuickView:'certified',
+    defaultFluxView:'approved', preferredInformationDensity:'detailed',
+    defaultRiskFilter:'all', showPreparationActions:0, showReviewActions:0,
+    showCertificationActions:0, showAdminActions:0, aiResponseMode:'EVIDENCE'},
+  'XP-ADMIN':{experienceProfileId:'XP-ADMIN', defaultHomeView:'admin',
+    defaultAccountingView:'admin', defaultReconciliationQuickView:'all',
+    defaultFluxView:'all', preferredInformationDensity:'summary',
+    defaultRiskFilter:'all', showPreparationActions:0, showReviewActions:0,
+    showCertificationActions:0, showAdminActions:1, aiResponseMode:'CONFIG'},
+};
+
+/* ---- WORKFLOW AUTHORITY (§8, §9). SEPARATE FROM ACCESS, ON PURPOSE.
+   An Accounting Manager may approve an ordinary reconciliation in their own entities and may
+   not certify a material one — that is not a permission they lack, it is an authority bounded
+   by amount, method, scope and lens. The bound is DATA here rather than a rules engine (§9
+   says not to build one); what matters is that every check reads it from one place. */
+const KAUTH=[
+  {authorityId:'WA-ACCT-PREP', roleId:'ACCOUNTANT', action:'PREPARE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null, independenceRequirement:null},
+  {authorityId:'WA-SR-PREP', roleId:'SENIOR_ACCOUNTANT', action:'PREPARE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null, independenceRequirement:null},
+  {authorityId:'WA-MGR-PREP', roleId:'ACCOUNTING_MANAGER', action:'PREPARE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null, independenceRequirement:null},
+  /* §9's worked bound: a manager approves standard reconciliations under $25M exposure */
+  {authorityId:'WA-MGR-APPR', roleId:'ACCOUNTING_MANAGER', action:'APPROVE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:25,
+    riskCategories:['STANDARD'], independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-ENT-APPR', roleId:'ENTITY_CONTROLLER', action:'APPROVE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:100,
+    riskCategories:['STANDARD','MATERIAL'], independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-REG-APPR', roleId:'REGIONAL_CONTROLLER', action:'APPROVE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
+    riskCategories:['STANDARD','MATERIAL'], independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-CORP-APPR', roleId:'CORPORATE_ACCOUNTING', action:'APPROVE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
+    riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
+    independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-CC-APPR', roleId:'CORPORATE_CONTROLLER', action:'APPROVE',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
+    riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
+    independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-CC-CERT', roleId:'CORPORATE_CONTROLLER', action:'CERTIFY',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:null,
+    riskCategories:['STANDARD','MATERIAL','HIGH_RISK'],
+    independenceRequirement:'PREPARER_NE_FINAL_APPROVER'},
+  {authorityId:'WA-CORP-CERT', roleId:'CORPORATE_ACCOUNTING', action:'CERTIFY',
+    scopeIds:['*'], reportingLensIds:['*'], materialityMax:250,
+    riskCategories:['STANDARD','MATERIAL'],
+    independenceRequirement:'PREPARER_NE_FINAL_APPROVER'},
+  {authorityId:'WA-TRES-APPR', roleId:'TREASURY', action:'APPROVE',
+    scopeIds:['SC-TRES'], reportingLensIds:['*'], materialityMax:null,
+    applicableReconciliationMethods:['BANK_RECONCILIATION','SCHEDULE_SUPPORTED'],
+    riskCategories:['STANDARD','MATERIAL'], independenceRequirement:'PREPARER_NE_APPROVER'},
+  {authorityId:'WA-MGR-ASSIGN', roleId:'ACCOUNTING_MANAGER', action:'ASSIGN',
+    scopeIds:['*'], reportingLensIds:['*']},
+  {authorityId:'WA-REG-ASSIGN', roleId:'REGIONAL_CONTROLLER', action:'ASSIGN',
+    scopeIds:['*'], reportingLensIds:['*']},
+  {authorityId:'WA-CORP-ASSIGN', roleId:'CORPORATE_ACCOUNTING', action:'ASSIGN',
+    scopeIds:['*'], reportingLensIds:['*']},
+];
+
+/* ---- ROLE DEFINITIONS (§4). Configurable — nothing below is assumed permanent, and a role
+   added here needs no code change to be resolvable. */
+const P_VIEW=['VIEW_FINANCIALS','VIEW_GL_DETAIL'];
+const P_PREP=P_VIEW.concat(['PREPARE_RECONCILIATION','ADD_SUPPORT','EDIT_PREPARER_CONCLUSION',
+  'SUBMIT_RECONCILIATION','MENTION_USERS']);
+const P_REV=P_PREP.concat(['RETURN_RECONCILIATION','APPROVE_RECONCILIATION','EXPORT_GL_DETAIL']);
+const KROLES={
+  ACCOUNTANT:{roleId:'ACCOUNTANT', name:'Accountant', roleType:'FUNCTIONAL',
+    description:'Prepares assigned reconciliations and supporting workpapers.',
+    permissions:P_PREP, experienceProfileId:'XP-PREPARER',
+    defaultScopePolicy:'ASSIGNED', defaultReportingLensPolicy:'CORPORATE_ONLY',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.0'},
+  SENIOR_ACCOUNTANT:{roleId:'SENIOR_ACCOUNTANT', name:'Senior Accountant', roleType:'FUNCTIONAL',
+    description:'Prepares complex reconciliations; may export detail.',
+    permissions:P_PREP.concat(['EXPORT_GL_DETAIL']), experienceProfileId:'XP-PREPARER',
+    defaultScopePolicy:'ASSIGNED', defaultReportingLensPolicy:'CORPORATE_ONLY',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.0'},
+  ACCOUNTING_MANAGER:{roleId:'ACCOUNTING_MANAGER', name:'Accounting Manager',
+    roleType:'FUNCTIONAL',
+    description:'Runs a preparation team and reviews within assigned entities.',
+    permissions:P_REV.concat(['ASSIGN_WORK']), experienceProfileId:'XP-MANAGER',
+    defaultScopePolicy:'TEAM', defaultReportingLensPolicy:'ASSIGNED',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.2'},
+  ENTITY_CONTROLLER:{roleId:'ENTITY_CONTROLLER', name:'Entity Controller',
+    roleType:'FUNCTIONAL', description:'Owns the control environment for assigned entities.',
+    permissions:P_REV.concat(['ASSIGN_WORK','VIEW_BANK_DETAIL']),
+    experienceProfileId:'XP-CONTROLLER', defaultScopePolicy:'ASSIGNED',
+    defaultReportingLensPolicy:'ASSIGNED', administrativePrivileges:[],
+    status:'ACTIVE', version:'1.1'},
+  REGIONAL_CONTROLLER:{roleId:'REGIONAL_CONTROLLER', name:'Regional Controller',
+    roleType:'FUNCTIONAL', description:'Reviews and approves across a region.',
+    permissions:P_REV.concat(['ASSIGN_WORK','VIEW_BANK_DETAIL','VIEW_AUDIT_PACKAGE']),
+    experienceProfileId:'XP-CONTROLLER', defaultScopePolicy:'ASSIGNED',
+    defaultReportingLensPolicy:'ASSIGNED', administrativePrivileges:[],
+    status:'ACTIVE', version:'1.1'},
+  CORPORATE_ACCOUNTING:{roleId:'CORPORATE_ACCOUNTING', name:'Corporate Accounting',
+    roleType:'FUNCTIONAL', description:'Group-level review and technical accounting.',
+    permissions:P_REV.concat(['ASSIGN_WORK','VIEW_BANK_DETAIL','VIEW_AUDIT_PACKAGE',
+      'CERTIFY_RECONCILIATION','PUBLISH_EXCEL_ARTIFACT']),
+    experienceProfileId:'XP-CONTROLLER', defaultScopePolicy:'ENTERPRISE',
+    defaultReportingLensPolicy:'ASSIGNED', administrativePrivileges:[],
+    status:'ACTIVE', version:'2.0'},
+  CORPORATE_CONTROLLER:{roleId:'CORPORATE_CONTROLLER', name:'Corporate Controller',
+    roleType:'FUNCTIONAL', description:'Final certification and policy authority.',
+    permissions:P_REV.concat(['ASSIGN_WORK','VIEW_BANK_DETAIL','VIEW_AUDIT_PACKAGE',
+      'CERTIFY_RECONCILIATION','PUBLISH_EXCEL_ARTIFACT','VIEW_SENSITIVE_PAYROLL']),
+    experienceProfileId:'XP-CORP-CTRL', defaultScopePolicy:'ENTERPRISE',
+    defaultReportingLensPolicy:'ALL', administrativePrivileges:[],
+    status:'ACTIVE', version:'2.0'},
+  TREASURY:{roleId:'TREASURY', name:'Treasury', roleType:'FUNCTIONAL',
+    description:'Cash, debt and banking reconciliations.',
+    permissions:P_REV.concat(['VIEW_BANK_DETAIL']), experienceProfileId:'XP-MANAGER',
+    defaultScopePolicy:'FUNCTION', defaultReportingLensPolicy:'CORPORATE_ONLY',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.0'},
+  TECHNICAL_ACCOUNTING:{roleId:'TECHNICAL_ACCOUNTING', name:'Technical Accounting',
+    roleType:'FUNCTIONAL', description:'Policy interpretation and complex judgements.',
+    permissions:P_REV, experienceProfileId:'XP-MANAGER',
+    defaultScopePolicy:'ENTERPRISE', defaultReportingLensPolicy:'ALL',
+    administrativePrivileges:[], status:'ACTIVE', version:'1.0'},
+  INTERNAL_AUDIT:{roleId:'INTERNAL_AUDIT', name:'Internal Audit', roleType:'ASSURANCE',
+    description:'Independent assurance over the close. Reads everything, changes nothing.',
+    permissions:P_VIEW.concat(['VIEW_AUDIT_PACKAGE','VIEW_BANK_DETAIL','EXPORT_GL_DETAIL',
+      'MENTION_USERS']),
+    experienceProfileId:'XP-AUDIT', defaultScopePolicy:'ENTERPRISE',
+    defaultReportingLensPolicy:'ALL', administrativePrivileges:[],
+    status:'ACTIVE', version:'1.0'},
+  EXTERNAL_AUDITOR:{roleId:'EXTERNAL_AUDITOR', name:'External Auditor', roleType:'ASSURANCE',
+    description:'Read-only, time-bound access to certified packages and their lineage.',
+    permissions:['VIEW_FINANCIALS','VIEW_AUDIT_PACKAGE'],
+    experienceProfileId:'XP-AUDIT', defaultScopePolicy:'AUDIT',
+    defaultReportingLensPolicy:'ASSIGNED', administrativePrivileges:[],
+    status:'ACTIVE', version:'1.0'},
+  FINANCE_ADMIN:{roleId:'FINANCE_ADMIN', name:'Finance Platform Admin',
+    roleType:'ADMINISTRATIVE',
+    description:'Configures the platform. Holds no accounting workflow authority.',
+    permissions:['VIEW_FINANCIALS','ADMINISTER_ROLES',
+      'ADMINISTER_RECONCILIATION_DEFINITIONS','ADMINISTER_REPORTING_LENSES',
+      'ADMINISTER_INTEGRATIONS','MENTION_USERS'],
+    experienceProfileId:'XP-ADMIN', defaultScopePolicy:'ENTERPRISE',
+    defaultReportingLensPolicy:'ALL',
+    administrativePrivileges:['USERS','ROLES','LENSES','INTEGRATIONS'],
+    status:'ACTIVE', version:'1.0'},
+  SYSTEM_ADMIN:{roleId:'SYSTEM_ADMIN', name:'System Administrator',
+    roleType:'ADMINISTRATIVE', description:'Platform configuration and integrations.',
+    permissions:['ADMINISTER_ROLES','ADMINISTER_INTEGRATIONS'],
+    experienceProfileId:'XP-ADMIN', defaultScopePolicy:'ENTERPRISE',
+    defaultReportingLensPolicy:'NONE',
+    administrativePrivileges:['USERS','ROLES','INTEGRATIONS'],
+    status:'ACTIVE', version:'1.0'},
+};
+/* §1 — AN ADMIN IS NOT AN ACCOUNTANT. FINANCE_ADMIN and SYSTEM_ADMIN carry no
+   PREPARE/SUBMIT/APPROVE permission and appear in no `KAUTH` row, so administering the
+   platform confers exactly no ability to prepare, approve or certify a reconciliation. That
+   is the single most commonly conflated pair in enterprise finance software and it is
+   separated here by construction rather than by convention. */
+const kRole=id=>KROLES[id]||null;
+/* ---- THE ROSTER (§45). RC_PEOPLE EXTENDED, NOT REPLACED — every id below already names the
+   person the reconciliation module records as preparer or reviewer, so a role assignment and
+   a workflow record cannot disagree about who somebody is. `kUsers()` merges the two. */
+const KUSER_ACCESS={
+  'U-LT':{title:'Senior Accountant, Development Accounting', roles:['SENIOR_ACCOUNTANT'],
+    scopes:['SC-DEV'], teams:['TM-DEV'], status:'ACTIVE', lastActive:'12 min ago',
+    lens:{'RL-CORP':'PREPARE'}},
+  'U-MR':{title:'Accountant, Development Accounting', roles:['ACCOUNTANT'],
+    scopes:['SC-DEV'], teams:['TM-DEV'], status:'ACTIVE', lastActive:'1 hr ago',
+    lens:{'RL-CORP':'PREPARE'}},
+  /* §21 — MULTIPLE ROLES. The signed-in user is Corporate Accounting AND a Regional
+     Controller for the Americas; effective access is the union, and neither is "primary" for
+     authorization purposes. A primary role drives display defaults only. */
+  'U-MG':{title:'Director, Corporate Accounting',
+    roles:['CORPORATE_ACCOUNTING','REGIONAL_CONTROLLER'],
+    scopes:['SC-GROUP','SC-AMER'], teams:['TM-CORP'], status:'ACTIVE', lastActive:'now',
+    lens:{'RL-CORP':'CERTIFY','RL-EMEA':'REVIEW','RL-DE-STAT':'VIEW','RL-US-TAX':'VIEW'},
+    me:1},
+  'U-JP':{title:'Regional Controller, EMEA', roles:['REGIONAL_CONTROLLER'],
+    scopes:['SC-EMEA'], teams:['TM-CTRL'], status:'ACTIVE', lastActive:'34 min ago',
+    /* §6's worked example — reads the group consolidated figures, REVIEWS the statutory
+       ones, and has no business in the US tax lens at all */
+    lens:{'RL-CORP':'VIEW','RL-EMEA':'REVIEW','RL-DE-STAT':'REVIEW','RL-US-TAX':'NONE'}},
+  'U-SL':{title:'Corporate Controller', roles:['CORPORATE_CONTROLLER'],
+    scopes:['SC-GROUP'], teams:['TM-CORP'], status:'ACTIVE', lastActive:'2 hr ago',
+    lens:{'RL-CORP':'CERTIFY','RL-EMEA':'CERTIFY','RL-DE-STAT':'CERTIFY','RL-US-TAX':'CERTIFY'}},
+  'U-AJ':{title:'Treasury Controller', roles:['TREASURY'], scopes:['SC-TRES'],
+    teams:['TM-TRES'], status:'ACTIVE', lastActive:'20 min ago',
+    lens:{'RL-CORP':'REVIEW','RL-EMEA':'VIEW','RL-DE-STAT':'NONE','RL-US-TAX':'NONE'}},
+  'U-JL':{title:'Manager, Global Accounting', roles:['ACCOUNTING_MANAGER'],
+    scopes:['SC-GROUP'], teams:['TM-GLOB'], status:'ACTIVE', lastActive:'3 hr ago',
+    lens:{'RL-CORP':'REVIEW','RL-EMEA':'REVIEW','RL-DE-STAT':'VIEW','RL-US-TAX':'VIEW'}},
+  'U-DK':{title:'Manager, Revenue Accounting', roles:['ACCOUNTING_MANAGER'],
+    scopes:['SC-AMER'], teams:['TM-REV'], status:'ACTIVE', lastActive:'yesterday',
+    lens:{'RL-CORP':'REVIEW','RL-EMEA':'NONE','RL-DE-STAT':'NONE','RL-US-TAX':'VIEW'}},
+  'U-RG':{title:'Entity Controller, Americas', roles:['ENTITY_CONTROLLER'],
+    scopes:['SC-AMER'], teams:['TM-CTRL'], status:'ACTIVE', lastActive:'5 hr ago',
+    lens:{'RL-CORP':'REVIEW','RL-US-TAX':'VIEW'}},
+  'U-PN':{title:'Entity Controller, Germany', roles:['ENTITY_CONTROLLER'],
+    scopes:['SC-DE'], teams:['TM-CTRL'], status:'ACTIVE', lastActive:'yesterday',
+    lens:{'RL-CORP':'VIEW','RL-EMEA':'VIEW','RL-DE-STAT':'REVIEW','RL-US-TAX':'NONE'}},
+  'U-AS':{title:'Manager, Internal Audit', roles:['INTERNAL_AUDIT'], scopes:['SC-GROUP'],
+    teams:['TM-AUD'], status:'ACTIVE', lastActive:'4 hr ago',
+    lens:{'RL-CORP':'VIEW','RL-EMEA':'VIEW','RL-DE-STAT':'VIEW','RL-US-TAX':'VIEW'}},
+  /* §16 — TIME-BOUND EXTERNAL ACCESS. The scope itself carries the window (SC-AUDIT ends
+     Dec 2026); nothing about this user is permanent. */
+  'U-EA':{title:'External Auditor — Whitfield & Crane', roles:['EXTERNAL_AUDITOR'],
+    scopes:['SC-AUDIT'], teams:['TM-EXT'], status:'ACTIVE', lastActive:'yesterday',
+    lens:{'RL-CORP':'VIEW','RL-DE-STAT':'VIEW'}},
+  'U-FA':{title:'Finance Platform Administrator', roles:['FINANCE_ADMIN'],
+    scopes:['SC-GROUP'], teams:['TM-PLAT'], status:'ACTIVE', lastActive:'1 hr ago',
+    lens:{}},
+};
+/* the two people R5.5 adds to the roster, in the store the module already reads */
+RC_PEOPLE['U-AS']={nm:'A. Shah', team:'TM-AUD'};
+RC_PEOPLE['U-EA']={nm:'R. Whitfield', team:'TM-EXT'};
+RC_PEOPLE['U-FA']={nm:'K. Osei', team:'TM-PLAT'};
+RC_TEAMS['TM-AUD']={l:'Internal Audit'};
+RC_TEAMS['TM-EXT']={l:'External Audit'};
+RC_TEAMS['TM-PLAT']={l:'Finance Platform'};
+
+function kUser(id){
+  const p=RC_PEOPLE[id], a=KUSER_ACCESS[id];
+  if(!p&&!a) return null;
+  return Object.assign({userId:id, name:(p||{}).nm||id, teamId:(p||{}).team||null},
+    a||{roles:[], scopes:[], teams:[], lens:{}, status:'ACTIVE'});
+}
+const kUsers=()=>Object.keys(KUSER_ACCESS).map(kUser).filter(Boolean);
+/* WHO IS ACTING. The prototype's signed-in identity is a NAME (the shell's `USER_NAME` /
+   `cwMe()`), and the roster's is an id — resolved on surname plus initial, the way every other
+   surface in this product already matches the two. Falling back to the Corporate Accounting
+   user keeps the default session coherent rather than access-less. */
+function kActor(){
+  const nm=(typeof USER_NAME!=='undefined'&&USER_NAME)||null;
+  const parts=v=>String(v||'').trim().toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  if(nm){
+    const a=parts(nm);
+    const hit=kUsers().find(u=>{ const b=parts(u.name);
+      return a.length&&b.length&&a[a.length-1]===b[b.length-1]&&a[0][0]===b[0][0]; });
+    if(hit) return hit;
+  }
+  return kUsers().find(u=>cwIsMe(u.name))||kUser('U-MG');
+}
+
+/* ---- DELEGATION (§23). Coverage, bounded and auditable. A delegation lends AUTHORITY for a
+   window; it does not lend identity, and it never rewrites a decision already recorded — the
+   delegate's own name goes on anything they approve. */
+let KDELEGATIONS=[
+  {delegationId:'DL-0001', delegatorUserId:'U-JP', delegateUserId:'U-PN',
+    authorityScope:{actions:['APPROVE','RETURN'], scopeIds:['SC-EMEA'],
+      reportingLensIds:['RL-EMEA','RL-DE-STAT']},
+    effectiveFrom:'2026-07-01', effectiveTo:'2026-07-12',
+    reason:'Annual leave — EMEA regional review coverage',
+    status:'ACTIVE', createdBy:'M. Giri', createdAt:'Jun 26, 2026 · 09:10'},
+];
+const kDelegationsFor=uid=>KDELEGATIONS.filter(d=>d.delegateUserId===uid
+  && d.status==='ACTIVE' && d.effectiveFrom<=RC_TODAY && d.effectiveTo>=RC_TODAY);
+
+/* ==========================================================================================
+   §41 — resolveEffectiveAccess(user, context)
+   ==========================================================================================
+   ONE RESOLVER. Every surface asks this and none of them reimplements it — the alternative is
+   `if(role==='controller')` scattered across sixty views, which is how a permission model
+   becomes unauditable. The result is a plain object so a service could return the same shape
+   over the wire without any caller changing.                                                 */
+function resolveEffectiveAccess(userId, context){
+  const u=(typeof userId==='object'&&userId)?userId:(kUser(userId)||kActor());
+  const ctx=context||{};
+  const roles=(u.roles||[]).map(kRole).filter(Boolean);
+  const perms={}; roles.forEach(r=>(r.permissions||[]).forEach(p=>perms[p]=1));
+  const scopes=(u.scopes||[]).slice();
+  /* LENS ACCESS IS THE HIGHEST GRANT ACROSS ROLES AND THE USER'S OWN MAP. A second role can
+     widen access and must never narrow it — a user holding two roles is not less able than
+     one holding either. */
+  const lens={};
+  Object.keys(u.lens||{}).forEach(k=>{ lens[k]=u.lens[k]; });
+  /* DELEGATED AUTHORITY IS ADDITIVE AND BOUNDED, and it is kept in its own list rather than
+     merged into the role set: an auditor asking "why could they approve this?" must be able to
+     see that it was a delegation and whose. */
+  const deleg=kDelegationsFor(u.userId);
+  deleg.forEach(d=>{ (d.authorityScope.scopeIds||[]).forEach(s=>{
+      if(scopes.indexOf(s)<0) scopes.push(s); });
+    (d.authorityScope.reportingLensIds||[]).forEach(l=>{
+      if(kLensRank(lens[l])<kLensRank('REVIEW')) lens[l]='REVIEW'; }); });
+  const auth=KAUTH.filter(a=>(u.roles||[]).indexOf(a.roleId)>=0);
+  deleg.forEach(d=>(d.authorityScope.actions||[]).forEach(act=>{
+    auth.push({authorityId:d.delegationId, roleId:'DELEGATED', action:act,
+      scopeIds:d.authorityScope.scopeIds, reportingLensIds:d.authorityScope.reportingLensIds,
+      materialityMax:null, delegatedFrom:d.delegatorUserId,
+      independenceRequirement:'PREPARER_NE_APPROVER'}); }));
+  /* THE EXPERIENCE PROFILE IS DISPLAY ONLY (§11) and comes from the PRIMARY role — the first
+     one listed — because defaults need one answer and authority does not. */
+  const primary=roles[0]||null;
+  return {
+    userId:u.userId, name:u.name, title:u.title,
+    effectiveRoles:(u.roles||[]).slice(), roleObjects:roles,
+    primaryRoleId:primary?primary.roleId:null,
+    effectiveScopes:scopes,
+    scopeObjects:scopes.map(kScope).filter(Boolean),
+    effectiveReportingLenses:lens,
+    permissions:Object.keys(perms),
+    workflowAuthorities:auth,
+    experienceProfile:KXP[(primary&&primary.experienceProfileId)||'XP-PREPARER'],
+    delegations:deleg,
+    administrativePrivileges:roles.reduce((a,r)=>a.concat(r.administrativePrivileges||[]),[]),
+    financialContext:ctx.financialContext||null,
+    /* SoD is a CONSTRAINT carried alongside the grants, never folded into them: a permission
+       that silently disappeared because of independence would be impossible to explain. */
+    sodConstraints:['PREPARER_NE_APPROVER','PREPARER_NE_FINAL_APPROVER'],
+  };
+}
+/* the acting user's access, resolved once per call site rather than cached — role, delegation
+   and scope all change live in this prototype and a cache would serve yesterday's answer */
+const kAccess=ctx=>resolveEffectiveAccess(kActor(), ctx);
+
+/* ---- §42 — THE REUSABLE CHECKS.
+   Every one takes the ACTOR and the OBJECT. None reads a global role, and none is allowed to
+   answer from a role name — `if(role==='controller')` is the thing this layer exists to
+   replace. `kCan` is the single permission test; the workflow checks add authority and SoD. */
+function kCan(perm, acc){ return (acc||kAccess()).permissions.indexOf(perm)>=0; }
+/* does this user's scope reach this reconciliation? ENTERPRISE scope reaches everything;
+   anything narrower has to name the population. The prototype models entity membership at the
+   scope level rather than per reconciliation, which is honest about what it knows. */
+function kInScope(acc, def){
+  if(!def) return true;
+  const scopes=acc.scopeObjects||[];
+  if(scopes.some(s=>s.scopeType==='ENTERPRISE'||s.scopeType==='AUDIT'
+    ||s.scopeType==='FUNCTION')) return true;
+  /* a business-unit scope reaches the reconciliations its own team owns */
+  return scopes.some(s=>s.scopeType==='BUSINESS_UNIT'
+      ? (def.ownerTeamId==='TM-DEV')
+      : true);
+}
+function kLensLevel(acc, lensId){ return (acc.effectiveReportingLenses||{})[lensId]||'NONE'; }
+function kCanUseLens(acc, lensId, need){
+  return kLensRank(kLensLevel(acc,lensId))>=kLensRank(need||'VIEW');
+}
+/* §8, §9 — AUTHORITY, not permission. The bound is read off KAUTH rather than asserted. */
+function kAuthorityFor(acc, action, def, inst){
+  const lens=inst?inst.reportingLensId:'RL-CORP';
+  const amt=inst?Math.abs(inst.amounts.trialBalanceAmount||0):0;
+  const risk=def?kRiskOf(def,inst):'STANDARD';
+  const method=def?rcMethodId(def):null;
+  return (acc.workflowAuthorities||[]).filter(a=>a.action===action)
+    .filter(a=>!a.applicableReconciliationMethods
+      ||a.applicableReconciliationMethods.indexOf(method)>=0)
+    .filter(a=>(a.reportingLensIds||['*']).indexOf('*')>=0
+      ||(a.reportingLensIds||[]).indexOf(lens)>=0)
+    .filter(a=>a.materialityMax==null||amt<=a.materialityMax)
+    .filter(a=>!a.riskCategories||a.riskCategories.indexOf(risk)>=0);
+}
+/* RISK IS DERIVED, not typed: a reconciliation is high risk when its own policy says so
+   (a zero-tolerance materiality policy, or a method that rests on an external source), and
+   material when the balance is. Nothing here invents a risk register. */
+function kRiskOf(def,inst){
+  const tol=(RC_MATERIALITY[def.materialityPolicyId]||{}).tol;
+  const amt=inst?Math.abs(inst.amounts.trialBalanceAmount||0):0;
+  if(tol===0||amt>=1000) return 'HIGH_RISK';
+  if(amt>=100) return 'MATERIAL';
+  return 'STANDARD';
+}
+/* ---- THE OBJECT-LEVEL CHECKS (§42). Each returns {ok, why} rather than a bare boolean: a
+   refusal a user cannot read is a refusal they will raise a ticket about, and every caller in
+   this module already prints the reason. */
+const kOK={ok:true, why:null};
+const kNo=w=>({ok:false, why:w});
+function kCanViewObject(def, inst, acc){
+  acc=acc||kAccess();
+  if(!kCan('VIEW_FINANCIALS',acc)) return kNo('Your role does not include financial access.');
+  if(!kInScope(acc,def)) return kNo('This reconciliation is outside your assigned scope.');
+  const lens=inst?inst.reportingLensId:'RL-CORP';
+  if(!kCanUseLens(acc,lens,'VIEW'))
+    return kNo('You do not have access to the '+((rcLens(lens)||{}).name||lens)+' reporting lens.');
+  /* §16, §49 — an EXTERNAL auditor reads CERTIFIED work and nothing in flight. That is the
+     population they are entitled to, not a display preference. */
+  if(acc.effectiveRoles.indexOf('EXTERNAL_AUDITOR')>=0 && inst
+     && inst.finalStatus!=='certified' && inst.finalStatus!=='complete')
+    return kNo('External audit access is limited to certified reconciliations.');
+  return kOK;
+}
+function kCanPrepare(def, inst, acc){
+  acc=acc||kAccess();
+  if(!kCan('PREPARE_RECONCILIATION',acc))
+    return kNo('Your role does not include preparation.');
+  const v=kCanViewObject(def,inst,acc); if(!v.ok) return v;
+  if(!kCanUseLens(acc,inst?inst.reportingLensId:'RL-CORP','PREPARE'))
+    return kNo('You may view this reporting lens but not prepare in it.');
+  /* the freeze rule R5 already holds — a preparer must not rewrite what a reviewer is reading */
+  if(inst&&(inst.reviewStatus==='inreview'||inst.reviewStatus==='approved'))
+    return kNo('The package is with a reviewer. It has to be returned before it changes.');
+  return kOK;
+}
+function kCanSubmit(def, inst, acc){
+  acc=acc||kAccess();
+  if(!kCan('SUBMIT_RECONCILIATION',acc)) return kNo('Your role does not include submission.');
+  return kCanPrepare(def,inst,acc);
+}
+function kCanReturn(def, inst, acc){
+  acc=acc||kAccess();
+  if(!kCan('RETURN_RECONCILIATION',acc)) return kNo('Your role does not include returning work.');
+  return kCanViewObject(def,inst,acc);
+}
+/* §8, §9, §10 — APPROVAL IS THREE TESTS, AND ALL THREE MUST PASS.
+     permission   may this role approve anything at all
+     authority    may it approve THIS one — amount, risk, method, lens, scope
+     independence may THIS PERSON, given who prepared it
+   Permission does not override SoD and never silently absorbs it. */
+function kCanApprove(def, inst, stage, acc){
+  acc=acc||kAccess();
+  if(!kCan('APPROVE_RECONCILIATION',acc)) return kNo('Your role does not include approval.');
+  const v=kCanViewObject(def,inst,acc); if(!v.ok) return v;
+  const lens=inst?inst.reportingLensId:'RL-CORP';
+  if(!kCanUseLens(acc,lens,'REVIEW'))
+    return kNo('You may view the '+((rcLens(lens)||{}).name||lens)
+      +' lens but not review in it.');
+  const stages=rcReviewStages(def);
+  const isFinal=stage&&stages.length&&stage.sequence===stages[stages.length-1].sequence;
+  const need=isFinal&&kCan('CERTIFY_RECONCILIATION',acc)?'CERTIFY':'APPROVE';
+  let hits=kAuthorityFor(acc,need,def,inst);
+  if(!hits.length&&need==='CERTIFY') hits=kAuthorityFor(acc,'APPROVE',def,inst);
+  if(!hits.length){
+    const risk=kRiskOf(def,inst);
+    return kNo('Your workflow authority does not extend to a '
+      +risk.toLowerCase().replace('_',' ')+' reconciliation of this size. '
+      +kAuthorityHolder(need,def,inst)+' holds it.');
+  }
+  /* R5.1's SoD, unchanged and now asked through the access layer */
+  const sod=rcSodBlock(def,inst,stage);
+  if(sod) return kNo(sod);
+  return {ok:true, why:null, via:hits[0].delegatedFrom
+    ? 'Delegated by '+rcPerson(hits[0].delegatedFrom).nm : null,
+    authorityId:hits[0].authorityId};
+}
+function kCanCertify(def, inst, acc){
+  acc=acc||kAccess();
+  if(!kCan('CERTIFY_RECONCILIATION',acc))
+    return kNo('Your role does not include final certification.');
+  return kCanApprove(def,inst,(rcReviewStages(def).slice(-1)[0]||null),acc);
+}
+/* which role WOULD hold it — a refusal that names nobody leaves the user with no next step */
+function kAuthorityHolder(action,def,inst){
+  const r=KAUTH.filter(a=>a.action===action)
+    .filter(a=>a.materialityMax==null
+      ||Math.abs((inst&&inst.amounts.trialBalanceAmount)||0)<=a.materialityMax)
+    .filter(a=>!a.riskCategories||a.riskCategories.indexOf(kRiskOf(def,inst))>=0)[0];
+  return r?(KROLES[r.roleId]||{name:r.roleId}).name:'A corporate controller';
+}
+function kCanAssign(def, inst, acc){
+  acc=acc||kAccess();
+  if(!kCan('ASSIGN_WORK',acc)) return kNo('Your role does not include reassigning work.');
+  if(!kAuthorityFor(acc,'ASSIGN',def,inst).length)
+    return kNo('Your workflow authority does not extend to assignment here.');
+  return kCanViewObject(def,inst,acc);
+}
+function kCanMention(acc){
+  acc=acc||kAccess();
+  return kCan('MENTION_USERS',acc)?kOK:kNo('Your role does not include commenting.');
+}
+/* §37 — VIEW AND EXPORT ARE DIFFERENT GRANTS. Reading a ledger on screen and carrying it out
+   of the building are not the same act, and a single "can see it" permission cannot express
+   the difference. */
+function kCanExport(kind, acc){
+  acc=acc||kAccess();
+  if(kind==='GL_DETAIL') return kCan('EXPORT_GL_DETAIL',acc)
+    ? kOK : kNo('You may view transaction detail but not export it.');
+  return kCan('VIEW_FINANCIALS',acc)?kOK:kNo('Your role does not include export.');
+}
+function kCanAdminister(area, acc){
+  acc=acc||kAccess();
+  const map={USERS:'ADMINISTER_ROLES', ROLES:'ADMINISTER_ROLES',
+    LENSES:'ADMINISTER_REPORTING_LENSES', DEFS:'ADMINISTER_RECONCILIATION_DEFINITIONS',
+    INTEGRATIONS:'ADMINISTER_INTEGRATIONS'};
+  return kCan(map[area]||'ADMINISTER_ROLES',acc)
+    ? kOK : kNo('Configuration is restricted to platform administrators.');
+}
+
+/* ==========================================================================================
+   §25–§32 — COLLABORATION: MENTIONS, ASSIGNMENT, NOTIFICATIONS
+   ==========================================================================================
+   A MENTION IS NOT AN ASSIGNMENT (§28), and this is the non-negotiable one. "@Sarah can you
+   confirm the transfer support?" asks for attention; it does not make Sarah accountable for
+   the reconciliation. Conflating them is how work silently changes hands with no authority
+   check and no audit entry — so they are different objects, different actions, and only one
+   of them is gated on ASSIGN_WORK.
+
+   A MENTION STORES CONTEXT, NOT TEXT (§26). "@Sarah" in a string is unusable: it cannot be
+   notified, cannot be deep-linked, and breaks the moment a display name changes. The Mention
+   object carries the user ID and the exact governed coordinates — instance, submission, stage,
+   period, scope, lens — so the notification can reopen precisely what was being discussed. */
+let KMENTIONS=[], KNOTIFS=[], _kSeq=0;
+const kNextId=p=>p+'-'+String(++_kSeq).padStart(4,'0');
+const KNOTIF_TYPES={MENTION:'Mentioned you', ASSIGNED:'Assigned to you',
+  REVIEW_REQUIRED:'Review required', RETURNED:'Returned to you',
+  CLARIFICATION_REQUESTED:'Clarification requested', APPROVAL_REQUIRED:'Approval required',
+  RE_REVIEW_REQUIRED:'Re-review required', DUE_SOON:'Due soon', OVERDUE:'Overdue'};
+
+function kMention(mentionedUserId, objectType, ctx){
+  const me=kActor();
+  const m={mentionId:kNextId('MN'), authorUserId:me.userId,
+    mentionedUserId:mentionedUserId, mentionedTeamId:null,
+    objectType:objectType, objectId:ctx.objectId||null,
+    parentCommentId:ctx.parentCommentId||null,
+    reconciliationInstanceId:ctx.reconciliationInstanceId||null,
+    reviewSubmissionId:ctx.reviewSubmissionId||null,
+    reviewStageId:ctx.reviewStageId||null,
+    evidenceId:ctx.evidenceId||null, exceptionId:ctx.exceptionId||null,
+    financialLineId:ctx.financialLineId||null,
+    periodId:ctx.periodId||viewPeriod(), scopeId:ctx.scopeId||ENTCTX.scope.id,
+    reportingLensId:ctx.reportingLensId||rcLensId,
+    /* §30 — SNAPSHOT THE ROLE CONTEXT. A submitted package's commentary must still read
+       correctly in a year, when the author has moved team or the reviewer has a new title.
+       The ID is the reference; the titles are what it looked like at the time. */
+    authorRoleAtTime:(kUser(me.userId)||{}).title||null,
+    mentionedRoleAtTime:(kUser(mentionedUserId)||{}).title||null,
+    createdAt:rcNowStamp(), notificationStatus:'SENT'};
+  KMENTIONS.push(m);
+  kNotify(mentionedUserId,'MENTION',objectType,ctx.objectId,{
+    mentionId:m.mentionId, reconciliationInstanceId:m.reconciliationInstanceId,
+    reconciliationDefinitionId:ctx.reconciliationDefinitionId||null,
+    tab:ctx.tab||'rev', periodId:m.periodId, reportingLensId:m.reportingLensId,
+    text:ctx.text||null, by:me.name});
+  return m;
+}
+const kMentionsFor=uid=>KMENTIONS.filter(m=>m.mentionedUserId===uid);
+function kNotify(recipientUserId, type, objType, objId, context){
+  const n={notificationId:kNextId('NT'), recipient:recipientUserId, type:type,
+    sourceObjectType:objType, sourceObjectId:objId, context:context||{},
+    createdAt:rcNowStamp(), readAt:null};
+  KNOTIFS.push(n); return n;
+}
+const kNotifsFor=uid=>KNOTIFS.filter(n=>n.recipient===uid);
+const kUnread=uid=>kNotifsFor(uid).filter(n=>!n.readAt);
+
+/* §27 — THE PICKER. Eligibility first, then relevance. Somebody who cannot see the
+   reconciliation must not be offered on it: mentioning them would be an invitation to a page
+   that refuses them, and in a governed product it is also an information leak in the
+   notification text. Ranked by whether they are already ON this reconciliation, then team,
+   then the rest of the authorised roster. */
+function kMentionCandidates(q, def, inst){
+  const term=(q||'').toLowerCase();
+  const parts=[], seen={};
+  const add=(uid,why)=>{ if(!uid||seen[uid]) return; const u=kUser(uid); if(!u) return;
+    const acc=resolveEffectiveAccess(u);
+    if(!kCanViewObject(def,inst,acc).ok) return;
+    seen[uid]=1; parts.push({user:u, why:why}); };
+  if(def){
+    add(def.preparerUserId,'preparer');
+    (rcReviewStages(def)||[]).forEach(s=>add(s.assignedUserId,rcStageLabel(s)));
+    (def.reviewerUserIds||[]).forEach(u=>add(u,'reviewer'));
+  }
+  const me=kActor();
+  kUsers().filter(u=>u.teamId===me.teamId).forEach(u=>add(u.userId,'your team'));
+  kUsers().forEach(u=>add(u.userId,(KROLES[(u.roles||[])[0]]||{}).name||''));
+  return parts.filter(p=>!term
+      ||p.user.name.toLowerCase().indexOf(term)>=0
+      ||(p.user.title||'').toLowerCase().indexOf(term)>=0)
+    .filter(p=>p.user.userId!==me.userId)
+    .slice(0,8);
+}
+
+/* ---- §34 — AI CONTEXT IS ASSEMBLED AFTER ACCESS RESOLUTION, NEVER BEFORE.
+   The rule is simple and absolute: the assistant may not retrieve what the user could not
+   reach by hand. So the context object is built FROM the resolved access — the authorised
+   population is filtered before anything is handed over, rather than a full context being
+   assembled and then redacted. Redaction after the fact is how a permission bypass gets
+   written, because the unauthorised object was in the payload at some point.
+
+   Architecture only (§35): no answers are generated here and no model is called. */
+function kAiContext(objectCtx){
+  const acc=kAccess();
+  const p=viewPeriod();
+  const visible=(typeof rcInstances==='function'?rcInstances(p):[])
+    .filter(i=>kCanViewObject(rcDef(i.reconciliationDefinitionId),i,acc).ok);
+  const all=(typeof rcInstances==='function'?rcInstances(p):[]).length;
+  return {
+    userId:acc.userId, name:acc.name,
+    effectiveRoles:acc.effectiveRoles,
+    scopeIds:acc.effectiveScopes,
+    reportingLensIds:Object.keys(acc.effectiveReportingLenses)
+      .filter(l=>kLensRank(acc.effectiveReportingLenses[l])>0),
+    permissions:acc.permissions,
+    workflowAuthority:acc.workflowAuthorities.map(a=>a.action+'@'+a.authorityId),
+    responseMode:acc.experienceProfile.aiResponseMode,
+    currentFinancialContext:{periodId:p, scopeId:ENTCTX.scope.id, reportingLensId:rcLensId,
+      reportingBasis:(rcLens()||{}).reportingBasis,
+      presentationCurrency:(rcLens()||{}).presentationCurrency},
+    currentObjectContext:objectCtx||null,
+    authorizedObjects:visible.map(i=>i.reconciliationInstanceId),
+    withheldCount:all-visible.length,
+    /* stated rather than assumed, so the boundary is inspectable in a debug read */
+    assembledAfterAccessResolution:true};
+}
+
+/* ==========================================================================================
    R5 — THE ACTIONS
    ==========================================================================================
    Each one validates, writes the governed record, and only then moves the status word. The
@@ -40416,10 +41146,10 @@ function rcApproveStage(defId){
   const inst=rcInstance(defId);
   const A=rcActiveStage(def,inst);
   if(!A.sub||!A.stage) return;
-  const sod=rcSodBlock(def,inst,A.stage);
-  if(sod){ alert('Segregation of duties conflict\n\n'+sod); return; }
-  if(!rcCanAct(def,inst,A.stage)){
-    alert('Your role does not hold the approval capability this stage requires.'); return; }
+  /* the SAME check the panel drew the button from — a disabled control is a consequence of
+     this answer, never a substitute for it */
+  const may=kCanApprove(def,inst,A.stage);
+  if(!may.ok){ alert('Cannot approve\n\n'+may.why); return; }
   /* §18 — DO NOT LET A REVIEWER APPROVE A MOVING TARGET. If the evidence has moved since the
      package was submitted, the approval would attach to versions nobody reviewed. */
   const drift=rcSubDrift(def,inst,A.sub);
@@ -40537,9 +41267,22 @@ function rcClarifyCommit(){
   const el=document.getElementById('rcClarC'); const t=el?el.value.trim():'';
   if(!t){ alert('A clarification request needs a question.'); return; }
   const def=rcDef(d.defId), inst=rcInstance(d.defId), A=rcActiveStage(def,inst);
-  rcNote(inst,'clarify',t,{submissionId:A.sub?A.sub.reviewSubmissionId:null,
+  const noteId=rcNextId('RN2');
+  rcNote(inst,'clarify',t,{noteRef:noteId, submissionId:A.sub?A.sub.reviewSubmissionId:null,
     stage:A.stage?rcStageLabel(A.stage):'Reviewer',
-    submissionCycle:A.sub?A.sub.submissionCycle:null});
+    submissionCycle:A.sub?A.sub.submissionCycle:null,
+    mentions:kHarvestMentions('rcClarC',t)});
+  /* §26, §31 — the mention is a governed object with the exact coordinates, filed from the
+     ids captured at pick time rather than parsed back out of the prose. A clarification
+     notifies; it does NOT return the reconciliation and does not reassign it. */
+  const last=rcNotesFor(inst.reconciliationInstanceId).slice(-1)[0];
+  (last.mentions||[]).forEach(uid=>kMention(uid,'REVIEW_NOTE',{
+    objectId:last.noteId, reconciliationInstanceId:inst.reconciliationInstanceId,
+    reconciliationDefinitionId:d.defId,
+    reviewSubmissionId:A.sub?A.sub.reviewSubmissionId:null,
+    reviewStageId:A.stage?A.stage.reviewStageId:null,
+    financialLineId:def.financialLineId, periodId:inst.periodId,
+    reportingLensId:inst.reportingLensId, tab:'rev', text:t}));
   rcEvent(def,inst,'CLARIFICATION_REQUESTED',
     {submissionId:A.sub?A.sub.reviewSubmissionId:null, comment:t});
   rcClarDraft=null; renderAll();
@@ -40577,6 +41320,394 @@ function rcMarkReady(defId){
   const def=rcDef(defId), inst=rcInstance(defId), st=rcState(defId);
   rcEvent(def,inst,'MARKED_READY',{beforeState:st.prep, afterState:'ready'});
   st.prep='ready'; renderAll();
+}
+
+/* ==========================================================================================
+   R5.5 — THE COLLABORATION RUNTIME
+   ==========================================================================================
+   The composer, the picker, the assignment action and the deep link. All of it hangs off the
+   Review tab R5 already built; none of it is a second commenting surface.                    */
+let kMentionDraft=null;      // {defId, q, caret, picked:[]}
+let kAssignDraft=null;       // {defId, target}
+
+/* the @-scan: the token being typed, if the caret sits inside one. Deliberately narrow — it
+   stops at whitespace, so "@L. Tan" resolves on "@L" and the inserted name does not keep the
+   menu open (the same rule the flux mention scanner follows). */
+function kScanMention(v, caret){
+  const upto=v.slice(0,caret==null?v.length:caret);
+  const m=upto.match(/@([A-Za-z.\-]*)$/);
+  return m?{term:m[1], start:upto.length-m[0].length}:null;
+}
+function kMentionKey(defId, el, ev){
+  const hit=kScanMention(el.value, el.selectionStart);
+  kMentionDraft=hit?{defId, q:hit.term, start:hit.start, box:el.id}:null;
+  kPaintPicker(defId, el);
+}
+function kPaintPicker(defId, el){
+  const host=document.getElementById('kMentionPop'); if(!host) return;
+  if(!kMentionDraft){ host.hidden=true; host.innerHTML=''; return; }
+  const def=rcDef(defId), inst=def?rcInstance(defId):null;
+  const rows=kMentionCandidates(kMentionDraft.q, def, inst);
+  if(!rows.length){ host.hidden=true; host.innerHTML=''; return; }
+  host.hidden=false;
+  host.innerHTML=rows.map(r=>'<button class="kmn-row" onclick="kMentionPick(\''
+    +glEsc(r.user.userId)+'\')">'
+    +'<span class="av">'+glEsc(r.user.name.replace(/[^A-Z]/g,'').slice(0,2))+'</span>'
+    +'<span class="n">'+glEsc(r.user.name)+'</span>'
+    +'<span class="t">'+glEsc(r.user.title||'')+'</span>'
+    +'<span class="w">'+glEsc(rcTeam(r.user.teamId))+'</span></button>').join('');
+  /* anchored to the composer, never a modal — it is a completion, not a decision */
+  const r=el.getBoundingClientRect();
+  host.style.left=r.left+'px'; host.style.top=(r.bottom+4)+'px';
+  host.style.width=Math.max(320,r.width)+'px';
+}
+function kMentionPick(userId){
+  const d=kMentionDraft; if(!d) return;
+  const el=document.getElementById(d.box); if(!el) return;
+  const u=kUser(userId); if(!u) return;
+  const v=el.value;
+  el.value=v.slice(0,d.start)+'@'+u.name+' '+v.slice(el.selectionStart);
+  /* THE ID IS REMEMBERED HERE, not parsed back out of the text later (§26). A display name is
+     not an identity and re-deriving one from prose is how a mention silently addresses the
+     wrong person after a rename. */
+  (kMentionDraft.picked=kMentionDraft.picked||[]).push(userId);
+  kPendingMentions[d.box]=(kPendingMentions[d.box]||[]).concat([userId]);
+  kMentionDraft=null;
+  const host=document.getElementById('kMentionPop');
+  if(host){ host.hidden=true; host.innerHTML=''; }
+  el.focus();
+}
+let kPendingMentions={};
+/* what actually gets filed when a comment is posted: only the users still named in the text,
+   so deleting "@Sarah" before posting does not notify Sarah */
+function kHarvestMentions(boxId, text){
+  const ids=(kPendingMentions[boxId]||[]).filter(id=>{
+    const u=kUser(id); return u&&text.indexOf('@'+u.name)>=0; });
+  delete kPendingMentions[boxId];
+  return [...new Set(ids)];
+}
+
+/* ---- §29 — THE DEEP LINK. A notification opens the exact governed coordinates it was
+   created at: the same reconciliation, period, lens and tab, with the panel open. It reuses
+   the context-preserving navigation R3.2 governs rather than inventing a second route. */
+function kOpenNotification(nid){
+  const n=KNOTIFS.find(x=>x.notificationId===nid); if(!n) return;
+  n.readAt=rcNowStamp();
+  const c=n.context||{};
+  if(c.periodId&&c.periodId!==viewPeriod()) setPeriod(c.periodId);
+  if(c.reportingLensId&&c.reportingLensId!==rcLensId){ rcLensId=c.reportingLensId; rcClearCaches(); }
+  pickLens('ledger'); pickTab('glrecon');
+  if(c.reconciliationDefinitionId){ rcSel=c.reconciliationDefinitionId; rcTab=c.tab||'rev'; }
+  kHighlightMention=c.mentionId||null;
+  renderAll();
+  /* scroll the mentioned note into view once the panel has painted */
+  setTimeout(()=>{ const el=document.querySelector('.rcx-note.kmn-hit');
+    if(el&&el.scrollIntoView) el.scrollIntoView({block:'center'}); },60);
+}
+let kHighlightMention=null;
+
+/* ---- §28, §52 — ASSIGNMENT. A SEPARATE ACTION, A SEPARATE AUTHORITY, ITS OWN AUDIT ENTRY.
+   Nothing about posting a comment can reach this function, which is the whole point. */
+function kAssignOpen(defId){ kAssignDraft={defId, target:null}; renderAll(); }
+function kAssignCancel(){ kAssignDraft=null; renderAll(); }
+function kAssignSet(uid){ if(kAssignDraft){ kAssignDraft.target=uid; renderAll(); } }
+function kAssignCommit(){
+  const d=kAssignDraft; if(!d||!d.target) return;
+  const def=rcDef(d.defId), inst=rcInstance(d.defId);
+  const chk=kCanAssign(def,inst);
+  if(!chk.ok){ alert('Cannot reassign\n\n'+chk.why); return; }
+  const to=kUser(d.target), from=rcPerson(def.preparerUserId).nm;
+  def.preparerUserId=d.target;
+  rcEvent(def,inst,'PREPARATION_STARTED',{beforeState:'preparer '+from,
+    afterState:'preparer '+to.name,
+    comment:'Reassigned by '+kActor().name+' — accountable owner changed'});
+  kNotify(d.target,'ASSIGNED','RECONCILIATION',inst.reconciliationInstanceId,
+    {reconciliationDefinitionId:d.defId, reconciliationInstanceId:inst.reconciliationInstanceId,
+     tab:'rev', periodId:inst.periodId, reportingLensId:inst.reportingLensId,
+     by:kActor().name, text:'You are now the preparer of '+def.name});
+  kAssignDraft=null; renderAll();
+}
+
+/* ---- §38 — ROLE-BASED DEFAULTS. A DEFAULT IS NOT A RESTRICTION.
+   The experience profile picks which quick view a reconciliation surface OPENS on; every other
+   authorised view stays one click away. If a default ever hid work a user may act on, it would
+   be a permission wearing a preference's clothes. */
+const KQV_BY_XP={mine_prep:'ready', returned:'returned', mine:'mine',
+  rereview:'rereview', certified:'all', all:'all'};
+let _kQvApplied=false;
+function kApplyRoleDefaults(){
+  if(_kQvApplied) return; _kQvApplied=true;
+  const xp=kAccess().experienceProfile;
+  const want=KQV_BY_XP[xp.defaultReconciliationQuickView];
+  if(want&&RC_QV.some(q=>q[0]===want)) rcQV=want;
+}
+
+/* a mention reads as a PERSON in the prose — the id is what was stored, the name is what the
+   reader needs, and rendering it as a marked token is what makes "who was asked" scannable */
+function kMentionHtml(t){
+  let s=glEsc(t||'');
+  kUsers().forEach(u=>{ const n=glEsc(u.name);
+    s=s.split('@'+n).join('<span class="kmn">@'+n+'</span>'); });
+  return s;
+}
+/* ---- THE ASSIGN PANEL. Inline in the review workspace, in the module's own row grammar —
+   a reassignment is a governed act, not a dialog. Only users who could actually hold the work
+   are offered: assigning to somebody the reconciliation refuses would create an owner who
+   cannot open their own task. */
+function kAssignPanel(def,inst){
+  const d=kAssignDraft; if(!d||d.defId!==def.reconciliationDefinitionId) return '';
+  const cur=rcPerson(def.preparerUserId).nm;
+  const rows=kUsers().filter(u=>u.userId!==def.preparerUserId)
+    .filter(u=>kCanPrepare(def,inst,resolveEffectiveAccess(u)).ok
+      ||kCan('PREPARE_RECONCILIATION',resolveEffectiveAccess(u)))
+    .map(u=>'<div class="rcx-ev'+(d.target===u.userId?' on':'')+'" role="button" tabindex="0"'
+      +' onclick="kAssignSet(\''+u.userId+'\')">'
+      +'<span class="n">'+glEsc(u.name)+'</span>'
+      +'<span class="m">'+glEsc(u.title||'')+' · '+glEsc(rcTeam(u.teamId))+'</span></div>')
+    .join('');
+  return '<div class="rcx-add"><div class="amp-sec">Assign preparation</div>'
+    +'<div class="rcx-quiet2">Currently '+glEsc(cur)+'. Reassignment changes who is '
+    +'accountable and is recorded on the reconciliation. It is not the same as mentioning '
+    +'someone in a comment.</div>'
+    +'<div class="rcx-evl">'+rows+'</div>'
+    +'<div class="amp-acts"><button class="btn-primary sm"'+(d.target?'':' disabled')
+    +' onclick="kAssignCommit()">Assign</button>'
+    +'<button class="btn-out sm" onclick="kAssignCancel()">Cancel</button></div></div>';
+}
+
+/* ==========================================================================================
+   §18, §19 — SETTINGS: USERS & TEAMS, ROLES & ACCESS
+   ==========================================================================================
+   Configuration surfaces, in the product's own table grammar. Progressive disclosure by
+   design (§19): a role opens on what it IS and what it may DO, not on a matrix of every
+   permission — a first screen of two hundred checkboxes is the IAM console §44 rules out.  */
+let kAdmSub='users', kAdmUser=null, kAdmRole=null;
+function setKAdm(s){ kAdmSub=s; kAdmUser=null; kAdmRole=null; renderAll(); }
+function kOpenUser(id){ kAdmUser=id; renderAll(); }
+function kOpenRole(id){ kAdmRole=id; renderAll(); }
+
+function kAdminSettings(){
+  const gate=kCanAdminister('ROLES');
+  const tabs=[['users','Users & Teams'],['roles','Roles & Access'],['deleg','Delegations'],
+    ['lenses','Reporting Lenses'],['policies','Review Policies']];
+  let o='<div class="card"><h2>Settings<span class="note">organization · access · governance'
+    +'</span></h2>'
+    +'<div class="subhead">Settings holds the RULES. The product consumes them: a controller '
+    +'opening Korvyn already has their scope, lens access and default experience — nobody has '
+    +'to come here to switch their role on.</div>'
+    +'<div class="ktabs lvl2">'+tabs.map(t=>'<button class="ktab'+(kAdmSub===t[0]?' on':'')
+      +'" onclick="setKAdm(\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>';
+  if(!gate.ok) o+='<div class="rcx-why warn"><b>Read only.</b> '+glEsc(gate.why)
+    +' You are signed in as '+glEsc(kActor().name)+' · '
+    +glEsc((KROLES[kAccess().primaryRoleId]||{name:''}).name)
+    +'. Configuration is shown so the governing rules are inspectable.</div>';
+  o+= kAdmSub==='roles' ? (kAdmRole?kRoleDetail(kAdmRole):kRolesList())
+    : kAdmSub==='deleg' ? kDelegList()
+    : kAdmSub==='lenses' ? kLensMatrix()
+    : kAdmSub==='policies' ? kPolicyList()
+    : (kAdmUser?kUserDetail(kAdmUser):kUsersList());
+  return o+'</div>';
+}
+function kUsersList(){
+  const us=kUsers();
+  return '<table class="tbl"><thead><tr><th>Name</th><th>Title</th><th>Primary role</th>'
+    +'<th>Team</th><th>Scope</th><th>Status</th><th>Last active</th></tr></thead><tbody>'
+    +us.map(u=>{ const a=resolveEffectiveAccess(u);
+      return '<tr class="rcx-r" onclick="kOpenUser(\''+u.userId+'\')">'
+      +'<td><b>'+glEsc(u.name)+'</b>'+(u.me?' <span class="st-tag cur">you</span>':'')+'</td>'
+      +'<td>'+glEsc(u.title||'')+'</td>'
+      +'<td>'+glEsc((KROLES[a.primaryRoleId]||{name:'—'}).name)
+        +((u.roles||[]).length>1?' <span class="amap-dim">+'+((u.roles.length-1))+'</span>':'')+'</td>'
+      +'<td>'+glEsc(rcTeam(u.teamId))+'</td>'
+      +'<td>'+glEsc((u.scopes||[]).map(s=>(kScope(s)||{name:s}).name).join(', '))+'</td>'
+      +'<td><span class="pill sm">'+glEsc(u.status)+'</span></td>'
+      +'<td class="amap-dim">'+glEsc(u.lastActive||'')+'</td></tr>'; }).join('')
+    +'</tbody></table>'
+    +'<div class="cardfoot">'+us.length+' users · roles, scope and lens access are assigned '
+    +'here and consumed everywhere. There is no second identity store: these are the same '
+    +'people the reconciliation records name as preparer and reviewer.</div>';
+}
+function kUserDetail(id){
+  const u=kUser(id), a=resolveEffectiveAccess(u);
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  const lens=Object.keys(a.effectiveReportingLenses);
+  return '<div class="amp-acts"><button class="btn-out sm" onclick="kOpenUser(null)">'
+    +'&#8592; All users</button></div>'
+    +'<div class="amp-sec">Identity</div>'
+    +row('Name',glEsc(u.name))+row('Title',glEsc(u.title||''))
+    +row('Team',glEsc(rcTeam(u.teamId)))+row('Status',glEsc(u.status))
+    +row('User ID','<span class="mono">'+glEsc(u.userId)+'</span>')
+    +'<div class="amp-sec">Roles</div>'
+    +(u.roles||[]).map(r=>row((KROLES[r]||{name:r}).name,
+      '<span class="amap-dim">'+glEsc((KROLES[r]||{}).description||'')+'</span>')).join('')
+    +((u.roles||[]).length>1?'<div class="rcx-jenote">Effective access is the UNION of these '
+      +'roles. The first is primary for display defaults only — authorization never depends on '
+      +'which role is listed first.</div>':'')
+    +'<div class="amp-sec">Organizational scope</div>'
+    +(a.scopeObjects||[]).map(s=>row(s.name,s.scopeType.toLowerCase().replace('_',' ')
+      +' · '+(s.entityCount||0).toLocaleString('en-US')+' entities'
+      +(s.effectiveTo?' · to '+s.effectiveTo:''))).join('')
+    +'<div class="amp-sec">Reporting lens access</div>'
+    +'<table class="tbl"><thead><tr><th>Lens</th><th>Basis</th><th>Access</th></tr></thead>'
+    +'<tbody>'+REPORTING_LENSES.map(L=>{
+      const lv=a.effectiveReportingLenses[L.reportingLensId]||'NONE';
+      return '<tr><td>'+glEsc(L.name)+'</td><td class="amap-dim">'
+        +glEsc(rcBasisLabel(L.reportingBasis))+' · '+glEsc(L.presentationCurrency)+'</td>'
+        +'<td><span class="pill sm'+(lv==='NONE'?'':' good')+'">'
+        +glEsc(lv==='NONE'?'No access':lv.charAt(0)+lv.slice(1).toLowerCase())
+        +'</span></td></tr>'; }).join('')+'</tbody></table>'
+    +'<div class="amp-sec">Workflow authority</div>'
+    +(a.workflowAuthorities.length
+      ? '<table class="tbl"><thead><tr><th>Action</th><th>Bound</th><th>Independence</th>'
+        +'<th>Source</th></tr></thead><tbody>'
+        +a.workflowAuthorities.map(w=>'<tr><td><b>'+glEsc(w.action)+'</b></td>'
+          +'<td>'+glEsc(w.materialityMax!=null?'up to '+rcM(w.materialityMax):'no amount limit')
+          +(w.riskCategories?' · '+w.riskCategories.map(r=>r.toLowerCase().replace('_',' '))
+            .join(', '):'')+'</td>'
+          +'<td class="amap-dim">'+glEsc(w.independenceRequirement||'—')+'</td>'
+          +'<td class="amap-dim">'+glEsc(w.delegatedFrom
+            ? 'delegated by '+rcPerson(w.delegatedFrom).nm : w.authorityId)+'</td></tr>').join('')
+        +'</tbody></table>'
+      : '<div class="rcx-quiet2">No workflow authority. This user configures the platform and '
+        +'holds no accounting approval — an administrator is not an approver.</div>')
+    +'<div class="amp-sec">Delegations</div>'
+    +(a.delegations.length?a.delegations.map(d=>row(rcPerson(d.delegatorUserId).nm+' → '+u.name,
+        glEsc(d.authorityScope.actions.join(', '))+' · '+glEsc(d.effectiveFrom)+' to '
+        +glEsc(d.effectiveTo)+' <span class="amap-dim">'+glEsc(d.reason)+'</span>')).join('')
+      :'<div class="rcx-quiet2">None active today.</div>')
+    +'<div class="amp-sec">Permissions</div>'
+    +'<div class="kperms">'+a.permissions.map(p=>'<span class="kperm" title="'
+      +glEsc(KPERMS[p]||'')+'">'+glEsc(p)+'</span>').join('')+'</div>';
+}
+function kRolesList(){
+  const counts={}; kUsers().forEach(u=>(u.roles||[]).forEach(r=>counts[r]=(counts[r]||0)+1));
+  return '<table class="tbl"><thead><tr><th>Role</th><th>Type</th><th class="num">Members</th>'
+    +'<th>Scope policy</th><th>Key authority</th><th>Status</th></tr></thead><tbody>'
+    +Object.keys(KROLES).map(id=>{ const r=KROLES[id];
+      const auth=KAUTH.filter(a=>a.roleId===id).map(a=>a.action);
+      return '<tr class="rcx-r" onclick="kOpenRole(\''+id+'\')">'
+      +'<td><b>'+glEsc(r.name)+'</b><div class="amap-dim">'+glEsc(r.description)+'</div></td>'
+      +'<td class="amap-dim">'+glEsc(r.roleType.toLowerCase())+'</td>'
+      +'<td class="num">'+(counts[id]||0)+'</td>'
+      +'<td class="amap-dim">'+glEsc(r.defaultScopePolicy.toLowerCase())+'</td>'
+      +'<td>'+(auth.length?glEsc([...new Set(auth)].join(' · ').toLowerCase())
+        :'<span class="amap-dim">no workflow authority</span>')+'</td>'
+      +'<td><span class="pill sm">'+glEsc(r.status)+'</span></td></tr>'; }).join('')
+    +'</tbody></table>'
+    +'<div class="cardfoot">A role governs access, action authority, workflow authority and '
+    +'the default experience. It never governs what a balance is.</div>';
+}
+function kRoleDetail(id){
+  const r=KROLES[id], xp=KXP[r.experienceProfileId]||{};
+  const members=kUsers().filter(u=>(u.roles||[]).indexOf(id)>=0);
+  const auth=KAUTH.filter(a=>a.roleId===id);
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  return '<div class="amp-acts"><button class="btn-out sm" onclick="kOpenRole(null)">'
+    +'&#8592; All roles</button></div>'
+    +'<div class="amp-sec">Overview</div>'
+    +row('Role',glEsc(r.name))+row('Type',glEsc(r.roleType.toLowerCase()))
+    +row('Description','<span class="amap-dim">'+glEsc(r.description)+'</span>')
+    +row('Members',members.length+' · '+glEsc(members.map(m=>m.name).join(', ')||'none'))
+    +row('Version','v'+glEsc(r.version)+' · '+glEsc(r.status))
+    +'<div class="amp-sec">Access</div>'
+    +row('Scope policy',glEsc(r.defaultScopePolicy.toLowerCase()))
+    +row('Reporting lens policy',glEsc(r.defaultReportingLensPolicy.toLowerCase().replace('_',' ')))
+    +'<div class="amp-sec">Actions</div>'
+    +'<div class="kperms">'+r.permissions.map(p=>'<span class="kperm" title="'
+      +glEsc(KPERMS[p]||'')+'">'+glEsc(p)+'</span>').join('')+'</div>'
+    +'<div class="amp-sec">Workflow authority</div>'
+    +(auth.length?'<table class="tbl"><thead><tr><th>Action</th><th>Amount bound</th>'
+        +'<th>Risk</th><th>Independence</th></tr></thead><tbody>'
+        +auth.map(a=>'<tr><td><b>'+glEsc(a.action)+'</b></td>'
+          +'<td>'+glEsc(a.materialityMax!=null?'up to '+rcM(a.materialityMax):'no limit')+'</td>'
+          +'<td class="amap-dim">'+glEsc((a.riskCategories||['—']).join(', ').toLowerCase()
+            .replace(/_/g,' '))+'</td>'
+          +'<td class="amap-dim">'+glEsc(a.independenceRequirement||'—')+'</td></tr>').join('')
+        +'</tbody></table>'
+      :'<div class="rcx-quiet2">None. Holding this role confers no ability to prepare, approve '
+        +'or certify a reconciliation.</div>')
+    +'<div class="amp-sec">Experience</div>'
+    +row('Profile','<span class="mono">'+glEsc(r.experienceProfileId)+'</span>')
+    +row('Opens on',glEsc(xp.defaultHomeView||'')+' · reconciliations '
+      +glEsc(xp.defaultReconciliationQuickView||''))
+    +row('Density',glEsc(xp.preferredInformationDensity||''))
+    +row('Actions shown',[xp.showPreparationActions?'preparation':null,
+      xp.showReviewActions?'review':null, xp.showCertificationActions?'certification':null,
+      xp.showAdminActions?'administration':null].filter(Boolean).join(' · ')||'read only')
+    +'<div class="rcx-jenote">The experience profile governs defaults and priorities only. It '
+    +'changes what this role is shown FIRST, never what any figure is.</div>';
+}
+function kDelegList(){
+  return '<table class="tbl"><thead><tr><th>From</th><th>To</th><th>Authority</th>'
+    +'<th>Window</th><th>Reason</th><th>Status</th></tr></thead><tbody>'
+    +KDELEGATIONS.map(d=>{
+      const live=d.status==='ACTIVE'&&d.effectiveFrom<=RC_TODAY&&d.effectiveTo>=RC_TODAY;
+      return '<tr><td><b>'+glEsc(rcPerson(d.delegatorUserId).nm)+'</b></td>'
+      +'<td>'+glEsc(rcPerson(d.delegateUserId).nm)+'</td>'
+      +'<td>'+glEsc(d.authorityScope.actions.join(', ').toLowerCase())+' · '
+        +glEsc(d.authorityScope.scopeIds.map(s=>(kScope(s)||{name:s}).name).join(', '))+'</td>'
+      +'<td class="mono">'+glEsc(d.effectiveFrom)+' → '+glEsc(d.effectiveTo)+'</td>'
+      +'<td class="amap-dim">'+glEsc(d.reason)+'</td>'
+      +'<td><span class="pill sm'+(live?' good':'')+'">'+(live?'In effect':'Scheduled')
+      +'</span></td></tr>'; }).join('')+'</tbody></table>'
+    +'<div class="cardfoot">A delegation lends AUTHORITY for a window. It does not lend '
+    +'identity: anything the delegate approves is recorded under their own name, and no '
+    +'historical decision is transferred. Scope, lens and segregation of duties all still '
+    +'apply — a delegation cannot grant what the delegator did not hold.</div>';
+}
+function kLensMatrix(){
+  const us=kUsers();
+  return '<table class="tbl"><thead><tr><th>User</th>'
+    +REPORTING_LENSES.map(L=>'<th>'+glEsc(L.name)+'</th>').join('')+'</tr></thead><tbody>'
+    +us.map(u=>{ const a=resolveEffectiveAccess(u);
+      return '<tr><td><b>'+glEsc(u.name)+'</b></td>'
+      +REPORTING_LENSES.map(L=>{ const lv=a.effectiveReportingLenses[L.reportingLensId]||'NONE';
+        return '<td>'+(lv==='NONE'?'<span class="amap-dim">—</span>'
+          :'<span class="pill sm good">'+glEsc(lv.charAt(0)+lv.slice(1).toLowerCase())
+          +'</span>')+'</td>'; }).join('')+'</tr>'; }).join('')
+    +'</tbody></table>'
+    +'<div class="cardfoot">Reaching a population is not reaching every basis. An EMEA '
+    +'controller reads the group consolidated figures, reviews the statutory ones, and has no '
+    +'access to the US tax lens at all.</div>';
+}
+function kPolicyList(){
+  return '<table class="tbl"><thead><tr><th>Policy</th><th>Stages</th><th>Independence</th>'
+    +'<th>Materiality</th><th>Version</th></tr></thead><tbody>'
+    +Object.keys(RC_WORKFLOWS).map(id=>{ const w=RC_WORKFLOWS[id];
+      return '<tr><td><b>'+glEsc(w.name)+'</b><div class="amap-dim mono">'+glEsc(id)+'</div></td>'
+      +'<td>'+w.reviewStages.map(s=>glEsc(rcStageLabel(s))).join(' → ')+'</td>'
+      +'<td class="amap-dim">'+glEsc((RC_SOD[w.segregationOfDutiesPolicy]||{l:''}).l)+'</td>'
+      +'<td class="amap-dim">'+glEsc((RC_MATERIALITY[w.materialityPolicyId]||{l:''}).l)+'</td>'
+      +'<td class="mono">v'+glEsc(w.version)+'</td></tr>'; }).join('')+'</tbody></table>'
+    +'<div class="cardfoot">Review policies are read by the reconciliation workflow directly. '
+    +'This is the same object the Review tab names on every reconciliation.</div>';
+}
+
+/* ---- §32, §33 — NOTIFICATIONS AND MY WORK. A ROLE-AWARE READING OF THE SAME OBJECTS.
+   No task database: everything below is a reconciliation, a mention or a notification that
+   already exists, filtered to the acting user. */
+function kMyWork(){
+  const me=kActor(), acc=kAccess();
+  const p=viewPeriod();
+  const out=[];
+  rcInstances(p).forEach(i=>{
+    const def=rcDef(i.reconciliationDefinitionId);
+    if(!kCanViewObject(def,i,acc).ok) return;
+    if(rcMineNow(i)) out.push({t:'REVIEW_REQUIRED', def, i,
+      what:'Review '+def.name, why:rcStageLabel(i.activeStage)+' · stage '
+        +(i.reviewStageIndex+1)+' of '+i.reviewStageCount});
+    else if(def.preparerUserId===me.userId&&i.reviewStatus==='returned')
+      out.push({t:'RETURNED', def, i, what:'Address the return on '+def.name,
+        why:(rcState(def.reconciliationDefinitionId).returnNote||'').slice(0,90)});
+    else if(def.preparerUserId===me.userId&&i.readiness
+        &&i.readiness.blockingIssues.length&&i.reviewStatus!=='approved')
+      out.push({t:'DUE_SOON', def, i, what:'Prepare '+def.name,
+        why:i.readiness.label});
+  });
+  kNotifsFor(me.userId).filter(n=>!n.readAt).forEach(n=>out.push({t:n.type, notif:n,
+    what:(KNOTIF_TYPES[n.type]||n.type)+' · '+(n.context.by||''),
+    why:n.context.text||''}));
+  return out;
 }
 
 /* ==========================================================================================
@@ -40934,12 +42065,19 @@ const RC_QV=[
 function rcMineNow(i){
   if(i.reviewStatus!=='inreview'||!i.activeStage) return false;
   const s=i.activeStage;
-  if(s.assignedUserId&&cwIsMe(rcPerson(s.assignedUserId).nm)) return true;
-  const need=RC_STAGE_TYPES[s.stageType].cap;
-  if(!rcCaps()[need]) return false;
-  /* a role-level match: the acting role holds the capability and the stage is unassigned or
-     belongs to a team the signed-in user's role covers */
-  return !s.assignedUserId;
+  const me=(typeof kActor==='function')?kActor():null;
+  if(!me) return false;
+  const def=rcDef(i.reconciliationDefinitionId);
+  /* the stage is MINE when it names me, or when it names nobody and my role holds the
+     capability it asks for */
+  const named=s.assignedUserId===me.userId;
+  const open=!s.assignedUserId&&!!rcCaps()[RC_STAGE_TYPES[s.stageType].cap];
+  if(!named&&!open) return false;
+  /* §3 — AND IT MUST BE ACTIONABLE. Prior stages are complete by construction (the active
+     stage IS the count of approvals), so what remains is whether this person may actually act:
+     scope, lens, authority and independence. A queue that lists work its owner will be refused
+     is worse than an empty one. */
+  return kCanApprove(def,i,s).ok;
 }
 function setRcStmt(s){ rcStmt=s; rcSel=null; renderAll(); }
 function setRcQV(v){ rcQV=v; rcSel=null; renderAll(); }
@@ -41038,7 +42176,7 @@ function rcHasRecon(id,k){
   return fsKids(id).some(x=>rcHasRecon(x.id,k));
 }
 function rcRows(){
-  rcRevSeed();
+  rcRevSeed(); kApplyRoleDefaults();
   const k=viewPeriod(), root=fsDef(rcStmt).root, out=[];
   const q=rcQ.trim().toLowerCase();
   const qv=(RC_QV.find(v=>v[0]===rcQV)||RC_QV[0])[2];
@@ -43996,13 +45134,19 @@ function rcRevTab(def,inst){
   const notes=rcNotesFor(inst.reconciliationInstanceId);
   if(notes.length){
     o+='<div class="amp-sec">Review notes</div><div class="rcx-notes">'
-      +notes.slice().reverse().map(n=>'<div class="rcx-note'+(n.kind==='ret'?' ret':'')+'">'
+      +notes.slice().reverse().map(n=>{
+        const hit=kHighlightMention&&(KMENTIONS.find(m=>m.mentionId===kHighlightMention)||{})
+          .objectId===n.noteId;
+        return '<div class="rcx-note'+(n.kind==='ret'?' ret':'')+(hit?' kmn-hit':'')+'">'
         +'<span class="h">'+glEsc(RC_NOTE_KIND[n.kind]||n.kind)
         +(n.category?' · '+glEsc(rcReturnReason(n.category)):'')
         +(n.submissionCycle?' · cycle '+n.submissionCycle:'')+'</span>'
-        +'<span class="t">'+glEsc(n.text)+'</span>'
+        +'<span class="t">'+kMentionHtml(n.text)+'</span>'
         +'<span class="m">'+glEsc(n.author)+' · '+glEsc(n.role)+' · '
-        +glEsc(n.at)+'</span></div>').join('')+'</div>';
+        +glEsc(n.at)
+        +((n.mentions||[]).length?' · mentioned '
+          +glEsc(n.mentions.map(u=>rcPerson(u).nm).join(', ')):'')
+        +'</span></div>'; }).join('')+'</div>';
   }
 
   /* ---- 6 · HISTORY (§26). The workpaper history, oldest first, as an accountant reads one. */
@@ -44050,9 +45194,10 @@ function rcRevActions(def,inst,A,RD){
   let o='<div class="amp-acts">';
   const notes=[];
   if(inst.reviewStatus==='inreview'&&A.stage){
-    const sod=rcSodBlock(def,inst,A.stage);
+    const may=kCanApprove(def,inst,A.stage);
+    const sod=may.ok?null:may.why;
     const drift=rcSubDrift(def,inst,A.sub);
-    const blocked=!!sod||!!drift.evidence.length||!rcCanAct(def,inst,A.stage);
+    const blocked=!may.ok||!!drift.evidence.length;
     o+='<button class="btn-primary sm"'+(blocked?' disabled':'')
       +' onclick="rcApproveStage(\''+dId+'\')">Approve · '
       +glEsc(rcStageLabel(A.stage))+'</button>'
@@ -44061,18 +45206,25 @@ function rcRevActions(def,inst,A,RD){
     if(sod){
       const wf=rcWorkflow(def);
       const who=A.stage.assignedUserId?rcPerson(A.stage.assignedUserId).nm:null;
-      notes.push(['bad','Segregation of duties conflict', sod
+      /* an independence refusal is a different kind of fact from a missing grant, and the
+         heading says which — "you may not, ever" and "you may not, here" send a reviewer to
+         two different people */
+      const indep=/segregation|prepared this reconciliation/i.test(sod);
+      notes.push([indep?'bad':'warn',
+        indep?'Segregation of duties conflict':'Not authorised at this stage', sod
         +' Required approving role: '+RC_STAGE_TYPES[A.stage.stageType].l+'.'
         +(who?' Eligible reviewer: '+who+'.':'')
         +' Policy '+wf.reviewWorkflowId+' v'+wf.version+' — '
         +(RC_SOD[wf.segregationOfDutiesPolicy]||{l:''}).l.toLowerCase()+'.'
-        +' No policy exception is recorded on this reconciliation.']);
+        +(indep?' No policy exception is recorded on this reconciliation.':'')]);
     }
-    else if(!rcCanAct(def,inst,A.stage))
-      notes.push(['warn','Not your stage','This stage requires '
-        +RC_STAGE_TYPES[A.stage.stageType].l+'. Your role does not hold that approval.']);
   } else if(inst.reviewStatus==='approved'){
     o+='<span class="rcx-phase">Approved · all stages complete</span>';
+    /* §52 — ASSIGNMENT IS ITS OWN ACTION AND ITS OWN AUTHORITY. It sits beside the review
+       decisions because that is where a reviewer stands when they realise the wrong person is
+       holding the work — and it is never a side effect of mentioning them. */
+    const asg=kCanAssign(def,inst);
+    if(asg.ok) o+='<button class="btn-out sm" onclick="kAssignOpen(\''+dId+'\')">Assign…</button>';
   } else if(rcCanPrepare(def,inst)){
     if(st.prep==='ns')
       o+='<button class="btn-out sm" onclick="rcStartPrep(\''+dId+'\')">Start preparation</button>';
@@ -44098,8 +45250,9 @@ function rcRevActions(def,inst,A,RD){
         '<div class="rcx-ev'+(rcRetDraft.cat===k?' on':'')+'" role="button" tabindex="0" '
         +'onclick="rcReturnSet(\'cat\',\''+k+'\')"><span class="n">'+glEsc(l)+'</span></div>')
         .join('')+'</div>'
-      +'<textarea id="rcRetC" class="rcx-ta2" rows="3" placeholder="What must be corrected '
-      +'before this can be resubmitted?">'+glEsc(rcRetDraft.comment||'')+'</textarea>'
+      +'<textarea id="rcRetC" class="rcx-ta2" rows="3" oninput="kMentionKey(\''+dId
+      +'\',this,event)" placeholder="What must be corrected before this can be resubmitted? '
+      +'Type @ to name someone.">'+glEsc(rcRetDraft.comment||'')+'</textarea>'
       +'<div class="amp-acts"><button class="btn-primary sm" onclick="rcReturnCommit()">'
       +'Return to preparer</button>'
       +'<button class="btn-out sm" onclick="rcReturnCancel()">Cancel</button></div>'
@@ -44107,15 +45260,18 @@ function rcRevActions(def,inst,A,RD){
       +'what makes "why is this account returned every month" answerable, the comment is what '
       +'tells this preparer what to fix.</div></div>';
   }
+  o+=kAssignPanel(def,inst);
   if(rcClarDraft&&rcClarDraft.defId===dId){
     o+='<div class="rcx-add"><div class="amp-sec">Request clarification</div>'
-      +'<textarea id="rcClarC" class="rcx-ta2" rows="3" placeholder="What do you need the '
-      +'preparer to explain?"></textarea>'
+      +'<textarea id="rcClarC" class="rcx-ta2" rows="3" oninput="kMentionKey(\''+dId
+      +'\',this,event)" placeholder="Type @ to ask a colleague — what do you need '
+      +'explained?"></textarea>'
       +'<div class="amp-acts"><button class="btn-primary sm" onclick="rcClarifyCommit()">'
       +'Send request</button>'
       +'<button class="btn-out sm" onclick="rcClarifyCancel()">Cancel</button></div>'
       +'<div class="rcx-jenote">A clarification keeps the package with you. It does not return '
-      +'the reconciliation and does not restart the review.</div></div>';
+      +'the reconciliation and does not restart the review. A mention asks for attention — '
+      +'it does not change who is accountable, which is what <b>Assign</b> is for.</div></div>';
   }
   return o;
 }
@@ -51476,7 +52632,11 @@ function renderAppearance(){
 function renderAdmin(){
   const el=$('view-admin'); if(!el)return;
   if(LENS==='ledger'){ renderPolicies(el); return; }   // Accounting > Policies; admin lens keeps Settings below
-  let h=renderAppearance();
+  /* R5.5 §17 — configuration lives under Settings, and Users & Teams / Roles & Access lead it.
+     The capitalisation policy and the sign-off matrix below are the sections that already
+     existed; they stay where they were rather than being restated inside the new surface. */
+  let h=kAdminSettings();
+  h+=renderAppearance();
   h+=`<div class="card">
     <h2>Capitalization policy<span class="note">the thresholds every determination is tested against</span></h2>
     <div class="subhead">These thresholds drive the readiness rules in Fixed Assets and the exceptions in Issues.
