@@ -10208,6 +10208,10 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
 .rcx-r:hover .fsx-rowact,.rcx-r:focus-within .fsx-rowact,.rcx-r.on .fsx-rowact,
 .fsx-r:hover .fsx-rowact,.fsx-r:focus-within .fsx-rowact,.fsx-rowact:focus,
 .fsx-r.on .fsx-rowact{opacity:1}
+/* R7.1 — the page-level Excel action. Compact, outline (Save view is the screen's one filled
+   primary), sitting with the other top-right page controls. */
+.xl-head{display:inline-flex;gap:var(--s-2);align-items:center;white-space:nowrap}
+.xl-head svg{flex:0 0 auto}
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -12382,11 +12386,17 @@ function paintPop(keepFocus){
        line rows appear only when there IS a selection, because a menu row that opens
        nothing is a dead control. */
     const rows=(typeof xlOpenMenu==='function')?xlOpenMenu():[];
-    h=`<div class="pop-h">Open in Excel</div><div class="pop-l">`+
-      rows.map(r=>`<div class="pop-o" onclick="KFX.popClose();${r.go}">${esc(r.nm)}
-        <span class="sub">${esc(r.sub||'')}</span></div>`).join('')+
-      `</div><div class="pop-b"><div class="rl-note">The workbook opens on this period,
-        scope, reporting lens and basis, and stays connected to Korvyn.</div></div>`;
+    /* GROUPED THE WAY §4 ASKS \u2014 current view, selected rows, detailed population \u2014 and a
+       group appears only when the surface actually has one. A heading over nothing would be
+       the same dead control as a button that cannot act. */
+    let last=null, body='';
+    rows.forEach(r=>{ if(r.grp&&r.grp!==last){ body+=`<div class="pop-h sec">${esc(r.grp)}</div>`;
+        last=r.grp; }
+      body+=`<div class="pop-o" onclick="KFX.popClose();${r.go}">${esc(r.nm)}
+        <span class="sub">${esc(r.sub||'')}</span></div>`; });
+    h=`<div class="pop-h">Open in Excel</div><div class="pop-l">`+body+
+      `</div><div class="pop-b"><div class="rl-note">The workbook opens on this exact view
+        \u2014 period, scope, reporting lens and basis \u2014 and stays connected to Korvyn.</div></div>`;
   }else if(popKind&&popKind.indexOf('g:')===0){
     /* THE PLATFORM FIELDS USE THE SAME MENU. One popover system for the product:
        the shell declares its filters as data and the rendering, keyboard,
@@ -34223,7 +34233,23 @@ function glDupTitle(t){
 }
 function glHead(t,s,actions){
   return `<div class="gl-hd"><div class="grow">${
-    glDupTitle(t)?'':`<h1>${t}</h1>`}<div class="sub">${s}</div></div>${actions||''}</div>`;
+    glDupTitle(t)?'':`<h1>${t}</h1>`}<div class="sub">${s}</div></div>${
+    (typeof xlHeadBtn==='function'?xlHeadBtn():'')}${actions||''}</div>`;
+}
+/* R7.1 — THE PAGE-LEVEL ENTRY POINT. Compact, outline (Save view is already the screen's one
+   filled primary), and rendered only on the surfaces that hold a governed object worth taking
+   to Excel. It opens a small menu rather than acting immediately, because the choice between
+   the current view, a selection and the detailed population is a real one. */
+const XL_HEAD_TABS=['glfin','finrep','gltrend','glrecon','tb'];
+function xlHeadBtn(){
+  if(XL_HEAD_TABS.indexOf(TAB)<0) return '';
+  if(typeof xlOpenMenu!=='function') return '';
+  return `<button class="btn-out xl-head" data-pop="xlopen" aria-expanded="false"
+      title="Open this governed view in Excel, connected to Korvyn"
+      onclick="KFX.pop('xlopen',this)">
+    <svg viewBox="0 0 16 16" fill="none" width="13" height="13" aria-hidden="true">
+      <path d="M2.5 3h11v10h-11zM2.5 6h11M6.5 6v7" stroke="currentColor" stroke-width="1.4"
+        stroke-linecap="round" stroke-linejoin="round"/></svg>Open in Excel</button>`;
 }
 /* "Pin to Workspace" is NOT here — it lives in the global topbar, which every page has.
    Putting it in glActions covered only the 11 pages that use this constant, and would have
@@ -35265,7 +35291,10 @@ function xlResolve(spec){
         rows:[[s.l,s.source,s.populationRows,s.amountTotal]], kind:'schedule', schedule:s};
     }
     if(t==='FLUX_TABLE'){
-      const cmp=perAdd(c.periodId,-1);
+      /* the comparison the review is actually on, captured at insert and carried on the
+         object \u2014 never re-derived as month-over-month */
+      const cmp=spec.comparisonPeriodId
+        ||((typeof fxComparison==='function')?fxComparison().cmpK:perAdd(c.periodId,-1));
       const root=fsDef(spec.statement||'is').root, lines=[];
       const walk=id=>{ const k=FSLINES.filter(f=>f.parent===id);
         if(!k.length){ lines.push(id); return; } k.forEach(n=>walk(n.id)); };
@@ -35425,6 +35454,8 @@ function xlInsert(spec){
     workbookId:wb.workbookId, worksheetId:spec.worksheetId||wb.sheets[0].id,
     rangeId:spec.range||'A1',
     korvynObjectType:spec.objectType, korvynObjectId:spec.objectId||null,
+    statement:spec.statement||null,
+    comparisonPeriodId:spec.comparisonPeriodId||null, comparisonType:spec.comparisonType||null,
     label:spec.label||T.l,
     mode:(spec.strategy==='sample')?'WORKPAPER':T.mode,
     strategy:spec.strategy||'full',
@@ -35460,7 +35491,8 @@ function xlRefreshState(o){
   const gate=xlCanInsert({context:o.financialContext, objectType:o.korvynObjectType});
   if(!gate.ok) return XL_STATES.REVIEW;
   const spec={objectType:o.korvynObjectType, objectId:o.korvynObjectId,
-    context:o.financialContext, statement:o.statement};
+    context:o.financialContext, statement:o.statement,
+    comparisonPeriodId:o.comparisonPeriodId};
   const st=xlStructureFp(spec), dt=xlDataFp(spec);
   if(st.hash!==o.sourceStructureFp) return XL_STATES.STRUCTURE;
   if(dt.hash!==o.sourceDataFp) {
@@ -35752,12 +35784,23 @@ function xlSeed(){
   if(ent) ent.lastRefreshAt='Jun 28, 2026 · 08:32';
 }
 
+/* the next free row on a sheet: below everything already connected there, with a blank row
+   between so two ranges never share an edge. */
+function xlNextRange(wbId,shId){
+  const on=XL_OBJECTS.filter(o=>o.workbookId===wbId&&o.worksheetId===shId);
+  if(!on.length) return 'A3';
+  let bottom=3;
+  on.forEach(o=>{ const top=parseInt(String(o.rangeId).replace(/[A-Z]/g,''),10)||3;
+    bottom=Math.max(bottom, top+(o.rowCount||0)+4); });
+  return 'A'+bottom;
+}
 /* ---- ROUTES BACK TO THE WEB (§28). Two surfaces over the SAME objects: every one of these
    lands on the governed object in Korvyn, in the context the workbook carries. */
 /* THE MENU IS DERIVED FROM THE PAGE, never a fixed list. Financials offers the statement
    always and the selected section or line only when one is selected; Reconciliations offers
    the roll-forward and its activity population for whichever definition is open. */
-function xlOpenMenu(){
+function xlOpenMenu(){ return xlOpenMenuV2(); }
+function xlOpenMenuOld(){
   const out=[];
   try{
     if(TAB==='glfin'&&fnSub==='stmt'){
@@ -35807,6 +35850,68 @@ function fnExcelEntity(lineId){ const n=fsLine(lineId);
 function fnExcelBridge(lineId){ const n=fsLine(lineId);
   xlOpenFrom('CONSOL_BRIDGE',lineId,(n?String(n.name).replace(/&amp;/g,'&'):lineId)
     +' \u2014 entity-to-group bridge'); }
+/* WHAT THE MENU OFFERS, in the three groups §4 names. Every row states what it resolves to —
+   the exact governed view, in the exact context on screen — because that is what a reader is
+   checking before they take a figure into a workbook. */
+function xlOpenMenuV2(){
+  const out=[], ctx=xlContext();
+  const add=(grp,nm,sub,go,big)=>out.push({grp,nm,sub,go,big:!!big});
+  try{
+    if(TAB==='glfin'&&fnSub==='stmt'){
+      const d=fsDef(fsStmt);
+      add('Current view',String(d.name).replace('Consolidated ',''),
+        perEnd(ctx.periodId)+' \u00b7 '+ctx.reportingLensName+' \u00b7 '+ctx.basisLabel
+        +' \u00b7 '+ctx.presentationCurrency, "fnExcelStatement('"+fsStmt+"')");
+      if(fsSel){ const n=fsLine(fsSel);
+        const nm=n?String(n.name).replace(/&amp;/g,'&'):fsSel;
+        add('Selected rows',nm, FSLINES.some(f=>f.parent===fsSel)?'Section and its lines'
+          :'Financial line detail',
+          (FSLINES.some(f=>f.parent===fsSel)?"fnExcelSection('":"fnExcelLine('")+fsSel+"')");
+        add('Detailed population',nm+' by reporting entity',
+          ctx.entityCount.toLocaleString('en-US')+' entities in scope',
+          "fnExcelEntity('"+fsSel+"')"); }
+    }
+    if(TAB==='glfin'&&fnSub==='consol')
+      add('Current view','Entity-to-group bridge',
+        ((fsLine(csBridgeLine)||{}).name||csBridgeLine)+' \u00b7 '+perEnd(ctx.periodId),
+        "fnExcelBridge('"+csBridgeLine+"')");
+    if(TAB==='finrep'){
+      const c=fxComparison();
+      add('Current view','Flux Review \u00b7 '+(fxStmt==='bs'?'Balance sheet':'Income statement'),
+        c.label+' \u00b7 '+String(c.type).toUpperCase()+' \u00b7 '+ctx.reportingLensName
+        +' \u00b7 '+ctx.presentationCurrency, 'fxExcel()');
+      if(fxSel){ const n=fsLine(fxSel);
+        add('Selected rows',n?String(n.name).replace(/&amp;/g,'&'):fxSel,
+          'Financial line detail', "fnExcelLine('"+fxSel+"')"); }
+    }
+    if(TAB==='gltrend'){
+      const id=(typeof fsSel!=='undefined'&&fsSel)?fsSel:'FS-CIP';
+      const n=fsLine(id);
+      add('Current view','Trending \u00b7 '+(n?String(n.name).replace(/&amp;/g,'&'):id),
+        '12 periods to '+perLabel(ctx.periodId)+' \u00b7 '+ctx.presentationCurrency,
+        "xlOpenFrom('TREND_TABLE','"+id+"','Trending \u2014 '+'"+(n?String(n.name).replace(/&amp;/g,'&').replace(/'/g,''):id)+"')");
+    }
+    if(TAB==='glrecon'){
+      const id=(typeof rcSel!=='undefined'&&rcSel)?rcSel:null;
+      if(id){ const d=rcDef(id);
+        add('Current view',(d?d.name:id)+' roll-forward',
+          perLabel(ctx.periodId)+' \u00b7 '+ctx.reportingLensName+' \u00b7 '+ctx.basisLabel,
+          "rcExcel('"+id+"')");
+        add('Detailed population',(d?d.name:id)+' activity',
+          'Governed transaction population', "rcExcelActivity('"+id+"')", true);
+      }else{
+        add('Current view','Reconciliation control center',
+          perLabel(ctx.periodId)+' \u00b7 select a reconciliation for its roll-forward', '');
+      }
+    }
+    if(TAB==='tb') add('Current view','Trial balance','As of '+perEnd(ctx.periodId)
+      +' \u00b7 '+ctx.reportingLensName,
+      "xlOpenFrom('TRIAL_BAL',null,'Trial balance')");
+  }catch(e){}
+  out.push({grp:'', nm:'Open Korvyn for Excel', sub:'The connected workspace',
+    go:"pickLens('xl');pickTab('xlwork')"});
+  return out.filter(r=>r.go);
+}
 function xlGoWeb(where,id){
   pickLens('ledger');
   if(where==='fin'){ pickTab('glfin'); setFnSub('stmt');
@@ -35821,18 +35926,20 @@ function xlGoWeb(where,id){
 }
 /* ---- AND THE WAY IN (§7). "Open in Excel" from a governed object on the web. Restrained: one
    contextual action, not a button on every row. */
-function xlOpenFrom(objectType,objectId,label,statement){
+function xlOpenFrom(objectType,objectId,label,statement,extra){
   xlSeed();
   const wb=XL_WORKBOOKS.find(w=>w.name.indexOf('Ad hoc')>=0)
     ||{workbookId:'WB-ADHOC', name:'Ad hoc analysis.xlsx', owner:(typeof rcMe==='function')?rcMe().nm:'',
        sheets:[{id:'SH-ADHOC-0',name:'Sheet1'}], offline:false, createdAt:'now'};
   if(!xlBook(wb.workbookId)) XL_WORKBOOKS.push(wb);
-  const r=xlInsert({workbookId:wb.workbookId, worksheetId:wb.sheets[0].id, range:'A3',
-    objectType, objectId, label, statement});
+  const range=xlNextRange(wb.workbookId,wb.sheets[0].id);
+  const r=xlInsert(Object.assign({workbookId:wb.workbookId, worksheetId:wb.sheets[0].id,
+    range, objectType, objectId, label, statement}, extra||{}));
   xlWb=wb.workbookId;
   if(r.ok){ xlSel=r.object.connectedObjectId; xlNotice=null; }
-  else if(r.tooLarge){ xlSizeSpec={objectType, objectId, label, statement, workbookId:wb.workbookId,
-    worksheetId:wb.sheets[0].id, range:'A3'}; xlSel=null; }
+  else if(r.tooLarge){ xlSizeSpec=Object.assign({objectType, objectId, label, statement,
+    workbookId:wb.workbookId, worksheetId:wb.sheets[0].id, range}, extra||{});
+    xlSel=null; }
   else xlNotice=r.reason;
   pickLens('xl'); pickTab('xlwork');
 }
@@ -41231,7 +41338,10 @@ function fxGoTrend(){ const id=fxSel; pickTab('gltrend');
 /* R7.1 §31 — prior, current, variance, status and the APPROVED narrative. The narrative
    stays governed by Korvyn; Excel receives it, it does not own it. */
 function fxExcel(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
-  xlOpenFrom('FLUX_TABLE',null,'Flux Review \u00b7 '+(fxStmt==='bs'?'balance sheet':'income statement'),fxStmt); }
+  const c=fxComparison();
+  xlOpenFrom('FLUX_TABLE',null,'Flux Review \u00b7 '
+    +(fxStmt==='bs'?'balance sheet':'income statement')+' \u00b7 '+String(c.type).toUpperCase(),
+    fxStmt,{comparisonPeriodId:c.cmpK, comparisonType:c.type}); }
 function fxGoFin(){ const id=fxSel; pickTab('glfin');
   if(typeof setFsStmt==='function') setFsStmt(fxStmt);
   if(typeof fsPick==='function') fsPick(id); }

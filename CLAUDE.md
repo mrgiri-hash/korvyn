@@ -5797,6 +5797,49 @@ product** · 4/4 gates · FS-CIP 4,210.2 · R6.2 intact. Opening from a reconcil
 period, scope, lens, basis, definition and mapping version into the workbook (asserted on the
 resulting connected object, not on the click).
 
+### The entry point is a page-level button, not a tab of a collapsed band
+
+The pass above put the only always-visible entry point inside the **Actions tab of the filter
+band**, which starts folded. That is the right home for Export and Print — commands a user goes
+looking for — and the wrong home for the entry point to a product surface nobody knows exists
+yet. A first-time reader could not answer "how do I open this in Excel?" without opening two
+things first.
+
+**ONE COMPACT BUTTON, IN `glHead`, WHICH IS ONE EDIT FOR FIVE PAGES.** `glHead` is the page
+header every ledger surface renders, so appending the action there is what stops five call
+sites drifting apart. It sits beside Save view in the top-right controls, is `.btn-out` because
+Save view is already the screen's one filled primary (rule 13), and renders only on the
+surfaces that hold a governed object worth taking to Excel — Financials, Flux Review, Trending,
+Reconciliations and the Trial balance. The Actions-tab row stays: the header button is
+DISCOVERY, the Actions row is where the page's commands live, and they are not duplicates of
+each other.
+
+**THE MENU IS §4's THREE GROUPS** — Current view · Selected rows · Detailed population — and a
+group appears only where the surface has one. Every row states what it RESOLVES TO rather than
+naming a rule, because that is what a reader checks before taking a figure into a workbook:
+*Balance Sheet · Jun 30, 2026 · Corporate Consolidated · US GAAP · USD*.
+
+**THE COMPARISON WAS BEING SILENTLY REWRITTEN.** `FLUX_TABLE` derived its comparison as
+`perAdd(period,-1)` — month-over-month, always. A QoQ or YoY review opened in Excel would have
+come back MoM, which is exactly what "preserve the exact current view" forbids. The comparison
+is captured at insert (`fxComparison()`), carried on the connected object as
+`comparisonPeriodId` / `comparisonType`, and read back on every refresh, so the workbook cannot
+drift off the review it came from. Verified: a QoQ balance-sheet review resolves columns
+*Mar 2026 | Jun 2026*, not *May | Jun*.
+
+**TWO CONNECTED RANGES ON ONE SHEET WERE OVERLAPPING.** Every ad-hoc insert went to A3, so a
+second Open in Excel drew its rows through the first one's. `xlNextRange()` places a range
+below what the sheet already holds, with a blank row between so two ranges never share an edge
+— which is also what an add-in does rather than overwriting somebody's grid. Verified:
+`A3..12` and `A16..67`, no overlap.
+
+**Verified:** the button is visible without hovering on all five pages (width > 0, opacity 1,
+visibility visible, `offsetParent` non-null — asserted, not eyeballed) · 195 view renders across
+3 periods, 0 errors, 0 empty · the Reconciliations → Current view → Excel journey lands on the
+worksheet with the task pane and Insert / Refresh / Trace / Publish, not a toast · the detailed
+population still hits the size guard at 3,128,400 rows · 4/4 gates · FS-CIP 4,210.2 · R6.2
+intact.
+
 ### R7.1 deliberately stops here (§37)
 
 No general controlled write-back. No Office add-in manifest, no OfficeJS, no real .xlsx
