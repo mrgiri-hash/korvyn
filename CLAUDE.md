@@ -6087,6 +6087,164 @@ FS-CIP 4,210.2 and `RC_POSTCLOSE` empty on a fresh load · R7.1, R7.2 and R6.2 i
 Broad controlled write-back · ERP posting · Excel AI of any kind · a graph visualisation (§7 is
 an ANSWER — `xlDependencies().answer` — not a picture) · generic export/print polish (§25).
 
+## 2026-09-05 — the single workflow reads like an accountant's workpaper
+
+Owner's brief. Not new architecture: the connected-object model, the four primitives, the
+publish lifecycle and the general workspace are all where R7.1/R7.2 left them. What changed is
+that the workbook now reads the way the work is actually done.
+
+### THREE TABS, EACH NAMED FOR THE ACCOUNTING
+
+**Reconciliation · Analysis · GL Detail.** Deliberately not "Schedule" or "Pivot" — a sheet tab
+in a close workpaper names the accounting, and a pivot is something you BUILD on the Analysis
+sheet, not a place you go. Korvyn owns sheets 1 and 3; the accountant owns sheet 2 and refresh
+never touches it.
+
+### A SHEET CAN HOLD BOTH A CONNECTED RANGE AND AUTHORED CELLS
+
+`xlSheet()` was either/or — an authored sheet OR a connected one. That is what a workpaper is
+NOT: Korvyn's roll-forward with the preparer's header above it and their tie-out beneath. It
+forced the header to be faked inside the code that also owned the connected block, which is how
+the auto-injected tie-out came to read `=B12-B13` — the trial balance less the difference, two
+rows off, in the one formula on the sheet whose job is to prove the reconciliation.
+
+The Reconciliation sheet now states what an accountant reads before the first figure:
+
+```
+1  Electrical CIP — reconciliation workpaper
+2  Consolidated Group · Jun 2026 · US GAAP · USD in millions
+3  Prepared by Mitra Giri · W/P ref REC-CIP-ELECTRICAL-2026-06
+4  Source: Korvyn governed reconciliation · connected and refreshable
+6  Roll-forward component             Ref     Jun 2026 (USDm)
+7    Beginning balance · May 31, 2026  B-1              57.1
+8    GL activity · Jun 2026            GL-1             29.3
+…
+15   Difference                                          0.0
+17 Tie-out
+18   Calculated ending less trial balance      =C13-C14
+19   Tolerance (governed policy)                        0.05
+20   Conclusion             =IF(ABS(C18)<=C19,"Tied","Investigate")
+```
+
+**WHERE THE BLOCK SITS IS ONE NUMBER.** `XL_RECON_R0` / `XL_RECON_ROW` — the insert range, the
+header, the tie-out and the Analysis sheet's cross-sheet formulas all address the same rows.
+Four copies of `6` is how a tie ends up pointing at the beginning balance, which it did.
+
+**THE REF COLUMN IS LOAD-BEARING, NOT DECORATION.** It is what supporting detail is tied to on
+paper and it is what the drill is addressed by, so the reference on the face of the workpaper
+and the sheet it opens cannot name different things. **There is no row-count column** — a
+component is one balance, not a population.
+
+**Accounting format.** `xlCell(v,dp)` writes a credit in parentheses and groups its thousands,
+at a decimal place the resolved object states — a roll-forward to the hundred thousand, a GL
+line to the thousand. Subtotal rows take a rule (`meta.rule`), not a bold. And an authored cell
+is NOT formatted by the grid, so the Analysis sheet formats at build time through the same
+function — its figures came through as `0.73 / 0.604 / -0.031`, three conventions in one column
+and a minus sign in a workpaper.
+
+Excel lets a label spill into empty neighbouring cells; `.u-t` / `.u-n` do too, or a fixed grid
+clips its own workpaper header at the first column boundary.
+
+### GL DETAIL — AND THE ROWS MUST SUM TO THE AMOUNT THAT WAS DRILLED
+
+That is the whole contract of the tab. `foots` is COMPUTED in `xlGlDetail()` and stated on the
+band, so it is measured on every drill rather than asserted once. A reviewer who cannot foot the
+detail to the face of the workpaper has been given a list, not support.
+
+**Two shapes, because two kinds of component are being supported.** GL activity is a TRANSACTION
+population and resolves the governed rows R2 already models. Every other component — beginning,
+classification change, FX translation, eliminations, reporting adjustment, trial balance — is a
+BALANCE or a bridge, and its detail is the source-account schedule, which foots the same way.
+**Inventing transactions for an FX effect derived from balances and rates would be fabricating a
+journal that does not exist**, which is the one thing this module refuses everywhere else; the
+band states the component's own basis instead.
+
+Verified: all seven components foot.
+
+**SIXTEEN GOVERNED FIELDS, NAMED ONCE** (`XL_GL_FIELDS`) — posting date · entity · GL account ·
+account name · journal · line · document · vendor · project · type · memo · debit · credit ·
+currency · amount · ERP source. The sheet, the column widths and the ERP link all read that one
+list. A nil debit is blank, not `0.000`.
+
+**A GL EXTRACT IS CHRONOLOGICAL.** Sorted by size the first screen was four journals and a
+capitalised-interest entry — every one correctly carrying no vendor and no document, so a tab
+called GL Detail opened on two empty columns. Posting date, then size within the day.
+
+**THE DEEP LINK EXISTS ONLY WHERE THE INSTANCE PUBLISHES ONE**, which is R2's rule and is
+unchanged: 200 of the 237 rows offer **Open in NetSuite**; the 37 JD Edwards rows state
+*"Source reference · JD Edwards Legacy North America · no deep link published"* and offer no
+button. Nothing fabricates a URL.
+
+**Sixteen columns scroll, so the row numbers freeze** (`position:sticky` on `.xl-rn`). A ledger
+read without them is a wall of figures nobody can cite a line of.
+
+### THE SIZE GUARD HAD TO BE WHERE THE DRILL IS
+
+**Widening the query to the whole group set the state and showed nothing at all** — the guard
+renders in `xlPaneSize()`, which lives in the task pane, and this workflow hides the task pane.
+`xlFocusSize()` takes the sheet's place while it is open, on the same discipline as the drill
+panes, rather than becoming a second dialog system.
+
+**AND A STRATEGY CHOSEN AT THE GUARD HAS TO CHANGE WHAT THE SHEET HOLDS**, or the guard is a
+dialog that congratulates itself. Summarise aggregates to 47 vendor × project × month rows,
+sample truncates and marks itself *not publishable as support*, and a connected query loads
+**no rows at all** — the workbook holds the definition, which is the whole argument of §18.
+Nothing fabricates a group-wide row: Korvyn resolves the population it models, and the band
+states 3,128,400 as the QUERY's size and, separately, what the sheet is holding.
+
+### THE ANALYSIS SHEET IS A WORKING SCHEDULE, NOT A LIST
+
+Ten vendors × project with a period-over-period variance, a Var %, a Review flag against the
+preparer's own scrutiny threshold, an XLOOKUP into the GL Detail sheet, an adjustment column and
+notes; then the two thresholds named for whose they are — **Governed tolerance (Korvyn policy)**
+and **My scrutiny threshold** — three ties, and two SUMIFS pivots by classification and by
+project. Every formula is real and cross-sheet; nothing on it is a connected object.
+
+**The ties point at the right rows** and are the reason `XL_RECON_ROW` exists. The GL Detail
+total row MOVES with the drill, so the third tie is a `SUMIFS` over the column rather than a
+cell reference that goes stale the moment a reviewer looks at a different component.
+
+### OWNERSHIP IS TWO MARKS, NOT A SENTENCE
+
+`[KORVYN] A:C roll-forward   [YOURS] header · tie-out`, and on the Analysis sheet
+`[YOURS] Every cell on this sheet is yours. Refresh never touches it.` A sentence wrapped the
+band onto a second row — 77px of chrome above the workpaper it describes; two marks say it in a
+quarter of the width and the band is one line.
+
+### THE BACK CONTROL — the third report of this, and the path that was still open
+
+`xlOpenArtifact()` did not set `xlFocus`. So §16's own route — clicking the published support
+item on the reconciliation — reopened the workbook in the GENERAL workspace, where the shell's
+history chevron, the navigation strip and the Insert/Trace ribbon all come back. **The chevron
+pops a STACK**, so where it lands depends on how you arrived, which is exactly the reported
+"back goes to Accounting / Current Period".
+
+**THE MODE IS A PROPERTY OF WHAT THE WORKBOOK IS FOR, not of how the user arrived.**
+`xlFocusOf(wbId)` derives it from the workbook's own id and its connected object's period, and
+every path that opens a workbook reads it. Verified on all three: the reconciliation panel's
+Open in Excel, the page-level menu, and the published support item — one back control on screen
+in each, and the return restores the reconciliation with the tab the user left from (`roll`,
+`sum`, `sup` respectively).
+
+### Verified
+
+**21/21 acceptance checks pass, run in the product** · 204 view renders across 3 periods, 0
+errors (the 12 "empty" are the three lens-scoped alias keys and the deliberately unreachable
+`consol` view, unchanged) · console clean on a fresh load · **4/4 gates** (chrome themes 10/10,
+content contrast, spacing ratchet unchanged at 1072/88, css duplicates 63/63) · 0 clipped
+elements across all three sheets · **FS-CIP Jun 2026 = 4,210.2** · `rcChronologyCheck()` = 0 ·
+`RC_POSTCLOSE` empty on a fresh load · the general workspace still renders Insert / Refresh /
+Trace / Publish with its task pane across 11 workbook × sheet combinations.
+
+### Not done, deliberately
+
+**A connected range still resolves live rather than holding its last refreshed values.** So the
+figure moves the moment a source posting lands and Refresh confirms a change the sheet has
+already shown. That is R7.1 behaviour, it is what makes the canvas a representation rather than
+a spreadsheet, and changing it is an architecture decision rather than a UX fix — worth an
+owner's call. Everything else stands: no write-back, no Excel AI, no ERP posting, no second
+system of record.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
