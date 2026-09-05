@@ -10215,6 +10215,32 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
 /* R7.1 — the direct-entry return. One line, and only when there is no origin strip. */
 .xl-back{display:flex;gap:var(--s-3);align-items:baseline;margin-bottom:var(--s-3)}
 .xl-back .n{font-size:var(--fs-label);color:var(--hint)}
+/* R7.2 — the lifecycle previews. Same compact idiom as the R7.1 dialog they extend. */
+.xl-dlg.warn{border-left-color:var(--warning)}
+.xl-delta{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center;
+  margin:var(--s-3) 0;padding:var(--s-3);background:var(--surface2);border-radius:6px}
+.xl-delta .d{font-size:var(--fs-table);font-family:var(--num);
+  font-variant-numeric:tabular-nums;color:var(--ink);padding:0 var(--s-2);
+  border-right:1px solid var(--line2)}
+.xl-delta .d:last-of-type{border-right:0}
+.xl-delta .i{margin-left:auto;font-size:var(--fs-label);color:var(--muted)}
+.xl-delta .i.warn{color:var(--warn-ink)}
+.xl-delta .i.info{color:var(--accent-ink)}
+.xl-delta .i.good{color:var(--pos-ink)}
+.xl-sdiff{margin:var(--s-3) 0;border-top:1px solid var(--line)}
+.xl-sdiff .r{padding:var(--s-2) 0;border-bottom:1px solid var(--line)}
+.xl-sdiff .t{display:block;font-size:var(--fs-table);color:var(--ink);
+  font-weight:var(--fw-medium)}
+.xl-sdiff .d{display:block;font-size:var(--fs-label);color:var(--muted)}
+/* §2 — the ownership boundary, stated where the connected object is selected */
+.xl-own{display:inline-flex;gap:var(--s-2);align-items:center;font-size:var(--fs-label);
+  color:var(--accent-ink);background:var(--accent-bg);border-radius:4px;
+  padding:0 var(--s-2);height:var(--h-chip)}
+.xl-own .s{color:var(--muted)}
+/* R7.2 §20 — a supporting schedule published from Excel, with its live artifact state. */
+.mrp-xl{margin-top:var(--s-1);font-size:var(--fs-label);color:var(--accent-ink);
+  cursor:pointer}
+.mrp-xl:hover{text-decoration:underline}
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -35275,10 +35301,20 @@ function xlResolve(spec){
         ], kind:'rollforward', instance:i};
     }
     if(t==='RECON_ACT'||t==='GL_POP'){
-      /* THE WORKPAPER MODE. Korvyn supplies the governed population; the user owns whatever
-         they build around it. It resolves through R2's OWN accessors — `rcAcctRows` is the
-         same tie-out the Activity Detail canvas renders — so the workbook and the web cannot
-         disagree about the population, and Excel never gets a second query engine. */
+      /* THE WORKPAPER MODE (§16). Korvyn supplies the governed SUMMARY \u2014 vendor x project x
+         month, aggregated server-side from the same transaction population R2 resolves \u2014 and
+         the user owns whatever they build around it. The underlying population never enters
+         the workbook, which is the whole point of the size guard.
+         A `full` strategy (no size guard hit) still lists the account tie-out, because that is
+         what a small population actually is. */
+      if(spec.strategy==='summary'||spec.strategy==='sample'){
+        let g=xlSummaryRows(spec.objectId,c.periodId);
+        if(spec.strategy==='sample') g=g.slice(0,XL_SAMPLE);
+        return {cols:['Vendor','Project','Month','Transactions',
+            c.presentationCurrency+'m'],
+          rows:g.map(x=>[x.vendor,x.project,perLabel(x.period),x.n,x.net]),
+          kind:'summary'};
+      }
       const def=rcDef(spec.objectId);
       const rows=def?rcAcctRows(def,c.periodId):[];
       return {cols:['GL account','Account name','ERP','Transactions',
@@ -35472,7 +35508,16 @@ function xlInsert(spec){
     lastRefreshAt:(typeof rcNowStamp==='function')?rcNowStamp():'',
     lastRefreshBy:(typeof rcMe==='function')?rcMe().nm:'',
     sourceStructureFp:st.hash, sourceDataFp:dt.hash,
-    rowCount:sz.big?(sz.options.find(x=>x.k===spec.strategy)||{}).rows||0:dt.rowCount,
+    /* §4 — the measurable facts behind the range, so a later delta is a comparison and not
+       an assertion. Counts and totals; never the rows themselves. */
+    sourceSnapshot:xlSnapshot(spec),
+    columns:(function(){ const r=xlResolve(spec); return r?r.cols.slice():[]; })(),
+    /* WHAT THE WORKBOOK ACTUALLY HOLDS, not what the size guard estimated. The option's row
+       count is an estimate offered BEFORE the insert; once the range exists, the resolved
+       count is the truth, and a refresh recomputes it the same way — otherwise insert and
+       refresh disagree about the same range (observed: 340 then 47). */
+    rowCount:dt.rowCount,
+    estimatedRows:sz.big?(sz.options.find(x=>x.k===spec.strategy)||{}).rows||0:dt.rowCount,
     populationRows:sz.rows,
     publishedArtifactId:null,
     createdAt:(typeof rcNowStamp==='function')?rcNowStamp():'',
@@ -35493,9 +35538,10 @@ function xlRefreshState(o){
   if(wb&&wb.offline) return XL_STATES.OFFLINE;
   const gate=xlCanInsert({context:o.financialContext, objectType:o.korvynObjectType});
   if(!gate.ok) return XL_STATES.REVIEW;
-  const spec={objectType:o.korvynObjectType, objectId:o.korvynObjectId,
-    context:o.financialContext, statement:o.statement,
-    comparisonPeriodId:o.comparisonPeriodId};
+  /* ONE PLACE BUILDS THE SPEC. Rebuilt by hand here it dropped `strategy`, so a summarised
+     workpaper resolved the account tie-out instead and every one of them reported a structure
+     change that had not happened. `xlSpecOf` is the one builder; do not hand-roll a second. */
+  const spec=xlSpecOf(o);
   const st=xlStructureFp(spec), dt=xlDataFp(spec);
   if(st.hash!==o.sourceStructureFp) return XL_STATES.STRUCTURE;
   if(dt.hash!==o.sourceDataFp) {
@@ -35520,6 +35566,11 @@ const xlStateKey=o=>Object.keys(XL_STATES).find(k=>XL_STATES[k]===xlRefreshState
 function xlRefresh(objId,opts){
   const o=xlObj(objId); if(!o) return {ok:false};
   const s=xlStateKey(o), d=opts||{};
+  /* §23 — CURRENT permissions, not the ones in force when the range was inserted. Values
+     already in the workbook stay visible; retrieving NEW source data does not. */
+  const g=xlCanInsert({context:o.financialContext, objectType:o.korvynObjectType});
+  if(!g.ok) return {ok:false, reason:g.reason+' The values already in this workbook remain '+
+    'visible; no new source data can be retrieved.'};
   if(s==='OFFLINE') return {ok:false, reason:'The workbook is offline. The last refreshed '+
     'values remain visible; no new source data can be retrieved.'};
   if(s==='REVIEW') return {ok:false, reason:xlCanInsert({context:o.financialContext}).reason};
@@ -35531,15 +35582,24 @@ function xlRefresh(objId,opts){
     return {ok:false, pinned:true,
       reason:perLabel(o.financialContext.periodId)+' is certified. This range is pinned '+
         'as reported; a later mapping change does not rewrite it.'};
-  const spec={objectType:o.korvynObjectType, objectId:o.korvynObjectId,
-    context:o.financialContext, statement:o.statement};
-  const st=xlStructureFp(spec), dt=xlDataFp(spec);
+  const spec=xlSpecOf(o);
+  const dl=xlDelta(o);            // `d` above is the options object; do not shadow it
+  const st=xlStructureFp(spec), dt=xlDataFp(spec), r=xlResolve(spec);
   o.sourceStructureFp=st.hash; o.sourceDataFp=dt.hash; o.rowCount=dt.rowCount;
+  o.columns=r?r.cols.slice():o.columns;
+  o.sourceSnapshot=xlSnapshot(spec);
+  o.mappingVersion=st.mappingVersion||o.mappingVersion;
+  o.hierarchyVersion=st.hierarchyVersion||o.hierarchyVersion;
   o.lastRefreshAt=(typeof rcNowStamp==='function')?rcNowStamp():'';
   o.lastRefreshBy=(typeof rcMe==='function')?rcMe().nm:'';
   o.dataAsOf=(function(){try{return rcDataAsOf(o.financialContext.periodId);}catch(e){return o.dataAsOf;}})();
-  xlEvent('REFRESH',o,{fromState:s, rows:o.rowCount});
-  return {ok:true, object:o};
+  /* §22 — the STATE CHANGE is what a governed history records, not the click */
+  xlEvent('REFRESH',o,{fromState:s, rows:o.rowCount,
+    impact:dl?dl.impact.k:'NONE', delta:dl?dl.summary.join(' \u00b7 '):''});
+  if(s==='STRUCTURE') xlEvent('STRUCTURE_CHANGED',o,{accepted:true});
+  else if(s==='SOURCE') xlEvent('SOURCE_CHANGED',o,
+    {impact:dl?dl.impact.k:'', delta:dl?dl.summary.join(' \u00b7 '):''});
+  return {ok:true, object:o, delta:dl};
 }
 
 /* ---- TRACE (§14, §15) --------------------------------------------------------------------
@@ -35548,8 +35608,7 @@ function xlRefresh(objId,opts){
 function xlTrace(objId,rowIdx){
   const o=xlObj(objId); if(!o) return null;
   const c=o.financialContext;
-  const r=xlResolve({objectType:o.korvynObjectType, objectId:o.korvynObjectId, context:c,
-    statement:o.statement});
+  const r=xlResolve(xlSpecOf(o));
   const row=(r&&r.rows[rowIdx!=null?rowIdx:0])||null;
   /* THE FINANCIAL LINE IS RESOLVED BY OBJECT TYPE, not by assuming korvynObjectId is one.
      A reconciliation object carries a DEFINITION id, and taking it for a line id silently
@@ -35673,18 +35732,25 @@ function xlArtifactState(a){
   const moved=[];
   a.connectedObjectDependencies.forEach((id,i)=>{
     const o=xlObj(id); if(!o) return;
-    const spec={objectType:o.korvynObjectType, objectId:o.korvynObjectId,
-      context:o.financialContext, statement:o.statement};
+    const spec=xlSpecOf(o);
     const dt=xlDataFp(spec), st=xlStructureFp(spec);
     if(st.hash!==a.structureFingerprints[i]) moved.push({o, kind:'structure'});
     else if(dt.hash!==a.sourceFingerprints[i]) moved.push({o, kind:'data'});
   });
-  if(!moved.length) return {k:'CURRENT', l:'Current', c:'good',
+  if(!moved.length) return {k:'CURRENT', l:'Current', c:'good', impact:XL_IMPACT.NONE,
     why:'Nothing this workpaper depends on has changed since it was published.'};
-  return {k:'REVIEW', l:'Review required', c:'warn', moved,
+  /* §12 / §13 — WHAT changed and by HOW MUCH, so a reviewer is not told only that something
+     moved. The impact class is the worst across the moved dependencies. */
+  let amount=0, impact=XL_IMPACT.REVIEW;
+  moved.forEach(m=>{ const d=xlDelta(m.o);
+    if(d){ amount+=d.net||0; if(d.impact.o>impact.o) impact=d.impact; }
+    else if(m.kind==='structure'&&XL_IMPACT.STRUCTURAL.o>impact.o) impact=XL_IMPACT.STRUCTURAL; });
+  amount=+amount.toFixed(3);
+  return {k:'REVIEW', l:'Review required', c:impact.c||'warn', moved, impact, amount,
     why:moved.length+' connected source'+(moved.length===1?'':'s')+' changed after this '+
-      'workpaper was published. The workpaper is unchanged; a reviewer decides whether it '+
-      'still supports the conclusion.'};
+      'workpaper was published'+(Math.abs(amount)>0.0005?', a net '+(amount>0?'+':'')
+      +fsM(amount):'')+'. The workpaper is unchanged; a reviewer decides whether it still '+
+      'supports the conclusion.'};
 }
 
 /* ---- SEARCH / OBJECT PICKER (§9) ---------------------------------------------------------
@@ -35717,6 +35783,255 @@ function xlSearch(q){
   return out.slice(0,40);
 }
 
+
+/* ==========================================================================================
+   R7.2 — THE CONNECTED WORKPAPER LIFECYCLE (brief §1 – §23)
+   ==========================================================================================
+   R7.1 built the four primitives. R7.2 is the layer that makes the loop credible:
+
+     KORVYN WEB -> OPEN IN EXCEL -> CONNECTED OBJECT -> USER ANALYSIS -> REFRESH
+     -> SOURCE CHANGE ASSESSMENT -> PUBLISH -> GOVERNED ARTIFACT
+     -> REVIEW / SUPPORT / REPORTING -> CERTIFICATION -> AUDIT HISTORY
+
+   Excel stays the flexible work surface. Korvyn stays authoritative for the source data, the
+   context, the permissions, the versions, the lineage, the evidence relationships and the
+   certification state. NOTHING HERE POSTS AN ERP JOURNAL, writes back a governed figure, or
+   generates anything.                                                                        */
+
+/* ---- §13 — IMPACT. Five levels, and they are a READING of the existing fingerprint and
+   materiality architecture rather than a new rules engine: the structural comparison decides
+   STRUCTURAL, and the flux materiality policy decides whether an amount change is material. */
+const XL_IMPACT={
+  NONE:      {k:'NONE',       l:'No change',        c:'good', o:0,
+    d:'Nothing this range depends on has moved.'},
+  IMMATERIAL:{k:'IMMATERIAL', l:'Immaterial change',c:'',     o:1,
+    d:'The source moved by less than the materiality policy requires an explanation for.'},
+  REVIEW:    {k:'REVIEW',     l:'Review required',  c:'info', o:2,
+    d:'The source moved. The figures still stand; somebody should decide whether the work still holds.'},
+  MATERIAL:  {k:'MATERIAL',   l:'Material change',  c:'warn', o:3,
+    d:'The source moved by more than the materiality policy tolerates without an explanation.'},
+  STRUCTURAL:{k:'STRUCTURAL', l:'Structural change',c:'warn', o:4,
+    d:'The shape of the object changed — rows may appear or disappear beneath your formulas.'},
+};
+/* the materiality bar is the one the flux policy already states, in $M, so Excel and the
+   review surface cannot disagree about what "material" means */
+function xlMaterialityBar(){
+  try{ if(typeof KFX!=='undefined'&&KFX.impactFor) return null; }catch(e){}
+  try{ return (typeof matAbsThr==='function')?matAbsThr()/1000:1.0; }catch(e){ return 1.0; }
+}
+
+/* ==========================================================================================
+   §16 — THE ENTERPRISE WORKPAPER: a governed summary over a population that stays server-side
+   ==========================================================================================
+   VENDOR x PROJECT x MONTH, built from the SAME transaction population R2 resolves. The
+   workbook holds this summary; the underlying population is never materialised in Excel.    */
+function xlSummaryRows(defId,periodK){
+  const def=(typeof rcDef==='function')?rcDef(defId):null; if(!def) return [];
+  const rows=(typeof rcAcctRows==='function')?rcAcctRows(def,periodK):[];
+  const agg={};
+  rows.forEach(a=>{
+    let tx=[]; try{ tx=rcTxPool(a.sourceAccountId,periodK)||[]; }catch(e){}
+    tx.forEach(t=>{
+      const k=(t.vendorName||'—')+'|'+(t.projectName||'—')+'|'+(t.postingPeriod||periodK);
+      const g=agg[k]||(agg[k]={vendor:t.vendorName||'—', project:t.projectName||'—',
+        period:t.postingPeriod||periodK, n:0, debit:0, credit:0});
+      g.n++; g.debit+=t.debit||0; g.credit+=t.credit||0;
+    });
+  });
+  return Object.values(agg)
+    .map(g=>Object.assign(g,{net:+(g.debit-g.credit).toFixed(3)}))
+    .sort((a,b)=>Math.abs(b.net)-Math.abs(a.net));
+}
+/* the measurable facts behind a connected range, captured at insert and at every refresh so a
+   later delta is a COMPARISON and not an assertion. Cheap: counts and totals, never rows. */
+function xlSnapshot(spec){
+  const c=xlContext(spec.context), t=spec.objectType;
+  const s={rows:0, txCount:0, net:0, vendors:0, projects:0, lines:0,
+    at:(typeof rcNowStamp==='function')?rcNowStamp():''};
+  try{
+    if(t==='RECON_ACT'||t==='GL_POP'){
+      const g=xlSummaryRows(spec.objectId,c.periodId);
+      s.rows=g.length;
+      s.txCount=g.reduce((a,x)=>a+x.n,0)*XL_POP_SCALE;
+      s.net=+g.reduce((a,x)=>a+x.net,0).toFixed(3);
+      s.vendors=new Set(g.map(x=>x.vendor)).size;
+      s.projects=new Set(g.map(x=>x.project)).size;
+    }else{
+      const r=xlResolve(spec);
+      s.rows=r?r.rows.length:0; s.lines=s.rows;
+      /* KEEP THE VALUES FOR A SMALL RESULT, keyed by the row's own label. Summing the last
+         column and calling it "net" hid offsetting movements: a roll-forward whose beginning
+         fell and whose activity rose by the same amount reported no change while its data
+         fingerprint had plainly moved. A per-row comparison says WHICH rows moved, which is
+         what §4's preview is for. Capped, because a snapshot must stay cheap. */
+      if(r&&r.rows.length<=200){
+        s.values={};
+        r.rows.forEach(row=>{ const v=row[row.length-1];
+          if(typeof v==='number') s.values[String(row[0]).trim()]=v; });
+      }
+      s.net=r?+r.rows.reduce((a,row)=>{
+        const v=row[row.length-1]; return a+(typeof v==='number'?v:0); },0).toFixed(3):0;
+    }
+  }catch(e){}
+  return s;
+}
+const xlSpecOf=o=>({objectType:o.korvynObjectType, objectId:o.korvynObjectId,
+  context:o.financialContext, statement:o.statement,
+  comparisonPeriodId:o.comparisonPeriodId, strategy:o.strategy});
+
+/* ---- §4 — THE SOURCE DELTA, in the terms an accountant reads. Not a technical diff: how many
+   more transactions, how much more money, how many new vendors and projects. */
+function xlDelta(o){
+  if(!o||!o.sourceSnapshot) return null;
+  const was=o.sourceSnapshot, now=xlSnapshot(xlSpecOf(o));
+  const d={
+    rows:now.rows-was.rows, txCount:now.txCount-was.txCount,
+    net:+(now.net-was.net).toFixed(3),
+    vendors:now.vendors-was.vendors, projects:now.projects-was.projects,
+    was, now, any:false, lines:[]};
+  /* WHICH ROWS MOVED, where the snapshot kept them. `grossMoved` is what makes an offsetting
+     pair visible: a beginning that fell and an activity that rose by the same amount nets to
+     nothing and is plainly a change. */
+  if(was.values&&now.values){
+    Object.keys(now.values).forEach(k=>{
+      const a=was.values[k], b=now.values[k];
+      if(a==null){ d.lines.push({k, was:null, now:b, d:b}); return; }
+      const dd=+(b-a).toFixed(3);
+      if(Math.abs(dd)>0.0005) d.lines.push({k, was:a, now:b, d:dd}); });
+    Object.keys(was.values).forEach(k=>{ if(now.values[k]==null)
+      d.lines.push({k, was:was.values[k], now:null, d:-was.values[k]}); });
+  }
+  d.grossMoved=+d.lines.reduce((a,x)=>a+Math.abs(x.d),0).toFixed(3);
+  d.any=!!(d.rows||d.txCount||Math.abs(d.net)>0.0005||d.vendors||d.projects||d.lines.length);
+  /* §13 — the impact class. STRUCTURAL is decided by the structure fingerprint, not by an
+     amount; a material amount change is decided by the policy the flux review already uses. */
+  const st=xlStructureFp(xlSpecOf(o));
+  if(st.hash!==o.sourceStructureFp) d.impact=XL_IMPACT.STRUCTURAL;
+  else if(!d.any) d.impact=XL_IMPACT.NONE;
+  else {
+    /* THE BAR IS MEASURED AGAINST THE GROSS MOVEMENT, not the net. An offsetting pair nets to
+       nothing and is still a material change to the workpaper built on it. */
+    const bar=xlMaterialityBar();
+    const size=Math.max(Math.abs(d.net), d.grossMoved||0);
+    d.impact=(bar!=null&&size>=bar)?XL_IMPACT.MATERIAL
+      :(size>0.0005?XL_IMPACT.REVIEW:XL_IMPACT.IMMATERIAL);
+  }
+  d.summary=[
+    d.txCount?(d.txCount>0?'+':'')+d.txCount.toLocaleString('en-US')+' transactions':'',
+    Math.abs(d.net)>0.0005?(d.net>0?'+':'')+fsM(d.net)+' net activity':'',
+    d.lines.length?d.lines.length+' line'+(d.lines.length===1?'':'s')+' changed':'',
+    d.vendors?(d.vendors>0?'+':'')+d.vendors+' vendor'+(Math.abs(d.vendors)===1?'':'s'):'',
+    d.projects?(d.projects>0?'+':'')+d.projects+' project'+(Math.abs(d.projects)===1?'':'s'):'',
+    d.rows?(d.rows>0?'+':'')+d.rows+' summary row'+(Math.abs(d.rows)===1?'':'s'):'',
+  ].filter(Boolean);
+  return d;
+}
+
+/* ---- §5 — WHAT A STRUCTURE CHANGE ACTUALLY DID, in rows and versions, so "preview impact"
+   answers a question rather than showing a hash. */
+function xlStructureDiff(o){
+  const spec=xlSpecOf(o);
+  const st=xlStructureFp(spec);
+  const r=xlResolve(spec);
+  const out={changed:st.hash!==o.sourceStructureFp, items:[],
+    wasRows:o.rowCount, nowRows:r?r.rows.length:0,
+    wasMapping:o.mappingVersion, nowMapping:st.mappingVersion,
+    wasHierarchy:o.hierarchyVersion, nowHierarchy:st.hierarchyVersion,
+    wasCols:(o.columns||[]).join('|'), nowCols:r?r.cols.join('|'):''};
+  const dr=out.nowRows-out.wasRows;
+  if(dr) out.items.push({t:(dr>0?dr+' row'+(dr===1?'':'s')+' added':(-dr)+' row'
+    +(dr===-1?'':'s')+' removed'),
+    d:'Formulas below the connected range would move by '+Math.abs(dr)+' row'
+      +(Math.abs(dr)===1?'':'s')+'.'});
+  if(out.wasMapping&&out.nowMapping&&out.wasMapping!==out.nowMapping)
+    out.items.push({t:'Account mapping version '+out.wasMapping+' → '+out.nowMapping,
+      d:'The mapped account population behind this object changed.'});
+  if(out.wasHierarchy&&out.nowHierarchy&&out.wasHierarchy!==out.nowHierarchy)
+    out.items.push({t:'Reporting hierarchy '+out.wasHierarchy+' → '+out.nowHierarchy,
+      d:'The statement hierarchy this object is read against changed.'});
+  if(out.wasCols&&out.nowCols&&out.wasCols!==out.nowCols)
+    out.items.push({t:'Columns changed', d:'The connected range would gain or lose a column.'});
+  if(out.changed&&!out.items.length)
+    out.items.push({t:'The governed object definition changed',
+      d:'A version behind this range moved. Review before replacing it.'});
+  return out;
+}
+
+/* ---- §2 — THE OWNERSHIP BOUNDARY, stated as columns. Korvyn owns the connected columns;
+   everything to their right is ordinary workbook logic and refresh does not touch it. */
+function xlRegions(o){
+  const r=xlResolve(xlSpecOf(o));
+  const c0=Math.max(0,'ABCDEFGHIJKLM'.indexOf(String(o.rangeId).replace(/[0-9]/g,'')));
+  const n=r?r.cols.length:0;
+  const col=i=>'ABCDEFGHIJKLM'[i]||'?';
+  return {connected:{from:col(c0), to:col(c0+n-1), cols:n},
+    user:{from:col(c0+n+1), to:col(Math.min(12,c0+n+7))},
+    rows:{from:parseInt(String(o.rangeId).replace(/[A-Z]/g,''),10)||3,
+      to:(parseInt(String(o.rangeId).replace(/[A-Z]/g,''),10)||3)+(r?r.rows.length:0)}};
+}
+
+/* ---- §7 — THE DEPENDENCY GRAPH. Not a visualisation: an answer to one question — what in
+   this workbook may be affected by the latest source change? */
+function xlDependencies(wbId){
+  const objs=xlObjectsIn(wbId), arts=xlArtifactsFor(wbId);
+  const nodes=objs.map(o=>{
+    const st=xlRefreshState(o), d=xlDelta(o);
+    return {object:o, state:st, delta:d,
+      impact:(d&&d.impact)||XL_IMPACT.NONE,
+      queryDefinitionId:o.queryDefinitionId,
+      context:o.financialContext,
+      versions:{mapping:o.mappingVersion, enrichment:o.enrichmentVersion,
+        hierarchy:o.hierarchyVersion, fx:o.fxRateSet},
+      publishedIn:arts.filter(a=>a.connectedObjectDependencies.indexOf(o.connectedObjectId)>=0)
+        .map(a=>a.artifactId)};
+  });
+  const affected=nodes.filter(n=>n.impact.o>0);
+  return {workbookId:wbId, nodes, artifacts:arts,
+    affected,
+    worst:nodes.map(n=>n.impact).sort((a,b)=>b.o-a.o)[0]||XL_IMPACT.NONE,
+    answer:affected.length
+      ? affected.length+' of '+nodes.length+' connected object'
+        +(nodes.length===1?'':'s')+' would change on refresh'
+      : 'Nothing in this workbook is affected by the current source state.'};
+}
+
+/* ---- §9 — THE PUBLISH PREVIEW. Korvyn already knows every field; the user chooses a purpose
+   and confirms. Nothing here is re-entered. */
+function xlPublishPreview(wbId,purpose){
+  const wb=xlBook(wbId); if(!wb) return null;
+  const objs=xlObjectsIn(wbId);
+  if(!objs.length) return {ok:false,
+    reason:'This workbook holds no connected Korvyn object, so there is nothing to publish '+
+      'against. Insert a governed object first.'};
+  const c=objs[0].financialContext;
+  const dep=xlDependencies(wbId);
+  const prior=XL_ARTIFACTS.filter(a=>a.workbookId===wbId&&a.purpose===purpose);
+  const P=XL_PURPOSES[purpose]||{};
+  /* the TARGET is derived from the connected objects, never typed */
+  let target=null, targetLabel=null;
+  const rec=objs.find(o=>o.korvynObjectType==='RECON_ROLL'||o.korvynObjectType==='RECON_ACT');
+  const sch=objs.find(o=>o.korvynObjectType==='MRP_SCHED');
+  if(purpose==='RECON_SUPPORT'&&rec){ target=rec.korvynObjectId;
+    targetLabel=(rcDef(rec.korvynObjectId)||{}).name||rec.korvynObjectId; }
+  else if(purpose==='RPT_SCHEDULE'&&sch){ target=sch.korvynObjectId;
+    targetLabel=(MRP_SCHEDULES[sch.korvynObjectId]||{}).l||sch.korvynObjectId; }
+  else if(rec){ target=rec.korvynObjectId;
+    targetLabel=(rcDef(rec.korvynObjectId)||{}).name||rec.korvynObjectId; }
+  return {ok:true, workbookId:wbId, workbookName:wb.name,
+    purpose, purposeLabel:P.l, attachesTo:P.target,
+    target, targetLabel,
+    periodLabel:c.periodLabel, scopeName:c.scopeName,
+    reportingLensName:c.reportingLensName, basisLabel:c.basisLabel,
+    presentationCurrency:c.presentationCurrency,
+    dependencies:objs.length,
+    dependencyLabels:objs.map(o=>o.label),
+    sourceState:dep.worst, sourceStateLabel:dep.worst.l,
+    versions:{mapping:objs[0].mappingVersion, enrichment:objs[0].enrichmentVersion,
+      hierarchy:objs[0].hierarchyVersion, fx:objs[0].fxRateSet},
+    version:prior.length+1,
+    supersedes:prior.length?prior[prior.length-1].artifactId:null,
+    certified:c.certified};
+}
 /* ==========================================================================================
    R7.1 — THE SEED. Workbooks that already exist, because a connected-workspace product with
    no connected workbooks demonstrates nothing. Every figure in them still resolves live.
@@ -35754,6 +36069,17 @@ function xlSeed(){
   xlInsert({workbookId:w3.workbookId, worksheetId:w3.sheets[0].id, range:'B4',
     objectType:'RECON_ROLL', objectId:'REC-CIP-ELECTRICAL',
     context:{periodId:'2026-05'}, label:'Electrical CIP roll-forward · May 2026'});
+
+  /* 4 — a supporting schedule published FROM Excel (§20). The Reporting Package reads this
+     artifact's own state rather than keeping a second support status, which is what stops a
+     package reporting a schedule as current while the workpaper behind it is stale. */
+  const w4=mk('WB-CAPEX','Capex by project — Q2 build.xlsx','L. Tan',['Schedule','Pivot']);
+  xlInsert({workbookId:w4.workbookId, worksheetId:w4.sheets[0].id, range:'A3',
+    objectType:'MRP_SCHED', objectId:'SCH-CAPEX-PROJ', strategy:'summary',
+    label:'Capex by project'});
+  xlPublish({workbookId:w4.workbookId, purpose:'RPT_SCHEDULE',
+    targetId:'SCH-CAPEX-PROJ', targetLabel:'Capex by project',
+    at:'Jun 28, 2026 · 16:20'});
 
   /* ---- THE PUBLISHED WORKPAPER, AND THE SOURCE CHANGE THAT CAME AFTER IT (§23) ---------
      THE STALENESS IS DETECTED, NOT FLAGGED. This publishes against MAY, capturing the
@@ -35908,6 +36234,28 @@ function xlRestoreTrend(s){
   trStmt=s.trStmt; trRange=s.trRange; trSel=s.trSel; trTab=s.trTab; trQ=s.trQ;
   trCompNode=s.trCompNode; trOpen=s.trOpen; trDrill=s.trDrill;
   pickTab('gltrend'); xlScrollBack(s);
+}
+/* the published Excel artifacts attached to a governed object, with their live state. One
+   function, read by Reconciliations, the Reporting Package and Audit. */
+function xlArtifactsFor2(purpose,targetId){
+  return XL_ARTIFACTS.filter(a=>a.purpose===purpose&&(!targetId||a.targetKorvynObjectId===targetId))
+    .map(a=>({a, st:xlArtifactState(a)}));
+}
+/* §18 — RETURN TO THE WORKBOOK, not to a generic Excel landing page. The workbook, the sheet
+   the object sits on and the connected object itself are all restored, and the origin is
+   carried so the user can come back. */
+function xlOpenArtifact(artifactId){
+  const a=XL_ARTIFACTS.find(x=>x.artifactId===artifactId); if(!a) return;
+  const org=(typeof xlOriginCtx==='function')?xlOriginCtx():null;
+  const dest=()=>{
+    xlWb=a.workbookId;
+    const first=(a.connectedObjectDependencies||[])[0];
+    const o=first?xlObj(first):null;
+    if(o){ _xlSheet[a.workbookId]=o.worksheetId; xlSel=o.connectedObjectId; }
+    xlPane='history'; xlPreview=null;
+    pickLens('xl'); pickTab('xlwork');
+  };
+  if(org&&typeof navGo==='function') navGo(org,dest); else dest();
 }
 /* ---- ROUTES BACK TO THE WEB (§28). Two surfaces over the SAME objects: every one of these
    lands on the governed object in Korvyn, in the context the workbook carries. */
@@ -36104,12 +36452,17 @@ function xlRibbon(wb,objs){
     <button class="xl-act" onclick="xlPaneGo('insert')">
       ${glIc('M8 3v10M3 8h10')}Insert</button>
     <button class="xl-act ${sel?'':'off'}" ${sel?'':'disabled'}
-      onclick="xlDoRefresh()">${glIc('M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M13 3v4h-4M3 13V9h4')}Refresh</button>
+      onclick="xlAskRefresh()">${glIc('M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M13 3v4h-4M3 13V9h4')}Refresh</button>
     <button class="xl-act ${sel?'':'off'}" ${sel?'':'disabled'}
       onclick="xlDoTrace()">${glIc('M4 8h8M4 8a2 2 0 11-4 0 2 2 0 014 0zm8 0a2 2 0 114 0 2 2 0 01-4 0z')}Trace</button>
     <button class="xl-act ${objs.length?'':'off'}" ${objs.length?'':'disabled'}
       onclick="xlPubOpen()">${glIc('M8 13V3M4 7l4-4 4 4')}Publish</button>
     <span class="grow"></span>
+    ${sel?(function(){ const R=xlRegions(sel);
+      return `<span class="xl-own" title="Korvyn owns the connected columns. Everything from 
+column ${R.user.from} onward is ordinary workbook logic and refresh does not touch it.">
+        <b>${R.connected.from}:${R.connected.to}</b> Korvyn
+        <span class="s">${R.user.from}:${R.user.to} yours</span></span>`; })():''}
     ${wb.offline?'<span class="xl-sig">Offline</span>':''}
     <span class="xl-sig ${worst.c||''}" title="${glEsc(worst.d)}">
       <i class="dot"></i>Korvyn connected &#183; ${glEsc(worst.l)}</span>
@@ -36130,8 +36483,11 @@ function xlSheet(wb,objs){
       ? 'Korvyn supplies the population. The pivot below is mine.'
       : 'Prepared for the Jun 2026 close. Figures are connected to Korvyn.',cls:'u-n'},
   ];
-  const blocks=mine.map(x=>({obj:x, res:xlResolve({objectType:x.korvynObjectType,
-    objectId:x.korvynObjectId, context:x.financialContext, statement:x.statement}),
+  /* `xlSpecOf` is the ONE spec builder — hand-rolling one here dropped `strategy`, so the
+     sheet drew the account tie-out where the workbook actually holds the vendor x project x
+     month summary. Third time this exact omission has cost a round; there is now no other
+     place that builds a spec. */
+  const blocks=mine.map(x=>({obj:x, res:xlResolve(xlSpecOf(x)),
     row:parseInt(String(x.rangeId).replace(/[A-Z]/g,''),10)||3,
     col:COLS.indexOf(String(x.rangeId).replace(/[0-9]/g,''))}));
   const N=Math.max(26, ...blocks.map(b=>b.row+(b.res?b.res.rows.length:0)+6));
@@ -36377,16 +36733,151 @@ function xlTracePanel(){
 /* §21 — PUBLISH. Korvyn already knows the workbook, its connected objects, the period, the
    scope, the lens and the dependencies. The user chooses a purpose. */
 function xlPubOpen(){ xlPublishOpen=true; renderAll(); }
+/* §9 — choosing a purpose opens the PREVIEW, not the publication. Publishing is one more
+   click, on a screen that states what Korvyn already knows. */
+function xlPubPick(p){ xlPublishOpen=false; xlPreview={kind:'publish', purpose:p}; renderAll(); }
 function xlPubClose(){ xlPublishOpen=false; renderAll(); }
 function xlPubGo(p){
-  const r=xlPublish({workbookId:xlWb, purpose:p});
-  xlNotice=r.ok?null:r.reason; xlPublishOpen=false; xlPane='history'; renderAll();
+  const pv=xlPublishPreview(xlWb,p);
+  const r=xlPublish({workbookId:xlWb, purpose:p,
+    targetId:pv&&pv.ok?pv.target:null, targetLabel:pv&&pv.ok?pv.targetLabel:null});
+  xlNotice=r.ok?null:r.reason; xlPublishOpen=false; xlPreview=null; xlPane='history';
+  renderAll();
 }
 
+
+/* ==========================================================================================
+   R7.2 — THE LIFECYCLE DIALOGS (§4, §5, §9). Office-like and compact; the task pane is not
+   redesigned and nothing here is a wizard.
+   ========================================================================================== */
+let xlPreview=null;     // {kind:'refresh'|'structure'|'publish', ...}
+function xlAskRefresh(){
+  const o=xlObj(xlSel); if(!o) return;
+  const s=xlStateKey(o);
+  if(s==='STRUCTURE'){ xlPreview={kind:'structure', id:o.connectedObjectId}; renderAll(); return; }
+  if(s==='SOURCE'||s==='AVAILABLE'){ xlPreview={kind:'refresh', id:o.connectedObjectId};
+    renderAll(); return; }
+  xlDoRefresh();
+}
+function xlPreviewClose(){ xlPreview=null; renderAll(); }
+function xlPreviewGo(kind){
+  const o=xlObj(xlPreview&&xlPreview.id); if(!o){ xlPreview=null; renderAll(); return; }
+  const r=xlRefresh(o.connectedObjectId,
+    kind==='structure'?{acceptStructure:1}:kind==='recast'?{recast:1}:{});
+  xlNotice=r.ok?null:r.reason;
+  xlPreview=null; renderAll();
+}
+function xlPreviewExpand(){ xlPreview=Object.assign({},xlPreview,{expanded:!xlPreview.expanded});
+  renderAll(); }
+
+/* §4 — THE SOURCE PREVIEW. What moved, in an accountant's terms, and three plain choices.
+   Deliberately not a technical diff: the line detail is behind "Review changes". */
+function xlRefreshPreview(){
+  const o=xlObj(xlPreview.id); if(!o) return '';
+  const d=xlDelta(o), st=xlRefreshState(o);
+  const R=xlRegions(o);
+  return `<div class="xl-dlg"><div class="xl-dlg-h">${glEsc(st.l)}</div>
+    <div class="xl-dlg-b">Since this range was last refreshed on
+      ${glEsc(o.lastRefreshAt)}:</div>
+    <div class="xl-delta">
+      ${(d&&d.summary.length?d.summary:['No measurable change'])
+        .map(x=>`<span class="d">${glEsc(x)}</span>`).join('')}
+      <span class="i ${d?d.impact.c||'':''}">${glEsc(d?d.impact.l:'')}</span>
+    </div>
+    <table class="tbl mrp-det"><tbody>
+      <tr><td class="k">Connected object</td><td class="v">${glEsc(o.label)}</td></tr>
+      <tr><td class="k">Korvyn source</td><td class="v">${glEsc(o.dataAsOf||'')}</td></tr>
+      <tr><td class="k">Refresh replaces</td><td class="v">columns ${R.connected.from}:${
+        R.connected.to}, rows ${R.rows.from}&#8211;${R.rows.to}</td></tr>
+      <tr><td class="k">Untouched</td><td class="v">everything from column ${R.user.from}
+        onward &#8212; your formulas, pivots, charts and notes</td></tr>
+    </tbody></table>
+    ${xlPreview.expanded&&d&&d.lines.length?`<div class="mrp-subh">What moved</div>
+      <table class="tbl"><thead><tr><th>Line</th><th class="num">Last refreshed</th>
+        <th class="num">Now</th><th class="num">Change</th></tr></thead><tbody>
+      ${d.lines.slice(0,14).map(l=>`<tr><td>${glEsc(l.k)}</td>
+        <td class="num">${l.was==null?'<span class="amap-dim">&#8212;</span>':fsM(l.was)}</td>
+        <td class="num">${l.now==null?'<span class="amap-dim">&#8212;</span>':fsM(l.now)}</td>
+        <td class="num ${l.d<0?'neg':'pos'}">${(l.d>0?'+':'')+fsM(l.d)}</td></tr>`).join('')}
+      </tbody></table>`:''}
+    <div class="xl-dlg-a">
+      ${d&&d.lines.length?`<button class="btn-out sm" onclick="xlPreviewExpand()">${
+        xlPreview.expanded?'Hide changes':'Review changes'}</button>`:''}
+      <button class="btn-primary sm" onclick="xlPreviewGo('data')">Refresh</button>
+      <button class="btn-out sm" onclick="xlPreviewClose()">Not now</button>
+    </div>
+    <div class="xl-dlg-f">Refresh replaces the connected range only. Ordinary workbook logic
+      around it is yours and is not rebuilt.</div></div>`;
+}
+
+/* §5 — STRUCTURE CHANGE. What the shape did, what it would do to formulas, and the option to
+   keep the current version rather than accept it. */
+function xlStructurePreview(){
+  const o=xlObj(xlPreview.id); if(!o) return '';
+  const sd=xlStructureDiff(o), R=xlRegions(o);
+  return `<div class="xl-dlg warn"><div class="xl-dlg-h">Structure change</div>
+    <div class="xl-dlg-b">The Korvyn object definition has changed. Refreshing may add or
+      remove rows beneath your formulas, so it asks first.</div>
+    <div class="xl-sdiff">
+      ${sd.items.map(i=>`<div class="r"><span class="t">${glEsc(i.t)}</span>
+        <span class="d">${glEsc(i.d)}</span></div>`).join('')}
+    </div>
+    <table class="tbl mrp-det"><tbody>
+      <tr><td class="k">Rows</td><td class="v">${sd.wasRows} &#8594; ${sd.nowRows}</td></tr>
+      <tr><td class="k">Connected range</td><td class="v">columns ${R.connected.from}:${
+        R.connected.to}</td></tr>
+      <tr><td class="k">Your formulas</td><td class="v">column ${R.user.from} onward &#8212;
+        not rebuilt, but rows below the range would shift</td></tr>
+    </tbody></table>
+    <div class="xl-dlg-a">
+      <button class="btn-primary sm" onclick="xlPreviewGo('structure')">Refresh safely</button>
+      <button class="btn-out sm" onclick="xlPreviewClose()">Keep current version</button>
+    </div>
+    <div class="xl-dlg-f">Keeping the current version leaves the range exactly as it is; the
+      object stays marked so the difference is never lost.</div></div>`;
+}
+
+/* §9 — PUBLISH PREVIEW. Korvyn already knows every field. The user picks a purpose and
+   confirms; nothing is re-entered. */
+function xlPublishPreviewHTML(){
+  const p=xlPublishPreview(xlWb,xlPreview.purpose);
+  if(!p||!p.ok) return `<div class="xl-dlg"><div class="xl-dlg-h">Publish to Korvyn</div>
+    <div class="xl-dlg-b">${glEsc((p&&p.reason)||'Nothing to publish.')}</div>
+    <div class="xl-dlg-a"><button class="btn-out sm" onclick="xlPreviewClose()">Close</button></div></div>`;
+  const gate=xlCanPublish();
+  return `<div class="xl-dlg"><div class="xl-dlg-h">Publish to Korvyn</div>
+    <table class="tbl mrp-det"><tbody>
+      <tr><td class="k">Workbook</td><td class="v">${glEsc(p.workbookName)}</td></tr>
+      <tr><td class="k">Purpose</td><td class="v">${glEsc(p.purposeLabel)}</td></tr>
+      <tr><td class="k">Target</td><td class="v">${glEsc(p.targetLabel||p.attachesTo)}</td></tr>
+      <tr><td class="k">Period</td><td class="v">${glEsc(p.periodLabel)}</td></tr>
+      <tr><td class="k">Scope</td><td class="v">${glEsc(p.scopeName)}</td></tr>
+      <tr><td class="k">Reporting lens</td><td class="v">${glEsc(p.reportingLensName)}
+        &#183; ${glEsc(p.basisLabel)} &#183; ${glEsc(p.presentationCurrency)}</td></tr>
+      <tr><td class="k">Source state</td><td class="v"><span class="pill ${
+        p.sourceState.c||''}">${glEsc(p.sourceStateLabel)}</span></td></tr>
+      <tr><td class="k">Connected dependencies</td><td class="v">${p.dependencies}
+        <div class="ic-mini">${p.dependencyLabels.map(glEsc).join('<br>')}</div></td></tr>
+      <tr><td class="k">Version</td><td class="v">v${p.version}${p.supersedes
+        ?' <span class="ic-mini">supersedes '+glEsc(p.supersedes)+'</span>':''}</td></tr>
+    </tbody></table>
+    ${gate.ok?`<div class="xl-dlg-a">
+      <button class="btn-primary sm" onclick="xlPubGo('${xlPreview.purpose}')">Publish</button>
+      <button class="btn-out sm" onclick="xlPreviewClose()">Cancel</button></div>`
+      :`<div class="xl-warn">${glEsc(gate.reason)}</div>
+        <div class="xl-dlg-a"><button class="btn-out sm" onclick="xlPreviewClose()">Close</button></div>`}
+    <div class="xl-dlg-f">Korvyn knows the period, scope, lens, basis, source population and
+      every version from the workbook. Publishing creates governed EVIDENCE that references
+      them; it cannot alter a governed figure and it never posts an ERP journal.</div></div>`;
+}
 /* the two dialogs the workspace can raise. Both are in the app's own docked-panel idiom;
    neither is a wizard (§33). */
 function xlDialogs(){
   let o='';
+  /* R7.2 — the lifecycle previews take precedence: they are what the user asked for. */
+  if(xlPreview&&xlPreview.kind==='refresh')   return xlRefreshPreview();
+  if(xlPreview&&xlPreview.kind==='structure') return xlStructurePreview();
+  if(xlPreview&&xlPreview.kind==='publish')   return xlPublishPreviewHTML();
   const ask=window._xlAsk;
   if(ask){
     /* §12 / §13 — a STRUCTURE change or a CERTIFIED period asks before it replaces a range */
@@ -36420,7 +36911,7 @@ function xlDialogs(){
           &#183; hierarchy ${glEsc(objs[0]?objs[0].hierarchyVersion:'')}</td></tr>
       </tbody></table>
       ${gate.ok?`<div class="xl-purp">${Object.keys(XL_PURPOSES).map(k=>
-        `<button class="xl-obj" onclick="xlPubGo('${k}')">
+        `<button class="xl-obj" onclick="xlPubPick('${k}')">
           <span class="n">${glEsc(XL_PURPOSES[k].l)}</span>
           <span class="s">Attaches to ${glEsc(XL_PURPOSES[k].target)}</span></button>`).join('')}</div>`
         :`<div class="xl-warn">${glEsc(gate.reason)}</div>`}
@@ -36497,6 +36988,29 @@ function renderXlBooks(){
       :'<tr><td colspan="7" class="note">Nothing published yet.</td></tr>'}
     </tbody></table></div>`;
 
+  /* §21 — WHAT SUPPORTED THE CERTIFIED BALANCE. Which workbook version, which connected
+     source state, which mapping, which period, which publisher \u2014 read off the artifacts
+     themselves rather than copied into an audit store. */
+  o+=`<div class="card"><h2>Audit lineage
+      <span class="note">what supported each certified balance</span></h2>
+    <div class="subhead">No duplicate audit copy of the source data exists. An auditor reads
+      the artifact's own dependencies and versions, and follows them back to the governed
+      population they were built from.</div>
+    <table class="tbl"><thead><tr><th>Artifact</th><th>Supports</th><th>Period</th>
+      <th>Workbook version</th><th>Source state at publication</th><th>Mapping</th>
+      <th>Publisher</th><th>State now</th></tr></thead><tbody>
+    ${XL_ARTIFACTS.length?XL_ARTIFACTS.slice().reverse().map(a=>{ const st=xlArtifactState(a);
+      return `<tr class="row-click" onclick="xlOpenArtifact('${a.artifactId}')">
+      <td><span class="nm">${glEsc(a.artifactId)}</span></td>
+      <td class="ic-mini">${glEsc(a.targetLabel||(XL_PURPOSES[a.purpose]||{}).target||'')}</td>
+      <td>${glEsc(a.periodLabel)}</td>
+      <td>${glEsc(a.workbookVersion)}</td>
+      <td class="ic-mini mono">${glEsc((a.sourceFingerprints||[]).join(' '))}</td>
+      <td class="ic-mini mono">${glEsc((a.mappingVersions||[]).join(', '))}</td>
+      <td class="ic-mini">${glEsc(a.publisher)} <div>${glEsc(a.publisherRole||'')}</div></td>
+      <td><span class="pill ${st.c||''}">${glEsc(st.l)}</span></td></tr>`;}).join('')
+      :'<tr><td colspan="8" class="note">Nothing published yet.</td></tr>'}
+    </tbody></table></div>`;
   o+=`<div class="card"><h2>Governed interactions<span class="note">${XL_EVENTS.length} recorded</span></h2>
     <div class="subhead">Who inserted what, against which source version and reporting lens,
       and when it was refreshed or published. Ordinary spreadsheet work is not logged.</div>
@@ -37657,6 +38171,14 @@ function mrpSchedulesCard(P){
         :fsM(s.amountTotal)}</td>
       <td class="ic-mini">${s.tiesTo?glEsc(s.tiesTo):'<span class="amap-dim">&#8212;</span>'}</td>
       <td class="ic-mini">${glEsc(s.deliveredAs)}
+        ${(function(){ /* §20 — a schedule published FROM Excel states its artifact state
+             rather than the package keeping a second one. No duplicate upload. */
+          try{ const x=xlArtifactsFor2('RPT_SCHEDULE',s.scheduleId)[0];
+            if(!x) return '';
+            return '<div class="mrp-xl" onclick="xlOpenArtifact(\''+x.a.artifactId
+              +'\')">Published from Excel \u00b7 '+glEsc(x.a.workbookVersion)
+              +' <span class="pill '+(x.st.c||'')+' sm">'+glEsc(x.st.l)+'</span></div>';
+          }catch(e){ return ''; } })()}
         <div><button class="fsx-link" onclick="mrpExcel('${s.scheduleId}',event)">Open in
           Excel &#8594;</button></div></td>
       <td class="ic-mini mono">${glEsc(s.fingerprint)}</td></tr>`).join('')}
@@ -51306,6 +51828,22 @@ function rcSupTab(def,inst){
     +'<span class="v"><span class="pill '+((RC_SUPPORT[inst.supportStatus]||{}).c||'')+' sm">'
     +glEsc((RC_SUPPORT[inst.supportStatus]||{l:inst.supportStatus}).l)+'</span></span></div>'
     +'<div class="rcx-evl">'+g.requirements.map(rcSupRow).join('')+'</div>';
+  /* §19 — EXCEL WORKPAPERS PUBLISHED AGAINST THIS RECONCILIATION. The state is
+     `xlArtifactState()` \u2014 the same comparison the workbook shows \u2014 so the reconciliation
+     cannot report a support status the workpaper does not have. */
+  const xls=(typeof xlArtifactsFor2==='function')
+    ?xlArtifactsFor2('RECON_SUPPORT',dId).concat(xlArtifactsFor2('AUDIT_WP',dId)):[];
+  if(xls.length){
+    o+='<div class="amp-sec">Excel workpapers</div><div class="rcx-evl">'
+      +xls.map(({a,st})=>'<div class="rcx-ev" role="button" tabindex="0" '
+        +'onclick="xlOpenArtifact(\''+a.artifactId+'\')">'
+        +'<span class="n">'+glEsc(a.workbookName.replace(/\.xlsx$/,''))+'</span>'
+        +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
+        +'<span class="m">Excel workpaper \u00b7 '+glEsc(a.workbookVersion)
+        +' \u00b7 published '+glEsc(a.publishedAt)+' by '+glEsc(a.publisher)+'</span>'
+        +'<span class="w">'+glEsc(st.why)+'</span></div>').join('')
+      +'</div>';
+  }
   o+='<div class="amp-sec">Supplemental support</div>';
   o+=g.supplemental.length
     ? '<div class="rcx-evl">'+g.supplemental.map(x=>{

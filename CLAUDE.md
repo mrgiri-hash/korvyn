@@ -5894,6 +5894,117 @@ reachable.**
   what makes the large-population protection real; a deployment reads the true count from the
   query engine.
 
+## 2026-09-05 — R7.2: the connected workpaper lifecycle
+
+R7.1 built the four primitives. R7.2 is the layer that makes the loop credible:
+
+```
+KORVYN WEB -> OPEN IN EXCEL -> CONNECTED OBJECT -> USER ANALYSIS -> REFRESH
+-> SOURCE CHANGE ASSESSMENT -> PUBLISH -> GOVERNED ARTIFACT
+-> REVIEW / SUPPORT / REPORTING -> CERTIFICATION -> AUDIT HISTORY
+```
+
+Excel stays the flexible work surface; Korvyn stays authoritative for the source data, the
+context, the permissions, the versions, the lineage, the evidence relationships and the
+certification state. **NOTHING HERE POSTS AN ERP JOURNAL, WRITES BACK A GOVERNED FIGURE, OR
+GENERATES ANYTHING.** The canary is unmoved: FS-CIP Jun 2026 = 4,210.2.
+
+### THE OWNERSHIP BOUNDARY IS COLUMNS, AND IT IS ON SCREEN
+
+`xlRegions()` states it and the ribbon shows it beside the selected object — **A:E Korvyn ·
+G:M yours**. Refresh replaces the connected columns and nothing else; the vendor-share and
+capitalisable-% formulas beside the range survive it (asserted by counting formulas in the
+rendered sheet before and after, not by inspection).
+
+### §16 — THE WORKPAPER IS VENDOR x PROJECT x MONTH
+
+The summary is aggregated from the SAME transaction population R2 resolves (`rcTxPool`), so
+the workbook and the Activity Detail canvas cannot disagree, and Excel never gets a second
+query engine. The population — 3,128,400 rows — stays server-side; the workbook holds the
+summary. Munters Cooling, Vertiv Systems, Turner Construction, ABB Switchgear, Schneider
+Electric against Ashburn Hall C, Dublin DUB-01, Singapore SG-02 and the rest.
+
+### THE DELTA IS A COMPARISON, NOT AN ASSERTION
+
+`xlSnapshot()` captures the measurable facts behind a range at insert and at every refresh —
+row count, transaction count, net, vendors, projects, and for a small result the VALUES keyed
+by row label. `xlDelta()` compares them, so §4's preview reads *"5 lines changed · Beginning
+balance −0.078 · GL activity −1.164 · Mapping / classification change −0.856"* rather than
+"something moved".
+
+**SUMMING THE LAST COLUMN HID OFFSETTING MOVEMENTS.** A roll-forward whose beginning fell and
+whose activity rose by the same amount reported no change while its data fingerprint had
+plainly moved. The per-row comparison is what makes the preview honest, and the materiality
+bar is measured against the GROSS movement rather than the net for the same reason.
+
+### §13 — FIVE IMPACT LEVELS, READ FROM WHAT ALREADY EXISTS
+
+`NONE · IMMATERIAL · REVIEW · MATERIAL · STRUCTURAL`. STRUCTURAL is decided by the structure
+fingerprint; MATERIAL by the flux review's own materiality policy (`matAbsThr`), so Excel and
+the review surface cannot disagree about what material means. No new rules engine.
+
+### §5 — STRUCTURE CHANGE STATES WHAT IT WOULD DO TO FORMULAS
+
+`xlStructureDiff()` answers in rows and versions — *"2 rows added · formulas below the
+connected range would move by 2 rows"*, *"mapping 2026.05.3 → 2026.06.4"* — with
+**Refresh safely** and **Keep current version**. Keeping leaves the range exactly as it is and
+the object stays marked, so the difference is never lost.
+
+### §9 — PUBLISH PREVIEW: KORVYN ALREADY KNOWS EVERY FIELD
+
+Workbook, purpose, target, period, scope, lens, basis, source state, connected dependencies
+and version — all derived. The user picks a purpose and confirms. The TARGET is derived from
+the connected objects rather than typed: a reconciliation workbook attaches to its
+reconciliation, a schedule workbook to its schedule.
+
+### §19 / §20 — ONE ARTIFACT STATE, READ WHEREVER IT IS CONSUMED
+
+The Reconciliation Support tab and the Reporting Package's supporting schedules both read
+`xlArtifactState()` — the same comparison the workbook shows. Neither keeps a support status
+of its own, which is exactly what "do not duplicate support status separately" asks for: a
+package cannot report a schedule as current while the workpaper behind it is stale.
+
+### §21 — AUDIT LINEAGE WITHOUT A DUPLICATE COPY
+
+Connected workbooks carries an audit-lineage table: which artifact, what it supports, the
+period, the workbook version, the source fingerprints at publication, the mapping versions and
+the publisher, with the state now. An auditor reads the artifact's own dependencies and follows
+them back; no audit copy of the source data exists.
+
+### §18 — RETURN TO THE WORKBOOK, NOT TO A LANDING PAGE
+
+`xlOpenArtifact()` restores the workbook, the sheet the object sits on and the connected object
+itself, and carries the origin through `navGo` so the user can come back.
+
+### ONE SPEC BUILDER, AND THE SAME OMISSION COST THREE ROUNDS
+
+`xlSpecOf(o)` is the only place a resolve spec is built. Hand-rolled copies in `xlRefreshState`,
+`xlTrace`, `xlArtifactState` and `xlSheet` each dropped `strategy`, so a summarised workpaper
+resolved the ACCOUNT TIE-OUT instead of its summary — which made every one of them report a
+structure change that had not happened, and drew the wrong table on the sheet. **There is now
+no other place that builds a spec; do not add one.**
+
+### Also fixed
+
+**Insert and refresh disagreed about the same range** — insert recorded the size guard's
+ESTIMATE (340) and refresh the resolved count (47). The estimate is what is offered before the
+insert; once the range exists the resolved count is the truth, and it is kept as
+`estimatedRows` rather than thrown away.
+
+**§23 — permissions are enforced on refresh, not only on insert.** Values already in a workbook
+stay visible; retrieving NEW source data resolves the CURRENT access, so a lens revoked after
+an insert cannot be re-read through an old workbook.
+
+**Verified:** all 15 acceptance tests in §27 pass, run in the product · 195 view renders across
+3 periods, 0 errors, 0 empty · 24 workbook × sheet × pane combinations · the three previews
+render · 4/4 gates (the spacing ratchet caught a 2px padding and it went onto the scale) ·
+FS-CIP 4,210.2 · 612 entities · chronology 0 · R6.2 intact.
+
+### Deliberately not built
+
+Broad controlled write-back · ERP posting · Excel AI of any kind · a graph visualisation (§7 is
+an ANSWER — `xlDependencies().answer` — not a picture) · generic export/print polish (§25).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
