@@ -10212,6 +10212,9 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
    primary), sitting with the other top-right page controls. */
 .xl-head{display:inline-flex;gap:var(--s-2);align-items:center;white-space:nowrap}
 .xl-head svg{flex:0 0 auto}
+/* R7.1 — the direct-entry return. One line, and only when there is no origin strip. */
+.xl-back{display:flex;gap:var(--s-3);align-items:baseline;margin-bottom:var(--s-3)}
+.xl-back .n{font-size:var(--fs-label);color:var(--hint)}
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -35794,6 +35797,118 @@ function xlNextRange(wbId,shId){
     bottom=Math.max(bottom, top+(o.rowCount||0)+4); });
   return 'A'+bottom;
 }
+/* ==========================================================================================
+   R7.1 — TRACE -> INSPECT -> RETURN, and Excel is another form of Inspect
+   ==========================================================================================
+   OPENING EXCEL IS A NAVIGATION, so it uses the navigation the product already has. R3.2 built
+   `NAVCTX` / `navGo` / `navReturn` for exactly this — an origin snapshots ITS OWN UI and hands
+   over a `restore()`; the shell never reaches into a module's state. Reconciliations already
+   has `rcNavCtx()`, so it is called rather than duplicated.
+
+   WHAT AN ORIGIN SNAPSHOTS IS ITS OWN UI, NEVER A FIGURE. Which statement, which comparison,
+   which row, which tab, which filters, where it was scrolled. The period, the scope and the
+   reporting lens are global and are put back through their own writers, and every amount
+   re-derives on return. */
+function xlOriginCtx(){
+  try{
+    if(TAB==='glrecon'&&typeof rcNavCtx==='function'){
+      const def=(typeof rcSel!=='undefined'&&rcSel&&typeof rcDef==='function')?rcDef(rcSel):null;
+      const inst=def?rcInstance(def.reconciliationDefinitionId,viewPeriod()):null;
+      return rcNavCtx(def,inst,{originLabel:'Reconciliations'});
+    }
+    if(TAB==='glfin'){
+      const s={fnSub, fsStmt, fsSel, fsTab, fsCompNode,
+        fsOpen:Object.assign({},fsOpen), csSub, csBridgeLine, csBridgeStmt,
+        mrpTid, mrpSecSel, mrpOpenPkg,
+        scrollY:window.scrollY, period:viewPeriod(), scope:ENTCTX.scope, lens:rcLensId};
+      const sub={stmt:'Statements',consol:'Consolidation',pkg:'Reporting Package'}[fnSub]||'';
+      const nm=fsSel&&typeof fsLine==='function'&&fsLine(fsSel)
+        ?String(fsLine(fsSel).name).replace(/&amp;/g,'&'):'';
+      return {originSurface:'financials', originTab:'glfin', originLabel:'Financials',
+        originObjectId:fsSel||null,
+        originContext:[perLabel(s.period),sub,
+          fnSub==='stmt'?String(fsDef(fsStmt).name).replace('Consolidated ',''):'',nm]
+          .filter(Boolean).join(' \u00b7 '),
+        periodId:s.period, scopeId:ENTCTX.scope.id, reportingLensId:rcLens().reportingLensId,
+        financialLineId:fsSel||null, scrollPosition:s.scrollY,
+        restore:()=>xlRestoreFin(s)};
+    }
+    if(TAB==='finrep'){
+      const c=(typeof fxComparison==='function')?fxComparison():{label:'',type:''};
+      const s={fxStmt, fxCmp, fxDisp, fxSel, fxTab, fxLevel, fxQ, fxWfQuick, fxAcctSel,
+        fxDrvNode, fxAcctTab,
+        fxOpen:Object.assign({},fxOpen), fxDrill:Object.assign({},fxDrill),
+        scrollY:window.scrollY, period:viewPeriod(), scope:ENTCTX.scope, lens:rcLensId};
+      const nm=fxSel&&typeof fsLine==='function'&&fsLine(fxSel)
+        ?String(fsLine(fxSel).name).replace(/&amp;/g,'&'):'';
+      return {originSurface:'flux', originTab:'finrep', originLabel:'Flux Review',
+        originObjectId:fxSel||null,
+        originContext:[String(fsDef(fxStmt).name).replace('Consolidated ',''),
+          c.label, String(c.type||'').toUpperCase(), nm].filter(Boolean).join(' \u00b7 '),
+        periodId:s.period, scopeId:ENTCTX.scope.id, reportingLensId:rcLens().reportingLensId,
+        financialLineId:fxSel||null, comparisonId:c.type||null, scrollPosition:s.scrollY,
+        restore:()=>xlRestoreFlux(s)};
+    }
+    if(TAB==='gltrend'){
+      const s={trStmt, trRange, trSel, trTab, trQ, trCompNode,
+        trOpen:Object.assign({},trOpen), trDrill:trDrill?Object.assign({},trDrill):null,
+        scrollY:window.scrollY, period:viewPeriod(), scope:ENTCTX.scope, lens:rcLensId};
+      const nm=trSel&&typeof fsLine==='function'&&fsLine(trSel)
+        ?String(fsLine(trSel).name).replace(/&amp;/g,'&'):'';
+      return {originSurface:'trending', originTab:'gltrend', originLabel:'Trending',
+        originObjectId:trSel||null,
+        originContext:[perLabel(s.period),
+          String(fsDef(trStmt).name).replace('Consolidated ',''),nm].filter(Boolean).join(' \u00b7 '),
+        periodId:s.period, scopeId:ENTCTX.scope.id, reportingLensId:rcLens().reportingLensId,
+        financialLineId:trSel||null, scrollPosition:s.scrollY,
+        restore:()=>xlRestoreTrend(s)};
+    }
+    if(TAB==='tb'){
+      const s={scrollY:window.scrollY, period:viewPeriod()};
+      return {originSurface:'tb', originTab:'tb', originLabel:'Trial balance',
+        originContext:'As of '+perEnd(s.period),
+        periodId:s.period, scopeId:ENTCTX.scope.id, reportingLensId:rcLens().reportingLensId,
+        scrollPosition:s.scrollY,
+        restore:()=>{ pickLens('ledger'); pickTab('tb');
+          requestAnimationFrame(()=>window.scrollTo(0,s.scrollY||0)); }};
+    }
+  }catch(e){ console.error('xlOriginCtx',e); }
+  return null;
+}
+/* the three restores. Each puts back ITS OWN surface and nothing else; the period, scope and
+   lens go through their own writers so no other module is reached into. */
+function xlRestoreCommon(s){
+  if(typeof LENS!=='undefined'&&LENS!=='ledger') pickLens('ledger');
+  try{ if(s.period&&s.period!==viewPeriod()) setPeriod(s.period); }catch(e){}
+  try{ if(s.scope&&ENTCTX.scope&&ENTCTX.scope.id!==s.scope.id) ENTCTX.scope=s.scope; }catch(e){}
+  try{ if(s.lens&&typeof rcLensId!=='undefined'&&rcLensId!==s.lens){ rcLensId=s.lens;
+    if(typeof rcClearCaches==='function') rcClearCaches(); } }catch(e){}
+}
+function xlScrollBack(s){
+  let n=0; const put=()=>{ window.scrollTo(0,s.scrollY||0);
+    if(Math.abs(window.scrollY-(s.scrollY||0))>2&&++n<12) setTimeout(put,50); };
+  requestAnimationFrame(put);
+}
+function xlRestoreFin(s){
+  xlRestoreCommon(s);
+  fnSub=s.fnSub; fsStmt=s.fsStmt; fsSel=s.fsSel; fsTab=s.fsTab; fsCompNode=s.fsCompNode;
+  fsOpen=s.fsOpen; csSub=s.csSub; csBridgeLine=s.csBridgeLine; csBridgeStmt=s.csBridgeStmt;
+  mrpTid=s.mrpTid; mrpSecSel=s.mrpSecSel; mrpOpenPkg=s.mrpOpenPkg;
+  pickTab('glfin'); xlScrollBack(s);
+}
+function xlRestoreFlux(s){
+  xlRestoreCommon(s);
+  fxStmt=s.fxStmt; fxCmp=s.fxCmp; fxDisp=s.fxDisp; fxSel=s.fxSel; fxTab=s.fxTab;
+  fxLevel=s.fxLevel; fxQ=s.fxQ; fxWfQuick=s.fxWfQuick; fxAcctSel=s.fxAcctSel;
+  fxDrvNode=s.fxDrvNode; fxAcctTab=s.fxAcctTab; fxOpen=s.fxOpen; fxDrill=s.fxDrill;
+  pickTab('finrep'); xlScrollBack(s);
+}
+function xlRestoreTrend(s){
+  xlRestoreCommon(s);
+  trStmt=s.trStmt; trRange=s.trRange; trSel=s.trSel; trTab=s.trTab; trQ=s.trQ;
+  trCompNode=s.trCompNode; trOpen=s.trOpen; trDrill=s.trDrill;
+  pickTab('gltrend'); xlScrollBack(s);
+}
 /* ---- ROUTES BACK TO THE WEB (§28). Two surfaces over the SAME objects: every one of these
    lands on the governed object in Korvyn, in the context the workbook carries. */
 /* THE MENU IS DERIVED FROM THE PAGE, never a fixed list. Financials offers the statement
@@ -35941,7 +36056,13 @@ function xlOpenFrom(objectType,objectId,label,statement,extra){
     workbookId:wb.workbookId, worksheetId:wb.sheets[0].id, range}, extra||{});
     xlSel=null; }
   else xlNotice=r.reason;
-  pickLens('xl'); pickTab('xlwork');
+  /* OPENING EXCEL IS A NAVIGATION. It carries where it came from through the product's own
+     `navGo`, so the destination shows one restrained return control and putting the user
+     back is the origin's own `restore()` \u2014 not a browser Back, which would not reinstate
+     the statement, the comparison, the selected row or the scroll. */
+  const org=(typeof xlOriginCtx==='function')?xlOriginCtx():null;
+  const dest=()=>{ pickLens('xl'); pickTab('xlwork'); };
+  if(org&&typeof navGo==='function') navGo(org,dest); else dest();
 }
 
 /* ==========================================================================================
@@ -35955,8 +36076,15 @@ function renderXlWork(){
   xlSeed(); glSurface(el);
   const wb=xlBook(xlWb)||XL_WORKBOOKS[0]; xlWb=wb.workbookId;
   const objs=xlObjectsIn(wb.workbookId);
+  /* `navGo` sets NAVCTX, calls dest() — which renders THIS — and only then stamps destTab,
+     so a guard on destTab is false on the first paint and BOTH return controls appeared
+     (observed). An unstamped context is one being created for this destination right now. */
+  const org=(typeof NAVCTX!=='undefined'&&NAVCTX&&(!NAVCTX.destTab||NAVCTX.destTab==='xlwork'));
   let o=glHead('Korvyn for Excel',
     'Excel is a connected workspace over the governed financial model — Korvyn owns the truth.','');
+  if(!org) o+=`<div class="xl-back"><button class="fsx-link"
+      onclick="pickLens('ledger');pickTab('acctover')">&#8592; Back to Accounting</button>
+    <span class="n">Opened directly — no originating surface to return to.</span></div>`;
   o+=`<div class="xl-shell">
     <div class="xl-book">${xlRibbon(wb,objs)}${xlSheet(wb,objs)}${xlTabs(wb)}</div>
     <div class="xl-pane">${xlTaskPane(wb,objs)}</div>

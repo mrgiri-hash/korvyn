@@ -5840,6 +5840,42 @@ worksheet with the task pane and Insert / Refresh / Trace / Publish, not a toast
 population still hits the size guard at 3,128,400 rows · 4/4 gates · FS-CIP 4,210.2 · R6.2
 intact.
 
+### Opening Excel is a navigation, so it uses the navigation the product already has
+
+The Excel workspace could be reached and not left — a user who opened a QoQ balance-sheet
+review in Excel had no way back to the review they came from except the browser's own Back,
+which reinstates none of the statement, the comparison, the selected row or the scroll.
+
+**R3.2 ALREADY BUILT THIS.** `NAVCTX` / `navGo` / `navReturn` is the product's
+context-preserving navigation — an origin snapshots ITS OWN UI and hands over a `restore()`,
+and the shell never reaches into a module's state. `xlOpenFrom()` routes through `navGo()`, so
+the standard return strip appears on the destination and there is no second return mechanism.
+Reconciliations already had `rcNavCtx()`; it is called, not duplicated.
+
+**FOUR ORIGINS, EACH SNAPSHOTTING ITS OWN SURFACE.** Financials (`fnSub`, statement, selected
+line, panel tab, fold state, and the consolidation and package sub-state), Flux Review
+(statement, comparison, level, display, selected line, panel tab, drill, quick filter),
+Trending (statement, range, selection, tab, drill) and the Trial balance. The period, the scope
+and the reporting lens are global and go back through their own writers; every amount
+re-derives on return.
+
+**§4 — A DIRECT ENTRY INVENTS NO ORIGIN.** Opened from the More launcher there is nothing to
+return to, so the workspace offers **← Back to Accounting** and says why. It renders only when
+`NAVCTX` is absent, so a user never sees two return controls.
+
+**And that guard was wrong on the first cut.** `navGo` sets `NAVCTX`, calls `dest()` — which
+renders the workspace — and only THEN stamps `destTab`. A guard on `destTab==='xlwork'` is
+therefore false on the first paint, so both the strip and the fallback appeared together
+(observed, and visible in a screenshot before it was fixed). An unstamped context is one being
+created for this destination right now.
+
+**Verified:** all four origins show the correct label and exactly one control · the return
+restores the exact state — a QoQ balance-sheet review with CIP selected on the Drivers tab at
+group level comes back as `bs / qoq / FS-CIP / drv / group` · direct entry offers Back to
+Accounting with no strip · the context is still one hop and does not become a breadcrumb chain
+· 195 view renders across 3 periods, 0 errors, 0 empty · 18 workbook × sheet × pane
+combinations · 4/4 gates · FS-CIP 4,210.2 · R6.2 intact.
+
 ### R7.1 deliberately stops here (§37)
 
 No general controlled write-back. No Office add-in manifest, no OfficeJS, no real .xlsx
