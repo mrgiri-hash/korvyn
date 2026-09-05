@@ -5751,6 +5751,52 @@ combinations** · **all 16 acceptance tests in §40 pass, run in the product** �
 duplicates 63/63) · 0 clipped elements · dark mode holds · **FS-CIP 4,210.2 on both surfaces** ·
 R6/R6.1/R6.2 intact (612-entity consolidation, 3 active packages, chronology 0).
 
+### Completion pass — the entry points, so the surface is discoverable
+
+R7.1 shipped the engine, the task pane and four contextual actions buried one level deep (a
+line panel footer, a reconciliation tab footer). The architecture existed and **a user could
+not find it**. Three entry points close that, and all three use primitives the product already
+has rather than new chrome.
+
+**THE PAGE-LEVEL ACTION LIVES IN THE ACTIONS TAB**, beside Export and Print — which is where
+this product already put the page-level command cluster (2026-08-28: *"the Actions tab is what
+the ellipsis was pretending to be"*). Not a header button and not a fourth toolbar. It is a
+MENU rather than three buttons because the choice is statement / section / line.
+
+**THE MENU IS DERIVED FROM THE PAGE, NEVER A FIXED LIST.** `xlOpenMenu()` reads the surface:
+Financials offers the current statement always, and the selected section, line or entity
+contribution only when something is selected; Consolidation offers the entity-to-group bridge;
+Reconciliations offers the roll-forward and its activity population for the definition that is
+open; Flux Review offers the comparison table; the Trial balance offers itself. **A row that
+would open nothing is filtered out**, so the button itself does not render where it could only
+refuse — the no-dead-controls rule, applied to a menu.
+
+**THE ROW ACTION IS ABSENT AT REST.** An ellipsis on statement rows and on reconciliation rows,
+revealed on row hover or keyboard focus, carrying three or four actions that are actually
+different — Trace, Open in Excel, View detail; and on a reconciliation, Open reconciliation,
+Open in Excel, Activity in Excel, Trace. A row menu that only repeated the row click would be
+the clutter §3 rules out.
+
+**`opacity:0`, NEVER `visibility:hidden`** — the latter takes the button out of the tab order
+and silently removes the control from every keyboard user. That lesson is already recorded for
+the Flux star gutter and it applies unchanged here. Verified: `opacity 0`, `visibility visible`,
+`tabIndex >= 0`.
+
+**The reconciliation row action renders only on a row that HAS a reconciliation.** A
+financial-line roll-up row has no definition to open, so it carries no ellipsis — asserted, not
+assumed (every rendered action's `data-pop` matches `rcrow:REC-*`).
+
+**`.fsx-more` WAS ALREADY TAKEN**, by the Composition tab's "Open Account activity" wrapper.
+The duplicate-class gate caught it on its first run after the rule was written, which is
+exactly what that gate exists for; renamed `.fsx-rowact`. A prefix is not a namespace — fourth
+time this has been recorded, first time a gate caught it before the browser did.
+
+**Verified:** 195 view renders across 3 periods, 0 errors, 0 empty · 9 row menus open with
+content · 18 workbook × sheet × pane combinations · **all 7 §14 acceptance criteria pass in the
+product** · 4/4 gates · FS-CIP 4,210.2 · R6.2 intact. Opening from a reconciliation row carries
+period, scope, lens, basis, definition and mapping version into the workbook (asserted on the
+resulting connected object, not on the click).
+
 ### R7.1 deliberately stops here (§37)
 
 No general controlled write-back. No Office add-in manifest, no OfficeJS, no real .xlsx

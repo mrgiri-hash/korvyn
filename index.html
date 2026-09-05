@@ -10196,6 +10196,18 @@ body.fx-focus #fxRoot{--fx-stick:calc(var(--header-h) + 40px)}
   font-variant-numeric:tabular-nums;color:var(--ink-strong)}
 .xl-tamt .s{font-size:var(--fs-label);color:var(--muted)}
 
+/* R7.1 completion — the statement row's contextual action. Absent at rest so a healthy
+   statement stays quiet; revealed on row hover or keyboard focus. `opacity:0`, never
+   `visibility:hidden`: the latter takes the button out of the tab order and silently removes
+   the control from every keyboard user (the lesson the Flux star gutter already recorded). */
+.fsx-rowact{opacity:0;margin-left:auto;width:22px;height:22px;flex:0 0 auto;border:0;
+  background:none;color:var(--muted);cursor:pointer;border-radius:4px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center}
+.fsx-rowact svg{width:14px;height:14px}
+.fsx-rowact:hover{background:var(--accent-bg);color:var(--accent-ink)}
+.rcx-r:hover .fsx-rowact,.rcx-r:focus-within .fsx-rowact,.rcx-r.on .fsx-rowact,
+.fsx-r:hover .fsx-rowact,.fsx-r:focus-within .fsx-rowact,.fsx-rowact:focus,
+.fsx-r.on .fsx-rowact{opacity:1}
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -12330,6 +12342,51 @@ function paintPop(keepFocus){
           ${o.off?`<span class="tag">${esc(o.tag||'Not available')}</span>`:''}
           ${o.sub?`<span class="sub">${esc(o.sub)}</span>`:''}</div>`).join('')
         :'<div class="rl-empty" style="padding:8px">No match.</div>')+`</div>`;
+  }else if(popKind&&popKind.indexOf('rcrow:')===0){
+    /* §2 — four actions that are actually different, and the two Excel ones carry the whole
+       financial context: period, scope, reporting lens, basis, definition and the exact
+       source population, because `xlOpenFrom` resolves them from the surface rather than
+       asking. */
+    const did=popKind.slice(6);
+    const dd=(typeof rcDef==='function')?rcDef(did):null;
+    h=`<div class="pop-h">${esc(dd?dd.name:did)}</div>
+      <div class="pop-l">
+      <div class="pop-o" onclick="KFX.popClose();rcPick('${did}')">Open reconciliation
+        <span class="sub">Roll-forward, support and review</span></div>
+      <div class="pop-o" onclick="KFX.popClose();rcExcel('${did}')">Open in Excel
+        <span class="sub">Connected roll-forward \u00b7 ${esc(perLabel(viewPeriod()))}</span></div>
+      <div class="pop-o" onclick="KFX.popClose();rcExcelActivity('${did}')">Activity in Excel
+        <span class="sub">Governed transaction population</span></div>
+      <div class="pop-o" onclick="KFX.popClose();rcPick('${did}');setRcTab('trace')">Trace
+        <span class="sub">How this balance is built</span></div>
+      </div>`;
+  }else if(popKind&&popKind.indexOf('xlrow:')===0){
+    /* THREE ACTIONS THAT ARE ACTUALLY DIFFERENT. Trace opens the lineage, Open in Excel
+       connects the line to a workbook, View detail opens the panel — a row menu that only
+       repeated the row click would be clutter, which is what §3 rules out. */
+    const rid=popKind.slice(6);
+    const rn=(typeof fsLine==='function')?fsLine(rid):null;
+    const isSec=(typeof FSLINES!=='undefined')&&FSLINES.some(f=>f.parent===rid);
+    h=`<div class="pop-h">${esc(rn?String(rn.name).replace(/&amp;/g,'&'):rid)}</div>
+      <div class="pop-l">
+      <div class="pop-o" onclick="KFX.popClose();fsPick('${rid}');setFsTab('trace')">Trace
+        <span class="sub">How this amount is built</span></div>
+      <div class="pop-o" onclick="KFX.popClose();${isSec?'fnExcelSection':'fnExcelLine'}('${rid}')">
+        Open in Excel<span class="sub">Connected \u00b7 ${esc(perLabel(viewPeriod()))}</span></div>
+      <div class="pop-o" onclick="KFX.popClose();fsPick('${rid}')">View detail
+        <span class="sub">Composition, adjustments and context</span></div>
+      </div>`;
+  }else if(popKind==='xlopen'){
+    /* R7.1 completion — OPEN IN EXCEL, from the Actions tab the platform band already owns.
+       Page-level, so it is discoverable without selecting anything first; the section and
+       line rows appear only when there IS a selection, because a menu row that opens
+       nothing is a dead control. */
+    const rows=(typeof xlOpenMenu==='function')?xlOpenMenu():[];
+    h=`<div class="pop-h">Open in Excel</div><div class="pop-l">`+
+      rows.map(r=>`<div class="pop-o" onclick="KFX.popClose();${r.go}">${esc(r.nm)}
+        <span class="sub">${esc(r.sub||'')}</span></div>`).join('')+
+      `</div><div class="pop-b"><div class="rl-note">The workbook opens on this period,
+        scope, reporting lens and basis, and stays connected to Korvyn.</div></div>`;
   }else if(popKind&&popKind.indexOf('g:')===0){
     /* THE PLATFORM FIELDS USE THE SAME MENU. One popover system for the product:
        the shell declares its filters as data and the rendering, keyboard,
@@ -35697,6 +35754,59 @@ function xlSeed(){
 
 /* ---- ROUTES BACK TO THE WEB (§28). Two surfaces over the SAME objects: every one of these
    lands on the governed object in Korvyn, in the context the workbook carries. */
+/* THE MENU IS DERIVED FROM THE PAGE, never a fixed list. Financials offers the statement
+   always and the selected section or line only when one is selected; Reconciliations offers
+   the roll-forward and its activity population for whichever definition is open. */
+function xlOpenMenu(){
+  const out=[];
+  try{
+    if(TAB==='glfin'&&fnSub==='stmt'){
+      const d=fsDef(fsStmt);
+      out.push({nm:'Current statement',
+        sub:String(d.name).replace('Consolidated ','')+' \u00b7 '+perLabel(viewPeriod()),
+        go:"fnExcelStatement('"+fsStmt+"')"});
+      if(fsSel){ const n=fsLine(fsSel);
+        const nm=n?String(n.name).replace(/&amp;/g,'&'):fsSel;
+        if(FSLINES.some(f=>f.parent===fsSel))
+          out.push({nm:'Selected section', sub:nm, go:"fnExcelSection('"+fsSel+"')"});
+        else out.push({nm:'Selected financial line', sub:nm, go:"fnExcelLine('"+fsSel+"')"});
+        out.push({nm:'Entity contribution', sub:nm+' by reporting entity',
+          go:"fnExcelEntity('"+fsSel+"')"});
+      } else out.push({nm:'Selected section or line',
+        sub:'Select a line on the statement first', go:''});
+    }
+    if(TAB==='glfin'&&fnSub==='consol')
+      out.push({nm:'Entity-to-group bridge', sub:(fsLine(csBridgeLine)||{}).name||csBridgeLine,
+        go:"fnExcelBridge('"+csBridgeLine+"')"});
+    if(TAB==='glrecon'){
+      const id=(typeof rcSel!=='undefined'&&rcSel)?rcSel:null;
+      if(id){ const d=rcDef(id);
+        out.push({nm:'Reconciliation roll-forward', sub:d?d.name:id,
+          go:"rcExcel('"+id+"')"});
+        out.push({nm:'Activity population', sub:(d?d.name:id)+' \u00b7 governed transactions',
+          go:"rcExcelActivity('"+id+"')"});
+      } else out.push({nm:'Reconciliation roll-forward',
+        sub:'Select a reconciliation first', go:''});
+    }
+    if(TAB==='finrep')
+      out.push({nm:'Flux Review table',
+        sub:(fxStmt==='bs'?'Balance sheet':'Income statement')+' \u00b7 with approved explanations',
+        go:'fxExcel()'});
+    if(TAB==='tb') out.push({nm:'Trial balance',
+      sub:'As of '+perEnd(viewPeriod()), go:"xlOpenFrom('TRIAL_BAL',null,'Trial balance')"});
+  }catch(e){}
+  out.push({nm:'Open Korvyn for Excel', sub:'The connected workspace',
+    go:"pickLens('xl');pickTab('xlwork')"});
+  return out.filter(r=>r.go);
+}
+function fnExcelStatement(stmt){ const d=fsDef(stmt);
+  xlOpenFrom('FS_STATEMENT',d.root,String(d.name).replace('Consolidated ',''),stmt); }
+function fnExcelEntity(lineId){ const n=fsLine(lineId);
+  xlOpenFrom('FS_ENTITY',lineId,(n?String(n.name).replace(/&amp;/g,'&'):lineId)
+    +' \u2014 entity contribution'); }
+function fnExcelBridge(lineId){ const n=fsLine(lineId);
+  xlOpenFrom('CONSOL_BRIDGE',lineId,(n?String(n.name).replace(/&amp;/g,'&'):lineId)
+    +' \u2014 entity-to-group bridge'); }
 function xlGoWeb(where,id){
   pickLens('ledger');
   if(where==='fin'){ pickTab('glfin'); setFnSub('stmt');
@@ -37650,8 +37760,14 @@ function fsRowHTML(r,k){
   const dot=(!r.total&&r.adjs&&r.adjs.length)
     ? `<span class="fsx-dot" title="Includes a Korvyn reporting adjustment of ${fsM(r.adjs.reduce((s,x)=>s+x.amt,0))} — not posted to the ERP">&#8226;</span>`:'';
   const v=n.contra?-Math.abs(a.reported):a.reported;
+  const act=r.total?'':`<button class="fsx-rowact" data-pop="xlrow:${n.id}"
+      aria-expanded="false" aria-label="Actions for ${glEsc(String(label))}"
+      onclick="event.stopPropagation();KFX.pop('xlrow:${n.id}',this)">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="4" cy="8" r="1.1" fill="currentColor"/>
+      <circle cx="8" cy="8" r="1.1" fill="currentColor"/>
+      <circle cx="12" cy="8" r="1.1" fill="currentColor"/></svg></button>`;
   return `<tr class="${cls.join(' ')}"${r.total?'':` onclick="fsPick('${n.id}')"`}>
-    <td class="fsx-nm">${caret}<span class="t">${label}</span>${dot}</td>
+    <td class="fsx-nm">${caret}<span class="t">${label}</span>${dot}${act}</td>
     <td class="num fsx-v">${fsM(v)}</td></tr>`;
 }
 /* THE BALANCE-SHEET EQUATION, stated rather than implied. */
@@ -48460,7 +48576,14 @@ function rcBodyHTML(){
             +glEsc((RC_SUPPORT[s]||{l:s}).l)+'">'+fr+'</span>'; })();
     const click=r.inst?' onclick="rcPick(\''+def.reconciliationDefinitionId+'\')"':'';
     return '<tr class="'+cls.join(' ')+'"'+click+'>'
-      +'<td class="rcx-nm">'+caret+'<span class="t">'+label+'</span>'+meth+flag+cont+srcf+ov+'</td>'
+      +'<td class="rcx-nm">'+caret+'<span class="t">'+label+'</span>'+meth+flag+cont+srcf+ov
+        +(r.inst?'<button class="fsx-rowact" data-pop="rcrow:'
+          +r.inst.reconciliationDefinitionId+'" aria-expanded="false" aria-label="Actions for '
+          +glEsc(def.name)+'" onclick="event.stopPropagation();KFX.pop(\'rcrow:'
+          +r.inst.reconciliationDefinitionId+'\',this)">'
+          +'<svg viewBox="0 0 16 16" fill="none"><circle cx="4" cy="8" r="1.1" fill="currentColor"/>'
+          +'<circle cx="8" cy="8" r="1.1" fill="currentColor"/>'
+          +'<circle cx="12" cy="8" r="1.1" fill="currentColor"/></svg></button>':'')+'</td>'
       +'<td class="num">'+rcN(a.beginningBalance)+'</td>'
       +'<td class="num">'+rcN(a.activityAmount)+'</td>'
       +(()=>{ /* §30 — one column, and the hover states what it is made of rather than adding
@@ -64124,15 +64247,29 @@ function gfExport(){
 function gfPrint(){ window.print(); }
 const GF_IC={
   export:'M8 2.5v8M4.8 7.6L8 10.8l3.2-3.2M3 13h10',
+  /* a worksheet grid with one connected cell marked \u2014 the same idea as the module icon */
+  xl:'M2.5 3h11v10h-11zM2.5 6h11M6.5 6v7',
   print:'M4.5 6V2.5h7V6M4.5 11.5h7v2h-7zM3 6h10v5H3z'};
 function gfActionsRow(){
   const b=[];
   if(gfTable())b.push(['gfExport','Export',GF_IC.export]);
   b.push(['gfPrint','Print',GF_IC.print]);
-  return b.map(([f,nm,d])=>`<button class="btn-out" onclick="${f}()">
+  let o=b.map(([f,nm,d])=>`<button class="btn-out" onclick="${f}()">
     <svg viewBox="0 0 16 16" fill="none" width="13" height="13"><path d="${d}"
       stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
       stroke-linejoin="round"/></svg>${nm}</button>`).join('');
+  /* R7.1 completion — OPEN IN EXCEL sits with Export and Print, which is where this product
+     already put the page-level command cluster (2026-08-28: 'the Actions tab is what the
+     ellipsis was pretending to be'). It renders only where it can act, so it is never a dead
+     control, and it is a MENU rather than three buttons because the choice is
+     statement / section / line. */
+  if(typeof xlOpenMenu==='function'&&xlOpenMenu().length>1)
+    o+=`<button class="btn-out" data-pop="xlopen" aria-expanded="false"
+      onclick="KFX.pop('xlopen',this)">
+      <svg viewBox="0 0 16 16" fill="none" width="13" height="13"><path d="${GF_IC.xl}"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+        stroke-linejoin="round"/></svg>Open in Excel</button>`;
+  return o;
 }
 function gfAny(){ return gfTabs().reduce((n,t)=>n+gfCount(t),0)>0; }
 function gfReset(){
