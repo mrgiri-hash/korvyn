@@ -6040,6 +6040,44 @@ this one. And `table-layout:fixed` only honours a colgroup when the TABLE has a 
 one Chrome fell back to content sizing and a 104px column computed at 469px, pushing the
 analysis amounts out of the pane.
 
+**THE BACK ACTION WAS THREE CONTROLS, WHICH IS WHY IT WENT SOMEWHERE ELSE.** Reported: the back
+arrow returned to Current Period. Measured with the focused workbook open, three back controls
+were on screen at once — the shell's history chevron (`navBack()`, a STACK, so where it lands
+depends on how you arrived), the navigation strip (`navReturn()`), and the ribbon's own
+(`xlFocusExit()`). Only the last two were origin-aware. "Where do I go back?" is exactly what
+that produces.
+
+In the focused workflow the ribbon carries the ONLY one: `paintNavRet()` stands the strip down,
+`navBack()` delegates to `xlFocusExit()` rather than popping a stack, and `#backBtn` is hidden.
+And it names the RECONCILIATION rather than the module — `rcNavCtx` already carried the
+definition name and the override was throwing it away for "Reconciliations".
+
+**THE HEADER IS THE WHOLE CHROME** (§11):
+
+```
+← Back to Electrical CIP   Electrical CIP — Jun 2026   ● Korvyn connected   Refresh   Publish
+```
+
+The task pane is gone in this mode, the workbook takes the full width, the page header and the
+FILTERS band stand down. Insert, Trace, the object catalogue, the search, the workbook picker
+and History are hidden — the general workspace still has all of them and is unchanged, asserted
+in the same run.
+
+**Three layout defects fixed, each measured rather than eyeballed.** The label column was
+150px against figures that read "Calculated ending balance · Jun 30, 2026" — a connected sheet
+now sizes its first column at 250px and its figure columns at 150px, the way Excel would. The
+`.grow` spacer is `flex:1`, so it consumed the remaining width and pushed the last control onto
+a second line even though 790px of content fitted an 858px box. And the SIMULATION control left
+the header for the sheet-tab row: it is scaffolding for the demonstration, not a step in the
+workflow, and it was the 121px that made the header not fit.
+
+**Verified end to end:** all 11 steps pass in the product · the return restores
+`glrecon · REC-CIP-ELECTRICAL · tab roll · Jun 2026 · Corporate Consolidated · US_GAAP` ·
+exactly one back control on screen · 195 view renders across 3 periods, 0 errors, 0 empty ·
+24 workbook × sheet × pane combinations in the general workspace, which still shows
+Insert / Refresh / Trace / Publish · 4/4 gates · FS-CIP 4,210.2 and `RC_POSTCLOSE` empty on a
+fresh load.
+
 **Verified:** all 11 steps of the workflow pass in the product, end to end · 195 view renders
 across 3 periods, 0 errors, 0 empty · 24 workbook × sheet × pane combinations · 4/4 gates ·
 FS-CIP 4,210.2 and `RC_POSTCLOSE` empty on a fresh load · R7.1, R7.2 and R6.2 intact.

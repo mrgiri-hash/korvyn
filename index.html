@@ -10126,6 +10126,7 @@ body.xl-focus .xl-grid-wrap{max-height:400px}
 .xl-sheets button.on{background:var(--surface);border-color:var(--line2);border-bottom-color:
   var(--surface);color:var(--ink);font-weight:var(--fw-medium)}
 .xl-wbname{margin-left:auto;font-size:var(--fs-label);color:var(--hint)}
+.xl-sheets .xl-sim{margin-left:var(--s-4)}
 .xl-pane{background:var(--surface);border:1px solid var(--line2);border-radius:10px;
   overflow:hidden}
 .xl-pn-h{display:flex;gap:var(--s-2);align-items:center;padding:var(--s-2) var(--s-3);
@@ -10253,6 +10254,15 @@ body.xl-focus .xl-grid-wrap{max-height:400px}
 .xl-grid td.u.num{font-family:var(--num);text-align:right}
 .xl-grid td.u-h{font-family:var(--sans);font-weight:var(--fw-medium);color:var(--muted);
   border-bottom:1px solid var(--border-strong)}
+/* the focused header: one back control, the subject, the status, two actions. */
+.xl-shell.solo{grid-template-columns:minmax(0,1fr)}
+body.xl-focus #backBtn{display:none}
+.xl-rib.focus{padding:var(--s-3)}
+.xl-act.back{border-color:transparent;background:none;padding-left:0}
+.xl-act.back:hover{background:none;border-color:transparent;color:var(--accent)}
+.xl-ftitle{font-size:var(--fs-card);font-weight:var(--fw-strong);color:var(--ink-strong);
+  margin-left:var(--s-3)}
+.xl-ftitle .p{font-weight:400;color:var(--muted)}
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -36150,7 +36160,8 @@ function xlOriginCtx(){
     if(TAB==='glrecon'&&typeof rcNavCtx==='function'){
       const def=(typeof rcSel!=='undefined'&&rcSel&&typeof rcDef==='function')?rcDef(rcSel):null;
       const inst=def?rcInstance(def.reconciliationDefinitionId,viewPeriod()):null;
-      return rcNavCtx(def,inst,{originLabel:'Reconciliations'});
+      /* the RECONCILIATION is what the accountant left, not the page it lives on */
+      return rcNavCtx(def,inst,def?{originLabel:def.name}:{originLabel:'Reconciliations'});
     }
     if(TAB==='glfin'){
       const s={fnSub, fsStmt, fsSel, fsTab, fsCompNode,
@@ -36550,20 +36561,22 @@ function xlOpenFrom(objectType,objectId,label,statement,extra){
 function renderXlWork(){
   const el=$('view-xlwork'); if(!el) return;
   xlSeed(); glSurface(el);
-  const wb=xlBook(xlWb)||XL_WORKBOOKS[0]; xlWb=wb.workbookId;
+  /* opening the module directly lands on the platform workbook, not on whichever seeded
+     book happens to sort first \u2014 "what workbook am I looking at?" starts there. */
+  const wb=xlBook(xlWb)||xlBook('WB-CIP')||XL_WORKBOOKS[0]; xlWb=wb.workbookId;
   const objs=xlObjectsIn(wb.workbookId);
   /* `navGo` sets NAVCTX, calls dest() — which renders THIS — and only then stamps destTab,
      so a guard on destTab is false on the first paint and BOTH return controls appeared
      (observed). An unstamped context is one being created for this destination right now. */
   const org=(typeof NAVCTX!=='undefined'&&NAVCTX&&(!NAVCTX.destTab||NAVCTX.destTab==='xlwork'));
-  let o=glHead('Korvyn for Excel',
+  let o=xlFocus?'':glHead('Korvyn for Excel',
     'Excel is a connected workspace over the governed financial model — Korvyn owns the truth.','');
   if(!org&&!xlFocus) o+=`<div class="xl-back"><button class="fsx-link"
       onclick="pickLens('ledger');pickTab('acctover')">&#8592; Back to Accounting</button>
     <span class="n">Opened directly — no originating surface to return to.</span></div>`;
-  o+=`<div class="xl-shell">
+  o+=`<div class="xl-shell${xlFocus?' solo':''}">
     <div class="xl-book">${xlRibbon(wb,objs)}${xlSheet(wb,objs)}${xlTabs(wb)}</div>
-    <div class="xl-pane">${xlTaskPane(wb,objs)}</div>
+    ${xlFocus?'':`<div class="xl-pane">${xlTaskPane(wb,objs)}</div>`}
   </div>`;
   o+=xlDialogs();
   if(xlTraceOpen) o+=xlTracePanel();
@@ -36583,20 +36596,19 @@ function xlRibbon(wb,objs){
      unchanged and still reachable from the module. */
   if(xlFocus){
     const def=(typeof rcDef==='function')?rcDef(xlFocus.defId):null;
-    return `<div class="xl-rib">
-      <button class="xl-act" onclick="xlFocusExit()">
-        ${glIc('M10 3L5 8l5 5')}Back to reconciliation</button>
+    const nm=def?def.name:'reconciliation';
+    return `<div class="xl-rib focus">
+      <button class="xl-act back" onclick="xlFocusExit()">
+        ${glIc('M10 3L5 8l5 5')}Back to ${glEsc(nm)}</button>
+      <span class="xl-ftitle">${glEsc(nm)}
+        <span class="p">\u2014 ${glEsc(perLabel(xlFocus.periodId))}</span></span>
+      <span class="xl-sig ${worst.c||''}" title="${glEsc(worst.d)}">
+        <i class="dot"></i>${worst.o?glEsc(worst.l):'Korvyn connected'}</span>
       <span class="xl-fdiv"></span>
       <button class="xl-act" onclick="xlAskRefresh()">
         ${glIc('M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M13 3v4h-4M3 13V9h4')}Refresh</button>
       <button class="xl-act pri" onclick="xlFocusPublish()">
-        ${glIc('M8 13V3M4 7l4-4 4 4')}Publish to Korvyn</button>
-      <span class="grow"></span>
-      <span class="xl-sig ${worst.c||''}" title="${glEsc(worst.d)}">
-        <i class="dot"></i>${glEsc(def?def.name:'')} \u00b7 ${glEsc(worst.l)}</span>
-      <button class="xl-sim" onclick="xlSimulate()"
-        title="Post a real ERP entry to this period so the refresh below is a real refresh">
-        ${xlSimPosted()?'Withdraw simulated posting':'Simulate a source posting'}</button>
+        ${glIc('M8 13V3M4 7l4-4 4 4')}Publish</button>
     </div>`;
   }
   return `<div class="xl-rib">
@@ -36700,10 +36712,10 @@ function xlSheet(wb,objs){
       onclick="xlPick('${t.obj.connectedObjectId}',0)">
       ${glIc('M2.5 3.5h11v9h-11zM2.5 6.5h11')}${glEsc(t.obj.label)}
       <span class="st">${glEsc(st.l)}</span></button></div>`; });
-  const CW=sheet.user?104:168, RW=sheet.user?28:34;
+  const CW=sheet.user?104:150, RW=sheet.user?28:34, C0=sheet.user?150:250;
   return `<div class="xl-grid-wrap">${tags}
-    <table class="xl-grid" style="width:${RW+COLS.length*CW}px">
-    <colgroup><col style="width:${RW}px">${COLS.map(()=>'<col style="width:'+CW+'px">').join('')}</colgroup>
+    <table class="xl-grid" style="width:${RW+C0+(COLS.length-1)*CW}px">
+    <colgroup><col style="width:${RW}px">${COLS.map((c,i)=>'<col style="width:'+(i===0?C0:CW)+'px">').join('')}</colgroup>
     <thead><tr><th class="xl-rn"></th>
       ${COLS.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
     <tbody>${rows}</tbody></table></div>`;
@@ -36716,6 +36728,9 @@ function xlSetSheet(id){ const wb=xlBook(xlWb); _xlSheet[wb.workbookId]=id; xlSe
 function xlTabs(wb){
   return `<div class="xl-sheets">${wb.sheets.map(s=>`<button class="${s.id===xlSheetId(wb)?'on':''}"
     onclick="xlSetSheet('${s.id}')">${glEsc(s.name)}</button>`).join('')}
+    ${xlFocus?`<button class="xl-sim" onclick="xlSimulate()"
+      title="Post a real ERP entry to this period so Refresh above is a real refresh">
+      ${xlSimPosted()?'Withdraw simulated posting':'Simulate a source posting'}</button>`:''}
     <span class="xl-wbname">${glEsc(wb.name)}</span></div>`;
 }
 
@@ -64736,7 +64751,7 @@ const VIEW_META={
   // module now, and a page called Data Room inside Data Room is the ambiguity this pass
   // exists to remove.
   dataroom:{t:'Retained Records',c:'Locked periods, determinations and lineage to source',depth:3},
-  xlwork:{t:'Korvyn for Excel',c:'Insert, refresh, trace and publish governed objects',depth:3},
+  xlwork:{t:'Korvyn for Excel',c:'Work in Excel, connected to governed Korvyn objects',depth:3},
   xlbooks:{t:'Connected workbooks',c:'Governed objects in Excel · published evidence',depth:3},
   drover:{t:'Data Room',c:'Enterprise evidence · diligence · financial support',depth:4},
   dgover:{t:'Data & Governance',c:'Source systems, data health and ownership',depth:3},
@@ -66746,6 +66761,9 @@ function navClear(){ NAVCTX=null; paintNavRet(); }
    and disappears the moment the user is anywhere else */
 function paintNavRet(){
   const el=document.getElementById('navRet'); if(!el) return;
+  /* the focused Excel workflow carries its own single return in the ribbon */
+  if(typeof xlFocus!=='undefined'&&xlFocus&&TAB==='xlwork'){ el.hidden=true; el.innerHTML='';
+    return; }
   if(NAVCTX&&NAVCTX.destTab&&(TAB!==NAVCTX.destTab||LENS!==NAVCTX.destLens)) NAVCTX=null;
   if(!NAVCTX||!NAVCTX.destTab){ el.hidden=true; el.innerHTML=''; return; }
   const c=NAVCTX, esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -66792,6 +66810,9 @@ function navRecord(){
 }
 function updateBackBtn(){ const b=$('backBtn'); if(b)b.disabled=NAV.stack.length===0; }
 function navBack(){
+  /* in the focused Excel workflow the origin is explicit and the ribbon owns it; a history
+     pop would land wherever the user happened to come from. */
+  if(typeof xlFocus!=='undefined'&&xlFocus&&TAB==='xlwork'){ xlFocusExit(); return; }
   // if a drill is open on the current view, first Escape closes it
   if(closeOpenDrill()){ return; }
   const s=NAV.stack.pop(); if(!s)return;
