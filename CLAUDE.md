@@ -6000,6 +6000,50 @@ an insert cannot be re-read through an old workbook.
 render · 4/4 gates (the spacing ratchet caught a 2px padding and it went onto the scale) ·
 FS-CIP 4,210.2 · 612 entities · chronology 0 · R6.2 intact.
 
+### The single accountant workflow — one reconciliation, three controls
+
+> "I opened my CIP reconciliation in Excel, did my analysis, refreshed the numbers, and
+> published the workpaper back to Korvyn."
+
+That sentence is the whole specification, and it is the acceptance test. A workbook opened FOR
+ONE RECONCILIATION runs in a focused mode: **Back to reconciliation · Refresh · Publish to
+Korvyn**, and nothing else.
+
+**HIDDEN, NOT REMOVED.** Insert, Trace, the object picker, the query strategies, the pane tabs
+and the workbook switcher all stand down while `xlFocus` is set; the general workspace is
+byte-for-byte unchanged and still opens from the module itself. A mode is a reading of the same
+objects, never a second implementation — asserted both ways in the same run.
+
+**TWO SHEETS, TWO OWNERS, AND THAT IS THE DEMONSTRATION.** Sheet 1 *Reconciliation* is the
+governed roll-forward, connected and not typeable. Sheet 2 *Analysis* is ORDINARY WORKBOOK
+CONTENT — authored cells and real formulas (`=SUM`, `=SUMIF`, `='Reconciliation'!B6-C13`),
+not a connected object. Vendor · Project · June activity · Classification · My adjustment ·
+Notes, over the real vendors the population carries. Refresh replaces Sheet 1's range and never
+touches Sheet 2, verified by counting formulas in the rendered sheet before and after.
+
+**THE SOURCE UPDATE IS REAL, AND REVERSIBLE.** "Simulate a source posting" posts a genuine
++$14.2M ERP entry through R6's own `rcPostClosePost`, so the refresh that follows is a real
+refresh: FS-CIP moves 4,210.2 → 4,224.4, the connected object detects it by comparison, and the
+preview names the lines that moved. Clicking again withdraws it. **Nothing is seeded, so the
+product still opens with the canary at 4,210.2** — a demonstration must not leave the book
+changed.
+
+**ONE PUBLISH DESTINATION.** The workbook is for one reconciliation, so the target is derived
+rather than chosen: *Electrical CIP Analysis.xlsx · Jun 2026 · Electrical CIP · Reconciliation
+support · v1*. It lands under that reconciliation's Support tab, reading the same
+`xlArtifactState()` the workbook shows.
+
+**Two things the focused mode fixed that were wrong generally.** The FILTERS band rendered on
+the Excel workspace, where Scope / Period / Basis change nothing — a connected object carries
+the context it was inserted with, so those were dead controls on every Excel screen, not only
+this one. And `table-layout:fixed` only honours a colgroup when the TABLE has a width; without
+one Chrome fell back to content sizing and a 104px column computed at 469px, pushing the
+analysis amounts out of the pane.
+
+**Verified:** all 11 steps of the workflow pass in the product, end to end · 195 view renders
+across 3 periods, 0 errors, 0 empty · 24 workbook × sheet × pane combinations · 4/4 gates ·
+FS-CIP 4,210.2 and `RC_POSTCLOSE` empty on a fresh load · R7.1, R7.2 and R6.2 intact.
+
 ### Deliberately not built
 
 Broad controlled write-back · ERP posting · Excel AI of any kind · a graph visualisation (§7 is
