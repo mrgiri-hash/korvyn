@@ -1894,8 +1894,10 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .rcx-f svg{width:12px;height:12px;color:var(--muted);flex:none}
 /* the control row: quick views left, search and selectors right, one row, never wrapping
    into a second toolbar */
-.rcx-ctl{display:flex;align-items:center;gap:var(--s-2);padding:0 0 var(--s-3);
-  overflow-x:auto;white-space:nowrap}
+/* 2026-09-11 simplification — with the panel open the row used to scroll sideways and hide
+   search and filters behind a scrollbar; it wraps instead, so every control stays in view */
+.rcx-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);padding:0 0 var(--s-3);
+  white-space:nowrap}
 .rcx-ctl .grow{flex:1;min-width:var(--s-4)}
 .rcx-qv{display:flex;align-items:center;gap:var(--s-1)}
 .rcx-qv button{border:1px solid transparent;background:none;font:inherit;
@@ -1904,7 +1906,9 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .rcx-qv button:hover{background:var(--surface2);color:var(--ink)}
 /* the chosen option takes the tint this app already uses for a chosen option, never a filled
    primary — the page has no filled primary and must not grow one here (rule 13) */
-.rcx-qv button.on{background:var(--accent-bg);color:var(--accent-ink);border-color:var(--accent)}
+.rcx-qv button.on{background:var(--accent-bg);color:var(--accent-ink);border-color:transparent;
+  font-weight:var(--fw-medium)}
+.rcx-qv button svg{width:12px;height:12px;margin-left:var(--s-1);vertical-align:-1px}
 .rcx-q{flex:1 1 236px;min-width:212px;height:var(--h-btn-sm);padding:0 var(--s-3);
   border:1px solid var(--border-strong);border-radius:var(--radius-xs);
   background:var(--surface);font:inherit;font-size:var(--fs-table);color:var(--ink)}
@@ -1913,8 +1917,7 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 /* ---- ONE COMPACT STATUS SUMMARY (§35), never KPI cards. Every count is a filter, so reading
    the position and opening it are the same gesture. */
 .rcx-sum{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1);
-  padding:var(--s-2) 0 var(--s-3);border-top:1px solid var(--line);
-  border-bottom:1px solid var(--line);margin-bottom:var(--s-4)}
+  padding:0 0 var(--s-3);margin-bottom:var(--s-2)}
 .rcx-sum-t{font-size:var(--fs-table);color:var(--muted);padding:0 var(--s-2) 0 0}
 .rcx-sum-t b{color:var(--ink);font-weight:var(--fw-medium);font-family:var(--num);
   font-variant-numeric:tabular-nums}
@@ -1929,6 +1932,17 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .rcx-sum-i.warn b{color:var(--warn)}
 .rcx-sum-i.bad b{color:var(--neg)}
 .rcx-warn{margin-top:0}
+/* 2026-09-11 simplification — the breakdown behind the four figures, and the row's one flag */
+.rcx-sum-x{border:0;background:none;font:inherit;font-size:var(--fs-label);color:var(--accent-ink);
+  cursor:pointer;padding:0 var(--s-2)}
+.rcx-sum-x:hover{text-decoration:underline}
+.rcx-sum2{flex-basis:100%;display:flex;flex-wrap:wrap;gap:var(--s-1)}
+.rcx-flag{flex:none;white-space:nowrap;font-size:var(--fs-label);font-weight:var(--fw-medium);
+  color:var(--muted)}
+.rcx-flag.warn{color:var(--warn)}
+.rcx-flag.bad{color:var(--neg)}
+.rcx-flag .more{margin-left:var(--s-1);font-weight:400;color:var(--hint)}
+.rcx-okst{color:var(--muted)}
 
 /* ---- THE TABLE. Eleven columns of a workpaper: hairlines, tabular figures, indentation for
    hierarchy, and a row height one step tighter than the platform's because this surface puts
@@ -1967,10 +1981,12 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .rcx-r.d3 .rcx-nm{padding-left:calc(var(--s-9) + var(--s-4))}
 /* A SECTION IS A LABEL BAND, not a total. A sum across reconciliations is not itself a
    reconciliation, and printing one would invite a reader to tie to it. */
-.rcx-r.sec td{background:var(--n-50);cursor:default}
-.rcx-r.sec .rcx-nm{background:var(--n-50)}
-.rcx-r.sec:hover td,.rcx-r.sec:hover td.rcx-nm{background:var(--n-50)}
-.rcx-r.sec .rcx-nm .t{font-weight:var(--fw-medium);color:var(--ink);text-transform:uppercase;
+/* 2026-09-11 simplification §7 — a section is a quiet label, not an ERP band: no fill, the
+   muted tracked label a section header uses everywhere else, and the line under it */
+.rcx-r.sec td{background:var(--surface);cursor:default}
+.rcx-r.sec .rcx-nm{background:var(--surface)}
+.rcx-r.sec:hover td,.rcx-r.sec:hover td.rcx-nm{background:var(--surface)}
+.rcx-r.sec .rcx-nm .t{font-weight:var(--fw-medium);color:var(--muted);text-transform:uppercase;
   letter-spacing:var(--tracking-label);font-size:var(--fs-label)}
 /* THE FINANCIAL LINE OUTRANKS ITS RECONCILIATION GROUPS (rule 10) — weight and a rule, never
    a card and never a fill. */
@@ -2008,6 +2024,21 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .rcx-fig .v{font-size:var(--fs-card);font-weight:var(--fw-medium);color:var(--ink);
   font-variant-numeric:tabular-nums}
 .rcx-fig.bad .v{color:var(--neg)}
+/* 2026-09-11 simplification — a smaller fact grid, the one-line helper, the attention block and
+   the Details / "Why this works" expanders that carry what used to be paragraphs */
+.rcx-figs.sm .v{font-size:var(--fs-ui)}
+.rcx-hint{font-size:var(--fs-label);color:var(--hint);margin:0 0 var(--s-3)}
+.rcx-attn{margin:0 0 var(--s-3);padding:var(--s-2) var(--s-3);border-left:3px solid var(--warning);
+  background:var(--surface2);display:grid;gap:var(--s-1);font-size:var(--fs-table);color:var(--ink)}
+.rcx-attn .h{font-size:var(--fs-label);font-weight:var(--fw-medium);color:var(--ink);
+  text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.rcx-attn.ok{border-left-color:var(--pos);color:var(--muted)}
+.rcx-more{margin:var(--s-3) 0 0;border-top:1px solid var(--line)}
+.rcx-more>summary{cursor:pointer;padding:var(--s-2) 0;font-size:var(--fs-label);
+  font-weight:var(--fw-medium);color:var(--muted);letter-spacing:var(--tracking-label);
+  text-transform:uppercase;list-style-position:inside}
+.rcx-more>summary:hover{color:var(--ink)}
+.rcx-more p{margin:0 0 var(--s-2);font-size:var(--fs-label);color:var(--muted);line-height:var(--lh)}
 .rcx-mombar{display:flex;align-items:baseline;gap:var(--s-2);padding:var(--s-2) 0;
   font-size:var(--fs-table);border-bottom:1px solid var(--line)}
 .rcx-mombar .k{color:var(--muted)}
@@ -12504,11 +12535,14 @@ function paintPop(keepFocus){
       (rall.length>12?`<div class="pop-s"><input id="popQ" type="search"
         placeholder="Search ${esc(rd.nm.toLowerCase())}\u2026" value="${esc(popQ)}"
         oninput="KFX.popSearch(this.value)"></div>`:'')+
-      `<div class="pop-l">`+(ros.length?ros.map(o=>
-        `<div class="pop-o ${o.id===rcur?'on':''}${o.off?' off':''}"${o.off
+      `<div class="pop-l">`+(ros.length?ros.map(o=>o.hd
+        /* a section heading inside one menu, and a row that states its own tick \u2014 so one menu
+           can hold two independent selections (Reconciliations \u203a Filters) */
+        ? `<div class="pop-h sec">${esc(o.nm)}</div>`
+        : `<div class="pop-o ${(o.on!=null?o.on:o.id===rcur)?'on':''}${o.off?' off':''}"${o.off
           ?' aria-disabled="true"'
           :` onclick="rcPick2('${rk}','${esc(o.id)}')"`}>
-          ${(rd.act||o.off)?'':`<span class="bx">${o.id===rcur?'\u2713':''}</span>`}${esc(o.nm)}
+          ${(rd.act||o.off)?'':`<span class="bx">${(o.on!=null?o.on:o.id===rcur)?'\u2713':''}</span>`}${esc(o.nm)}
           ${o.off?`<span class="tag">${esc(o.tag||'Not available')}</span>`:''}
           ${o.sub?`<span class="sub">${esc(o.sub)}</span>`:''}</div>`).join('')
         :'<div class="rl-empty" style="padding:8px">No match.</div>')+`</div>`;
@@ -36700,9 +36734,8 @@ function xlLaunchHTML(defId){
       ${last?`<tr><td class="k">Last submitted</td><td class="v">${glEsc(last.workbookVersion)}
         · <span class="pill ${lst.c||''} sm">${glEsc(lst.l)}</span></td></tr>`:''}
     </tbody></table>
-    <div class="xa-lnote">Opens in Microsoft Excel — desktop or Excel for the web — with the
-      Korvyn add-in. You do your analysis in Excel; the add-in keeps these objects connected,
-      refreshable and traceable.</div>
+    <div class="xa-lnote">Opens in Microsoft Excel with the Korvyn add-in. The connected sheets
+      stay refreshable; everything else in the workbook is yours.</div>
     <div class="xl-dlg-a">
       <button class="btn-primary sm xa-lgo" onclick="xlLaunchGo()">Open in Excel</button>
       <button class="btn-out sm" onclick="xlLaunchClose()">Cancel</button></div>
@@ -37497,10 +37530,8 @@ function xlAddinView(wb,objs){
           +(G.foots?' · foots to GL activity':''):'—'}</div>
       </div>
       <div class="xa-h">Your sheets<span class="s">Excel's — Korvyn never overwrites them</span></div>
-      <p class="xa-p">Vendor analysis, project analysis, PivotTables, charts, Power Query, custom
-        schedules, notes and conclusions — whatever you build in Excel. Reference the connected
-        values in your formulas; Refresh brings the latest governed data into the two connected
-        sheets and leaves your work exactly as it is.</p>
+      <p class="xa-p">Your analysis, pivots, charts and notes live in Excel. Refresh updates only
+        the two connected sheets.</p>
     </div>
     <div class="xa-ft"><span class="s">Prototype control</span>
       <button class="xl-sim" onclick="xlSimulate()"
@@ -37509,9 +37540,8 @@ function xlAddinView(wb,objs){
           :'Simulate ERP posting (+'+glEsc(rcM(XL_SIM_AMT))+')'}</button></div>
   </section>`;
   return `<div class="xa">
-    <div class="xa-note"><b>Prototype.</b> In production this workbook opens in Microsoft Excel —
-      desktop or Excel for the web — with the Korvyn add-in. Korvyn web does not recreate Excel:
-      this page shows what opened and what the add-in holds.</div>
+    <div class="xa-note"><b>Prototype.</b> Real analysis happens in Microsoft Excel. This shows
+      the workbook that opens and the Korvyn add-in beside it.</div>
     <div class="xa-shell">${book}${xlAddinPane(wb,objs,nm,c)}</div>
   </div>`;
 }
@@ -48880,9 +48910,9 @@ function rcAssignTrace(def,inst){
         +'</span></div>'); });
   });
   return '<div class="amp-sec">Ownership</div><div class="rcx-evl">'+out.join('')+'</div>'
-    +'<div class="rcx-jenote">Ownership resolves from assignment rules, most specific first. '
-    +'A delegation lends authority for a window and does not change the owner; a decision is '
-    +'always recorded under the person who actually made it.</div>';
+    +'<div class="rcx-hint" title="A delegation lends authority for a window and does not change '
+    +'the owner; a decision is always recorded under the person who actually made it.">Ownership '
+    +'resolves from assignment rules, most specific first.</div>';
 }
 
 /* ---- §10 — TEAMS. A team is an assignment target and a scope, so it gets a list and a
@@ -49974,7 +50004,48 @@ const RC_QV=[
     .indexOf(i.supportStatus)>=0],
   ['certified','Certified',        i=>i.finalStatus==='certified'||i.finalStatus==='complete'],
   ['overdue','Overdue',            i=>i.overdue],
+  ['exceptions','Exceptions',      i=>rcIsException(i)],
 ];
+/* 2026-09-11 simplification §2 — SEVEN PRIMARY QUEUES, the rest one click away. Eleven tabs of
+   equal weight made every state compete; the lower-frequency readings live in a More menu and
+   inside Exceptions, and every one of them still filters exactly as before. */
+const RC_QV_MAIN=['all','assigned','mine','returned','rereview','exceptions','certified'];
+const RC_QV_MORE=['team','ready','untied','support','overdue'];
+/* AN EXCEPTION IS SOMETHING WRONG WITH THE RECONCILIATION ITSELF — it does not tie or its
+   population is unsettled, its support is missing or stale, or a required source is missing or
+   changed. Lateness is a schedule state, not a defect, and stays its own view (More › Overdue). */
+function rcIsException(i){
+  if(i.tieStatus!=='tied') return true;
+  if(['incomplete','notstarted','stale','review'].indexOf(i.supportStatus)>=0) return true;
+  if(i.missingSources&&i.missingSources.length) return true;
+  if(i.changedSources&&i.changedSources.some(s=>s.required)) return true;
+  return false;
+}
+/* §5, §6 — ONE STATUS ON THE ROW, by priority. A row used to stack every tag it qualified for
+   (Prepaids: SCHEDULE · SOURCE CHANGED · OVERDUE). It now states the single highest-priority
+   problem; the rest, and the method, are in the row's hover title and the panel. Healthy rows
+   carry no tag at all. */
+function rcRowFlags(i,def){
+  if(!i) return [];
+  const f=[];
+  if(!i.population.settled) f.push({l:'Incomplete mapping',c:'bad',
+    t:'A source account Korvyn attributes to this population is unmapped'});
+  if(i.reviewStatus==='returned') f.push({l:'Returned',c:'bad',t:'Returned to the preparer'});
+  if(i.reReviewRequired) f.push({l:'Re-review required',c:'bad',
+    t:'The signed package no longer describes the current balance'});
+  if(i.missingSources&&i.missingSources.length) f.push({l:'Missing source',c:'warn',
+    t:i.missingSources[0].systemName+' — required source not received for this period'});
+  else if(i.changedSources&&i.changedSources.some(s=>s.required)) f.push({l:'Source changed',
+    c:'warn',t:'A required supporting source changed after this reconciliation was last resolved'});
+  if(['incomplete','notstarted','stale','review'].indexOf(i.supportStatus)>=0)
+    f.push({l:i.supportStatus==='stale'?'Support stale':'Missing support',c:'warn',
+      t:'Support: '+(RC_SUPPORT[i.supportStatus]||{l:i.supportStatus}).l});
+  if(i.tieStatus==='difference') f.push({l:'Difference',c:'bad',t:'Does not tie to the trial balance'});
+  if(i.population.contested&&i.population.contested.length) f.push({l:'Contested population',
+    c:'',t:'Another reconciliation group also claims an account in this population'});
+  if(i.overdue) f.push({l:'Overdue',c:'',t:'Past its due date'});
+  return f;
+}
 /* §20 — MINE MEANS THE STAGE THAT IS WAITING ON ME. A stage names a person and a team; both
    count, because a close cannot stop while one controller is on leave, and the decision
    records who actually acted rather than who was nominated. */
@@ -50109,6 +50180,12 @@ function rcPctN(v){ if(v==null||isNaN(v)) return '&mdash;';
   const s=Math.abs(v).toFixed(1)+'%'; return v<0?'('+s+')':s; }
 const rcPill=(map,k,sm)=>{const s=map[k]||{l:k,c:''};
   return '<span class="pill '+s.c+(sm?' sm':'')+'">'+s.l+'</span>';};
+/* §6 — IN THE TABLE, A HEALTHY STATE IS QUIET TEXT. Thirty-four "Tied" pills and twenty green
+   "Approved" pills were the loudest things on the page; problems now carry the pill and a
+   healthy row reads as grey words. */
+const RC_LIST_QUIET={tied:1, approved:1, pending:1, complete:1, certified:1};
+const rcListSt=(map,k)=>RC_LIST_QUIET[k]
+  ? '<span class="rcx-okst">'+((map[k]||{l:k}).l)+'</span>' : rcPill(map,k,1);
 
 /* ---- THE ROW SET. The SAME statement hierarchy Financials and Trending walk, PRUNED to the
    branches that actually carry reconciliations — a section with nothing to reconcile under it
@@ -50213,8 +50290,13 @@ function rcBodyHTML(){
           return '<span class="rcx-supfrac'+(s==='complete'?'':' warn')+'" title="'
             +glEsc((RC_SUPPORT[s]||{l:s}).l)+'">'+fr+'</span>'; })();
     const click=r.inst?' onclick="rcPick(\''+def.reconciliationDefinitionId+'\')"':'';
+    /* one tag, the highest-priority problem; the full list and the method live in the title */
+    const fl=rcRowFlags(r.inst,def);
+    const tip=fl.map(x=>x.l+' — '+x.t).concat(meth?[rcMethodLabel(def)]:[]).join(' · ');
+    const one=fl.length?'<span class="rcx-flag '+fl[0].c+'">'+glEsc(fl[0].l)
+      +(fl.length>1?'<span class="more">+'+(fl.length-1)+'</span>':'')+'</span>':'';
     return '<tr class="'+cls.join(' ')+'"'+click+'>'
-      +'<td class="rcx-nm">'+caret+'<span class="t">'+label+'</span>'+meth+flag+cont+srcf+ov
+      +'<td class="rcx-nm"'+(tip?' title="'+glEsc(tip)+'"':'')+'>'+caret+'<span class="t">'+label+'</span>'+one
         +(r.inst?'<button class="fsx-rowact" data-pop="rcrow:'
           +r.inst.reconciliationDefinitionId+'" aria-expanded="false" aria-label="Actions for '
           +glEsc(def.name)+'" onclick="event.stopPropagation();KFX.pop(\'rcrow:'
@@ -50238,7 +50320,7 @@ function rcBodyHTML(){
       +'<td class="num">'+rcN(a.trialBalanceAmount)+'</td>'
       +'<td class="num'+(Math.abs(a.difference)>=0.05?' rcx-diff':'')+'">'+rcN(a.difference)+'</td>'
       +'<td class="num rcx-mom">'+rcPctN(a.momPercent)+'</td>'
-      +'<td>'+rcPill(RC_TIE,a.tieStatus,1)+'</td>'
+      +'<td>'+rcListSt(RC_TIE,a.tieStatus)+'</td>'
       +'<td>'+sup+'</td>'
       +(function(){
           const st=a.activeStage;
@@ -50251,9 +50333,9 @@ function rcBodyHTML(){
               ? a.readiness.blockingIssues.length+' blocking' : 'no blockers'
             ].filter(Boolean).join(' · '):'';
           return '<td'+(ctx?' title="'+glEsc(ctx)+'"':'')+'>'
-            +rcPill(RC_REVIEW,a.reviewStatus,1)
-            +(a.reReviewRequired?' <span class="rcx-rr" title="The signed package no longer '
-              +'describes the current balance">re-review</span>':'')
+            +rcListSt(RC_REVIEW,a.reviewStatus)
+            /* re-review is the row's own tag now; a checkpoint only speaks when it changes
+               what the reviewer has to do */
             +(function(){ /* R5.7B §30 — compact, and only when there is something to say */
                 try{ const dd=rcReviewDelta(rcDef(a.reconciliationDefinitionId),a);
                   if(!dd.reviewed) return '';
@@ -50263,8 +50345,7 @@ function rcBodyHTML(){
                   if(dd.reviewImpactStatus==='REVIEW_DELTA_AVAILABLE')
                     return '<span class="rcx-stg" title="'+glEsc(dd.impactWhy)+'">+'
                       +rcM(Math.abs(dd.balanceDelta))+' new</span>';
-                  return '<span class="rcx-stg" title="Reviewed through '
-                    +glEsc(dd.checkpoint.reviewedThroughTimestamp)+'">reviewed</span>';
+                  return '';
                 }catch(e){ return ''; } })()
             +(a.reviewStatus==='inreview'&&st
               ? (rcQV==='mine'
@@ -50340,19 +50421,29 @@ function rcAdjPeek(key,el,ev){
 
 /* ---- ONE COMPACT STATUS SUMMARY (§35), not a strip of cards. Every count is a filter, so a
    reviewer reads the position and opens it in the same gesture. */
+/* 2026-09-11 simplification §3 — FOUR FIGURES, not eight: how many are required, how many are
+   wrong, how many are with a reviewer, how many are done. The full breakdown is one click away
+   and every figure in it is still a filter. */
+let rcSumMore=false;
 function rcSummaryLine(){
   const R=reconReadiness();
-  const it=(n,l,v,c)=>!n?'':'<button class="rcx-sum-i'+(c?' '+c:'')+(rcQV===v?' on':'')+'"'
+  const ex=R.instances.filter(rcIsException).length;
+  const it=(n,l,v,c)=>'<button class="rcx-sum-i'+(c&&n?' '+c:'')+(rcQV===v?' on':'')+'"'
     +(v?' onclick="setRcQV(\''+v+'\')"':' disabled')+'><b>'+n+'</b> '+l+'</button>';
   return '<div class="rcx-sum">'
-    +'<span class="rcx-sum-t"><b>'+R.totalRequired+'</b> required reconciliations</span>'
-    +it(R.tiedCount,'tied','')
-    +it(R.approvedCount,'approved','')
+    +'<span class="rcx-sum-t"><b>'+R.totalRequired+'</b> required</span>'
+    +it(ex,'exceptions','exceptions','warn')
     +it(R.inReviewCount,'in review','')
-    +it(R.returnedCount,'returned','returned','warn')
-    +it(R.untiedCount+R.incompleteCount,'untied','untied','warn')
-    +it(R.overdueCount,'overdue','overdue','bad')
-    +it(R.supportExceptionCount,'support exceptions','support','warn')
+    +it(R.approvedCount,'approved','')
+    +'<button class="rcx-sum-x" aria-expanded="'+(rcSumMore?'true':'false')
+    +'" onclick="rcSumMore=!rcSumMore;renderAll()">'+(rcSumMore?'Less':'Breakdown')+'</button>'
+    +(rcSumMore?'<div class="rcx-sum2">'
+      +it(R.tiedCount,'tied','')
+      +it(R.untiedCount+R.incompleteCount,'untied or incomplete','untied','warn')
+      +it(R.returnedCount,'returned','returned','warn')
+      +it(R.supportExceptionCount,'support exceptions','support','warn')
+      +it(R.overdueCount,'overdue','overdue','warn')
+      +'</div>':'')
     +'</div>';
 }
 
@@ -50364,6 +50455,10 @@ function renderGLRecon(){
      the selected reconciliation are all inherited; the return strip goes back to it. */
   rcPeekClose();
   if(rcAct) return rcRenderActivity(el);
+  /* the role's default queue is settled BEFORE the tabs are drawn. It used to be applied inside
+     the row builder, which runs after them, so the first paint highlighted All over a table
+     filtered to Needs my review — the page misreporting which queue it was showing. */
+  if(typeof kApplyRoleDefaults==='function') kApplyRoleDefaults();
   const k=viewPeriod(), L=rcLens(), R=reconReadiness(k);
   const def=fsDef(rcStmt);
 
@@ -50388,28 +50483,32 @@ function renderGLRecon(){
     +'<button class="rcx-f" data-pop="rc:lens" onclick="KFX.pop(\'rc:lens\',this)">'
     +'<span class="k">Reporting lens</span><span class="v">'+glEsc(L.name)+'</span>'
     +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10.5l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-    +'<span class="fsx-ready">'
-    +(R.completeCount===R.totalRequired?'Complete':R.openCount+' open')+'</span>'
     +'</div>';
 
   /* §23 — restrained controls. Quick views, one search, two selectors and a clear. */
   const rvOpts=[...new Set(RECON_DEFS.flatMap(d=>d.reviewerUserIds||[]))];
   const filtered=rcQV!=='all'||rcQ||rcStatusF!=='all'||rcReviewerF!=='all'||rcMethodF!=='all';
+  const inMore=RC_QV_MORE.indexOf(rcQV)>=0;
+  const nFilt=(rcStatusF!=='all'?1:0)+(rcReviewerF!=='all'?1:0);
   o+='<div class="rcx-ctl">'
-    +'<div class="rcx-qv">'+RC_QV.map(v=>'<button class="'+(rcQV===v[0]?'on':'')+'"'
-      +' onclick="setRcQV(\''+v[0]+'\')">'+v[1]+'</button>').join('')+'</div>'
+    +'<div class="rcx-qv">'+RC_QV_MAIN.map(id=>RC_QV.find(v=>v[0]===id)).map(v=>
+      '<button class="'+(rcQV===v[0]?'on':'')+'" onclick="setRcQV(\''+v[0]+'\')">'+v[1]+'</button>')
+      .join('')
+    +'<button class="rcx-qvmore'+(inMore?' on':'')+'" data-pop="rc:qvmore"'
+      +' onclick="KFX.pop(\'rc:qvmore\',this)">'
+      +(inMore?glEsc(RC_QV.find(v=>v[0]===rcQV)[1]):'More')
+      +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10.5l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+    +'</div>'
     +'<span class="grow"></span>'
-    +'<input class="rcx-q" type="search" placeholder="Search reconciliation groups…"'
+    +'<input class="rcx-q" type="search" placeholder="Search reconciliations…"'
       +' value="'+glEsc(rcQ)+'" oninput="rcSearch(this.value)">'
     +'<button class="rcx-f sm" data-pop="rc:method" onclick="KFX.pop(\'rc:method\',this)">'
       +'<span class="k">Method</span><span class="v">'
       +(rcMethodF==='all'?'All':glEsc(RC_METHODS[rcMethodF].short))+'</span></button>'
-    +'<button class="rcx-f sm" data-pop="rc:status" onclick="KFX.pop(\'rc:status\',this)">'
-      +'<span class="k">Status</span><span class="v">'
-      +(rcStatusF==='all'?'All':RC_FINAL[rcStatusF].l)+'</span></button>'
-    +'<button class="rcx-f sm" data-pop="rc:reviewer" onclick="KFX.pop(\'rc:reviewer\',this)">'
-      +'<span class="k">Reviewer</span><span class="v">'
-      +(rcReviewerF==='all'?'All':glEsc(rcPerson(rcReviewerF).nm))+'</span></button>'
+    /* Status and Reviewer are one quiet menu: used rarely, and never both at once */
+    +'<button class="rcx-f sm'+(nFilt?' on':'')+'" data-pop="rc:filters"'
+      +' onclick="KFX.pop(\'rc:filters\',this)">'
+      +'<span class="k">Filters</span><span class="v">'+(nFilt?nFilt+' on':'None')+'</span></button>'
     +(filtered?'<button class="fsx-link" onclick="rcClear()">Clear</button>':'')
     +'</div>';
 
@@ -50430,12 +50529,11 @@ function renderGLRecon(){
      route that fixes it. Silence would be the one failure a reconciliation engine must not
      commit: a balance excluded from every population and reported nowhere. */
   const unset=R.instances.filter(x=>!x.population.settled);
-  if(unset.length) o+='<div class="fsx-warn rcx-warn"><b>Incomplete mapping.</b> '
-    +unset.length+' reconciliation'+(unset.length===1?'':'s')+' '
-    +(unset.length===1?'has':'have')+' a source account Korvyn attributes to '
-    +(unset.length===1?'its':'their')+' population that is not mapped, so the population is not '
-    +'settled and the tie status reads Incomplete. The balance is disclosed here rather than '
-    +'excluded in silence.<button class="fsx-link" onclick="rcGoMapping(null,null,\'unmapped\')">Review mapping &#8594;</button></div>';
+  /* §4 — one line: what is wrong, what it means, and the route that fixes it */
+  if(unset.length) o+='<div class="fsx-warn rcx-warn"><b>'+unset.length+' reconciliation'
+    +(unset.length===1?' has':'s have')+' incomplete account mapping.</b> '
+    +(unset.length===1?'Its population is':'Their populations are')+' not settled.'
+    +'<button class="fsx-link" onclick="rcGoMapping(null,null,\'unmapped\')">Review mapping &#8594;</button></div>';
 
   o+='<div class="card fsx-card rcx-card"><div class="rcx-wrap">'
     +'<table class="tbl rcx-tbl"><thead><tr>'
@@ -51474,9 +51572,9 @@ function rcSchedTab(def,inst){
   const M=rcMethodModel(def,p,inst.reportingLensId), S=M.schedule;
   const SP=rcSchedulePopulation(def,p,inst.reportingLensId);
   let o='';
+  /* 2026-09-11 simplification — what changed, and what it means, in two short sentences */
   if(SP&&SP.changed) o+='<div class="rcx-changed"><b>Source changed.</b> '+glEsc(SP.changeNote)
-    +' The comparison below is against the revised schedule; the conclusion recorded before the '
-    +'revision no longer stands and the reconciliation requires reassessment.</div>';
+    +' The prior conclusion needs reassessment.</div>';
   o+='<div class="amp-sec">Schedule to GL</div><div class="rcx-rfw">'
     +rcProof('Schedule balance '+glEsc(rcDayMon(p)),rcM(S.ending,C),null,'','governed schedule')
     +rcProof('GL prepaid balance '+glEsc(rcDayMon(p)),rcM(M.ledgerAmount,C),
@@ -51587,8 +51685,9 @@ function rcProofBridge(def,inst){
   if(!(def.supportingSourceDefinitions||[]).length) return '';
   const M=rcMethodModel(def,p,inst.reportingLensId);
   const row=(l,v,go,cls,note)=>rcProof(l,v,go,cls,note);
-  let o='<div class="amp-sec">Proof bridge &#183; '+glEsc(rcMethodLabel(def))+'</div>'
-    +'<div class="rcx-why">'+glEsc(rcMethodOf(def).blurb)+'</div><div class="rcx-rfw">';
+  /* the method's description is the heading's hover title, not a paragraph (§18) */
+  let o='<div class="amp-sec" title="'+glEsc(rcMethodOf(def).blurb)+'">Proof bridge &#183; '
+    +glEsc(rcMethodLabel(def))+'</div><div class="rcx-rfw">';
   if(M.unavailable){
     o+=row('Ledger balance / TB',rcM(M.ledgerAmount,C),
         'rcOpenDrill(\'src\',\'LEDGER\',\''+dId+'\')')
@@ -51663,14 +51762,20 @@ function rcProofBridge(def,inst){
 function rcMethodRoll(def,inst){
   const m=rcMethodId(def), prof=def.proofProfile;
   if(!(def.supportingSourceDefinitions||[]).length) return null;
-  /* ONE Sources strip for the whole workpaper, then the method's own proof. */
-  const head='<div class="amp-sec">Sources</div>'+rcSourceStrip(def,inst);
-  if(m==='EXTERNAL_TO_GL') return head+rcBankTab(def,inst)+rcMatchSection(def,inst);
-  if(prof==='FIXED_ASSET_REGISTER')
-    return head+rcFaGrossRoll(def,inst)+rcRegTab(def,inst)+rcDeprTab(def,inst);
-  if(m==='SUBLEDGER_TO_GL') return head+rcSubTieTab(def,inst);
-  if(m==='SCHEDULE_TO_GL')  return head+rcPrepaidRoll(def,inst)+rcSchedTab(def,inst);
-  return null;
+  /* 2026-09-11 simplification §10 — THE WORKPAPER LEADS. The roll-forward and its proof come
+     first; the Sources strip follows as compact cards; methodology notes that explain how the
+     method works move out of the middle of the numbers into one expander at the foot. */
+  const body = m==='EXTERNAL_TO_GL' ? rcBankTab(def,inst)+rcMatchSection(def,inst)
+    : prof==='FIXED_ASSET_REGISTER' ? rcFaGrossRoll(def,inst)+rcRegTab(def,inst)+rcDeprTab(def,inst)
+    : m==='SUBLEDGER_TO_GL' ? rcSubTieTab(def,inst)
+    : m==='SCHEDULE_TO_GL'  ? rcPrepaidRoll(def,inst)+rcSchedTab(def,inst)
+    : null;
+  if(body==null) return null;
+  const notes=[];
+  const main=body.replace(/<div class="rcx-jenote">([\s\S]*?)<\/div>/g,(x,t)=>{ notes.push(t); return ''; });
+  return main+'<div class="amp-sec">Sources</div>'+rcSourceStrip(def,inst)
+    +(notes.length?'<details class="rcx-more"><summary>Why this reconciliation works</summary>'
+      +notes.map(t=>'<p>'+t+'</p>').join('')+'</details>':'');
 }
 /* §13 — the prepaid roll-forward: additions against amortization, footing to the governed
    ending balance and then to the trial balance. */
@@ -51846,8 +51951,8 @@ function rcMethodTrace(def,inst){
   const led=inst.sources.find(s=>s.role==='LEDGER');
   const sup=inst.sources.find(s=>s.required&&s.role!=='LEDGER')
     ||inst.sources.find(s=>s.role!=='LEDGER');
-  let o='<div class="amp-sec">How this reconciliation is built</div>'
-    +'<div class="rcx-why">'+glEsc(rcMethodOf(def).blurb)+'</div><div class="rcx-tchain">';
+  let o='<div class="amp-sec" title="'+glEsc(rcMethodOf(def).blurb)+'">How this reconciliation is built</div>'
+    +'<div class="rcx-tchain">';
   o+=node('GL / trial balance',rcM(M.ledgerAmount,C),
       glEsc(led?led.systemName:'Governed general ledger')
       +' &#183; the governed ledger side, unchanged by the method',
@@ -52016,16 +52121,8 @@ function rcReviewTrace(def,inst){
   /* WHERE IS THIS USED. Named honestly: two consumers exist today and the rest are declared
      rather than claimed, because asserting an audit package that nobody has built is the one
      thing this module's trace must never do. */
-  o+='<div class="amp-sec">Where this is used</div><div class="rcx-evl">'
-    +'<div class="rcx-ev" role="button" tabindex="0" onclick="pickTab(\'acctclose\')">'
-      +'<span class="n">Close readiness</span>'
-      +'<span class="m">'+glEsc(perLabel(inst.periodId))+' close · consumed from '
-      +'reconReadiness(), not counted again</span></div>'
-    +'<div class="rcx-ev"><span class="n">Certified reconciliation register</span>'
-      +'<span class="m">'+(so?'included — '+glEsc(so.reconciliationSignOffId)
-        :'not yet — the chain is incomplete')+'</span></div>'
-    +'<div class="rcx-ev off"><span class="n">Audit package</span>'
-      +'<span class="m">Annual / audit phase</span></div></div>';
+  /* 2026-09-11 simplification §14 — where this is used is the last step of the Trace flow at
+     the top of the tab (Financials · Flux Review · Close · Audit), stated once */
   return o;
 }
 /* ---- R4 §18 — THE EVIDENCE LEG OF THE TRACE. It reads both directions: what substantiates
@@ -52059,8 +52156,7 @@ function rcEvidenceTrace(def,inst){
         +'<span class="n">'+glEsc(x.ev.title)+'</span>'
         +'<span class="m">'+glEsc((RC_EV_CLASS[x.ev.evidenceClass]||{l:''}).l)+'</span></div>')
         .join('')+'</div>':'')
-    +'<div class="rcx-jenote">Evidence substantiates the accounting conclusion; it does not '
-    +'create the balance. The ledger does that, and the chain above is how it got there.</div>';
+    +'<div class="rcx-hint">Evidence supports the conclusion; the ledger creates the balance.</div>';
 }
 
 /* ==========================================================================================
@@ -52396,6 +52492,8 @@ function rcSumTab(def,inst){
     +fig('Difference',Math.abs(a.difference)<0.05?'—':rcM(a.difference),
         Math.abs(a.difference)>=0.05?'bad':'')
     +'</div>'
+    /* what needs attention reads second, straight after the balance */
+    +rcSumAttention(def,inst)
     +'<div class="rcx-mombar"><span class="k">'+PMN[perParts(k).m]+' movement</span>'
     +'<span class="v mono">'+(a.movement>0?'+':'')+rcM(a.movement)+'</span>'
     +'<span class="p mono">'+rcPctN(a.momPercent)+'</span>'
@@ -52410,77 +52508,80 @@ function rcSumTab(def,inst){
        proof source and shows none; every other method states, compactly, what independently
        substantiates the ending balance, and each figure resolves to the thing that proves it. */
     +rcProofBridge(def,inst)
-    +((def.supportingSourceDefinitions||[]).length
-      ? '<div class="amp-sec">Sources</div>'+rcSourceStrip(def,inst) : '')
+    /* the Sources strip is the Roll-forward's — one place, not two (§8) */
+    /* 2026-09-11 simplification §9 — SUMMARY ANSWERS FIVE QUESTIONS and no more: the balance
+       (above), whether it ties, what needs attention, the proof method and the review status.
+       The eleven context rows are behind Details; nothing here is a paragraph. */
     +'<div class="amp-sec">Status</div>'
     +rcRow('Tie',rcPill(RC_TIE,inst.tieStatus)+'<span class="rcx-note-i">'+glEsc(
-        inst.tieStatus==='tied'
-          ? (RC_MATERIALITY[def.materialityPolicyId]||{}).l+' · within tolerance'
-        : inst.tieStatus==='difference'
-          ? 'out by '+rcM(Math.abs(a.difference))
-          : 'the account population is not settled')+'</span>')
-    /* §19 — beside Tie, never inside it */
-    +rcRow('Proof',rcPill(RC_PROOF,inst.proofStatus)+'<span class="rcx-note-i">'+glEsc(
-        inst.proofStatus==='na' ? 'no proof source is required for this method'
-      : inst.proofStatus==='complete' ? 'the proof source agrees'
-      : inst.proofStatus==='unavailable' ? 'a required proof source is unavailable'
-      : inst.proofStatus==='stale' ? 'a required proof source changed after this was resolved'
-      : inst.proofStatus==='difference' ? 'the proof source does not agree'
-      : 'the proof source is incomplete')+'</span>')
-    +rcRow('Movement',rcPill(RC_MOVE,inst.movementStatus))
-    +rcRow('Support',rcPill(RC_SUPPORT,inst.supportStatus))
-    +rcRow('Preparation',rcPill(RC_PREP,inst.preparationStatus))
-    +rcRow('Review',rcPill(RC_REVIEW,inst.reviewStatus))
+        inst.tieStatus==='tied' ? 'within tolerance'
+      : inst.tieStatus==='difference' ? 'out by '+rcM(Math.abs(a.difference)).replace(/&[a-z]+;/g,'')
+      : 'population not settled')+'</span>')
+    +rcRow('Method',glEsc((RC_METHODS[def.reconciliationMethod]||{}).l||'')
+      +(inst.proofStatus&&inst.proofStatus!=='na'?' '+rcPill(RC_PROOF,inst.proofStatus):''))
+    +rcRow('Review',rcPill(RC_REVIEW,inst.reviewStatus)
+      +(inst.reviewStatus==='inreview'&&inst.activeStage?'<span class="rcx-note-i">stage '
+        +(inst.reviewStageIndex+1)+' of '+inst.reviewStageCount+' · '
+        +glEsc(rcStageLabel(inst.activeStage))+'</span>':''))
     +rcRow('Overall',rcPill(RC_FINAL,inst.finalStatus))
-    /* R6 — the certification frequency, and where the conclusion is actually owed. Stated
-       only when it is not the monthly default, so 34 of 38 reconciliations are unchanged. */
+    +(inst.due?rcRow('Due',glEsc(perFromISO(inst.due))
+      +(inst.overdue?' <span class="rcx-flag bad">Overdue</span>':'')):'')
+    /* R6 — the certification frequency, only when it is not the monthly default */
     +(rcFreqOf(def)!=='MONTHLY'
       ? rcRow('Certification',glEsc(rcFreqLabel(def))
           +'<span class="rcx-note-i">'+glEsc(rcCertRequiredAt(def,inst.periodId)
-            ? 'A conclusion is required at '+perEnd(inst.periodId)+'.'
+            ? 'required at '+perEnd(inst.periodId)
             : rcNotDueNote(def,inst.periodId))+'</span>')
       : '')
-    /* §20 — say WHY it is not complete, rather than leaving six pills to be cross-read */
-    +(inst.finalStatus==='open'?'<div class="rcx-why">Not complete — '
-      +[inst.tieStatus!=='tied'?'the reconciliation does not tie':'',
-        (inst.proofStatus!=='na'&&inst.proofStatus!=='complete'&&inst.proofStatus!=='available')
-          ?'the proof source is '+RC_PROOF[inst.proofStatus].l.toLowerCase():'',
-        inst.supportStatus!=='complete'?'support is '+RC_SUPPORT[inst.supportStatus].l.toLowerCase():'',
-        inst.movementStatus==='need'?'the movement has not been reviewed':'',
-        inst.reviewStatus!=='approved'?'review is '+RC_REVIEW[inst.reviewStatus].l.toLowerCase():'']
-        .filter(Boolean).join('; ')+'.</div>':'')
-    +'<div class="amp-sec">Context</div>'
-    +rcRow('Financial line','<span class="rcx-lk" onclick="rcGoFinancials(\''+def.reconciliationDefinitionId+'\')">'+((fsLine(def.financialLineId)||{}).name||'')+'</span>'
-      +' <span class="mono amap-dim">'+def.financialLineId+'</span>')
+    +'<details class="rcx-more"><summary>Details</summary>'
+    +rcRow('Financial line','<span class="rcx-lk" onclick="rcGoFinancials(\''+def.reconciliationDefinitionId+'\')">'+((fsLine(def.financialLineId)||{}).name||'')+'</span>')
     +rcRow('Reconciliation group','<span class="mono">'+glEsc(def.reconciliationGroupId)+'</span>')
-    +rcRow('Method',glEsc((RC_METHODS[def.reconciliationMethod]||{}).l))
     +rcRow('Reporting lens',glEsc(rcLens(inst.reportingLensId).name)
-      +' <span class="amap-dim">v'+rcLens(inst.reportingLensId).version+'</span>')
-    +rcRow('Reporting basis',glEsc(rcBasisLabel(rcLens(inst.reportingLensId).reportingBasis))
-      +(rcLens(inst.reportingLensId).jurisdiction?' <span class="amap-dim">'
-        +glEsc(rcLens(inst.reportingLensId).jurisdiction)+'</span>':''))
-    /* R3.1 \u00a75, \u00a78 \u2014 the presentation currency is the lens's; the functional currencies are
-       the population's own, and when they are one and the same the panel says so once
-       rather than printing EUR twice */
-    +rcRow('Presentation currency',glEsc(inst.presentationCurrency)
-      +' <span class="amap-dim">set by the reporting lens</span>')
+      +' <span class="amap-dim">'+glEsc(rcBasisLabel(rcLens(inst.reportingLensId).reportingBasis))
+      +' · '+glEsc(inst.presentationCurrency)+'</span>')
     +rcRow('Hierarchy',glEsc(rcLens(inst.reportingLensId).hierarchyName)
       +' <span class="amap-dim">v'+glEsc(inst.hierarchyVersion)+'</span>')
     +rcRow('Functional currencies',(()=>{const cc=inst.functionalCurrencies||[];
       if(cc.length===1&&cc[0]===inst.presentationCurrency) return glEsc(cc[0])
-        +' <span class="amap-dim">same as presentation \u2014 nothing to translate</span>';
-      return cc.length+' represented <span class="amap-dim">'+cc.map(glEsc).join(' \u00b7 ')+'</span>';})())
+        +' <span class="amap-dim">nothing to translate</span>';
+      return cc.length+' <span class="amap-dim">'+cc.map(glEsc).join(' · ')+'</span>';})())
     +rcRow('Scope',glEsc(ENTCTX.scope.name)+' · '
       +ENTCTX.scope.entityCount.toLocaleString('en-US')+' entities')
     +rcRow('Frequency',glEsc(String(def.frequency).toLowerCase()))
-    +rcRow('Revision',glEsc(inst.revision)
-      +(inst.reReviewRequired?' <span class="rcx-od">re-review required</span>':''))
+    +rcRow('Revision',glEsc(inst.revision))
     +rcRow('Instance','<span class="mono">'+glEsc(inst.reconciliationInstanceId)+'</span>')
     +'<div class="amp-acts">'
     +'<button class="btn-out sm" onclick="rcOpenDrill(\'basis\',null,\''
       +def.reconciliationDefinitionId+'\')">Compare basis &#8594;</button>'
     +'<button class="btn-out sm" onclick="rcOpenDrill(\'ents\',null,\''
-      +def.reconciliationDefinitionId+'\')">By functional currency &#8594;</button></div>';
+      +def.reconciliationDefinitionId+'\')">By functional currency &#8594;</button></div>'
+    +'</details>';
+}
+/* §9 — ONE ATTENTION BLOCK, only when there is something to do, in priority order and in
+   plain words. It replaces the six status pills a reader had to cross-read and the
+   "Not complete — …" sentence that listed every condition at once. */
+const RC_SRC_WORD={BANK_STATEMENT:'bank statement',PREPAID_SCHEDULE:'schedule',
+  GOVERNED_SCHEDULE:'schedule',FIXED_ASSET_REGISTER:'register'};
+function rcSumAttention(def,inst){
+  const a=inst.amounts, it=[];
+  if(!inst.population.settled) it.push('Account mapping is incomplete — the population is not settled.');
+  if(inst.reviewStatus==='returned') it.push('Returned by the reviewer — address the comments and resubmit.');
+  if(inst.reReviewRequired) it.push('Changed after sign-off — re-review required.');
+  (inst.missingSources||[]).forEach(s=>it.push('Required source not received: '+s.systemName+'.'));
+  (inst.changedSources||[]).filter(s=>s.required).forEach(s=>it.push(
+    (s.role==='PRIMARY_PROOF'?'Primary ':'Required ')+(RC_SRC_WORD[s.sourceType]||'subledger')
+    +' changed since it was last reviewed.'));
+  if(['incomplete','notstarted','stale','review'].indexOf(inst.supportStatus)>=0)
+    it.push('Support '+(RC_SUPPORT[inst.supportStatus]||{l:''}).l.toLowerCase()+' — '
+      +rcSupportFrac(def,inst.periodId,inst.reportingLensId)+' required items current.');
+  if(inst.tieStatus==='difference') it.push('Does not tie — out by '
+    +String(rcM(Math.abs(a.difference))).replace(/&[a-z]+;/g,'')+'.');
+  if(inst.movementStatus==='need') it.push('This month’s movement has not been reviewed.');
+  if(inst.overdue&&inst.due) it.push('Overdue — due '+perFromISO(inst.due)+'.');
+  if(!it.length) return inst.finalStatus==='certified'||inst.finalStatus==='complete'
+    ? '<div class="rcx-attn ok">Nothing needs attention.</div>' : '';
+  return '<div class="rcx-attn"><div class="h">Needs attention</div>'
+    +it.map(t=>'<div class="i">'+glEsc(t)+'</div>').join('')+'</div>';
 }
 
 /* ---- ROLL-FORWARD (§30). An Excel-like workpaper and nothing else: no chart, no decoration.
@@ -52572,16 +52673,10 @@ function rcProofSourceLink(def,inst){
   const word=sd.sourceType==='BANK_STATEMENT'?'bank statement'
     :sd.sourceType==='PREPAID_SCHEDULE'?'prepaid schedule'
     :sd.sourceType==='FIXED_ASSET_REGISTER'?'fixed asset register':'subledger';
-  return '<div class="amp-sec">Proof side</div>'
-    +'<div class="rcx-why">This tab is the GL population. The independent proof of the ending '
-    +'balance is the '+glEsc(word)+' &#8212; a different source, in a different system.</div>'
+  /* 2026-09-11 simplification §11 — the proof side is a heading and three routes, not a lesson */
+  return '<div class="amp-sec">Proof &#183; '+glEsc(word)+'</div>'
     +'<div class="amp-acts"><button class="btn-out sm" onclick="rcOpenDrill(\''+kind+'\',null,\''
-    +dId+'\')">View '+glEsc(word)+' &#8594;</button></div>'
-    /* §3 — the two LEDGER-LEVEL surfaces, reached with the same context object. They present
-       the source books and have no reporting lens of their own, so the link discloses that
-       rather than implying a statutory figure. */
-    +'<div class="amp-sec">Ledger surfaces</div>'
-    +'<div class="amp-acts">'
+    +dId+'\')">View '+glEsc(word)+' &#8594;</button>'
     +'<button class="btn-out sm" onclick="rcGoTrialBalance(\''+dId+'\')">Trial balance &#8594;</button>'
     +'<button class="btn-out sm" onclick="rcGoAccountActivity(\''+dId+'\')">Account activity &#8594;</button>'
     +'</div>';
@@ -52596,50 +52691,51 @@ function rcGoAccountActivity(defId){
   openAccountActivity(rcFinancialContext(def,inst,{sourceAccountId:sa}));
 }
 function rcActTab(def,inst){
-  const ap=inst.activityPopulation, p=inst.periodId;
+  const ap=inst.activityPopulation, p=inst.periodId, dId=def.reconciliationDefinitionId;
   const unm=rcUnmappedActivity(def,p), ver=rcPopVersion(def,p);
+  const fact=(l,v)=>'<div class="rcx-fig"><span class="l">'+l+'</span><span class="v">'+v+'</span></div>';
+  /* 2026-09-11 simplification §11 — ACTION FIRST. Five facts, then the three things a preparer
+     does with a population: look at it, or take a static extract of it. The identity and version
+     metadata an auditor may want is one click away under Details, not in the way. */
   return '<div class="amp-sec">'+glEsc(perLabel(p))+' GL detail</div>'
-    +'<div class="rcx-actv"><span class="v mono">'+(ap.amount>0?'+':'')+rcM(ap.amount)+'</span>'
-    +'<span class="l">GL activity &#183; '+ap.transactionCount.toLocaleString('en-US')
-    +' GL lines</span></div>'
-    /* 2026-09-11 reset §5, §6 — the population opens as GL detail, and downloads from here
-       without opening it: the accountant is never made to work only in the browser. Both
-       exports carry the governed manifest and refuse to write a file that does not foot. */
-    +'<div class="amp-acts"><button class="btn-primary sm" onclick="rcOpenGL(\''
-    +def.reconciliationDefinitionId+'\',\'txns\')">View GL detail &#8594;</button>'
-    +'<button class="btn-out sm" onclick="rcExport(\''+def.reconciliationDefinitionId
-    +'\',\'xls\')">Download Excel</button>'
-    +'<button class="btn-out sm" onclick="rcExport(\''+def.reconciliationDefinitionId
-    +'\',\'csv\')">Download CSV</button></div>'
+    +'<div class="rcx-figs sm">'
+    +fact('Amount','<span class="mono">'+(ap.amount>0?'+':'')+rcM(ap.amount)+'</span>')
+    +fact('Transactions','<span class="mono">'+ap.transactionCount.toLocaleString('en-US')+'</span>')
+    +fact('Source accounts','<span class="mono">'+(ap.accountCount||'&mdash;')+'</span>')
+    +fact('ERP instances','<span class="mono">'+(ap.erpInstanceCount||'&mdash;')+'</span>')
+    +fact('Data as of',glEsc(ap.dataAsOf))
+    +'</div>'
+    +'<div class="amp-acts"><button class="btn-primary sm" onclick="rcOpenGL(\''+dId
+    +'\',\'txns\')">View GL detail &#8594;</button>'
+    +'<button class="btn-out sm" onclick="rcExport(\''+dId+'\',\'xls\')">Download Excel</button>'
+    +'<button class="btn-out sm" onclick="rcExport(\''+dId+'\',\'csv\')">Download CSV</button></div>'
+    /* §16 — a download is a static extract; Open in Excel is the connected workpaper */
+    +'<div class="rcx-hint">Downloads are a static extract of this population, with its manifest. '
+    +'For the connected workpaper, use Open in Excel above.</div>'
+    /* §45 — STALE ACTIVITY IS NEVER SERVED IN SILENCE, and says so in a line */
+    +(ver.stale?'<div class="rcx-why warn"><b>Source changed.</b> New GL activity since this '
+      +'population was generated.<div class="amp-acts"><button class="btn-out sm" '
+      +'onclick="rcRefreshPopulation(\''+dId+'\')">Refresh reconciliation</button></div></div>':'')
+    +(unm.length?'<div class="rcx-why warn"><b>Unmapped activity.</b> '
+      +unm.map(u=>u.transactions.length.toLocaleString('en-US')+' transactions &#183; '
+        +rcM(u.amount)+' on '+glEsc(u.account.code)).join('; ')
+      +' — excluded until mapped.<div class="amp-acts"><button class="btn-out sm" '
+      +'onclick="rcGoMapping(\''+dId+'\',\''+unm[0].account.id+'\')">Review mapping &#8594;</button></div></div>':'')
+    +rcProofSourceLink(def,inst)
+    +'<details class="rcx-more"><summary>Details</summary>'
+    +rcRow('Population','<span class="mono">'+glEsc(ap.activityPopulationId)+'</span>')
+    +rcRow('Status','<span class="pill '+RC_POP_ST[ap.status].c+' sm">'+RC_POP_ST[ap.status].l+'</span>')
+    +rcRow('Mapping','v'+glEsc(ap.mappingVersion))
+    +rcRow('ERP systems',ap.erpSystems&&ap.erpSystems.length?ap.erpSystems.map(glEsc).join(' &#183; ')
+      :'<span class="amap-dim">&mdash;</span>')
     +rcRow('Source accounts',ap.accountCount
       ? ap.accountCount+' <span class="amap-dim">of '
         +fsReach(def.financialLineId,p).accounts.toLocaleString('en-US')+' across the estate</span>'
       : '<span class="amap-dim">none modelled for this population</span>')
-    +rcRow('Transactions',ap.transactionCount.toLocaleString('en-US'))
-    +rcRow('ERP instances',ap.erpInstanceCount
-      ? ap.erpInstanceCount+' <span class="amap-dim">'+ap.erpSystems.map(glEsc).join(' \u00b7 ')+'</span>'
-      : '<span class="amap-dim">&mdash;</span>')
-    +rcRow('Population','<span class="mono">'+glEsc(ap.activityPopulationId)+'</span>')
-    +rcRow('Status','<span class="pill '+RC_POP_ST[ap.status].c+' sm">'+RC_POP_ST[ap.status].l+'</span>')
-    +rcRow('Mapping','v'+glEsc(ap.mappingVersion))
-    +rcRow('Data as of',glEsc(ap.dataAsOf))
-    /* R3.1 §22 — the currency the population is stated in, and the currencies it holds */
-    +rcRow('Presentation currency',glEsc(inst.presentationCurrency)
-      +' <span class="amap-dim">set by the reporting lens</span>')
+    +rcRow('Presentation currency',glEsc(inst.presentationCurrency))
     +rcRow('Functional currencies',glEsc(inst.functionalCurrency))
-    /* §45 — STALE ACTIVITY IS NEVER SERVED IN SILENCE. */
-    +(ver.stale?'<div class="rcx-why warn"><b>Source changed.</b> New activity has been detected '
-      +'since this population was generated ('+glEsc(ver.sourceGLVersion)+' \u2192 '
-      +glEsc(ver.liveGLVersion)+'). The figures above are the population as it stood.'
-      +'<div class="amp-acts"><button class="btn-out sm" onclick="rcRefreshPopulation(\''
-      +def.reconciliationDefinitionId+'\')">Refresh reconciliation</button></div></div>':'')
-    +(unm.length?'<div class="rcx-why warn"><b>Unmapped activity.</b> '
-      +unm.map(u=>u.transactions.length.toLocaleString('en-US')+' transactions \u00b7 '
-        +rcM(u.amount)+' on '+glEsc(u.account.code)+' '+glEsc(u.account.name)).join('; ')
-      +' \u2014 excluded from the population and disclosed, never dropped in silence.'
-      +'<div class="amp-acts"><button class="btn-out sm" onclick="rcGoMapping(\''+def.reconciliationDefinitionId+'\',\''+unm[0].account.id+'\')">Review mapping &#8594;</button></div></div>':'')
     +rcPopDeltaHTML(def,inst)
-    +rcProofSourceLink(def,inst);
+    +'</details>';
 }
 /* §45 — a population that moved says so, with the mapping versions on either side. */
 function rcPopDeltaHTML(def,inst){
@@ -52741,10 +52837,9 @@ function rcSupTab(def,inst){
           +'<span class="w">'+glEsc(x.ev.description||'')+'</span></div>';}).join('')+'</div>'
     : '<div class="amp-empty">None attached.</div>';
   o+=rcAddSupPanel(def,inst);
-  o+='<div class="enr-immut">A support REQUIREMENT is not an attachment. Korvyn holds the '
-    +'governed populations itself, so nobody uploads a trial balance; what a preparer provides '
-    +'is the judgement a ledger cannot carry &#8212; a roll-forward, a schedule, an agreement '
-    +'&#8212; and each one records what it substantiates, not merely that it exists.</div>';
+  /* 2026-09-11 simplification §12 — one helper line in place of the support philosophy */
+  o+='<div class="rcx-hint">Required support proves the reconciliation; supplemental support '
+    +'adds context.</div>';
   return o;
 }
 
@@ -53049,12 +53144,16 @@ function rcRevTab(def,inst){
   const so=rcSignOff(inst.reconciliationInstanceId);
   const rr=rcRereviewState(def,inst);
   const due=def.due?perFromISO(def.due):'—';
+  /* 2026-09-11 simplification §13 — workflow policy ids, submission ids, fingerprints and
+     snapshot versions are collected here and shown once, under Details, not in the flow */
+  let tech='';
   let o=rcPeriodBanner();
 
   /* R5.7B §31 — what was reviewed, what the data says now, what moved. Above the control
      states because a reviewer returning to a live reconciliation asks this first. R6.1 — a
      pre-close block belongs to a period that IS pre-close; in history the review is over. */
-  if(rcPeriodActive()) o+=rcPreCloseBlock(def,inst);
+  /* 2026-09-11 simplification §13 — status first, then the path; the pre-close delta follows
+     the path (below), so the tab opens on where the review stands */
   /* ---- 1 · REVIEW STATUS. The six control dimensions stay six (§1). */
   o+='<div class="amp-sec">Review status</div>'
     +rcRow('Preparation',rcPill(RC_PREP,inst.preparationStatus))
@@ -53065,11 +53164,12 @@ function rcRevTab(def,inst){
         const o=rcOwnerOf(def,inst,'PREPARER'), a=o.a;
         const dl=o.id?KDELEGATIONS.filter(d=>d.delegatorUserId===o.id&&d.status==='ACTIVE'
           &&d.effectiveFrom<=RC_TODAY&&d.effectiveTo>=RC_TODAY):[];
-        return rcRow('Preparer',glEsc(o.nm)
+        /* the review path names the preparer; this row speaks only when there is more to say */
+        return ((a.override||a.conflict||dl.length)?rcRow('Preparer',glEsc(o.nm)
           +' <span class="amap-dim">'+glEsc(o.team?'team':rcTeam(def.ownerTeamId))+'</span>'
           +(a.override?' <span class="rcx-rr">'+glEsc(perLabel(inst.periodId))
             +' override</span>':'')
-          +(a.conflict?' <span class="rcx-rr">assignment conflict</span>':''))
+          +(a.conflict?' <span class="rcx-rr">assignment conflict</span>':'')):'')
         +(dl.length?rcRow('Delegated to',glEsc(rcPerson(dl[0].delegateUserId).nm)
           +' <span class="amap-dim">'+glEsc(dl[0].effectiveFrom)+' → '
           +glEsc(dl[0].effectiveTo)+' · owner unchanged</span>'):''); })()
@@ -53080,18 +53180,18 @@ function rcRevTab(def,inst){
      NOT erased and is repeated here in full. */
   if(rr&&rr.changed){
     o+='<div class="rcx-why warn"><b>Data changed after approval.</b> '
-      +'Previously approved '+glEsc(rr.signOff.certifiedAt)+' by '+glEsc(rr.signOff.certifiedBy)
-      +' · <span class="mono">'+glEsc(rr.was)+'</span>. '
-      +'Current <span class="mono">'+glEsc(rr.now)+'</span>.<br>Changed: '
+      +'Approved '+glEsc(rr.signOff.certifiedAt)+' by '+glEsc(rr.signOff.certifiedBy)
+      +'. Changed: '
       +glEsc([].concat(rr.keys.map(k=>k.label),
         rr.evidence.map(e=>e.title+' v'+e.was+' → v'+e.now)).join(' · '))
-      +'. The approval above remains the record of what was decided; this reconciliation now '
-      +'requires re-review.</div>';
+      +'. Re-review required.</div>';
+    tech+=rcRow('Approved package','<span class="mono">'+glEsc(rr.was)+'</span>')
+      +rcRow('Current package','<span class="mono">'+glEsc(rr.now)+'</span>');
   }
 
   /* ---- 2 · CURRENT STAGE. The chain, one compact row each. */
-  o+='<div class="amp-sec">Review workflow</div>'
-    +rcRow('Policy',glEsc(wf.name)+' <span class="amap-dim">'+glEsc(wf.reviewWorkflowId)
+  o+='<div class="amp-sec">Review path</div>';
+  tech+=rcRow('Policy',glEsc(wf.name)+' <span class="amap-dim">'+glEsc(wf.reviewWorkflowId)
       +' · v'+glEsc(wf.version)+'</span>')
     +rcRow('Independence',glEsc((RC_SOD[wf.segregationOfDutiesPolicy]||{l:'—'}).l));
   const decs=A.decisions||[];
@@ -53112,10 +53212,8 @@ function rcRevTab(def,inst){
             :'pending · '+glEsc(rcPerson(s.assignedUserId).nm))))+'</span></div>';
   });
   o+='</div>';
-  if(A.stage&&inst.reviewStatus==='inreview')
-    o+=rcRow('Current stage','Stage '+(A.index+1)+' of '+A.stages.length+' · '
-      +glEsc(rcStageLabel(A.stage))+' <span class="amap-dim">'
-      +glEsc(rcPerson(A.stage.assignedUserId).nm)+'</span>');
+  /* the path above already marks the active stage and who holds it */
+  if(rcPeriodActive()) o+=rcPreCloseBlock(def,inst);
 
   /* ---- 3 · READINESS. Blocking and warning, kept apart and both stated (§4, §5). */
   if(inst.reviewStatus!=='approved'){
@@ -53137,14 +53235,17 @@ function rcRevTab(def,inst){
   const sub=A.sub;
   if(sub){
     const drift=rcSubDrift(def,inst,sub);
-    o+='<div class="amp-sec">Review package</div>'
-      +rcRow('Submitted',glEsc(sub.submittedAt)+' <span class="amap-dim">by '
-        +glEsc(sub.submittedBy)+'</span>')
-      +rcRow('Submission','Cycle '+sub.submissionCycle+' · revision '+glEsc(sub.revision)
+    tech+=rcRow('Submission','Cycle '+sub.submissionCycle+' · revision '+glEsc(sub.revision)
         +' <span class="amap-dim">'+glEsc(sub.reviewSubmissionId)+'</span>')
       +rcRow('Package','<span class="mono">'+glEsc(sub.packageFingerprint||'—')+'</span>'
         +' <span class="amap-dim">governed sources '
         +glEsc(sub.reconciliationFingerprint)+'</span>')
+      +rcRow('Mapping','<span class="mono">v'+glEsc(sub.mappingVersion)+'</span>')
+      +rcRow('TB snapshot','<span class="mono">'+glEsc(sub.sourceTBVersion)+'</span>')
+      +rcRow('GL snapshot','<span class="mono">'+glEsc(sub.sourceGLVersion)+'</span>');
+    o+='<div class="amp-sec">Submitted package</div>'
+      +rcRow('Submitted',glEsc(sub.submittedAt)+' <span class="amap-dim">by '
+        +glEsc(sub.submittedBy)+' · cycle '+sub.submissionCycle+'</span>')
       +rcRow('Support',sub.supportPackage.filter(p=>p.stateAtSubmission==='current').length
         +' of '+sub.supportRequirementStatusSnapshot.length+' required current')
       +rcRow('Movement',glEsc((RC_MOVE[sub.movementReviewState]||{l:''}).l)
@@ -53152,12 +53253,6 @@ function rcRevTab(def,inst){
       +'<div class="rcx-pkg">'
       +sub.supportPackage.map(p=>'<div class="rcx-pk"><span class="n">'+glEsc(p.title)+'</span>'
         +'<span class="v">'+(p.generated?'system generated':'v'+p.version)+'</span></div>').join('')
-      +'<div class="rcx-pk"><span class="n">Mapping</span><span class="v mono">v'
-        +glEsc(sub.mappingVersion)+'</span></div>'
-      +'<div class="rcx-pk"><span class="n">TB snapshot</span><span class="v mono">'
-        +glEsc(sub.sourceTBVersion)+'</span></div>'
-      +'<div class="rcx-pk"><span class="n">GL snapshot</span><span class="v mono">'
-        +glEsc(sub.sourceGLVersion)+'</span></div>'
       +'</div>';
     if(sub.warningSnapshot.length)
       o+='<div class="rcx-why warn"><b>Submitted with '+sub.warningSnapshot.length+' warning'
@@ -53234,15 +53329,16 @@ function rcRevTab(def,inst){
       +rcRow('Certified by',glEsc(so.certifiedBy)+' <span class="amap-dim">'
         +glEsc(so.certifiedByRole)+'</span>')
       +rcRow('Certified',glEsc(so.certifiedAt))
-      +rcRow('Package','<span class="mono">'+glEsc(so.finalReviewSubmissionId)+'</span>'
-        +' · <span class="mono">'+glEsc(so.fingerprint)+'</span>')
       +rcRow('Decisions',so.reviewDecisionIds.length+' recorded')
       +rcRow('Status',rcPill({CERTIFIED:{l:'Certified',c:'good'},
         SUPERSEDED:{l:'Superseded',c:''},REVIEW_REQUIRED:{l:'Review required',c:'warn'}},
-        rr&&rr.changed?'REVIEW_REQUIRED':so.status))
-      +'<div class="rcx-jenote">Certification records that this exact governed package was '
-      +'accepted. It does not close the ERP and does not freeze the ledger.</div>';
+        rr&&rr.changed?'REVIEW_REQUIRED':so.status));
+    tech+=rcRow('Certified package','<span class="mono">'+glEsc(so.finalReviewSubmissionId)+'</span>'
+        +' · <span class="mono">'+glEsc(so.fingerprint)+'</span>')
+      +'<p>Certification records that this exact governed package was accepted. It does not '
+      +'close the ERP and does not freeze the ledger.</p>';
   }
+  if(tech) o+='<details class="rcx-more"><summary>Details</summary>'+tech+'</details>';
 
   /* ---- 7 · ACTIONS. Each one appears only where it can act (§27, and the product's own
      "no dead controls" rule): a preparer sees Submit, a reviewer sees Approve and Return, and
@@ -53399,7 +53495,7 @@ function rcTraceTab(def,inst){
     +' ERP system'+(ap.erpSystems.length===1?'':'s')
     +(rem.count?'<br>of which ERP remeasurement '+sgn(rem.amount)+' · '+rem.count
       +' posted journals · included in GL activity, not added again':''),
-    ["rcOpenActivity('"+dId+"')",'View activity']));
+    ["rcOpenGL('"+dId+"','txns')",'View GL detail']));
   if(!nil(a.classificationChange))
     nodes.push(node('Mapping / classification change',sgn(a.classificationChange),
       'mapping v'+glEsc(a.priorMappingVersion)+' → v'+glEsc(a.currentMappingVersion)
@@ -53484,10 +53580,32 @@ function rcTraceTab(def,inst){
     +rcRow('Fingerprint',mono(f.hash));
 
   const open=!!rcTraceOpen.lineage;
+  /* 2026-09-11 simplification §14 — THE FLOW FIRST, in five steps an accountant already uses:
+     where the number comes from, whether it reconciles, what supports it, who reviewed it, and
+     where it is used. Each step opens the surface that answers it. Provenance ids and the
+     technical lineage are one expander below, not fifteen rows in the way. */
+  const fstep=(k,v,go)=>'<div class="amp-tr-s'+(go?' go':'')+'"'+(go?' onclick="'+go+'"':'')+'>'
+    +'<span class="k">'+k+'</span><span class="v">'+v+'</span>'+(go?'<span class="ch">&#8250;</span>':'')+'</div>';
+  const farr='<div class="amp-tr-a">&#8595;</div>';
+  const flow='<div class="amp-sec">Flow</div><div class="amp-tr">'
+    +fstep('Source',ap.erpSystems.length+' ERP system'+(ap.erpSystems.length===1?'':'s')+' · '
+      +ap.transactionCount.toLocaleString('en-US')+' GL lines',"rcOpenGL('"+dId+"','txns')")+farr
+    +fstep('Reconciliation',(RC_TIE[inst.tieStatus]||{l:''}).l+' · ending '+rcM(a.endingCalculatedBalance),
+      "setRcTab('roll')")+farr
+    +fstep('Support',rcSupportFrac(def,p,inst.reportingLensId)+' required items current · '
+      +(RC_SUPPORT[inst.supportStatus]||{l:''}).l.toLowerCase(),"setRcTab('sup')")+farr
+    +fstep('Review',(RC_REVIEW[inst.reviewStatus]||{l:''}).l,"setRcTab('rev')")+farr
+    +'<div class="amp-tr-s"><span class="k">Used in</span><span class="v">'
+    +'<button class="rcx-lk2" onclick="rcGoFinancials(\''+dId+'\')">Financials &#8250;</button> '
+    +'<button class="rcx-lk2" onclick="rcGoFlux(\''+dId+'\')">Flux Review &#8250;</button> '
+    +'<button class="rcx-lk2" onclick="pickTab(\'acctclose\')">Close &#8250;</button> '
+    +'<button class="rcx-lk2" onclick="pickTab(\'audhist\')">Audit &#8250;</button></span></div>'
+    +'</div>';
   return '<div class="rcx-tracehd"><span>'+glEsc(def.name)+'</span>'
     +'<span class="amt">'+rcM(inst.trialBalanceAmount)+'</span>'
     +'<span class="amap-dim">'+glEsc(L.name)+' · '+glEsc(rcBasisLabel(L.reportingBasis))
     +' · '+glEsc(L.presentationCurrency)+'</span></div>'
+    +flow
     +rcMethodTrace(def,inst)
     +'<div class="amp-sec">How this balance is built</div>'
     +'<div class="amp-tr">'+nodes.join(down)+'</div>'
@@ -53499,11 +53617,15 @@ function rcTraceTab(def,inst){
        rather than behind "Show technical lineage". */
     +rcEvidenceTrace(def,inst)
     +rcReviewTrace(def,inst)
-    +'<div class="amp-sec">Provenance</div>'
+    /* the expander keeps its own open state across a repaint, so opening the lineage inside it
+       does not fold the section it lives in */
+    +'<details class="rcx-more"'+(rcTraceOpen.prov||open?' open':'')
+    +' ontoggle="rcTraceOpen.prov=this.open"><summary>Provenance and technical lineage</summary>'
     +prov
     +'<div class="amp-acts"><button class="rcx-prov-b" onclick="rcTraceTog(\'lineage\')">'
     +(open?'Hide':'Show')+' technical lineage '+(open?'&#9662;':'&#9656;')+'</button></div>'
-    +(open?rcTraceLineage(def,inst):'');
+    +(open?rcTraceLineage(def,inst):'')
+    +'</details>';
 }
 /* the R1/R2 chain, unchanged — every governed layer between the lens and the ERP */
 function rcTraceLineage(def,inst){
@@ -53648,6 +53770,21 @@ function RCFIELD(k){
       .map(m=>({id:m, nm:RC_METHODS[m].l,
         sub:RECON_DEFS.filter(d=>rcMethodId(d)===m).length+' reconciliations'}))),
     set:setRcMethod};
+  /* 2026-09-11 simplification §2 — the lower-frequency queues, each with its count */
+  if(k==='qvmore') return {nm:'More views', get:()=>rcQV,
+    opts:()=>{ const I=reconReadiness().instances;
+      return RC_QV_MORE.map(id=>{ const v=RC_QV.find(x=>x[0]===id);
+        return {id, nm:v[1], sub:I.filter(v[2]).length+' reconciliations'}; }); },
+    set:v=>{ KFX.popClose(); setRcQV(v); }};
+  /* §1 — Status and Reviewer, one menu in two sections, each ticked on its own */
+  if(k==='filters') return {nm:'Filters', get:()=>'',
+    opts:()=>[{hd:1,nm:'Status'},{id:'st:all',nm:'All statuses',on:rcStatusF==='all'}]
+      .concat(Object.keys(RC_FINAL).map(x=>({id:'st:'+x,nm:RC_FINAL[x].l,on:rcStatusF===x})))
+      .concat([{hd:1,nm:'Reviewer'},{id:'rv:all',nm:'All reviewers',on:rcReviewerF==='all'}])
+      .concat([...new Set(RECON_DEFS.flatMap(d=>d.reviewerUserIds||[]))].map(u=>({id:'rv:'+u,
+        nm:rcPerson(u).nm, sub:rcTeam(rcPerson(u).team), on:rcReviewerF===u}))),
+    set:v=>{ const x=String(v); if(x.indexOf('st:')===0) setRcStatus(x.slice(3));
+      else if(x.indexOf('rv:')===0) setRcReviewer(x.slice(3)); }};
   if(k==='status') return {nm:'Status', get:()=>rcStatusF,
     opts:()=>[{id:'all',nm:'All'}].concat(Object.keys(RC_FINAL).map(x=>({id:x,nm:RC_FINAL[x].l}))),
     set:setRcStatus};
@@ -54541,14 +54678,10 @@ function rcRenderActivity(el){
       ${rcCtrl('Population difference',Math.abs(ap.populationDifference)<0.0005?'&mdash;'
         :rcM(ap.populationDifference),Math.abs(ap.populationDifference)>=0.0005?'bad':'')}
     </div>
-    <div class="rcx-ctrl-n">${bnd.includedDatedPrior.length} transaction${bnd.includedDatedPrior.length===1?'':'s'}
-      dated before ${perLabel(p)} ${bnd.includedDatedPrior.length===1?'is':'are'} included because
-      ${bnd.includedDatedPrior.length===1?'it was':'they were'} posted to it
-      (${rcM(bnd.inAmt)}); ${bnd.excludedDatedHere.length} dated in ${perLabel(p)}
-      ${bnd.excludedDatedHere.length===1?'is':'are'} excluded because
-      ${bnd.excludedDatedHere.length===1?'it was':'they were'} posted to ${perLabel(bnd.nextPeriod)}
-      (net ${rcM(bnd.exAmt)}). The population resolves by <b>posting period</b>, never by document date.
-      <button class="fsx-link" onclick="setRcActTab('txns');rcActSetF('flag','prior-dated')">Show the prior-dated items &#8594;</button></div>
+    <div class="rcx-ctrl-n" title="The population resolves by posting period, never by document date.">
+      By posting period: ${bnd.includedDatedPrior.length} prior-dated included (${rcM(bnd.inAmt)}) ·
+      ${bnd.excludedDatedHere.length} posted to ${perLabel(bnd.nextPeriod)} excluded (net ${rcM(bnd.exAmt)}).
+      <button class="fsx-link" onclick="setRcActTab('txns');rcActSetF('flag','prior-dated')">Show prior-dated items &#8594;</button></div>
   </div>`;
 
   /* §42 — THE REPORTING ADJUSTMENT IS NOT GL ACTIVITY. It is a governed Korvyn overlay with

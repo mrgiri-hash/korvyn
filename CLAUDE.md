@@ -6457,6 +6457,68 @@ periods · 228/228 reconciliation panel tabs (38 × 6) · console clean · 4/4 g
 duplicate-class gate caught a double-declared `.xa-msg`; baselines unchanged) · FS-CIP 4,210.2 ·
 chronology 0 · the generic workspace's four seeded states still detect.
 
+## 2026-09-11 — Account Reconciliations: targeted UI simplification
+
+Owner's brief: presentation only — show what the accountant needs now, move detail behind
+progressive disclosure. **No accounting, architecture, navigation or capability changed**; every
+view, filter and field is still reachable.
+
+**THE LIST.**
+- **Seven primary queues** (`RC_QV_MAIN`): All · Assigned to me · Needs my review · Returned ·
+  Re-review required · **Exceptions** · Certified. My team's work, Ready for review, Untied,
+  Support exceptions and Overdue move to a **More** menu with counts (`RC_QV_MORE`,
+  `RCFIELD('qvmore')`).
+- **Exceptions** (`rcIsException`) means something is wrong with the reconciliation itself: it
+  doesn't tie or its population is unsettled, support is missing or stale, or a required source
+  is missing or changed. Overdue is a schedule state and stays its own view.
+- **Status and Reviewer are one Filters menu** (`RCFIELD('filters')`). The shared popover
+  renderer gained two small abilities: a row with `hd:1` renders a section heading, and a row
+  may state its own tick with `on`, so one menu can hold two independent selections.
+- **The summary is four figures** (required · exceptions · in review · approved), with
+  **Breakdown** revealing the rest as filters. The **banner is one line**. The "N open" chip is
+  gone.
+- **ONE STATUS ON A ROW** (`rcRowFlags`), by priority: incomplete mapping > returned > re-review
+  > missing or changed source > missing support > difference > contested > overdue. It shows as
+  a sentence-case word, not a pill, with "+N" and the rest in the name's title. The method tag
+  (SCHEDULE, SUBLEDGER…) moves to the title too. In the Tie and Review columns **healthy states
+  are grey words** (`rcListSt`, `.rcx-okst`); only problems keep a pill. **Section rows are a
+  quiet muted label**, not a band.
+- **The role's default queue is applied before the tabs are drawn.** It ran inside the row
+  builder, after them, so the first paint highlighted All over a table filtered to Needs my
+  review. That predates this pass.
+- The control row **wraps**. With the panel open it used to scroll sideways and hide search
+  and filters.
+
+**THE PANEL.** Same six tabs, each focused, nothing duplicated across them.
+- **Summary** (`rcSumTab`): balance bridge → **Needs attention** (`rcSumAttention`, plain words,
+  priority order, only when something is wrong) → movement → proof bridge → Status (Tie · Method
+  · Review · Overall · Due). The eleven context rows sit behind **Details**. The Sources strip
+  lives on Roll-forward only.
+- **Roll-forward** for the non-balance methods leads with the roll-forward. Sources follow, and
+  `.rcx-jenote` methodology notes collect under **Why this reconciliation works**.
+- **GL Detail**: five facts, View GL detail · Download Excel · Download CSV, and one line saying
+  a download is a static extract while Open in Excel is the connected workpaper. Population ID,
+  versions, currencies and the population change sit behind Details.
+- **Support** ends in one helper line, not the support philosophy.
+- **Review**: status → review path → pre-close delta → readiness → submitted package. Policy
+  IDs, submission IDs, fingerprints and snapshot versions collect in one Details (`tech`). The
+  redundant Preparer and Current-stage rows go.
+- **Trace** opens on a **Flow**: Source → Reconciliation → Support → Review → Used in
+  (Financials · Flux Review · Close · Audit). Provenance and technical lineage are one expander
+  that keeps its open state across a repaint (`rcTraceOpen.prov`). The separate "Where this is
+  used" section is gone.
+
+**Method descriptions and explanatory notes became hover titles or one-line helpers
+(`.rcx-hint`)**, not paragraphs. Expanders are native `<details class="rcx-more">`.
+
+**A testing trap worth keeping.** Content inside a closed `<details>` still reports an
+`offsetParent` and a layout height in this Chrome (it hides with `content-visibility`), so "is
+this text visible" cannot be answered that way. Check the expander's `open` state, or look.
+
+**Verified:** 204/204 view renders across three periods · 456 panel-tab combinations (38 × 6,
+monthly and full-year) · 40 drill-down canvas tabs · every queue view filters · console clean ·
+4/4 gates (baselines unchanged) · FS-CIP 4,210.2 · chronology 0.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
