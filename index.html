@@ -10114,7 +10114,6 @@ body.xl-focus .xl-grid-wrap{max-height:400px}
   font-weight:var(--fw-medium);cursor:pointer;font-family:var(--sans)}
 .xl-grid td.u-t{font-family:var(--sans);font-weight:var(--fw-medium);color:var(--ink-strong)}
 .xl-grid td.u-n{font-family:var(--sans);color:var(--muted)}
-.xl-grid td.u-f{color:var(--accent-2);font-size:var(--fs-label)}
 .xl-grid td.et{border-top:2px solid var(--accent)}
 .xl-grid td.eb{border-bottom:2px solid var(--accent)}
 .xl-grid td.el{border-left:2px solid var(--accent)}
@@ -10303,13 +10302,46 @@ a.xl-act{text-decoration:none}
 .xl-bigopts .m{grid-row:1;grid-column:2;font-size:var(--fs-label);color:var(--hint)}
 .xl-bigft{padding:0 var(--s-4) var(--s-4)}
 /* a subtotal rule and a drillable amount, both the way a workpaper draws them */
-.xl-grid td.rule{border-top:1px solid var(--border-strong)}
+.xl-grid td.rule{border-top:1px solid var(--muted)}
 .xl-grid td.dr{cursor:pointer}
 .xl-grid td.dr:hover{background:var(--accent-bg);color:var(--accent-ink)}
 /* Excel lets a label spill into empty neighbouring cells; a fixed grid that clips its own
    workpaper header does not. */
 .xl-grid td.u-t,.xl-grid td.u-n{overflow:visible}
 body.xl-focus .xl-grid-wrap{max-height:470px}
+/* A LABEL IS A WORD, A FIGURE IS A FIGURE (rule 14). The grid takes the figure face as its
+   default, so every connected label — "Beginning balance · May 31, 2026" — rendered in mono,
+   which is the raw-grid look a workpaper must not have. Words are sans; amounts, dates and
+   identifiers keep the figure face. */
+.xl-grid td.k{font-family:var(--sans)}
+.xl-grid td.k.num,.xl-grid td.k.xid{font-family:var(--num)}
+/* subtotal rows outrank detail rows (rule 10): the rule above them is a real rule, and the
+   row reads one weight heavier */
+.xl-grid td.k.rule{font-weight:var(--fw-medium);color:var(--ink-strong)}
+/* a formula of yours shows its result, as Excel does; the formula is on the cell and in the
+   bar above the sheet */
+.xl-grid td.u-f{color:var(--ink);font-size:var(--fs-table);font-family:var(--sans)}
+.xl-grid td.u-f.num{font-family:var(--num);text-align:right}
+.xl-grid td.fxon{outline:2px solid var(--accent);outline-offset:-2px}
+.xl-fxbar{display:flex;align-items:center;gap:var(--s-2);height:var(--h-btn-sm);
+  padding:0 var(--s-3);border-bottom:1px solid var(--line);background:var(--surface);
+  font-size:var(--fs-table)}
+.xl-fxbar .ad{min-width:56px;padding-right:var(--s-2);border-right:1px solid var(--line);
+  font-family:var(--num);color:var(--muted)}
+.xl-fxbar .fx{font-style:italic;color:var(--hint)}
+.xl-fxbar .fv{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--num);color:var(--ink)}
+.xl-fxbar .fv .h{font-family:var(--sans);color:var(--hint)}
+.xl-fxbar .fv .ro{font-family:var(--sans);color:var(--muted);margin-left:var(--s-2)}
+.xl-done{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
+  border-bottom:1px solid var(--line);border-left:3px solid var(--pos);background:var(--surface2);
+  font-size:var(--fs-label);color:var(--ink)}
+.xl-done.bad{border-left-color:var(--warning)}
+.xl-done .t b{font-weight:var(--fw-medium)}
+.xl-done .grow{flex:1}
+.xl-x{margin-left:auto;height:var(--h-chip);width:var(--h-chip);border:0;background:none;
+  color:var(--muted);font:inherit;cursor:pointer}
+.xl-x:hover{color:var(--ink)}
 </style>
 </head>
 <body data-theme="light" class="copilot-collapsed fx-mercury">
@@ -35368,6 +35400,7 @@ function xlResolve(spec){
       ];
       return {cols:['Roll-forward component','Ref',c.periodLabel+' ('+c.presentationCurrency+'m)'],
         rows:L.map(x=>[x.l,x.ref,x.v]), meta:L, widths:[300,66,142], dp:[0,0,1],
+        mono:[false,true,false],
         kind:'rollforward', instance:i};
     }
     /* THE DETAIL BEHIND ONE CONNECTED AMOUNT (§3, §4). Two shapes, because two kinds of
@@ -35380,7 +35413,7 @@ function xlResolve(spec){
         spec.strategy);
       if(!D) return null;
       return {cols:D.cols, rows:D.rows, widths:D.widths, dp:D.dp, meta:D.meta,
-        kind:'gldetail', detail:D};
+        mono:D.mono||null, kind:'gldetail', detail:D};
     }
     if(t==='RECON_ACT'||t==='GL_POP'){
       /* THE WORKPAPER MODE (§16). Korvyn supplies the governed SUMMARY \u2014 vendor x project x
@@ -35529,25 +35562,31 @@ const XL_POP_SCALE=13200;
    rates would be fabricating a journal that does not exist, which is the one thing this
    module refuses everywhere else.                                                            */
 
-/* THE 16 GOVERNED FIELDS a GL line carries in this model, named ONCE — the sheet, the column
-   widths, the ERP link and the export all read this list rather than four copies of it. */
+/* THE 19 GOVERNED FIELDS a GL line carries in this model, named ONCE — the sheet, the column
+   widths, the ERP link and the export all read this list rather than four copies of it.
+   `m` marks an identifier or a date: those take the figure face (rule 14), words do not.
+   The Analysis sheet addresses this layout by column letter — H vendor, J type, N net amount,
+   R ERP source — so a reorder here must move those formulas with it. */
 const XL_GL_FIELDS=[
-  {k:'postingDate',        l:'Posting date',  w:100},
-  {k:'entityName',         l:'Entity',        w:158},
-  {k:'glAccountNumber',    l:'GL account',    w:88},
-  {k:'glAccountName',      l:'Account name',  w:158},
-  {k:'journalNumber',      l:'Journal',       w:96},
-  {k:'journalLineNumber',  l:'Line',          w:46,  n:1, dp:0},
-  {k:'documentNumber',     l:'Document',      w:110},
-  {k:'vendorName',         l:'Vendor',        w:168},
-  {k:'projectName',        l:'Project',       w:128},
-  {k:'typeLabel',          l:'Type',          w:130},
-  {k:'memo',               l:'Memo',          w:250},
-  {k:'debit',              l:'Debit',         w:90,  n:1, dp:3},
-  {k:'credit',             l:'Credit',        w:90,  n:1, dp:3},
-  {k:'transactionCurrency',l:'Ccy',           w:54},
-  {k:'reportingAmount',    l:'Amount',        w:98,  n:1, dp:3},
-  {k:'erpInstanceName',    l:'ERP source',    w:196},
+  {k:'postingDate',        l:'Posting date',       w:100, m:1},
+  {k:'entityName',         l:'Entity',             w:158},
+  {k:'glAccountNumber',    l:'GL account',         w:88,  m:1},
+  {k:'glAccountName',      l:'Account name',       w:190},
+  {k:'journalNumber',      l:'JE number',          w:100, m:1},
+  {k:'journalLineNumber',  l:'Journal line',       w:84,  n:1, dp:0},
+  {k:'documentNumber',     l:'Document',           w:110, m:1},
+  {k:'vendorName',         l:'Vendor',             w:168},
+  {k:'projectName',        l:'Project / property', w:140},
+  {k:'typeLabel',          l:'Type',               w:130},
+  {k:'memo',               l:'Memo / description', w:250},
+  {k:'debit',              l:'Debit',              w:90,  n:1, dp:3},
+  {k:'credit',             l:'Credit',             w:90,  n:1, dp:3},
+  {k:'reportingAmount',    l:'Net amount',         w:120, n:1, dp:3},
+  {k:'transactionCurrency',l:'Transaction ccy',    w:110, m:1},
+  {k:'functionalCurrency', l:'Functional ccy',     w:104, m:1},
+  {k:'reportingCurrency',  l:'Reporting ccy',      w:100, m:1},
+  {k:'erpInstanceName',    l:'ERP / source system',w:220},
+  {k:'sourceTransactionId',l:'ERP reference',      w:190, m:1},
 ];
 
 /* the roll-forward's own components, keyed by the Ref printed on the face of the workpaper */
@@ -35654,6 +35693,8 @@ function xlGlDetail(defId,k,comp,scope,strategy){
     return {kind:'tx', component:comp, componentLabel:C.l, ref:C.ref,
       cols:XL_GL_FIELDS.map(f=>f.k==='reportingAmount'?f.l+' ('+ccy+'m)':f.l),
       widths:XL_GL_FIELDS.map(f=>f.w), dp:XL_GL_FIELDS.map(f=>f.dp==null?3:f.dp),
+      mono:XL_GL_FIELDS.map(f=>!!f.m),
+      posted:all.filter(t=>t.postClose),
       rows, txs:all, total, sum, foots:Math.abs(sum-total)<=0.0005,
       sampled:(strat==='sample'&&all.length<full),
       count:all.length, accounts:rcPopulation(def,k).sourceAccountIds.length,
@@ -35694,7 +35735,11 @@ function xlStructureFp(spec){
     reportingLensId:c.reportingLensId, scopeId:c.scopeId,
     mappingVersion:a.mappingVersion||'', hierarchyVersion:a.hierarchyVersion||'',
     statementVersion:a.statementVersion||'',
-    columns:r?r.cols.join('|'):'', rowCount:r?r.rows.length:0};
+    /* A NEW TRANSACTION IS A DATA CHANGE (§12), so a transaction population's row count is
+       not part of its shape. Counted here, one ERP posting turned the GL Detail range
+       "Structure changed" and the workbook's refresh was refused for it. */
+    columns:r?r.cols.join('|'):'',
+    rowCount:(r&&r.detail&&r.detail.kind==='tx')?0:(r?r.rows.length:0)};
   fp.hash=(typeof rcFpHash==='function')?rcFpHash(fp):'';
   return fp;
 }
@@ -35712,6 +35757,13 @@ const xlBook=id=>XL_WORKBOOKS.find(w=>w.workbookId===id)||null;
 const xlObj=id=>XL_OBJECTS.find(o=>o.connectedObjectId===id)||null;
 const xlObjectsIn=wbId=>XL_OBJECTS.filter(o=>o.workbookId===wbId);
 const xlArtifactsFor=wbId=>XL_ARTIFACTS.filter(a=>a.workbookId===wbId);
+/* WHAT THE WORKBOOK HOLDS, as distinct from what Korvyn says now. A connected range shows the
+   values of its last insert or refresh; the fingerprints and the delta compare those against
+   the live resolution. Drawing the sheet from a live resolve meant a source posting moved the
+   figure the instant it landed, so Refresh "confirmed" a change the sheet had already shown
+   and there was no before and after to review. An object with nothing held (a range created
+   before this existed) falls back to the live resolution, exactly as before. */
+function xlHeld(o){ return (o&&o.held)||(o?xlResolve(xlSpecOf(o)):null); }
 
 /* §27 — the governed interaction log. Inserts, refreshes, traces and publications, and
    deliberately NOT every formatting action a user takes in their own spreadsheet. */
@@ -35776,6 +35828,7 @@ function xlInsert(spec){
     createdAt:(typeof rcNowStamp==='function')?rcNowStamp():'',
     createdBy:(typeof rcMe==='function')?rcMe().nm:'',
   };
+  o.held=xlResolve(xlSpecOf(o));
   XL_OBJECTS.push(o);
   xlEvent('INSERT',o,{queryDefinitionId:o.queryDefinitionId, strategy:o.strategy,
     rows:o.rowCount});
@@ -35840,6 +35893,7 @@ function xlRefresh(objId,opts){
   const st=xlStructureFp(spec), dt=xlDataFp(spec), r=xlResolve(spec);
   o.sourceStructureFp=st.hash; o.sourceDataFp=dt.hash; o.rowCount=dt.rowCount;
   o.columns=r?r.cols.slice():o.columns;
+  o.held=r||o.held;
   o.sourceSnapshot=xlSnapshot(spec);
   o.mappingVersion=st.mappingVersion||o.mappingVersion;
   o.hierarchyVersion=st.hierarchyVersion||o.hierarchyVersion;
@@ -35924,7 +35978,7 @@ function xlTrace(objId,rowIdx){
    a governed figure: an artifact REFERENCES the objects it was built from and carries their
    versions, which is what makes staleness detectable later. */
 const XL_PURPOSES={
-  RECON_SUPPORT:{l:'Reconciliation support', target:'Reconciliation'},
+  RECON_SUPPORT:{l:'Supporting analysis',    target:'Reconciliation'},
   REVIEW_ANALYSIS:{l:'Review analysis',      target:'Flux Review'},
   RPT_SCHEDULE:{l:'Reporting schedule',      target:'Management Reporting Package'},
   AUDIT_WP:{l:'Audit workpaper',             target:'Audit package'},
@@ -36122,7 +36176,10 @@ function xlSnapshot(spec){
         r.rows.forEach(row=>{ const v=row[row.length-1];
           if(typeof v==='number') s.values[String(row[0]).trim()]=v; });
       }
-      s.net=r?+r.rows.reduce((a,row)=>{
+      /* a roll-forward's column is a bridge, not a list: summing it counts one posting three
+         times (activity, ending, trial balance). Its change is stated line by line instead. */
+      s.kind=r?r.kind:'';
+      s.net=(r&&r.kind!=='rollforward')?+r.rows.reduce((a,row)=>{
         const v=row[row.length-1]; return a+(typeof v==='number'?v:0); },0).toFixed(3):0;
     }
   }catch(e){}
@@ -36169,6 +36226,15 @@ function xlDelta(o){
     const size=Math.max(Math.abs(d.net), d.grossMoved||0);
     d.impact=(bar!=null&&size>=bar)?XL_IMPACT.MATERIAL
       :(size>0.0005?XL_IMPACT.REVIEW:XL_IMPACT.IMMATERIAL);
+  }
+  /* a roll-forward names the lines that moved, in its own words — "GL activity +$14.2M" is
+     what the accountant is checking; "3 lines changed" makes them open the detail to find out */
+  if(now.kind==='rollforward'){
+    const big=d.lines.filter(x=>Math.abs(x.d)>=0.05);
+    d.summary=big.map(x=>String(x.k).split(' · ')[0]+' '+(x.d>0?'+':'')+fsM(x.d));
+    if(!d.summary.length&&d.lines.length) d.summary=[d.lines.length+' line'
+      +(d.lines.length===1?'':'s')+' changed below display precision'];
+    return d;
   }
   d.summary=[
     d.txCount?(d.txCount>0?'+':'')+d.txCount.toLocaleString('en-US')+' transactions':'',
@@ -36563,17 +36629,19 @@ function xlReconSheet(defId,k){
   const def=(typeof rcDef==='function')?rcDef(defId):null;
   const c=xlContext(), R0=XL_RECON_R0, RN=R0+9;  // block header, then nine components
   const tol=def?rcTolOf(def):0.5;
+  /* §2 — the four lines an accountant reads before the first figure: what it is, the period,
+     the basis it is stated on, and that it is connected. The lens name, not the scope chip:
+     "Corporate Consolidated · US GAAP · USD" is the basis the figures are stated on. */
   const u=[
-    {r:1,c:0,v:(def?def.name:defId)+' — reconciliation workpaper',cls:'u-t'},
-    {r:2,c:0,v:c.scopeName+' · '+c.periodLabel+' · '+c.basisLabel+' · '
+    {r:1,c:0,v:(def?def.name:defId)+' Reconciliation',cls:'u-t'},
+    {r:2,c:0,v:c.periodLabel,cls:'u-n'},
+    {r:3,c:0,v:c.reportingLensName+' · '+c.basisLabel+' · '
       +c.presentationCurrency+' in millions',cls:'u-n'},
-    {r:3,c:0,v:'Prepared by '+((typeof rcMe==='function')?rcMe().nm:'')+' · W/P ref '
-      +defId+'-'+k,cls:'u-n'},
-    {r:4,c:0,v:'Source: Korvyn governed reconciliation · connected and refreshable · '
-      +'double-click any amount for its GL detail',cls:'u-n'},
+    {r:4,c:0,v:'Korvyn connected · prepared by '+((typeof rcMe==='function')?rcMe().nm:'')
+      +' · W/P ref '+defId+'-'+k,cls:'u-n'},
     {r:RN+2,c:0,v:'Tie-out',cls:'u-t'},
     {r:RN+3,c:0,v:'Calculated ending less trial balance',cls:'u'},
-    {r:RN+3,c:2,v:'=C'+(R0+7)+'-C'+(R0+8),cls:'u-f'},
+    {r:RN+3,c:2,v:'=C'+(R0+7)+'-C'+(R0+8),cls:'u-f',fmt:'n1'},
     {r:RN+4,c:0,v:'Tolerance (governed policy)',cls:'u'},
     {r:RN+4,c:2,v:xlCell(tol,2),cls:'u num'},
     {r:RN+5,c:0,v:'Conclusion',cls:'u'},
@@ -36607,7 +36675,7 @@ function xlAnalysisSheet(defId,periodK){
   const g=cur.filter(x=>x.vendor&&x.vendor!=='—').slice(0,10);
   const def=(typeof rcDef==='function')?rcDef(defId):null;
   const tol=def?rcTolOf(def):0.5;
-  const SCR=0.25;                                  // the preparer's own scrutiny threshold
+  const SCR=0.5;                                   // the preparer's own scrutiny threshold
   const H=['Vendor','Project','Classification',perLabel(periodK),perLabel(prev),'Variance',
     'Var %','Review?','ERP source (XLOOKUP)','My adjustment','Notes'];
   const u=[
@@ -36616,25 +36684,40 @@ function xlAnalysisSheet(defId,periodK){
       +'this one is mine and survives a refresh.',cls:'u-n'},
   ];
   H.forEach((h,i)=>u.push({r:4,c:i,v:h,cls:'u-h'}));
-  const CLS=['Capital','Capital','Capital','Expense','Capital','Capital','Expense','Capital',
-    'Capital','Expense'];
-  const NOTE=['Switchgear — placed in service Jul','Chiller package — in progress',
-    'Structural — capitalise','Commissioning labour — review',
-    'Distribution boards','Generator pad works','Site supervision — review',
-    'Cable containment','Busway sections','Testing and balancing — review'];
-  g.forEach((x,i)=>{ const r=5+i, p=was[x.vendor+'|'+x.project]||0;
+  /* the preparer's judgement, KEYED BY VENDOR — what the vendor supplies decides whether it is
+     capital and what the note says. Keyed by row position, a cooling vendor carried a
+     switchgear note and the classification moved whenever the population re-ranked. An
+     expense line's adjustment is the reclass of that line out of CIP, i.e. its own activity. */
+  const JUDGE={
+    'Munters Cooling':['Capital','Chiller package — in progress'],
+    'Vertiv Systems':['Capital','UPS modules — delivered, not yet installed'],
+    'Turner Construction':['Capital','Structural works — capitalise'],
+    'Sterling Mechanical Group':['Expense','Commissioning labour — reclass to opex'],
+    'ABB Switchgear':['Capital','Switchgear — placed in service Jul'],
+    'Schneider Electric':['Capital','Busway sections'],
+    'Dominion Power Systems':['Capital','Utility interconnect'],
+    'Caterpillar Power':['Capital','Generator sets — site acceptance pending'],
+    'Siemens Energy':['Capital','Transformer package'],
+    'Cushman Facility Services':['Expense','Site services — reclass to opex'],
+  };
+  const jd=v=>JUDGE[v]||['Capital',''];
+  g.forEach((x,i)=>{ const r=5+i, p=was[x.vendor+'|'+x.project]||0, J=jd(x.vendor);
     u.push(
       {r,c:0,v:x.vendor,cls:'u'},
       {r,c:1,v:x.project,cls:'u'},
-      {r,c:2,v:CLS[i]||'Capital',cls:'u'},
+      {r,c:2,v:J[0],cls:'u'},
       {r,c:3,v:xlCell(x.net,3),cls:'u num'},
       {r,c:4,v:xlCell(+p.toFixed(3),3),cls:'u num'},
       {r,c:5,v:'=D'+r+'-E'+r,cls:'u-f'},
-      {r,c:6,v:'=IFERROR(F'+r+'/ABS(E'+r+'),"n/a")',cls:'u-f'},
-      {r,c:7,v:'=IF(ABS(F'+r+')>=$D$'+(4+g.length+4)+',"Review","")',cls:'u-f'},
-      {r,c:8,v:"=XLOOKUP($A"+r+",'GL Detail'!$H:$H,'GL Detail'!$P:$P,\"—\")",cls:'u-f'},
-      {r,c:9,v:(CLS[i]==='Expense')?xlCell(-(0.1+i*0.05),3):'',cls:'u num'},
-      {r,c:10,v:NOTE[i]||'',cls:'u'}); });
+      /* a line with no prior-month activity is NEW, not an error; and the flag is materiality
+         — this month's activity against the preparer's threshold — because keyed on the
+         variance it flagged every new line, which is every line in a month the population
+         grew, and a flag on everything is a flag on nothing */
+      {r,c:6,v:'=IFERROR(F'+r+'/ABS(E'+r+'),"New")',cls:'u-f',fmt:'pct'},
+      {r,c:7,v:'=IF(ABS(D'+r+')>=$D$'+(4+g.length+4)+',"Review","")',cls:'u-f'},
+      {r,c:8,v:"=XLOOKUP($A"+r+",'GL Detail'!$H:$H,'GL Detail'!$R:$R,\"—\")",cls:'u-f'},
+      {r,c:9,v:(J[0]==='Expense')?xlCell(-x.net,3):'',cls:'u num'},
+      {r,c:10,v:J[1],cls:'u'}); });
   const last=4+g.length, T=last+1, SCRR=T+3;
   u.push({r:T,c:0,v:'Total analysed',cls:'u-t'},
     {r:T,c:3,v:'=SUM(D5:D'+last+')',cls:'u-f'},
@@ -36647,15 +36730,15 @@ function xlAnalysisSheet(defId,periodK){
   u.push({r:T+3,c:0,v:'My scrutiny threshold',cls:'u'},
     {r:T+3,c:3,v:xlCell(SCR,2),cls:'u num'});
   u.push({r:T+4,c:0,v:'Lines flagged for review',cls:'u'},
-    {r:T+4,c:3,v:'=COUNTIF(H5:H'+last+',"Review")',cls:'u-f'});
+    {r:T+4,c:3,v:'=COUNTIF(H5:H'+last+',"Review")',cls:'u-f',fmt:'int'});
   /* the two ties that make this schedule support rather than commentary */
   u.push({r:T+6,c:0,v:'Ties',cls:'u-t'});
   u.push({r:T+7,c:0,v:'Unanalysed remainder of GL activity',cls:'u'},
     {r:T+7,c:3,v:"='Reconciliation'!C"+XL_RECON_ROW.act+"-D"+T,cls:'u-f'});
   u.push({r:T+8,c:0,v:'Analysed share of GL activity',cls:'u'},
-    {r:T+8,c:3,v:"=D"+T+"/'Reconciliation'!C"+XL_RECON_ROW.act,cls:'u-f'});
+    {r:T+8,c:3,v:"=D"+T+"/'Reconciliation'!C"+XL_RECON_ROW.act,cls:'u-f',fmt:'pct'});
   u.push({r:T+9,c:0,v:'Vendor-invoice activity per GL Detail',cls:'u'},
-    {r:T+9,c:3,v:"=SUMIFS('GL Detail'!$O:$O,'GL Detail'!$J:$J,\"Vendor invoice\")",cls:'u-f'});
+    {r:T+9,c:3,v:"=SUMIFS('GL Detail'!$N:$N,'GL Detail'!$J:$J,\"Vendor invoice\")",cls:'u-f'});
   /* §6 — A PIVOT SUMMARY, built the way an accountant builds one: SUMIFS over the schedule
      above rather than a second copy of the data. */
   const P0=T+11;                                   // the classification pivot's title row
@@ -36666,11 +36749,11 @@ function xlAnalysisSheet(defId,periodK){
     u.push({r,c:0,v:cl,cls:'u'},
       {r,c:1,v:'=SUMIFS($D$5:$D$'+last+',$C$5:$C$'+last+',$A'+r+')',cls:'u-f'},
       {r,c:2,v:'=SUMIFS($J$5:$J$'+last+',$C$5:$C$'+last+',$A'+r+')',cls:'u-f'},
-      {r,c:3,v:'=COUNTIFS($C$5:$C$'+last+',$A'+r+')',cls:'u-f'}); });
+      {r,c:3,v:'=COUNTIFS($C$5:$C$'+last+',$A'+r+')',cls:'u-f',fmt:'int'}); });
   u.push({r:P0+4,c:0,v:'Total',cls:'u-t'},
     {r:P0+4,c:1,v:'=SUM(B'+(P0+2)+':B'+(P0+3)+')',cls:'u-f'},
     {r:P0+4,c:2,v:'=SUM(C'+(P0+2)+':C'+(P0+3)+')',cls:'u-f'},
-    {r:P0+4,c:3,v:'=SUM(D'+(P0+2)+':D'+(P0+3)+')',cls:'u-f'});
+    {r:P0+4,c:3,v:'=SUM(D'+(P0+2)+':D'+(P0+3)+')',cls:'u-f',fmt:'int'});
   const P1=P0+6;                                   // and the project pivot below it
   u.push({r:P1,c:0,v:'Summary by project',cls:'u-t'});
   ['Project','Amount','Count','Share'].forEach((h,i)=>u.push({r:P1+1,c:i,v:h,cls:'u-h'}));
@@ -36678,8 +36761,8 @@ function xlAnalysisSheet(defId,periodK){
   prj.slice(0,5).forEach((p,i)=>{ const r=P1+2+i;
     u.push({r,c:0,v:p,cls:'u'},
       {r,c:1,v:'=SUMIFS($D$5:$D$'+last+',$B$5:$B$'+last+',$A'+r+')',cls:'u-f'},
-      {r,c:2,v:'=COUNTIFS($B$5:$B$'+last+',$A'+r+')',cls:'u-f'},
-      {r,c:3,v:'=IFERROR(B'+r+'/$D$'+T+',"")',cls:'u-f'}); });
+      {r,c:2,v:'=COUNTIFS($B$5:$B$'+last+',$A'+r+')',cls:'u-f',fmt:'int'},
+      {r,c:3,v:'=IFERROR(B'+r+'/$D$'+T+',"")',cls:'u-f',fmt:'pct'}); });
   u.push({r:P1+2+Math.min(5,prj.length)+1,c:0,
     v:'Prepared from the governed population on the GL Detail sheet. Amounts are '
       +'USD millions.',cls:'u-n'});
@@ -36689,14 +36772,14 @@ const XL_ANALYSIS_W=[242,132,110,104,104,96,74,86,180,110,220];
 const XL_RECON_W=[300,66,142,150,150,150];
 
 /* §1 — OPEN. One workbook per reconciliation, reused rather than multiplied. */
-function xlOpenRecon(defId,ev){
+function xlOpenRecon(defId,ev,sheetName){
   if(ev&&ev.stopPropagation) ev.stopPropagation();
   const def=(typeof rcDef==='function')?rcDef(defId):null;
   const k=viewPeriod();
   const id=XL_FOCUS_PREFIX+defId;
   let wb=xlBook(id);
   if(!wb){
-    wb={workbookId:id, name:(def?def.name:defId)+' Reconciliation.xlsx',
+    wb={workbookId:id, name:(def?def.name:defId)+' Analysis.xlsx',
       owner:(typeof rcMe==='function')?rcMe().nm:'',
       sheets:[{id:id+'-S1',name:'Reconciliation',user:xlReconSheet(defId,k),widths:XL_RECON_W},
               {id:id+'-S2',name:'Analysis',user:xlAnalysisSheet(defId,k),widths:XL_ANALYSIS_W},
@@ -36712,9 +36795,10 @@ function xlOpenRecon(defId,ev){
   }
   xlFocus={defId, periodId:k};
   const org=(typeof xlOriginCtx==='function')?xlOriginCtx():null;
-  const dest=()=>{ xlWb=id; _xlSheet[id]=wb.sheets[0].id;
-    xlSel=(xlObjectsIn(id).filter(o=>o.worksheetId===wb.sheets[0].id)[0]||{}).connectedObjectId||null;
-    xlPreview=null; xlNotice=null;
+  const sh=(sheetName&&wb.sheets.find(s=>s.name===sheetName))||wb.sheets[0];
+  const dest=()=>{ xlWb=id; _xlSheet[id]=sh.id;
+    xlSel=(xlObjectsIn(id).filter(o=>o.worksheetId===sh.id)[0]||{}).connectedObjectId||null;
+    xlPreview=null; xlNotice=null; xlDone=null; xlFxCur=null;
     pickLens('xl'); pickTab('xlwork'); };
   if(org&&typeof navGo==='function') navGo(org,dest); else dest();
 }
@@ -36733,7 +36817,7 @@ function xlDrill(comp){
   if(!D) return;
   o.component=comp; o.label=(rcDef(xlFocus.defId)||{}).name+' · '+D.componentLabel;
   xlReindex(o);
-  _xlSheet[wb.workbookId]=sh.id; xlSel=o.connectedObjectId; xlSelRow=0;
+  _xlSheet[wb.workbookId]=sh.id; xlSel=o.connectedObjectId; xlSelRow=0; xlFxCur=null;
   xlEvent('DRILL',o,{component:comp, rows:D.rows.length, amount:D.total});
   renderAll();
 }
@@ -36756,14 +36840,14 @@ function xlDrillScope(scope){
 function xlReindex(o){
   const spec=xlSpecOf(o);
   const st=xlStructureFp(spec), dt=xlDataFp(spec), r=xlResolve(spec);
-  o.columns=r?r.cols.slice():[]; o.rowCount=dt.rowCount;
+  o.columns=r?r.cols.slice():[]; o.rowCount=dt.rowCount; o.held=r;
   o.sourceStructureFp=st.hash; o.sourceDataFp=dt.hash;
   o.sourceSnapshot=xlSnapshot(spec);
   o.lastRefreshAt=(typeof rcNowStamp==='function')?rcNowStamp():'';
 }
 
 function xlFocusExit(){
-  const d=xlFocus&&xlFocus.defId; xlFocus=null;
+  const d=xlFocus&&xlFocus.defId; xlFocus=null; xlDone=null; xlFxCur=null; xlPreview=null;
   if(typeof navReturn==='function'&&typeof NAVCTX!=='undefined'&&NAVCTX){ navReturn(); return; }
   pickLens('ledger'); pickTab('glrecon');
   if(d&&typeof rcPick==='function'){ rcPick(d); if(typeof setRcTab==='function') setRcTab('sup'); }
@@ -36783,14 +36867,23 @@ function xlSimulate(){
       if(c) rcPostCloseWithdraw(c.postCloseChangeId); }catch(e){}
     xlNotice=null; renderAll(); return;
   }
+  /* THE POSTING NAMES ITS ACCOUNT. Without a source account `rcPostCloseByAccount` cannot
+     place it, so a $14.2M journal on GL 15010 was spread across every CIP group by weight and
+     Electrical CIP's activity moved by 2.4. It lands on the reconciliation's own 15010 now,
+     so GL activity, the ending balance and the trial balance all move by exactly 14.2. */
   try{
-    rcPostClosePost({reconciliationDefinitionId:(xlFocus&&xlFocus.defId)||'REC-CIP-ELECTRICAL',
-      periodId:(xlFocus&&xlFocus.periodId)||viewPeriod(),
-      changeType:'ERP_POSTING', journalNumber:XL_SIM_JE,
-      glAccountNumber:'15010', glAccountName:'CIP - Electrical',
-      entityName:'Fleet DC OpCo', projectName:'South Valley',
-      memo:'Switchgear delivery invoiced after the workpaper was prepared',
-      amount:14.2, postedBy:'NetSuite US Development', erpReference:'NS-'+XL_SIM_JE,
+    const defId=(xlFocus&&xlFocus.defId)||'REC-CIP-ELECTRICAL';
+    const k=(xlFocus&&xlFocus.periodId)||viewPeriod();
+    const ids=rcPopulation(rcDef(defId),k).sourceAccountIds;
+    const src=ids.find(id=>(srcAcct(id)||{}).code==='15010')||ids[0];
+    const a=srcAcct(src)||{};
+    rcPostClosePost({reconciliationDefinitionId:defId, periodId:k,
+      changeType:'ERP_POSTING', journalNumber:XL_SIM_JE, sourceAccountId:src,
+      glAccountNumber:a.code||'15010', glAccountName:a.name||'CIP - Electrical',
+      entityName:'Meridian DC Holdco', projectName:'Ashburn Hall C',
+      vendorName:'ABB Switchgear', txType:'INV',
+      memo:'Switchgear delivery — invoiced after the workpaper was prepared',
+      amount:14.2, postedBy:'NetSuite US Development', erpReference:'INV-'+XL_SIM_JE.slice(3),
       assessment:'material'});
   }catch(e){ console.error('xlSimulate',e); }
   renderAll();
@@ -36798,7 +36891,7 @@ function xlSimulate(){
 
 /* §5 — PUBLISH. One destination, fixed by what the workbook is for. */
 function xlFocusPublish(){
-  xlPreview={kind:'publish', purpose:'RECON_SUPPORT'}; renderAll();
+  xlPreview={kind:'publish', purpose:'RECON_SUPPORT'}; xlDone=null; renderAll();
 }
 /* ---- ROUTES BACK TO THE WEB (§28). Two surfaces over the SAME objects: every one of these
    lands on the governed object in Korvyn, in the context the workbook carries. */
@@ -36981,12 +37074,18 @@ function renderXlWork(){
   if(!org&&!xlFocus) o+=`<div class="xl-back"><button class="fsx-link"
       onclick="pickLens('ledger');pickTab('acctover')">&#8592; Back to Accounting</button>
     <span class="n">Opened directly — no originating surface to return to.</span></div>`;
+  /* In the focused workflow the dialogs open at the TOP of the workbook, under the controls
+     that raised them. Appended after the shell they landed below the fold — Refresh and
+     Publish appeared to do nothing until the page was scrolled. The sheet is drawn before the
+     formula bar because the bar reads the cell the sheet just resolved. */
+  const sheetHtml=(xlFocus&&xlSizeSpec)?xlFocusSize():xlSheet(wb,objs);
   o+=`<div class="xl-shell${xlFocus?' solo':''}">
-    <div class="xl-book">${xlRibbon(wb,objs)}${(xlFocus&&xlSizeSpec)?xlFocusSize()
-      :(xlFocus?xlBand(wb,objs):'')+xlSheet(wb,objs)}${xlTabs(wb)}</div>
+    <div class="xl-book">${xlRibbon(wb,objs)}${xlFocus?xlDoneLine()+xlDialogs():''}${
+      (xlFocus&&xlSizeSpec)?sheetHtml
+      :(xlFocus?xlBand(wb,objs)+xlFxBar():'')+sheetHtml}${xlTabs(wb)}</div>
     ${xlFocus?'':`<div class="xl-pane">${xlTaskPane(wb,objs)}</div>`}
   </div>`;
-  o+=xlDialogs();
+  if(!xlFocus) o+=xlDialogs();
   if(xlTraceOpen) o+=xlTracePanel();
   el.innerHTML=o;
   document.body.classList.toggle('xl-focus',!!xlFocus);
@@ -37058,7 +37157,8 @@ function xlBand(wb,objs){
 
   if(sheet.name==='GL Detail'){
     if(!o) return '';
-    const D=xlGlDetail(o.korvynObjectId,o.financialContext.periodId,
+    const H=xlHeld(o);
+    const D=(H&&H.detail)||xlGlDetail(o.korvynObjectId,o.financialContext.periodId,
       o.component||'act',o.queryScope||'recon',o.strategy);
     if(!D) return '';
     const ccy=D.currency, grp=(D.scope==='group');
@@ -37094,11 +37194,14 @@ function xlBand(wb,objs){
         .map(c=>`<button class="${c===(o.component||'act')?'on':''}"
           onclick="xlDrill('${c}')">${glEsc(XL_GL_COMPONENTS[c].l)}</button>`).join('')}</div>
       ${D.note?`<div class="xl-bnote">${glEsc(D.note)}</div>`:''}
+      ${(D.posted&&D.posted.length)?`<div class="xl-bnote">Includes ${D.posted.map(t=>
+        glEsc(t.journalNumber)+' · '+glEsc(rcM(t.netAmount,ccy))+' · '+glEsc(t.postingDate))
+        .join('; ')} — posted after the workpaper was prepared.</div>`:''}
     </div>`;
   }
 
   /* the workpaper sheet: what is selected, and the way through to its detail */
-  const r=o?xlResolve(xlSpecOf(o)):null;
+  const r=o?xlHeld(o):null;
   const m=(r&&r.meta)?r.meta[xlSelRow]:null;
   return `<div class="xl-band">
     <span class="xl-ownr">Korvyn</span><span class="t">A:C roll-forward</span>
@@ -37124,6 +37227,167 @@ function xlBand(wb,objs){
    HOW WIDE THE SHEET IS COMES FROM THE RESOLVED OBJECT. A roll-forward is three columns and a
    GL extract is sixteen; a fixed eight-column grid truncated the labels on one and could not
    show the other at all. */
+/* THE WORKBOOK CALCULATES. A formula cell used to print its own text — `=C13-C14` where an
+   accountant expects 0.0 — so a refresh could preserve the Analysis sheet's formulas but never
+   show them recalculating, which is the half of §14 a reviewer actually looks at. This is
+   deliberately NOT a spreadsheet engine: it evaluates the functions this workbook's own
+   formulas use (SUM, SUMIFS, COUNTIF(S), IF, IFERROR, ABS, XLOOKUP, arithmetic and
+   comparison, cross-sheet and whole-column references) over what the sheets HOLD — authored
+   cells plus each connected range's held values — so a result moves on Refresh and not before.
+   Nothing here edits a cell; the formula text stays on the cell and in the formula bar. */
+const XL_ERR=e=>({err:e});
+const xlIsErr=v=>!!(v&&typeof v==='object'&&v.err);
+function xlColIdx(L){ let n=0; for(const ch of String(L).replace(/\$/g,'')) n=n*26+(ch.charCodeAt(0)-64);
+  return n-1; }
+function xlNum(v){
+  if(typeof v==='number') return v;
+  const s=String(v==null?'':v).trim();
+  if(!/^\(?-?[\d,]*\.?\d+\)?$/.test(s)) return null;
+  const n=parseFloat(s.replace(/[(),]/g,''));
+  return isNaN(n)?null:(/^\(.*\)$/.test(s)?-n:n);
+}
+function xlCalc(wb){
+  const S={}, MAXR={};
+  wb.sheets.forEach(sh=>{ const m={}; let mx=0; S[sh.name]=m;
+    (sh.user||[]).forEach(u=>{ m[u.r+'|'+u.c]={v:u.v, user:1}; mx=Math.max(mx,u.r); });
+    xlObjectsIn(wb.workbookId).filter(o=>o.worksheetId===sh.id).forEach(o=>{
+      const r=xlHeld(o); if(!r) return;
+      const R=parseInt(String(o.rangeId).replace(/[A-Z]/g,''),10)||3;
+      const C=Math.max(0,xlColIdx(String(o.rangeId).replace(/[0-9]/g,'')));
+      r.cols.forEach((h,i)=>{ m[R+'|'+(C+i)]={v:h}; });
+      r.rows.forEach((row,ri)=>row.forEach((v,ci)=>{ m[(R+1+ri)+'|'+(C+ci)]={v}; }));
+      mx=Math.max(mx,R+r.rows.length); });
+    MAXR[sh.name]=mx; });
+  const memo={}, busy={};
+  function cell(sh,r,c){
+    const key=sh+'!'+r+'|'+c; if(key in memo) return memo[key];
+    const x=S[sh]&&S[sh][r+'|'+c]; let v=x?x.v:null;
+    if(typeof v==='string'&&v[0]==='='){
+      if(busy[key]) return XL_ERR('#CIRC'); busy[key]=1;
+      try{ v=evalF(v.slice(1),sh); }catch(e){ v=XL_ERR('#VALUE!'); }
+      busy[key]=0;
+    } else if(x&&x.user&&typeof v==='string'){ const n=xlNum(v); if(n!=null) v=n; }
+    return (memo[key]=(v===undefined?null:v));
+  }
+  function evalF(src,home){
+    const T=[]; let i=0;
+    while(i<src.length){
+      const s=src.slice(i), ch=s[0];
+      if(/\s/.test(ch)){ i++; continue; }
+      let m;
+      if((m=s.match(/^"((?:[^"]|"")*)"/))){ T.push({t:'str',v:m[1].replace(/""/g,'"')}); i+=m[0].length; continue; }
+      if((m=s.match(/^\d+(?:\.\d+)?/))){ T.push({t:'num',v:+m[0]}); i+=m[0].length; continue; }
+      if((m=s.match(/^(<=|>=|<>|[-+*/=<>&(),])/))){ T.push({t:'op',v:m[1]}); i+=m[0].length; continue; }
+      if((m=s.match(/^(?:'([^']+)'|([A-Za-z][\w ]*?))!/))){
+        const sheet=m[1]||m[2]; i+=m[0].length;
+        const r=src.slice(i).match(/^(\$?[A-Z]{1,2}\$?\d+(?::\$?[A-Z]{1,2}\$?\d+)?|\$?[A-Z]{1,2}:\$?[A-Z]{1,2})/);
+        if(!r) throw 0; T.push({t:'ref',sheet,v:r[1]}); i+=r[0].length; continue; }
+      if((m=s.match(/^([A-Z]+)\(/))&&!/^\$?[A-Z]{1,2}\$?\d/.test(s)){ T.push({t:'fn',v:m[1]}); i+=m[1].length; continue; }
+      if((m=s.match(/^(\$?[A-Z]{1,2}\$?\d+(?::\$?[A-Z]{1,2}\$?\d+)?|\$?[A-Z]{1,2}:\$?[A-Z]{1,2})/))){
+        T.push({t:'ref',sheet:home,v:m[1]}); i+=m[0].length; continue; }
+      throw 0;
+    }
+    let p=0;
+    const peek=()=>T[p], take=()=>T[p++];
+    const isOp=(v)=>peek()&&peek().t==='op'&&peek().v===v;
+    const range=(tk)=>{
+      const [a,b]=tk.v.replace(/\$/g,'').split(':'); const out=[];
+      const whole=/^[A-Z]+$/.test(a);
+      const c0=xlColIdx(a.replace(/\d+/g,'')), c1=xlColIdx((b||a).replace(/\d+/g,''));
+      const r0=whole?1:+a.replace(/[A-Z]+/g,''), r1=whole?(MAXR[tk.sheet]||0):+((b||a).replace(/[A-Z]+/g,''));
+      for(let r=r0;r<=r1;r++) for(let c=c0;c<=c1;c++) out.push(cell(tk.sheet,r,c));
+      return out; };
+    const num=v=>xlIsErr(v)?v:(v==null||v===''?0:(typeof v==='number'?v:(xlNum(v)!=null?xlNum(v):XL_ERR('#VALUE!'))));
+    const eq=(a,b)=>(typeof a==='number'||typeof b==='number')
+      ? num(a)===num(b) : String(a==null?'':a).toLowerCase()===String(b==null?'':b).toLowerCase();
+    const flat=a=>Array.isArray(a)?a:[a];
+    const FN={
+      SUM:(...a)=>{ let s=0; for(const v of a.flatMap(flat)){ if(xlIsErr(v)) return v;
+        if(typeof v==='number') s+=v; } return s; },
+      ABS:a=>{ const n=num(a); return xlIsErr(n)?n:Math.abs(n); },
+      IF:(c,a,b)=>xlIsErr(c)?c:((c&&c!==0)?a:(b===undefined?false:b)),
+      IFERROR:(a,b)=>xlIsErr(a)?b:a,
+      COUNTIF:(r,c)=>flat(r).filter(v=>eq(v,c)).length,
+      COUNTIFS:(...a)=>{ const n=flat(a[0]).length; let k=0;
+        for(let j=0;j<n;j++){ let ok=true; for(let q=0;q<a.length;q+=2) if(!eq(flat(a[q])[j],a[q+1])){ ok=false; break; }
+          if(ok) k++; } return k; },
+      SUMIFS:(s,...a)=>{ const sv=flat(s); let t=0;
+        for(let j=0;j<sv.length;j++){ let ok=true;
+          for(let q=0;q<a.length;q+=2) if(!eq(flat(a[q])[j],a[q+1])){ ok=false; break; }
+          if(ok&&typeof sv[j]==='number') t+=sv[j]; } return t; },
+      XLOOKUP:(v,l,r,nf)=>{ const L=flat(l), R=flat(r); const j=L.findIndex(x=>eq(x,v));
+        return j<0?(nf===undefined?XL_ERR('#N/A'):nf):R[j]; },
+    };
+    function prim(){
+      const tk=take(); if(!tk) throw 0;
+      if(tk.t==='num'||tk.t==='str') return tk.v;
+      if(tk.t==='op'&&tk.v==='-'){ const v=num(prim()); return xlIsErr(v)?v:-v; }
+      if(tk.t==='op'&&tk.v==='('){ const v=cmp(); take(); return v; }
+      if(tk.t==='ref') return tk.v.indexOf(':')>=0 ? range(tk)
+        : cell(tk.sheet,+tk.v.replace(/[^0-9]/g,''),xlColIdx(tk.v.replace(/[^A-Z]/g,'')));
+      if(tk.t==='fn'){ take(); const args=[];
+        if(!isOp(')')){ args.push(cmp()); while(isOp(',')){ take(); args.push(cmp()); } }
+        take(); const f=FN[tk.v]; return f?f(...args):XL_ERR('#NAME?'); }
+      throw 0;
+    }
+    function mul(){ let v=prim();
+      while(isOp('*')||isOp('/')){ const o=take().v, b=num(prim()), a=num(v);
+        if(xlIsErr(a)) return a; if(xlIsErr(b)) return b;
+        if(o==='/'&&b===0) return XL_ERR('#DIV/0!'); v=o==='*'?a*b:a/b; }
+      return v; }
+    function add(){ let v=mul();
+      while(isOp('+')||isOp('-')){ const o=take().v, b=num(mul()), a=num(v);
+        if(xlIsErr(a)) return a; if(xlIsErr(b)) return b; v=o==='+'?a+b:a-b; }
+      return v; }
+    function cmp(){ const a=add();
+      if(peek()&&peek().t==='op'&&['=','<>','<','>','<=','>='].includes(peek().v)){
+        const o=take().v, b=add();
+        if(o==='='||o==='<>'){ const r=eq(a,b); return o==='='?r:!r; }
+        const x=num(a), y=num(b); if(xlIsErr(x)) return x; if(xlIsErr(y)) return y;
+        return o==='<'?x<y:o==='>'?x>y:o==='<='?x<=y:x>=y; }
+      return a; }
+    const out=cmp();
+    return (typeof out==='number')?+out.toFixed(9):out;
+  }
+  return cell;
+}
+/* how a calculated result reads on the sheet — the cell's own format, else three decimals,
+   which is the precision the Analysis sheet's amounts carry */
+function xlShow(v,fmt){
+  if(xlIsErr(v)) return v.err;
+  if(v===true) return 'TRUE'; if(v===false) return 'FALSE';
+  if(typeof v!=='number') return v==null?'':String(v);
+  /* not through xlCell, which reads anything over 1,000 as billions — 1,658% is a percentage */
+  if(fmt==='pct'){ const a=Math.abs(v*100).toLocaleString('en-US',
+    {minimumFractionDigits:1,maximumFractionDigits:1})+'%'; return v<0?'('+a+')':a; }
+  if(fmt==='int') return xlCell(Math.round(v),0);
+  if(fmt==='n1') return xlCell(+v.toFixed(6),1);
+  return xlCell(+v.toFixed(6),3);
+}
+
+/* THE FORMULA BAR. Excel shows a cell's value on the sheet and its formula above it, and that
+   is also where the ownership line is clearest: a Korvyn value reads as connected and read-only,
+   one of yours reads as its formula. Updated in place on click — a repaint for a click on your
+   own cell would be a round trip for nothing. */
+let xlFxCur=null;
+function xlFxBar(){
+  const x=xlFxCur;
+  return `<div class="xl-fxbar"><span class="ad" id="xlFxA">${x?glEsc(x.a):''}</span>
+    <span class="fx">fx</span><span class="fv" id="xlFxV">${x?xlFxText(x):
+      '<span class="h">Select a cell to see its formula</span>'}</span></div>`;
+}
+function xlFxText(x){
+  if(x.ro) return glEsc(x.v)+' <span class="ro">Korvyn connected · read-only · refresh maintains it</span>';
+  return glEsc(x.f||x.v||'');
+}
+function xlFxShow(td){
+  xlFxCur={a:td.dataset.a||'', f:td.dataset.f||'', v:td.textContent.trim()};
+  const a=document.getElementById('xlFxA'), v=document.getElementById('xlFxV');
+  if(a) a.textContent=xlFxCur.a; if(v) v.innerHTML=xlFxText(xlFxCur);
+  document.querySelectorAll('.xl-grid td.fxon').forEach(c=>c.classList.remove('fxon'));
+  td.classList.add('fxon');
+}
+
 function xlSheet(wb,objs){
   const sheet=wb.sheets.find(s=>s.id===xlSheetId(wb))||wb.sheets[0];
   const mine=objs.filter(x=>x.worksheetId===sheet.id);
@@ -37132,7 +37396,7 @@ function xlSheet(wb,objs){
      sheet drew the account tie-out where the workbook actually holds the vendor x project x
      month summary. Third time this exact omission has cost a round; there is now no other
      place that builds a spec. */
-  const blocks=mine.map(x=>({obj:x, res:xlResolve(xlSpecOf(x)),
+  const blocks=mine.map(x=>({obj:x, res:xlHeld(x),
     row:parseInt(String(x.rangeId).replace(/[A-Z]/g,''),10)||3,
     col:Math.max(0,AZ.indexOf(String(x.rangeId).replace(/[0-9]/g,'')))}));
   const B0=blocks.find(b=>b.res)||null;
@@ -37150,22 +37414,27 @@ function xlSheet(wb,objs){
   const cellOf={};
   /* the user's own content — authored on every sheet in this workbook, and a plain title and
      note on any sheet that has not authored its own */
-  if(sheet.user) sheet.user.forEach(u=>cellOf[u.r+'|'+u.c]={v:u.v,cls:u.cls});
+  const calc=sheet.user&&sheet.user.some(u=>typeof u.v==='string'&&u.v[0]==='=')?xlCalc(wb):null;
+  if(sheet.user) sheet.user.forEach(u=>{
+    const f=(calc&&typeof u.v==='string'&&u.v[0]==='=')?u.v:null;
+    const v=f?calc(sheet.name,u.r,u.c):u.v;
+    cellOf[u.r+'|'+u.c]={v:f?xlShow(v,u.fmt):u.v,
+      cls:u.cls+(f&&typeof v==='number'?' num':''), f, user:1}; });
   else [{r:1,c:0,v:wb.name.replace('.xlsx',''),cls:'u-t'},
         {r:2,c:0,v:'Prepared for '+perLabel(viewPeriod())+
           '. Figures are connected to Korvyn.',cls:'u-n'}]
        .forEach(u=>cellOf[u.r+'|'+u.c]={v:u.v,cls:u.cls});
   const tag={}, span={};
   blocks.forEach(b=>{ if(!b.res) return;
-    const c0=Math.max(0,b.col), dp=b.res.dp||null, meta=b.res.meta||null;
+    const c0=Math.max(0,b.col), dp=b.res.dp||null, meta=b.res.meta||null, mono=b.res.mono||null;
     tag[b.row-1]={obj:b.obj, col:c0, width:b.res.cols.length};
     b.res.cols.forEach((h,i)=>{ cellOf[b.row+'|'+(c0+i)]={v:h,cls:'k-h',k:b.obj.connectedObjectId}; });
     b.res.rows.forEach((r,ri)=>{ const m=meta?meta[ri]:null;
       r.forEach((v,ci)=>{
         const n=typeof v==='number';
         cellOf[(b.row+1+ri)+'|'+(c0+ci)]={
-          v:xlCell(v, dp?dp[ci]:1), cls:'k'+(n?' num':'')+(m&&m.rule?' rule':'')
-            +(m&&m.comp&&n?' dr':''),
+          v:xlCell(v, dp?dp[ci]:1), cls:'k'+(n?' num':'')+(!n&&mono&&mono[ci]?' xid':'')
+            +(m&&m.rule?' rule':'')+(m&&m.comp&&n?' dr':''),
           k:b.obj.connectedObjectId, ri, comp:m?m.comp:null,
           t:(m&&m.comp&&n)?'Double-click for the GL detail behind this amount':null}; }); });
     span[b.obj.connectedObjectId]={r0:b.row, r1:b.row+b.res.rows.length, c0,
@@ -37183,8 +37452,16 @@ function xlSheet(wb,objs){
       const edge=s?[(r===s.r0?'t':''),(r===s.r1?'b':''),(c===s.c0?'l':''),(c===s.c1?'r':'')]
         .filter(Boolean).map(e=>'e'+e).join(' '):'';
       const on=key&&key===xlSel?' on':'';
-      cells+=`<td class="${x?x.cls:''} ${edge}${on}"${x&&x.t?` title="${glEsc(x.t)}"`:''}${key
-        ?` onclick="xlPick('${key}',${x&&x.ri!=null?x.ri:0})"`:''}${x&&x.comp
+      const addr=COLS[c]+r;
+      /* a connected cell tells the formula bar it is Korvyn's before it re-selects the range;
+         a cell of yours updates the bar in place */
+      const fxk=(key&&x)?`xlFxCur={a:'${addr}',ro:1};`:'';
+      const fxon=(xlFxCur&&xlFxCur.a===addr&&(key?xlFxCur.ro:!xlFxCur.ro))?' fxon':'';
+      if(fxon&&key&&x) xlFxCur.v=String(x.v);   // the bar is drawn after the sheet
+      cells+=`<td class="${x?x.cls:''} ${edge}${on}${fxon}"${x&&x.t?` title="${glEsc(x.t)}"`
+        :(x&&x.f?` title="${glEsc(x.f)}"`:'')}${key
+        ?` onclick="${fxk}xlPick('${key}',${x&&x.ri!=null?x.ri:0})"`
+        :(x?` data-a="${addr}"${x.f?` data-f="${glEsc(x.f)}"`:''} onclick="xlFxShow(this)"`:'')}${x&&x.comp
         ?` ondblclick="xlDrill('${x.comp}')"`:''}>${x?glEsc(String(x.v)):''}</td>`;
     }
     rows+=`<tr><th class="xl-rn">${r}</th>${cells}</tr>`;
@@ -37214,7 +37491,8 @@ function xlCell(v,dp){
 }
 let _xlSheet={};
 const xlSheetId=wb=>_xlSheet[wb.workbookId]||wb.sheets[0].id;
-function xlSetSheet(id){ const wb=xlBook(xlWb); _xlSheet[wb.workbookId]=id; xlSel=null; renderAll(); }
+function xlSetSheet(id){ const wb=xlBook(xlWb); _xlSheet[wb.workbookId]=id; xlSel=null;
+  xlFxCur=null; renderAll(); }
 function xlTabs(wb){
   return `<div class="xl-sheets">${wb.sheets.map(s=>`<button class="${s.id===xlSheetId(wb)?'on':''}"
     onclick="xlSetSheet('${s.id}')">${glEsc(s.name)}</button>`).join('')}
@@ -37446,6 +37724,9 @@ function xlPubGo(p){
   const r=xlPublish({workbookId:xlWb, purpose:p,
     targetId:pv&&pv.ok?pv.target:null, targetLabel:pv&&pv.ok?pv.targetLabel:null});
   xlNotice=r.ok?null:r.reason; xlPublishOpen=false; xlPreview=null; xlPane='history';
+  if(xlFocus&&r.ok) xlDone={t:'Published '+r.artifact.workbookVersion,
+    d:r.artifact.workbookName+' · '+r.artifact.periodLabel+' · attached as '
+      +(r.artifact.purposeLabel||'support'), sup:pv&&pv.ok?pv.targetLabel:''};
   renderAll();
 }
 
@@ -37455,7 +37736,22 @@ function xlPubGo(p){
    redesigned and nothing here is a wizard.
    ========================================================================================== */
 let xlPreview=null;     // {kind:'refresh'|'structure'|'publish', ...}
+let xlDone=null;        // the focused workflow's last completed act, stated once under the header
+/* §14 — ONE REFRESH FOR THE WORKBOOK. The header's Refresh acted on whichever range happened
+   to be selected, so refreshing the roll-forward left the GL Detail population on its old
+   values and the two sheets disagreed. In the focused workflow it refreshes every connected
+   range in the workbook, and the preview it raises is about the roll-forward, because that is
+   the figure the accountant is reconciling. */
 function xlAskRefresh(){
+  if(xlFocus){
+    const os=xlObjectsIn(xlWb), ks=os.map(x=>({x, k:xlStateKey(x)}));
+    const moved=ks.filter(s=>s.k==='SOURCE'||s.k==='AVAILABLE'||s.k==='STRUCTURE');
+    if(!moved.length){ xlDone={t:'Already current', d:'Nothing in Korvyn has changed since '
+      +'the last refresh.'}; xlPreview=null; renderAll(); return; }
+    const rec=moved.find(s=>s.x.korvynObjectType==='RECON_ROLL')||moved[0];
+    xlPreview={kind:rec.k==='STRUCTURE'?'structure':'refresh', id:rec.x.connectedObjectId, all:1};
+    xlDone=null; renderAll(); return;
+  }
   const o=xlObj(xlSel); if(!o) return;
   const s=xlStateKey(o);
   if(s==='STRUCTURE'){ xlPreview={kind:'structure', id:o.connectedObjectId}; renderAll(); return; }
@@ -37466,10 +37762,46 @@ function xlAskRefresh(){
 function xlPreviewClose(){ xlPreview=null; renderAll(); }
 function xlPreviewGo(kind){
   const o=xlObj(xlPreview&&xlPreview.id); if(!o){ xlPreview=null; renderAll(); return; }
-  const r=xlRefresh(o.connectedObjectId,
-    kind==='structure'?{acceptStructure:1}:kind==='recast'?{recast:1}:{});
+  const opts=kind==='structure'?{acceptStructure:1}:kind==='recast'?{recast:1}:{};
+  if(xlPreview.all){
+    /* the roll-forward's figures before and after, read off what the sheet HELD, so the
+       confirmation states the change the accountant just accepted */
+    const fig=x=>{ const r=xlHeld(x); const m=r&&r.meta;
+      const at=c=>{ const i=m?m.findIndex(q=>q.comp===c):-1; return i<0?null:r.rows[i][2]; };
+      return {act:at('act'), end:at('end')}; };
+    const was=fig(o);
+    const gl=xlObjectsIn(xlWb).find(x=>x.korvynObjectType==='GL_DETAIL');
+    const glWas=gl&&xlHeld(gl)&&xlHeld(gl).detail?xlHeld(gl).detail.count:null;
+    let bad=null;
+    xlObjectsIn(xlWb).forEach(x=>{ const k=xlStateKey(x);
+      if(k==='CURRENT'||k==='PINNED') return;
+      const r=xlRefresh(x.connectedObjectId,opts); if(!r.ok&&!bad) bad=r.reason; });
+    const now=fig(o), glNow=gl&&xlHeld(gl)&&xlHeld(gl).detail?xlHeld(gl).detail.count:null;
+    xlNotice=bad;
+    xlDone=bad?null:{t:'Refreshed', d:[
+      was.act!=null&&now.act!=null?'GL activity '+xlCell(was.act,1)+' → '+xlCell(now.act,1):'',
+      was.end!=null&&now.end!=null?'Ending balance '+xlCell(was.end,1)+' → '+xlCell(now.end,1):'',
+      glWas!=null&&glNow!=null&&glWas!==glNow?'GL Detail '+glWas+' → '+glNow+' lines':'',
+      'Analysis recalculated · your notes and formulas untouched'].filter(Boolean).join(' · ')};
+    xlPreview=null; renderAll(); return;
+  }
+  const r=xlRefresh(o.connectedObjectId,opts);
   xlNotice=r.ok?null:r.reason;
   xlPreview=null; renderAll();
+}
+/* the one line under the focused header that says what just happened, and after a publish
+   the way to see it where it landed */
+function xlDoneLine(){
+  if(!xlDone&&!xlNotice) return '';
+  if(!xlDone) return `<div class="xl-done bad"><span class="t">${glEsc(xlNotice)}</span></div>`;
+  return `<div class="xl-done"><span class="t"><b>${glEsc(xlDone.t)}</b> · ${glEsc(xlDone.d)}</span>
+    ${xlDone.sup?`<span class="grow"></span><button class="xl-act" onclick="xlFocusToSupport()">
+      View in ${glEsc(xlDone.sup)} › Support</button>`:''}
+    <button class="xl-x" onclick="xlDone=null;renderAll()" aria-label="Dismiss">&#215;</button></div>`;
+}
+function xlFocusToSupport(){
+  xlDone=null; xlFocusExit();
+  if(typeof setRcTab==='function') setRcTab('sup');
 }
 function xlPreviewExpand(){ xlPreview=Object.assign({},xlPreview,{expanded:!xlPreview.expanded});
   renderAll(); }
@@ -37493,17 +37825,25 @@ function xlRefreshPreview(){
       <tr><td class="k">Korvyn source</td><td class="v">${glEsc(o.dataAsOf||'')}</td></tr>
       <tr><td class="k">Refresh replaces</td><td class="v">columns ${R.connected.from}:${
         R.connected.to}, rows ${R.rows.from}&#8211;${R.rows.to}</td></tr>
-      <tr><td class="k">Untouched</td><td class="v">everything from column ${R.user.from}
-        onward &#8212; your formulas, pivots, charts and notes</td></tr>
+      ${xlPreview.all?xlObjectsIn(xlWb).filter(x=>x!==o).map(x=>{
+        const h=xlHeld(x), D=h&&h.detail, L=xlResolve(xlSpecOf(x)), N=L&&L.detail;
+        return `<tr><td class="k">Also refreshed</td><td class="v">${glEsc(x.label)}${
+          D&&N&&D.count!==N.count?' &#183; '+D.count+' &#8594; '+N.count+' GL lines':''}</td></tr>`;
+      }).join(''):''}
+      <tr><td class="k">Untouched</td><td class="v">${xlPreview.all
+        ?'the Analysis sheet, the header and tie-out &#8212; your formulas, pivots and notes'
+        :'everything from column '+R.user.from+' onward &#8212; your formulas, pivots, charts and notes'}</td></tr>
     </tbody></table>
     ${xlPreview.expanded&&d&&d.lines.length?`<div class="mrp-subh">What moved</div>
       <table class="tbl"><thead><tr><th>Line</th><th class="num">Last refreshed</th>
         <th class="num">Now</th><th class="num">Change</th></tr></thead><tbody>
-      ${d.lines.slice(0,14).map(l=>`<tr><td>${glEsc(l.k)}</td>
+      ${d.lines.filter(l=>Math.abs(l.d)>=0.05).slice(0,14).map(l=>`<tr><td>${glEsc(l.k)}</td>
         <td class="num">${l.was==null?'<span class="amap-dim">&#8212;</span>':fsM(l.was)}</td>
         <td class="num">${l.now==null?'<span class="amap-dim">&#8212;</span>':fsM(l.now)}</td>
         <td class="num ${l.d<0?'neg':'pos'}">${(l.d>0?'+':'')+fsM(l.d)}</td></tr>`).join('')}
-      </tbody></table>`:''}
+      </tbody></table>${(function(){ const n=d.lines.filter(l=>Math.abs(l.d)<0.05).length;
+        return n?`<div class="xl-dlg-f">${n} other line${n===1?'':'s'} moved by less than
+          the display precision of $0.1M.</div>`:''; })()}`:''}
     <div class="xl-dlg-a">
       ${d&&d.lines.length?`<button class="btn-out sm" onclick="xlPreviewExpand()">${
         xlPreview.expanded?'Hide changes':'Review changes'}</button>`:''}
@@ -37549,6 +37889,23 @@ function xlPublishPreviewHTML(){
     <div class="xl-dlg-b">${glEsc((p&&p.reason)||'Nothing to publish.')}</div>
     <div class="xl-dlg-a"><button class="btn-out sm" onclick="xlPreviewClose()">Close</button></div></div>`;
   const gate=xlCanPublish();
+  /* §15 — IN THE SINGLE WORKFLOW, FOUR FACTS AND ONE BUTTON. Korvyn knows the scope, the lens,
+     the versions and the dependencies; they travel on the artifact and are one click away in
+     Connected workbooks. The accountant is asked to confirm what they published and where. */
+  if(xlFocus) return `<div class="xl-dlg"><div class="xl-dlg-h">Publish to Korvyn</div>
+    <table class="tbl mrp-det"><tbody>
+      <tr><td class="k">Workbook</td><td class="v">${glEsc(p.workbookName)}</td></tr>
+      <tr><td class="k">Reconciliation</td><td class="v">${glEsc(p.targetLabel||'')}</td></tr>
+      <tr><td class="k">Period</td><td class="v">${glEsc(p.periodLabel)}</td></tr>
+      <tr><td class="k">Purpose</td><td class="v">${glEsc(p.purposeLabel)}</td></tr>
+    </tbody></table>
+    ${gate.ok?`<div class="xl-dlg-a">
+      <button class="btn-primary sm" onclick="xlPubGo('${xlPreview.purpose}')">Publish</button>
+      <button class="btn-out sm" onclick="xlPreviewClose()">Cancel</button></div>`
+      :`<div class="xl-warn">${glEsc(gate.reason)}</div>
+        <div class="xl-dlg-a"><button class="btn-out sm" onclick="xlPreviewClose()">Close</button></div>`}
+    <div class="xl-dlg-f">Published as v${p.version} under ${glEsc(p.targetLabel||'')} › Support.
+      Publishing references the governed figures; it never changes one and never posts to the ERP.</div></div>`;
   return `<div class="xl-dlg"><div class="xl-dlg-h">Publish to Korvyn</div>
     <table class="tbl mrp-det"><tbody>
       <tr><td class="k">Workbook</td><td class="v">${glEsc(p.workbookName)}</td></tr>
@@ -52542,6 +52899,7 @@ function rcSupTab(def,inst){
         +'<span class="n">'+glEsc(a.workbookName.replace(/\.xlsx$/,''))+'</span>'
         +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
         +'<span class="m">Excel workpaper \u00b7 '+glEsc(a.workbookVersion)
+        +' \u00b7 '+glEsc(a.periodLabel)
         +' \u00b7 published '+glEsc(a.publishedAt)+' by '+glEsc(a.publisher)+'</span>'
         +'<span class="w">'+glEsc(st.why)+'</span></div>').join('')
       +'</div>';
@@ -53615,7 +53973,16 @@ function rcTxPool(srcId,k){
   const p=k||viewPeriod(), ck=srcId+'|'+p+'|'+ENTCTX.scope.id+'|'+rcLensId+'|'+_rcMapGen();
   if(_rcTxCache[ck]) return _rcTxCache[ck];
   const a=srcAcct(srcId); if(!a) return (_rcTxCache[ck]=[]);
-  const target=rcTxTarget(srcId,p);
+  /* A POSTING KORVYN HAS BEEN TOLD ABOUT IS A LINE OF ITS OWN. The account's activity already
+     includes it (`rcAcctBalance` carves it onto this account), so generating to the whole
+     target rescaled the existing lines instead — the population kept its count and a $14.2M
+     journal was nowhere to be found. The generated lines take the target LESS the postings,
+     and each posting is appended with its own journal number; the population still sums to
+     the account's activity exactly. */
+  const pcs=(typeof RC_POSTCLOSE!=='undefined'&&!_rcNoPostClose)
+    ? RC_POSTCLOSE.filter(c=>c.status==='POSTED'&&c.sourceAccountId===srcId&&c.periodId===p)
+    : [];
+  const target=+(rcTxTarget(srcId,p)-pcs.reduce((s,c)=>s+c.amount,0)).toFixed(3);
   const n=24+rcH(srcId,'n'+p)%80;
   /* R3.1 §5, §26 — A TRANSACTION BELONGS TO AN ENTITY IN THE LENS POPULATION. The pool used
      to draw its entity from every entity that posts to the account, so under EMEA the
@@ -53715,6 +54082,43 @@ function rcTxPool(srcId,k){
     };
     tx.flags=rcTxFlags(tx,p);
     return tx;
+  });
+  pcs.forEach((c,j)=>{
+    const t=rcTxType(c.txType||'INV')||rcTxType('JE');
+    const e=ents.find(x=>x.displayName===c.entityName)||ents[0];
+    const fc=e.functionalCurrency||'USD', rc=(rcLens().presentationCurrency||'USD');
+    const vendor=c.vendorName?(RC_VENDORS.find(v=>v.nm===c.vendorName)||null):null;
+    const amt=+c.amount, je=c.journalNumber||c.postCloseChangeId;
+    const tx={
+      sourceTransactionId:'TXN-'+a.coa.replace(/^COA-/,'')+'-'+p.replace('-','')+'-PC'+(j+1),
+      postingDate:PMN[pp.m]+' '+days+', '+pp.y, postingPeriod:p,
+      transactionDate:PMN[pp.m]+' '+days+', '+pp.y, transactionPeriod:p,
+      sourceAccountId:a.id, glAccountNumber:a.code, glAccountName:a.name,
+      canonicalAccountId:mcanon||null, canonicalAccountName:cur.name||null,
+      journalNumber:je, journalLineNumber:1,
+      invoiceNumber:null, documentNumber:c.erpReference||null,
+      memo:c.memo||t.l, description:t.l+' — '+a.name,
+      entityId:e.id, entityName:e.displayName, regionName:e.region||'Unassigned',
+      projectId:c.projectName?('PRJ-'+(100+RC_PROJECTS.indexOf(c.projectName))):null,
+      projectName:c.projectName||null,
+      vendorId:vendor?vendor.id:null, vendorName:vendor?vendor.nm:(c.vendorName||null),
+      debit:amt>0?Math.abs(amt):0, credit:amt<0?Math.abs(amt):0, netAmount:amt,
+      transactionCurrency:fc, transactionAmount:+(amt/rcRate(fc)).toFixed(3),
+      functionalCurrency:fc, functionalAmount:+(amt/rcRate(fc)).toFixed(3),
+      reportingCurrency:rc, reportingAmount:amt,
+      fxRate:+rcCross(fc,rc,p,'PERIOD_END').toFixed(6), fxRateType:'PERIOD_END',
+      fxRateDate:perEnd(p), fxRateSource:'Governed treasury rate feed',
+      fxRateSetId:rcLens().fxRateSetPrefix+'-'+p,
+      erpPlatform:plat, erpInstanceId:a.ins, erpInstanceName:insNm,
+      sourceReference:plat+' · '+insNm+' · '+je,
+      sourceUrl:RC_ERP_LINKS[a.ins]?RC_ERP_LINKS[a.ins]+encodeURIComponent(je):null,
+      type:t.id, typeLabel:t.l,
+      reconciliationGroupId:own?own.reconciliationGroupId:null,
+      reconciliationDefinitionId:own?own.reconciliationDefinitionId:null,
+      mapped:!!own, postClose:true, postCloseChangeId:c.postCloseChangeId,
+    };
+    tx.flags=rcTxFlags(tx,p);
+    rows.push(tx);
   });
   return (_rcTxCache[ck]=rows);
 }
@@ -56271,6 +56675,7 @@ function rcPostClosePost(o){
     sourceAccountId:o.sourceAccountId||null,
     glAccountNumber:o.glAccountNumber||null, glAccountName:o.glAccountName||null,
     entityName:o.entityName||null, projectName:o.projectName||null,
+    vendorName:o.vendorName||null, txType:o.txType||null,
     memo:o.memo||'', amount:+(o.amount||0),
     currency:o.currency||rcLens().presentationCurrency,
     postedAt:o.postedAt||rcNowStamp(), postedBy:o.postedBy||'ERP interface',
@@ -58486,12 +58891,13 @@ function rcFluxLineFor(def){
 }
 /* R7.1 §29 — the reconciliation roll-forward, connected. The user may build project and
    vendor analysis around it without taking ownership of the authoritative ending balance. */
-function rcExcel(defId,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
-  const d=rcDef(defId);
-  xlOpenFrom('RECON_ROLL',defId,(d?d.name:defId)+' roll-forward'); }
-function rcExcelActivity(defId,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
-  const d=rcDef(defId);
-  xlOpenFrom('RECON_ACT',defId,(d?d.name:defId)+' \u2014 activity'); }
+/* ONE WAY INTO EXCEL FROM A RECONCILIATION. Both used to open the general workspace \u2014 an
+   ad hoc workbook with Insert, Trace and the object catalogue, the roll-forward appended under
+   whatever balance sheets were already on the sheet \u2014 which is the opposite of the single
+   workflow. They open the reconciliation's own workbook now; the activity entry lands on its
+   GL Detail sheet, because that is what "activity in Excel" means for one reconciliation. */
+function rcExcel(defId,ev){ xlOpenRecon(defId,ev); }
+function rcExcelActivity(defId,ev){ xlOpenRecon(defId,ev,'GL Detail'); }
 function rcGoFlux(defId){
   const def=rcDef(defId), inst=def?rcInstance(defId):null;
   openFlux(rcFinancialContext(def,inst));

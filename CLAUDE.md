@@ -6238,12 +6238,81 @@ Trace / Publish with its task pane across 11 workbook × sheet combinations.
 
 ### Not done, deliberately
 
+> **Superseded 2026-09-11** — a connected range now holds its last refreshed values; see the
+> block below. The owner's brief made the call (§14: "After Refresh: GL Activity updates").
+
 **A connected range still resolves live rather than holding its last refreshed values.** So the
 figure moves the moment a source posting lands and Refresh confirms a change the sheet has
 already shown. That is R7.1 behaviour, it is what makes the canvas a representation rather than
 a spreadsheet, and changing it is an architecture decision rather than a UX fix — worth an
 owner's call. Everything else stands: no write-back, no Excel AI, no ERP posting, no second
 system of record.
+
+## 2026-09-11 — the single workflow, gaps closed against the brief
+
+The brief's work was committed (`f6ec8fd`) but never pushed, so it looked lost. Walking it step by
+step against the brief found it incomplete, and several gaps were on the brief's own main path.
+
+**THE MOST NATURAL ENTRY WAS THE BROKEN ONE.** The Roll-forward tab's **Open in Excel →**
+(`rcExcel`) and the page menu's *Detailed population* row (`rcExcelActivity`) still called
+`xlOpenFrom`, which is the general workspace. They opened an ad hoc workbook with Insert, Trace
+and the catalogue, with the roll-forward appended under balance sheets already on the sheet.
+Both now delegate to `xlOpenRecon`. The activity entry lands on the GL Detail sheet
+(`xlOpenRecon(defId, ev, sheetName)`). The workbook is **`Electrical CIP Analysis.xlsx`**.
+
+**A CONNECTED RANGE HOLDS WHAT IT HELD (`o.held`, `xlHeld()`).** It is set by `xlInsert`,
+`xlRefresh` and `xlReindex`, and read by the sheet, both bands and the formula engine.
+Fingerprints, the state and the delta still compare against the live resolution. An object with
+nothing held falls back to live, exactly as before, and all four seeded states still detect.
+
+**THE POSTING NAMES ITS ACCOUNT.** `xlSimulate` passed no `sourceAccountId`, so
+`rcPostCloseByAccount` skipped it and the $14.2M was spread across CIP by weight: Electrical
+moved 2.4. It now lands on the definition's own 15010, and activity, ending and TB each move 14.2.
+**`rcTxPool` appends a post-close posting as its own GL line** (`postClose:true`). It generates the
+other lines to the target *less* the postings, so the population still foots, now 238 lines, and
+the band names the journal. `rcPostClosePost` now carries `vendorName` / `txType`.
+
+**A NEW TRANSACTION IS A DATA CHANGE.** `xlStructureFp` counted rows for a transaction population,
+so one posting turned GL Detail "Structure changed" and the workbook refresh was refused for it.
+A roll-forward's delta is also stated by line ("GL activity +$14.2M"). Summing its column counted
+one posting three times ("+$42.6M net activity").
+
+**ONE REFRESH FOR THE WORKBOOK** in focused mode: every connected range, one preview (the
+roll-forward's, with *Also refreshed: GL activity · 237 → 238 lines*), and a one-line confirmation
+(`xlDoneLine`) stating the before and after. **The dialogs render at the top of the workbook**
+in focused mode. Appended after the shell, they opened below the fold. Publish is the brief's
+four rows plus Publish, and afterwards **View in Electrical CIP › Support**. `RECON_SUPPORT`
+reads *Supporting analysis*, and the Support row states the period.
+
+**THE WORKBOOK CALCULATES (`xlCalc`, `xlShow`).** Formula cells printed their own text, so
+"Analysis formulas recalculate" could not be seen. A deliberately small evaluator covers exactly
+the functions these formulas use: SUM, SUMIFS, COUNTIF(S), IF, IFERROR, ABS, XLOOKUP, arithmetic,
+comparison, cross-sheet and whole-column refs. It evaluates over what the sheets HOLD, so a result
+moves on Refresh and not before. **It is not a spreadsheet engine**; nothing edits a cell. A
+**formula bar** (`xlFxBar`) shows your cell's formula, or *Korvyn connected · read-only* for a
+connected value. That is the §3 ownership cue, and it is a subtle one.
+
+**Workpaper type.** The grid defaulted every cell to the figure face, so connected labels were
+monospace. Words are sans now; amounts, dates and IDs keep mono (`.xid`, driven by `mono` on the
+resolved object). Subtotal rows take `--fw-medium` over a `--muted` rule (rule 10).
+
+**GL Detail carries 19 fields**: separate transaction, functional and reporting currency, plus an
+ERP reference. **The Analysis sheet addresses that layout by column letter** (H vendor, J type,
+N net amount, R ERP source). Reorder `XL_GL_FIELDS` and those formulas move with it. The
+preparer's judgement (classification, note) is keyed by **vendor**, not by row position. The
+review flag is materiality, June activity against the 0.50 threshold, not the variance, which
+flagged every line in a month the population grew. A line with no prior activity reads **New**.
+Percentages do not go through `xlCell`, which reads anything ≥ 1,000 as billions (`1.658B%`).
+
+**Verified:** all 12 steps of the brief's §17 walked in the product · 204/204 view renders across
+Jun / Mar / Dec · console clean · 4/4 gates (baselines unchanged: 1072/88, 63) · FS-CIP 4,210.2
+on a fresh load and after withdrawing the simulated posting · chronology 0 · 0 clipped elements
+on all three sheets · every back path (Roll-forward, Activity, Support item) returns to the
+Jun 2026 Electrical CIP reconciliation on the tab it left from.
+
+**A tooling note.** With the viewport emulated at 1440×900, the Browser pane served stale
+frames. The DOM had scrolled and changed, and the screenshot had not. `resize_window` with
+`preset: desktop` fixed it. Trust the DOM over the picture.
 
 ## Toolchain
 
