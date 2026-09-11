@@ -6250,6 +6250,11 @@ system of record.
 
 ## 2026-09-11 — the single workflow, gaps closed against the brief
 
+> **Superseded the same day by the EXCEL WORKFLOW RESET below.** The browser workbook, its
+> formula engine (`xlCalc`), formula bar and cell editing were REMOVED. Held values
+> (`o.held`/`xlHeld`), posting-as-a-GL-line in `rcTxPool`, the transaction-population structure
+> fingerprint and the by-line roll-forward delta all survive and are still load-bearing.
+
 The brief's work was committed (`f6ec8fd`) but never pushed, so it looked lost. Walking it step by
 step against the brief found it incomplete, and several gaps were on the brief's own main path.
 
@@ -6315,6 +6320,11 @@ frames. The DOM had scrolled and changed, and the screenshot had not. `resize_wi
 `preset: desktop` fixed it. Trust the DOM over the picture.
 
 ## 2026-09-11 (later) — Account Recs → Excel, consolidated: the workbook belongs to the reconciliation
+
+> **Superseded the same day by the EXCEL WORKFLOW RESET below.** Still true: the workbook opens
+> inside Accounting (`xlFocusShow`), Reconciliations stays lit, the generic workspace never
+> shows a reconciliation's workbook, and Return lands on the originating reconciliation and tab.
+> Removed: the four browser sheets, cell editing, the gridless workpaper sheet and the band.
 
 Owner's consolidated brief. It was not about new features. It fixed the same workflow so it
 reads as an accountant's workpaper and never as the generic Korvyn for Excel surface.
@@ -6385,6 +6395,67 @@ restores the tab, the selected reconciliation, the quick-view filter and the scr
 204/204 view renders across three periods · console clean · 4/4 gates (baselines unchanged) ·
 FS-CIP 4,210.2 · chronology 0 · all four seeded general-workspace states still detect · 0
 clipped elements on all four sheets.
+
+## 2026-09-11 (reset) — Account Reconciliations → Excel: Korvyn web does not recreate Excel
+
+Owner's product decision. **Serious analysis belongs in Microsoft Excel (desktop or Excel for
+the web) with the Korvyn add-in.** The web shows the reconciliation, its governed data, the
+roll-forward, GL drill-down and downloads, source status, the launch into Excel, and what the
+add-in holds. **There is no browser spreadsheet for this workflow and there must not be one**:
+no grid, formula engine, cell editing, or Analysis sheet pretending to be Excel. The previous
+two blocks built one and it was removed.
+
+**THE WEB RECONCILIATION.**
+- **Open in Excel is in the reconciliation panel's own header** (`.rcx-xlbtn`), one click from
+  any tab. It is not in the page header (the same action twice) and not at the foot of a tab.
+- **The Roll-forward is the accounting equation** (`rcRollTab`, `.rcx-eq`): an operator column,
+  and every component on its own line even when nil. There are **no reference codes** (B-1,
+  GL-1 …) and no Components table of raw enums; each line carries its action instead. *View
+  prior balance* opens the tie-out, *View GL detail* the transactions, *View mapping impact* the
+  population, *View FX detail* / *View elimination detail* the existing drills, *View adjustment
+  support* the governed adjustment. Support attachments sit below the equation, not inside it.
+- **The Activity tab is GL Detail**: *View GL detail*, *Download Excel*, *Download CSV*.
+  `rcOpenGL(defId, tab)` opens the canvas on a tab, and Back returns to the reconciliation tab
+  it came from (`rcActFrom`).
+- **The transaction grid's default columns are the brief's**: Journal line, Debit, Credit,
+  Currency, ERP source and ERP reference are no longer behind *More columns*.
+- **The CSV carries the manifest**: a manifest block, a blank line, then the table, as the
+  Excel file already did. A downloaded population must still say what it is and what it sums
+  to. Verified: 237 rows, 34 columns each, summing to 29.3.
+- **ERP links are a simulated action** (`rcErpBtn` / `rcErpOpen`). They were real anchors to
+  an example domain, a link to a site that doesn't exist. Values travel as data attributes.
+
+**OPEN IN EXCEL → LAUNCH → THE ADD-IN.** `xlOpenRecon` raises a launch dialog
+(`#xlLaunch`, a true overlay: scrim plus `--shadow-lg`, Escape closes it). It lists the
+workbook, the connected objects (roll-forward · GL activity population · reconciliation context)
+and the last submitted version. `xlLaunchGo` builds the workbook's Korvyn content (**two
+connected objects, nothing else**; the rest of the file is Excel's and isn't modelled) and hands
+off through `navGo`. The view (`xlAddinView`) is a description of the workbook — its connected
+Roll-forward as held, the GL Detail count, "your sheets are Excel's" — beside **the add-in's task
+pane** (`xlAddinPane`): context, Status/Source, **Refresh · Trace · Submit Workpaper · Return to
+Electrical CIP**, and the workpaper versions. Source changed, the refresh preview, submit and
+trace all render **inside the pane**. The ERP-posting simulation is labelled a prototype control
+and sits outside it.
+
+**SUBMIT WORKPAPER, NOT PUBLISH**, with §16's rows. **Versions are immutable**: when the source
+moves after submission v1 reads *Review required*, a refresh plus submit makes v2 *Current*, and
+v1 is *Superseded* and kept. The Support row speaks the same words ("submitted", "Replaced by v2
+· kept exactly as submitted").
+
+**`rcM`, not `xlCell`, in the add-in.** The two formatters round a half differently (611.65 →
+611.6 vs 611.7). The web roll-forward uses `rcM`, and with it the printed equation foots, so the
+add-in matches the page it came from. **Never escape `rcM` output**: it returns HTML, and
+escaping printed a literal `&mdash;`.
+
+**Still open, for the owner.** The generic Korvyn for Excel module (the More launcher, and Open
+in Excel on Financials / Flux Review / Trending / the Trial balance) still renders the R7.1
+browser workbook with Insert and a grid. This reset was scoped to Account Reconciliations;
+retiring that surface the same way is a product call.
+
+**Verified:** the §20 flow end to end through real clicks · 204/204 view renders across three
+periods · 228/228 reconciliation panel tabs (38 × 6) · console clean · 4/4 gates (the
+duplicate-class gate caught a double-declared `.xa-msg`; baselines unchanged) · FS-CIP 4,210.2 ·
+chronology 0 · the generic workspace's four seeded states still detect.
 
 ## Toolchain
 
