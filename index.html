@@ -10258,7 +10258,16 @@ body.xl-focus .xl-grid-wrap{max-height:400px}
 /* the focused header: one back control, the subject, the status, two actions. */
 .xl-shell.solo{grid-template-columns:minmax(0,1fr)}
 body.xl-focus #backBtn{display:none}
-.xl-rib.focus{padding:var(--s-3)}
+.xl-rib.focus{padding:var(--s-3);flex-wrap:nowrap}
+/* one line, always: inside Accounting the rail takes width, and Refresh and Publish must not
+   fall to a second row — the context line is the one thing that may give */
+.xl-rib.focus .xl-sig,.xl-rib.focus .xl-act{flex:none;white-space:nowrap}
+/* the subject and its basis stack: the title on the line, the lens · basis · currency beneath
+   it, so neither has to be truncated to keep Refresh and Publish on the row */
+.xl-fhead{display:flex;flex-direction:column;min-width:0;margin-left:var(--s-3)}
+.xl-fhead .xl-ftitle{margin-left:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xl-fhead .xl-fctx{margin-left:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xl-rib.focus .xl-fdiv{margin-left:auto}
 .xl-act.back{border-color:transparent;background:none;padding-left:0}
 .xl-act.back:hover{background:none;border-color:transparent;color:var(--accent)}
 .xl-ftitle{font-size:var(--fs-card);font-weight:var(--fw-strong);color:var(--ink-strong);
@@ -10336,7 +10345,27 @@ body.xl-focus .xl-grid-wrap{max-height:470px}
 .xl-done{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-2) var(--s-3);
   border-bottom:1px solid var(--line);border-left:3px solid var(--pos);background:var(--surface2);
   font-size:var(--fs-label);color:var(--ink)}
-.xl-done.bad{border-left-color:var(--warning)}
+.xl-done.bad,.xl-done.warn{border-left-color:var(--warning)}
+/* A WORKPAPER SHEET IS PRINTED WITHOUT GRIDLINES (brief §6) — the roll-forward and the notes
+   read as a schedule, not a data table. The rules that remain are the accounting ones: a
+   hairline under the column heads, a rule above each subtotal, a double rule under the
+   difference, and one thin edge marking the range Korvyn maintains. */
+.xl-grid.wp td{border-color:transparent}
+.xl-grid.wp td.on{background:transparent}
+.xl-grid.wp td.k-h{background:var(--n-100);color:var(--ink);border-bottom:1px solid var(--line2)}
+.xl-grid.wp td.et{border-top:1px solid var(--accent)}
+.xl-grid.wp td.el{border-left:1px solid var(--accent)}
+.xl-grid.wp td.er{border-right:1px solid var(--accent)}
+.xl-grid.wp td.eb{border-bottom:1px solid var(--accent)}
+.xl-grid.wp td.rule{border-top:1px solid var(--muted)}
+.xl-grid.wp td.dbl{border-bottom:3px double var(--ink)}
+.xl-grid.wp td.u-h{border-bottom:1px solid var(--line2)}
+.xl-grid td.k.strong{font-weight:var(--fw-medium);color:var(--ink-strong)}
+.xl-grid td.wpt{letter-spacing:var(--tracking-label)}
+.xl-grid td.editing{padding:0;overflow:visible}
+.xl-edit{width:100%;height:100%;min-height:22px;border:2px solid var(--accent);
+  padding:0 var(--s-2);font:inherit;color:var(--ink);background:var(--surface);outline:none}
+.xl-fctx{font-size:var(--fs-label);color:var(--muted);margin-left:var(--s-2)}
 .xl-done .t b{font-weight:var(--fw-medium)}
 .xl-done .grow{flex:1}
 .xl-x{margin-left:auto;height:var(--h-chip);width:var(--h-chip);border:0;background:none;
@@ -34372,6 +34401,18 @@ const XL_HEAD_TABS=['glfin','finrep','gltrend','glrecon','tb'];
 function xlHeadBtn(){
   if(XL_HEAD_TABS.indexOf(TAB)<0) return '';
   if(typeof xlOpenMenu!=='function') return '';
+  /* ON RECONCILIATIONS, OPEN IN EXCEL OPENS THE WORKPAPER (brief §18) — the whole connected
+     reconciliation, in one click, no menu. Drilling to a population is something done INSIDE
+     the workpaper. With nothing selected there is no workpaper to open, and the only other
+     destination would be the generic workspace, so the button is not drawn. */
+  if(TAB==='glrecon'){
+    const id=(typeof rcSel!=='undefined'&&rcSel)?rcSel:null; if(!id) return '';
+    return `<button class="btn-out xl-head" onclick="xlOpenRecon('${id}',event)"
+      title="Open the ${glEsc((rcDef(id)||{}).name||'')} reconciliation workpaper in Excel, connected to Korvyn">
+    <svg viewBox="0 0 16 16" fill="none" width="13" height="13" aria-hidden="true">
+      <path d="M2.5 3h11v10h-11zM2.5 6h11M6.5 6v7" stroke="currentColor" stroke-width="1.4"
+        stroke-linecap="round" stroke-linejoin="round"/></svg>Open in Excel</button>`;
+  }
   return `<button class="btn-out xl-head" data-pop="xlopen" aria-expanded="false"
       title="Open this governed view in Excel, connected to Korvyn"
       onclick="KFX.pop('xlopen',this)">
@@ -35395,10 +35436,11 @@ function xlResolve(spec){
         {comp:'elim',  ref:'EL-1', l:'Eliminations',                             v:A.elimination},
         {comp:'adj',   ref:'RA-1', l:'Reporting adjustment',                     v:A.otherMovementAmount},
         {comp:'end',   ref:'',     l:'Calculated ending balance · '+perEnd(c.periodId), v:A.endingCalculatedBalance, rule:1},
-        {comp:'tb',    ref:'TB-1', l:'Trial balance · '+perEnd(c.periodId), v:A.trialBalanceAmount},
-        {comp:'diff',  ref:'',     l:'Difference',                                v:A.difference, rule:1},
+        {comp:'tb',    ref:'TB-1', l:'Trial balance · '+perEnd(c.periodId), v:A.trialBalanceAmount, strong:1},
+        {comp:'diff',  ref:'',     l:'Difference',                                v:A.difference, rule:1, dbl:1},
       ];
-      return {cols:['Roll-forward component','Ref',c.periodLabel+' ('+c.presentationCurrency+'m)'],
+      /* the period heads the amount column; the unit is stated once, in the title block */
+      return {cols:['Roll-forward component','Ref',c.periodLabel],
         rows:L.map(x=>[x.l,x.ref,x.v]), meta:L, widths:[300,66,142], dp:[0,0,1],
         mono:[false,true,false],
         kind:'rollforward', instance:i};
@@ -35572,12 +35614,12 @@ const XL_GL_FIELDS=[
   {k:'entityName',         l:'Entity',             w:158},
   {k:'glAccountNumber',    l:'GL account',         w:88,  m:1},
   {k:'glAccountName',      l:'Account name',       w:190},
-  {k:'journalNumber',      l:'JE number',          w:100, m:1},
+  {k:'journalNumber',      l:'Journal',            w:100, m:1},
   {k:'journalLineNumber',  l:'Journal line',       w:84,  n:1, dp:0},
-  {k:'documentNumber',     l:'Document',           w:110, m:1},
+  {k:'documentNumber',     l:'Document / invoice', w:130, m:1},
   {k:'vendorName',         l:'Vendor',             w:168},
   {k:'projectName',        l:'Project / property', w:140},
-  {k:'typeLabel',          l:'Type',               w:130},
+  {k:'typeLabel',          l:'Transaction type',   w:130},
   {k:'memo',               l:'Memo / description', w:250},
   {k:'debit',              l:'Debit',              w:90,  n:1, dp:3},
   {k:'credit',             l:'Credit',             w:90,  n:1, dp:3},
@@ -35585,7 +35627,7 @@ const XL_GL_FIELDS=[
   {k:'transactionCurrency',l:'Transaction ccy',    w:110, m:1},
   {k:'functionalCurrency', l:'Functional ccy',     w:104, m:1},
   {k:'reportingCurrency',  l:'Reporting ccy',      w:100, m:1},
-  {k:'erpInstanceName',    l:'ERP / source system',w:220},
+  {k:'erpInstanceName',    l:'ERP source',         w:220},
   {k:'sourceTransactionId',l:'ERP reference',      w:190, m:1},
 ];
 
@@ -35978,7 +36020,7 @@ function xlTrace(objId,rowIdx){
    a governed figure: an artifact REFERENCES the objects it was built from and carries their
    versions, which is what makes staleness detectable later. */
 const XL_PURPOSES={
-  RECON_SUPPORT:{l:'Supporting analysis',    target:'Reconciliation'},
+  RECON_SUPPORT:{l:'Reconciliation supporting workpaper', target:'Reconciliation'},
   REVIEW_ANALYSIS:{l:'Review analysis',      target:'Flux Review'},
   RPT_SCHEDULE:{l:'Reporting schedule',      target:'Management Reporting Package'},
   AUDIT_WP:{l:'Audit workpaper',             target:'Audit package'},
@@ -36575,7 +36617,8 @@ function xlOpenArtifact(artifactId){
     const o=first?xlObj(first):null;
     if(o){ _xlSheet[a.workbookId]=o.worksheetId; xlSel=o.connectedObjectId; }
     xlPane='history'; xlPreview=null;
-    pickLens('xl'); pickTab('xlwork');
+    if(xlFocus){ xlFocus.rcTab=(typeof rcTab!=='undefined'&&rcTab)||'sup'; xlFocusShow(); }
+    else { pickLens('xl'); pickTab('xlwork'); }
   };
   if(org&&typeof navGo==='function') navGo(org,dest); else dest();
 }
@@ -36602,16 +36645,18 @@ function xlFocusOf(wbId){
   return {defId, periodId:(o&&o.financialContext&&o.financialContext.periodId)||viewPeriod()};
 }
 
-/* THREE TABS, AND EACH IS NAMED FOR WHAT IT HOLDS (§1).
-   Reconciliation — Korvyn's roll-forward, presented as a workpaper.
-   Analysis       — the accountant's own working schedule. Korvyn touches nothing on it.
-   GL Detail      — the governed transactions behind the amount that was drilled.
+/* FOUR TABS, EACH NAMED FOR WHAT IT HOLDS, EACH WITH AN OWNER (2026-09-11 brief §4, §13).
+   Roll-forward — Korvyn's governed reconciliation, presented as a workpaper. Connected.
+   GL Detail    — the governed transactions behind the amount that was drilled. Connected.
+   Analysis     — the accountant's own working schedule. Refresh never touches it.
+   Notes        — conclusions, review notes, open questions, references. The accountant's.
    Not "Schedule" and not "Pivot": a sheet tab in a close workpaper names the accounting, and
-   a pivot is a thing you build on the Analysis sheet, not a place. */
+   a pivot is a thing you build on the Analysis sheet, not a place. The Analysis sheet's ties
+   address the first sheet as 'Roll-forward'! — rename it and those formulas move with it. */
 
 /* the governed tolerance this reconciliation is judged against — read from the policy, never
    from a number typed into the workbook */
-const XL_RECON_R0=6;                      // the roll-forward's header row on Sheet 1
+const XL_RECON_R0=8;                      // the roll-forward's header row on Sheet 1
 const XL_RECON_ROW={beg:XL_RECON_R0+1, act:XL_RECON_R0+2, cls:XL_RECON_R0+3,
   fx:XL_RECON_R0+4, elim:XL_RECON_R0+5, adj:XL_RECON_R0+6, end:XL_RECON_R0+7,
   tb:XL_RECON_R0+8, diff:XL_RECON_R0+9};
@@ -36632,13 +36677,17 @@ function xlReconSheet(defId,k){
   /* §2 — the four lines an accountant reads before the first figure: what it is, the period,
      the basis it is stated on, and that it is connected. The lens name, not the scope chip:
      "Corporate Consolidated · US GAAP · USD" is the basis the figures are stated on. */
+  /* the workpaper's title block, one fact a line, the way it is printed on paper — and
+     nothing else on this sheet: no statement hierarchy, no balance composition. Those belong
+     to Financials; this sheet is the reconciliation. */
   const u=[
-    {r:1,c:0,v:(def?def.name:defId)+' Reconciliation',cls:'u-t'},
+    {r:1,c:0,v:(def?def.name:defId).toUpperCase()+' RECONCILIATION',cls:'u-t wpt'},
     {r:2,c:0,v:c.periodLabel,cls:'u-n'},
-    {r:3,c:0,v:c.reportingLensName+' · '+c.basisLabel+' · '
-      +c.presentationCurrency+' in millions',cls:'u-n'},
-    {r:4,c:0,v:'Korvyn connected · prepared by '+((typeof rcMe==='function')?rcMe().nm:'')
-      +' · W/P ref '+defId+'-'+k,cls:'u-n'},
+    {r:3,c:0,v:c.reportingLensName,cls:'u-n'},
+    {r:4,c:0,v:c.basisLabel,cls:'u-n'},
+    {r:5,c:0,v:c.presentationCurrency+' millions',cls:'u-n'},
+    {r:6,c:0,v:'Prepared by '+((typeof rcMe==='function')?rcMe().nm:'')
+      +' · W/P ref '+defId+'-'+k+' · Korvyn connected',cls:'u-n'},
     {r:RN+2,c:0,v:'Tie-out',cls:'u-t'},
     {r:RN+3,c:0,v:'Calculated ending less trial balance',cls:'u'},
     {r:RN+3,c:2,v:'=C'+(R0+7)+'-C'+(R0+8),cls:'u-f',fmt:'n1'},
@@ -36676,36 +36725,38 @@ function xlAnalysisSheet(defId,periodK){
   const def=(typeof rcDef==='function')?rcDef(defId):null;
   const tol=def?rcTolOf(def):0.5;
   const SCR=0.5;                                   // the preparer's own scrutiny threshold
-  const H=['Vendor','Project','Classification',perLabel(periodK),perLabel(prev),'Variance',
-    'Var %','Review?','ERP source (XLOOKUP)','My adjustment','Notes'];
+  /* §11 — the brief's columns. Current and prior month are headed by the months themselves;
+     Entity is an XLOOKUP into the GL Detail sheet, the way an accountant would pull it. */
+  const H=['Vendor','Project','Entity',perLabel(periodK),perLabel(prev),'Variance',
+    'Variance %','CIP classification','Review flag','Accountant analysis','Notes'];
   const u=[
-    {r:1,c:0,v:(def?def.name:defId)+' — '+perLabel(periodK)+' analysis',cls:'u-t'},
-    {r:2,c:0,v:'My work. Korvyn owns the Reconciliation and GL Detail sheets; every cell on '
-      +'this one is mine and survives a refresh.',cls:'u-n'},
+    {r:1,c:0,v:(def?def.name:defId)+' — '+perLabel(periodK)+' analysis',cls:'u-t wpt'},
+    {r:2,c:0,v:'Your analysis. Korvyn does not overwrite this sheet during Refresh — add '
+      +'formulas, pivots, charts, schedules and notes as you need.',cls:'u-n'},
   ];
   H.forEach((h,i)=>u.push({r:4,c:i,v:h,cls:'u-h'}));
   /* the preparer's judgement, KEYED BY VENDOR — what the vendor supplies decides whether it is
-     capital and what the note says. Keyed by row position, a cooling vendor carried a
-     switchgear note and the classification moved whenever the population re-ranked. An
-     expense line's adjustment is the reclass of that line out of CIP, i.e. its own activity. */
+     capital, and what the analysis and note say. Keyed by row position, a cooling vendor
+     carried a switchgear note and the classification moved whenever the population re-ranked.
+     It is a starting draft: every cell is the accountant's to change. */
   const JUDGE={
-    'Munters Cooling':['Capital','Chiller package — in progress'],
-    'Vertiv Systems':['Capital','UPS modules — delivered, not yet installed'],
-    'Turner Construction':['Capital','Structural works — capitalise'],
-    'Sterling Mechanical Group':['Expense','Commissioning labour — reclass to opex'],
-    'ABB Switchgear':['Capital','Switchgear — placed in service Jul'],
-    'Schneider Electric':['Capital','Busway sections'],
-    'Dominion Power Systems':['Capital','Utility interconnect'],
-    'Caterpillar Power':['Capital','Generator sets — site acceptance pending'],
-    'Siemens Energy':['Capital','Transformer package'],
-    'Cushman Facility Services':['Expense','Site services — reclass to opex'],
+    'Munters Cooling':['Capital','Agrees to progress billing; cost to complete unchanged','Chiller package — in progress'],
+    'Vertiv Systems':['Capital','Delivered to site, not yet installed — remains in CIP','UPS modules'],
+    'Turner Construction':['Capital','Structural works per contract schedule of values','Capitalise'],
+    'Sterling Mechanical Group':['Expense','Commissioning labour — not directly attributable','Reclass to opex'],
+    'ABB Switchgear':['Capital','Switchgear energised; placed in service in July','PIS next period'],
+    'Schneider Electric':['Capital','Busway sections per purchase order','—'],
+    'Dominion Power Systems':['Capital','Utility interconnect per agreement','—'],
+    'Caterpillar Power':['Capital','Generator sets — site acceptance pending','—'],
+    'Siemens Energy':['Capital','Transformer package per purchase order','—'],
+    'Cushman Facility Services':['Expense','Site services — period cost','Reclass to opex'],
   };
-  const jd=v=>JUDGE[v]||['Capital',''];
+  const jd=v=>JUDGE[v]||['Capital','',''];
   g.forEach((x,i)=>{ const r=5+i, p=was[x.vendor+'|'+x.project]||0, J=jd(x.vendor);
     u.push(
       {r,c:0,v:x.vendor,cls:'u'},
       {r,c:1,v:x.project,cls:'u'},
-      {r,c:2,v:J[0],cls:'u'},
+      {r,c:2,v:"=XLOOKUP($A"+r+",'GL Detail'!$H:$H,'GL Detail'!$B:$B,\"—\")",cls:'u-f'},
       {r,c:3,v:xlCell(x.net,3),cls:'u num'},
       {r,c:4,v:xlCell(+p.toFixed(3),3),cls:'u num'},
       {r,c:5,v:'=D'+r+'-E'+r,cls:'u-f'},
@@ -36714,46 +36765,46 @@ function xlAnalysisSheet(defId,periodK){
          variance it flagged every new line, which is every line in a month the population
          grew, and a flag on everything is a flag on nothing */
       {r,c:6,v:'=IFERROR(F'+r+'/ABS(E'+r+'),"New")',cls:'u-f',fmt:'pct'},
-      {r,c:7,v:'=IF(ABS(D'+r+')>=$D$'+(4+g.length+4)+',"Review","")',cls:'u-f'},
-      {r,c:8,v:"=XLOOKUP($A"+r+",'GL Detail'!$H:$H,'GL Detail'!$R:$R,\"—\")",cls:'u-f'},
-      {r,c:9,v:(J[0]==='Expense')?xlCell(-x.net,3):'',cls:'u num'},
-      {r,c:10,v:J[1],cls:'u'}); });
-  const last=4+g.length, T=last+1, SCRR=T+3;
+      {r,c:7,v:J[0],cls:'u'},
+      {r,c:8,v:'=IF(ABS(D'+r+')>=$D$'+(4+g.length+4)+',"Review","")',cls:'u-f'},
+      {r,c:9,v:J[1],cls:'u'},
+      {r,c:10,v:J[2],cls:'u'}); });
+  const last=4+g.length, T=last+1;
   u.push({r:T,c:0,v:'Total analysed',cls:'u-t'},
     {r:T,c:3,v:'=SUM(D5:D'+last+')',cls:'u-f'},
     {r:T,c:4,v:'=SUM(E5:E'+last+')',cls:'u-f'},
-    {r:T,c:5,v:'=SUM(F5:F'+last+')',cls:'u-f'},
-    {r:T,c:9,v:'=SUM(J5:J'+last+')',cls:'u-f'});
+    {r:T,c:5,v:'=SUM(F5:F'+last+')',cls:'u-f'});
   /* the thresholds this schedule is worked against, both of them named for whose they are */
   u.push({r:T+2,c:0,v:'Governed tolerance (Korvyn policy)',cls:'u'},
     {r:T+2,c:3,v:xlCell(tol,2),cls:'u num'});
   u.push({r:T+3,c:0,v:'My scrutiny threshold',cls:'u'},
     {r:T+3,c:3,v:xlCell(SCR,2),cls:'u num'});
   u.push({r:T+4,c:0,v:'Lines flagged for review',cls:'u'},
-    {r:T+4,c:3,v:'=COUNTIF(H5:H'+last+',"Review")',cls:'u-f',fmt:'int'});
-  /* the two ties that make this schedule support rather than commentary */
+    {r:T+4,c:3,v:'=COUNTIF(I5:I'+last+',"Review")',cls:'u-f',fmt:'int'});
+  /* the ties that make this schedule support rather than commentary — each one references the
+     connected roll-forward, so it moves on Refresh while the analysis above stays yours */
   u.push({r:T+6,c:0,v:'Ties',cls:'u-t'});
   u.push({r:T+7,c:0,v:'Unanalysed remainder of GL activity',cls:'u'},
-    {r:T+7,c:3,v:"='Reconciliation'!C"+XL_RECON_ROW.act+"-D"+T,cls:'u-f'});
+    {r:T+7,c:3,v:"='Roll-forward'!C"+XL_RECON_ROW.act+"-D"+T,cls:'u-f'});
   u.push({r:T+8,c:0,v:'Analysed share of GL activity',cls:'u'},
-    {r:T+8,c:3,v:"=D"+T+"/'Reconciliation'!C"+XL_RECON_ROW.act,cls:'u-f',fmt:'pct'});
+    {r:T+8,c:3,v:"=D"+T+"/'Roll-forward'!C"+XL_RECON_ROW.act,cls:'u-f',fmt:'pct'});
   u.push({r:T+9,c:0,v:'Vendor-invoice activity per GL Detail',cls:'u'},
     {r:T+9,c:3,v:"=SUMIFS('GL Detail'!$N:$N,'GL Detail'!$J:$J,\"Vendor invoice\")",cls:'u-f'});
   /* §6 — A PIVOT SUMMARY, built the way an accountant builds one: SUMIFS over the schedule
      above rather than a second copy of the data. */
   const P0=T+11;                                   // the classification pivot's title row
-  u.push({r:P0,c:0,v:'Summary by classification',cls:'u-t'});
-  ['Classification','Amount','Adjustment','Count'].forEach((h,i)=>
+  u.push({r:P0,c:0,v:'Summary by CIP classification',cls:'u-t'});
+  ['CIP classification','Amount','Count','Share'].forEach((h,i)=>
     u.push({r:P0+1,c:i,v:h,cls:'u-h'}));
   ['Capital','Expense'].forEach((cl,i)=>{ const r=P0+2+i;
     u.push({r,c:0,v:cl,cls:'u'},
-      {r,c:1,v:'=SUMIFS($D$5:$D$'+last+',$C$5:$C$'+last+',$A'+r+')',cls:'u-f'},
-      {r,c:2,v:'=SUMIFS($J$5:$J$'+last+',$C$5:$C$'+last+',$A'+r+')',cls:'u-f'},
-      {r,c:3,v:'=COUNTIFS($C$5:$C$'+last+',$A'+r+')',cls:'u-f',fmt:'int'}); });
+      {r,c:1,v:'=SUMIFS($D$5:$D$'+last+',$H$5:$H$'+last+',$A'+r+')',cls:'u-f'},
+      {r,c:2,v:'=COUNTIFS($H$5:$H$'+last+',$A'+r+')',cls:'u-f',fmt:'int'},
+      {r,c:3,v:'=IFERROR(B'+r+'/$D$'+T+',"")',cls:'u-f',fmt:'pct'}); });
   u.push({r:P0+4,c:0,v:'Total',cls:'u-t'},
     {r:P0+4,c:1,v:'=SUM(B'+(P0+2)+':B'+(P0+3)+')',cls:'u-f'},
-    {r:P0+4,c:2,v:'=SUM(C'+(P0+2)+':C'+(P0+3)+')',cls:'u-f'},
-    {r:P0+4,c:3,v:'=SUM(D'+(P0+2)+':D'+(P0+3)+')',cls:'u-f',fmt:'int'});
+    {r:P0+4,c:2,v:'=SUM(C'+(P0+2)+':C'+(P0+3)+')',cls:'u-f',fmt:'int'},
+    {r:P0+4,c:3,v:'=SUM(D'+(P0+2)+':D'+(P0+3)+')',cls:'u-f',fmt:'pct'});
   const P1=P0+6;                                   // and the project pivot below it
   u.push({r:P1,c:0,v:'Summary by project',cls:'u-t'});
   ['Project','Amount','Count','Share'].forEach((h,i)=>u.push({r:P1+1,c:i,v:h,cls:'u-h'}));
@@ -36768,8 +36819,39 @@ function xlAnalysisSheet(defId,periodK){
       +'USD millions.',cls:'u-n'});
   return u;
 }
-const XL_ANALYSIS_W=[242,132,110,104,104,96,74,86,180,110,220];
-const XL_RECON_W=[300,66,142,150,150,150];
+const XL_ANALYSIS_W=[200,124,150,96,96,90,84,110,92,260,230];
+const XL_RECON_W=[330,70,130,150,150,150];
+const XL_NOTES_W=[170,760];
+
+/* §12 — NOTES. The accountant's, and deliberately plain: conclusions, review notes, open
+   questions and where the evidence is. A starting draft so the sheet's purpose is obvious;
+   every cell is editable and refresh never touches it. No workflow lives here. */
+function xlNotesSheet(defId,k){
+  const def=(typeof rcDef==='function')?rcDef(defId):null, nm=def?def.name:defId;
+  const me=(typeof rcMe==='function')?rcMe().nm:'';
+  let mv=''; try{ mv=fsAmount(def.financialLineId,k).mappingVersion||''; }catch(e){}
+  return [
+    {r:1,c:0,v:nm+' — '+perLabel(k)+' notes',cls:'u-t wpt'},
+    {r:2,c:0,v:'Prepared by '+me+'. Yours — Korvyn never overwrites this sheet.',cls:'u-n'},
+    {r:4,c:0,v:'Conclusion',cls:'u-h'},
+    {r:5,c:1,v:'The roll-forward ties to the trial balance within the governed tolerance. '
+      +'Mapping / classification change M-1 is the capex account split in mapping v'+mv+' — '
+      +'membership moving between groups, not new spend.',cls:'u'},
+    {r:7,c:0,v:'Review notes',cls:'u-h'},
+    {r:8,c:1,v:'GL activity analysed by vendor and project on the Analysis sheet; the ten '
+      +'largest lines are reviewed against progress billings.',cls:'u'},
+    {r:10,c:0,v:'Open questions',cls:'u-h'},
+    {r:11,c:1,v:'Sterling Mechanical commissioning labour — confirm expense treatment with '
+      +'project controls before sign-off.',cls:'u'},
+    {r:13,c:0,v:'Source references',cls:'u-h'},
+    {r:14,c:0,v:'GL population',cls:'u'},
+    {r:14,c:1,v:'GL Detail sheet · governed activity population GL-1',cls:'u'},
+    {r:15,c:0,v:'Mapping',cls:'u'},
+    {r:15,c:1,v:'Account mapping v'+mv,cls:'u'},
+    {r:16,c:0,v:'Support',cls:'u'},
+    {r:16,c:1,v:nm+' › Support in Korvyn — project roll-forward, allocation analysis',cls:'u'},
+  ];
+}
 
 /* §1 — OPEN. One workbook per reconciliation, reused rather than multiplied. */
 function xlOpenRecon(defId,ev,sheetName){
@@ -36779,28 +36861,47 @@ function xlOpenRecon(defId,ev,sheetName){
   const id=XL_FOCUS_PREFIX+defId;
   let wb=xlBook(id);
   if(!wb){
-    wb={workbookId:id, name:(def?def.name:defId)+' Analysis.xlsx',
+    /* FOUR SHEETS, EACH WITH AN OWNER (brief §4, §13). Korvyn maintains the first two and
+       refresh replaces what it maintains; the last two are the accountant's and refresh never
+       touches them. `owner` is what the band, the editing and the refresh preview all read. */
+    wb={workbookId:id, name:(def?def.name:defId)+' Reconciliation.xlsx',
       owner:(typeof rcMe==='function')?rcMe().nm:'',
-      sheets:[{id:id+'-S1',name:'Reconciliation',user:xlReconSheet(defId,k),widths:XL_RECON_W},
-              {id:id+'-S2',name:'Analysis',user:xlAnalysisSheet(defId,k),widths:XL_ANALYSIS_W},
-              {id:id+'-S3',name:'GL Detail',user:xlGlSheetHead(defId,k)}],
+      sheets:[{id:id+'-S1',name:'Roll-forward',owner:'korvyn',wp:1,
+                 user:xlReconSheet(defId,k),widths:XL_RECON_W},
+              {id:id+'-S2',name:'GL Detail',owner:'korvyn',user:xlGlSheetHead(defId,k)},
+              {id:id+'-S3',name:'Analysis',owner:'user',
+                 user:xlAnalysisSheet(defId,k),widths:XL_ANALYSIS_W},
+              {id:id+'-S4',name:'Notes',owner:'user',wp:1,
+                 user:xlNotesSheet(defId,k),widths:XL_NOTES_W}],
       offline:false, createdAt:(typeof rcNowStamp==='function')?rcNowStamp():''};
     XL_WORKBOOKS.push(wb);
     xlInsert({workbookId:id, worksheetId:wb.sheets[0].id, range:'A'+XL_RECON_R0,
       objectType:'RECON_ROLL', objectId:defId,
       label:(def?def.name:defId)+' roll-forward'});
-    xlInsert({workbookId:id, worksheetId:wb.sheets[2].id, range:'A5',
+    xlInsert({workbookId:id, worksheetId:wb.sheets[1].id, range:'A5',
       objectType:'GL_DETAIL', objectId:defId, component:'act', queryScope:'recon',
       label:(def?def.name:defId)+' · GL activity'});
   }
-  xlFocus={defId, periodId:k};
+  /* the tab the reconciliation was on, kept so that Back still lands there even when the
+     navigation context has been dropped (another tab visited, a reopen from the register) */
+  xlFocus={defId, periodId:k, rcTab:(typeof rcTab!=='undefined'&&rcTab)||'roll'};
   const org=(typeof xlOriginCtx==='function')?xlOriginCtx():null;
   const sh=(sheetName&&wb.sheets.find(s=>s.name===sheetName))||wb.sheets[0];
   const dest=()=>{ xlWb=id; _xlSheet[id]=sh.id;
     xlSel=(xlObjectsIn(id).filter(o=>o.worksheetId===sh.id)[0]||{}).connectedObjectId||null;
-    xlPreview=null; xlNotice=null; xlDone=null; xlFxCur=null;
-    pickLens('xl'); pickTab('xlwork'); };
+    xlPreview=null; xlNotice=null; xlDone=null; xlFxCur=null; xlEditing=null;
+    xlFocusShow(); };
   if(org&&typeof navGo==='function') navGo(org,dest); else dest();
+}
+/* §1 — A RECONCILIATION'S WORKBOOK OPENS INSIDE ACCOUNTING. It used to switch to the Korvyn
+   for Excel module, whose rail (Workspace · Connected workbooks), title ("Korvyn for Excel ·
+   Excel as a connected workspace") and landing all belong to the generic surface — so the
+   first thing the accountant read was which PRODUCT they were in, not which reconciliation.
+   It stays in the Accounting lens now, with Reconciliations lit in the rail and the workbook
+   named in the title row. `pickTab` does not require a tab to belong to the lens. */
+function xlFocusShow(){
+  if(typeof LENS!=='undefined'&&LENS!=='ledger') pickLens('ledger');
+  pickTab('xlwork');
 }
 
 /* §3 — THE DRILL. A connected amount opens the detail behind IT, on the GL Detail sheet, and
@@ -36813,6 +36914,11 @@ function xlDrill(comp){
   const sh=wb.sheets.find(s=>s.name==='GL Detail'); if(!sh) return;
   const o=xlObjectsIn(wb.workbookId).find(x=>x.worksheetId===sh.id);
   if(!o) return;
+  /* the sheet already holds this component: go to it, do not re-resolve it. Re-resolving
+     would quietly refresh the population and a pending source change would never be seen. */
+  if((o.component||'act')===comp&&o.held){
+    _xlSheet[wb.workbookId]=sh.id; xlSel=o.connectedObjectId; xlSelRow=0; xlFxCur=null;
+    renderAll(); return; }
   const D=xlGlDetail(xlFocus.defId,xlFocus.periodId,comp,o.queryScope||'recon',o.strategy);
   if(!D) return;
   o.component=comp; o.label=(rcDef(xlFocus.defId)||{}).name+' · '+D.componentLabel;
@@ -36847,10 +36953,16 @@ function xlReindex(o){
 }
 
 function xlFocusExit(){
-  const d=xlFocus&&xlFocus.defId; xlFocus=null; xlDone=null; xlFxCur=null; xlPreview=null;
+  const d=xlFocus&&xlFocus.defId, tab=(xlFocus&&xlFocus.rcTab)||'roll';
+  const k=xlFocus&&xlFocus.periodId;
+  xlFocus=null; xlDone=null; xlFxCur=null; xlPreview=null; xlEditing=null;
   if(typeof navReturn==='function'&&typeof NAVCTX!=='undefined'&&NAVCTX){ navReturn(); return; }
+  /* NO NAVIGATION CONTEXT — reopened from the register, or the context was dropped. Back still
+     means THIS reconciliation in THIS period on the tab it was opened from, never the
+     Accounting landing page. */
+  if(k&&typeof viewPeriod==='function'&&viewPeriod()!==k&&typeof setPeriod==='function') setPeriod(k);
   pickLens('ledger'); pickTab('glrecon');
-  if(d&&typeof rcPick==='function'){ rcPick(d); if(typeof setRcTab==='function') setRcTab('sup'); }
+  if(d&&typeof rcPick==='function'){ rcPick(d); if(typeof setRcTab==='function') setRcTab(tab); }
 }
 
 /* §4 — SIMULATE A SOURCE UPDATE. The REAL mechanism, so the refresh that follows is a real
@@ -36858,10 +36970,12 @@ function xlFocusExit(){
    by comparison, and it can be withdrawn again. Nothing is faked and nothing is seeded — the
    product opens with the canary untouched. */
 const XL_SIM_JE='JE-SIM-CIP-0001';
+const XL_SIM_AMT=1.2;      // the brief's own example (§14): one ERP posting of $1.2M
 function xlSimPosted(){
   try{ return RC_POSTCLOSE.some(c=>c.journalNumber===XL_SIM_JE); }catch(e){ return false; }
 }
 function xlSimulate(){
+  xlDone=null;
   if(xlSimPosted()){
     try{ const c=RC_POSTCLOSE.find(x=>x.journalNumber===XL_SIM_JE);
       if(c) rcPostCloseWithdraw(c.postCloseChangeId); }catch(e){}
@@ -36883,7 +36997,7 @@ function xlSimulate(){
       entityName:'Meridian DC Holdco', projectName:'Ashburn Hall C',
       vendorName:'ABB Switchgear', txType:'INV',
       memo:'Switchgear delivery — invoiced after the workpaper was prepared',
-      amount:14.2, postedBy:'NetSuite US Development', erpReference:'INV-'+XL_SIM_JE.slice(3),
+      amount:XL_SIM_AMT, postedBy:'NetSuite US Development', erpReference:'INV-'+XL_SIM_JE.slice(3),
       assessment:'material'});
   }catch(e){ console.error('xlSimulate',e); }
   renderAll();
@@ -36996,11 +37110,9 @@ function xlOpenMenuV2(){
         /* the FOCUSED workbook \u2014 one reconciliation, three controls \u2014 because that is the
            workflow an accountant actually has. The general workspace stays reachable from
            the module itself. */
-        add('Current view',(d?d.name:id)+' \u2014 reconciliation and my analysis',
+        add('Current view',(d?d.name:id)+' reconciliation workpaper',
           perLabel(ctx.periodId)+' \u00b7 '+ctx.reportingLensName+' \u00b7 '+ctx.basisLabel,
           "xlOpenRecon('"+id+"')");
-        add('Detailed population',(d?d.name:id)+' activity',
-          'Governed transaction population', "rcExcelActivity('"+id+"')", true);
       }else{
         add('Current view','Reconciliation control center',
           perLabel(ctx.periodId)+' \u00b7 select a reconciliation for its roll-forward', '');
@@ -37010,7 +37122,8 @@ function xlOpenMenuV2(){
       +' \u00b7 '+ctx.reportingLensName,
       "xlOpenFrom('TRIAL_BAL',null,'Trial balance')");
   }catch(e){}
-  out.push({grp:'', nm:'Open Korvyn for Excel', sub:'The connected workspace',
+  /* the generic workspace is not offered from a reconciliation (brief §3) */
+  if(TAB!=='glrecon') out.push({grp:'', nm:'Open Korvyn for Excel', sub:'The connected workspace',
     go:"pickLens('xl');pickTab('xlwork')"});
   return out.filter(r=>r.go);
 }
@@ -37061,9 +37174,17 @@ function xlOpenFrom(objectType,objectId,label,statement,extra){
 function renderXlWork(){
   const el=$('view-xlwork'); if(!el) return;
   xlSeed(); glSurface(el);
+  /* A RECONCILIATION'S WORKBOOK NEVER APPEARS IN THE GENERIC WORKSPACE. After Back the
+     reconciliation's workbook stayed current, so opening Korvyn for Excel from the launcher
+     showed it in the generic chrome \u2014 Insert, Connected, History, a workbook picker, and
+     "Opened directly \u2014 no originating surface". Entering the module leaves the focused mode,
+     and a focused workbook is never the generic workspace's current book. */
+  if(typeof LENS!=='undefined'&&LENS==='xl'&&xlFocus){ xlFocus=null; xlDone=null; xlFxCur=null; }
+  if(!xlFocus&&xlFocusOf(xlWb)) xlWb=null;
   /* opening the module directly lands on the platform workbook, not on whichever seeded
      book happens to sort first \u2014 "what workbook am I looking at?" starts there. */
-  const wb=xlBook(xlWb)||xlBook('WB-CIP')||XL_WORKBOOKS[0]; xlWb=wb.workbookId;
+  const wb=xlBook(xlWb)||xlBook('WB-CIP')
+    ||XL_WORKBOOKS.find(w=>!xlFocusOf(w.workbookId))||XL_WORKBOOKS[0]; xlWb=wb.workbookId;
   const objs=xlObjectsIn(wb.workbookId);
   /* `navGo` sets NAVCTX, calls dest() — which renders THIS — and only then stamps destTab,
      so a guard on destTab is false on the first paint and BOTH return controls appeared
@@ -37107,8 +37228,11 @@ function xlRibbon(wb,objs){
     return `<div class="xl-rib focus">
       <button class="xl-act back" onclick="xlFocusExit()">
         ${glIc('M10 3L5 8l5 5')}Back to ${glEsc(nm)}</button>
-      <span class="xl-ftitle">${glEsc(nm)}
+      <span class="xl-fhead"><span class="xl-ftitle">${glEsc(nm)}
         <span class="p">\u2014 ${glEsc(perLabel(xlFocus.periodId))}</span></span>
+      ${(function(){ const o=objs[0], c=o?o.financialContext:xlContext();
+        return `<span class="xl-fctx">${glEsc(c.reportingLensName)} \u00b7 ${glEsc(c.basisLabel)}
+          \u00b7 ${glEsc(c.presentationCurrency)}</span>`; })()}</span>
       <span class="xl-sig ${worst.c||''}" title="${glEsc(worst.d)}">
         <i class="dot"></i>${worst.o?glEsc(worst.l):'Korvyn connected'}</span>
       <span class="xl-fdiv"></span>
@@ -37150,9 +37274,10 @@ function xlBand(wb,objs){
   /* §7 — OWNERSHIP, STATED ON EVERY SHEET, because it is the question the whole workbook
      answers. Korvyn's sheets say which columns it maintains; the accountant's says Korvyn
      never touches it. */
-  if(sheet.name==='Analysis')
-    return `<div class="xl-band"><span class="xl-ownr mine">Yours</span>
-      <span class="t">Every cell on this sheet is yours. Refresh never touches it.</span>
+  if(sheet.owner==='user'||sheet.name==='Analysis')
+    return `<div class="xl-band"><span class="xl-ownr mine">${sheet.name==='Analysis'
+        ?'Your analysis':'Yours'}</span>
+      <span class="t">Refresh never overwrites this sheet. Double-click any cell to type.</span>
       </div>`;
 
   if(sheet.name==='GL Detail'){
@@ -37172,7 +37297,7 @@ function xlBand(wb,objs){
       : held+(D.kind==='tx'
           ? ' · '+D.accounts+' source account'+(D.accounts===1?'':'s') : '');
     return `<div class="xl-band gl">
-      <span class="xl-ownr">Korvyn</span>
+      <span class="xl-ownr">Korvyn · connected</span>
       <span class="t"><b>${glEsc(D.componentLabel)}</b>${D.ref?' · '+glEsc(D.ref):''}
         · ${glEsc(pop)} · ${glEsc(rcM(D.total,ccy))}</span>
       <span class="xl-foot ${D.sampled?'bad':(D.foots?'ok':'bad')}">${D.sampled
@@ -37181,9 +37306,9 @@ function xlBand(wb,objs){
         : 'Does not foot · '+glEsc(rcM(+(D.sum-D.total).toFixed(3),ccy))}</span>
       <span class="grow"></span>
       ${tx?(tx.sourceUrl
-        ? `<a class="xl-act" target="_blank" rel="noopener noreferrer"
-             href="${glEsc(tx.sourceUrl)}">${glIc('M9 3h4v4M13 3L7 9M11 9v4H3V5h4')}Open in
-             ${glEsc(tx.erpPlatform)}</a>`
+        ? `<button class="xl-act" onclick="xlErpOpen(${xlSelRow})"
+             title="${glEsc(tx.sourceReference)}">${glIc('M9 3h4v4M13 3L7 9M11 9v4H3V5h4')}Open
+             ${glEsc(tx.journalNumber)} in ${glEsc(tx.erpPlatform)}</button>`
         : `<span class="xl-srcref" title="${glEsc(tx.sourceReference)}">Source reference ·
              ${glEsc(tx.erpInstanceName)} · no deep link published</span>`):''}
       <button class="xl-act" onclick="xlDrillScope('${grp?'recon':'group'}')">${grp
@@ -37204,8 +37329,8 @@ function xlBand(wb,objs){
   const r=o?xlHeld(o):null;
   const m=(r&&r.meta)?r.meta[xlSelRow]:null;
   return `<div class="xl-band">
-    <span class="xl-ownr">Korvyn</span><span class="t">A:C roll-forward</span>
-    <span class="xl-ownr mine">Yours</span><span class="t">header · tie-out</span>
+    <span class="xl-ownr">Korvyn · connected</span><span class="t">Refresh maintains this
+      sheet.</span>
     <span class="grow"></span>
     ${(m&&m.comp)?`<span class="xl-selline">${glEsc(String(m.l).split(' · ')[0])}${m.ref
         ?' · '+glEsc(m.ref):''} · ${glEsc(rcM(m.v))}</span>
@@ -37434,7 +37559,8 @@ function xlSheet(wb,objs){
         const n=typeof v==='number';
         cellOf[(b.row+1+ri)+'|'+(c0+ci)]={
           v:xlCell(v, dp?dp[ci]:1), cls:'k'+(n?' num':'')+(!n&&mono&&mono[ci]?' xid':'')
-            +(m&&m.rule?' rule':'')+(m&&m.comp&&n?' dr':''),
+            +(m&&m.rule?' rule':'')+(m&&m.strong?' strong':'')+(m&&m.dbl?' dbl':'')
+            +(m&&m.comp&&n?' dr':''),
           k:b.obj.connectedObjectId, ri, comp:m?m.comp:null,
           t:(m&&m.comp&&n)?'Double-click for the GL detail behind this amount':null}; }); });
     span[b.obj.connectedObjectId]={r0:b.row, r1:b.row+b.res.rows.length, c0,
@@ -37458,10 +37584,16 @@ function xlSheet(wb,objs){
       const fxk=(key&&x)?`xlFxCur={a:'${addr}',ro:1};`:'';
       const fxon=(xlFxCur&&xlFxCur.a===addr&&(key?xlFxCur.ro:!xlFxCur.ro))?' fxon':'';
       if(fxon&&key&&x) xlFxCur.v=String(x.v);   // the bar is drawn after the sheet
+      /* on a sheet of yours every cell — empty ones included — can be selected and typed in;
+         the raw value (a formula, or text as typed) travels on the cell for the editor */
+      const mine=!key&&sheet.owner==='user';
+      const pick=(x||mine)&&!key;
       cells+=`<td class="${x?x.cls:''} ${edge}${on}${fxon}"${x&&x.t?` title="${glEsc(x.t)}"`
         :(x&&x.f?` title="${glEsc(x.f)}"`:'')}${key
-        ?` onclick="${fxk}xlPick('${key}',${x&&x.ri!=null?x.ri:0})"`
-        :(x?` data-a="${addr}"${x.f?` data-f="${glEsc(x.f)}"`:''} onclick="xlFxShow(this)"`:'')}${x&&x.comp
+        ?` data-ro="1" onclick="${fxk}xlPick('${key}',${x&&x.ri!=null?x.ri:0})"`
+        :(pick?` data-a="${addr}"${x&&x.f?` data-f="${glEsc(x.f)}"`:''}${x&&x.user&&!x.f
+          ?` data-v="${glEsc(String(x.raw!=null?x.raw:x.v))}"`:''} onclick="xlFxShow(this)"${mine
+          ?' ondblclick="xlEdit(this)"':''}`:'')}${x&&x.comp
         ?` ondblclick="xlDrill('${x.comp}')"`:''}>${x?glEsc(String(x.v)):''}</td>`;
     }
     rows+=`<tr><th class="xl-rn">${r}</th>${cells}</tr>`;
@@ -37475,7 +37607,7 @@ function xlSheet(wb,objs){
       <span class="st">${glEsc(st.l)}</span></button></div>`; });
   const total=COLS.reduce((s,c,i)=>s+colW(i),34);
   return `<div class="xl-grid-wrap">${tags}
-    <table class="xl-grid" style="width:${total}px">
+    <table class="xl-grid${sheet.wp?' wp':''}" style="width:${total}px">
     <colgroup><col style="width:34px">${COLS.map((c,i)=>'<col style="width:'+colW(i)+'px">').join('')}</colgroup>
     <thead><tr><th class="xl-rn"></th>
       ${COLS.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
@@ -37495,10 +37627,13 @@ function xlSetSheet(id){ const wb=xlBook(xlWb); _xlSheet[wb.workbookId]=id; xlSe
   xlFxCur=null; renderAll(); }
 function xlTabs(wb){
   return `<div class="xl-sheets">${wb.sheets.map(s=>`<button class="${s.id===xlSheetId(wb)?'on':''}"
+    ${s.owner?`title="${s.owner==='user'?'Yours — refresh never overwrites this sheet'
+      :'Korvyn · connected — refresh maintains this sheet'}"`:''}
     onclick="xlSetSheet('${s.id}')">${glEsc(s.name)}</button>`).join('')}
     ${xlFocus?`<button class="xl-sim" onclick="xlSimulate()"
       title="Post a real ERP entry to this period so Refresh above is a real refresh">
-      ${xlSimPosted()?'Withdraw simulated posting':'Simulate a source posting'}</button>`:''}
+      ${xlSimPosted()?'Withdraw simulated ERP posting'
+        :'Simulate ERP posting (+'+glEsc(rcM(XL_SIM_AMT))+')'}</button>`:''}
     <span class="xl-wbname">${glEsc(wb.name)}</span></div>`;
 }
 
@@ -37508,7 +37643,7 @@ function xlTaskPane(wb,objs){
   let o=`<div class="xl-pn-h">KORVYN<span class="grow"></span>
     ${xlFocus?`<span class="xl-wbname">${glEsc(wb.name)}</span>`
       :`<select class="xl-wbsel" onchange="xlSetBook(this.value)">
-      ${XL_WORKBOOKS.map(w=>`<option value="${w.workbookId}" ${w.workbookId===wb.workbookId?'selected':''}>${glEsc(w.name)}</option>`).join('')}
+      ${XL_WORKBOOKS.filter(w=>!xlFocusOf(w.workbookId)).map(w=>`<option value="${w.workbookId}" ${w.workbookId===wb.workbookId?'selected':''}>${glEsc(w.name)}</option>`).join('')}
     </select>`}</div>`;
   o+=`<div class="xl-ctx"><div class="k">Context</div>
     <div class="v">${glEsc(c.scopeName)}</div>
@@ -37782,7 +37917,11 @@ function xlPreviewGo(kind){
       was.act!=null&&now.act!=null?'GL activity '+xlCell(was.act,1)+' → '+xlCell(now.act,1):'',
       was.end!=null&&now.end!=null?'Ending balance '+xlCell(was.end,1)+' → '+xlCell(now.end,1):'',
       glWas!=null&&glNow!=null&&glWas!==glNow?'GL Detail '+glWas+' → '+glNow+' lines':'',
-      'Analysis recalculated · your notes and formulas untouched'].filter(Boolean).join(' · ')};
+      'Analysis recalculated',
+      (function(){ const wbx=xlBook(xlWb), n=wbx?wbx.sheets.filter(s=>s.owner==='user')
+          .reduce((a,s)=>a+(s.user||[]).filter(u=>u.mine).length,0):0;
+        return (n?n+' cell'+(n===1?'':'s')+' you edited, ':'')
+          +'your formulas and notes untouched'; })()].filter(Boolean).join(' · ')};
     xlPreview=null; renderAll(); return;
   }
   const r=xlRefresh(o.connectedObjectId,opts);
@@ -37792,9 +37931,11 @@ function xlPreviewGo(kind){
 /* the one line under the focused header that says what just happened, and after a publish
    the way to see it where it landed */
 function xlDoneLine(){
-  if(!xlDone&&!xlNotice) return '';
-  if(!xlDone) return `<div class="xl-done bad"><span class="t">${glEsc(xlNotice)}</span></div>`;
-  return `<div class="xl-done"><span class="t"><b>${glEsc(xlDone.t)}</b> · ${glEsc(xlDone.d)}</span>
+  /* a changed source is never hidden behind an older message: it always renders, beneath */
+  const src=xlPreview?'':xlSourceLine();
+  if(!xlDone&&!xlNotice) return src;
+  if(!xlDone) return `<div class="xl-done bad"><span class="t">${glEsc(xlNotice)}</span></div>`+src;
+  return src+`<div class="xl-done"><span class="t"><b>${glEsc(xlDone.t)}</b> · ${glEsc(xlDone.d)}</span>
     ${xlDone.sup?`<span class="grow"></span><button class="xl-act" onclick="xlFocusToSupport()">
       View in ${glEsc(xlDone.sup)} › Support</button>`:''}
     <button class="xl-x" onclick="xlDone=null;renderAll()" aria-label="Dismiss">&#215;</button></div>`;
@@ -37803,6 +37944,93 @@ function xlFocusToSupport(){
   xlDone=null; xlFocusExit();
   if(typeof setRcTab==='function') setRcTab('sup');
 }
+/* §15 — SOURCE CHANGED, SAID IN ACCOUNTING TERMS, BEFORE THE ACCOUNTANT HAS TO ASK. The
+   header dot already turned amber; this line says what moved — how many postings, how much,
+   which lines of the roll-forward — measured against what the workbook HOLDS, so it is a
+   comparison and not an assertion. */
+function xlSourceLine(){
+  const os=xlObjectsIn(xlWb);
+  const moved=os.filter(x=>{ const k=xlStateKey(x); return k==='SOURCE'||k==='AVAILABLE'||k==='STRUCTURE'; });
+  if(!moved.length) return '';
+  const rec=os.find(x=>x.korvynObjectType==='RECON_ROLL');
+  const gl=os.find(x=>x.korvynObjectType==='GL_DETAIL');
+  const d=rec?xlDelta(rec):null;
+  const heldD=gl&&gl.held&&gl.held.detail, live=gl?xlResolve(xlSpecOf(gl)):null, liveD=live&&live.detail;
+  const posts=(heldD&&liveD&&heldD.kind==='tx'&&liveD.kind==='tx')?liveD.count-heldD.count:0;
+  const act=d?d.lines.find(l=>/^GL activity/.test(l.k)):null;
+  const names=d?d.lines.filter(l=>Math.abs(l.d)>=0.05).map(l=>String(l.k).split(' · ')[0]
+    .replace('Calculated ending balance','Ending balance')):[];
+  const bits=[posts>0?posts+' new posting'+(posts===1?'':'s'):'',
+    act?(act.d>0?'+':'')+rcM(act.d)+' impact':'',
+    ...names.map(n=>n+' affected')].filter(Boolean);
+  return `<div class="xl-done warn"><span class="t"><b>Source changed</b>${bits.length?' · ':''}${
+    bits.map(glEsc).join(' · ')}</span><span class="grow"></span>
+    <button class="xl-act" onclick="xlAskRefresh()">Review and refresh</button></div>`;
+}
+/* §10 — THE ERP TRACE IS SIMULATED, AND SAYS SO. The link used to be a real anchor to an
+   example domain — a button that navigated to a site that does not exist. It states the
+   journal and the system it would open, and nothing leaves the page. */
+function xlErpOpen(i){
+  const o=xlObjectsIn(xlWb).find(x=>x.korvynObjectType==='GL_DETAIL');
+  const D=o&&xlHeld(o)&&xlHeld(o).detail, t=D&&D.txs?D.txs[i]:null; if(!t) return;
+  xlDone={t:'Open in '+t.erpPlatform, d:t.journalNumber+' line '+t.journalLineNumber+' · '
+    +t.erpInstanceName+' — in production this opens the journal in the ERP; simulated in this prototype'};
+  renderAll();
+}
+
+/* §11, §12 — YOUR SHEETS ARE EDITABLE. Analysis and Notes belong to the accountant, and a
+   sheet you cannot type on does not demonstrate that refresh preserves your work. Double-click
+   a cell, press Enter or F2, or just start typing: text, numbers, or a formula starting with
+   "=", which the workbook evaluates like the rest. Korvyn's sheets do not open for editing —
+   typing on one says why instead. Nothing here is logged; ordinary spreadsheet work is yours. */
+let xlEditing=null;
+function xlCurSheet(){ const wb=xlBook(xlWb); return wb?(wb.sheets.find(s=>s.id===xlSheetId(wb))||null):null; }
+function xlEdit(td,seed){
+  const sh=xlCurSheet(); if(!sh||sh.owner!=='user'||!td||!td.dataset.a) return;
+  xlEditing={a:td.dataset.a};
+  const raw=seed!=null?seed:(td.dataset.f||td.dataset.v||'');
+  td.classList.add('editing');
+  td.innerHTML='<input class="xl-edit" id="xlEditIn" onkeydown="xlEditKey(event)" '
+    +'onblur="xlEditCommit(true)" aria-label="Edit cell '+td.dataset.a+'">';
+  const inp=td.firstChild; inp.value=raw; inp.focus();
+  if(seed==null) inp.select(); else inp.setSelectionRange(raw.length,raw.length);
+}
+function xlEditKey(e){
+  if(e.key==='Enter'){ e.preventDefault(); xlEditCommit(true); }
+  else if(e.key==='Escape'){ e.preventDefault(); xlEditCommit(false); }
+}
+function xlEditCommit(save){
+  if(!xlEditing) return;
+  const a=xlEditing.a; xlEditing=null;
+  const inp=document.getElementById('xlEditIn');
+  const sh=xlCurSheet();
+  if(save&&inp&&sh&&sh.owner==='user'){
+    const m=a.match(/^([A-Z]+)(\d+)$/), c=xlColIdx(m[1]), r=+m[2], v=inp.value;
+    sh.user=sh.user||[];
+    const i=sh.user.findIndex(u=>u.r===r&&u.c===c), was=i>=0?sh.user[i]:null;
+    if(v.trim()===''){ if(i>=0) sh.user.splice(i,1); }
+    else{ const f=v.trim()[0]==='=', n=!f&&xlNum(v)!=null;
+      const keep=was&&/u-h|u-t/.test(was.cls||'');
+      const cell={r,c,v:f?v.trim():v, cls:keep?was.cls:(f?'u-f':(n?'u num':'u')),
+        fmt:was?was.fmt:undefined, mine:1};
+      if(i>=0) sh.user[i]=cell; else sh.user.push(cell); }
+    xlFxCur={a, f:v.trim()[0]==='='?v.trim():'', v};
+  }
+  renderAll();
+}
+document.addEventListener('keydown',e=>{
+  if(typeof TAB==='undefined'||TAB!=='xlwork'||!xlFocus||xlEditing) return;
+  if(e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  const td=document.querySelector('.xl-grid td.fxon'); if(!td) return;
+  const typed=e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey;
+  if(!(typed||e.key==='Enter'||e.key==='F2')) return;
+  /* captured and stopped: a keystroke meant for a cell must not also fire an app shortcut */
+  e.preventDefault(); e.stopPropagation();
+  if(td.dataset.ro||(xlCurSheet()||{}).owner!=='user'){
+    xlDone={t:'Connected · read-only', d:'This value is Korvyn’s. Reference it in a formula on '
+      +'Analysis or Notes — refresh keeps it current.'}; renderAll(); return; }
+  xlEdit(td, typed?e.key:null);
+},true);
 function xlPreviewExpand(){ xlPreview=Object.assign({},xlPreview,{expanded:!xlPreview.expanded});
   renderAll(); }
 
@@ -37831,7 +38059,7 @@ function xlRefreshPreview(){
           D&&N&&D.count!==N.count?' &#183; '+D.count+' &#8594; '+N.count+' GL lines':''}</td></tr>`;
       }).join(''):''}
       <tr><td class="k">Untouched</td><td class="v">${xlPreview.all
-        ?'the Analysis sheet, the header and tie-out &#8212; your formulas, pivots and notes'
+        ?'the Analysis and Notes sheets &#8212; your formulas, pivots, notes and every cell you typed'
         :'everything from column '+R.user.from+' onward &#8212; your formulas, pivots, charts and notes'}</td></tr>
     </tbody></table>
     ${xlPreview.expanded&&d&&d.lines.length?`<div class="mrp-subh">What moved</div>
@@ -37898,6 +38126,10 @@ function xlPublishPreviewHTML(){
       <tr><td class="k">Reconciliation</td><td class="v">${glEsc(p.targetLabel||'')}</td></tr>
       <tr><td class="k">Period</td><td class="v">${glEsc(p.periodLabel)}</td></tr>
       <tr><td class="k">Purpose</td><td class="v">${glEsc(p.purposeLabel)}</td></tr>
+      <tr><td class="k">Source status</td><td class="v"><span class="pill ${
+        p.sourceState.c||''} sm">${glEsc(p.sourceState.o?p.sourceStateLabel:'Current')}</span>${
+        p.sourceState.o?' <span class="ic-mini">refresh before publishing to attach current '
+          +'figures</span>':''}</td></tr>
     </tbody></table>
     ${gate.ok?`<div class="xl-dlg-a">
       <button class="btn-primary sm" onclick="xlPubGo('${xlPreview.purpose}')">Publish</button>
@@ -38089,7 +38321,15 @@ function renderXlBooks(){
     </tbody></table></div>`;
   el.innerHTML=o;
 }
-function xlOpenBook(id){ xlWb=id; xlSel=null; pickTab('xlwork'); }
+function xlOpenBook(id){
+  /* a reconciliation's workbook opens as the reconciliation's workbook, wherever it is
+     reached from — the register included */
+  const f=xlFocusOf(id);
+  if(f){ if(viewPeriod()!==f.periodId&&typeof setPeriod==='function') setPeriod(f.periodId);
+    const d=rcDef(f.defId); if(d&&typeof rcPick==='function'){ pickLens('ledger');
+      pickTab('glrecon'); rcPick(f.defId); }
+    xlOpenRecon(f.defId); return; }
+  xlWb=id; xlSel=null; pickTab('xlwork'); }
 /* ==========================================================================================
    R6.2 — THE MANAGEMENT REPORTING PACKAGE (brief §11 – §28, §41 – §47)
    ==========================================================================================
@@ -58897,7 +59137,7 @@ function rcFluxLineFor(def){
    workflow. They open the reconciliation's own workbook now; the activity entry lands on its
    GL Detail sheet, because that is what "activity in Excel" means for one reconciliation. */
 function rcExcel(defId,ev){ xlOpenRecon(defId,ev); }
-function rcExcelActivity(defId,ev){ xlOpenRecon(defId,ev,'GL Detail'); }
+function rcExcelActivity(defId,ev){ xlOpenRecon(defId,ev); }
 function rcGoFlux(defId){
   const def=rcDef(defId), inst=def?rcInstance(defId):null;
   openFlux(rcFinancialContext(def,inst));
@@ -65281,9 +65521,12 @@ function paintRailRoles(){
         if(it.head) return `<div class="rail-grouplbl">${it.head}</div>`;   // section heading
         // `on`/`act` let an entry target existing state (e.g. Flux review = finrep + finRepSub)
         // instead of forcing a new tab for every rail destination.
+        /* a reconciliation's workbook is part of the reconciliation, so Reconciliations stays
+           lit while it is open — the rail says where the work belongs, not which renderer */
+        const RT=(TAB==='xlwork'&&typeof xlFocus!=='undefined'&&xlFocus)?'glrecon':TAB;
         const active = it.on ? !!it.on()
                      : it.lens ? (LENS===it.lens)
-                     : (TAB===it.tab && (!it.sub || fDetailTab===it.sub));
+                     : (RT===it.tab && (!it.sub || fDetailTab===it.sub));
         const go = it.act ? it.act
                  : it.lens ? `pickLens('${it.lens}')`
                  : (it.sub ? `setFDetailTab('${it.sub}');pickTab('${it.tab}')` : `pickTab('${it.tab}')`);
@@ -65306,7 +65549,7 @@ function paintRailRoles(){
           out+=`<div class="railkids ${open?'open':''}">`+it.kids.map(k=>{
             const kon = k.seg ? (TAB==='findex'&&fIndexSeg===k.seg)
                       : k.sub ? (TAB==='fdetail'&&fDetailTab===k.sub)
-                      : (TAB===k.tab);
+                      : (RT===k.tab);
             const kgo = k.seg ? `setFIndexSeg('${k.seg}');pickTab('findex')`
                       : k.sub ? `setFDetailTab('${k.sub}');pickTab('fdetail')`
                       : `pickTab('${k.tab}')`;
@@ -65758,6 +66001,20 @@ function paintTopbar(){
   if(tt)tt.textContent=m.t;
   const cr=document.getElementById('tbCrumb');
   let crumb=m.c, ownHdr=false;
+  /* A RECONCILIATION'S WORKBOOK NAMES ITSELF (brief §1, §20 "What workbook am I in?"). The
+     title row read "Korvyn for Excel · Excel as a connected workspace" — the product, not the
+     work. It states the workbook and the reconciliation it belongs to. */
+  /* set on every paint, not only while the workbook renders — otherwise it outlives the
+     workbook and keeps the shell's back chevron hidden on the page Back returns to */
+  document.body.classList.toggle('xl-focus',
+    TAB==='xlwork'&&typeof xlFocus!=='undefined'&&!!xlFocus);
+  if(TAB==='xlwork'&&typeof xlFocus!=='undefined'&&xlFocus){
+    try{ const wb=xlBook(xlWb), d=rcDef(xlFocus.defId);
+      if(tt&&wb) tt.textContent=wb.name;
+      crumb='<b>Accounting</b> · Reconciliations › '+glEsc(d?d.name:xlFocus.defId)+' · '
+        +glEsc(perLabel(xlFocus.periodId))+' · connected Excel workpaper';
+      ownHdr=true; }catch(e){}
+  }
   /* CORPORATE FLUX WRITES ITS OWN HEADER (2026-08-28). This row IS the page header
      — title, then one quiet line under it — so the page is made readable here
      rather than by adding a header block inside #fxRoot that would state the page
@@ -66229,6 +66486,8 @@ function gfBarHidden(){
      captured when it was inserted, so Scope / Period / Basis here change nothing on screen —
      a dead control, and on a focused single-reconciliation workbook it is also noise. */
   if(typeof LENS!=='undefined'&&LENS==='xl')return true;
+  /* keyed on the view too, because a reconciliation's workbook opens inside Accounting */
+  if(TAB==='xlwork')return true;
   return false;
 }
 function paintGfBar(){

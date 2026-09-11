@@ -6314,6 +6314,78 @@ Jun 2026 Electrical CIP reconciliation on the tab it left from.
 frames. The DOM had scrolled and changed, and the screenshot had not. `resize_window` with
 `preset: desktop` fixed it. Trust the DOM over the picture.
 
+## 2026-09-11 (later) — Account Recs → Excel, consolidated: the workbook belongs to the reconciliation
+
+Owner's consolidated brief. It was not about new features. It fixed the same workflow so it
+reads as an accountant's workpaper and never as the generic Korvyn for Excel surface.
+**Supersedes the earlier block's workbook name and tab set.** It is **`Electrical CIP
+Reconciliation.xlsx`** again, with four tabs.
+
+**THE WORKBOOK OPENS INSIDE ACCOUNTING (`xlFocusShow`).** It used to `pickLens('xl')`, so the
+first things on screen were the Excel module's rail (Workspace · Connected workbooks) and its
+title ("Korvyn for Excel · Excel as a connected workspace"). It stays in the ledger lens now.
+`pickTab` does not require the tab to be in the lens. **Reconciliations stays lit in the rail**
+(`RT` in the rail painter), the title row states the workbook name, and the crumb reads
+*Accounting · Reconciliations › Electrical CIP · Jun 2026 · connected Excel workpaper*.
+`gfBarHidden` keys on `TAB==='xlwork'` as well as the lens, or the filter band returns.
+`body.xl-focus` is set in `paintTopbar` on every paint. Toggled only by the Excel renderer, it
+outlived the workbook and hid the shell's back chevron on the page Back returned to.
+
+**THE GENERIC WORKSPACE NEVER SHOWS A RECONCILIATION'S WORKBOOK.** After Back, the focused
+workbook stayed `xlWb`, so opening Korvyn for Excel from the launcher showed it in generic
+chrome: Insert, the Connected/History pane, the picker, "Opened directly — no originating
+surface". That is where "lands in a generic workspace" and "workbook context unclear" came
+from. Entering the `xl` lens now leaves focus mode. A focused workbook is never the generic
+current book, and it is excluded from the picker. `xlOpenBook` opens one in focus mode from
+the register.
+
+**OPEN IN EXCEL = THE WHOLE WORKPAPER (§18).** On Reconciliations the header button opens the
+selected reconciliation's workpaper directly, with no menu. It isn't drawn with nothing
+selected, and the "Open Korvyn for Excel" and "Detailed population" rows are not offered
+there. Every entry lands on Roll-forward, including `rcExcelActivity`. Drill-down is an act
+*inside* the workpaper.
+
+**FOUR SHEETS, EACH WITH `owner`** (`korvyn` | `user`): Roll-forward · GL Detail · Analysis ·
+Notes. The band reads `owner`: *Korvyn · connected — refresh maintains this sheet*, *Your
+analysis* or *Yours — refresh never overwrites this sheet*. The Analysis ties address
+`'Roll-forward'!`. `XL_RECON_R0` is 8: five title lines (name · period · lens · basis · USD
+millions), a prepared-by line, then the roll-forward alone. **`wp:1` renders a sheet
+gridless**: a rule under the heads, a rule above each subtotal, bold trial balance
+(`meta.strong`), a double rule under the difference (`meta.dbl`), a 1px edge on Korvyn's range,
+and no range-wide selection tint. The roll-forward's amount column is headed by the period.
+The unit is in the title block.
+
+**YOUR SHEETS ARE EDITABLE (`xlEdit`, `xlEditCommit`).** Double-click, Enter/F2, or just type.
+A value starting with "=" is a formula `xlCalc` evaluates. Edits are marked `mine:1`, so the
+refresh confirmation can say *"4 cells you edited, your formulas and notes untouched"*. Korvyn
+cells carry `data-ro`, and typing on one says it is connected and read-only. The keydown
+listener is **capture-phase with stopPropagation**, or a keystroke meant for a cell also fires
+an app shortcut.
+
+**SOURCE CHANGED, SUMMARISED BEFORE REFRESH (`xlSourceLine`, §15).** It reads *1 new posting ·
++$1.2M impact · GL activity / Ending balance / Trial balance affected · Review and refresh*.
+Postings are measured as held GL lines vs live, and lines as the held roll-forward vs live. It
+**always renders**; an older message must never hide a changed source. The simulated posting is
+the brief's **$1.2M** (`XL_SIM_AMT`). Our governed GL activity is 29.3, so it goes to 30.5 (the
+brief's 30.5 → 31.7 figures are illustrative).
+
+**Also:** Open in NetSuite is a simulated action that states the journal and the system. It
+was an anchor to an example domain. The publish dialog shows Workbook · Reconciliation · Period ·
+Purpose (*Reconciliation supporting workpaper*) · **Source status**. Drilling to the component
+already on GL Detail just switches sheet; re-resolving it silently refreshed the population.
+A lost navigation context still returns to the reconciliation, in its period, on the tab it
+was opened from (`xlFocus.rcTab`). The header stacks *Corporate Consolidated · US GAAP · USD*
+under the title, so Refresh and Publish stay on one line with the rail present.
+
+**Not built:** the optional ending-balance composition (§7). It would need a new connected
+object type, and the brief rules out new Excel features.
+
+**Verified:** the brief's 14-step flow end to end, through real clicks and keystrokes · Back
+restores the tab, the selected reconciliation, the quick-view filter and the scroll (178 → 178) ·
+204/204 view renders across three periods · console clean · 4/4 gates (baselines unchanged) ·
+FS-CIP 4,210.2 · chronology 0 · all four seeded general-workspace states still detect · 0
+clipped elements on all four sheets.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
