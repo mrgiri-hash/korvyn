@@ -2039,13 +2039,42 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
   text-transform:uppercase;list-style-position:inside}
 .rcx-more>summary:hover{color:var(--ink)}
 .rcx-more p{margin:0 0 var(--s-2);font-size:var(--fs-label);color:var(--muted);line-height:var(--lh)}
-.rcx-mombar{display:flex;align-items:baseline;gap:var(--s-2);padding:var(--s-2) 0;
+.rcx-mombar{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-2);padding:var(--s-2) 0;
   font-size:var(--fs-table);border-bottom:1px solid var(--line)}
 .rcx-mombar .k{color:var(--muted)}
 .rcx-mombar .v{color:var(--ink);font-variant-numeric:tabular-nums}
 .rcx-mombar .p{color:var(--muted);font-variant-numeric:tabular-nums}
 .rcx-mombar .fsx-link{margin-left:auto}
+/* the caveat takes its own line rather than wrapping the row into three (§5) — the wrap is
+   declared on the rule above, not in a second bare .rcx-mombar, which the duplicate-class
+   gate correctly refuses */
+.rcx-mombar .n{flex:1 0 100%;font-size:var(--fs-label);color:var(--hint)}
 .rcx-note-i{font-size:var(--fs-label);color:var(--hint);margin-left:var(--s-2)}
+/* 2026-09-11 §6 — the panel's transaction table. The Control Center's `.rcx-tbl` fills its
+   track (`min-width:100%`, last column takes the slack), which is right for a full-width grid
+   and wrong inside a 420px dock: the columns would be stretched until the dock took the width
+   back. Here the table takes its natural width and the wrapper scrolls, and the memo is the
+   one column allowed to truncate because everything else is an identifier or a figure. */
+/* 2026-09-11 refinement §13 — DENSITY, IN THE RECONCILIATION PANEL ONLY. The dock is 420px and
+   carries six tabs of workpaper; the air between a section title and its first row was costing
+   a row a screen. Scoped to #rcPanel, so the shared .amp-* rules still govern the Account
+   Mapping panel, which is a different surface with a different amount to say. The separator
+   between key/value rows is what a data sheet gets instead of that air. */
+#rcPanel .amp-sec{padding:var(--s-3) 0 var(--s-1);margin-bottom:0}
+#rcPanel .amp-r{padding:var(--s-1) 0;border-top:1px solid var(--line)}
+#rcPanel .amp-sec+.amp-r,#rcPanel .rcx-more>summary+.amp-r{border-top:0}
+#rcPanel .rcx-evl{gap:var(--s-1);padding:var(--s-1) 0}
+#rcPanel .amp-acts{margin-top:var(--s-2)}
+.rcx-ptx{min-width:0;width:auto;font-size:var(--fs-label)}
+.rcx-ptx th:last-child{width:auto}
+.rcx-ptx td.rcx-memo{max-width:180px;overflow:hidden;text-overflow:ellipsis}
+/* fourteen columns in a 420px dock means the amounts are reached by scrolling, so the posting
+   date freezes: identity survives the scroll, which is what the Activity Detail grid does with
+   its own identifier columns. A ledger read without a way to cite the line is a wall of
+   figures. */
+.rcx-ptx th:first-child,.rcx-ptx td:first-child{position:sticky;left:0;z-index:1;
+  background:var(--surface)}
+.rcx-ptx tr:hover td:first-child{background:var(--surface2)}
 /* a conclusion stated in words — six pills a reviewer has to cross-read is not a conclusion */
 .rcx-why{margin-top:var(--s-3);padding:var(--s-3);background:var(--n-50);
   border-left:3px solid var(--n-300);font-size:var(--fs-table);color:var(--muted);
@@ -37539,7 +37568,13 @@ function xlAddinView(wb,objs){
         xlSimPosted()?'Withdraw simulated ERP posting'
           :'Simulate ERP posting (+'+glEsc(rcM(XL_SIM_AMT))+')'}</button></div>
   </section>`;
+  /* §1 — A PAGE-LEVEL RETURN, not only the add-in's. The same back control the GL drill-down
+     canvas uses, so leaving any Reconciliations surface works the same way. */
   return `<div class="xa">
+    <div class="rcx-actbar"><button class="rcx-back" onclick="xlFocusExit()">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M9.5 3.5L5 8l4.5 4.5" stroke="currentColor"
+        stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to ${glEsc(nm)}</button></div>
     <div class="xa-note"><b>Prototype.</b> Real analysis happens in Microsoft Excel. This shows
       the workbook that opens and the Korvyn add-in beside it.</div>
     <div class="xa-shell">${book}${xlAddinPane(wb,objs,nm,c)}</div>
@@ -52070,6 +52105,9 @@ function rcCompWord(c){
    decision is now relied on. It reads BOTH directions — the chain down to the sign-off, and
    "where is this used" back up — and it stays prose and rows rather than a graph, because the
    answer is a sentence, not a diagram. */
+/* ORPHANED 2026-09-11 §10 — the review leg left Trace: Review is a step in Trace's own chain
+   and opens the tab that owns it, so this was the same decisions rendered twice. Kept because
+   it is the composition to mount if a standalone review lineage is ever wanted. */
 function rcReviewTrace(def,inst){
   const id=inst.reconciliationInstanceId;
   const subs=rcSubsFor(id);
@@ -52128,6 +52166,7 @@ function rcReviewTrace(def,inst){
 /* ---- R4 §18 — THE EVIDENCE LEG OF THE TRACE. It reads both directions: what substantiates
    this conclusion, and where else each item is relied on. Kept to one line per item; the
    version history and the relationship list are one click away in the evidence drill. */
+/* ORPHANED 2026-09-11 §10 — as rcReviewTrace, for the evidence leg. Support is a chain step. */
 function rcEvidenceTrace(def,inst){
   const g=rcSupportGraph(def,inst.periodId,inst.reportingLensId,inst);
   if(!g.requiredCount&&!g.supplemental.length) return '';
@@ -52494,35 +52533,23 @@ function rcSumTab(def,inst){
     +'</div>'
     /* what needs attention reads second, straight after the balance */
     +rcSumAttention(def,inst)
-    +'<div class="rcx-mombar"><span class="k">'+PMN[perParts(k).m]+' movement</span>'
-    +'<span class="v mono">'+(a.movement>0?'+':'')+rcM(a.movement)+'</span>'
-    +'<span class="p mono">'+rcPctN(a.momPercent)+'</span>'
-    /* §27 — Flux answers WHY it moved. The route exists; the integration does not, and is not
-       claimed. */
-    +'<button class="fsx-link" onclick="rcGoFlux(\''+def.reconciliationDefinitionId+'\')">Open Flux Review &#8594;</button></div>'
-    /* R3.5 §32 — THE METHOD DECIDES WHICH PRIMARY CONTROL APPEARS. A balance roll-forward
-       already states its control in the figures above (calculated ending against the trial
-       balance), so CIP's Summary is untouched; every other method adds the proof it actually
-       performs, with each control stated separately rather than collapsed into a boolean. */
-    /* §11, §15 — THE PROOF RELATIONSHIP IS VISIBLE ON SUMMARY. A balance roll-forward has no
-       proof source and shows none; every other method states, compactly, what independently
-       substantiates the ending balance, and each figure resolves to the thing that proves it. */
-    +rcProofBridge(def,inst)
-    /* the Sources strip is the Roll-forward's — one place, not two (§8) */
-    /* 2026-09-11 simplification §9 — SUMMARY ANSWERS FIVE QUESTIONS and no more: the balance
-       (above), whether it ties, what needs attention, the proof method and the review status.
-       The eleven context rows are behind Details; nothing here is a paragraph. */
+    /* 2026-09-11 refinement §4 — SUMMARY IS ORIENTATION: the balance, one alert, three statuses.
+       The movement and the proof bridge answer "how did it move" and "what proves it", so they
+       belong to Roll-forward; the method, the overall state and the context are under Details. */
     +'<div class="amp-sec">Status</div>'
-    +rcRow('Tie',rcPill(RC_TIE,inst.tieStatus)+'<span class="rcx-note-i">'+glEsc(
+    +rcRow('Tie',rcListSt(RC_TIE,inst.tieStatus)+'<span class="rcx-note-i">'+glEsc(
         inst.tieStatus==='tied' ? 'within tolerance'
       : inst.tieStatus==='difference' ? 'out by '+rcM(Math.abs(a.difference)).replace(/&[a-z]+;/g,'')
       : 'population not settled')+'</span>')
-    +rcRow('Method',glEsc((RC_METHODS[def.reconciliationMethod]||{}).l||'')
-      +(inst.proofStatus&&inst.proofStatus!=='na'?' '+rcPill(RC_PROOF,inst.proofStatus):''))
-    +rcRow('Review',rcPill(RC_REVIEW,inst.reviewStatus)
+    +rcRow('Support',rcListSt(RC_SUPPORT,inst.supportStatus)+'<span class="rcx-note-i">'
+      +rcSupportFrac(def,inst.periodId,inst.reportingLensId)+' required items current</span>')
+    +rcRow('Review',rcListSt(RC_REVIEW,inst.reviewStatus)
       +(inst.reviewStatus==='inreview'&&inst.activeStage?'<span class="rcx-note-i">stage '
         +(inst.reviewStageIndex+1)+' of '+inst.reviewStageCount+' · '
         +glEsc(rcStageLabel(inst.activeStage))+'</span>':''))
+    +'<details class="rcx-more"><summary>Details</summary>'
+    +rcRow('Method',glEsc((RC_METHODS[def.reconciliationMethod]||{}).l||'')
+      +(inst.proofStatus&&inst.proofStatus!=='na'?' '+rcPill(RC_PROOF,inst.proofStatus):''))
     +rcRow('Overall',rcPill(RC_FINAL,inst.finalStatus))
     +(inst.due?rcRow('Due',glEsc(perFromISO(inst.due))
       +(inst.overdue?' <span class="rcx-flag bad">Overdue</span>':'')):'')
@@ -52533,7 +52560,6 @@ function rcSumTab(def,inst){
             ? 'required at '+perEnd(inst.periodId)
             : rcNotDueNote(def,inst.periodId))+'</span>')
       : '')
-    +'<details class="rcx-more"><summary>Details</summary>'
     +rcRow('Financial line','<span class="rcx-lk" onclick="rcGoFinancials(\''+def.reconciliationDefinitionId+'\')">'+((fsLine(def.financialLineId)||{}).name||'')+'</span>')
     +rcRow('Reconciliation group','<span class="mono">'+glEsc(def.reconciliationGroupId)+'</span>')
     +rcRow('Reporting lens',glEsc(rcLens(inst.reportingLensId).name)
@@ -52586,10 +52612,31 @@ function rcSumAttention(def,inst){
 
 /* ---- ROLL-FORWARD (§30). An Excel-like workpaper and nothing else: no chart, no decoration.
    Every row is a RollforwardComponent, so what is on screen is the object model. */
+/* 2026-09-11 refinement §5 — THE TAB'S ONE PURPOSE IS "HOW DID THE BALANCE MOVE". So it opens
+   with the movement itself and the one route that answers WHY it moved, at both densities of
+   workpaper — the balance roll-forward and the method's own. It used to head Summary, where it
+   competed with the balance for the first thing read. */
+function rcMomBar(def,inst){
+  const a=inst.amounts, k=inst.periodId;
+  /* THE MOVEMENT IS THE COMPARATIVE, SO IT EXCLUDES THE RECLASSIFICATION — the base is
+     restated for a membership change exactly as a comparative always is (R2.1). On Summary
+     that needed no clause; directly above an equation carrying +$611.6M of classification
+     change it does, or the two figures read as a contradiction. */
+  const reclass=Math.abs(a.classificationChange||0)>=0.05;
+  const note=reclass?'<span class="n">Excludes the '+PMN[perParts(k).m]
+    +' mapping reclassification of '+rcM(a.classificationChange)+'</span>':'';
+  return '<div class="rcx-mombar"><span class="k">'+PMN[perParts(k).m]+' movement</span>'
+    +'<span class="v mono">'+(a.movement>0?'+':'')+rcM(a.movement)+'</span>'
+    +'<span class="p mono">'+rcPctN(a.momPercent)+'</span>'
+    /* §27 — Flux answers WHY it moved. The route exists; the integration does not, and is not
+       claimed. */
+    +'<button class="fsx-link" onclick="rcGoFlux(\''+def.reconciliationDefinitionId
+    +'\')">Open Flux Review &#8594;</button>'+note+'</div>';
+}
 function rcRollTab(def,inst){
   /* R3.5 — a method that rolls something else forward renders its own workpaper here; the
      balance roll-forward (CIP) falls through to the R1 one below, untouched. */
-  const mr=rcMethodRoll(def,inst); if(mr) return mr;
+  const mr=rcMethodRoll(def,inst); if(mr) return rcMomBar(def,inst)+mr;
   const a=inst.amounts;
   const line=(l,v,cls,note)=>'<div class="rcx-rf'+(cls?' '+cls:'')+'">'
     +'<span class="l">'+l+(note?'<span class="n">'+note+'</span>':'')+'</span>'
@@ -52617,7 +52664,8 @@ function rcRollTab(def,inst){
     +'<span class="l">'+l+'<span class="n">'+(note||'')+(action&&!nil(v)?(note?' &#183; ':'')+action:'')
     +'</span></span><span class="v mono">'+(nil(v)?'&mdash;':rcM(v))+'</span></div>';
   const sup=['beginning','activity','ending'].map(k=>rcAmtSupport(D,inst,k)).join('');
-  return '<div class="amp-sec">'+glEsc(perLabel(pk))+' roll-forward</div>'
+  return rcMomBar(def,inst)
+    +'<div class="amp-sec">'+glEsc(perLabel(pk))+' roll-forward</div>'
     +'<div class="rcx-rfw">'
     +row('','Beginning balance',perEnd(pv)+' &#183; as reported',a.beginning,
       act("rcOpenGL('"+dId+"','accts')",'View prior balance'))
@@ -52650,7 +52698,20 @@ function rcRollTab(def,inst){
     +(Math.abs(a.difference)>=0.05?'<div class="rcx-why">The GL activity population reports '
       +rcM(def.r1ActivityVariance)+' less than the governed balance movement. Until that is '
       +'explained the reconciliation does not tie, and no review state can change that.</div>':'')
-    +(sup?'<div class="amp-sec">Support for these amounts</div>'+sup:'');
+    /* §11, §15 — what independently substantiates the ending balance, where the method has a
+       proof source at all. A balance roll-forward states its control in the figures above. */
+    +rcProofBridge(def,inst)
+    +(sup?'<div class="amp-sec">Support for these amounts</div>'+sup:'')
+    /* §5 — the explanation is an INFO LINK, not a paragraph in the middle of the numbers */
+    +'<details class="rcx-more"><summary>Why this roll-forward?</summary>'
+    +'<p>The balance at '+glEsc(perEnd(pv))+' plus everything that moved it in '
+    +glEsc(perLabel(pk))+' must equal the balance the ledger reports at '+glEsc(perEnd(pk))
+    +'. Each line is a governed component with its own source: GL activity is what the ERP '
+    +'posted, a mapping change is membership moving between groups, FX translation and '
+    +'eliminations are derived from balances and rates rather than journals, and a reporting '
+    +'adjustment is a Korvyn overlay that is not posted to the ERP. The reconciliation ties '
+    +'when the calculated ending equals the trial balance within the governed tolerance.</p>'
+    +'</details>';
 }
 
 /* ---- ACTIVITY (§31). The population's IDENTITY and size, not its transactions. Every figure
@@ -52690,6 +52751,55 @@ function rcGoAccountActivity(defId){
   let sa=null; try{ sa=(rcPopulation(def).accounts[0]||{}).id||null; }catch(e){}
   openAccountActivity(rcFinancialContext(def,inst,{sourceAccountId:sa}));
 }
+/* 2026-09-11 refinement §6 — THE TAB SHOWS THE TRANSACTIONS. GL Detail stated a population's
+   identity and then sent the reader to another canvas to see a single line of it, which is the
+   one thing the tab is named for. The governed columns are all here and the table scrolls
+   sideways — the documented pattern for wide content — with the whole population, its filters
+   and its twenty-column form still on the Activity Detail canvas, one click away. Only where
+   the ERP instance publishes a deep link does a row offer one; nothing fabricates a URL. */
+const RC_PANEL_TX=12;
+function rcPanelGlTable(def,inst){
+  let tx=[]; try{ tx=rcPopTxns(def,inst.periodId)||[]; }catch(e){ return ''; }
+  if(!tx.length) return '';
+  const ap=inst.activityPopulation, dId=def.reconciliationDefinitionId;
+  const nil='<span class="rcx-nil">&mdash;</span>';
+  const rows=tx.slice().sort((a,b)=>Math.abs(b.reportingAmount)-Math.abs(a.reportingAmount))
+    .slice(0,RC_PANEL_TX);
+  const cell=v=>v?glEsc(v):nil;
+  const erp=t=>t.sourceUrl
+    ? '<button class="rcx-lk2" data-sys="'+glEsc(t.erpPlatform)+'" data-ref="'
+      +glEsc(t.sourceReference)+'" onclick="event.stopPropagation();rcErpOpen(this)">'
+      +glEsc(t.erpPlatform)+' &#8599;</button>'
+    : '<span title="'+glEsc(t.sourceReference)+' &#183; this instance publishes no deep link">'
+      +glEsc(t.erpPlatform)+'</span>';
+  return '<div class="amp-sec">Transactions</div>'
+    +'<div class="rcx-wrap"><table class="rcx-tbl rcx-ptx"><thead><tr>'
+    +['Posting date','Entity','GL account','Account name','Journal','Document','Vendor',
+      'Project','Memo'].map(h=>'<th>'+h+'</th>').join('')
+    +['Debit','Credit','Net'].map(h=>'<th class="num">'+h+'</th>').join('')
+    +'<th>Ccy</th><th>ERP source</th></tr></thead><tbody>'
+    +rows.map(t=>'<tr class="rcx-txr" onclick="rcOpenDrill(\'tx\',\''+t.sourceTransactionId
+      +'\',\''+t.sourceAccountId+'\')">'
+      +'<td class="mono">'+glEsc(t.postingDate)+'</td>'
+      +'<td>'+cell(t.entityName)+'</td>'
+      +'<td class="mono">'+cell(t.glAccountNumber)+'</td>'
+      +'<td>'+cell(t.glAccountName)+'</td>'
+      +'<td class="mono">'+cell(t.journalNumber)+'</td>'
+      +'<td class="mono">'+cell(t.invoiceNumber||t.documentNumber)+'</td>'
+      +'<td>'+cell(t.vendorName)+'</td>'
+      +'<td>'+cell(t.projectName)+'</td>'
+      +'<td class="rcx-memo">'+cell(t.memo)+'</td>'
+      +'<td class="num">'+(t.debit?rcN(t.debit):'&mdash;')+'</td>'
+      +'<td class="num">'+(t.credit?rcN(t.credit):'&mdash;')+'</td>'
+      +'<td class="num">'+(t.reportingAmount>0?'+':'')+rcN(t.reportingAmount)+'</td>'
+      +'<td class="mono">'+glEsc(t.transactionCurrency)+'</td>'
+      +'<td>'+erp(t)+'</td></tr>').join('')
+    +'</tbody></table></div>'
+    +'<div class="rcx-hint">'+rows.length+' largest of '
+    +ap.transactionCount.toLocaleString('en-US')+' &#183; '
+    +'<button class="rcx-lk2" onclick="rcOpenGL(\''+dId
+    +'\',\'txns\')">View the whole population &#8250;</button></div>';
+}
 function rcActTab(def,inst){
   const ap=inst.activityPopulation, p=inst.periodId, dId=def.reconciliationDefinitionId;
   const unm=rcUnmappedActivity(def,p), ver=rcPopVersion(def,p);
@@ -52721,6 +52831,7 @@ function rcActTab(def,inst){
         +rcM(u.amount)+' on '+glEsc(u.account.code)).join('; ')
       +' — excluded until mapped.<div class="amp-acts"><button class="btn-out sm" '
       +'onclick="rcGoMapping(\''+dId+'\',\''+unm[0].account.id+'\')">Review mapping &#8594;</button></div></div>':'')
+    +rcPanelGlTable(def,inst)
     +rcProofSourceLink(def,inst)
     +'<details class="rcx-more"><summary>Details</summary>'
     +rcRow('Population','<span class="mono">'+glEsc(ap.activityPopulationId)+'</span>')
@@ -52763,34 +52874,36 @@ function rcPopDeltaHTML(def,inst){
 let rcAddSup=null;   // the in-panel Add-support draft, or null
 
 function rcEvIcon(k){ return glEsc(k||'DOC'); }
+/* 2026-09-11 refinement §7 — ONE SUPPORT ITEM, FOUR FACTS: name, status, type and the version
+   where one exists. What it supports, the amount it supports and the relationship type are
+   what the item's own detail is for — they were a second and third line under every row, so a
+   list of eight items read as sixteen. An exception still speaks on the row: a required item
+   that was never provided, and a source that moved after the item was published. */
+function rcSupItem(o){
+  return '<div class="rcx-ev'+(o.cls?' '+o.cls:'')+'"'
+    +(o.click?' role="button" tabindex="0" onclick="'+o.click+'"':'')+'>'
+    +'<span class="n">'+o.nm+'</span>'
+    +'<span class="s">'+o.st+'</span>'
+    +'<span class="m">'+o.meta+'</span>'
+    +(o.note?'<span class="d">'+o.note+'</span>':'')+'</div>';
+}
 function rcSupRow(r){
   const st=RC_EV_ST[r.state]||{l:r.state,c:''};
   const req=r.requirement;
   const first=r.evidence[0];
   const ev=first?first.ev:null, ver=first?first.ver:null;
   const drift=first&&first.state&&first.state.drift?first.state.drift:[];
-  const what=first
-    ? (RC_REL_TYPES[first.rel.relationshipType]||{l:first.rel.relationshipType}).l
-      +(first.rel.rollforwardComponentId?' · '+glEsc(String(first.rel.rollforwardComponentId)
-        .replace(/_/g,' ').toLowerCase()):'')
-    : (RC_REL_TYPES[req.requiredFor]||{l:req.requiredFor}).l;
-  const amt=first&&first.rel.supportedAmount!=null
-    ? rcM(first.rel.supportedAmount) : (ev&&ev.supportedAmount!=null?rcM(ev.supportedAmount):null);
-  return '<div class="rcx-ev'+(r.state==='missing'?' bad':(r.state==='current'?'':' warn'))+'"'
-    +(ev?' role="button" tabindex="0" onclick="rcOpenDrill(\'ev\',\''+glEsc(ev.evidenceId)
-      +'\',\''+glEsc(rcSel||'')+'\')"':'')+'>'
-    +'<span class="n">'+glEsc(req.name)+'</span>'
-    +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
-    +'<span class="m">'+(ev
-        ? glEsc(ev.generated?'Korvyn generated':(RC_EV_CLASS[ev.evidenceClass]||{l:''}).l)
-          +(ver&&ver.fileName?' · <span class="mono">'+glEsc(ver.fileName)+'</span>':'')
-          +(ver?' · v'+ver.version:'')
-        : '<span class="rcx-req">Required &#183; not provided</span>')+'</span>'
-    +'<span class="w">Supports: '+what+(amt?' &#183; '+amt:'')+'</span>'
-    +(drift.length?'<span class="d">'+glEsc(drift.map(d=>d.label).join(', '))
-      +' changed after this was published</span>':'')
-    +(r.note&&!ev?'<span class="d">'+glEsc(r.note)+'</span>':'')
-    +'</div>';
+  return rcSupItem({
+    cls:r.state==='missing'?'bad':(r.state==='current'?'':'warn'),
+    click:ev?'rcOpenDrill(\'ev\',\''+glEsc(ev.evidenceId)+'\',\''+glEsc(rcSel||'')+'\')':null,
+    nm:glEsc(req.name),
+    st:'<span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span>',
+    meta:ev
+      ? glEsc(ev.generated?'Korvyn generated':(RC_EV_CLASS[ev.evidenceClass]||{l:''}).l)
+        +(ver?' &#183; v'+ver.version:'')
+      : '<span class="rcx-req">Required &#183; not provided</span>',
+    note:drift.length?glEsc(drift.map(d=>d.label).join(', '))+' changed after this was published'
+      :(r.note&&!ev?glEsc(r.note):null)});
 }
 function rcSupTab(def,inst){
   const p=inst.periodId, dId=def.reconciliationDefinitionId;
@@ -52801,44 +52914,40 @@ function rcSupTab(def,inst){
     +'<span class="v"><span class="pill '+((RC_SUPPORT[inst.supportStatus]||{}).c||'')+' sm">'
     +glEsc((RC_SUPPORT[inst.supportStatus]||{l:inst.supportStatus}).l)+'</span></span></div>'
     +'<div class="rcx-evl">'+g.requirements.map(rcSupRow).join('')+'</div>';
-  /* §19 — EXCEL WORKPAPERS PUBLISHED AGAINST THIS RECONCILIATION. The state is
-     `xlArtifactState()` \u2014 the same comparison the workbook shows \u2014 so the reconciliation
-     cannot report a support status the workpaper does not have. */
+  /* 2026-09-11 refinement §8 — TWO SECTIONS, NOT THREE. An Excel workpaper published against
+     this reconciliation is an attachment like any other and belongs in one list with them;
+     splitting it out asked a reviewer to look in two places for "what else is attached".
+     Its state is still xlArtifactState() — the same comparison the workbook shows — so the
+     reconciliation cannot report a support status the workpaper does not have. */
   const xls=(typeof xlArtifactsFor2==='function')
     ?xlArtifactsFor2('RECON_SUPPORT',dId).concat(xlArtifactsFor2('AUDIT_WP',dId)):[];
-  if(xls.length){
-    o+='<div class="amp-sec">Excel workpapers</div><div class="rcx-evl">'
-      +xls.map(({a,st})=>'<div class="rcx-ev" role="button" tabindex="0" '
-        +'onclick="xlOpenArtifact(\''+a.artifactId+'\')">'
-        +'<span class="n">'+glEsc(a.workbookName.replace(/\.xlsx$/,''))+'</span>'
-        +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
-        +'<span class="m">Excel workpaper \u00b7 '+glEsc(a.workbookVersion)
-        +' \u00b7 '+glEsc(a.periodLabel)
-        +' \u00b7 submitted '+glEsc(a.publishedAt)+' by '+glEsc(a.publisher)+'</span>'
-        /* 2026-09-11 reset §17 — a superseded version names its replacement by version, and
-           says it is kept exactly as submitted; the artifact id stays on the object */
-        +'<span class="w">'+glEsc(st.k==='SUPERSEDED'
-          ? 'Replaced by '+((XL_ARTIFACTS.find(x=>x.artifactId===a.supersededBy)||{}).workbookVersion||'a later version')
-            +' \u00b7 kept exactly as submitted'
-          : st.why)+'</span></div>').join('')
-      +'</div>';
-  }
-  o+='<div class="amp-sec">Supplemental support</div>';
-  o+=g.supplemental.length
-    ? '<div class="rcx-evl">'+g.supplemental.map(x=>{
-        const st=RC_EV_ST[x.state.state]||{l:x.state.state,c:''};
-        return '<div class="rcx-ev" role="button" tabindex="0" onclick="rcOpenDrill(\'ev\',\''
-          +glEsc(x.ev.evidenceId)+'\',\''+dId+'\')">'
-          +'<span class="n">'+glEsc(x.ev.title)+'</span>'
-          +'<span class="s"><span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span></span>'
-          +'<span class="m">'+glEsc((RC_EV_CLASS[x.ev.evidenceClass]||{l:''}).l)
-          +(x.ver&&x.ver.fileName?' · <span class="mono">'+glEsc(x.ver.fileName)+'</span>':'')
-          +'</span>'
-          +'<span class="w">'+glEsc(x.ev.description||'')+'</span></div>';}).join('')+'</div>'
-    : '<div class="amp-empty">None attached.</div>';
+  const items=xls.map(({a,st})=>rcSupItem({
+      cls:st.k==='CURRENT'?'':'warn',
+      click:'xlOpenArtifact(\'' + a.artifactId + '\')',
+      nm:glEsc(a.workbookName.replace(/\.xlsx$/,'')),
+      st:'<span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span>',
+      meta:'Excel workpaper &#183; '+glEsc(a.workbookVersion),
+      /* a superseded version names its replacement by version and says it is kept exactly as
+         submitted; the artifact id stays on the object */
+      note:st.k==='CURRENT'?null:glEsc(st.k==='SUPERSEDED'
+        ? 'Replaced by '+((XL_ARTIFACTS.find(x=>x.artifactId===a.supersededBy)||{}).workbookVersion||'a later version')
+          +' — kept exactly as submitted'
+        : st.why)}))
+    .concat(g.supplemental.map(x=>{
+      const st=RC_EV_ST[x.state.state]||{l:x.state.state,c:''};
+      return rcSupItem({
+        cls:x.state.state==='current'?'':'warn',
+        click:'rcOpenDrill(\'ev\',\''+glEsc(x.ev.evidenceId)+'\',\''+dId+'\')',
+        nm:glEsc(x.ev.title),
+        st:'<span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span>',
+        meta:glEsc((RC_EV_CLASS[x.ev.evidenceClass]||{l:''}).l)
+          +(x.ver?' &#183; v'+x.ver.version:'')});}));
+  o+='<div class="amp-sec">Attachments &#183; supplemental</div>'
+    +(items.length?'<div class="rcx-evl">'+items.join('')+'</div>'
+      :'<div class="amp-empty">None attached.</div>');
   o+=rcAddSupPanel(def,inst);
-  /* 2026-09-11 simplification §12 — one helper line in place of the support philosophy */
-  o+='<div class="rcx-hint">Required support proves the reconciliation; supplemental support '
+  /* one helper line in place of the support philosophy */
+  o+='<div class="rcx-hint">Required support proves the reconciliation; everything else '
     +'adds context.</div>';
   return o;
 }
@@ -53154,25 +53263,39 @@ function rcRevTab(def,inst){
      pre-close block belongs to a period that IS pre-close; in history the review is over. */
   /* 2026-09-11 simplification §13 — status first, then the path; the pre-close delta follows
      the path (below), so the tab opens on where the review stands */
-  /* ---- 1 · REVIEW STATUS. The six control dimensions stay six (§1). */
-  o+='<div class="amp-sec">Review status</div>'
-    +rcRow('Preparation',rcPill(RC_PREP,inst.preparationStatus))
-    +rcRow('Review',rcPill(RC_REVIEW,inst.reviewStatus))
-    +rcRow('Overall',rcPill(RC_FINAL,inst.finalStatus))
+  /* ---- 1 · WHERE IT STANDS AND WHO HOLDS IT. 2026-09-11 refinement §9 — the tab opens on
+     one status and the three people the review actually names, then the date. The six control
+     dimensions are unchanged on the object; preparation and overall are readings of the same
+     workflow the status and the path below already state, so they moved under Details rather
+     than opening the tab with three pills a reviewer has to cross-read. */
+  const stgs=A.stages||[];
+  const rv=A.stage||stgs[0]||null;
+  const fin=stgs.length?stgs[stgs.length-1]:null;
+  const who=u=>u?glEsc(rcPerson(u).nm):'<span class="amap-dim">—</span>';
+  tech+=rcRow('Preparation',rcPill(RC_PREP,inst.preparationStatus))
+    +rcRow('Overall',rcPill(RC_FINAL,inst.finalStatus));
+  o+='<div class="amp-sec">Review</div>'
+    +rcRow('Status',rcListSt(RC_REVIEW,inst.reviewStatus)
+      +(inst.reviewStatus==='inreview'&&A.stage?'<span class="rcx-note-i">stage '
+        +(stgs.indexOf(A.stage)+1)+' of '+stgs.length+'</span>':''))
     +(function(){ /* §12 — DERIVED, never read off the definition. The subtle marker is the
          only thing on this row that is not the answer itself. */
-        const o=rcOwnerOf(def,inst,'PREPARER'), a=o.a;
-        const dl=o.id?KDELEGATIONS.filter(d=>d.delegatorUserId===o.id&&d.status==='ACTIVE'
+        const p=rcOwnerOf(def,inst,'PREPARER'), a=p.a;
+        const dl=p.id?KDELEGATIONS.filter(d=>d.delegatorUserId===p.id&&d.status==='ACTIVE'
           &&d.effectiveFrom<=RC_TODAY&&d.effectiveTo>=RC_TODAY):[];
-        /* the review path names the preparer; this row speaks only when there is more to say */
-        return ((a.override||a.conflict||dl.length)?rcRow('Preparer',glEsc(o.nm)
-          +' <span class="amap-dim">'+glEsc(o.team?'team':rcTeam(def.ownerTeamId))+'</span>'
+        return rcRow('Preparer',glEsc(p.nm)
+          +' <span class="amap-dim">'+glEsc(p.team?'team':rcTeam(def.ownerTeamId))+'</span>'
           +(a.override?' <span class="rcx-rr">'+glEsc(perLabel(inst.periodId))
             +' override</span>':'')
-          +(a.conflict?' <span class="rcx-rr">assignment conflict</span>':'')):'')
+          +(a.conflict?' <span class="rcx-rr">assignment conflict</span>':''))
         +(dl.length?rcRow('Delegated to',glEsc(rcPerson(dl[0].delegateUserId).nm)
           +' <span class="amap-dim">'+glEsc(dl[0].effectiveFrom)+' → '
           +glEsc(dl[0].effectiveTo)+' · owner unchanged</span>'):''); })()
+    +rcRow('Reviewer',who(rv&&rv.assignedUserId)
+      +(rv?'<span class="rcx-note-i">'+glEsc(rcStageLabel(rv))+'</span>':''))
+    /* a single-stage workflow has no separate final reviewer, and does not pretend to */
+    +(fin&&fin!==rv?rcRow('Final reviewer',who(fin.assignedUserId)
+      +'<span class="rcx-note-i">'+glEsc(rcStageLabel(fin))+'</span>'):'')
     +rcRow('Due',glEsc(due)+(inst.overdue?' <span class="rcx-od">overdue</span>':''));
 
   /* §14 — DATA CHANGED AFTER APPROVAL. Stated before anything else, because every fact below
@@ -53313,7 +53436,7 @@ function rcRevTab(def,inst){
   /* ---- 6 · HISTORY (§26). The workpaper history, oldest first, as an accountant reads one. */
   const evs=rcEventsFor(inst.reconciliationInstanceId);
   if(evs.length){
-    o+='<div class="amp-sec">Decision history</div><div class="rcx-hist">'
+    o+='<div class="amp-sec">Review history</div><div class="rcx-hist">'
       +evs.map(e=>'<div class="rcx-he"><span class="d">'+glEsc(e.at)+'</span>'
         +'<span class="u">'+glEsc(e.user)+'</span>'
         +'<span class="n">'+glEsc(e.label)
@@ -53579,7 +53702,6 @@ function rcTraceTab(def,inst){
       +(inst.reReviewRequired?' <span class="rcx-od">re-review required</span>':''))
     +rcRow('Fingerprint',mono(f.hash));
 
-  const open=!!rcTraceOpen.lineage;
   /* 2026-09-11 simplification §14 — THE FLOW FIRST, in five steps an accountant already uses:
      where the number comes from, whether it reconciles, what supports it, who reviewed it, and
      where it is used. Each step opens the surface that answers it. Provenance ids and the
@@ -53590,6 +53712,8 @@ function rcTraceTab(def,inst){
   const flow='<div class="amp-sec">Flow</div><div class="amp-tr">'
     +fstep('Source',ap.erpSystems.length+' ERP system'+(ap.erpSystems.length===1?'':'s')+' · '
       +ap.transactionCount.toLocaleString('en-US')+' GL lines',"rcOpenGL('"+dId+"','txns')")+farr
+    +fstep('GL / trial balance',rcM(a.trialBalanceAmount)+' at '+perEnd(p),
+      "rcGoTrialBalance('"+dId+"')")+farr
     +fstep('Reconciliation',(RC_TIE[inst.tieStatus]||{l:''}).l+' · ending '+rcM(a.endingCalculatedBalance),
       "setRcTab('roll')")+farr
     +fstep('Support',rcSupportFrac(def,p,inst.reportingLensId)+' required items current · '
@@ -53609,22 +53733,15 @@ function rcTraceTab(def,inst){
     +rcMethodTrace(def,inst)
     +'<div class="amp-sec">How this balance is built</div>'
     +'<div class="amp-tr">'+nodes.join(down)+'</div>'
-    /* R4 §18 — THE EVIDENCE LEG BELONGS IN THE READABLE HALF OF THE TRACE. It was appended
-       to `rcMethodTrace`, which returns nothing at all on a balance roll-forward, so on CIP —
-       the reference implementation — it rendered on no screen. It is also the wrong place on
-       the methods where it did render: what substantiates a conclusion is accounting, not
-       technical lineage, so it reads after HOW THIS BALANCE IS BUILT and before PROVENANCE
-       rather than behind "Show technical lineage". */
-    +rcEvidenceTrace(def,inst)
-    +rcReviewTrace(def,inst)
-    /* the expander keeps its own open state across a repaint, so opening the lineage inside it
-       does not fold the section it lives in */
-    +'<details class="rcx-more"'+(rcTraceOpen.prov||open?' open':'')
-    +' ontoggle="rcTraceOpen.prov=this.open"><summary>Provenance and technical lineage</summary>'
+    /* 2026-09-11 refinement §10 — THE EVIDENCE AND REVIEW LEGS ARE GONE FROM TRACE. Support
+       and Review are two of the chain's own steps and each opens the tab that owns it; a second
+       rendering of the same requirements and the same decisions here meant one fact stated on
+       two tabs, which is how the two drift. What Trace uniquely answers is where the number
+       comes from — the chain above, the build below, and the ids behind one expander. */
+    +'<details class="rcx-more"'+(rcTraceOpen.prov?' open':'')
+    +' ontoggle="rcTraceOpen.prov=this.open"><summary>View technical lineage</summary>'
     +prov
-    +'<div class="amp-acts"><button class="rcx-prov-b" onclick="rcTraceTog(\'lineage\')">'
-    +(open?'Hide':'Show')+' technical lineage '+(open?'&#9662;':'&#9656;')+'</button></div>'
-    +(open?rcTraceLineage(def,inst):'')
+    +rcTraceLineage(def,inst)
     +'</details>';
 }
 /* the R1/R2 chain, unchanged — every governed layer between the lens and the ERP */

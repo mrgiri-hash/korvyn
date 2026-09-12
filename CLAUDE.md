@@ -6519,6 +6519,136 @@ this text visible" cannot be answered that way. Check the expander's `open` stat
 monthly and full-year) · 40 drill-down canvas tabs · every queue view filters · console clean ·
 4/4 gates (baselines unchanged) · FS-CIP 4,210.2 · chronology 0.
 
+## 2026-09-11 — the right panel: ONE PURPOSE PER TAB, ONE OBVIOUS ACTION
+
+Owner's brief, a presentation pass over the six panel tabs and the Excel hand-off. No new
+reconciliation functionality, no change to the module's architecture, the left navigation, the
+accounting logic or the Excel workstream. **The canary is unmoved: FS-CIP Jun 2026 = 4,210.2.**
+
+**THE TAB IS THE QUESTION, AND EACH ONE NOW ANSWERS EXACTLY ONE.**
+
+| Tab | Its one question | What moved |
+|---|---|---|
+| **Summary** | where does this stand? | the balance, one alert, three statuses — Tie · Support · Review |
+| **Roll-forward** | how did the balance move? | gained the movement line and the proof bridge; the equation is unchanged |
+| **GL Detail** | what is in the population? | gained the transactions themselves |
+| **Support** | what proves it? | two sections, not three |
+| **Review** | who holds it, and where is it? | opens on the status and the three people |
+| **Trace** | where does the number come from? | the chain, and nothing that another tab already says |
+
+### SUMMARY IS ORIENTATION, NOT A SECOND WORKPAPER
+
+It carried the balance, the movement bar, the proof bridge, six status rows and eleven context
+rows — three of which were readings of the same workflow. It is the balance, the attention block,
+and **Tie · Support · Review**. Method, Overall, Due and Certification moved into the Details
+expander that was already there; the movement and the proof bridge moved to Roll-forward, which
+is the tab those two questions belong to.
+
+**Support gained a row it never had.** Summary stated Tie and Review and left the support
+position to be inferred from the attention block — so a reconciliation whose support was complete
+said nothing about it at all. It reads `rcSupportFrac()`, the same fraction the Support tab's own
+bar prints.
+
+### THE MOVEMENT IS THE COMPARATIVE, SO IT SAYS WHAT IT EXCLUDES
+
+`a.movement` is ending less beginning less the classification change — the base restated for a
+membership change, exactly as a comparative always is (R2.1). On Summary that needed no clause.
+Directly above an equation carrying **+$611.6M of classification change** it does: `+$37.1M`
+over `+$611.6M` reads as a contradiction otherwise. `rcMomBar()` prints the caveat, with the
+amount, **only when there is a reclassification**, and on its own line — inline it wrapped the
+420px bar into three rows.
+
+### GL DETAIL SHOWS THE TRANSACTIONS
+
+The tab named for the population stated its identity, its size and its versions, and then sent
+the reader to another canvas to see a single line of it. It now carries the transactions:
+posting date · entity · GL account · account name · journal · document · vendor · project ·
+memo · debit · credit · net · currency · ERP source — the twelve largest, the whole population
+still one click away on the Activity Detail canvas with its filters and its twenty-column form.
+
+- **Fourteen columns in a 420px dock means the amounts are reached by scrolling, so the posting
+  date freezes.** Identity survives the scroll, which is what the Activity Detail grid does with
+  its own identifier columns; a ledger a reviewer cannot cite a line of is a wall of figures.
+  The table scrolls inside `.rcx-wrap` and the panel body itself never scrolls sideways
+  (measured: 1,338px inside a 373px wrapper, body 405 = 405).
+- **`.rcx-tbl` fills its track** (`min-width:100%`, last column takes the slack), which is right
+  for the full-width Control Center grid and wrong here — the columns would be stretched until
+  the dock took the width back. `.rcx-ptx` takes its natural width instead.
+- **A row offers a deep link only where the ERP instance publishes one** (R2's rule, unchanged):
+  the NetSuite rows carry `Open in NetSuite ↗`, the JD Edwards rows carry the platform name and
+  its reference in a title. Nothing fabricates a URL.
+
+### SUPPORT IS TWO SECTIONS AND FOUR FACTS
+
+**Required support** then **Attachments · supplemental**. An Excel workpaper published against
+this reconciliation is an attachment like any other; its own section asked a reviewer to look in
+two places for "what else is attached". Its state is still `xlArtifactState()`, so the
+reconciliation still cannot report a support status the workpaper does not have.
+
+An item is **name · status · type · version**. "Supports: …", the supported amount and the
+relationship type were a second and third line under every row, so a list of eight read as
+sixteen; they are what the item's own detail is for. **An exception still speaks on the row** —
+a required item never provided, and a source that moved after the item was published.
+
+### REVIEW OPENS ON WHO HOLDS IT
+
+**Status · Preparer · Reviewer · Final reviewer · Due**, then the review path, then the
+role-appropriate actions where they can act. Preparation and Overall are readings of the same
+workflow the status and the path already state, so opening the tab with three pills to
+cross-read bought nothing; they are under Details with the workflow ids, submission ids,
+fingerprints and snapshot versions. **A single-stage workflow shows no Final reviewer row**
+rather than naming the same person twice.
+
+### TRACE DROPS WHAT OTHER TABS ALREADY SAY
+
+The chain is **Source → GL / trial balance → Reconciliation → Support → Review → used in
+Financials · Flux Review · Close · Audit**, every step clickable into the surface that answers
+it. GL / trial balance was missing from a chain whose whole subject is where the number comes
+from.
+
+**The evidence and review legs are gone.** Support and Review are two of the chain's own steps
+and each opens the tab that owns it, so a second rendering of the same requirements and the same
+decisions meant one fact stated on two tabs — which is how two renderings drift.
+`rcEvidenceTrace()` and `rcReviewTrace()` are **named as orphaned** rather than deleted: they are
+the composition to mount if a standalone lineage is ever wanted. Provenance and the technical
+lineage are one expander, **View technical lineage**, instead of an expander containing a second
+toggle.
+
+### DENSITY IS SCOPED TO `#rcPanel`
+
+The dock is 420px and carries six tabs of workpaper; the air between a section title and its
+first row was costing a row a screen. Section padding tightened, key/value rows separated by a
+hairline the way a data sheet is, evidence lists tightened. **Scoped to `#rcPanel`**, so the
+shared `.amp-*` rules still govern the Account Mapping panel, which is a different surface with
+a different amount to say.
+
+**A healthy status is quiet text and an exception is a pill** (`rcListSt`), inside the panel as
+well as in the table — the §6 ruling of 2026-09-11 applied where it had not reached.
+
+### The Excel hand-off
+
+**A page-level return** — the same `.rcx-back` control the Activity Detail canvas uses — sits
+above the prototype note, so leaving any Reconciliations surface works the same way. The
+workbook is **Roll-forward + GL Detail** and nothing else; Open in Excel stays in the panel
+header, where it applies to the whole workpaper; the Open-in-Excel / Download distinction is
+untouched (downloads are a static extract with their manifest, Open in Excel is the connected
+workpaper).
+
+### The gate earned its place again
+
+`check_css_duplicates.mjs` refused a second bare `.rcx-mombar{flex-wrap:wrap}` — the exact
+failure mode it exists for, five hours after it caught `.fsx-more`. The wrap is declared on the
+original rule. **A prefix is not a namespace, and neither is a second declaration of your own
+class.**
+
+**Verified:** 192 view renders across 3 periods (the 12 "empty" are the three lens-scoped alias
+keys and the deliberately unreachable `consol` view, unchanged) · **912 lens × definition × tab
+combinations render with content, 0 errors, 0 empty** · **228 panel renders in the DOM with 0
+clipped elements and 0 raw HTML entities** · console clean on a fresh load · **4/4 gates**
+(chrome themes 10/10, content contrast, spacing ratchet unchanged at 1072/88, css duplicates
+63/63) · **FS-CIP Jun 2026 = 4,210.2** · `rcChronologyCheck()` = 0 · `RC_POSTCLOSE` empty on a
+fresh load · the Excel round trip returns to Electrical CIP on the tab it was left from.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
