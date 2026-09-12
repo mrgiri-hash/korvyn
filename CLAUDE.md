@@ -6960,6 +6960,131 @@ publishing an actual new mapping version against the seeded history.
 - **Account Activity still reads the legacy `COA` model.** Two transaction browsers exist until
   it is re-pointed at the governed one.
 
+## 2026-09-12 (later) — CHART OF ACCOUNTS: the onboarding screen an accountant can read
+
+Owner's simplification pass over the Account Mapping build of the same day. The acceptance
+test is a sentence a controller should be able to say, and the rename is the design: somebody
+onboarding an ERP is looking for **their chart of accounts**, not for a mapping engine.
+
+```
+CONNECT ERP -> REVIEW CHART OF ACCOUNTS -> MAP ACCOUNTS -> RESOLVE EXCEPTIONS
+-> APPROVE VERSION -> USE IN JUNE CLOSE
+```
+
+FS-CIP is still 4,210.2 and A = L + E at 0. No mapping architecture changed — this is what the
+page shows and in what order.
+
+### WHAT CAME OFF THE PAGE, AND WHY EACH COST MORE THAN IT GAVE
+
+| Removed | Why |
+|---|---|
+| the **THIS PAGE** and **DATA ENRICHMENT** cards | two paragraphs of architecture and a cross-promotion above the table somebody came to read. One helper line under the title says it; Financial Attributes is one small link in the tab row (§3, §21) |
+| the **mapping-set metadata band** | the governing version is one clause beside the tabs. A metadata strip is not a step in mapping an account (§23) |
+| **Source systems** as a primary tab | an integration inventory is not a step in mapping an account. The source system is a FILTER on the population, which is how an accountant reaches for it (§20) |
+| **Mapping rules** as a primary tab | that was the engine rather than the work |
+| the **second ribbon** | the status tabs were a FILTER on the population all along, so they are a filter |
+
+Four tabs: **Source accounts · Mapping · Exceptions · Versions**. Source accounts is the
+default and the table is the first thing on the page.
+
+### §6 — THE ACCOUNT NUMBER AND ITS DESCRIPTION ARE TWO COLUMNS. GLOBALLY.
+
+This is a reporting rule, not a layout preference. `15010 CIP - Electrical` in one field cannot
+be sorted, filtered, matched on re-import or joined against the ERP — which is the whole reason
+somebody exports a trial balance or a chart of accounts. The same split applies to every
+id/name pair that leaves Korvyn: entity, vendor, project, canonical account, statement line.
+
+**The trial balance export was rebuilt on it** and on the account-driven TB the previous pass
+established: 23 columns, one row per source account, **every id and its name separate**
+(verified: 0 cells gluing a code to a name), source fields first and Korvyn's interpretation
+after them so the two halves are visibly grouped.
+
+**§24 — analysis-ready.** The Excel workbook carries a title, **freeze panes** on the header row
+and the two identifying columns, **autofilter** over the used range, a number format on the
+numeric columns, and **the manifest on its own sheet** rather than sitting on top of the data
+where it breaks every filter. CSV stays flat — one value per column, no display formatting in
+the data, manifest above a blank line because a CSV has no second sheet.
+
+### §13, §14 — MAPPING IS ORGANISED BY WHAT IT RESOLVES TO
+
+One card per Korvyn account, so the enterprise case reads at a glance rather than needing a
+query. **K1330 Electrical Infrastructure is fed by five source accounts across three ERP
+instances** — NetSuite 15010 / 15011 / 15012, SAP Germany 471100, and JD Edwards 15010, where
+the same number means a different account in a different book. Korvyn never forces a common
+account number across systems, and a rules table hid exactly this.
+
+### §9, §10 — THE PANEL AND THE EDIT
+
+Panel: **Source · Korvyn mapping · Effective**, then Edit mapping and View history, with rule
+ids, scope types and source identifiers behind Details. Edit: the source account, four choices
+and an effective period, with scoped rules behind **Advanced**.
+
+**THE ACCOUNT GROUP AND THE STATEMENT LINE ARE DERIVED, NOT ASKED.** Picking a canonical
+account is what decides where the balance is reported; offering them as separate inputs would
+let somebody build a combination the statement definition does not carry. They are shown as
+facts on a quiet ground rather than drawn as disabled selects — **a greyed-out control invites
+a click that can never work.**
+
+### §15–§17 — EXCEPTIONS ARE WORK, NOT A REPORT
+
+Unmapped · Conflict · Needs review · New, ranked by **balance at stake** so the $182.5M conflict
+is above the $0.9M suspense account, each with one action. Severity is a 3px left edge and
+nothing else (design rule 8).
+
+The conflict pane names the two choices in words — *Keep Mechanical Infrastructure* / *Keep
+Electrical Infrastructure* / *Create scoped rule* — with the balance affected and the entity
+count. **No rule ids.**
+
+### A RAW ID REACHED THE SCREEN, AND THE SWEEP IS WHAT CAUGHT IT
+
+The conflict pane read **"scoped to em-de"**. `coaOf()` resolves a chart of accounts and nothing
+else, so an entity-group scope fell through to its node id — exactly the decoding §22 says an
+accountant should never have to do. `coaScopeName()` names a scope by the KIND of scope it is:
+chart of accounts, ERP instance, entity group, or one entity. A DOM sweep for
+`/MAP-\d|em-de|na-dev|RG-[A-Z]|FS-[A-Z]{2,}/` across every tab in every lens now runs with the
+render sweep; it reports 0.
+
+**And the same class of fault in the panel**: `m.ver` is a version's ID and its NUMBER is
+`mapVer(m.ver).v`, so "Mapping version" read **vMV-2026-06-4** instead of v2026.06.4. Two call
+sites, both fixed.
+
+### Traps
+
+- **The spacing gate flagged a 2px inside the EXPORTED workbook's stylesheet.** The gate cannot
+  tell Korvyn's UI from a file Korvyn writes, and it is right not to try — the export carries no
+  length values at all now and Excel supplies its own cell padding.
+- **A card clips, so what is inside it must be able to give.** `.tbl td` is nowrap, which is
+  right for a wide grid and wrong in a 418px card: the account description ran past the edge and
+  the card's `overflow:hidden` ate it. The number and the ERP keep their shape; the description
+  is the one column allowed to wrap.
+- **State declared in a replaced block disappears with it.** `amapWs`, `amapF` and `amapImpact`
+  lived in the header of the block this pass rewrote, and the page threw `amapWs is not defined`
+  on first paint. Re-declare what a replacement still reads.
+- A test regex is case-sensitive and CSS is not — four more "failures" were
+  `text-transform:uppercase` headings.
+
+### Verified
+
+**All 11 screens in §26 confirmed in the product** · 192 view renders across 3 periods · 44
+view × lens × tab combinations · **0 clipped elements · 0 raw HTML entities · 0 raw ids on
+screen** · console clean · **4/4 gates** (baselines unchanged) · the TB export is 23 columns
+with 0 glued id/name cells and a valid manifest · FS-CIP **4,210.2** · A = L + E at 0 ·
+chronology 0.
+
+### Deliberately NOT done
+
+Report Builder · the Excel add-in · any expansion of Financials, Flux, Trending or Data
+Enrichment · real CSV upload parsing (the validation, the preview and the apply path are real;
+the file is read back from a representative edited export rather than a file picker) ·
+publishing an actual new mapping version against the seeded history.
+
+### Open
+
+- **`glsync` still exists** as the technical integration console. The source-system facts an
+  accountant needs are on the ERP filter now; whether the technical page stays is a product call.
+- `amapBoundaryLegacy` / `amapStripLegacy` / `amapFieldOfLegacy` / `amapSysView` / `amapRulesView`
+  / `amapCovView` / `amapVerView` are retired and unreferenced, named rather than deleted.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
