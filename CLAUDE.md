@@ -7326,6 +7326,120 @@ and body aligned · **0 clipped elements, 0 raw HTML entities** · console clean
 duplicates 63/63) · dark mode holds · FS-CIP **4,210.2** · `rcChronologyCheck()` = 0.
 
 
+
+## 2026-09-12 (final) — the table scrolling standard, finished
+
+Owner's refinement pass over the standard shipped earlier the same day. Presentation only — no
+accounting, no business logic, no filters, no data model. FS-CIP Jun 2026 = 4,210.2, unmoved.
+
+### §2, §3 — ONE HORIZONTAL SCROLL BEHAVIOUR, AND IT IS ALWAYS REACHABLE
+
+The first version showed the sticky bar only while the table ran past the fold, on the argument
+that a table whose own bottom edge is on screen already has a reachable bar. That is true and it
+is still two bars, in two places, depending on where the reader happens to be — which is exactly
+the "duplicate independent scroll state" §3 rules out.
+
+**The scroller keeps its scrollLeft and gives up its BAR** (`scrollbar-width:none`, and the
+WebKit pseudo-element for Chrome). Wheel, trackpad, keyboard and the frozen columns all still
+read the real `scrollLeft`; the sticky bar is that one position rendered somewhere reachable,
+present for as long as the table overflows. There is no second state to keep in step — the
+synchronisation is between a control and the scroller it drives, not between two scrollers.
+
+### §5 — THE FROZEN BLOCK IS THE IDENTITY PAIR, AND A FROZEN BLOCK MUST BE LEFTMOST
+
+`position:sticky` can only pin a contiguous run from the left edge. On **Account Activity** the
+account number and its description are columns 4 and 5 of the default set, so freezing them
+where they sat would have frozen the ERP, the journal and the posting date with them — four
+columns of a 1,250px track before the reader reaches anything they came for. `glxOrdered()`
+hoists the pair to the front instead: the column SET is still whatever the picker holds, nothing
+the reader chose is dropped, and the posting date follows immediately, which is where a ledger
+is read from anyway. The download reads the same order, so the file matches the screen.
+
+**The Trial Balance had one glued "Source account" cell.** §5 asks for the pair to be frozen,
+which presumes two columns, and it is the same reporting fault the Chart of Accounts export
+fixed: a column somebody has to read a code out of cannot be sorted, filtered or matched. Split,
+both frozen.
+
+**The block is 25–30% of the track on all three screens** (TB 308px, Account Activity 344px,
+Chart of Accounts 377px with its checkbox riding along), which is the balance §5 asks for:
+enough to stay oriented, not so much that the horizontal workspace the freeze exists to serve is
+what gets constrained.
+
+### §6 — A FROZEN CELL IS THE SAME ROW, NOT A PANEL BESIDE IT
+
+A sticky cell has its own background and therefore stops inheriting the row's, so a hovered or
+selected row visibly lost its tint for its first two columns — which is most of what makes a
+frozen block read as separate. It repaints hover, selected and section states now. The boundary
+is a hairline plus a soft falloff that deepens only while something is actually scrolled under
+it (`.ktbl.kx`), never a second border beside the cell's own edge.
+
+**THE COMPONENT MARKS THE BOUNDARY, NOT THE CALL SITE.** `kfreeze-end` is applied by the
+measuring pass to whichever column it ended on, so Reconciliations' `.rcx-nm` identity cell gets
+the same edge without its markup knowing this class exists.
+
+### §9 — THE HORIZONTAL POSITION SURVIVES A RE-RENDER
+
+`renderAll()` rebuilds a view's innerHTML, so the scroller a reader had pushed 900px right is a
+different element a frame later — and every selection, filter or drawer open would silently
+return them to column one. The position is remembered against the TABLE's identity, not the
+element, because the element is what does not survive. Verified: open a row drawer and close it
+again and the page is still at x 600 / y 900 with the row still selected.
+
+### THREE DEFECTS THE PASS SURFACED, ALL FOUND BY READING THE RENDERED PAGE
+
+- **ONE ROW WAS SIZING A COLUMN IT SAID NOTHING ABOUT.** The Trial Balance footer's first cell
+  was `.rcx-nm`, which carries `min-width:260px` for the Control Center's name column — so the
+  frozen account-number column was 260px wide for a six-digit code, and the whole block was
+  460px. It takes the same two cells every other row uses. **`max-width` does not apply to a
+  table cell**; `min-width` on one cell does, and that is what decides a column.
+- **A COLSPAN CELL PUSHES THE COLUMNS IT SPANS.** The chart-of-accounts band over the frozen
+  pair sized the number column off the longest CoA name. It spans the whole table now — no
+  pressure on any column — and a **sticky inner span** keeps the group label on screen at any
+  horizontal position, which is what the band was frozen for.
+- **THE FOOTER TOTALS LANDED ONE COLUMN LEFT.** Splitting the identity pair added a column and
+  the footer's leading `colspan` was not re-counted, so the debit total printed under Entities.
+  Caught by asserting each footer cell's x against the header it totals, not by reading markup.
+
+**And one latent fault fixed before it could bite:** the freeze pass measured the LAST header
+row, but the flux statement's identity column is a `rowspan` cell in the FIRST of two — so that
+column would have silently stopped sticking the day that table grew wide enough to scroll. It
+measures whichever header row declares the block.
+
+### §10 — what is now on the component
+
+Chart of Accounts · Trial Balance · Account Activity · Reconciliations (Control Center, GL
+account tie-out, Activity Detail transactions) · Financials · Flux Review's statement grid ·
+Trending · the Reporting Package's supporting schedules. Audit History and Reports carry no
+table wide enough to overflow; they inherit the behaviour if one is ever added.
+
+**§7 — the right-side drawer keeps its own vertical scroll**, which is the intended
+distinction, and scrolling inside it moves the page by zero.
+
+**§8 — pagination is untouched.** Nothing renders the enterprise dataset to solve scrolling.
+
+### Verified
+
+**§12 ACCEPTANCE, run in the product at §11's scale — 600 rows × 60 columns:** scrolled 300 rows
+down and 6,752px right to the far-right attribute and lineage columns, the header sits at
+exactly the measured chrome bottom (150) and the Account number / Account description pair holds
+at x 0 and 106, header and body aligned, with the sticky bar at 894 in a 910px viewport and
+synced. Repeated on the normal population for Trial Balance and Chart of Accounts.
+
+192 view renders across 3 periods, 0 errors · **0 nested vertical scrollbars, 0 native
+horizontal bars, 0 clipped elements, 0 raw HTML entities** across nine surfaces · header/footer
+cell counts equal on every `.ktbl` · console clean on a fresh load · **4/4 gates** (baselines
+unchanged: 1072 css / 86 inline, 63 duplicates) · dark mode holds · FS-CIP **4,210.2** ·
+`rcChronologyCheck()` = 0.
+
+### Open, and NOT touched here
+
+**The Trial Balance's Debit and Credit columns do not foot to each other** — $5.824B against
+$1.584B, so the Net column prints the difference rather than "Dr = Cr". That is the per-account
+debit/credit derivation, it predates both of today's scrolling passes, and it is business logic
+this brief rules out changing. Worth its own look: a trial balance whose two columns do not
+agree is a real signal, even though the same population ties to Financials and A = L + E is 0.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
