@@ -6649,6 +6649,168 @@ clipped elements and 0 raw HTML entities** · console clean on a fresh load · *
 63/63) · **FS-CIP Jun 2026 = 4,210.2** · `rcChronologyCheck()` = 0 · `RC_POSTCLOSE` empty on a
 fresh load · the Excel round trip returns to Electrical CIP on the tab it was left from.
 
+## 2026-09-12 — TRIAL BALANCE PHASE 1: the governed balance population
+
+Owner's brief. Trial Balance was a tie-out status screen built on the LEGACY `COA` / `GL_JE`
+sample — four KPI cards over a "TB vs spine" variance table that reconciled the capex spine to
+a chart of accounts nothing else in the product reads any more. It is now the authoritative
+statement of what the governed balances ARE, what builds them, how they moved, what mapping is
+applied, what is unmapped, and what GL detail proves them.
+
+**NOTHING HERE IS A SECOND ACCOUNTING ENGINE.** Every figure resolves through the services the
+rest of the product already reads — `fsAmount()` / `rcLensLine()` for a balance, `rcLineAccts()`
+and `rcAcctBalance()` for the account population, `mapResolve()` for mapping identity,
+`rcTxPool()` for the ledger detail, `ORG_NODES` for the entity hierarchy. **Delete this screen
+and not one number in the product moves.** The canary is unmoved: FS-CIP Jun 2026 = 4,210.2.
+
+### THE MOVEMENT BRIDGE FOOTS BY CONSTRUCTION, NOT BY A PLUG
+
+```
+beginning (prior reported) + period activity (source ledger movement)
++ adjustments / other (movement in the governed reporting overlay) = ending (reported)
+```
+
+Both sides are the same two facts `fsAmount()` already separates — `sourceTB` and `adj` — so the
+identity is algebraic rather than arithmetic luck. **Asserted at 0 difference across all 54
+lines, in all four reporting lenses, in three periods** (648 checks).
+
+A SECTION TOTALS; A STATEMENT DOES NOT. Assets sum to assets, so Assets carries a figure.
+Adding assets to liabilities and equity produces a number that is arithmetically real and means
+nothing, and printing one invites a reader to tie to it — the same "a section row is a LABEL
+BAND, not a total" ruling the Reconciliations grid already holds.
+
+### §14 — THE BRIDGE BEFORE THE DRILL, AND WHAT IS NOT A JOURNAL
+
+The source ledger movement is **not all journals**, and this is the finding that shaped the
+drill. Measured on CIP at Jun 2026:
+
+| | |
+|---|---|
+| source ledger movement | **254.0** |
+| the GL transaction population | 246.177 — 946 lines across 18 accounts |
+| FX translation | +8.261 |
+| eliminations | −0.438 |
+
+8.261 − 0.438 = **7.823**, exactly the gap. An FX translation effect and a consolidation
+elimination are DERIVED FROM BALANCES AND RATES and have no journal behind them; inventing
+transactions for them would fabricate an ERP posting that does not exist, which is what R3
+already refuses. So a reader who opens GL detail expecting 254.0 and finds 246.2 is told the
+difference FIRST — on the band, above the rows — rather than discovering it in the last row.
+
+`tbxComponents()` reads R3's own decomposition rather than computing a second one, and states
+`foots` and `unattributed` so the claim is measured on every line instead of asserted once. A
+line Korvyn models no reconciliation group for says so rather than showing a fabricated split.
+
+**`TBX_RECTYPE` is why this cannot drift**: SOURCE_GL · REPORTING_ADJUSTMENT · FX_TRANSLATION ·
+ELIMINATION · CLASSIFICATION, each carrying what it is and whether the ERP posted it.
+
+### THE FIVE VIEWS, AND WHAT EACH FOOTS TO
+
+| View | Foots to |
+|---|---|
+| **Consolidated** | the FS hierarchy Financials walks — a TB line and a statement line are one object |
+| **By entity** | `ORG_NODES`, weighted by the entity counts beneath, last child taking the remainder — children foot to the parent, parent to the statement |
+| **By account** | `rcAcctBalance()`, last account taking the remainder — **18 CIP accounts foot to 4,210.2 exactly** |
+| **By account group** | the same balances rolled to the mapping's own group |
+| **Exceptions** | unmapped · conflicting · in review · draft change · new source account, ranked by the balance at stake |
+
+**AN UNMAPPED ACCOUNT IS IN NO LINE, SO THE LINE LOOP NEVER REACHES IT.** It is the population's
+most important row and is added explicitly — a TB that surfaced only what mapping had already
+placed would hide precisely the accounts a controller needs.
+
+**THE ACCOUNT VIEW IS A SAMPLE AND SAYS SO.** 35 modelled accounts against an estate of 12,842.
+Scaling the sample would report the demo's own composition as the enterprise's, which is the
+mistake `mapStats()` already refuses; the strip states the estate, the table states the sample,
+and the two are never added together.
+
+### §11, §12, §20 — THE DRILL LANDS IN THE SHARED MODEL
+
+Every material amount is clickable, and each opens the population behind IT: activity opens the
+governed ledger detail, the adjustment opens the governed adjustment, the balance opens the
+composition. The detail is `rcTxPool()` with `XL_GL_FIELDS` — **the same dataset the
+reconciliation activity canvas and the connected Excel workpaper resolve**, so when Account
+Activity is upgraded it reads this rather than a second copy. Account Activity is NOT rebuilt
+here, which is the whole point of drilling into the shared model.
+
+Nineteen source fields do not belong in a 420px dock, so the drill takes the main canvas the way
+Activity Detail does. Nine core columns, the rest behind **More columns** (§19).
+
+**§13 — SOURCE AND GOVERNED STAY DISTINGUISHABLE.** The ERP said the source block; the governed
+block is what Korvyn decided about it, versioned separately, and **nothing overwrites a source
+value**. Stated on the panel and on the ledger detail, not implied.
+
+**§15 — A DEEP LINK ONLY WHERE THE INSTANCE PUBLISHES ONE** (R2's rule, unchanged): 36 rows
+offer *Open in NetSuite*, 28 state their reference and offer no button. Nothing fabricates a URL.
+
+### §16, §17 — LINEAGE BOTH WAYS, AND THE WAY BACK
+
+**Where used** names Financials · Flux Review · Trending · Reconciliations · Management Reporting
+Package · Audit; the four that can be navigated to route through `financialContext` / `navGo`,
+and the two that consume the line without a destination are named rather than linked.
+
+The return restores the EXACT TB state — view, selection, panel tab, fold state, filters and
+scroll — through the product's own one-hop `NAVCTX`, never a second return mechanism. Verified:
+fold PP&E, select CIP, open Trace, search, go to Financials, return — all six restored.
+
+### §18 — EXPORT CARRIES ITS MANIFEST, AND IS REFUSED IF IT DOES NOT BALANCE
+
+Period · scope · entity count · lens · basis · currency · mapping version · hierarchy version ·
+statement version · data as of · row count · assets / liabilities / equity · balance check ·
+export id · by · at. Built and validated together, on the rule this product already holds: an
+export that does not reconcile is refused rather than quietly written. **A financial line name
+is pre-escaped HTML and is rendered raw on every screen — a file is not a screen**, so
+`tbxPlain()` unescapes it rather than shipping `Furniture &amp;amp; Equipment` into a spreadsheet.
+
+### NO SECOND ANYTHING
+
+The same `.rcx-tbl` grid, `.ktabs.lvl2` picker, `.amap-panel` dock and `.pop` menus. `tbxField()`
+joins `RCFIELD` as a delegate beside R2's, R6's and Data Enrichment's, and `tb:` joins the one
+popover branch — **a new page does not get a new dropdown**. The reporting lens is the SAME
+control Reconciliations carries, writing through the same `setRcLens()`: one lens, one writer,
+one menu.
+
+### TRAPS
+
+- **`.rcx-nm` IS `display:flex` AND `.rcx-tbl td` PINS THE ROW HEIGHT.** Borrowed for an
+  exception row that states its reason in a sentence, the second line drew straight through the
+  row below — 89.5px of content in a 32px box. The R6 dock tables hit the same trap. The fix is
+  NOT to out-specify the dense grid: a table whose cells must grow gets its own shape
+  (`.tbx-exctbl`), and the one that must not keep its pinned height.
+- **A statement-level total is a real number that means nothing.** Caught by reading the
+  rendered page, not the code.
+- **Forty permanent "Where used" links is clutter.** The row action is `opacity:0` and revealed
+  on hover or focus — never `visibility:hidden`, which would take it out of the tab order.
+- A prefix is not a namespace: every `.tbx-` name was greped before it was claimed (0 hits).
+- **Escaping `\'` through a Python heredoc silently produces `'`**, so an anchor that is visibly
+  present matches zero times. Splice by line index, or assert the count and read the failure.
+
+### Verified
+
+**All 12 demo scenarios in §22 pass, run in the product** · 192 view renders across 3 periods
+(the 12 "empty" are the three lens-scoped alias keys and the deliberately unreachable `consol`
+view, unchanged) · **60 period × lens × view combinations render, 0 errors, 0 empty** · **10
+panel tab combinations** (5 tabs × line and account) · 0 clipped elements · 0 raw HTML entities
+· 0 overlapping rows · console clean on a fresh load · **4/4 gates** (chrome themes 10/10,
+content contrast, spacing ratchet **lowered 88 → 86 inline** with the legacy screen's inline
+styles, css duplicates 63/63) · dark mode holds · **FS-CIP = 4,210.2** · A = L + E at 0 ·
+`rcChronologyCheck()` = 0 · 612 entities · the movement bridge foots on every line in every lens
+and period.
+
+### Deliberately NOT built (the brief stops here)
+
+Account Mapping, Report Builder and the Excel add-in are untouched. Account Activity is NOT
+rebuilt — it still reads the legacy `COA` model, and the honest position is that two transaction
+browsers exist until it is re-pointed at the governed one, which is its own pass. No AI surface.
+No second period model, entity model, or balance store.
+
+### Open, and worth an owner's call
+
+- **The legacy `renderTBLegacy` body is gone**, but `tbGLDetail()`, `tbJournalRegister()`,
+  `drillTB()`, `toggleTBType()` and `expandAllTBTypes()` remain defined and unreferenced. They
+  belong to the retired screen; tidying them is its own pass.
+- **`fsComposition()` and `tbxEntRows()` both weight a line by entity counts.** They agree, but
+  they are two derivations of one idea and should become one when Financials next moves.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

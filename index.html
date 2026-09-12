@@ -1804,6 +1804,97 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .fsx-foot{padding:var(--s-3) var(--s-4);border-top:1px solid var(--line);
   font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
 
+/* ---- TRIAL BALANCE (2026-09-12) ----------------------------------------------------------
+   Reuses the module's own table language (.rcx-tbl), picker (.ktabs.lvl2), dock (.amap-panel)
+   and menus (.pop) — a new page does not get a second of any of them. What is declared here is
+   only what Trial Balance genuinely adds: the status line, the two-line numeric headers, the
+   drillable amount and the ledger-detail bridge band. Every name was greped before it was
+   claimed; a prefix is not a namespace. */
+.tbx-asof{font-size:var(--fs-label);color:var(--hint)}
+/* ONE STATUS LINE, NOT A ROW OF KPI CARDS (design rule 12, brief 21). Figures a controller
+   reads once, each one a route, on a single quiet band. */
+.tbx-strip{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:0 0 var(--s-3);
+  border:1px solid var(--line2);border-radius:var(--radius);background:var(--surface);
+  overflow:hidden}
+.tbx-s{display:flex;flex-direction:column;gap:var(--s-1);padding:var(--s-2) var(--s-4);
+  border-right:1px solid var(--line);font:inherit;text-align:left;background:none;
+  border-top:0;border-bottom:0;border-left:0}
+.tbx-s:last-child{border-right:0}
+.tbx-s b{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.tbx-s span{font-size:var(--fs-label);color:var(--muted)}
+button.tbx-s{cursor:pointer}
+button.tbx-s:hover{background:var(--surface2)}
+button.tbx-s:hover b{color:var(--accent-ink)}
+.tbx-s.bad b{color:var(--neg)}
+.tbx-s.warn b{color:var(--warning)}
+.tbx-ctl{align-items:center}
+.tbx-hint{font-size:var(--fs-label);color:var(--muted)}
+/* a numeric column states the DATE its balance is at, which is what makes a trial balance
+   readable without the header row beside it */
+.tbx-h{display:inline-flex;flex-direction:column;align-items:flex-end;line-height:var(--lh-tight)}
+.tbx-h .s{font-size:var(--fs-micro);color:var(--hint);font-weight:400;text-transform:none;
+  letter-spacing:0}
+.tbx-tbl td{height:calc(var(--row-h) - 12px)}
+.tbx-nm{display:flex;align-items:center;gap:var(--s-2);min-width:0}
+.tbx-nm .t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.tbx-sec .tbx-nm .t{font-weight:var(--fw-medium);color:var(--ink)}
+.tbx-sec.stmt .tbx-nm .t{text-transform:uppercase;letter-spacing:var(--tracking-label);
+  font-size:var(--fs-label);color:var(--muted)}
+.tbx-sec td{background:var(--surface)}
+.tbx-tbl .d1 td.rcx-nm{padding-left:var(--s-4)}
+.tbx-tbl .d2 td.rcx-nm{padding-left:var(--s-7)}
+.tbx-tbl .d3 td.rcx-nm{padding-left:var(--s-10)}
+.tbx-n{font-size:var(--fs-micro);color:var(--hint);margin-left:var(--s-2)}
+.tbx-n2{color:var(--muted);font-variant-numeric:tabular-nums}
+.tbx-ty{color:var(--muted);font-size:var(--fs-label)}
+.tbx-sub{display:block;font-size:var(--fs-label);color:var(--hint)}
+.tbx-ccy{color:var(--muted)}
+.tbx-end{font-weight:var(--fw-medium)}
+/* EVERY MATERIAL AMOUNT IS A DRILL (brief 11), and it says so the way the product says it
+   everywhere else — a dotted underline on hover, never a button in a figure column */
+.tbx-drill{cursor:pointer;text-decoration:underline dotted var(--border-strong);
+  text-underline-offset:3px}
+.tbx-drill:hover{color:var(--accent-ink)}
+.tbx-go{text-align:right;white-space:nowrap}
+.tbx-rowact{opacity:0}
+.tbx-line:hover .tbx-rowact,.tbx-rowact:focus-visible{opacity:1}
+.tbx-exc.bad td{box-shadow:inset 3px 0 0 var(--neg)}
+.tbx-exc.warn td{box-shadow:inset 3px 0 0 var(--warning)}
+/* AN EXCEPTION ROW GROWS TO ITS REASON. Its own table, so nothing has to out-specify the
+   dense grid's pinned row height or its flex name cell (the R6 dock tables hit that same
+   trap). Every cell tops-aligns, because a one-line figure beside a two-line sentence reads
+   as a stray otherwise. */
+.tbx-exctbl td{height:auto;padding:var(--s-2) var(--s-3);vertical-align:top;
+  white-space:nowrap}
+.tbx-exc-k{white-space:normal;min-width:300px;max-width:420px}
+.tbx-exc-k b{display:block;color:var(--ink);font-weight:var(--fw-medium)}
+.tbx-why{display:block;font-size:var(--fs-label);color:var(--muted);
+  line-height:var(--lh);white-space:normal;padding-top:var(--s-1)}
+.tbx-scope{padding:var(--s-3) var(--s-4);border-bottom:1px solid var(--line);
+  font-size:var(--fs-table);color:var(--muted)}
+.tbx-foot{padding:var(--s-2) 0 0;font-size:var(--fs-label);color:var(--hint)}
+/* THE BRIDGE BEFORE THE ROWS (brief 14) — what was drilled, what these rows carry, and what
+   is derived and has no journal behind it */
+.tbx-band{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-3);
+  padding:var(--s-3) var(--s-4);margin:0 0 var(--s-3);background:var(--n-50);
+  border:1px solid var(--line2);border-radius:var(--radius)}
+.tbx-b{display:flex;flex-direction:column;gap:var(--s-1);min-width:0}
+.tbx-b b{font-size:var(--fs-ui);font-weight:var(--fw-medium);color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.tbx-b span{font-size:var(--fs-label);color:var(--muted)}
+.tbx-op{color:var(--hint);font-size:var(--fs-ui)}
+.tbx-gl td{height:calc(var(--row-h) - 12px)}
+.tbx-txr:hover td{background:var(--surface2)}
+.tbx-pg{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) 0}
+.tbx-pg span{font-size:var(--fs-label);color:var(--muted);font-variant-numeric:tabular-nums}
+/* the panel's own compact tables take their natural width; the Control Center grid's
+   `min-width:100%` would stretch two columns across a 420px dock */
+.tbx-ptbl{min-width:0;width:100%;font-size:var(--fs-label)}
+.tbx-ptbl td{height:auto;padding:var(--s-1) var(--s-2);white-space:normal}
+.tbx-ptbl tr.tot td{border-top:1px solid var(--line2);color:var(--ink);
+  font-weight:var(--fw-medium)}
+.tbx-gov summary{text-transform:none;letter-spacing:0}
 /* ---- THE LINE DETAIL PANEL (reuses .amap-panel) ------------------------------------------- */
 /* R3.2 §16 — SIX TABS IN A 420px PANEL. At the primitive's 12px tab padding and the band's
    own 16px rail the strip measured 435px inside a 420px dock, so Trace was cut in half against
@@ -12548,7 +12639,7 @@ function paintPop(keepFocus){
         onclick="KFX.popClose();${r.go}">
         <span class="bx">${r.on?'\u2713':''}</span>${esc(r.nm)}</div>`).join('')
         :'<div class="rl-empty" style="padding:8px">No sub-pages.</div>')+`</div>`;
-  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0)){
+  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0||popKind.indexOf('tb:')===0)){
     /* `enr:` and `rc:` share one descriptor shape and therefore one renderer. A new page
        does not get a new dropdown. */
     /* RECONCILIATIONS USE THE SAME MENU. `RCFIELD` is the same descriptor shape `GFIELD`
@@ -53844,6 +53935,9 @@ function perFromISO(iso){
    `RCFIELD` is the same descriptor shape `GFIELD` uses, so the rendering, keyboard, anchoring,
    width and selected state all come from `paintPop()`. */
 function RCFIELD(k){
+  /* Trial Balance declares its own filters through the same descriptor shape, so that page
+     gets no dropdown of its own either. */
+  const tb=(typeof tbxField==='function')?tbxField(k):null; if(tb) return tb;
   /* R2 adds the Activity canvas's filters, its composition dimension and its download menu
      through the SAME descriptor shape, so that surface gets no dropdown of its own. */
   const r2=(typeof rcR2Field==='function')?rcR2Field(k):null; if(r2) return r2;
@@ -64441,111 +64535,1238 @@ function renderFinRep(){
   el.innerHTML=h;
 }
 
-function renderTB(){
-  const el=$('view-tb');
-  const sub='recon';
-  if(sub==='gldetail'){ el.innerHTML=tbGLDetail(); return; }
-  if(sub==='je'){ el.innerHTML=tbJournalRegister(); return; }
-  // default: reconciliation view
-  const pin='';
-  // totals
-  const tbNet=+(COA.reduce((a,c)=>a+c.tb,0)).toFixed(1);
-  const tbDebits=COA.filter(c=>c.tb>0).reduce((a,c)=>a+c.tb,0);
-  const assetAccts=COA.filter(c=>(c.type==='asset'||c.type==='contra'));
-  const assetsTied=assetAccts.every(c=>Math.abs(c.tb-c.spine)<0.001);
-  const flagged=COA.filter(c=>Math.abs(c.tb-c.spine)>0.001);
-  const balanced=Math.abs(tbNet)<0.05;
+/* ==========================================================================================
+   TRIAL BALANCE — THE GOVERNED BALANCE POPULATION (2026-09-12)
+   ==========================================================================================
+   Trial Balance is not a tie-out status screen. It is the authoritative statement of what the
+   governed balances ARE, which entities and source accounts build them, how they moved, what
+   mapping is applied, what is unmapped, and what GL detail proves them.
 
-  glSurface(el);
-  let h=glHead('Trial balance',
-    glCtx([`<b>${COA.length}</b> accounts`]),
-    glExport+glSaveView);
-  h+=`<div class="kpis">
-    <div class="kpi ${pin?'lenshi':''} ${balanced?'good':'flag'}"><div class="k">Trial balance</div><div class="v">${balanced?'✓ Balanced':money(tbNet)}</div><div class="d">Dr ${money0(tbDebits)} = Cr ${money0(tbDebits)}</div>${pin?'<div class="lenstag">▸ General Ledger headline</div>':''}</div>
-    <div class="kpi ${assetsTied?'good':'warn'}"><div class="k">Asset accounts</div><div class="v">${assetsTied?'Tie exactly':'Gap'}</div><div class="d">CIP + PP&E: spine = GL, to the penny</div></div>
-    <div class="kpi"><div class="k">Reconciling items</div><div class="v">${flagged.length}</div><div class="d">named · funding + non-PO</div></div>
-    <div class="kpi good"><div class="k">Unexplained variance</div><div class="v">${money(0)}</div><div class="d">nothing to investigate</div></div>
-  </div>`;
+   NOTHING HERE IS A SECOND ACCOUNTING ENGINE. Every figure resolves through the services the
+   rest of the product reads — `fsAmount()` / `rcLensLine()` for a balance, `rcLineAccts()` and
+   `rcAcctBalance()` for the account population, `mapResolve()` for mapping identity,
+   `rcTxPool()` for the governed ledger detail, `ORG_NODES` for the entity hierarchy. Delete
+   this screen and not one number in the product moves.
 
-  h+=`<div class="card"><h2>Trial balance ↔ spine reconciliation ${pin}<span class="note">by account type · GL balance vs. the edges behind it</span>
-      <button class="pipe-allbtn" onclick="expandAllTBTypes(${[...new Set(COA.map(c=>c.type))].some(t=>tbTypeOpen[t])?'false':'true'})">${[...new Set(COA.map(c=>c.type))].some(t=>tbTypeOpen[t])?'Collapse all':'Expand all'}</button></h2>
-    <div class="subhead">Spine and GL are the same object. Where they agree, the balance <b>is</b> its provenance. Grouped by account type and folded to type rollups; expand a type to its accounts, and an account for its journal-entry detail.</div>
-    <table class="tbl tb-tbl"><thead><tr><th>Account</th><th>Name</th><th>Type</th><th class="num">TB balance</th><th class="num">Spine</th><th class="num">Variance</th><th></th></tr></thead><tbody>`;
-  // group accounts by type
-  const TYPE_ORDER=['asset','contra','liab','equity','revenue','expense'];
-  const TYPE_LABEL={asset:'Assets',contra:'Contra-assets',liab:'Liabilities',equity:'Equity',revenue:'Revenue',expense:'Expenses'};
-  const byType={};
-  COA.forEach(c=>{ (byType[c.type]=byType[c.type]||[]).push(c); });
-  const types=Object.keys(byType).sort((a,b)=>{
-    const ia=TYPE_ORDER.indexOf(a), ib=TYPE_ORDER.indexOf(b);
-    return (ia<0?99:ia)-(ib<0?99:ib);
-  });
-  // auto-open the type group of a drilled account
-  if(tbDrillAcct){ const dc=COA.find(c=>c.acct===tbDrillAcct); if(dc) tbTypeOpen[dc.type]=true; }
-  types.forEach(t=>{
-    const accts=byType[t];
-    const topen=!!tbTypeOpen[t];
-    const tTb=accts.reduce((a,c)=>a+c.tb,0);
-    const tSpine=accts.reduce((a,c)=>a+c.spine,0);
-    const tVar=+(tTb-tSpine).toFixed(1);
-    const flaggedN=accts.filter(c=>Math.abs(c.tb-c.spine)>0.001).length;
-    h+=`<tr class="tb-type${topen?' open':''}" onclick="toggleTBType('${t}')">
-      <td><span class="pipe-exp ${topen?'open':''}">▸</span> <b>${TYPE_LABEL[t]||t}</b> <span class="pis-hcount">${accts.length} account${accts.length>1?'s':''}</span></td>
-      <td style="color:var(--hint);font-size:var(--fs-label)">${flaggedN>0?flaggedN+' reconciling':'ties to spine'}</td>
-      <td></td>
-      <td class="num">${money(tTb)}</td>
-      <td class="num">${money(tSpine)}</td>
-      <td class="num ${tVar===0?'tb-var-ok':'tb-var-flag'}">${tVar===0?'✓ 0.0':money(tVar)}</td>
-      <td></td></tr>`;
-    if(!topen) return;
-    accts.forEach(c=>{
-      const v=+(c.tb-c.spine).toFixed(1);
-      const open=tbDrillAcct===c.acct;
-      const jes=GL_JE.filter(j=>j.acct===c.acct);
-      h+=`<tr class="tb-acct row-click" onclick="event.stopPropagation();drillTB('${c.acct}')">
-        <td class="tb-acct-name"><span class="expander ${open?'open':''}">▸</span> <b>${c.acct}</b>${nsChip('account',c.acct,c.name)}</td>
-        <td>${c.name}</td>
-        <td><span style="color:var(--hint);font-size:var(--fs-label);text-transform:capitalize">${c.type}</span></td>
-        <td class="num">${money(c.tb)}</td>
-        <td class="num">${money(c.spine)}</td>
-        <td class="num ${v===0?'tb-var-ok':'tb-var-flag'}">${v===0?'✓ 0.0':money(v)}</td>
-        <td style="text-align:right;color:var(--blue);font-size:var(--fs-label)">${jes.length} JE${jes.length!==1?'s':''} ›</td></tr>`;
-      if(open){
-        if(c.recon.length){
-          c.recon.forEach(r=>{
-            h+=`<tr class="subrow"><td class="indent2" colspan="5"><span class="pill warn sm">reconciling item</span> ${r.d}</td>
-              <td class="num tb-var-flag">${money(r.amt)}</td><td></td></tr>`;
-          });
-        }
-        if(jes.length){
-          h+=`<tr class="subrow"><td class="indent2" colspan="7" style="padding-top:6px"><b style="font-size:var(--fs-label);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">GL detail — journal entries</b></td></tr>`;
-          jes.forEach(j=>{
-            h+=`<tr class="subrow"><td class="indent3"><span class="badge badge-je" style="font-size:var(--fs-micro);padding:2px 6px;border-radius:var(--radius)">${j.je}</span>${nsChip('je',j.je,j.memo)}</td>
-              <td colspan="2" style="font-size:var(--fs-table)">${j.memo}<br><span style="color:var(--hint);font-size:var(--fs-label)">${j.date} · ${j.src}${j.po?' · '+j.po:''}${j.vendor?' · '+j.vendor:''}</span></td>
-              <td class="num" style="font-size:var(--fs-table)">${j.dr?'Dr '+money(j.dr):''}</td>
-              <td class="num" style="font-size:var(--fs-table)">${j.cr?'Cr '+money(j.cr):''}</td>
-              <td colspan="2" style="text-align:right"><span style="color:var(--blue);font-size:var(--fs-label);cursor:pointer" onclick="event.stopPropagation();traceJE('${j.je}')">trace to source ›</span></td></tr>`;
-          });
-        }
-      }
+   THE SPINE THIS SITS ON:
+     ERP / source GL -> governed ledger detail -> TRIAL BALANCE -> Financials
+     -> Flux Review / Trending -> Reconciliations -> Reporting / Audit                        */
+
+const TBX_VIEWS=[['cons','Consolidated'],['ent','By entity'],['acct','By account'],
+                 ['grp','By account group'],['exc','Exceptions']];
+let tbxView='cons', tbxSel=null, tbxOpen={}, tbxEntOpen={}, tbxQ='', tbxMapF='all',
+    tbxTab='move', tbxGL=null, tbxGLPage=0, tbxGLQ='', tbxGLMore=false, tbxGLFrom=null,
+    tbxDeepOpen=false;
+const TBX_PAGE=50;
+
+/* ---- THE MOVEMENT BRIDGE. ONE DERIVATION, EVERY READER (§10).
+   beginning + period activity + adjustments = ending, and it foots BY CONSTRUCTION rather
+   than by a plug: the activity is the source ledger's own movement and the adjustment column
+   is the movement in the governed reporting overlay, so the two sides are the same two facts
+   `fsAmount()` already separates. Verified across all 54 lines at 0 difference.
+
+   This is the TB movement bridge, not a reconciliation certification. It says how the balance
+   moved; whether that movement is PROVEN is the Reconciliations module's question. */
+function tbxMove(lineId,k){
+  const p=k||viewPeriod(), prev=perAdd(p,-1);
+  const cur=fsAmount(lineId,p), pri=fsAmount(lineId,prev);
+  const beginning=+(pri.reported||0).toFixed(3);
+  const activity=+((cur.sourceTB||0)-(pri.sourceTB||0)).toFixed(3);
+  const adj=+((cur.adj||0)-(pri.adj||0)).toFixed(3);
+  const ending=+(cur.reported||0).toFixed(3);
+  return {lineId, periodId:p, priorId:prev, beginning, activity, adj, ending, cur, pri,
+    foots:Math.abs(beginning+activity+adj-ending)<0.0015};
+}
+/* the same bridge summed over a set of lines, so a section or a group row states the movement
+   of what is actually under it rather than a figure of its own */
+function tbxMoveOf(ids,k){
+  const z={beginning:0,activity:0,adj:0,ending:0};
+  ids.forEach(id=>{ const m=tbxMove(id,k);
+    z.beginning+=m.beginning; z.activity+=m.activity; z.adj+=m.adj; z.ending+=m.ending; });
+  Object.keys(z).forEach(x=>z[x]=+z[x].toFixed(3));
+  return z;
+}
+
+/* ---- §14 — WHAT THE PERIOD ACTIVITY IS MADE OF, AND WHAT IS NOT A SOURCE TRANSACTION.
+   The source ledger movement is not all journals. Where a line carries reconciliation groups,
+   R3 has already decomposed it, and this reads that decomposition rather than repeating it:
+   GL transactions are a population you can open; an FX translation effect and a consolidation
+   elimination are DERIVED FROM BALANCES AND RATES and have no journal behind them. Inventing
+   transactions for those would be fabricating an ERP posting that does not exist, which is
+   what `TBX_RECTYPE` exists to stop. Lines Korvyn models no reconciliation for say so. */
+const TBX_RECTYPE={
+  SOURCE_GL:          {l:'Source GL',            d:'posted in the ERP'},
+  REPORTING_ADJUSTMENT:{l:'Reporting adjustment',d:'Korvyn overlay, not posted to the ERP'},
+  FX_TRANSLATION:     {l:'FX translation',       d:'derived from balances and rates'},
+  ELIMINATION:        {l:'Elimination',          d:'derived from the consolidation rule set'},
+  CLASSIFICATION:     {l:'Classification change',d:'account membership moving, not money'},
+};
+const _tbxCompCache={};
+function tbxComponents(lineId,k){
+  const p=k||viewPeriod();
+  const ck=lineId+'|'+p+'|'+ENTCTX.scope.id+'|'+rcLensId+'|'+
+    ((typeof _rcMapGen==='function')?_rcMapGen():'');
+  if(_tbxCompCache[ck]) return _tbxCompCache[ck];
+  const mv=tbxMove(lineId,p);
+  const defs=(typeof RECON_DEFS!=='undefined')
+    ? RECON_DEFS.filter(d=>d.financialLineId===lineId) : [];
+  let gl=0,cc=0,fx=0,el=0,ba=0, modelled=false;
+  if(defs.length){
+    modelled=true;
+    defs.forEach(d=>{ let a; try{ a=rcInstance(d.reconciliationDefinitionId,p).amounts; }
+      catch(e){ return; }
+      gl+=a.activityAmount||0; cc+=a.classificationChange||0;
+      fx+=a.fxTranslation||0; el+=a.elimination||0; ba+=a.basisAdjustment||0; });
+  }
+  const f=x=>+x.toFixed(3);
+  const parts=modelled?[
+    {k:'SOURCE_GL',    amt:f(gl), drill:'gl'},
+    {k:'CLASSIFICATION',amt:f(cc)},
+    {k:'FX_TRANSLATION',amt:f(fx)},
+    {k:'ELIMINATION',  amt:f(el)},
+  ].concat(Math.abs(ba)>=0.0005?[{k:'BASIS',amt:f(ba)}]:[]) : [];
+  const stated=f(gl+cc+fx+el+ba);
+  const out={lineId, periodId:p, modelled, defs:defs.map(d=>d.reconciliationDefinitionId),
+    parts, glActivity:f(gl), stated, activity:mv.activity,
+    unattributed:f(mv.activity-stated),
+    foots:modelled&&Math.abs(mv.activity-stated)<0.0015, move:mv};
+  return (_tbxCompCache[ck]=out);
+}
+
+/* ---- THE CONSOLIDATED ROW SET. The SAME statement hierarchy Financials walks, so a TB line
+   and a statement line can never be different objects. Both statements, because a trial
+   balance is every account — a balance sheet alone is half a TB. */
+function tbxLineRows(k){
+  const p=k||viewPeriod(), rows=[];
+  const kids=id=>FSLINES.filter(f=>f.parent===id);
+  const leaves=id=>{ const out=[]; (function walk(x){ const c=kids(x);
+    if(!c.length){ out.push(x); return; } c.forEach(n=>walk(n.id)); })(id); return out; };
+  FSLINES.filter(f=>f.kind==='stmt').forEach(st=>{
+    rows.push({kind:'stmt', id:st.id, name:st.name, depth:0,
+      mv:tbxMoveOf(leaves(st.id),p), open:true});
+    kids(st.id).forEach(sec=>{
+      const secLeaves=leaves(sec.id);
+      const sopen=tbxOpen[sec.id]!==false;
+      rows.push({kind:sec.kind, id:sec.id, name:sec.name, depth:1,
+        mv:tbxMoveOf(secLeaves,p), open:sopen, n:secLeaves.length});
+      if(!sopen) return;
+      kids(sec.id).forEach(g=>{
+        const gk=kids(g.id);
+        if(!gk.length){ rows.push(tbxLeafRow(g,2,p)); return; }
+        const gopen=tbxOpen[g.id]!==false;
+        rows.push({kind:'group', id:g.id, name:g.name, depth:2,
+          mv:tbxMoveOf(leaves(g.id),p), open:gopen, n:gk.length});
+        if(gopen) gk.forEach(l=>rows.push(tbxLeafRow(l,3,p)));
+      });
     });
   });
-  const spineTotal=COA.reduce((a,c)=>a+c.spine,0);
-  h+=`</tbody><tfoot><tr><td colspan="3">Total · ${balanced?'Dr = Cr, balanced':'net '+money(tbNet)}</td><td class="num">${money(tbNet)}</td><td class="num">${money(spineTotal)}</td><td class="num ${balanced?'tb-var-ok':'tb-var-flag'}">${money(tbNet-spineTotal)}</td><td></td></tr></tfoot></table>`;
-
-  // reconciliation summary
-  const reconTotal=COA.reduce((a,c)=>a+c.recon.reduce((x,r)=>x+r.amt,0),0);
-  h+=`<div class="recon-box"><b style="font-size:var(--fs-ui)">Why the spine and GL differ — every reconciling item, named</b>
-    <div class="lrows" style="margin-top:8px">
-      <div class="l-row"><span><span class="pill info sm">20000</span> Non-PO manual invoice — accrual with no PO commitment to trace against</span><span class="amt tb-var-flag">${money(-0.2)}</span></div>
-      <div class="l-row"><span><span class="pill info sm">27000</span> Construction loan facility — debt funding, treasury not capex</span><span class="amt tb-var-flag">${money(-58.4)}</span></div>
-      <div class="l-row"><span><span class="pill info sm">30000</span> IC capital contribution — eliminates on consolidation</span><span class="amt tb-var-flag">${money(-8.2)}</span></div>
-      <div class="l-row"><span><span class="pill info sm">31000</span> Contributed capital / LP equity — fund treasury</span><span class="amt tb-var-flag">${money(-45.8)}</span></div>
-      <div class="l-row total"><span>All are legitimate GL balances the capex spine correctly does not carry</span><span class="amt">${money(reconTotal)} explained</span></div>
-    </div>
-    <div class="note" style="margin-top:8px">The honest boundary from the roadmap: the actuals side (PO → invoice → payment → asset) reconciles by construction, so every capex account ties to the penny. The funding side — debt and equity that <b>paid for</b> the assets — is treasury, outside the capex spine's early scope. The reconciliation names each item rather than silently mis-comparing; an <b>unnamed</b> variance would be the exception to investigate.</div></div></div>`;
-  el.innerHTML=h;
+  return rows;
 }
+function tbxLeafRow(l,depth,p){
+  const accts=rcLineAccts(l.id,p);
+  const sts=accts.map(a=>mapResolve(a.id,p).status);
+  const st=sts.indexOf('conflict')>=0?'conflict'
+    :sts.indexOf('unmapped')>=0?'unmapped'
+    :sts.indexOf('review')>=0?'review'
+    :sts.indexOf('draftchange')>=0?'draftchange'
+    :accts.length?'mapped':'nomodel';
+  return {kind:'line', id:l.id, name:l.name, depth, mv:tbxMove(l.id,p),
+    accts:accts.length, mapSt:st, canon:canonsForLine(l.id)};
+}
+
+/* ---- BY ACCOUNT (§7). The source accounts Korvyn models, with the ERP, the instance, the
+   chart they live in, the canonical account and financial line the mapping puts them on, and
+   their own governed balances. `rcAcctBalance()` gives an account its share of its line's
+   governed balance with the last account taking the remainder, so the accounts under a line
+   foot to that line EXACTLY rather than to a tenth (asserted: 0 lines off).
+
+   IT IS A SAMPLE OF THE ESTATE AND SAYS SO. 35 modelled accounts against 12,842; scaling the
+   sample to the estate would report the demo's own composition as the enterprise's, which is
+   the mistake `mapStats()` already refuses to make. */
+function tbxAcctRows(k){
+  const p=k||viewPeriod(), prev=perAdd(p,-1), out=[];
+  const inScope=(typeof mapCoasInScope==='function')?mapCoasInScope():null;
+  FSLINES.filter(f=>f.kind==='line').forEach(l=>{
+    rcLineAccts(l.id,p).forEach(a=>{
+      if(inScope&&!inScope.has(a.coa)) return;
+      const r=mapResolve(a.id,p), m=r.mapping;
+      const beg=rcLineAccts(l.id,prev).some(x=>x.id===a.id)
+        ? rcAcctBalance(a.id,l.id,prev) : 0;
+      const end=rcAcctBalance(a.id,l.id,p);
+      out.push({acct:a, lineId:l.id, lineName:l.name, res:r, st:r.status,
+        canonId:m?m.canon:null, canonName:m?(canon(m.canon)||{}).name:null,
+        groupId:(fsLine(l.id)||{}).parent,
+        beginning:+beg.toFixed(3), ending:+end.toFixed(3),
+        activity:+(end-beg).toFixed(3), ents:a.ents||0, mapId:m?m.id:null,
+        mapVer:m?m.ver:null, mapFrom:m?m.from:null});
+    });
+  });
+  /* an account with no mapping resolves to no financial line, so the loop above never reaches
+     it — it is the population's most important row and is added explicitly (§9) */
+  SRC_ACCOUNTS.forEach(a=>{
+    if(inScope&&!inScope.has(a.coa)) return;
+    if(out.some(r=>r.acct.id===a.id)) return;
+    const r=mapResolve(a.id,p);
+    out.push({acct:a, lineId:null, lineName:null, res:r, st:r.status,
+      canonId:null, canonName:null, groupId:null,
+      beginning:0, ending:0, activity:0, ents:a.ents||0,
+      mapId:null, mapVer:null, mapFrom:null, unmapped:true});
+  });
+  return out;
+}
+
+/* ---- BY ENTITY (§6). The reporting hierarchy the enterprise already declares, drilled a
+   level at a time — never 612 entities at once. A node's balance is its share of the governed
+   amount weighted by the entity count beneath it, with the last child taking the remainder, so
+   the children foot to the parent and the parent to the statement. The shares are the ORG
+   model's own counts, so a composition and the scope chip can never tell different stories. */
+function tbxEntRows(k,lineId){
+  const p=k||viewPeriod();
+  const scope=lineId||null;
+  const ids=scope?[scope]:FSLINES.filter(f=>f.kind==='line').map(f=>f.id);
+  const tot=tbxMoveOf(ids,p);
+  const out=[];
+  (function walk(parent,depth){
+    const kids=ORG_NODES.filter(n=>n.parent===parent&&n.h==='reporting');
+    if(!kids.length) return;
+    const base=orgCount(parent)||1;
+    const pr=out.find(r=>r.id===parent);
+    const pv=pr?pr.mv:tot;
+    let run={beginning:0,activity:0,adj:0,ending:0};
+    kids.forEach((kd,i)=>{
+      const share=orgCount(kd.id)/base;
+      const last=i===kids.length-1;
+      const mv={};
+      ['beginning','activity','adj','ending'].forEach(f=>{
+        mv[f]=last?+(pv[f]-run[f]).toFixed(3):+(pv[f]*share).toFixed(3);
+        run[f]=+(run[f]+mv[f]).toFixed(3);
+      });
+      const open=!!tbxEntOpen[kd.id];
+      out.push({id:kd.id, name:kd.name, type:kd.type, depth, mv,
+        n:orgCount(kd.id), open, deeper:ORG_NODES.some(x=>x.parent===kd.id&&x.h==='reporting')});
+      if(open) walk(kd.id,depth+1);
+    });
+  })('grp',1);
+  out.unshift({id:'grp', name:orgNode('grp').name, type:'group', depth:0, mv:tot,
+    n:orgCount('grp'), open:true, deeper:true, root:1});
+  return out;
+}
+
+/* ---- EXCEPTIONS (§9). What is wrong with the POPULATION, not with the arithmetic — an
+   unmapped account, two rules claiming one account, a mapping still in review, a draft change
+   that lands next period, an account the estate has only just started using. Each states the
+   balance at stake and routes to where it is fixed. */
+function tbxExceptions(k){
+  const p=k||viewPeriod(), out=[];
+  const rows=tbxAcctRows(p);
+  rows.forEach(r=>{
+    const a=r.acct;
+    if(r.st==='unmapped') out.push({sev:'bad', kind:'Unmapped account', acct:a, row:r,
+      why:'No active mapping rule resolves this account, so its balance is in no financial '
+        +'statement line and in no reconciliation population.',
+      go:['Review mapping','tbxGoMapping(\''+a.id+'\')']});
+    else if(r.st==='conflict') out.push({sev:'bad', kind:'Conflicting rules', acct:a, row:r,
+      why:'Two active mapping rules claim this account and neither is filed as an override. '
+        +'The balance is not missing; which line carries it may change.',
+      go:['Review mapping','tbxGoMapping(\''+a.id+'\')']});
+    else if(r.st==='review') out.push({sev:'warn', kind:'Mapping in review', acct:a, row:r,
+      why:'The rule that resolves this account has not been approved.',
+      go:['Review mapping','tbxGoMapping(\''+a.id+'\')']});
+    else if(r.st==='draftchange') out.push({sev:'warn', kind:'Draft mapping change', acct:a,
+      row:r, why:'A draft rule would move this account to a different line from a later period.',
+      go:['Review mapping','tbxGoMapping(\''+a.id+'\')']});
+    /* AN ACCOUNT THE ESTATE HAS ONLY JUST STARTED USING is a population change, and a TB that
+       did not surface it would let a new account appear in a balance with nothing said. */
+    if(a.seen&&a.seen===p&&r.st!=='unmapped') out.push({sev:'warn', kind:'New source account',
+      acct:a, row:r, why:'First seen in '+perLabel(p)+'. It is mapped, and the population it '
+        +'joins changed this period.', go:['Review mapping','tbxGoMapping(\''+a.id+'\')']});
+  });
+  const order={bad:0,warn:1};
+  return out.sort((x,y)=>(order[x.sev]-order[y.sev])||(Math.abs(y.row.ending)-Math.abs(x.row.ending)));
+}
+
+/* ---- §16 — WHERE USED. Bidirectional lineage: a TB line is not a leaf, it is what six other
+   surfaces read. Each entry routes through the product's own context-preserving navigation. */
+function tbxWhereUsed(lineId,k){
+  const p=k||viewPeriod(), out=[];
+  const nm=(fsLine(lineId)||{}).name||'';
+  out.push({s:'Financials', d:'Presented on the statement', go:'tbxGoFinancials(\''+lineId+'\')'});
+  out.push({s:'Flux Review', d:'Explained as a period movement', go:'tbxGoFlux(\''+lineId+'\')'});
+  out.push({s:'Trending', d:'Carried in the period series', go:'tbxGoTrending(\''+lineId+'\')'});
+  const defs=(typeof RECON_DEFS!=='undefined')
+    ? RECON_DEFS.filter(d=>d.financialLineId===lineId) : [];
+  if(defs.length) out.push({s:'Reconciliations',
+    d:defs.length+' reconciliation group'+(defs.length===1?'':'s')+' prove this balance',
+    go:'tbxGoRecon(\''+defs[0].reconciliationDefinitionId+'\')'});
+  else out.push({s:'Reconciliations', d:'No reconciliation group models this line', off:1});
+  /* the management package and the audit horizon consume the line rather than a copy of it —
+     named because reach is what makes lineage honest, and neither is navigated to from here */
+  out.push({s:'Management Reporting Package', d:'Consumed by the active templates', off:1});
+  out.push({s:'Audit', d:'Included in the control horizon’s package', off:1});
+  return out;
+}
+
+
+/* ---- §12, §20 — THE GOVERNED LEDGER DETAIL. The drill lands in the SAME canonical model that
+   already powers the reconciliation activity canvas and the connected Excel workpaper —
+   `rcTxPool()`, the 19 governed fields of `XL_GL_FIELDS`, and the Korvyn governed fields on
+   top of them. Account Activity is NOT rebuilt here; when it is upgraded it reads this same
+   dataset, which is the whole point of drilling into the shared model rather than a local one.
+
+   THE CONTROL TOTAL IS COMPUTED, NEVER ASSERTED. A drill that cannot foot to the amount it was
+   opened from has given the reader a list, not proof — so the population states its own sum
+   against the target and, where they differ, names the reason instead of hiding it. */
+function tbxGLPop(lineId,k,srcId){
+  const p=k||viewPeriod();
+  const accts=rcLineAccts(lineId,p).filter(a=>!srcId||a.id===srcId);
+  const rows=[];
+  accts.forEach(a=>{ (rcTxPool(a.id,p)||[]).forEach(t=>rows.push(t)); });
+  const sum=+rows.reduce((s,t)=>s+t.reportingAmount,0).toFixed(3);
+  const c=tbxComponents(lineId,p);
+  const target=srcId
+    ? +(rcTxPool(srcId,p)||[]).reduce((s,t)=>s+t.reportingAmount,0).toFixed(3)
+    : c.glActivity;
+  const diff=+(sum-target).toFixed(3);
+  return {rows, sum, target, diff, foots:Math.abs(diff)<0.0015, accounts:accts.length,
+    lineId, periodId:p, sourceAccountId:srcId||null, comp:c};
+}
+/* the rows a filtered grid is actually showing */
+function tbxGLView(){
+  const g=tbxGL; if(!g) return [];
+  const pop=tbxGLPop(g.lineId,g.periodId,g.sourceAccountId);
+  let rows=pop.rows;
+  const q=(tbxGLQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(t=>[t.journalNumber,t.memo,t.vendorName,t.entityName,
+    t.glAccountNumber,t.glAccountName,t.documentNumber,t.projectName,t.sourceTransactionId]
+    .some(v=>String(v||'').toLowerCase().includes(q)));
+  return rows.slice().sort((a,b)=>String(a.postingDate).localeCompare(String(b.postingDate))
+    ||Math.abs(b.reportingAmount)-Math.abs(a.reportingAmount));
+}
+
+/* ---- §13 — THE KORVYN GOVERNED FIELDS a source row carries on top of its own. They are
+   listed separately and labelled as governed BECAUSE A SOURCE FIELD AND A KORVYN
+   CLASSIFICATION MUST STAY DISTINGUISHABLE: the ERP said the first set, Korvyn decided the
+   second, and a reader who cannot tell them apart cannot defend either. Nothing here
+   overwrites a source value. */
+function tbxGovFields(t,p){
+  const r=mapResolve(t.sourceAccountId,p), m=r.mapping;
+  const out=[
+    ['Canonical account', m?(m.canon+' · '+((canon(m.canon)||{}).name||'')):null],
+    ['Account group', m?((fsLine((fsLine(m.fs)||{}).parent)||{}).name||null):null],
+    ['Financial statement line', m?((fsLine(m.fs)||{}).name||null):null],
+    ['Reconciliation group', m?taxName('rec',m.rec):null],
+    ['Cash flow category', m?taxName('cf',m.cf):null],
+    ['Flux driver', m?taxName('flux',m.flux):null],
+    ['Management reporting', m?taxName('mgmt',m.mgmt):null],
+    ['Capital / expense', m?taxName('cap',m.cap):null],
+    ['Mapping version', m?m.ver:null],
+    ['Mapping effective from', m?m.from:null],
+    ['Mapping status', (MAP_ST[r.status]||{}).l||r.status],
+  ];
+  return out.filter(x=>x[1]);
+}
+
+/* ---- §18 — EXPORT. The governed population, with the manifest that makes it reproducible.
+   Built and validated TOGETHER, on the rule this product already holds: an export that does
+   not reconcile to the screen is refused rather than quietly written. */
+const TBX_EXPORT_COLS=[
+  ['Statement',          r=>((fsLine(fsStmtOf(r.id))||{}).name||'')],
+  ['Section',            r=>r.sectionName||''],
+  ['Account group',      r=>r.groupName||''],
+  ['Financial line',     r=>tbxPlain(r.name)],
+  ['Financial line ID',  r=>r.id],
+  ['Canonical accounts', r=>(r.canon||[]).join(' ')],
+  ['Source accounts',    r=>r.accts==null?'':r.accts],
+  ['Beginning balance',  r=>r.mv.beginning],
+  ['Period activity',    r=>r.mv.activity],
+  ['Adjustments / other',r=>r.mv.adj],
+  ['Ending balance',     r=>r.mv.ending],
+  ['Mapping status',     r=>(MAP_ST[r.mapSt]||{l:r.mapSt==='nomodel'?'No modelled accounts':''}).l||''],
+];
+let _tbxExpSeq=0;
+function tbxBuildExport(){
+  const p=viewPeriod(), L=rcLens();
+  const rows=tbxLineRows(p).filter(r=>r.kind==='line');
+  /* the section and group a line sits under, so a downloaded row carries its own place in the
+     hierarchy rather than needing the screen beside it */
+  rows.forEach(r=>{ const g=fsLine((fsLine(r.id)||{}).parent)||{};
+    const s=fsLine(g.parent)||{};
+    r.groupName=g.kind==='group'?tbxPlain(g.name):'';
+    r.sectionName=tbxPlain((g.kind==='group'?s:g).name||''); });
+  const a=fsAmount('FS-A',p), l=fsAmount('FS-L',p), e=fsAmount('FS-E',p);
+  const diff=+(a.reported-(l.reported+e.reported)).toFixed(3);
+  const manifest={exportId:'TBX-'+p+'-'+(++_tbxExpSeq),
+    periodId:p, periodLabel:perLabel(p), asOf:perEnd(p),
+    scopeId:ENTCTX.scope.id, scopeName:ENTCTX.scope.name,
+    entityCount:orgCount('grp'),
+    reportingLensId:L.reportingLensId, reportingLensName:L.name,
+    reportingBasis:rcBasisLabel(L.reportingBasis),
+    presentationCurrency:L.presentationCurrency,
+    mappingVersion:mapVersionFor(p).v,
+    hierarchyVersion:ENTCTX.scope.hierarchyVersion||'',
+    statementVersion:'2026.1',
+    dataAsOf:rcDataAsOf(p),
+    rowCount:rows.length,
+    assets:a.reported, liabilities:l.reported, equity:e.reported,
+    balanceCheck:diff, valid:Math.abs(diff)<=0.0015,
+    exportedBy:((typeof USER_NAME!=='undefined'&&USER_NAME)||'Mitra Giri')+', '+USER_ROLE,
+    exportedAt:periodStamp()};
+  return {rows, manifest};
+}
+function tbxExport(fmt){
+  const e=tbxBuildExport();
+  const head=TBX_EXPORT_COLS.map(c=>c[0]);
+  const body=e.rows.map(r=>TBX_EXPORT_COLS.map(c=>{const v=c[1](r);return v==null?'':v;}));
+  const base='trial-balance-'+e.manifest.periodId;
+  if(!e.manifest.valid){ TBX_EXPORTS.unshift(e.manifest); renderAll(); return; }
+  if(fmt==='csv'){
+    const esc=s=>{s=String(s==null?'':s).replace(/\s+/g,' ').trim();
+      return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+    const nl=String.fromCharCode(13)+String.fromCharCode(10);
+    const m=e.manifest;
+    const man=['Korvyn export manifest'].concat(Object.keys(m).map(x=>esc(x)+','+esc(m[x])),['']);
+    rcDownload(man.concat([head.map(esc).join(',')],
+      body.map(r=>r.map(esc).join(','))).join(nl),'text/csv;charset=utf-8',base+'.csv');
+  }else{
+    const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const m=e.manifest;
+    const man='<table><tr><td colspan="2"><b>Korvyn export manifest</b></td></tr>'
+      +Object.keys(m).map(x=>'<tr><td>'+esc(x)+'</td><td>'+esc(m[x])+'</td></tr>').join('')
+      +'</table><br/>';
+    const html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head>'
+      +'<meta charset="utf-8"></head><body>'+man+'<table><tr>'
+      +head.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr>'
+      +body.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')
+      +'</table></body></html>';
+    rcDownload(html,'application/vnd.ms-excel;charset=utf-8',base+'.xls');
+  }
+  TBX_EXPORTS.unshift(e.manifest); renderAll();
+}
+const TBX_EXPORTS=[];
+/* A FINANCIAL LINE NAME IS PRE-ESCAPED HTML and is rendered raw on every screen in this
+   product. A file is not a screen, so an export unescapes it rather than shipping
+   "Furniture &amp;amp; Equipment" into somebody's spreadsheet. */
+function tbxPlain(s){ return String(s==null?'':s)
+  .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+  .replace(/&#39;/g,"'").replace(/&quot;/g,'"'); }
+
+/* ---- §17 — CONTEXT-PRESERVING NAVIGATION. Every route out of TB goes through the product's
+   own `financialContext` / `navGo` pair, so the destination lands on the OBJECT with the
+   period, scope, lens, basis and currency the user was reading under, and the return strip
+   brings them back to the exact TB state — view, selection, expansion, filters and scroll. */
+function tbxCtx(extra){
+  return financialContext(Object.assign({originatingSurface:'trial-balance'},extra||{}));
+}
+function tbxNavCtx(extra){
+  const st={view:tbxView, sel:tbxSel, tab:tbxTab, open:Object.assign({},tbxOpen),
+    entOpen:Object.assign({},tbxEntOpen), q:tbxQ, mapF:tbxMapF,
+    gl:tbxGL?Object.assign({},tbxGL):null, scroll:window.scrollY||0};
+  return Object.assign({
+    originSurface:'tb', originTab:'tb', originObjectId:tbxSel,
+    originLabel:'Trial balance'+(tbxSel?' · '+tbxPlain((fsLine(tbxSel)||{}).name||''):''),
+    originContext:perLabel(viewPeriod())+' · '+rcLens().name,
+    periodId:viewPeriod(), scopeId:ENTCTX.scope.id, reportingLensId:rcLensId,
+    financialLineId:tbxSel,
+    restore:()=>{ pickTab('tb');
+      tbxView=st.view; tbxSel=st.sel; tbxTab=st.tab; tbxOpen=st.open;
+      tbxEntOpen=st.entOpen; tbxQ=st.q; tbxMapF=st.mapF; tbxGL=st.gl;
+      renderAll();
+      const put=(n)=>{ window.scrollTo(0,st.scroll);
+        if(n>0&&Math.abs((window.scrollY||0)-st.scroll)>2) setTimeout(()=>put(n-1),40); };
+      put(6);
+    }}, extra||{});
+}
+function tbxGo(dest){ navGo(tbxNavCtx(),dest); }
+function tbxGoFinancials(lineId){ tbxSel=lineId||tbxSel;
+  tbxGo(()=>{ pickTab('glfin'); if(lineId) fsReveal(lineId); }); }
+function tbxGoFlux(lineId){ tbxSel=lineId||tbxSel;
+  tbxGo(()=>{ pickTab('finrep');
+    if(lineId&&typeof FLUX_GOV!=='undefined'&&FLUX_GOV) fxReveal(lineId); }); }
+function tbxGoTrending(lineId){ tbxSel=lineId||tbxSel;
+  tbxGo(()=>{ pickTab('gltrend'); if(lineId&&typeof trReveal==='function') trReveal(lineId); }); }
+function tbxGoRecon(defId){
+  tbxGo(()=>{ pickTab('glrecon'); if(defId&&typeof rcPick==='function') rcPick(defId); }); }
+function tbxGoMapping(srcId){
+  tbxGo(()=>{ pickTab('acctmap');
+    if(typeof amapOpen==='function'&&srcId) amapOpen(srcId);
+    else if(typeof amapView!=='undefined') amapView='unmapped'; }); }
+function tbxGoAdjustment(lineId){
+  tbxGo(()=>{ pickTab('glfin'); if(lineId) fsReveal(lineId);
+    if(typeof setFsTab==='function') setFsTab('adj'); }); }
+
+
+/* ==========================================================================================
+   THE SURFACE
+   ==========================================================================================
+   A dense accounting workpaper in the idiom Financials and Reconciliations already
+   established — the same `.rcx-tbl` grid, the same `.ktabs.lvl2` picker, the same docked
+   `.amap-panel`, the same `.pop` menus. §21: no KPI cards, no oversized pills, no startup
+   dashboard. The table IS the work surface, and the detail sits behind progressive
+   disclosure rather than on the face of it (§19).                                          */
+
+function setTbxView(v){ tbxView=v; tbxGL=null; renderAll(); window.scrollTo(0,0); }
+function tbxToggle(id){ tbxOpen[id]=tbxOpen[id]===false?true:false; renderAll(); }
+function tbxEntToggle(id){ tbxEntOpen[id]=!tbxEntOpen[id]; renderAll(); }
+function tbxPick(id){ tbxSel=(tbxSel===id)?null:id; tbxTab='move'; renderAll(); }
+function tbxPickAcct(id){ tbxSel=(tbxSel===id)?null:id; tbxTab='move'; renderAll(); }
+function setTbxTab(t){ tbxTab=t; renderAll(); }
+function tbxClose(){ tbxSel=null; renderAll(); }
+function tbxSearch(v){ tbxQ=v; renderAll(); }
+function tbxOpenGL(lineId,srcId){
+  tbxGLFrom={view:tbxView, sel:tbxSel, tab:tbxTab};
+  tbxGL={lineId, periodId:viewPeriod(), sourceAccountId:srcId||null};
+  tbxGLPage=0; tbxGLQ=''; renderAll(); window.scrollTo(0,0);
+}
+function tbxCloseGL(){
+  const f=tbxGLFrom||{};
+  tbxGL=null; tbxGLFrom=null;
+  if(f.view) tbxView=f.view; if(f.sel!==undefined) tbxSel=f.sel; if(f.tab) tbxTab=f.tab;
+  renderAll(); window.scrollTo(0,0);
+}
+function tbxGLSearch(v){ tbxGLQ=v; tbxGLPage=0; renderAll(); }
+function tbxGLMoreCols(){ tbxGLMore=!tbxGLMore; renderAll(); }
+function tbxGLGo(n){ tbxGLPage=n; renderAll(); }
+function tbxDeepTog(){ tbxDeepOpen=!tbxDeepOpen; renderAll(); }
+/* the legacy search index still routes an account hit here; it lands on the account view */
+function gotoTB(acct){ pickTab('tb'); tbxView='acct'; tbxQ=String(acct||''); renderAll(); }
+
+const tbxAmt=(v,cls)=>'<td class="num'+(cls?' '+cls:'')+'">'+rcM(v)+'</td>';
+const TBX_MAPST=Object.assign({},MAP_ST,{nomodel:{l:'No modelled accounts',c:''}});
+/* §21, and the rule the list already follows — a healthy state is quiet text, a problem
+   carries the pill, so a clean trial balance reads as a page of grey words */
+function tbxSt(k){
+  const s=TBX_MAPST[k]||{l:k,c:''};
+  return s.c?'<span class="pill '+s.c+' sm">'+s.l+'</span>'
+            :'<span class="rcx-okst">'+s.l+'</span>';
+}
+
+function renderTB(){
+  const el=$('view-tb'); if(!el) return;
+  glSurface(el);
+  /* the governed ledger detail takes the main canvas rather than a modal or a 420px dock —
+     nineteen columns do not belong in a drawer, which is the same call Activity Detail made */
+  if(tbxGL) return tbxRenderGL(el);
+  const k=viewPeriod(), L=rcLens();
+
+  /* §3 — THE CONTEXT IS STATED ONCE. Period, scope, lens, basis and currency, in the shell's
+     own title row, with `data as of` on the bar beneath. There is no second period picker and
+     no second entity selector: both are the book's and the enterprise's. */
+  let o=glHead('Trial balance',
+    glCtx([glEsc(ENTCTX.scope.name),glEsc(L.name),glEsc(rcBasisLabel(L.reportingBasis))],
+      L.presentationCurrency),'');
+
+  o+='<div class="fsx-bar tbx-bar">'
+    +'<div class="fsx-pick ktabs lvl2" role="tablist">'
+    +TBX_VIEWS.map(v=>'<button class="ktab'+(tbxView===v[0]?' on':'')+'" role="tab"'
+      +' onclick="setTbxView(\''+v[0]+'\')">'+v[1]+'</button>').join('')
+    +'</div>'
+    +'<span class="fsx-asof">As of '+perEnd(k)+'</span>'
+    +'<span class="grow"></span>'
+    +'<span class="tbx-asof">Data as of '+glEsc(rcDataAsOf(k))+'</span>'
+    +'<button class="rcx-f" data-pop="rc:lens" onclick="KFX.pop(\'rc:lens\',this)">'
+    +'<span class="k">Reporting lens</span><span class="v">'+glEsc(L.name)+'</span>'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10.5l4-4" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+    +'</div>';
+
+  o+=tbxStrip(k);
+  o+=tbxControls(k);
+  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap">'
+    +(tbxView==='cons'?tbxConsTable(k)
+     :tbxView==='ent'?tbxEntTable(k)
+     :tbxView==='acct'?tbxAcctTable(k)
+     :tbxView==='grp'?tbxGrpTable(k)
+     :tbxExcTable(k))
+    +'</div></div>';
+  o+=tbxFoot(k);
+  /* the docked panel is the product's one detail surface (.amap-panel), mounted the way every
+     other workspace mounts it — never a second drawer architecture */
+  el.innerHTML=o+(tbxSel?tbxPanel(k):'');
+  document.body.classList.toggle('amap-open',!!tbxSel);
+  if(typeof dockFit==='function') dockFit();
+}
+
+/* ---- ONE COMPACT STATUS LINE, not a row of KPI cards (§21). It states where the trial
+   balance stands and every count is a route, so reading the position and working it are the
+   same gesture. */
+function tbxStrip(k){
+  const t=fsTieOut(k), st=mapStats(k), exc=tbxExceptions(k);
+  const a=fsAmount('FS-A',k), l=fsAmount('FS-L',k), e=fsAmount('FS-E',k);
+  const bal=Math.abs(t.diff)<0.0015;
+  const n=x=>x.toLocaleString('en-US');
+  return '<div class="tbx-strip">'
+    +'<span class="tbx-s'+(bal?'':' bad')+'"><b>'+(bal?'In balance':'Out of balance')+'</b>'
+      +'<span>assets '+rcM(a.reported)+' = liabilities '+rcM(l.reported)
+      +' + equity '+rcM(e.reported)+'</span></span>'
+    +'<span class="tbx-s"><b>'+n(st.total)+'</b><span>source accounts in the estate</span></span>'
+    +'<span class="tbx-s"><b>'+st.coverage+'%</b><span>mapping coverage</span></span>'
+    +'<button class="tbx-s'+(st.unmapped?' warn':'')+'" onclick="setTbxView(\'exc\')">'
+      +'<b>'+n(st.unmapped)+'</b><span>unmapped</span></button>'
+    +(exc.length?'<button class="tbx-s warn" onclick="setTbxView(\'exc\')"><b>'+exc.length
+      +'</b><span>population exception'+(exc.length===1?'':'s')+'</span></button>':'')
+    +'</div>';
+}
+
+function tbxControls(k){
+  const showQ=tbxView==='acct'||tbxView==='exc';
+  const nf=tbxMapF!=='all'?1:0;
+  return '<div class="rcx-ctl tbx-ctl">'
+    +'<span class="tbx-hint">'+(
+      tbxView==='cons'?'Every governed balance, its movement and the mapping behind it.'
+     :tbxView==='ent'?'The reporting hierarchy, drilled a level at a time.'
+     :tbxView==='acct'?'The source accounts Korvyn models — a sample of the estate.'
+     :tbxView==='grp'?'Balances rolled to the account group the mapping puts them in.'
+     :'What is wrong with the population, ranked by the balance at stake.')+'</span>'
+    +'<span class="grow"></span>'
+    +(showQ?'<input class="rcx-q" type="search" placeholder="Search accounts…" value="'
+      +glEsc(tbxQ)+'" oninput="tbxSearch(this.value)">':'')
+    +(tbxView==='acct'?'<button class="rcx-f sm'+(nf?' on':'')+'" data-pop="tb:mapst"'
+      +' onclick="KFX.pop(\'tb:mapst\',this)"><span class="k">Mapping</span><span class="v">'
+      +(tbxMapF==='all'?'All':(TBX_MAPST[tbxMapF]||{}).l)+'</span></button>':'')
+    +'<button class="btn-out sm" onclick="tbxExport(\'xls\')">Download Excel</button>'
+    +'<button class="btn-out sm" onclick="tbxExport(\'csv\')">Download CSV</button>'
+    +'</div>';
+}
+
+/* ---- §5 — THE DEFAULT VIEW. Section, group and line with the movement bridge, the source
+   account count, the mapping status and the route. Not every technical field: currency,
+   mapping metadata, composition, where-used and lineage are the panel's (§19). */
+function tbxConsTable(k){
+  const rows=tbxLineRows(k);
+  let h='<table class="rcx-tbl tbx-tbl"><thead><tr>'
+    +'<th class="rcx-nm">Account / financial statement line</th>'
+    +tbxHd('Beginning',rcDayMon(perAdd(k,-1)))
+    +tbxHd('Activity',PMN[perParts(k).m])
+    +tbxHd('Adj. / other','')
+    +tbxHd('Ending',rcDayMon(k))
+    +'<th>Source accounts</th><th>Mapping</th><th></th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const sel=tbxSel===r.id;
+    if(r.kind==='stmt'||r.kind==='section'||r.kind==='group'){
+      /* A STATEMENT ROW IS A LABEL BAND, NOT A TOTAL - the same ruling the Reconciliations
+         grid already holds. Adding assets to liabilities and equity gives a figure that is
+         arithmetically real and means nothing, and printing one invites a reader to tie to
+         it. A SECTION totals, because assets do sum to assets. */
+      const fold=r.kind!=='stmt';
+      h+='<tr class="rcx-r tbx-sec d'+r.depth+(r.kind==='stmt'?' stmt':'')+'"'
+        +(fold?' onclick="tbxToggle(\''+r.id+'\')"':'')+'>'
+        +'<td class="rcx-nm"><span class="tbx-nm">'
+        +(fold?'<span class="expander'+(r.open?' open':'')+'">▸</span>':'')
+        +'<span class="t">'+r.name+'</span>'
+        +(r.n?'<span class="tbx-n">'+r.n+'</span>':'')+'</span></td>'
+        +(r.kind==='stmt'?'<td colspan="4"></td>'
+          :tbxAmt(r.mv.beginning)+tbxAmt(r.mv.activity)+tbxAmt(r.mv.adj)+tbxAmt(r.mv.ending))
+        +'<td></td><td></td><td></td></tr>';
+      return;
+    }
+    h+='<tr class="rcx-r tbx-line d'+r.depth+(sel?' on':'')+'" onclick="tbxPick(\''+r.id+'\')">'
+      +'<td class="rcx-nm"><span class="tbx-nm"><span class="t">'+r.name+'</span></span></td>'
+      +tbxAmt(r.mv.beginning)
+      /* §11 — EVERY MATERIAL AMOUNT IS A DRILL. Activity opens the governed ledger detail;
+         the others open the panel on what composes them. */
+      +'<td class="num'+(Math.abs(r.mv.activity)>=0.05?' tbx-drill':'')+'"'
+        +(Math.abs(r.mv.activity)>=0.05
+          ?' onclick="event.stopPropagation();tbxOpenGL(\''+r.id+'\')" title="Open the governed ledger detail"':'')
+        +'>'+rcM(r.mv.activity)+'</td>'
+      +'<td class="num'+(Math.abs(r.mv.adj)>=0.05?' tbx-drill':'')+'"'
+        +(Math.abs(r.mv.adj)>=0.05
+          ?' onclick="event.stopPropagation();tbxPick(\''+r.id+'\');setTbxTab(\'move\')" title="Reporting adjustments behind this movement"':'')
+        +'>'+rcM(r.mv.adj)+'</td>'
+      +tbxAmt(r.mv.ending,'tbx-end')
+      +'<td class="num tbx-n2">'+(r.accts||'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      +'<td>'+tbxSt(r.mapSt)+'</td>'
+      /* ABSENT AT REST. Forty permanent "Where used" links is the clutter the brief rules
+         out; the row action appears on hover or keyboard focus, and it is `opacity:0` rather
+         than `visibility:hidden` so it stays in the tab order for every keyboard user. */
+      +'<td class="tbx-go"><button class="rcx-lk2 tbx-rowact" onclick="event.stopPropagation();'
+        +'tbxPick(\''+r.id+'\');setTbxTab(\'used\')">Where used ›</button></td></tr>';
+  });
+  const A=fsAmount('FS-A',k),Lb=fsAmount('FS-L',k),E=fsAmount('FS-E',k);
+  const d=+(A.reported-(Lb.reported+E.reported)).toFixed(3);
+  h+='</tbody><tfoot><tr><td class="rcx-nm">Assets less liabilities and equity</td>'
+    +'<td colspan="3"></td>'
+    +'<td class="num '+(Math.abs(d)<0.0015?'':'rcx-diff')+'">'
+    +(Math.abs(d)<0.0015?'&mdash;':rcM(d))+'</td><td colspan="3"></td></tr></tfoot></table>';
+  return h;
+}
+const tbxHd=(l,s)=>'<th class="num"><span class="tbx-h">'+l
+  +(s?'<span class="s">'+s+'</span>':'')+'</span></th>';
+
+/* ---- §6 — BY ENTITY. Group, region, country, holdco — the hierarchy the enterprise declares,
+   expanded a level at a time. */
+function tbxEntTable(k){
+  const rows=tbxEntRows(k,tbxSel&&fsLine(tbxSel)?tbxSel:null);
+  const scoped=tbxSel&&fsLine(tbxSel);
+  let h='';
+  if(scoped) h+='<div class="tbx-scope">Composition of <b>'+(fsLine(tbxSel)||{}).name+'</b>'
+    +' <button class="rcx-lk2" onclick="tbxClose()">Show the whole trial balance ›</button></div>';
+  h+='<table class="rcx-tbl tbx-tbl"><thead><tr>'
+    +'<th class="rcx-nm">Entity / hierarchy node</th><th>Type</th><th class="num">Entities</th>'
+    +tbxHd('Beginning',rcDayMon(perAdd(k,-1)))+tbxHd('Activity',PMN[perParts(k).m])
+    +tbxHd('Adj. / other','')+tbxHd('Ending',rcDayMon(k))+'<th></th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    h+='<tr class="rcx-r tbx-line d'+Math.min(r.depth,3)+(r.root?' tbx-sec':'')+'"'
+      +(r.deeper?' onclick="tbxEntToggle(\''+r.id+'\')"':'')+'>'
+      +'<td class="rcx-nm"><span class="tbx-nm">'
+      +(r.deeper&&!r.root?'<span class="expander'+(r.open?' open':'')+'">▸</span>':'')
+      +'<span class="t">'+glEsc(r.name)+'</span></span></td>'
+      +'<td class="tbx-ty">'+glEsc(r.type)+'</td>'
+      +'<td class="num tbx-n2">'+r.n.toLocaleString('en-US')+'</td>'
+      +tbxAmt(r.mv.beginning)+tbxAmt(r.mv.activity)+tbxAmt(r.mv.adj)+tbxAmt(r.mv.ending,'tbx-end')
+      +'<td></td></tr>';
+  });
+  h+='</tbody></table>';
+  /* §8 — the currency the figures are in, stated where they are read. A consolidated node is
+     in the reporting currency by construction; the entity's own functional currency is a
+     different fact and belongs to the entity, not to the group total. */
+  h+='<div class="rcx-hint">Stated in '+rcLens().presentationCurrency
+    +', the reporting currency of '+glEsc(rcLens().name)+'. A node’s balance is the '
+    +'governed amount weighted by the entities beneath it, with the last child taking the '
+    +'remainder — so the children foot to the parent and the parent to the statement.</div>';
+  return h;
+}
+
+/* ---- §7 — BY ACCOUNT. Which source accounts make up a TB line, and what the mapping does
+   with each one. */
+function tbxAcctTable(k){
+  let rows=tbxAcctRows(k);
+  const q=(tbxQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.acct.code,r.acct.name,r.canonName,r.lineName,
+    erpIns(r.acct.ins).name].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(tbxMapF!=='all') rows=rows.filter(r=>r.st===tbxMapF);
+  rows.sort((a,b)=>Math.abs(b.ending)-Math.abs(a.ending));
+  let h='<table class="rcx-tbl tbx-tbl"><thead><tr>'
+    +'<th class="rcx-nm">Source account</th><th>ERP instance</th><th>Canonical account</th>'
+    +'<th>Financial statement line</th><th class="num">Entities</th>'
+    +tbxHd('Beginning',rcDayMon(perAdd(k,-1)))+tbxHd('Activity',PMN[perParts(k).m])
+    +tbxHd('Ending',rcDayMon(k))+'<th>Mapping</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const a=r.acct, sel=tbxSel===a.id;
+    h+='<tr class="rcx-r tbx-line'+(sel?' on':'')+'" onclick="tbxPickAcct(\''+a.id+'\')">'
+      +'<td class="rcx-nm"><span class="tbx-nm"><span class="t"><b class="mono">'+glEsc(a.code)
+        +'</b> '+glEsc(a.name)+'</span></span></td>'
+      +'<td class="tbx-ty">'+glEsc(srcSys(a.sys).name)+' <span class="amap-dim">'
+        +glEsc(erpIns(a.ins).name)+'</span></td>'
+      +'<td>'+(r.canonId?'<span class="mono">'+glEsc(r.canonId)+'</span> '+glEsc(r.canonName||'')
+        :'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      +'<td>'+(r.lineName||'<span class="rcx-nil">not in any line</span>')+'</td>'
+      +'<td class="num tbx-n2">'+(a.ents||0)+'</td>'
+      +tbxAmt(r.beginning)
+      +'<td class="num'+(Math.abs(r.activity)>=0.05&&r.lineId?' tbx-drill':'')+'"'
+        +(Math.abs(r.activity)>=0.05&&r.lineId
+          ?' onclick="event.stopPropagation();tbxOpenGL(\''+r.lineId+'\',\''+a.id+'\')"'
+           +' title="Open the governed ledger detail for this account"':'')
+        +'>'+rcM(r.activity)+'</td>'
+      +tbxAmt(r.ending,'tbx-end')
+      +'<td>'+tbxSt(r.st)+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  const st=mapStats(k);
+  h+='<div class="rcx-hint">'+rows.length+' modelled source account'
+    +(rows.length===1?'':'s')+' of '+st.total.toLocaleString('en-US')
+    +' across the estate. Korvyn models a representative sample at this scale; the estate '
+    +'figures on the strip above are the population, and the two are never added together.</div>';
+  return h;
+}
+
+/* ---- BY ACCOUNT GROUP. The same balances rolled to the group the mapping puts them in,
+   which is the cut a controller reviews rather than 42 individual lines. */
+function tbxGrpTable(k){
+  const groups=FSLINES.filter(f=>f.kind==='group'||
+    (f.kind==='section'&&!FSLINES.some(x=>x.parent===f.id&&x.kind==='group')));
+  let h='<table class="rcx-tbl tbx-tbl"><thead><tr>'
+    +'<th class="rcx-nm">Account group</th><th>Statement</th><th class="num">Lines</th>'
+    +'<th class="num">Source accounts</th>'
+    +tbxHd('Beginning',rcDayMon(perAdd(k,-1)))+tbxHd('Activity',PMN[perParts(k).m])
+    +tbxHd('Adj. / other','')+tbxHd('Ending',rcDayMon(k))+'</tr></thead><tbody>';
+  groups.forEach(g=>{
+    const lines=FSLINES.filter(f=>f.parent===g.id&&f.kind==='line');
+    if(!lines.length) return;
+    const mv=tbxMoveOf(lines.map(l=>l.id),k);
+    const na=lines.reduce((s,l)=>s+rcLineAccts(l.id,k).length,0);
+    h+='<tr class="rcx-r tbx-line" onclick="tbxToggle(\''+g.id+'\');setTbxView(\'cons\')">'
+      +'<td class="rcx-nm"><span class="tbx-nm"><span class="t">'+g.name+'</span></span></td>'
+      +'<td class="tbx-ty">'+((fsLine(fsStmtOf(g.id))||{}).name||'')+'</td>'
+      +'<td class="num tbx-n2">'+lines.length+'</td>'
+      +'<td class="num tbx-n2">'+(na||'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      +tbxAmt(mv.beginning)+tbxAmt(mv.activity)+tbxAmt(mv.adj)+tbxAmt(mv.ending,'tbx-end')
+      +'</tr>';
+  });
+  h+='</tbody></table>';
+  return h;
+}
+
+/* ---- §9 — EXCEPTIONS. Never buried: each states what is wrong, the balance at stake and the
+   one route that fixes it. */
+function tbxExcTable(k){
+  let rows=tbxExceptions(k);
+  const q=(tbxQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.acct.code,r.acct.name,r.kind]
+    .some(v=>String(v||'').toLowerCase().includes(q)));
+  if(!rows.length) return '<div class="amp-empty" style="padding:var(--s-4)">'
+    +'Nothing is wrong with the population. Every modelled source account resolves to one '
+    +'active mapping rule.</div>';
+  /* NOT the dense balance grid. `.rcx-tbl td.rcx-nm` is a flex box with a pinned row height,
+     which is right for a one-line figure row and wrong for an exception that states its reason
+     in a sentence — borrowed here it drew the second line through the row below. A table whose
+     cells must grow gets its own shape rather than a pile of overrides on one that must not. */
+  let h='<table class="rcx-tbl tbx-exctbl"><thead><tr>'
+    +'<th>Exception</th><th>Source account</th><th>ERP instance</th>'
+    +'<th class="num">Balance at stake</th><th></th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const a=r.acct;
+    h+='<tr class="rcx-r tbx-exc '+r.sev+'"><td class="tbx-exc-k">'
+      +'<b>'+r.kind+'</b><span class="tbx-why">'+glEsc(r.why)+'</span></td>'
+      +'<td><span class="mono">'+glEsc(a.code)+'</span> '+glEsc(a.name)+'</td>'
+      +'<td class="tbx-ty">'+glEsc(erpIns(a.ins).name)+'</td>'
+      +'<td class="num">'+(r.row.ending?rcM(r.row.ending)
+        :'<span class="rcx-nil">'+rcM(a.bal)+' source</span>')+'</td>'
+      +'<td class="tbx-go"><button class="rcx-lk2" onclick="'+r.go[1]+'">'+r.go[0]
+      +' ›</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  return h;
+}
+
+function tbxFoot(k){
+  const L=rcLens();
+  return '<div class="tbx-foot">In millions of '+L.presentationCurrency+' · '
+    +glEsc(ENTCTX.scope.name)+' · mapping v'+glEsc(mapVersionFor(k).v)
+    +' · hierarchy '+glEsc(ENTCTX.scope.hierarchyVersion||'')
+    +' · data as of '+glEsc(rcDataAsOf(k))
+    +(TBX_EXPORTS.length?' · '+TBX_EXPORTS.length+' export'
+      +(TBX_EXPORTS.length===1?'':'s')+' this session':'')+'</div>';
+}
+
+
+/* ==========================================================================================
+   THE DETAIL PANEL (§19) — progressive disclosure, not a second screen
+   ==========================================================================================
+   The grid carries balances, movement, mapping status and the drill. Everything technical —
+   the component bridge, the composition, the currency, the mapping metadata, the downstream
+   use and the lineage — is one click away here rather than on the face of the table. Five
+   tabs, each answering one question, in the product's own docked panel.                     */
+const TBX_TABS=[['move','Movement'],['comp','Composition'],['map','Mapping'],
+                ['used','Where used'],['trace','Trace']];
+const tbxIsAcct=id=>String(id||'').indexOf('SRC-')===0;
+const tbxRow=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+
+function tbxPanel(k){
+  const id=tbxSel, acct=tbxIsAcct(id)?srcAcct(id):null;
+  const line=acct?null:fsLine(id);
+  if(!acct&&!line) return '';
+  const nm=acct?(acct.code+' · '+glEsc(acct.name)):line.name;
+  const sub=acct?glEsc(srcSys(acct.sys).name+' · '+erpIns(acct.ins).name)
+                :glEsc(fsCrumb?fsCrumb(id):'');
+  const body=tbxTab==='comp'?tbxTabComp(id,k)
+    :tbxTab==='map'?tbxTabMap(id,k)
+    :tbxTab==='used'?tbxTabUsed(id,k)
+    :tbxTab==='trace'?tbxTabTrace(id,k)
+    :tbxTabMove(id,k);
+  return '<aside class="amap-panel" id="tbxPanel">'
+    +'<div class="amp-hd"><div class="amp-id"><b>'+nm+'</b>'
+    +'<span class="mono amap-dim">'+glEsc(id)+'</span></div>'
+    +'<button class="rw-ib" title="Close" onclick="tbxClose()">'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round"/></svg></button></div>'
+    +'<div class="ktabs lvl2 fsx-ptabs" role="tablist">'
+    +TBX_TABS.map(t=>'<button class="ktab'+(tbxTab===t[0]?' on':'')+'" role="tab"'
+      +' onclick="setTbxTab(\''+t[0]+'\')">'+t[1]+'</button>').join('')
+    +'</div><div class="amp-body">'+body+'</div></aside>';
+}
+
+/* ---- MOVEMENT (§10, §14). The bridge first, then what the activity is MADE OF — and the
+   record type on every component, so a derived reporting effect is never read as a journal
+   somebody posted. */
+function tbxTabMove(id,k){
+  const lineId=tbxIsAcct(id)?null:id;
+  if(!lineId) return tbxAcctMove(id,k);
+  const m=tbxMove(lineId,k), c=tbxComponents(lineId,k);
+  const eq=(op,l,note,v,act,cls)=>'<div class="rcx-rf rcx-eq'+(cls?' '+cls:'')+'">'
+    +'<span class="op">'+op+'</span><span class="l">'+l
+    +'<span class="n">'+(note||'')+(act?(note?' · ':'')+act:'')+'</span></span>'
+    +'<span class="v mono">'+rcM(v)+'</span></div>';
+  const dr=(fn,label)=>'<button class="rcx-lk2" onclick="'+fn+'">'+label+' ›</button>';
+  let o='<div class="amp-sec">'+perLabel(k)+' movement</div><div class="rcx-rfw">'
+    +eq('','Beginning balance',perEnd(m.priorId)+' · as reported',m.beginning,
+        dr("setTbxTab('comp')",'View composition'))
+    +eq('+','Period activity',PMN[perParts(k).m]+' · source ledger movement',m.activity,
+        Math.abs(m.activity)>=0.05?dr("tbxOpenGL('"+lineId+"')",'View GL detail'):'')
+    +eq('+','Adjustments / other','Korvyn overlay · not posted to the ERP',m.adj,
+        Math.abs(m.adj)>=0.05?dr("tbxGoAdjustment('"+lineId+"')",'View the adjustment'):'')
+    +eq('=','Ending balance',perEnd(k),m.ending,'','tot')
+    +'</div>';
+  /* §14 — THE BRIDGE BEFORE THE DRILL. The source ledger movement is not all journals, and a
+     reader who opens GL detail expecting 254.0 and finds 246.2 has been misled unless the
+     difference was stated first. Where the line carries reconciliation groups, R3 has already
+     decomposed it and this reads that decomposition rather than computing a second one. */
+  if(c.modelled){
+    o+='<div class="amp-sec">What the activity is made of</div><div class="rcx-rfw">';
+    c.parts.forEach(p=>{
+      const t=TBX_RECTYPE[p.k]||{l:p.k,d:''};
+      o+=eq(p.k==='SOURCE_GL'?'':'+',t.l,t.d,p.amt,
+        p.drill==='gl'&&Math.abs(p.amt)>=0.05?dr("tbxOpenGL('"+lineId+"')",'View GL detail'):'');
+    });
+    o+=eq('=','Period activity','',c.stated,'','tot')+'</div>';
+    if(!c.foots) o+='<div class="rcx-why warn"><b>Components do not foot.</b> They state '
+      +rcM(c.stated)+' against a source ledger movement of '+rcM(c.activity)+'.</div>';
+  }else{
+    o+='<div class="rcx-hint">Korvyn models no reconciliation group for this line, so the '
+      +'period activity is resolved from the governed statement rather than decomposed into '
+      +'its GL, FX and elimination components.</div>';
+  }
+  return o+tbxPanelMeta(lineId,k);
+}
+function tbxAcctMove(srcId,k){
+  const rows=tbxAcctRows(k), r=rows.find(x=>x.acct.id===srcId);
+  if(!r) return '<div class="amp-empty">No governed balance for this account.</div>';
+  const a=r.acct;
+  let o='<div class="amp-sec">'+perLabel(k)+' movement</div><div class="rcx-rfw">'
+    +'<div class="rcx-rf rcx-eq"><span class="op"></span><span class="l">Beginning balance'
+      +'<span class="n">'+perEnd(perAdd(k,-1))+'</span></span>'
+      +'<span class="v mono">'+rcM(r.beginning)+'</span></div>'
+    +'<div class="rcx-rf rcx-eq"><span class="op">+</span><span class="l">Period activity'
+      +'<span class="n">'+PMN[perParts(k).m]
+      +(r.lineId&&Math.abs(r.activity)>=0.05
+        ? ' · <button class="rcx-lk2" onclick="tbxOpenGL(\''+r.lineId+'\',\''+srcId
+          +'\')">View GL detail ›</button>':'')+'</span></span>'
+      +'<span class="v mono">'+rcM(r.activity)+'</span></div>'
+    +'<div class="rcx-rf rcx-eq tot"><span class="op">=</span><span class="l">Ending balance'
+      +'<span class="n">'+perEnd(k)+'</span></span>'
+      +'<span class="v mono">'+rcM(r.ending)+'</span></div></div>';
+  o+='<div class="amp-sec">Source account</div>'
+    +tbxRow('ERP',glEsc(srcSys(a.sys).name))
+    +tbxRow('Instance',glEsc(erpIns(a.ins).name))
+    +tbxRow('Chart of accounts',glEsc((COAS.find(c=>c.id===a.coa)||{}).name||a.coa))
+    +tbxRow('Entities posting',(a.ents||0).toLocaleString('en-US'))
+    +tbxRow('First seen',glEsc(a.seen||'—'))
+    +tbxRow('Financial line',r.lineName
+      ? '<span class="rcx-lk" onclick="tbxPick(\''+r.lineId+'\')">'+r.lineName+'</span>'
+      : '<span class="rcx-nil">not in any line</span>');
+  return o;
+}
+/* the context every figure in this panel was resolved under, folded away (§19) */
+function tbxPanelMeta(lineId,k){
+  const L=rcLens(), c=tbxComponents(lineId,k);
+  return '<details class="rcx-more"><summary>Details</summary>'
+    +tbxRow('Financial line ID','<span class="mono">'+glEsc(lineId)+'</span>')
+    +tbxRow('Statement',(fsLine(fsStmtOf(lineId))||{}).name||'')
+    +tbxRow('Reporting lens',glEsc(L.name)+' <span class="amap-dim">'
+      +glEsc(rcBasisLabel(L.reportingBasis))+' · '+glEsc(L.presentationCurrency)+'</span>')
+    +tbxRow('Scope',glEsc(ENTCTX.scope.name)+' · '
+      +orgCount('grp').toLocaleString('en-US')+' entities')
+    +tbxRow('Mapping version','v'+glEsc(mapVersionFor(k).v))
+    +tbxRow('Hierarchy version',glEsc(ENTCTX.scope.hierarchyVersion||'—'))
+    +tbxRow('Data as of',glEsc(rcDataAsOf(k)))
+    +(c.defs.length?tbxRow('Reconciliation groups',c.defs.length+''):'')
+    +'</details>';
+}
+
+/* ---- COMPOSITION (§6, §7). What builds the balance — entities, then source accounts. Both
+   foot to the figure above them by construction. */
+function tbxTabComp(id,k){
+  if(tbxIsAcct(id)) return tbxAcctComp(id,k);
+  const ents=tbxEntRows(k,id).filter(r=>!r.root).slice(0,8);
+  const accts=rcLineAccts(id,k);
+  const end=tbxMove(id,k).ending;
+  let o='<div class="amp-sec">By entity</div>';
+  if(ents.length){
+    o+='<div class="rcx-wrap"><table class="rcx-tbl tbx-ptbl"><tbody>'
+      +ents.map(e=>'<tr><td>'+glEsc(e.name)+'<span class="tbx-n">'
+        +e.n.toLocaleString('en-US')+'</span></td>'
+        +'<td class="num">'+rcM(e.mv.ending)+'</td></tr>').join('')
+      +'</tbody></table></div>'
+      +'<div class="amp-acts"><button class="btn-out sm" onclick="setTbxView(\'ent\')">'
+      +'Open the entity hierarchy</button></div>';
+  }else o+='<div class="amp-empty">No hierarchy beneath the group.</div>';
+  o+='<div class="amp-sec">By source account</div>';
+  if(accts.length){
+    let run=0;
+    o+='<div class="rcx-wrap"><table class="rcx-tbl tbx-ptbl"><tbody>'
+      +accts.map(a=>{ const v=rcAcctBalance(a.id,id,k); run+=v;
+        return '<tr><td><span class="mono">'+glEsc(a.code)+'</span> '+glEsc(a.name)
+        +'<span class="tbx-sub">'+glEsc(erpIns(a.ins).name)+'</span></td>'
+        +'<td class="num">'+rcM(v)+'</td>'
+        +'<td class="tbx-go"><button class="rcx-lk2" onclick="tbxPickAcct(\''+a.id
+        +'\')">Open ›</button></td></tr>';}).join('')
+      +'<tr class="tot"><td>'+accts.length+' account'+(accts.length===1?'':'s')+'</td>'
+      +'<td class="num">'+rcM(+run.toFixed(3))+'</td><td></td></tr>'
+      +'</tbody></table></div>'
+      +'<div class="rcx-hint">'+(Math.abs(run-end)<0.0015
+        ? 'The accounts foot to the ending balance exactly.'
+        : 'The accounts state '+rcM(+run.toFixed(3))+' against an ending balance of '
+          +rcM(end)+'.')+'</div>';
+  }else o+='<div class="amp-empty">Korvyn models no source accounts for this line. Its '
+    +'balance resolves from the governed statement.</div>';
+  return o;
+}
+function tbxAcctComp(srcId,k){
+  const a=srcAcct(srcId);
+  let ents=[]; try{ ents=rcEntitiesFor(a)||[]; }catch(e){}
+  let o='<div class="amp-sec">Entities posting to this account</div>';
+  if(ents.length){
+    o+='<div class="rcx-wrap"><table class="rcx-tbl tbx-ptbl"><tbody>'
+      +ents.slice(0,10).map(e=>'<tr><td>'+glEsc(e.displayName||e.name||e.id)
+        +'<span class="tbx-sub">'+glEsc(e.region||'')+'</span></td>'
+        /* §8 — the entity's OWN functional currency, which is a different fact from the
+           reporting currency the balance above is stated in */
+        +'<td class="mono tbx-ccy">'+glEsc(e.functionalCurrency||'')+'</td></tr>').join('')
+      +'</tbody></table></div>'
+      +(ents.length>10?'<div class="rcx-hint">10 of '+ents.length+' shown.</div>':'');
+  }else o+='<div class="amp-empty">No modelled entities for this account.</div>';
+  o+='<div class="amp-sec">Currency</div>'
+    +tbxRow('Reporting currency',glEsc(rcLens().presentationCurrency)
+      +' <span class="amap-dim">the lens presents in this</span>')
+    +tbxRow('Functional currencies',[...new Set(ents.map(e=>e.functionalCurrency))]
+      .filter(Boolean).map(glEsc).join(' · ')||'—')
+    +'<div class="rcx-hint">Transaction currency is carried on every line of the governed '
+    +'ledger detail. Where an entity’s functional currency differs from the reporting '
+    +'currency, translation applies and the movement panel states its effect separately.</div>';
+  return o;
+}
+
+/* ---- MAPPING (§9, §13). The governed identity applied to this balance, and the source /
+   governed boundary stated rather than implied. */
+function tbxTabMap(id,k){
+  if(tbxIsAcct(id)){
+    const a=srcAcct(id), r=mapResolve(id,k), m=r.mapping;
+    let o='<div class="amp-sec">Mapping status</div>'
+      +tbxRow('Status',tbxSt(r.status))
+      +(m?tbxRow('Rule','<span class="mono">'+glEsc(m.id)+'</span> <span class="amap-dim">'
+        +glEsc(m.scopeType)+' · '+glEsc(m.scopeId)+'</span>')
+        +tbxRow('Version','v'+glEsc(m.ver))
+        +tbxRow('Effective from',glEsc(m.from))
+        +tbxRow('Canonical account','<span class="mono">'+glEsc(m.canon)+'</span> '
+          +glEsc((canon(m.canon)||{}).name||''))
+        +tbxRow('Financial statement line',(fsLine(m.fs)||{}).name||'')
+        +tbxRow('Account group',(fsLine((fsLine(m.fs)||{}).parent)||{}).name||'')
+        +tbxRow('Cash flow',glEsc(taxName('cf',m.cf)||'—'))
+        +tbxRow('Reconciliation group',glEsc(taxName('rec',m.rec)||'—'))
+      :'');
+    if(r.status==='conflict'&&r.rivals) o+='<div class="rcx-why warn"><b>Two rules claim this '
+      +'account.</b> '+r.rivals.map(x=>glEsc(x.id)).join(', ')+' disagree with '
+      +glEsc(m?m.id:'')+' about the canonical account. The balance is not missing; which line '
+      +'carries it may change when the conflict is resolved.</div>';
+    if(r.status==='unmapped') o+='<div class="rcx-why warn"><b>No active rule resolves this '
+      +'account.</b> Its balance is in no financial statement line and in no reconciliation '
+      +'population until it is mapped.</div>';
+    o+='<div class="amp-acts"><button class="btn-out sm" onclick="tbxGoMapping(\''+id
+      +'\')">Open in Account Mapping</button></div>';
+    /* §13 — SOURCE AND GOVERNED MUST STAY DISTINGUISHABLE. The ERP said the first block; the
+       second is what Korvyn decided about it, and nothing here overwrites a source value. */
+    o+='<div class="amp-sec">Source · as the ERP sends it</div>'
+      +tbxRow('Account number','<span class="mono">'+glEsc(a.code)+'</span>')
+      +tbxRow('Account name',glEsc(a.name))
+      +tbxRow('Chart of accounts',glEsc((COAS.find(c=>c.id===a.coa)||{}).name||a.coa))
+      +tbxRow('ERP instance',glEsc(erpIns(a.ins).name))
+      +'<div class="rcx-hint">Korvyn never changes a source value. The governed fields above '
+      +'sit beside it and are versioned separately.</div>';
+    return o;
+  }
+  const accts=rcLineAccts(id,k);
+  const by={};
+  accts.forEach(a=>{ const s=mapResolve(a.id,k).status; (by[s]=by[s]||[]).push(a); });
+  let o='<div class="amp-sec">Mapping of this line’s population</div>';
+  if(!accts.length) return o+'<div class="amp-empty">Korvyn models no source accounts for '
+    +'this line at this period.</div>';
+  o+=Object.keys(by).map(s=>tbxRow(TBX_MAPST[s]?TBX_MAPST[s].l:s,
+    by[s].length+' account'+(by[s].length===1?'':'s'))).join('');
+  o+=tbxRow('Mapping version','v'+glEsc(mapVersionFor(k).v))
+    +tbxRow('Canonical accounts',(canonsForLine(id)||[]).map(glEsc).join(' · ')||'—');
+  o+='<div class="amp-acts"><button class="btn-out sm" onclick="setTbxView(\'acct\')">'
+    +'Open the account view</button></div>';
+  return o;
+}
+
+/* ---- WHERE USED (§16). Bidirectional lineage: what reads this balance downstream. */
+function tbxTabUsed(id,k){
+  const lineId=tbxIsAcct(id)?(tbxAcctRows(k).find(r=>r.acct.id===id)||{}).lineId:id;
+  if(!lineId) return '<div class="amp-empty">This account is in no financial statement line, '
+    +'so nothing downstream reads it.</div>';
+  const rows=tbxWhereUsed(lineId,k);
+  return '<div class="amp-sec">Where this balance is used</div>'
+    +'<div class="rcx-evl">'+rows.map(r=>'<div class="rcx-ev'+(r.off?' off':'')+'"'
+      +(r.off?'':' role="button" tabindex="0" onclick="'+r.go+'"')+'>'
+      +'<span class="n">'+glEsc(r.s)+'</span>'
+      +'<span class="m">'+glEsc(r.d)+'</span></div>').join('')+'</div>'
+    +'<div class="rcx-hint">Every route carries the period, scope, reporting lens and basis '
+    +'you are reading under, and returns to this exact trial balance.</div>';
+}
+
+/* ---- TRACE (§15, §17). The chain, and where the source sits at the end of it. */
+function tbxTabTrace(id,k){
+  const lineId=tbxIsAcct(id)?(tbxAcctRows(k).find(r=>r.acct.id===id)||{}).lineId:id;
+  const accts=lineId?rcLineAccts(lineId,k):[];
+  const sys=[...new Set(accts.map(a=>srcSys(a.sys).name))];
+  const step=(kk,v,s,go)=>'<div class="amp-tr-s'+(go?' go':'')+'"'+(go?' onclick="'+go+'"':'')
+    +'><span class="k">'+kk+'</span><span class="v">'+v+'</span>'
+    +(s?'<span class="s">'+s+'</span>':'')+(go?'<span class="ch">›</span>':'')+'</div>';
+  const arr='<div class="amp-tr-a">↓</div>';
+  let o='<div class="amp-sec">Where this balance comes from</div><div class="amp-tr">'
+    +step('ERP source',sys.length?glEsc(sys.join(' · ')):'—',
+      accts.length+' source account'+(accts.length===1?'':'s'))+arr
+    +step('Governed ledger detail','Posted transactions',
+      'the shared population Account Activity, Reconciliations and Excel resolve',
+      lineId?"tbxOpenGL('"+lineId+"')":'')+arr
+    +step('Account mapping','v'+glEsc(mapVersionFor(k).v),
+      'canonical account · account group · financial statement line',
+      "tbxGoMapping('"+(tbxIsAcct(id)?id:(accts[0]||{}).id||'')+"')")+arr
+    +step('Trial balance',lineId?rcM(tbxMove(lineId,k).ending):'—',
+      perEnd(k)+' · '+glEsc(rcLens().name))+arr
+    +step('Financials','Presented on the statement','the same governed amount',
+      lineId?"tbxGoFinancials('"+lineId+"')":'')
+    +'</div>';
+  o+='<details class="rcx-more"><summary>View technical lineage</summary>'
+    +tbxRow('Statement definition','<span class="mono">'
+      +glEsc(rcLens().statementDefinitionId||'—')+'</span>')
+    +tbxRow('Hierarchy',glEsc(rcLens().hierarchyName||'')+' <span class="amap-dim">v'
+      +glEsc(ENTCTX.scope.hierarchyVersion||'')+'</span>')
+    +tbxRow('Mapping set','v'+glEsc(mapVersionFor(k).v)+' <span class="amap-dim">'
+      +glEsc((MAP_STATES[mapVersionFor(k).status]||{}).l||'')+'</span>')
+    +tbxRow('FX rate set','<span class="mono">'+glEsc(rcFxSetId(rcLens(),k))+'</span>')
+    +tbxRow('Consolidation rules',rcLens().consolidationRuleSetId
+      ? '<span class="mono">'+glEsc(rcLens().consolidationRuleSetId)+'</span>'
+      : '<span class="amap-dim">N/A — single filing population</span>')
+    +tbxRow('Data as of',glEsc(rcDataAsOf(k)))
+    +'</details>';
+  return o;
+}
+
+
+/* ==========================================================================================
+   GOVERNED LEDGER DETAIL (§12, §15, §20) — the shared model, on the main canvas
+   ==========================================================================================
+   Nineteen source fields and eleven governed ones do not belong in a 420px dock, so the drill
+   takes the canvas the way Activity Detail does. The population is `rcTxPool()` — the SAME
+   dataset the reconciliation activity canvas and the connected Excel workpaper resolve — so
+   when Account Activity is upgraded it reads this, not a second copy.
+
+   THE CONTROL TOTAL LEADS. A drill states what it sums to against what it was opened from,
+   and where those differ it names the reason on the band rather than leaving a reader to
+   discover it in the last row.                                                              */
+function tbxRenderGL(el){
+  const g=tbxGL, k=g.periodId, lineId=g.lineId;
+  const pop=tbxGLPop(lineId,k,g.sourceAccountId);
+  const line=fsLine(lineId)||{}, acct=g.sourceAccountId?srcAcct(g.sourceAccountId):null;
+  const all=tbxGLView();
+  const net=+all.reduce((s,t)=>s+t.reportingAmount,0).toFixed(3);
+  const pages=Math.max(1,Math.ceil(all.length/TBX_PAGE));
+  const page=Math.min(tbxGLPage,pages-1);
+  const slice=all.slice(page*TBX_PAGE,(page+1)*TBX_PAGE);
+  const L=rcLens();
+
+  let o='<div class="rcx-actbar"><button class="rcx-back" onclick="tbxCloseGL()">'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M9.5 3.5L5 8l4.5 4.5" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    +'Back to trial balance</button></div>';
+
+  o+=glHead('Governed ledger detail',
+    glCtx([line.name?tbxPlain(line.name):'',glEsc(L.name)],L.presentationCurrency),'');
+
+  /* THE BRIDGE BEFORE THE ROWS (§14). The source ledger movement is not all journals: an FX
+     translation effect and an elimination are derived from balances and rates and have no
+     journal behind them, so the band states the whole movement, the part these rows carry,
+     and the part that is derived — instead of a population that silently under-foots. */
+  const c=pop.comp;
+  o+='<div class="tbx-band">'
+    +'<span class="tbx-b"><b>'+rcM(c.activity)+'</b><span>source ledger movement</span></span>'
+    +'<span class="tbx-op">=</span>'
+    +'<span class="tbx-b"><b>'+rcM(pop.sum)+'</b><span>'+pop.rows.length.toLocaleString('en-US')
+      +' GL lines · '+pop.accounts+' account'+(pop.accounts===1?'':'s')+'</span></span>';
+  const derived=+(c.activity-pop.sum).toFixed(3);
+  if(Math.abs(derived)>=0.0015) o+='<span class="tbx-op">+</span>'
+    +'<span class="tbx-b"><b>'+rcM(derived)+'</b><span>derived, no journal</span></span>';
+  o+='<span class="grow"></span>'
+    +'<span class="tbx-b"><b>'+(pop.foots||Math.abs(derived)>=0.0015?'Reconciles':'Difference')
+    +'</b><span>'+(Math.abs(derived)>=0.0015
+      ? 'FX translation and eliminations are derived from balances and rates'
+      : 'the rows sum to the amount drilled')+'</span></span>'
+    +'</div>';
+
+  o+='<div class="rcx-ctl tbx-ctl">'
+    +'<span class="tbx-hint">'+(acct
+      ? '<span class="mono">'+glEsc(acct.code)+'</span> '+glEsc(acct.name)
+      : 'Every posted transaction behind this line’s activity')+'</span>'
+    +'<span class="grow"></span>'
+    +'<input class="rcx-q" type="search" placeholder="Search journals, vendors, memos…"'
+      +' value="'+glEsc(tbxGLQ)+'" oninput="tbxGLSearch(this.value)">'
+    +'<button class="btn-out sm'+(tbxGLMore?' on':'')+'" onclick="tbxGLMoreCols()">'
+      +(tbxGLMore?'Fewer columns':'More columns')+'</button>'
+    +'</div>';
+
+  const cols=XL_GL_FIELDS.filter(f=>tbxGLMore||TBX_GL_CORE.indexOf(f.k)>=0);
+  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap">'
+    +'<table class="rcx-tbl tbx-gl"><thead><tr>'
+    +cols.map((f,i)=>'<th class="'+(f.n?'num':'')+(i===0?' rcx-nm':'')+'">'+f.l+'</th>').join('')
+    +'<th>ERP</th></tr></thead><tbody>'
+    +(slice.length?slice.map(t=>'<tr class="rcx-r tbx-txr">'
+      +cols.map((f,i)=>{
+        const v=t[f.k];
+        const cls=(f.n?'num ':'')+(f.m?'mono ':'')+(i===0?'rcx-nm ':'');
+        if(f.n) return '<td class="'+cls.trim()+'">'
+          +(v?rcN(v):'<span class="rcx-nil">&mdash;</span>')+'</td>';
+        return '<td class="'+cls.trim()+'">'+(v==null||v===''
+          ?'<span class="rcx-nil">&mdash;</span>':glEsc(String(v)))+'</td>';
+      }).join('')
+      /* §15 — A DEEP LINK ONLY WHERE THE INSTANCE PUBLISHES ONE. Two of the seven ERP
+         instances do; the rest state their reference and offer no button, because a link to
+         a system that does not publish one is a dead control. Nothing fabricates a URL. */
+      +'<td class="tbx-go">'+(t.sourceUrl
+        ? '<button class="rcx-lk2" data-sys="'+glEsc(t.erpPlatform)+'" data-ref="'
+          +glEsc(t.sourceReference)+'" onclick="event.stopPropagation();rcErpOpen(this)">Open in '
+          +glEsc(t.erpPlatform)+' ↗</button>'
+        : '<span class="rcx-nil" title="'+glEsc(t.sourceReference)
+          +' · this instance publishes no deep link">no deep link</span>')+'</td>'
+      +'</tr>').join('')
+      :'<tr><td colspan="'+(cols.length+1)+'"><div class="amp-empty">Nothing matches that '
+        +'search.</div></td></tr>')
+    +'</tbody></table></div></div>';
+
+  o+='<div class="tbx-foot">'+all.length.toLocaleString('en-US')+' of '
+    +pop.rows.length.toLocaleString('en-US')+' transactions · net '+rcM(net)
+    +' · in millions of '+L.presentationCurrency+' · posting period '+perLabel(k)
+    +(pages>1?' · page '+(page+1)+' of '+pages:'')+'</div>';
+  if(pages>1){
+    o+='<div class="tbx-pg">'
+      +'<button class="btn-out sm"'+(page<=0?' disabled':'')+' onclick="tbxGLGo('+(page-1)
+      +')">Previous</button><span>'+(page*TBX_PAGE+1)+'–'
+      +Math.min((page+1)*TBX_PAGE,all.length)+'</span>'
+      +'<button class="btn-out sm"'+(page>=pages-1?' disabled':'')+' onclick="tbxGLGo('
+      +(page+1)+')">Next</button></div>';
+  }
+
+  /* §13 — the governed fields Korvyn adds on top of the source row, listed once for the
+     population rather than repeated on every line */
+  const sample=slice[0];
+  if(sample){
+    const gov=tbxGovFields(sample,k);
+    o+='<details class="rcx-more tbx-gov"'+(tbxDeepOpen?' open':'')
+      +' ontoggle="tbxDeepOpen=this.open"><summary>Korvyn governed fields on these rows'
+      +'</summary><div class="rcx-hint">Source fields are the ERP’s and are never '
+      +'overwritten. These sit beside them, are versioned separately, and are what the '
+      +'statement, the reconciliation and the reporting package read.</div>'
+      +gov.map(f=>tbxRow(f[0],glEsc(String(f[1])))).join('')+'</details>';
+  }
+  el.innerHTML=o;
+  document.body.classList.remove('amap-open');
+  if(typeof dockFit==='function') dockFit();
+}
+/* the columns a reader needs before they ask for the rest (§19) */
+const TBX_GL_CORE=['postingDate','entityName','glAccountNumber','glAccountName',
+  'journalNumber','documentNumber','vendorName','memo','reportingAmount'];
+
+/* ---- the page's menus join the ONE popover system: `tb:` reads the same descriptor shape
+   `rc:` and `enr:` do, so a new page does not get a new dropdown. */
+function tbxField(k){
+  /* the reporting lens is the SAME control Reconciliations carries and writes through the
+     same `setRcLens()` - one lens, one writer, one menu. Trial Balance adds only its own. */
+  if(k==='mapst') return {nm:'Mapping status', get:()=>tbxMapF,
+    opts:()=>[{id:'all',nm:'All'}].concat(Object.keys(TBX_MAPST).map(s=>({id:s,
+      nm:TBX_MAPST[s].l}))),
+    set:v=>{ tbxMapF=v; KFX.popClose(); renderAll(); }};
+  return null;
+}
+
 function traceJE(je){
   const j=GL_JE.find(x=>x.je===je);
   if(!j)return;
@@ -65832,7 +67053,7 @@ const VIEW_META={
   caplife:{t:'Capital lifecycle',c:'Budget → committed → CIP → cap interest → PIS · phase-level, source-traced',depth:5},
   cip:{t:'Capitalization',c:'Readiness · determination · carve · scrub · capitalized interest',depth:5},
   caplabor:{t:'Capitalized labor',c:'Region → Project → team · ASC 350-40 / ASC 360 internal payroll',depth:4},
-  tb:{t:'Trial balance',c:'Every account · GL balance vs. spine-derived vs. variance',depth:5},
+  tb:{t:'Trial balance',c:'The governed balance population · movement, mapping and ledger detail',depth:5},
   /* the page is called Flux and its own header says so; a second name here makes glDupTitle
      miss the match and the h1 print twice */
   finrep:{t:'Flux Review',c:'Variance between two governed periods, explained and signed off',depth:5},
