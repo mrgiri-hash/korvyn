@@ -1804,6 +1804,90 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .fsx-foot{padding:var(--s-3) var(--s-4);border-top:1px solid var(--line);
   font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
 
+/* ---- GOVERNED LEDGER DETAIL (2026-09-12) -----------------------------------------------
+   The four layers have to stay visually separable, which is the whole argument of the page:
+   a governed record is not an ERP transaction and must never read as one. */
+.glx-hint{font-size:var(--fs-label);color:var(--muted);margin:0 0 var(--s-3);line-height:var(--lh)}
+.glx-foot{padding:var(--s-2) 0 0;font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
+.glx-tbl td{height:calc(var(--row-h) - 12px)}
+.glx-r:hover td{background:var(--surface2)}
+/* A KORVYN GOVERNED RECORD CARRIES A 3px EDGE AND NOTHING ELSE (design rule 8) - it is a
+   different KIND of row, not a worse one, so it is marked rather than coloured. */
+.glx-gov td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.glx-erp{white-space:nowrap;text-align:right}
+.glx-q{flex:1 1 260px;min-width:200px}
+.glx-pick{border:1px solid var(--line2);border-radius:var(--radius);background:var(--surface);
+  margin:0 0 var(--s-3);overflow:hidden}
+.glx-ph{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-2) var(--s-3);
+  border-bottom:1px solid var(--line);font-size:var(--fs-table)}
+.glx-dim{color:var(--hint);font-size:var(--fs-label)}
+.glx-pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+  gap:var(--s-3);padding:var(--s-3)}
+.glx-gl{font-size:var(--fs-label);color:var(--muted);text-transform:uppercase;
+  letter-spacing:var(--tracking-label);padding:0 0 var(--s-1);border-bottom:1px solid var(--line);
+  margin-bottom:var(--s-1)}
+.glx-c{display:flex;align-items:center;gap:var(--s-2);padding:var(--s-1) 0;
+  font-size:var(--fs-label);color:var(--muted);cursor:pointer}
+.glx-c.on{color:var(--ink)}
+.glx-attrs{display:flex;flex-direction:column;gap:var(--s-2)}
+.glx-attr{padding:var(--s-2) var(--s-3);border-radius:var(--radius-xs);background:var(--n-50)}
+.glx-attr .t{display:flex;align-items:baseline;gap:var(--s-2);font-size:var(--fs-table)}
+.glx-attr .t .l{color:var(--muted);flex:1;min-width:0}
+.glx-attr .t b{color:var(--ink);font-weight:var(--fw-medium)}
+.glx-attr .s{font-size:var(--fs-label);color:var(--hint);padding-top:var(--s-1);
+  line-height:var(--lh)}
+.glx-attr .s.w{color:var(--warning)}
+/* ==========================================================================================
+   .ktbl — THE ENTERPRISE TABLE BEHAVIOUR, ONCE (2026-09-12, brief §1)
+   ==========================================================================================
+   Reported: on a long wide table you had to scroll to the BOTTOM of the rows to reach the
+   horizontal scrollbar, then scroll back up to read the header you had just moved. That is not
+   a styling nit — on a 900-row governed ledger it makes the right-hand columns effectively
+   unreachable.
+
+   THE FIX IS TO BOUND THE SCROLLER, NOT TO SYNTHESISE A SCROLLBAR. A wrapper capped at the
+   viewport owns both axes: its own horizontal scrollbar sits at the bottom of the WRAPPER,
+   which is on screen, and the header sticks to the top of the same box. One element, both
+   problems, no second scrollbar to keep in step with the first — the synthetic-scrollbar
+   approach drifts the moment anything resizes.
+
+   --ktbl-top is what the page chrome above the table costs; a page with more chrome passes a
+   bigger one rather than each table guessing. */
+:root{--ktbl-min:280px; --ktbl-gap:16px}
+.ktbl{overflow:auto;max-height:max(var(--ktbl-min),calc(100vh - var(--ktbl-top,300px)));
+  overscroll-behavior-x:contain}
+.ktbl>table{margin:0}
+/* THE HEADER STICKS TO THE SCROLLER, NOT THE PAGE. top:0 is the wrapper's top edge, which is
+   why the wrapper has to be the scroll container for this to hold while the body scrolls. */
+.ktbl thead th{position:sticky;top:0;z-index:3;background:var(--n-50)}
+.ktbl tfoot td{position:sticky;bottom:0;z-index:3;background:var(--surface);
+  border-top:1px solid var(--line2)}
+/* A FROZEN COLUMN MUST OUT-LAYER THE BODY AND UNDER-LAYER THE HEADER, or the header's own
+   first cell is painted over by the column beneath it as soon as anything scrolls. */
+.ktbl .kfreeze{position:sticky;left:0;z-index:2;background:var(--surface)}
+.ktbl thead .kfreeze{z-index:4}
+.ktbl tr:hover .kfreeze{background:var(--surface2)}
+.ktbl .kfreeze2{position:sticky;z-index:2;background:var(--surface)}
+.ktbl thead .kfreeze2{z-index:4}
+.ktbl tr:hover .kfreeze2{background:var(--surface2)}
+/* the edge that says the frozen columns end here, drawn on the last frozen cell only */
+.ktbl .kfreeze-end{box-shadow:1px 0 0 var(--line2)}
+/* THE CORNER CELL STICKS IN BOTH AXES, AND IT HAS TO SAY SO ITSELF. Measured: every header
+   cell held at the wrapper's top except the first, which scrolled away with the body. The
+   Control Center's own rule, .rcx-tbl th.rcx-nm (one id's worth of specificity more than
+   .ktbl thead th), re-declares position and left for the frozen identifier column — and a
+   later, more specific position:sticky is what the browser resolves the offsets against, so
+   the top this rule set was never the one in play. Declared here at matching specificity, and
+   above the body columns but below nothing, because it is the one cell that must cover both. */
+.ktbl thead th.kfreeze,.ktbl thead th.kfreeze2,.ktbl thead th.rcx-nm{
+  position:sticky;top:0;left:0;z-index:5;background:var(--n-50);
+  /* A FLEX TH CANNOT STICK VERTICALLY. .rcx-nm is display:flex — the Control Center needs that
+     to lay out its name cell — and on a HEADER cell it takes the th out of table layout, so it
+     held its left offset and scrolled away vertically while every other header stuck. Measured
+     by removing the class at runtime: with .rcx-nm the corner fails, without it the corner
+     sticks. This is the same display:flex trap the R6 dock tables hit, in the one place it
+     silently breaks a header rather than a row. */
+  display:table-cell}
 /* ---- CHART OF ACCOUNTS (2026-09-12 simplification) -------------------------------------
    One dominant table, compact filters, subtle separators, a right-side panel. What is declared
    here is only what this page adds; the grid, the picker, the dock and the menus are the
@@ -12768,7 +12852,7 @@ function paintPop(keepFocus){
         onclick="KFX.popClose();${r.go}">
         <span class="bx">${r.on?'\u2713':''}</span>${esc(r.nm)}</div>`).join('')
         :'<div class="rl-empty" style="padding:8px">No sub-pages.</div>')+`</div>`;
-  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0||popKind.indexOf('tb:')===0||popKind.indexOf('am:')===0)){
+  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0||popKind.indexOf('tb:')===0||popKind.indexOf('am:')===0||popKind.indexOf('glx:')===0)){
     /* `enr:` and `rc:` share one descriptor shape and therefore one renderer. A new page
        does not get a new dropdown. */
     /* RECONCILIATIONS USE THE SAME MENU. `RCFIELD` is the same descriptor shape `GFIELD`
@@ -31628,7 +31712,7 @@ function coaFilters(){
 function coaAcctsView(){
   const rows=coaRows(), picked=amapPicked(), all=mapRows(viewPeriod()).length;
   let h=coaBulkBar(picked)+coaFilters()
-    +'<div class="card rcx-card"><div class="rcx-wrap"><table class="tbl coa-tbl"><thead><tr>'
+    +'<div class="card rcx-card"><div class="rcx-wrap ktbl"><table class="tbl coa-tbl"><thead><tr>'
     +'<th class="coa-ck"></th>'
     +'<th class="coa-num">Account number</th><th>Account description</th>'
     +'<th>ERP</th><th>ERP instance</th><th>Chart of accounts</th><th>Account type</th>'
@@ -40855,30 +40939,638 @@ function fsTraceTab(a,k){
    anything. Context is now the shared chip model, the ledger reserves its own
    track beside a docked inspector exactly as the statement does, and a transaction
    is inspected in place rather than through a modal. */
+/* ==========================================================================================
+   GOVERNED LEDGER DETAIL (2026-09-12, brief §2–§8, §16–§21, §27)
+   ==========================================================================================
+   ONE canonical governed population, in four clearly separable layers:
+
+     A. SOURCE FACTS          what the ERP posted. Never changed, never overwritten.
+     B. ACCOUNT MAPPING       which canonical account, group and statement line it lands on.
+     C. FINANCIAL ATTRIBUTES  governed overlays — capital/expense, asset class, flux driver.
+     D. GOVERNED RECORDS      amounts Korvyn concludes that the ERP never posted.
+
+   THE POPULATION IS THE ONE THE REST OF THE PRODUCT ALREADY RESOLVES — `rcTxPool()`, which the
+   reconciliation activity canvas, the trial balance drill and the connected Excel workpaper all
+   read. There is no second dataset here, which is the whole point: an analysis by asset class
+   and an analysis by vendor are two readings of this, not two extracts.
+
+   ATTRIBUTES ARE DERIVED FROM RULES, NOT STORED PER ROW (§10). A rule that says "CIP accounts
+   are capitalised by policy" classifies every CIP line in the estate; nobody tags 4,218
+   transactions by hand. What IS stored is the exception: a person's override, with its reason
+   and its approver. That is the difference between a governed classification and data entry,
+   and it is why the acceptance test says to redesign anything that needs manual row work. */
+
+const GLX_RECTYPES={
+  SOURCE_GL:            {l:'Source GL',            c:'',     d:'Posted in the ERP'},
+  REPORTING_ADJUSTMENT: {l:'Reporting adjustment', c:'info', d:'Korvyn overlay, not posted to the ERP'},
+  FX_TRANSLATION:       {l:'FX translation',       c:'info', d:'Derived from balances and rates'},
+  ELIMINATION:          {l:'Elimination',          c:'info', d:'Derived from the consolidation rule set'},
+  ENRICHMENT_ONLY:      {l:'Enrichment only',      c:'',     d:'Classification context, no amount'},
+};
+
+/* ---- C. FINANCIAL ATTRIBUTES, EVALUATED. Rules first, then what a person decided, because an
+   override is a decision ABOUT the rule's answer and has to win. Every value carries where it
+   came from (§8): the rule that set it, the object it was inherited from, or the person who
+   overrode it — with the prior value kept, so a reader can always see what the rule said. */
+function glxRuleFacts(t,p){
+  /* the facts a rule can test, read off the transaction and its mapping — never off a stored
+     attribute, or a rule could depend on another rule's output and the order would matter */
+  const m=mapResolve(t.sourceAccountId,p).mapping;
+  const grp=m?((fsLine((fsLine(m.fs)||{}).parent)||{}).name||''):'';
+  const canonNm=m?((canon(m.canon)||{}).name||''):'';
+  const fsNm=m?((fsLine(m.fs)||{}).name||''):'';
+  /* THE ACCOUNT GROUP A RULE TESTS IS THE ACCOUNTING ONE, NOT THE STATEMENT PARENT. A first
+     cut looked for "CIP" in the canonical and statement-parent names — but K1330 is
+     "Electrical Infrastructure" under "Property, Plant & Equipment", so the words CIP and
+     Construction appear in neither and every CIP rule silently matched nothing. The
+     reconciliation group is the governed field that actually says "this is CIP", which is why
+     it is what the fact is derived from. */
+  const rec=m?(taxName('rec',m.rec)||''):'';
+  const isCip=/CIP/i.test(rec)||/Construction in Progress/i.test(fsNm);
+  return {
+    'Vendor':t.vendorName||'',
+    'Project':t.projectName||'',
+    'Account group':isCip
+      ? (/Electrical/i.test(canonNm)?'Electrical CIP'
+        :/Mechanical/i.test(canonNm)?'Mechanical CIP':'CIP')
+      : grp,
+    'Cost type':t.typeLabel||'',
+    'Entity':t.entityName||'',
+  };
+}
+const _glxAttrCache={};
+/* the composite identity this page uses for caching and selection */
+const glxKey=r=>(r.sourceAccountId||r.recordType||'')+'|'+(r.sourceTransactionId||'')
+  +'|'+(r.journalLineNumber==null?'':r.journalLineNumber);
+function glxAttrs(t,k){
+  const p=k||tbxClosePeriod();
+  const ck=glxKey(t)+'|'+p;
+  if(_glxAttrCache[ck]) return _glxAttrCache[ck];
+  const facts=glxRuleFacts(t,p), out={};
+  /* 1 — RULES. A rule matches when every one of its conditions holds. */
+  ENR_RULES.filter(r=>r.status==='active').forEach(r=>{
+    const hit=r.when.every(c=>{
+      const v=facts[c.attr]; if(v==null) return false;
+      return c.op==='is'?String(v)===String(c.val):String(v).indexOf(c.val)>=0;});
+    if(!hit) return;
+    const f=ENR_FIELDS.find(x=>x.id===r.then.field);
+    out[r.then.field]={field:r.then.field, label:f?f.label:r.then.field, val:r.then.val,
+      src:'rule', ruleId:r.id, ruleLabel:r.label, ver:r.ver, from:p,
+      state:'approved', policy:r.policy||null};
+  });
+  /* 2 — INHERITANCE (§15). A value governed on a persistent object — the source account, the
+     vendor, the project — reaches every transaction that names it, and the row says where it
+     came from rather than presenting it as its own. */
+  ENR_VALUES.filter(v=>v.state==='approved'&&v.obj==='acct'&&v.objId===t.sourceAccountId)
+    .forEach(v=>{ if(out[v.field]) return;
+      const f=ENR_FIELDS.find(x=>x.id===v.field);
+      out[v.field]={field:v.field, label:f?f.label:v.field, val:v.val,
+        src:'inherited', fromObj:'Source account '+(srcAcct(t.sourceAccountId)||{}).code,
+        ver:v.ver, from:v.from, state:v.state}; });
+  /* 3 — OVERRIDES. A person's decision about this transaction, which beats the rule and keeps
+     the value it replaced. */
+  ENR_VALUES.filter(v=>v.obj==='txn'&&(v.objId===t.journalNumber
+      ||v.objId===t.sourceTransactionId)).forEach(v=>{
+    const f=ENR_FIELDS.find(x=>x.id===v.field);
+    const prior=out[v.field]?out[v.field].val:null;
+    out[v.field]={field:v.field, label:f?f.label:v.field, val:v.val,
+      src:v.src==='user'?'override':v.src, ruleId:v.ruleId||null,
+      by:v.by, at:v.at, state:v.state, reason:v.reason||null, ver:v.ver, from:v.from,
+      prior:v.src==='user'?prior:null};
+  });
+  return (_glxAttrCache[ck]=out);
+}
+const glxAttr=(t,fieldId,k)=>(glxAttrs(t,k)||{})[fieldId]||null;
+const GLX_ATTR_SRC={rule:'Rule',override:'Manual override',inherited:'Inherited',
+  ai:'Korvyn proposed',erp:'Source system'};
+
+/* ---- THE POPULATION. Source GL from the governed pool, then the governed records that are
+   NOT ERP transactions and must never be presented as if they were (§20, §21). */
+function glxSourceRows(k){
+  const p=k||tbxClosePeriod(), out=[];
+  const inScope=(typeof mapCoasInScope==='function')?mapCoasInScope():null;
+  SRC_ACCOUNTS.forEach(a=>{
+    if(inScope&&!inScope.has(a.coa)) return;
+    (rcTxPool(a.id,p)||[]).forEach(t=>out.push(t));
+  });
+  return out;
+}
+/* §21 — A NON-GL FINANCIAL CHANGE IS ITS OWN RECORD. The reporting adjustment Korvyn holds
+   against Construction in Progress is $19.7M of reported balance that no ERP journal carries;
+   folding it into a transaction would make the ledger claim the ERP posted something it did
+   not. It is a row with its own record type, no journal number, and its approval on it. */
+function glxGovernedRows(k){
+  const p=k||tbxClosePeriod(), out=[];
+  FSLINES.filter(f=>f.kind==='line').forEach(l=>{
+    let adjs=[]; try{ adjs=fsAdjForLine(l.id,p)||[]; }catch(e){}
+    /* `fsAdjForLine` returns a LEG of an adjustment — {adj, amt, offset} — because one
+       governed adjustment moves a figure off one line and onto another, and each side is a
+       row here. The record carries the adjustment's own identity, not the leg's. */
+    adjs.forEach(leg=>{
+      const a=leg.adj||{};
+      out.push({recordType:'REPORTING_ADJUSTMENT',
+        sourceTransactionId:a.id, journalNumber:null, journalLineNumber:null,
+        postingDate:perEnd(p), postingPeriod:p, transactionDate:perEnd(p),
+        glAccountNumber:null, glAccountName:null,
+        entityName:a.scopeName||ENTCTX.scope.name, entityId:a.scope||null,
+        vendorName:null, projectName:null, documentNumber:null, invoiceNumber:null,
+        memo:a.reason||'', typeLabel:leg.offset?'Reporting adjustment · offset'
+          :'Reporting adjustment',
+        debit:leg.amt>0?leg.amt:0, credit:leg.amt<0?-leg.amt:0, reportingAmount:leg.amt,
+        transactionCurrency:a.ccy||rcLens().presentationCurrency,
+        functionalCurrency:a.ccy||rcLens().presentationCurrency,
+        reportingCurrency:rcLens().presentationCurrency,
+        erpPlatform:null, erpInstanceName:null, sourceUrl:null,
+        sourceReference:'Korvyn governed adjustment '+(a.id||''),
+        fsLineId:l.id, basis:a.basis||'', approvedBy:a.appr||a.owner||null,
+        state:a.state||'', postsToErp:false});
+    });
+  });
+  return out;
+}
+let _glxCache=null, _glxCacheKey='';
+function glxRows(k){
+  const p=k||tbxClosePeriod();
+  const key=p+'|'+ENTCTX.scope.id+'|'+rcLensId+'|'
+    +((typeof _rcMapGen==='function')?_rcMapGen():'');
+  if(_glxCacheKey===key&&_glxCache) return _glxCache;
+  const rows=glxSourceRows(p).map(t=>Object.assign({recordType:'SOURCE_GL'},t))
+    .concat(glxGovernedRows(p));
+  _glxCacheKey=key; _glxCache=rows;
+  return rows;
+}
+
+/* ---- §16, §17 — THE COLUMNS, IN GROUPS. Hundreds of governed fields in one flat picker is a
+   schema browser; ten groups an accountant recognises is a column chooser. `d:1` is the
+   default view. Every id/description pair is TWO columns (§6, and the global rule). */
+const GLX_COLS=[
+  // SOURCE
+  {k:'postingDate',     l:'Posting date',        g:'SOURCE', d:1, m:1, w:96},
+  {k:'postingPeriod',   l:'Period',              g:'SOURCE', m:1},
+  {k:'recordType',      l:'Record type',         g:'SOURCE', f:r=>(GLX_RECTYPES[r.recordType]||{}).l||r.recordType},
+  {k:'erpPlatform',     l:'ERP',                 g:'SOURCE', d:1},
+  {k:'erpInstanceName', l:'ERP instance',        g:'SOURCE'},
+  {k:'sourceTransactionId',l:'Source transaction ID',g:'SOURCE', m:1},
+  {k:'journalNumber',   l:'Journal',             g:'SOURCE', d:1, m:1},
+  {k:'journalLineNumber',l:'Journal line',       g:'SOURCE', n:1, dp:0},
+  {k:'documentNumber',  l:'Document / invoice',  g:'SOURCE', m:1},
+  {k:'srcCreated',      l:'Source created date', g:'SOURCE', m:1, f:r=>r.transactionDate||null},
+  {k:'srcCreatedBy',    l:'Source created by',   g:'SOURCE', f:()=>null},
+  // ACCOUNTING
+  {k:'glAccountNumber', l:'Account number',      g:'ACCOUNTING', d:1, m:1, w:92},
+  {k:'glAccountName',   l:'Account description', g:'ACCOUNTING', d:1, w:180},
+  {k:'accountType',     l:'Account type',        g:'ACCOUNTING',
+   f:r=>r.sourceAccountId?(srcCoa(r.sourceAccountId)||{}).t||null:null},
+  {k:'normalBalance',   l:'Normal balance',      g:'ACCOUNTING',
+   f:r=>r.sourceAccountId?(srcCoa(r.sourceAccountId)||{}).nb||null:null},
+  {k:'memo',            l:'Memo / description',  g:'ACCOUNTING', w:230},
+  {k:'typeLabel',       l:'Transaction type',    g:'ACCOUNTING'},
+  // ORGANIZATION
+  {k:'entityId',        l:'Entity ID',           g:'ORGANIZATION', m:1},
+  {k:'entityName',      l:'Entity name',         g:'ORGANIZATION', d:1, w:150},
+  {k:'regionName',      l:'Region',              g:'ORGANIZATION'},
+  {k:'dept',            l:'Department',          g:'ORGANIZATION', f:()=>null},
+  {k:'costCenter',      l:'Cost center',         g:'ORGANIZATION', f:()=>null},
+  {k:'businessUnit',    l:'Business unit',       g:'ORGANIZATION', f:()=>null},
+  // COUNTERPARTY
+  {k:'vendorId',        l:'Vendor ID',           g:'COUNTERPARTY', m:1},
+  {k:'vendorName',      l:'Vendor name',         g:'COUNTERPARTY', d:1, w:150},
+  {k:'customerId',      l:'Customer ID',         g:'COUNTERPARTY', f:()=>null},
+  {k:'customerName',    l:'Customer name',       g:'COUNTERPARTY', f:()=>null},
+  {k:'icCounterparty',  l:'Intercompany counterparty', g:'COUNTERPARTY', f:()=>null},
+  // PROJECT
+  {k:'projectId',       l:'Project ID',          g:'PROJECT', m:1},
+  {k:'projectName',     l:'Project name',        g:'PROJECT', d:1, w:140},
+  // MAPPING
+  {k:'canonId',         l:'Canonical account ID',   g:'MAPPING', m:1,
+   f:r=>glxMap(r).canon},
+  {k:'canonName',       l:'Canonical account name', g:'MAPPING', d:1, w:170,
+   f:r=>glxMap(r).canonName},
+  {k:'acctGroup',       l:'Account group',       g:'MAPPING', f:r=>glxMap(r).group},
+  {k:'fsLineId',        l:'FS line ID',          g:'MAPPING', m:1, f:r=>glxMap(r).fsId},
+  {k:'fsLineName',      l:'Financial statement line', g:'MAPPING', d:1, w:170,
+   f:r=>glxMap(r).fsName},
+  {k:'recGroup',        l:'Reconciliation group',g:'MAPPING', f:r=>glxMap(r).rec},
+  {k:'mapVer',          l:'Mapping version',     g:'MAPPING', m:1, f:r=>glxMap(r).ver},
+  {k:'mapFrom',         l:'Mapping effective period', g:'MAPPING', m:1, f:r=>glxMap(r).from},
+  {k:'mapStatus',       l:'Mapping status',      g:'MAPPING', f:r=>glxMap(r).status},
+  // FINANCIAL ATTRIBUTES — every governed field, read from the rules
+  // CURRENCY
+  {k:'debit',           l:'Debit',               g:'CURRENCY', n:1, dp:3},
+  {k:'credit',          l:'Credit',              g:'CURRENCY', n:1, dp:3},
+  {k:'reportingAmount', l:'Net amount',          g:'CURRENCY', d:1, n:1, dp:3},
+  {k:'transactionCurrency',l:'Transaction currency',g:'CURRENCY', m:1},
+  {k:'functionalCurrency', l:'Functional currency', g:'CURRENCY', m:1},
+  {k:'reportingCurrency',  l:'Reporting currency',  g:'CURRENCY', m:1},
+  // GOVERNANCE
+  {k:'postsToErp',      l:'Posted to ERP',       g:'GOVERNANCE',
+   f:r=>r.recordType==='SOURCE_GL'?'Yes':'No'},
+  {k:'approvedBy',      l:'Approved by',         g:'GOVERNANCE'},
+  // LINEAGE
+  {k:'sourceReference', l:'Source reference',    g:'LINEAGE', m:1, w:200},
+];
+const GLX_GROUPS=['SOURCE','ACCOUNTING','ORGANIZATION','COUNTERPARTY','PROJECT','MAPPING',
+                  'FINANCIAL ATTRIBUTES','CURRENCY','GOVERNANCE','LINEAGE'];
+/* the governed attribute fields become columns in their own group, so the catalogue and the
+   ledger cannot disagree about what exists */
+function glxAllCols(){
+  const attr=ENR_FIELDS.filter(f=>f.status==='active'&&(f.applies||[]).indexOf('txn')>=0)
+    .map(f=>({k:'A:'+f.id, l:f.label, g:'FINANCIAL ATTRIBUTES',
+      d:['EF-CAPEX','EF-ASSET','EF-FLUX'].indexOf(f.id)>=0?1:0,
+      attr:f.id}));
+  return GLX_COLS.concat(attr);
+}
+const _glxMapCache={};
+function glxMap(r){
+  if(!r.sourceAccountId) return {canon:null,canonName:null,group:null,
+    fsId:r.fsLineId||null, fsName:r.fsLineId?(fsLine(r.fsLineId)||{}).name:null,
+    rec:null, ver:null, from:null, status:null};
+  const p=r.postingPeriod||tbxClosePeriod(), ck=r.sourceAccountId+'|'+p;
+  if(_glxMapCache[ck]) return _glxMapCache[ck];
+  const res=mapResolve(r.sourceAccountId,p), m=res.mapping;
+  const v={canon:m?m.canon:null, canonName:m?(canon(m.canon)||{}).name:null,
+    group:m?((fsLine((fsLine(m.fs)||{}).parent)||{}).name||null):null,
+    fsId:m?m.fs:null, fsName:m?(fsLine(m.fs)||{}).name:null,
+    rec:m?taxName('rec',m.rec):null, ver:m?(mapVer(m.ver)||{}).v||m.ver:null,
+    from:m?m.from:null, status:(MAP_ST[res.status]||{}).l||res.status};
+  return (_glxMapCache[ck]=v);
+}
+function glxVal(r,c){
+  if(c.attr){ const a=glxAttr(r,c.attr); return a?a.val:null; }
+  if(c.f) return c.f(r);
+  return r[c.k];
+}
+
+/* ---- STATE, FILTERS AND THE PAGE. §18 — compact filters, not all of them at once. */
+let glxCols=null, glxQ='', glxPage=0, glxSel=null, glxPick=false, glxTab='ledger',
+    glxF={acct:'all',ent:'all',vendor:'all',prj:'all',erp:'all',rec:'all',map:'all',
+          ccy:'all',mat:false};
+const GLX_PAGE=50;
+function glxDefaultCols(){ return glxAllCols().filter(c=>c.d).map(c=>c.k); }
+function glxColSet(){ if(!glxCols) glxCols=glxDefaultCols(); return glxCols; }
+function glxToggleCol(k){ const s=glxColSet(), i=s.indexOf(k);
+  if(i>=0) s.splice(i,1); else {
+    /* a newly chosen column takes its canonical slot rather than the end, so the picker
+       cannot scramble an order somebody relies on */
+    const all=glxAllCols().map(c=>c.k), pos=all.indexOf(k);
+    let at=s.length;
+    for(let j=0;j<s.length;j++){ if(all.indexOf(s[j])>pos){ at=j; break; } }
+    s.splice(at,0,k);
+  }
+  renderGLAct(); }
+function glxColsReset(){ glxCols=glxDefaultCols(); renderGLAct(); }
+function glxPickTog(){ glxPick=!glxPick; renderGLAct(); }
+function glxSetF(k,v){ glxF[k]=v; glxPage=0; try{KFX.popClose()}catch(e){} renderGLAct(); }
+function glxFReset(){ glxF={acct:'all',ent:'all',vendor:'all',prj:'all',erp:'all',rec:'all',
+  map:'all',ccy:'all',mat:false}; glxQ=''; glxPage=0; renderGLAct(); }
+function glxSearch(v){ glxQ=v; glxPage=0; renderGLAct();
+  const i=document.querySelector('#view-glact .glx-q');
+  if(i){ i.focus(); try{ i.setSelectionRange(v.length,v.length); }catch(e){} } }
+function glxGo(n){ glxPage=n; renderGLAct(); }
+function glxOpen(id){ glxSel=(glxSel===id)?null:id; renderGLAct(); }
+function glxClose(){ glxSel=null; renderGLAct(); }
+
+function glxView(k){
+  const p=k||tbxClosePeriod();
+  let rows=glxRows(p);
+  const F=glxF;
+  if(F.rec!=='all')    rows=rows.filter(r=>r.recordType===F.rec);
+  if(F.acct!=='all')   rows=rows.filter(r=>r.sourceAccountId===F.acct);
+  if(F.ent!=='all')    rows=rows.filter(r=>r.entityName===F.ent);
+  if(F.vendor!=='all') rows=rows.filter(r=>r.vendorName===F.vendor);
+  if(F.prj!=='all')    rows=rows.filter(r=>r.projectName===F.prj);
+  if(F.erp!=='all')    rows=rows.filter(r=>r.erpInstanceName===F.erp);
+  if(F.ccy!=='all')    rows=rows.filter(r=>r.transactionCurrency===F.ccy);
+  if(F.map!=='all')    rows=rows.filter(r=>glxMap(r).status===F.map);
+  if(F.mat){ const t=(typeof matAbsThr==='function')?matAbsThr()/1000:1;
+    rows=rows.filter(r=>Math.abs(r.reportingAmount||0)>=t); }
+  const q=(glxQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.journalNumber,r.memo,r.vendorName,r.entityName,
+    r.glAccountNumber,r.glAccountName,r.projectName,r.documentNumber,r.sourceTransactionId]
+    .some(v=>String(v||'').toLowerCase().includes(q)));
+  return rows.slice().sort((a,b)=>String(a.postingDate).localeCompare(String(b.postingDate))
+    ||Math.abs(b.reportingAmount||0)-Math.abs(a.reportingAmount||0));
+}
+
 function renderGLAct(){
   const el=$('view-glact'); if(!el)return;
   glSurface(el);
-  const rows=glActFiltered();
-  const sel=GLF.sel!=null?rows[GLF.sel]:null;
+  /* §3 — THE CLOSE PERIOD IS THE POPULATION, not a casual filter. Same rule the trial balance
+     holds: BOOK.open is what the enterprise is working in, and reading anything else is
+     reading history. Flexible multi-period extracts are a reporting context. */
+  const p=tbxClosePeriod(), L=rcLens();
+  const all=glxView(p);
+  const net=+all.reduce((s,r)=>s+(r.reportingAmount||0),0).toFixed(3);
+  const pages=Math.max(1,Math.ceil(all.length/GLX_PAGE));
+  const page=Math.min(glxPage,pages-1);
+  const slice=all.slice(page*GLX_PAGE,(page+1)*GLX_PAGE);
+  const cols=glxColSet().map(k=>glxAllCols().find(c=>c.k===k)).filter(Boolean);
 
-  let o=glHead('Account activity',glCtx([`<b>${rows.length}</b> transaction${rows.length===1?'':'s'}`]),glExport);
+  let o=glHead('Account activity',
+    glCtx(['Governed ledger detail',glEsc(L.name),glEsc(rcBasisLabel(L.reportingBasis))],
+      L.presentationCurrency),'');
+  o+=(typeof tbxCloseBanner==='function')?tbxCloseBanner(viewPeriod()):'';
+  o+='<div class="glx-hint">Every ERP transaction in the close, exactly as posted, with '
+    +'Korvyn&#8217;s mapping and governed attributes beside it &#8212; and the governed records '
+    +'that are not ERP transactions stated as their own rows.</div>';
 
-  /* where this view came from, when it came from a Flux review */
-  if(GLF.from)o+=glFromBanner();
+  o+=glxFilterBar(all.length,p);
+  if(glxPick) o+=glxPicker();
 
-  /* CONTEXT, as chips. Same chip, same ×, same Clear all as the statement — the
-     shared filter bar renders the identical set at the top of the page. */
-  o+=glCtxChips();
+  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap ktbl">'
+    +'<table class="rcx-tbl glx-tbl"><thead><tr>'
+    +cols.map((c,i)=>'<th class="'+(c.n?'num ':'')+(i===0?'kfreeze kfreeze-end':'')+'">'
+      +glEsc(c.l)+'</th>').join('')
+    +'<th>ERP</th></tr></thead><tbody>'
+    +(slice.length?slice.map(r=>{
+      const rt=GLX_RECTYPES[r.recordType]||{};
+      return '<tr class="rcx-r glx-r'+(r.recordType!=='SOURCE_GL'?' glx-gov':'')
+        +(glxSel===glxKey(r)?' on':'')
+        +'" onclick="glxOpen(\''+glEsc(glxKey(r))+'\')">'
+        +cols.map((c,i)=>{
+          const v=glxVal(r,c);
+          const cls=(c.n?'num ':'')+(c.m?'mono ':'')+(i===0?'kfreeze kfreeze-end ':'');
+          if(c.n) return '<td class="'+cls.trim()+'">'
+            +(v?rcN(v):'<span class="rcx-nil">&mdash;</span>')+'</td>';
+          /* §5 — A FIELD THE ERP DOES NOT SUPPLY SAYS SO, rather than reading as empty */
+          return '<td class="'+cls.trim()+'">'+(v==null||v===''
+            ?'<span class="rcx-nil" title="not supplied by this source system">&mdash;</span>'
+            :glEsc(String(v)))+'</td>';
+        }).join('')
+        +'<td class="glx-erp">'+(r.sourceUrl
+          ? '<button class="rcx-lk2" data-sys="'+glEsc(r.erpPlatform)+'" data-ref="'
+            +glEsc(r.sourceReference)+'" onclick="event.stopPropagation();rcErpOpen(this)">'
+            +glEsc(r.erpPlatform)+' &#8599;</button>'
+          : r.recordType==='SOURCE_GL'
+            ? '<span class="rcx-nil" title="'+glEsc(r.sourceReference||'')
+              +' &#183; this instance publishes no deep link">no deep link</span>'
+            : '<span class="pill '+(rt.c||'')+' sm">'+glEsc(rt.l)+'</span>')
+        +'</td></tr>';}).join('')
+      :'<tr><td colspan="'+(cols.length+1)+'"><div class="amp-empty">Nothing matches those '
+        +'filters.</div></td></tr>')
+    +'</tbody></table></div></div>';
 
-  o+=`<div class="glsplit ${sel?(GLF.collapsed?'collapsed':'on'):''}" id="glSplit">
-    <div class="card">
-      <div class="ftabs" style="margin-bottom:12px">${ACT_TABS.map(t=>
-        `<button class="${glActTab===t[0]?'on':''}" onclick="setGlActTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
-      <div class="tblwrap">${glActTable(10,true)}</div>
-    </div>`;
-  if(sel)o+=glTxnPanel(sel);
-  o+=`</div>`;
-  el.innerHTML=o;
+  /* §30 — the browser never holds the estate. The modelled population is the sample; the
+     enterprise multiple is stated rather than rendered. */
+  o+='<div class="glx-foot">'+all.length.toLocaleString('en-US')+' of '
+    +glxRows(p).length.toLocaleString('en-US')+' governed rows &#183; net '+rcM(net)
+    +' &#183; showing '+(page*GLX_PAGE+1)+'&#8211;'+Math.min((page+1)*GLX_PAGE,all.length)
+    +(pages>1?' &#183; page '+(page+1)+' of '+pages:'')
+    +' &#183; the enterprise population for this close is approximately '
+    +(glxRows(p).length*XL_POP_SCALE).toLocaleString('en-US')
+    +' rows, resolved server-side and never loaded into the browser.</div>';
+  if(pages>1) o+='<div class="tbx-pg">'
+    +'<button class="btn-out sm"'+(page<=0?' disabled':'')+' onclick="glxGo('+(page-1)
+    +')">Previous</button><span>'+(page*GLX_PAGE+1)+'&#8211;'
+    +Math.min((page+1)*GLX_PAGE,all.length)+'</span>'
+    +'<button class="btn-out sm"'+(page>=pages-1?' disabled':'')+' onclick="glxGo('+(page+1)
+    +')">Next</button></div>';
+
+  el.innerHTML=o+(glxSel?glxPanel(all,p):'');
+  document.body.classList.toggle('amap-open',!!glxSel);
+  if(typeof dockFit==='function')dockFit();
+  if(typeof ktblFit==='function')ktblFit();
+}
+
+function glxFilterBar(n,p){
+  const F=glxF;
+  const nf=Object.keys(F).filter(k=>k!=='mat'&&F[k]!=='all').length+(F.mat?1:0);
+  const f=(k,nm,val)=>'<button class="rcx-f sm'+(F[k]!=='all'?' on':'')+'" data-pop="glx:'+k
+    +'" onclick="KFX.pop(\'glx:'+k+'\',this)"><span class="k">'+nm+'</span>'
+    +'<span class="v">'+glEsc(val)+'</span></button>';
+  return '<div class="coa-bar">'
+    +'<input class="amap-q glx-q" type="search" placeholder="Search journal, memo, vendor, account…"'
+      +' value="'+glEsc(glxQ)+'" oninput="glxSearch(this.value)">'
+    +f('acct','Account',F.acct==='all'?'All':(srcAcct(F.acct)||{}).code||'All')
+    +f('ent','Entity',F.ent==='all'?'All':F.ent)
+    +f('rec','Record type',F.rec==='all'?'All':(GLX_RECTYPES[F.rec]||{}).l)
+    +f('map','Mapping',F.map==='all'?'All':F.map)
+    +'<button class="rcx-f sm'+(F.mat?' on':'')+'" onclick="glxF.mat=!glxF.mat;glxPage=0;'
+      +'renderGLAct()"><span class="k">Materiality</span><span class="v">'
+      +(F.mat?'Material only':'All')+'</span></button>'
+    +(nf?'<button class="btn-ghost sm" onclick="glxFReset()">Clear</button>':'')
+    +'<span class="grow"></span>'
+    +'<button class="btn-out sm'+(glxPick?' on':'')+'" onclick="glxPickTog()">More columns'
+      +'</button>'
+    +'<button class="btn-out sm" onclick="glxExport(\'xls\')">Download Excel</button>'
+    +'<button class="btn-out sm" onclick="glxExport(\'csv\')">Download CSV</button>'
+    +'</div>';
+}
+/* §17 — grouped, because a flat list of every governed field is a schema browser */
+function glxPicker(){
+  const on=glxColSet();
+  const all=glxAllCols();
+  return '<div class="glx-pick"><div class="glx-ph"><b>Columns</b>'
+    +'<span class="glx-dim">'+on.length+' shown</span><span class="grow"></span>'
+    +'<button class="rcx-lk2" onclick="glxColsReset()">Reset to default</button>'
+    +'<button class="rcx-lk2" onclick="glxPickTog()">Done</button></div>'
+    +'<div class="glx-pg">'+GLX_GROUPS.map(g=>{
+      const cs=all.filter(c=>c.g===g); if(!cs.length) return '';
+      return '<div class="glx-pgrp"><div class="glx-gl">'+g+'</div>'
+        +cs.map(c=>'<label class="glx-c'+(on.indexOf(c.k)>=0?' on':'')+'">'
+          +'<input type="checkbox"'+(on.indexOf(c.k)>=0?' checked':'')
+          +' onchange="glxToggleCol(\''+c.k+'\')">'+glEsc(c.l)+'</label>').join('')
+        +'</div>';}).join('')
+    +'</div></div>';
+}
+
+/* ---- THE ROW PANEL. The four layers, kept apart and labelled, because the whole claim of
+   this page is that a reader can always tell what the ERP said from what Korvyn concluded. */
+function glxPanel(rows,p){
+  const r=rows.find(x=>glxKey(x)===glxSel);
+  if(!r) return '';
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  const nil='<span class="rcx-nil" title="not supplied by this source system">&mdash;</span>';
+  const M=glxMap(r), rt=GLX_RECTYPES[r.recordType]||{};
+  const attrs=r.recordType==='SOURCE_GL'?glxAttrs(r,p):{};
+  let o='<aside class="amap-panel" id="glxPanel"><div class="amp-hd">'
+    +'<div class="amp-id"><b class="mono">'+glEsc(r.journalNumber||r.sourceTransactionId)+'</b>'
+    +'<span class="coa-pnm">'+glEsc(r.memo||'')+'</span></div>'
+    +(rt.c?'<span class="pill '+rt.c+' sm">'+glEsc(rt.l)+'</span>'
+      :'<span class="rcx-okst">'+glEsc(rt.l)+'</span>')
+    +'<button class="rw-ib" title="Close" onclick="glxClose()">'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round"/></svg></button></div><div class="amp-body">';
+
+  /* A — SOURCE FACTS */
+  o+='<div class="amp-sec">Source &#183; as posted</div>'
+    +row('Record type',glEsc(rt.l)+' <span class="amap-dim">'+glEsc(rt.d)+'</span>')
+    +row('Posting date',glEsc(r.postingDate||'')+' <span class="amap-dim">'
+      +glEsc(perLabel(r.postingPeriod||p))+'</span>')
+    +(r.recordType==='SOURCE_GL'
+      ? row('ERP',glEsc(r.erpPlatform||'')+' <span class="amap-dim">'
+          +glEsc(r.erpInstanceName||'')+'</span>')
+        +row('Journal',glEsc(r.journalNumber||'')+(r.journalLineNumber
+          ?' <span class="amap-dim">line '+r.journalLineNumber+'</span>':''))
+        +row('Document / invoice',r.invoiceNumber||r.documentNumber
+          ?'<span class="mono">'+glEsc(r.invoiceNumber||r.documentNumber)+'</span>':nil)
+        +row('Account',r.glAccountNumber
+          ?'<span class="mono">'+glEsc(r.glAccountNumber)+'</span> '+glEsc(r.glAccountName||''):nil)
+        +row('Entity',glEsc(r.entityName||'')+(r.entityId
+          ?' <span class="amap-dim mono">'+glEsc(r.entityId)+'</span>':''))
+        +row('Vendor',r.vendorName?glEsc(r.vendorName):nil)
+        +row('Project',r.projectName?glEsc(r.projectName):nil)
+      : row('Basis',glEsc(r.basis||'—'))
+        +row('Approved by',glEsc(r.approvedBy||'—'))
+        +row('Posted to the ERP','<b>No</b> <span class="amap-dim">this is a governed Korvyn '
+          +'record, not an ERP transaction</span>'))
+    +row('Debit',r.debit?rcM(r.debit):nil)
+    +row('Credit',r.credit?rcM(r.credit):nil)
+    +row('Net amount','<b>'+rcM(r.reportingAmount)+'</b>')
+    +row('Currency',glEsc(r.transactionCurrency||'')
+      +(r.functionalCurrency&&r.functionalCurrency!==r.transactionCurrency
+        ?' <span class="amap-dim">functional '+glEsc(r.functionalCurrency)+'</span>':'')
+      +' <span class="amap-dim">reporting '+glEsc(r.reportingCurrency||'')+'</span>');
+
+  /* B — MAPPING */
+  o+='<div class="amp-sec">Account mapping</div>'
+    +(M.canon
+      ? row('Canonical account','<span class="mono coa-id">'+glEsc(M.canon)+'</span> '
+          +glEsc(M.canonName||''))
+        +row('Account group',M.group||nil)
+        +row('Financial statement line',M.fsName||nil)
+        +row('Reconciliation group',M.rec||nil)
+        +row('Mapping version','v'+glEsc(M.ver||'')+' <span class="amap-dim">effective '
+          +glEsc(M.from||'')+'</span>')
+        +row('Mapping status',glEsc(M.status||''))
+      : row('Financial statement line',M.fsName||nil));
+
+  /* C — FINANCIAL ATTRIBUTES, EACH WITH ITS PROVENANCE (§8) */
+  const ks=Object.keys(attrs);
+  o+='<div class="amp-sec">Financial attributes</div>';
+  if(!ks.length) o+='<div class="amp-empty">No governed attribute rule matches this '
+    +'transaction. It appears in the attribute exceptions until one does.</div>';
+  else o+='<div class="glx-attrs">'+ks.map(k=>{const a=attrs[k];
+    return '<div class="glx-attr"><div class="t"><span class="l">'+glEsc(a.label)+'</span>'
+      +'<b>'+glEsc(a.val)+'</b></div>'
+      +'<div class="s">'+glEsc(GLX_ATTR_SRC[a.src]||a.src)
+      +(a.ruleId?' &#183; '+glEsc(a.ruleId)+' '+glEsc(a.ruleLabel||''):'')
+      +(a.fromObj?' &#183; from '+glEsc(a.fromObj):'')
+      +(a.by?' &#183; '+glEsc(a.by):'')+(a.at?' &#183; '+glEsc(a.at):'')
+      +' &#183; effective '+glEsc(perLabel(a.from||p))+'</div>'
+      +(a.prior?'<div class="s w">Prior value '+glEsc(a.prior)+' &#183; '
+        +glEsc(a.reason||'overridden')+'</div>'
+        :a.reason?'<div class="s">'+glEsc(a.reason)+'</div>':'')
+      +(a.policy?'<div class="s">'+glEsc(a.policy)+'</div>':'')+'</div>';}).join('')+'</div>';
+  o+='<div class="rcx-hint">An attribute is an overlay. It never changes the source account, '
+    +'the amount, the journal, the posting date or the trial balance.</div>';
+
+  /* §26 — WHERE USED */
+  o+='<div class="amp-sec">Where used</div><div class="rcx-evl">'
+    +[['Trial balance',M.fsName?"pickTab('tb');setTbxView('tb')":null],
+      ['Financials',M.fsId?"tbxGoFinancials('"+M.fsId+"')":null],
+      ['Flux Review',M.fsId?"tbxGoFlux('"+M.fsId+"')":null],
+      ['Trending',M.fsId?"tbxGoTrending('"+M.fsId+"')":null],
+      ['Reconciliation',M.rec?"pickTab('glrecon')":null],
+      ['Reporting package',null],['Audit population',null],['Excel workpaper',null]]
+      .map(x=>'<div class="rcx-ev'+(x[1]?'':' off')+'"'
+        +(x[1]?' role="button" tabindex="0" onclick="'+x[1]+'"':'')+'>'
+        +'<span class="n">'+x[0]+'</span></div>').join('')
+    +'</div>';
+
+  /* §27 — ERP TRACE */
+  if(r.recordType==='SOURCE_GL') o+='<div class="amp-sec">Source system</div>'
+    +(r.sourceUrl
+      ? '<div class="amp-acts"><button class="btn-out sm" data-sys="'+glEsc(r.erpPlatform)
+        +'" data-ref="'+glEsc(r.sourceReference)+'" onclick="rcErpOpen(this)">Open in '
+        +glEsc(r.erpPlatform)+' &#8599;</button></div>'
+      : '<div class="rcx-hint">'+glEsc(r.sourceReference||'')+'. This instance does not '
+        +'publish a deep link, so none is offered.</div>');
+  return o+'</div></aside>';
+}
+
+/* ---- §19, §24 — DOWNLOAD. The filtered population, with source facts, mapping, attributes
+   and lineage, ID and description always separate, the manifest on its own sheet. */
+let _glxExpSeq=0;
+function glxExport(fmt){
+  const p=tbxClosePeriod(), L=rcLens();
+  const rows=glxView(p);
+  const cols=glxColSet().map(k=>glxAllCols().find(c=>c.k===k)).filter(Boolean);
+  const head=cols.map(c=>c.l);
+  const body=rows.map(r=>cols.map(c=>{const v=glxVal(r,c); return v==null?'':v;}));
+  const man={exportId:'GLX-'+p+'-'+(++_glxExpSeq), report:'Governed ledger detail',
+    closePeriod:perLabel(p), scopeName:ENTCTX.scope.name,
+    reportingLens:L.name, reportingBasis:rcBasisLabel(L.reportingBasis),
+    reportingCurrency:L.presentationCurrency, units:'millions',
+    mappingVersion:mapVersionFor(p).v, dataAsOf:rcDataAsOf(p),
+    rowCount:rows.length, netAmount:+rows.reduce((s,r)=>s+(r.reportingAmount||0),0).toFixed(3),
+    sourceGlRows:rows.filter(r=>r.recordType==='SOURCE_GL').length,
+    governedRows:rows.filter(r=>r.recordType!=='SOURCE_GL').length,
+    filters:Object.keys(glxF).filter(k=>glxF[k]!=='all'&&glxF[k]!==false)
+      .map(k=>k+'='+glxF[k]).join(' ')||'none',
+    note:'Source columns are the ERP record and are never changed. Mapping and financial '
+      +'attributes are governed overlays. Rows with a record type other than SOURCE_GL are '
+      +'Korvyn governed records and were not posted to the ERP.',
+    exportedBy:((typeof USER_NAME!=='undefined'&&USER_NAME)||'Mitra Giri')+', '+USER_ROLE,
+    exportedAt:periodStamp()};
+  const base='governed-ledger-'+p;
+  if(fmt==='csv'){
+    const esc=v=>{const t=String(v==null?'':v).replace(/\s+/g,' ').trim();
+      return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+    const nl=String.fromCharCode(13)+String.fromCharCode(10);
+    rcDownload(['Korvyn export manifest'].concat(
+      Object.keys(man).map(k=>esc(k)+','+esc(man[k])),[''],
+      [head.map(esc).join(',')], body.map(r=>r.map(esc).join(','))).join(nl),
+      'text/csv;charset=utf-8',base+'.csv');
+  }else{
+    const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const isNum=i=>!!cols[i].n;
+    const nRows=body.length+1, lastCol=String.fromCharCode(64+Math.min(head.length,26));
+    const sheet=(nm,fr)=>'<x:ExcelWorksheet><x:Name>'+nm+'</x:Name><x:WorksheetOptions>'
+      +(fr?'<x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>1</x:SplitHorizontal>'
+        +'<x:TopRowBottomPane>1</x:TopRowBottomPane><x:SplitVertical>1</x:SplitVertical>'
+        +'<x:LeftColumnRightPane>1</x:LeftColumnRightPane><x:ActivePane>0</x:ActivePane>':'')
+      +'<x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>';
+    rcDownload('<html xmlns:o="urn:schemas-microsoft-com:office:office"'
+      +' xmlns:x="urn:schemas-microsoft-com:office:excel"'
+      +' xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">'
+      +'<title>Korvyn governed ledger detail &#183; '+esc(man.closePeriod)+'</title>'
+      +'<style>td.n{mso-number-format:"#,##0.000"} th{background:#EFF1F5;font-weight:700}'
+      +'table{border-collapse:collapse} td,th{border:.5pt solid #C9CDD6}</style>'
+      +'<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>'
+      +sheet('Governed Ledger',1)+sheet('Manifest',0)
+      +'</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>'
+      +'<table x:autofilterrange="A1:'+lastCol+nRows+'"><tr>'
+      +head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr>'
+      +body.map(r=>'<tr>'+r.map((v,i)=>'<td'+(isNum(i)?' class="n"':'')+'>'+esc(v)
+        +'</td>').join('')+'</tr>').join('')
+      +'</table><br style="page-break-before:always"/>'
+      +'<table><tr><th>Field</th><th>Value</th></tr>'
+      +Object.keys(man).map(k=>'<tr><td>'+esc(k)+'</td><td>'+esc(man[k])+'</td></tr>').join('')
+      +'</table></body></html>','application/vnd.ms-excel;charset=utf-8',base+'.xls');
+  }
+  renderGLAct();
+}
+
+/* the page's filters, through the one descriptor shape */
+function glxField(k){
+  const p=tbxClosePeriod(), rows=glxRows(p);
+  const uniq=(f,lbl)=>[{id:'all',nm:'All'}].concat(
+    [...new Set(rows.map(f).filter(Boolean))].sort().map(v=>({id:v,nm:v})));
+  if(k==='acct') return {nm:'Account', get:()=>glxF.acct,
+    opts:()=>[{id:'all',nm:'All'}].concat([...new Set(rows.map(r=>r.sourceAccountId)
+      .filter(Boolean))].map(id=>({id, nm:(srcAcct(id)||{}).code+' · '+(srcAcct(id)||{}).name,
+      sub:erpIns((srcAcct(id)||{}).ins).name}))), set:v=>glxSetF('acct',v)};
+  if(k==='ent') return {nm:'Entity', get:()=>glxF.ent, opts:()=>uniq(r=>r.entityName),
+    set:v=>glxSetF('ent',v)};
+  if(k==='vendor') return {nm:'Vendor', get:()=>glxF.vendor, opts:()=>uniq(r=>r.vendorName),
+    set:v=>glxSetF('vendor',v)};
+  if(k==='prj') return {nm:'Project', get:()=>glxF.prj, opts:()=>uniq(r=>r.projectName),
+    set:v=>glxSetF('prj',v)};
+  if(k==='erp') return {nm:'ERP instance', get:()=>glxF.erp, opts:()=>uniq(r=>r.erpInstanceName),
+    set:v=>glxSetF('erp',v)};
+  if(k==='ccy') return {nm:'Currency', get:()=>glxF.ccy,
+    opts:()=>uniq(r=>r.transactionCurrency), set:v=>glxSetF('ccy',v)};
+  if(k==='rec') return {nm:'Record type', get:()=>glxF.rec,
+    opts:()=>[{id:'all',nm:'All'}].concat(Object.keys(GLX_RECTYPES)
+      .filter(t=>rows.some(r=>r.recordType===t))
+      .map(t=>({id:t, nm:GLX_RECTYPES[t].l, sub:GLX_RECTYPES[t].d}))),
+    set:v=>glxSetF('rec',v)};
+  if(k==='map') return {nm:'Mapping status', get:()=>glxF.map,
+    opts:()=>[{id:'all',nm:'All'}].concat(
+      [...new Set(rows.map(r=>glxMap(r).status).filter(Boolean))].map(v=>({id:v,nm:v}))),
+    set:v=>glxSetF('map',v)};
+  return null;
 }
 
 /* The chip row. Rendered into the page as well as the filter bar because the
@@ -55024,6 +55716,8 @@ function RCFIELD(k){
   const tb=(typeof tbxField==='function')?tbxField(k):null; if(tb) return tb;
   /* Account Mapping's own filters and its bulk target picker, same shape again. */
   const am=(typeof amapField==='function')?amapField(k):null; if(am) return am;
+  /* the governed ledger's filters, same shape again. */
+  const gx=(typeof glxField==='function')?glxField(k):null; if(gx) return gx;
   /* R2 adds the Activity canvas's filters, its composition dimension and its download menu
      through the SAME descriptor shape, so that surface gets no dropdown of its own. */
   const r2=(typeof rcR2Field==='function')?rcR2Field(k):null; if(r2) return r2;
@@ -66212,7 +66906,7 @@ function renderTB(){
   o+=tbxCloseBanner(k);
   o+=tbxStrip(k);
   o+=tbxControls(k);
-  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap">'
+  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap ktbl">'
     +(tbxView==='tb'?tbxTbTable(k)
      :tbxView==='ent'?tbxEntTable(k)
      :tbxView==='line'?tbxConsTable(k)
@@ -66350,8 +67044,8 @@ function tbxTbTable(k){
   const dr=+rows.reduce((s,r)=>s+(r.dr||0),0).toFixed(3);
   const cr=+rows.reduce((s,r)=>s+(r.cr||0),0).toFixed(3);
   let h='<table class="rcx-tbl tbx-tbl tbx-tb"><thead><tr>'
-    +'<th class="rcx-nm">Source account</th><th>ERP instance</th><th>Account type</th>'
-    +'<th class="num">Entities</th>'
+    +'<th class="rcx-nm kfreeze kfreeze-end">Source account</th><th>ERP instance</th>'
+    +'<th>Account type</th><th class="num">Entities</th>'
     +tbxHd('Debit',perLabel(k))+tbxHd('Credit',perLabel(k))+tbxHd('Net',perLabel(k))
     +'<th>Reporting ccy</th>'
     +'<th class="tbx-kv">Canonical account</th><th class="tbx-kv">Account group</th>'
@@ -66366,7 +67060,7 @@ function tbxTbTable(k){
         +'<td colspan="9"></td></tr>'; }
     const sel=tbxSel===r.acct.id;
     h+='<tr class="rcx-r tbx-line'+(sel?' on':'')+'" onclick="tbxPickAcct(\''+r.acct.id+'\')">'
-      +'<td class="rcx-nm"><span class="tbx-nm"><span class="t"><b class="mono">'
+      +'<td class="rcx-nm kfreeze kfreeze-end"><span class="tbx-nm"><span class="t"><b class="mono">'
         +glEsc(r.acct.code)+'</b> '+glEsc(r.acct.name)
         +(r.src.a?'':'<span class="amap-tag">Inactive</span>')+'</span></span></td>'
       +'<td class="tbx-ty">'+glEsc(erpIns(r.acct.ins).name)
@@ -67008,7 +67702,7 @@ function tbxRenderGL(el){
     +'</div>';
 
   const cols=XL_GL_FIELDS.filter(f=>tbxGLMore||TBX_GL_CORE.indexOf(f.k)>=0);
-  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap">'
+  o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap ktbl">'
     +'<table class="rcx-tbl tbx-gl"><thead><tr>'
     +cols.map((f,i)=>'<th class="'+(f.n?'num':'')+(i===0?' rcx-nm':'')+'">'+f.l+'</th>').join('')
     +'<th>ERP</th></tr></thead><tbody>'
@@ -68329,7 +69023,7 @@ const VIEW_META={
   fpmgmt:{t:'Management Reporting',c:'Financial and operational report distribution',depth:2},
   glover:{t:'Overview',c:'Consolidated position · system status · close progress',depth:4},
   glfin:{t:'Financials',c:'Statements, consolidation and the management reporting package',depth:4},
-  glact:{t:'Account activity',c:'Transaction-level activity by account',depth:3},
+  glact:{t:'Account activity',c:'Governed ledger detail \u2014 ERP facts, mapping and financial attributes',depth:3},
   gltrend:{t:'Trending',c:'Account trends over time, anchored to the selected period',depth:3},
   glrecon:{t:'Reconciliations',c:'Governed reconciliation groups \u00b7 roll-forward, tie, support and review',depth:4},
   glclose:{t:'Close status',c:'Period close progress across entities',depth:3},
@@ -68968,10 +69662,39 @@ function dockFit(){
   b.style.setProperty('--dock-reserve',reserve+'px');
 }
 addEventListener('resize',dockFit);
+/* §1 — THE SCROLLER ENDS AT THE VIEWPORT, so its horizontal scrollbar is always on screen and
+   its sticky header always has a top edge to stick to. Measured per table rather than declared
+   once, because how much chrome sits above a table is a property of the PAGE: the trial
+   balance carries a close banner, a status strip, a filter row and a tab strip, and Chart of
+   Accounts does not.
+
+   It reads the wrapper's own top and nothing the reservation itself changes — a max-height
+   computed from the element's own HEIGHT would be the feedback loop the flux drawer's note
+   warns about. A table shorter than the room available keeps its natural height, so a
+   six-row exception list does not grow a scroller it has no use for. */
+function ktblFit(){
+  const gap=parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--ktbl-gap'),10)||16;
+  const min=parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--ktbl-min'),10)||280;
+  document.querySelectorAll('.ktbl').forEach(w=>{
+    if(w.offsetParent===null&&w.getBoundingClientRect().height===0) return;
+    w.style.removeProperty('--ktbl-top');
+    const top=w.getBoundingClientRect().top+(window.scrollY||0);
+    const room=Math.max(min,window.innerHeight-(top-(window.scrollY||0))-gap);
+    /* natural height wins when the table already fits: no scroller, no sticky header, nothing
+       to reach for */
+    const natural=w.scrollHeight;
+    w.style.maxHeight=(natural<=room?natural:room)+'px';
+  });
+}
+addEventListener('resize',ktblFit);
+addEventListener('scroll',ktblFit,{passive:true});
 const _renderAll=renderAll;
 renderAll=function(){ _renderAll(); paintTopbar();
   if(typeof paintNavRet==='function') paintNavRet();
-  if(typeof dockFit==='function') dockFit(); };
+  if(typeof dockFit==='function') dockFit();
+  if(typeof ktblFit==='function') ktblFit(); };
 
 /* ⌘/Ctrl-K opens the command palette — the single search-and-ask surface. There is exactly ONE
    handler for this chord now (the cmdk keydown listener); this second one, left over from the

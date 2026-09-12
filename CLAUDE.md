@@ -7085,6 +7085,129 @@ publishing an actual new mapping version against the seeded history.
 - `amapBoundaryLegacy` / `amapStripLegacy` / `amapFieldOfLegacy` / `amapSysView` / `amapRulesView`
   / `amapCovView` / `amapVerView` are retired and unreferenced, named rather than deleted.
 
+## 2026-09-12 (later) — GOVERNED LEDGER DETAIL, and the global table behaviour
+
+Owner's brief. Two things shipped: the enterprise table behaviour every long table now shares,
+and Account Activity rebuilt as the canonical governed ledger. FS-CIP is still 4,210.2 and
+A = L + E at 0.
+
+### §1 — `.ktbl`: THE ENTERPRISE TABLE BEHAVIOUR, DECLARED ONCE
+
+Reported: on a long wide table you had to scroll to the BOTTOM of the rows to reach the
+horizontal scrollbar, then scroll back up to read the header you had just moved. On a
+900-row ledger that makes the right-hand columns effectively unreachable.
+
+**THE FIX IS TO BOUND THE SCROLLER, NOT TO SYNTHESISE A SCROLLBAR.** A wrapper capped at the
+viewport owns both axes: its horizontal scrollbar sits at the bottom of the WRAPPER, which is
+on screen, and the header sticks to the top of the same box. One element, both problems, and
+no second scrollbar to keep in step — a synthetic one drifts the moment anything resizes.
+
+**The allowance is measured, not declared.** A fixed token cannot know how much chrome sits
+above a table: the trial balance carries a close banner, a status strip, a filter row and a tab
+strip (~506px), Chart of Accounts does not. `ktblFit()` reads each wrapper's own top and sizes
+it to the viewport — and reads nothing the reservation itself changes, because a max-height
+computed from the element's own height is the feedback loop the flux drawer's note warns about.
+A table that already fits keeps its natural height, so a six-row exception list grows no
+scroller.
+
+**TWO FAULTS FOUND BY MEASURING, NOT READING.**
+
+- **A flex `<th>` cannot stick vertically.** Every header cell held at the wrapper's top except
+  the first, which scrolled away with the body. `.rcx-nm` is `display:flex` — the Control Center
+  needs that for its name cell — and on a HEADER cell it takes the th out of table layout.
+  Proved by removing the class at runtime: with it the corner fails, without it the corner
+  sticks. Same `display:flex` trap the R6 dock tables hit, in the one place it breaks a header
+  rather than a row.
+- **A later, more specific `position:sticky` is what the offsets resolve against.**
+  `.rcx-tbl th.rcx-nm` re-declares position and left for the frozen column, so the `top` set by
+  `.ktbl thead th` was never in play. The corner cell declares both axes itself now.
+
+Verified on both pages: **13/13 and 12/12 header cells stick, the frozen column holds through a
+horizontal scroll, and the scrollbar is on screen** (wrapper bottom 894 in a 910px viewport).
+
+### §2–§8, §16–§21, §27 — ACCOUNT ACTIVITY IS THE GOVERNED LEDGER
+
+One canonical population in four separable layers — **source facts · account mapping ·
+financial attributes · governed records** — and the page's whole claim is that a reader can
+always tell what the ERP said from what Korvyn concluded.
+
+**IT IS THE POPULATION THE PRODUCT ALREADY RESOLVES.** `rcTxPool()` — what the reconciliation
+activity canvas, the trial balance drill and the connected Excel workpaper read. There is no
+second dataset, which is the point: CIP by asset class and CIP by vendor are two READINGS of
+this, not two extracts.
+
+**§10 — ATTRIBUTES ARE DERIVED FROM RULES, NOT STORED PER ROW.** Measured on the June
+population: **ER-03 ("CIP accounts are capitalised by policy") classifies 485 transactions and
+ER-01 6**, with 579 values inherited from the source account — 779 of 2,254 rows classified
+without anyone tagging a row. What IS stored is the exception: a person's override, with its
+prior value, reason and approver. `glxAttrs()` resolves rules, then inheritance, then
+overrides, and every value carries its provenance (§8, §15).
+
+**§20, §21 — A GOVERNED RECORD IS NOT AN ERP TRANSACTION.** The reporting adjustment against
+Construction in Progress is reported balance no journal carries; it is a row with its own
+record type, no journal number, its approval on it, and `Posted to the ERP: No`. Folding it into
+a transaction would make the ledger claim the ERP posted something it did not. It carries a 3px
+accent edge and nothing else — a different KIND of row, not a worse one.
+
+**§17 — the column picker is grouped** into SOURCE · ACCOUNTING · ORGANIZATION · COUNTERPARTY ·
+PROJECT · MAPPING · FINANCIAL ATTRIBUTES · CURRENCY · GOVERNANCE · LINEAGE. A flat list of every
+governed field is a schema browser. **§5 — a field the ERP does not supply says so** rather than
+reading as empty. **§27 — a deep link only where the instance publishes one.**
+
+### TWO REAL DEFECTS THE BUILD SURFACED
+
+**THE ACCOUNT GROUP A RULE TESTS IS THE ACCOUNTING ONE.** A first cut derived it by looking for
+"CIP" in the canonical and statement-parent names — but K1330 is *Electrical Infrastructure*
+under *Property, Plant & Equipment*, so neither contains the word and **every CIP rule silently
+matched nothing**. The reconciliation group is the governed field that actually says "this is
+CIP", and is what the fact derives from now.
+
+**SOURCE TRANSACTION IDS ARE NOT UNIQUE.** 2,254 governed rows carry **623 distinct
+`sourceTransactionId` values** — the generator builds the id from the CHART OF ACCOUNTS and the
+row index, so every account in the same chart collides, one id twelve times over. Keyed on the
+id alone the attribute cache handed one account's classification to another's rows, and
+selecting a row opened somebody else's panel. This page keys on account + transaction + line
+(`glxKey`), which is correct here — **but the collision is a defect in the shared transaction
+model and is recorded as one**: that id is exported as the ERP reference and stamped into export
+manifests, so renumbering it is its own pass and would move existing exports.
+
+### §19, §24 — DOWNLOAD
+
+The filtered population with source facts, mapping, attributes and lineage; every id and its
+description separate; freeze panes, autofilter, number formats, and the manifest on its own
+sheet. The manifest states the filters that produced the file, the source/governed row split,
+and that rows whose record type is not SOURCE_GL were never posted to the ERP.
+
+### Verified
+
+192 view renders across 3 periods · 14 view × lens combinations including the ledger under all
+four lenses · **0 clipped elements · 0 raw HTML entities** · console clean · **4/4 gates**
+(baselines unchanged) · 2,254 distinct row keys with 0 duplicates · FS-CIP **4,210.2** ·
+A = L + E at 0 · chronology 0.
+
+### NOT DONE IN THIS PASS — named, not glossed
+
+The brief is larger than one pass and these are the parts I did not build:
+
+- **§9–§14 — the Financial Attributes page restructure** (Rules · Exceptions · Overrides ·
+  Fields · Versions, defaulting to Exceptions). The attribute MODEL is now real and evaluated,
+  and the ledger renders it; the page that administers it is still the old one.
+- **§29 — the attribute impact preview.** The equivalent for mapping exists
+  (`amapImpactOf`) and is the shape to reuse.
+- **§25 — the re-publication / review-required cascade** when an attribute changes under a
+  certified period. R6's detection is the mechanism; nothing wires attributes into it yet.
+- **§30 — true server-side virtualization.** The page paginates at 50 and states the enterprise
+  multiple; it does not stream.
+- **§28 — MoM.** Untouched deliberately; the balance-sheet and P&L behaviour it depends on is
+  already correct in the trial balance.
+
+### Open
+
+- **ER-02 and ER-04 match nothing.** They are authored against the worked example's project
+  vocabulary ("South Valley Campus — Hall C"), which the generated population does not carry
+  ("Ashburn Hall C", "Dallas Hall A"). A rule that can never fire is worth surfacing in the
+  Rules view with its match count — which is a reason to do §11 next.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
