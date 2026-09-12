@@ -6811,6 +6811,155 @@ No second period model, entity model, or balance store.
 - **`fsComposition()` and `tbxEntRows()` both weight a line by entity counts.** They agree, but
   they are two derivations of one idea and should become one when Financials next moves.
 
+## 2026-09-12 (later) — ERP ONBOARDING: source system → CoA → mapping → close-period TB
+
+Owner's brief, and it **corrects the Trial Balance phase-1 build committed hours earlier**.
+The onboarding spine is now structural rather than asserted:
+
+```
+SOURCE SYSTEM -> SOURCE CHART OF ACCOUNTS -> ENTERPRISE DIMENSIONS -> ACCOUNT MAPPING
+-> CLOSE-PERIOD TRIAL BALANCE -> GOVERNED LEDGER DETAIL -> FINANCIALS / FLUX / AUDIT
+```
+
+**KORVYN DOES NOT INVENT THE ACCOUNTING STRUCTURE.** The ERP says what accounts and
+transactions exist; Korvyn preserves them and governs how they are INTERPRETED. FS-CIP is
+still 4,210.2 and A = L + E at 0.
+
+### THE THREE CORRECTIONS THE ACCEPTANCE TEST NAMED
+
+**1. THE TB IS ACCOUNT-DRIVEN. MAPPING INTERPRETS IT; MAPPING DOES NOT CREATE IT.**
+Phase 1 made the financial statement LINE the row. That said mapping creates the trial
+balance, which is false: a TB is `SOURCE GL ACCOUNT × ENTITY × PERIOD × CURRENCY` and it
+exists before Korvyn has interpreted a single account. The base view is now one row per source
+account, grouped by chart of accounts, with the ERP's own record on the left — account number,
+name, instance, type, normal balance, entities, debit, credit, net — and Korvyn's
+interpretation to the right of a hairline: canonical account, account group, statement line,
+mapping status. **An unmapped account is ON the trial balance**, not beside it.
+
+**2. THE TB IS NOT A ROLL-FORWARD.** It is a position. Beginning / activity / adjustment /
+ending left the base table entirely; the amount opens the movement bridge (§15), which is the
+right answer to a different question and is unchanged. The statement roll-up survives as *By
+statement line* — a reading of the TB, not the TB.
+
+**3. THE ACCOUNTING TB IS THE TB FOR THE ACTIVE CLOSE (§12, §16).** `tbxClosePeriod()` is
+`BOOK.open`; `VIEW.period` is what somebody is looking at. When they differ the page says it is
+reading history and offers the way back, rather than presenting a closed period as the close.
+Flexible multi-period TB reporting is REPORTING CONTEXT and belongs to Report Builder, which
+this pass does not start.
+
+### §2 — THE SOURCE CHART OF ACCOUNTS IS THE FIRST ACCOUNTING OBJECT
+
+`SRC_COA` preserves, per account: the ERP's own account TYPE, normal balance, parent where
+supplied, active flag, effective dates, currency context, first and last seen, and the source
+system's identifier. **Nothing in Korvyn edits it — there is no writer and no edit affordance.**
+
+**THE TYPE IS THE ERP'S OWN WORD, NOT KORVYN'S.** NetSuite says *Other Current Asset*, SAP
+says *Bilanzkonto* / *Erfolgskonto*, JD Edwards says *Balance Sheet* / *Profit & Loss*, Oracle
+says *Asset* / *Expense*. Deriving the type from the canonical account would be exactly
+backwards — mapping would be creating the structure it is meant to interpret, and an unmapped
+account would have no type at all.
+
+**LAZY, AND THAT IS LOAD-BEARING.** `SRC_ACCOUNTS` is appended to further down the file (R2
+added eleven accounts), so a table built at the point of declaration covered **24 of 35** — and
+the eleven it missed rendered untyped and *Inactive* on the trial balance. Caught by looking at
+the screen. It builds on first ask now, after the whole book exists.
+
+### §14 — A BALANCE SHEET ACCOUNT AND A P&L ACCOUNT MEAN DIFFERENT THINGS BY "JUN 2026"
+
+BS = ending balance at Jun 30. P&L = June period activity. The governed engine already returns
+a P&L line as its period amount (FS-BREV reads 386.0 for June against 383.9 for May — not
+cumulative), so no derivation is needed here; where an ERP delivers YTD P&L it would have to be
+derived deterministically with its lineage preserved, and no instance in this book does.
+
+**THE BASIS FOLLOWS THE LINE THE BALANCE IS REPORTED ON, NOT THE SOURCE TYPE** — and the one
+case where they disagree is the accounting, not a fault. NetSuite books **78420 Owner Furnished
+Equipment** to an EXPENSE account; the approved mapping capitalises it into Construction in
+Progress. The figure is therefore a BALANCE, and labelling it "period activity" because of the
+source type would misstate what the reader is looking at. The row states both, and says
+**capitalised by mapping** — which is the CIP determination this product exists for. Asserted:
+0 rows where the stated basis disagrees with its line.
+
+### §8 — NO FAKE MIXED-CURRENCY TOTALS
+
+The currency column was showing each account's SOURCE currency beside figures resolved in the
+lens's reporting currency, so a column of EUR / SGD / GBP sat over USD amounts and the debit
+and credit totals underneath read as a mixed-currency sum. The column is the **reporting
+currency** — what the figures actually are — and each book's own currency is stated beside its
+ERP instance, where it is a different fact rather than a contradiction.
+
+### §1, §3–§10 — ACCOUNT MAPPING IS FIVE WORKSPACES OVER ONE POPULATION
+
+**Source systems · Source accounts · Mapping rules · Coverage & exceptions · Versions.** The
+status tabs that used to be the tab row are what they always were — a FILTER on the source
+account population — and sit inside Source accounts now. There is no second chart-of-accounts
+module: §3 is explicit, and it is right, because the source CoA is not a thing to administer on
+its own, it is the population this page interprets.
+
+- **Source systems (§1)** is deliberately NOT the technical console `glsync` already is. The
+  questions are a controller's: which books are in, through which period, in which currencies,
+  with GL detail or only balances. **A balance-only feed is a real onboarding state** — the JD
+  Edwards instance publishes a trial balance and no transactions, and saying so is what stops a
+  reviewer expecting detail that does not exist.
+- **Mapping rules (§5, §6)** groups by what a rule RESOLVES TO, so "who feeds K1330" is one
+  glance: **five source accounts across three ERP instances** — NetSuite 15010/15011/15012, SAP
+  Germany 471100, JD Edwards 15010. Korvyn never forces a common account number across systems.
+- **Coverage (§8)** answers "which ERP accounts has Korvyn not interpreted yet" per chart of
+  accounts, which is the unit somebody is actually assigned to finish.
+- **Versions (§7)** — a published version is immutable; a later one supersedes it. A draft has
+  no publication instant, and saying so is the difference between a rule somebody is writing
+  and a rule that governs a statement.
+
+**§10 — IMPACT PREVIEW BEFORE APPROVAL.** A mapping change is not a configuration edit; it
+moves reported balances. Every figure is measured off the governed objects, not estimated —
+measured on a two-account change: *2 source accounts · 2 ERP instances · up to 84 entities ·
+$454.0M Jun 2026 balance · Construction in Progress · 4 reconciliations · 2 published
+workpapers*. The old `amapBulk()` applied a **hard-coded canonical account with no preview**;
+it is superseded by picker → impact → approve, and **nothing is posted and no governed figure
+moves** — the confirmation says exactly that rather than implying an approval happened.
+
+**§9 — BULK.** Selection, a canonical target, copy-a-prior-period, CSV out and in. The export
+carries a manifest and states the rule that matters: **re-import matches on ERP instance, chart
+of accounts and source account number — never on the account number alone**, because the same
+number means different things in different books (15010 is CIP-Electrical in NetSuite and
+Property Electrical Works in JD Edwards).
+
+### Traps
+
+- **`fsStmtOf()` returns `'bs'` / `'is'`, not `'FS-BS'`.** A mismatch sweep written against the
+  wrong values reported zero problems when there was exactly one.
+- **Shell escaping ate `\'` twice more** (sixth and seventh time recorded), once producing
+  `KFX.pop('am:bulkcanon',this)` inside a single-quoted string — a parse failure that took the
+  whole block down. The rule stands and I broke it again: **write the splice script with the
+  Write tool; never pass replacement text through a shell heredoc.**
+- **The working tree is CRLF.** A multi-line needle written with `\n` matches zero times; split
+  on `\n`, match on the trimmed line, and rejoin with `\n` so the endings round-trip.
+- A test regex is case-sensitive and CSS is not: four "failures" across the two briefs were
+  `text-transform:uppercase` headings, not defects.
+
+### Verified
+
+**All 15 demo scenarios in §22 pass, run in the product** · 192 view renders across 3 periods
+(the 12 empty are the documented lens aliases and the unreachable `consol`) · 45 view × lens ×
+workspace combinations · 0 clipped elements · 0 raw HTML entities · console clean · **4/4
+gates** (baselines unchanged: 1072 css / 86 inline, 63 duplicates) · **35 of 35 source accounts
+typed by their own ERP** · 0 basis disagreements · FS-CIP **4,210.2** · A = L + E at 0 ·
+chronology 0.
+
+### Deliberately NOT built — the brief stops here
+
+Report Builder · the production Excel add-in · any expansion of Financials, Flux or Trending ·
+a rules engine that evaluates `ENR_RULES` at write time · real CSV re-import parsing (the
+export, the manifest and the matching rule exist; the import states what it would do) ·
+publishing an actual new mapping version against the seeded history.
+
+### Open, and worth an owner's call
+
+- **`glsync` (Data & sync status) still exists** as the technical integration console. Source
+  systems is the accountant-facing view of the same estate; whether the technical one stays is
+  a product call, not one to make by deletion.
+- **Account Activity still reads the legacy `COA` model.** Two transaction browsers exist until
+  it is re-pointed at the governed one.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

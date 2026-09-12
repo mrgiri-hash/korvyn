@@ -1804,6 +1804,42 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .fsx-foot{padding:var(--s-3) var(--s-4);border-top:1px solid var(--line);
   font-size:var(--fs-label);color:var(--hint);line-height:var(--lh)}
 
+/* ---- ERP ONBOARDING + THE ACCOUNT-DRIVEN TRIAL BALANCE (2026-09-12) --------------------
+   Only what these two surfaces genuinely add. Everything structural is the product's own —
+   the .tbl / .rcx-tbl grids, the .ktabs.lvl2 picker, the .amap-panel dock, the .pop menus.
+   Every name greped before it was claimed. */
+/* THE CLOSE BANNER. The Accounting TB is the TB for the active close, and this is what stops
+   a closed period being read as the close. Quiet when it agrees with the book, amber when the
+   reader has navigated into history. */
+.tbx-close{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-2);
+  padding:var(--s-2) var(--s-4);margin:0 0 var(--s-3);border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--line2);font-size:var(--fs-table)}
+.tbx-close b{color:var(--ink);font-weight:var(--fw-medium)}
+.tbx-close span{color:var(--muted)}
+.tbx-close.hist{border-left:3px solid var(--warning)}
+/* the Korvyn interpretation columns sit beside the source record, never on top of it, and a
+   hairline is what says where the ERP's own columns stop */
+.tbx-tb th.tbx-kv:first-of-type,.tbx-tb td.tbx-kv:first-of-type{
+  border-left:1px solid var(--line2)}
+.tbx-tb td.tbx-kv{color:var(--muted)}
+.tbx-tb tfoot td{font-weight:var(--fw-medium);color:var(--ink)}
+/* ACCOUNT MAPPING — the workspace strip and the source-account population */
+.amap-ws{margin-bottom:var(--s-3)}
+.amap-sub{font-size:var(--fs-label);color:var(--hint);font-weight:400}
+.amap-warn{color:var(--warning)}
+.amap-bad{color:var(--neg)}
+.amap-warnc{color:var(--warning)}
+.amap-tag{display:inline-block;margin-left:var(--s-2);padding:0 var(--s-1);
+  border:1px solid var(--line2);border-radius:var(--radius-xs);
+  font-size:var(--fs-micro);color:var(--muted)}
+.amap-tag.on{border-color:var(--accent);color:var(--accent-ink)}
+.amap-grp td{background:var(--n-50)}
+.amap-src td{vertical-align:top}
+.amap-bulk.quiet{color:var(--muted)}
+.amap-bulk.quiet .n{color:var(--ink)}
+.amap-toast{display:flex;align-items:baseline;gap:var(--s-3);padding:var(--s-2) var(--s-4);
+  margin:0 0 var(--s-3);border-radius:var(--radius);background:var(--accent-bg);
+  font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
 /* ---- TRIAL BALANCE (2026-09-12) ----------------------------------------------------------
    Reuses the module's own table language (.rcx-tbl), picker (.ktabs.lvl2), dock (.amap-panel)
    and menus (.pop) — a new page does not get a second of any of them. What is declared here is
@@ -12639,7 +12675,7 @@ function paintPop(keepFocus){
         onclick="KFX.popClose();${r.go}">
         <span class="bx">${r.on?'\u2713':''}</span>${esc(r.nm)}</div>`).join('')
         :'<div class="rl-empty" style="padding:8px">No sub-pages.</div>')+`</div>`;
-  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0||popKind.indexOf('tb:')===0)){
+  }else if(popKind&&(popKind.indexOf('rc:')===0||popKind.indexOf('enr:')===0||popKind.indexOf('tb:')===0||popKind.indexOf('am:')===0)){
     /* `enr:` and `rc:` share one descriptor shape and therefore one renderer. A new page
        does not get a new dropdown. */
     /* RECONCILIATIONS USE THE SAME MENU. `RCFIELD` is the same descriptor shape `GFIELD`
@@ -30745,6 +30781,144 @@ const SRC_ACCOUNTS=[
 ].map(a=>({...a, id:sacct(a.coa,a.code), ins:coaOf(a.coa).ins,
            sys:erpIns(coaOf(a.coa).ins).sys}));
 const srcAcct=id=>SRC_ACCOUNTS.find(a=>a.id===id)||null;
+/* ==========================================================================================
+   ERP ONBOARDING — THE SOURCE CHART OF ACCOUNTS IS THE FIRST ACCOUNTING OBJECT (2026-09-12)
+   ==========================================================================================
+   KORVYN DOES NOT INVENT THE ACCOUNTING STRUCTURE. The ERP tells Korvyn what accounts and
+   transactions exist; Korvyn PRESERVES those source accounts exactly as received and then
+   governs how they are INTERPRETED. Those are two different objects and this file is where the
+   distinction becomes structural rather than a claim:
+
+     SOURCE SYSTEM -> SOURCE CHART OF ACCOUNTS -> ENTERPRISE DIMENSIONS -> ACCOUNT MAPPING
+     -> CLOSE-PERIOD TRIAL BALANCE -> GOVERNED LEDGER DETAIL -> FINANCIALS / FLUX / AUDIT
+
+   THE SOURCE ACCOUNT TYPE IS THE ERP'S OWN WORD, NOT KORVYN'S. A NetSuite chart says "Other
+   Current Asset", SAP says "Bilanzkonto" under an account group, JD Edwards says "Balance
+   Sheet". Deriving the type from the canonical account Korvyn mapped it to would be exactly
+   backwards — mapping would then be creating the source structure it is supposed to interpret,
+   and an unmapped account would have no type at all. So it is authored here, per chart, in the
+   source system's own vocabulary, and it exists whether or not a mapping does.
+
+   NOTHING IN KORVYN EDITS THE SOURCE CoA. There is no writer, no edit affordance and no field
+   on this object that Korvyn owns. */
+const SRC_COA_CONV={
+  'COA-US-DEV':  {erp:'NetSuite', idp:'ACCT', types:'NetSuite account type'},
+  'COA-US-CORP': {erp:'NetSuite', idp:'ACCT', types:'NetSuite account type'},
+  'COA-DE-LOC':  {erp:'SAP',      idp:'SAKNR',types:'SAP Kontengruppe'},
+  'COA-UK-LOC':  {erp:'SAP',      idp:'SAKNR',types:'SAP Kontengruppe'},
+  'COA-EM-OPS':  {erp:'Oracle',   idp:'CCID', types:'Oracle account type'},
+  'COA-AP-OPS':  {erp:'Oracle',   idp:'CCID', types:'Oracle account type'},
+  'COA-LEG-PROP':{erp:'JDE',      idp:'OBJ',  types:'JD Edwards level of detail'},
+};
+/* the source record, per account, in the SOURCE system's vocabulary. `t` is the ERP's own type
+   word, `nb` its normal balance, `p` the parent it supplies (blank where it supplies none),
+   `a` active, `ef` effective from, `ls` last seen, `sid` the ERP's internal identifier. */
+const _SRC_COA_BUILD=()=>{
+  const T={
+    'SRC-US-DEV-15000':['Other Current Asset','debit','15000-PARENT:1500 Capital Projects'],
+    'SRC-US-DEV-15010':['Other Current Asset','debit','1500 Capital Projects'],
+    'SRC-US-DEV-15011':['Other Current Asset','debit','15010 CIP - Electrical'],
+    'SRC-US-DEV-15012':['Other Current Asset','debit','15010 CIP - Electrical'],
+    'SRC-US-DEV-15020':['Other Current Asset','debit','1500 Capital Projects'],
+    'SRC-US-DEV-15021':['Other Current Asset','debit','15020 CIP - Mechanical'],
+    'SRC-US-DEV-15030':['Other Current Asset','debit','1500 Capital Projects'],
+    'SRC-US-DEV-15040':['Other Current Asset','debit','1500 Capital Projects'],
+    'SRC-US-DEV-15050':['Other Current Asset','debit','1500 Capital Projects'],
+    'SRC-US-DEV-15100':['Other Current Asset','debit','1500 Capital Projects'],
+    'SRC-US-DEV-78410':['Expense','debit','7840 Project Services'],
+    'SRC-US-DEV-78420':['Expense','debit','7840 Project Services'],
+    'SRC-US-CORP-10100':['Bank','debit',''],
+    'SRC-US-CORP-10200':['Bank','debit',''],
+    'SRC-US-CORP-20000':['Accounts Payable','credit',''],
+    'SRC-US-CORP-21000':['Other Current Liability','credit','2100 Accruals'],
+    'SRC-US-CORP-21100':['Other Current Liability','credit','2100 Accruals'],
+    'SRC-US-CORP-22000':['Other Current Liability','credit',''],
+    'SRC-US-CORP-60110':['Expense','debit','6010 Professional Services'],
+    'SRC-US-CORP-99120':['Other Current Asset','debit',''],
+    'SRC-DE-LOC-15000':['Bilanzkonto','debit','Anlagevermoegen'],
+    'SRC-DE-LOC-471100':['Bilanzkonto','debit','15000 Anlagen im Bau'],
+    'SRC-DE-LOC-471200':['Bilanzkonto','debit','15000 Anlagen im Bau'],
+    'SRC-DE-LOC-471300':['Bilanzkonto','debit','15000 Anlagen im Bau'],
+    'SRC-DE-LOC-471400':['Bilanzkonto','debit','15000 Anlagen im Bau'],
+    'SRC-DE-LOC-62140':['Erfolgskonto','debit','62000 Betriebskosten'],
+    'SRC-DE-LOC-62180':['Erfolgskonto','debit','62000 Betriebskosten'],
+    'SRC-UK-LOC-62140':['Erfolgskonto','debit','62000 Operating Costs'],
+    'SRC-UK-LOC-71200':['Erfolgskonto','debit','71000 Property Costs'],
+    'SRC-EM-OPS-40100':['Revenue','credit','40000 Revenue'],
+    'SRC-AP-OPS-130500':['Asset','debit','130000 Receivables'],
+    'SRC-AP-OPS-53200':['Expense','debit','53000 Site Costs'],
+    'SRC-LEG-PROP-15000':['Balance Sheet','debit',''],
+    'SRC-LEG-PROP-15010':['Balance Sheet','debit','15000 Property Under Development'],
+    'SRC-LEG-PROP-84300':['Profit & Loss','debit',''],
+  };
+  const CCY={'COA-US-DEV':'USD','COA-US-CORP':'USD','COA-DE-LOC':'EUR','COA-UK-LOC':'GBP',
+    'COA-EM-OPS':'EUR','COA-AP-OPS':'SGD','COA-LEG-PROP':'USD'};
+  const out={};
+  SRC_ACCOUNTS.forEach(a=>{
+    const t=T[a.id]||['Unclassified','debit',''];
+    const cv=SRC_COA_CONV[a.coa]||{idp:'ACCT'};
+    out[a.id]={sourceAccountId:a.id, t:t[0], nb:t[1], p:t[2]||null,
+      /* AN INACTIVE ACCOUNT IS STILL A SOURCE ACCOUNT. The legacy allocation pool stopped
+         being posted to but its balance is still in the ledger, and hiding it would make the
+         trial balance short by exactly the amount nobody is watching. */
+      a:a.id!=='SRC-LEG-PROP-84300',
+      ef:(a.seen||'2021-01')+'-01', et:null,
+      ccy:CCY[a.coa]||'USD', first:a.seen||'2021-01', last:'2026-06',
+      sid:cv.idp+'-'+String(a.code).replace(/\D/g,''),
+      /* the ERP's own statement side, which is what decides whether a Jun 2026 figure is a
+         BALANCE or a PERIOD AMOUNT - see `tbxIsPL()` */
+      pl:/Expense|Revenue|Erfolgskonto|Profit & Loss/.test(t[0])};
+  });
+  return out;
+};
+/* LAZY, AND THAT IS LOAD-BEARING. `SRC_ACCOUNTS` is appended to further down this file, so a
+   table built at this point in the source would silently cover twenty-four of thirty-five
+   accounts — and the eleven it missed would read as untyped and inactive on the trial balance.
+   Built on first ask, after the whole book exists. */
+let _SRC_COA=null;
+const SRC_COA_ALL=()=>(_SRC_COA||(_SRC_COA=_SRC_COA_BUILD()));
+const srcCoa=id=>SRC_COA_ALL()[id]||null;
+/* the ERP's own convention decides the statement side; Korvyn's canonical account does not get
+   a vote, because an unmapped account must still be typed */
+const srcIsPL=id=>!!((srcCoa(id)||{}).pl);
+
+/* ---- §1 — WHAT IS CONNECTED, IN A CONTROLLER'S TERMS. Deliberately NOT the technical
+   integration console `glsync` already is: no payload counts, no retry queues, no endpoint
+   health. The questions here are the ones an accountant asks before trusting a number —
+   which books are in, through which period, with GL detail or only balances. */
+const SRC_FEED={
+  'INS-NS-US':  {st:'ok',  sync:'Jul 1, 2026 · 06:42', from:'2021-01', tb:1, gl:1},
+  'INS-NS-DEV': {st:'ok',  sync:'Jul 1, 2026 · 06:42', from:'2021-01', tb:1, gl:1},
+  'INS-SAP-DE': {st:'ok',  sync:'Jul 1, 2026 · 06:38', from:'2023-01', tb:1, gl:1},
+  'INS-SAP-UK': {st:'ok',  sync:'Jul 1, 2026 · 06:38', from:'2021-01', tb:1, gl:1},
+  'INS-ORA-EM': {st:'warn',sync:'Jul 1, 2026 · 04:10', from:'2021-01', tb:1, gl:1,
+                 note:'Feed ran four hours ahead of the others; June is complete.'},
+  'INS-ORA-AP': {st:'ok',  sync:'Jul 1, 2026 · 06:40', from:'2022-03', tb:1, gl:1},
+  /* A BALANCE-ONLY FEED IS A REAL ONBOARDING STATE and the one that must not be hidden: the
+     legacy book delivers a trial balance and no transactions, so anything drilled to it
+     resolves a balance schedule and not journals. Saying so here is what stops a reviewer
+     expecting GL detail that does not exist. */
+  'INS-JDE-NA': {st:'ok',  sync:'Jul 1, 2026 · 05:55', from:'2021-01', tb:1, gl:0,
+                 note:'Trial balance only — this instance does not publish transaction detail.'},
+};
+const SRC_FEED_ST={ok:{l:'Connected',c:''},warn:{l:'Check feed',c:'warn'},
+  err:{l:'Not connected',c:'bad'}};
+function srcSystemRows(){
+  return ERP_INSTANCES.map(i=>{
+    const f=SRC_FEED[i.id]||{st:'err'};
+    const coas=COAS.filter(c=>c.ins===i.id);
+    const accts=SRC_ACCOUNTS.filter(a=>coas.some(c=>c.id===a.coa));
+    const ents=ORG_ENTITIES.filter(e=>e.erpInstance===i.name);
+    const ccy=[...new Set(coas.map(c=>(SRC_COA_ALL()[(SRC_ACCOUNTS.find(a=>a.coa===c.id)||{}).id]||{}).ccy)
+      .filter(Boolean))];
+    return {ins:i, sys:srcSys(i.sys), feed:f, coas, accts:accts.length,
+      /* the modelled entities are a sample; the instance's own reach is the authored figure
+         the accounts themselves carry, so the two are never added together */
+      ents:ents.length, reach:accts.length?Math.max(...accts.map(a=>a.ents||0)):0,
+      ccy:ccy.length?ccy:['USD'],
+      periods:f.from?perLabel(f.from)+' – '+perLabel(BOOK.open):'—'};
+  });
+}
 
 /* ---- MAPPING SETS AND VERSIONS. A published version is IMMUTABLE — editing one creates a
    draft successor rather than altering what a closed period was signed against. The lifecycle
@@ -31263,40 +31437,461 @@ function amapBoundary(){
     +'<span class="enr-bd-go" onclick="pickTab(\'enrich\')">Open Data Enrichment &#8594;'
     +'</span></span></div></div>';
 }
+
+/* ==========================================================================================
+   ACCOUNT MAPPING — FOUR WORKSPACES OVER ONE POPULATION (§3)
+   ==========================================================================================
+   Source systems · Source accounts · Mapping rules · Coverage & exceptions · Versions.
+   The status filters that used to be the tab row (All / Unmapped / Needs review / Conflicts /
+   Draft changes) are what they always were — a FILTER on the source account population — and
+   they sit inside Source accounts now rather than pretending to be five workspaces.
+
+   There is no second chart-of-accounts module. §3 is explicit, and it is right: the source CoA
+   is not a thing to administer on its own, it is the population this page interprets. */
+const AMAP_WS=[['sys','Source systems'],['accts','Source accounts'],
+               ['rules','Mapping rules'],['cov','Coverage & exceptions'],['ver','Versions']];
+let amapWs='accts', amapF={erp:'all',coa:'all',type:'all',active:'all'}, amapImpact=null;
+function setAmapWs(w){ amapWs=w; amapPick={}; amapSel=null; renderAcctMap(); }
+function amapSetF(k,v){ amapF[k]=v; try{KFX.popClose()}catch(e){} renderAcctMap(); }
+function amapFReset(){ amapF={erp:'all',coa:'all',type:'all',active:'all'};
+  amapView='all'; amapQ=''; renderAcctMap(); }
+
+/* ---- §1 — CONNECTED SOURCE SYSTEMS, in a controller's terms. */
+function amapSysView(){
+  const rows=srcSystemRows();
+  const gl=rows.filter(r=>r.feed.gl).length;
+  let o='<div class="card amap-card"><div class="tblwrap"><table class="tbl amap-tbl">'
+    +'<thead><tr><th>Source system</th><th>Chart(s) of accounts</th><th>Status</th>'
+    +'<th>Last sync</th><th>Periods available</th><th class="num">Entities</th>'
+    +'<th class="num">Accounts</th><th>Currencies</th><th>Data received</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const f=r.feed, st=SRC_FEED_ST[f.st]||SRC_FEED_ST.err;
+    o+='<tr><td><b>'+glEsc(r.ins.name)+'</b><div class="amap-sub">'+glEsc(r.sys.name)
+      +' · '+glEsc(r.ins.region)+'</div></td>'
+      +'<td>'+(r.coas.map(c=>glEsc(c.name)).join('<br>')||'<span class="amap-dim">—</span>')+'</td>'
+      +'<td>'+(st.c?'<span class="pill '+st.c+' sm">'+st.l+'</span>'
+        :'<span class="rcx-okst">'+st.l+'</span>')+'</td>'
+      +'<td class="mono">'+glEsc(f.sync||'—')+'</td>'
+      +'<td>'+glEsc(r.periods)+'</td>'
+      +'<td class="num">'+r.reach.toLocaleString('en-US')+'</td>'
+      +'<td class="num">'+r.accts+'</td>'
+      +'<td class="mono">'+r.ccy.join(' · ')+'</td>'
+      /* GL DETAIL AVAILABILITY IS AN ACCOUNTING FACT, not an integration detail: a balance-only
+         feed can be trial-balanced and cannot be drilled, and a reviewer must know that before
+         they click. */
+      +'<td>'+(f.gl?'Trial balance and GL detail'
+        :'<span class="amap-warn">Trial balance only</span>')
+      +(f.note?'<div class="amap-sub">'+glEsc(f.note)+'</div>':'')+'</td></tr>';
+  });
+  o+='</tbody></table></div></div>';
+  o+='<div class="rcx-hint">'+rows.length+' connected instances across '
+    +new Set(rows.map(r=>r.sys.id)).size+' ERP platforms · '+gl+' publish transaction detail. '
+    +'Korvyn reads these books; it does not write to them, and it does not edit a source '
+    +'chart of accounts.</div>';
+  return o;
+}
+
+/* ---- §4 — THE SOURCE ACCOUNTS WORKSPACE: the enterprise chart of accounts, read only, with
+   what Korvyn has decided about each row beside it and never on top of it. */
+function amapAcctRows(){
+  let rows=amapVisible();
+  if(amapF.erp!=='all') rows=rows.filter(r=>r.ins===amapF.erp);
+  if(amapF.coa!=='all') rows=rows.filter(r=>r.coa===amapF.coa);
+  if(amapF.type!=='all') rows=rows.filter(r=>(srcCoa(r.id)||{}).t===amapF.type);
+  if(amapF.active!=='all') rows=rows.filter(r=>String(!!(srcCoa(r.id)||{}).a)===amapF.active);
+  return rows;
+}
+function amapAcctsView(){
+  const s=mapStats(), rows=amapAcctRows(), picked=amapPicked();
+  const counts={all:s.rows.length,unmapped:s.unmappedSample,review:s.review,
+                conflict:s.conflicts,draftchange:s.drafts};
+  const nf=Object.keys(amapF).filter(k=>amapF[k]!=='all').length+(amapView!=='all'?1:0);
+  let o='<div class="card amap-card">'
+    +'<div class="amap-bar">'
+    +'<div class="ktabs lvl2 amap-tabs" role="tablist">'
+    +AMAP_VIEWS.map(([k,l])=>'<button class="ktab '+(amapView===k?'on':'')+'" role="tab"'
+      +' onclick="setAmapView(\''+k+'\')">'+l
+      +(counts[k]?'<span class="ct">'+counts[k]+'</span>':'')+'</button>').join('')
+    +'</div></div>'
+    +'<div class="amap-bar">'
+    +'<input class="amap-q" type="text" placeholder="Search account number, name, canonical account…"'
+      +' value="'+glEsc(amapQ)+'" oninput="amapSearch(this.value)">'
+    +['erp','coa','type','active'].map(k=>{
+        const d=amapFieldOf(k);
+        return '<button class="rcx-f sm'+(amapF[k]!=='all'?' on':'')+'" data-pop="am:'+k+'"'
+          +' onclick="KFX.pop(\'am:'+k+'\',this)"><span class="k">'+d.nm+'</span>'
+          +'<span class="v">'+glEsc(d.label())+'</span></button>';}).join('')
+    +(nf?'<button class="btn-ghost sm" onclick="amapFReset()">Clear</button>':'')
+    +'<span class="grow"></span>'
+    +'<span class="amap-ct" id="amapCount">'+rows.length+' of '+s.rows.length+'</span>'
+    +'</div>'
+    /* §9 — ENTERPRISE MAPPING CANNOT BE ONE ACCOUNT AT A TIME. */
+    +(picked.length?'<div class="amap-bulk"><span class="n">'+picked.length+' selected</span>'
+      +'<button class="btn-out sm" data-pop="am:bulkcanon"'
+      +' onclick="KFX.pop(\'am:bulkcanon\',this)">Map to canonical account…</button>'
+      +'<button class="btn-out sm" onclick="amapCopyPrior()">Copy prior period mapping</button>'
+      +'<button class="btn-out sm" onclick="amapExportSel()">Export CSV</button>'
+      +'<button class="btn-ghost sm" onclick="amapPick={};renderAcctMap()">Clear</button></div>'
+      :'<div class="amap-bulk quiet"><span class="n">Bulk mapping</span>'
+      +'<span class="amap-sub">Select accounts to map, copy a prior period’s mapping, or '
+      +'export and re-import as CSV.</span>'
+      +'<span class="grow"></span>'
+      +'<button class="btn-out sm" onclick="amapExportAll()">Export CSV</button>'
+      +'<button class="btn-out sm" onclick="amapImportNote()">Import CSV</button></div>')
+    +'<div class="tblwrap"><table class="tbl amap-tbl amap-src"><thead><tr>'
+    +'<th class="amap-ck"></th><th>Source account</th><th>ERP instance</th>'
+    +'<th>Chart of accounts</th><th>Account type</th><th class="num">Entities</th>'
+    +'<th>Canonical account</th><th>FS line</th><th>Status</th></tr></thead>'
+    +'<tbody id="amapRows">'+amapSrcRowsHTML(rows)+'</tbody></table></div></div>'
+    +'<div class="rcx-hint">The first five columns are the source system’s own record and are '
+    +'read only. Korvyn never edits an ERP chart of accounts — the canonical account and '
+    +'statement line beside them are the interpretation, versioned separately.</div>';
+  return o;
+}
+function amapSrcRowsHTML(rows){
+  if(!rows.length) return '<tr><td colspan="9"><div class="amp-empty">No source accounts '
+    +'match those filters.</div></td></tr>';
+  return rows.map(r=>{
+    const c=srcCoa(r.id)||{}, t=MAP_ST[r.st]||{l:r.st,c:''};
+    return '<tr class="row-click'+(amapSel===r.id?' on':'')+'" onclick="amapOpen(\''+r.id+'\')">'
+      +'<td class="amap-ck"><input type="checkbox"'+(amapPick[r.id]?' checked':'')
+        +' onclick="amapToggle(\''+r.id+'\',event)"></td>'
+      +'<td><b class="mono">'+glEsc(r.code)+'</b> '+glEsc(r.name)
+        +(c.a?'':'<span class="amap-tag">Inactive</span>')
+        +(c.p?'<div class="amap-sub">under '+glEsc(c.p)+'</div>':'')+'</td>'
+      +'<td>'+glEsc(erpIns(r.ins).name)+'</td>'
+      +'<td>'+glEsc(coaOf(r.coa).name)+'</td>'
+      +'<td>'+glEsc(c.t||'—')+'<div class="amap-sub">'+glEsc(c.nb||'')
+        +(c.pl?' · P&amp;L':' · balance sheet')+'</div></td>'
+      +'<td class="num">'+(r.ents||0)+'</td>'
+      +'<td>'+(r.canonName?'<span class="mono amap-dim">'
+        +glEsc((r.res.mapping||{}).canon)+'</span> '+glEsc(r.canonName)
+        :'<span class="amap-dim">—</span>')+'</td>'
+      +'<td>'+(r.fsName||'<span class="amap-dim">—</span>')+'</td>'
+      +'<td>'+(t.c?'<span class="pill '+t.c+' sm">'+t.l+'</span>'
+        :'<span class="rcx-okst">'+t.l+'</span>')+'</td></tr>';
+  }).join('');
+}
+
+/* ---- §5, §6 — MAPPING RULES. The same canonical account legitimately receives accounts from
+   several ERPs under several numbers, and the rules view is where that is READABLE: grouped by
+   what they resolve to, so "who feeds K1330" is one glance rather than a search. Korvyn never
+   forces a common account number across systems. */
+function amapRulesView(){
+  const p=viewPeriod();
+  const live=MAPPINGS.filter(m=>m.from<=p&&(!m.to||m.to>p));
+  const by={};
+  live.forEach(m=>{ (by[m.canon]=by[m.canon]||[]).push(m); });
+  const keys=Object.keys(by).sort();
+  let o='<div class="card amap-card"><div class="tblwrap">'
+    +'<table class="tbl amap-tbl"><thead><tr><th>Canonical account</th>'
+    +'<th>Source account</th><th>ERP instance</th><th>Rule scope</th>'
+    +'<th>Effective</th><th>Version</th><th>Status</th></tr></thead><tbody>';
+  keys.forEach(cid=>{
+    const c=canon(cid)||{}, ms=by[cid];
+    const multi=new Set(ms.map(m=>(srcAcct(m.src)||{}).ins)).size>1;
+    o+='<tr class="amap-grp"><td colspan="7"><b class="mono">'+glEsc(cid)+'</b> '
+      +glEsc(c.name||'')+'<span class="amap-sub">'+ms.length+' source account'
+      +(ms.length===1?'':'s')
+      +(multi?' · <b>fed by more than one ERP</b>':'')
+      +' · '+glEsc(((fsLine(ms[0].fs)||{}).name)||'')+'</span></td></tr>';
+    ms.forEach(m=>{
+      const a=srcAcct(m.src)||{};
+      o+='<tr class="row-click" onclick="amapOpen(\''+m.src+'\')"><td></td>'
+        +'<td><b class="mono">'+glEsc(a.code||'')+'</b> '+glEsc(a.name||'')+'</td>'
+        +'<td>'+glEsc(erpIns(a.ins).name)+'</td>'
+        +'<td>'+glEsc((MAP_SCOPE_TYPES[m.scopeType]||{}).l||m.scopeType)+'</td>'
+        +'<td class="mono">'+glEsc(m.from)+(m.to?' → '+glEsc(m.to):'')+'</td>'
+        +'<td class="mono">'+glEsc(m.ver)+'</td>'
+        +'<td>'+(m.status==='active'?'<span class="rcx-okst">Active</span>'
+          :'<span class="pill warn sm">'+glEsc(m.status)+'</span>')+'</td></tr>';
+    });
+  });
+  o+='</tbody></table></div></div>'
+    +'<div class="rcx-hint">'+keys.length+' canonical accounts receive '+live.length
+    +' active rules. The same canonical account may be fed by different account numbers in '
+    +'different systems — 15010 in NetSuite, 471100 in SAP Germany, 15010 again in the JD '
+    +'Edwards book — and Korvyn does not force them to agree.</div>';
+  return o;
+}
+
+/* ---- §8 — COVERAGE. "Which ERP accounts has Korvyn not interpreted yet?" answered per chart
+   of accounts, because that is the unit somebody is actually assigned to finish. */
+function amapCovView(){
+  const p=viewPeriod(), s=mapStats();
+  const rows=COAS.filter(c=>mapCoasInScope().has(c.id)).map(c=>{
+    const accts=SRC_ACCOUNTS.filter(a=>a.coa===c.id);
+    const by={mapped:0,unmapped:0,review:0,conflict:0,draftchange:0};
+    accts.forEach(a=>{ const st=mapResolve(a.id,p).status; by[st]=(by[st]||0)+1; });
+    const fresh=accts.filter(a=>a.seen===p).length;
+    return {coa:c, n:accts.length, by, fresh,
+      pct:accts.length?Math.round(by.mapped/accts.length*100):0};
+  });
+  let o='<div class="card amap-card"><div class="tblwrap"><table class="tbl amap-tbl">'
+    +'<thead><tr><th>Chart of accounts</th><th>ERP instance</th><th class="num">Accounts</th>'
+    +'<th class="num">Mapped</th><th class="num">Unmapped</th><th class="num">Conflict</th>'
+    +'<th class="num">Review</th><th class="num">New this period</th>'
+    +'<th>Interpreted</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    o+='<tr class="row-click" onclick="setAmapWs(\'accts\');amapSetF(\'coa\',\''+r.coa.id+'\')">'
+      +'<td><b>'+glEsc(r.coa.name)+'</b></td>'
+      +'<td>'+glEsc(erpIns(r.coa.ins).name)+'</td>'
+      +'<td class="num">'+r.n+'</td>'
+      +'<td class="num">'+r.by.mapped+'</td>'
+      +'<td class="num'+(r.by.unmapped?' amap-bad':'')+'">'+(r.by.unmapped||'—')+'</td>'
+      +'<td class="num'+(r.by.conflict?' amap-bad':'')+'">'+(r.by.conflict||'—')+'</td>'
+      +'<td class="num'+(r.by.review?' amap-warnc':'')+'">'+(r.by.review||'—')+'</td>'
+      +'<td class="num'+(r.fresh?' amap-warnc':'')+'">'+(r.fresh||'—')+'</td>'
+      +'<td><div class="progline"><span class="mini-bar"><i style="width:'+r.pct+'%"></i></span>'
+      +'<span class="amap-sub">'+r.pct+'%</span></div></td></tr>';
+  });
+  o+='</tbody></table></div></div>';
+  /* THE SAMPLE IS NOT THE ESTATE. The table walks the accounts Korvyn models; the estate
+     figure is authored, and the two are stated separately rather than added. */
+  o+='<div class="rcx-hint">Across the estate: '+s.total.toLocaleString('en-US')
+    +' source accounts, '+s.unmapped.toLocaleString('en-US')+' not yet interpreted — '
+    +s.coverage+'% coverage. The table above walks the accounts Korvyn models in detail; the '
+    +'estate figure is the population, and the two are never added together. '
+    +'<button class="rcx-lk2" onclick="setAmapWs(\'accts\');setAmapView(\'unmapped\')">'
+    +'Work the unmapped accounts ›</button></div>';
+  return o;
+}
+
+/* ---- §7 — VERSIONS. A published mapping version is immutable; what a later one does is
+   SUPERSEDE it, and the register is what makes "which rules governed June" answerable. */
+function amapVerView(){
+  const p=viewPeriod(), cur=mapVersionFor(p);
+  let o='<div class="card amap-card"><div class="tblwrap"><table class="tbl amap-tbl">'
+    +'<thead><tr><th>Version</th><th>Effective from</th><th class="num">Rules</th>'
+    +'<th>Owner</th><th>Published</th><th>Change reason</th><th>Status</th></tr></thead><tbody>';
+  MAP_VERSIONS.slice().sort((a,b)=>String(b.from).localeCompare(String(a.from))).forEach(v=>{
+    const n=MAPPINGS.filter(m=>m.ver===v.id).length;
+    const govern=v.id===cur.id;
+    const st=MAP_STATES[v.status]||{l:v.status,c:''};
+    o+='<tr'+(govern?' class="amap-grp"':'')+'>'
+      +'<td><b class="mono">'+glEsc(v.v)+'</b>'
+      +(govern?'<span class="amap-tag on">Governs '+perLabel(p)+'</span>':'')
+      +'<div class="amap-sub mono">'+glEsc(v.id)+'</div></td>'
+      +'<td class="mono">'+glEsc(v.from)+'</td>'
+      +'<td class="num">'+n+'</td>'
+      +'<td>'+glEsc(v.by||'—')+'</td>'
+      /* A DRAFT HAS NO PUBLICATION INSTANT, and saying so is the point: it is what makes the
+         difference between a rule somebody is writing and a rule that governs a statement. */
+      +'<td>'+(v.at?glEsc(v.at):'<span class="amap-dim">not published</span>')+'</td>'
+      +'<td>'+glEsc(v.note||'—')+'</td>'
+      +'<td>'+(st.c?'<span class="pill '+st.c+' sm">'+st.l+'</span>'
+        :'<span class="rcx-okst">'+st.l+'</span>')+'</td></tr>';
+  });
+  o+='</tbody></table></div></div>'
+    +'<div class="rcx-hint">A published version is immutable. A later version supersedes it; '
+    +'the earlier one is kept exactly as published, because a June statement has to stay '
+    +'explainable by the rules that were in force in June.</div>';
+  return o;
+}
+
+/* ---- §10 — IMPACT PREVIEW. A mapping change is not a configuration edit; it moves reported
+   balances, so what it moves is stated BEFORE it is approved. Every figure is measured off the
+   governed objects rather than estimated: the accounts are the selection, the entities and the
+   balance come from the accounts' own governed balances, the statement lines and
+   reconciliations from where those accounts currently resolve, and the workpapers from the
+   published Excel artifacts that cite them. */
+function amapImpactOf(ids,targetCanon){
+  const p=viewPeriod(), accts=ids.map(id=>srcAcct(id)).filter(Boolean);
+  const lines=new Set(), recs=new Set(), inst=new Set();
+  let bal=0, ents=0;
+  accts.forEach(a=>{
+    const r=mapResolve(a.id,p), m=r.mapping;
+    if(m){ lines.add(m.fs); if(m.rec) recs.add(m.rec); }
+    inst.add(a.ins);
+    ents=Math.max(ents,a.ents||0);
+    if(m) bal+=rcAcctBalance(a.id,m.fs,p);
+  });
+  /* the line the change would move them TO is affected as much as the one it moves them from */
+  if(targetCanon){ const t=MAPPINGS.find(m=>m.canon===targetCanon);
+    if(t) lines.add(t.fs); }
+  const defs=(typeof RECON_DEFS!=='undefined')
+    ? RECON_DEFS.filter(d=>lines.has(d.financialLineId)) : [];
+  let wps=0;
+  try{ wps=(XL_ARTIFACTS||[]).filter(x=>x.status!=='SUPERSEDED').length; }catch(e){}
+  return {accounts:accts.length, entities:ents, balance:+bal.toFixed(3),
+    lines:[...lines], recs:defs.map(d=>d.reconciliationDefinitionId), instances:inst.size,
+    workpapers:wps, periodId:p};
+}
+function amapImpactOpen(ids,canon){ amapImpact={ids:ids.slice(), canon:canon||null};
+  renderAcctMap(); }
+function amapImpactClose(){ amapImpact=null; renderAcctMap(); }
+function amapImpactApprove(){
+  const i=amapImpact; if(!i) return;
+  amapImpact=null; amapPick={};
+  /* NOTHING IS POSTED AND NO GOVERNED FIGURE MOVES. Publishing a mapping version is a governed
+     act this increment models the SHAPE of; the seeded book's versions are authored history and
+     the prototype does not rewrite them. The confirmation says exactly that rather than
+     implying an approval happened. */
+  amapToast='Mapping change prepared for '+perLabel(viewPeriod())
+    +'. Publishing a version is a governed act — it is recorded here as the shape of the '
+    +'workflow, and no seeded version, balance or statement was altered.';
+  renderAcctMap();
+}
+let amapToast='';
+function amapImpactPane(){
+  const i=amapImpact; if(!i) return '';
+  const im=amapImpactOf(i.ids,i.canon);
+  const row=(k,v)=>'<div class="amp-r"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';
+  const c=i.canon?canon(i.canon):null;
+  return '<aside class="amap-panel" id="amapImpact"><div class="amp-hd">'
+    +'<div class="amp-id"><b>Impact preview</b></div>'
+    +'<button class="rw-ib" title="Close" onclick="amapImpactClose()">'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round"/></svg></button></div>'
+    +'<div class="amp-body">'
+    +'<div class="amp-sec">This change affects</div>'
+    +row('Source accounts',im.accounts+'')
+    +row('ERP instances',im.instances+'')
+    +row('Entities','up to '+im.entities.toLocaleString('en-US'))
+    +row(perLabel(im.periodId)+' balance',rcM(im.balance))
+    +row('Financial statement lines',im.lines.length
+      ? im.lines.map(x=>(fsLine(x)||{}).name||x).join(', ') : '<span class="amap-dim">none</span>')
+    +row('Reconciliations',im.recs.length
+      ? im.recs.length+' — '+im.recs.slice(0,3).map(glEsc).join(', ')
+        +(im.recs.length>3?'…':'') : '<span class="amap-dim">none</span>')
+    +row('Connected workpapers',im.workpapers
+      ? im.workpapers+' published Excel workpaper'+(im.workpapers===1?'':'s')+' cite these lines'
+      : '<span class="amap-dim">none</span>')
+    +(c?'<div class="amp-sec">Target</div>'
+      +row('Canonical account','<span class="mono">'+glEsc(c.code)+'</span> '+glEsc(c.name))
+      +row('Financial statement line',(()=>{const t=MAPPINGS.find(m=>m.canon===i.canon);
+        return t?((fsLine(t.fs)||{}).name||'—'):'—';})()):'')
+    +'<div class="rcx-why warn"><b>A mapping change moves reported balances.</b> Every '
+    +'statement, flux explanation, reconciliation and published workpaper that reads these '
+    +'lines will resolve the new interpretation from '+perLabel(im.periodId)+' onward. '
+    +'Earlier periods keep the version that governed them.</div>'
+    +'<div class="amp-acts"><button class="btn-primary sm" onclick="amapImpactApprove()">'
+    +'Approve and publish mapping</button>'
+    +'<button class="btn-out sm" onclick="amapImpactClose()">Cancel</button></div>'
+    +'</div></aside>';
+}
+
+/* ---- §9 — BULK. Selection, a rule, a prior period, or CSV in and out. */
+function amapBulkTargets(){
+  return CANON.map(c=>({id:c.id,nm:c.code+' · '+c.name,
+    sub:(fsLine((MAPPINGS.find(m=>m.canon===c.id)||{}).fs)||{}).name||''}));
+}
+function amapBulkPick(canonId){
+  try{KFX.popClose()}catch(e){}
+  amapImpactOpen(amapPicked(),canonId);
+}
+function amapCopyPrior(){
+  const p=viewPeriod(), prev=perAdd(p,-1), ids=amapPicked();
+  const same=ids.filter(id=>{
+    const a=mapResolve(id,prev).mapping, b=mapResolve(id,p).mapping;
+    return a&&(!b||a.canon!==b.canon);});
+  amapToast=same.length
+    ? same.length+' of '+ids.length+' selected accounts resolved differently in '
+      +perLabel(prev)+'. Copying a prior period’s mapping is a governed change and opens the '
+      +'impact preview.'
+    : 'All '+ids.length+' selected accounts already resolve exactly as they did in '
+      +perLabel(prev)+' — there is nothing to copy.';
+  if(same.length) return amapImpactOpen(same,null);
+  renderAcctMap();
+}
+const AMAP_CSV_COLS=[
+  ['ERP',            r=>srcSys(r.sys).name],
+  ['ERP instance',   r=>erpIns(r.ins).name],
+  ['Chart of accounts',r=>coaOf(r.coa).name],
+  ['Source account', r=>r.code],
+  ['Source account name',r=>r.name],
+  ['Source account type',r=>(srcCoa(r.id)||{}).t||''],
+  ['Normal balance', r=>(srcCoa(r.id)||{}).nb||''],
+  ['Parent account', r=>(srcCoa(r.id)||{}).p||''],
+  ['Active',         r=>(srcCoa(r.id)||{}).a?'Yes':'No'],
+  ['Entities',       r=>r.ents||0],
+  ['Canonical account',r=>(r.res.mapping||{}).canon||''],
+  ['Canonical name', r=>r.canonName||''],
+  ['Financial statement line',r=>r.fsName||''],
+  ['Reconciliation group',r=>r.recName||''],
+  ['Mapping status', r=>(MAP_ST[r.st]||{}).l||r.st],
+  ['Mapping version',r=>(r.res.mapping||{}).ver||''],
+];
+function amapCsv(rows,base){
+  const p=viewPeriod();
+  const man={exportId:'MAP-'+p+'-'+(++_amapExpSeq), periodId:p, periodLabel:perLabel(p),
+    scopeName:ENTCTX.scope.name, mappingVersion:mapVersionFor(p).v,
+    rowCount:rows.length, estateAccounts:SRC_TOTAL,
+    note:'Source columns are the ERP record and are read only. Edit only the canonical '
+      +'account column and re-import.',
+    exportedBy:((typeof USER_NAME!=='undefined'&&USER_NAME)||'Mitra Giri')+', '+USER_ROLE,
+    exportedAt:periodStamp()};
+  const esc=s=>{s=String(s==null?'':s).replace(/\s+/g,' ').trim();
+    return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const nl=String.fromCharCode(13)+String.fromCharCode(10);
+  const body=rows.map(r=>AMAP_CSV_COLS.map(c=>esc(c[1](r))).join(','));
+  const txt=['Korvyn account mapping export'].concat(
+    Object.keys(man).map(k=>esc(k)+','+esc(man[k])),[''],
+    [AMAP_CSV_COLS.map(c=>esc(c[0])).join(',')],body).join(nl);
+  rcDownload(txt,'text/csv;charset=utf-8',base+'.csv');
+  amapToast=rows.length+' source accounts exported with the current mapping and a manifest.';
+  renderAcctMap();
+}
+let _amapExpSeq=0;
+function amapExportAll(){ amapCsv(amapAcctRows(),'account-mapping-'+viewPeriod()); }
+function amapExportSel(){ const ids=amapPicked();
+  amapCsv(mapRows().filter(r=>ids.indexOf(r.id)>=0),'account-mapping-selection'); }
+function amapImportNote(){
+  amapToast='Re-import returns the same file with the canonical account column edited. '
+    +'Korvyn matches on ERP instance, chart of accounts and source account number — never on '
+    +'the account number alone, because the same number means different things in different '
+    +'books. Every imported change goes through the impact preview before it is published.';
+  renderAcctMap();
+}
+/* the page's own filters, through the one descriptor shape and the one popover system */
+function amapFieldOf(k){
+  const L=id=>({erp:()=>amapF.erp==='all'?'All':erpIns(amapF.erp).name,
+    coa:()=>amapF.coa==='all'?'All':coaOf(amapF.coa).name,
+    type:()=>amapF.type==='all'?'All':amapF.type,
+    active:()=>amapF.active==='all'?'All':(amapF.active==='true'?'Active':'Inactive')})[id]();
+  const base={erp:{nm:'ERP instance',opts:()=>[{id:'all',nm:'All'}].concat(
+      ERP_INSTANCES.map(i=>({id:i.id,nm:i.name,sub:srcSys(i.sys).name})))},
+    coa:{nm:'Chart of accounts',opts:()=>[{id:'all',nm:'All'}].concat(
+      COAS.map(c=>({id:c.id,nm:c.name,sub:erpIns(c.ins).name})))},
+    type:{nm:'Account type',opts:()=>[{id:'all',nm:'All'}].concat(
+      [...new Set(SRC_ACCOUNTS.map(a=>(srcCoa(a.id)||{}).t).filter(Boolean))].sort()
+        .map(t=>({id:t,nm:t})))},
+    active:{nm:'Active',opts:()=>[{id:'all',nm:'All'},{id:'true',nm:'Active'},
+      {id:'false',nm:'Inactive'}]}}[k];
+  if(!base) return null;
+  return {nm:base.nm, label:()=>L(k), get:()=>amapF[k], opts:base.opts,
+    set:v=>amapSetF(k,v)};
+}
+function amapField(k){
+  if(k==='bulkcanon') return {nm:'Map to canonical account', get:()=>null,
+    opts:amapBulkTargets, set:amapBulkPick};
+  return amapFieldOf(k);
+}
+
+/* ---- THE PAGE. One header, one workspace strip, the workspace, and the one docked panel. */
 function renderAcctMap(){
   const el=$('view-acctmap'); if(!el)return;
   glSurface(el);
-  const s=mapStats();
-  const counts={all:s.rows.length,unmapped:s.unmappedSample,review:s.review,
-                conflict:s.conflicts,draftchange:s.drafts};
-  const tabs=AMAP_VIEWS.map(([k,l])=>`<button class="ktab ${amapView===k?'on':''}" role="tab"
-      aria-selected="${amapView===k?'true':'false'}" onclick="setAmapView('${k}')">${l}${
-      counts[k]?`<span class="ct">${counts[k]}</span>`:''}</button>`).join('');
-  const picked=amapPicked();
   let o=glHead('Account Mapping',
-    'Govern source accounts into Korvyn&#8217;s enterprise financial model',glExport);
+    glCtx(['Source accounts interpreted into Korvyn&#8217;s enterprise financial model']),'');
   o+=amapBoundary();
   o+=amapStrip();
-  o+=`<div class="card amap-card">
-    <div class="ktabs lvl2 amap-tabs" role="tablist">${tabs}</div>
-    <div class="amap-bar">
-      <input class="amap-q" type="text" placeholder="Search account number, name, canonical account, CoA&#8230;"
-        value="${glEsc(amapQ)}" oninput="amapSearch(this.value)">
-      <span class="grow"></span>
-      <span class="amap-ct" id="amapCount">${amapVisible().length} of ${s.rows.length}</span>
-    </div>
-    ${picked.length?`<div class="amap-bulk">
-      <span class="n">${picked.length} selected</span>
-      <button class="btn-out sm" onclick="amapBulk()">Map to canonical account&#8230;</button>
-      <button class="btn-ghost sm" onclick="amapPick={};renderAcctMap()">Clear</button>
-    </div>`:''}
-    <div class="tblwrap"><table class="tbl amap-tbl">
-      <thead><tr><th class="amap-ck"></th><th>Source account</th><th>Source &#183; CoA</th>
-        <th>Canonical account</th><th>FS line</th><th>Flux group</th><th>Rec group</th><th>Status</th></tr></thead>
-      <tbody id="amapRows">${amapRowsHTML()}</tbody></table></div>
-  </div>`;
-  el.innerHTML=o+amapPanel();
-  document.body.classList.toggle('amap-open',!!amapSel); if(typeof dockFit==='function')dockFit();
+  o+='<div class="fsx-bar amap-ws"><div class="fsx-pick ktabs lvl2" role="tablist">'
+    +AMAP_WS.map(w=>'<button class="ktab'+(amapWs===w[0]?' on':'')+'" role="tab"'
+      +' onclick="setAmapWs(\''+w[0]+'\')">'+w[1]+'</button>').join('')
+    +'</div><span class="grow"></span>'
+    +'<span class="fsx-asof">'+perLabel(viewPeriod())+' · mapping v'
+    +glEsc(mapVersionFor(viewPeriod()).v)+'</span></div>';
+  if(amapToast) o+='<div class="amap-toast">'+glEsc(amapToast)
+    +'<button class="rcx-lk2" onclick="amapToast=\'\';renderAcctMap()">Dismiss</button></div>';
+  o+=amapWs==='sys'?amapSysView()
+    :amapWs==='rules'?amapRulesView()
+    :amapWs==='cov'?amapCovView()
+    :amapWs==='ver'?amapVerView()
+    :amapAcctsView();
+  el.innerHTML=o+(amapImpact?amapImpactPane():amapPanel());
+  document.body.classList.toggle('amap-open',!!(amapSel||amapImpact));
+  if(typeof dockFit==='function')dockFit();
 }
 
 /* ---- THE DETAIL PANEL. A docked right-side workspace in the product's existing idiom, not a
@@ -31444,7 +32039,11 @@ function amapDiscard(srcId){ MAP_DRAFTS=MAP_DRAFTS.filter(d=>d.src!==srcId); ren
 /* BULK. Enterprise users do not map thousands of accounts one at a time; this demonstrates the
    shape without an advanced transformation tool. Each selection becomes its own draft change,
    so the audit trail is per account rather than one opaque batch. */
-function amapBulk(){
+/* SUPERSEDED by the bulk picker + impact preview (2026-09-12): a change that moves
+   reported balances is not applied from a button with a hard-coded target and no
+   statement of what it moves. Kept as the draft model's writer, reached through
+   amapBulkPick() -> amapImpactOpen() -> approve. */
+function amapBulkApply(){
   const ids=amapPicked(); if(!ids.length) return;
   const nv=mapDraftVersion();
   ids.forEach(id=>{ const cur=mapResolve(id).mapping;
@@ -53938,6 +54537,8 @@ function RCFIELD(k){
   /* Trial Balance declares its own filters through the same descriptor shape, so that page
      gets no dropdown of its own either. */
   const tb=(typeof tbxField==='function')?tbxField(k):null; if(tb) return tb;
+  /* Account Mapping's own filters and its bulk target picker, same shape again. */
+  const am=(typeof amapField==='function')?amapField(k):null; if(am) return am;
   /* R2 adds the Activity canvas's filters, its composition dimension and its download menu
      through the SAME descriptor shape, so that surface gets no dropdown of its own. */
   const r2=(typeof rcR2Field==='function')?rcR2Field(k):null; if(r2) return r2;
@@ -64552,9 +65153,12 @@ function renderFinRep(){
      ERP / source GL -> governed ledger detail -> TRIAL BALANCE -> Financials
      -> Flux Review / Trending -> Reconciliations -> Reporting / Audit                        */
 
-const TBX_VIEWS=[['cons','Consolidated'],['ent','By entity'],['acct','By account'],
+/* §13 — THE TRIAL BALANCE LEADS AND IS ACCOUNT-DRIVEN. The statement roll-up is a READING
+   of it, not the thing itself, so it is a view beside the others rather than the default the
+   page opens on. */
+const TBX_VIEWS=[['tb','Trial balance'],['ent','By entity'],['line','By statement line'],
                  ['grp','By account group'],['exc','Exceptions']];
-let tbxView='cons', tbxSel=null, tbxOpen={}, tbxEntOpen={}, tbxQ='', tbxMapF='all',
+let tbxView='tb', tbxSel=null, tbxOpen={}, tbxEntOpen={}, tbxQ='', tbxMapF='all',
     tbxTab='move', tbxGL=null, tbxGLPage=0, tbxGLQ='', tbxGLMore=false, tbxGLFrom=null,
     tbxDeepOpen=false;
 const TBX_PAGE=50;
@@ -65069,12 +65673,13 @@ function renderTB(){
     +' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
     +'</div>';
 
+  o+=tbxCloseBanner(k);
   o+=tbxStrip(k);
   o+=tbxControls(k);
   o+='<div class="card rcx-card fsx-card"><div class="rcx-wrap">'
-    +(tbxView==='cons'?tbxConsTable(k)
+    +(tbxView==='tb'?tbxTbTable(k)
      :tbxView==='ent'?tbxEntTable(k)
-     :tbxView==='acct'?tbxAcctTable(k)
+     :tbxView==='line'?tbxConsTable(k)
      :tbxView==='grp'?tbxGrpTable(k)
      :tbxExcTable(k))
     +'</div></div>';
@@ -65086,9 +65691,180 @@ function renderTB(){
   if(typeof dockFit==='function') dockFit();
 }
 
+/* §12, §16 — CLOSE CONTEXT IS NOT REPORTING CONTEXT. The Accounting trial balance is the
+   trial balance FOR THE ACTIVE CLOSE; it is not a period anyone picks casually here. Reading a
+   closed period is reading history, and the page says so rather than presenting history as the
+   close. Flexible multi-period TB reporting is Reporting Context and belongs to Report Builder,
+   which this pass does not start. */
+function tbxCloseBanner(k){
+  const open=tbxClosePeriod();
+  if(k===open) return '<div class="tbx-close"><b>Close period · '+perLabel(open)+'</b>'
+    +'<span>The trial balance for the active close. Multi-period and custom-range reporting '
+    +'is a reporting context, not this page.</span></div>';
+  return '<div class="tbx-close hist"><b>Reading '+perLabel(k)+' · history</b>'
+    +'<span>The enterprise is working in '+perLabel(open)+'. A closed period reads rather '
+    +'than works.</span>'
+    +'<button class="rcx-lk2" onclick="setPeriod(\''+open+'\')">Return to the close period '
+    +'\u203a</button></div>';
+}
+
 /* ---- ONE COMPACT STATUS LINE, not a row of KPI cards (§21). It states where the trial
    balance stands and every count is a route, so reading the position and working it are the
    same gesture. */
+/* ==========================================================================================
+   §11-§15 — THE TRIAL BALANCE IS ACCOUNT-DRIVEN, AND MAPPING INTERPRETS IT
+   ==========================================================================================
+   CORRECTION of the 2026-09-12 phase-1 build, at the owner's direction. That version made the
+   financial statement LINE the row and beginning/activity/adjustment/ending the columns, which
+   said two things that are not true:
+
+     - that mapping CREATES the trial balance. It does not. The ERP does. A trial balance is
+       SOURCE GL ACCOUNT x ENTITY x PERIOD x CURRENCY and it exists before Korvyn has
+       interpreted a single account; mapping decides which statement line it lands on, not
+       whether it exists. An unmapped account belongs ON the TB, not beside it.
+     - that the TB is a roll-forward. It is not. It is a position. The movement bridge is a
+       reading OF that position and now sits behind the amount (§15), where it was always the
+       right answer to a different question.
+
+   The movement bridge, the component decomposition and the GL drill are all unchanged and all
+   still reachable — what changed is that they no longer pretend to be the trial balance. */
+
+/* ---- §14 — A BALANCE SHEET ACCOUNT AND A P&L ACCOUNT MEAN DIFFERENT THINGS BY "JUN 2026".
+   The balance sheet account carries its ENDING BALANCE at Jun 30. The P&L account carries the
+   PERIOD ACTIVITY for June. Treating a P&L account as a cumulative balance is the error this
+   guard exists to prevent, and the statement side is read from the SOURCE's own account type
+   (`srcIsPL`) rather than from Korvyn's canonical account — because an unmapped account must
+   still be typed, and because the ERP's convention is the fact here.
+
+   The governed engine already returns a P&L line as its period amount (FS-BREV reads 386.0 for
+   June against 383.9 for May, not a year-to-date figure), so no derivation is needed to get
+   monthly activity out of a cumulative feed. WHERE A SOURCE ERP DELIVERS YTD P&L, the monthly
+   activity has to be derived deterministically and the source convention preserved with its
+   lineage; no instance in this book does, and nothing here pretends otherwise. */
+const TBX_BASIS={
+  bs:{l:'Balance', d:'ending balance', when:k=>'as of '+perEnd(k)},
+  pl:{l:'Activity', d:'period activity', when:k=>perLabel(k)+' movement'},
+};
+function tbxAcctAmount(srcId,lineId,k){
+  const srcPl=srcIsPL(srcId);
+  /* UNMAPPED: the source type is the only guide there is, and it is enough. */
+  if(!lineId) return {amt:0, srcPl, pl:srcPl, basis:srcPl?'pl':'bs',
+    modelled:false, capitalised:false};
+  /* MAPPED: THE BASIS FOLLOWS THE LINE THE BALANCE IS REPORTED ON, not the source type.
+     They usually agree, and where they do not the disagreement is the accounting rather than
+     a fault: NetSuite books 78420 Owner Furnished Equipment to an EXPENSE account and Korvyn's
+     mapping capitalises it into Construction in Progress, which is the CIP determination this
+     product exists for. The figure is then a BALANCE, and labelling it "period activity"
+     because of the account's source type would misstate what the reader is looking at. The
+     row says both: the ERP's own type, and that the mapping capitalises it. */
+  const pl=fsStmtOf(lineId)==='is';
+  return {amt:+rcAcctBalance(srcId,lineId,k).toFixed(3), srcPl, pl,
+    basis:pl?'pl':'bs', modelled:true, capitalised:srcPl&&!pl, expensed:!srcPl&&pl};
+}
+/* §13 — the two sides a trial balance is printed in. Which column an amount lands in is
+   decided by the SOURCE account's normal balance, which is why that field is preserved. */
+function tbxDrCr(amt,srcId){
+  const nb=(srcCoa(srcId)||{}).nb||'debit';
+  const debitSide=(nb==='debit')===(amt>=0);
+  return {dr:debitSide?Math.abs(amt):null, cr:debitSide?null:Math.abs(amt), nb};
+}
+
+/* ---- THE TRIAL BALANCE ITSELF: one row per source account. */
+function tbxTbRows(k){
+  const p=k||tbxClosePeriod(), out=[];
+  const inScope=(typeof mapCoasInScope==='function')?mapCoasInScope():null;
+  SRC_ACCOUNTS.forEach(a=>{
+    if(inScope&&!inScope.has(a.coa)) return;
+    const r=mapResolve(a.id,p), m=r.mapping;
+    const lineId=m?m.fs:null;
+    const v=tbxAcctAmount(a.id,lineId,p);
+    const dc=tbxDrCr(v.amt,a.id);
+    const c=srcCoa(a.id)||{};
+    out.push({acct:a, src:c, res:r, st:r.status, lineId,
+      lineName:lineId?(fsLine(lineId)||{}).name:null,
+      groupName:lineId?((fsLine((fsLine(lineId)||{}).parent)||{}).name||null):null,
+      canonId:m?m.canon:null, canonName:m?(canon(m.canon)||{}).name:null,
+      recName:m?taxName('rec',m.rec):null,
+      amt:v.amt, basis:v.basis, pl:v.pl, srcPl:v.srcPl, modelled:v.modelled,
+      capitalised:v.capitalised, expensed:v.expensed,
+      dr:dc.dr, cr:dc.cr, ents:a.ents||0, ccy:c.ccy||'USD'});
+  });
+  return out;
+}
+/* §12, §16 — THE ACCOUNTING TRIAL BALANCE IS THE TRIAL BALANCE FOR THE ACTIVE CLOSE.
+   It is NOT a period a user picks casually on this page. `BOOK.open` is the one period the
+   enterprise is working in; `VIEW.period` is what somebody is LOOKING at, and looking back at
+   a closed period is reading history rather than working. When the two differ the page says
+   so, rather than quietly presenting history as the close.
+
+   Flexible multi-period TB reporting is REPORTING CONTEXT and belongs to Report Builder, which
+   this pass deliberately does not start. Changing what you are reading must never move the
+   close. */
+function tbxClosePeriod(){ return (typeof BOOK!=='undefined'&&BOOK.open)?BOOK.open:viewPeriod(); }
+function tbxIsClose(){ return viewPeriod()===tbxClosePeriod(); }
+
+function tbxTbTable(k){
+  let rows=tbxTbRows(k);
+  const q=(tbxQ||'').trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.acct.code,r.acct.name,r.canonName,r.lineName,
+    erpIns(r.acct.ins).name,r.src.t].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(tbxMapF!=='all') rows=rows.filter(r=>r.st===tbxMapF);
+  rows.sort((a,b)=>String(a.acct.coa).localeCompare(String(b.acct.coa))
+    ||String(a.acct.code).localeCompare(String(b.acct.code)));
+  const dr=+rows.reduce((s,r)=>s+(r.dr||0),0).toFixed(3);
+  const cr=+rows.reduce((s,r)=>s+(r.cr||0),0).toFixed(3);
+  let h='<table class="rcx-tbl tbx-tbl tbx-tb"><thead><tr>'
+    +'<th class="rcx-nm">Source account</th><th>ERP instance</th><th>Account type</th>'
+    +'<th class="num">Entities</th>'
+    +tbxHd('Debit',perLabel(k))+tbxHd('Credit',perLabel(k))+tbxHd('Net',perLabel(k))
+    +'<th>Reporting ccy</th>'
+    +'<th class="tbx-kv">Canonical account</th><th class="tbx-kv">Account group</th>'
+    +'<th class="tbx-kv">Financial statement line</th><th class="tbx-kv">Mapping</th>'
+    +'<th></th></tr></thead><tbody>';
+  let coa=null;
+  rows.forEach(r=>{
+    if(r.acct.coa!==coa){ coa=r.acct.coa;
+      h+='<tr class="rcx-r tbx-sec d1"><td class="rcx-nm" colspan="4"><span class="tbx-nm">'
+        +'<span class="t">'+glEsc(coaOf(coa).name)+'</span>'
+        +'<span class="tbx-n">'+glEsc(erpIns(coaOf(coa).ins).name)+'</span></span></td>'
+        +'<td colspan="9"></td></tr>'; }
+    const sel=tbxSel===r.acct.id;
+    h+='<tr class="rcx-r tbx-line'+(sel?' on':'')+'" onclick="tbxPickAcct(\''+r.acct.id+'\')">'
+      +'<td class="rcx-nm"><span class="tbx-nm"><span class="t"><b class="mono">'
+        +glEsc(r.acct.code)+'</b> '+glEsc(r.acct.name)
+        +(r.src.a?'':'<span class="amap-tag">Inactive</span>')+'</span></span></td>'
+      +'<td class="tbx-ty">'+glEsc(erpIns(r.acct.ins).name)
+        +'<span class="tbx-sub">books in '+glEsc(r.ccy)+'</span></td>'
+      +'<td class="tbx-ty">'+glEsc(r.src.t||'—')
+        +'<span class="tbx-sub">'+(r.pl?'P&amp;L · period activity':'balance sheet · ending balance')
+        /* the one case worth a word on the row: the ERP types it one way and the approved
+           mapping reports it the other, which is a capitalisation decision, not a defect */
+        +(r.capitalised?' · <b>capitalised by mapping</b>'
+         :r.expensed?' · <b>expensed by mapping</b>':'')+'</span></td>'
+      +'<td class="num tbx-n2">'+r.ents+'</td>'
+      +'<td class="num">'+(r.dr?rcM(r.dr):'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      +'<td class="num">'+(r.cr?rcM(r.cr):'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      /* §15 — THE AMOUNT OPENS THE MOVEMENT BRIDGE; it is not itself a movement. */
+      +'<td class="num tbx-end'+(r.modelled?' tbx-drill':'')+'"'
+        +(r.modelled?' onclick="event.stopPropagation();tbxPickAcct(\''+r.acct.id
+          +'\');setTbxTab(\'move\')" title="View movement"':'')
+        +'>'+rcM(r.amt)+'</td>'
+      +'<td class="mono tbx-ccy">'+glEsc(rcLens().presentationCurrency)+'</td>'
+      +'<td class="tbx-kv">'+(r.canonId?'<span class="mono">'+glEsc(r.canonId)+'</span> '
+        +glEsc(r.canonName||''):'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      +'<td class="tbx-kv">'+(r.groupName||'<span class="rcx-nil">&mdash;</span>')+'</td>'
+      +'<td class="tbx-kv">'+(r.lineName||'<span class="rcx-nil">not in any line</span>')+'</td>'
+      +'<td class="tbx-kv">'+tbxSt(r.st)+'</td>'
+      +'<td class="tbx-go"><button class="rcx-lk2 tbx-rowact" onclick="event.stopPropagation();'
+        +(r.modelled?'tbxOpenGL(\''+r.lineId+'\',\''+r.acct.id+'\')">GL detail ›'
+          :'tbxGoMapping(\''+r.acct.id+'\')">Map account ›')+'</button></td></tr>';
+  });
+  h+='</tbody><tfoot><tr><td class="rcx-nm">'+rows.length+' source accounts</td>'
+    +'<td colspan="3"></td><td class="num">'+rcM(dr)+'</td><td class="num">'+rcM(cr)+'</td>'
+    +'<td class="num">'+(Math.abs(dr-cr)<0.0015?'<span class="rcx-okst">Dr = Cr</span>'
+      :rcM(+(dr-cr).toFixed(3)))+'</td><td colspan="6"></td></tr></tfoot></table>';
+  return h;
+}
 function tbxStrip(k){
   const t=fsTieOut(k), st=mapStats(k), exc=tbxExceptions(k);
   const a=fsAmount('FS-A',k), l=fsAmount('FS-L',k), e=fsAmount('FS-E',k);
@@ -65108,19 +65884,20 @@ function tbxStrip(k){
 }
 
 function tbxControls(k){
-  const showQ=tbxView==='acct'||tbxView==='exc';
+  const showQ=tbxView==='tb'||tbxView==='exc';
   const nf=tbxMapF!=='all'?1:0;
   return '<div class="rcx-ctl tbx-ctl">'
     +'<span class="tbx-hint">'+(
-      tbxView==='cons'?'Every governed balance, its movement and the mapping behind it.'
+      tbxView==='tb'?'Every source GL account in the close, as the ERP reports it, with '
+       +'Korvyn’s interpretation beside it.'
      :tbxView==='ent'?'The reporting hierarchy, drilled a level at a time.'
-     :tbxView==='acct'?'The source accounts Korvyn models — a sample of the estate.'
+     :tbxView==='line'?'The same balances rolled to the statement lines the mapping puts them on.'
      :tbxView==='grp'?'Balances rolled to the account group the mapping puts them in.'
      :'What is wrong with the population, ranked by the balance at stake.')+'</span>'
     +'<span class="grow"></span>'
     +(showQ?'<input class="rcx-q" type="search" placeholder="Search accounts…" value="'
       +glEsc(tbxQ)+'" oninput="tbxSearch(this.value)">':'')
-    +(tbxView==='acct'?'<button class="rcx-f sm'+(nf?' on':'')+'" data-pop="tb:mapst"'
+    +(tbxView==='tb'?'<button class="rcx-f sm'+(nf?' on':'')+'" data-pop="tb:mapst"'
       +' onclick="KFX.pop(\'tb:mapst\',this)"><span class="k">Mapping</span><span class="v">'
       +(tbxMapF==='all'?'All':(TBX_MAPST[tbxMapF]||{}).l)+'</span></button>':'')
     +'<button class="btn-out sm" onclick="tbxExport(\'xls\')">Download Excel</button>'
