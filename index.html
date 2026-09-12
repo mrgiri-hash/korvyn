@@ -1838,56 +1838,69 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
   line-height:var(--lh)}
 .glx-attr .s.w{color:var(--warning)}
 /* ==========================================================================================
-   .ktbl — THE ENTERPRISE TABLE BEHAVIOUR, ONCE (2026-09-12, brief §1)
+   .ktbl — ONE PAGE SCROLL (2026-09-12, revised the same day)
    ==========================================================================================
-   Reported: on a long wide table you had to scroll to the BOTTOM of the rows to reach the
-   horizontal scrollbar, then scroll back up to read the header you had just moved. That is not
-   a styling nit — on a 900-row governed ledger it makes the right-hand columns effectively
-   unreachable.
+   SUPERSEDES the bounded-scroller version committed hours earlier. That one capped the wrapper
+   at the viewport, so its own horizontal scrollbar was reachable and its header stuck to the
+   top of the same box — one element, both problems. It solved the reported fault by creating
+   the one the owner then ruled out: a primary enterprise work surface must NOT have a nested
+   vertical scrollbar. THE PAGE OWNS VERTICAL SCROLLING.
 
-   THE FIX IS TO BOUND THE SCROLLER, NOT TO SYNTHESISE A SCROLLBAR. A wrapper capped at the
-   viewport owns both axes: its own horizontal scrollbar sits at the bottom of the WRAPPER,
-   which is on screen, and the header sticks to the top of the same box. One element, both
-   problems, no second scrollbar to keep in step with the first — the synthetic-scrollbar
-   approach drifts the moment anything resizes.
+   That makes the header a real problem rather than a declaration. A box with overflow-x:auto IS
+   a scrollport — setting overflow-y:visible does not opt out, because when either axis is not
+   visible the other computes to auto — and CSS resolves position:sticky against the nearest
+   scrollport. So a header inside the wrapper can only stick to the WRAPPER, which no longer
+   scrolls vertically and therefore just leaves the screen with the page. The alternative, no
+   horizontal container at all, scrolls the whole page sideways. Neither is usable.
 
-   --ktbl-top is what the page chrome above the table costs; a page with more chrome passes a
-   bigger one rather than each table guessing. */
-:root{--ktbl-min:280px; --ktbl-gap:16px}
-.ktbl{overflow:auto;max-height:max(var(--ktbl-min),calc(100vh - var(--ktbl-top,300px)));
-  overscroll-behavior-x:contain}
+   SO THE HEADER FLOATS AND THE HORIZONTAL SCROLLBAR IS A SECOND, SYNCHRONISED CONTROL.
+   ktblSync() offsets the thead by however far the table has travelled under the page chrome,
+   and maintains a sticky bar pinned to the foot of the viewport whose scrollLeft and the
+   table's are one position written by two controls.
+
+   The offset is set on the THEAD as position:relative/top, never as a transform: a transform
+   becomes a containing block, and the frozen column's own position:sticky would stop resolving
+   against the scrollport the moment the header floated.
+
+   §8 — bounded secondary surfaces keep their own internal scrolling. The right-side dock, modals,
+   popovers and small preview panes are MEANT to be bounded; a primary table is not. */
+.ktbl{overflow-x:auto;overflow-y:visible;max-height:none;overscroll-behavior-x:contain}
 .ktbl>table{margin:0}
-/* THE HEADER STICKS TO THE SCROLLER, NOT THE PAGE. top:0 is the wrapper's top edge, which is
-   why the wrapper has to be the scroll container for this to hold while the body scrolls. */
-.ktbl thead th{position:sticky;top:0;z-index:3;background:var(--n-50)}
-.ktbl tfoot td{position:sticky;bottom:0;z-index:3;background:var(--surface);
-  border-top:1px solid var(--line2)}
-/* A FROZEN COLUMN MUST OUT-LAYER THE BODY AND UNDER-LAYER THE HEADER, or the header's own
-   first cell is painted over by the column beneath it as soon as anything scrolls. */
-.ktbl .kfreeze{position:sticky;left:0;z-index:2;background:var(--surface)}
+/* THE FLOATING HEADER. The top offset is written by ktblSync(); the stacking context is what
+   keeps it over the body rows it is painted across. */
+.ktbl thead{position:relative;z-index:3}
+.ktbl thead th{background:var(--n-50)}
+.ktbl tfoot td{background:var(--surface);border-top:1px solid var(--line2)}
+/* THE FROZEN BLOCK (§6). A cell carries .kfreeze and the LAST one .kfreeze-end; the left offset
+   of each is MEASURED by ktblSync() from the header's own column widths, never declared. Two or
+   three frozen columns otherwise means a table of pixel constants that a font, a translation or
+   a column toggle silently invalidates — which is exactly what .rcx-tx-tbl's left:104px/176px
+   already is. A frozen column must also out-layer the body and under-layer the header, or the
+   header's own first cell is painted over from beneath as soon as anything scrolls. */
+.ktbl .kfreeze{position:sticky;z-index:2;background:var(--surface)}
 .ktbl thead .kfreeze{z-index:4}
 .ktbl tr:hover .kfreeze{background:var(--surface2)}
-.ktbl .kfreeze2{position:sticky;z-index:2;background:var(--surface)}
-.ktbl thead .kfreeze2{z-index:4}
-.ktbl tr:hover .kfreeze2{background:var(--surface2)}
 /* the edge that says the frozen columns end here, drawn on the last frozen cell only */
 .ktbl .kfreeze-end{box-shadow:1px 0 0 var(--line2)}
-/* THE CORNER CELL STICKS IN BOTH AXES, AND IT HAS TO SAY SO ITSELF. Measured: every header
-   cell held at the wrapper's top except the first, which scrolled away with the body. The
-   Control Center's own rule, .rcx-tbl th.rcx-nm (one id's worth of specificity more than
-   .ktbl thead th), re-declares position and left for the frozen identifier column — and a
-   later, more specific position:sticky is what the browser resolves the offsets against, so
-   the top this rule set was never the one in play. Declared here at matching specificity, and
-   above the body columns but below nothing, because it is the one cell that must cover both. */
-.ktbl thead th.kfreeze,.ktbl thead th.kfreeze2,.ktbl thead th.rcx-nm{
-  position:sticky;top:0;left:0;z-index:5;background:var(--n-50);
-  /* A FLEX TH CANNOT STICK VERTICALLY. .rcx-nm is display:flex — the Control Center needs that
-     to lay out its name cell — and on a HEADER cell it takes the th out of table layout, so it
-     held its left offset and scrolled away vertically while every other header stuck. Measured
-     by removing the class at runtime: with .rcx-nm the corner fails, without it the corner
-     sticks. This is the same display:flex trap the R6 dock tables hit, in the one place it
-     silently breaks a header rather than a row. */
+/* A FROZEN HEADER CELL HAS TO SAY SO ITSELF. The Control Center's own .rcx-tbl th.rcx-nm
+   re-declares position and left for the frozen identifier column, and a later, more specific
+   position:sticky is what the browser resolves the offsets against. Kept from the bounded
+   version, minus the vertical half, which the floating thead now owns. */
+.ktbl thead th.kfreeze,.ktbl thead th.rcx-nm{
+  position:sticky;z-index:4;background:var(--n-50);
+  /* A FLEX TH CANNOT PARTICIPATE IN TABLE LAYOUT. .rcx-nm is display:flex — the Control Center
+     needs that to lay out its name cell — and on a HEADER cell it takes the th out of the
+     table's column model, which is what made it the one header cell that would not hold. */
   display:table-cell}
+/* THE SYNCHRONISED HORIZONTAL SCROLLBAR (§4, §5). It is the table's own bar, lifted to the foot
+   of the viewport, not a widget floating over the page: it sits inside the table's card, takes
+   the table's width, and shows only while the table overflows sideways AND runs past the fold.
+   A table whose own bottom edge is on screen already has a reachable bar, and two bars for one
+   position is one too many. */
+.ktbl-sb{position:sticky;bottom:0;z-index:6;overflow-x:auto;overflow-y:hidden;
+  height:var(--s-4);background:var(--surface);border-top:1px solid var(--line);
+  scrollbar-width:thin}
+.ktbl-sb>i{display:block;height:100%}
 /* ---- CHART OF ACCOUNTS (2026-09-12 simplification) -------------------------------------
    One dominant table, compact filters, subtle separators, a right-side panel. What is declared
    here is only what this page adds; the grid, the picker, the dock and the menus are the
@@ -2655,7 +2668,7 @@ button.tbx-s:hover b{color:var(--accent-ink)}
 .rcx-qv-b:hover{border-color:var(--accent)}
 .rcx-qv-b.on{background:var(--accent-bg);color:var(--accent-ink);border-color:var(--accent)}
 .rcx-f.on{border-color:var(--accent)}
-.rcx-txwrap{max-height:560px;overflow:auto}
+.rcx-txwrap{max-height:none}
 .rcx-tx-tbl{table-layout:auto;min-width:100%}
 .rcx-tx-tbl th,.rcx-tx-tbl td{white-space:nowrap;padding:0 var(--s-2);
   height:calc(var(--row-h) - 16px);border-bottom:1px solid var(--line)}
@@ -31713,8 +31726,9 @@ function coaAcctsView(){
   const rows=coaRows(), picked=amapPicked(), all=mapRows(viewPeriod()).length;
   let h=coaBulkBar(picked)+coaFilters()
     +'<div class="card rcx-card"><div class="rcx-wrap ktbl"><table class="tbl coa-tbl"><thead><tr>'
-    +'<th class="coa-ck"></th>'
-    +'<th class="coa-num">Account number</th><th>Account description</th>'
+    +'<th class="coa-ck kfreeze"></th>'
+    +'<th class="coa-num kfreeze">Account number</th>'
+    +'<th class="kfreeze kfreeze-end">Account description</th>'
     +'<th>ERP</th><th>ERP instance</th><th>Chart of accounts</th><th>Account type</th>'
     +'<th class="num">Entities</th>'
     +(coaMore?'<th>Parent account</th><th>Normal balance</th><th>Active</th>'
@@ -31727,11 +31741,12 @@ function coaAcctsView(){
     const c=srcCoa(r.id)||{}, m=r.res.mapping, st=MAP_ST[r.st]||{l:r.st,c:''};
     const grp=m?((fsLine((fsLine(m.fs)||{}).parent)||{}).name||null):null;
     h+='<tr class="row-click'+(amapSel===r.id?' on':'')+'" onclick="amapOpen(\''+r.id+'\')">'
-      +'<td class="coa-ck"><input type="checkbox"'+(amapPick[r.id]?' checked':'')
+      +'<td class="coa-ck kfreeze"><input type="checkbox"'+(amapPick[r.id]?' checked':'')
         +' onclick="amapToggle(\''+r.id+'\',event)"></td>'
-      /* §6 — NUMBER AND DESCRIPTION ARE TWO COLUMNS */
-      +'<td class="coa-num mono">'+glEsc(r.code)+'</td>'
-      +'<td>'+glEsc(r.name)+(c.a===false?'<span class="amap-tag">Inactive</span>':'')+'</td>'
+      /* §6 — NUMBER AND DESCRIPTION ARE TWO COLUMNS, AND THEY ARE THE FROZEN ONES */
+      +'<td class="coa-num mono kfreeze">'+glEsc(r.code)+'</td>'
+      +'<td class="kfreeze kfreeze-end">'+glEsc(r.name)
+        +(c.a===false?'<span class="amap-tag">Inactive</span>':'')+'</td>'
       +'<td>'+glEsc(srcSys(r.sys).name)+'</td>'
       +'<td>'+glEsc(erpIns(r.ins).name)+'</td>'
       +'<td>'+glEsc(coaOf(r.coa).name)+'</td>'
@@ -40687,11 +40702,11 @@ function renderGLFin(){
 
   const rows=fsRows(root,k);
   const grand=isBS?null:fsAmount('FS-IS',k);
-  o+=`<div class="card fsx-card">
+  o+=`<div class="card fsx-card"><div class="rcx-wrap ktbl">
     <table class="tbl fsx-tbl"><thead><tr>
       <th>Financial line</th>
       <th class="num">${isBS?perEnd(k):fsPresLabel()}</th></tr></thead>
-    <tbody>${rows.map(r=>fsRowHTML(r,k)).join('')}</tbody></table>
+    <tbody>${rows.map(r=>fsRowHTML(r,k)).join('')}</tbody></table></div>
     ${isBS?fsEquation(tie):fsNetIncome(k)}
     <div class="fsx-foot">In millions of ${glEsc(govCcy().toUpperCase())}
       unless a billion is stated &#183; ${glEsc(govStmtDef(fsStmt).name)} v${def.ver} &#183;
@@ -41329,7 +41344,7 @@ function renderGLAct(){
   el.innerHTML=o+(glxSel?glxPanel(all,p):'');
   document.body.classList.toggle('amap-open',!!glxSel);
   if(typeof dockFit==='function')dockFit();
-  if(typeof ktblFit==='function')ktblFit();
+  if(typeof ktblSync==='function')ktblSync();
 }
 
 function glxFilterBar(n,p){
@@ -44246,9 +44261,9 @@ function renderFluxGov(){
   /* §13 — the unmapped population is exposed above the statement it is absent from, and
      only where the level being read makes it relevant to the reader. */
   if(fxLevel!=='line') o+=fxUnmappedBand();
-  o+=`<div class="card fsx-card trx-card"><div class="tblwrap trx-wrap">
+  o+=`<div class="card fsx-card trx-card"><div class="tblwrap trx-wrap ktbl">
     <table class="tbl trx-tbl fxg-tbl"><thead>${grp}<tr>
-      <th class="trx-nm">Financial line</th>
+      <th class="trx-nm kfreeze kfreeze-end">Financial line</th>
       <th class="num">${glEsc(fxColLabel(c.cmpK,c.cmpMonths))}</th>
       <th class="num">${glEsc(fxColLabel(c.curK,c.curMonths))}</th>
       <th class="num vg">&#916; $</th><th class="num vg">&#916; %</th>
@@ -45749,9 +45764,9 @@ function renderGLTrend(){
       title="Some source feeds are behind">Data partially stale</button>`:''}
   </div>`;
   const heads=cols.map(k=>`<th class="num${k===anchor?' anch':''}">${trColLabel(k)}</th>`).join('');
-  o+=`<div class="card fsx-card trx-card"><div class="tblwrap trx-wrap">
+  o+=`<div class="card fsx-card trx-card"><div class="tblwrap trx-wrap ktbl">
     <table class="tbl trx-tbl"><thead><tr>
-      <th class="trx-nm">Financial line</th>${heads}
+      <th class="trx-nm kfreeze kfreeze-end">Financial line</th>${heads}
       <th class="num">&#916; ${trRange==='q'?'QoQ':'MoM'}</th><th class="num">&#916; %</th>
       <th class="trx-sg">Review</th><th class="trx-sp"></th></tr></thead>
     <tbody id="trBody">${trBodyHTML()}</tbody></table></div>
@@ -52437,7 +52452,7 @@ function renderGLRecon(){
     +(unset.length===1?'Its population is':'Their populations are')+' not settled.'
     +'<button class="fsx-link" onclick="rcGoMapping(null,null,\'unmapped\')">Review mapping &#8594;</button></div>';
 
-  o+='<div class="card fsx-card rcx-card"><div class="rcx-wrap">'
+  o+='<div class="card fsx-card rcx-card"><div class="rcx-wrap ktbl">'
     +'<table class="tbl rcx-tbl"><thead><tr>'
     +(rcHorizonIsMulti()?rcMultiHead():
       rcColHead('Account / reconciliation group','','rcx-nm')
@@ -56744,7 +56759,7 @@ function rcAcctPane(def,inst,rows){
   let o=`<div class="rcx-secx">GL account tie-out
       <span>Each account's beginning balance, movement and trial balance, footing to
         ${glEsc(def.name)}.</span></div>
-    <div class="card fsx-card rcx-card"><div class="rcx-wrap">
+    <div class="card fsx-card rcx-card"><div class="rcx-wrap ktbl">
     <table class="tbl rcx-tbl rcx-acct-tbl"><thead><tr>
       ${rcColHead('GL #','','rcx-nm stick1')}${rcColHead('GL name','','stick2')}
       ${rcColHead('Canonical account','')}
@@ -56858,7 +56873,7 @@ function rcTxnsPane(def,inst){
     <button class="fsx-link" onclick="rcToggleCols()">${rcMoreCols?'Fewer columns':'More columns'}</button>
     ${filtered?`<button class="fsx-link" onclick="rcActFReset();rcActSearch('');renderAll()">Clear</button>`:''}
   </div>`;
-  o+=`<div class="card fsx-card rcx-card"><div class="rcx-wrap rcx-txwrap">
+  o+=`<div class="card fsx-card rcx-card"><div class="rcx-wrap rcx-txwrap ktbl">
     <table class="tbl rcx-tx-tbl full"><thead><tr>
       ${th('date','Posting date','rcx-nm')}
       ${th('acct','GL account','tstick2')}<th class="tstick3">Account name</th>
@@ -69662,39 +69677,102 @@ function dockFit(){
   b.style.setProperty('--dock-reserve',reserve+'px');
 }
 addEventListener('resize',dockFit);
-/* §1 — THE SCROLLER ENDS AT THE VIEWPORT, so its horizontal scrollbar is always on screen and
-   its sticky header always has a top edge to stick to. Measured per table rather than declared
-   once, because how much chrome sits above a table is a property of the PAGE: the trial
-   balance carries a close banner, a status strip, a filter row and a tab strip, and Chart of
-   Accounts does not.
-
-   It reads the wrapper's own top and nothing the reservation itself changes — a max-height
-   computed from the element's own HEIGHT would be the feedback loop the flux drawer's note
-   warns about. A table shorter than the room available keeps its natural height, so a
-   six-row exception list does not grow a scroller it has no use for. */
-function ktblFit(){
-  const gap=parseInt(getComputedStyle(document.documentElement)
-    .getPropertyValue('--ktbl-gap'),10)||16;
-  const min=parseInt(getComputedStyle(document.documentElement)
-    .getPropertyValue('--ktbl-min'),10)||280;
+/* §1–§5, §12 — ONE PAGE SCROLL, A FLOATING HEADER, A SYNCHRONISED HORIZONTAL BAR.
+   Shared behaviour: every .ktbl gets all of it, no module implements any of it, and the bar is
+   CREATED here rather than written into markup so a table added later inherits it without its
+   call site changing. */
+function ktblChromeBottom(){
+  /* the same measured-offset pattern syncStick() uses for the flux statement: read what is
+     actually pinned above the content rather than adding up tokens that each page spends
+     differently. */
+  let base=0;
+  document.querySelectorAll('.ribbon,.cstrip,.topbar').forEach(e=>{
+    const cs=getComputedStyle(e);
+    if(cs.position!=='sticky'&&cs.position!=='fixed') return;
+    const r=e.getBoundingClientRect();
+    if(r.height<=0||r.width<300) return;
+    if(r.top>window.innerHeight*0.5) return;   /* tall content, not top chrome */
+    base=Math.max(base,r.bottom);
+  });
+  return Math.round(base);
+}
+function ktblSync(){
+  const stick=ktblChromeBottom();
   document.querySelectorAll('.ktbl').forEach(w=>{
+    const tbl=w.querySelector('table'); if(!tbl) return;
     if(w.offsetParent===null&&w.getBoundingClientRect().height===0) return;
-    w.style.removeProperty('--ktbl-top');
-    const top=w.getBoundingClientRect().top+(window.scrollY||0);
-    const room=Math.max(min,window.innerHeight-(top-(window.scrollY||0))-gap);
-    /* natural height wins when the table already fits: no scroller, no sticky header, nothing
-       to reach for */
-    const natural=w.scrollHeight;
-    w.style.maxHeight=(natural<=room?natural:room)+'px';
+    const r=w.getBoundingClientRect();
+
+    /* ---- the floating header */
+    const th=w.querySelector('thead');
+    if(th){
+      const hr=th.getBoundingClientRect(), cur=parseFloat(th.style.top)||0;
+      /* MEASURE THE HEADER'S OWN NATURAL TOP, NOT THE WRAPPER'S. The two differ by whatever
+         border and padding the card puts between them, and taking the wrapper's left the
+         floating header two pixels under the chrome it was supposed to meet. Subtracting the
+         offset already applied is what makes the reading independent of the pass before it. */
+      const nat=hr.top-cur;
+      /* it floats only while the table is under the chrome AND there is still table left to
+         label: past the last row it travels back out with the table rather than hanging over
+         whatever follows. */
+      const room=Math.max(0,(r.bottom-hr.height)-nat);
+      const want=Math.max(0,Math.min(Math.round(stick-nat),Math.round(room)));
+      const v=want>0?want+'px':'';
+      if(th.style.top!==v) th.style.top=v;
+    }
+
+    /* ---- the frozen block's left offsets, measured off the header's own columns */
+    const hr0=th&&th.rows[th.rows.length-1];
+    if(hr0){
+      const left=[]; let x=0;
+      [...hr0.cells].forEach((c,i)=>{
+        if(!c.classList.contains('kfreeze')&&!c.classList.contains('rcx-nm')) return;
+        left[i]=x; x+=c.getBoundingClientRect().width;
+      });
+      if(left.length) tbl.querySelectorAll('tr').forEach(tr=>{
+        [...tr.cells].forEach((c,i)=>{
+          if(left[i]==null) return;
+          if(!c.classList.contains('kfreeze')&&!c.classList.contains('rcx-nm')) return;
+          const v=Math.round(left[i])+'px';
+          if(c.style.left!==v) c.style.left=v;
+        });
+      });
+    }
+
+    /* ---- the synchronised horizontal scrollbar */
+    let sb=w.nextElementSibling;
+    if(!sb||!sb.classList.contains('ktbl-sb')){
+      sb=document.createElement('div');
+      sb.className='ktbl-sb';
+      sb.setAttribute('aria-hidden','true');
+      sb.innerHTML='<i></i>';
+      /* ONE HORIZONTAL POSITION, TWO CONTROLS THAT WRITE IT. The guard is what stops the two
+         handlers driving each other round a loop; there is no second stored value to drift. */
+      let lock=false;
+      sb.addEventListener('scroll',()=>{ if(lock)return; lock=true;
+        w.scrollLeft=sb.scrollLeft; lock=false; },{passive:true});
+      w.addEventListener('scroll',()=>{ if(lock)return; lock=true;
+        sb.scrollLeft=w.scrollLeft; lock=false; },{passive:true});
+      w.insertAdjacentElement('afterend',sb);
+    }
+    const over=tbl.scrollWidth>w.clientWidth+1;
+    const belowFold=r.bottom>window.innerHeight-2;
+    const show=over&&belowFold;
+    sb.style.display=show?'block':'none';
+    if(show){
+      const i=sb.firstElementChild, iw=tbl.scrollWidth+'px';
+      if(i.style.width!==iw) i.style.width=iw;
+      if(Math.abs(sb.scrollLeft-w.scrollLeft)>1) sb.scrollLeft=w.scrollLeft;
+    }
   });
 }
-addEventListener('resize',ktblFit);
-addEventListener('scroll',ktblFit,{passive:true});
+addEventListener('resize',ktblSync);
+addEventListener('scroll',ktblSync,{passive:true});
 const _renderAll=renderAll;
 renderAll=function(){ _renderAll(); paintTopbar();
   if(typeof paintNavRet==='function') paintNavRet();
   if(typeof dockFit==='function') dockFit();
-  if(typeof ktblFit==='function') ktblFit(); };
+  if(typeof ktblSync==='function') ktblSync(); };
 
 /* ⌘/Ctrl-K opens the command palette — the single search-and-ask surface. There is exactly ONE
    handler for this chord now (the cmdk keydown listener); this second one, left over from the

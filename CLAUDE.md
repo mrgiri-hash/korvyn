@@ -7093,6 +7093,12 @@ A = L + E at 0.
 
 ### §1 — `.ktbl`: THE ENTERPRISE TABLE BEHAVIOUR, DECLARED ONCE
 
+> **The MECHANISM below was superseded the same day — see the GLOBAL TABLE SCROLLING STANDARD
+> block that follows.** The reported fault and the two measured traps (a flex `<th>` cannot
+> participate in table layout; a later, more specific `position:sticky` is what the offsets
+> resolve against) still hold. The bounded wrapper does not: a primary table must not own a
+> vertical scrollbar.
+
 Reported: on a long wide table you had to scroll to the BOTTOM of the rows to reach the
 horizontal scrollbar, then scroll back up to read the header you had just moved. On a
 900-row ledger that makes the right-hand columns effectively unreachable.
@@ -7207,6 +7213,118 @@ The brief is larger than one pass and these are the parts I did not build:
   vocabulary ("South Valley Campus — Hall C"), which the generated population does not carry
   ("Ashburn Hall C", "Dallas Hall A"). A rule that can never fire is worth surfacing in the
   Rules view with its match count — which is a reason to do §11 next.
+
+
+## 2026-09-12 (later still) — THE GLOBAL ENTERPRISE TABLE SCROLLING STANDARD
+
+Owner's brief, correcting the `.ktbl` mechanism shipped hours earlier the same day. **ONE
+VERTICAL PAGE SCROLL.** A primary enterprise work surface must not own a nested vertical
+scrollbar; the page does. Presentation only — no accounting, no business logic, no module
+redesign. FS-CIP Jun 2026 = 4,210.2 and A = L + E at 0, unmoved.
+
+**WHAT THE EARLIER VERSION GOT WRONG, AND WHY IT LOOKED RIGHT.** It capped the wrapper at the
+viewport, so the wrapper's own horizontal scrollbar was on screen and its header stuck to the
+top of the same box — one element, both problems, and its comment argued explicitly against
+"a second scrollbar to keep in step with the first". That reasoning is sound and it answered
+the wrong question: it cured the unreachable scrollbar by creating a nested vertical one, which
+is the thing the owner then ruled out. A finance table is read down the page, not inside a box.
+
+### THE HEADER IS A REAL PROBLEM, NOT A DECLARATION
+
+A box with `overflow-x:auto` **IS** a scrollport, and `overflow-y:visible` does not opt out —
+when either axis is not `visible` the other computes to `auto`. CSS resolves `position:sticky`
+against the nearest scrollport, so a header inside the wrapper can only stick to the WRAPPER,
+which no longer scrolls vertically and therefore just leaves the screen with the page. The
+alternative — no horizontal container at all — scrolls the whole page sideways. Neither is
+usable, which is why the header now FLOATS.
+
+`ktblSync()` offsets the `<thead>` by however far the table has travelled under the page
+chrome. Three things about it are load-bearing:
+
+- **The offset is `position:relative`/`top`, never a transform.** A transform becomes a
+  containing block, and the frozen column's own `position:sticky` would stop resolving against
+  the scrollport the moment the header floated.
+- **It measures the HEADER'S own natural top, not the wrapper's**, subtracting the offset
+  already applied so the reading is independent of the pass before it. Taking the wrapper's top
+  left the floating header two pixels under the chrome it was supposed to meet (measured).
+- **The chrome bottom is measured, not tokenised** — the same pattern `syncStick()` uses for
+  the flux statement: read what is actually pinned above the content, because how much chrome
+  sits above a table is a property of the PAGE. Measured at 150px; every screen's header lands
+  on exactly 150.
+
+### THE HORIZONTAL SCROLLBAR IS A SECOND, SYNCHRONISED CONTROL (§4, §5)
+
+`.ktbl-sb` is a sticky bar pinned to the foot of the viewport whose inner spacer matches the
+table's scroll width. **One horizontal position, two controls that write it** — a reentrancy
+guard is what stops the two handlers driving each other round a loop, and there is no second
+stored value to drift. It is CREATED by `ktblSync()` rather than written into markup, so a
+table added later inherits it without its call site changing (§12).
+
+**IT SHOWS ONLY WHILE THE TABLE OVERFLOWS SIDEWAYS AND RUNS PAST THE FOLD.** A table whose own
+bottom edge is on screen already has a reachable bar, and two bars for one position is one too
+many. Verified on the Reconciliations Control Center with the dock open: the table overflows
+1206 into 814, its bottom sits at 793 in a 910px viewport, and the synthetic bar correctly
+stands down.
+
+**Its containing block is the card, and the release case cannot bite.** The bar is let go when
+the card's bottom rises above the viewport bottom — by which point the table's bottom is on
+screen too and the bar has already hidden itself. So it never floats over the balance-sheet
+equation that follows it on Financials.
+
+### THE FROZEN BLOCK IS MEASURED, NOT A TABLE OF PIXEL CONSTANTS (§6)
+
+A cell carries `.kfreeze` and the last one `.kfreeze-end`; `ktblSync()` reads the header's own
+column widths and writes each left offset. Two or three frozen columns declared in CSS is a
+table of constants that a font, a translation or a column toggle silently invalidates — which
+is exactly what `.rcx-tx-tbl`'s `left:104px`/`176px` already is. `.kfreeze2` is retired; it
+existed only because the offsets were hand-written.
+
+**Chart of Accounts freezes number and description** per the brief, and the checkbox rides with
+them — a selection control that scrolls away from the row it selects is worse than no freeze.
+Measured at 0 / 37 / 177, header and body identical, holding through a 700px horizontal scroll.
+
+### WHAT BECAME THE SHARED COMPONENT
+
+`.ktbl` now carries every primary table on the eight QA screens: Chart of Accounts, Trial
+Balance, Account Activity, the Reconciliations Control Center, the GL account tie-out, the
+Activity Detail transaction grid, Financials, Flux Review's statement grid and Trending.
+
+- **`.rcx-txwrap{max-height:560px}` was the one remaining bounded primary table** — a nested
+  vertical scrollbar on a governed transaction ledger. The wrapper keeps its identity, because
+  the `tstick` offsets are scoped to it; it stops being a box.
+- **The Financials statement had no wrapper at all**, so its header had nothing to stick to. It
+  is the same component now, and the balance equation and unit footer still follow the table.
+- **Reconciliations, Trending and the flux statement grid declared `position:sticky` on their
+  header cells with `top:auto`**, which never sticks. That was three screens quietly not having
+  a sticky header at all.
+
+**Flux Review's own `#fxRoot` statement is untouched.** It sheds columns (`fxShed()`) rather
+than scrolling, its heads are page-sticky at `--fx-stick`, and `.fx-table` is deliberately
+`overflow:visible` — an overflow ancestor breaks those heads (the BOXY block's trap). It
+already meets the standard by a different route; adding a scrollport would break it.
+
+### §8 — THE BOUNDED SURFACES THAT KEEP THEIR SCROLL
+
+The right-side dock (`.amap-panel` / `#rcPanel`), modals, `.pop` popovers and small preview
+panes are MEANT to be bounded and are untouched. No `.ktbl` is mounted inside any of them.
+
+**ONE JUDGMENT CALL, NAMED RATHER THAN GLOSSED:** `.xl-grid-wrap{max-height:560px}`, the
+generic Korvyn-for-Excel browser workbook canvas, keeps its bound. It is a rendering of a
+spreadsheet application's own viewport, not a Korvyn table, it is not among the brief's QA
+screens, and that whole surface is already recorded as awaiting the owner's call after the
+Account Reconciliations reset. If it should join the standard, that is a product decision.
+
+### Verified
+
+**192 view renders across 3 periods, 0 errors, 0 empty** (the 12 "empty" are the three
+lens-scoped alias keys and the deliberately unreachable `consol` view, unchanged) · **0 nested
+vertical scrollbars on all eight QA screens** · the header floats to exactly the measured chrome
+bottom on all six screens that reach it · the bar drives the table and the table drives the bar
+(400→400, 783→783 at the clamp) · frozen columns hold through a horizontal scroll with header
+and body aligned · **0 clipped elements, 0 raw HTML entities** · console clean on a fresh load ·
+**4/4 gates** (chrome themes 10/10, content contrast, spacing ratchet unchanged at 1072/86, css
+duplicates 63/63) · dark mode holds · FS-CIP **4,210.2** · `rcChronologyCheck()` = 0.
+
 
 ## Toolchain
 
