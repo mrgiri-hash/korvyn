@@ -7440,6 +7440,146 @@ this brief rules out changing. Worth its own look: a trial balance whose two col
 agree is a real signal, even though the same population ties to Financials and A = L + E is 0.
 
 
+
+## 2026-09-13 — GOVERNED ATTRIBUTE EDITING: inline, bulk, rule, import
+
+Owner's brief. A missing or wrong non-GL dimension is fixed from Account Activity in a couple
+of seconds, and Korvyn keeps the source, the lineage, the versioning and the downstream impact
+underneath. **Easy like Excel for the user; governed like an accounting platform underneath.**
+
+FS-CIP Jun 2026 = 4,210.2 and A = L + E at 0, before and after every edit — which is the whole
+point of §8 and §18 and is asserted, not assumed.
+
+### §1 — A SOURCE VALUE AND A GOVERNED VALUE ARE TWO OBJECTS
+
+`GLX_DIMS` declares six: vendor, department, cost centre, business unit, region, project. Each
+names the SOURCE field it sits over. `glxDim(r,k,p)` resolves four layers and says which one
+won — **override > rule > normalized source > source** — returning the value, its provenance,
+the source, the rule, the stored decision and the ERP-sync state.
+
+**THE ERP NOW SUPPLIES A DEPARTMENT AND A COST CENTRE**, in the source system's own vocabulary
+("DC Construction", not the reporting department), generated in `rcTxPool` on the one governed
+population. That is deliberate: a value Korvyn computes for display is not a source value, and
+without a real un-normalised source the normalization layer had nothing to do. Both row
+builders in the pool carry it, so the reconciliation canvas and the Excel workpaper see the
+same field.
+
+**§6 IS THE REGISTRY, NOT A LIST OF EXCLUSIONS.** An ERP fact — account, journal, posting date,
+amount, transaction id, ERP instance — has no `dim` and no `attr` descriptor, so no code path
+can offer an editor for it. Verified: of the ten immutable fields, **zero** are editable.
+
+**§7 — A MAPPING COLUMN IS ROUTED, NOT REFUSED.** Canonical account, account group and FS line
+are real governed values owned by Chart of Accounts; clicking one says so and opens the account
+there. Verified: **zero** mapping columns are editable.
+
+### §3/§4 — THE INLINE EDITOR IS THE APP'S ONE POPOVER
+
+Click a cell, pick a value, done — commit on click and close, the contract every single-select
+in this product already holds, so nothing new has to be learned. No page, no wizard, no Apply.
+The controlled list is **assembled from the population**, not a hand-written constant that goes
+stale the first time an entity is added.
+
+**§2 — ONE COLUMN, AND A QUIET MARK.** The table shows the governed value with a 5px provenance
+dot; a plain source value carries no mark at all, so a clean ledger stays monochrome and the eye
+lands on exactly the cells Korvyn has touched. Design rule 8 reserves dots for provenance, which
+is precisely this. The source value is in the cell's title and in the row detail — never a
+second full column.
+
+**§4 — THE CONFIRMATION IS A LINE, NOT A MODAL**: what changed, its provenance, how many
+downstream views consume it, and only where there is something to decide, the next scope.
+
+### §9–§12, §22, §31 — THE SAME WRITE PATH AT FOUR SCALES
+
+One row is a click. A selection is the same editor over N rows with the population stated before
+it acts (measured: *24 transactions selected · $8.4M · Jun 2026* → applied). A population is a
+**rule**: after an edit Korvyn matches on §12's patterns — the account, a distinctive memo stem,
+the project family — and offers *Apply to N similar* / *Create rule* / *Review matches*.
+**Nothing is applied without approval.** An estate is a **CSV round trip**: the template carries
+the row key Korvyn matches on plus the governed columns, and the import **previews and counts
+before it writes** (verified: 8 edited rows → 8 changes, 8 transactions, $6.556M, 0 rejects → 8
+records written with scope `import`). Provenance does not degrade as the scope grows because
+every rung goes through `glxEditWrite`.
+
+### §17/§18 — STORED ONCE, CONSUMED EVERYWHERE, AND IT MOVES NO MONEY
+
+`glxGovVendor` / `glxGovDept` / `glxGovProject` are what downstream reads. The Excel
+workpaper's vendor × project summary, the reconciliation GL export, the reconciliation
+transaction grid and the trial-balance drill all call the resolver instead of `r.vendorName`,
+so **no module keeps its own copy** and there is nothing to keep in step.
+
+**AND THE DISTINCTION §18 ASKS FOR IS STRUCTURAL.** An attribute edit changes analysis and never
+the ledger, because nothing in this layer writes an amount: verified that a vendor edit moves
+the trial balance by **0.000000**, the row's net/debit/credit by **0**, and leaves the source
+vendor `null`. §8's amount boundary needs no guard — there is no path.
+
+### §20/§21 — THE TWO CASES THAT LOOK ALIKE AND ARE NOT
+
+**A certified period does not refuse the edit and does not silently rewrite history.** It records
+`reviewRequired` and states the consequence with counts read off the real objects: *This period
+is certified · affects 1 report, 1 reconciliation and 1 audit population · review required.*
+Refusing to correct a vendor would be the wrong cure for the right worry.
+
+**THE ERP CATCHING UP IS NOT THE ERP DISAGREEING**, and both look like "the source differs from
+what was recorded". The edit stores the source AS IT STOOD, which is the only thing that
+separates them. Verified both: a later sync of *Siemens Energy* reads **agrees** and the
+exception goes; a later sync of *Siemens AG* reads **the source value changed after this was set
+(was blank) — review the governed value**, and the governed value is **not** overwritten.
+
+### §13/§14, §23–§29 — THE SURFACE
+
+- **§28** The header states the page and its context and stops; the paragraph explaining the
+  architecture above the ledger is gone. Toolbar: Search · Filters · **Columns · Saved views ·
+  Download**.
+- **§23–§26 Columns is LIVE.** Search, Reset, × — and **no Done**: every change is already
+  applied, and an OK button on a panel that has already acted teaches a reader their changes
+  were provisional when they were not. Visible columns first, then Add columns in the ten
+  groups.
+- **§25 THE PANEL LISTS WHAT THE TABLE RENDERS, IN THE TABLE'S ORDER.** The frozen identity pair
+  is hoisted to the front by yesterday's scrolling standard, so a list in the raw set order
+  disagreed with the columns on screen — and a reorder panel that does not match the table is
+  worse than no panel. Asserted equal, chip for chip.
+- **§27 Saved views** — CIP Review, AP Vendor Analysis, Audit GL Extract, Intercompany Review,
+  plus your own; columns, order, filters and search.
+- **§13/§14 A new governed field** is created from Columns, in six questions an accountant can
+  answer and not one word of schema vocabulary.
+- **§29** The download carries the governed value, the source value and a provenance column for
+  every dimension. **A file is read away from the screen that explains it**, so a column the page
+  calls "Vendor" is written "Governed vendor" beside "Source vendor".
+
+### Verified
+
+**All twelve §32 screens confirmed in the product, through real clicks**: the cleaned header ·
+blank-vendor inline edit (editor opens under the cell, 10 options) · the governed value with its
+dot and title · source beside governed in the row detail with Edit on each · a department
+override over a normalization · 24-row bulk edit · the rule suggestion with its three choices ·
+the Columns panel · reorder reflected in the table · Saved views · the certified-period
+consequence · the ERP-source-change conflict.
+
+192 view renders across 3 periods, 0 errors · console clean on a fresh load · **4/4 gates** ·
+0 nested vertical scrollbars, 0 clipped elements, 0 raw HTML entities across eight surfaces and
+the row panel · dark mode holds · FS-CIP **4,210.2** · `rcChronologyCheck()` = 0 · **the store
+is empty on a fresh load** — the product ships with no seeded edits.
+
+**The gates earned their place again.** Three `--n-400` foregrounds (its declared role is
+borders and placeholders) and one 2px off the spacing scale. The drag handle took `--muted`
+because it is an affordance — the same precedent the disclosure caret set — and one rule block
+turned out to be dead CSS for a shape the row detail did not end up using, so it went rather
+than got a token.
+
+### NOT BUILT — named, not glossed
+
+- **A rules ENGINE.** §11's *Create rule* records the rule and applies it to the population it
+  matched **at approval**. It does not re-evaluate as new transactions arrive, which is what a
+  recurring rule would have to do. The objects are shaped for it (`GLX_RULES` carries the
+  conditions), and nothing pretends otherwise on screen.
+- **§12's Review matches** filters the ledger by the rule's memo stem rather than opening a
+  dedicated match list with per-row accept/reject.
+- **Multi-select field type** (§14 admits it "only if clearly needed"; nothing needs it yet).
+- Governed records that are not ERP transactions show — for every dimension and cannot be
+  edited: a reporting adjustment has no vendor to correct.
+- Report Builder, Financials, Flux, Trending and the Excel add-in are untouched, per the brief.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
