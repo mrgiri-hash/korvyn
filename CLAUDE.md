@@ -7710,6 +7710,137 @@ FS-CIP **4,210.2** · chronology 0 · both stores empty on load.
 - Report Builder is untouched, per the brief.
 
 
+
+## 2026-09-13 (final) — BULK ENRICHMENT, OVERRIDE CONTROL, AND THE COLUMNS EXIT
+
+Owner's brief, three fixes on the Account Activity experience rather than a redesign. FS-CIP
+Jun 2026 = 4,210.2, and every store is empty on a fresh load.
+
+### §14 — ROW → BATCH → RULE IS NOW AN EXPLICIT PRINCIPLE
+
+    ROW    one inline correction · seconds · no ceremony
+    BATCH  download → edit in Excel → upload → validate → ONE change set → ONE approval
+    RULE   a recurring classification that stops the correction recurring at all
+
+**Forcing batch-scale work through inline editing is the failure this exists to prevent.** A
+hundred thousand GL lines cannot be corrected a cell at a time, and approving 3,821 rows
+individually is not a stronger control than approving the set — it is the same control
+performed badly enough that nobody performs it.
+
+### §1–§9 — THE BATCH PATH
+
+**§4 — EVERY EXPORT HAS AN IDENTITY, and that is what makes the upload safe.** `ENR-2026-06-0001`
+records period, scope, lens, filters, row count, mapping and attribute versions, data-as-of,
+who and when — **and a per-line fingerprint of the source facts**. Without that an upload is a
+pile of rows nobody can tie to anything.
+
+**§3 — the workbook is two halves and says so.** Identity and source columns are marked
+`LOCKED — do not change` (17 of them); the governed columns are marked `EDITABLE` (9). A
+reader in Excel can see which is which without a legend.
+
+**§6 — nothing is written before a person looks.** Measured on the walked demo: 2,254 rows in
+the file, **4,879 changes detected** (3,814 new values, 1,065 changed governed values), **6
+rejected**, **8 held back**, $236.4M.
+
+**§7/§8 — THE STALE CHECK OUTRANKS THE TAMPER CHECK, AND THE ORDER IS THE WHOLE DIFFERENCE.**
+Both surface as "a source column in the file does not match the source column now". Run the
+tamper test first and every line the ERP moved is reported as somebody editing the workbook —
+which accuses the preparer of the one thing they did not do and hides the condition they need
+to act on. Ask *did the source move?* first; only if it did not is a difference the file's
+fault. Caught by reading the counts: 14 "tampered" rows that were 6 tampered and 8 moved.
+
+**§9–§13 — the change set is the unit of approval.** `AC-2026-06-0001` carries the population,
+the field-level comparison (field · previous · proposed · rows · amount, drillable to the rows),
+the validation exceptions, the source snapshot and the versions in force. Submit with an
+@mention; **one decision published 4,879 governed values**. The writes go through the same
+`glxEditWrite` an inline edit uses, so provenance, the ERP-sync comparison and every downstream
+consumer are one mechanism rather than a second one for bulk (§19, §20).
+
+### §15–§18 — THE OVERRIDE CONTROL WAS THE REAL BUG
+
+Yesterday's policy asked one question — does this need approval? — and so could not express
+"say why" as distinct from "ask someone". That is what let an ERP-sourced vendor be replaced
+silently. `glxControl()` returns **what is required**, from four inputs in precedence order:
+
+| Case | Situation | Reason | Approval |
+|---|---|---|---|
+| D | certified period | yes | yes |
+| C | overriding an ERP-sourced value | yes | yes |
+| — | new enterprise value | no | yes |
+| — | material classification | yes | yes |
+| B | replacing an existing governed value | **yes** | no |
+| A | filling a blank dimension | no | no |
+
+**§15 CASE B — A REASON IS A CONTROL, NOT A QUEUE.** Where the policy asks only for a reason the
+change is made immediately and the reason is on the record; routing it to somebody for a
+decision nobody asked for is the over-control §17 warns against.
+
+**§17's fast path never reaches the composer at all** — filling a blank returns `none` and saves
+on the click. All four cases asserted in the product.
+
+**§28 — the ERP-override case says so in words**: *You are overriding a value the ERP supplied.
+The source stays Siemens AG; Siemens Energy is what Korvyn would report.*
+
+### §21–§25 — THE COLUMNS EXIT
+
+The panel had Reset and an × glyph and no plain way out, so a reader reached for the page's
+**Back arrow** — which is navigation and takes them off Account Activity entirely. It has a
+**Close** button now, and Escape closes it.
+
+**"Close" is not "Done", and the difference is the point.** There is nothing to confirm: every
+change is already live in the current view. The word means *finished configuring columns*, not
+*save*. Verified: Close and Esc each dismiss the panel, keep the column changes, and leave
+`TAB === 'glact'`.
+
+Escape is registered once for the module and closes whichever local thing is open — the add-
+dimension picker, the new-field form, the approval composer, the upload preview, the columns
+panel — and never navigates.
+
+### Verified
+
+**All fifteen §27 steps and the §28/§29 demos walked in the product.** §30's three acceptance
+tests hold: one download → one upload → one review → one change set → one approval covering
+4,879 changes; an ERP-sourced vendor cannot be replaced silently; and the page Back arrow is
+never needed to leave Columns.
+
+192 view renders across 3 periods, 0 errors · console clean · **4/4 gates** (baselines unchanged)
+· 0 nested vertical scrollbars, 0 clipped elements, 0 raw HTML entities · FS-CIP **4,210.2** ·
+chronology 0 · all four stores empty on load.
+
+### A NAME COLLISION, AND THE LESSON IS THE ONE ALREADY WRITTEN DOWN
+
+`glxVal` has been the CELL VALUE READER since the ledger was built, with forty call sites. The
+upload's validation state took the same name and the whole script block stopped parsing —
+"Identifier 'glxVal' has already been declared", every symbol undefined, the page blank.
+**A prefix is not a namespace, and that applies to a variable exactly as it applies to a CSS
+class.** The newcomer was renamed `glxUp`; the function forty call sites read was not touched.
+
+**And the Browser pane's console buffer survives navigation** — recorded again because it cost
+time twice in one session. A fixed error keeps reappearing on clean loads with a stack pointing
+at a test script that no longer exists. Trust an in-page `window.onerror` listener.
+
+### PROTOTYPE SCAFFOLDING, LABELLED AS SUCH
+
+**Simulate a completed workbook** (in the Upload menu) fills the governed columns of the last
+export the way a preparer would, and deliberately introduces a handful of tampered source cells
+and a handful of lines the ERP moved — then goes through the real validate → change set →
+approve path. The DETECTION is real; a file this code wrote itself would otherwise never
+exercise §7 or §8. It writes no governed value itself.
+
+### NOT BUILT — named, not glossed
+
+- **A real .xlsx enrichment workbook.** The template is CSV with LOCKED/EDITABLE marker rows;
+  a genuine workbook would lock the source columns with sheet protection rather than a label.
+- **Return-with-comment on a change set.** Return and Reject are both offered and both record
+  the decision; neither carries a note back to the preparer yet.
+- **Change-set history as a surface.** Sets are reachable from the Upload menu and through the
+  live banner; there is no register listing every set for the period.
+- **§20's "affected downstream objects"** is not enumerated on the set — the write carries
+  `changeSetId` and every consumer reads the resolver, so the link exists in the data and is
+  not yet a list on screen.
+- Report Builder is untouched, per the brief.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

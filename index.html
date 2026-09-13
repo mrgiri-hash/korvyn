@@ -1869,6 +1869,15 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .glx-askw{font-size:var(--fs-label);color:var(--muted);line-height:var(--lh);
   padding:var(--s-2) var(--s-3);background:var(--warn-bg);border-radius:var(--radius-xs);
   margin:0 0 var(--s-3)}
+/* §16 — the reason chips */
+.glx-askr{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s-2);padding:0 0 var(--s-3)}
+.glx-askr .l{font-size:var(--fs-label);color:var(--hint);text-transform:uppercase;
+  letter-spacing:var(--tracking-label)}
+.glx-rb{border:1px solid var(--line2);background:var(--surface);color:var(--ink);
+  font-size:var(--fs-label);font-family:inherit;cursor:pointer;border-radius:var(--radius-xs);
+  height:var(--h-chip);padding:0 var(--s-2)}
+.glx-rb:hover{background:var(--surface2)}
+.glx-rb.on{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent-ink)}
 .glx-askn{position:relative}
 .glx-askn input{width:100%;height:var(--h-field);border:1px solid var(--border-strong);
   border-radius:var(--radius-xs);background:var(--surface);color:var(--ink);
@@ -1884,6 +1893,32 @@ body.dock-overlay .amap-panel{box-shadow:var(--shadow-dock)}
 .glx-mo .s{font-size:var(--fs-label);color:var(--hint);margin-left:auto}
 .glx-askf{display:flex;align-items:center;gap:var(--s-2);flex-wrap:wrap;padding:var(--s-3) 0 0}
 .glx-askf .glx-dim{font-size:var(--fs-label);color:var(--hint)}
+/* §6/§9 — the upload validation and change-set panels */
+.glx-panel{border:1px solid var(--line2);border-radius:var(--radius);background:var(--surface);
+  padding:var(--s-3);margin:0 0 var(--s-3)}
+.glx-vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:var(--s-2);padding:var(--s-3) 0}
+.glx-vs{border:1px solid var(--line);border-radius:var(--radius-xs);padding:var(--s-2) var(--s-3)}
+.glx-vs .n{display:block;font-size:var(--fs-card);font-family:var(--num);
+  font-variant-numeric:tabular-nums;color:var(--ink);font-weight:var(--fw-medium)}
+.glx-vs .l{display:block;font-size:var(--fs-label);color:var(--hint)}
+.glx-vs.acc{box-shadow:inset 3px 0 0 var(--accent)}
+.glx-vs.warn{box-shadow:inset 3px 0 0 var(--warning)}
+.glx-vs.bad{box-shadow:inset 3px 0 0 var(--neg)}
+.glx-vnote{font-size:var(--fs-label);color:var(--muted);line-height:var(--lh);
+  padding:var(--s-2) var(--s-3);border-radius:var(--radius-xs);background:var(--n-50);
+  margin:0 0 var(--s-3)}
+.glx-vnote.bad{background:var(--neg-bg)}
+.glx-vnote.warn{background:var(--warn-bg)}
+.glx-vnote.ok{background:var(--pos-bg)}
+.glx-csum{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:var(--s-3);padding:var(--s-3) 0}
+.glx-csum .l{display:block;font-size:var(--fs-label);color:var(--hint);
+  text-transform:uppercase;letter-spacing:var(--tracking-label)}
+.glx-csum .v{display:block;font-size:var(--fs-table);color:var(--ink)}
+.glx-cstbl{margin:0 0 var(--s-3)}
+.glx-csrows{display:flex;flex-direction:column;gap:var(--s-1);padding:var(--s-2) 0}
+.glx-csr{font-size:var(--fs-label);color:var(--muted)}
 /* §28 — the approver's request card */
 .glx-inb{border:1px solid var(--line2);border-left:3px solid var(--warning);
   border-radius:var(--radius);background:var(--surface);padding:var(--s-3);margin:0 0 var(--s-3)}
@@ -41387,27 +41422,54 @@ function glxEff(r,k,p){
    corrections instead of making them, which is worse for the ledger than the risk it guards.
    Four cases, and only three of them stop. */
 const GLX_POLICY=[
-  {k:'certified', l:'Change in a certified period',
+  /* §15 CASE D */
+  {k:'certified', l:'Change in a certified period', reason:1, approval:1,
    d:'The conclusion has already been signed; the affected outputs must be re-read.'},
-  {k:'newvalue',  l:'New enterprise value',
+  /* §15 CASE C — the ERP said something and Korvyn is proposing to report something else */
+  {k:'erp',       l:'Overriding an ERP-sourced value', reason:1, approval:1,
+   d:'The source system supplied a value. Reporting a different one is a governed decision.'},
+  {k:'newvalue',  l:'New enterprise value', reason:0, approval:1,
    d:'A value that does not exist in the governed reference list yet.'},
-  {k:'material',  l:'Material classification change',
+  {k:'material',  l:'Material classification change', reason:1, approval:1,
    d:'A governed classification carrying an approval requirement.'},
-  {k:'none',      l:'Open-period normalization', d:'Saved immediately.'},
+  /* §15 CASE B — replacing a governed value somebody already decided. A reason, not a queue. */
+  {k:'replace',   l:'Replacing an existing governed value', reason:1, approval:0,
+   d:'Somebody already decided this value. Say why it is changing.'},
+  /* §15 CASE A / §17 — the fast path, and it must stay fast */
+  {k:'none',      l:'Filling a blank dimension', reason:0, approval:0, d:'Saved immediately.'},
 ];
-function glxApprovalNeeded(r,key,val,p){
+const glxPolicy=k=>GLX_POLICY.find(x=>x.k===k)||GLX_POLICY[GLX_POLICY.length-1];
+/* §18 — THE CONTROL DEPENDS ON WHAT IS BEING REPLACED, NOT ONLY ON THE FIELD. Four inputs:
+   the period's certification state, whether the ERP supplied a value, whether a governed value
+   already exists, and the field's own approval requirement. The ORDER is the precedence — a
+   certified period outranks everything, and filling a blank outranks nothing. */
+function glxControl(r,key,val,p){
   const per=p||tbxClosePeriod();
-  if(glxPeriodState(per)==='certified') return 'certified';
+  const cur=key.indexOf('A:')===0
+    ? glxCellVal(r,glxAllCols().find(c=>'A:'+c.attr===key),per)
+    : glxDim(r,key,per);
+  const hasSource=cur&&cur.source!=null&&String(cur.source)!=='';
+  const hasGoverned=!!(cur&&cur.ovr);
+  if(glxPeriodState(per)==='certified') return glxPolicy('certified');
   if(key.indexOf('A:')===0){
     const f=ENR_FIELDS.find(x=>x.id===key.slice(2));
-    if(f&&f.approval>=1) return 'material';
-    return null;
+    if(f&&f.approval>=1) return glxPolicy('material');
+    return glxPolicy(hasGoverned?'replace':'none');
   }
-  const known=glxVocab(key,per);
-  if(val&&known.indexOf(val)<0) return 'newvalue';
-  return null;
+  /* CASE C — the ERP supplied a value and the proposal differs from it */
+  if(hasSource&&String(val)!==String(cur.source)) return glxPolicy('erp');
+  /* a value nobody has seen before still needs somebody to admit it to the reference list */
+  if(val&&glxVocab(key,per).indexOf(val)<0) return glxPolicy('newvalue');
+  /* CASE B */
+  if(hasGoverned&&String(cur.val||'')!==String(val)) return glxPolicy('replace');
+  /* CASE A */
+  return glxPolicy('none');
 }
-const glxPolicy=k=>GLX_POLICY.find(x=>x.k===k)||GLX_POLICY[3];
+/* kept as the one-word answer the approval object records */
+function glxApprovalNeeded(r,key,val,p){
+  const c=glxControl(r,key,val,p);
+  return c.approval?c.k:null;
+}
 
 /* ---- THE APPROVAL OBJECT (§7). Every field the brief lists is carried; almost none of it is
    ever shown, because the interaction is a sentence and an @mention. */
@@ -41796,12 +41858,15 @@ function glxEditCommit(val){
   if(String(val).indexOf('__new:')===0) val=decodeURIComponent(String(val).slice(6)).trim();
   if(!val){ glxEd=null; try{KFX.popClose()}catch(e){} renderGLAct(); return; }
   if(val!=='__clear'){
-    const need=glxApprovalNeeded(r,key,val,per);
-    if(need){
-      /* §6 — THE REQUEST IS RAISED WHERE THE EDIT WAS MADE. No admin page, no second screen:
-         a proposal, a sentence and an @mention, on the row it belongs to. */
-      glxAsk={rowKey:glxKey(r), key, label, val, trigger:need,
-        note:'', approver:null, cur:before?before.val:null, src:before?before.source:null};
+    const ctl=glxControl(r,key,val,per);
+    if(ctl.reason||ctl.approval){
+      /* §16 — A REPLACEMENT IS CONFIRMED, NEVER SILENT. The same composer carries both controls:
+         a reason alone where that is all the policy asks, a reason and an approver where it
+         asks for both. §17's fast path never reaches here — filling a blank returns `none`. */
+      glxAsk={rowKey:glxKey(r), key, label, val, trigger:ctl.k,
+        needReason:ctl.reason?1:0, needAppr:ctl.approval?1:0,
+        reason:'', note:'', approver:null,
+        cur:before?before.val:null, src:before?before.source:null};
       glxEd=null; try{KFX.popClose()}catch(e){} renderGLAct(); return;
     }
   }
@@ -41837,6 +41902,13 @@ function glxAskNote(v){
   glxMent=m?{q:m[1].trim().toLowerCase()}:null;
   glxAskPaint();
 }
+/* the note without the @mention that addressed it */
+function glxNoteBody(note,approver){
+  let t=String(note||'');
+  if(approver) t=t.split('@'+approver).join(' ');
+  t=t.replace(/@\S+/g,' ');
+  return t.replace(/\s+/g,' ').trim();
+}
 function glxApprovers(q){
   const people=(typeof pplDir==='function')?pplDir().map(p=>({nm:p.nm||p, grp:0})):[];
   const base=people.length?people:[{nm:'Mitra Giri',grp:0},{nm:'A. Okafor',grp:0},
@@ -41861,12 +41933,34 @@ function glxAskPaint(){
     +glEsc(x.nm)+(x.grp?'<span class="s">group</span>':'')+'</button>').join(''):'';
   el.hidden=!glxMent;
 }
+const GLX_REASONS=['Vendor normalization','Correction of an ERP posting error',
+  'Reclassification for reporting','Missing dimension supplied by the business',
+  'Alignment to the governed reference list','Other'];
+function glxAskReason(v){ if(glxAsk){ glxAsk.reason=v; renderGLAct(); } }
+function glxAskReady(){
+  const A=glxAsk; if(!A) return false;
+  if(A.needReason&&!(A.reason||'').trim()) return false;
+  if(A.needAppr&&!A.approver) return false;
+  return true;
+}
 function glxAskSend(){
-  const A=glxAsk; if(!A) return;
-  const r=glxRows(tbxClosePeriod()).find(x=>glxKey(x)===A.rowKey);
+  const A=glxAsk; if(!A||!glxAskReady()) return;
+  const per=tbxClosePeriod();
+  const r=glxRows(per).find(x=>glxKey(x)===A.rowKey);
   if(!r){ glxAsk=null; renderGLAct(); return; }
-  const rec=glxApprRaise(r,A.key,A.val,{approver:A.approver,
-    reason:(A.note||'').replace(/@[A-Za-z ]+/,'').trim()||null, trigger:A.trigger});
+  const why=[(A.reason||'').trim(),glxNoteBody(A.note,A.approver)]
+    .filter(Boolean).join(' — ')||null;
+  /* §15 CASE B — A REASON IS A CONTROL, NOT A QUEUE. Where the policy asks only for a reason
+     the change is made now and the reason is on the record; sending it to somebody for a
+     decision nobody asked for would be the over-control §17 warns against. */
+  if(!A.needAppr){
+    glxEditWrite(r,A.key,A.val,{reason:why});
+    glxAsk=null; glxMent=null;
+    glxEdToast={t:A.label+' changed to “'+A.val+'” · '+glEsc(why||'reason recorded')+'.',
+      prov:'Override', key:A.key, rowKey:glxKey(r), val:A.val};
+    renderGLAct(); return;
+  }
+  const rec=glxApprRaise(r,A.key,A.val,{approver:A.approver, reason:why, trigger:A.trigger});
   glxAsk=null; glxMent=null;
   glxEdToast={t:A.label+' — approval requested for “'+A.val+'”'
     +(rec.approver?' from '+rec.approver:'')+'. The value is not effective until it is approved.',
@@ -41950,20 +42044,35 @@ function glxAskHTML(){
       +'<div><span class="l">Current governed</span><span class="v">'
         +(A.cur==null?'<span class="rcx-nil">none</span>':glEsc(String(A.cur)))+'</span></div>'
     +'</div>'
+    /* §28 — the ERP-override case says so in words rather than leaving it to be inferred from
+       two fields that happen to differ */
+    +(A.trigger==='erp'?'<div class="glx-askw">You are overriding a value the ERP supplied. '
+      +'The source stays <b>'+glEsc(String(A.src))+'</b>; <b>'+glEsc(A.val)+'</b> is what '
+      +'Korvyn would report.</div>':'')
     /* §27 — the certified case states its consequence before the request, not after */
     +(im?'<div class="glx-askw">'+glEsc(perLabel(per))+' is certified. This change affects '
       +im.audit+' audit population'+(im.audit===1?'':'s')+', '+im.reports+' report'
       +(im.reports===1?'':'s')+' and '+im.recs+' reconciliation'+(im.recs===1?'':'s')
       +'. Approval will mark the affected outputs <b>Review required</b>.</div>':'')
+    /* §16 — the reason is a short list plus free text, because a reason nobody can pick from a
+       list is one that gets typed as "fix" */
+    +(A.needReason?'<div class="glx-askr"><span class="l">Reason</span>'
+      +GLX_REASONS.map(x=>'<button class="glx-rb'+(A.reason===x?' on':'')
+        +'" onclick="glxAskReason(\''+glEsc(x).replace(/'/g,"\\'")+'\')">'+glEsc(x)
+        +'</button>').join('')+'</div>':'')
     +'<div class="glx-askn"><input id="glxAskNote" type="text" value="'+glEsc(A.note)
-      +'" placeholder="@approver — why this value" autocomplete="off"'
+      +'" placeholder="'+(A.needAppr?'@approver — anything else the reviewer should know'
+        :'Anything else worth recording (optional)')+'" autocomplete="off"'
       +' oninput="glxAskNote(this.value)"><div class="glx-ment" id="glxAskMent" hidden></div>'
     +'</div>'
     +'<div class="glx-askf">'
-      +'<button class="btn-primary sm" onclick="glxAskSend()">Send for approval</button>'
+      +'<button class="btn-primary sm"'+(glxAskReady()?'':' disabled')
+        +' onclick="glxAskSend()">'+(A.needAppr?'Send for approval':'Submit change')+'</button>'
       +'<button class="btn-ghost sm" onclick="glxAskCancel()">Cancel</button>'
-      +'<span class="glx-dim">Type @ to choose an approver. Nothing is written until they '
-      +'approve.</span></div></div>';
+      +'<span class="glx-dim">'
+      +(A.needAppr?'Type @ to choose an approver. Nothing is written until they approve.'
+        :'The change is made now and the reason is kept on the record.')
+      +'</span></div></div>';
 }
 
 /* ---- §11/§12 — RULE SUGGESTION. A correction that would be right for 184 other rows is a
@@ -42126,7 +42235,21 @@ function glxToggleCol(k){ const s=glxColSet(), i=s.indexOf(k);
   }
   renderGLAct(); }
 function glxColsReset(){ glxCols=glxDefaultCols(); renderGLAct(); }
-function glxPickTog(){ glxPick=!glxPick; renderGLAct(); }
+function glxPickTog(){ glxPick=!glxPick; if(!glxPick) glxColQ=''; renderGLAct(); }
+/* §23/§24 — THE LOCAL PANELS CLOSE LOCALLY. Each of these is a thing opened ON Account
+   Activity, so Escape finishes it and leaves the reader exactly where they were. The page's
+   Back arrow keeps its one job, which is navigation. */
+addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(typeof TAB==='undefined'||TAB!=='glact') return;
+  const t=e.target;
+  if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)&&t.type!=='search'&&t.type!=='checkbox') return;
+  if(glxAddDim){ glxAddDim=null; e.preventDefault(); renderGLAct(); return; }
+  if(glxNF){ glxNF=null; e.preventDefault(); renderGLAct(); return; }
+  if(glxAsk){ glxAsk=null; glxMent=null; e.preventDefault(); renderGLAct(); return; }
+  if(glxImp){ glxImp=null; e.preventDefault(); renderGLAct(); return; }
+  if(glxPick){ glxPick=false; glxColQ=''; e.preventDefault(); renderGLAct(); return; }
+});
 function glxSetF(k,v){ glxF[k]=v; glxPage=0; try{KFX.popClose()}catch(e){} renderGLAct(); }
 function glxFReset(){ glxF={acct:'all',ent:'all',vendor:'all',prj:'all',erp:'all',rec:'all',
   map:'all',ccy:'all',mat:false}; glxQ=''; glxPage=0; renderGLAct(); }
@@ -42185,6 +42308,9 @@ function renderGLAct(){
   if(glxPick) o+=glxPicker();
   if(glxNF) o+=glxNewFieldHTML();
   if(glxAsk) o+=glxAskHTML();
+  if(glxUp) o+=glxUpHTML();
+  if(glxCs) o+=glxCsHTML();
+  o+=glxCsBanner();
   o+=glxApprInbox();
   o+=glxImpHTML();
   o+=glxBulkBar(all);
@@ -42396,6 +42522,8 @@ function glxFilterBar(n,p){
       +' onclick="KFX.pop(\'glx:views\',this)">'
       +(glxViewId?glEsc((GLX_VIEWS.find(v=>v.id===glxViewId)||{}).nm||'Saved views')
         +(glxViewDirty?' · edited':''):'Saved views')+'</button>'
+    +'<button class="btn-out sm" data-pop="glx:up" onclick="KFX.pop(\'glx:up\',this)">'
+      +'Upload</button>'
     +'<button class="btn-out sm" data-pop="glx:dl" onclick="KFX.pop(\'glx:dl\',this)">'
       +'Download</button>'
     +'</div>';
@@ -42442,7 +42570,13 @@ function glxPicker(){
       +glEsc(glxColQ)+'" oninput="glxColSearch(this.value)">'
     +'<span class="grow"></span>'
     +'<button class="rcx-lk2" onclick="glxColsReset()">Reset</button>'
-    +'<button class="rw-ib" title="Close" onclick="glxPickTog()">'
+    /* §22 — "CLOSE" IS NOT "DONE", AND THE DIFFERENCE IS THE WHOLE POINT. There is nothing to
+       confirm: every change is already live in the current view. What was missing was a plain
+       local exit, and without one a reader reaches for the page's Back arrow — which is
+       navigation and takes them off Account Activity entirely. The word means "finished
+       configuring columns", not "save". */
+    +'<button class="btn-out sm" onclick="glxPickTog()">Close</button>'
+    +'<button class="rw-ib" title="Close columns" onclick="glxPickTog()">'
     +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"'
     +' stroke-width="1.6" stroke-linecap="round"/></svg></button></div>';
   /* VISIBLE COLUMNS, IN ORDER, DRAGGABLE */
@@ -42849,6 +42983,476 @@ function glxPanel(rows,p){
 /* ---- §19, §24 — DOWNLOAD. The filtered population, with source facts, mapping, attributes
    and lineage, ID and description always separate, the manifest on its own sheet. */
 let _glxExpSeq=0;
+/* ==========================================================================================
+   §1–§14 — BULK ENRICHMENT: ROW → BATCH → RULE
+   ==========================================================================================
+   A hundred thousand GL lines cannot be corrected one cell at a time, and forcing batch-scale
+   work through inline editing is the failure this exists to prevent. The three scales are a
+   product principle, not three features:
+
+     ROW    one inline correction, seconds, no ceremony
+     BATCH  download → edit in Excel → upload → validate → ONE change set → ONE approval
+     RULE   a recurring classification that stops the correction recurring at all
+
+   The BATCH path's whole design is that approval is granted once, over a stated population —
+   not transaction by transaction, which at this scale is the same as no control at all.
+
+   §4 — EVERY EXPORT HAS AN IDENTITY, and that is what makes the upload safe: a file is
+   validated against the population it came from, at the snapshot it was taken at. Without it
+   an upload is a pile of rows nobody can tie to anything. */
+const GLX_EXPORTS=[];
+let _glxEnrSeq=0;
+function glxExportId(p){
+  return 'ENR-'+p+'-'+String(++_glxEnrSeq).padStart(4,'0');
+}
+/* the enrichment workbook's shape: identity and source first and LOCKED, governed after and
+   editable. §3 — the two halves are named so a reader in Excel can see which is which. */
+function glxEnrCols(){
+  const id=[
+    {k:'lineId',  l:'Korvyn Line ID', f:r=>glxKey(r)},
+    {k:'erp',     l:'ERP', f:r=>r.erpPlatform},
+    {k:'erpIns',  l:'ERP Instance', f:r=>r.erpInstanceName},
+    {k:'srcTxn',  l:'Source Transaction ID', f:r=>r.sourceTransactionId},
+    {k:'je',      l:'Journal', f:r=>r.journalNumber},
+    {k:'jeLine',  l:'Journal Line', f:r=>r.journalLineNumber},
+    {k:'postDate',l:'Posting Date', f:r=>r.postingDate},
+    {k:'acctNo',  l:'Account Number', f:r=>r.glAccountNumber},
+    {k:'acctNm',  l:'Account Description', f:r=>r.glAccountName},
+    {k:'entId',   l:'Entity ID', f:r=>r.entityId},
+    {k:'entNm',   l:'Entity Name', f:r=>r.entityName},
+    {k:'amt',     l:'Net Amount', f:r=>r.reportingAmount, n:1},
+  ];
+  const dims=[];
+  GLX_DIMS.forEach(d=>{
+    if(d.srcF) dims.push({k:'s:'+d.k, l:'Source '+d.label, f:r=>r[d.srcF], src:1});
+    dims.push({k:'g:'+d.k, l:'Governed '+d.label, dim:d.k, edit:1});
+  });
+  /* the governed classifications and custom dimensions the reader is carrying */
+  const attrs=glxColSet().filter(k=>k.indexOf('A:')===0)
+    .map(k=>glxAllCols().find(c=>c.k===k)).filter(Boolean)
+    .map(c=>({k:'a:'+c.attr, l:c.l, attr:c.attr, edit:1}));
+  return {id, dims, attrs, all:id.concat(dims,attrs)};
+}
+function glxEnrValue(r,c,p){
+  if(c.f) return c.f(r);
+  if(c.dim){ const e=glxEff(r,c.dim,p); return e.governed==null?'':e.governed; }
+  if(c.attr){ const o=glxOvrFor(glxKey(r),'A:'+c.attr);
+    if(o) return o.val;
+    const a=glxAttr(r,c.attr,p); return a?a.val:''; }
+  return '';
+}
+/* §2/§3 — DOWNLOAD ENRICHMENT TEMPLATE */
+function glxEnrDownload(){
+  const p=tbxClosePeriod(), L=rcLens();
+  const rows=glxView(p).filter(r=>r.recordType==='SOURCE_GL');
+  const C=glxEnrCols();
+  const id=glxExportId(p);
+  const rec={exportId:id, period:p, periodLabel:perLabel(p),
+    scope:ENTCTX.scope.name, lens:L.name, basis:rcBasisLabel(L.reportingBasis),
+    filters:Object.keys(glxF).filter(k=>glxF[k]!=='all'&&glxF[k]!==false)
+      .map(k=>k+'='+glxF[k]).join(' ')||'none',
+    query:glxQ||'', rowCount:rows.length,
+    amount:+rows.reduce((a,x)=>a+(x.reportingAmount||0),0).toFixed(3),
+    by:rcMe().nm, at:glxNow(),
+    mappingVersion:mapVersionFor(p).v,
+    attributeVersion:(enrVersionFor(p)||{}).v||'2026.06.2',
+    dataAsOf:rcDataAsOf(p),
+    /* §8 — THE SNAPSHOT IS WHAT MAKES A STALE ROW DETECTABLE. Each line's source facts are
+       fingerprinted at export; an upload compares them and flags anything the ERP has moved
+       underneath. Without this, enrichment silently lands on a line that no longer exists in
+       the form it was described. */
+    snap:rows.reduce((m,r)=>{ m[glxKey(r)]=glxSrcFp(r); return m; },{}),
+    keys:rows.map(r=>glxKey(r))};
+  GLX_EXPORTS.push(rec);
+  const esc=v=>{const t=String(v==null?'':v).replace(/\s+/g,' ').trim();
+    return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  const nl=String.fromCharCode(13)+String.fromCharCode(10);
+  const head=C.all.map(c=>c.l);
+  const marker=C.all.map(c=>c.edit?'EDITABLE':'LOCKED — do not change');
+  const body=rows.map(r=>C.all.map(c=>glxEnrValue(r,c,p)));
+  rcDownload(['Korvyn enrichment workbook',
+      'exportId,'+id, 'period,'+perLabel(p), 'scope,'+rec.scope, 'reportingLens,'+rec.lens,
+      'filters,'+esc(rec.filters), 'rows,'+rec.rowCount,
+      'mappingVersion,'+rec.mappingVersion, 'attributeVersion,'+rec.attributeVersion,
+      'dataAsOf,'+rec.dataAsOf, 'exportedBy,'+rec.by, 'exportedAt,'+rec.at,
+      'instruction,Edit only the columns marked EDITABLE. Identity and Source columns are the '
+        +'ERP record and are validated on upload; changes to them are rejected.','']
+    .concat([head.map(esc).join(','), marker.map(esc).join(',')],
+      body.map(r=>r.map(esc).join(','))).join(nl),
+    'text/csv;charset=utf-8','korvyn-enrichment-'+id+'.csv');
+  glxEdToast={t:'Enrichment workbook '+id+' · '+rec.rowCount.toLocaleString('en-US')
+    +' rows · '+rcM(rec.amount)+'. Edit the governed columns and upload the file back.',
+    enr:id};
+  renderGLAct();
+}
+/* the source facts an upload must find unchanged */
+function glxSrcFp(r){
+  return [r.postingDate,r.journalNumber,r.journalLineNumber,r.glAccountNumber,
+    r.reportingAmount,r.debit,r.credit,r.vendorName||'',r.sourceDepartment||'',
+    r.entityId].join('|');
+}
+
+/* ==========================================================================================
+   §6–§9 — UPLOAD, VALIDATE, THEN A CHANGE SET. NOTHING IS WRITTEN BEFORE A PERSON LOOKS.
+   ========================================================================================== */
+let glxUp=null;          /* the validation result on screen */
+const GLX_CHANGESETS=[];
+let _glxCsSeq=0;
+/* a change set in flight stays one click away without taking the page over */
+function glxCsBanner(){
+  if(glxCs||glxUp) return '';
+  const live=GLX_CHANGESETS.filter(c=>c.status==='draft'||c.status==='pending');
+  if(!live.length) return '';
+  return live.map(c=>'<div class="glx-toast'+(c.status==='pending'?' warn':'')+'">'
+    +'<span class="t">Attribute change set <span class="mono">'+glEsc(c.changeSetId)
+    +'</span> · '+Number(c.changes).toLocaleString('en-US')+' changes · '+rcM(c.amount)
+    +' · <b>'+(c.status==='pending'?'pending '+glEsc(c.reviewer||'approval'):'draft')
+    +'</b></span><span class="grow"></span>'
+    +'<button class="btn-out sm" onclick="glxCsOpen(\''+c.changeSetId+'\')">'
+    +(c.status==='pending'?'Review changes':'Open')+'</button></div>').join('');
+}
+/* PROTOTYPE SCAFFOLDING, LABELLED AS SUCH. Walking §27 by hand means editing a few thousand
+   cells in a spreadsheet; this fills the governed columns of the last export the way a
+   preparer would have, writes the file through the same CSV the upload parses, and then goes
+   through the real validate → change set → approve path. It writes nothing itself. */
+function glxEnrSimulate(){
+  const exp=GLX_EXPORTS[GLX_EXPORTS.length-1];
+  if(exp&&exp._simulated){ /* re-stamp so only the newly moved lines read as stale */
+    glxRows(exp.period).forEach(r=>{ if(exp.snap[glxKey(r)]) exp.snap[glxKey(r)]=glxSrcFp(r); }); }
+  if(!exp){ glxEdToast={t:'Download an enrichment template first.'}; renderGLAct(); return; }
+  const p=exp.period, rows=glxRows(p).filter(r=>exp.keys.indexOf(glxKey(r))>=0);
+  const C=glxEnrCols();
+  const vend=glxVocab('vendor',p), dept=glxVocab('dept',p);
+  const esc=v=>{const t=String(v==null?'':v).replace(/\s+/g,' ').trim();
+    return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  const nl=String.fromCharCode(13)+String.fromCharCode(10);
+  const head=C.all.map(c=>c.l);
+  /* THE SCAFFOLDING GIVES THE DETECTION SOMETHING TO DETECT (§7, §8). A real workbook that
+     came back from a real preparer would contain a few of each: a cell somebody widened and
+     retyped, and lines the ERP moved while the file sat in an inbox. Both checks are real; the
+     demo would simply never exercise them against a file this code wrote itself. */
+  const salt=GLX_EXPORTS.filter(x=>x.exportId===exp.exportId).length
+    +GLX_CHANGESETS.length;   /* a second pass proposes different values, so §10's
+                                 "changed governed value" case is exercised too */
+  const tamper=new Set(rows.slice(0,6).map(r=>glxKey(r)));
+  const moved=new Set(rows.slice(6,14).map(r=>glxKey(r)));
+  const body=rows.map((r,i)=>C.all.map(c=>{
+    const v=glxEnrValue(r,c,p);
+    if(!c.edit){
+      /* §7 — a source cell somebody edited in Excel */
+      if(tamper.has(glxKey(r))&&c.k==='acctNm') return String(v)+' (corrected)';
+      return v;
+    }
+    if(v&&salt===0) return v;
+    if(c.dim==='vendor') return (v&&salt===0)?v
+      :vend[(rcH(glxKey(r),'v')+salt)%vend.length];
+    if(c.dim==='dept') return dept[(rcH(glxKey(r),'d')+salt)%dept.length];
+    if(c.attr==='EF-CAPEX'&&i%3===0) return 'Capital';
+    return v;
+  }));
+  /* §8 — the ERP moves under eight of the lines after the file was taken. The fingerprint in
+     the export is what notices; nothing about the row is actually rewritten here beyond what a
+     later sync would have done. */
+  moved.forEach(k=>{ const r=rows.find(x=>glxKey(x)===k); if(r) r.vendorName='Siemens AG'; });
+  const text=['Korvyn enrichment workbook','exportId,'+exp.exportId,
+    'period,'+perLabel(p),'rows,'+rows.length,'']
+    .concat([head.map(esc).join(','),
+      C.all.map(c=>c.edit?'EDITABLE':'LOCKED').map(esc).join(',')],
+      body.map(r=>r.map(esc).join(','))).join(nl);
+  exp._simulated=1;
+  glxEnrValidate(text,'June_CIP_Enrichment.csv');
+}
+function glxEnrUpload(){
+  const i=document.createElement('input'); i.type='file'; i.accept='.csv,text/csv';
+  i.onchange=()=>{ const f=i.files&&i.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>glxEnrValidate(String(rd.result||''),f.name);
+    rd.readAsText(f); };
+  i.click();
+}
+function glxEnrValidate(text,name){
+  const p=tbxClosePeriod(), rows=glxRows(p);
+  const L=glxCsvRows(text);
+  const meta={}; L.slice(0,14).forEach(l=>{ if(l.length>=2) meta[l[0]]=l[1]; });
+  const hi=L.findIndex(l=>l[0]==='Korvyn Line ID');
+  if(hi<0){ glxEdToast={t:'That file is not a Korvyn enrichment workbook — download the '
+    +'template first.'}; renderGLAct(); return; }
+  const head=L[hi].map(x=>String(x).trim());
+  const C=glxEnrCols();
+  const byLabel={}; C.all.forEach(c=>{ const i=head.indexOf(c.l); if(i>=0) byLabel[c.k]=i; });
+  const exp=GLX_EXPORTS.find(x=>x.exportId===meta.exportId)||null;
+  const body=L.slice(hi+1).filter(l=>l[0]&&l[0]!=='EDITABLE'&&l[0]!=='LOCKED — do not change'
+    &&String(l[0]).indexOf('LOCKED')!==0);
+  const chg=[], errs=[], stale=[];
+  let unchanged=0;
+  body.forEach(l=>{
+    const key=l[0];
+    const r=rows.find(x=>glxKey(x)===key);
+    if(!r){ errs.push({key, why:'no matching transaction in this close', kind:'missing'}); return; }
+    /* §8 — DID THE SOURCE MOVE? Asked FIRST, because a source column that differs is either
+       the ERP having moved or the file having been edited, and reporting the first as the
+       second accuses a preparer of something they did not do. */
+    if(exp&&exp.snap[key]&&exp.snap[key]!==glxSrcFp(r)){
+      stale.push({key, why:'Source changed since export', amt:r.reportingAmount||0}); return; }
+    /* §7 — AN IMMUTABLE FIELD THAT DIFFERS IS REJECTED, NOT APPLIED. The file carries them so
+       a person can read the line in Excel; it may not change them. */
+    let tampered=null;
+    C.id.concat(C.dims.filter(c=>c.src)).forEach(c=>{
+      if(byLabel[c.k]==null||tampered) return;
+      const was=String(glxEnrValue(r,c,p)==null?'':glxEnrValue(r,c,p)).trim();
+      const now=String(l[byLabel[c.k]]==null?'':l[byLabel[c.k]]).trim();
+      if(was!==now&&!(was===''&&now==='')) tampered=c.l;
+    });
+    if(tampered){ errs.push({key, why:'Source field modification detected · '+tampered,
+      kind:'immutable'}); return; }
+    let touched=false;
+    C.dims.filter(c=>c.dim).concat(C.attrs).forEach(c=>{
+      if(byLabel[c.k]==null) return;
+      const nv=String(l[byLabel[c.k]]==null?'':l[byLabel[c.k]]).trim();
+      const cv=String(glxEnrValue(r,c,p)==null?'':glxEnrValue(r,c,p)).trim();
+      if(nv===cv) return;
+      if(!nv) return;   /* clearing is not an enrichment; it is a separate act */
+      touched=true;
+      chg.push({key, field:c.dim||('A:'+c.attr), label:c.l, from:cv||null, to:nv,
+        amt:r.reportingAmount||0, isNew:!cv});
+    });
+    if(!touched) unchanged++;
+  });
+  glxUp={file:name, exportId:meta.exportId||'(not stated)', exp,
+    rows:body.length, chg, errs, stale, unchanged,
+    newVals:chg.filter(c=>c.isNew).length, changedVals:chg.filter(c=>!c.isNew).length,
+    amount:+[...new Set(chg.map(c=>c.key))].map(k=>rows.find(x=>glxKey(x)===k))
+      .filter(Boolean).reduce((a,x)=>a+(x.reportingAmount||0),0).toFixed(3),
+    period:p, drill:null};
+  glxEdToast=null; renderGLAct();
+}
+function glxUpCancel(){ glxUp=null; renderGLAct(); }
+function glxUpDrill(f){ if(glxUp){ glxUp.drill=glxUp.drill===f?null:f; renderGLAct(); } }
+
+/* ---- §9 — THE CHANGE SET IS THE UNIT OF APPROVAL. One object, one reviewer, one decision
+   over a stated population. Approving 3,821 rows one at a time is not a stronger control than
+   approving the set; it is the same control performed badly enough that nobody performs it. */
+function glxCsCreate(){
+  const V=glxUp; if(!V||!V.chg.length) return null;
+  const id='AC-'+V.period+'-'+String(++_glxCsSeq).padStart(4,'0');
+  const byField={};
+  V.chg.forEach(c=>{
+    const k=c.field+'|'+(c.from||'')+'|'+c.to;
+    const g=byField[k]||(byField[k]={field:c.field, label:c.label, from:c.from, to:c.to,
+      rows:0, amt:0, keys:[]});
+    g.rows++; g.amt+=c.amt; g.keys.push(c.key);
+  });
+  const rec={changeSetId:id, period:V.period, periodLabel:perLabel(V.period),
+    scope:ENTCTX.scope.name, lens:rcLens().name,
+    exportId:V.exportId, file:V.file,
+    rowsReviewed:V.rows, changes:V.chg.length,
+    newValues:V.newVals, changedValues:V.changedVals, unchanged:V.unchanged,
+    errors:V.errs.length, stale:V.stale.length,
+    amount:V.amount,
+    groups:Object.keys(byField).map(k=>byField[k])
+      .sort((a,b)=>Math.abs(b.amt)-Math.abs(a.amt)),
+    detail:V.chg,
+    /* §20 — the evidence, assembled with the set rather than reconstructed later */
+    validation:{errors:V.errs.slice(0,50), stale:V.stale.slice(0,50)},
+    sourceSnapshot:V.exp?V.exp.dataAsOf:null,
+    mappingVersion:V.exp?V.exp.mappingVersion:mapVersionFor(V.period).v,
+    attributeVersion:V.exp?V.exp.attributeVersion:null,
+    preparedBy:rcMe().nm, preparedAt:glxNow(),
+    submittedBy:null, submittedAt:null, reviewer:null, comment:null,
+    approvedBy:null, approvedAt:null, decision:null,
+    status:'draft'};
+  GLX_CHANGESETS.push(rec);
+  return rec;
+}
+let glxCs=null;          /* the change set on screen */
+let glxCsAsk=null;       /* its submit composer */
+function glxCsOpen(id){ glxCs=GLX_CHANGESETS.find(x=>x.changeSetId===id)||null;
+  glxUp=null; renderGLAct(); }
+function glxCsClose(){ glxCs=null; glxCsAsk=null; renderGLAct(); }
+function glxCsFromVal(){
+  const rec=glxCsCreate(); if(!rec) return;
+  glxUp=null; glxCs=rec; renderGLAct();
+}
+function glxCsDrill(i){ if(glxCs){ glxCs.drill=glxCs.drill===i?null:i; renderGLAct(); } }
+function glxCsAskOpen(){ glxCsAsk=glxCsAsk?null:{note:'',approver:null}; renderGLAct(); }
+function glxCsNote(v){
+  if(!glxCsAsk) return;
+  glxCsAsk.note=v;
+  const m=/@([A-Za-z ]*)$/.exec(v);
+  glxMent=m?{q:m[1].trim().toLowerCase(),cs:1}:null;
+  const el=document.getElementById('glxCsMent'); if(!el) return;
+  el.innerHTML=glxMent?glxApprovers(glxMent.q).map(x=>'<button class="glx-mo" onclick="'
+    +'glxCsMent(\''+glEsc(x.nm).replace(/'/g,"\\'")+'\')">'+(x.grp?'○ ':'')
+    +glEsc(x.nm)+(x.grp?'<span class="s">group</span>':'')+'</button>').join(''):'';
+  el.hidden=!glxMent;
+}
+function glxCsMent(nm){
+  if(!glxCsAsk) return;
+  glxCsAsk.note=glxCsAsk.note.replace(/@([A-Za-z ]*)$/,'@'+nm+' ');
+  glxCsAsk.approver=nm; glxMent=null; renderGLAct();
+  const i=document.getElementById('glxCsNote');
+  if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); }
+}
+/* §11 — SUBMIT THE SET, NOT THE ROWS */
+function glxCsSubmit(){
+  const C=glxCs, A=glxCsAsk; if(!C||!A||!A.approver) return;
+  C.status='pending'; C.submittedBy=rcMe().nm; C.submittedAt=glxNow();
+  C.reviewer=A.approver; C.comment=glxNoteBody(A.note,A.approver)||null;
+  glxCsAsk=null; glxMent=null; renderGLAct();
+}
+/* §12/§13/§19 — ONE DECISION PUBLISHES THE WHOLE SET INTO THE GOVERNED LEDGER. The writes go
+   through the same path an inline edit uses, so provenance, the ERP-sync comparison and every
+   downstream consumer are one mechanism rather than a second one for bulk. */
+function glxCsDecide(decision){
+  const C=glxCs; if(!C||C.status!=='pending') return;
+  C.status=decision; C.approvedBy=rcMe().nm; C.approvedAt=glxNow();
+  if(decision==='approved'){
+    const rows=glxRows(C.period);
+    const certified=glxPeriodState(C.period)==='certified';
+    let n=0;
+    C.detail.forEach(c=>{
+      const r=rows.find(x=>glxKey(x)===c.key); if(!r) return;
+      glxEditWrite(r,c.field,c.to,{scope:'changeset', changeSetId:C.changeSetId,
+        reason:C.comment, reviewRequired:certified?1:0});
+      /* a value nobody had seen joins the governed reference list on approval */
+      if(c.field.indexOf('A:')!==0&&glxVocab(c.field,C.period).indexOf(c.to)<0)
+        (GLX_VOCAB_ADD[c.field]=GLX_VOCAB_ADD[c.field]||[]).push(c.to);
+      n++;
+    });
+    _glxVocabBust();
+    C.published=n;
+  }
+  renderGLAct();
+}
+
+/* ---- the validation screen (§6) */
+function glxUpHTML(){
+  const V=glxUp; if(!V) return '';
+  const n=(x)=>Number(x||0).toLocaleString('en-US');
+  const stat=(l,v,c)=>'<div class="glx-vs'+(c?' '+c:'')+'"><span class="n">'+n(v)
+    +'</span><span class="l">'+l+'</span></div>';
+  let o='<div class="glx-panel"><div class="glx-ph"><b>Enrichment upload</b>'
+    +'<span class="glx-dim">'+glEsc(V.file)+' · '+glEsc(V.exportId)+'</span>'
+    +'<span class="grow"></span>'
+    +'<button class="rw-ib" title="Cancel" onclick="glxUpCancel()">'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round"/></svg></button></div>';
+  if(!V.exp) o+='<div class="glx-askw">This file does not carry an export id Korvyn issued, so '
+    +'it cannot be checked against the population it came from. Stale-source detection is off '
+    +'for this upload.</div>';
+  o+='<div class="glx-vgrid">'
+    +stat('Rows in file',V.rows)
+    +stat('Changes detected',V.chg.length,'acc')
+    +stat('New values',V.newVals)
+    +stat('Changed governed values',V.changedVals)
+    +stat('Unchanged',V.unchanged)
+    +stat('Errors',V.errs.length,V.errs.length?'bad':'')
+    +stat('Source changed since export',V.stale.length,V.stale.length?'warn':'')
+    +'</div>';
+  if(V.errs.length){
+    const byKind={}; V.errs.forEach(e=>{byKind[e.kind]=(byKind[e.kind]||0)+1;});
+    o+='<div class="glx-vnote bad"><b>'+n(V.errs.length)+' rows rejected</b> · '
+      +Object.keys(byKind).map(k=>n(byKind[k])+' '
+        +(k==='immutable'?'with a source field modified'
+          :k==='missing'?'with no matching transaction':k)).join(' · ')
+      +'. '+glEsc(V.errs[0].why)+'. Rejected rows are not part of the change set.</div>';
+  }
+  if(V.stale.length) o+='<div class="glx-vnote warn"><b>'+n(V.stale.length)
+    +' rows changed in the ERP after this file was downloaded.</b> Their enrichment is held '
+    +'back rather than applied to a line that has moved — re-download and re-apply those.</div>';
+  o+='<div class="glx-askf">'
+    +'<button class="btn-primary sm"'+(V.chg.length?'':' disabled')
+      +' onclick="glxCsFromVal()">Review changes</button>'
+    +'<button class="btn-ghost sm" onclick="glxUpCancel()">Cancel</button>'
+    +'<span class="glx-dim">Nothing has been written. Reviewing creates a change set you can '
+    +'submit for one approval.</span></div></div>';
+  return o;
+}
+
+/* ---- the change set (§9, §10, §11, §12) */
+function glxCsHTML(){
+  const C=glxCs; if(!C) return '';
+  const n=x=>Number(x||0).toLocaleString('en-US');
+  const st=C.status==='draft'?{l:'Draft',c:''}
+    :C.status==='pending'?{l:'Pending approval',c:'warn'}
+    :C.status==='approved'?{l:'Approved',c:'ok'}
+    :C.status==='returned'?{l:'Returned',c:'warn'}:{l:'Rejected',c:'bad'};
+  const iAmReviewer=C.reviewer&&(C.reviewer===rcMe().nm
+    ||/Accounting|Controller/.test(C.reviewer));
+  let o='<div class="glx-panel"><div class="glx-ph"><b>Attribute change set</b>'
+    +'<span class="mono glx-dim">'+glEsc(C.changeSetId)+'</span>'
+    +'<span class="pill '+(st.c||'')+' sm">'+glEsc(st.l)+'</span>'
+    +'<span class="grow"></span>'
+    +'<button class="rw-ib" title="Close" onclick="glxCsClose()">'
+    +'<svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor"'
+    +' stroke-width="1.6" stroke-linecap="round"/></svg></button></div>'
+    +'<div class="glx-csum">'
+      +'<div><span class="l">Proposed changes</span><span class="v"><b>'+n(C.changes)
+        +'</b></span></div>'
+      +'<div><span class="l">Population</span><span class="v">'+rcM(C.amount)+'</span></div>'
+      +'<div><span class="l">Rows reviewed</span><span class="v">'+n(C.rowsReviewed)+'</span></div>'
+      +'<div><span class="l">Period</span><span class="v">'+glEsc(C.periodLabel)+'</span></div>'
+      +'<div><span class="l">Scope</span><span class="v">'+glEsc(C.scope)+'</span></div>'
+      +'<div><span class="l">Prepared by</span><span class="v">'+glEsc(C.preparedBy)+'</span></div>'
+    +'</div>';
+  /* §10 — FIELD-LEVEL, NOT ROW-LEVEL. This is what one approval is granted over. */
+  o+='<table class="rcx-tbl glx-cstbl"><thead><tr><th>Field</th><th>Previous value</th>'
+    +'<th>Proposed value</th><th class="num">Rows</th><th class="num">Amount</th><th></th>'
+    +'</tr></thead><tbody>'
+    +C.groups.map((g,i)=>'<tr class="rcx-r"><td>'+glEsc(g.label)+'</td>'
+      +'<td>'+(g.from==null?'<span class="rcx-nil">blank</span>':glEsc(String(g.from)))+'</td>'
+      +'<td><b>'+glEsc(String(g.to))+'</b></td>'
+      +'<td class="num">'+n(g.rows)+'</td>'
+      +'<td class="num">'+rcM(+g.amt.toFixed(3))+'</td>'
+      +'<td><button class="rcx-lk2" onclick="glxCsDrill('+i+')">'
+        +(C.drill===i?'Hide rows':'View rows')+'</button></td></tr>'
+      +(C.drill===i?'<tr class="rcx-r"><td colspan="6"><div class="glx-csrows">'
+        +g.keys.slice(0,12).map(k=>{const r=glxRows(C.period).find(x=>glxKey(x)===k);
+          return r?'<div class="glx-csr"><span class="mono">'+glEsc(r.journalNumber)+'</span> '
+            +glEsc(r.glAccountNumber)+' '+glEsc(r.glAccountName)+' · '
+            +glEsc(r.entityName)+' · '+rcM(r.reportingAmount)+'</div>':'';}).join('')
+        +(g.keys.length>12?'<div class="glx-dim">'+n(g.keys.length-12)+' more</div>':'')
+        +'</div></td></tr>':'')).join('')
+    +'</tbody></table>';
+  if(C.errors||C.stale) o+='<div class="glx-vnote">'
+    +(C.errors?'<b>'+n(C.errors)+'</b> rows were rejected in validation. ':'')
+    +(C.stale?'<b>'+n(C.stale)+'</b> rows were held back because the ERP changed after the '
+      +'export. ':'')
+    +'Neither is part of this set.</div>';
+  /* §11 — submit */
+  if(C.status==='draft'){
+    o+=glxCsAsk
+      ? '<div class="glx-askn"><input id="glxCsNote" type="text" value="'+glEsc(glxCsAsk.note)
+        +'" placeholder="@reviewer — what this change set covers" autocomplete="off"'
+        +' oninput="glxCsNote(this.value)"><div class="glx-ment" id="glxCsMent" hidden></div>'
+        +'</div><div class="glx-askf">'
+        +'<button class="btn-primary sm"'+(glxCsAsk.approver?'':' disabled')
+          +' onclick="glxCsSubmit()">Submit for approval</button>'
+        +'<button class="btn-ghost sm" onclick="glxCsAskOpen()">Cancel</button>'
+        +'<span class="glx-dim">One approval covers every change in this set.</span></div>'
+      : '<div class="glx-askf"><button class="btn-primary sm" onclick="glxCsAskOpen()">'
+        +'Submit for approval</button><span class="glx-dim">Nothing is written until the set '
+        +'is approved.</span></div>';
+  }
+  /* §12 — the approver decides once */
+  if(C.status==='pending') o+='<div class="glx-askf">'
+    +'<span class="glx-dim">Submitted by '+glEsc(C.submittedBy)+' · '+glEsc(C.submittedAt)
+    +' · reviewer '+glEsc(C.reviewer)+(C.comment?' · “'+glEsc(C.comment)+'”':'')+'</span>'
+    +(iAmReviewer?'<span class="grow"></span>'
+      +'<button class="btn-primary sm" onclick="glxCsDecide(\'approved\')">Approve '
+        +n(C.changes)+' changes</button>'
+      +'<button class="btn-out sm" onclick="glxCsDecide(\'returned\')">Return</button>'
+      +'<button class="btn-out sm" onclick="glxCsDecide(\'rejected\')">Reject</button>':'')
+    +'</div>';
+  if(C.status==='approved') o+='<div class="glx-vnote ok"><b>'+n(C.published)
+    +' governed values published</b> to the Governed Ledger by '+glEsc(C.approvedBy)+' · '
+    +glEsc(C.approvedAt)+'. Every downstream surface now reads the new effective values.</div>';
+  if(C.status==='returned'||C.status==='rejected') o+='<div class="glx-vnote warn">'
+    +glEsc(st.l)+' by '+glEsc(C.approvedBy)+' · '+glEsc(C.approvedAt)
+    +'. Nothing was written.</div>';
+  return o+'</div>';
+}
+
 function glxTemplate(){
   const p=tbxClosePeriod(), rows=glxView(p).filter(r=>r.recordType==='SOURCE_GL');
   const dims=GLX_DIMS;
@@ -43129,17 +43733,28 @@ function glxField(k){
     set:v=>v==='__save'?glxViewSave():v==='__update'?glxViewUpdate()
       :v==='__clear'?glxViewClear():glxViewApply(v)};
   if(k==='dl') return {nm:'Download', get:()=>null,
-    opts:()=>[{id:'xls', nm:'Excel workbook',
-        sub:'source, governed, mapping, attributes, lineage · manifest on its own sheet'},
-      {id:'csv', nm:'CSV', sub:'one value per column · manifest above the table'},
-      {id:'full', nm:'Full governed extract',
-        sub:'source, governed, effective and the whole provenance chain · §29'},
-      {id:'tpl', nm:'Attribute update template',
-        sub:'governed columns only, for editing and re-import'},
-      {id:'imp', nm:'Import attribute updates…',
-        sub:'previewed and counted before anything is written'}],
+    opts:()=>[{id:'csv', nm:'Download current view',
+        sub:'the columns and filters on screen · CSV'},
+      {id:'xls', nm:'Download full GL',
+        sub:'every governed field · Excel workbook with its manifest'},
+      {id:'enr', nm:'Download enrichment template',
+        sub:'identity and source locked, governed columns to fill in'},
+      {id:'full', nm:'Download audit-ready GL',
+        sub:'source, governed, effective and the whole provenance chain'}],
     set:v=>{ try{KFX.popClose()}catch(e){}
-      if(v==='tpl') glxTemplate(); else if(v==='imp') glxImportOpen(); else glxExport(v); }};
+      if(v==='enr') glxEnrDownload(); else glxExport(v); }};
+  if(k==='up') return {nm:'Upload', get:()=>null,
+    opts:()=>[{id:'enr', nm:'Upload enrichment file',
+        sub:'validated against the export it came from · nothing is written until approved'}]
+      .concat(GLX_EXPORTS.length?[{id:'sim',
+        nm:'Simulate a completed workbook', sub:'prototype control · fills the governed columns '
+        +'of the last export so the flow can be walked'}]:[])
+      .concat(GLX_CHANGESETS.length?[{id:'sets', nm:'Change sets',
+        sub:GLX_CHANGESETS.length+' in this session'}]:[]),
+    set:v=>{ try{KFX.popClose()}catch(e){}
+      if(v==='enr') glxEnrUpload();
+      else if(v==='sim') glxEnrSimulate();
+      else if(v==='sets') glxCsOpen(GLX_CHANGESETS[GLX_CHANGESETS.length-1].changeSetId); }};
   if(k.indexOf('bulk:')===0){
     const key=k.slice(5), isAttr=key.indexOf('A:')===0;
     const vals=isAttr?((ENR_FIELDS.find(x=>x.id===key.slice(2))||{}).vals||[]):glxVocab(key,p);
