@@ -41580,7 +41580,10 @@ function glxDimWrite(r,k,val,opt){
     val, prior:cur.val, srcAtEdit:cur.source, period:per,
     by:rcMe().nm, role:rcMe().role, at:glxNow(),
     scope:O.scope||'row', reason:O.reason||null, ruleId:O.ruleId||null,
-    approvalId:O.approvalId||null, state:O.state||'applied',
+    approvalId:O.approvalId||null, changeSetId:O.changeSetId||null,
+    attributeVersionId:O.attributeVersionId||null,
+    approvedBy:O.approvedBy||null, approvedAt:O.approvedAt||null,
+    state:O.state||'applied',
     /* §20 — a certified period does not refuse the edit, it records that the conclusion has
        to be looked at again. Silently rewriting history is the thing to avoid; refusing to
        correct a vendor is not. */
@@ -41726,7 +41729,34 @@ const GLX_COLS=[
   {k:'sourceReference', l:'Source reference',    g:'LINEAGE', m:1, w:200},
 ];
 const GLX_GROUPS=['SOURCE','ACCOUNTING','ORGANIZATION','COUNTERPARTY','PROJECT','MAPPING',
-                  'FINANCIAL ATTRIBUTES','CURRENCY','GOVERNANCE','LINEAGE'];
+                  'GOVERNED DIMENSIONS','FINANCIAL ATTRIBUTES','CURRENCY','GOVERNANCE','LINEAGE'];
+/* §7 — source / governed / effective per dimension, all three selectable, none default */
+function glxTripleCols(){
+  const out=[];
+  GLX_DIMS.forEach(d=>{
+    if(d.srcF) out.push({k:'t:s:'+d.k, l:'Source '+d.label.toLowerCase(),
+      g:'GOVERNED DIMENSIONS', tri:'s', dimOf:d.k});
+    out.push({k:'t:g:'+d.k, l:'Governed '+d.label.toLowerCase(),
+      g:'GOVERNED DIMENSIONS', tri:'g', dimOf:d.k});
+    out.push({k:'t:e:'+d.k, l:'Effective '+d.label.toLowerCase(),
+      g:'GOVERNED DIMENSIONS', tri:'e', dimOf:d.k});
+  });
+  /* §16 — and the lineage of the value, as columns an audit view can carry */
+  out.push({k:'t:src', l:'Change source', g:'LINEAGE', f:r=>glxRowSource(r)});
+  out.push({k:'t:cs',  l:'Change set', g:'LINEAGE', m:1, f:r=>glxRowChangeId(r)});
+  out.push({k:'t:av',  l:'Attribute version', g:'LINEAGE', m:1, f:r=>glxRowAv(r)});
+  return out;
+}
+/* the most recent governed decision on a row, whichever dimension it touched */
+function glxRowOvr(r){
+  const k=glxKey(r);
+  for(let i=GLX_OVR.length-1;i>=0;i--){ const o=GLX_OVR[i];
+    if(o.rowKey===k&&!o.void) return o; }
+  return null;
+}
+const glxRowSource  =r=>{const o=glxRowOvr(r); return o?glxChangeSource(o):null;};
+const glxRowChangeId=r=>{const o=glxRowOvr(r); return o?glxChangeId(o):null;};
+const glxRowAv      =r=>{const o=glxRowOvr(r); return o?(o.attributeVersionId||null):null;};
 /* the governed attribute fields become columns in their own group, so the catalogue and the
    ledger cannot disagree about what exists */
 function glxAllCols(){
@@ -41734,7 +41764,7 @@ function glxAllCols(){
     .map(f=>({k:'A:'+f.id, l:f.label, g:'FINANCIAL ATTRIBUTES',
       d:['EF-CAPEX','EF-ASSET','EF-FLUX'].indexOf(f.id)>=0?1:0,
       attr:f.id, edit:f.editable?1:0}));
-  return GLX_COLS.concat(attr);
+  return GLX_COLS.concat(attr,glxTripleCols());
 }
 const _glxMapCache={};
 function glxMap(r){
@@ -41814,6 +41844,8 @@ function glxEditWrite(r,key,val,opt){
       val, prior:prior?prior.val:null, srcAtEdit:null, period:per,
       by:rcMe().nm, role:rcMe().role, at:glxNow(), scope:O.scope||'row',
       reason:O.reason||null, ruleId:O.ruleId||null, approvalId:O.approvalId||null,
+      changeSetId:O.changeSetId||null, attributeVersionId:O.attributeVersionId||null,
+      approvedBy:O.approvedBy||null, approvedAt:O.approvedAt||null,
       state:O.state||'applied',
       reviewRequired:O.reviewRequired?1:0};
     GLX_OVR.push(rec); _glxDimGen++; return rec;
@@ -42168,6 +42200,12 @@ function glxBulkApply(){
     certified:certified?1:0};
   glxPickRows={}; glxBulk=null; renderGLAct();
 }
+/* §16 — the change SOURCE, in the same words whether the value arrived by hand, by workbook
+   or by rule. A lineage that spells it three ways is three lineages. */
+const GLX_SRC={row:'Manual edit', bulk:'Bulk edit', changeset:'Bulk upload',
+  import:'Bulk upload', rule:'Rule', changeSet:'Bulk upload'};
+const glxChangeSource=o=>o?(GLX_SRC[o.scope]||'Manual edit'):null;
+const glxChangeId=o=>o?(o.changeSetId||o.approvalId||o.ruleId||o.id):null;
 const glxKeyLabel=k=>{ const c=glxAllCols().find(x=>(x.dim===k)||('A:'+x.attr===k));
   return c?c.l:k; };
 /* the fields a bulk edit may set — the same registry the cell editor reads */
@@ -42206,7 +42244,7 @@ function glxUsedIn(key){
 /* ---- STATE, FILTERS AND THE PAGE. §18 — compact filters, not all of them at once. */
 let glxCols=null, glxQ='', glxPage=0, glxSel=null, glxPick=false, glxTab='ledger',
     glxF={acct:'all',ent:'all',vendor:'all',prj:'all',erp:'all',rec:'all',map:'all',
-          ccy:'all',mat:false};
+          ccy:'all',mat:false,cs:'all'};
 const GLX_PAGE=50;
 function glxDefaultCols(){ return glxAllCols().filter(c=>c.d).map(c=>c.k); }
 function glxColSet(){ if(!glxCols) glxCols=glxDefaultCols(); return glxCols; }
@@ -42252,7 +42290,7 @@ addEventListener('keydown',e=>{
 });
 function glxSetF(k,v){ glxF[k]=v; glxPage=0; try{KFX.popClose()}catch(e){} renderGLAct(); }
 function glxFReset(){ glxF={acct:'all',ent:'all',vendor:'all',prj:'all',erp:'all',rec:'all',
-  map:'all',ccy:'all',mat:false}; glxQ=''; glxPage=0; renderGLAct(); }
+  map:'all',ccy:'all',mat:false,cs:'all'}; glxQ=''; glxPage=0; renderGLAct(); }
 function glxSearch(v){ glxQ=v; glxPage=0; renderGLAct();
   const i=document.querySelector('#view-glact .glx-q');
   if(i){ i.focus(); try{ i.setSelectionRange(v.length,v.length); }catch(e){} } }
@@ -42272,6 +42310,9 @@ function glxView(k){
   if(F.erp!=='all')    rows=rows.filter(r=>r.erpInstanceName===F.erp);
   if(F.ccy!=='all')    rows=rows.filter(r=>r.transactionCurrency===F.ccy);
   if(F.map!=='all')    rows=rows.filter(r=>glxMap(r).status===F.map);
+  /* §12 — the lines a change set touched, read off the store rather than a list the set keeps */
+  if(F.cs&&F.cs!=='all') rows=rows.filter(r=>GLX_OVR.some(o=>!o.void
+    &&o.rowKey===glxKey(r)&&o.changeSetId===F.cs));
   if(F.mat){ const t=(typeof matAbsThr==='function')?matAbsThr()/1000:1;
     rows=rows.filter(r=>Math.abs(r.reportingAmount||0)>=t); }
   const q=(glxQ||'').trim().toLowerCase();
@@ -42304,6 +42345,14 @@ function renderGLAct(){
      past on the way to the work; what the page IS belongs in the crumb, which already says it. */
   o+=(typeof tbxCloseBanner==='function')?tbxCloseBanner(viewPeriod()):'';
 
+  if(glxF.cs&&glxF.cs!=='all'){
+    const C=GLX_CHANGESETS.find(x=>x.changeSetId===glxF.cs);
+    o+='<div class="glx-toast"><span class="t">Showing the '+all.length.toLocaleString('en-US')
+      +' transactions changed by <span class="mono">'+glEsc(glxF.cs)+'</span>'
+      +(C?' · published '+glEsc(C.publishedAt||''):'')+'</span><span class="grow"></span>'
+      +(C?'<button class="rcx-lk2" onclick="glxCsOpen(\''+glxF.cs+'\')">Open change set</button>':'')
+      +'<button class="btn-ghost sm" onclick="glxSetF(\'cs\',\'all\')">Clear</button></div>';
+  }
   o+=glxFilterBar(all.length,p);
   if(glxPick) o+=glxPicker();
   if(glxNF) o+=glxNewFieldHTML();
@@ -42343,6 +42392,12 @@ function renderGLAct(){
           /* §2 — A GOVERNED CELL SHOWS THE GOVERNED VALUE AND A QUIET MARK SAYING WHERE IT CAME
              FROM. Never two full columns: the source is one hover away and a row-detail row
              below, which is where a reader who wants it will look. */
+          if(c.tri){
+            const e=r.recordType==='SOURCE_GL'?glxEff(r,c.dimOf,p):null;
+            const v=!e?null:(c.tri==='s'?e.source:c.tri==='g'?e.governed:e.effective);
+            return '<td class="'+cls.trim()+'">'+(v==null||v===''
+              ?'<span class="rcx-nil">&mdash;</span>':glEsc(String(v)))+'</td>';
+          }
           if(c.dim||c.attr){
             const g=glxCellVal(r,c,p);
             if(r.recordType!=='SOURCE_GL') return '<td class="'+cls.trim()+'">'
@@ -42838,8 +42893,16 @@ function glxDimsPanel(r,p){
       +'exception remains</span>';
     if(g.sync==='changed') ex+='<span class="s w">the source value changed after this was set '
       +'(was '+glEsc(String(g.ovr.srcAtEdit||'blank'))+') — review the governed value</span>';
-    if(g.ovr) ex+='<span class="s">'+glEsc(g.ovr.by)+' · '+glEsc(g.ovr.at)
-      +(g.ovr.approvalId?' · approved '+glEsc(g.ovr.approvalId):'')
+    /* §16/§17 — THE LINEAGE READS THE SAME WHICHEVER PATH PRODUCED THE VALUE. Change source,
+       change id, who prepared it, who approved it, and the version it belongs to. */
+    if(g.ovr) ex+='<span class="s">'+glEsc(glxChangeSource(g.ovr))
+      +(glxChangeId(g.ovr)?' · <span class="mono">'+glEsc(glxChangeId(g.ovr))+'</span>':'')
+      +' · '+glEsc(g.ovr.by)+' · '+glEsc(g.ovr.at)
+      +(g.ovr.approvedBy?' · approved by '+glEsc(g.ovr.approvedBy)
+        +(g.ovr.approvedAt?' · '+glEsc(g.ovr.approvedAt):''):'')
+      +(g.ovr.attributeVersionId?' · <span class="mono">'
+        +glEsc(g.ovr.attributeVersionId)+'</span>':'')
+      +' · effective '+glEsc(perLabel(g.ovr.period))
       +(g.ovr.reviewRequired?' · review required':'')+'</span>';
     if(g.normRule) ex+='<span class="s">'+glEsc(g.normRule.id)+' · '+glEsc(g.normRule.by)
       +'</span>';
@@ -43273,6 +43336,60 @@ function glxCsFromVal(){
   const rec=glxCsCreate(); if(!rec) return;
   glxUp=null; glxCs=rec; renderGLAct();
 }
+/* §12 — THE WORKFLOW IS VISIBLY CONNECTED. The reader goes back to the ledger they started
+   from, filtered to exactly the lines the set changed, with the published values on screen. */
+function glxCsAffected(){
+  const C=glxCs; if(!C) return;
+  glxF.cs=C.changeSetId; glxPage=0; glxCs=null; glxUp=null;
+  glxEdToast={t:'Account activity filtered to change set '+C.changeSetId+' · '
+    +Number(C.published||C.changes).toLocaleString('en-US')+' published governed values.',
+    cs:C.changeSetId};
+  renderGLAct();
+}
+function glxCsDownload(){
+  const C=glxCs; if(!C) return;
+  const esc=v=>{const t=String(v==null?'':v).replace(/\s+/g,' ').trim();
+    return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  const nl=String.fromCharCode(13)+String.fromCharCode(10);
+  const rows=glxRows(C.period);
+  const head=['Change Set','Korvyn Line ID','Journal','Account Number','Account Description',
+    'Entity','Net Amount','Field','Previous Value','New Value','Change Source','Reason',
+    'Prepared By','Approved By','Approved At','Effective Period','Attribute Version'];
+  const body=C.detail.map(c=>{ const r=rows.find(x=>glxKey(x)===c.key)||{};
+    return [C.changeSetId,c.key,r.journalNumber,r.glAccountNumber,r.glAccountName,
+      r.entityName,r.reportingAmount,c.label,c.from==null?'':c.from,c.to,'Bulk upload',
+      C.comment||'',C.preparedBy,C.approvedBy||'',C.approvedAt||'',C.periodLabel,
+      C.attributeVersionId||''];});
+  rcDownload([head.map(esc).join(',')].concat(body.map(r=>r.map(esc).join(','))).join(nl),
+    'text/csv;charset=utf-8','change-set-'+C.changeSetId+'.csv');
+}
+function glxCsAudit(){ if(glxCs){ glxCs.audit=!glxCs.audit; renderGLAct(); } }
+function glxCsAuditHTML(C){
+  const row=(k,v)=>'<div class="glx-gr"><span class="l">'+k+'</span><span class="v">'+v+'</span></div>';
+  const mono=v=>'<span class="mono">'+glEsc(String(v||'—'))+'</span>';
+  return '<div class="amp-sec">Audit trail</div>'
+    +row('Change set',mono(C.changeSetId))
+    +row('Source export',mono(C.exportId)+' · '+glEsc(C.file||''))
+    +row('Rows reviewed',Number(C.rowsReviewed).toLocaleString('en-US'))
+    +row('Proposed changes',Number(C.changes).toLocaleString('en-US')
+      +' · '+Number(C.newValues).toLocaleString('en-US')+' new, '
+      +Number(C.changedValues).toLocaleString('en-US')+' changed')
+    +row('Rejected in validation',Number(C.errors).toLocaleString('en-US')
+      +(C.errors?' · '+glEsc((C.validation.errors[0]||{}).why||''):''))
+    +row('Held back — source changed',Number(C.stale).toLocaleString('en-US'))
+    +row('Prepared by',glEsc(C.preparedBy)+' · '+glEsc(C.preparedAt))
+    +row('Submitted by',glEsc(C.submittedBy||'—')+(C.submittedAt?' · '+glEsc(C.submittedAt):''))
+    +row('Reviewer',glEsc(C.reviewer||'—')+(C.comment?' · “'+glEsc(C.comment)+'”':''))
+    +row('Approved by',glEsc(C.approvedBy||'—')+(C.approvedAt?' · '+glEsc(C.approvedAt):''))
+    +row('Published',glEsc(C.publishedAt||'—')+' · '
+      +Number(C.published||0).toLocaleString('en-US')+' values in '
+      +Number((C.chunks||[]).length).toLocaleString('en-US')+' committed chunk'
+      +((C.chunks||[]).length===1?'':'s'))
+    +row('Governed attribute version',mono(C.attributeVersionId))
+    +row('Source snapshot',glEsc(C.sourceSnapshot||'—'))
+    +row('Mapping version',mono(C.mappingVersion))
+    +row('Effective period',glEsc(C.periodLabel));
+}
 function glxCsDrill(i){ if(glxCs){ glxCs.drill=glxCs.drill===i?null:i; renderGLAct(); } }
 function glxCsAskOpen(){ glxCsAsk=glxCsAsk?null:{note:'',approver:null}; renderGLAct(); }
 function glxCsNote(v){
@@ -43303,25 +43420,101 @@ function glxCsSubmit(){
 /* §12/§13/§19 — ONE DECISION PUBLISHES THE WHOLE SET INTO THE GOVERNED LEDGER. The writes go
    through the same path an inline edit uses, so provenance, the ERP-sync comparison and every
    downstream consumer are one mechanism rather than a second one for bulk. */
+/* ==========================================================================================
+   §2/§3 — APPROVED AND PUBLISHED ARE TWO EVENTS, AND THE GAP BETWEEN THEM IS REAL
+   ==========================================================================================
+   A reviewer approving a set is a DECISION. Writing four thousand governed values into the
+   ledger is an OPERATION, and at enterprise scale it is a server-side one that can fail
+   halfway. Collapsing the two into one status means a failed publication reads as an approved
+   change nobody can find, which is the worst of the three possible outcomes.
+
+   So: approve → `approved`, then publish → `published`. The change set is a temporary
+   governance object either way; §2's whole point is that it is not a destination. */
+const GLX_CS_ST={
+  draft:    {l:'Draft', c:''},
+  pending:  {l:'Pending approval', c:'warn'},
+  approved: {l:'Approved · publishing', c:'warn'},
+  published:{l:'Published', c:'ok'},
+  failed:   {l:'Publication failed', c:'bad'},
+  returned: {l:'Returned', c:'warn'},
+  rejected: {l:'Rejected', c:'bad'},
+};
+/* §22 — EVERY PUBLICATION CREATES A GOVERNED ATTRIBUTE VERSION, and the period's ledger knows
+   which one it is reading. Without it "the June governed ledger" is not a thing you can name,
+   and §23's certified case has nothing to point at. */
+const GLX_AV=[];
+function glxAvNext(p){
+  const n=GLX_AV.filter(v=>v.period===p).length+1;
+  return 'AV-'+p+'.'+n;
+}
+function glxAvCurrent(p){
+  const all=GLX_AV.filter(v=>v.period===p);
+  return all.length?all[all.length-1]:null;
+}
+/* §20/§21 — PUBLICATION IS CHUNKED, COMMITTED AND RECOVERABLE. A million proposed updates is
+   not one client-side loop, and a run that dies at row 600,000 must not leave a ledger nobody
+   can describe. Each chunk commits and is recorded; a failure stops, reports exactly what was
+   committed, and offers to resume from there. Nothing is silent and nothing is partial without
+   saying so. */
+const GLX_PUB_CHUNK=1000;
+function glxCsApprove(){
+  const C=glxCs; if(!C||C.status!=='pending') return;
+  C.status='approved'; C.approvedBy=rcMe().nm; C.approvedAt=glxNow();
+  C.committed=0; C.chunks=[];
+  renderGLAct();
+  glxCsPublish();
+}
+function glxCsPublish(){
+  const C=glxCs; if(!C||(C.status!=='approved'&&C.status!=='failed')) return;
+  C.status='approved';
+  const rows=glxRows(C.period);
+  const certified=glxPeriodState(C.period)==='certified';
+  const av=glxAvCurrent(C.period)&&C.attributeVersionId
+    ? GLX_AV.find(v=>v.id===C.attributeVersionId)
+    : (()=>{ const v={id:glxAvNext(C.period), period:C.period, changeSetId:C.changeSetId,
+        by:rcMe().nm, at:glxNow(), values:0,
+        /* §23 — a certified period gets a NEW VERSION rather than a rewrite of the signed one */
+        overCertified:certified?1:0};
+      GLX_AV.push(v); C.attributeVersionId=v.id; return v; })();
+  let n=C.committed||0;
+  const total=C.detail.length;
+  try{
+    while(n<total){
+      const end=Math.min(n+GLX_PUB_CHUNK,total);
+      /* §21 — a chunk is the unit of commit, so a failure names a boundary rather than a row */
+      for(let i=n;i<end;i++){
+        const c=C.detail[i];
+        const r=rows.find(x=>glxKey(x)===c.key); if(!r) continue;
+        glxEditWrite(r,c.field,c.to,{scope:'changeset', changeSetId:C.changeSetId,
+          attributeVersionId:av.id, reason:C.comment,
+          approvedBy:C.approvedBy, approvedAt:C.approvedAt,
+          reviewRequired:certified?1:0});
+        if(c.field.indexOf('A:')!==0&&glxVocab(c.field,C.period).indexOf(c.to)<0)
+          (GLX_VOCAB_ADD[c.field]=GLX_VOCAB_ADD[c.field]||[]).push(c.to);
+      }
+      C.chunks.push({from:n, to:end, at:glxNow()});
+      n=end; C.committed=n;
+      if(_glxPubFail&&n>=_glxPubFail) throw new Error('publication interrupted at row '+n);
+    }
+  }catch(e){
+    C.status='failed'; C.failure=String(e.message||e);
+    _glxVocabBust(); renderGLAct(); return;
+  }
+  av.values+=total;
+  C.published=total; C.publishedAt=glxNow(); C.publishedBy=rcMe().nm;
+  C.status='published';
+  /* §23 — what the new version marks for re-review, recorded on the set */
+  if(certified) C.reviewRequired=glxCertImpact(C.period);
+  _glxVocabBust();
+  renderGLAct();
+}
+/* a prototype control so §21's failure path can be walked; nothing sets it in normal use */
+let _glxPubFail=0;
+function glxCsFailAt(n){ _glxPubFail=n||0; }
 function glxCsDecide(decision){
   const C=glxCs; if(!C||C.status!=='pending') return;
+  if(decision==='approved') return glxCsApprove();
   C.status=decision; C.approvedBy=rcMe().nm; C.approvedAt=glxNow();
-  if(decision==='approved'){
-    const rows=glxRows(C.period);
-    const certified=glxPeriodState(C.period)==='certified';
-    let n=0;
-    C.detail.forEach(c=>{
-      const r=rows.find(x=>glxKey(x)===c.key); if(!r) return;
-      glxEditWrite(r,c.field,c.to,{scope:'changeset', changeSetId:C.changeSetId,
-        reason:C.comment, reviewRequired:certified?1:0});
-      /* a value nobody had seen joins the governed reference list on approval */
-      if(c.field.indexOf('A:')!==0&&glxVocab(c.field,C.period).indexOf(c.to)<0)
-        (GLX_VOCAB_ADD[c.field]=GLX_VOCAB_ADD[c.field]||[]).push(c.to);
-      n++;
-    });
-    _glxVocabBust();
-    C.published=n;
-  }
   renderGLAct();
 }
 
@@ -43373,10 +43566,7 @@ function glxUpHTML(){
 function glxCsHTML(){
   const C=glxCs; if(!C) return '';
   const n=x=>Number(x||0).toLocaleString('en-US');
-  const st=C.status==='draft'?{l:'Draft',c:''}
-    :C.status==='pending'?{l:'Pending approval',c:'warn'}
-    :C.status==='approved'?{l:'Approved',c:'ok'}
-    :C.status==='returned'?{l:'Returned',c:'warn'}:{l:'Rejected',c:'bad'};
+  const st=GLX_CS_ST[C.status]||{l:C.status,c:''};
   const iAmReviewer=C.reviewer&&(C.reviewer===rcMe().nm
     ||/Accounting|Controller/.test(C.reviewer));
   let o='<div class="glx-panel"><div class="glx-ph"><b>Attribute change set</b>'
@@ -43439,14 +43629,41 @@ function glxCsHTML(){
     +'<span class="glx-dim">Submitted by '+glEsc(C.submittedBy)+' · '+glEsc(C.submittedAt)
     +' · reviewer '+glEsc(C.reviewer)+(C.comment?' · “'+glEsc(C.comment)+'”':'')+'</span>'
     +(iAmReviewer?'<span class="grow"></span>'
-      +'<button class="btn-primary sm" onclick="glxCsDecide(\'approved\')">Approve '
+      +'<button class="btn-primary sm" onclick="glxCsDecide(\'approved\')">Approve and publish '
         +n(C.changes)+' changes</button>'
       +'<button class="btn-out sm" onclick="glxCsDecide(\'returned\')">Return</button>'
       +'<button class="btn-out sm" onclick="glxCsDecide(\'rejected\')">Reject</button>':'')
     +'</div>';
-  if(C.status==='approved') o+='<div class="glx-vnote ok"><b>'+n(C.published)
-    +' governed values published</b> to the Governed Ledger by '+glEsc(C.approvedBy)+' · '
-    +glEsc(C.approvedAt)+'. Every downstream surface now reads the new effective values.</div>';
+  /* §11 — A PUBLISHED SET OFFERS WHAT YOU DO WITH IT, and no longer offers to be submitted. */
+  if(C.status==='published'){
+    o+='<div class="glx-vnote ok"><b>Approved and published to the Governed Ledger.</b> '
+      +n(C.published)+' governed values · approved by '+glEsc(C.approvedBy)+' · published '
+      +glEsc(C.publishedAt)+' · governed attribute version <span class="mono">'
+      +glEsc(C.attributeVersionId||'')+'</span>. Every downstream surface reads the new '
+      +'effective values from the same ledger.</div>';
+    if(C.reviewRequired) o+='<div class="glx-vnote warn"><b>'+glEsc(C.periodLabel)
+      +' is certified.</b> The signed version is unchanged; this is a new governed attribute '
+      +'version over it, and '+C.reviewRequired.audit+' audit population, '
+      +C.reviewRequired.reports+' report'+(C.reviewRequired.reports===1?'':'s')+' and '
+      +C.reviewRequired.recs+' reconciliation'+(C.reviewRequired.recs===1?'':'s')
+      +' are marked <b>Review required</b>.</div>';
+    o+='<div class="glx-askf">'
+      +'<button class="btn-primary sm" onclick="glxCsAffected()">View affected transactions</button>'
+      +'<button class="btn-out sm" onclick="glxCsDownload()">Download approved changes</button>'
+      +'<button class="btn-out sm" onclick="glxCsAudit()">View audit trail</button>'
+      +'</div>';
+    if(C.audit) o+=glxCsAuditHTML(C);
+  }
+  /* §21 — A FAILURE STATES EXACTLY WHAT COMMITTED. "Publication failed" with no number is the
+     one outcome an auditor cannot work with. */
+  if(C.status==='failed') o+='<div class="glx-vnote bad"><b>Publication failed.</b> '
+    +glEsc(C.failure||'')+'. <b>'+n(C.committed)+' of '+n(C.changes)+'</b> governed values were '
+    +'committed in '+n((C.chunks||[]).length)+' chunk'+((C.chunks||[]).length===1?'':'s')
+    +'; the rest were not written. Nothing is in an undescribed state — resume to commit the '
+    +'remainder into the same attribute version.</div>'
+    +'<div class="glx-askf"><button class="btn-primary sm" onclick="glxCsPublish()">'
+    +'Resume publication</button><span class="glx-dim">Continues from row '+n(C.committed)
+    +' into <span class="mono">'+glEsc(C.attributeVersionId||'')+'</span>.</span></div>';
   if(C.status==='returned'||C.status==='rejected') o+='<div class="glx-vnote warn">'
     +glEsc(st.l)+' by '+glEsc(C.approvedBy)+' · '+glEsc(C.approvedAt)
     +'. Nothing was written.</div>';
@@ -43579,14 +43796,22 @@ function glxExport(fmt){
     .filter(c=>!cols.some(x=>x.k===c.k))
     .map(c=>({k:'__c:'+c.k, l:'Effective '+c.l.toLowerCase(), attrOf:c.attr}));
   const provCols=GLX_DIMS.map(d=>({k:'__p:'+d.k, l:d.label+' value source', provOf:d.k}));
+  /* §10/§17 — the audit-ready file must let a reader reproduce the governed row: what the ERP
+     supplied, what Korvyn added, what Korvyn reported, who approved it and which change set
+     produced it. */
   const audCols=full?GLX_DIMS.map(d=>[
       {k:'__r:'+d.k, l:d.label+' rule / override ID', ruleOf:d.k},
-      {k:'__b:'+d.k, l:d.label+' changed by', byOf:d.k},
+      {k:'__cs:'+d.k,l:d.label+' change source', csrcOf:d.k},
+      {k:'__ci:'+d.k,l:d.label+' change set', cidOf:d.k},
+      {k:'__rs:'+d.k,l:d.label+' reason', rsnOf:d.k},
+      {k:'__b:'+d.k, l:d.label+' prepared by', byOf:d.k},
       {k:'__t:'+d.k, l:d.label+' changed at', atOf:d.k},
       {k:'__a:'+d.k, l:d.label+' approved by', apprOf:d.k},
+      {k:'__ad:'+d.k,l:d.label+' approval date', apdOf:d.k},
       {k:'__x:'+d.k, l:d.label+' approval status', apstOf:d.k},
-      {k:'__f:'+d.k, l:d.label+' effective period', effPerOf:d.k}]).reduce((a,b)=>a.concat(b),[])
-    :[];
+      {k:'__av:'+d.k,l:d.label+' attribute version', avOf:d.k},
+      {k:'__f:'+d.k, l:d.label+' effective period', effPerOf:d.k}])
+    .reduce((a,b)=>a.concat(b),[]) :[];
   const outCols=cols.concat(srcCols,govCols,effCols,cusCols,provCols,audCols);
   /* A FILE IS READ AWAY FROM THE SCREEN THAT EXPLAINS IT. On the page the column is
      "Vendor" because the governed value is the one a reader works with; in a file that lands
@@ -43604,11 +43829,22 @@ function glxExport(fmt){
       return o?o.val:(a?a.val:''); }
     if(c.provOf){ const e=gl(r,c.provOf);
       return e?((GLX_PROV[e.prov]||{}).l||''):''; }
+    /* a visible dimension column IS the effective value, and has to be resolved as one */
+    if(c.dim){ const e=gl(r,c.dim); return e&&e.effective!=null?e.effective:''; }
+    if(c.tri){ const e=gl(r,c.dimOf);
+      return !e?'':((c.tri==='s'?e.source:c.tri==='g'?e.governed:e.effective)||''); }
     if(c.ruleOf){ const e=gl(r,c.ruleOf);
       return e?(e.ovr?e.ovr.id:(e.rule||'')):''; }
+    if(c.csrcOf){ const e=gl(r,c.csrcOf); return e&&e.ovr?glxChangeSource(e.ovr):''; }
+    if(c.cidOf){ const e=gl(r,c.cidOf); return e&&e.ovr?(e.ovr.changeSetId||''):''; }
+    if(c.rsnOf){ const e=gl(r,c.rsnOf); return e&&e.ovr?(e.ovr.reason||''):''; }
+    if(c.avOf){ const e=gl(r,c.avOf); return e&&e.ovr?(e.ovr.attributeVersionId||''):''; }
+    if(c.apdOf){ const e=gl(r,c.apdOf); return e&&e.ovr?(e.ovr.approvedAt||''):''; }
     if(c.byOf){ const e=gl(r,c.byOf); return e&&e.ovr?e.ovr.by:''; }
     if(c.atOf){ const e=gl(r,c.atOf); return e&&e.ovr?e.ovr.at:''; }
-    if(c.apprOf){ const a=ap(r,c.apprOf); return a?a.decidedBy||'':''; }
+    if(c.apprOf){ const e=gl(r,c.apprOf);
+      if(e&&e.ovr&&e.ovr.approvedBy) return e.ovr.approvedBy;
+      const a=ap(r,c.apprOf); return a?a.decidedBy||'':''; }
     if(c.apstOf){ const a=ap(r,c.apstOf);
       const e=gl(r,c.apstOf);
       return a?((GLX_APPR_ST[a.status]||{}).l||a.status)
@@ -43735,12 +43971,12 @@ function glxField(k){
   if(k==='dl') return {nm:'Download', get:()=>null,
     opts:()=>[{id:'csv', nm:'Download current view',
         sub:'the columns and filters on screen · CSV'},
-      {id:'xls', nm:'Download full GL',
-        sub:'every governed field · Excel workbook with its manifest'},
+      {id:'xls', nm:'Download full governed GL',
+        sub:'source, governed and effective as first-class columns · Excel'},
       {id:'enr', nm:'Download enrichment template',
         sub:'identity and source locked, governed columns to fill in'},
       {id:'full', nm:'Download audit-ready GL',
-        sub:'source, governed, effective and the whole provenance chain'}],
+        sub:'adds change set, reason, prepared by, approved by and the attribute version'}],
     set:v=>{ try{KFX.popClose()}catch(e){}
       if(v==='enr') glxEnrDownload(); else glxExport(v); }};
   if(k==='up') return {nm:'Upload', get:()=>null,

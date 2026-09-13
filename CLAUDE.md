@@ -7841,6 +7841,122 @@ exercise §7 or §8. It writes no governed value itself.
 - Report Builder is untouched, per the brief.
 
 
+
+## 2026-09-13 (last) — APPROVED BULK CHANGES PUBLISH INTO THE GOVERNED LEDGER
+
+Owner's brief, closing the loop: an approved upload has to become part of Account Activity, not
+stay inside the change set. FS-CIP Jun 2026 = 4,210.2 and every store is empty on a fresh load.
+
+### §2/§3 — APPROVED AND PUBLISHED ARE TWO EVENTS, AND THE GAP IS REAL
+
+A reviewer approving a set is a DECISION. Writing four thousand governed values into the ledger
+is an OPERATION, and at enterprise scale a server-side one that can fail halfway. Collapsing
+them into one status means a failed publication reads as an approved change nobody can find —
+the worst of the three outcomes. So the state machine is Draft → Pending → Approved →
+**Published**, with **Failed** as its own state beside them.
+
+**The change set is not a destination** (§2). After publication it reads *Approved and published
+to the Governed Ledger*, drops **Submit for approval**, and offers what you actually do with it:
+**View affected transactions · Download approved changes · View audit trail**.
+
+### §20/§21 — PUBLICATION IS CHUNKED, COMMITTED AND RECOVERABLE
+
+A million proposed updates is not one client-side loop, and a run that dies at row 600,000 must
+not leave a ledger nobody can describe. Each chunk commits and is recorded.
+
+**A FAILURE STATES EXACTLY WHAT COMMITTED.** Verified by interrupting a publication at row
+2,000 of 4,495: *"2,000 of 4,495 governed values were committed in 2 chunks; the rest were not
+written. Nothing is in an undescribed state."* **Resume continues into the SAME attribute
+version** — asserted, because resuming into a new one would make the period's ledger cite two
+versions for one decision.
+
+### §22/§23 — EVERY PUBLICATION MAKES A GOVERNED ATTRIBUTE VERSION
+
+`AV-2026-06.1`, linked to the change set that produced it and stamped on every value it wrote.
+Without it "the June governed ledger" is not something you can name, and §23's certified case
+has nothing to point at.
+
+**§23 — a certified period gets a NEW VERSION, never a rewrite of the signed one.** The published
+set says so and names what is marked Review required: *N audit population, N reports and N
+reconciliations.*
+
+### §12 — THE WORKFLOW IS VISIBLY CONNECTED
+
+**View affected transactions** returns to Account Activity filtered to the change set — the
+membership read off the governed store rather than a list the set keeps — with a banner naming
+the set, an **Open change set** link back, and Clear. Measured: *2,240 transactions changed by
+AC-2026-06-0001*.
+
+### §16/§17 — ONE LINEAGE, WHICHEVER PATH PRODUCED THE VALUE
+
+`GLX_SRC` gives Manual edit · Bulk edit · Bulk upload · Rule one vocabulary. **A lineage spelt
+three ways is three lineages.** The governed-dimension row in the panel reads:
+
+> Vendor · Vertiv Holdings · Override · source Siemens Energy · **Bulk upload ·
+> AC-2026-06-0001** · Mitra Giri · approved by Mitra Giri · **AV-2026-06.1** · effective Jun 2026
+
+### §7 — THE THREE VARIANTS ARE AVAILABLE, NOT DEFAULT
+
+Seventeen new columns in their own **GOVERNED DIMENSIONS** group — Source / Governed / Effective
+for each dimension, plus Change source, Change set and Attribute version under LINEAGE. **None
+is a default**: the table shows the effective value in one column per dimension, because three
+columns per dimension is a ledger nobody can read.
+
+### §10/§17 — THE FILES
+
+**Full governed GL** (35 columns) carries source, governed and effective as first-class columns.
+**Audit-ready GL** (101 columns) adds change source, change set, reason, prepared by, approved
+by, approval date, attribute version, effective period and value source per dimension. A single
+row answers §17 end to end:
+
+| | |
+|---|---|
+| Source vendor | Siemens Energy |
+| Governed vendor | Vertiv Holdings |
+| Effective vendor | Vertiv Holdings |
+| Change source | Bulk upload |
+| Change set | AC-2026-06-0001 |
+| Approved by | Mitra Giri |
+| Attribute version | AV-2026-06.1 |
+
+### THE BUG THAT MATTERED, AND IT WAS IN THE FILE
+
+**The screen resolved and the export did not.** A visible dimension column renders through
+`glxCellVal`, which asks the resolver; the export fell through to the generic `glxVal`, which
+reads the row's own field — the SOURCE. So an audit file said *Effective vendor = Siemens
+Energy* beside *Governed vendor = Vertiv Holdings*, which is the one contradiction §17 exists to
+prevent. **Caught by reading a row of the file, not its headers** — the column names were right
+the whole time.
+
+### Verified
+
+**§27's acceptance test passes.** After approving and publishing an uploaded change set, the
+governed values are on the affected transactions in Account Activity with their provenance
+dots; the Governed GL download carries the non-GL fields; the Audit-Ready GL distinguishes what
+the ERP supplied, what Korvyn added, what Korvyn reported, who approved it and which change set
+produced it. **The manual path is untouched and still works for one row.**
+
+192 view renders across 3 periods, 0 errors · console clean · **4/4 gates** (baselines unchanged)
+· 0 nested vertical scrollbars, 0 clipped elements, 0 raw HTML entities · FS-CIP **4,210.2** ·
+chronology 0 · all stores empty on load · publication of 4,879 values in 5 committed chunks ·
+the interrupted-then-resumed run lands in one attribute version.
+
+### NOT BUILT — named, not glossed
+
+- **Publication is chunked in the browser, not server-side.** The SHAPE is right — commit
+  boundaries, a recorded chunk log, resume-from-committed, one version per set — and a
+  deployment moves the loop behind an API without changing the objects. §20 asks for
+  server-side and this prototype cannot be.
+- **§23's "affected certified outputs" are counted, not marked.** The set states which audit
+  population, reports and reconciliations need re-reading; nothing writes a Review-required flag
+  onto those objects. R6's detection is the mechanism and the wiring is its own pass.
+- **A change-set register.** Sets are reachable from the Upload menu, the live banner and the
+  filter chip; there is no page listing every set for the period.
+- **Rules still do not re-evaluate** as new transactions arrive — unchanged, and the third rung
+  of ROW → BATCH → RULE is therefore the weakest of the three.
+- Report Builder is untouched, per the brief.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
