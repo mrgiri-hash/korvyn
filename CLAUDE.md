@@ -7957,6 +7957,71 @@ the interrupted-then-resumed run lands in one attribute version.
 - Report Builder is untouched, per the brief.
 
 
+
+## 2026-09-13 — WHERE THINGS STAND (read this before picking up Account Activity)
+
+Orientation, not a retrospective. The eight dated blocks above carry the reasoning; this is the
+map of what is finished, what is deliberately unfinished, and what a fresh session should not
+go looking for.
+
+### Finished, and verified in the product
+
+**Account Activity is the governed ledger.** Source facts, mapping, governed dimensions, custom
+fields, financial attributes and lineage over one population (`rcTxPool`), with three ways to
+change a governed value — **ROW → BATCH → RULE** — all publishing into the same store, and one
+resolver (`glxDim` / `glxEff`) that every downstream surface reads.
+
+**The enterprise table scrolling standard** (`.ktbl`) carries every primary table: one page
+scroll, a floating header, one synchronised horizontal bar, measured frozen columns.
+
+The standing invariants are unchanged and are the first thing to re-assert after any edit:
+**FS-CIP Jun 2026 = 4,210.2** · A = L + E at 0 · `rcChronologyCheck()` = 0 · 192 view renders
+across 3 periods with 0 errors · 4/4 gates · every governed store empty on a fresh load.
+
+### Deliberately unfinished — do not treat these as bugs
+
+| | |
+|---|---|
+| **Publication is browser-side** | §20 asks for server-side. The SHAPE is right — commit boundaries, a chunk log, resume-from-committed, one attribute version per set — and a deployment moves the loop behind an API without changing the objects. |
+| **Certified impact is counted, not marked** | A published set names the audit population, reports and reconciliations needing re-reading; nothing writes a Review-required flag onto those objects. R6's detection is the mechanism; wiring it is its own pass. |
+| **Rules do not re-evaluate** | *Create rule* records the rule and applies it to the population it matched AT APPROVAL. Nothing re-runs as new transactions arrive, so **RULE is the weakest of the three rungs** and is the highest-value thing to build next inside this module. |
+| **No change-set register** | Sets are reachable from the Upload menu, the live banner and the change-set filter chip. There is no page listing every set for a period. |
+| **The enrichment workbook is CSV** | With `LOCKED`/`EDITABLE` marker rows. A real .xlsx would lock the source columns with sheet protection rather than a label. |
+| **Approval routing is in-app only** | The object carries approver, group and timestamps; no email, Teams or Slack delivery. §28 says that may come later and the record is already the right shape for it. |
+| **Return-with-comment** | Return and Reject record the decision on both single approvals and change sets; neither carries a note back to the preparer. |
+| **Inheritance is read, not written** | A value inherited from the source account resolves and says so. SETTING a dimension on a project or vendor so it reaches every transaction belongs to Financial Attributes and was not built. |
+
+### Partially resolved — worth knowing so it is not re-chased
+
+**`glTxns()` / `GL_ACT` is no longer Account Activity's model** — that screen reads the governed
+population now. But `glTxns` still serves the GL overview drill-downs and two reconciliation
+detail panes, so the file genuinely still has two transaction readers. Retiring the second one
+is its own pass and is not urgent.
+
+**The generic Korvyn-for-Excel browser workbook** (the More launcher, and Open in Excel on
+Financials / Flux Review / Trending / the Trial balance) still renders the R7.1 grid with
+Insert. The Account Reconciliations reset replaced that surface only for reconciliations;
+retiring it everywhere is a product call the owner has not made. `.xl-grid-wrap` is the one
+primary table that keeps an internal vertical scrollbar, for the same reason.
+
+### Not started, and named by the owner as next
+
+**Report Builder.** Every brief since 2026-09-12 has ended "do not proceed to Report Builder
+yet". The governed ledger is now the population it would read.
+
+### The traps that have each cost a session
+
+- **Never pass replacement text through the shell** — recorded eight times. Write the splice
+  script with the Write tool. A quoted heredoc still eats `\'`.
+- **A prefix is not a namespace**, and it applies to a VARIABLE as much as a CSS class:
+  `glxVal` was the cell-value reader with forty call sites and a new `let glxVal` took the whole
+  script block down.
+- **The Browser pane's console buffer survives navigation.** A fixed error keeps reappearing on
+  clean loads. Trust an in-page `window.onerror` listener.
+- **Read a ROW of an export, not its headers.** The column names were right while the values
+  were wrong for a whole pass.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
