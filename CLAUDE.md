@@ -7580,6 +7580,136 @@ than got a token.
 - Report Builder, Financials, Flux, Trending and the Excel add-in are untouched, per the brief.
 
 
+
+## 2026-09-13 (later) — GOVERNED DIMENSIONS: autocomplete, custom fields, lightweight approval
+
+Owner's brief, finishing the governed-dimension experience inside Account Activity. **Enter
+once, use everywhere.** FS-CIP Jun 2026 = 4,210.2 and the stores are empty on a fresh load —
+the product ships with no seeded edits or approvals.
+
+### §1 — THREE VALUES, AND ONLY ONE OF THEM IS A DECISION
+
+    SOURCE     what the ERP supplied. Never written, never overwritten.
+    GOVERNED   what Korvyn added, normalized or overrode. Null until somebody decides.
+    EFFECTIVE  what Korvyn USES: governed if there is one, else the source. Derived.
+
+**EFFECTIVE IS NOT A THIRD COPY, IT IS WHAT MAKES "PROPOSED" EXPRESSIBLE.** A value waiting for
+approval is not governed and therefore not effective; without the third name a pending vendor
+would either leak downstream or be invisible. `glxEff()` returns all three plus the pending
+request, and the table shows the effective one.
+
+### §3/§4/§5 — AUTOCOMPLETE, NOT A LIST
+
+The editor was a static option list. It is a typeahead now: click, type **Sie**, get *Siemens
+AG · Siemens Energy · Siemens Mobility · Siemens USA*, select, done.
+
+**THE REFERENCE LIST IS WIDER THAN THE POPULATION.** `GLX_ROSTER` is the enterprise master —
+typing has to reach vendors that have not posted this month, or autocomplete answers a narrower
+question than the one being asked.
+
+**IT IS STILL THE ONE POPOVER SYSTEM.** A descriptor marked `ac` renders the input always,
+opens on nothing rather than on twenty rows nobody asked for, and §5 offers to CREATE the value.
+The shell, anchoring, keyboard and widths are unchanged — "the shell is constant; the content
+varies", which is the rule this file already holds.
+
+**A CONTROLLED LIST STAYS A LIST.** `listy` keys off the field's own type and length, so a
+three-value custom field gets a list and a vendor master gets typeahead, with nothing to
+configure. **And Create is offered when the typing is a NEW VALUE, not while it is still a
+prefix**: as long as every match begins with what has been typed the reader is narrowing, and
+offering to create "sie" on the way to Siemens Energy is noise.
+
+### §6–§8, §28 — APPROVAL IS PROPORTIONAL AND HAPPENS IN CONTEXT
+
+`glxApprovalNeeded()` returns one of four: **certified period**, **new enterprise value**,
+**material classification**, or nothing at all. Open-period normalization saves immediately —
+requiring approval for every edit makes the fast path slow and teaches people to batch
+corrections instead of making them, which costs the ledger more than the risk it guards.
+
+Where approval IS needed the request is raised **on the row that raised it**: the proposed
+value, the source, the current governed value, and one line — *@Mitra Giri vendor omitted in
+ERP invoice posting*. The @ opens a roster of people and groups. No admin page, no second
+screen. The `GLX_APPR` record carries every field §7 lists and almost none of it is shown.
+
+**§28 — the approver's card** carries the journal, the account, the source value, the proposal,
+who asked and why, with Approve / Reject / Open transaction. The object already supports a
+delivery channel; email or Teams would read this record rather than a copy of it.
+
+**§20 — ON APPROVAL THE VALUE BECOMES GOVERNED AND THEREFORE EFFECTIVE**, written to the one
+store every downstream surface already reads, carrying the approval id. Verified end to end:
+send → pending, effective still null, **nothing written**; approve → governed, effective,
+in the reference list, one write stamped `APR-0001`, and `glxGovVendor` returns it.
+
+### §9–§13 — THE ROW PANEL
+
+**THE VALUE IS THE CONTROL.** A blue "Edit" beside every row is a column of affordances
+competing with the values they act on, and it teaches a reader to aim at the word rather than
+the thing. The value is the button, the way a spreadsheet cell is — measured: 9 dimension rows,
+9 value-buttons, **0 blue Edit links**.
+
+**§10 + Add dimension** filters the governed fields a transaction can carry, read from the
+registries rather than a second list. **§11 + Create new dimension** is three questions — name,
+kind of answer, applies to — and the field exists, becomes a column, and is editable without
+leaving the row. **§13** origin is stated in the panel (Transaction · Normalization · Rule ·
+Inherited from…), never as table clutter.
+
+**§26 Used in is compact and shows only what exists.** Eight cards of which five were greyed out
+told a reader mostly about what Korvyn cannot do.
+
+### §22/§29 — THE EXPORT ANSWERS THE AUDIT QUESTIONS
+
+Default: **38 columns** — 5 source, 6 governed, 6 effective, custom dimensions, and a value-source
+column per dimension. **Full governed extract: 74 columns**, adding rule/override id, changed by,
+changed at, approved by, approval status and effective period per dimension. Forcing that into
+every file would bury the figures under their own lineage, which is why it is its own download.
+
+**A visible dimension column IS the effective value**, so it is named *Effective vendor* in the
+file — calling it "Governed vendor" produced two columns of that name in one export, which a
+reader outside Korvyn cannot resolve.
+
+### §17 — WHERE CORRECTIONS LIVE NOW
+
+Everyday corrections happen in Account Activity. Financial Attributes stays the governance
+surface — rules, exceptions, overrides, fields, versions — and the Columns panel links to it
+rather than sending anyone there to fix a vendor.
+
+### Verified
+
+**All fifteen §30 scenarios walked in the product.** The two §31 acceptance sentences are both
+true: *"typed Sie, selected Siemens Energy, continued working"* and *"clicked Add dimension,
+created Funding Source, set Green Bond, and it became available in my GL, reports, audit
+extracts and Excel."*
+
+192 view renders across 3 periods, 0 errors · console clean · **4/4 gates** (baselines unchanged)
+· 0 nested vertical scrollbars, 0 clipped elements, 0 raw HTML entities across eight surfaces ·
+FS-CIP **4,210.2** · chronology 0 · both stores empty on load.
+
+### TWO TRAPS WORTH KEEPING
+
+- **AN INLINE onclick IS EVALUATED WHERE IT FIRES, NOT WHERE IT WAS WRITTEN.** The Create row's
+  handler referenced `popQRaw`, which lives in the flux closure, so it threw in global scope.
+  The typed value has to be BAKED INTO the attribute at paint time.
+- **The Browser pane's console buffer survives navigation.** A fixed error kept reappearing on
+  clean loads, with a stack pointing at a test script that no longer existed. An idle load
+  cannot fire an inline handler — trust an in-page `window.onerror` listener over the pane's
+  buffer, and re-check with one before chasing a ghost.
+- And the lowercased copy of a search string is **for matching, not for carrying**: handing it
+  to the create button named a new field "funding source".
+
+### NOT BUILT — named, not glossed
+
+- **A rules engine**, unchanged from yesterday: §16's *Create rule* records the rule and applies
+  it to the population it matched at approval; it does not re-evaluate as new transactions
+  arrive.
+- **Approval routing beyond the in-app inbox.** The object carries approver, group and
+  timestamps; there is no email, Teams or Slack delivery, which §28 says may come later.
+- **A returned status.** `GLX_APPR_ST` declares Pending / Approved / Rejected / Returned and the
+  UI offers the first three; returning a request for more information has no surface yet.
+- **Inheritance is READ, not WRITTEN.** §13's scope model resolves a value inherited from the
+  source account and says so; setting a dimension ON a project or vendor so it reaches every
+  transaction is the Financial Attributes surface's job and was not built here.
+- Report Builder is untouched, per the brief.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
