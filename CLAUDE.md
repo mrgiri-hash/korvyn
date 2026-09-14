@@ -8022,6 +8022,314 @@ yet". The governed ledger is now the population it would read.
   were wrong for a whole pass.
 
 
+## 2026-09-13 — REPORT BUILDER: the foundation pass
+
+Owner's brief. **ACCOUNTING operates the close; REPORTING consumes, reshapes, analyses, exports
+and publishes governed financial information.** One governed data foundation, many configurable
+reporting experiences. FS-CIP Jun 2026 = 4,210.2, chronology 0, every governed store empty on load.
+
+**Where it lives.** Inside the existing Reporting lens (`filings`), no new module. Rail:
+**Financial reporting** (Report Builder `rbuild` · Saved Reports `rsaved`) · **External reporting**
+(Dashboard · Filings · Working Papers · Review Center · XBRL · Filing packages — `freports`
+renamed from "Reports" so two things are not called Reports) · **Governance** (Tasks · Issues).
+Published and Scheduled Reports are NOT in the rail: a rail item that renders nothing is a dead
+control, and the brief stops before them.
+
+**NO SECOND DATA MODEL.** The whole block (`rbCatalog`, `rbRun`, `rbCompile` … search `REPORT
+BUILDER — FOUNDATION`) reads `glxRows()` for GL lines, `glxDim()` for effective dimensions,
+`glxCellVal()` for attributes and custom fields, `glxMap()` for mapping and `tbxTbRows()` for
+balances. Delete it and not one number moves.
+
+- **The catalog is built on every ask**, so a governed field created in Account Activity lands
+  under CUSTOM GOVERNED FIELDS with no wiring (`RB_ATTR_HOME` places only the seeded attributes).
+  Verified by creating one live. Two field DEFINITIONS were added to `ENR_FIELDS`
+  (`EF-FUNDSRC` Funding Source, `EF-COMMST` Commissioning Status) — definitions, no values.
+- **Vendor / Department / Cost center / Project / Region / Business unit mean the EFFECTIVE value.**
+  Source / Governed / Effective variants sit behind "Show source and governed variants".
+- Fields the book's ERPs do not supply (Customer, Customer ID, IC counterparty, Data hall) stay in
+  the catalog marked **not supplied** rather than reading as empty.
+
+**TWO AMOUNT BASES, and the difference is the accounting (§14).** *GL activity* sums governed lines.
+*Balances* reads the governed trial balance per source account: a balance-sheet account is its
+**month-end balance**, an income-statement account its **period activity** or **year to date**.
+Summing across accounts at one date is a trial balance; summing a balance across months is not — so
+a balance report has **no across-period Total column and no grand total** (its rows mix balances
+with activity). Fields that live on GL lines, not accounts, refuse on the balance basis by name.
+
+**A REPORT IS A QUERY DEFINITION.** `rbCompile()` states the server query (dataset, selection,
+window, filters, scope, lens, reader, versions, `pinned:false`); `rbRun()` is the prototype executor
+over the modelled sample, cached per definition + generation. The preview states the enterprise
+population (`× XL_POP_SCALE`) as resolved server-side and never loads it. `RB_REPORTS` stores
+definitions only; five samples (Monthly Trial Balance, Governed GL Detail, CIP by Project, Vendor
+Spend by Project, Department Expense Analysis) are ordinary definitions opened in the one builder.
+
+**REPORTING CONTEXT ≠ CLOSE CONTEXT.** The report's `period` (Month · Quarter · QTD · YTD · Fiscal
+year · Prior fiscal year · Rolling 12 · Month vs prior year · Custom range) never writes
+`VIEW.period` or `BOOK.open`; the Period row says "Accounting close stays Jun 2026". Months after the
+open period are excluded and counted, never extrapolated. The platform filter band is hidden on both
+pages (`gfBarHidden`) — it would be a second, contradicting period control.
+
+**PERMISSIONS RUN AS THE READER, AT RUN TIME** (`rbPermit`, `resolveEffectiveAccess`), never stored in
+the definition, so sharing cannot widen access. Enterprise / audit / function scopes see everything;
+otherwise **every constraint a scope declares must hold** (region AND projects) and scopes union.
+The first cut read them as alternatives and let an Ashburn line on an EMEA entity through for the
+Americas Development scope — caught in test. A scoped reader is refused the balance basis (balances
+are held per account across every entity). The lens must be VIEW-able.
+
+**Menus are the one popover** (`rbFieldDesc` delegates from `RCFIELD`, keys `rc:rb.*`). A multi-select
+filter commits and stays open by closing, repainting and re-opening on the rebuilt trigger
+(`rbKeepOpen`) — `paintPop` is not exported from the flux closure.
+
+**Export (§23)**: one flat table (`rbTable`) — every row field its own column, a Row type column for
+subtotals — into CSV (metadata block first) or an Excel workbook (Report sheet with freeze and
+autofilter, Metadata sheet: name, period, scope, lens, currency, basis, generated at/by, Governed
+Ledger version, mapping version, attribute version, data as of, filters, close context, and
+"Management report — not an official governed financial statement"). **Open in Excel** uses the
+existing prototype path: `XL_OBJECT_TYPES.RB_REPORT` + an `xlResolve` branch make the report a
+connected range of its definition (`__working` for an unsaved one).
+
+**Trace (§25)**: every summary cell keeps the values that identify its node; clicking one lists the
+governed lines and source accounts behind it (or the trial-balance accounts on the balance basis)
+and routes a single-account node into Account Activity filtered to that account.
+
+**Verified:** the three §31 users' reports built in the product (Jan–Jun balances by account; CIP by
+project, vendor and month; June lines ≥ $1M with source and governed vendor → 79 lines) · all five
+samples run in 26–130ms · 210 view renders across Jun 2026 / Mar 2026 / Dec 2025, 0 errors ·
+console clean · 4/4 gates (baselines unchanged) · export content read back · Save / Save as /
+Duplicate / Share / Archive · Open in Excel lands a connected range.
+
+**Deliberately NOT built (the brief stops here):** Published and Scheduled Reports · the Excel
+add-in's Refresh / Trace / Publish for a report · variance, %, QTD/YTD measures and formulas ·
+analytical recast · persistence (reports are in-memory like every other store) · sensitive-dimension
+tagging (the permission hook exists; no field is tagged) · an Open-in-Excel return strip from the
+builder.
+
+## 2026-09-13 (later) — REPORT BUILDER: simple on the surface
+
+Owner's brief: keep the foundation, make building a report take 15–30 seconds. **The engine is
+unchanged in kind** — Governed Ledger, definitions not data, server-side query, reader permissions.
+What changed is what a controller has to think about.
+
+**THE CONFIGURATION IS FIVE QUESTIONS.** Analyze by · Compare / Columns · Period · Filters · Value.
+The left-hand field catalog is gone; every "+ Add" opens the **one popover** as a search-first picker
+(`rbPickOpts`), grouped Accounting → Lineage. Typing "vendor" returns Vendor (effective value),
+Vendor ID and the Source / Governed / Effective variants. Custom governed fields are in it with no
+wiring.
+
+**§6 — INFERENCE, NOT MODES.** A definition stores what was chosen; `rbEff()` resolves what it means
+and is the only form the engine reads. Layout is inferred — Posting date, Journal, Memo, Document or
+Source transaction ID in Analyze by makes it **line detail** (one row per GL line, the value appended,
+no columns) — and only Advanced options overrides it. The Advanced line beside the toggle states
+what was inferred ("Summary (automatic) · GL activity · Nested").
+
+**ADVANCED OPTIONS, collapsed:** Basis (GL activity / Balances) · Layout (Automatic / Summary / Line
+detail) · Row display · Subtotals · Income statement (balances only) · **Dimension values**
+(Effective / Source / Governed — remaps the plain dimension fields in `rbEff`) · Records (all /
+source GL / Korvyn governed) · Currency (stated, not a control — the lens owns it).
+
+**PERIOD AND COMPARISON (§14, §15).** Current month · Prior month · Month · Quarter · Year to date ·
+Fiscal year · Rolling 12 · Custom. **Comparison is a second window, not an engine** (`rbCmpWindow`):
+prior period shifts by the window's own length, prior year by twelve months keeping the window's
+words — Jun 2026 vs May 2026, YTD Jun 2026 vs YTD Jun 2025. The table shows both windows and a Change
+column; balances compare balance-sheet accounts at each window's end.
+
+**§7 TEMPLATES** (Trial Balance · GL Detail · Vendor Analysis · Project Analysis · Department Analysis ·
+Custom) preconfigure the one builder. **§8 ASK KORVYN** (`rbAskParse`) is rule-based and PROPOSES:
+the request becomes the visible configuration plus a card listing what was understood, with Undo;
+nothing is saved and the engine computes every figure. "for all entities" is the absence of a
+filter, not a dimension — the first cut added Entity and the balance basis refused it.
+
+**AN OPENED REPORT READS AS A REPORT.** Open shows a one-line summary and Edit report; New and Edit
+show the configuration. Header: inline-renameable title (click, Enter/blur saves) · Save · Save as ·
+Download · Open in Excel · •••  (New, Rename, description, Edit/Hide configuration, View history,
+Duplicate). An amount opens a menu — **View contributing rows**, and Open in Account Activity for a
+single account through `navGo`, so Back returns to the report exactly as it was (`rbNavCtx`).
+
+**SAVED REPORTS (§16–§22).** My Reports · Shared with Me · All Reports; Report name opens (double-click
+renames); one ••• menu: Open · Rename · Edit report · Duplicate · Share / Permissions · View history ·
+Archive (history kept) · Delete (inline confirmation). **History says what changed** (`rbDiffWhat`):
+Renamed, Changed analyze by, Changed period definition, Changed filters, Changed advanced options…;
+Save with no difference does not bump the version.
+
+**DOWNLOAD IS STATIC; OPEN IN EXCEL IS A CONTRACT (§23–§31).** The Download menu is headed "Static
+file — not connected" and the file's metadata says so. Open in Excel opens a handoff dialog: Excel
+opens → the Korvyn Add-in loads → a connected workbook on this report; the workbook is native Excel.
+It lists exactly what is passed to the add-in (`rbXlContract`: report id/version, scope, period,
+comparison, currency, basis, analyze by, columns, filters, value, Governed Ledger / mapping /
+attribute versions) and the panel's actions (Insert, Refresh, Trace, Change period, Change scope,
+Publish). An unsaved report must be saved first. **The browser "Korvyn for Excel" screen is labelled
+"Excel Add-in prototype"** (`rbXlProtoNote`) when a report lands there, with the standard return
+strip back to the report. Nothing here edits cells, evaluates formulas or builds pivots.
+
+**Verified:** Vendor Analysis template → Jan–Jun → Month → preview in under half a second · both §33
+sentences and the §31 auditor sentence parse to the expected configuration (79 lines ≥ $1M) · field
+search, inference, both comparisons, balance TB with no grand total · rename, duplicate, share,
+archive, history, delete, save-with-diff (v4 "Changed period definition") · handoff dialog saved and
+unsaved · prototype label and Back · static CSV/Excel metadata · render sweep across three periods ·
+console clean · 4/4 gates · FS-CIP 4,210.2.
+
+**Not built:** Published / Scheduled Reports, the real add-in, variance % and formulas, persistence,
+an LLM behind Ask Korvyn (the parser is deterministic and says when it finds nothing).
+
+## 2026-09-13 (last) — REPORT BUILDER becomes an analysis surface: ask → view → manipulate → explain → drill → Excel
+
+Owner's brief. Same engine, same saved definitions, same Saved Reports; what changed is that the
+**result dominates** and configuration recedes. FS-CIP 4,210.2, stores empty on load.
+
+**THE PAGE.** A blank analysis opens on "What do you want to understand?" (one Ask Korvyn input, six
+prompts the data can honestly answer — "Payroll by department" was dropped because this book has no
+payroll accounts — and templates as quiet links). Once a report exists: header → **context ribbon**
+(every part of the question is a chip: Project → Vendor · Monthly · Jan–Jun 2026 · filter chips ·
+lens · currency) → **one action row** (+ Dimension · + Filter · Compare · Explain · Configure · the
+command bar · Table|Chart) → a one-line Korvyn confirmation with Undo → up to four "Next" suggestions
+→ the result. **Configure** is the full builder, unchanged, inside the right-side panel.
+
+**ONE COMMAND BAR, TWO JOBS (`rbCmdRun`).** A whole question builds (`rbAskParse`); anything that reads
+as a change edits the analysis on screen (`rbEditApply`): add / remove / group by / break this down by ·
+monthly / quarterly / totals · compare June to May, to last year, prior quarter, prior YTD, a named
+month (`compare:'m:YYYY-MM'`) · only capital / expenses / CIP / a named entity, project or vendor ·
+changes above $5M (`minChange`, and it turns comparison on) · amounts over $1M (`minRow`, or a line filter
+in detail) · show GL detail / summary · source|governed|effective vendor instead · debit / credit ·
+sort by change or amount · chart / table. **Reporting AI edits the analysis definition and nothing
+else**, and every edit shows what changed with Undo.
+
+**THRESHOLDS AND SORT ARE DISPLAY RULES, NOT QUERY RULES.** `rbKids()` is the one order-and-visibility
+function the table, chart and exports all read; a threshold hides detail rows and a subtotal still states
+its whole group (the stat line says so). Change % reads **n/m** when the base is below the display
+precision and caps at ±999%.
+
+**DIRECT MANIPULATION.** A dimension chip opens Change dimension / Move left / Move right / Add level
+below / Remove (`rbDimOp`). A row label opens Filter to · Analyze by <next dimension> (filters the path
+and replaces the levels below — "Siemens Energy → Project") · Explain · View transactions
+(`rbLabAction`). An amount opens **Explain · View contributors · View GL detail · Trace**.
+
+**EXPLAIN IS DETERMINISTIC AND CARRIES ITS ROWS (`rbExplainData`).** The engine sums the governed lines
+the target resolves to; the sentence only arranges the figures. Movement against the comparison window, or
+against the prior month for a monthly column; composition otherwise. Drivers are the **next level of the
+analysis** (below the last level, the first governed dimension not already used), accounts are canonical
+accounts, and a line lacking the driver is "No vendor", never "(blank)". The panel shows the figure, the
+prose, top drivers, contributing accounts and a Supporting data block (report, period, scope, currency,
+path, selection, filters, dimension values, row count, Governed Ledger / mapping / attribute versions).
+
+**VIEW GL DETAIL LANDS ON EXACTLY THOSE ROWS.** `glxRbDrill` (a set of `glxKey`s) filters Account
+Activity's `glxView`, with a banner and Clear, when every contributing line is in the close period Account
+Activity reads; otherwise the lines open in the panel and it says why. Back restores the analysis with its
+panel and selection (`rbNavCtx`). **Trace** shows report amount → governed dimensions → GL population →
+ERP source.
+
+**Verified:** demo 1 (blank → "Show CIP by project and vendor monthly from January through June" →
+Jun $53.0M → Explain +$18.3M vs May → View GL 176 lines → Back), demo 2 ("Compare June to May and add
+department" → Vendor → Project → Department with May · Jun · Change · Change %), demo 3 (Siemens Energy
+→ Analyze by Project), seventeen chained commands, chart, trace, config drawer, saved report reopening
+into the result-first page · render sweep across three periods · console clean · 4/4 gates.
+
+**Not built:** a language model behind the command bar (deterministic, says when it cannot act),
+line charts, a trace graph, persistence, the Excel add-in.
+
+## 2026-09-14 — REPORT BUILDER: one universal canvas (Fields → Columns → Rows → Filters → Live Preview)
+
+Owner's brief. **Every report is the same object.** Trial balance, GL detail, vendor spend and a P&L are
+configurations of the one engine; a template pre-fills the builder and is then gone. Supersedes the
+2026-09-13 context ribbon and action row. Engine, saved definitions, Explain / Trace / View GL, the Excel
+handoff and Saved Reports are unchanged underneath. FS-CIP 4,210.2, stores empty on load.
+
+**THE PAGE** (`renderRBuild` in the `ONE UNIVERSAL CANVAS` block): header (editable name · Save · Save as ·
+Download · Open in Excel · •••) → top row (**Period** chip + From/To or Through · Compare · "Close stays
+Jun 2026" · the persistent **Ask Korvyn** bar) → a one-line confirmation with Undo → a three-part grid:
+
+| Left `rb-cat4` | Middle `rb-bld4` | Main `rb-main4` |
+|---|---|---|
+| FIELDS: search first; groups; source/governed/effective variants only when searched | COLUMNS · ROWS (nested, indented) · FILTERS (`Field = value`) · VALUE · Report settings (collapsed) | the live preview: table or chart |
+
+Catalog and builder are bounded sticky panels (their `top` is measured from `ktblChromeBottom()`); the
+preview keeps the page scroll and `.ktbl`. Below 1280px the builder stacks under the catalog.
+
+**ONE DEFINITION, FOUR WAYS IN.** Dragging from the catalog (`rbDragStart` / `rbDrop(ev,zone,at)` — a
+field dropped on a chip inserts above it, so Department dropped on Vendor gives Project → Department →
+Vendor), clicking a field (Add to rows / columns / filters), a template, and Ask Korvyn all write the
+same definition. Chip menus: Change field · Move up/down · Add level below · Sort rows (name / largest
+amount / largest change) · Subtotals · Value shown (Effective / Source / Governed) · Remove.
+
+**LIVE PREVIEW WITH A LOADING STATE.** `rbTouch()` sets `rbBusy`: the previous result paints dimmed under
+"Updating preview…", then the engine re-runs. A server-side run would hold the same state longer.
+
+**TEMPLATES ARE CONFIGURATIONS** (Blank · Trial Balance · GL Detail · Vendor Spend · Project Activity ·
+Department Expense · Financial Statement View) and appear only in the empty preview, beside four Ask
+prompts. **Saved Reports no longer shows a Type column** — the type is inferred metadata, not a mode.
+Seeds now include Capital Spend by Vendor, Department Expense Trend (rolling 12) and Corporate Income
+Statement (a management view, explicitly not the certified statement).
+
+**STATEMENT SHAPES.** Account group (Revenue / Operating Expenses) → Financial statement line → Account,
+filtered to the Income statement, is a P&L; `rbFsOrd()` sorts those two fields in **statement order**, not
+alphabetically, and Account group falls back to the line's parent for governed records. "Build a P&L by
+month" and "balance sheet" requests build that shape (a balance sheet on the balance basis). A custom range
+may run past the open period: Jan–Sep 2026 keeps its label and counts "3 months not yet open".
+
+**Charts:** Bar for any summary; Line when the columns are time (top four first-level rows, ramp-into-accent
+series, dashed for the second pair, every point clickable into the amount menu). A row with no value for a
+governed dimension reads "No vendor" in the table, the same words Explain uses.
+
+**Verified:** blank canvas, P&L Test (Jan–Sep 2026, Revenue first), Capital Spend by Vendor (Capital, YTD Jun
+2026, 77 rows), field search for vendor and department, drag Department between Project and Vendor, reorder
+within Rows, AI CIP report, amount menu (Explain · View contributors · View GL · Trace · Open in Excel), Explain
+panel, Report settings, line chart, Saved Report reopening in the same canvas · render sweep · console clean ·
+4/4 gates.
+
+**Not built:** per-level subtotal or sort settings (both are report-wide), a per-column field setting, scenarios,
+persistence, the Excel add-in.
+
+## 2026-09-14 (later) — REPORT VIEW, EDIT REPORT, and the full GL drill
+
+Owner's brief. **Report Builder creates the definition; Report View presents the finished result.** Same
+engine, same definitions, same Saved Reports. FS-CIP 4,210.2, stores empty on load.
+
+**TWO STATES (`rbMode`).** A saved report opens in **Report View** (`rbOpen(id)`); New and Saved Reports' Edit
+report open **Edit Report** (`rbOpen(id,true)`, `rbNew`). Edit's **Save** writes a version and returns to the
+view (`rbEditSave`); **Cancel** restores the stored definition and returns (`rbEditCancel`), or goes back to
+Saved Reports for a report that was never saved. Save as from either state lands in the view.
+
+**THE VIEW IS TEMPORARY, THE DEFINITION IS NOT.** Period, Compare and Filters in Report View write `rbVS`
+(`patch` + `filters`) over the saved definition; `rbActive()` is what every reader runs — preview, Explain,
+Contributors, Trace, drill, both downloads, the Excel contract — and in Edit it is simply the definition.
+Saved filters show as muted chips ("Edit report to change"); temporary ones are removable, with Reset and
+**Save as new report**. Row labels in the view offer Filter this view · Explain · View GL · Analyze
+differently (→ Edit report); structural changes stay in Edit.
+
+**THE FINISHED PRESENTATION (`rbPreviewHTML`, `rbFlatFin`).** Display is **Standard · Financial · Compact**,
+inferred (`rbDisplayOf`: balances, statement filters or statement rows → Financial; line detail → Compact;
+otherwise Standard), saved under Report settings and switchable per view. **Financial** renders each group as
+a header row (depth 0 is a section band, uppercase), its striped detail, then **Total <group>**, with the top
+level's total stronger; **Standard** keeps parent rows carrying amounts; every display stripes detail rows
+(`rb-alt`, `--n-50`), removes cell hairlines, and closes with a double-ruled grand total (`rb-gtot`). Sticky
+headers, frozen label column and the synced horizontal bar are the `.ktbl` standard. Comparison columns read
+**Variance / Variance %**.
+
+**EDIT IS COMPACT.** A 272px builder beside the preview that **collapses to a 32px Configure rail**
+(`rbBldCollapsed`) — the table went 901px → 1141px — with state intact. The field catalog is a **drawer**
+(`rbFieldsOpen`, positioned beside the builder) for dragging; "+ Add" still opens the search-first popover.
+Drop targets appear only while dragging (`body.rb-dragging`).
+
+**VIEW GL IS THE COMPLETE GOVERNED POPULATION (`rbGL`, `rbGLHTML`).** Any amount, any period — not only the
+close period Account Activity reads — on Account Activity's own column registry and resolvers (`glxAllCols`,
+`glxCellVal`, `glxEff`, `glxCellHTML`, provenance dots). Header: selection · period · report amount · line count;
+context (report, selection, scope, period, filters, currency); a **reconciliation strip** (report amount · GL
+population · difference · Reconciles), with a comparison cell reconciled as current less comparison; a Columns
+picker over every field including source / governed / effective variants; pages of 100 with a total over all
+lines. **Download Excel / Download CSV** are that exact population with a manifest (report and GL totals,
+difference, versions); **Audit-ready Excel** adds source, governed and effective values and lineage. Open
+Account Activity appears only when every line is in the close period. Return to report restores scroll,
+selection and expansion; `rbNavCtx` also carries mode, view state and the drill.
+
+**Verified:** Corporate Income Statement opens Financial with no builder zones (Revenue / Base Revenue headers,
+Total Base Revenue / Total Revenue, grand total) · Edit → 272px builder, drawer, collapse to rail and back with
+rows intact · Cancel leaves v1, Save writes v2 and returns · Capital Spend by Vendor Standard with 33 striped rows ·
+temporary filter and Compare leave the saved definition untouched · Schneider Electric · Mar 2026 → 34 lines,
+$3.912M reconciles to $3.912M, CSV 34 rows × 42 columns with manifest, audit file carries source and governed
+vendor · return keeps the selected amount · 4/4 gates.
+
+**Not built:** presentation sign flips (revenue shows in its natural credit sign, so a P&L grand total is a net,
+not "Operating income"), per-level subtotal labels, persistence, Published / Scheduled Reports, the add-in.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
