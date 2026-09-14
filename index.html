@@ -1869,6 +1869,7 @@ body.rb-dragging .rb-zb.drop{border-color:var(--accent);background:var(--accent-
 /* a finished report takes its natural width — a Total column stretched across the card detaches it
    from the figures it totals */
 .ktbl table.rb-rep{width:auto}
+.ktbl table.rb-rep th:last-child{width:auto}
 .rb-tbl td{height:calc(var(--row-h) - 12px)}
 .rcx-tbl.rb-tbl{min-width:0}
 .rb-tbl .rb-lead{min-width:240px}
@@ -1880,17 +1881,21 @@ body.rb-dragging .rb-zb.drop{border-color:var(--accent);background:var(--accent-
 .rb-tbl .rb-tot{border-left:1px solid var(--line)}
 .ktbl table.rb-rep thead th{background:var(--surface);border-bottom:1px solid var(--border-strong);color:var(--muted);font-weight:var(--fw-medium)}
 .rb-rep tbody td{border-bottom:1px solid transparent}
-.rb-rep tbody tr.rb-alt td{background:var(--n-50)}
+/* §4–§9 BLUE-WHITE BANDING (owner, 2026-09-14): tints of the accent over the surface, so light and dark
+   themes both derive it and it stays quieter than a selection (--accent-bg) */
+.rb-rep{--rb-stripe:color-mix(in srgb,var(--accent) 5%,var(--surface));--rb-sub:color-mix(in srgb,var(--accent) 8%,var(--surface));
+  --rb-band:color-mix(in srgb,var(--accent) 13%,var(--surface));--rb-grand:color-mix(in srgb,var(--accent) 16%,var(--n-100))}
+.rb-rep tbody tr.rb-alt td{background:var(--rb-stripe)}
 .rb-rep tbody tr.rcx-r:hover td{background:var(--surface2)}
-.rb-rep tr.rb-sub td{font-weight:var(--fw-medium);color:var(--ink-strong);border-top:1px solid var(--line)}
-.rb-rep tfoot tr.rb-gtot td{background:var(--n-100);font-weight:var(--fw-strong);color:var(--ink-strong);
+.rb-rep tr.rb-sub td{font-weight:var(--fw-strong);color:var(--ink-strong);background:var(--rb-sub)}
+.rb-rep tfoot tr.rb-gtot td{background:var(--rb-grand);font-weight:var(--fw-strong);color:var(--ink-strong);
   border-top:1px solid var(--border-strong);border-bottom:3px double var(--border-strong)}
 /* financial: section band, group header, group total */
 .rb-disp-financial tr.rb-fhead td{font-weight:var(--fw-medium);color:var(--ink-strong);background:var(--surface)}
-.rb-disp-financial tr.rb-fhead.rb-fd0 td{background:var(--n-100);border-top:1px solid var(--line2)}
+.rb-disp-financial tr.rb-fhead.rb-fd0 td{background:var(--rb-band)}
 .rb-disp-financial tr.rb-fhead.rb-fd0 .rb-lab{text-transform:uppercase;letter-spacing:var(--tracking-label);font-size:var(--fs-label)}
-.rb-disp-financial tr.rb-ftot td{font-weight:var(--fw-medium);color:var(--ink-strong);background:var(--surface);border-top:1px solid var(--line2)}
-.rb-disp-financial tr.rb-ftot.rb-fd0 td{font-weight:var(--fw-strong);background:var(--n-50);border-top:1px solid var(--border-strong)}
+.rb-disp-financial tr.rb-ftot td{font-weight:var(--fw-strong);color:var(--ink-strong);background:var(--rb-sub)}
+.rb-disp-financial tr.rb-ftot.rb-fd0 td{font-weight:var(--fw-strong);background:var(--rb-band);border-top:1px solid var(--line2)}
 .rb-disp-financial td{height:calc(var(--row-h) - 14px)}
 .rb-disp-compact td{height:calc(var(--row-h) - 20px)}
 .rb-disp-compact .rb-lead{min-width:200px}
@@ -2008,6 +2013,21 @@ body.rb-dragging .rb-zb.drop{border-color:var(--accent);background:var(--accent-
 .rb-danger{color:var(--neg);border-color:var(--neg)}
 .rb-hrow>td{background:var(--n-50)}
 .rb-hrow .rb-hist{margin:0}
+/* §16 typed From / To */
+.rb-mon{display:inline-flex;align-items:center;gap:var(--s-1);height:var(--h-btn-sm);padding:0 var(--s-2);
+  border:1px solid var(--border-strong);border-radius:var(--radius-xs);background:var(--surface)}
+.rb-mon .k{font-size:var(--fs-label);color:var(--hint)}
+.rb-mon input{border:0;background:transparent;font:inherit;font-size:var(--fs-table);color:var(--ink);width:76px;outline:none;padding:0}
+.rb-mon:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.rb-mon.bad{border-color:var(--neg)}
+/* §27 published snapshot record */
+.rb-pubstrip{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-1) var(--s-4);margin:calc(var(--s-2) * -1) 0 var(--s-3);
+  font-size:var(--fs-table);color:var(--muted)}
+.rb-pubstrip b{color:var(--ink);font-weight:var(--fw-medium)}
+/* management reporting lists share the report presentation */
+.rb-list td{height:calc(var(--row-h) - 8px)}
+.rb-pkgd>td{background:var(--rb-sub);padding:var(--s-3) var(--s-4)}
+.rb-pkgt{margin-top:var(--s-1);background:var(--surface)}
 @media (max-width:1100px){.rb-withpanel{padding-right:0}#view-rbuild .rb-ws5{grid-template-columns:1fr}}
 
 .fsx-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-3);
@@ -11602,6 +11622,8 @@ body.xl-focus #backBtn{display:none}
 <div class="view" id="view-freports"></div>
 <div class="view" id="view-rbuild"></div>
 <div class="view" id="view-rsaved"></div>
+<div class="view" id="view-rpkg"></div>
+<div class="view" id="view-rpub"></div>
 <div class="view" id="view-findex"></div>
 <div class="view" id="view-fdetail"></div>
 <div class="view" id="view-tasks"></div>
@@ -22436,7 +22458,7 @@ const LENSES={
     q:'Governed financial information — reshaped, analysed, exported and published from the Governed Ledger.',
     filters:{fund:'all',region:'all',own:'all',periodType:'itd',periodVal:null,ccy:'usd'},
     hint:'report builder · saved reports · filings',
-    tabs:['rbuild','rsaved','fdash','findex','fdetail','fxbrl','freports','filing'] },
+    tabs:['rbuild','rsaved','rpkg','rpub','fdash','findex','fdetail','fxbrl','freports','filing'] },
 };
 const LENS_ORDER=['portfolio','ledger','assets','procure','fpa','treasury','filings'];
 // Destinations that are NOT in the ribbon. `droom` and `datagov` are full enterprise
@@ -22492,9 +22514,11 @@ const TABS=[
   {id:'glsync',label:'Data / sync status',ic:'M13 7a5 5 0 00-8.7-3.2M3 9a5 5 0 008.7 3.2M3 3.5V7h3.5M13 12.5V9H9.5'},
   {id:'fdash',   label:'Dashboard', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
   {id:'fxbrl',   label:'XBRL',      ic:'M4 3.5h8v9H4zM6 6h4M6 8.5h4M6 11h2'},
-  {id:'freports',label:'Filing packages', ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
+  {id:'freports',label:'Filing Packages', ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
   {id:'rbuild',  label:'Report Builder', ic:'M2.5 2.5h11v11h-11zM2.5 6h11M6 6v7.5'},
   {id:'rsaved',  label:'Saved Reports',  ic:'M4 2.5h8v11l-4-2.8-4 2.8z'},
+  {id:'rpkg',    label:'Reporting Packages', ic:'M2.5 5l5.5-3 5.5 3v6l-5.5 3-5.5-3zM2.5 5l5.5 3 5.5-3M8 8v6'},
+  {id:'rpub',    label:'Published Reports',  ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M6 10l1.5 1.5L10.5 8'},
   {id:'findex', label:'Filings',   ic:'M3 2.5h7l3 3v8H3zM10 2.5v3h3M5.5 9h5M5.5 11.5h3'},
   {id:'fdetail',label:'Workspace', ic:'M2.5 4.5h11v9h-11zM2.5 7.5h11M6 7.5v6'},
   {id:'tasks',   label:'Tasks',      ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01'},
@@ -22599,6 +22623,8 @@ function pickLens(id){
    meaningful, rather than editing twenty call sites into a two-step navigation. */
 function pickTab(id){
   if(id==='consol'){ fnSub='consol'; id='glfin'; }
+  /* choosing Report Builder while a saved report is open in view starts a new report */
+  if(id==='rbuild'&&TAB==='rbuild'&&typeof rbIntent!=='undefined'&&!rbIntent&&typeof rbMode!=='undefined'&&rbMode==='view') rbBlankReset();
   TAB=id; renderTabs(); showTab(); renderAll(); }
 function showTab(){ TABS.forEach(t=>$('view-'+t.id).classList.toggle('on',t.id===TAB)); }
 
@@ -28885,9 +28911,13 @@ const RAIL_SPEC={
   ],
   filings:[
     /* REPORTING consumes governed financial information; ACCOUNTING operates the close. */
-    {head:'Financial reporting'},
+    {head:'Reporting'},
     {tab:'rbuild',  label:'Report Builder', ic:'M2.5 2.5h11v11h-11zM2.5 6h11M6 6v7.5'},
     {tab:'rsaved',  label:'Saved Reports',  ic:'M4 2.5h8v11l-4-2.8-4 2.8z'},
+    /* Management reporting assembles finished outputs; it is not a second report builder */
+    {head:'Management reporting'},
+    {tab:'rpkg',    label:'Reporting Packages', ic:'M2.5 5l5.5-3 5.5 3v6l-5.5 3-5.5-3zM2.5 5l5.5 3 5.5-3M8 8v6'},
+    {tab:'rpub',    label:'Published Reports',  ic:'M3.5 2.5h6l3 3v8h-9zM9.5 2.5v3h3M6 10l1.5 1.5L10.5 8'},
     {head:'External reporting'},
     {tab:'fdash',   label:'Dashboard', ic:'M2.5 2.5h4.2v4.2h-4.2zM9.3 2.5h4.2v4.2h-4.2zM2.5 9.3h4.2v4.2h-4.2zM9.3 9.3h4.2v4.2h-4.2z'},
     {tab:'findex',  label:'Filings',   ic:'M3 2.5h7l3 3v8H3zM10 2.5v3h3',
@@ -28900,7 +28930,7 @@ const RAIL_SPEC={
     {tab:'fdetail', label:'Review Center', ic:'M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z', sub:'review',
       badge:()=>FILING_COMMENTS.filter(c=>c.st==='open').length, mut:true},
     {tab:'fxbrl',   label:'XBRL',    ic:'M4 3.5h8v9H4zM6 6h4M6 8.5h4M6 11h2'},
-    {tab:'freports',label:'Filing packages', ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
+    {tab:'freports',label:'Filing Packages', ic:'M3 13V6M6.5 13V3M10 13V8M13.5 13v-4'},
     {head:'Governance'},
     {lens:'tasks',  label:'Tasks',  ic:'M5.5 4h7M5.5 8h7M5.5 12h4M3 4h.01M3 8h.01M3 12h.01', badge:()=>wsTaskCount()},
     // Same flag as Home's Issues — one destination, one glyph. It carried the warning
@@ -63996,16 +64026,17 @@ function rbWindow(P0){
        months that have not opened are counted below rather than silently trimmed */
     case 'range': { const f=P.from||RB_FIRST, t=P.to||open;
       months=rbMonths(f<=t?f:t,f<=t?t:f);
-      label=months.length===1?perLabel(months[0]):perWindow(months[months.length-1],months.length);
+      label=months.length===1?perLabel(months[0]):perLabel(months[0])+' \u2013 '+perLabel(months[months.length-1]);
       break; }
     default: months=rbMonths(pp.y+'-01',a); label='YTD '+perLabel(a);
   }
   /* A PERIOD THAT HAS NOT OPENED HAS NO POSTINGS. Months after the open period are excluded and
      counted, never extrapolated. */
+  const span=months.filter(m=>m>=RB_FIRST);
   const later=months.filter(m=>m>open).length;
   months=months.filter(m=>m<=open&&m>=RB_FIRST);
   const range=months.length>1?perWindow(months[months.length-1],months.length):null;
-  return {months, label, range:range&&range!==label?range:null, notOpen:later, anchor:a, kind};
+  return {months, label, range:(kind!=='range'&&range&&range!==label)?range:null, notOpen:later, anchor:a, kind, span};
 }
 /* §15 — COMPARISON IS A SECOND WINDOW, not a comparison engine. Prior period shifts by the
    window's own length (a month by a month, a quarter by a quarter); prior year shifts by twelve
@@ -64255,6 +64286,9 @@ function rbGroup(e,W,recs,R,C,meta){
   else if(C.length) cols.sort((a,b)=>{ const as=a.split(''), bs=b.split('');
     for(let i=0;i<C.length;i++){ const c=sortV(C[i],as[i],bs[i]); if(c) return c; } return 0; });
   else cols=['__all'];
+  /* a monthly report shows every month of the asked-for range, including months with nothing posted */
+  if(!CW&&C.length===1&&C[0].k==='period'&&W.span&&W.span.length){ const have=new Set(cols);
+    W.span.forEach(m=>{ if(!have.has(m)) cols.push(m); }); cols.sort(); }
   const colLabel=c=>c==='__all'?null:c==='__cur'?W.label:c==='__cmp'?(CW?CW.label:''):
     c.split('').map((v,i)=>v==='__blank'||v===''||v==='null'?'(blank)':rbFmt(C[i],v)).join(' · ');
   return {kind:'summary', W, CW, compare:!!CW, R, C, root, cols, colLabel, sortV, count:meta.count,
@@ -64359,7 +64393,7 @@ const rbClone=o=>JSON.parse(JSON.stringify(o));
 const rbDefById=id=>id==='__working'?rbDef:(RB_REPORTS.find(r=>r.id===id)||null);
 function rbTypeOf(d){ const e=rbEff(d);
   return e.basis==='balance'?'Trial balance':e.layout==='detail'?'GL detail':'Analysis'; }
-function rbBlank(){ return rbSeedDef({id:null, name:'Untitled report', owner:RB_ME(), version:0,
+function rbBlank(){ return rbSeedDef({id:null, name:'Untitled Report', owner:RB_ME(), version:0,
   history:[], period:{kind:'ytd'}}); }
 function rbEnsure(){ if(!rbDef){ rbDef=rbBlank(); rbOpenId=null; rbDirty=false; rbEditing=true; } return rbDef; }
 function rbNow(){ return (typeof glxNow==='function')?glxNow():periodStamp(); }
@@ -64372,7 +64406,7 @@ function rbNew(){ rbDef=rbBlank(); rbOpenId=null; rbDirty=false; rbEditing=true;
   rbReset(); rbModeSet('edit'); if(LENS!=='filings') pickLens('filings'); pickTab('rbuild'); }
 function rbOpen(id,edit){
   const d=RB_REPORTS.find(r=>r.id===id); if(!d) return;
-  d.lastRun=rbNow();
+  d.lastRun=rbNow(); rbIntent=true; rbPub=null;
   rbDef=rbClone(d); rbOpenId=id; rbDirty=false; rbEditing=!!edit; rbAdvOpen=false; rbReset(); rbModeSet(edit?'edit':'view');
   if(LENS!=='filings') pickLens('filings');
   pickTab('rbuild');
@@ -64411,7 +64445,7 @@ function rbSave(){
   rbRender();
 }
 function rbSaveAsStart(){ rbEnsure();
-  rbSaveAs=rbOpenId?rbDef.name+' (copy)':(rbDef.name==='Untitled report'?'':rbDef.name);
+  rbSaveAs=rbOpenId?rbDef.name+' (copy)':(rbDef.name==='Untitled Report'?'':rbDef.name);
   rbRender(); setTimeout(()=>{ const i=document.getElementById('rbSaveAsIn'); if(i){ i.focus(); i.select(); } },30); }
 function rbSaveAsCommit(){
   const i=document.getElementById('rbSaveAsIn'); const nm=((i&&i.value)||rbSaveAs||'').trim();
@@ -65261,7 +65295,7 @@ function rbMeta(def,T){
     ['Rows exported',T.rows.length],
     ['Status','Management report — not an official governed financial statement']];
 }
-function rbExport(fmt){
+function rbExportDefinition(fmt){
   const d=rbActive(), T=rbTable(d), M=rbMeta(d,T);
   const base=String(d.name||'report').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
     +'-'+(rbWindow(d.period).months.slice(-1)[0]||tbxClosePeriod());
@@ -65372,7 +65406,8 @@ function rbFieldDesc(k){
         rbDirty=true; rbConf=null; rbKeepOpen(k); }}; }
   if(key==='dl') return {nm:'Download', act:1, get:()=>'',
     opts:()=>[{hd:1, nm:'Static file — not connected'},
-      {id:'xls', nm:'Excel', sub:'report + metadata sheet'},{id:'csv', nm:'CSV', sub:'metadata, then the table'}],
+      {id:'xls', nm:'Excel', sub:'formatted report, one sheet'},{id:'csv', nm:'CSV', sub:'the report table'},
+      {hd:1, nm:'Advanced'},{id:'xlsdef', nm:'Excel with report definition', sub:'adds definition, filters and versions'}],
     set:v=>{ close(); rbExport(v); }};
   if(key==='more') return {nm:rbEnsure().name, act:1, get:()=>'',
     opts:()=>[{id:'new', nm:'New report'},{id:'rename', nm:'Rename'},
@@ -65581,7 +65616,7 @@ const _rbFsOrd={};
 function rbFsOrd(name){ if(name in _rbFsOrd) return _rbFsOrd[name];
   const i=FSLINES.findIndex(l=>rbPlain(l.name)===name); return (_rbFsOrd[name]=i<0?9999:i); }
 const RB_TEMPLATES=[
-  {id:'blank', nm:'Blank', mk:()=>({name:'Untitled report', rows:[], cols:[], period:{kind:'ytd'}})},
+  {id:'blank', nm:'Blank', mk:()=>({name:'Untitled Report', rows:[], cols:[], period:{kind:'ytd'}})},
   {id:'tb', nm:'Trial Balance', mk:()=>({name:'Trial Balance', rows:['acctNo','acctDesc'], cols:['period'],
     basis:'balance', rowLayout:'tabular', period:{kind:'ytd'}})},
   {id:'gl', nm:'GL Detail', mk:()=>({name:'GL Detail', rows:['postingDate','journal','acctNo','acctDesc',
@@ -65592,7 +65627,7 @@ const RB_TEMPLATES=[
     cols:['period'], period:{kind:'ytd'}})},
   {id:'dept', nm:'Department Expense', mk:()=>({name:'Department Expense', rows:['dept','fsLine'],
     cols:['period'], period:{kind:'qtr'}, filters:[{k:'stmt', vals:['Income statement']}]})},
-  {id:'fs', nm:'Financial Statement View', mk:()=>({name:'Income Statement View', rows:['acctGroup','fsLine','acctDesc'],
+  {id:'fs', nm:'Financial Statement', mk:()=>({name:'Income Statement View', rows:['acctGroup','fsLine','acctDesc'],
     cols:['period'], period:{kind:'ytd'}, filters:[{k:'stmt', vals:['Income statement']}]})},
 ];
 
@@ -65734,12 +65769,11 @@ function rbTopHTML(d,e,W,CW){
     +(k?'<span class="k">'+k+'</span>':'')+'<span class="v">'+glEsc(v)+'</span></button>';
   return '<div class="rb-top4">'
     +'<div class="rb-per4"><span class="rb-lbl4">Period</span>'+chip('period','',W.label)
-    +(W.kind==='range'?chip('from','From',perLabel(W.months[0]||P.from))+chip('to','To',perLabel(W.months[W.months.length-1]||P.to))
-      :anch?chip('anchor',W.kind==='month'?'Month':'Through',perLabel(W.anchor)):'')
+    +(anch&&W.kind!=='range'?chip('anchor',W.kind==='month'?'Month':'Through',perLabel(W.anchor)):'')+rbRangeInputs(W)
     +(e.layout==='detail'?'':(d.compare
       ?'<span class="rb-cmpc">'+chip('cmp','Compare','vs '+(CW?CW.label:''))+'<button class="rb-rx" aria-label="Remove comparison" onclick="rbCmpSet(\'none\')">&#215;</button></span>'
       :'<button class="btn-ghost sm" data-pop="rc:rb.cmp" onclick="KFX.pop(\'rc:rb.cmp\',this)">Compare</button>'))
-    +'<span class="rb-note">Close stays '+perLabel(tbxClosePeriod())+'</span></div>'
+    +'</div>'
     +'<div class="rb-cmd">'+RB_SPARK+'<input id="rbCmdIn" aria-label="Ask Korvyn to build or change this report"'
       +' placeholder="Ask Korvyn — “Show CIP by project and vendor monthly through June”, “Add department”, “Build a P&amp;L by month”"'
       +' onkeydown="rbCmdKey(event,this)"></div></div>';
@@ -65747,9 +65781,9 @@ function rbTopHTML(d,e,W,CW){
 
 /* ---- RIGHT / MAIN: the live preview */
 function rbEmptyHTML(){
-  return '<div class="card rb-empty4"><div class="h">Build a report</div>'
-    +'<div class="rb-note">Drag fields into Rows and Columns, ask Korvyn above, or start from a configuration.</div>'
-    +'<div class="rb-tplr">'+RB_TEMPLATES.map(t=>'<button class="rb-prompt" onclick="rbTemplate(\''+t.id+'\')">'+glEsc(t.nm)+'</button>').join('')+'</div>'
+  return '<div class="card rb-empty4"><div class="h">Untitled Report</div>'
+    +'<div class="rb-note">Add fields to Columns, Rows and Filters in the builder, or ask Korvyn above. The preview appears as soon as there are rows.</div>'
+    +'<div class="rb-ps">Start from template</div><div class="rb-tplr">'+['tb','gl','fs','vendor','project','dept'].map(id=>RB_TEMPLATES.find(t=>t.id===id)).filter(Boolean).map(t=>'<button class="rb-prompt" onclick="rbTemplate(\''+t.id+'\')">'+glEsc(t.nm)+'</button>').join('')+'</div>'
     +'<div class="rb-ps">Or ask</div><div class="rb-tplr">'
     +['Show CIP by project and vendor monthly through June','Build a P&L by month','Show vendor spend by project YTD','Show June GL detail over $1M']
       .map(p=>'<button class="rb-prompt ai" onclick="rbCmdRun(this.textContent)">'+glEsc(p)+'</button>').join('')+'</div></div>';
@@ -65946,17 +65980,17 @@ function rbPreviewHTML(res){
       h+='<tr class="rcx-r'+(alt++%2?' rb-alt':'')+'">'+R.map((f,i)=>'<td class="kfreeze'+(f.m?' mono':'')+'">'+labBtn(ri,i,rbCellLabel(f,nd.vals[i]))+'</td>').join('')
         +cells(nd,ri)+'</tr>'; return; }
     const dp=nd.depth, lbl=rbCellLabel(R[dp],nd.vals[dp]);
-    if(x.t==='head'){ alt=0;
+    if(x.t==='head'){
       h+='<tr class="rcx-r rb-fhead rb-fd'+Math.min(dp,3)+'"><td class="kfreeze rb-lead"><span class="rb-ind rb-d'+Math.min(dp,4)+'">'
         +caret(x)+labBtn(ri,dp,lbl)+'</span></td>'+blanks()+'</tr>'; return; }
-    if(x.t==='total'){ alt=0;
+    if(x.t==='total'){
       h+='<tr class="rcx-r rb-ftot rb-fd'+Math.min(dp,3)+'"><td class="kfreeze rb-lead"><span class="rb-ind rb-d'+Math.min(dp,4)+'">'
         +'<span class="rb-tl">Total '+lbl+'</span></span></td>'+cells(nd,ri)+'</tr>'; return; }
     const flatLeaf=e.subtotals===false&&R.length>1;
     const label=flatLeaf?nd.vals.map((v,i)=>rbCellLabel(R[i],v)).join(' <span class="rb-sep">&#8250;</span> '):lbl;
     if(x.t==='sub'){
       h+='<tr class="rcx-r rb-sub rb-fd'+Math.min(dp,3)+'"><td class="kfreeze rb-lead"><span class="rb-ind rb-d'+Math.min(dp,4)+'">'
-        +caret(x)+labBtn(ri,dp,label)+'</span></td>'+cells(nd,ri)+'</tr>'; alt=0; return; }
+        +caret(x)+labBtn(ri,dp,label)+'</span></td>'+cells(nd,ri)+'</tr>'; return; }
     h+='<tr class="rcx-r'+(alt++%2?' rb-alt':'')+'"><td class="kfreeze rb-lead"><span class="rb-ind rb-d'+Math.min(flatLeaf?0:dp,4)+'">'
       +labBtn(ri,flatLeaf?R.length-1:dp,label)+'</span></td>'+cells(nd,ri)+'</tr>';
   });
@@ -65987,7 +66021,8 @@ function rbViewHTML(d,e,W,CW){
   const base=rbEnsure(), L=rcLens();
   const ctx=[glEsc(CW&&e.layout!=='detail'?W.label+' vs '+CW.label:W.label), glEsc(L.name), glEsc(L.presentationCurrency),
     glEsc(rcBasisLabel(L.reportingBasis))].join('<span class="sep">·</span>');
-  let o=glHead('<span class="rb-vtitle">'+glEsc(base.name)+'</span>',ctx,
+  let o=(rbPub?rbPubBarHTML():'')+glHead('<span class="rb-vtitle">'+glEsc(base.name)+'</span>'
+    +(rbPub?'<span class="rb-editing">Published · '+glEsc(rbPub.version)+'</span>':''),ctx,
     '<div class="rb-acts">'
     +(e.layout!=='detail'?'<button class="btn-out sm'+(d.compare?' on':'')+'" data-pop="rc:rb.v.cmp" onclick="KFX.pop(\'rc:rb.v.cmp\',this)">Compare</button>'
       +'<button class="btn-out sm'+(rbPanel&&rbPanel.mode==='explain'?' on':'')+'" onclick="rbExplainOpen()">'+RB_SPARK+' Explain</button>':'')
@@ -65996,9 +66031,10 @@ function rbViewHTML(d,e,W,CW){
       +'<svg viewBox="0 0 16 16" fill="none" width="13" height="13" aria-hidden="true"><path d="M2.5 3h11v10h-11zM2.5 6h11M6.5 6v7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       +'Open in Excel</button>'
     +'<button class="btn-out sm" data-pop="rc:rb.dl" onclick="KFX.pop(\'rc:rb.dl\',this)">Download</button>'
-    +'<button class="btn-primary sm" onclick="rbEditStart()">Edit report</button>'
+    +(rbPub?'':'<button class="btn-primary sm" onclick="rbEditStart()">Edit report</button>')
     +'<button class="btn-out sm rb-more" aria-label="More actions" data-pop="rc:rb.more" onclick="KFX.pop(\'rc:rb.more\',this)">&#8226;&#8226;&#8226;</button></div>');
   if(base.desc) o+='<div class="rb-desc">'+glEsc(base.desc)+'</div>';
+  if(rbPub) o+=rbPubStripHTML();
   if(rbHistOpen==='__open'&&rbOpenId){ const s=RB_REPORTS.find(r=>r.id===rbOpenId); if(s) o+=rbHistHTML(s,'rbHistOpen=null;rbRender()'); }
   if(rbSaveAs!=null) o+=rbSaveAsHTML();
   if(rbNote) o+='<div class="glx-toast"><span class="t">'+glEsc(rbNote.t)+'</span><span class="grow"></span>'
@@ -66009,8 +66045,7 @@ function rbViewHTML(d,e,W,CW){
     +(k?'<span class="k">'+k+'</span>':'')+'<span class="v">'+glEsc(v)+'</span></button>';
   const temp=!!(rbVS.patch||rbVS.filters.length);
   o+='<div class="rb-vbar"><span class="rb-lbl4">Period</span>'+chip('period','',W.label)
-    +(W.kind==='range'?chip('from','From',perLabel(W.months[0]||P.from))+chip('to','To',perLabel(W.months[W.months.length-1]||P.to))
-      :anch?chip('anchor',W.kind==='month'?'Month':'Through',perLabel(W.anchor)):'')
+    +(anch&&W.kind!=='range'?chip('anchor',W.kind==='month'?'Month':'Through',perLabel(W.anchor)):'')+rbRangeInputs(W)
     +(base.filters||[]).map(f=>'<span class="rb-vf saved" title="Saved in the report definition — Edit report to change">'
       +glEsc(rbLab(f.k))+' = '+glEsc(rbFilterVal(f))+'</span>').join('')
     +rbVS.filters.map((f,i)=>'<span class="rb-vf temp"><button class="fb" data-pop="rc:rb.v.fv:'+i+'" onclick="KFX.pop(\'rc:rb.v.fv:'+i+'\',this)">'
@@ -66353,7 +66388,7 @@ function rbNavCtx(extra){
   return Object.assign({originSurface:'rbuild', originTab:'rbuild', originObjectId:rbOpenId,
     originLabel:st.def.name, originContext:rbWindow(st.def.period).label+' · '+rcLens().name,
     periodId:viewPeriod(), scopeId:ENTCTX.scope.id, reportingLensId:rcLensId,
-    restore:()=>{ rbXlProtoFrom=null; glxRbDrill=null; pickLens('filings'); pickTab('rbuild');
+    restore:()=>{ rbXlProtoFrom=null; glxRbDrill=null; rbIntent=true; pickLens('filings'); pickTab('rbuild');
       rbDef=st.def; rbOpenId=st.open; rbDirty=st.dirty; rbCollapsed=st.col; rbPanel=st.panel; rbSel=st.sel;
       rbViewMode=st.view; rbMode=st.mode; rbVS=st.vs; rbGL=st.gl; rbBldCollapsed=st.bld; renderAll();
       const put=n=>{ window.scrollTo(0,st.scroll); if(n>0&&Math.abs((window.scrollY||0)-st.scroll)>2) setTimeout(()=>put(n-1),40); };
@@ -66365,8 +66400,8 @@ if(!window._rbDragBody){ window._rbDragBody=1;
   document.addEventListener('dragstart',ev=>{ const t=ev.target; if(t&&t.closest&&t.closest('#view-rbuild')) document.body.classList.add('rb-dragging'); });
   ['dragend','drop'].forEach(n=>document.addEventListener(n,()=>document.body.classList.remove('rb-dragging'))); }
 
-function renderRBuild(){
-  const el=$('view-rbuild'); if(!el) return;
+function renderRBuild(target){
+  const el=$(target||'view-rbuild'); if(!el) return;
   glSurface(el);
   const d=rbActive(), e=rbEff(d), W=rbWindow(d.period), CW=rbCmpWindow(d.period,d.compare);
   let o;
@@ -66385,6 +66420,310 @@ function renderRBuild(){
     dr.style.maxHeight='calc(100vh - '+(top+24)+'px)'; }
   if(typeof ktblSync==='function') ktblSync();
   if(rbBusy) setTimeout(()=>{ rbBusy=false; if(TAB==='rbuild') renderAll(); },30);
+}
+/* ==========================================================================================
+   A NEW REPORT STARTS BLANK (2026-09-14)
+   ==========================================================================================
+   Report Builder is where a NEW report is made. Arriving at it — from the rail, the Reporting lens
+   or any other page — opens a blank Untitled Report. Only opening a saved report (Edit report) or
+   returning to one through Back carries a definition in, and both say so with `rbIntent`. Saved
+   reports live in Saved Reports; the builder never defaults to the last one opened. */
+let rbIntent=false, _rbPrevTab=null;
+function rbBlankReset(){
+  rbDef=rbBlank(); rbOpenId=null; rbDirty=false; rbReset(); rbModeSet('edit');
+  rbCollapsed={}; rbViewMode='table'; rbAdvOpen=false; rbFieldQ=''; rbPub=null;
+}
+
+/* ==========================================================================================
+   REPORT VIEW → DOWNLOAD EXCEL: THE REPORT, FORMATTED LIKE THE VIEW (2026-09-14)
+   ==========================================================================================
+   Three downloads, three use cases, never mixed:
+     Report View → Excel      the formatted report on one sheet — nothing else
+     View GL → Excel / CSV     the transaction-level governed population
+     Audit-ready / definition  lineage, versions and the report definition, when asked for
+   The workbook mirrors the view: the same columns, the same hierarchy and indentation, blue-white
+   striped detail, section bands, subtotal and grand-total emphasis, frozen panes and finance number
+   formats. A workbook is a light document, so its palette is the LIGHT accent's tints. */
+const RB_PRINT_ACCENT=[47,98,212];   /* light-theme --accent #2F62D4 */
+function rbTint(p,base){ const b=base||[255,255,255];
+  return '#'+RB_PRINT_ACCENT.map((v,i)=>Math.round(b[i]+(v-b[i])*p).toString(16).padStart(2,'0')).join('').toUpperCase(); }
+const RB_XL={stripe:rbTint(.05), sub:rbTint(.08), band:rbTint(.13), grand:rbTint(.16,[236,239,244]),
+  rule:rbTint(.30), ink:'#1C2233', muted:'#5B6478'};
+function rbLabelText(f,v){ return v==='__blank'?'No '+String(f.l).replace(/^(Source|Governed|Effective) /,'').toLowerCase()
+  :String(rbFmt(f,v)); }
+/* the rows the view renders, fully expanded, in the view's own order and shape */
+function rbPresRows(res,e,disp){
+  const R=res.R, nested=(e.rowLayout||'nested')==='nested', out=[];
+  const fin=nested&&disp==='financial'&&R.length>1&&e.subtotals!==false, flat=nested&&e.subtotals===false&&R.length>1;
+  const walk=nd=>rbKids(res,e,nd).forEach(k=>{ const leaf=k.depth===R.length-1;
+    if(leaf){ out.push({t:'leaf', nd:k}); return; }
+    if(!nested||flat){ walk(k); return; }
+    if(fin){ out.push({t:'head', nd:k}); walk(k); out.push({t:'total', nd:k}); }
+    else { out.push({t:'sub', nd:k}); walk(k); } });
+  if(R.length) walk(res.root);
+  return {rows:out, nested, flat};
+}
+function rbExportPresentation(){
+  const d=rbActive(), res=rbRun(d);
+  if(res.refused||!d.rows.length){ rbNote={t:'There is no report result to download yet.'}; rbRender(); return; }
+  const e=res.eff, disp=rbDispNow(), L=rcLens(), W=res.W||rbWindow(d.period), CW=res.CW||null;
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const period=CW&&e.layout!=='detail'?W.label+' vs '+CW.label:(W.range&&W.range!==W.label?W.label+' ('+W.range+')':W.label);
+  const st=(o)=>' style="'+Object.keys(o).filter(k=>o[k]!=null&&o[k]!=='').map(k=>k+':'+o[k]).join(';')+'"';
+  const num=(v,cls,style)=>'<td class="'+(cls||'n')+'"'+st(style||{})+'>'+(v===''||v==null?'':v)+'</td>';
+  let head=[], widths=[], body='', labelCols=1;
+  if(res.kind==='detail'){
+    const F=res.fields; labelCols=Math.min(2,F.length);
+    head=F.map(f=>({t:f.n?(RB_VALUE_L[f.k]||f.l):f.l, n:!!f.n}));
+    widths=F.map(f=>f.n?72:(f.k==='acctDesc'||f.k==='memo'?200:f.k==='postingDate'?78:120));
+    res.lines.forEach((x,i)=>{ const bg=i%2?RB_XL.stripe:null;
+      body+='<tr>'+F.map(f=>{ const v=f.get(x.r,x.p);
+        return f.n?num(+(+(v||0)).toFixed(3),'n',{background:bg})
+          :'<td'+st({background:bg})+'>'+esc(v==null||v===''?'':rbFmt(f,v))+'</td>'; }).join('')+'</tr>'; });
+    body+='<tr>'+F.map((f,i)=>f.n?num(+res.total.toFixed(3),'n',{background:RB_XL.grand,'font-weight':'700','border-top':'.5pt solid '+RB_XL.rule,'border-bottom':'2.25pt double '+RB_XL.rule})
+      :'<td'+st({background:RB_XL.grand,'font-weight':'700','border-top':'.5pt solid '+RB_XL.rule,'border-bottom':'2.25pt double '+RB_XL.rule})+'>'+(i===0?'Total':'')+'</td>').join('')+'</tr>';
+  } else {
+    const R=res.R, P=rbPresRows(res,e,disp), dcols=res.compare?['__cmp','__cur']:res.cols;
+    labelCols=P.nested?1:R.length;
+    head=(P.nested?[{t:R.map(f=>f.l).join(' / ')}]:R.map(f=>({t:f.l})))
+      .concat(dcols.map(c=>({t:c==='__all'?(RB_VALUE_L[e.measure]||'Net Amount'):res.colLabel(c), n:1})))
+      .concat(res.compare?[{t:'Variance', n:1},{t:'Variance %', n:1}]:[]).concat(res.showTotal?[{t:'Total', n:1}]:[]);
+    widths=(P.nested?[Math.min(320,Math.max(200,40+R.length*60))]:R.map(()=>130))
+      .concat(dcols.map(()=>70)).concat(res.compare?[74,64]:[]).concat(res.showTotal?[76]:[]);
+    const vals=nd=>dcols.map(c=>+(nd.cells[c]||0).toFixed(3))
+      .concat(res.compare?[+rbNodeChg(nd).toFixed(3),Math.abs(nd.cells.__cmp||0)<0.05?'':+((((nd.cells.__cur||0)-(nd.cells.__cmp||0))/Math.abs(nd.cells.__cmp))).toFixed(4)]:[])
+      .concat(res.showTotal?[+nd.total.toFixed(3)]:[]);
+    const nVals=head.length-labelCols;
+    let alt=0;
+    P.rows.forEach(x=>{
+      const nd=x.nd, dp=nd.depth, f=R[dp];
+      let style={}, label, showVals=true, upper=false;
+      if(x.t==='head'){ showVals=false; style=dp===0?{background:RB_XL.band,'font-weight':'700'}:{'font-weight':'700'}; upper=dp===0; }
+      else if(x.t==='total') style=dp===0?{background:RB_XL.band,'font-weight':'700','border-top':'.5pt solid '+RB_XL.rule}
+        :{background:RB_XL.sub,'font-weight':'700'};
+      else if(x.t==='sub') style={background:RB_XL.sub,'font-weight':'700'};
+      else { style=alt++%2?{background:RB_XL.stripe}:{}; }
+      if(P.nested){
+        label=P.flat?nd.vals.map((v,i)=>rbLabelText(R[i],v)).join(' › '):rbLabelText(f,nd.vals[dp]);
+        if(x.t==='total') label='Total '+label;
+        if(upper) label=label.toUpperCase();
+      }
+      const indent=P.nested&&!P.flat?dp:0;
+      const lab=P.nested
+        ? '<td'+st(Object.assign({},style,{'mso-char-indent-count':indent||null,'padding-left':indent?(indent*12)+'pt':null,'text-align':'left'}))+'>'+esc(label)+'</td>'
+        : R.map((fr,i)=>'<td'+st(style)+'>'+esc(rbLabelText(fr,nd.vals[i]))+'</td>').join('');
+      const vv=showVals?vals(nd):new Array(nVals).fill('');
+      const pctAt=res.compare?dcols.length+1:-1;
+      body+='<tr>'+lab+vv.map((v,i)=>num(v,i===pctAt?'p':'n',style)).join('')+'</tr>';
+    });
+    if(!res.balance){ const g={background:RB_XL.grand,'font-weight':'700','border-top':'.5pt solid '+RB_XL.rule,'border-bottom':'2.25pt double '+RB_XL.rule};
+      const vv=vals(res.root), pctAt=res.compare?dcols.length+1:-1;
+      body+='<tr>'+(P.nested?'<td'+st(g)+'>Total</td>':R.map((fr,i)=>'<td'+st(g)+'>'+(i===0?'Total':'')+'</td>').join(''))
+        +vv.map((v,i)=>num(v,i===pctAt?'p':'n',g)).join('')+'</tr>'; }
+  }
+  const nCols=head.length;
+  const top=[[esc(d.name),{'font-size':'14pt','font-weight':'700',color:RB_XL.ink}],[esc(period),{color:RB_XL.muted}],
+    [esc(L.name),{color:RB_XL.muted}],[esc(L.presentationCurrency)+' millions',{color:RB_XL.muted}],[esc(rcBasisLabel(L.reportingBasis)),{color:RB_XL.muted}]]
+    .map(r=>'<tr><td'+st(Object.assign({'text-align':'left'},r[1]))+'>'+r[0]+'</td>'+'<td></td>'.repeat(Math.max(0,nCols-1))+'</tr>').join('')
+    +'<tr><td></td></tr>';
+  const thead='<tr>'+head.map(h=>'<td'+st({'font-weight':'700',color:RB_XL.muted,'border-bottom':'.75pt solid '+RB_XL.rule,
+    'text-align':h.n?'right':'left','white-space':'nowrap'})+'>'+esc(h.t)+'</td>').join('')+'</tr>';
+  const frozenRows=7;
+  const sheetName=esc(String(d.name).replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Report');
+  const html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"'
+    +' xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+esc(d.name)+'</title>'
+    +'<style>td{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:'+RB_XL.ink+';vertical-align:middle;height:16pt}'
+    +'td.n{mso-number-format:"#,##0.0_);\\(#,##0.0\\);\\-_)";text-align:right}'
+    +'td.p{mso-number-format:"0.0%_);\\(0.0%\\);\\-_)";text-align:right}table{border-collapse:collapse}</style>'
+    +'<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>'+sheetName+'</x:Name>'
+    +'<x:WorksheetOptions><x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>'+frozenRows+'</x:SplitHorizontal>'
+    +'<x:TopRowBottomPane>'+frozenRows+'</x:TopRowBottomPane><x:SplitVertical>'+labelCols+'</x:SplitVertical>'
+    +'<x:LeftColumnRightPane>'+labelCols+'</x:LeftColumnRightPane><x:ActivePane>0</x:ActivePane>'
+    +'<x:DoNotDisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
+    +'</head><body><table>'+widths.map(w=>'<col style="width:'+w+'pt" width="'+Math.round(w*4/3)+'">').join('')
+    +top+thead+body+'</table></body></html>';
+  const base=String(d.name||'report').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+    +'-'+(W.months.slice(-1)[0]||tbxClosePeriod());
+  rcDownload(html,'application/vnd.ms-excel',base+'.xls');
+  rbNote={t:'Downloaded “'+d.name+'” as a formatted Excel report — one sheet, the report only.'};
+  rbRender();
+}
+/* CSV is the same report, unformatted, with the same short heading and nothing technical */
+function rbExportCsv(){
+  const d=rbActive(), T=rbTable(d), L=rcLens(), W=rbWindow(d.period), CW=rbCmpWindow(d.period,d.compare), e=rbEff(d);
+  const esc=v=>{const t=String(v==null?'':v).replace(/\s+/g,' ').trim(); return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  const nl=String.fromCharCode(13)+String.fromCharCode(10);
+  const period=CW&&e.layout!=='detail'?W.label+' vs '+CW.label:W.label;
+  rcDownload([esc(d.name),esc(period),esc(L.name),esc(L.presentationCurrency+' millions'),esc(rcBasisLabel(L.reportingBasis)),'',
+    T.cols.map(esc).join(',')].concat(T.rows.map(r=>r.map(esc).join(','))).join(nl),
+    'text/csv;charset=utf-8',String(d.name||'report').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+      +'-'+(W.months.slice(-1)[0]||tbxClosePeriod())+'.csv');
+  rbNote={t:'Downloaded “'+d.name+'” as CSV.'}; rbRender();
+}
+function rbExport(fmt){
+  if(fmt==='xlsdef') return rbExportDefinition('xls');
+  if(fmt==='csv') return rbExportCsv();
+  return rbExportPresentation();
+}
+/* ==========================================================================================
+   REPORTING STRUCTURE (2026-09-14): BUILD · MANAGEMENT · EXTERNAL
+   ==========================================================================================
+   ONE GOVERNED REPORTING FOUNDATION, DIFFERENT REPORTING JOBS, CONSISTENT PRESENTATION.
+     Reporting               Report Builder (the definition) · Saved Reports (reusable definitions)
+     Management reporting    Reporting Packages · Published Reports — foundation only
+     External reporting      filings, working papers, review, XBRL, filing packages (unchanged)
+   Every finished report — saved, published, or inside a package later — renders through the ONE
+   Report View (`rbViewHTML`), so it looks and behaves the same wherever it is read. */
+
+/* ---- §15–§20 FLEXIBLE FROM / TO. Typed, normalised, never a calendar. */
+function rbParseMonth(str){
+  const s=String(str||'').trim().toLowerCase().replace(/\s+/g,' ');
+  if(!s) return null;
+  const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const yr=t=>t.length===2?2000+(+t):+t;
+  const key=(y,mi)=>(y>=1990&&y<=2100&&mi>=0&&mi<12)?y+'-'+String(mi+1).padStart(2,'0'):null;
+  let m=s.match(/^([a-z]+)\.?[\s\-\/,']*(\d{2}|\d{4})$/);
+  if(m){ const i=MON.indexOf(m[1].slice(0,3));
+    if(i<0||!PMN_LONG[i].toLowerCase().startsWith(m[1])) return null;
+    return key(yr(m[2]),i); }
+  m=s.match(/^(\d{1,2})[\/\-\. ](\d{2}|\d{4})$/); if(m) return key(yr(m[2]),+m[1]-1);
+  m=s.match(/^(\d{4})[\/\-\. ](\d{1,2})$/); if(m) return key(+m[1],+m[2]-1);
+  return null;
+}
+function rbRangeInputs(W){
+  const span=(W.span&&W.span.length)?W.span:W.months;
+  const inp=(which,k)=>'<label class="rb-mon"><span class="k">'+(which==='from'?'From':'To')+'</span>'
+    +'<input value="'+(k?perLabel(k):'')+'" aria-label="'+(which==='from'?'From month':'To month')+'" placeholder="Feb 2025"'
+    +' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" onchange="rbMonthInput(this,\''+which+'\')"></label>';
+  return inp('from',span[0])+inp('to',span[span.length-1])
+    +(W.notOpen?'<span class="rb-note">'+W.notOpen+' month'+(W.notOpen>1?'s':'')+' not yet open</span>':'')
+    +'<span class="rb-note">Accounting close remains '+perLabel(tbxClosePeriod())+'</span>';
+}
+function rbMonthInput(el,which){
+  const k=rbParseMonth(el.value), box=el.closest('.rb-mon');
+  if(!k){ el.setAttribute('aria-invalid','true'); if(box) box.classList.add('bad');
+    el.title='Type a month such as Feb 2025, February 2025, Feb-25 or 02/2025'; return; }
+  const view=rbMode==='view', d=view?rbVDraft():rbEnsure(), W=rbWindow(d.period);
+  const span=(W.span&&W.span.length)?W.span:W.months;
+  let from=which==='from'?k:span[0], to=which==='to'?k:span[span.length-1];
+  if(from>to){ const t=from; from=to; to=t; }
+  if(from<RB_FIRST){ from=RB_FIRST; rbNote={t:'Governed history in this book starts '+perLabel(RB_FIRST)+'.'}; }
+  d.period={kind:'range', from, to};
+  if(view) rbVCommit(d); else rbTouch();
+}
+
+/* ---- §26 THE FUTURE PACKAGE CONTRACT. A package REFERENCES governed objects and their versions —
+   never a copy of source data. Assembly, narrative, review, approval and distribution are not built. */
+const RB_PKG_REF_TYPES={
+  saved_report:'Saved report', financial_statement:'Financial statement', flux:'Flux Review',
+  reconciliation:'Reconciliation', excel_workpaper:'Excel workpaper', narrative:'Narrative block'};
+const RB_PKG_ST={draft:{l:'Draft', c:''}, review:{l:'In review', c:'warn'}, published:{l:'Published', c:'ok'}};
+const RB_PACKAGES=[
+  {id:'PKG-2026-06-CFO', name:'June 2026 CFO Package', period:{kind:'month', anchor:'2026-06'}, owner:'Mitra Giri',
+   status:'draft', updated:'Jul 3, 2026 16:12', contents:[
+    {type:'saved_report', ref:'RPT-0006'},{type:'saved_report', ref:'RPT-0004'},
+    {type:'financial_statement', ref:'FS-IS', name:'Consolidated Income Statement'},
+    {type:'flux', ref:'finrep', name:'Income statement flux · Jun 2026 vs May 2026'},
+    {type:'reconciliation', ref:'REC-CIP-ELECTRICAL', name:'Electrical CIP reconciliation'},
+    {type:'narrative', ref:null, name:'CFO commentary', pending:1}]},
+  {id:'PKG-2026-Q2-MGMT', name:'Q2 2026 Management Package', period:{kind:'qtr', anchor:'2026-06'}, owner:'D. Lee',
+   status:'review', updated:'Jul 5, 2026 09:40', contents:[
+    {type:'saved_report', ref:'RPT-0005'},{type:'saved_report', ref:'RPT-0006'},
+    {type:'financial_statement', ref:'FS-BS', name:'Consolidated Balance Sheet'},
+    {type:'excel_workpaper', ref:null, name:'Electrical CIP Analysis.xlsx', pending:1}]},
+  {id:'PKG-2026-05-CFO', name:'May 2026 CFO Package', period:{kind:'month', anchor:'2026-05'}, owner:'Mitra Giri',
+   status:'published', updated:'Jun 6, 2026 17:20', published:'PUB-0001', contents:[
+    {type:'saved_report', ref:'RPT-0006', v:1},{type:'saved_report', ref:'RPT-0004', v:1},
+    {type:'financial_statement', ref:'FS-IS', name:'Consolidated Income Statement'},
+    {type:'flux', ref:'finrep', name:'Income statement flux · May 2026 vs Apr 2026'}]},
+];
+/* ---- §27 A PUBLISHED ENTRY IS A PINNED SNAPSHOT RECORD: definition version, period, scope, lens and the
+   data, mapping and attribute versions it was published against, frozen when first read. The prototype
+   re-runs the pinned definition and period; storing the result itself is not built yet. */
+const RB_PUBLISHED=[
+  {id:'PUB-0001', kind:'package', name:'May 2026 CFO Package', packageId:'PKG-2026-05-CFO',
+   period:{kind:'month', anchor:'2026-05'}, by:'Mitra Giri', at:'Jun 6, 2026 17:20', version:'v1',
+   approval:'Approved by D. Lee, Chief Accounting Officer'},
+  {id:'PUB-0002', kind:'report', name:'Corporate Income Statement', reportId:'RPT-0006',
+   period:{kind:'month', anchor:'2026-05'}, by:'D. Lee', at:'Jun 6, 2026 17:05', version:'v1',
+   approval:'Approved by D. Lee, Chief Accounting Officer'},
+  {id:'PUB-0003', kind:'report', name:'Capital Spend by Vendor', reportId:'RPT-0004',
+   period:{kind:'ytd', anchor:'2026-05'}, by:'Mitra Giri', at:'Jun 6, 2026 16:48', version:'v1',
+   approval:'Approved by M. Giri, Controller'},
+];
+let rbPub=null, rbPkgOpen=null;
+function rbPubPin(p){
+  if(!p.pin){ const W=rbWindow(p.period), last=W.months[W.months.length-1]||tbxClosePeriod(), V=rbVersions(last),
+      s=p.reportId?RB_REPORTS.find(r=>r.id===p.reportId):null, L=rcLens();
+    p.pin=Object.freeze({reportDefinitionId:p.reportId||p.packageId, reportDefinitionVersion:s?s.version:1,
+      period:W.label, scope:ENTCTX.scope.name, reportingLens:L.name, currency:L.presentationCurrency,
+      governedLedger:V.governedLedger, mapping:V.mapping, attribute:V.attribute, author:p.by, approval:p.approval,
+      publishedAt:p.at}); }
+  return p;
+}
+function rbOpenPublished(id){
+  const p=RB_PUBLISHED.find(x=>x.id===id); if(!p||p.kind!=='report') return;
+  const s=RB_REPORTS.find(r=>r.id===p.reportId); if(!s) return;
+  rbDef=rbClone(s); rbDef.period=rbClone(p.period); rbOpenId=s.id; rbDirty=false; rbReset(); rbModeSet('view');
+  rbCollapsed={}; rbViewMode='table'; rbPub=rbPubPin(p);
+  rbIntent=true;
+  if(TAB!=='rpub') pickTab('rpub'); else renderAll();
+  window.scrollTo(0,0);
+}
+function rbPubBarHTML(){
+  const P=rbPub.pin;
+  return '<div class="rb-glback"><button class="btn-ghost sm" onclick="rbPub=null;renderAll()">&#8592; Published Reports</button></div>';
+}
+function rbPubStripHTML(){
+  const P=rbPub.pin;
+  return '<div class="rb-pubstrip"><span>Published by <b>'+glEsc(P.author)+'</b> · '+glEsc(P.publishedAt)+'</span>'
+    +'<span>'+glEsc(P.approval)+'</span><span>Definition v'+P.reportDefinitionVersion+' · '+glEsc(P.period)+'</span>'
+    +'<span class="rb-note">Pinned: Governed Ledger '+glEsc(P.governedLedger)+' · mapping '+glEsc(P.mapping)+' · '+glEsc(P.attribute)+'</span></div>';
+}
+
+/* ---- REPORTING PACKAGES — a place, not a workflow */
+function renderRPkg(){
+  const el=$('view-rpkg'); if(!el) return; glSurface(el);
+  let o=glHead('Reporting Packages',RB_PACKAGES.length+' packages<span class="sep">·</span>recurring management packages assembled from governed objects','');
+  o+='<div class="card rcx-card fsx-card rb-doc"><div class="rcx-wrap ktbl"><table class="rcx-tbl rb-tbl rb-rep rb-disp-standard rb-list"><thead><tr>'
+    +'<th class="kfreeze">Package name</th><th>Period</th><th>Owner</th><th>Status</th><th>Last updated</th></tr></thead><tbody>';
+  RB_PACKAGES.forEach((p,i)=>{ const st=RB_PKG_ST[p.status]||{l:p.status,c:''}, open=rbPkgOpen===p.id;
+    o+='<tr class="rcx-r'+(i%2?' rb-alt':'')+'"><td class="kfreeze"><button class="rb-nm" aria-expanded="'+open+'"'
+      +' onclick="rbPkgOpen=rbPkgOpen===\''+p.id+'\'?null:\''+p.id+'\';renderRPkg()">'+(open?'&#9662; ':'&#9656; ')+glEsc(p.name)+'</button></td>'
+      +'<td>'+glEsc(rbWindow(p.period).label)+'</td><td>'+glEsc(p.owner)+'</td>'
+      +'<td><span class="pill '+st.c+'">'+glEsc(st.l)+'</span></td><td class="mono">'+glEsc(p.updated)+'</td></tr>';
+    if(open) o+='<tr class="rb-pkgd"><td colspan="5"><div class="rb-ps">Contents · references, not copies</div>'
+      +'<table class="rcx-tbl rb-tbl rb-rep rb-disp-compact rb-pkgt"><thead><tr><th>Type</th><th>Object</th><th>Version</th><th></th></tr></thead><tbody>'
+      +p.contents.map((c,j)=>{ const s=c.type==='saved_report'?RB_REPORTS.find(r=>r.id===c.ref):null;
+        const nm=s?s.name:(c.name||c.ref||'—');
+        const ver=c.pending?'not yet provided':s?(c.v?'pinned v'+c.v:'current v'+s.version):'governed · current';
+        const act=s?'<button class="rcx-lk2" onclick="rbOpen(\''+s.id+'\')">Open report</button>'
+          :c.type==='financial_statement'?'<button class="rcx-lk2" onclick="pickLens(\'ledger\');pickTab(\'glfin\')">Open Financials</button>'
+          :c.type==='flux'?'<button class="rcx-lk2" onclick="pickLens(\'ledger\');pickTab(\'finrep\')">Open Flux Review</button>'
+          :c.type==='reconciliation'?'<button class="rcx-lk2" onclick="pickLens(\'ledger\');pickTab(\'glrecon\')">Open Reconciliations</button>':'';
+        return '<tr class="rcx-r'+(j%2?' rb-alt':'')+'"><td>'+glEsc(RB_PKG_REF_TYPES[c.type]||c.type)+'</td><td>'+glEsc(nm)+'</td>'
+          +'<td>'+glEsc(ver)+'</td><td>'+act+'</td></tr>'; }).join('')
+      +'</tbody></table></td></tr>';
+  });
+  o+='</tbody></table></div></div>'
+    +'<div class="glx-foot">A package references saved reports, financial statements, flux, reconciliations, Excel workpapers and narrative by id and version; '
+    +'it holds no copy of source data. Assembly, review, approval and distribution come with Management Reporting.</div>';
+  el.innerHTML=o; if(typeof ktblSync==='function') ktblSync();
+}
+/* ---- PUBLISHED REPORTS — versioned snapshot records; a published report opens in the one Report View */
+function renderRPub(){
+  const el=$('view-rpub'); if(!el) return; glSurface(el);
+  let o=glHead('Published Reports',RB_PUBLISHED.length+' published<span class="sep">·</span>versioned snapshots','');
+  o+='<div class="card rcx-card fsx-card rb-doc"><div class="rcx-wrap ktbl"><table class="rcx-tbl rb-tbl rb-rep rb-disp-standard rb-list"><thead><tr>'
+    +'<th class="kfreeze">Report / package name</th><th>Type</th><th>Period</th><th>Published by</th><th>Published date</th><th>Version</th></tr></thead><tbody>'
+    +RB_PUBLISHED.map((p,i)=>'<tr class="rcx-r'+(i%2?' rb-alt':'')+'"><td class="kfreeze">'
+      +(p.kind==='report'?'<button class="rb-nm" onclick="rbOpenPublished(\''+p.id+'\')">'+glEsc(p.name)+'</button>':glEsc(p.name))
+      +'</td><td>'+(p.kind==='report'?'Report':'Package')+'</td><td>'+glEsc(rbWindow(p.period).label)+'</td><td>'+glEsc(p.by)+'</td>'
+      +'<td class="mono">'+glEsc(p.at)+'</td><td class="mono">'+glEsc(p.version)+'</td></tr>').join('')
+    +'</tbody></table></div></div>'
+    +'<div class="glx-foot">A published entry pins its definition version, period, scope and the Governed Ledger, mapping and attribute versions it was published against. '
+    +'Published packages open with Management Reporting.</div>';
+  el.innerHTML=o; if(typeof ktblSync==='function') ktblSync();
 }
 function renderFReports(){
   const el=$('view-freports'); if(!el)return;
@@ -73897,7 +74236,12 @@ function renderAll(){
   if(TAB==='fdash')renderFDash();
   if(TAB==='fxbrl')renderFXbrl();
   if(TAB==='freports')renderFReports();
-  if(TAB==='rbuild')renderRBuild();
+  if(TAB==='rpkg')renderRPkg();
+  /* a published report opens in the ONE Report View, inside Published Reports */
+  if(TAB==='rpub'){ if(_rbPrevTab!=='rpub'&&!rbIntent) rbPub=null; rbIntent=false;
+    if(rbPub){ const vb=$('view-rbuild'); if(vb) vb.innerHTML=''; renderRBuild('view-rpub'); } else renderRPub(); }
+  if(TAB==='rbuild'){ if(_rbPrevTab!=='rbuild'&&!rbIntent) rbBlankReset(); rbIntent=false; renderRBuild(); }
+  if(typeof _rbPrevTab!=='undefined') _rbPrevTab=TAB;
   if(TAB==='rsaved')renderRSaved();
   if(TAB==='findex')renderFIndex();
   if(TAB==='fdetail')renderFDetail();
@@ -74407,9 +74751,11 @@ const VIEW_META={
   glsync:{t:'Data / sync status',c:'Integration health and data freshness',depth:2},
   fdash:{t:'Filings dashboard',c:'Open filings \u00b7 comments \u00b7 approvals',depth:3},
   fxbrl:{t:'XBRL',c:'Tag coverage by statement \u00b7 downstream handoff',depth:2},
-  freports:{t:'Filing packages',c:'Filing-package outputs',depth:2},
+  freports:{t:'Filing Packages',c:'Filing-package outputs',depth:2},
   rbuild:{t:'Report Builder',c:'Governed Ledger reports',depth:3},
   rsaved:{t:'Saved Reports',c:'Report definitions',depth:2},
+  rpkg:{t:'Reporting Packages',c:'Management reporting',depth:2},
+  rpub:{t:'Published Reports',c:'Management reporting',depth:2},
   findex:{t:'Filings',c:'All filings \u00b7 drafts, in review, filed',depth:3},
   fdetail:{t:'Filing workspace',c:'Sections \u00b7 comments \u00b7 disclosures \u00b7 approvals',depth:4},
   tasks:{t:'Tasks',c:'Open capitalization determinations · owner, age, blocking evidence',depth:3},
@@ -74955,7 +75301,7 @@ function gfBarHidden(){
   if(TAB==='xlwork')return true;
   /* REPORT BUILDER CARRIES ITS OWN REPORTING CONTEXT. The platform band's Period and Scope
      would be a second, contradicting period control on a page whose period is the report's. */
-  if(TAB==='rbuild'||TAB==='rsaved')return true;
+  if(TAB==='rbuild'||TAB==='rsaved'||TAB==='rpkg'||TAB==='rpub')return true;
   return false;
 }
 function paintGfBar(){

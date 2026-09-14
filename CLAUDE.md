@@ -8330,6 +8330,78 @@ vendor · return keeps the selected amount · 4/4 gates.
 **Not built:** presentation sign flips (revenue shows in its natural credit sign, so a P&L grand total is a net,
 not "Operating income"), per-level subtotal labels, persistence, Published / Scheduled Reports, the add-in.
 
+## 2026-09-14 (last) — blank new report, blue-white banding, a clean Excel report
+
+Owner's refinements on top of Report View / Edit Report.
+
+**REPORT BUILDER STARTS BLANK.** Arriving at Report Builder — rail, Reporting lens, or choosing it while a
+saved report is open in view — opens a blank **Untitled Report** in edit (`rbBlankReset`). The render dispatch
+detects arrival (`_rbPrevTab`) and `pickTab` handles the same-tab case; only `rbOpen` (Open / Edit report) and
+Back (`rbNavCtx().restore`) carry a definition in, by setting `rbIntent`. The empty preview offers "Start from
+template": Trial Balance · GL Detail · Financial Statement · Vendor Spend · Project Activity · Department Expense.
+
+**BLUE-WHITE BANDING (owner's direction — an addition to rule 1's ramp-only palette, scoped to report tables).**
+`.rb-rep` declares four tints of `--accent` over the surface via `color-mix`: `--rb-stripe` 5% (alternating detail
+rows, continuous through the whole report), `--rb-sub` 8% (subtotals, Standard parent rows), `--rb-band` 13%
+(section headers and top-level totals), `--rb-grand` 16% over `--n-100` (grand total, double-ruled). Derived, so
+dark mode follows, and quieter than a selection (`--accent-bg`). The stretched last column is fixed
+(`.ktbl table.rb-rep th:last-child{width:auto}` over `.rcx-tbl th:last-child{width:100%}`).
+
+**THREE DOWNLOADS, NEVER MIXED.** Report View → **Excel** is `rbExportPresentation`: ONE sheet, the report only —
+name, period, lens, currency, a blank row, then the table — with the view's columns, hierarchy (`rbPresRows`,
+fully expanded), indentation (`mso-char-indent-count`), banding in the light accent's tints (`RB_XL`), subtotal
+and double-ruled grand total, column widths, frozen panes, gridlines off and `#,##0.0_);(#,##0.0);-` / `0.0%`
+formats. **CSV** is the same report table under the same four-line heading. **Excel with report definition** (menu
+› Advanced) keeps the old workbook with its metadata sheet (`rbExportDefinition`). View GL keeps its own Excel /
+CSV / Audit-ready population exports.
+
+**Verified:** blank from the lens, from Saved Reports and from a same-tab rail click; Open, Edit report and Back
+still carry the report · computed stripe / sub / band / grand tints · Corporate Income Statement and Capital Spend by
+Vendor Excel: 1 sheet, no metadata, banding, REVENUE / Total Revenue, indentation, number formats, frozen panes ·
+CSV has no metadata · definition export still has its sheet · 4/4 gates.
+
+## 2026-09-14 (IA) — Reporting structure, placeholders for management reporting, typed From / To
+
+Owner's brief. Establishes the information architecture only; detailed Management Reporting, narrative,
+board books, distribution, External Reporting redesign, Audit and the full Excel add-in are NOT built.
+
+**THE RAIL** (`RAIL_SPEC.filings`): **Reporting** (Report Builder · Saved Reports) · **Management reporting**
+(Reporting Packages · Published Reports) · **External reporting** (Dashboard · Filings · Working Papers · Review
+Center · XBRL · Filing Packages) · **Governance** (Tasks · Issues). The "Financial reporting" parent is gone.
+Management reporting assembles finished outputs; it is not a second report builder.
+
+**REPORTING PACKAGES** (`rpkg`, `RB_PACKAGES`, `renderRPkg`) — Package name · Period · Owner · Status (Draft / In
+review / Published) · Last updated, with June 2026 CFO, Q2 2026 Management and May 2026 CFO. A package's
+`contents` are REFERENCES by type and id (`RB_PKG_REF_TYPES`: saved report, financial statement, flux,
+reconciliation, Excel workpaper, narrative), never copies; a row expands to list them and each opens its owner.
+
+**PUBLISHED REPORTS** (`rpub`, `RB_PUBLISHED`, `renderRPub`) — Report / package name · Type · Period · Published by
+· Published date · Version. `rbPubPin()` freezes the snapshot record on first read: definition id and version,
+period, scope, lens, currency, Governed Ledger / mapping / attribute versions, author, approval, timestamp. **A
+published report opens in the ONE Report View** (`renderRBuild(target)` renders into `view-rpub`) with a return
+strip and a pin line and no Edit report. The prototype re-runs the pinned definition and period; storing the
+result is not built. Published packages do not open yet.
+
+**TYPED FROM / TO** (`rbParseMonth`, `rbRangeInputs`, `rbMonthInput`) sit beside the period presets in both the
+builder bar and the Report View bar, one markup. "Feb 2025", "February 2025", "Feb-25", "02/2025" and "2025-02" all
+normalise to `2025-02` and display "Feb 2025"; anything else marks the field and says what it accepts. Typing a
+month turns the period into a `range`, clamps a from before `RB_FIRST` with a note, and swaps a reversed pair. The
+header reads **"Feb 2025 – Jul 2026"**, not "Custom period". Compare stays its own control.
+
+**A RANGE KEEPS ITS ASKED-FOR MONTHS.** `rbWindow` still excludes months after the open period from `months`
+(nothing is posted there, nothing is extrapolated) but returns them in `span`, and a monthly report adds the
+missing columns, so Feb 2025 – Jul 2026 shows 18 columns with Jul 2026 empty and "1 month not yet open" stated.
+GL drill resolves across the governed months (verified: 1,076 lines over 17 months, diff 0). The note
+**"Accounting close remains Jun 2026"** travels with the inputs; `VIEW.period` and `BOOK.open` are never written.
+
+**EXPORT HEADER** gains the basis line: name · period / range · lens · USD millions · US GAAP (Excel, frozen rows
+now 7; CSV the same five lines).
+
+**Verified:** rail order and labels · 216 view renders across 3 periods, 0 errors · the four parse forms plus a
+rejected one · range label, 18 columns, not-open count · GL drill across the range and Return restoring it ·
+published report opens striped with its pin and no edit · package contents expand · CSV / Excel header · FS-CIP
+4,210.2 · chronology 0 · 4/4 gates (baselines unchanged).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
