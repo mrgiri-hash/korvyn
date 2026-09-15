@@ -8402,6 +8402,301 @@ rejected one · range label, 18 columns, not-open count · GL drill across the r
 published report opens striped with its pin and no edit · package contents expand · CSV / Excel header · FS-CIP
 4,210.2 · chronology 0 · 4/4 gates (baselines unchanged).
 
+## 2026-09-14 (shell) — PLATFORM SHELL RESTRUCTURE + SLOANE FOUNDATION
+
+Owner's brief. **KORVYN** is the governed accounting operating environment, **SLOANE** the embedded
+financial intelligence agent, **EXCEL** the connected work surface. Navigation, shell and AI-surface
+terminology only — no feature page rebuilt, no Settings redesign, no route or data deleted.
+
+**TOP NAV is Home · Accounting · Reporting · Audit · …** (`LENS_ORDER`). Fixed Assets, Procurement, FP&A and
+Treasury left the ribbon; their lenses stay defined, so every existing `pickLens('assets'|'procure'|'fpa'|
+'treasury')` deep link still resolves as a **hidden legacy route**. They were never in the More launcher, and
+global search iterates `LENS_ORDER + UTIL_ORDER`, so they left search with the ribbon. Home's own pulse rows
+still name them as source context (Home was not redesigned).
+
+**ACCOUNTING RAIL** (`RAIL_SPEC.ledger`): Overview · *Source & ledger* (Chart of Accounts · Trial Balance ·
+Account Activity) · *Review & analysis* (Financials · **Analysis** · **Flux Analysis** · Reconciliations) ·
+*Close & control* (Close · Continuous Close · Intercompany · Exceptions) · *Governance* (Accounting Issues ·
+**Precedent** = `issues` with `amSub='precedents'` · Policies · **Controls** (added to the ledger lens) · Data
+Enrichment). Trending stays a route, linked from Analysis; Audit History moved to Audit. The Flux page is now
+titled **Flux Analysis** in the rail, `TABS`, `VIEW_META` and the title row; deeper copy still says Flux Review.
+**Analysis** (`analysis`, `renderAnalysis`) is a placeholder: Financial Analysis, the future dimensions, and
+links to what exists today.
+
+**AUDIT** (`LENSES.audit`, `RAIL_SPEC.audit`, `AUD_PAGES`, `renderAudPage`): Audit Overview · *Fieldwork*
+(Requests / PBC · Populations · Evidence · GL Extracts) · *Deliverables* (Audit Packages · Audit History).
+Placeholders read existing governed objects — `auditReadiness()`, `drKpi()`, `EVIDENCE`, `glxRows()`,
+`RECON_DEFS`, `RC_PACKAGES` — and route to them. **No audit data model.**
+
+**ENTERPRISE STRIP.** Needs you · Approvals · Exceptions now render on every workspace, not only Home. Left
+anchor is **ENTERPRISE** everywhere except Accounting, which keeps its period chip (the period control). It
+was first painted before the reconciliation queue was seeded (Needs you read 0 on arrival), so it repaints once
+after boot.
+
+**SLOANE** (block `SLOANE — KORVYN'S EMBEDDED FINANCIAL INTELLIGENCE AGENT`, just above `cpSend`):
+- Header: **Search or ask Sloane** and a **Sloane** button with a dashed-orbit mark (not a chatbot glyph). The
+  one existing panel is renamed — title Sloane, tabs **Ask · Monitor**, footer states the governance rule.
+- `SLOANE_SURFACES` is the context registry: surface name and quick actions per page (Account Activity, Flux,
+  Reconciliations, Close, Report Builder, Audit, …). `sloaneCtx()` / `paintSlCtx()` draw the **Context** band
+  (surface · period · reporting lens · what is open) and repaint on every navigation.
+- `sloaneResolve()` answers before the legacy path, as a **structured card** (`slCard`: kick · statement ·
+  drivers · what Sloane set up · Based on · hidden Trace · actions · governance line). Built today: transactions
+  without vendor (`slNoVendor`, View GL = exactly those lines via `glxRbDrill`), CIP movement (`slCipMove`, from
+  `fsAmount` + governed CIP lines by effective vendor), and **Build …** (`slBuild` → `rbCmdRun`, with View GL /
+  Explain / Save as / Open in Excel). Everything else falls through to the existing assistant.
+- `SL_NEVER_RULES`: an imperative to approve, certify, publish, remap or override returns a governance card
+  naming the page where a person decides. Sloane never writes those objects.
+- Every user-visible "Ask Korvyn", "Korvyn AI", "Korvyn explanation", "Korvyn's read" and "Korvyn Intelligence"
+  now says Sloane. Korvyn stays the platform name. "Korvyn draft/drafted" in Flux is unchanged.
+
+**Verified:** 237 view renders across 3 periods, 0 errors · rails and nav read as above · Sloane context on
+Account Activity and Report Builder · vendor answer 1,519 of 2,254 lines → View GL shows exactly 1,519 · CIP by
+Vendor built with 11 rows · approve request refused · FS-CIP 4,210.2 · 4/4 gates (baselines unchanged).
+
+**Not built (stop point):** the Analysis workspace, Audit workflows, Settings redesign, the Excel add-in,
+Needs you / Approvals / Exceptions as a cross-platform panel (they still route to Home), a keyboard shortcut for
+Sloane, an LLM behind Sloane.
+
+## 2026-09-14 (later) — SLOANE + SEARCH: the quiet pass
+
+Owner's brief: **Sloane disappears until useful; search disappears until invoked.** Supersedes the Sloane
+panel, context band and answer card from the block above; the context registry, governance rules and
+structured-answer idea survive in a much smaller form.
+
+**THE PANEL** (`<aside id="copilot">`, 400px). Header: **Sloane** + one context line (`#slCtx`, e.g. *Account
+Activity · Jun 2026*, *Capital Spend by Vendor · YTD Jun 2026*, *Electrical CIP Reconciliation · Jun 2026*),
+Expand and Close only. Body: at most **three** suggestions (`sloaneActs()` from `SLOANE_SURFACES`), nothing
+else. Foot: one input (*Ask Sloane…*) and a quiet **History** link. Gone: greeting, instructional copy, Ask /
+Monitor tabs, source-health block, scope chips, recent prompts, New chat / Starred, the governance footer. The
+old element ids (`cpSrc`, `cpTabs`, `cpScope`, `cpSaved`, …) survive in one hidden legacy mount so older
+painters find an element and draw nothing. **It is never restored open on load.**
+
+**ONE EXCHANGE ON SCREEN.** `cpSend` clears `#cpThread` before each question; `CP.recent` keeps the history
+behind the link (`slHistory`). Monitoring is not a tab: Needs you, Exceptions and Continuous Close own it.
+
+**THE ANSWER** (`slCard`): optional *Data warning* (only when a degraded source actually feeds the lines behind
+the answer, `slDataWarn`) · statement · drivers · actions · one *Based on …* line · compact follow-ups. Trace
+toggles an evidence sentence. Answers today: missing vendors, largest transactions, unusual activity (≥ $1M
+lines), CIP movement (by vendor, by project, "explain further" bridge), biggest statement-line change, what needs
+attention, what blocks the close, reconciliation variance / unmatched items (honestly: none — roll-forward, not
+matching) / support gaps / untied, and in Report View biggest movement, compare to prior year, underlying GL, and
+**Build …** → `rbCmdRun`. Report Builder has no `pp` comparison: a movement is read against **prior year**. The
+governance refusals are one line and a route. Anything else still falls through to the older assistant engine.
+
+**THE HEADER.** *Search or ask Sloane ⌘K* is the universal entry; the Sloane button is now an icon-sized
+`.ribicon` beside notifications.
+
+**THE PALETTE** (`cmdkIndex`, `cmdkHits`, `cmdkPaint`). *Search Korvyn or ask Sloane…*, one input, a subtle key
+hint, no chips. Empty → up to four **Recent** objects opened from search. A query → at most six governed objects
+(financial lines, reconciliations, saved reports, packages, source accounts; pages only when a page or its module
+is named, max three) ranked by match, weight and **the page you are on** (+20 for recon objects in
+Reconciliations, reports in Reporting), then one **Ask Sloane** row phrased from the top financial line (*Why did
+CIP increase in June?*). A question → only the Ask row; *build / create / make …* → only **Build with Sloane**.
+Initials are indexed, so *CIP* finds Construction in Progress.
+
+**Fixed along the way:** `rbOpen` from another module reset to a blank report (the lens switch's render consumed
+`rbIntent`); it re-arms before `pickTab`.
+
+**Verified:** closed on load · minimal panel text is only title, context, three suggestions and History · every
+suggestion on Account Activity, Reconciliation, Report View and Home returns a card · search "CIP" gives 6 objects
++ Ask, context-ranked in Reconciliations and Reporting · question and command each give one row · 237 view renders,
+0 errors · FS-CIP 4,210.2 · 4/4 gates (baselines unchanged).
+
+## 2026-09-14 (last) — ONE INTELLIGENCE COMMAND LAYER: find · answer · act
+
+Owner's brief. **One input, one intelligence layer; Korvyn decides.** Supersedes the palette in the block above;
+the panel and the answer card are unchanged except where noted.
+
+**HEADER.** One control: *Search, ask, or command Sloane ⌘K*, with Sloane's dashed-orbit mark inside it instead
+of a magnifier. The separate Sloane icon is gone (`#ribAi` survives as a hidden span for older painters). The side
+panel is reached only as a **continuation** — a question or command from the palette, Explain on an amount, a
+history entry, or *Continue in Sloane* in the empty palette.
+
+**INTENT, WITHOUT MODES** (`cmdkIntent`): *build / create / make / generate / draft …* or *show … by …* → **act**
+(one row, *Build Vendor Spend Report* · Build); *open / go to / take me to …* → **navigate** (month words and
+"the" stripped; one clear match becomes a single *Open* row); on an active report, *add / remove / group by / only
+/ sort / monthly …* → **edit** (one *Update <report>* row); an interrogative, a trailing "?", or six+ words →
+**ask** (only the Ask Sloane row); otherwise **find**. Analytic words (*spend, cost, balance, movement …*) put the
+Ask row first and are stripped before matching, so *South Valley spend* finds the entity and asks.
+
+**FIND** (`cmdkIndex`, `cmdkScore`) searches governed objects first: financial lines, reconciliations, **vendors,
+projects and entities** (effective values in the working period, `slValues`), saved reports, packages, Flux,
+close tasks, accounting issues, policies, source accounts, audit populations — pages last and only when named
+(max three). Ranking is weight + name match + current-context boost + recency. Near-ties read *A few possible
+matches*; nothing found retries without object-type words, then reads *No exact object found* with *Ask Sloane:
+What is …?*. The Ask row is phrased from the top object (*Why did CIP increase in June?*, *Explain Electrical CIP
+Reconciliation*, *How much did Siemens Energy spend change in June?*).
+
+**SLOANE, CONTEXT-FIRST** (`sloaneResolve`). On a reconciliation the open instance is the context:
+*largest reconciling items*, *missing support*, *underlying GL*, *why is this still out of balance*. On audit pages,
+*support for this population*. *Build …* uses Report Builder templates where the words name one (vendor spend,
+project activity, department expense, trial balance, GL detail), adds *only <entity/project/vendor>* when a
+governed value is named, and states what it configured (*Rows: Vendor → Project · Period: YTD Jun 2026 · Value:
+Net Amount*). On an active report an edit runs `rbCmdRun` and offers **Undo**. A named vendor, project or entity
+with an analytic word answers its spend vs prior month by the other dimension (`slDimSpend`). *What is blocking
+June close?* now reads tasks, reconciliations, exceptions, approvals and mapping together.
+
+**EXPLAIN IS SLOANE** (`slRbExplain`, `slShow`). Every Report Builder Explain — amount menu, row label menu,
+header button, "explain top" — opens the side panel with a structured card from `rbExplainData`; the old
+`rbPanel` explain mode is no longer reached from those entry points (Contributors and Trace still use it).
+
+**ONE HISTORY** (`slHistory`): questions, commands and objects opened from the palette, newest first, behind the
+panel's History link. The follow-up input reads *Ask a follow-up…* once an answer is on screen.
+
+**Verified:** header has one input and no Sloane button · blank palette empty on load, *Continue in Sloane* after an
+answer · CIP → 6 objects + Ask · CIP Reconciliation → possible matches · Siemens → vendor first · question → Ask
+only → panel opens, palette closes · *Build vendor spend report* → Report Builder with Vendor → Project, YTD, Net
+Amount · *Add department* on that report → Department added, Undo · reconciliation follow-ups use the open
+reconciliation · 237 view renders, 0 errors · FS-CIP 4,210.2 · 4/4 gates (baselines unchanged).
+
+**Not built:** an LLM behind intent or answers (both are deterministic and say when they cannot act) · Explain on Flux,
+Financials and Trending still use their own surfaces · Report Builder's in-page Ask bar still exists beside the
+global input.
+
+## 2026-09-14 (final) — SLOANE: one intelligence layer, three depths
+
+Owner's brief. **Command palette → right panel → full screen**, one set of resolvers and one context. The depth is
+chosen by Korvyn and never named to the user. Supersedes the palette markup and styling from the block above.
+
+**PALETTE** (`sl4` block, `cmdkHits`/`cmdkPaintList`, classes `.slp-*`). A 720px elevated surface under the
+header: Sloane mark, one input, `esc`; rows are icon · name · one metadata line · type, grouped **Best match ·
+Related · Ask Sloane** (or *Possible matches*, *Answer*, *Build*, *Recent · Suggested*). The active row is a
+blue-gray tint (`color-mix` accent 7% over n-50), Sloane rows carry indigo. Empty: up to three Recent and two
+suggestions. New intents: **journal numbers** (`JE-…` → the journal, drilling to its lines) and **account numbers**
+(`15000` → the account, then Account Activity · Trial Balance · its Reconciliation · Financials). A phrase from the
+page's own suggestions ranks first (*missing vendors* on Account Activity → *Find missing vendors*). **Quick answers
+inline** (`slQuick`): close status and a statement line's balance, with one action. **Depth** (`slDepth`): *analyze /
+investigate / what should I worry / everything blocking / across … / audit risk* or 12+ words → full screen;
+other questions → panel; *open …* navigates.
+
+**RIGHT PANEL** is unchanged in shape: Sloane, context line, input, ≤3 suggestions, History. Its answer is the
+continuation of a palette question or an Explain.
+
+**FULL SCREEN** (`#slFull`, `slFullRender`, classes `.slf-*`). A workspace on the light plane, not a stretched panel
+and not a chat: header (Sloane · investigation title · context · New investigation · Return to panel · Close), a
+command input, the question, the analysis, then an **Evidence / Related** side column. Rich views read the same
+engines: **close readiness** (`slRichClose`: unreconciled accounts, unexplained Flux, pending approvals, blocked
+tasks), **CIP movement** (`slRichCip`: narrative, by project, by vendor, supporting accounts), **unusual activity**
+(`slRichUnusual`), **build** (`slRichBuild`: a preview from `rbAskParse`+`rbRun` — the Report Builder engine, no second
+one — with Open in Report Builder · Save Report · Open in Excel). Anything else renders its panel card. Empty state:
+*What do you want to understand?* with four starts and recent investigations.
+
+**CONTINUITY.** `SL_CUR` is the one current answer; `cpSend` and `slShow` set it. **Expand** (`slExpand`) opens it in full
+screen; **Return to panel** (`slCollapse`) reopens the panel with the same answer. A follow-up asked in full screen
+also lands in the panel thread (`slShow(q,html,true)`). Navigating to another page closes full screen.
+
+**INVESTIGATIONS** (prototype, `SL_INVS`, `slInvStart`): a title derived from the question (*June Close Review*, *CIP
+Spend Increase*, *Unusual Activity*…), its context and its questions; follow-ups append and show as a quiet trail.
+Not persisted.
+
+**Fixed:** full-screen *Open in Report Builder* landed on a blank report — the lens switch's render consumed the intent
+flag; it is armed before and after the switch.
+
+**Verified:** palette groups for empty, CIP, a journal, 15000, Siemens, *missing vendors*, close status, CIP balance,
+a broad question and a payroll build · the journal opens its lines · panel default and answer · Expand → *Unusual
+Activity* with its tables and evidence · Return to panel keeps the answer · full-screen close (10 material blockers,
+four sections) · CIP (three tables, related objects) · build preview (25 rows) · 237 view renders, 0 errors · FS-CIP
+4,210.2 · 4/4 gates (baselines unchanged).
+
+**Not built:** persistence of investigations, notes and evidence pinning inside an investigation, rich full-screen views
+for reconciliation and audit questions (they render the panel card), a real payroll ledger (the book has none; Sloane
+says so).
+
+## 2026-09-14 (reset) — SLOANE: one session, three states
+
+Owner's brief: rethink Sloane from first principles. **Supersedes the palette, the panel and the
+full-screen page from the three Sloane blocks above.** The resolvers, the governed engines they read and
+the governance refusals are kept. FS-CIP 4,210.2, chronology 0, stores empty on load.
+
+**THREE STATES, ONE SESSION.** AMBIENT is the header input *Ask Sloane… ⌘K* (`slOpen`, `slHotkey`).
+ASSIST is the right panel, now 440px (`--panel-w`), the canonical surface. WORKSPACE is the full screen,
+the same investigation given room. **The centered command palette is retired**: `cmdkOpen` opens the panel
+and nothing creates `#cmdkWrap`. Search is plumbing. `cmdkHits` / `cmdkIndex` still rank governed objects,
+but only inside the panel while you type (`slType`, `slPaintFind`, ↑↓ Enter Esc in `slKey`).
+
+**ONE SUBMISSION PATH** (`slSubmit`). It serves the header, typed Enter, suggestions, follow-ups, `askAI`
+and `cpSend`, which now delegates; the older engine survives as the unreached `cpSendLegacy`. Routing, by
+`cmdkIntent`:
+- A journal, account number or *open …* opens the object.
+- *build / create / show … by …* prepares a report definition in the panel (`slBuildCard`: `slBuildDef` →
+  `rbAskParse` + `rbRun`, a 5-row preview, MoM via `rbCmpApply(def,'pm')`, Open in Report Builder · View
+  GL · Save report · Open in Excel). It does not navigate first.
+- Everything else goes to `sloaneResolve`, then `slQuick`, then `slNoAnswer` (the closest governed objects,
+  honestly labelled).
+
+**INVESTIGATION IS THE UNIT** (`SL_INVS`, `SL_INV`, `slAnswer`). An investigation holds a title from
+`slInvTitle` (*CIP Increase — June 2026*, *Close Readiness*, *<recon> Variance*, a report's own name, a built
+report's name, *Selected Activity*), its context and its entries (question, answer html, object, kind, tab).
+A question continues the current investigation when its title matches or `slIsFollow` says so. The follow-up
+buttons of the last answer always count, and anything asked inside the workspace appends. **History lists
+investigations, never prompts** (`slListed`): the current one, any with two or more questions, any expanded
+and any saved. A one-off stays out. Closing the panel loses nothing; *New investigation* starts clean.
+
+**THE PANEL** (`slPaint`):
+- Header: Sloane, one context line, Expand and Close.
+- The input sits under the header.
+- The body shows exactly one thing: results while typing, the investigation (label, earlier questions as a
+  quiet trail, the current answer, *Open as workspace* when a workspace view exists), the investigations
+  list, or at most three suggestions.
+- Footer: *Investigations* and *New investigation*.
+
+**Answers** keep the `slCard` shape (answer → drivers → actions → one evidence line → Trace), which adds
+`for` (the selected object), `prev` (a compact table), `draft` (quoted words) and `pri` (the first action
+outlined). The panel CIP answer leads with named project and vendor drivers and states the no-vendor
+activity in words.
+
+**CONTEXTUAL ENTRY POINTS** — the object is already known:
+- **Explain on a report amount**: `slRbExplain` → `slAnswer` with the report name as the title and a `for`
+  line (report · window · filters).
+- **Ask Sloane on an Account Activity selection** (`slAskSelection`, in `glxBulkBar`) sets `SL_FOCUS`. It
+  offers Explain selection · Find anomalies · Suggest dimensions (`slSelExplain` / `slSelAnomalies` /
+  `slSelDims`). Suggestions only; bulk edit is where they are applied.
+- **Investigate variance** in the reconciliation panel header (`slInvestigateRecon`) asks *Why is this off?*
+  against the open reconciliation (`slReconVariance`: tie state, likely drivers, support gaps, review status).
+- **A record dock opens beside Sloane**, never underneath it: `.amap-panel` shifts by `--panel-w` while the
+  panel is open.
+
+**Also answered:**
+- *Draft the Flux explanation* (`slFluxDraft`): words only; Use draft copies and opens Flux Review; a
+  preparer submits.
+- *Show transactions over $XM* (`slOverThreshold` → `slUnusual(thr)`).
+- *Compare to May* on a report (`SL_RB_EDIT`).
+
+**THE WORKSPACE** (`slFullRender`, `#slFull`) is an overlay, so the page beneath never re-renders:
+- Header: investigation title and context · **Collapse** (labelled, obvious) · Save investigation · ••• (New
+  investigation, Close Sloane) · ✕.
+- Body: follow-up input, the question, then the analysis; beside it the investigation's questions, Evidence
+  (Trace) and Related.
+- Rich views, all over existing engines: `slRichCip` (summary, top project and vendor drivers without the
+  unattributed rows, unusual activity, related control context, supporting accounts, then View GL · Open
+  Analysis · Create Flux draft · Create report · Open in Excel), `slRichRecon`, `slRichClose`,
+  `slRichBuild`, `slRichUnusual`. A follow-up without a view of its own renders above its investigation's
+  analysis (`slInvAnchor`).
+- **Collapse** (`slCollapse`, and Escape) returns to the panel and the exact page, and restores `scrollY`.
+  **Close** (`slCloseAll`) puts the panel away too. Navigating from inside the workspace closes it.
+- **Trap:** `.slf-menu{display:grid}` outranked `[hidden]`, so the menu drew open. A closed overlay needs
+  its own `[hidden]` rule.
+
+**Verified:**
+- JE-679397 → the journal row → Enter drills to its 1 line.
+- *Why did CIP increase in June?* → panel answer with drivers, evidence and actions.
+- *Build vendor spend by project monthly through June* → preview → Open in Report Builder lands on Vendor →
+  Project.
+- Report Explain carries report, window and filter.
+- *Why is this off?* on Cooling / Other CIP works; the dock sits beside the panel.
+- Expand → CIP workspace; Collapse restores scroll 320 and the same investigation; close and reopen keeps it.
+- Investigations list: 3 meaningful, one-offs hidden.
+- ⌘K opens and focuses the panel; the palette cannot open.
+- 48-view sweep with 0 errors · 4/4 gates (baselines unchanged) · FS-CIP 4,210.2 · chronology 0.
+
+**Not built:**
+- Investigation persistence across reloads, notes and evidence pinning.
+- Per-reader permission filtering inside resolvers (they read the same governed engines the pages read;
+  `rbPermit` applies only where Report Builder runs).
+- A language model behind intent and answers (deterministic, and it says when it cannot answer).
+- *Trace this number* as a command.
+- The Analysis module, Audit workflows, a Settings redesign and the production Excel add-in.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
