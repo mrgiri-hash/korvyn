@@ -8697,6 +8697,263 @@ activity in words.
 - *Trace this number* as a command.
 - The Analysis module, Audit workflows, a Settings redesign and the production Excel add-in.
 
+## 2026-09-15 — SLOANE UX REFINEMENT: icon, Home/History/New/Clear, answer in place, a real workspace
+
+Owner's brief. **Answer here, drill here, offer actions, navigate only when the user asks.** Not a
+rebuild: the investigation model, resolvers and governance refusals from 2026-09-14 are kept.
+FS-CIP 4,210.2; the gates baselines are unchanged.
+
+- **Header:** the "Ask Sloane…" bar is gone. A small `.ribsl` orbit icon (`#ribSl`, tooltip *Sloane*)
+  sits beside notifications. `slIconClick()` toggles the panel (it collapses the workspace if that is
+  open). ⌘K / Ctrl+K still opens the panel and focuses the input. `--panel-w` is `clamp(420px,32vw,460px)`.
+- **Panel states, `SL_MODE`:** `home` · `session` · `history`. The header reads *Sloane* over the
+  context line, with Home · History · New · Expand · Close (`.slx-hb`, titled icons).
+  - **Home** (`slHomeHTML`): up to 2 recent investigations and up to 3 suggestions. The input sits
+    under the heading.
+  - **Session:** the follow-up input moves to the bottom through CSS `order` on `#copilot.slx-sess`.
+    It is never re-parented, so focus and the caret survive.
+  - **Opening** restores the active investigation, or shows Home when there is none (`slOpen`).
+- **New vs Clear:**
+  - **New** (`slNewAsk`) prompts *Save current / Discard / Cancel* only when the investigation is
+    meaningful and unsaved: 2+ steps, expanded, or with logged actions (`slMeaningful`).
+  - **Clear** (`slClear`) drops the conversational context (topic, focus, current answer) and keeps
+    the investigation in History (`kept`). It never deletes.
+- **History** lists investigations, never prompts: title · period · surface · steps · updated
+  (`slInvRow`). **Four sample investigations are seeded** (`slSeedInvs`, `seed:true`): June CIP
+  Increase, June Close Readiness, Siemens Vendor Review, Unusual Activity Review.
+  - Their steps are `lazy`. `slHydrate()` resolves them through the real engines the first time one
+    is read, so no answer is authored.
+  - This is session UI state, not a governed store. The governed stores still ship empty.
+- **The answer is a document** (`slCard`, `.slx-*`): kicker · headline · figure · key figures (`kv`) ·
+  sections (`secs`: compact tables, `count` rows, "View all N →" disclosure, rows with `go`) · one
+  tinted primary action (rule 13: a tint, not a fill) · trace · Evidence footer · next chips.
+  `drv/drvLabel` still work and render as a section.
+- **One resolve path:** `slResolveText()` is shared by `slSubmit` and hydration. Everything answers in
+  place:
+  - **A journal number** gives the journal (`slJournal`).
+  - **A vendor analysis** (`slVendorAnalysis`: FYxx = the governed months of that year, prior = the
+    same months a year earlier, Change % capped at ±999%) covers vendor, project and entity index hits.
+  - **"View GL" everywhere** gives an embedded GL (`slGL`: 15 lines, Download Excel/CSV of the exact
+    population, **Open full GL only when every line is in the close period** Account Activity reads).
+  - **A report request** gives a preview with month columns (`slBuildDef` defaults an unperioded
+    request to YTD by month). Its actions: Save report (`slSaveReport`, writes `RB_REPORTS` without
+    leaving), Open in Excel, Edit in Report Builder.
+  - **Close** gives 71% ready, blockers and control status; **Review blockers** (`slCloseBlockers`)
+    stays in Sloane.
+  - **A reconciliation** gives Variance, drivers, support, then View items / View support / View GL
+    / Open Reconciliation.
+  - Modules open only from an explicit escalation action.
+- **Workspace** (`slFullRender`): header Home · History · Save investigation · Collapse · ••• (New,
+  Clear conversation) · ✕.
+  - **Layout:** a 2/3 main canvas (`.slw-work`/`.slw-main`) and a 1/3 side column: an **investigation
+    timeline** (`slTimeline`, event labels from `slEvLabel`, logged actions from `slInvLog`; clicking
+    restores that step) and evidence/related.
+  - **Blocks appear only with content:** executive finding with `slwKpis`, driver tables with
+    disclosure, `slwTrend`, `slwGLBlock`, related work, actions.
+  - **New rich views:** `slRichVendor`, `slRichGL`. Viewing the GL stays in the workspace.
+- **Traps:**
+  - **`.ai` is the global AI panel component** (display:none): a Sloane suggestion row marked `.ai`
+    vanished, so it is `.slx-sg`.
+  - **A media-query single-class rule counts as a duplicate declaration**, so the responsive rules
+    are scoped `#slFull .slw-*`.
+  - **The Browser pane serves stale frames under an emulated viewport**; reset to `desktop` before
+    screenshots.
+
+**Not built:** persistence across reloads, recon answers for a reconciliation that is not open on
+screen, an LLM behind intent, notes/pinning inside an investigation.
+
+### Later the same day — navigation, finance language, governed proof
+
+**SLOANE CAN TELL YOU WHAT HAPPENED AND PROVE EVERY NUMBER.** One drill chain, everywhere:
+**finding → bridge / contributors → governed ledger population → transaction → ERP source**.
+Each step is a step of the investigation, so Back walks it in reverse.
+
+- **The mark:** the dotted circle is gone. `SLP_ORBIT` (the name is kept, it has ~20 callers) is now
+  one geometric S with a terminal point: the point is Korvyn's orbit dot, the S is Sloane's own.
+  It is the same SVG in the header (`#ribSl`), the panel title, the input, the workspace and
+  History rows.
+- **Navigation:**
+  - **Back** (`slBack`) pops `SL_STACK`, a stack of `{mode, inv, view}` snapshots.
+  - `slPush()` runs in `slAnswer`, `slView`, `slInvOpen`, `slHome`, `slHistShow` and `slNew`;
+    `slBack` never pushes.
+  - The panel header is Back · Home · History · New · Expand · Close, with Clear beside the input
+    (it also appears while typing).
+  - The workspace header is ← Back · Home · History · New · Clear · Save investigation · Collapse · ✕.
+- **Intent without modes:**
+  - `cmdkIntent` treats `show / list / view…` and finance words (financials, P&L, balance sheet,
+    trial balance, recs) as **ask**, never find.
+  - An account number is answered by `slAccount`: the account across every ERP that carries it,
+    then View Account Activity / Trial Balance / Reconciliation / Financials.
+  - A bare governed name ("Siemens") is its activity. A journal is `slJournal`.
+- **Finance language** (`sloaneResolve`):
+  - **Statements:** `slFinancials` covers financials / financial reporting / results / P&L /
+    income statement / balance sheet / YTD. Period comes from the words or the working period;
+    it asks "for which period?" only when the named month is not governed.
+  - **TB and recs:** `slTB`, `slReconStatus`.
+  - **GL / ledger:** the population.
+  - **A statement line in plain words:** `slFinLine`.
+  - **Operating and net income** derive exactly as `fsNetIncome` does.
+- **Proof** (`o.proof` on `slCard`): a *Governed · N lines · period* line with View proof and
+  Trace. When a card has a proof, Trace is dropped from its actions.
+  - **Bridge** (`slLineProof`):
+    - **Balance-sheet lines:** prior ending + source GL activity + other source movement +
+      reporting adjustments = ending.
+    - **P&L lines:** GL activity + source TB not held as lines + adjustments = reported.
+  - **"Other source movement" is labelled as balances and rates with no journal behind it.**
+    The GL population is only fully modelled for some lines (CIP); a revenue line holds a sample,
+    and the bridge says so instead of forcing it to tie.
+  - **Other proofs:** `slFinProof` (A = L + E, the P&L rebuilt from its sections) and
+    `slVendorProof`.
+- **Drivers are clickable:** every driver, account, project and composition row opens its exact
+  population (`slDriverPop`, regrouped, each sub-total drills again). The same holds for workspace
+  tables (`slfTable` rows accept a function) and Related work (`slShowReconPop`).
+- **Population** (`slGL`): 15 fields and a debit/credit/net summary, 15 lines, then View all
+  (`slGLMore`, in place) · Excel · CSV · Trace · Open full GL. **Every line opens `slTxn`:**
+  source facts, a **Source / Governed / Effective / Provenance** table per dimension
+  (normalization rule and version, or change set / approval when overridden), and
+  **Open in NetSuite ↗ only where `r.sourceUrl` exists**. That is a simulated toast
+  (`slErpOpen`); JD Edwards rows say no link is published.
+- **History:**
+  - **Search** (`slHistFilter`) repaints only the list, never the input. It matches title,
+    surface, period, questions and answer headlines.
+  - **Delete investigation** is a row action with inline confirm (`slInvDel`). **Clear never
+    deletes.**
+  - **Listing:** `slListed` now lists every investigation that produced a governed answer.
+  - **Seeds** add June Financial Review. Asking a question whose title matches an existing
+    investigation continues it rather than duplicating it.
+- **Workspace Proof block** on CIP: governed lines · GL activity · adjustments/FX/eliminations ·
+  total movement, with View population / View proof / Trace to source (the largest line's
+  transaction). Card kinds (`txn`, `proof`, `driver`, `acct`, `fin`) render as a card, not over
+  the anchor analysis.
+- **Trap:** hydrating a seeded investigation re-resolves its steps and moves `SL_LASTO`. Read the
+  current step's own card (`slEntry().o`), never `SL_LASTO`, after `slSubmit`.
+
+## 2026-09-15 (later) — SLOANE 2.0 PHASE 1: the financial context engine, answer in place
+
+Owner's brief. **Answer here → drill here → optional actions → navigate only for controlled work.** Not a
+redesign: panel, workspace, History and the governed engines are unchanged underneath. FS-CIP 4,210.2; the
+four gates' baselines are unchanged.
+
+**ONE CONTEXT OBJECT, `SL_CTX`** (block `SLOANE 2.0 · PHASE 1 — THE FINANCIAL CONTEXT ENGINE`, above `cpSend`):
+`currentObject · currentObjectType (financials | fs_line | account | vendor | project | entity | close |
+reconciliations) · objectRef · shortName · currentPeriod · comparisonPeriod · compareOn · entityScope ·
+reportingScope · currency · accountingBasis · activeDimensions · activeFilters · currentPopulation ·
+currentInvestigation · currentSourcePage · currentSourceObject · lastAnalysisType · lastDrillLevel`.
+- **Written only through `slCtxSet()`**, which also re-derives lens/currency/basis and `currentPopulation`
+  (`slPopId`), and sets `_slCtxTouched`.
+- **Stamped on every investigation step** (`entry.ctx`, `inv.ctxObj`) in `slAnswer`. `slView`, `slBack` and
+  `slInvOpen` restore it, so Back, History, Expand and Collapse restore the analysis, not only the text.
+  `slNew`/`slClear` drop it.
+- **A new investigation that set no context does not inherit the previous one's** (`_slCtxTouched` is reset
+  in `slSubmit`).
+- **`slHydrate` rebuilds a stored investigation's context step by step without touching the live one.**
+
+**THE RESOLVER, `slCtxResolve(text)`**, runs in `slResolveText` before `sloaneResolve` and returns
+`{html, kind, inherit}`; `inherit` makes the answer a follow-up in the same investigation.
+- **What the words name:** `slObjIn` finds an account number, a statement line (`slLineIn`, full names plus
+  `SL_LINE_ALIAS`: cip, ar, ap, pp&e, opex…) or a governed vendor/project/entity (`slFindValue`), longest match
+  wins. `slMonthsIn` finds periods (two months = a comparison); `slDimIn` finds "by project / now by vendor".
+- **Intent is internal:** `slCtxIntent` → prove · gl · compare · breakdown · why · activity · show. BUILD and ACT
+  stay with the resolvers that own them; `SL_STANDALONE` lists questions (unusual activity, missing vendors,
+  largest movement, flux…) that must never be bent onto the object in context.
+- **A follow-up that names no object inherits the context object and period**; a line named after a financial
+  summary inherits its period.
+- **Ahead of that:** close language → `slCloseBlock`; "unreconciled balances" → `slUnreconciled` (inline list,
+  each row opens its reconciliation population); finance words (financials, results, P&L, balance sheet, YTD) →
+  `slFinancials`. A bare account → `slAccount`; a vendor asked about as a vendor → `slVendorAnalysis`.
+- **`slCtxRun(C, intent, dim)` is the one dispatcher**, shared by the resolver and every in-card action
+  (`slCtxShow`):
+  - `slCtxObject` — balance, MoM, project/vendor/account drivers.
+  - `slCtxVariance` — why.
+  - `slCtxCompare` — May vs June with a Project · May · Jun · Change table and a total row.
+  - `slCtxBreakdown` — by a dimension, keeping the comparison if one is on.
+  - `slCtxActivity`.
+  - `slCtxProof` — a bridge plus a 10-line governed population preview; a statement line uses `slLineProof`.
+- **Population and balance for any object:** `slPopRows` and `slObjBal`. A line's balance is
+  `fsAmount().reported`, an account's is the sum of `rcAcctBalance` over every ERP that carries the number, a
+  dimension's is its GL activity. A P&L object reads "amount", not "balance".
+
+**EVERY MATERIAL NUMBER IS A WAY IN.**
+- The headline figure (`figGo`) and key figures (`kv` row `[label, value, strong, go]`) are buttons.
+- **A driver row drills** (`slCtxDrill`): it adds a filter to the context and answers with that population's GL.
+- **In the GL preview a vendor or project cell narrows the population in place** (`slGLFilter`), and a row
+  opens its transaction.
+- **The GL preview is twelve columns** — posting date · journal · account · description · entity · vendor ·
+  project · debit · credit · net · currency · ERP — with blue-white striping. Every other governed field stays
+  in the Excel/CSV download and the transaction card.
+- **The proof strip always states the currency.** View proof shows only when there is a proof to open.
+
+**NO BRITTLE FALLBACK.**
+- The generic "no governed answer" text is gone. With context: *"Sloane has CIP in context but could not act on
+  …"* plus what it can do.
+- An unmatched name says no object by that name exists in the period's ledger.
+- A month that is not open (`slPeriodUnavailable`) says the book is working in Jun 2026.
+- An empty population (`slCtxEmpty`) names the stale feed.
+
+**Verified in the product:**
+- **Test A:** June financials → breakdown of CIP (June inherited) → May vs June → by project (Project · May ·
+  Jun · Change) → the GL → click Ashburn Hall C (its GL) → Back to the project breakdown.
+- **Test B:** 15000 → June activity → why did it move (+$87.0M) → show proof (bridge + 10-line population).
+- **Test C:** blocking June close → unreconciled balances (4, inline).
+- **"no governed answer" appears nowhere.** Checks: 0 console errors · 4/4 gates.
+
+**Not built (Phase 2):** PBC assembly, invoice retrieval, ERP/Flux/reconciliation write-back, support attachment
+actions, Audit workflows, the Excel add-in, autonomous plans, an LLM behind intent, "Preview Excel" as anything
+but the existing download.
+
+## 2026-09-16 — SLOANE FOUNDATION PHASE 1: context · semantics · tools · objects · trace · mock LLM
+
+Owner's brief. Replaces hard-coded request→answer branching with an internal architecture a real LLM can later
+plug into. **No UI redesign, no external LLM.** One block, `SLOANE FOUNDATION`, just above `cpSend`; prefix
+`sf`/`SF_` (greped free). FS-CIP 4,210.2 · chronology 0 · 4/4 gates unchanged.
+
+**REUSED, NOT DUPLICATED — the most important rule of this layer.**
+- `SL_CTX` stays the flat value store (sixty call sites); `SF_META` is a PROVENANCE sidecar keyed by field
+  (`{source: EXPLICIT|INHERITED|DERIVED|DEFAULTED|UNKNOWN, confidence: HIGH|MEDIUM|LOW}`).
+- `sfContext()` composes the two into the brief's FinancialContext.
+- `slPush`/`slBack` stay the one stack; `entry.ctxMeta` rides with `entry.ctx`.
+- `slObjIn`/`slMonthsIn`/`slDimIn`/`slCtxIntent` stay the one parser.
+- `slCtxResolve` and `sloaneResolve` are invoked BY the orchestrator as two BRIDGE tools, never re-implemented
+  beside it.
+
+**THE LAYERS**
+| Layer | Functions |
+|---|---|
+| context | `sfField` · `sfContext` · `sfUpdate` (the one writer, via `slCtxSet`) · `sfMerge` · `sfResetObject` · `sfResetPopulation` · `sfClearTemp` |
+| semantics | `SF_OBJT` (22 canonical types) · `SF_ALIASES` (data, longest match) · `sfParse` → SemanticRequest · `sfClassify` → CONTINUATION / NEW_OBJECT / NEW_SCOPE / NEW_PERIOD / NEW_INVESTIGATION |
+| tools | `SF_TOOLS` (metadata: inputs, permissions, `SF_RISK`, output type, trace, execution mode) · `sfToolRun` → `{success, object, contextUpdates, trace, warnings, errors}` · `sfPlan` · `sfPlanGuard` |
+| objects | `SF_FOBJ` · `sfObject` (id, type, title, period, range, scope, currency, basis, provenance, `governedStatus`, traceable/drillable/exportable, actions, warnings, `render`) · `sfGoverned` |
+| execution | `SF_TRACES` (cap 50) · `sfTraceStart/End` · `sloaneTrace(n)` · `sloaneDebug()` — dev only, never rendered |
+| llm | `SF_LLM_MOCK` (`mock` / `deterministic-v1`) — interpret/plan delegate to semantics; summarize/explain/narrative return null · `sfSetLLM(adapter)` is the only provider seam |
+| orchestration | `sfRun` → SloaneResponse `{state: ANSWER\|CLARIFICATION_REQUIRED\|NAVIGATE\|UNAVAILABLE\|ERROR, objects, html, context, …}` · `sfClarify` · `SF_PENDING` · `sfAnswerClarify` |
+| evaluation | `sloaneSelfTest()` — 15 checks through the REAL orchestrator and engines; restores session state after |
+
+**WIRING.** `slResolveText(text, opt)` is the single adapter onto `sfRun`. `slSubmit` acts on the response STATE
+(NAVIGATE runs `resp.go`; CLARIFICATION_REQUIRED renders the question card) instead of re-reading the words.
+Hydration passes no `nav`, so a replayed history step never navigates.
+
+**RULES THE TESTS CAUGHT — keep them.**
+- **Global governed state is never UNKNOWN.** Period, scope, currency and basis are DEFAULTED/HIGH before any
+  context exists (`SF_GLOBAL`). Reading them as unknown made the clarification engine ask on every first
+  question (the first run passed 1 of 13).
+- **A dimension or ledger word is a VIEW of the object in context, not a new object.** "break it down by
+  project" and "show me the GL" hit the PROJECT / GOVERNED_LEDGER aliases and were reset as new objects.
+- **Inheritance needs a signal** (an operation, period, dimension, presentation or pointer word). "foo bar
+  baz" with financials in context inherited them and answered with the statements, which §27 forbids.
+  Typed tools are guarded (`sfPlanGuard`): no object means bridges only.
+- **Two months on a statement are a RANGE, not a comparison**, unless the words say vs/compare.
+- **A resumed request does not re-ask** its clarification (`O.resumed`).
+- Execution ids come from a counter, not the capped buffer's length.
+
+**CLARIFICATION IS SILENT IN NORMAL USE, BY DESIGN.** It fires on a named scope Korvyn cannot resolve ("for
+the Atlantis region"), or on a material field that is genuinely UNKNOWN/LOW. "monthly income statement
+Jan-Apr" with no scope named answers with the DEFAULTED enterprise scope rather than asking.
+
+**Not built (named):** real LLM adapters · monthly-column statements (a January-start range renders as YTD
+and the response warns; other ranges render the end month with a warning) · autonomous multi-step plans ·
+typed tools for vendor analysis, journals-in-context, flux drafts and reports (they run through the bridges) ·
+PBC / invoices / write-back / Excel generation / audit packages.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
