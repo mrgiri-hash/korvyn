@@ -10,6 +10,10 @@ import {
 import { FinancialDataService, FX_RATE_SET } from './financials.js';
 import { authorize, toolRegistry } from './tools.js';
 import { ground } from './orchestrator.js';
+import { GovernedLedger } from './governed.js';
+import { ControlService } from './controls.js';
+
+
 
 const base = {
   intent: 'UNDERSTAND', requestedObject: { type: 'INCOME_STATEMENT', id: null, name: 'Income statement' }, operation: 'VIEW',
@@ -61,6 +65,8 @@ test('validator: typed values, nulls for nullable enums, and rejections', () => 
 
 /* ---- financial tools ------------------------------------------------------------------------- */
 const data = new FinancialDataService();
+const gl = new GovernedLedger(data);
+const controls = new ControlService(gl);
 const P = ['2026-01', '2026-02', '2026-03', '2026-04'];
 
 test('income statement foots: net income = revenue − costs, per month', () => {
@@ -88,7 +94,7 @@ test('entity trial balance balances', () => {
 });
 
 test('governance: the write tool is refused; scope permissions hold', () => {
-  const reviewer = { id: 'u', name: 'u', role: 'R', permissions: ['VIEW_FINANCIAL_STATEMENTS' as const, 'POST_JOURNAL' as const], scopeIds: 'ALL' as const };
+  const reviewer = { id: 'u', name: 'u', role: 'R', permissions: ['FINANCIALS_VIEW' as const, 'ERP_WRITEBACK' as const], scopeIds: 'ALL' as const };
   const post = authorize(reviewer, toolRegistry.get('postJournalEntry')!);
   assert.ok(!post.ok && post.gate === 'GOVERNANCE');
   const scoped = { ...reviewer, scopeIds: ['MDH'] };
@@ -98,7 +104,7 @@ test('governance: the write tool is refused; scope permissions hold', () => {
 
 test('grounding rejects a number that no fact carries', () => {
   const obj = data.incomeStatement('GROUP', P);
-  const fo = toolRegistry.get('getIncomeStatement')!.run({ periodStart: '2026-01', periodEnd: '2026-04', scope: 'GROUP' }, { data, actor: { id: 'u', name: 'u', role: 'R', permissions: [], scopeIds: 'ALL' }, objectId: 'FO-1' }).object;
+  const fo = toolRegistry.get('getIncomeStatement')!.run({ periodStart: '2026-01', periodEnd: '2026-04', scope: 'GROUP' }, { data, gl, controls, visible: 'ALL', actor: { id: 'u', name: 'u', role: 'R', permissions: [], scopeIds: 'ALL' }, objectId: 'FO-1' }).object;
   const ni = fo.facts.find((f) => f.key === 'netIncome.range')!.display;
   const g = ground([{ text: `Net income was ${ni}.`, objectIds: ['FO-1'], factKeys: [] }, { text: 'Revenue will reach $99.99M.', objectIds: ['FO-1'], factKeys: [] }], [fo]);
   assert.equal(g.accepted.length, 1);

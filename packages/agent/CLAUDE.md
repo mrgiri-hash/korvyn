@@ -56,3 +56,17 @@ browser's deterministic engine answers). Mounted by `src/server.ts` at `/api/slo
 `SloaneOrchestrator` (context, interpretation, clarification, planning, permissions, READ-only tools over `@korvyn/core`'s GL,
 grounding, traces). `/interpret` `/plan` `/narrate` return 410. `npm run sloane:test` · `npm run sloane:dryrun`. `npm run sloane:dryrun` (no spend) · `npm run sloane:demo` (scripted DEMO endpoint, not a provider). Full
 record in the root CLAUDE.md, *SLOANE 2.0 PHASE 2*.
+
+**Phase 3A (2026-09-17):** 88 governed READ tools across 12 domains over one population engine
+(`governed.ts`), control objects (`controls.ts`), tool catalog (`toolset.ts`). The server book is `@korvyn/core`'s GL, not the
+browser's. `npm run sloane:live-eval` spends credits. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 3A*.
+
+**Phase 3B (2026-09-17):** controlled Build + Act. PROPOSE tools (`actiontools.ts`) create ActionProposals; only
+`POST /api/sloane/action` → `ActionEngine.decide()` executes a registered Action Service (`actions.ts`), after
+confirmation, with re-checked permission, staleness, idempotency and audit. Governed actions are prepare-only.
+Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 3B*.
+
+**Phase 3C (2026-09-17):** durable work store (`persistence/`, `node:sqlite`, `data/korvyn-work.db`), server-authoritative
+workflow for reconciliations (both catalogs), flux, close and work objects; session-cookie auth and capability authorization
+(`auth.ts`); domain APIs under `/api/work/*` (`workapi.ts`); append-only audit; STALE_PROPOSAL with refresh / regenerate /
+cancel (no overwrite). Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 3C*.

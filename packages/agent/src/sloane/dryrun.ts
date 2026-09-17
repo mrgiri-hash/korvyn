@@ -131,6 +131,8 @@ async function main(): Promise<void> {
   const tr1 = orch.trace(t1.traceId)!;
   check('orchestrator: a range with no reliable scope → CLARIFICATION_REQUIRED, no tool executed', t1.state === 'CLARIFICATION_REQUIRED' && t1.clarification?.field === 'scope' && tr1.toolsExecuted.length === 0, t1);
   check('orchestrator: a browser-supplied context is ignored', tr1.resolution?.scopeId === null, 'ignored');
+  queue.push({ text: JSON.stringify({ rationale: 'one statement', steps: [{ tool: 'getIncomeStatement', purpose: 'Income statement', dependsOn: [], args: [
+    { name: 'periodStart', value: '$ctx.periodStart', valueType: 'ref' }, { name: 'periodEnd', value: '$ctx.periodEnd', valueType: 'ref' }, { name: 'scope', value: '$ctx.scope', valueType: 'ref' }] }] }) });
   queue.push({ text: JSON.stringify({ sentences: [
     { text: 'The income statement covers the four months.', objectIds: ['FO-1'], factKeys: ['FO-1.periods'] },
     { text: 'Management expects a further $412.0M next month.', objectIds: ['FO-1'], factKeys: [] } ] }) });
@@ -139,10 +141,11 @@ async function main(): Promise<void> {
   check('orchestrator: answering the question executes getIncomeStatement server-side', t2.state === 'ANSWER' && tr2.toolsExecuted[0]?.tool === 'getIncomeStatement' && tr2.toolsExecuted[0]?.status === 'COMPLETED' && t2.objects[0]?.type === 'IncomeStatement', { state: t2.state, tools: tr2.toolsExecuted, notes: t2.notes });
   check('orchestrator: Jan–Apr resolves to four governed monthly columns', t2.objects[0]?.table.columns.join('|') === 'Jan 2026|Feb 2026|Mar 2026|Apr 2026', t2.objects[0]?.table.columns);
   check('orchestrator: an invented figure in the narrative is rejected by grounding', tr2.narrative.rejected.some((r) => r.text.includes('412.0')) && !t2.narrative.some((n) => n.text.includes('412.0')), tr2.narrative);
-  const reviewer = { id: 'u', name: 'u', role: 'FINANCE_REVIEWER', permissions: ['VIEW_FINANCIAL_STATEMENTS' as const], scopeIds: 'ALL' as const };
-  const v = orch.planner.validate([{ tool: 'postJournalEntry', purpose: 'p', args: [] }, { tool: 'deleteLedger', purpose: 'p', args: [] }], orch.planner.allowlist(reviewer, 'INCOME_STATEMENT'), reviewer, orch.context.initial());
+  const reviewer = { id: 'u', name: 'u', role: 'FINANCE_REVIEWER', permissions: ['FINANCIALS_VIEW' as const], scopeIds: 'ALL' as const };
+  const v = orch.planner.validate([{ tool: 'postJournalEntry', purpose: 'p', dependsOn: [], args: [] }, { tool: 'deleteLedger', purpose: 'p', dependsOn: [], args: [] }], orch.planner.allowlist(reviewer, null, 'income statement', orch.context.initial(reviewer)).tools, reviewer, orch.context.initial(reviewer));
   check('orchestrator: a GOVERNED write tool and an invented tool are both rejected', v.steps.length === 0 && v.rejected.length === 2 && v.rejected[0]!.why.includes('write actions are disabled'), v.rejected);
-  const scoped = new SloaneOrchestrator(new MockLLMAdapter(), cfg, () => ({ id: 'u2', name: 'u2', role: 'ENTITY_ACCOUNTANT', permissions: ['VIEW_FINANCIAL_STATEMENTS'], scopeIds: ['MDH'] }));
+  check('orchestrator: the model plan resolved $ctx references and ran through the reasoning planner', tr2.plan.source === 'reasoning' && tr2.toolsExecuted[0]?.args['scope'] === 'GROUP', tr2.plan);
+  const scoped = new SloaneOrchestrator(new MockLLMAdapter(), cfg, () => ({ id: 'u2', name: 'u2', role: 'ENTITY_ACCOUNTANT', permissions: ['FINANCIALS_VIEW'], scopeIds: ['MDH'] }));
   const t3 = await scoped.turn({ sessionId: 'dryrun-session-2', request: 'Show the consolidated group income statement for March' });
   check('orchestrator: permissions are enforced server-side (entity-scoped actor refused the group)', t3.state === 'UNAVAILABLE' && t3.objects.length === 0 && t3.notes.some((n) => n.includes('may not view scope GROUP')), { state: t3.state, notes: t3.notes });
   const t4 = await scoped.turn({ sessionId: 'dryrun-session-3', request: 'Show the Meridian DC Holdco LLC income statement for March' });

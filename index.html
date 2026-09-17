@@ -2080,7 +2080,11 @@ body.rb-dragging .rb-zb.drop{border-color:var(--accent);background:var(--accent-
 /* SLOANE (reset, 2026-09-14) — one panel, one workspace, one session. Quiet until useful: no card
    chrome in the panel, indigo only on Sloane's own marks (rule 2), no shadows except true overlays. */
 .sl-inbar{flex:none;padding:0 var(--s-4) var(--s-3)}
-.sl-inbar .cp-input{height:calc(var(--h-field) + var(--s-2));padding:0 var(--s-3);gap:var(--s-2)}
+.sl-inbar .cp-input{height:calc(var(--h-field) + var(--s-2));padding:0 var(--s-3);gap:var(--s-2);border:1px solid var(--line2);background:var(--surface);box-shadow:none}
+/* focus is a crisp 1px accent ring beside the border (2px total), never a blurred bloom */
+.sl-inbar .cp-input:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.sl-inbar .cp-input input:focus{outline:none;box-shadow:none}
+.sl-inbar .cp-input input::placeholder{color:var(--hint)}
 .sl-inbar .cp-input svg{width:16px;height:16px;flex:none;color:var(--ai-ink)}
 .sl-inbar .cp-input input{font-size:var(--fs-ui)}
 #copilot .cp-head{padding:var(--s-4) var(--s-4) var(--s-3)}
@@ -2152,7 +2156,8 @@ body.rb-dragging .rb-zb.drop{border-color:var(--accent);background:var(--accent-
 .slf-menu button{text-align:left;border:0;background:none;padding:var(--s-2) var(--s-3);border-radius:var(--radius-xs);font:inherit;font-size:var(--fs-table);color:var(--ink);cursor:pointer}
 .slf-menu button:hover,.slf-menu button:focus-visible{background:var(--n-50)}
 .slf-cmd{display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-4);height:calc(var(--h-field) + var(--s-3));background:var(--surface);border:1px solid var(--line2);border-radius:var(--radius)}
-.slf-cmd:focus-within{border-color:var(--ai)}
+.slf-cmd:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.slf-cmd input:focus{outline:none;box-shadow:none}
 .slf-cmd svg{width:16px;height:16px;flex:none;color:var(--ai-ink)}
 .slf-cmd input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;font-size:var(--fs-ui);color:var(--ink)}
 .slf-cmd input::placeholder{color:var(--hint)}
@@ -2315,6 +2320,26 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .slx-next{display:flex;flex-wrap:wrap;gap:var(--s-1)}
 .slx-chip{height:var(--h-chip);padding:0 var(--s-2);border:1px solid var(--line);border-radius:var(--radius-xs);background:none;font:inherit;font-size:var(--fs-label);color:var(--ai-ink);cursor:pointer}
 .slx-chip:hover,.slx-chip:focus-visible{background:var(--ai-bg)}
+/* ActionPreview — one compact proposal inside a Sloane answer: nothing is written until Confirm. Severity is a 3px left border. */
+.s3-plan{display:grid;gap:var(--s-2)}
+.s3-act{display:grid;gap:var(--s-2);padding:var(--s-3);border:1px solid var(--line2);border-radius:var(--radius-xs);background:var(--surface)}
+.s3-act.done{border-left:3px solid var(--pos)}
+.s3-act.bad{border-left:3px solid var(--neg)}
+.s3-act.gov{border-left:3px solid var(--warning)}
+.s3-hd{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-2)}
+.s3-t{font-size:var(--fs-label);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted);font-weight:var(--fw-medium)}
+.s3-cls{font-size:var(--fs-label);color:var(--hint);white-space:nowrap}
+.s3-kv{display:grid;grid-template-columns:minmax(80px,max-content) minmax(0,1fr);gap:var(--s-1) var(--s-3);font-size:var(--fs-table)}
+.s3-kv .k{color:var(--hint)}
+.s3-kv .v{color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.s3-msg{font-size:var(--fs-table);color:var(--muted)}
+.s3-err{font-size:var(--fs-table);color:var(--ink);padding-left:var(--s-2);border-left:3px solid var(--neg)}
+.s3-warn{font-size:var(--fs-table);color:var(--muted);padding-left:var(--s-2);border-left:3px solid var(--line2)}
+.s3-ed{width:100%;box-sizing:border-box;padding:var(--s-2);border:1px solid var(--border-strong);border-radius:var(--radius-xs);background:var(--surface);color:var(--ink);font:inherit;font-size:var(--fs-table);resize:vertical}
+.s3-btns{display:flex;flex-wrap:wrap;gap:var(--s-2)}
+.s3-rd{font-size:var(--fs-table);color:var(--ink)}
+.s3-rd .no{color:var(--neg)}
+.s3-rd .ok{color:var(--pos)}
 .slx-draft{margin:0;padding:var(--s-3);border-radius:var(--radius-xs);background:var(--n-50);font-size:var(--fs-table);line-height:var(--lh-relaxed);color:var(--ink)}
 /* navigation, proof and history search (2026-09-15, later) */
 .ribsl svg{width:18px;height:18px}
@@ -3305,6 +3330,17 @@ button.tbx-s:hover b{color:var(--accent-ink)}
    Mapping panel, which is a different surface with a different amount to say. The separator
    between key/value rows is what a data sheet gets instead of that air. */
 #rcPanel .amp-sec{padding:var(--s-3) 0 var(--s-1);margin-bottom:0}
+/* PHASE 3C — the server work store's comments and evidence, inside the reconciliation panel */
+#rcPanel .rcx-srv{margin-top:var(--s-4);border-top:1px solid var(--line)}
+#rcPanel .rcx-srvn{margin-left:var(--s-2);color:var(--hint);font-weight:var(--fw-regular)}
+#rcPanel .rcx-srvl{display:flex;flex-direction:column}
+#rcPanel .rcx-srvi{display:flex;flex-direction:column;gap:var(--s-1);padding:var(--s-2) 0;border-bottom:1px solid var(--line)}
+#rcPanel .rcx-srvi .t{font-size:var(--fs-table);color:var(--ink);white-space:normal}
+#rcPanel .rcx-srvi .m{font-size:var(--fs-label);color:var(--hint)}
+#rcPanel .rcx-srvq{font-size:var(--fs-table);color:var(--muted);padding:var(--s-2) 0}
+#rcPanel .rcx-srvq.warn{color:var(--warning)}
+#rcPanel .rcx-srvc{display:flex;gap:var(--s-2);align-items:flex-end;padding-top:var(--s-2)}
+#rcPanel .rcx-srvc textarea{flex:1 1 auto;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:var(--s-2);resize:vertical}
 #rcPanel .amp-r{padding:var(--s-1) 0;border-top:1px solid var(--line)}
 #rcPanel .amp-sec+.amp-r,#rcPanel .rcx-more>summary+.amp-r{border-top:0}
 #rcPanel .rcx-evl{gap:var(--s-1);padding:var(--s-1) 0}
@@ -11714,7 +11750,7 @@ body.xl-focus #backBtn{display:none}
          to records AND hands a question to the assistant via a pinned Ask Korvyn row. -->
     <!-- Sloane is a small icon beside notifications (2026-09-15). ⌘K / Ctrl+K opens the same panel. -->
     <button class="ribicon ribsl" id="ribSl" onclick="slIconClick()" aria-label="Sloane" title="Sloane">
-      <svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M11.2 4.1A3.1 3.1 0 1 0 8 8a3.1 3.1 0 1 1-3.2 3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="3.4" r="1.45" fill="currentColor"/></svg>
+      <svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M6.5 3.7Q7.55 8.45 12.3 9.5Q7.55 10.55 6.5 15.3Q5.45 10.55 0.7 9.5Q5.45 8.45 6.5 3.7ZM12.3 0.9Q12.85 3.35 15.3 3.9Q12.85 4.45 12.3 6.9Q11.75 4.45 9.3 3.9Q11.75 3.35 12.3 0.9Z" fill="currentColor"/></svg>
     </button>
     <!-- The assistant is a LABELED pill, the visual anchor of the utility cluster — not a bare
          sparkle lost among the other icons. -->
@@ -25251,7 +25287,7 @@ const SLP_IC={
 };
 /* THE SLOANE MARK (2026-09-15): one geometric S with a terminal point — the point is Korvyn's orbit dot,
    the S is Sloane's own. One symbol everywhere Sloane appears: header, panel, workspace, input, history. */
-const SLP_ORBIT='<svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M11.2 4.1A3.1 3.1 0 1 0 8 8a3.1 3.1 0 1 1-3.2 3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="3.4" r="1.45" fill="currentColor"/></svg>';
+const SLP_ORBIT='<svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M6.5 3.7Q7.55 8.45 12.3 9.5Q7.55 10.55 6.5 15.3Q5.45 10.55 0.7 9.5Q5.45 8.45 6.5 3.7ZM12.3 0.9Q12.85 3.35 15.3 3.9Q12.85 4.45 12.3 6.9Q11.75 4.45 9.3 3.9Q11.75 3.35 12.3 0.9Z" fill="currentColor"/></svg>';
 function slpIcon(h){
   if(h.ask||h.cont) return SLP_ORBIT;
   const d=SLP_IC[h.kind]||SLP_IC[h.ty]||SLP_IC.Page;
@@ -55813,8 +55849,8 @@ function rcPanel(){
   const body= rcHorizonIsMulti() ? rcMpPanelBody(def,cur)
             : cur==='roll'  ?rcRollTab(def,inst)
             : cur==='act'   ?rcActTab(def,inst)
-            : cur==='sup'   ?rcSupTab(def,inst)
-            : cur==='rev'   ?rcRevTab(def,inst)
+            : cur==='sup'   ?rcSupTab(def,inst)+rcSrvWork(def,inst,'sup')
+            : cur==='rev'   ?rcRevTab(def,inst)+rcSrvWork(def,inst,'rev')
             : cur==='trace' ?rcTraceTab(def,inst)
             : rcSumTab(def,inst);
   return '<aside class="amap-panel" id="rcPanel">'
@@ -58094,6 +58130,60 @@ function rcSupRow(r){
     note:drift.length?glEsc(drift.map(d=>d.label).join(', '))+' changed after this was published'
       :(r.note&&!ev?glEsc(r.note):null)});
 }
+/* ==== PHASE 3C — ONE BOOK. When this page is served by Korvyn's server, a reconciliation's comments, attached
+   evidence and support references are the SERVER's: the same records Sloane reads and writes. The panel reads
+   GET /api/work/reconciliations/:id and writes through POST …/comments — the actor comes from the session cookie,
+   every write carries an idempotency key and the thread version it was read at, and a stale screen is told so
+   (409 STALE_PROPOSAL) instead of overwriting. On a static host there is no server book and nothing renders. */
+const RC_SRV={}, RC_SRV_BUSY={};
+function rcSrvOn(){ try{ return !!document.querySelector('meta[name="korvyn-sloane-api"]'); }catch(e){ return false; } }
+function rcSrvKey(def,inst){ return def.reconciliationDefinitionId+'|'+inst.periodId; }
+function rcSrvWork(def,inst,tab){
+  if(!rcSrvOn()||rcHorizonIsMulti()) return '';
+  const k=rcSrvKey(def,inst), d=RC_SRV[k];
+  if(!d&&!RC_SRV_BUSY[k]) rcSrvLoad(def.reconciliationDefinitionId, inst.periodId);
+  return '<div class="rcx-srv" data-rcsrv="'+glEsc(k)+'" data-tab="'+tab+'">'+rcSrvInner(k,tab)+'</div>'; }
+async function rcSrvLoad(id,period,note){ const k=id+'|'+period; RC_SRV_BUSY[k]=1;
+  try{ const r=await fetch('/api/work/reconciliations/'+encodeURIComponent(id)+'?period='+encodeURIComponent(period),{cache:'no-store'});
+    const j=await r.json(); RC_SRV[k]=r.ok?j:{error:(j&&j.reason)||'Korvyn could not read this reconciliation.'}; }
+  catch(e){ RC_SRV[k]={error:'Korvyn could not be reached.'}; }
+  if(note) RC_SRV[k].note=note;
+  delete RC_SRV_BUSY[k]; rcSrvPaint(k); }
+function rcSrvPaint(k){ document.querySelectorAll('[data-rcsrv="'+CSS.escape(k)+'"]').forEach(el=>{ const draft=el.querySelector('textarea'); const keep=draft&&draft.value;
+  el.innerHTML=rcSrvInner(k,el.getAttribute('data-tab')); if(keep){ const t=el.querySelector('textarea'); if(t) t.value=keep; } }); }
+function rcSrvWhen(at){ try{ return new Date(at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return at||''; } }
+function rcSrvInner(k,tab){
+  const d=RC_SRV[k];
+  if(!d) return '<div class="amp-sec">'+(tab==='rev'?'Comments':'Attached evidence')+'</div><div class="rcx-srvq">Reading the Korvyn work store…</div>';
+  if(d.error) return '<div class="amp-sec">'+(tab==='rev'?'Comments':'Attached evidence')+'</div><div class="rcx-srvq">'+glEsc(d.error)+'</div>';
+  if(tab==='sup'){
+    const ev=d.attachedEvidence||[], att=(d.support||[]).filter(x=>x.status!=='MISSING'&&x.reference);
+    return '<div class="amp-sec">Attached evidence<span class="rcx-srvn">'+(ev.length+att.length)+'</span></div>'
+      +(ev.length||att.length?'<div class="rcx-srvl">'
+        +att.map(x=>'<div class="rcx-srvi"><span class="t">'+glEsc(x.requirement)+'</span><span class="m">'+glEsc(x.reference)+'</span></div>').join('')
+        +ev.map(x=>'<div class="rcx-srvi"><span class="t">'+glEsc(x.label||x.from)+'</span><span class="m">'+glEsc(x.kind||'')+' · '+glEsc(x.createdBy||'')+(x.via?' via '+glEsc(x.via):'')+' · reference only</span></div>').join('')+'</div>'
+      :'<div class="rcx-srvq">No evidence is attached in the Korvyn work store.</div>'); }
+  const cs=d.comments||[];
+  return '<div class="amp-sec">Comments<span class="rcx-srvn">'+cs.length+'</span></div>'
+    +(cs.length?'<div class="rcx-srvl">'+cs.map(c=>'<div class="rcx-srvi"><span class="m">'+glEsc(c.author)+(c.via?' via '+glEsc(c.via):'')+' · '+glEsc(rcSrvWhen(c.at))+(c.version>1?' · edited':'')+'</span><span class="t">'+glEsc(c.text)+'</span></div>').join('')+'</div>'
+      :'<div class="rcx-srvq">No comments yet.</div>')
+    +(d.note?'<div class="rcx-srvq warn">'+glEsc(d.note)+'</div>':'')
+    +(d.canComment
+      ?'<div class="rcx-srvc"><textarea rows="2" maxlength="2000" placeholder="Add a comment"></textarea><button class="btn-out sm" data-k="'+glEsc(k)+'" onclick="rcSrvPost(this)">Post</button></div>'
+      :'<div class="rcx-srvq">'+(d.status==='APPROVED'?'Approved — closed to comments.':'You can read these comments but not add one.')+'</div>'); }
+async function rcSrvPost(btn){
+  const k=btn.getAttribute('data-k'), d=RC_SRV[k], box=btn.parentNode.querySelector('textarea'), text=(box.value||'').trim();
+  if(!d||!text||RC_SRV_BUSY[k]) return; RC_SRV_BUSY[k]=1; btn.disabled=true;
+  const [id,period]=k.split('|');
+  const key=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
+  try{ const r=await fetch('/api/work/reconciliations/'+encodeURIComponent(id)+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text, period, idempotencyKey:key, expectedThreadVersion:d.threadVersion})});
+    const j=await r.json(); delete RC_SRV_BUSY[k];
+    if(r.status===201){ box.value=''; return rcSrvLoad(id,period); }
+    if(r.status===409) return rcSrvLoad(id,period,'Someone commented while you were writing. The thread is reloaded — your draft is kept; post again to add it.');
+    try{ toast((j&&j.reason)||'Korvyn refused the comment'); }catch(e){}
+  }catch(e){ delete RC_SRV_BUSY[k]; try{ toast('Korvyn could not be reached — nothing was posted'); }catch(_){} }
+  btn.disabled=false; }
 function rcSupTab(def,inst){
   const p=inst.periodId, dId=def.reconciliationDefinitionId;
   const g=rcSupportGraph(def,p,inst.reportingLensId,inst);
@@ -77941,7 +78031,35 @@ function slHistHTML(full){ const L=slListed(), W=full?1:0;
   return (full?'':'<div class="slx-home">')+'<div class="slx-grp"><div class="slx-gl">History · '+L.length+' investigation'+(L.length===1?'':'s')+'</div>'
     +'<input class="slx-hq" id="'+(full?'slfHistQ':'slHistQ')+'" type="search" placeholder="Search investigations…" aria-label="Search investigations" autocomplete="off" value="'
     +glEsc(SL_HQ)+'" oninput="slHistFilter(this.value,'+W+')">'
-    +'<div id="'+(full?'slfHistList':'slHistList')+'">'+slHistRows(full)+'</div></div>'+(full?'':'</div>'); }
+    +'<div id="'+(full?'slfHistList':'slHistList')+'">'+slHistRows(full)+'</div></div>'+slSrvHistHTML(full)+(full?'':'</div>'); }
+/* ==== PHASE 3C — durable investigations. The server holds every investigation the signed-in user started: its
+   context, steps, findings, proposals and audit. History lists them; opening one resumes it in a NEW server
+   conversation, whose follow-ups continue the same investigation rather than starting another. */
+let SL_SRVINV=null, SL_SRVINV_AT=0;
+function slSrvOn(){ try{ return !!document.querySelector('meta[name="korvyn-sloane-api"]'); }catch(e){ return false; } }
+function slSrvHistHTML(full){ if(!slSrvOn()) return '';
+  if(!SL_SRVINV||Date.now()-SL_SRVINV_AT>15000) slSrvHistLoad();
+  const L=SL_SRVINV||[];
+  return '<div class="slx-grp" id="'+(full?'slfSrvHist':'slSrvHist')+'"><div class="slx-gl">Saved in Korvyn · '+(SL_SRVINV?L.length:'…')+'</div>'
+    +(SL_SRVINV&&!L.length?'<div class="slx-row'+(full?' full':'')+'"><span class="ic">'+SLP_ORBIT+'</span><span class="tx"><span class="s">No saved investigations yet.</span></span></div>':'')
+    +L.slice().reverse().map(v=>'<div class="slx-row'+(full?' full':'')+'" role="button" tabindex="0" data-inv="'+glEsc(v.id)+'" onclick="slSrvInvOpen(this.getAttribute(\'data-inv\'))" onkeydown="if(event.key===\'Enter\'){slSrvInvOpen(this.getAttribute(\'data-inv\'));}">'
+      +'<span class="ic">'+SLP_ORBIT+'</span><span class="tx"><span class="t">'+glEsc(v.title)+'</span><span class="s">'
+      +glEsc([v.period?perLabel(v.period):'', v.steps+' step'+(v.steps===1?'':'s'), v.actions?v.actions+' action'+(v.actions===1?'':'s'):''].filter(Boolean).join(' · '))
+      +'</span></span><span class="m">'+glEsc(slAgo(Date.parse(v.updatedAt)))+'</span></div>').join('')+'</div>'; }
+async function slSrvHistLoad(){ SL_SRVINV_AT=Date.now();
+  try{ const r=await fetch('/api/sloane/investigations',{cache:'no-store'}); if(!r.ok) throw 0; SL_SRVINV=(await r.json()).investigations||[]; }catch(e){ SL_SRVINV=SL_SRVINV||[]; }
+  ['slSrvHist','slfSrvHist'].forEach(id=>{ const el=$(id); if(el) el.outerHTML=slSrvHistHTML(id==='slfSrvHist'); }); }
+async function slSrvInvOpen(id){
+  S2_SID=null; const sid=s2Sid();
+  let v=null;
+  try{ const r=await fetch('/api/sloane/investigations/'+encodeURIComponent(id)+'/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:sid})}); if(r.ok) v=await r.json(); }catch(e){}
+  if(!v){ try{ cpToast('That investigation could not be opened'); }catch(e){} return; }
+  const last=(v.steps||[]).filter(x=>(x.objects||[]).length).slice(-1)[0];
+  const html=slCard({kind:'server', for:'Resumed from Korvyn · '+(v.steps||[]).length+' steps · '+(v.proposals||[]).length+' actions', head:glEsc(v.investigation.title),
+    sub:(v.findings||[]).slice(-3).map(f=>'<div class="s2-nar">'+glEsc(f)+'</div>').join('')||(last?(last.narrative||[]).map(t=>'<div class="s2-nar">'+glEsc(t)+'</div>').join(''):''),
+    prev:(last?(last.objects||[]).map(s2ServerTable).join(''):'')+((v.timeline||[]).length?'<div class="slx-sec"><div class="slx-sech"><span class="l">Timeline</span></div>'+v.timeline.slice(-6).map(t=>'<div class="s3-msg">'+glEsc(rcSrvWhen(t.at))+' · '+glEsc(t.event)+'</div>').join('')+'</div>':''),
+    basis:'Durable investigation · '+glEsc(v.investigation.period||'')+' · owner '+glEsc(v.investigation.owner||'')});
+  slShow(v.investigation.title, html); }
 function slHistFilter(q,full){ SL_HQ=String(q||''); const el=$(full?'slfHistList':'slHistList'); if(el) el.innerHTML=slHistRows(full); }
 function slInvDelAsk(i,full){ const v=SL_INVS[i]; if(!v) return; SL_DELCONF=v.id; slHistFilter(SL_HQ,full); }
 function slInvDelCancel(full){ SL_DELCONF=null; slHistFilter(SL_HQ,full); }
@@ -80929,10 +81047,69 @@ function s2ServerClarify(raw, pendingId, optionId){
     e=>{ S2_BUSY=false; console.error('sloane', e); slRender(raw, {follow:true}, {state:SF_STATE.ERROR, html:s2ServiceDown(raw), kind:'none'}, false); }); }
 function s2ServerTable(o){
   const cols=o.table.columns||[];
-  return '<div class="slx-sec"><div class="slx-sech"><span class="l">'+glEsc(o.unit)+'</span><span class="n">'+glEsc(o.basis)+'</span></div>'
+  /* a server object states its own title when an answer carries several; a population says how much stays server-side */
+  const pop=o.population?'<div class="slx-sech"><span class="n">Showing '+o.population.returned+' of '+o.population.rowCount+' lines · '+glEsc(o.population.populationId)+'</span></div>':'';
+  if(o.status==='UNAVAILABLE') return '<div class="slx-sec"><div class="slx-sech"><span class="l">'+glEsc(o.title)+'</span><span class="n">Unavailable</span></div><div class="slx-sech"><span class="n">'+glEsc(o.unavailable&&o.unavailable.reason||'')+'</span></div></div>';
+  if(!(o.table.rows||[]).length) return '';
+  return '<div class="slx-sec"><div class="slx-sech"><span class="l">'+glEsc(o.title)+'</span><span class="n">'+glEsc(o.unit)+' · '+glEsc(o.basis)+'</span></div>'+pop
     +'<div class="slx-wrap"><table class="slx-g slx-ct"><thead><tr><th>Line</th>'+cols.map(c=>'<th class="v">'+glEsc(c)+'</th>').join('')+'</tr></thead><tbody>'
     +o.table.rows.map(r=>'<tr'+(r.kind!=='line'?' class="tot"':'')+'><td>'+(r.level===0&&r.kind==='line'?'<b>'+glEsc(r.label)+'</b>':glEsc(r.label))+'</td>'
       +r.cells.map(c=>'<td class="v">'+glEsc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></div>'; }
+/* ==== ActionPreview (Phase 3B) — the browser SHOWS a proposal, COLLECTS a decision and RENDERS the result.
+   It is never authoritative: /api/sloane/action re-resolves the actor, re-checks permission, re-validates, checks
+   staleness and executes server-side. Each click carries a fresh requestId, and buttons disable while a decision is
+   in flight, so a double click or a retry cannot write twice. */
+const S3_P={}, S3_EDIT={}, S3_BUSY={};
+function s3PlanHTML(planId, props){ props.forEach(p=>S3_P[p.id]=p);
+  const open=props.filter(p=>p.status==='WAITING_CONFIRMATION'&&p.executable);
+  return '<div class="s3-plan" data-s3p="'+glEsc(planId)+'" data-plan="'+glEsc(planId)+'">'+props.map(p=>'<div class="s3-act" data-s3a="'+glEsc(p.id)+'">'+s3ActInner(p)+'</div>').join('')
+    +(open.length>1?'<div class="s3-btns"><button class="slx-btn p" data-plan="'+glEsc(planId)+'" onclick="s3Plan(this)">Confirm all '+open.length+'</button><span class="s3-msg">or review each action</span></div>':'')+'</div>'; }
+function s3ActInner(p, msg){ const id=glEsc(p.id), cls=p.status==='COMPLETED'?'Completed':p.status==='CANCELLED'?'Cancelled':p.status==='STALE'?'Stale — the target changed':p.status==='SUPERSEDED'?'Superseded':p.riskLevel==='GOVERNED_ACTION'?'Governed — prepare only':p.riskLevel==='CONFIRM_REQUIRED'?'Needs your confirmation':'Read only';
+  const editing=S3_EDIT[p.id], open=['PROPOSED','WAITING_CONFIRMATION','VALIDATED'].indexOf(p.status)>=0;
+  let h='<div class="s3-hd"><span class="s3-t">'+glEsc(p.title)+'</span><span class="s3-cls">'+glEsc(cls)+(p.version>1?' · v'+p.version:'')+'</span></div>';
+  h+='<div class="s3-kv">'+(p.preview||[]).filter(x=>!(editing&&p.editable.some(e=>x.label.toLowerCase().indexOf(e.label.toLowerCase())>=0))).map(x=>'<span class="k">'+glEsc(x.label)+'</span><span class="v">'+glEsc(x.value)+'</span>').join('')+'</div>';
+  if(editing) h+=p.editable.map(e=>'<label class="s3-kv"><span class="k">'+glEsc(e.label)+'</span>'+(e.multiline?'<textarea class="s3-ed" rows="4" data-f="'+glEsc(e.field)+'">'+glEsc(String(p.proposedPayload[e.field]||''))+'</textarea>':'<input class="s3-ed" data-f="'+glEsc(e.field)+'" value="'+glEsc(String(p.proposedPayload[e.field]||''))+'">')+'</label>').join('');
+  if(p.governed) h+='<div class="s3-rd">'+(p.governed.readiness||[]).map(x=>'<div><span class="'+(x.ok?'ok':'no')+'">'+(x.ok?'✓':'✗')+'</span> '+glEsc(x.check)+' · '+glEsc(x.detail)+'</div>').join('')+'</div>';
+  (p.validation.errors||[]).forEach(e=>h+='<div class="s3-err">'+glEsc(e)+'</div>');
+  (p.validation.warnings||[]).forEach(w=>h+='<div class="s3-warn">'+glEsc(w)+'</div>');
+  if(p.status==='STALE'&&p.error&&p.error!==msg) h+='<div class="s3-err">'+glEsc(p.error)+'</div>';
+  if(msg) h+='<div class="'+(/^Stale|^Failed|^Not executed/.test(msg)?'s3-err':'s3-msg')+'">'+glEsc(msg)+'</div>';
+  const b=(act,label,pri,extra)=>'<button class="slx-btn'+(pri?' p':'')+'" data-id="'+id+'" data-act="'+act+'"'+(extra||'')+' onclick="s3Btn(this)">'+glEsc(label)+'</button>';
+  let btns='';
+  if(p.status==='COMPLETED') btns='<span class="s3-msg">Done'+(p.result&&p.result.author?' · '+glEsc(p.result.author):'')+(p.auditId?' · audit '+glEsc(p.auditId):'')+'</span>';
+  else if(p.status==='CANCELLED') btns='<span class="s3-msg">Cancelled · nothing was written</span>';
+  else if(p.status==='SUPERSEDED') btns='<span class="s3-msg">Superseded by a regenerated proposal · nothing was written</span>';
+  else if(p.status==='STALE') btns=b('refresh','Refresh',1)+b('regenerate','Regenerate')+b('cancel','Cancel');
+  else if(p.choice&&open) btns=p.choice.options.map(o=>'<button class="slx-btn" data-id="'+id+'" data-act="choose" data-choice="'+glEsc(o.id)+'" onclick="s3Btn(this)">'+glEsc(o.label)+'</button>').join('')+b('cancel','Cancel');
+  else if(editing) btns=b('save','Save edit',1)+b('noedit','Discard edit');
+  else if(open&&p.executable&&p.validationStatus==='VALID') btns=b('confirm',p.type==='ATTACH_SUPPORT'?'Attach '+((p.proposedPayload.items||[]).length||'')+' items':'Confirm',1)+(p.editable.length?b('edit','Edit'):'')+b('cancel','Cancel');
+  else if(open&&p.riskLevel==='GOVERNED_ACTION') btns='<span class="s3-msg">'+glEsc(p.governed?p.governed.route:'Governed workflow')+'</span>'+b('cancel','Dismiss');
+  else if(open) btns=(p.editable.length?b('edit','Edit'):'')+b('cancel','Cancel');
+  if(p.choice&&open) h+='<div class="s3-msg">'+glEsc(p.choice.question)+'</div>';
+  return h+'<div class="s3-btns">'+btns+'</div>'; }
+function s3Paint(p, msg){ S3_P[p.id]=p;
+  /* the same proposal can be on screen twice (panel and workspace): every copy shows the one server state */
+  document.querySelectorAll('[data-s3a="'+CSS.escape(p.id)+'"]').forEach(el=>{
+    el.className='s3-act'+(p.status==='COMPLETED'?' done':p.status==='FAILED'||(msg&&/^Stale|^Not executed|^Failed/.test(msg))?' bad':p.riskLevel==='GOVERNED_ACTION'?' gov':'');
+    el.innerHTML=s3ActInner(p, msg); }); }
+async function s3Decide(body){ const key=body.proposalId||body.planId; if(S3_BUSY[key]) return; S3_BUSY[key]=1;
+  document.querySelectorAll('[data-id="'+key+'"],[data-plan="'+key+'"] button').forEach(x=>x.disabled=true);
+  try{ const r=await fetch('/api/sloane/action',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({sessionId:s2Sid(), requestId:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random())}, body))}).then(x=>x.json());
+    const msgs={}; (r.results||[]).forEach(x=>msgs[x.proposalId]=x.message);
+    (r.proposals||[]).forEach(p=>{ if(body.decision==='regenerate'&&p.id!==key&&!document.querySelector('[data-s3a="'+CSS.escape(p.id)+'"]'))
+        document.querySelectorAll('[data-s3a="'+CSS.escape(key)+'"]').forEach(el=>el.insertAdjacentHTML('afterend','<div class="s3-act" data-s3a="'+glEsc(p.id)+'"></div>'));
+      s3Paint(p, msgs[p.id]); });
+    if(!(r.proposals||[]).length&&(r.results||[])[0]) try{ toast(r.results[0].message); }catch(e){}
+  }catch(e){ try{ toast('Sloane could not reach Korvyn — nothing was changed'); }catch(_){} const p=S3_P[key]; if(p) s3Paint(p); }
+  finally{ delete S3_BUSY[key]; } }
+function s3Btn(b){ const id=b.getAttribute('data-id'), act=b.getAttribute('data-act'), p=S3_P[id]; if(!p) return;
+  if(act==='edit'){ S3_EDIT[id]=1; return s3Paint(p); }
+  if(act==='noedit'){ delete S3_EDIT[id]; return s3Paint(p); }
+  if(act==='save'){ const edits={}; b.closest('.s3-act').querySelectorAll('.s3-ed').forEach(x=>edits[x.getAttribute('data-f')]=x.value); delete S3_EDIT[id]; return s3Decide({proposalId:id, decision:'edit', edits}); }
+  if(act==='choose') return s3Decide({proposalId:id, decision:'choose', choice:b.getAttribute('data-choice')});
+  return s3Decide({proposalId:id, decision:act}); }
+function s3Plan(b){ const plan=b.getAttribute('data-plan'); b.disabled=true; s3Decide({planId:plan, decision:'confirm'}).then(()=>{ document.querySelectorAll('[data-s3p="'+CSS.escape(plan)+'"] > .s3-btns').forEach(f=>f.remove()); }); }
 function s2ServerRender(raw, r){
   const notes=(r.notes||[]).filter(Boolean);
   if(r.state==='CLARIFICATION_REQUIRED'&&r.clarification){ const c=r.clarification;
@@ -80941,9 +81118,12 @@ function s2ServerRender(raw, r){
   if(r.state==='ANSWER'&&(r.objects||[]).length){ const o=r.objects[0];
     const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[]}))}, notes.join(' '));
     const pv=o.provenance||{};
+    const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
+    if(acts.length) return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Proposed · nothing written until you confirm', head:glEsc(acts.length>1?acts.length+' proposed actions':acts[0].title),
+      sub:nar, prev:s3PlanHTML(r.actions?r.actions.planId:acts[0].planId, acts)+r.objects.filter(x=>!x.action).map(s2ServerTable).join(''), basis:'Korvyn validates, you confirm, Korvyn executes · every action is audited'})};
     return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:o.scope.name+' · '+o.currency+' · '+o.basis, head:glEsc(o.title),
       sub:nar, prev:r.objects.map(s2ServerTable).join(''),
-      basis:pv.source+' · '+pv.journalLines+' journal lines'+(pv.fxRateSetId?' · FX '+pv.fxRateSetId:'')+(pv.eliminations?' · '+pv.eliminations:'')})}; }
+      basis:pv.source+(typeof pv.journalLines==='number'?' · '+pv.journalLines+' journal lines':'')+(pv.fxRateSetId?' · FX '+pv.fxRateSetId:'')+(pv.eliminations?' · '+pv.eliminations:'')})}; }
   return {state:r.state==='ERROR'?SF_STATE.ERROR:SF_STATE.UNAVAILABLE, kind:'none', html:slCard({kind:'none',
     head:r.state==='ERROR'?'Sloane could not complete this request':'Sloane cannot answer that yet', sub:glEsc(notes.join(' ')||'Try naming the statement, the months and the scope.')})}; }
 function s2ServiceDown(raw){ return slCard({kind:'none', head:'Sloane’s reasoning service is temporarily unavailable',
@@ -82234,7 +82414,7 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
 <!-- ============ KORVYN AI COPILOT ============ -->
 <aside class="copilot" id="copilot" aria-label="Sloane">
   <div class="cp-head">
-    <div class="cp-idw"><span class="cp-title"><svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M11.2 4.1A3.1 3.1 0 1 0 8 8a3.1 3.1 0 1 1-3.2 3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="3.4" r="1.45" fill="currentColor"/></svg>Sloane</span><span class="sl-ctxline" id="slCtx"></span></div>
+    <div class="cp-idw"><span class="cp-title"><svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M6.5 3.7Q7.55 8.45 12.3 9.5Q7.55 10.55 6.5 15.3Q5.45 10.55 0.7 9.5Q5.45 8.45 6.5 3.7ZM12.3 0.9Q12.85 3.35 15.3 3.9Q12.85 4.45 12.3 6.9Q11.75 4.45 9.3 3.9Q11.75 3.35 12.3 0.9Z" fill="currentColor"/></svg>Sloane</span><span class="sl-ctxline" id="slCtx"></span></div>
     <span class="sp"></span>
     <div class="cp-hact" id="slHact">
       <button class="slx-hb" id="slBackBtn" onclick="slBack()" title="Back" aria-label="Back to the previous Sloane step" disabled>
@@ -82261,7 +82441,7 @@ else { document.addEventListener('DOMContentLoaded',()=>{ cpGreet(); renderCpSug
   <div class="slx-homehd">What do you want to understand?</div>
   <div class="sl-inbar">
     <div class="cp-input">
-      <svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M11.2 4.1A3.1 3.1 0 1 0 8 8a3.1 3.1 0 1 1-3.2 3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="3.4" r="1.45" fill="currentColor"/></svg>
+      <svg viewBox="0 0 16 16" fill="none" class="sl-mark"><path d="M6.5 3.7Q7.55 8.45 12.3 9.5Q7.55 10.55 6.5 15.3Q5.45 10.55 0.7 9.5Q5.45 8.45 6.5 3.7ZM12.3 0.9Q12.85 3.35 15.3 3.9Q12.85 4.45 12.3 6.9Q11.75 4.45 9.3 3.9Q11.75 3.35 12.3 0.9Z" fill="currentColor"/></svg>
       <input id="cpInput" type="text" placeholder="Ask Sloane…" autocomplete="off" spellcheck="false" aria-label="Ask Sloane" oninput="slType(this.value)" onkeydown="slKey(event)">
     </div>
     <button class="slx-clear" onclick="slClear()" title="Clear this conversation. History keeps the investigation.">Clear</button>

@@ -9183,6 +9183,199 @@ clarification path synchronously; 15/15 on a static page) · prompt cache reads 
 cacheable minimum) · `scripted-demo.ts` still scripts browser tool names, which the server planner rejects ·
 the old key remains in git history (revoked).
 
+## 2026-09-17 — SLOANE 2.0 PHASE 3A: governed server-side tool coverage across Korvyn
+
+Owner's brief: every major Korvyn read/analysis capability becomes a governed server-side Sloane tool. No UI
+redesign, no provider change, no write actions. **The LLM interprets and plans; Korvyn tools supply facts.**
+
+**THE DATA BOUNDARY IS THE FIRST THING TO KNOW.** The server reads ONLY `@korvyn/core`'s enterprise GL (6
+entities, Jan–Jun 2026, project / cost-centre / property dimensions). Reconciliations, flux, close, reports, audit
+and evidence as the browser prototype models them do not exist server-side, and the browser's figures (FS-CIP
+4,210.2) are NOT the server's. Phase 3A builds those domains server-side over the core GL instead of porting
+browser data. The two books never mix.
+
+**Files (`packages/agent/src/sloane/`):**
+
+| File | Role |
+|---|---|
+| `governed.ts` | `GovernedLedger`: ONE population engine over flattened journal lines. `definePopulation` (canonical, stable `POP-` id) · `query` (count, totals, ONE page ≤ 50, async export hook) · `aggregate(rows, dimension, split)` (the only aggregator, every dimension) · `balanceUsd` · `sourceRef` |
+| `controls.ts` | `ControlService`: reconciliations, flux, close, reporting, audit, evidence. Amounts are DERIVED. Workflow state (status, comments, tasks, report definitions, PBC) is SEEDED and says so (`SEEDED`) |
+| `toolset.ts` | 88 READ tools in 12 domains, registered via `registerTools`. `findObjects` (universal find) · `ACCOUNT_ALIAS` (CIP → 15000) |
+| `tools.ts` | types · `ROLES` (FINANCE_REVIEWER, ENTITY_ACCOUNTANT scoped to MDH, EXTERNAL_AUDITOR) · `authorize` · `visibleOf` |
+| `orchestrator.ts` | context (focus, populationId, lastRefs, comparisonPeriod, filters) · relevance-ranked exposure · model plan with `$ctx.x` / `$N.refs.x` refs · validation and repair · execution-time ref resolution · `deterministicPlan` fallback |
+| `coverage.test.ts` · `live-eval.ts` | offline coverage tests · LIVE suites §21/§22 (`npm run sloane:live-eval`, spends credits; `SLOANE_EVAL_ONLY=cross` for §17 + scoped permissions) |
+
+**Declared inputs, cited on every object that uses them:** `FXR-2026-AVG-REP-1` (flows), `FXR-2026-CLS-REP-1`
+(balances), `APX-2026-REP-1` (a representative AP extract: vendor, invoice, PO, contract and approval references;
+**the core GL carries no vendor**), and `SOURCE_HEALTH` (JD Edwards unavailable, NetSuite stale, no deep links).
+
+**Honest unavailable states:** cash flow statement (not modelled) · prior year (FY2025 is not in the governed
+ledger, so "compare to last year" returns UNAVAILABLE) · bank reconciliations (`SOURCE_NOT_CONNECTED`, a separate
+state from `NOT_TIED`) · documents (references only) · ERP TB extracts (the tie-out is PARTIAL).
+
+**Genuine findings the data produces (derived, not seeded):** MDH intercompany receivable does NOT tie to the
+foreign OpCos' payables (−$6.18M gross); REIT↔MDH ties; CIP project subledgers tie; AP lines missing
+invoice/approval references come from the extract's rules.
+
+**Traps that each cost a live-eval round:**
+- **Exposure must be RANKED, never sliced in registration order.** At a 22-tool cap, evidence and recon tools fell
+  off the end for multi-domain questions, and Claude answered "missing support" with the wrong tools.
+- **A vendor population is the spend leg.** Both legs of an AP bill carry the vendor, so the AP liability offset
+  netted Siemens spend to zero. `match()` excludes 20100 unless `includeApLiability`.
+- **Population ids are canonical** (sorted keys and arrays), or one definition gets two ids.
+- **Planner kind checks resolve names:** the model passes "Meridian DC Holdco LLC" for an entity, or "CIP" for an
+  account.
+- **Fact labels must say what a number is.** "Jun 2026 $6.17M" from `comparePeriods` was narrated as a balance; it
+  is period activity.
+- **"Does the reconciliation support it" needs `getReconciliationsForAccount`.** Without it Claude used evidence
+  coverage as a stand-in.
+- The deterministic `behind` regex routed "the GL behind X" to close-by-entity.
+- **On the live page, seeded Sloane investigations hydrate through `/api/sloane/turn` first.** A test submission
+  sent during hydration is dropped; resubmit, and read traces by request text.
+
+**Verified:** typecheck · 17/17 unit + coverage tests (all 88 read tools run, bounded rows, footing across
+dimensions, permissions, unavailable states, deterministic context chain) · 30/30 provider dry run · LIVE
+claude-opus-5: §21 13/13 and §22 5/5 answered in place (FY2025 correctly UNAVAILABLE); §17 cross-module plan
+executed 8 tools across analysis, recon and evidence in one answer; an entity accountant is exposed zero audit
+tools · browser: a live answer renders in the existing Sloane panel, console clean · 4/4 repo gates · average live
+turn 16 s (3 model calls), tools ≤ 14 ms.
+
+**Not built (Phase 3A stops here):** any write (flux or recon comments, attachments, publishing, certification,
+mapping, ERP, PBC finalisation) · server-side data for the browser's own recon/flux/close stores · real
+documents · FY2025 · streaming · a real query engine behind population ids.
+
+## 2026-09-17 — SLOANE 2.0 PHASE 3B: controlled Build + Act
+
+Owner's brief. **The LLM understands and proposes; Korvyn validates; the user confirms; Korvyn executes; everything
+is traced.** No UI redesign, no permission loosening, no model-reachable write.
+
+**Files (`packages/agent/src/sloane/`):**
+
+| File | Role |
+|---|---|
+| `actions.ts` | `ActionGovernanceEngine` (the server port of the browser's `SI_ACTION_POLICY`: same type names, same three classes, unknown type → GOVERNED_ACTION) · `ActionProposal` · 13 registered Action Services · `ActionEngine` (`propose` / `revise` / `decide`, audit, timelines, idempotency, staleness) · `PEOPLE` reviewer directory |
+| `actiontools.ts` | 17 PROPOSE-risk tools the planner may call. They create proposals or session drafts and write nothing |
+| `store.ts` | `WORK`: the one mutable work store (comment threads, evidence relationships, issues, assignments, saved objects). Only Action Services write it; `controls.ts` reads it back |
+| `actions.test.ts` · `live-actions.ts` | 13 offline action tests · live Claude suite (`npm run sloane:live-actions`, spends credits) |
+
+**The one execution path.** `POST /api/sloane/action {sessionId, proposalId|planId, decision: confirm|cancel|edit|choose,
+edits?, choice?, overwrite?, requestId}` → `orchestrator.decide()` → `ActionEngine.decide()` → `ActionService.execute()`.
+No tool, plan step or model output can reach `execute()`. Before every execution the engine re-resolves the actor
+(a revoked permission stops the write), re-validates, checks dependencies and checks staleness. GOVERNED_ACTION
+proposals (`RECONCILIATION_APPROVAL`, `CLOSE_CERTIFICATION`, `REPORT_PUBLICATION`, `MAPPING_CHANGE`,
+`DIMENSION_OVERRIDE`, `ERP_WRITE_BACK`) show readiness and the governed route, and are never executed.
+
+**Invariants:**
+- A proposal executes at most once: COMPLETED returns "not repeated", EXECUTING refuses a second run, and a
+  `requestId` replays the recorded response. The browser disables buttons while a decision is in flight.
+- `targetVersion` is captured when a proposal is prepared. A changed target returns "Stale …" until the user
+  chooses `overwrite`.
+- A correction ("No, attach those to …") revises the SAME proposal (`reviseActionProposal`), never a duplicate. A
+  target the user resolved once is remembered for the session.
+- Authorship is the human: comments read "Mitra Giri via Sloane", source SLOANE; the audit actor is the person.
+- The user's dictated wording is kept verbatim (`verbatim()` replaces a shortened model paraphrase).
+- A figure in a comment or issue that is neither on the target nor in the analysis it came from is flagged, never
+  rewritten.
+- Attached evidence is a relationship to a reference (`RECONCILIATION_SUPPORTS` / `FLUX_SUPPORTS`, plus
+  `INVOICE_FOR` etc. to the transaction, and `PACKAGE_CONTAINS`); `documentConnected:false`, no copy.
+- Report and Excel drafts live in the session and are modified in place. Only "save" is a CONFIRM action (report
+  saved as DRAFT, never published).
+
+**Traps the live runs found:**
+- **A dependency is not a package.** Claude made the attach step depend on the comment, and the service read any
+  dependency as a support package and crashed. Package mode is now an explicit `fromPackage`; other dependencies
+  are ordering only.
+- **The stale check must read the prepared version BEFORE revalidating.** Revalidation refreshes `targetVersion`,
+  so the first cut could never detect a change.
+- **The same proposal card renders twice** (panel and workspace): repaint by `data-s3a`, never by element id.
+- **A grounded explanation's figures come from the analysis objects, not the target.** Checking them only against
+  the Flux line flagged every figure in the explanation.
+- "Electrical CIP" has no server-side reconciliation: Korvyn asks which CIP reconciliation (honest), then
+  remembers the choice.
+
+**Verified:** typecheck · 30/30 unit tests · 30/30 dry run · LIVE claude-opus-5 (second run, after fixes):
+- Tests A–E all pass: proposal first, the write only on confirm, no write during any turn.
+- Multi-action: 3 proposals, then confirm-all completed all 3 in sequence.
+- Governed approval showed readiness and was refused execution.
+- Browser, live server: ActionPreview renders in the Sloane panel; Edit → v2 of the same proposal; a double-clicked
+  Confirm wrote exactly one comment and one audit record; console clean.
+- 4/4 repo gates.
+
+**Not built:** production ERP write-back · close certification, reconciliation approval or report publication
+through Sloane · PBC finalisation · document fetching · durable storage (`WORK`, proposals and audit are in memory
+per server process) · authentication (the actor is server-configured) · a UI for the session activity endpoint.
+
+## 2026-09-17 — SLOANE 2.0 PHASE 3C: durable work store, server source of truth, authorization foundation
+
+Owner's brief. **Work Sloane or a person does survives a restart, is the same record everywhere, is done by an
+authenticated actor with a capability, and is audited in an append-only log.** No redesign; the browser changed only
+where it now consumes server state. Everything is in `packages/agent/src/sloane/`.
+
+**Persistence** (`persistence/`). `node:sqlite` (`DatabaseSync`, WAL, experimental in Node 22), file
+`packages/agent/data/korvyn-work.db` (git-ignored; `KORVYN_DB_PATH` overrides; `:memory:` under the test runner).
+- `db.ts`: migrations for `records` (generic, `kind` + stamp columns + JSON `data`), `audit_events` with
+  `audit_no_update` / `audit_no_delete` triggers, `idempotency`, `sessions`, `seed_meta`. `tx()` = BEGIN IMMEDIATE.
+  `korvynId(prefix)` → `PREFIX-<time36><rand>`.
+- `repositories.ts`: `RecordStore.update(kind,id,expectedVersion,…)` throws `StaleVersionError` (code
+  `STALE_PROPOSAL`). Domain repositories: comments, evidence, issues, reviewer assignments, saved objects,
+  investigations (+ events, context snapshots), actions (proposals + executions), reconciliations, flux, close,
+  reports, audit (INSERT only), idempotency, sessions. **No generic update route exists.**
+- `seed.ts` (`SEED_VERSION 3C.1`): the 38 Reconciliations-module definitions (`RECONDEF-…`, catalog MODULE) and the GL
+  catalog, their workflow states, comments, support, flux explanations, close tasks, report definitions, published
+  reports, packages, PBC — once, in one transaction.
+- **Trap: a domain object whose own fields are `status` / `version` / `createdAt` collides with the record stamp
+  columns and loses them.** `ActionRepository` stores the proposal whole under `{ proposal }` for exactly this reason.
+
+**One book.** The server is authoritative for reconciliation WORKFLOW (status, comments, support, reviewer) for both
+catalogs; module balances are still computed by the browser module (`tieStatus COMPUTED_IN_MODULE`, stated as a source
+issue). `store.ts` (`WORK`, bound by the orchestrator) is the facade Sloane's tools and services use; `workapi.ts` is
+what the UI uses, over the same repositories. Flux browser lines map to server account groups through
+`FLUX_LINE_ACCOUNTS` — a navigation crosswalk, not a mapping.
+
+**Auth** (`auth.ts`). `ActorContext` is built ONLY from the `korvyn_session` cookie (HttpOnly, SameSite=Strict).
+`KORVYN_AUTH_MODE=dev` (default) auto-signs an anonymous caller in as `KORVYN_DEV_USER` (default `user:mgiri`); any other
+value is strict (401). `POST /api/auth/dev/switch` is dev + loopback only. Directory: Mitra Giri and Sarah Kim
+(FINANCE_REVIEWER), Priya Nair (EXTERNAL_AUDITOR: reads, no comment capabilities), Jonah Park (ENTITY_ACCOUNTANT, MDH
+only). `AuthorizationService.can(actor, capability, {entity})`; `FUTURE_GOVERNED` (RECON_APPROVE, CLOSE_CERTIFY,
+REPORT_PUBLISH, MAPPING_CHANGE, ERP_WRITEBACK) is stripped from every role. `SoDPolicyService` evaluates four policy
+ids; nothing it guards is executable yet.
+
+**Routes** (`routes.ts`, dispatched by `server.ts` for `API_PREFIXES`): `/api/auth/me` · `/api/auth/dev/switch` ·
+`/api/sloane/turn` (actor from session; another user's conversation is 403) · `/api/sloane/action` (confirm · cancel ·
+edit · choose · **refresh · regenerate** — `overwrite` is gone) · `/api/sloane/investigations[/:id[/resume]]` ·
+`/api/sloane/session/:id/activity` · `/api/work/reconciliations/:id[/comments]` · `/api/work/flux/:account[/comments]` ·
+`/api/work/flux/line/:lineId` · `/api/work/close` · `/api/work/evidence?target=` · `/api/work/issues` ·
+`/api/work/saved/:kind`. A UI write requires `idempotencyKey`, takes `expectedThreadVersion`, and writes the domain
+record + AuditEvent (source UI) + idempotency key in one transaction; a stale version is 409 `STALE_PROPOSAL`.
+
+**Actions** (`actions.ts`). Execution is one transaction: domain write, `ACTION_EXECUTION`, AuditEvent, investigation
+event, idempotency key `EXECUTE:<proposalId>`, status. A decision replays on `DECIDE:<session>:<requestId>`. A target
+that moved makes the proposal `STALE`; the user refreshes (re-read, re-validate, confirm again), regenerates (supersede)
+or cancels.
+
+**Investigations** (`orchestrator.ts`). Every turn persists the step (request, READ tool calls, narrative, proposal
+ids), findings, object and population refs, and a context snapshot. `investigationView` re-derives objects by replaying
+the recorded READ calls; visible to the owner or a share. `resumeInvestigation(id, sessionId)` rebuilds a server
+session from the record.
+
+**Browser (`index.html`).** ActionPreview: STALE shows Refresh · Regenerate · Cancel. Reconciliation panel Review and
+Support tabs append the server's comments (with a Post form) and attached evidence via `rcSrvWork` — only when the page
+carries the `korvyn-sloane-api` marker. Sloane History adds **Saved in Korvyn** (`slSrvHistHTML`), and opening one
+resumes it in a new server conversation (`slSrvInvOpen`).
+
+**Also fixed:** Sloane's candidates and deterministic interpreter now resolve a reconciliation by NAME across both
+catalogs, and "show me the comments on …" is a READ, not a comment proposal.
+
+**Verified:** `npm run sloane:test` 42/42 (includes `persistence.test.ts`: restart on a real file DB, one book both
+ways, permissions at API and at execution, STALE_PROPOSAL, idempotency, audit fields + trigger immutability, session
+resolution) · `sloane:dryrun` 30/30 · core 78/78 + boundary · 4/4 gates unchanged · live server: a UI comment survives
+a server restart and Sloane (live model) quotes it; the auditor is refused 403; a stale proposal refreshes and completes.
+
+**Not built (per §33):** final reconciliation approval, close certification, report publication, ERP write-back, a
+production identity provider, external auditor access, PBC finalization, invoice connectors, Excel binary generation.
+**Debt:** module reconciliation balances and the Flux, Close and Reports browser pages still own their own state; the
+browser keeps its seeded `RC_SEED`/`CMT` alongside the server's.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

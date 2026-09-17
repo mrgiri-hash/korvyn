@@ -3,7 +3,7 @@ import { createServer, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { KorvynAgent } from './agent.js';
-import { handleSloane } from './sloane/routes.js';
+import { API_PREFIXES, handleSloane } from './sloane/routes.js';
 
 /**
  * Thin HTTP bridge so the dashboard's Ask Korvyn can reach the real agent.
@@ -23,7 +23,7 @@ function cors(res: ServerResponse): void {
 const server = createServer((req, res) => {
   const url = req.url ?? '';
   // Sloane's API is same-origin only: the page is served from this server, so it gets no open CORS.
-  if (url.startsWith('/api/sloane/')) {
+  if (API_PREFIXES.some((p) => url.startsWith(p))) {
     void handleSloane(req, res);
     return;
   }

@@ -13,7 +13,7 @@ export const OBJECT_TYPES = [
 export const OPERATIONS = ['VIEW', 'COMPARE_PERIODS', 'BREAKDOWN', 'EXPLAIN', 'DRILL', 'PROVE', 'BUILD', 'ACT', 'FIND', 'NAVIGATE'] as const;
 export const INTENTS = ['UNDERSTAND', 'FIND', 'PROVE', 'BUILD', 'ACT', 'NAVIGATE', 'CORRECTION', 'REVIEW'] as const;
 export const CONTINUITY = ['CONTINUATION', 'NEW_OBJECT', 'NEW_PERIOD', 'NEW_SCOPE', 'NEW_INVESTIGATION', 'CORRECTION'] as const;
-export const DIMENSIONS = ['project', 'vendor', 'entity', 'dept', 'costCenter', 'account'] as const;
+export const DIMENSIONS = ['project', 'vendor', 'entity', 'dept', 'costCenter', 'account', 'accountGroup', 'property', 'currency'] as const;
 export const CLARIFY_FIELDS = ['scope', 'period', 'object', 'entity'] as const;
 export const OUTPUT_PREFS = ['MONTHLY_COLUMNS', 'YEAR_TO_DATE', 'SINGLE_PERIOD'] as const;
 export const COMPARISON_BASIS = ['PRIOR_PERIOD', 'PRIOR_YEAR'] as const;
@@ -240,7 +240,7 @@ export function validatePlan(v: Json, allowedTools: string[], maxSteps: number):
       if (!c.keys(a, `steps[${i}].args[${j}]`, ['name', 'value', 'valueType'])) return;
       const A = a as Record<string, Json>;
       c.str(A['name'], `steps[${i}].args[${j}].name`, false, 60);
-      c.str(A['value'], `steps[${i}].args[${j}].value`, true, 200);
+      c.str(A['value'], `steps[${i}].args[${j}].value`, true, 1200);
       c.enm(A['valueType'], `steps[${i}].args[${j}].valueType`, ARG_TYPES);
     });
   });
@@ -257,8 +257,8 @@ export function validateNarrative(v: Json, objectIds: string[], factKeys: string
     if (!c.keys(s, `sentences[${i}]`, ['text', 'objectIds', 'factKeys'])) return;
     const S = s as Record<string, Json>;
     c.str(S['text'], `sentences[${i}].text`, false, 400);
-    if (c.arr(S['objectIds'], `sentences[${i}].objectIds`, 6)) (S['objectIds'] as Json[]).forEach((o) => { if (typeof o !== 'string' || !objectIds.includes(o)) c.errors.push(`sentences[${i}]: unknown object id`); });
-    if (c.arr(S['factKeys'], `sentences[${i}].factKeys`, 8)) (S['factKeys'] as Json[]).forEach((o) => { if (typeof o !== 'string' || !factKeys.includes(o)) c.errors.push(`sentences[${i}]: unknown fact key`); });
+    if (c.arr(S['objectIds'], `sentences[${i}].objectIds`, 12)) (S['objectIds'] as Json[]).forEach((o) => { if (typeof o !== 'string' || !objectIds.includes(o)) c.errors.push(`sentences[${i}]: unknown object id`); });
+    if (c.arr(S['factKeys'], `sentences[${i}].factKeys`, 20)) (S['factKeys'] as Json[]).forEach((o) => { if (typeof o !== 'string' || !factKeys.includes(o)) c.errors.push(`sentences[${i}]: unknown fact key`); });
   });
   return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: v as unknown as Narrative };
 }
