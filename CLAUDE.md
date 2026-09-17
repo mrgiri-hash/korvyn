@@ -8954,6 +8954,235 @@ and the response warns; other ranges render the end month with a warning) · aut
 typed tools for vendor analysis, journals-in-context, flux drafts and reports (they run through the bridges) ·
 PBC / invoices / write-back / Excel generation / audit packages.
 
+## 2026-09-16 — SLOANE PRE-LLM INFRASTRUCTURE: planner · canvas · evidence graph · artifacts · governance
+
+Owner's sprint brief (phases A–Z). One block, `SLOANE INFRASTRUCTURE (2026-09-16)`, sits between the
+SLOANE FOUNDATION block and `function cpSend`. It extends the foundation and re-implements none of it.
+Everything uses the `si` prefix (JS) and `.si-` (CSS); both were grepped before they were claimed.
+FS-CIP 4,210.2 · chronology 0 · `RC_POSTCLOSE` empty · 4/4 gates, baselines unchanged.
+
+**Run in the console:** `sloaneSelfTest()` (foundation, 15), `siSelfTest()` (every phase, 31) and
+`siEvalSuite()` (the 12 requests, in sequence). `siTraceView(n)` is the dev-only trace inspector.
+
+**Hooks into the foundation (the only edits outside the block):**
+- **`sfTraceStart`** adds `plan · steps · objectsCreated · artifactsCreated · actionsProposed ·
+  actionsExecuted · permissions`.
+- **`sfToolRun`** runs `siPermit` before every tool, then carries `data`, `populationId` and the
+  drill contract on the object.
+- **`sfRun`** calls `siRoute` after classification. Active-workbook follow-ups go first, then
+  multi-step plans. When it answers, navigation and the single-tool loop are skipped. After every
+  answer it runs `siInvRecord`.
+- **`slNew`** closes the infrastructure investigation and the active workbook.
+- **`slCtxResolve`** has one fix: a new object named after the orchestrator reset the previous one
+  keeps that object's period (`keptPeriod`).
+
+**What exists:**
+
+| Phase | Where | Notes |
+|---|---|---|
+| B tools | `SI_TOOLS`, pushed into `SF_TOOLS` | getFinancialSummary, getAccountAnalysis, getJournal, getReconciliationPopulation, getCloseBlockers, getFluxAnalysis, getEvidenceReferences, plus composeExcelWorkbook, composeAuditWorkbook, buildSupportPackage, buildPBCPackage, proposeAction. Each returns `data` beside its render |
+| C planner | `SI_PLAN_RULES`, `siPlan` | deterministic rules → `{planId, steps[tool, inputs, dependsOn, riskLevel, permitted]}`; inputs reference context (`$ctx.x`) or earlier outputs (`$1.largest.lineId`) |
+| D execution | `siExecute` | QUEUED · RUNNING · COMPLETED · FAILED · WAITING_FOR_USER · WAITING_FOR_APPROVAL; a failed dependency never runs |
+| E canvas | `SI_OBJT`, `siCanvasHTML` | 18 object types plus ActionProposal; a plan renders its step list and then one `.si-obj` section per object |
+| F drill | `siDrillContract` | Finding → Contributors → GovernedPopulation → Transaction → ERPSourceReference |
+| G provenance | `siValues(r,k,p)` | source / governed / effective / provenance / ruleId, off `glxDim` |
+| H evidence | `SI_EDGES`, `siGraphBuild`, `getEvidenceForObject`, `getRelatedFinancialObjects`, `getSupportCoverage`, `findMissingEvidence` | built from EV_RELS, FX_EXPL, RECON_DEFS policies, RB_REPORTS, RC_PACKAGES, DR_REQUESTS; transaction edges derived per population (`siTxnEdges`) |
+| I/J | `SI_INVESTIGATIONS`, `siInvRecord`, `siTimeline` | objects, populations, filters, questions, findings, evidence, actions, artifacts, timeline, conclusions — no messages |
+| K | `siArtifact`, `siArtifactRevise` | the seven types; definitions only, versioned with history |
+| L/M/N | `SI_XL_COLS`, `SI_XL_CMDS`, `siXlCmd`, `siXlFollow`, `SI_XL_PRESETS.KORVYN_FINANCIAL`, `siTieOut` | workbook definitions, nine commands, deterministic follow-ups, audit package with a COMPUTED tie-out |
+| O/P | `siSupportPackage`, `siPBCPackage` | references only; coverage and missing evidence stated |
+| Q/R | `SI_ACTION_POLICY`, `siActionLevel`, `SI_ACTION_CONTRACTS`, `siPropose`/`siConfirm`, `SI_AUDIT` | the level comes from policy; unknown → GOVERNED (fail closed); mock service; every step audited |
+| S/T | `siSrcRef`, `SI_IFACE`, `siImplements`, `SI_ERP_MOCK`, `SI_DOC_MOCK`, `siRegisterConnector` | no production connector |
+| W | `SF_LLM_MOCK.clarify`; `sfSetLLM` validates all six operations | a partial adapter is refused |
+| X | `siPopulation`, `siPopPage`, `siPopExport` | population ids, server-side contract, cursor pages, async export job (definition) |
+| Y | `siPermit`, `siVisibleRows` | user · module · entity/lens · document · action layers, off `kAccess`; rows via `rbPermit` |
+
+**Traps:**
+- **The seeded Sloane investigations hydrate through `sfRun` on first read.** A script that calls
+  `slSubmit` straight after a reload can race that hydration. Wait for load, then submit.
+- **The tie-out is honest but narrow.** Governed = ERP TB + approved adjustments is `fsAmount`'s own
+  identity, so all 51 lines tie. It does not compare against an independent ERP extract, and the
+  preview must never claim otherwise.
+- **Session stores fill up during tests.** `SI_ARTIFACTS`, `SI_PROPOSALS`, `SI_AUDIT` and friends are
+  session state, not governed stores. `siSelfTest` leaves its test records in them; a reload clears
+  them.
+
+**Not built (per the brief):** real LLM providers, autonomous agents, ERP writes, document or invoice
+retrieval, OCR, a production Excel add-in or file generation, a PBC portal, auditor collaboration,
+persistence across reloads.
+
+## 2026-09-17 — SLOANE 2.0 PHASE 2: real LLM reasoning + governed tool use
+
+Owner's brief. **THE LLM INTERPRETS AND PLANS. KORVYN EXECUTES AND PROVES.** The Sloane UI is unchanged apart
+from the answer's generated explanation, the execution-state line and the clarification card. FS-CIP 4,210.2 ·
+chronology 0 · `RC_POSTCLOSE` empty · 4/4 gates, baselines unchanged.
+
+**Where it lives:**
+- **Server:** `packages/agent/src/sloane/`.
+  - `config.ts`: environment only.
+  - `schema.ts`: JSON schemas plus strict hand-written validators.
+  - `prompts.ts`: frozen system prompts; request data wrapped in `<enterprise_data>`.
+  - `adapter.ts`: the `SloaneLLMAdapter` contract, `MockLLMAdapter`, `AnthropicSloaneAdapter`.
+  - `routes.ts`: `/api/sloane/health · interpret · plan · narrate`, wired into `src/server.ts`, same-origin only
+    (no open CORS).
+- **Browser:** block `SLOANE 2.0 PHASE 2 — REASONING + GOVERNED TOOL USE` in `index.html`, between the
+  infrastructure block and `cpSend`, prefix `s2`/`S2_`/`.s2-`.
+
+**Configuration** (server environment, never the browser):
+
+| Variable | Meaning |
+|---|---|
+| `SLOANE_LLM_PROVIDER` | `anthropic` or `mock`; defaults to `anthropic` when credentials exist, else `mock` |
+| `SLOANE_LLM_MODEL` | default `claude-opus-5` |
+| `SLOANE_LLM_EFFORT` | default `medium` |
+| `SLOANE_LLM_TIMEOUT_MS` | default 20000 |
+| `SLOANE_LLM_MAX_TOKENS` | default 8000 |
+| `SLOANE_MAX_PLAN_STEPS` | default 8 |
+| `ANTHROPIC_API_KEY` | read by the SDK only; never read, logged or forwarded by Sloane code |
+
+**The adapter:** structured output via `output_config.format` (json_schema), adaptive thinking, a cached
+system prompt, and `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`; SDK 0.114 types only the
+array form, hence one widening cast). It handles `refusal` and `max_tokens`, maps errors onto a typed chain
+(timeout · auth · rate_limited · unavailable) and re-validates every response. Health never names a provider;
+`engine` rides in outcome bodies for the dev trace only.
+
+**The page finds the service by a marker, not a probe.** `src/server.ts` injects
+`<meta name="korvyn-sloane-api">` into the index.html it serves. The python static server does not, so it
+never 404s on `/api/sloane/health` and runs `S2_DET`.
+
+**Lifecycle** (`s2Submit`, called by `slSubmit`; synchronous in deterministic mode, async with the service):
+1. **Interpret.** The request, a compact `s2Context()` (values with their provenance source), `s2Candidates()`
+   (canonical ids: `line:` `account:` `journal:` `vendor:` `project:` `entity:` `scope:`) and the governed
+   periods go to the model. The reply is re-validated with `s2ValidInterp`. A failed, unreachable or
+   low-confidence reply falls back to `s2DetInterpret` and states a note.
+2. **Resolve.** `s2ToRequest` resolves ids to governed objects, dropping any it cannot resolve, and maps to
+   the foundation SemanticRequest. `s2Classify` lets the engine overrule a model's "continuation" about a
+   different object.
+3. **Clarify** (`s2ClarifyDecision`), before any context changes. The model RECOMMENDS; engine policy decides.
+   A field is asked only if unreliable, where EXPLICIT / INHERITED / DERIVED are reliable and DEFAULTED /
+   UNKNOWN are not:
+   - a statement with no period needs `period`;
+   - a multi-month statement range with no reliable scope needs `scope`;
+   - a word matching 2+ governed entities needs `entity`.
+
+   Answering resumes the held request (`S2_RESUME`). "Choose scope" opens a region list. Clarification loops
+   are capped. Globals shown in an answer become INHERITED, so the next question does not re-ask.
+4. **Apply context** (`s2ApplyContext`). The new-object reset, filters, `SL_CTX.minAbsAmount` (a display
+   rule applied in `slDrvSec` / `slCmpSec`), comparison periods, and scope via `setScope`.
+5. **Execute.**
+   - **Single object:** `sfRun(raw, {req, cls, noClarify})`. The foundation orchestrator now accepts an
+     injected request; its inner trace is folded into the Phase 2 trace.
+   - **Plan** (multi-step, REVIEW, top-N, support questions): the allowlist (`s2Allowlist`: registered,
+     non-bridge, `siPermit`-permitted, relevant to the intent) goes to the model. `s2ValidatePlan` checks
+     each step: tool exists and is allowlisted; permitted; not GOVERNED; no CONFIRM tool on a read request;
+     dependencies backward; `$ctx.x` / `$N.path` refs valid; required inputs present. Otherwise it repairs
+     from context or rejects the step and its dependents, and caps at `maxToolCalls`. An empty plan retries
+     with `s2DetPlan` (≤ `maxPlanIterations`), then falls back to single execution. `siExecute` runs it.
+6. **Explain.** `s2Facts` extracts facts ONLY from tool outputs (`data`, the returned population, and
+   `slObjBal` for a bridge answer). The model writes sentences citing object ids and fact keys. `s2Ground`
+   rejects any sentence with a number that is not a fact's display value, or that cites an unknown object
+   or fact, and dedupes. No grounded sentence means `s2DetNarrate` (facts arranged, never computed).
+   Rendered as `.s2-nar` with `data-objects` / `data-facts` for later evidence highlighting.
+7. **Remember.** The investigation gains `interpretations[]`, `resolvedContexts[]`, `plans[]`,
+   `toolExecutions[]` and `corrections[]` (earlier objects marked `superseded`), plus grounded findings with
+   object ids.
+
+**Corrections** ("No, I meant South Valley only"): `s2MergeCorrection` changes the last executed
+interpretation (`S2_LAST`) only where the correction says, then re-runs against the ORIGINAL words so the
+bridge re-resolves the same object with the new filter.
+
+**Deterministic passthrough.** In `S2_DET` mode, a request that uses nothing Phase 2 adds goes straight to
+`slResolveText`, unchanged. Phase 2 features are thresholds, filters/corrections, top-N, review, support,
+and the clarification policy. A clarification the FOUNDATION raised also resumes on the foundation path
+(caught by infra test A5).
+
+**Limits** (`S2_LIMITS`): 2 plan iterations · 8 tool calls · 2 clarification loops · 25 s per call ·
+60 s wall clock · 60k tokens. Once the token budget or wall clock is hit, narration is deterministic.
+Anything reached is stated in the answer note and `trace.reasoning.limitsReached`.
+
+**Tool additions:**
+- `getPopulationSupport` (references only; says invoice documents are not connected).
+- `getFluxAnalysis({focusLargest})` moves context to the largest mover.
+- `s2WrapTool` attaches `data` to comparePeriods / getDriverAnalysis / getGovernedPopulation / getProofBridge /
+  getCloseReadiness / getReconciliationSummary.
+- `sfToolRun` keeps the tool's population on the object as a NON-enumerable `lines`.
+
+**Trace** (`trace.reasoning`, shown by `siTraceView`): mode, calls[stage · status · code · requestId ·
+engine · latency · usage], contextSupplied, candidatesSupplied, interpretation, clarificationDecision,
+plan (as proposed), planValidation[repairs · rejected · truncated], toolsAvailable, toolsSelected,
+narrative, grounding[accepted refs · rejected with reasons · fact keys], tokens, limitsReached, fallbacks,
+correction.
+
+**Run:**
+- `sloaneSelfTest()` 15 · `siSelfTest()` 31 · `siEvalSuite()` 12 · **`s2Eval()` 19** (phrasings, context chain,
+  ambiguity, wrong context, multi-step, proof, follow-ups, correction, entity ambiguity, review, invented tool,
+  fabricated number, provider down, permissions, injection, bounds).
+- `npm run sloane:dryrun` in `packages/agent`: 17 checks of the REAL adapter against a local fake Messages
+  endpoint, no spend.
+- `preview_start {name:'sloane-demo'}` (`npm run sloane:demo`): the full browser → API → real adapter path
+  against `scripted-demo.ts`, a **DEMO scaffold, not a provider**. It serves canned interpretations and plans
+  for the four brief flows plus one deliberately invented figure, which grounding must reject.
+
+**Traps:**
+- **A seeded Sloane investigation hydrates through `sfRun` when a question continues it.** Hydration
+  replays lazy steps, pushing traces and touching context mid-flow. Read a run's trace by its
+  `rawUserRequest` + `reasoning`, never "the last trace".
+- **`sfObject` does not keep `lines`.** Facts built from `o.lines` saw zero rows until `sfToolRun` attached
+  them (non-enumerable).
+- **Foundation `sfUpdate` marks scope DERIVED.** A reliability rule that only admits EXPLICIT/INHERITED asked
+  for scope on every follow-up.
+- **`.claude/launch.json` `runtimeExecutable` backslashes are eaten.** Use forward slashes.
+
+**Not built:** a live model call from this environment (no credentials here; transport proven with the
+scripted endpoint and the dry run) · monthly-column statements (a Jan-start range renders YTD, with the tool's
+warning as the note) · entity-scoped statements (an entity filter on a P&L resolves but the statement stays
+group) · streaming or progressive rendering of model output · write actions, PBC assembly, visual redesign.
+
+## 2026-09-17 (later) — SLOANE: orchestration moved SERVER-SIDE, structured-output schema fixed
+
+**Supersedes the "browser orchestrates" parts of the Phase 2 block above.** The first live Anthropic call
+failed with HTTP 400 before the model ran, and it exposed that orchestration lived in the browser.
+
+**The schema defect.** Anthropic structured outputs rejects `type: ["string","null"]` combined with `enum`
+(even when the enum lists null). Every nullable field in `packages/agent/src/sloane/schema.ts` is now
+`anyOf: [branch, {type:"null"}]`; enums are unchanged. `planSchema(toolIds)` restricts `tool` to the request's
+allowlist. `structuredOutputProblems()` runs in the adapter before every call. All three schemas were accepted
+by the live API.
+
+**The live path is now:**
+`Browser → POST /api/sloane/turn → SloaneOrchestrator (src/sloane/orchestrator.ts) → FinancialContextEngine →
+SloaneLLMAdapter → ClarificationEngine → Planner → tool registry (src/sloane/tools.ts) → FinancialObjects`.
+- The browser sends words, a session id and, to answer a question, `{pendingId, optionId}`. No context, plan
+  or actor. `/interpret`, `/plan`, `/narrate` return **410**. `GET /api/sloane/trace/:id` (loopback only) returns
+  the server-side `SloaneExecutionTrace`.
+- Server tools read `@korvyn/core`'s validated enterprise GL (seed 42, 12 invoices/month — the snapshot
+  `view-egl` embeds), via `src/sloane/financials.ts`. Declared, cited inputs: FX rate set `FXR-2026-AVG-REP-1`
+  (core has no rates) and intercompany-fee elimination. Tools: `getIncomeStatement`, `getTrialBalance` (READ),
+  `postJournalEntry` (GOVERNED, always refused). `WRITE_ACTIONS_ENABLED` is a constant `false`.
+- Actor is server-configured (`SLOANE_ACTOR_ROLE`: FINANCE_REVIEWER default, ENTITY_ACCOUNTANT scoped to MDH);
+  there is no authentication in this prototype and the browser cannot claim a role.
+- The model interprets and narrates; it plans only multi-step requests (single objects use the deterministic
+  plan). A deterministic interpreter answers when the adapter declines, fails or is unsure.
+- **Browser (`index.html`):** when the page carries the `korvyn-sloane-api` marker and health says available,
+  `s2Submit` → `s2ServerTurn` → `s2ServerRender` (existing `slCard`, no numbers computed in the browser).
+  `S2_REMOTE` is gone; `s2Reasoner()` is a scripted test reasoner or `S2_DET`. On a static host the old
+  deterministic browser engine still runs unchanged.
+
+**Live test (verified):** "I want to see a monthly income statement from January through April." →
+claude-opus-5 interprets (INCOME_STATEMENT, 2026-01→2026-04, monthly) → clarification: scope → consolidated →
+`getIncomeStatement` executed server-side → IncomeStatement, 4 columns, NI $9.14M / $8.29M / $10.28M / $9.80M,
+4 grounded sentences, 0 rejected. 3.4 s + 5.4 s.
+
+**Run:** `npm run sloane:test` (10) · `npm run sloane:dryrun` (29; the fake endpoint now rejects incompatible
+schemas like the live API) · typecheck. `preview_start {name:'sloane-serve'}` runs the REAL server
+(`npm run serve` from `packages/agent`; `.env` there holds the key). `.env.example` holds a placeholder.
+
+**Known gaps:** only two server tools exist, so every other Sloane capability works only on the static page,
+which never calls the model · `sloaneSelfTest()` D3 fails on the live-server page (it drives the browser
+clarification path synchronously; 15/15 on a static page) · prompt cache reads 0 (prompts likely below the
+cacheable minimum) · `scripted-demo.ts` still scripts browser tool names, which the server planner rejects ·
+the old key remains in git history (revoked).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

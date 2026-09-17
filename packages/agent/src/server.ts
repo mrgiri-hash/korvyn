@@ -3,6 +3,7 @@ import { createServer, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { KorvynAgent } from './agent.js';
+import { handleSloane } from './sloane/routes.js';
 
 /**
  * Thin HTTP bridge so the dashboard's Ask Korvyn can reach the real agent.
@@ -20,8 +21,13 @@ function cors(res: ServerResponse): void {
 }
 
 const server = createServer((req, res) => {
-  cors(res);
   const url = req.url ?? '';
+  // Sloane's API is same-origin only: the page is served from this server, so it gets no open CORS.
+  if (url.startsWith('/api/sloane/')) {
+    void handleSloane(req, res);
+    return;
+  }
+  cors(res);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -36,7 +42,9 @@ const server = createServer((req, res) => {
   if (req.method === 'GET' && (url === '/' || url === '/index.html' || url.startsWith('/?'))) {
     try {
       const uiPath = process.env['REVIEW_UI_PATH'] ?? join(process.cwd(), '..', '..', 'index.html');
-      const html = readFileSync(uiPath);
+      // The marker tells the page a Sloane reasoning service sits behind it. A static host serves the
+      // file without it, so the page never probes an API that does not exist.
+      const html = readFileSync(uiPath, 'utf8').replace('</head>', '<meta name="korvyn-sloane-api" content="/api/sloane"></head>');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch {

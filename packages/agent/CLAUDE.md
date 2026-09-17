@@ -47,3 +47,12 @@ npm run serve             # serves the main file (../../index.html) + live agent
 
 `npm run serve` is the only way to get a **live** Ask Korvyn — a published claude.ai artifact can
 never reach a model API (sandbox CSP), so the artifact only ever shows the deterministic fallback.
+
+## Sloane reasoning service (2026-09-17)
+
+`src/sloane/` is Korvyn's **Sloane API** — interpret · plan · narrate over a provider-neutral `SloaneLLMAdapter`
+(`AnthropicSloaneAdapter`, `claude-opus-5`, structured output, strict re-validation; `MockLLMAdapter` declines so the
+browser's deterministic engine answers). Mounted by `src/server.ts` at `/api/sloane/*`, same-origin only. **Since 2026-09-17 it orchestrates server-side**: `POST /api/sloane/turn` →
+`SloaneOrchestrator` (context, interpretation, clarification, planning, permissions, READ-only tools over `@korvyn/core`'s GL,
+grounding, traces). `/interpret` `/plan` `/narrate` return 410. `npm run sloane:test` · `npm run sloane:dryrun`. `npm run sloane:dryrun` (no spend) · `npm run sloane:demo` (scripted DEMO endpoint, not a provider). Full
+record in the root CLAUDE.md, *SLOANE 2.0 PHASE 2*.

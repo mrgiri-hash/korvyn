@@ -1,0 +1,121 @@
+import Anthropic from '@anthropic-ai/sdk';
+import type { SloaneConfig } from './config.js';
+import { INTERPRET_SYSTEM, NARRATE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
+import {
+  INTERPRETATION_SCHEMA, NARRATIVE_SCHEMA, planSchema, structuredOutputProblems,
+  validateInterpretation, validateNarrative, validatePlan,
+  type Interpretation, type Narrative, type Plan, type Result,
+} from './schema.js';
+
+/**
+ * THE PROVIDER-NEUTRAL CONTRACT. Korvyn's orchestrator speaks only this shape; a provider is an
+ * implementation detail of the server. Nothing in the browser — and nothing in the Sloane UI —
+ * knows which provider or model answered.
+ */
+export interface Usage { inputTokens: number; outputTokens: number; cacheReadTokens: number }
+export type AdapterOutcome<T> =
+  | { status: 'ok'; value: T; usage: Usage | null; latencyMs: number; requestId: string | null }
+  /** the adapter deliberately declines — Korvyn uses its deterministic engine */
+  | { status: 'declined'; reason: string; latencyMs: number }
+  /** the provider or the output failed — Korvyn falls back and says so */
+  | { status: 'error'; code: 'unavailable' | 'rate_limited' | 'timeout' | 'refused' | 'invalid_output' | 'auth'; detail: string; latencyMs: number; requestId: string | null };
+
+export interface InterpretInput { request: string; context: unknown; candidates: unknown; workingPeriod: string; availablePeriods: string[] }
+export interface PlanInput { request: string; interpretation: Interpretation; context: unknown; tools: { id: string; description: string; requiredInputs: string[]; optionalInputs: string[]; outputs?: string }[]; maxSteps: number }
+export interface NarrateInput { request: string; objects: { objectId: string; type: string; title: string; facts: { key: string; label: string; display: string }[] }[] }
+
+export interface SloaneLLMAdapter {
+  readonly provider: string;
+  readonly model: string;
+  interpret(i: InterpretInput): Promise<AdapterOutcome<Interpretation>>;
+  plan(i: PlanInput): Promise<AdapterOutcome<Plan>>;
+  narrate(i: NarrateInput): Promise<AdapterOutcome<Narrative>>;
+}
+
+/** Offline / test / demo mode: every call declines, so Korvyn's deterministic engine answers. */
+export class MockLLMAdapter implements SloaneLLMAdapter {
+  readonly provider = 'mock';
+  readonly model = 'deterministic-v1';
+  async interpret(): Promise<AdapterOutcome<Interpretation>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
+  async plan(): Promise<AdapterOutcome<Plan>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
+  async narrate(): Promise<AdapterOutcome<Narrative>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
+}
+
+/**
+ * The first production adapter. Structured output through output_config.format, re-validated by
+ * the strict validators; adaptive thinking; server-side refusal fallbacks. Credentials are resolved
+ * by the SDK from the server environment and are never read, logged or forwarded here.
+ */
+export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
+  readonly provider = 'anthropic';
+  readonly model: string;
+  private readonly client: Anthropic;
+
+  constructor(private readonly cfg: SloaneConfig) {
+    this.model = cfg.model;
+    this.client = new Anthropic({ timeout: cfg.timeoutMs, maxRetries: 1 });
+  }
+
+  private async call<T>(system: string, payload: unknown, schema: object, validate: (v: unknown) => Result<T>): Promise<AdapterOutcome<T>> {
+    const t0 = Date.now();
+    // a schema the provider would reject is Korvyn's bug, not a provider outage: refuse it before any call
+    const problems = structuredOutputProblems(schema);
+    if (problems.length) return { status: 'error', code: 'invalid_output', detail: 'output schema is not structured-output compatible: ' + problems.slice(0, 3).join('; '), latencyMs: 0, requestId: null };
+    const params = {
+      model: this.model,
+      max_tokens: this.cfg.maxTokens,
+      system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' as const } }],
+      messages: [{ role: 'user' as const, content: dataBlock(payload) }],
+      thinking: { type: 'adaptive' as const },
+      output_config: { effort: this.cfg.effort, format: { type: 'json_schema' as const, schema: schema as Record<string, unknown> } },
+      betas: ['server-side-fallback-2026-07-01'],
+    };
+    try {
+      // `fallbacks: "default"` routes a refused request to Anthropic's recommended fallback by
+      // refusal category. SDK 0.114 types only the array form, hence the one widening here.
+      const msg = await this.client.beta.messages.create({ ...params, fallbacks: 'default' } as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming);
+      const requestId = (msg as unknown as { _request_id?: string | null })._request_id ?? null;
+      const latencyMs = Date.now() - t0;
+      if (msg.stop_reason === 'refusal') return { status: 'error', code: 'refused', detail: 'the reasoning service declined this request', latencyMs, requestId };
+      if (msg.stop_reason === 'max_tokens') return { status: 'error', code: 'invalid_output', detail: 'output was truncated', latencyMs, requestId };
+      const text = msg.content.filter((b): b is Anthropic.Beta.Messages.BetaTextBlock => b.type === 'text').map((b) => b.text).join('');
+      let parsed: unknown;
+      try { parsed = JSON.parse(text); } catch { return { status: 'error', code: 'invalid_output', detail: 'output was not JSON', latencyMs, requestId }; }
+      const v = validate(parsed);
+      if (!v.ok) return { status: 'error', code: 'invalid_output', detail: v.errors.slice(0, 6).join('; '), latencyMs, requestId };
+      const u = msg.usage;
+      return { status: 'ok', value: v.value, latencyMs, requestId,
+        usage: { inputTokens: u.input_tokens, outputTokens: u.output_tokens, cacheReadTokens: u.cache_read_input_tokens ?? 0 } };
+    } catch (e) {
+      const latencyMs = Date.now() - t0;
+      if (e instanceof Anthropic.APIConnectionTimeoutError) return { status: 'error', code: 'timeout', detail: 'the reasoning service timed out', latencyMs, requestId: null };
+      if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) return { status: 'error', code: 'auth', detail: 'the reasoning service is not authorised', latencyMs, requestId: null };
+      if (e instanceof Anthropic.RateLimitError) return { status: 'error', code: 'rate_limited', detail: 'the reasoning service is rate limited', latencyMs, requestId: null };
+      if (e instanceof Anthropic.APIError) return { status: 'error', code: 'unavailable', detail: `the reasoning service returned ${e.status ?? 'an error'}${providerReason(e)}`, latencyMs, requestId: e.requestID ?? null };
+      return { status: 'error', code: 'unavailable', detail: 'the reasoning service could not be reached', latencyMs, requestId: null };
+    }
+  }
+
+  interpret(i: InterpretInput) { return this.call(INTERPRET_SYSTEM, i, INTERPRETATION_SCHEMA, validateInterpretation); }
+  plan(i: PlanInput) {
+    const ids = i.tools.map((t) => t.id);
+    return this.call(PLAN_SYSTEM, i, planSchema(ids), (v) => validatePlan(v, ids, i.maxSteps));
+  }
+  narrate(i: NarrateInput) {
+    const ids = i.objects.map((o) => o.objectId), keys = i.objects.flatMap((o) => o.facts.map((f) => f.key));
+    return this.call(NARRATE_SYSTEM, i, NARRATIVE_SCHEMA, (v) => validateNarrative(v, ids, keys));
+  }
+}
+
+/** The provider's own error type and message, sanitised: a 400 names the rejected field, which is what makes a
+ *  schema defect diagnosable from the trace. Credentials never appear in provider errors; redacted anyway. */
+function providerReason(e: InstanceType<typeof Anthropic.APIError>): string {
+  const body = (e as unknown as { error?: { error?: { type?: string; message?: string } } }).error?.error;
+  if (!body) return '';
+  const msg = String(body.message ?? '').replace(/sk-ant-[A-Za-z0-9_-]+/g, '<redacted>').replace(/\s+/g, ' ').slice(0, 240);
+  return ` (${body.type ?? 'error'}: ${msg})`;
+}
+
+export function createAdapter(cfg: SloaneConfig): SloaneLLMAdapter {
+  return cfg.provider === 'anthropic' ? new AnthropicSloaneAdapter(cfg) : new MockLLMAdapter();
+}
