@@ -3340,6 +3340,23 @@ button.tbx-s:hover b{color:var(--accent-ink)}
 #rcPanel .rcx-srvq{font-size:var(--fs-table);color:var(--muted);padding:var(--s-2) 0}
 #rcPanel .rcx-srvq.warn{color:var(--warning)}
 #rcPanel .rcx-srvc{display:flex;gap:var(--s-2);align-items:flex-end;padding-top:var(--s-2)}
+#rcPanel .kb-attach input{flex:1 1 0;min-width:0;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;height:var(--h-btn-sm);padding:0 var(--s-2)}
+.kb-n{margin-left:var(--s-2);color:var(--hint);font-weight:var(--fw-regular)}
+.kb-q{font-size:var(--fs-table);color:var(--muted);padding:var(--s-2) 0}
+.kb-cms{display:flex;flex-direction:column}
+.kb-cm{display:flex;flex-direction:column;gap:var(--s-1);padding:var(--s-2) 0;border-bottom:1px solid var(--line)}
+.kb-cm .m{font-size:var(--fs-label);color:var(--hint)}
+.kb-cm .t{font-size:var(--fs-table);color:var(--ink);white-space:pre-wrap}
+.kb-cm textarea,.kb-comp textarea{font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:var(--s-2);resize:vertical}
+.kb-comp{display:flex;gap:var(--s-2);align-items:flex-end;padding-top:var(--s-2)}
+.kb-comp textarea{flex:1 1 auto}
+.kb-acts{display:flex;gap:var(--s-2)}
+.kb-lnk{background:none;border:0;padding:0;margin-left:var(--s-2);font:inherit;color:var(--accent-ink);cursor:pointer}
+.kb-close{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--s-2) var(--s-3);margin:0 0 var(--s-3);padding:var(--s-3) 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kb-close .kb-f{display:flex;flex-direction:column;gap:var(--s-1);font-size:var(--fs-label);color:var(--hint)}
+.kb-close .kb-grow{flex:1 1 220px}
+.kb-close input{font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;height:var(--h-btn);padding:0 var(--s-2)}
+.kb-close .kb-meta{margin:0 0 0 auto;align-self:center}
 #rcPanel .rcx-srvc textarea{flex:1 1 auto;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:var(--s-2);resize:vertical}
 #rcPanel .amp-r{padding:var(--s-1) 0;border-top:1px solid var(--line)}
 #rcPanel .amp-sec+.amp-r,#rcPanel .rcx-more>summary+.amp-r{border-top:0}
@@ -31662,6 +31679,7 @@ function cwConfirm(kind){
 /* The header, the status strip and the view switcher — the three things every
    tab of the Close workspace shares. Below them the tab decides. */
 function closeShell(){
+  try{ if(typeof kbCloseHydrate==='function') kbCloseHydrate(false); }catch(e){}
   /* the route table belongs to THIS paint - reset it where the page starts, or
      every render would append another copy of every row destination */
   CW_ROUTES=[];
@@ -31905,6 +31923,7 @@ function renderAcctClose(){
           <div><dt>Status</dt><dd><span class="pill ${s.c}">${s.l}</span></dd></div>
           <div><dt>Depends on</dt><dd>${r.dep||'&#8211;'}</dd></div>
         </dl>
+        ${typeof kbCloseControl==='function'?kbCloseControl(r):''}
         <div class="subhead" style="margin:0 0 6px">Supporting documentation</div>
         ${docs.map(d=>`<div class="cl-doc">
           ${glIc('M3.5 2.5h5l3 3v8h-8zM8.5 2.5v3h3')}<span>${d}</span>
@@ -47995,6 +48014,7 @@ function fxRevTab(){
 
   /* §39 / §40 — history lives here rather than becoming a fourth primary tab */
   o+=fxWfActivity(fxSel);
+  o+=(typeof kbFluxSection==='function'?kbFluxSection(fxSel):'');
   if(e&&e.versions&&e.versions.length) o+=`<div class="amp-sec">History</div>
     <div class="fxv-vers">${e.versions.slice().reverse().map(v=>`<div class="fxv-v">
       <span class="n">v${v.v}</span>
@@ -58130,6 +58150,220 @@ function rcSupRow(r){
     note:drift.length?glEsc(drift.map(d=>d.label).join(', '))+' changed after this was published'
       :(r.note&&!ev?glEsc(r.note):null)});
 }
+/* ==== PHASE 3D — THE SERVER BOOK ADAPTER (TEMPORARY COMPATIBILITY LAYER, ISOLATED HERE) =========================
+   When this page is served by Korvyn's server (the `korvyn-sloane-api` marker), the SERVER is the one book for Flux
+   comments, reconciliation comments and support, the close checklist and Saved Reports — the same records Sloane reads
+   and writes. This block is the ONLY place the browser talks to that book:
+     kApi / kbFetch   every request; state-changing ones carry the session's CSRF token (read from /api/auth/me) and
+                      retry once if the token was rotated. Responses carry one outcome contract.
+     kbFlux*          the Flux workspace's line threads (commentStream appends them; cmtSave posts here)
+     kbClose*         hydrates CLOSE_TASKS from the server and changes a task's status through a domain action
+     kbReport*        Saved Reports: the list is the server's; save / save as / rename / archive / delete / share are
+                      domain actions, and the screen re-reads the server after each one
+   The browser never writes its own copy: after a write it REFETCHES and repaints. On a static host (no marker) none of
+   this runs and the prototype's local fixtures are used exactly as before.
+   TEMPORARY: the local fixtures (CLOSE_TASKS, RB_REPORTS, CMT) still exist as the render cache and the static-host
+   fallback. Retire them when the static prototype no longer needs to run without the server. */
+const KB={on:null, csrf:null, me:null, flux:{}, fluxBusy:{}, fluxEdit:null, close:{rec:{}, at:0, busy:false, canUpdate:false, draft:{}}, reports:{at:0, busy:false, loaded:false}};
+function kBookOn(){ if(KB.on===null){ try{ KB.on=!!document.querySelector('meta[name="korvyn-sloane-api"]'); }catch(e){ KB.on=false; } } return KB.on; }
+const kbKey=()=>(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
+const kbEnc=encodeURIComponent;
+async function kbToken(force){
+  if(KB.csrf&&!force) return KB.csrf;
+  try{ const r=await fetch('/api/auth/me',{cache:'no-store',credentials:'same-origin'}); const j=await r.json(); KB.csrf=j.csrfToken||null; KB.me=j.actor||null; }catch(e){ KB.csrf=null; }
+  return KB.csrf; }
+/** fetch with the session protection token on anything that changes state; one retry after a token rotation */
+async function kbFetch(url, opts){
+  opts=Object.assign({credentials:'same-origin', cache:'no-store'}, opts||{});
+  const m=(opts.method||'GET').toUpperCase();
+  const go=async(force)=>{ const h=Object.assign({}, opts.headers||{}); if(m!=='GET'&&m!=='HEAD') h['X-Korvyn-CSRF']=(await kbToken(force))||''; return fetch(url, Object.assign({}, opts, {headers:h})); };
+  let r=await go(false);
+  if(r.status===403&&m!=='GET'){ try{ const j=await r.clone().json(); if(j&&j.code==='CSRF_REJECTED') r=await go(true); }catch(e){} }
+  return r; }
+/** a domain call → {status, body}; the body always carries `outcome` */
+async function kApi(method, url, body){
+  try{ const r=await kbFetch(url,{method, headers:{'Content-Type':'application/json'}, body:body===undefined?undefined:JSON.stringify(body)});
+    let j; try{ j=await r.json(); }catch(e){ j={outcome:'UNAVAILABLE', reason:'Korvyn returned an unreadable response.'}; }
+    if(!j.outcome) j.outcome=r.ok?'SUCCESS':'UNAVAILABLE';
+    return {status:r.status, body:j};
+  }catch(e){ return {status:0, body:{outcome:'UNAVAILABLE', reason:'Korvyn could not be reached. Nothing was changed.'}}; } }
+function kbReason(b){ const o=b&&b.outcome;
+  return o==='STALE_VERSION'?'Someone changed this since you opened it. It has been reloaded — review it and try again.'
+    :o==='PERMISSION_DENIED'?((b&&b.reason)||'You are not permitted to do that.')
+    :((b&&b.reason)||'Korvyn could not complete that. Nothing was changed.'); }
+/** after any write, anywhere (a workspace or Sloane): drop what the screen holds and re-read the book */
+function kbInvalidate(){ if(!kBookOn()) return;
+  KB.flux={}; try{ for(const k in RC_SRV) delete RC_SRV[k]; }catch(e){}
+  kbCloseHydrate(true); kbReportsHydrate(true); }
+
+/* ---- FLUX ---------------------------------------------------------------------------------------- */
+const kbFluxKey=line=>line+'|'+VIEW.period;
+function kbFluxComments(line){
+  if(!kBookOn()||!line) return [];
+  const k=kbFluxKey(line), d=KB.flux[k];
+  if(!d&&!KB.fluxBusy[k]) kbFluxLoad(line);
+  return d&&d.comments?d.comments:[]; }
+async function kbFluxLoad(line, then){
+  const k=kbFluxKey(line); KB.fluxBusy[k]=1;
+  const r=await kApi('GET','/api/work/flux/line/'+kbEnc(line)+'?period='+kbEnc(VIEW.period));
+  delete KB.fluxBusy[k];
+  KB.flux[k]=r.body.outcome==='SUCCESS'?r.body:{comments:[], error:kbReason(r.body)};
+  if(then) then(); else renderAll(); }
+/** a Flux comment is written to the server book; the thread is re-read before the screen repaints */
+async function kbFluxPost(line, text, done){
+  const d=KB.flux[kbFluxKey(line)];
+  const r=await kApi('POST','/api/work/flux/line/'+kbEnc(line)+'/comments',{text, period:VIEW.period, idempotencyKey:kbKey(), expectedThreadVersion:d&&typeof d.threadVersion==='number'?d.threadVersion:undefined});
+  await kbFluxLoad(line, ()=>{});
+  done(r.body.outcome==='SUCCESS', r.body.outcome==='SUCCESS'?'':kbReason(r.body)); }
+/** the Flux Review "Comments" section: the line's thread in the server book — the workspace's comments and the ones
+ *  Sloane wrote on the account group the line presents. Post and edit are domain actions; the thread is re-read after. */
+function kbFluxSection(line){
+  if(!kBookOn()||!line) return '';
+  const k=kbFluxKey(line), d=KB.flux[k], cs=kbFluxComments(line);
+  const head='<div class="amp-sec">Comments'+(d&&!d.error?'<span class="kb-n">'+cs.length+'</span>':'')+'</div>';
+  if(!d) return head+'<div class="kb-q">Reading the Korvyn work store…</div>';
+  if(d.error) return head+'<div class="kb-q">'+glEsc(d.error)+'</div>';
+  const me=KB.me&&KB.me.id, ed=KB.fluxEdit&&KB.fluxEdit.line===line?KB.fluxEdit:null;
+  const list=cs.map(c=>'<div class="kb-cm">'
+      +'<div class="m">'+glEsc(c.author)+(c.via?' via '+glEsc(c.via):'')+' · '+glEsc(rcSrvWhen(c.at))+(c.version>1?' · edited':'')+(c.on&&c.on!=='line'?' · on account '+glEsc(c.on):'')
+      +(me&&c.authorId===me&&!c.via&&!ed?' <button class="kb-lnk" onclick="kbFluxEditStart(\''+glEsc(line)+'\',\''+glEsc(c.id)+'\')">Edit</button>':'')+'</div>'
+      +(ed&&ed.id===c.id
+        ?'<textarea id="kbFluxEditTa" rows="3" maxlength="2000">'+glEsc(c.text)+'</textarea><div class="kb-acts"><button class="btn-out sm" onclick="kbFluxEditSave(\''+glEsc(line)+'\')">Save</button><button class="btn-out sm" onclick="kbFluxEditCancel()">Cancel</button></div>'
+        :'<div class="t">'+glEsc(c.text)+'</div>')
+      +'</div>').join('');
+  return head+(cs.length?'<div class="kb-cms">'+list+'</div>':'<div class="kb-q">No comments on this line yet.</div>')
+    +(d.canComment
+      ?'<div class="kb-comp"><textarea id="kbFluxTa" rows="2" maxlength="2000" placeholder="Add a comment"></textarea><button class="btn-out sm" onclick="kbFluxPostBtn(this,\''+glEsc(line)+'\')">Post</button></div>'
+      :'<div class="kb-q">You can read these comments but not add one.</div>'); }
+async function kbFluxPostBtn(btn,line){
+  const ta=document.getElementById('kbFluxTa'), text=((ta&&ta.value)||'').trim(); if(!text) return;
+  btn.disabled=true;
+  kbFluxPost(line, text, (okd,msg)=>{ renderAll(); try{ toast(okd?'Comment posted to the Korvyn work store':msg); }catch(e){} }); }
+function kbFluxEditStart(line,id){ KB.fluxEdit={line,id}; renderAll(); }
+function kbFluxEditCancel(){ KB.fluxEdit=null; renderAll(); }
+async function kbFluxEditSave(line){
+  const ed=KB.fluxEdit; if(!ed) return;
+  const c=(KB.flux[kbFluxKey(line)]||{comments:[]}).comments.find(x=>x.id===ed.id);
+  const ta=document.getElementById('kbFluxEditTa'), text=((ta&&ta.value)||'').trim(); if(!c||!text) return;
+  const r=await kApi('POST','/api/work/comments/'+kbEnc(ed.id)+'/edit',{text, expectedVersion:c.version, idempotencyKey:kbKey()});
+  KB.fluxEdit=null; await kbFluxLoad(line,()=>{}); renderAll();
+  try{ toast(r.body.outcome==='SUCCESS'?'Comment updated':kbReason(r.body)); }catch(e){} }
+
+/* ---- CLOSE --------------------------------------------------------------------------------------- */
+const KB_CLOSE_ST=[['NOT_STARTED','Not started'],['IN_PROGRESS','In progress'],['BLOCKED','Blocked'],['COMPLETE','Complete']];
+async function kbCloseHydrate(force){
+  if(!kBookOn()||KB.close.busy) return;
+  if(!force&&Date.now()-KB.close.at<20000) return;
+  KB.close.busy=true;
+  const r=await kApi('GET','/api/work/close/tasks');
+  KB.close.busy=false; KB.close.at=Date.now();
+  if(r.body.outcome!=='SUCCESS') return;
+  KB.close.canUpdate=!!r.body.canUpdate;
+  (r.body.tasks||[]).forEach(t=>{ KB.close.rec[t.id]=t;
+    const local=CLOSE_TASKS.find(x=>x.id===t.id); if(local) local.st=t.code; });
+  try{ renderAll(); }catch(e){} try{ paintCloseStrip(); }catch(e){} }
+function kbCloseControl(r){
+  if(!kBookOn()) return '';
+  const t=KB.close.rec[r.id];
+  if(!t) return '<div class="kb-close"><span class="note" style="margin:0">Reading this task from the Korvyn work store…</span></div>';
+  const d=KB.close.draft[r.id]||{to:t.state, why:t.blockedBy||''};
+  const can=KB.close.canUpdate;
+  return '<div class="kb-close" onclick="event.stopPropagation()">'
+    +'<label class="kb-f"><span>Status</span><select '+(can?'':'disabled ')+'onchange="kbCloseDraft(\''+glEsc(r.id)+'\',\'to\',this.value)">'
+    +KB_CLOSE_ST.map(s=>'<option value="'+s[0]+'"'+(s[0]===d.to?' selected':'')+'>'+s[1]+'</option>').join('')+'</select></label>'
+    +(d.to==='BLOCKED'?'<label class="kb-f kb-grow"><span>Blocked by</span><input '+(can?'':'disabled ')+'value="'+glEsc(d.why||'')+'" maxlength="300" oninput="kbCloseDraft(\''+glEsc(r.id)+'\',\'why\',this.value,1)"></label>':'')
+    +(can?'<button class="btn-out sm" '+(d.to===t.state&&(d.to!=='BLOCKED'||(d.why||'')===(t.blockedBy||''))?'disabled ':'')+'onclick="kbCloseSet(\''+glEsc(r.id)+'\')">Update</button>':'')
+    +'<span class="note kb-meta">Korvyn work store · v'+t.version+' · updated '+glEsc(rcSrvWhen(t.updatedAt))+' by '+glEsc(t.updatedBy)+(can?'':' · read only')+'</span></div>'; }
+function kbCloseDraft(id,k,v,quiet){ const t=KB.close.rec[id]; if(!t) return;
+  const d=KB.close.draft[id]||(KB.close.draft[id]={to:t.state, why:t.blockedBy||''}); d[k]=v; if(!quiet) renderAll(); }
+async function kbCloseSet(id){
+  const t=KB.close.rec[id], d=KB.close.draft[id]; if(!t||!d) return;
+  const r=await kApi('POST','/api/work/close/tasks/'+kbEnc(id)+'/status',{to:d.to, blockedBy:d.to==='BLOCKED'?(d.why||''):undefined, expectedVersion:t.version, idempotencyKey:kbKey()});
+  if(r.body.outcome==='SUCCESS'||r.body.outcome==='STALE_VERSION') delete KB.close.draft[id];
+  await kbCloseHydrate(true);
+  try{ toast(r.body.outcome==='SUCCESS'?'Task updated in the Korvyn work store':kbReason(r.body)); }catch(e){} }
+
+/* ---- SAVED REPORTS ------------------------------------------------------------------------------ */
+const kbWhen=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}); }catch(e){ return iso||''; } };
+/** the Saved Reports list IS the server's: RB_REPORTS is rebuilt from it (the array is the render cache) */
+async function kbReportsHydrate(force, then){
+  if(!kBookOn()) return;
+  if(KB.reports.busy){ if(then) setTimeout(()=>kbReportsHydrate(force, then),120); return; }
+  KB.reports.busy=true;
+  const r=await kApi('GET','/api/work/reports');
+  KB.reports.busy=false;
+  if(r.body.outcome!=='SUCCESS'){ if(then) then(false); return; }
+  const next=(r.body.reports||[]).map(s=>{
+    const prev=RB_REPORTS.find(x=>x.id===s.id);
+    const history=(prev&&prev.history||[]).slice();
+    if(!prev||prev.version!==s.version) history.push({v:s.version, at:kbWhen(s.updatedAt), by:s.updatedByName, what:(s.definition&&s.definition.what)||(prev?'Updated':'Created')});
+    const def=Object.assign({}, s.browser);
+    return rbSeedDef(Object.assign(def, {id:s.id, name:s.name, owner:s.owner, version:s.version, createdBy:s.createdByName, createdAt:kbWhen(s.createdAt),
+      updatedBy:s.updatedByName, updatedAt:kbWhen(s.updatedAt), history, archived:s.archived, sharedWith:s.sharedWith||[], lastRun:prev?prev.lastRun:null,
+      type:(typeof rbTypeOf==='function'?rbTypeOf(def):(def.type||'Analysis')), createdVia:s.createdVia}));
+  });
+  RB_REPORTS.length=0; next.forEach(x=>RB_REPORTS.push(x));
+  KB.reports.loaded=true; KB.reports.at=Date.now();
+  if(then) then(true); else { try{ if(TAB==='rsaved'||TAB==='rbuild') rbRender(); }catch(e){} } }
+/** one versioned change to a saved report, then the list is re-read from the server */
+async function kbReportWrite(id, patch, done){
+  const tgt=RB_REPORTS.find(x=>x.id===id);
+  const r=id?await kApi('POST','/api/work/reports/'+kbEnc(id), Object.assign({expectedVersion:tgt?tgt.version:0, idempotencyKey:kbKey()}, patch))
+            :await kApi('POST','/api/work/reports', Object.assign({idempotencyKey:kbKey()}, patch));
+  await kbReportsHydrate(true, ()=>{});
+  const okd=r.body.outcome==='SUCCESS';
+  rbNote={t:okd?'':kbReason(r.body)};
+  done(okd, r.body); }
+const kbDefOf=d=>{ const c=rbClone(d); ['id','version','history','createdBy','createdAt','updatedBy','updatedAt','archived','sharedWith','lastRun','owner','createdVia'].forEach(k=>delete c[k]); return c; };
+
+if(kBookOn()){
+  /* the Reporting workspace's writers become domain actions against the server book */
+  rbSave=function(){
+    const d=rbEnsure();
+    if(!rbOpenId){ rbSaveAsStart(); return; }
+    const tgt=RB_REPORTS.find(r=>r.id===rbOpenId); if(!tgt) return;
+    const what=rbDiffWhat(tgt,d);
+    if(!what.length){ rbNote={t:'No changes to save.'}; rbDirty=false; rbRender(); return; }
+    kbReportWrite(tgt.id,{definition:kbDefOf(d), name:d.name, what:what.join('; ')},(okd)=>{
+      const cur=RB_REPORTS.find(r=>r.id===tgt.id);
+      if(okd&&cur){ rbDef=rbClone(cur); rbDirty=false; rbNote={t:'Saved as version '+cur.version+'.'}; }
+      rbRender(); }); };
+  rbSaveAsCommit=function(){
+    const i=document.getElementById('rbSaveAsIn'); const nm=((i&&i.value)||rbSaveAs||'').trim();
+    if(!nm){ rbNote={t:'Give the report a name.'}; rbRender(); return; }
+    kbReportWrite(null,{name:nm, definition:Object.assign(kbDefOf(rbEnsure()),{name:nm})},(okd,b)=>{
+      const nid=okd&&b.report?b.report.id:null, cur=nid?RB_REPORTS.find(r=>r.id===nid):null;
+      if(cur){ rbDef=rbClone(cur); rbOpenId=nid; rbDirty=false; rbSaveAs=null; rbAi=null; rbNote={t:'Saved “'+nm+'”. It is in Saved Reports.'}; rbModeSet('view'); }
+      rbRender(); }); };
+  rbRenameCommit=function(){
+    const id=rbRenaming; if(id==null) return; rbRenaming=null;
+    const i=document.getElementById('rbRenIn'); const nm=((i&&i.value)||'').trim();
+    if(!nm){ rbRender(); return; }
+    const sid=id==='__open'?rbOpenId:id;
+    if(id==='__open') rbEnsure().name=nm;
+    const tgt=sid?RB_REPORTS.find(r=>r.id===sid):null;
+    if(!tgt||tgt.name===nm){ rbRender(); return; }
+    kbReportWrite(tgt.id,{name:nm, what:'Renamed'},(okd)=>{ if(okd){ if(rbOpenId===tgt.id) rbDef.name=nm; rbNote={t:'Renamed to “'+nm+'”.'}; } rbRender(); }); };
+  rbDescCommit=function(){ if(!rbDescEdit) return; rbDescEdit=false;
+    const i=document.getElementById('rbDescIn'); const v=((i&&i.value)||'').trim();
+    const d=rbEnsure(); if(v===(d.desc||'')){ rbRender(); return; }
+    d.desc=v;
+    const tgt=rbOpenId?RB_REPORTS.find(r=>r.id===rbOpenId):null;
+    if(!tgt){ rbRender(); return; }
+    kbReportWrite(tgt.id,{definition:Object.assign(kbDefOf(tgt),{desc:v}), what:'Edited description'},()=>rbRender()); };
+  rbDuplicate=function(id){ const s=RB_REPORTS.find(r=>r.id===id); if(!s) return;
+    kbReportWrite(null,{name:s.name+' (copy)', definition:Object.assign(kbDefOf(s),{name:s.name+' (copy)'})},(okd)=>{ if(okd) rbNote={t:'Duplicated “'+s.name+'”.'}; rbRender(); }); };
+  rbArchive=function(id){ const s=RB_REPORTS.find(r=>r.id===id); if(!s) return;
+    kbReportWrite(id,{archived:!s.archived, what:s.archived?'Restored':'Archived'},(okd)=>{ if(okd) rbNote={t:(s.archived?'Restored “':'Archived “')+s.name+'”. Its history is kept.'}; rbRender(); }); };
+  rbDeleteDo=function(id){ const s=RB_REPORTS.find(r=>r.id===id); if(!s) return;
+    rbDelAsk=null;
+    kbReportWrite(id,{deleted:true, what:'Deleted'},(okd)=>{ if(okd){ if(rbOpenId===id) rbOpenId=null; rbNote={t:'Deleted “'+s.name+'”. Nothing in the Governed Ledger changed.'}; } rbRender(); }); };
+  rbShareWith=function(id,who){ const s=RB_REPORTS.find(r=>r.id===id); if(!s) return;
+    const next=s.sharedWith.indexOf(who)>=0?s.sharedWith.filter(x=>x!==who):s.sharedWith.concat([who]);
+    kbReportWrite(id,{sharedWith:next, what:'Changed sharing'},()=>rbRender()); };
+  setTimeout(()=>{ kbToken(); kbReportsHydrate(true); kbCloseHydrate(true); },0);
+}
+
 /* ==== PHASE 3C — ONE BOOK. When this page is served by Korvyn's server, a reconciliation's comments, attached
    evidence and support references are the SERVER's: the same records Sloane reads and writes. The panel reads
    GET /api/work/reconciliations/:id and writes through POST …/comments — the actor comes from the session cookie,
@@ -58144,9 +58378,8 @@ function rcSrvWork(def,inst,tab){
   if(!d&&!RC_SRV_BUSY[k]) rcSrvLoad(def.reconciliationDefinitionId, inst.periodId);
   return '<div class="rcx-srv" data-rcsrv="'+glEsc(k)+'" data-tab="'+tab+'">'+rcSrvInner(k,tab)+'</div>'; }
 async function rcSrvLoad(id,period,note){ const k=id+'|'+period; RC_SRV_BUSY[k]=1;
-  try{ const r=await fetch('/api/work/reconciliations/'+encodeURIComponent(id)+'?period='+encodeURIComponent(period),{cache:'no-store'});
-    const j=await r.json(); RC_SRV[k]=r.ok?j:{error:(j&&j.reason)||'Korvyn could not read this reconciliation.'}; }
-  catch(e){ RC_SRV[k]={error:'Korvyn could not be reached.'}; }
+  const r=await kApi('GET','/api/work/reconciliations/'+encodeURIComponent(id)+'?period='+encodeURIComponent(period));
+  RC_SRV[k]=r.body.outcome==='SUCCESS'?r.body:{error:kbReason(r.body)};
   if(note) RC_SRV[k].note=note;
   delete RC_SRV_BUSY[k]; rcSrvPaint(k); }
 function rcSrvPaint(k){ document.querySelectorAll('[data-rcsrv="'+CSS.escape(k)+'"]').forEach(el=>{ const draft=el.querySelector('textarea'); const keep=draft&&draft.value;
@@ -58161,8 +58394,11 @@ function rcSrvInner(k,tab){
     return '<div class="amp-sec">Attached evidence<span class="rcx-srvn">'+(ev.length+att.length)+'</span></div>'
       +(ev.length||att.length?'<div class="rcx-srvl">'
         +att.map(x=>'<div class="rcx-srvi"><span class="t">'+glEsc(x.requirement)+'</span><span class="m">'+glEsc(x.reference)+'</span></div>').join('')
-        +ev.map(x=>'<div class="rcx-srvi"><span class="t">'+glEsc(x.label||x.from)+'</span><span class="m">'+glEsc(x.kind||'')+' · '+glEsc(x.createdBy||'')+(x.via?' via '+glEsc(x.via):'')+' · reference only</span></div>').join('')+'</div>'
-      :'<div class="rcx-srvq">No evidence is attached in the Korvyn work store.</div>'); }
+        +ev.map(x=>'<div class="rcx-srvi"><span class="t">'+glEsc(x.label||x.from)+'</span><span class="m">'+glEsc(x.from||'')+' · '+glEsc(x.kind||'')+' · '+(x.via==='Sloane'?'via Sloane':x.via==='UI'?'from Reconciliations':'')+' · reference only</span></div>').join('')+'</div>'
+      :'<div class="rcx-srvq">No evidence is attached in the Korvyn work store.</div>')
+    +(d.canAttach
+      ?'<div class="rcx-srvc kb-attach"><input data-f="ref" maxlength="120" placeholder="Reference, e.g. WP-2026-06-TRANSFERS v1"><input data-f="label" maxlength="200" placeholder="Description"><button class="btn-out sm" data-k="'+glEsc(k)+'" onclick="rcSrvAttach(this)">Attach</button></div>'
+      :'<div class="rcx-srvq">'+(d.status==='APPROVED'?'Approved — support changes reopen review and are governed.':'You can read the support but not attach it.')+'</div>'); }
   const cs=d.comments||[];
   return '<div class="amp-sec">Comments<span class="rcx-srvn">'+cs.length+'</span></div>'
     +(cs.length?'<div class="rcx-srvl">'+cs.map(c=>'<div class="rcx-srvi"><span class="m">'+glEsc(c.author)+(c.via?' via '+glEsc(c.via):'')+' · '+glEsc(rcSrvWhen(c.at))+(c.version>1?' · edited':'')+'</span><span class="t">'+glEsc(c.text)+'</span></div>').join('')+'</div>'
@@ -58175,14 +58411,23 @@ async function rcSrvPost(btn){
   const k=btn.getAttribute('data-k'), d=RC_SRV[k], box=btn.parentNode.querySelector('textarea'), text=(box.value||'').trim();
   if(!d||!text||RC_SRV_BUSY[k]) return; RC_SRV_BUSY[k]=1; btn.disabled=true;
   const [id,period]=k.split('|');
-  const key=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
-  try{ const r=await fetch('/api/work/reconciliations/'+encodeURIComponent(id)+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text, period, idempotencyKey:key, expectedThreadVersion:d.threadVersion})});
-    const j=await r.json(); delete RC_SRV_BUSY[k];
-    if(r.status===201){ box.value=''; return rcSrvLoad(id,period); }
-    if(r.status===409) return rcSrvLoad(id,period,'Someone commented while you were writing. The thread is reloaded — your draft is kept; post again to add it.');
-    try{ toast((j&&j.reason)||'Korvyn refused the comment'); }catch(e){}
-  }catch(e){ delete RC_SRV_BUSY[k]; try{ toast('Korvyn could not be reached — nothing was posted'); }catch(_){} }
+  const r=await kApi('POST','/api/work/reconciliations/'+encodeURIComponent(id)+'/comments',{text, period, idempotencyKey:kbKey(), expectedThreadVersion:d.threadVersion});
+  delete RC_SRV_BUSY[k];
+  if(r.body.outcome==='SUCCESS'){ box.value=''; return rcSrvLoad(id,period); }
+  if(r.body.outcome==='STALE_VERSION') return rcSrvLoad(id,period,'Someone commented while you were writing. The thread is reloaded — your draft is kept; post again to add it.');
+  try{ toast(kbReason(r.body)); }catch(e){}
+  btn.disabled=false; }
+/* 3D — attach a support REFERENCE from the Reconciliation workspace: the same evidence relationship Sloane's attach writes */
+async function rcSrvAttach(btn){
+  const k=btn.getAttribute('data-k'), d=RC_SRV[k], wrap=btn.closest('.rcx-srvc'); if(!d||!wrap||RC_SRV_BUSY[k]) return;
+  const ref=(wrap.querySelector('[data-f="ref"]').value||'').trim(), label=(wrap.querySelector('[data-f="label"]').value||'').trim();
+  if(!ref){ try{ toast('Give the support a reference, e.g. WP-2026-06-TRANSFERS v1'); }catch(e){} return; }
+  RC_SRV_BUSY[k]=1; btn.disabled=true;
+  const [id,period]=k.split('|');
+  const r=await kApi('POST','/api/work/reconciliations/'+encodeURIComponent(id)+'/support',{reference:ref, label:label||ref, kind:'WORKPAPER', period, idempotencyKey:kbKey(), expectedSupportVersion:d.supportVersion});
+  delete RC_SRV_BUSY[k];
+  if(r.body.outcome==='SUCCESS'||r.body.outcome==='STALE_VERSION'){ if(r.body.outcome==='SUCCESS') try{ toast('Support attached in the Korvyn work store'); }catch(e){} return rcSrvLoad(id,period, r.body.outcome==='STALE_VERSION'?kbReason(r.body):undefined); }
+  try{ toast(kbReason(r.body)); }catch(e){}
   btn.disabled=false; }
 function rcSupTab(def,inst){
   const p=inst.periodId, dId=def.reconciliationDefinitionId;
@@ -78052,7 +78297,7 @@ async function slSrvHistLoad(){ SL_SRVINV_AT=Date.now();
 async function slSrvInvOpen(id){
   S2_SID=null; const sid=s2Sid();
   let v=null;
-  try{ const r=await fetch('/api/sloane/investigations/'+encodeURIComponent(id)+'/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:sid})}); if(r.ok) v=await r.json(); }catch(e){}
+  try{ const r=await kbFetch('/api/sloane/investigations/'+encodeURIComponent(id)+'/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:sid})}); if(r.ok) v=await r.json(); }catch(e){}
   if(!v){ try{ cpToast('That investigation could not be opened'); }catch(e){} return; }
   const last=(v.steps||[]).filter(x=>(x.objects||[]).length).slice(-1)[0];
   const html=slCard({kind:'server', for:'Resumed from Korvyn · '+(v.steps||[]).length+' steps · '+(v.proposals||[]).length+' actions', head:glEsc(v.investigation.title),
@@ -80455,7 +80700,7 @@ const S2_SVC={checked:false, available:false, mode:'deterministic', limits:null,
     S2_SVC.checked=true; return S2_SVC.available; },
   async post(route, body){ const t0=performance.now();
     try{ const ac=new AbortController(), to=setTimeout(()=>ac.abort(), S2_LIMITS.callTimeoutMs);
-      const r=await fetch('/api/sloane/'+route, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ac.signal});
+      const r=await kbFetch('/api/sloane/'+route, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ac.signal});
       clearTimeout(to);
       if(!r.ok) return {status:'error', code:'unavailable', detail:'Sloane service returned '+r.status, latencyMs:Math.round(performance.now()-t0)};
       return await r.json();
@@ -80468,7 +80713,7 @@ const S2_SVC={checked:false, available:false, mode:'deterministic', limits:null,
    The retired /interpret, /plan and /narrate routes answer 410 — nothing here calls them. */
 S2_SVC.turn=async function(body){ const t0=performance.now();
   try{ const ac=new AbortController(), to=setTimeout(()=>ac.abort(), S2_LIMITS.wallClockMs);
-    const r=await fetch('/api/sloane/turn', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ac.signal});
+    const r=await kbFetch('/api/sloane/turn', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ac.signal});
     clearTimeout(to); if(!r.ok) return {state:'ERROR', notes:['Sloane service returned '+r.status], latencyMs:Math.round(performance.now()-t0)};
     return await r.json();
   }catch(e){ return {state:'ERROR', notes:[e&&e.name==='AbortError'?'Sloane timed out':'Sloane could not be reached'], latencyMs:Math.round(performance.now()-t0)}; } };
@@ -81094,13 +81339,14 @@ function s3Paint(p, msg){ S3_P[p.id]=p;
     el.innerHTML=s3ActInner(p, msg); }); }
 async function s3Decide(body){ const key=body.proposalId||body.planId; if(S3_BUSY[key]) return; S3_BUSY[key]=1;
   document.querySelectorAll('[data-id="'+key+'"],[data-plan="'+key+'"] button').forEach(x=>x.disabled=true);
-  try{ const r=await fetch('/api/sloane/action',{method:'POST',headers:{'Content-Type':'application/json'},
+  try{ const r=await kbFetch('/api/sloane/action',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(Object.assign({sessionId:s2Sid(), requestId:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random())}, body))}).then(x=>x.json());
     const msgs={}; (r.results||[]).forEach(x=>msgs[x.proposalId]=x.message);
     (r.proposals||[]).forEach(p=>{ if(body.decision==='regenerate'&&p.id!==key&&!document.querySelector('[data-s3a="'+CSS.escape(p.id)+'"]'))
         document.querySelectorAll('[data-s3a="'+CSS.escape(key)+'"]').forEach(el=>el.insertAdjacentHTML('afterend','<div class="s3-act" data-s3a="'+glEsc(p.id)+'"></div>'));
       s3Paint(p, msgs[p.id]); });
     if(!(r.proposals||[]).length&&(r.results||[])[0]) try{ toast(r.results[0].message); }catch(e){}
+    if((r.results||[]).some(x=>x.status==='COMPLETED')&&typeof kbInvalidate==='function') kbInvalidate();
   }catch(e){ try{ toast('Sloane could not reach Korvyn — nothing was changed'); }catch(_){} const p=S3_P[key]; if(p) s3Paint(p); }
   finally{ delete S3_BUSY[key]; } }
 function s3Btn(b){ const id=b.getAttribute('data-id'), act=b.getAttribute('data-act'), p=S3_P[id]; if(!p) return;

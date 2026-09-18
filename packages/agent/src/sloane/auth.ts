@@ -22,16 +22,16 @@ import type { WorkRepositories } from './persistence/repositories.js';
 export type Capability =
   | 'FINANCIALS_VIEW' | 'TB_VIEW' | 'GL_VIEW' | 'FLUX_VIEW' | 'FLUX_COMMENT' | 'RECON_VIEW' | 'RECON_COMMENT' | 'CLOSE_VIEW'
   | 'EVIDENCE_VIEW' | 'SUPPORT_ATTACH' | 'REPORT_VIEW' | 'REPORT_CREATE' | 'ISSUE_CREATE' | 'REVIEW_ASSIGN' | 'AUDIT_VIEW'
-  | 'ANALYSIS_SAVE' | 'INVESTIGATION_SAVE' | 'ARTIFACT_CREATE' | 'SUPPORT_PACKAGE_CREATE'
+  | 'ANALYSIS_SAVE' | 'INVESTIGATION_SAVE' | 'ARTIFACT_CREATE' | 'SUPPORT_PACKAGE_CREATE' | 'CLOSE_TASK_UPDATE'
   /* future governed capabilities: declared so policy can name them; granted to NO role in this phase */
   | 'RECON_APPROVE' | 'CLOSE_CERTIFY' | 'REPORT_PUBLISH' | 'MAPPING_CHANGE' | 'ERP_WRITEBACK';
 export const FUTURE_GOVERNED: Capability[] = ['RECON_APPROVE', 'CLOSE_CERTIFY', 'REPORT_PUBLISH', 'MAPPING_CHANGE', 'ERP_WRITEBACK'];
 
 const VIEW_ALL: Capability[] = ['FINANCIALS_VIEW', 'TB_VIEW', 'GL_VIEW', 'FLUX_VIEW', 'RECON_VIEW', 'CLOSE_VIEW', 'EVIDENCE_VIEW', 'REPORT_VIEW', 'AUDIT_VIEW'];
 export const ROLE_CAPABILITIES: Record<string, Capability[]> = {
-  FINANCE_REVIEWER: [...VIEW_ALL, 'FLUX_COMMENT', 'RECON_COMMENT', 'SUPPORT_ATTACH', 'REPORT_CREATE', 'ISSUE_CREATE', 'REVIEW_ASSIGN', 'ANALYSIS_SAVE', 'INVESTIGATION_SAVE', 'ARTIFACT_CREATE', 'SUPPORT_PACKAGE_CREATE'],
+  FINANCE_REVIEWER: [...VIEW_ALL, 'FLUX_COMMENT', 'RECON_COMMENT', 'CLOSE_TASK_UPDATE', 'SUPPORT_ATTACH', 'REPORT_CREATE', 'ISSUE_CREATE', 'REVIEW_ASSIGN', 'ANALYSIS_SAVE', 'INVESTIGATION_SAVE', 'ARTIFACT_CREATE', 'SUPPORT_PACKAGE_CREATE'],
   /* one book, commenting and support on it; no group statements, no audit, no reviewer assignment, no shared reports */
-  ENTITY_ACCOUNTANT: ['FINANCIALS_VIEW', 'TB_VIEW', 'GL_VIEW', 'FLUX_VIEW', 'RECON_VIEW', 'CLOSE_VIEW', 'EVIDENCE_VIEW', 'RECON_COMMENT', 'SUPPORT_ATTACH', 'ISSUE_CREATE', 'ANALYSIS_SAVE', 'ARTIFACT_CREATE'],
+  ENTITY_ACCOUNTANT: ['FINANCIALS_VIEW', 'TB_VIEW', 'GL_VIEW', 'FLUX_VIEW', 'RECON_VIEW', 'CLOSE_VIEW', 'EVIDENCE_VIEW', 'RECON_COMMENT', 'CLOSE_TASK_UPDATE', 'SUPPORT_ATTACH', 'ISSUE_CREATE', 'ANALYSIS_SAVE', 'ARTIFACT_CREATE'],
   /* read-only: populations, evidence, reporting; never comments, never workflow in progress */
   EXTERNAL_AUDITOR: ['FINANCIALS_VIEW', 'TB_VIEW', 'GL_VIEW', 'RECON_VIEW', 'AUDIT_VIEW', 'EVIDENCE_VIEW', 'REPORT_VIEW', 'ANALYSIS_SAVE'],
 };
@@ -101,41 +101,104 @@ export const SoDPolicyService = {
   evaluate(actionType: string, c: SoDContext): { policyId: string; ok: boolean; reason: string | null }[] {
     return SOD_POLICIES.filter((p) => p.appliesTo.includes(actionType)).map((p) => { const r = p.check(c); return { policyId: p.id, ok: !r, reason: r }; });
   },
+  /** the questions a future governed action asks before it may run. Nothing here is executable yet: approval and
+   *  certification capabilities are granted to no role, so `canApprove` is false for everyone in this phase. */
+  canPrepare(actor: Pick<ActorContext, 'id' | 'permissions'>, work: { reviewerId?: string | null }) {
+    return work.reviewerId && work.reviewerId === actor.id ? { ok: false, reason: 'you are the reviewer of this work and cannot prepare it' } : { ok: true, reason: null };
+  },
+  canReview(actor: Pick<ActorContext, 'id'>, work: { preparerId?: string | null }) {
+    return this.isOwnWork(actor, work) ? { ok: false, reason: 'you prepared this work and cannot review it' } : { ok: true, reason: null };
+  },
+  canApprove(actor: Pick<ActorContext, 'id' | 'permissions'>, work: { preparerId?: string | null }, capability: Capability = 'RECON_APPROVE') {
+    if (!actor.permissions.includes(capability)) return { ok: false, reason: `${capability} is not granted in this phase` };
+    return this.isOwnWork(actor, work) ? { ok: false, reason: 'you prepared this work and cannot approve it' } : { ok: true, reason: null };
+  },
+  isOwnWork: (actor: Pick<ActorContext, 'id'>, work: { preparerId?: string | null }) => !!work.preparerId && personId(work.preparerId) === actor.id,
 };
 
 /* ================================================================================================
-   SESSION SERVICE
+   AUTHENTICATION BOUNDARY
+     AuthProvider  ->  AuthenticatedSession  ->  ActorContext  ->  AuthorizationService
+   The rest of Korvyn asks `AuthContext.resolve(req)` and never learns whether the identity came from the development
+   session provider or, later, Entra ID / Okta / another OIDC or SAML provider — a new AuthProvider, nothing else.
    ================================================================================================ */
+export interface AuthenticatedSession { sessionId: string; userId: string; csrfToken: string; issuedAt: string; expiresAt: string; provider: string }
+export interface AuthProvider {
+  readonly id: string;
+  /** the live session carried by this request, or null. May establish one (dev auto sign-in) when `res` is given. */
+  authenticate(req: IncomingMessage, res: ServerResponse | null): AuthenticatedSession | null;
+  signOut(req: IncomingMessage, res: ServerResponse): void;
+}
+export interface AuthResolution { session: AuthenticatedSession; actor: ActorContext }
+
 const COOKIE = 'korvyn_session';
-export class SessionService {
+const TTL_HOURS = 12;
+/** Secure in HTTPS environments (TLS socket, an HTTPS proxy, or KORVYN_COOKIE_SECURE=1); plain HTTP stays usable locally */
+export function secureRequest(req: IncomingMessage, env: NodeJS.ProcessEnv = process.env) {
+  return env['KORVYN_COOKIE_SECURE'] === '1' || (req.socket as { encrypted?: boolean } | undefined)?.encrypted === true || String(req.headers['x-forwarded-proto'] ?? '').split(',')[0]?.trim() === 'https';
+}
+export function sessionCookie(req: IncomingMessage, value: string, maxAgeSeconds: number, env: NodeJS.ProcessEnv = process.env) {
+  return `${COOKIE}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secureRequest(req, env) ? '; Secure' : ''}`;
+}
+const cookieOf = (req: IncomingMessage) => (req.headers.cookie ?? '').split(';').map((x) => x.trim()).find((x) => x.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1) ?? null;
+
+/** the development provider: server-side sessions in the work store, an opaque HttpOnly cookie, and a fixed directory */
+export class DevSessionAuthProvider implements AuthProvider {
+  readonly id = 'dev-session';
   readonly mode: 'dev' | 'strict';
-  constructor(private readonly repos: WorkRepositories, readonly idp: IdentityProvider = new DevIdentityProvider(), env: NodeJS.ProcessEnv = process.env) {
+  private readonly devUser: string;
+  constructor(private readonly repos: WorkRepositories, readonly idp: IdentityProvider = new DevIdentityProvider(), private readonly env: NodeJS.ProcessEnv = process.env) {
     this.mode = (env['KORVYN_AUTH_MODE'] ?? 'dev') === 'dev' ? 'dev' : 'strict';
     this.devUser = env['KORVYN_DEV_USER'] ?? 'user:mgiri';
   }
-  private readonly devUser: string;
-  private cookieOf(req: IncomingMessage) { return (req.headers.cookie ?? '').split(';').map((x) => x.trim()).find((x) => x.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1) ?? null; }
-  /** the actor for this request, from the session cookie; dev mode signs an anonymous request in as the dev user */
-  resolve(req: IncomingMessage, res: ServerResponse | null): ActorContext | null {
-    const sid = this.cookieOf(req);
-    const s = sid ? this.repos.sessions.resolve(sid) : null;
-    const user = s ? this.idp.user(s.userId) : null;
-    if (user) return actorContext(user, sid, this.idp.id);
-    if (this.mode !== 'dev' || !res) return null;
-    const dev = this.idp.user(this.devUser);
-    if (!dev) return null;
-    const nsid = this.repos.sessions.create(dev.id);
-    res.setHeader('Set-Cookie', `${COOKIE}=${nsid}; HttpOnly; SameSite=Strict; Path=/`);
-    return actorContext(dev, nsid, `${this.idp.id} (dev auto sign-in)`);
+  private issue(req: IncomingMessage, res: ServerResponse, userId: string): AuthenticatedSession {
+    const s = this.repos.sessions.create(userId, TTL_HOURS);
+    res.setHeader('Set-Cookie', sessionCookie(req, s.id, TTL_HOURS * 3600, this.env));
+    return { sessionId: s.id, userId, csrfToken: s.csrfToken, issuedAt: s.createdAt, expiresAt: s.expiresAt, provider: this.id };
   }
-  /** dev only: sign in as another directory user (simulates an IdP login; loopback callers only) */
+  authenticate(req: IncomingMessage, res: ServerResponse | null): AuthenticatedSession | null {
+    const sid = cookieOf(req);
+    const s = sid ? this.repos.sessions.resolve(sid) : null;
+    if (s && this.idp.user(s.userId)) return { sessionId: s.id, userId: s.userId, csrfToken: s.csrfToken, issuedAt: s.createdAt, expiresAt: s.expiresAt, provider: this.id };
+    if (this.mode !== 'dev' || !res || !this.idp.user(this.devUser)) return null;
+    return this.issue(req, res, this.devUser);
+  }
+  /** dev only: sign in as another directory user (simulates an IdP login) */
+  signInAs(req: IncomingMessage, res: ServerResponse, userId: string): AuthenticatedSession | null {
+    if (this.mode !== 'dev' || !this.idp.user(userId)) return null;
+    const old = cookieOf(req); if (old) this.repos.sessions.revoke(old);
+    return this.issue(req, res, userId);
+  }
+  signOut(req: IncomingMessage, res: ServerResponse) {
+    const sid = cookieOf(req); if (sid) this.repos.sessions.revoke(sid);
+    res.setHeader('Set-Cookie', sessionCookie(req, '', 0, this.env));
+  }
+}
+
+/** the one place the server turns a request into an actor */
+export class AuthContext {
+  constructor(readonly provider: AuthProvider & { mode?: 'dev' | 'strict' }, readonly idp: IdentityProvider) {}
+  get mode() { return this.provider.mode ?? 'strict'; }
+  resolve(req: IncomingMessage, res: ServerResponse | null): AuthResolution | null {
+    const session = this.provider.authenticate(req, res);
+    const user = session ? this.idp.user(session.userId) : null;
+    return session && user ? { session, actor: actorContext(user, session.sessionId, session.provider) } : null;
+  }
+}
+
+/** @deprecated 3C name kept for callers and tests: the development provider behind AuthContext */
+export class SessionService {
+  readonly provider: DevSessionAuthProvider;
+  readonly auth: AuthContext;
+  constructor(repos: WorkRepositories, idp: IdentityProvider = new DevIdentityProvider(), env: NodeJS.ProcessEnv = process.env) {
+    this.provider = new DevSessionAuthProvider(repos, idp, env);
+    this.auth = new AuthContext(this.provider, idp);
+  }
+  get mode() { return this.provider.mode; }
+  resolve(req: IncomingMessage, res: ServerResponse | null): ActorContext | null { return this.auth.resolve(req, res)?.actor ?? null; }
   switchTo(req: IncomingMessage, res: ServerResponse, userId: string): ActorContext | null {
-    if (this.mode !== 'dev') return null;
-    const u = this.idp.user(userId);
-    if (!u) return null;
-    const old = this.cookieOf(req); if (old) this.repos.sessions.revoke(old);
-    const sid = this.repos.sessions.create(u.id);
-    res.setHeader('Set-Cookie', `${COOKIE}=${sid}; HttpOnly; SameSite=Strict; Path=/`);
-    return actorContext(u, sid, `${this.idp.id} (dev sign-in)`);
+    const s = this.provider.signInAs(req, res, userId);
+    const u = s ? this.provider.idp.user(s.userId) : null;
+    return s && u ? actorContext(u, s.sessionId, `${s.provider} (dev sign-in)`) : null;
   }
 }

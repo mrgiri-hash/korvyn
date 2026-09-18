@@ -14,6 +14,7 @@
 import { money, periodLabel } from './financials.js';
 import { AP_EXTRACT, FX_CLOSING_SET, type GLine, type GovernedLedger, SOURCE_HEALTH, pct } from './governed.js';
 import { WORK } from './store.js';
+import { closeTaskView, fluxAccountComments } from './book.js';
 
 type Vis = Set<string> | 'ALL';
 const inVis = (v: Vis, e: string) => v === 'ALL' || v.has(e);
@@ -122,7 +123,8 @@ export class ControlService {
       const material = Math.abs(d) >= 1_000_000 || (Math.abs(d) >= 250_000 && Math.abs(pri) > 0 && Math.abs(d / pri) >= 0.1);
       const exr = WORK.repos.flux.explanation(g, period);
       const ex = exr ? { id: exr.explanationId, status: exr.status, text: exr.text, author: exr.author, reviewer: exr.reviewer, version: exr.version, supportRefs: exr.supportRefs } : null;
-      const thread = WORK.thread(`flux:${g}:${period}`);
+      /* one book: the account's own thread AND the thread of the Flux workspace line that presents it */
+      const thread = { version: WORK.thread(`flux:${g}:${period}`).version, comments: fluxAccountComments(g, period) };
       const status = !material ? 'NOT_REQUIRED' : !ex ? 'UNEXPLAINED' : ex.status;
       return { id: `FLUX-${g}-${period}`, account: g, name: `${g} ${L.account(g)?.name ?? ''}`, section: L.account(g)?.section ?? '', period, comparison: prior, currentUsd: cur, priorUsd: pri, changeUsd: d, changePct: pct(cur, pri), material, status, explanation: ex ?? null,
         comments: thread.comments, threadVersion: thread.version, reviewer: WORK.reviewer(`flux:${g}:${period}`)?.name ?? ex?.reviewer ?? null, attachedEvidence: WORK.relsTo(`flux:${g}:${period}`) };
@@ -132,7 +134,7 @@ export class ControlService {
   /* ---- close --------------------------------------------------------------------------------------- */
   closeTasks(period: string, vis: Vis) {
     const working = this.gl.periods().at(-1)!;
-    const stored = WORK.repos.close.tasks(working).map((t) => ({ id: t.taskId, name: t.name, workstream: t.workstream, entity: t.entity, owner: t.owner, approver: t.approver, due: t.due, status: t.state, blockedBy: t.blockedBy ?? undefined, version: t.version }));
+    const stored = WORK.repos.close.tasks(working).map(closeTaskView).map((t) => ({ id: t.id, name: t.name, workstream: t.workstream, entity: t.entity, entityName: t.entityName, owner: t.owner, approver: t.reviewer, due: t.due, status: t.state, blockedBy: t.blockedBy ?? undefined, version: t.version, updatedBy: t.updatedBy, updatedAt: t.updatedAt }));
     const base = period === working ? stored : stored.map((t) => ({ ...t, status: 'COMPLETE' }));
     return base.filter((t) => t.entity === 'GROUP' ? vis === 'ALL' : inVis(vis, t.entity));
   }

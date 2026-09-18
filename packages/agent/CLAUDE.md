@@ -70,3 +70,9 @@ Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 3B*.
 workflow for reconciliations (both catalogs), flux, close and work objects; session-cookie auth and capability authorization
 (`auth.ts`); domain APIs under `/api/work/*` (`workapi.ts`); append-only audit; STALE_PROPOSAL with refresh / regenerate /
 cancel (no overwrite). Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 3C*.
+
+**Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
+reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
+`tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,
+allowed-origin CORS, logout; authorization before validation; a standard `outcome` contract. Full record in the root CLAUDE.md,
+*SLOANE 2.0 PHASE 3D*.

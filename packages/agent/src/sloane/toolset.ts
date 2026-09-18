@@ -9,6 +9,8 @@
  * Descriptions are written for the planner: what it does, when to use it, what it returns. Keep them short.
  */
 import { type ControlService, SEEDED } from './controls.js';
+import { findSavedReport, savedReports } from './book.js';
+import { DEV_DIRECTORY } from './auth.js';
 import { BASIS, FX_RATE_SET, SNAPSHOT_ID, money, periodLabel } from './financials.js';
 import { AP_EXTRACT, DIMENSION_KEYS, type DimensionKey, FX_CLOSING_SET, type GLine, type GovernedLedger, type PopulationFilter, SOURCE_HEALTH, pct } from './governed.js';
 import { type Fact, type FinancialObject, type ParamSpec, type SloaneTool, type TableRow, type ToolArgs, type ToolEnv, type ToolResult, registerTools } from './tools.js';
@@ -796,8 +798,11 @@ const CLOSE: SloaneTool[] = [
         refs: { period: p }, focus: { kind: 'close', id: `close:${p}`, name: `${periodLabel(p)} close` } }) }; } },
   { id: 'getCloseTasks', domain: 'close', permission: 'CLOSE_VIEW', risk: 'READ', objectTypes: ['CLOSE'], description: 'Close checklist tasks for a month, optionally filtered by status (COMPLETE, IN_PROGRESS, NOT_STARTED, BLOCKED, AWAITING_APPROVAL), entity or workstream.', params: [P('period'), { name: 'status', kind: 'text', required: false, description: 'task status' }, { name: 'entity', kind: 'entity', required: false, description: 'entity id' }, { name: 'workstream', kind: 'text', required: false, description: 'workstream name' }], outputs: 'CloseTasks; facts tasks, complete, blocked',
     run(a, env) { const p = a['period']!, ts = env.controls.closeTasks(p, env.visible).filter((t) => (!a['status'] || t.status === a['status']) && (!a['entity'] || t.entity === a['entity']) && (!a['workstream'] || t.workstream.toLowerCase().includes(a['workstream'].toLowerCase())));
-      return { warnings: [SEEDED], object: base(env, { type: 'CloseTasks', title: `Close tasks · ${periodLabel(p)}`, periods: [p], periodLabel: periodLabel(p),
-        table: { columns: ['Workstream', 'Entity', 'Owner', 'Due', 'Status'], rows: ts.map((t) => row(t.name, [t.workstream, t.entity, t.owner, t.due, t.status + (t.blockedBy ? ` — ${t.blockedBy}` : '')], 1, 'line', `task:${t.id}`)) },
+      /* open work first; the checklist is bounded to 50 rows on screen, with the full count in the facts */
+      const rank: Record<string, number> = { BLOCKED: 0, IN_PROGRESS: 1, NOT_STARTED: 2, AWAITING_APPROVAL: 3, COMPLETE: 4 };
+      const shown = ts.slice().sort((x, y) => (rank[x.status] ?? 5) - (rank[y.status] ?? 5)).slice(0, 50);
+      return { warnings: [SEEDED, ...(ts.length > shown.length ? [`Showing ${shown.length} of ${ts.length} tasks, open work first.`] : [])], object: base(env, { type: 'CloseTasks', title: `Close tasks · ${periodLabel(p)}`, periods: [p], periodLabel: periodLabel(p),
+        table: { columns: ['Workstream', 'Entity', 'Owner', 'Due', 'Status'], rows: shown.map((t) => row(t.name, [t.workstream, (t as { entityName?: string }).entityName ?? t.entity, t.owner, t.due, t.status + (t.blockedBy ? ` — ${t.blockedBy}` : '')], 1, 'line', `task:${t.id}`)) },
         facts: [{ key: 'tasks', label: 'Tasks', value: ts.length, display: n(ts.length) }, { key: 'complete', label: 'Complete', value: ts.filter((t) => t.status === 'COMPLETE').length, display: n(ts.filter((t) => t.status === 'COMPLETE').length) }, { key: 'blocked', label: 'Blocked', value: ts.filter((t) => t.status === 'BLOCKED').length, display: n(ts.filter((t) => t.status === 'BLOCKED').length) }], refs: { period: p } }) }; } },
   { id: 'getCloseExceptions', domain: 'close', permission: 'CLOSE_VIEW', risk: 'READ', objectTypes: ['CLOSE'], description: 'Close exceptions for a month: intercompany mismatches, AP approvals missing, late capital postings, stale or unavailable sources.', params: [P('period')], outputs: 'CloseExceptions; facts exceptions',
     run(a, env) { const p = a['period']!, s = env.controls.continuousCloseSignals(p, env.visible);
@@ -843,6 +848,24 @@ const REPORTING: SloaneTool[] = [
         table: { columns: ['Owner', 'Version', 'Lines', 'Includes'], rows: rs.map((r) => row(r.name, [r.owner, `v${r.definitionVersion}`, n(r.lines.length), code ? r.lines.filter((l) => l.accounts.some((x) => acc!.has(x) || env.gl.expandAccounts([x]).some((y) => acc!.has(y)))).map((l) => l.label).join('; ') : ''], 1, 'line', `report:${r.id}`)) },
         facts: [{ key: 'reports', label: 'Reports', value: rs.length, display: n(rs.length) }, ...rs.map((r, i) => ({ key: `report${i + 1}`, label: 'Report', value: r.name, display: r.name }))],
         refs: { ...(rs[0] ? { reportId: rs[0].id } : {}), ...(code ? { account: code } : {}) }, focus: code ? { kind: 'account', id: code, name: acctName(env, code) } : null, provenance: { source: 'Saved report definitions (seeded; definitions only, no amounts)', snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] } }) }; } },
+  { id: 'getSavedReport', domain: 'reporting', permission: 'REPORT_VIEW', risk: 'READ', objectTypes: ['REPORT'],
+    description: 'One report from Saved Reports — the SAME store the Reporting workspace edits and Sloane saves into: name, current version, rows, filters, period, and who last changed it. Use for "show me the Siemens FY26 spend report" or "what does the Capital Spend by Vendor report include".',
+    params: [{ name: 'text', kind: 'text', required: true, description: 'the report name, or words from it' }], outputs: 'SavedReport; facts version, rows, filters, period, updatedBy',
+    run(a, env) {
+      const r = findSavedReport(a['text'] ?? '');
+      const visible = r && (r.createdBy === env.actor.id || r.createdBy.startsWith('system:') || r.sharedWith.includes(env.actor.id) || r.sharedWith.some((w) => w.toLowerCase() === env.actor.name.toLowerCase()));
+      if (!r || !visible) return unavailable(env, 'SavedReport', `Saved report · ${a['text'] ?? ''}`, 'Saved report', `No saved report you may view matches “${a['text'] ?? ''}”.`);
+      const d = r.definition as { rows?: string[]; filters?: Record<string, string>; periodStart?: string; periodEnd?: string; period?: { kind: string } };
+      const per = d.periodStart && d.periodEnd ? `${periodLabel(d.periodStart)} – ${periodLabel(d.periodEnd)}` : d.period?.kind === 'ytd' ? 'Year to date' : d.period?.kind ?? '—';
+      const who = (id: string) => DEV_DIRECTORY.find((u) => u.id === id)?.name ?? (id.startsWith('system:') ? 'Korvyn seed' : id);
+      const rows = (d.rows ?? []).join(' → ') || '—', filters = Object.entries(d.filters ?? {}).map(([k, v]) => `${k} = ${v}`).join('; ') || 'none';
+      return { warnings: [], object: base(env, { type: 'SavedReport', title: `${r.name} · v${r.version}`,
+        table: { columns: ['Definition'], rows: [row('Rows', [rows]), row('Filters', [filters]), row('Period', [per]), row('Version', [`v${r.version}`]), row('Last changed by', [`${who(r.updatedBy)} · ${r.updatedAt}`]), row('Created via', [r.createdVia === 'Sloane' ? 'Sloane' : 'Reporting workspace']), row('Status', [r.status])] },
+        facts: [{ key: 'name', label: 'Report', value: r.name, display: r.name }, { key: 'version', label: 'Version', value: r.version, display: `v${r.version}` }, { key: 'rows', label: 'Rows', value: rows, display: rows },
+          { key: 'filters', label: 'Filters', value: filters, display: filters }, { key: 'period', label: 'Period', value: per, display: per }, { key: 'updatedBy', label: 'Last changed by', value: who(r.updatedBy), display: who(r.updatedBy) }],
+        refs: { savedReportId: r.id }, focus: { kind: 'report', id: r.id, name: r.name },
+        provenance: { source: 'Saved Reports (Korvyn work store; shared by the Reporting workspace and Sloane)', snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] } }) };
+    } },
   { id: 'getReportDefinition', domain: 'reporting', permission: 'REPORT_VIEW', risk: 'READ', objectTypes: ['REPORT'], description: 'A saved report’s definition: lines and the accounts each line reads.', params: [repP], outputs: 'ReportDefinition; facts lines, version',
     run(a, env) { const r = env.controls.report(a['reportId']!)!;
       return { warnings: [], object: base(env, { type: 'ReportDefinition', title: `${r.name} · definition v${r.definitionVersion}`, table: { columns: ['Accounts'], rows: r.lines.map((l) => row(l.label, [l.accounts.map((x) => acctName(env, x)).join(', ')])) },
@@ -1028,14 +1051,26 @@ export function findObjects(env: Pick<ToolEnv, 'gl' | 'controls' | 'visible' | '
   }
   env.gl.entities().filter((e) => vis(e.id)).forEach((e) => cands.push({ kind: 'entity', ref: `entity:${e.id}`, name: `${e.name} (${e.id})` }));
   if (can('RECON_VIEW')) env.controls.allRecDefs().filter((d) => vis(d.entity)).forEach((d) => cands.push({ kind: 'reconciliation', ref: `recon:${d.id}`, name: `${d.name} (${d.id})` }));
+  if (can('REPORT_VIEW')) savedReports().forEach((r) => cands.push({ kind: 'savedReport', ref: `savedReport:${r.id}`, name: r.name }));
   if (can('REPORT_VIEW')) { env.controls.reports().forEach((r) => cands.push({ kind: 'report', ref: `report:${r.id}`, name: r.name })); env.controls.packages().forEach((p) => cands.push({ kind: 'reportingPackage', ref: `package:${p.id}`, name: p.name })); }
   if (can('CLOSE_VIEW')) env.controls.closeTasks(env.gl.periods().at(-1)!, env.visible).forEach((c) => cands.push({ kind: 'closeTask', ref: `task:${c.id}`, name: `${c.name} · ${c.entity}` }));
   if (can('AUDIT_VIEW')) { env.controls.pbc().forEach((r) => cands.push({ kind: 'auditRequest', ref: `pbc:${r.id}`, name: `${r.id} ${r.title}` })); env.controls.auditPopulations().forEach((p) => cands.push({ kind: 'auditPopulation', ref: `auditPopulation:${p.id}`, name: p.name })); }
   const ALIAS = ACCOUNT_ALIAS;
   const expanded = t.split(/\s+/).map((w) => ALIAS[w] ?? w).join(' ');
-  const score = (c: { name: string; ref: string }) => { const nm = c.name.toLowerCase(); if (nm === t || c.ref.toLowerCase().endsWith(`:${t}`)) return 100; if (nm.includes(expanded) || expanded.includes(nm)) return 60; return words.concat(t.split(/\s+/).filter((w) => ALIAS[w])).reduce((s, w) => s + (nm.includes(ALIAS[w] ?? w) ? (ALIAS[w] && /^\d{2}000 /.test(nm) ? 40 : 10) : 0), 0); };
+  /* a word scores once: literally, or through its alias. A reconciliation NAMED in full outranks every partial hit, so
+     "Mechanical CIP reconciliation" is never crowded out by the CIP account group's own reconciliations. */
+  const named = (c: { kind: string; name: string }) => c.kind === 'reconciliation' && /reconcil|\brecs?\b/.test(t) && t.includes(c.name.replace(/ \([^)]*\)$/, '').toLowerCase());
+  const score = (c: { kind: string; name: string; ref: string }) => { const nm = c.name.toLowerCase(); if (nm === t || c.ref.toLowerCase().endsWith(`:${t}`)) return 100; if (named(c)) return 90; if (nm.includes(expanded) || expanded.includes(nm)) return 60; return words.reduce((s, w) => s + (nm.includes(w) ? 10 : ALIAS[w] && nm.includes(ALIAS[w]) ? (/^\d{2}000 /.test(nm) ? 40 : 10) : 0), 0); };
   return cands.map((c) => ({ ...c, s: score(c) })).filter((c) => c.s > 0).sort((x, y) => y.s - x.s).slice(0, limit);
 }
 
-registerTools([...FINANCIALS, ...TB, ...LEDGER, ...ANALYSIS, ...FLUX, ...RECON, ...CLOSE, ...REPORTING, ...AUDIT, ...EVIDENCE, ...TRACE, ...FIND]);
+/* ENTITY SCOPE ON A NAMED RECONCILIATION (3D). `authorize` checks scope and entity ARGUMENTS; a reconciliation id
+   carries its entity inside the definition, so a scoped actor could name a group-level reconciliation and read it.
+   Every tool that takes a reconciliationId resolves the definition's entity against the actor's visibility first. */
+const guardReconciliation = (t: SloaneTool): SloaneTool => (!t.params.some((p) => p.name === 'reconciliationId') ? t : { ...t, run(a, env) {
+  const d = a['reconciliationId'] ? env.controls.recDef(a['reconciliationId']) : null;
+  if (d && env.visible !== 'ALL' && !env.visible.has(d.entity)) return unavailable(env, 'Reconciliation', d.name, 'Reconciliation', `${env.actor.role} may not view ${d.entity === 'GROUP' ? 'group-level' : d.entity} reconciliations.`);
+  return t.run(a, env);
+} });
+registerTools([...FINANCIALS, ...TB, ...LEDGER, ...ANALYSIS, ...FLUX, ...RECON, ...CLOSE, ...REPORTING, ...AUDIT, ...EVIDENCE, ...TRACE, ...FIND].map(guardReconciliation));
 export const TOOLSET_LOADED = true;

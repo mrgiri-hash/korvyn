@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MockLLMAdapter } from './adapter.js';
 import { actorContext, AuthorizationService, DEV_DIRECTORY, SessionService, SoDPolicyService } from './auth.js';
-import { SloaneOrchestrator } from './orchestrator.js';
+import { deterministicInterpret, deterministicPlan, SloaneOrchestrator } from './orchestrator.js';
 import { KorvynDatabase } from './persistence/db.js';
 import { WORK } from './store.js';
 import { toolRegistry } from './tools.js';
@@ -97,7 +97,7 @@ test('one book: a comment written in the Reconciliations UI is the comment Sloan
   assert.equal(p.targetObjectId, 'recon:REC-CIP-MECHANICAL:2026-06', JSON.stringify(p.validation));
   const c = orch.decide({ sessionId: s, proposalId: p.id, decision: 'confirm', requestId: 'onebook-2' }, mgiri);
   assert.equal(c.results[0]!.status, 'COMPLETED', JSON.stringify(c.results));
-  const ui = api.reconciliationWorkflow(skim, 'REC-CIP-MECHANICAL').body as { comments: { text: string; via: string | null; source: string }[]; status: string };
+  const ui = api.reconciliationWorkflow(skim, 'REC-CIP-MECHANICAL').body as unknown as { comments: { text: string; via: string | null; source: string }[]; status: string };
   assert.ok(ui.comments.some((x) => x.source === 'SLOANE' && x.via === 'Sloane'), 'the UI reads Sloane’s comment');
   assert.ok(ui.comments.some((x) => x.source === 'UI'));
   assert.equal(ui.status, 'RETURNED', 'workflow status is the module’s seeded state, server-authoritative');
@@ -106,7 +106,7 @@ test('one book: a comment written in the Reconciliations UI is the comment Sloan
 test('one book: a flux comment from the UI is on the server line and on the browser line crosswalk', () => {
   const w = api.addFluxComment(skim, '15000', { text: 'Placed-in-service settlements explain the decrease.', idempotencyKey: 'ui-flux-1' });
   assert.equal(w.status, 201, JSON.stringify(w.body));
-  const line = api.fluxLineComments(mgiri, 'recost').body as { comments: { text: string }[] };
+  const line = api.fluxLineComments(mgiri, 'FS-CIP').body as unknown as { comments: { text: string }[] };
   assert.ok(line.comments.some((c) => c.text.startsWith('Placed-in-service')));
   const tool = toolRegistry.get('getFluxComments')!.run({ account: '15000', period: '2026-06' }, env()).object;
   assert.ok(JSON.stringify(tool.table).includes('Placed-in-service settlements'));
@@ -145,7 +145,7 @@ test('concurrency: a UI write with a stale thread version is STALE_PROPOSAL and 
   const count = WORK.thread(key).comments.length, audits = WORK.repos.audit.list({ target: key }).length;
   const stale = api.addReconciliationComment(skim, 'REC-CIP-MECHANICAL', { text: 'Second, from a stale screen', idempotencyKey: 'cc-2', expectedThreadVersion: v });
   assert.equal(stale.status, 409);
-  assert.equal((stale.body as { error: string }).error, 'STALE_PROPOSAL');
+  assert.equal(stale.body.outcome, 'STALE_VERSION');
   assert.equal(WORK.thread(key).comments.length, count);
   assert.equal(WORK.repos.audit.list({ target: key }).length, audits, 'a refused write is not audited as completed');
 });
@@ -186,4 +186,28 @@ test('sessions: the actor comes from the session cookie, never from the browser;
   assert.equal(strict.resolve(fakeReq(cookie), res)!.id, 'user:skim', 'the issued session resolves in any mode');
   WORK.repos.sessions.revoke(cookie.split('=')[1]!);
   assert.equal(strict.resolve(fakeReq(cookie), res), null, 'a revoked session is refused');
+});
+
+test('3D: a reconciliation named in full ranks first, above the account group its name contains', () => {
+  const hits = toolRegistry.get('findGovernedObjects')!.run({ text: 'What support is attached to the Mechanical CIP reconciliation for June 2026, and what are its comments?' }, env()).object;
+  const refs = (hits.table?.rows ?? []).map((r) => r.ref);
+  assert.equal(refs[0], 'recon:REC-CIP-MECHANICAL', `got ${refs.slice(0, 4).join(', ')}`);
+});
+
+test('3D: a question about a named reconciliation reads it and never proposes a write', () => {
+  const t = 'What support is attached to the Mechanical CIP reconciliation for June 2026, and what are its comments?';
+  const recs = orch.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }));
+  const ctx = orch.context.initial(current as never);
+  const I = { ...deterministicInterpret(t, orch.data, ctx, recs), intent: 'FIND' as const };
+  const steps = deterministicPlan(t, I, orch.context.resolve(I, ctx), ctx, orch.gl).map((x) => x.tool);
+  assert.deepEqual(steps, ['getReconciliationSupport', 'getReconciliationComments']);
+});
+
+test('3D: authorization is decided before validation — an unauthorized, malformed write learns nothing about the body', () => {
+  const denied = (r: { body: { outcome: string } }) => r.body.outcome;
+  assert.equal(denied(api.setCloseTaskStatus(auditor, 'CT-002', {})), 'PERMISSION_DENIED');
+  assert.equal(denied(api.createReport(auditor, {})), 'PERMISSION_DENIED');
+  assert.equal(denied(api.addFluxLineComment(auditor, 'FS-CIP', {})), 'PERMISSION_DENIED');
+  assert.equal(denied(api.attachReconciliationSupport(mdh, 'REC-CIP-MECHANICAL', {})), 'PERMISSION_DENIED');
+  assert.equal(denied(api.setCloseTaskStatus(mgiri, 'CT-002', {})), 'VALIDATION_ERROR', 'an authorized caller still gets the validation error');
 });

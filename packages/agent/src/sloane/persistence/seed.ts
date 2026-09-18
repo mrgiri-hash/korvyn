@@ -12,8 +12,11 @@
  */
 import type { KorvynDatabase } from './db.js';
 import type { WorkRepositories } from './repositories.js';
+import { BROWSER_BOOK, closeTaskBodies, reportSeedRecords } from '../book.js';
 
-export const SEED_VERSION = '3C.1';
+/* 3D.1 — ONE BOOK: the close checklist, the module reconciliations' review states and the saved reports are the
+   workspace's own fixtures (browser-book.json), not a second server-only set. A 3C.1 database is upgraded in place. */
+export const SEED_VERSION = '3D.1';
 const SYSTEM = 'system:seed';
 
 /** the browser Reconciliations module's governed definitions — ids and names exactly as the module shows them */
@@ -29,8 +32,12 @@ export const MODULE_RECONCILIATIONS: [string, string, string][] = [
   ['REC-DEBT-LT', 'Long-Term Debt', 'FS-DEBTL'], ['REC-IC-PAY', 'Intercompany Payable', 'FS-ICP'], ['REC-OL', 'Other Liabilities', 'FS-OL'], ['REC-CAP', 'Capital', 'FS-CAP'],
   ['REC-OCI', 'OCI / CTA', 'FS-OCI'], ['REC-CTA', 'Currency Translation Adjustment', 'FS-CTA'],
 ];
-/** the module's own seeded review states (index.html RC_SEED) mapped to the server workflow vocabulary */
-const MODULE_STATUS: Record<string, string> = { 'REC-AR': 'IN_REVIEW', 'REC-CIP-ELECTRICAL': 'APPROVED', 'REC-CIP-MECHANICAL': 'RETURNED' };
+/** the module's own seeded review states (index.html RC_SEED; an unseeded definition is approved, as RC_STATE_DEFAULT says) in the server vocabulary */
+export function moduleStatus(id: string): string {
+  const r = BROWSER_BOOK.reconciliationReview[id];
+  if (!r) return 'APPROVED';
+  return r.review === 'approved' ? 'APPROVED' : r.review === 'returned' ? 'RETURNED' : r.review === 'inreview' ? 'IN_REVIEW' : r.prep === 'ready' ? 'PREPARED' : r.prep === 'prog' ? 'IN_PREPARATION' : 'NOT_STARTED';
+}
 
 export const GL_RECON_WORKFLOW: Record<string, { status: string; comments: { author: string; at: string; text: string }[] }> = {
   'REC-MDH-13100': { status: 'RETURNED', comments: [{ author: 'L. Chen (reviewer)', at: '2026-07-06', text: 'Due-from MER-DE does not agree to the counterparty payable. Confirm the June funding leg before resubmitting.' }, { author: 'M. Reyes (preparer)', at: '2026-07-06', text: 'Timing on the EUR leg; waiting on Deutschland treasury confirmation.' }] },
@@ -53,22 +60,6 @@ export const FLUX_EXPLANATIONS: Record<string, { id: string; status: string; tex
   '16000:2026-06': { id: 'EXPL-16000-2026-06', status: 'SUBMITTED', version: 1, author: 'M. Reyes', reviewer: 'L. Chen', text: 'PP&E increased on quarter-end placed-in-service settlements out of CIP.', comments: [], supportRefs: ['MEMO-2026-Q2-MDH-PIS v1'] },
   '40000:2026-06': { id: 'EXPL-40000-2026-06', status: 'DRAFT', version: 1, author: 'A. Okafor', reviewer: 'L. Chen', text: 'Revenue movement reflects invoice volume and mix across colocation and interconnection.', comments: [{ author: 'A. Okafor', at: '2026-07-06', text: 'Draft — needs property-level detail before submission.' }], supportRefs: [] },
 };
-export const CLOSE_TASK_SEED: { id: string; name: string; workstream: string; entity: string; owner: string; approver: string; due: string; status: string; blockedBy?: string }[] = [
-  { id: 'CT-01', name: 'Bank reconciliations', workstream: 'Cash', entity: 'MDH', owner: 'A. Okafor', approver: 'L. Chen', due: 'BD3', status: 'BLOCKED', blockedBy: 'bank statements are not connected' },
-  { id: 'CT-02', name: 'Bank reconciliations', workstream: 'Cash', entity: 'MER-SG', owner: 'A. Okafor', approver: 'L. Chen', due: 'BD3', status: 'BLOCKED', blockedBy: 'JD Edwards source unavailable' },
-  { id: 'CT-03', name: 'AP accruals and cut-off', workstream: 'Accounts payable', entity: 'MDH', owner: 'A. Okafor', approver: 'L. Chen', due: 'BD2', status: 'COMPLETE' },
-  { id: 'CT-04', name: 'AP accruals and cut-off', workstream: 'Accounts payable', entity: 'MER-UK', owner: 'J. Patel', approver: 'L. Chen', due: 'BD2', status: 'COMPLETE' },
-  { id: 'CT-05', name: 'CIP additions review', workstream: 'Fixed assets & CIP', entity: 'MDH', owner: 'M. Reyes', approver: 'L. Chen', due: 'BD4', status: 'AWAITING_APPROVAL' },
-  { id: 'CT-06', name: 'CIP additions review', workstream: 'Fixed assets & CIP', entity: 'MER-DE', owner: 'K. Weber', approver: 'L. Chen', due: 'BD4', status: 'IN_PROGRESS' },
-  { id: 'CT-07', name: 'Placed-in-service determinations', workstream: 'Fixed assets & CIP', entity: 'GROUP', owner: 'M. Reyes', approver: 'Controller', due: 'BD5', status: 'IN_PROGRESS' },
-  { id: 'CT-08', name: 'Depreciation run', workstream: 'Fixed assets & CIP', entity: 'GROUP', owner: 'M. Reyes', approver: 'L. Chen', due: 'BD3', status: 'COMPLETE' },
-  { id: 'CT-09', name: 'Intercompany confirmations', workstream: 'Intercompany', entity: 'GROUP', owner: 'M. Reyes', approver: 'Controller', due: 'BD4', status: 'IN_PROGRESS' },
-  { id: 'CT-10', name: 'Revenue cut-off', workstream: 'Revenue', entity: 'GROUP', owner: 'A. Okafor', approver: 'L. Chen', due: 'BD3', status: 'COMPLETE' },
-  { id: 'CT-11', name: 'Interest accrual', workstream: 'Accruals', entity: 'MDH', owner: 'M. Reyes', approver: 'L. Chen', due: 'BD2', status: 'COMPLETE' },
-  { id: 'CT-12', name: 'FX revaluation', workstream: 'Accruals', entity: 'MER-SG', owner: 'J. Patel', approver: 'L. Chen', due: 'BD3', status: 'NOT_STARTED' },
-  { id: 'CT-13', name: 'Consolidation and eliminations', workstream: 'Consolidation', entity: 'GROUP', owner: 'Controller', approver: 'CAO', due: 'BD6', status: 'NOT_STARTED' },
-  { id: 'CT-14', name: 'Flux review sign-off', workstream: 'Reporting', entity: 'GROUP', owner: 'L. Chen', approver: 'Controller', due: 'BD6', status: 'IN_PROGRESS' },
-];
 export const REPORT_SEED = [
   { id: 'RPT-CFO-MONTHLY', name: 'CFO Monthly Report', owner: 'Controller', kind: 'SAVED', definitionVersion: 3, lines: [{ label: 'Total revenue', accounts: ['40000'] }, { label: 'Cost of operations', accounts: ['50000'] }, { label: 'Operating expenses', accounts: ['60000'] }, { label: 'Construction in progress', accounts: ['15000'] }, { label: 'Property, plant & equipment', accounts: ['16000'] }, { label: 'Cash & cash equivalents', accounts: ['10000'] }, { label: 'Debt', accounts: ['25000'] }] },
   { id: 'RPT-CAPITAL-PROJECTS', name: 'Capital Projects Report', owner: 'M. Reyes', kind: 'SAVED', definitionVersion: 2, lines: [{ label: 'Construction in progress', accounts: ['15000'] }, { label: 'Buildings & improvements', accounts: ['16200'] }, { label: 'Mechanical & electrical', accounts: ['16400'] }] },
@@ -91,11 +82,12 @@ export const PBC_SEED = [
 export function seedDevelopment(db: KorvynDatabase, repos: WorkRepositories, workingPeriod: string, glRecDefs: { id: string; name: string; entity: string; accounts: string[]; preparer: string; reviewer: string }[]): { seeded: boolean } {
   const done = db.db.prepare('SELECT version FROM seed_meta WHERE name = ?').get('korvyn-dev') as { version: string } | undefined;
   if (done?.version === SEED_VERSION) return { seeded: false };
+  if (done?.version === '3C.1') { upgradeTo3D(db, repos, workingPeriod); return { seeded: true }; }
   db.tx(() => {
     const R = repos.records;
     for (const [id, name, line] of MODULE_RECONCILIATIONS) {
       R.insert('RECON_DEFINITION', { definitionId: id, name, catalog: 'MODULE', financialLineId: line, entity: 'GROUP', accounts: [], preparer: 'M. Reyes', reviewer: 'L. Chen' }, SYSTEM, { id: `RECONDEF-${id}`, target: id, scope: 'GROUP' });
-      R.insert('RECON_WORKFLOW', { definitionId: id, status: MODULE_STATUS[id] ?? 'IN_PREPARATION' }, SYSTEM, { id: `RECONWF-${id}`, target: id, status: MODULE_STATUS[id] ?? 'IN_PREPARATION', period: workingPeriod });
+      R.insert('RECON_WORKFLOW', { definitionId: id, status: moduleStatus(id) }, SYSTEM, { id: `RECONWF-${id}`, target: id, status: moduleStatus(id), period: workingPeriod });
     }
     for (const d of glRecDefs) {
       R.insert('RECON_DEFINITION', { definitionId: d.id, name: d.name, catalog: 'GL', financialLineId: null, entity: d.entity, accounts: d.accounts, preparer: d.preparer, reviewer: d.reviewer }, SYSTEM, { id: `RECONDEF-${d.id}`, target: d.id, scope: d.entity });
@@ -109,7 +101,7 @@ export function seedDevelopment(db: KorvynDatabase, repos: WorkRepositories, wor
       R.insert('FLUX_EXPLANATION', { account, explanationId: e.id, status: e.status, text: e.text, author: e.author, reviewer: e.reviewer, supportRefs: e.supportRefs }, SYSTEM, { id: e.id, target: `flux:${account}:${period}`, status: e.status, period });
       for (const c of e.comments) repos.comments.add(`flux:${account}:${period}`, { author: c.author, authorId: 'seed', via: null, source: 'SEED', text: c.text, financialObjectIds: [], populationIds: [], executionId: null }, null, SYSTEM, null);
     }
-    for (const t of CLOSE_TASK_SEED) R.insert('CLOSE_TASK', { taskId: t.id, name: t.name, workstream: t.workstream, entity: t.entity, owner: t.owner, approver: t.approver, due: t.due, state: t.status, blockedBy: t.blockedBy ?? null }, SYSTEM, { id: `CLOSETASK-${t.id}-${workingPeriod}`, target: t.id, status: t.status, period: workingPeriod, scope: t.entity });
+    seedCloseAndReports(repos, workingPeriod);
     for (const r of REPORT_SEED) R.insert('REPORT_DEFINITION', r, SYSTEM, { id: r.id, target: r.id, status: 'SAVED' });
     for (const r of PUBLISHED_SEED) R.insert('PUBLISHED_REPORT', r, SYSTEM, { id: r.id, target: r.reportId, status: 'PUBLISHED', period: r.period });
     for (const r of PACKAGE_SEED) R.insert('REPORTING_PACKAGE', r, SYSTEM, { id: r.id, status: r.status, period: r.period });
@@ -117,4 +109,25 @@ export function seedDevelopment(db: KorvynDatabase, repos: WorkRepositories, wor
     db.db.prepare('INSERT OR REPLACE INTO seed_meta (name, version, at) VALUES (?, ?, ?)').run('korvyn-dev', SEED_VERSION, new Date().toISOString());
   });
   return { seeded: true };
+}
+
+/** the workspace's close checklist and saved reports, as the one server book */
+function seedCloseAndReports(repos: WorkRepositories, workingPeriod: string) {
+  const R = repos.records;
+  for (const t of closeTaskBodies()) R.insert('CLOSE_TASK', t, SYSTEM, { id: `CLOSETASK-${t.taskId}`, target: t.taskId, status: t.state, period: workingPeriod, scope: t.entity });
+  for (const r of reportSeedRecords()) if (!repos.saved.get('REPORT', r.id)) repos.saved.create('REPORT', r.body, SYSTEM, { id: r.id, target: r.id });
+}
+
+/** 3C.1 → 3D.1: replace the server-only close checklist and module review states with the workspace's own; add its
+ *  saved reports. Comments, support, investigations, proposals and audit are untouched. */
+function upgradeTo3D(db: KorvynDatabase, repos: WorkRepositories, workingPeriod: string) {
+  db.tx(() => {
+    db.db.prepare("DELETE FROM records WHERE kind = 'CLOSE_TASK'").run();
+    for (const [id] of MODULE_RECONCILIATIONS) {
+      const wf = repos.reconciliations.status(id);
+      if (wf && wf.updatedBy === SYSTEM) repos.records.update('RECON_WORKFLOW', wf.id, null, SYSTEM, () => ({ definitionId: id, status: moduleStatus(id) }), { status: moduleStatus(id) });
+    }
+    seedCloseAndReports(repos, workingPeriod);
+    db.db.prepare('INSERT OR REPLACE INTO seed_meta (name, version, at) VALUES (?, ?, ?)').run('korvyn-dev', SEED_VERSION, new Date().toISOString());
+  });
 }

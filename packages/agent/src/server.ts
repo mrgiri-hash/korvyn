@@ -3,19 +3,23 @@ import { createServer, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { KorvynAgent } from './agent.js';
-import { API_PREFIXES, handleSloane } from './sloane/routes.js';
+import { API_PREFIXES, handleSloane, originAllowed } from './sloane/routes.js';
 
 /**
  * Thin HTTP bridge so the dashboard's Ask Korvyn can reach the real agent.
  *   GET  /health  -> { ok, model, keySet }
  *   POST /ask     -> streams newline-delimited JSON events ({type:'text'|'tool'|'done'|'error'})
- * CORS is open (localhost dev). One KorvynAgent per sessionId keeps multi-turn memory.
+ * CORS is RESTRICTED (3D): an Access-Control-Allow-Origin header is sent only for an origin listed in
+ * KORVYN_ALLOWED_ORIGINS, never '*', and POST /ask is refused from any other origin. One KorvynAgent per sessionId.
  */
 const PORT = Number(process.env['PORT'] ?? 8787);
 const sessions = new Map<string, KorvynAgent>();
 
-function cors(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function cors(origin: string | undefined, res: ServerResponse): void {
+  const allowed = (process.env['KORVYN_ALLOWED_ORIGINS'] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (!origin || !allowed.includes(origin)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
 }
@@ -27,7 +31,7 @@ const server = createServer((req, res) => {
     void handleSloane(req, res);
     return;
   }
-  cors(res);
+  cors(typeof req.headers.origin === 'string' ? req.headers.origin : undefined, res);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -61,6 +65,7 @@ const server = createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.startsWith('/ask')) {
+    if (!originAllowed(req)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ outcome: 'PERMISSION_DENIED', reason: 'Cross-origin request refused.' })); return; }
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', async () => {
@@ -91,7 +96,8 @@ const server = createServer((req, res) => {
       try {
         await agent.ask(prompt, (e) => write(e));
       } catch (e) {
-        write({ type: 'error', text: (e as Error).message });
+        console.error('[ask] failed:', (e as Error).message);
+        write({ type: 'error', text: 'The agent could not complete this request.' });
       }
       res.end();
     });

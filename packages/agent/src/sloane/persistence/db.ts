@@ -49,6 +49,9 @@ export class KorvynDatabase {
     this.db = new DatabaseSync(path);
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 3000;');
     for (const m of MIGRATIONS) this.db.exec(m);
+    /* 3D: sessions carry a synchronizer CSRF token; a pre-3D session has none and is therefore not a live session */
+    const cols = (this.db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[]).map((c) => c.name);
+    if (!cols.includes('csrf_token')) this.db.exec('ALTER TABLE sessions ADD COLUMN csrf_token TEXT');
   }
   /** one synchronous transaction; a thrown error rolls everything back */
   tx<T>(fn: () => T): T {

@@ -1,44 +1,52 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { loadSloaneConfig } from './config.js';
 import { createAdapter, type SloaneLLMAdapter } from './adapter.js';
 import { LIMITS, SloaneOrchestrator } from './orchestrator.js';
-import { SessionService, DEV_DIRECTORY, type ActorContext } from './auth.js';
+import { AuthContext, DevIdentityProvider, DevSessionAuthProvider, DEV_DIRECTORY, type ActorContext, type AuthResolution } from './auth.js';
 import { WORK } from './store.js';
-import { WorkApi, type ApiResult } from './workapi.js';
+import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
 
 /**
- * Korvyn's server API. The browser talks to THIS; every request resolves its actor from the authenticated session
- * cookie (SessionService), never from anything the browser sends.
+ * Korvyn's server API. The browser talks to THIS. Every request resolves its actor through AuthContext
+ * (AuthProvider -> AuthenticatedSession -> ActorContext); nothing the browser sends names a user, role or capability.
  *
- *   GET  /api/auth/me                       the signed-in actor (dev mode signs an anonymous caller in as KORVYN_DEV_USER)
- *   POST /api/auth/dev/switch               { userId } — dev mode, loopback callers only (simulates an IdP login)
+ * REQUEST PROTECTION (3D)
+ *   - Every state-changing request (anything but GET/HEAD/OPTIONS) must carry the session's synchronizer token in
+ *     `X-Korvyn-CSRF` (timing-safe compare), AND its Origin (or Referer) must be this server's own origin or an origin
+ *     listed in KORVYN_ALLOWED_ORIGINS. The token is read from GET /api/auth/me by same-origin script only.
+ *   - The session cookie is HttpOnly, SameSite=Strict, Max-Age bound, Secure over HTTPS; sessions expire server-side
+ *     and POST /api/auth/logout revokes one.
+ *   - CORS: no Access-Control-Allow-Origin at all unless the caller's Origin is in KORVYN_ALLOWED_ORIGINS; never '*'.
+ *   - Errors: every response carries `outcome` (SUCCESS · VALIDATION_ERROR · PERMISSION_DENIED · STALE_VERSION ·
+ *     CONFLICT · NOT_FOUND · UNAVAILABLE). An unexpected failure is UNAVAILABLE with a request id; the detail is logged
+ *     server-side and never sent.
  *
- *   GET  /api/sloane/health                 { available, mode, limits } — no provider or model named
- *   POST /api/sloane/turn                   { sessionId?, request } | { sessionId, clarification:{pendingId, optionId} }
- *   GET  /api/sloane/trace/:traceId         the server-side SloaneExecutionTrace — loopback callers only (dev)
- *   POST /api/sloane/action                 { sessionId, proposalId | planId, decision: confirm|cancel|edit|choose|refresh|regenerate, edits?, choice?, requestId }
- *                                           The ONLY route that executes a Korvyn action service. There is no overwrite: a stale
- *                                           proposal is refreshed, regenerated or cancelled.
- *   GET  /api/sloane/session/:id/activity   the session's action timeline and audit records (its owner only)
- *   GET  /api/sloane/investigations         the actor's durable investigations
- *   GET  /api/sloane/investigations/:id     one restorable investigation (owner or shared)
- *   POST /api/sloane/investigations/:id/resume   { sessionId } — continue it in a conversation
+ *   GET  /api/auth/me                        the signed-in actor and the CSRF token for this session
+ *   POST /api/auth/logout                    revoke this session
+ *   POST /api/auth/dev/switch                { userId } — dev mode, loopback only (simulates an IdP login)
  *
- *   DOMAIN ACTIONS (no generic CRUD):
- *   GET  /api/work/reconciliations/:defId?period=          workflow, comments, support, evidence
- *   POST /api/work/reconciliations/:defId/comments         { text, idempotencyKey, expectedThreadVersion?, period? }
- *   GET  /api/work/flux/:account?period=                   GET /api/work/flux/line/:lineId?period=
- *   POST /api/work/flux/:account/comments                  { text, idempotencyKey, expectedThreadVersion?, period? }
- *   GET  /api/work/close?period=   GET /api/work/evidence?target=   GET /api/work/issues   GET /api/work/saved/:kind
+ *   GET  /api/sloane/health · POST /api/sloane/turn · POST /api/sloane/action · GET /api/sloane/trace/:id (loopback)
+ *   GET  /api/sloane/investigations[/:id] · POST /api/sloane/investigations/:id/resume · GET /api/sloane/session/:id/activity
  *
- * RETIRED: /interpret, /plan, /narrate answer 410.
+ *   ONE-BOOK DOMAIN ACTIONS (no generic CRUD):
+ *   GET  /api/work/reconciliations/:id                 POST …/:id/comments · POST …/:id/support
+ *   GET  /api/work/flux/:account · GET /api/work/flux/line/:lineId   POST /api/work/flux/line/:lineId/comments · POST /api/work/flux/:account/comments
+ *   POST /api/work/comments/:commentId/edit
+ *   GET  /api/work/close · GET /api/work/close/tasks   POST /api/work/close/tasks/:taskId/status
+ *   GET  /api/work/reports[/:id] · POST /api/work/reports · POST /api/work/reports/:id (update / archive / delete)
+ *   GET  /api/work/evidence?target= · GET /api/work/issues · GET /api/work/saved/:kind
  */
 const cfg = loadSloaneConfig();
 const adapter: SloaneLLMAdapter = createAdapter(cfg);
 export const orchestrator = new SloaneOrchestrator(adapter, cfg);
-export const sessions = new SessionService(WORK.repos);
+const idp = new DevIdentityProvider();
+export const authProvider = new DevSessionAuthProvider(WORK.repos, idp);
+export const auth = new AuthContext(authProvider, idp);
+/** @deprecated 3C export name */
+export const sessions = { mode: authProvider.mode, resolve: (req: IncomingMessage, res: ServerResponse | null) => auth.resolve(req, res)?.actor ?? null };
 const work = new WorkApi(orchestrator);
-const MAX_BODY = 16_000;
+const MAX_BODY = 32_000;
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
   return new Promise((resolve) => {
@@ -48,28 +56,69 @@ function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null>
     req.on('error', () => resolve(null));
   });
 }
-
 function send(res: ServerResponse, status: number, body: unknown): void {
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  if (res.headersSent) return;
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   res.end(JSON.stringify(body));
 }
 const reply = (res: ServerResponse, r: ApiResult) => send(res, r.status, r.body);
+const refuse = (res: ServerResponse, outcome: Exclude<Outcome, 'SUCCESS'>, reason: string, extra: Record<string, unknown> = {}) => send(res, HTTP_OF[outcome], { outcome, reason, ...extra });
 
 const loopback = (req: IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
 const actorView = (a: ActorContext) => ({ id: a.id, name: a.name, role: a.role, capabilities: a.permissions, entityAccess: a.entityAccess, authenticatedVia: a.authenticatedVia });
 const DECISIONS = ['confirm', 'cancel', 'edit', 'choose', 'refresh', 'regenerate'];
+const MUTATING = (m?: string) => !['GET', 'HEAD', 'OPTIONS'].includes(m ?? 'GET');
 
-/** the actor for this request, or a 401 already sent */
-function authed(req: IncomingMessage, res: ServerResponse): ActorContext | null {
-  const a = sessions.resolve(req, res);
-  if (!a) send(res, 401, { error: 'UNAUTHENTICATED', reason: 'Sign in to Korvyn.' });
+/* ---- origin and CSRF -------------------------------------------------------------------------- */
+const allowedOrigins = () => (process.env['KORVYN_ALLOWED_ORIGINS'] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+function ownOrigin(req: IncomingMessage) { const host = req.headers.host ?? ''; const https = (req.socket as { encrypted?: boolean } | undefined)?.encrypted || String(req.headers['x-forwarded-proto'] ?? '').startsWith('https'); return `${https ? 'https' : 'http'}://${host}`; }
+/** the request's origin is this server or an explicitly allowed Korvyn origin */
+export function originAllowed(req: IncomingMessage): boolean {
+  const origin = typeof req.headers.origin === 'string' ? req.headers.origin : null;
+  const referer = typeof req.headers.referer === 'string' ? req.headers.referer : null;
+  const src = origin ?? (referer ? (() => { try { return new URL(referer).origin; } catch { return 'invalid'; } })() : null);
+  if (!src) return String(req.headers['sec-fetch-site'] ?? 'same-origin') === 'same-origin';
+  return src === ownOrigin(req) || allowedOrigins().includes(src);
+}
+function csrfValid(req: IncomingMessage, a: AuthResolution): boolean {
+  const sent = req.headers['x-korvyn-csrf'];
+  if (typeof sent !== 'string' || !sent) return false;
+  const x = Buffer.from(sent), y = Buffer.from(a.session.csrfToken);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+/** CORS for an explicitly allowed Korvyn origin only; nothing for anyone else */
+function cors(req: IncomingMessage, res: ServerResponse) {
+  const o = typeof req.headers.origin === 'string' ? req.headers.origin : null;
+  if (o && allowedOrigins().includes(o)) {
+    res.setHeader('Access-Control-Allow-Origin', o); res.setHeader('Vary', 'Origin'); res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Korvyn-CSRF'); res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  }
+}
+
+/** the actor for this request, or a 401 already sent; mutations additionally pass origin + CSRF checks */
+function authed(req: IncomingMessage, res: ServerResponse): AuthResolution | null {
+  if (MUTATING(req.method) && !originAllowed(req)) { refuse(res, 'PERMISSION_DENIED', 'Cross-origin request refused.', { code: 'ORIGIN_REJECTED' }); return null; }
+  const a = auth.resolve(req, res);
+  if (!a) { send(res, 401, { outcome: 'PERMISSION_DENIED', code: 'UNAUTHENTICATED', reason: 'Sign in to Korvyn.' }); return null; }
+  if (MUTATING(req.method) && !csrfValid(req, a)) { refuse(res, 'PERMISSION_DENIED', 'This request is missing its session protection token. Reload and try again.', { code: 'CSRF_REJECTED' }); return null; }
   return a;
 }
 /** a live conversation belongs to the user who started it */
 function ownsSession(res: ServerResponse, actor: ActorContext, sessionId: string): boolean {
   const owner = orchestrator.sessionOwner(sessionId);
-  if (owner && owner !== actor.id) { send(res, 403, { error: 'FORBIDDEN', reason: 'This conversation belongs to another user.' }); return false; }
+  if (owner && owner !== actor.id) { refuse(res, 'PERMISSION_DENIED', 'This conversation belongs to another user.'); return false; }
   return true;
+}
+/** an action decision's per-proposal codes, as the one outcome contract */
+function decisionOutcome(results: { code: string | null; status: string }[]): Outcome {
+  const codes = results.map((r) => r.code);
+  if (codes.includes('STALE_PROPOSAL')) return 'STALE_VERSION';
+  if (codes.includes('FORBIDDEN') || codes.includes('GOVERNED')) return 'PERMISSION_DENIED';
+  if (codes.includes('NOT_FOUND')) return 'NOT_FOUND';
+  if (codes.includes('INVALID')) return 'VALIDATION_ERROR';
+  if (codes.includes('DEPENDENCY') || codes.includes('IN_PROGRESS')) return 'CONFLICT';
+  if (codes.includes('FAILED')) return 'UNAVAILABLE';
+  return 'SUCCESS';
 }
 
 export const API_PREFIXES = ['/api/sloane/', '/api/auth/', '/api/work/'];
@@ -77,105 +126,137 @@ export const API_PREFIXES = ['/api/sloane/', '/api/auth/', '/api/work/'];
 export async function handleSloane(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url = req.url ?? '';
   if (!API_PREFIXES.some((p) => url.startsWith(p))) return false;
+  cors(req, res);
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return true; }
+  try {
+    await route(req, res, url);
+  } catch (e) {
+    const requestId = randomUUID();
+    console.error(`[korvyn] ${requestId} ${req.method} ${url.split('?')[0]} failed:`, (e as Error)?.message ?? e);
+    refuse(res, 'UNAVAILABLE', 'Korvyn could not complete this request. Nothing was changed.', { requestId });
+  }
+  return true;
+}
+
+async function route(req: IncomingMessage, res: ServerResponse, url: string): Promise<void> {
   const [path, qs] = [url.split('?')[0] ?? '', new URLSearchParams(url.split('?')[1] ?? '')];
   const period = qs.get('period') ?? undefined;
 
   /* ---- auth ------------------------------------------------------------------------------------- */
   if (path.startsWith('/api/auth/')) {
-    const route = path.slice('/api/auth/'.length);
-    if (req.method === 'GET' && route === 'me') { const a = authed(req, res); if (a) send(res, 200, { actor: actorView(a), mode: sessions.mode }); return true; }
-    if (req.method === 'POST' && route === 'dev/switch') {
-      if (sessions.mode !== 'dev' || !loopback(req)) { send(res, 404, { error: 'not found' }); return true; }
+    const r = path.slice('/api/auth/'.length);
+    if (req.method === 'GET' && r === 'me') { const a = authed(req, res); if (a) send(res, 200, { outcome: 'SUCCESS', actor: actorView(a.actor), mode: auth.mode, csrfToken: a.session.csrfToken, expiresAt: a.session.expiresAt, provider: a.session.provider }); return; }
+    if (req.method === 'POST' && r === 'logout') { const a = authed(req, res); if (!a) return; authProvider.signOut(req, res); send(res, 200, { outcome: 'SUCCESS' }); return; }
+    if (req.method === 'POST' && r === 'dev/switch') {
+      /* a login: no session exists to hold a token yet, so it is protected by dev mode + loopback + same origin */
+      if (auth.mode !== 'dev' || !loopback(req)) { refuse(res, 'NOT_FOUND', 'not found'); return; }
+      if (!originAllowed(req)) { refuse(res, 'PERMISSION_DENIED', 'Cross-origin request refused.', { code: 'ORIGIN_REJECTED' }); return; }
       const body = await readJson(req);
-      const a = typeof body?.['userId'] === 'string' ? sessions.switchTo(req, res, body['userId']) : null;
-      if (!a) { send(res, 400, { error: 'BAD_REQUEST', reason: 'unknown user', users: DEV_DIRECTORY.map((u) => ({ id: u.id, name: u.name, roles: u.roles })) }); return true; }
-      send(res, 200, { actor: actorView(a) });
-      return true;
+      const s = typeof body?.['userId'] === 'string' ? authProvider.signInAs(req, res, body['userId']) : null;
+      const u = s ? idp.user(s.userId) : null;
+      if (!s || !u) { refuse(res, 'VALIDATION_ERROR', 'unknown user', { users: DEV_DIRECTORY.map((x) => ({ id: x.id, name: x.name, roles: x.roles })) }); return; }
+      send(res, 200, { outcome: 'SUCCESS', actor: { id: u.id, name: u.name, role: u.roles[0] }, csrfToken: s.csrfToken });
+      return;
     }
-    send(res, 404, { error: 'unknown auth route' });
-    return true;
+    refuse(res, 'NOT_FOUND', 'unknown auth route');
+    return;
   }
 
-  /* ---- domain actions ----------------------------------------------------------------------------- */
+  /* ---- domain actions ------------------------------------------------------------------------------ */
   if (path.startsWith('/api/work/')) {
     const seg = path.slice('/api/work/'.length).split('/').map(decodeURIComponent);
-    const actor = authed(req, res); if (!actor) return true;
-    if (seg[0] === 'reconciliations' && seg[1]) {
-      if (req.method === 'GET' && seg.length === 2) { reply(res, work.reconciliationWorkflow(actor, seg[1], period)); return true; }
-      if (req.method === 'POST' && seg[2] === 'comments' && seg.length === 3) { const b = await readJson(req); if (!b) { send(res, 400, { error: 'invalid body' }); return true; } reply(res, work.addReconciliationComment(actor, seg[1], b)); return true; }
+    const a = authed(req, res); if (!a) return;
+    const actor = a.actor, G = req.method === 'GET', P = req.method === 'POST';
+    const body = P ? await readJson(req) : {};
+    if (P && !body) { refuse(res, 'VALIDATION_ERROR', 'invalid or oversized request body'); return; }
+    const b = body ?? {};
+    const [s0, s1, s2, s3] = seg;
+    if (s0 === 'reconciliations' && s1) {
+      if (G && seg.length === 2) return reply(res, work.reconciliationWorkflow(actor, s1, period));
+      if (P && s2 === 'comments' && seg.length === 3) return reply(res, work.addReconciliationComment(actor, s1, b));
+      if (P && s2 === 'support' && seg.length === 3) return reply(res, work.attachReconciliationSupport(actor, s1, b));
     }
-    if (seg[0] === 'flux' && seg[1]) {
-      if (req.method === 'GET' && seg[1] === 'line' && seg[2] && seg.length === 3) { reply(res, work.fluxLineComments(actor, seg[2], period)); return true; }
-      if (req.method === 'GET' && seg.length === 2) { reply(res, work.fluxWorkflow(actor, seg[1], period)); return true; }
-      if (req.method === 'POST' && seg[2] === 'comments' && seg.length === 3) { const b = await readJson(req); if (!b) { send(res, 400, { error: 'invalid body' }); return true; } reply(res, work.addFluxComment(actor, seg[1], b)); return true; }
+    if (s0 === 'flux' && s1) {
+      if (s1 === 'line' && s2) {
+        if (G && seg.length === 3) return reply(res, work.fluxLineComments(actor, s2, period));
+        if (P && s3 === 'comments' && seg.length === 4) return reply(res, work.addFluxLineComment(actor, s2, b));
+      }
+      if (G && seg.length === 2) return reply(res, work.fluxWorkflow(actor, s1, period));
+      if (P && s2 === 'comments' && seg.length === 3) return reply(res, work.addFluxComment(actor, s1, b));
     }
-    if (req.method === 'GET' && seg[0] === 'close' && seg.length === 1) { reply(res, work.close(actor, period)); return true; }
-    if (req.method === 'GET' && seg[0] === 'evidence' && seg.length === 1) { const t = qs.get('target'); if (!t) { send(res, 400, { error: 'target is required' }); return true; } reply(res, work.evidence(actor, t)); return true; }
-    if (req.method === 'GET' && seg[0] === 'issues' && seg.length === 1) { reply(res, work.issues(actor)); return true; }
-    if (req.method === 'GET' && seg[0] === 'saved' && seg[1] && seg.length === 2) { reply(res, work.savedObjects(actor, seg[1])); return true; }
-    send(res, req.method === 'POST' || req.method === 'GET' ? 404 : 405, { error: 'unknown work route' });
-    return true;
+    if (P && s0 === 'comments' && s1 && s2 === 'edit' && seg.length === 3) return reply(res, work.editComment(actor, s1, b));
+    if (s0 === 'close') {
+      if (G && seg.length === 1) return reply(res, work.close(actor, period));
+      if (G && s1 === 'tasks' && seg.length === 2) return reply(res, work.closeTasks(actor, period));
+      if (P && s1 === 'tasks' && s2 && s3 === 'status' && seg.length === 4) return reply(res, work.setCloseTaskStatus(actor, s2, b));
+    }
+    if (s0 === 'reports') {
+      if (G && seg.length === 1) return reply(res, work.reports(actor));
+      if (P && seg.length === 1) return reply(res, work.createReport(actor, b));
+      if (G && s1 && seg.length === 2) return reply(res, work.report(actor, s1));
+      if (P && s1 && seg.length === 2) return reply(res, work.updateReport(actor, s1, b));
+    }
+    if (G && s0 === 'evidence' && seg.length === 1) { const t = qs.get('target'); if (!t) { refuse(res, 'VALIDATION_ERROR', 'target is required'); return; } return reply(res, work.evidence(actor, t)); }
+    if (G && s0 === 'issues' && seg.length === 1) return reply(res, work.issues(actor));
+    if (G && s0 === 'saved' && s1 && seg.length === 2) return reply(res, work.savedObjects(actor, s1));
+    refuse(res, 'NOT_FOUND', 'unknown work route');
+    return;
   }
 
   /* ---- sloane ----------------------------------------------------------------------------------- */
-  const route = path.slice('/api/sloane/'.length);
-  if (req.method === 'GET' && route === 'health') {
-    send(res, 200, {
-      available: adapter.provider !== 'mock', mode: orchestrator.mode, orchestration: 'server', auth: sessions.mode,
-      configured: cfg.provider === 'mock' || cfg.credentialsPresent,
-      limits: { maxToolCalls: LIMITS.maxToolCalls, wallClockMs: LIMITS.wallClockMs, timeoutMs: cfg.timeoutMs },
-    });
-    return true;
+  const r = path.slice('/api/sloane/'.length);
+  if (req.method === 'GET' && r === 'health') {
+    send(res, 200, { outcome: 'SUCCESS', available: adapter.provider !== 'mock', mode: orchestrator.mode, orchestration: 'server', auth: auth.mode,
+      configured: cfg.provider === 'mock' || cfg.credentialsPresent, limits: { maxToolCalls: LIMITS.maxToolCalls, wallClockMs: LIMITS.wallClockMs, timeoutMs: cfg.timeoutMs } });
+    return;
   }
-  if (req.method === 'GET' && route.startsWith('trace/')) {
-    if (!loopback(req) || process.env['SLOANE_DEV_TRACE'] === '0') { send(res, 404, { error: 'not found' }); return true; }
-    const t = orchestrator.trace(route.slice('trace/'.length));
-    send(res, t ? 200 : 404, t ?? { error: 'no such trace' });
-    return true;
+  if (req.method === 'GET' && r.startsWith('trace/')) {
+    if (!loopback(req) || process.env['SLOANE_DEV_TRACE'] === '0') { refuse(res, 'NOT_FOUND', 'not found'); return; }
+    const t = orchestrator.trace(r.slice('trace/'.length));
+    if (t) send(res, 200, t); else refuse(res, 'NOT_FOUND', 'no such trace');
+    return;
   }
-  if (['interpret', 'plan', 'narrate'].includes(route)) {
-    send(res, 410, { error: 'retired: Sloane orchestration runs on the server — use POST /api/sloane/turn' });
-    return true;
-  }
-  const actor = authed(req, res); if (!actor) return true;
+  if (['interpret', 'plan', 'narrate'].includes(r)) { send(res, 410, { outcome: 'NOT_FOUND', reason: 'retired: Sloane orchestration runs on the server — use POST /api/sloane/turn' }); return; }
+  const a = authed(req, res); if (!a) return;
+  const actor = a.actor;
 
-  if (req.method === 'POST' && route === 'action') {
+  if (req.method === 'POST' && r === 'action') {
     const body = await readJson(req);
-    if (!body || typeof body['sessionId'] !== 'string' || !DECISIONS.includes(String(body['decision'])) || (typeof body['proposalId'] !== 'string' && typeof body['planId'] !== 'string')) { send(res, 400, { error: 'sessionId, decision and proposalId or planId are required' }); return true; }
-    if (!ownsSession(res, actor, body['sessionId'])) return true;
+    if (!body || typeof body['sessionId'] !== 'string' || !DECISIONS.includes(String(body['decision'])) || (typeof body['proposalId'] !== 'string' && typeof body['planId'] !== 'string')) { refuse(res, 'VALIDATION_ERROR', 'sessionId, decision and proposalId or planId are required'); return; }
+    if (!ownsSession(res, actor, body['sessionId'])) return;
     const edits = body['edits'] && typeof body['edits'] === 'object' ? Object.fromEntries(Object.entries(body['edits'] as Record<string, unknown>).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, String(v).slice(0, 2000)])) : undefined;
     const out = orchestrator.decide({ sessionId: body['sessionId'], ...(typeof body['proposalId'] === 'string' ? { proposalId: body['proposalId'] } : {}), ...(typeof body['planId'] === 'string' ? { planId: body['planId'] } : {}),
       decision: body['decision'] as 'confirm', ...(edits ? { edits } : {}), ...(typeof body['choice'] === 'string' ? { choice: body['choice'] } : {}), ...(typeof body['requestId'] === 'string' ? { requestId: body['requestId'].slice(0, 80) } : {}) }, actor);
-    send(res, 200, { ...out, timeline: orchestrator.timeline(body['sessionId']) });
-    return true;
+    const outcome = decisionOutcome(out.results);
+    send(res, HTTP_OF[outcome], { outcome, ...out, timeline: orchestrator.timeline(body['sessionId']) });
+    return;
   }
-  if (req.method === 'GET' && route.startsWith('session/') && route.endsWith('/activity')) {
-    const sid = route.slice('session/'.length, -'/activity'.length);
-    if (!ownsSession(res, actor, sid)) return true;
-    send(res, 200, { timeline: orchestrator.timeline(sid), audit: orchestrator.auditOf(sid) });
-    return true;
+  if (req.method === 'GET' && r.startsWith('session/') && r.endsWith('/activity')) {
+    const sid = r.slice('session/'.length, -'/activity'.length);
+    if (!ownsSession(res, actor, sid)) return;
+    send(res, 200, { outcome: 'SUCCESS', timeline: orchestrator.timeline(sid), audit: orchestrator.auditOf(sid) });
+    return;
   }
-  if (req.method === 'GET' && route === 'investigations') { send(res, 200, { investigations: orchestrator.listInvestigations(actor) }); return true; }
-  if (route.startsWith('investigations/')) {
-    const [id, verb] = route.slice('investigations/'.length).split('/');
-    if (req.method === 'GET' && id && !verb) { const v = orchestrator.investigationView(id, actor); send(res, v ? 200 : 404, v ?? { error: 'NOT_FOUND' }); return true; }
+  if (req.method === 'GET' && r === 'investigations') { send(res, 200, { outcome: 'SUCCESS', investigations: orchestrator.listInvestigations(actor) }); return; }
+  if (r.startsWith('investigations/')) {
+    const [id, verb] = r.slice('investigations/'.length).split('/');
+    if (req.method === 'GET' && id && !verb) { const v = orchestrator.investigationView(id, actor); if (v) send(res, 200, { outcome: 'SUCCESS', ...v }); else refuse(res, 'NOT_FOUND', 'No such investigation'); return; }
     if (req.method === 'POST' && id && verb === 'resume') {
       const body = await readJson(req);
       const sid = typeof body?.['sessionId'] === 'string' ? body['sessionId'] : '';
-      if (!ownsSession(res, actor, sid)) return true;
+      if (!ownsSession(res, actor, sid)) return;
       const v = orchestrator.resumeInvestigation(id, sid, actor);
-      send(res, v ? 200 : 404, v ? { sessionId: sid, ...v } : { error: 'NOT_FOUND' });
-      return true;
+      if (v) send(res, 200, { outcome: 'SUCCESS', sessionId: sid, ...v }); else refuse(res, 'NOT_FOUND', 'No such investigation');
+      return;
     }
   }
-  if (req.method === 'POST' && route === 'turn') {
+  if (req.method === 'POST' && r === 'turn') {
     const body = await readJson(req);
-    if (!body) { send(res, 400, { error: 'invalid or oversized request body' }); return true; }
-    if (typeof body['sessionId'] === 'string' && !ownsSession(res, actor, body['sessionId'])) return true;
+    if (!body) { refuse(res, 'VALIDATION_ERROR', 'invalid or oversized request body'); return; }
+    if (typeof body['sessionId'] === 'string' && !ownsSession(res, actor, body['sessionId'])) return;
     const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'] }, actor);
-    send(res, 200, out);
-    return true;
+    send(res, 200, { outcome: 'SUCCESS', ...out });
+    return;
   }
-  send(res, req.method === 'POST' || req.method === 'GET' ? 404 : 405, { error: 'unknown Sloane route' });
-  return true;
+  refuse(res, req.method === 'POST' || req.method === 'GET' ? 'NOT_FOUND' : 'VALIDATION_ERROR', 'unknown Sloane route');
 }

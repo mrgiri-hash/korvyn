@@ -5,6 +5,7 @@
  * it applies `status`, `scope`, `period`, `target` and `investigationId`. Updates are OPTIMISTIC: a caller states the
  * version it read, and a different stored version raises StaleVersionError — nothing is ever silently overwritten.
  */
+import { randomBytes } from 'node:crypto';
 import { type KorvynDatabase, korvynId } from './db.js';
 
 export interface Stamp { id: string; version: number; createdAt: string; createdBy: string; updatedAt: string; updatedBy: string }
@@ -81,7 +82,7 @@ export interface ExecutionBody { proposalId: string; actionType: string; outcome
 export interface ReconDefinitionBody { definitionId: string; name: string; catalog: 'MODULE' | 'GL'; financialLineId: string | null; entity: string; accounts: string[]; preparer: string; reviewer: string }
 export interface ReconWorkflowBody { definitionId: string; status: string }
 export interface FluxExplanationBody { account: string; explanationId: string; status: string; text: string; author: string; reviewer: string; supportRefs: string[] }
-export interface CloseTaskBody { taskId: string; name: string; workstream: string; entity: string; owner: string; approver: string; due: string; state: string; blockedBy: string | null }
+export interface CloseTaskBody { taskId: string; name: string; workstream: string; entity: string; entityName?: string; owner: string; approver: string; due: string; state: string; blockedBy: string | null; dependency?: string | null }
 
 export interface AuditEvent {
   eventId: string; at: string;
@@ -104,19 +105,19 @@ export class CommentRepository {
   constructor(private readonly s: RecordStore) {}
   private threadRec(key: string) {
     const id = `THREAD-${key}`;
-    return this.s.get<ThreadBody>('COMMENT_THREAD', id) ?? this.s.insert<ThreadBody>('COMMENT_THREAD', { key, domain: key.startsWith('flux:') ? 'FLUX' : 'RECON' }, 'system', { id, target: key });
+    return this.s.get<ThreadBody>('COMMENT_THREAD', id) ?? this.s.insert<ThreadBody>('COMMENT_THREAD', { key, domain: key.startsWith('flux') ? 'FLUX' : 'RECON' }, 'system', { id, target: key });
   }
   thread(key: string) {
     const t = this.threadRec(key);
-    const kind = key.startsWith('flux:') ? 'FLUX_COMMENT' : 'RECON_COMMENT';
+    const kind = key.startsWith('flux') ? 'FLUX_COMMENT' : 'RECON_COMMENT';
     return { key, version: t.version, comments: this.s.list<CommentBody>(kind, { target: key }) };
   }
   /** appends a comment; the thread version guards against a comment landing on a thread that moved since it was read */
   add(key: string, body: Omit<CommentBody, 'threadKey' | 'history'>, expectedThreadVersion: number | null, by: string, investigationId: string | null) {
     const t = this.threadRec(key);
-    const kind = key.startsWith('flux:') ? 'FLUX_COMMENT' : 'RECON_COMMENT';
+    const kind = key.startsWith('flux') ? 'FLUX_COMMENT' : 'RECON_COMMENT';
     this.s.update<ThreadBody>('COMMENT_THREAD', t.id, expectedThreadVersion, by, (o) => ({ key: o.key, domain: o.domain }));
-    return this.s.insert<CommentBody>(kind, { ...body, threadKey: key, history: [] }, by, { prefix: key.startsWith('flux:') ? 'FLUXCOMMENT' : 'RECONCOMMENT', target: key, investigationId });
+    return this.s.insert<CommentBody>(kind, { ...body, threadKey: key, history: [] }, by, { prefix: key.startsWith('flux') ? 'FLUXCOMMENT' : 'RECONCOMMENT', target: key, investigationId });
   }
   update(commentId: string, text: string, expectedVersion: number, by: string, via: 'Sloane' | null) {
     const kind = commentId.startsWith('FLUXCOMMENT') ? 'FLUX_COMMENT' : 'RECON_COMMENT';
@@ -173,8 +174,11 @@ export class ReviewerAssignmentRepository {
 export class SavedObjectRepository {
   static readonly KINDS = { ANALYSIS: ['SAVED_ANALYSIS', 'ANALYSIS'], REPORT: ['SAVED_REPORT', 'REPORT'], EXCEL: ['EXCEL_ARTIFACT_DEFINITION', 'ARTIFACT'], PACKAGE: ['SUPPORT_PACKAGE_DRAFT', 'PACKAGE'], INVESTIGATION_SHARE: ['SHARED_INVESTIGATION', 'INVESTIGATION'], APPROVAL_REQUEST: ['GOVERNED_REQUEST', 'REQUEST'] } as const;
   constructor(private readonly s: RecordStore) {}
-  create(k: keyof typeof SavedObjectRepository.KINDS, body: SavedBody, by: string, meta: Meta = {}) { const [kind, prefix] = SavedObjectRepository.KINDS[k]; return this.s.insert<SavedBody>(kind, body, by, { prefix, status: k === 'REPORT' ? String(body.definition['status'] ?? 'DRAFT') : 'ACTIVE', ...meta }); }
+  create(k: keyof typeof SavedObjectRepository.KINDS, body: SavedBody, by: string, meta: Meta & { id?: string } = {}) { const [kind, prefix] = SavedObjectRepository.KINDS[k]; return this.s.insert<SavedBody>(kind, body, by, { prefix, status: k === 'REPORT' ? String(body.definition['status'] ?? 'DRAFT') : 'ACTIVE', ...meta }); }
   list(k: keyof typeof SavedObjectRepository.KINDS) { return this.s.list<SavedBody>(SavedObjectRepository.KINDS[k][0]); }
+  get(k: keyof typeof SavedObjectRepository.KINDS, id: string) { return this.s.get<SavedBody>(SavedObjectRepository.KINDS[k][0], id); }
+  /** a versioned change to a saved definition; a stale expectedVersion raises STALE_PROPOSAL */
+  update(k: keyof typeof SavedObjectRepository.KINDS, id: string, expectedVersion: number | null, by: string, mutate: (o: Stamped<SavedBody>) => SavedBody, meta: Meta = {}) { return this.s.update<SavedBody>(SavedObjectRepository.KINDS[k][0], id, expectedVersion, by, mutate, meta); }
 }
 
 export class InvestigationRepository {
@@ -246,10 +250,21 @@ export class IdempotencyRepository {
   put(key: string, scope: string, actorId: string, result: unknown) { this.database.db.prepare('INSERT OR IGNORE INTO idempotency (key, scope, actor_id, at, result) VALUES (?, ?, ?, ?, ?)').run(key, scope, actorId, new Date().toISOString(), JSON.stringify(result)); }
 }
 
+export interface SessionRecord { id: string; userId: string; csrfToken: string; createdAt: string; expiresAt: string }
 export class SessionRepository {
   constructor(private readonly database: KorvynDatabase) {}
-  create(userId: string, ttlHours = 12) { const id = korvynId('SESSION') + Math.random().toString(36).slice(2); const t = new Date(); this.database.db.prepare('INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(id, userId, t.toISOString(), new Date(t.getTime() + ttlHours * 3600_000).toISOString()); return id; }
-  resolve(id: string): { userId: string } | null { const r = this.database.db.prepare('SELECT user_id, expires_at, revoked FROM sessions WHERE id = ?').get(id) as { user_id: string; expires_at: string; revoked: number } | undefined; return r && !r.revoked && r.expires_at > new Date().toISOString() ? { userId: r.user_id } : null; }
+  /** an opaque session id and its synchronizer CSRF token, both random; the browser holds the id only in an HttpOnly cookie */
+  create(userId: string, ttlHours = 12): SessionRecord {
+    const id = `SESSION-${randomBytes(24).toString('base64url')}`, csrfToken = randomBytes(24).toString('base64url'), t = new Date();
+    const expiresAt = new Date(t.getTime() + ttlHours * 3600_000).toISOString();
+    this.database.db.prepare('INSERT INTO sessions (id, user_id, created_at, expires_at, csrf_token) VALUES (?, ?, ?, ?, ?)').run(id, userId, t.toISOString(), expiresAt, csrfToken);
+    return { id, userId, csrfToken, createdAt: t.toISOString(), expiresAt };
+  }
+  /** a live session: not revoked and not expired */
+  resolve(id: string): SessionRecord | null {
+    const r = this.database.db.prepare('SELECT id, user_id, created_at, expires_at, revoked, csrf_token FROM sessions WHERE id = ?').get(id) as { id: string; user_id: string; created_at: string; expires_at: string; revoked: number; csrf_token: string | null } | undefined;
+    return r && !r.revoked && r.expires_at > new Date().toISOString() && r.csrf_token ? { id: r.id, userId: r.user_id, csrfToken: r.csrf_token, createdAt: r.created_at, expiresAt: r.expires_at } : null;
+  }
   revoke(id: string) { this.database.db.prepare('UPDATE sessions SET revoked = 1 WHERE id = ?').run(id); }
 }
 

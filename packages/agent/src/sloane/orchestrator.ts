@@ -15,6 +15,7 @@
  *
  * READ ONLY. Every registered tool the planner can see is a READ tool; WRITE_ACTIONS_ENABLED is a constant.
  */
+import { findSavedReport } from './book.js';
 import { randomUUID } from 'node:crypto';
 import type { SloaneLLMAdapter, Usage } from './adapter.js';
 import type { SloaneConfig } from './config.js';
@@ -180,7 +181,9 @@ export class FinancialContextEngine {
     const newObject = R.named.object && c.object.value.type !== R.objectType && I.continuity === 'NEW_OBJECT';
     if (R.named.object) n.object = { value: { type: R.objectType, name: R.objectName }, source: 'EXPLICIT' };
     else if (c.object.value.type) n.object = { value: c.object.value, source: 'INHERITED' };
-    if (newObject) { n.focus = { value: null, source: 'UNKNOWN' }; n.populationId = { value: null, source: 'UNKNOWN' }; n.filters = { value: [], source: 'DEFAULTED' }; n.comparisonPeriod = { value: null, source: 'DEFAULTED' }; }
+    /* an ACTION names its TARGET; the population in context is what it acts on ("attach the invoices to X"), so it stays */
+    const acting = I.intent === 'ACT' || I.intent === 'BUILD';
+    if (newObject) { n.focus = { value: null, source: 'UNKNOWN' }; if (!acting) n.populationId = { value: null, source: 'UNKNOWN' }; n.filters = { value: [], source: 'DEFAULTED' }; n.comparisonPeriod = { value: null, source: 'DEFAULTED' }; }
     if (R.named.range && R.range) { n.periodRange = { value: R.range, source: 'EXPLICIT' }; n.period = { value: R.range.end, source: 'DERIVED' }; }
     else if (R.named.period && R.period) { n.period = { value: R.period, source: 'EXPLICIT' }; n.periodRange = { value: null, source: 'DERIVED' }; }
     else if (newObject) { n.periodRange = { value: null, source: 'DEFAULTED' }; }
@@ -430,12 +433,27 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   const recName = quote(/to the (.+?) reconciliation/i) ?? quote(/the (.+?) reconciliation/i);
   /* a READ about a named reconciliation (either catalog) reads that reconciliation */
   const recId = I.requestedObject.id?.startsWith('recon:') ? I.requestedObject.id.slice('recon:'.length) : null;
-  if (recId && I.intent === 'UNDERSTAND') return [S(/comment/.test(t) ? 'getReconciliationComments' : /support|evidence/.test(t) ? 'getReconciliationSupport' : /status|tie/.test(t) ? 'getReconciliationStatus' : 'getReconciliation', 'The reconciliation', { reconciliationId: recId, period: ctx.period.value })];
+  /* READS about the item already in context — "show me the comment on this Flux item", "the latest reconciliation
+     comment", "what support is attached to this reconciliation" — read it; they never propose a write */
+  const readsCtx = /^\s*(show|what|which|list|get|display|who)\b/.test(t) && !/\b(add|attach (these|the|those)|create|post|write|use this)\b/.test(t);
+  if (recId && (readsCtx || (I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION'))) {
+    const rs: PlanStep[] = [];
+    if (/support|evidence|attached/.test(t)) rs.push(S('getReconciliationSupport', 'Support attached to the reconciliation', { reconciliationId: recId, period: ctx.period.value }));
+    if (/comment/.test(t)) rs.push(S('getReconciliationComments', 'Comments on the reconciliation', { reconciliationId: recId, period: ctx.period.value }));
+    if (!rs.length) rs.push(S(/status|tie/.test(t) ? 'getReconciliationStatus' : 'getReconciliation', 'The reconciliation', { reconciliationId: recId, period: ctx.period.value }));
+    return rs;
+  }
+  const recCtx = ctx.focus.value?.kind === 'reconciliation' ? ctx.focus.value.id : ctx.lastRefs['reconciliationId'] ?? null;
+  if (readsCtx && /reconcil|\brec\b/.test(t) && recCtx && !recId) {
+    if (/support|attached|evidence/.test(t)) return [S('getReconciliationSupport', 'Support attached to the reconciliation', { reconciliationId: recCtx, period: ctx.period.value })];
+    if (/comment/.test(t)) return [S('getReconciliationComments', 'Comments on the reconciliation', { reconciliationId: recCtx, period: ctx.period.value })];
+  }
+  if (readsCtx && /comment/.test(t) && !/reconcil|\brec\b/.test(t) && (acctFromText || ctx.focus.value?.kind === 'account')) return [S('getFluxComments', 'Comments on the Flux item', { account: acctFromText ?? '$ctx.account', period: ctx.period.value })];
   if (/^\s*(no|actually)\b|\binstead\b/i.test(t) && ctx.lastRefs['proposalId']) return [S('reviseActionProposal', 'Apply the correction to the open proposal', { target: recName ?? undefined })];
   if (/approve|certify|publish|mapping change|write.?back|post (it )?to (the )?erp/.test(t)) return [S('prepareGovernedAction', 'Governed — prepare only', { actionType: /approve/.test(t) ? 'RECONCILIATION_APPROVAL' : /certify/.test(t) ? 'CLOSE_CERTIFICATION' : /publish/.test(t) ? 'REPORT_PUBLICATION' : /mapping/.test(t) ? 'MAPPING_CHANGE' : 'ERP_WRITE_BACK', target: recName ?? undefined })];
   if (/flux comment/.test(t) && /attach/.test(t)) { const steps = [S('proposeFluxComment', 'Flux comment from the explanation', { useLastExplanation: 'true' }), S('proposeSupportAttachment', 'Attach the support to the Flux line', { targetType: 'FLUX', kinds: 'INVOICE,PURCHASE_ORDER,CONTRACT,APPROVAL' })]; if (person) steps.push(S('proposeReviewerAssignment', 'Reviewer', { reviewer: person, targetType: 'FLUX' })); return steps; }
   if (/flux comment/.test(t)) return [S('proposeFluxComment', 'Flux comment from the explanation', { useLastExplanation: /this|that|explanation/.test(t) ? 'true' : undefined, text: quote(/comment (?:that|saying) (.+)$/i) ?? undefined })];
-  if (/comment/.test(t) && /reconcil|\brec\b/.test(t)) return [S('proposeReconciliationComment', 'Reconciliation comment', { text: quote(/comment (?:that|saying|:) ?(.+)$/i) ?? text, target: recName ?? undefined })];
+  if (/comment/.test(t) && /reconcil|\brec\b/.test(t) && !readsCtx) return [S('proposeReconciliationComment', 'Reconciliation comment', { text: quote(/comment (?:that|saying|:) ?(.+)$/i) ?? text, target: recName ?? undefined })];
   if (/\battach\b/.test(t)) return [S('proposeSupportAttachment', 'Attach support', { target: recName ?? undefined, kinds: /invoice/.test(t) ? 'INVOICE' : 'INVOICE,PURCHASE_ORDER,CONTRACT,APPROVAL' })];
   if (/(create|raise|open) an? issue/.test(t)) return [S('proposeIssue', 'Issue', { amount: quote(/\$\s?([\d.]+)\s?m/i) ?? undefined })];
   if (person) return [S('proposeReviewerAssignment', 'Reviewer assignment', { reviewer: person, target: recName ?? undefined, targetType: recName ? 'RECONCILIATION' : undefined })];
@@ -462,6 +480,8 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   if (/comment/.test(t) && acctFromText) return [S('getFluxComments', 'Flux comments', { account: acctFromText })];
   if (/flux/.test(t)) return [S('getFluxSummary', 'Flux summary')];
   if (/reports?.*(include|contain|with)/.test(t)) return [S('getSavedReports', 'Reports that include the line', { account: acctFromText })];
+  /* a report named from Saved Reports (the store the Reporting workspace edits) is read from there */
+  if (/\breport\b/.test(t) && /^\s*(show|open|get|display|find|what)/.test(t) && !/\b(build|create|save|add|remove|compare)\b/.test(t) && findSavedReport(text)) return [S('getSavedReport', 'The saved report', { text })];
   if (/cfo report/.test(t)) return [S('getReportData', 'CFO report', { reportId: 'RPT-CFO-MONTHLY' })];
   if (/changed the most|largest (movement|change)|biggest (movement|change)|moved the most/.test(t)) return [S('getLargestFinancialMovements', 'Largest movements')];
   if (dimKey && (ctx.focus.value?.kind === 'account' || acctFromText)) return [S('getDriverAnalysis', `Drivers by ${dimKey}`, { dimension: dimKey, account: acctFromText ?? '$ctx.account' })];
@@ -537,7 +557,8 @@ export function deterministicInterpret(text: string, data: FinancialDataService,
     period: !range && ms.length ? ms[0]! : null, periodRange: range, comparisonPeriod: null, comparisonBasis: /last year|prior year/.test(t) ? 'PRIOR_YEAR' : null,
     scope: scopeHit ? { name: scopeHit.name, candidateId: `scope:${scopeHit.id}` } : null,
     dimensions: [], filters: [], minAbsAmount: null, topN: null, outputPreference: /monthly/.test(t) ? 'MONTHLY_COLUMNS' : null,
-    continuity: followUp || !type ? 'CONTINUATION' : type !== ctx.object.value.type ? 'NEW_OBJECT' : 'CONTINUATION',
+    /* a pointer ("this Flux item", "that reconciliation") refers to what is in context, whatever type word it carries */
+    continuity: followUp || !type || /\b(this|that|these|those|it)\b/.test(t) ? 'CONTINUATION' : type !== ctx.object.value.type ? 'NEW_OBJECT' : 'CONTINUATION',
     needsClarification: false, clarificationFields: [], multiStep: /\band\b.*\?|and does/.test(t), confidence: 0.7,
   };
 }
@@ -761,7 +782,13 @@ export class SloaneOrchestrator {
         tr.candidatesSupplied = cands.length;
         const out = await this.adapter.interpret({ request, context: this.context.forModel(session.ctx), candidates: cands, workingPeriod: this.data.workingPeriod(), availablePeriods: this.data.governedPeriods() });
         this.recordCall(tr, 'interpret', out); spend(out.status === 'ok' ? out.usage : null);
-        if (out.status === 'ok' && out.value.confidence >= LIMITS.minConfidence) { I = out.value; tr.interpretationSource = 'reasoning'; }
+        if (out.status === 'ok' && out.value.confidence >= LIMITS.minConfidence) {
+          I = out.value; tr.interpretationSource = 'reasoning';
+          /* the engine overrules the model when the request names a reconciliation in full: it is about THAT one */
+          const named = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))).requestedObject.id;
+          /* reads only: an ACT names its target in the proposal, and must keep the population in context that it acts on */
+          if (named?.startsWith('recon:') && I.requestedObject.id !== named && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION') { I = { ...I, requestedObject: { ...I.requestedObject, type: 'RECONCILIATION', id: named } }; tr.fallbacks.push(`interpretation: named reconciliation ${named} overrides the model's object`); }
+        }
         else {
           I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))); tr.interpretationSource = 'deterministic';
           const why = out.status === 'ok' ? `low confidence (${out.value.confidence})` : out.status === 'declined' ? 'the reasoning service declined' : `the reasoning service failed: ${out.code}`;
@@ -780,6 +807,9 @@ export class SloaneOrchestrator {
       R.warnings.forEach(note);
       if (R.errors.length) { R.errors.forEach(note); return finish('UNAVAILABLE'); }
       const ctx = this.context.apply(session.ctx, R, I);
+      /* a reconciliation the request names is the focus BEFORE planning, so `$ctx.reconciliationId` resolves to it */
+      const namedRec = I.requestedObject.id?.startsWith('recon:') && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION' ? this.controls.recDef(I.requestedObject.id.slice(6)) : null;
+      if (namedRec) { ctx.lastRefs['reconciliationId'] = namedRec.id; ctx.focus = { value: { kind: 'reconciliation', id: namedRec.id, name: namedRec.name }, source: 'EXPLICIT' }; }
       session.ctx = ctx;
 
       /* ---- 3. clarification decision ---- */

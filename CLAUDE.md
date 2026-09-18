@@ -9376,6 +9376,85 @@ production identity provider, external auditor access, PBC finalization, invoice
 **Debt:** module reconciliation balances and the Flux, Close and Reports browser pages still own their own state; the
 browser keeps its seeded `RC_SEED`/`CMT` alongside the server's.
 
+## 2026-09-17 — SLOANE 2.0 PHASE 3D: one book, server-authoritative state, session hardening
+
+Owner's brief. A hardening phase: no Sloane redesign, no Artifact Intelligence, no Excel add-in, nothing governed
+enabled. **Served by `npm run serve`, the browser is a presentation cache. The server's work store is the book for
+Flux comments, reconciliation workflow, close task status and saved reports**, and Sloane reads and writes the same
+records. FS-CIP 4,210.2 (browser) is untouched. The server book is still `@korvyn/core`'s GL.
+
+**One book** (`packages/agent/src/sloane/book.ts`, seed `3D.1`):
+- `tools/extract-browser-book.mjs` lifts `CLOSE_TASKS`, `RC_SEED`, `FSLINES` and `RB_REPORTS` out of index.html
+  **once** into `persistence/browser-book.json`. The server seeds those into the store; a 3C.1 database upgrades in
+  place (`upgradeTo3D`). Re-run the extractor only when those fixtures change.
+- **Flux is keyed by the live Flux Review page's statement lines (`FS-CIP` …), not the retired `#fxRoot` module's ids.**
+  `FLUX_LINE_ACCOUNTS` is a navigation crosswalk from an FS line to server account groups. A line's thread plus its
+  accounts' threads is what the workspace shows (`fluxLineComments`); an account's thread plus its line's thread is
+  what Sloane reads (`fluxAccountComments`).
+- Close tasks carry server state (`setCloseTaskState`, versioned). Saved reports are one store for Reporting and Sloane
+  (`reportView`, owner normalised to a display name, `getSavedReport` tool).
+
+**Write pipeline** (`workapi.ts`, one path for every UI write): session actor → **authorization first** (`need`,
+before any body validation) → `ActionGovernanceEngine.classify` must be `CONFIRM_REQUIRED` → `idempotencyKey` → one
+transaction (domain write with the expected version + AuditEvent source UI + idempotency record). Every response carries
+`outcome`: SUCCESS · VALIDATION_ERROR · PERMISSION_DENIED · STALE_VERSION · CONFLICT · NOT_FOUND · UNAVAILABLE; a
+thrown error becomes UNAVAILABLE with a request id and no stack.
+
+**Session and request security** (`auth.ts`, `routes.ts`, `server.ts`):
+- `AuthProvider` → `AuthenticatedSession` → `ActorContext` → `AuthorizationService`; `DevSessionAuthProvider` is the
+  only provider (`KORVYN_AUTH_MODE=dev`). No IdP.
+- Cookie `korvyn_session`: HttpOnly, SameSite=Strict, Max-Age, `Secure` over HTTPS or `KORVYN_COOKIE_SECURE=1`;
+  server-side expiry and revoke; `POST /api/auth/logout`.
+- **CSRF**: a synchronizer token per session, sent as `X-Korvyn-CSRF` on every mutation, compared with
+  `timingSafeEqual` (`CSRF_REJECTED`); plus an Origin/Referer check (`ORIGIN_REJECTED`) against
+  `KORVYN_ALLOWED_ORIGINS`. `GET /api/auth/me` returns actor, token and expiry.
+- CORS only for allowed origins, never `*`.
+- SoD hooks: `canPrepare` · `canReview` · `canApprove` · `isOwnWork` (nothing they guard is executable yet).
+
+**Browser adapter** (index.html, block `PHASE 3D — THE SERVER BOOK ADAPTER`, prefix `kb`/`KB`, **temporary**): runs
+only when the page carries the `korvyn-sloane-api` meta marker. `kbFetch` adds the token and retries once after a
+rotation; `kApi` returns `{status, body.outcome}`; `kbInvalidate` drops what the screen holds after any write,
+including a completed Sloane action.
+- **Flux Review › Review tab** gains a *Comments* section (`kbFluxSection`): the thread, a composer, Edit on your
+  own comment (`POST /api/work/comments/:id/edit` with `expectedVersion`).
+- **Reconciliation panel**: comments and support attach go through `kApi`; approved reconciliations refuse support
+  changes (409 CONFLICT).
+- **Close task detail**: a status control (`kbCloseControl`).
+- **Saved Reports**: save, save as, rename, description, duplicate, archive, delete and share are overridden to
+  write the server and re-read it.
+- The local fixtures stay as the render cache and the static-host fallback.
+
+**Sloane fixes the one-book tests found:**
+- A reconciliation named in full ranks first in `findObjects` (the CIP alias used to crowd "Mechanical CIP" out).
+- On a read the engine overrules the model's object when the request names a reconciliation, and a named one
+  becomes focus before planning, so `$ctx.reconciliationId` resolves.
+- A question about a reconciliation never falls through to a comment proposal.
+- An ACT keeps the population in context when it names a new target ("attach the invoices to Mechanical CIP").
+- `guardReconciliation`: a scoped actor cannot read a group reconciliation through Sloane.
+- Pointer words make a request a continuation.
+
+**Verified live** (claude-opus-5, `sloane-serve`):
+- Flux: Sloane's comment shows on Flux Review › FS-CIP › Review; a workspace comment and edit are quoted back by
+  Sloane.
+- Recon: a workspace attach and comment on Mechanical CIP are read by Sloane; Sloane's confirmed invoice attach
+  shows in the panel; Electrical CIP (approved) refuses.
+- Close: a status change round-trips.
+- Reports: Sloane saves → My Reports; a workspace rename → Sloane reads v2.
+- Durability: server restart plus page reload keeps all of it.
+- Authorization: the auditor is refused FLUX_COMMENT; MDH is refused group reconciliations.
+- CSRF: missing or forged token 403; foreign Origin 403.
+
+**Checks:** `npm run sloane:test` 54/54 (`onebook.test.ts` over a real HTTP server with a cookie jar) · `sloane:dryrun`
+30/30 · core 78/78 · 4/4 gates unchanged.
+
+**Not built / debt:**
+- Reconciliation BALANCES are still computed by the browser module (`COMPUTED_IN_MODULE`).
+- Flux explanations, workflow status and @-mention notifications remain browser-local.
+- Report owner authorization is visibility only (no owner-only edit rule).
+- The dev provider is the only provider; the adapter and local fixtures are temporary.
+- The `#fxRoot` module is untouched and not one-book.
+- `DEV_DIRECTORY` names are the only people Sloane can attribute.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
