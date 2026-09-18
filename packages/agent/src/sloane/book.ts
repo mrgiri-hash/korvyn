@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { WORK, type Comment } from './store.js';
-import { StaleVersionError, type Stamped, type SavedBody, type CloseTaskBody } from './persistence/repositories.js';
+import { StaleVersionError, type Stamped, type SavedBody, type CloseTaskBody, type FluxExplanationBody } from './persistence/repositories.js';
 import { DEV_DIRECTORY } from './auth.js';
 const nameOf = (id: string) => DEV_DIRECTORY.find((u) => u.id === id)?.name ?? (id.startsWith('system:') ? 'Korvyn' : id);
 
@@ -92,6 +92,38 @@ export function fluxAccountComments(account: string, period: string) {
   const lineId = fluxLineOfAccount(account);
   const line = lineId ? WORK.thread(fluxLineKey(lineId, period)).comments.map(tag(fluxLineKey(lineId, period), `line:${lineId}`)) : [];
   return [...own, ...line].sort(byTime);
+}
+
+/* ================================================================================================
+   FLUX EXPLANATIONS — 4A: the ONE authoritative record per (account group, period)
+   The Flux Review workspace (by its statement line), Sloane (by account group) and the Artifact Engine all read and
+   write THIS record; an artifact cites it by (explanationId, version) and never copies its words into a definition.
+   An edit is a new version; the prior wording is kept in `history`. An edit to an APPROVED or SUBMITTED explanation
+   returns it to DRAFT: the approval attached to words nobody has approved since.
+   ================================================================================================ */
+export interface FluxExplanationView { explanationId: string; recordId: string; account: string; lineId: string | null; period: string; text: string; status: string; author: string; reviewer: string; supportRefs: string[]; version: number; updatedAt: string; updatedBy: string; history: { version: number; text: string; status: string; at: string; by: string }[] }
+type ExplBody = FluxExplanationBody & { history?: FluxExplanationView['history'] };
+const explView = (r: Stamped<ExplBody>, period: string): FluxExplanationView => ({ explanationId: r.explanationId, recordId: r.id, account: r.account, lineId: fluxLineOfAccount(r.account), period: r.period ?? period, text: r.text, status: r.status ?? 'DRAFT',
+  author: r.author, reviewer: r.reviewer, supportRefs: r.supportRefs ?? [], version: r.version, updatedAt: r.updatedAt, updatedBy: nameOf(r.updatedBy), history: r.history ?? [] });
+export function fluxExplanation(account: string, period: string): FluxExplanationView | null {
+  const r = WORK.repos.records.list<ExplBody>('FLUX_EXPLANATION', { target: fluxAccountKey(account, period) })[0];
+  return r ? explView(r, period) : null;
+}
+/** a workspace line presents exactly one server account group */
+export const fluxLineAccount = (lineId: string) => FLUX_LINE_ACCOUNTS[lineId]?.[0] ?? null;
+export function setFluxExplanation(account: string, period: string, text: string, expectedVersion: number | null, actor: { id: string; name: string }): FluxExplanationView {
+  const key = fluxAccountKey(account, period);
+  const cur = WORK.repos.records.list<ExplBody>('FLUX_EXPLANATION', { target: key })[0];
+  if (!cur) {
+    if (expectedVersion !== null && expectedVersion !== 0) throw new StaleVersionError('FLUX_EXPLANATION', key, expectedVersion, 0);
+    const r = WORK.repos.records.insert<ExplBody>('FLUX_EXPLANATION', { account, explanationId: `EXPL-${account}-${period}`, status: 'DRAFT', text, author: actor.name, reviewer: WORK.reviewer(key)?.name ?? 'L. Chen', supportRefs: [], history: [] },
+      actor.id, { id: `EXPL-${account}-${period}`, target: key, status: 'DRAFT', period });
+    return explView(r, period);
+  }
+  const prior = cur.status ?? 'DRAFT', next = prior === 'APPROVED' || prior === 'SUBMITTED' ? 'DRAFT' : prior;
+  const u = WORK.repos.records.update<ExplBody>('FLUX_EXPLANATION', cur.id, expectedVersion, actor.id, (o) => ({ account: o.account, explanationId: o.explanationId, status: next, text, author: actor.name, reviewer: o.reviewer, supportRefs: o.supportRefs ?? [],
+    history: [...(o.history ?? []), { version: o.version, text: o.text, status: prior, at: o.updatedAt, by: nameOf(o.updatedBy) }] }), { status: next });
+  return explView(u, period);
 }
 
 /* ================================================================================================

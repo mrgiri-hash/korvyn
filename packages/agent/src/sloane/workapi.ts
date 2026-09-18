@@ -18,9 +18,11 @@ import { StaleVersionError } from './persistence/repositories.js';
 import type { SloaneOrchestrator } from './orchestrator.js';
 import { WORK } from './store.js';
 import {
-  CLOSE_TASK_STATES, type CloseTaskState, FLUX_LINE_ACCOUNTS, browserDefOf, closeTask, closeTaskView, fluxLine, fluxLineComments, fluxLineKey,
-  savedReport, savedReports, setCloseTaskState, sloaneShapeOf,
+  CLOSE_TASK_STATES, type CloseTaskState, FLUX_LINE_ACCOUNTS, browserDefOf, closeTask, closeTaskView, fluxExplanation, fluxLine, fluxLineAccount, fluxLineComments, fluxLineKey,
+  savedReport, savedReports, setCloseTaskState, setFluxExplanation, sloaneShapeOf,
 } from './book.js';
+import { reconStatement, recordReconStatement } from './controls.js';
+import { postSource, syncSourceFeed } from './sourcefeed.js';
 
 export type Outcome = 'SUCCESS' | 'VALIDATION_ERROR' | 'PERMISSION_DENIED' | 'STALE_VERSION' | 'CONFLICT' | 'NOT_FOUND' | 'UNAVAILABLE';
 export const HTTP_OF: Record<Outcome, number> = { SUCCESS: 200, VALIDATION_ERROR: 400, PERMISSION_DENIED: 403, STALE_VERSION: 409, CONFLICT: 409, NOT_FOUND: 404, UNAVAILABLE: 503 };
@@ -86,6 +88,9 @@ export class WorkApi {
       period, status: r.workflow.status, preparer: r.workflow.preparer, reviewer: r.workflow.reviewer, threadVersion: r.workflow.threadVersion, supportVersion: WORK.relationshipVersion(`recon:${def.id}:${period}`),
       comments: r.workflow.comments, support: r.support, attachedEvidence: r.attachedEvidence,
       balances: r.balanceInModule ? { computedIn: 'RECONCILIATIONS_MODULE' } : { glBalanceUsd: r.glBalanceUsd, differenceUsd: r.differenceUsd, tieStatus: r.tieStatus, reconcilingItems: r.items },
+      /* 4A: the server-authoritative, versioned balance — what Sloane and the Artifact Engine cite */
+      balance: this.orch.controls.reconBalance(def, period), statement: r.statement ?? null,
+      canRecordStatement: def.method === 'BANK' && AuthorizationService.can(actor, 'SUPPORT_ATTACH', { entity: def.entity }).allowed && r.workflow.status !== 'APPROVED',
       canComment: AuthorizationService.can(actor, 'RECON_COMMENT', { entity: def.entity }).allowed && r.workflow.status !== 'APPROVED',
       canAttach: AuthorizationService.can(actor, 'SUPPORT_ATTACH', { entity: def.entity }).allowed && r.workflow.status !== 'APPROVED',
     });
@@ -133,7 +138,9 @@ export class WorkApi {
     const line = fluxLine(lineId);
     if (!line) return fail('NOT_FOUND', `No Flux line ${lineId}`);
     const t = fluxLineComments(lineId, period);
+    const acct = fluxLineAccount(lineId);
     return ok({ lineId, label: line.label, statement: line.stmt, period, accounts: t.accounts, threadKey: t.key, threadVersion: t.threadVersion, comments: t.comments,
+      explanation: acct ? fluxExplanation(acct, period) : null, canEditExplanation: !!acct && AuthorizationService.can(actor, 'FLUX_COMMENT').allowed,
       attachedEvidence: [t.key, ...t.accounts.map((a) => `flux:${a}:${period}`)].flatMap((k) => WORK.relsTo(k)), canComment: AuthorizationService.can(actor, 'FLUX_COMMENT').allowed });
   }
   addFluxLineComment(actor: ActorContext, lineId: string, body: Record<string, unknown>): ApiResult {
@@ -177,6 +184,102 @@ export class WorkApi {
         return { before: { threadVersion: before.version, comments: before.comments.length }, after: { commentId: c.id, version: c.version, text }, afterRef: c.id, result: { comment: c, threadVersion: WORK.thread(o.key).version } };
       } });
   }
+
+  /* ---- 4A: the ONE authoritative Flux explanation (by the workspace's statement line) ------------- */
+  fluxLineExplanation(actor: ActorContext, lineId: string, period = this.period): ApiResult {
+    const denied = this.need(actor, 'FLUX_VIEW', null, 'flux'); if (denied) return denied;
+    const line = fluxLine(lineId), account = fluxLineAccount(lineId);
+    if (!line || !account) return fail('NOT_FOUND', `No Flux line ${lineId} on the server book`);
+    return ok({ lineId, label: line.label, account, period, explanation: fluxExplanation(account, period), canEdit: AuthorizationService.can(actor, 'FLUX_COMMENT').allowed });
+  }
+  /** record or edit the explanation: a new version of the one record Sloane and the Artifact Engine also read */
+  setFluxLineExplanation(actor: ActorContext, lineId: string, body: Record<string, unknown>): ApiResult {
+    const line = fluxLine(lineId), account = fluxLineAccount(lineId);
+    if (!line || !account) return fail('NOT_FOUND', `No Flux line ${lineId} on the server book`);
+    const denied = this.need(actor, 'FLUX_COMMENT', null, 'flux explanation'); if (denied) return denied;
+    const period = str(body, 'period', 7) || this.period, text = str(body, 'text', 4000), expected = num(body, 'expectedVersion');
+    if (!text) return fail('VALIDATION_ERROR', 'An explanation needs words.');
+    if (text.length > 3000) return fail('VALIDATION_ERROR', 'The explanation is longer than 3,000 characters.');
+    const before = fluxExplanation(account, period);
+    if (before && expected === null) return fail('VALIDATION_ERROR', 'expectedVersion is required to change an existing explanation');
+    return this.write(actor, body, { action: 'UPDATE_FLUX_EXPLANATION', capability: 'FLUX_COMMENT', entity: null, kind: 'flux explanation', target: { id: `flux:${account}:${period}`, type: 'FLUX_EXPLANATION', label: `Flux explanation · ${line.label}` },
+      run: () => {
+        const e = setFluxExplanation(account, period, text, expected, { id: actor.id, name: actor.name });
+        return { before: before ? { explanationId: before.explanationId, version: before.version, status: before.status, text: before.text } : null, after: { explanationId: e.explanationId, version: e.version, status: e.status, text: e.text }, afterRef: e.explanationId, result: { explanation: e } };
+      } });
+  }
+
+  /* ---- 4A: a recorded bank statement balance — the supporting balance a BANK reconciliation is proven against */
+  recordReconciliationStatement(actor: ActorContext, defId: string, body: Record<string, unknown>): ApiResult {
+    const def = this.orch.controls.recDef(defId);
+    if (!def) return fail('NOT_FOUND', `No reconciliation ${defId}`);
+    const denied = this.need(actor, 'SUPPORT_ATTACH', def.entity, 'reconciliation'); if (denied) return denied;
+    if (def.method !== 'BANK') return fail('VALIDATION_ERROR', `${def.name} is not reconciled to a bank statement; its supporting balance is derived (${def.method.toLowerCase()}).`);
+    const period = str(body, 'period', 7) || this.period, reference = str(body, 'reference', 120), amount = num(body, 'amountUsd'), expected = num(body, 'expectedVersion');
+    if (amount === null) return fail('VALIDATION_ERROR', 'amountUsd is required (the statement balance in USD).');
+    if (!reference) return fail('VALIDATION_ERROR', 'reference is required (the statement it was read from).');
+    const key = `recon:${def.id}:${period}`;
+    return this.write(actor, body, { action: 'RECORD_RECONCILIATION_STATEMENT', capability: 'SUPPORT_ATTACH', entity: def.entity, kind: 'reconciliation', target: { id: key, type: 'RECONCILIATION', label: `Reconciliation · ${def.name}` },
+      run: () => {
+        if (this.orch.controls.reconcile(def, period).workflow.status === 'APPROVED') throw new DomainRefusal('CONFLICT', 'Target closed: the reconciliation is approved; changing its supporting balance reopens review and is governed.');
+        const before = reconStatement(def.id, period);
+        const s = recordReconStatement(def.id, period, { amountUsd: amount, reference, statementDate: str(body, 'statementDate', 10) || `${period}-30` }, expected, { id: actor.id, name: actor.name });
+        const bal = this.orch.controls.reconBalance(def, period);
+        return { before: before ? { amountUsd: before.amountUsd, reference: before.reference, version: before.version } : null, after: { amountUsd: amount, reference, version: s.version }, afterRef: s.id, result: { statement: reconStatement(def.id, period), balance: bal } };
+      } });
+  }
+
+  /* ================================================================================================
+     ARTIFACTS — governed deliverables (the same engine Sloane builds with)
+     ================================================================================================ */
+  artifacts(actor: ActorContext): ApiResult { const d = this.need(actor, 'GL_VIEW', null, 'artifact'); if (d) return d; return ok({ artifacts: this.orch.artifacts.list(actor) }); }
+  artifact(actor: ActorContext, id: string, sample = 15): ApiResult {
+    const d = this.need(actor, 'GL_VIEW', null, 'artifact'); if (d) return d;
+    const v = this.orch.artifacts.view(actor, id);
+    if (!v) return fail('NOT_FOUND', `No artifact ${id}`);
+    const m = this.orch.artifacts.compose(actor, v.definition, v.version, v.id);
+    return ok({ artifact: v, preview: this.orch.artifacts.previewOf(m, { id: v.id, version: v.version, status: v.status, name: v.name }, sample) });
+  }
+  /** generate: validated and recorded synchronously, rendered by a job; the caller awaits a small file, polls a large one */
+  async generateArtifact(actor: ActorContext, id: string, body: Record<string, unknown>): Promise<ApiResult> {
+    const idem = str(body, 'idempotencyKey', 80);
+    if (!idem) return fail('VALIDATION_ERROR', 'idempotencyKey is required for a write');
+    const repKey = `UI:${actor.id}:${idem}`, prior = WORK.repos.idempotency.get<ApiResult>(repKey);
+    if (prior) return prior;
+    const format = str(body, 'format', 4) === 'csv' ? 'csv' : 'xlsx';
+    const channel = str(body, 'channel', 12) === 'SLOANE' ? 'SLOANE' : 'REPORTING';
+    const r = this.orch.artifacts.requestGeneration(actor, id, { format, expectedVersion: num(body, 'expectedVersion'), acknowledge: body['acknowledge'] === true, channel });
+    if (!r.ok) return fail(r.code === 'STALE' || r.code === 'STALE_VERSION' ? 'STALE_VERSION' : r.code === 'TIE_OUT_WARNING' || r.code === 'CONFLICT' ? 'CONFLICT' : r.code, r.reason, { code: r.code, ...(r.detail ?? {}) });
+    await Promise.race([r.job.done, new Promise((res) => setTimeout(res, 8_000))]);
+    const res = ok({ generationId: r.generationId, job: this.orch.artifacts.job(r.job.id), fileName: r.fileName, warnings: r.warnings, generation: this.orch.artifacts.generations(id).find((g) => g.id === r.generationId) ?? null }, 202);
+    WORK.repos.idempotency.put(repKey, 'ARTIFACT_GENERATION', actor.id, res);
+    return res;
+  }
+  artifactJob(actor: ActorContext, jobId: string): ApiResult {
+    const j = this.orch.artifacts.job(jobId);
+    if (!j) return fail('NOT_FOUND', `No job ${jobId}`);
+    const v = this.orch.artifacts.view(actor, j.artifactId);
+    if (!v) return fail('NOT_FOUND', `No job ${jobId}`);
+    return ok({ job: j, generation: v.generations.find((g) => g.id === j.generationId) ?? null });
+  }
+  refreshArtifact(actor: ActorContext, id: string, body: Record<string, unknown>): ApiResult {
+    const denied = this.need(actor, 'ARTIFACT_CREATE', null, 'artifact'); if (denied) return denied;
+    const r = this.orch.artifacts.refresh(actor, id, num(body, 'expectedVersion'), str(body, 'channel', 12) === 'SLOANE' ? 'SLOANE' : 'REPORTING');
+    if (!r.ok) return fail(r.code === 'STALE_VERSION' ? 'STALE_VERSION' : r.code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'NOT_FOUND', r.reason);
+    return this.artifact(actor, id);
+  }
+  artifactDownload(actor: ActorContext, id: string, genId: string) { return this.orch.artifacts.download(actor, id, genId, 'REPORTING'); }
+
+  /* ---- development only: the source feed (a late ERP posting, and a connector sync) ----------------- */
+  devSourcePosting(actor: ActorContext, body: Record<string, unknown>): ApiResult {
+    const entity = str(body, 'entity', 20), period = str(body, 'period', 7) || this.period, dr = str(body, 'debitAccount', 10), cr = str(body, 'creditAccount', 10), amount = num(body, 'amount');
+    if (!entity || !dr || !cr || amount === null || amount <= 0) return fail('VALIDATION_ERROR', 'entity, debitAccount, creditAccount and a positive amount (local currency) are required');
+    try {
+      const p = postSource(this.orch.gl, { entity, period, description: str(body, 'description', 200) || 'Late ERP posting', lines: [{ account: dr, local: amount, project: str(body, 'project', 20) || null }, { account: cr, local: -amount }], synced: body['synced'] !== false }, actor.id);
+      return ok({ posting: p, dataVersion: this.orch.gl.dataVersion() }, 201);
+    } catch (e) { return fail('VALIDATION_ERROR', (e as Error).message); }
+  }
+  devSourceSync(actor: ActorContext): ApiResult { const n = syncSourceFeed(this.orch.gl, actor.id); return ok({ synced: n, dataVersion: this.orch.gl.dataVersion() }); }
 
   /* ================================================================================================
      CLOSE

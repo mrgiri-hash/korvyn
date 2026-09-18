@@ -9455,6 +9455,92 @@ including a completed Sloane action.
 - The `#fxRoot` module is untouched and not one-book.
 - `DEV_DIRECTORY` names are the only people Sloane can attribute.
 
+## 2026-09-18 — SLOANE 2.0 PHASE 4A: Artifact Intelligence (real Excel workbook generation)
+
+Owner's brief. Ask → build → preview → refine → validate → generate → download. **A workbook is a versioned DEFINITION that cites
+governed objects; the file is rendered server-side from the same composition the preview shows.** Everything is in
+`packages/agent/src/sloane/`. The browser book (FS-CIP 4,210.2) is untouched; every figure here is the server book (`@korvyn/core`'s GL).
+
+**The two gates, closed first.**
+- **Flux explanations are ONE server record** per (account group, period), `EXPL-<acct>-<period>` (`book.ts` `fluxExplanation` /
+  `setFluxExplanation`). An edit is a new version, with the prior wording kept in `history`. Editing an APPROVED or SUBMITTED
+  explanation returns it to DRAFT. The Flux Review panel reads it (served mode overrides `fxNarrative` / `fxNarrSave` and shows
+  a *Governed explanation* block with id · version · who changed it) and edits it (`POST /api/work/flux/line/:lineId/explanation`).
+  Sloane's `getFluxExplanation` reports the same explanation id and version. An artifact cites `(id, version)` and reads the words
+  at generation; a definition never holds them.
+- **Reconciliation balances are versioned server records** (`controls.ts` `reconBalance` → records kind `RECON_BALANCE`). The
+  values derive every time; the snapshot's version moves only when a value moves (a fingerprint). A citation is `(id, version)`.
+  **Module reconciliations the server book models**: a module line that is the only reconciliation on its statement line, and whose
+  line maps through `FLUX_LINE_ACCOUNTS` (the existing crosswalk, not a new mapping). There are 11. They reconcile at group scope:
+  cash is BANK, the rest are ROLLFORWARD. A roll-forward now includes the translation of the opening balance, so a
+  multi-currency roll-forward ties. The four CIP groups (they share FS-CIP), the debt split and right-of-use stay `available:false`,
+  with the reason. **They are never estimated, and an artifact lists them as excluded.**
+- **BANK reconciliations prove against a RECORDED statement balance** (records kind `RECON_STATEMENT`, versioned,
+  `POST /api/work/reconciliations/:id/statement`, capability SUPPORT_ATTACH, refused on an APPROVED reconciliation). The
+  Reconciliations panel's Review tab shows the server balance and records the statement.
+
+**The source feed** (`sourcefeed.ts`, records kind `SOURCE_POSTING`): a late ERP posting is IN THE ERP when it posts and IN THE
+GOVERNED LEDGER once it syncs. `GovernedLedger.dataVersion()` moves with every synced posting, and population ids carry it. An
+unsynced posting is how a tie-out genuinely fails. The feed is replayed on start. It is only reachable through
+`POST /api/work/dev/source-posting` / `source-sync` (dev auth mode + loopback) and tests; it is scaffolding for a connector.
+
+**The artifact module** (`artifacts/`):
+
+| File | Role |
+|---|---|
+| `model.ts` | the `ArtifactDefinition` (sheets GL · TB · TIEOUT · RECONCILIATIONS · FLUX · SUMMARY), the GL column catalog (20 default columns; the Source / Governed / Effective vendor triplet; Department declared *unavailable* — the book carries none), deterministic file names |
+| `compose.ts` | the ONE composition: definition → `WorkbookModel` (chunked row sources, partitioning at Excel's row limit, citations, population pins). Preview and file both read it |
+| `tieout.ts` | the ERP tie-out. The SOURCE path reads core entries RAW plus every source posting; the GOVERNED path reads governed lines. Same translation (BS at closing, IS at average) and eliminations. Per-ERP sections, a per-account bridge (source → FX/CTA → eliminations → reporting adj. → final governed vs Korvyn governed TB). Status `TIED` · `NOT_TIED` · `PARTIALLY_VALIDATED` · `SOURCE_UNAVAILABLE` |
+| `renderer.ts` | `ExcelRenderer` (the abstraction) → `ExcelJsStreamingRenderer` (exceljs 4.4 streaming WorkbookWriter; shared style objects; stripes as ONE conditional-format rule), `CsvRenderer` (manifest block, then rows). Preset `KORVYN_FINANCIAL` |
+| `refine.ts` | deterministic refinement: each clause of the user's words becomes a structured change. **The user's words win over a model's structured reading** (a model's `vendor` never replaces "source vendor") |
+| `engine.ts` | lifecycle, versions (history kept), pins + STALE detection, permissions, async generation jobs, downloads, audit |
+| `perf.ts` | SYNTHETIC scale harness (governed lines repeated) |
+
+**Lifecycle.** Each workbook change in a conversation is persisted by the ORCHESTRATOR (`persistDraft`, like the investigation
+record), not by a tool: create = v1, every refinement = a new version, history kept, audited `ARTIFACT_CREATED` /
+`ARTIFACT_MODIFIED`. **PROPOSE tools still write nothing.** Generation is a CONFIRM action (`GENERATE_EXCEL_ARTIFACT`) from Sloane,
+or the preview's own *Generate Excel / CSV* button (`POST /api/work/artifacts/:id/generate`, channel REPORTING/SLOANE). Both run
+`requestGeneration`, which checks permissions and the expected version, then **exact population** (the live pins must equal the
+version's), non-empty populations, and the tie-out. It records an `ARTIFACT_GENERATION` (GENERATING) and starts a job that streams
+the file to `packages/agent/data/artifacts/<GEN-id>/` (git-ignored; `KORVYN_ARTIFACT_DIR` overrides). A job the server was
+running at restart is FAILED on start, with that reason. Status: DRAFT · VALIDATING · GENERATING · GENERATED · FAILED; **STALE is
+detected, not stored**. A failure keeps the definition (`lastError`, no new version). Refresh = a new version against current data.
+A generated file is immutable and keeps its own frozen definition and pins.
+
+**Tie-out policy.** A workbook with a Tie-Out tab is labelled audit-ready ONLY when the tie-out is TIED. Anything else puts
+`STATUS: …` on every sheet's title block, and generation needs `acknowledge` (a Sloane confirmation acknowledges the warning it
+shows). On this book the group is **PARTIALLY_VALIDATED** (NetSuite stale, JD Edwards unavailable) at 0.00 difference; MDH alone is
+TIED; an unsynced posting makes it NOT_TIED with the exact difference.
+
+**Relatedness.** With a GL tab, "related" reconciliations and Flux lines are those of its population's account groups. **An empty
+GL population relates to nothing, never to everything.**
+
+**Names.** A derived name follows the definition (a new threshold renames "…over $1M" → "…over $500K"); a name the user gave
+(`nameSource:'USER'`) stays. Adding a Tie-Out does not rename "FY26 Governed GL". Files: `Korvyn_FY26_Governed_GL_Corporate_Consolidated.xlsx`.
+
+**Sloane.** Tools `buildExcelArtifact` · `modifyExcelArtifact` (pass the words verbatim) · `previewExcelArtifact` ·
+`proposeGenerateExcelArtifact` · `proposeRefreshExcelArtifact`. `artifactPlan()` routes deliverable requests deterministically and
+**overrides a model plan that did not act on the workbook** (e.g. a TB tie-out read for "make sure it ties back to ERP").
+Artifact and draft refs survive turns about something else (`commitShown` keeps them). The browser renders an
+`ExcelWorkbookPreview` as tabs over striped rows in the file's column order, with Generate Excel / CSV / Refresh / Refine and
+job polling (`a4*` in index.html, block *PHASE 4A*).
+
+**Verified:** `npm run sloane:test` **64/64** (including `artifacts.test.ts`: both gates, tests A–D, partitioning, security, failure,
+refinement precedence), dry run 30/30, core 78/78, 4/4 repo gates unchanged. LIVE claude-opus-5 in the browser covered the §29 flow
+(six turns → a real 146 KB workbook, read back), the §30 Siemens flow (it refuses an empty "over $1M" population before confirmation;
+at $500K it has 2 lines, 4 cited CIP reconciliations and the edited EXPL-15000-2026-06 v2), both gates, and STALE → refresh →
+regenerate with the prior file untouched. Scale (synthetic): 1.2M rows → xlsx in 35 s over 2 worksheets, peak heap 93 MB; 3M-row
+CSV in 11 s.
+
+**Traps:** the Browser tool times out at 45 s and a timed-out script KEEPS RUNNING, so it will submit concurrent Sloane turns. Wait
+on `S2_BUSY`, one turn per call. **Shell escapes again** (the ninth time): a heredoc turned `\\b` into backspace characters in
+`refine.ts`. Use the Write tool.
+
+**Not built (per §33):** the Excel add-in, PBC interpretation, invoice retrieval, document packaging, PowerPoint, an auditor portal,
+ERP write-back. **Also not built:** a server-side query engine behind population ids (the prototype executor holds the ~1.2k-line
+book in memory; the renderer streams in chunks), a job queue that survives restart (jobs are in-process; interrupted ones are
+FAILED on start), and governed dimension overrides (Governed Vendor is always empty on this book, and says so by being blank).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

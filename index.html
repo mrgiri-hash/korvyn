@@ -3357,6 +3357,39 @@ button.tbx-s:hover b{color:var(--accent-ink)}
 .kb-close .kb-grow{flex:1 1 220px}
 .kb-close input{font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;height:var(--h-btn);padding:0 var(--s-2)}
 .kb-close .kb-meta{margin:0 0 0 auto;align-self:center}
+/* PHASE 4A — the governed Flux explanation and the server reconciliation balance, and the WORKBOOK PREVIEW.
+   The preview's banding is the report tables' own accent tint (.rb-rep), so a workbook looks in Sloane the way it
+   looks in Excel: light blue / white stripes, the same column order, the same accounting formats. */
+.kb-ex{margin:0 0 var(--s-3);padding:var(--s-2) 0 var(--s-2) var(--s-3);border-left:3px solid var(--line2)}
+.kb-ex .t{font-size:var(--fs-table);color:var(--ink);white-space:pre-wrap}
+.kb-ex .m{font-size:var(--fs-label);color:var(--hint);margin-top:var(--s-1)}
+.kb-ex textarea{width:100%;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:var(--s-2);resize:vertical}
+.kb-bal{display:grid;grid-template-columns:auto 1fr;gap:var(--s-1) var(--s-3);padding:var(--s-2) 0;font-size:var(--fs-table)}
+.kb-bal .k{color:var(--muted)}
+.kb-bal .v{color:var(--ink);text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
+.kb-bal .v.w{font-family:var(--sans);text-align:right}
+.a4-wb{display:flex;flex-direction:column;gap:var(--s-2);margin-top:var(--s-2);--a4-stripe:color-mix(in srgb,var(--accent) 6%,var(--surface));--a4-head:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.a4-meta{font-size:var(--fs-label);color:var(--hint)}
+.a4-status{padding:var(--s-2) var(--s-3);border-left:3px solid var(--line2);font-size:var(--fs-table);color:var(--ink)}
+.a4-status.ok{border-left-color:var(--success)}
+.a4-status.warn{border-left-color:var(--warning)}
+.a4-status.bad{border-left-color:var(--danger)}
+.a4-sum{display:grid;grid-template-columns:1fr auto auto;gap:var(--s-1) var(--s-3);font-size:var(--fs-table)}
+.a4-sum .n{color:var(--ink)}
+.a4-sum .c{color:var(--muted);text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
+.a4-grid{overflow-x:auto;border:1px solid var(--line2);border-radius:6px}
+.a4-grid table{border-collapse:collapse;font-size:var(--fs-label);min-width:100%}
+.a4-grid th{background:var(--a4-head);color:var(--ink);font-weight:var(--fw-medium);text-align:left;padding:var(--s-1) var(--s-2);white-space:nowrap;border-bottom:1px solid var(--border-strong)}
+.a4-grid td{padding:var(--s-1) var(--s-2);white-space:nowrap;color:var(--ink);border-bottom:1px solid var(--line)}
+.a4-grid tbody tr:nth-child(even) td{background:var(--a4-stripe)}
+.a4-grid .r{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
+.a4-grid tr.a4-tot td{font-weight:var(--fw-medium);border-top:1px solid var(--border-strong);border-bottom:3px double var(--border-strong)}
+.a4-more{font-size:var(--fs-label);color:var(--hint)}
+.a4-acts{display:flex;flex-wrap:wrap;gap:var(--s-2);align-items:center}
+.a4-note{font-size:var(--fs-label);color:var(--muted)}
+.a4-note.warn{color:var(--warning)}
+.a4-dl{color:var(--accent-ink);font-weight:var(--fw-medium);text-decoration:none}
+.a4-dl:hover{text-decoration:underline}
 #rcPanel .rcx-srvc textarea{flex:1 1 auto;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:var(--s-2);resize:vertical}
 #rcPanel .amp-r{padding:var(--s-1) 0;border-top:1px solid var(--line)}
 #rcPanel .amp-sec+.amp-r,#rcPanel .rcx-more>summary+.amp-r{border-top:0}
@@ -58220,7 +58253,7 @@ async function kbFluxPost(line, text, done){
 function kbFluxSection(line){
   if(!kBookOn()||!line) return '';
   const k=kbFluxKey(line), d=KB.flux[k], cs=kbFluxComments(line);
-  const head='<div class="amp-sec">Comments'+(d&&!d.error?'<span class="kb-n">'+cs.length+'</span>':'')+'</div>';
+  const head=(typeof kbFluxExplHTML==='function'?kbFluxExplHTML(line):'')+'<div class="amp-sec">Comments'+(d&&!d.error?'<span class="kb-n">'+cs.length+'</span>':'')+'</div>';
   if(!d) return head+'<div class="kb-q">Reading the Korvyn work store…</div>';
   if(d.error) return head+'<div class="kb-q">'+glEsc(d.error)+'</div>';
   const me=KB.me&&KB.me.id, ed=KB.fluxEdit&&KB.fluxEdit.line===line?KB.fluxEdit:null;
@@ -58364,6 +58397,151 @@ if(kBookOn()){
   setTimeout(()=>{ kbToken(); kbReportsHydrate(true); kbCloseHydrate(true); },0);
 }
 
+/* ==== PHASE 4A — ONE AUTHORITATIVE RECORD FOR WHAT A DELIVERABLE CITES, AND THE WORKBOOK PREVIEW =====================
+   Served by Korvyn (the `korvyn-sloane-api` marker):
+     FLUX         the explanation on a Flux line is the SERVER's record (id + version) — the one Sloane reads and a
+                  generated workbook cites. The Review tab shows it with its id, version and who changed it last; the
+                  panel's prose (Overview and Review) reads it; Save explanation writes a new version of it.
+     RECONCILE    the Review tab shows the server-authoritative balance (GL, supporting, difference, tie, version); a
+                  bank reconciliation records its statement balance there.
+     WORKBOOKS    a Sloane answer carrying an ExcelWorkbookPreview renders as the workbook will look — tabs, counts,
+                  light blue / white striped rows in the same column order and formats — with Generate Excel / CSV.
+                  Generation is server-side; the browser polls the job and offers the file when it is ready.
+   On a static host none of this runs. */
+
+/* ---- FLUX: the governed explanation ---------------------------------------------------------------- */
+function kbFluxExpl(line){ const d=KB.flux[kbFluxKey(line)]; return d&&d.explanation?d.explanation:null; }
+function kbFluxExplHTML(line){
+  const d=KB.flux[kbFluxKey(line)]; if(!d||d.error) return '';
+  const e=d.explanation, ed=KB.fluxExplEdit===line;
+  const head='<div class="amp-sec">Governed explanation'+(e?'<span class="kb-n">'+glEsc(e.explanationId)+' · v'+e.version+'</span>':'')+'</div>';
+  if(ed) return head+'<div class="kb-ex"><textarea id="kbFluxExTa" rows="5" maxlength="3000">'+glEsc(e?e.text:'')+'</textarea>'
+    +'<div class="kb-acts" style="margin-top:var(--s-2)"><button class="btn-out sm" onclick="kbFluxExSave(\''+glEsc(line)+'\')">Save explanation</button><button class="btn-out sm" onclick="kbFluxExCancel()">Cancel</button></div>'
+    +'<div class="m">Saving records v'+(e?e.version+1:1)+' of the one record Sloane reads and a generated workbook cites.'+(e&&/APPROVED|SUBMITTED/.test(e.status)?' An edit returns an '+e.status.toLowerCase()+' explanation to draft.':'')+'</div></div>';
+  if(!e) return head+'<div class="kb-q">No explanation is recorded on the server book for '+glEsc(perLabel(VIEW.period))+'.'
+    +(d.canEditExplanation?' <button class="kb-lnk" onclick="kbFluxExStart(\''+glEsc(line)+'\')">Record one</button>':'')+'</div>';
+  return head+'<div class="kb-ex"><div class="t">'+glEsc(e.text)+'</div><div class="m">'+glEsc(e.status)+' · v'+e.version+' · last changed by '+glEsc(e.updatedBy)+' · '+glEsc(rcSrvWhen(e.updatedAt))
+    +' · reviewer '+glEsc(e.reviewer)+(d.canEditExplanation?' <button class="kb-lnk" onclick="kbFluxExStart(\''+glEsc(line)+'\')">Edit</button>':'')+'</div></div>'; }
+function kbFluxExStart(line){ KB.fluxExplEdit=line; renderAll(); }
+function kbFluxExCancel(){ KB.fluxExplEdit=null; renderAll(); }
+async function kbFluxExWrite(line, text){
+  const e=kbFluxExpl(line);
+  const r=await kApi('POST','/api/work/flux/line/'+kbEnc(line)+'/explanation',{text, period:VIEW.period, expectedVersion:e?e.version:0, idempotencyKey:kbKey()});
+  await kbFluxLoad(line, ()=>{});
+  return r; }
+async function kbFluxExSave(line){
+  const ta=document.getElementById('kbFluxExTa'), text=((ta&&ta.value)||'').trim(); if(!text) return;
+  const r=await kbFluxExWrite(line, text); KB.fluxExplEdit=null; renderAll();
+  try{ toast(r.body.outcome==='SUCCESS'?'Explanation saved as v'+r.body.explanation.version+' in the Korvyn work store':kbReason(r.body)); }catch(e){} }
+if(kBookOn()){
+  /* the panel's prose IS the governed record when one exists; the browser's own seed text shows only where none does */
+  const _fxNarrative=fxNarrative;
+  fxNarrative=function(lineId){ kbFluxComments(lineId); const e=kbFluxExpl(lineId);
+    if(e&&e.text) return {text:e.text, source:'human', srv:e, obj:{version:e.version, versions:[{by:e.updatedBy}]}};
+    return _fxNarrative(lineId); };
+  fxNarrSave=function(ev){ if(ev&&ev.stopPropagation) ev.stopPropagation();
+    const t=document.getElementById('fxNarrTa'), v=((t&&t.value)||'').trim();
+    if(!v){ fxNarrErr='An explanation needs words.'; renderFluxGov(); return; }
+    kbFluxExWrite(fxSel, v).then(r=>{
+      if(r.body.outcome==='SUCCESS'){ fxNarrEdit=false; fxNarrDraft=null; fxNarrErr=''; } else fxNarrErr=kbReason(r.body);
+      renderFluxGov();
+      try{ toast(r.body.outcome==='SUCCESS'?'Explanation saved as v'+r.body.explanation.version+' — Sloane and generated workbooks read this record':kbReason(r.body)); }catch(e){} }); };
+}
+
+/* ---- RECONCILIATIONS: the server-authoritative balance ------------------------------------------ */
+const a4Usd=v=>v===null||v===undefined?'—':(Math.abs(v)<0.005?'–':(v<0?'(':'')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+(v<0?')':''));
+function rcSrvBalanceHTML(k){
+  const d=RC_SRV[k]; if(!d||d.error||!d.balance) return '';
+  const b=d.balance, head='<div class="amp-sec">Server book balance'+(b.available?'<span class="rcx-srvn">'+glEsc(b.id)+' v'+b.version+'</span>':'')+'</div>';
+  if(!b.available) return head+'<div class="rcx-srvq">'+glEsc(b.reason)+' Nothing that needs proof — Sloane or a generated workbook — cites a balance for it.</div>';
+  const row=(k2,v,w)=>'<span class="k">'+glEsc(k2)+'</span><span class="v'+(w?' w':'')+'">'+v+'</span>';
+  let o=head+'<div class="kb-bal">'+row('GL balance (USD)',a4Usd(b.glBalanceUsd))+row(b.supportingLabel,a4Usd(b.supportingBalanceUsd))+row('Difference',a4Usd(b.differenceUsd))
+    +row('Tie status',glEsc(b.tieStatus.replace(/_/g,' ')),1)+row('Method',glEsc(b.method.toLowerCase()),1)+'</div>'
+    +'<div class="rcx-srvq">The balance Sloane reads and a generated workbook cites (id + version). Derived from the governed ledger'+(b.statementVersion?' and the recorded statement v'+b.statementVersion:'')+'; computed '+glEsc(rcSrvWhen(b.computedAt))+'.</div>';
+  if(d.canRecordStatement) o+='<div class="rcx-srvc kb-attach" data-k="'+glEsc(k)+'"><input data-f="amt" inputmode="decimal" placeholder="Statement balance, USD" value="'+(d.statement?d.statement.amountUsd:'')+'"><input data-f="ref" maxlength="120" placeholder="Statement reference" value="'+glEsc(d.statement?d.statement.reference:'')+'"><button class="btn-out sm" onclick="rcSrvStatement(this)">'+(d.statement?'Update':'Record')+'</button></div>';
+  return o; }
+async function rcSrvStatement(btn){
+  const wrap=btn.closest('.rcx-srvc'), k=wrap.getAttribute('data-k'), d=RC_SRV[k]; if(!d||RC_SRV_BUSY[k]) return;
+  const amt=Number(String(wrap.querySelector('[data-f="amt"]').value||'').replace(/[^0-9.\-]/g,'')), ref=(wrap.querySelector('[data-f="ref"]').value||'').trim();
+  if(!Number.isFinite(amt)||!ref){ try{ toast('Give the statement balance and its reference'); }catch(e){} return; }
+  RC_SRV_BUSY[k]=1; btn.disabled=true;
+  const [id,period]=k.split('|');
+  const r=await kApi('POST','/api/work/reconciliations/'+encodeURIComponent(id)+'/statement',{amountUsd:amt, reference:ref, period, expectedVersion:d.statement?d.statement.version:0, idempotencyKey:kbKey()});
+  delete RC_SRV_BUSY[k];
+  try{ toast(r.body.outcome==='SUCCESS'&&r.body.balance&&r.body.balance.available?'Statement recorded — balance '+r.body.balance.id+' v'+r.body.balance.version:kbReason(r.body)); }catch(e){}
+  return rcSrvLoad(id, period, r.body.outcome==='SUCCESS'?undefined:kbReason(r.body)); }
+
+/* ---- WORKBOOKS ----------------------------------------------------------------------------------- */
+const A4={wb:{}, tab:{}, gen:{}, busy:{}};
+function a4Tone(t){ return !t?'':t.tone==='ok'?'ok':t.tone==='bad'?'bad':'warn'; }
+function a4GridHTML(sh){
+  const num=f=>f==='money'||f==='int'||f==='pct';
+  return '<div class="a4-grid"><table><thead><tr>'+sh.columns.map(c=>'<th'+(num(c.format)?' class="r"':'')+'>'+glEsc(c.header)+'</th>').join('')+'</tr></thead><tbody>'
+    +sh.rows.map(r=>'<tr>'+r.cells.map((v,i)=>'<td'+(num((sh.columns[i]||{}).format)?' class="r"':'')+'>'+glEsc(v)+'</td>').join('')+'</tr>').join('')
+    +(sh.totals||[]).map(r=>'<tr class="a4-tot">'+r.cells.map((v,i)=>'<td'+(num((sh.columns[i]||{}).format)?' class="r"':'')+'>'+glEsc(v)+'</td>').join('')+'</tr>').join('')
+    +'</tbody></table></div>'; }
+function a4WorkbookHTML(w){
+  if(!w||!w.sheets) return '';
+  const id=w.artifactId; A4.wb[id]=w;
+  const tab=Math.min(A4.tab[id]||0, w.sheets.length-1), sh=w.sheets[tab];
+  const shown=sh.rows.length, total=sh.rowCount;
+  const t=w.tieOut, hasTie=w.sheets.some(s=>s.kind==='TIEOUT');
+  let o='<div class="a4-wb" data-a4="'+glEsc(id)+'">'
+    +'<div class="a4-meta">WORKBOOK PREVIEW · '+glEsc(w.scope)+' · '+glEsc(w.range)+' · USD · '+glEsc(w.fileName)+(id&&id!=='DRAFT'?' · '+glEsc(id)+' v'+w.version:'')+'</div>'
+    +'<div class="a4-sum">'+w.sheets.map((s,i)=>'<span class="n">'+glEsc(s.name)+'</span><span class="c">'+(s.rowCount||0).toLocaleString('en-US')+' '+(s.kind==='GL'?'lines':'rows')+'</span><span class="c">'+s.columns.length+' columns</span>').join('')+'</div>';
+  if(t&&hasTie) o+='<div class="a4-status '+a4Tone(t)+'">Tie-out · difference '+a4Usd(t.differenceUsd)+' · '+glEsc(t.text)+'</div>';
+  else if(t) o+='<div class="a4-note">No Tie-Out tab: the workbook is not labelled audit-ready. Ask “make sure it ties back to ERP” to add one.</div>';
+  (w.changes||[]).forEach(c=>o+='<div class="a4-note">'+glEsc(c)+'</div>');
+  if((w.excluded||[]).length) o+='<div class="a4-note">Not cited — balance not server-authoritative: '+w.excluded.map(x=>glEsc(x.label)).join(', ')+'</div>';
+  if(w.recommendCsv) o+='<div class="a4-note warn">'+glEsc(w.recommendCsv)+'</div>';
+  o+='<div class="ktabs lvl2" role="tablist">'+w.sheets.map((s,i)=>'<button class="ktab'+(i===tab?' on':'')+'" role="tab" aria-selected="'+(i===tab)+'" data-a4t="'+i+'" onclick="a4Tab(\''+glEsc(id)+'\','+i+')">'+glEsc(s.name)+'</button>').join('')+'</div>'
+    +(sh.heading?'<div class="a4-meta">'+glEsc(sh.heading)+'</div>':'')+a4GridHTML(sh)
+    +'<div class="a4-more">'+(total>shown?'Showing '+shown+' representative rows of '+total.toLocaleString('en-US')+' — the file carries every row.':total.toLocaleString('en-US')+' rows.')+(sh.blocks>1?' This tab has '+sh.blocks+' sections; the preview shows one.':'')+'</div>';
+  const canGen=id&&id!=='DRAFT';
+  o+='<div class="a4-acts">'+(canGen?'<button class="slx-btn p" onclick="a4Gen(\''+glEsc(id)+'\',\'xlsx\')">Generate Excel</button>'
+      +(w.sheets.some(s=>s.kind==='GL')?'<button class="slx-btn" onclick="a4Gen(\''+glEsc(id)+'\',\'csv\')">Generate CSV</button>':'')
+      +(w.status==='STALE'?'<button class="slx-btn" onclick="a4Refresh(\''+glEsc(id)+'\')">Refresh artifact</button>':''):'')
+    +'<button class="slx-btn" onclick="a4Refine()">Refine</button>'
+    +'<span class="a4-note" data-a4gen="'+glEsc(id)+'">'+a4GenState(id)+'</span></div></div>';
+  return o; }
+function a4Paint(id){ const w=A4.wb[id]; if(!w) return; document.querySelectorAll('[data-a4="'+CSS.escape(id)+'"]').forEach(el=>{ el.outerHTML=a4WorkbookHTML(w); }); }
+function a4Tab(id,i){ A4.tab[id]=i; a4Paint(id); }
+function a4Refine(){ const i=document.querySelector('#copilot .slx-in input, #copilot input[type="text"], #slFull input'); if(i){ i.focus(); i.placeholder='e.g. “Add source vendor”, “Put project before vendor”, “Only transactions over $500K”'; } }
+function a4GenState(id){ const g=A4.gen[id]; if(!g) return '';
+  if(g.msg) return glEsc(g.msg);
+  if(g.status==='GENERATED'&&g.url) return 'Ready · <a class="a4-dl" href="'+glEsc(g.url)+'">Download '+glEsc(g.fileName)+'</a>'+(g.bytes?' · '+Math.max(1,Math.round(g.bytes/1024)).toLocaleString('en-US')+' KB':'')+(g.auditReady===false?' · not audit-ready':'');
+  if(g.status==='FAILED') return 'Generation failed: '+glEsc(g.error||'')+' — the definition is kept.';
+  return 'Generating '+glEsc(g.fileName||'')+(g.rows?' · '+g.rows.toLocaleString('en-US')+' rows written':'')+'…'; }
+function a4PaintGen(id){ document.querySelectorAll('[data-a4gen="'+CSS.escape(id)+'"]').forEach(el=>{ el.innerHTML=a4GenState(id); }); }
+async function a4Gen(id, format, ack){
+  if(A4.busy[id]) return; A4.busy[id]=1;
+  const w=A4.wb[id]; A4.gen[id]={status:'GENERATING', fileName:format==='csv'?w.csvFileName:w.fileName}; a4PaintGen(id);
+  const r=await kApi('POST','/api/work/artifacts/'+kbEnc(id)+'/generate',{format, expectedVersion:w?w.version:undefined, acknowledge:!!ack, channel:'SLOANE', idempotencyKey:kbKey()});
+  delete A4.busy[id];
+  const b=r.body;
+  if(b.outcome!=='SUCCESS'){
+    if(b.code==='TIE_OUT_WARNING'){ A4.gen[id]={msg:''}; document.querySelectorAll('[data-a4gen="'+CSS.escape(id)+'"]').forEach(el=>{ el.innerHTML=glEsc(b.reason)+' <button class="slx-btn" onclick="a4Gen(\''+glEsc(id)+'\',\''+format+'\',true)">Generate, labelled not audit-ready</button>'; }); return; }
+    /* a stale workbook says WHAT moved (the server's reason) and offers Refresh; never a generic "someone changed this" */
+    A4.gen[id]={msg:b.code==='STALE'?(b.reason||'The governed data behind this version has changed.'):kbReason(b)};
+    if(b.code==='STALE'&&w){ w.status='STALE'; a4Paint(id); } else a4PaintGen(id);
+    return; }
+  a4Track(id, b.job, b.generation, b.fileName); }
+function a4Track(id, job, gen, fileName){
+  A4.gen[id]={status:job.status, rows:job.rows, fileName, url:gen&&gen.downloadUrl, bytes:gen&&gen.bytes, auditReady:gen?gen.auditReady:null, error:job.error};
+  a4PaintGen(id);
+  if(job.status==='GENERATED'||job.status==='FAILED') return;
+  setTimeout(async()=>{ const r=await kApi('GET','/api/work/artifacts/jobs/'+kbEnc(job.id)); if(r.body.outcome==='SUCCESS') a4Track(id, r.body.job, r.body.generation, fileName); }, 700); }
+async function a4Refresh(id){
+  const w=A4.wb[id];
+  const r=await kApi('POST','/api/work/artifacts/'+kbEnc(id)+'/refresh',{expectedVersion:w?w.version:undefined, channel:'SLOANE', idempotencyKey:kbKey()});
+  if(r.body.outcome==='SUCCESS'&&r.body.preview){ A4.wb[id]=Object.assign(r.body.preview,{changes:['Refreshed against the current governed data — v'+r.body.preview.version], notes:[]}); A4.gen[id]=null; a4Paint(id); }
+  else { A4.gen[id]={msg:kbReason(r.body)}; a4PaintGen(id); } }
+/** a confirmed GENERATE proposal (Sloane): follow its job until the file can be downloaded */
+function a4JobSlot(res){ if(!res||!res.jobId) return '';
+  const id=res.artifactId; A4.gen[id]=A4.gen[id]||{status:'GENERATING', fileName:res.fileName};
+  setTimeout(()=>a4Track(id,{id:res.jobId, status:'GENERATING', rows:0},null,res.fileName),50);
+  return ' · <span class="a4-note" data-a4gen="'+glEsc(id)+'">'+a4GenState(id)+'</span>'; }
+
 /* ==== PHASE 3C — ONE BOOK. When this page is served by Korvyn's server, a reconciliation's comments, attached
    evidence and support references are the SERVER's: the same records Sloane reads and writes. The panel reads
    GET /api/work/reconciliations/:id and writes through POST …/comments — the actor comes from the session cookie,
@@ -58400,7 +58578,7 @@ function rcSrvInner(k,tab){
       ?'<div class="rcx-srvc kb-attach"><input data-f="ref" maxlength="120" placeholder="Reference, e.g. WP-2026-06-TRANSFERS v1"><input data-f="label" maxlength="200" placeholder="Description"><button class="btn-out sm" data-k="'+glEsc(k)+'" onclick="rcSrvAttach(this)">Attach</button></div>'
       :'<div class="rcx-srvq">'+(d.status==='APPROVED'?'Approved — support changes reopen review and are governed.':'You can read the support but not attach it.')+'</div>'); }
   const cs=d.comments||[];
-  return '<div class="amp-sec">Comments<span class="rcx-srvn">'+cs.length+'</span></div>'
+  return (typeof rcSrvBalanceHTML==='function'?rcSrvBalanceHTML(k):'')+'<div class="amp-sec">Comments<span class="rcx-srvn">'+cs.length+'</span></div>'
     +(cs.length?'<div class="rcx-srvl">'+cs.map(c=>'<div class="rcx-srvi"><span class="m">'+glEsc(c.author)+(c.via?' via '+glEsc(c.via):'')+' · '+glEsc(rcSrvWhen(c.at))+(c.version>1?' · edited':'')+'</span><span class="t">'+glEsc(c.text)+'</span></div>').join('')+'</div>'
       :'<div class="rcx-srvq">No comments yet.</div>')
     +(d.note?'<div class="rcx-srvq warn">'+glEsc(d.note)+'</div>':'')
@@ -81321,7 +81499,7 @@ function s3ActInner(p, msg){ const id=glEsc(p.id), cls=p.status==='COMPLETED'?'C
   if(msg) h+='<div class="'+(/^Stale|^Failed|^Not executed/.test(msg)?'s3-err':'s3-msg')+'">'+glEsc(msg)+'</div>';
   const b=(act,label,pri,extra)=>'<button class="slx-btn'+(pri?' p':'')+'" data-id="'+id+'" data-act="'+act+'"'+(extra||'')+' onclick="s3Btn(this)">'+glEsc(label)+'</button>';
   let btns='';
-  if(p.status==='COMPLETED') btns='<span class="s3-msg">Done'+(p.result&&p.result.author?' · '+glEsc(p.result.author):'')+(p.auditId?' · audit '+glEsc(p.auditId):'')+'</span>';
+  if(p.status==='COMPLETED') btns='<span class="s3-msg">Done'+(p.result&&p.result.author?' · '+glEsc(p.result.author):'')+(p.auditId?' · audit '+glEsc(p.auditId):'')+(p.result&&p.result.jobId&&typeof a4JobSlot==='function'?a4JobSlot(p.result):'')+'</span>';
   else if(p.status==='CANCELLED') btns='<span class="s3-msg">Cancelled · nothing was written</span>';
   else if(p.status==='SUPERSEDED') btns='<span class="s3-msg">Superseded by a regenerated proposal · nothing was written</span>';
   else if(p.status==='STALE') btns=b('refresh','Refresh',1)+b('regenerate','Regenerate')+b('cancel','Cancel');
@@ -81367,6 +81545,10 @@ function s2ServerRender(raw, r){
     const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
     if(acts.length) return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Proposed · nothing written until you confirm', head:glEsc(acts.length>1?acts.length+' proposed actions':acts[0].title),
       sub:nar, prev:s3PlanHTML(r.actions?r.actions.planId:acts[0].planId, acts)+r.objects.filter(x=>!x.action).map(s2ServerTable).join(''), basis:'Korvyn validates, you confirm, Korvyn executes · every action is audited'})};
+    /* 4A: a workbook answer renders as the workbook will look */
+    const wbo=(r.objects||[]).find(x=>x.type==='ExcelWorkbookPreview'&&x.workbook&&x.status!=='UNAVAILABLE');
+    if(wbo&&typeof a4WorkbookHTML==='function') return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Governed workbook · '+wbo.scope.name+' · USD', head:glEsc(wbo.workbook.name),
+      sub:nar, prev:a4WorkbookHTML(wbo.workbook)+r.objects.filter(x=>x!==wbo&&x.type!=='ExcelWorkbookPreview').map(s2ServerTable).join(''), basis:'Built from governed Korvyn objects · the file is generated server-side from the same definition'})};
     return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:o.scope.name+' · '+o.currency+' · '+o.basis, head:glEsc(o.title),
       sub:nar, prev:r.objects.map(s2ServerTable).join(''),
       basis:pv.source+(typeof pv.journalLines==='number'?' · '+pv.journalLines+' journal lines':'')+(pv.fxRateSetId?' · FX '+pv.fxRateSetId:'')+(pv.eliminations?' · '+pv.eliminations:'')})}; }

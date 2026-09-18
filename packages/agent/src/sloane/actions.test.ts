@@ -132,20 +132,28 @@ test('report draft: build → modify in place (entity, FY25 recorded unavailable
   assert.equal((saved.definition as { status: string }).status, 'DRAFT');
 });
 
-test('Excel artifact definition: build from the GL in context, modify conversationally, save', async () => {
+test('Excel artifact (4A): build from the GL in context, refine conversationally (each change a version), generate on confirmation', async () => {
   current = reviewer;
   const s = sid();
   await ask(s, 'Show me the CIP GL for June');
   const x = await ask(s, 'Give me this GL in Excel');
-  assert.equal(x.objects[0]!.type, 'ExcelArtifactDraft');
+  assert.equal(x.objects[0]!.type, 'ExcelWorkbookPreview');
+  const id = x.objects[0]!.refs['artifactId']!;
+  assert.ok(id?.startsWith('ARTIFACT-'), 'the workbook is kept as a governed artifact');
   await ask(s, 'Add source vendor.');
-  await ask(s, 'Remove department.');
+  const dep = await ask(s, 'Remove department.');
+  assert.ok(dep.notes.some((n) => /Department is not in the GL tab/.test(n)), 'department is not carried by the book and says so');
   await ask(s, 'Sort by largest amount.');
   const last = await ask(s, 'Add TB on another tab.');
   const def = last.objects[0]!.draft!.definition as { sheets: { name: string; columns?: string[]; sort?: string }[] };
-  assert.ok(def.sheets[0]!.columns!.includes('sourceVendor') && !def.sheets[0]!.columns!.includes('costCenter') && def.sheets[0]!.sort === 'amount_desc' && def.sheets.some((t) => t.name === 'Trial balance'), JSON.stringify(def));
-  const [p] = props(await ask(s, 'Save it.'));
-  assert.equal(orch.decide({ sessionId: s, proposalId: p!.id, decision: 'confirm' }).results[0]!.status, 'COMPLETED');
+  assert.ok(def.sheets[0]!.columns!.includes('sourceVendor') && def.sheets[0]!.columns!.includes('costCenter') && def.sheets[0]!.sort === 'amount_desc' && def.sheets.some((t) => t.name === 'Trial Balance'), JSON.stringify(def));
+  assert.equal(orch.artifacts.get(id)!.version, 4, 'build + three changes = v4 ("remove department" changed nothing)');
+  const [p] = props(await ask(s, 'Download it.'));
+  assert.equal(p!.type, 'GENERATE_EXCEL_ARTIFACT');
+  const r = orch.decide({ sessionId: s, proposalId: p!.id, decision: 'confirm' });
+  assert.equal(r.results[0]!.status, 'COMPLETED', r.results[0]!.message);
+  await orch.artifacts.jobPromise(String(r.results[0]!.result!['jobId']));
+  assert.equal(orch.artifacts.generations(id)[0]!.status, 'GENERATED');
 });
 
 test('issue: an amount no governed figure carries is flagged, and the issue is created only on confirmation', async () => {

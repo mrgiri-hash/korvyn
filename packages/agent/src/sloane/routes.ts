@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { loadSloaneConfig } from './config.js';
 import { createAdapter, type SloaneLLMAdapter } from './adapter.js';
 import { LIMITS, SloaneOrchestrator } from './orchestrator.js';
@@ -36,6 +37,16 @@ import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
  *   GET  /api/work/close · GET /api/work/close/tasks   POST /api/work/close/tasks/:taskId/status
  *   GET  /api/work/reports[/:id] · POST /api/work/reports · POST /api/work/reports/:id (update / archive / delete)
  *   GET  /api/work/evidence?target= · GET /api/work/issues · GET /api/work/saved/:kind
+ *
+ *   4A — WHAT A DELIVERABLE CITES, AND THE DELIVERABLES
+ *   GET  /api/work/flux/line/:lineId/explanation · POST …/explanation      the ONE authoritative explanation (versioned)
+ *   POST /api/work/reconciliations/:id/statement                          a recorded bank statement balance (BANK method)
+ *        (GET /api/work/reconciliations/:id now carries `balance`: the versioned server balance record)
+ *   GET  /api/work/artifacts · GET /api/work/artifacts/:id?rows=           definition, versions, generations, preview
+ *   POST /api/work/artifacts/:id/generate { format, expectedVersion, acknowledge, channel, idempotencyKey }
+ *   POST /api/work/artifacts/:id/refresh  { expectedVersion }              a STALE artifact → a new version
+ *   GET  /api/work/artifacts/jobs/:jobId · GET /api/work/artifacts/:id/generations/:gid/download
+ *   POST /api/work/dev/source-posting · POST /api/work/dev/source-sync     dev auth mode + loopback only
  */
 const cfg = loadSloaneConfig();
 const adapter: SloaneLLMAdapter = createAdapter(cfg);
@@ -175,11 +186,14 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
       if (G && seg.length === 2) return reply(res, work.reconciliationWorkflow(actor, s1, period));
       if (P && s2 === 'comments' && seg.length === 3) return reply(res, work.addReconciliationComment(actor, s1, b));
       if (P && s2 === 'support' && seg.length === 3) return reply(res, work.attachReconciliationSupport(actor, s1, b));
+      if (P && s2 === 'statement' && seg.length === 3) return reply(res, work.recordReconciliationStatement(actor, s1, b));
     }
     if (s0 === 'flux' && s1) {
       if (s1 === 'line' && s2) {
         if (G && seg.length === 3) return reply(res, work.fluxLineComments(actor, s2, period));
         if (P && s3 === 'comments' && seg.length === 4) return reply(res, work.addFluxLineComment(actor, s2, b));
+        if (G && s3 === 'explanation' && seg.length === 4) return reply(res, work.fluxLineExplanation(actor, s2, period));
+        if (P && s3 === 'explanation' && seg.length === 4) return reply(res, work.setFluxLineExplanation(actor, s2, b));
       }
       if (G && seg.length === 2) return reply(res, work.fluxWorkflow(actor, s1, period));
       if (P && s2 === 'comments' && seg.length === 3) return reply(res, work.addFluxComment(actor, s1, b));
@@ -195,6 +209,25 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
       if (P && seg.length === 1) return reply(res, work.createReport(actor, b));
       if (G && s1 && seg.length === 2) return reply(res, work.report(actor, s1));
       if (P && s1 && seg.length === 2) return reply(res, work.updateReport(actor, s1, b));
+    }
+    if (s0 === 'artifacts') {
+      if (G && seg.length === 1) return reply(res, work.artifacts(actor));
+      if (G && s1 === 'jobs' && s2 && seg.length === 3) return reply(res, work.artifactJob(actor, s2));
+      if (G && s1 && seg.length === 2) return reply(res, work.artifact(actor, s1, Math.min(Number(qs.get('rows') ?? 15) || 15, 25)));
+      if (P && s1 && s2 === 'generate' && seg.length === 3) return reply(res, await work.generateArtifact(actor, s1, b));
+      if (P && s1 && s2 === 'refresh' && seg.length === 3) return reply(res, work.refreshArtifact(actor, s1, b));
+      if (G && s1 && s2 === 'generations' && s3 && seg[4] === 'download' && seg.length === 5) {
+        const d = work.artifactDownload(actor, s1, s3);
+        if (!d.ok) { refuse(res, d.code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : d.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'CONFLICT', d.reason); return; }
+        res.writeHead(200, { 'Content-Type': d.contentType, 'Content-Length': String(d.bytes), 'Content-Disposition': `attachment; filename="${d.fileName.replace(/"/g, '')}"`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        createReadStream(d.path).pipe(res);
+        return;
+      }
+    }
+    /* development only: a late ERP posting / a connector sync — dev auth mode, loopback */
+    if (P && s0 === 'dev' && auth.mode === 'dev' && loopback(req)) {
+      if (s1 === 'source-posting' && seg.length === 2) return reply(res, work.devSourcePosting(actor, b));
+      if (s1 === 'source-sync' && seg.length === 2) return reply(res, work.devSourceSync(actor));
     }
     if (G && s0 === 'evidence' && seg.length === 1) { const t = qs.get('target'); if (!t) { refuse(res, 'VALIDATION_ERROR', 'target is required'); return; } return reply(res, work.evidence(actor, t)); }
     if (G && s0 === 'issues' && seg.length === 1) return reply(res, work.issues(actor));

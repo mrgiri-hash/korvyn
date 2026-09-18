@@ -18,7 +18,7 @@
  *   SOURCE_HEALTH        connector availability per ERP instance.
  */
 import { createHash } from 'node:crypto';
-import { FX_RATE_SET, type FinancialDataService, money, periodLabel } from './financials.js';
+import { FX_RATE_SET, type FinancialDataService, SNAPSHOT_ID as SNAPSHOT, money, periodLabel } from './financials.js';
 
 export const FX_CLOSING_SET = {
   id: 'FXR-2026-CLS-REP-1',
@@ -82,9 +82,20 @@ const VENDORS: Record<string, string[]> = {
 };
 const APPROVAL_THRESHOLD_USD = 250_000;
 
+/** A source ERP posting that arrived after the core snapshot (a late or post-close journal). It is a SOURCE fact: the
+ *  ERP holds it from the moment it posts; the governed ledger holds it once it has SYNCED. The difference between the two
+ *  is exactly what an ERP tie-out exists to catch. */
+export interface SourcePosting {
+  id: string; entity: string; period: string; postingDate: string; description: string;
+  lines: { account: string; local: number; project?: string | null; costCenter?: string | null }[];
+  synced: boolean; postedBy: string; postedAt: string;
+}
+
 export class GovernedLedger {
   readonly lines: GLine[] = [];
   private readonly pops = new Map<string, PopulationDef>();
+  /** synced source postings, in the order they were applied; part of the data version */
+  private readonly applied: string[] = [];
   private readonly accts = new Map<string, { code: string; name: string; type: string; section: string; parent: string | null; postable: boolean }>();
 
   constructor(readonly fin: FinancialDataService) {
@@ -131,6 +142,36 @@ export class GovernedLedger {
     }
   }
 
+  /* ---- the data version ----------------------------------------------------------------------------
+     The governed ledger's identity: the core snapshot plus every source posting synced into it. A population id, a
+     reconciliation balance version and an artifact pin all carry it, so a change in source data is DETECTED by
+     comparison rather than asserted. */
+  dataVersion(): string {
+    return this.applied.length ? `${SNAPSHOT}+${this.applied.length}.${hash(this.applied.join('|')).slice(0, 8).toUpperCase()}` : SNAPSHOT;
+  }
+  /** apply a SYNCED source posting to the governed population (idempotent by posting id) */
+  applyPosting(p: SourcePosting): boolean {
+    if (!p.synced || this.applied.includes(p.id)) return false;
+    const ent = this.entities().find((e) => e.id === p.entity);
+    if (!ent) throw new Error(`unknown entity ${p.entity}`);
+    for (const [i, ln] of p.lines.entries()) this.lines.push(this.postingLine(p, i, ln, ent.connector, ent.currency, ent.name));
+    this.applied.push(p.id);
+    return true;
+  }
+  /** a posting's lines as governed lines — the same shape the core snapshot produces */
+  postingLine(p: SourcePosting, i: number, ln: SourcePosting['lines'][number], connector: string, currency: string, entityName: string): GLine {
+    const a = this.accts.get(ln.account);
+    if (!a) throw new Error(`unknown account ${ln.account}`);
+    const rate = FX_RATE_SET.toUsd[currency]?.[p.period];
+    if (rate === undefined) throw new Error(`no ${FX_RATE_SET.id} rate for ${currency} ${p.period}`);
+    const grp = a.parent ?? a.code;
+    return { key: `${p.id}#${i + 1}`, journalId: p.id, entryNo: p.id, lineNo: i + 1, period: p.period, postingDate: p.postingDate, day: Number(p.postingDate.slice(8, 10)),
+      entity: p.entity, entityName, currency, account: a.code, accountName: a.name, accountType: a.type, section: a.section, group: grp, groupName: this.accts.get(grp)?.name ?? a.name,
+      local: ln.local, usd: ln.local * rate, project: ln.project ?? null, costCenter: ln.costCenter ?? null, property: null, description: p.description, recordType: 'SOURCE_GL',
+      connector, externalId: `${connector.toUpperCase()}-${p.id}`, vendor: null, invoiceRef: null, poRef: null, contractRef: null, approvalRef: null, approvalRequired: false };
+  }
+  appliedPostings(): readonly string[] { return this.applied; }
+
   /* ---- catalogues -------------------------------------------------------------------------------- */
   periods() { return this.fin.governedPeriods(); }
   account(code: string) { return this.accts.get(code) ?? null; }
@@ -174,7 +215,7 @@ export class GovernedLedger {
     /* canonical: key order and array order never change a definition's identity */
     const raw = JSON.parse(JSON.stringify(filter)) as Record<string, unknown>;
     const clean = Object.fromEntries(Object.keys(raw).sort().filter((k) => raw[k] !== '' && raw[k] !== null).map((k) => [k, Array.isArray(raw[k]) ? [...(raw[k] as string[])].sort() : raw[k]])) as PopulationFilter;
-    const id = `POP-${hash(JSON.stringify({ clean, sort, snap: this.fin.gl.entries.length })).slice(0, 10).toUpperCase()}`;
+    const id = `POP-${hash(JSON.stringify({ clean, sort, snap: this.dataVersion() })).slice(0, 10).toUpperCase()}`;
     const def = this.pops.get(id) ?? { id, filter: clean, sort, createdAt: new Date().toISOString(), label };
     this.pops.set(id, def);
     return def;

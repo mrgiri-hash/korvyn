@@ -71,6 +71,12 @@ workflow for reconciliations (both catalogs), flux, close and work objects; sess
 (`auth.ts`); domain APIs under `/api/work/*` (`workapi.ts`); append-only audit; STALE_PROPOSAL with refresh / regenerate /
 cancel (no overwrite). Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 3C*.
 
+**Phase 4A (2026-09-18):** Artifact Intelligence — real `.xlsx`/CSV generation from governed definitions (`src/sloane/artifacts/`:
+`model` · `compose` · `renderer` (ExcelJS streaming behind `ExcelRenderer`, preset `KORVYN_FINANCIAL`) · `tieout` · `refine` · `engine`),
+server-authoritative Flux explanations (`book.ts` `fluxExplanation` / `setFluxExplanation`) and versioned reconciliation balances
+(`controls.ts` `reconBalance`), and a source feed for late ERP postings (`sourcefeed.ts`). `npx tsx src/sloane/artifacts/perf.ts` is the
+synthetic scale harness. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 4A*.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

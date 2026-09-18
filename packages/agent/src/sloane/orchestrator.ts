@@ -33,6 +33,9 @@ import type { InvestigationBody, Stamped } from './persistence/repositories.js';
 import { seedDevelopment } from './persistence/seed.js';
 import { bindWork, WORK } from './store.js';
 import { AuthorizationService } from './auth.js';
+import { replaySourceFeed } from './sourcefeed.js';
+import { ArtifactEngine } from './artifacts/engine.js';
+import type { ArtifactDefinition } from './artifacts/model.js';
 
 /* ================================================================================================
    LIMITS
@@ -206,7 +209,10 @@ export class FinancialContextEngine {
     if (focused?.focus) n.focus = { value: focused.focus, source: 'DERIVED' };
     const pop = [...avail].reverse().find((o) => o.population || o.refs['populationId']);
     if (pop) n.populationId = { value: pop.population?.populationId ?? pop.refs['populationId']!, source: 'DERIVED' };
-    n.lastRefs = Object.assign({}, ...avail.map((o) => o.refs));
+    /* the workbook (or report draft) the conversation is building stays in reach across turns that are about something
+       else — a proposal, a read — until a new one replaces it */
+    const keep = Object.fromEntries(['artifactId', 'excelDraftId', 'artifactVersion', 'reportDraftId'].filter((k) => c.lastRefs[k]).map((k) => [k, c.lastRefs[k]!]));
+    n.lastRefs = Object.assign(keep, ...avail.map((o) => o.refs));
     n.lastObjects = avail.map((o) => ({ id: o.id, type: o.type, title: o.title }));
     return n;
   }
@@ -270,7 +276,7 @@ const DOMAIN_WORDS: [Domain, RegExp][] = [
   ['evidence', /support|evidence|invoice|\bpo\b|purchase order|contract|approval|proof|document|missing/i],
   ['trace', /trace|proof|prove|source|erp|where.*come from|behind this number/i],
   ['action', /comment|attach|issue|assign|reviewer|for review|\bsave\b|\bshare\b|support package|compile|approve|publish|certify|mapping|write.?back|post to|\bno,|instead|actually/i],
-  ['build', /\bbuild\b|report|excel|workbook|spreadsheet|\badd (entity|project|vendor|column|department|dimension|source)|\bremove\b|\bfirst\b|only include|sort by|\btab\b|compare .*fy|\bsave it\b/i],
+  ['build', /\bbuild\b|report|excel|workbook|spreadsheet|\badd (entity|project|vendor|column|department|dimension|source)|\bremove\b|\bfirst\b|only include|sort by|\btabs?\b|compare .*fy|\bsave it\b|\bdownload\b|\bgenerate\b|\bexport\b|governed gl|gl package|ties? back|tie.?out|look like|\bpreview\b/i],
 ];
 const TYPE_DOMAINS: Record<string, Domain[]> = {
   FINANCIAL_STATEMENT: ['financials', 'analysis'], INCOME_STATEMENT: ['financials'], BALANCE_SHEET: ['financials'], TRIAL_BALANCE: ['tb'],
@@ -295,6 +301,8 @@ export class Planner {
     if (ctx.focus.value && (I?.continuity !== 'NEW_OBJECT' || !I.requestedObject.type)) (FOCUS_DOMAINS[ctx.focus.value.kind] ?? []).forEach((x) => d.add(x));
     if (d.size === 1) ['financials', 'ledger', 'analysis'].forEach((x) => d.add(x as Domain));
     if (I && (I.intent === 'ACT' || I.intent === 'BUILD' || I.intent === 'CORRECTION')) { d.add('action'); d.add('build'); }
+    /* a workbook in the conversation keeps its tools in reach: "put the TB on another tab" is a change to it */
+    if (ctx.lastRefs['artifactId'] || ctx.lastRefs['excelDraftId']) { d.add('build'); d.add('action'); }
     const permitted = toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok);
     const worded = new Set(DOMAIN_WORDS.filter(([, re]) => re.test(request)).map(([k]) => k));
     const typed = new Set(I?.requestedObject.type ? TYPE_DOMAINS[I.requestedObject.type] ?? [] : []);
@@ -421,6 +429,8 @@ export class Planner {
    ================================================================================================ */
 export function deterministicPlan(text: string, I: Interpretation, R: Resolved, ctx: SessionContext, gl: GovernedLedger): PlanStep[] {
   const t = text.toLowerCase();
+  const art = artifactPlan(text, ctx);
+  if (art) return art;
   const a = (o: Record<string, string | null | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined).map(([name, value]) => ({ name, value: value ?? null }));
   const S = (tool: string, purpose: string, args: Record<string, string | null | undefined> = {}, dependsOn: number[] = []): PlanStep => ({ tool, purpose, dependsOn, args: a(args) });
   const acctFromText = I.requestedObject.id?.startsWith('account:') ? I.requestedObject.id.slice(8) : /\bcip\b|construction in progress/.test(t) ? '15000' : /\bpp&?e\b|property, plant/.test(t) ? '16000' : /\bcash\b/.test(t) ? '10000' : /revenue/.test(t) ? '40000' : null;
@@ -449,6 +459,7 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
     if (/comment/.test(t)) return [S('getReconciliationComments', 'Comments on the reconciliation', { reconciliationId: recCtx, period: ctx.period.value })];
   }
   if (readsCtx && /comment/.test(t) && !/reconcil|\brec\b/.test(t) && (acctFromText || ctx.focus.value?.kind === 'account')) return [S('getFluxComments', 'Comments on the Flux item', { account: acctFromText ?? '$ctx.account', period: ctx.period.value })];
+  if (readsCtx && /\bexplanation\b/.test(t) && !/reconcil|\brec\b/.test(t) && (acctFromText || ctx.focus.value?.kind === 'account')) return [S('getFluxExplanation', 'The governed Flux explanation', { account: acctFromText ?? '$ctx.account', period: ctx.period.value })];
   if (/^\s*(no|actually)\b|\binstead\b/i.test(t) && ctx.lastRefs['proposalId']) return [S('reviseActionProposal', 'Apply the correction to the open proposal', { target: recName ?? undefined })];
   if (/approve|certify|publish|mapping change|write.?back|post (it )?to (the )?erp/.test(t)) return [S('prepareGovernedAction', 'Governed — prepare only', { actionType: /approve/.test(t) ? 'RECONCILIATION_APPROVAL' : /certify/.test(t) ? 'CLOSE_CERTIFICATION' : /publish/.test(t) ? 'REPORT_PUBLICATION' : /mapping/.test(t) ? 'MAPPING_CHANGE' : 'ERP_WRITE_BACK', target: recName ?? undefined })];
   if (/flux comment/.test(t) && /attach/.test(t)) { const steps = [S('proposeFluxComment', 'Flux comment from the explanation', { useLastExplanation: 'true' }), S('proposeSupportAttachment', 'Attach the support to the Flux line', { targetType: 'FLUX', kinds: 'INVOICE,PURCHASE_ORDER,CONTRACT,APPROVAL' })]; if (person) steps.push(S('proposeReviewerAssignment', 'Reviewer', { reviewer: person, targetType: 'FLUX' })); return steps; }
@@ -496,6 +507,29 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   if (/financials?|results/.test(t) || I.requestedObject.type === 'FINANCIAL_STATEMENT') return [S('getFinancialSummary', 'Financial summary')];
   if (acctFromText) return [S('getAccountAnalysis', 'Account analysis', { account: acctFromText })];
   return [];
+}
+
+/* ================================================================================================
+   ARTIFACT ROUTING (4A) — a request for a deliverable, or a change to the workbook in the conversation, goes to the
+   Artifact tools. Deterministic, so the same words always build or change the same definition.
+   ================================================================================================ */
+export const ARTIFACT_TOOLS = new Set(['buildExcelArtifact', 'modifyExcelArtifact', 'previewExcelArtifact', 'proposeGenerateExcelArtifact', 'proposeRefreshExcelArtifact']);
+export function artifactPlan(text: string, ctx: SessionContext): PlanStep[] | null {
+  const t = text.toLowerCase();
+  const S = (tool: string, purpose: string, args: Record<string, string | undefined> = {}): PlanStep => ({ tool, purpose, dependsOn: [], args: Object.entries(args).filter(([, v]) => v !== undefined).map(([name, value]) => ({ name, value: value! })) });
+  const has = !!(ctx.lastRefs['artifactId'] || (ctx.lastRefs['excelDraftId'] && ctx.lastRefs['excelDraftId'] !== 'DRAFT'));
+  const build = /\bgoverned gl\b|\bgl package\b|\baudit gl\b|\b(excel|xlsx|workbook|spreadsheet)\b/.test(t) || (/\b(give me|build|create|pull|get me|prepare)\b/.test(t) && /\b(gl|general ledger|transactions|ledger)\b/.test(t) && /\bfy\s?'?\d{2}|\btabs?\b|\bsheets?\b|\bexcel\b|\bworkbook\b|\bpackage\b/.test(t));
+  const fresh = build && /\b(give me|build|create|pull|get me|prepare|new)\b/.test(t) && !/\b(it|this|the workbook)\b.*\b(add|remove|put)\b/.test(t);
+  if (has && !fresh) {
+    if (/\b(download|generate|export)\b|\bgive me the (file|excel|xlsx|csv)\b|\bin (excel|csv)\b.*\bnow\b/.test(t)) return [S('proposeGenerateExcelArtifact', 'Generate the file', { format: /\bcsv\b/.test(t) ? 'csv' : undefined })];
+    if (/\brefresh\b/.test(t)) return [S('proposeRefreshExcelArtifact', 'Refresh the workbook')];
+    /* the workbook is already kept (every change is a version); "save it" shows where it stands */
+    if (/\bsave (it|the workbook|the excel|this)\b/.test(t)) return [S('previewExcelArtifact', 'The workbook as saved')];
+    if (/\bwhat it (will )?look|\bpreview\b|\bshow me (the )?(workbook|it|what)\b|\blook like\b/.test(t)) return [S('previewExcelArtifact', 'Preview the workbook')];
+    if (/\b(add|remove|drop|put|move|sort|only|include|tie|ties|tied|tab|tabs|rename|call it|delete|hide|largest|smallest|over \$)\b/.test(t)) return [S('modifyExcelArtifact', 'Refine the workbook', { instruction: text })];
+  }
+  if (build) return [S('buildExcelArtifact', 'Build the workbook')];
+  return null;
 }
 
 /* ================================================================================================
@@ -637,6 +671,7 @@ export class SloaneOrchestrator {
   private readonly sessions = new Map<string, Session>();
   private readonly traces: SloaneExecutionTrace[] = [];
   readonly actions: ActionEngine;
+  readonly artifacts: ArtifactEngine;
 
   readonly db: KorvynDatabase;
   constructor(private readonly adapter: SloaneLLMAdapter, private readonly cfg: Pick<SloaneConfig, 'maxPlanSteps'>, private readonly actorOf: () => Actor = serverActor, data?: FinancialDataService, db?: KorvynDatabase) {
@@ -650,8 +685,11 @@ export class SloaneOrchestrator {
     this.db = db ?? workDatabase(process.env['NODE_TEST_CONTEXT'] ? ':memory:' : undefined);
     bindWork(this.db);
     seedDevelopment(this.db, WORK.repos, this.data.workingPeriod(), this.controls.recDefs());
+    /* every ERP posting that has synced is part of the governed population again (the data version moves with it) */
+    replaySourceFeed(this.gl);
+    this.artifacts = new ArtifactEngine(this.data, this.gl, this.controls);
     /* the actor is resolved at every proposal AND every execution from the request's authenticated context */
-    this.actions = new ActionEngine((a) => ({ gl: this.gl, controls: this.controls, actor: a ?? this.actorOf() }));
+    this.actions = new ActionEngine((a) => ({ gl: this.gl, controls: this.controls, actor: a ?? this.actorOf(), artifacts: this.artifacts }));
   }
 
   /** The user's decision on a proposal or plan. The browser collects it; everything else happens here. */
@@ -843,6 +881,13 @@ export class SloaneOrchestrator {
         else tr.fallbacks.push(`plan: deterministic — ${out.status === 'error' ? out.code : out.status}`);
       }
       let pv = this.planner.validate(steps, allow, actor, ctx);
+      /* 4A: a deliverable request, or a change to the workbook in the conversation, is acted on by the Artifact tools even
+         when the model planned a read (e.g. a TB tie-out read for "make sure it ties back to ERP") */
+      const art = artifactPlan(raw, ctx);
+      if (art && !pv.steps.some((s) => ARTIFACT_TOOLS.has(s.tool))) {
+        const av = this.planner.validate(art, toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok), actor, ctx);
+        if (av.steps.length) { if (steps.length) tr.fallbacks.push('plan: artifact routing — the model plan did not act on the workbook'); steps = art; pv = { ...av, rejected: [...pv.rejected, ...av.rejected] }; tr.plan.source = 'deterministic'; }
+      }
       if (!pv.steps.length) {
         const det = deterministicPlan(raw, I, R, ctx, this.gl);
         if (steps.length) tr.fallbacks.push('plan: deterministic — no model step survived validation');
@@ -871,7 +916,7 @@ export class SloaneOrchestrator {
         lastNarrative: session.lastNarrative, lastObjects: session.lastObjects, lastRefs: ctx.lastRefs, investigationId: session.investigation.id, request: raw,
         investigation: { ...session.investigation, timeline: this.timeline(sessionId) }, lastToolCalls: session.lastToolCalls, proposalsThisTurn: [], drafts: session.drafts, engine: this.actions,
       };
-      const env: Omit<ToolEnv, 'objectId'> = { data: this.data, gl: this.gl, controls: this.controls, actor, visible: visibleOf(actor), session: toolSession };
+      const env: Omit<ToolEnv, 'objectId'> = { data: this.data, gl: this.gl, controls: this.controls, actor, visible: visibleOf(actor), session: toolSession, artifacts: this.artifacts };
       for (const [i, s] of pv.steps.entries()) {
         const tool = toolRegistry.get(s.tool)!;
         const args: ToolArgs = { ...s.args };
@@ -895,6 +940,11 @@ export class SloaneOrchestrator {
           const r = tool.run(args, { ...env, objectId: `FO-${objects.length + 1}` });
           r.object.facts = r.object.facts.slice(0, LIMITS.maxFactsPerObject);
           results.push(r.object); objects.push(r.object);
+          /* a changed workbook definition becomes a new artifact VERSION before the next step runs (so a generate step
+             in the same plan sees it); this is the conversation's work being kept, like the investigation record */
+          const persisted = this.persistDraft(session, actor, tr.traceId, sessionId, r.object);
+          if (persisted) note(persisted);
+          if (r.object.type === 'ExcelWorkbookPreview') ((r.object.workbook?.['notes'] as string[] | undefined) ?? []).forEach(note);
           r.warnings.forEach((w) => { if (!tr.warnings.includes(w)) tr.warnings.push(w); });
           if (r.object.status === 'UNAVAILABLE') note(r.object.unavailable!.reason);
           tr.toolsExecuted.push({ tool: s.tool, args, status: 'COMPLETED', objectId: r.object.id, latencyMs: Date.now() - st, warnings: r.warnings, error: null,
@@ -961,6 +1011,29 @@ export class SloaneOrchestrator {
       tr.errors.push(redact((e as Error).message ?? String(e)));
       return finish('ERROR', { notes: ['Sloane could not complete this request.'] });
     }
+  }
+
+  /** 4A: keep the workbook the conversation is building — a new artifact on the first build, a new version on each
+   *  refinement. Returns a note when it could not (e.g. the definition names a scope the reader may not see). */
+  private persistDraft(session: Session, actor: Actor, traceId: string, sessionId: string, obj: FinancialObject): string | null {
+    const d = session.drafts.excel as ({ id: string; definition: Record<string, unknown>; change?: string; dirty?: boolean; version?: number } | null);
+    if (!d?.dirty) return null;
+    const def = d.definition as unknown as ArtifactDefinition;
+    const r = d.id ? this.artifacts.modify(actor, d.id, def, d.change ?? 'Refined', { via: 'SLOANE', traceId, investigationId: session.investigation.id })
+      : this.artifacts.create(actor, def, { via: 'SLOANE', investigationId: session.investigation.id, sessionId, traceId });
+    d.dirty = false;
+    if (!r.ok) return `The workbook was not saved: ${r.reason}`;
+    d.id = r.artifact.id; d.version = r.artifact.version;
+    if (obj.type === 'ExcelWorkbookPreview') {
+      obj.refs = { ...obj.refs, artifactId: d.id, excelDraftId: d.id, artifactVersion: String(d.version) };
+      if (obj.workbook) Object.assign(obj.workbook, { artifactId: d.id, version: d.version, status: 'DRAFT' });
+      if (obj.draft) obj.draft.id = d.id;
+      obj.facts = obj.facts.filter((f) => f.key !== 'saved');
+      obj.facts.push({ key: 'artifactVersion', label: 'Saved as', value: `${d.id} v${d.version}`, display: `${d.id} v${d.version} — every change is a new version` });
+    }
+    const inv = session.investigation.id;
+    if (inv) WORK.repos.investigations.update(inv, actor.id, (o) => ({ ...(o as InvestigationBody), artifactIds: [...new Set([...o.artifactIds, d.id])] }));
+    return null;
   }
 
   /** A pending question is answered by its option id, or by typing the option's label. */

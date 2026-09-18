@@ -43,7 +43,10 @@ export const ACTION_POLICY: Record<string, ActionClass> = {
   CREATE_SHARED_INVESTIGATION: 'CONFIRM_REQUIRED', SAVE_ANALYSIS: 'CONFIRM_REQUIRED', CREATE_SHARED_REPORT: 'CONFIRM_REQUIRED',
   CREATE_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', CREATE_SUPPORT_PACKAGE: 'CONFIRM_REQUIRED', REQUEST_GOVERNED_APPROVAL: 'CONFIRM_REQUIRED',
   /* workspace domain actions (3D): the user's own click is the confirmation; the same policy and audit as Sloane's */
-  UPDATE_CLOSE_TASK_STATUS: 'CONFIRM_REQUIRED', SAVE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', UPDATE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', ARCHIVE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', DELETE_REPORT_DEFINITION: 'CONFIRM_REQUIRED',
+  UPDATE_CLOSE_TASK_STATUS: 'CONFIRM_REQUIRED', SAVE_REPORT_DEFINITION: 'CONFIRM_REQUIRED',
+  /* 4A: the authoritative Flux explanation, a recorded bank statement balance, and governed deliverables */
+  UPDATE_FLUX_EXPLANATION: 'CONFIRM_REQUIRED', RECORD_RECONCILIATION_STATEMENT: 'CONFIRM_REQUIRED',
+  GENERATE_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', REFRESH_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', UPDATE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', ARCHIVE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', DELETE_REPORT_DEFINITION: 'CONFIRM_REQUIRED',
   RECONCILIATION_APPROVAL: 'GOVERNED_ACTION', CLOSE_CERTIFICATION: 'GOVERNED_ACTION', REPORT_PUBLICATION: 'GOVERNED_ACTION',
   MAPPING_CHANGE: 'GOVERNED_ACTION', DIMENSION_OVERRIDE: 'GOVERNED_ACTION', ERP_WRITE_BACK: 'GOVERNED_ACTION',
 };
@@ -105,7 +108,7 @@ export interface AuditRecord {
   investigationId: string | null; executionTraceId: string; proposalTraceId: string | null; outcome: 'COMPLETED' | 'FAILED'; error: string | null;
 }
 
-export interface ActionContext { gl: GovernedLedger; controls: ControlService; actor: Actor; expectedTargetVersion?: number | null; executionId?: string }
+export interface ActionContext { gl: GovernedLedger; controls: ControlService; actor: Actor; expectedTargetVersion?: number | null; executionId?: string; artifacts?: import('./artifacts/engine.js').ArtifactEngine }
 interface Service {
   type: string; permission: Permission; targetType: string;
   /** resolve target, derive preview, return errors/warnings; runs at proposal, edit, retarget and again before execution */
@@ -386,9 +389,71 @@ function savedService(type: string, kind: 'ANALYSIS' | 'INVESTIGATION' | 'REPORT
   };
 }
 
+/* ---- 4A: governed deliverables. Validation reads the Artifact Engine; execution RECORDS the generation (inside the
+   action's transaction) and starts the job, which streams the file after the transaction commits. ------------------ */
+function artifactOf(p: ActionProposal, c: ActionContext) {
+  const id = str(p, 'artifactId');
+  const a = id && c.artifacts ? c.artifacts.get(id) : null;
+  return { id, a };
+}
+const generateService: Service = {
+  type: 'GENERATE_EXCEL_ARTIFACT', permission: 'ARTIFACT_CREATE', targetType: 'EXCEL_ARTIFACT',
+  validate(p, c) {
+    const errors: string[] = [], warnings: string[] = [];
+    const { id, a } = artifactOf(p, c);
+    if (!c.artifacts) return { errors: ['The Artifact Engine is not available.'], warnings };
+    if (!a) return { errors: [id ? `No workbook ${id}.` : 'There is no saved workbook in this conversation to generate.'], warnings };
+    const v = c.artifacts.view(c.actor, a.id);
+    if (!v) return { errors: [`No workbook ${a.id}.`], warnings };
+    errors.push(...c.artifacts.authorize(c.actor, a.definition));
+    if (v.stale) errors.push(`The governed data behind v${a.version} has changed (${v.staleReasons.join('; ')}). Refresh the workbook — that creates v${a.version + 1} — before generating.`);
+    const m = c.artifacts.compose(c.actor, a.definition, a.version, a.id);
+    const fmt = str(p, 'format') === 'csv' ? 'csv' : 'xlsx';
+    for (const q of m.populations.filter((x) => x.rowCount === 0)) errors.push(`${q.sheet} has no lines for this scope and window; there is nothing to generate. Widen the filter (e.g. a lower amount threshold) first.`);
+    const hasTie = a.definition.sheets.some((s) => s.kind === 'TIEOUT');
+    if (hasTie && m.tieOut && m.tieOut.status !== 'TIED') warnings.push(`Tie-out ${m.tieOut.status.replace(/_/g, ' ')}: the file will be labelled NOT audit-ready. Confirming acknowledges this.`);
+    warnings.push(...m.warnings.filter((w) => /partition|not yet governed/.test(w)));
+    const big = m.populations.find((q) => q.rowCount > 2_000_000);
+    if (big && fmt === 'xlsx') warnings.push(`The population is ${big.rowCount.toLocaleString('en-US')} lines. Excel would require ${m.sheets.filter((s) => s.part).length} worksheets — a CSV extract may be more practical.`);
+    p.targetObjectId = `artifact:${a.id}`; p.targetObjectType = 'EXCEL_ARTIFACT'; p.targetLabel = `${a.name} v${a.version}`;
+    p.preview = [{ label: 'Workbook', value: `${a.name} · v${a.version}` }, { label: 'File', value: fmt === 'csv' ? m.csvFileName : m.fileName },
+      ...m.sheets.map((s) => ({ label: `Tab · ${s.name}`, value: `${s.rowCount.toLocaleString('en-US')} rows` })),
+      ...(m.tieOut ? [{ label: 'Tie-out', value: `${m.tieOut.status.replace(/_/g, ' ')} · difference ${m.tieOut.differenceUsd.toFixed(2)} USD` }] : []),
+      { label: 'Audit-ready', value: m.auditReady ? 'Yes' : 'No' }, { label: 'Generated', value: 'Server-side, from the pinned governed populations' }];
+    return { errors, warnings };
+  },
+  targetVersion: (p, c) => artifactOf(p, c).a?.version ?? null,
+  execute(p, c) {
+    const { a } = artifactOf(p, c);
+    const r = c.artifacts!.requestGeneration(c.actor, a!.id, { format: str(p, 'format') === 'csv' ? 'csv' : 'xlsx', expectedVersion: c.expectedTargetVersion ?? null, acknowledge: true, channel: 'SLOANE', investigationId: p.investigationId });
+    if (!r.ok) { if (r.code === 'STALE_VERSION') throw new StaleVersionError('EXCEL_ARTIFACT', a!.id, c.expectedTargetVersion ?? 0, a!.version); throw new Error(r.reason); }
+    return { before: null, after: { generationId: r.generationId, fileName: r.fileName }, afterRef: r.generationId,
+      result: { artifactId: a!.id, artifactVersion: String(a!.version), generationId: r.generationId, jobId: r.job.id, fileName: r.fileName, status: 'GENERATING', jobUrl: `/api/work/artifacts/jobs/${r.job.id}` },
+      timeline: `Generating ${r.fileName} (${a!.name} v${a!.version})` };
+  },
+};
+const refreshService: Service = {
+  type: 'REFRESH_EXCEL_ARTIFACT', permission: 'ARTIFACT_CREATE', targetType: 'EXCEL_ARTIFACT',
+  validate(p, c) {
+    const { id, a } = artifactOf(p, c);
+    if (!a) return { errors: [id ? `No workbook ${id}.` : 'There is no saved workbook in this conversation.'], warnings: [] };
+    const v = c.artifacts!.view(c.actor, a.id)!;
+    p.targetObjectId = `artifact:${a.id}`; p.targetObjectType = 'EXCEL_ARTIFACT'; p.targetLabel = `${a.name} v${a.version}`;
+    p.preview = [{ label: 'Workbook', value: `${a.name} · v${a.version} → v${a.version + 1}` }, { label: 'Why', value: v.stale ? v.staleReasons.join('; ') : 'Not stale — a refresh records the same definition against the current data' }];
+    return { errors: [], warnings: v.stale ? [] : ['The workbook is not stale.'] };
+  },
+  targetVersion: (p, c) => artifactOf(p, c).a?.version ?? null,
+  execute(p, c) {
+    const { a } = artifactOf(p, c);
+    const r = c.artifacts!.refresh(c.actor, a!.id, c.expectedTargetVersion ?? null, 'SLOANE');
+    if (!r.ok) throw new Error(r.reason);
+    return { before: { version: a!.version }, after: { version: r.artifact.version }, afterRef: a!.id, result: { artifactId: a!.id, artifactVersion: String(r.artifact.version) }, timeline: `Refreshed ${a!.name} to v${r.artifact.version}` };
+  },
+};
+
 const SERVICES: Service[] = [
   commentService('flux', 'add'), commentService('flux', 'update'), commentService('recon', 'add'), commentService('recon', 'update'),
-  attachService, issueService, assignService,
+  attachService, issueService, assignService, generateService, refreshService,
   savedService('CREATE_SHARED_INVESTIGATION', 'INVESTIGATION', 'INVESTIGATION_SAVE', 'investigation'),
   savedService('SAVE_ANALYSIS', 'ANALYSIS', 'ANALYSIS_SAVE', 'analysis'),
   savedService('CREATE_SHARED_REPORT', 'REPORT_DRAFT', 'REPORT_CREATE', 'report draft'),
@@ -403,6 +468,7 @@ const TITLES: Record<string, string> = {
   UPDATE_RECONCILIATION_COMMENT: 'Proposed reconciliation comment update', ATTACH_SUPPORT: 'Support to attach', CREATE_ISSUE: 'Proposed issue', ASSIGN_REVIEWER: 'Proposed reviewer assignment',
   CREATE_SHARED_INVESTIGATION: 'Save investigation', SAVE_ANALYSIS: 'Save analysis', CREATE_SHARED_REPORT: 'Save report draft', CREATE_EXCEL_ARTIFACT: 'Save Excel artifact definition',
   CREATE_SUPPORT_PACKAGE: 'Proposed support package draft', REQUEST_GOVERNED_APPROVAL: 'Send to the governed workflow',
+  GENERATE_EXCEL_ARTIFACT: 'Generate the workbook', REFRESH_EXCEL_ARTIFACT: 'Refresh the workbook',
   RECONCILIATION_APPROVAL: 'Reconciliation approval', CLOSE_CERTIFICATION: 'Close certification', REPORT_PUBLICATION: 'Report publication', MAPPING_CHANGE: 'Mapping change', DIMENSION_OVERRIDE: 'Governed dimension override', ERP_WRITE_BACK: 'ERP write-back',
 };
 const EDITABLE: Record<string, [string, string, boolean][]> = {

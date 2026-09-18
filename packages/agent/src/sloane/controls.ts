@@ -11,10 +11,38 @@
  *
  * READ ONLY. Nothing here writes a comment, attaches support, publishes, certifies or changes a mapping.
  */
+import { createHash } from 'node:crypto';
 import { money, periodLabel } from './financials.js';
 import { AP_EXTRACT, FX_CLOSING_SET, type GLine, type GovernedLedger, SOURCE_HEALTH, pct } from './governed.js';
 import { WORK } from './store.js';
-import { closeTaskView, fluxAccountComments } from './book.js';
+import { FLUX_LINE_ACCOUNTS, closeTaskView, fluxAccountComments, fluxExplanation } from './book.js';
+import { StaleVersionError } from './persistence/repositories.js';
+
+/* ---- recorded bank statement balances (a preparer's input, versioned) ------------------------------- */
+export interface ReconStatementView { id: string; reconciliationId: string; period: string; amountUsd: number; reference: string; statementDate: string; enteredBy: string; version: number; updatedAt: string }
+const STMT = 'RECON_STATEMENT';
+export function reconStatement(recId: string, period: string): ReconStatementView | null {
+  const r = WORK.repos.records.list<{ reconciliationId: string; amountUsd: number; reference: string; statementDate: string; enteredBy: string }>(STMT, { target: `${recId}:${period}` })[0];
+  return r ? { id: r.id, reconciliationId: r.reconciliationId, period: r.period ?? period, amountUsd: r.amountUsd, reference: r.reference, statementDate: r.statementDate, enteredBy: r.enteredBy, version: r.version, updatedAt: r.updatedAt } : null;
+}
+/** record (or change, with the version read) the statement balance a BANK reconciliation is proven against */
+export function recordReconStatement(recId: string, period: string, v: { amountUsd: number; reference: string; statementDate: string }, expectedVersion: number | null, actor: { id: string; name: string }) {
+  const cur = WORK.repos.records.list<Record<string, unknown>>(STMT, { target: `${recId}:${period}` })[0];
+  const body = { reconciliationId: recId, amountUsd: v.amountUsd, reference: v.reference, statementDate: v.statementDate, enteredBy: actor.name };
+  if (!cur) {
+    if (expectedVersion !== null && expectedVersion !== 0) throw new StaleVersionError(STMT, recId, expectedVersion, 0);
+    return WORK.repos.records.insert(STMT, body, actor.id, { prefix: 'BANKSTMT', target: `${recId}:${period}`, period, status: 'RECORDED' });
+  }
+  return WORK.repos.records.update(STMT, cur.id, expectedVersion, actor.id, () => body);
+}
+export type ReconBalance = {
+  reconciliationId: string; name: string; period: string; scope: string; method: RecMethod; accounts: string[]; financialLineId: string | null;
+  workflowStatus: string; preparer: string; reviewer: string;
+} & ({ available: false; reason: string } | {
+  available: true; id: string; version: number; fingerprint: string; dataVersion: string; computedAt: string;
+  glBalanceUsd: number; supportingBalanceUsd: number | null; supportingLabel: string; differenceUsd: number | null; tieStatus: string;
+  items: { id: string; label: string; kind: string; amountUsd: number }[]; statementVersion: number | null; sourceIssues: string[];
+});
 
 type Vis = Set<string> | 'ALL';
 const inVis = (v: Vis, e: string) => v === 'ALL' || v.has(e);
@@ -25,7 +53,7 @@ export const SEEDED = 'Workflow state (assignments, status, comments) is read fr
    RECONCILIATIONS
    ================================================================================================ */
 export type RecMethod = 'SUBLEDGER' | 'INTERCOMPANY' | 'ROLLFORWARD' | 'BANK' | 'MODULE';
-export interface RecDef { id: string; entity: string; accounts: string[]; name: string; method: RecMethod; preparer: string; reviewer: string; supportRequirements: { id: string; label: string; kind: string }[]; financialLineId?: string | null }
+export interface RecDef { id: string; entity: string; accounts: string[]; name: string; method: RecMethod; preparer: string; reviewer: string; supportRequirements: { id: string; label: string; kind: string }[]; financialLineId?: string | null; serverModelled?: boolean }
 export class ControlService {
   constructor(readonly gl: GovernedLedger) {}
 
@@ -43,9 +71,23 @@ export class ControlService {
     out.push({ id: 'REC-MGP-REIT-13100', entity: 'MGP-REIT', accounts: ['13100'], name: 'Intercompany receivable — REIT vs MDH', method: 'INTERCOMPANY', preparer: 'M. Reyes', reviewer: 'L. Chen', supportRequirements: [{ id: 'ic-conf', label: 'Counterparty confirmation', kind: 'CONFIRMATION' }] });
     return out;
   }
-  /** the Reconciliations module's governed definitions: server-authoritative WORKFLOW, balances computed by the module */
+  /** the Reconciliations module's governed definitions, with server-authoritative workflow.
+   *  4A — BALANCES TOO, where the server book models the line. A module reconciliation whose statement line is the only
+   *  reconciliation on that line, and whose line maps to a server account group (FLUX_LINE_ACCOUNTS — the existing
+   *  navigation crosswalk, not a new mapping), is reconciled on the server book at group scope: cash against a recorded
+   *  bank statement balance, everything else as a roll-forward. A line the server book does not model (the four CIP
+   *  groups share FS-CIP and the server carries CIP by project, not by those groups; the debt split; right-of-use …) stays
+   *  MODULE: its balance is not server-authoritative and nothing that needs proof may cite it. */
   moduleRecDefs(): RecDef[] {
-    return WORK.repos.reconciliations.definitions().filter((d) => d.catalog === 'MODULE').map((d) => ({ id: d.definitionId, entity: 'GROUP', accounts: [], name: d.name, method: 'MODULE' as const, preparer: d.preparer, reviewer: d.reviewer, supportRequirements: [], financialLineId: d.financialLineId } as RecDef));
+    const defs = WORK.repos.reconciliations.definitions().filter((d) => d.catalog === 'MODULE');
+    const perLine = new Map<string, number>();
+    for (const d of defs) if (d.financialLineId) perLine.set(d.financialLineId, (perLine.get(d.financialLineId) ?? 0) + 1);
+    return defs.map((d) => {
+      const accts = d.financialLineId && perLine.get(d.financialLineId) === 1 ? FLUX_LINE_ACCOUNTS[d.financialLineId] ?? null : null;
+      const bank = d.financialLineId === 'FS-CASH';
+      return { id: d.definitionId, entity: 'GROUP', accounts: accts ?? [], name: d.name, method: (!accts ? 'MODULE' : bank ? 'BANK' : 'ROLLFORWARD') as RecMethod, preparer: d.preparer, reviewer: d.reviewer,
+        supportRequirements: bank && accts ? [{ id: 'bank-stmt', label: 'Bank statements (all accounts)', kind: 'BANK_STATEMENT' }] : [], financialLineId: d.financialLineId, serverModelled: !!accts } as RecDef;
+    });
   }
   allRecDefs(): RecDef[] { return [...this.recDefs(), ...this.moduleRecDefs()]; }
   recDef(id: string) { return this.allRecDefs().find((d) => d.id === id) ?? null; }
@@ -53,13 +95,18 @@ export class ControlService {
   /** Everything about one reconciliation for one period, derived. */
   reconcile(def: RecDef, period: string) {
     const L = this.gl;
-    const glBal = L.balanceUsd(def.accounts, period, 'ALL', [def.entity]);
+    /* a GROUP reconciliation (a module line the server models) covers every entity */
+    const ents = def.entity === 'GROUP' ? undefined : [def.entity];
+    const inEnt = (e: string) => !ents || ents.includes(e);
+    const acctSet = new Set(L.expandAccounts(def.accounts));
+    const glBal = L.balanceUsd(def.accounts, period, 'ALL', ents);
     const prior = L.priorPeriod(period);
-    const opening = prior ? L.balanceUsd(def.accounts, prior, 'ALL', [def.entity]) : 0;
+    const opening = prior ? L.balanceUsd(def.accounts, prior, 'ALL', ents) : 0;
     const items: { id: string; label: string; amountUsd: number; kind: string }[] = [];
     let comparison: number | null = null, comparisonLabel = '', tieStatus: 'TIED' | 'NOT_TIED' | 'SOURCE_NOT_CONNECTED' | 'COMPUTED_IN_MODULE' = 'TIED';
     const sourceIssues: string[] = [];
-    const conn = L.entities().find((e) => e.id === def.entity)?.connector ?? 'unknown';
+    let statement: ReconStatementView | null = null;
+    const conn = def.entity === 'GROUP' ? 'group' : L.entities().find((e) => e.id === def.entity)?.connector ?? 'unknown';
     const health = SOURCE_HEALTH[conn];
     if (def.method === 'SUBLEDGER') {
       const rows = L.lines.filter((l) => l.entity === def.entity && L.expandAccounts(def.accounts).includes(l.account) && l.period <= period);
@@ -82,16 +129,30 @@ export class ControlService {
       }
       comparison = counter; comparisonLabel = 'Counterparty payables, translated at the closing rate set';
     } else if (def.method === 'ROLLFORWARD') {
-      const act = L.lines.filter((l) => l.entity === def.entity && def.accounts.includes(l.account) && l.period === period).reduce((s, l) => s + l.local * FX_CLOSING_SET.toUsd[l.currency]![period]!, 0);
-      comparison = opening + act; comparisonLabel = 'Opening balance + period activity';
+      /* opening + activity, both at this period's closing rate, plus the translation of the opening balance from the
+         prior closing rate to this one — the three pieces a multi-currency roll-forward is made of. Zero translation
+         for a USD entity. */
+      const rate = (l: GLine, p: string) => FX_CLOSING_SET.toUsd[l.currency]![p]!;
+      const rows = L.lines.filter((l) => inEnt(l.entity) && acctSet.has(l.account));
+      const act = rows.filter((l) => l.period === period).reduce((s, l) => s + l.local * rate(l, period), 0);
+      const fx = prior ? rows.filter((l) => l.period <= prior).reduce((s, l) => s + l.local * (rate(l, period) - rate(l, prior)), 0) : 0;
+      comparison = opening + act + fx;
+      comparisonLabel = Math.abs(fx) >= 0.005 ? 'Opening balance + period activity + translation of the opening balance' : 'Opening balance + period activity';
     } else if (def.method === 'MODULE') {
       comparisonLabel = 'Computed by the Reconciliations module'; tieStatus = 'COMPUTED_IN_MODULE';
       sourceIssues.push(`${def.name}'s balance, difference and reconciling items are computed by the Reconciliations module (${def.financialLineId ?? 'statement line'}); the server book does not model that line. Workflow — status, comments, support and reviewer — is server-authoritative.`);
     } else {
-      comparisonLabel = 'Bank statement balance'; tieStatus = 'SOURCE_NOT_CONNECTED';
-      sourceIssues.push('Bank statements are not connected; the cash balance cannot be proven against the bank.');
+      /* BANK: the supporting balance is the bank statement a preparer RECORDED (a fact about the outside world, entered
+         with its reference). Without one the balance cannot be proven. */
+      statement = reconStatement(def.id, period);
+      if (statement) { comparison = statement.amountUsd; comparisonLabel = `Bank statement balance · ${statement.reference}`; }
+      else {
+        comparisonLabel = 'Bank statement balance'; tieStatus = 'SOURCE_NOT_CONNECTED';
+        sourceIssues.push('No bank statement balance has been recorded for this period; the cash balance cannot be proven against the bank.');
+      }
     }
-    if (health && health.status !== 'AVAILABLE') sourceIssues.push(`${health.system}: ${health.note}`);
+    if (def.entity === 'GROUP' && def.method !== 'MODULE') for (const h of new Set(L.entities().map((e) => SOURCE_HEALTH[e.connector]).filter((h) => h && h.status !== 'AVAILABLE'))) sourceIssues.push(`${h!.system}: ${h!.note}`);
+    else if (health && health.status !== 'AVAILABLE') sourceIssues.push(`${health.system}: ${health.note}`);
     const difference = comparison === null ? null : glBal - comparison - items.filter((i) => i.kind === 'UNASSIGNED_PROJECT').reduce((s, i) => s + i.amountUsd, 0);
     if (tieStatus !== 'SOURCE_NOT_CONNECTED' && tieStatus !== 'COMPUTED_IN_MODULE') tieStatus = items.some((i) => i.kind === 'INTERCOMPANY_DIFFERENCE') || (difference !== null && Math.abs(difference) >= TIE_TOLERANCE_USD) ? 'NOT_TIED' : 'TIED';
     const key = `recon:${def.id}:${period}`;
@@ -102,7 +163,7 @@ export class ControlService {
     const attached = Object.fromEntries(WORK.repos.records.list<{ requirement: string; reference: string }>('SUPPORT_REQUIREMENT_ATTACHMENT', { target: key }).map((x) => [x.requirement, x.reference]));
     const support = reqs.map((r) => ({ requirement: r.label, kind: r.kind, reference: attached[r.id] ?? null, status: attached[r.id] ? 'ATTACHED_METADATA' : 'MISSING', documentConnected: false }));
     return {
-      id: def.id, name: def.name, entity: def.entity, accounts: def.accounts, method: def.method, period,
+      id: def.id, name: def.name, entity: def.entity, accounts: def.accounts, method: def.method, period, statement,
       openingUsd: opening, glBalanceUsd: glBal, comparisonUsd: comparison, comparisonLabel, differenceUsd: difference, items, tieStatus,
       workflow: { status: wf.status, preparer: def.preparer, reviewer: WORK.reviewer(key)?.name ?? def.reviewer, comments: thread.comments, threadVersion: thread.version, due: `${period}-BD5` },
       attachedEvidence: WORK.relsTo(key), balanceInModule: def.method === 'MODULE', financialLineId: def.financialLineId ?? null,
@@ -110,6 +171,30 @@ export class ControlService {
     };
   }
   reconciliations(period: string, vis: Vis) { return this.recDefs().filter((d) => inVis(vis, d.entity)).map((d) => this.reconcile(d, period)); }
+
+  /** 4A — THE SERVER-AUTHORITATIVE RECONCILIATION BALANCE. What an artifact, Sloane and the Reconciliations workspace
+   *  all cite: the GL balance, the supporting balance, the difference and the tie status — derived every time from the
+   *  governed ledger and any recorded statement, and VERSIONED: the derived values are materialised as a snapshot record
+   *  whose version moves only when a value moves (a changed fingerprint). A citation is (id, period, version).
+   *  A module line the server book does not model returns `available:false` with the reason; it is never estimated. */
+  reconBalance(def: RecDef, period: string): ReconBalance {
+    const r = this.reconcile(def, period);
+    const base = { reconciliationId: def.id, name: def.name, period, scope: def.entity, method: def.method, accounts: def.accounts, financialLineId: def.financialLineId ?? null,
+      workflowStatus: r.workflow.status, preparer: r.workflow.preparer, reviewer: r.workflow.reviewer };
+    if (r.tieStatus === 'COMPUTED_IN_MODULE') return { ...base, available: false, reason: r.sourceIssues[0] ?? 'Not modelled on the server book.' };
+    const c = (v: number | null) => (v === null ? null : Math.round(v * 100) / 100);
+    const values = { glBalanceUsd: c(r.glBalanceUsd)!, supportingBalanceUsd: c(r.comparisonUsd), supportingLabel: r.comparisonLabel, differenceUsd: c(r.differenceUsd), tieStatus: r.tieStatus,
+      items: r.items.map((i) => ({ id: i.id, label: i.label, kind: i.kind, amountUsd: c(i.amountUsd)! })), statementVersion: r.statement?.version ?? null };
+    const fingerprint = `RBF-${createHash('sha1').update(JSON.stringify(values)).digest('hex').slice(0, 12).toUpperCase()}`;
+    const key = `${def.id}:${period}`, KIND = 'RECON_BALANCE', by = 'system:recon-balance';
+    const body = { ...values, reconciliationId: def.id, fingerprint, dataVersion: this.gl.dataVersion() };
+    const cur = WORK.repos.records.list<typeof body>(KIND, { target: key })[0];
+    const rec = !cur ? WORK.repos.records.insert(KIND, body, by, { prefix: 'RECONBAL', target: key, period, scope: def.entity, status: r.tieStatus })
+      : cur.fingerprint !== fingerprint ? WORK.repos.records.update<typeof body>(KIND, cur.id, cur.version, by, () => body, { status: r.tieStatus }) : cur;
+    return { ...base, available: true, id: rec.id, version: rec.version, fingerprint, dataVersion: rec.dataVersion, computedAt: rec.updatedAt, ...values, sourceIssues: r.sourceIssues };
+  }
+  /** every reconciliation (both catalogs) an actor may see, with its server balance */
+  reconBalances(period: string, vis: Vis) { return this.allRecDefs().filter((d) => (d.entity === 'GROUP' ? vis === 'ALL' : inVis(vis, d.entity))).map((d) => this.reconBalance(d, period)); }
 
   /* ---- flux ---------------------------------------------------------------------------------------- */
   fluxItems(period: string, vis: Vis, comparison?: string) {
@@ -121,8 +206,9 @@ export class ControlService {
       const cur = L.presented(g, L.balanceUsd([g], period, vis)), pri = L.presented(g, L.balanceUsd([g], prior, vis));
       const d = cur - pri;
       const material = Math.abs(d) >= 1_000_000 || (Math.abs(d) >= 250_000 && Math.abs(pri) > 0 && Math.abs(d / pri) >= 0.1);
-      const exr = WORK.repos.flux.explanation(g, period);
-      const ex = exr ? { id: exr.explanationId, status: exr.status, text: exr.text, author: exr.author, reviewer: exr.reviewer, version: exr.version, supportRefs: exr.supportRefs } : null;
+      /* the ONE authoritative explanation record (book.ts) — the same one the Flux workspace edits */
+      const exr = fluxExplanation(g, period);
+      const ex = exr ? { id: exr.explanationId, status: exr.status, text: exr.text, author: exr.author, reviewer: exr.reviewer, version: exr.version, supportRefs: exr.supportRefs, updatedAt: exr.updatedAt, updatedBy: exr.updatedBy, lineId: exr.lineId } : null;
       /* one book: the account's own thread AND the thread of the Flux workspace line that presents it */
       const thread = { version: WORK.thread(`flux:${g}:${period}`).version, comments: fluxAccountComments(g, period) };
       const status = !material ? 'NOT_REQUIRED' : !ex ? 'UNEXPLAINED' : ex.status;

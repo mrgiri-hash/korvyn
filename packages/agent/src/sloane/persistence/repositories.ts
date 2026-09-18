@@ -57,6 +57,21 @@ export class RecordStore {
   }
 }
 
+/** a lifecycle STATUS change that is not a new version of the object (an artifact moving DRAFT → GENERATING → GENERATED
+ *  is the same definition version); the object's own version is untouched */
+export function setRecordStatus(s: RecordStore, kind: string, id: string, status: string, by: string) {
+  s.database.db.prepare('UPDATE records SET status = ?, updated_at = ?, updated_by = ? WHERE id = ? AND kind = ?').run(status, new Date().toISOString(), by, id, kind);
+}
+/** OPERATIONAL fields on a versioned object (a last error, a lifecycle status) — merged into its data without making a
+ *  new version, because the thing the version names (e.g. an artifact's definition) did not change */
+export function patchRecordData(s: RecordStore, kind: string, id: string, patch: Record<string, unknown>, status: string | null, by: string) {
+  const r = s.database.db.prepare('SELECT data FROM records WHERE id = ? AND kind = ?').get(id, kind) as { data: string } | undefined;
+  if (!r) return;
+  const next = JSON.stringify({ ...(JSON.parse(r.data) as Record<string, unknown>), ...patch });
+  if (status === null) s.database.db.prepare('UPDATE records SET data = ?, updated_at = ?, updated_by = ? WHERE id = ? AND kind = ?').run(next, new Date().toISOString(), by, id, kind);
+  else s.database.db.prepare('UPDATE records SET data = ?, status = ?, updated_at = ?, updated_by = ? WHERE id = ? AND kind = ?').run(next, status, new Date().toISOString(), by, id, kind);
+}
+
 /* ================================================================================================
    DOMAIN SHAPES
    ================================================================================================ */

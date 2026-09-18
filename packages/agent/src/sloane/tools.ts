@@ -69,6 +69,8 @@ export interface FinancialObject {
   /** an action proposal (type 'ActionProposal') or a session draft; the browser renders it as an ActionPreview */
   action?: import('./actions.js').ActionProposal;
   draft?: { kind: 'REPORT' | 'EXCEL'; id: string; definition: Record<string, unknown> };
+  /** a WORKBOOK PREVIEW (type ExcelWorkbookPreview): tabs, counts, representative rows — the browser renders it striped */
+  workbook?: Record<string, unknown>;
   governed: true;
 }
 
@@ -93,6 +95,8 @@ export interface ToolSession {
 export interface ToolEnv {
   data: FinancialDataService; gl: GovernedLedger; controls: ControlService; actor: Actor; objectId: string; visible: Visible;
   session?: ToolSession;
+  /** the Artifact Engine — composes previews; persistence and generation happen outside the tool */
+  artifacts?: import('./artifacts/engine.js').ArtifactEngine;
 }
 export interface ToolResult { object: FinancialObject; warnings: string[] }
 export interface SloaneTool {

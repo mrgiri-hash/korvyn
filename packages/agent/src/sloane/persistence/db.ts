@@ -53,10 +53,13 @@ export class KorvynDatabase {
     const cols = (this.db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[]).map((c) => c.name);
     if (!cols.includes('csrf_token')) this.db.exec('ALTER TABLE sessions ADD COLUMN csrf_token TEXT');
   }
-  /** one synchronous transaction; a thrown error rolls everything back */
+  private depth = 0;
+  /** one synchronous transaction; a thrown error rolls everything back. Nested calls join the outer transaction (an
+   *  action service that calls an engine which itself writes transactionally commits or rolls back as ONE unit). */
   tx<T>(fn: () => T): T {
-    this.db.exec('BEGIN IMMEDIATE');
-    try { const r = fn(); this.db.exec('COMMIT'); return r; } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    if (this.depth > 0) { this.depth++; try { return fn(); } finally { this.depth--; } }
+    this.db.exec('BEGIN IMMEDIATE'); this.depth = 1;
+    try { const r = fn(); this.depth = 0; this.db.exec('COMMIT'); return r; } catch (e) { this.depth = 0; this.db.exec('ROLLBACK'); throw e; }
   }
   close() { this.db.close(); }
 }

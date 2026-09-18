@@ -11,6 +11,9 @@ import { BASIS, SNAPSHOT_ID, money, periodLabel } from './financials.js';
 import type { DimensionKey, GLine } from './governed.js';
 import type { FinancialObject, ParamSpec, SloaneTool, ToolArgs, ToolEnv, ToolResult, ToolSession } from './tools.js';
 import { registerTools } from './tools.js';
+import type { ArtifactDefinition, SheetKind } from './artifacts/model.js';
+import { columnFor } from './artifacts/model.js';
+import { amountIn, sheetsIn } from './artifacts/refine.js';
 
 const $ = (v: number) => money(v, 'USD');
 const T = (name: string, description: string, required = false): ParamSpec => ({ name, kind: 'text', required, description });
@@ -260,54 +263,116 @@ const REPORT_TOOLS: SloaneTool[] = [
 ];
 
 /* ================================================================================================
-   EXCEL ARTIFACT DEFINITIONS — built and modified in the session, saved by confirmation
+   EXCEL ARTIFACTS (Phase 4A) — governed deliverables. Build, refine and preview change the workbook DEFINITION held in
+   the conversation (the orchestrator persists each change as a new artifact version); generation is a proposal the
+   user confirms, executed server-side by the Artifact Engine. No tool here writes a file.
    ================================================================================================ */
-const XL_COLS: Record<string, string> = { postingDate: 'Posting date', journal: 'Journal', entity: 'Entity', account: 'Account', accountName: 'Account name', description: 'Description', sourceVendor: 'Source vendor (AP extract)', project: 'Project', costCenter: 'Cost center', currency: 'Currency', amountLocal: 'Amount (functional)', amountUsd: 'Amount (USD)', erpSource: 'ERP source', invoiceRef: 'Invoice reference' };
-const XL_ALIAS: Record<string, string> = { vendor: 'sourceVendor', 'source vendor': 'sourceVendor', department: 'costCenter', 'cost center': 'costCenter', amount: 'amountUsd', 'usd amount': 'amountUsd', 'posting date': 'postingDate', date: 'postingDate', 'account name': 'accountName', erp: 'erpSource', invoice: 'invoiceRef', 'invoice reference': 'invoiceRef' };
-const colKey = (w: string | undefined) => { if (!w) return null; const t = w.toLowerCase().trim(); return XL_COLS[w] ? w : XL_ALIAS[t] ?? Object.keys(XL_COLS).find((k) => k.toLowerCase() === t || XL_COLS[k]!.toLowerCase() === t) ?? null; };
-const cell = (env: ToolEnv, l: GLine, k: string) => ({ postingDate: l.postingDate, journal: l.journalId, entity: l.entity, account: l.account, accountName: l.accountName, description: l.description, sourceVendor: l.vendor ?? '', project: l.project ?? '', costCenter: l.costCenter ?? '', currency: l.currency, amountLocal: money(l.local, l.currency), amountUsd: $(l.usd), erpSource: `${l.connector} ${l.externalId}`, invoiceRef: l.invoiceRef ?? '' } as Record<string, string>)[k] ?? '';
-function excelPreview(env: ToolEnv, draft: { id: string; definition: Record<string, unknown> }): ToolResult {
-  const d = draft.definition as { name: string; sheets: { name: string; source: Record<string, string>; columns?: string[]; sort?: string }[]; notes: string[] };
-  const gl = d.sheets[0]!, def = env.gl.population(gl.source['populationId']!);
-  const q = def ? env.gl.query({ ...def, sort: (gl.sort as never) ?? def.sort }, env.visible, { limit: 5 }) : null;
-  const cols = gl.columns ?? [];
-  return { warnings: d.notes, object: obj(env, {
-    type: 'ExcelArtifactDraft', title: `${d.name} (Excel artifact — draft)`, unit: 'workbook definition',
-    table: { columns: cols.map((c) => XL_COLS[c] ?? c), rows: (q?.page ?? []).map((l) => ({ label: l.key, level: 1, kind: 'line' as const, cells: cols.map((c) => cell(env, l, c)) })) },
-    facts: [{ key: 'sheets', label: 'Sheets', value: d.sheets.map((s) => s.name).join(', '), display: d.sheets.map((s) => s.name).join(', ') }, { key: 'columns', label: 'GL columns', value: cols.length, display: String(cols.length) }, { key: 'rows', label: 'Rows in the connected population', value: q?.rowCount ?? 0, display: String(q?.rowCount ?? 0) }, { key: 'sort', label: 'Sort', value: gl.sort ?? def?.sort ?? 'amount_desc', display: gl.sort ?? def?.sort ?? 'amount_desc' }, { key: 'status', label: 'Status', value: 'Definition draft — not saved; no file generated', display: 'Definition draft — not saved; no file generated' }],
-    refs: { excelDraftId: draft.id, ...(def ? { populationId: def.id } : {}) }, draft: { kind: 'EXCEL', id: draft.id, definition: draft.definition },
+type XDraft = { id: string; definition: Record<string, unknown>; change?: string; dirty?: boolean; version?: number };
+const draftOf = (s: ToolSession) => s.drafts.excel as XDraft | null;
+function artifactEngine(env: ToolEnv) { if (!env.artifacts) throw new Error('the Artifact Engine is not available in this context'); return env.artifacts; }
+/** the workbook in the conversation: the session draft, or the artifact the last answer produced */
+function currentDraft(env: ToolEnv, s: ToolSession): XDraft | null {
+  const d = draftOf(s); if (d) return d;
+  const id = s.lastRefs['artifactId'];
+  const a = id ? artifactEngine(env).get(id) : null;
+  if (!a) return null;
+  s.drafts.excel = { id: a.id, definition: a.definition as unknown as Record<string, unknown>, version: a.version } as XDraft;
+  return draftOf(s);
+}
+function noWorkbook(env: ToolEnv): ToolResult {
+  return { warnings: ['No workbook in this conversation yet.'], object: obj(env, { type: 'ExcelWorkbookPreview', title: 'No workbook yet', status: 'UNAVAILABLE', unavailable: { capability: 'Workbook', reason: 'There is no workbook in this conversation yet — ask for one first, e.g. “Give me the FY26 governed GL”.' }, facts: [{ key: 'unavailable', label: 'Workbook', value: 'none', display: 'There is no workbook in this conversation yet.' }] }) };
+}
+/** the WORKBOOK PREVIEW object: the same composition the file is rendered from, with representative striped rows */
+export function workbookObject(env: ToolEnv, draft: XDraft, extra: { changes?: string[]; notes?: string[] } = {}): ToolResult {
+  const eng = artifactEngine(env), d = draft.definition as unknown as ArtifactDefinition;
+  const denied = eng.authorize(env.actor, d);
+  if (denied.length) return { warnings: denied, object: obj(env, { type: 'ExcelWorkbookPreview', title: `${d.name} — not permitted`, status: 'UNAVAILABLE', unavailable: { capability: 'Workbook', reason: denied.join(' ') }, facts: [{ key: 'unavailable', label: 'Workbook', value: 'denied', display: denied.join(' ') }] }) };
+  const m = eng.compose(env.actor, d, draft.version ?? 1, draft.id || 'DRAFT');
+  /* a kept workbook reports its REAL status (STALE when what it pinned has moved); an unsaved one is a draft */
+  const view = draft.id && !draft.dirty ? eng.view(env.actor, draft.id) : null;
+  const pv = eng.previewOf(m, { id: draft.id || 'DRAFT', version: draft.version ?? 1, status: view?.status ?? 'DRAFT', name: d.name });
+  if (view?.stale) pv.warnings.unshift(`STALE: the governed data behind v${view.version} has changed (${view.staleReasons.join('; ')}). Refresh to create v${view.version + 1} before generating.`);
+  const t = pv.tieOut;
+  const notes = [...(extra.notes ?? []), ...pv.warnings];
+  return { warnings: notes, object: obj(env, {
+    type: 'ExcelWorkbookPreview', title: `${d.name} — workbook preview`, status: t && t.status !== 'TIED' && d.sheets.some((x) => x.kind === 'TIEOUT') ? 'PARTIAL' : 'AVAILABLE',
+    periods: [d.periodStart, d.periodEnd], periodLabel: pv.range, scope: { id: d.scopeId, name: pv.scope }, unit: 'workbook',
+    table: { columns: ['Rows', 'Columns'], rows: pv.sheets.map((sh) => ({ label: sh.name, level: 1, kind: 'line' as const, cells: [sh.rowCount.toLocaleString('en-US'), String(sh.columns.length)] })) },
+    facts: [
+      { key: 'workbook', label: 'Workbook', value: d.name, display: d.name },
+      { key: 'artifactStatus', label: 'Status', value: pv.status, display: pv.status },
+      { key: 'fileName', label: 'File', value: pv.fileName, display: pv.fileName },
+      { key: 'sheets', label: 'Tabs', value: pv.sheets.map((x) => x.name).join(', '), display: pv.sheets.map((x) => x.name).join(', ') },
+      ...pv.sheets.filter((x) => x.kind === 'GL').map((x, i) => ({ key: `glRows${i ? i + 1 : ''}`, label: `${x.name} lines`, value: x.rowCount, display: x.rowCount.toLocaleString('en-US') })),
+      /* a tie-out is a claim only a Tie-Out tab makes; without one the workbook says it has none */
+      ...(t && d.sheets.some((x) => x.kind === 'TIEOUT') ? [{ key: 'tieOutStatus', label: 'Tie-out', value: t.status, display: t.status.replace(/_/g, ' ') }, { key: 'tieOutDifference', label: 'Tie-out difference (USD)', value: t.differenceUsd, display: t.differenceUsd.toFixed(2) }]
+        : [{ key: 'tieOutStatus', label: 'Tie-out', value: 'none', display: 'no Tie-Out tab in this workbook' }]),
+      { key: 'auditReady', label: 'Audit-ready', value: pv.auditReady ? 'yes' : 'no', display: pv.auditReady ? 'yes' : 'no' },
+      ...(extra.changes ?? []).map((c, i) => ({ key: `change${i + 1}`, label: 'Change', value: c, display: c })),
+      ...(extra.notes ?? []).map((c, i) => ({ key: `note${i + 1}`, label: 'Note', value: c, display: c })),
+      ...(pv.recommendCsv ? [{ key: 'recommendCsv', label: 'Size', value: pv.recommendCsv, display: pv.recommendCsv }] : []),
+      ...(draft.id ? [{ key: 'saved', label: 'Saved', value: `${draft.id} v${draft.version ?? 1}`, display: `Kept as ${draft.id} v${draft.version ?? 1} — every change is a new version` }] : []),
+    ],
+    provenance: { source: 'Workbook definition over governed Korvyn objects — preview of the same composition the file is generated from', snapshotId: m.dataVersion, journalLines: m.populations.reduce((a, p) => a + p.rowCount, 0), fxRateSetId: 'FXR-2026-CLS-REP-1', eliminations: m.tieOut ? 'Intercompany eliminated at Corporate Consolidated' : null, declaredInputs: [] },
+    refs: { excelDraftId: draft.id || 'DRAFT', ...(draft.id ? { artifactId: draft.id } : {}), ...(m.populations[0] ? { populationId: m.populations[0].populationId } : {}) },
+    draft: { kind: 'EXCEL', id: draft.id || 'DRAFT', definition: draft.definition }, workbook: { ...pv, changes: extra.changes ?? [], notes },
   }) };
 }
+const SHEET_ARG = (v: string | undefined) => (v ?? '').split(/[,;]| and /).map((x) => sheetsIn(` ${x.toLowerCase()} `)[0]).filter((x): x is SheetKind => !!x);
 const EXCEL_TOOLS: SloaneTool[] = [
-  { id: 'buildExcelArtifact', domain: 'build', permission: 'GL_VIEW', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT', 'GOVERNED_LEDGER'],
-    description: 'Build an Excel artifact DEFINITION for a GL population (default: the population in context) and preview it. Structure only: sheets, columns, sort; the population stays server-side and no file is generated.',
-    params: [{ name: 'populationId', kind: 'populationId', required: false, description: 'default the population in context' }, T('name', 'workbook name')], outputs: 'ExcelArtifactDraft; refs excelDraftId',
-    run(a, env) { const s = S(env), pop = a['populationId'] || s.populationId || '', def = env.gl.population(pop);
-      if (!def) return { warnings: ['No population in context.'], object: obj(env, { type: 'ExcelArtifactDraft', title: 'No population', status: 'UNAVAILABLE', unavailable: { capability: 'Excel artifact', reason: 'There is no governed population in this conversation to put in Excel — ask for the GL first.' }, facts: [{ key: 'unavailable', label: 'Excel', value: 'none', display: 'There is no governed population in this conversation to put in Excel.' }] }) };
-      s.drafts.excel = { id: s.drafts.excel?.id ?? `XDRAFT-${s.planId.slice(-6)}`, definition: { name: a['name'] || `${def.label}.xlsx`, sheets: [{ name: 'GL', source: { kind: 'GOVERNED_POPULATION', populationId: def.id }, columns: ['postingDate', 'journal', 'entity', 'account', 'accountName', 'costCenter', 'project', 'currency', 'amountUsd', 'erpSource'], sort: def.sort }], notes: [] } };
-      return excelPreview(env, s.drafts.excel); } },
-  { id: 'modifyExcelArtifact', domain: 'build', permission: 'GL_VIEW', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
-    description: 'Modify the Excel artifact definition in this conversation: addColumn, removeColumn (e.g. "source vendor", "department"), sort (amount_desc | amount_asc | date_asc | date_desc), addSheet ("TB" adds a trial balance by entity tab), name.',
-    params: [T('addColumn', 'column'), T('removeColumn', 'column'), T('sort', 'sort order'), T('addSheet', 'TB'), T('name', 'workbook name')], outputs: 'ExcelArtifactDraft; refs excelDraftId',
-    run(a, env) { const s = S(env);
-      if (!s.drafts.excel) return { warnings: ['No Excel artifact draft yet.'], object: obj(env, { type: 'ExcelArtifactDraft', title: 'No Excel draft', status: 'UNAVAILABLE', unavailable: { capability: 'Modify Excel artifact', reason: 'There is no Excel artifact draft in this conversation yet.' }, facts: [{ key: 'unavailable', label: 'Excel', value: 'none', display: 'There is no Excel artifact draft in this conversation yet.' }] }) };
-      const d = s.drafts.excel.definition as { name: string; sheets: { name: string; source: Record<string, string>; columns?: string[]; sort?: string }[]; notes: string[] };
-      const gl = d.sheets[0]!, cols = gl.columns!;
-      const add = colKey(a['addColumn']), rem = colKey(a['removeColumn']);
-      if (a['addColumn'] && !add) d.notes.push(`“${a['addColumn']}” is not a governed GL column.`);
-      if (add && !cols.includes(add)) cols.push(add);
-      if (rem) { if (cols.includes(rem)) gl.columns = cols.filter((c) => c !== rem); else d.notes.push(`${XL_COLS[rem]} is not in the workbook; nothing removed.`); }
-      if (/department/i.test(`${a['addColumn'] ?? ''}${a['removeColumn'] ?? ''}`)) d.notes.push('Department is the cost-center column in the governed ledger.');
-      if (/vendor/i.test(a['addColumn'] ?? '')) d.notes.push('The server-side ledger carries one vendor value per line, from the representative AP extract; it is labelled source vendor.');
-      if (a['sort'] && ['amount_desc', 'amount_asc', 'date_asc', 'date_desc'].includes(a['sort'])) gl.sort = a['sort'];
-      else if (a['sort']) gl.sort = /small|asc/i.test(a['sort']) ? 'amount_asc' : /date|old/i.test(a['sort']) ? 'date_asc' : 'amount_desc';
-      if (a['addSheet'] && /tb|trial/i.test(a['addSheet']) && !d.sheets.some((x) => x.name === 'Trial balance')) d.sheets.push({ name: 'Trial balance', source: { kind: 'TRIAL_BALANCE_BY_ENTITY', period: s.period } });
-      if (a['name']) d.name = a['name'];
-      return excelPreview(env, s.drafts.excel); } },
-  { id: 'proposeSaveExcelArtifact', domain: 'action', permission: 'GL_VIEW', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
-    description: 'Prepare (not save) saving the Excel artifact definition in this conversation as a Korvyn artifact.', params: [T('name', 'workbook name')], outputs: 'ActionProposal (CREATE_EXCEL_ARTIFACT)',
-    run(a, env) { const s = S(env), dr = s.drafts.excel, d = dr?.definition as { name: string; sheets: { name: string; columns?: string[] }[] } | undefined;
-      return proposalObject(env, propose(env, 'CREATE_EXCEL_ARTIFACT', { name: a['name'] || d?.name || '', definition: dr ? { ...dr.definition, draftId: dr.id } : {}, summary: d ? [{ label: 'Sheets', value: d.sheets.map((x) => x.name).join(', ') }, { label: 'GL columns', value: (d.sheets[0]!.columns ?? []).map((c) => XL_COLS[c] ?? c).join(', ') }, { label: 'File', value: 'Definition only — generated server-side on export' }] : [{ label: 'Workbook', value: 'no draft in this conversation' }] })); } },
+  { id: 'buildExcelArtifact', domain: 'build', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT', 'GOVERNED_LEDGER', 'TRIAL_BALANCE'],
+    description: 'Build a governed Excel WORKBOOK (a deliverable, e.g. "give me the FY26 governed GL", "the FY26 audit GL package", "all Siemens FY26 transactions over $1M with the related reconciliations and Flux explanations on separate tabs"). Tabs: GL (default), TB, TIEOUT (ties back to the ERP), RECONCILIATIONS, FLUX, SUMMARY. Returns a striped WORKBOOK PREVIEW; no file is generated until the user asks to download.',
+    params: [{ name: 'periodStart', kind: 'period', required: false, description: 'first month; default the fiscal year start' }, { name: 'periodEnd', kind: 'period', required: false, description: 'last month; default the latest governed month' }, { name: 'scope', kind: 'scope', required: false, description: 'GROUP (Corporate Consolidated) or an entity; default context' },
+      { name: 'vendor', kind: 'vendor', required: false, description: 'only this vendor’s lines' }, { name: 'project', kind: 'project', required: false, description: 'only this project' }, { name: 'account', kind: 'account', required: false, description: 'only this account / group' },
+      T('minAbsAmount', 'only lines over this amount, e.g. "1M" or "500K"'), T('sheets', 'extra tabs: TB, TIEOUT, RECONCILIATIONS, FLUX, SUMMARY (comma-separated)'), T('template', 'AUDIT_GL_PACKAGE for GL + TB + Tie-Out, else GL_EXTRACT'), T('name', 'workbook name')],
+    outputs: 'ExcelWorkbookPreview; refs artifactId, excelDraftId',
+    run(a, env) { const s = S(env), eng = artifactEngine(env), req = s.request.toLowerCase();
+      const words = `${req} ${a['sheets'] ?? ''}`;
+      const sheets = [...new Set([...SHEET_ARG(a['sheets']), ...sheetsIn(` ${req} `).filter((k) => k !== 'FLUX' || /\bflux\b/.test(req))])];
+      const template = /audit|package/.test(a['template'] ?? '') || /\baudit\b|\bpackage\b/.test(req) ? 'AUDIT_GL_PACKAGE' : 'GL_EXTRACT';
+      /* the user's words are authoritative; a bare model number is USD millions (the convention every Sloane tool uses) */
+      const argAmt = (v: string | undefined) => { if (!v) return null; const n = amountIn(`over ${v}`); return n !== null && /^[\s$]*[\d.,]+\s*$/.test(v) && n < 1000 ? n * 1e6 : n; };
+      const amt = amountIn(req) ?? argAmt(a['minAbsAmount']);
+      const vendor = a['vendor'] || env.gl.vendors().find((v) => req.includes(v.toLowerCase().split(' ')[0]!)) || null;
+      const fy = req.match(/\bfy\s?'?(\d{2,4})\b/), year = fy ? (fy[1]!.length === 2 ? `20${fy[1]}` : fy[1]!) : null;
+      /* "this GL in Excel": the governed population in context is the workbook's GL */
+      const pop = /\b(this|these|that|those)\b/.test(req) && s.populationId ? env.gl.population(s.populationId) : null;
+      const f = pop?.filter ?? {};
+      const d = eng.newDefinition({ template, periodStart: a['periodStart'] || f.periodStart || (year ? `${year}-01` : undefined), periodEnd: a['periodEnd'] || f.periodEnd || (year ? `${year}-12` : s.period),
+        scopeId: a['scope'] || (f.entities?.length === 1 ? f.entities[0] : s.scope), vendor: vendor ?? f.vendor ?? null, project: a['project'] || f.project || null, accounts: a['account'] ? [a['account']] : f.accounts ?? [], minAbsUsd: amt ?? f.minAbsUsd ?? null, sheets,
+        /* a name only when the user gave one; otherwise Korvyn's deterministic name (and so a clean file name) */
+        name: (/\b(call|name|title)\b/i.test(s.request) && a['name']) || (pop ? pop.label.replace(/ · .*$/, '') : null) });
+      void words;
+      s.drafts.excel = { id: '', definition: d as unknown as Record<string, unknown>, change: 'Created', dirty: true, version: 1 } as XDraft;
+      return workbookObject(env, draftOf(s)!, { changes: [`Built ${d.name}: ${d.sheets.map((x) => x.name).join(', ')}`] }); } },
+  { id: 'modifyExcelArtifact', domain: 'build', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'Refine the workbook in this conversation from the user’s words: add/remove/move GL columns ("add source vendor", "put project before vendor", "remove department"), sort ("largest first"), threshold ("only transactions over $500K"), tabs ("put the TB on another tab", "make sure it ties back to ERP", "add the related reconciliations", "add the Flux explanations", "remove the tie-out tab", "add a summary tab", "add entity to the TB"). Pass the user’s words verbatim in instruction. Changes the definition only — nothing is regenerated.',
+    params: [T('instruction', 'the user’s words, verbatim'), T('addColumn', 'optional structured: a GL column'), T('removeColumn', 'optional structured: a GL column'), T('addSheet', 'optional structured: TB | TIEOUT | RECONCILIATIONS | FLUX | SUMMARY'), T('removeSheet', 'optional structured: a tab'), T('sort', 'optional structured: amount_desc | amount_asc | date_asc | date_desc'), T('minAbsAmount', 'optional structured: e.g. 500K')],
+    outputs: 'ExcelWorkbookPreview; refs artifactId',
+    run(a, env) { const s = S(env), eng = artifactEngine(env), dr = currentDraft(env, s);
+      if (!dr) return noWorkbook(env);
+      const structured = { addColumns: a['addColumn'] ? [columnFor(a['addColumn']) ?? a['addColumn']] : undefined, removeColumns: a['removeColumn'] ? [columnFor(a['removeColumn']) ?? a['removeColumn']] : undefined,
+        addSheets: a['addSheet'] ? SHEET_ARG(a['addSheet']) : undefined, removeSheets: a['removeSheet'] ? SHEET_ARG(a['removeSheet']) : undefined,
+        sort: ['amount_desc', 'amount_asc', 'date_asc', 'date_desc'].includes(a['sort'] ?? '') ? a['sort'] as never : undefined,
+        minAbsUsd: a['minAbsAmount'] ? (() => { const n = amountIn(`over ${a['minAbsAmount']}`); return n !== null && /^[\s$]*[\d.,]+\s*$/.test(a['minAbsAmount']!) && n < 1000 ? n * 1e6 : n ?? undefined; })() : undefined };
+      const r = eng.refine(dr.definition as unknown as ArtifactDefinition, a['instruction'] || s.request, structured);
+      if (r.changed) s.drafts.excel = { ...dr, definition: r.definition as unknown as Record<string, unknown>, change: r.changes.join('; '), dirty: true } as XDraft;
+      return workbookObject(env, draftOf(s)!, { changes: r.changes, notes: r.notes }); } },
+  { id: 'previewExcelArtifact', domain: 'build', permission: 'GL_VIEW', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'Show what the workbook in this conversation will look like ("show me what it will look like", "preview it"): tabs, row counts, striped representative rows, tie-out status.',
+    params: [], outputs: 'ExcelWorkbookPreview; refs artifactId',
+    run(_a, env) { const s = S(env), dr = currentDraft(env, s); return dr ? workbookObject(env, dr) : noWorkbook(env); } },
+  { id: 'proposeGenerateExcelArtifact', domain: 'action', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'Prepare (not run) generating the real file for the workbook in this conversation ("download it", "generate the Excel", "give me the CSV"). format xlsx (default) or csv. Korvyn validates permissions, populations, staleness and the tie-out; the user confirms; the file is generated server-side.',
+    params: [T('format', 'xlsx | csv')], outputs: 'ActionProposal (GENERATE_EXCEL_ARTIFACT); refs proposalId',
+    run(a, env) { const s = S(env), dr = currentDraft(env, s);
+      if (!dr) return noWorkbook(env);
+      const fmt = /csv/i.test(a['format'] ?? '') || /\bcsv\b/i.test(s.request) ? 'csv' : 'xlsx';
+      return proposalObject(env, propose(env, 'GENERATE_EXCEL_ARTIFACT', { artifactId: dr.id, format: fmt, name: (dr.definition as { name?: string }).name ?? '' }, { description: 'Generates the workbook file server-side from the governed definition' })); } },
+  { id: 'proposeRefreshExcelArtifact', domain: 'action', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'Prepare (not run) refreshing a STALE workbook against the current governed data ("refresh it") — a new version of the same definition.',
+    params: [], outputs: 'ActionProposal (REFRESH_EXCEL_ARTIFACT)',
+    run(_a, env) { const s = S(env), dr = currentDraft(env, s); if (!dr?.id) return noWorkbook(env); return proposalObject(env, propose(env, 'REFRESH_EXCEL_ARTIFACT', { artifactId: dr.id })); } },
 ];
 
 registerTools([...COMMENT_TOOLS, ...WORK_TOOLS, ...SAVE_TOOLS, ...REPORT_TOOLS, ...EXCEL_TOOLS]);
