@@ -8,16 +8,38 @@
  */
 import type { PopulationDef, PopulationFilter } from '../governed.js';
 
-export type SheetKind = 'GL' | 'TB' | 'TIEOUT' | 'RECONCILIATIONS' | 'FLUX' | 'SUMMARY';
-export interface GLSheetDef { kind: 'GL'; name: string; filter: PopulationFilter; columns: string[]; sort: PopulationDef['sort'] }
+/* 4B — a workbook is a sequence of SECTIONS (one worksheet each, partitioned when a GL section exceeds the row limit).
+   Every artifact type composes these; there is no per-type engine. The 4A kinds keep their shape. */
+export type SheetKind =
+  | 'GL' | 'TB' | 'TIEOUT' | 'RECONCILIATIONS' | 'FLUX' | 'SUMMARY'
+  | 'CLOSE_SUMMARY' | 'BLOCKERS' | 'RECS_NOT_TIED' | 'UNEXPLAINED_FLUX' | 'MISSING_SUPPORT' | 'PENDING_REVIEW' | 'EXCEPTIONS'
+  | 'MATERIAL_MOVEMENTS' | 'ITEMS_OVER' | 'DRIVERS' | 'EXPLANATION' | 'COMMENTS'
+  | 'RECONCILIATION' | 'RECONCILING_ITEMS' | 'SUPPORT_INDEX' | 'RECON_PROOF'
+  | 'EVIDENCE_INDEX' | 'EVIDENCE_COVERAGE' | 'SOURCE_REFERENCES' | 'AUDIT_TRAIL' | 'POPULATION_METADATA'
+  | 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'VARIANCE' | 'PBC_REQUESTS';
+export type SectionKind = SheetKind;
+/** which lines a GL section presents beyond its filter: the items a package calls material, or a reconciliation's accounts */
+export type GLRule = { kind: 'MATERIAL_ITEMS'; minUsd: number | null } | { kind: 'RECONCILIATION'; reconciliationId: string } | { kind: 'ACCOUNT_MONTH'; account: string };
+export interface GLSheetDef { kind: 'GL'; name: string; filter: PopulationFilter; columns: string[]; sort: PopulationDef['sort']; rule?: GLRule }
 export interface TBSheetDef { kind: 'TB'; name: string; byEntity: boolean }
-export interface PlainSheetDef { kind: 'TIEOUT' | 'RECONCILIATIONS' | 'FLUX' | 'SUMMARY'; name: string }
+export interface SectionParams { dimension?: string; minUsd?: number; accounts?: 'MATERIAL' | string; related?: 'gl' | 'focus' | 'all' | 'notTied' }
+export interface PlainSheetDef { kind: Exclude<SheetKind, 'GL' | 'TB'>; name: string; params?: SectionParams }
 export type SheetDef = GLSheetDef | TBSheetDef | PlainSheetDef;
 
+export type ArtifactType = 'EXCEL_WORKBOOK' | 'GL_EXTRACT' | 'FINANCIAL_REPORT_PACKAGE' | 'RECONCILIATION_PACKAGE' | 'FLUX_PACKAGE' | 'CLOSE_REVIEW_PACKAGE'
+  | 'SUPPORT_PACKAGE' | 'AUDIT_SUPPORT_PACKAGE' | 'MANAGEMENT_REVIEW_PACKAGE' | 'PBC_PACKAGE';
 export type ArtifactTemplate = 'AUDIT_GL_PACKAGE' | 'GL_EXTRACT';
 export interface ArtifactDefinition {
   name: string;
   template: ArtifactTemplate;
+  /** 4B: what the deliverable is (a starting structure, never a separate engine); absent on a 4A definition = GL_EXTRACT */
+  type?: ArtifactType;
+  /** the governed object a package is ABOUT — a reconciliation, an account group, a vendor */
+  focus?: { reconciliationId?: string; account?: string; vendor?: string };
+  /** package-level filters: e.g. leave out entities whose close work is complete */
+  filters?: { excludeCompleteEntities?: boolean };
+  /** a definition started from another artifact: where it came from (the source is never changed) */
+  derivedFrom?: { artifactId: string; version: number; name: string };
   periodStart: string; periodEnd: string;
   scopeId: string;                 // GROUP or an entity id
   currency: 'USD';
@@ -41,7 +63,7 @@ export interface ArtifactPins {
   pinnedAt: string;
 }
 
-export type ArtifactStatus = 'DRAFT' | 'VALIDATING' | 'READY' | 'GENERATING' | 'GENERATED' | 'FAILED' | 'STALE';
+export type ArtifactStatus = 'DRAFT' | 'SAVED' | 'VALIDATING' | 'READY' | 'GENERATING' | 'GENERATED' | 'FAILED' | 'STALE' | 'ARCHIVED';
 
 /* ================================================================================================
    THE GL COLUMN CATALOG — the one place a GL column is named, typed and read
@@ -102,7 +124,18 @@ export function columnFor(words: string): string | null {
   return null;
 }
 
-export const SHEET_NAMES: Record<SheetKind, string> = { GL: 'Governed GL', TB: 'Trial Balance', TIEOUT: 'Tie-Out', RECONCILIATIONS: 'Reconciliations', FLUX: 'Flux', SUMMARY: 'Summary' };
+export const SHEET_NAMES: Record<SheetKind, string> = {
+  GL: 'Governed GL', TB: 'Trial Balance', TIEOUT: 'Tie-Out', RECONCILIATIONS: 'Reconciliations', FLUX: 'Flux', SUMMARY: 'Summary',
+  CLOSE_SUMMARY: 'Close Summary', BLOCKERS: 'Material Blockers', RECS_NOT_TIED: 'Reconciliations Not Tied', UNEXPLAINED_FLUX: 'Unexplained Flux', MISSING_SUPPORT: 'Missing Support',
+  PENDING_REVIEW: 'Pending Review', EXCEPTIONS: 'Exceptions', MATERIAL_MOVEMENTS: 'Material Movements', ITEMS_OVER: 'Items Over Threshold', DRIVERS: 'Driver Analysis', EXPLANATION: 'Explanation',
+  COMMENTS: 'Comments', RECONCILIATION: 'Reconciliation', RECONCILING_ITEMS: 'Reconciling Items', SUPPORT_INDEX: 'Support Index', RECON_PROOF: 'Tie-Out',
+  EVIDENCE_INDEX: 'Evidence Index', EVIDENCE_COVERAGE: 'Support Coverage', SOURCE_REFERENCES: 'Source References', AUDIT_TRAIL: 'Audit Trail', POPULATION_METADATA: 'Population Metadata',
+  INCOME_STATEMENT: 'Income Statement', BALANCE_SHEET: 'Balance Sheet', VARIANCE: 'MoM Variance', PBC_REQUESTS: 'PBC Requests',
+};
+export const ARTIFACT_TYPE_LABEL: Record<ArtifactType, string> = {
+  EXCEL_WORKBOOK: 'Workbook', GL_EXTRACT: 'GL extract', FINANCIAL_REPORT_PACKAGE: 'Financial report package', RECONCILIATION_PACKAGE: 'Reconciliation package', FLUX_PACKAGE: 'Flux package',
+  CLOSE_REVIEW_PACKAGE: 'Close review package', SUPPORT_PACKAGE: 'Support package', AUDIT_SUPPORT_PACKAGE: 'Audit support package', MANAGEMENT_REVIEW_PACKAGE: 'Management review package', PBC_PACKAGE: 'PBC package (scaffold)',
+};
 /** Excel's hard limits: 1,048,576 rows a sheet, 31-character sheet names */
 export const EXCEL_MAX_ROWS = 1_048_576;
 export const SHEET_NAME_MAX = 31;
@@ -118,6 +151,8 @@ export const scopeLabel = (scopeId: string, scopeName: string) => (scopeId === '
 export function fileNameOf(d: ArtifactDefinition, scopeName: string, ext: 'xlsx' | 'csv') {
   const clean = (s: string) => s.replace(/[’']/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   const tok = periodToken(d.periodStart, d.periodEnd);
-  const nm = clean(d.name.replace(new RegExp(`^${tok}\\s*`, 'i'), '').replace(/\bKorvyn\b/i, ''));
+  /* the period is the file's second token: never repeat it from the name ("Jun 2026 Close …", "Jan 2026 – Jun 2026 …") */
+  const lead = [rangeLabel(d.periodStart, d.periodEnd), monLabel(d.periodEnd), tok].map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const nm = clean(d.name.replace(new RegExp(`^(${lead.join('|')})\\s*`, 'i'), '').replace(/\bKorvyn\b/i, ''));
   return `Korvyn_${tok}_${nm}_${clean(scopeLabel(d.scopeId, scopeName))}.${ext}`;
 }

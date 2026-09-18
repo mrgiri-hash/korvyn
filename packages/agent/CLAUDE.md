@@ -77,6 +77,11 @@ server-authoritative Flux explanations (`book.ts` `fluxExplanation` / `setFluxEx
 (`controls.ts` `reconBalance`), and a source feed for late ERP postings (`sourcefeed.ts`). `npx tsx src/sloane/artifacts/perf.ts` is the
 synthetic scale harness. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 4A*.
 
+**Phase 4B (2026-09-18):** generalized Artifact Intelligence — package types (close review, reconciliation, Flux, vendor support,
+audit support, monthly financial, management review; PBC scaffold) composed from one section library (`artifacts/sections.ts`), NL package
+refinement, derive/reuse, a validation model, the common artifact contract, save/archive/restore, job cancel (COMPLETED/CANCELLED) and
+`ArtifactStorage` (`artifacts/storage.ts`). Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 4B*.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

@@ -105,13 +105,13 @@ function windowOf(p: string, w: string | undefined) {
   const start = w === 'YTD' ? `${y}-01` : w === 'QTD' ? `${y}-${String(m - ((m - 1) % 3)).padStart(2, '0')}` : p;
   return { start, end: p, label: w === 'YTD' ? `YTD ${periodLabel(p)}` : w === 'QTD' ? `Q${Math.ceil(m / 3)} ${y} to date` : periodLabel(p) };
 }
-function isValues(env: ToolEnv, periods: string[], scope?: string) {
+export function isValues(env: ToolEnv, periods: string[], scope?: string) {
   const v = vis(env, scope);
   const g = (code: string) => periods.reduce((s, p) => s + env.gl.presented(code, env.gl.balanceUsd([code], p, v)), 0);
   const rev = g('40000'), cop = g('50000'), opx = g('60000'), dna = g('65000'), oth = g('70000');
   return { rev, cop, opx, noi: rev - cop - opx, dna, oth, ni: rev - cop - opx - dna - oth };
 }
-function bsValues(env: ToolEnv, p: string, scope?: string) {
+export function bsValues(env: ToolEnv, p: string, scope?: string) {
   const v = vis(env, scope);
   const a = BS_ASSETS.map((c) => [c, env.gl.balanceUsd([c], p, v)] as const);
   const l = BS_LIAB.map((c) => [c, -env.gl.balanceUsd([c], p, v)] as const);

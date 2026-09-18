@@ -9541,6 +9541,111 @@ ERP write-back. **Also not built:** a server-side query engine behind population
 book in memory; the renderer streams in chunks), a job queue that survives restart (jobs are in-process; interrupted ones are
 FAILED on start), and governed dimension overrides (Governed Vendor is always empty on this book, and says so by being blank).
 
+## 2026-09-18 — SLOANE 2.0 PHASE 4B: generalized Artifact Intelligence (governed deliverables of many types)
+
+Owner's brief. **Every deliverable is a DEFINITION composed from one section library over governed services; a type is a starting
+template, never an engine of its own.** Built on 4A without rebuilding it: same composition, renderer, pins, jobs, audit. The server
+book is still `@korvyn/core`'s GL; the browser book (FS-CIP 4,210.2) is untouched.
+
+**Types** (`model.ts` `ArtifactType`, `sections.ts` `TEMPLATES`):
+
+| Type | Starting sections | Window |
+|---|---|---|
+| GL_EXTRACT | Governed GL (4A path, unchanged) | FY |
+| AUDIT_SUPPORT_PACKAGE | GL · TB · Tie-Out · Population Metadata · Source References · Evidence Index | FY |
+| CLOSE_REVIEW_PACKAGE | Close Summary · Material Blockers · Recs Not Tied · Unexplained Flux · Missing Support · Pending Review · Exceptions | month |
+| RECONCILIATION_PACKAGE | Summary · Reconciliation · Reconciling Items · GL Detail · Support Index · Comments · Tie-Out | month |
+| FLUX_PACKAGE | Flux Summary · Driver Analysis · GL Detail · Explanation · Support · Related Reconciliations | month |
+| SUPPORT_PACKAGE (vendor) | Summary · GL · Projects · Reconciliations · Flux · Evidence Index · Missing Support · Support Coverage | FY |
+| FINANCIAL_REPORT_PACKAGE | Income Statement · Balance Sheet · MoM Analysis · Top Drivers | range |
+| MANAGEMENT_REVIEW_PACKAGE | Close Summary · Income Statement · Variance · Material Movements · Blockers | range |
+| PBC_PACKAGE | **scaffold**: PBC requests as recorded + source references; nothing is interpreted | FY |
+| EXCEL_WORKBOOK | "on separate tabs" requests go through the 4A GL path | — |
+
+**The section library** (`artifacts/sections.ts`). Each builder reads only governed services: close readiness and blockers, the
+versioned reconciliation balance, the one Flux explanation record, AP-extract evidence references, the ledger, the tie-out, the
+income statement (`data.incomeStatement`) and balance sheet (`toolset.bsValues`, now exported). **Every row with a Trace column
+carries a governed reference** (`txn:` `recon:` `flux:` `population:` `evidence:` `close:` `source:`); a test walks every template.
+`compose.ts` dispatches any non-4A kind to `SECTIONS[kind]` with one `SectionCtx`. A GL section may carry a **rule**
+(`resolveGlRule`): `MATERIAL_ITEMS` (the GL behind material / over-$X flux lines and blocking reconciliations), `RECONCILIATION`
+(its accounts and entity) or `ACCOUNT_MONTH`. A rule that resolves to nothing (a module reconciliation) is an empty section with a
+WARN, never a block. **Focus** (`reconciliationId` / `account` / `vendor`) decides what "related" means.
+
+**Rules the build found, keep them:**
+- **Blockers and approvals are read at the scope's full visibility and filtered by entity afterwards.** Passing the narrowed entity
+  set to `closeBlockers` dropped the GROUP-level checklist blockers when completed entities were left out.
+- **A period package measures the period, a population package its lines.** Adding a GL tab to a close package must not change its
+  Missing Support; adding one to a financial package must not turn Top Drivers into a GL breakdown.
+- **"Leave out completed entities"** is derived (`completeEntities`: every reconciliation tied and approved, nothing blocking or
+  pending) and stated on the Close Summary and in the warnings. It is never a stored flag on an entity.
+
+**Validation** (`engine.validate`): Permissions · Period · Scope · Population (per GL section) · Tie-out · Source freshness ·
+Evidence · Reconciliation · Excluded (one line) · Stale · Audit-ready claim. **FAIL blocks generation**; WARN goes on the proposal
+and the file. `VALID` / `VALID_WITH_WARNINGS` / `BLOCKED`. **Nothing is called audit-ready unless the tie-out is TIED.** Korvyn names
+an audit package "Audit GL Extract", and a user name that claims "audit-ready" gets a WARN.
+
+**Contract** (§2): `view().contract` gives id, type, title, period, scope, currency, basis, source objects / populations / evidence /
+reconciliations / Flux items, sections, worksheets, status, version, creator, data and mapping versions, source systems,
+investigation, trace, permissions, warnings and validation status.
+
+**Evidence relationship versions are pinned.** A Support Index cites `EVIDENCE_RELATIONSHIPS` `(recon key, relationship count)`, so
+support attached after a package was defined makes it STALE, the same way a moved balance does.
+
+**Lifecycle additions:**
+- **derive** (`deriveDefinition` → `create`, audited `ARTIFACT_DERIVED`): a NEW artifact with `derivedFrom`. The source is never
+  touched. A month that has not closed is refused by name ("Create July using the June package" → July is not governed).
+- **restore**: a prior definition becomes a NEW version.
+- **setStatus**: SAVED / ARCHIVED / DRAFT. An archived package cannot be generated until it is restored.
+- **Jobs**: QUEUED → VALIDATING → GENERATING → **COMPLETED** | FAILED | **CANCELLED**. `cancel` is checked per progress chunk and
+  before rendering. A cancelled job discards its partial file and returns the artifact to its prior status. Generation records
+  say `COMPLETED` now (4A's `GENERATED` is migrated on start); the ARTIFACT keeps `GENERATED`.
+- **Storage** (`artifacts/storage.ts`): `ArtifactStorage` (`locate` / `commit` / `discard` / `exists` / `read`) →
+  `LocalArtifactStorage`. Keys are `<GEN-id>/<file>` and can never escape the root. Tests still set `eng.storage = <dir>`.
+
+**Refinement** (`refine.ts`), with the user's words still winning:
+- Section words for every kind; a specific one subsumes a general one ("unreconciled" is Recs Not Tied, not Reconciliations).
+- Reorder: "put X first / last / before Y".
+- "Add a tab for items over $10M" → ITEMS_OVER.
+- "Add GL detail for anything over $10M" / "the GL behind each material variance" → a rule GL.
+- "Remove completed entities".
+- Period and scope changes, checked against the governed periods and scopes.
+
+**Sloane.**
+- `buildExcelArtifact` detects the type from the words (`detectType`), then the focus: `recIn` (a reconciliation by its name's
+  words in any order), `acctIn`, vendor.
+- New tools: `deriveExcelArtifact`, `proposeSaveExcelArtifact`, `proposeArchiveExcelArtifact` (actions `SAVE_EXCEL_ARTIFACT` /
+  `ARCHIVE_EXCEL_ARTIFACT`, CONFIRM_REQUIRED). `previewExcelArtifact` takes a `section` ("show me the blockers tab" → `findSheet`).
+- `artifactPlan` routes package phrases, reuse, save / archive / restore and section previews. **A deliverable request never stops
+  for the scope clarification**: the preview states Corporate Consolidated and "only MDH" refines it.
+
+**HTTP:** `GET /api/work/artifacts/:id?section=` · `POST …/:id/status` · `…/:id/restore` · `…/:id/derive` · `…/jobs/:jobId/cancel`.
+The browser preview (`a4*`) shows the package type, the validation checks, Save Draft / Cancel, the section it opened on, and the
+new job states. Generate is disabled while validation is BLOCKED.
+
+**Verified:**
+- `npm run sloane:test` **76/76**, including `artifacts4b.test.ts` (12 tests): packages A–E read back from xlsx against the governed
+  services, reuse, evidence-pin staleness, cancel, save / archive, storage, every template's traces, HTTP.
+- Dry run 30/30, core 78/78, 4/4 repo gates unchanged.
+- **LIVE claude-opus-5, every §29 flow**:
+  - **A.** Close package → GL over $10M → remove completed → unreconciled first → blockers tab → xlsx.
+  - **B.** Electrical CIP (module, marked not server-authoritative) and MDH trade payables (tied, balance cited) → xlsx.
+  - **C.** Siemens FY26 support: $1M leaves no lines and generation is refused before confirmation; removing the threshold restores it.
+  - **D.** "Audit-ready" GL extract: named "Audit GL Extract", said "not yet audit-ready" (PARTIALLY VALIDATED) → 161 KB xlsx.
+  - **E.** Jan–Jun financials → GL over $5M → xlsx; "July using June" refused; "May using this" derived; saved.
+- Browser: section preview, Save Draft, Generate → Ready/Download.
+
+**Traps:**
+- **Shell escapes, the tenth time**: a heredoc turned `\\b` into backspace characters in `engine.ts`. Found by reading the file, fixed
+  with a script. Use the Write tool, always.
+- `setUserRole`-style testing does not apply here: the external auditor's dev id is `user:auditor`.
+
+**Not built (per §31):** automatic PBC parsing from auditor files, external invoice retrieval, the Excel add-in, PowerPoint, an
+external auditor portal, a conversational-runtime redesign, ERP write-back. **Also not built:**
+- a server-side query engine or a restart-surviving job queue (unchanged from 4A);
+- an object-store `ArtifactStorage`;
+- per-entity close readiness (the Close Summary's readiness is the whole scope's even when completed entities are left out, and says so);
+- a template library users can save their own packages into (types are code templates; a saved package + derive is the reuse path).
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

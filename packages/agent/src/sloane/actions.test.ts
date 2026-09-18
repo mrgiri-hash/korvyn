@@ -153,7 +153,7 @@ test('Excel artifact (4A): build from the GL in context, refine conversationally
   const r = orch.decide({ sessionId: s, proposalId: p!.id, decision: 'confirm' });
   assert.equal(r.results[0]!.status, 'COMPLETED', r.results[0]!.message);
   await orch.artifacts.jobPromise(String(r.results[0]!.result!['jobId']));
-  assert.equal(orch.artifacts.generations(id)[0]!.status, 'GENERATED');
+  assert.equal(orch.artifacts.generations(id)[0]!.status, 'COMPLETED');
 });
 
 test('issue: an amount no governed figure carries is flagged, and the issue is created only on confirmation', async () => {

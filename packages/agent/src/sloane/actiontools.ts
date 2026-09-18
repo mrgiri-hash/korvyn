@@ -11,9 +11,10 @@ import { BASIS, SNAPSHOT_ID, money, periodLabel } from './financials.js';
 import type { DimensionKey, GLine } from './governed.js';
 import type { FinancialObject, ParamSpec, SloaneTool, ToolArgs, ToolEnv, ToolResult, ToolSession } from './tools.js';
 import { registerTools } from './tools.js';
-import type { ArtifactDefinition, SheetKind } from './artifacts/model.js';
-import { columnFor } from './artifacts/model.js';
-import { amountIn, sheetsIn } from './artifacts/refine.js';
+import type { ArtifactDefinition, ArtifactType, SheetKind } from './artifacts/model.js';
+import { ARTIFACT_TYPE_LABEL, columnFor } from './artifacts/model.js';
+import { amountIn, monthIn, sheetsIn } from './artifacts/refine.js';
+import { detectType } from './artifacts/sections.js';
 
 const $ = (v: number) => money(v, 'USD');
 const T = (name: string, description: string, required = false): ParamSpec => ({ name, kind: 'text', required, description });
@@ -283,14 +284,15 @@ function noWorkbook(env: ToolEnv): ToolResult {
   return { warnings: ['No workbook in this conversation yet.'], object: obj(env, { type: 'ExcelWorkbookPreview', title: 'No workbook yet', status: 'UNAVAILABLE', unavailable: { capability: 'Workbook', reason: 'There is no workbook in this conversation yet — ask for one first, e.g. “Give me the FY26 governed GL”.' }, facts: [{ key: 'unavailable', label: 'Workbook', value: 'none', display: 'There is no workbook in this conversation yet.' }] }) };
 }
 /** the WORKBOOK PREVIEW object: the same composition the file is rendered from, with representative striped rows */
-export function workbookObject(env: ToolEnv, draft: XDraft, extra: { changes?: string[]; notes?: string[] } = {}): ToolResult {
+export function workbookObject(env: ToolEnv, draft: XDraft, extra: { changes?: string[]; notes?: string[]; section?: string | null } = {}): ToolResult {
   const eng = artifactEngine(env), d = draft.definition as unknown as ArtifactDefinition;
   const denied = eng.authorize(env.actor, d);
   if (denied.length) return { warnings: denied, object: obj(env, { type: 'ExcelWorkbookPreview', title: `${d.name} — not permitted`, status: 'UNAVAILABLE', unavailable: { capability: 'Workbook', reason: denied.join(' ') }, facts: [{ key: 'unavailable', label: 'Workbook', value: 'denied', display: denied.join(' ') }] }) };
   const m = eng.compose(env.actor, d, draft.version ?? 1, draft.id || 'DRAFT');
   /* a kept workbook reports its REAL status (STALE when what it pinned has moved); an unsaved one is a draft */
   const view = draft.id && !draft.dirty ? eng.view(env.actor, draft.id) : null;
-  const pv = eng.previewOf(m, { id: draft.id || 'DRAFT', version: draft.version ?? 1, status: view?.status ?? 'DRAFT', name: d.name });
+  const pv = eng.previewOf(m, { id: draft.id || 'DRAFT', version: draft.version ?? 1, status: view?.status ?? 'DRAFT', name: d.name }, 15, extra.section ?? null);
+  const val = eng.validate(env.actor, d, m, view ? view.pins : null);
   if (view?.stale) pv.warnings.unshift(`STALE: the governed data behind v${view.version} has changed (${view.staleReasons.join('; ')}). Refresh to create v${view.version + 1} before generating.`);
   const t = pv.tieOut;
   const notes = [...(extra.notes ?? []), ...pv.warnings];
@@ -300,6 +302,10 @@ export function workbookObject(env: ToolEnv, draft: XDraft, extra: { changes?: s
     table: { columns: ['Rows', 'Columns'], rows: pv.sheets.map((sh) => ({ label: sh.name, level: 1, kind: 'line' as const, cells: [sh.rowCount.toLocaleString('en-US'), String(sh.columns.length)] })) },
     facts: [
       { key: 'workbook', label: 'Workbook', value: d.name, display: d.name },
+      { key: 'artifactType', label: 'Type', value: d.type ?? 'GL_EXTRACT', display: ARTIFACT_TYPE_LABEL[d.type ?? 'GL_EXTRACT'] },
+      { key: 'validation', label: 'Validation', value: val.status, display: `${val.status.replace(/_/g, ' ').toLowerCase()}${val.checks.some((c) => c.status !== 'PASS') ? ` — ${val.checks.filter((c) => c.status !== 'PASS').map((c) => `${c.check}: ${c.status}`).join('; ')}` : ''}` },
+      ...(d.derivedFrom ? [{ key: 'derivedFrom', label: 'Derived from', value: d.derivedFrom.artifactId, display: `${d.derivedFrom.name} (${d.derivedFrom.artifactId} v${d.derivedFrom.version}) — a new package; the source is unchanged` }] : []),
+      ...(pv.focusSheet ? [{ key: 'section', label: 'Section shown', value: pv.focusSheet, display: pv.focusSheet }] : extra.section ? [{ key: 'section', label: 'Section shown', value: 'none', display: `This package has no “${extra.section}” tab (tabs: ${pv.sheets.map((x) => x.name).join(', ')})` }] : []),
       { key: 'artifactStatus', label: 'Status', value: pv.status, display: pv.status },
       { key: 'fileName', label: 'File', value: pv.fileName, display: pv.fileName },
       { key: 'sheets', label: 'Tabs', value: pv.sheets.map((x) => x.name).join(', '), display: pv.sheets.map((x) => x.name).join(', ') },
@@ -315,21 +321,86 @@ export function workbookObject(env: ToolEnv, draft: XDraft, extra: { changes?: s
     ],
     provenance: { source: 'Workbook definition over governed Korvyn objects — preview of the same composition the file is generated from', snapshotId: m.dataVersion, journalLines: m.populations.reduce((a, p) => a + p.rowCount, 0), fxRateSetId: 'FXR-2026-CLS-REP-1', eliminations: m.tieOut ? 'Intercompany eliminated at Corporate Consolidated' : null, declaredInputs: [] },
     refs: { excelDraftId: draft.id || 'DRAFT', ...(draft.id ? { artifactId: draft.id } : {}), ...(m.populations[0] ? { populationId: m.populations[0].populationId } : {}) },
-    draft: { kind: 'EXCEL', id: draft.id || 'DRAFT', definition: draft.definition }, workbook: { ...pv, changes: extra.changes ?? [], notes },
+    draft: { kind: 'EXCEL', id: draft.id || 'DRAFT', definition: draft.definition }, workbook: { ...pv, type: d.type ?? 'GL_EXTRACT', typeLabel: ARTIFACT_TYPE_LABEL[d.type ?? 'GL_EXTRACT'], validation: val, derivedFrom: d.derivedFrom ?? null, changes: extra.changes ?? [], notes },
   }) };
 }
 const SHEET_ARG = (v: string | undefined) => (v ?? '').split(/[,;]| and /).map((x) => sheetsIn(` ${x.toLowerCase()} `)[0]).filter((x): x is SheetKind => !!x);
+
+/* ---- 4B: packages ------------------------------------------------------------------------------------ */
+/** the reconciliation a request names — the longest governed name it contains, or its id */
+export function recIn(env: ToolEnv, text: string, arg?: string) {
+  const t = ` ${`${arg ?? ''} ${text}`.toLowerCase()} `;
+  const defs = env.controls.allRecDefs().filter((r) => r.entity === 'GROUP' ? env.actor.scopeIds === 'ALL' : env.actor.scopeIds === 'ALL' || env.actor.scopeIds.includes(r.entity));
+  const exact = defs.filter((r) => t.includes(r.id.toLowerCase()) || t.includes(r.name.toLowerCase())).sort((x, y) => y.name.length - x.name.length)[0];
+  if (exact) return exact;
+  /* "the MDH trade payables reconciliation" names "Trade payables — MDH": every word of the name, in any order */
+  const words = (x: string) => x.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !['and', 'the', 'for'].includes(w));
+  const has = (w: string) => new RegExp(`\\b${w}s?\\b`).test(t);
+  const hit = defs.map((r) => ({ r, ws: [...words(r.name), ...(r.entity !== 'GROUP' ? [r.entity.toLowerCase()] : [])] })).filter((x) => x.ws.every((w) => w.includes('-') ? t.includes(w) : has(w)));
+  return hit.sort((x, y) => y.ws.length - x.ws.length)[0]?.r ?? null;
+}
+/** an account a request names: a code, or a statement group by name or common alias (CIP, AR, AP …) */
+export function acctIn(env: ToolEnv, text: string, arg?: string) {
+  const t = ` ${`${arg ?? ''} ${text}`.toLowerCase()} `;
+  const code = t.match(/\b(\d{5})\b/)?.[1];
+  if (code && env.gl.account(code)) return code;
+  const alias: Record<string, string> = { cip: 'construction in progress', capex: 'construction in progress', ar: 'accounts receivable', ap: 'accounts payable', 'pp&e': 'property, plant', ppe: 'property, plant', revenue: 'revenue', 'intercompany receivable': 'intercompany receivable' };
+  const want = Object.entries(alias).filter(([k]) => new RegExp(`\\b${k.replace(/[&]/g, '\\&')}\\b`).test(t)).map(([, v]) => v);
+  const accts = env.gl.accounts();
+  const byName = accts.filter((x) => !x.parent && (want.some((w) => x.name.toLowerCase().startsWith(w)) || (x.name.length > 6 && t.includes(x.name.toLowerCase()))));
+  return byName[0]?.code ?? null;
+}
+/** a request's window: FY26, "Jan–Jun", "January through June", or one month */
+function windowIn(req: string, periods: string[]) {
+  const fy = req.match(/\bfy\s?'?(\d{2,4})\b/), year = fy ? (fy[1]!.length === 2 ? `20${fy[1]}` : fy[1]!) : null;
+  const mons = [...req.matchAll(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b\.?\s*(20\d{2})?/gi)].map((m) => monthIn(m[0], periods)).filter((x): x is string => !!x);
+  if (mons.length >= 2) return { start: mons[0]!, end: mons.at(-1)!, year };
+  if (mons.length === 1) return { start: year ? `${year}-01` : undefined, end: mons[0]!, year };
+  return { start: year ? `${year}-01` : undefined, end: year ? (periods.filter((p) => p.startsWith(year)).at(-1) ?? `${year}-12`) : undefined, year };
+}
+function buildPackage(env: ToolEnv, s: ToolSession, eng: NonNullable<ToolEnv['artifacts']>, type: ArtifactType, a: ToolArgs, req: string): ToolResult {
+  const ps = env.gl.periods(), w = windowIn(req, ps);
+  const notes: string[] = [];
+  /* a month that has not closed is refused by name, never replaced with another */
+  if (w.end && !ps.includes(w.end)) return { warnings: [`${periodLabel(w.end)} is not in the governed ledger.`], object: obj(env, { type: 'ExcelWorkbookPreview', title: `${ARTIFACT_TYPE_LABEL[type]} — period not available`, status: 'UNAVAILABLE', unavailable: { capability: 'Package', reason: `${periodLabel(w.end)} is not in the governed ledger — the latest closed period is ${periodLabel(ps.at(-1)!)}. Korvyn will not build a package for a period that has not closed.` }, facts: [{ key: 'unavailable', label: 'Period', value: w.end, display: `${periodLabel(w.end)} has not closed` }] }) };
+  const focus: ArtifactDefinition['focus'] = {};
+  let scopeId = a['scope'] || s.scope;
+  if (type === 'RECONCILIATION_PACKAGE') {
+    const r = recIn(env, req, a['reconciliation'] || a['account']);
+    if (!r) return { warnings: ['Which reconciliation?'], object: obj(env, { type: 'ExcelWorkbookPreview', title: 'Reconciliation package — which reconciliation?', status: 'UNAVAILABLE', unavailable: { capability: 'Package', reason: 'Name the reconciliation the package is for — e.g. “Electrical CIP” or “MDH Operating Cash”.' }, facts: [{ key: 'unavailable', label: 'Reconciliation', value: 'none', display: 'no reconciliation named' }] }) };
+    focus.reconciliationId = r.id;
+    if (r.entity !== 'GROUP') scopeId = r.entity;
+    else scopeId = 'GROUP';
+    if (r.method === 'MODULE') notes.push(`${r.name} is computed by the Reconciliations module: the package carries its server-authoritative workflow, comments and support; its balances are not modelled on the server book and are marked so.`);
+  }
+  if (type === 'FLUX_PACKAGE') { const ac = acctIn(env, req, a['account']); if (ac) focus.account = ac; else notes.push('No account named — the Flux package covers every material line.'); }
+  if (type === 'SUPPORT_PACKAGE') { const v = a['vendor'] || env.gl.vendors().find((x) => req.includes(x.toLowerCase().split(' ')[0]!)) || null; if (v) focus.vendor = v; else notes.push('No vendor named — name one (e.g. “Siemens”) to compile its support.'); }
+  const argAmt = (v: string | undefined) => { if (!v) return null; const n = amountIn(`over ${v}`); return n !== null && /^[\s$]*[\d.,]+\s*$/.test(v) && n < 1000 ? n * 1e6 : n; };
+  const amt = type === 'SUPPORT_PACKAGE' ? amountIn(req) ?? argAmt(a['minAbsAmount']) : null;
+  const d = eng.newPackage({ type, focus, periodStart: a['periodStart'] || w.start, periodEnd: a['periodEnd'] || w.end || s.period, scopeId,
+    sheets: [...SHEET_ARG(a['sheets'])], minAbsUsd: amt, excludeCompleteEntities: /\b(remove|exclude|without|skip|leave out)\b.*\bcomplete/.test(req),
+    name: (/\b(call|name|title)\b/i.test(s.request) && a['name']) || null });
+  d.notes.push(...notes);
+  s.drafts.excel = { id: '', definition: d as unknown as Record<string, unknown>, change: 'Created', dirty: true, version: 1 } as XDraft;
+  return workbookObject(env, draftOf(s)!, { changes: [`Built ${d.name}: ${d.sheets.map((x) => x.name).join(', ')}`], notes });
+}
 const EXCEL_TOOLS: SloaneTool[] = [
   { id: 'buildExcelArtifact', domain: 'build', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT', 'GOVERNED_LEDGER', 'TRIAL_BALANCE'],
-    description: 'Build a governed Excel WORKBOOK (a deliverable, e.g. "give me the FY26 governed GL", "the FY26 audit GL package", "all Siemens FY26 transactions over $1M with the related reconciliations and Flux explanations on separate tabs"). Tabs: GL (default), TB, TIEOUT (ties back to the ERP), RECONCILIATIONS, FLUX, SUMMARY. Returns a striped WORKBOOK PREVIEW; no file is generated until the user asks to download.',
+    description: 'Build a governed Excel DELIVERABLE: a GL extract ("give me the FY26 governed GL"), an audit support package ("the FY26 audit-ready GL extract"), a close review package ("build the June close review package"), a reconciliation package ("create the June Electrical CIP reconciliation package"), a Flux package, a vendor support package ("compile Siemens FY26 support"), a monthly financial package ("Jan–Jun monthly financials with variance analysis"), a management review package, or a workbook of named tabs. Each type starts from a template of governed sections; returns a WORKBOOK PREVIEW; no file is generated until the user asks to download.',
     params: [{ name: 'periodStart', kind: 'period', required: false, description: 'first month; default the fiscal year start' }, { name: 'periodEnd', kind: 'period', required: false, description: 'last month; default the latest governed month' }, { name: 'scope', kind: 'scope', required: false, description: 'GROUP (Corporate Consolidated) or an entity; default context' },
       { name: 'vendor', kind: 'vendor', required: false, description: 'only this vendor’s lines' }, { name: 'project', kind: 'project', required: false, description: 'only this project' }, { name: 'account', kind: 'account', required: false, description: 'only this account / group' },
-      T('minAbsAmount', 'only lines over this amount, e.g. "1M" or "500K"'), T('sheets', 'extra tabs: TB, TIEOUT, RECONCILIATIONS, FLUX, SUMMARY (comma-separated)'), T('template', 'AUDIT_GL_PACKAGE for GL + TB + Tie-Out, else GL_EXTRACT'), T('name', 'workbook name')],
+      T('minAbsAmount', 'only lines over this amount, e.g. "1M" or "500K"'), T('sheets', 'extra tabs, comma-separated (e.g. TB, TIEOUT, RECONCILIATIONS, FLUX, SUMMARY, BLOCKERS, COMMENTS)'), T('template', 'AUDIT_GL_PACKAGE for GL + TB + Tie-Out, else GL_EXTRACT'),
+      T('type', 'package type: GL_EXTRACT | AUDIT_SUPPORT_PACKAGE | CLOSE_REVIEW_PACKAGE | RECONCILIATION_PACKAGE | FLUX_PACKAGE | SUPPORT_PACKAGE | FINANCIAL_REPORT_PACKAGE | MANAGEMENT_REVIEW_PACKAGE | PBC_PACKAGE'), T('reconciliation', 'the reconciliation a reconciliation package is for, by name'), T('name', 'workbook name')],
     outputs: 'ExcelWorkbookPreview; refs artifactId, excelDraftId',
     run(a, env) { const s = S(env), eng = artifactEngine(env), req = s.request.toLowerCase();
       const words = `${req} ${a['sheets'] ?? ''}`;
       const sheets = [...new Set([...SHEET_ARG(a['sheets']), ...sheetsIn(` ${req} `).filter((k) => k !== 'FLUX' || /\bflux\b/.test(req))])];
       const template = /audit|package/.test(a['template'] ?? '') || /\baudit\b|\bpackage\b/.test(req) ? 'AUDIT_GL_PACKAGE' : 'GL_EXTRACT';
+      /* 4B — which deliverable: the user's words decide; the model's type is used only when the words name none */
+      const TYPES = Object.keys(ARTIFACT_TYPE_LABEL) as ArtifactType[];
+      const typeArg = TYPES.includes(a['type'] as ArtifactType) ? a['type'] as ArtifactType : null;
+      const type = detectType(req) ?? (typeArg === 'EXCEL_WORKBOOK' || typeArg === 'GL_EXTRACT' ? null : typeArg);
+      if (type && type !== 'EXCEL_WORKBOOK' && type !== 'GL_EXTRACT') return buildPackage(env, s, eng, type, a, req);
       /* the user's words are authoritative; a bare model number is USD millions (the convention every Sloane tool uses) */
       const argAmt = (v: string | undefined) => { if (!v) return null; const n = amountIn(`over ${v}`); return n !== null && /^[\s$]*[\d.,]+\s*$/.test(v) && n < 1000 ? n * 1e6 : n; };
       const amt = amountIn(req) ?? argAmt(a['minAbsAmount']);
@@ -346,7 +417,7 @@ const EXCEL_TOOLS: SloaneTool[] = [
       s.drafts.excel = { id: '', definition: d as unknown as Record<string, unknown>, change: 'Created', dirty: true, version: 1 } as XDraft;
       return workbookObject(env, draftOf(s)!, { changes: [`Built ${d.name}: ${d.sheets.map((x) => x.name).join(', ')}`] }); } },
   { id: 'modifyExcelArtifact', domain: 'build', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
-    description: 'Refine the workbook in this conversation from the user’s words: add/remove/move GL columns ("add source vendor", "put project before vendor", "remove department"), sort ("largest first"), threshold ("only transactions over $500K"), tabs ("put the TB on another tab", "make sure it ties back to ERP", "add the related reconciliations", "add the Flux explanations", "remove the tie-out tab", "add a summary tab", "add entity to the TB"). Pass the user’s words verbatim in instruction. Changes the definition only — nothing is regenerated.',
+    description: 'Refine the workbook or package in this conversation from the user’s words — package changes too: "remove pending approvals", "put unreconciled accounts first", "add a tab for items over $10M", "add the GL behind each material variance", "include reconciliation comments", "add support coverage", "remove completed entities", "change the period to May", "only MDH". Also: add/remove/move GL columns ("add source vendor", "put project before vendor", "remove department"), sort ("largest first"), threshold ("only transactions over $500K"), tabs ("put the TB on another tab", "make sure it ties back to ERP", "add the related reconciliations", "add the Flux explanations", "remove the tie-out tab", "add a summary tab", "add entity to the TB"). Pass the user’s words verbatim in instruction. Changes the definition only — nothing is regenerated.',
     params: [T('instruction', 'the user’s words, verbatim'), T('addColumn', 'optional structured: a GL column'), T('removeColumn', 'optional structured: a GL column'), T('addSheet', 'optional structured: TB | TIEOUT | RECONCILIATIONS | FLUX | SUMMARY'), T('removeSheet', 'optional structured: a tab'), T('sort', 'optional structured: amount_desc | amount_asc | date_asc | date_desc'), T('minAbsAmount', 'optional structured: e.g. 500K')],
     outputs: 'ExcelWorkbookPreview; refs artifactId',
     run(a, env) { const s = S(env), eng = artifactEngine(env), dr = currentDraft(env, s);
@@ -359,9 +430,39 @@ const EXCEL_TOOLS: SloaneTool[] = [
       if (r.changed) s.drafts.excel = { ...dr, definition: r.definition as unknown as Record<string, unknown>, change: r.changes.join('; '), dirty: true } as XDraft;
       return workbookObject(env, draftOf(s)!, { changes: r.changes, notes: r.notes }); } },
   { id: 'previewExcelArtifact', domain: 'build', permission: 'GL_VIEW', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
-    description: 'Show what the workbook in this conversation will look like ("show me what it will look like", "preview it"): tabs, row counts, striped representative rows, tie-out status.',
-    params: [], outputs: 'ExcelWorkbookPreview; refs artifactId',
-    run(_a, env) { const s = S(env), dr = currentDraft(env, s); return dr ? workbookObject(env, dr) : noWorkbook(env); } },
+    description: 'Show what the workbook in this conversation will look like ("show me what it will look like", "preview it"), or ONE section of it ("show me the GL tab", "show me the blockers tab"): tabs, row counts, striped representative rows, validation.',
+    params: [T('section', 'optional: the tab to show, e.g. "GL", "Blockers", "Tie-Out"')], outputs: 'ExcelWorkbookPreview; refs artifactId',
+    run(a, env) { const s = S(env), dr = currentDraft(env, s); if (!dr) return noWorkbook(env);
+      const m = s.request.match(/\bshow (?:me )?(?:the )?(.+?) (?:tab|sheet|section)\b/i);
+      return workbookObject(env, dr, { section: a['section'] || m?.[1] || null }); } },
+  { id: 'deriveExcelArtifact', domain: 'build', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'REUSE a package: a NEW package from the one in this conversation (or a saved one) over a different period, scope or vendor — "create July using the June package", "duplicate this for MER-DE", "do the same for Vertiv". The source is never overwritten.',
+    params: [{ name: 'periodEnd', kind: 'period', required: false, description: 'the new period' }, { name: 'scope', kind: 'scope', required: false, description: 'the new scope' }, { name: 'vendor', kind: 'vendor', required: false, description: 'the new vendor' }, T('artifactId', 'optional: the saved package to derive from')],
+    outputs: 'ExcelWorkbookPreview (a new package); refs artifactId',
+    run(a, env) { const s = S(env), eng = artifactEngine(env), req = s.request.toLowerCase();
+      /* the NEW period is the month the words ask for — not the one the source was built on */
+      const ps = env.gl.periods(), mons = [...req.matchAll(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b\.?\s*(20\d{2})?/gi)].map((m) => monthIn(m[0], ps)).filter((x): x is string => !!x);
+      /* the source: the package in the conversation, else a saved package the words name by its month ("the June package") */
+      const kind = detectType(req);
+      const named = mons.length ? eng.list(env.actor).find((x) => x.status !== 'ARCHIVED' && mons.includes(x.period) && (!kind || x.type === kind)) : null;
+      const srcId = a['artifactId'] || (/\b(this|it|that)\b/.test(req) ? s.lastRefs['artifactId'] || draftOf(s)?.id : null) || named?.id || s.lastRefs['artifactId'] || draftOf(s)?.id;
+      const src = srcId ? eng.get(srcId) : null;
+      if (!src) return noWorkbook(env);
+      const target = a['periodEnd'] || mons.find((x) => x !== src.definition.periodEnd) || null;
+      const scope = a['scope'] || env.data.scopes().find((x) => x.id !== 'GROUP' && new RegExp(`\\b${x.id.toLowerCase()}\\b`).test(req))?.id || null;
+      const vendor = a['vendor'] || env.gl.vendors().find((x) => req.includes(x.toLowerCase().split(' ')[0]!) && x !== src.definition.focus?.vendor) || null;
+      const r = eng.deriveDefinition(src, { periodEnd: target, scopeId: scope, vendor });
+      if (!r.ok) return { warnings: [r.reason], object: obj(env, { type: 'ExcelWorkbookPreview', title: `${src.name} — not derived`, status: 'UNAVAILABLE', unavailable: { capability: 'Reuse', reason: r.reason }, facts: [{ key: 'unavailable', label: 'Reuse', value: 'refused', display: r.reason }] }) };
+      s.drafts.excel = { id: '', definition: r.definition as unknown as Record<string, unknown>, change: `Derived from ${src.name} v${src.version}: ${r.changes.join('; ')}`, dirty: true, version: 1 } as XDraft;
+      return workbookObject(env, draftOf(s)!, { changes: [`New package from ${src.name} (${src.id} v${src.version}) — ${r.changes.join('; ')}. The source is unchanged.`] }); } },
+  { id: 'proposeSaveExcelArtifact', domain: 'action', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'Prepare (not run) marking the package in this conversation SAVED ("save it", "save the draft"), or restoring an archived one.',
+    params: [], outputs: 'ActionProposal (SAVE_EXCEL_ARTIFACT)',
+    run(_a, env) { const s = S(env), dr = currentDraft(env, s); if (!dr?.id) return noWorkbook(env); return proposalObject(env, propose(env, 'SAVE_EXCEL_ARTIFACT', { artifactId: dr.id, name: (dr.definition as { name?: string }).name ?? '' })); } },
+  { id: 'proposeArchiveExcelArtifact', domain: 'action', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
+    description: 'Prepare (not run) archiving the package in this conversation ("archive it"). Archived packages keep every version and file; they cannot be generated until restored.',
+    params: [], outputs: 'ActionProposal (ARCHIVE_EXCEL_ARTIFACT)',
+    run(_a, env) { const s = S(env), dr = currentDraft(env, s); if (!dr?.id) return noWorkbook(env); return proposalObject(env, propose(env, 'ARCHIVE_EXCEL_ARTIFACT', { artifactId: dr.id, name: (dr.definition as { name?: string }).name ?? '' })); } },
   { id: 'proposeGenerateExcelArtifact', domain: 'action', permission: 'ARTIFACT_CREATE', risk: 'PROPOSE', objectTypes: ['EXCEL_ARTIFACT'],
     description: 'Prepare (not run) generating the real file for the workbook in this conversation ("download it", "generate the Excel", "give me the CSV"). format xlsx (default) or csv. Korvyn validates permissions, populations, staleness and the tie-out; the user confirms; the file is generated server-side.',
     params: [T('format', 'xlsx | csv')], outputs: 'ActionProposal (GENERATE_EXCEL_ARTIFACT); refs proposalId',

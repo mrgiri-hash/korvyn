@@ -16,8 +16,9 @@ import type { FinancialDataService } from '../financials.js';
 import { type GLine, type GovernedLedger, type PopulationDef, SOURCE_HEALTH } from '../governed.js';
 import { FLUX_LINE_ACCOUNTS } from '../book.js';
 import { WORK } from '../store.js';
-import { type ArtifactDefinition, type ColFormat, EXCEL_MAX_ROWS, GL_COLUMN, type GLSheetDef, SHEET_NAME_MAX, type SheetDef, fileNameOf, monLabel, periodToken, rangeLabel, scopeLabel } from './model.js';
+import { type ArtifactDefinition, type ColFormat, EXCEL_MAX_ROWS, GL_COLUMN, type GLSheetDef, type PlainSheetDef, SHEET_NAME_MAX, type SheetDef, fileNameOf, monLabel, periodToken, rangeLabel, scopeLabel } from './model.js';
 import { type TieOutResult, type TieOutService, MAPPING_VERSION } from './tieout.js';
+import { SECTIONS, type SectionCtx, completeEntities, focusGroups, resolveGlRule } from './sections.js';
 
 export type Cell = string | number | Date | null;
 export type RowStyle = 'data' | 'total' | 'subtotal' | 'label' | 'note';
@@ -26,7 +27,7 @@ export interface ColumnSpec { key: string; header: string; width: number; format
 export interface Block { heading?: string; columns: ColumnSpec[]; rowCount: number; chunks: () => Iterable<Row[]>; totals?: Row[]; tabular: boolean }
 export type Tone = 'ok' | 'warn' | 'bad' | 'info';
 export interface SheetModel { name: string; kind: SheetDef['kind']; title: string[]; status: { text: string; tone: Tone } | null; blocks: Block[]; rowCount: number; populationId: string | null; part: { index: number; of: number } | null }
-export interface Citation { type: 'RECONCILIATION_BALANCE' | 'FLUX_EXPLANATION'; id: string; version: number | null; label: string }
+export interface Citation { type: 'RECONCILIATION_BALANCE' | 'FLUX_EXPLANATION' | 'EVIDENCE_RELATIONSHIPS'; id: string; version: number | null; label: string }
 export interface PopulationPin { sheet: string; populationId: string; populationVersion: string; rowCount: number; debitUsd: number; creditUsd: number; netUsd: number; contentHash: string }
 export interface WorkbookModel {
   fileName: string; csvFileName: string; title: string; scopeLabel: string; rangeLabel: string;
@@ -89,12 +90,19 @@ function headerOf(key: string, cols: string[]) {
 /* ---- the GL population a GL sheet presents ------------------------------------------------------- */
 export function glPopulation(env: ComposeEnv, d: ArtifactDefinition, s: GLSheetDef) {
   const scope = env.data.scope(d.scopeId)!;
-  const filter = { ...s.filter, periodStart: d.periodStart, periodEnd: d.periodEnd, ...(scope.kind === 'GROUP' ? {} : { entities: scope.entityIds }) };
+  /* 4B: a GL section may present the lines behind a package's material items, a reconciliation, or an account's month */
+  let window: Record<string, unknown> = { periodStart: d.periodStart, periodEnd: d.periodEnd }, note: string | null = null;
+  if (s.rule) {
+    const r = resolveGlRule(env, d, s.rule, env.visible);
+    window = { periodStart: r.periodStart, periodEnd: r.periodEnd, accounts: r.accounts.length ? r.accounts : ['__NONE__'], ...(r.entities ? { entities: r.entities } : {}) };
+    note = r.note;
+  }
+  const filter = { ...s.filter, ...window, ...(scope.kind === 'GROUP' ? {} : { entities: scope.entityIds }) };
   const def = env.gl.definePopulation(filter, s.sort, `${d.name} · ${s.name}`);
   const q = env.gl.query(def, env.visible, { limit: 1 });
   const h = createHash('sha1');
   for (const l of q.all) h.update(`${l.key}:${l.usd.toFixed(2)}|`);
-  return { def, rows: q.all, pin: { sheet: s.name, populationId: def.id, populationVersion: env.gl.dataVersion(), rowCount: q.rowCount, debitUsd: d2(q.debitUsd), creditUsd: d2(q.creditUsd), netUsd: d2(q.netUsd), contentHash: h.digest('hex').slice(0, 16).toUpperCase() } };
+  return { def, rows: q.all, note, pin: { sheet: s.name, populationId: def.id, populationVersion: env.gl.dataVersion(), rowCount: q.rowCount, debitUsd: d2(q.debitUsd), creditUsd: d2(q.creditUsd), netUsd: d2(q.netUsd), contentHash: h.digest('hex').slice(0, 16).toUpperCase() } };
 }
 function* chunked<T, R>(items: readonly T[], size: number, map: (x: T) => R) { for (let i = 0; i < items.length; i += size) yield items.slice(i, i + size).map(map); }
 
@@ -125,11 +133,34 @@ export function composeWorkbook(env: ComposeEnv, d: ArtifactDefinition, opts: { 
   const used = new Set<string>();
   const sheetName = (n: string) => { let x = n.slice(0, SHEET_NAME_MAX), i = 2; while (used.has(x)) x = `${n.slice(0, SHEET_NAME_MAX - 4)} (${i++})`; used.add(x); return x; };
 
+  /* 4B — the context every section builder reads */
+  const readable = (e: string) => env.visible === 'ALL' || env.visible.has(e);
+  const excludedEntities = d.filters?.excludeCompleteEntities ? completeEntities(env, d.periodEnd, scope.entityIds.filter(readable)) : [];
+  const ents = new Set(scope.entityIds.filter((e) => readable(e) && !excludedEntities.includes(e)));
+  if (excludedEntities.length) warnings.push(`Left out as complete (every reconciliation tied and approved, nothing blocking or pending): ${excludedEntities.join(', ')}.`);
+  else if (d.filters?.excludeCompleteEntities) warnings.push('No entity is complete yet — every entity still has open close work, so none was left out.');
+  const glRows = [...glPops.values()].flatMap((p) => p.rows);
+  const sc: SectionCtx = {
+    env, d, scope, period: d.periodEnd, prior: env.gl.priorPeriod(d.periodEnd), vis: scope.kind === 'GROUP' ? env.visible : new Set(scope.entityIds.filter(readable)), ents, excludedEntities,
+    ctxLine: ctx, provenance, statusLine, citations, excluded, warnings, glRows, glGroups: relatedGroups, hasGl, populations, tie,
+    focusRows: () => {
+      const f = d.focus ?? {};
+      if (f.vendor) return env.gl.lines.filter(env.gl.match({ vendor: f.vendor, periodStart: d.periodStart, periodEnd: d.periodEnd, ...(scope.kind === 'GROUP' ? {} : { entities: scope.entityIds }) }, env.visible));
+      if (f.account) return env.gl.lines.filter(env.gl.match({ accounts: [f.account], periodStart: d.periodEnd, periodEnd: d.periodEnd, ...(scope.kind === 'GROUP' ? {} : { entities: scope.entityIds }) }, env.visible));
+      return [];
+    },
+  };
+  /* relatedness: a package's focus first, else its GL population, else everything in scope */
+  const focus = focusGroups(sc);
+  const grpOf = (a: string) => env.gl.account(a)?.parent ?? a;
+  const related = (accts: string[]) => !focus || accts.some((a) => focus.has(grpOf(a)) || focus.has(a) || env.gl.expandAccounts([a]).some((x) => focus.has(grpOf(x))));
+
   for (const s of d.sheets) {
     if (s.kind === 'GL') {
       const p = glPops.get(s.name)!;
       const cols: ColumnSpec[] = s.columns.map((k) => ({ key: k, header: headerOf(k, s.columns), width: GL_COLUMN(k)?.width ?? 14, format: GL_COLUMN(k)?.format ?? 'text' }));
       const title = s.name === 'Governed GL' ? `${tok} Governed GL` : s.name;
+      if (p.note) warnings.push(`${s.name}: ${p.note}`);
       /* partition at Excel's row limit: the header block and a totals row are counted against every sheet */
       const per = Math.max(1, maxRows - HEADER_OFFSET - 2);
       const parts = Math.max(1, Math.ceil(p.rows.length / per));
@@ -158,23 +189,22 @@ export function composeWorkbook(env: ComposeEnv, d: ArtifactDefinition, opts: { 
     } else if (s.kind === 'TIEOUT') {
       sheets.push(tieSheet(sheetName(s.name), tie!, d, ctx, provenance, opts.generatedAt));
     } else if (s.kind === 'RECONCILIATIONS') {
-      const scopeEnts = new Set(scope.entityIds);
-      const defs = env.controls.allRecDefs().filter((r) => (r.entity === 'GROUP' ? scope.kind === 'GROUP' && env.visible === 'ALL' : scopeEnts.has(r.entity) && (env.visible === 'ALL' || env.visible.has(r.entity))));
-      const grpOf = (a: string) => env.gl.account(a)?.parent ?? a;
-      const relatedTo = (accts: string[]) => !hasGl || accts.some((a) => relatedGroups.has(grpOf(a)) || relatedGroups.has(a) || env.gl.expandAccounts([a]).some((x) => relatedGroups.has(grpOf(x))));
-      const moduleRelated = (lineId: string | null | undefined) => !!lineId && (!hasGl || (FLUX_LINE_ACCOUNTS[lineId] ?? []).some((a) => relatedGroups.has(a)));
+      const defs = env.controls.allRecDefs().filter((r) => (r.entity === 'GROUP' ? scope.kind === 'GROUP' && env.visible === 'ALL' : ents.has(r.entity)));
+      const all = s.params?.related === 'all';
+      const moduleRelated = (lineId: string | null | undefined) => !!lineId && (all || !focus || (FLUX_LINE_ACCOUNTS[lineId] ?? []).some((a) => focus.has(a)));
       const rows: Row[] = [];
       for (const def of defs) {
-        const isRelated = def.method === 'MODULE' ? moduleRelated(def.financialLineId) : relatedTo(def.accounts);
+        const isRelated = def.method === 'MODULE' ? moduleRelated(def.financialLineId) : all || related(def.accounts);
         if (!isRelated) continue;
         const b = env.controls.reconBalance(def, d.periodEnd);
+        if (s.params?.related === 'notTied' && b.available && b.tieStatus === 'TIED') continue;
         if (!b.available) { excluded.push({ label: `${def.name} (${def.id})`, reason: b.reason }); continue; }
         citations.push({ type: 'RECONCILIATION_BALANCE', id: b.id, version: b.version, label: def.name });
-        rows.push({ cells: [def.name, def.id, def.accounts.map((a) => `${a} ${env.gl.account(a)?.name ?? ''}`.trim()).join(', '), def.entity === 'GROUP' ? 'Corporate Consolidated' : def.entity, b.method, b.glBalanceUsd, b.supportingBalanceUsd, b.supportingLabel, b.differenceUsd, b.tieStatus.replace(/_/g, ' '), b.workflowStatus.replace(/_/g, ' '), b.preparer, b.reviewer, `${b.id} v${b.version}`] });
+        rows.push({ cells: [def.name, def.id, def.accounts.map((a) => `${a} ${env.gl.account(a)?.name ?? ''}`.trim()).join(', '), def.entity === 'GROUP' ? 'Corporate Consolidated' : def.entity, b.method, b.glBalanceUsd, b.supportingBalanceUsd, b.supportingLabel, b.differenceUsd, b.tieStatus.replace(/_/g, ' '), b.workflowStatus.replace(/_/g, ' '), b.preparer, b.reviewer, `${b.id} v${b.version}`, `recon:${def.id}:${d.periodEnd}`] });
       }
       const cols: ColumnSpec[] = [{ key: 'name', header: 'Reconciliation', width: 34, format: 'text' }, { key: 'id', header: 'Reconciliation ID', width: 20, format: 'text' }, { key: 'accounts', header: 'Account / Group', width: 30, format: 'text' }, { key: 'scope', header: 'Scope', width: 14, format: 'text' }, { key: 'method', header: 'Method', width: 12, format: 'text' },
         { key: 'gl', header: 'GL Balance', width: 17, format: 'money' }, { key: 'sup', header: 'Supporting Balance', width: 17, format: 'money' }, { key: 'supSrc', header: 'Supporting Source', width: 40, format: 'text' }, { key: 'diff', header: 'Difference', width: 15, format: 'money' },
-        { key: 'tie', header: 'Tie Status', width: 16, format: 'text' }, { key: 'status', header: 'Review Status', width: 15, format: 'text' }, { key: 'prep', header: 'Preparer', width: 12, format: 'text' }, { key: 'rev', header: 'Reviewer', width: 12, format: 'text' }, { key: 'rec', header: 'Balance Record', width: 26, format: 'text' }];
+        { key: 'tie', header: 'Tie Status', width: 16, format: 'text' }, { key: 'status', header: 'Review Status', width: 15, format: 'text' }, { key: 'prep', header: 'Preparer', width: 12, format: 'text' }, { key: 'rev', header: 'Reviewer', width: 12, format: 'text' }, { key: 'rec', header: 'Balance Record', width: 26, format: 'text' }, { key: 'trace', header: 'Trace', width: 30, format: 'text' }];
       const blocks: Block[] = [{ columns: cols, rowCount: rows.length, tabular: true, chunks: () => [rows] }];
       const ex = excluded.filter((x) => defs.some((r) => x.label.endsWith(`(${r.id})`)));
       if (ex.length) blocks.push({ heading: 'Not included — balance is not server-authoritative', columns: [{ key: 'r', header: 'Reconciliation', width: 34, format: 'text' }, { key: 'w', header: 'Reason', width: 90, format: 'text' }], rowCount: ex.length, tabular: false, chunks: () => [ex.map((x) => ({ style: 'note' as const, cells: [x.label, x.reason] }))] });
@@ -182,15 +212,15 @@ export function composeWorkbook(env: ComposeEnv, d: ArtifactDefinition, opts: { 
         title: [`Reconciliations · ${monLabel(d.periodEnd)}`, ctx, provenance(`${rows.length} reconciliations cited by balance record (id + version)${hasGl ? ' · related to the GL population' : ''}`)], blocks });
     } else if (s.kind === 'FLUX') {
       const vis = scope.kind === 'GROUP' ? env.visible : new Set(scope.entityIds);
-      const items = env.controls.fluxItems(d.periodEnd, vis).filter((i) => !hasGl || relatedGroups.has(i.account));
+      const items = env.controls.fluxItems(d.periodEnd, vis).filter((i) => s.params?.related === 'all' || !focus || focus.has(i.account));
       const rows: Row[] = items.map((i) => {
         if (i.explanation) citations.push({ type: 'FLUX_EXPLANATION', id: i.explanation.id, version: i.explanation.version, label: i.name });
         const pctv = Math.abs(i.priorUsd) < 0.5 ? null : (i.currentUsd - i.priorUsd) / Math.abs(i.priorUsd);
-        return { cells: [i.name, d2(i.currentUsd), d2(i.priorUsd), d2(i.changeUsd), pctv, i.material ? 'Material' : 'Below threshold', i.status.replace(/_/g, ' '), i.explanation?.text ?? null, i.explanation?.author ?? null, i.reviewer, i.explanation ? `${i.explanation.id} v${i.explanation.version}` : null] };
+        return { cells: [i.name, d2(i.currentUsd), d2(i.priorUsd), d2(i.changeUsd), pctv, i.material ? 'Material' : 'Below threshold', i.status.replace(/_/g, ' '), i.explanation?.text ?? null, i.explanation?.author ?? null, i.reviewer, i.explanation ? `${i.explanation.id} v${i.explanation.version}` : null, `flux:${i.account}:${d.periodEnd}`] };
       });
       const prior = env.gl.priorPeriod(d.periodEnd);
       const cols: ColumnSpec[] = [{ key: 'grp', header: 'Account / Group', width: 32, format: 'text' }, { key: 'cur', header: `Current (${monLabel(d.periodEnd)})`, width: 17, format: 'money' }, { key: 'pri', header: `Prior (${prior ? monLabel(prior) : 'n/a'})`, width: 17, format: 'money' }, { key: 'var', header: 'Variance', width: 16, format: 'money' }, { key: 'pct', header: 'Variance %', width: 11, format: 'pct' },
-        { key: 'mat', header: 'Materiality', width: 15, format: 'text' }, { key: 'st', header: 'Status', width: 14, format: 'text' }, { key: 'ex', header: 'Explanation', width: 70, format: 'text' }, { key: 'au', header: 'Author', width: 14, format: 'text' }, { key: 'rv', header: 'Reviewer', width: 12, format: 'text' }, { key: 'rec', header: 'Explanation Record', width: 26, format: 'text' }];
+        { key: 'mat', header: 'Materiality', width: 15, format: 'text' }, { key: 'st', header: 'Status', width: 14, format: 'text' }, { key: 'ex', header: 'Explanation', width: 70, format: 'text' }, { key: 'au', header: 'Author', width: 14, format: 'text' }, { key: 'rv', header: 'Reviewer', width: 12, format: 'text' }, { key: 'rec', header: 'Explanation Record', width: 26, format: 'text' }, { key: 'trace', header: 'Trace', width: 30, format: 'text' }];
       sheets.push({ name: sheetName(s.name), kind: 'FLUX', populationId: null, rowCount: rows.length, part: null, status: statusLine,
         title: [`Flux · ${monLabel(d.periodEnd)} vs ${prior ? monLabel(prior) : 'n/a'}`, ctx, provenance(`${rows.length} lines · explanations read from the governed record (id + version) at generation`)], blocks: [{ columns: cols, rowCount: rows.length, tabular: true, chunks: () => [rows] }] });
     } else if (s.kind === 'SUMMARY') {
@@ -202,6 +232,12 @@ export function composeWorkbook(env: ComposeEnv, d: ArtifactDefinition, opts: { 
         kv('Governed data version', env.gl.dataVersion()), kv('Mapping version', MAPPING_VERSION)];
       sheets.push({ name: sheetName(s.name), kind: 'SUMMARY', populationId: null, rowCount: rows.length, part: null, status: statusLine, title: [`${d.name} — Summary`, ctx, provenance('Summary')],
         blocks: [{ columns: [{ key: 'k', header: 'Item', width: 34, format: 'text' }, { key: 'v', header: 'Value', width: 44, format: 'money' }], rowCount: rows.length, tabular: false, chunks: () => [rows] }] });
+    } else {
+      /* 4B — every other section is a builder in the section library */
+      const b = SECTIONS[s.kind];
+      if (!b) { warnings.push(`${s.name}: no section builder for ${s.kind}.`); continue; }
+      const m = b({ ...s, name: sheetName(s.name) } as PlainSheetDef, sc);
+      sheets.push(m);
     }
   }
   if (tie && !hasTie && d.sheets.some((s) => s.kind === 'TB')) warnings.push('The workbook has no Tie-Out sheet, so it is not labelled audit-ready.');

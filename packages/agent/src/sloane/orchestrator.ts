@@ -36,6 +36,7 @@ import { AuthorizationService } from './auth.js';
 import { replaySourceFeed } from './sourcefeed.js';
 import { ArtifactEngine } from './artifacts/engine.js';
 import type { ArtifactDefinition } from './artifacts/model.js';
+import { detectType } from './artifacts/sections.js';
 
 /* ================================================================================================
    LIMITS
@@ -513,20 +514,32 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
    ARTIFACT ROUTING (4A) — a request for a deliverable, or a change to the workbook in the conversation, goes to the
    Artifact tools. Deterministic, so the same words always build or change the same definition.
    ================================================================================================ */
-export const ARTIFACT_TOOLS = new Set(['buildExcelArtifact', 'modifyExcelArtifact', 'previewExcelArtifact', 'proposeGenerateExcelArtifact', 'proposeRefreshExcelArtifact']);
+export const ARTIFACT_TOOLS = new Set(['buildExcelArtifact', 'modifyExcelArtifact', 'previewExcelArtifact', 'proposeGenerateExcelArtifact', 'proposeRefreshExcelArtifact', 'deriveExcelArtifact', 'proposeSaveExcelArtifact', 'proposeArchiveExcelArtifact']);
+/** artifact routes the engine decides even over a model plan that chose another artifact tool */
+const ARTIFACT_FORCED = new Set(['deriveExcelArtifact', 'proposeSaveExcelArtifact', 'proposeArchiveExcelArtifact']);
 export function artifactPlan(text: string, ctx: SessionContext): PlanStep[] | null {
   const t = text.toLowerCase();
   const S = (tool: string, purpose: string, args: Record<string, string | undefined> = {}): PlanStep => ({ tool, purpose, dependsOn: [], args: Object.entries(args).filter(([, v]) => v !== undefined).map(([name, value]) => ({ name, value: value! })) });
   const has = !!(ctx.lastRefs['artifactId'] || (ctx.lastRefs['excelDraftId'] && ctx.lastRefs['excelDraftId'] !== 'DRAFT'));
-  const build = /\bgoverned gl\b|\bgl package\b|\baudit gl\b|\b(excel|xlsx|workbook|spreadsheet)\b/.test(t) || (/\b(give me|build|create|pull|get me|prepare)\b/.test(t) && /\b(gl|general ledger|transactions|ledger)\b/.test(t) && /\bfy\s?'?\d{2}|\btabs?\b|\bsheets?\b|\bexcel\b|\bworkbook\b|\bpackage\b/.test(t));
-  const fresh = build && /\b(give me|build|create|pull|get me|prepare|new)\b/.test(t) && !/\b(it|this|the workbook)\b.*\b(add|remove|put)\b/.test(t);
+  const verb = /\b(give me|build|create|pull|get me|prepare|compile|assemble|make|generate|put together)\b/.test(t);
+  /* 4B: a named package type is a deliverable request when it is asked for, not when it is merely mentioned */
+  const pkg = detectType(t);
+  const build = /\bgoverned gl\b|\bgl package\b|\baudit gl\b|\b(excel|xlsx|workbook|spreadsheet)\b/.test(t) || (verb && /\b(gl|general ledger|transactions|ledger)\b/.test(t) && /\bfy\s?'?\d{2}|\btabs?\b|\bsheets?\b|\bexcel\b|\bworkbook\b|\bpackage\b/.test(t))
+    || (!!pkg && (verb || /\bpackage\b/.test(t)));
+  /* 4B: reuse — "create July using the June package", "duplicate this for MER-DE", "do the same for Vertiv" */
+  const derive = /\b(using|based on|from|like)\b.{0,30}\b(package|workbook)\b|\bduplicate\b|\bsame (package|thing|workbook) for\b|\bdo the same for\b|\breuse\b/.test(t) && !/\bfrom (the )?(gl|ledger)\b/.test(t);
+  if (derive && (has || /\b(package|workbook)\b/.test(t))) return [S('deriveExcelArtifact', 'A new package from an existing one')];
+  const fresh = build && /\b(give me|build|create|pull|get me|prepare|compile|assemble|new)\b/.test(t) && !/\b(it|this|the workbook|the package)\b.*\b(add|remove|put)\b/.test(t);
   if (has && !fresh) {
     if (/\b(download|generate|export)\b|\bgive me the (file|excel|xlsx|csv)\b|\bin (excel|csv)\b.*\bnow\b/.test(t)) return [S('proposeGenerateExcelArtifact', 'Generate the file', { format: /\bcsv\b/.test(t) ? 'csv' : undefined })];
     if (/\brefresh\b/.test(t)) return [S('proposeRefreshExcelArtifact', 'Refresh the workbook')];
-    /* the workbook is already kept (every change is a version); "save it" shows where it stands */
-    if (/\bsave (it|the workbook|the excel|this)\b/.test(t)) return [S('previewExcelArtifact', 'The workbook as saved')];
-    if (/\bwhat it (will )?look|\bpreview\b|\bshow me (the )?(workbook|it|what)\b|\blook like\b/.test(t)) return [S('previewExcelArtifact', 'Preview the workbook')];
-    if (/\b(add|remove|drop|put|move|sort|only|include|tie|ties|tied|tab|tabs|rename|call it|delete|hide|largest|smallest|over \$)\b/.test(t)) return [S('modifyExcelArtifact', 'Refine the workbook', { instruction: text })];
+    /* every change is already a kept version; "save it" marks the package SAVED (a confirmed lifecycle action) */
+    if (/\bsave (it|the workbook|the excel|this|the package|the draft|as (a )?draft)\b|\bsave draft\b|\brestore (it|the package|from archive)\b/.test(t)) return [S('proposeSaveExcelArtifact', 'Save the package')];
+    if (/\barchive (it|the workbook|the package|this)\b/.test(t)) return [S('proposeArchiveExcelArtifact', 'Archive the package')];
+    const sec = t.match(/\bshow (?:me )?(?:the )?(.+?) (?:tab|sheet|section)\b/);
+    if (sec && !/\b(add|remove|put)\b/.test(t)) return [S('previewExcelArtifact', 'Preview one section', { section: sec[1] })];
+    if (/\bwhat it (will )?look|\bpreview\b|\bshow me (the )?(workbook|it|what|package)\b|\blook like\b/.test(t)) return [S('previewExcelArtifact', 'Preview the workbook')];
+    if (/\b(add|remove|drop|put|move|sort|only|include|exclude|tie|ties|tied|tab|tabs|rename|call it|delete|hide|largest|smallest|over \$|change|switch|leave out|first|last)\b/.test(t)) return [S('modifyExcelArtifact', 'Refine the workbook', { instruction: text })];
   }
   if (build) return [S('buildExcelArtifact', 'Build the workbook')];
   return null;
@@ -853,6 +866,9 @@ export class SloaneOrchestrator {
       /* ---- 3. clarification decision ---- */
       const dec = this.clarifier.decide(I, R, ctx, loops);
       if (dec.capped) tr.limitsReached.push('maxClarificationLoops');
+      /* a deliverable is a DEFINITION the user sees and refines: its scope and period are stated on the preview (default
+         Corporate Consolidated), so building one never stops to ask — "only MDH" refines it */
+      if (dec.needed.length && artifactPlan(request, ctx)) { tr.fallbacks.push(`clarification: ${dec.needed.join(', ')} not asked — a deliverable states its defaults on the preview`); dec.needed = []; }
       if (dec.needed.length) {
         const field = dec.needed[0]!;
         const q = this.clarifier.question(field, R, actor);
@@ -884,7 +900,7 @@ export class SloaneOrchestrator {
       /* 4A: a deliverable request, or a change to the workbook in the conversation, is acted on by the Artifact tools even
          when the model planned a read (e.g. a TB tie-out read for "make sure it ties back to ERP") */
       const art = artifactPlan(raw, ctx);
-      if (art && !pv.steps.some((s) => ARTIFACT_TOOLS.has(s.tool))) {
+      if (art && (!pv.steps.some((s) => ARTIFACT_TOOLS.has(s.tool)) || (ARTIFACT_FORCED.has(art[0]!.tool) && !pv.steps.some((s) => s.tool === art[0]!.tool)))) {
         const av = this.planner.validate(art, toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok), actor, ctx);
         if (av.steps.length) { if (steps.length) tr.fallbacks.push('plan: artifact routing — the model plan did not act on the workbook'); steps = art; pv = { ...av, rejected: [...pv.rejected, ...av.rejected] }; tr.plan.source = 'deterministic'; }
       }

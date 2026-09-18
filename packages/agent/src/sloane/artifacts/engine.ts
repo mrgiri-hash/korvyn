@@ -17,8 +17,6 @@
  * Status: DRAFT · VALIDATING · READY · GENERATING · GENERATED · FAILED · STALE (STALE is detected, not stored).
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { AuthorizationService, type Capability } from '../auth.js';
 import type { ControlService } from '../controls.js';
 import { BASIS, type FinancialDataService } from '../financials.js';
@@ -27,8 +25,11 @@ import { type Stamped, patchRecordData, setRecordStatus } from '../persistence/r
 import { WORK } from '../store.js';
 import type { Actor } from '../tools.js';
 import { type ComposeEnv, type WorkbookModel, composeWorkbook, statusOf } from './compose.js';
-import { type ArtifactDefinition, type ArtifactPins, type ArtifactStatus, DEFAULT_GL_COLUMNS, EXCEL_MAX_ROWS, type GLSheetDef, SHEET_NAMES, type SheetDef, type SheetKind, monLabel, periodToken } from './model.js';
-import { type StructuredChange, refineDefinition } from './refine.js';
+import { ARTIFACT_TYPE_LABEL, type ArtifactDefinition, type ArtifactPins, type ArtifactStatus, type ArtifactType, DEFAULT_GL_COLUMNS, EXCEL_MAX_ROWS, type GLRule, type GLSheetDef, SHEET_NAMES, type SheetDef, type SheetKind, monLabel, periodToken, rangeLabel } from './model.js';
+import { TEMPLATES, nameFor, sectionName } from './sections.js';
+import { type ArtifactStorage, LocalArtifactStorage, defaultArtifactRoot } from './storage.js';
+import { SOURCE_HEALTH } from '../governed.js';
+import { type StructuredChange, refineDefinition, sheetsIn } from './refine.js';
 import { CsvRenderer, type ExcelRenderer, ExcelJsStreamingRenderer } from './renderer.js';
 import { MAPPING_VERSION, TieOutService } from './tieout.js';
 
@@ -52,7 +53,13 @@ export interface GenerationBody {
   channel: Channel; requestedBy: string; requestedByName: string; jobId: string; error: string | null;
   metrics: { definitionMs: number; validationMs: number; generationMs: number | null; rows: number; rowsPerSecond: number | null; peakHeapMb: number | null; sheets: string[] };
 }
-export interface Job { id: string; generationId: string; artifactId: string; status: 'QUEUED' | 'GENERATING' | 'GENERATED' | 'FAILED'; rows: number; totalRows: number; sheet: string; startedAt: string; finishedAt: string | null; error: string | null; done: Promise<void> }
+/** QUEUED → VALIDATING → GENERATING → COMPLETED | FAILED | CANCELLED */
+export type JobStatus = 'QUEUED' | 'VALIDATING' | 'GENERATING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export interface Job { id: string; generationId: string; artifactId: string; status: JobStatus; rows: number; totalRows: number; sheet: string; startedAt: string; finishedAt: string | null; error: string | null; cancelRequested: boolean; cancelledBy: string | null; done: Promise<void> }
+class Cancelled extends Error { constructor() { super('Cancelled'); } }
+/** one validation check a package is judged by before it is generated */
+export interface ValidationCheck { check: string; status: 'PASS' | 'WARN' | 'FAIL'; detail: string }
+export interface Validation { status: 'VALID' | 'VALID_WITH_WARNINGS' | 'BLOCKED'; checks: ValidationCheck[]; auditReady: boolean }
 export type EngineError = { ok: false; code: 'PERMISSION_DENIED' | 'NOT_FOUND' | 'VALIDATION_ERROR' | 'STALE' | 'STALE_VERSION' | 'TIE_OUT_WARNING' | 'CONFLICT'; reason: string; detail?: Record<string, unknown> };
 
 const sha = (x: unknown) => createHash('sha1').update(JSON.stringify(x)).digest('hex').slice(0, 16).toUpperCase();
@@ -64,14 +71,16 @@ export class ArtifactEngine {
   private readonly jobs = new Map<string, Job>();
   readonly excel: ExcelRenderer = new ExcelJsStreamingRenderer();
   readonly csv = new CsvRenderer();
-  /** where generated files live: KORVYN_ARTIFACT_DIR, else packages/agent/data/artifacts (the OS temp dir under tests) */
-  readonly storage: string;
+  /** where generated files live — behind the storage interface; no domain logic builds a path */
+  store: ArtifactStorage = new LocalArtifactStorage(defaultArtifactRoot());
+  /** the local root (tests point it at a temp directory) */
+  get storage() { return (this.store as LocalArtifactStorage).root; }
+  set storage(root: string) { this.store = new LocalArtifactStorage(root); }
   /** Excel's row limit, overridable so partitioning can be proven without writing a million rows */
   maxRowsPerSheet = Number(process.env['KORVYN_XLSX_MAX_ROWS'] ?? EXCEL_MAX_ROWS);
 
   constructor(readonly data: FinancialDataService, readonly gl: GovernedLedger, readonly controls: ControlService) {
     this.tie = new TieOutService(data, gl);
-    this.storage = process.env['KORVYN_ARTIFACT_DIR'] ?? (process.env['NODE_TEST_CONTEXT'] ? join(tmpdir(), 'korvyn-artifacts') : new URL('../../../data/artifacts', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
     this.recoverInterrupted();
   }
 
@@ -89,6 +98,10 @@ export class ArtifactEngine {
     need(capability, capability === 'ARTIFACT_CREATE' ? 'Creating or generating a workbook' : 'Reading this workbook');
     const need2 = (k: SheetKind, c: Capability) => { if (d.sheets.some((s) => s.kind === k)) need(c, `The ${SHEET_NAMES[k]} tab`); };
     need2('GL', 'GL_VIEW'); need2('TB', 'TB_VIEW'); need2('TIEOUT', 'TB_VIEW'); need2('RECONCILIATIONS', 'RECON_VIEW'); need2('FLUX', 'FLUX_VIEW');
+    for (const k of ['RECS_NOT_TIED', 'RECONCILIATION', 'RECONCILING_ITEMS', 'SUPPORT_INDEX', 'RECON_PROOF'] as SheetKind[]) need2(k, 'RECON_VIEW');
+    for (const k of ['UNEXPLAINED_FLUX', 'EXPLANATION', 'MATERIAL_MOVEMENTS'] as SheetKind[]) need2(k, 'FLUX_VIEW');
+    for (const k of ['INCOME_STATEMENT', 'BALANCE_SHEET', 'VARIANCE'] as SheetKind[]) need2(k, 'TB_VIEW');
+    if (d.focus?.reconciliationId) { const r = this.controls.recDef(d.focus.reconciliationId); const ea = entityAccessOf(actor); if (!r) errors.push(`${d.focus.reconciliationId} is not a governed reconciliation.`); else if (ea !== 'ALL' && (r.entity === 'GROUP' || !ea.includes(r.entity))) errors.push(`${r.name} is outside your entity access.`); }
     const scope = this.data.scope(d.scopeId);
     if (!scope) errors.push(`${d.scopeId} is not a governed scope.`);
     else {
@@ -100,7 +113,8 @@ export class ArtifactEngine {
 
   /* ---- definitions ---------------------------------------------------------------------------------- */
   /** a new definition from what was asked: template, window, scope, filters and the tabs the request names */
-  newDefinition(o: { template?: 'AUDIT_GL_PACKAGE' | 'GL_EXTRACT'; periodStart?: string; periodEnd?: string; scopeId?: string; vendor?: string | null; project?: string | null; accounts?: string[]; minAbsUsd?: number | null; sheets?: SheetKind[]; name?: string | null }): ArtifactDefinition {
+  newDefinition(o: { template?: 'AUDIT_GL_PACKAGE' | 'GL_EXTRACT'; type?: ArtifactType | null; focus?: ArtifactDefinition['focus']; periodStart?: string; periodEnd?: string; scopeId?: string; vendor?: string | null; project?: string | null; accounts?: string[]; minAbsUsd?: number | null; sheets?: SheetKind[]; name?: string | null; excludeCompleteEntities?: boolean }): ArtifactDefinition {
+    if (o.type && o.type !== 'GL_EXTRACT' && !(o.type === 'AUDIT_SUPPORT_PACKAGE' && o.template)) return this.newPackage(o as Parameters<ArtifactEngine['newPackage']>[0]);
     const ps = this.gl.periods();
     const start = o.periodStart && ps.includes(o.periodStart) ? o.periodStart : `${ps.at(-1)!.slice(0, 4)}-01`;
     const end = o.periodEnd && ps.includes(o.periodEnd) ? o.periodEnd : ps.at(-1)!;
@@ -115,16 +129,44 @@ export class ArtifactEngine {
     const tok = periodToken(start, end);
     const notes: string[] = [];
     if (end !== `${end.slice(0, 4)}-12` && tok.startsWith('FY')) notes.push(`${tok} runs ${monLabel(start)} – ${monLabel(end)}: ${monLabel(end)} is the latest month closed into the governed ledger; the rest of the year is not yet governed.`);
-    const d: ArtifactDefinition = { name: o.name ?? '', template, periodStart: start, periodEnd: end, scopeId: o.scopeId ?? 'GROUP', currency: 'USD', basis: BASIS, sheets, notes, nameSource: o.name ? 'USER' : 'AUTO' };
-    if (!o.name) d.name = autoName(d);
+    const d: ArtifactDefinition = { name: o.name ?? '', type: template === 'AUDIT_GL_PACKAGE' ? 'AUDIT_SUPPORT_PACKAGE' : 'GL_EXTRACT', template, periodStart: start, periodEnd: end, scopeId: o.scopeId ?? 'GROUP', currency: 'USD', basis: BASIS, sheets, notes, nameSource: o.name ? 'USER' : 'AUTO' };
+    if (!o.name) d.name = this.nameOf(d);
     return d;
   }
+
+  /** a PACKAGE: the type's template of sections, each built by the section library; the user can change any of it */
+  newPackage(o: { type: ArtifactType; focus?: ArtifactDefinition['focus']; periodStart?: string; periodEnd?: string; scopeId?: string; vendor?: string | null; accounts?: string[]; minAbsUsd?: number | null; sheets?: SheetKind[]; name?: string | null; excludeCompleteEntities?: boolean }): ArtifactDefinition {
+    const ps = this.gl.periods(), T = TEMPLATES[o.type];
+    const end = o.periodEnd && ps.includes(o.periodEnd) ? o.periodEnd : ps.at(-1)!;
+    const start = T.window === 'MONTH' ? end : o.periodStart && ps.includes(o.periodStart) && o.periodStart <= end ? o.periodStart : `${end.slice(0, 4)}-01`;
+    const focus = { ...(o.focus ?? {}), ...(o.vendor ? { vendor: o.vendor } : {}) };
+    const kinds = [...T.sections, ...(o.sheets ?? []).filter((k) => !T.sections.includes(k))];
+    if (o.type === 'EXCEL_WORKBOOK' && !kinds.length) kinds.push('GL');
+    const sheets: SheetDef[] = kinds.map((k) => this.section(o.type, k, { focus, minAbsUsd: o.minAbsUsd ?? null, accounts: o.accounts }));
+    const tok = periodToken(start, end), notes: string[] = [];
+    if (end !== `${end.slice(0, 4)}-12` && tok.startsWith('FY')) notes.push(`${tok} runs ${monLabel(start)} – ${monLabel(end)}: ${monLabel(end)} is the latest month closed into the governed ledger; the rest of the year is not yet governed.`);
+    if (o.type === 'PBC_PACKAGE') notes.push('PBC is a scaffold in this phase: requests are listed as recorded; an auditor’s request file is not interpreted and responses are not assembled.');
+    const d: ArtifactDefinition = { name: o.name ?? '', type: o.type, template: o.type === 'AUDIT_SUPPORT_PACKAGE' ? 'AUDIT_GL_PACKAGE' : 'GL_EXTRACT', periodStart: start, periodEnd: end, scopeId: o.scopeId ?? 'GROUP', currency: 'USD', basis: BASIS, sheets, notes, nameSource: o.name ? 'USER' : 'AUTO',
+      ...(Object.keys(focus).length ? { focus } : {}), ...(o.excludeCompleteEntities ? { filters: { excludeCompleteEntities: true } } : {}) };
+    if (!o.name) d.name = this.nameOf(d);
+    return d;
+  }
+  /** one section of a package, named for the package it is in; a GL section presents the lines behind what the package reports */
+  section(type: ArtifactType | undefined, k: SheetKind, o: { focus?: ArtifactDefinition['focus']; minAbsUsd?: number | null; accounts?: string[]; rule?: GLRule; name?: string }): SheetDef {
+    const name = o.name ?? sectionName(type, k), f = o.focus ?? {};
+    if (k === 'TB') return { kind: 'TB', name, byEntity: false };
+    if (k !== 'GL') return { kind: k, name } as SheetDef;
+    const rule: GLRule | undefined = o.rule ?? (f.reconciliationId && (type === 'RECONCILIATION_PACKAGE') ? { kind: 'RECONCILIATION', reconciliationId: f.reconciliationId } : f.account && type === 'FLUX_PACKAGE' ? { kind: 'ACCOUNT_MONTH', account: f.account } : undefined);
+    return { kind: 'GL', name, filter: { ...(f.vendor ? { vendor: f.vendor } : {}), ...(o.accounts?.length ? { accounts: o.accounts } : {}), ...(o.minAbsUsd ? { minAbsUsd: o.minAbsUsd } : {}) }, columns: [...DEFAULT_GL_COLUMNS], sort: f.vendor || o.minAbsUsd || rule ? 'amount_desc' : 'date_asc', ...(rule ? { rule } : {}) };
+  }
+  /** the name a definition gets when the person has not named it — by type, focus, period and threshold */
+  nameOf(d: ArtifactDefinition) { return nameFor(d, { recName: (id) => this.controls.recDef(id)?.name ?? null, acctName: (code) => this.gl.account(code)?.name ?? null }); }
   refine(d: ArtifactDefinition, instruction: string, structured?: StructuredChange) {
     const next = structuredClone(d) as ArtifactDefinition; next.notes = [];
-    const r = refineDefinition(next, instruction, structured);
+    const r = refineDefinition(next, instruction, structured, { periods: this.gl.periods(), scopes: this.data.scopes().map((x) => ({ id: x.id, name: x.name })) });
     if (r.changes.some((c) => c.startsWith('Renamed'))) next.nameSource = 'USER';
     /* a name Korvyn derived follows the definition (a new threshold, a new template); a name the person chose stays */
-    else if (next.nameSource !== 'USER') { const n = autoName(next); if (n !== next.name) { r.changes.push(`Renamed to “${n}”`); next.name = n; } }
+    else if (next.nameSource !== 'USER') { const n = this.nameOf(next); if (n !== next.name) { r.changes.push(`Renamed to “${n}”`); next.name = n; } }
     return { definition: next, ...r };
   }
 
@@ -148,7 +190,9 @@ export class ArtifactEngine {
     const body: ArtifactBody = { name: d.name, definition: d, pins, history: [], createdVia: meta.via, investigationId: meta.investigationId ?? null, sessionId: meta.sessionId ?? null, traceIds: meta.traceId ? [meta.traceId] : [], owner: actor.id, ownerName: actor.name, sharedWith: [], lastError: null, lastChange: 'Created' };
     const rec = WORK.repos.database.tx(() => {
       const r = WORK.repos.records.insert<ArtifactBody>(KIND, body, actor.id, { prefix: 'ARTIFACT', status: 'DRAFT', period: d.periodEnd, scope: d.scopeId, investigationId: meta.investigationId ?? null });
-      this.audit(actor, meta.via, 'ARTIFACT_CREATED', r, null, { version: 1, name: d.name, sheets: d.sheets.map((s) => s.name), populations: pins.populations.map((p) => p.populationId) }, meta);
+      this.audit(actor, meta.via, 'ARTIFACT_CREATED', r, null, { version: 1, name: d.name, type: d.type ?? 'GL_EXTRACT', sheets: d.sheets.map((s) => s.name), populations: pins.populations.map((p) => p.populationId) }, meta);
+      /* a reuse is a NEW artifact that names its source; the source is never touched */
+      if (d.derivedFrom) this.audit(actor, meta.via, 'ARTIFACT_DERIVED', r, null, { version: 1, from: { id: d.derivedFrom.artifactId, version: d.derivedFrom.version, name: d.derivedFrom.name } }, meta);
       return r;
     });
     return { ok: true, artifact: rec, model: m };
@@ -183,27 +227,143 @@ export class ArtifactEngine {
   view(actor: Actor, id: string) {
     const a = this.get(id);
     if (!a || !this.canSee(actor, a)) return null;
-    const live = this.pins(this.compose(actor, a.definition, a.version, a.id));
+    const m = this.compose(actor, a.definition, a.version, a.id);
+    const live = this.pins(m);
     const stale = live.fingerprint !== a.pins.fingerprint;
-    const status: ArtifactStatus = a.status === 'GENERATING' || a.status === 'VALIDATING' ? a.status as ArtifactStatus : stale ? 'STALE' : (a.status as ArtifactStatus) ?? 'DRAFT';
+    const validation = this.validate(actor, a.definition, m, a.pins);
+    const status: ArtifactStatus = a.status === 'GENERATING' || a.status === 'VALIDATING' || a.status === 'ARCHIVED' ? a.status as ArtifactStatus : stale ? 'STALE' : (a.status as ArtifactStatus) ?? 'DRAFT';
     return { id: a.id, name: a.name, version: a.version, status, stale, staleReasons: stale ? diffPins(a.pins, live) : [], definition: a.definition, pins: a.pins, livePins: live,
       createdVia: a.createdVia, investigationId: a.investigationId, owner: a.ownerName, createdAt: a.createdAt, updatedAt: a.updatedAt, lastChange: a.lastChange, lastError: a.lastError,
       versions: [...a.history.map((h) => ({ version: h.version, at: h.at, change: h.change, sheets: h.definition.sheets.map((s) => s.name), fingerprint: h.pins.fingerprint })), { version: a.version, at: a.updatedAt, change: a.lastChange, sheets: a.definition.sheets.map((s) => s.name), fingerprint: a.pins.fingerprint }],
-      generations: this.generations(a.id) };
+      generations: this.generations(a.id), derivedFrom: a.definition.derivedFrom ?? null, type: a.definition.type ?? 'GL_EXTRACT', validation, contract: this.contract(a, m, validation, status) };
   }
-  list(actor: Actor) { return WORK.repos.records.list<ArtifactBody>(KIND).filter((a) => this.canSee(actor, a)).map((a) => ({ id: a.id, name: a.name, version: a.version, status: a.status, updatedAt: a.updatedAt, sheets: a.definition.sheets.map((s) => s.name), createdVia: a.createdVia })).reverse(); }
+  list(actor: Actor) { return WORK.repos.records.list<ArtifactBody>(KIND).filter((a) => this.canSee(actor, a)).map((a) => ({ id: a.id, name: a.name, version: a.version, status: a.status, updatedAt: a.updatedAt, sheets: a.definition.sheets.map((s) => s.name), createdVia: a.createdVia, type: a.definition.type ?? 'GL_EXTRACT', period: a.definition.periodEnd, derivedFrom: a.definition.derivedFrom?.artifactId ?? null })).reverse(); }
   generations(artifactId: string) {
-    return WORK.repos.records.list<GenerationBody>(GEN, { target: artifactId }).map((g) => ({ id: g.id, status: g.status, artifactVersion: g.artifactVersion, format: g.format, fileName: g.fileName, bytes: g.bytes, sha256: g.sha256, tieOut: g.tieOut, auditReady: g.auditReady, acknowledged: g.acknowledged, warnings: g.warnings, error: g.error, requestedBy: g.requestedByName, channel: g.channel, createdAt: g.createdAt, updatedAt: g.updatedAt, metrics: g.metrics, jobId: g.jobId, downloadUrl: g.status === 'GENERATED' ? `/api/work/artifacts/${encodeURIComponent(artifactId)}/generations/${encodeURIComponent(g.id)}/download` : null })).reverse();
+    return WORK.repos.records.list<GenerationBody>(GEN, { target: artifactId }).map((g) => ({ id: g.id, status: g.status, artifactVersion: g.artifactVersion, format: g.format, fileName: g.fileName, bytes: g.bytes, sha256: g.sha256, tieOut: g.tieOut, auditReady: g.auditReady, acknowledged: g.acknowledged, warnings: g.warnings, error: g.error, requestedBy: g.requestedByName, channel: g.channel, createdAt: g.createdAt, updatedAt: g.updatedAt, metrics: g.metrics, jobId: g.jobId, downloadUrl: g.status === 'COMPLETED' ? `/api/work/artifacts/${encodeURIComponent(artifactId)}/generations/${encodeURIComponent(g.id)}/download` : null })).reverse();
+  }
+
+  /* ---- VALIDATION: what a package is judged by before it is generated --------------------------------- */
+  /** every check a governed deliverable must pass, from the model it would be rendered from. FAIL blocks generation;
+   *  WARN is stated in the preview and on the file; nothing is ever called audit-ready that the tie-out does not support */
+  validate(actor: Actor, d: ArtifactDefinition, m: WorkbookModel, pinned?: ArtifactPins | null): Validation {
+    const checks: ValidationCheck[] = [];
+    const add = (check: string, status: ValidationCheck['status'], detail: string) => checks.push({ check, status, detail });
+    const denied = this.authorize(actor, d);
+    add('Permissions', denied.length ? 'FAIL' : 'PASS', denied.length ? denied.join(' ') : `${actor.name} may read every section at this scope.`);
+    const ps = this.gl.periods();
+    add('Period', ps.includes(d.periodEnd) && ps.includes(d.periodStart) && d.periodStart <= d.periodEnd ? 'PASS' : 'FAIL', ps.includes(d.periodEnd) ? `${monLabel(d.periodStart)} – ${monLabel(d.periodEnd)} is in the governed ledger.` : `${d.periodEnd} is not in the governed ledger (latest closed: ${monLabel(ps.at(-1)!)}).`);
+    const scope = this.data.scope(d.scopeId);
+    add('Scope', scope ? 'PASS' : 'FAIL', scope ? `${d.scopeId === 'GROUP' ? 'Corporate Consolidated' : scope.name} · ${scope.entityIds.length} entit${scope.entityIds.length === 1 ? 'y' : 'ies'}` : `${d.scopeId} is not a governed scope.`);
+    for (const p of m.populations) {
+      const g = d.sheets.find((x): x is GLSheetDef => x.kind === 'GL' && x.name === p.sheet);
+      if (p.rowCount === 0) add(`Population · ${p.sheet}`, g?.rule ? 'WARN' : 'FAIL', g?.rule ? `${p.sheet} has no lines for what this package reports; the section is kept and says so.` : `${p.sheet} has no lines for this scope and window; there is nothing to generate.`);
+      else add(`Population · ${p.sheet}`, 'PASS', `${p.rowCount.toLocaleString('en-US')} lines · ${p.populationId} · hash ${p.contentHash}`);
+    }
+    if (m.tieOut && d.sheets.some((x) => x.kind === 'TIEOUT')) add('Tie-out', m.tieOut.status === 'TIED' ? 'PASS' : 'WARN', statusOf(m.tieOut).text);
+    const ents = new Set(scope?.entityIds ?? []);
+    const src = this.gl.entities().filter((e) => ents.has(e.id)).map((e) => ({ e, h: SOURCE_HEALTH[e.connector] })).filter((x) => x.h && x.h.status !== 'AVAILABLE');
+    add('Source freshness', src.length ? 'WARN' : 'PASS', src.length ? src.map((x) => `${x.e.id} · ${x.h!.system} ${x.h!.status.toLowerCase()}`).join('; ') : 'Every source system in scope is current.');
+    const miss = m.sheets.filter((x) => x.kind === 'MISSING_SUPPORT').reduce((t, x) => t + x.rowCount, 0);
+    if (d.sheets.some((x) => ['EVIDENCE_INDEX', 'EVIDENCE_COVERAGE', 'SUPPORT_INDEX', 'MISSING_SUPPORT'].includes(x.kind))) add('Evidence', miss ? 'WARN' : 'PASS', `${miss ? `${miss} missing support item(s) or evidence reference(s). ` : ''}Documents are referenced, not downloaded — no document is connected.`);
+    if (d.focus?.reconciliationId) {
+      const def = this.controls.recDef(d.focus.reconciliationId);
+      if (def) { const b = this.controls.reconBalance(def, d.periodEnd); add('Reconciliation', !b.available ? 'WARN' : b.tieStatus === 'TIED' ? 'PASS' : 'WARN', !b.available ? `${def.name}: balances are not server-authoritative — ${b.reason}` : `${def.name}: ${b.tieStatus.replace(/_/g, ' ').toLowerCase()}${b.differenceUsd ? `, difference ${b.differenceUsd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}` : ''} · ${b.id} v${b.version}`); }
+    }
+    /* one line for everything left out, not one per item */
+    if (m.excluded.length) add('Excluded', 'WARN', m.excluded.length === 1 ? `${m.excluded[0]!.label} — ${m.excluded[0]!.reason}` : `${m.excluded.length} items are not cited because their balances are not server-authoritative: ${m.excluded.map((x) => x.label).join('; ')}.`);
+    if (pinned) { const live = this.pins(m); if (live.fingerprint !== pinned.fingerprint) add('Stale', 'FAIL', `The governed data changed since this version was defined: ${diffPins(pinned, live).join('; ')}.`); else add('Stale', 'PASS', 'Every pinned population and cited object is unchanged.'); }
+    if (/audit[- ]?ready/i.test(d.name) && !m.auditReady) add('Audit-ready claim', 'WARN', 'The name says audit-ready but validation does not support it (no Tie-Out tab, or it does not tie). The file is not labelled audit-ready.');
+    const status = checks.some((c) => c.status === 'FAIL') ? 'BLOCKED' : checks.some((c) => c.status === 'WARN') ? 'VALID_WITH_WARNINGS' : 'VALID';
+    return { status, checks, auditReady: m.auditReady };
+  }
+
+  /** the COMMON ARTIFACT CONTRACT every deliverable type satisfies */
+  contract(a: Stamped<ArtifactBody>, m: WorkbookModel, v: Validation, status: string) {
+    const d = a.definition, cites = m.citations;
+    const recIds = [...new Set([...cites.filter((c) => c.type === 'RECONCILIATION_BALANCE').map((c) => c.id), ...(d.focus?.reconciliationId ? [d.focus.reconciliationId] : [])])];
+    return {
+      id: a.id, type: d.type ?? 'GL_EXTRACT', typeLabel: ARTIFACT_TYPE_LABEL[d.type ?? 'GL_EXTRACT'], title: a.name, period: { start: d.periodStart, end: d.periodEnd, label: m.rangeLabel }, scope: { id: d.scopeId, label: m.scopeLabel }, currency: d.currency, basis: d.basis,
+      sourceFinancialObjects: cites.filter((c) => c.type !== 'EVIDENCE_RELATIONSHIPS').map((c) => ({ type: c.type, id: c.id, version: c.version })),
+      sourcePopulations: m.populations.map((p) => ({ id: p.populationId, sheet: p.sheet, rows: p.rowCount, hash: p.contentHash })),
+      sourceEvidence: cites.filter((c) => c.type === 'EVIDENCE_RELATIONSHIPS').map((c) => ({ id: c.id, version: c.version })),
+      sourceReconciliations: recIds, sourceFluxItems: cites.filter((c) => c.type === 'FLUX_EXPLANATION').map((c) => c.id),
+      sections: d.sheets.map((x) => ({ kind: x.kind, name: x.name })), worksheets: m.sheets.map((x) => x.name), status, version: a.version, createdBy: a.ownerName, createdAt: a.createdAt,
+      dataVersion: m.dataVersion, mappingVersion: MAPPING_VERSION, sourceSystems: m.sourceSystems, investigationId: a.investigationId, executionTraceId: a.traceIds.at(-1) ?? null,
+      permissions: { owner: a.ownerName, sharedWith: a.sharedWith }, warnings: m.warnings, validationStatus: v.status, derivedFrom: d.derivedFrom ?? null,
+    };
+  }
+
+  /** REUSE: a NEW artifact from an existing one — the source is never overwritten */
+  derive(actor: Actor, id: string, o: { periodEnd?: string | null; scopeId?: string | null; vendor?: string | null; name?: string | null }, meta: { via: Channel; investigationId?: string | null; sessionId?: string | null; traceId?: string | null }): { ok: true; artifact: Stamped<ArtifactBody>; model: WorkbookModel; changes: string[] } | EngineError {
+    const src = this.get(id);
+    if (!src || !this.canSee(actor, src)) return { ok: false, code: 'NOT_FOUND', reason: `No artifact ${id}.` };
+    const r0 = this.deriveDefinition(src, o);
+    if (!r0.ok) return r0;
+    const r = this.create(actor, r0.definition, meta);
+    return r.ok ? { ...r, changes: r0.changes } : r;
+  }
+  /** the definition a reuse would create — the source's structure over a new period, scope or vendor */
+  deriveDefinition(src: { id: string; version: number; name: string; definition: ArtifactDefinition }, o: { periodEnd?: string | null; scopeId?: string | null; vendor?: string | null; name?: string | null }): { ok: true; definition: ArtifactDefinition; changes: string[] } | EngineError {
+    const ps = this.gl.periods(), d = structuredClone(src.definition) as ArtifactDefinition, changes: string[] = [];
+    if (o.periodEnd && o.periodEnd !== d.periodEnd) {
+      if (!ps.includes(o.periodEnd)) return { ok: false, code: 'VALIDATION_ERROR', reason: `${/^\d{4}-\d{2}$/.test(o.periodEnd) ? monLabel(o.periodEnd) : o.periodEnd} is not in the governed ledger — the latest closed period is ${monLabel(ps.at(-1)!)}. Korvyn will not build a package for a period that has not closed.` };
+      const month = d.periodStart === d.periodEnd, fy = d.periodStart === `${d.periodEnd.slice(0, 4)}-01`;
+      const wasTok = periodToken(d.periodStart, d.periodEnd), wasMon = monLabel(d.periodEnd), wasRange = rangeLabel(d.periodStart, d.periodEnd);
+      d.periodStart = month ? o.periodEnd : fy ? `${o.periodEnd.slice(0, 4)}-01` : d.periodStart <= o.periodEnd ? d.periodStart : `${o.periodEnd.slice(0, 4)}-01`;
+      d.periodEnd = o.periodEnd;
+      changes.push(`Period ${wasRange} → ${rangeLabel(d.periodStart, d.periodEnd)}`);
+      if (d.nameSource === 'USER') d.name = d.name.replace(wasTok, periodToken(d.periodStart, d.periodEnd)).replace(wasMon, monLabel(d.periodEnd));
+    }
+    if (o.scopeId && o.scopeId !== d.scopeId) {
+      const sc = this.data.scope(o.scopeId);
+      if (!sc) return { ok: false, code: 'VALIDATION_ERROR', reason: `${o.scopeId} is not a governed scope.` };
+      changes.push(`Scope ${d.scopeId} → ${o.scopeId}`); d.scopeId = o.scopeId;
+    }
+    if (o.vendor && o.vendor !== d.focus?.vendor) {
+      d.focus = { ...(d.focus ?? {}), vendor: o.vendor };
+      for (const x of d.sheets) if (x.kind === 'GL' && x.filter.vendor) x.filter.vendor = o.vendor;
+      changes.push(`Vendor → ${o.vendor}`);
+    }
+    if (!changes.length && !o.name) return { ok: false, code: 'VALIDATION_ERROR', reason: 'Name what the new package should differ by — a period, a scope or a vendor. An identical copy would be the same package twice.' };
+    d.derivedFrom = { artifactId: src.id, version: src.version, name: src.name };
+    d.notes = [];
+    if (o.name) { d.name = o.name; d.nameSource = 'USER'; } else if (d.nameSource !== 'USER') d.name = this.nameOf(d);
+    return { ok: true, definition: d, changes };
+  }
+
+  /** a prior definition restored as a NEW version — history is never rewritten */
+  restore(actor: Actor, id: string, version: number, meta: { via: Channel; expectedVersion?: number | null; traceId?: string | null }) {
+    const cur = this.get(id);
+    if (!cur || !this.canSee(actor, cur)) return { ok: false as const, code: 'NOT_FOUND' as const, reason: `No artifact ${id}.` };
+    const h = cur.history.find((x) => x.version === version);
+    if (!h) return { ok: false as const, code: 'NOT_FOUND' as const, reason: `${cur.name} has no version ${version}.` };
+    return this.modify(actor, id, h.definition, `Restored the definition of v${version}`, meta);
+  }
+
+  /** SAVED, ARCHIVED or back to DRAFT — a lifecycle state, not a new definition */
+  setStatus(actor: Actor, id: string, status: 'SAVED' | 'ARCHIVED' | 'DRAFT', meta: { via: Channel; expectedVersion?: number | null; traceId?: string | null }): { ok: true; artifact: Stamped<ArtifactBody> } | EngineError {
+    const cur = this.get(id);
+    if (!cur || !this.canSee(actor, cur)) return { ok: false, code: 'NOT_FOUND', reason: `No artifact ${id}.` };
+    const r = AuthorizationService.can(actor as never, 'ARTIFACT_CREATE');
+    if (!r.allowed) return { ok: false, code: 'PERMISSION_DENIED', reason: r.reason };
+    if (meta.expectedVersion != null && meta.expectedVersion !== cur.version) return { ok: false, code: 'STALE_VERSION', reason: `The workbook changed since you read it (version ${meta.expectedVersion} → ${cur.version}).` };
+    if (cur.status === 'GENERATING') return { ok: false, code: 'CONFLICT', reason: 'The workbook is generating; wait for it to finish or cancel the job.' };
+    WORK.repos.database.tx(() => {
+      setRecordStatus(WORK.repos.records, KIND, id, status, actor.id);
+      this.audit(actor, meta.via, status === 'ARCHIVED' ? 'ARTIFACT_ARCHIVED' : status === 'SAVED' ? 'ARTIFACT_SAVED' : 'ARTIFACT_REOPENED', cur, { status: cur.status }, { version: cur.version, status }, meta);
+    });
+    return { ok: true, artifact: this.get(id)! };
   }
 
   /** the WORKBOOK PREVIEW: the same model the file is rendered from, with representative rows */
-  previewOf(m: WorkbookModel, a: { id: string; version: number; status: string; name: string }, sample = 15) {
+  previewOf(m: WorkbookModel, a: { id: string; version: number; status: string; name: string }, sample = 15, section?: string | null) {
     const t = m.tieOut ? { ...statusOf(m.tieOut), status: m.tieOut.status, differenceUsd: Math.round(m.tieOut.differenceUsd * 100) / 100 } : null;
     const partitions = m.sheets.filter((s) => s.part).length;
     return {
       artifactId: a.id, version: a.version, status: a.status, name: a.name, fileName: m.fileName, csvFileName: m.csvFileName, scope: m.scopeLabel, range: m.rangeLabel, currency: 'USD', auditReady: m.auditReady,
       tieOut: t, warnings: m.warnings, excluded: m.excluded, totalRows: m.totalRows, citations: m.citations.length,
       recommendCsv: m.populations.some((p) => p.rowCount > XLSX_RECOMMEND_CSV_ROWS) ? `The population is ${Math.max(...m.populations.map((p) => p.rowCount)).toLocaleString('en-US')} lines. Excel would require ${Math.max(partitions, 1)} worksheets. A CSV extract may be more practical.` : null,
+      focusSheet: section ? findSheet(m, section) : null,
       sheets: m.sheets.map((s) => {
         const b = s.blocks.find((x) => x.tabular) ?? s.blocks[s.blocks.length - 1]!;
         const rows: { cells: string[]; style: string }[] = [];
@@ -223,6 +383,8 @@ export class ArtifactEngine {
     if (denied.length) return { ok: false, code: 'PERMISSION_DENIED', reason: denied.join(' ') };
     if (o.expectedVersion != null && o.expectedVersion !== a.version) return { ok: false, code: 'STALE_VERSION', reason: `The workbook definition changed since you read it (version ${o.expectedVersion} → ${a.version}). Review it and generate again.` };
     if (a.status === 'GENERATING') return { ok: false, code: 'CONFLICT', reason: 'This workbook is already generating.' };
+    if (a.status === 'ARCHIVED') return { ok: false, code: 'CONFLICT', reason: `${a.name} is archived. Restore it before generating.` };
+    const prev = (a.status === 'FAILED' || a.status === 'VALIDATING' ? 'DRAFT' : a.status) as ArtifactStatus;
     setRecordStatus(WORK.repos.records, KIND, id, 'VALIDATING', actor.id);
     const format = o.format ?? 'xlsx';
     const tv = Date.now();
@@ -230,14 +392,15 @@ export class ArtifactEngine {
     try { m = this.compose(actor, a.definition, a.version, a.id, new Date().toISOString()); }
     catch (e) { this.fail(actor, a, `Validation failed: ${(e as Error).message}`, o.channel); return { ok: false, code: 'VALIDATION_ERROR', reason: `The workbook could not be built from the governed data: ${(e as Error).message}` }; }
     const live = this.pins(m);
-    const back = (s: ArtifactStatus) => setRecordStatus(WORK.repos.records, KIND, id, s, actor.id);
+    const back = (_s?: ArtifactStatus) => setRecordStatus(WORK.repos.records, KIND, id, prev, actor.id);
+    const v = this.validate(actor, a.definition, m);
     /* EXACT POPULATION: the file is the population this version pinned, or nothing */
     if (live.fingerprint !== a.pins.fingerprint) { back('DRAFT'); return { ok: false, code: 'STALE', reason: `The governed data behind v${a.version} has changed since it was defined (${diffPins(a.pins, live).join('; ')}). Refresh the artifact — that creates v${a.version + 1} against the current data — then generate.`, detail: { reasons: diffPins(a.pins, live) } }; }
-    const empty = m.populations.filter((p) => p.rowCount === 0);
-    if (empty.length) { back('DRAFT'); return { ok: false, code: 'VALIDATION_ERROR', reason: `${empty.map((p) => p.sheet).join(', ')} has no lines for this scope and window; there is nothing to generate.` }; }
+    const fail = v.checks.filter((c) => c.status === 'FAIL');
+    if (fail.length) { back('DRAFT'); return { ok: false, code: 'VALIDATION_ERROR', reason: fail.map((c) => c.detail).join(' '), detail: { validation: v } }; }
     if (format === 'csv' && !a.definition.sheets.some((s) => s.kind === 'GL')) { back('DRAFT'); return { ok: false, code: 'VALIDATION_ERROR', reason: 'A CSV extract needs a GL tab.' }; }
     const hasTie = a.definition.sheets.some((s) => s.kind === 'TIEOUT');
-    const warnings = [...m.warnings];
+    const warnings = [...new Set([...m.warnings, ...v.checks.filter((c) => c.status === 'WARN' && c.check !== 'Tie-out').map((c) => `${c.check}: ${c.detail}`)])];
     if (hasTie && m.tieOut && m.tieOut.status !== 'TIED') {
       const s = statusOf(m.tieOut);
       if (!o.acknowledge) { back('DRAFT'); return { ok: false, code: 'TIE_OUT_WARNING', reason: `${s.text} Policy permits generating it, clearly labelled as not audit-ready — confirm to continue.`, detail: { tieOut: m.tieOut.status, differenceUsd: m.tieOut.differenceUsd } }; }
@@ -254,34 +417,65 @@ export class ArtifactEngine {
       setRecordStatus(WORK.repos.records, KIND, id, 'GENERATING', actor.id);
       return rec;
     });
-    const job: Job = { id: jobId, generationId: g.id, artifactId: id, status: 'QUEUED', rows: 0, totalRows: m.totalRows, sheet: '', startedAt: new Date().toISOString(), finishedAt: null, error: null, done: Promise.resolve() };
-    job.done = new Promise<void>((resolve) => setImmediate(() => { void this.runJob(actor, a, g.id, m, format, job, o).finally(resolve); }));
+    const job: Job = { id: jobId, generationId: g.id, artifactId: id, status: 'QUEUED', rows: 0, totalRows: m.totalRows, sheet: '', startedAt: new Date().toISOString(), finishedAt: null, error: null, cancelRequested: false, cancelledBy: null, done: Promise.resolve() };
+    job.done = new Promise<void>((resolve) => setImmediate(() => { void this.runJob(actor, a, g.id, m, format, job, { ...o, prev }).finally(resolve); }));
     this.jobs.set(jobId, job);
     return { ok: true, generationId: g.id, job, warnings, fileName };
   }
 
-  private async runJob(actor: Actor, a: Stamped<ArtifactBody>, genId: string, m: WorkbookModel, format: 'xlsx' | 'csv', job: Job, o: { channel: Channel; investigationId?: string | null }) {
-    job.status = 'GENERATING';
-    const key = join(genId, format === 'csv' ? m.csvFileName : m.fileName);
-    const path = join(this.storage, key);
+  private async runJob(actor: Actor, a: Stamped<ArtifactBody>, genId: string, m: WorkbookModel, format: 'xlsx' | 'csv', job: Job, o: { channel: Channel; investigationId?: string | null; prev: ArtifactStatus }) {
+    const fileName = format === 'csv' ? m.csvFileName : m.fileName;
+    const key = `${genId}/${fileName}`;
+    const check = () => { if (job.cancelRequested) throw new Cancelled(); };
     try {
+      check();
+      job.status = 'VALIDATING';
+      /* the definition a job renders is the version that was requested; a change while queued fails it rather than
+         rendering a file that no longer matches what was validated */
+      const cur = this.get(a.id);
+      if (!cur || cur.version !== a.version) throw new Error(`The definition changed to v${cur?.version ?? '?'} while the job was queued; generate again.`);
+      check();
+      job.status = 'GENERATING';
+      const path = this.store.locate(key);
       const manifest: [string, string][] = [['Korvyn governed extract', a.name], ['Artifact', `${a.id} v${a.version}`], ['Scope', m.scopeLabel], ['Period', m.rangeLabel], ['Currency', 'USD'], ['Basis', a.definition.basis],
         ...m.populations.map((p) => [`Population ${p.sheet}`, `${p.populationId} · ${p.rowCount} lines · net ${p.netUsd.toFixed(2)}`] as [string, string]), ['Governed data version', m.dataVersion], ['Mapping version', MAPPING_VERSION], ['Tie-out', m.tieOut ? m.tieOut.status : 'not included'], ['Generated', new Date().toISOString()], ['Generated by', actor.name]];
-      const r = format === 'csv' ? await this.csv.render(m, path, manifest, (p) => { job.rows = p.rows; job.sheet = p.sheet; }) : await this.excel.render(m, path, (p) => { job.rows = p.rows; job.sheet = p.sheet; });
+      const progress = (p: { rows: number; sheet: string }) => { job.rows = p.rows; job.sheet = p.sheet; check(); };
+      const r = format === 'csv' ? await this.csv.render(m, path, manifest, progress) : await this.excel.render(m, path, progress);
+      check();
+      const { bytes } = this.store.commit(key);
       const g = WORK.repos.records.get<GenerationBody>(GEN, genId)!;
       WORK.repos.database.tx(() => {
-        WORK.repos.records.update<GenerationBody>(GEN, genId, g.version, actor.id, (x) => ({ ...strip(x), storageKey: key, bytes: r.bytes, sha256: r.sha256, metrics: { ...x.metrics, generationMs: r.ms, rows: r.rows, rowsPerSecond: r.rowsPerSecond, peakHeapMb: r.peakHeapMb, sheets: r.sheets } }), { status: 'GENERATED' });
+        WORK.repos.records.update<GenerationBody>(GEN, genId, g.version, actor.id, (x) => ({ ...strip(x), storageKey: key, bytes, sha256: r.sha256, metrics: { ...x.metrics, generationMs: r.ms, rows: r.rows, rowsPerSecond: r.rowsPerSecond, peakHeapMb: r.peakHeapMb, sheets: r.sheets } }), { status: 'COMPLETED' });
         setRecordStatus(WORK.repos.records, KIND, a.id, 'GENERATED', actor.id);
-        this.audit(actor, o.channel, 'ARTIFACT_GENERATED', a, null, { version: a.version, generationId: genId, format, fileName: format === 'csv' ? m.csvFileName : m.fileName, bytes: r.bytes, sha256: r.sha256, rows: r.rows, tieOut: m.tieOut?.status ?? null, auditReady: m.auditReady, populations: m.populations.map((p) => p.populationId) }, { investigationId: o.investigationId ?? a.investigationId });
+        this.audit(actor, o.channel, 'ARTIFACT_GENERATED', a, null, { version: a.version, generationId: genId, format, fileName, bytes, sha256: r.sha256, rows: r.rows, tieOut: m.tieOut?.status ?? null, auditReady: m.auditReady, populations: m.populations.map((p) => p.populationId), storage: this.store.kind }, { investigationId: o.investigationId ?? a.investigationId });
       });
-      job.status = 'GENERATED'; job.rows = r.rows;
+      job.status = 'COMPLETED'; job.rows = r.rows;
     } catch (e) {
-      const why = (e as Error).message;
-      job.status = 'FAILED'; job.error = why;
+      this.store.discard(key);
       const g = WORK.repos.records.get<GenerationBody>(GEN, genId);
-      if (g) WORK.repos.records.update<GenerationBody>(GEN, genId, g.version, actor.id, (x) => ({ ...strip(x), error: why }), { status: 'FAILED' });
-      this.fail(actor, a, `Generation failed: ${why}`, o.channel);
+      if (e instanceof Cancelled) {
+        const why = `Cancelled by ${job.cancelledBy ?? actor.name} after ${job.rows.toLocaleString('en-US')} rows; no file was kept.`;
+        job.status = 'CANCELLED'; job.error = why;
+        if (g) WORK.repos.records.update<GenerationBody>(GEN, genId, g.version, actor.id, (x) => ({ ...strip(x), error: why }), { status: 'CANCELLED' });
+        setRecordStatus(WORK.repos.records, KIND, a.id, o.prev, actor.id);
+        this.audit(actor, o.channel, 'ARTIFACT_GENERATION_CANCELLED', a, null, { version: a.version, generationId: genId, rows: job.rows }, { investigationId: o.investigationId ?? a.investigationId });
+      } else {
+        const why = (e as Error).message;
+        job.status = 'FAILED'; job.error = why;
+        if (g) WORK.repos.records.update<GenerationBody>(GEN, genId, g.version, actor.id, (x) => ({ ...strip(x), error: why }), { status: 'FAILED' });
+        this.fail(actor, a, `Generation failed: ${why}`, o.channel);
+      }
     } finally { job.finishedAt = new Date().toISOString(); }
+  }
+  /** a running or queued job stops at its next chunk; the partial file is discarded and the definition is untouched */
+  cancel(actor: Actor, jobId: string): { ok: true; job: ReturnType<ArtifactEngine['job']> } | EngineError {
+    const j = this.jobs.get(jobId);
+    if (!j) return { ok: false, code: 'NOT_FOUND', reason: `No job ${jobId}.` };
+    const a = this.get(j.artifactId);
+    if (!a || !this.canSee(actor, a)) return { ok: false, code: 'NOT_FOUND', reason: `No job ${jobId}.` };
+    if (j.status === 'COMPLETED' || j.status === 'FAILED' || j.status === 'CANCELLED') return { ok: false, code: 'CONFLICT', reason: `The job has already ${j.status.toLowerCase()}.` };
+    j.cancelRequested = true; j.cancelledBy = actor.name;
+    return { ok: true, job: this.job(jobId) };
   }
   /** a failure keeps the definition intact and records why */
   private fail(actor: Actor, a: Stamped<ArtifactBody>, why: string, channel: Channel) {
@@ -290,7 +484,7 @@ export class ArtifactEngine {
     patchRecordData(WORK.repos.records, KIND, a.id, { lastError: why }, 'FAILED', actor.id);
     this.audit(actor, channel, 'ARTIFACT_GENERATION_FAILED', cur, null, { version: cur.version, error: why }, { investigationId: cur.investigationId }, 'FAILED', why);
   }
-  job(id: string) { const j = this.jobs.get(id); return j ? { id: j.id, generationId: j.generationId, artifactId: j.artifactId, status: j.status, rows: j.rows, totalRows: j.totalRows, sheet: j.sheet, startedAt: j.startedAt, finishedAt: j.finishedAt, error: j.error } : null; }
+  job(id: string) { const j = this.jobs.get(id); return j ? { id: j.id, generationId: j.generationId, artifactId: j.artifactId, status: j.status, rows: j.rows, totalRows: j.totalRows, sheet: j.sheet, startedAt: j.startedAt, finishedAt: j.finishedAt, error: j.error, cancelRequested: j.cancelRequested } : null; }
   jobPromise(id: string) { return this.jobs.get(id)?.done ?? Promise.resolve(); }
 
   /** a download re-checks access against the reader NOW (a permission removed since generation removes the file) */
@@ -301,9 +495,10 @@ export class ArtifactEngine {
     if (!g || g.artifactId !== artifactId) return { ok: false, code: 'NOT_FOUND', reason: `No generation ${genId}.` };
     const denied = this.authorize(actor, g.definition, 'GL_VIEW');
     if (denied.length) return { ok: false, code: 'PERMISSION_DENIED', reason: denied.join(' ') };
-    if (g.status !== 'GENERATED' || !g.storageKey) return { ok: false, code: 'CONFLICT', reason: g.status === 'FAILED' ? `This generation failed: ${g.error}` : 'The file is still being generated.' };
+    if (g.status !== 'COMPLETED' || !g.storageKey) return { ok: false, code: 'CONFLICT', reason: g.status === 'FAILED' || g.status === 'CANCELLED' ? `This generation ${g.status.toLowerCase()}: ${g.error}` : 'The file is still being generated.' };
+    if (!this.store.exists(g.storageKey)) return { ok: false, code: 'NOT_FOUND', reason: `The file for ${g.id} is no longer in storage; generate the version again.` };
     this.audit(actor, channel, 'ARTIFACT_DOWNLOADED', a, null, { version: g.artifactVersion, generationId: genId, fileName: g.fileName, sha256: g.sha256 }, { investigationId: a.investigationId });
-    return { ok: true, path: join(this.storage, g.storageKey), fileName: g.fileName, contentType: g.format === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', bytes: g.bytes ?? 0 };
+    return { ok: true, path: this.store.read(g.storageKey), fileName: g.fileName, contentType: g.format === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', bytes: g.bytes ?? 0 };
   }
 
   /** a generation that was running when the server stopped is FAILED with that reason; the definition is untouched */
@@ -314,6 +509,8 @@ export class ArtifactEngine {
         setRecordStatus(WORK.repos.records, KIND, g.artifactId, 'FAILED', 'system:artifacts');
       }
       for (const a of WORK.repos.records.list<ArtifactBody>(KIND).filter((x) => x.status === 'VALIDATING')) setRecordStatus(WORK.repos.records, KIND, a.id, 'DRAFT', 'system:artifacts');
+      /* 4A named a finished generation GENERATED; the job model says COMPLETED */
+      for (const g of WORK.repos.records.list<GenerationBody>(GEN, { status: 'GENERATED' })) setRecordStatus(WORK.repos.records, GEN, g.id, 'COMPLETED', 'system:artifacts');
     } catch { /* no database bound yet (a unit test composing directly) */ }
   }
 
@@ -325,7 +522,21 @@ export class ArtifactEngine {
 }
 
 /* ---- helpers --------------------------------------------------------------------------------------- */
+/** the tab a person names — "the blockers tab", "GL", "tie-out" — by name, then by what the words mean */
+export function findSheet(m: WorkbookModel, words: string): string | null {
+  const w = words.toLowerCase().replace(/\b(the|tab|tabs|sheet|sheets|section|worksheet)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!w) return null;
+  const stem = (x: string) => x.replace(/s\b/g, '');
+  const exact = m.sheets.find((s) => s.name.toLowerCase() === w);
+  if (exact) return exact.name;
+  const part = m.sheets.find((s) => stem(s.name.toLowerCase()).includes(stem(w)));
+  if (part) return part.name;
+  const kinds = sheetsIn(` ${w} `);
+  const byKind = m.sheets.find((s) => kinds.includes(s.kind as SheetKind) || (/\b(gl|general ledger|ledger)\b/.test(w) && s.kind === 'GL'));
+  return byKind?.name ?? null;
+}
 /** the deterministic name of a definition: its window, its vendor (if any), what it is, and its threshold */
+/** 4A's name function, kept for callers that have no engine; the engine names through `nameOf` (nameFor, by type) */
 export function autoName(d: ArtifactDefinition) {
   const tok = periodToken(d.periodStart, d.periodEnd);
   const g = d.sheets.find((s): s is GLSheetDef => s.kind === 'GL');
@@ -355,7 +566,7 @@ export function fmtCell(v: unknown, f: string): string {
   if (v instanceof Date) { const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return `${String(v.getUTCDate()).padStart(2, '0')}-${M[v.getUTCMonth()]}-${v.getUTCFullYear()}`; }
   if (typeof v === 'number') {
     if (f === 'pct') return Math.abs(v) < 0.0005 ? '–' : `${v < 0 ? '(' : ''}${Math.abs(v * 100).toFixed(1)}%${v < 0 ? ')' : ''}`;
-    if (f === 'int') return v === 0 ? '–' : v.toLocaleString('en-US');
+    if (f === 'int' || (f === 'text' && Number.isInteger(v))) return v === 0 ? (f === 'text' ? '0' : '–') : v.toLocaleString('en-US');
     if (Math.abs(v) < 0.005) return '–';
     const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return v < 0 ? `(${s})` : s;

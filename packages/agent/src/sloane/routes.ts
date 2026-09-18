@@ -46,6 +46,10 @@ import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
  *   POST /api/work/artifacts/:id/generate { format, expectedVersion, acknowledge, channel, idempotencyKey }
  *   POST /api/work/artifacts/:id/refresh  { expectedVersion }              a STALE artifact → a new version
  *   GET  /api/work/artifacts/jobs/:jobId · GET /api/work/artifacts/:id/generations/:gid/download
+ *   POST /api/work/artifacts/jobs/:jobId/cancel                                a queued / running job stops; no file kept
+ *   POST /api/work/artifacts/:id/status  { status: SAVED|ARCHIVED|DRAFT }      lifecycle state
+ *   POST /api/work/artifacts/:id/restore { version }                           a prior definition as a NEW version
+ *   POST /api/work/artifacts/:id/derive  { periodEnd, scopeId, vendor }        a NEW artifact from this one
  *   POST /api/work/dev/source-posting · POST /api/work/dev/source-sync     dev auth mode + loopback only
  */
 const cfg = loadSloaneConfig();
@@ -213,7 +217,11 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
     if (s0 === 'artifacts') {
       if (G && seg.length === 1) return reply(res, work.artifacts(actor));
       if (G && s1 === 'jobs' && s2 && seg.length === 3) return reply(res, work.artifactJob(actor, s2));
-      if (G && s1 && seg.length === 2) return reply(res, work.artifact(actor, s1, Math.min(Number(qs.get('rows') ?? 15) || 15, 25)));
+      if (P && s1 === 'jobs' && s2 && s3 === 'cancel' && seg.length === 4) return reply(res, work.cancelArtifactJob(actor, s2));
+      if (G && s1 && seg.length === 2) return reply(res, work.artifact(actor, s1, Math.min(Number(qs.get('rows') ?? 15) || 15, 25), qs.get('section')));
+      if (P && s1 && s2 === 'status' && seg.length === 3) return reply(res, work.setArtifactStatus(actor, s1, b));
+      if (P && s1 && s2 === 'restore' && seg.length === 3) return reply(res, work.restoreArtifact(actor, s1, b));
+      if (P && s1 && s2 === 'derive' && seg.length === 3) return reply(res, work.deriveArtifact(actor, s1, b));
       if (P && s1 && s2 === 'generate' && seg.length === 3) return reply(res, await work.generateArtifact(actor, s1, b));
       if (P && s1 && s2 === 'refresh' && seg.length === 3) return reply(res, work.refreshArtifact(actor, s1, b));
       if (G && s1 && s2 === 'generations' && s3 && seg[4] === 'download' && seg.length === 5) {

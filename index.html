@@ -3390,6 +3390,8 @@ button.tbx-s:hover b{color:var(--accent-ink)}
 .a4-note.warn{color:var(--warning)}
 .a4-dl{color:var(--accent-ink);font-weight:var(--fw-medium);text-decoration:none}
 .a4-dl:hover{text-decoration:underline}
+.a4-checks{margin:var(--s-1) 0 0;padding-left:var(--s-4);color:var(--muted)}
+.a4-checks .k{color:var(--ink);font-weight:var(--fw-medium)}
 #rcPanel .rcx-srvc textarea{flex:1 1 auto;font:inherit;font-size:var(--fs-table);color:var(--ink);background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:var(--s-2);resize:vertical}
 #rcPanel .amp-r{padding:var(--s-1) 0;border-top:1px solid var(--line)}
 #rcPanel .amp-sec+.amp-r,#rcPanel .rcx-more>summary+.amp-r{border-top:0}
@@ -58483,14 +58485,18 @@ function a4GridHTML(sh){
 function a4WorkbookHTML(w){
   if(!w||!w.sheets) return '';
   const id=w.artifactId; A4.wb[id]=w;
+  /* a section-level preview ("show me the GL tab") opens on that tab */
+  if(w.focusSheet&&!w._focused){ const fi=w.sheets.findIndex(s=>s.name===w.focusSheet); if(fi>=0) A4.tab[id]=fi; w._focused=1; }
   const tab=Math.min(A4.tab[id]||0, w.sheets.length-1), sh=w.sheets[tab];
   const shown=sh.rows.length, total=sh.rowCount;
   const t=w.tieOut, hasTie=w.sheets.some(s=>s.kind==='TIEOUT');
   let o='<div class="a4-wb" data-a4="'+glEsc(id)+'">'
-    +'<div class="a4-meta">WORKBOOK PREVIEW · '+glEsc(w.scope)+' · '+glEsc(w.range)+' · USD · '+glEsc(w.fileName)+(id&&id!=='DRAFT'?' · '+glEsc(id)+' v'+w.version:'')+'</div>'
+    +'<div class="a4-meta">'+glEsc(((w.typeLabel&&w.type!=='GL_EXTRACT')?w.typeLabel:'Workbook').toUpperCase())+' PREVIEW · '+glEsc(w.scope)+' · '+glEsc(w.range)+' · USD · '+glEsc(w.fileName)+(id&&id!=='DRAFT'?' · '+glEsc(id)+' v'+w.version+(w.status&&w.status!=='DRAFT'?' · '+glEsc(String(w.status).toLowerCase()):''):'')+'</div>'
+    +(w.derivedFrom?'<div class="a4-note">New package from '+glEsc(w.derivedFrom.name)+' ('+glEsc(w.derivedFrom.artifactId)+' v'+w.derivedFrom.version+') — the source is unchanged.</div>':'')
     +'<div class="a4-sum">'+w.sheets.map((s,i)=>'<span class="n">'+glEsc(s.name)+'</span><span class="c">'+(s.rowCount||0).toLocaleString('en-US')+' '+(s.kind==='GL'?'lines':'rows')+'</span><span class="c">'+s.columns.length+' columns</span>').join('')+'</div>';
   if(t&&hasTie) o+='<div class="a4-status '+a4Tone(t)+'">Tie-out · difference '+a4Usd(t.differenceUsd)+' · '+glEsc(t.text)+'</div>';
   else if(t) o+='<div class="a4-note">No Tie-Out tab: the workbook is not labelled audit-ready. Ask “make sure it ties back to ERP” to add one.</div>';
+  o+=a4ValidationHTML(w.validation);
   (w.changes||[]).forEach(c=>o+='<div class="a4-note">'+glEsc(c)+'</div>');
   if((w.excluded||[]).length) o+='<div class="a4-note">Not cited — balance not server-authoritative: '+w.excluded.map(x=>glEsc(x.label)).join(', ')+'</div>';
   if(w.recommendCsv) o+='<div class="a4-note warn">'+glEsc(w.recommendCsv)+'</div>';
@@ -58498,19 +58504,42 @@ function a4WorkbookHTML(w){
     +(sh.heading?'<div class="a4-meta">'+glEsc(sh.heading)+'</div>':'')+a4GridHTML(sh)
     +'<div class="a4-more">'+(total>shown?'Showing '+shown+' representative rows of '+total.toLocaleString('en-US')+' — the file carries every row.':total.toLocaleString('en-US')+' rows.')+(sh.blocks>1?' This tab has '+sh.blocks+' sections; the preview shows one.':'')+'</div>';
   const canGen=id&&id!=='DRAFT';
-  o+='<div class="a4-acts">'+(canGen?'<button class="slx-btn p" onclick="a4Gen(\''+glEsc(id)+'\',\'xlsx\')">Generate Excel</button>'
-      +(w.sheets.some(s=>s.kind==='GL')?'<button class="slx-btn" onclick="a4Gen(\''+glEsc(id)+'\',\'csv\')">Generate CSV</button>':'')
+  /* a BLOCKED package cannot be generated — the reason is stated above, never discovered at the click */
+  const blocked=w.validation&&w.validation.status==='BLOCKED', dis=blocked?' disabled title="Validation blocks generation — see the checks above"':'';
+  o+='<div class="a4-acts">'+(canGen?'<button class="slx-btn p" onclick="a4Gen(\''+glEsc(id)+'\',\'xlsx\')"'+dis+'>Generate Excel</button>'
+      +(w.sheets.some(s=>s.kind==='GL')?'<button class="slx-btn" onclick="a4Gen(\''+glEsc(id)+'\',\'csv\')"'+dis+'>Generate CSV</button>':'')
       +(w.status==='STALE'?'<button class="slx-btn" onclick="a4Refresh(\''+glEsc(id)+'\')">Refresh artifact</button>':''):'')
     +'<button class="slx-btn" onclick="a4Refine()">Refine</button>'
+    +(canGen&&w.status!=='SAVED'&&w.status!=='ARCHIVED'?'<button class="slx-btn" onclick="a4Save(\''+glEsc(id)+'\')">Save Draft</button>':'')
+    +'<button class="slx-btn" onclick="a4Cancel(\''+glEsc(id)+'\')">Cancel</button>'
     +'<span class="a4-note" data-a4gen="'+glEsc(id)+'">'+a4GenState(id)+'</span></div></div>';
   return o; }
+/** the package's validation checks: what passes stays quiet; each warning or block is stated in one line */
+function a4ValidationHTML(v){ if(!v||!v.checks) return '';
+  const bad=v.checks.filter(c=>c.status!=='PASS'); const tone=v.status==='BLOCKED'?'bad':v.status==='VALID'?'ok':'warn';
+  const head=v.status==='BLOCKED'?'Validation · blocked':v.status==='VALID'?'Validation · every check passes':'Validation · passes with '+bad.length+' warning'+(bad.length>1?'s':'');
+  return '<div class="a4-status '+tone+'">'+head+(bad.length?'<ul class="a4-checks">'+bad.slice(0,6).map(c=>'<li><span class="k">'+glEsc(c.check)+'</span> '+glEsc(c.detail)+'</li>').join('')+(bad.length>6?'<li>'+(bad.length-6)+' more</li>':'')+'</ul>':'')+'</div>'; }
+/** Save Draft: the package's lifecycle state becomes SAVED (a confirmed write; every refinement is already a kept version) */
+async function a4Save(id){ const w=A4.wb[id]; if(!w||A4.busy[id]) return; A4.busy[id]=1;
+  const r=await kApi('POST','/api/work/artifacts/'+kbEnc(id)+'/status',{status:'SAVED', idempotencyKey:kbKey()}); delete A4.busy[id];
+  if(r.body.outcome==='SUCCESS'){ w.status='SAVED'; A4.gen[id]={msg:'Saved as '+id+' v'+w.version+' — find it in your artifacts; every version is kept.'}; a4Paint(id); }
+  else { A4.gen[id]={msg:kbReason(r.body)}; a4PaintGen(id); } }
+/** Cancel: a running generation stops (no partial file is kept); otherwise the preview closes and nothing is generated */
+async function a4Cancel(id){ const g=A4.gen[id];
+  if(g&&g.jobId&&(g.status==='QUEUED'||g.status==='VALIDATING'||g.status==='GENERATING')){
+    const r=await kApi('POST','/api/work/artifacts/jobs/'+kbEnc(g.jobId)+'/cancel',{});
+    if(r.body.outcome!=='SUCCESS'){ A4.gen[id]={...g, msg:kbReason(r.body)}; a4PaintGen(id); }
+    return; }
+  document.querySelectorAll('[data-a4="'+CSS.escape(id)+'"]').forEach(el=>{ el.outerHTML='<div class="a4-note" data-a4="'+glEsc(id)+'">Preview closed — nothing was generated.'+(id&&id!=='DRAFT'?' The definition is kept as '+glEsc(id)+'.':'')+'</div>'; }); }
 function a4Paint(id){ const w=A4.wb[id]; if(!w) return; document.querySelectorAll('[data-a4="'+CSS.escape(id)+'"]').forEach(el=>{ el.outerHTML=a4WorkbookHTML(w); }); }
 function a4Tab(id,i){ A4.tab[id]=i; a4Paint(id); }
 function a4Refine(){ const i=document.querySelector('#copilot .slx-in input, #copilot input[type="text"], #slFull input'); if(i){ i.focus(); i.placeholder='e.g. “Add source vendor”, “Put project before vendor”, “Only transactions over $500K”'; } }
 function a4GenState(id){ const g=A4.gen[id]; if(!g) return '';
   if(g.msg) return glEsc(g.msg);
-  if(g.status==='GENERATED'&&g.url) return 'Ready · <a class="a4-dl" href="'+glEsc(g.url)+'">Download '+glEsc(g.fileName)+'</a>'+(g.bytes?' · '+Math.max(1,Math.round(g.bytes/1024)).toLocaleString('en-US')+' KB':'')+(g.auditReady===false?' · not audit-ready':'');
+  if((g.status==='COMPLETED'||g.status==='GENERATED')&&g.url) return 'Ready · <a class="a4-dl" href="'+glEsc(g.url)+'">Download '+glEsc(g.fileName)+'</a>'+(g.bytes?' · '+Math.max(1,Math.round(g.bytes/1024)).toLocaleString('en-US')+' KB':'')+(g.auditReady===false?' · not audit-ready':'');
   if(g.status==='FAILED') return 'Generation failed: '+glEsc(g.error||'')+' — the definition is kept.';
+  if(g.status==='CANCELLED') return 'Generation cancelled — no file was kept; the definition is unchanged.';
+  if(g.status==='QUEUED'||g.status==='VALIDATING') return (g.status==='QUEUED'?'Queued':'Validating')+' '+glEsc(g.fileName||'')+'…';
   return 'Generating '+glEsc(g.fileName||'')+(g.rows?' · '+g.rows.toLocaleString('en-US')+' rows written':'')+'…'; }
 function a4PaintGen(id){ document.querySelectorAll('[data-a4gen="'+CSS.escape(id)+'"]').forEach(el=>{ el.innerHTML=a4GenState(id); }); }
 async function a4Gen(id, format, ack){
@@ -58527,9 +58556,9 @@ async function a4Gen(id, format, ack){
     return; }
   a4Track(id, b.job, b.generation, b.fileName); }
 function a4Track(id, job, gen, fileName){
-  A4.gen[id]={status:job.status, rows:job.rows, fileName, url:gen&&gen.downloadUrl, bytes:gen&&gen.bytes, auditReady:gen?gen.auditReady:null, error:job.error};
+  A4.gen[id]={status:job.status, jobId:job.id, rows:job.rows, fileName, url:gen&&gen.downloadUrl, bytes:gen&&gen.bytes, auditReady:gen?gen.auditReady:null, error:job.error};
   a4PaintGen(id);
-  if(job.status==='GENERATED'||job.status==='FAILED') return;
+  if(job.status==='COMPLETED'||job.status==='GENERATED'||job.status==='FAILED'||job.status==='CANCELLED') return;
   setTimeout(async()=>{ const r=await kApi('GET','/api/work/artifacts/jobs/'+kbEnc(job.id)); if(r.body.outcome==='SUCCESS') a4Track(id, r.body.job, r.body.generation, fileName); }, 700); }
 async function a4Refresh(id){
   const w=A4.wb[id];

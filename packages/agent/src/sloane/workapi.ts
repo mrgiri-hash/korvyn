@@ -233,12 +233,60 @@ export class WorkApi {
      ARTIFACTS — governed deliverables (the same engine Sloane builds with)
      ================================================================================================ */
   artifacts(actor: ActorContext): ApiResult { const d = this.need(actor, 'GL_VIEW', null, 'artifact'); if (d) return d; return ok({ artifacts: this.orch.artifacts.list(actor) }); }
-  artifact(actor: ActorContext, id: string, sample = 15): ApiResult {
+  artifact(actor: ActorContext, id: string, sample = 15, section: string | null = null): ApiResult {
     const d = this.need(actor, 'GL_VIEW', null, 'artifact'); if (d) return d;
     const v = this.orch.artifacts.view(actor, id);
     if (!v) return fail('NOT_FOUND', `No artifact ${id}`);
     const m = this.orch.artifacts.compose(actor, v.definition, v.version, v.id);
-    return ok({ artifact: v, preview: this.orch.artifacts.previewOf(m, { id: v.id, version: v.version, status: v.status, name: v.name }, sample) });
+    return ok({ artifact: v, preview: { ...this.orch.artifacts.previewOf(m, { id: v.id, version: v.version, status: v.status, name: v.name }, sample, section), type: v.type, validation: v.validation, derivedFrom: v.derivedFrom } });
+  }
+  /** an artifact lifecycle write: authorization, governance class and idempotency as every UI write; the ENGINE audits it */
+  private artifactWrite(actor: ActorContext, body: Record<string, unknown>, action: string, run: () => ApiResult): ApiResult {
+    const denied = this.need(actor, 'ARTIFACT_CREATE', null, 'artifact'); if (denied) return denied;
+    if (ActionGovernanceEngine.classify(action) !== 'CONFIRM_REQUIRED') return fail('PERMISSION_DENIED', `${action} is a governed action and is not available in this phase.`);
+    const idem = str(body, 'idempotencyKey', 80);
+    if (!idem) return fail('VALIDATION_ERROR', 'idempotencyKey is required for a write');
+    const repKey = `UI:${actor.id}:${idem}`, prior = WORK.repos.idempotency.get<ApiResult>(repKey);
+    if (prior) return prior;
+    const res = run();
+    if (res.body['outcome'] === 'SUCCESS') WORK.repos.idempotency.put(repKey, action, actor.id, res);
+    return res;
+  }
+  /** SAVED · ARCHIVED · DRAFT (reopen) */
+  setArtifactStatus(actor: ActorContext, id: string, body: Record<string, unknown>): ApiResult {
+    const to = str(body, 'status', 10).toUpperCase();
+    if (!['SAVED', 'ARCHIVED', 'DRAFT'].includes(to)) return fail('VALIDATION_ERROR', 'status must be SAVED, ARCHIVED or DRAFT');
+    return this.artifactWrite(actor, body, to === 'ARCHIVED' ? 'ARCHIVE_EXCEL_ARTIFACT' : 'SAVE_EXCEL_ARTIFACT', () => {
+      const r = this.orch.artifacts.setStatus(actor, id, to as 'SAVED', { via: 'REPORTING', expectedVersion: num(body, 'expectedVersion') });
+      if (!r.ok) return fail(r.code === 'STALE_VERSION' ? 'STALE_VERSION' : r.code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : r.code === 'CONFLICT' ? 'CONFLICT' : 'NOT_FOUND', r.reason);
+      return this.artifact(actor, id);
+    });
+  }
+  /** a prior definition restored as a NEW version */
+  restoreArtifact(actor: ActorContext, id: string, body: Record<string, unknown>): ApiResult {
+    const version = num(body, 'version');
+    if (!version) return fail('VALIDATION_ERROR', 'version is required');
+    return this.artifactWrite(actor, body, 'SAVE_EXCEL_ARTIFACT', () => {
+      const r = this.orch.artifacts.restore(actor, id, version, { via: 'REPORTING', expectedVersion: num(body, 'expectedVersion') });
+      if (!r.ok) return fail(r.code === 'STALE_VERSION' ? 'STALE_VERSION' : r.code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : 'NOT_FOUND', r.reason);
+      return this.artifact(actor, id);
+    });
+  }
+  /** REUSE: a new artifact from this one (a period, scope or vendor) — never an overwrite */
+  deriveArtifact(actor: ActorContext, id: string, body: Record<string, unknown>): ApiResult {
+    return this.artifactWrite(actor, body, 'SAVE_EXCEL_ARTIFACT', () => {
+      const r = this.orch.artifacts.derive(actor, id, { periodEnd: str(body, 'periodEnd', 7) || null, scopeId: str(body, 'scopeId', 20) || null, vendor: str(body, 'vendor', 80) || null, name: str(body, 'name', 120) || null }, { via: 'REPORTING' });
+      if (!r.ok) return fail(r.code === 'PERMISSION_DENIED' ? 'PERMISSION_DENIED' : r.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'VALIDATION_ERROR', r.reason);
+      const x = this.artifact(actor, r.artifact.id);
+      return x.body['outcome'] === 'SUCCESS' ? ok({ ...x.body, changes: r.changes }, 201) : x;
+    });
+  }
+  /** a running or queued generation stops at its next chunk; no partial file is kept */
+  cancelArtifactJob(actor: ActorContext, jobId: string): ApiResult {
+    const denied = this.need(actor, 'ARTIFACT_CREATE', null, 'artifact'); if (denied) return denied;
+    const r = this.orch.artifacts.cancel(actor, jobId);
+    if (!r.ok) return fail(r.code === 'CONFLICT' ? 'CONFLICT' : 'NOT_FOUND', r.reason);
+    return ok({ job: r.job });
   }
   /** generate: validated and recorded synchronously, rendered by a job; the caller awaits a small file, polls a large one */
   async generateArtifact(actor: ActorContext, id: string, body: Record<string, unknown>): Promise<ApiResult> {

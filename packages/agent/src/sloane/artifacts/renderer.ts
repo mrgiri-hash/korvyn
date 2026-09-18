@@ -118,7 +118,11 @@ export class ExcelJsStreamingRenderer implements ExcelRenderer {
   private row(ws: ExcelJS.Worksheet, r: Row, st: ReturnType<typeof stylesFor>, width: number) {
     const x = ws.addRow(r.cells.slice(0, width).map((v) => (v === null ? null : v)));
     const set = r.style === 'total' ? st.total : r.style === 'subtotal' ? st.subtotal : r.style === 'note' ? st.note : r.style === 'label' ? st.label : st.data;
-    for (let i = 1; i <= width; i++) x.getCell(i).style = set[i - 1]!;
+    for (let i = 1; i <= width; i++) {
+      const c = x.getCell(i); c.style = set[i - 1]!;
+      /* a number in a key / value column (a count, a balance) takes a number format, not the column's text format */
+      if (typeof r.cells[i - 1] === 'number' && c.style.numFmt === '@') c.style = { ...c.style, numFmt: Number.isInteger(r.cells[i - 1]) ? KORVYN_FINANCIAL.numFmt.int : KORVYN_FINANCIAL.numFmt.money, alignment: { ...(c.style.alignment ?? {}), horizontal: 'right' } };
+    }
     x.commit();
   }
 }

@@ -42,7 +42,7 @@ async function generated(c: Client, turn: J) {
   assert.equal(res.status, 'COMPLETED', res.message);
   await orch.artifacts.jobPromise(res.result.jobId);
   const g = orch.artifacts.generations(res.result.artifactId).find((x) => x.id === res.result.generationId)!;
-  assert.equal(g.status, 'GENERATED', g.error ?? '');
+  assert.equal(g.status, 'COMPLETED', g.error ?? '');
   const path = join(orch.artifacts.storage, g.id, g.fileName);
   const book = new ExcelJS.Workbook(); await book.xlsx.readFile(path);
   return { g, book, path, artifactId: res.result.artifactId as string };
@@ -349,6 +349,6 @@ test('failure: a generation that cannot be written is FAILED with its reason; th
   assert.equal(v.status, 'FAILED'); assert.ok(v.lastError); assert.equal(v.version, 1, 'a failure is not a new definition version');
   const g2 = eng.requestGeneration(actor, id, { channel: 'REPORTING' }); assert.ok(g2.ok);
   if (g2.ok) await g2.job.done;
-  assert.equal(eng.generations(id)[0]!.status, 'GENERATED');
+  assert.equal(eng.generations(id)[0]!.status, 'COMPLETED');
   assert.ok(existsSync(join(eng.storage, eng.generations(id)[0]!.id, eng.generations(id)[0]!.fileName)));
 });
