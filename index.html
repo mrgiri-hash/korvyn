@@ -78025,6 +78025,8 @@ function renderAudPage(tab){
   let rows=[]; try{ rows=P.rows(); }catch(e){ console.error('audit placeholder',e); }
   plhPage('view-'+tab, P.t, P.c, P.intro, rows,
     'Audit workflows are not built yet. This page is the navigation foundation over objects that already exist.');
+  /* 5A: served by Korvyn, Requests / PBC also carries the governed PBC requests — upload one, open its workspace here */
+  if(tab==='audpbc'&&typeof kBookOn==='function'&&kBookOn()&&typeof p5AudMount==='function') p5AudMount();
 }
 /* ==========================================================================================
    SLOANE — ONE SESSION, THREE STATES (reset, 2026-09-14)
@@ -81563,6 +81565,85 @@ function s3Btn(b){ const id=b.getAttribute('data-id'), act=b.getAttribute('data-
   if(act==='choose') return s3Decide({proposalId:id, decision:'choose', choice:b.getAttribute('data-choice')});
   return s3Decide({proposalId:id, decision:act}); }
 function s3Plan(b){ const plan=b.getAttribute('data-plan'); b.disabled=true; s3Decide({planId:plan, decision:'confirm'}).then(()=>{ document.querySelectorAll('[data-s3p="'+CSS.escape(plan)+'"] > .s3-btns').forEach(f=>f.remove()); }); }
+/* ==== PHASE 5A — THE PBC WORKSPACE, INLINE WHEREVER SLOANE ANSWERS ====================================================
+   A PBC request (a PBCRequest / PBCSupportGaps object) renders as its workspace: the requirement Korvyn understood, the
+   population and its tie-out, every selection with its match status and what it lacks, the support gaps (a
+   reconciliation or Flux gap once, at the account), and the reconciliations and Flux behind the selections. Everything
+   drawn is read from the server object; nothing is computed here. Choosing among candidates and refreshing a stale
+   request are the same governed writes the workspace API performs (/api/work/pbc). Classes are the 4A preview's. */
+const P5={pbc:{}, tab:{}, msg:{}};
+function p5Tone(s){ return s==='TIED'||s==='READY'||s==='GENERATED'||s==='DELIVERED'?'ok':s==='NOT_TIED'||s==='STALE'?'bad':'warn'; }
+function p5Low(s){ return String(s||'').replace(/_/g,' ').toLowerCase(); }
+function p5Grid(cols, rows){ return '<div class="a4-grid"><table><thead><tr>'+cols.map(c=>'<th'+(c.r?' class="r"':'')+'>'+glEsc(c.h)+'</th>').join('')+'</tr></thead><tbody>'
+  +rows.map(r=>'<tr>'+r.map((v,i)=>'<td'+(cols[i]&&cols[i].r?' class="r"':'')+'>'+(v&&v.html!==undefined?v.html:glEsc(v==null||v===''?'—':String(v)))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'; }
+function p5PbcHTML(p){
+  if(!p||!p.id) return '';
+  P5.pbc[p.id]=p;
+  const tabs=[['sel','Selections'],['gaps','What’s missing'],['tie','Tie-out'],['ctx','Reconciliations & Flux']];
+  const tab=P5.tab[p.id]||(p.focus==='gaps'?'gaps':'sel'), q=p.requirement, id=glEsc(p.id);
+  let o='<div class="a4-wb" data-p5="'+id+'">'
+    +'<div class="a4-meta">PBC WORKSPACE · '+glEsc(p.pbcNumber)+' · v'+p.version+' · '+glEsc(p.source==='UPLOAD'?'uploaded request':p.source==='NL'?'asked in Sloane':p5Low(p.source))+'</div>'
+    +'<div class="a4-status '+p5Tone(p.status)+'">'+glEsc(p5Low(p.status))+(p.statusReasons&&p.statusReasons[0]?' — '+glEsc(p.statusReasons[0]):'')+'</div>';
+  if(p.stale) o+='<div class="a4-note warn">The governed data changed: '+glEsc(p.staleReasons.join('; '))+'. Refresh creates a new version'+(p.lifecycle==='DELIVERED'?'; the delivered package is kept exactly as delivered':'')+'.</div>';
+  if(q) o+='<div class="a4-sum"><span class="n">Object</span><span class="c">'+glEsc(q.object)+'</span><span class="c">'+glEsc(q.population)+'</span>'
+    +'<span class="n">Window</span><span class="c">'+glEsc(q.window)+'</span><span class="c">'+glEsc(q.scope)+(q.project?' · '+glEsc(q.project):'')+'</span>'
+    +'<span class="n">Threshold</span><span class="c">'+glEsc(q.threshold)+'</span><span class="c"></span>'
+    +'<span class="n">Evidence</span><span class="c">'+glEsc(q.evidence.join(', '))+'</span><span class="c"></span>'
+    +(p.population?'<span class="n">Population</span><span class="c">'+p.population.rows+' lines · '+glEsc(p.population.total)+'</span><span class="c">'+glEsc(p.population.systems.join(', '))+'</span>':'')
+    +'<span class="n">Coverage</span><span class="c">'+glEsc(p.coverage.pctLabel)+' by amount</span><span class="c">'+p.coverage.full+' full · '+p.coverage.partial+' partial · '+p.coverage.unsupported+' unsupported</span></div>';
+  else o+='<div class="a4-note warn">The request has no structured requirement yet — it needs review.'+(p.intakeNotes&&p.intakeNotes.length?' '+glEsc(p.intakeNotes.join(' ')):'')+'</div>';
+  (p.duplicates||[]).forEach(d=>o+='<div class="a4-note warn">'+glEsc(d)+'</div>');
+  if(p.population&&p.population.below) o+='<div class="a4-note">'+glEsc(p.population.below)+' — they tie the population to the ledger.</div>';
+  o+='<div class="ktabs lvl2" role="tablist">'+tabs.map(([k,l])=>'<button class="ktab'+(k===tab?' on':'')+'" role="tab" aria-selected="'+(k===tab)+'" onclick="p5Tab(\''+id+'\',\''+k+'\')">'+glEsc(l)+(k==='gaps'?' · '+p.gapCount:'')+'</button>').join('')+'</div>';
+  if(tab==='sel'){
+    o+=p5Grid([{h:'#'},{h:'Selection'},{h:'Match'},{h:'Entity'},{h:'Vendor'},{h:'Amount (USD)',r:1},{h:'Coverage'},{h:'Missing'}], p.selections.map(s=>[s.no,
+      {html:glEsc(s.key||s.original)+(s.key?'':'<div class="a4-note">'+glEsc(s.reason)+'</div>')+(s.candidates&&s.candidates.length&&!s.key?'<div class="a4-acts">'+s.candidates.slice(0,4).map(c=>'<button class="slx-btn" onclick="p5Choose(\''+id+'\',\''+glEsc(s.id)+'\',\''+glEsc(c.key)+'\')">Use '+glEsc(c.key)+' · '+glEsc(c.entity)+' · '+glEsc(c.amount)+'</button>').join('')+'</div>':'')},
+      p5Low(s.status), s.entity, s.vendor, s.amount, s.coverage?p5Low(s.coverage):'', s.missing]));
+    if(p.selectionCount>p.selections.length) o+='<div class="a4-more">Showing '+p.selections.length+' of '+p.selectionCount+' selections.</div>';
+  } else if(tab==='gaps'){
+    o+=p.gaps.length?p5Grid([{h:'Gap'},{h:'Sel'},{h:'Transaction'},{h:'Amount (USD)',r:1},{h:'Severity'},{h:'Owner'},{h:'Detail'}], p.gaps.map(g=>[g.kind, g.selection, g.transaction, g.amount, p5Low(g.severity), g.owner, g.note])):'<div class="a4-note">No open support gaps.</div>';
+    if(p.gapsResolved) o+='<div class="a4-more">'+p.gapsResolved+' gap(s) resolved or waived — kept on the package’s Exceptions tab with the reason.</div>';
+  } else if(tab==='tie'){
+    const t=p.tie;
+    o+=t?'<div class="a4-status '+p5Tone(t.status)+'">Population tie-out · '+glEsc(p5Low(t.status))+(t.reasons[0]?' — '+glEsc(t.reasons[0]):'')+'</div>'+p5Grid([{h:'Bridge'},{h:'USD',r:1}], t.rows):'<div class="a4-note">No population to tie out.</div>';
+  } else {
+    o+=(p.reconciliations.length?p5Grid([{h:'Reconciliation'},{h:'Entity'},{h:'Tie'},{h:'Workflow'},{h:'Support'},{h:'Record'}], p.reconciliations.map(r=>[r.name, r.entity, r.available?p5Low(r.tieStatus):'module', p5Low(r.status), r.supportComplete?'complete':'incomplete', r.balanceRecord||r.reason])):'<div class="a4-note">No related reconciliations.</div>')
+      +(p.flux.length?p5Grid([{h:'Flux line'},{h:'Period'},{h:'Change (USD)',r:1},{h:'Material'},{h:'Status'},{h:'Explanation'}], p.flux.map(f=>[f.name, f.period, f.change, f.material?'yes':'no', p5Low(f.status), f.explanationId?f.explanationId+' v'+f.explanationVersion:'none'])):'');
+  }
+  o+='<div class="a4-acts">'+(p.stale?'<button class="slx-btn p" onclick="p5Refresh(\''+id+'\')">Refresh request</button>':'')
+    +'<span class="a4-note" data-p5msg="'+id+'">'+glEsc(P5.msg[p.id]||'Documents are references only — no document connector is live; retrieval is from the source system.')+'</span></div></div>';
+  return o; }
+function p5Paint(id){ const p=P5.pbc[id]; if(!p) return; document.querySelectorAll('[data-p5="'+CSS.escape(id)+'"]').forEach(el=>{ el.outerHTML=p5PbcHTML(p); }); }
+function p5Tab(id,k){ P5.tab[id]=k; p5Paint(id); }
+async function p5Reload(id, msg){ const r=await kApi('GET','/api/work/pbc/'+kbEnc(id)); if(r.body.outcome==='SUCCESS'&&r.body.pbc) P5.pbc[id]=r.body.pbc; P5.msg[id]=msg; p5Paint(id); }
+async function p5Choose(id, sid, key){ const p=P5.pbc[id];
+  const r=await kApi('POST','/api/work/pbc/'+kbEnc(id)+'/selections/'+kbEnc(sid)+'/resolve',{transaction:key, note:'Chosen in the PBC workspace', expectedVersion:p?p.version:null, idempotencyKey:'p5-'+Date.now()+'-'+Math.random().toString(36).slice(2)});
+  await p5Reload(id, r.body.outcome==='SUCCESS'?'Selection matched to '+key+' by you — a new request version.':kbReason(r.body)); }
+async function p5Refresh(id){ const p=P5.pbc[id];
+  const r=await kApi('POST','/api/work/pbc/'+kbEnc(id)+'/refresh',{expectedVersion:p?p.version:null, idempotencyKey:'p5-'+Date.now()+'-'+Math.random().toString(36).slice(2)});
+  await p5Reload(id, r.body.outcome==='SUCCESS'?'Refreshed to v'+r.body.version+' against the current governed data.':kbReason(r.body)); }
+/* 5A — Audit › Requests / PBC, served by Korvyn: the governed requests, an upload (CSV / TSV / TXT / XLSX parsed; a PDF
+   kept for review — no OCR), and a request's workspace opened in place. The same /api/work/pbc routes Sloane's
+   answers act through. */
+async function p5AudMount(){ const el=$('view-audpbc'); if(!el) return;
+  let box=el.querySelector('.p5-aud'); if(!box){ el.insertAdjacentHTML('beforeend','<div class="p5-aud a4-wb"></div>'); box=el.querySelector('.p5-aud'); }
+  const r=await kApi('GET','/api/work/pbc');
+  if(r.body.outcome!=='SUCCESS'){ box.innerHTML='<div class="a4-note">'+glEsc(kbReason(r.body))+'</div>'; return; }
+  const rs=r.body.requests||[];
+  box.innerHTML='<div class="a4-meta">GOVERNED PBC REQUESTS · evaluated over the governed ledger · '+rs.length+' requests</div>'
+    +'<div class="a4-acts"><label class="slx-btn p">Upload PBC request<input type="file" accept=".csv,.tsv,.txt,.xlsx,.pdf" hidden onchange="p5Upload(this)"></label>'
+    +'<span class="a4-note" data-p5up>CSV, TSV, TXT and XLSX are parsed; a PDF is kept and flagged for review (no OCR). Or ask Sloane — e.g. “Give me FY26 CIP additions over $1M with invoices and approvals”.</span></div>'
+    +p5Grid([{h:'Request'},{h:'Title'},{h:'Status'},{h:'Selections',r:1},{h:'Open gaps',r:1},{h:'Requested by'}], rs.map(x=>[{html:'<button class="rcx-lk2" onclick="p5Open(\''+glEsc(x.id)+'\')">'+glEsc(x.pbcNumber)+'</button>'}, x.title, p5Low(x.status), x.selections, x.openGaps, x.requestedBy]))
+    +'<div class="p5-open"></div>'; }
+async function p5Open(id){ const r=await kApi('GET','/api/work/pbc/'+kbEnc(id)); const box=document.querySelector('#view-audpbc .p5-open'); if(!box) return;
+  box.innerHTML=r.body.outcome==='SUCCESS'?p5PbcHTML(r.body.pbc):'<div class="a4-note">'+glEsc(kbReason(r.body))+'</div>'; }
+async function p5Upload(inp){ const f=inp.files&&inp.files[0]; if(!f) return; const note=document.querySelector('[data-p5up]');
+  if(f.size>2e6){ if(note) note.textContent='The file is larger than 2 MB.'; return; }
+  const b64=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]||''); fr.onerror=rej; fr.readAsDataURL(f); });
+  if(note) note.textContent='Reading '+f.name+'…';
+  const r=await kApi('POST','/api/work/pbc/upload',{fileName:f.name, content:b64, idempotencyKey:'p5u-'+Date.now()+'-'+Math.random().toString(36).slice(2)});
+  if(r.body.outcome!=='SUCCESS'){ if(note) note.textContent=kbReason(r.body); return; }
+  await p5AudMount(); await p5Open(r.body.id); }
 function s2ServerRender(raw, r){
   const notes=(r.notes||[]).filter(Boolean);
   if(r.state==='CLARIFICATION_REQUIRED'&&r.clarification){ const c=r.clarification;
@@ -81574,6 +81655,11 @@ function s2ServerRender(raw, r){
     const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
     if(acts.length) return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Proposed · nothing written until you confirm', head:glEsc(acts.length>1?acts.length+' proposed actions':acts[0].title),
       sub:nar, prev:s3PlanHTML(r.actions?r.actions.planId:acts[0].planId, acts)+r.objects.filter(x=>!x.action).map(s2ServerTable).join(''), basis:'Korvyn validates, you confirm, Korvyn executes · every action is audited'})};
+    /* 5A: a PBC answer renders as its workspace, with the package preview beneath it */
+    const pbo=(r.objects||[]).find(x=>(x.type==='PBCRequest'||x.type==='PBCSupportGaps')&&x.pbc&&x.status!=='UNAVAILABLE');
+    if(pbo){ const wb=(r.objects||[]).find(x=>x.type==='ExcelWorkbookPreview'&&x.workbook&&x.status!=='UNAVAILABLE');
+      return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'PBC request · '+pbo.scope.name+' · USD', head:glEsc(pbo.title),
+        sub:nar, prev:p5PbcHTML(pbo.pbc)+(wb&&typeof a4WorkbookHTML==='function'?a4WorkbookHTML(wb.workbook):'')+r.objects.filter(x=>x!==pbo&&x!==wb).map(s2ServerTable).join(''), basis:'Governed population, selections and evidence references from the one ledger · documents by reference, never copied'})}; }
     /* 4A: a workbook answer renders as the workbook will look */
     const wbo=(r.objects||[]).find(x=>x.type==='ExcelWorkbookPreview'&&x.workbook&&x.status!=='UNAVAILABLE');
     if(wbo&&typeof a4WorkbookHTML==='function') return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Governed workbook · '+wbo.scope.name+' · USD', head:glEsc(wbo.workbook.name),

@@ -82,6 +82,11 @@ audit support, monthly financial, management review; PBC scaffold) composed from
 refinement, derive/reuse, a validation model, the common artifact contract, save/archive/restore, job cancel (COMPLETED/CANCELLED) and
 `ArtifactStorage` (`artifacts/storage.ts`). Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 4B*.
 
+**Phase 5A (2026-09-18):** Audit / PBC intelligence — requests (NL, manual, CSV / TSV / XLSX upload; PDF needs review) become versioned
+`PBC_REQUEST` records whose population, tie-out, selection matching, evidence and support gaps are derived from the one ledger
+(`src/sloane/audit/pbc.ts`), Sloane tools and proposals (`audit/pbctools.ts`, `audit/pbcactions.ts`), a PBC_PACKAGE over the request,
+and `/api/work/pbc/*`. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 5A*.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

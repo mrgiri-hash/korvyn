@@ -17,6 +17,7 @@ import { bsValues } from '../toolset.js';
 import type { Block, Cell, Citation, ColumnSpec, ComposeEnv, PopulationPin, Row, SheetModel, Tone } from './compose.js';
 import { type ArtifactDefinition, type ArtifactType, type ColFormat, type GLRule, type PlainSheetDef, SHEET_NAMES, type SheetKind, monLabel, periodToken, rangeLabel } from './model.js';
 import { MAPPING_VERSION, type TieOutResult } from './tieout.js';
+import { gapExposure } from '../audit/pbc.js';
 
 /* ================================================================================================
    TEMPLATES — starting structures only; the user can add, remove and reorder any section
@@ -31,7 +32,7 @@ export const TEMPLATES: Record<ArtifactType, { label: string; sections: SheetKin
   SUPPORT_PACKAGE: { label: 'Vendor Support Package', sections: ['SUMMARY', 'GL', 'DRIVERS', 'RECONCILIATIONS', 'FLUX', 'EVIDENCE_INDEX', 'MISSING_SUPPORT', 'EVIDENCE_COVERAGE'], window: 'FY' },
   FINANCIAL_REPORT_PACKAGE: { label: 'Monthly Financial Package', sections: ['INCOME_STATEMENT', 'BALANCE_SHEET', 'VARIANCE', 'DRIVERS'], window: 'RANGE' },
   MANAGEMENT_REVIEW_PACKAGE: { label: 'Management Review Package', sections: ['CLOSE_SUMMARY', 'INCOME_STATEMENT', 'VARIANCE', 'MATERIAL_MOVEMENTS', 'BLOCKERS'], window: 'RANGE' },
-  PBC_PACKAGE: { label: 'PBC Package (scaffold)', sections: ['PBC_REQUESTS', 'SOURCE_REFERENCES'], window: 'FY' },
+  PBC_PACKAGE: { label: 'PBC Package', sections: ['PBC_SUMMARY', 'AUDIT_POPULATION', 'AUDIT_SELECTIONS', 'GL', 'EVIDENCE_MANIFEST', 'SUPPORT_GAPS'], window: 'RANGE' },
 };
 /** a section a template names with a different default name inside that package */
 export const TEMPLATE_NAMES: Partial<Record<ArtifactType, Partial<Record<SheetKind, string>>>> = {
@@ -40,6 +41,7 @@ export const TEMPLATE_NAMES: Partial<Record<ArtifactType, Partial<Record<SheetKi
   SUPPORT_PACKAGE: { SUMMARY: 'Summary', DRIVERS: 'Projects', RECONCILIATIONS: 'Reconciliations', FLUX: 'Flux' },
   FINANCIAL_REPORT_PACKAGE: { DRIVERS: 'Top Drivers', VARIANCE: 'MoM Analysis' },
   AUDIT_SUPPORT_PACKAGE: {},
+  PBC_PACKAGE: { GL: 'GL Detail', POPULATION_TIEOUT: 'TB Tie-Out', SUPPORT_GAPS: 'Exceptions', RECONCILIATIONS: 'Reconciliations', FLUX: 'Flux Explanations' },
 };
 
 /** what a request is asking for. Deterministic: the same words make the same kind of deliverable. */
@@ -95,8 +97,13 @@ export function focusGroups(c: SectionCtx): Set<string> | null {
 /* ================================================================================================
    GL RULES — the lines a GL section presents beyond its own filter
    ================================================================================================ */
-export function resolveGlRule(env: ComposeEnv, d: ArtifactDefinition, rule: GLRule, vis: Set<string> | 'ALL'): { accounts: string[]; entities?: string[]; periodStart: string; periodEnd: string; note: string } {
+export function resolveGlRule(env: ComposeEnv, d: ArtifactDefinition, rule: GLRule, vis: Set<string> | 'ALL'): { accounts: string[]; entities?: string[]; keys?: string[]; periodStart: string; periodEnd: string; note: string } {
   const p = d.periodEnd;
+  if (rule.kind === 'AUDIT_SELECTIONS') {
+    const v = env.audit?.evaluate(rule.requestId, vis, { selections: d.filters?.selections });
+    const keys = (v?.selections ?? []).map((x) => x.line?.key).filter((k): k is string => !!k);
+    return { accounts: [], keys, periodStart: env.gl.periods()[0]!, periodEnd: env.gl.periods().at(-1)!, note: v ? `The governed lines behind ${keys.length} matched selection(s) of ${v.body.pbcNumber}${d.filters?.selections === 'COMPLETED' ? ' (fully supported only)' : ''}` : 'The PBC request is not available.' };
+  }
   if (rule.kind === 'ACCOUNT_MONTH') return { accounts: [rule.account], periodStart: p, periodEnd: p, note: `${monLabel(p)} lines of ${rule.account} ${env.gl.account(rule.account)?.name ?? ''}`.trim() };
   if (rule.kind === 'RECONCILIATION') {
     const r = env.controls.recDef(rule.reconciliationId);
@@ -389,12 +396,95 @@ export const SECTIONS: Partial<Record<SheetKind, Builder>> = {
       'Month-over-month change of each statement subtotal; income statement at average rates, balance sheet at closing rates');
   },
 
+
+  /* ---- audit / PBC (5A) — every figure from AuditService.evaluate over the governed services ---------------- */
+  PBC_SUMMARY(s, c) {
+    const v = pbcOf(c); if (!v) return sheet(c, s, 'PBC Summary', [note('This package has no PBC request in focus.')], 'PBC request');
+    const q = v.requirement, cv = v.coverage, open = v.gaps.filter((g) => g.status === 'OPEN');
+    const rows: [string, Cell][] = [['PBC', v.body.pbcNumber], ['Request', v.body.title], ['Requested by', v.body.requestedBy], ['Owner', v.body.owner], ['Received as', v.body.source === 'UPLOAD' ? `Upload · ${v.body.fileName ?? ''}` : v.body.source === 'NL' ? 'Natural-language request' : v.body.source === 'MANUAL' ? 'Manual request' : 'Recorded request'],
+      ['Request version', `v${v.version}`], ['Status', `${v.status.replace(/_/g, ' ')}${v.statusReasons[0] ? ` — ${v.statusReasons[0]}` : ''}`],
+      ...(q ? [['Period', rangeLabel(q.periodStart, q.periodEnd)], ['Scope', c.ctxLine.split(' · ')[0] ?? q.scopeId], ['Financial object', `${q.objectName} (${q.accounts.join(', ')}) · ${q.populationType.toLowerCase()}`], ['Threshold', q.minAbsUsd ? `over ${usdFmt(q.minAbsUsd)}` : 'none'],
+        ['Required evidence', q.requiredEvidence.map((e) => EV_LABEL[e] ?? e).join(', ')]] as [string, Cell][] : [['Requirement', 'Not interpreted — the request needs review']] as [string, Cell][]),
+      ...(v.population ? [['Population', `${v.population.id} · ${v.population.rowCount} lines`], ['Population total (USD)', v.population.totalUsd], ['Population tie-out', v.tie ? v.tie.status.replace(/_/g, ' ') : 'n/a']] as [string, Cell][] : []),
+      ['Selections', `${v.selections.length}${c.d.filters?.selections === 'COMPLETED' ? ' (fully supported only)' : c.d.filters?.selections === 'OPEN' ? ' (open items only)' : ''}`],
+      ['Matched', `${v.matching.MATCHED} · multiple ${v.matching.MULTIPLE_MATCHES} · partial ${v.matching.PARTIAL_MATCH} · not found ${v.matching.NOT_FOUND} · source unavailable ${v.matching.SOURCE_UNAVAILABLE}`],
+      ['Fully supported', `${cv.full} · ${usdFmt(cv.fullUsd)}`], ['Partially supported', `${cv.partial} · ${usdFmt(cv.partialUsd)}`], ['Unsupported', `${cv.unsupported} · ${usdFmt(cv.unsupportedUsd)}`],
+      ['Support coverage (by amount)', cv.pct === null ? 'n/a' : `${(cv.pct * 100).toFixed(1)}%`], ['Open support gaps', (() => { const ex = gapExposure(open); return `${open.length}${ex.selections ? ` · on ${ex.selections} selection(s) worth ${usdFmt(ex.usd)}` : ''}`; })()],
+      ['Documents', 'References only — no document connector; retrieval is external'], ['Governed data version', v.population?.dataVersion ?? c.env.gl.dataVersion()], ['Mapping version', MAPPING_VERSION], ['Trace', `pbc:${v.id}`]];
+    c.citations.push({ type: 'PBC_REQUEST', id: v.id, version: v.version, label: v.body.pbcNumber });
+    for (const w of v.warnings) if (!c.warnings.includes(w)) c.warnings.push(w);
+    return sheet(c, s, `${v.body.pbcNumber} · ${v.body.title}`, [kv(rows), ...(v.statusReasons.length > 1 ? [note(v.statusReasons.join(' '))] : [])], 'The PBC request as evaluated over the governed ledger');
+  },
+  AUDIT_POPULATION(s, c) {
+    const v = pbcOf(c); if (!v?.population || !v.requirement) return sheet(c, s, 'Population', [note('The request has no governed population.')], 'Audit population');
+    const q = v.requirement, pop = c.env.audit!.population(q, c.vis), sel = new Set(v.selections.map((x) => x.line?.key).filter(Boolean));
+    const rows: Row[] = pop.rows.map((l) => ({ cells: [l.key, utc(l.postingDate), l.entity, `${l.account} ${l.accountName}`, gv(l), l.project, d2(l.usd), sel.has(l.key) ? 'Selected' : '', `txn:${l.key}`] as Cell[] }));
+    return sheet(c, s, `Population · ${q.title}`, [kv([['Population', v.population.id], ['Definition', JSON.stringify(v.population.filter)], ['Lines', v.population.rowCount], ['Total (USD)', v.population.totalUsd], ['Below the threshold (not in the population)', `${v.population.belowThreshold.count} lines · ${usdFmt(v.population.belowThreshold.totalUsd)}`],
+      ['Content hash', v.population.contentHash], ['Data version', v.population.dataVersion], ['Mapping version', v.population.mappingVersion], ['Source systems', v.population.sourceSystems.join(', ')]]),
+      table([C('t', 'Transaction', 16), C('d', 'Posting Date', 12, 'date'), C('e', 'Entity', 10), C('a', 'Account', 30), C('v', 'Vendor', 22), C('p', 'Project', 12), C('amt', 'Amount (USD)', 17, 'money'), C('s', 'Selection', 10), TRACE], rows, undefined, [{ style: 'total', cells: ['Total', null, null, null, null, null, v.population.totalUsd, `${sel.size} selected`, null] }])],
+      `${v.population.rowCount} governed lines · the same population id Sloane and Excel resolve`);
+  },
+  POPULATION_TIEOUT(s, c) {
+    const v = pbcOf(c); const t = v?.tie; if (!t || !v?.requirement) return sheet(c, s, 'TB Tie-Out', [note('No population to tie out.')], 'Population tie-out');
+    const q = v.requirement;
+    const st: Tone = t.status === 'TIED' ? 'ok' : t.status === 'NOT_TIED' ? 'bad' : 'warn';
+    const m = sheet(c, s, `TB Tie-Out · ${q.title}`, [
+      kv([['Population (over the threshold)', t.populationUsd], ['+ Items below the threshold', t.belowThresholdUsd], [`= Gross ${q.populationType.toLowerCase()} in ${rangeLabel(q.periodStart, q.periodEnd)}`, t.grossAdditionsUsd], ['+ Other movement (settlements, transfers)', t.otherMovementUsd],
+        ['= Net activity (average rates)', t.netActivityUsd], ['Opening balance (closing rates)', t.openingUsd], ['Closing balance (closing rates)', t.closingUsd], ['TB movement', t.tbMovementUsd], ['Translation between average and closing rates', d2(t.tbMovementUsd - t.netActivityUsd)], ['Population difference', t.difference]], 'Population → account activity → governed TB'),
+      kv([['ERP source balance', t.bridge.sourceUsd], ['+ FX translation', t.bridge.fxUsd], ['+ Eliminations', t.bridge.eliminationsUsd], ['+ Reporting adjustments', t.bridge.adjustmentsUsd], ['= Final governed balance', t.bridge.finalUsd], ['Korvyn governed TB', t.bridge.governedUsd], ['Difference', t.bridge.differenceUsd], ['Source status', t.bridge.sourceStatus.replace(/_/g, ' ')],
+        ...t.bridge.systems.map((x) => [x.system, x.status.replace(/_/g, ' ').toLowerCase()] as [string, Cell])], `ERP → governed bridge for ${q.accounts.join(', ')} at ${monLabel(q.periodEnd)}`),
+      ...(t.reasons.length ? [note(t.reasons.join(' '))] : [])], 'Tie-out read from the governed ledger and the ERP tie-out service');
+    m.status = { text: `TIE-OUT: ${t.status.replace(/_/g, ' ')}${t.status === 'TIED' ? '' : ' — the population is not complete as an audit population until it ties'}`, tone: st };
+    return m;
+  },
+  AUDIT_SELECTIONS(s, c) {
+    const v = pbcOf(c); if (!v) return sheet(c, s, 'Selections', [note('No PBC request in focus.')], 'Selections');
+    const types = (v.requirement?.requiredEvidence ?? []).filter((e) => e !== 'SOURCE_TRANSACTION');
+    const rows: Row[] = v.selections.map((x) => ({ cells: [x.no, x.source === 'AUDITOR' ? 'Auditor' : x.method, x.original, x.status.replace(/_/g, ' '), x.line?.key ?? (x.candidates.length ? `${x.candidates.length} candidates` : null), x.line?.entity ?? null, x.line ? utc(x.line.postingDate) : null, x.line ? gv(x.line) : null, x.line ? d2(x.line.usd) : x.identifiers.amount ?? null,
+      ...types.map((t) => x.evidence.find((e) => e.type === t)?.status.replace(/_/g, ' ') ?? (x.line ? '—' : null)), x.coverage ?? 'not matched', x.reason, x.trace[1] ?? x.trace[0]!] as Cell[] }));
+    return sheet(c, s, `Selections · ${v.body.pbcNumber}`, [table([C('n', 'Sel #', 7, 'int'), C('src', 'Source / Method', 18), C('o', 'Original Reference', 38), C('m', 'Match', 16), C('t', 'Transaction', 16), C('e', 'Entity', 10), C('d', 'Posting Date', 12, 'date'), C('v', 'Vendor', 22), C('a', 'Amount (USD)', 17, 'money'),
+      ...types.map((t) => C(t, EV_LABEL[t] ?? t, 14)), C('cv', 'Coverage', 13), C('r', 'Reason', 44), TRACE], rows)], `${rows.length} selections · the auditor's original reference kept verbatim`);
+  },
+  EVIDENCE_MANIFEST(s, c) {
+    const v = pbcOf(c); if (!v) return sheet(c, s, 'Evidence Manifest', [note('No PBC request in focus.')], 'Evidence manifest');
+    const recOf = (x: { line: { entity: string; group: string } | null }) => (x.line ? c.env.controls.recDef(`REC-${x.line.entity}-${x.line.group}`)?.id ?? null : null);
+    const rows: Row[] = [];
+    for (const x of v.selections) for (const e of x.evidence) {
+      const conn = e.document === 'REFERENCE_AVAILABLE' || e.document === 'EXTERNAL_RETRIEVAL_REQUIRED' ? DOC_NOTE(e.sourceSystem, e.type) : e.document === 'MISSING' ? 'Nothing to retrieve' : '—';
+      rows.push({ cells: [x.no, x.line?.key ?? null, e.evidenceId ?? e.reference, EV_LABEL[e.type] ?? e.type, e.status.replace(/_/g, ' '), e.sourceSystem, e.reference, e.document.replace(/_/g, ' '), conn, recOf(x), x.line ? `FLUX-${x.line.group}-${x.line.period}` : null, e.trace] });
+      c.citations.push({ type: 'EVIDENCE_RELATIONSHIPS', id: e.trace, version: c.env.gl ? relVersion(e.trace) : 0, label: `evidence on ${e.trace}` });
+    }
+    /* one citation per transaction, not per row */
+    const seen = new Set<string>(); for (let i = c.citations.length - 1; i >= 0; i--) { const k = `${c.citations[i]!.type}:${c.citations[i]!.id}`; if (seen.has(k)) c.citations.splice(i, 1); else seen.add(k); }
+    return sheet(c, s, `Evidence Manifest · ${v.body.pbcNumber}`, [table([C('n', 'Selection', 9, 'int'), C('t', 'Transaction ID', 16), C('id', 'Evidence ID', 22), C('ty', 'Evidence Type', 18), C('st', 'Status', 13), C('ss', 'Source System', 18), C('ref', 'Document Reference', 24), C('av', 'Availability', 26), C('rt', 'Retrieval', 48), C('rc', 'Related Reconciliation', 20), C('fx', 'Related Flux', 20), TRACE], rows),
+      note('The manifest lists what Korvyn knows about each document. REFERENCE AVAILABLE means Korvyn holds the reference, not the file: no document connector is live in this phase, so every document is retrieved from its source system.')], `${rows.length} evidence rows`);
+  },
+  SUPPORT_GAPS(s, c) {
+    const v = pbcOf(c); if (!v) return sheet(c, s, 'Exceptions', [note('No PBC request in focus.')], 'Exceptions');
+    const g = [...v.gaps].sort((a, b) => (a.status === 'OPEN' ? 0 : 1) - (b.status === 'OPEN' ? 0 : 1) || b.amountUsd - a.amountUsd);
+    const rows: Row[] = g.map((x) => ({ cells: [x.kind, x.selectionNo, x.transactionId, x.requirement === 'SELECTION' ? 'Selection' : EV_LABEL[x.requirement] ?? x.requirement, x.amountUsd, x.severity, x.owner, x.status, x.resolution ?? x.note, x.transactionId ? `txn:${x.transactionId}` : `pbc:${v.id}#${x.selectionNo}`] }));
+    const open = g.filter((x) => x.status === 'OPEN');
+    return sheet(c, s, `Exceptions · ${v.body.pbcNumber}`, [table([C('k', 'Gap', 30), C('n', 'Selection', 9, 'int'), C('t', 'Transaction', 16), C('r', 'Requirement', 18), C('a', 'Amount (USD)', 17, 'money'), C('sv', 'Severity', 9), C('o', 'Owner', 14), C('st', 'Status', 10), C('res', 'Resolution / Detail', 50), TRACE], rows, undefined,
+      [{ style: 'total', cells: ['Open', open.length, null, null, d2(open.reduce((t, x) => t + x.amountUsd, 0)), null, null, null, null, null] }])], `${open.length} open · ${g.length - open.length} resolved or waived`);
+  },
+
   /* ---- PBC (scaffold) ------------------------------------------------------------------------- */
   PBC_REQUESTS(s, c) {
     const rows = c.env.controls.pbc().map((r) => ({ cells: [r.id, r.title, r.requestedBy, r.owner, r.due, r.status, r.populationId, `pbc:${r.id}`] as Cell[] }));
     return sheet(c, s, 'PBC Requests', [table([C('id', 'Request', 14), C('t', 'Title', 50), C('rb', 'Requested By', 18), C('o', 'Owner', 14), C('d', 'Due', 12), C('s', 'Status', 13), C('p', 'Population', 20), TRACE], rows), note('Scaffold: PBC requests are listed as recorded. Interpreting an auditor’s request file and assembling its responses is not automated in this phase.')], `${rows.length} requests in the work store`);
   },
 };
+
+/* ---- 5A helpers ---- */
+const EV_LABEL: Record<string, string> = { INVOICE: 'Invoice', PO: 'Purchase order', CONTRACT: 'Contract', CHANGE_ORDER: 'Change order', APPROVAL: 'Approval', RECEIPT: 'Receipt', WORKPAPER: 'Workpaper', RECONCILIATION: 'Reconciliation', FLUX_EXPLANATION: 'Flux explanation', POLICY: 'Policy', SOURCE_TRANSACTION: 'ERP source transaction', OTHER: 'Other support' };
+const pbcCache = new WeakMap<SectionCtx, ReturnType<NonNullable<ComposeEnv['audit']>['evaluate']>>();
+function pbcOf(c: SectionCtx) { const id = c.d.focus?.pbcRequestId; if (!id || !c.env.audit) return null; if (!pbcCache.has(c)) pbcCache.set(c, c.env.audit.evaluate(id, c.vis, { selections: c.d.filters?.selections })); return pbcCache.get(c) ?? null; }
+const utc = (iso: string) => new Date(`${iso}T00:00:00Z`);
+const usdFmt = (v: number) => `${v < 0 ? '(' : ''}$${(Math.abs(v) / 1e6).toFixed(2)}M${v < 0 ? ')' : ''}`;
+const gv = (l: GLine) => glxVendor(l);
+function glxVendor(l: GLine) { return l.vendor; }
+const relVersion = (trace: string) => WORK.relationshipVersion(trace);
+const DOC_NOTE = (system: string, type: string) => `External retrieval — ${system} ${type === 'RECONCILIATION' || type === 'FLUX_EXPLANATION' ? 'record in Korvyn' : 'document not connected'}`;
 
 export function traceOf(kind: string, ref: string, period: string) {
   if (/RECONCILIATION/.test(kind)) return `recon:${ref}:${period}`;
@@ -414,7 +504,7 @@ export function completeEntities(env: ComposeEnv, period: string, entityIds: str
 }
 
 /** the deterministic name of a definition, by type: its period, what it is about, and its threshold */
-export function nameFor(d: ArtifactDefinition, env: { recName: (id: string) => string | null; acctName: (code: string) => string | null }): string {
+export function nameFor(d: ArtifactDefinition, env: { recName: (id: string) => string | null; acctName: (code: string) => string | null; pbcName?: (id: string) => string | null }): string {
   const tok = periodToken(d.periodStart, d.periodEnd), mon = monLabel(d.periodEnd), t = d.type ?? 'GL_EXTRACT';
   const g = d.sheets.find((s) => s.kind === 'GL') as { filter?: { minAbsUsd?: number; vendor?: string } } | undefined;
   const m = g?.filter?.minAbsUsd;
@@ -428,7 +518,7 @@ export function nameFor(d: ArtifactDefinition, env: { recName: (id: string) => s
     case 'SUPPORT_PACKAGE': return `${tok} ${vendor ?? 'Vendor'} Support Package${thr}`;
     case 'AUDIT_SUPPORT_PACKAGE': return `${tok} Audit GL Extract`;
     case 'FINANCIAL_REPORT_PACKAGE': return `${rangeLabel(d.periodStart, d.periodEnd)} Monthly Financial Package`;
-    case 'PBC_PACKAGE': return `${tok} PBC Package`;
+    case 'PBC_PACKAGE': return `${env.pbcName?.(d.focus?.pbcRequestId ?? '') ?? `${tok} PBC`} Package`;
     case 'EXCEL_WORKBOOK': return `${mon} ${d.sheets.map((x) => x.name).slice(0, 3).join(', ')} Workbook`;
     default: {
       const audit = d.sheets.some((s) => s.kind === 'TB') && d.sheets.some((s) => s.kind === 'TIEOUT');

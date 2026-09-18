@@ -65,7 +65,7 @@ function filterFrom(env: ToolEnv, a: ToolArgs): PopulationFilter {
   return f;
 }
 /** a population object: count, totals, ONE page of rows, the id to act on it */
-function populationObject(env: ToolEnv, type: string, title: string, f: PopulationFilter, a: ToolArgs, focusName?: string): ToolResult {
+export function populationObject(env: ToolEnv, type: string, title: string, f: PopulationFilter, a: ToolArgs, focusName?: string): ToolResult {
   const def = env.gl.definePopulation(f, (a['sort'] as never) ?? 'amount_desc', title);
   const q = env.gl.query(def, env.visible, { cursor: Number(a['cursor'] ?? 0), limit: Number(a['limit'] ?? 15) });
   const top = q.all[0];
@@ -920,14 +920,7 @@ const AUDIT: SloaneTool[] = [
       return { warnings: ['Selections are deterministic from the population definition; documents are not connected.'], object: base(env, { type: 'AuditSelections', title: `Audit selections · ${ap.name}`,
         table: { columns: ['Method', 'Amount (USD)', 'Vendor', 'Invoice ref', 'Support'], rows: sel.map((s) => row(s.l.key, [s.how, $(s.l.usd), s.l.vendor ?? '—', s.l.invoiceRef ?? '—', miss.has(s.l.key) ? 'gap' : 'references present'], 1, 'line', `txn:${s.l.key}`)) },
         facts: [{ key: 'selections', label: 'Selections', value: sel.length, display: n(sel.length) }, { key: 'missingSupport', label: 'Selections with support gaps', value: miss.size, display: n(miss.size) }], refs: { auditPopulationId: ap.id, ...(sel[0] ? { transactionId: sel[0].l.key } : {}) } }) }; } },
-  { id: 'getPBCRequest', domain: 'audit', permission: 'AUDIT_VIEW', risk: 'READ', objectTypes: ['AUDIT_POPULATION'], description: 'Auditor PBC (prepared-by-client) requests, optionally by status (OPEN, IN_PROGRESS, NOT_STARTED).', params: [{ name: 'status', kind: 'text', required: false, description: 'status' }], outputs: 'PBCRequests; facts requests, open',
-    run(a, env) { const rs = env.controls.pbc().filter((r) => !a['status'] || r.status === a['status']);
-      return { warnings: [SEEDED], object: base(env, { type: 'PBCRequests', title: 'PBC requests', table: { columns: ['Owner', 'Due', 'Status', 'Population'], rows: rs.map((r) => row(`${r.id} · ${r.title}`, [r.owner, r.due, r.status, r.populationId ?? '—'], 1, 'line', `pbc:${r.id}`)) },
-        facts: [{ key: 'requests', label: 'Requests', value: rs.length, display: n(rs.length) }, { key: 'open', label: 'Not yet delivered', value: rs.length, display: n(rs.length) }], refs: rs[0] ? { pbcId: rs[0].id } : {} }) }; } },
-  { id: 'getAuditRequest', domain: 'audit', permission: 'AUDIT_VIEW', risk: 'READ', objectTypes: ['AUDIT_POPULATION'], description: 'One PBC / audit request by id with its linked population.', params: [{ name: 'pbcId', kind: 'pbcId', required: true, description: 'PBC-2026-001' }], outputs: 'AuditRequest; facts status, owner',
-    run(a, env) { const r = env.controls.pbc().find((x) => x.id === a['pbcId'])!;
-      return { warnings: [SEEDED], object: base(env, { type: 'AuditRequest', title: `${r.id} · ${r.title}`, table: { columns: ['Value'], rows: [row('Requested by', [r.requestedBy]), row('Owner', [r.owner]), row('Due', [r.due]), row('Status', [r.status]), row('Population', [r.populationId ?? 'none linked'])] },
-        facts: [{ key: 'status', label: 'Status', value: r.status, display: r.status }, { key: 'owner', label: 'Owner', value: r.owner, display: r.owner }, { key: 'due', label: 'Due', value: r.due, display: r.due }], refs: { pbcId: r.id, ...(r.populationId ? { auditPopulationId: r.populationId } : {}) }, focus: { kind: 'pbc', id: r.id, name: r.title } }) }; } },
+  /* getPBCRequest / getAuditRequest moved to audit/pbctools.ts (5A): they read the PBC workspace, not the seeded list */
   { id: 'getEvidenceSet', domain: 'audit', permission: 'AUDIT_VIEW', risk: 'READ', objectTypes: ['AUDIT_POPULATION', 'EVIDENCE'], description: 'The evidence set for an audit population: coverage of invoice, PO, contract and approval references across its items.', params: [audP], outputs: 'EvidenceSet; facts items, invoiceRefs, poRefs, approvalRefs, gaps',
     run(a, env) { const { ap, rows } = auditRows(env, a['auditPopulationId']!, a), e = env.controls.evidenceForLines(rows);
       return { warnings: ['References only — no document is connected.', AP_EXTRACT.note], object: base(env, { type: 'EvidenceSet', title: `Evidence set · ${ap.name}`, status: 'PARTIAL', table: { columns: ['Count'], rows: [row('Items', [n(rows.length)]), row('Invoice references', [n(e.invoiceRefs)]), row('PO references', [n(e.poRefs)]), row('Contract references', [n(e.contractRefs)]), row('Approvals required / referenced', [`${e.approvalsRequired} / ${e.approvalRefs}`]), row('Items with gaps', [n(e.missing.length)]), row('Documents connected', ['No'])] },

@@ -25,7 +25,8 @@ import { type Stamped, patchRecordData, setRecordStatus } from '../persistence/r
 import { WORK } from '../store.js';
 import type { Actor } from '../tools.js';
 import { type ComposeEnv, type WorkbookModel, composeWorkbook, statusOf } from './compose.js';
-import { ARTIFACT_TYPE_LABEL, type ArtifactDefinition, type ArtifactPins, type ArtifactStatus, type ArtifactType, DEFAULT_GL_COLUMNS, EXCEL_MAX_ROWS, type GLRule, type GLSheetDef, SHEET_NAMES, type SheetDef, type SheetKind, monLabel, periodToken, rangeLabel } from './model.js';
+import type { AuditService } from '../audit/pbc.js';
+import { ARTIFACT_TYPE_LABEL, AUDIT_GL_COLUMNS, type ArtifactDefinition, type ArtifactPins, type ArtifactStatus, type ArtifactType, DEFAULT_GL_COLUMNS, EXCEL_MAX_ROWS, type GLRule, type GLSheetDef, SHEET_NAMES, type SheetDef, type SheetKind, monLabel, periodToken, rangeLabel } from './model.js';
 import { TEMPLATES, nameFor, sectionName } from './sections.js';
 import { type ArtifactStorage, LocalArtifactStorage, defaultArtifactRoot } from './storage.js';
 import { SOURCE_HEALTH } from '../governed.js';
@@ -76,6 +77,8 @@ export class ArtifactEngine {
   /** the local root (tests point it at a temp directory) */
   get storage() { return (this.store as LocalArtifactStorage).root; }
   set storage(root: string) { this.store = new LocalArtifactStorage(root); }
+  /** 5A: the audit / PBC service a PBC package's sections read; bound by the orchestrator */
+  pbc: AuditService | null = null;
   /** Excel's row limit, overridable so partitioning can be proven without writing a million rows */
   maxRowsPerSheet = Number(process.env['KORVYN_XLSX_MAX_ROWS'] ?? EXCEL_MAX_ROWS);
 
@@ -87,7 +90,7 @@ export class ArtifactEngine {
   /* ---- composition env ----------------------------------------------------------------------------- */
   env(actor: Actor): ComposeEnv {
     const ea = entityAccessOf(actor);
-    return { data: this.data, gl: this.gl, controls: this.controls, tie: this.tie, visible: ea === 'ALL' ? 'ALL' : new Set(ea), maxRowsPerSheet: this.maxRowsPerSheet };
+    return { data: this.data, gl: this.gl, controls: this.controls, tie: this.tie, visible: ea === 'ALL' ? 'ALL' : new Set(ea), maxRowsPerSheet: this.maxRowsPerSheet, ...(this.pbc ? { audit: this.pbc } : {}) };
   }
   compose(actor: Actor, d: ArtifactDefinition, version = 0, artifactId = 'DRAFT', generatedAt?: string): WorkbookModel { return composeWorkbook(this.env(actor), d, { version, artifactId, generatedAt }); }
 
@@ -145,7 +148,6 @@ export class ArtifactEngine {
     const sheets: SheetDef[] = kinds.map((k) => this.section(o.type, k, { focus, minAbsUsd: o.minAbsUsd ?? null, accounts: o.accounts }));
     const tok = periodToken(start, end), notes: string[] = [];
     if (end !== `${end.slice(0, 4)}-12` && tok.startsWith('FY')) notes.push(`${tok} runs ${monLabel(start)} – ${monLabel(end)}: ${monLabel(end)} is the latest month closed into the governed ledger; the rest of the year is not yet governed.`);
-    if (o.type === 'PBC_PACKAGE') notes.push('PBC is a scaffold in this phase: requests are listed as recorded; an auditor’s request file is not interpreted and responses are not assembled.');
     const d: ArtifactDefinition = { name: o.name ?? '', type: o.type, template: o.type === 'AUDIT_SUPPORT_PACKAGE' ? 'AUDIT_GL_PACKAGE' : 'GL_EXTRACT', periodStart: start, periodEnd: end, scopeId: o.scopeId ?? 'GROUP', currency: 'USD', basis: BASIS, sheets, notes, nameSource: o.name ? 'USER' : 'AUTO',
       ...(Object.keys(focus).length ? { focus } : {}), ...(o.excludeCompleteEntities ? { filters: { excludeCompleteEntities: true } } : {}) };
     if (!o.name) d.name = this.nameOf(d);
@@ -156,11 +158,13 @@ export class ArtifactEngine {
     const name = o.name ?? sectionName(type, k), f = o.focus ?? {};
     if (k === 'TB') return { kind: 'TB', name, byEntity: false };
     if (k !== 'GL') return { kind: k, name } as SheetDef;
-    const rule: GLRule | undefined = o.rule ?? (f.reconciliationId && (type === 'RECONCILIATION_PACKAGE') ? { kind: 'RECONCILIATION', reconciliationId: f.reconciliationId } : f.account && type === 'FLUX_PACKAGE' ? { kind: 'ACCOUNT_MONTH', account: f.account } : undefined);
+    const rule: GLRule | undefined = o.rule ?? (f.pbcRequestId && type === 'PBC_PACKAGE' ? { kind: 'AUDIT_SELECTIONS', requestId: f.pbcRequestId } : f.reconciliationId && (type === 'RECONCILIATION_PACKAGE') ? { kind: 'RECONCILIATION', reconciliationId: f.reconciliationId } : f.account && type === 'FLUX_PACKAGE' ? { kind: 'ACCOUNT_MONTH', account: f.account } : undefined);
+    /* an audit package carries the audit-ready GL: source / governed / effective values, lineage and evidence references */
+    if (type === 'PBC_PACKAGE' || type === 'AUDIT_SUPPORT_PACKAGE') return { kind: 'GL', name, filter: { ...(o.minAbsUsd ? { minAbsUsd: o.minAbsUsd } : {}) }, columns: [...AUDIT_GL_COLUMNS], sort: rule ? 'amount_desc' : 'date_asc', ...(rule ? { rule } : {}) };
     return { kind: 'GL', name, filter: { ...(f.vendor ? { vendor: f.vendor } : {}), ...(o.accounts?.length ? { accounts: o.accounts } : {}), ...(o.minAbsUsd ? { minAbsUsd: o.minAbsUsd } : {}) }, columns: [...DEFAULT_GL_COLUMNS], sort: f.vendor || o.minAbsUsd || rule ? 'amount_desc' : 'date_asc', ...(rule ? { rule } : {}) };
   }
   /** the name a definition gets when the person has not named it — by type, focus, period and threshold */
-  nameOf(d: ArtifactDefinition) { return nameFor(d, { recName: (id) => this.controls.recDef(id)?.name ?? null, acctName: (code) => this.gl.account(code)?.name ?? null }); }
+  nameOf(d: ArtifactDefinition) { return nameFor(d, { recName: (id) => this.controls.recDef(id)?.name ?? null, acctName: (code) => this.gl.account(code)?.name ?? null, pbcName: (id) => { const r = this.pbc?.get(id); return r ? `${r.pbcNumber} ${r.title}` : null; } }); }
   refine(d: ArtifactDefinition, instruction: string, structured?: StructuredChange) {
     const next = structuredClone(d) as ArtifactDefinition; next.notes = [];
     const r = refineDefinition(next, instruction, structured, { periods: this.gl.periods(), scopes: this.data.scopes().map((x) => ({ id: x.id, name: x.name })) });
@@ -272,6 +276,18 @@ export class ArtifactEngine {
     /* one line for everything left out, not one per item */
     if (m.excluded.length) add('Excluded', 'WARN', m.excluded.length === 1 ? `${m.excluded[0]!.label} — ${m.excluded[0]!.reason}` : `${m.excluded.length} items are not cited because their balances are not server-authoritative: ${m.excluded.map((x) => x.label).join('; ')}.`);
     if (pinned) { const live = this.pins(m); if (live.fingerprint !== pinned.fingerprint) add('Stale', 'FAIL', `The governed data changed since this version was defined: ${diffPins(pinned, live).join('; ')}.`); else add('Stale', 'PASS', 'Every pinned population and cited object is unchanged.'); }
+    if (d.type === 'PBC_PACKAGE') {
+      const v = d.focus?.pbcRequestId && this.pbc ? this.pbc.evaluate(d.focus.pbcRequestId, this.env(actor).visible, { selections: d.filters?.selections }) : null;
+      if (!v) add('PBC request', 'FAIL', 'The PBC request this package is for is not available to you.');
+      else {
+        const open = v.gaps.filter((g) => g.status === 'OPEN' && g.severity !== 'LOW'), unmatched = v.selections.filter((x) => !x.line).length;
+        add('PBC request', v.stale ? 'FAIL' : 'PASS', v.stale ? `${v.body.pbcNumber} is stale: ${v.staleReasons.join('; ')}. Refresh the request first.` : `${v.body.pbcNumber} v${v.version} · ${v.status.replace(/_/g, ' ').toLowerCase()}`);
+        if (!v.selections.length) add('Selections', 'FAIL', d.filters?.selections === 'COMPLETED' ? 'No selection is fully supported yet — there is nothing complete to deliver.' : 'The request has no selections.');
+        else add('Selections', unmatched ? 'WARN' : 'PASS', unmatched ? `${unmatched} selection(s) are not matched to one governed transaction; they are listed as exceptions.` : `${v.selections.length} selections matched`);
+        add('Support', open.length ? 'WARN' : 'PASS', open.length ? `${open.length} material support gap(s) open; the package states them on the Exceptions tab.` : 'Every required support item is available by reference.');
+        if (v.tie) add('Population tie-out', v.tie.status === 'TIED' ? 'PASS' : 'WARN', `${v.tie.status.replace(/_/g, ' ').toLowerCase()}${v.tie.reasons[0] ? ` — ${v.tie.reasons[0]}` : ''}`);
+      }
+    }
     if (/audit[- ]?ready/i.test(d.name) && !m.auditReady) add('Audit-ready claim', 'WARN', 'The name says audit-ready but validation does not support it (no Tie-Out tab, or it does not tie). The file is not labelled audit-ready.');
     const status = checks.some((c) => c.status === 'FAIL') ? 'BLOCKED' : checks.some((c) => c.status === 'WARN') ? 'VALID_WITH_WARNINGS' : 'VALID';
     return { status, checks, auditReady: m.auditReady };
@@ -447,6 +463,9 @@ export class ArtifactEngine {
       WORK.repos.database.tx(() => {
         WORK.repos.records.update<GenerationBody>(GEN, genId, g.version, actor.id, (x) => ({ ...strip(x), storageKey: key, bytes, sha256: r.sha256, metrics: { ...x.metrics, generationMs: r.ms, rows: r.rows, rowsPerSecond: r.rowsPerSecond, peakHeapMb: r.peakHeapMb, sheets: r.sheets } }), { status: 'COMPLETED' });
         setRecordStatus(WORK.repos.records, KIND, a.id, 'GENERATED', actor.id);
+        /* a PBC package's generation is recorded on the request it answers */
+        const pbcId = a.definition.type === 'PBC_PACKAGE' ? a.definition.focus?.pbcRequestId : null;
+        if (pbcId && this.pbc?.get(pbcId)) this.pbc.setLifecycle(actor, pbcId, 'GENERATED', { packageArtifactId: a.id }, 'PBC_PACKAGE_GENERATED', o.channel === 'SLOANE' ? 'SLOANE' : 'UI', null);
         this.audit(actor, o.channel, 'ARTIFACT_GENERATED', a, null, { version: a.version, generationId: genId, format, fileName, bytes, sha256: r.sha256, rows: r.rows, tieOut: m.tieOut?.status ?? null, auditReady: m.auditReady, populations: m.populations.map((p) => p.populationId), storage: this.store.kind }, { investigationId: o.investigationId ?? a.investigationId });
       });
       job.status = 'COMPLETED'; job.rows = r.rows;

@@ -46,6 +46,8 @@ export const ACTION_POLICY: Record<string, ActionClass> = {
   UPDATE_CLOSE_TASK_STATUS: 'CONFIRM_REQUIRED', SAVE_REPORT_DEFINITION: 'CONFIRM_REQUIRED',
   /* 4A: the authoritative Flux explanation, a recorded bank statement balance, and governed deliverables */
   UPDATE_FLUX_EXPLANATION: 'CONFIRM_REQUIRED', RECORD_RECONCILIATION_STATEMENT: 'CONFIRM_REQUIRED',
+  /* 5A: audit / PBC — a request refreshed, a package marked delivered, a selection matched, a support gap linked or waived */
+  REFRESH_PBC_REQUEST: 'CONFIRM_REQUIRED', MARK_PBC_DELIVERED: 'CONFIRM_REQUIRED', RESOLVE_AUDIT_SELECTION: 'CONFIRM_REQUIRED', RESOLVE_SUPPORT_GAP: 'CONFIRM_REQUIRED', CREATE_PBC_REQUEST: 'CONFIRM_REQUIRED',
   GENERATE_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', REFRESH_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', SAVE_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', ARCHIVE_EXCEL_ARTIFACT: 'CONFIRM_REQUIRED', UPDATE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', ARCHIVE_REPORT_DEFINITION: 'CONFIRM_REQUIRED', DELETE_REPORT_DEFINITION: 'CONFIRM_REQUIRED',
   RECONCILIATION_APPROVAL: 'GOVERNED_ACTION', CLOSE_CERTIFICATION: 'GOVERNED_ACTION', REPORT_PUBLICATION: 'GOVERNED_ACTION',
   MAPPING_CHANGE: 'GOVERNED_ACTION', DIMENSION_OVERRIDE: 'GOVERNED_ACTION', ERP_WRITE_BACK: 'GOVERNED_ACTION',
@@ -108,8 +110,8 @@ export interface AuditRecord {
   investigationId: string | null; executionTraceId: string; proposalTraceId: string | null; outcome: 'COMPLETED' | 'FAILED'; error: string | null;
 }
 
-export interface ActionContext { gl: GovernedLedger; controls: ControlService; actor: Actor; expectedTargetVersion?: number | null; executionId?: string; artifacts?: import('./artifacts/engine.js').ArtifactEngine }
-interface Service {
+export interface ActionContext { gl: GovernedLedger; controls: ControlService; actor: Actor; expectedTargetVersion?: number | null; executionId?: string; artifacts?: import('./artifacts/engine.js').ArtifactEngine; pbc?: import('./audit/pbc.js').AuditService }
+export interface Service {
   type: string; permission: Permission; targetType: string;
   /** resolve target, derive preview, return errors/warnings; runs at proposal, edit, retarget and again before execution */
   validate(p: ActionProposal, c: ActionContext): { errors: string[]; warnings: string[]; choice?: ActionProposal['choice'] };
@@ -488,6 +490,9 @@ const SERVICES: Service[] = [
   savedService('CREATE_SUPPORT_PACKAGE', 'SUPPORT_PACKAGE', 'SUPPORT_PACKAGE_CREATE', 'support package draft'),
   savedService('REQUEST_GOVERNED_APPROVAL', 'APPROVAL_REQUEST', 'RECON_VIEW', 'governed workflow request'),
 ];
+/** 5A: a module registers its own Action Services (PBC request refresh / delivery / selection and gap resolution) */
+export const registerActionServices = (ss: Service[], titles: Record<string, string> = {}) => { for (const x of ss) { if (SERVICES.some((y) => y.type === x.type)) throw new Error(`duplicate action service ${x.type}`); SERVICES.push(x); } Object.assign(TITLES_EXTRA, titles); };
+const TITLES_EXTRA: Record<string, string> = {};
 export const actionServices = { get: (t: string) => SERVICES.find((s) => s.type === t), types: () => SERVICES.map((s) => s.type) };
 
 const TITLES: Record<string, string> = {
@@ -539,7 +544,7 @@ export class ActionEngine {
     const svc = actionServices.get(input.type);
     const p: ActionProposal = {
       id: korvynActionId(), planId: input.planId, sessionId: input.sessionId, type: input.type, riskLevel,
-      title: TITLES[input.type] ?? input.type, description: input.description ?? '',
+      title: TITLES[input.type] ?? TITLES_EXTRA[input.type] ?? input.type, description: input.description ?? '',
       targetObjectId: null, targetObjectType: null, targetLabel: null, proposedPayload: { ...input.payload },
       editable: (EDITABLE[input.type] ?? []).map(([field, label, multiline]) => ({ field, label, multiline })),
       sourceFinancialObjectIds: input.sourceFinancialObjectIds ?? [], sourcePopulationIds: input.sourcePopulationIds ?? [], evidenceIds: [],

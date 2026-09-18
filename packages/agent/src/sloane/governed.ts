@@ -68,6 +68,8 @@ export interface PopulationFilter {
   entities?: string[]; accounts?: string[];          // account codes; a group code includes its children
   vendor?: string; project?: string; costCenter?: string; property?: string; currency?: string;
   recordType?: string; minAbsUsd?: number; text?: string;
+  /** exact governed line keys (an audit selection's transactions) */
+  keys?: string[];
   /** a vendor filter reads the spend leg; set to include the AP liability offset as well */
   includeApLiability?: boolean;
 }
@@ -202,6 +204,7 @@ export class GovernedLedger {
   match(f: PopulationFilter, visible: Set<string> | 'ALL'): (l: GLine) => boolean {
     const accts = f.accounts?.length ? new Set(this.expandAccounts(f.accounts)) : null;
     const t = f.text?.toLowerCase();
+    const keySet = f.keys ? new Set(f.keys) : null;
     return (l) => (visible === 'ALL' || visible.has(l.entity))
       && (!f.periodStart || l.period >= f.periodStart) && (!f.periodEnd || l.period <= f.periodEnd)
       && (!f.entities?.length || f.entities.includes(l.entity)) && (!accts || accts.has(l.account))
@@ -209,6 +212,7 @@ export class GovernedLedger {
       && (!f.project || l.project === f.project) && (!f.costCenter || l.costCenter === f.costCenter) && (!f.property || l.property === f.property)
       && (!f.currency || l.currency === f.currency) && (!f.recordType || l.recordType === f.recordType)
       && (f.minAbsUsd === undefined || Math.abs(l.usd) >= f.minAbsUsd)
+      && (!keySet || keySet.has(l.key))
       && (!t || l.description.toLowerCase().includes(t) || l.key.toLowerCase().includes(t));
   }
   definePopulation(filter: PopulationFilter, sort: PopulationDef['sort'] = 'amount_desc', label = 'Governed population'): PopulationDef {

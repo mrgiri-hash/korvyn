@@ -16,10 +16,14 @@ export type SheetKind =
   | 'MATERIAL_MOVEMENTS' | 'ITEMS_OVER' | 'DRIVERS' | 'EXPLANATION' | 'COMMENTS'
   | 'RECONCILIATION' | 'RECONCILING_ITEMS' | 'SUPPORT_INDEX' | 'RECON_PROOF'
   | 'EVIDENCE_INDEX' | 'EVIDENCE_COVERAGE' | 'SOURCE_REFERENCES' | 'AUDIT_TRAIL' | 'POPULATION_METADATA'
-  | 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'VARIANCE' | 'PBC_REQUESTS';
+  | 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'VARIANCE' | 'PBC_REQUESTS'
+  /* 5A — audit / PBC */
+  | 'PBC_SUMMARY' | 'AUDIT_POPULATION' | 'POPULATION_TIEOUT' | 'AUDIT_SELECTIONS' | 'EVIDENCE_MANIFEST' | 'SUPPORT_GAPS';
 export type SectionKind = SheetKind;
 /** which lines a GL section presents beyond its filter: the items a package calls material, or a reconciliation's accounts */
-export type GLRule = { kind: 'MATERIAL_ITEMS'; minUsd: number | null } | { kind: 'RECONCILIATION'; reconciliationId: string } | { kind: 'ACCOUNT_MONTH'; account: string };
+export type GLRule = { kind: 'MATERIAL_ITEMS'; minUsd: number | null } | { kind: 'RECONCILIATION'; reconciliationId: string } | { kind: 'ACCOUNT_MONTH'; account: string }
+  /** 5A: the governed lines an audit request's selections matched to */
+  | { kind: 'AUDIT_SELECTIONS'; requestId: string };
 export interface GLSheetDef { kind: 'GL'; name: string; filter: PopulationFilter; columns: string[]; sort: PopulationDef['sort']; rule?: GLRule }
 export interface TBSheetDef { kind: 'TB'; name: string; byEntity: boolean }
 export interface SectionParams { dimension?: string; minUsd?: number; accounts?: 'MATERIAL' | string; related?: 'gl' | 'focus' | 'all' | 'notTied' }
@@ -35,9 +39,9 @@ export interface ArtifactDefinition {
   /** 4B: what the deliverable is (a starting structure, never a separate engine); absent on a 4A definition = GL_EXTRACT */
   type?: ArtifactType;
   /** the governed object a package is ABOUT — a reconciliation, an account group, a vendor */
-  focus?: { reconciliationId?: string; account?: string; vendor?: string };
+  focus?: { reconciliationId?: string; account?: string; vendor?: string; pbcRequestId?: string };
   /** package-level filters: e.g. leave out entities whose close work is complete */
-  filters?: { excludeCompleteEntities?: boolean };
+  filters?: { excludeCompleteEntities?: boolean; selections?: 'ALL' | 'COMPLETED' | 'OPEN' };
   /** a definition started from another artifact: where it came from (the source is never changed) */
   derivedFrom?: { artifactId: string; version: number; name: string };
   periodStart: string; periodEnd: string;
@@ -106,6 +110,11 @@ export const GL_COLUMN = (k: string) => GL_COLUMNS.find((c) => c.key === k) ?? n
 /** twenty columns: identity, accounting, the effective governed dimensions, amounts, lineage */
 export const DEFAULT_GL_COLUMNS = ['postingDate', 'period', 'journal', 'journalLine', 'accountNumber', 'accountDescription', 'entity', 'vendor', 'costCenter', 'project', 'property',
   'debit', 'credit', 'netAmount', 'currency', 'localAmount', 'localCurrency', 'erp', 'erpReference', 'recordType'];
+/** 5A — the AUDIT-READY GL: source facts, the source / governed / effective vendor, record type, lineage and the
+ *  evidence references. Ordinary extracts keep the cleaner default; an audit package asks for this. */
+export const AUDIT_GL_COLUMNS = ['postingDate', 'period', 'journal', 'journalLine', 'entryNo', 'accountNumber', 'accountDescription', 'accountGroup', 'entity', 'entityName',
+  'sourceVendor', 'governedVendor', 'vendor', 'project', 'costCenter', 'property', 'description', 'debit', 'credit', 'netAmount', 'currency', 'localAmount', 'localCurrency',
+  'erp', 'erpReference', 'recordType', 'invoiceRef', 'poRef', 'approvalRef'];
 /** words a person uses → a catalog key. Deliberately small; "vendor" alone means the EFFECTIVE vendor. */
 export const COLUMN_WORDS: [RegExp, string][] = [
   [/\bsource vendors?\b/, 'sourceVendor'], [/\bgoverned vendors?\b/, 'governedVendor'], [/\beffective vendors?\b|\bvendors?\b/, 'vendor'],
@@ -131,10 +140,11 @@ export const SHEET_NAMES: Record<SheetKind, string> = {
   COMMENTS: 'Comments', RECONCILIATION: 'Reconciliation', RECONCILING_ITEMS: 'Reconciling Items', SUPPORT_INDEX: 'Support Index', RECON_PROOF: 'Tie-Out',
   EVIDENCE_INDEX: 'Evidence Index', EVIDENCE_COVERAGE: 'Support Coverage', SOURCE_REFERENCES: 'Source References', AUDIT_TRAIL: 'Audit Trail', POPULATION_METADATA: 'Population Metadata',
   INCOME_STATEMENT: 'Income Statement', BALANCE_SHEET: 'Balance Sheet', VARIANCE: 'MoM Variance', PBC_REQUESTS: 'PBC Requests',
+  PBC_SUMMARY: 'PBC Summary', AUDIT_POPULATION: 'Population', POPULATION_TIEOUT: 'TB Tie-Out', AUDIT_SELECTIONS: 'Selections', EVIDENCE_MANIFEST: 'Evidence Manifest', SUPPORT_GAPS: 'Exceptions',
 };
 export const ARTIFACT_TYPE_LABEL: Record<ArtifactType, string> = {
   EXCEL_WORKBOOK: 'Workbook', GL_EXTRACT: 'GL extract', FINANCIAL_REPORT_PACKAGE: 'Financial report package', RECONCILIATION_PACKAGE: 'Reconciliation package', FLUX_PACKAGE: 'Flux package',
-  CLOSE_REVIEW_PACKAGE: 'Close review package', SUPPORT_PACKAGE: 'Support package', AUDIT_SUPPORT_PACKAGE: 'Audit support package', MANAGEMENT_REVIEW_PACKAGE: 'Management review package', PBC_PACKAGE: 'PBC package (scaffold)',
+  CLOSE_REVIEW_PACKAGE: 'Close review package', SUPPORT_PACKAGE: 'Support package', AUDIT_SUPPORT_PACKAGE: 'Audit support package', MANAGEMENT_REVIEW_PACKAGE: 'Management review package', PBC_PACKAGE: 'PBC package',
 };
 /** Excel's hard limits: 1,048,576 rows a sheet, 31-character sheet names */
 export const EXCEL_MAX_ROWS = 1_048_576;

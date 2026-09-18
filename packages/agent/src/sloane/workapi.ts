@@ -23,6 +23,8 @@ import {
 } from './book.js';
 import { reconStatement, recordReconStatement } from './controls.js';
 import { postSource, syncSourceFeed } from './sourcefeed.js';
+import { type EvidenceType, EVIDENCE_TYPES, interpretRequest, parseUpload } from './audit/pbc.js';
+import { pbcObject } from './audit/pbctools.js';
 
 export type Outcome = 'SUCCESS' | 'VALIDATION_ERROR' | 'PERMISSION_DENIED' | 'STALE_VERSION' | 'CONFLICT' | 'NOT_FOUND' | 'UNAVAILABLE';
 export const HTTP_OF: Record<Outcome, number> = { SUCCESS: 200, VALIDATION_ERROR: 400, PERMISSION_DENIED: 403, STALE_VERSION: 409, CONFLICT: 409, NOT_FOUND: 404, UNAVAILABLE: 503 };
@@ -332,6 +334,90 @@ export class WorkApi {
   /* ================================================================================================
      CLOSE
      ================================================================================================ */
+  /* ================================================================================================
+     5A — AUDIT / PBC. The same AuditService Sloane uses; the same write pipeline every workspace write uses.
+     ================================================================================================ */
+  private get audit() { const a = this.orch.artifacts.pbc; if (!a) throw new DomainRefusal('NOT_FOUND', 'The audit / PBC service is not available.'); return a; }
+  private pbcEnv(actor: ActorContext) { return { data: this.orch.data, gl: this.orch.gl, controls: this.orch.controls, actor: actor as never, objectId: 'API', visible: this.vis(actor), pbc: this.audit }; }
+  /** the PBC workspace: the request, population, tie-out, selections (paged), evidence, gaps, reconciliations, Flux */
+  pbcRequest(actor: ActorContext, id: string, offset = 0, limit = 40): ApiResult {
+    const d = this.need(actor, 'AUDIT_VIEW', null, 'pbc'); if (d) return d;
+    if (!this.audit.get(id)) return fail('NOT_FOUND', `No PBC request ${id}`);
+    const r = pbcObject(this.pbcEnv(actor), id, { page: { offset: Math.max(0, offset), limit: Math.min(Math.max(1, limit), 100) } });
+    return ok({ pbc: r.object.pbc, facts: r.object.facts, title: r.object.title, warnings: r.warnings });
+  }
+  pbcRequests(actor: ActorContext): ApiResult {
+    const d = this.need(actor, 'AUDIT_VIEW', null, 'pbc'); if (d) return d;
+    return ok({ requests: this.audit.list().map((r) => { const v = this.audit.evaluate(r.id, this.vis(actor)); return { id: r.id, pbcNumber: r.pbcNumber ?? r.id, title: r.title, owner: r.owner, requestedBy: r.requestedBy, source: r.source ?? 'SEED', status: v?.status ?? r.status, version: r.version, lifecycle: r.lifecycle ?? 'OPEN', selections: v?.selections.length ?? 0, openGaps: v?.gaps.filter((g) => g.status === 'OPEN').length ?? 0, packageArtifactId: r.packageArtifactId ?? null }; }) });
+  }
+  /** MANUAL intake: a structured requirement, or the request's words (interpreted exactly as Sloane interprets them) */
+  createPBCRequest(actor: ActorContext, body: Record<string, unknown>): ApiResult {
+    const A = this.audit, ctx = A.ctx();
+    const text = str(body, 'text', 4000);
+    const accounts = Array.isArray(body['accounts']) ? (body['accounts'] as unknown[]).filter((x): x is string => typeof x === 'string' && /^\d{5}$/.test(x)) : [];
+    if (!text && !accounts.length) return fail('VALIDATION_ERROR', 'Give the request text, or a structured requirement with accounts.');
+    const interp = text ? interpretRequest(text, ctx) : interpretRequest(`${str(body, 'title', 200)} ${str(body, 'object', 60)}`, ctx, {});
+    if (!text) {
+      const q = interp.requirement, ev = Array.isArray(body['evidence']) ? (body['evidence'] as unknown[]).filter((x): x is EvidenceType => typeof x === 'string' && (EVIDENCE_TYPES as string[]).includes(x)) : [];
+      Object.assign(q, { accounts, objectName: str(body, 'object', 60) || accounts.join(', '), periodStart: ctx.periods.includes(str(body, 'periodStart', 7)) ? str(body, 'periodStart', 7) : q.periodStart, periodEnd: ctx.periods.includes(str(body, 'periodEnd', 7)) ? str(body, 'periodEnd', 7) : q.periodEnd,
+        scopeId: ctx.scopes.some((x) => x.id === str(body, 'scopeId', 20)) ? str(body, 'scopeId', 20) : 'GROUP', minAbsUsd: num(body, 'minAbsUsd'), project: str(body, 'project', 20) || null, populationType: ['ADDITIONS', 'ACTIVITY', 'DISPOSALS'].includes(str(body, 'populationType', 12)) ? str(body, 'populationType', 12) : 'ADDITIONS',
+        requiredEvidence: [...new Set([...(ev.length ? ev : q.requiredEvidence), 'SOURCE_TRANSACTION' as EvidenceType])], title: str(body, 'title', 200) || q.title });
+      interp.from = 'manual'; interp.resolved = ['structured requirement entered by hand'];
+    }
+    return this.write(actor, body, { action: 'CREATE_PBC_REQUEST', capability: 'SUPPORT_PACKAGE_CREATE', entity: null, kind: 'pbc', target: { id: 'PBC-NEW', type: 'PBC_REQUEST', label: interp.requirement.title },
+      run: () => { const r = A.create(actor as never, { interpretation: interp, source: 'MANUAL', raw: text || JSON.stringify(body).slice(0, 4000), pbcNumber: str(body, 'pbcNumber', 40) || null, title: str(body, 'title', 200) || null, channel: 'UI' });
+        return { before: null, after: { id: r.id, version: r.version }, afterRef: r.id, result: { id: r.id, pbcNumber: r.pbcNumber, version: r.version } }; } });
+  }
+  /** UPLOAD intake: CSV / TSV / TXT / XLSX are parsed; anything else (a PDF) is kept as REQUIRES_REVIEW — no OCR */
+  async uploadPBCRequest(actor: ActorContext, body: Record<string, unknown>): Promise<ApiResult> {
+    const denied = this.need(actor, 'SUPPORT_PACKAGE_CREATE', null, 'pbc'); if (denied) return denied;
+    const fileName = str(body, 'fileName', 200), b64 = typeof body['content'] === 'string' ? (body['content'] as string) : '';
+    if (!fileName || !b64) return fail('VALIDATION_ERROR', 'fileName and content (base64) are required');
+    const buf = Buffer.from(b64, 'base64');
+    if (!buf.length || buf.length > 2_000_000) return fail('VALIDATION_ERROR', 'The file is empty or larger than 2 MB.');
+    const up = await parseUpload(fileName, buf).catch((e: Error) => ({ title: fileName, pbcNumber: null, requestText: '', rows: [], intake: 'REQUIRES_REVIEW' as const, notes: [`The file could not be read: ${e.message}`] }));
+    const A = this.audit;
+    const interp = up.requestText ? interpretRequest(up.requestText, A.ctx()) : null;
+    if (interp) { interp.from = 'upload'; interp.notes.push(...up.notes); }
+    return this.write(actor, body, { action: 'CREATE_PBC_REQUEST', capability: 'SUPPORT_PACKAGE_CREATE', entity: null, kind: 'pbc', target: { id: 'PBC-UPLOAD', type: 'PBC_REQUEST', label: up.title },
+      run: () => { const r = A.create(actor as never, { interpretation: interp, source: 'UPLOAD', raw: up.requestText || fileName, fileName, pbcNumber: up.pbcNumber, title: up.title, intake: up.intake === 'PARSED' && interp ? 'PARSED' : 'REQUIRES_REVIEW', intakeNotes: up.notes, auditorRows: up.rows, channel: 'UI' });
+        return { before: null, after: { id: r.id, rows: up.rows.length, intake: r.intake }, afterRef: r.id, result: { id: r.id, pbcNumber: r.pbcNumber, intake: r.intake, rows: up.rows.length, notes: up.notes } }; } });
+  }
+  private pbcWrite(actor: ActorContext, id: string, body: Record<string, unknown>, action: string, capability: Capability, run: (r: NonNullable<ReturnType<WorkApi['audit']['get']>>) => { version: number }): ApiResult {
+    const r = this.audit.get(id);
+    if (!r) return fail('NOT_FOUND', `No PBC request ${id}`);
+    const expected = num(body, 'expectedVersion');
+    return this.write(actor, body, { action, capability, entity: null, kind: 'pbc', target: { id, type: 'PBC_REQUEST', label: `${r.pbcNumber} ${r.title}` },
+      run: () => { if (expected !== null && expected !== r.version) throw new StaleVersionError('PBC_REQUEST', id, expected, r.version); const u = run(r); return { before: { version: r.version }, after: { version: u.version }, afterRef: id, result: { id, version: u.version } }; } });
+  }
+  refreshPBCRequest(actor: ActorContext, id: string, body: Record<string, unknown>): ApiResult {
+    return this.pbcWrite(actor, id, body, 'REFRESH_PBC_REQUEST', 'SUPPORT_PACKAGE_CREATE', () => { const u = this.audit.refresh(actor as never, id, 'UI', null); if (u.packageArtifactId && this.orch.artifacts.get(u.packageArtifactId)) this.orch.artifacts.refresh(actor as never, u.packageArtifactId, null, 'REPORTING'); return u; });
+  }
+  resolvePBCSelection(actor: ActorContext, id: string, selectionId: string, body: Record<string, unknown>): ApiResult {
+    const key = str(body, 'transaction', 60), note = str(body, 'note', 1000);
+    if (!key) return fail('VALIDATION_ERROR', 'transaction (the governed transaction key you chose) is required');
+    return this.pbcWrite(actor, id, body, 'RESOLVE_AUDIT_SELECTION', 'SUPPORT_PACKAGE_CREATE', () => { try { return this.audit.resolveSelection(actor as never, id, selectionId, key, note || 'Matched in the workspace', 'UI', null); } catch (e) { throw new DomainRefusal('VALIDATION_ERROR', (e as Error).message); } });
+  }
+  resolvePBCGap(actor: ActorContext, id: string, gapId: string, body: Record<string, unknown>): ApiResult {
+    const status = str(body, 'status', 10).toUpperCase(), note = str(body, 'note', 1000);
+    if (status !== 'WAIVED' && status !== 'RESOLVED') return fail('VALIDATION_ERROR', 'status must be WAIVED or RESOLVED');
+    if (!note) return fail('VALIDATION_ERROR', 'A gap is resolved with a reason');
+    return this.pbcWrite(actor, id, body, 'RESOLVE_SUPPORT_GAP', 'SUPPORT_ATTACH', () => { try { return this.audit.resolveGap(actor as never, id, gapId, { status, note }, 'UI', null); } catch (e) { throw new DomainRefusal('VALIDATION_ERROR', (e as Error).message); } });
+  }
+  linkPBCEvidence(actor: ActorContext, id: string, gapId: string, body: Record<string, unknown>): ApiResult {
+    const ref = str(body, 'reference', 80);
+    if (!ref) return fail('VALIDATION_ERROR', 'reference is required (e.g. an invoice number) — a reference, not a document');
+    return this.pbcWrite(actor, id, body, 'RESOLVE_SUPPORT_GAP', 'SUPPORT_ATTACH', () => { try { return this.audit.linkEvidence(actor as never, id, gapId, ref, 'UI', null); } catch (e) { throw new DomainRefusal('VALIDATION_ERROR', (e as Error).message); } });
+  }
+  deliverPBCRequest(actor: ActorContext, id: string, body: Record<string, unknown>): ApiResult {
+    return this.pbcWrite(actor, id, body, 'MARK_PBC_DELIVERED', 'SUPPORT_PACKAGE_CREATE', (r) => {
+      if (r.lifecycle === 'DELIVERED') throw new DomainRefusal('CONFLICT', `${r.pbcNumber} is already delivered.`);
+      const gen = r.packageArtifactId ? this.orch.artifacts.generations(r.packageArtifactId).find((g) => g.status === 'COMPLETED') : null;
+      if (!gen) throw new DomainRefusal('CONFLICT', `${r.pbcNumber} has no generated package yet — generate it before marking it delivered.`);
+      return this.audit.setLifecycle(actor as never, id, 'DELIVERED', { delivered: { generationId: gen.id, artifactVersion: gen.artifactVersion, at: new Date().toISOString(), by: actor.name } }, 'PBC_PACKAGE_DELIVERED', 'UI', null);
+    });
+  }
+
   close(actor: ActorContext, period = this.period): ApiResult {
     const denied = this.need(actor, 'CLOSE_VIEW', null, 'close'); if (denied) return denied;
     const vis = this.vis(actor);

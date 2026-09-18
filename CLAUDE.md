@@ -9646,6 +9646,98 @@ external auditor portal, a conversational-runtime redesign, ERP write-back. **Al
 - per-entity close readiness (the Close Summary's readiness is the whole scope's even when completed entities are left out, and says so);
 - a template library users can save their own packages into (types are code templates; a saved package + derive is the reuse path).
 
+## 2026-09-18 — SLOANE 2.0 PHASE 5A: Audit / PBC intelligence (request → population → evidence → package)
+
+Owner's brief. **An auditor's request becomes a governed, traceable population and a support package** — REQUEST →
+INTERPRET → RESOLVE SCOPE → BUILD POPULATION → TIE TO THE LEDGER → TRACE EVIDENCE → IDENTIFY GAPS → REVIEW → GENERATE.
+No separate audit data model: the request, its selections and its gaps are WORK records; the population, tie-out,
+matching and evidence are DERIVED from the one governed ledger every time. The server book is still `@korvyn/core`'s GL.
+
+**Files** (`packages/agent/src/sloane/audit/`): `pbc.ts` (`AuditService`: interpretation, upload parsing, population,
+tie-out, matching, evidence, gaps, evaluation, versioning, readiness, `AUDIT_CHECKS` hooks) · `pbctools.ts` (Sloane tools
+and the PBC workspace object) · `pbcactions.ts` (four Action Services) · `fixtures/pbc27-fixed-asset-additions.csv`.
+Package sections live in `artifacts/sections.ts` (PBC_SUMMARY · AUDIT_POPULATION · POPULATION_TIEOUT · AUDIT_SELECTIONS ·
+EVIDENCE_MANIFEST · SUPPORT_GAPS); the audit-ready GL preset is `AUDIT_GL_COLUMNS` (`model.ts`).
+
+**Records.** `PBC_REQUEST` (extends the 3C seeded record; a seeded one reads with empty defaults) · `AUDIT_SELECTION`
+(the auditor's text kept verbatim, plus a person's resolution) · `SUPPORT_GAP` (materialised with a person's
+waiver / resolution). Everything else — population, tie-out, matching, evidence, coverage, status, staleness — is
+`AuditService.evaluate()`. A request is VERSIONED: create, a population change, a resolved selection, a linked
+reference and a refresh each record a new version with the prior requirement and pins in `history`. Generation and
+delivery are OPERATIONAL states (`patchRecordData`, no version bump), so a package that cites request vN does not go
+stale because it was generated.
+
+**Interpretation.** `interpretRequest()` — the user's words win; a model's structured arguments only fill what the words
+leave open. Object (CIP → 15000 …), window clamped to governed months (FY26 runs Jan–Jun and says so), population type,
+threshold, scope, project ("South Valley" is SV-PH2), required evidence (a source reference is always required).
+
+**Intake.** Natural language (Sloane) · manual (`POST /api/work/pbc`, text or a structured requirement) · upload
+(`POST /api/work/pbc/upload`, base64): CSV / TSV / TXT / XLSX are parsed (header row detected, metadata lines give the
+PBC number and title — "PBC #27" keeps the auditor's numbering); a PDF is kept as REQUIRES_REVIEW. No OCR.
+
+**Population and tie-out.** Selections are every item when the population is ≤ 60, else 25 key items plus a systematic
+sample; an uploaded request uses the auditor's rows. The tie-out is population + items below the threshold = the
+ledger's gross additions, then net activity against the TB movement, then the ERP → governed bridge. Statuses TIED ·
+NOT_TIED · PARTIALLY_VALIDATED · SOURCE_UNAVAILABLE; on this book the group is PARTIALLY VALIDATED (NetSuite stale, JD
+Edwards unavailable) at 0.00 difference, and an unsynced ERP posting makes it NOT TIED with the exact difference.
+
+**Matching** (by transaction id → journal → invoice → amount + attributes, tolerance 0.5%): MATCHED · MULTIPLE_MATCHES
+(candidates shown, never chosen) · PARTIAL_MATCH (states what differs) · NOT_FOUND · SOURCE_UNAVAILABLE (the entity's
+ERP is down). A person's resolution is a new version. **Two selections resolving to one transaction are stated**
+("would be tested twice"), never merged.
+
+**Evidence and gaps.** Invoice / PO (AMBIGUOUS when two selections of different vendors cite one PO) / contract /
+approval (not required under the $250K policy) / source reference, plus WORK relationships (a linked reference is
+`INVOICE_FOR` → `txn:`). Document availability REFERENCE_AVAILABLE · EXTERNAL_RETRIEVAL_REQUIRED · MISSING ·
+ACCESS_DENIED — no document connector is live (`DOCUMENT_CONNECTORS`, all NOT_CONNECTED). **Reconciliation and Flux are
+ACCOUNT-level** (`ACCOUNT_LEVEL`): one gap per reconciliation / Flux line carrying the selections it affects, and they do
+not decide a selection's own coverage. None of the CIP reconciliations is approved in the seeded book, so every CIP
+request honestly carries "Reconciliation incomplete". Gap exposure is counted once per selection (`gapExposure`).
+
+**Sloane.** Tools `buildPBCRequest` · `getPBCRequest` / `getAuditRequest` (the workspace; replaced the 3A seeded list) ·
+`getPBCSupportGaps` · `getPBCSelectionGL` · `getAuditReadiness` · `modifyPBCRequest`, and proposals
+`proposeRefreshPBCRequest` · `proposeDeliverPBCPackage` · `proposeResolveAuditSelection` · `proposeResolveSupportGap`
+(action types REFRESH_PBC_REQUEST · MARK_PBC_DELIVERED · RESOLVE_AUDIT_SELECTION · RESOLVE_SUPPORT_GAP, all
+CONFIRM_REQUIRED). **A tool never writes**: `s.drafts.pbc` is kept by the orchestrator (`persistPBC`), which also creates
+the PBC_PACKAGE draft over the new request, so every 4B refinement and generation path applies unchanged.
+`pbcPlan()` routes deterministically ahead of `artifactPlan()`: a request NAMED by its number opens it (never a rebuild),
+"missing / what's missing" → gaps, "the GL for those selections" → the selections with their own gaps, population words
+("only include South Valley", "exclude items under $500K") → `modifyPBCRequest`, "generate the completed selections" →
+`filters.selections = COMPLETED` then the generate proposal. Package words ("add the TB tie-out", "include the related
+reconciliations and Flux explanations", "add source vendor", "remove completed selections") go to the package; in a
+PBC package TB / TIEOUT mean the POPULATION tie-out.
+
+**Browser.** A PBCRequest / PBCSupportGaps answer renders as the **PBC workspace** inline in the Sloane panel
+(`p5PbcHTML`: requirement, population, coverage, tabs Selections · What's missing · Tie-out · Reconciliations & Flux;
+choose a candidate, refresh a stale request) above the package preview. Served by Korvyn, **Audit › Requests / PBC** adds
+the governed requests, an upload and the workspace in place (`p5AudMount`). Reuses the 4A preview classes and `.ktabs`.
+
+**Permissions and audit.** Read = AUDIT_VIEW (the MDH accountant has none; the external auditor reads and cannot create);
+create / refresh / deliver = SUPPORT_PACKAGE_CREATE; link / waive = SUPPORT_ATTACH; rows scoped by entity; an
+out-of-scope transaction's documents are ACCESS_DENIED. Audit events PBC_REQUEST_CREATED · PBC_POPULATION_GENERATED ·
+PBC_SELECTIONS_MATCHED · PBC_SELECTION_MATCHED · PBC_EVIDENCE_LINKED · PBC_GAP_RESOLVED · PBC_REQUEST_MODIFIED ·
+PBC_REQUEST_REFRESHED · PBC_PACKAGE_GENERATED · PBC_PACKAGE_DELIVERED, plus the UI write pipeline's own event.
+
+**Readiness** ("are we audit-ready for CIP?") is deterministic conditions from `AUDIT_CHECKS` — missing evidence, stale
+reconciliation, unexplained Flux, unsupported material movement, late approval, stale ERP feed, population drift —
+never a score.
+
+**Traps.** The `\b`-becomes-backspace trap hit twice more in Python splice scripts (a non-raw string); always use raw
+strings or `chr(92)` and grep for `\x08` after every splice. A filter on WHAT IS SHOWN (`filters.selections`) must not
+feed the request's pins or status, or a COMPLETED package reads its own request as stale.
+
+**Verified:** `npm run sloane:test` 82/82 (`audit5a.test.ts`: A–F deterministically with the package read back; the
+PBC #27 upload with every match status; XLSX; PDF → REQUIRES_REVIEW; resolve / link / waive; staleness after an unsynced
+then synced posting; restricted document; permissions; readiness; refinements) · dry run 30/30 · core 78/78 · 4/4 gates.
+**Live claude-opus-5** on `sloane-serve`: A–F end to end in the panel, F generated a 25 KB xlsx over the 3 fully supported
+selections (not audit-ready: the tie-out is partially validated); the uploaded PBC #27 opened by number, a candidate
+chosen in the workspace (v3) and the duplicate selection stated.
+
+**Not built (§41):** a production external-auditor portal, invoice connectors, OCR, automated email ingestion, ERP
+write-back, the Excel add-in, a conversational-runtime redesign, a UI overhaul. **Also not built:** document retrieval
+(references only), a waive / link UI in the workspace (Sloane proposals and the API do it), per-request due dates and
+owners edited in the UI, and sampling methods beyond key items + systematic.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

@@ -19,6 +19,8 @@ export interface StructuredChange {
   glBehind?: { minUsd: number | null };
   excludeCompleteEntities?: boolean;
   periodEnd?: string; scopeId?: string;
+  /** 5A: which selections a PBC package carries */
+  selections?: 'ALL' | 'COMPLETED' | 'OPEN';
 }
 /** what refinement may resolve names against: the governed periods and scopes */
 export interface RefineCtx { periods: string[]; scopes: { id: string; name: string }[] }
@@ -46,6 +48,8 @@ const SHEET_WORDS: [RegExp, SheetKind][] = [
   [/\bmom\b|\bmonth[- ]over[- ]month\b|\bvariance analysis\b/, 'VARIANCE'],
   [/\bmaterial movements?\b/, 'MATERIAL_MOVEMENTS'],
   [/\bpopulation metadata\b/, 'POPULATION_METADATA'],
+  /* 5A — PBC package sections */
+  [/\bevidence manifest\b|\bsupport manifest\b|\bdocument manifest\b/, 'EVIDENCE_MANIFEST'], [/\bselections? (tab|sheet|list)\b/, 'AUDIT_SELECTIONS'], [/\bpopulation (tab|sheet)\b/, 'AUDIT_POPULATION'],
 ];
 /** a specific section named by words that also name a general one is the specific one */
 const SUBSUMES: [SheetKind, SheetKind[]][] = [['RECS_NOT_TIED', ['RECONCILIATIONS']], ['RECONCILING_ITEMS', ['RECONCILIATIONS']], ['UNEXPLAINED_FLUX', ['FLUX']], ['COMMENTS', ['RECONCILIATIONS', 'FLUX']],
@@ -114,6 +118,17 @@ export function applyStructured(d: ArtifactDefinition, c: StructuredChange, r: R
   }
   const g = gl(d);
   const needGl = (what: string) => { if (!g) { r.notes.push(`There is no GL sheet in this workbook to ${what}.`); return false; } return true; };
+  /* in a PBC package the tie-out is the POPULATION's, and the exceptions and evidence are the request's */
+  if (d.type === 'PBC_PACKAGE') {
+    const PBC: Partial<Record<SheetKind, SheetKind>> = { TIEOUT: 'POPULATION_TIEOUT', TB: 'POPULATION_TIEOUT', RECON_PROOF: 'POPULATION_TIEOUT', EXCEPTIONS: 'SUPPORT_GAPS', MISSING_SUPPORT: 'SUPPORT_GAPS', EVIDENCE_INDEX: 'EVIDENCE_MANIFEST', EVIDENCE_COVERAGE: 'EVIDENCE_MANIFEST', SUMMARY: 'PBC_SUMMARY', UNEXPLAINED_FLUX: 'FLUX', RECS_NOT_TIED: 'RECONCILIATIONS' };
+    if (c.addSheets) c.addSheets = [...new Set(c.addSheets.map((k) => PBC[k] ?? k))];
+    if (c.removeSheets) c.removeSheets = [...new Set(c.removeSheets.map((k) => PBC[k] ?? k))];
+    if (c.moveSheet) c.moveSheet = { ...c.moveSheet, sheet: PBC[c.moveSheet.sheet] ?? c.moveSheet.sheet };
+  }
+  if (c.selections && (d.filters?.selections ?? 'ALL') !== c.selections) {
+    d.filters = { ...(d.filters ?? {}), selections: c.selections };
+    r.changes.push(c.selections === 'COMPLETED' ? 'Only the fully supported (completed) selections' : c.selections === 'OPEN' ? 'Left out the completed selections' : 'Every selection'); r.changed = true;
+  }
   for (const k of c.addSheets ?? []) {
     if (d.sheets.some((s) => s.kind === k)) { r.notes.push(`${SHEET_NAMES[k]} is already a tab in this workbook.`); continue; }
     const nm = kindName(d, k);
@@ -186,6 +201,9 @@ export function parseInstruction(text: string, ctx?: RefineCtx): StructuredChang
     if (!t.trim()) continue;
     const rename = raw.match(/\b(?:call|name|rename) (?:it|the workbook)(?: to)? [“"']?([^“"'.]+)[”"']?/i);
     if (rename) { c.name = rename[1]!.trim(); continue; }
+    /* 5A — which selections a PBC package carries */
+    if (/\bselections?\b|\bitems\b/.test(t) && /\b(complete|completed|fully supported|supported)\b/.test(t)) { c.selections = /\b(remove|exclude|drop|without|hide|leave out)\b/.test(t) ? 'OPEN' : 'COMPLETED'; if (!sheetsIn(t).length) continue; }
+    if (/\ball (the )?selections\b|\bevery selection\b/.test(t)) { c.selections = 'ALL'; continue; }
     /* 4B — completed entities */
     if (/\bentit(y|ies)\b/.test(t) && /\b(complete|completed|finished|done|closed)\b/.test(t)) { c.excludeCompleteEntities = /\b(remove|exclude|drop|hide|leave out|without|skip|take out)\b/.test(t); continue; }
     /* 4B — reorder a section: "put unreconciled accounts first", "move blockers to the end", "put exceptions before blockers" */

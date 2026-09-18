@@ -50,6 +50,10 @@ import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
  *   POST /api/work/artifacts/:id/status  { status: SAVED|ARCHIVED|DRAFT }      lifecycle state
  *   POST /api/work/artifacts/:id/restore { version }                           a prior definition as a NEW version
  *   POST /api/work/artifacts/:id/derive  { periodEnd, scopeId, vendor }        a NEW artifact from this one
+ *   GET  /api/work/pbc · GET /api/work/pbc/:id?offset=&limit=                   5A: PBC requests / the PBC workspace (paged selections)
+ *   POST /api/work/pbc { text | accounts, periodStart, … } · POST /api/work/pbc/upload { fileName, content (base64) }
+ *   POST /api/work/pbc/:id/refresh · /deliver · /selections/:sid/resolve { transaction, note }
+ *   POST /api/work/pbc/:id/gaps/:gid/resolve { status: WAIVED|RESOLVED, note } · /gaps/:gid/link-evidence { reference }
  *   POST /api/work/dev/source-posting · POST /api/work/dev/source-sync     dev auth mode + loopback only
  */
 const cfg = loadSloaneConfig();
@@ -63,10 +67,10 @@ export const sessions = { mode: authProvider.mode, resolve: (req: IncomingMessag
 const work = new WorkApi(orchestrator);
 const MAX_BODY = 32_000;
 
-function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
+function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, unknown> | null> {
   return new Promise((resolve) => {
     let size = 0, body = '';
-    req.on('data', (c: Buffer) => { size += c.length; if (size > MAX_BODY) { resolve(null); req.destroy(); } else body += c; });
+    req.on('data', (c: Buffer) => { size += c.length; if (size > max) { resolve(null); req.destroy(); } else body += c; });
     req.on('end', () => { try { const j = JSON.parse(body || '{}'); resolve(j && typeof j === 'object' && !Array.isArray(j) ? j : null); } catch { resolve(null); } });
     req.on('error', () => resolve(null));
   });
@@ -182,7 +186,8 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
     const seg = path.slice('/api/work/'.length).split('/').map(decodeURIComponent);
     const a = authed(req, res); if (!a) return;
     const actor = a.actor, G = req.method === 'GET', P = req.method === 'POST';
-    const body = P ? await readJson(req) : {};
+    /* an uploaded PBC file (base64) may be larger than an ordinary write */
+    const body = P ? await readJson(req, seg[0] === 'pbc' && seg[1] === 'upload' ? 3_000_000 : MAX_BODY) : {};
     if (P && !body) { refuse(res, 'VALIDATION_ERROR', 'invalid or oversized request body'); return; }
     const b = body ?? {};
     const [s0, s1, s2, s3] = seg;
@@ -213,6 +218,17 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
       if (P && seg.length === 1) return reply(res, work.createReport(actor, b));
       if (G && s1 && seg.length === 2) return reply(res, work.report(actor, s1));
       if (P && s1 && seg.length === 2) return reply(res, work.updateReport(actor, s1, b));
+    }
+    if (s0 === 'pbc') {
+      if (G && seg.length === 1) return reply(res, work.pbcRequests(actor));
+      if (P && seg.length === 1) return reply(res, work.createPBCRequest(actor, b));
+      if (P && s1 === 'upload' && seg.length === 2) return reply(res, await work.uploadPBCRequest(actor, b));
+      if (G && s1 && seg.length === 2) return reply(res, work.pbcRequest(actor, s1, Number(qs.get('offset') ?? 0) || 0, Number(qs.get('limit') ?? 40) || 40));
+      if (P && s1 && s2 === 'refresh' && seg.length === 3) return reply(res, work.refreshPBCRequest(actor, s1, b));
+      if (P && s1 && s2 === 'deliver' && seg.length === 3) return reply(res, work.deliverPBCRequest(actor, s1, b));
+      if (P && s1 && s2 === 'selections' && s3 && seg[4] === 'resolve' && seg.length === 5) return reply(res, work.resolvePBCSelection(actor, s1, s3, b));
+      if (P && s1 && s2 === 'gaps' && s3 && seg[4] === 'resolve' && seg.length === 5) return reply(res, work.resolvePBCGap(actor, s1, s3, b));
+      if (P && s1 && s2 === 'gaps' && s3 && seg[4] === 'link-evidence' && seg.length === 5) return reply(res, work.linkPBCEvidence(actor, s1, s3, b));
     }
     if (s0 === 'artifacts') {
       if (G && seg.length === 1) return reply(res, work.artifacts(actor));

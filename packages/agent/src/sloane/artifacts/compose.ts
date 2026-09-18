@@ -27,14 +27,16 @@ export interface ColumnSpec { key: string; header: string; width: number; format
 export interface Block { heading?: string; columns: ColumnSpec[]; rowCount: number; chunks: () => Iterable<Row[]>; totals?: Row[]; tabular: boolean }
 export type Tone = 'ok' | 'warn' | 'bad' | 'info';
 export interface SheetModel { name: string; kind: SheetDef['kind']; title: string[]; status: { text: string; tone: Tone } | null; blocks: Block[]; rowCount: number; populationId: string | null; part: { index: number; of: number } | null }
-export interface Citation { type: 'RECONCILIATION_BALANCE' | 'FLUX_EXPLANATION' | 'EVIDENCE_RELATIONSHIPS'; id: string; version: number | null; label: string }
+export interface Citation { type: 'RECONCILIATION_BALANCE' | 'FLUX_EXPLANATION' | 'EVIDENCE_RELATIONSHIPS' | 'PBC_REQUEST'; id: string; version: number | null; label: string }
 export interface PopulationPin { sheet: string; populationId: string; populationVersion: string; rowCount: number; debitUsd: number; creditUsd: number; netUsd: number; contentHash: string }
 export interface WorkbookModel {
   fileName: string; csvFileName: string; title: string; scopeLabel: string; rangeLabel: string;
   sheets: SheetModel[]; tieOut: TieOutResult | null; populations: PopulationPin[]; citations: Citation[]; sourceSystems: string[];
   excluded: { label: string; reason: string }[]; warnings: string[]; auditReady: boolean; totalRows: number; dataVersion: string;
 }
-export interface ComposeEnv { data: FinancialDataService; gl: GovernedLedger; controls: ControlService; tie: TieOutService; visible: Set<string> | 'ALL'; maxRowsPerSheet?: number; chunkSize?: number }
+export interface ComposeEnv { data: FinancialDataService; gl: GovernedLedger; controls: ControlService; tie: TieOutService; visible: Set<string> | 'ALL'; maxRowsPerSheet?: number; chunkSize?: number;
+  /** 5A: the audit / PBC service a PBC package's sections read (never a second ledger) */
+  audit?: import('../audit/pbc.js').AuditService }
 
 const TITLE_ROWS = 4;               // title · context · provenance · (status or blank) — then a blank row and the header
 const HEADER_OFFSET = TITLE_ROWS + 2;
@@ -94,7 +96,7 @@ export function glPopulation(env: ComposeEnv, d: ArtifactDefinition, s: GLSheetD
   let window: Record<string, unknown> = { periodStart: d.periodStart, periodEnd: d.periodEnd }, note: string | null = null;
   if (s.rule) {
     const r = resolveGlRule(env, d, s.rule, env.visible);
-    window = { periodStart: r.periodStart, periodEnd: r.periodEnd, accounts: r.accounts.length ? r.accounts : ['__NONE__'], ...(r.entities ? { entities: r.entities } : {}) };
+    window = r.keys ? { periodStart: r.periodStart, periodEnd: r.periodEnd, keys: r.keys.length ? r.keys : ['__NONE__'] } : { periodStart: r.periodStart, periodEnd: r.periodEnd, accounts: r.accounts.length ? r.accounts : ['__NONE__'], ...(r.entities ? { entities: r.entities } : {}) };
     note = r.note;
   }
   const filter = { ...s.filter, ...window, ...(scope.kind === 'GROUP' ? {} : { entities: scope.entityIds }) };

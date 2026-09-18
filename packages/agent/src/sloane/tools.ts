@@ -71,6 +71,8 @@ export interface FinancialObject {
   draft?: { kind: 'REPORT' | 'EXCEL'; id: string; definition: Record<string, unknown> };
   /** a WORKBOOK PREVIEW (type ExcelWorkbookPreview): tabs, counts, representative rows — the browser renders it striped */
   workbook?: Record<string, unknown>;
+  /** a PBC WORKSPACE (type PBCRequest / PBCSupportGaps): the request, its population, selections, gaps — rendered inline */
+  pbc?: Record<string, unknown>;
   governed: true;
 }
 
@@ -89,7 +91,9 @@ export interface ToolSession {
   investigation: { objective: string; findings: string[]; objects: { id: string; type: string; title: string }[]; populationIds: string[]; timeline: { at: string; event: string }[] };
   lastToolCalls: { tool: string; args: Record<string, string> }[];
   proposalsThisTurn: string[];
-  drafts: { report: { id: string; definition: Record<string, unknown> } | null; excel: { id: string; definition: Record<string, unknown> } | null };
+  drafts: { report: { id: string; definition: Record<string, unknown> } | null; excel: { id: string; definition: Record<string, unknown> } | null;
+    /** 5A: a PBC request the conversation is creating or changing; the orchestrator keeps it (like a workbook draft) */
+    pbc?: import('./audit/pbctools.js').PBCDraft | null };
   engine: import('./actions.js').ActionEngine;
 }
 export interface ToolEnv {
@@ -97,6 +101,8 @@ export interface ToolEnv {
   session?: ToolSession;
   /** the Artifact Engine — composes previews; persistence and generation happen outside the tool */
   artifacts?: import('./artifacts/engine.js').ArtifactEngine;
+  /** 5A: the audit / PBC service — reads; a PBC request is kept by the orchestrator, like a workbook draft */
+  pbc?: import('./audit/pbc.js').AuditService;
 }
 export interface ToolResult { object: FinancialObject; warnings: string[] }
 export interface SloaneTool {

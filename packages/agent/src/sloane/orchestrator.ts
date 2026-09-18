@@ -37,6 +37,10 @@ import { replaySourceFeed } from './sourcefeed.js';
 import { ArtifactEngine } from './artifacts/engine.js';
 import type { ArtifactDefinition } from './artifacts/model.js';
 import { detectType } from './artifacts/sections.js';
+import { AuditService } from './audit/pbc.js';
+import { PBC_TOOL_IDS, pbcObject } from './audit/pbctools.js';
+import './audit/pbcactions.js';
+import { workbookObject } from './actiontools.js';
 
 /* ================================================================================================
    LIMITS
@@ -212,7 +216,7 @@ export class FinancialContextEngine {
     if (pop) n.populationId = { value: pop.population?.populationId ?? pop.refs['populationId']!, source: 'DERIVED' };
     /* the workbook (or report draft) the conversation is building stays in reach across turns that are about something
        else — a proposal, a read — until a new one replaces it */
-    const keep = Object.fromEntries(['artifactId', 'excelDraftId', 'artifactVersion', 'reportDraftId'].filter((k) => c.lastRefs[k]).map((k) => [k, c.lastRefs[k]!]));
+    const keep = Object.fromEntries(['artifactId', 'excelDraftId', 'artifactVersion', 'reportDraftId', 'pbcRequestId', 'pbcSelectionScope'].filter((k) => c.lastRefs[k]).map((k) => [k, c.lastRefs[k]!]));
     n.lastRefs = Object.assign(keep, ...avail.map((o) => o.refs));
     n.lastObjects = avail.map((o) => ({ id: o.id, type: o.type, title: o.title }));
     return n;
@@ -304,6 +308,7 @@ export class Planner {
     if (I && (I.intent === 'ACT' || I.intent === 'BUILD' || I.intent === 'CORRECTION')) { d.add('action'); d.add('build'); }
     /* a workbook in the conversation keeps its tools in reach: "put the TB on another tab" is a change to it */
     if (ctx.lastRefs['artifactId'] || ctx.lastRefs['excelDraftId']) { d.add('build'); d.add('action'); }
+    if (ctx.lastRefs['pbcRequestId']) { d.add('audit'); d.add('build'); d.add('action'); }
     const permitted = toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok);
     const worded = new Set(DOMAIN_WORDS.filter(([, re]) => re.test(request)).map(([k]) => k));
     const typed = new Set(I?.requestedObject.type ? TYPE_DOMAINS[I.requestedObject.type] ?? [] : []);
@@ -430,6 +435,8 @@ export class Planner {
    ================================================================================================ */
 export function deterministicPlan(text: string, I: Interpretation, R: Resolved, ctx: SessionContext, gl: GovernedLedger): PlanStep[] {
   const t = text.toLowerCase();
+  const pb = pbcPlan(text, ctx);
+  if (pb) return pb;
   const art = artifactPlan(text, ctx);
   if (art) return art;
   const a = (o: Record<string, string | null | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined).map(([name, value]) => ({ name, value: value ?? null }));
@@ -544,6 +551,52 @@ export function artifactPlan(text: string, ctx: SessionContext): PlanStep[] | nu
   if (build) return [S('buildExcelArtifact', 'Build the workbook')];
   return null;
 }
+
+/* ================================================================================================
+   5A — PBC ROUTING. Deterministic: an audit request, a question about its gaps or GL, a population change, a
+   generation of its completed selections, refresh and delivery. Package tabs / columns fall through to artifactPlan.
+   ================================================================================================ */
+/** does the request NAME an existing PBC request ("PBC #27", "PBC-5A-001")? Bound by the orchestrator to the audit service */
+let pbcNamed: (t: string) => boolean = () => false;
+const S0 = (tool: string, purpose: string): PlanStep => ({ tool, purpose, dependsOn: [], args: [] });
+export const bindPbcLookup = (f: (t: string) => boolean) => { pbcNamed = f; };
+export function pbcPlan(text: string, ctx: SessionContext): PlanStep[] | null {
+  const t = ` ${text.toLowerCase()} `;
+  /* a request the words name by its number is opened — never rebuilt as a new request */
+  if (pbcNamed(text) && !/\b(refresh|deliver|generate|download|export|waive|link)\b/.test(t)) return [S0('getPBCRequest', 'The PBC workspace for the request named')];
+  const S = (tool: string, purpose: string, args: Record<string, string | undefined> = {}, dependsOn: number[] = []): PlanStep => ({ tool, purpose, dependsOn, args: Object.entries(args).filter(([, v]) => v !== undefined).map(([name, value]) => ({ name, value: value! })) });
+  const has = !!ctx.lastRefs['pbcRequestId'];
+  const ev = /\binvoices?\b|\bpos\b|\bpurchase orders?\b|\bapprovals?\b|\bcontracts?\b|\breceipts?\b|\bchange orders?\b/.test(t);
+  const support = ev || /\bsupport\b|\bevidence\b|\bbacking\b|\bdocumentation\b/.test(t);
+  const verb = /\b(give me|build|create|pull|get me|prepare|compile|assemble|provide|need|want|send me|gather)\b/.test(t);
+  const pbcWord = /\bpbc\b|\bauditors?\b|\baudit request\b|\bprepared[- ]by[- ]client\b/.test(t);
+  /* "are we audit-ready for CIP?" — a readiness question, not the 4B audit-ready GL extract */
+  if (/\baudit[- ]ready\b|\baudit readiness\b/.test(t) && !/\b(extract|gl|package|workbook|excel|general ledger)\b/.test(t)) return [S('getAuditReadiness', 'Audit readiness')];
+  if (has) {
+    const pkg = /\b(tab|tabs|sheet|column|columns|source vendor|governed vendor|tie[- ]?out|trial balance|\btb\b|reconciliations? (tab|sheet)|flux explanations?|include the related|add the flux|remove completed|completed selections)\b/.test(t) && !/\b(generate|download|export)\b/.test(t);
+    if (/\b(generate|download|export)\b/.test(t)) {
+      if (/\b(completed|fully supported|complete|open|all) selections?\b|\bselections? (that are )?(completed|complete|fully supported)\b/.test(t)) return [S('modifyExcelArtifact', 'Choose the selections the package carries', { instruction: text }), S('proposeGenerateExcelArtifact', 'Generate the package', { format: /\bcsv\b/.test(t) ? 'csv' : undefined }, [0])];
+      return null;
+    }
+    if (/\brefresh\b/.test(t) && /\b(pbc|request|population|selections?)\b/.test(t)) return [S('proposeRefreshPBCRequest', 'Refresh the PBC request')];
+    if (/\bmark (it|this|the (package|request|pbc)) (as )?delivered\b|\bdeliver (it|the package|this)\b|\b(sent|delivered) (it |this |the package )?to the auditors?\b/.test(t)) return [S('proposeDeliverPBCPackage', 'Mark the package delivered')];
+    const selNo = (t.match(/\bselection\s*#?\s*(\d+)\b/) ?? [])[1];
+    if (/\bwaive\b/.test(t) && selNo) return [S('proposeResolveSupportGap', 'Waive a support gap', { selection: selNo, mode: 'WAIVE', note: text })];
+    const ref = (text.match(/\b((?:INV|PO|APR|CTR|CO)-[A-Z0-9-]+)\b/i) ?? [])[1];
+    if (/\blink\b|\battach\b/.test(t) && selNo && ref) return [S('proposeResolveSupportGap', 'Link a reference to a support gap', { selection: selNo, reference: ref, mode: 'LINK' })];
+    const key = (text.match(/\b(JE-\d+[:#-]?\d*)\b/i) ?? [])[1];
+    if (selNo && key && /\b(is|to|match|use)\b/.test(t)) return [S('proposeResolveAuditSelection', 'Match the selection', { selection: selNo, transaction: key, note: text })];
+    if (!pkg && (/\bmissing\b|\bwhat'?s missing\b|\bgaps?\b|\bunsupported\b|\bwithout (support|evidence|an? invoices?|approvals?)\b|\bnot supported\b/.test(t)) && !/\b(add|include)\b/.test(t)) return [S('getPBCSupportGaps', 'What is missing')];
+    if (/\b(gl|general ledger|ledger|journal lines|transactions)\b/.test(t) && /\bselections?\b|\bthose\b|\bthese\b|\bthem\b/.test(t) && !/\b(add|include|tab)\b/.test(t)) return [S('getPBCSelectionGL', 'The GL behind the selections')];
+    if (!pkg && /\bonly include\b|\bonly (items|lines|transactions)\b|\bexclude (items|lines|transactions|anything)\b|\b(items|lines) (under|below|over|above)\b|\bonly (for )?(mdh|mer-[a-z]{2}|reit|south valley|sv-ph2)\b|\bchange (it|the period|the window) to\b|\balso require\b/.test(t)) return [S('modifyPBCRequest', 'Change the request’s population', { instruction: text })];
+    if (/\b(this|the|that) (pbc|request)\b/.test(t) && (support || /\b(show|open|where|status|pull)\b/.test(t)) && !pkg) return [S('getPBCRequest', 'The PBC workspace')];
+  }
+  /* a new request: "give me FY26 CIP additions over $1M with invoices, POs, approvals and reconciliation support" */
+  if (verb && support && (/\b(additions|disposals|settlements|capex|capital (additions|spend))\b/.test(t) || pbcWord) && !/\b(package|workbook|excel|gl extract)\b/.test(t)) return [S('buildPBCRequest', 'Interpret the request and build its governed population')];
+  if (pbcWord && /\b(show|list|open|what|where|which)\b/.test(t) && /\bpbc|requests?\b/.test(t)) return [S('getPBCRequest', 'PBC requests')];
+  return null;
+}
+export const PBC_ROUTED = PBC_TOOL_IDS;
 
 /* ================================================================================================
    GROUNDING — a number in the narrative must be a fact's display value
@@ -701,8 +754,11 @@ export class SloaneOrchestrator {
     /* every ERP posting that has synced is part of the governed population again (the data version moves with it) */
     replaySourceFeed(this.gl);
     this.artifacts = new ArtifactEngine(this.data, this.gl, this.controls);
+    /* 5A: the audit / PBC service over the same ledger, controls and tie-out — a PBC package's sections read it */
+    this.artifacts.pbc = new AuditService(this.data, this.gl, this.controls, this.artifacts.tie);
+    { const A = this.artifacts.pbc; bindPbcLookup((t) => { const m = t.toLowerCase().match(/\bpbc[\s#-]*(?:no\.?\s*)?([a-z0-9-]*\d[a-z0-9-]*)\b/); if (!m) return false; const w = m[1]!.toUpperCase(); return A.list().some((r) => r.id.toUpperCase() === w || r.pbcNumber.toUpperCase() === w || r.pbcNumber.toUpperCase().endsWith(`-${w}`) || r.pbcNumber.replace(/\D/g, '') === w.replace(/\D/g, '')); }); }
     /* the actor is resolved at every proposal AND every execution from the request's authenticated context */
-    this.actions = new ActionEngine((a) => ({ gl: this.gl, controls: this.controls, actor: a ?? this.actorOf(), artifacts: this.artifacts }));
+    this.actions = new ActionEngine((a) => ({ gl: this.gl, controls: this.controls, actor: a ?? this.actorOf(), artifacts: this.artifacts, pbc: this.artifacts.pbc ?? undefined }));
   }
 
   /** The user's decision on a proposal or plan. The browser collects it; everything else happens here. */
@@ -868,7 +924,7 @@ export class SloaneOrchestrator {
       if (dec.capped) tr.limitsReached.push('maxClarificationLoops');
       /* a deliverable is a DEFINITION the user sees and refines: its scope and period are stated on the preview (default
          Corporate Consolidated), so building one never stops to ask — "only MDH" refines it */
-      if (dec.needed.length && artifactPlan(request, ctx)) { tr.fallbacks.push(`clarification: ${dec.needed.join(', ')} not asked — a deliverable states its defaults on the preview`); dec.needed = []; }
+      if (dec.needed.length && (artifactPlan(request, ctx) || pbcPlan(request, ctx))) { tr.fallbacks.push(`clarification: ${dec.needed.join(', ')} not asked — a deliverable states its defaults on the preview`); dec.needed = []; }
       if (dec.needed.length) {
         const field = dec.needed[0]!;
         const q = this.clarifier.question(field, R, actor);
@@ -899,7 +955,13 @@ export class SloaneOrchestrator {
       let pv = this.planner.validate(steps, allow, actor, ctx);
       /* 4A: a deliverable request, or a change to the workbook in the conversation, is acted on by the Artifact tools even
          when the model planned a read (e.g. a TB tie-out read for "make sure it ties back to ERP") */
-      const art = artifactPlan(raw, ctx);
+      /* 5A: an audit / PBC request is routed by Korvyn — the population, selections and package it names are governed objects */
+      const pb = pbcPlan(raw, ctx);
+      if (pb && !(pb.every((x) => pv.steps.some((y) => y.tool === x.tool)))) {
+        const bv = this.planner.validate(pb, toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok), actor, ctx);
+        if (bv.steps.length) { if (steps.length) tr.fallbacks.push('plan: PBC routing — the model plan did not act on the request'); steps = pb; pv = { ...bv, rejected: [...pv.rejected, ...bv.rejected] }; tr.plan.source = 'deterministic'; }
+      }
+      const art = pb ? null : artifactPlan(raw, ctx);
       if (art && (!pv.steps.some((s) => ARTIFACT_TOOLS.has(s.tool)) || (ARTIFACT_FORCED.has(art[0]!.tool) && !pv.steps.some((s) => s.tool === art[0]!.tool)))) {
         const av = this.planner.validate(art, toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok), actor, ctx);
         if (av.steps.length) { if (steps.length) tr.fallbacks.push('plan: artifact routing — the model plan did not act on the workbook'); steps = art; pv = { ...av, rejected: [...pv.rejected, ...av.rejected] }; tr.plan.source = 'deterministic'; }
@@ -932,7 +994,7 @@ export class SloaneOrchestrator {
         lastNarrative: session.lastNarrative, lastObjects: session.lastObjects, lastRefs: ctx.lastRefs, investigationId: session.investigation.id, request: raw,
         investigation: { ...session.investigation, timeline: this.timeline(sessionId) }, lastToolCalls: session.lastToolCalls, proposalsThisTurn: [], drafts: session.drafts, engine: this.actions,
       };
-      const env: Omit<ToolEnv, 'objectId'> = { data: this.data, gl: this.gl, controls: this.controls, actor, visible: visibleOf(actor), session: toolSession, artifacts: this.artifacts };
+      const env: Omit<ToolEnv, 'objectId'> = { data: this.data, gl: this.gl, controls: this.controls, actor, visible: visibleOf(actor), session: toolSession, artifacts: this.artifacts, ...(this.artifacts.pbc ? { pbc: this.artifacts.pbc } : {}) };
       for (const [i, s] of pv.steps.entries()) {
         const tool = toolRegistry.get(s.tool)!;
         const args: ToolArgs = { ...s.args };
@@ -954,8 +1016,12 @@ export class SloaneOrchestrator {
         if (!g.ok) { results.push(null); tr.toolsExecuted.push({ tool: s.tool, args, status: 'REFUSED', objectId: null, latencyMs: 0, warnings: [], error: g.reason, result: null }); note(`Not permitted: ${g.reason}.`); continue; }
         try {
           const r = tool.run(args, { ...env, objectId: `FO-${objects.length + 1}` });
+          /* 5A: a PBC request the tool prepared is kept now (a new request, or a new version) and the answer is its workspace */
+          const kept = this.persistPBC(session, actor, tr.traceId, sessionId, { ...env, objectId: r.object.id });
+          if (kept) { r.object = kept.object; r.warnings.push(...kept.warnings); }
           r.object.facts = r.object.facts.slice(0, LIMITS.maxFactsPerObject);
           results.push(r.object); objects.push(r.object);
+          if (kept?.extra) objects.push(kept.extra);
           /* a changed workbook definition becomes a new artifact VERSION before the next step runs (so a generate step
              in the same plan sees it); this is the conversation's work being kept, like the investigation record */
           const persisted = this.persistDraft(session, actor, tr.traceId, sessionId, r.object);
@@ -1049,6 +1115,41 @@ export class SloaneOrchestrator {
     }
     const inv = session.investigation.id;
     if (inv) WORK.repos.investigations.update(inv, actor.id, (o) => ({ ...(o as InvestigationBody), artifactIds: [...new Set([...o.artifactIds, d.id])] }));
+    return null;
+  }
+
+  /** 5A: keep the PBC request the conversation prepared — a NEW request (and its package draft) on the first build, a
+   *  NEW VERSION on each population change (the package over it is refreshed so it pins the new version). Like the
+   *  workbook draft and the investigation record, this is the conversation's own work being kept; nothing is delivered. */
+  private persistPBC(session: Session, actor: Actor, traceId: string, sessionId: string, env: ToolEnv): { object: FinancialObject; extra: FinancialObject | null; warnings: string[] } | null {
+    const d = session.drafts.pbc, A = this.artifacts.pbc;
+    if (!d?.dirty || !A) return null;
+    d.dirty = false;
+    const invId = session.investigation.id || null;
+    if (d.op === 'create' && d.interpretation) {
+      /* the auditor's own number, when the words carry one ("PBC #30: …") */
+      const no = d.raw.match(/\bpbc\s*#\s*(\d+)\b/i)?.[1];
+      const rec = A.create(actor, { interpretation: d.interpretation, source: 'NL', raw: d.raw, pbcNumber: no ? `PBC #${no}` : null, channel: 'SLOANE', traceId, investigationId: invId });
+      d.id = rec.id;
+      const q = d.interpretation.requirement;
+      const def = this.artifacts.newPackage({ type: 'PBC_PACKAGE', focus: { pbcRequestId: rec.id }, periodStart: q.periodStart, periodEnd: q.periodEnd, scopeId: q.scopeId });
+      session.drafts.excel = { id: '', definition: def as unknown as Record<string, unknown>, change: 'Created', dirty: true, version: 1 } as never;
+      const note = this.persistDraft(session, actor, traceId, sessionId, { type: 'PBCRequest' } as FinancialObject);
+      const xd = session.drafts.excel as unknown as { id: string; definition: Record<string, unknown>; version?: number };
+      if (xd?.id) A.linkPackage(actor, rec.id, xd.id);
+      const w = pbcObject(env, rec.id, { notes: d.interpretation.notes });
+      const wb = xd?.id ? workbookObject({ ...env, objectId: `${env.objectId}-PKG` }, xd as never).object : null;
+      return { object: w.object, extra: wb, warnings: [...w.warnings, ...(note ? [note] : [])] };
+    }
+    if (d.op === 'modify' && d.id && d.requirement) {
+      const u = A.modify(actor, d.id, d.requirement, d.change, 'SLOANE', traceId);
+      if (u.packageArtifactId && this.artifacts.get(u.packageArtifactId)) {
+        const rr = this.artifacts.refresh(actor, u.packageArtifactId, null, 'SLOANE');
+        if (rr.ok) session.drafts.excel = { id: rr.artifact.id, definition: rr.artifact.definition as unknown as Record<string, unknown>, version: rr.artifact.version } as never;
+      }
+      const w = pbcObject(env, d.id, { changes: d.change.split('; ') });
+      return { object: w.object, extra: null, warnings: w.warnings };
+    }
     return null;
   }
 

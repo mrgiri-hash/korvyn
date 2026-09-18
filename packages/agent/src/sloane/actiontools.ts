@@ -29,7 +29,7 @@ function obj(env: ToolEnv, o: Partial<FinancialObject> & Pick<FinancialObject, '
   };
 }
 /** a proposal as a FinancialObject the browser renders as an ActionPreview */
-function proposalObject(env: ToolEnv, p: ActionProposal): ToolResult {
+export function proposalObject(env: ToolEnv, p: ActionProposal): ToolResult {
   const sess = S(env);
   sess.proposalsThisTurn.push(p.id);
   const o = obj(env, {
@@ -47,7 +47,7 @@ function proposalObject(env: ToolEnv, p: ActionProposal): ToolResult {
   });
   return { object: o, warnings: [...p.validation.errors, ...p.validation.warnings] };
 }
-function propose(env: ToolEnv, type: string, payload: Record<string, unknown>, extra: { dependsOn?: string[]; description?: string; populations?: string[] } = {}) {
+export function propose(env: ToolEnv, type: string, payload: Record<string, unknown>, extra: { dependsOn?: string[]; description?: string; populations?: string[] } = {}) {
   const s = S(env);
   return s.engine.propose({
     sessionId: s.id, planId: s.planId, type, payload, dependsOn: extra.dependsOn, description: extra.description,
@@ -311,7 +311,9 @@ export function workbookObject(env: ToolEnv, draft: XDraft, extra: { changes?: s
       { key: 'sheets', label: 'Tabs', value: pv.sheets.map((x) => x.name).join(', '), display: pv.sheets.map((x) => x.name).join(', ') },
       ...pv.sheets.filter((x) => x.kind === 'GL').map((x, i) => ({ key: `glRows${i ? i + 1 : ''}`, label: `${x.name} lines`, value: x.rowCount, display: x.rowCount.toLocaleString('en-US') })),
       /* a tie-out is a claim only a Tie-Out tab makes; without one the workbook says it has none */
-      ...(t && d.sheets.some((x) => x.kind === 'TIEOUT') ? [{ key: 'tieOutStatus', label: 'Tie-out', value: t.status, display: t.status.replace(/_/g, ' ') }, { key: 'tieOutDifference', label: 'Tie-out difference (USD)', value: t.differenceUsd, display: t.differenceUsd.toFixed(2) }]
+      /* 5A: a PBC package's tie-out is its POPULATION's (population + below threshold = the ledger's additions) */
+      ...(d.type === 'PBC_PACKAGE' && d.sheets.some((x) => x.kind === 'POPULATION_TIEOUT') && d.focus?.pbcRequestId && env.pbc ? (() => { const pt = env.pbc!.evaluate(d.focus!.pbcRequestId!, env.visible)?.tie; return pt ? [{ key: 'tieOutStatus', label: 'Population tie-out', value: pt.status, display: `${pt.status.replace(/_/g, ' ').toLowerCase()} · difference ${pt.difference.toFixed(2)} USD` }] : []; })()
+      : t && d.sheets.some((x) => x.kind === 'TIEOUT') ? [{ key: 'tieOutStatus', label: 'Tie-out', value: t.status, display: t.status.replace(/_/g, ' ') }, { key: 'tieOutDifference', label: 'Tie-out difference (USD)', value: t.differenceUsd, display: t.differenceUsd.toFixed(2) }]
         : [{ key: 'tieOutStatus', label: 'Tie-out', value: 'none', display: 'no Tie-Out tab in this workbook' }]),
       { key: 'auditReady', label: 'Audit-ready', value: pv.auditReady ? 'yes' : 'no', display: pv.auditReady ? 'yes' : 'no' },
       ...(extra.changes ?? []).map((c, i) => ({ key: `change${i + 1}`, label: 'Change', value: c, display: c })),
