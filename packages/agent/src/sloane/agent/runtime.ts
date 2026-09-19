@@ -1,0 +1,1217 @@
+/**
+ * THE AGENT RUNTIME (Phase 7) — GOAL → PLAN → VALIDATE → EXECUTE STEP → OBSERVE → UPDATE STATE → REPLAN →
+ * CONTINUE / PAUSE / COMPLETE → VERIFY → TRACE.
+ *
+ * The runtime NEVER executes anything itself. A tool step goes through SloaneOrchestrator.agentValidate (the Planner:
+ * registry, allowlist, arguments, permission) and agentExecute (permission re-checked, the same env and persistence
+ * as a conversation turn). A proposal is written only by ActionEngine.decide() after a person decides a checkpoint.
+ * A governed action (approval, certification, publication, mapping, ERP) is prepared at most, and routed to a person.
+ *
+ * Runs are durable (records kind AGENT_RUN), advance in the background one step at a time (no HTTP request is held
+ * open for the run), can be paused, interrupted, re-scoped and cancelled, and are verified before they complete.
+ */
+import { randomUUID } from 'node:crypto';
+import type { SloaneOrchestrator } from '../orchestrator.js';
+import { type Actor, type FinancialObject, toolRegistry, visibleOf } from '../tools.js';
+import { WORK } from '../store.js';
+import { periodLabel } from '../financials.js';
+import { SOURCE_HEALTH } from '../governed.js';
+import { parseMoney } from '../conversation.js';
+import { ActionGovernanceEngine } from '../actions.js';
+import { mkTask, templateFor, typeOfTool } from './graphs.js';
+import { type GoalDeps, detectGoalType, hasSubject, parseGoal, retitle } from './goals.js';
+import { type Ambiguity, applyCandidate, resolveTerms } from './ambiguity.js';
+import { type SteeringIntent, classifySteering } from './steering.js';
+import {
+  type AgentCheckpoint, type AgentFinding, type AgentGoal, type AgentIntervention, type AgentObservation, type AgentRunBody, type AgentRunOptions,
+  type AgentRunStatus, type AgentTask, type GoalType, type RunContext, type SteeringType, type UserSteeringEvent, POLICY_PROFILES, TERMINAL, WAITING,
+} from './model.js';
+
+const KIND = 'AGENT_RUN';
+const now = () => new Date().toISOString();
+const money = (v: number) => { const a = Math.abs(v) / 1e6; const s = `$${a.toFixed(2)}M`; return v < 0 ? `(${s})` : s; };
+const col = (o: FinancialObject, name: string) => o.table.columns.indexOf(name);
+const fact = (o: FinancialObject | undefined, k: string) => o?.facts.find((f) => f.key === k);
+
+export interface RunView {
+  runId: string; title: string; goalType: GoalType; status: AgentRunStatus; profile: string; autonomy: string; period: string; scope: string;
+  progress: AgentRunBody['progress']; checkpoints: (Omit<AgentCheckpoint, 'proposalIds'> & { proposals: { id: string; title: string; target: string | null; status: string; riskLevel: string }[] })[];
+  result: AgentRunBody['result']; verification: AgentRunBody['verification']; completionReason: string | null; interventions: AgentIntervention[];
+  startedAt: string; updatedAt: string; completedAt: string | null; sessionId: string; investigationId: string;
+}
+
+export class AgentRuntime {
+  private readonly cache = new Map<string, AgentRunBody>();
+  private readonly objects = new Map<string, Map<string, FinancialObject>>();
+  private readonly running = new Set<string>();
+  /** a kick that arrived while the loop was still unwinding: the loop runs again when it exits */
+  private readonly rekick = new Set<string>();
+  private readonly waiters = new Map<string, (() => void)[]>();
+  private readonly acs = new Map<string, AbortController>();
+
+  constructor(private readonly o: SloaneOrchestrator) {
+    /* a run the previous process was advancing is PAUSED, never silently re-executed: a person resumes it */
+    for (const r of WORK.repos.records.list<{ run: AgentRunBody }>(KIND)) {
+      const run = r.run;
+      if (run.runStatus === 'RUNNING' || run.runStatus === 'PLANNING' || run.runStatus === 'READY' || run.runStatus === 'CREATED') {
+        run.runStatus = 'PAUSED'; run.completionReason = 'The server restarted while this run was in progress. Resume to continue from the last completed step.';
+        run.graph.tasks.filter((t) => t.status === 'RUNNING').forEach((t) => { t.status = 'PENDING'; });
+        this.event(run, 'RUN_PAUSED', 'Paused by a server restart');
+        this.save(run);
+      }
+    }
+  }
+
+  /* ================================================================================================
+     START
+     ================================================================================================ */
+  private deps(actor: Actor): GoalDeps {
+    return { gl: this.o.gl, data: this.o.data, controls: this.o.controls, visible: visibleOf(actor), periods: this.o.data.governedPeriods(), workingPeriod: this.o.data.workingPeriod(),
+      pbcRequests: this.o.artifacts.pbc ? this.o.artifacts.pbc.list().map((r) => ({ id: r.id, pbcNumber: r.pbcNumber, title: r.title, status: String(r.status) })) : [],
+      artifacts: this.o.artifacts.list(actor).map((a) => ({ id: a.id, name: a.name, status: String(a.status), type: String(a.type) })) };
+  }
+  detect(text: string, actor?: Actor): GoalType | null { return detectGoalType(text, actor ? hasSubject(resolveTerms(text, this.deps(actor))) : false); }
+
+  start(actor: Actor, text: string, opt: { goalType?: GoalType; options?: AgentRunOptions; sessionId?: string } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
+    const deps = this.deps(actor);
+    const goal = parseGoal(text, deps, opt.goalType);
+    if (!goal) return { ok: false, reason: 'This is not a goal Sloane can carry through as a governed run. Ask it as a question, or name what to review, prepare or investigate.' };
+    const profile = POLICY_PROFILES[goal.policyProfile];
+    const runId = `RUN-${Date.now().toString(36).toUpperCase()}${randomUUID().slice(0, 4).toUpperCase()}`;
+    const sessionId = opt.sessionId && /^[A-Za-z0-9_-]{8,64}$/.test(opt.sessionId) ? opt.sessionId : `agent-${runId.toLowerCase()}`;
+    let investigationId: string;
+    try { investigationId = this.o.agentSession(sessionId, actor, { period: goal.period, periodRange: goal.periodRange, scope: goal.scope === 'GROUP' ? 'GROUP' : goal.scope, objective: goal.title }); }
+    catch (e) { return { ok: false, reason: (e as Error).message }; }
+    const t = now();
+    const options = { ...(opt.options ?? {}) };
+    if (process.env['KORVYN_AUTH_MODE'] && process.env['KORVYN_AUTH_MODE'] !== 'dev' && !process.env['NODE_TEST_CONTEXT']) { delete options.failTools; delete options.transientTools; delete options.unavailableSources; }
+    const run: AgentRunBody = {
+      runId, goal, runStatus: 'CREATED', actor: { id: actor.id, name: actor.name, role: actor.role, scope: actor.scopeIds }, permissionsSnapshot: actor.permissions.slice(),
+      sessionId, investigationId, graph: { planId: `APLAN-${runId}`, version: 0, tasks: [], revisions: [] }, currentTaskId: null,
+      observations: [], checkpoints: [], interventions: [], steering: [], events: [], limits: { maxSteps: profile.maxSteps, maxRetries: profile.maxRetries, maxRuntimeMs: profile.maxRuntimeMs },
+      usage: { steps: 0, activeMs: 0, consecutiveFailures: 0, modelCalls: 0, inputTokens: 0, outputTokens: 0 }, trace: { toolCalls: [], modelCalls: [], policyDecisions: [] },
+      verification: null, result: null, resultObjectIds: [], artifactIds: [], warnings: [], errors: [], completionReason: null,
+      startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' ? 'MODEL' : 'TEMPLATE',
+      actionPlanId: `APLAN-${runId}-1`, governedPlanId: `GPLAN-${runId}-1`, planSeq: 1, dataVersion: this.o.gl.dataVersion(), options, progress: [],
+    };
+    this.objects.set(runId, new Map());
+    this.event(run, 'RUN_CREATED', `Goal: ${goal.title} · profile ${profile.label} (chosen by Korvyn from the goal type)`);
+    this.policy(run, `profile:${profile.id}`, 'ALLOW', `Goal type ${goal.type} → ${profile.label}; autonomy level ${profile.autonomy}; autonomous action types: none`);
+    WORK.repos.records.insert(KIND, { run }, actor.id, { id: runId, status: run.runStatus, period: goal.period, scope: goal.scope, investigationId });
+    this.cache.set(runId, run);
+    this.audit(run, actor, 'AGENT_RUN_STARTED', null, { goal: goal.title, profile: profile.id });
+    WORK.repos.investigations.event(investigationId, { type: 'AGENT_RUN', label: `Agent run started: ${goal.title}`, ref: runId, traceId: runId }, actor.id);
+    for (const n of goal.notices) { run.warnings.push(n); this.line(run, n, 'skipped'); }
+    if (goal.pending.length) {
+      this.openClarification(run, goal.pending[0]!);
+      this.save(run);
+      return { ok: true, run };
+    }
+    this.plan(run, actor).catch((e: Error) => { run.errors.push(e.message); this.finish(run, 'FAILED', `Korvyn could not build a valid plan for this goal: ${e.message}`); });
+    return { ok: true, run };
+  }
+
+  private async plan(run: AgentRunBody, actor: Actor) {
+    this.status(run, 'PLANNING');
+    const profile = POLICY_PROFILES[run.goal.policyProfile];
+    let proto = templateFor(run.goal);
+    if (run.goal.type === 'INVESTIGATE_VENDOR' && run.goal.subject.vendor && !this.o.gl.vendors().includes(run.goal.subject.vendor)) {
+      proto = [{ taskId: 'verify', type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: [], milestone: true, priority: 90 }, { taskId: 'summarize', type: 'SUMMARIZE', title: 'Summary', check: 'SUMMARIZE', dependsOn: ['verify'], softDeps: true, priority: 95 }];
+      this.line(run, `${run.goal.subject.vendor} is in the vendor master but has no governed activity in the period`, 'done');
+    }
+    if (run.goal.type === 'GENERIC') {
+      const allow = this.o.agentAllowlist(actor, profile.domains, profile.autonomy >= 2);
+      const ac = this.ac(run.runId);
+      const p = await this.o.agentPlan(run.sessionId, actor, run.goal.objective, allow, ac.signal);
+      p.calls.forEach((c) => this.model(run, c));
+      proto = p.steps.map((s, i) => { const reg = toolRegistry.get(s.tool);
+        return { taskId: `m${i + 1}`, type: reg ? typeOfTool(reg.domain, reg.risk) : 'RETRIEVE', title: s.purpose || s.tool, tool: s.tool, milestone: true, priority: 10 + i,
+          args: Object.fromEntries((s.args ?? []).filter((a) => a.value && !/^\$/.test(a.value)).map((a) => [a.name, a.value!])),
+          refs: Object.fromEntries((s.args ?? []).filter((a) => a.value && /^\$\d+\./.test(a.value)).map((a) => { const n = Number(a.value!.slice(1, a.value!.indexOf('.'))); return [a.name, `$task:m${n + 1}${a.value!.slice(a.value!.indexOf('.'))}`]; })),
+          dependsOn: (s.dependsOn ?? []).filter((d) => d >= 0 && d < i).map((d) => `m${d + 1}`), request: run.goal.objective, planKey: 'ACTIONS' as const }; });
+      proto.push({ taskId: 'verify', type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: proto.map((x) => x.taskId), softDeps: true, milestone: true, priority: 90 },
+        { taskId: 'summarize', type: 'SUMMARIZE', title: 'Summary', check: 'SUMMARIZE', dependsOn: ['verify'], softDeps: true, priority: 95 });
+      if (p.source === 'reasoning') this.event(run, 'PLAN_PROPOSED', `The model proposed ${p.steps.length} steps; Korvyn validates each before it runs`);
+    }
+    const tasks = proto.map((p) => mkTask(p, 1, run.goal.type === 'GENERIC' && p.tool ? 'MODEL' : 'TEMPLATE'));
+    /* §7: every tool step is validated BEFORE the run starts — a rejected step is recorded and never runs */
+    const rejected: { task: string; why: string }[] = [];
+    for (const t of tasks) {
+      if (!t.tool) continue;
+      const why = this.profileGate(run, t);
+      if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; rejected.push({ task: t.title, why }); this.policy(run, t.tool, 'DENY', why); }
+    }
+    run.graph = { ...run.graph, version: 1, tasks, revisions: [{ version: 1, at: now(), source: run.goal.type === 'GENERIC' ? 'MODEL' : 'TEMPLATE', reason: 'Initial plan', added: tasks.map((t) => t.taskId), invalidated: [], rejected }] };
+    this.event(run, 'PLAN_CREATED', `${tasks.length} steps (${tasks.filter((t) => t.milestone).length} milestones)${rejected.length ? `, ${rejected.length} rejected by policy` : ''}`);
+    if (!tasks.filter((t) => t.status !== 'SKIPPED' && t.tool).length && run.goal.type === 'GENERIC') { this.finish(run, 'FAILED', 'Korvyn could not validate a plan for this goal.'); return; }
+    this.status(run, 'READY');
+    this.status(run, 'RUNNING');
+    this.save(run);
+    this.kick(run.runId);
+  }
+
+  /** the policy profile decides what the run may do, not the model and not the request */
+  private profileGate(run: AgentRunBody, t: AgentTask): string | null {
+    const blocked = this.constraintBlocks(run, t);
+    if (blocked) return blocked;
+    const prof = POLICY_PROFILES[run.goal.policyProfile], reg = toolRegistry.get(t.tool!);
+    if (!reg) return `${t.tool} is not a registered tool`;
+    if (!prof.domains.includes(reg.domain)) return `${reg.id} (${reg.domain}) is outside the ${prof.label} profile`;
+    if (reg.risk === 'PROPOSE') {
+      if (prof.autonomy < 2) return `${prof.label} is read-only: ${reg.id} would prepare an action`;
+      const at = this.actionTypeOf(t);
+      if (at && !prof.preparableActions.includes(at)) return `${prof.label} may not prepare ${at}`;
+    }
+    if (reg.risk !== 'READ' && reg.risk !== 'PROPOSE') return `${reg.id} is a ${reg.risk} action; the runtime never executes`;
+    return null;
+  }
+  private actionTypeOf(t: AgentTask): string | null {
+    const m: Record<string, string> = { proposeFluxComment: 'ADD_FLUX_COMMENT', proposeReconciliationComment: 'ADD_RECON_COMMENT', proposeIssue: 'CREATE_ISSUE', proposeSupportAttachment: 'ATTACH_SUPPORT', proposeGenerateExcelArtifact: 'GENERATE_EXCEL_ARTIFACT', proposeSaveExcelArtifact: 'SAVE_EXCEL_ARTIFACT', proposeRefreshPBCRequest: 'REFRESH_PBC_REQUEST', proposeSaveAnalysis: 'SAVE_ANALYSIS' };
+    if (t.tool === 'prepareGovernedAction') return t.args['actionType'] ?? 'GOVERNED';
+    return t.tool && t.tool.startsWith('propose') ? m[t.tool] ?? t.tool : null;
+  }
+
+  /* ================================================================================================
+     THE LOOP — one step at a time, in the background
+     ================================================================================================ */
+  private kick(runId: string, delay = 0) {
+    if (this.running.has(runId)) { this.rekick.add(runId); return; }
+    setTimeout(() => { void this.loop(runId); }, delay);
+  }
+  private async loop(runId: string) {
+    if (this.running.has(runId)) return;
+    this.running.add(runId);
+    try {
+      for (;;) {
+        const run = this.cache.get(runId) ?? this.load(runId);
+        if (!run || run.runStatus !== 'RUNNING') break;
+        const more = await this.stepOnce(run);
+        this.save(run);
+        if (!more) break;
+        if (run.options.pace) { this.running.delete(runId); this.kick(runId, run.options.pace); return; }
+      }
+    } catch (e) {
+      const run = this.cache.get(runId);
+      if (run) { run.errors.push((e as Error).message); this.finish(run, 'FAILED', `The run stopped on an internal error: ${(e as Error).message}`); }
+    } finally { this.running.delete(runId); this.notify(runId); if (this.rekick.delete(runId)) this.kick(runId); }
+  }
+
+  private depState(run: AgentRunBody, t: AgentTask): 'READY' | 'WAIT' | 'SKIP' {
+    for (const d of t.dependsOn) {
+      const dt = run.graph.tasks.find((x) => x.taskId === d && !x.invalidatedBy) ?? run.graph.tasks.find((x) => x.taskId === d);
+      if (!dt) continue;
+      if (dt.status === 'COMPLETED') continue;
+      if (['PENDING', 'READY', 'RUNNING', 'WAITING'].includes(dt.status)) return 'WAIT';
+      if (!t.softDeps) return 'SKIP';
+    }
+    /* a checkpoint gathers every proposal of its plan: it waits until no preparation of that plan is still to run */
+    if (t.check === 'CONFIRMATION' && run.graph.tasks.some((x) => x.planKey === 'ACTIONS' && !x.invalidatedBy && ['PENDING', 'READY', 'RUNNING'].includes(x.status))) return 'WAIT';
+    if (t.check === 'GOVERNED' && run.graph.tasks.some((x) => (x.planKey === 'GOVERNED' || x.check === 'RECON_EVIDENCE') && ['PENDING', 'READY', 'RUNNING'].includes(x.status))) return 'WAIT';
+    if ((t.check === 'VERIFY' || t.check === 'SUMMARIZE') && run.graph.tasks.some((x) => x !== t && x.check !== 'VERIFY' && x.check !== 'SUMMARIZE' && ['PENDING', 'READY', 'RUNNING', 'WAITING'].includes(x.status))) return 'WAIT';
+    return 'READY';
+  }
+
+  /** @returns whether the loop should continue */
+  private async stepOnce(run: AgentRunBody): Promise<boolean> {
+    const prof = POLICY_PROFILES[run.goal.policyProfile];
+    /* §15 stop conditions */
+    if (run.usage.steps >= run.limits.maxSteps) { this.finish(run, 'BLOCKED', `Step limit reached (${run.limits.maxSteps}). The completed work is kept; resume with a narrower goal.`); return false; }
+    if (Date.now() - Date.parse(run.startedAt) - this.waitedMs(run) > run.limits.maxRuntimeMs) { this.finish(run, 'BLOCKED', `Runtime limit reached (${Math.round(run.limits.maxRuntimeMs / 1000)}s of active work).`); return false; }
+    if (run.usage.consecutiveFailures >= prof.maxConsecutiveFailures) { this.finish(run, 'FAILED', `${run.usage.consecutiveFailures} steps failed in a row; the run stopped rather than continue on broken inputs.`); return false; }
+    /* skip what can no longer run */
+    for (const t of run.graph.tasks) if (t.status === 'PENDING' && this.depState(run, t) === 'SKIP') { t.status = 'SKIPPED'; t.failureMode = 'DEPENDENCY'; t.error = 'A step it depends on did not complete.'; this.event(run, 'TASK_SKIPPED', `${t.title}: a step it depends on did not complete`); if (t.milestone) this.line(run, `${t.title} — not run: a step it depends on did not complete`, 'skipped'); }
+    const ready = run.graph.tasks.filter((t) => t.status === 'PENDING' && this.depState(run, t) === 'READY').sort((a, b) => a.priority - b.priority);
+    const t = ready[0];
+    if (!t) {
+      const open = run.checkpoints.filter((c) => c.status === 'OPEN' && c.blocking);
+      if (run.graph.tasks.some((x) => x.status === 'WAITING') && open.length) {
+        const c = open[0]!;
+        this.status(run, c.type === 'GOVERNED_APPROVAL' ? 'WAITING_FOR_GOVERNED_APPROVAL' : c.type === 'CONFIRMATION' ? 'WAITING_FOR_CONFIRMATION' : 'WAITING_FOR_USER');
+        return false;
+      }
+      if (run.graph.tasks.some((x) => ['PENDING', 'RUNNING'].includes(x.status))) { this.finish(run, 'BLOCKED', 'The remaining steps cannot start: their inputs are not available.'); return false; }
+      const ok = run.verification?.passed !== false;
+      const gov = run.checkpoints.find((c) => c.type === 'GOVERNED_APPROVAL' && c.status === 'OPEN');
+      if (gov) { this.status(run, 'WAITING_FOR_GOVERNED_APPROVAL'); return false; }
+      this.finish(run, ok ? 'COMPLETED' : 'BLOCKED', ok ? 'Goal complete and verified.' : `Verification did not pass: ${run.verification!.checks.filter((c) => !c.ok).map((c) => c.check).join('; ')}.`);
+      return false;
+    }
+    await this.execute(run, t);
+    return run.runStatus === 'RUNNING';
+  }
+  private waitedMs(run: AgentRunBody) {
+    let w = 0;
+    for (const c of run.checkpoints) if (c.blocking) w += (c.resolvedAt ? Date.parse(c.resolvedAt) : Date.now()) - Date.parse(c.createdAt);
+    return w;
+  }
+
+  /* ================================================================================================
+     EXECUTE ONE TASK → OBSERVE → UPDATE → EXPAND
+     ================================================================================================ */
+  private async execute(run: AgentRunBody, t: AgentTask) {
+    const actor = this.actorOf(run);
+    t.status = 'RUNNING'; t.startedAt = now(); t.attempts += 1; run.currentTaskId = t.taskId;
+    if (t.milestone && t.check !== 'SUMMARIZE') this.line(run, `${t.title}…`, 'active', t.taskId);
+    this.event(run, 'TASK_STARTED', t.title);
+    run.usage.steps += 1;
+    const t0 = Date.now();
+    try {
+      if (t.check && !t.tool) { await this.internal(run, t, actor); }
+      else await this.toolTask(run, t, actor);
+    } catch (e) {
+      t.status = 'FAILED'; t.error = (e as Error).message; t.failureMode = 'ERROR';
+    }
+    t.latencyMs = Date.now() - t0; run.usage.activeMs += t.latencyMs;
+    const st0 = t.status as AgentTask['status'];
+    if (st0 === 'RUNNING') t.status = 'COMPLETED';
+    const st = t.status as AgentTask['status'];
+    if (st === 'COMPLETED' || st === 'WAITING') { t.completedAt = st === 'COMPLETED' ? now() : null; if (st === 'COMPLETED') run.usage.consecutiveFailures = 0; this.event(run, st === 'COMPLETED' ? 'TASK_COMPLETED' : 'TASK_WAITING', t.title); }
+    if (st === 'FAILED') { run.usage.consecutiveFailures += 1; this.event(run, 'TASK_FAILED', `${t.title}: ${t.error}`); if (t.milestone) this.line(run, `${t.title} — could not complete: ${t.error}`, 'blocked', t.taskId); }
+    if (st === 'SKIPPED') this.event(run, 'TASK_SKIPPED', `${t.title}: ${t.error ?? ''}`);
+    run.currentTaskId = null;
+  }
+
+  private resolveRefs(run: AgentRunBody, t: AgentTask): { args: Record<string, string>; missing: string | null } {
+    const args = { ...t.args };
+    for (const [name, path] of Object.entries(t.refs)) {
+      const m = path.match(/^\$task:([^.]+)\.(refs|facts|population)\.?(.*)$/);
+      if (!m) return { args, missing: `${name}: ${path} is not a reference` };
+      const src = this.latest(run, m[1]!), o = src ? this.objects.get(run.runId)?.get(src.taskId) : undefined;
+      const v = !o ? null : m[2] === 'population' ? o.population?.populationId ?? o.refs['populationId'] ?? null : m[2] === 'facts' ? String(fact(o, m[3]!)?.value ?? '') || null : o.refs[m[3]!] ?? null;
+      if (!v) return { args, missing: `${name} did not resolve from ${src?.title ?? m[1]}` };
+      args[name] = v;
+    }
+    return { args, missing: null };
+  }
+  /** a task id resolves to its latest (non-invalidated) replacement */
+  private latest(run: AgentRunBody, id: string) {
+    const base = id.split('~')[0]!;
+    return run.graph.tasks.filter((x) => x.taskId.split('~')[0] === base && !x.invalidatedBy).at(-1) ?? run.graph.tasks.find((x) => x.taskId === id);
+  }
+
+  private async toolTask(run: AgentRunBody, t: AgentTask, actor: Actor) {
+    const why = this.profileGate(run, t);
+    if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; this.policy(run, t.tool!, 'DENY', why); return; }
+    const { args, missing } = this.resolveRefs(run, t);
+    if (missing) { t.status = 'SKIPPED'; t.failureMode = 'DEPENDENCY'; t.error = missing; return; }
+    /* §7 validation: the Planner checks the step as it checks any plan step (allowlist = the profile's tools) */
+    const prof = POLICY_PROFILES[run.goal.policyProfile];
+    const allow = this.o.agentAllowlist(actor, prof.domains, prof.autonomy >= 2);
+    this.o.agentSession(run.sessionId, actor, undefined, run.investigationId);
+    const v = this.o.agentValidate(run.sessionId, actor, { tool: t.tool!, purpose: t.title, args }, allow);
+    if (!v.steps.length) { const r = v.rejected[0]?.why ?? 'rejected'; t.status = /lacks|may not view/.test(r) ? 'FAILED' : 'SKIPPED'; t.failureMode = /lacks|may not view/.test(r) ? 'PERMISSION' : 'VALIDATION'; t.error = r; this.policy(run, t.tool!, 'DENY', r); return; }
+    const step = v.steps[0]!;
+    this.policy(run, t.tool!, 'ALLOW', v.repairs.length ? `validated; repaired: ${v.repairs.join('; ')}` : 'validated');
+    /* DEV/TEST simulation of failures (never in strict auth mode) */
+    if (run.options.failTools?.includes(t.tool!)) { t.status = 'FAILED'; t.failureMode = 'ERROR'; t.error = `${t.tool} is unavailable (simulated)`; this.trace(run, t, step.args, 'FAILED', 0, null, t.error, 'sim'); return; }
+    if (run.options.transientTools?.includes(t.tool!) && t.attempts === 1) {
+      this.trace(run, t, step.args, 'FAILED', 0, null, 'timeout (simulated transient)', 'sim');
+      if (t.retryPolicy.on === 'TRANSIENT' && t.attempts <= t.retryPolicy.max) { t.status = 'PENDING'; this.event(run, 'TASK_RETRY', `${t.title}: transient failure, retrying once (a read is safe to repeat)`); return; }
+    }
+    const planId = t.planKey === 'GOVERNED' ? run.governedPlanId : run.actionPlanId;
+    const oid = `${run.runId}-${t.taskId.replace(/[^A-Za-z0-9]/g, '')}-${t.attempts}`;
+    this.o.agentSession(run.sessionId, actor, undefined, run.investigationId);
+    const r = this.o.agentExecute(run.sessionId, actor, { tool: step.tool, purpose: t.title, args: step.args, request: t.request ?? run.goal.objective }, planId, oid);
+    t.executionTraceId = r.traceId;
+    this.trace(run, t, step.args, r.status, r.latencyMs, r.object?.id ?? null, r.error, r.traceId);
+    if (r.status !== 'COMPLETED' || !r.object) {
+      const transient = /timeout|ECONN|temporar/i.test(r.error ?? '');
+      if (transient && t.retryPolicy.on === 'TRANSIENT' && t.attempts <= t.retryPolicy.max) { t.status = 'PENDING'; this.event(run, 'TASK_RETRY', `${t.title}: ${r.error}; retrying once`); return; }
+      t.status = 'FAILED'; t.failureMode = r.status === 'REFUSED' ? 'PERMISSION' : 'ERROR'; t.error = r.error; return;
+    }
+    const o = r.object;
+    this.objects.get(run.runId)?.set(t.taskId, o);
+    t.resultObjectIds = [o.id, ...(r.extra ? [r.extra.id] : [])];
+    t.proposalIds = r.proposalIds;
+    if (o.refs['artifactId']) { t.artifactIds = [o.refs['artifactId']]; if (!run.artifactIds.includes(o.refs['artifactId'])) run.artifactIds.push(o.refs['artifactId']); }
+    run.resultObjectIds.push(...t.resultObjectIds.map((x) => `${r.traceId}:${x}`));
+    const obs = this.observe(run, t, o, r.warnings);
+    if (o.status === 'UNAVAILABLE') { t.status = 'COMPLETED'; t.error = o.unavailable?.reason ?? null; if (t.milestone) this.line(run, `${t.title} — unavailable: ${o.unavailable?.reason ?? 'no governed result'}`, 'blocked', t.taskId); return; }
+    if (o.action && o.action.validationStatus === 'INVALID') obs.warnings.push(...o.action.validation.errors);
+    if (t.check === 'RECON_EVIDENCE') this.reconEvidence(run, t, o);
+    if (t.check === 'VENDOR_SOURCES') this.vendorSources(run, t, o);
+    if (t.tool === 'previewExcelArtifact') { const vs = String((o.workbook as { validation?: { status?: string } } | undefined)?.validation?.status ?? ''); if (vs === 'BLOCKED') { t.status = 'FAILED'; t.failureMode = 'VALIDATION'; t.error = 'The workbook did not pass Korvyn validation.'; return; } }
+    if (t.expand) this.expand(run, t, o);
+    if (t.milestone) this.line(run, `${t.title} — ${this.summaryLine(t, o)}`, 'done', t.taskId);
+  }
+
+  private observe(run: AgentRunBody, t: AgentTask, o: FinancialObject, warnings: string[]): AgentObservation {
+    const obs: AgentObservation = {
+      id: `OBS-${run.observations.length + 1}`, taskId: t.taskId, at: now(), status: 'COMPLETED', resultType: o.type, objectIds: [o.id], artifactIds: t.artifactIds.slice(), proposalIds: t.proposalIds.slice(),
+      actionResults: [], warnings: warnings.filter((w) => !/Workflow state \(assignments/.test(w)).slice(0, 4), errors: [], evidence: o.population?.populationId ? [o.population.populationId] : [],
+      contextUpdates: Object.fromEntries(Object.entries(o.refs).slice(0, 6)), policyEvents: o.action ? [`${o.action.type} classified ${o.action.riskLevel} by Korvyn policy`] : [], findings: this.findingsOf(t, o),
+    };
+    run.observations.push(obs);
+    if (run.observations.length > 200) run.observations.splice(0, run.observations.length - 200);
+    return obs;
+  }
+
+  /** findings are read from the governed rows — never written by the model */
+  private findingsOf(t: AgentTask, o: FinancialObject): AgentFinding[] {
+    const f: AgentFinding[] = [];
+    const rows = o.table.rows;
+    if (t.tool === 'getCloseBlockers') for (const r of rows) if (r.cells[0] === 'BLOCKING') f.push({ amountUsd: parseMoney(r.cells[3] ?? ''), kind: r.cells[1] === 'SOURCE_UNAVAILABLE' ? 'EXTERNAL_DEPENDENCY' : 'BLOCKER', severity: 'HIGH', text: `${r.label} · ${r.cells[3]}`, objectId: o.id, about: r.label });
+    if (t.tool === 'getReconciliationsNotTied') { const ts = col(o, 'Tie status'), d = col(o, 'Difference'); for (const r of rows) if (r.cells[ts] === 'NOT_TIED') f.push({ amountUsd: parseMoney(r.cells[d] ?? ''), kind: 'NOT_TIED', severity: 'HIGH', text: `${r.label} does not tie · difference ${r.cells[d]}`, objectId: o.id, about: r.label }); }
+    if (t.tool === 'getUnexplainedFluxItems') { const es = col(o, 'Explanation status'), ch = col(o, 'Change'); for (const r of rows) if (r.cells[es] === 'UNEXPLAINED') f.push({ amountUsd: parseMoney(r.cells[ch] ?? ''), kind: 'UNEXPLAINED', severity: 'MEDIUM', text: `${r.label} moved ${r.cells[ch]} with no explanation`, objectId: o.id, about: r.label }); }
+    if (t.tool === 'getReconciliationsMissingSupport') for (const r of rows.slice(0, 8)) f.push({ kind: 'MISSING_SUPPORT', severity: 'MEDIUM', text: `${r.label} is missing required support`, objectId: o.id, about: r.label });
+    if (t.tool === 'findMissingEvidence') { const n = fact(o, 'linesMissing'), a = fact(o, 'amountMissing'); if (n && Number(n.value) > 0) f.push({ kind: 'MISSING_SUPPORT', severity: 'MEDIUM', text: `${n.display} line${n.display === '1' ? '' : 's'} missing a required reference (${a?.display ?? ''})`, objectId: o.id, about: null }); }
+    return f;
+  }
+
+  private summaryLine(t: AgentTask, o: FinancialObject): string {
+    const d = (k: string) => fact(o, k)?.display;
+    switch (t.tool) {
+      case 'getCloseReadiness': return `${d('readinessPct')} ready, ${d('blockers')} blockers`;
+      case 'getCloseBlockers': return `${d('blocking')} blocking of ${d('blockers')}`;
+      case 'getReconciliationsNotTied': return `${d('notTied')} not tied (${d('totalDifference')}), ${d('sourceNotConnected')} awaiting a bank source`;
+      case 'getReconciliationsPendingReview': return `${d('inReview')} in review, ${d('returned')} returned`;
+      case 'getUnexplainedFluxItems': return `${d('unexplained')} material lines unexplained`;
+      case 'getReconciliationsMissingSupport': return `${o.table.rows.length} missing required support`;
+      case 'getTrend': if (!Number(fact(o, 'lines')?.value ?? 0)) return 'no activity in scope'; return `${d('total')} across ${d('lines')} line${d('lines') === '1' ? '' : 's'}`;
+      case 'analyzeByDimension': return d('group1.label') ? `largest ${d('group1.label')} (${d('group1.amount')}) of ${d('total')}` : 'no activity';
+      case 'getGovernedPopulation': { const c = d('lineCount') ?? String(o.population?.rowCount ?? 0); return `${c} line${c === '1' ? '' : 's'} · net ${d('net') ?? '—'}`; }
+      case 'findMissingEvidence': if (!Number(fact(o, 'linesMissing')?.value ?? 0)) return 'nothing missing'; return `${d('linesMissing') ?? '0'} line${d('linesMissing') === '1' ? '' : 's'} missing support${d('amountMissing') ? ` (${d('amountMissing')})` : ''}`;
+      case 'getSourceSystemReferences': if (!Number(fact(o, 'systems')?.value ?? 0)) return 'no lines to trace'; return `${d('systems')} source system${d('systems') === '1' ? '' : 's'}, ${d('unavailable')} stale or unavailable`;
+      case 'buildExcelArtifact': return `${(o.workbook as { sheets?: unknown[] } | undefined)?.sheets?.length ?? 0} tabs defined`;
+      default: return o.title;
+    }
+  }
+
+  /* ---- expansion: the graph grows from what a step found ---------------------------------------- */
+  private expand(run: AgentRunBody, t: AgentTask, o: FinancialObject) {
+    const added: AgentTask[] = [], v = run.graph.version + 1, p = run.goal.period, pl = periodLabel(p);
+    const excluded = (label: string) => run.goal.constraints.exclude.some((x) => label.toLowerCase().includes(x.toLowerCase()));
+    if (t.expand === 'FLUX_COMMENTS' && !run.goal.constraints.noComments) {
+      const es = col(o, 'Explanation status'), ch = col(o, 'Change'), pc = col(o, 'Change %');
+      for (const r of o.table.rows.filter((x) => x.cells[es] === 'UNEXPLAINED').slice(0, 4)) {
+        if (excluded(r.label)) continue;
+        const account = r.label.split(' ')[0]!;
+        added.push(mkTask({ taskId: `fluxComment-${account}`, type: 'PREPARE_ACTION', title: `Flux comment — ${r.label}`, tool: 'proposeFluxComment', planKey: 'ACTIONS', about: r.label, dependsOn: [t.taskId], priority: 40,
+          args: { account, period: p, text: `Controller review: ${r.label} moved ${r.cells[ch]} (${r.cells[pc]}) in ${pl} and has no approved explanation. Please explain the movement before sign-off.` }, request: `Add a Flux comment on ${r.label}` }, v, 'EXPANSION'));
+      }
+    }
+    if (t.expand === 'RECON_COMMENTS' && !run.goal.constraints.noComments) {
+      const ts = col(o, 'Tie status'), gl = col(o, 'GL balance'), cmp = col(o, 'Comparison'), d = col(o, 'Difference');
+      for (const r of o.table.rows.filter((x) => x.cells[ts] === 'NOT_TIED')) {
+        if (excluded(r.label) || !r.ref) continue;
+        const id = r.ref.replace(/^recon:/, '');
+        added.push(mkTask({ taskId: `reconComment-${id}`, type: 'PREPARE_ACTION', title: `Reconciliation comment — ${r.label}`, tool: 'proposeReconciliationComment', planKey: 'ACTIONS', about: r.label, dependsOn: [t.taskId], priority: 41,
+          args: { target: id, period: p, text: `Controller review: ${r.label} does not tie in ${pl} (GL ${r.cells[gl]} vs ${r.cells[cmp]}, difference ${r.cells[d]}). Reconciling items and support are needed before approval.` }, request: `Add a reconciliation comment on ${r.label}` }, v, 'EXPANSION'));
+      }
+    }
+    if (t.expand === 'RECON_APPROVALS') {
+      for (const r of o.table.rows) {
+        if (excluded(r.label) || !r.ref) continue;
+        const id = r.ref.replace(/^recon:/, '');
+        added.push(mkTask({ taskId: `evidence-${id}`, type: 'VALIDATE', title: `Evidence check — ${r.label}`, tool: 'getReconciliation', check: 'RECON_EVIDENCE', about: r.label, dependsOn: [t.taskId], priority: 45, args: { reconciliationId: id, period: p } }, v, 'EXPANSION'));
+      }
+      if (!run.graph.tasks.some((x) => x.check === 'GOVERNED')) added.push(mkTask({ taskId: 'approvalGate', type: 'WAIT_FOR_APPROVAL', title: 'Governed approval', check: 'GOVERNED', dependsOn: [t.taskId], softDeps: true, milestone: true, priority: 85 }, v, 'EXPANSION'));
+    }
+    if (added.length) this.revise(run, 'EXPANSION', `${t.title} found ${added.length} item${added.length > 1 ? 's' : ''} to act on`, added, []);
+  }
+
+  /** §22: an approval is prepared only for a reconciliation whose evidence supports it — each condition read from governed facts */
+  private reconEvidence(run: AgentRunBody, t: AgentTask, o: FinancialObject) {
+    const id = o.refs['reconciliationId'] ?? t.args['reconciliationId']!, reasons: string[] = [];
+    const tie = String(fact(o, 'tieStatus')?.value ?? ''), diff = fact(o, 'difference')?.display ?? '', review = String(fact(o, 'reviewStatus')?.value ?? ''), miss = Number(fact(o, 'missingSupport')?.value ?? 1);
+    const ent = o.refs['entity'], conn = this.o.gl.entities().find((e) => e.id === ent)?.connector;
+    const src = conn ? (run.options.unavailableSources?.includes(conn) ? 'UNAVAILABLE' : SOURCE_HEALTH[conn]?.status) : 'UNKNOWN';
+    if (!fact(o, 'glBalance')) reasons.push('no governed GL balance');
+    if (tie !== 'TIED') reasons.push(`tie status is ${tie.replace(/_/g, ' ').toLowerCase()}${diff && diff !== '—' ? ` (difference ${diff})` : ''}`);
+    if (miss > 0) reasons.push(`${miss} required support item${miss > 1 ? 's' : ''} missing`);
+    if (!['IN_REVIEW', 'PREPARED', 'READY_FOR_REVIEW', 'SUBMITTED'].includes(review)) reasons.push(`review status is ${review.replace(/_/g, ' ').toLowerCase()}`);
+    if (src !== 'AVAILABLE') reasons.push(`source ${conn ?? 'unknown'} is ${String(src).toLowerCase()}`);
+    const obs = run.observations.at(-1)!;
+    if (reasons.length) {
+      obs.findings.push({ kind: 'INFO', severity: 'MEDIUM', text: `${t.about} is not ready for approval: ${reasons.join('; ')}`, objectId: o.id, about: t.about ?? null });
+      this.policy(run, `RECONCILIATION_APPROVAL:${id}`, 'DENY', `evidence incomplete — ${reasons.join('; ')}`);
+      this.line(run, `${t.about} — not ready for approval: ${reasons[0]}`, 'skipped', t.taskId);
+      return;
+    }
+    this.policy(run, `RECONCILIATION_APPROVAL:${id}`, 'CHECKPOINT', 'evidence complete (balance, tie, support, review, source); approval is a governed action — prepared and routed, never executed');
+    this.revise(run, 'EXPANSION', `${t.about}: evidence complete`, [mkTask({ taskId: `approve-${id}`, type: 'PREPARE_ACTION', title: `Approval prepared — ${t.about}`, tool: 'prepareGovernedAction', planKey: 'GOVERNED', riskLevel: 'GOVERNED', about: t.about ?? null, dependsOn: [t.taskId], priority: 46,
+      args: { actionType: 'RECONCILIATION_APPROVAL', target: id, period: run.goal.period }, request: `Approve the ${t.about} reconciliation` }, run.graph.version + 1, 'EXPANSION')], []);
+  }
+
+  /** §42: a source Korvyn cannot reach is disclosed with the governed amount it holds back — never guessed around */
+  private vendorSources(run: AgentRunBody, t: AgentTask, o: FinancialObject) {
+    const byEnt = this.objects.get(run.runId)?.get(this.latest(run, 'by-entity')?.taskId ?? 'by-entity');
+    const ents = this.o.gl.entities(), held: { name: string; system: string; amount: number; status: string }[] = [];
+    const pop = this.objects.get(run.runId)?.get(this.latest(run, 'population')?.taskId ?? 'population');
+    const rows = byEnt?.table.rows ?? (run.goal.subject.entity ? [{ ref: `entity:${run.goal.subject.entity}`, cells: [String(fact(pop, 'net')?.display ?? '')], label: '', level: 1, kind: 'line' as const }] : []);
+    for (const r of rows) {
+      if (!r.ref?.startsWith('entity:')) continue;
+      const e = ents.find((x) => x.id === r.ref!.slice(7)); if (!e) continue;
+      const st = run.options.unavailableSources?.includes(e.connector) ? 'UNAVAILABLE' : SOURCE_HEALTH[e.connector]?.status ?? 'UNAVAILABLE';
+      if (st === 'UNAVAILABLE') held.push({ name: e.name, system: SOURCE_HEALTH[e.connector]?.system ?? e.connector, amount: parseMoney(r.cells[0] ?? '') ?? 0, status: st });
+    }
+    const stale = o.table.rows.filter((r) => r.cells[2] === 'STALE').map((r) => r.label);
+    const obs = run.observations.at(-1)!;
+    if (held.length) {
+      const amt = held.reduce((s, h) => s + h.amount, 0), sys = [...new Set(held.map((h) => h.system))].join(', ');
+      const text = `${money(amt)} of ${run.goal.subject.vendor ?? run.goal.labels['project'] ?? run.goal.labels['entity'] ?? 'this'} activity (${held.map((h) => h.name).join(', ')}) comes from ${sys}, which is unavailable. That portion cannot be verified against its source; Sloane states no finding about it.`;
+      obs.findings.push({ kind: 'EXTERNAL_DEPENDENCY', severity: 'HIGH', text, objectId: o.id, about: sys });
+      this.checkpoint(run, { type: 'EXTERNAL_DEPENDENCY', blocking: false, title: `${sys} unavailable`, detail: text, taskId: t.taskId, options: [{ id: 'acknowledge', label: 'Acknowledge' }] });
+    }
+    if (stale.length) obs.findings.push({ kind: 'INFO', severity: 'LOW', text: `${stale.join(', ')} is stale: its lines are read from the last sync.`, objectId: o.id, about: null });
+  }
+
+  /* ---- Korvyn-internal steps ------------------------------------------------------------------- */
+  private async internal(run: AgentRunBody, t: AgentTask, actor: Actor) {
+    switch (t.check) {
+      case 'SOURCES': return this.sources(run, t);
+      case 'CONFIRMATION': return this.confirmation(run, t);
+      case 'GOVERNED': return this.governed(run, t);
+      case 'GENERATION': return this.generation(run, t);
+      case 'VERIFY': return this.verify(run, t, actor);
+      case 'SUMMARIZE': return this.summarize(run, t);
+      default: t.status = 'SKIPPED'; t.error = 'nothing to do';
+    }
+  }
+
+  private sources(run: AgentRunBody, t: AgentTask) {
+    const objs = this.objects.get(run.runId)!, recs = objs.get(this.latest(run, 'recsNotTied')?.taskId ?? 'recsNotTied'), bl = objs.get(this.latest(run, 'blockers')?.taskId ?? 'blockers');
+    const texts: string[] = [];
+    if (recs) { const ts = col(recs, 'Tie status'); const nc = recs.table.rows.filter((r) => r.cells[ts] === 'SOURCE_NOT_CONNECTED'); if (nc.length) texts.push(`${nc.length} bank reconciliation${nc.length > 1 ? 's' : ''} (${nc.map((r) => r.label.replace(/^Operating cash — /, '')).join(', ')}) cannot be proved: the bank statement source is not connected`); }
+    if (bl) for (const r of bl.table.rows.filter((x) => x.cells[1] === 'SOURCE_UNAVAILABLE')) texts.push(`${r.label}`);
+    const inScope = this.o.gl.entities().filter((e) => run.goal.scope === 'GROUP' || e.id === run.goal.scope);
+    for (const [k, h] of Object.entries(SOURCE_HEALTH)) {
+      const st = run.options.unavailableSources?.includes(k) ? 'UNAVAILABLE' : h.status;
+      const es = inScope.filter((e) => e.connector === k);
+      if (texts.some((x) => x.includes(h.system))) continue;
+      if (st !== 'AVAILABLE' && es.length) texts.push(`${h.system} (${es.map((e) => e.id).join(', ')}) is ${st.toLowerCase()}: its figures are held from the last extract`);
+    }
+    const obs: AgentObservation = { id: `OBS-${run.observations.length + 1}`, taskId: t.taskId, at: now(), status: 'COMPLETED', resultType: 'SourceDependencies', objectIds: [], artifactIds: [], proposalIds: [], actionResults: [], warnings: [], errors: [], evidence: [], contextUpdates: {}, policyEvents: [],
+      findings: texts.map((x) => ({ kind: 'EXTERNAL_DEPENDENCY' as const, severity: 'MEDIUM' as const, text: x, objectId: null, about: null })) };
+    run.observations.push(obs);
+    if (texts.length) this.checkpoint(run, { type: 'EXTERNAL_DEPENDENCY', blocking: false, title: 'Source systems limit the review', detail: texts.join('. ') + '.', taskId: t.taskId, options: [{ id: 'acknowledge', label: 'Acknowledge' }] });
+    if (t.milestone) this.line(run, `${t.title} — ${texts.length ? `${texts.length} limitation${texts.length > 1 ? 's' : ''} disclosed` : 'all connected'}`, 'done', t.taskId);
+  }
+
+  private confirmation(run: AgentRunBody, t: AgentTask) {
+    const props = this.o.actions.ofSession(run.sessionId).filter((p) => p.planId === run.actionPlanId && p.status === 'WAITING_CONFIRMATION');
+    if (!props.length) {
+      t.status = 'SKIPPED'; t.error = 'Nothing prepared needs confirmation.';
+      const invalid = this.o.actions.ofSession(run.sessionId).filter((p) => p.planId === run.actionPlanId && p.validationStatus !== 'VALID');
+      if (invalid.length) run.warnings.push(`${invalid.length} prepared action${invalid.length > 1 ? 's' : ''} did not pass validation and cannot be confirmed: ${invalid.map((p) => p.validation.errors[0] ?? p.title).join('; ')}`);
+      if (t.milestone) this.line(run, `${t.title} — nothing to confirm`, 'skipped', t.taskId);
+      return;
+    }
+    const planId = run.actionPlanId;
+    run.planSeq += 1; run.actionPlanId = `APLAN-${run.runId}-${run.planSeq}`;
+    this.checkpoint(run, { type: 'CONFIRMATION', blocking: true, title: `Confirm ${props.length} prepared action${props.length > 1 ? 's' : ''}`, detail: `Nothing has been written. ${props.map((p) => p.title).join(' · ')}`, taskId: t.taskId, proposalIds: props.map((p) => p.id), planId,
+      options: [{ id: 'confirm', label: props.length > 1 ? `Confirm all ${props.length}` : 'Confirm' }, { id: 'cancel', label: props.length > 1 ? 'Cancel all' : 'Cancel' }] });
+    t.status = 'WAITING';
+    this.line(run, `${props.length} action${props.length > 1 ? 's' : ''} prepared — waiting for your confirmation`, 'waiting', t.taskId);
+  }
+
+  private governed(run: AgentRunBody, t: AgentTask) {
+    const props = this.o.actions.ofSession(run.sessionId).filter((p) => p.planId === run.governedPlanId && p.riskLevel === 'GOVERNED_ACTION');
+    if (!props.length) { t.status = 'SKIPPED'; t.error = 'No reconciliation is ready for approval.'; this.line(run, `${t.title} — no reconciliation is ready for approval`, 'skipped', t.taskId); return; }
+    const planId = run.governedPlanId;
+    run.planSeq += 1; run.governedPlanId = `GPLAN-${run.runId}-${run.planSeq}`;
+    this.checkpoint(run, { type: 'GOVERNED_APPROVAL', blocking: true, title: `${props.length} approval${props.length > 1 ? 's need' : ' needs'} a governed approver`, planId,
+      detail: `Approving a reconciliation is a governed action: Sloane has checked the evidence and prepared it, but it must be approved in Reconciliations by a reviewer other than the preparer. Nothing has been approved. ${props.map((p) => p.targetLabel ?? p.title).join(' · ')}`,
+      taskId: t.taskId, proposalIds: props.map((p) => p.id), options: [{ id: 'route', label: 'Route to reviewer' }, { id: 'cancel', label: 'Withdraw' }] });
+    for (const p of props) this.policy(run, `${p.type}:${p.targetObjectId}`, 'CHECKPOINT', 'governed action — prepare only, never executed by Sloane');
+    t.status = 'WAITING';
+    this.line(run, `${props.length} approval${props.length > 1 ? 's' : ''} prepared — needs a governed approver`, 'waiting', t.taskId);
+  }
+
+  private async generation(run: AgentRunBody, t: AgentTask) {
+    const done = this.runProposals(run).filter((p) => p.type === 'GENERATE_EXCEL_ARTIFACT' && p.status === 'COMPLETED' && run.checkpoints.some((c) => c.proposalIds.includes(p.id))).at(-1);
+    if (!done?.result?.['jobId']) { t.status = 'SKIPPED'; t.error = 'The workbook was not generated (not confirmed).'; this.line(run, `${t.title} — not generated: you did not confirm it`, 'skipped', t.taskId); return; }
+    await this.o.artifacts.jobPromise(String(done.result['jobId']));
+    const g = this.o.artifacts.generations(String(done.result['artifactId'])).find((x) => x.id === done.result!['generationId']);
+    if (!g || g.status !== 'COMPLETED') { t.status = 'FAILED'; t.failureMode = 'GENERATION'; t.error = g?.error ?? `generation ${g?.status ?? 'missing'}`; return; }
+    t.artifactIds = [String(done.result['artifactId'])];
+    this.line(run, `${t.title} — ${g.fileName}${g.tieOut ? ` · tie-out ${g.tieOut.status.replace(/_/g, ' ').toLowerCase()}` : ''}`, 'done', t.taskId);
+  }
+
+  /* ---- §23 VERIFY -------------------------------------------------------------------------------- */
+  private async verify(run: AgentRunBody, t: AgentTask, actor: Actor) {
+    const checks: { check: string; ok: boolean; detail: string }[] = [];
+    const add = (check: string, ok: boolean, detail: string) => checks.push({ check, ok, detail });
+    const objs = this.objects.get(run.runId)!;
+    const tasks = run.graph.tasks.filter((x) => !x.invalidatedBy && x !== t && x.check !== 'SUMMARIZE');
+    const failed = tasks.filter((x) => x.status === 'FAILED' && x.milestone);
+    add('Every milestone ran or is explained', true, failed.length ? `${failed.length} could not complete and are stated: ${failed.map((x) => x.title).join(', ')}` : 'all milestones completed');
+    /* nothing written without a person's confirmation; nothing governed executed */
+    const props = this.runProposals(run);
+    const confirmed = new Set(run.checkpoints.filter((c) => c.resolution === 'confirm').flatMap((c) => c.proposalIds));
+    const silent = props.filter((p) => p.status === 'COMPLETED' && !confirmed.has(p.id));
+    add('Nothing written without confirmation', !silent.length, silent.length ? `${silent.length} action(s) completed outside a confirmation` : `${props.filter((p) => p.status === 'COMPLETED').length} written, each after your confirmation`);
+    const govExec = props.filter((p) => p.riskLevel === 'GOVERNED_ACTION' && p.status === 'COMPLETED');
+    add('No governed action executed', !govExec.length, govExec.length ? `${govExec.length} governed action(s) executed` : 'governed actions were prepared at most');
+    if (run.goal.constraints.noActions || POLICY_PROFILES[run.goal.policyProfile].autonomy < 2) add('Read-only goal wrote nothing', !props.length, props.length ? `${props.length} proposals were created` : 'no proposal created');
+    const dv = this.o.gl.dataVersion();
+    add('Governed data stable during the run', true, dv === run.dataVersion ? `data version ${dv}` : `the governed data changed during the run (${run.dataVersion} → ${dv}); figures read after the change reflect it`);
+    switch (run.goal.type) {
+      case 'REVIEW_CLOSE': case 'PREPARE_CONTROLLER_REVIEW': {
+        const first = objs.get('readiness');
+        const r = this.o.agentExecute(run.sessionId, actor, { tool: 'getCloseReadiness', purpose: 'Verify close readiness', args: { period: run.goal.period }, request: run.goal.objective }, run.actionPlanId, `${run.runId}-verify`);
+        const same = !!first && !!r.object && fact(first, 'readinessPct')?.display === fact(r.object, 'readinessPct')?.display && fact(first, 'blockers')?.display === fact(r.object, 'blockers')?.display;
+        add('Close position re-read', !!r.object, same ? `unchanged: ${fact(r.object!, 'readinessPct')?.display} ready, ${fact(r.object!, 'blockers')?.display} blockers` : r.object ? `now ${fact(r.object, 'readinessPct')?.display} ready, ${fact(r.object, 'blockers')?.display} blockers (moved during the run — the summary uses the current figures)` : 'could not re-read');
+        if (r.object) objs.set('readiness:verify', r.object);
+        if (run.goal.type === 'PREPARE_CONTROLLER_REVIEW') {
+          const written = props.filter((p) => p.status === 'COMPLETED' && /COMMENT/.test(p.type));
+          const present = written.filter((p) => { const id = String(p.result?.['commentId'] ?? ''); return id && WORK.comment(id); });
+          add('Confirmed comments are in Korvyn', present.length === written.length, `${present.length} of ${written.length} confirmed comments found on their threads`);
+        }
+        break;
+      }
+      case 'INVESTIGATE_VENDOR': {
+        const tr = objs.get(this.latest(run, 'trend')?.taskId ?? ''), pop = objs.get(this.latest(run, 'population')?.taskId ?? '');
+        if (run.goal.subject.vendor && !this.o.gl.vendors().includes(run.goal.subject.vendor)) { add('Vendor resolved against the vendor master', true, `${run.goal.subject.vendor} — no governed activity in the period, so nothing further to analyse`); break; }
+        const a = Number(fact(tr, 'total')?.value ?? NaN), bv = fact(pop, 'net')?.value, b = bv === undefined ? undefined : Number(bv);
+        if (run.goal.threshold) {
+          const pt = this.latest(run, 'population');
+          const applied = pt?.args['minAbsAmount'] === String(run.goal.threshold);
+          add('Threshold applied to the population', applied, applied ? `population lines of at least $${run.goal.threshold}M (${fact(pop, 'lineCount')?.display ?? '—'} lines, net ${fact(pop, 'net')?.display ?? '—'}) against ${fact(tr, 'total')?.display ?? '—'} of total activity` : 'the population was not re-defined with the threshold');
+        } else {
+          const ok = Number.isFinite(a) && b !== undefined && Math.abs(a - b) < 1;
+          add('Trend foots to the population', ok, ok ? `${money(a)} both ways` : `trend ${fact(tr, 'total')?.display ?? 'n/a'} vs population ${b !== undefined ? money(b) : 'n/a'}`);
+        }
+        const scoped = run.graph.tasks.filter((x) => !x.invalidatedBy && x.status === 'COMPLETED' && x.scopeSensitive && x.tool);
+        const want = ['project', 'entity', 'vendor'].filter((k) => (run.goal.subject as Record<string, string | null>)[k]);
+        const off = scoped.filter((x) => want.some((k) => toolRegistry.get(x.tool!)?.params.some((p) => p.name === k) && x.args[k] !== (run.goal.subject as Record<string, string | null>)[k]));
+        add('Every scoped step used the current scope', !off.length, off.length ? `stale: ${off.map((x) => x.title).join(', ')}` : want.map((k) => `${k} ${(run.goal.subject as Record<string, string | null>)[k]}`).join(' · ') || 'Corporate Consolidated');
+        add('Source systems disclosed', !!objs.get(this.latest(run, 'sources')?.taskId ?? ''), 'every source behind the population is named with its availability');
+        break;
+      }
+      case 'PREPARE_AUDIT_SUPPORT': case 'BUILD_FINANCIAL_ARTIFACT': {
+        const gt = this.latest(run, 'generation');
+        const aid = gt?.artifactIds[0] ?? run.artifactIds.at(-1);
+        const view = aid ? this.o.artifacts.view(actor, aid) : null;
+        const g = view?.generations.filter((x) => x.status === 'COMPLETED').at(-1);
+        add('Workbook generated', !!g, g ? `${g.fileName} (${g.id})` : gt?.status === 'SKIPPED' ? 'not generated — not confirmed' : 'no completed generation');
+        if (g) {
+          const rec = WORK.repos.records.get<{ storageKey: string | null; definition: { sheets: { kind: string; name: string }[] }; pins: { populations?: { populationId?: string; dataVersion?: string }[]; fingerprint?: string } }>('ARTIFACT_GENERATION', g.id);
+          const exists = !!rec?.storageKey && this.o.artifacts.store.exists(rec.storageKey);
+          add('File exists in storage', exists, exists ? `${g.bytes ?? 0} bytes, sha256 ${String(g.sha256 ?? '').slice(0, 12)}…` : 'the file is missing');
+          const kinds = rec?.definition.sheets.map((s) => s.kind) ?? [];
+          const need = run.goal.type === 'PREPARE_AUDIT_SUPPORT' ? ['GL', 'TB', 'TIEOUT'] : ['GL'];
+          const miss = need.filter((k) => !kinds.includes(k));
+          add('Expected tabs present', run.goal.type === 'BUILD_FINANCIAL_ARTIFACT' ? kinds.length > 0 : !miss.length, `${rec?.definition.sheets.map((s) => s.name).join(', ')}${miss.length ? ` — missing ${miss.join(', ')}` : ''}`);
+          const pops = rec?.pins.populations ?? [];
+          add('Population pinned (id and version)', pops.length > 0 && pops.every((x) => x.populationId), pops.length ? pops.map((x) => `${x.populationId}${x.dataVersion ? ` @ ${x.dataVersion}` : ''}`).join(', ') : 'no population pins');
+          add('Tie-out status recorded', run.goal.type === 'BUILD_FINANCIAL_ARTIFACT' || !!g.tieOut, g.tieOut ? `${g.tieOut.status.replace(/_/g, ' ')} · difference ${g.tieOut.differenceUsd.toFixed(2)} USD · ${g.auditReady ? 'audit-ready' : 'not labelled audit-ready'}` : 'no tie-out tab');
+          add('Not stale at completion', !view!.stale, view!.stale ? `stale: ${view!.staleReasons.join('; ')}` : 'pins match the governed data');
+        }
+        break;
+      }
+      default: break;
+    }
+    run.verification = { at: now(), passed: checks.every((c) => c.ok), checks };
+    this.event(run, 'VERIFIED', `${checks.filter((c) => c.ok).length} of ${checks.length} checks passed`);
+    this.line(run, `${t.title} — ${checks.filter((c) => c.ok).length} of ${checks.length} checks passed`, checks.every((c) => c.ok) ? 'done' : 'blocked', t.taskId);
+  }
+
+  /* ---- §24 the concise result ------------------------------------------------------------------ */
+  private async summarize(run: AgentRunBody, t: AgentTask) {
+    const objs = this.objects.get(run.runId)!, g = run.goal;
+    const ex = (s: string) => g.constraints.exclude.some((x) => s.toLowerCase().includes(x.toLowerCase()));
+    const live = run.observations.filter((o) => { const tk = run.graph.tasks.find((x) => x.taskId === o.taskId); return !tk?.invalidatedBy; });
+    const seen = new Set<string>();
+    const findings = live.flatMap((o) => o.findings).filter((f) => !ex(f.text)).filter((f) => { const k = (f.about ?? f.text).replace(/^Material movement unexplained: /, '').split(' — ')[0]!.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+    const sev = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
+    const thr = g.threshold ? g.threshold * 1e6 : 0;
+    const below = thr ? findings.filter((f) => typeof f.amountUsd === 'number' && Math.abs(f.amountUsd) < thr) : [];
+    if (below.length) findings.splice(0, findings.length, ...findings.filter((f) => !below.includes(f)));
+    const focusKeys = g.constraints.focusFirst.flatMap((w) => { const r = resolveTerms(w, this.deps(this.actorOf(run))); return [w.toLowerCase(), r.values.account, r.values.project].filter((x): x is string => !!x).map((x) => x.toLowerCase()); });
+    const inFocus = (f: AgentFinding) => focusKeys.some((k) => f.text.toLowerCase().includes(k) || (k === '15000' && /construction in progress|\bcip\b/i.test(f.text)));
+    findings.sort((a, b) => Number(inFocus(b)) - Number(inFocus(a)) || sev[a.severity] - sev[b.severity]);
+    const props = this.runProposals(run);
+    const d = (k: string, o?: FinancialObject) => fact(o, k)?.display;
+    const ready = objs.get('readiness:verify') ?? objs.get('readiness');
+    let headline = g.title;
+    const counts: { label: string; value: number }[] = [];
+    switch (g.type) {
+      case 'REVIEW_CLOSE': case 'PREPARE_CONTROLLER_REVIEW': {
+        const blk = findings.filter((f) => f.kind === 'BLOCKER' || f.kind === 'NOT_TIED');
+        const top = objs.get(this.latest(run, 'blockers')?.taskId ?? 'blockers')?.table.rows.find((r) => r.cells[0] === 'BLOCKING' && !ex(r.label));
+        headline = `${periodLabel(g.period)} close is ${d('readinessPct', ready) ?? '—'} ready with ${d('blockers', ready) ?? '—'} blockers${top ? `; the largest is ${top.label} (${top.cells[3]})` : ''}.`;
+        if (g.type === 'PREPARE_CONTROLLER_REVIEW') { const w = props.filter((p) => p.status === 'COMPLETED').length, all = props.filter((p) => p.riskLevel !== 'GOVERNED_ACTION'), gone = all.filter((p) => p.status === 'CANCELLED').length, prep = all.length; headline += gone === prep && prep ? ` ${prep} draft action${prep === 1 ? ' was' : 's were'} prepared and withdrawn — nothing was written.` : ` ${prep} draft action${prep === 1 ? '' : 's'} prepared, ${w} written after your confirmation${gone ? `, ${gone} withdrawn` : ''}.`; }
+        counts.push({ label: 'Blocking items', value: blk.length }, { label: 'Unexplained flux', value: findings.filter((f) => f.kind === 'UNEXPLAINED').length }, { label: 'Missing support', value: findings.filter((f) => f.kind === 'MISSING_SUPPORT').length });
+        break;
+      }
+      case 'INVESTIGATE_VENDOR': {
+        const pl = g.periodText ?? (g.periodRange ? `${periodLabel(g.periodRange.start)}–${periodLabel(g.periodRange.end)}` : periodLabel(g.period));
+        if (g.subject.vendor && !this.o.gl.vendors().includes(g.subject.vendor)) { headline = `${g.subject.vendor} is in the vendor master but has no governed activity in ${pl}.`; break; }
+        const tr = objs.get(this.latest(run, 'trend')?.taskId ?? '');
+        const first = run.graph.tasks.find((x) => !x.invalidatedBy && x.taskId.startsWith('by-') && !x.scopeSensitive && x.status === 'COMPLETED');
+        const pj = first ? objs.get(first.taskId) : undefined;
+        const focusT = run.graph.tasks.find((x) => !x.invalidatedBy && x.taskId.startsWith('focus-') && x.status === 'COMPLETED');
+        const fo = focusT ? objs.get(focusT.taskId) : undefined;
+        const subj = g.subject.vendor ?? g.labels['project'] ?? g.subject.project ?? g.labels['entity'] ?? g.subject.entity ?? 'Subject';
+        const scope = [g.subject.vendor && g.subject.project ? g.labels['project'] ?? g.subject.project : null, (g.subject.vendor || g.subject.project) && g.subject.entity ? g.labels['entity'] ?? g.subject.entity : null].filter(Boolean).join(' · ');
+        const lines = Number(fact(tr, 'lines')?.value ?? 0), focusName = focusT?.title.replace(/ first$/, '') ?? '';
+        const focusPart = fo && d('group1.label', fo) ? `${focusName}: ${d('total', fo)}, largest ${d('group1.label', fo)} (${d('group1.amount', fo)}). ` : focusT && lines ? `${focusName}: no ${subj} activity in it. ` : focusT ? `${focusName} first — ` : '';
+        headline = !lines
+          /* a scope with no governed activity is a finding, stated with what the unscoped view holds */
+          ? `${focusPart}No ${subj} activity${scope ? ` in ${scope}` : ''} for ${pl}${d('total', pj) ? `; without that scope it is ${d('total', pj)}${d('group1.label', pj) ? `, mostly ${d('group1.label', pj)} (${d('group1.amount', pj)})` : ''}` : ''}.`
+          : `${focusPart}${subj}${scope ? ` in ${scope}` : ''}: ${d('total', tr) ?? '—'} across ${d('lines', tr) ?? '—'} line${d('lines', tr) === '1' ? '' : 's'} (${pl})${!scope && d('group1.label', pj) ? `, mostly ${d('group1.label', pj)} (${d('group1.amount', pj)})` : ''}.`;
+        counts.push({ label: 'Lines', value: Number(fact(tr, 'lines')?.value ?? 0) });
+        break;
+      }
+      case 'PREPARE_AUDIT_SUPPORT': case 'BUILD_FINANCIAL_ARTIFACT': {
+        const gen = run.verification?.checks.find((c) => c.check === 'Workbook generated');
+        const tie = run.verification?.checks.find((c) => c.check === 'Tie-out status recorded');
+        headline = gen?.ok ? `Workbook generated${run.verification?.passed ? ' and verified' : ' — verification did not fully pass'}: ${gen.detail.split(' (')[0]}${tie && g.type === 'PREPARE_AUDIT_SUPPORT' ? ` · tie-out ${tie.detail.split(' ·')[0]!.toLowerCase()}` : ''}.` : `The workbook is defined but was not generated${gen ? ` (${gen.detail})` : ''}.`;
+        break;
+      }
+      default: headline = `${g.title}: ${run.graph.tasks.filter((x) => x.status === 'COMPLETED' && x.tool).length} governed steps completed.`;
+    }
+    const milestoneObjs = run.graph.tasks.filter((x) => x.milestone && !x.invalidatedBy && x.status === 'COMPLETED' && x.tool).map((x) => objs.get(x.taskId)).filter((x): x is FinancialObject => !!x && !x.action);
+    const ac = this.ac(run.runId);
+    const n = await this.o.agentNarrate(g.objective, milestoneObjs.slice(0, 6), ac.signal);
+    if (n.call) this.model(run, n.call);
+    const artifacts = run.artifactIds.map((id) => this.o.artifacts.get(id)).filter((a): a is NonNullable<typeof a> => !!a).map((a) => ({ id: a.id, name: a.name, status: String(a.status) }));
+    run.result = {
+      headline, counts, findings: findings.slice(0, 12),
+      prepared: props.map((p) => ({ proposalId: p.id, title: p.title, status: p.status, riskLevel: p.riskLevel })),
+      requireAction: [...run.checkpoints.filter((c) => c.status === 'OPEN' && c.blocking).map((c) => c.title), ...findings.filter((f) => f.kind === 'BLOCKER' || f.kind === 'NOT_TIED').slice(0, 3).map((f) => f.text)],
+      external: findings.filter((f) => f.kind === 'EXTERNAL_DEPENDENCY').map((f) => f.text),
+      artifacts, narrative: n.source === 'reasoning' ? n.sentences.slice(0, 2) : [],
+      notes: [...run.warnings.slice(0, 3), ...(g.constraints.exclude.length ? [`Excluded at your instruction: ${g.constraints.exclude.join(', ')}.`] : []), ...(g.threshold ? [`Items under $${g.threshold >= 1 ? `${g.threshold}M` : `${Math.round(g.threshold * 1000)}K`} are left out at your instruction${below.length ? ` (${below.length} finding${below.length > 1 ? 's' : ''})` : ''}.`] : []), ...(g.constraints.noComments && POLICY_PROFILES[g.policyProfile].autonomy >= 2 ? ['No comments are prepared until you say otherwise.'] : []), ...(g.constraints.noActions && run.steering.some((e) => e.contextAfter.constraints.noActions && !e.contextBefore.constraints.noActions) ? ['No actions are prepared until you say otherwise.'] : []), ...(run.verification && !run.verification.passed ? ['Verification did not fully pass — see the checks.'] : [])],
+    };
+    t.status = 'COMPLETED';
+  }
+
+  /* ================================================================================================
+     CHECKPOINTS AND DECISIONS
+     ================================================================================================ */
+  private checkpoint(run: AgentRunBody, c: Partial<AgentCheckpoint> & Pick<AgentCheckpoint, 'type' | 'blocking' | 'title' | 'detail'> & { planId?: string }) {
+    const cp: AgentCheckpoint & { planId?: string } = { id: `CP-${run.checkpoints.length + 1}`, status: 'OPEN', proposalIds: [], options: [], taskId: null, createdAt: now(), resolvedAt: null, resolution: null, resolvedBy: null, ...c };
+    run.checkpoints.push(cp);
+    this.event(run, 'CHECKPOINT_OPENED', `${cp.type}: ${cp.title}`);
+    return cp;
+  }
+
+  async decide(runId: string, actor: Actor, checkpointId: string, decision: string, requestId?: string, responseText?: string): Promise<{ ok: boolean; reason?: string; run?: RunView }> {
+    const run = this.cache.get(runId) ?? this.load(runId);
+    if (!run) return { ok: false, reason: 'No such run.' };
+    if (run.actor.id !== actor.id) return { ok: false, reason: 'This run belongs to another user.' };
+    const cp = run.checkpoints.find((c) => c.id === checkpointId) as (AgentCheckpoint & { planId?: string }) | undefined;
+    if (!cp) return { ok: false, reason: 'No such checkpoint.' };
+    if (cp.status === 'RESOLVED') return { ok: true, run: this.view(run) };
+    if (!cp.options.some((o) => o.id === decision)) return { ok: false, reason: `${decision} is not an option here.` };
+    const task = cp.taskId ? run.graph.tasks.find((x) => x.taskId === cp.taskId) : undefined;
+    const obs: AgentObservation = { id: `OBS-${run.observations.length + 1}`, taskId: cp.taskId ?? '', at: now(), status: 'COMPLETED', resultType: 'CheckpointDecision', objectIds: [], artifactIds: [], proposalIds: cp.proposalIds.slice(), actionResults: [], warnings: [], errors: [], evidence: [], contextUpdates: {}, policyEvents: [], findings: [] };
+    if (cp.type === 'CLARIFICATION') {
+      /* the SAME run resumes: the field resolves to the chosen canonical value; nothing else about the run changes */
+      cp.status = 'RESOLVED'; cp.resolution = decision; cp.resolvedAt = now(); cp.resolvedBy = actor.name;
+      this.resolveClarification(run, actor, cp, decision, responseText ?? null);
+      this.event(run, 'CHECKPOINT_RESOLVED', `${cp.title} ${cp.response}`);
+      this.audit(run, actor, 'AGENT_CLARIFICATION_RESOLVED', null, { checkpoint: cp.id, field: cp.field, term: cp.term, response: cp.response, resolvedValue: cp.resolvedValue });
+      this.save(run);
+      if (run.runStatus === 'RUNNING') this.kick(run.runId);
+      return { ok: true, run: this.view(run) };
+    }
+    if (cp.type === 'CONFIRMATION' && cp.planId) {
+      /* §14: every action goes through ActionGovernanceEngine → Authorization → SoD → the Action Service, from here only */
+      const r = this.o.decide({ sessionId: run.sessionId, planId: cp.planId, decision: decision === 'confirm' ? 'confirm' : 'cancel', requestId: requestId ?? `${runId}:${cp.id}:${decision}` }, actor);
+      obs.actionResults = r.results.map((x) => ({ proposalId: x.proposalId, status: x.status, message: x.message }));
+      if (decision === 'confirm' && task) {
+        const ok = r.results.filter((x) => x.status === 'COMPLETED' || x.status === 'EXECUTING').length;
+        task.status = ok ? 'COMPLETED' : 'FAILED'; task.completedAt = now();
+        if (!ok) { task.error = r.results.map((x) => x.message).join('; '); task.failureMode = 'EXECUTION'; }
+        this.line(run, `${ok} of ${r.results.length} action${r.results.length > 1 ? 's' : ''} written after your confirmation`, ok === r.results.length ? 'done' : 'blocked', cp.taskId ?? undefined);
+      } else if (task) { task.status = 'COMPLETED'; task.completedAt = now(); this.line(run, `Prepared actions cancelled — nothing written`, 'skipped', cp.taskId ?? undefined); }
+    } else if (cp.type === 'GOVERNED_APPROVAL') {
+      if (decision === 'cancel' && cp.planId) { const r = this.o.decide({ sessionId: run.sessionId, planId: cp.planId, decision: 'cancel', requestId: requestId ?? `${runId}:${cp.id}:cancel` }, actor); obs.actionResults = r.results.map((x) => ({ proposalId: x.proposalId, status: x.status, message: x.message })); }
+      obs.policyEvents.push(decision === 'route' ? 'Routed to a governed approver in Reconciliations; nothing approved by Sloane' : 'Withdrawn; nothing approved');
+      this.policy(run, cp.title, 'CHECKPOINT', obs.policyEvents[0]!);
+      if (task) { task.status = 'COMPLETED'; task.completedAt = now(); }
+      this.line(run, decision === 'route' ? 'Approval routed to a reviewer other than the preparer — not approved by Sloane' : 'Approval withdrawn', decision === 'route' ? 'done' : 'skipped', cp.taskId ?? undefined);
+    }
+    run.observations.push(obs);
+    cp.status = 'RESOLVED'; cp.resolution = decision; cp.resolvedAt = now(); cp.resolvedBy = actor.name;
+    this.event(run, 'CHECKPOINT_RESOLVED', `${cp.title}: ${decision}`);
+    this.audit(run, actor, 'AGENT_CHECKPOINT_DECIDED', cp.proposalIds[0] ?? null, { checkpoint: cp.id, type: cp.type, decision });
+    if (WAITING.includes(run.runStatus) && run.runStatus !== 'PAUSED') this.status(run, 'RUNNING');
+    else if (run.runStatus === 'COMPLETED' && cp.blocking) this.status(run, 'RUNNING');
+    this.save(run);
+    if (run.runStatus === 'RUNNING') this.kick(run.runId);
+    return { ok: true, run: this.view(run) };
+  }
+
+  /* ================================================================================================
+     CLARIFICATION — an ambiguous goal field (or steering value) waits for the person; the SAME run resumes
+     ================================================================================================ */
+  private openClarification(run: AgentRunBody, a: Ambiguity, steer?: { type: SteeringType; text: string }) {
+    this.checkpoint(run, { type: 'CLARIFICATION', blocking: true, title: a.question, detail: a.reason, field: a.field, term: a.term, reason: a.reason,
+      candidates: a.candidates, response: null, resolvedValue: null, steerType: steer?.type ?? null, steerText: steer?.text ?? null,
+      options: a.candidates.map((c) => ({ id: c.id, label: c.label })) });
+    this.status(run, 'WAITING_FOR_USER');
+    this.line(run, a.question, 'waiting', `clarify:${run.checkpoints.length}`);
+    this.policy(run, `clarify:${a.field}`, 'CHECKPOINT', `"${a.term}" resolves to ${a.candidates.length} governed values; the person chooses`);
+  }
+  /** the open clarification of a run, if any */
+  openQuestion(run: AgentRunBody) { return run.checkpoints.find((c) => c.type === 'CLARIFICATION' && c.status === 'OPEN') ?? null; }
+  /** a typed answer to the open clarification ("Siemens Energy.", "the second one") → the candidate it names, or null */
+  matchAnswer(run: AgentRunBody, text: string): string | null {
+    const cp = this.openQuestion(run);
+    if (!cp?.candidates?.length) return null;
+    const t = text.toLowerCase().replace(/[.!?]+$/, '').trim(), cs = cp.candidates;
+    const ord = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'].findIndex((o) => new RegExp(`\\b${o}\\b`).test(t));
+    if (ord >= 0 && cs[ord]) return cs[ord]!.id;
+    const exact = cs.filter((c) => c.label.toLowerCase() === t || c.id.toLowerCase().endsWith(`:${t}`));
+    if (exact.length === 1) return exact[0]!.id;
+    const inText = cs.filter((c) => t.includes(c.label.toLowerCase().split(' — ')[0]!));
+    if (inText.length === 1) return inText[0]!.id;
+    const inLabel = t.length >= 3 ? cs.filter((c) => c.label.toLowerCase().includes(t)) : [];
+    return inLabel.length === 1 ? inLabel[0]!.id : null;
+  }
+  /** answer the open clarification in words; null when the words do not name one of its candidates */
+  async answer(runId: string, actor: Actor, text: string): Promise<{ ok: boolean; reason?: string; run?: RunView } | null> {
+    const run = this.cache.get(runId) ?? this.load(runId);
+    if (!run || run.actor.id !== actor.id) return null;
+    const cp = this.openQuestion(run), id = this.matchAnswer(run, text);
+    if (!cp || !id) return null;
+    return this.decide(runId, actor, cp.id, id, undefined, text);
+  }
+  /** apply a chosen candidate: to the goal (then plan, or ask the next question) or to the steering it completes */
+  private resolveClarification(run: AgentRunBody, actor: Actor, cp: AgentCheckpoint, id: string, response: string | null) {
+    const d = this.deps(actor), field = (cp.field ?? 'vendor') as Ambiguity['field'];
+    const v = applyCandidate(field, id, d);
+    cp.response = response ?? v.label; cp.resolvedValue = id;
+    const before = this.ctxOf(run);
+    if (cp.steerType) {
+      const intent: SteeringIntent = cp.steerType === 'PERIOD_CHANGE' ? { type: 'PERIOD_CHANGE', period: { period: v.period!, periodRange: v.periodRange ?? null, label: v.label } }
+        : cp.steerType === 'SCOPE_CHANGE' ? { type: 'SCOPE_CHANGE', scope: v.project ? { dimension: 'project', value: v.project, label: v.label } : v.entity ? { dimension: 'entity', value: v.entity, label: v.label } : { clear: true } }
+          : { type: 'FILTER_CHANGE', vendor: { value: v.vendor ?? v.label, label: v.label } };
+      this.applySteer(run, actor, cp.steerText ?? response ?? v.label, intent, before);
+      return;
+    }
+    const g = run.goal;
+    if (v.vendor !== undefined) g.subject.vendor = v.vendor;
+    if (v.project !== undefined) { g.subject.project = v.project; g.labels['project'] = v.label; }
+    if ('entity' in v) { g.subject.entity = v.entity ?? null; g.scope = v.entity ?? 'GROUP'; g.labels['entity'] = v.label; }
+    if (v.account) g.subject.account = v.account;
+    if (v.pbcRequestId) { g.subject.pbcRequestId = v.pbcRequestId; g.labels['pbc'] = v.label; }
+    if (v.artifactId) { g.subject.artifactId = v.artifactId; g.labels['artifact'] = v.label; }
+    if (v.period) { g.period = v.period; g.periodRange = v.periodRange ?? g.periodRange; g.periodText = v.periodLabel ?? null; }
+    g.pending = g.pending.filter((a) => a.field !== field);
+    g.resolved.push({ field, term: cp.term ?? '', value: id, label: v.label, at: now(), by: actor.name });
+    retitle(g);
+    this.syncContext(run, actor);
+    this.line(run, `${cp.title.replace(/\?$/, '')} — ${v.label}`, 'done', `clarify:${run.checkpoints.indexOf(cp) + 1}`);
+    this.event(run, 'CLARIFIED', `${field}: "${cp.term}" → ${v.label}`);
+    if (g.pending.length) { this.openClarification(run, g.pending[0]!); return; }
+    if (!run.graph.tasks.length) { this.plan(run, actor).catch((e: Error) => { run.errors.push(e.message); this.finish(run, 'FAILED', `Korvyn could not build a valid plan for this goal: ${e.message}`); }); return; }
+    this.status(run, 'RUNNING');
+  }
+
+  /* ================================================================================================
+     §17 CANCEL · §18 DURABLE STEERING
+     ================================================================================================ */
+  cancel(runId: string, actor: Actor, reason = 'Cancelled by the user'): { ok: boolean; reason?: string; run?: RunView } {
+    const run = this.cache.get(runId) ?? this.load(runId);
+    if (!run) return { ok: false, reason: 'No such run.' };
+    if (run.actor.id !== actor.id) return { ok: false, reason: 'This run belongs to another user.' };
+    if (TERMINAL.includes(run.runStatus) && run.runStatus !== 'BLOCKED') return { ok: true, run: this.view(run) };
+    this.acs.get(runId)?.abort();
+    /* stop what is pending; do NOT reverse what completed; open proposals are cancelled so nothing can be written later */
+    for (const t of run.graph.tasks) if (['PENDING', 'READY', 'RUNNING', 'WAITING'].includes(t.status)) { t.status = 'SKIPPED'; t.failureMode = 'CANCELLED'; t.error = reason; }
+    const open = this.runProposals(run).filter((p) => ['WAITING_CONFIRMATION', 'NEEDS_CHOICE', 'DRAFT', 'PROPOSED', 'VALIDATED'].includes(p.status));
+    for (const p of open) this.o.decide({ sessionId: run.sessionId, proposalId: p.id, decision: 'cancel', requestId: `${runId}:cancel:${p.id}` }, actor);
+    for (const c of run.checkpoints) if (c.status === 'OPEN') { c.status = 'RESOLVED'; c.resolution = 'cancelled'; c.resolvedAt = now(); c.resolvedBy = actor.name; }
+    this.line(run, `Stopped. ${run.graph.tasks.filter((t) => t.status === 'COMPLETED').length} completed steps are kept; nothing was reversed.`, 'skipped');
+    this.finish(run, 'CANCELLED', reason);
+    this.audit(run, actor, 'AGENT_RUN_CANCELLED', null, { reason, openProposalsCancelled: open.length });
+    return { ok: true, run: this.view(run) };
+  }
+
+  /** @deprecated Phase 7 name — steering is durable now; see steer() */
+  intervene(runId: string, actor: Actor, text: string) { return this.steer(runId, actor, text); }
+
+  /** A short instruction to the run: classified, applied to the run's goal, constraints and plan, persisted as a
+   *  UserSteeringEvent with the context before and after. Not a prompt hint: it changes the run. */
+  steer(runId: string, actor: Actor, text: string): { ok: boolean; recognised: boolean; effect: string; type?: SteeringType; run?: RunView } {
+    const run = this.cache.get(runId) ?? this.load(runId);
+    if (!run) return { ok: false, recognised: false, effect: 'No such run.' };
+    if (run.actor.id !== actor.id) return { ok: false, recognised: false, effect: 'This run belongs to another user.' };
+    if (['CANCELLED', 'FAILED'].includes(run.runStatus)) return { ok: true, recognised: false, effect: `The run is ${run.runStatus.toLowerCase()}.` };
+    const intent = classifySteering(text, this.deps(actor));
+    if (!intent) return { ok: true, recognised: false, effect: 'Not an instruction for the running plan.' };
+    const before = this.ctxOf(run);
+    if (intent.ambiguity) {
+      /* the instruction names a value ambiguously: nothing changes until the person picks one */
+      this.openClarification(run, intent.ambiguity, { type: intent.type, text: text.trim() });
+      const effect = `${intent.ambiguity.question} Nothing has changed yet.`;
+      run.interventions.push({ id: `IV-${run.interventions.length + 1}`, at: now(), by: actor.name, text: text.trim(), kind: intent.type, effect });
+      this.save(run);
+      return { ok: true, recognised: true, effect, type: intent.type, run: this.view(run) };
+    }
+    const effect = this.applySteer(run, actor, text.trim(), intent, before);
+    return { ok: true, recognised: true, effect, type: intent.type, run: this.view(run) };
+  }
+
+  private applySteer(run: AgentRunBody, actor: Actor, text: string, intent: SteeringIntent, before: RunContext): string {
+    const iv: AgentIntervention = { id: `IV-${run.interventions.length + 1}`, at: now(), by: actor.name, text, kind: intent.type, effect: '' };
+    run.interventions.push(iv);
+    const g = run.goal, rev0 = run.graph.version;
+    let out: { invalidated: string[]; added: string[] } = { invalidated: [], added: [] };
+    const hasTool = (t: AgentTask, k: string) => !!t.tool && (k in t.args || !!toolRegistry.get(t.tool)?.params.some((p) => p.name === k));
+    switch (intent.type) {
+      case 'CANCEL': iv.effect = 'Stopped; completed work kept, nothing reversed.'; this.cancel(run.runId, actor, `Stopped by the user: "${text}"`); break;
+      case 'PAUSE': if (['RUNNING', 'PLANNING', 'READY'].includes(run.runStatus)) { this.status(run, 'PAUSED'); iv.effect = 'Paused after the current step.'; this.line(run, 'Paused at your instruction', 'waiting'); } else iv.effect = `The run is ${run.runStatus.toLowerCase().replace(/_/g, ' ')}; nothing to pause.`; break;
+      case 'RESUME': {
+        if (run.runStatus !== 'PAUSED') { iv.effect = `The run is ${run.runStatus.toLowerCase().replace(/_/g, ' ')}.`; break; }
+        const open = run.checkpoints.find((c) => c.status === 'OPEN' && c.blocking);
+        this.status(run, !open ? 'RUNNING' : open.type === 'GOVERNED_APPROVAL' ? 'WAITING_FOR_GOVERNED_APPROVAL' : open.type === 'CLARIFICATION' ? 'WAITING_FOR_USER' : 'WAITING_FOR_CONFIRMATION');
+        iv.effect = 'Resumed from the last completed step.'; this.line(run, 'Resumed', 'active'); break;
+      }
+      case 'SCOPE_CHANGE': {
+        const s = intent.scope!;
+        if ('clear' in s) {
+          const dims = (['project', 'entity'] as const).filter((k) => g.subject[k] && !(g.type === 'INVESTIGATE_VENDOR' && !g.subject.vendor && k === (g.subject.project ? 'project' : 'entity')));
+          if (!dims.length) { iv.effect = 'The run is already at the full scope.'; break; }
+          dims.forEach((k) => { g.subject[k] = null; }); if (dims.includes('entity')) g.scope = 'GROUP';
+          out = this.replanFor(run, iv, (t) => t.scopeSensitive && dims.some((k) => k in t.args), () => Object.fromEntries(dims.map((k) => [k, null])));
+          iv.effect = `Scope widened to Corporate Consolidated: ${this.redoText(run, out)}.`;
+        } else {
+          g.subject[s.dimension] = s.value; g.labels[s.dimension] = s.label; if (s.dimension === 'entity') g.scope = s.value;
+          out = this.replanFor(run, iv, (t) => t.scopeSensitive || (!!t.tool && s.dimension in t.args), () => ({ [s.dimension]: s.value }));
+          iv.effect = out.invalidated.length ? `Scope changed to ${s.label}: ${this.redoText(run, out)}.` : `Scope set to ${s.label}; no step of this run depends on it, so nothing re-ran.`;
+        }
+        break;
+      }
+      case 'PERIOD_CHANGE': {
+        const p = intent.period!;
+        g.period = p.period; g.periodRange = p.periodRange; g.periodText = p.periodRange ? p.label : null;
+        const r = p.periodRange ?? { start: p.period, end: p.period };
+        out = this.replanFor(run, iv, (t) => !!t.tool && ('period' in t.args || 'periodStart' in t.args || 'periodEnd' in t.args),
+          (t) => ({ ...('period' in t.args ? { period: p.period } : {}), ...('periodStart' in t.args ? { periodStart: r.start } : {}), ...('periodEnd' in t.args ? { periodEnd: r.end } : {}) }));
+        iv.effect = `Period changed to ${p.label} (was ${before.periodRange ? `${periodLabel(before.periodRange.start)}–${periodLabel(before.periodRange.end)}` : periodLabel(before.period)}): ${this.redoText(run, out)}.`;
+        break;
+      }
+      case 'FILTER_CHANGE': {
+        if (intent.vendor) {
+          g.subject.vendor = intent.vendor.value;
+          out = this.replanFor(run, iv, (t) => hasTool(t, 'vendor') && ('vendor' in t.args || t.scopeSensitive), () => ({ vendor: intent.vendor!.value }));
+          iv.effect = `Vendor set to ${intent.vendor.label}: ${this.redoText(run, out)}.`;
+        } else {
+          g.threshold = intent.threshold ?? null;
+          const x = g.threshold === null ? null : String(g.threshold);
+          out = this.replanFor(run, iv, (t) => hasTool(t, 'minAbsAmount') || hasTool(t, 'minAbsChange'), (t): Record<string, string | null> => (hasTool(t, 'minAbsAmount') ? { minAbsAmount: x } : { minAbsChange: x }));
+          if (!out.invalidated.length) out = this.replanTail(run, iv);
+          iv.effect = g.threshold === null ? `Threshold removed: ${this.redoText(run, out)}.` : `Threshold set: anything under $${g.threshold >= 1 ? `${g.threshold}M` : `${Math.round(g.threshold * 1000)}K`} is left out — ${this.redoText(run, out)}.`;
+        }
+        break;
+      }
+      case 'PRIORITY_CHANGE': {
+        const what = intent.focus!, r = resolveTerms(what, this.deps(actor));
+        g.constraints.focusFirst = [...g.constraints.focusFirst.filter((x) => x !== what), what];
+        const keys = [what.toLowerCase(), r.values.account, r.values.project, r.values.entity, r.values.vendor].filter((x): x is string => !!x).map((x) => x.toLowerCase());
+        const hit = run.graph.tasks.filter((x) => !x.invalidatedBy && ['PENDING', 'READY'].includes(x.status) && keys.some((k) => `${x.title} ${x.about ?? ''} ${JSON.stringify(x.args)}`.toLowerCase().includes(k)));
+        hit.forEach((x) => { x.priority = Math.max(0, x.priority - 60); });
+        const added: AgentTask[] = [];
+        /* an investigation with nothing left about the focus gets a focused step at the front of the queue */
+        if (!hit.length && g.type === 'INVESTIGATE_VENDOR' && (r.values.account || r.values.project)) {
+          const subj = g.subject, dim = r.values.account ? (subj.project ? 'vendor' : 'project') : 'vendor';
+          const args: Record<string, string> = { dimension: dim, periodStart: g.periodRange?.start ?? g.period, periodEnd: g.periodRange?.end ?? g.period,
+            ...(subj.vendor ? { vendor: subj.vendor } : {}), ...(subj.project ? { project: subj.project } : {}), ...(subj.entity ? { entity: subj.entity } : {}),
+            ...(r.values.account ? { account: r.values.account } : {}), ...(r.values.project ? { project: r.values.project } : {}), ...(g.threshold ? { minAbsChange: String(g.threshold) } : {}) };
+          added.push(mkTask({ taskId: `focus-${(r.values.account ?? r.values.project)!}`, type: 'ANALYZE', title: `${r.labels['project'] ?? (r.values.account === '15000' ? 'CIP' : what.toUpperCase())} first`, tool: 'analyzeByDimension', args, milestone: true, scopeSensitive: true, priority: 1, origin: 'INTERVENTION' }, run.graph.version + 1, 'INTERVENTION'));
+        }
+        const tail = added.length || (!hit.length && ['COMPLETED', 'BLOCKED'].includes(run.runStatus)) ? this.tailReplacements(run, iv) : [];
+        if (added.length || tail.length) { this.reopen(run); this.revise(run, 'INTERVENTION', `Focus on ${what} first`, [...added, ...tail], tail.map((x) => x.taskId.split('~')[0]!)); }
+        else if (hit.length) this.revise(run, 'INTERVENTION', `Focus on ${what} first`, [], []);
+        out = { invalidated: [], added: [...added, ...tail].map((x) => x.taskId) };
+        iv.effect = hit.length ? `${hit.length} step${hit.length > 1 ? 's' : ''} about ${what} moved to the front.` : added.length ? `Added a ${what.toUpperCase()}-first step at the front; the result will lead with it.` : `The result will lead with ${what}.`;
+        break;
+      }
+      case 'EXCLUSION': {
+        const what = intent.exclude!;
+        g.constraints.exclude = [...g.constraints.exclude.filter((x) => x !== what), what];
+        const hit = run.graph.tasks.filter((x) => !x.invalidatedBy && ['PENDING', 'READY'].includes(x.status) && (x.about ?? '').toLowerCase().includes(what.toLowerCase()));
+        hit.forEach((x) => { x.status = 'SKIPPED'; x.failureMode = 'INTERVENTION'; x.error = `Excluded at your instruction (${what})`; x.invalidatedBy = iv.id; });
+        const open = this.runProposals(run).filter((p) => (p.targetLabel ?? p.title).toLowerCase().includes(what.toLowerCase()) && ['WAITING_CONFIRMATION', 'NEEDS_CHOICE'].includes(p.status));
+        open.forEach((p) => this.o.decide({ sessionId: run.sessionId, proposalId: p.id, decision: 'cancel', requestId: `${run.runId}:${iv.id}:${p.id}` }, actor));
+        this.settleCheckpoints(run, actor, iv);
+        const t2 = this.replanTail(run, iv);
+        out = { invalidated: [...hit.map((x) => x.taskId), ...t2.invalidated], added: t2.added };
+        iv.effect = `${what} is excluded from the rest of the run and the result${hit.length || open.length ? ` (${hit.length + open.length} prepared or pending step${hit.length + open.length > 1 ? 's' : ''} dropped)` : ''}.`;
+        break;
+      }
+      case 'OUTPUT_CHANGE': {
+        const o = intent.output!;
+        if (o === 'noPackage') {
+          g.constraints.noPackage = true;
+          const hit = run.graph.tasks.filter((x) => !x.invalidatedBy && ['PENDING', 'READY'].includes(x.status) && (x.tool === 'buildExcelArtifact' || x.tool === 'proposeGenerateExcelArtifact' || x.check === 'GENERATION'));
+          hit.forEach((x) => { x.status = 'SKIPPED'; x.failureMode = 'INTERVENTION'; x.error = 'No package at your instruction'; x.invalidatedBy = iv.id; });
+          const open = this.runProposals(run).filter((p) => /EXCEL_ARTIFACT/.test(p.type) && ['WAITING_CONFIRMATION'].includes(p.status));
+          open.forEach((p) => this.o.decide({ sessionId: run.sessionId, proposalId: p.id, decision: 'cancel', requestId: `${run.runId}:${iv.id}:${p.id}` }, actor));
+          this.settleCheckpoints(run, actor, iv);
+          const t2 = this.replanTail(run, iv);
+          out = { invalidated: [...hit.map((x) => x.taskId), ...t2.invalidated], added: t2.added };
+          iv.effect = hit.length || open.length ? `No package: ${hit.length + open.length} package step${hit.length + open.length > 1 ? 's' : ''} dropped; any draft already defined stays a draft and is not generated.` : 'No package will be built.';
+        } else if (o === 'package') {
+          g.constraints.noPackage = false;
+          if (POLICY_PROFILES[g.policyProfile].autonomy < 2) { iv.effect = `A ${POLICY_PROFILES[g.policyProfile].label} run cannot prepare a workbook; ask for it as its own goal (“prepare a … package”).`; break; }
+          if (run.graph.tasks.some((x) => !x.invalidatedBy && x.tool === 'buildExcelArtifact' && x.status !== 'SKIPPED')) { iv.effect = 'This run already builds a package.'; break; }
+          const add = mkTask({ taskId: 'pack', type: 'BUILD_ARTIFACT', title: 'Package', tool: 'buildExcelArtifact', args: { periodStart: g.periodRange?.start ?? g.period, periodEnd: g.periodRange?.end ?? g.period, ...(g.type === 'PREPARE_CONTROLLER_REVIEW' ? { type: 'CLOSE_REVIEW_PACKAGE' } : {}) }, request: g.objective, milestone: true, priority: 30 }, run.graph.version + 1, 'INTERVENTION');
+          const tail = this.tailReplacements(run, iv);
+          this.reopen(run); this.revise(run, 'INTERVENTION', 'Package added', [add, ...tail], tail.map((x) => x.taskId.split('~')[0]!));
+          out = { invalidated: [], added: [add.taskId, ...tail.map((x) => x.taskId)] };
+          iv.effect = 'A package will be built from this run (drafted, never generated without your confirmation).';
+        } else {
+          g.outputFormat = o;
+          out = this.replanFor(run, iv, (t) => t.tool === 'proposeGenerateExcelArtifact', () => ({ format: o }));
+          iv.effect = out.invalidated.length ? `The workbook will be generated as ${o.toUpperCase()}: ${this.redoText(run, out)}.` : `Output set to ${o.toUpperCase()}.`;
+        }
+        break;
+      }
+      case 'ACTION_CONSTRAINT': {
+        const c = intent.constraint!;
+        if (c.noComments !== undefined) g.constraints.noComments = c.noComments;
+        if (c.noActions !== undefined) g.constraints.noActions = c.noActions;
+        const block = c.noComments === true || c.noActions === true;
+        if (block) {
+          const hit = run.graph.tasks.filter((x) => !x.invalidatedBy && ['PENDING', 'READY'].includes(x.status) && x.riskLevel !== 'READ' && x.tool && !!this.constraintBlocks(run, x));
+          hit.forEach((x) => { x.status = 'SKIPPED'; x.failureMode = 'CONSTRAINT'; x.error = this.constraintBlocks(run, x); x.invalidatedBy = iv.id; });
+          const open = this.runProposals(run).filter((p) => ['WAITING_CONFIRMATION', 'NEEDS_CHOICE'].includes(p.status) && (c.noActions ? p.riskLevel !== 'GOVERNED_ACTION' || true : /COMMENT/.test(p.type)));
+          open.forEach((p) => this.o.decide({ sessionId: run.sessionId, proposalId: p.id, decision: 'cancel', requestId: `${run.runId}:${iv.id}:${p.id}` }, actor));
+          this.settleCheckpoints(run, actor, iv);
+          out = { invalidated: hit.map((x) => x.taskId), added: [] };
+          if (hit.length || open.length) this.revise(run, 'INTERVENTION', `Constraint: ${c.noActions ? 'no actions' : 'no comments'}`, [], hit.map((x) => x.taskId));
+          iv.effect = `${c.noActions ? 'No actions' : 'No comments'} will be prepared until you say otherwise; ${hit.length} pending draft${hit.length === 1 ? '' : 's'} skipped, ${open.length} prepared draft${open.length === 1 ? '' : 's'} withdrawn (none had been written). The analysis continues.`;
+        } else {
+          /* lifted: the steps that find what to comment on expand again */
+          const parents = run.graph.tasks.filter((x) => !x.invalidatedBy && x.status === 'COMPLETED' && (x.expand === 'FLUX_COMMENTS' || x.expand === 'RECON_COMMENTS'));
+          const before2 = run.graph.tasks.length;
+          for (const p of parents) { const o = this.objects.get(run.runId)?.get(p.taskId); if (o) this.expand(run, p, o); }
+          const missing = parents.filter((p) => !this.objects.get(run.runId)?.get(p.taskId));
+          const r2 = missing.length ? this.replanFor(run, iv, (t) => missing.includes(t), () => ({})) : { invalidated: [], added: [] };
+          const conf = this.confirmReplacement(run, iv);
+          out = { invalidated: r2.invalidated, added: [...run.graph.tasks.slice(before2).map((x) => x.taskId), ...conf] };
+          iv.effect = `${c.noActions === false ? 'Actions' : 'Comments'} may be prepared again; ${run.graph.tasks.length - before2} draft step${run.graph.tasks.length - before2 === 1 ? '' : 's'} added — nothing is written without your confirmation.`;
+        }
+        break;
+      }
+    }
+    iv.effect = iv.effect || 'Applied.';
+    /* the step budget guards against a runaway plan, not against work the person asked for: a steering revision extends
+       it by exactly the steps it added, and says so */
+    if (out.added.length) { run.limits.maxSteps += out.added.length; this.event(run, 'BUDGET_EXTENDED', `+${out.added.length} steps for "${text}" (limit now ${run.limits.maxSteps})`); }
+    g.userInstructions.push(text);
+    retitle(g);
+    const after = this.ctxOf(run);
+    const ev: UserSteeringEvent = { id: `STEER-${run.steering.length + 1}`, runId: run.runId, at: now(), actor: { id: actor.id, name: actor.name }, instruction: text, type: intent.type,
+      contextBefore: before, contextAfter: after, tasksInvalidated: out.invalidated, tasksAdded: out.added, planRevision: run.graph.version !== rev0 ? run.graph.version : null, effect: iv.effect };
+    run.steering.push(ev);
+    this.event(run, 'STEERED', `${intent.type}: ${text}`);
+    if (!['CANCEL', 'PAUSE', 'RESUME'].includes(intent.type) && !['CANCELLED'].includes(run.runStatus)) this.line(run, iv.effect, 'done', `steer:${ev.id}`);
+    this.syncContext(run, actor);
+    this.audit(run, actor, 'AGENT_RUN_STEERED', null, { instruction: text, type: intent.type, contextBefore: before, contextAfter: after, tasksInvalidated: out.invalidated, planRevision: ev.planRevision });
+    WORK.repos.investigations.event(run.investigationId, { type: 'AGENT_STEERED', label: `${intent.type.replace(/_/g, ' ').toLowerCase()}: ${text}`, ref: run.runId, traceId: run.runId }, actor.id);
+    this.save(run);
+    if (run.runStatus === 'RUNNING') this.kick(run.runId);
+    return iv.effect;
+  }
+
+  /* ---- safe replan: invalidate only what the change touches, keep the rest, re-run the dependents ---- */
+  private replanFor(run: AgentRunBody, iv: AgentIntervention, sens: (t: AgentTask) => boolean, patch: (t: AgentTask) => Record<string, string | null>): { invalidated: string[]; added: string[] } {
+    const isTail = (t: AgentTask) => t.check === 'VERIFY' || t.check === 'SUMMARIZE';
+    const live = (t: AgentTask) => !t.invalidatedBy && t.status !== 'RUNNING' && !(t.status === 'SKIPPED' && ['POLICY', 'CONSTRAINT', 'INTERVENTION'].includes(t.failureMode ?? ''));
+    const direct = new Set(run.graph.tasks.filter((t) => live(t) && !isTail(t) && t.origin !== 'EXPANSION' && sens(t)).map((t) => t.taskId));
+    if (!direct.size) return { invalidated: [], added: [] };
+    const patched = new Set(direct);
+    /* dependents follow their inputs (a support check on a population that changed) */
+    for (let grew = true; grew;) { grew = false; for (const t of run.graph.tasks) if (live(t) && !isTail(t) && t.origin !== 'EXPANSION' && !direct.has(t.taskId) && t.dependsOn.some((d) => direct.has(d))) { direct.add(t.taskId); grew = true; } }
+    /* what a replaced step had expanded into is dropped (the replacement expands again); open drafts from it are withdrawn */
+    const children = run.graph.tasks.filter((t) => !t.invalidatedBy && t.origin === 'EXPANSION' && t.dependsOn.some((d) => direct.has(d)));
+    for (const c of children) { c.invalidatedBy = iv.id; run.progress = run.progress.filter((p) => (p as { taskId?: string }).taskId !== c.taskId); if (c.status !== 'COMPLETED') { c.status = 'SKIPPED'; c.failureMode = 'INVALIDATED'; c.error = 'Replaced by a plan revision'; } }
+    const childProps = new Set(children.flatMap((c) => c.proposalIds));
+    const replacedProps = new Set([...direct].flatMap((id) => run.graph.tasks.find((x) => x.taskId === id)!.proposalIds));
+    for (const p of this.runProposals(run)) if ((childProps.has(p.id) || replacedProps.has(p.id)) && ['WAITING_CONFIRMATION', 'NEEDS_CHOICE', 'VALIDATED', 'PROPOSED'].includes(p.status)) this.o.decide({ sessionId: run.sessionId, proposalId: p.id, decision: 'cancel', requestId: `${run.runId}:${iv.id}:${p.id}` }, this.actorOf(run));
+    /* a checkpoint gathering what was replaced is superseded, and its step runs again over the new work */
+    for (const id of direct) { const t = run.graph.tasks.find((x) => x.taskId === id)!; if (t.check === 'CONFIRMATION' || t.check === 'GOVERNED') this.supersede(run, t); }
+    if (children.length) for (const t of run.graph.tasks.filter((x) => live(x) && (x.check === 'CONFIRMATION' || x.check === 'GOVERNED') && !direct.has(x.taskId))) { this.supersede(run, t); direct.add(t.taskId); }
+    /* a notice a replaced step raised (e.g. "JD Edwards unavailable" for activity now out of scope) no longer describes the
+       run: it is superseded with the step, and the replacement raises it again only if it still applies */
+    for (const c of run.checkpoints) if (c.status === 'OPEN' && !c.blocking && c.taskId && (direct.has(c.taskId) || children.some((x) => x.taskId === c.taskId))) { c.status = 'RESOLVED'; c.resolution = 'superseded'; c.resolvedAt = now(); c.resolvedBy = 'Korvyn (plan revision)'; }
+    const added = [...direct].map((id) => run.graph.tasks.find((x) => x.taskId === id)!).map((x) => this.replacement(run, x, patched.has(x.taskId) ? patch(x) : {}, iv.id));
+    const tail = this.tailReplacements(run, iv);
+    this.reopen(run);
+    const invalidated = [...direct, ...children.map((c) => c.taskId), ...tail.map((x) => x.taskId.split('~')[0]!)];
+    this.revise(run, 'REPLAN', iv.text, [...added, ...tail], invalidated);
+    return { invalidated, added: [...added, ...tail].map((x) => x.taskId) };
+  }
+  /** re-run only the verification and the summary (the result changes, the work does not) */
+  private replanTail(run: AgentRunBody, iv: AgentIntervention): { invalidated: string[]; added: string[] } {
+    if (!['COMPLETED', 'BLOCKED'].includes(run.runStatus) && !run.graph.tasks.some((t) => !t.invalidatedBy && (t.check === 'VERIFY' || t.check === 'SUMMARIZE') && t.status === 'COMPLETED')) return { invalidated: [], added: [] };
+    const tail = this.tailReplacements(run, iv);
+    if (!tail.length) return { invalidated: [], added: [] };
+    this.reopen(run);
+    this.revise(run, 'INTERVENTION', `${iv.text} — result re-summarised`, tail, tail.map((x) => x.taskId.split('~')[0]!));
+    return { invalidated: tail.map((x) => x.taskId.split('~')[0]!), added: tail.map((x) => x.taskId) };
+  }
+  private tailReplacements(run: AgentRunBody, iv: AgentIntervention) { return run.graph.tasks.filter((x) => !x.invalidatedBy && (x.check === 'VERIFY' || x.check === 'SUMMARIZE')).map((x) => this.replacement(run, x, {}, iv.id)); }
+  /** after drafts were withdrawn: a confirmation left with nothing open is superseded and its step settles */
+  private settleCheckpoints(run: AgentRunBody, actor: Actor, iv: AgentIntervention) {
+    void actor;
+    for (const c of run.checkpoints.filter((x) => x.status === 'OPEN' && x.type === 'CONFIRMATION')) {
+      const open = this.runProposals(run).filter((p) => c.proposalIds.includes(p.id) && p.status === 'WAITING_CONFIRMATION');
+      if (open.length) continue;
+      c.status = 'RESOLVED'; c.resolution = 'superseded'; c.resolvedAt = now(); c.resolvedBy = iv.by;
+      const t = c.taskId ? run.graph.tasks.find((x) => x.taskId === c.taskId) : undefined;
+      if (t && t.status === 'WAITING') { t.status = 'SKIPPED'; t.failureMode = 'INTERVENTION'; t.error = 'Nothing left to confirm'; }
+      run.progress = run.progress.filter((p) => (p as { taskId?: string }).taskId !== c.taskId);
+    }
+    if (WAITING.includes(run.runStatus) && run.runStatus !== 'PAUSED' && !run.checkpoints.some((c) => c.status === 'OPEN' && c.blocking)) this.status(run, 'RUNNING');
+  }
+  private supersede(run: AgentRunBody, t: AgentTask) {
+    for (const c of run.checkpoints.filter((x) => x.status === 'OPEN' && x.taskId === t.taskId)) {
+      for (const p of this.runProposals(run).filter((x) => c.proposalIds.includes(x.id) && ['WAITING_CONFIRMATION', 'VALIDATED'].includes(x.status))) this.o.decide({ sessionId: run.sessionId, proposalId: p.id, decision: 'cancel', requestId: `${run.runId}:supersede:${p.id}` }, this.actorOf(run));
+      c.status = 'RESOLVED'; c.resolution = 'superseded'; c.resolvedAt = now(); c.resolvedBy = 'Korvyn (plan revision)';
+    }
+    if (t.check === 'CONFIRMATION' || t.check === 'GOVERNED') { if (t.check === 'CONFIRMATION') { run.planSeq += 1; run.actionPlanId = `APLAN-${run.runId}-${run.planSeq}`; } }
+  }
+  /** a confirmation step for new drafts (after a constraint is lifted) */
+  private confirmReplacement(run: AgentRunBody, iv: AgentIntervention): string[] {
+    const cur = run.graph.tasks.filter((x) => !x.invalidatedBy && x.check === 'CONFIRMATION');
+    const pending = cur.some((x) => ['PENDING', 'READY', 'WAITING'].includes(x.status));
+    const reps = pending ? [] : cur.map((x) => this.replacement(run, x, {}, iv.id));
+    const tail = this.tailReplacements(run, iv);
+    if (!reps.length && !tail.length) return [];
+    this.reopen(run);
+    this.revise(run, 'INTERVENTION', `${iv.text} — confirmation re-opened for new drafts`, [...reps, ...tail], [...reps, ...tail].map((x) => x.taskId.split('~')[0]!));
+    return [...reps, ...tail].map((x) => x.taskId);
+  }
+  private reopen(run: AgentRunBody) {
+    if (['COMPLETED', 'BLOCKED'].includes(run.runStatus)) { run.completedAt = null; run.verification = null; run.result = null; run.completionReason = null; this.status(run, 'RUNNING'); }
+    else if (WAITING.includes(run.runStatus) && run.runStatus !== 'PAUSED' && !run.checkpoints.some((c) => c.status === 'OPEN' && c.blocking)) this.status(run, 'RUNNING');
+  }
+  private redoText(run: AgentRunBody, out: { invalidated: string[]; added: string[] }) {
+    const redo = out.added.filter((id) => !/^(verify|summarize)/.test(id)).map((id) => run.graph.tasks.find((x) => x.taskId === id)?.title).filter(Boolean);
+    const kept = run.graph.tasks.filter((y) => y.status === 'COMPLETED' && !y.invalidatedBy && y.tool && y.milestone).map((y) => y.title);
+    return `${redo.length ? `${redo.length} step${redo.length > 1 ? 's' : ''} re-run (${redo.join(', ')})` : 'no step needed re-running'}${kept.length ? `; kept ${kept.join(', ')}` : ''}`;
+  }
+  /** a constraint the person set blocks this step, and why */
+  private constraintBlocks(run: AgentRunBody, t: AgentTask): string | null {
+    const at = this.actionTypeOf(t) ?? '';
+    if (run.goal.constraints.noActions && t.riskLevel !== 'READ' && t.tool !== 'buildExcelArtifact' && t.tool !== 'previewExcelArtifact') return 'Not prepared: you asked for no actions yet';
+    if (run.goal.constraints.noComments && /COMMENT/.test(at)) return 'Not prepared: you asked for no comments yet';
+    if (run.goal.constraints.noPackage && (t.tool === 'buildExcelArtifact' || t.tool === 'proposeGenerateExcelArtifact')) return 'Not built: you asked for no package';
+    return null;
+  }
+  /** the run's context as the person has steered it */
+  private ctxOf(run: AgentRunBody): RunContext {
+    const g = run.goal;
+    return { period: g.period, periodRange: g.periodRange ? { ...g.periodRange } : null, scope: g.scope, vendor: g.subject.vendor, project: g.subject.project, entity: g.subject.entity, account: g.subject.account, threshold: g.threshold,
+      constraints: { noComments: g.constraints.noComments, noActions: g.constraints.noActions, noPackage: g.constraints.noPackage, exclude: g.constraints.exclude.slice(), focusFirst: g.constraints.focusFirst.slice() }, outputFormat: g.outputFormat };
+  }
+  /** the conversation's FinancialContext follows the run: an explicit instruction replaces what was inherited */
+  private syncContext(run: AgentRunBody, actor: Actor) { try { this.o.agentContext(run.sessionId, actor, this.ctxOf(run)); } catch { /* the conversation may belong to a restarted process */ } }
+
+  /** a revision never overwrites: the old task is SKIPPED with the reason, the new one is a new node */
+  private replacement(run: AgentRunBody, x: AgentTask, patch: Record<string, string | null>, by: string): AgentTask {
+    x.invalidatedBy = by; run.progress = run.progress.filter((p) => (p as { taskId?: string }).taskId !== x.taskId);
+    if (x.status !== 'COMPLETED') { x.status = 'SKIPPED'; x.failureMode = 'INVALIDATED'; x.error = 'Replaced by a plan revision'; }
+    const base = x.taskId.split('~')[0]!, v = run.graph.version + 1;
+    const args: Record<string, string> = { ...x.args };
+    for (const [k, v] of Object.entries(patch)) { if (v === null) delete args[k]; else if (k in x.args || (x.tool && toolRegistry.get(x.tool)?.params.some((p) => p.name === k))) args[k] = v; }
+    return mkTask({ ...x, taskId: `${base}~${v}`, args, status: 'PENDING', attempts: 0, resultObjectIds: [], proposalIds: [], artifactIds: [], executionTraceId: null, error: null, failureMode: null, invalidatedBy: null, startedAt: null, completedAt: null, latencyMs: null,
+      dependsOn: x.dependsOn.map((d) => d.split('~')[0]!) }, v, 'REPLAN');
+  }
+  private revise(run: AgentRunBody, source: 'EXPANSION' | 'REPLAN' | 'INTERVENTION', reason: string, added: AgentTask[], invalidated: string[]) {
+    const v = run.graph.version + 1;
+    added.forEach((a) => { a.planVersion = v; });
+    run.graph.tasks.push(...added);
+    run.graph.version = v;
+    run.graph.revisions.push({ version: v, at: now(), source, reason, added: added.map((a) => a.taskId), invalidated, rejected: [] });
+    /* dependencies are by base id: they resolve to the latest live task */
+    for (const t of run.graph.tasks) t.dependsOn = t.dependsOn.map((d) => this.latest(run, d)?.taskId ?? d);
+    if (source !== 'EXPANSION') this.event(run, 'PLAN_REVISED', `v${v}: ${reason}`);
+  }
+
+  /* ================================================================================================
+     VIEW · PERSISTENCE · EVENTS
+     ================================================================================================ */
+  get(runId: string, actor: Actor): RunView | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? this.view(r) : null; }
+  body(runId: string, actor: Actor): AgentRunBody | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? r : null; }
+  list(actor: Actor) { return WORK.repos.records.list<{ run: AgentRunBody }>(KIND, { created_by: actor.id }).map((r) => this.cache.get(r.id) ?? r.run).map((r) => ({ runId: r.runId, sessionId: r.sessionId, title: r.goal.title, goalType: r.goal.type, status: r.runStatus, startedAt: r.startedAt, updatedAt: r.updatedAt, completedAt: r.completedAt })).reverse(); }
+  /** the run this conversation is working on — read from the DURABLE store, so it survives a page refresh, navigating away
+   *  and a server restart: the latest of this actor's runs in the session that is still live or waiting on the person */
+  activeFor(sessionId: string, actor: Actor, includeCompleted = false): AgentRunBody | null {
+    const live = (r: AgentRunBody) => r.sessionId === sessionId && r.actor.id === actor.id && (includeCompleted ? !['CANCELLED', 'FAILED'].includes(r.runStatus) : !TERMINAL.includes(r.runStatus));
+    const ids = WORK.repos.records.list<{ run: AgentRunBody }>(KIND, { created_by: actor.id }).map((r) => r.id);
+    const runs = ids.map((id) => this.cache.get(id) ?? this.load(id)).filter((r): r is AgentRunBody => !!r && live(r));
+    return runs.sort((a, b) => a.startedAt.localeCompare(b.startedAt)).at(-1) ?? null;
+  }
+  /** wait until the run stops RUNNING (a checkpoint, the end) or the time is up */
+  wait(runId: string, ms: number): Promise<void> {
+    const r = this.cache.get(runId);
+    if (!r || !['RUNNING', 'PLANNING', 'READY', 'CREATED'].includes(r.runStatus)) return Promise.resolve();
+    return new Promise((res) => { const tm = setTimeout(done, ms); function done() { clearTimeout(tm); res(); } const l = this.waiters.get(runId) ?? []; l.push(done); this.waiters.set(runId, l); });
+  }
+  private notify(runId: string) { const r = this.cache.get(runId); if (r && ['RUNNING', 'PLANNING', 'READY'].includes(r.runStatus) && this.running.has(runId)) return; (this.waiters.get(runId) ?? []).splice(0).forEach((f) => f()); }
+
+  view(run: AgentRunBody): RunView {
+    const props = this.o.actions.ofSession(run.sessionId);
+    const prof = POLICY_PROFILES[run.goal.policyProfile];
+    return {
+      runId: run.runId, title: run.goal.title, goalType: run.goal.type, status: run.runStatus, profile: prof.label, autonomy: ['Assist', 'Autonomous read', 'Autonomous prepare', 'Low-risk execute', 'Governed'][prof.autonomy]!,
+      period: run.goal.periodRange ? `${periodLabel(run.goal.periodRange.start)}–${periodLabel(run.goal.periodRange.end)}` : periodLabel(run.goal.period), scope: run.goal.subject.project ?? (run.goal.scope === 'GROUP' ? 'Corporate Consolidated' : run.goal.scope),
+      progress: run.progress.slice(-24),
+      checkpoints: run.checkpoints.map(({ proposalIds, ...c }) => ({ ...c, proposals: proposalIds.map((id) => props.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p).map((p) => ({ id: p.id, title: p.title, target: p.targetLabel, status: p.status, riskLevel: p.riskLevel })) })),
+      result: run.result, verification: run.verification, completionReason: run.completionReason, interventions: run.interventions,
+      startedAt: run.startedAt, updatedAt: run.updatedAt, completedAt: run.completedAt, sessionId: run.sessionId, investigationId: run.investigationId,
+    };
+  }
+
+  private load(runId: string): AgentRunBody | null {
+    const r = WORK.repos.records.get<{ run: AgentRunBody }>(KIND, runId);
+    if (!r) return null;
+    this.cache.set(runId, r.run);
+    if (!this.objects.has(runId)) this.objects.set(runId, new Map());
+    return r.run;
+  }
+  private save(run: AgentRunBody) {
+    run.updatedAt = now();
+    if (run.events.length > 300) run.events.splice(0, run.events.length - 300);
+    if (run.trace.toolCalls.length > 200) run.trace.toolCalls.splice(0, run.trace.toolCalls.length - 200);
+    try { WORK.repos.records.update<{ run: AgentRunBody }>(KIND, run.runId, null, run.actor.id, () => ({ run }), { status: run.runStatus }); }
+    catch { /* a run created in another process's database is kept in memory only */ }
+  }
+  private status(run: AgentRunBody, s: AgentRunStatus) {
+    if (run.runStatus === s) return;
+    const from = run.runStatus; run.runStatus = s;
+    this.event(run, `STATUS_${s}`, `${from} → ${s}`);
+    if (s !== 'RUNNING') this.notify(run.runId);
+  }
+  private finish(run: AgentRunBody, s: AgentRunStatus, reason: string) {
+    this.status(run, s);
+    run.completionReason = reason; run.completedAt = now();
+    this.save(run);
+    const actor = this.actorOf(run);
+    WORK.repos.investigations.event(run.investigationId, { type: 'AGENT_RUN', label: `Agent run ${s.toLowerCase()}: ${run.goal.title}`, ref: run.runId, traceId: run.runId }, actor.id);
+    if (s === 'COMPLETED' || s === 'FAILED' || s === 'BLOCKED') this.audit(run, actor, `AGENT_RUN_${s}`, null, { reason, verification: run.verification?.passed ?? null });
+    this.notify(run.runId);
+  }
+  private line(run: AgentRunBody, line: string, state: AgentRunBody['progress'][number]['state'], taskId?: string) {
+    const k = taskId ? run.progress.findIndex((p) => (p as { taskId?: string }).taskId === taskId) : -1;
+    const rec = { at: now(), line, state, ...(taskId ? { taskId } : {}) } as AgentRunBody['progress'][number];
+    if (k >= 0) run.progress[k] = rec; else run.progress.push(rec);
+  }
+  private event(run: AgentRunBody, type: string, label: string) { run.events.push({ at: now(), type, label }); }
+  private policy(run: AgentRunBody, subject: string, decision: 'ALLOW' | 'DENY' | 'CHECKPOINT', reason: string) { run.trace.policyDecisions.push({ at: now(), subject, decision, reason }); if (run.trace.policyDecisions.length > 200) run.trace.policyDecisions.shift(); }
+  private model(run: AgentRunBody, c: AgentRunBody['trace']['modelCalls'][number]) { run.trace.modelCalls.push(c); run.usage.modelCalls += 1; run.usage.inputTokens += c.inputTokens; run.usage.outputTokens += c.outputTokens; }
+  private trace(run: AgentRunBody, t: AgentTask, args: Record<string, string>, status: string, ms: number, objectId: string | null, error: string | null, traceId: string) { run.trace.toolCalls.push({ taskId: t.taskId, tool: t.tool!, args, status, latencyMs: ms, objectId, error, traceId }); }
+  private ac(runId: string) { let a = this.acs.get(runId); if (!a || a.signal.aborted) { a = new AbortController(); this.acs.set(runId, a); } return a; }
+  private actorOf(run: AgentRunBody): Actor { return { id: run.actor.id, name: run.actor.name, role: run.actor.role, permissions: run.permissionsSnapshot as Actor['permissions'], scopeIds: run.actor.scope }; }
+  private audit(run: AgentRunBody, actor: Actor, action: string, proposalId: string | null, after: unknown) {
+    WORK.repos.audit.append({ actor: { id: actor.id, name: actor.name, role: actor.role }, source: 'SLOANE', action, target: { id: run.runId, type: 'AGENT_RUN', label: run.goal.title }, beforeRef: null, afterRef: null, before: null, after,
+      investigationId: run.investigationId, executionTraceId: run.runId, proposalId, confirmation: null, financialObjectIds: [], populationIds: [], evidenceIds: [], outcome: 'COMPLETED', error: null });
+  }
+  /** the proposals THIS run prepared — a run started in a conversation shares its session with earlier turns */
+  private runProposals(run: AgentRunBody) {
+    const ids = new Set([...run.graph.tasks.flatMap((t) => t.proposalIds), ...run.checkpoints.flatMap((c) => c.proposalIds)]);
+    return this.o.actions.ofSession(run.sessionId).filter((p) => ids.has(p.id));
+  }
+  /** the governance class of an action type — the same policy the Action Engine applies */
+  classOf(type: string) { return ActionGovernanceEngine.classify(type); }
+}
