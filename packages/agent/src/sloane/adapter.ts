@@ -1,11 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { SloaneConfig } from './config.js';
-import { INTERPRET_SYSTEM, NARRATE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
+import type { Route, SloaneConfig } from './config.js';
+import { CONVERSE_SYSTEM, INTERPRET_SYSTEM, NARRATE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
 import {
   INTERPRETATION_SCHEMA, NARRATIVE_SCHEMA, planSchema, structuredOutputProblems,
   validateInterpretation, validateNarrative, validatePlan,
-  type Interpretation, type Narrative, type Plan, type Result,
-} from './schema.js';
+  type Interpretation, type Narrative, type Plan, type Result, CONVERSATION_SCHEMA, type Conversation, validateConversation } from './schema.js';
 
 /**
  * THE PROVIDER-NEUTRAL CONTRACT. Korvyn's orchestrator speaks only this shape; a provider is an
@@ -13,23 +12,31 @@ import {
  * knows which provider or model answered.
  */
 export interface Usage { inputTokens: number; outputTokens: number; cacheReadTokens: number }
+/** which route and model answered — recorded on every call in the trace, never shown to a user */
+interface Answered { route?: Route; model?: string }
 export type AdapterOutcome<T> =
-  | { status: 'ok'; value: T; usage: Usage | null; latencyMs: number; requestId: string | null }
+  | ({ status: 'ok'; value: T; usage: Usage | null; latencyMs: number; requestId: string | null } & Answered)
   /** the adapter deliberately declines — Korvyn uses its deterministic engine */
-  | { status: 'declined'; reason: string; latencyMs: number }
+  | ({ status: 'declined'; reason: string; latencyMs: number } & Answered)
   /** the provider or the output failed — Korvyn falls back and says so */
-  | { status: 'error'; code: 'unavailable' | 'rate_limited' | 'timeout' | 'refused' | 'invalid_output' | 'auth'; detail: string; latencyMs: number; requestId: string | null };
+  | ({ status: 'error'; code: 'unavailable' | 'rate_limited' | 'timeout' | 'refused' | 'invalid_output' | 'auth' | 'cancelled'; detail: string; latencyMs: number; requestId: string | null } & Answered);
+/** Phase 6: a call names its ROUTE (FAST for interpretation and narration, DEEP for complex planning) and may be
+ *  cancelled when the user moves on before it returns */
+export interface CallOptions { route?: Route; signal?: AbortSignal }
 
 export interface InterpretInput { request: string; context: unknown; candidates: unknown; workingPeriod: string; availablePeriods: string[] }
 export interface PlanInput { request: string; interpretation: Interpretation; context: unknown; tools: { id: string; description: string; requiredInputs: string[]; optionalInputs: string[]; outputs?: string }[]; maxSteps: number }
+export interface ConverseInput { request: string; context: unknown }
 export interface NarrateInput { request: string; objects: { objectId: string; type: string; title: string; facts: { key: string; label: string; display: string }[] }[] }
 
 export interface SloaneLLMAdapter {
   readonly provider: string;
   readonly model: string;
-  interpret(i: InterpretInput): Promise<AdapterOutcome<Interpretation>>;
-  plan(i: PlanInput): Promise<AdapterOutcome<Plan>>;
-  narrate(i: NarrateInput): Promise<AdapterOutcome<Narrative>>;
+  interpret(i: InterpretInput, o?: CallOptions): Promise<AdapterOutcome<Interpretation>>;
+  plan(i: PlanInput, o?: CallOptions): Promise<AdapterOutcome<Plan>>;
+  narrate(i: NarrateInput, o?: CallOptions): Promise<AdapterOutcome<Narrative>>;
+  /** the conversational front door: classify the turn and, when no tool is needed, answer it */
+  converse(i: ConverseInput, o?: CallOptions): Promise<AdapterOutcome<Conversation>>;
 }
 
 /** Offline / test / demo mode: every call declines, so Korvyn's deterministic engine answers. */
@@ -39,6 +46,7 @@ export class MockLLMAdapter implements SloaneLLMAdapter {
   async interpret(): Promise<AdapterOutcome<Interpretation>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async plan(): Promise<AdapterOutcome<Plan>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async narrate(): Promise<AdapterOutcome<Narrative>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
+  async converse(): Promise<AdapterOutcome<Conversation>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
 }
 
 /**
@@ -56,24 +64,32 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
     this.client = new Anthropic({ timeout: cfg.timeoutMs, maxRetries: 1 });
   }
 
-  private async call<T>(system: string, payload: unknown, schema: object, validate: (v: unknown) => Result<T>): Promise<AdapterOutcome<T>> {
+  private async call<T>(system: string, payload: unknown, schema: object, validate: (v: unknown) => Result<T>, o: CallOptions = {}): Promise<AdapterOutcome<T>> {
+    const out = await this.call0(system, payload, schema, validate, o);
+    return { ...out, route: o.route ?? 'DEEP', model: this.cfg.routes[o.route ?? 'DEEP'].model };
+  }
+  private async call0<T>(system: string, payload: unknown, schema: object, validate: (v: unknown) => Result<T>, o: CallOptions): Promise<AdapterOutcome<T>> {
     const t0 = Date.now();
+    const R = this.cfg.routes[o.route ?? 'DEEP'];
+    if (o.signal?.aborted) return { status: 'error', code: 'cancelled', detail: 'the request was superseded', latencyMs: 0, requestId: null };
     // a schema the provider would reject is Korvyn's bug, not a provider outage: refuse it before any call
     const problems = structuredOutputProblems(schema);
     if (problems.length) return { status: 'error', code: 'invalid_output', detail: 'output schema is not structured-output compatible: ' + problems.slice(0, 3).join('; '), latencyMs: 0, requestId: null };
+    /* FAST is small structured work: no extended thinking, low effort. DEEP keeps adaptive thinking. */
     const params = {
-      model: this.model,
-      max_tokens: this.cfg.maxTokens,
+      model: R.model,
+      /* a narrative is a few sentences: a tight output cap keeps a verbose model from spending seconds on prose */
+      max_tokens: system === NARRATE_SYSTEM || system === CONVERSE_SYSTEM ? Math.min(this.cfg.maxTokens, 1500) : this.cfg.maxTokens,
       system: [{ type: 'text' as const, text: system, cache_control: { type: 'ephemeral' as const } }],
       messages: [{ role: 'user' as const, content: dataBlock(payload) }],
-      thinking: { type: 'adaptive' as const },
-      output_config: { effort: this.cfg.effort, format: { type: 'json_schema' as const, schema: schema as Record<string, unknown> } },
+      thinking: R.thinking ? { type: 'adaptive' as const } : { type: 'disabled' as const },
+      output_config: { ...(R.effort ? { effort: R.effort } : {}), format: { type: 'json_schema' as const, schema: schema as Record<string, unknown> } },
       betas: ['server-side-fallback-2026-07-01'],
     };
     try {
       // `fallbacks: "default"` routes a refused request to Anthropic's recommended fallback by
       // refusal category. SDK 0.114 types only the array form, hence the one widening here.
-      const msg = await this.client.beta.messages.create({ ...params, fallbacks: 'default' } as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming);
+      const msg = await this.client.beta.messages.create({ ...params, fallbacks: 'default' } as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming, o.signal ? { signal: o.signal } : undefined);
       const requestId = (msg as unknown as { _request_id?: string | null })._request_id ?? null;
       const latencyMs = Date.now() - t0;
       if (msg.stop_reason === 'refusal') return { status: 'error', code: 'refused', detail: 'the reasoning service declined this request', latencyMs, requestId };
@@ -88,6 +104,7 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
         usage: { inputTokens: u.input_tokens, outputTokens: u.output_tokens, cacheReadTokens: u.cache_read_input_tokens ?? 0 } };
     } catch (e) {
       const latencyMs = Date.now() - t0;
+      if (o.signal?.aborted || e instanceof Anthropic.APIUserAbortError) return { status: 'error', code: 'cancelled', detail: 'the request was superseded', latencyMs, requestId: null };
       if (e instanceof Anthropic.APIConnectionTimeoutError) return { status: 'error', code: 'timeout', detail: 'the reasoning service timed out', latencyMs, requestId: null };
       if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) return { status: 'error', code: 'auth', detail: 'the reasoning service is not authorised', latencyMs, requestId: null };
       if (e instanceof Anthropic.RateLimitError) return { status: 'error', code: 'rate_limited', detail: 'the reasoning service is rate limited', latencyMs, requestId: null };
@@ -96,14 +113,15 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
     }
   }
 
-  interpret(i: InterpretInput) { return this.call(INTERPRET_SYSTEM, i, INTERPRETATION_SCHEMA, validateInterpretation); }
-  plan(i: PlanInput) {
+  interpret(i: InterpretInput, o?: CallOptions) { return this.call(INTERPRET_SYSTEM, i, INTERPRETATION_SCHEMA, validateInterpretation, o); }
+  plan(i: PlanInput, o?: CallOptions) {
     const ids = i.tools.map((t) => t.id);
-    return this.call(PLAN_SYSTEM, i, planSchema(ids), (v) => validatePlan(v, ids, i.maxSteps));
+    return this.call(PLAN_SYSTEM, i, planSchema(ids), (v) => validatePlan(v, ids, i.maxSteps), o);
   }
-  narrate(i: NarrateInput) {
-    const ids = i.objects.map((o) => o.objectId), keys = i.objects.flatMap((o) => o.facts.map((f) => f.key));
-    return this.call(NARRATE_SYSTEM, i, NARRATIVE_SCHEMA, (v) => validateNarrative(v, ids, keys));
+  converse(i: ConverseInput, o?: CallOptions) { return this.call(CONVERSE_SYSTEM, i, CONVERSATION_SCHEMA, validateConversation, o); }
+  narrate(i: NarrateInput, o?: CallOptions) {
+    const ids = i.objects.map((x) => x.objectId), keys = i.objects.flatMap((x) => x.facts.map((f) => f.key));
+    return this.call(NARRATE_SYSTEM, i, NARRATIVE_SCHEMA, (v) => validateNarrative(v, ids, keys), o);
   }
 }
 

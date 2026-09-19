@@ -2341,6 +2341,29 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .s3-rd .no{color:var(--neg)}
 .s3-rd .ok{color:var(--pos)}
 .slx-draft{margin:0;padding:var(--s-3);border-radius:var(--radius-xs);background:var(--n-50);font-size:var(--fs-table);line-height:var(--lh-relaxed);color:var(--ink)}
+/* Phase 7 — the agent run card: concise progress, checkpoints a person decides, the verified result (2026-09-18) */
+.s2-conv{font-size:var(--fs-ui);line-height:var(--lh-relaxed);color:var(--ink);white-space:pre-wrap}
+.p7-run{display:grid;gap:var(--s-3)}
+.p7-st{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-2);font-size:var(--fs-label);color:var(--muted);letter-spacing:var(--tracking-label);text-transform:uppercase}
+.p7-prog{list-style:none;margin:0;padding:0;display:grid;gap:var(--s-1);font-size:var(--fs-table);color:var(--ink)}
+.p7-prog li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:var(--s-2);align-items:baseline}
+.p7-prog .g{color:var(--hint);text-align:center}
+.p7-prog .done .g{color:var(--pos)}
+.p7-prog .blocked .g{color:var(--neg)}
+.p7-prog .waiting .g{color:var(--warning)}
+.p7-prog .active .g{color:var(--accent)}
+.p7-prog .skipped{color:var(--muted)}
+.p7-cp{display:grid;gap:var(--s-2);padding:var(--s-3);border:1px solid var(--line2);border-left:3px solid var(--accent);border-radius:var(--radius-xs);background:var(--surface)}
+.p7-cp.gov{border-left-color:var(--warning)}
+.p7-cp ul{margin:0;padding-left:var(--s-4);font-size:var(--fs-table);color:var(--ink)}
+.p7-cp .p7-cand{color:var(--muted);font-size:var(--fs-label)}
+.p7-ext{font-size:var(--fs-table);color:var(--muted);padding-left:var(--s-2);border-left:3px solid var(--line2)}
+.p7-res{display:grid;gap:var(--s-2);font-size:var(--fs-table);color:var(--ink)}
+.p7-res ul{margin:0;padding-left:var(--s-4)}
+.p7-ver summary{cursor:pointer;font-size:var(--fs-table);color:var(--muted)}
+.p7-ver div{font-size:var(--fs-table);color:var(--ink)}
+.p7-ver .no{color:var(--neg)}
+.p7-ver .ok{color:var(--pos)}
 /* navigation, proof and history search (2026-09-15, later) */
 .ribsl svg{width:18px;height:18px}
 #copilot .cp-title{display:inline-flex;align-items:center;gap:var(--s-2)}
@@ -2398,6 +2421,7 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .s2-s{margin:0 0 var(--s-1);font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
 .s2-note{margin:var(--s-1) 0 0;font-size:var(--fs-label);color:var(--hint)}
 .s2-state{padding:var(--s-2) var(--s-4);font-size:var(--fs-label);color:var(--ai-ink);border-bottom:1px solid var(--line)}
+.s2-pend{margin:0;font-size:var(--fs-label);color:var(--hint)}
 .si-xlmeta{font-size:var(--fs-label);color:var(--hint);padding:var(--s-1) var(--s-2);border-top:1px solid var(--line)}
 .slx-sec.open .slx-ct tr.x{display:table-row}
 /* the workspace — the same investigation with room: main analysis 2/3, timeline and evidence 1/3 */
@@ -78046,28 +78070,35 @@ function slHotkey(){
 /* opening Sloane restores the active session; with none, it opens on Home */
 function slOpen(){ SL_HISTV=false; SL_ASKNEW=false; _cmdkIdx=null; slSeedInvs();
   SL_MODE=(SL_INV&&SL_INV.entries.length)?'session':'home'; cpOpen(); const i=$('cpInput'); if(i) i.focus(); }
+/* SL_PICKED: the person moved to a search result themselves (arrow keys or pointer). Only then does Enter open it. */
+let SL_PICKED=false;
 function slType(v){
-  const was=SL_Q.trim(); SL_Q=String(v||''); SL_SEL=0;
+  const was=SL_Q.trim(); SL_Q=String(v||''); SL_SEL=0; SL_PICKED=false;
   if(!was&&SL_Q.trim()) _cmdkIdx=null;
   if(SL_Q.trim()) SL_HISTV=false;
   slPaint();
 }
 function slKey(e){
   const q=SL_Q.trim();
-  if(e.key==='ArrowDown'&&q){ e.preventDefault(); SL_SEL=Math.min(Math.max(0,_slHits.length-1),SL_SEL+1); slPaintFind(); }
-  else if(e.key==='ArrowUp'&&q){ e.preventDefault(); SL_SEL=Math.max(0,SL_SEL-1); slPaintFind(); }
+  if(e.key==='ArrowDown'&&q){ e.preventDefault(); SL_PICKED=true; SL_SEL=Math.min(Math.max(0,_slHits.length-1),SL_SEL+1); slPaintFind(); }
+  else if(e.key==='ArrowUp'&&q){ e.preventDefault(); SL_PICKED=true; SL_SEL=Math.max(0,SL_SEL-1); slPaintFind(); }
   else if(e.key==='Enter'){ e.preventDefault(); slEnter(); }
   else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); if(q){ e.target.value=''; slType(''); } else cpClose(); }
 }
 function slHitsFor(q){ cmdkQ=String(q||''); try{ return cmdkHits(); }catch(e){ console.error('sloane find',e); return []; } }
-/* Enter decides: a question, a command or an edit is answered; a name, a number or a journal opens */
+/* ENTER SENDS WHAT THE PERSON TYPED. The search results under the input are a convenience, never a rewrite: a row is
+   opened only when the person chose it (arrow keys / pointer), when the words are a navigation command ("open …"), or
+   when they exactly name an object. Otherwise the words go to Sloane verbatim — "hello" is sent as "hello", never as
+   the search's "What is hello?" suggestion (that rewrite is what sent ordinary conversation into the tool path). */
 function slEnter(){
   const q=SL_Q.trim(); if(!q) return;
   const it=cmdkIntent(q);
-  if(it==='ask'||it==='act'||it==='edit'||it==='journal'||it==='acctno') return slSubmit(q);
   const h=_slHits[SL_SEL]||_slHits[0];
-  if(!h) return slSubmit(q);
-  slGoHit(h,q);
+  const exact=h&&!h.ask&&!h.cmd&&!h.quick&&String(h.t||'').trim().toLowerCase()===q.toLowerCase();
+  /* a run is asking a question: the typed words are the answer, never a search result */
+  if(document.querySelector('#copilot .p7-cp.clar')&&!SL_PICKED) return slSubmit(q);
+  if(h&&(SL_PICKED||exact||(it==='nav'&&!h.ask))) return slGoHit(h,q);
+  return slSubmit(q);
 }
 function slGoHit(h,q){
   if(!h) return;
@@ -78161,13 +78192,29 @@ function slSubmit(raw,opt){
   _slCtxTouched=false;
   /* THE UI CONSUMES THE RESPONSE STATE, it does not match strings (§24). Navigation and
      clarification are states of one answer, not separate branches over the raw text. */
-  if(S2_BUSY){ try{ toast('Sloane is still working on the previous request'); }catch(e){} return; }
-  const pending=s2Submit(text,{resumed:O.resumed});
+  /* §20: navigation words are the panel's own controls — answered here, with no request sent anywhere */
+  const sc=text.toLowerCase().replace(/[.!?]+$/,'').trim();
+  if(/^(back|go back)$/.test(sc)){ slBack(); return; }
+  if(/^(home|go home)$/.test(sc)){ slHome(); return; }
+  if(/^(clear|clear (it|this|context|the context|the conversation)|start over|reset)$/.test(sc)){ slClear(); return; }
+  if(/^new( investigation)?$/.test(sc)){ slNew(); return; }
+  /* §32: with the served runtime a new request supersedes the one in flight; the static engine answers one at a time */
+  if(S2_BUSY&&!(S2_SVC.available&&S2_ABORT)){ try{ toast('Sloane is still working on the previous request'); }catch(e){} return; }
+  let shown=false;
+  const onPartial=pr=>{ if(!pr||pr.handled) return; shown=true; slRender(text,O,pr,fromHome); };
+  const pending=s2Submit(text,{resumed:O.resumed, onPartial});
   if(pending&&typeof pending.then==='function'){ S2_BUSY=true;
-    return pending.then(r=>{ S2_BUSY=false; slRender(text,O,r,fromHome); },
+    return pending.then(r=>{ if(r&&r.stale) return; S2_BUSY=false; if(r&&r.handled) return;
+        if(shown) slReplaceLast(text,r); else slRender(text,r&&r.title?Object.assign({},O,{title:O.title||r.title}):O,r,fromHome); },
       e=>{ S2_BUSY=false; console.error('sloane', e); slRender(text,O,{state:SF_STATE.ERROR, html:s2ServiceDown(text), kind:'none'},fromHome); }); }
   slRender(text,O,pending,fromHome);
 }
+/* the narrative arrived for an answer already on screen: it replaces that answer in place — never a second entry */
+function slReplaceLast(q, r){ const inv=SL_INV, e=inv&&inv.entries[inv.entries.length-1];
+  if(!e||e.q!==q||!r||!r.html){ if(r&&!r.handled) slRender(q,{},r,false); return; }
+  e.html=r.html; if(r.kind) e.kind=r.kind;
+  if(r.title&&inv.entries.length===1&&!inv.seed) inv.title=r.title;
+  if(SL_FULL) slFullRender(); slPaint(); }
 let S2_BUSY=false;
 /* the UI consumes the response STATE — answer, clarification, navigation, error — never the words */
 function slRender(text,O,r,fromHome){ if(!r||r.handled) return;
@@ -78274,7 +78321,7 @@ function slPaintFind(){
     const g=h.grp&&h.grp!==last?'<div class="slp-g">'+cmdkEsc(h.grp)+'</div>':''; last=h.grp;
     const cls='slp-r'+(h.ask||h.cmd?' ask':'')+(h.quick?' ans':'')+(i===SL_SEL?' on':'');
     return g+'<div class="'+cls+'" role="option" aria-selected="'+(i===SL_SEL)+'" onmousedown="event.preventDefault()"'
-      +' onclick="slGoHit(_slHits['+i+'],SL_Q)" onmousemove="if(SL_SEL!=='+i+'){SL_SEL='+i+';slPaintFind();}">'
+      +' onclick="slGoHit(_slHits['+i+'],SL_Q)" onmousemove="if(SL_SEL!=='+i+'){SL_SEL='+i+';SL_PICKED=true;slPaintFind();}">'
       +'<span class="slp-ic">'+slpIcon(h)+'</span><span class="slp-tx"><span class="t">'+(h.quick?h.t:cmdkEsc(h.t))+'</span>'
       +(h.s?'<span class="s">'+cmdkEsc(h.s)+'</span>':'')+'</span><span class="slp-ty">'+cmdkEsc(h.ty)+'</span></div>'; }).join('')+'</div>';
 }
@@ -78302,7 +78349,7 @@ function slPaint(){
 function slHistToggle(){ slHistShow(); }
 function slInvOpen(i){ const v=SL_INVS[i]; if(!v) return; slPush(); SL_DELCONF=null; SL_INV=v; SL_MODE='session'; SL_ASKNEW=false; SL_HISTV=false; SL_Q='';
   const inp=$('cpInput'); if(inp) inp.value=''; slHydrate(v); slView(v.view!=null?v.view:v.entries.length-1,true); }
-function slNew(){ slPush(); S2_SID=null; SL_INV=null; SL_CTX=null; SF_META={}; SF_PENDING=null; try{ siInvClose(); SI_XL_ACTIVE=null; }catch(e){} SL_CUR=null; SL_HISTV=false; SL_Q=''; SL_MODE='home'; SL_ASKNEW=false; SL_TOPIC=null; SL_VEND=null;
+function slNew(){ slPush(); s2ResetSid(); SL_INV=null; SL_CTX=null; SF_META={}; SF_PENDING=null; try{ siInvClose(); SI_XL_ACTIVE=null; }catch(e){} SL_CUR=null; SL_HISTV=false; SL_Q=''; SL_MODE='home'; SL_ASKNEW=false; SL_TOPIC=null; SL_VEND=null;
   const m=document.getElementById('slfMenu'); if(m) m.hidden=true;
   const i=$('cpInput'); if(i){ i.value=''; if(!SL_FULL) i.focus(); }
   if(SL_FULL) slFullRender(); slPaint(); }
@@ -78504,7 +78551,7 @@ async function slSrvHistLoad(){ SL_SRVINV_AT=Date.now();
   try{ const r=await fetch('/api/sloane/investigations',{cache:'no-store'}); if(!r.ok) throw 0; SL_SRVINV=(await r.json()).investigations||[]; }catch(e){ SL_SRVINV=SL_SRVINV||[]; }
   ['slSrvHist','slfSrvHist'].forEach(id=>{ const el=$(id); if(el) el.outerHTML=slSrvHistHTML(id==='slfSrvHist'); }); }
 async function slSrvInvOpen(id){
-  S2_SID=null; const sid=s2Sid();
+  s2ResetSid(); const sid=s2Sid();
   let v=null;
   try{ const r=await kbFetch('/api/sloane/investigations/'+encodeURIComponent(id)+'/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:sid})}); if(r.ok) v=await r.json(); }catch(e){}
   if(!v){ try{ cpToast('That investigation could not be opened'); }catch(e){} return; }
@@ -80926,10 +80973,39 @@ S2_SVC.turn=async function(body){ const t0=performance.now();
     clearTimeout(to); if(!r.ok) return {state:'ERROR', notes:['Sloane service returned '+r.status], latencyMs:Math.round(performance.now()-t0)};
     return await r.json();
   }catch(e){ return {state:'ERROR', notes:[e&&e.name==='AbortError'?'Sloane timed out':'Sloane could not be reached'], latencyMs:Math.round(performance.now()-t0)}; } };
+/* PHASE 6 — the streamed turn: status lines as Korvyn works, the structured objects the moment they exist, then the
+   narrative. NDJSON over one POST; a newer request aborts this one (the server commits nothing for an aborted turn). */
+S2_SVC.turnStream=async function(body, onEvent, signal){
+  try{ const r=await kbFetch('/api/sloane/turn/stream', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal});
+    if(!r.ok||!r.body) return {state:'ERROR', notes:['Sloane service returned '+r.status]};
+    const rd=r.body.getReader(), dec=new TextDecoder(); let buf='', fin=null;
+    for(;;){ const x=await rd.read(); if(x.done) break; buf+=dec.decode(x.value,{stream:true}); let i;
+      while((i=buf.indexOf('\n'))>=0){ const line=buf.slice(0,i).trim(); buf=buf.slice(i+1); if(!line) continue;
+        let ev; try{ ev=JSON.parse(line); }catch(e){ continue; }
+        if(ev.type==='final') fin=ev.response; else { try{ onEvent(ev); }catch(e){ console.error('sloane stream', e); } } } }
+    return fin||{state:'ERROR', notes:['The response ended before it was complete.']};
+  }catch(e){ return e&&e.name==='AbortError'?{state:'CANCELLED', notes:[]}:{state:'ERROR', notes:['Sloane could not be reached']}; } };
 S2_SVC.marker=false;
 try{ if(document.querySelector('meta[name="korvyn-sloane-api"]')){ S2_SVC.marker=true; S2_SVC.health(); } }catch(e){}
 let S2_SID=null;
-const s2Sid=()=>S2_SID||(S2_SID=(crypto.randomUUID?crypto.randomUUID():('s'+Date.now()+Math.random().toString(36).slice(2))).replace(/[^A-Za-z0-9_-]/g,''));
+/* the conversation id lives for the TAB (sessionStorage): a refresh reconnects to the same server conversation, so a run
+   that is waiting on the person — a question, a confirmation — is still theirs to answer. New starts a new one. */
+const S2_SID_KEY='korvyn.sloane.sid';
+const s2Sid=()=>{ if(!S2_SID){ try{ S2_SID=sessionStorage.getItem(S2_SID_KEY); }catch(e){} }
+  if(!S2_SID) S2_SID=(crypto.randomUUID?crypto.randomUUID():('s'+Date.now()+Math.random().toString(36).slice(2))).replace(/[^A-Za-z0-9_-]/g,'');
+  try{ sessionStorage.setItem(S2_SID_KEY,S2_SID); }catch(e){} return S2_SID; };
+const s2ResetSid=()=>{ S2_SID=null; try{ sessionStorage.removeItem(S2_SID_KEY); }catch(e){} };
+/* after a refresh or navigating back: a run of this conversation that is waiting on the person is shown again */
+async function p7Restore(){
+  if(!document.querySelector('meta[name="korvyn-sloane-api"]')) return;
+  let sid=null; try{ sid=sessionStorage.getItem(S2_SID_KEY); }catch(e){} if(!sid) return;
+  try{ const L=await kbFetch('/api/sloane/agent/runs',{method:'GET'}).then(x=>x.json());
+    const r=(L.runs||[]).find(x=>x.sessionId===sid&&/^(WAITING|PAUSED|RUNNING)/.test(x.status)); if(!r) return;
+    if(document.querySelector('[data-p7="'+CSS.escape(r.runId)+'"]')) return;
+    const v=(await kbFetch('/api/sloane/agent/runs/'+encodeURIComponent(r.runId),{method:'GET'}).then(x=>x.json())).run; if(!v) return;
+    slShow(v.title, slCard({kind:'server', for:'Governed run · '+v.profile, head:glEsc(v.title), prev:p7RunHTML(v), basis:'Every step a governed Korvyn tool · every write confirmed by you · governed actions routed, never executed'}), true);
+  }catch(e){} }
+setTimeout(p7Restore, 1500);
 
 /* ---- reasoners: one async-capable contract, three implementations ------------------------------
    REMOTE → the Korvyn service (real model). DET → deterministic, synchronous, always available.
@@ -81334,7 +81410,7 @@ let S2_LAST=null;
 function s2Submit(raw, O){ O=O||{};
   if(!S2_REASONER&&S2_SVC.marker){
     if(!S2_SVC.checked) return S2_SVC.health().then(()=>s2Submit(raw,O));
-    if(S2_SVC.available) return s2ServerTurn(raw);
+    if(S2_SVC.available) return s2ServerTurn(raw, null, O.onPartial);
   }
   const rs=s2Reasoner(), run={raw, O, rs, t0:performance.now(), tokens:{in:0,out:0,cacheRead:0}, calls:[], notes:[]};
   const tr=sfTraceStart(raw); run.tr=tr;
@@ -81490,14 +81566,27 @@ function s2Finalize(run, resp, g, finish){ const tr=run.tr, I=run.I;
   resp.inherit=resp.inherit||run.cls===SF_CLS.CONTINUATION||!!tr.reasoning.correction;
   return finish(resp); }
 
-function s2ServerTurn(raw, clar){ s2StateUI(clar?'Resuming…':'Working on it…');
-  const body=clar?{sessionId:s2Sid(), clarification:clar}:{sessionId:s2Sid(), request:raw};
-  return S2_SVC.turn(body).then(r=>{ s2StateUI(null); if(r&&r.sessionId) S2_SID=r.sessionId; S2_LASTTURN=r; return s2ServerRender(raw, r||{}); }); }
+/* one request in flight per conversation: a newer one aborts it (§32), and a stale reply is dropped by its sequence */
+let S2_ABORT=null, S2_SEQ=0;
+function s2ServerTurn(raw, clar, onPartial){ s2StateUI(clar?'Resuming…':'Reading the request…');
+  const view=(()=>{ try{ const c=sloaneCtx(); return [c.surface,c.period].filter(Boolean).join(' · '); }catch(e){ return ''; } })();
+  const body=clar?{sessionId:s2Sid(), clarification:clar, view}:{sessionId:s2Sid(), request:raw, view};
+  const seq=++S2_SEQ; if(S2_ABORT){ try{ S2_ABORT.abort(); }catch(e){} } const ac=new AbortController(); S2_ABORT=ac;
+  const go=(typeof ReadableStream!=='undefined'&&typeof TextDecoder!=='undefined')
+    ? S2_SVC.turnStream(body, ev=>{ if(seq!==S2_SEQ) return;
+        if(ev.type==='status'&&ev.text) s2StateUI(ev.text+'…');
+        /* §14/§15: the objects render now, the narrative follows into the same answer */
+        if(ev.type==='object'&&ev.response&&onPartial){ if(ev.response.sessionId){ S2_SID=ev.response.sessionId; try{ sessionStorage.setItem(S2_SID_KEY,S2_SID); }catch(e){} }
+          onPartial(s2ServerRender(raw, Object.assign({}, ev.response, {state:'ANSWER', narrative:[], pending:!!ev.response.narrativePending}))); } }, ac.signal)
+    : S2_SVC.turn(body);
+  return go.then(r=>{ if(seq!==S2_SEQ) return {handled:true, stale:true}; S2_ABORT=null; s2StateUI(null);
+    if(r&&r.sessionId){ S2_SID=r.sessionId; try{ sessionStorage.setItem(S2_SID_KEY,S2_SID); }catch(e){} } S2_LASTTURN=r;
+    if(r&&r.state==='CANCELLED') return {handled:true};
+    return s2ServerRender(raw, r||{}); }); }
 let S2_LASTTURN=null;
 function s2ServerClarify(raw, pendingId, optionId){
-  if(S2_BUSY){ try{ toast('Sloane is still working on the previous request'); }catch(e){} return; }
   S2_BUSY=true;
-  s2ServerTurn(raw, {pendingId, optionId}).then(r=>{ S2_BUSY=false; slRender(raw, {follow:true}, r, false); },
+  s2ServerTurn(raw, {pendingId, optionId}).then(r=>{ if(r&&r.stale) return; S2_BUSY=false; slRender(raw, {follow:true}, r, false); },
     e=>{ S2_BUSY=false; console.error('sloane', e); slRender(raw, {follow:true}, {state:SF_STATE.ERROR, html:s2ServiceDown(raw), kind:'none'}, false); }); }
 function s2ServerTable(o){
   const cols=o.table.columns||[];
@@ -81644,31 +81733,94 @@ async function p5Upload(inp){ const f=inp.files&&inp.files[0]; if(!f) return; co
   const r=await kApi('POST','/api/work/pbc/upload',{fileName:f.name, content:b64, idempotencyKey:'p5u-'+Date.now()+'-'+Math.random().toString(36).slice(2)});
   if(r.body.outcome!=='SUCCESS'){ if(note) note.textContent=kbReason(r.body); return; }
   await p5AudMount(); await p5Open(r.body.id); }
+/* ================================================================================================
+   PHASE 7 — THE AGENT RUN CARD. The run advances on the server; this card shows it in plain lines (never task ids,
+   JSON or reasoning), the checkpoints a person decides, and the verified result. It polls while the run is working.
+   ================================================================================================ */
+const P7={runs:{}, timers:{}, busy:{}};
+const P7_ST={CREATED:'Starting',PLANNING:'Planning',READY:'Starting',RUNNING:'Working',WAITING_FOR_USER:'Needs your answer',WAITING_FOR_CONFIRMATION:'Needs your confirmation',WAITING_FOR_GOVERNED_APPROVAL:'Needs a governed approver',PAUSED:'Paused',BLOCKED:'Stopped — needs attention',COMPLETED:'Complete · verified',FAILED:'Failed',CANCELLED:'Stopped'};
+const P7_ACTIVE=['CREATED','PLANNING','READY','RUNNING'];
+function p7RunHTML(v){ P7.runs[v.runId]=v;
+  const g={done:'✓',active:'•',waiting:'…',blocked:'✗',skipped:'–'};
+  let h='<div class="p7-run" data-p7="'+glEsc(v.runId)+'">';
+  h+='<div class="p7-st"><span>'+glEsc(P7_ST[v.status]||v.status)+'</span><span>'+glEsc(v.profile)+' · '+glEsc(v.period)+'</span></div>';
+  if((v.progress||[]).length) h+='<ul class="p7-prog">'+v.progress.map(p=>'<li class="'+glEsc(p.state)+'"><span class="g">'+(g[p.state]||'•')+'</span><span>'+glEsc(p.line)+'</span></li>').join('')+'</ul>';
+  (v.checkpoints||[]).filter(c=>c.status==='OPEN'&&c.blocking).forEach(c=>{
+    h+='<div class="p7-cp'+(c.type==='GOVERNED_APPROVAL'?' gov':'')+(c.type==='CLARIFICATION'?' clar':'')+'"><div class="s3-t">'+glEsc(c.title)+'</div><div class="s3-msg">'+glEsc(c.type==='CLARIFICATION'?c.detail:c.detail.split('. ').slice(0,c.type==='GOVERNED_APPROVAL'?3:1).join('. ').replace(/\.?$/,'.'))+'</div>'
+      +(c.proposals.length?'<ul>'+c.proposals.map(p=>'<li>'+glEsc(p.title)+(p.target?' — '+glEsc(p.target):'')+'</li>').join('')+'</ul>':'')
+      +'<div class="s3-btns">'+c.options.map((o,i)=>'<button class="slx-btn'+(i===0&&c.type!=='CLARIFICATION'?' p':'')+'"'+(c.type==='CLARIFICATION'&&c.candidates&&c.candidates[i]?' title="'+glEsc(c.candidates[i].detail)+'"':'')+' onclick="p7Decide(\''+glEsc(v.runId)+'\',\''+glEsc(c.id)+'\',\''+glEsc(o.id)+'\',this)">'+glEsc(o.label)+'</button>').join('')+'</div>'
+      +(c.type==='CLARIFICATION'&&c.candidates?'<ul class="p7-cand">'+c.candidates.map(x=>'<li>'+glEsc(x.label)+' — '+glEsc(x.detail)+'</li>').join('')+'</ul>':'')+'</div>'; });
+  (v.checkpoints||[]).filter(c=>c.status==='OPEN'&&!c.blocking).forEach(c=>{ h+='<div class="p7-ext">'+glEsc(c.detail)+'</div>'; });
+  const r=v.result;
+  if(r){ h+='<div class="p7-res"><strong>'+glEsc(r.headline)+'</strong>';
+    if((r.narrative||[]).length) h+='<div>'+glEsc(r.narrative.join(' '))+'</div>';
+    const f=(r.findings||[]).filter(x=>x.kind!=='EXTERNAL_DEPENDENCY').slice(0,5);
+    if(f.length) h+='<ul>'+f.map(x=>'<li>'+glEsc(x.text)+'</li>').join('')+'</ul>';
+    (r.notes||[]).forEach(n=>h+='<div class="s3-msg">'+glEsc(n)+'</div>');
+    h+='</div>'; }
+  if(v.verification){ const ok=v.verification.checks.filter(c=>c.ok).length;
+    h+='<details class="p7-ver"><summary>Verified · '+ok+' of '+v.verification.checks.length+' checks</summary>'+v.verification.checks.map(c=>'<div><span class="'+(c.ok?'ok':'no')+'">'+(c.ok?'✓':'✗')+'</span> '+glEsc(c.check)+' · '+glEsc(c.detail)+'</div>').join('')+'</details>'; }
+  if(v.completionReason&&!['COMPLETED'].includes(v.status)) h+='<div class="s3-msg">'+glEsc(v.completionReason)+'</div>';
+  const live=P7_ACTIVE.includes(v.status)||v.status.indexOf('WAITING')===0||v.status==='PAUSED';
+  if(live) h+='<div class="s3-btns">'+(v.status==='PAUSED'?'<button class="slx-btn" onclick="p7Verb(\''+glEsc(v.runId)+'\',\'resume\',this)">Resume</button>':P7_ACTIVE.includes(v.status)?'<button class="slx-btn" onclick="p7Verb(\''+glEsc(v.runId)+'\',\'pause\',this)">Pause</button>':'')+'<button class="slx-btn" onclick="p7Verb(\''+glEsc(v.runId)+'\',\'cancel\',this)">Stop</button></div>';
+  h+='</div>';
+  if(P7_ACTIVE.includes(v.status)) p7Track(v.runId);
+  return h; }
+function p7Paint(v){ P7.runs[v.runId]=v; document.querySelectorAll('[data-p7="'+CSS.escape(v.runId)+'"]').forEach(el=>{ el.outerHTML=p7RunHTML(v); }); }
+function p7Track(id){ if(P7.timers[id]) return;
+  P7.timers[id]=setTimeout(async function tick(){ delete P7.timers[id];
+    try{ const r=await kbFetch('/api/sloane/agent/runs/'+encodeURIComponent(id),{method:'GET'}).then(x=>x.json()); if(r&&r.run){ p7Paint(r.run); if(!P7_ACTIVE.includes(r.run.status)&&typeof kbInvalidate==='function') kbInvalidate(); } }catch(e){ p7Track(id); } }, 1000); }
+async function p7Decide(id, cp, decision, btn){ const k=id+cp; if(P7.busy[k]) return; P7.busy[k]=1;
+  document.querySelectorAll('[data-p7="'+CSS.escape(id)+'"] .p7-cp button').forEach(b=>b.disabled=true);
+  try{ const r=await kbFetch('/api/sloane/agent/runs/'+encodeURIComponent(id)+'/checkpoints/'+encodeURIComponent(cp),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({decision, waitMs:1500, requestId:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random())})}).then(x=>x.json());
+    if(r&&r.run) p7Paint(r.run); else try{ toast((r&&r.reason)||'Korvyn did not accept that decision'); }catch(e){}
+    if(typeof kbInvalidate==='function') kbInvalidate();
+  }catch(e){ try{ toast('Sloane could not reach Korvyn — nothing was changed'); }catch(_){} if(P7.runs[id]) p7Paint(P7.runs[id]); }
+  finally{ delete P7.busy[k]; } }
+async function p7Verb(id, verb, btn){ if(btn) btn.disabled=true;
+  try{ const r=await kbFetch('/api/sloane/agent/runs/'+encodeURIComponent(id)+'/'+verb,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(x=>x.json()); if(r&&r.run) p7Paint(r.run); }
+  catch(e){ if(btn) btn.disabled=false; } }
 function s2ServerRender(raw, r){
   const notes=(r.notes||[]).filter(Boolean);
+  if(r.state==='CANCELLED') return {handled:true};
+  /* a conversational answer needed no governed tool: it is a reply, not a financial object */
+  if(r.reply) return {state:SF_STATE.ANSWER, kind:'conv', inherit:!!SL_INV, html:'<div class="s2-conv">'+glEsc(r.reply)+'</div>'};
+  /* the server says what kind of turn this was: a change to the view or a drill continues the investigation */
+  const inh=r.route==='FOLLOW_UP'||r.kind==='MODIFY'||r.kind==='DRILL'||(r.kind==='ARTIFACT'&&r.route==='DELIVERABLE'&&!!SL_INV);
+  const sugg=(r.suggestions||[]).slice(0,3);
+  const pend=r.pending?'<p class="s2-pend" role="status">Writing the summary…</p>':'';
+  const ctxFor=(o)=>r.contextLine?r.contextLine:o.scope.name+' · '+o.currency+' · '+o.basis;
   if(r.state==='CLARIFICATION_REQUIRED'&&r.clarification){ const c=r.clarification;
-    return {state:SF_STATE.CLARIFICATION_REQUIRED, kind:'clarify', html:slCard({kind:'clarify', head:glEsc(c.question), sub:notes.length?glEsc(notes.join(' ')):'',
+    return {state:SF_STATE.CLARIFICATION_REQUIRED, kind:'clarify', inherit:true, html:slCard({kind:'clarify', head:glEsc(c.question), sub:notes.length?glEsc(notes.join(' ')):'',
       acts:(c.options||[]).map(o=>({l:o.label, go:()=>s2ServerClarify(raw, c.pendingId, o.id)})), basis:'Sloane needs one more thing before it can answer'})}; }
   if(r.state==='ANSWER'&&(r.objects||[]).length){ const o=r.objects[0];
-    const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[]}))}, notes.join(' '));
+    const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[]}))}, notes.join(' '))+pend;
     const pv=o.provenance||{};
     const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
-    if(acts.length) return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Proposed · nothing written until you confirm', head:glEsc(acts.length>1?acts.length+' proposed actions':acts[0].title),
+    /* Phase 7: a goal became a governed run — the run card IS the answer */
+    const agr=(r.objects||[]).find(x=>x.type==='AgentRun'&&x.agentRun);
+    if(agr){ const v=agr.agentRun; return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title||v.title, html:slCard({kind:'server', for:'Governed run · '+v.profile, head:glEsc(v.title),
+      sub:glEsc(notes.join(' ')), prev:p7RunHTML(v), basis:'Every step a governed Korvyn tool · every write confirmed by you · governed actions routed, never executed'})}; }
+    if(acts.length) return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title, html:slCard({kind:'server', for:'Proposed · nothing written until you confirm', head:glEsc(acts.length>1?acts.length+' proposed actions':acts[0].title),
       sub:nar, prev:s3PlanHTML(r.actions?r.actions.planId:acts[0].planId, acts)+r.objects.filter(x=>!x.action).map(s2ServerTable).join(''), basis:'Korvyn validates, you confirm, Korvyn executes · every action is audited'})};
     /* 5A: a PBC answer renders as its workspace, with the package preview beneath it */
     const pbo=(r.objects||[]).find(x=>(x.type==='PBCRequest'||x.type==='PBCSupportGaps')&&x.pbc&&x.status!=='UNAVAILABLE');
     if(pbo){ const wb=(r.objects||[]).find(x=>x.type==='ExcelWorkbookPreview'&&x.workbook&&x.status!=='UNAVAILABLE');
-      return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'PBC request · '+pbo.scope.name+' · USD', head:glEsc(pbo.title),
+      return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title, html:slCard({kind:'server', for:'PBC request · '+pbo.scope.name+' · USD', head:glEsc(pbo.title),
         sub:nar, prev:p5PbcHTML(pbo.pbc)+(wb&&typeof a4WorkbookHTML==='function'?a4WorkbookHTML(wb.workbook):'')+r.objects.filter(x=>x!==pbo&&x!==wb).map(s2ServerTable).join(''), basis:'Governed population, selections and evidence references from the one ledger · documents by reference, never copied'})}; }
     /* 4A: a workbook answer renders as the workbook will look */
     const wbo=(r.objects||[]).find(x=>x.type==='ExcelWorkbookPreview'&&x.workbook&&x.status!=='UNAVAILABLE');
-    if(wbo&&typeof a4WorkbookHTML==='function') return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:'Governed workbook · '+wbo.scope.name+' · USD', head:glEsc(wbo.workbook.name),
+    if(wbo&&typeof a4WorkbookHTML==='function') return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title, html:slCard({kind:'server', for:'Governed workbook · '+wbo.scope.name+' · USD', head:glEsc(wbo.workbook.name),
       sub:nar, prev:a4WorkbookHTML(wbo.workbook)+r.objects.filter(x=>x!==wbo&&x.type!=='ExcelWorkbookPreview').map(s2ServerTable).join(''), basis:'Built from governed Korvyn objects · the file is generated server-side from the same definition'})};
-    return {state:SF_STATE.ANSWER, kind:'server', inherit:false, html:slCard({kind:'server', for:o.scope.name+' · '+o.currency+' · '+o.basis, head:glEsc(o.title),
-      sub:nar, prev:r.objects.map(s2ServerTable).join(''),
+    return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title, html:slCard({kind:'server', for:ctxFor(o), head:glEsc(o.title),
+      sub:nar, prev:r.objects.map(s2ServerTable).join(''), follow:sugg,
       basis:pv.source+(typeof pv.journalLines==='number'?' · '+pv.journalLines+' journal lines':'')+(pv.fxRateSetId?' · FX '+pv.fxRateSetId:'')+(pv.eliminations?' · '+pv.eliminations:'')})}; }
-  return {state:r.state==='ERROR'?SF_STATE.ERROR:SF_STATE.UNAVAILABLE, kind:'none', html:slCard({kind:'none',
-    head:r.state==='ERROR'?'Sloane could not complete this request':'Sloane cannot answer that yet', sub:glEsc(notes.join(' ')||'Try naming the statement, the months and the scope.')})}; }
+  /* §8: never a dead end — what could not be done, in one line, and what can be done instead, one click away */
+  return {state:r.state==='ERROR'?SF_STATE.ERROR:SF_STATE.UNAVAILABLE, kind:'none', inherit:inh||!!sugg.length&&!!SL_INV, html:slCard({kind:'none',
+    head:r.state==='ERROR'?'Sloane could not complete this request':glEsc(notes[0]||'Sloane can’t answer that with a governed Korvyn tool yet.'),
+    sub:glEsc(r.state==='ERROR'?(notes.join(' ')||'Try again, or ask it another way.'):notes.slice(1).join(' ')),
+    follow:sugg})}; }
 function s2ServiceDown(raw){ return slCard({kind:'none', head:'Sloane’s reasoning service is temporarily unavailable',
   sub:'Governed Korvyn data remains available. Try a direct question such as “Show me '+perLong(tbxClosePeriod()).split(' ')[0]+' financials”.', follow:sloaneActs()}); }
 

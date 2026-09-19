@@ -89,7 +89,18 @@ export function populationObject(env: ToolEnv, type: string, title: string, f: P
   });
   const w = [`Showing ${q.page.length} of ${q.rowCount} lines; the full population stays server-side as ${def.id}.`];
   if (f.vendor) w.push(AP_EXTRACT.note);
-  if (!q.rowCount) w.push('No governed lines match these filters.');
+  /* a threshold that leaves nothing is itself the answer — say what IS there, so the reader is not left at an empty table */
+  if (!q.rowCount && f.minAbsUsd) {
+    const { minAbsUsd, ...rest } = f;
+    const all = env.gl.query(env.gl.definePopulation(rest, 'amount_desc', title), env.visible, { limit: 1 });
+    if (all.rowCount && all.all[0]) {
+      o.facts.push({ key: 'threshold', label: 'Line threshold', value: minAbsUsd, display: $(minAbsUsd) },
+        { key: 'unthresholded.lines', label: 'Lines without the threshold', value: all.rowCount, display: n(all.rowCount) },
+        { key: 'unthresholded.net', label: 'Net without the threshold', value: all.netUsd, display: $(all.netUsd) },
+        { key: 'largestBelow', label: `Largest line ${all.all[0].key} (under the threshold)`, value: all.all[0].usd, display: $(all.all[0].usd) });
+      w.push(`No single GL line exceeds ${$(minAbsUsd)}; the ${all.rowCount} lines total ${$(all.netUsd)} and the largest is ${$(all.all[0].usd)}.`);
+    } else w.push('No governed lines match these filters.');
+  } else if (!q.rowCount) w.push('No governed lines match these filters.');
   return { object: o, warnings: w };
 }
 
@@ -505,6 +516,14 @@ function analysisRows(env: ToolEnv, a: ToolArgs, p: string, c: string | null) {
   return env.gl.lines.filter(env.gl.match(f, env.visible)).filter((l) => (l.period === p || l.period === c) && (!a['vendor'] || l.account !== '20100'));
 }
 const optFilters = filterParams.filter((x) => ['scope', 'entity', 'account', 'vendor', 'project', 'costCenter'].includes(x.name));
+/** a display threshold on a breakdown: only groups whose absolute change (or amount) meets it are listed */
+const minChangeP: ParamSpec = { name: 'minAbsChange', kind: 'number', required: false, description: 'only list groups whose absolute change/amount is at least this, USD millions' };
+const thresholdOf = (a: ToolArgs) => (a['minAbsChange'] && Number(a['minAbsChange']) > 0 ? Number(a['minAbsChange']) * 1_000_000 : 0);
+function thresholdFacts(dim: string, T: number, shown: number, below: number, belowAmt: number, largest: { label: string; change: number } | null): Fact[] {
+  return [{ key: 'threshold', label: 'Threshold', value: T, display: $(T) }, { key: 'threshold.shown', label: `${dim} values over the threshold`, value: shown, display: n(shown) },
+    { key: 'threshold.below', label: `${dim} values under the threshold`, value: below, display: n(below) }, { key: 'threshold.belowAmount', label: 'Amount under the threshold', value: belowAmt, display: $(belowAmt) },
+    ...(largest && !shown ? [{ key: 'largest.label', label: `Largest ${dim}`, value: largest.label, display: largest.label }, { key: 'largest.change', label: `Largest ${dim} amount`, value: largest.change, display: $(largest.change) }] : [])];
+}
 const ANALYSIS: SloaneTool[] = [
   {
     id: 'comparePeriods', domain: 'analysis', permission: 'GL_VIEW', risk: 'READ', objectTypes: ['ACCOUNT', 'ACCOUNT_GROUP', 'VENDOR', 'PROJECT', 'ENTITY', 'GOVERNED_LEDGER'],
@@ -526,15 +545,20 @@ const ANALYSIS: SloaneTool[] = [
   {
     id: 'getDriverAnalysis', domain: 'analysis', permission: 'GL_VIEW', risk: 'READ', objectTypes: ['ACCOUNT', 'ACCOUNT_GROUP', 'VENDOR', 'PROJECT', 'GOVERNED_LEDGER'],
     description: 'What drove the change in a filtered subject between two months, broken down by one dimension (ranked by change). Use for "break that down by entity/project/vendor".',
-    params: [dimP, P('period'), P('comparisonPeriod', false, 'default prior month'), ...optFilters], outputs: 'DriverAnalysis; facts driver1.label, driver1.change, …, total.change',
+    params: [dimP, P('period'), P('comparisonPeriod', false, 'default prior month'), ...optFilters, minChangeP], outputs: 'DriverAnalysis; facts driver1.label, driver1.change, …, total.change',
     run(a, env) {
       const p = a['period']!, c = priorOr(env, p, a['comparisonPeriod']), dim = a['dimension'] as DimensionKey;
-      const rows = analysisRows(env, a, p, c), gs = drivers(env, rows, dim, p, c), tot = gs.reduce((s, g) => s + g.change, 0);
+      const rows = analysisRows(env, a, p, c), all = drivers(env, rows, dim, p, c), tot = all.reduce((s, g) => s + g.change, 0);
+      /* a threshold narrows what is SHOWN; the total still states the whole movement, and what fell below is stated */
+      const T = thresholdOf(a), gs = T ? all.filter((g) => Math.abs(g.change) >= T) : all, below = all.filter((g) => !gs.includes(g));
       const def = env.gl.definePopulation({ ...filterFrom(env, a), periodStart: p, periodEnd: p }, 'amount_desc', `Driver population ${periodLabel(p)}`);
       return { warnings: rows.some((l) => l.vendor) && dim === 'vendor' ? [AP_EXTRACT.note] : [], object: base(env, {
-        type: 'DriverAnalysis', title: `Drivers by ${dim} · ${a['account'] ? acctName(env, a['account']) : vendorOf(env, a['vendor']) ?? a['project'] ?? 'activity'} · ${periodLabel(p)}${c ? ` vs ${periodLabel(c)}` : ''}`, periods: c ? [c, p] : [p], periodLabel: periodLabel(p),
-        table: { columns: [c ? periodLabel(c) : 'Prior', periodLabel(p), 'Change'], rows: [...gs.slice(0, 20).map((g) => row(g.label, [$(g.prior), $(g.current), $(g.change)], 1, 'line', g.key ? `${dim}:${g.key}` : undefined)), row('Total', [$(gs.reduce((s, g) => s + g.prior, 0)), $(gs.reduce((s, g) => s + g.current, 0)), $(tot)], 0, 'total')] },
-        facts: [...gs.slice(0, 6).flatMap((g, i) => [{ key: `driver${i + 1}.label`, label: `Driver ${i + 1}`, value: g.label, display: g.label }, { key: `driver${i + 1}.change`, label: `${g.label} change`, value: g.change, display: $(g.change) }]), { key: 'total.change', label: 'Total change', value: tot, display: $(tot) }],
+        type: 'DriverAnalysis', title: `Drivers by ${dim} · ${[a['account'] ? acctName(env, a['account']) : '', vendorOf(env, a['vendor']) ?? '', a['project'] ?? '', a['entity'] ?? ''].filter(Boolean).join(' · ') || 'activity'} · ${periodLabel(p)}${c ? ` vs ${periodLabel(c)}` : ''}${T ? ` · changes over ${$(T)}` : ''}`, periods: c ? [c, p] : [p], periodLabel: periodLabel(p),
+        table: { columns: [c ? periodLabel(c) : 'Prior', periodLabel(p), 'Change'], rows: [...gs.slice(0, 20).map((g) => row(g.label, [$(g.prior), $(g.current), $(g.change)], 1, 'line', g.key ? `${dim}:${g.key}` : undefined)),
+          ...(below.length && T ? [row(`${below.length} ${dim} value${below.length > 1 ? 's' : ''} under ${$(T)}`, [$(below.reduce((s, g) => s + g.prior, 0)), $(below.reduce((s, g) => s + g.current, 0)), $(below.reduce((s, g) => s + g.change, 0))], 1, 'subtotal')] : []),
+          row('Total', [$(all.reduce((s, g) => s + g.prior, 0)), $(all.reduce((s, g) => s + g.current, 0)), $(tot)], 0, 'total')] },
+        facts: [...gs.slice(0, 6).flatMap((g, i) => [{ key: `driver${i + 1}.label`, label: `Driver ${i + 1}`, value: g.label, display: g.label }, { key: `driver${i + 1}.change`, label: `${g.label} change`, value: g.change, display: $(g.change) }]), { key: 'total.change', label: 'Total change', value: tot, display: $(tot) },
+          ...(T ? thresholdFacts(dim, T, gs.length, below.length, below.reduce((s, g) => s + g.change, 0), all[0] ? { label: all[0].label, change: all[0].change } : null) : [])],
         refs: { populationId: def.id, ...(gs[0]?.key ? { topDriver: gs[0].key } : {}), dimension: dim, period: p, ...(a['account'] ? { account: a['account'] } : {}) }, focus: a['account'] ? { kind: 'account', id: a['account'], name: acctName(env, a['account']) } : null,
         provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: rows.length, fxRateSetId: FX_RATE_SET.id, eliminations: null, declaredInputs: [FX_RATE_SET.id, ...(dim === 'vendor' ? [AP_EXTRACT.id] : [])] },
       }) };
@@ -543,15 +567,19 @@ const ANALYSIS: SloaneTool[] = [
   {
     id: 'analyzeByDimension', domain: 'analysis', permission: 'GL_VIEW', risk: 'READ', objectTypes: ['GOVERNED_LEDGER', 'VENDOR', 'PROJECT', 'ENTITY', 'ACCOUNT'],
     description: 'Activity in a month or month range grouped by one dimension, optionally filtered (e.g. CIP by project, spend by vendor for FY26).',
-    params: [dimP, P('periodStart'), P('periodEnd'), ...optFilters], outputs: 'DimensionAnalysis; facts group1.label, group1.amount, …, total',
+    params: [dimP, P('periodStart'), P('periodEnd'), ...optFilters, minChangeP], outputs: 'DimensionAnalysis; facts group1.label, group1.amount, …, total',
     run(a, env) {
       const dim = a['dimension'] as DimensionKey, f = filterFrom(env, a);
-      const rows = env.gl.lines.filter(env.gl.match(f, env.visible)).filter((l) => !a['vendor'] || l.account !== '20100'), gs = env.gl.aggregate(rows, dim), tot = gs.reduce((s, g) => s + g.current, 0);
+      const rows = env.gl.lines.filter(env.gl.match(f, env.visible)).filter((l) => !a['vendor'] || l.account !== '20100'), all = env.gl.aggregate(rows, dim), tot = all.reduce((s, g) => s + g.current, 0);
+      const T = thresholdOf(a), gs = T ? all.filter((g) => Math.abs(g.current) >= T) : all, below = all.filter((g) => !gs.includes(g));
       const pl = a['periodStart'] === a['periodEnd'] ? periodLabel(a['periodStart']!) : `${periodLabel(a['periodStart']!)}–${periodLabel(a['periodEnd']!)}`;
       return { warnings: dim === 'vendor' || a['vendor'] ? [AP_EXTRACT.note] : [], object: base(env, {
-        type: 'DimensionAnalysis', title: `By ${dim} · ${pl}`, periods: [a['periodStart']!, a['periodEnd']!], periodLabel: pl,
-        table: { columns: ['Amount (USD)', 'Lines'], rows: [...gs.slice(0, 25).map((g) => row(g.label, [$(g.current), n(g.lines)], 1, 'line', g.key ? `${dim}:${g.key}` : undefined)), row('Total', [$(tot), n(rows.length)], 0, 'total')] },
-        facts: [...gs.slice(0, 6).flatMap((g, i) => [{ key: `group${i + 1}.label`, label: `${dim} ${i + 1}`, value: g.label, display: g.label }, { key: `group${i + 1}.amount`, label: `${g.label}`, value: g.current, display: $(g.current) }]), { key: 'total', label: 'Total', value: tot, display: $(tot) }],
+        type: 'DimensionAnalysis', title: `By ${dim} · ${[a['account'] ? acctName(env, a['account']) : '', vendorOf(env, a['vendor']) ?? '', a['project'] ?? ''].filter(Boolean).concat(pl).join(' · ')}${T ? ` · over ${$(T)}` : ''}`, periods: [a['periodStart']!, a['periodEnd']!], periodLabel: pl,
+        table: { columns: ['Amount (USD)', 'Lines'], rows: [...gs.slice(0, 25).map((g) => row(g.label, [$(g.current), n(g.lines)], 1, 'line', g.key ? `${dim}:${g.key}` : undefined)),
+          ...(below.length && T ? [row(`${below.length} ${dim} value${below.length > 1 ? 's' : ''} under ${$(T)}`, [$(below.reduce((s, g) => s + g.current, 0)), n(below.reduce((s, g) => s + g.lines, 0))], 1, 'subtotal')] : []),
+          row('Total', [$(tot), n(rows.length)], 0, 'total')] },
+        facts: [...gs.slice(0, 6).flatMap((g, i) => [{ key: `group${i + 1}.label`, label: `${dim} ${i + 1}`, value: g.label, display: g.label }, { key: `group${i + 1}.amount`, label: `${g.label}`, value: g.current, display: $(g.current) }]), { key: 'total', label: 'Total', value: tot, display: $(tot) },
+          ...(T ? thresholdFacts(dim, T, gs.length, below.length, below.reduce((s, g) => s + g.current, 0), all[0] ? { label: all[0].label, change: all[0].current } : null) : [])],
         refs: { dimension: dim }, provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: rows.length, fxRateSetId: FX_RATE_SET.id, eliminations: null, declaredInputs: [FX_RATE_SET.id] },
       }) };
     },
@@ -582,7 +610,20 @@ const ANALYSIS: SloaneTool[] = [
       const pl = `${periodLabel(ps[0]!)}–${periodLabel(ps.at(-1)!)}`;
       const def = env.gl.definePopulation(f, 'amount_desc', `${subj} ${pl}`);
       const top = env.gl.query(def, env.visible, { limit: 1 }).all.filter((l) => !a['vendor'] || l.account !== '20100')[0];
-      return { warnings: a['vendor'] ? [AP_EXTRACT.note] : [], object: base(env, {
+      const tw: string[] = a['vendor'] ? [AP_EXTRACT.note] : [];
+      /* a narrowing filter that leaves nothing is itself the answer: say where the activity actually is */
+      const elsewhere: Fact[] = [];
+      if (!rows.length) for (const dk of ['project', 'entity'] as const) {
+        if (!a[dk]) continue;
+        const { [dk]: _drop, ...rest } = a;
+        const alt = env.gl.lines.filter(env.gl.match(filterFrom(env, rest as ToolArgs), env.visible)).filter((l) => !a['vendor'] || l.account !== '20100');
+        if (!alt.length) continue;
+        const gs = env.gl.aggregate(alt, dk).slice(0, 4);
+        tw.push(`No governed activity for ${subj} in ${pl}; without the ${dk} filter it is ${gs.map((g) => `${g.label} ${$(g.current)}`).join(', ')}.`);
+        gs.forEach((g, i) => elsewhere.push({ key: `elsewhere${i + 1}.label`, label: `${dk} with activity ${i + 1}`, value: g.label, display: g.label }, { key: `elsewhere${i + 1}.amount`, label: `${g.label} activity`, value: g.current, display: $(g.current) }));
+        break;
+      }
+      const res = { warnings: tw, object: base(env, {
         type: 'Trend', title: `${subj} · ${pl}`, periods: ps, periodLabel: pl,
         table: { columns: ['Amount (USD)', 'Lines'], rows: [...by.map((x) => row(periodLabel(x.p), [$(x.v), n(x.k)])), row('Total', [$(tot), n(rows.length)], 0, 'total')] },
         facts: [...by.map((x) => ({ key: x.p, label: periodLabel(x.p), value: x.v, display: $(x.v) })), { key: 'total', label: `Total ${pl}`, value: tot, display: $(tot) }, { key: 'average', label: 'Monthly average', value: tot / ps.length, display: $(tot / ps.length) }, { key: 'lines', label: 'Lines', value: rows.length, display: n(rows.length) }],
@@ -590,6 +631,8 @@ const ANALYSIS: SloaneTool[] = [
         population: { populationId: def.id, rowCount: rows.length, returned: 0, cursor: 0, nextCursor: null, sort: def.sort, exportHook: null },
         provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: rows.length, fxRateSetId: FX_RATE_SET.id, eliminations: null, declaredInputs: [FX_RATE_SET.id, ...(a['vendor'] ? [AP_EXTRACT.id] : [])] },
       }) };
+      res.object.facts.push(...elsewhere);
+      return res;
     },
   },
   {

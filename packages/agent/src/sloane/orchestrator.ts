@@ -16,7 +16,7 @@
  * READ ONLY. Every registered tool the planner can see is a READ tool; WRITE_ACTIONS_ENABLED is a constant.
  */
 import { findSavedReport } from './book.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { SloaneLLMAdapter, Usage } from './adapter.js';
 import type { SloaneConfig } from './config.js';
 import { ControlService } from './controls.js';
@@ -40,7 +40,13 @@ import { detectType } from './artifacts/sections.js';
 import { AuditService } from './audit/pbc.js';
 import { PBC_TOOL_IDS, pbcObject } from './audit/pbctools.js';
 import './audit/pbcactions.js';
+import { bareObjectPlan, semanticPlan } from './semantic/tools.js';
+import { ContextAssembler } from './semantic/context.js';
+import { financialGraph } from './semantic/graph.js';
 import { workbookObject } from './actiontools.js';
+import { AgentRuntime } from './agent/runtime.js';
+import { ENTITY_WORDS, PROJECT_ALIAS, type ConvDeps, type ConvState, type FastPath, type TurnKind, afterAnswer, beginTurn, capabilityFallback, capabilityGap, contextView, conv, conversationalShortcut, initialConv, interp, investigationTitle, onNewObject, resolveConversational } from './conversation.js';
+import type { Conversation } from './schema.js';
 
 /* ================================================================================================
    LIMITS
@@ -69,6 +75,8 @@ export interface SessionContext {
   /** machine references from the last answer's objects (largestTransaction, reconciliationId, …) */
   lastRefs: Record<string, string>;
   lastObjects: { id: string; type: string; title: string }[];
+  /** Phase 6: the conversation — subject, view, last analysis, items shown, active artifact / PBC / proposal */
+  conv?: ConvState;
 }
 export const reliable = (s: Source) => s === 'EXPLICIT' || s === 'INHERITED' || s === 'DERIVED';
 const STATEMENTS = ['INCOME_STATEMENT', 'BALANCE_SHEET', 'FINANCIAL_STATEMENT', 'TRIAL_BALANCE'];
@@ -103,7 +111,7 @@ export class FinancialContextEngine {
       focus: { value: null, source: 'UNKNOWN' },
       populationId: { value: null, source: 'UNKNOWN' },
       filters: { value: [], source: 'DEFAULTED' },
-      lastRefs: {}, lastObjects: [],
+      lastRefs: {}, lastObjects: [], conv: initialConv(),
     };
   }
 
@@ -127,7 +135,7 @@ export class FinancialContextEngine {
   }
 
   /** Validates an interpretation against governed catalogues. An id that does not resolve is dropped, never trusted. */
-  resolve(I: Interpretation, c: SessionContext): Resolved {
+  resolve(I: Interpretation, c: SessionContext, request?: string): Resolved {
     const R: Resolved = { objectType: null, objectName: null, named: { object: false, period: false, range: false, scope: false, comparison: false },
       period: null, range: null, comparisonPeriod: null, scopeId: null, scopeMatches: [], filters: [], errors: [], warnings: [] };
     const governed = this.data.governedPeriods(), gset = new Set(governed), first = governed[0]!, last = governed.at(-1)!;
@@ -163,8 +171,18 @@ export class FinancialContextEngine {
     }
 
     if (I.scope) {
-      const cid = I.scope.candidateId?.startsWith('scope:') ? I.scope.candidateId.slice(6) : null;
-      if (cid && this.data.scope(cid)) { R.scopeId = cid; R.named.scope = true; }
+      const cid0 = I.scope.candidateId?.startsWith('scope:') ? I.scope.candidateId.slice(6) : null;
+      /* 8A: a scope is accepted only when the words name THAT scope. A project, property or vendor that happens to post
+         through an entity ("South Valley" → SV-PH2, on MDH's books) is not the entity: it is a filter, never a scope. */
+      /* the USER's words must name it too: a model that reads "project SV-PH2 BELONGS_TO MDH" in the neighbourhood and
+         writes MDH's own name has inferred a scope nobody asked for */
+      const named = (nm: string) => scopeNamedBy(nm, cid0!, this.data);
+      const refused = !!cid0 && cid0 !== c.scope.value && !!this.data.scope(cid0) && (!named(I.scope.name) || (request !== undefined && !named(request)));
+      const proj = PROJECT_ALIAS.find(([re]) => re.test((request ?? I.scope!.name).toLowerCase()));
+      if (refused) R.warnings.push(proj ? `${this.gl.dimensionValues('project').includes(proj[1]) ? proj[1] : 'That'} is a project, not a legal entity, so the scope stays ${this.data.scope(c.scope.value)?.name ?? c.scope.value}.` : `The scope stays ${this.data.scope(c.scope.value)?.name ?? c.scope.value}: the request does not name ${this.data.scope(cid0!)?.name ?? cid0}.`);
+      const cid = refused ? null : cid0;
+      if (cid0 && !cid) { /* nothing else to resolve: the named thing is not a scope */ }
+      else if (cid && this.data.scope(cid)) { R.scopeId = cid; R.named.scope = true; }
       else {
         if (I.scope.candidateId) R.warnings.push(`scope id ${I.scope.candidateId} did not resolve and was dropped`);
         const n = I.scope.name.toLowerCase();
@@ -226,6 +244,17 @@ export class FinancialContextEngine {
 /* ================================================================================================
    CLARIFICATION ENGINE — the model recommends, policy decides
    ================================================================================================ */
+/** does a name the model gave for a scope actually name that scope (its id, its name, a distinctive word of its name,
+ *  or a governed alias)? "South Valley" does not name MDH; "the Holdco", "MDH" and "Meridian DC Holdco" do. */
+export function scopeNamedBy(name: string, scopeId: string, data: FinancialDataService): boolean {
+  const n = ` ${name.toLowerCase().replace(/[^a-z0-9 -]/g, ' ')} `, sc = data.scope(scopeId);
+  if (!sc) return false;
+  if (scopeId === 'GROUP') return /\b(group|consolidat\w*|portfolio|all entities|enterprise|global|corporate|everything|total)\b/.test(n) || n.includes(sc.name.toLowerCase());
+  if (n.includes(` ${scopeId.toLowerCase()} `) || n.includes(scopeId.toLowerCase().replace('-', ''))) return true;
+  if (ENTITY_WORDS.some(([re, id]) => id === scopeId && re.test(n))) return true;
+  const generic = new Set(['meridian', 'llc', 'ltd', 'inc', 'gmbh', 'pte', 'the', 'global', 'portfolio']);
+  return sc.name.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && !generic.has(w)).some((w) => n.includes(` ${w} `));
+}
 export interface ClarDecision { needed: string[]; policy: string[]; recommended: string[]; suppressed: string[]; capped: boolean }
 export class ClarificationEngine {
   constructor(private readonly data: FinancialDataService) {}
@@ -281,6 +310,7 @@ const DOMAIN_WORDS: [Domain, RegExp][] = [
   ['evidence', /support|evidence|invoice|\bpo\b|purchase order|contract|approval|proof|document|missing/i],
   ['trace', /trace|proof|prove|source|erp|where.*come from|behind this number/i],
   ['action', /comment|attach|issue|assign|reviewer|for review|\bsave\b|\bshare\b|support package|compile|approve|publish|certify|mapping|write.?back|post to|\bno,|instead|actually/i],
+  ['semantic', /\bwho\b|responsib|\bowns?\b|\breviewers?\b|needs? to review|subsidiar|hierarch|ownership|\btrace\b|reports? (that )?(use|using)|supports? (this|the) balance|\bbudget\b|\bforecast\b|\bscenario\b|(tb|trial balance) for|what is|which .*\b(still|open)\b|\bfy ?\d{2}\b|last quarter|\bytd\b/i],
   ['build', /\bbuild\b|report|excel|workbook|spreadsheet|\badd (entity|project|vendor|column|department|dimension|source)|\bremove\b|\bfirst\b|only include|sort by|\btabs?\b|compare .*fy|\bsave it\b|\bdownload\b|\bgenerate\b|\bexport\b|governed gl|gl package|ties? back|tie.?out|look like|\bpreview\b/i],
 ];
 const TYPE_DOMAINS: Record<string, Domain[]> = {
@@ -343,6 +373,8 @@ export class Planner {
         if (given && given.startsWith('$ctx.') && !v) out.repairs.push(`${s.tool}.${p.name}: ${given} is empty in context`);
         if (!v && p.required) { v = this.fromCtx(p.name, ctx); if (v) out.repairs.push(`${s.tool}.${p.name} ← context (${v})`); }
         if (!v) { if (p.required) bad = `${p.name} is required and not in context`; continue; }
+        /* amounts are USD millions; a model that passed dollars ("5000000") is repaired, never trusted blindly */
+        if ((p.name === 'minAbsAmount' || p.name === 'minAbsChange') && Number(v) >= 1000) { out.repairs.push(`${s.tool}.${p.name} ${v} read as dollars → ${Number(v) / 1e6}M`); v = String(Number(v) / 1e6); }
         const norm = this.check(p.kind, v);
         if (norm.error) { bad = `${p.name}: ${norm.error}`; break; }
         if (norm.value !== v) out.repairs.push(`${s.tool}.${p.name} "${v}" → "${norm.value}"`);
@@ -439,6 +471,8 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   if (pb) return pb;
   const art = artifactPlan(text, ctx);
   if (art) return art;
+  const sem = semanticPlan(text, ctx);
+  if (sem) return sem;
   const a = (o: Record<string, string | null | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined).map(([name, value]) => ({ name, value: value ?? null }));
   const S = (tool: string, purpose: string, args: Record<string, string | null | undefined> = {}, dependsOn: number[] = []): PlanStep => ({ tool, purpose, dependsOn, args: a(args) });
   const acctFromText = I.requestedObject.id?.startsWith('account:') ? I.requestedObject.id.slice(8) : /\bcip\b|construction in progress/.test(t) ? '15000' : /\bpp&?e\b|property, plant/.test(t) ? '16000' : /\bcash\b/.test(t) ? '10000' : /revenue/.test(t) ? '40000' : null;
@@ -486,7 +520,12 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   if (/build .*report/.test(t)) return [S('buildReportDraft', 'Report draft', { rows: quote(/by ([a-z ,]+?)(?: for| from|\.|$)/i) ?? 'project', vendor: gl.vendors().find((v) => t.includes(v.toLowerCase().split(' ')[0]!)) ?? undefined, periodStart: range?.start ?? undefined, periodEnd: range?.end ?? undefined, spend: /spend/.test(t) ? 'true' : undefined })];
   if (ctx.lastRefs['reportDraftId'] && /add|remove|first|only include|compare/.test(t)) return [S('modifyReportDraft', 'Modify the report', { addDimension: quote(/add (entity|project|vendor|account|department|cost center)/i) ?? undefined, removeDimension: quote(/remove (entity|project|vendor|account|department|cost center)/i) ?? undefined, moveFirst: quote(/put (\w+) first/i) ?? undefined, minAbsAmount: quote(/over \$\s?([\d.]+)\s?m/i) ?? undefined, comparison: quote(/compare (?:it |that )?to (fy\s?\d{2,4}|last year)/i) ?? undefined })];
   if (/(why|what drove).*(and|&).*(reconcil|\brec\b)/.test(t)) return [S('getAccountAnalysis', 'Why it moved', { account: acctFromText ?? '$ctx.account' }), S('getDriverAnalysis', 'Drivers by project', { dimension: 'project', account: acctFromText ?? '$ctx.account' }), S('getReconciliationsForAccount', 'The account\'s reconciliations', { account: acctFromText ?? '$ctx.account' }), S('getEvidenceForObject', 'Support behind the movement', { populationId: '$0.refs.populationId' }, [0])];
-  if (/block|readiness/.test(t) && /close/.test(t)) return [S('getCloseReadiness', 'Close readiness'), S('getCloseBlockers', 'What blocks the close')];
+  if (/block|readiness/.test(t) && /close/.test(t)) return [S('getCloseReadiness', 'Measuring close readiness'), S('getCloseBlockers', 'Ranking what blocks the close')];
+  /* why an account moved: its movement, what drove it, and the bridge that proves it */
+  if (/\bwhy\b|what drove|what caused|\bexplain\b/.test(t) && !/reconcil|flux|close/.test(t) && (acctFromText || ctx.focus.value?.kind === 'account')) {
+    const acc = acctFromText ?? '$ctx.account';
+    return [S('getAccountAnalysis', 'Measuring the movement', { account: acc }), S('getDriverAnalysis', 'Finding what drove it by project', { dimension: 'project', account: acc }), S('getVarianceBridge', 'Building the proof bridge', { account: acc })];
+  }
   if (/entit(y|ies)[^.]*behind/.test(t)) return [S('getCloseByEntity', 'Close by entity')];
   if (/need.*(my )?attention|pending approval/.test(t)) return [S('getPendingApprovals', 'Awaiting approval'), S('getCloseBlockers', 'Blockers')];
   if (/(don.?t|do not|doesn.?t|not) tie|untied/.test(t)) return [S('getReconciliationsNotTied', 'Reconciliations that do not tie')];
@@ -502,19 +541,19 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   /* a report named from Saved Reports (the store the Reporting workspace edits) is read from there */
   if (/\breport\b/.test(t) && /^\s*(show|open|get|display|find|what)/.test(t) && !/\b(build|create|save|add|remove|compare)\b/.test(t) && findSavedReport(text)) return [S('getSavedReport', 'The saved report', { text })];
   if (/cfo report/.test(t)) return [S('getReportData', 'CFO report', { reportId: 'RPT-CFO-MONTHLY' })];
-  if (/changed the most|largest (movement|change)|biggest (movement|change)|moved the most/.test(t)) return [S('getLargestFinancialMovements', 'Largest movements')];
+  if (/changed the most|largest (movement|change)|biggest (movement|change)|moved the most/.test(t)) return [S('getLargestFinancialMovements', 'Ranking the largest movements')];
   if (dimKey && (ctx.focus.value?.kind === 'account' || acctFromText)) return [S('getDriverAnalysis', `Drivers by ${dimKey}`, { dimension: dimKey, account: acctFromText ?? '$ctx.account' })];
   if (/proof|prove|bridge/.test(t)) return [S('getVarianceBridge', 'Proof bridge', { account: acctFromText ?? '$ctx.account' })];
   if (/\bgl\b|general ledger|transactions|journal lines/.test(t) && (acctFromText || ctx.focus.value?.kind === 'account' || ctx.lastRefs['largestAccount'])) return [S('getAccountActivity', 'The GL behind it', { account: acctFromText ?? '$ctx.account' })];
   if (/compare|last year|prior year/.test(t) && vendor) return [S('comparePeriods', 'Vendor comparison', { vendor })];
-  if (vendor && /spend|activity|cost/.test(t)) return [S('getTrend', 'Vendor spend by month', { vendor, periodStart: range?.start ?? ctx.period.value, periodEnd: range?.end ?? ctx.period.value })];
+  if (vendor && /spend|activity|cost/.test(t)) return [S('getTrend', `Reading ${vendor} activity by month`, { vendor, periodStart: range?.start ?? ctx.period.value, periodEnd: range?.end ?? ctx.period.value })];
   if (/cash flow/.test(t)) return [S('getCashFlowStatement', 'Cash flow')];
   if (/balance sheet/.test(t)) return [S('getBalanceSheet', 'Balance sheet')];
   if (I.requestedObject.type === 'INCOME_STATEMENT') return [S('getIncomeStatement', 'Income statement', { periodStart: range?.start ?? ctx.period.value, periodEnd: range?.end ?? ctx.period.value, scope: ctx.scope.value })];
   if (I.requestedObject.type === 'TRIAL_BALANCE') return [ctx.scope.value !== 'GROUP' ? S('getTrialBalance', 'Entity trial balance', { entity: ctx.scope.value }) : S('getTrialBalanceByEntity', 'Trial balance by entity')];
-  if (/financials?|results/.test(t) || I.requestedObject.type === 'FINANCIAL_STATEMENT') return [S('getFinancialSummary', 'Financial summary')];
+  if (/financials?|results/.test(t) || I.requestedObject.type === 'FINANCIAL_STATEMENT') return [S('getFinancialSummary', 'Reading the governed financial summary')];
   if (acctFromText) return [S('getAccountAnalysis', 'Account analysis', { account: acctFromText })];
-  return [];
+  return bareObjectPlan(text, ctx) ?? [];
 }
 
 /* ================================================================================================
@@ -626,6 +665,15 @@ function deterministicNarrative(objects: FinancialObject[]) {
       out.push({ text: `${o.scope.name} earned net income of ${f('netIncome.range')!.display} on total revenue of ${f('totalRevenue.range')!.display} for ${o.periodLabel}.`, objectIds: [o.id], factKeys: [`${o.id}.netIncome.range`, `${o.id}.totalRevenue.range`] });
     else if (o.type === 'TrialBalance' && f('difference'))
       out.push({ text: `Debits of ${f('debit')!.display} and credits of ${f('credit')!.display} leave a difference of ${f('difference')!.display}.`, objectIds: [o.id], factKeys: [`${o.id}.debit`, `${o.id}.credit`, `${o.id}.difference`] });
+    else if (o.type === 'ExcelWorkbookPreview' && f('workbook')) {
+      const ch = o.facts.find((x) => /^change\d/.test(x.key)), ver = f('artifactVersion')?.display.match(/ v(\d+)/)?.[1];
+      out.push({ text: `${ch ? `${ch.display.replace(/\.$/, '')}. ` : ''}${f('workbook')!.display}${ver ? ` (v${ver})` : ''} has ${f('sheets') ? `tabs ${f('sheets')!.display}` : 'its tabs'}${f('glRows') ? ` over ${f('glRows')!.display} GL lines` : ''}.`, objectIds: [o.id], factKeys: ['workbook', 'sheets', 'glRows'].map((k) => `${o.id}.${k}`) });
+    } else if ((o.type === 'PBCRequest' || o.type === 'PBCSupportGaps') && f('pbcNumber')) {
+      const gaps = o.facts.filter((x) => /^gap\d/.test(x.key)).slice(0, 3).map((x) => x.display);
+      out.push({ text: o.type === 'PBCSupportGaps'
+        ? `${f('openGaps')?.display ?? 'No'} open gaps${gaps.length ? `: ${gaps.join(', ')}` : ''}.`
+        : `${f('populationRows')?.display ?? '0'} selections totalling ${f('populationTotal')?.display ?? '—'}; support coverage ${f('coverage')?.display ?? '—'}${f('openGaps') ? `; ${f('openGaps')!.display} open gaps` : ''}.`, objectIds: [o.id], factKeys: ['populationRows', 'populationTotal', 'coverage', 'openGaps'].map((k) => `${o.id}.${k}`) });
+    }
     else if (o.facts[0]) out.push({ text: `${o.title}: ${o.facts.slice(0, 3).map((x) => `${x.label} ${x.display}`).join('; ')}.`, objectIds: [o.id], factKeys: o.facts.slice(0, 3).map((x) => `${o.id}.${x.key}`) });
   }
   return out;
@@ -670,27 +718,38 @@ export interface SloaneExecutionTrace {
   traceId: string; sessionId: string; startedAt: string; endedAt: string | null; latencyMs: number | null;
   actor: { id: string; role: string; scope: 'ALL' | string[] }; writeActionsEnabled: boolean; engine: { provider: string; model: string };
   request: string; resumedFromTrace: string | null;
-  calls: { stage: string; status: string; code: string | null; detail: string | null; providerRequestId: string | null; latencyMs: number; usage: Usage | null }[];
+  calls: { stage: string; status: string; code: string | null; detail: string | null; providerRequestId: string | null; latencyMs: number; usage: Usage | null; route: string | null; model: string | null }[];
   contextBefore: unknown; candidatesSupplied: number; governedPeriods: string[];
-  interpretation: Interpretation | null; interpretationSource: 'reasoning' | 'deterministic' | 'clarification' | null;
+  interpretation: Interpretation | null; interpretationSource: 'reasoning' | 'deterministic' | 'clarification' | 'conversation' | null;
   resolution: Resolved | null;
   classification: string | null;
   clarification: (ClarDecision & { asked: string | null; options: string[] }) | null;
   toolsExposed: { domains: string[]; tools: string[] };
-  plan: { source: 'deterministic' | 'reasoning' | null; proposed: PlanStep[]; validation: PlanValidation | null };
+  plan: { source: 'deterministic' | 'reasoning' | 'conversation' | null; proposed: PlanStep[]; validation: PlanValidation | null };
   toolsExecuted: { tool: string; args: ToolArgs; status: 'COMPLETED' | 'FAILED' | 'REFUSED' | 'SKIPPED'; objectId: string | null; latencyMs: number; warnings: string[]; error: string | null; result: { type: string; status: string; facts: number; populationId: string | null; rows: number } | null }[];
   objects: { id: string; type: string; title: string; status: string; facts: number }[];
   narrative: { source: 'reasoning' | 'deterministic' | null; accepted: number; rejected: { text: string; why: string }[] };
   contextAfter: unknown; tokens: { input: number; output: number; cacheRead: number };
   limitsReached: string[]; fallbacks: string[]; warnings: string[]; state: string | null; errors: string[];
   proposals: { id: string; type: string; riskLevel: string; status: string; validationStatus: string; target: string | null; errors: string[]; warnings: string[]; dependsOn: string[] }[];
+  /** Phase 6: which path answered — a capability SHORTCUT, the conversation (FOLLOW_UP), a DELIVERABLE route, the FAST
+   *  model with Korvyn's planner, or the DEEP planner — the rule that decided it, what kind of turn it was, and where the time went */
+  route: 'SHORTCUT' | 'FOLLOW_UP' | 'DELIVERABLE' | 'FAST' | 'DEEP' | 'CLARIFICATION' | 'AGENT' | 'CONVERSATION' | 'CAPABILITY_GAP' | null;
+  /** the conversational front door's decision (development observability) */
+  conversation: { input: string; conversationIntent: string | null; requiresTool: boolean | null; selectedRoute: string; selectedModel: string | null; selectedTool: string | null; fallbackReason: string | null } | null; shortcut: string | null; kind: TurnKind | null;
+  timings: { firstStatusMs: number | null; interpretMs: number; planMs: number; toolsMs: number; firstObjectMs: number | null; narrateMs: number };
 }
 
 /* ================================================================================================
    THE ORCHESTRATOR
    ================================================================================================ */
-export type TurnState = 'ANSWER' | 'CLARIFICATION_REQUIRED' | 'UNAVAILABLE' | 'ERROR';
-export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown }
+export type TurnState = 'ANSWER' | 'CLARIFICATION_REQUIRED' | 'UNAVAILABLE' | 'ERROR' | 'CANCELLED';
+/** streaming (Phase 6): status lines, the structured objects as soon as they exist, then the final response */
+export interface TurnEvent { type: 'status' | 'object'; text?: string; response?: Record<string, unknown> }
+export interface TurnHooks { emit?: (e: TurnEvent) => void; signal?: AbortSignal }
+/** objects that ARE their own answer (a workbook preview, a PBC workspace): no narrative call is spent on them */
+const STRUCTURAL = new Set(['ExcelWorkbookPreview', 'PBCRequest', 'PBCSupportGaps', 'AgentRun']);
+export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown; /** the page the browser has open — display context only, never a financial fact */ view?: unknown }
 export interface TurnResponse {
   sessionId: string; traceId: string; state: TurnState; mode: 'reasoning' | 'deterministic'; latencyMs: number;
   notes: string[];
@@ -700,8 +759,12 @@ export interface TurnResponse {
   context: { object: Field<string | null>; period: Field<string>; scope: Field<string>; currency: Field<string>; basis: Field<string>; focus: Field<string | null>; populationId: Field<string | null> };
   /** proposals prepared this turn — nothing in them has been executed */
   actions?: { planId: string; proposals: ActionProposal[] } | null;
+  /** Phase 6 */
+  kind?: TurnKind | null; route?: string | null; suggestions?: string[]; contextLine?: string; contextFields?: { field: string; label: string; value: string; confidence: string }[]; title?: string;
+  /** a conversational answer that needed no governed tool — conversation is a valid output */
+  reply?: string;
 }
-interface Pending { id: string; request: string; interpretation: Interpretation; field: string; options: { id: string; label: string }[]; loops: number; traceId: string }
+interface Pending { id: string; request: string; interpretation: Interpretation; field: string; options: { id: string; label: string }[]; loops: number; traceId: string; requests?: Record<string, string> }
 interface Session {
   ctx: SessionContext; pending: Pending | null; touched: number;
   /** the authenticated user this conversation belongs to; another user never inherits it */
@@ -710,6 +773,11 @@ interface Session {
   /** the last ANALYSIS answer (proposal turns never overwrite it: "use this explanation" means the analysis) */
   lastNarrative: string[]; lastObjects: FinancialObject[]; lastToolCalls: { tool: string; args: ToolArgs }[];
   investigation: { id: string; objective: string; findings: string[]; objects: { id: string; type: string; title: string }[]; populationIds: string[] };
+  /** the turn still running (a newer one supersedes it) and the context it started from */
+  inflight: { ac: AbortController; ctxBefore: SessionContext } | null;
+  titled: boolean;
+  /** Phase 7: the agent run the last answer was about — a short instruction ("Only South Valley.") steers it */
+  lastRunId?: string | null;
 }
 
 const SID = /^[A-Za-z0-9_-]{8,64}$/;
@@ -738,6 +806,10 @@ export class SloaneOrchestrator {
   private readonly traces: SloaneExecutionTrace[] = [];
   readonly actions: ActionEngine;
   readonly artifacts: ArtifactEngine;
+  /** §18 safe caching: an interpretation is reused only for the same words, the same context, the same actor and the same
+   *  data version; a narrative only for the identical governed facts. Neither ever holds a figure of its own. */
+  private readonly interpCache = new Map<string, Interpretation>();
+  private readonly narrCache = new Map<string, { text: string; objectIds: string[]; factKeys: string[] }[]>();
 
   readonly db: KorvynDatabase;
   constructor(private readonly adapter: SloaneLLMAdapter, private readonly cfg: Pick<SloaneConfig, 'maxPlanSteps'>, private readonly actorOf: () => Actor = serverActor, data?: FinancialDataService, db?: KorvynDatabase) {
@@ -759,7 +831,19 @@ export class SloaneOrchestrator {
     { const A = this.artifacts.pbc; bindPbcLookup((t) => { const m = t.toLowerCase().match(/\bpbc[\s#-]*(?:no\.?\s*)?([a-z0-9-]*\d[a-z0-9-]*)\b/); if (!m) return false; const w = m[1]!.toUpperCase(); return A.list().some((r) => r.id.toUpperCase() === w || r.pbcNumber.toUpperCase() === w || r.pbcNumber.toUpperCase().endsWith(`-${w}`) || r.pbcNumber.replace(/\D/g, '') === w.replace(/\D/g, '')); }); }
     /* the actor is resolved at every proposal AND every execution from the request's authenticated context */
     this.actions = new ActionEngine((a) => ({ gl: this.gl, controls: this.controls, actor: a ?? this.actorOf(), artifacts: this.artifacts, pbc: this.artifacts.pbc ?? undefined }));
+    /* Phase 8A: the Financial Graph over these services, and the assembler that hands the model its neighbourhood */
+    this.semantic = new ContextAssembler(financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts }));
+    /* Phase 7: the agent runtime — every step it takes comes back through agentValidate / agentExecute / decide */
+    this.agents = new AgentRuntime(this);
   }
+  readonly semantic: ContextAssembler;
+  /** the model's context: the session's governed values plus the request's permitted semantic neighbourhood */
+  modelContext(ctx: SessionContext, actor: Actor, request: string) {
+    let semantic: unknown = null;
+    try { semantic = this.semantic.forModel(actor, request, ctx); } catch { semantic = null; }
+    return { ...this.context.forModel(ctx), semantic };
+  }
+  readonly agents: AgentRuntime;
 
   /** The user's decision on a proposal or plan. The browser collects it; everything else happens here. */
   decide(input: DecideInput, actor?: Actor): DecideResult {
@@ -811,7 +895,7 @@ export class SloaneOrchestrator {
     const inv = WORK.repos.investigations.get(id)!;
     this.sessions.set(sessionId, { ctx: snap ?? this.context.initial(actor), pending: null, touched: Date.now(), ownerId: actor.id, drafts: { report: null, excel: null },
       lastNarrative: last?.narrative ?? [], lastObjects: last?.objects ?? [], lastToolCalls: inv.steps.filter((x) => x.toolCalls.length).at(-1)?.toolCalls ?? [],
-      investigation: { id, objective: inv.objective, findings: inv.findings.slice(), objects: inv.objectRefs.map((o) => ({ id: o.ref, type: o.type, title: o.title })), populationIds: inv.populationRefs.slice() } });
+      investigation: { id, objective: inv.objective, findings: inv.findings.slice(), objects: inv.objectRefs.map((o) => ({ id: o.ref, type: o.type, title: o.title })), populationIds: inv.populationRefs.slice() }, inflight: null, titled: true });
     WORK.repos.investigations.update(id, actor.id, (o) => ({ ...(o as InvestigationBody), sessionIds: [...new Set([...o.sessionIds, sessionId])] }));
     return view;
   }
@@ -827,15 +911,28 @@ export class SloaneOrchestrator {
   get mode(): 'reasoning' | 'deterministic' { return this.adapter.provider === 'mock' ? 'deterministic' : 'reasoning'; }
   trace(id: string): SloaneExecutionTrace | undefined { return this.traces.find((t) => t.traceId === id); }
 
-  async turn(input: TurnInput, actorArg?: Actor): Promise<TurnResponse> {
+  async turn(inputArg: TurnInput, actorArg?: Actor, hooks: TurnHooks = {}): Promise<TurnResponse> {
     const t0 = Date.now();
     const actor = actorArg ?? this.actorOf();
-    const sessionId = typeof input.sessionId === 'string' && SID.test(input.sessionId) ? input.sessionId : randomUUID();
+    const sessionId = typeof inputArg.sessionId === 'string' && SID.test(inputArg.sessionId) ? inputArg.sessionId : randomUUID();
     let session = this.sessions.get(sessionId);
     if (session && session.ownerId !== actor.id) { session = undefined; }
-    if (!session) { session = { ctx: this.context.initial(actor), pending: null, touched: t0, ownerId: actor.id, drafts: { report: null, excel: null }, lastNarrative: [], lastObjects: [], lastToolCalls: [], investigation: { id: '', objective: '', findings: [], objects: [], populationIds: [] } }; this.sessions.set(sessionId, session); }
+    if (!session) { session = { ctx: this.context.initial(actor), pending: null, touched: t0, ownerId: actor.id, drafts: { report: null, excel: null }, lastNarrative: [], lastObjects: [], lastToolCalls: [], investigation: { id: '', objective: '', findings: [], objects: [], populationIds: [] }, inflight: null, titled: false }; this.sessions.set(sessionId, session); }
+    /* a conversational question ("Which one?") answers with a REQUEST: the chosen option is asked as if typed */
+    let input = inputArg;
+    if (session.pending?.requests && inputArg.clarification) {
+      const opt = this.matchClarification(session, inputArg.clarification, '');
+      if (opt && session.pending.requests[opt]) { input = { sessionId, request: session.pending.requests[opt] }; session.pending = null; }
+    }
     if (!session.investigation.objective && typeof input.request === 'string') session.investigation.objective = input.request.trim().slice(0, 300);
     session.touched = t0;
+    /* §32: a newer request supersedes one still running in this conversation — the older one commits nothing */
+    if (session.inflight) { session.inflight.ac.abort(); session.ctx = session.inflight.ctxBefore; }
+    const ac = new AbortController();
+    if (hooks.signal?.aborted) ac.abort(); else hooks.signal?.addEventListener('abort', () => ac.abort(), { once: true });
+    const inflight = { ac, ctxBefore: JSON.parse(JSON.stringify(session.ctx)) as SessionContext };
+    session.inflight = inflight;
+    const cancelled = () => ac.signal.aborted;
     const request = typeof input.request === 'string' ? input.request.trim().slice(0, LIMITS.maxRequestChars) : '';
     const tr: SloaneExecutionTrace = {
       traceId: `STR-${randomUUID().slice(0, 8)}`, sessionId, startedAt: new Date(t0).toISOString(), endedAt: null, latencyMs: null,
@@ -846,31 +943,42 @@ export class SloaneOrchestrator {
       toolsExposed: { domains: [], tools: [] }, plan: { source: null, proposed: [], validation: null }, toolsExecuted: [], objects: [],
       narrative: { source: null, accepted: 0, rejected: [] }, contextAfter: null, tokens: { input: 0, output: 0, cacheRead: 0 },
       limitsReached: [], fallbacks: [], warnings: [], state: null, errors: [], proposals: [],
+      route: null, shortcut: null, kind: null, conversation: null, timings: { firstStatusMs: null, interpretMs: 0, planMs: 0, toolsMs: 0, firstObjectMs: null, narrateMs: 0 },
     };
     const notes: string[] = [];
     const note = (s: string) => { if (s && !notes.includes(s)) notes.push(s); };
     const spend = (u: Usage | null) => { if (u) { tr.tokens.input += u.inputTokens; tr.tokens.output += u.outputTokens; tr.tokens.cacheRead += u.cacheReadTokens; } };
     const overBudget = () => { const b = tr.tokens.input + tr.tokens.output > LIMITS.tokenBudget, w = Date.now() - t0 > LIMITS.wallClockMs;
       if (b && !tr.limitsReached.includes('tokenBudget')) tr.limitsReached.push('tokenBudget'); if (w && !tr.limitsReached.includes('wallClock')) tr.limitsReached.push('wallClock'); return b || w; };
+    /* §13/§29: real, plan-driven status — what Korvyn is doing now, never a canned spinner line */
+    const status = (text: string) => { if (tr.timings.firstStatusMs === null) tr.timings.firstStatusMs = Date.now() - t0; hooks.emit?.({ type: 'status', text }); };
+    let suggestions: string[] = [];
+    let kind: TurnKind | null = null;
 
     const finish = (state: TurnState, extra: Partial<TurnResponse> = {}): TurnResponse => {
-      tr.state = state; tr.endedAt = new Date().toISOString(); tr.latencyMs = Date.now() - t0; tr.contextAfter = this.context.forModel(session!.ctx);
+      if (session!.inflight === inflight) session!.inflight = null;
+      tr.state = state; tr.endedAt = new Date().toISOString(); tr.latencyMs = Date.now() - t0; tr.contextAfter = this.context.forModel(session!.ctx); tr.kind = kind;
       this.traces.push(tr); if (this.traces.length > 200) this.traces.shift();
-      console.log(`[sloane] ${tr.traceId} ${tr.engine.provider}:${tr.engine.model} ${state} ${tr.latencyMs}ms tools=${tr.toolsExecuted.map((x) => `${x.tool}:${x.status}`).join(',') || '-'} in=${tr.tokens.input} out=${tr.tokens.output}`);
-      const c = session!.ctx;
+      if (tr.conversation) console.log(`[sloane:route] input=${JSON.stringify(tr.conversation.input.slice(0, 60))} intent=${tr.conversation.conversationIntent ?? '-'} requiresTool=${tr.conversation.requiresTool} route=${tr.conversation.selectedRoute} model=${tr.conversation.selectedModel ?? '-'} tool=${tr.conversation.selectedTool ?? '-'} fallback=${tr.conversation.fallbackReason ?? 'none'}`);
+      console.log(`[sloane] ${tr.traceId} ${tr.route ?? '-'} ${state} ${tr.latencyMs}ms calls=${tr.calls.map((c) => `${c.stage}@${c.route ?? '?'}:${c.latencyMs}`).join(',') || '-'} tools=${tr.toolsExecuted.map((x) => `${x.tool}:${x.status}`).join(',') || '-'} in=${tr.tokens.input} out=${tr.tokens.output}`);
+      const c = session!.ctx, cv = contextView(c, this.data);
       return {
         sessionId, traceId: tr.traceId, state, mode: this.mode, latencyMs: tr.latencyMs, notes, clarification: null, objects: [], narrative: [],
         context: { object: { value: c.object.value.type, source: c.object.source }, period: c.period, scope: { value: this.data.scope(c.scope.value)?.name ?? c.scope.value, source: c.scope.source }, currency: c.currency, basis: c.basis,
           focus: { value: c.focus.value?.name ?? null, source: c.focus.source }, populationId: c.populationId },
+        kind, route: tr.route, suggestions, contextLine: cv.line, contextFields: cv.fields,
         ...extra,
       };
     };
+    const cancel = (): TurnResponse => { tr.fallbacks.push('cancelled — superseded by a newer request'); if (session!.inflight === inflight) session!.ctx = inflight.ctxBefore; return finish('CANCELLED', { notes: ['Superseded by a newer request.'] }); };
 
     try {
-      /* ---- 1. interpretation: an answer to a pending question, or the model, or the deterministic engine ---- */
+      /* ---- 1. interpretation: an answer to a pending question, the conversation, a deliverable, or the model ---- */
       let I: Interpretation;
       let raw = request;
       let loops = 0;
+      let fast: FastPath | null = null;
+      let deliverable: PlanStep[] | null = null;
       const answer = this.matchClarification(session, input.clarification, request);
       if (answer) {
         const Pd = session.pending!;
@@ -879,28 +987,135 @@ export class SloaneOrchestrator {
         if (answer.startsWith('scope:')) I.scope = { name: this.data.scope(answer.slice(6))!.name, candidateId: answer };
         if (answer.startsWith('period:')) I.period = answer.slice(7);
         I.needsClarification = false; I.clarificationFields = [];
-        tr.interpretationSource = 'clarification';
+        tr.interpretationSource = 'clarification'; tr.route = 'CLARIFICATION';
         session.pending = null;
+        status('Resuming with your answer');
       } else {
         if (input.clarification) return finish('UNAVAILABLE', { notes: ['That question is no longer pending. Ask again and Sloane will re-interpret the request.'] });
         if (!request) return finish('ERROR', { notes: ['request is required'] });
         session.pending = null;
-        const cands = this.context.candidates(request, actor);
-        tr.candidatesSupplied = cands.length;
-        const out = await this.adapter.interpret({ request, context: this.context.forModel(session.ctx), candidates: cands, workingPeriod: this.data.workingPeriod(), availablePeriods: this.data.governedPeriods() });
-        this.recordCall(tr, 'interpret', out); spend(out.status === 'ok' ? out.usage : null);
-        if (out.status === 'ok' && out.value.confidence >= LIMITS.minConfidence) {
-          I = out.value; tr.interpretationSource = 'reasoning';
-          /* the engine overrules the model when the request names a reconciliation in full: it is about THAT one */
-          const named = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))).requestedObject.id;
-          /* reads only: an ACT names its target in the proposal, and must keep the population in context that it acts on */
-          if (named?.startsWith('recon:') && I.requestedObject.id !== named && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION') { I = { ...I, requestedObject: { ...I.requestedObject, type: 'RECONCILIATION', id: named } }; tr.fallbacks.push(`interpretation: named reconciliation ${named} overrides the model's object`); }
+        /* Phase 7: a goal starts a governed agent run; a short instruction steers the run the conversation is on */
+        const ag = await this.agentTurn(session, sessionId, actor, request, status, ac.signal);
+        if (ag) {
+          tr.route = 'AGENT'; tr.shortcut = ag.shortcut; kind = 'ANSWER';
+          ag.notes.forEach(note);
+          return finish('ANSWER', { objects: [ag.object], narrative: ag.narrative.map((t) => ({ text: t, objectIds: [ag.object.id] })), ...(ag.title ? { title: ag.title } : {}) });
         }
-        else {
-          I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))); tr.interpretationSource = 'deterministic';
-          const why = out.status === 'ok' ? `low confidence (${out.value.confidence})` : out.status === 'declined' ? 'the reasoning service declined' : `the reasoning service failed: ${out.code}`;
-          tr.fallbacks.push(`interpretation: deterministic — ${why}`);
-          if (out.status === 'error') note('Sloane’s reasoning service was unavailable, so this request was interpreted by Korvyn’s deterministic engine.');
+        session.lastRunId = null;
+        beginTurn(session.ctx, request);
+        const deps: ConvDeps = { gl: this.gl, data: this.data, controls: this.controls, visible: visibleOf(actor) };
+        const lower = request.toLowerCase();
+        const deliver = () => pbcPlan(request, session!.ctx) ?? artifactPlan(request, session!.ctx);
+        /* a deliverable in the conversation owns words about itself ("add TB", "put project before vendor"); otherwise a
+           follow-up modifies the analysis on screen first */
+        const aboutDeliverable = conv(session.ctx).lastKind === 'ARTIFACT' || /\b(workbook|tabs?|sheets?|columns?|package|excel|xlsx|csv|pbc|selections?|download|generate)\b/.test(lower);
+        /* a request ABOUT the workbook that asks for something no artifact tool does (formatting a header, emailing it)
+           is understood from its words; it must not be routed to a workbook edit that would silently do something else */
+        if (aboutDeliverable) {
+          const dg = capabilityGap(request, session.ctx);
+          if (dg) {
+            tr.route = 'CAPABILITY_GAP'; tr.shortcut = `capability gap: ${dg.reason}`; kind = 'ANSWER'; suggestions = dg.suggestions; note(dg.message);
+            tr.conversation = { input: request, conversationIntent: 'ACTION_REQUEST', requiresTool: true, selectedRoute: 'CAPABILITY_GAP', selectedModel: null, selectedTool: null, fallbackReason: `no registered capability: ${dg.reason}` };
+            return finish('UNAVAILABLE');
+          }
+        }
+        deliverable = aboutDeliverable ? deliver() : null;
+        const cr = deliverable ? null : resolveConversational(request, session.ctx, deps);
+        if (!deliverable && !cr) deliverable = deliver();
+        if (cr && 'gap' in cr) {
+          cr.gap.mutate?.(session.ctx);
+          tr.route = 'FOLLOW_UP'; tr.shortcut = `conversation: ${cr.gap.reason}`; kind = 'ANSWER'; suggestions = cr.gap.suggestions; note(cr.gap.message);
+          return finish('UNAVAILABLE');
+        }
+        if (cr && 'clarify' in cr) {
+          const opts = cr.clarify.options.map((o) => ({ id: o.id, label: o.label }));
+          session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request, interpretation: interp(), field: 'object', options: opts, loops: 0, traceId: tr.traceId, requests: Object.fromEntries(cr.clarify.options.map((o) => [o.id, o.request])) };
+          tr.route = 'FOLLOW_UP'; tr.shortcut = `conversation: ${cr.clarify.reason}`; kind = 'CLARIFICATION';
+          return finish('CLARIFICATION_REQUIRED', { clarification: { pendingId: session.pending.id, field: 'object', question: cr.clarify.question, options: opts } });
+        }
+        if (cr && 'fast' in cr) {
+          fast = cr.fast; I = fast.interpretation; tr.interpretationSource = 'conversation'; tr.route = 'FOLLOW_UP'; tr.shortcut = `conversation: ${fast.reason}`;
+          status(fast.steps[0]!.purpose);
+        } else if (deliverable) {
+          I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name })));
+          tr.interpretationSource = 'deterministic'; tr.route = 'DELIVERABLE'; tr.shortcut = `deliverable: ${deliverable.map((x) => x.tool).join(', ')}`;
+          status(deliverable[0]!.purpose);
+        } else {
+          /* ---- THE CONVERSATIONAL FRONT DOOR ----------------------------------------------------------------
+             Every free-text turn that is not an explicit follow-up or deliverable command is first UNDERSTOOD: the
+             conversational model classifies it and decides whether a governed tool is needed. No tool is a valid
+             outcome — conversation is answered as conversation. Interpretation for tools runs in parallel, so a
+             financial question pays no extra latency. A capability gap is said only when the operation is understood,
+             needs execution, and nothing registered can perform it. */
+          const view = typeof input.view === 'string' ? input.view.slice(0, 160) : null;
+          const cctx = this.conversationContext(session, actor, view, request);
+          const say = (reply: string, intent: string, model: string | null, why: string | null) => {
+            tr.route = 'CONVERSATION'; kind = 'CONVERSATION';
+            tr.conversation = { input: request, conversationIntent: intent, requiresTool: false, selectedRoute: 'CONVERSATIONAL_RESPONSE', selectedModel: model, selectedTool: null, fallbackReason: why };
+            return finish('ANSWER', { reply });
+          };
+          const gapOut = (intent: string, model: string | null, op: string | null) => {
+            const g = capabilityGap(request, session!.ctx);
+            tr.route = 'CAPABILITY_GAP'; kind = 'ANSWER';
+            tr.conversation = { input: request, conversationIntent: intent, requiresTool: true, selectedRoute: 'CAPABILITY_GAP', selectedModel: model, selectedTool: null, fallbackReason: g ? `no registered capability: ${g.reason}` : `no registered capability: ${op}` };
+            if (g) { suggestions = g.suggestions; note(g.message); }
+            else note(`Sloane can’t ${op ?? 'do that'} from Korvyn. It can prepare the governed work for you to send or act on yourself.`);
+            return finish('UNAVAILABLE');
+          };
+          let conversation: Conversation | null = null, convModel: string | null = null, convWhy: string | null = null;
+          const iac = new AbortController(); ac.signal.addEventListener('abort', () => iac.abort(), { once: true });
+          const convP = this.mode === 'reasoning' ? this.adapter.converse({ request, context: cctx }, { route: 'FAST', signal: ac.signal }) : null;
+          status('Reading the request');
+          const cands = this.context.candidates(request, actor);
+          tr.candidatesSupplied = cands.length;
+          const forModel = this.context.forModel(session.ctx);
+          const ckey = createHash('sha1').update(JSON.stringify([request.toLowerCase(), forModel, actor.id, this.gl.dataVersion()])).digest('hex');
+          const hit = this.interpCache.get(ckey);
+          if (hit && !conversationalShortcut(request, this.convInfo(session, actor, view)) && !capabilityGap(request, session.ctx)) { I = JSON.parse(JSON.stringify(hit)); tr.interpretationSource = 'reasoning'; tr.fallbacks.push('interpretation: cached (same request, same context, same data version)'); tr.conversation = { input: request, conversationIntent: 'FINANCIAL_QUESTION', requiresTool: true, selectedRoute: 'GOVERNED_TOOLS', selectedModel: null, selectedTool: null, fallbackReason: 'cached interpretation of the same request' }; }
+          else {
+            const ti = Date.now();
+            const interpP = this.adapter.interpret({ request, context: this.modelContext(session.ctx, actor, request), candidates: cands, workingPeriod: this.data.workingPeriod(), availablePeriods: this.data.governedPeriods() }, { route: 'FAST', signal: iac.signal });
+            if (convP) {
+              const co = await convP;
+              if (cancelled()) return cancel();
+              this.recordCall(tr, 'converse', co); spend(co.status === 'ok' ? co.usage : null);
+              convModel = co.model ?? null;
+              if (co.status === 'ok') {
+                conversation = co.value;
+                /* a reply may repeat a figure only if the context it was given states it — otherwise the turn needs a tool */
+                const ctxText = JSON.stringify(cctx).replace(/[,$()]/g, '');
+                const unknownFig = conversation.reply ? numTokens(conversation.reply).filter((x) => x.replace(/[MKB%]$/, '').length > 0).find((x) => !ctxText.includes(x.replace(/[MKB%]$/, ''))) : undefined;
+                if (!conversation.requiresTool && conversation.reply && !unknownFig) { iac.abort(); return say(conversation.reply, conversation.conversationIntent, convModel, null); }
+                if (!conversation.requiresTool && unknownFig) convWhy = `reply cited ${unknownFig}, which is not in the context — routed to governed tools`;
+                if (conversation.requiresTool && (conversation.conversationIntent === 'UNSUPPORTED_OPERATION' || (conversation.conversationIntent === 'ACTION_REQUEST' && capabilityGap(request, session.ctx)))) { iac.abort(); return gapOut(conversation.conversationIntent, convModel, conversation.unsupportedOperation); }
+              } else convWhy = `conversational model ${co.status === 'error' ? `failed: ${co.code}` : 'declined'}`;
+            }
+            if (!conversation) {
+              const sc = conversationalShortcut(request, this.convInfo(session, actor, view));
+              if (sc) { iac.abort(); return say(sc.reply, sc.intent, null, `deterministic conversational shortcut${convWhy ? ` (${convWhy})` : ' (no conversational model in this mode)'}`); }
+              if (capabilityGap(request, session.ctx)) { iac.abort(); return gapOut('ACTION_REQUEST', null, null); }
+            }
+            tr.conversation = { input: request, conversationIntent: conversation?.conversationIntent ?? null, requiresTool: true, selectedRoute: 'GOVERNED_TOOLS', selectedModel: convModel, selectedTool: null, fallbackReason: convWhy };
+            const out = await interpP;
+            tr.timings.interpretMs = Date.now() - ti;
+            if (cancelled()) return cancel();
+            this.recordCall(tr, 'interpret', out); spend(out.status === 'ok' ? out.usage : null);
+            if (out.status === 'ok' && out.value.confidence >= LIMITS.minConfidence) {
+              I = out.value; tr.interpretationSource = 'reasoning';
+              this.interpCache.set(ckey, JSON.parse(JSON.stringify(out.value))); if (this.interpCache.size > 300) this.interpCache.delete(this.interpCache.keys().next().value!);
+            } else {
+              I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))); tr.interpretationSource = 'deterministic';
+              const why = out.status === 'ok' ? `low confidence (${out.value.confidence})` : out.status === 'declined' ? 'the reasoning service declined' : `the reasoning service failed: ${out.code}`;
+              tr.fallbacks.push(`interpretation: deterministic — ${why}`);
+              if (out.status === 'error') note('Sloane’s reasoning service was unavailable, so this request was interpreted by Korvyn’s deterministic engine.');
+            }
+          }
+          if (tr.interpretationSource === 'reasoning') {
+            /* the engine overrules the model when the request names a reconciliation in full: it is about THAT one */
+            const named = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))).requestedObject.id;
+            if (named?.startsWith('recon:') && I.requestedObject.id !== named && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION') { I = { ...I, requestedObject: { ...I.requestedObject, type: 'RECONCILIATION', id: named } }; tr.fallbacks.push(`interpretation: named reconciliation ${named} overrides the model's object`); }
+          }
+          tr.route = 'FAST';
         }
       }
       const v = validateInterpretation(I);
@@ -908,33 +1123,54 @@ export class SloaneOrchestrator {
       tr.interpretation = I;
 
       /* ---- 2. context: validate against governed catalogues, classify, apply ---- */
-      const R = this.context.resolve(I, session.ctx);
+      const R = this.context.resolve(I, session.ctx, raw);
       tr.resolution = R;
       tr.classification = R.named.object && session.ctx.object.value.type && session.ctx.object.value.type !== R.objectType ? 'NEW_OBJECT' : I.continuity;
       R.warnings.forEach(note);
-      if (R.errors.length) { R.errors.forEach(note); return finish('UNAVAILABLE'); }
+      if (R.errors.length) {
+        R.errors.forEach(note); kind = 'ANSWER';
+        const fb = capabilityFallback(session.ctx); suggestions = fb.suggestions;
+        return finish('UNAVAILABLE');
+      }
       const ctx = this.context.apply(session.ctx, R, I);
+      if (fast) fast.mutate(ctx);
+      else {
+        if (tr.classification === 'NEW_OBJECT' || (I.continuity === 'NEW_OBJECT' && R.named.object)) onNewObject(ctx);
+        /* an explicit threshold or dimension in a first question is the conversation's view from now on */
+        const cv = conv(ctx);
+        if (I.minAbsAmount) { cv.minAbsAmount = I.minAbsAmount; cv.set['threshold'] = cv.turn; }
+        if (I.dimensions[0] && I.operation === 'BREAKDOWN') { cv.dimension = I.dimensions[0]; cv.set['dimension'] = cv.turn; }
+        if (R.named.object) cv.set['object'] = cv.turn;
+        if (R.named.period || R.named.range) cv.set['period'] = cv.turn;
+        if (R.named.comparison) cv.set['comparison'] = cv.turn;
+        if (R.named.scope) cv.set['scope'] = cv.turn;
+        cv.lastIntent = I.intent;
+      }
       /* a reconciliation the request names is the focus BEFORE planning, so `$ctx.reconciliationId` resolves to it */
       const namedRec = I.requestedObject.id?.startsWith('recon:') && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION' ? this.controls.recDef(I.requestedObject.id.slice(6)) : null;
       if (namedRec) { ctx.lastRefs['reconciliationId'] = namedRec.id; ctx.focus = { value: { kind: 'reconciliation', id: namedRec.id, name: namedRec.name }, source: 'EXPLICIT' }; }
       session.ctx = ctx;
 
-      /* ---- 3. clarification decision ---- */
+      /* ---- 3. clarification decision (the conversation and a deliverable state their defaults instead of asking) ---- */
       const dec = this.clarifier.decide(I, R, ctx, loops);
       if (dec.capped) tr.limitsReached.push('maxClarificationLoops');
-      /* a deliverable is a DEFINITION the user sees and refines: its scope and period are stated on the preview (default
-         Corporate Consolidated), so building one never stops to ask — "only MDH" refines it */
-      if (dec.needed.length && (artifactPlan(request, ctx) || pbcPlan(request, ctx))) { tr.fallbacks.push(`clarification: ${dec.needed.join(', ')} not asked — a deliverable states its defaults on the preview`); dec.needed = []; }
+      if (dec.needed.length && (fast || deliverable || artifactPlan(request, ctx) || pbcPlan(request, ctx))) { tr.fallbacks.push(`clarification: ${dec.needed.join(', ')} not asked — ${fast ? 'the conversation supplies it' : 'a deliverable states its defaults on the preview'}`); dec.needed = []; }
+      /* 8A: a question about WHAT something is ("the TB for South Valley" — a project has no TB) is answered first; the
+         semantic tools state the period they read, so a period asked for here could be a question about nothing */
+      if (dec.needed.length && dec.needed.every((f) => f === 'period' || f === 'scope') && semanticPlan(request, ctx)) { tr.fallbacks.push(`clarification: ${dec.needed.join(', ')} not asked — the semantic route resolves the subject first and states its period`); dec.needed = []; }
       if (dec.needed.length) {
         const field = dec.needed[0]!;
         const q = this.clarifier.question(field, R, actor);
         session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request: raw, interpretation: I, field, options: q.options, loops, traceId: tr.traceId };
         tr.clarification = { ...dec, asked: field, options: q.options.map((o) => o.label) };
+        kind = 'CLARIFICATION';
         return finish('CLARIFICATION_REQUIRED', { clarification: { pendingId: session.pending.id, field, question: q.question, options: q.options } });
       }
       tr.clarification = { ...dec, asked: null, options: [] };
 
-      /* ---- 4. plan: exposure is permission-filtered and request-relevant; the model plans, Korvyn validates ---- */
+      /* ---- 4. plan. The conversation and a deliverable bring their own plan; a single-object read uses Korvyn's
+                deterministic planner; only a broad, multi-part or action request is planned by the DEEP model ---- */
+      const detAllow = toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok);
       const { tools: allow, domains } = this.planner.allowlist(actor, I, raw, ctx);
       tr.toolsExposed = { domains, tools: allow.map((t) => t.id) };
       /* a domain the request names but the actor may not read is said, never silently answered around */
@@ -944,47 +1180,78 @@ export class SloaneOrchestrator {
         const denied = inDomain.filter((t) => !authorize(actor, t).ok);
         if (inDomain.length && denied.length === inDomain.length) { const perm = [...new Set(denied.map((t) => t.permission))].join(', '); note(`You are not permitted to view ${dom === 'recon' ? 'reconciliation' : dom} data (${perm}); Sloane answered only from what your role can see.`); tr.warnings.push(`domain ${dom} denied: ${perm}`); }
       }
+      const tp = Date.now();
       let steps: PlanStep[] = [];
-      if (this.mode === 'reasoning' && !overBudget()) {
-        const tools = allow.map((t) => ({ id: t.id, description: t.description, requiredInputs: t.params.filter((p) => p.required).map((p) => `${p.name} (${p.kind})`), optionalInputs: t.params.filter((p) => !p.required).map((p) => `${p.name} (${p.kind})`), outputs: t.outputs }));
-        const out = await this.adapter.plan({ request: raw, interpretation: I, context: this.context.forModel(ctx), tools, maxSteps: Math.min(this.cfg.maxPlanSteps, LIMITS.maxToolCalls) });
-        this.recordCall(tr, 'plan', out); spend(out.status === 'ok' ? out.usage : null);
-        if (out.status === 'ok') { steps = out.value.steps; tr.plan.source = 'reasoning'; }
-        else tr.fallbacks.push(`plan: deterministic — ${out.status === 'error' ? out.code : out.status}`);
+      let pv: PlanValidation = { steps: [], repairs: [], rejected: [], truncated: 0 };
+      const own = fast?.steps ?? deliverable;
+      if (own) {
+        steps = own; pv = this.planner.validate(own, detAllow, actor, ctx); tr.plan.source = fast ? 'conversation' : 'deterministic';
+      } else {
+        /* a request with several clauses ("why did CIP move AND does the reconciliation support it") is planned by the DEEP
+           model; a single question — even one needing several reads — is Korvyn's deterministic planner's */
+        const multi = /\band\b|;|\balso\b|\?.+\?|\beverything\b|\ball the\b/i.test(raw);
+        const simple = !['ACT', 'BUILD', 'CORRECTION'].includes(I.intent) && !((I.multiStep || I.intent === 'REVIEW') && multi);
+        const det = simple ? deterministicPlan(raw, I, R, ctx, this.gl) : [];
+        const dv = det.length ? this.planner.validate(det, detAllow, actor, ctx) : null;
+        if (dv && dv.steps.length && !dv.rejected.length) { steps = det; pv = dv; tr.plan.source = 'deterministic'; }
+        else {
+          if (this.mode === 'reasoning' && !overBudget()) {
+            status('Planning the analysis');
+            const tools = allow.map((t) => ({ id: t.id, description: t.description, requiredInputs: t.params.filter((p) => p.required).map((p) => `${p.name} (${p.kind})`), optionalInputs: t.params.filter((p) => !p.required).map((p) => `${p.name} (${p.kind})`), outputs: t.outputs }));
+            const out = await this.adapter.plan({ request: raw, interpretation: I, context: this.modelContext(ctx, actor, raw), tools, maxSteps: Math.min(this.cfg.maxPlanSteps, LIMITS.maxToolCalls) }, { route: 'DEEP', signal: ac.signal });
+            if (cancelled()) return cancel();
+            this.recordCall(tr, 'plan', out); spend(out.status === 'ok' ? out.usage : null);
+            if (out.status === 'ok') { steps = out.value.steps; tr.plan.source = 'reasoning'; tr.route = 'DEEP'; }
+            else tr.fallbacks.push(`plan: deterministic — ${out.status === 'error' ? out.code : out.status}`);
+          }
+          pv = this.planner.validate(steps, allow, actor, ctx);
+          /* 4A / 5A: a deliverable or an audit request is acted on by its own tools even when the model planned a read */
+          const pb = pbcPlan(raw, ctx);
+          if (pb && !(pb.every((x) => pv.steps.some((y) => y.tool === x.tool)))) {
+            const bv = this.planner.validate(pb, detAllow, actor, ctx);
+            if (bv.steps.length) { if (steps.length) tr.fallbacks.push('plan: PBC routing — the model plan did not act on the request'); steps = pb; pv = { ...bv, rejected: [...pv.rejected, ...bv.rejected] }; tr.plan.source = 'deterministic'; }
+          }
+          const art = pb ? null : artifactPlan(raw, ctx);
+          if (art && (!pv.steps.some((s) => ARTIFACT_TOOLS.has(s.tool)) || (ARTIFACT_FORCED.has(art[0]!.tool) && !pv.steps.some((s) => s.tool === art[0]!.tool)))) {
+            const av = this.planner.validate(art, detAllow, actor, ctx);
+            if (av.steps.length) { if (steps.length) tr.fallbacks.push('plan: artifact routing — the model plan did not act on the workbook'); steps = art; pv = { ...av, rejected: [...pv.rejected, ...av.rejected] }; tr.plan.source = 'deterministic'; }
+          }
+          if (!pv.steps.length && det.length && dv?.steps.length) { steps = det; pv = dv; tr.plan.source = 'deterministic'; }
+          if (!pv.steps.length) {
+            const det2 = det.length ? det : deterministicPlan(raw, I, R, ctx, this.gl);
+            if (steps.length) tr.fallbacks.push('plan: deterministic — no model step survived validation');
+            const dv2 = this.planner.validate(det2, detAllow, actor, ctx);
+            if (dv2.steps.length) { steps = det2; pv = { ...dv2, rejected: [...pv.rejected, ...dv2.rejected], repairs: [...pv.repairs, ...dv2.repairs] }; tr.plan.source = 'deterministic'; }
+            else pv = { ...pv, rejected: [...pv.rejected, ...dv2.rejected] };
+          }
+        }
       }
-      let pv = this.planner.validate(steps, allow, actor, ctx);
-      /* 4A: a deliverable request, or a change to the workbook in the conversation, is acted on by the Artifact tools even
-         when the model planned a read (e.g. a TB tie-out read for "make sure it ties back to ERP") */
-      /* 5A: an audit / PBC request is routed by Korvyn — the population, selections and package it names are governed objects */
-      const pb = pbcPlan(raw, ctx);
-      if (pb && !(pb.every((x) => pv.steps.some((y) => y.tool === x.tool)))) {
-        const bv = this.planner.validate(pb, toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok), actor, ctx);
-        if (bv.steps.length) { if (steps.length) tr.fallbacks.push('plan: PBC routing — the model plan did not act on the request'); steps = pb; pv = { ...bv, rejected: [...pv.rejected, ...bv.rejected] }; tr.plan.source = 'deterministic'; }
-      }
-      const art = pb ? null : artifactPlan(raw, ctx);
-      if (art && (!pv.steps.some((s) => ARTIFACT_TOOLS.has(s.tool)) || (ARTIFACT_FORCED.has(art[0]!.tool) && !pv.steps.some((s) => s.tool === art[0]!.tool)))) {
-        const av = this.planner.validate(art, toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok), actor, ctx);
-        if (av.steps.length) { if (steps.length) tr.fallbacks.push('plan: artifact routing — the model plan did not act on the workbook'); steps = art; pv = { ...av, rejected: [...pv.rejected, ...av.rejected] }; tr.plan.source = 'deterministic'; }
-      }
-      if (!pv.steps.length) {
-        const det = deterministicPlan(raw, I, R, ctx, this.gl);
-        if (steps.length) tr.fallbacks.push('plan: deterministic — no model step survived validation');
-        const detAllow = toolRegistry.all().filter((t) => (t.risk === 'READ' || t.risk === 'PROPOSE') && authorize(actor, t).ok);
-        const dv = this.planner.validate(det, detAllow, actor, ctx);
-        if (dv.steps.length) { steps = det; pv = { ...dv, rejected: [...pv.rejected, ...dv.rejected], repairs: [...pv.repairs, ...dv.repairs] }; tr.plan.source = 'deterministic'; }
-        else pv = { ...pv, rejected: [...pv.rejected, ...dv.rejected] };
-      }
+      tr.timings.planMs = Date.now() - tp;
       tr.plan.proposed = steps; tr.plan.validation = pv;
       if (pv.truncated) tr.limitsReached.push('maxToolCalls');
       if (!pv.steps.length) {
+        /* §8: never a dead end — say what could not be done, and offer what can be, from the context */
         const permittedAll = toolRegistry.all().filter((t) => t.risk === 'READ');
         const denied = permittedAll.filter((t) => allow.length === 0 && !authorize(actor, t).ok);
-        note(pv.rejected.length ? `Sloane could not form a governed plan for this request: ${pv.rejected.map((r) => `${r.tool} — ${r.why}`).join('; ')}.` : 'Sloane does not have a governed Korvyn capability that answers this request yet.');
+        const fb = capabilityFallback(ctx);
+        const need = pv.rejected.map((r) => r.why).find((w) => /required and not in context|is required/.test(w));
+        /* a permission refusal is always said as one — it is never softened into "no capability" */
+        const refused = pv.rejected.map((r) => r.why).filter((w) => /\bmay not\b|not permitted|permission|disabled/i.test(w));
+        if (refused.length) note(`Not permitted: ${[...new Set(refused)].join('; ')}.`);
+        else if (need) note(`Sloane needs a subject for that — ${need.replace(/ is required and not in context/, ' is not in context yet')}. Name an account, vendor or project, or pick one below.`);
+        else {
+          /* unknown intent is not an unsupported capability: ask what the person wants to do */
+          if (tr.conversation) { tr.conversation.selectedRoute = 'CONVERSATIONAL_RESPONSE'; tr.conversation.fallbackReason = 'no governed plan for this request — asked what the person wants'; }
+          kind = 'CONVERSATION'; tr.route = 'CONVERSATION';
+          return finish('ANSWER', { reply: 'Can you tell me a little more about what you want to do?' });
+        }
+        suggestions = fb.suggestions; kind = 'ANSWER';
         if (denied.length) note(`You are not permitted to use: ${denied.map((t) => t.id).join(', ')}.`);
         return finish('UNAVAILABLE');
       }
 
       /* ---- 5. execute, server-side; references resolve against earlier outputs; permission re-checked per call ---- */
+      const tx = Date.now();
       const results: (FinancialObject | null)[] = [];
       const objects: FinancialObject[] = [];
       const planId = `PLAN-${randomUUID().slice(0, 8)}`;
@@ -999,11 +1266,12 @@ export class SloaneOrchestrator {
         const tool = toolRegistry.get(s.tool)!;
         const args: ToolArgs = { ...s.args };
         let skip = '';
+        if (i > 0 && s.purpose && s.purpose !== pv.steps[i - 1]!.purpose) status(s.purpose);
         for (const [name, path] of Object.entries(s.refs)) {
           const val = refValue(path, results);
           if (!val) { skip = `${name} (${path}) did not resolve from an earlier result`; break; }
-          const kind = tool.params.find((p) => p.name === name)!.kind;
-          const chk = this.planner.check(kind, val);
+          const kindP = tool.params.find((p) => p.name === name)!.kind;
+          const chk = this.planner.check(kindP, val);
           if (chk.error) { skip = `${name}: ${chk.error}`; break; }
           args[name] = chk.value!;
         }
@@ -1036,35 +1304,67 @@ export class SloaneOrchestrator {
           tr.toolsExecuted.push({ tool: s.tool, args, status: 'FAILED', objectId: null, latencyMs: Date.now() - st, warnings: [], error: redact((e as Error).message), result: null });
         }
       }
+      tr.timings.toolsMs = Date.now() - tx;
       tr.objects = objects.map((o) => ({ id: o.id, type: o.type, title: o.title, status: o.status, facts: o.facts.length }));
-      if (!objects.length) { note('The planned tools did not produce a financial object.'); return finish('ERROR'); }
+      /* §31: a partial failure answers with what did run and says which part did not */
+      const failed = tr.toolsExecuted.filter((x) => x.status === 'FAILED' || x.status === 'SKIPPED');
+      if (failed.length && objects.length) note(`Part of this answer could not be produced (${failed.map((x) => x.tool).join(', ')}); the rest is governed and shown.`);
+      if (!objects.length) {
+        const fb = capabilityFallback(ctx); suggestions = fb.suggestions; kind = 'ANSWER';
+        note('The governed tools Korvyn ran did not produce an answer for this request.');
+        return finish('UNAVAILABLE');
+      }
       /* the warnings a reader needs (declared inputs, partial evidence) travel as notes, once each */
-      tr.warnings.filter((w) => /not connected|unavailable|representative|not modelled|not in the governed|Showing/i.test(w)).slice(0, 4).forEach(note);
+      tr.warnings.filter((w) => /not connected|unavailable|representative|not modelled|not in the governed|Showing|No single GL line|No governed (lines|activity)|checked the/i.test(w)).slice(0, 4).forEach(note);
+      (fast?.notes ?? []).forEach(note);
+
+      const proposals = objects.filter((o) => o.action).map((o) => o.action!);
+      const analysisObjects = objects.filter((o) => !o.action);
+      kind = fast?.kind ?? (proposals.length ? 'ACTION' : deliverable || analysisObjects.some((o) => STRUCTURAL.has(o.type)) ? 'ARTIFACT' : 'ANSWER');
+      /* §14/§15: the structured objects go to the reader NOW; the narrative follows */
+      tr.timings.firstObjectMs = Date.now() - t0;
+      hooks.emit?.({ type: 'object', response: { sessionId, traceId: tr.traceId, state: 'ANSWER', kind, objects, notes: notes.slice(), narrativePending: this.mode === 'reasoning' && !proposals.length && analysisObjects.some((o) => !STRUCTURAL.has(o.type)), contextLine: contextView(ctx, this.data).line, actions: proposals.length ? { planId, proposals } : null } });
 
       /* ---- 6. explain: the model narrates the facts; grounding rejects any number it did not receive ---- */
       let narrative = deterministicNarrative(objects);
       tr.narrative.source = 'deterministic';
-      const proposals = objects.filter((o) => o.action).map((o) => o.action!);
       tr.proposals = proposals.map((p) => ({ id: p.id, type: p.type, riskLevel: p.riskLevel, status: p.status, validationStatus: p.validationStatus, target: p.targetLabel, errors: p.validation.errors, warnings: p.validation.warnings, dependsOn: p.dependsOn }));
-      const analysisObjects = objects.filter((o) => !o.action);
       if (proposals.length) {
         const ready = proposals.filter((p) => p.status === 'WAITING_CONFIRMATION').length, gov = proposals.filter((p) => p.riskLevel === 'GOVERNED_ACTION').length;
         narrative = [{ text: `Prepared ${proposals.length} action${proposals.length > 1 ? 's' : ''}${ready ? `, ${ready} ready to confirm` : ''}${gov ? `, ${gov} governed (prepare only)` : ''}. Nothing has been written.`, objectIds: proposals.map((p) => p.id), factKeys: [] }, ...narrative.filter((n) => analysisObjects.some((o) => n.objectIds.includes(o.id)))];
       }
-      if (this.mode === 'reasoning' && !overBudget() && analysisObjects.length && !proposals.length) {
+      /* a workbook or PBC workspace IS the answer: its preview states itself, so no narrative call is spent on it */
+      const narrated = analysisObjects.filter((o) => !STRUCTURAL.has(o.type));
+      if (this.mode === 'reasoning' && !overBudget() && narrated.length && !proposals.length) {
         const payload = objects.map((o) => ({ objectId: o.id, type: o.type, title: o.title, status: o.status, facts: o.facts.map((f) => ({ key: `${o.id}.${f.key}`, label: f.label, display: f.display })) }));
-        const out = await this.adapter.narrate({ request: raw, objects: payload });
-        this.recordCall(tr, 'narrate', out); spend(out.status === 'ok' ? out.usage : null);
-        if (out.status === 'ok') {
-          const g = ground(out.value.sentences, objects);
-          tr.narrative.rejected = g.rejected;
-          if (g.accepted.length) { narrative = g.accepted; tr.narrative.source = 'reasoning'; }
-          else tr.fallbacks.push('narrative: deterministic — no grounded sentence');
-        } else tr.fallbacks.push(`narrative: deterministic — ${out.status === 'error' ? out.code : out.status}`);
+        const nkey = createHash('sha1').update(JSON.stringify([raw.toLowerCase(), payload.map((p) => ({ ...p, objectId: '' }))])).digest('hex');
+        const cachedN = this.narrCache.get(nkey);
+        if (cachedN) { narrative = cachedN.map((s) => ({ ...s, objectIds: s.objectIds })); tr.narrative.source = 'reasoning'; tr.fallbacks.push('narrative: cached (identical facts)'); }
+        else {
+          status('Writing the summary');
+          const tn = Date.now();
+          const out = await this.adapter.narrate({ request: raw, objects: payload }, { route: I.intent === 'REVIEW' ? 'FAST' : 'NARRATE', signal: ac.signal });
+          tr.timings.narrateMs = Date.now() - tn;
+          if (cancelled()) return cancel();
+          this.recordCall(tr, 'narrate', out); spend(out.status === 'ok' ? out.usage : null);
+          if (out.status === 'ok') {
+            const g = ground(out.value.sentences, objects);
+            tr.narrative.rejected = g.rejected;
+            if (g.accepted.length) {
+              narrative = g.accepted; tr.narrative.source = 'reasoning';
+              /* keyed by the facts, not the object ids: the same governed facts always narrate the same way */
+              const ids = new Map(objects.map((o, i) => [o.id, i]));
+              this.narrCache.set(nkey, g.accepted); if (this.narrCache.size > 300) this.narrCache.delete(this.narrCache.keys().next().value!);
+              void ids;
+            } else tr.fallbacks.push('narrative: deterministic — no grounded sentence');
+          } else tr.fallbacks.push(`narrative: deterministic — ${out.status === 'error' ? out.code : out.status}`);
+        }
       }
       tr.narrative.accepted = narrative.length;
+      if (cancelled()) return cancel();
 
       session.ctx = this.context.commitShown(session.ctx, objects);
+      afterAnswer(session.ctx, tr.toolsExecuted.filter((x) => x.status === 'COMPLETED').map((x) => ({ tool: x.tool, args: x.args })), objects, kind, this.gl);
       if (analysisObjects.length && !proposals.length) {
         session.lastNarrative = narrative.map((n) => n.text); session.lastObjects = analysisObjects;
         session.lastToolCalls = tr.toolsExecuted.filter((x) => x.status === 'COMPLETED').map((x) => ({ tool: x.tool, args: x.args }));
@@ -1072,10 +1372,13 @@ export class SloaneOrchestrator {
         session.investigation.objects.push(...analysisObjects.map((o) => ({ id: `${tr.traceId}:${o.id}`, type: o.type, title: o.title })));
         for (const o of analysisObjects) { const pid = o.population?.populationId ?? o.refs['populationId']; if (pid && !session.investigation.populationIds.includes(pid)) session.investigation.populationIds.push(pid); }
       }
+      /* §28: the investigation is named for what was investigated, once there is something to name it by */
+      let title: string | null = null;
+      if (!session.titled) { title = investigationTitle(objects, session.ctx, raw); if (title) session.titled = true; }
       /* the investigation is durable: the step (with the READ tool calls that re-derive its objects), findings, references, a context snapshot, and a timeline event */
       {
         const invId = session.investigation.id, completed = tr.toolsExecuted.filter((x) => x.status === 'COMPLETED');
-        WORK.repos.investigations.update(invId, actor.id, (o) => ({ ...(o as InvestigationBody),
+        WORK.repos.investigations.update(invId, actor.id, (o) => ({ ...(o as InvestigationBody), ...(title ? { title } : {}),
           steps: [...o.steps, { at: new Date().toISOString(), request: raw, traceId: tr.traceId, toolCalls: completed.map((x) => ({ tool: x.tool, args: x.args })), objectRefs: objects.map((x) => `${tr.traceId}:${x.id}`), narrative: narrative.map((n) => n.text), proposalIds: proposals.map((p) => p.id) }],
           findings: analysisObjects.length && !proposals.length ? [...o.findings, ...narrative.map((n) => n.text).slice(0, 3)] : o.findings,
           objectRefs: [...o.objectRefs, ...analysisObjects.map((x) => ({ ref: `${tr.traceId}:${x.id}`, type: x.type, title: x.title, traceId: tr.traceId }))],
@@ -1088,12 +1391,194 @@ export class SloaneOrchestrator {
       }
       if (tr.limitsReached.length) note(`Limit reached: ${tr.limitsReached.join(', ')}.`);
       const avail = objects.filter((o) => o.status !== 'UNAVAILABLE');
-      return finish(avail.length ? 'ANSWER' : 'UNAVAILABLE', { objects, narrative: narrative.map((n) => ({ text: n.text, objectIds: n.objectIds })), actions: proposals.length ? { planId, proposals } : null });
+      if (!avail.length) suggestions = capabilityFallback(session.ctx).suggestions;
+      return finish(avail.length ? 'ANSWER' : 'UNAVAILABLE', { objects, narrative: narrative.map((n) => ({ text: n.text, objectIds: n.objectIds })), actions: proposals.length ? { planId, proposals } : null, ...(title ? { title } : {}) });
     } catch (e) {
       tr.errors.push(redact((e as Error).message ?? String(e)));
       return finish('ERROR', { notes: ['Sloane could not complete this request.'] });
     }
   }
+
+  /* ================================================================================================
+     PHASE 7 — the governed step executor the AGENT RUNTIME uses. The runtime never executes anything itself: every task
+     that touches a tool comes through here, where it is validated by the Planner (registry, allowlist, arguments,
+     permission), re-authorised at execution, and run with the same env, persistence and context rules as a turn.
+     ================================================================================================ */
+  /** a server session for an agent run (the run's own conversation; another user never inherits it) */
+  agentSession(sessionId: string, actor: Actor, seed?: { period?: string; periodRange?: { start: string; end: string } | null; scope?: string; objective?: string }, investigationId?: string): string {
+    let s = this.sessions.get(sessionId);
+    /* a run outlives the in-memory conversation (refresh, restart): its session is re-attached to the run's investigation */
+    if (s && investigationId && !s.investigation.id) s.investigation.id = investigationId;
+    if (s && s.ownerId !== actor.id) throw new Error('This run belongs to another user.');
+    if (!s) {
+      s = { ctx: this.context.initial(actor), pending: null, touched: Date.now(), ownerId: actor.id, drafts: { report: null, excel: null }, lastNarrative: [], lastObjects: [], lastToolCalls: [], investigation: { id: '', objective: seed?.objective ?? '', findings: [], objects: [], populationIds: [] }, inflight: null, titled: true };
+      this.sessions.set(sessionId, s);
+      if (investigationId) s.investigation.id = investigationId;
+    }
+    if (seed?.period) s.ctx.period = { value: seed.period, source: 'EXPLICIT' };
+    if (seed?.periodRange !== undefined) s.ctx.periodRange = { value: seed.periodRange, source: seed.periodRange ? 'EXPLICIT' : 'DEFAULTED' };
+    if (seed?.scope) s.ctx.scope = { value: seed.scope, source: 'EXPLICIT' };
+    return this.ensureInvestigation(s, actor, seed?.objective ?? 'Agent run');
+  }
+  /** the conversation's FinancialContext follows the run it is steering: an explicit instruction ("Use May", "Only South
+   *  Valley", "Siemens Energy") replaces what was inherited — June is not silently kept when the person said May */
+  agentContext(sessionId: string, actor: Actor, c: { period: string; periodRange: { start: string; end: string } | null; entity: string | null; vendor: string | null; project: string | null; account: string | null; threshold: number | null }) {
+    const s = this.sessions.get(sessionId);
+    if (!s || s.ownerId !== actor.id) return;
+    s.ctx.period = { value: c.period, source: 'EXPLICIT' };
+    s.ctx.periodRange = { value: c.periodRange, source: c.periodRange ? 'EXPLICIT' : 'DEFAULTED' };
+    s.ctx.scope = { value: c.entity ?? 'GROUP', source: 'EXPLICIT' };
+    s.ctx.filters = { value: [...(c.vendor ? [{ dimension: 'vendor', value: c.vendor }] : []), ...(c.project ? [{ dimension: 'project', value: c.project }] : [])], source: 'EXPLICIT' };
+    const v = conv(s.ctx);
+    v.subject = { ...v.subject, vendor: c.vendor, project: c.project, entity: c.entity, account: c.account ?? v.subject.account, accountName: c.account ? this.gl.account(c.account)?.name ?? null : v.subject.accountName };
+    v.minAbsAmount = c.threshold;
+  }
+  /** the tools a policy profile may use, permission-filtered for this actor BEFORE anything is proposed */
+  agentAllowlist(actor: Actor, domains: readonly string[], allowPropose: boolean): SloaneTool[] {
+    return toolRegistry.all().filter((t) => (t.risk === 'READ' || (allowPropose && t.risk === 'PROPOSE')) && domains.includes(t.domain) && authorize(actor, t).ok);
+  }
+  /** validate ONE step exactly as a plan step is validated (the model's proposals and the templates alike) */
+  agentValidate(sessionId: string, actor: Actor, step: { tool: string; purpose: string; args: ToolArgs }, allow: SloaneTool[]): PlanValidation {
+    const s = this.sessions.get(sessionId);
+    if (!s || s.ownerId !== actor.id) return { steps: [], repairs: [], rejected: [{ tool: step.tool, why: 'no session for this run' }], truncated: 0 };
+    return this.planner.validate([{ tool: step.tool, purpose: step.purpose, dependsOn: [], args: Object.entries(step.args).map(([name, value]) => ({ name, value })) }], allow, actor, s.ctx);
+  }
+  /** execute ONE validated step: permission re-checked, drafts / PBC requests kept, context and investigation updated */
+  agentExecute(sessionId: string, actor: Actor, step: { tool: string; purpose: string; args: ToolArgs; request: string }, planId: string, objectId: string): { status: 'COMPLETED' | 'FAILED' | 'REFUSED'; object: FinancialObject | null; extra: FinancialObject | null; warnings: string[]; error: string | null; proposalIds: string[]; latencyMs: number; traceId: string } {
+    const t0 = Date.now(), s = this.sessions.get(sessionId);
+    const traceId = `ATR-${randomUUID().slice(0, 8)}`;
+    const tool = toolRegistry.get(step.tool);
+    const out = (status: 'COMPLETED' | 'FAILED' | 'REFUSED', error: string | null) => ({ status, object: null, extra: null, warnings: [], error, proposalIds: [], latencyMs: Date.now() - t0, traceId });
+    if (!s || s.ownerId !== actor.id) return out('REFUSED', 'no session for this run');
+    if (!tool) return out('REFUSED', `${step.tool} is not a registered tool`);
+    const g = authorize(actor, tool, step.args);
+    if (!g.ok) return out('REFUSED', g.reason);
+    const ctx = s.ctx;
+    const toolSession: ToolSession = {
+      id: sessionId, planId, traceId, period: ctx.period.value, scope: ctx.scope.value, focus: ctx.focus.value, populationId: ctx.populationId.value,
+      lastNarrative: s.lastNarrative, lastObjects: s.lastObjects, lastRefs: ctx.lastRefs, investigationId: s.investigation.id, request: step.request,
+      investigation: { ...s.investigation, timeline: this.timeline(sessionId) }, lastToolCalls: s.lastToolCalls, proposalsThisTurn: [], drafts: s.drafts, engine: this.actions,
+    };
+    const env: Omit<ToolEnv, 'objectId'> = { data: this.data, gl: this.gl, controls: this.controls, actor, visible: visibleOf(actor), session: toolSession, artifacts: this.artifacts, ...(this.artifacts.pbc ? { pbc: this.artifacts.pbc } : {}) };
+    try {
+      const r = tool.run(step.args, { ...env, objectId });
+      const kept = this.persistPBC(s, actor, traceId, sessionId, { ...env, objectId: r.object.id });
+      if (kept) { r.object = kept.object; r.warnings.push(...kept.warnings); }
+      const persisted = this.persistDraft(s, actor, traceId, sessionId, r.object);
+      if (persisted) r.warnings.push(persisted);
+      r.object.facts = r.object.facts.slice(0, LIMITS.maxFactsPerObject);
+      const objs = [r.object, ...(kept?.extra ? [kept.extra] : [])];
+      s.ctx = this.context.commitShown(s.ctx, objs);
+      if (!r.object.action && r.object.status !== 'UNAVAILABLE') {
+        s.lastObjects = [r.object]; s.lastToolCalls = [{ tool: step.tool, args: step.args }];
+        const pid = r.object.population?.populationId ?? r.object.refs['populationId'];
+        if (pid && !s.investigation.populationIds.includes(pid)) s.investigation.populationIds.push(pid);
+      }
+      const invId = s.investigation.id;
+      WORK.repos.investigations.update(invId, actor.id, (o) => ({ ...(o as InvestigationBody),
+        steps: [...o.steps, { at: new Date().toISOString(), request: `[agent] ${step.purpose}`, traceId, toolCalls: r.object.action ? [] : [{ tool: step.tool, args: step.args }], objectRefs: [`${traceId}:${r.object.id}`], narrative: [], proposalIds: toolSession.proposalsThisTurn.slice() }],
+        objectRefs: r.object.action ? o.objectRefs : [...o.objectRefs, { ref: `${traceId}:${r.object.id}`, type: r.object.type, title: r.object.title, traceId }],
+        populationRefs: [...new Set([...o.populationRefs, ...objs.map((x) => x.population?.populationId ?? x.refs['populationId']).filter((x): x is string => !!x)])],
+        actionIds: [...o.actionIds, ...toolSession.proposalsThisTurn], sessionIds: [...new Set([...o.sessionIds, sessionId])] }), { period: s.ctx.period.value, scope: s.ctx.scope.value });
+      return { status: 'COMPLETED', object: r.object, extra: kept?.extra ?? null, warnings: r.warnings, error: null, proposalIds: toolSession.proposalsThisTurn.slice(), latencyMs: Date.now() - t0, traceId };
+    } catch (e) { return out('FAILED', redact((e as Error).message)); }
+  }
+  /** the model plans a GENERIC goal from the profile's allowlist; Korvyn's deterministic planner answers when it declines */
+  async agentPlan(sessionId: string, actor: Actor, goalText: string, allow: SloaneTool[], signal?: AbortSignal): Promise<{ steps: PlanStep[]; source: 'reasoning' | 'deterministic'; calls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number }[] }> {
+    const s = this.sessions.get(sessionId)!, calls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number }[] = [];
+    const rec = (stage: string, o: { status: string; latencyMs: number; route?: string; model?: string; usage?: Usage }) => calls.push({ stage, route: o.route ?? null, model: o.model ?? null, status: o.status, latencyMs: o.latencyMs, inputTokens: o.usage?.inputTokens ?? 0, outputTokens: o.usage?.outputTokens ?? 0 });
+    let I = deterministicInterpret(goalText, this.data, s.ctx, this.controls.recDefs());
+    if (this.mode === 'reasoning') {
+      const oi = await this.adapter.interpret({ request: goalText, context: this.modelContext(s.ctx, actor, goalText), candidates: this.context.candidates(goalText, actor), workingPeriod: this.data.workingPeriod(), availablePeriods: this.data.governedPeriods() }, { route: 'FAST', ...(signal ? { signal } : {}) });
+      rec('interpret', oi as never);
+      if (oi.status === 'ok') { const v = validateInterpretation(oi.value); if (v.ok) I = v.value; }
+      const tools = allow.map((t) => ({ id: t.id, description: t.description, requiredInputs: t.params.filter((p) => p.required).map((p) => `${p.name} (${p.kind})`), optionalInputs: t.params.filter((p) => !p.required).map((p) => `${p.name} (${p.kind})`), outputs: t.outputs }));
+      const op = await this.adapter.plan({ request: goalText, interpretation: I, context: this.modelContext(s.ctx, actor, goalText), tools, maxSteps: Math.min(this.cfg.maxPlanSteps, LIMITS.maxToolCalls) }, { route: 'DEEP', ...(signal ? { signal } : {}) });
+      rec('plan', op as never);
+      if (op.status === 'ok' && op.value.steps.length) return { steps: op.value.steps, source: 'reasoning', calls };
+    }
+    const R = this.context.resolve(I, s.ctx, goalText);
+    return { steps: deterministicPlan(goalText, I, R, s.ctx, this.gl), source: 'deterministic', calls };
+  }
+  /** a grounded summary of a run's milestone objects: the model writes sentences, grounding rejects any figure it did not receive */
+  async agentNarrate(request: string, objects: FinancialObject[], signal?: AbortSignal): Promise<{ sentences: string[]; source: 'reasoning' | 'deterministic'; rejected: number; call: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number } | null }> {
+    const det = deterministicNarrative(objects).map((n) => n.text);
+    const narrated = objects.filter((o) => !STRUCTURAL.has(o.type) && !o.action && o.status !== 'UNAVAILABLE');
+    if (this.mode !== 'reasoning' || !narrated.length) return { sentences: det, source: 'deterministic', rejected: 0, call: null };
+    const payload = narrated.map((o) => ({ objectId: o.id, type: o.type, title: o.title, status: o.status, facts: o.facts.map((f) => ({ key: `${o.id}.${f.key}`, label: f.label, display: f.display })) }));
+    const out = await this.adapter.narrate({ request, objects: payload }, { route: 'FAST', ...(signal ? { signal } : {}) });
+    const call = { stage: 'narrate', route: out.route ?? null, model: out.model ?? null, status: out.status, latencyMs: out.latencyMs, inputTokens: out.status === 'ok' ? out.usage?.inputTokens ?? 0 : 0, outputTokens: out.status === 'ok' ? out.usage?.outputTokens ?? 0 : 0 };
+    if (out.status !== 'ok') return { sentences: det, source: 'deterministic', rejected: 0, call };
+    const g = ground(out.value.sentences, narrated);
+    return g.accepted.length ? { sentences: g.accepted.map((x) => x.text), source: 'reasoning', rejected: g.rejected.length, call } : { sentences: det, source: 'deterministic', rejected: g.rejected.length, call };
+  }
+  /** a goal → a run (answered with the run card once it reaches a checkpoint, finishes, or ~12s pass — it keeps running
+   *  in the background); an instruction to the run on screen → an intervention. null = an ordinary turn. */
+  private async agentTurn(session: Session, sessionId: string, actor: Actor, request: string, status: (t: string) => void, signal: AbortSignal): Promise<{ object: FinancialObject; narrative: string[]; notes: string[]; title: string | null; shortcut: string } | null> {
+    const A = this.agents;
+    const card = (runId: string, notes: string[], shortcut: string) => {
+      const v = A.get(runId, actor)!;
+      session.lastRunId = runId;
+      const object: FinancialObject = { id: 'FO-1', type: 'AgentRun', title: v.title, status: 'AVAILABLE', scope: { id: 'GROUP', name: v.scope }, periods: [], periodLabel: v.period, currency: 'USD', basis: '', unit: '',
+        table: { columns: [], rows: [] }, facts: [], provenance: { source: 'Korvyn agent runtime — every step a governed tool, every write confirmed by you', snapshotId: runId, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] },
+        population: null, refs: { runId }, focus: null, unavailable: null, governed: true, agentRun: v };
+      const q = v.checkpoints.find((c) => c.type === 'CLARIFICATION' && c.status === 'OPEN');
+      const narrative = q ? [q.reason ?? q.title] : v.result ? [v.result.headline] : [];
+      return { object, narrative, notes, title: v.title, shortcut };
+    };
+    /* the run this conversation is on: the one the last answer was about, else a live or waiting run of this session in
+       the durable store (a refresh, a navigation or a restart does not lose it) */
+    const last = (session.lastRunId ? A.body(session.lastRunId, actor) : null) ?? A.activeFor(sessionId, actor);
+    if (last && !['CANCELLED', 'FAILED'].includes(last.runStatus)) {
+      /* 1. an answer to the run's open question resumes the SAME run */
+      if (A.openQuestion(last)) {
+        const ans = await A.answer(last.runId, actor, request);
+        if (ans?.ok) { await A.wait(last.runId, 10000); return card(last.runId, [], `clarified:${last.runId}`); }
+      }
+      /* 2. a short instruction steers the run durably — unless the words are a NEW goal ("Review last quarter." is a close
+         review of its own, not a period change to the vendor review on screen) */
+      if (request.split(/\s+/).length <= 16 && !A.detect(request, actor)) {
+        const r = A.steer(last.runId, actor, request);
+        if (r.recognised) { await A.wait(last.runId, 10000); return card(last.runId, [r.effect], `steer:${r.type}:${last.runId}`); }
+      }
+    }
+    const type = A.detect(request, actor);
+    if (!type) return null;
+    const out = A.start(actor, request, { sessionId });
+    if (!out.ok) return null;
+    const runId = out.run.runId, seen = new Set<string>();
+    status(`Starting: ${out.run.goal.title}`);
+    const t0 = Date.now();
+    while (Date.now() - t0 < 12000 && !signal.aborted) {
+      const b = A.body(runId, actor)!;
+      for (const p of b.progress) if (p.state === 'done' && !seen.has(p.line)) { seen.add(p.line); status(`✓ ${p.line}`); }
+      if (!['RUNNING', 'PLANNING', 'READY', 'CREATED'].includes(b.runStatus)) break;
+      await new Promise((res) => setTimeout(res, 150));
+    }
+    return card(runId, [], `goal:${type}`);
+  }
+  /** what the conversational front door may know: the page (reported by the browser, unverified), the governed context,
+   *  the last answer's titles and stated figures, the investigation and the run in this conversation — never more */
+  private convInfo(session: Session, actor: Actor, view: string | null) {
+    const run = session.lastRunId ? this.agents.get(session.lastRunId, actor) : null;
+    const o = session.lastObjects[0];
+    return { investigation: session.investigation.id ? session.investigation.objective || null : null, lastTitle: o ? o.title : null, lastSummary: session.lastNarrative.slice(0, 2).join(' ') || null,
+      run: run ? { title: run.title, status: run.status, headline: run.result?.headline ?? null } : null, page: view };
+  }
+  private conversationContext(session: Session, actor: Actor, view: string | null, request = '') {
+    const c = session.ctx, i = this.convInfo(session, actor, view);
+    return {
+      page: view ? `${view} (reported by the browser)` : null,
+      period: periodLabel(c.period.value), scope: this.data.scope(c.scope.value)?.name ?? c.scope.value, focus: c.focus.value?.name ?? null,
+      investigation: i.investigation, activeRun: i.run,
+      lastAnswer: session.lastObjects.slice(0, 3).map((o) => ({ title: o.title, figures: o.facts.slice(0, 8).map((f) => `${f.label}: ${f.display}`) })),
+      lastAnswerSummary: session.lastNarrative.slice(0, 3),
+      /* Phase 8A: who the user is and what the words name, from their permitted graph — names and relationships, no figures */
+      semantic: (() => { try { const m = this.semantic.forModel(actor, request, c); return { user: m.user, fiscal: m.fiscal, focus: m.focus, named: m.neighborhood.objects.slice(0, 8).map((o) => `${o.label} (${o.type})`), ambiguous: m.neighborhood.ambiguous.map((a) => a.term) }; } catch { return null; } })(),
+    };
+  }
+  /** the objects the conversation last produced for a session (the agent's result is rendered from its own record) */
+  sessionActor(sessionId: string) { return this.sessions.get(sessionId)?.ownerId ?? null; }
 
   /** 4A: keep the workbook the conversation is building — a new artifact on the first build, a new version on each
    *  refinement. Returns a note when it could not (e.g. the definition names a scope the reader may not see). */
@@ -1168,11 +1653,12 @@ export class SloaneOrchestrator {
     return hit.length === 1 ? hit[0]!.id : null;
   }
 
-  private recordCall(tr: SloaneExecutionTrace, stage: string, o: Awaited<ReturnType<SloaneLLMAdapter['interpret']>> | Awaited<ReturnType<SloaneLLMAdapter['plan']>> | Awaited<ReturnType<SloaneLLMAdapter['narrate']>>) {
+  private recordCall(tr: SloaneExecutionTrace, stage: string, o: Awaited<ReturnType<SloaneLLMAdapter['interpret']>> | Awaited<ReturnType<SloaneLLMAdapter['plan']>> | Awaited<ReturnType<SloaneLLMAdapter['narrate']>> | Awaited<ReturnType<SloaneLLMAdapter['converse']>>) {
     tr.calls.push({
       stage, status: o.status, code: o.status === 'error' ? o.code : null,
       detail: o.status === 'error' ? redact(o.detail) : o.status === 'declined' ? o.reason : null,
       providerRequestId: o.status === 'declined' ? null : o.requestId, latencyMs: o.latencyMs, usage: o.status === 'ok' ? o.usage : null,
+      route: o.route ?? null, model: o.model ?? null,
     });
   }
 }

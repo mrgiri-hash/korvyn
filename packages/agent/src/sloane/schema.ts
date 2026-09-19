@@ -70,6 +70,18 @@ export const planSchema = (toolIds: readonly string[]) => obj({
 });
 export const PLAN_SCHEMA = planSchema([]);
 
+/* THE CONVERSATIONAL FRONT DOOR: every free-text turn is first classified — and, when no governed tool is needed,
+   answered — here. requiresTool=false is a first-class outcome, not an error. */
+export const CONVERSATION_INTENTS = ['GENERAL_CONVERSATION', 'CONTEXTUAL_CONVERSATION', 'FINANCIAL_QUESTION', 'FOLLOW_UP', 'CLARIFICATION_RESPONSE', 'ANALYSIS_REQUEST', 'ACTION_REQUEST', 'NAVIGATION_COMMAND', 'UNSUPPORTED_OPERATION', 'UNCLEAR'] as const;
+export interface Conversation { conversationIntent: (typeof CONVERSATION_INTENTS)[number]; requiresTool: boolean; reply: string | null; unsupportedOperation: string | null; confidence: number }
+export const CONVERSATION_SCHEMA = obj({
+  conversationIntent: strEnum(CONVERSATION_INTENTS),
+  requiresTool: { type: 'boolean' },
+  reply: nul('string'),
+  unsupportedOperation: nul('string'),
+  confidence: { type: 'number' },
+});
+
 export const NARRATIVE_SCHEMA = obj({
   sentences: {
     type: 'array',
@@ -249,6 +261,18 @@ export function validatePlan(v: Json, allowedTools: string[], maxSteps: number):
 }
 
 export interface Narrative { sentences: { text: string; objectIds: string[]; factKeys: string[] }[] }
+
+export function validateConversation(v: Json): Result<Conversation> {
+  const c = new V();
+  if (!c.keys(v, 'conversation', ['conversationIntent', 'requiresTool', 'reply', 'unsupportedOperation', 'confidence'])) return { ok: false, errors: c.errors };
+  c.enm(v['conversationIntent'], 'conversationIntent', CONVERSATION_INTENTS);
+  if (typeof v['requiresTool'] !== 'boolean') c.errors.push('requiresTool: expected boolean');
+  c.str(v['reply'], 'reply', true, 1200);
+  c.str(v['unsupportedOperation'], 'unsupportedOperation', true, 120);
+  if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');
+  if (v['requiresTool'] === false && (typeof v['reply'] !== 'string' || !String(v['reply']).trim())) c.errors.push('reply: required when no tool is needed');
+  return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: v as unknown as Conversation };
+}
 
 export function validateNarrative(v: Json, objectIds: string[], factKeys: string[]): Result<Narrative> {
   const c = new V();

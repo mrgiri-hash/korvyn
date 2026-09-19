@@ -24,7 +24,7 @@ export type Risk = 'READ' | 'PROPOSE' | 'CONFIRM' | 'GOVERNED';
 /** Authorization is by CAPABILITY (auth.ts); a tool's permission is a capability name. */
 export type Permission = Capability;
 export const WRITE_ACTIONS_ENABLED = false as const;
-export type Domain = 'financials' | 'tb' | 'ledger' | 'analysis' | 'flux' | 'recon' | 'close' | 'reporting' | 'audit' | 'evidence' | 'trace' | 'find' | 'governance' | 'action' | 'build';
+export type Domain = 'financials' | 'tb' | 'ledger' | 'analysis' | 'flux' | 'recon' | 'close' | 'reporting' | 'audit' | 'evidence' | 'trace' | 'find' | 'governance' | 'action' | 'build' | 'semantic';
 
 /* ---- the actor ----------------------------------------------------------------------------------
    Every request's actor is an ActorContext built by SessionService from the authenticated SESSION (auth.ts). It is
@@ -58,6 +58,8 @@ export interface FinancialObject {
   unit: string;
   table: { columns: string[]; rows: TableRow[] };
   facts: Fact[];
+  /** Phase 7: an agent run's view (progress, checkpoints, result) — rendered as the run card */
+  agentRun?: unknown;
   provenance: { source: string; snapshotId: string; journalLines: number | null; fxRateSetId: string | null; eliminations: string | null; declaredInputs: string[] };
   /** a large result set: a definition id, a count and one bounded page — never the rows */
   population: { populationId: string; rowCount: number; returned: number; cursor: number; nextCursor: number | null; sort: string; exportHook: unknown } | null;

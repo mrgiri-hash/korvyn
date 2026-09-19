@@ -16,6 +16,7 @@ type Scenario = { status?: number; stop?: string; text?: string };
 let scenario: Scenario = {};
 /** a queue of responses for a multi-call orchestrator turn; empty → scenario */
 const queue: Scenario[] = [];
+let converseReply: Record<string, unknown> = { conversationIntent: 'FINANCIAL_QUESTION', requiresTool: true, reply: null, unsupportedOperation: null, confidence: 0.9 };
 let lastBody: Record<string, unknown> | null = null;
 
 const fake = createServer((req, res) => {
@@ -32,7 +33,9 @@ const fake = createServer((req, res) => {
       res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'output_config.format.schema: Invalid schema: ' + probs[0] } }));
       return;
     }
-    const cur = queue.length ? queue.shift()! : scenario;
+    /* the conversational front door is answered here, off the queue: by default every turn needs a tool */
+    const isConv = JSON.stringify(sch ?? {}).includes('conversationIntent');
+    const cur = isConv ? { text: JSON.stringify(converseReply) } : queue.length ? queue.shift()! : scenario;
     if (cur.status && cur.status !== 200) {
       res.writeHead(cur.status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'x' } }));
@@ -131,8 +134,7 @@ async function main(): Promise<void> {
   const tr1 = orch.trace(t1.traceId)!;
   check('orchestrator: a range with no reliable scope → CLARIFICATION_REQUIRED, no tool executed', t1.state === 'CLARIFICATION_REQUIRED' && t1.clarification?.field === 'scope' && tr1.toolsExecuted.length === 0, t1);
   check('orchestrator: a browser-supplied context is ignored', tr1.resolution?.scopeId === null, 'ignored');
-  queue.push({ text: JSON.stringify({ rationale: 'one statement', steps: [{ tool: 'getIncomeStatement', purpose: 'Income statement', dependsOn: [], args: [
-    { name: 'periodStart', value: '$ctx.periodStart', valueType: 'ref' }, { name: 'periodEnd', value: '$ctx.periodEnd', valueType: 'ref' }, { name: 'scope', value: '$ctx.scope', valueType: 'ref' }] }] }) });
+  /* Phase 6: a single statement read is planned by Korvyn's deterministic planner — no DEEP plan call is spent on it */
   queue.push({ text: JSON.stringify({ sentences: [
     { text: 'The income statement covers the four months.', objectIds: ['FO-1'], factKeys: ['FO-1.periods'] },
     { text: 'Management expects a further $412.0M next month.', objectIds: ['FO-1'], factKeys: [] } ] }) });
@@ -144,7 +146,21 @@ async function main(): Promise<void> {
   const reviewer = { id: 'u', name: 'u', role: 'FINANCE_REVIEWER', permissions: ['FINANCIALS_VIEW' as const], scopeIds: 'ALL' as const };
   const v = orch.planner.validate([{ tool: 'postJournalEntry', purpose: 'p', dependsOn: [], args: [] }, { tool: 'deleteLedger', purpose: 'p', dependsOn: [], args: [] }], orch.planner.allowlist(reviewer, null, 'income statement', orch.context.initial(reviewer)).tools, reviewer, orch.context.initial(reviewer));
   check('orchestrator: a GOVERNED write tool and an invented tool are both rejected', v.steps.length === 0 && v.rejected.length === 2 && v.rejected[0]!.why.includes('write actions are disabled'), v.rejected);
-  check('orchestrator: the model plan resolved $ctx references and ran through the reasoning planner', tr2.plan.source === 'reasoning' && tr2.toolsExecuted[0]?.args['scope'] === 'GROUP', tr2.plan);
+  check('orchestrator: a single statement read → deterministic plan, no plan call, answered scope GROUP', tr2.plan.source === 'deterministic' && !tr2.calls.some((c) => c.stage === 'plan') && tr2.toolsExecuted[0]?.args['scope'] === 'GROUP', { plan: tr2.plan.source, calls: tr2.calls.map((c) => c.stage) });
+  check('orchestrator: interpretation goes to the FAST route, narration to NARRATE', tr2.calls.filter((c) => c.stage === 'narrate').every((c) => c.route === 'NARRATE') && orch.trace(t1.traceId)!.calls.every((c) => c.route === 'FAST'), [...tr1.calls, ...tr2.calls].map((c) => `${c.stage}@${c.route}`));
+  /* a broad, multi-part request is planned by the DEEP model; its $ctx references resolve server-side */
+  queue.push({ text: JSON.stringify({ ...INTERP, intent: 'REVIEW', multiStep: true, requestedObject: { type: 'INCOME_STATEMENT', id: null, name: 'income statement' }, confidence: 0.9 }) });
+  queue.push({ text: JSON.stringify({ rationale: 'review', steps: [{ tool: 'getIncomeStatement', purpose: 'Income statement', dependsOn: [], args: [
+    { name: 'periodStart', value: '$ctx.periodStart', valueType: 'ref' }, { name: 'periodEnd', value: '$ctx.periodEnd', valueType: 'ref' }, { name: 'scope', value: '$ctx.scope', valueType: 'ref' }] }] }) });
+  queue.push({ text: JSON.stringify({ sentences: [{ text: 'The review covers the four months.', objectIds: ['FO-1'], factKeys: [] }] }) });
+  const t2b = await orch.turn({ sessionId: 'dryrun-session-1', request: 'Review that income statement and tell me everything that needs attention.' });
+  const tr2b = orch.trace(t2b.traceId)!;
+  check('orchestrator: a multi-part review → DEEP plan; $ctx references resolved; scope GROUP', tr2b.plan.source === 'reasoning' && tr2b.route === 'DEEP' && tr2b.calls.find((c) => c.stage === 'plan')?.route === 'DEEP' && tr2b.toolsExecuted[0]?.args['scope'] === 'GROUP', { plan: tr2b.plan.source, route: tr2b.route, calls: tr2b.calls.map((c) => `${c.stage}@${c.route}`), tools: tr2b.toolsExecuted });
+  converseReply = { conversationIntent: 'GENERAL_CONVERSATION', requiresTool: false, reply: 'Hi. What can I help you with?', unsupportedOperation: null, confidence: 0.95 };
+  const th = await orch.turn({ sessionId: 'dryrun-session-9', request: 'hello' });
+  const trh = orch.trace(th.traceId)!;
+  check('orchestrator: "hello" reaches the conversational model and is answered with no tool', th.reply === 'Hi. What can I help you with?' && trh.route === 'CONVERSATION' && trh.calls.some((c) => c.stage === 'converse' && c.status === 'ok') && trh.toolsExecuted.length === 0 && !trh.calls.some((c) => c.stage === 'plan'), { reply: th.reply, route: trh.route, calls: trh.calls.map((c) => c.stage) });
+  converseReply = { conversationIntent: 'FINANCIAL_QUESTION', requiresTool: true, reply: null, unsupportedOperation: null, confidence: 0.9 };
   const scoped = new SloaneOrchestrator(new MockLLMAdapter(), cfg, () => ({ id: 'u2', name: 'u2', role: 'ENTITY_ACCOUNTANT', permissions: ['FINANCIALS_VIEW'], scopeIds: ['MDH'] }));
   const t3 = await scoped.turn({ sessionId: 'dryrun-session-2', request: 'Show the consolidated group income statement for March' });
   check('orchestrator: permissions are enforced server-side (entity-scoped actor refused the group)', t3.state === 'UNAVAILABLE' && t3.objects.length === 0 && t3.notes.some((n) => n.includes('may not view scope GROUP')), { state: t3.state, notes: t3.notes });

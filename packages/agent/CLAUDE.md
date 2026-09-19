@@ -87,6 +87,16 @@ refinement, derive/reuse, a validation model, the common artifact contract, save
 (`src/sloane/audit/pbc.ts`), Sloane tools and proposals (`audit/pbctools.ts`, `audit/pbcactions.ts`), a PBC_PACKAGE over the request,
 and `/api/work/pbc/*`. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 5A*.
 
+**Phase 6 (2026-09-18):** conversational runtime — `conversation.ts` (ConversationState, follow-up / deictic / correction
+resolution, capability gaps, titles), routes SHORTCUT · DELIVERABLE · FOLLOW_UP · FAST · DEEP (+ NARRATE on Haiku), `POST /api/sloane/turn/stream`
+(NDJSON), supersession, safe caches, `latency.ts` harness. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 6*.
+
+**Phase 7 (2026-09-18):** the governed agent runtime — `agent/` (model · goals · graphs · runtime): goals become durable runs over validated task graphs, policy profiles chosen by Korvyn, checkpoints (confirmation, governed approval, external dependency), interventions, VERIFY before COMPLETED, `/api/sloane/agent/runs…`, `npm run sloane:live-agent`. The runtime never executes: every step goes through `agentValidate` / `agentExecute` / `decide`. Full record in the root CLAUDE.md, *SLOANE 2.0 PHASE 7*.
+
+**Agent hardening (2026-09-18):** clarification checkpoints (`agent/ambiguity.ts`; a run waits in WAITING_FOR_USER and resumes the SAME run) and durable steering (`agent/steering.ts` → `AgentRuntime.steer`: ten steering types, `UserSteeringEvent`s, safe replan, constraints enforced in the policy gate). Also the conversational front door (`adapter.converse`, route CONVERSATION). Full record in the root CLAUDE.md.
+
+**Phase 8A (2026-09-19):** the enterprise financial semantic layer — `semantic/` (model · graph · time · context · tools): a permission-filtered Financial Graph over the existing services (no graph store, no figures of its own), tenant-calendar period resolution, `ContextAssembler` (a capped neighbourhood attached to every model call via `modelContext`), 15 semantic READ tools with `semanticPlan` routing, and `scopeNamedBy` (a project is never a scope). Full record in the root CLAUDE.md.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

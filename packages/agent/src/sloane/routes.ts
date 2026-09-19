@@ -29,6 +29,8 @@ import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
  *
  *   GET  /api/sloane/health · POST /api/sloane/turn · POST /api/sloane/action · GET /api/sloane/trace/:id (loopback)
  *   GET  /api/sloane/investigations[/:id] · POST /api/sloane/investigations/:id/resume · GET /api/sloane/session/:id/activity
+ *   Phase 7 agent runs: GET|POST /api/sloane/agent/runs · GET /api/sloane/agent/runs/:id (?trace=1 loopback)
+ *   POST …/:id/intervene {text} · …/:id/pause · …/:id/resume · …/:id/cancel · …/:id/checkpoints/:cpId {decision}
  *
  *   ONE-BOOK DOMAIN ACTIONS (no generic CRUD):
  *   GET  /api/work/reconciliations/:id                 POST …/:id/comments · POST …/:id/support
@@ -307,12 +309,71 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
       return;
     }
   }
+  /* Phase 7: governed agent runs. The run advances in the background; the browser polls the run, never holds a request open
+     for it. Only the actor who started a run may read, interrupt, decide or cancel it. */
+  if (r === 'agent/runs' || r.startsWith('agent/runs/')) {
+    const A = orchestrator.agents, parts = r.split('/').slice(2);
+    if (req.method === 'GET' && !parts.length) { send(res, 200, { outcome: 'SUCCESS', runs: A.list(actor) }); return; }
+    if (req.method === 'POST' && !parts.length) {
+      const body = await readJson(req);
+      if (!body || typeof body['request'] !== 'string' || !body['request'].trim()) { refuse(res, 'VALIDATION_ERROR', 'request is required'); return; }
+      if (typeof body['sessionId'] === 'string' && !ownsSession(res, actor, body['sessionId'])) return;
+      /* failure simulation is a dev/test aid: never honoured outside dev auth on loopback */
+      const opt = body['options'] && typeof body['options'] === 'object' && auth.mode === 'dev' && loopback(req) ? body['options'] as Record<string, unknown> : {};
+      const list = (k: string) => Array.isArray(opt[k]) ? (opt[k] as unknown[]).filter((x): x is string => typeof x === 'string').slice(0, 10) : undefined;
+      const options = { ...(typeof opt['pace'] === 'number' ? { pace: Math.min(5000, Math.max(0, opt['pace'])) } : {}), ...(list('failTools') ? { failTools: list('failTools')! } : {}), ...(list('transientTools') ? { transientTools: list('transientTools')! } : {}), ...(list('unavailableSources') ? { unavailableSources: list('unavailableSources')! } : {}) };
+      const out = A.start(actor, body['request'].slice(0, 1000), { options, ...(typeof body['sessionId'] === 'string' ? { sessionId: body['sessionId'] } : {}) });
+      if (!out.ok) { refuse(res, 'VALIDATION_ERROR', out.reason); return; }
+      await A.wait(out.run.runId, typeof body['waitMs'] === 'number' ? Math.min(20000, body['waitMs']) : 0);
+      send(res, 200, { outcome: 'SUCCESS', run: A.view(out.run) });
+      return;
+    }
+    const [id, verb, sub] = parts;
+    const body0 = A.body(id!, actor);
+    if (!body0) { refuse(res, 'NOT_FOUND', 'No such run'); return; }
+    if (req.method === 'GET' && !verb) {
+      const trace = new URL(req.url ?? '/', 'http://x').searchParams.get('trace') === '1' && loopback(req);
+      send(res, 200, { outcome: 'SUCCESS', run: A.view(body0), ...(trace ? { body: body0 } : {}) });
+      return;
+    }
+    if (req.method === 'POST') {
+      const body = (await readJson(req)) ?? {};
+      if (verb === 'intervene') { const t = typeof body['text'] === 'string' ? body['text'].slice(0, 500) : ''; const o = A.intervene(id!, actor, t); send(res, 200, { outcome: o.ok ? 'SUCCESS' : 'VALIDATION_ERROR', recognised: o.recognised, effect: o.effect, run: o.run ?? A.view(body0) }); return; }
+      if (verb === 'resume' || verb === 'pause') { const o = A.intervene(id!, actor, verb); send(res, 200, { outcome: 'SUCCESS', effect: o.effect, run: o.run ?? A.view(body0) }); return; }
+      if (verb === 'cancel') { const o = A.cancel(id!, actor); send(res, 200, { outcome: o.ok ? 'SUCCESS' : 'VALIDATION_ERROR', run: o.run ?? A.view(body0) }); return; }
+      if (verb === 'checkpoints' && sub) {
+        const o = await A.decide(id!, actor, sub, String(body['decision'] ?? ''), typeof body['requestId'] === 'string' ? body['requestId'].slice(0, 80) : undefined);
+        if (!o.ok) { refuse(res, 'VALIDATION_ERROR', o.reason ?? 'rejected'); return; }
+        await A.wait(id!, typeof body['waitMs'] === 'number' ? Math.min(20000, body['waitMs']) : 0);
+        send(res, 200, { outcome: 'SUCCESS', run: A.get(id!, actor) });
+        return;
+      }
+    }
+    refuse(res, 'NOT_FOUND', 'unknown agent route');
+    return;
+  }
   if (req.method === 'POST' && r === 'turn') {
     const body = await readJson(req);
     if (!body) { refuse(res, 'VALIDATION_ERROR', 'invalid or oversized request body'); return; }
     if (typeof body['sessionId'] === 'string' && !ownsSession(res, actor, body['sessionId'])) return;
-    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'] }, actor);
+    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'], view: body['view'] }, actor);
     send(res, 200, { outcome: 'SUCCESS', ...out });
+    return;
+  }
+  /* Phase 6: the same turn, streamed as NDJSON — status lines as Korvyn works, the structured objects as soon as they
+     exist, then the final response with the narrative. A client that disconnects cancels the turn: nothing it would
+     have committed to the conversation is kept. Authentication, CSRF and ownership are the same as /turn. */
+  if (req.method === 'POST' && r === 'turn/stream') {
+    const body = await readJson(req);
+    if (!body) { refuse(res, 'VALIDATION_ERROR', 'invalid or oversized request body'); return; }
+    if (typeof body['sessionId'] === 'string' && !ownsSession(res, actor, body['sessionId'])) return;
+    const t0 = Date.now(), ac = new AbortController();
+    res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Accel-Buffering': 'no' });
+    res.on('close', () => { if (!res.writableEnded) ac.abort(); });
+    const write = (ev: Record<string, unknown>) => { if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify({ ...ev, atMs: Date.now() - t0 })}\n`); };
+    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'], view: body['view'] }, actor, { emit: (e) => write(e as unknown as Record<string, unknown>), signal: ac.signal });
+    write({ type: 'final', response: { outcome: 'SUCCESS', ...out } });
+    if (!res.writableEnded) res.end();
     return;
   }
   refuse(res, req.method === 'POST' || req.method === 'GET' ? 'NOT_FOUND' : 'VALIDATION_ERROR', 'unknown Sloane route');

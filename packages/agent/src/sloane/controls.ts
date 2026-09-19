@@ -46,7 +46,9 @@ export type ReconBalance = {
 
 type Vis = Set<string> | 'ALL';
 const inVis = (v: Vis, e: string) => v === 'ALL' || v.has(e);
-const TIE_TOLERANCE_USD = 1_000;
+export const TIE_TOLERANCE_USD = 1_000;
+/** the flux materiality policy: |change| of at least absUsd, or at least minUsd and pct of the prior balance */
+export const FLUX_MATERIALITY = { absUsd: 1_000_000, minUsd: 250_000, pct: 0.1 } as const;
 export const SEEDED = 'Workflow state (assignments, status, comments) is read from the durable Korvyn work store; every amount is derived from the governed ledger.';
 
 /* ================================================================================================
@@ -205,7 +207,7 @@ export class ControlService {
     return groups.map((g) => {
       const cur = L.presented(g, L.balanceUsd([g], period, vis)), pri = L.presented(g, L.balanceUsd([g], prior, vis));
       const d = cur - pri;
-      const material = Math.abs(d) >= 1_000_000 || (Math.abs(d) >= 250_000 && Math.abs(pri) > 0 && Math.abs(d / pri) >= 0.1);
+      const M = FLUX_MATERIALITY, material = Math.abs(d) >= M.absUsd || (Math.abs(d) >= M.minUsd && Math.abs(pri) > 0 && Math.abs(d / pri) >= M.pct);
       /* the ONE authoritative explanation record (book.ts) — the same one the Flux workspace edits */
       const exr = fluxExplanation(g, period);
       const ex = exr ? { id: exr.explanationId, status: exr.status, text: exr.text, author: exr.author, reviewer: exr.reviewer, version: exr.version, supportRefs: exr.supportRefs, updatedAt: exr.updatedAt, updatedBy: exr.updatedBy, lineId: exr.lineId } : null;

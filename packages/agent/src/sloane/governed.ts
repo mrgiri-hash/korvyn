@@ -82,7 +82,15 @@ const VENDORS: Record<string, string[]> = {
   '50100': ['Dominion Energy', 'National Grid', 'E.ON Energie'], '50200': ['CBRE Facilities', 'JLL'], '50300': ['Lumen Technologies', 'Zayo'],
   '60100': ['HubSpot'], '60200': ['Workday', 'Salesforce'], '60300': ['Deloitte', 'KPMG'], '60400': ['Marsh', 'County Assessor'],
 };
-const APPROVAL_THRESHOLD_USD = 250_000;
+export const APPROVAL_THRESHOLD_USD = 250_000;
+/** The AP extract's VENDOR MASTER: every vendor record the extract declares, including records with no activity in the
+ *  governed months (the master is wider than the population — a vendor can exist, be approved, and not have been paid
+ *  this year). Master-only records carry no lines, so no total anywhere moves because of them. They exist so that a
+ *  name like "Siemens" resolves against what the master actually holds, not only against who happened to be paid. */
+export const VENDOR_MASTER_ONLY: { id: string; name: string; note: string }[] = [
+  { id: 'VEN-SIEMENS-AG', name: 'Siemens AG', note: 'Parent-company vendor record (switchgear framework agreement); no FY26 invoices in the extract.' },
+  { id: 'VEN-SIEMENS-MOB', name: 'Siemens Mobility', note: 'Vendor record for rail-siding works; no FY26 invoices in the extract.' },
+];
 
 /** A source ERP posting that arrived after the core snapshot (a late or post-close journal). It is a SOURCE fact: the
  *  ERP holds it from the moment it posts; the governed ledger holds it once it has SYNCED. The difference between the two
@@ -183,6 +191,13 @@ export class GovernedLedger {
   entities() { return this.fin.gl.entities.map((e) => ({ id: e.id as string, name: e.name, currency: e.functionalCurrency as string, connector: this.lines.find((l) => l.entity === (e.id as string))?.connector ?? 'unknown' })); }
   dimensionValues(dim: DimensionKey): string[] { return [...new Set(this.lines.map((l) => this.dimOf(l, dim)).filter((v): v is string => !!v))].sort(); }
   vendors() { return this.dimensionValues('vendor'); }
+  /** the vendor master: vendors with governed activity, plus master-only records (see VENDOR_MASTER_ONLY) */
+  vendorMaster(visible: 'ALL' | Set<string> = 'ALL') {
+    const act = new Map<string, number>();
+    for (const l of this.lines) if (l.vendor && l.account !== '20100' && (visible === 'ALL' || visible.has(l.entity))) act.set(l.vendor, (act.get(l.vendor) ?? 0) + l.usd);
+    return [...[...act.entries()].map(([name, usd]) => ({ id: `VEN-${name.toUpperCase().replace(/[^A-Z0-9]+/g, '-')}`, name, activityUsd: usd, hasActivity: true, note: '' })),
+      ...VENDOR_MASTER_ONLY.map((v) => ({ ...v, activityUsd: 0, hasActivity: false }))];
+  }
   priorPeriod(p: string) { const ps = this.periods(); const i = ps.indexOf(p); return i > 0 ? ps[i - 1]! : null; }
 
   dimOf(l: GLine, dim: DimensionKey): string | null {

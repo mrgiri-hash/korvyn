@@ -9738,6 +9738,325 @@ write-back, the Excel add-in, a conversational-runtime redesign, a UI overhaul. 
 (references only), a waive / link UI in the workspace (Sloane proposals and the API do it), per-request due dates and
 owners edited in the UI, and sampling methods beyond key items + systematic.
 
+## 2026-09-18 — SLOANE 2.0 PHASE 6: conversational runtime, latency, context continuity
+
+Owner's brief. **A follow-up modifies the analysis on screen; reading it needs the conversation's state, not a model.**
+No UI redesign, no Excel add-in, no new capability outside the conversation. Every step still goes through the
+Planner's validation, permission checks and the one execution loop — conversational convenience never skips governance.
+
+**Files.** `packages/agent/src/sloane/conversation.ts` (new) · `orchestrator.ts` (routing, streaming hooks,
+supersession, state updates, titles) · `adapter.ts` / `config.ts` (routes) · `toolset.ts` (display thresholds) ·
+`routes.ts` (`POST /api/sloane/turn/stream`) · `latency.ts` (the before/after harness) · `conversation.test.ts` ·
+`index.html` (streamed render, shortcuts, supersession).
+
+**ConversationState** (`SessionContext.conv`, created on first use so older snapshots still load): the governed
+SUBJECT (account, vendor, project, entity), dimension, display threshold (USD millions), requested comparison (kept
+even when unavailable), drill level, the primary analysis last run (`analysis` — what a follow-up re-runs), the
+ordered items the answer SHOWED (for "the second one"), the last resolved object (for "it"), and the active
+artifact / PBC / proposal. `afterAnswer()` updates it from what was shown; `onNewObject()` drops the old view.
+Confidence per field: EXPLICIT_HIGH (stated this turn) · INHERITED_HIGH (≤3 turns) · INHERITED_MEDIUM · DERIVED
+(policy default or derived) · UNKNOWN. An explicit instruction always wins. Every response carries `contextLine`
+and `contextFields`.
+
+**Routing, in order** (`tr.route`, `tr.shortcut` say which rule decided):
+1. **SHORTCUT** — `capabilityGap()`: email/send, workbook formatting, budget/forecast, ledger changes → one line and
+   2–3 runnable suggestions. No model, no invented action (the baseline turned "Email this to the auditors" into a
+   Save-investigation proposal).
+2. **DELIVERABLE** — when the last turn was about a workbook/PBC, or the words name one: `pbcPlan()` / `artifactPlan()`
+   with no interpret or plan call.
+3. **FOLLOW_UP** — `resolveConversational()`: dimension ("By vendor.", "Now projects."), threshold ("Only over $5M."),
+   GL ("Show the GL."), proof, support ("Which of these are missing support?"), why, comparisons ("May vs June.",
+   "vs last month", "last year" → honest gap if not governed), filter corrections ("No, South Valley only."), and
+   deictic references ("the largest one", "the second item", "that vendor", "the GL for it"). Ambiguity asks
+   "Which one?" with options that resume as requests. Action words and any new object return null → the model.
+4. **FAST** — the model interprets a NEW question (Sonnet 5, effort low, no thinking); Korvyn's deterministic planner
+   plans it unless the request has several clauses or is an action/build/correction.
+5. **DEEP** — Opus plans only multi-clause reviews and actions. Narration: NARRATE route (Haiku 4.5, ≤3 sentences,
+   answer first, correct a false premise); FAST for a broad review. Structural objects (workbook preview, PBC
+   workspace) are their own answer — no narration call.
+
+`SLOANE_LLM_FAST_MODEL` / `_FAST_EFFORT` (`none` = not sent; automatic for Haiku, which rejects `effort`) /
+`_FAST_THINKING` · `SLOANE_LLM_NARRATE_MODEL` · `SLOANE_LLM_ROUTING=off` restores all-DEEP.
+
+**Streaming** (`/api/sloane/turn/stream`, NDJSON): `status` events are the plan's own step purposes ("Breaking 15000
+Construction in progress down by vendor"), `object` carries the structured answer the moment tools finish, `final`
+the whole response. Same auth, CSRF and ownership as `/turn`. The browser renders the objects, then replaces the
+same investigation entry when the narrative lands (`slReplaceLast`) — never a second entry.
+
+**Supersession (§32).** A newer request in the same conversation aborts the one in flight (the browser aborts its
+fetch; the server aborts provider calls through the signal) and the older turn commits nothing — the context is
+restored to where it started. State `CANCELLED`.
+
+**Other behaviour.**
+- `getDriverAnalysis` / `analyzeByDimension` take `minAbsChange`: groups under the threshold collapse into one stated
+  row, the total still states the whole movement.
+- A GL population emptied by a threshold says what is there ("No single GL line exceeds $5.00M; the 4 lines total
+  $15.80M and the largest is $4.70M"); support on it checks the lines behind the movement and says so.
+- A trend emptied by a project/entity filter says where the activity is (Siemens: SG-DC1, LON-DC1).
+- The planner repairs a threshold passed in dollars to millions.
+- Partial failure answers with what ran and names what did not. A permission refusal is always said as one.
+- Safe caches: interpretation (same words, same context, same actor, same data version), narrative (identical facts).
+- Investigations are titled for what was investigated (`investigationTitle`).
+- Browser: "back", "home", "clear", "start over", "new" are answered locally.
+
+**Tools are in-process and take milliseconds** (≤ 40 ms per plan measured), so running independent steps in
+parallel would buy nothing and was not built.
+
+**Traps.** Python splice strings ate `\b` again (a non-raw `\b` inside a template literal); the Edit tool fixed it.
+The Bash tool's heredoc broke on backticks — write splice scripts with the Write tool. Haiku 4.5 rejects
+`output_config.effort` with a 400.
+
+**Not built:** the Excel add-in, a UI redesign, token streaming of the narrative (it arrives as one event), a
+server-side cache shared across processes, cross-session memory of conversation state.
+
+## 2026-09-18 — SLOANE 2.0 PHASE 7: the governed agent runtime
+
+Owner's brief. **The LLM reasons; Korvyn owns truth, tools, permissions, policy, workflow authority, evidence, state,
+approvals, the audit trail and the stop conditions.** A goal ("Review the June close", "Prepare the controller review",
+"Investigate Siemens for FY26", "Prepare the audit support package for CIP") becomes a durable run:
+GOAL → PLAN → VALIDATE → EXECUTE STEP → OBSERVE → UPDATE STATE → REPLAN → CONTINUE / PAUSE / COMPLETE → VERIFY → TRACE.
+No UI redesign, no Excel add-in, no uncontrolled autonomy, no direct database / ERP / API access for the model.
+
+**Files** (`packages/agent/src/sloane/agent/`): `model.ts` (AgentRun, AgentGoal, AgentTaskGraph, AgentObservation,
+AgentCheckpoint, statuses, autonomy levels, `POLICY_PROFILES`, `PROFILE_FOR`) · `goals.ts` (conservative goal detection and
+parsing) · `graphs.ts` (the canonical workflows as task graphs) · `runtime.ts` (`AgentRuntime`). Orchestrator additions:
+`agentSession` · `agentAllowlist` · `agentValidate` · `agentExecute` · `agentPlan` · `agentNarrate` · `agentTurn`, and
+`orchestrator.agents`. Routes `/api/sloane/agent/runs…`. Tests `agent.test.ts` (14). Live eval `npm run sloane:live-agent`
+(spends credits). Browser: the run card (`p7*`, `.p7-*` in index.html).
+
+**THE RUNTIME NEVER EXECUTES ANYTHING ITSELF.** Every tool step goes through `agentValidate` (the Planner: registry,
+allowlist, argument kinds, permission) and `agentExecute` (permission re-checked, the same env, draft / PBC persistence,
+context and investigation updates as a turn). A proposal is written only by `ActionEngine.decide()` when a person decides a
+CONFIRMATION checkpoint. A governed action is prepared at most, and a direct attempt to confirm one is refused
+(`PERMISSION_DENIED … Not executed: … governed action`, verified live).
+
+**Policy profiles are chosen by Korvyn from the goal type, never by the model or the words** (READ_ONLY for close review and
+vendor investigation; CONTROLLER_REVIEW; AUDIT_SUPPORT; FINANCE_ANALYST). `autonomousActionTypes` is empty in every profile:
+LEVEL 3 exists as architecture only. A read-only profile cannot prepare anything; a PROPOSE step outside
+`preparableActions` is rejected at plan validation.
+
+**Graphs, not lists.** Tasks have ids, dependencies (`softDeps` for VERIFY / SUMMARIZE), `$task:<id>.population` /
+`.refs.<key>` inputs resolved at execution, milestones (the only lines a person sees), and `expand` rules that grow the graph
+from what a step found: a Flux comment per unexplained material line, a reconciliation comment per untied reconciliation, an
+evidence check (balance, difference, tie, support, review, source freshness) per reconciliation that might be approved. A
+revision never overwrites: the old node is marked `invalidatedBy` and a new node `<id>~<version>` is added; dependencies
+resolve to the latest live node. Every revision is recorded (`graph.revisions`).
+
+**Checkpoints**: CONFIRMATION (bundles one action plan; the next PREPARE task starts a new plan id) · GOVERNED_APPROVAL
+(Route to reviewer / Withdraw — neither approves) · EXTERNAL_DEPENDENCY (non-blocking: JD Edwards unavailable, bank source not
+connected, NetSuite stale — stated with the governed amount it holds back, and no finding is stated about that portion) ·
+CLARIFICATION / DECISION_REQUIRED (declared). A checkpoint waits until no preparation of its plan is still to run.
+
+**Interventions** (API or typed into Sloane while the run is on screen, ≤ 12 words): Stop (cancel — completed work kept,
+nothing reversed, open proposals cancelled) · Pause / Resume · "Only South Valley." (scope-sensitive steps invalidated and
+re-run, the rest kept) · "Ignore …" (excluded from the rest of the run and the result) · "Focus on … first" (reorder) ·
+"Don't create comments yet." (pending drafts skipped, prepared ones withdrawn). Persisted as `interventions` and audited.
+
+**Stop conditions and retries.** maxSteps, active runtime (checkpoint waits excluded), consecutive failures. A READ step
+retries once on a transient error; a PROPOSE step never retries. A failed step's hard dependents are skipped and said so.
+`options.failTools / transientTools / unavailableSources / pace` are DEV/TEST simulation, refused outside dev auth on loopback.
+
+**VERIFY before COMPLETED.** Common: every milestone ran or is explained · nothing written without a confirmed checkpoint ·
+no governed action executed · read-only goals created no proposal · governed data version unchanged. Per goal: the close
+position re-read; confirmed comments exist on their threads; trend foots to the population; the generated workbook exists in
+storage, has its expected tabs, pins its population, records its tie-out status, and is not stale. A failed check leaves the
+run BLOCKED, never COMPLETED.
+
+**A RUN JUDGES ONLY ITS OWN PROPOSALS** (`runProposals`). A run started from the Sloane panel shares the conversation's
+session, so a check over the whole session counted an earlier turn's confirmed comments as this run's writes. The live test
+caught it (F stopped at 9/10 instead of claiming COMPLETED) and a regression test pins it.
+
+**Durable, background, never a held request.** Runs are records kind `AGENT_RUN` (stored as `{ run }`), advance one step at a
+time on timers, and are polled by the browser. A run the previous process was advancing is PAUSED on start with the reason,
+never silently re-executed. A kick that arrives while the loop is unwinding sets `rekick` (a real race, found in testing).
+
+**Result** (§24): one headline built from governed facts, counts, ranked findings, prepared actions with status, what needs a
+person, external limitations, artifacts, and at most two grounded model sentences (grounding rejects any figure the model
+did not receive). The card shows lines like `✓ Close status — 59% ready, 14 blockers`; never ids, JSON or reasoning.
+
+**Verified:** `npm run sloane:test` 106/106 · dryrun 32 · core 78 · 4/4 gates unchanged · LIVE claude-opus-5 / sonnet-5 /
+haiku-4-5: A–F complete and verified in the browser and in `live-agent.ts` (A 7.8s · B 14.9s incl. confirmation · C 10.3s ·
+D 6.2s · E 8.1s · F 4.3s + generation), and a GENERIC goal planned by the model (7 validated steps).
+
+**Not built (§45):** autonomous close, automatic reconciliation approval, close certification, ERP write-back, mapping changes,
+unattended external communication, broad background monitoring, the Excel add-in. Also not built: a multi-process job queue
+(runs advance in the server process), a UI to browse past runs (the API lists them), CLARIFICATION checkpoints raised by the
+runtime (ambiguous vendors return "not a goal" today).
+
+## 2026-09-18 — SLOANE: conversation precedes capability resolution
+
+Owner's brief after a live regression: typing "hello" into Sloane answered "Sloane doesn’t have a governed Korvyn
+capability for that yet." **Conversation is open, financial truth is governed, actions are controlled.**
+
+**Two causes, one on each side.**
+- **Browser (`index.html`, `slEnter`).** Typing runs an object search under the input; with no object match its only row
+  is "Ask Sloane: What is hello?", and Enter picked that row — so the server received "What is hello?", never "hello".
+  Enter now sends the typed words verbatim; a search row opens only when the person chose it (arrow keys / pointer,
+  `SL_PICKED`), the words exactly name the object, or the words are a navigation command. The only local shortcuts left are
+  back / home / clear / new.
+- **Server (`orchestrator.ts`).** The interpretation had no "no tool" outcome, so every turn ended in a tool plan (a forced
+  financial summary) or, with no plan, in `capabilityFallback()` and three static suggestions.
+
+**The front door.** Every free-text turn that is not an explicit follow-up or deliverable command goes first to
+`adapter.converse` (Sonnet, FAST route; `CONVERSE_SYSTEM`, `CONVERSATION_SCHEMA`): `conversationIntent` (GENERAL_CONVERSATION ·
+CONTEXTUAL_CONVERSATION · FINANCIAL_QUESTION · FOLLOW_UP · CLARIFICATION_RESPONSE · ANALYSIS_REQUEST · ACTION_REQUEST ·
+NAVIGATION_COMMAND · UNSUPPORTED_OPERATION · UNCLEAR), `requiresTool`, `reply`, `unsupportedOperation`. It runs in PARALLEL
+with interpretation, so a financial question pays no extra latency. `requiresTool=false` → a `TurnResponse.reply` with no
+tool, plan or FinancialObject (route CONVERSATION); the browser renders it as plain text (`.s2-conv`). The model is given a
+compact context (page reported by the browser — `view`, display only — period, scope, investigation, active run, the last
+answer's titles and stated figures). **A reply may repeat a figure only if that context states it**; otherwise the turn goes
+to governed tools. Mock mode / provider down: `conversationalShortcut()` answers ordinary conversation deterministically.
+
+**Capability gap is no longer the default.** It is said only when the operation is understood (the model's
+UNSUPPORTED_OPERATION / ACTION_REQUEST, or an explicit request about a workbook such as "email this package"), needs
+execution, and nothing registered performs it. No plan for an unclear request → "Can you tell me a little more about what
+you want to do?". Every turn logs `[sloane:route] input intent requiresTool route model tool fallback`, and the trace carries
+`conversation`.
+
+**Verified in the browser, typed into Sloane** (live Sonnet): hello · need your help · thanks · what can you do? · what am I
+looking at? (with and without an object) answered with no tool; June financials and "why did CIP increase?" ran governed
+tools; "email this package to the auditor" → specific gap. 108 tests, dry run 33/33 (including a live-shaped "hello"), 4/4 gates.
+
+**The agent-runtime hardening brief that this interrupted was finished afterwards** — see the next block.
+
+## 2026-09-18 — SLOANE AGENT RUNTIME: clarification checkpoints and durable steering
+
+Owner's brief. **An ambiguous goal waits for the person; a short instruction changes the run, durably.**
+
+**Clarification.** `agent/ambiguity.ts` resolves every goal's words against governed catalogues — vendor MASTER
+(`GovernedLedger.vendorMaster()`; `VENDOR_MASTER_ONLY` adds Siemens AG and Siemens Mobility with no activity, so no total
+moves), projects, scopes, the chart (intercompany / payables / receivables), the tenant calendar (`TENANT_CALENDAR`,
+`SLOANE_RELATIVE_PERIODS` = ASK_WHEN_OPEN · LAST_COMPLETED · CURRENT), PBC requests and saved workbooks. Customer, fund,
+planning version, scenario, currency and lens have no governed alternative on this server and produce a NOTICE, never a
+guess. A goal with an ambiguous material field is still a goal (`goal.pending`): the run is created, a CLARIFICATION
+checkpoint (question, field, term, candidates with canonical ids, reason, createdAt; on answer: response, resolvedValue,
+resolvedAt) is opened, status WAITING_FOR_USER, and nothing runs. `AgentRuntime.decide(cp, candidateId)` or a typed answer
+(`answer()`, `matchAnswer()` — exact, contained, or "the second one") resolves the field, updates the conversation's
+FinancialContext (`orchestrator.agentContext`), asks the next pending question or plans, and resumes the SAME run.
+
+**Steering** (`agent/steering.ts` `classifySteering` → `AgentRuntime.steer`): SCOPE_CHANGE · PERIOD_CHANGE · FILTER_CHANGE
+(threshold or vendor) · PRIORITY_CHANGE · EXCLUSION · OUTPUT_CHANGE · ACTION_CONSTRAINT · PAUSE · RESUME · CANCEL. A value
+named ambiguously ("Only DC1") opens a clarification tied to the instruction (`steerType`) and nothing changes until it is
+answered. Every instruction is a `UserSteeringEvent` on the run (instruction, type, actor, time, context before and after,
+tasks invalidated and added, plan revision, effect), an `AGENT_RUN_STEERED` audit event and an investigation event.
+
+**Safe replan** (`replanFor`): only tasks the change touches are invalidated (scope → scope-sensitive tasks; period → tasks
+with period arguments; threshold → tasks that accept one), plus the tasks that consume them; what they expanded into is
+dropped and its open drafts withdrawn; a confirmation gathering them is superseded; a non-blocking notice from a replaced
+step is superseded; VERIFY and SUMMARIZE re-run; a new plan revision records it. Completed work that the change does not
+touch is kept. A null patch removes an argument (scope widened, threshold removed). The step budget grows by exactly the
+steps a person-initiated revision adds (logged). Constraints are part of `profileGate`, so no replan can re-introduce what
+the person ruled out; lifting "no comments" re-expands the completed steps and reopens a confirmation.
+
+**Precedence in the conversation** (`orchestrator.agentTurn`): an answer to the run's open question → a new GOAL (a new
+run: "Review last quarter." never steers the vendor review on screen) → steering of the conversation's run → ordinary turn.
+The run is found through the durable store (`activeFor`), so a refresh, navigation or server restart does not lose it; a
+run re-attaches its conversation session to its investigation before each step.
+
+**Browser**: the conversation id lives in `sessionStorage` for the tab (`s2Sid`, `s2ResetSid` on New); `p7Restore()` shows a
+waiting run again after a refresh; the run card renders a clarification with one button per candidate and each candidate's
+detail; while a question is open, Enter sends the words as the answer, never as a search result.
+
+**Verified live in the browser** (one AgentRun throughout): "Review Siemens FY26 activity." → "Which Siemens vendor do you
+mean?" [Siemens Energy] [Siemens AG] [Siemens Mobility] → refresh (same run, same question restored) → answered by button and
+by typing → "Only South Valley." (5 steps re-run, By project kept) → "Ignore anything under $500K." → "Focus on CIP first." →
+"Don't create comments yet." — revisions v2–v4, four steering events. "Review last quarter." asked Q1/Q2 and resumed on Q1;
+"Get June close ready for controller review." + "Don't create comments yet." withdrew five unconfirmed drafts, superseded the
+confirmation and completed the analysis. Siemens Energy has no South Valley activity in this book, and the run says so.
+Tests: `steering.test.ts` (8) · 116 Sloane · dry run 33/33 · core 78 · 4/4 gates.
+
+## 2026-09-19 — SLOANE PHASE 8A: the enterprise financial semantic layer and the Financial Graph
+
+Owner's brief. Sloane now has a structured model of what Korvyn holds and how it relates. Claude reasons
+over those relationships; Korvyn stays authoritative for facts and figures. No UI change, no Excel add-in, no
+charts, no separate financial database, no graph database. The Dynamic Financial Canvas has not been started.
+
+**Files** (`packages/agent/src/sloane/semantic/`):
+
+| File | Role |
+|---|---|
+| `model.ts` | 60 canonical `SemanticType`s, 44 `RELATIONS`, the id prefixes (`entity:MDH`, `account:15000`, `fsline:FS-CIP`, `recon:REC-MDH-15000`, `flux:FLUX-15000-2026-06`, `person:user:lchen`, `project:SV-PH2`, `period:2026-06` …) |
+| `graph.ts` | `FinancialGraph`: builds the graph for a period from the owning services, filters it per actor, and answers queries (§14 and §18) |
+| `time.ts` | `resolvePeriods` over `TENANT_CALENDAR.fiscalYearStartMonth` and the governed months; `fiscalFrame` |
+| `context.ts` | `EnterpriseFinancialContext` and `ContextAssembler` (the model's neighbourhood) |
+| `tools.ts` | 15 READ tools (domain `semantic`), `semanticPlan` (routing for §18), `bareObjectPlan` |
+
+**The graph is not a store.** Every node is read from the service that owns it: the governed ledger, `ControlService`,
+the work store, `PEOPLE` and `DEV_DIRECTORY`, the reporting book's statement lines, `SOURCE_HEALTH` and the tenant
+calendar. Each node names that service in `source`. No amount is computed here; an attribute that is a figure is copied
+from the service that derived it. The build is 404 nodes and 1,148 edges in about 60 ms, cached 4 s per (period, ledger
+data version). Reconciliations are read with `reconcile()`, never `reconBalance()`, because the latter writes a snapshot.
+Constants the services already enforce are exported and cited rather than restated: `TIE_TOLERANCE_USD`,
+`FLUX_MATERIALITY` (now used by `fluxItems` itself), `APPROVAL_THRESHOLD_USD`, `PROJECT_ALIAS`, `ENTITY_WORDS`.
+
+**Permissions are structural** (`FinancialGraph.visibleTo`, `snapshot(actor)`):
+- Each type needs a capability (Flux types FLUX_VIEW, reconciliations RECON_VIEW, close CLOSE_VIEW, audit AUDIT_VIEW,
+  reports REPORT_VIEW, GL objects GL_VIEW).
+- Each object is checked against its entity. An object that spans several entities (project, vendor, cost centre,
+  region) is visible where any of them is. GROUP-scoped objects need unrestricted access.
+- A scoped actor sees people, source systems and roles only when they are linked to something the actor can see.
+- An edge to a hidden node is dropped with the node.
+- Not-found reads identically for "hidden" and "does not exist" (asserted).
+- The MDH accountant sees 176 of 404 objects. The auditor sees no Flux or close objects.
+
+**Resolution** (`resolve`):
+- `RESOLVED`, `AMBIGUOUS` (candidates, each with what distinguishes it), `NOT_FOUND`, or `MULTIPLE` ("budget vs actual"
+  names two objects, which is not a choice between them).
+- Mentions are matched longest-first. A statement line and the account it is mapped from collapse into one concept,
+  keeping the account.
+- A type word ("… reconciliation", "… report") narrows the search. An entity named alongside it picks that entity's
+  object ("the intercompany receivable reconciliation for MDH").
+- Period words go to the calendar, never to text search.
+- People: initial forms ("L. Chen", "J. Park") map only when unique across the directories. A job title ("Controller")
+  is a Role, and an owner resolved through it says so ("held by Mitra Giri"). A workflow name outside every directory
+  ("K. Weber") is a person node flagged `inIdentityDirectory:false`, and the answer says their authority can't be checked.
+
+**§7 — A PROJECT IS NEVER A SCOPE.** Found live: the model read "SV-PH2 BELONGS_TO MDH" in the neighbourhood and
+returned MDH, correctly named, as the scope of "Show the TB for South Valley". The engine accepted it as EXPLICIT, and
+the next question was answered for MDH alone. `FinancialContextEngine.resolve(I, c, request)` now accepts a NEW scope
+only when `scopeNamedBy(...)` confirms that both the model's label and the user's own words name it. A refused change
+becomes a plain note ("SV-PH2 is a project, not a legal entity, so the scope stays …"). A scoped user's own scope is not
+a change, so no note appears. The prompt says the same. The engine is the guarantee; the prompt is not.
+
+**Time** (§8): June · Jun-26 · current month · last month · quarter · last quarter · YTD · FY26 (PARTIAL, Jan–Jun of
+Jan–Dec) · FY27 / prior year (NOT_GOVERNED) · prior forecast (PLANNING, not held) · close period. "Last quarter" follows
+the tenant policy (ASK_WHEN_OPEN asks while June closes Q2). A year is 4 digits or 2 after a hyphen or apostrophe, never
+"June 30". A month word must be a prefix of the month's name ("decide" and "market" are not months).
+
+**The ContextAssembler** (§15) attaches `semantic` to the model context through `SloaneOrchestrator.modelContext`
+(interpret, plan, agent plan) and a short form in `conversationContext` (converse). It carries the user, the fiscal
+frame, scope with its hierarchy path, lens, focus with its workflow people, and a neighbourhood: named and focused
+objects plus one hop, capped at 24 objects and 40 relations, identities and non-figure attributes only. Typical size is
+2–5 KB. `SEMANTIC_RULE` in `prompts.ts` tells the model it is a map, not a source of figures.
+
+**Routing.** `semanticPlan` runs in `deterministicPlan` after PBC and deliverables. `bareObjectPlan` is the last resort
+before an empty plan, so a bare name ("South Valley", "close", "June") is resolved instead of asking the user to
+rephrase. A period or scope clarification is skipped when the semantic route has claimed the request; the tools state
+the period they read, and "which period?" is moot for a subject that has no trial balance.
+
+**Tools:** resolveFinancialObject · getObjectRelationships · getResponsibleUsers · getObjectTracePath ·
+getOpenReconciliationsByEntity · getPendingReviews · getOpenWorkForPerson · getMaterialFluxWithoutSupport ·
+getReportsUsingObject · getReconciliationForBalance · getLargestUnresolvedCloseIssue · getSubjectTrialBalance
+(a project, property, cost centre or vendor has no trial balance; the tool says so and gives its dimension-filtered
+account-group balances, stating they do not balance) · getPlanningComparison · getEntityHierarchy · resolveFinancialPeriod.
+
+**Verified:** `npm run sloane:test` 130/130 (`semantic.test.ts`, 14 tests covering §2, §7, §8, §15, §16, §17, §18, §19
+and §20) · dry run 33/33 · core 78/78 · 4/4 gates. Live on claude-opus-5 (`sloane-serve`):
+- All seven §18 questions answered with grounded narratives.
+- A multi-clause question was planned DEEP across `getResponsibleUsers` and `getReconciliationsForAccount`.
+- As the MDH accountant: one entity, the Flux review stated as outside their access, "What is the REIT?" asked back
+  with nothing leaked.
+
+**Known gaps:**
+- Teams, funds, customers, departments, business units, drivers and assumptions are declared types with no governed
+  instances.
+- Budget, forecast and scenario are declared ungoverned.
+- Regions are derived from country codes.
+- The project → property link comes from the project's alias.
+- Transactions are resolved on demand, not held as graph nodes.
+- Seven of the nine material June flux items have no reviewer assigned. The largest close issue therefore has no owner,
+  and the answer says so.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
