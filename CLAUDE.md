@@ -10367,6 +10367,38 @@ cannot cross from one analysis to a different one (history is per analysis).
 **Traps:** the `\b`-becomes-backspace trap hit again in a Python splice (a non-raw string), and the shell ate a
 backslash in a `sed` replacement. Grep for `\x08` after every splice.
 
+## 2026-09-19 — Sloane's avatar: one component, two visual modes
+
+Owner's direction, over several passes ("not premium", "too big", "the red top doesn't blend", then a full brief).
+Visual refinement only: no routing, conversation or API logic changed.
+
+**The asset.** A portrait cropped from `design-system/Sloane.jpeg`: the whole head with a margin of the grey fabric
+behind it and no red top (`design-system/sloane-avatar.png`, 160px; embedded as the `#slFace` symbol, a 6.7KB JPEG).
+The face filling the circle read as too big; the red top did not sit with the palette.
+
+**The component** is `slAvatar({size, state, showStatus, cls})` in the Sloane block of `index.html`. It is the only way
+the face is drawn; the two static placements (top bar, panel header) carry the same classes.
+- **Sizes** `sa-xs` 24 · `sa-sm` 32 · `sa-md` 40 · `sa-lg` 48 · `sa-xl` 64. Enterprise surfaces use sm/md; xl is only for
+  onboarding or an empty state. Never an ad-hoc width.
+- **The halo:** a 2px gap in the colour of the surface (`--av-gap`), a 1px ring between the accent and `--ai`, and a
+  very soft indigo glow. The glow is an owner-directed exception to rule 5 for this one identity element.
+- **State** is `data-state` (default · thinking · working · complete · attention); only the ring and glow respond.
+  `body.sl-busy` (set by `slBusy()`, the one writer of `S2_BUSY`) makes every avatar read as working while Sloane answers.
+- **`showStatus`** adds a green presence dot; nothing uses it yet, and it should appear only where presence means something.
+
+**Two visual modes.** IDENTITY: the global navigation (28px with a 1px gap and 1px ring, the size of the user's own
+avatar, in the ribbon's unchanged 32px button; the ring brightens on hover) and the workspace header (sm, 32px, about
+38px with its halo, vertically centred with the title; md read as too big beside a 17px title).
+**The panel header and a reply's byline name Sloane in words only** (owner: "too many heads"). The panel opens
+under the top-bar avatar, so a face there too was the second and third head on screen. At most two faces are ever
+visible: the top bar and the full-screen workspace header. INTELLIGENCE: analysis, tables,
+reconciliations, flux, reports, audit. No avatar appears there; the output carries Sloane's voice. **Do not add the
+avatar to toolbars, cards or individual messages.**
+
+**Ask Sloane.** Every input shows the spark (`KI_SPARK` / `.sl-inspark`), not the face, and reads "Ask Sloane
+anything…" (a session keeps "Ask a follow-up…"). Focus is a soft accent glow. The cut-out head (`#slHead`, `SLP_ORBIT`)
+is no longer used.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
