@@ -1,10 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Route, SloaneConfig } from './config.js';
-import { CONVERSE_SYSTEM, INTERPRET_SYSTEM, NARRATE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
+import { ANALYSIS_EDIT_SYSTEM, CONVERSE_SYSTEM, INTERPRET_SYSTEM, NARRATE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
 import {
   INTERPRETATION_SCHEMA, NARRATIVE_SCHEMA, planSchema, structuredOutputProblems,
   validateInterpretation, validateNarrative, validatePlan,
-  type Interpretation, type Narrative, type Plan, type Result, CONVERSATION_SCHEMA, type Conversation, validateConversation } from './schema.js';
+  type Interpretation, type Narrative, type Plan, type Result, CONVERSATION_SCHEMA, type Conversation, validateConversation, ANALYSIS_EDIT_SCHEMA, validateAnalysisEdit } from './schema.js';
+import type { AnalysisEdit } from './analysis/model.js';
 
 /**
  * THE PROVIDER-NEUTRAL CONTRACT. Korvyn's orchestrator speaks only this shape; a provider is an
@@ -27,6 +28,8 @@ export interface CallOptions { route?: Route; signal?: AbortSignal }
 export interface InterpretInput { request: string; context: unknown; candidates: unknown; workingPeriod: string; availablePeriods: string[] }
 export interface PlanInput { request: string; interpretation: Interpretation; context: unknown; tools: { id: string; description: string; requiredInputs: string[]; optionalInputs: string[]; outputs?: string }[]; maxSteps: number }
 export interface ConverseInput { request: string; context: unknown }
+/** Phase 8C: an edit to the governed analysis on screen (or a new one); Korvyn re-resolves and re-validates every op */
+export interface AnalysisEditInput { request: string; analysis: unknown; dimensions: unknown; measures: unknown; periods: string[]; workingPeriod: string; visibleRows: unknown }
 export interface NarrateInput { request: string; objects: { objectId: string; type: string; title: string; facts: { key: string; label: string; display: string }[] }[] }
 
 export interface SloaneLLMAdapter {
@@ -37,6 +40,7 @@ export interface SloaneLLMAdapter {
   narrate(i: NarrateInput, o?: CallOptions): Promise<AdapterOutcome<Narrative>>;
   /** the conversational front door: classify the turn and, when no tool is needed, answer it */
   converse(i: ConverseInput, o?: CallOptions): Promise<AdapterOutcome<Conversation>>;
+  analysisEdit(i: AnalysisEditInput, o?: CallOptions): Promise<AdapterOutcome<AnalysisEdit>>;
 }
 
 /** Offline / test / demo mode: every call declines, so Korvyn's deterministic engine answers. */
@@ -47,6 +51,7 @@ export class MockLLMAdapter implements SloaneLLMAdapter {
   async plan(): Promise<AdapterOutcome<Plan>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async narrate(): Promise<AdapterOutcome<Narrative>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async converse(): Promise<AdapterOutcome<Conversation>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
+  async analysisEdit(): Promise<AdapterOutcome<AnalysisEdit>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
 }
 
 /**
@@ -119,6 +124,7 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
     return this.call(PLAN_SYSTEM, i, planSchema(ids), (v) => validatePlan(v, ids, i.maxSteps), o);
   }
   converse(i: ConverseInput, o?: CallOptions) { return this.call(CONVERSE_SYSTEM, i, CONVERSATION_SCHEMA, validateConversation, o); }
+  analysisEdit(i: AnalysisEditInput, o?: CallOptions) { return this.call(ANALYSIS_EDIT_SYSTEM, i, ANALYSIS_EDIT_SCHEMA, validateAnalysisEdit, o); }
   narrate(i: NarrateInput, o?: CallOptions) {
     const ids = i.objects.map((x) => x.objectId), keys = i.objects.flatMap((x) => x.facts.map((f) => f.key));
     return this.call(NARRATE_SYSTEM, i, NARRATIVE_SCHEMA, (v) => validateNarrative(v, ids, keys), o);

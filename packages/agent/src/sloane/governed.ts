@@ -282,10 +282,17 @@ export class GovernedLedger {
     let v = 0;
     for (const l of this.lines) {
       if (!accts.has(l.account) || (visible !== 'ALL' && !visible.has(l.entity)) || (entities?.length && !entities.includes(l.entity))) continue;
-      if (l.section === 'INCOME_STATEMENT') { if (l.period === period) v += l.usd; }
-      else if (l.period <= period) v += l.local * (FX_CLOSING_SET.toUsd[l.currency]?.[period] ?? NaN);
+      v += this.contribution(l, period, 'ENDING');
     }
     return v;
+  }
+  /** THE balance semantic, in one place: what a line contributes to a reported amount at a period. ENDING is a
+   *  balance-sheet balance (every line through the period, at the period's closing rate) or an income-statement
+   *  period amount (the period's lines at the average rate); ACTIVITY is the period's lines at the average rate.
+   *  `balanceUsd` and the analysis query service both read this, so a grid cell and a statement line cannot disagree. */
+  contribution(l: GLine, period: string, kind: 'ENDING' | 'ACTIVITY'): number {
+    if (kind === 'ACTIVITY' || l.section === 'INCOME_STATEMENT') return l.period === period ? l.usd : 0;
+    return l.period <= period ? l.local * (FX_CLOSING_SET.toUsd[l.currency]?.[period] ?? NaN) : 0;
   }
   /** Presented sign: assets/expenses debit-positive, liabilities/equity/revenue credit-positive. */
   presented(code: string, v: number) { const t = this.account(code)?.type; return t === 'LIABILITY' || t === 'EQUITY' || t === 'REVENUE' ? -v : v; }

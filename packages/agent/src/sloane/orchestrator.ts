@@ -47,6 +47,11 @@ import { workbookObject } from './actiontools.js';
 import { AgentRuntime } from './agent/runtime.js';
 import { ENTITY_WORDS, PROJECT_ALIAS, type ConvDeps, type ConvState, type FastPath, type TurnKind, afterAnswer, beginTurn, capabilityFallback, capabilityGap, contextView, conv, conversationalShortcut, initialConv, interp, investigationTitle, onNewObject, resolveConversational } from './conversation.js';
 import type { Conversation } from './schema.js';
+import { UniversalIntentResolver } from './canvas/intent.js';
+import { CanvasEngine, type CanvasState, canvasObject } from './canvas/canvas.js';
+import { AnalysisEngine, type AnalysisSession } from './analysis/engine.js';
+import { fromModel, looksAnalytical, parseAnalysis } from './analysis/edit.js';
+import { DIMENSIONS, MEASURES } from './analysis/model.js';
 
 /* ================================================================================================
    LIMITS
@@ -77,6 +82,10 @@ export interface SessionContext {
   lastObjects: { id: string; type: string; title: string }[];
   /** Phase 6: the conversation — subject, view, last analysis, items shown, active artifact / PBC / proposal */
   conv?: ConvState;
+  /** Phase 8B: the Dynamic Financial Canvas on screen — intent, filters, focus, drill; the next short instruction refines it */
+  canvas?: CanvasState | null;
+  /** Phase 8C: the governed analysis on screen and its active referents (row, cell, population, member) */
+  analysis?: AnalysisSession | null;
 }
 export const reliable = (s: Source) => s === 'EXPLICIT' || s === 'INHERITED' || s === 'DERIVED';
 const STATEMENTS = ['INCOME_STATEMENT', 'BALANCE_SHEET', 'FINANCIAL_STATEMENT', 'TRIAL_BALANCE'];
@@ -734,9 +743,11 @@ export interface SloaneExecutionTrace {
   proposals: { id: string; type: string; riskLevel: string; status: string; validationStatus: string; target: string | null; errors: string[]; warnings: string[]; dependsOn: string[] }[];
   /** Phase 6: which path answered — a capability SHORTCUT, the conversation (FOLLOW_UP), a DELIVERABLE route, the FAST
    *  model with Korvyn's planner, or the DEEP planner — the rule that decided it, what kind of turn it was, and where the time went */
-  route: 'SHORTCUT' | 'FOLLOW_UP' | 'DELIVERABLE' | 'FAST' | 'DEEP' | 'CLARIFICATION' | 'AGENT' | 'CONVERSATION' | 'CAPABILITY_GAP' | null;
+  route: 'SHORTCUT' | 'FOLLOW_UP' | 'DELIVERABLE' | 'FAST' | 'DEEP' | 'CLARIFICATION' | 'AGENT' | 'CONVERSATION' | 'CAPABILITY_GAP' | 'CANVAS' | 'ANALYSIS' | null;
   /** the conversational front door's decision (development observability) */
   conversation: { input: string; conversationIntent: string | null; requiresTool: boolean | null; selectedRoute: string; selectedModel: string | null; selectedTool: string | null; fallbackReason: string | null } | null; shortcut: string | null; kind: TurnKind | null;
+  /** Phase 8B: the IntentDefinition a canvas turn resolved */
+  intent?: unknown;
   timings: { firstStatusMs: number | null; interpretMs: number; planMs: number; toolsMs: number; firstObjectMs: number | null; narrateMs: number };
 }
 
@@ -749,7 +760,16 @@ export interface TurnEvent { type: 'status' | 'object'; text?: string; response?
 export interface TurnHooks { emit?: (e: TurnEvent) => void; signal?: AbortSignal }
 /** objects that ARE their own answer (a workbook preview, a PBC workspace): no narrative call is spent on them */
 const STRUCTURAL = new Set(['ExcelWorkbookPreview', 'PBCRequest', 'PBCSupportGaps', 'AgentRun']);
-export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown; /** the page the browser has open — display context only, never a financial fact */ view?: unknown }
+export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown; /** the page the browser has open — display context only, never a financial fact */ view?: unknown;
+  /** Phase 8C: what the person pointed at — canonical ids only (a canvas row ref, a grid row or cell id), never a label */
+  focus?: unknown }
+export interface TurnFocus { ref?: string; rowId?: string; cellId?: string; analysisId?: string }
+const focusOf = (f: unknown): TurnFocus | null => {
+  if (!f || typeof f !== 'object') return null;
+  const o = f as Record<string, unknown>, out: TurnFocus = {};
+  for (const k of ['ref', 'rowId', 'cellId', 'analysisId'] as const) if (typeof o[k] === 'string' && (o[k] as string).length <= 600) out[k] = o[k] as string;
+  return Object.keys(out).length ? out : null;
+};
 export interface TurnResponse {
   sessionId: string; traceId: string; state: TurnState; mode: 'reasoning' | 'deterministic'; latencyMs: number;
   notes: string[];
@@ -1003,6 +1023,16 @@ export class SloaneOrchestrator {
         }
         session.lastRunId = null;
         beginTurn(session.ctx, request);
+        /* Phase 8B: a short request opens a financial context as a canvas; a short instruction refines the canvas on screen */
+        const focus = focusOf(input.focus);
+        const an = await this.analysisTurn(session, sessionId, actor, request, tr, status, focus, ac.signal);
+        if (cancelled()) return cancel();
+        if (an) { kind = an.kind; an.notes.forEach(note); suggestions = an.suggestions; return finish(an.state, { ...an.extra }); }
+        const cvs = this.canvasTurn(session, sessionId, actor, request, tr, status, focus);
+        if (cvs) {
+          kind = cvs.kind; cvs.notes.forEach(note); suggestions = cvs.suggestions;
+          return finish(cvs.state, { ...cvs.extra });
+        }
         const deps: ConvDeps = { gl: this.gl, data: this.data, controls: this.controls, visible: visibleOf(actor) };
         const lower = request.toLowerCase();
         const deliver = () => pbcPlan(request, session!.ctx) ?? artifactPlan(request, session!.ctx);
@@ -1398,6 +1428,178 @@ export class SloaneOrchestrator {
       return finish('ERROR', { notes: ['Sloane could not complete this request.'] });
     }
   }
+
+  /* ================================================================================================
+     PHASE 8B — THE DYNAMIC FINANCIAL CANVAS. The UniversalIntentResolver reads a short request into an IntentDefinition;
+     the CanvasEngine composes sections from governed READ tools (each authorised exactly as a planned step), and the
+     canvas state is kept on the conversation's context so the next short instruction refines it. Every call is traced;
+     the investigation records the step like any other.
+     ================================================================================================ */
+  /* ================================================================================================
+     PHASE 8C — THE GOVERNED ANALYSIS. Words become ops (deterministic reader first; the model for looser analytical
+     language); the AnalysisEngine applies them to ONE AnalysisDefinition kept on the conversation; the query service
+     executes it server-side; drill, explain, Flux, reconciliation and support read the cell's governed population.
+     ================================================================================================ */
+  private async analysisTurn(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, status: (t: string) => void, focus: TurnFocus | null, signal: AbortSignal):
+    Promise<{ state: TurnState; kind: TurnKind; notes: string[]; suggestions: string[]; extra: Partial<TurnResponse> } | null> {
+    const ctx = session.ctx, v = conv(ctx);
+    const active = ctx.analysis && (v.lastKind === 'ANALYSIS' || !!focus?.analysisId) ? ctx.analysis : null;
+    /* what the person pointed at in the grid: canonical ids from the browser, checked against the analysis on screen */
+    if (active && focus?.analysisId === active.definition.id) {
+      if (focus.cellId) { active.referents.activeCellId = focus.cellId; active.referents.activeRowId = focus.cellId.split('§')[0]!; }
+      else if (focus.rowId) { active.referents.activeRowId = focus.rowId; active.referents.activeCellId = null; }
+    }
+    const graph = financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts });
+    const deps = { gl: this.gl, graph, actor, visible: visibleOf(actor), periods: this.data.governedPeriods(), workingPeriod: this.data.workingPeriod() };
+    let ops = parseAnalysis(request, active?.definition ?? null, deps);
+    let source: 'deterministic' | 'reasoning' = 'deterministic';
+    const notes: string[] = [];
+    if (!ops && this.mode === 'reasoning' && (active ? !/^(hi|hello|thanks|thank you)\b/i.test(request) && request.split(/\s+/).length <= 30 : looksAnalytical(request))) {
+      status('Reading the analysis request');
+      const q0 = active ? new AnalysisEngine({ ...deps, data: this.data, runTool: () => null }).q.run(active.definition, { limit: 40 }) : null;
+      const out = await this.adapter.analysisEdit({ request, analysis: active ? { name: active.definition.name, type: active.definition.analysisType, rows: active.definition.rows, columns: active.definition.columns, measures: active.definition.measures, periods: active.definition.periods, primaryPeriod: active.definition.primaryPeriod, filters: active.definition.filters.map((f) => ({ dimension: f.dimension, op: f.op, labels: f.labels })), statement: active.definition.statement } : null,
+        dimensions: DIMENSIONS.map((d) => ({ id: d.id, label: d.label, governed: d.governed })), measures: MEASURES.map((m) => m.id), periods: deps.periods, workingPeriod: deps.workingPeriod,
+        visibleRows: q0 ? q0.rows.filter((r) => r.kind !== 'section').slice(0, 30).map((r) => ({ id: r.id, label: r.label })) : [] }, { route: 'FAST', signal });
+      this.recordCall(tr, 'analysisEdit', out as never);
+      if (out.status === 'ok' && out.value.confidence >= 0.5) {
+        const m = fromModel(out.value, active?.definition ?? null, deps);
+        if (m.ops.length) { ops = m.ops; source = 'reasoning'; }
+        if (out.value.unsupported) notes.push(`Not available: ${out.value.unsupported}.`);
+        m.rejected.forEach((x) => tr.fallbacks.push(`analysis edit rejected: ${x}`));
+      } else tr.fallbacks.push(`analysis edit: ${out.status === 'ok' ? `low confidence ${out.value.confidence}` : out.status}`);
+    }
+    if (!ops || !ops.length) return null;
+    if (!ops.every((o) => o.op === 'NOTE') && !active && ops[0]!.op !== 'NEW') return null;
+    if (ops.every((o) => o.op === 'NOTE')) { tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ops.map((o) => (o as { text: string }).text), suggestions: [], extra: {} }; }
+    tr.route = 'ANALYSIS'; tr.interpretationSource = source;
+    tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: null, selectedTool: null, fallbackReason: null };
+    tr.shortcut = `analysis: ${ops.map((o) => o.op).join(', ')}`;
+    status(active ? 'Updating the analysis' : 'Building the analysis');
+    const runTool = (tool: string, args: ToolArgs): FinancialObject | null => {
+      const t = toolRegistry.get(tool);
+      if (!t || t.risk !== 'READ') return null;
+      const g = authorize(actor, t, args), st = Date.now();
+      if (!g.ok) { tr.toolsExecuted.push({ tool, args, status: 'REFUSED', objectId: null, latencyMs: 0, warnings: [], error: g.reason, result: null }); return null; }
+      try { const r = t.run(args, { data: this.data, gl: this.gl, controls: this.controls, actor, visible: visibleOf(actor), objectId: `AN-${tr.toolsExecuted.length + 1}` });
+        tr.toolsExecuted.push({ tool, args, status: 'COMPLETED', objectId: r.object.id, latencyMs: Date.now() - st, warnings: r.warnings, error: null, result: { type: r.object.type, status: r.object.status, facts: r.object.facts.length, populationId: r.object.population?.populationId ?? null, rows: r.object.table.rows.length } });
+        return r.object; }
+      catch (e) { tr.toolsExecuted.push({ tool, args, status: 'FAILED', objectId: null, latencyMs: Date.now() - st, warnings: [], error: redact((e as Error).message), result: null }); return null; }
+    };
+    const engine = new AnalysisEngine({ gl: this.gl, data: this.data, actor, visible: visibleOf(actor), runTool });
+    const t0 = Date.now();
+    let out;
+    try { out = engine.apply(active, ops); } catch (e) { tr.errors.push(redact((e as Error).message)); return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ['Sloane could not apply that to the analysis.'], suggestions: [], extra: {} }; }
+    tr.timings.toolsMs = Date.now() - t0;
+    tr.toolsExecuted.push({ tool: 'FinancialAnalysisQueryService.run', args: { analysisId: out.session.definition.id, version: String(out.session.definition.version) }, status: 'COMPLETED', objectId: out.result.queryId, latencyMs: Date.now() - t0, warnings: [], error: null, result: { type: 'AnalysisResult', status: 'AVAILABLE', facts: 0, populationId: out.session.referents.activePopulationId, rows: out.result.rowCount } });
+    notes.push(...out.notes);
+    const def = out.session.definition;
+    /* SAVE is a write: it is a proposal the person confirms, like every other Korvyn write from Sloane */
+    let proposal: ActionProposal | null = null;
+    if (out.save) proposal = this.actions.propose({ sessionId, planId: `PLAN-${randomUUID().slice(0, 8)}`, type: 'SAVE_ANALYSIS', actor, traceId: tr.traceId, investigationId: session.investigation.id || null,
+      payload: { name: out.save.name, definition: out.save.definition as unknown as Record<string, unknown>, summary: [{ label: 'Analysis', value: `${def.name} · v${def.version}` }, { label: 'Rows · columns', value: `${def.rows.map((r) => r.dimension).join(' → ')} · ${def.columns.map((c) => c.dimension).join(', ') || 'period'}` }, { label: 'Periods', value: def.periods.map(periodLabel).join(', ') }, { label: 'Book', value: `${def.book.accountingBookId} · ${def.book.accountingBasis} · ${def.book.currency}` }] }, sourcePopulationIds: def.populationIds });
+    const primaryRows = out.result.rows.filter((r) => r.kind !== 'section');
+    const obj: FinancialObject = {
+      id: `ANALYSIS-${def.id}-v${def.version}`, type: 'FinancialAnalysis', title: def.name, status: 'AVAILABLE',
+      scope: { id: def.scope, name: this.data.scope(def.scope)?.name ?? def.scope }, periods: def.periods, periodLabel: def.periods.map(periodLabel).join(', '), currency: def.book.currency, basis: def.book.accountingBasis, unit: 'USD',
+      table: { columns: out.result.columns.map((c) => c.label), rows: primaryRows.slice(0, 50).map((r) => ({ label: r.label, level: r.level, kind: r.kind === 'total' ? 'total' : r.kind === 'group' ? 'subtotal' : 'line', cells: r.cells.map((c) => c.display), ref: r.id })) },
+      facts: [], provenance: { source: 'FinancialAnalysisQueryService over the governed ledger', snapshotId: out.result.dataVersion, journalLines: out.result.lineCount, fxRateSetId: 'FXR-2026-CLS-REP-1 / FXR-2026-AVG-REP-1', eliminations: null, declaredInputs: [] },
+      population: null, refs: { analysisId: def.id, ...(out.session.referents.activePopulationId ? { populationId: out.session.referents.activePopulationId } : {}) },
+      focus: out.session.referents.activeRowId ? { kind: 'analysisRow', id: out.session.referents.activeRowId, name: out.result.rows.find((r) => r.id === out.session.referents.activeRowId)?.label ?? out.session.referents.activeRowId } : null,
+      unavailable: null, governed: true,
+      analysis: { definition: def, result: out.result, panel: out.panel, changes: out.changes, referents: out.session.referents, visualization: out.visualization, excel: out.excel, source, created: out.created } as unknown as Record<string, unknown>,
+    };
+    ctx.analysis = out.session;
+    session.ctx = this.context.commitShown(ctx, []);
+    session.ctx.analysis = out.session;
+    if (out.session.referents.activePopulationId) session.ctx.populationId = { value: out.session.referents.activePopulationId, source: 'DERIVED' };
+    afterAnswer(session.ctx, [], [obj], 'ANALYSIS', this.gl);
+    session.lastObjects = [obj, ...(out.panel?.objects ?? [])];
+    this.ensureInvestigation(session, actor, request);
+    const title = session.titled || !out.created ? null : def.name;
+    if (title) session.titled = true;
+    {
+      const invId = session.investigation.id;
+      WORK.repos.investigations.update(invId, actor.id, (o) => ({ ...(o as InvestigationBody), ...(title ? { title } : {}),
+        steps: [...o.steps, { at: new Date().toISOString(), request, traceId: tr.traceId, toolCalls: tr.toolsExecuted.filter((x) => x.status === 'COMPLETED' && !x.tool.includes('.')).map((x) => ({ tool: x.tool, args: x.args })), objectRefs: [`${tr.traceId}:${obj.id}`], narrative: out.changes, proposalIds: proposal ? [proposal.id] : [] }],
+        objectRefs: [...o.objectRefs, { ref: `${tr.traceId}:${obj.id}`, type: obj.type, title: obj.title, traceId: tr.traceId }],
+        populationRefs: [...new Set([...o.populationRefs, ...def.populationIds])],
+        context: { ...(this.context.forModel(session!.ctx) as Record<string, unknown>), analysis: def as unknown as Record<string, unknown>, referents: out.session.referents },
+        sessionIds: [...new Set([...o.sessionIds, sessionId])] }), { period: def.primaryPeriod, scope: def.scope });
+      WORK.repos.investigations.event(invId, { type: 'ANALYSIS', label: `Analysis: ${def.name} v${def.version}${out.changes.length ? ` — ${out.changes.join('; ')}` : ''}`, ref: obj.id, traceId: tr.traceId }, actor.id);
+    }
+    const objects = proposal ? [obj, { ...obj, id: `PROP-${proposal.id}`, type: 'ActionProposal', title: proposal.title, action: proposal, analysis: undefined, table: { columns: [], rows: [] } }] : [obj];
+    return { state: 'ANSWER', kind: 'ANALYSIS', notes, suggestions: [], extra: { objects, narrative: out.changes.length ? [{ text: `${out.changes.join('; ')}.`.replace(/^./, (c) => c.toUpperCase()), objectIds: [obj.id] }] : [], ...(proposal ? { actions: { planId: proposal.planId, proposals: [proposal] } } : {}), ...(title ? { title } : {}) } };
+  }
+
+  private readonly intents = new UniversalIntentResolver();
+  private canvasTurn(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, status: (t: string) => void, focus: TurnFocus | null = null):
+    { state: TurnState; kind: TurnKind; notes: string[]; suggestions: string[]; extra: Partial<TurnResponse> } | null {
+    const ctx = session.ctx, v = conv(ctx);
+    const active = ctx.canvas && v.lastKind === 'CANVAS' ? ctx.canvas : null;
+    const graph = financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts });
+    let I: ReturnType<UniversalIntentResolver['resolve']>;
+    try {
+      I = this.intents.resolve(request, { graph, actor, time: { periods: this.data.governedPeriods(), workingPeriod: this.data.workingPeriod() },
+        ctx: { period: ctx.period, scope: ctx.scope, currency: ctx.currency, basis: ctx.basis }, canvas: active ? { kind: active.kind, rows: active.rows } : null, focusRef: active && focus?.ref ? focus.ref : null, monthLabel: periodLabel });
+    } catch (e) { tr.fallbacks.push(`canvas: intent resolution failed — ${redact((e as Error).message)}`); return null; }
+    if (!I) return null;
+    tr.route = 'CANVAS'; tr.interpretationSource = 'deterministic';
+    tr.conversation = { input: request, conversationIntent: I.intentType, requiresTool: true, selectedRoute: 'CANVAS', selectedModel: null, selectedTool: null, fallbackReason: null };
+    tr.intent = I;
+    if (I.clarificationNeeded) {
+      const opts = I.clarificationNeeded.options.map((o) => ({ id: o.id, label: o.label }));
+      session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request, interpretation: interp(), field: 'object', options: opts, loops: 0, traceId: tr.traceId, requests: Object.fromEntries(I.clarificationNeeded.options.map((o) => [o.id, o.request])) };
+      tr.shortcut = `canvas: ${I.reason}`;
+      return { state: 'CLARIFICATION_REQUIRED', kind: 'CLARIFICATION', notes: [], suggestions: [], extra: { clarification: { pendingId: session.pending.id, field: 'object', question: I.clarificationNeeded.question, options: opts } } };
+    }
+    const engine = new CanvasEngine({ data: this.data, gl: this.gl, controls: this.controls, graph, actor, monthLabel: periodLabel });
+    const notes: string[] = [];
+    let state: CanvasState;
+    if (I.refinement && active) {
+      const r = engine.refine(active, I.refinement);
+      if (r.note) notes.push(r.note);
+      state = r.state; state.intent = { ...active.intent, refinement: I.refinement };
+      status(I.refinement.op === 'RELATED' ? `Opening the ${I.refinement.target.toLowerCase()} behind it` : I.refinement.op === 'FOCUS' ? 'Opening it' : 'Refining the canvas');
+    } else {
+      const statement = I.requestedView === 'BS' || I.requestedView === 'IS' ? I.requestedView : null;
+      state = { id: randomUUID().slice(0, 8), version: 1, kind: I.canvasKind!, intent: I, period: I.period.value, scope: I.scope.value, subject: I.subject,
+        filters: { statement, explanation: I.requestedView === 'UNEXPLAINED' ? 'UNEXPLAINED' : null, materialOnly: false, sort: null }, focus: null, drill: null, rows: [] };
+      status(`Assembling the ${I.canvasKind === 'OBJECT' ? I.subject?.label ?? 'object' : I.canvasKind!.toLowerCase()} canvas`);
+      /* a new context: the period it opens on becomes the conversation's when the words stated it */
+      if (I.period.source === 'EXPLICIT') ctx.period = { value: I.period.value, source: 'EXPLICIT' };
+    }
+    const t0 = Date.now();
+    const res = engine.compose(state);
+    tr.timings.toolsMs = Date.now() - t0;
+    for (const c of res.calls) tr.toolsExecuted.push({ tool: c.tool, args: c.args, status: c.status, objectId: c.objectId, latencyMs: c.latencyMs, warnings: c.warnings, error: c.error, result: null });
+    const def = res.definition;
+    const focusObj = def.sections.find((x) => x.sectionType === 'FOCUS')?.object ?? null;
+    const primary = focusObj ?? res.objects.find((o) => o.table.rows.some((r) => r.ref && res.state.rows.some((x) => x.ref === r.ref))) ?? null;
+    const obj = canvasObject(def, primary);
+    tr.objects = [{ id: obj.id, type: obj.type, title: obj.title, status: obj.status, facts: obj.facts.length }];
+    tr.shortcut = `canvas: ${I.reason}`;
+    /* the rows the canvas shows are what "the second one" means to the conversation too */
+    const shown = def.sections.filter((x) => x.object).map((x) => x.object!);
+    session.ctx = this.context.commitShown(ctx, primary ? [primary] : []);
+    session.ctx.canvas = res.state;
+    afterAnswer(session.ctx, res.calls.filter((c) => c.status === 'COMPLETED').map((c) => ({ tool: c.tool, args: c.args })), primary ? [primary] : shown.slice(0, 1), 'CANVAS', this.gl);
+    session.lastObjects = shown; session.lastToolCalls = res.calls.filter((c) => c.status === 'COMPLETED').map((c) => ({ tool: c.tool, args: c.args }));
+    this.ensureInvestigation(session, actor, request);
+    const title = session.titled ? null : def.title;
+    if (title) session.titled = true;
+    {
+      const invId = session.investigation.id, completed = res.calls.filter((c) => c.status === 'COMPLETED');
+      WORK.repos.investigations.update(invId, actor.id, (o) => ({ ...(o as InvestigationBody), ...(title ? { title } : {}),
+        steps: [...o.steps, { at: new Date().toISOString(), request, traceId: tr.traceId, toolCalls: completed.map((x) => ({ tool: x.tool, args: x.args })), objectRefs: [`${tr.traceId}:${obj.id}`], narrative: [def.subtitle], proposalIds: [] }],
+        objectRefs: [...o.objectRefs, { ref: `${tr.traceId}:${obj.id}`, type: obj.type, title: obj.title, traceId: tr.traceId }],
+        context: { ...(this.context.forModel(session!.ctx) as Record<string, unknown>), canvas: { id: res.state.id, version: res.state.version, kind: res.state.kind, filters: res.state.filters, focus: res.state.focus, drill: res.state.drill } },
+        sessionIds: [...new Set([...o.sessionIds, sessionId])] }), { period: session.ctx.period.value, scope: session.ctx.scope.value });
+      WORK.repos.investigations.snapshot({ investigationId: invId, traceId: tr.traceId, context: session.ctx }, actor.id);
+      WORK.repos.investigations.event(invId, { type: 'ANALYSIS', label: `Canvas: ${def.title}${res.state.drill ? ` · ${res.state.drill.label}` : ''}`, ref: obj.id, traceId: tr.traceId }, actor.id);
+    }
+    return { state: def.kind === 'PLANNING' || !def.sections.some((x) => x.object || x.metrics.length) ? 'UNAVAILABLE' : 'ANSWER', kind: 'CANVAS', notes, suggestions: [], extra: { objects: [obj], narrative: [], ...(title ? { title } : {}) } };
+  }
+
 
   /* ================================================================================================
      PHASE 7 — the governed step executor the AGENT RUNTIME uses. The runtime never executes anything itself: every task

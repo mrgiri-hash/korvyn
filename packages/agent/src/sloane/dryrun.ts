@@ -128,7 +128,7 @@ async function main(): Promise<void> {
 
   /* the server-side orchestrator, through the real adapter, against the strict fake endpoint */
   const orch = new SloaneOrchestrator(a, cfg);
-  const Q = 'I want to see a monthly income statement from January through April.';
+  const Q = 'What did the monthly income statement look like from January through April?';
   queue.push({ text: JSON.stringify({ ...INTERP, confidence: 0.93 }) });
   const t1 = await orch.turn({ sessionId: 'dryrun-session-1', request: Q, context: { scope: 'forged' } } as never);
   const tr1 = orch.trace(t1.traceId)!;

@@ -32,6 +32,8 @@ export const ROLE_CAPABILITIES: Record<string, Capability[]> = {
   FINANCE_REVIEWER: [...VIEW_ALL, 'FLUX_COMMENT', 'RECON_COMMENT', 'CLOSE_TASK_UPDATE', 'SUPPORT_ATTACH', 'REPORT_CREATE', 'ISSUE_CREATE', 'REVIEW_ASSIGN', 'ANALYSIS_SAVE', 'INVESTIGATION_SAVE', 'ARTIFACT_CREATE', 'SUPPORT_PACKAGE_CREATE'],
   /* one book, commenting and support on it; no group statements, no audit, no reviewer assignment, no shared reports */
   ENTITY_ACCOUNTANT: ['FINANCIALS_VIEW', 'TB_VIEW', 'GL_VIEW', 'FLUX_VIEW', 'RECON_VIEW', 'CLOSE_VIEW', 'EVIDENCE_VIEW', 'RECON_COMMENT', 'CLOSE_TASK_UPDATE', 'SUPPORT_ATTACH', 'ISSUE_CREATE', 'ANALYSIS_SAVE', 'ARTIFACT_CREATE'],
+  /* the executive reader: every view, saved analysis; no workflow writes (Phase 8B — the CFO persona of the canvas) */
+  CFO: [...VIEW_ALL, 'ANALYSIS_SAVE', 'INVESTIGATION_SAVE'],
   /* read-only: populations, evidence, reporting; never comments, never workflow in progress */
   EXTERNAL_AUDITOR: ['FINANCIALS_VIEW', 'TB_VIEW', 'GL_VIEW', 'RECON_VIEW', 'AUDIT_VIEW', 'EVIDENCE_VIEW', 'REPORT_VIEW', 'ANALYSIS_SAVE'],
 };
@@ -49,6 +51,7 @@ export const DEV_DIRECTORY: AuthenticatedUser[] = [
   { id: 'user:mgiri', name: 'Mitra Giri', email: 'mgiri@korvyn.dev', roles: ['FINANCE_REVIEWER'], entityAccess: 'ALL', scopeAccess: 'ALL', documentAccess: 'REFERENCES_ONLY', active: true },
   { id: 'user:skim', name: 'Sarah Kim', email: 'skim@korvyn.dev', roles: ['FINANCE_REVIEWER'], entityAccess: 'ALL', scopeAccess: 'ALL', documentAccess: 'REFERENCES_ONLY', active: true },
   { id: 'user:auditor', name: 'Priya Nair (External Auditor)', email: 'pnair@auditfirm.dev', roles: ['EXTERNAL_AUDITOR'], entityAccess: 'ALL', scopeAccess: 'ALL', documentAccess: 'REFERENCES_ONLY', active: true },
+  { id: 'user:cfo', name: 'Dana Reyes (CFO)', email: 'dreyes@korvyn.dev', roles: ['CFO'], entityAccess: 'ALL', scopeAccess: 'ALL', documentAccess: 'REFERENCES_ONLY', active: true },
   { id: 'user:mdh', name: 'Jonah Park (MDH Accountant)', email: 'jpark@korvyn.dev', roles: ['ENTITY_ACCOUNTANT'], entityAccess: ['MDH'], scopeAccess: ['MDH'], documentAccess: 'REFERENCES_ONLY', active: true },
 ];
 export class DevIdentityProvider implements IdentityProvider {

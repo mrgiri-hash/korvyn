@@ -48,7 +48,7 @@ const CAP: Partial<Record<SemanticType, Capability[]>> = {
   Reconciliation: ['RECON_VIEW'], ReconcilingItem: ['RECON_VIEW'], Close: ['CLOSE_VIEW'], CloseTask: ['CLOSE_VIEW'], CloseBlocker: ['CLOSE_VIEW'],
   Report: ['REPORT_VIEW'], ReportingPackage: ['REPORT_VIEW'], AuditRequest: ['AUDIT_VIEW'], AuditPopulation: ['AUDIT_VIEW'], AuditSelection: ['AUDIT_VIEW'], Evidence: ['EVIDENCE_VIEW'], SupportDocument: ['EVIDENCE_VIEW'],
 };
-const REGION_OF: Record<string, { id: string; name: string }> = { US: { id: 'AMERICAS', name: 'Americas' }, GB: { id: 'EMEA', name: 'EMEA' }, DE: { id: 'EMEA', name: 'EMEA' }, SG: { id: 'APAC', name: 'APAC' } };
+export const REGION_OF: Record<string, { id: string; name: string }> = { US: { id: 'AMERICAS', name: 'Americas' }, GB: { id: 'EMEA', name: 'EMEA' }, DE: { id: 'EMEA', name: 'EMEA' }, SG: { id: 'APAC', name: 'APAC' } };
 const STOP = new Set(['the', 'and', 'for', 'with', 'this', 'that', 'what', 'which', 'who', 'show', 'only', 'all', 'my', 'our', 'county', 'national', 'dominion', 'other', 'total', 'group', 'review', 'open', 'close']);
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const cleanName = (n: string) => n.replace(/\s*\(.*\)\s*$/, '').trim();

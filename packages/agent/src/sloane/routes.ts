@@ -356,7 +356,7 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
     const body = await readJson(req);
     if (!body) { refuse(res, 'VALIDATION_ERROR', 'invalid or oversized request body'); return; }
     if (typeof body['sessionId'] === 'string' && !ownsSession(res, actor, body['sessionId'])) return;
-    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'], view: body['view'] }, actor);
+    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'], view: body['view'], focus: body['focus'] }, actor);
     send(res, 200, { outcome: 'SUCCESS', ...out });
     return;
   }
@@ -371,7 +371,7 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
     res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Accel-Buffering': 'no' });
     res.on('close', () => { if (!res.writableEnded) ac.abort(); });
     const write = (ev: Record<string, unknown>) => { if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify({ ...ev, atMs: Date.now() - t0 })}\n`); };
-    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'], view: body['view'] }, actor, { emit: (e) => write(e as unknown as Record<string, unknown>), signal: ac.signal });
+    const out = await orchestrator.turn({ sessionId: body['sessionId'], request: body['request'], clarification: body['clarification'], view: body['view'], focus: body['focus'] }, actor, { emit: (e) => write(e as unknown as Record<string, unknown>), signal: ac.signal });
     write({ type: 'final', response: { outcome: 'SUCCESS', ...out } });
     if (!res.writableEnded) res.end();
     return;

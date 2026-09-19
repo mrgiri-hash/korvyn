@@ -10057,6 +10057,248 @@ and §20) · dry run 33/33 · core 78/78 · 4/4 gates. Live on claude-opus-5 (`s
 - Seven of the nine material June flux items have no reviewer assigned. The largest close issue therefore has no owner,
   and the answer says so.
 
+## 2026-09-19 — SLOANE PHASE 8B: the Universal Intent Resolver and the Dynamic Financial Canvas
+
+Owner's brief. A short request ("close", "flux", "CIP", "Siemens", "June") opens a governed financial workspace rather
+than a list of links. No UI redesign, no Excel add-in, no PowerPoint or PDF, no budget or forecast figures.
+
+**Files** (`packages/agent/src/sloane/canvas/`): `intent.ts` (the `UniversalIntentResolver`, `IntentDefinition` and
+`refinementOf`) · `canvas.ts` (the `CanvasEngine`, the `DynamicCanvasDefinition` and `canvasObject`). Route in
+`orchestrator.ts` (`canvasTurn`). Tests in `canvas.test.ts` (7). Browser: the `c8*` functions and `.c8-*` classes in
+`index.html`.
+
+**THE ROUTE.** `canvasTurn` runs after the agent-runtime check and before deliverables and the conversational front
+door. When it claims a request the trace reads `route: CANVAS` and carries the `IntentDefinition`. It claims:
+- A workspace word as the whole request: close · flux (BS / IS / unexplained) · financials · income statement ·
+  balance sheet · recs / reconciliations.
+- A planning concept (budget, forecast, scenario, "vs actual").
+- A bare period ("June", "Q2").
+- A governed object, resolved through the 8A Financial Graph and so permission-filtered.
+- "open …" with any of the above.
+
+**It does not claim** a question, a sentence starting "show / view / list / give / compile / include / only …", or a
+name inside a longer instruction ("Compile Siemens FY26 support", "Only include South Valley"). Those keep their
+existing routes. The words must BE the object: `graph.mentions()` removes the matched terms and anything left over
+refuses the claim. `graph.resolve().term` is the whole text and cannot be used for this.
+
+**AMBIGUITY.** When exactly one candidate carries governed activity it is opened, and the others are named in a note
+("“Siemens” also names Siemens AG and Siemens Mobility — records with no governed activity"). Otherwise the resolver
+asks a clarification whose options resume as requests.
+
+**THE CANVAS IS COMPOSITION, NOT DATA.** Every section wraps a `FinancialObject` that an existing READ tool returned
+through `CanvasEngine.run()`. `run()` authorises exactly like a planned step (`authorize`) and records the call in the
+trace. Nothing computes a figure. Filtering (BS/IS, unexplained, material only), sorting (largest first) and row counts
+are row operations over the tool's own table. Each section carries:
+- `sectionType`, `priority`, `layout` (lead / main / side) and `display` (maxRows, columns, rowRequest, emphasis);
+- `sourceObjectIds`, `sourcePopulationIds` and `actions`, each a request or a structured workspace view;
+- `trace`: tools with arguments, period, scope, data version, `MAPPING_VERSION` and snapshot ids.
+
+A clear exception section is not drawn; its "nothing open" becomes one line in the status band.
+
+**COMPOSITION BY KIND:**
+
+| Kind | Sections |
+|---|---|
+| CLOSE | status (readiness, material blockers, tasks, reconciliations, flux, awaiting review, stale systems) · blockers · reconciliations not tied · unexplained flux · missing support · awaiting review · recent closes · reporting packages |
+| FLUX | status (BS / IS material, unexplained, submitted, approved) · material movements · explanations awaiting review · movements without support · explanations in progress · monthly flux analyses |
+| FINANCIALS | results · income statement or balance sheet · material movements · recent trend · related flux |
+| RECONCILIATIONS | readiness · not tied or not provable · awaiting review or returned · support gaps · all reconciliations |
+| OBJECT | an account or statement line (balance and movement, top projects / entities / vendors, flux, reconciliations, largest transactions, trend, evidence); a project / vendor / entity (governed activity, by the other dimensions, material transactions, related flux and reconciliations through the account groups it posts to, trend, evidence, relationships). A dimension has no trial balance, and no statement section is drawn for it |
+| PERIOD | close, results, flux, reconciliations — each compact, each opening its own canvas |
+| PLANNING | UNAVAILABLE: "no governed planning version is available in the current prototype", what is governed, and what Korvyn can show instead |
+
+**ROLE-AWARE, NEVER FROM THE WORDS.** `personaOf(actor)` maps FINANCE_REVIEWER → CONTROLLER, ENTITY_ACCOUNTANT →
+PREPARER, EXTERNAL_AUDITOR → AUDITOR and the new **CFO** role → EXECUTIVE. Base priorities are per (kind, section,
+persona) and are raised by open conditions. A preparer's close leads with their open preparation tasks and missing
+support. A controller's leads with material blockers and review. An executive's adds the largest financial movements.
+A section the actor may not see is never built; the canvas states what was withheld ("Not shown — outside your access:
+Flux"). An auditor asking for "flux" gets UNAVAILABLE with no flux object. **`user:cfo` (Dana Reyes, role CFO:
+VIEW_ALL + ANALYSIS_SAVE + INVESTIGATION_SAVE) is new in `DEV_DIRECTORY`.**
+
+**REFINEMENT.** `CanvasState` (intent, period, scope, subject, filters, focus, drill and the rows the primary section
+showed) lives on `SessionContext.canvas`, and a snapshot goes into the investigation context. While the last answer
+was a canvas (`conv.lastKind === 'CANVAS'`), a short instruction goes to `refinementOf()` and becomes one of:
+- FILTER: only BS / only IS / unexplained / material only;
+- SORT: largest first;
+- FOCUS: start with the largest / the second / open ⟨row label⟩;
+- RELATED: the related reconciliation · the GL behind the first one · the drivers of it · its support;
+- RESET.
+
+The canvas keeps its id and bumps its version, and the drill leads as a FOCUS section. "The largest" ranks by amount;
+"the first" means the first row as shown. The primary section's rows also feed `conv.items`, so the Phase 6 deictic
+follow-ups work after a canvas as well.
+
+**BROWSER.** `s2ServerRender` renders a `DynamicFinancialCanvas` with `c8CanvasHTML`, and `slRender` opens it in the
+Sloane workspace (`slExpand`). Lead and main sections go in the main column. Side sections sit above the timeline
+(`c8Rich`). Every metric, row and action submits a request into the same conversation (`c8Q`). Structured workspaces
+open only from an explicit action (`c8View`). Trace is a `<details>` under each section. Severity is a 3px edge; the
+accent marks the object in focus.
+
+**Verified:**
+- `npm run sloane:test` 137/137 (7 new) · dry run pass · core 78/78 · 4/4 gates unchanged.
+- Live browser on `sloane-serve`:
+  - A–H (close, flux, financials, reconciliations, CIP, South Valley, Siemens, budget vs actual) plus recs and June.
+  - §22: flux → only BS → show unexplained → largest first → the GL behind the first one, as ONE investigation of
+    five steps.
+  - §16: close → material blockers → the largest → its reconciliation. AR has none, and the canvas says so.
+  - The MDH accountant: preparer composition, scoped to MDH, nothing from another entity, the REIT not discovered.
+
+**Known limitations:**
+- Composition is deterministic; the model is not consulted for short intents.
+- "Overdue" reconciliations cannot be shown, because the server book carries no reconciliation due dates.
+- Recent flux explanation activity is shown as explanations in progress, not as a dated log.
+- Driver rows in a focused account read "project: …".
+- The canvas is regenerated from its state on every refinement (tools take milliseconds).
+- Budget, forecast and scenario have no governed instance.
+- Every `open …` row click is resolved by label match against the primary section's rows.
+
+## 2026-09-19 — SLOANE PHASE 8C: the governed analysis grid and conversational analysis engine
+
+Owner's brief. A finance user builds, reshapes, filters, sorts, expands, drills, compares and saves a governed financial
+analysis by talking to Sloane. There is no report builder and no spreadsheet clone. The analysis is ONE object, and every
+figure in it is deterministic and traceable. No Excel add-in, charts, PowerPoint/PDF or budget data were built.
+
+**Files** (`packages/agent/src/sloane/analysis/`):
+
+| File | Role |
+|---|---|
+| `model.ts` | `AnalysisDefinition`, the `DIMENSIONS` and `MEASURES` registries, `CellContext`, the grid types, `VisualizationDefinition` and `ExcelHandoff` contracts, and `MODEL_OPS` |
+| `query.ts` | `FinancialAnalysisQueryService`: `validate`, `run` (one server-side pass, paged) and `cell` (re-derives a CellContext from a cell id) |
+| `edit.ts` | the ops, `resolveMembers` (permission-filtered, canonical ids), `parseAnalysis` (the deterministic reader) and `fromModel` (the model's ops, re-resolved) |
+| `engine.ts` | `AnalysisEngine`: `apply(session, ops)`, referents, and drill / explain / Flux / reconciliation / support / chart / Excel / save |
+
+The route is `analysisTurn` in `orchestrator.ts`, **ahead of the canvas**. Tests are in `analysis.test.ts` (9). The model
+contract is `adapter.analysisEdit` with `ANALYSIS_EDIT_SCHEMA` and `ANALYSIS_EDIT_SYSTEM`. The browser code is the `c9*`
+functions and `.c9-*` classes in `index.html`.
+
+**ONE BALANCE SEMANTIC.** `GovernedLedger.contribution(line, period, 'ENDING' | 'ACTIVITY')` is now the only definition
+of what a line contributes. A balance-sheet line counts through the period at the closing rate; an income-statement line
+counts for the period at the average rate. `balanceUsd` and the query service both call it. A test asserts that the
+grid equals `balanceUsd` for every account tested.
+
+**THE DEFINITION** is book-aware. `book` is four separate facts: `accountingBookId`, `accountingBasis`,
+`reportingLens` and `currency`. There is one effective book (`CORE-GL`, US GAAP); another book is refused by name
+rather than assumed. The rest of the definition:
+
+- **Layout:** `rows` and `columns` are `{dimension, variant?}`, and `measures`, `periods` and `primaryPeriod` are
+  separate fields.
+- **Comparison:** prior period, a named period, or prior year (refused, because FY2025 is not governed).
+- **Filters and sorting:** `filters` (IN / NOT_IN on canonical members), `statement` (BS / IS, read from the governed
+  account type), `valueFilter`, `sorts` and `topN`.
+- **Hierarchy:** `hierarchies`: statement → type → account group → account in statement mode; group → account
+  otherwise. Expansion is stored as canonical row ids in `expanded` / `collapsed`.
+- **Lineage:** `populationIds`, `dataVersion`, `mappingVersion`, `createdBy` / `updatedBy`, and `derivedFrom`.
+
+Every change is a new version of the same id.
+
+**CANONICAL IDS EVERYWHERE.** A row id is its member path (`statement:BS/type:ASSET/account:15000/project:SV-PH2`). A
+cell id is `rowId§columnId`. `cell()` rebuilds the full `CellContext` from the id alone: members, measure, period,
+comparison, scope, book, filters, calculation, data and mapping versions, and the **governed population** behind the
+cell. Exact line keys go through `definePopulation`, so the drill, support and export all read one population id.
+
+The browser sends `focus: {analysisId, cellId | rowId}` for a grid click and `focus: {ref}` for a canvas row, and
+**never a label**. The same change fixed the 8B canvas: rows open by `ref`, and a typed name that matches several rows
+is refused ("2 rows … click the one you mean"). There is a regression test for duplicate labels.
+
+**`/api/sloane/turn` and `/turn/stream` forwarded only named fields and dropped `focus`.** They forward it now. This was
+also why 8B canvas row clicks lost their ref when live.
+
+**DIMENSIONS** with governed data: account (hierarchical), financialLine, entity, region (derived from country), project,
+property, vendor, costCenter, currency, recordType, sourceSystem, period and book. Fund, customer, department, business
+unit and consolidation node are declared, and refused with the reason.
+
+**Source / governed / effective variants** (vendor, project) are opt-in row dimensions. No governed override is held on
+this server, so GOVERNED is empty and says so.
+
+**MEASURES:** ENDING_BALANCE, BEGINNING_BALANCE, ACTIVITY, DEBIT, CREDIT, YTD, QTD, PRIOR_PERIOD, PRIOR_YEAR (blank,
+not governed), and VARIANCE / VARIANCE_PCT (Korvyn's subtraction). Statement mode presents liabilities, equity and
+revenue credit-positive.
+
+**A SUM THAT MEANS NOTHING IS NOT PRINTED.** Statement section rows are blank. So is a node above the account dimension
+in a statement or trial balance (an entity total mixing balance and P&L types). Totals appear only on activity
+analyses.
+
+**EDITING.** `parseAnalysis` is the deterministic reader. It covers:
+- creation: "Show me May and June balance sheet", "Show June TB by entity", "Show monthly CIP activity by project
+  Jan-Jun";
+- layout: accounts on rows / months on columns, "X first, then Y", "projects underneath", move to columns, remove;
+- filters: only / exclude members, only BS / IS accounts, over $X, material (the governed flux materiality);
+- sorting: largest first, biggest variances, top N;
+- periods: add / remove / primary / order / compare, prior year refused;
+- measures and variants: variance, debit / credit, YTD / QTD; source / governed / effective;
+- expansion: expand / collapse by member, rank or "this", and expand all;
+- questions: drill ("the GL behind the largest movement / this / the first one"), why did it move, does Flux explain
+  it, does it reconcile, does it have support, chart this, open in Excel, save, "use this analysis for May", more rows.
+
+Where the reader does not recognise the words, the model is consulted in two cases:
+- an analysis is on screen;
+- or the words describe a grid's shape: rows / columns / down the side, or a statement or TB "by" a dimension.
+
+`fromModel` re-resolves every name. An invented member is rejected and traced; it is never applied. Live, Claude read
+"show me two months with accounts down the side" into a May–June grid with accounts on the rows.
+
+**Rules the tests found:**
+- A question never starts an analysis.
+- "Show me June financials" and "Show the TB for X" keep their existing routes.
+- Deliverable verbs (create, build, compile …) and bare "only BS" are not claimed.
+
+**REFERENTS** (`activeRowId`, `activeCellId`, `activePopulationId`, `activeMember`) live on `SessionContext.analysis`
+with the definition, and are snapshotted into the investigation. They resolve words as follows:
+- "the largest movement" is the most specific visible row with the largest variance (a row whose children are all
+  hidden counts as a leaf);
+- "the first / third row" counts only rows that carry a figure;
+- "this" is the selected cell;
+- a member named but not on screen has its path opened, or its dimension added beneath ("South Valley is a project, not
+  a row …").
+
+**INTEGRATIONS** read the cell's population and account through existing READ tools (`authorize`d, traced):
+- explain: `GovernedLedger.aggregate` by project, vendor, entity and account over the drilled population, plus
+  `getFluxItem`;
+- Flux: `getFluxItem` and `getFluxExplanation`;
+- reconciliation: `getReconciliationsForAccount`;
+- support: `getSupportCoverage` and `findMissingEvidence` on the **same** population id.
+
+**SAVE** is a `SAVE_ANALYSIS` proposal carrying the definition, never the cells; it waits for confirmation. **CHART**
+returns a `VisualizationDefinition` whose series point at cell ids; nothing is drawn yet. **EXCEL** returns an
+`ExcelHandoff` (definition, query id, population ids).
+
+**PERMISSIONS.** Lines are the actor's visible entities before anything is grouped, so members, totals, hierarchy and
+drill populations cannot contain a hidden entity. A member the actor cannot see reads exactly like one that does not
+exist. **A named scope outside access ("the consolidated balance sheet" for an MDH accountant) is refused
+("may not view scope GROUP") and never narrowed silently.**
+
+**GRID** (`c9Grid`):
+- Layout: sticky header, frozen label column, indentation with chevrons (expand / collapse by row id), subtotals by
+  weight and a hairline.
+- Figures: accounting figures in parentheses, with no red on negatives (rule 3).
+- Interaction: clicking a cell selects it (accent, rule 2) and shows a selection bar, and **the selection travels as
+  `focus` with the next typed request**.
+- Chips show the definition; the panel shows the GL / drivers / Flux / reconciliation / support; Trace is on demand.
+- Paging: the server sends 200 rows a page, with "load more". The grid opens in the Sloane workspace (`slExpand`).
+- **A render is stored per turn (`C9.seq`)**, because a drill does not bump the definition's version. **The selection is
+  set only when a response arrives**, because a local re-render ran before the request was sent and cleared the click.
+
+**Verified:**
+- `npm run sloane:test` 146/146 (9 new) · dry run 33/33 · core 78/78 · 4/4 gates unchanged.
+- LIVE (`sloane-serve`, claude):
+  - A: 8 steps as one investigation, ending in a GL panel of 4 lines (POP-472D30B022) with the translation note.
+  - B: SV-PH2 opened under MDH's CIP accounts by canonical path.
+  - C: monthly CIP by project → top 5 → vendors.
+  - D: a clicked cell → a 1-line population netting to ($4.70M) → support read the same POP id.
+  - E: the MDH accountant sees only MDH; a hidden entity is "not found"; the consolidated request is refused; no leak.
+  - The model path works, and a canvas row click opens by ref.
+
+**Known limitations:**
+- The query is an in-process pass over ~1.2k lines (the shape of a GROUP BY ROLLUP; a real engine is out of scope).
+- Row virtualisation is server paging plus a scrollable grid; there is no windowed renderer.
+- Only one non-period column dimension is supported.
+- EBITDA is not a governed statement line.
+- No governed attribute overrides are held.
+- Eliminations are not held.
+- Prior year is not governed.
+- The drill's GL lines sum at average rates, so a translated balance differs from them; the panel states this.
+- Model-assisted edits need the reasoning mode; the mock declines.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

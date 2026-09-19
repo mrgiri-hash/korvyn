@@ -56,9 +56,12 @@ test('§17 close, flux, budget vs actual, South Valley, Siemens, June', () => {
 });
 
 test('§17 through Sloane: a bare name is resolved, never asked to be rephrased', async () => {
-  const sv = await ask('South Valley'); assert.deepEqual(tools(sv), ['resolveFinancialObject']); assert.equal(fact(sv, 'type'), 'Project');
-  const sie = await ask('Siemens'); assert.equal(sie.objects[0]!.type, 'SemanticResolution'); assert.equal(sie.objects[0]!.table.rows.length, 3);
-  const bva = await ask('budget vs actual'); assert.match(bva.notes.join(' '), /actuals only|no budget/i);
+  /* Phase 8B: a bare name now OPENS its financial context as a canvas (the resolution is the same semantic object) */
+  const canvasOf = (r: TurnResponse) => r.objects[0]!.canvas as { kind: string; intent: { subject: { id: string } | null; notes: string[] }; notes: string[] };
+  const sv = await ask('South Valley'); assert.equal(canvasOf(sv).kind, 'OBJECT'); assert.equal(canvasOf(sv).intent.subject!.id, 'project:SV-PH2');
+  const sie = await ask('Siemens'); assert.equal(canvasOf(sie).intent.subject!.id, 'vendor:Siemens Energy'); assert.match(canvasOf(sie).notes.join(' '), /Siemens AG and Siemens Mobility/);
+  const bva = await ask('budget vs actual'); assert.equal(bva.state, 'UNAVAILABLE'); assert.match(canvasOf(bva).notes.join(' '), /no governed planning version/i);
+  const q = await ask('What is South Valley?'); assert.deepEqual(tools(q), ['resolveFinancialObject'], 'a question still goes to the semantic tool');
 });
 
 /* ---- §8: time intelligence --------------------------------------------------------------------------- */

@@ -28,7 +28,7 @@ import { ACCOUNT_ALIAS } from './toolset.js';
    ================================================================================================ */
 /** what a turn DID — an answer, a drill into what is shown, a change to the view, work on a deliverable, a proposed
  *  action, a move elsewhere, or a question back */
-export type TurnKind = 'ANSWER' | 'DRILL' | 'MODIFY' | 'ARTIFACT' | 'ACTION' | 'NAVIGATION' | 'CLARIFICATION' | 'CONVERSATION';
+export type TurnKind = 'ANSWER' | 'DRILL' | 'MODIFY' | 'ARTIFACT' | 'ACTION' | 'NAVIGATION' | 'CLARIFICATION' | 'CONVERSATION' | 'CANVAS' | 'ANALYSIS';
 /** how sure Korvyn is of a context value: stated this turn, carried forward recently, carried forward from further
  *  back, derived from policy or another value, or not known. An explicit instruction always wins. */
 export type Confidence = 'EXPLICIT_HIGH' | 'INHERITED_HIGH' | 'INHERITED_MEDIUM' | 'DERIVED' | 'UNKNOWN';

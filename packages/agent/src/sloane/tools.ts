@@ -71,6 +71,10 @@ export interface FinancialObject {
   /** an action proposal (type 'ActionProposal') or a session draft; the browser renders it as an ActionPreview */
   action?: import('./actions.js').ActionProposal;
   draft?: { kind: 'REPORT' | 'EXCEL'; id: string; definition: Record<string, unknown> };
+  /** Phase 8B: a DYNAMIC FINANCIAL CANVAS (type DynamicFinancialCanvas) — sections composed from governed objects */
+  canvas?: Record<string, unknown>;
+  /** Phase 8C: a GOVERNED ANALYSIS (type FinancialAnalysis) — definition, grid result, panel, referents */
+  analysis?: Record<string, unknown>;
   /** a WORKBOOK PREVIEW (type ExcelWorkbookPreview): tabs, counts, representative rows — the browser renders it striped */
   workbook?: Record<string, unknown>;
   /** a PBC WORKSPACE (type PBCRequest / PBCSupportGaps): the request, its population, selections, gaps — rendered inline */
