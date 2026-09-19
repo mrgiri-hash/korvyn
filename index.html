@@ -81985,8 +81985,11 @@ function c8Rich(e){ const m=String(e.html||'').match(/data-c8="([^"]+)"/), d=m&&
    request into the same conversation — the analysis stays ONE object that Sloane and the grid both operate. */
 const C9={defs:{}, aid:null, sel:null, once:null, seq:0, last:null};
 function c9Key(a){ return a.definition.id+'-v'+a.definition.version; }
-function c9Ask(q, focus){ C9.once=focus||null; slSubmit(q,{follow:true}); }
-function c9Row(el){ const id=el.getAttribute('data-row'), aid=el.getAttribute('data-aid'); c9Ask(el.getAttribute('data-q'), {analysisId:aid, rowId:id}); }
+/* 8C.1 — a grid control is a STRUCTURED command: the server applies it without asking a model. Typed words are never
+   mapped here; only the grid's own buttons, whose meaning is fixed by the control. */
+const C9_CMD={'expand this':'EXPAND','collapse this':'COLLAPSE','show me the gl behind this':'DRILL','show the gl behind this':'DRILL','why did this move?':'EXPLAIN','why did it move?':'EXPLAIN','does this reconcile?':'RECON','does flux explain this?':'FLUX','does it have support?':'SUPPORT','more rows':'MORE'};
+function c9Ask(q, focus, typed){ const cmd=!typed&&C9_CMD[String(q||'').toLowerCase()]; if(cmd&&C9.aid) focus=Object.assign({analysisId:C9.aid}, focus||{}, {command:cmd}); C9.once=focus||null; slSubmit(q,{follow:true}); }
+function c9Row(el){ const id=el.getAttribute('data-row'), aid=el.getAttribute('data-aid'); C9.aid=aid||C9.aid; c9Ask(el.getAttribute('data-q'), {analysisId:aid, rowId:id}); }
 function c9Cell(el){ const id=el.getAttribute('data-cell'), aid=el.getAttribute('data-aid');
   C9.aid=aid; C9.sel={cellId:id};
   document.querySelectorAll('.c9-g td.on').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.c9-g td[data-cell="'+CSS.escape(id)+'"]').forEach(x=>x.classList.add('on'));

@@ -29,7 +29,7 @@ export interface InterpretInput { request: string; context: unknown; candidates:
 export interface PlanInput { request: string; interpretation: Interpretation; context: unknown; tools: { id: string; description: string; requiredInputs: string[]; optionalInputs: string[]; outputs?: string }[]; maxSteps: number }
 export interface ConverseInput { request: string; context: unknown }
 /** Phase 8C: an edit to the governed analysis on screen (or a new one); Korvyn re-resolves and re-validates every op */
-export interface AnalysisEditInput { request: string; analysis: unknown; dimensions: unknown; measures: unknown; periods: string[]; workingPeriod: string; visibleRows: unknown }
+export interface AnalysisEditInput { request: string; analysis: unknown; dimensions: unknown; measures: unknown; periods: string[]; workingPeriod: string; visibleRows: unknown; vocabulary?: unknown; selectedCell?: unknown }
 export interface NarrateInput { request: string; objects: { objectId: string; type: string; title: string; facts: { key: string; label: string; display: string }[] }[] }
 
 export interface SloaneLLMAdapter {

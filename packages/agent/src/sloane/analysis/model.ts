@@ -71,8 +71,10 @@ export interface AnalysisDefinition {
   filters: MemberFilter[];
   /** statement filter from the governed account type ("only BS accounts") — never from names */
   statement: 'BS' | 'IS' | null;
+  /** governed account types (ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE) — from the chart, never from names */
+  accountTypes?: string[] | null;
   /** a threshold on the shown value (variance when shown, else the primary amount), USD millions */
-  valueFilter: { minAbs: number; on: 'VARIANCE' | 'VALUE' } | null;
+  valueFilter: { minAbs: number; on: 'VARIANCE' | 'VALUE'; /** and a variance % floor (0.2 = 20%) */ minPct?: number | null } | null;
   sorts: { by: 'VALUE' | 'VARIANCE' | 'LABEL'; period: string | null; dir: 'DESC' | 'ASC' }[];
   topN: number | null;
   hierarchies: { dimension: 'account'; levels: ('statement' | 'type' | 'group' | 'account')[] }[];
@@ -124,6 +126,9 @@ export interface VisualizationDefinition { analysisId: string; version: number; 
 export interface ExcelHandoff { analysisDefinition: AnalysisDefinition; queryId: string; populationIds: string[]; cellIdentity: 'rowPath§columnId'; note: string }
 
 /* the model's contract for an analysis edit — the same ops as the deterministic reader, named in words */
-export const MODEL_OPS = ['NEW_STATEMENT', 'NEW_TRIAL_BALANCE', 'NEW_ACTIVITY', 'SET_ROWS', 'SET_COLUMNS', 'ADD_ROW_DIMENSION', 'REMOVE_DIMENSION', 'FILTER', 'EXCLUDE', 'ONLY_STATEMENT', 'THRESHOLD', 'SORT', 'TOP', 'SET_PERIODS', 'ADD_PERIOD', 'REMOVE_PERIOD', 'PRIMARY_PERIOD', 'COMPARE_PRIOR_PERIOD', 'COMPARE_PRIOR_YEAR', 'ADD_MEASURE', 'REMOVE_MEASURE', 'EXPAND', 'COLLAPSE', 'DRILL', 'EXPLAIN', 'FLUX', 'RECONCILIATION', 'SUPPORT', 'CHART', 'SAVE'] as const;
-export interface ModelOp { op: (typeof MODEL_OPS)[number]; dimensions: string[]; values: string[]; periods: string[]; measure: string | null; number: number | null; statement: string | null; rowRef: string | null }
-export interface AnalysisEdit { ops: ModelOp[]; confidence: number; unsupported: string | null }
+export const MODEL_OPS = ['NEW_STATEMENT', 'NEW_TRIAL_BALANCE', 'NEW_ACTIVITY', 'SET_ROWS', 'SET_COLUMNS', 'ADD_ROW_DIMENSION', 'REMOVE_DIMENSION', 'FILTER', 'EXCLUDE', 'ONLY_STATEMENT', 'THRESHOLD', 'SORT', 'TOP', 'SET_PERIODS', 'ADD_PERIOD', 'REMOVE_PERIOD', 'PRIMARY_PERIOD', 'COMPARE_PRIOR_PERIOD', 'COMPARE_PRIOR_YEAR', 'ADD_MEASURE', 'REMOVE_MEASURE', 'EXPAND', 'COLLAPSE', 'DRILL', 'EXPLAIN', 'FLUX', 'RECONCILIATION', 'SUPPORT', 'CHART', 'SAVE',
+  'ACCOUNT_TYPE', 'REMOVE_FILTER', 'CLEAR_FILTERS', 'UNDO', 'SET_STATEMENT_BOTH', 'EXPAND_ALL', 'COLLAPSE_ALL'] as const;
+/** how the words relate to the analysis on screen — the model states it, Korvyn acts on it */
+export const EDIT_RELATIONS = ['NEW_ANALYSIS', 'MODIFY', 'ASK_ABOUT_ANALYSIS', 'CORRECTION', 'NOT_ANALYSIS', 'NEEDS_CLARIFICATION'] as const;
+export interface ModelOp { op: (typeof MODEL_OPS)[number]; dimensions: string[]; values: string[]; periods: string[]; measure: string | null; number: number | null; percent: number | null; statement: string | null; rowRef: string | null }
+export interface AnalysisEdit { relation: (typeof EDIT_RELATIONS)[number]; ops: ModelOp[]; confidence: number; unsupported: string | null; question: string | null; options: string[] }

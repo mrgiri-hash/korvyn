@@ -25,7 +25,9 @@ export type AnalysisOp =
   | { op: 'ADD_ROW_DIM'; dim: AxisDim; after: DimensionId | null } | { op: 'REMOVE_DIM'; dim: DimensionId } | { op: 'MOVE_TO_COLUMNS'; dim: DimensionId }
   | { op: 'FILTER'; members: Member[]; exclude: boolean } | { op: 'CLEAR_FILTERS' }
   | { op: 'STATEMENT'; statement: 'BS' | 'IS' | null }
-  | { op: 'THRESHOLD'; minAbs: number | null; on: 'VARIANCE' | 'VALUE' }
+  | { op: 'THRESHOLD'; minAbs: number | null; on: 'VARIANCE' | 'VALUE'; minPct?: number | null }
+  | { op: 'ACCOUNT_TYPES'; types: string[] } | { op: 'REMOVE_FILTER'; members: Member[]; dimension: DimensionId | null } | { op: 'UNDO' }
+  | { op: 'CLARIFY'; question: string; options: string[] }
   | { op: 'SORT'; by: 'VALUE' | 'VARIANCE' | 'LABEL'; period: string | null } | { op: 'TOP'; n: number | null }
   | { op: 'PERIODS'; periods: string[] } | { op: 'ADD_PERIOD'; period: string } | { op: 'REMOVE_PERIOD'; period: string } | { op: 'PRIMARY'; period: string } | { op: 'ORDER_PERIODS'; periods: string[] }
   | { op: 'COMPARE'; basis: 'PRIOR_PERIOD' | 'PRIOR_YEAR' | 'PERIOD'; period: string | null }
@@ -83,9 +85,28 @@ export function resolveMembers(text: string, d: EditDeps): Member[] {
       add({ dimension: dim, value: v, label: node.label });
     }
   }
+  /* entities by their canonical id or legal name — only those the actor may see */
+  for (const e of d.gl.entities()) if ((d.visible === 'ALL' || d.visible.has(e.id)) && (t.includes(` ${e.id.toLowerCase()} `) || t.includes(` ${e.name.toLowerCase().replace(/[^a-z0-9&\- ]+/g, ' ')} `))) add({ dimension: 'entity', value: e.id, label: e.name });
   /* raw dimension members the ledger holds (cost centres, currencies, property codes) */
   for (const dim of ['costCenter', 'currency', 'property', 'project'] as const) for (const v of d.gl.dimensionValues(dim)) if (v.length >= 3 && t.includes(` ${v.toLowerCase()} `)) add({ dimension: dim, value: v, label: v });
   return out;
+}
+
+/** the governed members the model may name, filtered to what the actor can see — the semantic context for an edit */
+export function vocabulary(d: EditDeps) {
+  const lines = d.gl.lines.filter((l) => d.visible === 'ALL' || d.visible.has(l.entity));
+  const uniq = <T,>(xs: T[]) => [...new Set(xs)];
+  const groups = uniq(lines.map((l) => l.group)).sort();
+  return {
+    accountGroups: groups.map((g) => ({ code: g, name: d.gl.account(g)?.name ?? g, type: d.gl.account(g)?.type ?? null, children: d.gl.childrenOf(g).filter((c) => lines.some((l) => l.account === c)).map((c) => `${c} ${d.gl.account(c)?.name ?? ''}`.trim()) })),
+    accountTypes: ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'],
+    entities: uniq(lines.map((l) => l.entity)).map((e) => ({ id: e, name: lines.find((l) => l.entity === e)!.entityName })),
+    projects: uniq(lines.map((l) => l.project).filter((x): x is string => !!x)),
+    properties: uniq(lines.map((l) => l.property).filter((x): x is string => !!x)),
+    vendors: uniq(lines.map((l) => l.vendor).filter((x): x is string => !!x)),
+    costCenters: uniq(lines.map((l) => l.costCenter).filter((x): x is string => !!x)),
+    notHeld: ['department', 'customer', 'fund', 'business unit', 'eliminations', 'budget', 'forecast', 'prior year (FY2025)'],
+  };
 }
 
 /* ---- periods ------------------------------------------------------------------------------------------------ */
@@ -104,6 +125,36 @@ const ANALYTIC = /\b((balance sheet|bs|income statement|p ?& ?l|trial balance|tb
 const DELIVERABLE = /^\s*(please\s+)?(create|build|make|generate|prepare|draft|compile|email|send|export)\b/;
 
 /** does this look like a request to CREATE an analysis (not a question, not a deliverable)? */
+/* A VOCABULARY gate, not a phrase list: the request names a governed grid object (a statement, a trial balance, GL
+   activity, rows / columns) or asks for a split by a governed dimension. It only decides whether the analysis editor is
+   ASKED first; the model decides what the words mean, and anything it misses still reaches the front door, whose
+   ANALYSIS_REQUEST intent routes back here. */
+const GRID_NOUN = /\b(balance ?sheets?|b\/?s|bs|income statements?|p ?& ?l|pnl|profit (and|&) loss|statements? of (financial position|operations)|trial balances?|t\/?b|tb|roll ?-?forwards?|gl activity|activity|grid|pivot|matrix|columns?|rows?)\b/;
+const SPLIT = /\b(by|per|split|broken|break|across|under|grouped|group)\b/;
+const DIM_NOUN = /\b(entit(y|ies)|subsidiar(y|ies)|compan(y|ies)|subs?|legal entit|projects?|vendors?|suppliers?|accounts?|regions?|cost ?cent(er|re)s?|propert(y|ies)|currenc(y|ies)|months?|periods?|quarters?)\b/;
+/* a question ("why did the balance sheet move?") is answered by the governed tools, not built as a grid: syntax, not phrasing */
+const QUESTION = /\?\s*$|^(why|how|what|who|which|when|where|did|does|do|is|are|was|were|can|could)\b/;
+export function wantsAnalysisEditor(t: string) { const s = t.toLowerCase().trim(); return !DELIVERABLE.test(s) && !QUESTION.test(s) && (GRID_NOUN.test(s) || (SPLIT.test(s) && DIM_NOUN.test(s)) || (s.match(new RegExp(DIM_NOUN.source, 'g')) ?? []).length >= 2); }
+
+/** a structured UI command from the grid (a chevron, a Drill button) — unambiguous by construction, so no model */
+export type UiCommand = 'EXPAND' | 'COLLAPSE' | 'DRILL' | 'EXPLAIN' | 'RECON' | 'FLUX' | 'SUPPORT' | 'MORE' | 'EXPAND_ALL' | 'COLLAPSE_ALL';
+export const UI_COMMANDS: readonly UiCommand[] = ['EXPAND', 'COLLAPSE', 'DRILL', 'EXPLAIN', 'RECON', 'FLUX', 'SUPPORT', 'MORE', 'EXPAND_ALL', 'COLLAPSE_ALL'];
+export function uiCommandOps(c: UiCommand): AnalysisOp[] {
+  const target: RowTarget = { kind: 'active' };
+  switch (c) {
+    case 'EXPAND': return [{ op: 'EXPAND', target }];
+    case 'COLLAPSE': return [{ op: 'COLLAPSE', target }];
+    case 'DRILL': return [{ op: 'DRILL', target }];
+    case 'EXPLAIN': return [{ op: 'EXPLAIN', target }];
+    case 'RECON': return [{ op: 'RECON' }];
+    case 'FLUX': return [{ op: 'FLUX' }];
+    case 'SUPPORT': return [{ op: 'SUPPORT', missing: false }];
+    case 'MORE': return [{ op: 'MORE' }];
+    case 'EXPAND_ALL': return [{ op: 'EXPAND_ALL' }];
+    case 'COLLAPSE_ALL': return [{ op: 'COLLAPSE_ALL' }];
+  }
+}
+
 export function looksAnalytical(t: string) { return ANALYTIC.test(t.toLowerCase()) && !DELIVERABLE.test(t.toLowerCase()) && !/\?\s*$|^(why|how|what|who|which)\b/i.test(t.trim()); }
 
 /**
@@ -262,9 +313,17 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
 /** translate the model's ops into governed ops — every name re-resolved, every dimension and period re-checked */
 export function fromModel(e: AnalysisEdit, active: AnalysisDefinition | null, d: EditDeps): { ops: AnalysisOp[]; rejected: string[] } {
   const ops: AnalysisOp[] = [], rejected: string[] = [];
+  /* a clarification is the model's to recommend and Korvyn's to ask; it carries no edit */
+  if (e.relation === 'NEEDS_CLARIFICATION' && e.question) return { ops: [{ op: 'CLARIFY', question: e.question, options: e.options.slice(0, 5) }], rejected };
   const dimOf = (s: string) => dimsIn(s.toLowerCase())[0] ?? null;
   const per = (xs: string[]) => xs.filter((p) => d.periods.includes(p));
-  const tgt = (o: ModelOp): RowTarget => (o.rowRef ? { kind: 'row', rowId: o.rowRef } : o.values.length ? { kind: 'member', memberIds: resolveMembers(o.values.join(' '), d).map((m) => `${m.dimension}:${m.value}`) } : { kind: 'active' });
+  const tgt = (o: ModelOp): RowTarget => {
+    if (o.rowRef) return { kind: 'row', rowId: o.rowRef };
+    /* the prompt's contract: values ["largest"] means the largest row; no values means the selected cell */
+    if (o.values.length === 1 && o.values[0]!.toLowerCase() === 'largest') return { kind: 'largest' };
+    const ms = o.values.length ? resolveMembers(o.values.join(' '), d) : [];
+    return ms.length ? { kind: 'member', memberIds: ms.map((m) => `${m.dimension}:${m.value}`) } : { kind: 'active' };
+  };
   for (const o of e.ops) {
     switch (o.op) {
       case 'NEW_STATEMENT': case 'NEW_TRIAL_BALANCE': case 'NEW_ACTIVITY': {
@@ -280,7 +339,16 @@ export function fromModel(e: AnalysisEdit, active: AnalysisDefinition | null, d:
       case 'REMOVE_DIMENSION': { const x = dimOf(o.dimensions[0] ?? ''); if (x) ops.push({ op: 'REMOVE_DIM', dim: x }); break; }
       case 'FILTER': case 'EXCLUDE': { const ms = resolveMembers(o.values.join(' '), d); if (ms.length) ops.push({ op: 'FILTER', members: ms, exclude: o.op === 'EXCLUDE' }); else rejected.push(`no governed member named ${o.values.join(', ')}`); break; }
       case 'ONLY_STATEMENT': ops.push({ op: 'STATEMENT', statement: o.statement === 'IS' ? 'IS' : o.statement === 'BS' ? 'BS' : null }); break;
-      case 'THRESHOLD': ops.push({ op: 'THRESHOLD', minAbs: o.number ?? FLUX_MATERIALITY.absUsd / 1e6, on: active?.measures.includes('VARIANCE') ? 'VARIANCE' : 'VALUE' }); break;
+      case 'THRESHOLD': { const pct = o.percent === null ? null : o.percent > 1 ? o.percent / 100 : o.percent;
+        ops.push({ op: 'THRESHOLD', minAbs: o.number ?? (pct !== null ? 0 : FLUX_MATERIALITY.absUsd / 1e6), on: (active?.measures.includes('VARIANCE') || pct !== null) ? 'VARIANCE' : 'VALUE', minPct: pct }); break; }
+      case 'ACCOUNT_TYPE': { const ts = o.values.map((v) => v.toUpperCase().replace(/S$/, '').replace('LIABILITIE', 'LIABILITY').replace('EXPENSE', 'EXPENSE')).filter((v) => ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'].includes(v));
+        if (ts.length) ops.push({ op: 'ACCOUNT_TYPES', types: ts }); else rejected.push(`not a governed account type: ${o.values.join(', ')}`); break; }
+      case 'REMOVE_FILTER': { const ms = o.values.length ? resolveMembers(o.values.join(' '), d) : []; ops.push({ op: 'REMOVE_FILTER', members: ms, dimension: dimOf(o.dimensions[0] ?? '') }); break; }
+      case 'CLEAR_FILTERS': ops.push({ op: 'CLEAR_FILTERS' }); break;
+      case 'UNDO': ops.push({ op: 'UNDO' }); break;
+      case 'SET_STATEMENT_BOTH': ops.push({ op: 'STATEMENT', statement: null }); break;
+      case 'EXPAND_ALL': ops.push({ op: 'EXPAND_ALL' }); break;
+      case 'COLLAPSE_ALL': ops.push({ op: 'COLLAPSE_ALL' }); break;
       case 'SORT': ops.push({ op: 'SORT', by: /varian|move|change/i.test(o.measure ?? '') ? 'VARIANCE' : /label|name/i.test(o.measure ?? '') ? 'LABEL' : 'VALUE', period: per(o.periods)[0] ?? null }); break;
       case 'TOP': ops.push({ op: 'TOP', n: o.number ? Math.max(1, Math.min(100, Math.round(o.number))) : null }); break;
       case 'SET_PERIODS': { const p = per(o.periods); if (p.length) ops.push({ op: 'PERIODS', periods: p }); else rejected.push('no governed period'); break; }

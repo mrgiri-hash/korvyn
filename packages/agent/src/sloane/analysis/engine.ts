@@ -17,10 +17,10 @@ import { type AnalysisDefinition, type AnalysisResult, type CellContext, DIMENSI
 import { FinancialAnalysisQueryService, type QueryDeps } from './query.js';
 
 export interface Referents { activeRowId: string | null; activeCellId: string | null; activePopulationId: string | null; activeMember: string | null }
-export interface AnalysisSession { definition: AnalysisDefinition; referents: Referents; cursor: number }
+export interface AnalysisSession { definition: AnalysisDefinition; referents: Referents; cursor: number; /** prior versions, newest last — what a correction returns to */ history?: AnalysisDefinition[] }
 export interface Panel { kind: 'GL' | 'EXPLAIN' | 'FLUX' | 'RECON' | 'SUPPORT' | 'CHART' | 'EXCEL'; title: string; subtitle: string | null; cell: CellContext | null; objects: FinancialObject[]; gl: { populationId: string; rowCount: number; debit: string; credit: string; net: string; columns: string[]; lines: { id: string; cells: string[] }[]; nextCursor: number | null } | null; notes: string[] }
 export interface EngineDeps extends QueryDeps { runTool: (tool: string, args: ToolArgs) => FinancialObject | null }
-export interface EngineOut { session: AnalysisSession; result: AnalysisResult; panel: Panel | null; notes: string[]; changes: string[]; visualization: VisualizationDefinition | null; excel: ExcelHandoff | null; save: { name: string; definition: AnalysisDefinition } | null; created: boolean }
+export interface EngineOut { session: AnalysisSession; result: AnalysisResult; panel: Panel | null; notes: string[]; changes: string[]; visualization: VisualizationDefinition | null; excel: ExcelHandoff | null; save: { name: string; definition: AnalysisDefinition } | null; created: boolean; clarify: { question: string; options: string[] } | null }
 
 const shift = (p: string, n: number) => { const [y, m] = p.split('-').map(Number); const i = y! * 12 + (m! - 1) + n; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`; };
 const monthsBetween = (a: string, b: string) => { const [ya, ma] = a.split('-').map(Number), [yb, mb] = b.split('-').map(Number); return (yb! - ya!) * 12 + (mb! - ma!); };
@@ -91,10 +91,17 @@ export class AnalysisEngine {
   apply(sArg: AnalysisSession | null, ops: AnalysisOp[]): EngineOut {
     const notes: string[] = [], changes: string[] = [];
     let s: AnalysisSession | null = sArg ? JSON.parse(JSON.stringify(sArg)) : null;
-    let panel: Panel | null = null, visualization: VisualizationDefinition | null = null, excel: ExcelHandoff | null = null, save: EngineOut['save'] = null, created = false, mutated = false;
+    let panel: Panel | null = null, visualization: VisualizationDefinition | null = null, excel: ExcelHandoff | null = null, save: EngineOut['save'] = null, created = false, mutated = false, clarify: EngineOut['clarify'] = null;
+    const before = s ? JSON.parse(JSON.stringify(s.definition)) as AnalysisDefinition : null;
     const gp = this.d.data.governedPeriods();
     for (const op of ops) {
       if (op.op === 'NOTE') { notes.push(op.text); continue; }
+      if (op.op === 'CLARIFY') { clarify = { question: op.question, options: op.options }; continue; }
+      if (op.op === 'UNDO') {
+        const prev = s?.history?.pop();
+        if (!s || !prev) { notes.push('There is no earlier version of this analysis to go back to.'); continue; }
+        const v = s.definition.version; s.definition = { ...prev, version: v + 1, updatedAt: new Date().toISOString() }; changes.push(`back to the analysis before the last change`); continue;
+      }
       if (op.op === 'NEW') { s = { definition: this.newDefinition(op), referents: { activeRowId: null, activeCellId: null, activePopulationId: null, activeMember: null }, cursor: 0 }; created = true; changes.push(`created ${op.name}`); continue; }
       if (!s) { notes.push('There is no analysis on screen to change.'); break; }
       const def = s.definition;
@@ -129,8 +136,25 @@ export class AnalysisEngine {
           changes.push(`${op.exclude ? 'excluding' : 'only'} ${op.members.map((m) => m.label).join(', ')}`); mutated = true; break;
         }
         case 'CLEAR_FILTERS': def.filters = []; def.statement = def.analysisType === 'STATEMENT' ? def.statement : null; def.valueFilter = null; def.topN = null; changes.push('filters cleared'); mutated = true; break;
+        case 'ACCOUNT_TYPES': {
+          const ts = [...new Set(op.types)].sort().join(',');
+          if (ts === 'ASSET,EQUITY,EXPENSE,LIABILITY,REVENUE') { def.accountTypes = null; changes.push('every account type'); mutated = true; break; }
+          if (ts === 'ASSET,EQUITY,LIABILITY' || ts === 'EXPENSE,REVENUE') { def.statement = ts === 'EXPENSE,REVENUE' ? 'IS' : 'BS'; def.accountTypes = null; changes.push(`only ${def.statement === 'BS' ? 'balance-sheet' : 'income-statement'} accounts`); mutated = true; break; }
+          def.accountTypes = op.types; changes.push(`only ${op.types.map((x) => x.toLowerCase()).join(' and ')} accounts`); mutated = true; break;
+        }
+        case 'REMOVE_FILTER': {
+          const n0 = def.filters.reduce((x, f) => x + f.values.length, 0);
+          if (op.members.length) for (const m of op.members) for (const f of def.filters.filter((x) => x.dimension === m.dimension)) { const i = f.values.indexOf(m.value); if (i >= 0) { f.values.splice(i, 1); f.labels.splice(i, 1); } }
+          else if (op.dimension) def.filters = def.filters.filter((f) => f.dimension !== op.dimension);
+          if (op.dimension === 'account' || op.members.some((m) => m.dimension === 'account')) def.accountTypes = def.accountTypes && op.members.length ? def.accountTypes : null;
+          def.filters = def.filters.filter((f) => f.values.length);
+          if (def.filters.reduce((x, f) => x + f.values.length, 0) === n0 && !op.dimension) notes.push('That is not a filter on this analysis.'); else { changes.push(`removed the ${op.members.map((m) => m.label).join(', ') || op.dimension} filter`); mutated = true; }
+          break;
+        }
         case 'STATEMENT': def.statement = op.statement; changes.push(op.statement ? `only ${op.statement === 'BS' ? 'balance-sheet' : 'income-statement'} accounts` : 'both statements'); mutated = true; break;
-        case 'THRESHOLD': def.valueFilter = op.minAbs === null ? null : { minAbs: op.minAbs, on: op.on === 'VARIANCE' && def.measures.includes('VARIANCE') ? 'VARIANCE' : 'VALUE' }; changes.push(op.minAbs === null ? 'threshold removed' : `only ${op.on === 'VARIANCE' && def.measures.includes('VARIANCE') ? 'movements' : 'amounts'} over ${money(op.minAbs * 1e6, 'USD')}`); mutated = true; break;
+        case 'THRESHOLD':
+          if (op.minPct && !def.measures.includes('VARIANCE')) { if (!def.comparison) def.comparison = { basis: 'PRIOR_PERIOD', period: null }; const cmp = this.q.comparisonPeriod(def); if (cmp && !def.periods.includes(cmp)) def.periods = [...def.periods, cmp].sort(); def.measures = [...def.measures, 'VARIANCE']; }
+          def.valueFilter = op.minAbs === null && !op.minPct ? null : { minAbs: op.minAbs ?? 0, on: (op.on === 'VARIANCE' || op.minPct) && def.measures.includes('VARIANCE') ? 'VARIANCE' : 'VALUE', minPct: op.minPct ?? null }; changes.push(op.minAbs === null ? 'threshold removed' : `only ${op.on === 'VARIANCE' && def.measures.includes('VARIANCE') ? 'movements' : 'amounts'} over ${money(op.minAbs * 1e6, 'USD')}`); mutated = true; break;
         case 'SORT': def.sorts = [{ by: op.by, period: op.period, dir: 'DESC' }]; changes.push(op.by === 'LABEL' ? 'sorted by name' : `largest ${op.by === 'VARIANCE' ? 'movements' : op.period ? periodLabel(op.period) : 'amounts'} first`); mutated = true; break;
         case 'TOP': def.topN = op.n; changes.push(op.n ? `top ${op.n}` : 'all rows'); mutated = true; break;
         case 'PERIODS': { const ps = op.periods.filter((p) => gp.includes(p)); if (!ps.length) { notes.push('No governed period in that range.'); break; } def.periods = ps; if (!ps.includes(def.primaryPeriod)) def.primaryPeriod = ps.at(-1)!; changes.push(`periods ${ps.map(periodLabel).join(', ')}`); mutated = true; break; }
@@ -207,6 +231,8 @@ export class AnalysisEngine {
       }
     }
     if (!s) throw new Error('no analysis');
+    /* every mutation keeps the version it replaced, so a correction can return to it */
+    if (mutated && !created && before) { s.history = [...(s.history ?? []), before].slice(-10); }
     if (mutated && !created) { s.definition.version += 1; s.definition.updatedAt = new Date().toISOString(); s.definition.updatedBy = this.d.actor.id; s.cursor = 0; }
     s.definition.dataVersion = this.d.gl.dataVersion();
     const v = this.q.validate(s.definition);
@@ -214,7 +240,7 @@ export class AnalysisEngine {
     if (v.errors.length) notes.push(...v.errors);
     const result = this.q.run(s.definition, { cursor: s.cursor, limit: 200 });
     notes.push(...result.notes);
-    return { session: s, result, panel, notes: [...new Set(notes)], changes, visualization, excel, save, created };
+    return { session: s, result, panel, notes: [...new Set(notes)], changes, visualization, excel, save, created, clarify };
   }
 
   /* ---- the questions a grid invites --------------------------------------------------------------------------- */

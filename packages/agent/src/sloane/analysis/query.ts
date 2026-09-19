@@ -87,6 +87,7 @@ export class FinancialAnalysisQueryService {
       if (scopeEnts && !scopeEnts.has(l.entity)) return false;
       if (def.statement === 'BS' && !isBS(l)) return false;
       if (def.statement === 'IS' && isBS(l)) return false;
+      if (def.accountTypes?.length && !def.accountTypes.includes(l.accountType)) return false;
       for (const x of f) {
         const hit = x.dimension === 'account' ? x.set.has(l.account) || x.set.has(l.group) : x.set.has(this.member(l, x.dimension).id.slice(x.dimension.length + 1));
         if (x.op === 'IN' ? !hit : hit) return false;
@@ -222,7 +223,9 @@ export class FinancialAnalysisQueryService {
     const pass = (id: string): boolean => {
       if (passes.has(id)) return passes.get(id)!;
       const n = nodes.get(id)!;
-      const self = !def.valueFilter || (!n.structural && Math.abs(metric(n)) >= def.valueFilter.minAbs * 1e6);
+      const pctIdx = cols.findIndex((c) => c.measure === 'VARIANCE');
+      const pctOk = () => { const mp = def.valueFilter?.minPct; if (!mp || pctIdx < 0) return true; const a = cols.findIndex((c) => c.base && c.period === def.primaryPeriod), b = cols.findIndex((c) => c.base && c.period === this.comparisonPeriod(def)); const base = b >= 0 ? Math.abs(n.values[b]!) : 0; return base > 500 && Math.abs(n.values[pctIdx]!) / base >= mp; };
+      const self = !def.valueFilter || (!n.structural && Math.abs(metric(n)) >= def.valueFilter.minAbs * 1e6 && pctOk());
       const r = self || n.children.some(pass);
       passes.set(id, r); return r;
     };
@@ -265,7 +268,8 @@ export class FinancialAnalysisQueryService {
       totals = { id: 'total', memberIds: [], label: 'Total', level: 0, dimension: 'total', kind: 'total', expandable: false, expanded: false, cells: cols.map((c, i) => ({ id: `total${SEP}${c.id}`, value: Number.isFinite(vals[i]!) ? vals[i]! : null, display: fmt(c, vals[i]!), drillable: false })) };
     }
     const notes: string[] = [];
-    if (def.valueFilter) notes.push(`Rows below ${money(def.valueFilter.minAbs * 1e6, 'USD')} ${def.valueFilter.on === 'VARIANCE' && vIdx >= 0 ? 'of variance' : ''} are hidden; parent totals still include them.`.replace(/\s+/g, ' '));
+    if (def.valueFilter) notes.push(`Rows below ${def.valueFilter.minAbs ? money(def.valueFilter.minAbs * 1e6, 'USD') : ''}${def.valueFilter.minAbs && def.valueFilter.minPct ? ' and ' : ''}${def.valueFilter.minPct ? `${Math.round(def.valueFilter.minPct * 100)}%` : ''} ${def.valueFilter.on === 'VARIANCE' && vIdx >= 0 ? 'of variance' : ''} are hidden; parent totals still include them.`.replace(/\s+/g, ' '));
+    if (def.accountTypes?.length) notes.push(`Only ${def.accountTypes.map((x) => x.toLowerCase()).join(' and ')} accounts (the governed account type).`);
     if (def.topN) notes.push(`Top ${def.topN} shown.`);
     if (lines.some((l) => l.currency !== 'USD') && def.measures.includes('ENDING_BALANCE')) notes.push('Balances translate at the period-end rate and activity at the monthly average (FX-CLS / FX-AVG rate sets).');
     const queryId = `AQ-${def.id}-v${def.version}`;

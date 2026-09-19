@@ -289,23 +289,30 @@ export function validateNarrative(v: Json, objectIds: string[], factKeys: string
 
 /* PHASE 8C: an edit to the governed analysis on screen (or a new one). The model names dimensions, members and periods
    in words and YYYY-MM; Korvyn re-resolves every name to a canonical id and re-checks every period before applying. */
-import { MODEL_OPS, type AnalysisEdit } from './analysis/model.js';
+import { EDIT_RELATIONS, MODEL_OPS, type AnalysisEdit } from './analysis/model.js';
 export const ANALYSIS_EDIT_SCHEMA = obj({
-  ops: { type: 'array', items: obj({ op: strEnum(MODEL_OPS), dimensions: { type: 'array', items: { type: 'string' } }, values: { type: 'array', items: { type: 'string' } }, periods: { type: 'array', items: { type: 'string' } }, measure: nul('string'), number: nul('number'), statement: nul('string'), rowRef: nul('string') }) },
+  relation: strEnum(EDIT_RELATIONS),
+  ops: { type: 'array', items: obj({ op: strEnum(MODEL_OPS), dimensions: { type: 'array', items: { type: 'string' } }, values: { type: 'array', items: { type: 'string' } }, periods: { type: 'array', items: { type: 'string' } }, measure: nul('string'), number: nul('number'), percent: nul('number'), statement: nul('string'), rowRef: nul('string') }) },
   confidence: { type: 'number' },
   unsupported: nul('string'),
+  question: nul('string'),
+  options: { type: 'array', items: { type: 'string' } },
 });
 export function validateAnalysisEdit(v: Json): Result<AnalysisEdit> {
   const c = new V();
-  if (!c.keys(v, 'edit', ['ops', 'confidence', 'unsupported'])) return { ok: false, errors: c.errors };
+  if (!c.keys(v, 'edit', ['relation', 'ops', 'confidence', 'unsupported', 'question', 'options'])) return { ok: false, errors: c.errors };
+  c.enm(v['relation'], 'relation', EDIT_RELATIONS);
+  c.str(v['question'], 'question', true, 300);
+  if (c.arr(v['options'], 'options', 6)) (v['options'] as Json[]).forEach((x) => c.str(x, 'options', false, 120));
   if (c.arr(v['ops'], 'ops', 8)) (v['ops'] as Json[]).forEach((o, i) => {
-    if (!c.keys(o, `ops[${i}]`, ['op', 'dimensions', 'values', 'periods', 'measure', 'number', 'statement', 'rowRef'])) return;
+    if (!c.keys(o, `ops[${i}]`, ['op', 'dimensions', 'values', 'periods', 'measure', 'number', 'percent', 'statement', 'rowRef'])) return;
     const O = o as Record<string, Json>;
     c.enm(O['op'], `ops[${i}].op`, MODEL_OPS);
     for (const k of ['dimensions', 'values', 'periods']) if (c.arr(O[k], `ops[${i}].${k}`, 12)) (O[k] as Json[]).forEach((x) => c.str(x, `ops[${i}].${k}`, false, 120));
     if (Array.isArray(O['periods'])) (O['periods'] as Json[]).forEach((p) => c.per(p, `ops[${i}].periods`, false));
     c.str(O['measure'], `ops[${i}].measure`, true, 40); c.str(O['statement'], `ops[${i}].statement`, true, 8); c.str(O['rowRef'], `ops[${i}].rowRef`, true, 300);
     if (O['number'] !== null && typeof O['number'] !== 'number') c.errors.push(`ops[${i}].number: expected number`);
+    if (O['percent'] !== null && typeof O['percent'] !== 'number') c.errors.push(`ops[${i}].percent: expected number`);
   });
   if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');
   c.str(v['unsupported'], 'unsupported', true, 160);

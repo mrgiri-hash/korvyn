@@ -1,0 +1,33 @@
+{
+  "_about": "KNOWN / SCRIPTED set: prompts that appeared in earlier briefs, tests or implementation examples. Scored with the same semantic checks as the holdout set, for comparison.",
+  "cases": [
+    { "id": "K01", "family": "STATEMENT", "input": "Show me May and June balance sheet", "expect": { "outcome": ["ANALYSIS"], "analysis": { "statement": "BS", "periods": ["2026-05", "2026-06"] } } },
+    { "id": "K02", "family": "PIVOT", "setup": ["Show me May and June balance sheet"], "input": "accounts on rows, months on columns", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "rowsInclude": ["account"] } } },
+    { "id": "K03", "family": "FILTER", "setup": ["Show me May and June balance sheet"], "input": "only cash and CIP", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "filter": { "dimension": "account", "value": "15000" } } } },
+    { "id": "K04", "family": "HIERARCHY", "setup": ["Show me May and June balance sheet"], "input": "expand CIP", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "expandedSome": true } } },
+    { "id": "K05", "family": "PIVOT", "setup": ["Show me May and June balance sheet", "expand CIP"], "input": "put projects underneath", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "rowsInclude": ["account", "project"] } } },
+    { "id": "K06", "family": "MODIFY", "setup": ["Show me May and June balance sheet"], "input": "add variance", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "measuresInclude": ["VARIANCE"] } } },
+    { "id": "K07", "family": "FILTER", "setup": ["Show me May and June balance sheet", "add variance"], "input": "only over $5M", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "threshold": true } } },
+    { "id": "K08", "family": "DRILL", "setup": ["Show me May and June balance sheet", "add variance"], "input": "show me the GL behind the largest movement", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "panel": "GL" } } },
+    { "id": "K09", "family": "TB", "input": "Show June TB by entity", "expect": { "outcome": ["ANALYSIS"], "analysis": { "type": "TRIAL_BALANCE", "rowsInclude": ["entity"] } } },
+    { "id": "K10", "family": "FILTER", "setup": ["Show June TB by entity"], "input": "only BS accounts", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "statement": "BS" } } },
+    { "id": "K11", "family": "SORT", "setup": ["Show June TB by entity"], "input": "sort largest first", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "sort": "VALUE" } } },
+    { "id": "K12", "family": "HIERARCHY", "setup": ["Show June TB by entity"], "input": "expand South Valley", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "rowsInclude": ["project"] } } },
+    { "id": "K13", "family": "STATEMENT", "input": "Show monthly CIP activity by project Jan-Jun", "expect": { "outcome": ["ANALYSIS"], "analysis": { "type": "ANALYSIS", "rowsInclude": ["project"], "filter": { "dimension": "account", "value": "15000" } } } },
+    { "id": "K14", "family": "SORT", "setup": ["Show monthly CIP activity by project Jan-Jun"], "input": "top five projects only", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "topN": 5 } } },
+    { "id": "K15", "family": "PIVOT", "setup": ["Show monthly CIP activity by project Jan-Jun"], "input": "vendors underneath", "expect": { "outcome": ["ANALYSIS"], "analysis": { "same": true, "rowsInclude": ["project", "vendor"] } } },
+    { "id": "K16", "family": "DRILL", "setup": ["Show monthly CIP activity by project Jan-Jun"], "focus": { "row": "project:SV-PH2", "period": "2026-06" }, "input": "show me what's behind this", "expect": { "outcome": ["ANALYSIS"], "analysis": { "panel": "GL" } } },
+    { "id": "K17", "family": "EVIDENCE", "setup": ["Show monthly CIP activity by project Jan-Jun"], "setupFocus": { "row": "project:SV-PH2", "period": "2026-06" }, "input": "does it have support?", "expect": { "outcome": ["ANALYSIS"], "analysis": { "panel": "SUPPORT" } } },
+    { "id": "K18", "family": "LOOKUP", "input": "close", "expect": { "outcome": ["CANVAS"], "canvasKind": ["CLOSE"] } },
+    { "id": "K19", "family": "LOOKUP", "input": "flux", "expect": { "outcome": ["CANVAS"], "canvasKind": ["FLUX"] } },
+    { "id": "K20", "family": "LOOKUP", "input": "reconciliations", "expect": { "outcome": ["CANVAS"], "canvasKind": ["RECONCILIATIONS"] } },
+    { "id": "K21", "family": "LOOKUP", "input": "Siemens", "expect": { "outcome": ["CANVAS"], "canvasKind": ["OBJECT"] } },
+    { "id": "K22", "family": "UNSUPPORTED", "input": "budget vs actual", "expect": { "outcome": ["CANVAS"], "canvasKind": ["PLANNING"], "unsupported": true } },
+    { "id": "K23", "family": "CONVERSATION", "input": "hello", "expect": { "outcome": ["CONVERSATION"] } },
+    { "id": "K24", "family": "TOPIC_CHANGE", "input": "What is blocking June close?", "expect": { "toolsAny": ["getCloseBlockers", "getLargestUnresolvedCloseIssue", "getCloseReadiness"] } },
+    { "id": "K25", "family": "PERMISSION", "persona": "RESTRICTED", "input": "Show June TB by entity", "expect": { "outcome": ["ANALYSIS"], "leak": "MER-UK|MER-DE|MER-SG|MGP-REIT|Meridian UK|Deutschland|APAC Pte" } },
+    { "id": "K26", "family": "PERMISSION", "persona": "RESTRICTED", "input": "Show the consolidated balance sheet for June", "expect": { "forbidOutcome": ["ANALYSIS"], "leak": "MER-UK|MER-DE|MER-SG|MGP-REIT" } },
+    { "id": "K27", "family": "SAVE", "setup": ["Show monthly CIP activity by project Jan-Jun"], "input": "save this analysis", "expect": { "outcome": ["PROPOSAL"], "proposal": "SAVE_ANALYSIS" } },
+    { "id": "K28", "family": "FLUX", "setup": ["Show me June balance sheet", "expand CIP"], "input": "does Flux explain this?", "expect": { "outcome": ["ANALYSIS"], "analysis": { "panel": "FLUX" } } }
+  ]
+}

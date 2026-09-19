@@ -50,7 +50,7 @@ import type { Conversation } from './schema.js';
 import { UniversalIntentResolver } from './canvas/intent.js';
 import { CanvasEngine, type CanvasState, canvasObject } from './canvas/canvas.js';
 import { AnalysisEngine, type AnalysisSession } from './analysis/engine.js';
-import { fromModel, looksAnalytical, parseAnalysis } from './analysis/edit.js';
+import { fromModel, parseAnalysis, uiCommandOps, UI_COMMANDS, vocabulary, wantsAnalysisEditor, type AnalysisOp, type UiCommand } from './analysis/edit.js';
 import { DIMENSIONS, MEASURES } from './analysis/model.js';
 
 /* ================================================================================================
@@ -561,6 +561,14 @@ export function deterministicPlan(text: string, I: Interpretation, R: Resolved, 
   if (I.requestedObject.type === 'INCOME_STATEMENT') return [S('getIncomeStatement', 'Income statement', { periodStart: range?.start ?? ctx.period.value, periodEnd: range?.end ?? ctx.period.value, scope: ctx.scope.value })];
   if (I.requestedObject.type === 'TRIAL_BALANCE') return [ctx.scope.value !== 'GROUP' ? S('getTrialBalance', 'Entity trial balance', { entity: ctx.scope.value }) : S('getTrialBalanceByEntity', 'Trial balance by entity')];
   if (/financials?|results/.test(t) || I.requestedObject.type === 'FINANCIAL_STATEMENT') return [S('getFinancialSummary', 'Reading the governed financial summary')];
+  /* 8C.1 — plan from the INTERPRETATION's structure (object type × intent), not from the words: the model has already
+     read the meaning; the words above only cover what is unambiguous without it */
+  const ty = I.requestedObject.type, op = I.operation, it = I.intent;
+  const lookingFor = it === 'FIND' || op === 'FIND';
+  if ((it === 'PROVE' || op === 'PROVE') && (acctFromText || ctx.populationId.value) && (ty === 'EVIDENCE' || ty === 'AUDIT_POPULATION' || ty === 'GOVERNED_LEDGER' || ty === 'ACCOUNT' || ty === null))
+    return [S('findMissingEvidence', 'Lines missing support', ctx.populationId.value && !acctFromText ? { populationId: ctx.populationId.value } : { objectRef: `account:${acctFromText}`, period: ctx.period.value })];
+  if (ty === 'FLUX') return [lookingFor ? S('getUnexplainedFluxItems', 'Unexplained flux items') : S('getFluxSummary', 'Flux summary')];
+  if (ty === 'CLOSE') return [(it === 'REVIEW' || lookingFor || it === 'UNDERSTAND') ? S('getCloseBlockers', 'What is blocking the close') : S('getCloseReadiness', 'Close readiness')];
   if (acctFromText) return [S('getAccountAnalysis', 'Account analysis', { account: acctFromText })];
   return bareObjectPlan(text, ctx) ?? [];
 }
@@ -763,11 +771,12 @@ const STRUCTURAL = new Set(['ExcelWorkbookPreview', 'PBCRequest', 'PBCSupportGap
 export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown; /** the page the browser has open — display context only, never a financial fact */ view?: unknown;
   /** Phase 8C: what the person pointed at — canonical ids only (a canvas row ref, a grid row or cell id), never a label */
   focus?: unknown }
-export interface TurnFocus { ref?: string; rowId?: string; cellId?: string; analysisId?: string }
+export interface TurnFocus { ref?: string; rowId?: string; cellId?: string; analysisId?: string; command?: UiCommand }
 const focusOf = (f: unknown): TurnFocus | null => {
   if (!f || typeof f !== 'object') return null;
   const o = f as Record<string, unknown>, out: TurnFocus = {};
   for (const k of ['ref', 'rowId', 'cellId', 'analysisId'] as const) if (typeof o[k] === 'string' && (o[k] as string).length <= 600) out[k] = o[k] as string;
+  if (typeof o['command'] === 'string' && (UI_COMMANDS as readonly string[]).includes(o['command'])) out.command = o['command'] as UiCommand;
   return Object.keys(out).length ? out : null;
 };
 export interface TurnResponse {
@@ -1112,6 +1121,12 @@ export class SloaneOrchestrator {
               convModel = co.model ?? null;
               if (co.status === 'ok') {
                 conversation = co.value;
+                /* the conversational model recognised a grid request the vocabulary gate did not: the analysis editor reads it */
+                if (conversation.conversationIntent === 'ANALYSIS_REQUEST' && this.mode === 'reasoning') {
+                  const an2 = await this.analysisTurn(session, sessionId, actor, request, tr, status, focusOf(input.focus), ac.signal, true);
+                  if (cancelled()) return cancel();
+                  if (an2) { iac.abort(); kind = an2.kind; an2.notes.forEach(note); suggestions = an2.suggestions; tr.fallbacks.push('analysis: routed by the conversational front door'); return finish(an2.state, { ...an2.extra }); }
+                }
                 /* a reply may repeat a figure only if the context it was given states it — otherwise the turn needs a tool */
                 const ctxText = JSON.stringify(cctx).replace(/[,$()]/g, '');
                 const unknownFig = conversation.reply ? numTokens(conversation.reply).filter((x) => x.replace(/[MKB%]$/, '').length > 0).find((x) => !ctxText.includes(x.replace(/[MKB%]$/, ''))) : undefined;
@@ -1440,7 +1455,7 @@ export class SloaneOrchestrator {
      language); the AnalysisEngine applies them to ONE AnalysisDefinition kept on the conversation; the query service
      executes it server-side; drill, explain, Flux, reconciliation and support read the cell's governed population.
      ================================================================================================ */
-  private async analysisTurn(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, status: (t: string) => void, focus: TurnFocus | null, signal: AbortSignal):
+  private async analysisTurn(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, status: (t: string) => void, focus: TurnFocus | null, signal: AbortSignal, force = false):
     Promise<{ state: TurnState; kind: TurnKind; notes: string[]; suggestions: string[]; extra: Partial<TurnResponse> } | null> {
     const ctx = session.ctx, v = conv(ctx);
     const active = ctx.analysis && (v.lastKind === 'ANALYSIS' || !!focus?.analysisId) ? ctx.analysis : null;
@@ -1451,27 +1466,54 @@ export class SloaneOrchestrator {
     }
     const graph = financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts });
     const deps = { gl: this.gl, graph, actor, visible: visibleOf(actor), periods: this.data.governedPeriods(), workingPeriod: this.data.workingPeriod() };
-    let ops = parseAnalysis(request, active?.definition ?? null, deps);
-    let source: 'deterministic' | 'reasoning' = 'deterministic';
+    /* 8C.1 — ROUTING. A structured UI command from the grid is unambiguous and runs as-is. Natural language is read by
+       the MODEL against the analysis on screen and the governed vocabulary; the deterministic reader is the fallback when
+       no model is configured, or when the model declines or fails. The model's NOT_ANALYSIS returns the turn to the rest
+       of Sloane; NEEDS_CLARIFICATION asks. */
+    let ops: AnalysisOp[] | null = null;
+    let source: 'deterministic' | 'reasoning' | 'ui' = 'deterministic';
     const notes: string[] = [];
-    if (!ops && this.mode === 'reasoning' && (active ? !/^(hi|hello|thanks|thank you)\b/i.test(request) && request.split(/\s+/).length <= 30 : looksAnalytical(request))) {
+    if (focus?.command && active) { ops = uiCommandOps(focus.command); source = 'ui'; }
+    const askModel = !ops && this.mode === 'reasoning' && request.split(/\s+/).length <= 40 && (force || !!active || wantsAnalysisEditor(request));
+    let modelSaid: 'NOT_ANALYSIS' | 'OPS' | 'NONE' = 'NONE';
+    if (askModel) {
       status('Reading the analysis request');
       const q0 = active ? new AnalysisEngine({ ...deps, data: this.data, runTool: () => null }).q.run(active.definition, { limit: 40 }) : null;
-      const out = await this.adapter.analysisEdit({ request, analysis: active ? { name: active.definition.name, type: active.definition.analysisType, rows: active.definition.rows, columns: active.definition.columns, measures: active.definition.measures, periods: active.definition.periods, primaryPeriod: active.definition.primaryPeriod, filters: active.definition.filters.map((f) => ({ dimension: f.dimension, op: f.op, labels: f.labels })), statement: active.definition.statement } : null,
+      const out = await this.adapter.analysisEdit({ request, analysis: active ? { name: active.definition.name, type: active.definition.analysisType, rows: active.definition.rows, columns: active.definition.columns, measures: active.definition.measures, periods: active.definition.periods, primaryPeriod: active.definition.primaryPeriod, filters: active.definition.filters.map((f) => ({ dimension: f.dimension, op: f.op, labels: f.labels })), statement: active.definition.statement, accountTypes: active.definition.accountTypes ?? null, threshold: active.definition.valueFilter } : null,
         dimensions: DIMENSIONS.map((d) => ({ id: d.id, label: d.label, governed: d.governed })), measures: MEASURES.map((m) => m.id), periods: deps.periods, workingPeriod: deps.workingPeriod,
-        visibleRows: q0 ? q0.rows.filter((r) => r.kind !== 'section').slice(0, 30).map((r) => ({ id: r.id, label: r.label })) : [] }, { route: 'FAST', signal });
+        visibleRows: q0 ? q0.rows.filter((r) => r.kind !== 'section').slice(0, 30).map((r) => ({ id: r.id, label: r.label })) : [],
+        vocabulary: vocabulary(deps), selectedCell: active?.referents.activeCellId ?? null }, { route: 'FAST', signal });
       this.recordCall(tr, 'analysisEdit', out as never);
-      if (out.status === 'ok' && out.value.confidence >= 0.5) {
-        const m = fromModel(out.value, active?.definition ?? null, deps);
-        if (m.ops.length) { ops = m.ops; source = 'reasoning'; }
-        if (out.value.unsupported) notes.push(`Not available: ${out.value.unsupported}.`);
-        m.rejected.forEach((x) => tr.fallbacks.push(`analysis edit rejected: ${x}`));
-      } else tr.fallbacks.push(`analysis edit: ${out.status === 'ok' ? `low confidence ${out.value.confidence}` : out.status}`);
+      if (out.status === 'ok') {
+        const e = out.value;
+        if (e.relation === 'NOT_ANALYSIS') modelSaid = 'NOT_ANALYSIS';
+        else if (e.relation === 'NEEDS_CLARIFICATION' && e.question && e.options.length >= 2) {
+          const opts = e.options.slice(0, 5).map((label, i) => ({ id: `opt${i + 1}`, label }));
+          session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request, interpretation: null as never, field: 'object', options: opts, loops: 0, traceId: tr.traceId, requests: Object.fromEntries(opts.map((o) => [o.id, o.label])) };
+          tr.route = 'ANALYSIS'; tr.interpretationSource = 'reasoning'; tr.shortcut = 'analysis: clarification';
+          tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: out.model ?? null, selectedTool: null, fallbackReason: null };
+          return { state: 'CLARIFICATION_REQUIRED', kind: 'CLARIFICATION', notes: [], suggestions: [], extra: { clarification: { pendingId: session.pending.id, field: 'object', question: e.question, options: opts } } };
+        } else if (e.confidence >= 0.5) {
+          const m = fromModel(e, active?.definition ?? null, deps);
+          if (m.ops.length) { ops = m.ops; source = 'reasoning'; modelSaid = 'OPS'; }
+          if (e.unsupported) notes.push(`Not available: ${e.unsupported.replace(/[.\s]+$/, '')}.`);
+          m.rejected.forEach((x) => tr.fallbacks.push(`analysis edit rejected: ${x}`));
+          /* the model understood the request as unsupported and had nothing to apply: say so rather than fall through */
+          if (!m.ops.length && e.unsupported) { tr.route = 'ANALYSIS'; tr.interpretationSource = 'reasoning'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes, suggestions: [], extra: {} }; }
+        } else tr.fallbacks.push(`analysis edit: low confidence ${e.confidence}`);
+      } else tr.fallbacks.push(`analysis edit: ${out.status}`);
     }
+    if (modelSaid === 'NOT_ANALYSIS') return null;
+    /* the deterministic reader: no model in this mode, or the model declined / failed / was unsure */
+    if (!ops && modelSaid === 'NONE') { ops = parseAnalysis(request, active?.definition ?? null, deps); if (ops && askModel) tr.fallbacks.push('analysis: deterministic reader (model unavailable or unsure)'); }
     if (!ops || !ops.length) return null;
+    /* a named scope the actor may not view is refused — never silently narrowed — for the model's reading too */
+    if (ops.some((o) => o.op === 'NEW') && actor.scopeIds !== 'ALL' && scopeNamedBy(request, 'GROUP', this.data)) {
+      tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: [`Not permitted: ${actor.role} may not view scope GROUP.`], suggestions: [], extra: {} };
+    }
     if (!ops.every((o) => o.op === 'NOTE') && !active && ops[0]!.op !== 'NEW') return null;
     if (ops.every((o) => o.op === 'NOTE')) { tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ops.map((o) => (o as { text: string }).text), suggestions: [], extra: {} }; }
-    tr.route = 'ANALYSIS'; tr.interpretationSource = source;
+    tr.route = 'ANALYSIS'; tr.interpretationSource = source === 'ui' ? 'deterministic' : source;
     tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: null, selectedTool: null, fallbackReason: null };
     tr.shortcut = `analysis: ${ops.map((o) => o.op).join(', ')}`;
     status(active ? 'Updating the analysis' : 'Building the analysis');
@@ -1488,7 +1530,7 @@ export class SloaneOrchestrator {
     const engine = new AnalysisEngine({ gl: this.gl, data: this.data, actor, visible: visibleOf(actor), runTool });
     const t0 = Date.now();
     let out;
-    try { out = engine.apply(active, ops); } catch (e) { tr.errors.push(redact((e as Error).message)); return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ['Sloane could not apply that to the analysis.'], suggestions: [], extra: {} }; }
+    try { out = engine.apply(active, ops!); } catch (e) { tr.errors.push(redact((e as Error).message)); return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ['Sloane could not apply that to the analysis.'], suggestions: [], extra: {} }; }
     tr.timings.toolsMs = Date.now() - t0;
     tr.toolsExecuted.push({ tool: 'FinancialAnalysisQueryService.run', args: { analysisId: out.session.definition.id, version: String(out.session.definition.version) }, status: 'COMPLETED', objectId: out.result.queryId, latencyMs: Date.now() - t0, warnings: [], error: null, result: { type: 'AnalysisResult', status: 'AVAILABLE', facts: 0, populationId: out.session.referents.activePopulationId, rows: out.result.rowCount } });
     notes.push(...out.notes);

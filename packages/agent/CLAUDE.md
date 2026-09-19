@@ -101,6 +101,8 @@ resolution, capability gaps, titles), routes SHORTCUT · DELIVERABLE · FOLLOW_U
 
 **Phase 8C (2026-09-19):** the governed analysis — `analysis/` (model · query · edit · engine): one book-aware `AnalysisDefinition` edited conversationally (deterministic reader, then `adapter.analysisEdit`), executed server-side by `FinancialAnalysisQueryService` over `GovernedLedger.contribution`, cells identified by canonical row path § column id with a re-derivable `CellContext` and population; drill / explain / Flux / reconciliation / support on the same population; route `ANALYSIS` ahead of the canvas; `focus` forwarded by `/turn` and `/turn/stream`. Full record in the root CLAUDE.md.
 
+**Phase 8C.1 (2026-09-19):** natural-language generalization — model-first analysis editing with a stated relation and the governed vocabulary, structured grid commands (`focus.command`), interpretation-driven planning, a scope check on every new analysis, and the evaluation harness (`eval/`: known + holdout + model-generated paraphrases; holdout 40% → 93%). Full record in the root CLAUDE.md.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

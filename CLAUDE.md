@@ -10299,6 +10299,74 @@ exist. **A named scope outside access ("the consolidated balance sheet" for an M
 - The drill's GL lines sum at average rates, so a translated balance differs from them; the panel states this.
 - Model-assisted edits need the reasoning mode; the mock declines.
 
+## 2026-09-19 — SLOANE PHASE 8C.1: natural-language generalization, measured
+
+Owner's brief. The question was whether Sloane understands unseen finance language because of its architecture or
+because its phrase rules happen to match the test sentences. **Measured with a holdout set, the answer before this pass
+was: largely because of phrase rules.** No UI redesign, no Visualization Intelligence, Excel, PowerPoint or PDF.
+
+**THE HARNESS** (`packages/agent/src/sloane/eval/`):
+- `scoring.ts`: `observe()` classifies a turn (ANALYSIS · CANVAS · CONVERSATION · TOOLS · AGENT · CLARIFY · PROPOSAL ·
+  NOTE); `score()` checks it semantically: intent, analysis shape, context kept, referent, clarification, tools,
+  unsupported honesty, permission (leak regexes). Each failed check carries a failure category.
+- `known.json` (28, from earlier briefs) and `holdout.json` (80, written for this pass, never read by routing code).
+- `generalization.ts`: `npx tsx src/sloane/eval/generalization.ts --sets known,holdout,generated --gen 2 [--mock]
+  [--only H01] [--out f.json]`. It runs the REAL orchestrator with three personas and makes model-generated adversarial
+  paraphrases of the holdout (`SLOANE_EVAL_GEN_MODEL`, default Haiku). **The generator only writes inputs; the
+  expectations are the original case's.** Set `KORVYN_DB_PATH=:memory:`. Spends credits unless `--mock`.
+- **Contamination guard**: no holdout sentence may appear in routing code or prompts. H24's wording ("source GL only")
+  was matched by a pre-existing 8C rule and was reworded; the note is on the case.
+
+**RESULTS (cases fully passing):**
+
+| | deterministic only | live, before | live, after |
+|---|---|---|---|
+| Known | 93% | 93% | **96%** |
+| Holdout | 40% | 69% | **93%** |
+| Generated paraphrases | — | — | **83%** (a fresh set each run) |
+
+Latency after: follow-up edits p50 2.3 s / p90 2.9 s; new analyses p50 2.7 s / p90 4.4 s; a structured grid command 0 ms
+of model time.
+
+**WHAT CHANGED — architecture, not phrases:**
+- **Model-first for natural language** (`analysisTurn`). With an analysis on screen, or words that name a grid object
+  (`wantsAnalysisEditor`: a statement / TB / activity / rows / columns noun, or a split by a governed dimension — a
+  vocabulary gate, and questions are excluded by syntax), the model reads the words first. The deterministic reader
+  (`parseAnalysis`) runs only when no model is configured or the model declines, fails or is unsure.
+- **The model states a RELATION** (`EDIT_RELATIONS`): NEW_ANALYSIS · MODIFY · ASK_ABOUT_ANALYSIS · CORRECTION ·
+  NOT_ANALYSIS (the turn returns to the rest of Sloane) · NEEDS_CLARIFICATION (a question with options that resume as
+  requests). The prompt (`ANALYSIS_EDIT_SYSTEM`) describes the analysis model and its rules; it has no example sentences.
+- **The governed vocabulary travels with every edit** (`vocabulary(d)`: permitted account groups with types and
+  children, entities, projects, properties, vendors, cost centres, and what Korvyn does not hold). Every name the model
+  returns is re-resolved; an invented one is rejected.
+- **New edit ops**: ACCOUNT_TYPE (`definition.accountTypes`), a % floor (`valueFilter.minPct`, which brings its variance),
+  REMOVE_FILTER, CLEAR_FILTERS, UNDO (`AnalysisSession.history`, last 10 versions), statement both, expand / collapse
+  all. Canonical forms: the three BS types are `statement BS`, the two IS types `IS`, all five no restriction.
+- **The front door routes back.** A turn the vocabulary gate missed but the conversational model reads as
+  ANALYSIS_REQUEST goes to the analysis editor (`CONVERSE_SYSTEM` now defines it by meaning).
+- **A grid control is a structured command.** A chevron, Drill / Explain / Reconcile / Flux / Support or "load more"
+  sends `focus.command` (`C9_CMD` in `index.html`), and the server applies it with no model call. Typed words never map
+  to a command.
+- **The planner reads the interpretation's structure.** Before name resolution, `deterministicPlan` maps
+  (object type × intent): FLUX + FIND → unexplained flux; CLOSE → blockers; PROVE on an account or population →
+  missing evidence. The model had read these correctly while the planner ignored it.
+
+**A PERMISSION GAP WAS FOUND AND CLOSED.** The model path skipped the scope check the deterministic reader makes, so an
+MDH accountant asking for "the consolidated balance sheet" got a grid of what they could see instead of a refusal.
+Every new analysis now checks the scope its words name (`scopeNamedBy(request,'GROUP')`), whichever reader produced it.
+
+**Also fixed:** the model's row references (`values ["largest"]` = the largest row; no values = the selection) are
+honoured in `fromModel`. A doubled full stop on "Not available" notes. The scorer read any reply ending in "?" as a
+clarification ("Hi. What can I help you with?"); it now reads the conversational intent.
+
+**REMAINING FAILURE CATEGORIES** (holdout and generated): restricting a TB to "BS only" sometimes builds a new
+statement instead of modifying; "what's behind the biggest change" can re-sort rather than drill; "the other Siemens"
+continues rather than asks; a bare project name ("show South Valley") asks which object is meant; "take that back"
+cannot cross from one analysis to a different one (history is per analysis).
+
+**Traps:** the `\b`-becomes-backspace trap hit again in a Python splice (a non-raw string), and the shell ate a
+backslash in a `sed` replacement. Grep for `\x08` after every splice.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

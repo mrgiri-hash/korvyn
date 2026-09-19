@@ -153,6 +153,8 @@ async function main(): Promise<void> {
   queue.push({ text: JSON.stringify({ rationale: 'review', steps: [{ tool: 'getIncomeStatement', purpose: 'Income statement', dependsOn: [], args: [
     { name: 'periodStart', value: '$ctx.periodStart', valueType: 'ref' }, { name: 'periodEnd', value: '$ctx.periodEnd', valueType: 'ref' }, { name: 'scope', value: '$ctx.scope', valueType: 'ref' }] }] }) });
   queue.push({ text: JSON.stringify({ sentences: [{ text: 'The review covers the four months.', objectIds: ['FO-1'], factKeys: [] }] }) });
+  /* 8C.1: the words name a statement, so the analysis editor is asked first — and stands aside (NOT_ANALYSIS) */
+  queue.unshift({ text: JSON.stringify({ relation: 'NOT_ANALYSIS', ops: [], confidence: 0.9, unsupported: null, question: null, options: [] }) });
   const t2b = await orch.turn({ sessionId: 'dryrun-session-1', request: 'Review that income statement and tell me everything that needs attention.' });
   const tr2b = orch.trace(t2b.traceId)!;
   check('orchestrator: a multi-part review → DEEP plan; $ctx references resolved; scope GROUP', tr2b.plan.source === 'reasoning' && tr2b.route === 'DEEP' && tr2b.calls.find((c) => c.stage === 'plan')?.route === 'DEEP' && tr2b.toolsExecuted[0]?.args['scope'] === 'GROUP', { plan: tr2b.plan.source, route: tr2b.route, calls: tr2b.calls.map((c) => `${c.stage}@${c.route}`), tools: tr2b.toolsExecuted });
