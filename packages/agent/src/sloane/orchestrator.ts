@@ -801,9 +801,48 @@ const focusOf = (f: unknown): TurnFocus | null => {
   if (typeof o['command'] === 'string' && (UI_COMMANDS as readonly string[]).includes(o['command'])) out.command = o['command'] as UiCommand;
   return Object.keys(out).length ? out : null;
 };
+/**
+ * §7 — THE PRESENTATION DECISION, MADE ONCE AND CARRIED EXPLICITLY.
+ *
+ * NONE          the answer is the answer. Most turns.
+ * LIST          a handful of short rows under the words — ranked movers, a few blockers.
+ * TABLE         a governed object's own table, because the person asked to see it.
+ * The heavier surfaces (GRID, CANVAS, WORKSPACE, WORKBOOK) already have their own explicit paths and their own
+ * objects on the response; they are not re-expressed here.
+ */
+export type PresentationKind = 'NONE' | 'LIST' | 'TABLE';
+export interface Presentation {
+  kind: PresentationKind;
+  /** which governed object to show, when kind is TABLE — always one Korvyn READ this turn */
+  objectId?: string;
+  /** a heading for the presentation ONLY. It never names the conversation. */
+  title?: string;
+  /** the rows, when kind is LIST */
+  rows?: string[];
+  /** the model's own lead-in, if it wrote one */
+  lead?: string;
+}
+
 export interface TurnResponse {
   sessionId: string; traceId: string; state: TurnState; mode: 'reasoning' | 'deterministic'; latencyMs: number;
+  /**
+   * RUNTIME V3 §11 — NOTES ARE FOR THE PERSON. A note is something a finance professional needs to know: that
+   * their access is narrower than their question, that a source is stale. Korvyn's own findings about its own
+   * machinery — an unresolved reference, a figure with no governed backing, a population mismatch — are
+   * DIAGNOSTICS and never reach a normal user. They were being rendered, which is how "…were written without a
+   * governed reference…" got onto a controller's screen.
+   */
   notes: string[];
+  /** §11 — telemetry, debug mode, the audit trace. Never rendered. */
+  diagnostics: string[];
+  /**
+   * §5/§7 — RETRIEVAL IS NOT PRESENTATION, AND THIS FIELD IS WHERE THAT INVARIANT LIVES.
+   *
+   * `objects` is what Korvyn READ: it carries the facts, the refs, the population and the lineage, and an agent
+   * or the trace consumes all of it. What a PERSON sees is this, and only this. NONE is the default and the
+   * common case; anything here was asked for, by the person or by Claude on their behalf.
+   */
+  presentation: Presentation | null;
   clarification: { pendingId: string; field: string; question: string; options: { id: string; label: string }[] } | null;
   objects: FinancialObject[];
   /**
@@ -811,7 +850,7 @@ export interface TurnResponse {
    * (§19) — a governed fact, Korvyn's arithmetic over facts, the model's reading, or an admission. Both are
    * optional: a plain conversational answer is one unlabelled entry, exactly as before.
    */
-  narrative: { text: string; objectIds: string[]; label?: string; assertion?: string }[];
+  narrative: { text: string; objectIds: string[]; label?: string; assertion?: string; row?: boolean }[];
   context: { object: Field<string | null>; period: Field<string>; scope: Field<string>; currency: Field<string>; basis: Field<string>; focus: Field<string | null>; populationId: Field<string | null> };
   /** proposals prepared this turn — nothing in them has been executed */
   actions?: { planId: string; proposals: ActionProposal[] } | null;
@@ -1036,6 +1075,9 @@ export class SloaneOrchestrator {
       const c = session!.ctx, cv = contextView(c, this.data);
       return {
         sessionId, traceId: tr.traceId, state, mode: this.mode, latencyMs: tr.latencyMs, notes, clarification: null, objects: [], narrative: [],
+        /* §5/§11 — the two defaults that make the invariants hold by construction: nothing is shown unless a
+           turn says so, and no diagnostic exists unless a turn records one. */
+        diagnostics: [], presentation: null,
         context: { object: { value: c.object.value.type, source: c.object.source }, period: c.period, scope: { value: this.data.scope(c.scope.value)?.name ?? c.scope.value, source: c.scope.source }, currency: c.currency, basis: c.basis,
           focus: { value: c.focus.value?.name ?? null, source: c.focus.source }, populationId: c.populationId },
         kind, route: tr.route, suggestions, contextLine: cv.line, contextFields: cv.fields,

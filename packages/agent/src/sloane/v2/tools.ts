@@ -27,7 +27,7 @@ import {
 } from '../tools.js';
 import { type PlanContext, composedByName, composedCoverage, composedFor, planContext } from './compose.js';
 import { type FactContext, type FactRegistry, type FinancialFact, factsFrom } from './facts.js';
-import { RESPOND_TOOL } from './respond.js';
+import { SHOW_TOOL } from './respond.js';
 
 /* ================================================================================================
    THE CORE SET — the operations, in one stable order
@@ -58,11 +58,18 @@ export function coreTools(actor: Actor): SloaneTool[] {
  * already exists: the 8C analysis grid, the 8D investigation runtime, or the person.
  */
 /**
- * PHASE 2 — `respond` joins them, and it is the one the model ends almost every turn with. It is a control
- * tool for the same reason the other three are: it asks the PRODUCT to do something (compose the answer) and
- * it terminates the loop, so the structure costs no extra model call (§22).
+ * PHASE 3 §4/§14/§31 — `respond` IS GONE FROM THE SURFACE AND NOTHING REPLACED IT AS A REQUIREMENT.
+ *
+ * Phase 2 made every answer a `respond` call so that the answer arrived as structure. Phase 3 wants the answer
+ * to arrive as an ANSWER: the model writes, which is what it does anyway and on the same call, so no tool is
+ * needed to say something and no schema shapes a sentence. `show_list` is what took its place, and it is
+ * OPTIONAL — a handful of rows beneath the words when rows read better.
+ *
+ * `respond` and `show_list` stay in this list and only in this list: a session stored mid-turn, or a model that
+ * has read an older prompt, may still emit one, and `isControlTool` has to keep recognising it so the loop can
+ * answer it rather than treating it as a governed read. Neither is in `CONTROL_DEFS`, so neither is offered again.
  */
-export const V2_CONTROL_TOOLS = ['respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'] as const;
+export const V2_CONTROL_TOOLS = ['show', 'show_list', 'respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'] as const;
 export type V2ControlTool = (typeof V2_CONTROL_TOOLS)[number];
 export const isControlTool = (name: string): name is V2ControlTool => (V2_CONTROL_TOOLS as readonly string[]).includes(name);
 
@@ -100,8 +107,8 @@ export function toolDef(t: SloaneTool): V2ToolDef {
   };
 }
 
-const CONTROL_DEFS: Record<V2ControlTool, V2ToolDef> = {
-  respond: RESPOND_TOOL,
+const CONTROL_DEFS: Partial<Record<V2ControlTool, V2ToolDef>> = {
+  show: SHOW_TOOL,
   open_analysis_grid: {
     name: 'open_analysis_grid',
     description: 'Open or change the governed analysis grid — a pivot of governed balances or activity with rows, columns, periods and filters. Use this when the person wants a TABLE they will then reshape ("show June TB by entity", "break that down by project", "add a variance column"), not for a single figure or a narrative answer.',
@@ -140,7 +147,10 @@ export function toolDefinitions(actor: Actor): V2ToolDef[] {
     .map((id) => toolRegistry.get(id))
     .filter((t): t is SloaneTool => !!t && t.risk === 'READ' && authorize(actor, t).ok)
     .map(toolDef);
-  return [...direct, ...composedFor(actor).map((c) => c.def), ...V2_CONTROL_TOOLS.map((n) => CONTROL_DEFS[n])];
+  /* a control tool with no definition is a retired one (`respond`): recognised if a stale turn emits it,
+     never offered again */
+  const control = V2_CONTROL_TOOLS.map((n) => CONTROL_DEFS[n]).filter((d): d is V2ToolDef => !!d);
+  return [...direct, ...composedFor(actor).map((c) => c.def), ...control];
 }
 
 /* ================================================================================================

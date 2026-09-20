@@ -118,7 +118,13 @@ const CONCEPT_TOOLS: SloaneTool[] = [
     objectTypes: ['ACCOUNT', 'ACCOUNT_GROUP', 'FINANCIAL_STATEMENT'],
     description:
       'What a finance term means ON THIS BOOK: the governed accounts behind OPEX, EBITDA, capex, accruals, working capital, NOI, CIP, intercompany and the rest — or the honest statement that this book holds no such grouping. '
-      + 'Use it when you need the enterprise definition before quoting a figure, or when the person asks what Korvyn counts in a term. You do not need it to explain what a term means in general.',
+      + 'Use it when the person asks what Korvyn COUNTS in a term. You do not need it to explain what a term means in general, '
+      /* PHASE 3 §9 — it resolves a NAME, so it can never be the last call in a turn about a balance, a status or
+         a movement. Observed live: "is the intercompany stuff sorted yet?" resolved to accounts 13000 and 23000
+         and then reported that the read had not given a reconciliation status — which it never does. */
+      + 'and you do NOT need it before asking for a figure: every measure tool takes the term directly and resolves it itself. '
+      + 'It returns a MEANING — never a balance, a movement, a status or a reconciliation position. If the question asked for one of those, '
+      + 'this is not the answer: pass the term straight to the tool that reads it.',
     params: [{ name: 'term', kind: 'text', required: true, description: 'the finance word or phrase the person used, in their words' }],
     outputs: 'FinancialConcept; facts concept, definition, status, members; refs account (the governed member list to pass on)',
     run(a, env) { return conceptObject(env, resolveConcept({ text: a['term']!, gl: env.gl })); },

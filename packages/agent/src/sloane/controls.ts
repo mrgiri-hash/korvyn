@@ -242,14 +242,27 @@ export class ControlService {
   }
   closeBlockers(period: string, vis: Vis) {
     const recs = this.reconciliations(period, vis), flux = this.fluxItems(period, vis), tasks = this.closeTasks(period, vis);
-    const out: { kind: string; ref: string; label: string; entity: string; amountUsd: number | null; severity: 'BLOCKING' | 'HIGH' | 'MEDIUM' }[] = [];
-    recs.filter((r) => r.tieStatus === 'NOT_TIED').forEach((r) => out.push({ kind: 'RECONCILIATION_NOT_TIED', ref: r.id, label: `${r.name} does not tie`, entity: r.entity, amountUsd: r.items.reduce((s, i) => s + Math.abs(i.amountUsd), 0) || Math.abs(r.differenceUsd ?? 0), severity: 'BLOCKING' }));
-    recs.filter((r) => r.workflow.status === 'RETURNED').forEach((r) => out.push({ kind: 'RECONCILIATION_RETURNED', ref: r.id, label: `${r.name} returned by reviewer`, entity: r.entity, amountUsd: null, severity: 'HIGH' }));
-    flux.filter((f) => f.status === 'UNEXPLAINED').forEach((f) => out.push({ kind: 'FLUX_UNEXPLAINED', ref: f.id, label: `Material movement unexplained: ${f.name}`, entity: 'GROUP', amountUsd: Math.abs(f.changeUsd), severity: 'BLOCKING' }));
-    tasks.filter((t) => t.status === 'BLOCKED').forEach((t) => out.push({ kind: 'TASK_BLOCKED', ref: t.id, label: `${t.name} — ${t.blockedBy ?? 'blocked'}`, entity: t.entity, amountUsd: null, severity: 'BLOCKING' }));
+    /**
+     * PHASE 3 §19/§33 — A BLOCKER CARRIES THE PEOPLE ITS OWN RECORD NAMES.
+     *
+     * Every object that raises a blocker already records who holds it: a reconciliation its preparer and
+     * reviewer, a close task its owner and approver, a Flux movement whoever is assigned to review it. Dropping
+     * that on the way into this list is what made "who owns them?" unanswerable — Sloane had to say it only had
+     * ownership for three routine cash tasks, which was true of the read and untrue of the book.
+     *
+     * NOTHING IS INVENTED. `owner: null` is a real answer and the one "which of these does nobody own?" needs:
+     * a material Flux movement with no explanation and no assigned reviewer genuinely has no one on it.
+     */
+    type Blocker = { kind: string; ref: string; label: string; entity: string; amountUsd: number | null; severity: 'BLOCKING' | 'HIGH' | 'MEDIUM'; owner: string | null; reviewer: string | null };
+    const out: Blocker[] = [];
+    recs.filter((r) => r.tieStatus === 'NOT_TIED').forEach((r) => out.push({ kind: 'RECONCILIATION_NOT_TIED', ref: r.id, label: `${r.name} does not tie`, entity: r.entity, amountUsd: r.items.reduce((s, i) => s + Math.abs(i.amountUsd), 0) || Math.abs(r.differenceUsd ?? 0), severity: 'BLOCKING', owner: r.workflow.preparer ?? null, reviewer: r.workflow.reviewer ?? null }));
+    recs.filter((r) => r.workflow.status === 'RETURNED').forEach((r) => out.push({ kind: 'RECONCILIATION_RETURNED', ref: r.id, label: `${r.name} returned by reviewer`, entity: r.entity, amountUsd: null, severity: 'HIGH', owner: r.workflow.preparer ?? null, reviewer: r.workflow.reviewer ?? null }));
+    flux.filter((f) => f.status === 'UNEXPLAINED').forEach((f) => out.push({ kind: 'FLUX_UNEXPLAINED', ref: f.id, label: `Material movement unexplained: ${f.name}`, entity: 'GROUP', amountUsd: Math.abs(f.changeUsd), severity: 'BLOCKING', owner: f.explanation?.author ?? null, reviewer: f.reviewer ?? null }));
+    tasks.filter((t) => t.status === 'BLOCKED').forEach((t) => out.push({ kind: 'TASK_BLOCKED', ref: t.id, label: `${t.name} — ${t.blockedBy ?? 'blocked'}`, entity: t.entity, amountUsd: null, severity: 'BLOCKING', owner: t.owner ?? null, reviewer: t.approver ?? null }));
     for (const [k, h] of Object.entries(SOURCE_HEALTH)) if (h.status === 'UNAVAILABLE') {
       const ents = this.gl.entities().filter((e) => e.connector === k && inVis(vis, e.id));
-      ents.forEach((e) => out.push({ kind: 'SOURCE_UNAVAILABLE', ref: h.instance, label: `${h.system} source unavailable for ${e.name}`, entity: e.id, amountUsd: null, severity: 'HIGH' }));
+      /* a source outage is nobody's to prepare: it is the connector's, and saying so is more use than a name */
+      ents.forEach((e) => out.push({ kind: 'SOURCE_UNAVAILABLE', ref: h.instance, label: `${h.system} source unavailable for ${e.name}`, entity: e.id, amountUsd: null, severity: 'HIGH', owner: null, reviewer: null }));
     }
     const rank = { BLOCKING: 0, HIGH: 1, MEDIUM: 2 };
     return out.sort((a, b) => rank[a.severity] - rank[b.severity] || (b.amountUsd ?? 0) - (a.amountUsd ?? 0));

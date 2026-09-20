@@ -94,7 +94,10 @@ test('P2.5 §6: a BREAKDOWN is composed as a list, and the drivers are the answe
   const t = orch.v2.recent(1)[0]!;
   assert.equal(t.strategy, 'GROUNDED_DIRECT');
   assert.equal(t.directShape, 'BREAKDOWN');
-  assert.ok(r.narrative.length > 1, 'the members travel as their own entries');
+  /* V3 §14 — the members are a PRESENTATION, not message entries: one message, the rows beside it, resolved. */
+  assert.equal(r.presentation?.kind, 'LIST');
+  assert.ok((r.presentation?.rows ?? []).length > 1, 'the members travel as the presentation');
+  assert.ok(!(r.presentation!.rows ?? []).some((x) => x.includes('{{FACT')), 'and they are already resolved');
   assert.ok(/by project/.test(said(r)), said(r));
 });
 
@@ -198,7 +201,8 @@ test('P2.5 §17: a figure typed rather than referenced is a contract miss, not a
   const t = orch.v2.recent(1)[0]!;
   assert.ok(t.responseViolations.some((v) => /typed rather than referenced/.test(v) && v.includes('$3.50M')), JSON.stringify(t.responseViolations));
   assert.deepEqual(t.ungroundedFigures, ['$999.99M'], 'only what Korvyn cannot find at all');
-  assert.ok(r.notes.some((n) => n.includes('$999.99M')) && !r.notes.some((n) => n.includes('$3.50M')));
+  assert.ok(r.diagnostics.some((n) => n.includes('$999.99M')) && !r.diagnostics.some((n) => n.includes('$3.50M')));
+  assert.deepEqual(r.notes.filter((n) => /\$|governed reference/.test(n)), [], 'V3 §11: none of this reaches the person');
 });
 
 test('P2.5 §5: the declaration is read, not guessed', () => {
@@ -264,7 +268,9 @@ test('P2.5 §19: every drill resolves to a governed read, and one with nothing b
    §16 — NO GOVERNED NUMERICAL PROSE ESCAPE
    ================================================================================================ */
 
-test('P2.5 §16: a governed turn answered in prose is recomposed by Korvyn, not published', async () => {
+/* PHASE 3 §39 — Korvyn composes only when withholding leaves NOTHING publishable. Here the model's one
+   sentence carries an invented figure, so there is no answer left and the governed result is stated instead. */
+test('P3 §39: composition is the last resort, not the road', async () => {
   const { orch } = v2Orch((round) => round === 0
     ? { tools: [{ name: 'getStatement', input: { view: 'line', subject: 'CIP', period: '2026-06' } }] }
     : { text: 'CIP was $42.42M at June, which I am fairly sure about.' });
@@ -273,8 +279,8 @@ test('P2.5 §16: a governed turn answered in prose is recomposed by Korvyn, not 
   assert.ok(!text.includes('$42.42M'), 'the invented figure never reaches the person');
   assert.ok(/^The CIP balance at /.test(text), text);
   const t = orch.v2.recent(1)[0]!;
-  assert.ok(t.responseViolations.some((v) => /prose/.test(v)));
-  assert.equal(t.ungroundedFigures.length, 0);
+  assert.ok(t.responseViolations.some((v) => /nothing the model wrote could be published/.test(v)));
+  assert.ok(t.ungroundedFigures.includes('$42.42M'), 'and the figure is named rather than silently dropped');
 });
 
 /**

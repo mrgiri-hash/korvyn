@@ -110,6 +110,19 @@ export function directEligible(outcomes: V2ToolOutcome[], actor: Actor): { ok: f
 export type DirectShape = 'VALUE' | 'BREAKDOWN' | 'STATUS';
 
 /**
+ * "5 entitys" reached the screen in the brief's own close conversation. A dimension name is Korvyn's word for a
+ * cut of the ledger — entity, property, vendor, cost centre — and English pluralises the y-ending ones by rule.
+ * Three rules cover every dimension this book carries and every one it is likely to gain; a name that does not
+ * match takes the plain -s it already took.
+ */
+function plural(word: string, n: number): string {
+  if (n === 1) return word;
+  if (/[^aeiou]y$/i.test(word)) return `${word.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/i.test(word)) return `${word}es`;
+  return `${word}s`;
+}
+
+/**
  * The field names a governed service uses for the ONE figure a single-subject read is about.
  * PHASE 2.6 — `metric` joins them: a calculated EBITDA is the answer to "what is June EBITDA?" in exactly the
  * way a balance is the answer to "what is the CIP balance?", and it composes through the same path.
@@ -251,9 +264,9 @@ function composeBreakdown(o: FinancialObject, facts: FinancialFact[], subject: s
   const isChange = !!total && /\.change$/.test(total.sourceKey);
   const headline = total
     ? isChange
-      ? `${o.periodLabel} ${word}${dim}${scope} moved by ${ref(total)}, made up of ${ms.length} ${dimension ?? 'group'}${ms.length === 1 ? '' : 's'}${lead}.`
-      : `${o.periodLabel} ${word}${dim}${scope} comes to ${ref(total)} across ${ms.length} ${dimension ?? 'group'}${ms.length === 1 ? '' : 's'}${lead}.`
-    : `${o.periodLabel} ${word}${dim}${scope} breaks down across ${ms.length} ${dimension ?? 'group'}${ms.length === 1 ? '' : 's'}${lead}.`;
+      ? `${o.periodLabel} ${word}${dim}${scope} moved by ${ref(total)}, made up of ${ms.length} ${plural(dimension ?? 'group', ms.length)}${lead}.`
+      : `${o.periodLabel} ${word}${dim}${scope} comes to ${ref(total)} across ${ms.length} ${plural(dimension ?? 'group', ms.length)}${lead}.`
+    : `${o.periodLabel} ${word}${dim}${scope} breaks down across ${ms.length} ${plural(dimension ?? 'group', ms.length)}${lead}.`;
   const drivers = ms.slice(ranked ? 1 : 0, 6).map((x) => `${ref(x.label)} — ${ref(x.amount)}`);
   return { headline, drivers };
 }
@@ -312,11 +325,16 @@ export function composeDirect(o: FinancialObject, facts: FinancialFact[], ctx: D
     return {
       responseType, headline,
       summary: ctx.note ? A(ctx.note) : null,
+      /* §14 — a breakdown's members ARE a compact list; a single figure has no presentation at all */
+      presentation: keyDrivers.length
+        ? { kind: 'COMPACT_LIST' as const, lead: null, rows: keyDrivers }
+        : { kind: 'NONE' as const, lead: null, rows: [] },
       keyDrivers, interpretation: [], exceptions: [], unresolved: [],
       nextActions: ctx.nextActions,
       supportingAnalysisIds: [o.id],
       factRefs: [...new Set(all.flatMap((a) => a.factRefs))],
       evidenceRefs: [],
+      withheldFigures: [],
       violations: [],
     };
   };

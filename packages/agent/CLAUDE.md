@@ -184,6 +184,35 @@ balance-sheet relationship is declared and deliberately NOT eliminated: the two 
 and netting them buried a $6.18M control finding in the translation residual. `v2p261.test.ts` (15);
 `npm run sloane:v2-smoke` gains a consolidation case. Full record in the root CLAUDE.md.
 
+**Core Runtime V2, Phase 3 (2026-09-20):** conversation-first. `respond` is RETIRED from the surface — the model
+answers by WRITING, on the call it was going to spend anyway, and `v2/respond.ts` `fromProse()` turns that into
+the same `ResponseDefinition` everything downstream reads (one path, two authors; three prose branches collapsed
+to one). `renderResponse` draws NO section label at all; the assertion type survives on each part. `show_list` is
+the one optional presentation (`Presentation` = NONE | COMPACT_LIST, emitted alongside the text, marked
+`parts[].row` so the browser draws rows rather than one-line paragraphs). Phase 2.5's forced composition is
+reversed: Korvyn composes only when withholding leaves nothing publishable. Grounding is unchanged and its
+checks are sharper — a sentence whose figure Korvyn can find nowhere is withheld and NAMED (`withheldFigures`),
+§16 asks the fact registry rather than "did a tool run this turn", and `internalVocabulary()` measures both a
+Korvyn constant and a sentence about the plumbing. At the source: `statusWords()` and `blockerKind()` stop a raw
+enum being a `display`, `closeBlockers()` carries the owner and reviewer its own record names, and a
+reconciliation that does not tie carries the amount it is out by. Harnesses: `npm run sloane:v2-conv` (the
+brief's own conversations, answer length / headings / artifacts) and `npm run sloane:style` (§40, direct Claude
+vs Sloane on 25 unseen questions, with a contamination guard). Both spend credits. `v2p3.test.ts`. Full record,
+including every live number, in the root CLAUDE.md.
+
+**Runtime V3 (2026-09-20):** conversation-first, after an audit found the artifact/conversation coupling in the
+BROWSER, not the server. `TurnResponse` gains `presentation` (NONE | LIST | TABLE, **null by default** — a TABLE
+names one object read THIS turn) and `diagnostics` (§11: grounding findings never reach a person; `notes` is only
+what a finance professional needs told). `show` replaces `show_list` as the one presentation declaration — a
+SHAPE, never a screen (§40) — decided by one question: did they ask to SEE something, or ask a QUESTION. In
+`index.html`, `s2ServerRender0`'s default branch no longer takes its heading from the first tool object nor draws
+every object as a table; `s2PresHTML` is the single place an object becomes visible, and `SL_CHAT` is a chat
+thread so an ordinary question no longer creates an Investigation (`SL_INV` and its 45 readers untouched — a
+workspace answer still opens one). `publish()` splits resolved parts once into message and rows, so a row cannot
+draw twice or reach the screen as `{{FACT:…}}`. `statusWords()` keeps a raw enum out of a governed `display`.
+Verified by an eight-turn browser acceptance run and three screenshots, not by tests alone. Full record in the
+root CLAUDE.md, *SLOANE RUNTIME V3*.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

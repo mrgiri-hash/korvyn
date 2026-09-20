@@ -150,6 +150,8 @@ export interface V2Trace {
   /** §20 — causal claims demoted to inference, and any assertion withheld */
   responseViolations: string[];
   notes: string[];
+  /** §11 — Korvyn's findings about its own work. Telemetry and the dev trace only; never rendered. */
+  diagnostics: string[];
 }
 
 export const V2_LIMITS = {

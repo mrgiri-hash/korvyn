@@ -794,7 +794,7 @@ const FLUX: SloaneTool[] = [
       const r = fluxList(env, 'FluxStatus', `Flux status · ${periodLabel(p)}`, m, p, [{ key: 'material', label: 'Material items', value: m.length, display: n(m.length) }, { key: 'approved', label: 'Approved', value: ok, display: n(ok) }, { key: 'pctApproved', label: 'Share approved', value: pc, display: pc } as never]); return r; } },
   { id: 'getFluxItem', domain: 'flux', permission: 'FLUX_VIEW', risk: 'READ', objectTypes: ['FLUX', 'ACCOUNT_GROUP'], description: 'One flux line (account group) for a month: values, change, materiality, explanation status.', params: [fluxAcct, P('period')], outputs: 'FluxItem; facts current, prior, change, status',
     run(a, env) { const p = a['period']!, i = fluxItem(env, a['account']!, p); if (!i) return unavailable(env, 'FluxItem', 'Flux item', 'Flux item', `${a['account']} is not a flux line in ${periodLabel(p)}.`);
-      const r = fluxList(env, 'FluxItem', `Flux · ${i.name} · ${periodLabel(p)}`, [i], p, [{ key: 'current', label: 'Current', value: i.currentUsd, display: $(i.currentUsd) }, { key: 'prior', label: 'Prior', value: i.priorUsd, display: $(i.priorUsd) }, { key: 'change', label: 'Change', value: i.changeUsd, display: $(i.changeUsd) }, { key: 'status', label: 'Explanation status', value: i.status, display: i.status } as never]);
+      const r = fluxList(env, 'FluxItem', `Flux · ${i.name} · ${periodLabel(p)}`, [i], p, [{ key: 'current', label: 'Current', value: i.currentUsd, display: $(i.currentUsd) }, { key: 'prior', label: 'Prior', value: i.priorUsd, display: $(i.priorUsd) }, { key: 'change', label: 'Change', value: i.changeUsd, display: $(i.changeUsd) }, { key: 'status', label: 'Explanation status', value: i.status, display: statusWords(i.status) } as never]);
       r.object.focus = { kind: 'fluxItem', id: i.id, name: i.name }; r.object.refs = { ...r.object.refs, account: i.account }; return r; } },
   { id: 'getFluxExplanation', domain: 'flux', permission: 'FLUX_VIEW', risk: 'READ', objectTypes: ['FLUX'], description: 'The explanation recorded on a flux line: text, author, reviewer, version, status.', params: [fluxAcct, P('period')], outputs: 'FluxExplanation; facts status, author, reviewer, text',
     run(a, env) { const p = a['period']!, i = fluxItem(env, a['account']!, p);
@@ -802,7 +802,7 @@ const FLUX: SloaneTool[] = [
       const e = i.explanation;
       return { warnings: [SEEDED], object: base(env, { type: 'FluxExplanation', title: `Explanation · ${i.name} · ${periodLabel(p)}`, periods: [p], periodLabel: periodLabel(p),
         table: { columns: ['Value'], rows: [row('Status', [e.status]), row('Version', [`v${e.version}`]), row('Author', [e.author]), row('Reviewer', [e.reviewer]), row('Explanation', [e.text]), row('Movement', [$(i.changeUsd)])] },
-        facts: [{ key: 'status', label: 'Status', value: e.status, display: e.status }, { key: 'author', label: 'Author', value: e.author, display: e.author }, { key: 'reviewer', label: 'Reviewer', value: e.reviewer, display: e.reviewer }, { key: 'text', label: 'Explanation text', value: e.text, display: e.text }, { key: 'change', label: 'Change', value: i.changeUsd, display: $(i.changeUsd) },
+        facts: [{ key: 'status', label: 'Status', value: e.status, display: statusWords(e.status) }, { key: 'author', label: 'Author', value: e.author, display: e.author }, { key: 'reviewer', label: 'Reviewer', value: e.reviewer, display: e.reviewer }, { key: 'text', label: 'Explanation text', value: e.text, display: e.text }, { key: 'change', label: 'Change', value: i.changeUsd, display: $(i.changeUsd) },
           { key: 'explanationId', label: 'Explanation record', value: e.id, display: e.id }, { key: 'version', label: 'Explanation version', value: e.version, display: `v${e.version}` }, { key: 'updatedBy', label: 'Last changed by', value: e.updatedBy ?? e.author, display: `${e.updatedBy ?? e.author}${e.updatedAt ? ` · ${e.updatedAt.slice(0, 16).replace('T', ' ')}` : ''}` }],
         /* §33 — the explanation's own STATUS travels as a ref, so a figure promoted from this object knows
            whether anything approved already speaks to it. A draft explanation is not support. */
@@ -829,7 +829,20 @@ function recList(env: ToolEnv, type: string, title: string, rs: Rec[], p: string
   return { warnings: [SEEDED, ...warn], object: base(env, {
     type, title, periods: [p], periodLabel: periodLabel(p),
     table: { columns: ['Entity', 'Method', 'GL balance', 'Comparison', 'Difference', 'Tie status', 'Support', 'Review'], rows: rs.map(recRow) },
-    facts: [...extra, ...rs.slice(0, 8).flatMap((r, i) => [{ key: `rec${i + 1}.name`, label: `Reconciliation ${i + 1}`, value: r.name, display: r.name }, { key: `rec${i + 1}.status`, label: `${r.name} tie status`, value: r.tieStatus, display: r.tieStatus } as never])],
+    /**
+     * PHASE 3 §39 — A RECONCILIATION THAT DOES NOT TIE CARRIES THE AMOUNT IT IS OUT BY.
+     *
+     * The list emitted a name and a tie status per reconciliation and nothing numeric, so "how far out is it?"
+     * had no fact to cite. Observed live three times: the model reached for the nearest reference it had and
+     * wrote "off by does not tie" — a status resolved into a slot that wanted money. The difference is on the
+     * record already; withholding it from the facts is what made the sentence impossible to write correctly.
+     */
+    facts: [...extra, ...rs.slice(0, 8).flatMap((r, i) => [
+      { key: `rec${i + 1}.name`, label: `Reconciliation ${i + 1}`, value: r.name, display: r.name },
+      { key: `rec${i + 1}.status`, label: `${r.name} tie status`, value: r.tieStatus, display: statusWords(r.tieStatus) },
+      ...(r.tieStatus === 'TIED' || r.differenceUsd === null || r.differenceUsd === undefined ? []
+        : [{ key: `rec${i + 1}.difference`, label: `${r.name} difference`, value: r.differenceUsd, display: $(r.differenceUsd) }]),
+    ] as never[])],
     refs: { period: p, ...(rs[0] ? { reconciliationId: rs[0].id } : {}) }, focus: rs.length === 1 ? { kind: 'reconciliation', id: rs[0]!.id, name: rs[0]!.name } : null,
     provenance: { source: `${GL_SRC}; workflow: seeded store`, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: FX_CLOSING_SET.id, eliminations: null, declaredInputs: [FX_CLOSING_SET.id] },
   }) };
@@ -869,13 +882,13 @@ const RECON: SloaneTool[] = [
       const balFacts = bal.available ? [{ key: 'balanceVersion', label: 'Balance record', value: `${bal.id} v${bal.version}`, display: `${bal.id} v${bal.version}` }, ...(bal.supportingBalanceUsd !== null ? [{ key: 'supportingBalance', label: bal.supportingLabel, value: bal.supportingBalanceUsd, display: $(bal.supportingBalanceUsd) }] : [])] : [{ key: 'balanceAvailability', label: 'Server balance', value: 'not modelled', display: bal.reason }];
       return { warnings: [SEEDED, ...r.sourceIssues], object: base(env, { type: 'Reconciliation', title: `${r.name} · ${periodLabel(p)}`, scope: scopeOf(env, r.entity), periods: [p], periodLabel: periodLabel(p),
         table: { columns: ['Value'], rows: [row('Method', [r.method]), row('Opening balance', [$(r.openingUsd)]), row('GL balance', [$(r.glBalanceUsd)]), row(r.comparisonLabel, [r.comparisonUsd === null ? 'not connected' : $(r.comparisonUsd)]), ...r.items.map((i) => row(`Reconciling item · ${i.label}`, [$(i.amountUsd)])), row('Difference', [r.tieStatus === 'SOURCE_NOT_CONNECTED' ? 'cannot be computed' : $(r.differenceUsd ?? 0)], 0, 'total'), row('Tie status', [r.tieStatus]), row('Review', [`${r.workflow.status} · preparer ${r.workflow.preparer} · reviewer ${r.workflow.reviewer}`]), ...r.support.map((s) => row(`Support · ${s.requirement}`, [s.reference ?? 'MISSING']))] },
-        facts: [{ key: 'glBalance', label: 'GL balance', value: r.glBalanceUsd, display: $(r.glBalanceUsd) }, ...(r.comparisonUsd !== null ? [{ key: 'comparison', label: r.comparisonLabel, value: r.comparisonUsd, display: $(r.comparisonUsd) }] : []), { key: 'difference', label: 'Difference', value: r.differenceUsd ?? 0, display: r.tieStatus === 'SOURCE_NOT_CONNECTED' ? 'cannot be computed' : $(r.differenceUsd ?? 0) }, { key: 'tieStatus', label: 'Tie status', value: r.tieStatus, display: r.tieStatus }, { key: 'reviewStatus', label: 'Review status', value: r.workflow.status, display: r.workflow.status }, { key: 'missingSupport', label: 'Missing support items', value: r.support.filter((s) => s.status === 'MISSING').length, display: n(r.support.filter((s) => s.status === 'MISSING').length) }, { key: 'reconcilingItems', label: 'Reconciling items', value: r.items.length, display: n(r.items.length) }, ...balFacts],
+        facts: [{ key: 'glBalance', label: 'GL balance', value: r.glBalanceUsd, display: $(r.glBalanceUsd) }, ...(r.comparisonUsd !== null ? [{ key: 'comparison', label: r.comparisonLabel, value: r.comparisonUsd, display: $(r.comparisonUsd) }] : []), { key: 'difference', label: 'Difference', value: r.differenceUsd ?? 0, display: statusWords(r.tieStatus) === 'SOURCE_NOT_CONNECTED' ? 'cannot be computed' : $(r.differenceUsd ?? 0) }, { key: 'tieStatus', label: 'Tie status', value: r.tieStatus, display: statusWords(r.tieStatus) }, { key: 'reviewStatus', label: 'Review status', value: r.workflow.status, display: statusWords(r.workflow.status) }, { key: 'missingSupport', label: 'Missing support items', value: r.support.filter((s) => s.status === 'MISSING').length, display: n(r.support.filter((s) => s.status === 'MISSING').length) }, { key: 'reconcilingItems', label: 'Reconciling items', value: r.items.length, display: n(r.items.length) }, ...balFacts],
         /* §31/§32 — the tie and the review state travel with the figure, so a fact knows whether the balance
            it carries has been proved and whether anyone has signed it. Neither is ever inferred downstream. */
         refs: { reconciliationId: r.id, reconciliationStatus: r.workflow.status, tieStatus: r.tieStatus, ...(bal.available ? { reconBalanceId: bal.id, reconBalanceVersion: String(bal.version) } : {}), ...(r.accounts[0] ? { account: r.accounts[0] } : {}), ...(r.financialLineId ? { financialLineId: r.financialLineId } : {}), entity: r.entity }, focus: { kind: 'reconciliation', id: r.id, name: r.name },
         provenance: { source: `${r.balanceInModule ? 'Reconciliations module (balances)' : GL_SRC}; workflow: Korvyn work store`, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: FX_CLOSING_SET.id, eliminations: null, declaredInputs: [FX_CLOSING_SET.id] } }) }; } },
   { id: 'getReconciliationStatus', domain: 'recon', permission: 'RECON_VIEW', risk: 'READ', objectTypes: ['RECONCILIATION'], description: 'Tie, support and review status of one reconciliation.', params: [recP, P('period')], outputs: 'ReconciliationStatus; facts tieStatus, reviewStatus, supportComplete',
-    run(a, env) { const r = oneRec(env, a); return recList(env, 'ReconciliationStatus', `Status · ${r.name}`, [r], a['period']!, [{ key: 'tieStatus', label: 'Tie status', value: 0, display: r.tieStatus }, { key: 'reviewStatus', label: 'Review status', value: 0, display: r.workflow.status }, { key: 'supportComplete', label: 'Support', value: 0, display: r.supportComplete ? 'complete' : 'missing' }], r.sourceIssues); } },
+    run(a, env) { const r = oneRec(env, a); return recList(env, 'ReconciliationStatus', `Status · ${r.name}`, [r], a['period']!, [{ key: 'tieStatus', label: 'Tie status', value: 0, display: statusWords(r.tieStatus) }, { key: 'reviewStatus', label: 'Review status', value: 0, display: statusWords(r.workflow.status) }, { key: 'supportComplete', label: 'Support', value: 0, display: r.supportComplete ? 'complete' : 'missing' }], r.sourceIssues); } },
   { id: 'getReconcilingItems', domain: 'recon', permission: 'RECON_VIEW', risk: 'READ', objectTypes: ['RECONCILIATION'], description: 'The reconciling items on one reconciliation (e.g. intercompany differences by counterparty). Use for "show me the reconciling items".', params: [recP, P('period')], outputs: 'ReconcilingItems; facts items, gross',
     run(a, env) { const r = oneRec(env, a), p = a['period']!, g = r.items.reduce((s, i) => s + Math.abs(i.amountUsd), 0);
       return { warnings: r.sourceIssues, object: base(env, { type: 'ReconcilingItems', title: `Reconciling items · ${r.name} · ${periodLabel(p)}`, periods: [p], periodLabel: periodLabel(p),
@@ -908,11 +921,18 @@ const CLOSE: SloaneTool[] = [
         table: { columns: ['Complete', 'Total'], rows: r.parts.map((x) => row(x.l, [n(x.n), n(x.d)])) },
         facts: [{ key: 'readinessPct', label: 'Readiness', value: `${r.readinessPct}%`, display: `${r.readinessPct}%` }, { key: 'blockers', label: 'Blockers', value: r.blockers.length, display: n(r.blockers.length) }, ...r.parts.map((x, i) => ({ key: ['tasks', 'reconciliations', 'flux'][i]!, label: x.l, value: `${x.n} of ${x.d}`, display: `${x.n} of ${x.d}` }))],
         refs: { period: p }, focus: { kind: 'close', id: `close:${p}`, name: `${periodLabel(p)} close` } }) }; } },
-  { id: 'getCloseBlockers', domain: 'close', permission: 'CLOSE_VIEW', risk: 'READ', objectTypes: ['CLOSE'], description: 'Everything blocking a month’s close, ranked: reconciliations not tied, unexplained material flux, blocked tasks, unavailable sources, returned reviews. Use for "what is blocking close?".', params: [P('period')], outputs: 'CloseBlockers; facts blockers, blocking, blocker1 …',
+  { id: 'getCloseBlockers', domain: 'close', permission: 'CLOSE_VIEW', risk: 'READ', objectTypes: ['CLOSE'], description: 'Everything blocking a month’s close, ranked, WITH who holds each one: reconciliations not tied, unexplained material flux, blocked tasks, unavailable sources, returned reviews. Answers "what is blocking close?", "who owns them?" and "which ones does nobody own?".', params: [P('period')], outputs: 'CloseBlockers; facts blockers, blocking, unassigned, blocker1 …',
     run(a, env) { const p = a['period']!, b = env.controls.closeBlockers(p, env.visible);
+      const un = b.filter((x) => !x.owner);
       return { warnings: [SEEDED], object: base(env, { type: 'CloseBlockers', title: `What is blocking the ${periodLabel(p)} close`, periods: [p], periodLabel: periodLabel(p),
-        table: { columns: ['Severity', 'Kind', 'Entity', 'Amount (USD)'], rows: b.map((x) => row(x.label, [x.severity, x.kind, x.entity, x.amountUsd === null ? '—' : $(x.amountUsd)], 1, 'line', x.ref)) },
-        facts: [{ key: 'blockers', label: 'Blockers', value: b.length, display: n(b.length) }, { key: 'blocking', label: 'Blocking severity', value: b.filter((x) => x.severity === 'BLOCKING').length, display: n(b.filter((x) => x.severity === 'BLOCKING').length) }, ...b.slice(0, 6).map((x, i) => ({ key: `blocker${i + 1}`, label: x.kind, value: x.label, display: x.label })), ...b.slice(0, 6).filter((x) => x.amountUsd !== null).map((x) => ({ key: `amount.${x.ref}`, label: `${x.label} amount`, value: x.amountUsd!, display: $(x.amountUsd!) }))],
+        /* §17 — the KIND is Korvyn's own constant and a reader of a finance product should never meet one.
+           `blockerKind` is the same fact said in the words an accountant uses for it. */
+        table: { columns: ['Severity', 'What', 'Entity', 'Amount (USD)', 'Owner', 'Reviewer'], rows: b.map((x) => row(x.label, [x.severity, blockerKind(x.kind), x.entity, x.amountUsd === null ? '—' : $(x.amountUsd), x.owner ?? 'unassigned', x.reviewer ?? 'unassigned'], 1, 'line', x.ref)) },
+        facts: [{ key: 'blockers', label: 'Blockers', value: b.length, display: n(b.length) }, { key: 'blocking', label: 'Blocking severity', value: b.filter((x) => x.severity === 'BLOCKING').length, display: n(b.filter((x) => x.severity === 'BLOCKING').length) },
+          { key: 'unassigned', label: 'Blockers with no owner', value: un.length, display: n(un.length) },
+          ...b.slice(0, 6).map((x, i) => ({ key: `blocker${i + 1}`, label: blockerKind(x.kind), value: x.label, display: x.label })),
+          ...b.slice(0, 6).filter((x) => x.owner).map((x) => ({ key: `owner.${x.ref}`, label: `${x.label} — owner`, value: x.owner!, display: x.owner! })),
+          ...b.slice(0, 6).filter((x) => x.amountUsd !== null).map((x) => ({ key: `amount.${x.ref}`, label: `${x.label} amount`, value: x.amountUsd!, display: $(x.amountUsd!) }))],
         refs: { period: p }, focus: { kind: 'close', id: `close:${p}`, name: `${periodLabel(p)} close` } }) }; } },
   { id: 'getCloseTasks', domain: 'close', permission: 'CLOSE_VIEW', risk: 'READ', objectTypes: ['CLOSE'], description: 'Close checklist tasks for a month, optionally filtered by status (COMPLETE, IN_PROGRESS, NOT_STARTED, BLOCKED, AWAITING_APPROVAL), entity or workstream.', params: [P('period'), { name: 'status', kind: 'text', required: false, description: 'task status' }, { name: 'entity', kind: 'entity', required: false, description: 'entity id' }, { name: 'workstream', kind: 'text', required: false, description: 'workstream name' }], outputs: 'CloseTasks; facts tasks, complete, blocked',
     run(a, env) { const p = a['period']!, ts = env.controls.closeTasks(p, env.visible).filter((t) => (!a['status'] || t.status === a['status']) && (!a['entity'] || t.entity === a['entity']) && (!a['workstream'] || t.workstream.toLowerCase().includes(a['workstream'].toLowerCase())));
@@ -997,7 +1017,7 @@ const REPORTING: SloaneTool[] = [
   { id: 'getPublishedReports', domain: 'reporting', permission: 'REPORT_VIEW', risk: 'READ', objectTypes: ['REPORT'], description: 'Published report snapshots (immutable) with period, version, publisher and snapshot id.', params: [], outputs: 'PublishedReports; facts published',
     run: (_a, env) => ({ warnings: [], object: base(env, { type: 'PublishedReports', title: 'Published reports', table: { columns: ['Period', 'Version', 'Published by', 'Published', 'Snapshot'], rows: env.controls.published().map((r) => row(r.name, [periodLabel(r.period), `v${r.version}`, r.publishedBy, r.publishedAt, r.snapshotId], 1, 'line', `published:${r.id}`)) }, facts: [{ key: 'published', label: 'Published reports', value: env.controls.published().length, display: n(env.controls.published().length) }], provenance: { source: 'Published report register (seeded)', snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] } }) }) },
   { id: 'getReportingPackages', domain: 'reporting', permission: 'REPORT_VIEW', risk: 'READ', objectTypes: ['REPORT'], description: 'Management reporting packages (e.g. June 2026 CFO Package) with status and referenced contents.', params: [], outputs: 'ReportingPackages; facts packages',
-    run: (_a, env) => ({ warnings: [], object: base(env, { type: 'ReportingPackages', title: 'Reporting packages', table: { columns: ['Period', 'Status', 'Owner', 'Contents'], rows: env.controls.packages().map((p) => row(p.name, [periodLabel(p.period), p.status, p.owner, p.contents.join(', ')], 1, 'line', `package:${p.id}`)) }, facts: [{ key: 'packages', label: 'Packages', value: env.controls.packages().length, display: n(env.controls.packages().length) }, ...env.controls.packages().map((p, i) => ({ key: `package${i + 1}`, label: `${p.name} status`, value: p.status, display: p.status }))], refs: { reportId: 'RPT-CFO-MONTHLY' }, provenance: { source: 'Reporting package register (seeded; references only)', snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] } }) }) },
+    run: (_a, env) => ({ warnings: [], object: base(env, { type: 'ReportingPackages', title: 'Reporting packages', table: { columns: ['Period', 'Status', 'Owner', 'Contents'], rows: env.controls.packages().map((p) => row(p.name, [periodLabel(p.period), p.status, p.owner, p.contents.join(', ')], 1, 'line', `package:${p.id}`)) }, facts: [{ key: 'packages', label: 'Packages', value: env.controls.packages().length, display: n(env.controls.packages().length) }, ...env.controls.packages().map((p, i) => ({ key: `package${i + 1}`, label: `${p.name} status`, value: p.status, display: statusWords(p.status) }))], refs: { reportId: 'RPT-CFO-MONTHLY' }, provenance: { source: 'Reporting package register (seeded; references only)', snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] } }) }) },
   { id: 'getReportLineage', domain: 'reporting', permission: 'REPORT_VIEW', risk: 'READ', objectTypes: ['REPORT', 'GOVERNED_LEDGER'], description: 'Lineage of a report line: definition → accounts → governed GL population (id and count) for a month. Use for "show me the underlying GL for this report line".', params: [repP, P('period'), { name: 'line', kind: 'text', required: false, description: 'report line label; default the first line' }], outputs: 'ReportLineage; refs populationId',
     run(a, env) { const r = env.controls.report(a['reportId']!)!, p = a['period']!, ln = r.lines.find((l) => a['line'] && l.label.toLowerCase().includes(a['line'].toLowerCase())) ?? r.lines[0]!;
       const def = env.gl.definePopulation({ accounts: ln.accounts, periodStart: p, periodEnd: p }, 'amount_desc', `${r.name} · ${ln.label}`), q = env.gl.query(def, env.visible, { limit: 1 });
@@ -1425,4 +1445,40 @@ const COMPARISON: SloaneTool[] = [
 ];
 
 registerTools([...FINANCIALS, ...COMPARISON, ...TB, ...LEDGER, ...ANALYSIS, ...FLUX, ...RECON, ...CLOSE, ...REPORTING, ...AUDIT, ...EVIDENCE, ...TRACE, ...FIND].map(guardReconciliation));
+/**
+ * §17 — A `display` IS WHAT REACHES A PERSON, SO IT IS NEVER A CONSTANT.
+ *
+ * `display: statusWords(r.tieStatus)` put NOT_TIED into an answer — not because the model typed it, but because Korvyn
+ * RESOLVED a reference to it. Observed live on "is the intercompany stuff sorted yet?". The `value` stays the
+ * raw enum, so every comparison downstream is untouched; only the words a reader sees change.
+ *
+ * A status Korvyn has no phrase for falls back to its own words, never to the constant.
+ */
+const STATUS_WORDS: Record<string, string> = {
+  TIED: 'ties', NOT_TIED: 'does not tie', PARTIALLY_TIES: 'partly ties', NOT_TESTED: 'not tested',
+  SOURCE_NOT_CONNECTED: 'source not connected',
+  NOT_STARTED: 'not started', IN_PROGRESS: 'in progress', AWAITING_APPROVAL: 'awaiting approval',
+  COMPLETE: 'complete', BLOCKED: 'blocked', RETURNED: 'returned by the reviewer', APPROVED: 'approved',
+  SUBMITTED: 'submitted for review', DRAFT: 'draft', UNEXPLAINED: 'unexplained', EXPLAINED: 'explained',
+  NOT_REQUIRED: 'no explanation required', MISSING: 'missing', PROVIDED: 'provided',
+  UNAVAILABLE: 'unavailable', DEGRADED: 'degraded', HEALTHY: 'healthy', STALE: 'stale',
+};
+const statusWords = (v: string): string => STATUS_WORDS[v] ?? String(v).toLowerCase().replace(/_/g, ' ');
+
+/**
+ * §17 — KORVYN'S CONSTANT, IN THE WORDS AN ACCOUNTANT USES FOR IT.
+ *
+ * RECONCILIATION_NOT_TIED and FLUX_UNEXPLAINED are how the control service names a kind of blocker and they are
+ * the right names THERE. They are not what a controller says, and a reader of a finance product should never
+ * meet one. An unrecognised kind falls back to its own words rather than to the constant.
+ */
+const BLOCKER_KINDS: Record<string, string> = {
+  RECONCILIATION_NOT_TIED: 'Reconciliation does not tie',
+  RECONCILIATION_RETURNED: 'Reconciliation returned by the reviewer',
+  FLUX_UNEXPLAINED: 'Unexplained movement',
+  TASK_BLOCKED: 'Close task blocked',
+  SOURCE_UNAVAILABLE: 'Source system unavailable',
+};
+const blockerKind = (k: string): string => BLOCKER_KINDS[k] ?? k.toLowerCase().replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
 export const TOOLSET_LOADED = true;

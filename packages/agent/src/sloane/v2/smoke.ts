@@ -65,7 +65,10 @@ const CASES: Case[] = [
      population as the statement that stated it, and "does this include eliminations?" has to be answerable. */
   { key: 'consolidation', why: 'statement and drill are one population, and the basis is answerable', expect: 'ANY',
     script: ['What was June revenue?', 'Break that down by account.', 'Does that include intercompany eliminations?'] },
-  { key: 'permission', why: 'a refusal is worded, never composed, and leaks nothing', expect: 'GROUNDED_REASONING',
+  /* PHASE 3: 'ANY', because refusing WITHOUT a read became the common answer and is strictly better — it
+     leaks nothing, costs one call and no tool, and §29's rule was that a limited reader is WORDED rather than
+     composed, which a conversation-only turn also satisfies. What is asserted is the leak count below. */
+  { key: 'permission', why: 'a refusal is worded, never composed, and leaks nothing', expect: 'ANY',
     actor: actorContext(DEV_DIRECTORY.find((x) => x.roles[0] === 'ENTITY_ACCOUNTANT')!, null, 'offline'),
     script: ['Show me the consolidated balance sheet.', "What is the REIT's trial balance?"] },
 ];

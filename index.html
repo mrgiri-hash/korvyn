@@ -2446,6 +2446,18 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 /* PHASE 2 (§24) — a governed answer arrives in SECTIONS, and each carries a quiet tracked label.
    It is the design system's own --fs-label treatment: a size, a tracking and a colour, never a weight. */
 .s2-lab{margin:var(--s-2) 0 var(--s-1);font-size:var(--fs-label);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--hint)}
+/* PHASE 3 §14 — the supporting rows of a COMPACT_LIST. They are one line each and they belong together, so
+   they take a row's spacing rather than a paragraph's; six one-line paragraphs spaced down the panel is the
+   loose shape this phase removes. No heading above them — the answer leads into them in its own words. */
+.s2-row{display:block;margin:0;padding:var(--s-1) 0;font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
+.s2-row+.s2-row{border-top:1px solid var(--line)}
+.s2-rows{margin:var(--s-1) 0 var(--s-2)}
+/* RUNTIME V3 §9 — the conversational surface. One exchange is the user's line then Sloane's answer; a thread is
+   those stacked, separated by air rather than by a container. No header, no step strip, no workspace link — an
+   ordinary question is not a work object. */
+.slx-x{padding-bottom:var(--s-4)}
+.slx-x+.slx-x{padding-top:var(--s-4);border-top:1px solid var(--line)}
+.s2-ans{display:block}
 .s2-nar .s2-lab:first-child{margin-top:0}
 .s2-state{padding:var(--s-2) var(--s-4);font-size:var(--fs-label);color:var(--ai-ink);border-bottom:1px solid var(--line)}
 .s2-pend{margin:0;font-size:var(--fs-label);color:var(--hint)}
@@ -78373,7 +78385,15 @@ function slSubmit(raw,opt){
   slRender(text,O,pending,fromHome);
 }
 /* the narrative arrived for an answer already on screen: it replaces that answer in place — never a second entry */
-function slReplaceLast(q, r){ const inv=SL_INV, e=inv&&inv.entries[inv.entries.length-1];
+function slReplaceLast(q, r){
+  /* RUNTIME V3 — a streamed turn arrives as many partials and ONE final answer, and each must REPLACE the last
+     rather than append. The chat thread has to honour the same contract the investigation entries did, or a
+     streamed answer becomes thirty-six exchanges in the panel (observed on the first browser run). */
+  const cx=SL_MODE==='chat'&&SL_CHAT.length?SL_CHAT[SL_CHAT.length-1]:null;
+  if(cx&&cx.q===q){ if(!r||!r.html){ if(r&&!r.handled) slRender(q,{},r,false); return; }
+    if(r.kind&&r.kind!=='conv'){ SL_CHAT.pop(); slRender(q,{},r,false); return; }
+    cx.html=r.html; if(SL_FULL) slFullRender(); slPaint(); return; }
+  const inv=SL_INV, e=inv&&inv.entries[inv.entries.length-1];
   if(!e||e.q!==q||!r||!r.html){ if(r&&!r.handled) slRender(q,{},r,false); return; }
   e.html=r.html; if(r.kind) e.kind=r.kind; if(r.active) e.active=r.active;
   if(r.title&&inv.entries.length===1&&!inv.seed) inv.title=r.title;
@@ -78424,8 +78444,44 @@ function slIsFollow(q,inv){
   if(e&&e.o&&(e.o.follow||[]).some(f=>String(f).toLowerCase()===t)) return true;
   return /^(break (it |this )?down|show (me )?(the )?(transactions|gl|underlying gl|support|missing support|largest)|explain (further|variance|this|biggest|top)|compare|add |remove |only |sort |and |what about|drill|trace|find (unmatched|anomal)|draft (the |a )?flux|view (gl|underlying gl|items|support)|review (the )?blockers|by (vendor|project|department|entity|month|account)|suggest)/i.test(t);
 }
+/* ==== RUNTIME V3 §8/§9 — CONVERSATION IS NOT AN INVESTIGATION ======================================
+   Every Sloane answer used to go through `slAnswer`, and `slAnswer` always put it inside an Investigation:
+   `SL_INV` was created on the first turn, `slPaint` rendered `slInvHTML`, and the panel therefore showed an
+   investigation header, a step strip and a stale title above every ordinary reply. Twenty plain finance
+   questions produced twenty entries in a durable work object nobody had asked for.
+
+   A CHAT THREAD is the default surface now. It holds the exchange and nothing else: no title, no timeline, no
+   workspace link, no durable record. An Investigation is a WORK MODE and is entered deliberately — when the
+   answer IS a workspace (an analysis grid, a canvas, a workbook, a governed run), or when the person asks for
+   one. That is §42's boundary too: an ordinary question creates no durable state.
+
+   `SL_INVS`, `SL_INV` and their 45 readers are untouched, because the investigation still exists for the work
+   that genuinely needs it. What changed is that it is no longer where a conversation lives. */
+const SL_CHAT=[];
+/* the kinds of answer that ARE a workspace, and so still open one */
+const SL_WORKKINDS=['analysis','canvas','build','server','clarify'];
+function slChatHTML(){
+  if(!SL_CHAT.length) return '';
+  return SL_CHAT.map(x=>'<div class="slx-x"><div class="slx-q">'+glEsc(x.q)+'</div>'+x.html+'</div>').join('');
+}
+function slChatPush(q,html){ SL_CHAT.push({q,html,at:Date.now()}); if(SL_CHAT.length>40) SL_CHAT.shift();
+  SL_MODE='chat'; SL_ASKNEW=false; CP.busy=false; }
+
 function slAnswer(q,html,opt){
-  const O=opt||{}, o=SL_LASTO, title=O.title||slInvTitle(q);
+  const O=opt||{}, o=SL_LASTO;
+  /* §8 — a conversational answer stays in the thread. It creates no investigation, gets no title, and leaves
+     `SL_INV` exactly as it was, so a workspace opened earlier is still there when it is asked for again. */
+  if(O.kind==='conv'&&!O.workspace){
+    const cur=SL_CHAT.length?SL_CHAT[SL_CHAT.length-1]:null;
+    if(cur&&cur.q===q){ cur.html=html; SL_MODE='chat'; CP.busy=false;
+      if(SL_FULL){ slFullRender(); slPaint(); return; }
+      if(O.open===false) slPaint(); else cpOpen(); return; }
+    slPush(); slChatPush(q,html);
+    SL_CUR={q, o, build:false, tab:TAB, lens:LENS, period:viewPeriod(), at:Date.now()};
+    if(SL_FULL){ slFullRender(); slPaint(); return; }
+    if(O.open===false) slPaint(); else cpOpen();
+    const sc0=$('cpScroll'); if(sc0) sc0.scrollTop=sc0.scrollHeight; return; }
+  const title=O.title||slInvTitle(q);
   slPush();
   let inv=SL_INV;
   if(!inv||(O.fresh&&inv.title!==title)||!(O.follow||inv.title===title||slIsFollow(q,inv))){
@@ -78502,6 +78558,7 @@ function slPaint(){
     const b=$('slBody'), cp=$('copilot'); if(!b) return;
     const e=SL_MODE==='session'?slEntry():null;
     if(SL_MODE==='session'&&!e) SL_MODE='home';
+    if(SL_MODE==='chat'&&!SL_CHAT.length) SL_MODE='home';
     if(cp){ cp.classList.toggle('slx-home',SL_MODE==='home'); cp.classList.toggle('slx-sess',SL_MODE!=='home'); cp.classList.toggle('slx-histv',SL_MODE==='history'); }
     const hb=$('slHomeBtn'), hs=$('slHistBtn');
     if(hb) hb.classList.toggle('on',SL_MODE==='home'); if(hs) hs.classList.toggle('on',SL_MODE==='history');
@@ -78511,6 +78568,8 @@ function slPaint(){
     const ft=$('slFoot'); if(ft) ft.innerHTML='';
     if(SL_Q.trim()){ slPaintFind(); return; }
     if(SL_MODE==='history'){ b.innerHTML=slHistHTML(); return; }
+    /* §9 — the conversational surface: user message, Sloane response, nothing around it */
+    if(SL_MODE==='chat'){ b.innerHTML=slChatHTML()||slHomeHTML(); return; }
     if(SL_MODE==='session'){ b.innerHTML=slInvHTML(SL_INV,e); return; }
     b.innerHTML=slHomeHTML();
   }catch(err){ console.error('sloane panel',err); }
@@ -78518,7 +78577,7 @@ function slPaint(){
 function slHistToggle(){ slHistShow(); }
 function slInvOpen(i){ const v=SL_INVS[i]; if(!v) return; slPush(); SL_DELCONF=null; SL_INV=v; SL_MODE='session'; SL_ASKNEW=false; SL_HISTV=false; SL_Q='';
   const inp=$('cpInput'); if(inp) inp.value=''; slHydrate(v); slView(v.view!=null?v.view:v.entries.length-1,true); }
-function slNew(){ slPush(); s2ResetSid(); SL_INV=null; SL_CTX=null; SF_META={}; SF_PENDING=null; try{ siInvClose(); SI_XL_ACTIVE=null; }catch(e){} SL_CUR=null; SL_HISTV=false; SL_Q=''; SL_MODE='home'; SL_ASKNEW=false; SL_TOPIC=null; SL_VEND=null;
+function slNew(){ SL_CHAT.length=0; slPush(); s2ResetSid(); SL_INV=null; SL_CTX=null; SF_META={}; SF_PENDING=null; try{ siInvClose(); SI_XL_ACTIVE=null; }catch(e){} SL_CUR=null; SL_HISTV=false; SL_Q=''; SL_MODE='home'; SL_ASKNEW=false; SL_TOPIC=null; SL_VEND=null;
   const m=document.getElementById('slfMenu'); if(m) m.hidden=true;
   const i=$('cpInput'); if(i){ i.value=''; if(!SL_FULL) i.focus(); }
   if(SL_FULL) slFullRender(); slPaint(); }
@@ -81565,15 +81624,40 @@ function s2Ground(narr, objects){ const facts={}, allTok=new Set(), accepted=[],
   return {accepted, rejected}; }
 
 /* ---- rendering (§18, §19) ------------------------------------------------------------------------ */
+/* ==== RUNTIME V3 §7 — THE ONLY PLACE A GOVERNED OBJECT BECOMES VISIBLE ==============================
+   The server states ONE presentation per turn, or none. NONE is the default and the common case: an answer is
+   words. LIST is a handful of rows the model named. TABLE is a governed result the person asked to SEE, named
+   by its id, so a table can only ever be of something this turn actually read.
+
+   There is no branch here that infers a presentation from what came back, and adding one would reintroduce the
+   defect: the title and the table would again be properties of whatever object happened to be first. */
+function s2PresHTML(r, notes){
+  const p=r.presentation; if(!p||p.kind==='NONE') return '';
+  if(p.kind==='LIST'){ const rows=(p.rows||[]).filter(Boolean); if(!rows.length) return '';
+    return (p.lead?'<p class="s2-s">'+glEsc(p.lead)+'</p>':'')
+      +'<div class="s2-rows">'+rows.map(x=>'<p class="s2-row">'+glEsc(x)+'</p>').join('')+'</div>'; }
+  if(p.kind==='TABLE'){ const o=(r.objects||[]).find(x=>x.id===p.objectId);
+    /* a table of an object this turn did not read is not a table — say nothing rather than show something else */
+    if(!o||!o.table||!o.table.rows.length) return '';
+    return (p.lead?'<p class="s2-s">'+glEsc(p.lead)+'</p>':'')+s2ServerTable(o); }
+  return ''; }
+function s2FollowHTML(sugg){ if(!sugg||!sugg.length) return '';
+  return '<div class="s3-btns">'+sugg.map(x=>'<button class="slx-btn" data-q="'+glEsc(x)+'" onclick="slSubmit(this.getAttribute(\'data-q\'),{follow:true})">'+glEsc(x)+'</button>').join('')+'</div>'; }
 function s2NarrHTML(g, note){ if(!g.accepted.length&&!note) return '';
-  /* PHASE 2 §21/§24 — the server sends the answer as SECTIONS, each with its own label and its own kind of
-     claim. The label is drawn quietly above the text; the assertion rides on the element rather than being
-     spelt out in prose, so a fact and an inference are distinguishable without the sentence saying so. */
-  return '<div class="s2-nar">'+g.accepted.map(s=>
-      (s.label?'<div class="s2-lab">'+glEsc(s.label)+'</div>':'')
-      +'<p class="s2-s" data-objects="'+glEsc(s.objectIds.join(' '))+'" data-facts="'+glEsc(s.factKeys.join(' '))+'"'
-      +(s.assertion?' data-assertion="'+glEsc(s.assertion)+'"':'')+'>'+glEsc(s.text)+'</p>').join('')
-    +(note?'<p class="s2-note">'+glEsc(note)+'</p>':'')+'</div>'; }
+  /* PHASE 3 §4/§14 — the server sends the ANSWER, and no headings: `label` is retired and is always empty, so
+     nothing is drawn above the text. What a part may still carry is `row` — a line of the optional supporting
+     list — and those are grouped so they read as a list rather than as one-line paragraphs. The assertion rides
+     on the element rather than being spelt out in prose, so a fact and an inference stay distinguishable. */
+  var h='<div class="s2-nar">', open=false;
+  g.accepted.forEach(function(s){
+    var attrs=' data-objects="'+glEsc(s.objectIds.join(' '))+'" data-facts="'+glEsc(s.factKeys.join(' '))+'"'
+      +(s.assertion?' data-assertion="'+glEsc(s.assertion)+'"':'');
+    if(s.row){ if(!open){ h+='<div class="s2-rows">'; open=true; } h+='<p class="s2-row"'+attrs+'>'+glEsc(s.text)+'</p>'; return; }
+    if(open){ h+='</div>'; open=false; }
+    if(s.label) h+='<div class="s2-lab">'+glEsc(s.label)+'</div>';
+    h+='<p class="s2-s"'+attrs+'>'+glEsc(s.text)+'</p>'; });
+  if(open) h+='</div>';
+  return h+(note?'<p class="s2-note">'+glEsc(note)+'</p>':'')+'</div>'; }
 function s2StateUI(label){ const sc=$('cpScroll'); if(!sc) return; let el=$('s2State');
   if(!label){ if(el) el.remove(); return; }
   if(!el){ el=document.createElement('div'); el.id='s2State'; el.className='s2-state'; el.setAttribute('role','status'); sc.insertBefore(el, sc.firstChild); }
@@ -81988,7 +82072,10 @@ function s2ServerRender(raw, r){ const out=s2ServerRender0(raw, r);
   if(out&&!out.handled&&r&&r.workspace&&r.workspace.title) out.active=r.workspace.title;
   return out; }
 function s2ServerRender0(raw, r){
+  /* §11 — `r.notes` is what a finance professional needs told. `r.diagnostics` is Korvyn checking its own work
+     and is never drawn; it reaches the dev trace and telemetry only. */
   const notes=(r.notes||[]).filter(Boolean);
+  if((r.diagnostics||[]).length&&typeof console!=='undefined') console.debug('[sloane:diagnostics]',r.diagnostics);
   if(r.state==='CANCELLED') return {handled:true};
   /* a conversational answer needed no governed tool: it is a reply, not a financial object */
   if(r.reply) return {state:SF_STATE.ANSWER, kind:'conv', inherit:!!SL_INV, html:SL_BYLINE+'<div class="s2-conv">'+glEsc(r.reply)+'</div>'};
@@ -82011,7 +82098,7 @@ function s2ServerRender0(raw, r){
   const cvo=(r.objects||[]).find(x=>x.type==='DynamicFinancialCanvas'&&x.canvas);
   if(cvo){ const d=cvo.canvas; return {state:r.state==='ANSWER'?SF_STATE.ANSWER:SF_STATE.UNAVAILABLE, kind:'canvas', inherit:!!(d.intent&&d.intent.refinement), title:r.title||d.title, html:c8CanvasHTML(d, 'all', notes)}; }
   if(r.state==='ANSWER'&&(r.objects||[]).length){ const o=r.objects[0];
-    const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[], label:n.label||'', assertion:n.assertion||''}))}, notes.join(' '))+pend;
+    const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[], label:n.label||'', assertion:n.assertion||'', row:!!n.row}))}, notes.join(' '))+pend;
     const pv=o.provenance||{};
     const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
     /* Phase 7: a goal became a governed run — the run card IS the answer */
@@ -82029,9 +82116,18 @@ function s2ServerRender0(raw, r){
     const wbo=(r.objects||[]).find(x=>x.type==='ExcelWorkbookPreview'&&x.workbook&&x.status!=='UNAVAILABLE');
     if(wbo&&typeof a4WorkbookHTML==='function') return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title, html:slCard({kind:'server', for:'Governed workbook · '+wbo.scope.name+' · USD', head:glEsc(wbo.workbook.name),
       sub:nar, prev:a4WorkbookHTML(wbo.workbook)+r.objects.filter(x=>x!==wbo&&x.type!=='ExcelWorkbookPreview').map(s2ServerTable).join(''), basis:'Built from governed Korvyn objects · the file is generated server-side from the same definition'})};
-    return {state:SF_STATE.ANSWER, kind:'server', inherit:inh, title:r.title, html:slCard({kind:'server', for:ctxFor(o), head:glEsc(o.title),
-      sub:nar, prev:r.objects.map(s2ServerTable).join(''), follow:sugg,
-      basis:pv.source+(typeof pv.journalLines==='number'?' · '+pv.journalLines+' journal lines':'')+(pv.fxRateSetId?' · FX '+pv.fxRateSetId:'')+(pv.eliminations?' · '+pv.eliminations:'')})}; }
+    /* ==== RUNTIME V3 §5/§7 — RETRIEVAL IS NOT PRESENTATION ==========================================
+       This line used to read `prev: r.objects.map(s2ServerTable).join('')` with `head: o.title`, and those two
+       expressions ARE the defect the reconstruction was called for. Every governed object any tool returned was
+       drawn as a table under a heading taken from that object — so a capex question could put "Income statement
+       · Jun 2026 vs May 2026" and its table on the screen because a statement had been read on the way, and
+       nothing anywhere had decided to show it.
+
+       The objects still travel on the response: they carry the facts, the refs and the lineage that the trace
+       and a future agent consume. What a PERSON sees is `r.presentation`, which is null unless this turn's
+       answer asked for something. A conversational answer is the words and nothing else. */
+    const shown=s2PresHTML(r, notes);
+    return {state:SF_STATE.ANSWER, kind:'conv', inherit:inh, html:SL_BYLINE+'<div class="s2-ans">'+nar+shown+s2FollowHTML(sugg)+'</div>'}; }
   /* §8: never a dead end — what could not be done, in one line, and what can be done instead, one click away */
   return {state:r.state==='ERROR'?SF_STATE.ERROR:SF_STATE.UNAVAILABLE, kind:'none', inherit:inh||!!sugg.length&&!!SL_INV, html:slCard({kind:'none',
     head:r.state==='ERROR'?'Sloane could not complete this request':glEsc(notes[0]||'Sloane can’t answer that with a governed Korvyn tool yet.'),

@@ -190,7 +190,9 @@ test('P2 §44: a direct answer draws no headings at all', () => {
   assert.ok(!r.text.includes('Summary'));
 });
 
-test('P2 §44: a thin governed answer stays a sentence; a driver analysis gets its sections', () => {
+/* PHASE 3 §4 — NO LABEL IS EVER DRAWN. The assertion TYPE survives on each part, which is what lets a reader
+   tell a fact from an inference without a heading saying so. */
+test('P3 §4: no answer draws a section heading, and the assertion types survive', () => {
   const reg = new FactRegistry();
   const [f] = reg.add(factsFrom(objOf({ id: 'FO-1', refs: { account: '15000' }, facts: [{ key: 'balance', label: 'Balance', value: 4210.2, display: '4,210.2' }] }), CTX));
 
@@ -210,10 +212,11 @@ test('P2 §44: a thin governed answer stays a sentence; a driver analysis gets i
     nextActions: ['Open the Flux line'],
   }, reg, { hasGovernedRead: true, objectIds: ['FO-1'] }), reg);
 
-  const labels = full.parts.map((p) => p.label).filter(Boolean);
-  assert.deepEqual(labels, ['Summary', 'What drove it', 'What this suggests', 'Not yet established']);
+  assert.deepEqual(full.parts.map((p) => p.label).filter(Boolean), [], 'no headings, on any shape of answer');
   assert.equal(full.parts.filter((p) => p.assertion === 'DERIVED_CONCLUSION').length, 2);
-  assert.equal(full.parts.find((p) => p.label === 'What this suggests')!.assertion, 'INFERENCE');
+  assert.equal(full.parts.filter((p) => p.assertion === 'INFERENCE').length, 1);
+  assert.equal(full.parts.filter((p) => p.assertion === 'UNRESOLVED').length, 1);
+  assert.ok(/The transfer looks routine/.test(full.text), 'and every section is still said');
   assert.deepEqual(full.nextActions, ['Open the Flux line']);
 });
 

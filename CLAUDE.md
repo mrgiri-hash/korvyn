@@ -11817,6 +11817,348 @@ mode keeps the white artwork visible (the case the retired filter got wrong) · 
 declared natural sizes · the favicon is installed.
 
 
+## 2026-09-20 — SLOANE CORE RUNTIME V2, PHASE 3: conversation-first
+
+Owner's brief, after live testing found Sloane answering like software generating a report: SUMMARY / KEY
+DRIVERS / WHAT THIS SUGGESTS over two sentences of answer, 207-word replies to "who owns them?", and a
+composer that threw the model's words away and stated something else. The boundary moved, in one direction:
+
+```
+CLAUDE owns the conversation   the words, the length, how much to say, what order to say it in
+KORVYN owns truth              every authoritative value, the permissions, the lineage, the audit trail
+```
+
+Nothing governed was rebuilt. The canary is unmoved — **FS-CIP Jun 2026 = 4,210.2** — and v1 is still in the
+tree with the flag still off by default.
+
+### THE MODEL WRITES THE ANSWER. THERE IS NO ANSWERING TOOL.
+
+`respond` is retired from the surface. Phase 2 required it so the answer arrived as structure; Phase 3 wants
+the answer to arrive as an ANSWER, so the model writes — which is what a model does anyway, on the same call,
+at the same cost. `fromProse()` turns what it wrote into the SAME `ResponseDefinition` everything downstream
+already reads, so the references resolve, an unresolvable sentence is withheld, an unsupported causal claim is
+typed INFERENCE, two populations compared in one claim are still called out, and the offers are still read
+from the cited facts. **Three branches became one; there is no main road and no escape hatch.**
+
+**PHASE 2.5's FORCED COMPOSITION IS REVERSED, AND THE MEASUREMENT IS WHY.** It composed over the model's words
+on every governed prose turn. On the brief's own close conversation that replaced a reviewer's walkthrough of
+the largest blocker with *"…moved by $0.26M, made up of 5 entitys, the largest being …"* — a correct figure
+answering a question nobody asked, with a grammar bug in it. Korvyn composes now only when withholding leaves
+**nothing publishable**, which is a last resort rather than the road. (`plural()` fixes the 5 entitys.)
+
+`respond` stays in `V2_CONTROL_TOOLS` and only there: a session stored mid-turn may still emit one and the loop
+has to recognise it. It is not in `CONTROL_DEFS`, so it is never offered again.
+
+### NO ANSWER DRAWS A HEADING, AND ONE OPTIONAL PRESENTATION REPLACED SIX SECTIONS
+
+`renderResponse` draws **no section label at all**. The assertion TYPE survives on each part — the browser
+carries it on the element rather than spelling it out — so a fact and an inference stay distinguishable
+without a heading saying so.
+
+`show_list` is the only presentation the model may ask for: a lead-in and up to six short rows, emitted
+ALONGSIDE the written answer on the same response, so it costs no extra call. `Presentation` is
+`NONE | COMPACT_LIST`, and NONE is the common case by design. Anything bigger is a grid, and a grid is
+`open_analysis_grid` — a surface that already exists.
+
+**A ROW IS A ROW, NOT A PARAGRAPH.** `parts[].row` marks a supporting line and `s2NarrHTML` groups them into
+`.s2-rows`; six one-line paragraphs spaced down a 400px panel is the loose shape this phase removes. `.s2-lab`
+survives as dead CSS for a label that is now always null.
+
+### §39 — THE GUARANTEE DID NOT MOVE WITH THE CHANNEL
+
+A sentence carrying a figure Korvyn can find NOWHERE is withheld, exactly like a sentence whose reference
+cannot be resolved, and `withheldFigures` names it to the person. A magnitude the registry holds stays: the
+digits are governed and the direction is in the verb. Only on a GOVERNED turn — with no read behind the answer
+this is general knowledge, and "margins typically run 20–30%" is not a claim about their book.
+
+**§16 ASKS THE REGISTRY, NOT "DID A TOOL RUN THIS TURN".** The registry is the CONVERSATION's, so "what drove
+it?" restating the two components stated one turn ago is exactly what §12 wants and costs no read. The old test
+reported that as three figures with nothing behind them — observed live.
+
+**A CAUSAL CLAIM WITH NO GOVERNED READ IS A DEFINITION.** "EBITDA reflects operating profitability because it
+strips out financing" was recorded as an unsupported causal claim on every conceptual answer.
+
+### §17 — WHAT REACHES A PERSON IS NEVER A CONSTANT, AND THE FIX WAS AT THE SOURCE
+
+- **`display: r.tieStatus` put NOT_TIED into an answer** — not because the model typed it but because Korvyn
+  RESOLVED a reference to it. Ten status displays go through `statusWords()`; the `value` stays the raw enum so
+  every comparison downstream is untouched. Same for `blockerKind()` on the close blocker table.
+- **`internalVocabulary()`** measures both halves — an UPPER_SNAKE constant, and a sentence about the plumbing
+  rather than the book ("that read came back at the group level", "I don't have an ownership field"). It is a
+  FINDING, never a rewrite: guessing what the model meant is worse in an answer about money than a recorded
+  defect. The §40 harness scores the product's own function rather than keeping a second regex.
+
+### §19/§33 — A BLOCKER CARRIES THE PEOPLE ITS OWN RECORD NAMES
+
+Every object that raises a blocker already records who holds it — a reconciliation its preparer and reviewer, a
+task its owner and approver, a Flux movement whoever reviews it. Dropping that in `closeBlockers()` is what made
+"who owns them?" unanswerable: Sloane could only say it had ownership for three routine cash tasks, which was
+true of the read and untrue of the book. **`owner: null` is a real answer** and the one "which does nobody own?"
+needs. `getCloseBlockers` gains an `unassigned` fact and Owner / Reviewer columns.
+
+**AND A RECONCILIATION THAT DOES NOT TIE CARRIES THE AMOUNT IT IS OUT BY.** The list emitted a name and a status
+per reconciliation and nothing numeric, so the model reached for the nearest reference it had and wrote *"off by
+does not tie"* — observed three times in a row. The difference was on the record; withholding it from the facts
+is what made the sentence impossible to write correctly.
+
+### §9 — READ WHAT THE QUESTION NEEDS, AND NO MORE
+
+Three things, each measured:
+
+- **Your own last answer counts.** Having just listed six blockers with owners, "who owns them?" is answered
+  from what you said. Measured: 2 calls / 1 tool → **1 call / 0 tools, 8.2s → 4.7s**.
+- **Never fan out one call per item to answer a question about the set.** "Only show me the ones nobody owns"
+  went **8 tools / 15.4s / $0.058 → 1 tool / 5.7s / $0.021**.
+- **TOOL SELECTION GUIDANCE BELONGS ON THE TOOL.** "What is blocking close?" reached readiness — a percentage
+  and three fractions — because `detail` was left out, and every ownership question behind it then had nothing
+  to answer from. `getControlStatus` now says which question maps to which detail, in the words a person uses;
+  `getWorkflowContext` says what it does NOT cover; `resolveFinancialConcept` says it returns a MEANING and is
+  never the last call in a turn that asked for a balance, a status or a movement.
+
+### §13 — ASKING IS THE LAST RESORT, AND IT IS RARER THAN IT LOOKS
+
+A term with an obvious professional reading is not a reason to ask: the concept layer already answers
+DEFAULTED and says which reading it used. A question that covers several things means all of them. Measured on
+§40's twenty-five questions: clarifications went 3 → 0–2 depending on sampling, and "is our margin holding up?"
+went from a question back to *"Gross margin came in at 92.6%, down from 94.0%; operating margin 66.0% from
+66.7%."*
+
+### MEASURED (live, claude-sonnet-5)
+
+**The brief's own conversations** (`npm run sloane:v2-conv`, 24 turns over 7 scripts):
+
+| | before (Phase 2.6.1) | after |
+|---|---|---|
+| labelled sections, 11 baselined turns | **11** | **0** |
+| close · p50 latency / words / cost | 11,968ms / 159w / $0.0837 | **6,825ms / 64w / $0.0748** |
+| simple · p50 | 4,358ms / 52w | 3,822ms / 63w |
+| escalate · calls per turn | 1.67 | **1.33** |
+
+Whole run after: 24 turns · **0 labelled sections** · p50 **60 words** · 1.50 calls/turn · p50 **4,804ms** ·
+**9 of 24 turns used no tool at all** · 12 of 24 were a single model call · $0.2902 · unresolved refs 0 ·
+2 artifacts, both in the escalation script where the person asked for a grid.
+
+| class | turns | calls | p50 | p90 | $/turn | p50 words |
+|---|---|---|---|---|---|---|
+| GROUNDED_DIRECT | 3 | 1.00 | **1,760ms** | 2,477ms | $0.0049 | 35 |
+| GROUNDED_REASONING | 12 | 2.00 | 6,825ms | 8,449ms | $0.0191 | 68 |
+| conversation only | 9 | 1.00 | 2,840ms | 4,985ms | $0.0052 | 45 |
+
+**Tier 1 smoke** (the Phase 2.5/2.6 regression, 20 turns): GROUNDED_DIRECT 1.00 calls / **p50 1,770ms**,
+GROUNDED_REASONING **2.00 calls / p50 6,622ms / $0.0173** (Phase 2.6 was 2.11 / 8.5s / $0.0191) ·
+**0 unresolved refs · 0 figures with no governed reference · 0 prose escapes · 0 leaks.**
+
+**§40 — direct Claude vs Sloane on 25 unseen questions** (`npm run sloane:style`; both arms the same model, the
+bare arm through the SDK because Sloane's adapter refuses a call with no governed tool):
+
+| | answers | p50 words | max | headings | plumbing | artifacts |
+|---|---|---|---|---|---|---|
+| DIRECT | 25 | **207** | 316 | 0 | 0 | 0 |
+| SLOANE | 25 | **63** | 103 | 0 | 0–1 | 0 |
+
+Sloane read worse than the bare model on **1–3 of 25** across runs, always a clarification or one "this read".
+**The contamination guard earned its place on its first run**, refusing the suite because a holdout question had
+been written into the prompt as an example.
+
+### §45 — THE ARCHITECTURE CHECKPOINT
+
+| | Phase 2.6.1 | Phase 3 |
+|---|---|---|
+| routing gates before the model reasons | 1 (`eligible()`) | **1** |
+| tools exposed | 13 | **13** (`respond` out, `show_list` in) |
+| model-facing answer fields | 8 | **2** (`rows`, optional `lead`) |
+| section labels a renderer can draw | 6 | **0** |
+| response transformations in the runtime | 3 branches | **1** |
+| regex ops, v2 hot path (runtime + strategy + respond + tools + conversation) | ~34 | **32** (v1's routing layers: 455) |
+| context builds per turn | 1 (asserted) | **1** (asserted) |
+| new state stores | — | **none** |
+| cacheable prefix | ~7.0k tokens | ~7.3k tokens |
+
+`governedProse`, `classify`, `figureKey` and `ungrounded` were DELETED — the machinery of the escape hatch, a
+measured string search for a figure the model might have invented plus the decision to throw its words away.
+
+### Traps
+
+- **Never pass replacement text through the shell — the seventeenth time.** A heredoc turned `\n` inside a TS
+  string literal into a real newline (an unterminated string, caught by the typechecker). Write the splice
+  script with the Write tool.
+- **A helper spliced before a member of an array literal lands INSIDE the array.** `blockerKind` took the whole
+  `toolset.ts` down with "Expression or comma expected".
+- **`finishDirect` ASSIGNED `trace.ungroundedFigures`**, so a composed answer standing in for withheld prose
+  lost the one finding that explained why it existed. The same assign-vs-append trap the violations already had.
+- **A tsx server does not hot-reload.** A browser measurement of server-side work needs a restart first.
+- **The Browser pane refuses a sixth dev server**; start one with `PORT=… npx tsx src/server.ts` in the
+  background and navigate to it.
+
+### Verified
+
+`npm run sloane:test` **271/271** (`v2p3.test.ts`, 10 new) · `sloane:dryrun` pass · `packages/core` 78/78 +
+boundary · **4/4 repo gates**, baselines unchanged (css 1072 / inline 86, duplicates 63) · typecheck clean ·
+control-character sweep clean across every changed file · **live browser on a v2 server: 0 headings, rows drawn
+as rows, 0 raw references, 0 constants, no workspace opened for a question, console clean.**
+
+### Deliberately NOT done
+
+Agentic Runtime v2 · charts · Excel · PowerPoint / PDF · any phrase-specific finance handler · a UI redesign
+beyond the row treatment. The v1 fallback is in the tree and `SLOANE_RUNTIME_V2` is still off by default.
+
+### Open, and worth the owner's call
+
+- **A governed judgement is still 2 calls and ~6.8s p50.** That is the floor for native tool use (read, then
+  answer); the remaining lever is the model on the FAST route, not the runtime.
+- **The model still occasionally types a figure it read one turn ago** rather than referencing it. The value is
+  governed and there is nothing for a reader to check, so it is recorded as a contract miss and not warned about
+  — but it is the residual, on roughly 1 turn in 8.
+- **A reference in a slot the fact does not fit** ("ties (ties)") still happens occasionally. Emitting the
+  numeric fact the sentence wants fixed the serious case; the rest is wording.
+
+## 2026-09-20 — SLOANE RUNTIME V3: conversation-first, and the coupling that caused it
+
+Owner's reconstruction brief, authorised to dismantle rather than extend. The reported failure: a capex question
+answered correctly and the UI rendered **"Income statement · Jun 2026 vs May 2026"** with an income-statement
+table beneath it, plus *"…were written without a governed reference…"* on a controller's screen.
+
+**§0's audit came first, and it found the cause in two expressions and one function** — all in the BROWSER,
+which every server-side phase had left alone:
+
+```js
+// s2ServerRender0, the default branch
+head: glEsc(o.title)                          // the heading IS the first tool object's title
+prev: r.objects.map(s2ServerTable).join('')   // EVERY object any tool returned, drawn as a table
+```
+
+and `slAnswer()`, through which every Sloane answer passed, which **always** put it in an Investigation —
+`slPaint()` rendered `slInvHTML(SL_INV,e)`, so an investigation header, a step strip and a title sat above every
+ordinary reply. Twenty plain questions produced twenty entries in a durable work object nobody asked for.
+
+| §0 | coupling | where |
+|---|---|---|
+| A · prior artifact changes meaning | the heading is the first object's title | `s2ServerRender0` |
+| B · a retrieved object becomes visible | `r.objects.map(s2ServerTable)` | same line |
+| C · conversation inherits a container | every answer becomes an investigation entry | `slAnswer` |
+| D · a tool result makes a table | same as B — no decision existed anywhere | — |
+| E · diagnostics reach the user | `s2NarrHTML(…, notes.join(' '))` → `.s2-note` | — |
+| F · investigation is the default surface | `slPaint` renders `slInvHTML` | — |
+
+Also found: **a 15-branch regex phrase router in the browser** (`slInvTitle`) naming the conversation, and
+`TurnResponse` with **no presentation field at all**. The architecture guaranteed the reported outcome: read a
+statement on the way to a capex answer and its title and table are what you see.
+
+### §5/§7 — RETRIEVAL IS NOT PRESENTATION, AND NOW THERE IS A FIELD THAT SAYS SO
+
+`TurnResponse.presentation: {kind:'NONE'|'LIST'|'TABLE', objectId?, rows?, lead?, title?} | null`, **null by
+default**. `objects` still travels — it carries the facts, refs, population and lineage the trace and a future
+agent consume (§41) — but it is no longer what a person sees. A TABLE names ONE object read THIS turn, so a
+table of something that was not read is impossible rather than discouraged.
+
+**`show` replaces `show_list`**, and it is the only presentation declaration. §40 rules out `render_ebitda_panel`
+and is right to: this names a SHAPE, not a screen or a topic, so it is plannable and an agent simply never calls
+it. **ONE DISCRIMINATOR, and it is about the request, not the result:** did they ask to SEE something, or ask a
+QUESTION? "Show me all of them" shows; "what's blocking close?" answers.
+
+**A presentation asked for too early is still a presentation that was asked for** — a model that understood
+"show me all of them" emits the read AND `show` in one step, the read must run first, and the `show` was being
+discarded. It is kept and honoured **only when the model then added nothing**: if it wrote a real answer and
+chose not to ask again, it chose prose, and honouring the earlier request put a table under "high level capex
+analysis" (observed).
+
+### §11 — DIAGNOSTICS ARE NOT NOTES
+
+`TurnResponse.diagnostics` is new. Every grounding message moved into it: unresolved references, withheld
+figures, typed figures, step limits, provider errors. `notes` now carries only what a finance professional needs
+told — a permission refusal, a stale source. **The withholding still happens; it happens silently**, which is
+what §13's "answer naturally" means. The browser `console.debug`s diagnostics and draws none.
+
+### §8/§9 — CONVERSATION IS NOT AN INVESTIGATION
+
+`SL_CHAT` is a chat thread: user message, Sloane response, a hairline between exchanges, and nothing else — no
+title, no timeline, no workspace link, no durable record. `slAnswer` routes a conversational answer there and
+leaves `SL_INV` untouched; an Investigation is entered when the answer IS a workspace (analysis grid, canvas,
+workbook, governed run) or when asked for. **`SL_INVS`, `SL_INV` and their 45 readers are untouched** — the
+investigation still exists for work that needs it (§42: an ordinary question creates no durable state).
+
+### §14 — THE MESSAGE AND THE PRESENTATION ARE TWO CHANNELS, SPLIT ONCE, AFTER RESOLUTION
+
+Rows were travelling as narrative entries marked `row` AND being copied into the presentation from the
+definition's raw assertions — so they drew twice, and the copy still held `{{FACT:…}}` because only
+`renderResponse` resolves those. Observed live: four resolved rows followed by four rows of machinery.
+`publish()` now splits resolved parts once — message parts are the answer, row parts are the presentation.
+
+### Four defects only the browser found
+
+- **Streaming partials appended instead of replacing**, so one streamed answer became 36 exchanges.
+  `slReplaceLast` honours the chat thread.
+- **A `show` with no prose rendered a blank reply.** The presentation is SUPPORTING by contract, so Korvyn
+  composes the sentence from the governed result — the same last-resort composer used everywhere.
+- **A turn that read an object and returned neither text nor tool rendered blank.** Same composer; the floor is
+  an answer, not nothing.
+- **Raw enums in a governed `display`** (`display: r.tieStatus` → NOT_TIED) — fixed at the source with
+  `statusWords()`, `value` untouched.
+
+### §27 — BROWSER ACCEPTANCE, all eight turns
+
+Income statement → EBITDA → capex → close → who owns them → only unassigned → back to EBITDA → show the
+accounts. Every turn: **header null · investigations 0 · diagnostics 0 · workspace closed · console clean**,
+41–114 words. Tables on exactly two turns, both correct — the capex drill and, on "Show the accounts", an
+EBITDA bridge. **No FAIL condition in §27 occurred.** "Go back to EBITDA" recovered the prior topic (§18).
+
+### §23 — LATENCY IS MODEL-BOUND
+
+| stage | governed turn (10,135ms) |
+|---|---|
+| model call 1 (decide + request tools) | 2,854ms |
+| Korvyn: tools, grounding, render | **428ms** |
+| model call 2 (the answer) | 6,853ms |
+
+Conversation-only turns: 1 call, 2,713–3,936ms, all model. **Korvyn's own share is under half a second.**
+Observed across the eight turns: governed p50 ≈ 8.3s, conversation-only p50 ≈ 2.9s, TTFT 1.2–4.2s.
+
+### §34 — direct Claude vs Sloane, 12 unseen questions
+
+| | p50 words | max | headings | plumbing | artifacts | p50 latency |
+|---|---|---|---|---|---|---|
+| DIRECT | 212 | 253 | 0 | 0 | 0 | 6,563ms |
+| **SLOANE** | **49** | 93 | 0 | 0 | 0 | **4,475ms** |
+
+Sloane reads worse on **0 of 12**.
+
+### §35 — complexity budget
+
+| | before | after |
+|---|---|---|
+| routing gates before the model reasons | 1 | **1** |
+| tools exposed | 13 | **13** (`show_list` → `show`) |
+| presentation decisions in the renderer | **0 (unconditional)** | **1 explicit field** |
+| places an object becomes visible | everywhere `s2ServerTable` was called | **one function, `s2PresHTML`** |
+| regex ops, v2 hot path | 32 | **32** |
+| conversational surfaces | 1 (investigation) | **2, separated** (chat · investigation) |
+| response transformations | 1 | **1** |
+| net | — | +1,027 / −336 lines across 16 files |
+
+### Traps
+
+- **A backtick inside a template literal terminates it** — recorded before, hit again writing `of` into
+  `V2_SYSTEM`.
+- **The tool DESCRIPTION is what the model reads at the decision point.** Rebalancing the system prompt while the
+  description still said "Most turns need nothing" changed nothing.
+- **The last instruction before the answer decides its shape.** The post-tool reminder said only "answer
+  briefly", so at the moment the model chose between prose and a presentation, the presentation was not in front
+  of it.
+- A tsx server does not hot-reload; the Browser pane refuses a sixth dev server.
+
+### Verified
+
+`npm run sloane:test` **273/273** (2 new V3 invariant tests) · dryrun 35 · core 78/78 + boundary · **4/4 gates**,
+baselines unchanged · typecheck clean · control-character sweep clean · every `index.html` script block parses ·
+the eight-turn browser acceptance and three screenshots above.
+
+### Remaining limitation
+
+Escalation is a model judgement and it is not perfectly stable: "Show me all of them" sometimes answers in prose
+rather than calling `show`. The invariant holds either way — nothing is shown that was not asked for, and a
+table can only be of an object read this turn — so the failure mode is an answer that is less convenient, never
+one that is wrong or inherited.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

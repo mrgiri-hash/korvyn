@@ -1,22 +1,27 @@
 /**
- * PHASE 2 — THE RESPONSE DEFINITION (§19–§28).
+ * THE RESPONSE CONTRACT — PHASE 3 (§4, §14, §46).
  *
- * WHY THE STRUCTURE COMES BACK FROM THE REASONING CALL ITSELF.
+ * PHASE 3 ANSWERS §46's QUESTION: this file KEEPS its job and LOSES its authorship. Phase 2 made the model call
+ * `respond` with an organisation already in it — a response type, a headline, a summary, key drivers, exceptions,
+ * an interpretation and an unresolved list — and `renderResponse` drew a label above each. That produced the
+ * report shape §4 rules out: SUMMARY / KEY DRIVERS / WHAT THIS SUGGESTS over two sentences of answer.
  *
- * §22 rules out a second model call to format an answer, and it is right to: a formatting pass is a second place
- * a figure can be rewritten, and Phase 1.5 spent real effort removing exactly that. So the model does not write
- * prose and then have it organised — it CALLS `respond` with the organisation already in it, and that tool_use
- * ENDS the turn. A conceptual question is one model call; a governed question is two (read, then answer), which
- * is what Phase 1 already cost. Nothing is added.
+ * So the boundary moved, and it moved in one direction only:
  *
- * WHAT THE MODEL SUPPLIES, AND WHAT KORVYN SUPPLIES.
- *   the model  — which response type fits, what the headline says, which facts belong in which section, and
- *                which of its own statements are inference rather than fact.
- *   Korvyn     — every authoritative VALUE (through the fact registry), the rendering, and the judgement about
- *                whether a causal claim has anything behind it.
+ *   CLAUDE owns the message   — the words, the length, how much to say, what order to say it in. An answer is
+ *                               prose, written on the same call that would have written it anyway.
+ *   KORVYN owns the values    — every authoritative figure (through the fact registry), the rendering, the
+ *                               withholding of anything it cannot resolve, and the judgement about whether a
+ *                               causal claim has anything behind it.
  *
- * §23/§27 — ADAPTIVE MEANS FEWER SECTIONS, NOT MORE. "What is OPEX?" renders as one paragraph with no headings
- * at all. Sections exist to make a governed analysis scannable, and a section with nothing in it is never drawn.
+ * `ResponseDefinition` survives because everything downstream reads it — the offers, the trace, the violations,
+ * the sign-safe rendering, `composeDirect`'s one-call answers. What it no longer does is DECIDE THE SHAPE:
+ * `renderResponse` draws NO section labels at all, and the only structure a model can ask for is one compact
+ * list through `show_list` (§14/§15), which it uses when rows read better than a sentence.
+ *
+ * §5/§39 — NOTHING ABOUT GROUNDING MOVED. A company figure is still a {{FACT:id}} reference that Korvyn
+ * resolves, a sentence whose reference cannot be resolved is still withheld, and a causal claim with nothing
+ * behind it is still demoted to inference rather than published as fact.
  */
 import { type Drill, type FactRegistry, type FinancialFact, bareFigures, isAuthoritative, populationMismatch, renderFacts, withoutRefs } from './facts.js';
 import { type Offer, offersFor } from './strategy.js';
@@ -64,10 +69,36 @@ export interface Assertion {
    §21 — THE DEFINITION
    ================================================================================================ */
 
+/* ================================================================================================
+   §14 — THE SUPPORTING PRESENTATION, WHICH IS NOT THE ANSWER
+   ================================================================================================ */
+
+/**
+ * §14/§20 — RETRIEVAL IS NOT PRESENTATION. A governed read returns fifteen blockers, fifteen owners and fifteen
+ * statuses; four of them may be what the question needed. What reaches the screen is the MESSAGE, and a
+ * presentation only when rows genuinely read better than a sentence.
+ *
+ * NONE is the default and by design the common case. COMPACT_LIST is a handful of short rows under a lead-in —
+ * the shape "the three largest are …" wants. Anything bigger is a grid, and a grid is `open_analysis_grid`,
+ * which is a surface that already exists rather than a thing this file draws.
+ */
+export const PRESENTATIONS = ['NONE', 'COMPACT_LIST'] as const;
+export type PresentationKind = (typeof PRESENTATIONS)[number];
+
+export interface Presentation {
+  kind: PresentationKind;
+  /** the model's own one-line lead-in, if it wrote one; never a manufactured heading */
+  lead: string | null;
+  rows: Assertion[];
+}
+
 export interface ResponseDefinition {
   responseType: ResponseType;
+  /** §14 — the conversational answer. Paragraphs, in reading order, in the model's own words. */
   headline: Assertion | null;
   summary: Assertion | null;
+  /** §14 — the optional supporting rows. `NONE` on an ordinary turn, which is most turns. */
+  presentation: Presentation;
   keyDrivers: Assertion[];
   interpretation: Assertion[];
   exceptions: Assertion[];
@@ -76,12 +107,31 @@ export interface ResponseDefinition {
   supportingAnalysisIds: string[];
   factRefs: string[];
   evidenceRefs: string[];
+  /**
+   * §39 — figures the model typed that Korvyn could find NOWHERE, whose sentences were therefore withheld.
+   * Distinct from `violations`, which is diagnosis: this is what the person has to be TOLD, because a sentence
+   * they can no longer see was removed from an answer about their money.
+   */
+  withheldFigures: string[];
   /** Korvyn's own findings about the response, for the trace — never shown to the person */
   violations: string[];
 }
 
-/** what the model sends through the `respond` tool: flat strings and string arrays, so it is reliable to emit */
+/**
+ * What a model-authored answer carries.
+ *
+ * PHASE 3: `message` and `list` are the whole live contract — the answer, and optionally some rows. The five
+ * fields beneath them are Phase 2's and are still READ, because `composeDirect` builds a definition directly
+ * and because a stored answer from an earlier session must keep rendering. None of them is in the tool schema
+ * and none of them is in the prompt, so nothing new arrives shaped that way.
+ */
 export interface RespondInput {
+  /** §14 — the answer itself, in the model's own words */
+  message?: string;
+  /** §14 — optional rows, when a list reads better than a sentence */
+  list?: string[] | string;
+  /** the one-line lead-in above those rows, if the model wrote one */
+  lead?: string;
   responseType?: string;
   headline?: string;
   summary?: string;
@@ -173,16 +223,22 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
   const rt = (String(input.responseType ?? 'DIRECT').toUpperCase() as ResponseType);
   const responseType: ResponseType = (RESPONSE_TYPES as readonly string[]).includes(rt) ? rt : 'DIRECT';
 
-  let headline = input.headline?.trim() ? assertion('FACT', input.headline.trim(), reg) : null;
+  /* §14 — `message` is the answer; `headline` is Phase 2's name for the same slot and still resolves */
+  const said = (input.message ?? input.headline ?? '').trim();
+  let headline = said ? assertion('FACT', said, reg) : null;
   let summary = input.summary?.trim() ? assertion('FACT', input.summary.trim(), reg) : null;
-  const keyDrivers = lines(input.keyDrivers).map((t) => assertion('DERIVED_CONCLUSION', t, reg));
+  const rows = lines(input.list ?? input.keyDrivers);
+  const keyDrivers = rows.map((t) => assertion('DERIVED_CONCLUSION', t, reg));
   const interpretation = lines(input.interpretation).map((t) => assertion('INFERENCE', t, reg));
   const exceptions = lines(input.exceptions).map((t) => assertion('FACT', t, reg));
   const unresolved = lines(input.unresolved).map((t) => assertion('UNRESOLVED', t, reg));
 
-  /* §20 — a causal claim with nothing behind it is demoted, not deleted */
+  /* §20 — a causal claim with nothing behind it is demoted, not deleted.
+     PHASE 3: it is only a CLAIM ABOUT THIS COMPANY when a governed read is in play. "EBITDA reflects operating
+     profitability before financing structure" is a definition, and Phase 2 recorded it as an unsupported causal
+     claim on every conceptual answer — noise in the trace, and it would have been noise on the screen. */
   const demote = (a: Assertion | null): Assertion | null => {
-    if (!a || a.type !== 'FACT' || !CAUSAL.test(withoutRefs(a.text))) return a;
+    if (!a || a.type !== 'FACT' || !opt.hasGovernedRead || !CAUSAL.test(withoutRefs(a.text))) return a;
     if (supportedCausal(a, reg)) return a;
     violations.push(`causal claim without support demoted to inference: "${a.text.slice(0, 60)}"`);
     return { ...a, type: 'INFERENCE' };
@@ -218,20 +274,32 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
   /* a reference the registry cannot resolve is a defect, and the sentence holding it is withheld */
   for (const id of factRefs) if (!reg.get(id)) violations.push(`unknown fact reference ${id}`);
 
-  /* §16 — company-specific figures with no governed read behind them */
+  /* §16 — company-specific figures Korvyn cannot point at anywhere in this conversation */
+  /**
+   * §16 — A FIGURE CARRIED FORWARD FROM AN EARLIER TURN IS GROUNDED, NOT INVENTED.
+   *
+   * The registry is the CONVERSATION's, so "what drove it?" restating the two components stated one turn ago is
+   * exactly what §12 asks for and costs no read at all. Testing only whether a tool ran THIS turn reported that
+   * as three figures with nothing behind them — observed live on the brief's own financial conversation. The
+   * question is whether Korvyn can point at the figure, and only the registry knows that.
+   */
   if (!opt.hasGovernedRead) {
     for (const a of all) {
-      const bare = bareFigures(withoutRefs(a.text));
+      const bare = bareFigures(withoutRefs(a.text)).filter((b) => !reg.holdsDisplay(b) && !reg.holdsMagnitude(b));
       if (bare.length) violations.push(`figure stated with no governed read: ${bare.join(', ')}`);
     }
   }
 
   return {
     responseType, headline, summary, keyDrivers, interpretation, exceptions, unresolved,
+    presentation: keyDrivers.length
+      ? { kind: 'COMPACT_LIST', lead: input.lead?.trim() || null, rows: keyDrivers }
+      : { kind: 'NONE', lead: null, rows: [] },
     nextActions: lines(input.nextActions),
     supportingAnalysisIds: opt.objectIds,
     factRefs,
     evidenceRefs: [...new Set(factRefs.flatMap((id) => reg.get(id)?.trace.evidenceIds ?? []))],
+    withheldFigures: [],
     violations,
   };
 }
@@ -241,8 +309,12 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
    ================================================================================================ */
 
 export interface RenderedResponse {
-  /** section label + text, in reading order; the browser draws the label quietly above the text */
-  parts: { label: string | null; text: string; assertion: AssertionType; objectIds: string[] }[];
+  /**
+   * The answer in reading order. `label` survives as a field and is ALWAYS null (§4 — no headings); `row` marks
+   * a line that belongs to the supporting list, so the renderer can draw rows tightly instead of spacing six
+   * one-line paragraphs down the panel.
+   */
+  parts: { label: string | null; text: string; assertion: AssertionType; objectIds: string[]; row?: boolean }[];
   /** the whole answer as plain text, for the transcript and for a caller with no renderer */
   text: string;
   unresolved: string[];
@@ -292,49 +364,66 @@ export const drillActions = (def: ResponseDefinition, reg: FactRegistry): string
  * §23/§24/§27 — the shape follows the answer. DIRECT draws no labels at all; everything else draws only the
  * sections that have content, and a single-fact answer stays a single sentence.
  */
+/**
+ * §4/§7 — THE SHAPE FOLLOWS THE ANSWER, AND THERE IS NO SHAPE TO FOLLOW.
+ *
+ * Phase 2 drew a quiet label above each section — Summary, Key drivers, What this suggests, Worth a look, Not
+ * yet established. Measured on the brief's own close conversation, that turned a two-sentence answer into a
+ * 207-word report with three headings, which is what §4 rules out. NO LABEL IS EVER DRAWN NOW. What survives is
+ * the assertion TYPE on each part, which the browser carries on the element rather than spelling out in prose,
+ * so a fact and an inference are still distinguishable without a heading saying so.
+ *
+ * §18 — A SENTENCE HOLDING A REFERENCE KORVYN CANNOT RESOLVE IS WITHHELD, and now at the SENTENCE, not the
+ * paragraph. With the answer as prose one dangling reference would otherwise take the whole reply with it.
+ */
 export function renderResponse(def: ResponseDefinition, reg: FactRegistry): RenderedResponse {
   const parts: RenderedResponse['parts'] = [];
   const unresolved: string[] = [];
   const bare: string[] = [];
   const typed: string[] = [];
 
-  const push = (label: string | null, a: Assertion | null) => {
+  const push = (a: Assertion | null, row = false) => {
     if (!a) return;
     const r = renderFacts(a.text, reg);
     unresolved.push(...r.unresolved);
     /* the model's own prose, with the governed values taken back out, is what it wrote on its own authority.
        §17 splits it: a figure the registry already holds was Korvyn's number written the long way round; a
        figure it does not hold is the one worth a warning. */
-    for (const b of bareFigures(withoutRefs(a.text))) (reg.holdsDisplay(b) ? typed : bare).push(b);
-    /* §18 — A SENTENCE HOLDING A REFERENCE KORVYN CANNOT RESOLVE IS WITHHELD, NOT PUBLISHED WITH A HOLE IN IT.
-       Measured on the 125-prompt holdout: ten answers reached the person reading "[figure unavailable]" where a
-       figure should be — a sentence that names an account and a period and then states nothing is worse than
-       saying plainly that Korvyn does not have it, because it still reads as data. */
-    if (r.unresolved.length) return;
-    parts.push({ label, text: r.text, assertion: a.type, objectIds: a.objectIds });
+    for (const b of bareFigures(withoutRefs(a.text))) ((reg.holdsDisplay(b) || reg.holdsMagnitude(b)) ? typed : bare).push(b);
+    if (!r.unresolved.length) { parts.push({ label: null, text: r.text, assertion: a.type, objectIds: a.objectIds, ...(row ? { row: true } : {}) }); return; }
+    /* §18 — keep every sentence Korvyn CAN stand behind and drop only the one with the hole in it. A sentence
+       that names an account and a period and then states nothing still reads as data, which is why it goes;
+       taking the paragraph with it would throw away what was answered. */
+    const kept = r.text.split(/(?<=[.!?])\s+/).filter((sn) => !sn.includes('[figure unavailable]')).join(' ').trim();
+    if (kept) parts.push({ label: null, text: kept, assertion: a.type, objectIds: a.objectIds, ...(row ? { row: true } : {}) });
   };
 
-  const plain = def.responseType === 'DIRECT' || def.responseType === 'CLARIFICATION';
-  /* a short answer stays short: with no drivers, exceptions or unresolved items there is nothing to scan, so
-     headings would be five words of chrome around two sentences */
-  const thin = def.keyDrivers.length === 0 && def.exceptions.length === 0 && def.unresolved.length === 0;
+  push(def.headline);
+  push(def.summary);
+  /* a prose answer's further paragraphs are MESSAGE, not rows: they were written as sentences and they read
+     as sentences. Only a definition that declares a presentation draws one. */
+  if (def.presentation.kind === 'NONE') def.keyDrivers.forEach((a) => push(a));
 
-  push(null, def.headline);
-  push(plain || thin ? null : 'Summary', def.summary);
-
-  if (def.keyDrivers.length) {
-    def.keyDrivers.forEach((a, i) => push(i === 0 ? (def.responseType === 'DRIVER_ANALYSIS' ? 'What drove it' : 'Key drivers') : null, a));
+  /* §14 — the supporting rows, under the answer, with the model's own lead-in if it wrote one and nothing
+     manufactured if it did not. `keyDrivers` is Phase 2's name for the same rows and still renders. */
+  const pres = def.presentation;
+  if (pres.kind === 'COMPACT_LIST' && pres.rows.length) {
+    if (pres.lead) push({ type: 'FACT', text: pres.lead, factRefs: [], objectIds: [] });
+    pres.rows.forEach((a) => push(a, true));
   }
-  if (def.interpretation.length) def.interpretation.forEach((a, i) => push(i === 0 ? 'What this suggests' : null, a));
-  if (def.exceptions.length) def.exceptions.forEach((a, i) => push(i === 0 ? 'Worth a look' : null, a));
-  if (def.unresolved.length) def.unresolved.forEach((a, i) => push(i === 0 ? 'Not yet established' : null, a));
+
+  /* §25/§26 — the model's reading and what Korvyn cannot establish are still typed, and still said. They are
+     sentences in the answer now rather than sections under a heading. */
+  def.interpretation.forEach((a) => push(a));
+  def.exceptions.forEach((a) => push(a));
+  def.unresolved.forEach((a) => push(a));
 
   /* every sentence was withheld: say so once, rather than returning an empty answer */
   if (!parts.length && unresolved.length) {
     parts.push({ label: null, assertion: 'UNRESOLVED', objectIds: [],
       text: 'Korvyn could not resolve the figures behind that, so it is not showing them. Ask again and Sloane will read the governed objects fresh.' });
   }
-  const text = parts.map((p) => (p.label ? `${p.label}\n${p.text}` : p.text)).join('\n\n');
+  const text = parts.map((p) => p.text).join('\n\n');
   /* §30 — what the model asked for, else what the figures themselves can support. A conceptual answer with no
      governed figure behind it offers nothing, which is correct: there is nowhere to go. */
   const nextActions = def.nextActions.length ? def.nextActions : drillActions(def, reg);
@@ -342,31 +431,222 @@ export function renderResponse(def: ResponseDefinition, reg: FactRegistry): Rend
 }
 
 /* ================================================================================================
+   §4/§14 — PROSE IS THE ANSWER CHANNEL
+   ================================================================================================ */
+
+/**
+ * PHASE 3 — THE MODEL WRITES, AND THAT IS THE ANSWER.
+ *
+ * Phase 2 treated prose as an escape hatch and Phase 2.5 closed it by DISCARDING the model's words and composing
+ * a sentence from the governed result instead. Measured on the brief's close conversation, that replaced a
+ * reviewer's walkthrough of the largest blocker with "…moved by $0.26M, made up of 5 entitys, the largest being
+ * …" — a correct figure answering a question nobody asked. The escape hatch was the road.
+ *
+ * So prose becomes a first-class `ResponseDefinition`: the references resolve, the withholding rule applies, the
+ * offers are computed from the cited facts, the trace records the same violations. ONE path, two authors.
+ *
+ * §26 — A CAUSAL CLAIM IS STILL CHECKED, and at the sentence. A paragraph is kept whole unless it contains a
+ * causal sentence nothing supports, in which case that sentence is split out and typed INFERENCE — so the
+ * reader can tell which part Korvyn stands behind without the paragraph as a whole being demoted.
+ */
+/**
+ * §17 — INTERNAL METADATA MUST STAY INTERNAL.
+ *
+ * FLUX_UNEXPLAINED, RECONCILIATION_NOT_TIED, TASK_BLOCKED, GROUPED_BY, DERIVED, CANDIDATE: these are Korvyn's
+ * own constants and a reader of a finance product should never meet one. The prompt asks for the finance words;
+ * this MEASURES whether it got them, so the trace says when it did not.
+ *
+ * It is a FINDING, not a rewrite. Translating a constant into prose here would mean guessing what the model
+ * meant by it, and a guess inside an answer about money is worse than a recorded defect. The test is shape, not
+ * a dictionary: two or more UPPER_SNAKE words, or a bare id prefix, in text meant to be read.
+ */
+const INTERNAL = /\b([A-Z][A-Z0-9]{2,}_[A-Z0-9_]{2,})\b/g;
+
+/**
+ * §17, the other half — NARRATING THE PLUMBING. A constant is the obvious leak; the commoner one is a sentence
+ * about Korvyn's own machinery rather than about the book: "that read came back at the group level", "this read
+ * only tells me", "I don't have an ownership field". Measured on §40's twenty-five questions, it was the ONLY
+ * thing that made Sloane read worse than the bare model, on two of them.
+ *
+ * Shape, not a dictionary: a read/tool/query as the SUBJECT of a sentence, or a missing field/column named as a
+ * field. It is a finding, never a rewrite — guessing what the model meant and saying it differently is worse in
+ * an answer about money than a recorded defect.
+ */
+const PLUMBING: readonly RegExp[] = [
+  /\b(?:this|that|the|my|a)\s+(?:read|lookup|query)\b/i,
+  /\btool\s+(?:call|result|output)s?\b/i,
+  /\b(?:the\s+)?(?:tool|query|read)\s+(?:returned|came back|gives me|shows me)\b/i,
+  /\bI\s+(?:don'?t|do not)\s+have\s+(?:an?|the)\s+\w+\s+(?:field|column|attribute)\b/i,
+  /\b(?:population|populations|schema|payload|endpoint)\b/i,
+];
+
+export function internalVocabulary(text: string): string[] {
+  const clean = withoutRefs(text);
+  const constants = [...clean.matchAll(INTERNAL)].map((m) => m[1]!);
+  const plumbing = PLUMBING.flatMap((re) => { const m = re.exec(clean); return m ? [m[0]!.trim()] : []; });
+  return [...new Set([...constants, ...plumbing])];
+}
+
+export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): ResponseDefinition {
+  const violations: string[] = [];
+  const withheldFigures: string[] = [];
+  /**
+   * §39 — AN INVENTED FIGURE NEVER REACHES THE PERSON, AND THAT DID NOT CHANGE WITH THE CHANNEL.
+   *
+   * A reference Korvyn cannot resolve leaves a hole and its sentence is withheld. A figure the model TYPED and
+   * Korvyn can find nowhere is the same defect arriving the other way round, and it gets the same treatment —
+   * the sentence goes, the rest of the answer stands, and the person is told. A magnitude the registry holds is
+   * Korvyn's own number written the long way round and stays: the digits are governed and the direction is in
+   * the verb ("EBITDA fell $0.39M" against a stored "($0.39M)").
+   *
+   * Only on a GOVERNED turn. With no read behind the answer this is general knowledge — "margins typically run
+   * 20–30%" is not a claim about their book, and dropping it would be dropping the answer.
+   */
+  const invented = (sn: string): string[] =>
+    (opt.hasGovernedRead
+      ? bareFigures(withoutRefs(sn)).filter((b) => !reg.holdsDisplay(b) && !reg.holdsMagnitude(b))
+      : []);
+  const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const out: Assertion[] = [];
+  for (const p of paras) {
+    const sentences = p.split(/(?<=[.!?])\s+/).filter((x) => x.trim() && !(() => {
+      const bad = invented(x);
+      if (!bad.length) return false;
+      bad.forEach((b) => { if (!withheldFigures.includes(b)) withheldFigures.push(b); });
+      violations.push(`figure with no governed reference withheld: ${bad.join(', ')}`);
+      return true;
+    })());
+    if (!sentences.length) continue;
+    const typedSentences = sentences.map((sn) => {
+      const a = assertion('FACT', sn.trim(), reg);
+      /* the same rule as `buildResponse`: with no governed read this is a definition, not a claim about them */
+      if (!opt.hasGovernedRead || !CAUSAL.test(withoutRefs(sn)) || supportedCausal(a, reg)) return a;
+      violations.push(`causal claim without support demoted to inference: "${sn.trim().slice(0, 60)}"`);
+      return { ...a, type: 'INFERENCE' as const };
+    });
+    /* a paragraph with nothing demoted stays ONE paragraph — the common case, and the one that reads right.
+       It is rebuilt from the SURVIVING sentences, never from `p`, or a withheld one would walk back in. */
+    if (typedSentences.every((a) => a.type === 'FACT')) { out.push(assertion('FACT', sentences.map((x) => x.trim()).join(' '), reg)); continue; }
+    /* consecutive sentences of the same type rejoin, so a demotion costs one split and not one per sentence */
+    for (const a of typedSentences) {
+      const prev = out.at(-1);
+      if (prev && prev.type === a.type) { out[out.length - 1] = assertion(a.type, `${prev.text} ${a.text}`, reg); continue; }
+      out.push(a);
+    }
+  }
+  const factRefs = [...new Set(out.flatMap((a) => a.factRefs))];
+  for (const id of factRefs) if (!reg.get(id)) violations.push(`unknown fact reference ${id}`);
+  const leaked = internalVocabulary(text);
+  if (leaked.length) violations.push(`internal vocabulary reached the answer: ${leaked.join(', ')}`);
+  /* the same rule as `buildResponse`: the registry decides, because it outlives the turn */
+  if (!opt.hasGovernedRead) {
+    for (const a of out) {
+      const b = bareFigures(withoutRefs(a.text)).filter((x) => !reg.holdsDisplay(x) && !reg.holdsMagnitude(x));
+      if (b.length) violations.push(`figure stated with no governed read: ${b.join(', ')}`);
+    }
+  }
+  /* §12 (Phase 2.6.1) — two populations compared inside one claim is still said, whoever wrote the claim */
+  const extra: Assertion[] = [];
+  const crossed: string[] = [];
+  for (const a of out) {
+    const bad = populationMismatch(a.factRefs.map((id) => reg.get(id)).filter((f): f is FinancialFact => !!f));
+    if (!bad.length) continue;
+    const said = bad.map((m) => `${m.dimension} (${m.values.join(' against ')})`).join(', ');
+    violations.push(`figures from different populations compared in one claim: ${said}`);
+    if (!crossed.includes(said)) crossed.push(said);
+  }
+  for (const said of crossed) {
+    extra.push(assertion('UNRESOLVED',
+      `These figures do not come from the same population — they differ on ${said} — so the difference between them is not a movement. Read them separately.`, reg));
+  }
+  const head = out[0] ?? null;
+  return {
+    responseType: 'DIRECT',
+    headline: head,
+    summary: null,
+    presentation: { kind: 'NONE', lead: null, rows: [] },
+    keyDrivers: out.slice(1),
+    interpretation: [],
+    exceptions: [],
+    unresolved: extra,
+    nextActions: [],
+    supportingAnalysisIds: opt.objectIds,
+    factRefs,
+    evidenceRefs: [...new Set(factRefs.flatMap((id) => reg.get(id)?.trace.evidenceIds ?? []))],
+    withheldFigures,
+    violations,
+  };
+}
+
+/**
+ * §14 — attach a compact list to an answer the model has already written in prose.
+ */
+export function withList(def: ResponseDefinition, lead: string | null, rows: string[], reg: FactRegistry): ResponseDefinition {
+  const asserted = rows.slice(0, 6).map((t) => assertion('DERIVED_CONCLUSION', t.trim(), reg)).filter((a) => a.text);
+  if (!asserted.length) return def;
+  const refs = [...new Set([...def.factRefs, ...asserted.flatMap((a) => a.factRefs)])];
+  const violations = [...def.violations];
+  for (const id of refs) if (!reg.get(id) && !def.violations.some((v) => v.includes(id))) violations.push(`unknown fact reference ${id}`);
+  return {
+    ...def,
+    presentation: { kind: 'COMPACT_LIST', lead: lead?.trim() || null, rows: asserted },
+    keyDrivers: asserted,
+    factRefs: refs,
+    violations,
+  };
+}
+
+/* ================================================================================================
    THE TOOL THE MODEL CALLS
    ================================================================================================ */
 
 /** §26 — every word of this description is what a finance colleague would understand; no schema vocabulary */
-export const RESPOND_TOOL: import('./tools.js').V2ToolDef = {
-  name: 'respond',
+/**
+ * §14/§15 — THE ONE PRESENTATION THE MODEL MAY ASK FOR.
+ *
+ * Phase 2's `respond` is gone from the surface. The model answers by WRITING — the natural output of a model,
+ * on the call it was going to spend anyway — so no tool is required to give an answer and nothing forces a shape
+ * onto a sentence. What is left is this: when a handful of rows genuinely read better than a sentence, the model
+ * says so, and the rows go under the answer with no manufactured heading above them.
+ *
+ * §20 — it is a SUPPORTING presentation, not the population. A governed read may have returned fifty rows; what
+ * belongs here is the few the answer is about, and the rest stays one drill away.
+ */
+/**
+ * §7/§15/§40 — THE ONE PRESENTATION DECLARATION.
+ *
+ * It is NOT a UI action and it is not topic-specific: §40 rules out `open_close_screen` and `render_ebitda_panel`
+ * and is right to — those are screens, and a tool that names a screen cannot be planned over. This names a SHAPE.
+ * Claude decides whether rows or a table would help; Korvyn decides whether it can honour that and renders it.
+ *
+ * NOT CALLING IT IS THE DEFAULT AND THE COMMON CASE. Before this existed, every governed object a tool returned
+ * was drawn as a table with its own heading — so a capex question could put an income statement on screen
+ * because a statement object had been read on the way. Retrieval is not presentation, and this field is the
+ * only way anything becomes visible.
+ *
+ * An AGENT never calls it. It is inert outside a conversation, which is why presentation could not have been a
+ * property of the tool results themselves.
+ */
+export const SHOW_TOOL: import('./tools.js').V2ToolDef = {
+  name: 'show',
   description:
-    'Give your answer. Call this exactly once, as the LAST thing you do in a turn — after any governed reads you needed. '
-    + 'EVERY figure about this company must be written as a fact reference, {{FACT:id}}, taken from a tool result you read this turn. '
-    + 'Never type a company figure yourself: Korvyn renders the governed value, so a reference is how the number reaches the person correctly signed. '
-    + 'General finance knowledge needs no reference and no reads. '
-    + 'Use only the fields the answer needs — a simple question is a headline and nothing else.',
+    'Put something on the person’s screen, ALONGSIDE your written answer — never instead of it. '
+    + 'ONE TEST, and it is about what THEY asked for, not about what you read: '
+    + 'did they ask to SEE something, or did they ask a QUESTION? '
+    + '"Show me all of them", "list every vendor", "give me the full breakdown", "what are the rest?", "all 15" are asking to see — call this. '
+    + '"What is blocking close?", "how did June look?", "what happened to capex?", "who owns them?" are questions — answer them, call nothing. '
+    + 'A question does not become a request to see because the answer is long or because a tool returned rows; say the few that matter and offer the rest. '
+    + 'kind=table shows a governed result you read this turn: pass its objectId from the tool result. kind=list shows rows you write yourself, '
+    + 'and is for when they asked to see a handful of things you are naming.',
   input_schema: {
     type: 'object' as const,
     properties: {
-      responseType: { type: 'string' as const, description: 'DIRECT for a conceptual or conversational answer (no sections) | FINANCIAL_SUMMARY for a governed result | DRIVER_ANALYSIS for why something moved | TRACE_RESULT for where a number came from | CLARIFICATION | LIMITATION when Korvyn cannot answer' },
-      headline: { type: 'string' as const, description: 'The answer, in one or two sentences. For DIRECT this is the whole reply and may be a short paragraph.' },
-      summary: { type: 'string' as const, description: 'Optional. One further sentence of context, only when the headline cannot carry it.' },
-      keyDrivers: { type: 'array' as const, items: { type: 'string' as const }, description: 'Optional. What made up the movement, largest first, each with its fact reference.' },
-      interpretation: { type: 'array' as const, items: { type: 'string' as const }, description: 'Optional. Your reading of what the figures suggest. This is shown as your interpretation, not as Korvyn fact — put anything you cannot prove here.' },
-      exceptions: { type: 'array' as const, items: { type: 'string' as const }, description: 'Optional. Anything that looks wrong or needs review.' },
-      unresolved: { type: 'array' as const, items: { type: 'string' as const }, description: 'Optional. What Korvyn cannot yet establish, stated plainly.' },
-      nextActions: { type: 'array' as const, items: { type: 'string' as const }, description: 'Optional. Short offers of what you could look at next, in the person’s words.' },
+      kind: { type: 'string' as const, description: 'list | table' },
+      rows: { type: 'array' as const, items: { type: 'string' as const }, description: 'For kind=list: up to six short rows, most important first, each company figure written as its {{FACT:id}} reference.' },
+      lead: { type: 'string' as const, description: 'Optional. One short line introducing what is shown, in your own words.' },
+      of: { type: 'string' as const, description: 'For kind=table: the id of the governed result to show, exactly as it appeared in a tool result this turn.' },
     },
-    required: ['headline'],
+    required: ['kind'],
     additionalProperties: false as const,
   },
 };

@@ -18,13 +18,21 @@
  *
  * §16: a turn a deterministic surface already answers — a grid command, an undo, a redo, a navigation — never
  * reaches this file. `eligible()` declines it and the orchestrator runs v1's deterministic path, at zero model calls.
+ *
+ * PHASE 3 §4/§27 — THE MODEL WRITES THE ANSWER. Phase 2 required a `respond` call carrying a response type and
+ * six sections, and `renderResponse` drew a heading above each; measured on the brief's own close conversation
+ * that produced 207-word reports with three headings over two sentences of answer. The model now answers by
+ * WRITING — the same call, the same cost, the same fact references — and `show_list` adds rows only when rows
+ * read better than a sentence. `fromProse` turns what it wrote into the SAME `ResponseDefinition` everything
+ * downstream already reads, so the grounding, the withholding, the offers and the trace are one path with two
+ * authors rather than a main road and an escape hatch.
  */
 import { randomUUID } from 'node:crypto';
 import type { ReasonMessage, ReasonToolUse, SloaneLLMAdapter, Usage } from '../adapter.js';
 import type { ControlService } from '../controls.js';
 import type { FinancialDataService } from '../financials.js';
 import type { GovernedLedger } from '../governed.js';
-import type { TurnResponse, TurnState } from '../orchestrator.js';
+import type { Presentation, TurnResponse, TurnState } from '../orchestrator.js';
 import { V2_SYSTEM, dataBlock } from '../prompts.js';
 import type { ContextAssembler } from '../semantic/context.js';
 import { type Actor, type FinancialObject, type ToolEnv, visibleOf } from '../tools.js';
@@ -36,7 +44,7 @@ import {
 } from './conversation.js';
 import { type V2ToolOutcome, isControlTool, observationText, runTool, toolDefinitions } from './tools.js';
 import { FactRegistry, type FinancialFact, bareFigures, renderFacts, withoutRefs } from './facts.js';
-import { type RespondInput, type ResponseDefinition, buildResponse, drillOffers, renderResponse } from './respond.js';
+import { type RespondInput, type ResponseDefinition, buildResponse, drillOffers, fromProse, renderResponse, withList } from './respond.js';
 import {
   type Offer, type ResponseStrategy, composeDirect, directEligible, drillCall, offerTaken,
 } from './strategy.js';
@@ -120,7 +128,7 @@ export class SloaneV2 {
    */
   private finishDirect(a: {
     body: ConversationBody; actor: Actor; request: string; trace: V2Trace;
-    notes: string[]; note: (s: string) => void; facts: FactRegistry;
+    notes: string[]; note: (s: string) => void; diag: (s: string) => void; diagnostics: string[]; facts: FactRegistry;
     objects: FinancialObject[]; outcomes: V2ToolOutcome[]; def: ResponseDefinition;
     path: V2Path; done: (state: TurnState, path: V2Path, extra: Partial<TurnResponse>) => V2TurnOut;
     onDelta?: ((t: string) => void) | undefined; t0: number;
@@ -129,13 +137,15 @@ export class SloaneV2 {
     a.trace.responseType = a.def.responseType;
     a.trace.factRefs = a.def.factRefs.length;
     a.trace.unresolvedRefs = rendered.unresolved;
-    a.trace.ungroundedFigures = rendered.bare;
+    /* APPENDED, not assigned — the same trap as the violations above. A composed answer may be standing in for
+       prose Korvyn withheld, and the figure that caused the withholding is the one finding worth keeping. */
+    a.trace.ungroundedFigures = [...new Set([...a.trace.ungroundedFigures, ...rendered.bare])];
     if (rendered.typed.length) a.trace.responseViolations = [...a.trace.responseViolations, `figures typed rather than referenced: ${rendered.typed.join(', ')}`];
     a.trace.factsProduced = a.outcomes.reduce((n, o) => n + o.facts.length, 0);
     /* APPENDED, not assigned: the §16 escape is recorded by the caller BEFORE it hands the turn here, and
        overwriting it would lose the one finding that says why Korvyn had to compose the answer itself. */
     a.trace.responseViolations = [...a.trace.responseViolations, ...a.def.violations];
-    if (rendered.unresolved.length) a.note('Sloane could not resolve part of that; it is not showing it.');
+    if (rendered.unresolved.length) a.diag(`unresolved fact references: ${rendered.unresolved.join(', ')}`);
 
     /* §13/§14 — the answer exists NOW, so a caller watching for text gets it now. Nothing was streamed while the
        read ran, which is honest: there was no answer to stream, and a placeholder would not have been one. */
@@ -145,8 +155,11 @@ export class SloaneV2 {
       a.onDelta(rendered.text);
     }
     const out = this.publish(a.body, a.actor, a.request, a.path, a.objects, a.outcomes, rendered.text, a.facts, a.def);
+    /* §7 — a composed BREAKDOWN is a handful of named rows and reads as a list; a single figure or a status is
+       a sentence and shows nothing. The rows come back RESOLVED from `publish`, never from the definition. */
     return a.done('ANSWER', a.path, {
-      notes: a.notes, objects: a.objects, narrative: out.narrative,
+      notes: a.notes, diagnostics: a.diagnostics, objects: a.objects, narrative: out.narrative,
+      presentation: out.rows.length ? { kind: 'LIST', rows: out.rows } : null,
       ...(rendered.nextActions.length ? { suggestions: rendered.nextActions } : {}),
     });
   }
@@ -161,7 +174,7 @@ export class SloaneV2 {
     body: ConversationBody, actor: Actor, request: string, path: V2Path,
     objects: FinancialObject[], outcomes: V2ToolOutcome[], answer: string,
     facts: FactRegistry, def: ResponseDefinition | null,
-  ): { narrative: { text: string; objectIds: string[]; label?: string; assertion?: string }[] } {
+  ): { narrative: { text: string; objectIds: string[]; label?: string; assertion?: string }[]; rows: string[] } {
     const refs = {
       toolCalls: outcomes.map((o) => ({ tool: o.tool, args: o.args })),
       objectIds: objects.map((o) => o.id),
@@ -189,10 +202,25 @@ export class SloaneV2 {
     };
     saveConversation({ ...appendTurn(next, { userMessage: request, assistantMessage: answer, path, refs }), facts: facts.snapshot() }, actor);
     const rendered = def ? renderResponse(def, facts) : null;
+    /**
+     * §14 — THE MESSAGE AND THE PRESENTATION ARE TWO THINGS, AND A ROW BELONGS TO EXACTLY ONE OF THEM.
+     *
+     * The rows were travelling as narrative entries marked `row` AND being copied into the presentation from
+     * the definition's own assertions — so they drew twice, and the presentation copy still held the raw
+     * `{{FACT:…}}` references because only `renderResponse` resolves those. Observed live: four resolved rows
+     * followed by four rows of machinery.
+     *
+     * The split happens once, here, after resolution: message parts are the answer, row parts are the
+     * presentation, and neither can be the other.
+     */
+    const parts = rendered ? rendered.parts : [];
+    const msg = parts.filter((p) => !p.row);
+    const rows = parts.filter((p) => p.row).map((p) => p.text);
     return {
       narrative: rendered
-        ? rendered.parts.map((pt) => ({ text: pt.text, objectIds: pt.objectIds.length ? pt.objectIds : objects.map((o) => o.id), ...(pt.label ? { label: pt.label } : {}), assertion: pt.assertion }))
+        ? msg.map((pt) => ({ text: pt.text, objectIds: pt.objectIds.length ? pt.objectIds : objects.map((o) => o.id), ...(pt.label ? { label: pt.label } : {}), assertion: pt.assertion }))
         : [{ text: answer, objectIds: objects.map((o) => o.id) }],
+      rows,
     };
   }
 
@@ -216,10 +244,22 @@ export class SloaneV2 {
       firstTokenMs: null, firstUsefulMs: null, strategy: null, strategyReason: null, directShape: null,
       workload: workload(), inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
       calls: [], tools: [], activeStateRefs: {}, ungroundedFigures: [],
-      factsProduced: 0, factRefs: 0, unresolvedRefs: [], responseType: null, responseViolations: [], notes: [],
+      factsProduced: 0, factRefs: 0, unresolvedRefs: [], responseType: null, responseViolations: [], notes: [], diagnostics: [],
     };
     const notes: string[] = [];
+    /**
+     * RUNTIME V3 §11 — TWO CHANNELS, AND ONLY ONE OF THEM IS FOR A PERSON.
+     *
+     * `note` is something a finance professional needs told: their access is narrower than their question, a
+     * source is stale, a period is not governed. `diag` is Korvyn checking its own work — an unresolved
+     * reference, a figure it could not back, a population mismatch. Both were `note` before, so
+     * "…were written without a governed reference — check them against the figures below" reached a
+     * controller's screen. The withholding still happens; what changed is that it happens silently and the
+     * finding goes to the trace, which is where a defect belongs.
+     */
+    const diagnostics: string[] = [];
     const note = (s: string) => { if (s && !notes.includes(s)) notes.push(s); };
+    const diag = (s: string) => { if (s && !diagnostics.includes(s)) diagnostics.push(s); };
     /**
      * PHASE 2.5 §12 — A DISCLOSURE IS SAID ONCE PER CONVERSATION, NOT ONCE PER ANSWER.
      *
@@ -238,6 +278,10 @@ export class SloaneV2 {
     const done = (state: TurnState, path: V2Path, extra: Partial<TurnResponse>): V2TurnOut => {
       trace.path = path; trace.latencyMs = now() - t0;
       trace.notes = notes.slice();
+      trace.diagnostics = diagnostics.slice();
+      /* §11 — the diagnostics ride on the response for the trace and for debug mode; the browser never draws
+         them. A `presentation` nobody set stays null, which is how §5's invariant holds by default. */
+      extra = { diagnostics, presentation: null, ...extra };
       this.traces.push(trace); if (this.traces.length > 200) this.traces.shift();
       console.log(`[sloane:v2] ${trace.traceId} ${path}${trace.strategy ? `/${trace.strategy === 'GROUNDED_DIRECT' ? 'direct' : 'reason'}` : ''} ${state} ${trace.latencyMs}ms${trace.firstTokenMs === null ? '' : ` ttft=${trace.firstTokenMs}ms`}${trace.firstUsefulMs === null ? '' : ` ttfua=${trace.firstUsefulMs}ms`} calls=${trace.modelCalls} tools=${trace.toolCalls} in=${trace.inputTokens} out=${trace.outputTokens} cacheRead=${trace.cacheReadTokens} cacheWrite=${trace.cacheWriteTokens}`);
       return { state, path, extra, notes, trace };
@@ -306,7 +350,7 @@ export class SloaneV2 {
         if (built) {
           trace.strategy = 'GROUNDED_DIRECT'; trace.directShape = built.shape;
           trace.strategyReason = 'the person took an offer Korvyn made';
-          return this.finishDirect({ body, actor, request, trace, notes, note, facts, objects: [o.object!], outcomes: [o], def: built.def, path: 'drill', done, onDelta: input.onDelta, t0 });
+          return this.finishDirect({ body, actor, request, trace, notes, note, diag, diagnostics, facts, objects: [o.object!], outcomes: [o], def: built.def, path: 'drill', done, onDelta: input.onDelta, t0 });
         }
         /* the drill could not be composed — say nothing about it and let the model have the turn */
         trace.strategyReason = 'the offer resolved to nothing Korvyn could state on its own';
@@ -340,6 +384,21 @@ export class SloaneV2 {
     let clarify: { question: string; options: { id: string; label: string }[] } | null = null;
     let response: ResponseDefinition | null = null;
     let rendered: ReturnType<typeof renderResponse> | null = null;
+    /* §5/§7 — nothing is visible unless this is set. It is set in exactly one place: the `show` branch below. */
+    let presentation: Presentation | null = null;
+    /**
+     * §7 — A PRESENTATION ASKED FOR TOO EARLY IS STILL A PRESENTATION THAT WAS ASKED FOR.
+     *
+     * A model that has understood "show me all of them" emits the governed read AND `show` in the same step.
+     * The read has to run first — `show` may reference facts that do not exist yet — so the tool call is handed
+     * back unrun. It was then DISCARDED, and the model, having already said what it wanted, answered in prose:
+     * measured live, the escalation never fired even though the model had asked for it in round 0.
+     *
+     * The intent is kept instead. If the model asks again after the reads, that wins; if it does not, this is
+     * still its own stated intent from this same turn, and honouring it is not a guess.
+     */
+    type ShowInput = { kind?: string; lead?: string; rows?: string[] | string; of?: string };
+    let deferredShow: ShowInput | null = null;
 
     for (let round = 0; round <= V2_LIMITS.maxToolRounds; round++) {
       if (input.signal?.aborted) return done('CANCELLED', 'conversation', { notes: ['Superseded by a newer request.'] });
@@ -408,21 +467,66 @@ export class SloaneV2 {
       /* a control tool ends the turn: the product does the thing, and no further reasoning call is spent */
       const found = uses.find((u) => isControlTool(u.name));
       /* §22 — ANSWERING IN THE SAME BREATH AS READING IS ANSWERING BEFORE THE FACTS EXIST. A model that emits a
-         governed read and `respond` together has written references to facts it has not been given yet; taking
-         the answer here would publish an answer with nothing behind it. The reads run, `respond` is handed back
-         unrun, and the model answers on the call it was always going to spend. */
-      const early = !!found && found.name === 'respond' && uses.some((u) => !isControlTool(u.name));
+         governed read and an ANSWER together has written references to facts it has not been given yet; taking
+         the answer here would publish an answer with nothing behind it. The reads run, the answering tool is
+         handed back unrun, and the model answers on the call it was always going to spend. */
+      const answering = !!found && (found.name === 'show' || found.name === 'show_list' || found.name === 'respond');
+      const early = answering && uses.some((u) => !isControlTool(u.name));
+      /* keep what it asked to show, so the read that had to come first cannot cost the presentation */
+      if (early && found && (found.name === 'show' || found.name === 'show_list')) {
+        deferredShow = (found.input ?? {}) as ShowInput;
+      }
       const ctl = early ? undefined : found;
       if (ctl) {
         const arg = (v: unknown, k: string) => (v && typeof v === 'object' ? String((v as Record<string, unknown>)[k] ?? '') : '');
-        if (ctl.name === 'respond') {
-          /* §22 — THE ANSWER ARRIVES AS STRUCTURE, ON THE SAME CALL THAT WOULD HAVE WRITTEN PROSE. There is no
-             formatting pass: Korvyn validates the references against the registry, renders the governed values,
-             and that is the answer. A second model call here would be a second place a figure could change. */
-          response = buildResponse((ctl.input ?? {}) as RespondInput, facts, {
-            hasGovernedRead: outcomes.some((o) => o.status === 'COMPLETED' && o.facts.length > 0),
-            objectIds: objects.map((o) => o.id),
-          });
+        const opt = {
+          hasGovernedRead: outcomes.some((o) => o.status === 'COMPLETED' && o.facts.length > 0),
+          objectIds: objects.map((o) => o.id),
+        };
+        if (ctl.name === 'show' || ctl.name === 'show_list') {
+          /**
+           * §7 — THE PRESENTATION DECISION, AND THE MODEL'S OWN TEXT IS STILL THE ANSWER. It is emitted beside
+           * the tool call on the same response, so there is no extra call and no formatting pass.
+           *
+           * KORVYN VALIDATES WHAT THE MODEL ASKED FOR. A table of an object this turn did not read cannot be
+           * shown — there is nothing to show — so it degrades to no presentation rather than to a guess.
+           */
+          const raw = { ...(deferredShow ?? {}), ...((ctl.input ?? {}) as Record<string, unknown>) } as { kind?: string; lead?: string; rows?: string[] | string; of?: string };
+          deferredShow = null;
+          const rows = (Array.isArray(raw.rows) ? raw.rows.map(String) : String(raw.rows ?? '').split('|')).map((r) => r.trim()).filter(Boolean);
+          let prose = res.value.text.trim();
+          const wantsTable = String(raw.kind ?? (ctl.name === 'show_list' ? 'list' : '')).toLowerCase().startsWith('tab');
+          /**
+           * §6 — A TURN ALWAYS SAYS SOMETHING. A model that has decided the table IS the answer emits `show`
+           * and no text at all, and the person then gets a table under a blank reply (observed live). The
+           * presentation is SUPPORTING by contract, so Korvyn writes the supported sentence from the governed
+           * result — the same composer, and the same rule as everywhere else: it composes only when the model
+           * left nothing publishable.
+           */
+          if (!prose) {
+            const o = outcomes.filter((x) => x.status === 'COMPLETED' && x.object && x.facts.length).at(-1);
+            const built = o ? composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] }) : null;
+            if (built) { prose = renderResponse(built.def, facts).text; diag('the model showed without saying anything; Korvyn composed the sentence'); }
+          }
+          response = rows.length
+            ? withList(fromProse(prose, facts, opt), raw.lead ?? null, rows, facts)
+            : fromProse(prose, facts, opt);
+          rendered = renderResponse(response, facts);
+          answer = rendered.text;
+          if (wantsTable) {
+            const wanted = String(raw.of ?? '').trim();
+            const obj = objects.find((o) => o.id === wanted) ?? (objects.length === 1 ? objects[0] : undefined);
+            if (obj && obj.table && obj.table.rows.length) {
+              presentation = { kind: 'TABLE', objectId: obj.id, title: obj.title, ...(raw.lead ? { lead: raw.lead.trim() } : {}) };
+            } else {
+              diag(`a table was asked for and ${wanted ? `object ${wanted} was not read this turn` : 'no single governed result was available'}`);
+            }
+          }
+          /* a LIST is NOT set here: its rows carry fact references, and only `publish` returns them resolved */
+        } else if (ctl.name === 'respond') {
+          /* RETIRED, and still answered: a stale session or an older prompt may emit one. It builds exactly as
+             it did, so nothing stored mid-conversation is lost. */
+          response = buildResponse((ctl.input ?? {}) as RespondInput, facts, opt);
           rendered = renderResponse(response, facts);
           answer = rendered.text;
         } else if (ctl.name === 'ask_clarification') {
@@ -443,7 +547,7 @@ export class SloaneV2 {
       if (last) {
         /* the step limit: answer with what the governed objects already say rather than spending another round */
         answer = res.value.text;
-        note('Sloane reached its step limit for this turn; the figures below are what it read.');
+        diag('step limit reached for this turn');
         break;
       }
 
@@ -467,7 +571,9 @@ export class SloaneV2 {
         trace.toolCalls += 1;
         trace.tools.push({ tool: o.tool, status: o.status === 'COMPLETED' ? 'COMPLETED' : o.status === 'REFUSED' ? 'REFUSED' : 'FAILED', latencyMs: o.latencyMs, error: o.error });
         if (o.object) { objects.push(o.object); status(`Reading ${o.object.title}`); }
-        if (o.status === 'REFUSED' && o.error) note(`Not permitted: ${o.error}.`);
+        /* a refusal IS for the person: it changes what they can expect from the answer. The wording is theirs,
+           not Korvyn's error string. */
+        if (o.status === 'REFUSED' && o.error) note(o.error);
         return { use: u, text: observationText(o.observation) };
       });
       /* ---- §5/§6 — THE STRATEGY DECISION -------------------------------------------------------
@@ -484,7 +590,7 @@ export class SloaneV2 {
         const built = composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] });
         if (built) {
           trace.strategy = 'GROUNDED_DIRECT'; trace.directShape = built.shape; trace.strategyReason = null;
-          return this.finishDirect({ body, actor, request, trace, notes, note, facts, objects, outcomes, def: built.def, path: 'analytical', done, onDelta: input.onDelta, t0 });
+          return this.finishDirect({ body, actor, request, trace, notes, note, diag, diagnostics, facts, objects, outcomes, def: built.def, path: 'analytical', done, onDelta: input.onDelta, t0 });
         }
         trace.strategyReason = 'no composer fits this governed result';
       } else {
@@ -492,13 +598,42 @@ export class SloaneV2 {
       }
       trace.strategy = 'GROUNDED_REASONING';
 
-      /* the one-line reminder that costs nothing and changes what the next call does: left to itself after a
-         tool result a model writes prose, and prose is the one shape that carries no sections. The prose path
-         is still handled, but it is the fallback, not the road. */
+      /* §4 — the reminder asks for an ANSWER, not for a shape. What it has to carry is the one thing a model
+         will not do unprompted after a tool result: write the figure as its reference rather than reading the
+         number out of the JSON it just saw. */
       messages.push({ role: 'user', content: [
         ...results.map((r) => ({ type: 'tool_result', tool_use_id: r.use.id, content: r.text })),
-        { type: 'text', text: 'Now answer by calling respond, with each figure written as its {{FACT:id}} reference.' },
+        /* §7 — THE LAST INSTRUCTION BEFORE THE ANSWER DECIDES THE ANSWER'S SHAPE. It used to say only "answer
+           briefly", so at the one moment the model chose between prose and a presentation, the presentation was
+           not in front of it — measured live, `show` never fired even on "show me all of them". Both options are
+           stated here, in the same words the contract uses. */
+        { type: 'text', text: 'Now answer them, briefly and in your own words. Write every company figure as its {{FACT:id}} reference. If they asked to SEE something rather than asking a question, call show as well — kind=table with the objectId above — instead of listing rows in your sentence.' },
       ] });
+    }
+
+    /**
+     * §7 — the model asked to show something, the read it needed ran, and it then answered in prose without
+     * asking again. Its own request from this turn stands: a TABLE of an object that now exists is exactly what
+     * it wanted, and Korvyn validates that the object was read before it honours it.
+     */
+    /* §7 — AND ONLY WHEN THE MODEL ADDED NOTHING AFTER THE READ. A request made in the same step as the read is
+       provisional: it was made before the model had seen anything. If it then wrote a real answer and chose not
+       to ask again, it chose prose, and honouring the earlier request would be Korvyn guessing — measured live,
+       that put a table under "can you show me high level capex analysis", which §19 says wants an answer. The
+       case this still covers is the model that says nothing more, where its only stated intent is the one it
+       already gave. */
+    if (!presentation && deferredShow && !answer.trim()) {
+      const raw: ShowInput = deferredShow;
+      const rows = (Array.isArray(raw.rows) ? raw.rows.map(String) : String(raw.rows ?? '').split('|')).map((r) => r.trim()).filter(Boolean);
+      const wantsTable = String(raw.kind ?? '').toLowerCase().startsWith('tab');
+      if (wantsTable) {
+        const wanted = String(raw.of ?? '').trim();
+        const obj = objects.find((o) => o.id === wanted) ?? (objects.length === 1 ? objects[0] : undefined);
+        if (obj?.table?.rows.length) {
+          presentation = { kind: 'TABLE', objectId: obj.id, title: obj.title, ...(raw.lead ? { lead: raw.lead.trim() } : {}) };
+          diag('presentation honoured from the request made before the read ran');
+        }
+      }
     }
 
     /* ---- 4. what the turn leaves on screen ------------------------------------------------------ */
@@ -550,8 +685,24 @@ export class SloaneV2 {
     }
 
     if (!answer) {
+      /**
+       * §6 — A TURN THAT READ SOMETHING NEVER RENDERS BLANK.
+       *
+       * Measured live: a model can end a turn with no text and no tool at all, and the person then got an empty
+       * reply under their own question with a governed object sitting unused on the response. Korvyn composes
+       * the sentence from what it read — the same last-resort composer used everywhere else — so the floor is
+       * an answer, not a blank.
+       */
+      const o0 = outcomes.filter((x) => x.status === 'COMPLETED' && x.object && x.facts.length).at(-1);
+      const built0 = o0 ? composeDirect(o0.object!, o0.facts, { actor, subject: o0.ctx.subject, dimension: o0.ctx.dimension, measure: o0.ctx.measure, note: fresh(o0.ctx.note ?? o0.observation.note), nextActions: [] }) : null;
+      if (built0) {
+        diag('the model returned nothing; Korvyn composed the governed result');
+        trace.directShape = built0.shape;
+        return this.finishDirect({ body, actor, request, trace, notes, note, diag, diagnostics, facts, objects, outcomes, def: built0.def, path: 'analytical', done, onDelta: undefined, t0 });
+      }
       const failed = trace.calls.at(-1);
-      note(failed?.error ? 'Sloane could not complete this turn; the governed figures below are unchanged.' : 'Sloane has nothing to add to this.');
+      if (failed?.error) { diag(failed.error); note('Sloane could not finish that one — try asking again.'); }
+      else note('Sloane could not put an answer together for that — try asking it another way.');
       body = appendTurn(body, { userMessage: request, assistantMessage: '', path: 'conversation', refs });
       saveConversation(body, actor);
       return done(objects.length ? 'ANSWER' : 'UNAVAILABLE', 'conversation', { notes, objects, narrative: [] });
@@ -580,185 +731,90 @@ export class SloaneV2 {
          check: the value, its sign and its scale are the governed ones. Only a figure Korvyn cannot find at all
          can be wrong, and only that one is said out loud. */
       if (rendered.typed.length) trace.responseViolations = [...trace.responseViolations, `figures typed rather than referenced: ${rendered.typed.join(', ')}`];
-      if (rendered.unresolved.length) note('Sloane referred to a figure Korvyn could not resolve; that part of the answer is withheld.');
-      if (rendered.bare.length) {
-        note(`${rendered.bare.join(', ')} ${rendered.bare.length > 1 ? 'were' : 'was'} written without a governed reference — check ${rendered.bare.length > 1 ? 'them' : 'it'} against the figures below.`);
-      }
-      response.violations.filter((v) => v.startsWith('figure stated with no governed read')).forEach(() => {
-        note('Sloane stated a company figure without reading it; treat that part as unverified.');
-      });
-    } else if (governedProse(answer, outcomes)) {
-      /* §16 — THE ESCAPE HATCH IS CLOSED WITH THE MECHANISM, NOT WITH A WARNING.
-         Phase 2 measured one governed turn in twenty-five answering in prose rather than through `respond`. The
-         references still resolved, so the figures were right; what was lost was the structure, and with it the
-         withholding rule and the offers. Rather than warn about it, Korvyn composes the answer itself from the
-         governed result — the SAME composer a direct answer uses. The model's prose is discarded, because a
-         sentence Korvyn did not build is a sentence Korvyn cannot stand behind at this point in the turn. */
-      const o = outcomes.filter((x) => x.status === 'COMPLETED' && x.object && x.facts.length).at(-1)!;
-      const built = composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] });
-      if (built) {
-        trace.responseViolations = ['answered in prose; Korvyn composed the answer from the governed result'];
-        trace.directShape = built.shape;
-        return this.finishDirect({ body, actor, request, trace, notes, note, facts, objects, outcomes, def: built.def, path: 'analytical', done, onDelta: undefined, t0 });
-      }
-      /* No composer fits this governed result — a statement summary is six lines and is not one figure — so the
-         prose stands, MINUS any sentence carrying a figure the model typed rather than referenced. That is the
-         same rule §18 already applies to an unresolved reference, for the same reason: a sentence that names a
-         line and a period and then states a number Korvyn cannot point at still reads as data. Dropping it
-         costs a general-knowledge aside inside a governed answer, and the note says what happened. */
-      const withValues = renderFacts(answer, facts).text;
-      /* §17 — THE SPLIT IS THE SAME ON EVERY PATH. A figure the registry already holds is Korvyn's own number
-         written the long way round: the value, the sign and the scale are governed and there is nothing for the
-         person to check, so the sentence stays. Only a figure Korvyn cannot find at all is dropped. Applying the
-         split on `respond` alone was how 13 of the 125 benchmark prompts reported real governed values as
-         unsupported. */
-      const split = classify(answer, facts);
-      const kept = withValues.split(/(?<=[.!?])\s+/).filter((sn) => !bareFigures(withoutRefs(sn)).some((b) => !facts.holdsDisplay(b) && !facts.holdsMagnitude(b)));
-      answer = kept.join(' ').trim() || 'Korvyn read the governed figures below; it is not restating them, because it could not verify how they were written.';
-      trace.responseViolations = ['answered in prose and Korvyn could not compose the governed result',
-        ...(split.typed.length ? [`figures typed rather than referenced: ${split.typed.join(', ')}`] : [])];
-      trace.ungroundedFigures = [];
-      if (split.bare.length) note(`${split.bare.join(', ')} ${split.bare.length > 1 ? 'were' : 'was'} written without a governed reference and ${split.bare.length > 1 ? 'have' : 'has'} been left out; the figures below are what Korvyn read.`);
-    } else if (/\{\{FACT:/.test(answer)) {
-      /* THE MODEL WROTE REFERENCES AND ANSWERED IN PROSE ANYWAY — observed live on the first run of this phase.
-         A reference is Korvyn's machinery and must never reach the person (§26), so it is resolved here exactly
-         as `respond` would resolve it: the contract is a property of the runtime, not of the model remembering
-         to call a tool. What prose did NOT do is organise the answer, and the trace records that as the defect
-         it is rather than letting it pass silently. */
-      const written = answer;
-      const r = renderFacts(answer, facts);
-      /* §18, the prose half: a sentence Korvyn could not fill in is dropped rather than published with a hole.
-         Prose has no sections to withhold, so the sentence is the unit. */
-      answer = r.unresolved.length
-        ? (r.text.split(/(?<=[.!?])\s+/).filter((s) => !s.includes('[figure unavailable]')).join(' ').trim()
-           || 'Korvyn could not resolve the figures behind that, so it is not showing them.')
-        : r.text;
-      trace.factRefs = r.used.length;
-      trace.unresolvedRefs = r.unresolved;
-      const split2 = classify(written, facts);
-      trace.responseViolations = ['answered in prose rather than through respond',
-        ...(split2.typed.length ? [`figures typed rather than referenced: ${split2.typed.join(', ')}`] : [])];
-      trace.ungroundedFigures = split2.bare;
-      if (r.unresolved.length) note('Sloane referred to a figure Korvyn could not resolve; that part of the answer is withheld.');
-      if (trace.ungroundedFigures.length) {
-        note(`${trace.ungroundedFigures.join(', ')} ${trace.ungroundedFigures.length > 1 ? 'were' : 'was'} written without a governed reference — check ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'} against the figures below.`);
-      }
+      if (rendered.unresolved.length) diag(`unresolved fact references: ${rendered.unresolved.join(', ')}`);
+      if (rendered.bare.length) diag(`figures typed without a governed reference: ${rendered.bare.join(', ')}`);
+      response.violations.filter((v) => v.startsWith('figure stated with no governed read')).forEach((v) => diag(v));
     } else {
-      /* the model answered in prose. Nothing referenced a fact, so the measured check is what there is. */
-      trace.ungroundedFigures = ungrounded(answer, outcomes, body, facts);
-      if (trace.ungroundedFigures.length) {
-        note(`Korvyn could not match ${trace.ungroundedFigures.join(', ')} to a governed read in this conversation — check ${trace.ungroundedFigures.length > 1 ? 'those figures' : 'that figure'} against the objects below before relying on ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'}.`);
+      /**
+       * PHASE 3 §4 — THE MODEL WROTE THE ANSWER, AND THAT IS THE ANSWER.
+       *
+       * Phase 2 treated this as an escape hatch and Phase 2.5 closed it by DISCARDING the words and composing a
+       * sentence from the governed result instead. Measured on the brief's own close conversation, that replaced
+       * a reviewer's walkthrough of the largest blocker with "…moved by $0.26M, made up of 5 entitys, the largest
+       * being …" — a correct figure answering a question nobody asked. The hatch was the road, so it is the road.
+       *
+       * THREE BRANCHES BECAME ONE, and nothing about the guarantees moved: `fromProse` builds the same
+       * `ResponseDefinition` a tool call would have built, so the references resolve, an unresolvable sentence is
+       * withheld, an unsupported causal claim is typed as inference, two populations compared in one claim are
+       * still called out, and the offers are still read from the cited facts.
+       */
+      response = fromProse(answer, facts, {
+        hasGovernedRead: outcomes.some((o) => o.status === 'COMPLETED' && o.facts.length > 0),
+        objectIds: objects.map((o) => o.id),
+      });
+      rendered = renderResponse(response, facts);
+
+      /**
+       * §39 — KORVYN COMPOSES ONLY WHEN THE MODEL LEFT NOTHING PUBLISHABLE, which is the whole difference
+       * between this and Phase 2.5.
+       *
+       * Phase 2.5 composed over the model's words on EVERY governed prose turn, and that is what replaced a
+       * reviewer's walkthrough with a one-line breakdown of something else. Now the sentences the model wrote
+       * are the answer; only a sentence whose figure Korvyn can find nowhere is withheld, and composition is
+       * what happens when withholding leaves an empty reply rather than what happens instead of publishing.
+       */
+      if (!rendered.text.trim()) {
+        const o = outcomes.filter((x) => x.status === 'COMPLETED' && x.object && x.facts.length).at(-1);
+        const built = o ? composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] }) : null;
+        if (built) {
+          trace.responseViolations = [...trace.responseViolations, ...response.violations,
+            'nothing the model wrote could be published; Korvyn composed the governed result'];
+          trace.directShape = built.shape;
+          trace.ungroundedFigures = response.withheldFigures;
+          if (response.withheldFigures.length) diag(`figures withheld with no governed reference: ${response.withheldFigures.join(', ')}`);
+          return this.finishDirect({ body, actor, request, trace, notes, note, diag, diagnostics, facts, objects, outcomes, def: built.def, path: 'analytical', done, onDelta: undefined, t0 });
+        }
       }
+
+      answer = rendered.text;
+      trace.responseType = response.responseType;
+      trace.responseViolations = [...trace.responseViolations, ...response.violations];
+      trace.factRefs = response.factRefs.length;
+      trace.unresolvedRefs = rendered.unresolved;
+      trace.ungroundedFigures = rendered.bare;
+      if (rendered.typed.length) trace.responseViolations = [...trace.responseViolations, `figures typed rather than referenced: ${rendered.typed.join(', ')}`];
+      /* §11/§13 — the sentence is withheld and the finding is recorded. The person reads an answer that does
+         not contain the unsupported claim, which is what "answer naturally" means; they do not read a report
+         on Korvyn's own validation. */
+      if (rendered.unresolved.length) diag(`unresolved fact references: ${rendered.unresolved.join(', ')}`);
+      if (response.withheldFigures.length) {
+        trace.ungroundedFigures = [...new Set([...trace.ungroundedFigures, ...response.withheldFigures])];
+        diag(`figures withheld with no governed reference: ${response.withheldFigures.join(', ')}`);
+      }
+      if (rendered.bare.length) diag(`figures typed without a governed reference: ${rendered.bare.join(', ')}`);
     }
 
     const path: V2Path = objects.length ? 'analytical' : 'conversation';
     /* §21/§24 — the sections travel as separate narrative entries so the renderer can draw a quiet label above
        each; a DIRECT answer produces exactly one entry with no label, which is what §23 asks for. §19 — the
        offers Korvyn is about to make are stored with the facts they drill from, whichever path wrote them. */
-    const narrative = this.publish(body, actor, request, path, objects, outcomes, answer, facts, response).narrative;
+    const published = this.publish(body, actor, request, path, objects, outcomes, answer, facts, response);
+    const narrative = published.narrative;
+    /* a TABLE the model asked for wins; otherwise the resolved rows ARE the list */
+    if (!presentation && published.rows.length) presentation = { kind: 'LIST', rows: published.rows };
 
     return done('ANSWER', path, objects.length
-      ? { notes, objects, narrative, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) }
-      : { notes, objects: [], narrative: [], reply: answer, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) });
+      ? { notes, diagnostics, presentation, objects, narrative, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) }
+      : { notes, diagnostics, presentation, objects: [], narrative: [], reply: answer, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) });
   }
 }
 
 /**
- * §17 — THE TWO KINDS OF FIGURE THE MODEL TYPED, TOLD APART THE SAME WAY EVERYWHERE.
+ * PHASE 3 §45 — WHAT THIS PHASE DELETED, NAMED SO IT IS NOT REBUILT.
  *
- * `typed` is a figure byte-identical to something the registry holds — Korvyn's own number written the long way
- * round, a contract miss with nothing for a reader to check. `bare` is a figure Korvyn cannot find at all, and is
- * the only one that can be wrong. Run on the model's own prose, with any references stripped first.
+ * `governedProse`, `classify`, `figureKey` and `ungrounded` were the machinery of the prose ESCAPE HATCH: a
+ * measured, string-matching search for a figure the model might have invented, plus the decision about whether
+ * to throw its words away and compose over them. With prose as the answer channel there is no hatch and no
+ * second check — `fromProse` runs the same structural validation every other answer gets, and a figure with no
+ * governed reference is found by the registry rather than by re-reading the tool JSON as a corpus.
  */
-function classify(text: string, reg: FactRegistry): { typed: string[]; bare: string[] } {
-  const typed: string[] = [];
-  const bare: string[] = [];
-  /* a magnitude the registry holds counts as typed: the digits are governed and the direction is in the verb
-     ("EBITDA fell $0.39M" against a stored "($0.39M)"). Only a magnitude Korvyn cannot find at all is bare. */
-  for (const f of bareFigures(withoutRefs(text))) (reg.holdsDisplay(f) || reg.holdsMagnitude(f) ? typed : bare).push(f);
-  return { typed, bare };
-}
-
-/**
- * §16 — A GOVERNED NUMERICAL ANSWER THAT ARRIVED AS PROSE.
- *
- * Not every prose answer is a defect: a conceptual question and a refusal are prose and should be. What must
- * never happen is this company's figures reaching a person through a sentence nothing structured. The test is
- * therefore about the TURN, not about the wording — governed reads produced authoritative figures, and the
- * model wrote instead of calling `respond`.
- */
-function governedProse(answer: string, outcomes: V2ToolOutcome[]): boolean {
-  if (!/\{\{FACT:/.test(answer) && !FIGURE.test(answer)) return false;
-  FIGURE.lastIndex = 0;
-  return outcomes.some((o) => o.status === 'COMPLETED' && !!o.object && o.facts.some((f) => f.kind === 'GOVERNED' || f.kind === 'DERIVED'));
-}
-
-/* ---- §1: the figures in an answer, checked against what was actually read --------------------- */
-
-/**
- * A money or percentage figure, as finance writes it: "$3.50M", "($11.02M)", "-75.9%", "1,234".
- * Bare integers are deliberately out — a year, an account code and a count of reconciliations are
- * not figures anyone would trace, and flagging them would bury the one that matters.
- */
-const FIGURE = /\(-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?\)|-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?|-?\d[\d,]*(?:\.\d+)?\s?%/g;
-
-/**
- * One key per figure, so the same amount written two defensible ways reads as one: parentheses and a
- * leading minus are both "negative", a trailing zero is not information, and the currency symbol and
- * the scale letter are presentation. What survives is sign and significant digits, which is what a
- * person checking a number against a ledger actually compares.
- */
-function figureKey(raw: string): string {
-  const neg = /^\(/.test(raw.trim()) || /^-/.test(raw.trim());
-  const digits = raw.replace(/[()$€£%,\s]/g, '').replace(/^-/, '').replace(/[MKB]$/i, '');
-  if (!/\d/.test(digits)) return '';
-  const n = Number(digits);
-  if (!Number.isFinite(n)) return '';
-  /* 3.50 and 3.5 are one number; 3.69 and 3.50 are not */
-  return `${neg && n !== 0 ? '-' : ''}${String(n)}`;
-}
-
-/**
- * Grounded means: this turn's tool results, or something Sloane or the person already said earlier in
- * this conversation. A figure carried forward from three turns ago is grounded — it was read then, and
- * making the check turn-local would flag ordinary continuity as fabrication.
- */
-function ungrounded(answer: string, outcomes: V2ToolOutcome[], body: ConversationBody, reg: FactRegistry): string[] {
-  const said = answer.match(FIGURE) ?? [];
-  if (!said.length) return [];
-  const corpus = [
-    ...outcomes.map((o) => observationText(o.observation)),
-    ...body.turns.flatMap((t) => [t.userMessage, t.assistantMessage]),
-    body.summary ?? '',
-  ].join(' ');
-  const known = new Set((corpus.match(FIGURE) ?? []).map(figureKey).filter(Boolean));
-  /**
-   * PHASE 2.6.1 — THE SAME MAGNITUDE WITH THE SIGN IN THE VERB, ON THE PROSE PATH TOO.
-   *
-   * `FactRegistry.holdsMagnitude` already settled this for a structured answer: "EBITDA fell $0.39M" is a
-   * correct sentence about a figure stored as "($0.39M)", because the digits are governed and the direction is
-   * carried by the word. This path compares against the CONVERSATION rather than the registry and kept the
-   * strict signed key, so the same sentence read as a fabrication depending only on which path answered —
-   * observed live. Magnitude is its own set, and a figure is only unmatched when neither holds.
-   */
-  const mag = new Set([...known].map((k) => k.replace(/^-/, '')));
-  const out: string[] = [];
-  for (const s of said) {
-    const k = figureKey(s);
-    /* zero and a lone per-cent sign are not claims about the book */
-    if (!k || k === '0' || known.has(k) || mag.has(k.replace(/^-/, ''))) continue;
-    /**
-     * PHASE 2.6.1 — THE REGISTRY OUTLIVES THE OBSERVATION, AND §36 SAYS IT MUST.
-     *
-     * A turn that calls no tool has no observations, and a figure it restates was a FACT two turns ago rather
-     * than a phrase in the prose. Checking only what was SAID reported EBITDA's own governed movement as a
-     * figure Korvyn could not find — observed live, intermittently, depending on whether the earlier answer
-     * happened to spell the difference out. The registry is the durable record of what was read, so it is what
-     * this asks.
-     */
-    if (reg.holdsDisplay(s.trim()) || reg.holdsMagnitude(s.trim())) continue;
-    const trimmed = s.trim();
-    if (!out.includes(trimmed)) out.push(trimmed);
-  }
-  return out.slice(0, 6);
-}

@@ -312,9 +312,16 @@ const CONTROL: ComposedTool = {
     ].filter(Boolean);
     return def('getControlStatus',
       `Where the close and its controls stand. area: ${areas.join(' | ')}. `
-      + 'close gives readiness and the blocking items; reconciliations gives the position, or one reconciliation, or those for an account; '
+      /* PHASE 3 §33 — WHICH QUESTION MAPS TO WHICH READ, said in the words a person uses. "What is blocking
+         close?" reached readiness — a percentage and three fractions — because `detail` was left out, and the
+         ownership questions behind it then had nothing to answer from. Tool SELECTION guidance belongs on the
+         tool; a rule that read the request would be the router this phase exists to avoid. */
+      + 'close with detail=blockers answers "what is blocking close?", "who owns them?" and "which have no owner?" — '
+      + 'every blocker with its amount, its owner and its reviewer, and a count of those with no owner. '
+      + 'close without detail answers "how ready are we?" — readiness and the task, reconciliation and flux fractions. '
+      + 'reconciliations gives the position, or one reconciliation, or those for an account; '
       + 'flux gives the material movements and which are unexplained; evidence gives support coverage and what is missing. '
-      + 'Set detail to narrow: blockers | unexplained | missing.',
+      + 'detail: blockers | unexplained | missing.',
       { area: S(`one of: ${areas.join(', ')}`),
         period: S('month, YYYY-MM'),
         subject: S('an account or group code, or a finance term — narrows to that line'),
@@ -371,7 +378,9 @@ const WORKFLOW: ComposedTool = {
   name: 'getWorkflowContext',
   covers: ['getResponsibleUsers', 'getObjectRelationships'],
   def: () => def('getWorkflowContext',
-    'Who owns, prepares, reviews or approves a governed object, and what it relates to. aspect: people (default) | relationships.',
+    'Who owns, prepares, reviews or approves ONE named governed object — an account, a reconciliation, a close task — and what it relates to. '
+    + 'aspect: people (default) | relationships. NOT for "who owns the close blockers?": that is getControlStatus area=close detail=blockers, '
+    + 'which carries an owner on every blocker.',
     { object: S('the object in the person’s words, or a canonical ref such as account:15000 or recon:REC-MDH-15000'),
       aspect: S('people | relationships'), period: S('month, YYYY-MM') },
     ['object']),

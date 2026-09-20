@@ -180,7 +180,9 @@ test('V2 §14: the tool loop is bounded — every tool_use is answered and the t
   assert.equal(r.state, 'ANSWER');
   assert.ok(calls.length <= 4, 'the rounds are capped');
   assert.ok(r.objects.length >= 1, 'the governed figures that were read are still shown');
-  assert.ok(r.notes.some((x) => /step limit/.test(x)), 'and Korvyn says it stopped');
+  /* V3 §11 — Korvyn stopping itself is a fact about Korvyn, not about their books: the trace, never the screen */
+  assert.ok(r.diagnostics.some((x) => /step limit/.test(x)), 'the trace records that it stopped');
+  assert.ok(!r.notes.some((x) => /step limit/.test(x)), 'and the person is not told about it');
 });
 
 /* ---- §2/§4: the concept matcher tolerates real finance language, structurally ------------------ */
@@ -217,7 +219,9 @@ test('§2: inflection, ampersands and one slipped key resolve the same concept �
  * prose, because Korvyn composes the answer from those facts itself. So the invented figure does not reach the
  * person at all, which is strictly better than reaching them under a warning.
  */
-test('V2 §16: a governed turn never answers in prose — an invented figure cannot reach the person', async () => {
+/* PHASE 3 §39 — the channel changed and the guarantee did not. Prose IS the answer now, so nothing is
+   discarded wholesale; what is withheld is the SENTENCE carrying a figure Korvyn can find nowhere. */
+test('P3 §39: an invented figure cannot reach the person, and the governed answer still does', async () => {
   const made = '$999.99M';
   const { orch } = v2Orch((round) => round === 0
     ? { tools: [{ name: 'getStatement', input: { view: 'summary', period: '2026-06' } }] }
@@ -225,11 +229,30 @@ test('V2 §16: a governed turn never answers in prose — an invented figure can
   const r = await orch.turn({ sessionId: sid(), request: 'how did June look?' }, me);
   assert.equal(r.state, 'ANSWER');
   const said = r.narrative.map((n) => n.text).join(' ');
-  assert.ok(!said.includes(made), 'the model’s prose is discarded, so the invented figure is never published');
+  assert.ok(!said.includes(made), 'the sentence holding the invented figure is withheld');
   assert.ok(said.length > 0, 'and the person still gets a governed answer');
   const t = orch.v2.recent(1)[0]!;
-  assert.ok(t.responseViolations.some((v) => v.includes('prose')), 'the escape is recorded as the defect it is');
-  assert.equal(t.ungroundedFigures.length, 0, 'nothing ungrounded survives into the answer');
+  assert.ok(t.ungroundedFigures.includes(made), 'the figure is named in the trace rather than passed over');
+  /* V3 §11/§13 — the sentence is gone and the person reads an answer, not a report on Korvyn's own validation */
+  assert.ok(r.diagnostics.some((n) => n.includes(made)), 'the finding is a diagnostic');
+  assert.ok(!r.notes.some((n) => n.includes(made)), 'and never a note');
+});
+
+/* PHASE 3 §4 — the answer the model wrote is the answer the person reads, with the references resolved. */
+test('P3 §4: a governed prose answer is published, not recomposed', async () => {
+  const { orch } = v2Orch((round, seen) => {
+    if (round === 0) return { tools: [{ name: 'analyzeFinancials', input: { subject: 'CIP', period: '2026-06' } }] };
+    const f = factIdsSeen(seen)[0]!;
+    return { text: `CIP sits at {{FACT:${f.id}}}, and the movement looks like a routine transfer into service.` };
+  });
+  const r = await orch.turn({ sessionId: sid(), request: 'how is CIP looking?' }, me);
+  const text = r.narrative.map((n) => n.text).join(' ');
+  assert.ok(/routine transfer into service/.test(text), `the model's own words survive: ${text}`);
+  assert.ok(!/\{\{FACT:/.test(text), 'and the reference was resolved to a governed value');
+  const t = orch.v2.recent(1)[0]!;
+  assert.equal(t.ungroundedFigures.length, 0);
+  assert.ok(!t.responseViolations.some((v) => /prose/.test(v)), 'prose is not a defect');
+  assert.deepEqual(r.narrative.map((n) => n.label ?? null).filter(Boolean), [], 'and no heading is drawn');
 });
 
 test('V2 §1: a figure carried forward from an earlier turn is grounded, not flagged', async () => {
@@ -307,13 +330,17 @@ test('V2 P2 §16: a company figure asserted with no governed read is named, and 
   }));
   const r = await orch.turn({ sessionId: sid(), request: 'what was our June OPEX?' }, me);
   assert.ok(r.reply!.includes('$128.4M'), 'what Sloane said is what it said');
-  assert.ok(r.notes.some((n) => n.includes('$128.4M')), r.notes.join(' / '));
+  /* V3 §11 — the answer is not rewritten and the finding is not narrated: it goes to the diagnostics. */
+  assert.ok(r.diagnostics.some((n) => n.includes('$128.4M')), r.diagnostics.join(' / '));
+  assert.ok(!r.notes.some((n) => n.includes('$128.4M')), 'the person is not told about Korvyn checking itself');
   const t = orch.v2.recent(1)[0]!;
   assert.deepEqual(t.ungroundedFigures, ['$128.4M']);
   assert.ok(t.responseViolations.some((v) => v.startsWith('figure stated with no governed read')), t.responseViolations.join(' / '));
 });
 
-test('V2 P2 §21/§24: the sections travel as separate narrative entries with their own labels', async () => {
+/* PHASE 3 §4 — the sections are gone. A retired `respond` still renders (a stale session may emit one), and
+   what it renders is PARAGRAPHS: the content survives, the headings do not. */
+test('P3 §4: a retired respond still renders, and draws no headings', async () => {
   const { orch } = v2Orch((round, seen) => {
     if (round === 0) return { tools: [{ name: 'analyzeFinancials', input: { subject: 'CIP', period: '2026-06' } }] };
     const f = factIdsSeen(seen)[0]!;
@@ -327,11 +354,42 @@ test('V2 P2 §21/§24: the sections travel as separate narrative entries with th
     } }] };
   });
   const r = await orch.turn({ sessionId: sid(), request: 'why did CIP move in June?' }, me);
-  const labels = r.narrative.map((n) => n.label).filter(Boolean);
-  assert.deepEqual(labels, ['Summary', 'What drove it', 'Not yet established']);
-  assert.equal(r.narrative[0]!.label, undefined, 'the headline carries no heading');
+  assert.deepEqual(r.narrative.map((n) => n.label ?? null).filter(Boolean), [], 'no heading anywhere');
+  /* V3 §14 — the message and the rows are two channels; between them nothing is lost */
+  const text = [...r.narrative.map((n) => n.text), ...(r.presentation?.rows ?? [])].join(' ');
+  assert.ok(/Four projects moved into service/.test(text), 'the content is still said');
+  assert.ok(/South Valley Phase 2/.test(text) && /No approved explanation/.test(text));
+  assert.ok(!text.includes('{{FACT'), 'and no machinery reaches the person');
   assert.deepEqual(r.suggestions, ['Open the Flux line']);
-  assert.ok(r.narrative.every((n) => n.objectIds.length), 'every section carries the object it came from');
+  assert.ok(r.narrative.every((n) => n.objectIds.length), 'every part carries the object it came from');
+});
+
+/* ================================================================================================
+   RUNTIME V3 §5 — RETRIEVAL IS NOT PRESENTATION
+   ================================================================================================ */
+
+test('V3 §5: a governed object is read without being shown', async () => {
+  const { orch } = v2Orch((round, seen) => {
+    if (round === 0) return { tools: [{ name: 'getStatement', input: { view: 'summary', period: '2026-06' } }] };
+    const f = factIdsSeen(seen)[0]!;
+    return { text: `June looks steady — net income is {{FACT:${f.id}}}.` };
+  });
+  const r = await orch.turn({ sessionId: sid(), request: 'how did June look?' }, me);
+  assert.ok(r.objects.length, 'the object is on the response for the trace and for an agent');
+  assert.equal(r.presentation, null, 'and nothing is shown, because nothing asked to show it');
+  assert.ok(r.narrative.length, 'the answer is the words');
+});
+
+test('V3 §7: a table can only be of something this turn actually read', async () => {
+  const { orch } = v2Orch((round) => {
+    if (round === 0) return { tools: [{ name: 'getControlStatus', input: { area: 'close', period: '2026-06', detail: 'blockers' } }] };
+    return { text: 'Here they are.', tools: [{ name: 'show', input: { kind: 'table', of: 'FO-DOES-NOT-EXIST' } }] };
+  });
+  const r = await orch.turn({ sessionId: sid(), request: 'show me all the blockers' }, me);
+  /* one object was read, so the single-object fallback resolves it; what must never happen is a table of
+     something that was not read */
+  if (r.presentation) assert.ok(r.objects.some((o) => o.id === r.presentation!.objectId), 'the table names a read object');
+  assert.ok(r.narrative.length || r.reply, 'and the turn still says something');
 });
 
 test('V2 P2 §35/§45: a fact referenced in a LATER turn still resolves from the durable registry', async () => {
