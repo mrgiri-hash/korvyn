@@ -78460,9 +78460,10 @@ function slIsFollow(q,inv){
 const SL_CHAT=[];
 /* the kinds of answer that ARE a workspace, and so still open one */
 const SL_WORKKINDS=['analysis','canvas','build','server','clarify'];
+function slChatItemHTML(x){ return '<div class="slx-q">'+glEsc(x.q)+'</div>'+x.html; }
 function slChatHTML(){
   if(!SL_CHAT.length) return '';
-  return SL_CHAT.map(x=>'<div class="slx-x"><div class="slx-q">'+glEsc(x.q)+'</div>'+x.html+'</div>').join('');
+  return SL_CHAT.map(x=>'<div class="slx-x">'+slChatItemHTML(x)+'</div>').join('');
 }
 function slChatPush(q,html){ SL_CHAT.push({q,html,at:Date.now()}); if(SL_CHAT.length>40) SL_CHAT.shift();
   SL_MODE='chat'; SL_ASKNEW=false; CP.busy=false; }
@@ -78568,8 +78569,23 @@ function slPaint(){
     const ft=$('slFoot'); if(ft) ft.innerHTML='';
     if(SL_Q.trim()){ slPaintFind(); return; }
     if(SL_MODE==='history'){ b.innerHTML=slHistHTML(); return; }
-    /* §9 — the conversational surface: user message, Sloane response, nothing around it */
-    if(SL_MODE==='chat'){ b.innerHTML=slChatHTML()||slHomeHTML(); return; }
+    /* §9 — the conversational surface: user message, Sloane response, nothing around it.
+
+       A STREAMED TURN PAINTS ONCE PER FRAME, SO A PAINT MUST NOT COST THE WHOLE THREAD. Measured on one
+       answer: 32 paints, and the first cut rebuilt every exchange's innerHTML on each of them. That destroys
+       and recreates the entire conversation thirty times a turn — text selection is lost, the scroll position
+       resets, and the main thread blocks for longer the more you have said. It reads as an unresponsive panel,
+       and it gets worse the longer the conversation runs.
+
+       Only the LAST exchange changes while a turn streams, so that is the only node written, and only when its
+       html has actually moved. A full rebuild happens when the thread's LENGTH changes, which is once per turn. */
+    if(SL_MODE==='chat'){
+      const items=b.children, n=SL_CHAT.length;
+      if(n&&items.length===n&&b.firstElementChild&&b.firstElementChild.classList.contains('slx-x')){
+        const last=items[n-1], want=slChatItemHTML(SL_CHAT[n-1]);
+        if(last.innerHTML!==want) last.innerHTML=want;
+        return; }
+      b.innerHTML=slChatHTML()||slHomeHTML(); return; }
     if(SL_MODE==='session'){ b.innerHTML=slInvHTML(SL_INV,e); return; }
     b.innerHTML=slHomeHTML();
   }catch(err){ console.error('sloane panel',err); }
