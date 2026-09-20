@@ -35,6 +35,8 @@ import {
   appendTurn, loadConversation, saveConversation, sessionLike, setPending, stateForModel, transcriptMessages,
 } from './conversation.js';
 import { type V2ToolOutcome, isControlTool, observationText, runTool, toolDefinitions } from './tools.js';
+import { FactRegistry, type FinancialFact, bareFigures, renderFacts, withoutRefs } from './facts.js';
+import { type RespondInput, type ResponseDefinition, buildResponse, renderResponse } from './respond.js';
 
 /** what a handoff into an existing v1 surface gives back; v2 renders none of it itself */
 export interface V2Handoff { state: TurnState; extra: Partial<TurnResponse>; notes: string[] }
@@ -112,7 +114,8 @@ export class SloaneV2 {
       request: input.request.slice(0, V2_LIMITS.maxRequestChars), model: null, escalationReason: null,
       modelCalls: 0, toolCalls: 0, contextBuilds: 0, toolsExposed: 0, transcriptTurns: 0, latencyMs: 0,
       firstTokenMs: null, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
-      calls: [], tools: [], activeStateRefs: {}, ungroundedFigures: [], notes: [],
+      calls: [], tools: [], activeStateRefs: {}, ungroundedFigures: [],
+      factsProduced: 0, factRefs: 0, unresolvedRefs: [], responseType: null, responseViolations: [], notes: [],
     };
     const notes: string[] = [];
     const note = (s: string) => { if (s && !notes.includes(s)) notes.push(s); };
@@ -132,6 +135,12 @@ export class SloaneV2 {
     /* ---- 1. the conversation, as it actually stands ------------------------------------------- */
     let body = loadConversation(sessionId, actor, this.seed(actor));
     trace.transcriptTurns = body.turns.length;
+
+    /* PHASE 2 §35 — the fact registry is the conversation's, not the turn's: "what's behind that?" three turns
+       later resolves the SAME fact, and a restart does not turn a governed figure into a dangling reference. */
+    const facts = new FactRegistry();
+    if (body.facts?.length) facts.restore(body.facts);
+    const factCtx = { book: body.state.accountingBookId, lens: body.state.reportingLens };
 
     /* a question v2 asked last turn: the answer becomes the person's next message, so the transcript stays a
        transcript — there is no side channel carrying a decision the conversation cannot see */
@@ -170,6 +179,8 @@ export class SloaneV2 {
     let answer = '';
     let handoff: { kind: 'analysis' | 'investigation'; arg: string } | null = null;
     let clarify: { question: string; options: { id: string; label: string }[] } | null = null;
+    let response: ResponseDefinition | null = null;
+    let rendered: ReturnType<typeof renderResponse> | null = null;
 
     for (let round = 0; round <= V2_LIMITS.maxToolRounds; round++) {
       if (input.signal?.aborted) return done('CANCELLED', 'conversation', { notes: ['Superseded by a newer request.'] });
@@ -179,8 +190,40 @@ export class SloaneV2 {
       const onText = input.onDelta
         ? (t: string) => { if (trace.firstTokenMs === null) trace.firstTokenMs = now() - t0; input.onDelta!(t); }
         : undefined;
+      /**
+       * §22/§23 — THE ANSWER IS A TOOL INPUT NOW, SO WATCHING FOR TEXT SEES NOTHING.
+       *
+       * Phase 1.5 bought its first token at 2.6s by streaming the model's prose; Phase 2 moved the answer into
+       * `respond`, and the first measured run paid for that structure with a first token at 8.4s — the whole
+       * latency, because nothing arrived until the turn ended. The headline is read out of the tool input as it
+       * is written, with each COMPLETE reference resolved to its governed value on the way past: a half-written
+       * reference is held back rather than shown as machinery.
+       */
+      const stream = input.onDelta ? { json: '', sent: 0 } : null;
+      const onToolInput = stream
+        ? (u: { name: string; partial: string }) => {
+            if (u.name !== 'respond') return;
+            stream.json += u.partial;
+            const m = /"headline"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(stream.json);
+            if (!m) return;
+            /* only up to the last completed reference, so {{FACT: never reaches a reader half-formed */
+            let text = m[1]!.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            /* WHAT IS STREAMED CANNOT BE TAKEN BACK, so a reference is held until it is whole. Both halves of
+               that matter and each was observed live as a stray brace in front of a governed value: an open
+               "{{" whose "}}" has not arrived yet, and the very first "{" of a reference about to be written. */
+            const open = text.lastIndexOf('{{');
+            if (open >= 0 && !text.slice(open).includes('}}')) text = text.slice(0, open);
+            if (text.endsWith('{')) text = text.slice(0, -1);
+            const shown = renderFacts(text, facts).text;
+            if (shown.length <= stream.sent) return;
+            if (trace.firstTokenMs === null) trace.firstTokenMs = now() - t0;
+            input.onDelta!(shown.slice(stream.sent));
+            stream.sent = shown.length;
+          }
+        : undefined;
       const res = await this.deps.adapter.reason!(
-        { system: V2_SYSTEM, messages, tools, maxTokens: V2_LIMITS.maxOutputTokens, ...(onText ? { onText } : {}) },
+        { system: V2_SYSTEM, messages, tools, maxTokens: V2_LIMITS.maxOutputTokens, ...(onText ? { onText } : {}),
+          ...(onToolInput ? { onToolInput, eagerTools: ['respond'] } : {}) },
         { route: 'FAST', ...(input.signal ? { signal: input.signal } : {}) },
       );
       trace.modelCalls += 1;
@@ -202,10 +245,26 @@ export class SloaneV2 {
       if (!uses.length) { answer = res.value.text; break; }
 
       /* a control tool ends the turn: the product does the thing, and no further reasoning call is spent */
-      const ctl = uses.find((u) => isControlTool(u.name));
+      const found = uses.find((u) => isControlTool(u.name));
+      /* §22 — ANSWERING IN THE SAME BREATH AS READING IS ANSWERING BEFORE THE FACTS EXIST. A model that emits a
+         governed read and `respond` together has written references to facts it has not been given yet; taking
+         the answer here would publish an answer with nothing behind it. The reads run, `respond` is handed back
+         unrun, and the model answers on the call it was always going to spend. */
+      const early = !!found && found.name === 'respond' && uses.some((u) => !isControlTool(u.name));
+      const ctl = early ? undefined : found;
       if (ctl) {
         const arg = (v: unknown, k: string) => (v && typeof v === 'object' ? String((v as Record<string, unknown>)[k] ?? '') : '');
-        if (ctl.name === 'ask_clarification') {
+        if (ctl.name === 'respond') {
+          /* §22 — THE ANSWER ARRIVES AS STRUCTURE, ON THE SAME CALL THAT WOULD HAVE WRITTEN PROSE. There is no
+             formatting pass: Korvyn validates the references against the registry, renders the governed values,
+             and that is the answer. A second model call here would be a second place a figure could change. */
+          response = buildResponse((ctl.input ?? {}) as RespondInput, facts, {
+            hasGovernedRead: outcomes.some((o) => o.status === 'COMPLETED' && o.facts.length > 0),
+            objectIds: objects.map((o) => o.id),
+          });
+          rendered = renderResponse(response, facts);
+          answer = rendered.text;
+        } else if (ctl.name === 'ask_clarification') {
           const q = arg(ctl.input, 'question') || 'Which one did you mean?';
           const opts = arg(ctl.input, 'options').split('|').map((s) => s.trim()).filter(Boolean).slice(0, 6);
           clarify = { question: q, options: opts.map((label, i) => ({ id: `opt${i + 1}`, label })) };
@@ -214,7 +273,9 @@ export class SloaneV2 {
         } else {
           handoff = { kind: 'investigation', arg: arg(ctl.input, 'objective') || request };
         }
-        answer = res.value.text;
+        /* §22 — where `respond` answered, the RENDERED structure IS the answer. Any prose the model also emitted
+           beside the tool call is not: it carries no fact references, so nothing checked a figure in it. */
+        if (!rendered) answer = res.value.text;
         break;
       }
 
@@ -234,10 +295,13 @@ export class SloaneV2 {
       /* EVERY tool_use must be answered, or the provider rejects the next request — an over-cap call gets a
          result that says it was not run, never silence */
       const results = uses.map((u, i) => {
+        if (isControlTool(u.name)) {
+          return { use: u, text: JSON.stringify({ status: 'NOT_RUN', note: 'the governed reads in this step have run; their results are below. Answer now by calling respond again, referencing the facts they returned.' }) };
+        }
         if (i >= V2_LIMITS.maxToolsPerRound) {
           return { use: u, text: JSON.stringify({ status: 'NOT_RUN', note: `only ${V2_LIMITS.maxToolsPerRound} tools run in one step; ask again if you still need this` }) };
         }
-        const o = runTool(u.name, u.input, env, outcomes.length + 1, objects.length + 1);
+        const o = runTool(u.name, u.input, env, outcomes.length + 1, objects.length + 1, { registry: facts, ctx: factCtx });
         outcomes.push(o);
         trace.toolCalls += 1;
         trace.tools.push({ tool: o.tool, status: o.status === 'COMPLETED' ? 'COMPLETED' : o.status === 'REFUSED' ? 'REFUSED' : 'FAILED', latencyMs: o.latencyMs, error: o.error });
@@ -245,7 +309,13 @@ export class SloaneV2 {
         if (o.status === 'REFUSED' && o.error) note(`Not permitted: ${o.error}.`);
         return { use: u, text: observationText(o.observation) };
       });
-      messages.push({ role: 'user', content: results.map((r) => ({ type: 'tool_result', tool_use_id: r.use.id, content: r.text })) });
+      /* the one-line reminder that costs nothing and changes what the next call does: left to itself after a
+         tool result a model writes prose, and prose is the one shape that carries no sections. The prose path
+         is still handled, but it is the fallback, not the road. */
+      messages.push({ role: 'user', content: [
+        ...results.map((r) => ({ type: 'tool_result', tool_use_id: r.use.id, content: r.text })),
+        { type: 'text', text: 'Now answer by calling respond, with each figure written as its {{FACT:id}} reference.' },
+      ] });
     }
 
     /* ---- 4. what the turn leaves on screen ------------------------------------------------------ */
@@ -303,22 +373,74 @@ export class SloaneV2 {
       return done(objects.length ? 'ANSWER' : 'UNAVAILABLE', 'conversation', { notes, objects, narrative: [] });
     }
 
-    /* §1 — EVERY ENTERPRISE FIGURE MUST BE POINTABLE AT. The benchmark found an answer that said $3.69M
-       where three independent governed reads all said $3.50M, so "quote it exactly" is a rule the prompt
-       states and cannot enforce. This is the enforcement, and it deliberately only MEASURES: the answer
-       is what Sloane said, and rewriting it would hide the defect rather than surface it. */
-    trace.ungroundedFigures = ungrounded(answer, outcomes, body);
-    if (trace.ungroundedFigures.length) {
-      note(`Korvyn could not match ${trace.ungroundedFigures.join(', ')} to a governed read in this conversation — check ${trace.ungroundedFigures.length > 1 ? 'those figures' : 'that figure'} against the objects below before relying on ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'}.`);
+    /* ---- 5. grounding, structurally ------------------------------------------------------------
+       PHASE 2 — THE ORDER IS INVERTED. Phase 1.5 asked, after the fact, whether a number the model had
+       already written could be found in a tool result. Now the model cannot write an authoritative number
+       at all: it cites a factId and Korvyn substitutes the governed display value. So the checks below are
+       not a search for a bad number — they are the two ways the contract can be broken, and both are
+       structural rather than textual:
+         an UNRESOLVED reference   the model cited a fact that does not exist
+         a BARE figure             the model typed a company figure instead of referencing one
+       Where the model answered in prose rather than through `respond`, the Phase 1.5 check still runs as
+       the backstop, because prose has no references to check. */
+    trace.factsProduced = outcomes.reduce((a, o) => a + o.facts.length, 0);
+
+    if (response && rendered) {
+      trace.responseType = response.responseType;
+      trace.responseViolations = response.violations;
+      trace.factRefs = response.factRefs.length;
+      trace.unresolvedRefs = rendered.unresolved;
+      trace.ungroundedFigures = rendered.bare;
+      if (rendered.unresolved.length) note('Sloane referred to a figure Korvyn could not resolve; that part of the answer is withheld.');
+      if (rendered.bare.length) {
+        note(`${rendered.bare.join(', ')} ${rendered.bare.length > 1 ? 'were' : 'was'} written without a governed reference — check ${rendered.bare.length > 1 ? 'them' : 'it'} against the figures below.`);
+      }
+      response.violations.filter((v) => v.startsWith('figure stated with no governed read')).forEach(() => {
+        note('Sloane stated a company figure without reading it; treat that part as unverified.');
+      });
+    } else if (/\{\{FACT:/.test(answer)) {
+      /* THE MODEL WROTE REFERENCES AND ANSWERED IN PROSE ANYWAY — observed live on the first run of this phase.
+         A reference is Korvyn's machinery and must never reach the person (§26), so it is resolved here exactly
+         as `respond` would resolve it: the contract is a property of the runtime, not of the model remembering
+         to call a tool. What prose did NOT do is organise the answer, and the trace records that as the defect
+         it is rather than letting it pass silently. */
+      const written = answer;
+      const r = renderFacts(answer, facts);
+      /* §18, the prose half: a sentence Korvyn could not fill in is dropped rather than published with a hole.
+         Prose has no sections to withhold, so the sentence is the unit. */
+      answer = r.unresolved.length
+        ? (r.text.split(/(?<=[.!?])\s+/).filter((s) => !s.includes('[figure unavailable]')).join(' ').trim()
+           || 'Korvyn could not resolve the figures behind that, so it is not showing them.')
+        : r.text;
+      trace.factRefs = r.used.length;
+      trace.unresolvedRefs = r.unresolved;
+      trace.responseViolations = ['answered in prose rather than through respond'];
+      trace.ungroundedFigures = bareFigures(withoutRefs(written));
+      if (r.unresolved.length) note('Sloane referred to a figure Korvyn could not resolve; that part of the answer is withheld.');
+      if (trace.ungroundedFigures.length) {
+        note(`${trace.ungroundedFigures.join(', ')} ${trace.ungroundedFigures.length > 1 ? 'were' : 'was'} written without a governed reference — check ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'} against the figures below.`);
+      }
+    } else {
+      /* the model answered in prose. Nothing referenced a fact, so the measured check is what there is. */
+      trace.ungroundedFigures = ungrounded(answer, outcomes, body);
+      if (trace.ungroundedFigures.length) {
+        note(`Korvyn could not match ${trace.ungroundedFigures.join(', ')} to a governed read in this conversation — check ${trace.ungroundedFigures.length > 1 ? 'those figures' : 'that figure'} against the objects below before relying on ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'}.`);
+      }
     }
 
     const path: V2Path = objects.length ? 'analytical' : 'conversation';
-    body = appendTurn(body, { userMessage: request, assistantMessage: answer, path, refs });
+    body = { ...appendTurn(body, { userMessage: request, assistantMessage: answer, path, refs }), facts: facts.snapshot() };
     saveConversation(body, actor);
-    /* one reply, in Sloane's own words. There is no second narration pass, and nothing rewrites it. */
+
+    /* §21/§24 — the sections travel as separate narrative entries so the renderer can draw a quiet label above
+       each; a DIRECT answer produces exactly one entry with no label, which is what §23 asks for. */
+    const narrative = rendered
+      ? rendered.parts.map((pt) => ({ text: pt.text, objectIds: pt.objectIds.length ? pt.objectIds : objects.map((o) => o.id), ...(pt.label ? { label: pt.label } : {}), assertion: pt.assertion }))
+      : [{ text: answer, objectIds: objects.map((o) => o.id) }];
+
     return done('ANSWER', path, objects.length
-      ? { notes, objects, narrative: [{ text: answer, objectIds: objects.map((o) => o.id) }] }
-      : { notes, objects: [], narrative: [], reply: answer });
+      ? { notes, objects, narrative, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) }
+      : { notes, objects: [], narrative: [], reply: answer, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) });
   }
 }
 

@@ -74,6 +74,13 @@ export interface ConversationBody {
   turns: V2Turn[];
   state: V2State;
   pending: V2Pending | null;
+  /**
+   * PHASE 2 §35 — the canonical facts this conversation has produced. They are on the RECORD rather than in
+   * process memory for the same reason the transcript is: "what's behind that?" three turns later has to reach
+   * the same fact, and a server restart must not turn a governed figure into a dangling reference. The registry
+   * is bounded and evicts the least recently referenced, so a long conversation cannot grow without limit.
+   */
+  facts?: import('./facts.js').FinancialFact[];
 }
 
 /** §27 — the v2 development trace. Never carries a secret, a prompt or a raw row. */
@@ -106,6 +113,18 @@ export interface V2Trace {
    * not it is wrong. Measured, never rewritten: the answer is what Sloane said.
    */
   ungroundedFigures: string[];
+  /**
+   * PHASE 2 — what structural grounding did this turn. `factsProduced` is how many canonical facts the governed
+   * reads yielded; `factRefs` how many the model cited; `unresolvedRefs` ids it cited that did not exist;
+   * `bareFigures` figures it typed on its own authority instead of referencing. The last two are defects, and
+   * the point of the phase is that both should be zero rather than merely small.
+   */
+  factsProduced: number;
+  factRefs: number;
+  unresolvedRefs: string[];
+  responseType: string | null;
+  /** §20 — causal claims demoted to inference, and any assertion withheld */
+  responseViolations: string[];
   notes: string[];
 }
 

@@ -141,7 +141,8 @@ export function relevant(allow: readonly SloaneTool[], s: RelevanceState, max = 
 export interface CompactObservation {
   ref: string; step: number; tool: string; purpose: string; status: 'OK' | 'UNAVAILABLE' | 'FAILED' | 'REFUSED';
   objectId: string | null; type: string | null; title: string; period: string; scope: string;
-  facts: { key: string; label: string; value: string }[];
+  /** `id` is the Phase 2 canonical factId, present when a fact registry promoted the object's facts */
+  facts: { key: string; label: string; value: string; id?: string }[];
   columns: string[];
   rows: { label: string; values: string[]; ref?: string }[];
   rowCount: number;
@@ -150,7 +151,13 @@ export interface CompactObservation {
   note: string | null;
   chars: number;
 }
-const REF_KEYS = /^(populationId|account|project|vendor|entity|reconciliationId|transactionId|journalId|largestAccount|largestProject|largestVendor|analysisId|auditPopulationId)$/;
+/**
+ * The refs a NEXT STEP can act on. Phase 2 §10: a drill continues by naming the object it is drilling into, so
+ * the population's own largest line and that line's journal belong here — without them "where did that line come
+ * from?" has nothing to point at and the chain stops at the population. Same for the explanation and statement
+ * records a governed figure already knows about.
+ */
+const REF_KEYS = /^(populationId|account|project|vendor|entity|reconciliationId|transactionId|journalId|largestAccount|largestProject|largestVendor|largestTransaction|largestJournal|explanationId|financialLineId|analysisId|auditPopulationId)$/;
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 export function compact(step: number, tool: string, purpose: string, o: FinancialObject | null, error: string | null, refused = false): CompactObservation {
   const ref = `O${step}`;

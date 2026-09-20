@@ -176,8 +176,11 @@ async function sloane(orch: SloaneOrchestrator, c: Case, n: number): Promise<Arm
     modelCalls: (t?.calls ?? []).filter((x) => x.status !== 'declined').length,
     /* §1 — a figure the answer stated that no governed read produced. Korvyn tells the person on the
        turn; the benchmark has to see it too, or a check that fires is indistinguishable from one that
-       does not. */
-    ungrounded: r.notes.filter((x) => /could not match/.test(x)),
+       does not.
+       PHASE 2 — read from the TRACE, not from the note's wording. The note is written for a person and
+       differs between the referenced and the prose paths; a benchmark keyed on its phrasing silently
+       stopped counting the moment the answer started arriving as structure. */
+    ungrounded: orch.v2.recent(1)[0]?.ungroundedFigures ?? r.notes.filter((x) => /could not match/.test(x)),
   };
 }
 

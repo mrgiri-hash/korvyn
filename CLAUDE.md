@@ -10964,6 +10964,246 @@ still in the tree, the flag is still off by default, and Phase 1's architecture 
   rather than CASH_FLOW, *"opex run rate"* → RUN_RATE rather than OPERATING_EXPENSE. Both are readings a
   person could defend; forcing either would be fitting the code to the holdout.
 
+## 2026-09-20 — SLOANE CORE RUNTIME V2, PHASE 2: structural grounding, traceability, adaptive answers
+
+Owner's brief, on Phase 1.5's residual: 8% of answers stated a figure Korvyn could not point at, and three of
+125 answered a governed question with no tool call at all. The principle it opens with is the whole phase —
+**"Sloane must never rely on post-hoc regex matching as the primary way to prove a financial figure."** The
+chain is now
+
+```
+MODEL REASONS -> KORVYN PROVIDES CANONICAL FACTS -> MODEL REFERENCES FACTS -> KORVYN RENDERS GOVERNED VALUES
+```
+
+rather than `MODEL WRITES NUMBER -> regex tries to see if that number appeared somewhere`. v1 is untouched, the
+flag is still off by default (`sloane-serve-v2` turns it on), and no permission was weakened.
+
+**New files** (`packages/agent/src/sloane/v2/`): `facts.ts` (the `FinancialFact` contract, promotion, the
+registry, reference rendering) and `respond.ts` (the `ResponseDefinition`, causal safety, adaptive rendering,
+the `respond` tool). Everything else is an edit to what already existed.
+
+### THE FACT IS THE UNIT, AND IT IS PROMOTED, NOT RE-DERIVED
+
+Every registered tool already returns `facts: {key,label,value,display}` plus `refs` and a population, so
+promotion happens in ONE place (`factsFrom`) driven by the object's own identity — **no second accounting
+engine, and no tool was rewritten**. A `FinancialFact` carries kind (GOVERNED · DERIVED · HEURISTIC ·
+MODEL_INFERENCE · DRAFT · APPROVED · UNKNOWN), measure, label, raw value, the governed `displayValue`, sign,
+unit, currency, period, scope, book, basis, lens, its source object ids, its trace, the drills it supports, its
+provenance and its tie status.
+
+- **§5 — THE SIGN IS READ FROM THE VALUE, NEVER FROM THE STRING.** A display carries its sign in a convention
+  (accounting parentheses, a bare magnitude for a credit) and reading it back out is exactly the mistake this
+  phase removes. `(16.97)` with a value of −16.97 is NEGATIVE because the number says so.
+- **§36 — ONE FACT, ONE ID, ACROSS TURNS.** `factIdOf` hashes type, key, measure, period, scope, book, lens,
+  basis and accounts — and deliberately NOT the value. Two reads of June OPEX are the same fact; a conversation
+  does not accumulate an id per turn, and a reference from eight turns ago still resolves.
+- **§8 — A DRILL THAT WOULD REFUSE IS NEVER OFFERED.** `availableDrills` is computed from what the trace
+  actually holds, so a figure with no population offers no GL drill and an UNAVAILABLE object offers nothing at
+  all (its kind is UNKNOWN, whatever its facts say).
+- **§35 — the registry is per conversation, bounded at 400 and evicts the least recently REFERENCED**, not the
+  oldest: a fact the person keeps drilling is the one worth keeping, however early it was read. It is
+  snapshotted into the existing `SLOANE_CONVERSATION` record — **no new store**.
+
+### THE MODEL DOES NOT TYPE THIS COMPANY'S NUMBERS
+
+It writes `{{FACT:f_ab12cd34}}` and Korvyn substitutes the governed display value. That one move makes three
+guarantees structural rather than textual: the sign is the service's, the value cannot drift from its object,
+and a figure the model invented has no id to write. `renderFacts` is the ONLY place an authoritative figure
+becomes text.
+
+**§16 is checkable without guessing.** A model answering a company-specific question from its own head has, by
+construction, no reference to cite — so the check is "did it cite anything Korvyn produced", not "does this
+number look suspicious". A bare money or percentage figure with no governed read behind it is a recorded
+violation and a note to the person.
+
+### §22 — THE ANSWER ARRIVES AS STRUCTURE, ON THE CALL THAT WOULD HAVE WRITTEN PROSE
+
+`respond` is a TERMINAL control tool: the model's final `tool_use` IS the answer, so a conceptual question is
+still one model call and a governed question still two. **There is no formatting pass** — a second call would
+be a second place a figure could change, which Phase 1.5 spent real effort removing.
+
+`ResponseDefinition` carries a response type (DIRECT · FINANCIAL_SUMMARY · DRIVER_ANALYSIS · TRACE_RESULT ·
+CLARIFICATION · LIMITATION · INVESTIGATION_SUMMARY) and typed assertions (FACT · DERIVED_CONCLUSION ·
+INFERENCE · DRAFT_EXPLANATION · UNRESOLVED). Rendering is deterministic and **adaptive downward**: DIRECT draws
+no headings at all, a thin answer with no drivers or exceptions draws none either, and a section with nothing
+in it is never drawn. The sections travel as separate narrative entries with a quiet label, which the browser
+draws in the design system's own `--fs-label` treatment.
+
+**§20 — A CAUSAL CLAIM WITH NOTHING BEHIND IT IS DEMOTED, NOT DELETED.** "Because", "driven by" and "due to"
+assert a REASON, and Phase 1.5's check would have passed *"OPEX rose because the datacentre team hired three
+engineers"* without comment — every figure in it is fine and the claim is invented. Such a sentence is still
+said, as INFERENCE, so the reader knows which part Korvyn stands behind. What SUPPORTS it is an approved
+explanation, attached evidence, **or facts from a read whose whole job is decomposition** (`DriverAnalysis`,
+`DimensionAnalysis`, `LargestMovements`, `PopulationAggregate`) — that is what "driven by" ordinarily claims in
+accounting. The test is Korvyn's own object type and measure, never a word in the sentence.
+
+**§30 — the next steps are read from the cited facts**, in the order the chain is walked (statement line →
+accounts → trial balance → GL → journal → source → support), capped at four. The model is not asked where a
+figure can be drilled, because it does not know; the fact does.
+
+### §13/§14 — A STOCK IS NOT A FLOW, AND THE SENTENCE SAYS WHICH
+
+The Phase 1.5 defect, named in its own open list: capex resolves to CIP and PP&E, which are balance-sheet
+accounts, so *"how much capex did we spend in June"* came back as a BALANCE — every figure governed, the answer
+wrong. A concept now states its own `naturalMeasure`, and `measureIntent()` reads the SENTENCE:
+
+- **aspect cues, not finance phrases** — "sitting in", "as at", "how much is there" are stative; "spent",
+  "during June", "movement", "burn" are perfective or durative. That is ordinary English grammar and it
+  generalises to a term nobody has thought of yet, which is why there is no rule per term (§35).
+- **precedence**: an explicit argument, then the verb, then the term's own nature, then nothing stated.
+- the dispatcher acts on it: an ACTIVITY measure on a statement subject goes to `getAccountAnalysis` instead of
+  `getFinancialStatementLine`. Verified live: *"How much capex did we spend in June?"* → **$5.01M of June
+  activity**, with the reading disclosed, not a CIP balance.
+
+### §28 — THE TITLE IS READ BY A PERSON, AND THE PERSON SAID THE WORD
+
+A governed read of OPEX came back titled *"Top movements by vendor · 50000,60000 · MDH · Jun 2026 vs May
+2026"* — accurate, and written in the argument list rather than in the language of the question. The dispatcher
+is the one place that still knows the person's own word, so it puts it back: **"Opex by vendor — MDH · 2026-06
+vs 2026-05"**. The codes are not lost; they stay on the object's refs, provenance and trace.
+
+### §10/§45 — THE DRILL CHAIN, AND THE REF THAT WAS BEING THROWN AWAY
+
+A twelve-turn chain — financials → CIP → what's behind that → accounts → GL → the big ones → where did that
+line come from → its journal → trace it to the source → is any of it unexplained → remind me → the biggest
+driver — with **the amount never restated**, zero unresolved references, zero typed figures and the last two
+turns answered with no read at all.
+
+Building it found a real gap: `compact()`'s `REF_KEYS` allowlist did not include `largestTransaction` or
+`largestJournal`, so the population's own drill handles were filtered out of every observation and the chain
+could not continue past the population. Also added: `explanationId`, `financialLineId`.
+
+### §31–§34 — THE RELATIONSHIPS TRAVEL WITH THE FIGURE
+
+Four ref names the fact contract read did not exist on the tools that should emit them, so the trace fields
+were quietly dead. Now `getFluxExplanation` emits `explanationStatus` and `fluxItemId` (a DRAFT explanation is
+not support, and only the status can say so), `getReconciliation` emits `reconciliationStatus` and `tieStatus`,
+`getTransaction` emits the reference its source system publishes — **never a fabricated deep link** — and
+`facts.ts` reads `financialLineId` as well as the shorter `lineId` the composed reads use.
+
+### THREE DEFECTS THE FIRST LIVE RUN FOUND, EACH FIXED STRUCTURALLY
+
+- **THE MODEL WROTE REFERENCES AND ANSWERED IN PROSE ANYWAY**, so raw `{{FACT:…}}` reached the person — the one
+  thing §26 forbids. A reference is Korvyn's machinery, so the prose path resolves it exactly as `respond`
+  does; the contract is a property of the runtime, not of the model remembering to call a tool. The trace
+  records prose as the defect it is rather than letting it pass.
+- **ANSWERING IN THE SAME BREATH AS READING IS ANSWERING BEFORE THE FACTS EXIST.** A model that emits a
+  governed read and `respond` together has written references to facts it has not been given. The reads run,
+  `respond` is handed back unrun with a one-line result, and the answer lands on the call the turn was always
+  going to spend.
+- **`answer = res.value.text` ran unconditionally after the control-tool branch**, overwriting the rendered
+  response with whatever prose the model happened to emit beside the tool call.
+
+### §22/§23 — THE ANSWER STREAMS AGAIN, OUT OF THE TOOL INPUT
+
+Moving the answer into `respond` cost the first token: the first measured Phase 2 run put TTFT at **8.4s** —
+the whole latency, because a caller watching text deltas sees nothing when the answer is a tool input. The
+adapter now surfaces `input_json_delta` with its block's tool name, the tool is marked
+`eager_input_streaming` so the input is not buffered server-side, and the runtime reads the headline out of the
+partial JSON **with each complete reference resolved on the way past**. A half-written reference is held back:
+both `{{` without its `}}` and the very first `{` were observed live as a stray brace in front of a governed
+value. Measured after: **TTFT p50 3.9s against a p50 latency of 8.8s.**
+
+### WHAT IT COSTS (live, claude-sonnet-5, `npm run sloane:v2-ab --only v2`)
+
+| | Phase 1.5 | **Phase 2** |
+|---|---|---|
+| conversation · model calls / turn | 1.57 | 2.00 |
+| conversation · p50 / p90 | 4.2s / 4.7s | **8.8s / 9.5s** |
+| conversation · TTFT p50 / p90 | 2.6s / 2.7s | **3.9s / 4.4s** |
+| conversation · input / output tokens | 3,180 / 1,586 | 5,836 / 3,478 |
+| conversation · cost (7 turns) | $0.0519 | **$0.1043** |
+| casual · model calls / p50 / TTFT / cost | 1.0 / 2.6s / 1.0s / $0.0089 | 1.0 / 2.7s / 1.1s / $0.0102 |
+
+**Read honestly: structural grounding costs about twice the latency and twice the money on a governed turn,
+and casual conversation is unchanged.** The causes are measured, not guessed: the answer is now always a second
+call (§16 pushes a governed read where prose could have answered from the transcript), output tokens doubled
+because sections are longer than a sentence, and the `respond` schema adds ~740 tokens to the cached tool
+prefix (2,593 → 3,335). §48's preferred shape is intact — ONE reasoning/tool loop plus deterministic fact and
+render validation, no grounding model, no formatting model, no narrator.
+
+**THE CONTRACT ITSELF, over the same 25 turns:** 101 fact references, **0 unresolved**, **0 violations**, 3
+turns carrying a typed figure, and 19 of 25 answered through `respond`. **Five of the six that did not are
+casual or general-finance turns carrying no company figure at all**, where prose is the right shape; exactly
+one governed turn fell back to prose, and its references resolved anyway.
+
+### §46 — DIRECT MODEL vs SLOANE, on the same 125-prompt holdout
+
+`npm run sloane:direct-vs-sloane` — both arms on the same configured model, so a difference is Korvyn's doing
+and never a difference in raw capability.
+
+| | Phase 1.5 | Phase 2 |
+|---|---|---|
+| A — both answer generally | 7 (5.6%) | 7 (5.6%) |
+| **B — direct understands, SLOANE FAILS** | **0** | **0** |
+| C | 0 | 0 |
+| D — Sloane adds correct enterprise resolution | 105 (84.0%) | 85 (68.0%) |
+| E — Sloane adds INCORRECT resolution | 13 (10.4%) | 33 (26.4%) |
+
+**B held at zero, and E is the number to read carefully — part measurement, part a real defect this phase
+introduced.** Of the 33: **14 are the deterministic "a figure no governed read produced" check**, which now
+reads the TRACE rather than the wording of a person-facing note, so it sees typed figures inside a structured
+answer that Phase 1.5's harness could not see at all. The other 19 are the grader's reading, and **ten of them
+shared one cause: an answer published with `[figure unavailable]` in it** — the model cited fact ids that did
+not exist, and the renderer printed the placeholder inline. A sentence that names an account and a period and
+then states nothing still reads as data, which is worse than saying Korvyn does not have it.
+
+§18's own intent was written in a comment and not implemented ("the sentence holding it is withheld"). It is
+now: an assertion carrying a reference Korvyn cannot resolve is dropped, a sentence in the prose path likewise,
+and an answer with nothing left says so in one line. **Re-running the 23 worst cases after the fix: placeholders
+10 → 0, ungrounded turns 14 → 3, B still 0, and 18 of the 23 land in D.**
+
+Sloane's latency is 4.7s p50 against the bare model's 3.2s and it costs $1.27 against $0.38 for the 125
+prompts. That is the price of proving a figure, and it buys 85 answers the bare model cannot give at all.
+
+### §49 — THE ARCHITECTURE CHECKPOINT
+
+| | Phase 1.5 | Phase 2 |
+|---|---|---|
+| routing gates before the model reasons | 1 (`eligible()`) | 1 |
+| tools exposed to the model | 11 | **12** (`respond`) |
+| cacheable tool JSON | 2,593 tokens | 3,335 tokens |
+| model calls, ordinary turn | 1, or 2 with facts | unchanged |
+| context assemblies per turn | 1 (asserted) | 1 (asserted) |
+| new state stores | — | **none** — the registry rides in the conversation record |
+| regex operations, whole Phase 2 surface | — | `facts.ts` 1 · `respond.ts` 2 (one causal cue, one reference) |
+
+No routing layer was added and no phrase handler exists. The fact contract is 365 lines and the response
+contract 324; both are read by one call site each.
+
+### Traps
+
+- **Never pass replacement text through the shell — the twelfth and thirteenth time.** A quoted heredoc ate a
+  backslash twice in one session: once turning `\n` in a `console.log` into a real newline (an unterminated
+  string), once mangling a regex into `[^"\]`. Write the splice script with the Write tool, and read the
+  spliced lines back.
+- **A streamed character cannot be taken back**, so anything half-formed is held rather than shown.
+- **A benchmark keyed on a NOTE's wording stops counting when the wording changes.** `direct-vs-sloane` read
+  ungrounded figures out of the person-facing note; it reads the trace now.
+- **`lastIndexOf('{')` finds the inner brace of `{{`.** Truncating there leaves the outer one on screen.
+
+### Verified
+
+`npm run sloane:test` **203/203** (21 new in `v2p2.test.ts`, 6 new in `v2.test.ts`) · `sloane:dryrun` 35/35 ·
+`packages/core` 78/78 + boundary · **4/4 repo gates**, baselines unchanged · typecheck clean · every inline
+script block in `index.html` parses · the live A/B, the live benchmark and the live browser checks above.
+
+### Deliberately NOT done
+
+The Agentic Runtime v2 · charts · Excel · PowerPoint / PDF · any broadening into UI redesign beyond the
+narrative label · phrase-specific finance handlers · the v1 fallback is still in the tree and the flag is still
+off by default.
+
+### Open, and worth the owner's call
+
+- **A governed turn is 2× Phase 1.5's latency and cost.** The levers, in order of size: fewer output tokens
+  (the sections invite length), a smaller `respond` schema, and answering from the transcript where §16 allows
+  it.
+- **6 of 25 turns answered in prose rather than through `respond`.** Nothing is lost — the references resolve
+  either way — but those answers have no sections and no typed assertions.
+- **`AccountAnalysis` is deliberately NOT treated as a decomposition** for §20, so "driven by" on its bare
+  change fact reads as inference. Its own driver facts come from `getDriverAnalysis` and do support the claim.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

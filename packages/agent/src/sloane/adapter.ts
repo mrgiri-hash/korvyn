@@ -57,6 +57,14 @@ export interface ReasonInput {
   maxTokens?: number;
   /** called with each text delta as the model writes it; streaming is used only when this is supplied (§22) */
   onText?: (delta: string) => void;
+  /**
+   * PHASE 2 — the answer now arrives as a TOOL INPUT, not as text, so a caller that only watches text deltas
+   * sees nothing until the whole turn is finished. This is the same stream, read one block deeper: the tool's
+   * name and its input JSON as it is generated.
+   */
+  onToolInput?: (u: { name: string; partial: string }) => void;
+  /** tool names whose input should stream as it is written rather than arriving in one burst */
+  eagerTools?: string[];
 }
 export interface ReasonOut {
   stopReason: string | null;
@@ -202,6 +210,9 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
     if (!i.tools.length) return { status: 'error', code: 'invalid_output', detail: 'no governed tool is available to this actor', latencyMs: 0, requestId: null, ...answered };
     const tools = i.tools.map((t, n) => ({
       name: t.name, description: t.description, input_schema: t.input_schema as Anthropic.Beta.Messages.BetaTool['input_schema'],
+      /* eager input streaming: the answer is written INTO a tool input, so buffering it server-side would hold
+         the whole answer back until the turn ends. Only on a streaming call, and only for the named tools. */
+      ...(i.onToolInput && i.eagerTools?.includes(t.name) ? { eager_input_streaming: true } : {}),
       ...(n === i.tools.length - 1 ? { cache_control: { type: 'ephemeral' as const } } : {}),
     }));
     const params = {
@@ -216,12 +227,26 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
     };
     try {
       const ro = { ...(o.signal ? { signal: o.signal } : {}), ...(o.timeoutMs ? { timeout: o.timeoutMs } : {}) };
-      const msg = i.onText
+      const msg = i.onText || i.onToolInput
         ? await (() => {
             /* §22 — stream only when the caller wants deltas. The final message is the same shape either way, so
                nothing downstream knows which path ran; a stream that fails is reported like any other call. */
             const st = this.client.beta.messages.stream({ ...params, fallbacks: 'default' } as unknown as Anthropic.Beta.Messages.MessageCreateParamsStreaming, Object.keys(ro).length ? ro : undefined);
-            st.on('text', (t: string) => { try { i.onText!(t); } catch { /* a renderer that throws must not fail the turn */ } });
+            if (i.onText) st.on('text', (t: string) => { try { i.onText!(t); } catch { /* a renderer that throws must not fail the turn */ } });
+            if (i.onToolInput) {
+              /* the tool name lives on content_block_start and the input arrives as input_json_delta on the same
+                 index, so the two are joined here rather than guessed downstream */
+              const names = new Map<number, string>();
+              st.on('streamEvent', (raw) => {
+                const e = raw as unknown as { type?: string; index?: number; content_block?: { type?: string; name?: string }; delta?: { type?: string; partial_json?: string } };
+                try {
+                  if (e.type === 'content_block_start' && e.content_block?.type === 'tool_use' && typeof e.index === 'number') names.set(e.index, e.content_block.name ?? '');
+                  if (e.type === 'content_block_delta' && e.delta?.type === 'input_json_delta' && typeof e.index === 'number') {
+                    const name = names.get(e.index); if (name) i.onToolInput!({ name, partial: e.delta.partial_json ?? '' });
+                  }
+                } catch { /* a renderer that throws must not fail the turn */ }
+              });
+            }
             return st.finalMessage();
           })()
         : await this.client.beta.messages.create({ ...params, fallbacks: 'default' } as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming, Object.keys(ro).length ? ro : undefined);

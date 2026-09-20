@@ -132,6 +132,23 @@ categories, TTFT), `npm run sloane:direct-vs-sloane` (125-prompt holdout, direct
 **category B = 0**), `npm run sloane:v2-transcript` (the §18 window experiment). All spend credits. Full
 record, including every live number, in the root CLAUDE.md.
 
+**Core Runtime V2, Phase 2 (2026-09-20):** structural grounding, traceability and adaptive answers.
+`v2/facts.ts` — the canonical `FinancialFact` (kind, measure, governed `displayValue`, sign read from the VALUE,
+period/scope/book/basis/lens, source object ids, trace, supported drills, tie status), promotion from any
+governed object's own facts (`factsFrom`, ONE place, no tool rewritten), and a per-conversation `FactRegistry`
+bounded at 400 that evicts the least recently REFERENCED and rides in the existing `SLOANE_CONVERSATION`
+record. `v2/respond.ts` — the `ResponseDefinition` and the TERMINAL `respond` tool (§22: the model's last
+`tool_use` IS the answer, so no formatting pass and no extra call), typed assertions, causal-claim safety
+(§20: an unsupported "because" is demoted to INFERENCE, never deleted; a governed DECOMPOSITION supports it),
+adaptive rendering (DIRECT draws no headings) and the next steps read from the cited facts' own drills (§30).
+**The model never types a company figure: it writes `{{FACT:id}}` and `renderFacts` substitutes the governed
+value** — the only place an authoritative figure becomes text. `semantic/concepts.ts` gains
+`naturalMeasure`/`measureIntent`/`resolveMeasure` (§13: the verb decides stock vs flow, so capex asked as spend
+routes to `getAccountAnalysis`), `v2/compose.ts` gains measure-aware dispatch and business-language titles
+(§28). The answer streams out of the `respond` tool input (`onToolInput` + `eager_input_streaming`), with each
+complete reference resolved on the way past. `v2p2.test.ts`. Full record, including every live number, in the
+root CLAUDE.md.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

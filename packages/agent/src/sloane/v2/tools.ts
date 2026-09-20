@@ -26,6 +26,8 @@ import {
   authorize, toolRegistry,
 } from '../tools.js';
 import { composedByName, composedCoverage, composedFor } from './compose.js';
+import { type FactContext, type FactRegistry, type FinancialFact, factsFrom } from './facts.js';
+import { RESPOND_TOOL } from './respond.js';
 
 /* ================================================================================================
    THE CORE SET — the operations, in one stable order
@@ -55,7 +57,12 @@ export function coreTools(actor: Actor): SloaneTool[] {
  * These are not governed reads and they compute nothing. They are how the model hands a turn to a surface that
  * already exists: the 8C analysis grid, the 8D investigation runtime, or the person.
  */
-export const V2_CONTROL_TOOLS = ['open_analysis_grid', 'start_investigation', 'ask_clarification'] as const;
+/**
+ * PHASE 2 — `respond` joins them, and it is the one the model ends almost every turn with. It is a control
+ * tool for the same reason the other three are: it asks the PRODUCT to do something (compose the answer) and
+ * it terminates the loop, so the structure costs no extra model call (§22).
+ */
+export const V2_CONTROL_TOOLS = ['respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'] as const;
 export type V2ControlTool = (typeof V2_CONTROL_TOOLS)[number];
 export const isControlTool = (name: string): name is V2ControlTool => (V2_CONTROL_TOOLS as readonly string[]).includes(name);
 
@@ -66,8 +73,15 @@ export const isControlTool = (name: string): name is V2ControlTool => (V2_CONTRO
 export interface V2ToolDef {
   name: string;
   description: string;
-  input_schema: { type: 'object'; properties: Record<string, { type: 'string'; description: string }>; required: string[]; additionalProperties: false };
+  input_schema: { type: 'object'; properties: Record<string, V2Prop>; required: string[]; additionalProperties: false };
 }
+/**
+ * A governed tool's arguments are all strings (see below). `respond` is the exception and is not a governed
+ * tool: its lists are lists because a driver list IS a list, and nothing in it reaches a query.
+ */
+export type V2Prop =
+  | { type: 'string'; description: string }
+  | { type: 'array'; items: { type: 'string' }; description: string };
 
 /**
  * Every governed tool takes `Record<string, string>`, so every property is a string. That is deliberate and not a
@@ -87,6 +101,7 @@ export function toolDef(t: SloaneTool): V2ToolDef {
 }
 
 const CONTROL_DEFS: Record<V2ControlTool, V2ToolDef> = {
+  respond: RESPOND_TOOL,
   open_analysis_grid: {
     name: 'open_analysis_grid',
     description: 'Open or change the governed analysis grid — a pivot of governed balances or activity with rows, columns, periods and filters. Use this when the person wants a TABLE they will then reshape ("show June TB by entity", "break that down by project", "add a variance column"), not for a single figure or a narrative answer.',
@@ -142,6 +157,8 @@ export interface V2ToolOutcome {
   observation: CompactObservation;
   latencyMs: number;
   error: string | null;
+  /** Phase 2: the canonical facts this read produced, already registered and referenceable by id */
+  facts: FinancialFact[];
 }
 
 /** every argument arrives as text; anything else the model sent is coerced to text or dropped */
@@ -159,18 +176,21 @@ export function coerceArgs(raw: unknown): ToolArgs {
 }
 
 const fail = (name: string, args: ToolArgs, step: number, err: string, refused: boolean, ms = 0): V2ToolOutcome =>
-  ({ tool: name, ran: null, args, status: refused ? 'REFUSED' : 'FAILED', object: null, observation: compact(step, name, name, null, err, refused), latencyMs: ms, error: err });
+  ({ tool: name, ran: null, args, status: refused ? 'REFUSED' : 'FAILED', object: null, observation: compact(step, name, name, null, err, refused), latencyMs: ms, error: err, facts: [] });
 
 /**
  * §11/§35 — the ONE execution path. A composed operation resolves to a registered tool first; permission is then
  * re-checked on THAT tool even though it was filtered before exposure, because exposure happened at the start of
  * the turn and authority is what holds at the moment of the read.
  */
-export function runTool(name: string, raw: unknown, env: Omit<ToolEnv, 'objectId'>, step: number, objectSeq: number): V2ToolOutcome {
+export function runTool(
+  name: string, raw: unknown, env: Omit<ToolEnv, 'objectId'>, step: number, objectSeq: number,
+  facts?: { registry: FactRegistry; ctx: FactContext },
+): V2ToolOutcome {
   const given = coerceArgs(raw);
   const t0 = Date.now();
   const composed = composedByName(name);
-  let args = given, id = name, note: string | undefined;
+  let args = given, id = name, note: string | undefined, title: string | undefined;
 
   if (composed) {
     const missing = composed.def({ allows: () => true }).input_schema.required.filter((k) => !given[k]);
@@ -180,10 +200,10 @@ export function runTool(name: string, raw: unknown, env: Omit<ToolEnv, 'objectId
     catch (e) { return fail(name, given, step, e instanceof Error ? e.message : String(e), false, Date.now() - t0); }
     if (planned.kind === 'ANSWER') {
       /* the concept could not honestly produce a figure: that IS the governed answer */
-      return { tool: name, ran: null, args: given, status: 'COMPLETED', object: planned.object,
-        observation: compact(step, name, name, planned.object, null), latencyMs: Date.now() - t0, error: null };
+      return register({ tool: name, ran: null, args: given, status: 'COMPLETED', object: planned.object,
+        observation: compact(step, name, name, planned.object, null), latencyMs: Date.now() - t0, error: null, facts: [] }, facts);
     }
-    id = planned.tool; args = planned.args; note = planned.note;
+    id = planned.tool; args = planned.args; note = planned.note; title = planned.title;
   }
 
   const tool = toolRegistry.get(id);
@@ -196,13 +216,29 @@ export function runTool(name: string, raw: unknown, env: Omit<ToolEnv, 'objectId
 
   try {
     const r = tool.run(args, { ...env, objectId: `V2-FO-${objectSeq}` });
+    /* §28 — the dispatcher knows the person's own word for the subject; the registered tool only knew the codes */
+    if (title) r.object.title = title;
     const obs = compact(step, name, name, r.object, null);
     if (note) obs.note = obs.note ? `${note} ${obs.note}` : note;
-    return { tool: name, ran: id, args, status: 'COMPLETED', object: r.object, observation: obs, latencyMs: Date.now() - t0, error: null };
+    return register({ tool: name, ran: id, args, status: 'COMPLETED', object: r.object, observation: obs, latencyMs: Date.now() - t0, error: null, facts: [] }, facts);
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     return { ...fail(name, args, step, err, false, Date.now() - t0), ran: id };
   }
+}
+
+/**
+ * PHASE 2 — every governed figure this read produced becomes a canonical fact with an id, and the observation
+ * the model sees carries that id beside the value. That is the whole mechanism: the model can only cite a
+ * figure it was handed an id for, so a figure it never read has no way into the answer.
+ */
+function register(o: V2ToolOutcome, f?: { registry: FactRegistry; ctx: FactContext }): V2ToolOutcome {
+  if (!f || !o.object) return o;
+  const made = f.registry.add(factsFrom(o.object, f.ctx));
+  /* the observation's facts are the object's own, in order, so the id lands on the right one */
+  const byKey = new Map(made.map((x, i) => [o.object!.facts[i]?.key ?? x.label, x.factId]));
+  for (const of of o.observation.facts) { const id = byKey.get(of.key); if (id) of.id = id; }
+  return { ...o, facts: made };
 }
 
 /** what goes back to the model as a tool_result: the compact observation, as text, never the rows */

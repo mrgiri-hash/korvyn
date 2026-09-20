@@ -61,7 +61,14 @@ const CATEGORIES: { key: string; why: string; script: string[] }[] = [
   { key: 'analytical', why: 'several clauses, several reads, one answer', script: ['Which accounts moved most in June, and is any of it unexplained?'] },
 ];
 
-interface Row { runtime: string; category?: string; n: number; request: string; state: string; modelCalls: number; toolCalls: number; latencyMs: number; ttftMs: number; input: number; output: number; cacheRead: number; costUsd: number; reply: string }
+/**
+ * PHASE 2 §39–§44 — the same paid run measures whether the CONTRACT held, not only what it cost. A turn that
+ * answered through `respond` carries its response type and its references; a turn that typed a figure instead of
+ * referencing one is what `ungrounded` counts. These are Korvyn's own findings, read off the trace, never a
+ * grader's opinion of the prose.
+ */
+interface Quality { respond: boolean; responseType: string | null; factRefs: number; factsProduced: number; unresolved: number; ungrounded: string[]; violations: string[] }
+interface Row { runtime: string; category?: string; n: number; request: string; state: string; modelCalls: number; toolCalls: number; latencyMs: number; ttftMs: number; input: number; output: number; cacheRead: number; costUsd: number; reply: string; quality?: Quality }
 
 function measure(orch: SloaneOrchestrator, r: TurnResponse): Omit<Row, 'runtime' | 'category' | 'n' | 'request' | 'reply' | 'ttftMs'> {
   const t = orch.trace(r.traceId)!;
@@ -87,7 +94,12 @@ async function runConversation(label: string, orch: SloaneOrchestrator, sid: str
     }
     const said = r.reply ?? r.narrative.map((n) => n.text).join(' ');
     const m = measure(orch, r);
-    rows.push({ runtime: label, ...(category ? { category } : {}), n: i + 1, request: q, reply: said.slice(0, 400), ttftMs: ttft || (m.latencyMs ?? 0), ...m });
+    const v2t = label.startsWith('v2') ? orch.v2.recent(1)[0] : null;
+    const quality: Quality | undefined = v2t
+      ? { respond: !!v2t.responseType, responseType: v2t.responseType, factRefs: v2t.factRefs, factsProduced: v2t.factsProduced,
+          unresolved: v2t.unresolvedRefs.length, ungrounded: v2t.ungroundedFigures, violations: v2t.responseViolations }
+      : undefined;
+    rows.push({ runtime: label, ...(category ? { category } : {}), n: i + 1, request: q, reply: said.slice(0, 400), ttftMs: ttft || (m.latencyMs ?? 0), ...m, ...(quality ? { quality } : {}) });
     console.log(`  ${label} ${i + 1}. ${q}\n     → ${r.state} · ${rows.at(-1)!.modelCalls} calls · ${rows.at(-1)!.toolCalls} tools · ${rows.at(-1)!.latencyMs}ms · ttft ${rows.at(-1)!.ttftMs}ms\n     ${said.replace(/\s+/g, ' ').slice(0, 220)}`);
   }
   return rows;
@@ -170,6 +182,25 @@ function scorecard(rows: Row[]) {
   }
   const card = scorecard(rows);
   console.table(card);
+
+  /* §39–§44 — DID THE CONTRACT HOLD? One line per runtime, from the traces rather than from reading replies. */
+  const q = rows.filter((r) => r.quality).map((r) => r.quality!);
+  if (q.length) {
+    const grounding = {
+      turns: q.length,
+      answeredThroughRespond: q.filter((x) => x.respond).length,
+      factReferences: q.reduce((a, x) => a + x.factRefs, 0),
+      factsProduced: q.reduce((a, x) => a + x.factsProduced, 0),
+      unresolvedReferences: q.reduce((a, x) => a + x.unresolved, 0),
+      turnsWithATypedFigure: q.filter((x) => x.ungrounded.length).length,
+      typedFigures: q.flatMap((x) => x.ungrounded),
+      violations: q.flatMap((x) => x.violations),
+      responseTypes: Object.fromEntries([...new Set(q.map((x) => x.responseType ?? 'PROSE'))].map((t) => [t, q.filter((x) => (x.responseType ?? 'PROSE') === t).length])),
+    };
+    console.log('\n=== Phase 2: the fact-reference contract, live ===');
+    console.log(JSON.stringify(grounding, null, 2));
+    extra['grounding'] = grounding;
+  }
 
   /* §32 — the same numbers, per kind of turn. This is the table the decision is made from. */
   const catRows = rows.filter((r) => r.category);

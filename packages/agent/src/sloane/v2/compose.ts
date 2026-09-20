@@ -15,6 +15,7 @@
  * So the governance chain is untouched: permission is still checked per underlying tool, argument validation is
  * still the registered tool's, and the output is still a governed FinancialObject.
  */
+import { resolveMeasure } from '../semantic/concepts.js';
 import { accountArg, resolveSubject } from '../semantic/concepttools.js';
 import { base, row } from '../toolset.js';
 import { type Actor, type FinancialObject, type SloaneTool, type ToolArgs, type ToolEnv, authorize, toolRegistry } from '../tools.js';
@@ -22,7 +23,7 @@ import type { V2ToolDef } from './tools.js';
 
 /** what a composed tool decided: run this governed tool, or answer here because there is nothing honest to read */
 export type ComposedPlan =
-  | { kind: 'RUN'; tool: string; args: ToolArgs; note?: string }
+  | { kind: 'RUN'; tool: string; args: ToolArgs; note?: string; title?: string }
   | { kind: 'ANSWER'; object: FinancialObject; note?: string };
 
 export interface ComposedTool {
@@ -66,13 +67,37 @@ function blockedObject(env: ToolEnv, title: string, s: ReturnType<typeof resolve
  * A DEFAULTED concept resolves and carries a NOTE: Korvyn read the term the way a finance professional would, the
  * tenant has not ruled, and the answer has to say which reading it used (§7).
  */
-function subjectStep(args: ToolArgs, env: ToolEnv, title: string): { account?: string; note?: string; blocked?: ComposedPlan } {
+function subjectStep(args: ToolArgs, env: ToolEnv, title: string): { account?: string; note?: string; measure?: 'BALANCE' | 'ACTIVITY'; blocked?: ComposedPlan } {
   const s = resolveSubject(env, args['subject']);
   if (s.blocked) return { blocked: { kind: 'ANSWER', object: blockedObject(env, title, s), note: s.blocked.message } };
   const acct = accountArg(s);
   const note = s.resolution?.status === 'DEFAULTED' ? s.resolution.notes[0] : undefined;
-  return { ...(acct ? { account: acct } : {}), ...(note ? { note } : {}) };
+  /* §13 — what the person asked for: the explicit argument, else the sentence's own verb, else what the term
+     means. Capex asked as spend is ACTIVITY even though its accounts sit on the balance sheet. */
+  const measure = resolveMeasure(args['subject'] ?? '', s.resolution?.concept ?? null, args['measure']) ?? undefined;
+  return { ...(acct ? { account: acct } : {}), ...(note ? { note } : {}), ...(measure ? { measure } : {}) };
 }
+
+/**
+ * §28 — A TITLE IS READ BY A PERSON, AND THE PERSON SAID THE WORD.
+ *
+ * The registered tools name an object from what they were GIVEN, which is how a governed read of OPEX came back
+ * titled "Top movements by vendor · 50000,60000 · MDH · Jun 2026 vs May 2026" — accurate, and written in the
+ * argument list rather than in the language of the question. The dispatcher is the one place that still knows
+ * the person's own word for the subject, so it is the one place that can put it back.
+ *
+ * The codes are not lost: they stay on the object's refs, its provenance and its trace, which is where somebody
+ * checking the population looks for them.
+ */
+function businessTitle(subject: string | undefined, what: string, scope: string | undefined, periods: string): string | undefined {
+  if (!subject) return undefined;
+  const label = /^[\d,\s]+$/.test(subject) ? subject : subject.replace(/\s+/g, ' ').trim();
+  const name = label.length <= 3 ? label.toUpperCase() : label.charAt(0).toUpperCase() + label.slice(1);
+  const scoped = scope && scope !== 'GROUP' ? ` — ${scope}` : '';
+  return [`${name}${what ? ` ${what}` : ''}${scoped}`, periods].filter(Boolean).join(' · ');
+}
+const periodPhrase = (p: string | undefined, through?: string, cmp?: string) =>
+  through ? `${p}–${through}` : cmp && cmp.toLowerCase() !== 'none' ? `${p} vs ${cmp}` : (p ?? '');
 
 /** one governed argument map from several partial ones; a key with no value is dropped, never sent as empty */
 const A = (...parts: Record<string, string | undefined>[]): ToolArgs =>
@@ -93,6 +118,7 @@ const STATEMENT: ComposedTool = {
       subject: S('an account or group code, or a finance term in the person’s own words'),
       period: S('month, YYYY-MM'),
       through: S('for income_statement: the last month of a range, YYYY-MM'),
+      measure: S('balance | activity — whether they asked what is THERE at a date or what MOVED in the period. Leave out when the term itself settles it.'),
       scope: S('governed scope id (GROUP or an entity id); defaults to the conversation’s scope') },
     ['period']),
   plan(a, env) {
@@ -102,7 +128,16 @@ const STATEMENT: ComposedTool = {
       const s = subjectStep(a, env, `${a['subject']} · ${p}`);
       if (s.blocked) return s.blocked;
       if (!s.account) return { kind: 'RUN', tool: 'getFinancialSummary', args: A({ period: p, ...carry(a, ['scope']) }), note: `Korvyn could not resolve "${a['subject']}" to a governed line; showing the statement summary.` };
-      return { kind: 'RUN', tool: 'getFinancialStatementLine', args: A({ account: s.account, period: p, ...carry(a, ['scope']) }), ...(s.note ? { note: s.note } : {}) };
+      /* §13 — A STATEMENT LINE IS A BALANCE, AND THAT IS NOT ALWAYS WHAT WAS ASKED. "How much capex did we spend
+         in June" reaches this tool with capex's accounts, and returning their balance would answer a question
+         nobody asked with figures that are individually correct. An ACTIVITY measure goes to the analysis that
+         reports what posted in the window instead. */
+      if (s.measure === 'ACTIVITY') {
+        return { kind: 'RUN', tool: 'getAccountAnalysis', args: A({ account: s.account, period: p, ...carry(a, ['scope']) }),
+          note: s.note, title: businessTitle(a['subject'], 'activity', a['scope'], p) };
+      }
+      return { kind: 'RUN', tool: 'getFinancialStatementLine', args: A({ account: s.account, period: p, ...carry(a, ['scope']) }),
+        ...(s.note ? { note: s.note } : {}), title: businessTitle(a['subject'], 'balance', a['scope'], p) };
     }
     if (view.startsWith('income')) return { kind: 'RUN', tool: 'getIncomeStatement', args: A({ periodStart: p, periodEnd: a['through'] ?? p, scope: a['scope'] ?? 'GROUP' }) };
     if (view.startsWith('balance')) return { kind: 'RUN', tool: 'getBalanceSheet', args: A({ period: p, ...carry(a, ['scope']) }) };
@@ -126,6 +161,7 @@ const ANALYZE: ComposedTool = {
       top: S('how many movers to return (a number, as text) — ranks the largest movements'),
       minChange: S('ignore groups whose change is below this, in USD millions (a number, as text)'),
       vendor: S('narrow to one vendor'), project: S('narrow to one project'),
+      measure: S('balance | activity — whether they asked what is THERE at a date or what MOVED in the period'),
       scope: S('governed scope id (GROUP or an entity id)'), entity: S('narrow to one entity') },
     ['period']),
   plan(a, env) {
@@ -140,14 +176,16 @@ const ANALYZE: ComposedTool = {
     const minChange = a['minChange'] ? { minAbsChange: a['minChange'] } : {};
 
     const N = s.note ? { note: s.note } : {};
-    if (a['through'] && !dim) return { kind: 'RUN', tool: 'getTrend', args: A({ periodStart: p, periodEnd: a['through'], ...acct, ...filters }), ...N };
-    if (dim && a['through']) return { kind: 'RUN', tool: 'analyzeByDimension', args: A({ dimension: dim, periodStart: p, periodEnd: a['through'], ...acct, ...filters, ...minChange }), ...N };
-    if (dim && none) return { kind: 'RUN', tool: 'analyzeByDimension', args: A({ dimension: dim, periodStart: p, periodEnd: p, ...acct, ...filters, ...minChange }), ...N };
-    if (dim && a['top']) return { kind: 'RUN', tool: 'getTopMovements', args: A({ dimension: dim, period: p, ...cmp, ...acct, ...filters, topN: a['top'] }), ...N };
-    if (dim) return { kind: 'RUN', tool: 'getDriverAnalysis', args: A({ dimension: dim, period: p, ...cmp, ...acct, ...filters, ...minChange }), ...N };
+    const T = businessTitle(a['subject'], dim ? `by ${dim}` : '', a['entity'] ?? a['scope'], periodPhrase(p, a['through'], a['comparisonPeriod']));
+    const TT = T ? { title: T } : {};
+    if (a['through'] && !dim) return { kind: 'RUN', tool: 'getTrend', args: A({ periodStart: p, periodEnd: a['through'], ...acct, ...filters }), ...N, ...TT };
+    if (dim && a['through']) return { kind: 'RUN', tool: 'analyzeByDimension', args: A({ dimension: dim, periodStart: p, periodEnd: a['through'], ...acct, ...filters, ...minChange }), ...N, ...TT };
+    if (dim && none) return { kind: 'RUN', tool: 'analyzeByDimension', args: A({ dimension: dim, periodStart: p, periodEnd: p, ...acct, ...filters, ...minChange }), ...N, ...TT };
+    if (dim && a['top']) return { kind: 'RUN', tool: 'getTopMovements', args: A({ dimension: dim, period: p, ...cmp, ...acct, ...filters, topN: a['top'] }), ...N, ...TT };
+    if (dim) return { kind: 'RUN', tool: 'getDriverAnalysis', args: A({ dimension: dim, period: p, ...cmp, ...acct, ...filters, ...minChange }), ...N, ...TT };
     /* no dimension: an account subject gets the richer single read — activity, balance, change and its drivers */
-    if (s.account && !a['vendor'] && !a['project']) return { kind: 'RUN', tool: 'getAccountAnalysis', args: A({ account: s.account, period: p, ...cmp, ...carry(a, ['scope']) }), ...N };
-    return { kind: 'RUN', tool: 'comparePeriods', args: A({ period: p, ...cmp, ...acct, ...filters }), ...N };
+    if (s.account && !a['vendor'] && !a['project']) return { kind: 'RUN', tool: 'getAccountAnalysis', args: A({ account: s.account, period: p, ...cmp, ...carry(a, ['scope']) }), ...N, ...TT };
+    return { kind: 'RUN', tool: 'comparePeriods', args: A({ period: p, ...cmp, ...acct, ...filters }), ...N, ...TT };
   },
 };
 

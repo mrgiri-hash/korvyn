@@ -806,7 +806,12 @@ export interface TurnResponse {
   notes: string[];
   clarification: { pendingId: string; field: string; question: string; options: { id: string; label: string }[] } | null;
   objects: FinancialObject[];
-  narrative: { text: string; objectIds: string[] }[];
+  /**
+   * Phase 2: a narrative entry may carry a quiet section LABEL (§24) and the kind of ASSERTION it is
+   * (§19) — a governed fact, Korvyn's arithmetic over facts, the model's reading, or an admission. Both are
+   * optional: a plain conversational answer is one unlabelled entry, exactly as before.
+   */
+  narrative: { text: string; objectIds: string[]; label?: string; assertion?: string }[];
   context: { object: Field<string | null>; period: Field<string>; scope: Field<string>; currency: Field<string>; basis: Field<string>; focus: Field<string | null>; populationId: Field<string | null> };
   /** proposals prepared this turn — nothing in them has been executed */
   actions?: { planId: string; proposals: ActionProposal[] } | null;

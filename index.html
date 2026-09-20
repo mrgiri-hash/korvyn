@@ -2427,6 +2427,10 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .s2-nar{border-left:2px solid var(--ai);padding:var(--s-1) 0 var(--s-1) var(--s-3);margin-bottom:var(--s-3)}
 .s2-s{margin:0 0 var(--s-1);font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
 .s2-note{margin:var(--s-1) 0 0;font-size:var(--fs-label);color:var(--hint)}
+/* PHASE 2 (§24) — a governed answer arrives in SECTIONS, and each carries a quiet tracked label.
+   It is the design system's own --fs-label treatment: a size, a tracking and a colour, never a weight. */
+.s2-lab{margin:var(--s-2) 0 var(--s-1);font-size:var(--fs-label);letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--hint)}
+.s2-nar .s2-lab:first-child{margin-top:0}
 .s2-state{padding:var(--s-2) var(--s-4);font-size:var(--fs-label);color:var(--ai-ink);border-bottom:1px solid var(--line)}
 .s2-pend{margin:0;font-size:var(--fs-label);color:var(--hint)}
 .si-xlmeta{font-size:var(--fs-label);color:var(--hint);padding:var(--s-1) var(--s-2);border-top:1px solid var(--line)}
@@ -81545,7 +81549,13 @@ function s2Ground(narr, objects){ const facts={}, allTok=new Set(), accepted=[],
 
 /* ---- rendering (§18, §19) ------------------------------------------------------------------------ */
 function s2NarrHTML(g, note){ if(!g.accepted.length&&!note) return '';
-  return '<div class="s2-nar">'+g.accepted.map(s=>'<p class="s2-s" data-objects="'+glEsc(s.objectIds.join(' '))+'" data-facts="'+glEsc(s.factKeys.join(' '))+'">'+glEsc(s.text)+'</p>').join('')
+  /* PHASE 2 §21/§24 — the server sends the answer as SECTIONS, each with its own label and its own kind of
+     claim. The label is drawn quietly above the text; the assertion rides on the element rather than being
+     spelt out in prose, so a fact and an inference are distinguishable without the sentence saying so. */
+  return '<div class="s2-nar">'+g.accepted.map(s=>
+      (s.label?'<div class="s2-lab">'+glEsc(s.label)+'</div>':'')
+      +'<p class="s2-s" data-objects="'+glEsc(s.objectIds.join(' '))+'" data-facts="'+glEsc(s.factKeys.join(' '))+'"'
+      +(s.assertion?' data-assertion="'+glEsc(s.assertion)+'"':'')+'>'+glEsc(s.text)+'</p>').join('')
     +(note?'<p class="s2-note">'+glEsc(note)+'</p>':'')+'</div>'; }
 function s2StateUI(label){ const sc=$('cpScroll'); if(!sc) return; let el=$('s2State');
   if(!label){ if(el) el.remove(); return; }
@@ -81984,7 +81994,7 @@ function s2ServerRender0(raw, r){
   const cvo=(r.objects||[]).find(x=>x.type==='DynamicFinancialCanvas'&&x.canvas);
   if(cvo){ const d=cvo.canvas; return {state:r.state==='ANSWER'?SF_STATE.ANSWER:SF_STATE.UNAVAILABLE, kind:'canvas', inherit:!!(d.intent&&d.intent.refinement), title:r.title||d.title, html:c8CanvasHTML(d, 'all', notes)}; }
   if(r.state==='ANSWER'&&(r.objects||[]).length){ const o=r.objects[0];
-    const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[]}))}, notes.join(' '))+pend;
+    const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[], label:n.label||'', assertion:n.assertion||''}))}, notes.join(' '))+pend;
     const pv=o.provenance||{};
     const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
     /* Phase 7: a goal became a governed run — the run card IS the answer */

@@ -56,10 +56,22 @@ export interface ConceptMapping {
   note: string;
 }
 
+/**
+ * PHASE 2 §13 — IS THE TERM A STOCK OR A FLOW?
+ *
+ * The accounts do not settle this and assuming they do is the defect Phase 1.5 shipped. "Capex" resolves to CIP
+ * and PP&E, which are balance-sheet accounts, so a question about SPEND came back with a BALANCE — every figure
+ * governed, the answer wrong. Capex is a flow whatever its accounts are; CIP is a stock; a reconciliation is
+ * neither. A concept that leaves this unset takes its accounts' own nature, which is right for most of them.
+ */
+export type NaturalMeasure = 'BALANCE' | 'ACTIVITY';
+
 export interface FinancialConcept {
   conceptId: string;
   canonicalName: string;
   category: ConceptCategory;
+  /** what this TERM means when the sentence does not say; the sentence's verb still wins (§13) */
+  naturalMeasure?: NaturalMeasure;
   /** the GENERAL accounting meaning — what any competent finance professional would say, tenant-independent */
   definition: string;
   aliases: string[];
@@ -121,7 +133,7 @@ export const FINANCIAL_CONCEPTS: readonly FinancialConcept[] = [
     ],
   },
   {
-    conceptId: 'CAPITAL_EXPENDITURE', canonicalName: 'Capital expenditure', category: 'MEASURE',
+    conceptId: 'CAPITAL_EXPENDITURE', canonicalName: 'Capital expenditure', category: 'MEASURE', naturalMeasure: 'ACTIVITY',
     definition: 'Spend capitalised onto the balance sheet rather than expensed — additions to construction in progress and to property, plant and equipment.',
     aliases: ['capex', 'cap ex', 'cap-ex', 'capital expenditure', 'capital spend', 'capital spending', 'development spend', 'development spending', 'growth spend'],
     broader: [], narrower: ['CONSTRUCTION_IN_PROGRESS'], related: ['OPERATING_EXPENSE', 'PPE', 'DEPRECIATION_AMORTIZATION'],
@@ -136,7 +148,7 @@ export const FINANCIAL_CONCEPTS: readonly FinancialConcept[] = [
     ],
   },
   {
-    conceptId: 'CONSTRUCTION_IN_PROGRESS', canonicalName: 'Construction in progress', category: 'MEASURE',
+    conceptId: 'CONSTRUCTION_IN_PROGRESS', canonicalName: 'Construction in progress', category: 'MEASURE', naturalMeasure: 'BALANCE',
     definition: 'Capitalised project cost for assets not yet placed in service.',
     aliases: ['cip', 'cwip', 'construction in progress', 'construction-in-progress', 'work in progress', 'construction', 'projects under construction'],
     broader: ['CAPITAL_EXPENDITURE'], narrower: [], related: ['PPE', 'CAPITALIZED_INTEREST'],
@@ -624,6 +636,39 @@ const tenantTermIn = (text: string): TenantTerm | null => {
 function chartValid(gl: GovernedLedger, m: ConceptMapping): boolean {
   if (m.kind === 'DERIVED' || m.kind === 'PROCESS' || m.kind === 'NOT_HELD') return true;
   return m.members.length > 0 && m.members.every((code) => !!gl.account(code));
+}
+
+/* ================================================================================================
+   §13/§14 — MEASURE INTENT: READ THE VERB, NOT THE NOUN
+   ================================================================================================ */
+
+/**
+ * These are ASPECT cues, not finance phrases, and the difference matters for §35: "sitting in", "as at" and
+ * "how much is there" are stative — they ask about a state at a moment. "Spent", "during June", "how much did we"
+ * and "movement" are perfective or durative — they ask about something that happened over an interval. That
+ * distinction is ordinary English grammar and it holds for any noun, which is why it can decide capex, CIP, cash
+ * and a term nobody has thought of yet without a rule per term.
+ */
+const FLOW_CUE = /\b(spen[dt]|spending|incur(?:red)?|activity|additions?|movement|moved|posted|during|burn(?:ing|ed)?|outflow|inflow|run.?rate|per month|this month|in the month|over the (?:month|period|quarter|year))\b/i;
+const STOCK_CUE = /\b(balance|sitting|stands?|standing|as (?:at|of)|on hand|carrying|held|outstanding|position|how much is (?:in|there)|what(?:'s| is) (?:in|our) )\b/i;
+
+/**
+ * What quantity the question is asking for. Returns null when the sentence does not say — the concept's own
+ * nature then decides, which is the honest order: an explicit verb beats a term's default, and a term's default
+ * beats a guess from the account type.
+ */
+export function measureIntent(text: string): NaturalMeasure | null {
+  const t = norm(text);
+  const flow = FLOW_CUE.test(t), stock = STOCK_CUE.test(t);
+  if (flow === stock) return null;
+  return flow ? 'ACTIVITY' : 'BALANCE';
+}
+
+/** the resolved measure for a subject: what was asked, else what the term means, else nothing stated */
+export function resolveMeasure(text: string, concept: FinancialConcept | null, explicit?: string | null): NaturalMeasure | null {
+  const e = (explicit ?? '').trim().toUpperCase();
+  if (e === 'BALANCE' || e === 'ACTIVITY') return e;
+  return measureIntent(text) ?? concept?.naturalMeasure ?? null;
 }
 
 export interface ConceptResolveInput {
