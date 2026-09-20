@@ -11204,6 +11204,51 @@ off by default.
 - **`AccountAnalysis` is deliberately NOT treated as a decomposition** for §20, so "driven by" on its bare
   change fact reads as inference. Its own driver facts come from `getDriverAnalysis` and do support the claim.
 
+## 2026-09-20 — the brand lockup: two artworks, and the invert hack retired
+
+Owner supplied the 2026 brand sheet (`design-system/Korvyn Logo.png`). The mark is EXTRACTED from the
+supplied artwork, never redrawn — the file's own comment has said so since the first lockup landed, and
+it is the trademark.
+
+**KEYED, NOT CUT OUT.** The sheet's bottom panels are flat colour, so every pixel is an exact composite
+`P = a·C + (1-a)·B` over a known background: alpha is the max-channel deviation ÷ the crop's maximum,
+and the colour is `B + (P-B)/a`. That gives a true anti-aliased edge with no halo and no matte. **The
+hero panel was rejected as a source** even though it is higher resolution: its background is a gradient
+`(3,6,11)→(13,27,42)`, and exact unpremultiply needs one `B`.
+
+**TWO ARTWORKS, NOT ONE ARTWORK AND A FILTER.** The sheet supplies the wordmark for a dark chrome (white
+ink) and for a light one (navy ink), and **both carry the same blue wing on the K** — so a filter can no
+longer stand in for the second: inverting white ink would invert the wing with it.
+`assets/korvyn-lockup-dark.png` (391×88) and `assets/korvyn-lockup-light.png` (390×86) are both keyed to
+transparency, so neither carries a rectangle onto the ribbon. `assets/korvyn-mark.png` is the standalone
+K, kept and currently unused.
+
+**AND THAT RETIRED A LATENT BUG.** `[data-chrome="light-chrome"] .brand-lockup{filter:invert(1)
+brightness(.72)}` keyed on the theme ID ALONE. `light-chrome` is the one theme whose LIGHT variant is
+genuinely light (`#EDF0F5`); its DARK variant is a dark chrome (`#0E1219`), so the rule inverted white
+artwork to near-black on a near-black chrome whenever that theme was used in dark mode. The swap now
+follows the RESOLVED polarity — theme id AND mode:
+`body[data-chrome="light-chrome"]:not([data-theme="dark"])`.
+
+**THE FAVICON IS THE TILE, NOT THE BARE K.** The standalone mark half-disappears on a dark chrome,
+because the sheet's icon panel is light and its K therefore carries a navy swoosh. A favicon lands on a
+browser chrome this page does not control, and only the tile carries its own background —
+`assets/korvyn-app-icon.png` (115×115, padded square from a 115×112 crop, so a favicon is never scaled
+non-uniformly).
+
+**Resolution was reasoned about, not guessed.** The lockup draws at 30px tall (24px under a 1100px
+viewport) against a 66px source, so the render path is always downscaling, even at 2× DPR. 256-colour
+palette quantisation is indistinguishable at that size (checked on a 4×-magnified contact sheet), so the
+saving was taken: embedded b64 totals 46,336 chars across three assets against the previous single
+29,696. `assets/korvyn-logo.png` — the previous brand — is left in place as history.
+
+**Verified:** 75/79 view keys render with 0 console errors (the four are the documented lens-scoped
+aliases and the unreachable `consol`) · 4/4 gates, baselines unchanged · both polarities asserted live —
+light-chrome + light mode shows the navy artwork at 136px and hides the white one, light-chrome + dark
+mode keeps the white artwork visible (the case the retired filter got wrong) · both images load at their
+declared natural sizes · the favicon is installed.
+
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
