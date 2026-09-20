@@ -36,7 +36,10 @@ import {
 } from './conversation.js';
 import { type V2ToolOutcome, isControlTool, observationText, runTool, toolDefinitions } from './tools.js';
 import { FactRegistry, type FinancialFact, bareFigures, renderFacts, withoutRefs } from './facts.js';
-import { type RespondInput, type ResponseDefinition, buildResponse, renderResponse } from './respond.js';
+import { type RespondInput, type ResponseDefinition, buildResponse, drillOffers, renderResponse } from './respond.js';
+import {
+  type Offer, type ResponseStrategy, composeDirect, directEligible, drillCall, offerTaken,
+} from './strategy.js';
 
 /** what a handoff into an existing v1 surface gives back; v2 renders none of it itself */
 export interface V2Handoff { state: TurnState; extra: Partial<TurnResponse>; notes: string[] }
@@ -73,6 +76,17 @@ export interface V2TurnOut { state: TurnState; path: V2Path; extra: Partial<Turn
 
 const now = () => Date.now();
 
+/**
+ * §24 — WHOSE TOKENS THESE WERE. A benchmark run, a test and a person's question are three workloads, and a cost
+ * report that adds them together is not a cost report. This does not redesign any account infrastructure; it puts
+ * one honest label on every trace so the three can be told apart afterwards.
+ */
+const workload = (): V2Trace['workload'] =>
+  (process.env['KORVYN_WORKLOAD'] === 'AUTOMATED_EVALUATION' ? 'AUTOMATED_EVALUATION'
+    /* the node test runner announces itself in every worker; NODE_ENV is not set by it and is not reliable */
+    : process.env['KORVYN_WORKLOAD'] === 'DEVELOPMENT_TEST' || !!process.env['NODE_TEST_CONTEXT'] || process.env['NODE_ENV'] === 'test' ? 'DEVELOPMENT_TEST'
+      : 'SLOANE_RUNTIME');
+
 export class SloaneV2 {
   private readonly traces: V2Trace[] = [];
   constructor(private readonly deps: V2Deps) {}
@@ -96,6 +110,92 @@ export class SloaneV2 {
   /** the durable conversation, for tests and the development trace */
   conversation(sessionId: string, actor: Actor): ConversationBody { return loadConversation(sessionId, actor, this.seed(actor)); }
 
+  /**
+   * PHASE 2.5 §6 — WHAT A DIRECT ANSWER DOES INSTEAD OF A SECOND MODEL CALL.
+   *
+   * Everything here also happens on the reasoned path: the SAME `renderResponse` resolves the references and
+   * withholds a sentence Korvyn cannot fill in, the same offers are computed from the cited facts, the same
+   * record is written. §6 is explicit that there must not be a second formatter, and there is not — what differs
+   * is only who wrote the ResponseDefinition, and both writers hand it to one renderer.
+   */
+  private finishDirect(a: {
+    body: ConversationBody; actor: Actor; request: string; trace: V2Trace;
+    notes: string[]; note: (s: string) => void; facts: FactRegistry;
+    objects: FinancialObject[]; outcomes: V2ToolOutcome[]; def: ResponseDefinition;
+    path: V2Path; done: (state: TurnState, path: V2Path, extra: Partial<TurnResponse>) => V2TurnOut;
+    onDelta?: ((t: string) => void) | undefined; t0: number;
+  }): V2TurnOut {
+    const rendered = renderResponse(a.def, a.facts);
+    a.trace.responseType = a.def.responseType;
+    a.trace.factRefs = a.def.factRefs.length;
+    a.trace.unresolvedRefs = rendered.unresolved;
+    a.trace.ungroundedFigures = rendered.bare;
+    if (rendered.typed.length) a.trace.responseViolations = [...a.trace.responseViolations, `figures typed rather than referenced: ${rendered.typed.join(', ')}`];
+    a.trace.factsProduced = a.outcomes.reduce((n, o) => n + o.facts.length, 0);
+    /* APPENDED, not assigned: the §16 escape is recorded by the caller BEFORE it hands the turn here, and
+       overwriting it would lose the one finding that says why Korvyn had to compose the answer itself. */
+    a.trace.responseViolations = [...a.trace.responseViolations, ...a.def.violations];
+    if (rendered.unresolved.length) a.note('Sloane could not resolve part of that; it is not showing it.');
+
+    /* §13/§14 — the answer exists NOW, so a caller watching for text gets it now. Nothing was streamed while the
+       read ran, which is honest: there was no answer to stream, and a placeholder would not have been one. */
+    if (a.onDelta && rendered.text) {
+      if (a.trace.firstTokenMs === null) a.trace.firstTokenMs = now() - a.t0;
+      if (a.trace.firstUsefulMs === null) a.trace.firstUsefulMs = now() - a.t0;
+      a.onDelta(rendered.text);
+    }
+    const out = this.publish(a.body, a.actor, a.request, a.path, a.objects, a.outcomes, rendered.text, a.facts, a.def);
+    return a.done('ANSWER', a.path, {
+      notes: a.notes, objects: a.objects, narrative: out.narrative,
+      ...(rendered.nextActions.length ? { suggestions: rendered.nextActions } : {}),
+    });
+  }
+
+  /**
+   * The record, the offers and the narrative — written once, by whichever path produced the answer.
+   *
+   * §19: the offers are stored WITH the fact each one would drill from, so the next turn can run a drill the
+   * person clicked without asking a model what they meant.
+   */
+  private publish(
+    body: ConversationBody, actor: Actor, request: string, path: V2Path,
+    objects: FinancialObject[], outcomes: V2ToolOutcome[], answer: string,
+    facts: FactRegistry, def: ResponseDefinition | null,
+  ): { narrative: { text: string; objectIds: string[]; label?: string; assertion?: string }[] } {
+    const refs = {
+      toolCalls: outcomes.map((o) => ({ tool: o.tool, args: o.args })),
+      objectIds: objects.map((o) => o.id),
+      populationIds: [...new Set(objects.map((o) => o.population?.populationId).filter((x): x is string => !!x))],
+      evidenceIds: [] as string[],
+      analysisId: body.state.activeAnalysisId,
+      agentRunId: body.state.agentRunId,
+    };
+    const focused = objects.filter((o) => o.focus).at(-1);
+    const population = objects.map((o) => o.population?.populationId).filter(Boolean).at(-1) ?? null;
+    const merged = Object.assign({}, ...objects.map((o) => o.refs)) as Record<string, string>;
+    /* §7 — the word THIS answer used for its subject, so a drill taken from it can say it back rather than
+       naming the codes it resolved to */
+    const said = outcomes.map((o) => o.ctx.subject).filter(Boolean).at(-1) ?? null;
+    const offers: Offer[] = def ? drillOffers(def, facts, said) : [];
+    const next: ConversationBody = {
+      ...body,
+      state: {
+        ...body.state,
+        activeObject: focused?.focus ?? body.state.activeObject,
+        activePopulationId: population ?? body.state.activePopulationId,
+        lastRefs: { ...body.state.lastRefs, ...merged },
+        offers,
+      },
+    };
+    saveConversation({ ...appendTurn(next, { userMessage: request, assistantMessage: answer, path, refs }), facts: facts.snapshot() }, actor);
+    const rendered = def ? renderResponse(def, facts) : null;
+    return {
+      narrative: rendered
+        ? rendered.parts.map((pt) => ({ text: pt.text, objectIds: pt.objectIds.length ? pt.objectIds : objects.map((o) => o.id), ...(pt.label ? { label: pt.label } : {}), assertion: pt.assertion }))
+        : [{ text: answer, objectIds: objects.map((o) => o.id) }],
+    };
+  }
+
   private seed(actor: Actor) {
     const scope = actor.scopeIds === 'ALL' ? 'GROUP' : actor.scopeIds[0]!;
     return {
@@ -113,12 +213,23 @@ export class SloaneV2 {
       runtime: 'v2', traceId: `V2-${randomUUID().slice(0, 8)}`, sessionId, path: 'conversation',
       request: input.request.slice(0, V2_LIMITS.maxRequestChars), model: null, escalationReason: null,
       modelCalls: 0, toolCalls: 0, contextBuilds: 0, toolsExposed: 0, transcriptTurns: 0, latencyMs: 0,
-      firstTokenMs: null, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
+      firstTokenMs: null, firstUsefulMs: null, strategy: null, strategyReason: null, directShape: null,
+      workload: workload(), inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
       calls: [], tools: [], activeStateRefs: {}, ungroundedFigures: [],
       factsProduced: 0, factRefs: 0, unresolvedRefs: [], responseType: null, responseViolations: [], notes: [],
     };
     const notes: string[] = [];
     const note = (s: string) => { if (s && !notes.includes(s)) notes.push(s); };
+    /**
+     * PHASE 2.5 §12 — A DISCLOSURE IS SAID ONCE PER CONVERSATION, NOT ONCE PER ANSWER.
+     *
+     * "Korvyn read that as total operating cost, excluding D&A" has to be in the FIRST answer about OPEX; by the
+     * third it is a paragraph the person has already read, attached to a one-line figure. It is dropped when the
+     * same sentence is already in the transcript — which is a fact about this conversation, not about the words,
+     * so it generalises to any note a dispatcher ever carries.
+     */
+    const fresh = (n: string | null | undefined): string | null =>
+      (n && !body.turns.some((t) => t.assistantMessage.includes(n)) ? n : null);
     const spend = (u: Usage | null | undefined) => {
       if (!u) return;
       trace.inputTokens += u.inputTokens; trace.outputTokens += u.outputTokens;
@@ -128,7 +239,7 @@ export class SloaneV2 {
       trace.path = path; trace.latencyMs = now() - t0;
       trace.notes = notes.slice();
       this.traces.push(trace); if (this.traces.length > 200) this.traces.shift();
-      console.log(`[sloane:v2] ${trace.traceId} ${path} ${state} ${trace.latencyMs}ms${trace.firstTokenMs === null ? '' : ` ttft=${trace.firstTokenMs}ms`} calls=${trace.modelCalls} tools=${trace.toolCalls} in=${trace.inputTokens} out=${trace.outputTokens} cacheRead=${trace.cacheReadTokens} cacheWrite=${trace.cacheWriteTokens}`);
+      console.log(`[sloane:v2] ${trace.traceId} ${path}${trace.strategy ? `/${trace.strategy === 'GROUNDED_DIRECT' ? 'direct' : 'reason'}` : ''} ${state} ${trace.latencyMs}ms${trace.firstTokenMs === null ? '' : ` ttft=${trace.firstTokenMs}ms`}${trace.firstUsefulMs === null ? '' : ` ttfua=${trace.firstUsefulMs}ms`} calls=${trace.modelCalls} tools=${trace.toolCalls} in=${trace.inputTokens} out=${trace.outputTokens} cacheRead=${trace.cacheReadTokens} cacheWrite=${trace.cacheWriteTokens}`);
       return { state, path, extra, notes, trace };
     };
 
@@ -153,6 +264,54 @@ export class SloaneV2 {
       body = setPending(body, null);
     }
     if (!request) return done('ERROR', 'deterministic', { notes: ['request is required'] });
+
+    /* ---- 1b. §19/§20 — AN OFFER THE PERSON TOOK ------------------------------------------------
+       Korvyn ends a governed answer with what can be looked at next, read from the cited facts' own drills.
+       The browser renders each as a chip that sends its label back as the next message, so a request that is
+       EXACTLY one of those labels is not a question to be understood — it is a row of a menu Korvyn wrote, and
+       the drill behind it was decided when the offer was made. That turn costs NO model call.
+
+       The match is exact on the normalised label and deliberately not fuzzy: a near-match rule would be a phrase
+       handler under another name and would start answering things nobody clicked. A TYPED drill goes to the
+       model like any other request and costs one call.
+
+       §29 DOES NOT APPLY HERE, and the reason is worth stating because the rule below it is absolute. That rule
+       exists because an answer can be narrower than the QUESTION and only the model knows the question. An offer
+       is KORVYN'S OWN SENTENCE about a fact already on this reader's screen and already inside their visibility —
+       there is no wider question it could be narrowing. The scope is still named in the answer (`scopeClause`),
+       so a limited reader clicking a chip gets their entity named and does not pay a model call to be told
+       something Korvyn wrote the label for. */
+    const taken = offerTaken(request, body.state.offers);
+    if (taken) {
+      const fact = facts.get(taken.factId);
+      const call = fact ? drillCall(taken, fact, { period: body.state.period, scope: body.state.scope }) : null;
+      if (call) {
+        const env: Omit<ToolEnv, 'objectId'> = {
+          data: this.deps.data, gl: this.deps.gl, controls: this.deps.controls, actor, visible: visibleOf(actor),
+          ...(this.deps.artifacts ? { artifacts: this.deps.artifacts } : {}),
+          ...(this.deps.pbc ? { pbc: this.deps.pbc } : {}),
+        };
+        const o = runTool(call.tool, call.args, env, 1, 1, { registry: facts, ctx: factCtx });
+        trace.toolCalls += 1;
+        trace.tools.push({ tool: o.tool, status: o.status === 'COMPLETED' ? 'COMPLETED' : o.status === 'REFUSED' ? 'REFUSED' : 'FAILED', latencyMs: o.latencyMs, error: o.error });
+        /* the offer's word beats the code the drill resolved by (§7): `subject` here is `'50000,60000'`, and
+           the person called it OPEX one turn ago */
+        const word = taken.subject ?? o.ctx.subject;
+        /* §20 — the title, too: a drill resolves by code, and "GL population · 50000,60000 · Jun 2026" is the
+           argument list talking. The codes stay on the object's refs and in its trace, where they belong. */
+        if (o.object && taken.subject) o.object.title = o.object.title.replace(/[\d]{4,}(?:\s*,\s*[\d]{4,})*/, taken.subject);
+        const built = o.status === 'COMPLETED' && o.object
+          ? composeDirect(o.object, o.facts, { actor, subject: word, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] })
+          : null;
+        if (built) {
+          trace.strategy = 'GROUNDED_DIRECT'; trace.directShape = built.shape;
+          trace.strategyReason = 'the person took an offer Korvyn made';
+          return this.finishDirect({ body, actor, request, trace, notes, note, facts, objects: [o.object!], outcomes: [o], def: built.def, path: 'drill', done, onDelta: input.onDelta, t0 });
+        }
+        /* the drill could not be composed — say nothing about it and let the model have the turn */
+        trace.strategyReason = 'the offer resolved to nothing Korvyn could state on its own';
+      }
+    }
 
     /* ---- 2. the context, built ONCE ------------------------------------------------------------ */
     const tools = toolDefinitions(actor);
@@ -217,6 +376,8 @@ export class SloaneV2 {
             const shown = renderFacts(text, facts).text;
             if (shown.length <= stream.sent) return;
             if (trace.firstTokenMs === null) trace.firstTokenMs = now() - t0;
+            /* §14 — the headline of `respond` IS the answer, so its first character is the first USEFUL one */
+            if (trace.firstUsefulMs === null) trace.firstUsefulMs = now() - t0;
             input.onDelta!(shown.slice(stream.sent));
             stream.sent = shown.length;
           }
@@ -309,6 +470,28 @@ export class SloaneV2 {
         if (o.status === 'REFUSED' && o.error) note(`Not permitted: ${o.error}.`);
         return { use: u, text: observationText(o.observation) };
       });
+      /* ---- §5/§6 — THE STRATEGY DECISION -------------------------------------------------------
+         This is the whole of Phase 2.5. The model declared, on the read it asked for, whether that read settles
+         the question or is raw material for a judgement. Korvyn now checks that declaration against what came
+         back and, where it holds, ANSWERS — the second model call is not made, because it would add a sentence
+         Korvyn can already write and nothing else.
+
+         The model PROPOSES and Korvyn VALIDATES: a declaration Korvyn cannot honour falls through to the call
+         below, so a wrong declaration costs one extra call and can never produce a wrong answer. */
+      const elig = directEligible(outcomes, actor);
+      if (elig.ok) {
+        const o = elig.outcome;
+        const built = composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] });
+        if (built) {
+          trace.strategy = 'GROUNDED_DIRECT'; trace.directShape = built.shape; trace.strategyReason = null;
+          return this.finishDirect({ body, actor, request, trace, notes, note, facts, objects, outcomes, def: built.def, path: 'analytical', done, onDelta: input.onDelta, t0 });
+        }
+        trace.strategyReason = 'no composer fits this governed result';
+      } else {
+        trace.strategyReason = elig.reason;
+      }
+      trace.strategy = 'GROUNDED_REASONING';
+
       /* the one-line reminder that costs nothing and changes what the next call does: left to itself after a
          tool result a model writes prose, and prose is the one shape that carries no sections. The prose path
          is still handled, but it is the fallback, not the road. */
@@ -327,7 +510,8 @@ export class SloaneV2 {
       analysisId: body.state.activeAnalysisId,
       agentRunId: body.state.agentRunId,
     };
-    /* the governed state moves with what was actually read — identities only, never a figure */
+    /* the governed state moves with what was actually read — identities only, never a figure. A clarification
+       and a handoff write the record here; an ANSWER writes it through `publish`, which also stores the offers. */
     const focused = objects.filter((o) => o.focus).at(-1);
     const population = objects.map((o) => o.population?.populationId).filter(Boolean).at(-1) ?? null;
     const merged = Object.assign({}, ...objects.map((o) => o.refs)) as Record<string, string>;
@@ -391,6 +575,11 @@ export class SloaneV2 {
       trace.factRefs = response.factRefs.length;
       trace.unresolvedRefs = rendered.unresolved;
       trace.ungroundedFigures = rendered.bare;
+      /* §17 — a figure the registry already holds was Korvyn's own number written the long way round. It is a
+         contract miss and is recorded as one; it is not a warning, because there is nothing for the person to
+         check: the value, its sign and its scale are the governed ones. Only a figure Korvyn cannot find at all
+         can be wrong, and only that one is said out loud. */
+      if (rendered.typed.length) trace.responseViolations = [...trace.responseViolations, `figures typed rather than referenced: ${rendered.typed.join(', ')}`];
       if (rendered.unresolved.length) note('Sloane referred to a figure Korvyn could not resolve; that part of the answer is withheld.');
       if (rendered.bare.length) {
         note(`${rendered.bare.join(', ')} ${rendered.bare.length > 1 ? 'were' : 'was'} written without a governed reference — check ${rendered.bare.length > 1 ? 'them' : 'it'} against the figures below.`);
@@ -398,6 +587,38 @@ export class SloaneV2 {
       response.violations.filter((v) => v.startsWith('figure stated with no governed read')).forEach(() => {
         note('Sloane stated a company figure without reading it; treat that part as unverified.');
       });
+    } else if (governedProse(answer, outcomes)) {
+      /* §16 — THE ESCAPE HATCH IS CLOSED WITH THE MECHANISM, NOT WITH A WARNING.
+         Phase 2 measured one governed turn in twenty-five answering in prose rather than through `respond`. The
+         references still resolved, so the figures were right; what was lost was the structure, and with it the
+         withholding rule and the offers. Rather than warn about it, Korvyn composes the answer itself from the
+         governed result — the SAME composer a direct answer uses. The model's prose is discarded, because a
+         sentence Korvyn did not build is a sentence Korvyn cannot stand behind at this point in the turn. */
+      const o = outcomes.filter((x) => x.status === 'COMPLETED' && x.object && x.facts.length).at(-1)!;
+      const built = composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] });
+      if (built) {
+        trace.responseViolations = ['answered in prose; Korvyn composed the answer from the governed result'];
+        trace.directShape = built.shape;
+        return this.finishDirect({ body, actor, request, trace, notes, note, facts, objects, outcomes, def: built.def, path: 'analytical', done, onDelta: undefined, t0 });
+      }
+      /* No composer fits this governed result — a statement summary is six lines and is not one figure — so the
+         prose stands, MINUS any sentence carrying a figure the model typed rather than referenced. That is the
+         same rule §18 already applies to an unresolved reference, for the same reason: a sentence that names a
+         line and a period and then states a number Korvyn cannot point at still reads as data. Dropping it
+         costs a general-knowledge aside inside a governed answer, and the note says what happened. */
+      const withValues = renderFacts(answer, facts).text;
+      /* §17 — THE SPLIT IS THE SAME ON EVERY PATH. A figure the registry already holds is Korvyn's own number
+         written the long way round: the value, the sign and the scale are governed and there is nothing for the
+         person to check, so the sentence stays. Only a figure Korvyn cannot find at all is dropped. Applying the
+         split on `respond` alone was how 13 of the 125 benchmark prompts reported real governed values as
+         unsupported. */
+      const split = classify(answer, facts);
+      const kept = withValues.split(/(?<=[.!?])\s+/).filter((sn) => !bareFigures(withoutRefs(sn)).some((b) => !facts.holdsDisplay(b) && !facts.holdsMagnitude(b)));
+      answer = kept.join(' ').trim() || 'Korvyn read the governed figures below; it is not restating them, because it could not verify how they were written.';
+      trace.responseViolations = ['answered in prose and Korvyn could not compose the governed result',
+        ...(split.typed.length ? [`figures typed rather than referenced: ${split.typed.join(', ')}`] : [])];
+      trace.ungroundedFigures = [];
+      if (split.bare.length) note(`${split.bare.join(', ')} ${split.bare.length > 1 ? 'were' : 'was'} written without a governed reference and ${split.bare.length > 1 ? 'have' : 'has'} been left out; the figures below are what Korvyn read.`);
     } else if (/\{\{FACT:/.test(answer)) {
       /* THE MODEL WROTE REFERENCES AND ANSWERED IN PROSE ANYWAY — observed live on the first run of this phase.
          A reference is Korvyn's machinery and must never reach the person (§26), so it is resolved here exactly
@@ -414,34 +635,62 @@ export class SloaneV2 {
         : r.text;
       trace.factRefs = r.used.length;
       trace.unresolvedRefs = r.unresolved;
-      trace.responseViolations = ['answered in prose rather than through respond'];
-      trace.ungroundedFigures = bareFigures(withoutRefs(written));
+      const split2 = classify(written, facts);
+      trace.responseViolations = ['answered in prose rather than through respond',
+        ...(split2.typed.length ? [`figures typed rather than referenced: ${split2.typed.join(', ')}`] : [])];
+      trace.ungroundedFigures = split2.bare;
       if (r.unresolved.length) note('Sloane referred to a figure Korvyn could not resolve; that part of the answer is withheld.');
       if (trace.ungroundedFigures.length) {
         note(`${trace.ungroundedFigures.join(', ')} ${trace.ungroundedFigures.length > 1 ? 'were' : 'was'} written without a governed reference — check ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'} against the figures below.`);
       }
     } else {
       /* the model answered in prose. Nothing referenced a fact, so the measured check is what there is. */
-      trace.ungroundedFigures = ungrounded(answer, outcomes, body);
+      trace.ungroundedFigures = ungrounded(answer, outcomes, body, facts);
       if (trace.ungroundedFigures.length) {
         note(`Korvyn could not match ${trace.ungroundedFigures.join(', ')} to a governed read in this conversation — check ${trace.ungroundedFigures.length > 1 ? 'those figures' : 'that figure'} against the objects below before relying on ${trace.ungroundedFigures.length > 1 ? 'them' : 'it'}.`);
       }
     }
 
     const path: V2Path = objects.length ? 'analytical' : 'conversation';
-    body = { ...appendTurn(body, { userMessage: request, assistantMessage: answer, path, refs }), facts: facts.snapshot() };
-    saveConversation(body, actor);
-
     /* §21/§24 — the sections travel as separate narrative entries so the renderer can draw a quiet label above
-       each; a DIRECT answer produces exactly one entry with no label, which is what §23 asks for. */
-    const narrative = rendered
-      ? rendered.parts.map((pt) => ({ text: pt.text, objectIds: pt.objectIds.length ? pt.objectIds : objects.map((o) => o.id), ...(pt.label ? { label: pt.label } : {}), assertion: pt.assertion }))
-      : [{ text: answer, objectIds: objects.map((o) => o.id) }];
+       each; a DIRECT answer produces exactly one entry with no label, which is what §23 asks for. §19 — the
+       offers Korvyn is about to make are stored with the facts they drill from, whichever path wrote them. */
+    const narrative = this.publish(body, actor, request, path, objects, outcomes, answer, facts, response).narrative;
 
     return done('ANSWER', path, objects.length
       ? { notes, objects, narrative, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) }
       : { notes, objects: [], narrative: [], reply: answer, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) });
   }
+}
+
+/**
+ * §17 — THE TWO KINDS OF FIGURE THE MODEL TYPED, TOLD APART THE SAME WAY EVERYWHERE.
+ *
+ * `typed` is a figure byte-identical to something the registry holds — Korvyn's own number written the long way
+ * round, a contract miss with nothing for a reader to check. `bare` is a figure Korvyn cannot find at all, and is
+ * the only one that can be wrong. Run on the model's own prose, with any references stripped first.
+ */
+function classify(text: string, reg: FactRegistry): { typed: string[]; bare: string[] } {
+  const typed: string[] = [];
+  const bare: string[] = [];
+  /* a magnitude the registry holds counts as typed: the digits are governed and the direction is in the verb
+     ("EBITDA fell $0.39M" against a stored "($0.39M)"). Only a magnitude Korvyn cannot find at all is bare. */
+  for (const f of bareFigures(withoutRefs(text))) (reg.holdsDisplay(f) || reg.holdsMagnitude(f) ? typed : bare).push(f);
+  return { typed, bare };
+}
+
+/**
+ * §16 — A GOVERNED NUMERICAL ANSWER THAT ARRIVED AS PROSE.
+ *
+ * Not every prose answer is a defect: a conceptual question and a refusal are prose and should be. What must
+ * never happen is this company's figures reaching a person through a sentence nothing structured. The test is
+ * therefore about the TURN, not about the wording — governed reads produced authoritative figures, and the
+ * model wrote instead of calling `respond`.
+ */
+function governedProse(answer: string, outcomes: V2ToolOutcome[]): boolean {
+  if (!/\{\{FACT:/.test(answer) && !FIGURE.test(answer)) return false;
+  FIGURE.lastIndex = 0;
+  return outcomes.some((o) => o.status === 'COMPLETED' && !!o.object && o.facts.some((f) => f.kind === 'GOVERNED' || f.kind === 'DERIVED'));
 }
 
 /* ---- §1: the figures in an answer, checked against what was actually read --------------------- */
@@ -451,7 +700,7 @@ export class SloaneV2 {
  * Bare integers are deliberately out — a year, an account code and a count of reconciliations are
  * not figures anyone would trace, and flagging them would bury the one that matters.
  */
-const FIGURE = /\(?-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?\)?|-?\d[\d,]*(?:\.\d+)?\s?%/g;
+const FIGURE = /\(-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?\)|-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?|-?\d[\d,]*(?:\.\d+)?\s?%/g;
 
 /**
  * One key per figure, so the same amount written two defensible ways reads as one: parentheses and a
@@ -474,7 +723,7 @@ function figureKey(raw: string): string {
  * this conversation. A figure carried forward from three turns ago is grounded — it was read then, and
  * making the check turn-local would flag ordinary continuity as fabrication.
  */
-function ungrounded(answer: string, outcomes: V2ToolOutcome[], body: ConversationBody): string[] {
+function ungrounded(answer: string, outcomes: V2ToolOutcome[], body: ConversationBody, reg: FactRegistry): string[] {
   const said = answer.match(FIGURE) ?? [];
   if (!said.length) return [];
   const corpus = [
@@ -483,11 +732,31 @@ function ungrounded(answer: string, outcomes: V2ToolOutcome[], body: Conversatio
     body.summary ?? '',
   ].join(' ');
   const known = new Set((corpus.match(FIGURE) ?? []).map(figureKey).filter(Boolean));
+  /**
+   * PHASE 2.6.1 — THE SAME MAGNITUDE WITH THE SIGN IN THE VERB, ON THE PROSE PATH TOO.
+   *
+   * `FactRegistry.holdsMagnitude` already settled this for a structured answer: "EBITDA fell $0.39M" is a
+   * correct sentence about a figure stored as "($0.39M)", because the digits are governed and the direction is
+   * carried by the word. This path compares against the CONVERSATION rather than the registry and kept the
+   * strict signed key, so the same sentence read as a fabrication depending only on which path answered —
+   * observed live. Magnitude is its own set, and a figure is only unmatched when neither holds.
+   */
+  const mag = new Set([...known].map((k) => k.replace(/^-/, '')));
   const out: string[] = [];
   for (const s of said) {
     const k = figureKey(s);
     /* zero and a lone per-cent sign are not claims about the book */
-    if (!k || k === '0' || known.has(k)) continue;
+    if (!k || k === '0' || known.has(k) || mag.has(k.replace(/^-/, ''))) continue;
+    /**
+     * PHASE 2.6.1 — THE REGISTRY OUTLIVES THE OBSERVATION, AND §36 SAYS IT MUST.
+     *
+     * A turn that calls no tool has no observations, and a figure it restates was a FACT two turns ago rather
+     * than a phrase in the prose. Checking only what was SAID reported EBITDA's own governed movement as a
+     * figure Korvyn could not find — observed live, intermittently, depending on whether the earlier answer
+     * happened to spell the difference out. The registry is the durable record of what was read, so it is what
+     * this asks.
+     */
+    if (reg.holdsDisplay(s.trim()) || reg.holdsMagnitude(s.trim())) continue;
     const trimmed = s.trim();
     if (!out.includes(trimmed)) out.push(trimmed);
   }

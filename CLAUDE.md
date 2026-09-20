@@ -11204,6 +11204,574 @@ off by default.
 - **`AccountAnalysis` is deliberately NOT treated as a decomposition** for §20, so "driven by" on its bare
   change fact reads as inference. Its own driver facts come from `getDriverAnalysis` and do support the claim.
 
+## 2026-09-20 — SLOANE CORE RUNTIME V2, PHASE 2.5: grounded response performance
+
+Owner's brief, on Phase 2's own measured regression: structural grounding had doubled an ordinary governed turn
+(p50 4.2s → 8.8s, $0.052 → $0.104) because **every** governed answer now spent a second model call, including the
+ones where that call only verbalised a figure Korvyn already understood. The principle is one line — *use the
+model when reasoning adds value; do not use it to say a fact back* — and everything below either implements it or
+measures whether it held. Phase 2's trust guarantees are unchanged and are re-asserted live. v1 is still in the
+tree, the flag is still off by default, FS-CIP is untouched, and Agentic Runtime v2 is not started.
+
+### THREE STRATEGIES, AND NOT ONE NEW ROUTER
+
+`v2/strategy.ts` (389 lines, the whole of the phase) holds `GROUNDED_DIRECT` · `GROUNDED_REASONING` ·
+`AGENTIC_INVESTIGATION`. They are never named to a person and there is **no phrase matching anywhere in the
+file** — §4 rules out a DirectAnswerRouter and it is right to: one would be the pre-v2 architecture under a new
+name, and it would need extending for every question nobody has thought of yet.
+
+```
+MODEL REASONS  ->  KORVYN READS  ->  KORVYN ANSWERS      GROUNDED_DIRECT      one model call
+MODEL REASONS  ->  KORVYN READS  ->  MODEL INTERPRETS    GROUNDED_REASONING   two
+```
+
+**WHAT DECIDES IS THE TOOL CALL, NOT THE WORDS.** Whether a read settles a question or is raw material for a
+judgement is a property of the QUESTION — "how much capex did we spend in June" and "why did capex move" reach the
+same governed tool with the same arguments — so the model declares it, on the read it asks for. `answerMode` is
+**one optional argument, added by the `def()` helper to all six composed operations, described identically once**:
++1,560 characters (~390 tokens) on the cached prefix, never required, and a model that ignores it gets Phase 2
+exactly. The model PROPOSES and Korvyn VALIDATES, which is the contract `analysis/context.ts` already holds for a
+grid edit: **a declaration Korvyn cannot honour costs one extra call and can never produce a wrong answer.**
+
+**IT RIDES ON `PlanContext`, NOT ON THE RESOLVED ARGUMENTS.** The first cut read it off `V2ToolOutcome.args`,
+which are what the REGISTERED tool was given — and `answerMode` is deliberately never forwarded there, because a
+governed query has no business knowing why it was asked. Every read silently read as interpret.
+
+### ELIGIBILITY, AND THE THREE COMPOSERS
+
+A governed result answers on its own when: exactly one read ran (two reads mean a synthesis across them, which is
+interpretation), it COMPLETED and is not UNAVAILABLE, the model declared direct, it produced authoritative facts,
+and a composer fits. **Failure is always toward Phase 2's behaviour.**
+
+The composers read the producing tool's OWN output field names — `balance`, `activity`, `driver1.change`,
+`group2.amount`, declared in `toolset.ts` and stable, none of them a finance phrase and none of them the person's:
+
+| shape | reads | says |
+|---|---|---|
+| **VALUE** | a primary amount, with `.prior` / `.change` / `.pct` | *"The CIP balance at Jun 2026 was $3.69M, down from $14.52M (-74.6%)."* |
+| **BREAKDOWN** | `driver`/`group`/`mover` members | *"Jun 2026 OPEX by account comes to $0.61M across 6 accounts, the largest being 60200 General & administrative at $0.55M."* |
+| **STATUS** | a few named figures | *"Balance sheet at Jun 2026 for MDH: total assets $23.48M, total liabilities $15.97M."* |
+
+**IT REUSES `ResponseDefinition` AND `renderResponse`.** §6 forbids a second formatter and there is not one: what
+differs is only who WROTE the definition, and both writers hand it to one renderer — so sign safety, the
+withholding rule, the adaptive shape and the offers are one implementation with two callers.
+
+Three things the composers get right that cost a round each:
+
+- **"THE LARGEST" IS CHECKED, NOT ASSUMED.** The member amounts are on the facts, so Korvyn compares them and only
+  says the word when it holds. A tool that changed its ordering could not make the sentence wrong.
+- **AN ACCOUNT CODE IS NOT A WORD.** A follow-up arrives with the code the model resolved earlier, and "Jun 2026
+  15000 by project" is a result set talking. The governed object knows what 15000 is called.
+- **A QUALIFIER IS NOT A MEASURE.** `revenue`, `revenue.prior` and `revenue.change` are one line stated three ways;
+  counting them as three made a six-line summary look like eighteen and fall past the STATUS cap.
+
+### §13 — THE MEASURE IS WHAT WAS RESOLVED, NOT WHAT THE BRANCH USUALLY MEANS
+
+`getFinancialStatementLine` returns a balance-sheet line's BALANCE and an income-statement line's PERIOD amount,
+both under the field name `value`. A first cut had the dispatcher state `measure:'BALANCE'` on that branch and the
+live run answered **"the OPEX balance at Jun 2026"** for a figure that is a month's spend. It states `s.measure` —
+what `resolveMeasure` actually resolved — and where the concept declares none, nothing is stated and the sentence
+reads neutrally, which is the honest shape for a service that did not say.
+
+### §19/§20 — AN OFFER THE PERSON TOOK COSTS NO MODEL CALL
+
+Korvyn already ends a governed answer with what can be looked at next, read from the cited facts' own drills. The
+browser renders each as a chip that sends its label back as the next message — so a request that is EXACTLY one of
+those labels is not a question to be understood: **the person picked from a menu Korvyn wrote**, and the drill
+behind that row was decided when the offer was made. An offer now carries the FACT it drills from (`drillOffers`,
+stored on `V2State.offers`, durable), and `drillCall` maps the eight drills to governed reads — a table with no
+words in it, each one running through the same dispatcher, re-authorized like any other.
+
+**THE MATCH IS EXACT ON THE NORMALISED LABEL, DELIBERATELY.** A near-match rule would be a phrase handler wearing
+a different hat and would start answering things nobody clicked. A TYPED drill goes to the model and costs one
+call, which is what §20 asks for — measured: *"Show the accounts."* went 2 calls → 1.
+
+### §29 — THE MOST SERIOUS THING THIS PHASE COULD HAVE SHIPPED, FOUND LIVE
+
+A scoped accountant asked for the **consolidated** balance sheet. The governed tool answered inside their own
+visibility, correctly, and Korvyn published MDH's balance sheet — every figure governed, nothing leaked, correctly
+labelled *"for Meridian DC Holdco LLC"* — and the question had been narrowed with nobody saying so. On *"what is
+the REIT's trial balance?"* the same path returned a different entity's figures under a correct label.
+
+**THE FIRST FIX WAS TOO CLEVER AND DID NOT WORK.** It compared the scope the model ASKED for against the reader's
+own, on the theory that a substitution shows up as a mismatch. It does not: the model can see the reader's access
+in its context and had already narrowed the request to MDH before the tool ran. There was nothing left to compare.
+
+So the rule is absolute: **a reader whose visibility is limited never gets a composed answer.** Whether an answer
+is narrower than the QUESTION is a fact about the question and only the model holds it. The cost is real and is
+stated — a limited reader spends the second call on every governed turn — and it is the right direction to fail
+in. After: *"Your access covers Meridian DC Holdco LLC only, so this is the entity-level balance sheet, not a
+group-consolidated view…"*, and the REIT question refused outright with **no tool call and no figures**.
+
+### §16/§17 — THE PROSE ESCAPE, CLOSED WITH THE MECHANISM
+
+Phase 2 measured one governed turn in twenty-five answering as prose rather than through `respond`; the references
+still resolved, so the figures were right, and what was lost was the structure and with it the withholding rule.
+Rather than warn, **Korvyn composes the answer itself from the governed result — the same composer a direct answer
+uses.** The model's prose is discarded. Where no composer fits, the prose stands MINUS any sentence carrying a
+figure the model typed, which is §18's own rule applied to a second kind of hole.
+
+**AND A FIGURE THAT MATCHES A GOVERNED VALUE IS A DIFFERENT DEFECT FROM AN INVENTED ONE.** `holdsDisplay` splits
+them: `$3.50M` written out by hand is a contract miss — the value, the sign and the scale are Korvyn's, and there
+is nothing for the person to check — while `$999.99M` is a fabrication. Both are recorded; only the second gets a
+warning, because only the second can be wrong.
+
+**THE RESIDUAL, ROOT-CAUSED.** Two of twenty-five turns still state a figure Korvyn cannot point at, and both are
+ONE cause: **the model doing arithmetic over two governed facts** — a percentage between two amounts, a balance
+after a swing. It is not a missing tool call, a missing promotion or a renderer fault. The structural fix is for
+Korvyn to return the derived measure as its own fact, and that was done where it was cheapest and most common
+(`getAccountAnalysis` now returns `activity.change.pct`, which is why "OPEX rose 21%" is a reference rather than a
+typed figure). Doing it for every pair of facts a model might subtract is a broader pass than this phase.
+
+### §18 — ATTRIBUTION IS PER FACT, NOT PER OBJECT
+
+`getAccountAnalysis` returns BOTH the whole movement (`activity.change`) and its top contributors
+(`topDriver.vendor.change`) in one object. "Activity rose because of X" pointed at the first is a claim the read
+does not support — a whole does not explain itself — and pointed at the second it is exactly what the read
+established. Reading support off the OBJECT type passed both, so the marker moved onto the fact
+(`FinancialFact.attribution`, read from the tool's own field name at promotion time).
+
+### §7/§9/§12 — WHAT THE ANSWER SOUNDS LIKE
+
+- **A note that travels into an answer must be a sentence about the book, not a direction to the model.** The
+  DEFAULTED concept disclosure ended *"Say which reading was used"*, which is nonsense to a person. It is split in
+  two now: the reading (one clause, lands in the answer) and the alternatives (a second sentence).
+- **The observation's copy of that note is cut to 200 characters for the model** — right there, wrong in an
+  answer. Observed live on the very first direct answer, which ended mid-word. The whole note rides on
+  `PlanContext`.
+- **A disclosure is said once per conversation, not once per answer.** By the third OPEX question it is a
+  paragraph the person has already read attached to a one-line figure; it is dropped when the same sentence is
+  already in the transcript.
+
+### §14/§24 — WHAT THE TRACE NOW REPORTS
+
+`firstUsefulMs` beside `firstTokenMs`: for a turn whose answer is a governed figure the first token cannot
+honestly arrive before the read does, so optimising TTFT alone would reward a placeholder. A direct answer streams
+the moment Korvyn composes it. And every trace carries a `workload` — SLOANE_RUNTIME · AUTOMATED_EVALUATION ·
+DEVELOPMENT_TEST — because a benchmark run and a person's question are different workloads and a cost report that
+adds them is not a cost report. **It is read PER TURN, not as a module constant**: ESM hoists imports, so a
+harness setting the variable at the top of its own file runs after the constant would have been computed.
+
+### §11/§30/§31/§32 — WHAT IT COSTS (live, claude-sonnet-5)
+
+**Tier 1, `npm run sloane:v2-smoke`** — the kinds of turn this phase changed:
+
+| | calls/turn | p50 | TTFUA p50 | cost/turn |
+|---|---|---|---|---|
+| GROUNDED_DIRECT | **1.00** | **1.80s** | **1.80s** | **$0.0043** |
+| GROUNDED_REASONING | 2.00 | 6.26s | 3.83s | $0.0159 |
+
+**Tier 2, `npm run sloane:v2-ab` §32 categories**, against Phase 1.5's own table (Phase 2 sat between, having
+added a call to everything):
+
+| category | calls 1.5 → 2.5 | p50 1.5 → 2.5 | cost 1.5 → 2.5 |
+|---|---|---|---|
+| casual | 1 → **1** | 1.7s → 2.4s | $0.0048 → $0.0077 |
+| **simple-governed** | 2.5 → **1** | 5.1s → **1.9s** | $0.0238 → **$0.0087** |
+| follow-up | 2 → **1.33** | 4.5s → **2.2s** | $0.0315 → **$0.0281** |
+| concept-resolution | 2 → 2 | 4.6s → 9.6s | $0.0192 → $0.0287 |
+| analytical | 2 → 2 | 6.1s → 7.1s | $0.0110 → $0.0181 |
+
+**READ THE §29 CONVERSATION HONESTLY: IT DID NOT GET CHEAPER, AND IT SHOULD NOT HAVE.** Its seven turns are
+2.00 calls, p50 8.6s, $0.1046 — Phase 2 was 2.00, 8.8s, $0.1043. Every one of those turns is a JUDGEMENT ("what
+moved the most", "why", "is that explained", a correction), and Phase 2.5 does not make judgement cheaper. What it
+makes cheaper is looking a figure up, and the script contains none.
+
+### THE CONTRACT, OVER THE SAME PAID RUN
+
+25 turns · 19 answered through `respond` · 93 fact references · **0 unresolved** · 2 turns with a typed figure
+(both the arithmetic residual above) · 0 permission leaks. On the Tier 1 smoke: **0 unresolved, 0 ungrounded,
+0 prose escapes.**
+
+### §33 — THE ARCHITECTURE CHECKPOINT
+
+| | Phase 2 | Phase 2.5 |
+|---|---|---|
+| routing gates before the model reasons | 1 (`eligible()`) | **1** |
+| tools exposed to the model | 12 | **12** |
+| regex operations, v2 hot path | ~18 | **20** (v1's routing layers: 105) |
+| model calls, governed lookup | 2 | **1** |
+| model calls, governed judgement | 2 | 2 |
+| context assemblies per turn | 1 (asserted) | **1** (asserted) |
+| new state stores | — | **none** — the offers ride in the existing conversation record |
+| cacheable tool JSON | 13,233 chars (~3.3k tokens) | unchanged bar `answerMode` (+1,560 chars) |
+
+**Did it simplify the hot path?** For a lookup, yes: a whole model call is gone and nothing replaced it. **Did it
+add orchestration complexity?** One file, one optional tool argument, no new router and no new store. **Did direct
+rendering replace model work rather than add a layer?** It replaced it — `composeDirect` runs INSTEAD of the second
+call, never before or after one.
+
+### §10 — A FINDING THAT CONTRADICTS THE BRIEF, MEASURED
+
+§10 asks not to resend the transcript and the neighbourhood on the reasoning call. **Resending is what makes them
+CACHED**: the provider prefix is tools → system → messages, and the smoke reads 16–17k cached tokens per category
+against 4 fresh. Trimming the repeat would turn cache reads at 1/10 price into fresh input. The transcript
+experiment already found this once ("the shortest window was not the cheapest"). The context is built ONCE per
+turn (`trace.contextBuilds`, asserted at 1) and the repeat is cache-read; that is the efficient arrangement and it
+was left alone.
+
+### Traps
+
+- **Never pass replacement text through the shell — the fourteenth and fifteenth time.** A quoted heredoc mangled
+  `§` into a replacement byte twice in one session, and a `python -c` inside double quotes silently dropped an
+  apostrophe into a comment. Write the splice script with the Write tool.
+- **A composed answer overwrote the trace finding that explained why it existed.** `finishDirect` assigned
+  `responseViolations`; the §16 escape is recorded by its caller BEFORE the hand-off. Append, never assign.
+- **The node test runner does not set `NODE_ENV`.** It sets `NODE_TEST_CONTEXT` in every worker.
+- **A leak check that greps for `balance` scores a correct refusal as a leak.** *"I can't produce a REIT-wide
+  trial balance"* contains the word. The signal is a FIGURE or an affirmative identity claim after the echo — the
+  two things a refusal never contains.
+
+### Verified
+
+`npm run sloane:test` **223/223** (17 new in `v2p25.test.ts`) · `sloane:dryrun` pass · `packages/core` 78/78 +
+boundary · **4/4 repo gates**, baselines unchanged · typecheck clean · the live Tier 1 smoke, the live Tier 2 A/B
+and the live Tier 3 benchmark above.
+
+### Deliberately not done
+
+Agentic Runtime v2 · Visualization Intelligence · Excel · PowerPoint / PDF · any phrase-specific finance handler.
+The v1 fallback is still in the tree and `SLOANE_RUNTIME_V2` is still off by default.
+
+### Open, and worth the owner's call
+
+- **A limited reader pays two calls on every governed turn.** That is the §29 rule's price, and the only way to
+  reduce it is a deterministic disclosure Korvyn can write itself — which it cannot, because it cannot tell
+  whether the person named an object outside their access.
+- **The model still does arithmetic over two governed facts** on ~8% of turns. The general fix is for every
+  derived measure a reader might ask for to be a governed fact of its own; this phase did the common one.
+- **The §29 conversation script is all judgement**, so the A/B's headline number cannot show this phase's win.
+  A script with lookups in it would, and would be a better phase regression.
+
+## 2026-09-20 — SLOANE CORE RUNTIME V2, PHASE 2.6: derived financial intelligence
+
+Owner's brief, after live testing found Sloane answering *"EBITDA isn't a posted line"* — true, and the wrong
+answer. §1 draws the distinction the whole phase rests on: **a metric does not have to be POSTED to be GOVERNED.**
+If the definition is governed, the components are governed, the calculation is deterministic and the lineage is
+kept, the result is a governed fact like any other. Nothing was rebuilt: the ledger, the permission model, the
+fact contract, the response contract and Phase 2.5's strategies are untouched.
+
+### THE GAP WAS SMALLER THAN IT LOOKED, AND THAT IS THE FINDING
+
+`semantic/concepts.ts` has declared EBITDA, EBIT, gross margin, operating margin and NOI as `DERIVED_MEASURE`
+concepts since Phase 1.5, each carrying a `formula` of component concept ids and signs. **Nothing executed one.**
+`accountArg()` returns no members for a DERIVED mapping, so a metric question fell through the subject step to
+"no governed line". `semantic/metrics.ts` (296 lines) is the executor.
+
+**AND EXECUTING THE FORMULA FOUND IT WRONG.** EBITDA's declared formula deducted `SGA` (60100–60300), not
+`OPERATING_EXPENSE` (the whole 60000 group, which also holds property taxes & insurance — an operating cost that
+belongs inside EBITDA). It had been wrong since it was written and nothing read it. Corrected, which makes EBITDA
+on this chart arithmetically the statement's own Net operating income subtotal — a consequence of THIS tenant's
+structure, not a reason to call the definition governed.
+
+### §2/§9 — THE DEFINITION, OVER CANONICAL STATEMENT CONCEPTS
+
+`DerivedMetricDefinition` carries the formula, components, exclusions, measure type, period and currency
+behaviour, aggregation behaviour, allowed books/bases/lenses, a tenant override slot, validation and trace
+requirements, a version and a declared status. **A formula names `REVENUE − COST_OF_OPERATIONS −
+OPERATING_EXPENSE`, never `40000 − 50000 − 60000`** — the codes are this tenant's current mapping of those
+concepts and stay behind them, which is what makes a different chart a configuration rather than a rewrite. A
+test asserts no formula ever names a code.
+
+### §7 — WHAT KORVYN IS STANDING BEHIND, STATED
+
+| status | means | on this book |
+|---|---|---|
+| GOVERNED | the tenant approved it, or the statement subtotals it | EBIT, operating margin, NOI |
+| DEFAULTED | one standard reading; the tenant has approved none | EBITDA, gross profit, gross margin, EBITDA margin |
+| CANDIDATE / AMBIGUOUS | several honest readings | declared, none reached on this chart |
+| UNAVAILABLE | a component this book does not hold | working capital, free cash flow |
+
+**The status reaches a person as a SENTENCE, never as the word** (§19). Live: *"June EBITDA was $10.28M, using
+the standard operating definition since this tenant hasn't approved a formal one."* And working capital is
+refused with its reason — *"this chart of accounts does not classify assets and liabilities as current or
+non-current"* — with **no numeric fact on the object at all**, because an unavailable metric that returned a
+number would be the worst outcome available.
+
+**THE DISCLOSURE TRAVELS AS THE DISPATCHER'S NOTE**, which is the same mechanism a DEFAULTED concept reading
+already uses. It matters most on the fast path: a composed answer has no model to remember it. Observed live
+before that line existed — the first EBITDA answer gave the figure and said nothing about whose definition.
+
+### §15 — THE BRIDGE FOOTS BY CONSTRUCTION
+
+Each step is the component's own movement times the sign the formula gives it, so the steps ADD to the change in
+the metric. Live: *"EBITDA declined from $10.67M in May to $10.28M in June, a drop of ($0.39M) … Lower revenue
+reduced EBITDA by ($0.21M), higher cost of operations by ($0.17M), operating expenses essentially flat."*
+
+**A RATIO HAS NO ADDITIVE BRIDGE.** A margin is not the sum of its components' margins, and labelling one as if
+it were is a units error a reader will not catch: *"lower revenue reduced margin by ($0.21M)"* reads as a
+percentage moving by dollars. Observed live on operating margin. A ratio's steps are labelled as the component
+MOVEMENTS BEHIND the two endpoints.
+
+### §10 — THE DRIVER BUG, ROOT-CAUSED IN ONE LINE
+
+`getIncomeStatement` emitted facts for **`totalRevenue` and `netIncome` and nothing else**. Every other line —
+cost of operations, operating expenses, D&A — existed only as a table ROW. Phase 2 forbids the model from stating
+a figure it has no fact for, and rightly; so *"revenue was the only material mover"* was the honest report of the
+only mover it could CITE. The cost lines were in plain sight as strings. There were also no variance facts at
+all, so a movement could only be had by subtracting two columns, which §3 forbids.
+
+`compareStatement` returns a fact per canonical section with its change, ranks them in Korvyn by absolute
+movement, adds the account rows beneath, and states coverage. Live, on the same question: *"Net income fell
+($0.39M) … Operating expenses increased, cost of operations increased, D&A moved, revenue declined"* — with
+revenue no longer alone and no longer assumed.
+
+**AND IT EXPOSED A DEEPER INCONSISTENCY, WHICH IS THE MORE IMPORTANT FINDING.** The ranked sections initially
+disagreed with the table in the SAME object: revenue −$0.03M against −$0.21M. `isValues()` sums the same account
+groups **without the intercompany elimination** the statement applies, so revenue and operating expenses each
+came out $0.35M higher — offsetting exactly, which is why net income matched and nothing had ever caught it. The
+statement now carries its own `components` and the comparison and every metric read THOSE, so a metric, a driver
+and the statement cannot disagree.
+
+**The elimination is bigger than the movement it sits in** ($0.53M against a $0.21M revenue movement in June), so
+the comparison states it: *"…is eliminated from revenue and from operating expenses; account-level reads are
+before this elimination."* The account-level analysis tools remain un-eliminated — that is the open item below,
+and it is why the owner's observation (costs moved more than revenue) and the consolidated statement (revenue
+moved most) were both true of different views.
+
+### §12/§13/§14 — RANKING, MATERIALITY, COMPLETENESS
+
+Korvyn ranks; the model interprets. A **result is not a driver** — net income never appears in the list of what
+drove net income — and section headers carry no figures. **Nothing is called material**, because no
+income-statement threshold is governed: a display floor is stated as one, and the ranking is "largest". And the
+comparison says what it covered, so *"X was the only mover"* can never again mean *"the only one I can cite"*.
+
+### §24/§25 — ONE OPERATION, NO KPI ROUTING
+
+**Twelve tools became thirteen.** `getMetric` covers every derived metric; a tool per KPI would grow with the
+catalogue and put the model back to choosing between near-identical capabilities. The comparison is a `view` of
+`getStatement`, not a fourteenth tool.
+
+A metric is reached through the **one concept matcher** — the model identifies the concept (§25), Korvyn resolves
+the definition. **The metric layer contains exactly two regular expressions**, and neither names a metric: they
+read the generic measure words *margin / percent / %* and *profit / amount / dollars*, which settle whether
+"gross margin" meant the ratio or the amount. That is §13's verb rule applied to a noun, and it reaches "EBITDA
+margin" without any rule that knows the word EBITDA.
+
+### §17/§20 — TITLES AND WHAT REACHES THE SCREEN
+
+- **A title's periods are months, not keys.** "EBITDA · 2026-06 vs 2026-05" was the argument list finishing a
+  title whose whole point was to stop being one.
+- **A bare list of account codes is not a title.** A drill resolves by code, so "GL population · 50000,60000 ·
+  Jun 2026" is what the dispatcher was handed; the word the answer used one turn ago is what a person reads. The
+  codes stay on the refs and in the trace.
+- The §31 chain runs end to end with continuity: EBITDA → bridge → what drove it → OPEX → the accounts → the GL,
+  at 1.8–5.3s a turn.
+
+### §21 — CONTRIBUTION IS NOT CAUSATION
+
+Live, *"Why did EBITDA decline?"* → *"Lower revenue reduced EBITDA by ($0.21M), higher cost of operations by
+($0.17M)"* under **What drove it**, with the model's reading under **What this suggests**. It does not say
+EBITDA declined because anything happened in the business, because nothing governed says so.
+
+### THE FACT CAP WAS THE DRIVER BUG'S ACCOMPLICE, TWICE
+
+A `CompactObservation` showed the first **ten** facts. A ranked comparison carries five sections (a label and a
+change each), the statement totals, the account rows and its coverage — at ten the model saw five movers and
+nothing about coverage. Raised to twenty, the ACCOUNT rows fell off the end and the model, having no id for a
+figure it could see in the table, **typed two of them and got both signs backwards, presenting increases as
+decreases.** Measured, in the live smoke. At twenty-eight the incentive is gone and the run is clean. **A figure
+with no fact id is a figure that gets typed** — that is the general lesson, and the cap is ~200 tokens on the one
+or two objects that reach it.
+
+### §17 — AND THE SENTENCE-DROP RULE WAS TOO STRICT
+
+Phase 2.5 drops a sentence carrying a figure Korvyn cannot match. *"EBITDA fell $0.39M"* is a correct English
+sentence about a figure the registry holds as *"($0.39M)"* — the digits are governed and the direction is in the
+verb. The strict check read it as a fabrication and deleted the only sentence in the answer: an empty reply,
+observed live. `holdsMagnitude` is a third, milder finding — recorded, never warned about, never a reason to
+withhold. **Only a figure whose MAGNITUDE matches nothing can be wrong**, and one still is: the model wrote
+"$13M" for a governed "$13.01M", which §3 forbids and the check correctly caught.
+
+### §37 — THE ARCHITECTURE CHECKPOINT
+
+| | Phase 2.5 | Phase 2.6 |
+|---|---|---|
+| routing gates before the model reasons | 1 | **1** |
+| tools exposed | 12 | **13** (`getMetric`; the comparison is a view) |
+| regexes, v2 hot path | 20 | **24** |
+| regexes, metric layer | — | **2**, neither naming a metric |
+| model calls, governed lookup / judgement | 1 / 2 | **1 / 2** |
+| context builds per turn | 1 | **1** |
+| new state stores | none | **none** |
+| cacheable prefix | ~5,850 tok | ~6,640 tok |
+| derived metric definitions | — | **9** (7 calculable, 2 honestly unavailable) |
+
+**Did we create KPI-specific routing?** No — one operation, two generic measure-word regexes, and the existing
+concept matcher. **Did derived metrics stay deterministic?** Yes: every input is a governed statement component
+and the model has no argument through which a number could enter. **Did Sloane gain capability without
+orchestration complexity?** One new file, one new tool, one new view; v1's routing layers still carry 105 regex
+operations against the hot path's 24.
+
+### MEASURED (live, claude-sonnet-5, `npm run sloane:v2-smoke`)
+
+| | calls/turn | p50 | TTFUA p50 | cost/turn |
+|---|---|---|---|---|
+| GROUNDED_DIRECT | 1.00 | **2.5s** | 2.5s | **$0.0050** |
+| GROUNDED_REASONING | 2.11 | 8.5s | 4.2s | $0.0191 |
+
+Phase 2.5's direct band was 1.00 / 1.8s / $0.0043 — the small rise is the wider prefix, not the metric layer.
+**Contract over 17 turns: 0 unresolved references, 0 prose escapes, 1 ungrounded figure (the re-rounded "$13M"),
+0 permission leaks.**
+
+**§29 holds, and reads better than before.** A scoped accountant asking for consolidated EBITDA: *"I can only see
+Meridian DC Holdco LLC (MDH), not the consolidated group — your access here is entity-level, not group-wide. For
+MDH in June, EBITDA was $2.42M…"*; asking for the REIT's EBITDA, a refusal with no figures at all.
+
+### Traps
+
+- **Never pass replacement text through the shell — the sixteenth time, and it was the worst one yet.** A Python
+  heredoc put a **NUL byte** into `factIdOf`'s `join(' ')`. It typechecked, all 245 tests passed, and `grep`
+  reported "Binary file matches" — which is the only reason it was found. Every changed file is now swept for
+  control characters; the sweep is two lines and should be standing practice.
+- **Executing a declared formula is how you find out it was wrong.** EBITDA's had deducted the wrong group since
+  Phase 1.5.
+- **A test that pins which section moved most is pinning the fixture.** What is asserted is coverage and
+  determinism; which section leads is a property of the month.
+
+### Verified
+
+`npm run sloane:test` **245/245** (21 new in `v2p26.test.ts`) · typecheck clean · `packages/core` 78/78 +
+boundary · **4/4 repo gates**, baselines unchanged · 0 control characters in any changed file · the live §31–§36
+chain, the §29 permission pair and the Tier 1 smoke above.
+
+### Deliberately not done
+
+Agentic Runtime v2 · charts · Excel · PowerPoint / PDF · any per-KPI handler · a cash flow statement · a
+current/non-current classification on the chart.
+
+### Open, and worth the owner's call
+
+- **The account-level analysis tools are un-eliminated while the statement is consolidated.** `getAccountAnalysis`
+  and `getGovernedPopulation` read the ledger directly, so at GROUP scope revenue and operating expenses are
+  overstated by the intercompany management fee ($0.53M in June). The comparison now discloses the difference;
+  making the analysis tools eliminate is a ledger-population change and was out of this brief's scope. **This is
+  the largest remaining correctness item in the module.**
+- **Working capital and free cash flow are declared and unavailable.** Both become calculable by adding their
+  components, not a handler — the day the chart classifies current assets, or a cash flow statement exists.
+- **A metric's `allowedBooks` / `allowedBases` / `allowedLenses` are declared and not enforced**, because this
+  server has one book and one basis. They are the shape to check when a second arrives.
+
+## 2026-09-20 — SLOANE CORE RUNTIME V2, PHASE 2.6.1: consolidation-consistent analytical populations
+
+A narrow correctness phase. Live testing after 2.6 showed Sloane explaining a CONSOLIDATED income statement using
+drivers read from a PRE-ELIMINATION ledger: both governed, both right about their own population, and their
+difference is not a movement. Nothing was redesigned; one rule moved to one place and every walk that produces an
+amount now reads it.
+
+### THE ROOT CAUSE (§3), WHICH WAS NOT WHERE IT LOOKED
+
+`incomeStatement()` applied the elimination ITSELF, against a hard-coded pair of entity ids, and skipped the line
+before it reached the account map. Every other analytical service — `balanceUsd`, the drill, the driver ranking,
+the analysis grid — walks `GovernedLedger.lines`, which knew nothing about eliminations. So the split was not a
+bug in either service: it was a consolidation rule that existed in exactly one function and a ledger that had
+never been told. Measured before the fix, the statement and the account detail disagreed by the intercompany fee
+and by nothing else — Revenue −$0.3505M (May) and −$0.5300M (Jun), operating expenses the same, and **net income
+identical**, because the two sides offset exactly. That is why it survived a phase: the number a reader checks
+first was always right.
+
+### ONE CONSOLIDATION TRUTH (§1, §16)
+
+`financials.ts` now declares it, because that is where the consolidation lives, and `governed.ts` consumes it:
+
+```ts
+interface IntercompanyRelationship { id; label; parties: string[]; match: RegExp; sections: readonly string[]; notEliminated?: string }
+covers(entities, visible): ReadonlySet<string> | null          // what the population COVERS
+consolidation(treatment, covered): (l: GLine) => boolean        // the one predicate
+```
+
+- A relationship eliminates only when the population covers **every party** to it, so a single entity reading
+  alone still sees its own intercompany activity (§5) — verified: MDH's $32.83M receivable is identical
+  consolidated and pre-elimination.
+- `match()`, `balanceUsd()` and the analysis grid all read `consolidation()`. **A new walk that forgets it is a
+  walk that will not reconcile**, and §8's check now says so out loud rather than letting an answer be built on it.
+- `EliminationTreatment` is `CONSOLIDATED` (the default) / `PRE_ELIMINATION` / `ELIMINATIONS_ONLY`, so the
+  pre-elimination view is still reachable and `source = consolidated + eliminations` holds on every line (§6).
+
+**A RELATIONSHIP DECLARES WHICH STATEMENTS IT ELIMINATES IN, and declaring none is a real answer.** Eliminating
+the intercompany receivable and payable was tried and reverted: they do not match on this book — $35.64M against
+$29.46M — so netting them zeroed a **$6.18M unmatched position** into the translation residual, which is computed
+as a plug, and a genuine control finding read as FX. `IC-FUNDING` is therefore declared with `sections: []` and a
+stated `notEliminated` reason. Eliminating a balance-sheet relationship soundly needs intercompany matching, which
+is its own engine and its own phase (§17).
+
+### THE FIGURES (§21) — measured, not asserted
+
+| Jun 2026 | statement | account group | accounts | |
+|---|---|---|---|---|
+| 40000 Revenue | $13.0116M | $13.0116M | 4 → $13.0116M | RECONCILES |
+| 50000 Cost of operations | $0.9652M | $0.9652M | 3 → $0.9652M | RECONCILES |
+| 60000 Operating expenses | $1.7701M | $1.7701M | 4 → $1.7701M | RECONCILES |
+
+All sections reconcile in May and June. Lineage: `Revenue pre-elimination $13.5416M − eliminations $0.5300M =
+consolidated $13.0116M`, and the same for operating expenses. `ELIMINATIONS_ONLY` returns exactly the eliminated
+amount. The balance sheet is unchanged — assets $124.1791M, liabilities $70.3713M, equity $53.8079M, A−L−E
+$0.0000M — and 13000/23000 still carry their gross balances.
+
+### THE TREATMENT TRAVELS, AND THE RECONCILIATION IS CHECKED
+
+- **§13** — `FinancialFact.eliminationTreatment`, read from the producing read's refs and defaulting to
+  CONSOLIDATED. It is internal vocabulary and is never rendered as the bare enum.
+- **§12** — `populationMismatch(facts)` compares scope, consolidation, book, basis, lens and currency across the
+  facts cited in ONE assertion. **Period is the one dimension allowed to differ, because varying it is what a
+  comparison IS.** A mismatch is SAID (`respond` adds an UNRESOLVED line naming the dimensions and declining to
+  read the difference as a movement), never silently dropped.
+- **§8/§15** — `compareStatement` now checks each section against the accounts beneath it, in the same view, and
+  publishes `detailReconciles`. A failure tells Sloane not to attribute the movement from that detail. It runs
+  only where the statement is presented in USD: an entity scope presents in its functional currency while
+  `balanceUsd` is USD by construction, and comparing those two would report a currency as a break.
+- **§14** — `consolidationFact(section)` is read from the declared relationships, per statement section, so
+  "does this include eliminations?" has a governed answer on the income statement (yes, and what), on the balance
+  sheet (no, and why) and on the account drill a reader lands on from a statement line.
+- The elimination note stopped saying *"account-level reads are before this elimination"*. It was true, and it
+  was the bug written down.
+
+### FOUR DEFECTS THE LIVE REGRESSION FOUND, EACH FIXED STRUCTURALLY
+
+1. **A DECOMPOSITION DID NOT SAY WHICH FIGURE IT DECOMPOSED.** "Revenue by account **comes to** $0.21M" under a
+   revenue line of $13.01M reads as a statement that revenue was $0.21M. The parts footed to their parent all
+   along — the parent was not named. The wording is read off the total fact's own key, so the sentence cannot
+   disagree with the figure it is built from.
+2. **AN EXPLANATION IS READING MATERIAL, NOT A CITABLE VALUE.** The two semantic reads return what a word MEANS;
+   handing the model fact ids for prose produced *"Yes — RESOLVED the June revenue figures already reflect … A
+   consolidation step, not an account rather than a separate account"*. Every word governed, and the sentence
+   unreadable. Those reads carry no ids now; the model still sees every word and answers in its own.
+3. **A CLOSING PARENTHESIS IS PART OF A FIGURE ONLY WHEN AN OPENING ONE WAS.** `(May: $13.22M)` yielded the token
+   `$13.22M)`, which matches no stored display value and no magnitude — so a governed figure was reported as one
+   Korvyn could not find while it was looking straight at it.
+4. **THE REGISTRY OUTLIVES THE OBSERVATION (§36), AND THE PROSE CHECK DID NOT ASK IT.** A turn that calls no tool
+   has no observations, so EBITDA's own governed movement, restated two turns later, was flagged — intermittently,
+   depending on whether the earlier answer happened to spell the difference out. It asks the registry now. The
+   metric bridge also gained `component<N>.label` and `component<N>.prior`, because **a figure with no fact id is
+   a figure that gets typed** and the prior period's components had none.
+
+### Verified
+
+`npm run sloane:test` **260/260** (15 new in `v2p261.test.ts`, tests A–H of §20 plus §5/§6/§12/§14/§15/§16) ·
+`sloane:dryrun` 35 PASS / 0 FAIL · `packages/core` 78/78 + boundary · **4/4 repo gates**, baselines unchanged ·
+typecheck clean · control-character sweep clean.
+
+**Live, Tier 1 (`npm run sloane:v2-smoke`, claude-sonnet-5), 20 turns including the §22 EBITDA chain, the §23
+comparison and the new consolidation chain:** 10 GROUNDED_DIRECT at 1.00 calls / p50 2.1s / $0.0053, 8
+GROUNDED_REASONING at 2.00 calls / p50 9.7s / $0.0199, **0 unresolved references · 0 figures with no governed
+reference · 0 prose escapes · 0 volunteered leaks**, $0.2240 for the run.
+
+The §23 regression reads as intended: *"Net income fell ($0.39M) from May to June, driven mainly by revenue
+softness and higher cost of operations"* — the cost sections named beside revenue, which is what 2.6 fixed and
+2.6.1 had to keep true across two populations.
+
+**The 125-prompt benchmark was NOT run** (§24).
+
+### Open, and worth the owner's call
+
+- **A statement drill in a non-USD entity scope is not reconciliation-checked.** The statement presents in the
+  entity's functional currency and `balanceUsd` is USD, so the check stands down rather than reporting a currency
+  as a break. Making it real needs the ledger walk to translate, which is a bigger change than this phase.
+- **The balance sheet does not eliminate**, by decision, and says so. It stays that way until intercompany
+  matching exists.
+- A refusal to a scoped reader sometimes answers in prose with no read (strategy `—` rather than
+  GROUNDED_REASONING). It leaks nothing and is correct; the smoke's expectation is what is imprecise.
+
 ## 2026-09-20 — the brand lockup: two artworks, and the invert hack retired
 
 Owner supplied the 2026 brand sheet (`design-system/Korvyn Logo.png`). The mark is EXTRACTED from the

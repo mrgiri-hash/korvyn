@@ -169,7 +169,17 @@ export function compact(step: number, tool: string, purpose: string, o: Financia
   const x: CompactObservation = {
     ref, step, tool, purpose: cut(purpose, 100), status: o.status === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'OK', objectId: o.id, type: o.type, title: cut(o.title, 110),
     period: o.periodLabel, scope: o.scope.name,
-    facts: o.facts.slice(0, 10).map((f) => ({ key: f.key, label: cut(f.label, 60), value: cut(f.display, 60) })),
+    /* PHASE 2.6 §12/§14 — TEN FACTS WAS THE DRIVER BUG'S ACCOMPLICE. A ranked statement comparison returns six
+       movers (a label and a change each), the statement totals and its completeness metadata; at ten the model saw
+       the first five movers and nothing about coverage, and could not tell a complete population from a truncated
+       one. Twenty costs ~140 tokens on the few objects that carry that many and buys the whole ranking. */
+    /* TWENTY WAS STILL SHORT, and the live smoke showed exactly what a missing fact costs. A ranked comparison
+       carries five sections (a label and a change each), the statement totals, the account rows beneath them and
+       its coverage; at twenty the ACCOUNT rows fell off the end, and the model — having no id for a figure it
+       could see in the table — typed two of them and got both signs backwards, presenting increases as
+       decreases. A figure with no fact id is a figure that gets typed. The ceiling costs ~200 tokens on the one
+       or two objects that reach it and removes the incentive entirely. */
+    facts: o.facts.slice(0, 28).map((f) => ({ key: f.key, label: cut(f.label, 60), value: cut(f.display, 60) })),
     columns: cols, rows: o.table.rows.slice(0, 6).map((r) => ({ label: cut(r.label, 70), values: r.cells.slice(0, 5).map((c) => cut(c, 40)), ...(r.ref ? { ref: r.ref } : {}) })),
     rowCount: o.table.rows.length,
     population: o.population ? { populationId: o.population.populationId, rowCount: o.population.rowCount } : null,

@@ -25,7 +25,7 @@ import {
   type Actor, type FinancialObject, type ParamSpec, type SloaneTool, type ToolArgs, type ToolEnv,
   authorize, toolRegistry,
 } from '../tools.js';
-import { composedByName, composedCoverage, composedFor } from './compose.js';
+import { type PlanContext, composedByName, composedCoverage, composedFor, planContext } from './compose.js';
 import { type FactContext, type FactRegistry, type FinancialFact, factsFrom } from './facts.js';
 import { RESPOND_TOOL } from './respond.js';
 
@@ -159,6 +159,8 @@ export interface V2ToolOutcome {
   error: string | null;
   /** Phase 2: the canonical facts this read produced, already registered and referenceable by id */
   facts: FinancialFact[];
+  /** PHASE 2.5 §6/§7: the person's own word for the subject, and the cut a breakdown was taken by */
+  ctx: PlanContext;
 }
 
 /** every argument arrives as text; anything else the model sent is coerced to text or dropped */
@@ -176,7 +178,7 @@ export function coerceArgs(raw: unknown): ToolArgs {
 }
 
 const fail = (name: string, args: ToolArgs, step: number, err: string, refused: boolean, ms = 0): V2ToolOutcome =>
-  ({ tool: name, ran: null, args, status: refused ? 'REFUSED' : 'FAILED', object: null, observation: compact(step, name, name, null, err, refused), latencyMs: ms, error: err, facts: [] });
+  ({ tool: name, ran: null, args, status: refused ? 'REFUSED' : 'FAILED', object: null, observation: compact(step, name, name, null, err, refused), latencyMs: ms, error: err, facts: [], ctx: planContext(args) });
 
 /**
  * §11/§35 — the ONE execution path. A composed operation resolves to a registered tool first; permission is then
@@ -190,7 +192,7 @@ export function runTool(
   const given = coerceArgs(raw);
   const t0 = Date.now();
   const composed = composedByName(name);
-  let args = given, id = name, note: string | undefined, title: string | undefined;
+  let args = given, id = name, note: string | undefined, title: string | undefined, measure: PlanContext['measure'];
 
   if (composed) {
     const missing = composed.def({ allows: () => true }).input_schema.required.filter((k) => !given[k]);
@@ -201,9 +203,9 @@ export function runTool(
     if (planned.kind === 'ANSWER') {
       /* the concept could not honestly produce a figure: that IS the governed answer */
       return register({ tool: name, ran: null, args: given, status: 'COMPLETED', object: planned.object,
-        observation: compact(step, name, name, planned.object, null), latencyMs: Date.now() - t0, error: null, facts: [] }, facts);
+        observation: compact(step, name, name, planned.object, null), latencyMs: Date.now() - t0, error: null, facts: [], ctx: { ...planContext(given), ...(measure ? { measure } : {}), ...(note ? { note } : {}) } }, facts);
     }
-    id = planned.tool; args = planned.args; note = planned.note; title = planned.title;
+    id = planned.tool; args = planned.args; note = planned.note; title = planned.title; measure = planned.measure;
   }
 
   const tool = toolRegistry.get(id);
@@ -220,7 +222,7 @@ export function runTool(
     if (title) r.object.title = title;
     const obs = compact(step, name, name, r.object, null);
     if (note) obs.note = obs.note ? `${note} ${obs.note}` : note;
-    return register({ tool: name, ran: id, args, status: 'COMPLETED', object: r.object, observation: obs, latencyMs: Date.now() - t0, error: null, facts: [] }, facts);
+    return register({ tool: name, ran: id, args, status: 'COMPLETED', object: r.object, observation: obs, latencyMs: Date.now() - t0, error: null, facts: [], ctx: { ...planContext(given), ...(measure ? { measure } : {}), ...(note ? { note } : {}) } }, facts);
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     return { ...fail(name, args, step, err, false, Date.now() - t0), ran: id };
@@ -232,8 +234,24 @@ export function runTool(
  * the model sees carries that id beside the value. That is the whole mechanism: the model can only cite a
  * figure it was handed an id for, so a figure it never read has no way into the answer.
  */
+/**
+ * PHASE 2.6.1 — AN EXPLANATION IS READING MATERIAL, NOT A CITABLE VALUE.
+ *
+ * The two semantic reads return what a word MEANS on this book — a definition, a resolution status, a note.
+ * None of it is a figure, and the fact contract exists for exactly one reason: so the model never types an
+ * authoritative figure. Handing it ids for prose invited the opposite, and the live smoke showed it: asked
+ * whether a consolidated figure includes eliminations, the model cited the concept's status and its mapping
+ * and Korvyn substituted them verbatim, producing "Yes — RESOLVED the June revenue figures already reflect
+ * … A consolidation step, not an account rather than a separate account". Every word governed, and the
+ * sentence unreadable.
+ *
+ * So these reads carry no ids. The model still SEES every word of them and answers in its own — which is what
+ * a conceptual question wants, and it is also why such a turn is a reasoned one rather than a composed one.
+ */
+const EXPLANATORY_TOOL_IDS = new Set(V2_DIRECT_TOOL_IDS);
+
 function register(o: V2ToolOutcome, f?: { registry: FactRegistry; ctx: FactContext }): V2ToolOutcome {
-  if (!f || !o.object) return o;
+  if (!f || !o.object || (o.ran && EXPLANATORY_TOOL_IDS.has(o.ran))) return o;
   const made = f.registry.add(factsFrom(o.object, f.ctx));
   /* the observation's facts are the object's own, in order, so the id lands on the right one */
   const byKey = new Map(made.map((x, i) => [o.object!.facts[i]?.key ?? x.label, x.factId]));

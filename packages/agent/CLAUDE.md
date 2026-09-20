@@ -149,6 +149,41 @@ routes to `getAccountAnalysis`), `v2/compose.ts` gains measure-aware dispatch an
 complete reference resolved on the way past. `v2p2.test.ts`. Full record, including every live number, in the
 root CLAUDE.md.
 
+**Core Runtime V2, Phase 2.5 (2026-09-20):** grounded response performance. `v2/strategy.ts` — three response
+strategies (`GROUNDED_DIRECT` · `GROUNDED_REASONING` · `AGENTIC_INVESTIGATION`, never named to a person),
+eligibility, three deterministic composers (VALUE · BREAKDOWN · STATUS) that REUSE `ResponseDefinition` and
+`renderResponse`, and the offer/drill table. The model declares `answerMode` on the read it asks for — **one
+optional argument on every composed operation, no router and no phrase matching** — and Korvyn validates it
+against what came back, so a governed lookup costs ONE model call and a clicked offer costs NONE. §29: a reader
+whose visibility is limited is always WORDED, never composed. §16: a governed turn can no longer reach a person as
+unstructured prose. `firstUsefulMs`, `strategy` and `workload` join the trace. `v2p25.test.ts`;
+`npm run sloane:v2-smoke` (Tier 1, spends credits). Full record in the root CLAUDE.md.
+
+**Core Runtime V2, Phase 2.6 (2026-09-20):** derived financial intelligence. `semantic/metrics.ts` — the
+`DerivedMetricDefinition` catalogue (9 metrics, 7 calculable) that EXECUTES the formulas `semantic/concepts.ts` had
+declared and nothing ever ran, over CANONICAL STATEMENT CONCEPTS rather than account codes, with a stated status
+(GOVERNED · DEFAULTED · CANDIDATE · AMBIGUOUS · UNAVAILABLE) and a component bridge that foots. Two governed tools:
+`calculateMetric` and `compareStatement`, the latter fixing the driver bug — `getIncomeStatement` emitted facts for
+total revenue and net income ONLY, so "revenue was the only material mover" was the honest report of the only mover
+the model could CITE. One composed operation (`getMetric`, 12 tools to 13) and two generic measure-word regexes,
+neither naming a metric. `IncomeStatementResult.components` is now the ONE source the statement, every metric and
+every ranked comparison read. `v2p26.test.ts`. Full record in the root CLAUDE.md.
+
+**Core Runtime V2, Phase 2.6.1 (2026-09-20):** consolidation-consistent analytical populations. The elimination
+rule left `incomeStatement()` — where it was hard-coded to one entity pair and invisible to every other service —
+and became ONE predicate in the consolidation layer: `financials.ts` declares `IntercompanyRelationship`
+(parties, matcher, and the statement `sections` it eliminates in) and `eliminatesIn`; `governed.ts` exposes
+`covers()` and `consolidation(treatment, covered)`, read by `match()`, `balanceUsd()` and `analysis/query.ts`, so
+a statement line and the accounts beneath it are ONE economic population. `EliminationTreatment` keeps the
+pre-elimination and eliminations-only views reachable and `source = consolidated + eliminations` holds.
+`FinancialFact.eliminationTreatment` travels the treatment (§13) and `populationMismatch()` refuses a claim that
+compares two populations (§12, period excepted). `compareStatement` publishes `detailReconciles` — the check that
+was missing, not a caveat (§8/§15) — and `consolidationFact(section)` answers "does this include eliminations?"
+from the declared relationships on the income statement, the balance sheet and the account drill (§14). The
+balance-sheet relationship is declared and deliberately NOT eliminated: the two sides do not match on this book
+and netting them buried a $6.18M control finding in the translation residual. `v2p261.test.ts` (15);
+`npm run sloane:v2-smoke` gains a consolidation case. Full record in the root CLAUDE.md.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

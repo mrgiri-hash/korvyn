@@ -82,8 +82,11 @@ export class FinancialAnalysisQueryService {
   private lines(def: AnalysisDefinition): GLine[] {
     const vis = this.d.visible, scopeEnts = def.scope === 'GROUP' ? null : new Set(this.d.data.scope(def.scope)?.entityIds ?? [def.scope]);
     const f = def.filters.map((x) => ({ ...x, set: new Set(x.values) }));
+    /* PHASE 2.6.1 §1 — the grid explains statement figures, so it reads the statement's own population. */
+    const keep = this.d.gl.consolidation('CONSOLIDATED', this.d.gl.covers(scopeEnts ? [...scopeEnts] : undefined, vis));
     return this.d.gl.lines.filter((l) => {
       if (vis !== 'ALL' && !vis.has(l.entity)) return false;
+      if (!keep(l)) return false;
       if (scopeEnts && !scopeEnts.has(l.entity)) return false;
       if (def.statement === 'BS' && !isBS(l)) return false;
       if (def.statement === 'IS' && isBS(l)) return false;

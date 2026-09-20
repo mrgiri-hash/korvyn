@@ -196,9 +196,14 @@ export const FINANCIAL_CONCEPTS: readonly FinancialConcept[] = [
       'EBITDA is not a line on this book’s statements; it is arithmetic over governed lines.',
       'Adjusted EBITDA depends on a tenant’s stated adjustments, and this tenant has recorded none.',
     ],
-    mappings: [M('EBITDA_DERIVED', 'Revenue less cost of operations and operating expenses', 'DERIVED', [], 'CANDIDATE',
-      'Excludes D&A (65000), interest (70100) and tax. Korvyn can compute it from governed lines and will state each component.',
-      [{ conceptId: 'REVENUE', sign: 1 }, { conceptId: 'COST_OF_OPERATIONS', sign: -1 }, { conceptId: 'SGA', sign: -1 }])],
+    /* PHASE 2.6 — THE FORMULA DEDUCTED SGA, WHICH IS NARROWER THAN OPERATING EXPENSES AND OVERSTATED EBITDA.
+       SGA is 60100–60300; the operating expense group 60000 also holds 60400 property taxes & insurance, which is
+       an operating cost and belongs inside EBITDA. Found when the formula was first EXECUTED rather than merely
+       declared — it had been wrong since it was written, and nothing read it. Corrected to the whole group, which
+       makes EBITDA on this chart arithmetically the statement's own Net operating income subtotal. */
+    mappings: [pref(M('EBITDA_DERIVED', 'Revenue less cost of operations and operating expenses', 'DERIVED', [], 'CANDIDATE',
+      'Excludes D&A (65000), interest (70100) and tax. Korvyn computes it from governed statement components and states each one.',
+      [{ conceptId: 'REVENUE', sign: 1 }, { conceptId: 'COST_OF_OPERATIONS', sign: -1 }, { conceptId: 'OPERATING_EXPENSE', sign: -1 }]))],
   },
   {
     conceptId: 'EBIT', canonicalName: 'EBIT / operating income', category: 'DERIVED_MEASURE',
@@ -214,8 +219,10 @@ export const FINANCIAL_CONCEPTS: readonly FinancialConcept[] = [
     aliases: ['gross margin', 'gross profit', 'margin'],
     broader: [], narrower: [], related: ['OPERATING_MARGIN', 'COST_OF_OPERATIONS'],
     ambiguityNotes: ['"Margin" alone may mean gross, operating or net margin.'],
-    mappings: [M('GM_DERIVED', 'Revenue less cost of operations', 'DERIVED', [], 'CANDIDATE', '',
-      [{ conceptId: 'REVENUE', sign: 1 }, { conceptId: 'COST_OF_OPERATIONS', sign: -1 }])],
+    /* PHASE 2.6 — marked preferred so one honest reading resolves DEFAULTED rather than AMBIGUOUS (§7). A single
+       standard definition is not an ambiguity; it is a default Korvyn has to disclose using. */
+    mappings: [pref(M('GM_DERIVED', 'Revenue less cost of operations', 'DERIVED', [], 'CANDIDATE', '',
+      [{ conceptId: 'REVENUE', sign: 1 }, { conceptId: 'COST_OF_OPERATIONS', sign: -1 }]))],
   },
   {
     conceptId: 'OPERATING_MARGIN', canonicalName: 'Operating margin', category: 'DERIVED_MEASURE',
@@ -714,7 +721,16 @@ export function resolveConcept(i: ConceptResolveInput): ConceptResolution {
   const notes: string[] = [...concept.ambiguityNotes];
   if (byDefault) {
     const others = mappings.filter((m) => m.mappingId !== byDefault.mappingId).map((m) => m.label);
-    notes.unshift(`This tenant has not recorded a definition of ${concept.canonicalName}. Korvyn used the usual professional reading — ${byDefault.label}${byDefault.members.length ? ` (${byDefault.members.join(', ')})` : ''}. Say which reading was used${others.length ? `; the alternatives on this book are ${others.join(' and ')}` : ''}.`);
+    /* PHASE 2.5 §9 — A DISCLOSURE, NOT AN INSTRUCTION.
+       This string used to end "Say which reading was used", which is a direction to the model and reads as
+       nonsense to a person. It now travels into person-facing answers too — Korvyn composes a direct answer
+       from the governed result and states the reading itself — so anything that is not a sentence about the
+       BOOK has no business in it. The direction lives in the system prompt, where directions belong. */
+    /* TWO notes, not one. The first is what an ANSWER has to say — which reading was used — and it lands in a
+       one-line reply, so it has to be one clause. The alternatives are a second sentence: real, worth having, and
+       not worth doubling the length of "June OPEX was $3.52M". `resolveFinancialConcept` still shows both. */
+    if (others.length) notes.unshift(`The alternatives on this book are ${others.join(' and ')}.`);
+    notes.unshift(`Korvyn read that as ${byDefault.label}${byDefault.members.length ? ` (${byDefault.members.join(', ')})` : ''} — the usual professional reading, since this book records no definition of ${concept.canonicalName}.`);
   }
   if (tenant) notes.unshift(`This tenant uses "${tenant.term}" for ${concept.canonicalName}.${tenant.note ? ` ${tenant.note}` : ''}`);
 

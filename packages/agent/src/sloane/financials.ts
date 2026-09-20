@@ -14,6 +14,94 @@
  */
 import { buildEnterpriseGL, type EnterpriseGL } from '../../../core/dist/fixtures/enterprise-gl.js';
 
+/* ================================================================================================
+   PHASE 2.6.1 — CONSOLIDATION, DECLARED ONCE
+   ================================================================================================ */
+
+/**
+ * THE DEFECT THIS EXISTS TO REMOVE.
+ *
+ * The consolidated income statement eliminated intercompany activity inside `FinancialDataService`, as a local
+ * filter over journal entries. `GovernedLedger` — which every analytical service reads — knew nothing about it.
+ * So a consolidated revenue figure and the accounts beneath it came from two different economic populations, and
+ * Sloane could explain a post-elimination movement with pre-elimination drivers. The figures were each internally
+ * right and they did not reconcile, which is the worst shape a financial system can be in.
+ *
+ * The rule now lives HERE, in the population layer, and the statement consumes it. One consolidation truth.
+ *
+ * WHAT AN ELIMINATION IS, ON THIS BOOK. Each side of an intercompany transaction is its OWN journal entry in its
+ * own entity — the management fee is a charge in MGP-REIT and an expense in MDH — so a line cannot be judged by
+ * the entities its entry touches. What pairs them is the RELATIONSHIP, and a relationship eliminates only when
+ * EVERY party to it is inside the population: two entities consolidated together net their mutual trading, and
+ * the same entities looked at singly do not.
+ *
+ * §17 — the relationships are DATA. A second one, a third party, a relationship at another level of the
+ * hierarchy or a different pattern is an entry in this list, not a change to the engine.
+ */
+export interface IntercompanyRelationship {
+  id: string;
+  label: string;
+  /** every entity party to the relationship; it eliminates only when all of them are consolidated together */
+  parties: string[];
+  /** how a journal entry announces that it belongs to this relationship */
+  match: RegExp;
+  /**
+   * The statement sections this relationship is eliminated in. A relationship Korvyn cannot yet eliminate
+   * soundly declares an empty list and says why, rather than eliminating it badly.
+   */
+  sections: readonly string[];
+  /** stated when `sections` is empty: what would have to exist first */
+  notEliminated?: string;
+}
+export const IC_RELATIONSHIPS: readonly IntercompanyRelationship[] = [
+  { id: 'IC-MGMT-FEE', label: 'Intercompany management fee', parties: ['MGP-REIT', 'MDH'],
+    match: /^Intercompany management fee/i, sections: ['INCOME_STATEMENT'] },
+  /**
+   * PHASE 2.6.1 — DECLARED, AND DELIBERATELY NOT ELIMINATED, BECAUSE ELIMINATING IT BADLY IS WORSE.
+   *
+   * Intercompany receivable and payable must eliminate in a consolidated balance sheet, and on this book they do
+   * not match: $35.64M receivable against $29.46M payable at Jun 2026, a $6.18M unmatched position that Phase 3A
+   * recorded as a genuine control finding. Removing both sides makes them net to nothing and pushes the $6.18M
+   * into the translation adjustment, which is computed as a residual — so a real reconciliation failure would
+   * disappear into a plug and read as FX. Measured, before this list gained a `sections` field.
+   *
+   * Eliminating a balance-sheet relationship soundly needs intercompany MATCHING, which is its own engine and
+   * its own phase. Until then the two lines stay visible, which is what a controller needs to see.
+   */
+  { id: 'IC-FUNDING', label: 'Intercompany funding', parties: ['MDH', 'MER-UK', 'MER-DE', 'MER-SG'],
+    match: /^Intercompany funding/i, sections: [],
+    notEliminated: 'intercompany receivable and payable do not match on this book, and netting them would hide the difference in the translation residual; eliminating a balance-sheet relationship needs intercompany matching' },
+];
+
+/** the relationship a journal entry belongs to, or null. Reads the entry, never an account or an amount. */
+export const icRelationshipOf = (description: string): IntercompanyRelationship | null =>
+  IC_RELATIONSHIPS.find((r) => r.match.test(description)) ?? null;
+
+/**
+ * §5 — SOURCE AND CONSOLIDATED ARE BOTH VALID VIEWS, AND A READER MUST NEVER CROSS BETWEEN THEM BY ACCIDENT.
+ *
+ *   CONSOLIDATED       intercompany activity internal to the population is removed. The default, because a
+ *                      question asked of a consolidated statement is a question about the consolidated group.
+ *   PRE_ELIMINATION    the ledger as posted. Valid, and only when it was ASKED for.
+ *   ELIMINATIONS_ONLY  just what was removed — what makes the lineage between the two traceable (§6).
+ */
+export const ELIMINATION_TREATMENTS = ['CONSOLIDATED', 'PRE_ELIMINATION', 'ELIMINATIONS_ONLY'] as const;
+export type EliminationTreatment = (typeof ELIMINATION_TREATMENTS)[number];
+
+/**
+ * Does this line eliminate in a population covering `scope`? `null` means the population spans everything the
+ * reader can see, so every party is inside it by definition.
+ *
+ * A relationship whose parties are only PARTLY inside the population does NOT eliminate: the trading is external
+ * to that population and removing it would understate it. That is the same rule the statement has always applied,
+ * and it is why a single entity's own books still show the fee it charged its parent.
+ */
+export function eliminatesIn(description: string, scope: ReadonlySet<string> | null, section = 'INCOME_STATEMENT'): boolean {
+  const r = icRelationshipOf(description);
+  if (!r || !r.sections.includes(section)) return false;
+  return scope === null || r.parties.every((e) => scope.has(e));
+}
+
 export const GL_SEED = 42;
 export const GL_INVOICES_PER_MONTH = 12;
 export const SNAPSHOT_ID = `CORE-EGL-S${GL_SEED}-I${GL_INVOICES_PER_MONTH}`;
@@ -38,6 +126,16 @@ export interface IncomeStatementResult {
   scope: Scope; periods: string[]; currency: string; unit: 'millions'; rows: StatementRow[];
   netIncome: number[]; totalRevenue: number[]; eliminated: number[]; journalLines: number;
   fxRateSetId: string | null; translated: boolean; entitiesIncluded: string[];
+  /**
+   * PHASE 2.6 §9/§11 — THE CANONICAL STATEMENT COMPONENTS, ONE PER PERIOD, FROM THE ONE PLACE THAT COMPUTES THEM.
+   *
+   * Every derived metric and every ranked comparison reads these, so a metric, a driver and the statement can
+   * never disagree about what revenue was. They could not simply be recomputed elsewhere: `isValues()` sums the
+   * same account groups WITHOUT the intercompany elimination this statement applies, so revenue and operating
+   * expenses each came out $0.35M higher — offsetting exactly, which is why net income matched and the
+   * discrepancy stayed invisible until a comparison put both on one screen.
+   */
+  components: { rev: number; cop: number; opx: number; dna: number; oth: number; noi: number; ni: number }[];
 }
 
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -87,8 +185,9 @@ export class FinancialDataService {
     const byAcct = new Map<string, number[]>();
     const eliminated = new Array<number>(n).fill(0);
     let journalLines = 0;
-    const icParties = new Set(['MGP-REIT', 'MDH']);
-    const eliminateIc = [...icParties].every((e) => inScope.has(e));
+    /* PHASE 2.6.1 §16 — ONE CONSOLIDATION TRUTH. This used to carry its own hard-coded pair, and the ledger
+       every analytical service reads carried nothing, so a statement figure and the accounts beneath it came
+       from two populations. The rule is `governed.ts`'s now; the statement CONSUMES it. */
 
     for (const e of this.gl.entries) {
       const col = idx.get(e.periodId as string);
@@ -104,7 +203,7 @@ export class FinancialDataService {
         const signed = (Number(l.amount.amountMinor) / 10 ** l.amount.scale) * rate;
         /* presentation: revenue as a positive figure (credits), expenses as positive costs (debits) */
         const presented = a.type === 'REVENUE' ? -signed : signed;
-        if (eliminateIc && /^Intercompany/i.test(e.description)) { eliminated[col] += a.type === 'REVENUE' ? presented : 0; continue; }
+        if (eliminatesIn(e.description, inScope)) { eliminated[col] += a.type === 'REVENUE' ? presented : 0; continue; }
         const arr = byAcct.get(a.code) ?? new Array<number>(n).fill(0);
         arr[col] += presented;
         byAcct.set(a.code, arr);
@@ -138,6 +237,7 @@ export class FinancialDataService {
     for (const r of rows) if (r.level === 0 && r.kind === 'line') r.displays = new Array<string>(n).fill('');
 
     return {
+      components: periods.map((_, i) => ({ rev: rev[i]!, cop: cop[i]!, opx: opx[i]!, dna: dna[i]!, oth: oth[i]!, noi: noi[i]!, ni: ni[i]! })),
       scope, periods, currency: ccy, unit: 'millions', rows, netIncome: ni, totalRevenue: rev, eliminated, journalLines,
       fxRateSetId: translate ? FX_RATE_SET.id : null, translated: translate && scope.entityIds.some((id) => this.gl.entities.find((e) => (e.id as string) === id)?.functionalCurrency !== 'USD'),
       entitiesIncluded: scope.entityIds,

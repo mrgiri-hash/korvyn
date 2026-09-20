@@ -208,7 +208,16 @@ test('§2: inflection, ampersands and one slipped key resolve the same concept �
   assert.equal(at('blah blah blah'), null);
 });
 
-test('V2 §1: a figure in the answer that no governed read produced is named, and the answer is not rewritten', async () => {
+/**
+ * PHASE 2.5 §16 SUPERSEDES THE PHASE 2 CONTRACT THIS TEST USED TO ASSERT.
+ *
+ * Phase 1.5 could only MEASURE an invented figure: by the time the check ran, the sentence had been written and
+ * the honest thing was to publish it and name the figure Korvyn could not point at. Phase 2.5 closes it with the
+ * mechanism instead — a turn whose governed reads produced authoritative facts never answers as unstructured
+ * prose, because Korvyn composes the answer from those facts itself. So the invented figure does not reach the
+ * person at all, which is strictly better than reaching them under a warning.
+ */
+test('V2 §16: a governed turn never answers in prose — an invented figure cannot reach the person', async () => {
   const made = '$999.99M';
   const { orch } = v2Orch((round) => round === 0
     ? { tools: [{ name: 'getStatement', input: { view: 'summary', period: '2026-06' } }] }
@@ -216,10 +225,11 @@ test('V2 §1: a figure in the answer that no governed read produced is named, an
   const r = await orch.turn({ sessionId: sid(), request: 'how did June look?' }, me);
   assert.equal(r.state, 'ANSWER');
   const said = r.narrative.map((n) => n.text).join(' ');
-  assert.ok(said.includes(made), 'the answer is what Sloane said — nothing rewrites it');
-  assert.ok(r.notes.some((n) => n.includes(made)), 'and the figure it could not point at is named');
-  /* a figure the governed read DID return is not flagged, or the check is noise */
-  assert.ok(!r.notes.some((n) => n.includes('$124.18M')));
+  assert.ok(!said.includes(made), 'the model’s prose is discarded, so the invented figure is never published');
+  assert.ok(said.length > 0, 'and the person still gets a governed answer');
+  const t = orch.v2.recent(1)[0]!;
+  assert.ok(t.responseViolations.some((v) => v.includes('prose')), 'the escape is recorded as the defect it is');
+  assert.equal(t.ungroundedFigures.length, 0, 'nothing ungrounded survives into the answer');
 });
 
 test('V2 §1: a figure carried forward from an earlier turn is grounded, not flagged', async () => {

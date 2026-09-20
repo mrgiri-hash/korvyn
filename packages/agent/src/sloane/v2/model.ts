@@ -29,7 +29,7 @@ export interface V2Turn {
   };
 }
 
-export type V2Path = 'deterministic' | 'conversation' | 'analytical' | 'analysis-handoff' | 'investigation-handoff' | 'clarification';
+export type V2Path = 'deterministic' | 'conversation' | 'analytical' | 'drill' | 'analysis-handoff' | 'investigation-handoff' | 'clarification';
 
 /**
  * §6/§19 — the governed state of the conversation. Book, basis, lens and currency are HERE, not hard-coded at the
@@ -53,6 +53,12 @@ export interface V2State {
   agentRunId: string | null;
   /** the governed refs the last turn produced — a tool argument may resolve from these */
   lastRefs: Record<string, string>;
+  /**
+   * PHASE 2.5 §19 — the next steps Korvyn OFFERED at the end of the last answer, each bound to the fact it
+   * would drill from. When the person takes one, the drill is already decided and the turn costs no model call:
+   * they picked from a menu Korvyn wrote. Durable with the rest of the state, so a refresh does not lose it.
+   */
+  offers?: import('./strategy.js').Offer[];
 }
 
 /** a question Sloane asked and is waiting on; durable, so a refresh or a restart does not lose it */
@@ -100,6 +106,24 @@ export interface V2Trace {
   latencyMs: number;
   /** §23 — milliseconds to the first visible token of the ANSWER, or null when nothing streamed */
   firstTokenMs: number | null;
+  /**
+   * PHASE 2.5 §14 — TIME TO FIRST *USEFUL* ANSWER. For a turn whose answer is a governed figure, the first
+   * token cannot honestly arrive before the read does, so optimising TTFT alone would reward a placeholder.
+   * This is the instant the first words of the REAL answer exist — for a direct answer, the moment Korvyn
+   * composed it; for a reasoned one, the model's first token of the answer.
+   */
+  firstUsefulMs: number | null;
+  /** §3 — how this turn spent its model calls. Never named to the person. */
+  strategy: import('./strategy.js').ResponseStrategy | null;
+  /** why a direct answer was not composed, when it was not */
+  strategyReason: string | null;
+  /** what the composer recognised in the governed result: VALUE | BREAKDOWN | STATUS */
+  directShape: string | null;
+  /**
+   * §24 — whose tokens these were. A benchmark run and a person's question are different workloads and a
+   * cost report that mixes them is not a cost report. Read from KORVYN_WORKLOAD; the evaluation harnesses set it.
+   */
+  workload: 'SLOANE_RUNTIME' | 'AUTOMATED_EVALUATION' | 'DEVELOPMENT_TEST';
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;

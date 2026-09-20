@@ -18,7 +18,8 @@
  * §23/§27 — ADAPTIVE MEANS FEWER SECTIONS, NOT MORE. "What is OPEX?" renders as one paragraph with no headings
  * at all. Sections exist to make a governed analysis scannable, and a section with nothing in it is never drawn.
  */
-import { type Drill, type FactRegistry, type FinancialFact, bareFigures, isAuthoritative, renderFacts, withoutRefs } from './facts.js';
+import { type Drill, type FactRegistry, type FinancialFact, bareFigures, isAuthoritative, populationMismatch, renderFacts, withoutRefs } from './facts.js';
+import { type Offer, offersFor } from './strategy.js';
 
 /* ================================================================================================
    §22 — THE RESPONSE TYPES
@@ -124,6 +125,12 @@ const CAUSAL = /\b(because|driven by|due to|caused by|owing to|on account of|as 
  *
  * The test is Korvyn's OWN object type and measure (`toolset.ts` declares both), not a word in the sentence:
  * a rule that read the prose would be the phrase handler this phase is written to avoid.
+ *
+ * PHASE 2.5 §18 — ATTRIBUTION IS PER FACT, NOT PER OBJECT, and the distinction is real. `getAccountAnalysis`
+ * returns BOTH the whole movement (`activity.change`) and its top contributors (`topDriver.vendor.change`) in
+ * one object. "Activity rose because of X" pointed at the first is a claim the read does not support — a whole
+ * does not explain itself — and pointed at the second it is exactly what the read established. Reading support
+ * off the OBJECT type would have passed both, which is why the marker moved onto the fact.
  */
 const DECOMPOSITION = /^(DriverAnalysis|DimensionAnalysis|LargestMovements|PopulationAggregate)\b/;
 
@@ -133,6 +140,7 @@ function supportedCausal(a: Assertion, reg: FactRegistry): boolean {
     const f = reg.get(id);
     if (!f) return false;
     if (f.kind === 'APPROVED' || f.trace.fluxExplanationId || f.trace.evidenceIds?.length) return true;
+    if (f.attribution) return true;
     return DECOMPOSITION.test(f.semanticType) || f.measure === 'CONTRIBUTION';
   });
 }
@@ -185,6 +193,28 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
   const all = [headline, summary, ...keyDrivers, ...interpretation, ...exceptions, ...unresolved].filter((a): a is Assertion => !!a);
   const factRefs = [...new Set(all.flatMap((a) => a.factRefs))];
 
+  /**
+   * PHASE 2.6.1 §10/§12/§15 — A SENTENCE THAT PUTS TWO FIGURES TOGETHER IS ASSERTING THEY BELONG TOGETHER.
+   *
+   * Consolidated and pre-elimination amounts are both governed and both right, and subtracting one from the
+   * other produces a movement that never happened. The check is per SENTENCE rather than per answer, because an
+   * answer may legitimately state a consolidated total and then a pre-elimination lineage line beside it —
+   * what it may not do is compare them inside one claim. A mismatch is SAID, not silently dropped: the figures
+   * are governed, and the reader is the one who decides what to do about two views that do not line up.
+   */
+  const crossed: string[] = [];
+  for (const a of all) {
+    const bad = populationMismatch(a.factRefs.map((id) => reg.get(id)).filter((f): f is FinancialFact => !!f));
+    if (!bad.length) continue;
+    const said = bad.map((m) => `${m.dimension} (${m.values.join(' against ')})`).join(', ');
+    violations.push(`figures from different populations compared in one claim: ${said}`);
+    if (!crossed.includes(said)) crossed.push(said);
+  }
+  for (const said of crossed) {
+    unresolved.push(assertion('UNRESOLVED',
+      `These figures do not come from the same population — they differ on ${said} — so the difference between them is not a movement. Read them separately.`, reg));
+  }
+
   /* a reference the registry cannot resolve is a defect, and the sentence holding it is withheld */
   for (const id of factRefs) if (!reg.get(id)) violations.push(`unknown fact reference ${id}`);
 
@@ -216,7 +246,10 @@ export interface RenderedResponse {
   /** the whole answer as plain text, for the transcript and for a caller with no renderer */
   text: string;
   unresolved: string[];
+  /** §17: figures the model typed that match NO governed value — the ones that can be wrong */
   bare: string[];
+  /** §17: figures it typed that are byte-identical to a governed value — a contract miss, not a fabrication */
+  typed: string[];
   nextActions: string[];
 }
 
@@ -245,13 +278,15 @@ const DRILL_LABEL: Record<Drill, string> = {
 };
 const DRILL_ORDER: Drill[] = ['STATEMENT_LINE', 'ACCOUNT_GROUP', 'ACCOUNT', 'TB_POPULATION', 'GL_POPULATION', 'JOURNAL', 'SOURCE_REFERENCE', 'EVIDENCE'];
 
-export function drillActions(def: ResponseDefinition, reg: FactRegistry): string[] {
-  const have = new Set<Drill>();
-  for (const id of def.factRefs) for (const d of reg.get(id)?.availableDrills ?? []) have.add(d);
-  /* ACCOUNT and ACCOUNT_GROUP answer the same question at two grains; offering both is one offer too many */
-  if (have.has('ACCOUNT_GROUP')) have.delete('ACCOUNT');
-  return DRILL_ORDER.filter((d) => have.has(d)).map((d) => DRILL_LABEL[d]).slice(0, 4);
+/**
+ * PHASE 2.5 §19 — an offer carries the FACT it would drill from, not only its label. That is what lets the
+ * next turn run the drill with no model call when the person takes the offer: they picked from a menu Korvyn
+ * wrote, so nothing about their message has to be understood.
+ */
+export function drillOffers(def: ResponseDefinition, reg: FactRegistry, subject: string | null = null): Offer[] {
+  return offersFor(def.factRefs, reg, (d) => DRILL_LABEL[d], DRILL_ORDER, subject);
 }
+export const drillActions = (def: ResponseDefinition, reg: FactRegistry): string[] => drillOffers(def, reg).map((o) => o.label);
 
 /**
  * §23/§24/§27 — the shape follows the answer. DIRECT draws no labels at all; everything else draws only the
@@ -261,13 +296,16 @@ export function renderResponse(def: ResponseDefinition, reg: FactRegistry): Rend
   const parts: RenderedResponse['parts'] = [];
   const unresolved: string[] = [];
   const bare: string[] = [];
+  const typed: string[] = [];
 
   const push = (label: string | null, a: Assertion | null) => {
     if (!a) return;
     const r = renderFacts(a.text, reg);
     unresolved.push(...r.unresolved);
-    /* the model's own prose, with the governed values taken back out, is what it wrote on its own authority */
-    bare.push(...bareFigures(withoutRefs(a.text)));
+    /* the model's own prose, with the governed values taken back out, is what it wrote on its own authority.
+       §17 splits it: a figure the registry already holds was Korvyn's number written the long way round; a
+       figure it does not hold is the one worth a warning. */
+    for (const b of bareFigures(withoutRefs(a.text))) (reg.holdsDisplay(b) ? typed : bare).push(b);
     /* §18 — A SENTENCE HOLDING A REFERENCE KORVYN CANNOT RESOLVE IS WITHHELD, NOT PUBLISHED WITH A HOLE IN IT.
        Measured on the 125-prompt holdout: ten answers reached the person reading "[figure unavailable]" where a
        figure should be — a sentence that names an account and a period and then states nothing is worse than
@@ -300,7 +338,7 @@ export function renderResponse(def: ResponseDefinition, reg: FactRegistry): Rend
   /* §30 — what the model asked for, else what the figures themselves can support. A conceptual answer with no
      governed figure behind it offers nothing, which is correct: there is nowhere to go. */
   const nextActions = def.nextActions.length ? def.nextActions : drillActions(def, reg);
-  return { parts, text, unresolved: [...new Set(unresolved)], bare: [...new Set(bare)], nextActions };
+  return { parts, text, unresolved: [...new Set(unresolved)], bare: [...new Set(bare)], typed: [...new Set(typed)], nextActions };
 }
 
 /* ================================================================================================

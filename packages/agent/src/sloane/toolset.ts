@@ -11,9 +11,13 @@
 import { type ControlService, SEEDED } from './controls.js';
 import { findSavedReport, savedReports } from './book.js';
 import { DEV_DIRECTORY } from './auth.js';
-import { BASIS, FX_RATE_SET, SNAPSHOT_ID, money, periodLabel } from './financials.js';
+import { BASIS, FX_RATE_SET, IC_RELATIONSHIPS, SNAPSHOT_ID, money, periodLabel } from './financials.js';
 import { AP_EXTRACT, DIMENSION_KEYS, type DimensionKey, FX_CLOSING_SET, type GLine, type GovernedLedger, type PopulationFilter, SOURCE_HEALTH, pct } from './governed.js';
 import { type Fact, type FinancialObject, type ParamSpec, type SloaneTool, type TableRow, type ToolArgs, type ToolEnv, type ToolResult, registerTools } from './tools.js';
+/* PHASE 2.6 — the derived-metric layer. The catalogue and the calculator live in `semantic/`, beside the concept
+   catalogue whose formulas they execute; the tool layer only reads governed components and reports the result. */
+import { STATEMENT_COMPONENTS, bridgeMetric, calculateMetric, resolveMetric } from './semantic/metrics.js';
+import { conceptById } from './semantic/concepts.js';
 
 /* ---- helpers --------------------------------------------------------------------------------------- */
 const $ = (v: number | null | undefined) => (v === null || v === undefined ? '—' : money(v, 'USD'));
@@ -113,6 +117,46 @@ export function populationObject(env: ToolEnv, type: string, title: string, f: P
    FINANCIALS
    ================================================================================================ */
 const IS_GROUPS = [['40000', 'Total revenue'], ['50000', 'Cost of operations'], ['60000', 'Operating expenses'], ['65000', 'Depreciation & amortization'], ['70000', 'Other income & expense']] as const;
+/**
+ * PHASE 2.6.1 §6/§14 — "DOES THIS INCLUDE ELIMINATIONS?" IS A GOVERNED FACT, NOT A CAVEAT.
+ *
+ * Before this phase the answer lived in a comment and in whatever a caveat sentence happened to say. It is read
+ * from the declared relationships now, per statement section, so it cannot drift from what the consolidation
+ * actually did — including the relationship Korvyn declares and deliberately does NOT eliminate, which is the
+ * part a reader most needs and the part a caveat would never have thought to mention.
+ *
+ * It is stated in plain words. `CONSOLIDATED` and `PRE_ELIMINATION` are Korvyn's internal vocabulary (§13) and
+ * are never what a person is shown.
+ */
+/** which statement an account sits in, read from the chart — the elimination rule is declared per section */
+function sectionOfAccount(env: ToolEnv, code: string): string {
+  const first = env.gl.expandAccounts([code])[0] ?? code;
+  return env.gl.account(first)?.section ?? env.gl.account(code)?.section ?? 'INCOME_STATEMENT';
+}
+
+function consolidationFact(section: string): Fact {
+  const on = IC_RELATIONSHIPS.filter((r) => r.sections.includes(section));
+  const off = IC_RELATIONSHIPS.filter((r) => !r.sections.includes(section) && r.notEliminated);
+  const said = [
+    on.length
+      ? `Yes — ${on.map((r) => r.label.toLowerCase()).join(' and ')} between entities in scope ${on.length > 1 ? 'are' : 'is'} eliminated, and every figure here is after that.`
+      : 'No intercompany relationship is eliminated in this statement.',
+    ...off.map((r) => `${r.label} is NOT eliminated here: ${r.notEliminated}. Both sides remain visible.`),
+  ].join(' ');
+  return { key: 'consolidationBasis', label: 'Intercompany eliminations', value: on.length ? 'CONSOLIDATED' : 'NONE_APPLICABLE', display: said };
+}
+
+/**
+ * PHASE 2.6.1 §8 — the account group behind each canonical statement component, so a section total can be checked
+ * against the accounts beneath it. These are this tenant's mapping of the concept onto its chart, which is exactly
+ * what a reconciliation has to walk; a formula over concepts (§9) cannot do it, because the question being asked
+ * is whether the chart and the statement agree.
+ */
+const SECTION_CODES: Record<string, string> = {
+  REVENUE: '40000', COST_OF_OPERATIONS: '50000', OPERATING_EXPENSE: '60000',
+  DEPRECIATION_AMORTIZATION: '65000', OTHER_INCOME_EXPENSE: '70000',
+};
+
 const BS_ASSETS = ['10000', '11000', '12000', '13000', '15000', '16000', '17000', '18000', '19000'];
 const BS_LIAB = ['20000', '21000', '22000', '23000', '24000', '25000', '26000'];
 
@@ -183,7 +227,8 @@ const FINANCIALS: SloaneTool[] = [
         { key: `netIncome.${p}`, label: `Net income · ${periodLabel(p)}`, value: r.netIncome[i]!, display: money(r.netIncome[i]!, ccy) }]);
       facts.push({ key: 'totalRevenue.range', label: `Total revenue · ${rangeLabel}`, value: sum(r.totalRevenue), display: money(sum(r.totalRevenue), ccy) },
         { key: 'netIncome.range', label: `Net income · ${rangeLabel}`, value: sum(r.netIncome), display: money(sum(r.netIncome), ccy) },
-        { key: 'scope', label: 'Scope', value: r.scope.name, display: r.scope.name }, { key: 'periods', label: 'Periods', value: rangeLabel, display: rangeLabel });
+        { key: 'scope', label: 'Scope', value: r.scope.name, display: r.scope.name }, { key: 'periods', label: 'Periods', value: rangeLabel, display: rangeLabel },
+        consolidationFact('INCOME_STATEMENT'));
       return {
         warnings: r.translated ? [`Non-USD entities are presented in USD at ${FX_RATE_SET.id} (${FX_RATE_SET.type}, representative).`] : [],
         object: base(env, {
@@ -191,7 +236,8 @@ const FINANCIALS: SloaneTool[] = [
           table: { columns: periods.map(periodLabel), rows: r.rows.map((x) => row(x.label, x.displays, x.level, x.kind, x.code ? `account:${x.code}` : undefined)) }, facts,
           provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: r.journalLines, fxRateSetId: r.fxRateSetId, declaredInputs: r.fxRateSetId ? [r.fxRateSetId] : [],
             eliminations: r.eliminated.some((v) => v !== 0) ? `Intercompany management fees eliminated (${r.eliminated.map((v) => money(v, ccy)).join(' · ')})` : null },
-          focus: { kind: 'statement', id: `is:${periods[0]}:${periods.at(-1)}`, name: `Income statement ${rangeLabel}` }, refs: { period: periods.at(-1)! },
+          focus: { kind: 'statement', id: `is:${periods[0]}:${periods.at(-1)}`, name: `Income statement ${rangeLabel}` },
+          refs: { period: periods.at(-1)!, eliminations: 'CONSOLIDATED' },
         }),
       };
     },
@@ -210,9 +256,11 @@ const FINANCIALS: SloaneTool[] = [
         warnings: ['Intercompany balances are presented unelimininated: they do not agree between counterparties (see the intercompany reconciliation).', `Translation adjustment is derived as the balancing residual at ${FX_CLOSING_SET.id}.`],
         object: base(env, {
           type: 'BalanceSheet', title: `Balance sheet · ${periodLabel(p)}`, scope: scopeOf(env, a['scope']), periods: [p], periodLabel: periodLabel(p), table: { columns: [periodLabel(p)], rows },
-          facts: [{ key: 'totalAssets', label: 'Total assets', value: b.ta, display: $(b.ta) }, { key: 'totalLiabilities', label: 'Total liabilities', value: b.tl, display: $(b.tl) }, { key: 'totalEquity', label: 'Total equity', value: b.te, display: $(b.te) }, { key: 'translationAdjustment', label: 'Translation adjustment (derived)', value: b.cta, display: $(b.cta) }],
+          facts: [{ key: 'totalAssets', label: 'Total assets', value: b.ta, display: $(b.ta) }, { key: 'totalLiabilities', label: 'Total liabilities', value: b.tl, display: $(b.tl) }, { key: 'totalEquity', label: 'Total equity', value: b.te, display: $(b.te) }, { key: 'translationAdjustment', label: 'Translation adjustment (derived)', value: b.cta, display: $(b.cta) },
+            /* §14 — and here the honest answer is NO, with the reason, which is the case a caveat would have missed */
+            consolidationFact('BALANCE_SHEET')],
           provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: FX_CLOSING_SET.id, eliminations: 'none — intercompany balances presented gross', declaredInputs: [FX_CLOSING_SET.id, FX_RATE_SET.id] },
-          focus: { kind: 'statement', id: `bs:${p}`, name: `Balance sheet ${periodLabel(p)}` }, refs: { period: p },
+          focus: { kind: 'statement', id: `bs:${p}`, name: `Balance sheet ${periodLabel(p)}` }, refs: { period: p, eliminations: 'CONSOLIDATED' },
         }),
       };
     },
@@ -405,7 +453,7 @@ const LEDGER: SloaneTool[] = [
   {
     id: 'getAccountAnalysis', domain: 'ledger', permission: 'GL_VIEW', risk: 'READ', objectTypes: ['ACCOUNT', 'ACCOUNT_GROUP', 'GOVERNED_LEDGER'],
     description: 'Analysis of one account or account group for a month: period activity vs prior, balance, top project, entity and vendor drivers of the activity, and the largest lines. Use to answer "why did X move".',
-    params: [acctP(), P('period'), P('comparisonPeriod', false, 'default prior month'), scopeP], outputs: 'AccountAnalysis; facts activity, activity.prior, activity.change, balance, topDriver.<dim>; refs populationId',
+    params: [acctP(), P('period'), P('comparisonPeriod', false, 'default prior month'), scopeP], outputs: 'AccountAnalysis; facts activity, activity.prior, activity.change, activity.change.pct, balance, topDriver.<dim>; refs populationId',
     run(a, env) {
       const code = a['account']!, p = a['period']!, c = priorOr(env, p, a['comparisonPeriod']);
       const ents = entitiesOf(env, a['scope']);
@@ -415,13 +463,22 @@ const LEDGER: SloaneTool[] = [
       const dims: DimensionKey[] = ['project', 'entity', 'vendor', 'description'];
       const tops = dims.map((d) => [d, drivers(env, rows, d, p, c)[0]] as const);
       const def = env.gl.definePopulation({ accounts: codesOf(code), periodStart: p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, 'amount_desc', `${acctNames(env, code)} ${periodLabel(p)}`);
-      const facts = [{ key: 'activity', label: `Activity ${periodLabel(p)} (debit positive)`, value: cur, display: $(cur) }, ...(c ? [{ key: 'activity.prior', label: `Activity ${periodLabel(c)}`, value: pri, display: $(pri) }, { key: 'activity.change', label: 'Change in activity', value: cur - pri, display: $(cur - pri) }] : []),
+      /* PHASE 2.5 §17 — THE PERCENTAGE IS KORVYN'S ARITHMETIC OR IT IS NOBODY'S. A read that returned the two
+         amounts and not the change between them as a percentage left "OPEX rose 21%" with no fact to reference,
+         so the model either typed it — which is exactly the ungrounded figure the phase is measuring — or said
+         less than the reader asked for. `pct` is the same helper `getFinancialStatementLine` already uses, and
+         it returns "n/m" rather than a ratio of almost nothing. */
+      const facts = [{ key: 'activity', label: `Activity ${periodLabel(p)} (debit positive)`, value: cur, display: $(cur) }, ...(c ? [{ key: 'activity.prior', label: `Activity ${periodLabel(c)}`, value: pri, display: $(pri) }, { key: 'activity.change', label: 'Change in activity', value: cur - pri, display: $(cur - pri) }, { key: 'activity.change.pct', label: 'Change in activity %', value: pct(cur, pri), display: pct(cur, pri) }] : []),
         { key: 'balance', label: `Balance at ${periodLabel(p)}`, value: bal, display: $(bal) }, { key: 'lines', label: 'Lines this period', value: rows.filter((l) => l.period === p).length, display: n(rows.filter((l) => l.period === p).length) },
         ...tops.filter(([, t]) => t).flatMap(([d, t]) => [{ key: `topDriver.${d}`, label: `Top ${d} driver`, value: t!.label, display: t!.label }, { key: `topDriver.${d}.change`, label: `Top ${d} driver change`, value: t!.change, display: $(t!.change) }])];
       return { warnings: rows.some((l) => l.vendor) ? [AP_EXTRACT.note] : [], object: base(env, {
         type: 'AccountAnalysis', title: `${acctNames(env, code)} · ${periodLabel(p)}${c ? ` vs ${periodLabel(c)}` : ''}`, scope: scopeOf(env, a['scope']), periods: c ? [c, p] : [p], periodLabel: periodLabel(p),
         table: { columns: ['Driver', c ? periodLabel(c) : 'Prior', periodLabel(p), 'Change'], rows: tops.flatMap(([d]) => drivers(env, rows, d, p, c).slice(0, 4).map((g) => row(`${d}: ${g.label}`, [d, $(g.prior), $(g.current), $(g.change)]))) },
-        facts, refs: { account: code, period: p, populationId: def.id, ...(c ? { comparisonPeriod: c } : {}) }, focus: { kind: 'account', id: codesOf(code)[0]!, name: acctNames(env, code) },
+        /* PHASE 2.6.1 §6/§7/§14 — this is the drill a reader lands on from a statement line, so it is the
+           read that has to be able to say which side of the elimination it is on. It resolves the same
+           population the statement does, and it says so where the account detail is. */
+        facts: [...facts, consolidationFact(sectionOfAccount(env, code))],
+        refs: { account: code, period: p, populationId: def.id, eliminations: 'CONSOLIDATED', ...(c ? { comparisonPeriod: c } : {}) }, focus: { kind: 'account', id: codesOf(code)[0]!, name: acctNames(env, code) },
         provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: rows.length, fxRateSetId: FX_RATE_SET.id, eliminations: null, declaredInputs: [FX_RATE_SET.id, FX_CLOSING_SET.id, AP_EXTRACT.id] },
       }) };
     },
@@ -1126,5 +1183,246 @@ const guardReconciliation = (t: SloaneTool): SloaneTool => (!t.params.some((p) =
   if (d && env.visible !== 'ALL' && !env.visible.has(d.entity)) return unavailable(env, 'Reconciliation', d.name, 'Reconciliation', `${env.actor.role} may not view ${d.entity === 'GROUP' ? 'group-level' : d.entity} reconciliations.`);
   return t.run(a, env);
 } });
-registerTools([...FINANCIALS, ...TB, ...LEDGER, ...ANALYSIS, ...FLUX, ...RECON, ...CLOSE, ...REPORTING, ...AUDIT, ...EVIDENCE, ...TRACE, ...FIND].map(guardReconciliation));
+
+/* ================================================================================================
+   PHASE 2.6 — DERIVED METRICS AND STATEMENT COMPARISON
+   ================================================================================================ */
+
+/**
+ * §10's ROOT CAUSE, FIXED AT THE SOURCE.
+ *
+ * `getIncomeStatement` emits facts for total revenue and net income and NOTHING ELSE — every other line is a table
+ * row. Phase 2 forbids the model from stating a figure it has no fact for, and rightly; so asked which lines moved
+ * between May and June it answered "revenue was the only material mover", which was the honest report of the only
+ * mover it could CITE. Cost of operations and operating expenses had moved more, in plain sight, as strings.
+ *
+ * This returns a FACT for every line that moved, RANKS them by absolute movement in Korvyn (§12), and states
+ * whether the population it ranked was complete (§14). The model then has something to reason over instead of
+ * something to read.
+ */
+const COMPARISON: SloaneTool[] = [
+  {
+    id: 'compareStatement', domain: 'financials', permission: 'FINANCIALS_VIEW', risk: 'READ', objectTypes: ['INCOME_STATEMENT', 'FINANCIAL_STATEMENT'],
+    description: 'Compare a statement between two months and rank what moved. Returns every line with its current, prior and change, the largest movements ranked by absolute change, and whether the comparison covered the whole statement. Use for "compare May and June" or "what moved".',
+    params: [P('period'), P('comparisonPeriod', false, 'month to compare against, YYYY-MM; defaults to the prior month'), scopeP,
+      { name: 'statement', kind: 'text', required: false, description: 'income_statement (default)' }],
+    outputs: 'StatementComparison; facts mover1.label/.change/.pct …, totalRevenue/netIncome/noi with .prior and .change, linesCompared, coverage',
+    run(a, env) {
+      const p = a['period']!, c = priorOr(env, p, a['comparisonPeriod']);
+      if (!c) throw new Error(`no period to compare ${periodLabel(p)} against`);
+      const scope = scopeOf(env, a['scope']);
+      const r = env.data.incomeStatement(scope.id, [c, p]);
+      const ccy = r.currency;
+      /* SECTION HEADERS CARRY NO FIGURES and a total is the sum of lines already counted, so neither is a MOVER.
+         Ranking them would put "Net income" at the top of a list of what drove net income. */
+      const movable = r.rows.filter((x) => x.values.length === 2 && !(x.level === 0 && x.kind === 'line'));
+      const lines = movable.map((x) => ({ label: x.label, code: x.code, kind: x.kind, prior: x.values[0]!, current: x.values[1]!, change: x.values[1]! - x.values[0]! }));
+      const detail = lines.filter((x) => x.kind === 'line');
+      /**
+       * §9/§12 — "THE MAJOR DRIVERS AT THE CONSOLIDATED LEVEL" ARE THE STATEMENT'S SECTIONS, NOT ITS ACCOUNTS.
+       *
+       * Ranking account rows put "Power reimbursement revenue" at the top of a list whose real story is that
+       * operating costs rose while revenue was flat — two large offsetting revenue lines outrank a section that
+       * moved less in gross but more in net. The headline ranking is therefore over the CANONICAL STATEMENT
+       * COMPONENTS, read from the same `isValues` the derived metrics are built on, so a driver and a metric can
+       * never disagree about what a component did. The account rows stay, ranked beneath them.
+       */
+      const [cv, pv] = r.components as [typeof r.components[0], typeof r.components[0]];
+      const sections = (Object.entries(STATEMENT_COMPONENTS) as [string, { field: keyof typeof pv; label: string }][])
+        .map(([conceptId, sc]) => ({ conceptId, label: sc.label, prior: cv[sc.field], current: pv[sc.field], change: pv[sc.field] - cv[sc.field] }))
+        .sort((x, y) => Math.abs(y.change) - Math.abs(x.change));
+      /* §13 — "moved" is arithmetic; "material" is a policy Korvyn does not hold for the income statement, so the
+         cut is a DISPLAY floor stated as one, and the count of what fell below it is reported. Nothing here calls a
+         movement material, because nothing here knows a threshold that would make that word true. */
+      const FLOOR = 0.005;
+      const moved = sections.filter((x) => Math.abs(x.change) >= FLOOR);
+      const flat = sections.length - moved.length;
+      const ranked = [...detail].sort((x, y) => Math.abs(y.change) - Math.abs(x.change)).filter((x) => Math.abs(x.change) >= FLOOR);
+      const pctOf = (x: { prior: number; change: number }) => (Math.abs(x.prior) < FLOOR ? 'n/m' : `${((x.change / Math.abs(x.prior)) * 100).toFixed(1)}%`);
+      const tot = (label: string) => lines.find((x) => x.label === label);
+      const rev = tot('Total revenue'), noi = tot('Net operating income'), oi = tot('Operating income'), ni = tot('Net income');
+      const T = (k: string, l: string, x: { prior: number; current: number; change: number } | undefined): Fact[] => (x
+        ? [{ key: `${k}.current`, label: `${l} · ${periodLabel(p)}`, value: x.current, display: money(x.current, ccy) },
+           { key: `${k}.prior`, label: `${l} · ${periodLabel(c)}`, value: x.prior, display: money(x.prior, ccy) },
+           { key: `${k}.change`, label: `${l} · change`, value: x.change, display: money(x.change, ccy) }]
+        : []);
+      const facts: Fact[] = [
+        /* the ranking FIRST: it is the answer, and an observation shows facts in order */
+        ...moved.slice(0, 6).flatMap((x, i): Fact[] => [
+          { key: `mover${i + 1}.label`, label: `Largest movement ${i + 1}`, value: x.label, display: x.label },
+          { key: `mover${i + 1}.change`, label: `${x.label} · change`, value: x.change, display: money(x.change, ccy) },
+        ]),
+        ...T('netIncome', 'Net income', ni), ...T('totalRevenue', 'Total revenue', rev),
+        ...T('noi', 'Net operating income', noi), ...T('operatingIncome', 'Operating income', oi),
+        /* the account rows inside those sections, for a question that goes one level down */
+        ...ranked.slice(0, 4).flatMap((x, i): Fact[] => [
+          { key: `detail${i + 1}.label`, label: `Largest account movement ${i + 1}`, value: x.label, display: x.label },
+          { key: `detail${i + 1}.change`, label: `${x.label} · change`, value: x.change, display: money(x.change, ccy) },
+        ]),
+        /* §14 — COMPLETENESS, STATED. Before anyone concludes "X was the only mover", the population that was
+           ranked has to be KNOWN to be the whole statement rather than assumed to be. */
+        { key: 'linesCompared', label: 'Statement sections compared', value: sections.length, display: n(sections.length) },
+        { key: 'accountsCompared', label: 'Account lines compared', value: detail.length, display: n(detail.length) },
+        { key: 'coverage', label: 'Coverage', value: 'COMPLETE',
+          display: `every section of the income statement (${sections.length} sections, ${flat} unchanged; ${detail.length} account lines beneath them)` },
+        /**
+         * THE ELIMINATION IS BIGGER THAN THE MOVEMENT IT SITS IN, SO IT IS SAID OUT LOUD.
+         *
+         * This comparison is CONSOLIDATED: intercompany management fees are eliminated from revenue and from
+         * operating expenses. The account-level analysis tools read the ledger WITHOUT that elimination, so the
+         * same two sections look larger there — in June the fee is $0.53M against a revenue movement of $0.21M.
+         * A reader who has seen both needs to know which view they are looking at, and why the two differ.
+         */
+        /**
+         * PHASE 2.6.1 §8/§15 — THE RECONCILIATION IS CHECKED, NOT ASSERTED.
+         *
+         * The defect this phase removes was a statement and its detail coming from two economic populations, and
+         * the only reason it survived a whole phase is that nothing ever compared them. Each section total is now
+         * checked against the accounts beneath it AS THE ANALYTICAL SERVICES READ THEM, and a failure is reported
+         * as a structural condition, so Sloane declines to attribute a movement from detail that does not add up
+         * (§15) rather than explaining it anyway.
+         *
+         * Only where the statement is presented in USD: an entity scope presents in its own functional currency
+         * while `balanceUsd` is USD by construction, so comparing those two would report a currency as a break.
+         */
+        ...(ccy === 'USD' ? (() => {
+          const off = sections.map((sc) => {
+            const code = SECTION_CODES[sc.conceptId];
+            if (!code) return null;
+            const detailSum = env.gl.expandAccounts([code])
+              .reduce((t, x) => t + env.gl.presented(x, env.gl.balanceUsd([x], p, vis(env, a['scope']))), 0);
+            return Math.abs(detailSum - sc.current) >= FLOOR ? { label: sc.label, statement: sc.current, detail: detailSum } : null;
+          }).filter(Boolean) as { label: string; statement: number; detail: number }[];
+          return [{ key: 'detailReconciles', label: 'Account detail reconciles to the statement',
+            value: off.length ? 'NO' : 'YES',
+            display: off.length
+              ? `NO — ${off.map((x) => `${x.label}: the statement says ${money(x.statement, ccy)} and the accounts beneath it total ${money(x.detail, ccy)}`).join('; ')}. Do not attribute the movement from that detail; say the two views disagree.`
+              : `yes — every section total equals the accounts beneath it, read in this same consolidated view` } as Fact];
+        })() : []),
+        /**
+         * §6 — THE ELIMINATION IS LINEAGE NOW, NOT A CAVEAT ABOUT ANOTHER TOOL.
+         *
+         * Before Phase 2.6.1 this sentence ended "account-level reads are before this elimination", which was
+         * true and was the bug: the statement eliminated and the ledger did not. Both resolve one population now,
+         * so what is left to say is what the consolidated figure IS — the pre-elimination amount less the
+         * intercompany activity — which is the lineage §6 asks a reader to be able to follow.
+         */
+        ...(r.eliminated.some((v) => Math.abs(v) >= FLOOR)
+          ? [{ key: 'eliminations', label: 'Intercompany eliminated', value: r.eliminated.at(-1)!,
+               display: `${money(r.eliminated.at(-1)!, ccy)} of intercompany management fees is eliminated from revenue and from operating expenses in ${periodLabel(p)} (${money(r.eliminated[0]!, ccy)} in ${periodLabel(c)}); every figure here, and every account beneath it, is after that elimination` } as Fact]
+          : []),
+      ];
+      return { warnings: r.translated ? [`Non-USD entities are presented in USD at ${FX_RATE_SET.id}.`] : [], object: base(env, {
+        type: 'StatementComparison', title: `Income statement · ${periodLabel(p)} vs ${periodLabel(c)}`,
+        scope, periods: [c, p], periodLabel: `${periodLabel(p)} vs ${periodLabel(c)}`, currency: ccy, unit: `${ccy} millions`,
+        table: { columns: [periodLabel(c), periodLabel(p), 'Change', 'Change %'],
+          rows: lines.map((x) => row(x.label, [money(x.prior, ccy), money(x.current, ccy), money(x.change, ccy), x.kind === 'line' ? pctOf(x) : ''],
+            x.kind === 'line' ? 1 : 0, x.kind, x.code ? `account:${x.code}` : undefined)) },
+        facts,
+        provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: r.journalLines, fxRateSetId: r.fxRateSetId, declaredInputs: r.fxRateSetId ? [r.fxRateSetId] : [], eliminations: null },
+        focus: { kind: 'statement', id: `is:${c}:${p}`, name: `Income statement ${periodLabel(p)} vs ${periodLabel(c)}` },
+        refs: { period: p, comparisonPeriod: c, eliminations: 'CONSOLIDATED', ...(ranked[0]?.code ? { largestAccount: ranked[0].code } : {}) },
+      }) };
+    },
+  },
+  {
+    /**
+     * §3 — KORVYN CALCULATES, THE MODEL EXPLAINS. Every input is a governed statement component and every step is
+     * arithmetic over those inputs; there is no argument through which a model-supplied number could enter.
+     */
+    id: 'calculateMetric', domain: 'financials', permission: 'FINANCIALS_VIEW', risk: 'READ', objectTypes: ['FINANCIAL_STATEMENT', 'INCOME_STATEMENT'],
+    description: 'Calculate a governed derived metric — EBITDA, EBIT, gross profit, gross or operating margin, net operating income — from its governed statement components, with the definition Korvyn used, its approval status and every component. Optionally bridges the metric between two periods.',
+    params: [{ name: 'metric', kind: 'text', required: true, description: 'the metric concept id, e.g. EBITDA, EBIT, GROSS_MARGIN, OPERATING_MARGIN, NOI, WORKING_CAPITAL' },
+      { name: 'asked', kind: 'text', required: false, description: 'the person\u2019s own words for the metric, so Korvyn can tell "gross profit" from "gross margin"' },
+      P('period'), P('comparisonPeriod', false, 'month to bridge against, YYYY-MM — gives the component bridge'), scopeP],
+    outputs: 'DerivedMetric; facts metric, metric.prior, metric.change, definition, status, component<N>.label/.value; refs metricId',
+    run(a, env) {
+      const want = String(a['metric']).trim().toUpperCase().replace(/[^A-Z_]/g, '_');
+      const res = resolveMetric(want, a['asked']);
+      const scope = scopeOf(env, a['scope']), p = a['period']!;
+      if (!res.metric) {
+        return { warnings: [], object: base(env, {
+          type: 'DerivedMetric', title: `${a['metric']} · ${periodLabel(p)}`, scope, status: 'UNAVAILABLE',
+          periods: [p], periodLabel: periodLabel(p),
+          facts: [{ key: 'metric', label: 'Metric', value: String(a['metric']), display: String(a['metric']) }],
+          unavailable: { capability: String(a['metric']), reason: 'Korvyn holds no governed definition for that metric on this book.' },
+        }) };
+      }
+      const m = res.metric;
+      if (res.status === 'UNAVAILABLE') {
+        return { warnings: [], object: base(env, {
+          type: 'DerivedMetric', title: `${m.canonicalName} · ${periodLabel(p)}`, scope, status: 'UNAVAILABLE',
+          periods: [p], periodLabel: periodLabel(p), refs: { metricId: m.metricId },
+          facts: [{ key: 'metric', label: 'Metric', value: m.canonicalName, display: m.canonicalName },
+            { key: 'definition', label: 'Definition', value: m.definition, display: m.definition },
+            { key: 'status', label: 'Status', value: res.status, display: 'Korvyn cannot calculate this on this book' }],
+          unavailable: { capability: m.canonicalName, reason: res.statement },
+        }) };
+      }
+      /* §11 — the SAME governed statement the comparison reads, so a metric and a driver cannot disagree */
+      const c = a['comparisonPeriod'] ? priorOr(env, p, a['comparisonPeriod']) : null;
+      const st = env.data.incomeStatement(scope.id, c ? [c, p] : [p]);
+      const cur = calculateMetric(m, st.components.at(-1)!);
+      if (!cur) throw new Error(`${m.canonicalName} could not be calculated for ${periodLabel(p)}`);
+      const pri = c ? calculateMetric(m, st.components[0]!) : null;
+      const br = pri ? bridgeMetric(m, pri, cur) : null;
+      const ccy = 'USD';
+      const show = (v: number) => (m.measureType === 'RATIO' ? `${v.toFixed(1)}%` : money(v, ccy));
+      const facts: Fact[] = [
+        { key: 'metric', label: `${m.canonicalName} · ${periodLabel(p)}`, value: cur.value, display: show(cur.value) },
+        ...(pri && c ? [{ key: 'metric.prior', label: `${m.canonicalName} · ${periodLabel(c)}`, value: pri.value, display: show(pri.value) },
+          { key: 'metric.change', label: `${m.canonicalName} · change`, value: cur.value - pri.value, display: show(cur.value - pri.value) }] : []),
+        /* §15 — the bridge, each step a fact, footing to the change by construction */
+        /* §15 — A RATIO HAS NO ADDITIVE BRIDGE, and labelling one as if it had is a units error a reader will
+           not catch: "lower revenue reduced margin by ($0.21M)" reads as a percentage moving by dollars. An
+           amount metric's steps ARE its movement and foot to it; a ratio's steps are the component movements
+           BEHIND the two endpoints, and are labelled as exactly that. Observed live on operating margin. */
+        ...(br ? br.steps.flatMap((s, i): Fact[] => [
+          { key: `bridge${i + 1}.label`, label: `Bridge step ${i + 1}`, value: s.label, display: s.label },
+          { key: `bridge${i + 1}.change`,
+            label: m.measureType === 'RATIO' ? `${s.label} · movement behind the ${m.canonicalName.toLowerCase()}` : `${s.label} · effect on ${m.canonicalName}`,
+            value: s.change, display: money(s.change, ccy) },
+        ]) : []),
+        /**
+         * PHASE 2.6.1 — A COMPONENT'S NAME AND ITS PRIOR ARE FACTS TOO.
+         *
+         * The lesson is already written down: a figure with no fact id is a figure that gets typed. Asked to
+         * compare EBITDA across two months the model had the current components as facts and the PRIOR ones
+         * only as arithmetic it could infer, so it typed last month's revenue — governed in the book, and
+         * ungrounded in the answer. Observed live. The component's own label goes with it, so "revenue" does
+         * not have to be typed either.
+         */
+        ...cur.components.flatMap((x, i): Fact[] => [
+          { key: `component${i + 1}.label`, label: `Component ${i + 1}`, value: x.label, display: x.label },
+          { key: `component${i + 1}.value`, label: `${x.label}${x.sign < 0 ? ' (deducted)' : ''} · ${periodLabel(p)}`, value: x.value, display: money(x.value, ccy) },
+          ...(pri && c && pri.components[i] ? [{ key: `component${i + 1}.prior`, label: `${x.label} · ${periodLabel(c)}`, value: pri.components[i]!.value, display: money(pri.components[i]!.value, ccy) }] : []),
+        ]),
+        ...(cur.denominator ? [{ key: 'denominator', label: `${cur.denominator.label} · ${periodLabel(p)}`, value: cur.denominator.value, display: money(cur.denominator.value, ccy) }] : []),
+        { key: 'definition', label: 'Definition', value: m.definition, display: m.definition },
+        { key: 'status', label: 'Definition status', value: res.status, display: res.statement },
+      ];
+      const codes = [...new Set(cur.components.flatMap((x) => (conceptById(x.conceptId)?.mappings ?? []).flatMap((mp) => mp.members)))];
+      return { warnings: [], object: base(env, {
+        type: 'DerivedMetric', title: `${m.canonicalName} · ${c ? `${periodLabel(p)} vs ${periodLabel(c)}` : periodLabel(p)}`,
+        scope, periods: c ? [c, p] : [p], periodLabel: c ? `${periodLabel(p)} vs ${periodLabel(c)}` : periodLabel(p),
+        currency: ccy, unit: m.measureType === 'RATIO' ? 'percent of revenue' : `${ccy} millions`,
+        table: br
+          ? { columns: [periodLabel(c!), periodLabel(p), m.measureType === 'RATIO' ? 'Movement' : `Effect on ${m.canonicalName}`],
+              rows: [...br.steps.map((s) => row(s.label, [money(s.prior, ccy), money(s.current, ccy), money(s.change, ccy)], 1, 'line')),
+                row(`${m.canonicalName} change`, ['', '', show(br.change)], 0, 'total')] }
+          : { columns: ['Component', periodLabel(p)],
+              rows: [...cur.components.map((x) => row(`${x.label}${x.sign < 0 ? ' (deducted)' : ''}`, [money(x.value, ccy)], 1, 'line')),
+                row(m.canonicalName, [show(cur.value)], 0, 'total')] },
+        facts,
+        provenance: { source: `Derived from governed statement components · ${GL_SRC}`, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: null, declaredInputs: [`metric definition ${m.metricId} v${m.version}`], eliminations: null },
+        focus: { kind: 'metric', id: m.metricId, name: m.canonicalName },
+        /* §9/§12 — every component came from ONE governed statement, so a metric and its parts share one
+           elimination context by construction rather than by coincidence. */
+        refs: { metricId: m.metricId, metricStatus: res.status, period: p, eliminations: 'CONSOLIDATED', ...(c ? { comparisonPeriod: c } : {}), ...(codes.length ? { account: codes.join(',') } : {}) },
+      }) };
+    },
+  },
+];
+
+registerTools([...FINANCIALS, ...COMPARISON, ...TB, ...LEDGER, ...ANALYSIS, ...FLUX, ...RECON, ...CLOSE, ...REPORTING, ...AUDIT, ...EVIDENCE, ...TRACE, ...FIND].map(guardReconciliation));
 export const TOOLSET_LOADED = true;

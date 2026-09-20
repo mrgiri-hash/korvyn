@@ -30,6 +30,10 @@
  *                                                               layer's own resolution, free
  */
 import '../../env.js';
+
+/* PHASE 2.5 §24 — a benchmark's tokens are not a person's. `workload()` is read per turn, so setting it here
+   takes effect even though the imports around it have already been hoisted and run. */
+process.env['KORVYN_WORKLOAD'] ??= 'AUTOMATED_EVALUATION';
 import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createAdapter } from '../adapter.js';

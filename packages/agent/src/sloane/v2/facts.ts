@@ -22,6 +22,7 @@
  * of drills. A second accounting engine would be the one thing that could make the figures wrong again.
  */
 import { createHash } from 'node:crypto';
+import type { EliminationTreatment } from '../financials.js';
 import type { FinancialObject } from '../tools.js';
 
 /* ================================================================================================
@@ -127,6 +128,19 @@ export interface FinancialFact {
   kind: FactKind;
   /** what the figure is ABOUT: the concept or object type, in Korvyn's own vocabulary */
   semanticType: string;
+  /**
+   * PHASE 2.5 — the producing tool's OWN output field name (`balance`, `activity.change`, `driver1.label`).
+   * It is declared in `toolset.ts` and stable, and it is what lets Korvyn compose an answer from a governed
+   * result without asking the model which figure answered the question (§6). It is Korvyn's vocabulary, not
+   * a finance phrase: nothing here reads the person's words.
+   */
+  sourceKey: string;
+  /**
+   * PHASE 2.5 §18 — this figure is a PART OF a whole the same read decomposed: one driver of a movement, one
+   * group of a breakdown, the top contributor. Attribution is what a causal claim ordinarily rests on in
+   * accounting, so `respond` treats it as support; a bare change figure is not attribution and does not.
+   */
+  attribution: boolean;
   measure: Measure;
   label: string;
   rawValue: number | string;
@@ -141,8 +155,25 @@ export interface FinancialFact {
   book: string;
   basis: string;
   lens: string;
+  /**
+   * PHASE 2.6.1 §13 — WHICH POPULATION PRODUCED THIS FIGURE.
+   *
+   * Consolidated and pre-elimination are both valid views of the same book, and a reader must never cross between
+   * them without knowing. It travels on the FACT so a comparison, a bridge or a drill can CHECK compatibility
+   * (§12) rather than assume it, and so "does this include eliminations?" has a governed answer (§14). It is
+   * internal vocabulary: it is stated in words, never as the bare enum.
+   */
+  eliminationTreatment: EliminationTreatment;
   /** §6 — the governed objects this figure belongs to. A fact cannot be cited against another object */
   sourceObjectIds: string[];
+  /**
+   * PHASE 2.6 §4/§5 — for a DERIVED metric: the governed definition it was calculated from, and the component
+   * facts it was calculated OUT OF. "How did you calculate that?" is answered by walking these, and each one
+   * drills exactly like any other governed fact because each one IS one.
+   */
+  metricId?: string;
+  definitionVersion?: string;
+  componentFactIds?: string[];
   trace: FactTrace;
   availableDrills: Drill[];
   provenance: string;
@@ -173,6 +204,16 @@ function measureOf(key: string, display: string, value: number | string): Measur
   if (leaf === 'count' || leaf === 'lines' || leaf === 'rows' || (typeof value === 'number' && !/[$€£%]/.test(display))) return 'COUNT';
   return 'AMOUNT';
 }
+
+/**
+ * PHASE 2.5 §18 — A DECOMPOSITION MEMBER, READ FROM THE TOOL'S OWN FIELD NAME.
+ *
+ * `getDriverAnalysis` emits `driver1.label` / `driver1.change`, `analyzeByDimension` emits `group1.amount`,
+ * `getTopMovements` emits `mover1.*`, and `getAccountAnalysis` emits `topDriver.<dim>.change`. Every one of
+ * those is a PART of the total the same read returned, which is what "driven by" claims. `activity.change`
+ * is not: it is the whole movement, and a whole does not explain itself.
+ */
+const ATTRIBUTION_KEY = /^(driver|group|mover|contributor)\d+\.|^topDriver\./;
 
 /**
  * §5 — the sign is read from the governed VALUE, never from the formatted string. A display string carries its
@@ -206,7 +247,7 @@ function drillsOf(t: FactTrace, kind: FactKind): Drill[] {
  * value, and the registry's own update path is what should notice.
  */
 function factIdOf(parts: (string | undefined)[]): string {
-  const h = createHash('sha256').update(parts.map((p) => p ?? '').join(' ')).digest('base64url');
+  const h = createHash('sha256').update(parts.map((p) => p ?? '').join(' ')).digest('base64url');
   return `f_${h.slice(0, 12)}`;
 }
 
@@ -234,8 +275,16 @@ export function factsFrom(o: FinancialObject, ctx: FactContext): FinancialFact[]
     ...(refs['reconciliationId'] ? { reconciliationId: refs['reconciliationId'] } : {}),
     ...(refs['reconciliationStatus'] ? { reconciliationStatus: refs['reconciliationStatus'] } : {}),
   };
-  /* an object Korvyn could not answer holds no authoritative figure, whatever its facts say */
-  const kind: FactKind = o.status === 'UNAVAILABLE' ? 'UNKNOWN' : o.governed ? 'GOVERNED' : 'MODEL_INFERENCE';
+  /**
+    * PHASE 2.6 §1/§4 — POSTED IS NOT THE SAME AS GOVERNED, AND DERIVED IS NOT THE SAME AS UNGOVERNED.
+    *
+    * A metric Korvyn calculated from governed components under a governed definition is authoritative — it is
+    * `DERIVED`, which `isAuthoritative` already admits, and it renders and drills like any other fact. What the
+    * kind carries is HOW it came to be, so a reader (and the trace) can tell a figure that was posted from one
+    * that was computed. Neither is less true than the other; they answer different questions about provenance.
+    */
+  const derived = o.type === 'DerivedMetric';
+  const kind: FactKind = o.status === 'UNAVAILABLE' ? 'UNKNOWN' : !o.governed ? 'MODEL_INFERENCE' : derived ? 'DERIVED' : 'GOVERNED';
   const tie: TieStatus = (refs['tieStatus'] as TieStatus | undefined) ?? 'NOT_TESTED';
 
   return o.facts.map((f) => {
@@ -245,6 +294,8 @@ export function factsFrom(o: FinancialObject, ctx: FactContext): FinancialFact[]
       factId: factIdOf(['v2', o.type, f.key, measure, o.periodLabel, o.scope.id, ctx.book, ctx.lens, o.basis, (accountIds ?? []).join('+')]),
       kind,
       semanticType: o.focus?.kind ? `${o.type}:${o.focus.kind}` : o.type,
+      sourceKey: f.key,
+      attribution: ATTRIBUTION_KEY.test(f.key),
       measure,
       label: f.label,
       rawValue: f.value,
@@ -257,7 +308,11 @@ export function factsFrom(o: FinancialObject, ctx: FactContext): FinancialFact[]
       book: ctx.book,
       basis: o.basis,
       lens: ctx.lens,
+      /* §13 — the producing read declares it; absent, a governed amount is the CONSOLIDATED view, which is what
+         every statement, metric and account drill in this runtime now resolves. */
+      eliminationTreatment: (refs['eliminations'] as EliminationTreatment | undefined) ?? 'CONSOLIDATED',
       sourceObjectIds: [o.id],
+      ...(refs['metricId'] ? { metricId: refs['metricId'] } : {}),
       trace,
       availableDrills: drillsOf(trace, kind),
       provenance: o.provenance.source,
@@ -265,6 +320,57 @@ export function factsFrom(o: FinancialObject, ctx: FactContext): FinancialFact[]
       createdAt: new Date().toISOString(),
     };
   });
+}
+
+/* ================================================================================================
+   PHASE 2.6.1 §12 — POPULATION COMPATIBILITY
+   ================================================================================================ */
+
+/**
+ * TWO FIGURES MAY ONLY BE COMPARED, BRIDGED OR SUBTRACTED WHEN THEY DESCRIBE THE SAME ECONOMIC POPULATION.
+ *
+ * This is the check the runtime did not have, and its absence is the whole of the defect this phase removes: a
+ * consolidated statement line and a pre-elimination account total are both correct, both governed, and their
+ * difference is meaningless. It is deliberately LIGHTWEIGHT — a comparison of the dimensions a fact already
+ * carries, with no read, no model call and no new object (§18).
+ *
+ * PERIOD IS THE ONE DIMENSION ALLOWED TO DIFFER, because varying it is what a comparison IS. Everything else
+ * — scope, elimination treatment, book, basis, lens, currency — has to hold, or the two figures answer
+ * different questions and the difference between them is not a movement.
+ */
+export interface PopulationMismatch { dimension: string; values: string[] }
+
+const COMPAT: { dimension: string; of: (f: FinancialFact) => string }[] = [
+  { dimension: 'scope', of: (f) => f.scope },
+  { dimension: 'consolidation', of: (f) => f.eliminationTreatment },
+  { dimension: 'book', of: (f) => f.book },
+  { dimension: 'basis', of: (f) => f.basis },
+  { dimension: 'lens', of: (f) => f.lens },
+  { dimension: 'currency', of: (f) => f.currency ?? '' },
+];
+
+/** the dimensions on which a set of facts disagree; empty means they may be compared */
+export function populationMismatch(facts: FinancialFact[]): PopulationMismatch[] {
+  const num = facts.filter((f) => typeof f.rawValue === 'number');
+  if (num.length < 2) return [];
+  const out: PopulationMismatch[] = [];
+  for (const d of COMPAT) {
+    const vs = [...new Set(num.map(d.of).filter((v) => v !== ''))];
+    if (vs.length > 1) out.push({ dimension: d.dimension, values: vs });
+  }
+  return out;
+}
+
+/**
+ * §13/§14 — the treatment said in a sentence a person reads, never as the enum. "Does this include
+ * eliminations?" is answered from the fact rather than from a caveat somebody remembered to write.
+ */
+export function consolidationSentence(t: EliminationTreatment): string {
+  return t === 'PRE_ELIMINATION'
+    ? 'before intercompany eliminations — intercompany activity between the entities in scope is still in this figure'
+    : t === 'ELIMINATIONS_ONLY'
+      ? 'the intercompany activity eliminated on consolidation, and nothing else'
+      : 'after intercompany eliminations — activity between the entities in scope has been removed';
 }
 
 /* ================================================================================================
@@ -299,6 +405,39 @@ export class FactRegistry {
     return f ?? null;
   }
 
+  /**
+   * PHASE 2.5 §17 — DOES THE REGISTRY ALREADY HOLD THIS EXACT FIGURE?
+   *
+   * A figure the model TYPED that is byte-identical to a governed display value is a different defect from one
+   * it invented, and Phase 1.5's check could not tell them apart. "$3.52M" written out rather than referenced
+   * is a contract miss: the value is Korvyn's, the sign convention is Korvyn's, and what was lost is the
+   * guarantee that it stays attached to the right object. "$999.99M" is a fabrication.
+   *
+   * Both are recorded. Only the second is worth a warning to the person, because only the second can be wrong.
+   */
+  holdsDisplay(s: string): boolean {
+    const want = s.replace(/\s+/g, '');
+    for (const f of this.map.values()) if (f.displayValue.replace(/\s+/g, '') === want) return true;
+    return false;
+  }
+
+  /**
+   * PHASE 2.6 — THE SAME MAGNITUDE, WITH THE SIGN CARRIED BY A WORD RATHER THAN BY THE CONVENTION.
+   *
+   * "EBITDA fell $0.39M" is a correct English sentence about a figure the registry holds as "($0.39M)": the
+   * digits and the scale are governed and the direction is in the verb. The strict check reads it as a
+   * fabrication, and the sentence-dropping rule then deleted the only sentence in the answer — observed live,
+   * an empty reply. A magnitude match is therefore its own, milder finding: recorded, never warned about, and
+   * never a reason to withhold. Only a figure whose MAGNITUDE matches nothing can be wrong.
+   */
+  holdsMagnitude(s: string): boolean {
+    const digits = (x: string) => x.replace(/[()$€£%,\s-]/g, '').replace(/^0+(?=\d)/, '');
+    const want = digits(s);
+    if (!/\d/.test(want)) return false;
+    for (const f of this.map.values()) if (digits(f.displayValue) === want) return true;
+    return false;
+  }
+
   /** the facts a given object produced, for a drill that starts from an object rather than a figure */
   forObject(objectId: string): FinancialFact[] {
     return [...this.map.values()].filter((f) => f.sourceObjectIds.includes(objectId));
@@ -324,6 +463,19 @@ export class FactRegistry {
 /** the model writes this; a person never sees it (§26) */
 export const FACT_REF = /\{\{FACT:([A-Za-z0-9_-]{3,40})\}\}/g;
 
+/**
+ * PHASE 2.5 §26 — THE DETECTOR IS PERMISSIVE EVEN THOUGH THE RESOLVER IS EXACT, AND THE BENCHMARK IS WHY.
+ *
+ * A real fact id is `f_` plus base64url, so the pattern above is the right shape to LOOK UP. It is the wrong
+ * shape to DETECT: asked for net PP&E, the model wrote `{{FACT:f_pp&e_balance}}` — an id it invented, containing
+ * a character the class excludes — so nothing matched, nothing was reported unresolved, and the raw machinery
+ * went to the person exactly as typed. A reference a person can read is the one thing §26 forbids outright.
+ *
+ * So anything reference-SHAPED that survives resolution is an invented reference. It is counted as unresolved,
+ * which makes §18's withholding rule fire on the sentence holding it.
+ */
+const FACT_REF_ANY = /\{\{\s*FACT\s*:[^}]{0,80}\}\}/gi;
+
 export interface RenderOut {
   text: string;
   /** ids the model cited that the registry could not resolve — a structural failure, not a style note */
@@ -340,12 +492,15 @@ export interface RenderOut {
 export function renderFacts(text: string, reg: FactRegistry): RenderOut {
   const unresolved: string[] = [];
   const used: string[] = [];
-  const out = text.replace(FACT_REF, (_m, id: string) => {
+  let out = text.replace(FACT_REF, (_m, id: string) => {
     const f = reg.get(id);
     if (!f) { unresolved.push(id); return '[figure unavailable]'; }
     used.push(id);
     return f.displayValue;
   });
+  /* §26 — anything still reference-shaped is an id the model invented in a form the lookup cannot even try.
+     It is unresolved, and it never reaches a reader as itself. */
+  out = out.replace(FACT_REF_ANY, (m) => { unresolved.push(m.slice(0, 40)); return '[figure unavailable]'; });
   return { text: out, unresolved, used };
 }
 
@@ -357,7 +512,15 @@ export function renderFacts(text: string, reg: FactRegistry): RenderOut {
  * assertion takes — and not for bare integers, because a year, an account code, a count of reconciliations and
  * "two of the three" are not figures anyone would trace, and flagging them would bury the one that matters.
  */
-const FIGURE = /\(?-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?\)?|-?\d[\d,]*(?:\.\d+)?\s?%/g;
+/**
+ * PHASE 2.6.1 — A CLOSING PARENTHESIS IS PART OF THE FIGURE ONLY WHEN AN OPENING ONE WAS.
+ *
+ * Accounting writes a credit as "($0.39M)", and prose writes an aside as "(May: $13.22M)". The old pattern
+ * took the trailing `)` in both, so a governed figure inside an aside came out as `$13.22M)` — a string that
+ * matches no stored display value and no magnitude, and is therefore reported as a figure Korvyn cannot find
+ * when it is looking straight at it. The two alternatives are now separate: parenthesised, or not.
+ */
+const FIGURE = /\(-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?\)|-?[$€£]\s?[\d,]+(?:\.\d+)?\s?[MKB]?|-?\d[\d,]*(?:\.\d+)?\s?%/g;
 export const bareFigures = (textWithRefsRemoved: string): string[] =>
   [...new Set((textWithRefsRemoved.match(FIGURE) ?? []).map((s) => s.trim()))];
 

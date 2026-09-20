@@ -255,9 +255,9 @@ test('P2 §8: a drill that would refuse is never offered', () => {
 test('P2 §35: eviction drops the least recently REFERENCED, not the oldest', () => {
   const reg = new FactRegistry();
   const mk = (n: number): FinancialFact => ({
-    factId: `f_seed${n}`, kind: 'GOVERNED', semanticType: 'T', measure: 'AMOUNT', label: `L${n}`,
+    factId: `f_seed${n}`, kind: 'GOVERNED', semanticType: 'T', sourceKey: `k${n}`, attribution: false, measure: 'AMOUNT', label: `L${n}`,
     rawValue: n, displayValue: String(n), sign: 'POSITIVE', unit: 'USD millions', currency: 'USD',
-    period: 'Jun 2026', scope: 'Corporate Consolidated', book: CTX.book, basis: 'US GAAP', lens: CTX.lens,
+    period: 'Jun 2026', scope: 'Corporate Consolidated', book: CTX.book, basis: 'US GAAP', lens: CTX.lens, eliminationTreatment: 'CONSOLIDATED',
     sourceObjectIds: ['FO-X'], trace: {}, availableDrills: [], provenance: 'test', tieStatus: 'NOT_TESTED',
     createdAt: new Date().toISOString(),
   });
@@ -334,7 +334,9 @@ test('P2 §28: a governed read is titled in the language of the question, not th
     { subject: 'opex', period: '2026-06', comparisonPeriod: '2026-05', dimension: 'vendor', scope: 'MDH' }, env);
   assert.equal(p.kind, 'RUN');
   const title = p.kind === 'RUN' ? p.title ?? '' : '';
-  assert.ok(/^Opex by vendor — MDH · 2026-06 vs 2026-05$/.test(title), title);
+  /* PHASE 2.6 §18 — the periods are MONTHS now, not keys: "2026-06 vs 2026-05" was the argument list finishing
+     a title whose whole point was to stop being one. */
+  assert.ok(/^Opex by vendor — MDH · Jun 2026 vs May 2026$/.test(title), title);
   /* the codes are not lost — they stay on the arguments, and so on the object's refs and trace */
   assert.equal(p.kind === 'RUN' && p.args['account'], '50000,60000');
 });

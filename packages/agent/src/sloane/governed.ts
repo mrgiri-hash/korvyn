@@ -18,7 +18,7 @@
  *   SOURCE_HEALTH        connector availability per ERP instance.
  */
 import { createHash } from 'node:crypto';
-import { FX_RATE_SET, type FinancialDataService, SNAPSHOT_ID as SNAPSHOT, money, periodLabel } from './financials.js';
+import { type EliminationTreatment, FX_RATE_SET, type FinancialDataService, SNAPSHOT_ID as SNAPSHOT, eliminatesIn, icRelationshipOf, money, periodLabel } from './financials.js';
 
 export const FX_CLOSING_SET = {
   id: 'FXR-2026-CLS-REP-1',
@@ -55,6 +55,11 @@ export interface GLine {
   usd: number;            // signed, translated at the monthly average rate
   project: string | null; costCenter: string | null; property: string | null;
   description: string; recordType: 'SOURCE_GL';
+  /**
+   * PHASE 2.6.1 — this line belongs to an intercompany relationship. Whether it ELIMINATES depends on the
+   * population reading it, so the line carries the fact and never the decision.
+   */
+  intercompany: boolean;
   connector: string; externalId: string;
   vendor: string | null; invoiceRef: string | null; poRef: string | null; contractRef: string | null; approvalRef: string | null;
   approvalRequired: boolean;
@@ -62,6 +67,7 @@ export interface GLine {
 
 export const DIMENSION_KEYS = ['entity', 'account', 'accountGroup', 'project', 'costCenter', 'property', 'vendor', 'currency', 'period', 'description'] as const;
 export type DimensionKey = (typeof DIMENSION_KEYS)[number];
+
 
 export interface PopulationFilter {
   periodStart?: string; periodEnd?: string;
@@ -72,6 +78,12 @@ export interface PopulationFilter {
   keys?: string[];
   /** a vendor filter reads the spend leg; set to include the AP liability offset as well */
   includeApLiability?: boolean;
+  /**
+   * PHASE 2.6.1 §5 — how intercompany activity is treated. Absent means CONSOLIDATED, because a population
+   * with no stated treatment is being read to explain a consolidated figure; a pre-elimination view is a thing
+   * somebody asked for, and asking is what makes it safe.
+   */
+  eliminations?: EliminationTreatment;
 }
 export interface PopulationDef { id: string; filter: PopulationFilter; sort: 'amount_desc' | 'amount_asc' | 'date_asc' | 'date_desc'; createdAt: string; label: string }
 
@@ -145,7 +157,8 @@ export class GovernedLedger {
           entity: l.entityId as string, entityName: entName.get(l.entityId as string) ?? (l.entityId as string), currency: ccy,
           account: a.code, accountName: a.name, accountType: a.type, section: a.section, group: grp, groupName: this.accts.get(grp)?.name ?? a.name,
           local, usd: local * rate, project: dims['PROJECT'] ?? null, costCenter: dims['COST_CENTER'] ?? null, property: dims['PROPERTY'] ?? null,
-          description: e.description, recordType: 'SOURCE_GL', connector: src.connectorId ?? 'unknown', externalId: src.externalId ?? '',
+          description: e.description, recordType: 'SOURCE_GL', intercompany: !!icRelationshipOf(e.description),
+          connector: src.connectorId ?? 'unknown', externalId: src.externalId ?? '',
           vendor, invoiceRef, poRef, contractRef, approvalRef, approvalRequired,
         });
       }
@@ -178,6 +191,8 @@ export class GovernedLedger {
     return { key: `${p.id}#${i + 1}`, journalId: p.id, entryNo: p.id, lineNo: i + 1, period: p.period, postingDate: p.postingDate, day: Number(p.postingDate.slice(8, 10)),
       entity: p.entity, entityName, currency, account: a.code, accountName: a.name, accountType: a.type, section: a.section, group: grp, groupName: this.accts.get(grp)?.name ?? a.name,
       local: ln.local, usd: ln.local * rate, project: ln.project ?? null, costCenter: ln.costCenter ?? null, property: null, description: p.description, recordType: 'SOURCE_GL',
+      /* a late ERP posting is source activity like any other; whether it is intercompany is read the same way */
+      intercompany: !!icRelationshipOf(p.description),
       connector, externalId: `${connector.toUpperCase()}-${p.id}`, vendor: null, invoiceRef: null, poRef: null, contractRef: null, approvalRef: null, approvalRequired: false };
   }
   appliedPostings(): readonly string[] { return this.applied; }
@@ -215,12 +230,46 @@ export class GovernedLedger {
     return v;
   }
 
+  /* ---- consolidation: ONE predicate, read by every walk that produces an amount --------------------- */
+
+  /**
+   * PHASE 2.6.1 §1 — WHAT THE POPULATION COVERS, which is what decides whether a relationship is internal to it.
+   *
+   * The entities a population was narrowed to, else everything the reader may see. `null` — an unrestricted
+   * reader with no entity filter — is the whole group, where every declared relationship is internal.
+   */
+  covers(entities: readonly string[] | undefined, visible: Set<string> | 'ALL'): ReadonlySet<string> | null {
+    if (entities?.length) return new Set(entities);
+    return visible === 'ALL' ? null : visible;
+  }
+
+  /**
+   * §1/§16 — THE CONSOLIDATION FILTER EVERY AMOUNT PASSES THROUGH.
+   *
+   * `match()` alone was not enough: `balanceUsd` and the analysis grid each walk `this.lines` with their own
+   * inline filter, which is exactly how the statement and its drill came to disagree. Both read this now, so a
+   * new walk that forgets it is a walk that will not reconcile — and §8's check will say so rather than letting
+   * an answer be built on it.
+   */
+  consolidation(treatment: EliminationTreatment, covered: ReadonlySet<string> | null): (l: GLine) => boolean {
+    if (treatment === 'PRE_ELIMINATION') return () => true;
+    const elim = (l: GLine) => l.intercompany && eliminatesIn(l.description, covered, l.section);
+    return treatment === 'ELIMINATIONS_ONLY' ? elim : (l) => !elim(l);
+  }
+
   /* ---- populations: definitions with ids, never arrays handed out ---------------------------------- */
   match(f: PopulationFilter, visible: Set<string> | 'ALL'): (l: GLine) => boolean {
     const accts = f.accounts?.length ? new Set(this.expandAccounts(f.accounts)) : null;
     const t = f.text?.toLowerCase();
     const keySet = f.keys ? new Set(f.keys) : null;
-    return (l) => (visible === 'ALL' || visible.has(l.entity))
+    /**
+     * §1/§5 — THE ELIMINATION IS A PROPERTY OF THE POPULATION, so every service that reads a population gets
+     * it without knowing it exists. The scope is what the population COVERS: the entities it was narrowed to,
+     * else everything the reader may see. `null` — an unrestricted reader with no entity filter — is the whole
+     * group, where every relationship is internal.
+     */
+    const keep = this.consolidation(f.eliminations ?? 'CONSOLIDATED', this.covers(f.entities, visible));
+    return (l) => (visible === 'ALL' || visible.has(l.entity)) && keep(l)
       && (!f.periodStart || l.period >= f.periodStart) && (!f.periodEnd || l.period <= f.periodEnd)
       && (!f.entities?.length || f.entities.includes(l.entity)) && (!accts || accts.has(l.account))
       && (!f.vendor || ((l.vendor ?? '').toLowerCase() === f.vendor.toLowerCase() && (f.includeApLiability || l.account !== '20100')))
@@ -277,11 +326,15 @@ export class GovernedLedger {
 
   /* ---- balances ------------------------------------------------------------------------------------ */
   /** Cumulative balance through a period (balance sheet), or activity in a period (income statement), USD. Balances translate at the closing set, activity at the average set. */
-  balanceUsd(accountCodes: string[], period: string, visible: Set<string> | 'ALL', entities?: string[]): number {
+  balanceUsd(accountCodes: string[], period: string, visible: Set<string> | 'ALL', entities?: string[], treatment: EliminationTreatment = 'CONSOLIDATED'): number {
     const accts = new Set(this.expandAccounts(accountCodes));
+    /* §1 — this walk is its own filter and so had its own population; it reads the one predicate now, which is
+       what makes a statement line and the accounts beneath it the same economic figure. */
+    const keep = this.consolidation(treatment, this.covers(entities, visible));
     let v = 0;
     for (const l of this.lines) {
       if (!accts.has(l.account) || (visible !== 'ALL' && !visible.has(l.entity)) || (entities?.length && !entities.includes(l.entity))) continue;
+      if (!keep(l)) continue;
       v += this.contribution(l, period, 'ENDING');
     }
     return v;
