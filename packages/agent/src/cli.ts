@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env.js';
 import * as readline from 'node:readline';
 import { KorvynAgent, type AgentEvent } from './agent.js';
 

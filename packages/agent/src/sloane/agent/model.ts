@@ -24,7 +24,9 @@ export const WAITING: AgentRunStatus[] = ['WAITING_FOR_USER', 'WAITING_FOR_CONFI
 export type TaskStatus = 'PENDING' | 'READY' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'WAITING' | 'BLOCKED';
 export type TaskType = 'RETRIEVE' | 'ANALYZE' | 'COMPARE' | 'TRACE' | 'VALIDATE' | 'BUILD_ARTIFACT' | 'PREPARE_ACTION' | 'EXECUTE_ACTION'
   | 'REQUEST_CLARIFICATION' | 'REQUEST_CONFIRMATION' | 'WAIT_FOR_APPROVAL' | 'VERIFY' | 'SUMMARIZE';
-export type GoalType = 'REVIEW_CLOSE' | 'PREPARE_CONTROLLER_REVIEW' | 'PREPARE_AUDIT_SUPPORT' | 'INVESTIGATE_VENDOR' | 'BUILD_FINANCIAL_ARTIFACT' | 'GENERIC';
+export type GoalType = 'REVIEW_CLOSE' | 'PREPARE_CONTROLLER_REVIEW' | 'PREPARE_AUDIT_SUPPORT' | 'INVESTIGATE_VENDOR' | 'BUILD_FINANCIAL_ARTIFACT' | 'GENERIC'
+  /** 8D: an open objective — no template: the graph grows one THINK step at a time (agent/investigate.ts) */
+  | 'INVESTIGATE';
 
 /* ================================================================================================
    AUTONOMY — what the runtime may do without a person, by level. The POLICY PROFILE sets the ceiling; the model never
@@ -39,7 +41,7 @@ export const AUTONOMY = {
 } as const;
 export type AutonomyLevel = 0 | 1 | 2 | 3 | 4;
 
-export type ProfileId = 'READ_ONLY' | 'FINANCE_ANALYST' | 'CLOSE_PREPARER' | 'CONTROLLER_REVIEW' | 'AUDIT_SUPPORT';
+export type ProfileId = 'READ_ONLY' | 'FINANCE_ANALYST' | 'CLOSE_PREPARER' | 'CONTROLLER_REVIEW' | 'AUDIT_SUPPORT' | 'INVESTIGATION';
 export interface AgentPolicyProfile {
   id: ProfileId; label: string;
   /** the highest level the runtime may act at without a person */
@@ -67,12 +69,14 @@ export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
   CLOSE_PREPARER: { ...base, id: 'CLOSE_PREPARER', label: 'Close preparer', autonomy: 2, domains: [...READS, 'build', 'action'], preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ATTACH_SUPPORT'], maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'ENTITY' },
   CONTROLLER_REVIEW: { ...base, id: 'CONTROLLER_REVIEW', label: 'Controller review preparation', autonomy: 2, domains: [...READS, 'build', 'action'],
     preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'RECONCILIATION_APPROVAL', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'], maxSteps: 30, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
+  /* 8D: read, analyse, synthesize (levels 0–1); the findings and next steps are the workproduct — nothing is prepared or written */
+  INVESTIGATION: { ...base, id: 'INVESTIGATION', label: 'Financial investigation', autonomy: 1, domains: [...READS, 'semantic'], preparableActions: [], maxSteps: 40, maxRuntimeMs: 300_000, maxScope: 'GROUP' },
   AUDIT_SUPPORT: { ...base, id: 'AUDIT_SUPPORT', label: 'Audit support', autonomy: 2, domains: [...READS, 'build', 'action'], preparableActions: ['GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT', 'REFRESH_PBC_REQUEST'], maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
 };
 /** the profile is chosen by KORVYN from the goal type — never by the model, never by the request text */
 export const PROFILE_FOR: Record<GoalType, ProfileId> = {
   REVIEW_CLOSE: 'READ_ONLY', INVESTIGATE_VENDOR: 'READ_ONLY', PREPARE_CONTROLLER_REVIEW: 'CONTROLLER_REVIEW',
-  PREPARE_AUDIT_SUPPORT: 'AUDIT_SUPPORT', BUILD_FINANCIAL_ARTIFACT: 'FINANCE_ANALYST', GENERIC: 'FINANCE_ANALYST',
+  PREPARE_AUDIT_SUPPORT: 'AUDIT_SUPPORT', BUILD_FINANCIAL_ARTIFACT: 'FINANCE_ANALYST', GENERIC: 'FINANCE_ANALYST', INVESTIGATE: 'INVESTIGATION',
 };
 
 /* ================================================================================================
@@ -107,6 +111,9 @@ export interface AgentGoal {
   notices: string[];
   /** a label for the period when it is a quarter or another named window */
   periodText: string | null;
+  /** 8D: the comparison the conversation was on, and the analysis on screen (summary only) — the investigation's frame */
+  comparisonPeriod?: string | null;
+  activeAnalysis?: unknown | null;
 }
 
 /* ================================================================================================
@@ -140,7 +147,9 @@ export interface AgentTask {
   /** a key tying a prepared action to what it is about (an account, a reconciliation) — used by "ignore X" */
   about?: string | null;
   /** a Korvyn-internal step (no tool): evaluate source dependencies, an evidence check, a generation wait, verification */
-  check?: 'SOURCES' | 'VENDOR_SOURCES' | 'RECON_EVIDENCE' | 'GENERATION' | 'VERIFY' | 'SUMMARIZE' | 'CONFIRMATION' | 'GOVERNED';
+  check?: 'SOURCES' | 'VENDOR_SOURCES' | 'RECON_EVIDENCE' | 'GENERATION' | 'VERIFY' | 'SUMMARIZE' | 'CONFIRMATION' | 'GOVERNED'
+    /** 8D: the model decides the next governed step(s) from a compact context / writes the grounded synthesis */
+    | 'THINK' | 'SYNTHESIZE';
   /** the action plan a PREPARE task's proposal joins (a confirmation checkpoint decides one plan) */
   planKey?: 'ACTIONS' | 'GOVERNED';
   /** lower runs first among ready tasks ("focus on CIP first" lowers it) */
@@ -198,7 +207,7 @@ export interface UserSteeringEvent { id: string; runId: string; at: string; acto
    ================================================================================================ */
 export interface AgentRunTrace {
   toolCalls: { taskId: string; tool: string; args: ToolArgs; status: string; latencyMs: number; objectId: string | null; error: string | null; traceId: string }[];
-  modelCalls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number }[];
+  modelCalls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; costUsd?: number; cls?: string; error?: string | null }[];
   policyDecisions: { at: string; subject: string; decision: 'ALLOW' | 'DENY' | 'CHECKPOINT'; reason: string }[];
 }
 export interface AgentResult {
@@ -211,6 +220,11 @@ export interface AgentResult {
   artifacts: { id: string; name: string; status: string }[];
   narrative: string[];
   notes: string[];
+  /** 8D: an investigation's result — what was inspected, findings by kind and support, what is unresolved, next steps */
+  investigation?: { understanding: string | null; goalClass: string | null; inspected: string[];
+    findings: { statement: string; kind: string; support: string; observationRefs: string[]; objectIds: string[] }[];
+    unresolved: string[]; nextSteps: { label: string; request: string }[]; confidence: number | null;
+    populations: string[]; objects: { ref: string; objectId: string | null; title: string }[]; stopReason: string | null } | null;
 }
 export interface AgentRunBody {
   runId: string;
@@ -241,6 +255,8 @@ export interface AgentRunBody {
   /** the governed data version the run started on (a change mid-run is reported by VERIFY) */
   dataVersion: string;
   options: AgentRunOptions;
+  /** 8D: the open investigation's state (budget, usage, observations, notes, escalations, the synthesis) */
+  investigation?: import('./investigate.js').InvestigationState;
   /** the user-facing progress lines, in order — what the browser shows; never task ids or JSON */
   progress: { at: string; line: string; state: 'done' | 'active' | 'waiting' | 'blocked' | 'skipped' }[];
 }

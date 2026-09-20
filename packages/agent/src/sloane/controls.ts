@@ -172,7 +172,21 @@ export class ControlService {
       support, supportComplete: support.every((s) => s.status !== 'MISSING'), sourceIssues,
     };
   }
-  reconciliations(period: string, vis: Vis) { return this.recDefs().filter((d) => inVis(vis, d.entity)).map((d) => this.reconcile(d, period)); }
+  reconciliations(period: string, vis: Vis) { return this.recDefs().filter((d) => inVis(vis, d.entity)).map((d) => this.redact(this.reconcile(d, period), vis)); }
+  /**
+   * 8D — WHAT A READER MAY SEE OF A RECONCILIATION. An intercompany reconciliation compares this entity's receivable with
+   * each COUNTERPARTY's payable, so a per-counterparty item carries figures read from books the reader may not see. Policy
+   * (IC_AGGREGATE_DISCLOSURE): a reader who can see the reconciliation's own entity sees its result — balances, difference,
+   * tie status — because that is this entity's control; the per-counterparty items for entities outside their access
+   * collapse into one aggregate item that says the detail is withheld. Nothing about a hidden entity is named.
+   */
+  redact<T extends { id: string; items: { id: string; label: string; amountUsd: number; kind: string }[] }>(r: T, vis: Vis): T {
+    if (vis === 'ALL') return r;
+    const hidden = r.items.filter((i) => i.kind === 'INTERCOMPANY_DIFFERENCE' && !inVis(vis, i.id.slice(r.id.length + 1)));
+    if (!hidden.length) return r;
+    const kept = r.items.filter((i) => !hidden.includes(i));
+    return { ...r, items: [...kept, { id: `${r.id}-COUNTERPARTIES`, label: `Differences with ${hidden.length} counterpart${hidden.length === 1 ? 'y' : 'ies'} outside your access — detail withheld`, amountUsd: hidden.reduce((s, i) => s + i.amountUsd, 0), kind: 'INTERCOMPANY_DIFFERENCE' }] };
+  }
 
   /** 4A — THE SERVER-AUTHORITATIVE RECONCILIATION BALANCE. What an artifact, Sloane and the Reconciliations workspace
    *  all cite: the GL balance, the supporting balance, the difference and the tie status — derived every time from the
@@ -264,7 +278,7 @@ export class ControlService {
     if (missingApr.length) out.push({ signal: 'MISSING_APPROVAL_REFERENCE', ref: 'AP bills', detail: `${missingApr.length} AP lines above the approval threshold carry no approval reference`, amountUsd: missingApr.reduce((s, l) => s + Math.abs(l.usd), 0) });
     const late = rows.filter((l) => l.day >= 27 && /Capital|Placed in service/.test(l.description));
     if (late.length) out.push({ signal: 'LATE_CAPITAL_POSTING', ref: 'CIP', detail: `${late.length} capital lines posted in the last days of the period`, amountUsd: late.reduce((s, l) => s + Math.abs(l.usd), 0) / 2 });
-    for (const h of Object.values(SOURCE_HEALTH)) if (h.status !== 'AVAILABLE') out.push({ signal: `SOURCE_${h.status}`, ref: h.instance, detail: `${h.system}: ${h.note}`, amountUsd: null });
+    for (const [k, h] of Object.entries(SOURCE_HEALTH)) if (h.status !== 'AVAILABLE' && (vis === 'ALL' || L.entities().some((e) => e.connector === k && inVis(vis, e.id)))) out.push({ signal: `SOURCE_${h.status}`, ref: h.instance, detail: `${h.system}: ${h.note}`, amountUsd: null });
     return out;
   }
 

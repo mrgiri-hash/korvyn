@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env.js';
 import { createServer, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

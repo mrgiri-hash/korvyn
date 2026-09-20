@@ -55,7 +55,7 @@ test('§35 A: May and June balance sheet → reshape → filter → expand → n
   assert.equal(a8.panel!.kind, 'GL'); assert.ok(a8.panel!.gl!.populationId.startsWith('POP-'));
   assert.equal(a8.panel!.cell!.measure, 'VARIANCE');
   assert.equal(a8.referents.activePopulationId, a8.panel!.gl!.populationId);
-  assert.ok(a8.definition.version >= 7, 'every change is a new version of the same definition');
+  assert.equal(a8.definition.version, 6, 'every CHANGE is a new version of the same definition — the no-op reshape (rows were already accounts) and the drill are not');
 });
 
 test('§36 B: June TB by entity → only BS → largest first → expand South Valley (a project, added beneath by its canonical id)', async () => {
@@ -170,7 +170,7 @@ test('§34 analytical language the rules do not know goes to the model; Korvyn r
   const scripted = new MockLLMAdapter();
   Object.defineProperty(scripted, 'provider', { value: 'scripted' });
   (scripted as unknown as { analysisEdit: () => Promise<unknown> }).analysisEdit = async () => ({ status: 'ok', latencyMs: 1, requestId: null, usage: null, model: 'scripted',
-    value: { relation: 'NEW_ANALYSIS', confidence: 0.9, unsupported: null, question: null, options: [], ops: [{ op: 'NEW_STATEMENT', dimensions: ['account'], values: [], periods: ['2026-05', '2026-06'], measure: null, number: null, percent: null, statement: 'BS', rowRef: null }, { op: 'FILTER', dimensions: [], values: ['Atlantis Holdings'], periods: [], measure: null, number: null, percent: null, statement: null, rowRef: null }] } });
+    value: { contextRelation: 'START_NEW', targetReferent: { kind: 'NONE', rank: null, rowRef: null, values: [] }, ephemeralOperation: { kind: 'NONE', by: null, n: null, dir: null }, persistentMutation: true, requiresClarification: false, confidence: 0.9, unsupported: null, question: null, options: [], ops: [{ op: 'NEW_STATEMENT', dimensions: ['account'], values: [], periods: ['2026-05', '2026-06'], measure: null, number: null, percent: null, statement: 'BS', rowRef: null }, { op: 'FILTER', dimensions: [], values: ['Atlantis Holdings'], periods: [], measure: null, number: null, percent: null, statement: null, rowRef: null }] } });
   /* no grid noun in these words: the conversational front door recognises the grid request and routes it back */
   (scripted as unknown as { converse: () => Promise<unknown> }).converse = async () => ({ status: 'ok', latencyMs: 1, requestId: null, usage: null, model: 'scripted', value: { conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, reply: null, unsupportedOperation: null, confidence: 0.9 } });
   const o2 = new SloaneOrchestrator(scripted, { maxPlanSteps: 8 }, () => reviewer);
@@ -189,18 +189,18 @@ const scriptedOrch = (script: (req: string) => Record<string, unknown>) => {
   Object.defineProperty(sc, 'provider', { value: 'scripted' });
   (sc as unknown as { analysisEdit: (i: { request: string; vocabulary?: unknown }) => Promise<unknown> }).analysisEdit = async (i) => {
     assert.ok(i.vocabulary, 'the governed vocabulary travels with every edit request');
-    return { status: 'ok', latencyMs: 1, requestId: null, usage: null, model: 'scripted', value: { relation: 'MODIFY', confidence: 0.9, unsupported: null, question: null, options: [], ops: [], ...script(i.request) } };
+    return { status: 'ok', latencyMs: 1, requestId: null, usage: null, model: 'scripted', value: { contextRelation: 'MODIFY_CURRENT', targetReferent: { kind: 'NONE', rank: null, rowRef: null, values: [] }, ephemeralOperation: { kind: 'NONE', by: null, n: null, dir: null }, persistentMutation: true, requiresClarification: false, confidence: 0.9, unsupported: null, question: null, options: [], ops: [], ...script(i.request) } };
   };
   return new SloaneOrchestrator(sc, { maxPlanSteps: 8 }, () => reviewer);
 };
 
 test('8C.1 model-first: account type, % floor, remove filter and undo are applied by the engine', async () => {
-  const o = scriptedOrch((q) => /^tb/.test(q) ? { relation: 'NEW_ANALYSIS', ops: [op({ op: 'NEW_TRIAL_BALANCE', dimensions: ['account'], periods: ['2026-06'] })] }
+  const o = scriptedOrch((q) => /^tb/.test(q) ? { contextRelation: 'START_NEW', ops: [op({ op: 'NEW_TRIAL_BALANCE', dimensions: ['account'], periods: ['2026-06'] })] }
     : /asset/.test(q) ? { ops: [op({ op: 'ACCOUNT_TYPE', values: ['assets'] })] }
     : /cash/.test(q) ? { ops: [op({ op: 'FILTER', values: ['10000'] })] }
     : /drop/.test(q) ? { ops: [op({ op: 'REMOVE_FILTER', values: ['10000'] })] }
     : /moved/.test(q) ? { ops: [op({ op: 'THRESHOLD', percent: 20 })] }
-    : { relation: 'CORRECTION', ops: [op({ op: 'UNDO' })] });
+    : { contextRelation: 'CORRECT_CURRENT', ops: [op({ op: 'UNDO' })] });
   const s = 'an-8c1-a-xxxxxxxx', t = async (q: string) => { const r = await o.turn({ sessionId: s, request: q }, reviewer); return r.objects.find((x) => x.type === 'FinancialAnalysis')!.analysis as unknown as A & { source: string }; };
   const a1 = await t('tb june'); assert.equal(a1.source, 'reasoning'); assert.equal(a1.definition.analysisType, 'TRIAL_BALANCE');
   const a2 = await t('assets only'); assert.deepEqual(a2.definition.accountTypes, ['ASSET']);
@@ -212,15 +212,15 @@ test('8C.1 model-first: account type, % floor, remove filter and undo are applie
   assert.equal(a6.definition.id, a1.definition.id);
 });
 
-test('8C.1 NOT_ANALYSIS returns the turn to the rest of Sloane; NEEDS_CLARIFICATION asks and resumes', async () => {
-  const o = scriptedOrch((q) => /^bs/.test(q) ? { relation: 'NEW_ANALYSIS', ops: [op({ op: 'NEW_STATEMENT', statement: 'BS', periods: ['2026-06'] })] }
-    : /close/.test(q) ? { relation: 'NOT_ANALYSIS' }
-    : /wrong/.test(q) ? { relation: 'NEEDS_CLARIFICATION', question: 'Which part should change?', options: ['switch to May', 'remove the entity split'] }
+test('8C.1 CHANGE_TOPIC returns the turn to the rest of Sloane; CLARIFY_REFERENT asks and resumes', async () => {
+  const o = scriptedOrch((q) => /^bs/.test(q) ? { contextRelation: 'START_NEW', ops: [op({ op: 'NEW_STATEMENT', statement: 'BS', periods: ['2026-06'] })] }
+    : /close/.test(q) ? { contextRelation: 'CHANGE_TOPIC' }
+    : /wrong/.test(q) ? { contextRelation: 'CLARIFY_REFERENT', requiresClarification: true, question: 'Which part should change?', options: ['switch to May', 'remove the entity split'] }
     : { ops: [op({ op: 'SET_PERIODS', periods: ['2026-05'] })] });
   const s = 'an-8c1-b-xxxxxxxx';
   const r1 = await o.turn({ sessionId: s, request: 'bs june' }, reviewer); assert.equal(o.trace(r1.traceId)!.route, 'ANALYSIS');
   const r2 = await o.turn({ sessionId: s, request: 'what is blocking the close' }, reviewer);
-  assert.notEqual(o.trace(r2.traceId)!.route, 'ANALYSIS', 'the model said NOT_ANALYSIS; the analysis editor stood aside');
+  assert.notEqual(o.trace(r2.traceId)!.route, 'ANALYSIS', 'the model said CHANGE_TOPIC; the analysis editor stood aside');
   await o.turn({ sessionId: s, request: 'bs june' }, reviewer);
   const r3 = await o.turn({ sessionId: s, request: 'that is wrong' }, reviewer);
   assert.equal(r3.state, 'CLARIFICATION_REQUIRED'); assert.equal(r3.clarification!.options.length, 2);
@@ -232,7 +232,7 @@ test('8C.1 NOT_ANALYSIS returns the turn to the rest of Sloane; NEEDS_CLARIFICAT
 test('8C.1 a structured UI command from the grid needs no model', async () => {
   let calls = 0;
   const sc = new MockLLMAdapter(); Object.defineProperty(sc, 'provider', { value: 'scripted' });
-  (sc as unknown as { analysisEdit: () => Promise<unknown> }).analysisEdit = async () => { calls++; return { status: 'ok', latencyMs: 1, requestId: null, usage: null, model: 'scripted', value: { relation: 'NEW_ANALYSIS', confidence: 0.9, unsupported: null, question: null, options: [], ops: [op({ op: 'NEW_STATEMENT', statement: 'BS', periods: ['2026-06'] })] } }; };
+  (sc as unknown as { analysisEdit: () => Promise<unknown> }).analysisEdit = async () => { calls++; return { status: 'ok', latencyMs: 1, requestId: null, usage: null, model: 'scripted', value: { contextRelation: 'START_NEW', targetReferent: { kind: 'NONE', rank: null, rowRef: null, values: [] }, ephemeralOperation: { kind: 'NONE', by: null, n: null, dir: null }, persistentMutation: true, requiresClarification: false, confidence: 0.9, unsupported: null, question: null, options: [], ops: [op({ op: 'NEW_STATEMENT', statement: 'BS', periods: ['2026-06'] })] } }; };
   const o = new SloaneOrchestrator(sc, { maxPlanSteps: 8 }, () => reviewer);
   const s = 'an-8c1-c-xxxxxxxx';
   const r1 = await o.turn({ sessionId: s, request: 'bs june' }, reviewer);

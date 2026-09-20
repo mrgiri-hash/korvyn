@@ -60,6 +60,13 @@ import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
  */
 const cfg = loadSloaneConfig();
 const adapter: SloaneLLMAdapter = createAdapter(cfg);
+/* development visibility: which models answer. Model names only — never a credential. */
+console.log(cfg.provider === 'anthropic'
+  ? `[sloane] provider=anthropic default=${cfg.defaultModel} (FAST ${cfg.routes.FAST.model}, NARRATE ${cfg.routes.NARRATE.model}) advanced=${cfg.advancedModel} (DEEP)`
+  : '[sloane] provider=mock (deterministic engine)');
+/* V2 §2: which conversational core is serving this process — a flag nobody can see is a flag nobody can trust */
+console.log(`[sloane] runtime=${cfg.runtimeV2 ? 'v2 (conversational core, beside v1)' : 'v1'}`);
+for (const w of cfg.warnings) console.warn(`[sloane] ${w}`);
 export const orchestrator = new SloaneOrchestrator(adapter, cfg);
 const idp = new DevIdentityProvider();
 export const authProvider = new DevSessionAuthProvider(WORK.repos, idp);

@@ -10,7 +10,7 @@
  * GENERATED cases: a separate model call paraphrases each holdout seed. The generator only writes inputs — it never
  * sees an outcome and never marks one correct; each paraphrase inherits the seed's fixed, deterministic expectations.
  */
-import 'dotenv/config';
+import '../../env.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -71,7 +71,7 @@ async function runCase(c: EvalCase) {
 /* a DIFFERENT model call writes paraphrases; it never sees results */
 async function paraphrases(seed: EvalCase, n: number): Promise<string[]> {
   const client = new Anthropic();
-  const msg = await client.messages.create({ model: process.env['SLOANE_EVAL_GEN_MODEL'] ?? 'claude-haiku-4-5', max_tokens: 400,
+  const msg = await client.messages.create({ model: process.env['SLOANE_EVAL_GEN_MODEL'] || cfg.defaultModel, max_tokens: 400,
     system: 'You write test inputs for a finance assistant. Given one request a controller might type, write alternative ways a real accountant would type the SAME request: vary wording, word order, shorthand, casual tone, occasional typos. Keep the same meaning and the same periods. Return only the lines, one per line, no numbering.',
     messages: [{ role: 'user', content: `${seed.setup?.length ? `(It follows on from: "${seed.setup.join('" then "')}")\n` : ''}Request: ${seed.input}\nWrite ${n} alternatives.` }] });
   const text = msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('\n');

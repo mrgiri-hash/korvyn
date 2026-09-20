@@ -72,7 +72,7 @@ export const PLAN_SCHEMA = planSchema([]);
 
 /* THE CONVERSATIONAL FRONT DOOR: every free-text turn is first classified — and, when no governed tool is needed,
    answered — here. requiresTool=false is a first-class outcome, not an error. */
-export const CONVERSATION_INTENTS = ['GENERAL_CONVERSATION', 'CONTEXTUAL_CONVERSATION', 'FINANCIAL_QUESTION', 'FOLLOW_UP', 'CLARIFICATION_RESPONSE', 'ANALYSIS_REQUEST', 'ACTION_REQUEST', 'NAVIGATION_COMMAND', 'UNSUPPORTED_OPERATION', 'UNCLEAR'] as const;
+export const CONVERSATION_INTENTS = ['GENERAL_CONVERSATION', 'CONTEXTUAL_CONVERSATION', 'FINANCIAL_QUESTION', 'FOLLOW_UP', 'CLARIFICATION_RESPONSE', 'ANALYSIS_REQUEST', 'ACTION_REQUEST', 'NAVIGATION_COMMAND', 'UNSUPPORTED_OPERATION', 'UNCLEAR', 'INVESTIGATION'] as const;
 export interface Conversation { conversationIntent: (typeof CONVERSATION_INTENTS)[number]; requiresTool: boolean; reply: string | null; unsupportedOperation: string | null; confidence: number }
 export const CONVERSATION_SCHEMA = obj({
   conversationIntent: strEnum(CONVERSATION_INTENTS),
@@ -289,10 +289,15 @@ export function validateNarrative(v: Json, objectIds: string[], factKeys: string
 
 /* PHASE 8C: an edit to the governed analysis on screen (or a new one). The model names dimensions, members and periods
    in words and YYYY-MM; Korvyn re-resolves every name to a canonical id and re-checks every period before applying. */
-import { EDIT_RELATIONS, MODEL_OPS, type AnalysisEdit } from './analysis/model.js';
+import { CONTEXT_RELATIONS, EPHEMERAL_KINDS, MODEL_OPS, REFERENT_KINDS, type AnalysisEdit } from './analysis/model.js';
+const OP_SCHEMA = obj({ op: strEnum(MODEL_OPS), dimensions: { type: 'array', items: { type: 'string' } }, values: { type: 'array', items: { type: 'string' } }, periods: { type: 'array', items: { type: 'string' } }, measure: nul('string'), number: nul('number'), percent: nul('number'), statement: nul('string'), rowRef: nul('string') });
 export const ANALYSIS_EDIT_SCHEMA = obj({
-  relation: strEnum(EDIT_RELATIONS),
-  ops: { type: 'array', items: obj({ op: strEnum(MODEL_OPS), dimensions: { type: 'array', items: { type: 'string' } }, values: { type: 'array', items: { type: 'string' } }, periods: { type: 'array', items: { type: 'string' } }, measure: nul('string'), number: nul('number'), percent: nul('number'), statement: nul('string'), rowRef: nul('string') }) },
+  contextRelation: strEnum(CONTEXT_RELATIONS),
+  targetReferent: obj({ kind: strEnum(REFERENT_KINDS), rank: nul('number'), rowRef: nul('string'), values: { type: 'array', items: { type: 'string' } } }),
+  ops: { type: 'array', items: OP_SCHEMA },
+  ephemeralOperation: obj({ kind: strEnum(EPHEMERAL_KINDS), by: strEnum(['VALUE', 'VARIANCE'], true), n: nul('number'), dir: strEnum(['DESC', 'ASC'], true) }),
+  persistentMutation: { type: 'boolean' },
+  requiresClarification: { type: 'boolean' },
   confidence: { type: 'number' },
   unsupported: nul('string'),
   question: nul('string'),
@@ -300,8 +305,22 @@ export const ANALYSIS_EDIT_SCHEMA = obj({
 });
 export function validateAnalysisEdit(v: Json): Result<AnalysisEdit> {
   const c = new V();
-  if (!c.keys(v, 'edit', ['relation', 'ops', 'confidence', 'unsupported', 'question', 'options'])) return { ok: false, errors: c.errors };
-  c.enm(v['relation'], 'relation', EDIT_RELATIONS);
+  if (!c.keys(v, 'edit', ['contextRelation', 'targetReferent', 'ops', 'ephemeralOperation', 'persistentMutation', 'requiresClarification', 'confidence', 'unsupported', 'question', 'options'])) return { ok: false, errors: c.errors };
+  c.enm(v['contextRelation'], 'contextRelation', CONTEXT_RELATIONS);
+  if (c.keys(v['targetReferent'], 'targetReferent', ['kind', 'rank', 'rowRef', 'values'])) {
+    const T = v['targetReferent'] as Record<string, Json>;
+    c.enm(T['kind'], 'targetReferent.kind', REFERENT_KINDS); c.str(T['rowRef'], 'targetReferent.rowRef', true, 300);
+    if (T['rank'] !== null && typeof T['rank'] !== 'number') c.errors.push('targetReferent.rank: expected number');
+    if (c.arr(T['values'], 'targetReferent.values', 8)) (T['values'] as Json[]).forEach((x) => c.str(x, 'targetReferent.values', false, 120));
+  }
+  if (c.keys(v['ephemeralOperation'], 'ephemeralOperation', ['kind', 'by', 'n', 'dir'])) {
+    const E = v['ephemeralOperation'] as Record<string, Json>;
+    c.enm(E['kind'], 'ephemeralOperation.kind', EPHEMERAL_KINDS);
+    if (E['by'] !== null) c.enm(E['by'], 'ephemeralOperation.by', ['VALUE', 'VARIANCE']);
+    if (E['dir'] !== null) c.enm(E['dir'], 'ephemeralOperation.dir', ['DESC', 'ASC']);
+    if (E['n'] !== null && typeof E['n'] !== 'number') c.errors.push('ephemeralOperation.n: expected number');
+  }
+  for (const k of ['persistentMutation', 'requiresClarification']) if (typeof v[k] !== 'boolean') c.errors.push(`${k}: expected boolean`);
   c.str(v['question'], 'question', true, 300);
   if (c.arr(v['options'], 'options', 6)) (v['options'] as Json[]).forEach((x) => c.str(x, 'options', false, 120));
   if (c.arr(v['ops'], 'ops', 8)) (v['ops'] as Json[]).forEach((o, i) => {
@@ -317,4 +336,117 @@ export function validateAnalysisEdit(v: Json): Result<AnalysisEdit> {
   if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');
   c.str(v['unsupported'], 'unsupported', true, 160);
   return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: v as unknown as AnalysisEdit };
+}
+
+/* ================================================================================================
+   PHASE 8D — the financial agent's contracts. A THINK step names the next governed calls (from the relevant subset the
+   step was shown — the tool enum is that subset), its running notes, open questions, whether to ask or synthesize, and
+   whether it needs a more capable class. The SYNTHESIS separates observed fact, evidence, inference, draft explanation
+   and unresolved question, each with its support level and the observations it rests on. Korvyn re-validates both.
+   ================================================================================================ */
+import { AGENT_DOMAINS, ESCALATION_REASONS, FINDING_KINDS, GOAL_CLASSES, SUPPORT } from './agent/investigate.js';
+export const AGENT_DECISIONS = ['CALL_TOOLS', 'ASK_USER', 'SYNTHESIZE'] as const;
+export interface AgentStepOut {
+  goalClass: (typeof GOAL_CLASSES)[number]; understanding: string; decision: (typeof AGENT_DECISIONS)[number];
+  calls: { tool: string; purpose: string; progress: string; args: { name: string; value: string }[] }[];
+  needCapabilities: string[];
+  workingNotes: { text: string; support: (typeof SUPPORT)[number]; observationRefs: string[] }[];
+  openQuestions: string[]; question: string | null; options: string[]; confidence: number;
+  escalate: { needed: boolean; reason: (typeof ESCALATION_REASONS)[number] | null; detail: string | null };
+}
+export const agentStepSchema = (toolIds: readonly string[]) => obj({
+  goalClass: strEnum(GOAL_CLASSES),
+  understanding: { type: 'string' },
+  decision: strEnum(AGENT_DECISIONS),
+  calls: { type: 'array', items: obj({ tool: toolIds.length ? { type: 'string', enum: [...toolIds] } : { type: 'string' }, purpose: { type: 'string' }, progress: { type: 'string' }, args: { type: 'array', items: obj({ name: { type: 'string' }, value: { type: 'string' } }) } }) },
+  needCapabilities: { type: 'array', items: strEnum(AGENT_DOMAINS) },
+  workingNotes: { type: 'array', items: obj({ text: { type: 'string' }, support: strEnum(SUPPORT), observationRefs: { type: 'array', items: { type: 'string' } } }) },
+  openQuestions: { type: 'array', items: { type: 'string' } },
+  question: nul('string'),
+  options: { type: 'array', items: { type: 'string' } },
+  confidence: { type: 'number' },
+  escalate: obj({ needed: { type: 'boolean' }, reason: strEnum(ESCALATION_REASONS, true), detail: nul('string') }),
+});
+/** the step schema every call sends: identical across steps, so the provider can read the cached prefix */
+export const AGENT_STEP_SCHEMA = agentStepSchema([]);
+const clipS = (x: Json, n: number): Json => (typeof x === 'string' && x.length > n ? `${x.slice(0, n - 1)}…` : x);
+const clipA = (x: Json, n: number): Json => (Array.isArray(x) ? x.slice(0, n) : x);
+/**
+ * Over-long prose or one list item too many is not a wrong answer: it is clipped to the contract's limits before
+ * validation, so a sound step is not thrown away for a 260-character purpose. Structure, enums, the tool allowlist and
+ * observation references are still validated strictly.
+ */
+export function normalizeAgentStep(v: Json): Json {
+  if (!isObj(v)) return v;
+  const o: Record<string, Json> = { ...v };
+  o['understanding'] = clipS(o['understanding'], 400);
+  o['calls'] = clipA(o['calls'], 3);
+  if (Array.isArray(o['calls'])) o['calls'] = (o['calls'] as Json[]).map((c) => isObj(c) ? { ...c, purpose: clipS(c['purpose'], 240), progress: clipS(c['progress'], 120), args: Array.isArray(c['args']) ? (clipA(c['args'], 14) as Json[]).map((a) => isObj(a) ? { ...a, name: clipS(a['name'], 40), value: clipS(a['value'], 200) } : a) : c['args'] } : c);
+  o['needCapabilities'] = clipA(o['needCapabilities'], 6);
+  o['workingNotes'] = clipA(o['workingNotes'], 8);
+  if (Array.isArray(o['workingNotes'])) o['workingNotes'] = (o['workingNotes'] as Json[]).map((w) => isObj(w) ? { ...w, text: clipS(w['text'], 400), observationRefs: clipA(w['observationRefs'], 10) } : w);
+  o['openQuestions'] = Array.isArray(o['openQuestions']) ? (clipA(o['openQuestions'], 6) as Json[]).map((x) => clipS(x, 240)) : o['openQuestions'];
+  o['question'] = clipS(o['question'], 240);
+  o['options'] = Array.isArray(o['options']) ? (clipA(o['options'], 5) as Json[]).map((x) => clipS(x, 140)) : o['options'];
+  if (isObj(o['escalate'])) o['escalate'] = { ...o['escalate'], detail: clipS(o['escalate']['detail'], 240) };
+  return o;
+}
+export function normalizeAgentSynth(v: Json, refs: readonly string[]): Json {
+  if (!isObj(v)) return v;
+  const o: Record<string, Json> = { ...v };
+  o['headline'] = clipS(o['headline'], 400);
+  o['inspected'] = Array.isArray(o['inspected']) ? (clipA(o['inspected'], 14) as Json[]).map((x) => clipS(x, 240)) : o['inspected'];
+  /* a finding citing an observation that does not exist keeps the refs that do; with none left it is still validated
+     (and its figures still grounded) — an unknown ref is dropped, never invented */
+  if (Array.isArray(o['findings'])) o['findings'] = (clipA(o['findings'], 12) as Json[]).map((f) => isObj(f) ? { ...f, statement: clipS(f['statement'], 500), observationRefs: Array.isArray(f['observationRefs']) ? (f['observationRefs'] as Json[]).filter((r) => typeof r === 'string' && refs.includes(r)).slice(0, 10) : f['observationRefs'] } : f);
+  o['unresolved'] = Array.isArray(o['unresolved']) ? (clipA(o['unresolved'], 8) as Json[]).map((x) => clipS(x, 300)) : o['unresolved'];
+  if (Array.isArray(o['nextSteps'])) o['nextSteps'] = (clipA(o['nextSteps'], 4) as Json[]).map((n) => isObj(n) ? { ...n, label: clipS(n['label'], 80), request: clipS(n['request'], 240) } : n);
+  return o;
+}
+export function validateAgentStep(v: Json, toolIds: readonly string[], maxCalls = 3): Result<AgentStepOut> {
+  const c = new V();
+  if (!c.keys(v, 'step', ['goalClass', 'understanding', 'decision', 'calls', 'needCapabilities', 'workingNotes', 'openQuestions', 'question', 'options', 'confidence', 'escalate'])) return { ok: false, errors: c.errors };
+  c.enm(v['goalClass'], 'goalClass', GOAL_CLASSES); c.enm(v['decision'], 'decision', AGENT_DECISIONS); c.str(v['understanding'], 'understanding', false, 400);
+  if (c.arr(v['calls'], 'calls', maxCalls)) (v['calls'] as Json[]).forEach((x, i) => {
+    if (!c.keys(x, `calls[${i}]`, ['tool', 'purpose', 'progress', 'args'])) return;
+    const X = x as Record<string, Json>;
+    c.enm(X['tool'], `calls[${i}].tool`, toolIds); c.str(X['purpose'], `calls[${i}].purpose`, false, 240); c.str(X['progress'], `calls[${i}].progress`, false, 120);
+    if (c.arr(X['args'], `calls[${i}].args`, 14)) (X['args'] as Json[]).forEach((a, j) => { if (c.keys(a, `calls[${i}].args[${j}]`, ['name', 'value'])) { c.str((a as Record<string, Json>)['name'], 'arg name', false, 40); c.str((a as Record<string, Json>)['value'], 'arg value', false, 200); } });
+  });
+  if (c.arr(v['needCapabilities'], 'needCapabilities', 6)) (v['needCapabilities'] as Json[]).forEach((x) => c.enm(x, 'needCapabilities', AGENT_DOMAINS));
+  if (c.arr(v['workingNotes'], 'workingNotes', 8)) (v['workingNotes'] as Json[]).forEach((x, i) => { if (!c.keys(x, `workingNotes[${i}]`, ['text', 'support', 'observationRefs'])) return; const X = x as Record<string, Json>; c.str(X['text'], 'note', false, 400); c.enm(X['support'], 'support', SUPPORT); if (c.arr(X['observationRefs'], 'refs', 10)) (X['observationRefs'] as Json[]).forEach((r) => c.str(r, 'ref', false, 12)); });
+  if (c.arr(v['openQuestions'], 'openQuestions', 6)) (v['openQuestions'] as Json[]).forEach((x) => c.str(x, 'openQuestion', false, 240));
+  c.str(v['question'], 'question', true, 240);
+  if (c.arr(v['options'], 'options', 5)) (v['options'] as Json[]).forEach((x) => c.str(x, 'option', false, 140));
+  if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');
+  if (c.keys(v['escalate'], 'escalate', ['needed', 'reason', 'detail'])) { const E = v['escalate'] as Record<string, Json>; if (typeof E['needed'] !== 'boolean') c.errors.push('escalate.needed: expected boolean'); if (E['reason'] !== null) c.enm(E['reason'], 'escalate.reason', ESCALATION_REASONS); c.str(E['detail'], 'escalate.detail', true, 240); }
+  if (v['decision'] === 'CALL_TOOLS' && Array.isArray(v['calls']) && !(v['calls'] as Json[]).length) c.errors.push('decision CALL_TOOLS with no calls');
+  return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: v as unknown as AgentStepOut };
+}
+export interface AgentSynthOut {
+  headline: string; inspected: string[];
+  findings: { statement: string; kind: (typeof FINDING_KINDS)[number]; support: (typeof SUPPORT)[number]; observationRefs: string[] }[];
+  unresolved: string[]; nextSteps: { label: string; request: string }[]; confidence: number;
+  escalate: { needed: boolean; reason: (typeof ESCALATION_REASONS)[number] | null; detail: string | null };
+}
+export const AGENT_SYNTH_SCHEMA = obj({
+  headline: { type: 'string' },
+  inspected: { type: 'array', items: { type: 'string' } },
+  findings: { type: 'array', items: obj({ statement: { type: 'string' }, kind: strEnum(FINDING_KINDS), support: strEnum(SUPPORT), observationRefs: { type: 'array', items: { type: 'string' } } }) },
+  unresolved: { type: 'array', items: { type: 'string' } },
+  nextSteps: { type: 'array', items: obj({ label: { type: 'string' }, request: { type: 'string' } }) },
+  confidence: { type: 'number' },
+  escalate: obj({ needed: { type: 'boolean' }, reason: strEnum(ESCALATION_REASONS, true), detail: nul('string') }),
+});
+export function validateAgentSynth(v: Json, refs: readonly string[]): Result<AgentSynthOut> {
+  const c = new V();
+  if (!c.keys(v, 'synthesis', ['headline', 'inspected', 'findings', 'unresolved', 'nextSteps', 'confidence', 'escalate'])) return { ok: false, errors: c.errors };
+  c.str(v['headline'], 'headline', false, 400);
+  if (c.arr(v['inspected'], 'inspected', 14)) (v['inspected'] as Json[]).forEach((x) => c.str(x, 'inspected', false, 240));
+  if (c.arr(v['findings'], 'findings', 12)) (v['findings'] as Json[]).forEach((x, i) => { if (!c.keys(x, `findings[${i}]`, ['statement', 'kind', 'support', 'observationRefs'])) return; const X = x as Record<string, Json>; c.str(X['statement'], 'statement', false, 500); c.enm(X['kind'], 'kind', FINDING_KINDS); c.enm(X['support'], 'support', SUPPORT); if (c.arr(X['observationRefs'], 'refs', 10)) (X['observationRefs'] as Json[]).forEach((r) => { if (typeof r !== 'string' || !refs.includes(r)) c.errors.push(`findings[${i}]: unknown observation ${String(r)}`); }); });
+  if (c.arr(v['unresolved'], 'unresolved', 8)) (v['unresolved'] as Json[]).forEach((x) => c.str(x, 'unresolved', false, 300));
+  if (c.arr(v['nextSteps'], 'nextSteps', 4)) (v['nextSteps'] as Json[]).forEach((x, i) => { if (!c.keys(x, `nextSteps[${i}]`, ['label', 'request'])) return; c.str((x as Record<string, Json>)['label'], 'label', false, 80); c.str((x as Record<string, Json>)['request'], 'request', false, 240); });
+  if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');
+  if (c.keys(v['escalate'], 'escalate', ['needed', 'reason', 'detail'])) { const E = v['escalate'] as Record<string, Json>; if (typeof E['needed'] !== 'boolean') c.errors.push('escalate.needed: expected boolean'); if (E['reason'] !== null) c.enm(E['reason'], 'escalate.reason', ESCALATION_REASONS); }
+  return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: v as unknown as AgentSynthOut };
 }

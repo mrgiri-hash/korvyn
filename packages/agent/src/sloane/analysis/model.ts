@@ -58,6 +58,8 @@ export interface MemberFilter { dimension: DimensionId; op: 'IN' | 'NOT_IN'; val
 
 export interface AnalysisDefinition {
   id: string; version: number; name: string;
+  /** 8C.2: a derived name follows the definition (the workspace title reads it); a name the user gave stays */
+  nameSource?: 'DERIVED' | 'USER';
   analysisType: AnalysisType;
   /** columns read these, in this order; the first governed one is not necessarily primary */
   periods: string[];
@@ -127,8 +129,39 @@ export interface ExcelHandoff { analysisDefinition: AnalysisDefinition; queryId:
 
 /* the model's contract for an analysis edit — the same ops as the deterministic reader, named in words */
 export const MODEL_OPS = ['NEW_STATEMENT', 'NEW_TRIAL_BALANCE', 'NEW_ACTIVITY', 'SET_ROWS', 'SET_COLUMNS', 'ADD_ROW_DIMENSION', 'REMOVE_DIMENSION', 'FILTER', 'EXCLUDE', 'ONLY_STATEMENT', 'THRESHOLD', 'SORT', 'TOP', 'SET_PERIODS', 'ADD_PERIOD', 'REMOVE_PERIOD', 'PRIMARY_PERIOD', 'COMPARE_PRIOR_PERIOD', 'COMPARE_PRIOR_YEAR', 'ADD_MEASURE', 'REMOVE_MEASURE', 'EXPAND', 'COLLAPSE', 'DRILL', 'EXPLAIN', 'FLUX', 'RECONCILIATION', 'SUPPORT', 'CHART', 'SAVE',
-  'ACCOUNT_TYPE', 'REMOVE_FILTER', 'CLEAR_FILTERS', 'UNDO', 'SET_STATEMENT_BOTH', 'EXPAND_ALL', 'COLLAPSE_ALL'] as const;
-/** how the words relate to the analysis on screen — the model states it, Korvyn acts on it */
-export const EDIT_RELATIONS = ['NEW_ANALYSIS', 'MODIFY', 'ASK_ABOUT_ANALYSIS', 'CORRECTION', 'NOT_ANALYSIS', 'NEEDS_CLARIFICATION'] as const;
+  'ACCOUNT_TYPE', 'REMOVE_FILTER', 'CLEAR_FILTERS', 'UNDO', 'REDO', 'SET_STATEMENT_BOTH', 'EXPAND_ALL', 'COLLAPSE_ALL'] as const;
+
+/**
+ * 8C.2 — THE CONTEXT RELATION. How the words relate to what is on screen. The model PROPOSES it; Korvyn validates it
+ * against the active analysis (analysis/context.ts) before a single op is applied.
+ *   CONTINUE_CURRENT      keep working on the analysis as it is (a follow-up that changes nothing structural)
+ *   MODIFY_CURRENT        change the analysis on screen (filter, sort, reshape, periods, measures, expansion)
+ *   DRILL_CURRENT         select something in it and open what is behind it
+ *   EXPLAIN_CURRENT       ask about something in it — why it moved, which item ranks where — without changing it
+ *   CORRECT_CURRENT       the last reading was wrong: replace the stale value (period, member, object) with the one meant
+ *   REPLACE_CURRENT       a different analysis takes the place of this one ("instead", "switch to")
+ *   START_NEW             a distinct analysis is asked for
+ *   CHANGE_TOPIC          the words are about something else in Korvyn (close, reconciliations, a canvas)
+ *   CLARIFY_REFERENT      the words point at something that genuinely has more than one reading
+ *   GENERAL_CONVERSATION  a greeting or a question with no bearing on the grid
+ */
+export const CONTEXT_RELATIONS = ['CONTINUE_CURRENT', 'MODIFY_CURRENT', 'DRILL_CURRENT', 'EXPLAIN_CURRENT', 'CORRECT_CURRENT', 'REPLACE_CURRENT', 'START_NEW', 'CHANGE_TOPIC', 'CLARIFY_REFERENT', 'GENERAL_CONVERSATION'] as const;
+export type ContextRelation = (typeof CONTEXT_RELATIONS)[number];
+/** what the words point AT, separately from what they do to it */
+export const REFERENT_KINDS = ['NONE', 'SELECTED', 'LARGEST', 'SMALLEST', 'RANK', 'ROW', 'MEMBER', 'OTHER_CANDIDATE', 'ANALYSIS'] as const;
+export interface TargetReferent { kind: (typeof REFERENT_KINDS)[number]; rank: number | null; rowRef: string | null; values: string[] }
+/** an EPHEMERAL operation answers a question about the grid and changes nothing that persists ("which one swung the most?") */
+export const EPHEMERAL_KINDS = ['NONE', 'RANK'] as const;
+export interface EphemeralOperation { kind: (typeof EPHEMERAL_KINDS)[number]; by: 'VALUE' | 'VARIANCE' | null; n: number | null; dir: 'DESC' | 'ASC' | null }
 export interface ModelOp { op: (typeof MODEL_OPS)[number]; dimensions: string[]; values: string[]; periods: string[]; measure: string | null; number: number | null; percent: number | null; statement: string | null; rowRef: string | null }
-export interface AnalysisEdit { relation: (typeof EDIT_RELATIONS)[number]; ops: ModelOp[]; confidence: number; unsupported: string | null; question: string | null; options: string[] }
+export interface AnalysisEdit {
+  contextRelation: ContextRelation;
+  targetReferent: TargetReferent;
+  /** the analysisMutation: persistent ops on the definition (empty for a purely ephemeral question) */
+  ops: ModelOp[];
+  ephemeralOperation: EphemeralOperation;
+  /** true only when the words ask for the definition itself to change ("sort largest first", "show only the top one") */
+  persistentMutation: boolean;
+  requiresClarification: boolean;
+  confidence: number; unsupported: string | null; question: string | null; options: string[];
+}

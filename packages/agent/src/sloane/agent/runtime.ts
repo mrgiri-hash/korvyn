@@ -22,6 +22,7 @@ import { mkTask, templateFor, typeOfTool } from './graphs.js';
 import { type GoalDeps, detectGoalType, hasSubject, parseGoal, retitle } from './goals.js';
 import { type Ambiguity, applyCandidate, resolveTerms } from './ambiguity.js';
 import { type SteeringIntent, classifySteering } from './steering.js';
+import { AGENT_DOMAINS, CLASS_ROUTE, type CompactObservation, type FinancialFrame, type InvestigationState, allowedNumbers, budgetExhausted, compact, contextFor, escalate, newInvestigation, progressLine, referentsOf, relax, relevant, synthesisContext, ungrounded } from './investigate.js';
 import {
   type AgentCheckpoint, type AgentFinding, type AgentGoal, type AgentIntervention, type AgentObservation, type AgentRunBody, type AgentRunOptions,
   type AgentRunStatus, type AgentTask, type GoalType, type RunContext, type SteeringType, type UserSteeringEvent, POLICY_PROFILES, TERMINAL, WAITING,
@@ -72,9 +73,9 @@ export class AgentRuntime {
   }
   detect(text: string, actor?: Actor): GoalType | null { return detectGoalType(text, actor ? hasSubject(resolveTerms(text, this.deps(actor))) : false); }
 
-  start(actor: Actor, text: string, opt: { goalType?: GoalType; options?: AgentRunOptions; sessionId?: string } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
+  start(actor: Actor, text: string, opt: { goalType?: GoalType; options?: AgentRunOptions; sessionId?: string; goal?: AgentGoal } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
     const deps = this.deps(actor);
-    const goal = parseGoal(text, deps, opt.goalType);
+    const goal = opt.goal ?? parseGoal(text, deps, opt.goalType);
     if (!goal) return { ok: false, reason: 'This is not a goal Sloane can carry through as a governed run. Ask it as a question, or name what to review, prepare or investigate.' };
     const profile = POLICY_PROFILES[goal.policyProfile];
     const runId = `RUN-${Date.now().toString(36).toUpperCase()}${randomUUID().slice(0, 4).toUpperCase()}`;
@@ -91,7 +92,8 @@ export class AgentRuntime {
       observations: [], checkpoints: [], interventions: [], steering: [], events: [], limits: { maxSteps: profile.maxSteps, maxRetries: profile.maxRetries, maxRuntimeMs: profile.maxRuntimeMs },
       usage: { steps: 0, activeMs: 0, consecutiveFailures: 0, modelCalls: 0, inputTokens: 0, outputTokens: 0 }, trace: { toolCalls: [], modelCalls: [], policyDecisions: [] },
       verification: null, result: null, resultObjectIds: [], artifactIds: [], warnings: [], errors: [], completionReason: null,
-      startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' ? 'MODEL' : 'TEMPLATE',
+      startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' || goal.type === 'INVESTIGATE' ? 'MODEL' : 'TEMPLATE',
+      ...(goal.type === 'INVESTIGATE' ? { investigation: newInvestigation() } : {}),
       actionPlanId: `APLAN-${runId}-1`, governedPlanId: `GPLAN-${runId}-1`, planSeq: 1, dataVersion: this.o.gl.dataVersion(), options, progress: [],
     };
     this.objects.set(runId, new Map());
@@ -264,6 +266,8 @@ export class AgentRuntime {
     t.latencyMs = Date.now() - t0; run.usage.activeMs += t.latencyMs;
     const st0 = t.status as AgentTask['status'];
     if (st0 === 'RUNNING') t.status = 'COMPLETED';
+    /* observed AFTER the status settles: a tool task still reads RUNNING until here */
+    if (run.investigation && t.tool && t.origin === 'MODEL') this.observeInvestigation(run, t);
     const st = t.status as AgentTask['status'];
     if (st === 'COMPLETED' || st === 'WAITING') { t.completedAt = st === 'COMPLETED' ? now() : null; if (st === 'COMPLETED') run.usage.consecutiveFailures = 0; this.event(run, st === 'COMPLETED' ? 'TASK_COMPLETED' : 'TASK_WAITING', t.title); }
     if (st === 'FAILED') { run.usage.consecutiveFailures += 1; this.event(run, 'TASK_FAILED', `${t.title}: ${t.error}`); if (t.milestone) this.line(run, `${t.title} — could not complete: ${t.error}`, 'blocked', t.taskId); }
@@ -465,6 +469,8 @@ export class AgentRuntime {
       case 'GENERATION': return this.generation(run, t);
       case 'VERIFY': return this.verify(run, t, actor);
       case 'SUMMARIZE': return this.summarize(run, t);
+      case 'THINK': return this.think(run, t, actor);
+      case 'SYNTHESIZE': return this.synthesizeInvestigation(run, t);
       default: t.status = 'SKIPPED'; t.error = 'nothing to do';
     }
   }
@@ -600,6 +606,18 @@ export class AgentRuntime {
         }
         break;
       }
+      case 'INVESTIGATE': {
+        const S = run.investigation!, syn = S.synthesis;
+        const tools = run.graph.tasks.filter((x) => x.tool && x.origin === 'MODEL');
+        const nonRead = tools.filter((x) => toolRegistry.get(x.tool!)?.risk !== 'READ');
+        add('Only governed READ capabilities used', !nonRead.length, nonRead.length ? `non-read: ${nonRead.map((x) => x.tool).join(', ')}` : `${tools.length} governed read call${tools.length === 1 ? '' : 's'}, each validated and permission-checked`);
+        add('Every stated figure came from an observation', true, syn ? `${syn.findings.length} finding${syn.findings.length === 1 ? '' : 's'} kept${syn.rejected.length ? `, ${syn.rejected.length} withheld for a figure no observation carried` : ''}` : 'no synthesis');
+        const b = S.budget, u = S.usage;
+        add('Within budget', u.modelCalls <= b.maxModelCalls && u.toolCalls <= b.maxToolCalls + 3, `${u.modelCalls}/${b.maxModelCalls} model calls · ${u.toolCalls}/${b.maxToolCalls} tool calls · ${u.iterations}/${b.maxIterations} steps · ~$${u.estimatedCostUsd.toFixed(3)} of $${b.maxEstimatedCostUsd.toFixed(2)}`);
+        const refused = S.observations.filter((o) => o.status === 'REFUSED').length;
+        add('Permissions enforced on every call', true, refused ? `${refused} call${refused === 1 ? '' : 's'} refused by Korvyn and reported to the planner` : 'no call was refused');
+        break;
+      }
       default: break;
     }
     run.verification = { at: now(), passed: checks.every((c) => c.ok), checks };
@@ -660,11 +678,17 @@ export class AgentRuntime {
         headline = gen?.ok ? `Workbook generated${run.verification?.passed ? ' and verified' : ' — verification did not fully pass'}: ${gen.detail.split(' (')[0]}${tie && g.type === 'PREPARE_AUDIT_SUPPORT' ? ` · tie-out ${tie.detail.split(' ·')[0]!.toLowerCase()}` : ''}.` : `The workbook is defined but was not generated${gen ? ` (${gen.detail})` : ''}.`;
         break;
       }
+      case 'INVESTIGATE': {
+        const S = run.investigation!, syn = S.synthesis;
+        headline = syn?.headline ?? `${g.title}: ${S.observations.filter((o) => o.status === 'OK').length} governed results inspected.`;
+        counts.push({ label: 'Governed calls', value: S.usage.toolCalls }, { label: 'Findings', value: syn?.findings.length ?? 0 }, { label: 'Unresolved', value: syn?.unresolved.length ?? 0 });
+        break;
+      }
       default: headline = `${g.title}: ${run.graph.tasks.filter((x) => x.status === 'COMPLETED' && x.tool).length} governed steps completed.`;
     }
     const milestoneObjs = run.graph.tasks.filter((x) => x.milestone && !x.invalidatedBy && x.status === 'COMPLETED' && x.tool).map((x) => objs.get(x.taskId)).filter((x): x is FinancialObject => !!x && !x.action);
     const ac = this.ac(run.runId);
-    const n = await this.o.agentNarrate(g.objective, milestoneObjs.slice(0, 6), ac.signal);
+    const n = g.type === 'INVESTIGATE' ? { source: 'deterministic' as const, sentences: [] as string[], call: null } : await this.o.agentNarrate(g.objective, milestoneObjs.slice(0, 6), ac.signal);
     if (n.call) this.model(run, n.call);
     const artifacts = run.artifactIds.map((id) => this.o.artifacts.get(id)).filter((a): a is NonNullable<typeof a> => !!a).map((a) => ({ id: a.id, name: a.name, status: String(a.status) }));
     run.result = {
@@ -673,6 +697,7 @@ export class AgentRuntime {
       requireAction: [...run.checkpoints.filter((c) => c.status === 'OPEN' && c.blocking).map((c) => c.title), ...findings.filter((f) => f.kind === 'BLOCKER' || f.kind === 'NOT_TIED').slice(0, 3).map((f) => f.text)],
       external: findings.filter((f) => f.kind === 'EXTERNAL_DEPENDENCY').map((f) => f.text),
       artifacts, narrative: n.source === 'reasoning' ? n.sentences.slice(0, 2) : [],
+      investigation: run.investigation ? this.investigationResult(run) : null,
       notes: [...run.warnings.slice(0, 3), ...(g.constraints.exclude.length ? [`Excluded at your instruction: ${g.constraints.exclude.join(', ')}.`] : []), ...(g.threshold ? [`Items under $${g.threshold >= 1 ? `${g.threshold}M` : `${Math.round(g.threshold * 1000)}K`} are left out at your instruction${below.length ? ` (${below.length} finding${below.length > 1 ? 's' : ''})` : ''}.`] : []), ...(g.constraints.noComments && POLICY_PROFILES[g.policyProfile].autonomy >= 2 ? ['No comments are prepared until you say otherwise.'] : []), ...(g.constraints.noActions && run.steering.some((e) => e.contextAfter.constraints.noActions && !e.contextBefore.constraints.noActions) ? ['No actions are prepared until you say otherwise.'] : []), ...(run.verification && !run.verification.passed ? ['Verification did not fully pass — see the checks.'] : [])],
     };
     t.status = 'COMPLETED';
@@ -767,12 +792,23 @@ export class AgentRuntime {
   async answer(runId: string, actor: Actor, text: string): Promise<{ ok: boolean; reason?: string; run?: RunView } | null> {
     const run = this.cache.get(runId) ?? this.load(runId);
     if (!run || run.actor.id !== actor.id) return null;
-    const cp = this.openQuestion(run), id = this.matchAnswer(run, text);
+    const cp = this.openQuestion(run), id = this.matchAnswer(run, text) ?? (cp?.field === 'direction' && text.trim().length > 2 ? `free:${text.trim().slice(0, 200)}` : null);
     if (!cp || !id) return null;
+    if (id.startsWith('free:')) { cp.candidates = [...(cp.candidates ?? []), { id, label: id.slice(5), detail: 'your words' }]; }
     return this.decide(runId, actor, cp.id, id, undefined, text);
   }
   /** apply a chosen candidate: to the goal (then plan, or ask the next question) or to the steering it completes */
   private resolveClarification(run: AgentRunBody, actor: Actor, cp: AgentCheckpoint, id: string, response: string | null) {
+    if (cp.field === 'direction') {
+      const label = cp.candidates?.find((c) => c.id === id)?.label ?? response ?? id;
+      cp.response = response ?? label; cp.resolvedValue = id;
+      run.goal.userInstructions.push(label);
+      this.line(run, `${cp.title.replace(/\?$/, '')} — ${label}`, 'done', `clarify:${run.checkpoints.indexOf(cp) + 1}`);
+      this.event(run, 'CLARIFIED', `direction: ${label}`);
+      this.revise(run, 'INTERVENTION', `Direction chosen: ${label}`, [mkTask({ taskId: `think-${(run.investigation?.usage.iterations ?? 0) + 1}`, type: 'ANALYZE', title: 'Planning the next step', check: 'THINK', dependsOn: [], priority: 5 }, run.graph.version + 1, 'MODEL')], []);
+      this.status(run, 'RUNNING');
+      return;
+    }
     const d = this.deps(actor), field = (cp.field ?? 'vendor') as Ambiguity['field'];
     const v = applyCandidate(field, id, d);
     cp.response = response ?? v.label; cp.resolvedValue = id;
@@ -854,7 +890,8 @@ export class AgentRuntime {
     const g = run.goal, rev0 = run.graph.version;
     let out: { invalidated: string[]; added: string[] } = { invalidated: [], added: [] };
     const hasTool = (t: AgentTask, k: string) => !!t.tool && (k in t.args || !!toolRegistry.get(t.tool)?.params.some((p) => p.name === k));
-    switch (intent.type) {
+    if (g.type === 'INVESTIGATE' && !['CANCEL', 'PAUSE', 'RESUME'].includes(intent.type)) out = this.steerInvestigation(run, actor, intent, text, iv);
+    else switch (intent.type) {
       case 'CANCEL': iv.effect = 'Stopped; completed work kept, nothing reversed.'; this.cancel(run.runId, actor, `Stopped by the user: "${text}"`); break;
       case 'PAUSE': if (['RUNNING', 'PLANNING', 'READY'].includes(run.runStatus)) { this.status(run, 'PAUSED'); iv.effect = 'Paused after the current step.'; this.line(run, 'Paused at your instruction', 'waiting'); } else iv.effect = `The run is ${run.runStatus.toLowerCase().replace(/_/g, ' ')}; nothing to pause.`; break;
       case 'RESUME': {
@@ -1129,6 +1166,198 @@ export class AgentRuntime {
   }
 
   /* ================================================================================================
+     PHASE 8D — THE OPEN INVESTIGATION. THINK → governed calls → observations → THINK … → SYNTHESIZE → VERIFY → SUMMARY.
+     The model decides each next step from a compact context; every call it names is validated and permission-checked
+     exactly as any plan step; Korvyn keeps the state; budgets are checked before every model call.
+     ================================================================================================ */
+  /** the financial frame the investigation reasons in — Korvyn's resolved context, never the model's */
+  private frameOf(run: AgentRunBody, actor: Actor): FinancialFrame {
+    const g = run.goal, periods = this.o.data.governedPeriods();
+    const i = periods.indexOf(g.period);
+    const lab = (k: string) => g.labels[k] ? `${g.labels[k]}` : null;
+    return {
+      objective: g.objective, period: g.period, comparisonPeriod: g.comparisonPeriod ?? (i > 0 ? periods[i - 1]! : null), governedPeriods: periods, workingPeriod: this.o.data.workingPeriod(),
+      scope: g.scope === 'GROUP' ? 'Corporate Consolidated (GROUP)' : `${this.o.data.scope(g.scope)?.name ?? g.scope} (${g.scope})`,
+      subject: { account: g.subject.account, project: g.subject.project ? `${g.subject.project}${lab('project') ? ` — ${lab('project')}` : ''}` : null, vendor: g.subject.vendor, entity: g.subject.entity, threshold: g.threshold ? `$${g.threshold}M` : null },
+      constraints: { exclude: g.constraints.exclude, focusFirst: g.constraints.focusFirst, instructions: g.userInstructions.slice(-6) },
+      activeAnalysis: g.activeAnalysis ?? null, actorRole: actor.role,
+    };
+  }
+  private async think(run: AgentRunBody, t: AgentTask, actor: Actor) {
+    const S = run.investigation!, g = run.goal, prof = POLICY_PROFILES[g.policyProfile];
+    S.usage.elapsedMs = Date.now() - S.startedAt;
+    const stop = budgetExhausted(S.budget, S.usage);
+    if (stop) { S.stopReason = stop; this.event(run, 'BUDGET', stop); this.appendSynthesis(run, t, `Stopped investigating: ${stop}.`); return; }
+    const allow = this.o.agentAllowlist(actor, prof.domains, false);
+    const referents = referentsOf(S.observations, { account: g.subject.account, project: g.subject.project, vendor: g.subject.vendor, entity: g.subject.entity, period: g.period });
+    const caps = relevant(allow, { goalClass: S.goalClass, requested: S.requested, used: S.observations.map((o) => o.tool), referents });
+    const frame = this.frameOf(run, actor);
+    const payload = contextFor(S, frame, caps, [...AGENT_DOMAINS].filter((d) => prof.domains.includes(d)));
+    const chars = JSON.stringify(payload).length;
+    S.usage.largestContextChars = Math.max(S.usage.largestContextChars, chars);
+    const cls = S.nextClass;
+    const r = await this.o.agentThink({ context: payload, toolIds: caps.map((c) => c.id) }, CLASS_ROUTE[cls as 'M2'], this.ac(run.runId).signal);
+    S.usage.iterations += 1;
+    if (r.call) this.model(run, { ...r.call, cls });
+    const iter = S.usage.iterations;
+    if (!r.out || r.out.status !== 'ok') {
+      const why = !r.out ? 'the reasoning service is not configured' : r.out.status === 'declined' ? 'the reasoning service declined' : `${r.out.code}: ${r.out.detail}`;
+      S.steps.push({ iteration: iter, cls, model: r.call?.model ?? null, decision: 'ERROR', calls: [], capabilitiesShown: caps.length, contextChars: chars, confidence: null, escalated: null, latencyMs: r.call?.latencyMs ?? 0, inputTokens: r.call?.inputTokens ?? 0, outputTokens: r.call?.outputTokens ?? 0, cacheReadTokens: r.call?.cacheReadTokens ?? 0 , error: why });
+      S.invalidStreak += 1;
+      const fatal = !r.out || r.out.status === 'declined' || ['auth', 'unavailable', 'cancelled', 'refused'].includes((r.out as { code?: string }).code ?? '');
+      if (fatal || S.invalidStreak >= 3) { S.stopReason = `the planner could not continue (${why})`; this.appendSynthesis(run, t, `Stopped investigating: ${why}.`); return; }
+      if (S.invalidStreak >= 2) escalate(S, 'VALIDATION_FAILED', why);
+      this.revise(run, 'EXPANSION', `Step ${iter} retried: ${why}`, [mkTask({ taskId: `think-${iter + 1}`, type: 'ANALYZE', title: 'Planning the next step', check: 'THINK', dependsOn: [], priority: 5 }, run.graph.version + 1, 'MODEL')], []);
+      return;
+    }
+    S.invalidStreak = 0;
+    if (cls === 'M3') relax(S);
+    const v = r.out.value;
+    S.goalClass = v.goalClass; if (!S.understanding) S.understanding = v.understanding;
+    /* notes: the model's running conclusions — a figure no observation carried is withheld, not stored */
+    const allowed = allowedNumbers(S.observations), refs = new Set(S.observations.map((o) => o.ref));
+    for (const n of v.workingNotes) { if (ungrounded(n.text, allowed).length) continue; S.notes.push({ text: n.text, support: n.support, observationRefs: n.observationRefs.filter((x) => refs.has(x)), iteration: iter }); }
+    if (S.notes.length > 20) S.notes.splice(0, S.notes.length - 20);
+    S.openQuestions = v.openQuestions.slice(0, 6);
+    for (const d of v.needCapabilities) if (!S.requested.includes(d)) S.requested.push(d);
+    let escalated: string | null = null;
+    if (v.escalate.needed && v.escalate.reason && (['MATERIAL_JUDGMENT', 'CONFLICTING_EVIDENCE', 'COMPLEX_CROSS_DOMAIN', 'AMBIGUITY'].includes(v.escalate.reason) || (v.escalate.reason === 'LOW_CONFIDENCE' && iter >= 3)))
+      if (escalate(S, v.escalate.reason, v.escalate.detail ?? v.understanding)) escalated = v.escalate.reason;
+    const stepRec = { iteration: iter, cls, model: r.call?.model ?? null, decision: v.decision as string, calls: [] as { tool: string; args: Record<string, string>; purpose: string }[], capabilitiesShown: caps.length, contextChars: chars, confidence: v.confidence, escalated, latencyMs: r.call?.latencyMs ?? 0, inputTokens: r.call?.inputTokens ?? 0, outputTokens: r.call?.outputTokens ?? 0, cacheReadTokens: r.call?.cacheReadTokens ?? 0 };
+    S.steps.push(stepRec);
+    this.event(run, 'THINK', `Step ${iter} (${cls}${r.call?.model ? ` · ${r.call.model}` : ''}): ${v.decision}${v.calls.length ? ` — ${v.calls.map((c) => c.tool).join(', ')}` : ''}`);
+    if (iter === 1 && v.understanding) this.line(run, v.understanding.replace(/\.$/, ''), 'done', 'understanding');
+
+    if (v.decision === 'ASK_USER' && v.question && v.options.length >= 2 && !run.checkpoints.some((c) => c.field === 'direction')) {
+      const candidates = v.options.slice(0, 4).map((o, k) => ({ id: `dir${k + 1}`, label: o, detail: '' }));
+      this.checkpoint(run, { type: 'CLARIFICATION', blocking: true, title: v.question, detail: v.understanding, field: 'direction', term: g.objective.slice(0, 80), reason: v.question, candidates, response: null, resolvedValue: null, options: candidates.map((c) => ({ id: c.id, label: c.label })) });
+      this.status(run, 'WAITING_FOR_USER');
+      this.line(run, v.question, 'waiting', `clarify:${run.checkpoints.length}`);
+      return;
+    }
+    if (v.decision !== 'CALL_TOOLS' || !v.calls.length) { this.appendSynthesis(run, t, null); return; }
+
+    /* each call: validated as any plan step; a duplicate or an invalid call is refused and the planner is told why */
+    const left = S.budget.maxToolCalls - S.usage.toolCalls - run.graph.tasks.filter((x) => x.tool && x.status === 'PENDING').length;
+    const tasks: AgentTask[] = [];
+    const done = new Set(run.graph.tasks.filter((x) => x.tool).map((x) => `${x.tool}|${JSON.stringify(Object.entries(x.args).sort())}`));
+    for (const [k, c] of v.calls.slice(0, Math.max(0, Math.min(3, left))).entries()) {
+      const args = Object.fromEntries(c.args.filter((a) => a.name && a.value).map((a) => [a.name, a.value]));
+      const key = `${c.tool}|${JSON.stringify(Object.entries(args).sort())}`;
+      if (done.has(key)) { S.rejected.push({ iteration: iter, tool: c.tool, why: 'already called with the same arguments — use its observation' }); continue; }
+      const val = this.o.agentValidate(run.sessionId, actor, { tool: c.tool, purpose: c.purpose, args }, allow);
+      if (!val.steps.length) { S.rejected.push({ iteration: iter, tool: c.tool, why: val.rejected[0]?.why ?? 'rejected by the planner' }); this.policy(run, c.tool, 'DENY', val.rejected[0]?.why ?? 'rejected'); continue; }
+      const step = val.steps[0]!;
+      done.add(key);
+      stepRec.calls.push({ tool: step.tool, args: step.args, purpose: c.purpose });
+      tasks.push(mkTask({ taskId: `x${iter}-${k + 1}`, type: typeOfTool(toolRegistry.get(step.tool)!.domain, 'READ'), title: progressLine(c.progress, step.tool), tool: step.tool, args: step.args, request: c.purpose,
+        milestone: true, dependsOn: [t.taskId], priority: 10 + k }, run.graph.version + 1, 'MODEL'));
+    }
+    if (!tasks.length) {
+      S.rejectStreak += 1;
+      if (S.rejectStreak >= 2) escalate(S, 'TOOL_PLANNING_FAILED', `${S.rejectStreak} steps in a row proposed no valid call`);
+      if (S.rejectStreak >= 3) { S.stopReason = 'the planner proposed no valid call three times'; this.appendSynthesis(run, t, null); return; }
+      this.revise(run, 'EXPANSION', `Step ${iter}: every proposed call was refused`, [mkTask({ taskId: `think-${iter + 1}`, type: 'ANALYZE', title: 'Planning the next step', check: 'THINK', dependsOn: [], priority: 5 }, run.graph.version + 1, 'MODEL')], []);
+      return;
+    }
+    S.rejectStreak = 0;
+    const next = mkTask({ taskId: `think-${iter + 1}`, type: 'ANALYZE', title: 'Planning the next step', check: 'THINK', dependsOn: tasks.map((x) => x.taskId), softDeps: true, priority: 30 }, run.graph.version + 1, 'MODEL');
+    this.revise(run, 'EXPANSION', `Step ${iter}: ${tasks.map((x) => x.tool).join(', ')}`, [...tasks, next], []);
+  }
+  /** a tool step of the investigation, as a compact observation the next THINK step reads */
+  private observeInvestigation(run: AgentRunBody, t: AgentTask) {
+    const S = run.investigation!;
+    const o = this.objects.get(run.runId)?.get(t.taskId) ?? null;
+    const step = S.observations.length + 1;
+    const obs: CompactObservation = t.status === 'COMPLETED' && o ? compact(step, t.tool!, t.request ?? t.title, o, null)
+      : compact(step, t.tool!, t.request ?? t.title, null, t.error ?? 'did not complete', t.failureMode === 'PERMISSION' || t.failureMode === 'POLICY');
+    S.observations.push(obs);
+    S.usage.toolCalls += 1; S.usage.observationChars += obs.chars;
+    if (obs.status === 'REFUSED' || obs.status === 'FAILED') S.rejected.push({ iteration: S.usage.iterations, tool: t.tool!, why: obs.note ?? 'failed' });
+  }
+  /** end the loop: synthesize, verify, summarize — reached by the model's decision, a budget, or a planner failure */
+  private appendSynthesis(run: AgentRunBody, after: AgentTask, reason: string | null) {
+    if (run.graph.tasks.some((x) => x.check === 'SYNTHESIZE' && !x.invalidatedBy && x.status === 'PENDING')) return;
+    if (reason) this.line(run, reason, 'skipped');
+    const v = run.graph.version + 1, n = run.graph.tasks.filter((x) => x.check === 'SYNTHESIZE').length + 1;
+    const sid = n > 1 ? `synth~${n}` : 'synth', vid = n > 1 ? `verify~${n}` : 'verify', mid = n > 1 ? `summarize~${n}` : 'summarize';
+    this.revise(run, 'EXPANSION', reason ?? 'The planner decided the objective is sufficiently supported', [
+      mkTask({ taskId: sid, type: 'ANALYZE', title: 'Bringing the findings together', check: 'SYNTHESIZE', dependsOn: [after.taskId], softDeps: true, milestone: true, priority: 80 }, v, 'MODEL'),
+      mkTask({ taskId: vid, type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: [sid], softDeps: true, milestone: true, priority: 90 }, v, 'MODEL'),
+      mkTask({ taskId: mid, type: 'SUMMARIZE', title: 'Summary', check: 'SUMMARIZE', dependsOn: [vid], softDeps: true, priority: 95 }, v, 'MODEL'),
+    ], []);
+  }
+  private async synthesizeInvestigation(run: AgentRunBody, t: AgentTask) {
+    const S = run.investigation!, frame = this.frameOf(run, this.actorOf(run));
+    const allowed = allowedNumbers(S.observations), refs = S.observations.map((o) => o.ref);
+    const hasConflict = S.notes.some((n) => n.support === 'CONFLICTING');
+    if (hasConflict) escalate(S, 'CONFLICTING_EVIDENCE', 'working notes record conflicting observations');
+    const attempt = async (): Promise<boolean> => {
+      const cls = S.nextClass;
+      const payload = synthesisContext(S, frame);
+      S.usage.largestContextChars = Math.max(S.usage.largestContextChars, JSON.stringify(payload).length);
+      const r = await this.o.agentSynth({ context: payload, refs }, CLASS_ROUTE[cls as 'M2'], this.ac(run.runId).signal);
+      if (r.call) this.model(run, { ...r.call, stage: 'synthesize', cls });
+      if (!r.out || r.out.status !== 'ok') return false;
+      const v = r.out.value;
+      /* the model flags a material judgment or conflicting evidence: one deeper pass, if the budget allows */
+      if (cls !== 'M3' && v.escalate.needed && v.escalate.reason && ['MATERIAL_JUDGMENT', 'CONFLICTING_EVIDENCE'].includes(v.escalate.reason) && S.usage.modelCalls < S.budget.maxModelCalls && escalate(S, v.escalate.reason, v.escalate.detail ?? 'synthesis')) return attempt();
+      const rejected: { statement: string; why: string }[] = [];
+      const findings = v.findings.filter((f) => { const u = ungrounded(f.statement, allowed); if (u.length) { rejected.push({ statement: f.statement, why: `figure${u.length > 1 ? 's' : ''} ${u.join(', ')} not in any observation` }); return false; } return true; });
+      const hu = ungrounded(v.headline, allowed);
+      const headline = hu.length ? (findings[0]?.statement ?? `Sloane inspected ${S.observations.filter((o) => o.status === 'OK').length} governed results.`) : v.headline;
+      if (hu.length) rejected.push({ statement: v.headline, why: `headline figure${hu.length > 1 ? 's' : ''} ${hu.join(', ')} not in any observation` });
+      S.synthesis = { headline, inspected: v.inspected, findings, unresolved: [...v.unresolved, ...(S.stopReason ? [`The investigation stopped early: ${S.stopReason}.`] : [])], nextSteps: v.nextSteps, confidence: v.confidence, rejected, cls, model: r.call?.model ?? null };
+      return true;
+    };
+    const ok = await attempt();
+    if (!ok) {
+      /* no model: the synthesis is the grounded notes and the observations themselves — never an invented narrative */
+      const okObs = S.observations.filter((o) => o.status === 'OK');
+      S.synthesis = { headline: okObs.length ? `Sloane inspected ${okObs.length} governed result${okObs.length === 1 ? '' : 's'}; the reasoning service could not write the synthesis.` : 'The investigation could not gather governed results.',
+        inspected: okObs.map((o) => o.title), findings: S.notes.filter((n) => n.support === 'SUPPORTED').slice(0, 6).map((n) => ({ statement: n.text, kind: 'OBSERVED_FACT' as const, support: 'SUPPORTED' as const, observationRefs: n.observationRefs })),
+        unresolved: [...S.openQuestions, ...(S.stopReason ? [`Stopped early: ${S.stopReason}.`] : [])], nextSteps: [], confidence: null as never, rejected: [], cls: 'D0', model: null };
+    }
+    this.line(run, `Brought together ${S.synthesis!.findings.length} finding${S.synthesis!.findings.length === 1 ? '' : 's'} from ${S.observations.filter((o) => o.status === 'OK').length} governed result${S.observations.filter((o) => o.status === 'OK').length === 1 ? '' : 's'}`, 'done', t.taskId);
+    t.status = 'COMPLETED';
+  }
+  private investigationResult(run: AgentRunBody): NonNullable<AgentRunBody['result']>['investigation'] {
+    const S = run.investigation!, syn = S.synthesis;
+    const objOf = (ref: string) => S.observations.find((o) => o.ref === ref)?.objectId ?? null;
+    return {
+      understanding: S.understanding, goalClass: S.goalClass, inspected: syn?.inspected ?? [],
+      findings: (syn?.findings ?? []).map((f) => ({ statement: f.statement, kind: f.kind, support: f.support, observationRefs: f.observationRefs, objectIds: f.observationRefs.map(objOf).filter((x): x is string => !!x) })),
+      unresolved: syn?.unresolved ?? S.openQuestions, nextSteps: syn?.nextSteps ?? [], confidence: syn?.confidence ?? null,
+      populations: [...new Set(S.observations.map((o) => o.population?.populationId).filter((x): x is string => !!x))],
+      objects: S.observations.filter((o) => o.status === 'OK').map((o) => ({ ref: o.ref, objectId: o.objectId, title: o.title })),
+      stopReason: S.stopReason,
+    };
+  }
+  /** steering an investigation changes its goal and constraints; calls not yet run are superseded and a fresh THINK
+   *  step replans from the observations already made — nothing observed is discarded */
+  private steerInvestigation(run: AgentRunBody, actor: Actor, intent: SteeringIntent, text: string, iv: AgentIntervention): { invalidated: string[]; added: string[] } {
+    const g = run.goal;
+    switch (intent.type) {
+      case 'SCOPE_CHANGE': { const s = intent.scope!; if ('clear' in s) { g.subject.project = null; g.subject.entity = null; g.scope = 'GROUP'; } else { g.subject[s.dimension] = s.value; g.labels[s.dimension] = s.label; if (s.dimension === 'entity') g.scope = s.value; } break; }
+      case 'PERIOD_CHANGE': if (intent.period) { g.period = intent.period.period; g.periodRange = intent.period.periodRange; g.periodText = intent.period.label; } break;
+      case 'FILTER_CHANGE': if (intent.threshold !== undefined) g.threshold = intent.threshold; if (intent.vendor) g.subject.vendor = intent.vendor.value; break;
+      case 'PRIORITY_CHANGE': if (intent.focus) g.constraints.focusFirst.push(intent.focus); break;
+      case 'EXCLUSION': if (intent.exclude) g.constraints.exclude.push(intent.exclude); break;
+      default: break;
+    }
+    const invalidated: string[] = [];
+    for (const x of run.graph.tasks) if (x.status === 'PENDING' && (x.tool || x.check === 'THINK' || x.check === 'SYNTHESIZE' || x.check === 'VERIFY' || x.check === 'SUMMARIZE')) { x.status = 'SKIPPED'; x.failureMode = 'SUPERSEDED'; x.error = `superseded by your instruction: "${text}"`; x.invalidatedBy = iv.id; invalidated.push(x.taskId); }
+    const iter = (run.investigation?.usage.iterations ?? 0) + 1;
+    const think = mkTask({ taskId: `think-${iter}~s${run.steering.length + 1}`, type: 'ANALYZE', title: 'Replanning with your instruction', check: 'THINK', dependsOn: [], priority: 5 }, run.graph.version + 1, 'INTERVENTION');
+    this.revise(run, 'INTERVENTION', `Steered: ${text}`, [think], invalidated);
+    if (run.investigation) { run.investigation.synthesis = null; run.investigation.stopReason = null; }
+    if (['COMPLETED', 'BLOCKED'].includes(run.runStatus)) { run.result = null; run.verification = null; run.completedAt = null; run.completionReason = null; this.status(run, 'RUNNING'); }
+    iv.effect = `${intent.type === 'EXCLUSION' ? `Excluding ${intent.exclude}` : intent.type === 'PRIORITY_CHANGE' ? `Focusing on ${intent.focus} first` : intent.type === 'SCOPE_CHANGE' ? 'Scope changed' : intent.type === 'PERIOD_CHANGE' ? `Period changed to ${intent.period?.label}` : 'Instruction applied'} — replanning from what has been observed; ${invalidated.filter((x) => !/^(verify|summarize|synth)/.test(x)).length} pending call${invalidated.length === 1 ? '' : 's'} superseded.`;
+    void actor;
+    return { invalidated, added: [think.taskId] };
+  }
+
+  /* ================================================================================================
      VIEW · PERSISTENCE · EVENTS
      ================================================================================================ */
   get(runId: string, actor: Actor): RunView | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? this.view(r) : null; }
@@ -1199,7 +1428,11 @@ export class AgentRuntime {
   }
   private event(run: AgentRunBody, type: string, label: string) { run.events.push({ at: now(), type, label }); }
   private policy(run: AgentRunBody, subject: string, decision: 'ALLOW' | 'DENY' | 'CHECKPOINT', reason: string) { run.trace.policyDecisions.push({ at: now(), subject, decision, reason }); if (run.trace.policyDecisions.length > 200) run.trace.policyDecisions.shift(); }
-  private model(run: AgentRunBody, c: AgentRunBody['trace']['modelCalls'][number]) { run.trace.modelCalls.push(c); run.usage.modelCalls += 1; run.usage.inputTokens += c.inputTokens; run.usage.outputTokens += c.outputTokens; }
+  private model(run: AgentRunBody, c: AgentRunBody['trace']['modelCalls'][number]) {
+    run.trace.modelCalls.push(c); run.usage.modelCalls += 1; run.usage.inputTokens += c.inputTokens; run.usage.outputTokens += c.outputTokens;
+    const S = run.investigation;
+    if (S) { S.usage.modelCalls += 1; S.usage.inputTokens += c.inputTokens; S.usage.outputTokens += c.outputTokens; S.usage.cacheReadTokens += c.cacheReadTokens ?? 0; S.usage.cacheWriteTokens += c.cacheWriteTokens ?? 0; S.usage.estimatedCostUsd += c.costUsd ?? 0; }
+  }
   private trace(run: AgentRunBody, t: AgentTask, args: Record<string, string>, status: string, ms: number, objectId: string | null, error: string | null, traceId: string) { run.trace.toolCalls.push({ taskId: t.taskId, tool: t.tool!, args, status, latencyMs: ms, objectId, error, traceId }); }
   private ac(runId: string) { let a = this.acs.get(runId); if (!a || a.signal.aborted) { a = new AbortController(); this.acs.set(runId, a); } return a; }
   private actorOf(run: AgentRunBody): Actor { return { id: run.actor.id, name: run.actor.name, role: run.actor.role, permissions: run.permissionsSnapshot as Actor['permissions'], scopeIds: run.actor.scope }; }

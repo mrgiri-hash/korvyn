@@ -10372,7 +10372,7 @@ backslash in a `sed` replacement. Grep for `\x08` after every splice.
 Owner's direction, over several passes ("not premium", "too big", "the red top doesn't blend", then a full brief).
 Visual refinement only: no routing, conversation or API logic changed.
 
-**The asset.** A portrait cropped from `design-system/Sloane.jpeg`: the whole head with a margin of the grey fabric
+**The asset (replaced 2026-09-19).** The avatar is now the ringed S logo — a white S with a blue ring on near-black: `design-system/Sloane Image 2.png` cropped to the ring's circle as `design-system/sloane-logo.png` (192px PNG), embedded as the `#slFace` symbol. It replaced a portrait cropped from `design-system/Sloane.jpeg`: the whole head with a margin of the grey fabric
 behind it and no red top (`design-system/sloane-avatar.png`, 160px; embedded as the `#slFace` symbol, a 6.7KB JPEG).
 The face filling the circle read as too big; the red top did not sit with the palette.
 
@@ -10398,6 +10398,571 @@ avatar to toolbars, cards or individual messages.**
 **Ask Sloane.** Every input shows the spark (`KI_SPARK` / `.sl-inspark`), not the face, and reads "Ask Sloane
 anything…" (a session keeps "Ask a follow-up…"). Focus is a soft accent glow. The cut-out head (`#slHead`, `SLP_ORBIT`)
 is no longer used.
+
+## 2026-09-19 — SLOANE PHASE 8C.2: context control and referent hardening
+
+Owner's brief: a focused hardening pass before Visualization Intelligence (not started). **The model proposes how the
+words relate to what is on screen; Korvyn validates that against the analysis actually on screen before an op is
+applied.** No phrase-specific branches: every rule is structural (what the ops would do to the definition) or
+grammatical (a question, a restrictive particle, a correction marker, a display verb, a superlative).
+
+**The contract** (`analysis/model.ts`, `schema.ts`, `prompts.ts` `ANALYSIS_EDIT_SYSTEM`): `contextRelation`
+(CONTINUE_CURRENT · MODIFY_CURRENT · DRILL_CURRENT · EXPLAIN_CURRENT · CORRECT_CURRENT · REPLACE_CURRENT · START_NEW ·
+CHANGE_TOPIC · CLARIFY_REFERENT · GENERAL_CONVERSATION), `targetReferent` (SELECTED · LARGEST · SMALLEST · RANK · ROW ·
+MEMBER · OTHER_CANDIDATE · ANALYSIS), `ops` (the persistent analysisMutation), `ephemeralOperation` (RANK),
+`persistentMutation`, `requiresClarification`. The 8C `relation` field is gone; tests and the dry run use the new one.
+
+**Validation — `analysis/context.ts` `governEdit`** (traced as `trace.analysisContext`: proposed vs validated relation and
+every adjustment):
+- **The words win over a reading of them.** A member the model filtered on — including inside a NEW analysis — must be one
+  the words name, when they name any (the model once picked the Silicon Valley *property* for "South Valley").
+- **Modify vs new.** A NEW that is only a restriction of the grid on screen (a statement on a TB, same base with a filter)
+  stays on the grid unless the words explicitly replace it (display verb without a restrictive particle, or
+  instead / switch to). A display verb naming a *different kind* of analysis (a statement while a TB is on screen) replaces
+  it even when the model only changed periods — otherwise the old filters and layout are silently inherited. A display verb
+  naming a new subject broken down (an account by a dimension, on a statement or TB) is a new activity analysis.
+- **Sort vs drill vs rank.** A drill or explanation never persists a SORT/TOP; a superlative points at LARGEST/SMALLEST,
+  not at the selection. An ephemeral RANK answers a *question* (wh- or `?`, not "can you…") and changes nothing — no
+  version, no top-1; an *instruction* about order persists as a SORT. `RANK` (engine) ranks the most specific rows on
+  screen (a temporary variance column if needed, never saved) and stores `activeRankedResultIds`.
+- **"The other X"** is Korvyn's to resolve (`OTHER` op): the candidates the name could mean (vendor-master records with no
+  activity included), less the member in context; one → replaced, several → ask, with each option carrying its exact ops.
+  If the model named the current member, the stem of its name is used.
+- **Clarification only when context cannot decide.** A model clarification is dropped when the analysis already holds one
+  of the candidates, or only one governed object by that name is visible. A content-free rejection ("that's not what I
+  asked") goes back one step, then asks.
+- **Forget X** (`FORGET`) drops X from filters and referents; the model's UNDO is converted when the words name an object.
+
+**Referents** (`engine.ts` `Referents`): + `activeAnalysisId`, `activeStatementId`, `activeDimensionMemberId`
+(`activeMember` kept in step), `activeRankedResultIds` ("the second one" after a ranking), `activeSelectedObjectId`.
+Cleared ranked results on any definition change.
+
+**AnalysisStateHistory** (`SessionContext.analysisHistory`, `recordRevision` / `stepHistory` / `nextVersion`): one
+revision per meaningful change across analyses (revisionId, previousRevisionId, analysisId, version, name, relation,
+reason, userTurn, timestamp, whole-session snapshot); Undo / Redo restore exactly, even when a canvas is on screen; a new
+change after an undo drops the redo branch; versions are never reused. Durable with the investigation (a revision event +
+context snapshot per turn). A no-op edit, a drill or a ranking no longer bumps the version (`EngineOut.mutated`).
+
+**Workspace title** (`TurnResponse.workspace`, `analysisName`): derived from the definition on every change (a user-given
+name stays); the investigation title is separate and set once. Browser: `slActiveTitle` puts the active object in the
+workspace and panel headers with "Investigation · …" as context; the grid header gains Undo / Redo from the server's
+history flags.
+
+**Evaluation** (`eval/context.json`, `eval/context-eval.ts`, `npm run` not wired — `npx tsx src/sloane/eval/context-eval.ts
+[--mock] [--only …]`): 50 multi-step scripts, KNOWN (the brief's phrasings) / HOLDOUT (unseen paraphrases) / FRESH (written
+after the last routing change, run once). Live (claude-sonnet-5 default): KNOWN 12/12, HOLDOUT 28/28, FRESH 10/10, 0
+unnecessary clarifications; deterministic fallback KNOWN 11/11, HOLDOUT 14/28. Two holdout failures (H-S4, H-C3) informed
+general fixes mid-pass, which is why FRESH exists. `context.test.ts` pins every rule offline with a scripted model.
+
+**Traps:** `\b` became a backspace again in two one-line Python splices, and a heredoc ate `\'` in `index.html` (a
+page-wide syntax error, caught in the browser). Use the Write tool for splice scripts and grep for `\x08` after each. The
+Browser pane is shared: clicks in the visible preview supersede a scripted turn mid-flight — test in a background tab.
+
+**Not built:** Visualization Intelligence, PowerPoint/PDF, the Excel add-in; redo after a canvas answer only through
+"redo"; per-cell referent for a temporary ranking column; persistence of history beyond the investigation snapshot.
+
+## 2026-09-19 — Sloane model configuration
+
+**No Claude model id is hard-coded on the Sloane path.** Both come from `packages/agent/.env`:
+`ANTHROPIC_DEFAULT_MODEL` drives the FAST route (front door, interpretation, analysis edits) and NARRATE;
+`ANTHROPIC_ADVANCED_MODEL` drives DEEP (multi-clause plans, reviews, actions, agent planning). The legacy
+`SLOANE_LLM_MODEL` / `SLOANE_LLM_FAST_MODEL` are still read at lower precedence; `SLOANE_LLM_NARRATE_MODEL` is an
+optional override. With one model set it serves both routes and a warning says so; with neither, the provider falls
+back to mock with a warning. **`src/env.ts` loads `packages/agent/.env` by absolute path and takes
+`ANTHROPIC_API_KEY` only from that file** — a key in the shell is dropped. Startup logs
+`[sloane] provider=… default=… advanced=…`; the `[sloane]` turn line prints `stage@ROUTE(model)`; the dev trace's
+`engine` carries `defaultModel` / `advancedModel`. No key is logged or returned. The legacy `/ask` agent
+(`src/agent.ts`, `claude-opus-4-8`) is not the Sloane path and was left alone.
+
+## 2026-09-19 — SLOANE PHASE 8D: open-ended financial reasoning and dynamic tool composition
+
+Owner's brief. **Sloane takes OBJECTIVES, not commands.** "June feels off — dig in" becomes a durable agent run in which
+the model chooses the next governed read from what it has already seen, and Korvyn validates, executes, observes and
+proves. No phrase routes, no Visualization Intelligence, no PowerPoint / PDF / Excel add-in, autonomy levels 0–2 only.
+
+**THE LOOP** (goal type `INVESTIGATE`, policy profile `INVESTIGATION`, autonomy 1, read-only):
+`THINK → 1–3 validated READ calls → compact observations → THINK … → SYNTHESIZE → VERIFY → SUMMARIZE`.
+- **Routing is the conversational front door, not a phrase list:** `CONVERSE_SYSTEM` defines `INVESTIGATION` by meaning
+  (an objective needing several governed steps; a question one read answers stays FINANCIAL_QUESTION).
+  `orchestrator.investigationTurn` builds the `AgentGoal` from the resolved context (period, comparison, scope, what the
+  words name via `resolveTerms`, the analysis on screen) and keeps the objective VERBATIM.
+- **THINK** (`runtime.think`): `relevant()` ranks the actor's allowlist (READ only) to ≤ 20 capabilities by goal class,
+  requested domains and referents in hand; `contextFor()` sends the frame, notes, the last 4 observations in full and the
+  rest as digests, refused calls, and governed materiality. Every proposed call goes through `agentValidate` like any plan
+  step; a duplicate or invalid call is refused and the model is told why.
+- **Observations are compact** (`compact()`: facts, ≤ rows, refs, population id) — raw rows never reach the model.
+- **SYNTHESIZE** labels each finding by KIND (observed fact · evidence · inference · draft explanation · open question) and
+  SUPPORT (supported · partly · unresolved · conflicting · not available). **Any figure no observation carried is
+  rejected** (`ungrounded`) — including a sum the model computed ($10.53M + $5.93M = "$16.46M" was rejected live). Governed
+  policy figures (flux materiality, tie tolerance) count as facts.
+- **Budgets** (`defaultBudget`, env `SLOANE_AGENT_*`): 8 iterations · 12 model calls · 20 tool calls · 160k input · 24k
+  output · $1.00 · 2 escalations · 240 s, checked BEFORE each call; a stop is stated in the result.
+- **Capability classes** D0 (deterministic) · M1 NARRATE · M2 FAST (default model) · M3/M4 DEEP (advanced model). Every
+  step starts M2; the model's stated MATERIAL_JUDGMENT / CONFLICTING_EVIDENCE / COMPLEX_CROSS_DOMAIN / AMBIGUITY (or low
+  confidence from step 3) escalates the NEXT step, recorded with its reason; the class relaxes after a deep step.
+- **Steering** (`steerInvestigation`): skip / focus / exclude / scope / period supersede pending calls and add a replanning
+  THINK; nothing observed is discarded. **ASK_USER** opens a `direction` clarification only when the model states options.
+
+**THREE LIVE FINDINGS THAT SHAPED THE CODE — keep them:**
+- **An observation was recorded before its task was marked complete**, so every tool result read FAILED. The offline test
+  caught it; `observeInvestigation` now runs after the status settles.
+- **Errored model calls burned the budget silently.** A per-step tool enum changed the output schema every call, so the
+  prompt cache WROTE 14k tokens and READ none; strict string limits failed whole steps; 20 s timed out Opus. Now: one stable
+  step schema (`AGENT_STEP_SCHEMA`, the allowlist still enforced by the validator), prose CLIPPED not rejected
+  (`normalizeAgentStep/Synth`), 60 s / 90 s per-call ceilings, and a failed call's billed tokens and error recorded.
+  Result on the same objective: 4 errored calls → 0, cache reads 0 → 15k, headline from the fallback → real synthesis.
+- **A PERMISSION LEAK (pre-existing, surfaced by 8D).** A restricted MDH user reached other entities' figures through
+  the intercompany reconciliation's per-counterparty items and close exceptions, and saw the UK / APAC ERP health.
+  Fixed in the governed service, not in 8D: `ControlService.redact(rec, vis)` (policy IC_AGGREGATE_DISCLOSURE — the
+  reader's own reconciliation result in aggregate, counterparty detail withheld and SAID to be withheld) applied in
+  `reconciliations()`, `getReconciliation`, and artifact Reconciling Items; `continuousCloseSignals` lists only source
+  systems serving a visible entity. A counterparty named in the actor's OWN posting ("funding to MER-DE") is the actor's
+  data and stays.
+
+**EVALUATION** — `npx tsx src/sloane/eval/agent-eval.ts [--only …] [--no-history]` (live, spends credits; set
+`KORVYN_DB_PATH=:memory:`): `eval/agent-scenarios.json` (4 OPEN from the brief, reworded · 10 NOVEL written for eval only ·
+1 PERMISSION). It records the tool sequence the model chose (never prescribed), scores 11 dimensions, prints the
+token/cost scorecard, and appends `eval/agent-history.json`; each run is compared with the previous one ("COST UP, NO
+QUALITY GAIN" is the regression flag). Full run 2026-09-19: 12/15 investigations COMPLETED and verified, mean quality 0.87,
+**$2.43 total ($0.08–$0.26 per investigation)**, 42–103 s each, 4–7 iterations, cache reads ~50% of input. N10 (budget) is
+correctly a capability gap; N07 was read as a question and answered by a governed plan (only half the question — a real
+partial). `investigate.test.ts` (8, scripted model) pins the loop, relevance, budget, escalation, both permission rules,
+steering and grounding.
+
+**Not built:** the brief's M4 as distinct from M3 (both DEEP) · a per-reader cost ceiling beyond the run budget · UI to
+browse past investigations beyond the existing run card · investigations for scoped users that need consolidated
+figures (they stay within the reader's entities, and say so).
+
+## 2026-09-19 — SLOANE CORE RUNTIME V2, PHASE 1: the fast conversational core, beside the old one
+
+Owner's brief, built after the read-only architecture audit. **A new conversational core lives BESIDE the v1
+orchestrator behind `SLOANE_RUNTIME_V2`; nothing in v1 was deleted, and nothing governed was rewritten.** The
+ledger, controls, permissions, the analysis grid, the investigation runtime, the artifact engine, the work store,
+the model gateway and the traces are all v1's and are CALLED. FS-CIP 4,210.2 (browser) untouched; the server book
+is still `@korvyn/core`'s GL.
+
+**What the audit found, and what v2 answers.** No conversation transcript ever reached the model (every call was
+single-shot); nine routing gates decided before Claude reasoned; and latency had regressed to 4.7–17.4s as 8A–8D
+added an unconditional `converse` call, an `analysisEdit` call whenever a grid was on screen, a 15s investigation
+poll and narration on Sonnet. V2's loop is:
+
+```
+load the conversation → build the context ONCE → ONE primary reasoning call
+  → (only if it asked) governed tools, re-authorized, compacted → ONE more call to answer
+  → persist the exchange → trace
+```
+
+**Files** (`packages/agent/src/sloane/v2/`): `model.ts` (the transcript / governed-state separation, `V2_LIMITS`,
+`V2Trace`) · `conversation.ts` (the durable store) · `tools.ts` (the stable governed tool surface) · `runtime.ts`
+(`SloaneV2`) · `ab.ts` (the measured A/B). Plus `adapter.reason()`, `V2_SYSTEM`, `config.runtimeV2`, one flag
+branch in `orchestrator.turn()`, and `v2.test.ts` (11 tests).
+
+**THE TRANSCRIPT IS A RECORD, NOT PROCESS MEMORY.** Kind `SLOANE_CONVERSATION`, id = sessionId, in the same sqlite
+work store every other governed object uses, so a refresh or a restart does not destroy it. The person's own words
+are stored verbatim — **never reduced to an intent enum**. Meaning comes from the transcript; the governed state
+carries only product facts a tool needs as arguments (period, scope, book, the active object / analysis /
+population). §5's compaction is DETERMINISTIC — six exchanges verbatim, older ones quoted into one line each that
+keeps the governed refs alive. No model call, so compaction can never invent or drop a figure.
+
+**THE TOOL SET IS STABLE PER ACTOR, AND THAT IS THE CACHE.** The provider's cached prefix is ordered
+tools → system → messages, so a tool array selected per request rewrites the prefix every turn — the
+14k-write / 0-read pattern 8D diagnosed. V2 exposes a CONSTANT core of 29 governed READ tools, filtered only by what
+the actor may use, plus three control tools; variation lives in the messages. Measured prefix: **~6,100 tokens**
+(21.3 KB of tool JSON + a 3.1 KB system prompt), and live turns read **19–29k cached tokens**.
+
+**THE THREE CONTROL TOOLS ARE HANDOFFS, NOT FEATURES.** `open_analysis_grid` → the 8C grid (v1's `analysisTurn`,
+unchanged, and the conversation's period, scope and book travel across the handoff); `start_investigation` → the 8D
+runtime; `ask_clarification` → one question, which **becomes part of the transcript**: the answer is stored as what
+the person said, so there is no side channel carrying a decision the conversation cannot see.
+
+**§16 — A TURN A DETERMINISTIC SURFACE ALREADY ANSWERS NEVER REACHES V2.** `eligible()` declines a structured grid
+command, a grid selection and a clarification v1 is holding, so those keep answering at zero model calls.
+
+**§11/§35 — PERMISSIONS, TWICE.** The set is filtered BEFORE exposure (an auditor is never shown a flux tool) and
+every call is authorized AGAIN at the moment of the read, because exposure happened at the start of the turn and
+authority is what holds now. An invented tool, a non-READ tool and an out-of-scope argument are all refused without
+reaching a service, and a refusal carries no governed figure.
+
+### THE MEASUREMENT (`npm run sloane:v2-ab`, live, claude-sonnet-5) — §33: no claim without it
+
+Same conversation, twice, seven dependent turns plus three casual turns with a governed object on screen:
+
+| | model calls/turn | tool calls/turn | latency p50 | p90 | input | output | cache read | cost |
+|---|---|---|---|---|---|---|---|---|
+| v1 conversation | 1.57 | 1.57 | **3.1s** | 10.9s | 7,843 | 932 | 6,190 | $0.039 |
+| **v2 conversation** | 1.71 | 1.29 | 6.2s | **7.5s** | 37,192 | 2,792 | 114,528 | $0.188 |
+| v1 casual | 2.00 | 0 | 4.2s | 5.1s | 918 | 318 | 6,888 | $0.010 |
+| **v2 casual** | **1.00** | 0 | **1.3s** | 2.7s | 4,642 | 211 | 28,632 | $0.026 |
+
+**Read honestly: v2 buys coherence and the tail, and costs tokens.** The p90 falls 10.9s → 7.5s and casual
+conversation halves its calls and its latency; the **median is slower** (6.2s vs 3.1s) and the bill is ~4.8× higher,
+because the whole transcript and the stable tool array travel every turn and v2's answers are three times longer.
+The separate narration call is gone, and so is the `analysisEdit` call on every grid turn.
+
+**§29 — the conversation is the evidence.** Seven turns, nothing restated: *Show me June financials* → *What moved
+the most?* (CIP down $16.97M, PP&E up $15.80M — a transfer) → *Why?* (four projects into service, named with
+amounts) → *Is that explained?* (not fully; reconciliation status by entity) → *What about May?* (a pre-existing gap,
+not new) → *No — I meant only the CIP accounts* (accepted the correction) → *Anything else blocking the close?*.
+Verified again in the browser on `sloane-serve-v2`: *what drove the asset jump?* resolved "the asset jump" to the
+$18.55M the previous turn stated and answered from governed reads.
+
+**§35 — a restricted user, live.** Zero leakage in both runtimes. V2 now also SAYS it is narrowing: *"You're set up
+on the Meridian DC Holdco LLC entity scope — I don't see broader group access on your account, so I can pull MDH's
+balance sheet, not the full consolidated group."* The first cut answered for MDH without saying so, which is the
+same silent-substitution fault 8C.1 fixed on the analysis path; one prompt rule closed it.
+
+**§19 — the book travels with the conversation.** `AnalysisEngine.newDefinition` no longer writes
+`{ CORE-GL, US GAAP, Corporate Consolidated, USD }` as a literal: `EngineDeps.book` carries what the conversation is
+on, `bookOf(ctx)` supplies it in v1, and the v2 handoff syncs period, scope, basis and currency before the grid opens.
+
+**Traps worth keeping.**
+- **The tool registry is populated by whoever imports it.** A bare import of `v2/tools.ts` resolved a core set of
+  THREE — the registry was empty because nothing had imported `toolset.ts`. It now imports the registering modules
+  itself. This was invisible in the orchestrator path and would have been invisible until a test ran v2 alone.
+- **A `Stamped<T>` record IS the body with the stamp merged in**, not `{ data }`.
+- **A v2 clarification is not a v1 pending**, so v1's "that question is no longer pending" guard swallowed the
+  answer. The browser answers with `{pendingId, optionId}`; a CLI or a test may answer with an id or the words.
+- **Every `tool_use` must get a `tool_result`**, including one over the per-round cap — it gets a result that says
+  it was not run, never silence.
+- Python splice scripts ate `\b` twice more; use raw strings and grep for `\x08` after every splice.
+
+**Verified:** `npm run sloane:test` **174/174** (11 new; v1's 163 unchanged) · `sloane:dryrun` 35/35 ·
+`packages/core` 78/78 + boundary · **4/4 repo gates** (baselines unchanged) · typecheck clean · live A/B and live
+browser as above.
+
+**§37 — NOTHING WAS DELETED.** Both runtimes are in the tree, the flag is off by default, and `sloane-serve-v2` is
+the launch configuration that turns it on. A v1 path is removed only after the measurement says which to keep.
+
+**Not built (Phase 1 stops here):** the browser UI is unchanged (v2 renders through the existing Sloane panel) ·
+charts, Excel, PPT and PDF · new planning modules · reconnecting full agentic investigations beyond the existing
+handoff · streaming for v2 (the turn returns whole) · a cross-process cache · v2 ownership of grid selections and UI
+commands (v1 keeps them, deliberately).
+
+**Open, and worth the owner's call.** The median latency and the token bill are the two numbers that decide whether
+v2 replaces v1 or is tuned first — the obvious levers are a shorter system prompt, a smaller core tool set, and a
+tighter output cap. And *"What is the REIT's trial balance?"* from a scoped user answers for their own entity
+without saying that the REIT is not something they can see; it leaks nothing, and it should still say so.
+
+## 2026-09-20 — SLOANE CORE RUNTIME V2, PHASE 1.5: runtime efficiency + financial semantic intelligence
+
+Owner's brief, on Phase 1's two open questions: v2 governed conversation was too slow and too expensive,
+and ordinary finance language was still sometimes misunderstood — *"Sloane failed to understand OPEX
+naturally even though the underlying Claude model understands the concept."* Both are answered by
+measurement below, not by assertion. v1 is still in the tree, the flag is still off by default, and no
+permission was weakened.
+
+**§1 — THE BOUNDARY THIS PHASE IS BUILT ON.** General financial knowledge is the model's: it may explain
+OPEX, EBITDA, accruals, CIP, eliminations. Enterprise financial truth is Korvyn's: *"June OPEX was
+$128.4M"*, *"account 61500 belongs to OPEX"*, *"this tenant excludes D&A from OPEX"* must be resolved
+and proved. Everything below is either moving work to the right side of that line, or measuring whether
+it stayed there.
+
+### THE OPEX FAILURE WAS AN ARCHITECTURE GAP, NOT A MISSING KEYWORD
+
+The chart's group 60000 is named *Operating expenses* and is NARROWER than what a controller means by
+OPEX; nothing in the system could say so, so the term resolved to a group that was wrong, or to nothing.
+The fix is a layer, not a handler — §35 rules out a FinanceIntentRouter, an OpexRouter or an
+AccountingPhraseParser, and the reason is that each would have to be rewritten for the next term.
+
+**`semantic/concepts.ts` — the FinancialConcept catalogue.** ~40 concepts, each with its definition, its
+aliases, its broader / narrower / related terms, its ambiguity notes, and its **mappings on this chart**.
+A mapping carries `kind`, `members` (account codes), an optional `formula`, a `basis`
+(GOVERNED / CANDIDATE / NOT_HELD) and, where the profession has a default, `preferred`.
+
+`resolveConcept()` returns one of five statuses, and the distinction between the middle two is the whole
+design:
+
+| status | means | what Sloane does |
+|---|---|---|
+| RESOLVED | the tenant has ruled, or the book supports one reading | answers |
+| **DEFAULTED** | several readings; none ruled; one is the professional default | **answers, and says which reading it used and what the alternatives are** |
+| AMBIGUOUS | several readings and no defensible default | asks |
+| NOT_HELD | the concept is understood and this book does not carry it | says so, and names what it does carry |
+| UNKNOWN | no concept matched | the model answers from its own knowledge |
+
+**DEFAULTED IS THE JUDGEMENT CALL, AND IT WAS A CORRECTION MADE MID-BUILD.** The first cut blocked on
+every multi-reading term, which would have made *"what happened to OPEX?"* — the most ordinary question
+a controller asks — a clarification every time. Blocking is only right where the ambiguity is real: FX
+translation versus transaction gain, gross versus net intercompany. OPEX has a professional default
+(cost of operations plus operating expenses, excluding D&A), so Korvyn uses it and **discloses it**.
+Measured in the browser: *"OPEX (cost of operations plus operating expenses, accounts 50000+60000) rose
+to $3.52M in June from $2.91M in May"*, and on the A/B: *"…since this tenant hasn't recorded a formal
+definition (the other readings here would be the 60000 group alone, or total operating cost including
+D&A)."*
+
+**§12's non-equivalences are in the catalogue as ambiguity notes**, so OPEX is not SG&A, EBITDA is not
+operating income, CIP is not CAPEX, NOI is not EBITDA, and a property is not a project.
+
+**A CONCEPT'S MEMBERS FLOW THROUGH THE EXISTING TOOLS.** `PopulationFilter.accounts` and `balanceUsd()`
+already take arrays, so a two-group reading of OPEX reaches the governed engine as a comma-separated
+`account` argument. No second balance engine was built, and none should be.
+
+### THE MATCHER, NOT THE DICTIONARY — nine regexes, none of them a finance phrase
+
+Real ledger language is inflected, abbreviated and mistyped: *topsides*, *receivables aging*,
+*capitalising interest*, *sg and a*, *intercompny*. Writing each as an alias is the static dictionary
+§35 forbids, and it needs extending for every new term. Three structural properties of the MATCHER
+replace all of it:
+
+1. **`&` is the word it is**, so SG&A, "sg and a" and "s g and a" are one term.
+2. **A light stem on both sides** — plurals, -ing/-ed participles, the -ise/-ize split — applied to the
+   query and to every alias. Deliberately crude: consistency between the two sides is what matters, not
+   linguistic correctness, because an over-eager stem still matches itself.
+3. **One slipped key, bounded** — Damerau distance ≤ 1, single-token aliases only, floored at seven
+   characters. A transposition counts as ONE edit, because *recievables* is one slip to the person
+   typing it and plain Levenshtein calls it two.
+
+**SPECIFICITY OUTRANKS EXACTNESS, and that ordering is load-bearing.** Exact and stemmed matching run in
+ONE pass over an index sorted most-specific-first. Run exact first and a one-word hit claims the concept
+before a two-word inflected one is tried — *"how much capitalising interest is in there"* resolved to
+interest expense. It did, until the passes were merged.
+
+Tolerance can only ever add a term nothing else claimed, and it cannot invent: *"what is a cap"* and
+*"blah blah blah"* both resolve to nothing. Pinned in `v2.test.ts`.
+
+The whole concept layer is **nine regular expressions**, every one a punctuation or inflection rule, and
+they are listed in the file. There is not one finance phrase among them.
+
+**Measured on the 125-prompt holdout, free (`--concepts-only`):** 82 of the 90 cases that name a concept
+resolve to it; RESOLVED 64 · DEFAULTED 16 · NOT_HELD 9 · AMBIGUOUS 7 · UNKNOWN 29. **UNKNOWN is not a
+failure count** — it is the layer standing aside so the model answers from its own knowledge, which is
+§1 working.
+
+### THE EFFICIENCY WORK — measured causes, not guesses
+
+Phase 1's cost was diagnosed before anything changed: fresh input 59%, output 22%, cached prefix 14%.
+The transcript was re-sent uncached on every round of every turn.
+
+- **Two more cache breakpoints** (end of transcript, end of the current turn) on top of Phase 1's two
+  (last tool, system). The prefix is ordered tools → system → messages, so this gives incremental
+  conversation caching: within a turn, round 2 reads the prefix rather than paying for it.
+- **Six composed dispatchers replace the flat surface.** `getStatement` · `analyzeFinancials` ·
+  `getLedgerDetail` · `getControlStatus` · `traceFinancialObject` · `getWorkflowContext`, plus two
+  direct tools and three control tools. **32 tools → 11**, tool JSON 5,323 → 2,593 tokens, cacheable
+  prefix 6,175 → 3,581. The eleven cover 27 v1 capabilities for a reviewer and 22 for an auditor —
+  **§10's exposure filtering survives composition**, because `getControlStatus`'s `area` enum is built
+  per actor and a facade the actor cannot use at all is not offered.
+- **The routing win is in `analyzeFinancials`**: a subject with no dimension and a comparison goes to
+  `getAccountAnalysis`, which returns activity, balance, change, the top project / entity / vendor
+  drivers and a population id in ONE call where Phase 1 spent three.
+- **Output budget 1,600 → 900 tokens**, and a rewritten `V2_SYSTEM` that asks for two or three sentences
+  and an offer to go deeper rather than going deeper unasked.
+- **Streaming** (§22/§23), `trace.firstTokenMs` per turn, and the browser renders the answer forming.
+
+### §24/§25 — THE PER-TURN CONTEXT, AUDITED
+
+`trace.contextBuilds` is instrumented and reads **1**: the ContextAssembler neighbourhood and the
+governed state block are built once, outside the tool loop, and a tool round appends messages rather
+than rebuilding anything. **`vocabulary(deps)` — the GL-line scan — has exactly one caller**, v1's
+analysis editor. It is not in the v2 hot path, confirmed by grep rather than by memory.
+
+### §32/§33 — WHAT IT COSTS NOW (live, claude-sonnet-5, `npm run sloane:v2-ab`)
+
+The §29 conversation is seven dependent turns; nothing restates the subject.
+
+| | calls/turn | p50 | p90 | **TTFT p50** | **TTFT p90** | input | output | cache read | cost |
+|---|---|---|---|---|---|---|---|---|---|
+| v1 conversation | 1.57 | **3.1s** | 10.5s | 3.1s | 10.5s | 7,843 | 898 | 6,190 | **$0.0389** |
+| v2 conversation | 1.57 | 4.2s | **4.7s** | **2.6s** | **2.7s** | **3,180** | 1,586 | 61,795 | $0.0519 |
+| v1 casual | 2.00 | 4.9s | 5.3s | 4.9s | 5.3s | 918 | 294 | 6,888 | $0.0092 |
+| v2 casual | **1.00** | **2.6s** | 5.1s | **1.0s** | 4.8s | 6 | 251 | 17,062 | **$0.0089** |
+
+**Against Phase 1, which is the comparison the brief asked for: the v2 conversation went $0.188 →
+$0.0519 (−72%) and its input tokens 37,192 → 3,180 (−91%); v2 casual went $0.026 → $0.0089 (−66%).**
+The ~4.8× regression over v1 is now **1.33×**, and casual conversation is cheaper than v1 outright.
+
+**The median is still slower and the p90 is far better**, which is the honest shape: v2 spends its time
+in one long call instead of three short ones, so the tail collapses (10.5s → 4.7s) while the middle does
+not move. What a person feels is TTFT, and that is halved on the conversation and quartered on the tail.
+
+**§32 — by kind of turn:**
+
+| category | calls v1→v2 | p50 v1→v2 | TTFT v1→v2 | cost v1→v2 |
+|---|---|---|---|---|
+| casual | 2 → **1** | 4.3s → **1.7s** | 4.3s → **1.2s** | $0.0055 → $0.0048 |
+| general-finance | 1 → 1 | 3.0s → 3.1s | 3.0s → **1.0s** | $0.0075 → $0.0076 |
+| simple-governed | 3 → 2.5 | 4.9s → 5.1s | 4.9s → **2.5s** | $0.0324 → **$0.0238** |
+| follow-up | 1.3 → 2 | 2.9s → 4.5s | 2.9s → 2.8s | $0.0024 → $0.0315 |
+| correction | 1.3 → 2.3 | 4.6s → 4.9s | 4.6s → **2.9s** | $0.0024 → $0.0503 |
+| concept-resolution | 3 → **2** | 6.8s → **4.6s** | 6.8s → **2.3s** | $0.0308 → **$0.0192** |
+| analytical | 1 → 2 | **16.6s → 6.1s** | 16.6s → **3.5s** | $0.0024 → $0.0110 |
+
+**READ THE follow-up AND correction ROWS WITH WHAT WAS SAID, OR THEY LIE.** v1 is cheap there because it
+answers with almost nothing: *"Added entity beneath account."*, *"Created Balance sheet · Jun 2026."*,
+and on *"Why?"* an **empty string**. Across the 25 scripted turns **v1 answered 10 substantively and v2
+answered 25**; per turn that actually answered, **v2 costs $0.0084 against v1's $0.0132 — 36% cheaper**.
+
+**And v1 fails the ordinary-finance test outright**, which is the §2 defect the brief opened with:
+
+| asked | v1 | v2 |
+|---|---|---|
+| *What is cash at June?* | UNAVAILABLE — *"No object named 'cash at june' is in your authorized scope"* | the balance, its prior, its change and its three components |
+| *What happened to OPEX?* | UNAVAILABLE — *"No object matching 'what happened to opex' was found within your authorized scope"* | the figure, which reading it used, and the alternatives |
+| *And overhead?* | UNAVAILABLE | SG&A, its three accounts, and that the tenant has not defined the term |
+| *Which accounts moved most in June, and is any of it unexplained?* | empty answer, 16.6s | the two largest movers, the likely CIP→PP&E transfer, what is unexplained — 6.1s |
+
+v1's phrasing is worse than the failure: a term it did not parse is reported as a PERMISSION problem.
+
+### §3/§30 — DIRECT MODEL vs SLOANE, on 125 unseen finance prompts
+
+`eval/finance-holdout.json` (§4) and `eval/direct-vs-sloane.ts` (`npm run sloane:direct-vs-sloane`,
+spends credits). Both arms run the SAME configured model, so a difference is Korvyn's doing and never a
+difference in raw capability. Categories come from a deterministic comprehension detector — which is
+what decides B, and which reads *"Korvyn does not hold free cash flow"* as understanding, because it is
+— plus a model grader for the finer D/E distinction. The two readings are kept separate on purpose: a
+category that quietly depends on a grader is not a measurement.
+
+| | A | **B — direct understands, SLOANE FAILS** | C | D | E |
+|---|---|---|---|---|---|
+| 125 prompts | 7 (5.6%) | **0 (0.0%)** | 0 (0.0%) | 105 (84.0%) | 13 (10.4%) |
+
+**Both arms understood 125/125**, and the grader disagreed with the detector on none of them.
+By kind: general 20 · enterprise 93 · open 12, with **zero B in every one**.
+
+**Sloane's median latency is now BELOW the bare model's** — 2.69s against 3.13s — because Sloane's
+answers read a cached prefix and the direct arm pays full input every time. Sloane's p90 is worse
+(4.97s vs 4.15s) and it costs $0.67 against $0.38 for the 125 prompts. That is the price of proving a
+figure, and it buys 105 answers the bare model could not give at all.
+
+**THE HARNESS HAD TWO DEFECTS OF ITS OWN, AND BOTH INFLATED THE SCORE IN DIFFERENT DIRECTIONS.** Run 2
+reported one B: *"what's our maintenance run-rate"*, where Sloane said the term *"isn't a term I
+recognise as defined on this book"* and then named repairs & maintenance expense. A non-recognition
+**scoped to the book** is a statement about the catalogue, not about understanding — the detector's own
+stated boundary, which its patterns did not honour. Fixed by judging the sentence the phrase sits in.
+And the harness was not capturing Korvyn's own notes, so a grounding warning that fired was invisible.
+
+### §1 — THE GROUNDING CHECK THE BENCHMARK EARNED
+
+Run 1 produced an answer saying CIP was **$3.69M** where `getFinancialStatementLine`, `getBalanceSheet`
+and `getAccountAnalysis` **all return $3.50M**. The governed layer was consistent; the narration slipped
+a digit. *"Quote it exactly"* is a rule a prompt can state and cannot enforce.
+
+`ungrounded()` extracts every money and percentage figure from the answer and checks each against this
+turn's tool results and everything already said in this conversation — a figure carried forward from
+three turns ago is grounded, because it was read then. What survives normalisation is sign and
+significant digits, so $3.50M and $3.5M are one number and $3.69M is not.
+
+**It MEASURES and never rewrites.** The answer is what Sloane said; rewriting it would hide the defect
+rather than surface it. An unmatched figure is named in a note to the person and recorded in
+`trace.ungroundedFigures`, and in the benchmark it makes the case **category E deterministically** —
+the half of E that does not depend on anyone's reading.
+
+**What it found, on the final run: 10 of 125 turns (8%) stated a figure Korvyn could not point at, and
+3 of those answered with NO governed tool call at all.** That is the real residual defect of this phase,
+and it is now visible rather than suspected. Two narration faults it also caught, now explicit rules in
+`V2_SYSTEM`: **subtracting or dividing two lines is computing** (the model presented revenue less cost
+of operations as a gross margin), and **a figure in parentheses is negative** (it printed components as
+magnitudes, so a set of children stopped footing to its own total).
+
+### §26 — SUBSTITUTION IS DISCLOSED, THE THING BEHIND THE LIMIT IS NOT
+
+Two rules, because they pull in opposite directions and both have to hold. Measured live on the MDH
+accountant:
+
+| asked | v1 | v2 |
+|---|---|---|
+| *Show me the consolidated balance sheet.* | UNAVAILABLE, empty reply | *"As noted, this is not the group-consolidated view — it's Meridian DC Holdco LLC (MDH), the only scope you have access to here"*, then the figures |
+| *What is the REIT's trial balance?* | **silently rendered MDH's trial balance labelled "Trial balance · Jun 2026"** | *"I don't have access to a REIT entity here — your access is limited to MDH. I can't confirm or describe any other entity beyond that."* |
+
+v1's second answer is the silent substitution §26 forbids. Zero leakage in both.
+
+**A LEAK IS KORVYN VOLUNTEERING SOMETHING, NOT KORVYN USING THE PERSON'S OWN WORD.** The A/B's leak
+check first scored v2's correct refusal as a leak, because the refusal has to be able to name the word
+they typed. It now flags an echo only when the sentence goes on to describe or quantify the object.
+
+### §18 — THE TRANSCRIPT WINDOW, RUN RATHER THAN CHOSEN
+
+`npm run sloane:v2-transcript` runs the dependent conversation once per setting, in its own process
+(the window is read from the environment at module load).
+
+| verbatimTurns | continuity breaks | input tokens | cost | p50 | p90 |
+|---|---|---|---|---|---|
+| 3 | 0 | 7,321 | $0.0906 | 5.2s | 11.0s |
+| 4 (current) | 0 | 9,580 | $0.0978 | 4.8s | 12.9s |
+| 6 | 0 | 6,218 | $0.0783 | 4.5s | 7.9s |
+
+**THE SHORTEST WINDOW WAS NOT THE CHEAPEST, and that is the finding.** Compaction rewrites the head of
+the message list, which invalidates the cached prefix — so a window tuned down to save tokens pays for
+itself in fresh input. The setting should not be minimised.
+
+**The experiment cannot separate 4 from 6 on this script**, because the script is seven turns long and a
+window of six is barely exercised; the differences above are within run-to-run variance. **4 stays**,
+named as under-determined rather than justified. Separating them needs a materially longer conversation,
+which is the experiment to run next, not a setting to move now.
+
+### §36 — THE ARCHITECTURE CHECKPOINT
+
+The brief's question is whether this phase made the system more complex. Counted:
+
+| | v1 routing layers | v2 hot path |
+|---|---|---|
+| regex operations (`.test` / `.match` / `.replace(/`) | **450** (orchestrator 222, analysis editor 159, conversation 69) | **21** (runtime 9, concept layer 12) |
+| tools exposed to the model | 32 | **11** |
+| routing gates before the model reasons | 9 | **1** (`eligible()`) |
+| model calls, ordinary turn | 2–3 | **1**, or 2 when facts are needed |
+| context assemblies per turn | several | **1**, asserted in the trace |
+
+No new routing layer was added. The concept layer is not a router: it is asked BY a governed tool, after
+Claude has already understood the sentence, and its whole job is to say which accounts a term means on
+this book.
+
+### §22/§37 — THE BROWSER CHECK, AND THE TWO DEFECTS IT FOUND
+
+Streaming was implemented, typechecked, unit-tested and **did not work in the browser**. Only driving the
+real UI found it.
+
+- **A PARTIAL IS A RESPONSE SHAPE, NOT HTML.** `onPartial` feeds `slRender`, which reads
+  `state`/`kind`/`html`; handed a bare HTML string it rendered nothing, silently, with no console error.
+  `s2DeltaPartial()` builds the same shape the object partial already used, so one contract serves both.
+- **A PARTIAL AFTER THE FIRST MUST REPLACE IT.** `onPartial` always called `slRender`, which APPENDS.
+  Invisible while there was one partial per turn; with nineteen streamed frames it put nineteen copies of
+  the question in the thread. `slReplaceLast` already held the "never a second entry" contract and is now
+  used for every partial after the first.
+
+Verified after the fix, on `sloane-serve-v2`: the stream carries `delta` events, **10 frames render, the
+first visible token lands at 1.7s**, the investigation holds **exactly one entry**, `.slx-live` is gone
+once the final answer replaces it, and the console is clean.
+
+**A tsx server does not hot-reload.** The first browser run measured a server started before the
+streaming work existed and reported no deltas at all — a stale process reads exactly like a broken
+feature. Restart the preview before believing a browser measurement of server-side work.
+
+### Traps
+
+- **Never pass replacement text through the shell — the eleventh time, and it bit again.** `\b` in a
+  Python heredoc became six literal backspace characters inside a regex. Write the splice script with the
+  Write tool, and grep every touched file for `\x08` afterwards.
+- **A specificity order is not an obvious one.** Running exact matching before stemmed matching looked
+  correct and quietly resolved *capitalising interest* to interest expense.
+- **A governed figure that differs by tool is a data defect; a governed figure that differs from the
+  answer is a narration defect.** Three reads had to be run by hand to tell which one the benchmark found.
+- **Renaming `$` to `usd` in `toolset.ts` broke 89 call sites.** Reverted; `export const usd = $` is the alias.
+- **Spreading conditional objects into `ToolArgs`** produces optional keys the index signature rejects;
+  `A(...)` filters undefined and empty.
+
+**Verified:** `npm run sloane:test` **177/177** · `sloane:dryrun` 35 PASS / 0 FAIL · `packages/core`
+78/78 + boundary intact · **4/4 repo gates**, baselines unchanged · typecheck clean · the live A/B, the
+live 125-prompt benchmark, the live transcript experiment and the browser run above.
+
+### Deliberately not done (the brief's stop point)
+
+Structural grounding Phase 2 · agentic runtime v2 · charts · Excel / PowerPoint / PDF. The v1 fallback is
+still in the tree, the flag is still off by default, and Phase 1's architecture is intact.
+
+### Open, and worth the owner's call
+
+- **8% of answers state a figure Korvyn cannot point at, and 3 of 125 answered a governed question with
+  no tool call at all.** The grounding check discloses it; nothing yet prevents it. The cheap next move is
+  a prompt rule that a question about this company's figures always calls a tool before answering — it was
+  deliberately NOT made after the final measurement, because an unmeasured fix is worse than a measured
+  residual.
+- **`CAPITAL_EXPENDITURE` maps to a balance, not a period flow**, so *"show me capex for June"* returns a
+  CIP+PP&E snapshot labelled capex. A real defect in the catalogue, found by the grader.
+- **The median latency is still above v1's** (4.2s vs 3.1s); the remaining lever is the model on the FAST
+  route, not the runtime.
+- **Two holdout cases resolve a defensible alternative concept** — *"where are we burning cash"* → CASH
+  rather than CASH_FLOW, *"opex run rate"* → RUN_RATE rather than OPERATING_EXPENSE. Both are readings a
+  person could defend; forcing either would be fitting the code to the holdout.
 
 ## Toolchain
 

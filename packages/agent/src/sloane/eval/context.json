@@ -1,0 +1,1198 @@
+{
+ "_about": "PHASE 8C.2 context-control regression set. KNOWN cases use the brief's own phrasing (and the implementation examples); HOLDOUT cases are unseen paraphrases written for evaluation only — no routing code, prompt or unit test contains them. Each case is a multi-step script in a fresh conversation; a step's expect is scored against that step, and step indexes refer to earlier steps of the same case. FRESH cases were written after the last change to routing code and were run once, unmodified, for the report.",
+ "cases": [
+  {
+   "id": "K-A",
+   "set": "KNOWN",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "BS only",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "statement": "BS",
+      "clarify": false
+     }
+    },
+    {
+     "say": "entities across the top",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "columnsInclude": [
+       "entity"
+      ],
+      "clarify": false
+     }
+    },
+    {
+     "say": "just South Valley",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "filter": {
+       "dimension": "project",
+       "value": "SV-PH2"
+      },
+      "statement": "BS",
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-B",
+   "set": "KNOWN",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "largest first",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "sameAs": 0,
+      "sorted": true,
+      "noPanel": true
+     }
+    },
+    {
+     "say": "what's behind the biggest change?",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "sameAs": 0,
+      "panel": [
+       "GL",
+       "EXPLAIN",
+       "EXPAND"
+      ],
+      "rowSelected": "LARGEST_VARIANCE",
+      "sortSameAs": 2,
+      "topNull": true
+     }
+    },
+    {
+     "say": "Which one swung the most?",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "sameAs": 0,
+      "panel": [
+       "RANK"
+      ],
+      "sortSameAs": 2,
+      "topNull": true,
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-C",
+   "set": "KNOWN",
+   "category": "OTHER_REFERENT",
+   "steps": [
+    {
+     "say": "show Siemens activity by project"
+    },
+    {
+     "say": "I meant the other Siemens",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": true
+     }
+    },
+    {
+     "choose": 0,
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "filterDimensionNot": {
+       "dimension": "vendor",
+       "value": "Siemens Energy"
+      }
+     }
+    },
+    {
+     "say": "South Valley only.",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "filter": {
+       "dimension": "project",
+       "value": "SV-PH2"
+      },
+      "filterDimensionNot": {
+       "dimension": "vendor",
+       "value": "Siemens Energy"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-D",
+   "set": "KNOWN",
+   "category": "SWITCH_UNDO",
+   "steps": [
+    {
+     "say": "show June BS"
+    },
+    {
+     "say": "show June TB",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 0,
+      "type": "TRIAL_BALANCE"
+     }
+    },
+    {
+     "say": "show CIP by project",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 1,
+      "filter": {
+       "dimension": "account",
+       "value": "15000"
+      }
+     }
+    },
+    {
+     "say": "Undo",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 1
+     }
+    },
+    {
+     "say": "Undo",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-E1",
+   "set": "KNOWN",
+   "category": "DISAMBIGUATION",
+   "steps": [
+    {
+     "say": "Show CIP activity by project for June"
+    },
+    {
+     "say": "just South Valley"
+    },
+    {
+     "say": "show South Valley",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": false,
+      "sameAs": 0,
+      "filter": {
+       "dimension": "project",
+       "value": "SV-PH2"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-E2",
+   "set": "KNOWN",
+   "category": "DISAMBIGUATION",
+   "steps": [
+    {
+     "say": "show South Valley",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": false,
+      "onlyNamedIfAnalysis": [
+       "property"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-F1",
+   "set": "KNOWN",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "No, May.",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "periods": [
+       "2026-05"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-F2",
+   "set": "KNOWN",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "Actually South Valley only.",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "filter": {
+       "dimension": "project",
+       "value": "SV-PH2"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-F3",
+   "set": "KNOWN",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "show Siemens activity by project"
+    },
+    {
+     "say": "No, I meant Siemens Energy.",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "filter": {
+       "dimension": "vendor",
+       "value": "Siemens Energy"
+      },
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-F4",
+   "set": "KNOWN",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "show CIP activity by project"
+    },
+    {
+     "say": "Forget CIP.",
+     "expect": {
+      "metric": "CORRECTION",
+      "noFilterOn": [
+       "account"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-F5",
+   "set": "KNOWN",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "BS only"
+    },
+    {
+     "say": "That's not what I asked.",
+     "expect": {
+      "metric": "CORRECTION",
+      "clarify": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "K-G",
+   "set": "KNOWN",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "BS only"
+    },
+    {
+     "say": "just South Valley"
+    },
+    {
+     "say": "Show me May and June balance sheet",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 0,
+      "statement": "BS",
+      "periods": [
+       "2026-05",
+       "2026-06"
+      ],
+      "noFilterOn": [
+       "project"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M1",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "trial balance for june"
+    },
+    {
+     "say": "balance sheet accounts only please",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "statement": "BS",
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M2",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "restrict it to the balance sheet side",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "statement": "BS"
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M3",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "put the subsidiaries across the columns",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "columnsInclude": [
+       "entity"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M4",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "now give me the May P&L",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 0,
+      "statement": "IS",
+      "periods": [
+       "2026-05"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M5",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "switch over to the income statement instead",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 0,
+      "statement": "IS"
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M6",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "narrow it down to the South Valley project",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "filter": {
+       "dimension": "project",
+       "value": "SV-PH2"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-M7",
+   "set": "HOLDOUT",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "trial balance for june"
+    },
+    {
+     "say": "BS side only, by entity",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "statement": "BS"
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-S1",
+   "set": "HOLDOUT",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "put the biggest movers at the top",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "sameAs": 0,
+      "sorted": true,
+      "noPanel": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-S2",
+   "set": "HOLDOUT",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "largest first"
+    },
+    {
+     "say": "dig into whichever line moved the most",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "panel": [
+       "GL",
+       "EXPLAIN",
+       "EXPAND"
+      ],
+      "rowSelected": "LARGEST_VARIANCE",
+      "sortSameAs": 2,
+      "topNull": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-S3",
+   "set": "HOLDOUT",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "pull up the ledger lines under the top variance",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "panel": [
+       "GL"
+      ],
+      "rowSelected": "LARGEST_VARIANCE",
+      "sortSameAs": 1,
+      "topNull": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-S4",
+   "set": "HOLDOUT",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "what made up the largest swing",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "panel": [
+       "GL",
+       "EXPLAIN",
+       "EXPAND"
+      ],
+      "rowSelected": "LARGEST_VARIANCE",
+      "sortSameAs": 1,
+      "topNull": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-S5",
+   "set": "HOLDOUT",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "order it by the size of the change",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "sameAs": 0,
+      "sorted": true,
+      "noPanel": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-R1",
+   "set": "HOLDOUT",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "which account moved the most between the two months?",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "panel": [
+       "RANK"
+      ],
+      "sortSameAs": 1,
+      "topNull": true,
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-R2",
+   "set": "HOLDOUT",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "what were the three biggest changes?",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "panel": [
+       "RANK"
+      ],
+      "topNull": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-R3",
+   "set": "HOLDOUT",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "which line barely moved at all?",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "panel": [
+       "RANK"
+      ],
+      "topNull": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-R4",
+   "set": "HOLDOUT",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "only keep the two biggest movers on screen",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "sameAs": 0,
+      "topN": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-R5",
+   "set": "HOLDOUT",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "which account carries the biggest balance?",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "panel": [
+       "RANK"
+      ],
+      "topNull": true,
+      "sortSameAs": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-C1",
+   "set": "HOLDOUT",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "sorry, I meant May",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "periods": [
+       "2026-05"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-C2",
+   "set": "HOLDOUT",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "Show CIP activity by project for June"
+    },
+    {
+     "say": "no, cash not CIP",
+     "expect": {
+      "metric": "CORRECTION",
+      "filter": {
+       "dimension": "account",
+       "value": "10000"
+      },
+      "filterDimensionNot": {
+       "dimension": "account",
+       "value": "15000"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-C3",
+   "set": "HOLDOUT",
+   "category": "OTHER_REFERENT",
+   "steps": [
+    {
+     "say": "show Siemens activity by project"
+    },
+    {
+     "say": "wrong Siemens — a different one",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-C4",
+   "set": "HOLDOUT",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "just South Valley"
+    },
+    {
+     "say": "actually take the South Valley filter back off",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "noFilterOn": [
+       "project"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-C5",
+   "set": "HOLDOUT",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "hmm, I wanted April and May",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "periods": [
+       "2026-04",
+       "2026-05"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-U1",
+   "set": "HOLDOUT",
+   "category": "SWITCH_UNDO",
+   "steps": [
+    {
+     "say": "june balance sheet"
+    },
+    {
+     "say": "trial balance for june",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 0
+     }
+    },
+    {
+     "say": "CIP activity by project",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 1
+     }
+    },
+    {
+     "say": "undo that",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 1
+     }
+    },
+    {
+     "say": "undo that",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-U2",
+   "set": "HOLDOUT",
+   "category": "SWITCH_UNDO",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "BS only"
+    },
+    {
+     "say": "revert that change",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 0
+     }
+    },
+    {
+     "say": "redo",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-U3",
+   "set": "HOLDOUT",
+   "category": "SWITCH_UNDO",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "take me back to the previous analysis",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-D1",
+   "set": "HOLDOUT",
+   "category": "DISAMBIGUATION",
+   "steps": [
+    {
+     "say": "Show CIP activity by project for June"
+    },
+    {
+     "say": "just South Valley"
+    },
+    {
+     "say": "let me see South Valley",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-D2",
+   "set": "HOLDOUT",
+   "category": "DISAMBIGUATION",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "just South Valley"
+    },
+    {
+     "say": "what about South Valley",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "H-T1",
+   "set": "HOLDOUT",
+   "category": "TITLE",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "balance sheet side only",
+     "expect": {
+      "metric": "TITLE",
+      "titleDiffersFrom": 0
+     }
+    },
+    {
+     "say": "June balance sheet by entity instead",
+     "expect": {
+      "metric": "TITLE",
+      "titleDiffersFrom": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-1",
+   "set": "FRESH",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "keep only the assets and liabilities side",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "sameAs": 0,
+      "clarify": false
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-2",
+   "set": "FRESH",
+   "category": "MODIFY_VS_NEW",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "let's look at April's income statement now",
+     "expect": {
+      "metric": "MODIFY_VS_NEW",
+      "freshFrom": 0,
+      "statement": "IS",
+      "periods": [
+       "2026-04"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-3",
+   "set": "FRESH",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "rank the rows by how much they changed",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "sameAs": 0,
+      "sorted": true,
+      "noPanel": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-4",
+   "set": "FRESH",
+   "category": "SORT_VS_DRILL",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "break open the account with the largest movement and show me its entries",
+     "expect": {
+      "metric": "SORT_VS_DRILL",
+      "panel": [
+       "GL",
+       "EXPLAIN",
+       "EXPAND"
+      ],
+      "rowSelected": "LARGEST_VARIANCE",
+      "sortSameAs": 1,
+      "topNull": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-5",
+   "set": "FRESH",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "which two accounts changed the most?",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "panel": [
+       "RANK"
+      ],
+      "topNull": true,
+      "sortSameAs": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-6",
+   "set": "FRESH",
+   "category": "RANK_VS_FILTER",
+   "steps": [
+    {
+     "say": "Show me May and June balance sheet"
+    },
+    {
+     "say": "add variance"
+    },
+    {
+     "say": "cut it down to just the top three movers",
+     "expect": {
+      "metric": "RANK_VS_FILTER",
+      "sameAs": 0,
+      "topN": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-7",
+   "set": "FRESH",
+   "category": "CORRECTION",
+   "steps": [
+    {
+     "say": "show June TB"
+    },
+    {
+     "say": "oops, make that March",
+     "expect": {
+      "metric": "CORRECTION",
+      "sameAs": 0,
+      "periods": [
+       "2026-03"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-8",
+   "set": "FRESH",
+   "category": "OTHER_REFERENT",
+   "steps": [
+    {
+     "say": "show Siemens activity by project"
+    },
+    {
+     "say": "not this Siemens, the other one",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-9",
+   "set": "FRESH",
+   "category": "SWITCH_UNDO",
+   "steps": [
+    {
+     "say": "june TB"
+    },
+    {
+     "say": "show me the May income statement"
+    },
+    {
+     "say": "go back to where we were",
+     "expect": {
+      "metric": "UNDO",
+      "restores": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "F-10",
+   "set": "FRESH",
+   "category": "DISAMBIGUATION",
+   "steps": [
+    {
+     "say": "Show CIP activity by project for June"
+    },
+    {
+     "say": "just South Valley"
+    },
+    {
+     "say": "stick with South Valley and add vendors",
+     "expect": {
+      "metric": "REFERENT",
+      "clarify": false,
+      "sameAs": 0
+     }
+    }
+   ]
+  }
+ ]
+}

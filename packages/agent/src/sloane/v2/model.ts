@@ -1,0 +1,130 @@
+/**
+ * SLOANE CORE RUNTIME V2 — THE CONVERSATION RECORD AND THE GOVERNED STATE IT CARRIES.
+ *
+ * The audit's first finding was that Sloane had no conversation: every model call was single-shot and continuity was
+ * emulated by thirty state fields and several hundred regexes. V2 separates the two things that were tangled:
+ *
+ *   THE TRANSCRIPT      what was actually said, in the person's own words, durable, replayed to the model
+ *   THE GOVERNED STATE  what the product is on (period, scope, book, the active object / analysis / population)
+ *
+ * Meaning comes from the transcript. State carries only product facts a tool needs as arguments. Nothing here derives
+ * a financial figure: every amount still comes from a governed tool.
+ */
+
+/** one exchange, kept verbatim. `userMessage` is the ORIGINAL language — never an intent enum. */
+export interface V2Turn {
+  turnId: string;
+  at: string;
+  userMessage: string;
+  assistantMessage: string;
+  /** which of the three paths answered it — for the trace and for A/B measurement */
+  path: V2Path;
+  refs: {
+    toolCalls: { tool: string; args: Record<string, string> }[];
+    objectIds: string[];
+    populationIds: string[];
+    evidenceIds: string[];
+    analysisId: string | null;
+    agentRunId: string | null;
+  };
+}
+
+export type V2Path = 'deterministic' | 'conversation' | 'analytical' | 'analysis-handoff' | 'investigation-handoff' | 'clarification';
+
+/**
+ * §6/§19 — the governed state of the conversation. Book, basis, lens and currency are HERE, not hard-coded at the
+ * point an analysis is created: a new analysis must inherit what the conversation is actually on.
+ */
+export interface V2State {
+  period: string;
+  periodRange: { start: string; end: string } | null;
+  comparisonPeriod: string | null;
+  scope: string;
+  accountingBookId: string;
+  accountingBasis: string;
+  reportingLens: string;
+  currency: string;
+  activeObject: { kind: string; id: string; name: string } | null;
+  activeAnalysisId: string | null;
+  activePopulationId: string | null;
+  selectedRowId: string | null;
+  selectedCellId: string | null;
+  currentInvestigationId: string | null;
+  agentRunId: string | null;
+  /** the governed refs the last turn produced — a tool argument may resolve from these */
+  lastRefs: Record<string, string>;
+}
+
+/** a question Sloane asked and is waiting on; durable, so a refresh or a restart does not lose it */
+export interface V2Pending {
+  id: string;
+  question: string;
+  options: { id: string; label: string }[];
+  askedAt: string;
+}
+
+/** the durable record — one per conversation, kind SLOANE_CONVERSATION, id = sessionId */
+export interface ConversationBody {
+  sessionId: string;
+  owner: string;
+  startedAt: string;
+  updatedAt: string;
+  /** §5: turns older than the verbatim window, compacted deterministically (no model call) */
+  summary: string[];
+  turns: V2Turn[];
+  state: V2State;
+  pending: V2Pending | null;
+}
+
+/** §27 — the v2 development trace. Never carries a secret, a prompt or a raw row. */
+export interface V2Trace {
+  runtime: 'v2';
+  traceId: string;
+  sessionId: string;
+  path: V2Path;
+  request: string;
+  model: string | null;
+  escalationReason: string | null;
+  modelCalls: number;
+  toolCalls: number;
+  contextBuilds: number;
+  toolsExposed: number;
+  transcriptTurns: number;
+  latencyMs: number;
+  /** §23 — milliseconds to the first visible token of the ANSWER, or null when nothing streamed */
+  firstTokenMs: number | null;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  calls: { stage: string; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; stopReason: string | null; error: string | null }[];
+  tools: { tool: string; status: 'COMPLETED' | 'REFUSED' | 'FAILED'; latencyMs: number; error: string | null }[];
+  activeStateRefs: Record<string, string | null>;
+  /**
+   * §1 — figures in the answer that appear in NO governed read of this conversation. Korvyn's claim is
+   * that it proves the enterprise number, so a number it cannot point at is worth recording whether or
+   * not it is wrong. Measured, never rewritten: the answer is what Sloane said.
+   */
+  ungroundedFigures: string[];
+  notes: string[];
+}
+
+export const V2_LIMITS = {
+  /**
+   * §5/§18: turns kept verbatim in the model's context; older ones are compacted. Four was chosen by
+   * measurement, not by taste — the transcript experiment is recorded in the CLAUDE.md block for this phase.
+   * `SLOANE_V2_VERBATIM_TURNS` overrides it so the experiment can be re-run without an edit.
+   */
+  verbatimTurns: Math.max(2, Math.min(10, Number(process.env['SLOANE_V2_VERBATIM_TURNS']) || 4)),
+  /** hard cap on retained turns in the record (the summary carries the rest) */
+  maxTurns: 40,
+  /** §14: how many tool rounds one exchange may take before Korvyn stops and answers with what it has */
+  maxToolRounds: 3,
+  maxToolsPerRound: 4,
+  maxRequestChars: 2000,
+  /**
+   * §21 — the reply budget for an ordinary conversational turn. It is a BACKSTOP, not the target: the prompt
+   * asks for two or three sentences. A turn does not get the whole allowance just because it exists.
+   */
+  maxOutputTokens: 900,
+} as const;

@@ -4,7 +4,7 @@
  * /api/sloane/action route uses. Writes a secret-free digest to SLOANE_EVAL_OUT.
  * Run: npx tsx src/sloane/live-actions.ts
  */
-import 'dotenv/config';
+import '../env.js';
 import { writeFileSync } from 'node:fs';
 import { createAdapter } from './adapter.js';
 import { loadSloaneConfig } from './config.js';

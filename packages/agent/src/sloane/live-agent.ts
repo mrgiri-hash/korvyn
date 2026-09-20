@@ -3,7 +3,7 @@
  * grounded narration of every result). SPENDS CREDITS.   Run: npm run sloane:live-agent
  * Writes data/live-agent-<time>.json with status, verification, headline, model calls and latency per scenario.
  */
-import 'dotenv/config';
+import '../env.js';
 import { writeFileSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

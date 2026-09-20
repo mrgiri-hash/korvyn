@@ -17,13 +17,15 @@ import { type Fact, type FinancialObject, type ParamSpec, type SloaneTool, type 
 
 /* ---- helpers --------------------------------------------------------------------------------------- */
 const $ = (v: number | null | undefined) => (v === null || v === undefined ? '—' : money(v, 'USD'));
+/** the same money formatter, under a name another module can import */
+export const usd = $;
 const n = (v: number) => String(v);
 const P = (name: string, required = true, description = 'month, YYYY-MM'): ParamSpec => ({ name, kind: 'period', required, description });
 const scopeP: ParamSpec = { name: 'scope', kind: 'scope', required: false, description: 'governed scope id (GROUP or an entity id); defaults to context' };
 const acctP = (required = true): ParamSpec => ({ name: 'account', kind: 'account', required, description: 'account or account-group code, e.g. 15000' });
-const GL_SRC = '@korvyn/core validated enterprise GL — posted journal lines';
+export const GL_SRC = '@korvyn/core validated enterprise GL — posted journal lines';
 
-function base(env: ToolEnv, o: Partial<FinancialObject> & Pick<FinancialObject, 'type' | 'title'>): FinancialObject {
+export function base(env: ToolEnv, o: Partial<FinancialObject> & Pick<FinancialObject, 'type' | 'title'>): FinancialObject {
   return {
     id: env.objectId, status: 'AVAILABLE', scope: scopeOf(env, undefined), periods: [], periodLabel: '', currency: 'USD', basis: BASIS, unit: 'USD millions',
     table: { columns: [], rows: [] }, facts: [],
@@ -31,23 +33,26 @@ function base(env: ToolEnv, o: Partial<FinancialObject> & Pick<FinancialObject, 
     population: null, refs: {}, focus: null, unavailable: null, governed: true, ...o,
   };
 }
-function scopeOf(env: ToolEnv, id: string | undefined) {
+export function scopeOf(env: ToolEnv, id: string | undefined) {
   const sid = id ?? (env.visible === 'ALL' ? 'GROUP' : [...env.visible][0]!);
   const s = env.data.scope(sid);
   return { id: sid, name: s?.name ?? sid };
 }
 /** entities a scope argument selects, intersected with what the actor may see */
-function entitiesOf(env: ToolEnv, scope: string | undefined): string[] | undefined {
+export function entitiesOf(env: ToolEnv, scope: string | undefined): string[] | undefined {
   if (!scope || scope === 'GROUP') return env.visible === 'ALL' ? undefined : [...env.visible];
   return [scope];
 }
-const vis = (env: ToolEnv, scope?: string) => { const e = entitiesOf(env, scope); return e ? new Set(e) : ('ALL' as const); };
-function unavailable(env: ToolEnv, type: string, title: string, capability: string, reason: string): ToolResult {
+export const vis = (env: ToolEnv, scope?: string) => { const e = entitiesOf(env, scope); return e ? new Set(e) : ('ALL' as const); };
+export function unavailable(env: ToolEnv, type: string, title: string, capability: string, reason: string): ToolResult {
   return { warnings: [reason], object: base(env, { type, title, status: 'UNAVAILABLE', unavailable: { capability, reason }, facts: [{ key: 'unavailable', label: capability, value: reason, display: reason }] }) };
 }
 const priorOr = (env: ToolEnv, p: string, c?: string) => c ?? env.gl.priorPeriod(p);
-const row = (label: string, cells: string[], level = 1, kind: TableRow['kind'] = 'line', ref?: string): TableRow => ({ label, level, kind, cells, ...(ref ? { ref } : {}) });
-const acctName = (env: ToolEnv, code: string) => `${code} ${env.gl.account(code)?.name ?? ''}`.trim();
+export const row = (label: string, cells: string[], level = 1, kind: TableRow['kind'] = 'line', ref?: string): TableRow => ({ label, level, kind, cells, ...(ref ? { ref } : {}) });
+export const acctName = (env: ToolEnv, code: string) => `${code} ${env.gl.account(code)?.name ?? ''}`.trim();
+/** an `account` argument may name ONE governed code or the members a financial concept resolves to. */
+export const codesOf = (v: string | undefined): string[] => (v ? v.split(',').map((x) => x.trim()).filter(Boolean) : []);
+export const acctNames = (env: ToolEnv, v: string) => codesOf(v).map((c) => acctName(env, c)).join(' + ');
 const vendorOf = (env: ToolEnv, v: string | undefined) => (v ? env.gl.vendors().find((x) => x.toLowerCase() === v.toLowerCase()) ?? v : undefined);
 function filterFrom(env: ToolEnv, a: ToolArgs): PopulationFilter {
   const f: PopulationFilter = {};
@@ -55,7 +60,7 @@ function filterFrom(env: ToolEnv, a: ToolArgs): PopulationFilter {
   if (a['periodStart']) f.periodStart = a['periodStart'];
   if (a['periodEnd']) f.periodEnd = a['periodEnd'];
   const ents = entitiesOf(env, a['entity'] ?? a['scope']); if (ents) f.entities = ents;
-  if (a['account']) f.accounts = [a['account']];
+  if (a['account']) f.accounts = codesOf(a['account']);
   if (a['vendor']) f.vendor = vendorOf(env, a['vendor']);
   if (a['project']) f.project = a['project'];
   if (a['costCenter']) f.costCenter = a['costCenter'];
@@ -223,15 +228,18 @@ const FINANCIALS: SloaneTool[] = [
     params: [acctP(), P('period'), scopeP], outputs: 'StatementLine; facts value, prior, change, changePct',
     run(a, env) {
       const p = a['period']!, code = a['account']!, prior = env.gl.priorPeriod(p), v = vis(env, a['scope']);
-      const val = (c: string, x: string) => env.gl.presented(code, env.gl.balanceUsd([c], x, v));
-      const cur = val(code, p), pri = prior ? val(code, prior) : null;
-      const kids = env.gl.childrenOf(code);
+      /* one governed code, or the members a financial concept resolved to: `balanceUsd` takes the list and is the
+         ONE balance semantic either way, so a concept figure is never arithmetic done up here */
+      const codes = codesOf(code), lead = codes[0]!;
+      const val = (c: string | string[], x: string) => env.gl.presented(lead, env.gl.balanceUsd(Array.isArray(c) ? c : [c], x, v));
+      const cur = val(codes, p), pri = prior ? val(codes, prior) : null;
+      const kids = codes.length > 1 ? codes : env.gl.childrenOf(code);
       return {
         warnings: [], object: base(env, {
-          type: 'StatementLine', title: `${acctName(env, code)} · ${periodLabel(p)}`, scope: scopeOf(env, a['scope']), periods: [p], periodLabel: periodLabel(p),
+          type: 'StatementLine', title: `${acctNames(env, code)} · ${periodLabel(p)}`, scope: scopeOf(env, a['scope']), periods: [p], periodLabel: periodLabel(p),
           table: { columns: [periodLabel(p), prior ? periodLabel(prior) : 'Prior', 'Change'], rows: (kids.length ? kids : [code]).map((c) => { const x = val(c, p), y = prior ? val(c, prior) : null; return row(acctName(env, c), [$(x), $(y), y === null ? '—' : $(x - y)], 1, 'line', `account:${c}`); }) },
-          facts: [{ key: 'value', label: acctName(env, code), value: cur, display: $(cur) }, ...(pri !== null ? [{ key: 'prior', label: 'Prior period', value: pri, display: $(pri) }, { key: 'change', label: 'Change', value: cur - pri, display: $(cur - pri) }, { key: 'changePct', label: 'Change %', value: pct(cur, pri), display: pct(cur, pri) }] : [])],
-          focus: { kind: 'account', id: code, name: acctName(env, code) }, refs: { account: code, period: p }, provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: FX_CLOSING_SET.id, eliminations: null, declaredInputs: [FX_CLOSING_SET.id, FX_RATE_SET.id] },
+          facts: [{ key: 'value', label: acctNames(env, code), value: cur, display: $(cur) }, ...(pri !== null ? [{ key: 'prior', label: 'Prior period', value: pri, display: $(pri) }, { key: 'change', label: 'Change', value: cur - pri, display: $(cur - pri) }, { key: 'changePct', label: 'Change %', value: pct(cur, pri), display: pct(cur, pri) }] : [])],
+          focus: { kind: 'account', id: lead, name: acctNames(env, code) }, refs: { account: code, period: p }, provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: FX_CLOSING_SET.id, eliminations: null, declaredInputs: [FX_CLOSING_SET.id, FX_RATE_SET.id] },
         }),
       };
     },
@@ -401,19 +409,19 @@ const LEDGER: SloaneTool[] = [
     run(a, env) {
       const code = a['account']!, p = a['period']!, c = priorOr(env, p, a['comparisonPeriod']);
       const ents = entitiesOf(env, a['scope']);
-      const rows = env.gl.lines.filter(env.gl.match({ accounts: [code], periodStart: c ?? p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, env.visible)).filter((l) => l.period === p || l.period === c);
+      const rows = env.gl.lines.filter(env.gl.match({ accounts: codesOf(code), periodStart: c ?? p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, env.visible)).filter((l) => l.period === p || l.period === c);
       const cur = rows.filter((l) => l.period === p).reduce((s, l) => s + l.usd, 0), pri = rows.filter((l) => l.period === c).reduce((s, l) => s + l.usd, 0);
-      const bal = env.gl.balanceUsd([code], p, vis(env, a['scope']));
+      const bal = env.gl.balanceUsd(codesOf(code), p, vis(env, a['scope']));
       const dims: DimensionKey[] = ['project', 'entity', 'vendor', 'description'];
       const tops = dims.map((d) => [d, drivers(env, rows, d, p, c)[0]] as const);
-      const def = env.gl.definePopulation({ accounts: [code], periodStart: p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, 'amount_desc', `${acctName(env, code)} ${periodLabel(p)}`);
+      const def = env.gl.definePopulation({ accounts: codesOf(code), periodStart: p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, 'amount_desc', `${acctNames(env, code)} ${periodLabel(p)}`);
       const facts = [{ key: 'activity', label: `Activity ${periodLabel(p)} (debit positive)`, value: cur, display: $(cur) }, ...(c ? [{ key: 'activity.prior', label: `Activity ${periodLabel(c)}`, value: pri, display: $(pri) }, { key: 'activity.change', label: 'Change in activity', value: cur - pri, display: $(cur - pri) }] : []),
         { key: 'balance', label: `Balance at ${periodLabel(p)}`, value: bal, display: $(bal) }, { key: 'lines', label: 'Lines this period', value: rows.filter((l) => l.period === p).length, display: n(rows.filter((l) => l.period === p).length) },
         ...tops.filter(([, t]) => t).flatMap(([d, t]) => [{ key: `topDriver.${d}`, label: `Top ${d} driver`, value: t!.label, display: t!.label }, { key: `topDriver.${d}.change`, label: `Top ${d} driver change`, value: t!.change, display: $(t!.change) }])];
       return { warnings: rows.some((l) => l.vendor) ? [AP_EXTRACT.note] : [], object: base(env, {
-        type: 'AccountAnalysis', title: `${acctName(env, code)} · ${periodLabel(p)}${c ? ` vs ${periodLabel(c)}` : ''}`, scope: scopeOf(env, a['scope']), periods: c ? [c, p] : [p], periodLabel: periodLabel(p),
+        type: 'AccountAnalysis', title: `${acctNames(env, code)} · ${periodLabel(p)}${c ? ` vs ${periodLabel(c)}` : ''}`, scope: scopeOf(env, a['scope']), periods: c ? [c, p] : [p], periodLabel: periodLabel(p),
         table: { columns: ['Driver', c ? periodLabel(c) : 'Prior', periodLabel(p), 'Change'], rows: tops.flatMap(([d]) => drivers(env, rows, d, p, c).slice(0, 4).map((g) => row(`${d}: ${g.label}`, [d, $(g.prior), $(g.current), $(g.change)]))) },
-        facts, refs: { account: code, period: p, populationId: def.id, ...(c ? { comparisonPeriod: c } : {}) }, focus: { kind: 'account', id: code, name: acctName(env, code) },
+        facts, refs: { account: code, period: p, populationId: def.id, ...(c ? { comparisonPeriod: c } : {}) }, focus: { kind: 'account', id: codesOf(code)[0]!, name: acctNames(env, code) },
         provenance: { source: GL_SRC, snapshotId: SNAPSHOT_ID, journalLines: rows.length, fxRateSetId: FX_RATE_SET.id, eliminations: null, declaredInputs: [FX_RATE_SET.id, FX_CLOSING_SET.id, AP_EXTRACT.id] },
       }) };
     },
@@ -765,7 +773,7 @@ function recList(env: ToolEnv, type: string, title: string, rs: Rec[], p: string
     provenance: { source: `${GL_SRC}; workflow: seeded store`, snapshotId: SNAPSHOT_ID, journalLines: null, fxRateSetId: FX_CLOSING_SET.id, eliminations: null, declaredInputs: [FX_CLOSING_SET.id] },
   }) };
 }
-function oneRec(env: ToolEnv, a: ToolArgs): Rec { return env.controls.reconcile(env.controls.recDef(a['reconciliationId']!)!, a['period']!); }
+function oneRec(env: ToolEnv, a: ToolArgs): Rec { return env.controls.redact(env.controls.reconcile(env.controls.recDef(a['reconciliationId']!)!, a['period']!), env.visible); }
 const RECON: SloaneTool[] = [
   { id: 'getReconciliationSummary', domain: 'recon', permission: 'RECON_VIEW', risk: 'READ', objectTypes: ['RECONCILIATION'], description: 'Every reconciliation for a month with tie, support and review status, plus counts.', params: [P('period')],
     outputs: 'ReconciliationSummary; facts total, tied, notTied, sourceNotConnected, missingSupport, inReview, approved',
@@ -1051,9 +1059,9 @@ function traceObj(env: ToolEnv, title: string, steps: [string, string][], ls: GL
 const TRACE: SloaneTool[] = [
   { id: 'traceFinancialObject', domain: 'trace', permission: 'GL_VIEW', risk: 'READ', objectTypes: ['ACCOUNT', 'ACCOUNT_GROUP', 'FINANCIAL_STATEMENT', 'RECONCILIATION', 'REPORT'], description: 'Trace a statement line / account for a month to its source: line → accounts → governed population → journals → ERP systems. Use for "trace this number".', params: [acctP(), P('period'), scopeP], outputs: 'Trace; facts lines, sourceSystems; refs populationId',
     run(a, env) { const code = a['account']!, p = a['period']!, ents = entitiesOf(env, a['scope']);
-      const def = env.gl.definePopulation({ accounts: [code], periodStart: p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, 'amount_desc', `${acctName(env, code)} ${periodLabel(p)}`), q = env.gl.query(def, env.visible, { limit: 1 });
-      const r = traceObj(env, `Trace · ${acctName(env, code)} · ${periodLabel(p)}`, [['Statement line', acctName(env, code)], ['Accounts', env.gl.expandAccounts([code]).map((x) => acctName(env, x)).join(', ')], ['Governed population', `${def.id} · ${q.rowCount} lines · net ${$(q.netUsd)}`], ['Journals', n(new Set(q.all.map((l) => l.journalId)).size)], ['Rate sets', `${FX_RATE_SET.id} (flows), ${FX_CLOSING_SET.id} (balances)`]], q.all);
-      r.object.refs = { ...r.object.refs, populationId: def.id, account: code }; r.object.focus = { kind: 'account', id: code, name: acctName(env, code) }; return r; } },
+      const def = env.gl.definePopulation({ accounts: codesOf(code), periodStart: p, periodEnd: p, ...(ents ? { entities: ents } : {}) }, 'amount_desc', `${acctNames(env, code)} ${periodLabel(p)}`), q = env.gl.query(def, env.visible, { limit: 1 });
+      const r = traceObj(env, `Trace · ${acctNames(env, code)} · ${periodLabel(p)}`, [['Statement line', acctNames(env, code)], ['Accounts', env.gl.expandAccounts(codesOf(code)).map((x) => acctName(env, x)).join(', ')], ['Governed population', `${def.id} · ${q.rowCount} lines · net ${$(q.netUsd)}`], ['Journals', n(new Set(q.all.map((l) => l.journalId)).size)], ['Rate sets', `${FX_RATE_SET.id} (flows), ${FX_CLOSING_SET.id} (balances)`]], q.all);
+      r.object.refs = { ...r.object.refs, populationId: def.id, account: code }; r.object.focus = { kind: 'account', id: codesOf(code)[0]!, name: acctNames(env, code) }; return r; } },
   { id: 'tracePopulation', domain: 'trace', permission: 'GL_VIEW', risk: 'READ', objectTypes: ['GOVERNED_LEDGER'], description: 'Trace a population by id to its journals, entities and ERP source systems.', params: [{ name: 'populationId', kind: 'populationId', required: true, description: 'population id' }], outputs: 'Trace; facts lines, sourceSystems',
     run(a, env) { const d = env.gl.population(a['populationId']!)!, q = env.gl.query(d, env.visible, { limit: 1 });
       return traceObj(env, `Trace · ${d.label}`, [['Population', `${d.id} · ${JSON.stringify(d.filter)}`], ['Lines', n(q.rowCount)], ['Journals', n(new Set(q.all.map((l) => l.journalId)).size)], ['Entities', q.entities.join(', ')]], q.all); } },

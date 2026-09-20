@@ -103,6 +103,35 @@ resolution, capability gaps, titles), routes SHORTCUT · DELIVERABLE · FOLLOW_U
 
 **Phase 8C.1 (2026-09-19):** natural-language generalization — model-first analysis editing with a stated relation and the governed vocabulary, structured grid commands (`focus.command`), interpretation-driven planning, a scope check on every new analysis, and the evaluation harness (`eval/`: known + holdout + model-generated paraphrases; holdout 40% → 93%). Full record in the root CLAUDE.md.
 
+**Phase 8C.2 (2026-09-19):** context control — the model proposes a `contextRelation`, target referent and ephemeral vs persistent operation; `analysis/context.ts` `governEdit` validates it against the analysis on screen (restriction vs new, sort vs drill vs rank, "the other X", clarification only when context cannot decide), `AnalysisStateHistory` powers Undo / Redo across analyses, and `TurnResponse.workspace` carries the active workspace title. `context.test.ts`; `npx tsx src/sloane/eval/context-eval.ts`. Full record in the root CLAUDE.md.
+
+**Phase 8D (2026-09-19):** open-ended financial reasoning — an OBJECTIVE (conversational intent `INVESTIGATION`) starts a durable agent run of goal type `INVESTIGATE`: THINK (the model picks 1–3 governed READ calls from a relevance-ranked subset of ≤20, validated like any plan step) → observe (compact observations) → THINK … → SYNTHESIZE (findings labelled by kind and support; any figure no observation carried is rejected) → VERIFY → SUMMARIZE. `agent/investigate.ts` (budgets, capability classes D0–M4, escalation, cost), `adapter.agentStep/agentSynth` (stable schema so the prompt cache reads; clips over-long prose instead of rejecting), `investigate.test.ts`; `npx tsx src/sloane/eval/agent-eval.ts` (live, spends credits; appends `eval/agent-history.json` for cost regression). Full record in the root CLAUDE.md.
+
+**Core Runtime V2, Phase 1 (2026-09-19):** a new conversational core BESIDE the orchestrator, behind
+`SLOANE_RUNTIME_V2` (off by default; `sloane-serve-v2` is the launch config that turns it on). `src/sloane/v2/`:
+`model` (the transcript / governed-state separation) · `conversation` (a DURABLE transcript, kind
+`SLOANE_CONVERSATION`, six turns verbatim and deterministic compaction — **four turns since Phase 1.5**) · `tools`
+(a STABLE per-actor core of 29 governed READ tools — the cacheable prefix — plus `open_analysis_grid`,
+`start_investigation`, `ask_clarification`; **Phase 1.5 composes that core down to 11**) · `runtime` (`SloaneV2.turn`: load → build context once → one primary `adapter.reason()` call
+with native tool use → re-authorized tools → answer, with no separate narration pass) · `ab` (the measured A/B,
+`npm run sloane:v2-ab`, spends credits). v1 is untouched and still owns structured grid commands, grid selections
+and agent steering. `v2.test.ts`. Full record, including the live measurements, in the root CLAUDE.md.
+
+**Core Runtime V2, Phase 1.5 (2026-09-20):** efficiency + financial semantic intelligence, both measured.
+`semantic/concepts.ts` (~40 FinancialConcepts with their chart mappings and a five-value status —
+RESOLVED · **DEFAULTED** · AMBIGUOUS · NOT_HELD · UNKNOWN — so an ordinary term like OPEX is answered with
+the professional reading AND the disclosure of which reading it used) and `semantic/concepttools.ts`
+(`resolveFinancialConcept`, `resolveSubject`). The matcher is structural, not a dictionary: `&` reads as
+"and", a light stem covers plurals / participles / -ise-ize, and a bounded Damerau-1 check covers one
+slipped key — **nine regexes in the layer, not one of them a finance phrase**. `v2/compose.ts` collapses
+the surface to six composed dispatchers (**32 tools → 11**, prefix 6,175 → 3,581 tokens) with §10 exposure
+filtering preserved per actor. Two more cache breakpoints give incremental conversation caching; the answer
+streams (`trace.firstTokenMs`); `ungrounded()` names any figure in the answer that no governed read
+produced (`trace.ungroundedFigures`). Harnesses: `npm run sloane:v2-ab` (v1 vs v2, seven §32 turn
+categories, TTFT), `npm run sloane:direct-vs-sloane` (125-prompt holdout, direct model vs Sloane —
+**category B = 0**), `npm run sloane:v2-transcript` (the §18 window experiment). All spend credits. Full
+record, including every live number, in the root CLAUDE.md.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

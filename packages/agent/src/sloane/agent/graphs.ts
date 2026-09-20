@@ -97,6 +97,8 @@ export function templateFor(goal: AgentGoal): T[] {
       ...tail([...(s.artifactId ? [] : ['build']), 'preview', 'generate', 'confirm', 'generation'], false),
     ];
     case 'GENERIC': return [];
+    /* 8D: an open investigation has no template — it starts with one THINK step and the model grows the graph */
+    case 'INVESTIGATE': return [{ taskId: 'think-1', type: 'ANALYZE', title: 'Planning the investigation', check: 'THINK', dependsOn: [], milestone: false, priority: 1 }];
   }
 }
 

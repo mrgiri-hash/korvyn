@@ -68,7 +68,12 @@ async function main(): Promise<void> {
 
   /* config */
   check('config: no credentials and no provider → mock', loadSloaneConfig({}).provider === 'mock', loadSloaneConfig({}).provider);
-  check('config: credentials present → anthropic, claude-opus-5', loadSloaneConfig({ ANTHROPIC_API_KEY: 'x' }).model === 'claude-opus-5', loadSloaneConfig({ ANTHROPIC_API_KEY: 'x' }));
+  { const c = loadSloaneConfig({ ANTHROPIC_API_KEY: 'x', ANTHROPIC_DEFAULT_MODEL: 'test-default-model', ANTHROPIC_ADVANCED_MODEL: 'test-advanced-model' });
+    check('config: ANTHROPIC_DEFAULT_MODEL drives FAST + NARRATE, ANTHROPIC_ADVANCED_MODEL drives DEEP', c.provider === 'anthropic' && c.routes.FAST.model === 'test-default-model' && c.routes.NARRATE.model === 'test-default-model' && c.routes.DEEP.model === 'test-advanced-model' && c.model === 'test-advanced-model', c.routes); }
+  { const c = loadSloaneConfig({ ANTHROPIC_API_KEY: 'x' });
+    check('config: a key with no model configured → mock, stated as a warning (no hard-coded model)', c.provider === 'mock' && c.warnings.some((w) => /ANTHROPIC_DEFAULT_MODEL/.test(w)), c.warnings); }
+  { const c = loadSloaneConfig({ ANTHROPIC_API_KEY: 'sk-ant-secret', ANTHROPIC_DEFAULT_MODEL: 'm' });
+    check('config: the key never appears in config, warnings or routes', !JSON.stringify(c).includes('sk-ant-secret') && c.routes.DEEP.model === 'm', c.warnings); }
   check('config: SLOANE_LLM_PROVIDER=mock wins over a key', loadSloaneConfig({ ANTHROPIC_API_KEY: 'x', SLOANE_LLM_PROVIDER: 'mock' }).provider === 'mock', 'mock');
 
   /* validators */
@@ -87,7 +92,7 @@ async function main(): Promise<void> {
   check('schema: the checker rejects the type-array + enum shape the live API refused', legacy.some((p) => p.includes('type array combined with enum')), legacy);
 
   /* the real adapter against the fake endpoint */
-  const cfg = { ...loadSloaneConfig({ ANTHROPIC_API_KEY: 'x' }), timeoutMs: 5000 };
+  const cfg = { ...loadSloaneConfig({ ANTHROPIC_API_KEY: 'x', ANTHROPIC_DEFAULT_MODEL: 'test-default-model', ANTHROPIC_ADVANCED_MODEL: 'test-advanced-model' }), timeoutMs: 5000 };
   const a = new AnthropicSloaneAdapter(cfg);
   const input = { request: 'Show monthly income statement Jan-Apr', context: {}, candidates: [], workingPeriod: '2026-06', availablePeriods: ['2026-01'] };
 
@@ -98,7 +103,7 @@ async function main(): Promise<void> {
   const oc = body?.['output_config'] as Record<string, unknown> | undefined;
   check('adapter: request uses structured output, adaptive thinking, cached system prompt and default fallbacks',
     !!body && (oc?.['format'] as Record<string, unknown>)?.['type'] === 'json_schema' && (body['thinking'] as Record<string, unknown>)?.['type'] === 'adaptive'
-    && body['fallbacks'] === 'default' && JSON.stringify(body['system']).includes('ephemeral') && body['model'] === 'claude-opus-5', { model: body?.['model'], fallbacks: body?.['fallbacks'] });
+    && body['fallbacks'] === 'default' && JSON.stringify(body['system']).includes('ephemeral') && body['model'] === 'test-advanced-model', { model: body?.['model'], fallbacks: body?.['fallbacks'] });
   check('adapter: the request data is wrapped as enterprise data', JSON.stringify(body?.['messages']).includes('<enterprise_data>'), 'wrapped');
   const sent = (oc?.['format'] as Record<string, unknown> | undefined)?.['schema'];
   check('adapter: the schema actually sent is structured-output compatible', !!sent && structuredOutputProblems(sent).length === 0, sent ? structuredOutputProblems(sent) : 'no schema');
@@ -153,8 +158,8 @@ async function main(): Promise<void> {
   queue.push({ text: JSON.stringify({ rationale: 'review', steps: [{ tool: 'getIncomeStatement', purpose: 'Income statement', dependsOn: [], args: [
     { name: 'periodStart', value: '$ctx.periodStart', valueType: 'ref' }, { name: 'periodEnd', value: '$ctx.periodEnd', valueType: 'ref' }, { name: 'scope', value: '$ctx.scope', valueType: 'ref' }] }] }) });
   queue.push({ text: JSON.stringify({ sentences: [{ text: 'The review covers the four months.', objectIds: ['FO-1'], factKeys: [] }] }) });
-  /* 8C.1: the words name a statement, so the analysis editor is asked first — and stands aside (NOT_ANALYSIS) */
-  queue.unshift({ text: JSON.stringify({ relation: 'NOT_ANALYSIS', ops: [], confidence: 0.9, unsupported: null, question: null, options: [] }) });
+  /* 8C.1: the words name a statement, so the analysis editor is asked first — and stands aside (CHANGE_TOPIC) */
+  queue.unshift({ text: JSON.stringify({ contextRelation: 'CHANGE_TOPIC', targetReferent: { kind: 'NONE', rank: null, rowRef: null, values: [] }, ops: [], ephemeralOperation: { kind: 'NONE', by: null, n: null, dir: null }, persistentMutation: false, requiresClarification: false, confidence: 0.9, unsupported: null, question: null, options: [] }) });
   const t2b = await orch.turn({ sessionId: 'dryrun-session-1', request: 'Review that income statement and tell me everything that needs attention.' });
   const tr2b = orch.trace(t2b.traceId)!;
   check('orchestrator: a multi-part review → DEEP plan; $ctx references resolved; scope GROUP', tr2b.plan.source === 'reasoning' && tr2b.route === 'DEEP' && tr2b.calls.find((c) => c.stage === 'plan')?.route === 'DEEP' && tr2b.toolsExecuted[0]?.args['scope'] === 'GROUP', { plan: tr2b.plan.source, route: tr2b.route, calls: tr2b.calls.map((c) => `${c.stage}@${c.route}`), tools: tr2b.toolsExecuted });

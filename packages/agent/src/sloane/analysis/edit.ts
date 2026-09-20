@@ -18,15 +18,23 @@ import { FLUX_MATERIALITY } from '../controls.js';
 import type { AnalysisDefinition, AnalysisEdit, AnalysisType, AxisDim, DimensionId, MeasureId, ModelOp, Variant } from './model.js';
 
 export interface Member { dimension: DimensionId; value: string; label: string }
-export type RowTarget = { kind: 'member'; memberIds: string[] } | { kind: 'rank'; n: number } | { kind: 'row'; rowId: string } | { kind: 'active' } | { kind: 'largest' };
+export type RowTarget = { kind: 'member'; memberIds: string[] } | { kind: 'rank'; n: number } | { kind: 'row'; rowId: string } | { kind: 'active' } | { kind: 'largest' } | { kind: 'smallest' };
 export type AnalysisOp =
-  | { op: 'NEW'; analysisType: AnalysisType; statement: 'BS' | 'IS' | null; periods: string[]; rows: AxisDim[]; columns: AxisDim[]; measures: MeasureId[]; filters: Member[]; name: string }
+  | { op: 'NEW'; analysisType: AnalysisType; statement: 'BS' | 'IS' | null; periods: string[]; rows: AxisDim[]; columns: AxisDim[]; measures: MeasureId[]; filters: Member[]; name: string; /** 8C.2: the words named the periods (else they default to the working period) */ explicitPeriods?: boolean }
   | { op: 'SET_ROWS'; dims: AxisDim[] } | { op: 'SET_COLUMNS'; dims: AxisDim[] }
   | { op: 'ADD_ROW_DIM'; dim: AxisDim; after: DimensionId | null } | { op: 'REMOVE_DIM'; dim: DimensionId } | { op: 'MOVE_TO_COLUMNS'; dim: DimensionId }
   | { op: 'FILTER'; members: Member[]; exclude: boolean } | { op: 'CLEAR_FILTERS' }
   | { op: 'STATEMENT'; statement: 'BS' | 'IS' | null }
   | { op: 'THRESHOLD'; minAbs: number | null; on: 'VARIANCE' | 'VALUE'; minPct?: number | null }
-  | { op: 'ACCOUNT_TYPES'; types: string[] } | { op: 'REMOVE_FILTER'; members: Member[]; dimension: DimensionId | null } | { op: 'UNDO' }
+  | { op: 'ACCOUNT_TYPES'; types: string[] } | { op: 'REMOVE_FILTER'; members: Member[]; dimension: DimensionId | null } | { op: 'UNDO' } | { op: 'REDO' }
+  /* 8C.2: EPHEMERAL — answers which item ranks where and remembers the ranked rows as referents; the definition is untouched */
+  | { op: 'RANK'; by: 'VALUE' | 'VARIANCE' | null; n: number; dir: 'DESC' | 'ASC' }
+  /* 8C.2: "the other X" — resolved against the member(s) in context; one candidate replaces, several ask */
+  | { op: 'OTHER'; term: string }
+  /* 8C.2: point at a row without changing the grid (the first half of "open the biggest one") */
+  | { op: 'SELECT'; target: RowTarget }
+  /* 8C.2: "forget X" — drop X from the analysis and from the referents, whichever it is in */
+  | { op: 'FORGET'; members: Member[] }
   | { op: 'CLARIFY'; question: string; options: string[] }
   | { op: 'SORT'; by: 'VALUE' | 'VARIANCE' | 'LABEL'; period: string | null } | { op: 'TOP'; n: number | null }
   | { op: 'PERIODS'; periods: string[] } | { op: 'ADD_PERIOD'; period: string } | { op: 'REMOVE_PERIOD'; period: string } | { op: 'PRIMARY'; period: string } | { op: 'ORDER_PERIODS'; periods: string[] }
@@ -89,6 +97,25 @@ export function resolveMembers(text: string, d: EditDeps): Member[] {
   for (const e of d.gl.entities()) if ((d.visible === 'ALL' || d.visible.has(e.id)) && (t.includes(` ${e.id.toLowerCase()} `) || t.includes(` ${e.name.toLowerCase().replace(/[^a-z0-9&\- ]+/g, ' ')} `))) add({ dimension: 'entity', value: e.id, label: e.name });
   /* raw dimension members the ledger holds (cost centres, currencies, property codes) */
   for (const dim of ['costCenter', 'currency', 'property', 'project'] as const) for (const v of d.gl.dimensionValues(dim)) if (v.length >= 3 && t.includes(` ${v.toLowerCase()} `)) add({ dimension: dim, value: v, label: v });
+  return out;
+}
+
+/**
+ * 8C.2 — every governed member a NAME could mean, activity or not (a vendor-master record with no postings is still a
+ * Siemens). Used by "the other X": the candidates are what the name could mean, less what is already in context.
+ */
+export function memberCandidates(term: string, d: EditDeps): Member[] {
+  const PFX: Record<string, DimensionId> = { project: 'project', vendor: 'vendor', entity: 'entity', property: 'property', costcenter: 'costCenter' };
+  const out: Member[] = [];
+  for (const m of d.graph.mentions(term, d.actor)) for (const id of m.ids) {
+    const dim = PFX[id.split(':')[0]!]; if (!dim) continue;
+    const v = id.slice(id.indexOf(':') + 1);
+    if (dim === 'entity' && d.visible !== 'ALL' && !d.visible.has(v)) continue;
+    const node = d.graph.node(id, d.actor); if (!node) continue;
+    const value = dim === 'property' ? String(node.attrs['code'] ?? v) : v;
+    if (!out.some((x) => x.dimension === dim && x.value === value)) out.push({ dimension: dim, value, label: node.label });
+  }
+  if (!out.length) for (const x of resolveMembers(term, d)) out.push(x);
   return out;
 }
 
@@ -157,13 +184,39 @@ export function uiCommandOps(c: UiCommand): AnalysisOp[] {
 
 export function looksAnalytical(t: string) { return ANALYTIC.test(t.toLowerCase()) && !DELIVERABLE.test(t.toLowerCase()) && !/\?\s*$|^(why|how|what|who|which)\b/i.test(t.trim()); }
 
+/* 8C.2 — grammar, not phrases: a history command; a correction marker; a restrictive particle; a wh-question about rank */
+export function historyCommand(t: string): 'UNDO' | 'REDO' | null {
+  const s = t.toLowerCase().replace(/[.!]+$/, '').trim();
+  if (/^(redo|re-?do|re-?apply|put (it|that) back)( (that|it|the (last )?(change|step)))?$/.test(s)) return 'REDO';
+  if (/^(undo|revert|reverse|roll ?back|take back)( (that|this|it|the last|my last))?( (change|step|edit|one))?$/.test(s)) return 'UNDO';
+  if (/^((go|take me|bring me|step|jump) back)( (one|a) step)?( to (the )?(previous|last|prior|earlier) (analysis|view|version|one|state|grid|table))?$/.test(s)) return 'UNDO';
+  if (/^(back to )?(the )?(previous|prior|earlier|last) (analysis|view|version|state|grid|table)( please)?$/.test(s)) return 'UNDO';
+  return null;
+}
+/** a rejection that says the last reading was wrong without saying what was meant */
+export const REJECTION = /^(that'?s|that is|this is|this'?s) (not|wrong|incorrect)\b|^(wrong|not what i (asked|meant|wanted)|that'?s not it|no,? that'?s wrong)\b/;
+/** discourse markers that open a request and carry no meaning of their own */
+const DISCOURSE = /^(now|ok|okay|and|then|so|right|alright|next|also|hmm+|um+)\b[,\s]+/;
+export const CORRECTION_LEAD = /^(no|nope|not that|actually|sorry|rather|wait|i meant|i mean|i said)\b[,:;\s]*(i meant\b[,\s]*)?/;
+const RESTRICT = /\b(only|just|exclusively|solely|restrict(ed)? to|limit(ed)? to)\b/;
+const WH_RANK = /^(which|what|who)\b|^(tell me|show me) which\b/;
+const SUPERLATIVE = /\b(most|largest|biggest|highest|greatest|smallest|least|lowest|top|worst|best)\b/;
+
 /**
  * The deterministic reader. Returns ops, or null when the words are not about the analysis (they fall through to the
  * rest of Sloane) — `active` is the analysis on screen, when there is one.
  */
 export function parseAnalysis(text: string, active: AnalysisDefinition | null, d: EditDeps): AnalysisOp[] | null {
-  const t = text.toLowerCase().replace(/[.!]+$/, '').trim();
+  let t = text.toLowerCase().replace(/[.!]+$/, '').trim();
   if (!t || t.length > 220 || DELIVERABLE.test(t)) return null;
+  /* 8C.2: history commands act on the conversation's analysis history, whichever analysis is on screen */
+  const hc = historyCommand(t); if (hc) return [{ op: hc }];
+  while (DISCOURSE.test(t)) t = t.replace(DISCOURSE, '');
+  /* a rejection with no content: the last reading was wrong — go back and ask what was meant */
+  if (active && REJECTION.test(t) && !/\b(other|another|different|meant)\b/.test(t)) return [{ op: 'CLARIFY', question: 'That was not what you asked — what should it show instead?', options: [] }];
+  /* a correction marker says the rest REPLACES a stale value; the rest is read like any other edit */
+  const corr = active ? CORRECTION_LEAD.exec(t) : null;
+  if (corr && t.length > corr[0].length) t = t.slice(corr[0].length).trim();
   /* a question is answered by the governed tools; an analysis is asked for as an instruction */
   if (!active && (/\?\s*$/.test(t) || /^(what|why|how|which|who|when|where|did|does|is|are)\b/.test(t))) return null;
   const ops: AnalysisOp[] = [];
@@ -171,8 +224,10 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
 
   /* ---- a new analysis ---- */
   const bsWord = /\b(balance sheets?|\bbs\b)/.test(t), isWord = /\b(income statements?|p ?& ?l|profit and loss)\b/.test(t), tbWord = /\b(trial balance|\btb\b)/.test(t);
-  const actWord = /\bactivity\b/.test(t) && /\bby\b|\bmonthly\b/.test(t);
-  const startNew = !active || /^(show|give|get|pull|open|let'?s see|i want|can you show)\b/.test(t) && (bsWord || isWord || tbWord || actWord) && !/^(show|give)( me)? (the )?(gl|general ledger|support|reconciliation)\b/.test(t);
+  /* GL activity: asked for by name, or an account broken down by a governed dimension with no statement named */
+  const acctSplit = !/\b(balance sheets?|bs|income statements?|p ?& ?l|trial balance|tb)\b/.test(t) && /\bby (projects?|vendors?|entit(y|ies)|cost cent(er|re)s?|propert(y|ies)|regions?|months?)\b/.test(t) && resolveMembers(t, d).some((m) => m.dimension === 'account');
+  const actWord = (/\bactivity\b/.test(t) && /\bby\b|\bmonthly\b/.test(t)) || acctSplit;
+  const startNew = !active || (/^(show|give|get|pull|open|let'?s see|i want|can you show)\b/.test(t) || /\binstead\b/.test(t)) && (bsWord || isWord || tbWord || actWord) && !/^(show|give)( me)? (the )?(gl|general ledger|support|reconciliation)\b/.test(t);
   /* a bare "balance sheet" or "only BS" is the canvas's or the conversation's; a new analysis is asked for explicitly */
   const asked = /^(show|give|get|pull|open|let'?s see|i want|can you show|display|run)\b/.test(t) || pr.periods.length > 0 || /\bby\b/.test(t);
   if (startNew && asked && !/^(add|put|only|just|remove|include|exclude)\b/.test(t) && (bsWord || isWord || tbWord || actWord) && !/\bfor (south valley|mdh|[a-z]+ project)\b/.test(t) && !(tbWord && /\bfor\b/.test(t) && !/\bby\b/.test(t) && pr.periods.length < 2) && !/\btie[- ]?out|tab\b|workbook|package/.test(t)) {
@@ -199,7 +254,7 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
       name = statement === 'IS' ? 'Income statement' : statement === 'BS' ? 'Balance sheet' : 'Financial statements';
     }
     name = `${name} · ${periods.length > 1 ? `${periodLabel(periods[0]!)}–${periodLabel(periods.at(-1)!)}` : periodLabel(periods[0]!)}`;
-    ops.push({ op: 'NEW', analysisType: type, statement, periods, rows, columns: [{ dimension: 'period' }], measures, filters: members.filter((m) => !(type === 'STATEMENT' && m.dimension === 'account' && false)), name });
+    ops.push({ op: 'NEW', analysisType: type, statement, periods, rows, columns: [{ dimension: 'period' }], measures, filters: members.filter((m) => !(type === 'STATEMENT' && m.dimension === 'account' && false)), name, explicitPeriods: pr.periods.length > 0 });
     void monthly;
     pr.notes.forEach((n) => ops.push({ op: 'NOTE', text: n }));
     return ops;
@@ -207,10 +262,31 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
   if (!active) return null;
 
   /* ---- actions on the active analysis ---- */
+  /* a correction that names only a period replaces the period that was wrong (the primary one, when there are several) */
+  if (corr && pr.periods.length && !resolveMembers(t, d).length && !/\b(bs|balance sheet|income statement|p ?& ?l|trial balance|tb)\b/.test(t))
+    return active.periods.length === 1 || pr.periods.length > 1 ? [{ op: 'PERIODS', periods: pr.periods }] : [{ op: 'PRIMARY', period: pr.periods[0]! }];
+  /* "forget X": X leaves the analysis and the referents */
+  if (/^(forget|never ?mind|drop|ignore|leave out|stop looking at)\b/.test(t)) { const ms = resolveMembers(t, d); if (ms.length) return [{ op: 'FORGET', members: ms }]; }
+  /* an explicit limit — asked to SEE only that many — persists: it is not a question about rank */
+  if (RESTRICT.test(t) && /\b(largest|biggest|top|smallest|highest|lowest)\b/.test(t) && !resolveMembers(t, d).length) {
+    const nWord = t.match(/\b(two|three|four|five|ten|\d+)\b/)?.[1];
+    const n = nWord ? Number(nWord) || ({ two: 2, three: 3, four: 4, five: 5, ten: 10 } as Record<string, number>)[nWord]! : 1;
+    return [{ op: 'SORT', by: active.measures.includes('VARIANCE') ? 'VARIANCE' : 'VALUE', period: null }, { op: 'TOP', n }];
+  }
   const rank = (() => { const m = t.match(/\b(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|top)\b(?: (?:one|row|item|line))?/); return m ? ({ first: 1, top: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, fifth: 5, '5th': 5 } as Record<string, number>)[m[1]!]! : null; })();
   const pointer = /\b(this|that|it|these|here|this number|this cell|this one)\b/.test(t);
   const target = (): RowTarget => (/\blargest|biggest\b/.test(t) ? { kind: 'largest' } : rank ? { kind: 'rank', n: rank } : pointer ? { kind: 'active' } : ((): RowTarget => { const ms = resolveMembers(t, d); return ms.length ? { kind: 'member', memberIds: ms.map((m) => `${m.dimension}:${m.value}`) } : { kind: 'active' }; })());
-  if (/\b(gl|general ledger|ledger|transactions|journal lines|entries|population)\b/.test(t) && /\b(show|drill|behind|open|see|view|what'?s)\b/.test(t) || /\bwhat'?s behind\b|\bdrill\b/.test(t)) return [{ op: 'DRILL', target: target() }];
+  /* 8C.2 — "the other X": a member described relative to the one in context */
+  const other = t.match(/\b(?:the |an? )?(?:other|another|different)\b\s*(?:one\b)?\s*(.*)$/);
+  if (other && !/\bother (than|periods?|months?|accounts?|entities|dimensions?)\b/.test(t)) return [{ op: 'OTHER', term: other[1]!.replace(/\b(one|please|instead)\b/g, '').trim() }];
+  /* composition vs identification: a question about what is BEHIND a row drills; a question about WHICH row ranks is ephemeral */
+  if (/\b(gl|general ledger|ledger|transactions|journal lines|entries|population)\b/.test(t) && /\b(show|drill|behind|open|see|view|what'?s)\b/.test(t) || /\bwhat'?s behind\b|\bdrill\b|\b(behind|driving|made up of|makes up|composed of|comprises)\b/.test(t) || /^open (the |that |this )?(biggest|largest|smallest|first|second|third|top|one|it|this|that)\b/.test(t)) return [{ op: 'DRILL', target: target() }];
+  if (WH_RANK.test(t) && SUPERLATIVE.test(t)) {
+    const small = /\b(smallest|least|lowest|fewest|minimum)\b/.test(t), nWord = t.match(/\b(two|three|four|five|ten|\d+)\b/)?.[1];
+    const n = nWord ? Number(nWord) || ({ two: 2, three: 3, four: 4, five: 5, ten: 10 } as Record<string, number>)[nWord]! : 1;
+    const valueWords = /\b(balance|amount|size)\b/.test(t);
+    return [{ op: 'RANK', by: active.measures.includes('VARIANCE') && !valueWords ? 'VARIANCE' : 'VALUE', n, dir: small ? 'ASC' : 'DESC' }];
+  }
   if (/\bwhy did\b|\bwhat (caused|drove|explains)\b|\bexplain (this|it|that|the)\b|\bwhy is (this|it)\b/.test(t)) return [{ op: 'EXPLAIN', target: target() }];
   if (/\bflux\b/.test(t) && /\b(explain|explanation|status|does)\b/.test(t)) return [{ op: 'FLUX' }];
   if (/\breconcil/.test(t) && /\b(does|show|is|related)\b/.test(t)) return [{ op: 'RECON' }];
@@ -280,8 +356,9 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
   const amt = money && /\b(over|above|more than|greater than|at least|>|exceeding|bigger than)\b/.test(t) ? Number(money[1]) * (({ k: 1e-3, thousand: 1e-3, b: 1e3, bn: 1e3, billion: 1e3 } as Record<string, number>)[money[2] ?? 'm'] ?? 1) : null;
   if (amt !== null) return [{ op: 'THRESHOLD', minAbs: amt, on: /\b(movements?|changes?|variances?|moved)\b/.test(t) || active.measures.includes('VARIANCE') ? 'VARIANCE' : 'VALUE' }];
   if (/\b(material|matter|should care about|significant|important)\b/.test(t) && /\b(only|just|show)\b/.test(t)) return [{ op: 'THRESHOLD', minAbs: FLUX_MATERIALITY.absUsd / 1e6, on: active.measures.includes('VARIANCE') || /\bmovements?|changes?\b/.test(t) ? 'VARIANCE' : 'VALUE' }, { op: 'NOTE', text: `“Material” reads the governed flux materiality threshold (${FLUX_MATERIALITY.absUsd / 1e6 >= 1 ? `$${FLUX_MATERIALITY.absUsd / 1e6}M` : `$${FLUX_MATERIALITY.absUsd / 1e3}K`}).` }];
-  if (/\b(only|just)\b.*\b(bs|balance sheet)\b( accounts)?/.test(t)) return [{ op: 'STATEMENT', statement: 'BS' }];
-  if (/\b(only|just)\b.*\b(is|income statement|p ?& ?l)\b( accounts)?/.test(t) && !/\bwhat is\b/.test(t)) return [{ op: 'STATEMENT', statement: 'IS' }];
+  /* a restrictive particle with a statement name restricts the grid on screen, in either word order */
+  if (RESTRICT.test(t) && /\b(bs|b\/s|balance sheets?)\b/.test(t) && !/\b(income statements?|p ?& ?l)\b/.test(t)) return [{ op: 'STATEMENT', statement: 'BS' }];
+  if (RESTRICT.test(t) && (/\b(income statements?|p ?& ?l|pnl)\b/.test(t) || /^(only |just )?is( only| accounts)?$/.test(t)) && !/\bwhat is\b/.test(t)) return [{ op: 'STATEMENT', statement: 'IS' }];
   if (/\bexclude (the )?eliminations?\b|\bwithout eliminations\b/.test(t)) return [{ op: 'NOTE', text: 'Eliminations are not held on this server; every line is source GL, so nothing is excluded.' }];
   if (/\bonly source gl\b|\bsource gl only\b/.test(t)) return [{ op: 'FILTER', members: [{ dimension: 'recordType', value: 'SOURCE_GL', label: 'Source GL' }], exclude: false }];
   if (/\bexclude (the )?fx\b|\bwithout fx\b|\bex[- ]?fx\b/.test(t)) return [{ op: 'FILTER', members: [{ dimension: 'account', value: '70300', label: '70300 Foreign-exchange gain/loss' }], exclude: true }, { op: 'NOTE', text: 'Excluded the governed FX gain/loss account. Translation of non-USD balances is part of every reported USD amount and cannot be removed from them.' }];
@@ -295,12 +372,14 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
   if (/^(expand|open up|drill into|break open)\b/.test(t)) return [/\ball\b/.test(t) ? { op: 'EXPAND_ALL' } : { op: 'EXPAND', target: target() }];
   if (/^(collapse|close)\b/.test(t)) return [/\ball\b/.test(t) ? { op: 'COLLAPSE_ALL' } : { op: 'COLLAPSE', target: target() }];
 
+  /* a correction that names only a member replaces the stale member on its dimension */
+  if (corr) { const ms = resolveMembers(t, d); if (ms.length) return /\b(remove|drop|clear|off|without|lose)\b/.test(t) ? [{ op: 'REMOVE_FILTER', members: ms, dimension: null }] : [{ op: 'FILTER', members: ms, exclude: false }]; }
   /* ---- member filters ("only cash and CIP", "only South Valley", "show Siemens", "exclude MDH") ---- */
-  if (/^(only|just|filter( to)?|show( me)?( only)?|exclude|without|except|excluding|limit to|keep)\b/.test(t) || /\bonly$/.test(t)) {
+  if (/^(only|just|filter( to)?|show( me)?( only)?|exclude|without|except|excluding|limit to|keep)\b/.test(t) || /\b(only|just)$/.test(t)) {
     const ms = resolveMembers(t, d);
     if (ms.length) return [{ op: 'FILTER', members: ms, exclude: /^(exclude|without|except|excluding)\b/.test(t) }];
     /* a name the actor cannot see reads exactly like a name that does not exist — nothing about a hidden member leaks */
-    const named = t.replace(/^(only|just|filter( to)?|show( me)?( only)?|exclude|without|except|excluding|limit to|keep)\s+/, '').replace(/\s+only$/, '').trim();
+    const named = t.replace(/^(only|just|filter( to)?|show( me)?( only)?|exclude|without|except|excluding|limit to|keep)\s+/, '').replace(/\s+(only|just)$/, '').trim();
     if (named && !/\b(clear|remove|all|everything)\b/.test(named) && !dimsIn(named).length) return [{ op: 'NOTE', text: `Nothing named “${named}” is among the members you can see, so the analysis is unchanged.` }];
     if (/\b(clear|remove) (the )?filters?\b|\bshow (me )?(all|everything)\b/.test(t)) return [{ op: 'CLEAR_FILTERS' }];
   }
@@ -313,12 +392,29 @@ export function parseAnalysis(text: string, active: AnalysisDefinition | null, d
 /** translate the model's ops into governed ops — every name re-resolved, every dimension and period re-checked */
 export function fromModel(e: AnalysisEdit, active: AnalysisDefinition | null, d: EditDeps): { ops: AnalysisOp[]; rejected: string[] } {
   const ops: AnalysisOp[] = [], rejected: string[] = [];
-  /* a clarification is the model's to recommend and Korvyn's to ask; it carries no edit */
-  if (e.relation === 'NEEDS_CLARIFICATION' && e.question) return { ops: [{ op: 'CLARIFY', question: e.question, options: e.options.slice(0, 5) }], rejected };
+  /* "the other X" is Korvyn's to resolve against the member in context — the model does not get to ask instead */
+  if (e.targetReferent?.kind === 'OTHER_CANDIDATE') return { ops: [{ op: 'OTHER', term: e.targetReferent.values.join(' ') }], rejected };
+  /* a clarification is the model's to recommend and Korvyn's to ask (context.ts decides whether it is warranted); it carries no edit */
+  if ((e.requiresClarification || e.contextRelation === 'CLARIFY_REFERENT') && e.question) return { ops: [{ op: 'CLARIFY', question: e.question, options: e.options.slice(0, 5) }], rejected };
   const dimOf = (s: string) => dimsIn(s.toLowerCase())[0] ?? null;
   const per = (xs: string[]) => xs.filter((p) => d.periods.includes(p));
+  /* the op's own pointer wins; otherwise the turn's stated targetReferent says which row */
+  const R = e.targetReferent;
+  const fromReferent = (): RowTarget | null => {
+    if (!R) return null;
+    switch (R.kind) {
+      case 'LARGEST': return { kind: 'largest' };
+      case 'SMALLEST': return { kind: 'smallest' };
+      case 'RANK': return R.rank && R.rank > 0 ? { kind: 'rank', n: Math.round(R.rank) } : null;
+      case 'ROW': return R.rowRef ? { kind: 'row', rowId: R.rowRef } : null;
+      case 'SELECTED': return { kind: 'active' };
+      case 'MEMBER': { const ms = resolveMembers(R.values.join(' '), d); return ms.length ? { kind: 'member', memberIds: ms.map((m) => `${m.dimension}:${m.value}`) } : null; }
+      default: return null;
+    }
+  };
   const tgt = (o: ModelOp): RowTarget => {
     if (o.rowRef) return { kind: 'row', rowId: o.rowRef };
+    if (!o.values.length) { const r = fromReferent(); if (r) return r; }
     /* the prompt's contract: values ["largest"] means the largest row; no values means the selected cell */
     if (o.values.length === 1 && o.values[0]!.toLowerCase() === 'largest') return { kind: 'largest' };
     const ms = o.values.length ? resolveMembers(o.values.join(' '), d) : [];
@@ -331,7 +427,7 @@ export function fromModel(e: AnalysisEdit, active: AnalysisDefinition | null, d:
         const dims = o.dimensions.map(dimOf).filter((x): x is DimensionId => !!x && x !== 'period');
         const type: AnalysisType = o.op === 'NEW_STATEMENT' ? 'STATEMENT' : o.op === 'NEW_TRIAL_BALANCE' ? 'TRIAL_BALANCE' : 'ANALYSIS';
         const rows: AxisDim[] = type === 'ANALYSIS' ? (dims.length ? dims : ['account' as DimensionId]).map((x) => ({ dimension: x })) : [...dims.filter((x) => x !== 'account'), 'account' as DimensionId].map((x) => ({ dimension: x }));
-        ops.push({ op: 'NEW', analysisType: type, statement: o.statement === 'BS' || o.statement === 'IS' ? o.statement : null, periods, rows, columns: [{ dimension: 'period' }], measures: [type === 'ANALYSIS' ? 'ACTIVITY' : 'ENDING_BALANCE'], filters: resolveMembers(o.values.join(' '), d), name: `${type === 'STATEMENT' ? (o.statement === 'IS' ? 'Income statement' : 'Balance sheet') : type === 'TRIAL_BALANCE' ? 'Trial balance' : 'Activity'} · ${periods.map(periodLabel).join(', ')}` });
+        ops.push({ op: 'NEW', analysisType: type, statement: o.statement === 'BS' || o.statement === 'IS' ? o.statement : null, periods, rows, columns: [{ dimension: 'period' }], measures: [type === 'ANALYSIS' ? 'ACTIVITY' : 'ENDING_BALANCE'], filters: resolveMembers(o.values.join(' '), d), name: `${type === 'STATEMENT' ? (o.statement === 'IS' ? 'Income statement' : 'Balance sheet') : type === 'TRIAL_BALANCE' ? 'Trial balance' : 'Activity'} · ${periods.map(periodLabel).join(', ')}`, explicitPeriods: per(o.periods).length > 0 });
         break;
       }
       case 'SET_ROWS': case 'SET_COLUMNS': { const dims = o.dimensions.map(dimOf).filter((x): x is DimensionId => !!x); if (dims.length) ops.push({ op: o.op, dims: dims.map((x) => ({ dimension: x })) }); else rejected.push(`${o.op}: no governed dimension in ${o.dimensions.join(', ')}`); break; }
@@ -346,6 +442,7 @@ export function fromModel(e: AnalysisEdit, active: AnalysisDefinition | null, d:
       case 'REMOVE_FILTER': { const ms = o.values.length ? resolveMembers(o.values.join(' '), d) : []; ops.push({ op: 'REMOVE_FILTER', members: ms, dimension: dimOf(o.dimensions[0] ?? '') }); break; }
       case 'CLEAR_FILTERS': ops.push({ op: 'CLEAR_FILTERS' }); break;
       case 'UNDO': ops.push({ op: 'UNDO' }); break;
+      case 'REDO': ops.push({ op: 'REDO' }); break;
       case 'SET_STATEMENT_BOTH': ops.push({ op: 'STATEMENT', statement: null }); break;
       case 'EXPAND_ALL': ops.push({ op: 'EXPAND_ALL' }); break;
       case 'COLLAPSE_ALL': ops.push({ op: 'COLLAPSE_ALL' }); break;
@@ -368,6 +465,14 @@ export function fromModel(e: AnalysisEdit, active: AnalysisDefinition | null, d:
       case 'CHART': ops.push({ op: 'CHART' }); break;
       case 'SAVE': ops.push({ op: 'SAVE', name: o.values[0] ?? null }); break;
     }
+  }
+  /* 8C.2 — the parts of the contract that are not ops: an ephemeral ranking, and "the other X" */
+  const E = e.ephemeralOperation;
+  if (E && E.kind === 'RANK') ops.push({ op: 'RANK', by: E.by, n: E.n && E.n > 0 ? Math.min(20, Math.round(E.n)) : 1, dir: E.dir ?? 'DESC' });
+  if (R && R.kind === 'OTHER_CANDIDATE') ops.push({ op: 'OTHER', term: R.values.join(' ') });
+  /* a drill or an explanation the relation states but no op carries: the referent says which row */
+  if ((e.contextRelation === 'DRILL_CURRENT' || e.contextRelation === 'EXPLAIN_CURRENT') && !ops.some((o) => ['DRILL', 'EXPLAIN', 'EXPAND', 'FLUX', 'RECON', 'SUPPORT', 'RANK', 'CHART', 'SAVE'].includes(o.op))) {
+    const t = fromReferent(); if (t) ops.push({ op: e.contextRelation === 'DRILL_CURRENT' ? 'DRILL' : 'EXPLAIN', target: t });
   }
   return { ops, rejected };
 }

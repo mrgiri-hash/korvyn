@@ -15,12 +15,38 @@ import type { FinancialObject, ToolArgs } from '../tools.js';
 import { type AnalysisOp, type RowTarget } from './edit.js';
 import { type AnalysisDefinition, type AnalysisResult, type CellContext, DIMENSIONS, type ExcelHandoff, type GridRow, type VisualizationDefinition } from './model.js';
 import { FinancialAnalysisQueryService, type QueryDeps } from './query.js';
+import { analysisName } from './context.js';
 
-export interface Referents { activeRowId: string | null; activeCellId: string | null; activePopulationId: string | null; activeMember: string | null }
+/**
+ * The active referents — what "this", "it", "the largest one", "the second one" and "the other one" point at. Canonical
+ * ids only: a row path, a cell id, a population id, a member id — never a label.
+ */
+export interface Referents {
+  activeRowId: string | null; activeCellId: string | null; activePopulationId: string | null;
+  /** @deprecated 8C name, kept in step with activeDimensionMemberId */
+  activeMember: string | null;
+  /** 8C.2 */
+  activeAnalysisId?: string | null;
+  /** the statement the grid is restricted to (BS / IS), when it is */
+  activeStatementId?: string | null;
+  activeDimensionMemberId?: string | null;
+  /** the rows an ephemeral ranking returned, best first — "the second one" after "which three moved most?" */
+  activeRankedResultIds?: string[];
+  /** the object a selection or ranking pointed at (a row id, or a member id) */
+  activeSelectedObjectId?: string | null;
+}
+export const emptyReferents = (analysisId: string | null = null): Referents => ({ activeRowId: null, activeCellId: null, activePopulationId: null, activeMember: null, activeAnalysisId: analysisId, activeStatementId: null, activeDimensionMemberId: null, activeRankedResultIds: [], activeSelectedObjectId: null });
 export interface AnalysisSession { definition: AnalysisDefinition; referents: Referents; cursor: number; /** prior versions, newest last — what a correction returns to */ history?: AnalysisDefinition[] }
-export interface Panel { kind: 'GL' | 'EXPLAIN' | 'FLUX' | 'RECON' | 'SUPPORT' | 'CHART' | 'EXCEL'; title: string; subtitle: string | null; cell: CellContext | null; objects: FinancialObject[]; gl: { populationId: string; rowCount: number; debit: string; credit: string; net: string; columns: string[]; lines: { id: string; cells: string[] }[]; nextCursor: number | null } | null; notes: string[] }
-export interface EngineDeps extends QueryDeps { runTool: (tool: string, args: ToolArgs) => FinancialObject | null }
-export interface EngineOut { session: AnalysisSession; result: AnalysisResult; panel: Panel | null; notes: string[]; changes: string[]; visualization: VisualizationDefinition | null; excel: ExcelHandoff | null; save: { name: string; definition: AnalysisDefinition } | null; created: boolean; clarify: { question: string; options: string[] } | null }
+export interface Panel { kind: 'GL' | 'EXPLAIN' | 'FLUX' | 'RECON' | 'SUPPORT' | 'CHART' | 'EXCEL' | 'RANK'; title: string; subtitle: string | null; cell: CellContext | null; objects: FinancialObject[]; gl: { populationId: string; rowCount: number; debit: string; credit: string; net: string; columns: string[]; lines: { id: string; cells: string[] }[]; nextCursor: number | null } | null; notes: string[] }
+export interface EngineDeps extends QueryDeps { runTool: (tool: string, args: ToolArgs) => FinancialObject | null;
+  /** V2 §19: the governed book the CONVERSATION is on. A new analysis inherits it instead of re-declaring a literal;
+   *  absent, the corporate book below is the default, exactly as before. */
+  book?: AnalysisDefinition['book'] }
+export interface EngineOut { session: AnalysisSession; result: AnalysisResult; panel: Panel | null; notes: string[]; changes: string[]; visualization: VisualizationDefinition | null; excel: ExcelHandoff | null; save: { name: string; definition: AnalysisDefinition } | null; created: boolean; clarify: { question: string; options: string[] } | null;
+  /** 8C.2: the definition itself changed (a no-op, a drill or a ranking does not) */
+  mutated: boolean;
+  /** 8C.2: an ephemeral answer (a ranking) — shown, remembered as referents, never persisted */
+  answer: string | null }
 
 const shift = (p: string, n: number) => { const [y, m] = p.split('-').map(Number); const i = y! * 12 + (m! - 1) + n; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`; };
 const monthsBetween = (a: string, b: string) => { const [ya, ma] = a.split('-').map(Number), [yb, mb] = b.split('-').map(Number); return (yb! - ya!) * 12 + (mb! - ma!); };
@@ -34,10 +60,10 @@ export class AnalysisEngine {
     const byDim = new Map<string, { values: string[]; labels: string[] }>();
     for (const m of op.filters) { const x = byDim.get(m.dimension) ?? { values: [], labels: [] }; x.values.push(m.value); x.labels.push(m.label); byDim.set(m.dimension, x); }
     return {
-      id: `AN-${randomUUID().slice(0, 8)}`, version: 1, name: op.name, analysisType: op.analysisType, periods, primaryPeriod: periods.at(-1)!,
+      id: `AN-${randomUUID().slice(0, 8)}`, version: 1, name: op.name, nameSource: 'DERIVED', analysisType: op.analysisType, periods, primaryPeriod: periods.at(-1)!,
       comparison: periods.length > 1 ? { basis: 'PRIOR_PERIOD', period: null } : null,
       scope: this.d.actor.scopeIds === 'ALL' ? 'GROUP' : this.d.actor.scopeIds[0]!,
-      book: { accountingBookId: 'CORE-GL', accountingBasis: 'US GAAP', reportingLens: 'Corporate Consolidated', currency: 'USD' },
+      book: this.d.book ?? { accountingBookId: 'CORE-GL', accountingBasis: 'US GAAP', reportingLens: 'Corporate Consolidated', currency: 'USD' },
       rows: op.rows, columns: op.columns, measures: op.measures,
       filters: [...byDim].map(([dimension, x]) => ({ dimension: dimension as never, op: 'IN' as const, ...x })),
       statement: op.statement, valueFilter: null, sorts: [], topN: null,
@@ -67,13 +93,17 @@ export class AnalysisEngine {
     switch (t.kind) {
       case 'row': { const r = res.rows.find((x) => x.id === t.rowId) ?? null; return { row: r, cellId: r ? cellFor(r) : null, why: r ? null : 'That row is not in the analysis on screen.' }; }
       /* "the third row" counts the rows that carry a figure — a blanked mixed total is structure, not a row to act on */
-      case 'rank': { const ci = res.columns.indexOf(this.primaryCol(res, def, preferVariance)); const r = rows.filter((x) => x.cells[ci]?.value !== null)[t.n - 1] ?? null; return { row: r, cellId: r ? cellFor(r) : null, why: r ? null : `There is no row ${t.n} on screen.` }; }
-      case 'largest': {
+      case 'rank': {
+        /* after an ephemeral ranking, "the second one" is the second RANKED row, not the second row on screen */
+        const rk = s.referents.activeRankedResultIds ?? [];
+        if (rk.length >= t.n) { const r = res.rows.find((x) => x.id === rk[t.n - 1]) ?? null; if (r) return { row: r, cellId: cellFor(r), why: null }; }
+        const ci = res.columns.indexOf(this.primaryCol(res, def, preferVariance)); const r = rows.filter((x) => x.cells[ci]?.value !== null)[t.n - 1] ?? null; return { row: r, cellId: r ? cellFor(r) : null, why: r ? null : `There is no row ${t.n} on screen.` }; }
+      case 'largest': case 'smallest': {
         const c = this.primaryCol(res, def, true), ci = res.columns.indexOf(c);
         /* the most specific rows on screen: a row whose children are all hidden (collapsed or filtered) counts as a leaf */
         const leaf = (r: GridRow) => !res.rows.some((x) => x.id.startsWith(`${r.id}/`));
         const cand = rows.filter(leaf).filter((r) => r.cells[ci]?.value !== null);
-        const r = [...cand].sort((a, b) => Math.abs(b.cells[ci]!.value ?? 0) - Math.abs(a.cells[ci]!.value ?? 0))[0] ?? null;
+        const r = [...cand].sort((a, b) => (t.kind === 'smallest' ? -1 : 1) * (Math.abs(b.cells[ci]!.value ?? 0) - Math.abs(a.cells[ci]!.value ?? 0)))[0] ?? null;
         return { row: r, cellId: r ? `${r.id}§${c.id}` : null, why: r ? null : 'Nothing on screen has a value to rank.' };
       }
       case 'active': {
@@ -91,18 +121,16 @@ export class AnalysisEngine {
   apply(sArg: AnalysisSession | null, ops: AnalysisOp[]): EngineOut {
     const notes: string[] = [], changes: string[] = [];
     let s: AnalysisSession | null = sArg ? JSON.parse(JSON.stringify(sArg)) : null;
-    let panel: Panel | null = null, visualization: VisualizationDefinition | null = null, excel: ExcelHandoff | null = null, save: EngineOut['save'] = null, created = false, mutated = false, clarify: EngineOut['clarify'] = null;
+    let panel: Panel | null = null, visualization: VisualizationDefinition | null = null, excel: ExcelHandoff | null = null, save: EngineOut['save'] = null, created = false, clarify: EngineOut['clarify'] = null, answer: string | null = null;
+    let mutated = false; void mutated;
     const before = s ? JSON.parse(JSON.stringify(s.definition)) as AnalysisDefinition : null;
     const gp = this.d.data.governedPeriods();
     for (const op of ops) {
       if (op.op === 'NOTE') { notes.push(op.text); continue; }
       if (op.op === 'CLARIFY') { clarify = { question: op.question, options: op.options }; continue; }
-      if (op.op === 'UNDO') {
-        const prev = s?.history?.pop();
-        if (!s || !prev) { notes.push('There is no earlier version of this analysis to go back to.'); continue; }
-        const v = s.definition.version; s.definition = { ...prev, version: v + 1, updatedAt: new Date().toISOString() }; changes.push(`back to the analysis before the last change`); continue;
-      }
-      if (op.op === 'NEW') { s = { definition: this.newDefinition(op), referents: { activeRowId: null, activeCellId: null, activePopulationId: null, activeMember: null }, cursor: 0 }; created = true; changes.push(`created ${op.name}`); continue; }
+      /* history and "the other X" are the conversation's (analysis/context.ts), resolved before the engine runs */
+      if (op.op === 'UNDO' || op.op === 'REDO' || op.op === 'OTHER') continue;
+      if (op.op === 'NEW') { const def0 = this.newDefinition(op); def0.name = analysisName(def0); s = { definition: def0, referents: emptyReferents(def0.id), cursor: 0 }; created = true; changes.push(`created ${def0.name}`); continue; }
       if (!s) { notes.push('There is no analysis on screen to change.'); break; }
       const def = s.definition;
       const res = () => this.q.run(def, { limit: 500 });
@@ -132,7 +160,7 @@ export class AnalysisEngine {
           }
           /* a new "only X" replaces an earlier "only Y" on the same dimension: filters narrow what the user now names */
           if (!op.exclude) for (const dim of new Set(op.members.map((m) => m.dimension))) { const f = def.filters.find((x) => x.dimension === dim && x.op === 'IN')!; const keep = op.members.filter((m) => m.dimension === dim); f.values = keep.map((m) => m.value); f.labels = keep.map((m) => m.label); }
-          s.referents.activeMember = `${op.members[0]!.dimension}:${op.members[0]!.value}`;
+          s.referents.activeMember = s.referents.activeDimensionMemberId = `${op.members[0]!.dimension}:${op.members[0]!.value}`;
           changes.push(`${op.exclude ? 'excluding' : 'only'} ${op.members.map((m) => m.label).join(', ')}`); mutated = true; break;
         }
         case 'CLEAR_FILTERS': def.filters = []; def.statement = def.analysisType === 'STATEMENT' ? def.statement : null; def.valueFilter = null; def.topN = null; changes.push('filters cleared'); mutated = true; break;
@@ -218,10 +246,29 @@ export class AnalysisEngine {
           const periods = def.periods.map((p) => shift(p, delta)).filter((p) => gp.includes(p));
           if (!periods.includes(op.period)) { notes.push(`${periodLabel(op.period)} is not a governed period.`); break; }
           const now = new Date().toISOString();
-          s = { definition: { ...JSON.parse(JSON.stringify(def)), id: `AN-${randomUUID().slice(0, 8)}`, version: 1, periods, primaryPeriod: op.period, name: def.name.replace(/·.*$/, `· ${periods.length > 1 ? `${periodLabel(periods[0]!)}–${periodLabel(periods.at(-1)!)}` : periodLabel(periods[0]!)}`), derivedFrom: `${def.id}@v${def.version}`, createdAt: now, updatedAt: now, populationIds: [], expanded: [], collapsed: [] }, referents: { activeRowId: null, activeCellId: null, activePopulationId: null, activeMember: null }, cursor: 0 };
+          s = { definition: { ...JSON.parse(JSON.stringify(def)), id: `AN-${randomUUID().slice(0, 8)}`, version: 1, periods, primaryPeriod: op.period, name: def.name.replace(/·.*$/, `· ${periods.length > 1 ? `${periodLabel(periods[0]!)}–${periodLabel(periods.at(-1)!)}` : periodLabel(periods[0]!)}`), derivedFrom: `${def.id}@v${def.version}`, createdAt: now, updatedAt: now, populationIds: [], expanded: [], collapsed: [] }, referents: emptyReferents(), cursor: 0 };
           if (periods.length < def.periods.length) notes.push('Periods before the governed ledger were dropped.');
           created = true; changes.push(`a new analysis for ${periodLabel(op.period)}, derived from ${def.name}`); break;
         }
+        case 'FORGET': {
+          const ids = new Set(op.members.map((m) => `${m.dimension}:${m.value}`));
+          const n0 = JSON.stringify(def.filters);
+          for (const f of def.filters) for (const m of op.members.filter((x) => x.dimension === f.dimension)) { const i = f.values.indexOf(m.value); if (i >= 0) { f.values.splice(i, 1); f.labels.splice(i, 1); } }
+          def.filters = def.filters.filter((f) => f.values.length);
+          const R = s.referents, pointed = (x: string | null | undefined) => !!x && [...ids].some((id) => x.split(/[/§]/).includes(id));
+          const cleared = pointed(R.activeRowId) || pointed(R.activeCellId) || pointed(R.activeDimensionMemberId ?? R.activeMember);
+          if (cleared) { R.activeRowId = R.activeCellId = R.activePopulationId = R.activeSelectedObjectId = null; R.activeMember = R.activeDimensionMemberId = null; R.activeRankedResultIds = []; }
+          if (JSON.stringify(def.filters) !== n0) changes.push(`dropped ${op.members.map((m) => m.label).join(', ')}`);
+          else if (cleared) changes.push(`no longer looking at ${op.members.map((m) => m.label).join(', ')}`);
+          else notes.push(`${op.members.map((m) => m.label).join(', ')} is not part of this analysis, so there is nothing to drop.`);
+          break;
+        }
+        case 'SELECT': {
+          const hit = this.resolve(op.target, s, res(), true, op.target.kind === 'largest' || op.target.kind === 'smallest');
+          if (!hit.row) { notes.push(hit.why ?? 'Nothing to select.'); break; }
+          s.referents.activeRowId = hit.row.id; s.referents.activeCellId = hit.cellId; s.referents.activeSelectedObjectId = hit.row.id; break;
+        }
+        case 'RANK': { const out = this.rank(op, s); panel = out.panel; answer = out.answer; if (out.note) notes.push(out.note); break; }
         default: {
           const r0 = res();
           const out = this.action(op, s, r0);
@@ -231,16 +278,21 @@ export class AnalysisEngine {
       }
     }
     if (!s) throw new Error('no analysis');
-    /* every mutation keeps the version it replaced, so a correction can return to it */
-    if (mutated && !created && before) { s.history = [...(s.history ?? []), before].slice(-10); }
-    if (mutated && !created) { s.definition.version += 1; s.definition.updatedAt = new Date().toISOString(); s.definition.updatedBy = this.d.actor.id; s.cursor = 0; }
+    /* 8C.2: a change is a change to the DEFINITION — a no-op filter, a drill (which only records lineage) or an ephemeral
+       ranking is not one, and does not create a version */
+    const shape = (x: AnalysisDefinition) => JSON.stringify({ ...x, version: 0, updatedAt: '', updatedBy: '', name: '', populationIds: [], dataVersion: '' });
+    const changed = !created && !!before && shape(before) !== shape(s.definition);
+    if (changed) { s.referents.activeRankedResultIds = []; s.definition.version += 1; s.definition.updatedAt = new Date().toISOString(); s.definition.updatedBy = this.d.actor.id; s.cursor = 0; }
+    /* the title follows the definition; the referents say which analysis and statement they belong to */
+    s.definition.name = analysisName(s.definition);
+    s.referents.activeAnalysisId = s.definition.id; s.referents.activeStatementId = s.definition.statement;
     s.definition.dataVersion = this.d.gl.dataVersion();
     const v = this.q.validate(s.definition);
     notes.push(...v.warnings);
     if (v.errors.length) notes.push(...v.errors);
     const result = this.q.run(s.definition, { cursor: s.cursor, limit: 200 });
     notes.push(...result.notes);
-    return { session: s, result, panel, notes: [...new Set(notes)], changes, visualization, excel, save, created, clarify };
+    return { session: s, result, panel, notes: [...new Set(notes)], changes: changed || created ? changes : changes.filter((c) => !/^(only|excluding|added|removed|rows|columns|sorted|largest|top|periods|column order|expanded|collapsed|opened)/.test(c)), visualization, excel, save, created, clarify, mutated: changed || created, answer };
   }
 
   /* ---- the questions a grid invites --------------------------------------------------------------------------- */
@@ -318,6 +370,41 @@ export class AnalysisEngine {
       case 'SAVE': return { save: { name: op.name ?? def.name, definition: def } };
     }
     return {};
+  }
+
+  /**
+   * 8C.2 — an EPHEMERAL ranking: which rows rank where on the grid as it is (the most specific rows on screen, by the
+   * variance when shown — or when asked for, computed on a temporary comparison that is never saved — else by the amount).
+   * The ranked rows become referents; the definition is not touched.
+   */
+  private rank(op: Extract<AnalysisOp, { op: 'RANK' }>, s: AnalysisSession): { panel: Panel; answer: string; note?: string } {
+    const def = s.definition;
+    const byVar = op.by === 'VARIANCE' || (op.by === null && def.measures.includes('VARIANCE'));
+    let view = def, temp = false;
+    if (byVar && !def.measures.includes('VARIANCE')) {
+      view = JSON.parse(JSON.stringify(def)) as AnalysisDefinition; view.comparison = view.comparison ?? { basis: 'PRIOR_PERIOD', period: null };
+      const cmp = this.q.comparisonPeriod(view); if (cmp && !view.periods.includes(cmp)) view.periods = [...view.periods, cmp].sort();
+      view.measures = [...view.measures, 'VARIANCE']; temp = true;
+    }
+    const res = this.q.run({ ...view, topN: null }, { limit: 500 });
+    const col = byVar ? res.columns.find((c) => c.measure === 'VARIANCE') ?? null : this.primaryCol(res, view, false);
+    if (!col) return { panel: { kind: 'RANK', title: 'Ranking', subtitle: null, cell: null, objects: [], gl: null, notes: [] }, answer: 'There is no comparison period to rank the movement against.', note: `${periodLabel(def.primaryPeriod)} has no governed prior period.` };
+    const ci = res.columns.indexOf(col), rows = this.dataRows(res);
+    const leaf = (r: GridRow) => !res.rows.some((x) => x.id.startsWith(`${r.id}/`));
+    const ranked = rows.filter(leaf).filter((r) => r.cells[ci]?.value !== null && r.cells[ci]?.value !== undefined)
+      .sort((a, b) => (op.dir === 'ASC' ? -1 : 1) * (Math.abs(b.cells[ci]!.value!) - Math.abs(a.cells[ci]!.value!))).slice(0, Math.max(1, op.n));
+    if (!ranked.length) return { panel: { kind: 'RANK', title: 'Ranking', subtitle: null, cell: null, objects: [], gl: null, notes: [] }, answer: 'Nothing on screen has a value to rank.' };
+    s.referents.activeRankedResultIds = ranked.map((r) => r.id);
+    s.referents.activeRowId = ranked[0]!.id; s.referents.activeSelectedObjectId = ranked[0]!.id;
+    /* the cell is only a referent if it exists on the grid as defined — a temporary variance column does not */
+    s.referents.activeCellId = temp ? null : ranked[0]!.cells[ci]!.id;
+    const what = byVar ? `moved ${op.dir === 'ASC' ? 'least' : 'most'}` : `is ${op.dir === 'ASC' ? 'smallest' : 'largest'}`;
+    const label = `${col.label}${col.sublabel ? ` ${col.sublabel}` : ''}`;
+    const answer = ranked.length === 1 ? `${ranked[0]!.label} ${what}: ${ranked[0]!.cells[ci]!.display} (${label}).`
+      : `The ${ranked.length} that ${byVar ? `moved ${op.dir === 'ASC' ? 'least' : 'most'}` : op.dir === 'ASC' ? 'are smallest' : 'are largest'}: ${ranked.map((r, i) => `${i + 1}. ${r.label} ${r.cells[ci]!.display}`).join('; ')}.`;
+    return { answer, panel: { kind: 'RANK', title: ranked.length === 1 ? `${ranked[0]!.label} ${what}` : `Top ${ranked.length} by ${byVar ? 'movement' : 'amount'}`, subtitle: `${label} · ranked on the grid as it is — its sort, limit and filters are unchanged${temp ? ' · the variance was computed for this answer only' : ''}`,
+      cell: null, gl: null, notes: [],
+      objects: [this.table('Ranking', [label], ranked.map((r) => ({ label: r.label, cells: [r.cells[ci]!.display], ref: r.id })), [{ key: 'rank.top', label: 'Ranked first', value: ranked[0]!.label, display: ranked[0]!.label }, { key: 'rank.topAmount', label: label, value: ranked[0]!.cells[ci]!.value ?? 0, display: ranked[0]!.cells[ci]!.display }])] } };
   }
 
   describe(ctx: CellContext): string {

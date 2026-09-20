@@ -276,7 +276,7 @@ export const SECTIONS: Partial<Record<SheetKind, Builder>> = {
   RECONCILING_ITEMS(s, c) {
     const ids = c.d.focus?.reconciliationId ? [c.d.focus.reconciliationId] : c.env.controls.allRecDefs().filter((r) => inEnts(c, r.entity)).map((r) => r.id);
     const rows: Row[] = [];
-    for (const id of ids) { const def = c.env.controls.recDef(id); if (!def) continue; const b = c.env.controls.reconBalance(def, c.period); if (!b.available) continue; for (const i of b.items) rows.push({ cells: [def.name, i.label, i.kind.replace(/_/g, ' ').toLowerCase(), i.amountUsd, `${b.id} v${b.version}`, `recon:${id}:${c.period}`] }); }
+    for (const id of ids) { const def = c.env.controls.recDef(id); if (!def) continue; const b = c.env.controls.reconBalance(def, c.period); if (!b.available) continue; for (const i of c.env.controls.redact(b, c.vis).items) rows.push({ cells: [def.name, i.label, i.kind.replace(/_/g, ' ').toLowerCase(), i.amountUsd, `${b.id} v${b.version}`, `recon:${id}:${c.period}`] }); }
     return sheet(c, s, `Reconciling Items · ${monLabel(c.period)}`, rows.length ? [table([C('r', 'Reconciliation', 34), C('i', 'Item', 44), C('k', 'Kind', 24), C('a', 'Amount (USD)', 17, 'money'), C('b', 'Balance Record', 26), TRACE], rows)] : [note(ids.length === 1 && !c.env.controls.reconBalance(c.env.controls.recDef(ids[0]!)!, c.period).available ? 'The server book does not model this reconciliation; its reconciling items are computed by the Reconciliations module and are not cited.' : 'No reconciling items: the reconciliation carries no difference to explain.')], `${rows.length} reconciling items`);
   },
   SUPPORT_INDEX(s, c) {

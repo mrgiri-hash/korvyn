@@ -17,7 +17,12 @@
  */
 import { findSavedReport } from './book.js';
 import { createHash, randomUUID } from 'node:crypto';
-import type { SloaneLLMAdapter, Usage } from './adapter.js';
+import type { AdapterOutcome, AgentStepInput, AgentSynthInput, SloaneLLMAdapter, Usage } from './adapter.js';
+import type { AgentStepOut, AgentSynthOut } from './schema.js';
+import { estimateCost } from './agent/investigate.js';
+import type { AgentGoal } from './agent/model.js';
+import { resolveTerms } from './agent/ambiguity.js';
+import type { Route } from './config.js';
 import type { SloaneConfig } from './config.js';
 import { ControlService } from './controls.js';
 import { FinancialDataService, periodLabel } from './financials.js';
@@ -32,6 +37,7 @@ import { type KorvynDatabase, workDatabase } from './persistence/db.js';
 import type { InvestigationBody, Stamped } from './persistence/repositories.js';
 import { seedDevelopment } from './persistence/seed.js';
 import { bindWork, WORK } from './store.js';
+import { SloaneV2 } from './v2/runtime.js';
 import { AuthorizationService } from './auth.js';
 import { replaySourceFeed } from './sourcefeed.js';
 import { ArtifactEngine } from './artifacts/engine.js';
@@ -49,8 +55,10 @@ import { ENTITY_WORDS, PROJECT_ALIAS, type ConvDeps, type ConvState, type FastPa
 import type { Conversation } from './schema.js';
 import { UniversalIntentResolver } from './canvas/intent.js';
 import { CanvasEngine, type CanvasState, canvasObject } from './canvas/canvas.js';
-import { AnalysisEngine, type AnalysisSession } from './analysis/engine.js';
-import { fromModel, parseAnalysis, uiCommandOps, UI_COMMANDS, vocabulary, wantsAnalysisEditor, type AnalysisOp, type UiCommand } from './analysis/edit.js';
+import { AnalysisEngine, type AnalysisSession, type EngineOut } from './analysis/engine.js';
+import { CORRECTION_LEAD, REJECTION, fromModel, resolveMembers, historyCommand, parseAnalysis, uiCommandOps, UI_COMMANDS, vocabulary, wantsAnalysisEditor, type AnalysisOp, type UiCommand } from './analysis/edit.js';
+import { type AnalysisHistory, emptyHistory, governEdit, nextVersion, recordRevision, relationOf, stepHistory } from './analysis/context.js';
+import type { AnalysisDefinition, ContextRelation } from './analysis/model.js';
 import { DIMENSIONS, MEASURES } from './analysis/model.js';
 
 /* ================================================================================================
@@ -86,6 +94,8 @@ export interface SessionContext {
   canvas?: CanvasState | null;
   /** Phase 8C: the governed analysis on screen and its active referents (row, cell, population, member) */
   analysis?: AnalysisSession | null;
+  /** 8C.2: every meaningful analysis revision in this conversation, across analyses — what Undo and Redo walk */
+  analysisHistory?: AnalysisHistory | null;
 }
 export const reliable = (s: Source) => s === 'EXPLICIT' || s === 'INHERITED' || s === 'DERIVED';
 const STATEMENTS = ['INCOME_STATEMENT', 'BALANCE_SHEET', 'FINANCIAL_STATEMENT', 'TRIAL_BALANCE'];
@@ -733,7 +743,7 @@ export function deterministicInterpret(text: string, data: FinancialDataService,
    ================================================================================================ */
 export interface SloaneExecutionTrace {
   traceId: string; sessionId: string; startedAt: string; endedAt: string | null; latencyMs: number | null;
-  actor: { id: string; role: string; scope: 'ALL' | string[] }; writeActionsEnabled: boolean; engine: { provider: string; model: string };
+  actor: { id: string; role: string; scope: 'ALL' | string[] }; writeActionsEnabled: boolean; engine: { provider: string; model: string; defaultModel: string | null; advancedModel: string | null };
   request: string; resumedFromTrace: string | null;
   calls: { stage: string; status: string; code: string | null; detail: string | null; providerRequestId: string | null; latencyMs: number; usage: Usage | null; route: string | null; model: string | null }[];
   contextBefore: unknown; candidatesSupplied: number; governedPeriods: string[];
@@ -751,11 +761,15 @@ export interface SloaneExecutionTrace {
   proposals: { id: string; type: string; riskLevel: string; status: string; validationStatus: string; target: string | null; errors: string[]; warnings: string[]; dependsOn: string[] }[];
   /** Phase 6: which path answered — a capability SHORTCUT, the conversation (FOLLOW_UP), a DELIVERABLE route, the FAST
    *  model with Korvyn's planner, or the DEEP planner — the rule that decided it, what kind of turn it was, and where the time went */
-  route: 'SHORTCUT' | 'FOLLOW_UP' | 'DELIVERABLE' | 'FAST' | 'DEEP' | 'CLARIFICATION' | 'AGENT' | 'CONVERSATION' | 'CAPABILITY_GAP' | 'CANVAS' | 'ANALYSIS' | null;
+  route: 'SHORTCUT' | 'FOLLOW_UP' | 'DELIVERABLE' | 'FAST' | 'DEEP' | 'CLARIFICATION' | 'AGENT' | 'CONVERSATION' | 'CAPABILITY_GAP' | 'CANVAS' | 'ANALYSIS' | 'V2' | null;
   /** the conversational front door's decision (development observability) */
   conversation: { input: string; conversationIntent: string | null; requiresTool: boolean | null; selectedRoute: string; selectedModel: string | null; selectedTool: string | null; fallbackReason: string | null } | null; shortcut: string | null; kind: TurnKind | null;
   /** Phase 8B: the IntentDefinition a canvas turn resolved */
   intent?: unknown;
+  /** 8C.2: the context relation proposed and the one Korvyn validated, what it adjusted, and the revision it recorded */
+  analysisContext?: { source: string; proposedRelation: ContextRelation | null; relation: ContextRelation; adjustments: string[]; persistentMutation: boolean | null; activeBefore: { id: string; version: number; name: string } | null; activeAfter: { id: string; version: number; name: string } | null; revisionId: string | null; historyCursor: number; historyLength: number } | null;
+  /** 8C.2: what the workspace shows after this turn — distinct from the investigation's title */
+  workspace?: TurnResponse['workspace'];
   timings: { firstStatusMs: number | null; interpretMs: number; planMs: number; toolsMs: number; firstObjectMs: number | null; narrateMs: number };
 }
 
@@ -764,13 +778,21 @@ export interface SloaneExecutionTrace {
    ================================================================================================ */
 export type TurnState = 'ANSWER' | 'CLARIFICATION_REQUIRED' | 'UNAVAILABLE' | 'ERROR' | 'CANCELLED';
 /** streaming (Phase 6): status lines, the structured objects as soon as they exist, then the final response */
-export interface TurnEvent { type: 'status' | 'object'; text?: string; response?: Record<string, unknown> }
+/** `delta` is v2's streamed answer text (§22): the browser renders it as it arrives, then the final response replaces it. */
+export interface TurnEvent { type: 'status' | 'object' | 'delta'; text?: string; response?: Record<string, unknown> }
 export interface TurnHooks { emit?: (e: TurnEvent) => void; signal?: AbortSignal }
 /** objects that ARE their own answer (a workbook preview, a PBC workspace): no narrative call is spent on them */
 const STRUCTURAL = new Set(['ExcelWorkbookPreview', 'PBCRequest', 'PBCSupportGaps', 'AgentRun']);
 export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown; /** the page the browser has open — display context only, never a financial fact */ view?: unknown;
   /** Phase 8C: what the person pointed at — canonical ids only (a canvas row ref, a grid row or cell id), never a label */
   focus?: unknown }
+/** 8C.2: the active workspace a response leaves on screen, when the route did not state it */
+function workspaceOf(objects: FinancialObject[]): TurnResponse['workspace'] {
+  const a = objects.find((o) => o.type === 'FinancialAnalysis'), c = objects.find((o) => o.type === 'DynamicFinancialCanvas'), o = objects.find((x) => !x.action && x.status !== 'UNAVAILABLE');
+  if (a) return { kind: 'ANALYSIS', title: a.title, analysisId: String(a.refs['analysisId'] ?? '') };
+  if (c) return { kind: 'CANVAS', title: c.title };
+  return o ? { kind: 'OBJECT', title: o.title } : null;
+}
 export interface TurnFocus { ref?: string; rowId?: string; cellId?: string; analysisId?: string; command?: UiCommand }
 const focusOf = (f: unknown): TurnFocus | null => {
   if (!f || typeof f !== 'object') return null;
@@ -792,8 +814,13 @@ export interface TurnResponse {
   kind?: TurnKind | null; route?: string | null; suggestions?: string[]; contextLine?: string; contextFields?: { field: string; label: string; value: string; confidence: string }[]; title?: string;
   /** a conversational answer that needed no governed tool — conversation is a valid output */
   reply?: string;
+  /** 8C.2: the ACTIVE WORKSPACE — what is on screen now (an analysis, a canvas, an object). `title` above is the
+   *  investigation's, set once; this one follows every change of the active object. */
+  workspace?: { kind: 'ANALYSIS' | 'CANVAS' | 'OBJECT'; title: string; analysisId?: string; version?: number; relation?: ContextRelation } | null;
 }
-interface Pending { id: string; request: string; interpretation: Interpretation; field: string; options: { id: string; label: string }[]; loops: number; traceId: string; requests?: Record<string, string> }
+interface Pending { id: string; request: string; interpretation: Interpretation; field: string; options: { id: string; label: string }[]; loops: number; traceId: string; requests?: Record<string, string>;
+  /** 8C.2: an analysis clarification carries the exact ops each option means — the choice is applied, not re-read */
+  ops?: Record<string, AnalysisOp[]> }
 interface Session {
   ctx: SessionContext; pending: Pending | null; touched: number;
   /** the authenticated user this conversation belongs to; another user never inherits it */
@@ -805,6 +832,8 @@ interface Session {
   /** the turn still running (a newer one supersedes it) and the context it started from */
   inflight: { ac: AbortController; ctxBefore: SessionContext } | null;
   titled: boolean;
+  /** 8C.2: the ops of the clarification option just chosen, applied as-is by the next analysis turn */
+  resumeOps?: AnalysisOp[] | null;
   /** Phase 7: the agent run the last answer was about — a short instruction ("Only South Valley.") steers it */
   lastRunId?: string | null;
 }
@@ -824,6 +853,11 @@ function refValue(path: string, results: (FinancialObject | null)[]): string | n
   return o.refs[key] ?? null;
 }
 
+/** V2 §19: the governed book a conversation is on — basis, lens and currency travel with the conversation,
+ *  so an analysis created in it is stated on the same book rather than on a literal written at its creation. */
+const bookOf = (c: SessionContext): AnalysisDefinition['book'] =>
+  ({ accountingBookId: 'CORE-GL', accountingBasis: c.basis.value, reportingLens: 'Corporate Consolidated', currency: c.currency.value });
+
 export class SloaneOrchestrator {
   readonly data: FinancialDataService;
   readonly gl: GovernedLedger;
@@ -841,7 +875,7 @@ export class SloaneOrchestrator {
   private readonly narrCache = new Map<string, { text: string; objectIds: string[]; factKeys: string[] }[]>();
 
   readonly db: KorvynDatabase;
-  constructor(private readonly adapter: SloaneLLMAdapter, private readonly cfg: Pick<SloaneConfig, 'maxPlanSteps'>, private readonly actorOf: () => Actor = serverActor, data?: FinancialDataService, db?: KorvynDatabase) {
+  constructor(private readonly adapter: SloaneLLMAdapter, private readonly cfg: Pick<SloaneConfig, 'maxPlanSteps'> & Partial<Pick<SloaneConfig, 'runtimeV2'>>, private readonly actorOf: () => Actor = serverActor, data?: FinancialDataService, db?: KorvynDatabase) {
     this.data = data ?? new FinancialDataService();
     this.gl = new GovernedLedger(this.data);
     this.controls = new ControlService(this.gl);
@@ -864,7 +898,11 @@ export class SloaneOrchestrator {
     this.semantic = new ContextAssembler(financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts }));
     /* Phase 7: the agent runtime — every step it takes comes back through agentValidate / agentExecute / decide */
     this.agents = new AgentRuntime(this);
+    /* V2 §2: the new conversational core, BESIDE this one. It is constructed either way and only reached when the
+       flag is on and the turn is one it should take; v1 below is untouched and stays the default. */
+    this.v2 = new SloaneV2({ adapter: this.adapter, data: this.data, gl: this.gl, controls: this.controls, semantic: this.semantic, artifacts: this.artifacts, ...(this.artifacts.pbc ? { pbc: this.artifacts.pbc } : {}) });
   }
+  readonly v2: SloaneV2;
   readonly semantic: ContextAssembler;
   /** the model's context: the session's governed values plus the request's permitted semantic neighbourhood */
   modelContext(ctx: SessionContext, actor: Actor, request: string) {
@@ -951,7 +989,7 @@ export class SloaneOrchestrator {
     let input = inputArg;
     if (session.pending?.requests && inputArg.clarification) {
       const opt = this.matchClarification(session, inputArg.clarification, '');
-      if (opt && session.pending.requests[opt]) { input = { sessionId, request: session.pending.requests[opt] }; session.pending = null; }
+      if (opt && session.pending.requests[opt]) { session.resumeOps = session.pending.ops?.[opt] ?? null; input = { sessionId, request: session.pending.requests[opt] }; session.pending = null; }
     }
     if (!session.investigation.objective && typeof input.request === 'string') session.investigation.objective = input.request.trim().slice(0, 300);
     session.touched = t0;
@@ -966,7 +1004,7 @@ export class SloaneOrchestrator {
     const tr: SloaneExecutionTrace = {
       traceId: `STR-${randomUUID().slice(0, 8)}`, sessionId, startedAt: new Date(t0).toISOString(), endedAt: null, latencyMs: null,
       actor: { id: actor.id, role: actor.role, scope: actor.scopeIds }, writeActionsEnabled: WRITE_ACTIONS_ENABLED,
-      engine: { provider: this.adapter.provider, model: this.adapter.model }, request, resumedFromTrace: null,
+      engine: { provider: this.adapter.provider, model: this.adapter.model, defaultModel: this.adapter.models?.default ?? null, advancedModel: this.adapter.models?.advanced ?? null }, request, resumedFromTrace: null,
       calls: [], contextBefore: this.context.forModel(session.ctx), candidatesSupplied: 0, governedPeriods: this.data.governedPeriods(),
       interpretation: null, interpretationSource: null, resolution: null, classification: null, clarification: null,
       toolsExposed: { domains: [], tools: [] }, plan: { source: null, proposed: [], validation: null }, toolsExecuted: [], objects: [],
@@ -989,7 +1027,7 @@ export class SloaneOrchestrator {
       tr.state = state; tr.endedAt = new Date().toISOString(); tr.latencyMs = Date.now() - t0; tr.contextAfter = this.context.forModel(session!.ctx); tr.kind = kind;
       this.traces.push(tr); if (this.traces.length > 200) this.traces.shift();
       if (tr.conversation) console.log(`[sloane:route] input=${JSON.stringify(tr.conversation.input.slice(0, 60))} intent=${tr.conversation.conversationIntent ?? '-'} requiresTool=${tr.conversation.requiresTool} route=${tr.conversation.selectedRoute} model=${tr.conversation.selectedModel ?? '-'} tool=${tr.conversation.selectedTool ?? '-'} fallback=${tr.conversation.fallbackReason ?? 'none'}`);
-      console.log(`[sloane] ${tr.traceId} ${tr.route ?? '-'} ${state} ${tr.latencyMs}ms calls=${tr.calls.map((c) => `${c.stage}@${c.route ?? '?'}:${c.latencyMs}`).join(',') || '-'} tools=${tr.toolsExecuted.map((x) => `${x.tool}:${x.status}`).join(',') || '-'} in=${tr.tokens.input} out=${tr.tokens.output}`);
+      console.log(`[sloane] ${tr.traceId} ${tr.route ?? '-'} ${state} ${tr.latencyMs}ms calls=${tr.calls.map((c) => `${c.stage}@${c.route ?? '?'}(${c.model ?? '-'}):${c.latencyMs}`).join(',') || '-'} tools=${tr.toolsExecuted.map((x) => `${x.tool}:${x.status}`).join(',') || '-'} in=${tr.tokens.input} out=${tr.tokens.output}`);
       const c = session!.ctx, cv = contextView(c, this.data);
       return {
         sessionId, traceId: tr.traceId, state, mode: this.mode, latencyMs: tr.latencyMs, notes, clarification: null, objects: [], narrative: [],
@@ -997,6 +1035,7 @@ export class SloaneOrchestrator {
           focus: { value: c.focus.value?.name ?? null, source: c.focus.source }, populationId: c.populationId },
         kind, route: tr.route, suggestions, contextLine: cv.line, contextFields: cv.fields,
         ...extra,
+        workspace: extra.workspace !== undefined ? extra.workspace : workspaceOf(extra.objects ?? []),
       };
     };
     const cancel = (): TurnResponse => { tr.fallbacks.push('cancelled — superseded by a newer request'); if (session!.inflight === inflight) session!.ctx = inflight.ctxBefore; return finish('CANCELLED', { notes: ['Superseded by a newer request.'] }); };
@@ -1020,17 +1059,67 @@ export class SloaneOrchestrator {
         session.pending = null;
         status('Resuming with your answer');
       } else {
-        if (input.clarification) return finish('UNAVAILABLE', { notes: ['That question is no longer pending. Ask again and Sloane will re-interpret the request.'] });
-        if (!request) return finish('ERROR', { notes: ['request is required'] });
+        /* V2: a question the v2 runtime asked is answered by v2. v1 holds no pending for it, so without this the
+           answer reads as stale and the person is told to ask again. */
+        const v2Pending = !!this.cfg.runtimeV2 && this.v2.available() ? this.v2.conversation(sessionId, actor).pending : null;
+        /* the browser answers with {pendingId, optionId}; a CLI or a test may answer with the option's id or words */
+        const v2Answer = v2Pending && input.clarification
+          ? (typeof input.clarification === 'string' ? input.clarification
+            : (input.clarification as Record<string, unknown>)['pendingId'] === v2Pending.id ? String((input.clarification as Record<string, unknown>)['optionId'] ?? '') : null)
+          : null;
+        const v2Answering = !!v2Answer;
+        if (input.clarification && !v2Answering) return finish('UNAVAILABLE', { notes: ['That question is no longer pending. Ask again and Sloane will re-interpret the request.'] });
+        if (!request && !v2Answering) return finish('ERROR', { notes: ['request is required'] });
         session.pending = null;
         /* Phase 7: a goal starts a governed agent run; a short instruction steers the run the conversation is on */
-        const ag = await this.agentTurn(session, sessionId, actor, request, status, ac.signal);
+        const ag = v2Answering ? null : await this.agentTurn(session, sessionId, actor, request, status, ac.signal);
         if (ag) {
           tr.route = 'AGENT'; tr.shortcut = ag.shortcut; kind = 'ANSWER';
           ag.notes.forEach(note);
           return finish('ANSWER', { objects: [ag.object], narrative: ag.narrative.map((t) => ({ text: t, objectIds: [ag.object.id] })), ...(ag.title ? { title: ag.title } : {}) });
         }
         session.lastRunId = null;
+        /* V2 §2/§7 — the new conversational core, behind SLOANE_RUNTIME_V2, BESIDE everything below.
+           It never takes a turn another path already answers without a model: a structured grid command, a grid
+           selection, a clarification v1 is holding, or a step of an agent run in flight. Everything below this
+           block is v1, unchanged — §37 keeps both until the A/B measurement says which to keep. */
+        const focusV2 = focusOf(input.focus);
+        if (this.cfg.runtimeV2 && (v2Answering || this.v2.eligible({ request, hasUiCommand: !!focusV2, v1Pending: !!session.pending }))) {
+          const s = session;
+          const v2 = await this.v2.turn({
+            sessionId, request, actor, status,
+            ...(v2Answer ? { clarification: v2Answer } : {}),
+            signal: ac.signal,
+            /* §22 — stream only where a caller is listening; a plain /turn spends nothing on it */
+            ...(hooks.emit ? { onDelta: (t: string) => hooks.emit?.({ type: 'delta', text: t }) } : {}),
+            openAnalysis: async (req) => {
+              /* the grid opens on what the CONVERSATION is on (§19): period, scope and book travel across the
+                 handoff, so a person does not restate in a grid what they just said in words */
+              const vs = this.v2.conversation(sessionId, actor).state;
+              s.ctx.period = { value: vs.period, source: 'INHERITED' };
+              s.ctx.scope = { value: vs.scope, source: 'INHERITED' };
+              s.ctx.basis = { value: vs.accountingBasis, source: 'INHERITED' };
+              s.ctx.currency = { value: vs.currency, source: 'INHERITED' };
+              const r = await this.analysisTurn(s, sessionId, actor, req, tr, status, null, ac.signal, true);
+              return r ? { state: r.state, extra: r.extra, notes: r.notes } : null;
+            },
+            startInvestigation: async (obj) => {
+              const r = await this.investigationTurn(s, sessionId, actor, obj, status, ac.signal);
+              if (!r) return null;
+              return { state: 'ANSWER' as TurnState, notes: r.notes,
+                extra: { objects: [r.object], narrative: r.narrative.map((t) => ({ text: t, objectIds: [r.object.id] })), ...(r.title ? { title: r.title } : {}) } };
+            },
+          });
+          if (cancelled()) return cancel();
+          /* the v1 trace still totals the turn honestly: same tokens, same request, one named route */
+          tr.route = 'V2'; tr.shortcut = `runtime-v2:${v2.path}`;
+          tr.tokens.input += v2.trace.inputTokens; tr.tokens.output += v2.trace.outputTokens; tr.tokens.cacheRead += v2.trace.cacheReadTokens;
+          for (const x of v2.trace.tools) tr.toolsExecuted.push({ tool: x.tool, args: {}, status: x.status === 'COMPLETED' ? 'COMPLETED' : x.status === 'REFUSED' ? 'REFUSED' : 'FAILED', objectId: null, latencyMs: x.latencyMs, warnings: [], error: x.error, result: null });
+          for (const c of v2.trace.calls) tr.calls.push({ stage: c.stage, status: c.status, code: null, detail: c.error, providerRequestId: null, latencyMs: c.latencyMs, usage: { inputTokens: c.inputTokens, outputTokens: c.outputTokens, cacheReadTokens: c.cacheReadTokens }, route: 'FAST', model: c.model });
+          kind = v2.state === 'CLARIFICATION_REQUIRED' ? 'CLARIFICATION' : v2.state === 'ANSWER' ? 'ANSWER' : null;
+          v2.notes.forEach(note);
+          return finish(v2.state, v2.extra);
+        }
         beginTurn(session.ctx, request);
         /* Phase 8B: a short request opens a financial context as a canvas; a short instruction refines the canvas on screen */
         const focus = focusOf(input.focus);
@@ -1122,6 +1211,17 @@ export class SloaneOrchestrator {
               if (co.status === 'ok') {
                 conversation = co.value;
                 /* the conversational model recognised a grid request the vocabulary gate did not: the analysis editor reads it */
+                /* 8D: an OBJECTIVE, not a command — the financial agent plans and carries the investigation */
+                if (conversation.conversationIntent === 'INVESTIGATION' && this.mode === 'reasoning' && this.adapter.agentStep) {
+                  iac.abort();
+                  const inv = await this.investigationTurn(session, sessionId, actor, request, status, ac.signal);
+                  if (inv) {
+                    tr.route = 'AGENT'; tr.shortcut = inv.shortcut; kind = 'ANSWER';
+                    tr.conversation = { input: request, conversationIntent: 'INVESTIGATION', requiresTool: true, selectedRoute: 'AGENT', selectedModel: convModel, selectedTool: null, fallbackReason: null };
+                    inv.notes.forEach(note);
+                    return finish('ANSWER', { objects: [inv.object], narrative: inv.narrative.map((t) => ({ text: t, objectIds: [inv.object.id] })), ...(inv.title ? { title: inv.title } : {}) });
+                  }
+                }
                 if (conversation.conversationIntent === 'ANALYSIS_REQUEST' && this.mode === 'reasoning') {
                   const an2 = await this.analysisTurn(session, sessionId, actor, request, tr, status, focusOf(input.focus), ac.signal, true);
                   if (cancelled()) return cancel();
@@ -1458,47 +1558,50 @@ export class SloaneOrchestrator {
   private async analysisTurn(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, status: (t: string) => void, focus: TurnFocus | null, signal: AbortSignal, force = false):
     Promise<{ state: TurnState; kind: TurnKind; notes: string[]; suggestions: string[]; extra: Partial<TurnResponse> } | null> {
     const ctx = session.ctx, v = conv(ctx);
+    const hist = ctx.analysisHistory ?? (ctx.analysisHistory = emptyHistory());
     const active = ctx.analysis && (v.lastKind === 'ANALYSIS' || !!focus?.analysisId) ? ctx.analysis : null;
     /* what the person pointed at in the grid: canonical ids from the browser, checked against the analysis on screen */
     if (active && focus?.analysisId === active.definition.id) {
-      if (focus.cellId) { active.referents.activeCellId = focus.cellId; active.referents.activeRowId = focus.cellId.split('§')[0]!; }
-      else if (focus.rowId) { active.referents.activeRowId = focus.rowId; active.referents.activeCellId = null; }
+      if (focus.cellId) { active.referents.activeCellId = focus.cellId; active.referents.activeRowId = focus.cellId.split('§')[0]!; active.referents.activeSelectedObjectId = active.referents.activeRowId; }
+      else if (focus.rowId) { active.referents.activeRowId = focus.rowId; active.referents.activeCellId = null; active.referents.activeSelectedObjectId = focus.rowId; }
     }
     const graph = financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts });
     const deps = { gl: this.gl, graph, actor, visible: visibleOf(actor), periods: this.data.governedPeriods(), workingPeriod: this.data.workingPeriod() };
-    /* 8C.1 — ROUTING. A structured UI command from the grid is unambiguous and runs as-is. Natural language is read by
-       the MODEL against the analysis on screen and the governed vocabulary; the deterministic reader is the fallback when
-       no model is configured, or when the model declines or fails. The model's NOT_ANALYSIS returns the turn to the rest
-       of Sloane; NEEDS_CLARIFICATION asks. */
-    let ops: AnalysisOp[] | null = null;
-    let source: 'deterministic' | 'reasoning' | 'ui' = 'deterministic';
     const notes: string[] = [];
-    if (focus?.command && active) { ops = uiCommandOps(focus.command); source = 'ui'; }
+    let ops: AnalysisOp[] | null = null;
+    let source: 'deterministic' | 'reasoning' | 'ui' | 'clarification' | 'history' = 'deterministic';
+    let proposed: ContextRelation | null = null, persistent: boolean | null = null;
+
+    /* a clarification option carries the exact ops it means: applied as chosen, never re-read */
+    if (session.resumeOps) { ops = session.resumeOps; session.resumeOps = null; source = 'clarification'; proposed = active ? 'CORRECT_CURRENT' : 'START_NEW'; }
+    /* 8C.2 — a history command walks the conversation's analysis history, whichever surface is on screen */
+    if (!ops && !focus?.command) { const hc = historyCommand(request); if (hc && hist.revisions.length) return this.analysisHistoryStep(session, sessionId, actor, request, tr, hc === 'UNDO' ? -1 : 1, 'history'); }
+    /* a structured UI command from the grid is unambiguous and runs as-is */
+    if (!ops && focus?.command && active) { ops = uiCommandOps(focus.command); source = 'ui'; }
+    /* 8C.1 — natural language is read by the MODEL against the analysis on screen and the governed vocabulary; the
+       deterministic reader is the fallback. 8C.2 — the model PROPOSES a context relation; governEdit validates it. */
     const askModel = !ops && this.mode === 'reasoning' && request.split(/\s+/).length <= 40 && (force || !!active || wantsAnalysisEditor(request));
     let modelSaid: 'NOT_ANALYSIS' | 'OPS' | 'NONE' = 'NONE';
     if (askModel) {
       status('Reading the analysis request');
       const q0 = active ? new AnalysisEngine({ ...deps, data: this.data, runTool: () => null }).q.run(active.definition, { limit: 40 }) : null;
-      const out = await this.adapter.analysisEdit({ request, analysis: active ? { name: active.definition.name, type: active.definition.analysisType, rows: active.definition.rows, columns: active.definition.columns, measures: active.definition.measures, periods: active.definition.periods, primaryPeriod: active.definition.primaryPeriod, filters: active.definition.filters.map((f) => ({ dimension: f.dimension, op: f.op, labels: f.labels })), statement: active.definition.statement, accountTypes: active.definition.accountTypes ?? null, threshold: active.definition.valueFilter } : null,
+      const R = active?.referents;
+      const out = await this.adapter.analysisEdit({ request, analysis: active ? { name: active.definition.name, type: active.definition.analysisType, rows: active.definition.rows, columns: active.definition.columns, measures: active.definition.measures, periods: active.definition.periods, primaryPeriod: active.definition.primaryPeriod, filters: active.definition.filters.map((f) => ({ dimension: f.dimension, op: f.op, labels: f.labels })), statement: active.definition.statement, accountTypes: active.definition.accountTypes ?? null, threshold: active.definition.valueFilter, sorts: active.definition.sorts, topN: active.definition.topN } : null,
         dimensions: DIMENSIONS.map((d) => ({ id: d.id, label: d.label, governed: d.governed })), measures: MEASURES.map((m) => m.id), periods: deps.periods, workingPeriod: deps.workingPeriod,
         visibleRows: q0 ? q0.rows.filter((r) => r.kind !== 'section').slice(0, 30).map((r) => ({ id: r.id, label: r.label })) : [],
-        vocabulary: vocabulary(deps), selectedCell: active?.referents.activeCellId ?? null }, { route: 'FAST', signal });
+        vocabulary: vocabulary(deps), selectedCell: R?.activeCellId ?? null,
+        referents: R ? { selectedRow: R.activeRowId, rankedRows: R.activeRankedResultIds ?? [], member: R.activeDimensionMemberId ?? R.activeMember } : null,
+        previousAnalyses: hist.revisions.slice(0, hist.cursor + 1).reverse().filter((r, i, xs) => xs.findIndex((y) => y.analysisId === r.analysisId) === i).slice(0, 4).map((r) => r.name) }, { route: 'FAST', signal });
       this.recordCall(tr, 'analysisEdit', out as never);
       if (out.status === 'ok') {
         const e = out.value;
-        if (e.relation === 'NOT_ANALYSIS') modelSaid = 'NOT_ANALYSIS';
-        else if (e.relation === 'NEEDS_CLARIFICATION' && e.question && e.options.length >= 2) {
-          const opts = e.options.slice(0, 5).map((label, i) => ({ id: `opt${i + 1}`, label }));
-          session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request, interpretation: null as never, field: 'object', options: opts, loops: 0, traceId: tr.traceId, requests: Object.fromEntries(opts.map((o) => [o.id, o.label])) };
-          tr.route = 'ANALYSIS'; tr.interpretationSource = 'reasoning'; tr.shortcut = 'analysis: clarification';
-          tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: out.model ?? null, selectedTool: null, fallbackReason: null };
-          return { state: 'CLARIFICATION_REQUIRED', kind: 'CLARIFICATION', notes: [], suggestions: [], extra: { clarification: { pendingId: session.pending.id, field: 'object', question: e.question, options: opts } } };
-        } else if (e.confidence >= 0.5) {
+        proposed = e.contextRelation; persistent = e.persistentMutation;
+        if (e.contextRelation === 'CHANGE_TOPIC' || e.contextRelation === 'GENERAL_CONVERSATION') modelSaid = 'NOT_ANALYSIS';
+        else if (e.confidence >= 0.5 || e.requiresClarification) {
           const m = fromModel(e, active?.definition ?? null, deps);
           if (m.ops.length) { ops = m.ops; source = 'reasoning'; modelSaid = 'OPS'; }
           if (e.unsupported) notes.push(`Not available: ${e.unsupported.replace(/[.\s]+$/, '')}.`);
           m.rejected.forEach((x) => tr.fallbacks.push(`analysis edit rejected: ${x}`));
-          /* the model understood the request as unsupported and had nothing to apply: say so rather than fall through */
           if (!m.ops.length && e.unsupported) { tr.route = 'ANALYSIS'; tr.interpretationSource = 'reasoning'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes, suggestions: [], extra: {} }; }
         } else tr.fallbacks.push(`analysis edit: low confidence ${e.confidence}`);
       } else tr.fallbacks.push(`analysis edit: ${out.status}`);
@@ -1507,16 +1610,56 @@ export class SloaneOrchestrator {
     /* the deterministic reader: no model in this mode, or the model declined / failed / was unsure */
     if (!ops && modelSaid === 'NONE') { ops = parseAnalysis(request, active?.definition ?? null, deps); if (ops && askModel) tr.fallbacks.push('analysis: deterministic reader (model unavailable or unsure)'); }
     if (!ops || !ops.length) return null;
+    /* Undo / Redo, from either reader — unless the words name an object: dropping a named thing is not a return to a state */
+    let hop = ops.find((o) => o.op === 'UNDO' || o.op === 'REDO');
+    if (hop && active && !historyCommand(request)) { const named = resolveMembers(request, deps); if (named.length) { ops = [{ op: 'FORGET', members: named }]; hop = undefined; tr.fallbacks.push('context: the words name an object, so this drops it rather than undoing a step'); } }
+    if (hop) {
+      if (hist.revisions.length) return this.analysisHistoryStep(session, sessionId, actor, request, tr, hop.op === 'UNDO' ? -1 : 1, source);
+      tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ['There is no earlier analysis state in this conversation to go back to.'], suggestions: [], extra: {} };
+    }
     /* a named scope the actor may not view is refused — never silently narrowed — for the model's reading too */
     if (ops.some((o) => o.op === 'NEW') && actor.scopeIds !== 'ALL' && scopeNamedBy(request, 'GROUP', this.data)) {
       tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: [`Not permitted: ${actor.role} may not view scope GROUP.`], suggestions: [], extra: {} };
     }
-    if (!ops.every((o) => o.op === 'NOTE') && !active && ops[0]!.op !== 'NEW') return null;
-    if (ops.every((o) => o.op === 'NOTE')) { tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ops.map((o) => (o as { text: string }).text), suggestions: [], extra: {} }; }
-    tr.route = 'ANALYSIS'; tr.interpretationSource = source === 'ui' ? 'deterministic' : source;
+    /* 8C.2 — Korvyn validates the relation against the analysis actually on screen */
+    const correction = !!active && (CORRECTION_LEAD.test(request.toLowerCase().trim()) || REJECTION.test(request.toLowerCase().trim()));
+    const G = source === 'ui' || source === 'clarification' ? { relation: relationOf(ops, active?.definition ?? null, source === 'clarification' && !!active), ops, adjustments: [] as string[], clarify: null, undoFirst: false }
+      : governEdit({ proposed, ops, active, request, deps, persistent, correction, modelRead: source === 'reasoning' });
+    tr.analysisContext = { source, proposedRelation: proposed, relation: G.relation, adjustments: G.adjustments, persistentMutation: persistent,
+      activeBefore: active ? { id: active.definition.id, version: active.definition.version, name: active.definition.name } : null, activeAfter: null, revisionId: null, historyCursor: hist.cursor, historyLength: hist.revisions.length };
+    G.adjustments.forEach((a) => tr.fallbacks.push(`context: ${a}`));
+    if (G.clarify) {
+      if (G.undoFirst && hist.cursor > 0) { const back = stepHistory(hist, -1); if (back) ctx.analysis = JSON.parse(JSON.stringify(back.snapshot)) as AnalysisSession; notes.push('Went back to the analysis before the last change.'); }
+      const opts = G.clarify.options.slice(0, 5).map((o, i) => ({ id: `opt${i + 1}`, label: o.label }));
+      session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request, interpretation: null as never, field: 'object', options: opts, loops: 0, traceId: tr.traceId,
+        requests: Object.fromEntries(opts.map((o, i) => [o.id, G.clarify!.options[i]!.request ?? o.label])),
+        ops: Object.fromEntries(opts.flatMap((o, i) => (G.clarify!.options[i]!.ops ? [[o.id, G.clarify!.options[i]!.ops!]] : []))) };
+      tr.route = 'ANALYSIS'; tr.interpretationSource = source === 'reasoning' ? 'reasoning' : 'deterministic'; tr.shortcut = `analysis: clarify (${G.relation})`;
+      tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: null, selectedTool: null, fallbackReason: null };
+      return { state: 'CLARIFICATION_REQUIRED', kind: 'CLARIFICATION', notes, suggestions: [], extra: { clarification: { pendingId: session.pending.id, field: 'object', question: G.clarify.question, options: opts } } };
+    }
+    ops = G.ops;
+    /* a restriction that is already in place leaves nothing to apply: the analysis on screen is simply shown again */
+    if (!ops.length && !active) return null;
+    if (ops.length && !ops.every((o) => o.op === 'NOTE') && !active && ops[0]!.op !== 'NEW') return null;
+    if (ops.length && ops.every((o) => o.op === 'NOTE')) { tr.route = 'ANALYSIS'; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: [...notes, ...ops.map((o) => (o as { text: string }).text)], suggestions: [], extra: {} }; }
+    tr.route = 'ANALYSIS'; tr.interpretationSource = source === 'reasoning' ? 'reasoning' : 'deterministic';
     tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: null, selectedTool: null, fallbackReason: null };
-    tr.shortcut = `analysis: ${ops.map((o) => o.op).join(', ')}`;
-    status(active ? 'Updating the analysis' : 'Building the analysis');
+    tr.shortcut = `analysis: ${G.relation} — ${ops.map((o) => o.op).join(', ')}`;
+    status(active && G.relation !== 'REPLACE_CURRENT' ? 'Updating the analysis' : 'Building the analysis');
+    const engine = this.analysisEngine(actor, tr, bookOf(ctx));
+    const t0 = Date.now();
+    let out: EngineOut;
+    try { out = engine.apply(active, ops); } catch (e) { tr.errors.push(redact((e as Error).message)); return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ['Sloane could not apply that to the analysis.'], suggestions: [], extra: {} }; }
+    tr.timings.toolsMs = Date.now() - t0;
+    /* a version is never reused: an undone v3 stays v3 in the history, and the next change is v4 */
+    if (out.mutated && !out.created && active) out.session.definition.version = nextVersion(hist, active.definition.id, active.definition.version);
+    const rev = out.mutated ? recordRevision(hist, out.session, G.relation, out.changes.join('; ') || G.relation, request) : null;
+    return this.analysisAnswer(session, sessionId, actor, request, tr, t0, out, source, G.relation, notes, rev?.revisionId ?? null);
+  }
+
+  /** V2 §19: a new analysis inherits the BOOK the conversation is on (basis, lens, currency), never a literal. */
+  private analysisEngine(actor: Actor, tr: SloaneExecutionTrace, book?: AnalysisDefinition['book']): AnalysisEngine {
     const runTool = (tool: string, args: ToolArgs): FinancialObject | null => {
       const t = toolRegistry.get(tool);
       if (!t || t.risk !== 'READ') return null;
@@ -1527,14 +1670,34 @@ export class SloaneOrchestrator {
         return r.object; }
       catch (e) { tr.toolsExecuted.push({ tool, args, status: 'FAILED', objectId: null, latencyMs: Date.now() - st, warnings: [], error: redact((e as Error).message), result: null }); return null; }
     };
-    const engine = new AnalysisEngine({ gl: this.gl, data: this.data, actor, visible: visibleOf(actor), runTool });
+    return new AnalysisEngine({ gl: this.gl, data: this.data, actor, visible: visibleOf(actor), runTool, ...(book ? { book } : {}) });
+  }
+
+  /** 8C.2 — Undo / Redo: step the conversation's analysis history and restore that revision exactly, across analyses */
+  private analysisHistoryStep(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, dir: -1 | 1, source: string):
+    { state: TurnState; kind: TurnKind; notes: string[]; suggestions: string[]; extra: Partial<TurnResponse> } {
+    const ctx = session.ctx, hist = ctx.analysisHistory!;
+    const from = hist.revisions[hist.cursor] ?? null;
+    tr.route = 'ANALYSIS'; tr.interpretationSource = 'deterministic';
+    tr.conversation = { input: request, conversationIntent: 'ANALYSIS_REQUEST', requiresTool: true, selectedRoute: 'ANALYSIS', selectedModel: null, selectedTool: null, fallbackReason: null };
+    const rev = stepHistory(hist, dir);
+    tr.analysisContext = { source, proposedRelation: 'CORRECT_CURRENT', relation: 'CORRECT_CURRENT', adjustments: [], persistentMutation: false, activeBefore: from ? { id: from.analysisId, version: from.version, name: from.name } : null, activeAfter: rev ? { id: rev.analysisId, version: rev.version, name: rev.name } : null, revisionId: rev?.revisionId ?? null, historyCursor: hist.cursor, historyLength: hist.revisions.length };
+    if (!rev) { tr.shortcut = `analysis: ${dir < 0 ? 'undo' : 'redo'} — nothing to step to`; return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: [dir < 0 ? 'There is no earlier analysis state in this conversation to go back to.' : 'There is nothing to redo.'], suggestions: [], extra: {} }; }
+    tr.shortcut = `analysis: ${dir < 0 ? 'undo' : 'redo'} → ${rev.revisionId}`;
     const t0 = Date.now();
-    let out;
-    try { out = engine.apply(active, ops!); } catch (e) { tr.errors.push(redact((e as Error).message)); return { state: 'UNAVAILABLE', kind: 'ANSWER', notes: ['Sloane could not apply that to the analysis.'], suggestions: [], extra: {} }; }
-    tr.timings.toolsMs = Date.now() - t0;
+    const out = this.analysisEngine(actor, tr).apply(JSON.parse(JSON.stringify(rev.snapshot)) as AnalysisSession, []);
+    out.changes = [`${dir < 0 ? 'back to' : 'forward to'} ${rev.name}${from && from.analysisId !== rev.analysisId ? '' : ` (v${rev.version})`}`];
+    return this.analysisAnswer(session, sessionId, actor, request, tr, t0, out, source, 'CORRECT_CURRENT', [], rev.revisionId, dir < 0 ? 'ANALYSIS_UNDO' : 'ANALYSIS_REDO');
+  }
+
+  /** the answer every analysis turn returns: the object, the context, the investigation record, the active workspace */
+  private analysisAnswer(session: Session, sessionId: string, actor: Actor, request: string, tr: SloaneExecutionTrace, t0: number, out: EngineOut, source: string, relation: ContextRelation, notes: string[], revisionId: string | null, event = 'ANALYSIS'):
+    { state: TurnState; kind: TurnKind; notes: string[]; suggestions: string[]; extra: Partial<TurnResponse> } {
+    const ctx = session.ctx, hist = ctx.analysisHistory ?? emptyHistory();
     tr.toolsExecuted.push({ tool: 'FinancialAnalysisQueryService.run', args: { analysisId: out.session.definition.id, version: String(out.session.definition.version) }, status: 'COMPLETED', objectId: out.result.queryId, latencyMs: Date.now() - t0, warnings: [], error: null, result: { type: 'AnalysisResult', status: 'AVAILABLE', facts: 0, populationId: out.session.referents.activePopulationId, rows: out.result.rowCount } });
     notes.push(...out.notes);
     const def = out.session.definition;
+    if (tr.analysisContext) { tr.analysisContext.activeAfter = { id: def.id, version: def.version, name: def.name }; tr.analysisContext.revisionId = revisionId; tr.analysisContext.historyCursor = hist.cursor; tr.analysisContext.historyLength = hist.revisions.length; }
     /* SAVE is a write: it is a proposal the person confirms, like every other Korvyn write from Sloane */
     let proposal: ActionProposal | null = null;
     if (out.save) proposal = this.actions.propose({ sessionId, planId: `PLAN-${randomUUID().slice(0, 8)}`, type: 'SAVE_ANALYSIS', actor, traceId: tr.traceId, investigationId: session.investigation.id || null,
@@ -1548,29 +1711,36 @@ export class SloaneOrchestrator {
       population: null, refs: { analysisId: def.id, ...(out.session.referents.activePopulationId ? { populationId: out.session.referents.activePopulationId } : {}) },
       focus: out.session.referents.activeRowId ? { kind: 'analysisRow', id: out.session.referents.activeRowId, name: out.result.rows.find((r) => r.id === out.session.referents.activeRowId)?.label ?? out.session.referents.activeRowId } : null,
       unavailable: null, governed: true,
-      analysis: { definition: def, result: out.result, panel: out.panel, changes: out.changes, referents: out.session.referents, visualization: out.visualization, excel: out.excel, source, created: out.created } as unknown as Record<string, unknown>,
+      analysis: { definition: def, result: out.result, panel: out.panel, changes: out.changes, referents: out.session.referents, visualization: out.visualization, excel: out.excel, source, created: out.created, relation, answer: out.answer,
+        history: { cursor: hist.cursor, length: hist.revisions.length, canUndo: hist.cursor > 0, canRedo: hist.cursor < hist.revisions.length - 1, revisionId } } as unknown as Record<string, unknown>,
     };
     ctx.analysis = out.session;
     session.ctx = this.context.commitShown(ctx, []);
-    session.ctx.analysis = out.session;
+    session.ctx.analysis = out.session; session.ctx.analysisHistory = hist;
     if (out.session.referents.activePopulationId) session.ctx.populationId = { value: out.session.referents.activePopulationId, source: 'DERIVED' };
     afterAnswer(session.ctx, [], [obj], 'ANALYSIS', this.gl);
     session.lastObjects = [obj, ...(out.panel?.objects ?? [])];
     this.ensureInvestigation(session, actor, request);
+    /* the INVESTIGATION is named once, for what it set out to investigate; the WORKSPACE title follows the active analysis */
     const title = session.titled || !out.created ? null : def.name;
     if (title) session.titled = true;
+    const workspace: TurnResponse['workspace'] = { kind: 'ANALYSIS', title: def.name, analysisId: def.id, version: def.version, relation };
+    tr.workspace = workspace;
     {
       const invId = session.investigation.id;
       WORK.repos.investigations.update(invId, actor.id, (o) => ({ ...(o as InvestigationBody), ...(title ? { title } : {}),
-        steps: [...o.steps, { at: new Date().toISOString(), request, traceId: tr.traceId, toolCalls: tr.toolsExecuted.filter((x) => x.status === 'COMPLETED' && !x.tool.includes('.')).map((x) => ({ tool: x.tool, args: x.args })), objectRefs: [`${tr.traceId}:${obj.id}`], narrative: out.changes, proposalIds: proposal ? [proposal.id] : [] }],
+        steps: [...o.steps, { at: new Date().toISOString(), request, traceId: tr.traceId, toolCalls: tr.toolsExecuted.filter((x) => x.status === 'COMPLETED' && !x.tool.includes('.')).map((x) => ({ tool: x.tool, args: x.args })), objectRefs: [`${tr.traceId}:${obj.id}`], narrative: out.answer ? [out.answer] : out.changes, proposalIds: proposal ? [proposal.id] : [] }],
         objectRefs: [...o.objectRefs, { ref: `${tr.traceId}:${obj.id}`, type: obj.type, title: obj.title, traceId: tr.traceId }],
         populationRefs: [...new Set([...o.populationRefs, ...def.populationIds])],
-        context: { ...(this.context.forModel(session!.ctx) as Record<string, unknown>), analysis: def as unknown as Record<string, unknown>, referents: out.session.referents },
+        context: { ...(this.context.forModel(session!.ctx) as Record<string, unknown>), analysis: def as unknown as Record<string, unknown>, referents: out.session.referents, workspace },
         sessionIds: [...new Set([...o.sessionIds, sessionId])] }), { period: def.primaryPeriod, scope: def.scope });
-      WORK.repos.investigations.event(invId, { type: 'ANALYSIS', label: `Analysis: ${def.name} v${def.version}${out.changes.length ? ` — ${out.changes.join('; ')}` : ''}`, ref: obj.id, traceId: tr.traceId }, actor.id);
+      /* the history is durable with the investigation: every revision is an event, and the context snapshot carries the whole history */
+      WORK.repos.investigations.event(invId, { type: event, label: `${event === 'ANALYSIS' ? 'Analysis' : event === 'ANALYSIS_UNDO' ? 'Undo' : 'Redo'}: ${def.name} v${def.version}${out.changes.length ? ` — ${out.changes.join('; ')}` : ''}${revisionId ? ` [${revisionId}]` : ''}`, ref: obj.id, traceId: tr.traceId }, actor.id);
+      WORK.repos.investigations.snapshot({ investigationId: invId, traceId: tr.traceId, context: session.ctx }, actor.id);
     }
     const objects = proposal ? [obj, { ...obj, id: `PROP-${proposal.id}`, type: 'ActionProposal', title: proposal.title, action: proposal, analysis: undefined, table: { columns: [], rows: [] } }] : [obj];
-    return { state: 'ANSWER', kind: 'ANALYSIS', notes, suggestions: [], extra: { objects, narrative: out.changes.length ? [{ text: `${out.changes.join('; ')}.`.replace(/^./, (c) => c.toUpperCase()), objectIds: [obj.id] }] : [], ...(proposal ? { actions: { planId: proposal.planId, proposals: [proposal] } } : {}), ...(title ? { title } : {}) } };
+    const said = out.answer ?? (out.changes.length ? `${out.changes.join('; ')}.`.replace(/^./, (c) => c.toUpperCase()) : null);
+    return { state: 'ANSWER', kind: 'ANALYSIS', notes, suggestions: [], extra: { objects, narrative: said ? [{ text: said, objectIds: [obj.id] }] : [], workspace, ...(proposal ? { actions: { planId: proposal.planId, proposals: [proposal] } } : {}), ...(title ? { title } : {}) } };
   }
 
   private readonly intents = new UniversalIntentResolver();
@@ -1758,6 +1928,74 @@ export class SloaneOrchestrator {
   }
   /** a goal → a run (answered with the run card once it reaches a checkpoint, finishes, or ~12s pass — it keeps running
    *  in the background); an instruction to the run on screen → an intervention. null = an ordinary turn. */
+  /* ================================================================================================
+     PHASE 8D — the financial agent's model hooks. Each returns the outcome and ONE call record (route, model, tokens,
+     cache tokens, estimated cost) for the run's trace. No model configured: null — the runtime says so and stops.
+     ================================================================================================ */
+  private callRecord(stage: string, route: Route, out: AdapterOutcome<unknown>) {
+    const u = out.status === 'ok' ? out.usage : out.status === 'error' ? out.usage ?? null : null, model = out.model ?? null;
+    return { stage, route: out.route ?? route, model, status: out.status, error: out.status === 'error' ? `${out.code}: ${out.detail}`.slice(0, 300) : null, latencyMs: out.latencyMs, inputTokens: u?.inputTokens ?? 0, outputTokens: u?.outputTokens ?? 0,
+      cacheReadTokens: u?.cacheReadTokens ?? 0, cacheWriteTokens: u?.cacheWriteTokens ?? 0, costUsd: u ? estimateCost(model, { inputTokens: u.inputTokens, outputTokens: u.outputTokens, cacheReadTokens: u.cacheReadTokens, cacheWriteTokens: u.cacheWriteTokens ?? 0 }) : 0 };
+  }
+  async agentThink(i: AgentStepInput, route: Route, signal?: AbortSignal): Promise<{ out: AdapterOutcome<AgentStepOut> | null; call: ReturnType<SloaneOrchestrator['callRecord']> | null }> {
+    if (this.mode !== 'reasoning' || !this.adapter.agentStep) return { out: null, call: null };
+    const out = await this.adapter.agentStep(i, { route, ...(signal ? { signal } : {}) });
+    return { out, call: this.callRecord('think', route, out) };
+  }
+  async agentSynth(i: AgentSynthInput, route: Route, signal?: AbortSignal): Promise<{ out: AdapterOutcome<AgentSynthOut> | null; call: ReturnType<SloaneOrchestrator['callRecord']> | null }> {
+    if (this.mode !== 'reasoning' || !this.adapter.agentSynth) return { out: null, call: null };
+    const out = await this.adapter.agentSynth(i, { route, ...(signal ? { signal } : {}) });
+    return { out, call: this.callRecord('synthesize', route, out) };
+  }
+  /** the run card a conversation turn returns for a run */
+  private runCard(session: Session, runId: string, actor: Actor, notes: string[], shortcut: string) {
+    const v = this.agents.get(runId, actor)!;
+    session.lastRunId = runId;
+    const object: FinancialObject = { id: 'FO-1', type: 'AgentRun', title: v.title, status: 'AVAILABLE', scope: { id: 'GROUP', name: v.scope }, periods: [], periodLabel: v.period, currency: 'USD', basis: '', unit: '',
+      table: { columns: [], rows: [] }, facts: [], provenance: { source: 'Korvyn agent runtime — every step a governed tool, every write confirmed by you', snapshotId: runId, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] },
+      population: null, refs: { runId }, focus: null, unavailable: null, governed: true, agentRun: v };
+    const q = v.checkpoints.find((c) => c.type === 'CLARIFICATION' && c.status === 'OPEN');
+    const narrative = q ? [q.reason ?? q.title] : v.result ? [v.result.headline] : [];
+    return { object, narrative, notes, title: v.title, shortcut };
+  }
+  /**
+   * 8D: start an OPEN INVESTIGATION. The goal is built from the conversation's resolved financial context (period,
+   * comparison, scope, what the words name, the analysis on screen) — not from a phrase: the objective's words are kept
+   * verbatim and the model plans from them. The run advances in the background; the turn returns its card after the
+   * first steps (or sooner, when it finishes), and the browser follows the rest.
+   */
+  private async investigationTurn(session: Session, sessionId: string, actor: Actor, request: string, status: (t: string) => void, signal: AbortSignal) {
+    const A = this.agents, c = session.ctx, v = conv(c);
+    const deps = { gl: this.gl, data: this.data, controls: this.controls, visible: visibleOf(actor), periods: this.data.governedPeriods(), workingPeriod: this.data.workingPeriod(), pbcRequests: [], artifacts: [] };
+    const r = (() => { try { return resolveTerms(request, deps); } catch { return null; } })();
+    const val = r?.values ?? {} as Record<string, string | null | undefined>;
+    const a = c.analysis && v.lastKind === 'ANALYSIS' ? c.analysis.definition : null;
+    const goal: AgentGoal = {
+      type: 'INVESTIGATE', objective: request, title: request.replace(/\s+/g, ' ').replace(/[.?!]+$/, '').slice(0, 70).replace(/^./, (x) => x.toUpperCase()),
+      period: (val['period'] as string | undefined) ?? c.period.value, periodRange: (val['periodRange'] as unknown as { start: string; end: string } | undefined) ?? c.periodRange.value ?? null,
+      scope: (val['entity'] as string | undefined) ?? c.scope.value,
+      subject: { vendor: (val['vendor'] as string | undefined) ?? null, project: (val['project'] as string | undefined) ?? null, entity: (val['entity'] as string | undefined) ?? null, account: (val['account'] as string | undefined) ?? null, pbcRequestId: null, reconciliationId: null, artifactId: null },
+      labels: { ...(r?.labels ?? {}) } as Record<string, string>, successCriteria: ['answer the objective from governed observations', 'separate fact, evidence, inference and open questions'],
+      constraints: { noComments: true, exclude: [], focusFirst: [], noActions: true, approveReady: false, noPackage: true }, requestedOutputs: ['findings'], userInstructions: [],
+      policyProfile: 'INVESTIGATION', riskTolerance: 'READ_ONLY', threshold: null, outputFormat: 'xlsx', pending: [], resolved: [], notices: [], periodText: null,
+      comparisonPeriod: c.comparisonPeriod.value ?? null,
+      activeAnalysis: a ? { name: a.name, type: a.analysisType, statement: a.statement, periods: a.periods, rows: a.rows.map((x) => x.dimension), columns: a.columns.map((x) => x.dimension), measures: a.measures, filters: a.filters.map((f) => `${f.dimension} ${f.op === 'IN' ? 'in' : 'not in'} ${f.values.join(', ')}`), sorts: a.sorts, selectedRow: c.analysis!.referents.activeRowId } : null,
+    };
+    const out = A.start(actor, request, { sessionId, goal });
+    if (!out.ok) return null;
+    const runId = out.run.runId, seen = new Set<string>();
+    status('Planning the investigation');
+    const t0 = Date.now();
+    while (Date.now() - t0 < 15000 && !signal.aborted) {
+      const b = A.body(runId, actor)!;
+      for (const p of b.progress) if (p.state === 'done' && !seen.has(p.line)) { seen.add(p.line); status(p.line); }
+      const active = b.progress.find((p) => p.state === 'active');
+      if (active && !seen.has(`~${active.line}`)) { seen.add(`~${active.line}`); status(active.line.replace(/…$/, '')); }
+      if (!['RUNNING', 'PLANNING', 'READY', 'CREATED'].includes(b.runStatus)) break;
+      await new Promise((res) => setTimeout(res, 150));
+    }
+    return this.runCard(session, runId, actor, [], `investigation:${runId}`);
+  }
   private async agentTurn(session: Session, sessionId: string, actor: Actor, request: string, status: (t: string) => void, signal: AbortSignal): Promise<{ object: FinancialObject; narrative: string[]; notes: string[]; title: string | null; shortcut: string } | null> {
     const A = this.agents;
     const card = (runId: string, notes: string[], shortcut: string) => {

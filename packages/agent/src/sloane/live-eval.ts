@@ -5,7 +5,7 @@
  * Writes a secret-free trace digest to SLOANE_EVAL_OUT (default ./sloane-live-eval.json).
  * Run: npx tsx src/sloane/live-eval.ts
  */
-import 'dotenv/config';
+import '../env.js';
 import { writeFileSync } from 'node:fs';
 import { createAdapter } from './adapter.js';
 import { loadSloaneConfig } from './config.js';
