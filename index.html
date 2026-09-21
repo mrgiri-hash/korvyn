@@ -2159,7 +2159,15 @@ body.rb-dragging .rb-zb.drop{border-color:var(--accent);background:var(--accent-
    control a person needs at every moment scrolled away the moment the conversation was longer than the screen,
    and the only way back to it was to scroll up past the answer you were reading. Header, scroller and composer
    are now three rows of a flex column: only the middle one moves. Same discipline the panel already had. */
-.slf{position:fixed;top:var(--header-h);left:0;right:0;bottom:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+/* C1.1 ISSUE A — FULL SCREEN IS A LAYOUT, NOT A DESTINATION.
+   The overlay ran to `left:0`, so expanding Sloane covered the Korvyn left rail: the application's own
+   navigation disappeared and what remained was a full-bleed surface with its own header — which is exactly
+   why it read as "navigate to a Sloane page" rather than as the same conversation given more room. The
+   assistant panel beside it had already settled this (`body.copilot-full .copilot`, 2026): full screen fills
+   the CONTENT area, `left` tracks --rail-w so it follows the rail as it collapses, and below the grid
+   breakpoint where the rail is off-canvas it reclaims the width. Sloane now follows the same rule. */
+.slf{position:fixed;top:var(--header-h);left:var(--rail-w);right:0;bottom:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;border-left:var(--rule-strong)}
+@media(max-width:1200px){ .slf{left:0;border-left:none} }
 /* AN EXPLICIT `display` OUTRANKS THE `hidden` ATTRIBUTE. The overlay was `overflow-y:auto` with no display of
    its own, so `hidden` worked by the UA default; giving it `display:flex` for the column layout silently made
    it permanently visible, covering the whole app. Recorded once already for `.slf-menu` — a closed overlay
@@ -2516,7 +2524,7 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .si-xlmeta{font-size:var(--fs-label);color:var(--hint);padding:var(--s-1) var(--s-2);border-top:1px solid var(--line)}
 .slx-sec.open .slx-ct tr.x{display:table-row}
 /* the workspace — the same investigation with room: main analysis 2/3, timeline and evidence 1/3 */
-.slw-hdb{display:inline-flex;align-items:center;gap:var(--s-1);height:var(--h-btn-sm);padding:0 var(--s-2);border:0;background:none;border-radius:var(--radius-xs);font:inherit;font-size:var(--fs-table);color:var(--muted);cursor:pointer}
+.slw-hdb{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-1);height:var(--h-btn-sm);width:var(--h-btn-sm);padding:0;border:0;background:none;border-radius:var(--radius-xs);font:inherit;font-size:var(--fs-table);color:var(--muted);cursor:pointer}
 .slw-hdb svg{width:14px;height:14px}
 .slw-hdb:hover,.slw-hdb:focus-visible{background:var(--n-50);color:var(--ink)}
 .slw-hdb.on{background:var(--n-100);color:var(--ink-strong)}
@@ -77762,13 +77770,15 @@ let SL_DRAFT='';
 function slExpand(){
   SL_SCROLL=window.scrollY||0;
   const pi=document.getElementById('cpInput'); SL_DRAFT=pi?pi.value:SL_DRAFT;
+  const a=slAnchor();
   if(SL_INV) SL_INV.expanded=true;
-  SL_FULL=true; slFullRender(); slPaint();
+  SL_FULL=true; slFullRender(); slPaint(); slReanchor(a);
 }
 function slFullHide(){ SL_FULL=false; const el=document.getElementById('slFull'); if(el){ el.hidden=true; el.innerHTML=''; } }
 function slFullClose(){ slFullHide(); }
 function slCollapse(){ const fi=document.getElementById('slfIn'); if(fi) SL_DRAFT=fi.value;
-  slFullHide(); cpOpen();
+  const a=slAnchor();
+  slFullHide(); cpOpen(); slReanchor(a);
   const pi=document.getElementById('cpInput'); if(pi&&SL_DRAFT&&!pi.value) pi.value=SL_DRAFT;
   requestAnimationFrame(()=>window.scrollTo(0,SL_SCROLL)); }
 function slCloseAll(){ slFullHide(); cpClose(); requestAnimationFrame(()=>window.scrollTo(0,SL_SCROLL)); }
@@ -78099,7 +78109,12 @@ function slFullRender(){
      separate from `SL_Q` (which drives the find-as-you-type surface): restoring a draft must not open a
      search. */
   const cmd=ph=>'<div class="slf-cmd">'+KI_SPARK+'<input id="slfIn" placeholder="'+ph+'" value="'+glEsc(SL_DRAFT)+'" autocomplete="off" spellcheck="false" oninput="SL_DRAFT=this.value" onkeydown="if(event.key===\'Enter\'){ slFullAsk(this.value); }"></div>';
-  const hdb=(l,fn,d,on,tip,dis)=>'<button class="slw-hdb'+(on?' on':'')+'" onclick="'+fn+'" title="'+(tip||l)+'"'+(dis?' disabled':'')+'>'+ic(d,1.3)+l+'</button>';
+  /* C1.1 §2 — NO COMPETING HEADER. The panel draws these five as ICON-ONLY controls with tooltips; the
+     workspace drew the same five with their words, directly under the Korvyn ribbon — so the full screen grew a
+     text navigation row the panel does not have, with "Home" sitting an inch below the ribbon's own Home. That
+     is most of what made expanding read as going somewhere. Same component, same controls, same shape; only
+     Collapse keeps its word, because it is the way back and has to be findable. */
+  const hdb=(l,fn,d,on,tip,dis)=>'<button class="slw-hdb'+(on?' on':'')+'" onclick="'+fn+'" title="'+(tip||l)+'" aria-label="'+glEsc(tip||l)+'"'+(dis?' disabled':'')+'>'+ic(d,1.3)+'</button>';
   let h='<div class="slf-top">'+hdb('Back','slBack()','M9.5 3.5L5 8l4.5 4.5',0,'Back to the previous Sloane step',!SL_STACK.length)
     +'<div class="slf-id">'+SL_AVATAR+'<div class="slf-titles"><div class="slf-title" data-ws="'+glEsc(mode==='session'?slActiveTitle(inv,e):'')+'">'+(mode==='session'?glEsc(slActiveTitle(inv,e)):'Sloane')+'</div>'
     +'<div class="slf-ctx">'+glEsc(mode==='session'?(slActiveTitle(inv,e)!==inv.title?'Investigation · '+inv.title+' · '+inv.ctx:inv.ctx):slFullCtx())+'</div></div></div><span class="sp"></span>'
@@ -78636,6 +78651,29 @@ function slStick(force){
   const sc=slScroller(); if(!sc) return;
   if(force) SL_STICK=true;
   if(SL_STICK) requestAnimationFrame(()=>{ const s=slScroller(); if(s) s.scrollTop=s.scrollHeight; });
+}
+/* C1.1 ISSUE A — THE READING POSITION IS AN EXCHANGE, NOT A PIXEL.
+   Expanding changes the scroller AND its width, so a carried pixel offset lands somewhere arbitrary: the same
+   answer occupies a different number of lines in a 400px panel and on a full screen. What the reader is
+   actually looking at is a TURN, and that survives a reflow. `slAnchor` records which exchange is at the top
+   of the view (and whether they were at the foot, which outranks everything); `slReanchor` puts it back after
+   the other layout has painted. Same conversation, same place in it. */
+function slThreadEl(){ return SL_FULL?document.getElementById('slfThread'):$('slBody'); }
+function slAnchor(){
+  const sc=slScroller(), th=slThreadEl(); if(!sc||!th) return null;
+  if(SL_STICK) return {foot:true};
+  const top=sc.getBoundingClientRect().top;
+  const kids=[...th.children];
+  for(let i=0;i<kids.length;i++) if(kids[i].getBoundingClientRect().bottom>top+4) return {i};
+  return {foot:true};
+}
+function slReanchor(a){
+  if(!a) return;
+  requestAnimationFrame(()=>{
+    const sc=slScroller(), th=slThreadEl(); if(!sc) return;
+    if(a.foot||!th||!th.children[a.i]){ sc.scrollTop=sc.scrollHeight; return; }
+    sc.scrollTop+=th.children[a.i].getBoundingClientRect().top-sc.getBoundingClientRect().top;
+  });
 }
 function slScrolled(ev){
   const sc=ev&&ev.target; if(!sc||!sc.scrollHeight) return;

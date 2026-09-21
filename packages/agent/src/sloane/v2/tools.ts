@@ -26,6 +26,7 @@ import {
   authorize, toolRegistry,
 } from '../tools.js';
 import { type PlanContext, composedByName, composedCoverage, composedFor, planContext } from './compose.js';
+import { type ConversationReferent, inheritReferent } from './referent.js';
 import { type FactContext, type FactRegistry, type FinancialFact, factsFrom } from './facts.js';
 import { SHOW_TOOL } from './respond.js';
 
@@ -186,6 +187,8 @@ export interface V2ToolOutcome {
   facts: FinancialFact[];
   /** PHASE 2.5 §6/§7: the person's own word for the subject, and the cut a breakdown was taken by */
   ctx: PlanContext;
+  /** C1.1: which dimensions this call inherited from the conversation's referent, for the trace */
+  inherited?: string[];
 }
 
 /** every argument arrives as text; anything else the model sent is coerced to text or dropped */
@@ -213,8 +216,14 @@ const fail = (name: string, args: ToolArgs, step: number, err: string, refused: 
 export function runTool(
   name: string, raw: unknown, env: Omit<ToolEnv, 'objectId'>, step: number, objectSeq: number,
   facts?: { registry: FactRegistry; ctx: FactContext },
+  referent?: ConversationReferent | null,
 ): V2ToolOutcome {
-  const given = coerceArgs(raw);
+  /* C1.1 §8 — THE GENERIC BOUNDARY, AND IT IS ONE LINE BECAUSE IT HAS TO BE.
+     A call to a subject-bearing operation that names no subject is elliptical, and the conversation's subject
+     is what it is about. A call that names one is the model's to decide, absolutely, which is what keeps a
+     topic switch working. This is the only place a referent is read, and it reads structure — never a phrase. */
+  const inh = inheritReferent(name, coerceArgs(raw), referent ?? null);
+  const given = inh.args;
   const t0 = Date.now();
   const composed = composedByName(name);
   let args = given, id = name, note: string | undefined, title: string | undefined, measure: PlanContext['measure'];
@@ -228,7 +237,7 @@ export function runTool(
     if (planned.kind === 'ANSWER') {
       /* the concept could not honestly produce a figure: that IS the governed answer */
       return register({ tool: name, ran: null, args: given, status: 'COMPLETED', object: planned.object,
-        observation: compact(step, name, name, planned.object, null), latencyMs: Date.now() - t0, error: null, facts: [], ctx: { ...planContext(given), ...(measure ? { measure } : {}), ...(note ? { note } : {}) } }, facts);
+        observation: compact(step, name, name, planned.object, null), latencyMs: Date.now() - t0, error: null, facts: [], ctx: { ...planContext(given), ...(measure ? { measure } : {}), ...(note ? { note } : {}) }, ...(inh.inherited.length ? { inherited: inh.inherited } : {}) }, facts);
     }
     id = planned.tool; args = planned.args; note = planned.note; title = planned.title; measure = planned.measure;
   }
@@ -247,7 +256,7 @@ export function runTool(
     if (title) r.object.title = title;
     const obs = compact(step, name, name, r.object, null);
     if (note) obs.note = obs.note ? `${note} ${obs.note}` : note;
-    return register({ tool: name, ran: id, args, status: 'COMPLETED', object: r.object, observation: obs, latencyMs: Date.now() - t0, error: null, facts: [], ctx: { ...planContext(given), ...(measure ? { measure } : {}), ...(note ? { note } : {}) } }, facts);
+    return register({ tool: name, ran: id, args, status: 'COMPLETED', object: r.object, observation: obs, latencyMs: Date.now() - t0, error: null, facts: [], ctx: { ...planContext(given), ...(measure ? { measure } : {}), ...(note ? { note } : {}) }, ...(inh.inherited.length ? { inherited: inh.inherited } : {}) }, facts);
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     return { ...fail(name, args, step, err, false, Date.now() - t0), ran: id };

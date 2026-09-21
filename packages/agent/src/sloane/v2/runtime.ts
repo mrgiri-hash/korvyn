@@ -49,6 +49,7 @@ import { type RespondInput, type ResponseDefinition, buildResponse, drillOffers,
 import {
   type Offer, type ResponseStrategy, composeDirect, directEligible, drillCall, offerTaken,
 } from './strategy.js';
+import { type ConversationReferent, nextReferent, resolvedPeriods } from './referent.js';
 
 /** what a handoff into an existing v1 surface gives back; v2 renders none of it itself */
 export interface V2Handoff { state: TurnState; extra: Partial<TurnResponse>; notes: string[] }
@@ -221,6 +222,23 @@ export class SloaneV2 {
        naming the codes it resolved to */
     const said = outcomes.map((o) => o.ctx.subject).filter(Boolean).at(-1) ?? null;
     const offers: Offer[] = def ? drillOffers(def, facts, said) : [];
+    /**
+     * C1.1 — WHAT THIS ANSWER WAS ABOUT, KEPT SO THE NEXT QUESTION DOES NOT HAVE TO REPEAT IT.
+     *
+     * The material was already here and was being thrown away: `said` above extracts the subject purely to
+     * word a drill offer, and `PlanContext` has carried subject, dimension, measure and the asked scope out of
+     * every dispatch since Phase 2.5. Keeping them is the whole of the referent — no new read, no injection.
+     */
+    const referent = nextReferent(body.state.referent ?? null, outcomes, body.turns.length + 1);
+    /**
+     * AND THE WORKING PERIOD, WHICH WAS THE MORE SERIOUS HALF.
+     *
+     * `period` is seeded from the book's OPEN period and was never written again, so a conversation about May
+     * was told "period: 2026-06" on every turn — the one fact the model is given about the book, contradicting
+     * the conversation it was in. It always meant "the period this conversation is working in"; it was simply
+     * never maintained. It is not injected any more than it already was: `stateForModel` has always reported it.
+     */
+    const per = resolvedPeriods(outcomes);
     const next: ConversationBody = {
       ...body,
       state: {
@@ -229,6 +247,9 @@ export class SloaneV2 {
         activePopulationId: population ?? body.state.activePopulationId,
         lastRefs: { ...body.state.lastRefs, ...merged },
         offers,
+        referent,
+        ...(per.period ? { period: per.period } : {}),
+        ...(per.comparisonPeriod !== null ? { comparisonPeriod: per.comparisonPeriod } : {}),
       },
     };
     saveConversation({ ...appendTurn(next, { userMessage: request, assistantMessage: answer, path, refs }), facts: facts.snapshot() }, actor);
@@ -634,8 +655,9 @@ export class SloaneV2 {
         if (i >= V2_LIMITS.maxToolsPerRound) {
           return { use: u, text: JSON.stringify({ status: 'NOT_RUN', note: `only ${V2_LIMITS.maxToolsPerRound} tools run in one step; ask again if you still need this` }) };
         }
-        const o = runTool(u.name, u.input, env, outcomes.length + 1, objects.length + 1, { registry: facts, ctx: factCtx });
+        const o = runTool(u.name, u.input, env, outcomes.length + 1, objects.length + 1, { registry: facts, ctx: factCtx }, body.state.referent ?? null);
         outcomes.push(o);
+        if (o.inherited?.length) trace.inherited = [...new Set([...(trace.inherited ?? []), ...o.inherited])];
         trace.toolCalls += 1;
         trace.tools.push({ tool: o.tool, status: o.status === 'COMPLETED' ? 'COMPLETED' : o.status === 'REFUSED' ? 'REFUSED' : 'FAILED', latencyMs: o.latencyMs, error: o.error });
         if (o.object) { objects.push(o.object); status(`Reading ${o.object.title}`); }

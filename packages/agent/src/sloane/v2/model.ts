@@ -84,6 +84,14 @@ export interface V2State {
    * they picked from a menu Korvyn wrote. Durable with the rest of the state, so a refresh does not lose it.
    */
   offers?: import('./strategy.js').Offer[];
+  /**
+   * C1.1 — WHAT THE LAST GOVERNED ANSWER WAS ABOUT.
+   *
+   * Lightweight conversation metadata, not application state: it is never injected into a model call and it is
+   * read in exactly one place — the generic dispatch boundary, when a call names no subject. See
+   * `v2/referent.ts` for why a scope word must not be able to replace a subject.
+   */
+  referent?: import('./referent.js').ConversationReferent | null;
 }
 
 /** a question Sloane asked and is waiting on; durable, so a refresh or a restart does not lose it */
@@ -150,6 +158,12 @@ export interface V2Trace {
   strategy: import('./strategy.js').ResponseStrategy | null;
   /** why a direct answer was not composed, when it was not */
   strategyReason: string | null;
+  /**
+   * C1.1 — which semantic dimensions a call inherited from the conversation's referent (subject, measure).
+   * Present so an inherited subject is VISIBLE when an answer is read back, rather than something the
+   * dispatcher did silently.
+   */
+  inherited?: string[];
   /** what the composer recognised in the governed result: VALUE | BREAKDOWN | STATUS */
   directShape: string | null;
   /**

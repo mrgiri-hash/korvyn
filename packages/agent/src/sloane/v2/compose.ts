@@ -269,8 +269,15 @@ const ANALYZE: ComposedTool = {
     if (dim && none) return { kind: 'RUN', tool: 'analyzeByDimension', args: A({ dimension: dim, periodStart: p, periodEnd: p, ...acct, ...filters, ...minChange }), ...N, ...TT };
     if (dim && a['top']) return { kind: 'RUN', tool: 'getTopMovements', args: A({ dimension: dim, period: p, ...cmp, ...acct, ...filters, topN: a['top'] }), ...N, ...TT };
     if (dim) return { kind: 'RUN', tool: 'getDriverAnalysis', args: A({ dimension: dim, period: p, ...cmp, ...acct, ...filters, ...minChange }), ...N, ...TT };
-    /* no dimension: an account subject gets the richer single read — activity, balance, change and its drivers */
-    if (s.account && !a['vendor'] && !a['project']) return { kind: 'RUN', tool: 'getAccountAnalysis', args: A({ account: s.account, period: p, ...cmp, ...carry(a, ['scope']) }), ...N, ...TT };
+    /* no dimension: an account subject gets the richer single read — activity, balance, change and its drivers.
+       C1.1 §5 — AND IT STATES WHICH OF THOSE ANSWERS THE QUESTION. This is the one read that returns an
+       activity AND a balance for the same subject, so a composer with nothing stated picks whichever fact it
+       meets first: a conversation about capex SPEND was answered "the CAPEX balance at May 2026 was $28.62M",
+       every figure governed and the wrong dimension reported. `subjectStep` already resolved the measure —
+       `getStatement` has stated it since Phase 2.5 and this branch simply did not. A BREAKDOWN is deliberately
+       left alone: its facts are movements, and stating the subject's natural measure over them would
+       misdescribe every row. */
+    if (s.account && !a['vendor'] && !a['project']) return { kind: 'RUN', tool: 'getAccountAnalysis', args: A({ account: s.account, period: p, ...cmp, ...carry(a, ['scope']) }), ...N, ...TT, ...(s.measure ? { measure: s.measure } : {}) };
     return { kind: 'RUN', tool: 'comparePeriods', args: A({ period: p, ...cmp, ...acct, ...filters }), ...N, ...TT };
   },
 };

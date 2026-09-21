@@ -12240,6 +12240,118 @@ touched).
 conversation is Back or History rather than a one-click return; and `SL_CHAT` is still the browser's render
 cache — a reload restores from the server, which is correct, but means an unsaved in-flight turn is lost.
 
+## 2026-09-21 — SLOANE C1.1: unified full screen, and conversational referent continuity
+
+Owner's brief, after a browser review of C1 left two release blockers. Presentation and conversation
+metadata only: the ledger, permissions, FinancialFacts, the analysis grid, the investigation runtime and
+the artifact engine are untouched, and no governed figure moved.
+
+### ISSUE A — FULL SCREEN WAS READING AS A DESTINATION, AND TWO THINGS WERE DOING IT
+
+The §1 audit checked nine things. Already correct and unchanged: **route** (no `pickTab`/`pickLens`;
+`TAB`/`LENS` identical across expand and collapse), **browser history** (`history.length` 2 → 2, URL
+unchanged), **conversation id** (`s2Sid`, one value), **state container** (`SL_CHAT` / `SL_INV` /
+`SL_MODE` are shared globals — one instance, two renderers) and **draft** (`SL_DRAFT`, carried since C1).
+Broken: **root DOM ownership**, **nav visibility** and **scroll container**.
+
+**THE RAIL WAS BEING COVERED, AND THAT WAS MOST OF THE FEELING.** `.slf{…left:0…}` ran the overlay to the
+viewport edge, so expanding Sloane hid the Korvyn left rail: the application's own navigation disappeared
+and what remained was a full-bleed surface with its own header. **The assistant panel beside it had
+settled this years ago** — `body.copilot-full .copilot{left:var(--rail-w)}` with a `@media(max-width:1200px)`
+reclaim, and its own comment says why — and Sloane simply did not follow it. Measured after:
+`rail.right === slFull.left === 200`, ribbon and enterprise strip visible, `left:0` at 1100px.
+
+**AND THE FULL SCREEN HAD GROWN A TEXT NAVIGATION ROW THE PANEL DOES NOT HAVE.** The panel draws Back ·
+Home · History · New as ICON-ONLY buttons with tooltips; the workspace drew the same four **with their
+words**, directly under the Korvyn ribbon — with "Home" an inch below the ribbon's own Home. Same
+component, same controls, same shape now. Only **Collapse** keeps its word, because it is the way back and
+has to be findable (the lesson already recorded when the back action was three controls).
+
+**THE READING POSITION IS AN EXCHANGE, NOT A PIXEL.** Expanding changes the scroller AND its width, so a
+carried offset lands somewhere arbitrary: the same answer occupies a different number of lines in a 400px
+panel and on a full screen. `slAnchor()` records which exchange is at the top of the view (and whether the
+reader was at the foot, which outranks everything); `slReanchor()` puts it back after the other layout has
+painted. Verified in both directions.
+
+### ISSUE B — "SHOW ME CONSOLIDATED" LOST THE CAPEX SUBJECT, AND THE PERIOD WITH IT
+
+Reproduced live before anything was touched. **TWO of the four semantic dimensions were being lost, not
+one**, and neither was a fault in the governed layer:
+
+1. **SUBJECT.** Turn 2 called `getStatement` with a scope and no subject. `view` defaults to `summary`
+   when no subject is present, so the dispatcher's own default read that as "they want the whole
+   statement" — and a summary is what a call with no subject means. The subject was never lost by a tool;
+   it was never CARRIED.
+2. **PERIOD.** `V2State.period` is seeded from `workingPeriod()` — the book's OPEN period — and was
+   **never written again**. A conversation entirely about May was told `period: 2026-06` on every turn: the
+   one fact the model is given about the book, actively contradicting the conversation it was in. It passed
+   June back, correctly, because that is what it was told.
+
+**THE REFERENT ALREADY EXISTED AND WAS BEING THROWN AWAY.** `PlanContext` has carried `subject`,
+`dimension`, `askedScope` and `measure` out of every dispatch since Phase 2.5, and `runtime.ts` already
+extracted the subject word purely to phrase a drill offer. `v2/referent.ts` keeps them. No new read, no new
+store — the `ConversationReferent` rides in the existing `SLOANE_CONVERSATION` record.
+
+**THE FIX IS AT THE GENERIC BOUNDARY (§8), AND IT IS ONE STRUCTURAL QUESTION.** `inheritReferent` asks of
+any call to any subject-bearing operation: *did the model name a subject?* If it did, the model wins
+absolutely — which is what keeps a topic switch working, because naming a new subject is how you switch
+topic. If it did not, and it did not ask for a whole statement by name either, the call is elliptical and
+the conversation's subject is what it is about. **There is no `if consolidated + CAPEX`, no phrase list,
+and the file does not contain the words "consolidated", "by region" or "what about June".**
+
+**MEASURE RIDES WITH SUBJECT AND ONLY WITH SUBJECT (§5).** Inheriting the word without the reading answered
+a capex SPEND conversation with a capex BALANCE — $28.62M where the turn before had said $0.92M, every
+figure governed and the wrong dimension reported. Found live on the first acceptance run. Its root cause was
+upstream of C1.1: `analyzeFinancials`'s single-subject branch is the one read that returns BOTH an activity
+and a balance fact for the same subject, and it never stated which it had resolved, so the composer picked
+whichever it met first. `getStatement` has stated it since Phase 2.5; that branch now does too. A BREAKDOWN
+is deliberately left alone — its facts are movements, and stating the subject's natural measure over them
+would misdescribe every row. **PRESENTATION (dimension) is not inherited at all.**
+
+**THE CLEARING RULE IS THE HALF THAT KEEPS TOPIC SWITCHING HONEST, and it is narrower than "a
+subject-bearing op ran with no subject".** Asking for a WHOLE statement, or for what moved across one,
+genuinely moves the conversation off a line, so the referent goes. A LEDGER read never clears: a journal
+opened by id is always about something, and wiping the topic because somebody opened a journal would be the
+referent working against the conversation. Anything else — close blockers, a reconciliation, a trace — says
+nothing either way and leaves it alone.
+
+**§4's prohibitions hold.** No unconditional `activeObject` injection, no `referencesInHand` on every turn,
+no semantic-neighbourhood injection, no UI state, no `selectedRow` / `selectedCell`, no sticky finance
+block. The referent is read in exactly ONE place and is never sent to the model; `trace.inherited` records
+what a call inherited, so an inherited subject is visible rather than silent. The only thing now reported to
+the model that was not before is the working `period` — which `stateForModel` has always reported, and which
+was simply never maintained.
+
+### Verified
+
+**§12, live, five turns:**
+
+| turn | before | after |
+|---|---|---|
+| Give me a high-level May CAPEX analysis and show additions by subsidiary | Capex by entity · May 2026 | same |
+| **Show me consolidated.** | **Financial summary · Jun 2026** | **Capex · May 2026, $0.92M activity** |
+| By region. | — | Capex by property · May 2026 (the book carries no region cut; it says so) |
+| What about June? | — | Capex by entity · **Jun** 2026 |
+| Show the accounts. | — | **Capex** by account · Jun 2026 |
+
+**§13, live:** *high-level May CAPEX* → *What's blocking close?* (close, correctly, referent untouched) →
+*Go back to CAPEX.* (capex) → *Show me the income statement.* (**clears**) → *Show me consolidated.* (the
+income statement, **not** capex). Both directions of the rule.
+
+**§14, in the browser:** the rail and ribbon stay visible and usable through expand; the draft, the
+transcript, the conversation id, the anchor, the route and the history entry all survive both directions;
+an answer's table renders inline in the thread in both layouts.
+
+289/289 tests (9 new in `v2/referent.test.ts`) · dry run pass · core 78/78 + boundary · **4/4 repo gates**,
+baselines unchanged · typecheck clean · console clean · no control characters introduced.
+
+### Open, and worth an owner's call
+
+On one of two runs *"By region."* composed as `Capex by property at May 2026: driver 1 No property.` — the
+subject and the period were right, and the composer reads poorly over an EMPTY breakdown. That is a
+pre-existing weakness in `composeDirect`'s BREAKDOWN shape, exposed because this book has no region
+dimension for capex.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
