@@ -65,7 +65,9 @@ test('P3 §14: the exposed surface answers by writing, and offers exactly one pr
   /* §40 — no tool names a screen or a topic; every one is a capability an agent could plan over */
   for (const n of names) assert.ok(!/(screen|panel|page|render|answer_|_question)/i.test(n), `tool "${n}" names a UI action`);
   /* §31 — the tool count did not grow to buy this */
-  assert.ok(names.length <= 13, `tools exposed: ${names.length}`);
+  assert.ok(names.length <= 14, `tools exposed: ${names.length}`);
+  /* SIMPLIFICATION §3 — what the state block stopped pushing is now asked for */
+  assert.ok(names.includes('getCurrentContext'), 'context is retrievable on demand');
 });
 
 test('P3 §14: a prose answer keeps its paragraphs; rows are marked as rows', () => {
@@ -158,6 +160,8 @@ test('P3 §4: the system prompt names no section and requires no answering tool'
   }
   assert.ok(/ANSWER THE QUESTION; DO NOT PRODUCE A REPORT/.test(V2_SYSTEM));
   assert.ok(/NOTHING IS SHOWN UNLESS YOU SHOW IT/.test(V2_SYSTEM));
-  assert.ok(/THE TEST IS WHAT THEY ASKED FOR, NOT WHAT YOU READ/.test(V2_SYSTEM), 'presentation turns on the request, not on what came back');
+  assert.ok(/A QUESTION .* gets an answer and nothing else/.test(V2_SYSTEM), 'presentation turns on the request, not on what came back');
+  /* SIMPLIFICATION §8 — the model is no longer required to end with an offer */
+  assert.ok(!/End with a short offer/.test(V2_SYSTEM), 'no mandatory follow-up');
   assert.ok(/WHAT YOU ARE TALKING ABOUT IS WHAT THEY JUST ASKED ABOUT/.test(V2_SYSTEM));
 });

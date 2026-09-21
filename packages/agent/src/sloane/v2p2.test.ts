@@ -12,7 +12,7 @@ import './toolset.js';
 import { conceptById, resolveMeasure } from './semantic/concepts.js';
 import { composedByName } from './v2/compose.js';
 import { FACT_LIMIT, FactRegistry, type FinancialFact, bareFigures, factsFrom, renderFacts, withoutRefs } from './v2/facts.js';
-import { buildResponse, renderResponse } from './v2/respond.js';
+import { buildResponse, drillOffers, renderResponse } from './v2/respond.js';
 
 const CTX = { book: 'CORE-GL', lens: 'Corporate Consolidated' };
 
@@ -387,8 +387,12 @@ test('P2 §32/§33/§34: a governed read carries its flux, reconciliation and so
 test('P2 §30: the offers are read from the cited facts, and a drill that would refuse is never offered', () => {
   const reg = new FactRegistry();
   const [thin] = reg.add(factsFrom(objOf({ id: 'FO-1', refs: { account: '15000' }, facts: [{ key: 'balance', label: 'B', value: 1, display: '1.0' }] }), CTX));
-  const shallow = renderResponse(buildResponse({ responseType: 'TRACE_RESULT', headline: `CIP is {{FACT:${thin!.factId}}}.` }, reg, { hasGovernedRead: true, objectIds: ['FO-1'] }), reg);
-  assert.deepEqual(shallow.nextActions, ['View the accounts', 'View the trial balance'], 'no population, no journal, so neither is offered');
+  const shallowDef = buildResponse({ responseType: 'TRACE_RESULT', headline: `CIP is {{FACT:${thin!.factId}}}.` }, reg, { hasGovernedRead: true, objectIds: ['FO-1'] });
+  /* SIMPLIFICATION §6 — nothing is PROPOSED that the model did not ask for */
+  assert.deepEqual(renderResponse(shallowDef, reg).nextActions, [], 'Korvyn volunteers nothing');
+  /* the derivation survives, because a taken offer must run without a model call */
+  assert.deepEqual(drillOffers(shallowDef, reg).map((o) => o.label), ['View the accounts', 'View the trial balance'],
+    'no population, no journal, so neither is offered');
 
   const [deep] = reg.add(factsFrom(objOf({
     id: 'FO-2',
@@ -396,8 +400,9 @@ test('P2 §30: the offers are read from the cited facts, and a drill that would 
     population: { populationId: 'POP-1', rowCount: 4, returned: 4, cursor: 0, nextCursor: null, sort: 'amount', exportHook: null },
     facts: [{ key: 'activity', label: 'A', value: 2, display: '2.0' }],
   }), CTX));
-  const full = renderResponse(buildResponse({ responseType: 'TRACE_RESULT', headline: `It posted {{FACT:${deep!.factId}}}.` }, reg, { hasGovernedRead: true, objectIds: ['FO-2'] }), reg);
-  assert.deepEqual(full.nextActions, ['View the statement line', 'View the account', 'View the trial balance', 'View the GL lines behind it'],
+  const fullDef = buildResponse({ responseType: 'TRACE_RESULT', headline: `It posted {{FACT:${deep!.factId}}}.` }, reg, { hasGovernedRead: true, objectIds: ['FO-2'] });
+  assert.deepEqual(renderResponse(fullDef, reg).nextActions, [], 'still nothing volunteered, however drillable the fact');
+  assert.deepEqual(drillOffers(fullDef, reg).map((o) => o.label), ['View the statement line', 'View the account', 'View the trial balance', 'View the GL lines behind it'],
     'the chain is walked in order and capped');
 
   /* the model's own next steps outrank the derived ones */

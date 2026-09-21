@@ -1123,7 +1123,23 @@ export class SloaneOrchestrator {
         if (ag) {
           tr.route = 'AGENT'; tr.shortcut = ag.shortcut; kind = 'ANSWER';
           ag.notes.forEach(note);
-          return finish('ANSWER', { objects: [ag.object], narrative: ag.narrative.map((t) => ({ text: t, objectIds: [ag.object.id] })), ...(ag.title ? { title: ag.title } : {}) });
+          const agResp = finish('ANSWER', { objects: [ag.object], narrative: ag.narrative.map((t) => ({ text: t, objectIds: [ag.object.id] })), ...(ag.title ? { title: ag.title } : {}) });
+          /**
+           * PHASE C1 §23/§43 — AN INVESTIGATION IS SOMETHING A CONVERSATION PRODUCES, NOT SOMEWHERE IT GOES.
+           *
+           * "Investigate why SV-PH2 capex dropped" is answered by the governed agent runtime, which has its own
+           * durable record — and the CONVERSATION it was asked in knew nothing about it. Measured: the run
+           * completed, and the conversation's transcript still ended at the previous question, so History
+           * showed a thread that stopped mid-sentence and no link between the two objects.
+           *
+           * The turn is recorded like any other and the run id is kept on the conversation's state, so the
+           * thread stays whole, the link is real, and a person can come back to the conversation. Nothing
+           * about the agent runtime changed — this is conversation bookkeeping (§44 is not touched).
+           */
+          if (this.cfg.runtimeV2 && this.v2.available()) {
+            try { this.v2.recordExternalTurn(sessionId, actor, request, ag.narrative.join(' ').slice(0, 600) || (ag.title ?? 'Investigation started.'), session.lastRunId ?? null); } catch { /* the run answered; bookkeeping never fails a turn */ }
+          }
+          return agResp;
         }
         session.lastRunId = null;
         /* V2 §2/§7 — the new conversational core, behind SLOANE_RUNTIME_V2, BESIDE everything below.
@@ -1165,7 +1181,19 @@ export class SloaneOrchestrator {
           for (const c of v2.trace.calls) tr.calls.push({ stage: c.stage, status: c.status, code: null, detail: c.error, providerRequestId: null, latencyMs: c.latencyMs, usage: { inputTokens: c.inputTokens, outputTokens: c.outputTokens, cacheReadTokens: c.cacheReadTokens }, route: 'FAST', model: c.model });
           kind = v2.state === 'CLARIFICATION_REQUIRED' ? 'CLARIFICATION' : v2.state === 'ANSWER' ? 'ANSWER' : null;
           v2.notes.forEach(note);
-          return finish(v2.state, v2.extra);
+          const resp = finish(v2.state, v2.extra);
+          /* PHASE C1 §31 — remember what the person saw, so History can restore the thread rather than
+             summarise it. The response is the one place the rendered shape is assembled; capturing it here
+             means the stored payload and the live answer are the same object by construction. */
+          if (v2.state === 'ANSWER' || v2.state === 'CLARIFICATION_REQUIRED') {
+            try {
+              this.v2.remember(sessionId, actor, {
+                objects: resp.objects ?? [], narrative: resp.narrative ?? [], presentation: resp.presentation ?? null,
+                suggestions: resp.suggestions ?? [], notes: resp.notes ?? [], workspace: resp.workspace ?? null,
+              });
+            } catch { /* a conversation that cannot be written still answers; the turn is not lost to bookkeeping */ }
+          }
+          return resp;
         }
         beginTurn(session.ctx, request);
         /* Phase 8B: a short request opens a financial context as a canvas; a short instruction refines the canvas on screen */

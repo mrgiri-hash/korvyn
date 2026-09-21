@@ -426,7 +426,18 @@ export function renderResponse(def: ResponseDefinition, reg: FactRegistry): Rend
   const text = parts.map((p) => p.text).join('\n\n');
   /* §30 — what the model asked for, else what the figures themselves can support. A conceptual answer with no
      governed figure behind it offers nothing, which is correct: there is nowhere to go. */
-  const nextActions = def.nextActions.length ? def.nextActions : drillActions(def, reg);
+  /**
+   * §6 — FACT METADATA ENABLES DRILLABILITY; IT DOES NOT PROPOSE IT.
+   *
+   * This used to fall back to `drillActions(def, reg)`, which read every cited fact's `availableDrills` and
+   * turned each into a button. So "View the accounts" and "View the trial balance" appeared under every
+   * revenue-shaped answer — identical every time, because they were a property of the DATA SHAPE rather than of
+   * the conversation. That is why they read as machinery.
+   *
+   * Only what the model actually asked for is offered now. `drillOffers` is still exported and still used to
+   * make a taken offer runnable without a model call; what is gone is Korvyn volunteering them.
+   */
+  const nextActions = def.nextActions;
   return { parts, text, unresolved: [...new Set(unresolved)], bare: [...new Set(bare)], typed: [...new Set(typed)], nextActions };
 }
 

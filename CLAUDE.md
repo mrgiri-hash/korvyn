@@ -12159,6 +12159,87 @@ rather than calling `show`. The invariant holds either way — nothing is shown 
 table can only be of an object read this turn — so the failure mode is an answer that is less convenient, never
 one that is wrong or inherited.
 
+## 2026-09-21 — SLOANE C1: the conversation is a first-class object
+
+Owner's brief, with Agentic AI frozen until the conversation module is excellent. Presentation, persistence and
+navigation only — the ledger, permissions, FinancialFacts, the analysis grid, the investigation runtime and the
+artifact engine are untouched. 280 tests · 35 dry-run checks · core 78 + boundary · 4/4 gates.
+
+**THE AUDIT'S ONE FINDING.** Every turn of every conversation has been written to `SLOANE_CONVERSATION` since
+Phase 1 — 350 records — and **nothing could read one back**. History listed INVESTIGATIONS, so the thing a
+person actually has with Sloane appeared nowhere, while **204 of 397 investigations had exactly one step**: the
+v1 tool path's `ensureInvestigation`, filling the list its own conversations should have been in. Nothing new is
+stored to fix that; what was missing is a NAME and a READ PATH.
+
+**THREE THINGS WERE MEASURED BEFORE THEY WERE CHANGED**, and the first is the release blocker:
+
+| | before | after |
+|---|---|---|
+| T1 — the person's own question on screen | **3,640ms** | **10ms** (max 58) |
+| T2 — activity state visible | 14ms, at the TOP of the panel, panel only | 10ms, **in the thread**, both layouts |
+| T3 / T4 — first answer token / final prose | 4.9s / — | 3.9s / 7.9s (p90 13.5s) — the model, unchanged |
+
+The fix is not faster, it is EARLIER: `slPendingOpen` puts the exchange in the thread at submit and every later
+frame writes into that same entry. Nothing about the model moved.
+
+**CONVERSATION ≠ INVESTIGATION ≠ AGENT RUN.** `ConversationBody` gains a `title` and each turn a `render`
+payload (§31: the response SHAPE, never the browser's HTML — re-renderable by any client, and size-capped so an
+oversized turn restores as its prose and says so). `GET /api/sloane/conversations[/:id]`, owner-filtered in the
+store. History leads with conversations grouped Today / Yesterday / This week / Older; investigations are their
+own section. An agent-answered turn is now recorded on the conversation with its `agentRunId` (§23/§43), so the
+thread stays whole and the link is real — the agent runtime itself is untouched (§44).
+
+**A MODEL CONTEXT WINDOW AND A PERSON'S HISTORY ARE TWO DIFFERENT THINGS.** `compactIfNeeded` REPLACED `turns`
+with the tail, so the durable transcript was trimmed to four exchanges — History could only ever have reopened
+the end of any conversation. Compaction is derived at transcript-build time now; the record keeps every turn
+(`logTurns` 400, against a 40-turn truncation). The `v2.test.ts` assertion that pinned the old behaviour was
+pinning the defect and now asserts both halves. `body.summary` survives read-only: pre-C1 records really did
+drop their turns and those lines are the only trace left.
+
+**TITLES ARE DERIVED, NOT GENERATED.** A model call per turn to name a thread is paid on every turn for
+something read once. A first cut filtered request words anywhere in the first six and produced "Happened
+EBITDA" from "What happened to EBITDA?" — it was removing the grammar that made the remainder a phrase. Only a
+LEADING run of polite framing is stripped; an interrogative is part of the subject. A greeting names nothing, so
+the thread is named by the first turn that has something to say. **Legacy records are named ON READ**, not
+migrated: the derivation is deterministic, and rewriting 80 governed records would move every `updatedAt` and
+reorder the list it exists to make readable.
+
+**Also:** the full screen is a flex COLUMN (header · scroller · composer) — the composer used to render at the
+top of the content and scroll away; `.slw-chat` is one column, so the thread centres on the page instead of
+inside the investigation grid's left two thirds; `SL_STICK` follows a streaming answer and stands down the
+moment the reader scrolls up, with a Jump to latest; a long governed table leads with six detail rows and
+discloses the rest while **every subtotal stays visible so it still foots**; the DOM cap went 40 → 200; a
+failure offers Retry with the words preserved.
+
+**FOUR DEFECTS FOUND ONLY BY DRIVING THE BROWSER:**
+- **AN EXPLICIT `display` OUTRANKS THE `hidden` ATTRIBUTE — second time.** `.slf` had no display of its own, so
+  `hidden` worked by the UA default; adding `display:flex` for the column made the overlay permanently visible
+  over the whole app. Already recorded for `.slf-menu`. A closed overlay needs its own `[hidden]` rule.
+- **A WHOLE REFERENCE KORVYN CANNOT RESOLVE WAS STREAMED VERBATIM.** The delta path held a reference that had
+  not finished ARRIVING and passed one that had arrived but named a fact not yet promoted — observed live as
+  `Revenue slipped to {{FACT:f_EeCrM7fdHJj9}}` on screen, which Phase 2 §26 forbids absolutely. It holds at the
+  first unresolved reference now; that can only delay text, never lose it.
+- **A SUPERSEDED TURN SAT HALF-WRITTEN FOREVER.** Asking again aborts the request, so the answer it was part-way
+  through never arrives. It keeps the words it said and states that it stopped.
+- **A CONVERSATIONAL TURN HAS NOTHING STRUCTURED TO DRAW**, and the response renderer handed that empty shape
+  reasonably concludes Korvyn cannot answer — a reopened turn that had said "SV-PH2 was the biggest decliner,
+  down ($6.84M)" came back reading "Sloane can't answer that with a governed Korvyn tool yet." Restore renders
+  structurally only when there IS structure.
+
+**The duplicate-class gate earned its place twice in one session** — it refused `.slx-q`, `.s2-conv` and
+`.s2-nar` re-declared beside their originals, and separately `slSecMore` already existed with forty call sites'
+worth of history. A prefix is not a namespace, and neither is a second declaration of your own class.
+
+**Not done, deliberately:** Agentic AI (frozen, §44) · inline governed-amount hover/drill (§18 says choose ONE
+model and the model-proposed `nextActions` chips are it) · a conversation-level Stop control (§36 — the browser
+aborts on supersession; a user-facing Stop is not wired) · transcript virtualization (the DOM cap is 200; the
+record is whole) · deleting or migrating the 204 one-step legacy investigations (§24 — they are demoted, not
+touched).
+
+**Open:** an investigation answer switches the panel to the investigation surface, so the way back to the
+conversation is Back or History rather than a one-click return; and `SL_CHAT` is still the browser's render
+cache — a reload restores from the server, which is correct, but means an unsaved in-flight turn is lost.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

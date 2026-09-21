@@ -69,7 +69,7 @@ export function coreTools(actor: Actor): SloaneTool[] {
  * has read an older prompt, may still emit one, and `isControlTool` has to keep recognising it so the loop can
  * answer it rather than treating it as a governed read. Neither is in `CONTROL_DEFS`, so neither is offered again.
  */
-export const V2_CONTROL_TOOLS = ['show', 'show_list', 'respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'] as const;
+export const V2_CONTROL_TOOLS = ['getCurrentContext', 'show', 'show_list', 'respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'] as const;
 export type V2ControlTool = (typeof V2_CONTROL_TOOLS)[number];
 export const isControlTool = (name: string): name is V2ControlTool => (V2_CONTROL_TOOLS as readonly string[]).includes(name);
 
@@ -108,6 +108,21 @@ export function toolDef(t: SloaneTool): V2ToolDef {
 }
 
 const CONTROL_DEFS: Partial<Record<V2ControlTool, V2ToolDef>> = {
+  /**
+   * §3 — WHAT THE STATE BLOCK STOPPED PUSHING, AVAILABLE WHEN IT IS ACTUALLY NEEDED.
+   *
+   * It is not a governed read: it computes nothing, reaches no service and can refuse nothing. It reports what
+   * THIS CONVERSATION is on, which is why it is a control tool and why an agent gets it for free without a
+   * neighbourhood being assembled for every step.
+   */
+  getCurrentContext: {
+    name: 'getCurrentContext',
+    description:
+      'What this conversation is currently on: the active object, the population behind the last answer, the comparison period, and the references in hand. '
+      + 'Call it when a short message points at something you cannot resolve from what was said — "why?", "what about May?", "by vendor", "show the accounts" — '
+      + 'and the transcript alone does not tell you which object or population is meant. You do not need it to answer an ordinary question.',
+    input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+  },
   show: SHOW_TOOL,
   open_analysis_grid: {
     name: 'open_analysis_grid',

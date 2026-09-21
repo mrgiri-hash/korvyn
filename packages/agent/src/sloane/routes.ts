@@ -303,6 +303,17 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
     send(res, 200, { outcome: 'SUCCESS', timeline: orchestrator.timeline(sid), audit: orchestrator.auditOf(sid) });
     return;
   }
+  /* ---- PHASE C1: conversations are what History lists ------------------------------------------
+     §2 — an ordinary exchange is the thing a person has with Sloane, and until now nothing could read one
+     back. §47 — ownership is enforced in the store, so a thread that is not the caller's reads exactly like
+     one that does not exist. */
+  if (req.method === 'GET' && r === 'conversations') { send(res, 200, { outcome: 'SUCCESS', conversations: orchestrator.v2.conversations(actor) }); return; }
+  if (req.method === 'GET' && r.startsWith('conversations/')) {
+    const id = r.slice('conversations/'.length);
+    const v = id ? orchestrator.v2.transcript(id, actor) : null;
+    if (v) send(res, 200, { outcome: 'SUCCESS', conversation: v }); else refuse(res, 'NOT_FOUND', 'No such conversation');
+    return;
+  }
   if (req.method === 'GET' && r === 'investigations') { send(res, 200, { outcome: 'SUCCESS', investigations: orchestrator.listInvestigations(actor) }); return; }
   if (r.startsWith('investigations/')) {
     const [id, verb] = r.slice('investigations/'.length).split('/');

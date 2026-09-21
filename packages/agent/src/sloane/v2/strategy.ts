@@ -421,16 +421,38 @@ export function drillCall(offer: Offer, fact: FinancialFact, state: { period: st
       }).filter((e): e is [string, string] => e[1] !== undefined && e[1] !== ''),
     ),
   });
+  /**
+   * §10/§11 — A DRILL INHERITS ITS PARENT'S SEMANTICS. THIS IS A CORRECTNESS FIX, NOT A WORDING ONE.
+   *
+   * The account drill used to send bare account CODES with no measure, so `resolveMeasure` had neither a verb
+   * nor a concept to read and fell back to the natural measure of the accounts themselves. For capex those are
+   * CIP and PP&E — balance-sheet accounts — so a parent fact read as ACTIVITY was drilled as a BALANCE, and
+   * "June capex was $5.01M" came back with "15100 CIP — buildings ($15.80M)" beneath it: a period flow and a
+   * point-in-time movement presented as one decomposition. Both figures governed, the pairing meaningless.
+   *
+   * The fact already carries its measure and the offer already carries the person's own word. Both are passed:
+   * the SUBJECT is the word where there is one ("capex"), because that is what carries the concept and its
+   * natural measure, and the MEASURE is stated explicitly so nothing has to be re-derived from codes.
+   *
+   * Generic by construction — it reads `fact.measure`, so a BALANCE parent drills as a balance and an ACTIVITY
+   * parent drills as activity, for any concept. Nothing here knows what capex is. A user who explicitly asks
+   * for a different measure is asking a new question and goes to the model, not through this path.
+   */
+  const measure = fact.measure === 'BALANCE' ? 'balance'
+    : (fact.measure === 'ACTIVITY' || fact.measure === 'PERIOD_MOVEMENT' || fact.measure === 'YTD_ACTIVITY') ? 'activity'
+      : undefined;
+  /* the word beats the codes: it resolves to the same governed members AND carries the concept with it */
+  const subjectWord = offer.subject ?? accounts;
   switch (offer.drill) {
     case 'STATEMENT_LINE':
       return call('getStatement', { view: 'line', subject: t.statementLineIds?.[0] ?? accounts, period });
     case 'ACCOUNT_GROUP':
     case 'ACCOUNT':
-      return accounts ? call('analyzeFinancials', { dimension: 'account', subject: accounts, period, comparisonPeriod: 'none' }) : null;
+      return accounts ? call('analyzeFinancials', { dimension: 'account', subject: subjectWord, period, comparisonPeriod: 'none', ...(measure ? { measure } : {}) }) : null;
     case 'TB_POPULATION':
       return call('getStatement', { view: 'trial_balance', period });
     case 'GL_POPULATION':
-      return accounts ? call('getLedgerDetail', { subject: accounts, period }) : null;
+      return accounts ? call('getLedgerDetail', { subject: subjectWord, period }) : null;
     case 'JOURNAL':
       return t.journalId ? call('getLedgerDetail', { journalId: t.journalId })
         : t.transactionId ? call('getLedgerDetail', { transactionId: t.transactionId }) : null;

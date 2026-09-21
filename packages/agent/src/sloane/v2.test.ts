@@ -93,14 +93,19 @@ test('V2 §5: compaction is deterministic — the verbatim window is kept, older
       refs: { toolCalls: [], objectIds: [`FO-${i}`], populationIds: i === 1 ? ['POP-KEEP'] : [], evidenceIds: [], analysisId: null, agentRunId: null } });
   }
   const W = V2_LIMITS.verbatimTurns;
-  assert.equal(body.turns.length, W);
-  assert.equal(body.turns[0]!.userMessage, `question ${9 - W + 1}`);
-  assert.equal(body.summary.length, 9 - W);
-  assert.ok(body.summary[0]!.includes('question 1'), 'the older turn is quoted, not paraphrased');
-  assert.ok(body.summary[0]!.includes('POP-KEEP'), 'a governed reference survives compaction');
+  /* PHASE C1 §30 — THE RECORD KEEPS EVERY TURN; only what is SENT to the model is compacted. This assertion
+     used to read `body.turns.length === W`, which pinned the defect: the durable transcript was being trimmed
+     to the model's context window, so History could only ever have reopened the last four exchanges of any
+     conversation. Both halves are asserted here now, because it is the SEPARATION that is the contract. */
+  assert.equal(body.turns.length, 9, 'the durable transcript is whole');
+  assert.equal(body.turns[0]!.userMessage, 'question 1', 'including its beginning');
+  assert.equal(body.summary.length, 0, 'nothing is written to the legacy summary any more');
   const msgs = transcriptMessages(body);
   assert.ok(String(msgs[0]!.content).includes('<earlier_conversation>'));
-  assert.equal(msgs.length, 2 + W * 2);
+  assert.ok(String(msgs[0]!.content).includes('question 1'), 'the older turn is quoted to the model, not paraphrased');
+  assert.ok(String(msgs[0]!.content).includes('POP-KEEP'), 'a governed reference survives compaction');
+  assert.equal(msgs.length, 2 + W * 2, 'the model still sees the compacted head plus the verbatim window');
+  assert.equal(msgs.at(-2)!.content, 'question 9', 'and the window is the most recent exchanges');
 });
 
 test('V2 §14: a clarification becomes part of the conversation, and the answer resumes it verbatim', async () => {

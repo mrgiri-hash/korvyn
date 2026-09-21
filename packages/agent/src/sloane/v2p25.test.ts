@@ -216,12 +216,35 @@ test('P2.5 §5: the declaration is read, not guessed', () => {
    §19/§20 — AN OFFER THE PERSON TOOK: no model call at all
    ================================================================================================ */
 
+
+/* the fact ids a scripted model has been shown — a local copy of the reader `v2.test.ts` uses */
+function factIdsShown(seen: { messages: ReasonMessage[] }): string[] {
+  const out: string[] = [];
+  for (const m of seen.messages) {
+    if (m.role !== 'user' || !Array.isArray(m.content)) continue;
+    for (const b of m.content as { type: string; content?: string }[]) {
+      if (b.type !== 'tool_result' || !b.content) continue;
+      try {
+        const o = JSON.parse(b.content) as { facts?: { id?: string }[] };
+        for (const f of o.facts ?? []) if (f.id) out.push(f.id);
+      } catch { /* not a governed observation */ }
+    }
+  }
+  return out;
+}
+
 test('P2.5 §19: taking an offer Korvyn made runs the drill with ZERO model calls', async () => {
   const s = sid();
-  const { orch, calls } = v2Orch(() => ({ tools: [{ name: 'getStatement', input: { view: 'line', subject: 'CIP', period: '2026-06', answerMode: 'direct' } }] }));
+  const { orch, calls } = v2Orch((round, seen) => {
+    if (round === 0) return { tools: [{ name: 'getStatement', input: { view: 'line', subject: 'CIP', period: '2026-06' } }] };
+    const f = factIdsShown(seen)[0]!;
+    /* SIMPLIFICATION §6 — Korvyn no longer volunteers offers, so the MODEL proposes this one. What is being
+       tested is unchanged and is the valuable half: a taken offer runs with zero model calls. */
+    return { tools: [{ name: 'respond', input: { headline: `CIP is {{FACT:${f}}}.`, nextActions: ['View the accounts'] } }] };
+  });
   const first = await orch.turn({ sessionId: s, request: "what's the CIP balance?" }, me);
   const offer = (first.suggestions ?? []).find((x) => /accounts|GL lines|trial balance/i.test(x));
-  assert.ok(offer, `Korvyn offered something to drill into: ${JSON.stringify(first.suggestions)}`);
+  assert.ok(offer, `the model offered something to drill into: ${JSON.stringify(first.suggestions)}`);
   const before = calls.length;
 
   const second = await orch.turn({ sessionId: s, request: offer! }, me);
@@ -355,9 +378,11 @@ test('P2.5 §33: the exposed surface is still the composed operations plus contr
   const defs = toolDefinitions(me);
   /* Phase 2.5 added NO tool to buy the direct path. Phase 2.6 added exactly one, `getMetric`, which covers every
      derived metric rather than one per KPI — the count is asserted so a per-metric tool cannot creep in. */
-  assert.equal(defs.length, 13, 'no tool was added to buy the direct path; Phase 2.6 added getMetric and nothing else');
+  /* SIMPLIFICATION §3 added exactly one more — getCurrentContext — and it REPLACED unconditional state
+     injection rather than adding a capability. The count stays asserted so a per-metric tool cannot creep in. */
+  assert.equal(defs.length, 14, 'getMetric and getCurrentContext; nothing else has crept in');
   /* the declaration is one optional argument on the governed operations, never a tool of its own */
-  const governed = defs.filter((d) => !['respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'].includes(d.name));
+  const governed = defs.filter((d) => !['show', 'getCurrentContext', 'respond', 'open_analysis_grid', 'start_investigation', 'ask_clarification'].includes(d.name));
   const withMode = governed.filter((d) => 'answerMode' in d.input_schema.properties);
   assert.equal(withMode.length, 7, 'every composed operation carries it, described identically');
   for (const d of withMode) assert.ok(!d.input_schema.required.includes('answerMode'), 'and it is never required');

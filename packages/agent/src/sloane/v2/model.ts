@@ -12,11 +12,36 @@
  */
 
 /** one exchange, kept verbatim. `userMessage` is the ORIGINAL language — never an intent enum. */
+/**
+ * PHASE C1 §31 — WHAT THE PERSON SAW, KEPT AS STRUCTURE RATHER THAN AS HTML.
+ *
+ * Reopening a conversation has to put the tables and the offers back, not only the prose. Storing the browser's
+ * rendered HTML would make the record a presentation artifact of one client and would have to be re-keyed the
+ * day a second one exists; storing the governed objects the answer was built from costs the same and is
+ * re-renderable by anything. So the record keeps the RESPONSE SHAPE — exactly what `/turn` returned — and the
+ * browser re-renders it through the one renderer it already uses for a live answer.
+ *
+ * It is size-capped. A turn whose payload does not fit keeps its prose and says so, which is §31's own
+ * "lightweight textual representation" rather than a silently half-restored thread.
+ */
+export interface TurnRender {
+  objects: unknown[];
+  narrative: unknown[];
+  presentation: unknown;
+  suggestions: string[];
+  notes: string[];
+  workspace: unknown;
+  /** set when the payload was too large to keep: the turn restores as prose */
+  trimmed?: true;
+}
+
 export interface V2Turn {
   turnId: string;
   at: string;
   userMessage: string;
   assistantMessage: string;
+  /** §31: the structured answer, for restoring the thread. Absent on a turn that predates C1. */
+  render?: TurnRender | null;
   /** which of the three paths answered it — for the trace and for A/B measurement */
   path: V2Path;
   refs: {
@@ -75,6 +100,14 @@ export interface ConversationBody {
   owner: string;
   startedAt: string;
   updatedAt: string;
+  /**
+   * PHASE C1 §3 — the conversation's own name, derived from what it is ABOUT. Null until the conversation has
+   * said something worth naming: "hello" is not a subject, and a list of conversations called "Hello" three
+   * times over is worse than one honest "New conversation".
+   */
+  title?: string | null;
+  /** which turn the title was derived from — a title taken off a casual opener is refined once, then left alone */
+  titleFromTurn?: number;
   /** §5: turns older than the verbatim window, compacted deterministically (no model call) */
   summary: string[];
   turns: V2Turn[];
@@ -161,8 +194,19 @@ export const V2_LIMITS = {
    * `SLOANE_V2_VERBATIM_TURNS` overrides it so the experiment can be re-run without an edit.
    */
   verbatimTurns: Math.max(2, Math.min(10, Number(process.env['SLOANE_V2_VERBATIM_TURNS']) || 4)),
-  /** hard cap on retained turns in the record (the summary carries the rest) */
-  maxTurns: 40,
+  /**
+   * PHASE C1 §30 — TWO DIFFERENT LIMITS, AND CONFLATING THEM IS WHAT DELETED PEOPLE'S CONVERSATIONS.
+   *
+   * `verbatimTurns` is the MODEL CONTEXT WINDOW: how much of the exchange is re-sent in the person's own words.
+   * `logTurns` is the DURABLE HUMAN TRANSCRIPT: what History can reopen. The record used to keep 40 and drop
+   * the rest, so a long conversation lost its own beginning to save tokens the model was never going to be
+   * sent anyway — the compaction summary already stood in for those turns.
+   *
+   * The log is capped only so one record cannot grow without bound; at 400 turns nothing in this product has
+   * ever come close, and a conversation that reaches it is a different problem from a conversation that is
+   * merely long.
+   */
+  logTurns: 400,
   /** §14: how many tool rounds one exchange may take before Korvyn stops and answers with what it has */
   maxToolRounds: 3,
   maxToolsPerRound: 4,

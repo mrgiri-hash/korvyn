@@ -37,10 +37,11 @@ import { V2_SYSTEM, dataBlock } from '../prompts.js';
 import type { ContextAssembler } from '../semantic/context.js';
 import { type Actor, type FinancialObject, type ToolEnv, visibleOf } from '../tools.js';
 import {
-  type ConversationBody, type V2Path, type V2Trace, V2_LIMITS,
+  type ConversationBody, type TurnRender, type V2Path, type V2Trace, V2_LIMITS,
 } from './model.js';
 import {
-  appendTurn, loadConversation, saveConversation, sessionLike, setPending, stateForModel, transcriptMessages,
+  appendTurn, contextOnDemand, listConversations, loadConversation, readConversation, saveConversation, setPending,
+  stateForModel, transcriptMessages, withRender,
 } from './conversation.js';
 import { type V2ToolOutcome, isControlTool, observationText, runTool, toolDefinitions } from './tools.js';
 import { FactRegistry, type FinancialFact, bareFigures, renderFacts, withoutRefs } from './facts.js';
@@ -117,6 +118,36 @@ export class SloaneV2 {
   traceOf(id: string): V2Trace | null { return this.traces.find((t) => t.traceId === id) ?? null; }
   /** the durable conversation, for tests and the development trace */
   conversation(sessionId: string, actor: Actor): ConversationBody { return loadConversation(sessionId, actor, this.seed(actor)); }
+
+  /* ---- PHASE C1: the conversation as a readable object ------------------------------------------ */
+  /** §2 — what History lists. Owner-filtered in the store; there is no parameter for someone else's thread. */
+  conversations(actor: Actor) { return listConversations(actor); }
+  /** §26 — the whole thread, with what each turn showed, so reopening restores rather than summarises */
+  transcript(sessionId: string, actor: Actor) { return readConversation(sessionId, actor); }
+  /**
+   * §31 — remember what the person saw. Called by the orchestrator once the turn's response exists, because the
+   * response is the only place the rendered shape is assembled; the runtime would otherwise have to build it a
+   * second time and the two could drift.
+   */
+  /**
+   * §23/§43 — a turn another runtime answered still belongs to the conversation it was asked in. The record
+   * keeps the exchange and the link (`agentRunId`), so the thread is whole in History and the investigation is
+   * reachable from it. The agent runtime keeps its own record; this does not duplicate it.
+   */
+  recordExternalTurn(sessionId: string, actor: Actor, request: string, said: string, runId: string | null): void {
+    const body = loadConversation(sessionId, actor, this.seed(actor));
+    const next = appendTurn(body, {
+      userMessage: request, assistantMessage: said, path: 'investigation-handoff',
+      refs: { toolCalls: [], objectIds: [], populationIds: [], evidenceIds: [], analysisId: null, agentRunId: runId },
+    });
+    saveConversation({ ...next, state: { ...next.state, agentRunId: runId ?? next.state.agentRunId } }, actor);
+  }
+
+  remember(sessionId: string, actor: Actor, render: TurnRender): void {
+    const body = loadConversation(sessionId, actor, this.seed(actor));
+    if (!body.turns.length) return;
+    saveConversation(withRender(body, render), actor);
+  }
 
   /**
    * PHASE 2.5 §6 — WHAT A DIRECT ANSWER DOES INSTEAD OF A SECOND MODEL CALL.
@@ -360,17 +391,26 @@ export class SloaneV2 {
     /* ---- 2. the context, built ONCE ------------------------------------------------------------ */
     const tools = toolDefinitions(actor);
     trace.toolsExposed = tools.length;
-    let semantic: unknown = null;
-    try { semantic = this.deps.semantic.forModel(actor, request, sessionLike(body.state)); } catch { semantic = null; }
+    /**
+     * §5 — THE SEMANTIC NEIGHBOURHOOD IS NO LONGER BUILT ON EVERY TURN.
+     *
+     * It seeded up to 24 objects and 40 relations from the FOCUS and the references in hand, so an ordinary
+     * "hello" arrived carrying a map of whatever was last looked at. That is the same stickiness the state
+     * block caused, in a larger and more expensive form, and for a future agent it would be paid once per step.
+     *
+     * The graph is untouched and still answers `resolveFinancialObject`, `resolveFinancialConcept` and the
+     * candidate resolution. What stopped is pushing it at the model unasked.
+     */
     trace.contextBuilds = 1;
     const state = stateForModel(body.state);
     trace.activeStateRefs = {
       period: body.state.period, scope: body.state.scope, object: body.state.activeObject?.id ?? null,
       analysisId: body.state.activeAnalysisId, populationId: body.state.activePopulationId,
     };
-    /* §10: the state and the neighbourhood are DATA — the same fenced block every other Sloane prompt uses, so a
-       memo or a vendor name inside them can never read as an instruction */
-    const opening = `${dataBlock({ state, semantic })}\n\n${request}`;
+    /* The four facts a tool call cannot be correct without — period, scope, basis, currency — and nothing about
+       the conversation. Still DATA, in the same fenced block every other Sloane prompt uses, so a memo or a
+       vendor name inside it can never read as an instruction. */
+    const opening = `${dataBlock({ book: state })}\n\n${request}`;
 
     /* the current turn also ends a cacheable prefix: within a turn, round 2's request repeats everything up to
        here, so the tool round costs cache reads rather than full input (§19) */
@@ -432,7 +472,22 @@ export class SloaneV2 {
             const open = text.lastIndexOf('{{');
             if (open >= 0 && !text.slice(open).includes('}}')) text = text.slice(0, open);
             if (text.endsWith('{')) text = text.slice(0, -1);
-            const shown = renderFacts(text, facts).text;
+            /**
+             * PHASE C1 — A WHOLE REFERENCE KORVYN CANNOT RESOLVE IS ALSO NOT SHOWN.
+             *
+             * The rule above holds a reference that has not finished ARRIVING. A reference that has arrived
+             * whole but names a fact not yet in the registry — the model writes it before the read that
+             * produces it has been promoted — resolves to nothing and was streamed verbatim: observed live as
+             * "Revenue slipped to {{FACT:f_EeCrM7fdHJj9}} from …" on a person's screen, which is the one thing
+             * Phase 2 §26 forbids absolutely.
+             *
+             * Holding at the first unresolved reference can only ever DELAY text, never lose it: the fact
+             * registers later in the same turn and the next delta continues from there, and the final answer
+             * is rendered whole regardless. Machinery must never be legible to a reader.
+             */
+            let shown = renderFacts(text, facts).text;
+            const bad = shown.indexOf('{{FACT:');
+            if (bad >= 0) shown = shown.slice(0, bad);
             if (shown.length <= stream.sent) return;
             if (trace.firstTokenMs === null) trace.firstTokenMs = now() - t0;
             /* §14 — the headline of `respond` IS the answer, so its first character is the first USEFUL one */
@@ -464,8 +519,20 @@ export class SloaneV2 {
       const uses: ReasonToolUse[] = res.value.toolUses;
       if (!uses.length) { answer = res.value.text; break; }
 
+      /**
+       * §3 — `getCurrentContext` is the one control tool that does NOT end the turn. It answers a question the
+       * model asked so it can go on and do the work, so it is served like a tool result and the loop continues.
+       */
+      const ctxAsk = uses.find((u) => u.name === 'getCurrentContext');
+      if (ctxAsk && uses.every((u) => u.name === 'getCurrentContext')) {
+        trace.toolCalls += 1;
+        trace.tools.push({ tool: 'getCurrentContext', status: 'COMPLETED', latencyMs: 0, error: null });
+        messages.push({ role: 'assistant', content: res.value.content });
+        messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: ctxAsk.id, content: JSON.stringify(contextOnDemand(body.state)) }] });
+        continue;
+      }
       /* a control tool ends the turn: the product does the thing, and no further reasoning call is spent */
-      const found = uses.find((u) => isControlTool(u.name));
+      const found = uses.find((u) => isControlTool(u.name) && u.name !== 'getCurrentContext');
       /* §22 — ANSWERING IN THE SAME BREATH AS READING IS ANSWERING BEFORE THE FACTS EXIST. A model that emits a
          governed read and an ANSWER together has written references to facts it has not been given yet; taking
          the answer here would publish an answer with nothing behind it. The reads run, the answering tool is
@@ -560,6 +627,7 @@ export class SloaneV2 {
       /* EVERY tool_use must be answered, or the provider rejects the next request — an over-cap call gets a
          result that says it was not run, never silence */
       const results = uses.map((u, i) => {
+        if (u.name === 'getCurrentContext') return { use: u, text: JSON.stringify(contextOnDemand(body.state)) };
         if (isControlTool(u.name)) {
           return { use: u, text: JSON.stringify({ status: 'NOT_RUN', note: 'the governed reads in this step have run; their results are below. Answer now by calling respond again, referencing the facts they returned.' }) };
         }
