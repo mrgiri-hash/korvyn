@@ -237,6 +237,14 @@ export interface InvestigationState {
   steps: { iteration: number; cls: CapabilityClass; model: string | null; decision: string; calls: { tool: string; args: Record<string, string>; purpose: string }[]; capabilitiesShown: number; contextChars: number; confidence: number | null; escalated: string | null; latencyMs: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; error?: string | null }[];
   escalations: { at: string; iteration: number; from: CapabilityClass; to: CapabilityClass; reason: string; detail: string }[];
   nextClass: CapabilityClass;
+  /** A2 §9: capability ids whose DESCRIPTION the planner has already been sent in this run */
+  described?: string[];
+  /**
+   * A2 §12: the objective was classified as turning on a JUDGMENT, so deeper reasoning is warranted — but not
+   * yet. The first step decides what to READ, with no observations in hand; there is nothing to judge until
+   * something has come back. Recorded here and spent from step 2 onward.
+   */
+  deepWarranted?: boolean;
   invalidStreak: number; rejectStreak: number;
   stopReason: string | null;
   synthesis: Synthesis | null;
@@ -250,18 +258,27 @@ export interface Synthesis {
   cls: CapabilityClass; model: string | null;
 }
 export function newInvestigation(): InvestigationState {
-  return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, startedAt: Date.now() };
+  return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, described: [], startedAt: Date.now() };
 }
 export interface FinancialFrame { objective: string; period: string; comparisonPeriod: string | null; governedPeriods: string[]; workingPeriod: string; scope: string; subject: Record<string, string | null>; constraints: { exclude: string[]; focusFirst: string[]; instructions: string[] }; activeAnalysis: unknown | null; actorRole: string }
 const FULL_KEEP = 4;
 /** what the model sees at a THINK step: the goal and frame, the working notes, the last few observations in full and the
  *  rest as digests, open questions, what was refused, and the relevant capabilities — never the conversation or raw rows */
-export function contextFor(s: InvestigationState, f: FinancialFrame, caps: readonly SloaneTool[], allDomains: string[]) {
+/**
+ * A2 §5/§9 — the planner's BRIEF comes from the profile, so a specialist differs by configuration and not by code,
+ * and the CAPABILITY CATALOGUE is sent once. The tool descriptions are ~750 tokens a step and do not change between
+ * steps of a run; after the first step only the ids are repeated, with the descriptions of any capability newly
+ * exposed. "Context is available, not imposed" applied to the one block that was fully redundant every time.
+ */
+export interface ProfileBrief { label: string; purpose: string; completion: string[]; autonomy: number }
+export function contextFor(s: InvestigationState, f: FinancialFrame, caps: readonly SloaneTool[], allDomains: string[], brief?: ProfileBrief, describedAlready: ReadonlySet<string> = new Set()) {
   const obs = s.observations;
   const full = obs.slice(-FULL_KEEP), older = obs.slice(0, Math.max(0, obs.length - FULL_KEEP));
   const shownDomains = [...new Set(caps.map((t) => t.domain))];
+  const fresh = caps.filter((t) => !describedAlready.has(t.id));
   return {
     objective: f.objective,
+    ...(brief ? { brief: { role: brief.label, purpose: brief.purpose, doneWhen: brief.completion, mayPrepare: brief.autonomy >= 2 } } : {}),
     goalClass: s.goalClass, understanding: s.understanding,
     financialContext: {
       period: `${f.period} (${periodLabel(f.period)})`, comparisonPeriod: f.comparisonPeriod, workingPeriod: f.workingPeriod, governedPeriods: f.governedPeriods,
@@ -277,7 +294,10 @@ export function contextFor(s: InvestigationState, f: FinancialFrame, caps: reado
     observations: full,
     earlierObservations: older.map(digest),
     refusedCalls: s.rejected.slice(-6),
-    capabilities: caps.map(capabilityOf),
+    /* every capability available now, by id (the tool enum is what the model may name); the DESCRIPTIONS only for
+       the ones it has not been shown before in this run */
+    capabilities: fresh.map(capabilityOf),
+    ...(fresh.length < caps.length ? { capabilitiesAlsoAvailable: caps.filter((t) => describedAlready.has(t.id)).map((t) => t.id) } : {}),
     otherDomains: allDomains.filter((d) => !(shownDomains as string[]).includes(d)),
   };
 }

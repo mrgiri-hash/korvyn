@@ -42,8 +42,32 @@ export const AUTONOMY = {
 export type AutonomyLevel = 0 | 1 | 2 | 3 | 4;
 
 export type ProfileId = 'READ_ONLY' | 'FINANCE_ANALYST' | 'CLOSE_PREPARER' | 'CONTROLLER_REVIEW' | 'AUDIT_SUPPORT' | 'INVESTIGATION';
+
+/**
+ * A2 §3/§5 — WHAT KIND OF WORK AN OBJECTIVE ASKS FOR. This is the ONLY axis on which Korvyn specialises a run, and
+ * it is a property of the OBJECTIVE, not of any phrase in it: a model classifies it (agent/objective.ts) and Korvyn
+ * maps it to a profile the actor is allowed to use. Three values, because three is what changes the authority a run
+ * needs — anything finer is a profile's own configuration.
+ */
+export const OUTCOMES = ['ANALYZE', 'PREPARE_DELIVERABLE', 'PREPARE_WORKFLOW_ACTIONS'] as const;
+export type OutcomeClass = (typeof OUTCOMES)[number];
+
+/**
+ * A2 §5 — THE PROFILE IS THE ONLY SPECIALISATION MECHANISM. A future CLOSE, RECONCILIATION, FLUX, AUDIT, REPORTING
+ * or PLANNING agent is a value in this table, not a runtime, not a workflow template and not a branch in the loop.
+ * Everything a specialist needs to differ on is a field here:
+ *
+ *   purpose / completion   what the run is for and when it is done — given to the planner as its brief
+ *   domains                which capability families are exposed (§6 discovery filters on this, then on permission)
+ *   autonomy               the ceiling on what may happen without a person
+ *   reasoningClass         where the loop STARTS on the capability ladder; escalation is per step and recorded
+ *   budget                 the governance boundary (§14) — the model can never raise it
+ *   execution              A2 §6: GENERIC, or a named LEGACY template. Default GENERIC; see `LEGACY_TEMPLATES`.
+ */
 export interface AgentPolicyProfile {
   id: ProfileId; label: string;
+  /** one sentence: what this profile is for. Given to the planner so the brief comes from configuration, not code. */
+  purpose: string;
   /** the highest level the runtime may act at without a person */
   autonomy: AutonomyLevel;
   /** tool domains the profile's tasks may use (READ tools); PROPOSE tools additionally need autonomy >= 2 */
@@ -52,6 +76,25 @@ export interface AgentPolicyProfile {
   autonomousActionTypes: string[];
   /** action types that may be PREPARED (proposals / drafts); anything else is refused at plan validation */
   preparableActions: string[];
+  /** A2 §12: the capability class the loop starts at. Escalation above it is per step, for a recorded reason. */
+  reasoningClass: 'M1' | 'M2' | 'M3';
+  /** what "done" means for this profile — stated to the planner, and checked by VERIFY */
+  completion: string[];
+  /**
+   * A2 §14: the governance boundary for this profile, as OVERRIDES over the deployment's own defaults. It is
+   * layered at USE time (`profileBudget`), never frozen at import: the ceilings a deployment sets in its
+   * environment stay a deployment's to set, and a profile only says where its own work differs.
+   */
+  budget: Partial<import('./investigate.js').AgentBudget>;
+  /** A2 §13: how many independent governed READS this profile may run in one tick */
+  maxParallelReads: number;
+  /**
+   * A2 §6 — GENERIC is the runtime. A legacy goal type here means this profile still runs the pre-A2 hard-coded
+   * task graph, and is a COMPATIBILITY SHIM with a stated reason, not architecture.
+   */
+  execution: 'GENERIC' | GoalType;
+  /** the outcome classes this profile may serve; Korvyn maps a classified objective onto the first that fits */
+  serves: OutcomeClass[];
   maxSteps: number; maxRuntimeMs: number; maxRetries: number; maxConsecutiveFailures: number;
   /** 'GROUP' may run across the enterprise; 'ENTITY' only inside the actor's own entity scope */
   maxScope: 'GROUP' | 'ENTITY';
@@ -61,23 +104,126 @@ export interface AgentPolicyProfile {
   requireEvidence: Record<string, string[]>;
 }
 const READS = ['financials', 'tb', 'ledger', 'analysis', 'flux', 'recon', 'close', 'reporting', 'audit', 'evidence', 'trace', 'find'];
-const base = { autonomousActionTypes: [] as string[], maxRetries: 1, maxConsecutiveFailures: 3, materialityUsd: 1_000_000,
+/** A2 §14: budgets are configuration. A profile states where its work differs; the model can never raise either. */
+const budget = (o: Partial<import('./investigate.js').AgentBudget>) => o;
+const base = { autonomousActionTypes: [] as string[], maxRetries: 1, maxConsecutiveFailures: 3, materialityUsd: 1_000_000, maxParallelReads: 3,
+  execution: 'GENERIC' as const, reasoningClass: 'M2' as const,
   requireEvidence: { RECONCILIATION_APPROVAL: ['glBalance', 'difference', 'tieStatus', 'supportStatus', 'reviewStatus', 'sourceFreshness'] } };
+
+/**
+ * A2 §5 — THE PROFILES. Everything that used to be a template's shape is a value here. Adding a specialist (CLOSE,
+ * RECONCILIATION, FLUX, POLICY, PLANNING) is adding a row; it is not a runtime, a branch or a workflow graph.
+ *
+ * THE FIRST FOUR RUN THE GENERIC RUNTIME. The last two still name a legacy template and say why: the generic loop
+ * reads, analyses and synthesises, and the action-preparation pipeline (build → validate → propose → confirm →
+ * generate) is not expressible in its planner contract yet. That is A3's work, and it is a SHIM, not architecture.
+ */
 export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
-  READ_ONLY: { ...base, id: 'READ_ONLY', label: 'Read only', autonomy: 1, domains: READS, preparableActions: [], maxSteps: 16, maxRuntimeMs: 120_000, maxScope: 'GROUP' },
-  FINANCE_ANALYST: { ...base, id: 'FINANCE_ANALYST', label: 'Finance analyst', autonomy: 2, domains: [...READS, 'build', 'action'], preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'SAVE_ANALYSIS', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'], maxSteps: 20, maxRuntimeMs: 180_000, maxScope: 'GROUP' },
-  CLOSE_PREPARER: { ...base, id: 'CLOSE_PREPARER', label: 'Close preparer', autonomy: 2, domains: [...READS, 'build', 'action'], preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ATTACH_SUPPORT'], maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'ENTITY' },
-  CONTROLLER_REVIEW: { ...base, id: 'CONTROLLER_REVIEW', label: 'Controller review preparation', autonomy: 2, domains: [...READS, 'build', 'action'],
-    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'RECONCILIATION_APPROVAL', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'], maxSteps: 30, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
-  /* 8D: read, analyse, synthesize (levels 0–1); the findings and next steps are the workproduct — nothing is prepared or written */
-  INVESTIGATION: { ...base, id: 'INVESTIGATION', label: 'Financial investigation', autonomy: 1, domains: [...READS, 'semantic'], preparableActions: [], maxSteps: 40, maxRuntimeMs: 300_000, maxScope: 'GROUP' },
-  AUDIT_SUPPORT: { ...base, id: 'AUDIT_SUPPORT', label: 'Audit support', autonomy: 2, domains: [...READS, 'build', 'action'], preparableActions: ['GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT', 'REFRESH_PBC_REQUEST'], maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
+  INVESTIGATION: { ...base, id: 'INVESTIGATION', label: 'Financial investigation',
+    purpose: 'Investigate an open financial question across whatever governed evidence bears on it, and state what is established, what is not, and what needs attention.',
+    autonomy: 1, domains: [...READS, 'semantic'], preparableActions: [], serves: ['ANALYZE'],
+    completion: ['the objective is answered from governed observations', 'each finding cites the observation it rests on', 'what could not be established is stated rather than inferred'],
+    budget: budget({}), maxSteps: 40, maxRuntimeMs: 300_000, maxScope: 'GROUP' },
+  READ_ONLY: { ...base, id: 'READ_ONLY', label: 'Read only',
+    purpose: 'Establish where something stands from governed records, without preparing or changing anything.',
+    autonomy: 1, domains: READS, preparableActions: [], serves: ['ANALYZE'], reasoningClass: 'M2',
+    completion: ['the position is stated from governed reads', 'material exceptions are identified and ranked', 'nothing is prepared or written'],
+    /* a status question is narrower work than an open investigation, and its budget says so */
+    budget: budget({ maxIterations: 6, maxModelCalls: 9, maxToolCalls: 14, maxElapsedMs: 120_000, maxEstimatedCostUsd: 0.5 }),
+    maxSteps: 16, maxRuntimeMs: 120_000, maxScope: 'GROUP' },
+  FINANCE_ANALYST: { ...base, id: 'FINANCE_ANALYST', label: 'Finance analyst',
+    purpose: 'Analyse a financial question and prepare the deliverable it calls for, for a person to confirm.',
+    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_DELIVERABLE'],
+    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'SAVE_ANALYSIS', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'],
+    completion: ['the deliverable is composed from governed objects', 'its validation is stated', 'nothing is generated or written until confirmed'],
+    budget: budget({ maxIterations: 10, maxToolCalls: 24, maxElapsedMs: 180_000 }),
+    execution: 'BUILD_FINANCIAL_ARTIFACT', maxSteps: 20, maxRuntimeMs: 180_000, maxScope: 'GROUP' },
+  CLOSE_PREPARER: { ...base, id: 'CLOSE_PREPARER', label: 'Close preparer',
+    purpose: 'Work an entity through what its close still needs, within that entity only.',
+    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_WORKFLOW_ACTIONS'],
+    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ATTACH_SUPPORT'],
+    completion: ['every outstanding item is identified', 'what a preparer must do is prepared for confirmation', 'nothing is written until confirmed'],
+    budget: budget({ maxIterations: 12, maxToolCalls: 28, maxElapsedMs: 240_000 }),
+    maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'ENTITY' },
+  CONTROLLER_REVIEW: { ...base, id: 'CONTROLLER_REVIEW', label: 'Controller review preparation',
+    purpose: 'Get a period ready for a controller to review: what is unresolved, what is material, and the drafts that would clear it.',
+    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_WORKFLOW_ACTIONS'], reasoningClass: 'M2',
+    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'RECONCILIATION_APPROVAL', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'],
+    completion: ['the position is established', 'drafts are prepared for every item that needs one', 'a governed approval is routed, never taken'],
+    budget: budget({ maxIterations: 14, maxToolCalls: 30, maxElapsedMs: 240_000 }),
+    execution: 'PREPARE_CONTROLLER_REVIEW', maxSteps: 30, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
+  AUDIT_SUPPORT: { ...base, id: 'AUDIT_SUPPORT', label: 'Audit support',
+    purpose: 'Assemble the governed support an auditor asked for, with its population, its tie-out and its gaps stated.',
+    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_DELIVERABLE'],
+    preparableActions: ['GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT', 'REFRESH_PBC_REQUEST'],
+    completion: ['the population is resolved and pinned', 'the tie-out status is stated', 'gaps are disclosed rather than filled'],
+    budget: budget({ maxIterations: 12, maxToolCalls: 26, maxElapsedMs: 240_000 }),
+    execution: 'PREPARE_AUDIT_SUPPORT', maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
 };
-/** the profile is chosen by KORVYN from the goal type — never by the model, never by the request text */
+
+/**
+ * A2 §6 — the legacy execution templates that survive, and the ONE reason each does. They are reachable only
+ * because a profile names them; nothing reads the request text to choose one. `REVIEW_CLOSE` and
+ * `INVESTIGATE_VENDOR` are NOT here: A1's smoke showed the generic loop does that work better, and no profile
+ * names them any more.
+ */
+export const LEGACY_TEMPLATES: Partial<Record<GoalType, string>> = {
+  PREPARE_CONTROLLER_REVIEW: 'The build → validate → propose → confirm → generate pipeline is not expressible in the planner contract yet (A3).',
+  PREPARE_AUDIT_SUPPORT: 'Same pipeline, over an audit population that must be pinned before it is packaged (A3).',
+  BUILD_FINANCIAL_ARTIFACT: 'Same pipeline; a named existing workbook is regenerated from its saved definition (A3).',
+};
+
+/**
+ * A2 §3 — WHICH PROFILE SERVES A CLASSIFIED OBJECTIVE. This replaces `PROFILE_FOR[goalType]`, and with it the regex
+ * that chose a template from the request text. The OUTCOME comes from a model classification (agent/objective.ts);
+ * the PROFILE, and therefore the authority, is Korvyn's alone and is intersected with what the actor may do.
+ */
+export const PROFILE_FOR_OUTCOME: Record<OutcomeClass, ProfileId> = {
+  ANALYZE: 'INVESTIGATION', PREPARE_DELIVERABLE: 'FINANCE_ANALYST', PREPARE_WORKFLOW_ACTIONS: 'CONTROLLER_REVIEW',
+};
+/** kept for persisted runs and the deprecated forced-goal-type shim; never consulted for a new conversational run */
 export const PROFILE_FOR: Record<GoalType, ProfileId> = {
   REVIEW_CLOSE: 'READ_ONLY', INVESTIGATE_VENDOR: 'READ_ONLY', PREPARE_CONTROLLER_REVIEW: 'CONTROLLER_REVIEW',
   PREPARE_AUDIT_SUPPORT: 'AUDIT_SUPPORT', BUILD_FINANCIAL_ARTIFACT: 'FINANCE_ANALYST', GENERIC: 'FINANCE_ANALYST', INVESTIGATE: 'INVESTIGATION',
 };
+
+/* ================================================================================================
+   SUBJECT — A2 §7: an extensible reference, not a finance schema
+   ================================================================================================ */
+/**
+ * What a run is ABOUT. Before A2 this was a fixed record of finance fields (vendor, project, entity, account,
+ * pbcRequestId, reconciliationId, artifactId), so Korvyn could not point a run at a policy, a close task, a control,
+ * a contract, an asset or a planning scenario without a schema change and a migration.
+ *
+ * `type` is Korvyn's own object vocabulary — the same words the semantic graph, the tools' `ParamKind`s and the
+ * trace already use ('vendor', 'account', 'reconciliation', 'policy', 'closeTask' …). It is deliberately a string:
+ * a runtime that enumerated every object type would need editing every time Korvyn learned a new one, which is the
+ * coupling this replaces. Typed finance identity is not lost — it moves from the SHAPE to the `type` field, and the
+ * legacy accessors below still answer in the old vocabulary.
+ */
+export interface ObjectRef { type: string; id: string; label?: string }
+/** the finance fields the pre-A2 goal carried, and the ref type each maps to */
+const SUBJECT_TYPES: Record<string, string> = { vendor: 'vendor', project: 'project', entity: 'entity', account: 'account', pbcRequestId: 'pbcRequest', reconciliationId: 'reconciliation', artifactId: 'artifact' };
+const LEGACY_FIELD: Record<string, string> = Object.fromEntries(Object.entries(SUBJECT_TYPES).map(([k, v]) => [v, k]));
+/**
+ * A persisted run has `subject` and no `refs`; a run created after A2 has both. Reading refs through here is what
+ * makes the change backward compatible without a migration: nothing rewrites a stored run.
+ */
+export function refsOf(goal: AgentGoal): ObjectRef[] {
+  if (goal.refs?.length) return goal.refs;
+  return Object.entries(goal.subject ?? {}).filter(([, v]) => v).map(([k, v]) => ({ type: SUBJECT_TYPES[k] ?? k, id: v as string, ...(goal.labels?.[v as string] ? { label: goal.labels[v as string]! } : {}) }));
+}
+/** the id of the first ref of a type, in the legacy field vocabulary ('vendor', 'account', 'pbcRequestId' …) */
+export function refOf(goal: AgentGoal, field: string): string | null {
+  const type = SUBJECT_TYPES[field] ?? field;
+  return refsOf(goal).find((r) => r.type === type)?.id ?? null;
+}
+/** the legacy `subject` record, derived from refs — so a caller that has not moved on still reads the same shape */
+export function subjectOf(goal: AgentGoal): AgentGoal['subject'] {
+  const out = { vendor: null, project: null, entity: null, account: null, pbcRequestId: null, reconciliationId: null, artifactId: null } as AgentGoal['subject'];
+  for (const r of refsOf(goal)) { const f = LEGACY_FIELD[r.type]; if (f && f in out) (out as Record<string, string | null>)[f] = r.id; }
+  return out;
+}
 
 /* ================================================================================================
    GOAL
@@ -89,7 +235,15 @@ export interface AgentGoal {
   title: string;
   period: string; periodRange: { start: string; end: string } | null;
   scope: string;
+  /** @deprecated A2 §7 — read through `refsOf` / `refOf` / `subjectOf`. Kept written so a pre-A2 reader still works. */
   subject: { vendor: string | null; project: string | null; entity: string | null; account: string | null; pbcRequestId: string | null; reconciliationId: string | null; artifactId: string | null };
+  /** A2 §7 — what the run is about, extensibly. Absent on runs persisted before A2; `refsOf` derives them. */
+  refs?: ObjectRef[];
+  /** A2 §3 — the classified outcome this run's profile was chosen to serve, and how it was classified */
+  outcome?: OutcomeClass;
+  outcomeSource?: 'model' | 'deterministic' | 'caller';
+  /** A2 §5: a profile the CALLER asked for. Honoured only as far as the actor's own authority allows. */
+  requestedProfile?: ProfileId;
   /** display names for resolved values ("South Valley (SV-PH2)" for SV-PH2) */
   labels: Record<string, string>;
   successCriteria: string[];
@@ -256,6 +410,11 @@ export interface AgentRunBody {
    * each THINK call). This is the OUTER bound; the two never disagree because both run through `budgetExhausted`.
    */
   budget?: import('./investigate.js').AgentBudget;
+  /**
+   * A2 §8 — THE EXECUTION WATERFALL. Where a run's wall clock actually went, measured at the call sites rather than
+   * inferred from a log afterwards, plus whether its replans changed anything (§10).
+   */
+  waterfall: { classifyMs: number; planMs: number; thinkMs: number; toolMs: number; synthesizeMs: number; narrateMs: number; verifyMs: number; waitMs: number; usefulReplans: number; noopReplans: number };
   usage: { steps: number; activeMs: number; consecutiveFailures: number; modelCalls: number; inputTokens: number; outputTokens: number;
     /** optional so a run persisted before A1 still loads; read through `runUsage()`, never directly */
     toolCalls?: number; cacheReadTokens?: number; estimatedCostUsd?: number };

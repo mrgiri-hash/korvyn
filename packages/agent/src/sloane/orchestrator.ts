@@ -18,7 +18,7 @@
 import { findSavedReport } from './book.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AdapterOutcome, AgentStepInput, AgentSynthInput, SloaneLLMAdapter, Usage } from './adapter.js';
-import type { AgentStepOut, AgentSynthOut } from './schema.js';
+import type { AgentStepOut, AgentSynthOut, ObjectiveClass } from './schema.js';
 import { estimateCost } from './agent/investigate.js';
 import type { AgentGoal } from './agent/model.js';
 import { resolveTerms } from './agent/ambiguity.js';
@@ -50,6 +50,8 @@ import { bareObjectPlan, semanticPlan } from './semantic/tools.js';
 import { ContextAssembler } from './semantic/context.js';
 import { financialGraph } from './semantic/graph.js';
 import { workbookObject } from './actiontools.js';
+import { isAgenticObjective } from './agent/objective.js';
+import { AgentService } from './agent/service.js';
 import { AgentRuntime } from './agent/runtime.js';
 import { ENTITY_WORDS, PROJECT_ALIAS, type ConvDeps, type ConvState, type FastPath, type TurnKind, afterAnswer, beginTurn, capabilityFallback, capabilityGap, contextView, conv, conversationalShortcut, initialConv, interp, investigationTitle, onNewObject, resolveConversational } from './conversation.js';
 import type { Conversation } from './schema.js';
@@ -942,6 +944,7 @@ export class SloaneOrchestrator {
     this.semantic = new ContextAssembler(financialGraph({ data: this.data, gl: this.gl, controls: this.controls, artifacts: this.artifacts }));
     /* Phase 7: the agent runtime — every step it takes comes back through agentValidate / agentExecute / decide */
     this.agents = new AgentRuntime(this);
+    this.agentService = new AgentService(this.agents);
     /* V2 §2: the new conversational core, BESIDE this one. It is constructed either way and only reached when the
        flag is on and the turn is one it should take; v1 below is untouched and stays the default. */
     this.v2 = new SloaneV2({ adapter: this.adapter, data: this.data, gl: this.gl, controls: this.controls, semantic: this.semantic, artifacts: this.artifacts, ...(this.artifacts.pbc ? { pbc: this.artifacts.pbc } : {}) });
@@ -955,6 +958,8 @@ export class SloaneOrchestrator {
     return { ...this.context.forModel(ctx), semantic };
   }
   readonly agents: AgentRuntime;
+  /** A2 §15: the non-conversational entry point — a module, scheduler or workflow starts a run through this */
+  readonly agentService: AgentService;
 
   /** The user's decision on a proposal or plan. The browser collects it; everything else happens here. */
   decide(input: DecideInput, actor?: Actor): DecideResult {
@@ -2015,6 +2020,14 @@ export class SloaneOrchestrator {
     return { stage, route: out.route ?? route, model, status: out.status, error: out.status === 'error' ? `${out.code}: ${out.detail}`.slice(0, 300) : null, latencyMs: out.latencyMs, inputTokens: u?.inputTokens ?? 0, outputTokens: u?.outputTokens ?? 0,
       cacheReadTokens: u?.cacheReadTokens ?? 0, cacheWriteTokens: u?.cacheWriteTokens ?? 0, costUsd: u ? estimateCost(model, { inputTokens: u.inputTokens, outputTokens: u.outputTokens, cacheReadTokens: u.cacheReadTokens, cacheWriteTokens: u.cacheWriteTokens ?? 0 }) : 0 };
   }
+  /** A2 §3 — whether the gateway can reason for an agent run at all (the deterministic planner answers if not) */
+  reasoningAvailable(): boolean { return this.mode === 'reasoning' && !!this.adapter.agentStep; }
+  /** A2 §3/§4 — the objective classification, once per agent run, on the cheapest route the gateway offers */
+  async classifyObjective(objective: string, signal?: AbortSignal): Promise<{ out: AdapterOutcome<ObjectiveClass> | null; call: ReturnType<SloaneOrchestrator['callRecord']> | null }> {
+    if (this.mode !== 'reasoning' || !this.adapter.classifyObjective) return { out: null, call: null };
+    const out = await this.adapter.classifyObjective({ objective }, { route: 'NARRATE', ...(signal ? { signal } : {}) });
+    return { out, call: this.callRecord('classify', 'NARRATE', out) };
+  }
   async agentThink(i: AgentStepInput, route: Route, signal?: AbortSignal): Promise<{ out: AdapterOutcome<AgentStepOut> | null; call: ReturnType<SloaneOrchestrator['callRecord']> | null }> {
     if (this.mode !== 'reasoning' || !this.adapter.agentStep) return { out: null, call: null };
     const out = await this.adapter.agentStep(i, { route, ...(signal ? { signal } : {}) });
@@ -2074,7 +2087,7 @@ export class SloaneOrchestrator {
     }
     return this.runCard(session, runId, actor, [], `investigation:${runId}`);
   }
-  private async agentTurn(session: Session, sessionId: string, actor: Actor, request: string, status: (t: string) => void, signal: AbortSignal): Promise<{ object: FinancialObject; narrative: string[]; notes: string[]; title: string | null; shortcut: string } | null> {
+  private async agentTurn(session: Session, sessionId: string, actor: Actor, request: string, status: (t: string) => void, signal: AbortSignal, modelSaysAgentic?: boolean): Promise<{ object: FinancialObject; narrative: string[]; notes: string[]; title: string | null; shortcut: string } | null> {
     const A = this.agents;
     const card = (runId: string, notes: string[], shortcut: string) => {
       const v = A.get(runId, actor)!;
@@ -2097,13 +2110,30 @@ export class SloaneOrchestrator {
       }
       /* 2. a short instruction steers the run durably — unless the words are a NEW goal ("Review last quarter." is a close
          review of its own, not a period change to the vendor review on screen) */
-      if (request.split(/\s+/).length <= 16 && !A.detect(request, actor)) {
+      /* A2 §4: a short instruction steers the run on screen — unless the words are a NEW objective of their own */
+      if (request.split(/\s+/).length <= 16 && !isAgenticObjective(request).agentic) {
         const r = A.steer(last.runId, actor, request);
         if (r.recognised) { await A.wait(last.runId, 10000); return card(last.runId, [r.effect], `steer:${r.type}:${last.runId}`); }
       }
     }
-    const type = A.detect(request, actor);
-    if (!type) return null;
+    /**
+     * A2 §4 — THE INVOCATION GATE. Not every turn is a run, and this decides only whether the request is work to
+     * carry through; it never chooses a template, a profile or an authority.
+     *
+     * WHERE A MODEL IS CONFIGURED, KORVYN DOES NOT START A RUN HERE AT ALL. The conversational front door reads
+     * every turn a few lines further on and already classifies an objective (`conversationIntent === 'INVESTIGATION'`
+     * → `investigationTurn`). §4 asks for the existing lightweight classification to be reused rather than a second
+     * judgement added, and a deterministic pre-gate running FIRST would overrule the better one: it claimed
+     * "Compile Siemens FY26 support" as an objective when the conversation composes that in a single turn.
+     * This branch is therefore the fallback for a deployment with no model — the only case where nothing else can
+     * decide — and steering an existing run, above, is unaffected either way.
+     */
+    if (this.reasoningAvailable()) return null;
+    const gate = isAgenticObjective(request, modelSaysAgentic);
+    if (!gate.agentic) return null;
+    /* and only what Korvyn's own deterministic planner can actually plan: with no model, a request it has no plan
+       for would become a one-step run, which is strictly worse than the answer the conversation already gives it */
+    if (!A.detect(request, actor)) return null;
     const out = A.start(actor, request, { sessionId });
     if (!out.ok) return null;
     const runId = out.run.runId, seen = new Set<string>();
@@ -2115,7 +2145,7 @@ export class SloaneOrchestrator {
       if (!['RUNNING', 'PLANNING', 'READY', 'CREATED'].includes(b.runStatus)) break;
       await new Promise((res) => setTimeout(res, 150));
     }
-    return card(runId, [], `goal:${type}`);
+    return card(runId, [], `objective:${A.body(runId, actor)?.goal.outcome ?? 'ANALYZE'}`);
   }
   /** what the conversational front door may know: the page (reported by the browser, unverified), the governed context,
    *  the last answer's titles and stated figures, the investigation and the run in this conversation — never more */

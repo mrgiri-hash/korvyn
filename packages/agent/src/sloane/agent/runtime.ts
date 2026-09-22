@@ -27,8 +27,10 @@ import { type SteeringIntent, classifySteering } from './steering.js';
 import { AGENT_DOMAINS, CLASS_ROUTE, type AgentBudget, type AgentUsage, type CompactObservation, type FinancialFrame, type InvestigationState, allowedNumbers, budgetExhausted, compact, contextFor, defaultBudget, escalate, newInvestigation, progressLine, referentsOf, relax, relevant, synthesisContext, ungrounded } from './investigate.js';
 import {
   type AgentCheckpoint, type AgentFinding, type AgentGoal, type AgentIntervention, type AgentObservation, type AgentRunBody, type AgentRunOptions,
-  type AgentRunStatus, type AgentTask, type GoalType, type RunContext, type SteeringType, type UserSteeringEvent, POLICY_PROFILES, TERMINAL, WAITING,
+  type AgentRunStatus, type AgentTask, type GoalType, type ObjectRef, type OutcomeClass, type ProfileId, type RunContext, type SteeringType, type UserSteeringEvent,
+  POLICY_PROFILES, PROFILE_FOR, TERMINAL, WAITING, refsOf,
 } from './model.js';
+import { classifyObjective, profileForOutcome } from './objective.js';
 
 const KIND = 'AGENT_RUN';
 const now = () => new Date().toISOString();
@@ -41,16 +43,38 @@ const now = () => new Date().toISOString();
  * model-call, token and cost dimensions come from the deployment's own defaults, because those are a deployment
  * decision and not a finance-domain one (§13: "do not make limits finance-domain-specific").
  */
-function runBudget(profile: { maxSteps: number; maxRuntimeMs: number }): AgentBudget {
-  const d = defaultBudget();
-  return { ...d, maxIterations: profile.maxSteps, maxToolCalls: Math.max(d.maxToolCalls, profile.maxSteps), maxElapsedMs: profile.maxRuntimeMs };
+/**
+ * A2 §14 — THE OUTER (RUN) BUDGET, layered: the deployment's environment defaults, then the profile's SPEND
+ * overrides, then the shape ceilings the profile's own size implies.
+ *
+ * `maxIterations` MEANS TWO DIFFERENT THINGS and conflating them cost a round: in the INNER loop's budget it counts
+ * THINK iterations, and here it counts STEPS. A profile's `budget.maxIterations` is the inner one, so taking it
+ * here capped a nine-step template run at six steps and BLOCKED it mid-plan (observed). Only the spend dimensions
+ * — model calls, tokens, cost, escalations — carry across; the shape dimensions are the run's own.
+ */
+function runBudget(profile: { maxSteps: number; maxRuntimeMs: number; budget?: Partial<AgentBudget> }): AgentBudget {
+  const d = defaultBudget(), p = profile.budget ?? {};
+  const spend: Partial<AgentBudget> = {};
+  for (const k of ['maxModelCalls', 'maxInputTokens', 'maxOutputTokens', 'maxEstimatedCostUsd', 'maxEscalations'] as const) if (p[k] !== undefined) spend[k] = p[k];
+  return { ...d, ...spend, maxIterations: profile.maxSteps, maxToolCalls: Math.max(d.maxToolCalls, profile.maxSteps), maxElapsedMs: profile.maxRuntimeMs };
 }
+/** A2 §14: a profile's INNER loop budget — the deployment's defaults with the profile's overrides on top */
+export const profileBudget = (p: { budget?: Partial<AgentBudget> }): AgentBudget => ({ ...defaultBudget(), ...(p.budget ?? {}) });
 /** the run's usage in the shape `budgetExhausted` reads — one budget engine, two callers (the run and its investigation) */
 /**
  * A1 §10 — the book and lens a run's facts are promoted under. This server presents one governed book; when a run
  * can be started against another, it comes from the run's own financial context and not from here.
  */
 const FACT_CTX = { book: 'CORE-GL', lens: 'Corporate Consolidated' };
+/**
+ * A2 §10 — IS THIS STEP AFFECTED BY A CHANGE OF SCOPE? Derived from the TOOL's own declared parameters, so it is
+ * true of any capability that takes a scope dimension and needs no list to maintain. The legacy templates marked
+ * `scopeSensitive` by hand; a model-planned step had nothing marking it, so "Only South Valley." changed the goal
+ * and re-ran nothing. Preserving unaffected tasks means knowing which ones ARE affected.
+ */
+const SCOPE_KINDS = new Set(['scope', 'entity', 'project', 'vendor', 'account']);
+const scopeSensitiveTool = (id: string | null) => !!id && !!toolRegistry.get(id)?.params.some((p) => SCOPE_KINDS.has(p.kind));
+
 /** §18: how many independent READS may share one tick. Deliberately small — this is a foundation, not a worker pool. */
 const MAX_PARALLEL = Number(process.env['KORVYN_AGENT_MAX_PARALLEL']) > 0 ? Number(process.env['KORVYN_AGENT_MAX_PARALLEL']) : 3;
 function runUsage(run: AgentRunBody, elapsedMs: number): AgentUsage {
@@ -107,10 +131,27 @@ export class AgentRuntime {
   }
   detect(text: string, actor?: Actor): GoalType | null { return detectGoalType(text, actor ? hasSubject(resolveTerms(text, this.deps(actor))) : false); }
 
-  start(actor: Actor, text: string, opt: { goalType?: GoalType; options?: AgentRunOptions; sessionId?: string; goal?: AgentGoal } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
+  /**
+   * A2 §3 — START. The request no longer chooses an execution template: every run begins on the GENERIC runtime
+   * with a provisional read-only profile, and `plan()` classifies the objective through the Model Gateway, maps the
+   * OUTCOME to a profile (Korvyn's decision, capped by the actor's authority) and applies that profile's budget,
+   * reasoning class and execution before a single step runs.
+   *
+   * `goalType` survives as an explicit caller override — a deprecated compatibility shim for the three legacy
+   * action-preparation templates and for tests. Nothing reads the request text to set it.
+   */
+  start(actor: Actor, text: string, opt: { goalType?: GoalType; profile?: ProfileId; outcome?: OutcomeClass; refs?: ObjectRef[]; options?: AgentRunOptions; sessionId?: string; goal?: AgentGoal } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
     const deps = this.deps(actor);
-    const goal = opt.goal ?? parseGoal(text, deps, opt.goalType);
+    /* a forced legacy type keeps its own parse; everything else is an INVESTIGATE goal until the classifier speaks */
+    const goal = opt.goal ?? parseGoal(text, deps, opt.goalType ?? 'INVESTIGATE');
     if (!goal) return { ok: false, reason: 'This is not a goal Sloane can carry through as a governed run. Ask it as a question, or name what to review, prepare or investigate.' };
+    /* A2 §7: what the run is about, as extensible refs. The legacy `subject` record is still written, so a reader
+       that has not moved on sees exactly what it saw before. */
+    const seeded = refsOf(goal);
+    goal.refs = [...seeded, ...(opt.refs ?? []).filter((r) => !seeded.some((x) => x.type === r.type && x.id === r.id))];
+    if (opt.profile && POLICY_PROFILES[opt.profile]) { goal.requestedProfile = opt.profile; goal.policyProfile = opt.profile; }
+    if (opt.outcome) { goal.outcome = opt.outcome; goal.outcomeSource = 'caller'; }
+    if (opt.goalType) goal.outcomeSource ??= 'caller';
     const profile = POLICY_PROFILES[goal.policyProfile];
     const runId = `RUN-${Date.now().toString(36).toUpperCase()}${randomUUID().slice(0, 4).toUpperCase()}`;
     const sessionId = opt.sessionId && /^[A-Za-z0-9_-]{8,64}$/.test(opt.sessionId) ? opt.sessionId : `agent-${runId.toLowerCase()}`;
@@ -125,6 +166,8 @@ export class AgentRuntime {
       sessionId, investigationId, graph: { planId: `APLAN-${runId}`, version: 0, tasks: [], revisions: [] }, currentTaskId: null,
       observations: [], checkpoints: [], interventions: [], steering: [], events: [], limits: { maxSteps: profile.maxSteps, maxRetries: profile.maxRetries, maxRuntimeMs: profile.maxRuntimeMs },
       budget: runBudget(profile),
+      /* A2 §8: where a run's time actually goes, measured rather than inferred from the log */
+      waterfall: { classifyMs: 0, planMs: 0, thinkMs: 0, toolMs: 0, synthesizeMs: 0, narrateMs: 0, verifyMs: 0, waitMs: 0, usefulReplans: 0, noopReplans: 0 },
       usage: { steps: 0, activeMs: 0, consecutiveFailures: 0, modelCalls: 0, inputTokens: 0, outputTokens: 0, toolCalls: 0, cacheReadTokens: 0, estimatedCostUsd: 0 }, trace: { toolCalls: [], modelCalls: [], policyDecisions: [] },
       verification: null, result: null, resultObjectIds: [], artifactIds: [], warnings: [], errors: [], completionReason: null,
       startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' || goal.type === 'INVESTIGATE' ? 'MODEL' : 'TEMPLATE',
@@ -132,8 +175,11 @@ export class AgentRuntime {
       actionPlanId: `APLAN-${runId}-1`, governedPlanId: `GPLAN-${runId}-1`, planSeq: 1, dataVersion: this.o.gl.dataVersion(), options, progress: [],
     };
     this.objects.set(runId, new Map());
-    this.event(run, 'RUN_CREATED', `Goal: ${goal.title} · profile ${profile.label} (chosen by Korvyn from the goal type)`);
-    this.policy(run, `profile:${profile.id}`, 'ALLOW', `Goal type ${goal.type} → ${profile.label}; autonomy level ${profile.autonomy}; autonomous action types: none`);
+    /* A2 §3: with no model, classification is synchronous and happens HERE — before a clarification can be raised */
+    this.deterministicProfile(run, actor);
+    const chosen = POLICY_PROFILES[run.goal.policyProfile];
+    this.event(run, 'RUN_CREATED', `Goal: ${goal.title} · profile ${chosen.label} (chosen by Korvyn, never by the request)`);
+    this.policy(run, `profile:${chosen.id}`, 'ALLOW', `${chosen.label}; autonomy level ${chosen.autonomy}; autonomous action types: none`);
     WORK.repos.records.insert(KIND, { run }, actor.id, { id: runId, status: run.runStatus, period: goal.period, scope: goal.scope, investigationId });
     this.cache.set(runId, run);
     this.audit(run, actor, 'AGENT_RUN_STARTED', null, { goal: goal.title, profile: profile.id });
@@ -148,9 +194,106 @@ export class AgentRuntime {
     return { ok: true, run };
   }
 
+  /**
+   * A2 §3 — CLASSIFY, THEN CHOOSE THE PROFILE. One model call per run, on the cheapest route, before anything
+   * executes. The model says what KIND of outcome the objective asks for; Korvyn owns the mapping to a profile and
+   * caps it by the actor's own authority, so no wording can widen what a run may do.
+   */
+  private async classify(run: AgentRunBody, actor: Actor) {
+    const g = run.goal;
+    if (g.outcomeSource === 'caller' || g.outcomeSource === 'deterministic' || g.type !== 'INVESTIGATE') {
+      /**
+       * A caller that named the outcome, a forced legacy template, or a run already resolved deterministically.
+       * The profile is still APPLIED here: it decides the inner loop's budget and reasoning class as well as the
+       * run's, and skipping that left a caller-declared profile with the deployment's default loop budget rather
+       * than its own (observed — a READ_ONLY run held to 20 tool calls instead of its 14).
+       */
+      const cd = profileForOutcome(g.outcome ?? 'ANALYZE', actor, g.policyProfile);
+      this.applyProfile(run, cd.profile);
+      this.policy(run, `profile:${cd.profile}`, cd.capped ? 'CHECKPOINT' : 'ALLOW', g.outcomeSource === 'caller' ? `The caller declared the outcome class. ${cd.reason}`
+        : g.outcomeSource === 'deterministic' ? 'Classified without a model; the profile was chosen at start.' : `Deprecated compatibility shim: goal type ${g.type} was forced by the caller.`);
+      if (cd.capped) { run.warnings.push(cd.reason); this.line(run, cd.reason, 'skipped'); }
+      return;
+    }
+    const t0 = Date.now();
+    const c = await classifyObjective(this.o, g.objective, this.ac(run.runId).signal);
+    run.waterfall.classifyMs += Date.now() - t0;
+    if (c.call) this.model(run, { ...c.call, cls: 'M1' });
+    /* a caller that ASKED for a profile is honoured only as far as the actor's authority allows (§7) */
+    const d = profileForOutcome(c.outcome, actor, run.goal.requestedProfile);
+    g.outcome = c.outcome; g.outcomeSource = c.source === 'model' ? 'model' : 'deterministic';
+    this.applyProfile(run, d.profile, c.needsDeepReasoning);
+    const p = POLICY_PROFILES[d.profile];
+    if (p.execution !== 'GENERIC') g.type = p.execution;
+    this.policy(run, `profile:${p.id}`, d.capped ? 'CHECKPOINT' : 'ALLOW', `${d.reason} Classified by ${g.outcomeSource} (${c.confidence.toFixed(2)}): ${c.understanding}`);
+    this.event(run, 'OBJECTIVE_CLASSIFIED', `${c.outcome} → ${p.label}${c.needsDeepReasoning ? ' · deep reasoning from the first step' : ''}`);
+    if (d.capped) { run.warnings.push(d.reason); this.line(run, d.reason, 'skipped'); }
+  }
+
+  /** A2 §14 — a profile's budget, limits and reasoning class, applied before the first step. The model never sees them. */
+  private applyProfile(run: AgentRunBody, id: ProfileId, deep = false) {
+    const p = POLICY_PROFILES[id];
+    run.goal.policyProfile = id;
+    run.budget = runBudget(p);
+    run.limits = { maxSteps: p.maxSteps, maxRetries: p.maxRetries, maxRuntimeMs: p.maxRuntimeMs };
+    if (run.investigation) {
+      run.investigation.budget = profileBudget(p);
+      /**
+       * A2 §12 — THE FIRST STEP IS PLANNING, NEVER JUDGMENT. It decides what to READ with no observations in hand,
+       * so there is nothing to reason deeply ABOUT yet. It starts at the profile's own class whatever the
+       * classifier said; the hint is kept and spent from step 2. Live, escalating step 1 put "what should I look
+       * at first?" on the frontier model and cost ~20s and half the run's spend before a single read had returned.
+       */
+      run.investigation.nextClass = p.reasoningClass;
+      run.investigation.deepWarranted = deep;
+    }
+  }
+
+  /**
+   * A2 §3/§6 — NO REASONING, STILL A RUN, and the classification is SYNCHRONOUS so it happens at START.
+   *
+   * It has to happen there: a run that stops to ask a clarifying question before it has been classified would carry
+   * its provisional profile into the answer, and the goal a person sees would be the placeholder (observed —
+   * "Review last quarter." asked which quarter and reported itself as an open investigation).
+   *
+   * THE TEMPLATES ARE NOW THE DETERMINISTIC PLANNER, not the architecture. The open loop's first act is a model
+   * call, so with no model it could not take one; every other Sloane surface pairs a model with a Korvyn fallback
+   * (`adapter.plan` with `deterministicPlan`, `analysisEdit` with `parseAnalysis`) and this is that pattern for the
+   * agent. A deployment with a model configured never reaches this path. It is deprecated, and deleting it is A3's
+   * once the generic loop has a deterministic planner good enough to replace it — a capability question, not a
+   * naming one.
+   */
+  private deterministicProfile(run: AgentRunBody, actor: Actor) {
+    const g = run.goal;
+    if (g.type !== 'INVESTIGATE' || g.outcomeSource === 'caller') return;
+    if (!this.o.reasoningAvailable || this.o.reasoningAvailable()) return;
+    const legacy = detectGoalType(g.objective, hasSubject(resolveTerms(g.objective, this.deps(actor))));
+    g.type = legacy ?? 'GENERIC';
+    g.outcomeSource = 'deterministic';
+    run.investigation = undefined;
+    /**
+     * A TEMPLATE IMPLIES ITS OUTCOME, so the profile must follow it. Without this the deterministic planner produced
+     * a preparation plan under the read-only profile it had been given for ANALYZE, and every PROPOSE step in it was
+     * skipped by the policy gate — a run that looked complete and had quietly done half the work (observed: the
+     * controller-review template ran its five reads and skipped all four drafts and the package). It goes through
+     * the SAME authority cap, so the actor's permissions still decide.
+     */
+    const outcome = legacy ? POLICY_PROFILES[PROFILE_FOR[legacy]].serves[0] ?? 'ANALYZE' : 'ANALYZE';
+    const d = profileForOutcome(outcome, actor, legacy ? PROFILE_FOR[legacy] : undefined);
+    g.outcome = outcome;
+    this.applyProfile(run, d.profile);
+    this.policy(run, `profile:${d.profile}`, d.capped ? 'CHECKPOINT' : 'ALLOW', `${d.reason}${legacy ? ` The deterministic planner selected the ${legacy} template, which implies this profile.` : ''}`);
+    if (d.capped) { run.warnings.push(d.reason); this.line(run, d.reason, 'skipped'); }
+    this.event(run, 'PLANNER', legacy
+      ? `No reasoning model is configured; Korvyn planned this run deterministically from its ${legacy} template (deprecated).`
+      : 'No reasoning model is configured; Korvyn planned this run deterministically.');
+  }
+
   private async plan(run: AgentRunBody, actor: Actor) {
     this.status(run, 'PLANNING');
+    await this.classify(run, actor);
     const profile = POLICY_PROFILES[run.goal.policyProfile];
+    const tPlan = Date.now();
     let proto = templateFor(run.goal);
     if (run.goal.type === 'INVESTIGATE_VENDOR' && run.goal.subject.vendor && !this.o.gl.vendors().includes(run.goal.subject.vendor)) {
       proto = [{ taskId: 'verify', type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: [], milestone: true, priority: 90 }, { taskId: 'summarize', type: 'SUMMARIZE', title: 'Summary', check: 'SUMMARIZE', dependsOn: ['verify'], softDeps: true, priority: 95 }];
@@ -162,7 +305,7 @@ export class AgentRuntime {
       const p = await this.o.agentPlan(run.sessionId, actor, run.goal.objective, allow, ac.signal);
       p.calls.forEach((c) => this.model(run, c));
       proto = p.steps.map((s, i) => { const reg = toolRegistry.get(s.tool);
-        return { taskId: `m${i + 1}`, type: reg ? typeOfTool(reg.domain, reg.risk) : 'RETRIEVE', title: s.purpose || s.tool, tool: s.tool, milestone: true, priority: 10 + i,
+        return { taskId: `m${i + 1}`, type: reg ? typeOfTool(reg.domain, reg.risk) : 'RETRIEVE', title: s.purpose || s.tool, tool: s.tool, milestone: true, priority: 10 + i, scopeSensitive: scopeSensitiveTool(s.tool),
           args: Object.fromEntries((s.args ?? []).filter((a) => a.value && !/^\$/.test(a.value)).map((a) => [a.name, a.value!])),
           refs: Object.fromEntries((s.args ?? []).filter((a) => a.value && /^\$\d+\./.test(a.value)).map((a) => { const n = Number(a.value!.slice(1, a.value!.indexOf('.'))); return [a.name, `$task:m${n + 1}${a.value!.slice(a.value!.indexOf('.'))}`]; })),
           dependsOn: (s.dependsOn ?? []).filter((d) => d >= 0 && d < i).map((d) => `m${d + 1}`), request: run.goal.objective, planKey: 'ACTIONS' as const }; });
@@ -179,6 +322,7 @@ export class AgentRuntime {
       if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; rejected.push({ task: t.title, why }); this.policy(run, t.tool, 'DENY', why); }
     }
     run.graph = { ...run.graph, version: 1, tasks, revisions: [{ version: 1, at: now(), source: run.goal.type === 'GENERIC' ? 'MODEL' : 'TEMPLATE', reason: 'Initial plan', added: tasks.map((t) => t.taskId), invalidated: [], rejected }] };
+    run.waterfall.planMs += Date.now() - tPlan;
     this.event(run, 'PLAN_CREATED', `${tasks.length} steps (${tasks.filter((t) => t.milestone).length} milestones)${rejected.length ? `, ${rejected.length} rejected by policy` : ''}`);
     if (!tasks.filter((t) => t.status !== 'SKIPPED' && t.tool).length && run.goal.type === 'GENERIC') { this.finish(run, 'FAILED', 'Korvyn could not validate a plan for this goal.'); return; }
     this.status(run, 'READY');
@@ -284,7 +428,9 @@ export class AgentRuntime {
        * decides what runs first, and it is capped by what the budget has left, so parallelism can never overrun a
        * ceiling the sequential path would have respected.
        */
-      const room = Math.max(1, Math.min(MAX_PARALLEL, b.maxIterations - run.usage.steps, b.maxToolCalls - (run.usage.toolCalls ?? 0)));
+      /* A2 §13: how wide a tick may be is the PROFILE's to say, bounded by an environment ceiling and by what the
+         budget has left — so parallelism can never overrun a limit the sequential path would have respected */
+      const room = Math.max(1, Math.min(prof.maxParallelReads ?? MAX_PARALLEL, MAX_PARALLEL, b.maxIterations - run.usage.steps, b.maxToolCalls - (run.usage.toolCalls ?? 0)));
       const batch: AgentTask[] = [];
       for (const x of ready) { if (batch.length >= room || !this.parallelSafe(x)) break; batch.push(x); }
       if (batch.length > 1) {
@@ -329,8 +475,8 @@ export class AgentRuntime {
     run.usage.steps += 1;
     const t0 = Date.now();
     try {
-      if (t.check && !t.tool) { await this.internal(run, t, actor); }
-      else await this.toolTask(run, t, actor);
+      if (t.check && !t.tool) { const ti = Date.now(); await this.internal(run, t, actor); if (t.check === 'VERIFY') run.waterfall.verifyMs += Date.now() - ti; }
+      else { const tt = Date.now(); await this.toolTask(run, t, actor); run.waterfall.toolMs += Date.now() - tt; }
     } catch (e) {
       t.status = 'FAILED'; t.error = (e as Error).message; t.failureMode = 'ERROR';
     }
@@ -761,7 +907,9 @@ export class AgentRuntime {
     }
     const milestoneObjs = run.graph.tasks.filter((x) => x.milestone && !x.invalidatedBy && x.status === 'COMPLETED' && x.tool).map((x) => objs.get(x.taskId)).filter((x): x is FinancialObject => !!x && !x.action);
     const ac = this.ac(run.runId);
+    const tNarr = Date.now();
     const n = g.type === 'INVESTIGATE' ? { source: 'deterministic' as const, sentences: [] as string[], call: null } : await this.o.agentNarrate(g.objective, milestoneObjs.slice(0, 6), ac.signal);
+    run.waterfall.narrateMs += Date.now() - tNarr;
     if (n.call) this.model(run, n.call);
     const artifacts = run.artifactIds.map((id) => this.o.artifacts.get(id)).filter((a): a is NonNullable<typeof a> => !!a).map((a) => ({ id: a.id, name: a.name, status: String(a.status) }));
     run.result = {
@@ -1229,7 +1377,18 @@ export class AgentRuntime {
     return mkTask({ ...x, taskId: `${base}~${v}`, args, status: 'PENDING', attempts: 0, resultObjectIds: [], proposalIds: [], artifactIds: [], executionTraceId: null, error: null, failureMode: null, invalidatedBy: null, startedAt: null, completedAt: null, latencyMs: null,
       dependsOn: x.dependsOn.map((d) => d.split('~')[0]!) }, v, 'REPLAN');
   }
+  /**
+   * A2 §10 — PLAN ECONOMY. A revision is USEFUL when it changes what the run will do: it adds governed work, or it
+   * invalidates work a person's instruction made wrong. A revision that adds nothing but the next THINK step is
+   * the loop turning over, not a plan change — it is recorded as a no-op so churn is measurable rather than
+   * inferred from a revision count, and `noopReplans` is what an evaluator reads.
+   *
+   * Nothing is suppressed: an unchanged plan is not a reason to stop, and the run still advances. What A2 removes
+   * is the pretence that six revisions meant six replans.
+   */
   private revise(run: AgentRunBody, source: 'EXPANSION' | 'REPLAN' | 'INTERVENTION', reason: string, added: AgentTask[], invalidated: string[]) {
+    const changesWork = added.some((a) => a.tool) || invalidated.length > 0;
+    if (changesWork) run.waterfall.usefulReplans += 1; else run.waterfall.noopReplans += 1;
     const v = run.graph.version + 1;
     added.forEach((a) => { a.planVersion = v; });
     run.graph.tasks.push(...added);
@@ -1267,11 +1426,22 @@ export class AgentRuntime {
     const referents = referentsOf(S.observations, { account: g.subject.account, project: g.subject.project, vendor: g.subject.vendor, entity: g.subject.entity, period: g.period });
     const caps = relevant(allow, { goalClass: S.goalClass, requested: S.requested, used: S.observations.map((o) => o.tool), referents });
     const frame = this.frameOf(run, actor);
-    const payload = contextFor(S, frame, caps, [...AGENT_DOMAINS].filter((d) => prof.domains.includes(d)));
+    /* A2 §5: the planner's brief is the PROFILE's — a specialist differs by configuration, never by a branch here.
+       A2 §9: a capability's description is sent once per run; after that the id alone is enough for the tool enum. */
+    const seen = new Set(S.described ?? []);
+    const payload = contextFor(S, frame, caps, [...AGENT_DOMAINS].filter((d) => prof.domains.includes(d)),
+      { label: prof.label, purpose: prof.purpose, completion: prof.completion, autonomy: prof.autonomy }, seen);
+    S.described = [...new Set([...(S.described ?? []), ...caps.map((c) => c.id)])];
     const chars = JSON.stringify(payload).length;
     S.usage.largestContextChars = Math.max(S.usage.largestContextChars, chars);
+    /* A2 §12: from the SECOND step on, an objective classified as turning on a judgment may reason deeply — there
+       is now something to reason about. Bounded by the escalation budget and recorded with its reason, as any
+       escalation is. */
+    if (S.deepWarranted && S.usage.iterations >= 1 && S.nextClass === 'M2' && escalate(S, 'MATERIAL_JUDGMENT', 'the objective was classified as turning on an accounting judgment')) S.deepWarranted = false;
     const cls = S.nextClass;
+    const tThink = Date.now();
     const r = await this.o.agentThink({ context: payload, toolIds: caps.map((c) => c.id) }, CLASS_ROUTE[cls as 'M2'], this.ac(run.runId).signal);
+    run.waterfall.thinkMs += Date.now() - tThink;
     S.usage.iterations += 1;
     if (r.call) this.model(run, { ...r.call, cls });
     const iter = S.usage.iterations;
@@ -1326,7 +1496,7 @@ export class AgentRuntime {
       done.add(key);
       stepRec.calls.push({ tool: step.tool, args: step.args, purpose: c.purpose });
       tasks.push(mkTask({ taskId: `x${iter}-${k + 1}`, type: typeOfTool(toolRegistry.get(step.tool)!.domain, 'READ'), title: progressLine(c.progress, step.tool), tool: step.tool, args: step.args, request: c.purpose,
-        milestone: true, dependsOn: [t.taskId], priority: 10 + k }, run.graph.version + 1, 'MODEL'));
+        milestone: true, dependsOn: [t.taskId], priority: 10 + k, scopeSensitive: scopeSensitiveTool(step.tool) }, run.graph.version + 1, 'MODEL'));
     }
     if (!tasks.length) {
       S.rejectStreak += 1;
@@ -1374,7 +1544,9 @@ export class AgentRuntime {
       const cls = S.nextClass;
       const payload = synthesisContext(S, frame);
       S.usage.largestContextChars = Math.max(S.usage.largestContextChars, JSON.stringify(payload).length);
+      const tSyn = Date.now();
       const r = await this.o.agentSynth({ context: payload, refs }, CLASS_ROUTE[cls as 'M2'], this.ac(run.runId).signal);
+      run.waterfall.synthesizeMs += Date.now() - tSyn;
       if (r.call) this.model(run, { ...r.call, stage: 'synthesize', cls });
       if (!r.out || r.out.status !== 'ok') return false;
       const v = r.out.value;
@@ -1454,6 +1626,8 @@ export class AgentRuntime {
     const r = this.cache.get(runId) ?? this.load(runId);
     return r && r.actor.id === actor.id ? agentTelemetry(r) : null;
   }
+  /** A2 §15: record where a run came from on its own event log — a scheduled run and a typed one read alike */
+  note(runId: string, type: string, label: string) { const r = this.cache.get(runId); if (r) { this.event(r, type, label); this.save(r); } }
   get(runId: string, actor: Actor): RunView | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? this.view(r) : null; }
   body(runId: string, actor: Actor): AgentRunBody | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? r : null; }
   list(actor: Actor) { return WORK.repos.records.list<{ run: AgentRunBody }>(KIND, { created_by: actor.id }).map((r) => this.cache.get(r.id) ?? r.run).map((r) => ({ runId: r.runId, sessionId: r.sessionId, title: r.goal.title, goalType: r.goal.type, status: r.runStatus, startedAt: r.startedAt, updatedAt: r.updatedAt, completedAt: r.completedAt })).reverse(); }

@@ -187,6 +187,65 @@ export function agentTrace(run: AgentRunBody, policy: { profile: string; autonom
 }
 
 /* ================================================================================================
+   A2 §2 — THE CONVERSATION PROJECTION: the second producer, projected additively
+   ================================================================================================ */
+/**
+ * A conversational TURN in the same envelope. Nothing about `V2Trace` changed and no consumer of it moved: this is
+ * a READ-SIDE projection, computed on demand, exactly as the agent's is. That is what "additively" means here —
+ * three shapes still exist internally, and a consumer that wants one contract across producers now has one.
+ *
+ * WHAT A TURN GENUINELY DOES NOT HAVE, and is therefore null rather than faked:
+ *   plan revisions        a turn has a strategy, not a plan that survives to be revised
+ *   approvals             a proposal a turn prepares is decided on its own endpoint, not inside the turn
+ *   verification          a turn is verified by GROUNDING, which is reported in its own field
+ *   authorizations        v2 authorizes every tool call and records the OUTCOME (a REFUSED tool), not a decision
+ *                         list; the refusals are projected as DENY and nothing is invented for the rest
+ *
+ * The remaining legacy shape is `SloaneExecutionTrace` (the v1 turn, served at /api/sloane/trace/:id). It is the
+ * next producer to project and the last one to deprecate, because development tooling reads it directly.
+ */
+export function conversationTrace(t: import('./v2/model.js').V2Trace, actor: { id: string; role: string; scope: 'ALL' | string[] }, writeActionsEnabled: boolean): KorvynTrace {
+  const at = new Date(Date.now() - t.latencyMs).toISOString();
+  return {
+    traceId: t.traceId,
+    traceKind: 'CONVERSATION_TURN',
+    subjectId: t.sessionId,
+    subjectTitle: t.request.slice(0, 80),
+    actor,
+    policy: { profile: t.strategy, autonomy: null, writeActionsEnabled },
+    objective: t.request,
+    startedAt: at,
+    endedAt: new Date().toISOString(),
+    status: t.responseType ?? t.path,
+    /* a turn's "plan" is the strategy it chose and the path it took; it has no revisions by construction */
+    plan: { planId: t.traceId, version: 1, source: t.strategy ?? t.path, revisions: [] },
+    steps: t.tools.map((x, i) => ({
+      stepId: `t${i + 1}`, type: 'RETRIEVE', title: x.tool, status: x.status, tool: x.tool, riskLevel: 'READ',
+      origin: 'MODEL', planVersion: 1, dependsOn: [], startedAt: null, latencyMs: x.latencyMs, failureMode: x.status === 'FAILED' ? 'ERROR' : null, error: x.error,
+    })),
+    modelCalls: t.calls.map((c) => ({ stage: c.stage, route: null, model: c.model, status: c.status, latencyMs: c.latencyMs, inputTokens: c.inputTokens, outputTokens: c.outputTokens, cacheReadTokens: c.cacheReadTokens, error: c.error })),
+    toolCalls: t.tools.map((x, i) => ({ at: null, stepId: `t${i + 1}`, tool: x.tool, args: {}, status: x.status, latencyMs: x.latencyMs, objectId: null, error: x.error, traceId: t.traceId })),
+    /* only what was actually decided: a refused call is a recorded DENY; nothing is invented for the rest */
+    authorizations: t.tools.filter((x) => x.status === 'REFUSED').map((x) => ({ at, subject: x.tool, decision: 'DENY' as const, reason: x.error ?? 'refused' })),
+    observations: t.tools.map((x, i) => ({ stepId: `t${i + 1}`, at, status: x.status, resultType: null, objectIds: [], warnings: [], errors: x.error ? [x.error] : [], findings: 0 })),
+    transitions: [{ at, type: 'TURN', label: `${t.path}${t.strategy ? ` · ${t.strategy}` : ''}` }],
+    approvals: [],
+    interventions: [],
+    references: {
+      objectIds: Object.values(t.activeStateRefs).filter((v): v is string => !!v),
+      factIds: [], evidenceIds: [], populationIds: [], artifactIds: [], proposalIds: [],
+    },
+    usage: {
+      steps: t.tools.length, modelCalls: t.modelCalls, toolCalls: t.toolCalls, inputTokens: t.inputTokens, outputTokens: t.outputTokens,
+      cacheReadTokens: t.cacheReadTokens, estimatedCostUsd: 0, latencyMs: t.latencyMs,
+    },
+    verification: null,
+    stopReason: t.responseType ?? null,
+    result: null,
+  };
+}
+
+/* ================================================================================================
    A1 §22 — EVALUATION TELEMETRY
    ================================================================================================ */
 /**

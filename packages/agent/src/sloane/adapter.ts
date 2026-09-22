@@ -1,10 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Route, SloaneConfig } from './config.js';
-import { AGENT_STEP_SYSTEM, AGENT_SYNTH_SYSTEM, ANALYSIS_EDIT_SYSTEM, CONVERSE_SYSTEM, INTERPRET_SYSTEM, NARRATE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
+import { AGENT_STEP_SYSTEM, AGENT_SYNTH_SYSTEM, ANALYSIS_EDIT_SYSTEM, CONVERSE_SYSTEM, INTERPRET_SYSTEM, NARRATE_SYSTEM, OBJECTIVE_SYSTEM, PLAN_SYSTEM, dataBlock } from './prompts.js';
 import {
   INTERPRETATION_SCHEMA, NARRATIVE_SCHEMA, planSchema, structuredOutputProblems,
   validateInterpretation, validateNarrative, validatePlan,
   type Interpretation, type Narrative, type Plan, type Result, CONVERSATION_SCHEMA, type Conversation, validateConversation, ANALYSIS_EDIT_SCHEMA, validateAnalysisEdit,
+  OBJECTIVE_SCHEMA, validateObjective, type ObjectiveClass,
   agentStepSchema, validateAgentStep, type AgentStepOut, AGENT_SYNTH_SCHEMA, validateAgentSynth, type AgentSynthOut, AGENT_STEP_SCHEMA, normalizeAgentStep, normalizeAgentSynth } from './schema.js';
 import type { AnalysisEdit } from './analysis/model.js';
 
@@ -75,6 +76,8 @@ export interface ReasonOut {
   content: unknown[];
 }
 
+/** A2 §3: the objective, verbatim, and nothing else — no capabilities, no profiles, no authority to widen */
+export interface ObjectiveInput { objective: string }
 export interface AgentStepInput { context: unknown; toolIds: string[] }
 export interface AgentSynthInput { context: unknown; refs: string[] }
 export interface NarrateInput { request: string; objects: { objectId: string; type: string; title: string; facts: { key: string; label: string; display: string }[] }[] }
@@ -90,6 +93,8 @@ export interface SloaneLLMAdapter {
   /** the conversational front door: classify the turn and, when no tool is needed, answer it */
   converse(i: ConverseInput, o?: CallOptions): Promise<AdapterOutcome<Conversation>>;
   analysisEdit(i: AnalysisEditInput, o?: CallOptions): Promise<AdapterOutcome<AnalysisEdit>>;
+  /** A2 §3/§4: classify what KIND of work an objective asks for. One call per RUN, cheapest route. */
+  classifyObjective?(i: ObjectiveInput, o?: CallOptions): Promise<AdapterOutcome<ObjectiveClass>>;
   /** 8D: the financial agent — decide the next governed step, and synthesize what the investigation established */
   agentStep?(i: AgentStepInput, o?: CallOptions): Promise<AdapterOutcome<AgentStepOut>>;
   agentSynth?(i: AgentSynthInput, o?: CallOptions): Promise<AdapterOutcome<AgentSynthOut>>;
@@ -105,6 +110,7 @@ export class MockLLMAdapter implements SloaneLLMAdapter {
   async plan(): Promise<AdapterOutcome<Plan>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async narrate(): Promise<AdapterOutcome<Narrative>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async converse(): Promise<AdapterOutcome<Conversation>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
+  async classifyObjective(): Promise<AdapterOutcome<ObjectiveClass>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async analysisEdit(): Promise<AdapterOutcome<AnalysisEdit>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
   async reason(): Promise<AdapterOutcome<ReasonOut>> { return { status: 'declined', reason: 'mock adapter', latencyMs: 0 }; }
 }
@@ -182,6 +188,7 @@ export class AnthropicSloaneAdapter implements SloaneLLMAdapter {
     return this.call(PLAN_SYSTEM, i, planSchema(ids), (v) => validatePlan(v, ids, i.maxSteps), o);
   }
   converse(i: ConverseInput, o?: CallOptions) { return this.call(CONVERSE_SYSTEM, i, CONVERSATION_SCHEMA, validateConversation, o); }
+  classifyObjective(i: ObjectiveInput, o?: CallOptions) { return this.call(OBJECTIVE_SYSTEM, i, OBJECTIVE_SCHEMA, validateObjective, { route: 'NARRATE', ...o }); }
   analysisEdit(i: AnalysisEditInput, o?: CallOptions) { return this.call(ANALYSIS_EDIT_SYSTEM, i, ANALYSIS_EDIT_SCHEMA, validateAnalysisEdit, o); }
   /* the tool enum is the step's relevant subset: the model cannot name a capability it was not shown */
   agentStep(i: AgentStepInput, o?: CallOptions) { return this.call(AGENT_STEP_SYSTEM, i.context, AGENT_STEP_SCHEMA, (v) => validateAgentStep(normalizeAgentStep(v), i.toolIds), { timeoutMs: 60000, ...o }); }

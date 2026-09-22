@@ -22,6 +22,7 @@ import { SloaneOrchestrator } from '../orchestrator.js';
 import { WRITE_ACTIONS_ENABLED, serverActor } from '../tools.js';
 import { agentTelemetry, agentTrace } from '../trace.js';
 import { POLICY_PROFILES } from './model.js';
+import { isAgenticObjective } from './objective.js';
 
 const OBJECTIVE = 'Review the June close status, identify the most material unresolved issues, and prepare a concise controller briefing with traceable evidence.';
 
@@ -34,7 +35,16 @@ const A = orch.agents;
 const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'BLOCKED'];
 
 const t0 = Date.now();
-const started = A.start(me, OBJECTIVE, { goalType: 'INVESTIGATE' });
+/* A2 §16 A — THE DIRECT GATE: a question is answered, never carried through as a run */
+for (const q of ['What was June revenue?', 'Show May EBITDA.', 'Put that in bullets.']) {
+  const g = isAgenticObjective(q);
+  console.log(` gate  ${g.agentic ? 'AGENTIC' : 'direct '}  ${q.padEnd(28)} ${g.reason}`);
+  if (g.agentic) { console.error('FAIL: a direct question started a run'); process.exit(1); }
+}
+console.log('');
+
+/* A2 §16 B — no forced goal type: the objective is CLASSIFIED and Korvyn chooses the profile */
+const started = A.start(me, OBJECTIVE);
 if (!started.ok) { console.error('the runtime refused the objective:', started.reason); process.exit(1); }
 const runId = started.run.runId;
 console.log(`A1 §20 smoke · run ${runId} · ${cfg.provider} (${cfg.defaultModel} / ${cfg.advancedModel})\n`);
@@ -49,6 +59,7 @@ const body = A.body(runId, me)!;
 const P = POLICY_PROFILES[body.goal.policyProfile];
 const T = agentTrace(body, { profile: P.id, autonomy: P.autonomy }, WRITE_ACTIONS_ENABLED);
 const M = agentTelemetry(body);
+const bodyType = body.goal.type;
 const inv = body.result?.investigation ?? null;
 
 /* ---- what the run actually did ---------------------------------------------------------------------------- */
@@ -88,6 +99,33 @@ const checks: [string, boolean, string][] = [
 ];
 console.log('\n--- §20 CHECKS ---');
 for (const [name, ok, detail] of checks) console.log(` ${ok ? 'PASS' : 'FAIL'}  ${name.padEnd(46)} ${detail}`);
+
+console.log('\n--- §8 EXECUTION WATERFALL ---');
+const W = body.waterfall;
+const parts: [string, number][] = [['classify (model)', W.classifyMs], ['plan', W.planMs], ['think (model)', W.thinkMs], ['tools', W.toolMs], ['synthesize (model)', W.synthesizeMs], ['narrate (model)', W.narrateMs], ['verify', W.verifyMs]];
+const total = M.latencyMs || 1;
+for (const [k, v] of parts) console.log(` ${k.padEnd(20)} ${String(v).padStart(6)}ms  ${((v / total) * 100).toFixed(1).padStart(5)}%`);
+console.log(` ${'unaccounted'.padEnd(20)} ${String(Math.max(0, total - parts.reduce((a, x) => a + x[1], 0))).padStart(6)}ms`);
+console.log(` replans: ${W.usefulReplans} useful / ${W.noopReplans} no-op`);
+const cited = new Set((inv?.findings ?? []).flatMap((f) => f.observationRefs));
+const obs = body.investigation?.observations ?? [];
+console.log(` reads: ${obs.length} · cited by a finding: ${obs.filter((o) => cited.has(o.ref)).length} · uncited: ${obs.filter((o) => !cited.has(o.ref)).length}`);
+console.log(` profile: ${body.goal.policyProfile} · outcome ${body.goal.outcome} (${body.goal.outcomeSource}) · goal type ${body.goal.type}`);
+const byStage = body.trace.modelCalls.reduce<Record<string, number>>((a, c) => { const k = `${c.stage}@${c.route}`; a[k] = (a[k] ?? 0) + 1; return a; }, {});
+console.log(` model calls: ${Object.entries(byStage).map(([k, v]) => `${k}×${v}`).join(' ')}`);
+
+/* A2 §16 C — HEADLESS: the same objective, started with no conversation */
+console.log('\n--- §16 C HEADLESS ---');
+const h = orch.agentService.start(me, { objective: OBJECTIVE, origin: 'SCHEDULE', externalRef: 'a2-acceptance' });
+if (!h.ok) { console.error('FAIL: headless start refused:', h.reason); process.exit(1); }
+for (let i = 0; i < 150; i++) { const hb = A.body(h.runId, me)!; if (TERMINAL.includes(hb.runStatus) || hb.runStatus.startsWith('WAITING')) break; await A.wait(h.runId, 3000); await new Promise((r) => setTimeout(r, 120)); }
+const hb = A.body(h.runId, me)!;
+const ht = orch.agentService.trace(h.runId, me)!;
+console.log(` run ${h.runId} ${hb.runStatus} · profile ${hb.goal.policyProfile} · goal type ${hb.goal.type} · reads ${hb.trace.toolCalls.length} · facts ${ht.references.factIds.length}`);
+console.log(` origin recorded: ${hb.events.filter((e) => e.type === 'ORIGIN').map((e) => e.label).join('; ') || '(none)'}`);
+console.log(` same contract: traceKind ${ht.traceKind} · authorizations ${ht.authorizations.length} · conversation dependency: ${hb.sessionId.startsWith('agent-') ? 'none' : hb.sessionId}`);
+const hOk = hb.runStatus === 'COMPLETED' && hb.goal.type === bodyType && hb.goal.policyProfile === body.goal.policyProfile && hb.trace.toolCalls.length > 0;
+console.log(` ${hOk ? 'PASS' : 'FAIL'}  same runtime semantics, same authorization, same trace, no conversation`);
 
 console.log('\n--- TELEMETRY (§22) ---');
 console.log(` status ${M.status} · stop: ${M.stopReason}`);

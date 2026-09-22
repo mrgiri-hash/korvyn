@@ -82,6 +82,29 @@ export const CONVERSATION_SCHEMA = obj({
   confidence: { type: 'number' },
 });
 
+/**
+ * A2 §3/§4 — the OBJECTIVE CLASSIFICATION. One call per agent RUN (never per conversational turn), on the cheapest
+ * route. It states what KIND of work the objective asks for; Korvyn maps that to a profile and caps it by the
+ * actor's authority. The model is never told which profiles exist and can never name one.
+ */
+export const OUTCOME_CLASSES = ['ANALYZE', 'PREPARE_DELIVERABLE', 'PREPARE_WORKFLOW_ACTIONS'] as const;
+export interface ObjectiveClass { outcome: (typeof OUTCOME_CLASSES)[number]; understanding: string; needsDeepReasoning: boolean; confidence: number }
+export const OBJECTIVE_SCHEMA = obj({
+  outcome: strEnum(OUTCOME_CLASSES),
+  understanding: { type: 'string' },
+  needsDeepReasoning: { type: 'boolean' },
+  confidence: { type: 'number' },
+});
+export function validateObjective(v: Json): Result<ObjectiveClass> {
+  const c = new V();
+  if (!c.keys(v, 'objective', ['outcome', 'understanding', 'needsDeepReasoning', 'confidence'])) return { ok: false, errors: c.errors };
+  c.enm(v['outcome'], 'outcome', OUTCOME_CLASSES);
+  c.str(v['understanding'], 'understanding', false, 400);
+  if (typeof v['needsDeepReasoning'] !== 'boolean') c.errors.push('needsDeepReasoning: expected boolean');
+  if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');
+  return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: v as unknown as ObjectiveClass };
+}
+
 export const NARRATIVE_SCHEMA = obj({
   sentences: {
     type: 'array',

@@ -170,19 +170,20 @@ test('§2 host port — the runtime runs a goal against a headless host that kee
 /* ================================================================================================
    §13 — BOUNDED EXECUTION FOR EVERY RUN
    ================================================================================================ */
-test('§13 budget — every run carries one, a template run included; exhaustion is a controlled state, checked before the step', async () => {
+test('§13 budget — every run carries one, a legacy template run included; exhaustion is a controlled state, checked before the step', async () => {
   const { orch } = scripted({ step: () => step({ decision: 'SYNTHESIZE' }) });
-  /* A TEMPLATE run — before A1 this had a step and wall-clock ceiling and no model, token or cost ceiling at all. */
-  const r = orch.agents.start(me, 'Review the June close.');
+  /* A LEGACY TEMPLATE run (A2 §6: reachable only by naming the shim) — before A1 this had a step and wall-clock
+     ceiling and no model, token or cost ceiling at all. */
+  const r = orch.agents.start(me, 'Review the June close.', { goalType: 'REVIEW_CLOSE' });
   assert.ok(r.ok, r.ok ? '' : r.reason);
   const b = r.run.budget!;
-  assert.ok(b, 'a template run carries a budget');
+  assert.ok(b, 'a legacy template run carries a budget');
   assert.equal(b.maxIterations, POLICY_PROFILES['READ_ONLY'].maxSteps, 'the profile owns how many steps');
   assert.ok(b.maxModelCalls > 0 && b.maxInputTokens > 0 && b.maxEstimatedCostUsd > 0, 'and the deployment owns model calls, tokens and cost');
   await until(orch, r.run.runId, me);
 
   /* EXHAUSTION: clamped before the loop starts, the run stops without taking a step — the check is before, not after */
-  const r2 = orch.agents.start(me, 'Review the June close.');
+  const r2 = orch.agents.start(me, 'Review the June close.', { goalType: 'REVIEW_CLOSE' });
   assert.ok(r2.ok, r2.ok ? '' : r2.reason);
   r2.run.budget!.maxToolCalls = 0;
   const body2 = await until(orch, r2.run.runId, me);
@@ -195,7 +196,7 @@ test('§13 budget — every run carries one, a template run included; exhaustion
 
 test('§13 budget — a person-initiated steering revision raises the ceiling it would otherwise hit', async () => {
   const { orch } = scripted({ step: () => step({ decision: 'SYNTHESIZE' }) });
-  const r = orch.agents.start(me, 'Review the June close.');
+  const r = orch.agents.start(me, 'Review the June close.', { goalType: 'REVIEW_CLOSE' });
   assert.ok(r.ok, r.ok ? '' : r.reason);
   const before = r.run.budget!.maxIterations;
   await until(orch, r.run.runId, me);
@@ -319,13 +320,13 @@ test('§22 telemetry — every field the Eval workstream needs, measured, with n
    §14 — a budget survives the restart the run survives
    ================================================================================================ */
 test('§10 facts — EVERY run preserves canonical FinancialFact ids, a template run included, and they are the ids a conversation would cite', async () => {
-  const { orch } = scripted({ step: () => step({ decision: 'SYNTHESIZE' }) });
-  /* a TEMPLATE run: before A1 its observations carried a figure's key and value and no citable handle */
+  const { orch } = scripted({ step: (n) => (n === 1 ? step({ calls: [call('getCloseBlockers', { period: '2026-06' })] }) : step({ decision: 'SYNTHESIZE' })) });
+  /* before A1 an observation carried a figure's key and value and no citable handle */
   const r = orch.agents.start(me, 'Review the June close.');
   assert.ok(r.ok, r.ok ? '' : r.reason);
   const body = await until(orch, r.run.runId, me);
   const withFacts = body.observations.filter((o) => (o.factIds ?? []).length);
-  assert.ok(withFacts.length > 0, 'a template run promotes facts');
+  assert.ok(withFacts.length > 0, 'every run promotes facts');
   const t = agentTrace(body, null, false);
   assert.ok(t.references.factIds.length > 0, 'and they reach the trace');
   assert.equal(agentTelemetry(body).factsDiscovered, t.references.factIds.length);
@@ -338,7 +339,7 @@ test('§10 facts — EVERY run preserves canonical FinancialFact ids, a template
 });
 
 test('§14 durable — a run paused by a restart keeps its budget and its spend', async () => {
-  const { orch } = scripted({ step: () => step({ decision: 'SYNTHESIZE' }) });
+  const { orch } = scripted({ step: (n) => (n === 1 ? step({ calls: [call('getCloseBlockers', { period: '2026-06' })] }) : step({ decision: 'SYNTHESIZE' })) });
   const r = orch.agents.start(me, 'Review the June close.');
   assert.ok(r.ok, r.ok ? '' : r.reason);
   const body = await until(orch, r.run.runId, me);

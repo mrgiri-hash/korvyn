@@ -20,7 +20,13 @@ orch.artifacts.storage = mkdtempSync(join(tmpdir(), 'korvyn-agent-'));
 const A = orch.agents;
 const settle = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 async function run(text: string, opts: Parameters<AgentRuntime['start']>[2] = {}, who: Actor = reviewer) {
-  const r = A.start(who, text, opts);
+  /**
+   * A2 §6 — these Phase 7 tests are the COVERAGE OF THE DEPRECATED LEGACY TEMPLATE PATH, which is the precondition
+   * for deleting it. The shim is opted into here, once: nothing in the runtime reads the request text to choose a
+   * template any more, so a test that wants one must say so. New behaviour is covered in a2.test.ts.
+   */
+  const legacy = opts.goalType ?? detectGoalType(text) ?? undefined;
+  const r = A.start(who, text, { ...opts, ...(legacy ? { goalType: legacy } : {}) });
   assert.ok(r.ok, r.ok ? '' : r.reason);
   await A.wait(r.run.runId, 30000); await settle();
   return r.run.runId;
@@ -75,7 +81,7 @@ test('§40 B — controller review: drafts prepared, confirmation requested, not
 });
 
 test('§41 C — "Only South Valley." mid-run: scope updated, invalidated steps re-run, valid work retained, revision recorded', async () => {
-  const r = A.start(reviewer, 'Investigate ABB spend for FY26', { options: { pace: 120 } });
+  const r = A.start(reviewer, 'Investigate ABB spend for FY26', { goalType: 'INVESTIGATE_VENDOR', options: { pace: 120 } });
   assert.ok(r.ok);
   await settle(200);
   const iv = A.intervene(r.run.runId, reviewer, 'Only South Valley.');
@@ -149,7 +155,7 @@ test('stop, retry and failure: a transient read retries once; a permanent failur
   assert.equal(b.graph.tasks.find((t) => t.taskId === 'blockers')!.status, 'COMPLETED');
   assert.equal(b.graph.tasks.find((t) => t.taskId === 'recSupport')!.status, 'FAILED');
   assert.ok(view(id).progress.some((p) => p.state === 'blocked' && /Support gaps — could not complete/.test(p.line)));
-  const s = A.start(reviewer, 'Prepare the controller review for June.', { options: { pace: 200 } });
+  const s = A.start(reviewer, 'Prepare the controller review for June.', { goalType: 'PREPARE_CONTROLLER_REVIEW', options: { pace: 200 } });
   assert.ok(s.ok); await settle(250);
   const c = A.intervene(s.run.runId, reviewer, 'Stop.');
   assert.equal(view(s.run.runId).status, 'CANCELLED', c.effect);
@@ -175,14 +181,14 @@ test('ownership and permissions: another user cannot read or steer a run; permis
   assert.equal(A.get(id, other), null);
   assert.equal(A.intervene(id, other, 'Stop.').ok, false);
   const aud: Actor = { id: 'user:auditor', name: 'Priya Nair', ...ROLES['EXTERNAL_AUDITOR']! };
-  const r = A.start(aud, 'Prepare the controller review for June.');
+  const r = A.start(aud, 'Prepare the controller review for June.', { goalType: 'PREPARE_CONTROLLER_REVIEW' });
   assert.ok(r.ok);
   await A.wait(r.run.runId, 30000); await settle();
   assert.equal(orch.actions.ofSession(r.run.sessionId).filter((p) => p.status === 'COMPLETED').length, 0);
 });
 
 test('durable: a run in progress when the process stops is PAUSED on restart, never silently re-executed', async () => {
-  const s = A.start(reviewer, 'Review the June close.', { options: { pace: 5000 } });
+  const s = A.start(reviewer, 'Review the June close.', { goalType: 'REVIEW_CLOSE', options: { pace: 5000 } });
   assert.ok(s.ok); await settle(100);
   const again = new AgentRuntime(orch);
   const b = again.body(s.run.runId, reviewer)!;

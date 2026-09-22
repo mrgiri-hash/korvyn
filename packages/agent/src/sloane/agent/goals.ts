@@ -54,7 +54,10 @@ export function parseGoal(text: string, d: GoalDeps, forced?: GoalType, res?: Re
   /* only the ambiguities that matter to THIS goal type are asked */
   const relevant: Record<GoalType, string[]> = {
     REVIEW_CLOSE: ['period', 'entity'], PREPARE_CONTROLLER_REVIEW: ['period', 'entity'], INVESTIGATE_VENDOR: ['vendor', 'project', 'entity', 'period', 'account'],
-    PREPARE_AUDIT_SUPPORT: ['account', 'pbc', 'period', 'entity'], BUILD_FINANCIAL_ARTIFACT: ['artifact', 'period', 'entity', 'account'], GENERIC: ['vendor', 'project', 'entity', 'period', 'account'], INVESTIGATE: [],
+    PREPARE_AUDIT_SUPPORT: ['account', 'pbc', 'period', 'entity'], BUILD_FINANCIAL_ARTIFACT: ['artifact', 'period', 'entity', 'account'], GENERIC: ['vendor', 'project', 'entity', 'period', 'account'],
+    /* A2 §3: the generic loop is now the runtime for every new run, so the clarifications the legacy subject
+       templates raised must be raised here too — an ambiguous "Siemens" still asks, whichever path carries it. */
+    INVESTIGATE: ['vendor', 'project', 'entity', 'period', 'account'],
   };
   const pending: Ambiguity[] = r.ambiguities.filter((a) => relevant[type].includes(a.field));
   /* an investigation needs a subject Korvyn can resolve or ask about; "investigate the close" is a close review */

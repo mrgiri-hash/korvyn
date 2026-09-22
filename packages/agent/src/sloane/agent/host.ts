@@ -33,7 +33,7 @@ import type { ControlService } from '../controls.js';
 import type { FinancialDataService } from '../financials.js';
 import type { GovernedLedger } from '../governed.js';
 import type { PlanStep, PlanValidation } from '../orchestrator.js';
-import type { AgentStepOut, AgentSynthOut } from '../schema.js';
+import type { AgentStepOut, AgentSynthOut, ObjectiveClass } from '../schema.js';
 import type { Actor, FinancialObject, SloaneTool, ToolArgs } from '../tools.js';
 
 /**
@@ -110,6 +110,17 @@ export interface AgentHost {
   agentExecute(sessionId: string, actor: Actor, step: { tool: string; purpose: string; args: ToolArgs; request: string }, planId: string, objectId: string): HostExecution;
 
   /* ---- the model gateway, by capability, never by provider (§8) ---------------------------------------------- */
+  /**
+   * A2 §3 — can this host reason at all? A run with no reasoning available must still do useful governed work, so
+   * the runtime plans DETERMINISTICALLY instead of opening a loop that cannot take its first step. Asked once, at
+   * planning time; it is a capability question, never a provider one.
+   */
+  reasoningAvailable?(): boolean;
+  /**
+   * A2 §3/§4 — classify what KIND of work an objective asks for. ONE call per run, on the cheapest route. Optional:
+   * a host with no model falls back to Korvyn's deterministic classification, which never widens authority either.
+   */
+  classifyObjective?(objective: string, signal?: AbortSignal): Promise<{ out: AdapterOutcome<ObjectiveClass> | null; call: ModelCallRecord | null }>;
   agentPlan(sessionId: string, actor: Actor, goalText: string, allow: SloaneTool[], signal?: AbortSignal): Promise<{ steps: PlanStep[]; source: 'reasoning' | 'deterministic'; calls: ModelCallRecord[] }>;
   agentThink(i: AgentStepInput, route: Route, signal?: AbortSignal): Promise<{ out: AdapterOutcome<AgentStepOut> | null; call: ModelCallRecord | null }>;
   agentSynth(i: AgentSynthInput, route: Route, signal?: AbortSignal): Promise<{ out: AdapterOutcome<AgentSynthOut> | null; call: ModelCallRecord | null }>;

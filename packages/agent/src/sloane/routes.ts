@@ -332,6 +332,30 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
   if (r === 'agent/runs' || r.startsWith('agent/runs/')) {
     const A = orchestrator.agents, parts = r.split('/').slice(2);
     if (req.method === 'GET' && !parts.length) { send(res, 200, { outcome: 'SUCCESS', runs: A.list(actor) }); return; }
+    /**
+     * A2 §15 — the NON-CONVERSATIONAL entry point. Same runtime, same profile selection, same authorization, same
+     * budget, same trace; what differs is only that no conversation is involved. A module action, a scheduler or a
+     * workflow step posts here. The actor is the authenticated session's, never the body's.
+     */
+    if (req.method === 'POST' && parts[0] === 'start') {
+      const body = await readJson(req);
+      const objective = typeof body?.['objective'] === 'string' ? body['objective'] : '';
+      if (!objective.trim()) { refuse(res, 'VALIDATION_ERROR', 'objective is required'); return; }
+      const ORIGINS = ['MODULE', 'SCHEDULE', 'WORKFLOW', 'API'];
+      const origin = typeof body?.['origin'] === 'string' && ORIGINS.includes(body['origin']) ? body['origin'] as 'MODULE' : 'API';
+      const refs = Array.isArray(body?.['refs']) ? (body['refs'] as unknown[]).filter((r): r is { type: string; id: string } => !!r && typeof r === 'object' && typeof (r as { type?: unknown }).type === 'string' && typeof (r as { id?: unknown }).id === 'string') : undefined;
+      const out = orchestrator.agentService.start(actor, {
+        objective, origin,
+        ...(typeof body?.['profile'] === 'string' ? { profile: body['profile'] as never } : {}),
+        ...(typeof body?.['outcome'] === 'string' ? { outcome: body['outcome'] as never } : {}),
+        ...(refs?.length ? { refs } : {}),
+        ...(typeof body?.['externalRef'] === 'string' ? { externalRef: body['externalRef'].slice(0, 120) } : {}),
+      });
+      if (!out.ok) { refuse(res, 'VALIDATION_ERROR', out.reason); return; }
+      await orchestrator.agentService.wait(out.runId, typeof body?.['waitMs'] === 'number' ? Math.min(20000, body['waitMs'] as number) : 0);
+      send(res, 200, { outcome: 'SUCCESS', runId: out.runId, run: orchestrator.agentService.get(out.runId, actor) });
+      return;
+    }
     if (req.method === 'POST' && !parts.length) {
       const body = await readJson(req);
       if (!body || typeof body['request'] !== 'string' || !body['request'].trim()) { refuse(res, 'VALIDATION_ERROR', 'request is required'); return; }

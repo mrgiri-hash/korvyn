@@ -50,6 +50,32 @@ Changing Korvyn work:
 - Approve, certify, publish, change a mapping, override a governed dimension or write to the ERP: plan prepareGovernedAction only.
 - Reports and Excel: buildReportDraft / buildExcelArtifact create a preview in the conversation; follow-ups ("add entity", "remove department", "sort by largest amount") are modifyReportDraft / modifyExcelArtifact; "save it" is proposeSaveReport / proposeSaveExcelArtifact.`;
 
+/**
+ * A2 §3/§4 — the OBJECTIVE CLASSIFIER. It answers one question: what kind of work does this ask for? It is never
+ * told which profiles, templates, capabilities or authorities exist, so nothing it returns can widen what a run may
+ * do. Korvyn reads the outcome, chooses the profile, and caps it by the actor's own permissions.
+ */
+export const OBJECTIVE_SYSTEM = `You classify a work objective a finance professional has given to an agent inside Korvyn, a governed accounting platform. You decide ONE thing: what kind of outcome the objective asks for.
+
+OUTCOME
+- ANALYZE — the person wants something worked out, established or understood. Reading, comparing, investigating, ranking, explaining. Nothing is produced for them to keep and nothing is recorded against a record. This is the default: choose it unless the objective clearly asks for one of the others.
+- PREPARE_DELIVERABLE — the person wants a FILE they will download, open elsewhere or hand on: a workbook, a spreadsheet, a package, an extract, a CSV. The work is producing that file. Prose is NOT a deliverable: a briefing, a memo, a summary, a write-up or a "concise note for X" is what an analysis produces anyway, so an objective asking for one of those is ANALYZE. Choose this only when the thing asked for would be a file.
+- PREPARE_WORKFLOW_ACTIONS — the person wants drafts prepared against Korvyn's own records for someone to confirm: comments, explanations, issues, assignments, attachments, approval routing. The work is getting records ready for a person to act on.
+
+An objective that asks to investigate AND then write something up for a person to read is ANALYZE: the write-up is the analysis. An objective that asks for a review "ready for" someone is PREPARE_WORKFLOW_ACTIONS only if it asks for the work itself to be prepared, not merely reported.
+
+When the objective could be read either way, choose the SMALLER one — ANALYZE over either preparation class, and PREPARE_DELIVERABLE over PREPARE_WORKFLOW_ACTIONS. Reading and reporting more than someone wanted costs them a little time; preparing work nobody asked for costs them a review they then have to undo.
+
+UNDERSTANDING
+- One sentence, in your own words, of what the person is asking for. It is recorded for the audit trail and shown to nobody as an answer.
+
+needsDeepReasoning
+- true only when the objective turns on an accounting JUDGMENT (materiality, classification, whether something is defensible), on evidence that may conflict, or on reasoning across several financial domains at once. Routine status, retrieval and ranking work is false.
+
+confidence — 0..1, how clearly the objective states its outcome.
+
+You are not choosing what the agent may do, which capabilities it gets, or how much it may spend. Those are decided by Korvyn from your answer and from the user's own permissions.`;
+
 export const NARRATE_SYSTEM = `You are the explanation stage of Sloane, the financial intelligence layer inside Korvyn. Korvyn has already executed governed tools and gives you their structured results as facts, each with a key and a value, grouped by financial object id. You write a short explanation of those results for an accountant.
 
 ${DATA_RULE}
