@@ -172,6 +172,12 @@ export interface AgentObservation {
   resultType: string | null; objectIds: string[]; artifactIds: string[]; proposalIds: string[];
   actionResults: { proposalId: string; status: string; message: string }[];
   warnings: string[]; errors: string[]; evidence: string[];
+  /**
+   * A1 §10 — the canonical FinancialFact ids this step's result promoted. Optional so a run persisted before A1
+   * still loads. Without it a template run's observations carried a figure's key and value and no citable handle,
+   * while the conversation reading the same figure had one.
+   */
+  factIds?: string[];
   contextUpdates: Record<string, string>; policyEvents: string[]; findings: AgentFinding[];
 }
 export type CheckpointType = 'CLARIFICATION' | 'CONFIRMATION' | 'GOVERNED_APPROVAL' | 'DECISION_REQUIRED' | 'EXTERNAL_DEPENDENCY';
@@ -241,7 +247,18 @@ export interface AgentRunBody {
   steering: UserSteeringEvent[];
   events: { at: string; type: string; label: string }[];
   limits: { maxSteps: number; maxRetries: number; maxRuntimeMs: number };
-  usage: { steps: number; activeMs: number; consecutiveFailures: number; modelCalls: number; inputTokens: number; outputTokens: number };
+  /**
+   * A1 §13 — BOUNDED EXECUTION FOR EVERY RUN. Before A1 only an open INVESTIGATE run carried the full budget; a
+   * template run (controller review, audit support) was bounded on steps and wall clock and had NO ceiling on
+   * model calls, tokens or estimated cost. Every run now carries one, checked before each step.
+   *
+   * An INVESTIGATE run keeps its own INNER budget in `investigation.budget` (tighter on iterations, checked before
+   * each THINK call). This is the OUTER bound; the two never disagree because both run through `budgetExhausted`.
+   */
+  budget?: import('./investigate.js').AgentBudget;
+  usage: { steps: number; activeMs: number; consecutiveFailures: number; modelCalls: number; inputTokens: number; outputTokens: number;
+    /** optional so a run persisted before A1 still loads; read through `runUsage()`, never directly */
+    toolCalls?: number; cacheReadTokens?: number; estimatedCostUsd?: number };
   trace: AgentRunTrace;
   verification: { at: string; passed: boolean; checks: { check: string; ok: boolean; detail: string }[] } | null;
   result: AgentResult | null;

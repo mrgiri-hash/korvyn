@@ -159,7 +159,18 @@ export interface CompactObservation {
  */
 const REF_KEYS = /^(populationId|account|project|vendor|entity|reconciliationId|transactionId|journalId|largestAccount|largestProject|largestVendor|largestTransaction|largestJournal|explanationId|financialLineId|analysisId|auditPopulationId)$/;
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-export function compact(step: number, tool: string, purpose: string, o: FinancialObject | null, error: string | null, refused = false): CompactObservation {
+/**
+ * A1 §10 — the canonical FinancialFact ids for this object's facts, in the object's own fact order, or nothing.
+ *
+ * `CompactObservation.facts[].id` has always been declared and was only ever populated on the v2 conversational
+ * path, so an agent's finding carried a figure's KEY and VALUE and no canonical handle: two surfaces reading the
+ * same governed figure produced one citable fact and one uncitable one. The ids come from the SAME promotion the
+ * conversation uses (`factsFrom`), which is deterministic over the object's identity — so a fact an agent cites and
+ * a fact a conversation cites for the same figure are the same fact id. §24 forbids a second FinancialFact
+ * implementation, and this is what honouring that looks like.
+ */
+export type FactIds = string[] | null;
+export function compact(step: number, tool: string, purpose: string, o: FinancialObject | null, error: string | null, refused = false, factIds: FactIds = null): CompactObservation {
   const ref = `O${step}`;
   if (!o) {
     const x: CompactObservation = { ref, step, tool, purpose, status: refused ? 'REFUSED' : 'FAILED', objectId: null, type: null, title: purpose, period: '', scope: '', facts: [], columns: [], rows: [], rowCount: 0, population: null, refs: {}, note: cut(error ?? 'failed', 200), chars: 0 };
@@ -179,7 +190,7 @@ export function compact(step: number, tool: string, purpose: string, o: Financia
        could see in the table — typed two of them and got both signs backwards, presenting increases as
        decreases. A figure with no fact id is a figure that gets typed. The ceiling costs ~200 tokens on the one
        or two objects that reach it and removes the incentive entirely. */
-    facts: o.facts.slice(0, 28).map((f) => ({ key: f.key, label: cut(f.label, 60), value: cut(f.display, 60) })),
+    facts: o.facts.slice(0, 28).map((f, i) => ({ key: f.key, label: cut(f.label, 60), value: cut(f.display, 60), ...(factIds?.[i] ? { id: factIds[i]! } : {}) })),
     columns: cols, rows: o.table.rows.slice(0, 6).map((r) => ({ label: cut(r.label, 70), values: r.cells.slice(0, 5).map((c) => cut(c, 40)), ...(r.ref ? { ref: r.ref } : {}) })),
     rowCount: o.table.rows.length,
     population: o.population ? { populationId: o.population.populationId, rowCount: o.population.rowCount } : null,

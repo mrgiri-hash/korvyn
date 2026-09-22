@@ -354,6 +354,15 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
       send(res, 200, { outcome: 'SUCCESS', run: A.view(body0), ...(trace ? { body: body0 } : {}) });
       return;
     }
+    /**
+     * A1 §16 — the CANONICAL trace envelope for this run. Unlike `?trace=1` (the raw run body, development only,
+     * loopback only) this is the audit artifact: it is the actor's own run, it carries operational decision
+     * summaries rather than raw model reasoning, and it is the shape other producers will project into. The v1
+     * conversational endpoint is deliberately untouched.
+     */
+    if (req.method === 'GET' && verb === 'trace') { const t = A.traceOf(id!, actor); if (t) send(res, 200, { outcome: 'SUCCESS', trace: t }); else refuse(res, 'NOT_FOUND', 'No such run'); return; }
+    /** A1 §22 — the machine-readable evaluation record for this run */
+    if (req.method === 'GET' && verb === 'telemetry') { const t = A.telemetry(id!, actor); if (t) send(res, 200, { outcome: 'SUCCESS', telemetry: t }); else refuse(res, 'NOT_FOUND', 'No such run'); return; }
     if (req.method === 'POST') {
       const body = (await readJson(req)) ?? {};
       if (verb === 'intervene') { const t = typeof body['text'] === 'string' ? body['text'].slice(0, 500) : ''; const o = A.intervene(id!, actor, t); send(res, 200, { outcome: o.ok ? 'SUCCESS' : 'VALIDATION_ERROR', recognised: o.recognised, effect: o.effect, run: o.run ?? A.view(body0) }); return; }

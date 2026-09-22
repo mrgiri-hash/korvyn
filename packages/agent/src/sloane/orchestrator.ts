@@ -1973,30 +1973,33 @@ export class SloaneOrchestrator {
     } catch (e) { return out('FAILED', redact((e as Error).message)); }
   }
   /** the model plans a GENERIC goal from the profile's allowlist; Korvyn's deterministic planner answers when it declines */
-  async agentPlan(sessionId: string, actor: Actor, goalText: string, allow: SloaneTool[], signal?: AbortSignal): Promise<{ steps: PlanStep[]; source: 'reasoning' | 'deterministic'; calls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number }[] }> {
-    const s = this.sessions.get(sessionId)!, calls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number }[] = [];
-    const rec = (stage: string, o: { status: string; latencyMs: number; route?: string; model?: string; usage?: Usage }) => calls.push({ stage, route: o.route ?? null, model: o.model ?? null, status: o.status, latencyMs: o.latencyMs, inputTokens: o.usage?.inputTokens ?? 0, outputTokens: o.usage?.outputTokens ?? 0 });
+  /* A1 §13/§22 — planning and narration record through `callRecord` like every other agent call, so their cache
+     tokens and ESTIMATED COST reach the run's budget and telemetry. Built by hand they reported zero cost, which
+     made the cost ceiling unenforceable on exactly the runs whose only model call is a narration. */
+  async agentPlan(sessionId: string, actor: Actor, goalText: string, allow: SloaneTool[], signal?: AbortSignal): Promise<{ steps: PlanStep[]; source: 'reasoning' | 'deterministic'; calls: ReturnType<SloaneOrchestrator['callRecord']>[] }> {
+    const s = this.sessions.get(sessionId)!, calls: ReturnType<SloaneOrchestrator['callRecord']>[] = [];
+    const rec = (stage: string, route: Route, o: AdapterOutcome<unknown>) => calls.push(this.callRecord(stage, route, o));
     let I = deterministicInterpret(goalText, this.data, s.ctx, this.controls.recDefs());
     if (this.mode === 'reasoning') {
       const oi = await this.adapter.interpret({ request: goalText, context: this.modelContext(s.ctx, actor, goalText), candidates: this.context.candidates(goalText, actor), workingPeriod: this.data.workingPeriod(), availablePeriods: this.data.governedPeriods() }, { route: 'FAST', ...(signal ? { signal } : {}) });
-      rec('interpret', oi as never);
+      rec('interpret', 'FAST', oi);
       if (oi.status === 'ok') { const v = validateInterpretation(oi.value); if (v.ok) I = v.value; }
       const tools = allow.map((t) => ({ id: t.id, description: t.description, requiredInputs: t.params.filter((p) => p.required).map((p) => `${p.name} (${p.kind})`), optionalInputs: t.params.filter((p) => !p.required).map((p) => `${p.name} (${p.kind})`), outputs: t.outputs }));
       const op = await this.adapter.plan({ request: goalText, interpretation: I, context: this.modelContext(s.ctx, actor, goalText), tools, maxSteps: Math.min(this.cfg.maxPlanSteps, LIMITS.maxToolCalls) }, { route: 'DEEP', ...(signal ? { signal } : {}) });
-      rec('plan', op as never);
+      rec('plan', 'DEEP', op);
       if (op.status === 'ok' && op.value.steps.length) return { steps: op.value.steps, source: 'reasoning', calls };
     }
     const R = this.context.resolve(I, s.ctx, goalText);
     return { steps: deterministicPlan(goalText, I, R, s.ctx, this.gl), source: 'deterministic', calls };
   }
   /** a grounded summary of a run's milestone objects: the model writes sentences, grounding rejects any figure it did not receive */
-  async agentNarrate(request: string, objects: FinancialObject[], signal?: AbortSignal): Promise<{ sentences: string[]; source: 'reasoning' | 'deterministic'; rejected: number; call: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number } | null }> {
+  async agentNarrate(request: string, objects: FinancialObject[], signal?: AbortSignal): Promise<{ sentences: string[]; source: 'reasoning' | 'deterministic'; rejected: number; call: ReturnType<SloaneOrchestrator['callRecord']> | null }> {
     const det = deterministicNarrative(objects).map((n) => n.text);
     const narrated = objects.filter((o) => !STRUCTURAL.has(o.type) && !o.action && o.status !== 'UNAVAILABLE');
     if (this.mode !== 'reasoning' || !narrated.length) return { sentences: det, source: 'deterministic', rejected: 0, call: null };
     const payload = narrated.map((o) => ({ objectId: o.id, type: o.type, title: o.title, status: o.status, facts: o.facts.map((f) => ({ key: `${o.id}.${f.key}`, label: f.label, display: f.display })) }));
     const out = await this.adapter.narrate({ request, objects: payload }, { route: 'FAST', ...(signal ? { signal } : {}) });
-    const call = { stage: 'narrate', route: out.route ?? null, model: out.model ?? null, status: out.status, latencyMs: out.latencyMs, inputTokens: out.status === 'ok' ? out.usage?.inputTokens ?? 0 : 0, outputTokens: out.status === 'ok' ? out.usage?.outputTokens ?? 0 : 0 };
+    const call = this.callRecord('narrate', 'FAST', out);
     if (out.status !== 'ok') return { sentences: det, source: 'deterministic', rejected: 0, call };
     const g = ground(out.value.sentences, narrated);
     return g.accepted.length ? { sentences: g.accepted.map((x) => x.text), source: 'reasoning', rejected: g.rejected.length, call } : { sentences: det, source: 'deterministic', rejected: g.rejected.length, call };

@@ -11,8 +11,10 @@
  * open for the run), can be paused, interrupted, re-scoped and cancelled, and are verified before they complete.
  */
 import { randomUUID } from 'node:crypto';
-import type { SloaneOrchestrator } from '../orchestrator.js';
-import { type Actor, type FinancialObject, toolRegistry, visibleOf } from '../tools.js';
+import type { AgentHost } from './host.js';
+import { type Actor, type FinancialObject, WRITE_ACTIONS_ENABLED, toolRegistry, visibleOf } from '../tools.js';
+import { type AgentTelemetry, type KorvynTrace, agentTelemetry, agentTrace } from '../trace.js';
+import { factsFrom } from '../v2/facts.js';
 import { WORK } from '../store.js';
 import { periodLabel } from '../financials.js';
 import { SOURCE_HEALTH } from '../governed.js';
@@ -22,7 +24,7 @@ import { mkTask, templateFor, typeOfTool } from './graphs.js';
 import { type GoalDeps, detectGoalType, hasSubject, parseGoal, retitle } from './goals.js';
 import { type Ambiguity, applyCandidate, resolveTerms } from './ambiguity.js';
 import { type SteeringIntent, classifySteering } from './steering.js';
-import { AGENT_DOMAINS, CLASS_ROUTE, type CompactObservation, type FinancialFrame, type InvestigationState, allowedNumbers, budgetExhausted, compact, contextFor, escalate, newInvestigation, progressLine, referentsOf, relax, relevant, synthesisContext, ungrounded } from './investigate.js';
+import { AGENT_DOMAINS, CLASS_ROUTE, type AgentBudget, type AgentUsage, type CompactObservation, type FinancialFrame, type InvestigationState, allowedNumbers, budgetExhausted, compact, contextFor, defaultBudget, escalate, newInvestigation, progressLine, referentsOf, relax, relevant, synthesisContext, ungrounded } from './investigate.js';
 import {
   type AgentCheckpoint, type AgentFinding, type AgentGoal, type AgentIntervention, type AgentObservation, type AgentRunBody, type AgentRunOptions,
   type AgentRunStatus, type AgentTask, type GoalType, type RunContext, type SteeringType, type UserSteeringEvent, POLICY_PROFILES, TERMINAL, WAITING,
@@ -30,6 +32,33 @@ import {
 
 const KIND = 'AGENT_RUN';
 const now = () => new Date().toISOString();
+
+/* ================================================================================================
+   A1 §13 — ONE BOUNDED-EXECUTION MODEL, FOR EVERY RUN
+   ================================================================================================ */
+/**
+ * The run's OUTER budget. The profile owns how many steps and how long (it knows the shape of the work); the
+ * model-call, token and cost dimensions come from the deployment's own defaults, because those are a deployment
+ * decision and not a finance-domain one (§13: "do not make limits finance-domain-specific").
+ */
+function runBudget(profile: { maxSteps: number; maxRuntimeMs: number }): AgentBudget {
+  const d = defaultBudget();
+  return { ...d, maxIterations: profile.maxSteps, maxToolCalls: Math.max(d.maxToolCalls, profile.maxSteps), maxElapsedMs: profile.maxRuntimeMs };
+}
+/** the run's usage in the shape `budgetExhausted` reads — one budget engine, two callers (the run and its investigation) */
+/**
+ * A1 §10 — the book and lens a run's facts are promoted under. This server presents one governed book; when a run
+ * can be started against another, it comes from the run's own financial context and not from here.
+ */
+const FACT_CTX = { book: 'CORE-GL', lens: 'Corporate Consolidated' };
+/** §18: how many independent READS may share one tick. Deliberately small — this is a foundation, not a worker pool. */
+const MAX_PARALLEL = Number(process.env['KORVYN_AGENT_MAX_PARALLEL']) > 0 ? Number(process.env['KORVYN_AGENT_MAX_PARALLEL']) : 3;
+function runUsage(run: AgentRunBody, elapsedMs: number): AgentUsage {
+  const u = run.usage;
+  return { iterations: u.steps, modelCalls: u.modelCalls, toolCalls: u.toolCalls ?? run.trace.toolCalls.length, inputTokens: u.inputTokens, outputTokens: u.outputTokens,
+    cacheReadTokens: u.cacheReadTokens ?? 0, cacheWriteTokens: 0, estimatedCostUsd: u.estimatedCostUsd ?? 0, largestContextChars: 0, observationChars: 0, escalations: 0, elapsedMs };
+}
+
 const money = (v: number) => { const a = Math.abs(v) / 1e6; const s = `$${a.toFixed(2)}M`; return v < 0 ? `(${s})` : s; };
 const col = (o: FinancialObject, name: string) => o.table.columns.indexOf(name);
 const fact = (o: FinancialObject | undefined, k: string) => o?.facts.find((f) => f.key === k);
@@ -50,7 +79,12 @@ export class AgentRuntime {
   private readonly waiters = new Map<string, (() => void)[]>();
   private readonly acs = new Map<string, AbortController>();
 
-  constructor(private readonly o: SloaneOrchestrator) {
+  /**
+   * A1 §2 — the runtime is constructed with the HOST PORT, not with a conversation. `SloaneOrchestrator` satisfies
+   * it structurally and is still the only implementation; what the type change buys is that the runtime can no
+   * longer reach past the port, so a scheduler or module can host a run by supplying exactly these members.
+   */
+  constructor(private readonly o: AgentHost) {
     /* a run the previous process was advancing is PAUSED, never silently re-executed: a person resumes it */
     for (const r of WORK.repos.records.list<{ run: AgentRunBody }>(KIND)) {
       const run = r.run;
@@ -90,7 +124,8 @@ export class AgentRuntime {
       runId, goal, runStatus: 'CREATED', actor: { id: actor.id, name: actor.name, role: actor.role, scope: actor.scopeIds }, permissionsSnapshot: actor.permissions.slice(),
       sessionId, investigationId, graph: { planId: `APLAN-${runId}`, version: 0, tasks: [], revisions: [] }, currentTaskId: null,
       observations: [], checkpoints: [], interventions: [], steering: [], events: [], limits: { maxSteps: profile.maxSteps, maxRetries: profile.maxRetries, maxRuntimeMs: profile.maxRuntimeMs },
-      usage: { steps: 0, activeMs: 0, consecutiveFailures: 0, modelCalls: 0, inputTokens: 0, outputTokens: 0 }, trace: { toolCalls: [], modelCalls: [], policyDecisions: [] },
+      budget: runBudget(profile),
+      usage: { steps: 0, activeMs: 0, consecutiveFailures: 0, modelCalls: 0, inputTokens: 0, outputTokens: 0, toolCalls: 0, cacheReadTokens: 0, estimatedCostUsd: 0 }, trace: { toolCalls: [], modelCalls: [], policyDecisions: [] },
       verification: null, result: null, resultObjectIds: [], artifactIds: [], warnings: [], errors: [], completionReason: null,
       startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' || goal.type === 'INVESTIGATE' ? 'MODEL' : 'TEMPLATE',
       ...(goal.type === 'INVESTIGATE' ? { investigation: newInvestigation() } : {}),
@@ -216,15 +251,49 @@ export class AgentRuntime {
   /** @returns whether the loop should continue */
   private async stepOnce(run: AgentRunBody): Promise<boolean> {
     const prof = POLICY_PROFILES[run.goal.policyProfile];
-    /* §15 stop conditions */
-    if (run.usage.steps >= run.limits.maxSteps) { this.finish(run, 'BLOCKED', `Step limit reached (${run.limits.maxSteps}). The completed work is kept; resume with a narrower goal.`); return false; }
-    if (Date.now() - Date.parse(run.startedAt) - this.waitedMs(run) > run.limits.maxRuntimeMs) { this.finish(run, 'BLOCKED', `Runtime limit reached (${Math.round(run.limits.maxRuntimeMs / 1000)}s of active work).`); return false; }
+    /**
+     * §12/§13 STOP CONDITIONS, checked BEFORE the step so the loop never overruns. One budget engine
+     * (`budgetExhausted`) covers steps, wall clock, model calls, tokens and estimated cost; budget exhaustion
+     * produces a controlled terminal state with the reason recorded, never a retry.
+     */
+    const b = run.budget ?? runBudget(prof);
+    const spent = budgetExhausted(b, runUsage(run, Date.now() - Date.parse(run.startedAt) - this.waitedMs(run)));
+    if (spent) {
+      run.warnings.push(`Budget: ${spent}`);
+      this.finish(run, 'BLOCKED', `The run stopped because its ${spent}. The completed work is kept; resume with a narrower goal.`);
+      return false;
+    }
     if (run.usage.consecutiveFailures >= prof.maxConsecutiveFailures) { this.finish(run, 'FAILED', `${run.usage.consecutiveFailures} steps failed in a row; the run stopped rather than continue on broken inputs.`); return false; }
     /* skip what can no longer run */
     for (const t of run.graph.tasks) if (t.status === 'PENDING' && this.depState(run, t) === 'SKIP') { t.status = 'SKIPPED'; t.failureMode = 'DEPENDENCY'; t.error = 'A step it depends on did not complete.'; this.event(run, 'TASK_SKIPPED', `${t.title}: a step it depends on did not complete`); if (t.milestone) this.line(run, `${t.title} — not run: a step it depends on did not complete`, 'skipped'); }
     const ready = run.graph.tasks.filter((t) => t.status === 'PENDING' && this.depState(run, t) === 'READY').sort((a, b) => a.priority - b.priority);
     const t = ready[0];
-    if (!t) {
+    if (t) {
+      /**
+       * §18 PARALLELISM — the foundation, not a worker system. Every READY task is independent BY CONSTRUCTION: a
+       * task whose dependency has not completed is WAIT, never READY, so the ready set can never contain a pair
+       * where one needs the other. What is left is deciding which of them are safe to interleave, and that is a
+       * property of the step, not of the goal:
+       *
+       *   a READ tool step        pure with respect to run state — it appends an observation and nothing else
+       *   an EXPANDING step       revises the graph mid-batch, so the batch it is in is no longer the plan
+       *   a PROPOSE step          joins an action plan a confirmation checkpoint will decide; order is meaning
+       *   an INTERNAL check       verification, synthesis, confirmation, THINK — each reads the whole run
+       *
+       * Only the first is batched. The batch is a prefix of the priority-ordered ready set, so priority still
+       * decides what runs first, and it is capped by what the budget has left, so parallelism can never overrun a
+       * ceiling the sequential path would have respected.
+       */
+      const room = Math.max(1, Math.min(MAX_PARALLEL, b.maxIterations - run.usage.steps, b.maxToolCalls - (run.usage.toolCalls ?? 0)));
+      const batch: AgentTask[] = [];
+      for (const x of ready) { if (batch.length >= room || !this.parallelSafe(x)) break; batch.push(x); }
+      if (batch.length > 1) {
+        this.event(run, 'STEPS_PARALLEL', `${batch.length} independent reads run together: ${batch.map((x) => x.title).join(', ')}`);
+        await Promise.all(batch.map((x) => this.execute(run, x)));
+      } else await this.execute(run, t);
+      return run.runStatus === 'RUNNING';
+    }
+    {
       const open = run.checkpoints.filter((c) => c.status === 'OPEN' && c.blocking);
       if (run.graph.tasks.some((x) => x.status === 'WAITING') && open.length) {
         const c = open[0]!;
@@ -238,8 +307,10 @@ export class AgentRuntime {
       this.finish(run, ok ? 'COMPLETED' : 'BLOCKED', ok ? 'Goal complete and verified.' : `Verification did not pass: ${run.verification!.checks.filter((c) => !c.ok).map((c) => c.check).join('; ')}.`);
       return false;
     }
-    await this.execute(run, t);
-    return run.runStatus === 'RUNNING';
+  }
+  /** §18: a step that may share a tick with its independent siblings — a governed READ that revises nothing */
+  private parallelSafe(t: AgentTask): boolean {
+    return !!t.tool && t.riskLevel === 'READ' && !t.expand && !t.check;
   }
   private waitedMs(run: AgentRunBody) {
     let w = 0;
@@ -343,6 +414,8 @@ export class AgentRuntime {
     const obs: AgentObservation = {
       id: `OBS-${run.observations.length + 1}`, taskId: t.taskId, at: now(), status: 'COMPLETED', resultType: o.type, objectIds: [o.id], artifactIds: t.artifactIds.slice(), proposalIds: t.proposalIds.slice(),
       actionResults: [], warnings: warnings.filter((w) => !/Workflow state \(assignments/.test(w)).slice(0, 4), errors: [], evidence: o.population?.populationId ? [o.population.populationId] : [],
+      /* A1 §10: EVERY run's observations carry canonical fact ids, not only an investigation's */
+      factIds: factsFrom(o, FACT_CTX).map((f) => f.factId),
       contextUpdates: Object.fromEntries(Object.entries(o.refs).slice(0, 6)), policyEvents: o.action ? [`${o.action.type} classified ${o.action.riskLevel} by Korvyn policy`] : [], findings: this.findingsOf(t, o),
     };
     run.observations.push(obs);
@@ -1032,7 +1105,9 @@ export class AgentRuntime {
     iv.effect = iv.effect || 'Applied.';
     /* the step budget guards against a runaway plan, not against work the person asked for: a steering revision extends
        it by exactly the steps it added, and says so */
-    if (out.added.length) { run.limits.maxSteps += out.added.length; this.event(run, 'BUDGET_EXTENDED', `+${out.added.length} steps for "${text}" (limit now ${run.limits.maxSteps})`); }
+    /* a PERSON-initiated revision may add steps, and the budget grows by exactly what it added — the outer budget
+       moves with it, or a steering instruction would be accepted and then stopped by a ceiling it just raised */
+    if (out.added.length) { run.limits.maxSteps += out.added.length; if (run.budget) run.budget.maxIterations += out.added.length; this.event(run, 'BUDGET_EXTENDED', `+${out.added.length} steps for "${text}" (limit now ${run.limits.maxSteps})`); }
     g.userInstructions.push(text);
     retitle(g);
     const after = this.ctxOf(run);
@@ -1269,7 +1344,10 @@ export class AgentRuntime {
     const S = run.investigation!;
     const o = this.objects.get(run.runId)?.get(t.taskId) ?? null;
     const step = S.observations.length + 1;
-    const obs: CompactObservation = t.status === 'COMPLETED' && o ? compact(step, t.tool!, t.request ?? t.title, o, null)
+    /* A1 §10: promote this object's facts through the CONVERSATION'S OWN registry, so the observation carries
+       canonical FinancialFact ids. The promotion is deterministic over the object's identity, so a figure an agent
+       cites and the same figure a conversation cites resolve to one fact. */
+    const obs: CompactObservation = t.status === 'COMPLETED' && o ? compact(step, t.tool!, t.request ?? t.title, o, null, false, factsFrom(o, FACT_CTX).map((f) => f.factId))
       : compact(step, t.tool!, t.request ?? t.title, null, t.error ?? 'did not complete', t.failureMode === 'PERMISSION' || t.failureMode === 'POLICY');
     S.observations.push(obs);
     S.usage.toolCalls += 1; S.usage.observationChars += obs.chars;
@@ -1360,6 +1438,22 @@ export class AgentRuntime {
   /* ================================================================================================
      VIEW · PERSISTENCE · EVENTS
      ================================================================================================ */
+  /**
+   * A1 §16 — the canonical trace envelope for this run, PROJECTED from the run's own durable state. No second
+   * record: reconstructing it on read is what stops the trace and the run it describes ever disagreeing.
+   * Only the actor who started a run may read its trace.
+   */
+  traceOf(runId: string, actor: Actor): KorvynTrace | null {
+    const r = this.cache.get(runId) ?? this.load(runId);
+    if (!r || r.actor.id !== actor.id) return null;
+    const p = POLICY_PROFILES[r.goal.policyProfile];
+    return agentTrace(r, { profile: p.id, autonomy: p.autonomy }, WRITE_ACTIONS_ENABLED);
+  }
+  /** A1 §22 — the machine-readable record the Eval workstream consumes; measured, never self-scored */
+  telemetry(runId: string, actor: Actor): AgentTelemetry | null {
+    const r = this.cache.get(runId) ?? this.load(runId);
+    return r && r.actor.id === actor.id ? agentTelemetry(r) : null;
+  }
   get(runId: string, actor: Actor): RunView | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? this.view(r) : null; }
   body(runId: string, actor: Actor): AgentRunBody | null { const r = this.cache.get(runId) ?? this.load(runId); return r && r.actor.id === actor.id ? r : null; }
   list(actor: Actor) { return WORK.repos.records.list<{ run: AgentRunBody }>(KIND, { created_by: actor.id }).map((r) => this.cache.get(r.id) ?? r.run).map((r) => ({ runId: r.runId, sessionId: r.sessionId, title: r.goal.title, goalType: r.goal.type, status: r.runStatus, startedAt: r.startedAt, updatedAt: r.updatedAt, completedAt: r.completedAt })).reverse(); }
@@ -1430,10 +1524,14 @@ export class AgentRuntime {
   private policy(run: AgentRunBody, subject: string, decision: 'ALLOW' | 'DENY' | 'CHECKPOINT', reason: string) { run.trace.policyDecisions.push({ at: now(), subject, decision, reason }); if (run.trace.policyDecisions.length > 200) run.trace.policyDecisions.shift(); }
   private model(run: AgentRunBody, c: AgentRunBody['trace']['modelCalls'][number]) {
     run.trace.modelCalls.push(c); run.usage.modelCalls += 1; run.usage.inputTokens += c.inputTokens; run.usage.outputTokens += c.outputTokens;
+    /* §13/§22: the run's own token and cost meters, so the outer budget and the telemetry read the same numbers
+       whichever path produced the call (a template narration, a GENERIC plan, an investigation THINK) */
+    run.usage.cacheReadTokens = (run.usage.cacheReadTokens ?? 0) + (c.cacheReadTokens ?? 0);
+    run.usage.estimatedCostUsd = (run.usage.estimatedCostUsd ?? 0) + (c.costUsd ?? 0);
     const S = run.investigation;
     if (S) { S.usage.modelCalls += 1; S.usage.inputTokens += c.inputTokens; S.usage.outputTokens += c.outputTokens; S.usage.cacheReadTokens += c.cacheReadTokens ?? 0; S.usage.cacheWriteTokens += c.cacheWriteTokens ?? 0; S.usage.estimatedCostUsd += c.costUsd ?? 0; }
   }
-  private trace(run: AgentRunBody, t: AgentTask, args: Record<string, string>, status: string, ms: number, objectId: string | null, error: string | null, traceId: string) { run.trace.toolCalls.push({ taskId: t.taskId, tool: t.tool!, args, status, latencyMs: ms, objectId, error, traceId }); }
+  private trace(run: AgentRunBody, t: AgentTask, args: Record<string, string>, status: string, ms: number, objectId: string | null, error: string | null, traceId: string) { run.trace.toolCalls.push({ taskId: t.taskId, tool: t.tool!, args, status, latencyMs: ms, objectId, error, traceId }); run.usage.toolCalls = (run.usage.toolCalls ?? 0) + 1; }
   private ac(runId: string) { let a = this.acs.get(runId); if (!a || a.signal.aborted) { a = new AbortController(); this.acs.set(runId, a); } return a; }
   private actorOf(run: AgentRunBody): Actor { return { id: run.actor.id, name: run.actor.name, role: run.actor.role, permissions: run.permissionsSnapshot as Actor['permissions'], scopeIds: run.actor.scope }; }
   private audit(run: AgentRunBody, actor: Actor, action: string, proposalId: string | null, after: unknown) {
