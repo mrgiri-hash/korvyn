@@ -102,6 +102,58 @@ const WEIGHT: Record<GoalClass, Partial<Record<AgentDomain, number>>> = {
   EVIDENCE_REVIEW: { evidence: 3, ledger: 2, recon: 1, trace: 2 },
   OTHER: { financials: 2, analysis: 2, close: 1, flux: 1, recon: 1, semantic: 2 },
 };
+/**
+ * A3 SS3 -- WHAT A GOAL CLASS WANTS TO PREPARE. An action's DOMAIN separates writing on a governed object
+ * ('action') from building a deliverable ('build'), and that is the first thing a goal class has an opinion
+ * about: a flux review prepares explanations, an analysis extension builds a workbook. 0 means not offered
+ * unless the objective asked for that domain by name.
+ */
+const ACTION_WEIGHT: Record<GoalClass, Partial<Record<ActionDomain, number>>> = {
+  ANOMALY_REVIEW: { action: 3, build: 1 },
+  VARIANCE_EXPLANATION: { action: 3, build: 1 },
+  CLOSE_READINESS: { action: 3, build: 1 },
+  FLUX_REVIEW: { action: 3 },
+  RECONCILIATION_REVIEW: { action: 3 },
+  SUBJECT_INVESTIGATION: { action: 2, build: 2 },
+  STATEMENT_REVIEW: { action: 2, build: 2 },
+  REVIEW_PREPARATION: { action: 3, build: 2 },
+  ANALYSIS_EXTENSION: { action: 2, build: 3 },
+  EVIDENCE_REVIEW: { action: 3, build: 2 },
+  OTHER: { action: 2, build: 2 },
+};
+/**
+ * THE OBJECTS A GOAL CLASS IS ABOUT. The domain alone cannot separate two dozen 'action' tools, and a run
+ * reviewing flux that is offered a reviewer assignment instead of a flux explanation has been given the
+ * wrong capability however correct its domain. Every tool already DECLARES the governed objects it acts on
+ * (`objectTypes`), so relevance is read from that rather than from its id -- a preparation capability added
+ * later is ranked by what it acts on, with nothing here to extend.
+ */
+const ACTION_OBJECTS: Record<GoalClass, readonly string[]> = {
+  ANOMALY_REVIEW: ['GOVERNED_LEDGER', 'FLUX', 'ACCOUNT'],
+  VARIANCE_EXPLANATION: ['FLUX', 'ACCOUNT', 'ACCOUNT_GROUP'],
+  CLOSE_READINESS: ['CLOSE', 'RECONCILIATION', 'FLUX'],
+  FLUX_REVIEW: ['FLUX', 'ACCOUNT', 'ACCOUNT_GROUP'],
+  RECONCILIATION_REVIEW: ['RECONCILIATION', 'EVIDENCE'],
+  SUBJECT_INVESTIGATION: ['GOVERNED_LEDGER', 'ACCOUNT', 'FLUX'],
+  STATEMENT_REVIEW: ['FLUX', 'ACCOUNT_GROUP', 'REPORT'],
+  REVIEW_PREPARATION: ['FLUX', 'RECONCILIATION', 'CLOSE', 'REPORT', 'EXCEL_ARTIFACT'],
+  ANALYSIS_EXTENSION: ['REPORT', 'EXCEL_ARTIFACT'],
+  EVIDENCE_REVIEW: ['EVIDENCE', 'RECONCILIATION', 'SUPPORT_PACKAGE', 'EXCEL_ARTIFACT'],
+  OTHER: [],
+};
+/** the goal class is about one of these objects, so an action on one of them is the relevant one */
+const ACTION_OBJECT_BONUS = 25;
+/**
+ * AND AN ACTION ON AN OBJECT THE RUN ALREADY HOLDS. A workbook cannot be previewed, refined or generated before
+ * one exists, so those capabilities are noise on the first step and the obvious next move once a build has run.
+ * The referent kinds a run accumulates already say which objects it holds; this reads the same state the
+ * argument scoring reads, one step further out.
+ */
+const REFERENT_OBJECT: Record<string, string> = {
+  artifactId: 'EXCEL_ARTIFACT', reportId: 'REPORT', reconciliationId: 'RECONCILIATION', populationId: 'GOVERNED_LEDGER',
+  account: 'ACCOUNT', pbcId: 'PBC_REQUEST', auditPopulationId: 'AUDIT_POPULATION', analysisId: 'ANALYSIS',
+};
+const ACTION_IN_HAND_BONUS = 15;
 /** before the goal class is known: a broad, capped first view */
 const FIRST: Partial<Record<AgentDomain, number>> = { financials: 3, analysis: 2, flux: 2, close: 2, recon: 1, ledger: 1, semantic: 2 };
 /** always offered: resolving what the words name is the start of every investigation */
@@ -114,14 +166,70 @@ export function capabilityOf(t: SloaneTool): Capability {
   return { id: t.id, domain: t.domain, cls: 'D0', description: d, args: t.params.map((p) => `${p.name}:${p.kind}${p.required ? '*' : ''}`) };
 }
 /** every governed READ capability this actor may use, in the investigation domains — the registry the filter chooses from */
-export function registry(allow: readonly SloaneTool[]): SloaneTool[] {
-  return allow.filter((t) => t.risk === 'READ' && (AGENT_DOMAINS as readonly string[]).includes(t.domain));
+/**
+ * A3 §3 — ACTION CAPABILITIES ARE DISCOVERED THE SAME WAY READS ARE, through this one filter. The caller says
+ * which ACTION domains this run may prepare in (the profile's, intersected with what the actor may do); passing
+ * none keeps the run read-only, which is what every profile at autonomy 1 does.
+ *
+ * Nothing about exposure is a permission: a tool shown here is still authorized at validation, gated by the
+ * profile's `preparableActions`, classified by ActionGovernance and confirmed by a person before it writes.
+ */
+export const ACTION_DOMAINS = ['action', 'build'] as const;
+export type ActionDomain = (typeof ACTION_DOMAINS)[number];
+export function registry(allow: readonly SloaneTool[], actionDomains: readonly string[] = []): SloaneTool[] {
+  return allow.filter((t) => {
+    if (t.risk === 'READ') return (AGENT_DOMAINS as readonly string[]).includes(t.domain);
+    return t.risk === 'PROPOSE' && actionDomains.includes(t.domain);
+  });
 }
 export interface RelevanceState { goalClass: GoalClass | null; requested: string[]; used: string[]; referents: Record<string, boolean> }
 /** the relevant subset: goal class, requested domains (tool discovery), the referents already in hand, what was used */
-export function relevant(allow: readonly SloaneTool[], s: RelevanceState, max = 20): SloaneTool[] {
+export function relevant(allow: readonly SloaneTool[], s: RelevanceState, max = 20, actionDomains: readonly string[] = []): SloaneTool[] {
   const w = s.goalClass ? WEIGHT[s.goalClass] : FIRST;
-  const scored = registry(allow).map((t) => {
+  const scored = registry(allow, actionDomains).map((t) => {
+    /**
+     * A3 §3 — AN ACTION IS RANKED THE SAME WAY A READ IS. Scoring every preparation capability alike left the
+     * reserved slots in ALPHABETICAL order, so a run reviewing flux was offered four spreadsheet builders and a
+     * report draft and never the flux explanation it existed to write (observed). Three signals decide, all of
+     * them already declared on the tool: what the goal class wants to prepare (`ACTION_WEIGHT`), which governed
+     * objects it is about (`ACTION_OBJECTS` against the tool's own `objectTypes`), and whether the referents its
+     * arguments need are in hand.
+     *
+     * AND NOTHING IS OFFERED BEFORE THE RUN HAS READ SOMETHING. Preparation is the last thing a run does, not the
+     * first: with no observations in hand there is nothing an action could be grounded in. This is relevance and
+     * not permission — the gate is `profileGate`, and this only decides what is worth showing.
+     */
+    if (t.risk === 'PROPOSE') {
+      if (!s.used.length) return { t, sc: 0 };
+      const g = s.goalClass ?? 'OTHER';
+      const sc = scoreRead(t, ACTION_WEIGHT[g], s).sc;
+      const about = t.objectTypes.some((o) => ACTION_OBJECTS[g].includes(o));
+      const held = Object.keys(s.referents).some((k) => s.referents[k] && t.objectTypes.includes(REFERENT_OBJECT[k] ?? ''));
+      return { t, sc: sc + (about ? ACTION_OBJECT_BONUS : 0) + (held ? ACTION_IN_HAND_BONUS : 0) };
+    }
+    return scoreRead(t, w, s);
+  });
+  /**
+   * A3 §3 — ACTIONS GET RESERVED SLOTS, or they are never offered at all. Reads outscore preparation by design
+   * (evidence first), and with a single ranked list of 20 that meant every action fell off the end and the run
+   * could only ever read — the capability existed and was structurally unreachable (observed). A small reserve
+   * keeps preparation possible without letting it crowd out the reads that would ground it.
+   */
+  const acts = scored.filter((x) => x.t.risk === 'PROPOSE');
+  if (!acts.length) return rank(scored, max);
+  /**
+   * THE RESERVE IS PER ACTION DOMAIN. One pool ranked together let the domain with more capabilities take every
+   * slot: a controller review that must draft comments AND build the review package was shown four comment
+   * tools and no builder, so the deliverable half of its own work was unreachable (observed). Writing on a
+   * governed object and building a deliverable are different work, and a profile permitted both sees both.
+   */
+  const held = ACTION_DOMAINS.flatMap((d) => rank(acts.filter((x) => x.t.domain === d), ACTION_SLOTS[d]));
+  return [...rank(scored.filter((x) => x.t.risk !== 'PROPOSE'), max - held.length), ...held];
+}
+/** how many of a step's capability slots are held for preparation in each action domain, once a run may prepare */
+const ACTION_SLOTS: Record<ActionDomain, number> = { action: 4, build: 3 };
+function scoreRead(t: SloaneTool, w: Partial<Record<string, number>>, s: RelevanceState) {
+  {
     let sc = ((w as Record<string, number>)[t.domain] ?? 0) * 10;
     if (s.requested.includes(t.domain)) sc += 25;
     if (ALWAYS.includes(t.id)) sc += 40;
@@ -131,8 +239,10 @@ export function relevant(allow: readonly SloaneTool[], s: RelevanceState, max = 
       if (p.required && NEEDS_REF[p.kind] && !s.referents[p.kind]) sc -= 30;
     }
     return { t, sc };
-  }).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc || a.t.id.localeCompare(b.t.id));
-  return scored.slice(0, max).map((x) => x.t);
+  }
+}
+function rank(scored: { t: SloaneTool; sc: number }[], max: number): SloaneTool[] {
+  return scored.filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc || a.t.id.localeCompare(b.t.id)).slice(0, max).map((x) => x.t);
 }
 
 /* ================================================================================================
@@ -157,7 +267,7 @@ export interface CompactObservation {
  * from?" has nothing to point at and the chain stops at the population. Same for the explanation and statement
  * records a governed figure already knows about.
  */
-const REF_KEYS = /^(populationId|account|project|vendor|entity|reconciliationId|transactionId|journalId|largestAccount|largestProject|largestVendor|largestTransaction|largestJournal|explanationId|financialLineId|analysisId|auditPopulationId)$/;
+const REF_KEYS = /^(populationId|account|project|vendor|entity|reconciliationId|transactionId|journalId|largestAccount|largestProject|largestVendor|largestTransaction|largestJournal|explanationId|financialLineId|analysisId|auditPopulationId|artifactId|pbcId|reportId)$/;
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 /**
  * A1 §10 — the canonical FinancialFact ids for this object's facts, in the object's own fact order, or nothing.

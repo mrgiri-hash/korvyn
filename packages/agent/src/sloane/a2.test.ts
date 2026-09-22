@@ -37,7 +37,7 @@ const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'BLOCKED'];
 
 const usage = { inputTokens: 900, outputTokens: 120, cacheReadTokens: 80, cacheWriteTokens: 0 };
 const ok = <T>(value: T, route: string) => ({ status: 'ok' as const, latencyMs: 1, requestId: null, usage, model: route === 'DEEP' ? 'claude-opus-5' : 'claude-sonnet-5', route, value });
-const call = (tool: string, args: Record<string, string>) => ({ tool, purpose: `Reading ${tool}`, progress: `Reading ${tool}`, args: Object.entries(args).map(([name, value]) => ({ name, value })) });
+const call = (tool: string, args: Record<string, string>) => ({ tool, intent: 'READ' as const, purpose: `Reading ${tool}`, progress: `Reading ${tool}`, args: Object.entries(args).map(([name, value]) => ({ name, value })) });
 const step = (o: Partial<AgentStepOut>): AgentStepOut => ({ goalClass: 'CLOSE_READINESS', understanding: 'Establish where June stands.', decision: 'CALL_TOOLS', calls: [], needCapabilities: [], workingNotes: [], openQuestions: [], question: null, options: [], confidence: 0.8, escalate: { needed: false, reason: null, detail: null }, ...o }) as AgentStepOut;
 
 /** a model that can reason (so the GENERIC loop runs) and classifies objectives as told */
@@ -160,13 +160,14 @@ test('§5 — reasoning class comes from the profile, and the model cannot raise
 /* ================================================================================================
    §6 — THE TEMPLATES ARE THE DETERMINISTIC PLANNER
    ================================================================================================ */
-test('§6 — no profile names a read template; the three that remain are the action pipeline, each with a stated reason', () => {
+test('§6 / A3 §12 — no profile names a template at all; what survives is the no-model planner, with its reason', () => {
+  /* A2 removed template SELECTION from the request text; A3 removes the template as an execution path */
   const named = Object.values(POLICY_PROFILES).map((p) => p.execution).filter((x) => x !== 'GENERIC');
-  assert.ok(!named.includes('REVIEW_CLOSE'), 'the close template is no longer named by any profile');
-  assert.ok(!named.includes('INVESTIGATE_VENDOR'), 'nor the vendor template');
-  for (const t of named) assert.ok(LEGACY_TEMPLATES[t], `${t} is reachable and states why it survives`);
-  /* four of the six profiles run the generic runtime outright */
-  assert.equal(Object.values(POLICY_PROFILES).filter((p) => p.execution === 'GENERIC').length, 3);
+  assert.deepEqual(named, [], 'every profile runs the generic runtime');
+  /* the three that still answer `templateFor` are reachable only by the deprecated no-model shim, and say so */
+  for (const t of Object.keys(LEGACY_TEMPLATES) as (keyof typeof LEGACY_TEMPLATES)[]) {
+    assert.match(LEGACY_TEMPLATES[t]!, /no-model|no reasoning model|Same/, `${t} states why it survives`);
+  }
 });
 
 test('§6 — with no model, Korvyn plans deterministically and authority is unchanged', async () => {

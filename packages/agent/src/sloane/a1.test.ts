@@ -40,7 +40,7 @@ const TERMINAL = ['COMPLETED', 'FAILED', 'CANCELLED', 'BLOCKED'];
 /* ---- a scripted model, the investigate.test.ts pattern ------------------------------------------------------- */
 const usage = { inputTokens: 1200, outputTokens: 150, cacheReadTokens: 100, cacheWriteTokens: 0 };
 const ok = <T>(value: T, route: string) => ({ status: 'ok' as const, latencyMs: 1, requestId: null, usage, model: route === 'DEEP' ? 'claude-opus-5' : 'claude-sonnet-5', route, value });
-const call = (tool: string, args: Record<string, string>, purpose = `Reading ${tool}`) => ({ tool, purpose, progress: purpose, args: Object.entries(args).map(([name, value]) => ({ name, value })) });
+const call = (tool: string, args: Record<string, string>, purpose = `Reading ${tool}`) => ({ tool, intent: 'READ' as const, purpose, progress: purpose, args: Object.entries(args).map(([name, value]) => ({ name, value })) });
 const step = (o: Partial<AgentStepOut>): AgentStepOut => ({ goalClass: 'CLOSE_READINESS', understanding: 'Establish where the June close stands and what is unresolved.', decision: 'CALL_TOOLS', calls: [], needCapabilities: [], workingNotes: [], openQuestions: [], question: null, options: [], confidence: 0.8, escalate: { needed: false, reason: null, detail: null }, ...o }) as AgentStepOut;
 type Ctx = { observations: { ref: string; tool: string; status: string; facts: { key: string; label: string; value: string }[] }[] };
 interface Script { step: (n: number, ctx: Ctx) => AgentStepOut; synth?: (ctx: Ctx, refs: string[]) => AgentSynthOut }

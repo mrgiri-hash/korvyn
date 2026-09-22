@@ -369,9 +369,16 @@ export function validateAnalysisEdit(v: Json): Result<AnalysisEdit> {
    ================================================================================================ */
 import { AGENT_DOMAINS, ESCALATION_REASONS, FINDING_KINDS, GOAL_CLASSES, SUPPORT } from './agent/investigate.js';
 export const AGENT_DECISIONS = ['CALL_TOOLS', 'ASK_USER', 'SYNTHESIZE'] as const;
+/**
+ * A3 §2 — WHAT A STEP IS FOR. The planner STATES its intent; Korvyn RESOLVES whether the capability it named
+ * actually is that, from the tool registry's own declared risk. A mismatch is refused and the planner is told why,
+ * so a model cannot obtain preparation authority by calling a write a read.
+ */
+export const STEP_INTENTS = ['READ', 'PREPARE_ACTION'] as const;
+export type StepIntent = (typeof STEP_INTENTS)[number];
 export interface AgentStepOut {
   goalClass: (typeof GOAL_CLASSES)[number]; understanding: string; decision: (typeof AGENT_DECISIONS)[number];
-  calls: { tool: string; purpose: string; progress: string; args: { name: string; value: string }[] }[];
+  calls: { tool: string; intent: StepIntent; purpose: string; progress: string; args: { name: string; value: string }[] }[];
   needCapabilities: string[];
   workingNotes: { text: string; support: (typeof SUPPORT)[number]; observationRefs: string[] }[];
   openQuestions: string[]; question: string | null; options: string[]; confidence: number;
@@ -381,7 +388,7 @@ export const agentStepSchema = (toolIds: readonly string[]) => obj({
   goalClass: strEnum(GOAL_CLASSES),
   understanding: { type: 'string' },
   decision: strEnum(AGENT_DECISIONS),
-  calls: { type: 'array', items: obj({ tool: toolIds.length ? { type: 'string', enum: [...toolIds] } : { type: 'string' }, purpose: { type: 'string' }, progress: { type: 'string' }, args: { type: 'array', items: obj({ name: { type: 'string' }, value: { type: 'string' } }) } }) },
+  calls: { type: 'array', items: obj({ tool: toolIds.length ? { type: 'string', enum: [...toolIds] } : { type: 'string' }, intent: strEnum(STEP_INTENTS), purpose: { type: 'string' }, progress: { type: 'string' }, args: { type: 'array', items: obj({ name: { type: 'string' }, value: { type: 'string' } }) } }) },
   needCapabilities: { type: 'array', items: strEnum(AGENT_DOMAINS) },
   workingNotes: { type: 'array', items: obj({ text: { type: 'string' }, support: strEnum(SUPPORT), observationRefs: { type: 'array', items: { type: 'string' } } }) },
   openQuestions: { type: 'array', items: { type: 'string' } },
@@ -404,7 +411,7 @@ export function normalizeAgentStep(v: Json): Json {
   const o: Record<string, Json> = { ...v };
   o['understanding'] = clipS(o['understanding'], 400);
   o['calls'] = clipA(o['calls'], 3);
-  if (Array.isArray(o['calls'])) o['calls'] = (o['calls'] as Json[]).map((c) => isObj(c) ? { ...c, purpose: clipS(c['purpose'], 240), progress: clipS(c['progress'], 120), args: Array.isArray(c['args']) ? (clipA(c['args'], 14) as Json[]).map((a) => isObj(a) ? { ...a, name: clipS(a['name'], 40), value: clipS(a['value'], 200) } : a) : c['args'] } : c);
+  if (Array.isArray(o['calls'])) o['calls'] = (o['calls'] as Json[]).map((c) => isObj(c) ? { intent: 'READ', ...c, purpose: clipS(c['purpose'], 240), progress: clipS(c['progress'], 120), args: Array.isArray(c['args']) ? (clipA(c['args'], 14) as Json[]).map((a) => isObj(a) ? { ...a, name: clipS(a['name'], 40), value: clipS(a['value'], 200) } : a) : c['args'] } : c);
   o['needCapabilities'] = clipA(o['needCapabilities'], 6);
   o['workingNotes'] = clipA(o['workingNotes'], 8);
   if (Array.isArray(o['workingNotes'])) o['workingNotes'] = (o['workingNotes'] as Json[]).map((w) => isObj(w) ? { ...w, text: clipS(w['text'], 400), observationRefs: clipA(w['observationRefs'], 10) } : w);
@@ -431,9 +438,9 @@ export function validateAgentStep(v: Json, toolIds: readonly string[], maxCalls 
   if (!c.keys(v, 'step', ['goalClass', 'understanding', 'decision', 'calls', 'needCapabilities', 'workingNotes', 'openQuestions', 'question', 'options', 'confidence', 'escalate'])) return { ok: false, errors: c.errors };
   c.enm(v['goalClass'], 'goalClass', GOAL_CLASSES); c.enm(v['decision'], 'decision', AGENT_DECISIONS); c.str(v['understanding'], 'understanding', false, 400);
   if (c.arr(v['calls'], 'calls', maxCalls)) (v['calls'] as Json[]).forEach((x, i) => {
-    if (!c.keys(x, `calls[${i}]`, ['tool', 'purpose', 'progress', 'args'])) return;
+    if (!c.keys(x, `calls[${i}]`, ['tool', 'intent', 'purpose', 'progress', 'args'])) return;
     const X = x as Record<string, Json>;
-    c.enm(X['tool'], `calls[${i}].tool`, toolIds); c.str(X['purpose'], `calls[${i}].purpose`, false, 240); c.str(X['progress'], `calls[${i}].progress`, false, 120);
+    c.enm(X['tool'], `calls[${i}].tool`, toolIds); c.enm(X['intent'], `calls[${i}].intent`, STEP_INTENTS); c.str(X['purpose'], `calls[${i}].purpose`, false, 240); c.str(X['progress'], `calls[${i}].progress`, false, 120);
     if (c.arr(X['args'], `calls[${i}].args`, 14)) (X['args'] as Json[]).forEach((a, j) => { if (c.keys(a, `calls[${i}].args[${j}]`, ['name', 'value'])) { c.str((a as Record<string, Json>)['name'], 'arg name', false, 40); c.str((a as Record<string, Json>)['value'], 'arg value', false, 200); } });
   });
   if (c.arr(v['needCapabilities'], 'needCapabilities', 6)) (v['needCapabilities'] as Json[]).forEach((x) => c.enm(x, 'needCapabilities', AGENT_DOMAINS));

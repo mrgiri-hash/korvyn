@@ -94,6 +94,9 @@ export interface RunView {
   startedAt: string; updatedAt: string; completedAt: string | null; sessionId: string; investigationId: string;
 }
 
+/** the one test for “the actor may not”, as against “the call was wrong” — named once so the two cannot drift */
+const PERMISSION_DENIAL = /lacks|may not view|not authorized|permission|outside your|out of scope/i;
+
 export class AgentRuntime {
   private readonly cache = new Map<string, AgentRunBody>();
   private readonly objects = new Map<string, Map<string, FinancialObject>>();
@@ -319,7 +322,7 @@ export class AgentRuntime {
     for (const t of tasks) {
       if (!t.tool) continue;
       const why = this.profileGate(run, t);
-      if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; rejected.push({ task: t.title, why }); this.policy(run, t.tool, 'DENY', why); }
+      if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; rejected.push({ task: t.title, why }); this.policy(run, t.tool, 'DENY', why, 'POLICY'); }
     }
     run.graph = { ...run.graph, version: 1, tasks, revisions: [{ version: 1, at: now(), source: run.goal.type === 'GENERIC' ? 'MODEL' : 'TEMPLATE', reason: 'Initial plan', added: tasks.map((t) => t.taskId), invalidated: [], rejected }] };
     run.waterfall.planMs += Date.now() - tPlan;
@@ -347,7 +350,22 @@ export class AgentRuntime {
     return null;
   }
   private actionTypeOf(t: AgentTask): string | null {
-    const m: Record<string, string> = { proposeFluxComment: 'ADD_FLUX_COMMENT', proposeReconciliationComment: 'ADD_RECON_COMMENT', proposeIssue: 'CREATE_ISSUE', proposeSupportAttachment: 'ATTACH_SUPPORT', proposeGenerateExcelArtifact: 'GENERATE_EXCEL_ARTIFACT', proposeSaveExcelArtifact: 'SAVE_EXCEL_ARTIFACT', proposeRefreshPBCRequest: 'REFRESH_PBC_REQUEST', proposeSaveAnalysis: 'SAVE_ANALYSIS' };
+    /**
+     * A3 §4 — THE ONE PLACE A CAPABILITY IS MAPPED TO AN ACTION TYPE, which is what the profile's
+     * `preparableActions` is checked against. A propose tool that is NOT here falls through to its own id, matches
+     * no profile, and is refused: unknown fails CLOSED, exactly as ActionGovernance does with an unknown type.
+     * A capability added without an entry here is therefore unreachable rather than ungoverned — which is the
+     * right way round, and is how `proposeReviewerAssignment` was silently unusable until A3.
+     */
+    const m: Record<string, string> = {
+      proposeFluxComment: 'ADD_FLUX_COMMENT', proposeFluxCommentUpdate: 'UPDATE_FLUX_COMMENT',
+      proposeReconciliationComment: 'ADD_RECON_COMMENT', proposeReconciliationCommentUpdate: 'UPDATE_RECONCILIATION_COMMENT',
+      proposeIssue: 'CREATE_ISSUE', proposeSupportAttachment: 'ATTACH_SUPPORT', proposeReviewerAssignment: 'ASSIGN_REVIEWER',
+      proposeSupportPackage: 'CREATE_SUPPORT_PACKAGE', proposeSaveInvestigation: 'CREATE_SHARED_INVESTIGATION',
+      proposeGenerateExcelArtifact: 'GENERATE_EXCEL_ARTIFACT', proposeSaveExcelArtifact: 'SAVE_EXCEL_ARTIFACT',
+      proposeArchiveExcelArtifact: 'ARCHIVE_EXCEL_ARTIFACT', proposeRefreshExcelArtifact: 'REFRESH_EXCEL_ARTIFACT',
+      proposeRefreshPBCRequest: 'REFRESH_PBC_REQUEST', proposeSaveAnalysis: 'SAVE_ANALYSIS', proposeSaveReport: 'SAVE_REPORT_DEFINITION',
+    };
     if (t.tool === 'prepareGovernedAction') return t.args['actionType'] ?? 'GOVERNED';
     return t.tool && t.tool.startsWith('propose') ? m[t.tool] ?? t.tool : null;
   }
@@ -404,6 +422,14 @@ export class AgentRuntime {
     const spent = budgetExhausted(b, runUsage(run, Date.now() - Date.parse(run.startedAt) - this.waitedMs(run)));
     if (spent) {
       run.warnings.push(`Budget: ${spent}`);
+      /**
+       * A3 §6/§7 — A RUN THAT STOPS STILL HANDS OVER WHAT IT PREPARED. The investigation's own budget stop goes
+       * through synthesis, which opens the confirmation; the RUN's stop did not, so a live run that hit its
+       * model-call budget left four valid draft explanations WAITING_CONFIRMATION with no checkpoint attached —
+       * persisted, correct, and unreachable by the person they were prepared for (observed). Preparation nobody
+       * can decide is work thrown away, and the reason for preparing first is that the decision is theirs.
+       */
+      if (this.handOver(run, `The run stopped because its ${spent}, with work already prepared.`)) return false;
       this.finish(run, 'BLOCKED', `The run stopped because its ${spent}. The completed work is kept; resume with a narrower goal.`);
       return false;
     }
@@ -512,7 +538,7 @@ export class AgentRuntime {
 
   private async toolTask(run: AgentRunBody, t: AgentTask, actor: Actor) {
     const why = this.profileGate(run, t);
-    if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; this.policy(run, t.tool!, 'DENY', why); return; }
+    if (why) { t.status = 'SKIPPED'; t.failureMode = 'POLICY'; t.error = why; this.policy(run, t.tool!, 'DENY', why, 'POLICY'); return; }
     const { args, missing } = this.resolveRefs(run, t);
     if (missing) { t.status = 'SKIPPED'; t.failureMode = 'DEPENDENCY'; t.error = missing; return; }
     /* §7 validation: the Planner checks the step as it checks any plan step (allowlist = the profile's tools) */
@@ -520,7 +546,7 @@ export class AgentRuntime {
     const allow = this.o.agentAllowlist(actor, prof.domains, prof.autonomy >= 2);
     this.o.agentSession(run.sessionId, actor, undefined, run.investigationId);
     const v = this.o.agentValidate(run.sessionId, actor, { tool: t.tool!, purpose: t.title, args }, allow);
-    if (!v.steps.length) { const r = v.rejected[0]?.why ?? 'rejected'; t.status = /lacks|may not view/.test(r) ? 'FAILED' : 'SKIPPED'; t.failureMode = /lacks|may not view/.test(r) ? 'PERMISSION' : 'VALIDATION'; t.error = r; this.policy(run, t.tool!, 'DENY', r); return; }
+    if (!v.steps.length) { const r = v.rejected[0]?.why ?? 'rejected'; const denied = PERMISSION_DENIAL.test(r); t.status = denied ? 'FAILED' : 'SKIPPED'; t.failureMode = denied ? 'PERMISSION' : 'VALIDATION'; t.error = r; this.policy(run, t.tool!, 'DENY', r, denied ? 'PERMISSION' : 'VALIDATION'); return; }
     const step = v.steps[0]!;
     this.policy(run, t.tool!, 'ALLOW', v.repairs.length ? `validated; repaired: ${v.repairs.join('; ')}` : 'validated');
     /* DEV/TEST simulation of failures (never in strict auth mode) */
@@ -725,9 +751,29 @@ export class AgentRuntime {
     const planId = run.actionPlanId;
     run.planSeq += 1; run.actionPlanId = `APLAN-${run.runId}-${run.planSeq}`;
     this.checkpoint(run, { type: 'CONFIRMATION', blocking: true, title: `Confirm ${props.length} prepared action${props.length > 1 ? 's' : ''}`, detail: `Nothing has been written. ${props.map((p) => p.title).join(' · ')}`, taskId: t.taskId, proposalIds: props.map((p) => p.id), planId,
-      options: [{ id: 'confirm', label: props.length > 1 ? `Confirm all ${props.length}` : 'Confirm' }, { id: 'cancel', label: props.length > 1 ? 'Cancel all' : 'Cancel' }] });
+      /* A3 §8: APPROVE / REJECT / MODIFY, everywhere a confirmation is raised */
+      options: [{ id: 'confirm', label: props.length > 1 ? `Confirm all ${props.length}` : 'Confirm' }, { id: 'modify', label: 'Edit and confirm' }, { id: 'cancel', label: props.length > 1 ? 'Cancel all' : 'Cancel' }] });
     t.status = 'WAITING';
     this.line(run, `${props.length} action${props.length > 1 ? 's' : ''} prepared — waiting for your confirmation`, 'waiting', t.taskId);
+  }
+
+  /**
+   * Open the confirmation for whatever this run prepared, on a path that is stopping rather than finishing. It
+   * reuses `confirmation()` — one approval lifecycle, one place proposals are collected by plan id — and returns
+   * true when the run now waits for a person instead of ending.
+   */
+  private handOver(run: AgentRunBody, why: string): boolean {
+    const open = this.o.actions.ofSession(run.sessionId).filter((p) => p.planId === run.actionPlanId && p.status === 'WAITING_CONFIRMATION');
+    if (!open.length) return false;
+    const v = run.graph.version + 1;
+    const t = mkTask({ taskId: `confirm~stop${run.checkpoints.length + 1}`, type: 'REQUEST_CONFIRMATION', title: 'Your confirmation', check: 'CONFIRMATION', dependsOn: [], softDeps: true, milestone: true, priority: 85 }, v, 'MODEL');
+    run.graph.tasks.push(t); run.graph.version = v;
+    this.confirmation(run, t);
+    if (t.status !== 'WAITING') return false;
+    run.completionReason = `${why} Nothing has been written; the prepared work is waiting for your decision.`;
+    this.status(run, 'WAITING_FOR_CONFIRMATION');
+    this.save(run); this.notify(run.runId);
+    return true;
   }
 
   private governed(run: AgentRunBody, t: AgentTask) {
@@ -829,7 +875,18 @@ export class AgentRuntime {
         const S = run.investigation!, syn = S.synthesis;
         const tools = run.graph.tasks.filter((x) => x.tool && x.origin === 'MODEL');
         const nonRead = tools.filter((x) => toolRegistry.get(x.tool!)?.risk !== 'READ');
-        add('Only governed READ capabilities used', !nonRead.length, nonRead.length ? `non-read: ${nonRead.map((x) => x.tool).join(', ')}` : `${tools.length} governed read call${tools.length === 1 ? '' : 's'}, each validated and permission-checked`);
+        /**
+         * A3 §12 — THE READ-ONLY ASSERTION BELONGS TO A READ-ONLY RUN. 8D wrote this loop as an investigation
+         * that could only read, so verification asserted that nothing else had happened. A3 made the SAME loop
+         * able to prepare, and a controller review that drafted the explanations it was asked for then finished
+         * BLOCKED by a check saying it should not have (observed). What a prepare-capable run must prove is
+         * different and is proved above: nothing was written without a confirmation, and no governed action was
+         * executed. Here it proves only that every capability it reached for was one it was allowed to reach for.
+         */
+        const mayPrepare = POLICY_PROFILES[run.goal.policyProfile].autonomy >= 2 && !run.goal.constraints.noActions;
+        const beyond = nonRead.filter((x) => toolRegistry.get(x.tool!)?.risk !== 'PROPOSE');
+        if (mayPrepare) add('Only READ and PREPARE capabilities used', !beyond.length, beyond.length ? `beyond preparation: ${beyond.map((x) => x.tool).join(', ')}` : `${tools.length - nonRead.length} read${tools.length - nonRead.length === 1 ? '' : 's'} and ${nonRead.length} preparation${nonRead.length === 1 ? '' : 's'}, each validated and permission-checked`);
+        else add('Only governed READ capabilities used', !nonRead.length, nonRead.length ? `non-read: ${nonRead.map((x) => x.tool).join(', ')}` : `${tools.length} governed read call${tools.length === 1 ? '' : 's'}, each validated and permission-checked`);
         add('Every stated figure came from an observation', true, syn ? `${syn.findings.length} finding${syn.findings.length === 1 ? '' : 's'} kept${syn.rejected.length ? `, ${syn.rejected.length} withheld for a figure no observation carried` : ''}` : 'no synthesis');
         const b = S.budget, u = S.usage;
         add('Within budget', u.modelCalls <= b.maxModelCalls && u.toolCalls <= b.maxToolCalls + 3, `${u.modelCalls}/${b.maxModelCalls} model calls · ${u.toolCalls}/${b.maxToolCalls} tool calls · ${u.iterations}/${b.maxIterations} steps · ~$${u.estimatedCostUsd.toFixed(3)} of $${b.maxEstimatedCostUsd.toFixed(2)}`);
@@ -955,8 +1012,22 @@ export class AgentRuntime {
       return { ok: true, run: this.view(run) };
     }
     if (cp.type === 'CONFIRMATION' && cp.planId) {
+      /**
+       * A3 §8 — MODIFY. A person's edit becomes the governed proposed action: the payload is revised through
+       * `ActionEngine.revise` (which re-validates and re-checks staleness) and only then confirmed. The model is
+       * never given the chance to write over it — the run resumes from the revised proposal, and the next
+       * observation carries what was actually executed, not what was proposed.
+       */
+      if (decision === 'modify') {
+        const edits = responseText ? (() => { try { return JSON.parse(responseText) as Record<string, unknown>; } catch { return { text: responseText }; } })() : {};
+        const revised: string[] = [];
+        for (const id of cp.proposalIds) if (this.o.actions.revise(id, edits as Record<string, string>, actor)) revised.push(id);
+        obs.policyEvents.push(`${revised.length} proposal${revised.length === 1 ? '' : 's'} edited by ${actor.name} before confirmation`);
+        this.audit(run, actor, 'AGENT_PROPOSAL_MODIFIED', cp.proposalIds[0] ?? null, { checkpoint: cp.id, revised, edits });
+        this.line(run, `${revised.length} prepared action${revised.length === 1 ? '' : 's'} edited by you`, 'done', cp.taskId ?? undefined);
+      }
       /* §14: every action goes through ActionGovernanceEngine → Authorization → SoD → the Action Service, from here only */
-      const r = this.o.decide({ sessionId: run.sessionId, planId: cp.planId, decision: decision === 'confirm' ? 'confirm' : 'cancel', requestId: requestId ?? `${runId}:${cp.id}:${decision}` }, actor);
+      const r = this.o.decide({ sessionId: run.sessionId, planId: cp.planId, decision: decision === 'confirm' || decision === 'modify' ? 'confirm' : 'cancel', requestId: requestId ?? `${runId}:${cp.id}:${decision}` }, actor);
       obs.actionResults = r.results.map((x) => ({ proposalId: x.proposalId, status: x.status, message: x.message }));
       if (decision === 'confirm' && task) {
         const ok = r.results.filter((x) => x.status === 'COMPLETED' || x.status === 'EXECUTING').length;
@@ -972,6 +1043,7 @@ export class AgentRuntime {
       this.line(run, decision === 'route' ? 'Approval routed to a reviewer other than the preparer — not approved by Sloane' : 'Approval withdrawn', decision === 'route' ? 'done' : 'skipped', cp.taskId ?? undefined);
     }
     run.observations.push(obs);
+    this.observeDecision(run, cp, decision, obs);
     cp.status = 'RESOLVED'; cp.resolution = decision; cp.resolvedAt = now(); cp.resolvedBy = actor.name;
     this.event(run, 'CHECKPOINT_RESOLVED', `${cp.title}: ${decision}`);
     this.audit(run, actor, 'AGENT_CHECKPOINT_DECIDED', cp.proposalIds[0] ?? null, { checkpoint: cp.id, type: cp.type, decision });
@@ -980,6 +1052,32 @@ export class AgentRuntime {
     this.save(run);
     if (run.runStatus === 'RUNNING') this.kick(run.runId);
     return { ok: true, run: this.view(run) };
+  }
+
+  /**
+   * A3 §9 — POST-ACTION OBSERVATION. The loop must not assume its proposal was executed: what a person decided,
+   * and what the Action Service actually did with it, comes back as an observation like any other. A run that
+   * continues after a confirmation reasons from the GOVERNED RESULT — status, proposal ids, the person's decision
+   * and any error — and never from the fact that it once proposed something.
+   */
+  private observeDecision(run: AgentRunBody, cp: AgentCheckpoint, decision: string, obs: AgentObservation) {
+    const S = run.investigation;
+    if (!S) return;
+    const done = obs.actionResults.filter((x) => x.status === 'COMPLETED').length;
+    const failed = obs.actionResults.filter((x) => x.status === 'FAILED').length;
+    const o = compact(S.observations.length + 1, 'decision', `Your decision on ${cp.title}`, null, null);
+    o.status = failed && !done ? 'FAILED' : 'OK';
+    o.title = `${cp.type === 'CONFIRMATION' ? 'Confirmation' : 'Approval'} — ${decision}`;
+    o.facts = [
+      { key: 'decision', label: 'Decision', value: decision },
+      { key: 'executed', label: 'Actions written', value: String(done) },
+      ...(failed ? [{ key: 'failed', label: 'Actions that failed', value: String(failed) }] : []),
+      ...obs.actionResults.slice(0, 6).map((x, i) => ({ key: `action${i + 1}`, label: x.proposalId, value: `${x.status}: ${x.message}`.slice(0, 60) })),
+    ];
+    o.refs = Object.fromEntries(obs.proposalIds.slice(0, 4).map((p, i) => [`proposal${i + 1}`, p]));
+    o.note = obs.policyEvents[0] ?? null;
+    o.chars = JSON.stringify(o).length;
+    S.observations.push(o);
   }
 
   /* ================================================================================================
@@ -1422,9 +1520,17 @@ export class AgentRuntime {
     S.usage.elapsedMs = Date.now() - S.startedAt;
     const stop = budgetExhausted(S.budget, S.usage);
     if (stop) { S.stopReason = stop; this.event(run, 'BUDGET', stop); this.appendSynthesis(run, t, `Stopped investigating: ${stop}.`); return; }
-    const allow = this.o.agentAllowlist(actor, prof.domains, false);
+    /**
+     * A3 §3/§13 — WHAT THIS RUN MAY PREPARE. The profile names its action families, `agentAllowlist` intersects
+     * them with the actor's own permissions, and a run that may not prepare gets an empty set and never sees an
+     * action at all. Exposure is not authority: everything shown here is still gated by `profileGate`, classified
+     * by ActionGovernance and confirmed by a person before anything is written.
+     */
+    const mayPrepare = prof.autonomy >= 2 && !g.constraints.noActions && prof.actionDomains.length > 0;
+    const actionDomains = mayPrepare ? prof.actionDomains.filter((d) => prof.domains.includes(d)) : [];
+    const allow = this.o.agentAllowlist(actor, prof.domains, mayPrepare);
     const referents = referentsOf(S.observations, { account: g.subject.account, project: g.subject.project, vendor: g.subject.vendor, entity: g.subject.entity, period: g.period });
-    const caps = relevant(allow, { goalClass: S.goalClass, requested: S.requested, used: S.observations.map((o) => o.tool), referents });
+    const caps = relevant(allow, { goalClass: S.goalClass, requested: S.requested, used: S.observations.map((o) => o.tool), referents }, 20, actionDomains);
     const frame = this.frameOf(run, actor);
     /* A2 §5: the planner's brief is the PROFILE's — a specialist differs by configuration, never by a branch here.
        A2 §9: a capability's description is sent once per run; after that the id alone is enough for the tool enum. */
@@ -1490,13 +1596,29 @@ export class AgentRuntime {
       const args = Object.fromEntries(c.args.filter((a) => a.name && a.value).map((a) => [a.name, a.value]));
       const key = `${c.tool}|${JSON.stringify(Object.entries(args).sort())}`;
       if (done.has(key)) { S.rejected.push({ iteration: iter, tool: c.tool, why: 'already called with the same arguments — use its observation' }); continue; }
+      /**
+       * A3 §2 — THE PLANNER STATES ITS INTENT; KORVYN RESOLVES IT. The declared intent is checked against the
+       * capability's own registered RISK, so a call that would prepare an action while claiming to read is refused
+       * and the planner is told why. The registry is authoritative in both directions: a model cannot acquire
+       * preparation authority by mislabelling a write, and cannot lose a read by mislabelling it either.
+       */
+      const reg = toolRegistry.get(c.tool);
+      const actual: 'READ' | 'PREPARE_ACTION' = reg?.risk === 'PROPOSE' ? 'PREPARE_ACTION' : 'READ';
+      if (reg && c.intent !== actual) {
+        const why = `${c.tool} is a ${actual === 'READ' ? 'read' : 'preparation'} capability, not ${c.intent === 'READ' ? 'a read' : 'a preparation'}; state its intent correctly`;
+        S.rejected.push({ iteration: iter, tool: c.tool, why }); this.policy(run, c.tool, 'DENY', why); continue;
+      }
       const val = this.o.agentValidate(run.sessionId, actor, { tool: c.tool, purpose: c.purpose, args }, allow);
       if (!val.steps.length) { S.rejected.push({ iteration: iter, tool: c.tool, why: val.rejected[0]?.why ?? 'rejected by the planner' }); this.policy(run, c.tool, 'DENY', val.rejected[0]?.why ?? 'rejected'); continue; }
       const step = val.steps[0]!;
+      const sreg = toolRegistry.get(step.tool)!;
       done.add(key);
       stepRec.calls.push({ tool: step.tool, args: step.args, purpose: c.purpose });
-      tasks.push(mkTask({ taskId: `x${iter}-${k + 1}`, type: typeOfTool(toolRegistry.get(step.tool)!.domain, 'READ'), title: progressLine(c.progress, step.tool), tool: step.tool, args: step.args, request: c.purpose,
-        milestone: true, dependsOn: [t.taskId], priority: 10 + k, scopeSensitive: scopeSensitiveTool(step.tool) }, run.graph.version + 1, 'MODEL'));
+      /* a PREPARE step carries the PROPOSE risk, so `profileGate` applies the profile's preparableActions and the
+         action plan collects the proposal for one confirmation checkpoint to decide */
+      tasks.push(mkTask({ taskId: `x${iter}-${k + 1}`, type: typeOfTool(sreg.domain, sreg.risk), title: progressLine(c.progress, step.tool), tool: step.tool, args: step.args, request: c.purpose,
+        milestone: true, dependsOn: [t.taskId], priority: 10 + k, scopeSensitive: scopeSensitiveTool(step.tool),
+        ...(sreg.risk === 'PROPOSE' ? { riskLevel: 'PROPOSE' as const, planKey: 'ACTIONS' as const } : {}) }, run.graph.version + 1, 'MODEL'));
     }
     if (!tasks.length) {
       S.rejectStreak += 1;
@@ -1529,9 +1651,23 @@ export class AgentRuntime {
     if (reason) this.line(run, reason, 'skipped');
     const v = run.graph.version + 1, n = run.graph.tasks.filter((x) => x.check === 'SYNTHESIZE').length + 1;
     const sid = n > 1 ? `synth~${n}` : 'synth', vid = n > 1 ? `verify~${n}` : 'verify', mid = n > 1 ? `summarize~${n}` : 'summarize';
+    /**
+     * A3 §6/§7 — PREPARE-FIRST. If the run prepared anything, a CONFIRMATION checkpoint stands between the work
+     * and the enterprise: the run reaches WAITING_FOR_CONFIRMATION and stops cleanly there, with no reasoning loop
+     * spinning while a person decides. Preparation succeeding is never a reason to publish.
+     *
+     * The checkpoint task is the SAME `check: 'CONFIRMATION'` the templates used — one approval lifecycle, one
+     * place proposals are collected by plan id, whichever planner proposed them.
+     */
+    const prepared = run.graph.tasks.some((x) => x.riskLevel === 'PROPOSE' && x.status === 'COMPLETED' && !x.invalidatedBy);
+    const cid = n > 1 ? `confirm~${n}` : 'confirm';
+    const tail = prepared
+      ? [mkTask({ taskId: cid, type: 'REQUEST_CONFIRMATION', title: 'Your confirmation', check: 'CONFIRMATION', dependsOn: [sid], softDeps: true, milestone: true, priority: 85 }, v, 'MODEL'),
+        mkTask({ taskId: vid, type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: [cid], softDeps: true, milestone: true, priority: 90 }, v, 'MODEL')]
+      : [mkTask({ taskId: vid, type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: [sid], softDeps: true, milestone: true, priority: 90 }, v, 'MODEL')];
     this.revise(run, 'EXPANSION', reason ?? 'The planner decided the objective is sufficiently supported', [
       mkTask({ taskId: sid, type: 'ANALYZE', title: 'Bringing the findings together', check: 'SYNTHESIZE', dependsOn: [after.taskId], softDeps: true, milestone: true, priority: 80 }, v, 'MODEL'),
-      mkTask({ taskId: vid, type: 'VERIFY', title: 'Verification', check: 'VERIFY', dependsOn: [sid], softDeps: true, milestone: true, priority: 90 }, v, 'MODEL'),
+      ...tail,
       mkTask({ taskId: mid, type: 'SUMMARIZE', title: 'Summary', check: 'SUMMARIZE', dependsOn: [vid], softDeps: true, priority: 95 }, v, 'MODEL'),
     ], []);
   }
@@ -1619,7 +1755,8 @@ export class AgentRuntime {
     const r = this.cache.get(runId) ?? this.load(runId);
     if (!r || r.actor.id !== actor.id) return null;
     const p = POLICY_PROFILES[r.goal.policyProfile];
-    return agentTrace(r, { profile: p.id, autonomy: p.autonomy }, WRITE_ACTIONS_ENABLED);
+    /* A3 §11: the live proposal record supplies the governance class, validation and execution result */
+    return agentTrace(r, { profile: p.id, autonomy: p.autonomy }, WRITE_ACTIONS_ENABLED, (id) => this.o.actions.view(id) as never);
   }
   /** A1 §22 — the machine-readable record the Eval workstream consumes; measured, never self-scored */
   telemetry(runId: string, actor: Actor): AgentTelemetry | null {
@@ -1695,7 +1832,7 @@ export class AgentRuntime {
     if (k >= 0) run.progress[k] = rec; else run.progress.push(rec);
   }
   private event(run: AgentRunBody, type: string, label: string) { run.events.push({ at: now(), type, label }); }
-  private policy(run: AgentRunBody, subject: string, decision: 'ALLOW' | 'DENY' | 'CHECKPOINT', reason: string) { run.trace.policyDecisions.push({ at: now(), subject, decision, reason }); if (run.trace.policyDecisions.length > 200) run.trace.policyDecisions.shift(); }
+  private policy(run: AgentRunBody, subject: string, decision: 'ALLOW' | 'DENY' | 'CHECKPOINT', reason: string, kind?: 'PERMISSION' | 'VALIDATION' | 'POLICY') { run.trace.policyDecisions.push({ at: now(), subject, decision, reason, kind: kind ?? (decision === 'DENY' ? (PERMISSION_DENIAL.test(reason) ? 'PERMISSION' : 'VALIDATION') : 'POLICY') }); if (run.trace.policyDecisions.length > 200) run.trace.policyDecisions.shift(); }
   private model(run: AgentRunBody, c: AgentRunBody['trace']['modelCalls'][number]) {
     run.trace.modelCalls.push(c); run.usage.modelCalls += 1; run.usage.inputTokens += c.inputTokens; run.usage.outputTokens += c.outputTokens;
     /* §13/§22: the run's own token and cost meters, so the outer budget and the telemetry read the same numbers

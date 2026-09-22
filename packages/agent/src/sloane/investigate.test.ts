@@ -19,7 +19,7 @@ const me = serverActor();
 const mdh = actorContext(DEV_DIRECTORY.find((u) => u.id === 'user:mdh')!, null, 'test') as unknown as Actor;
 const usage = { inputTokens: 1200, outputTokens: 150, cacheReadTokens: 0, cacheWriteTokens: 0 };
 const ok = <T>(value: T, route: string) => ({ status: 'ok' as const, latencyMs: 1, requestId: null, usage, model: route === 'DEEP' ? 'claude-opus-5' : 'claude-sonnet-5', route, value });
-const call = (tool: string, args: Record<string, string>, purpose = `Reading ${tool}`) => ({ tool, purpose, progress: purpose, args: Object.entries(args).map(([name, value]) => ({ name, value })) });
+const call = (tool: string, args: Record<string, string>, purpose = `Reading ${tool}`) => ({ tool, intent: 'READ' as const, purpose, progress: purpose, args: Object.entries(args).map(([name, value]) => ({ name, value })) });
 const step = (o: Partial<AgentStepOut>): AgentStepOut => ({ goalClass: 'ANOMALY_REVIEW', understanding: 'Look for what is unusual in June.', decision: 'CALL_TOOLS', calls: [], needCapabilities: [], workingNotes: [], openQuestions: [], question: null, options: [], confidence: 0.8, escalate: { needed: false, reason: null, detail: null }, ...o }) as AgentStepOut;
 type Ctx = { observations: { ref: string; tool: string; status: string; facts: { key: string; value: string }[] }[]; constraints: { exclude: string[] } };
 interface Script { step: (n: number, ctx: Ctx, toolIds: string[], route: string) => AgentStepOut | Promise<AgentStepOut>; synth?: (ctx: Ctx, refs: string[]) => AgentSynthOut }

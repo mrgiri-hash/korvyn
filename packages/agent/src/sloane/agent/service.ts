@@ -18,9 +18,8 @@
 import type { Actor } from '../tools.js';
 import type { AgentRunBody, ObjectRef, OutcomeClass, ProfileId } from './model.js';
 import type { AgentRuntime, RunView } from './runtime.js';
-import { agentTelemetry, agentTrace, type AgentTelemetry, type KorvynTrace } from '../trace.js';
+import { agentTelemetry, type AgentTelemetry, type KorvynTrace } from '../trace.js';
 import { POLICY_PROFILES } from './model.js';
-import { WRITE_ACTIONS_ENABLED } from '../tools.js';
 
 /** where a run came from — recorded so an operator can tell a scheduled run from one a person asked for */
 export type RunOrigin = 'CONVERSATION' | 'MODULE' | 'SCHEDULE' | 'WORKFLOW' | 'API';
@@ -74,12 +73,7 @@ export class AgentService {
   get(runId: string, actor: Actor): RunView | null { return this.runtime.get(runId, actor); }
   body(runId: string, actor: Actor): AgentRunBody | null { return this.runtime.body(runId, actor); }
   list(actor: Actor) { return this.runtime.list(actor); }
-  trace(runId: string, actor: Actor): KorvynTrace | null {
-    const b = this.runtime.body(runId, actor);
-    if (!b) return null;
-    const p = POLICY_PROFILES[b.goal.policyProfile];
-    return agentTrace(b, { profile: p.id, autonomy: p.autonomy }, WRITE_ACTIONS_ENABLED);
-  }
+  trace(runId: string, actor: Actor): KorvynTrace | null { return this.runtime.traceOf(runId, actor); }
   telemetry(runId: string, actor: Actor): AgentTelemetry | null {
     const b = this.runtime.body(runId, actor);
     return b ? agentTelemetry(b) : null;

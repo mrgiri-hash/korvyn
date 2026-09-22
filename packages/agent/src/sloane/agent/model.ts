@@ -76,6 +76,12 @@ export interface AgentPolicyProfile {
   autonomousActionTypes: string[];
   /** action types that may be PREPARED (proposals / drafts); anything else is refused at plan validation */
   preparableActions: string[];
+  /**
+   * A3 §13 — the capability families this profile may ACT in, separate from the ones it may READ. A profile that
+   * reads across the enterprise and prepares in one family is expressible; before A3 the two were one list.
+   * Empty (the default) means the profile prepares nothing, whatever its domains allow it to read.
+   */
+  actionDomains: string[];
   /** A2 §12: the capability class the loop starts at. Escalation above it is per step, for a recorded reason. */
   reasoningClass: 'M1' | 'M2' | 'M3';
   /** what "done" means for this profile — stated to the planner, and checked by VERIFY */
@@ -106,7 +112,7 @@ export interface AgentPolicyProfile {
 const READS = ['financials', 'tb', 'ledger', 'analysis', 'flux', 'recon', 'close', 'reporting', 'audit', 'evidence', 'trace', 'find'];
 /** A2 §14: budgets are configuration. A profile states where its work differs; the model can never raise either. */
 const budget = (o: Partial<import('./investigate.js').AgentBudget>) => o;
-const base = { autonomousActionTypes: [] as string[], maxRetries: 1, maxConsecutiveFailures: 3, materialityUsd: 1_000_000, maxParallelReads: 3,
+const base = { autonomousActionTypes: [] as string[], actionDomains: [] as string[], maxRetries: 1, maxConsecutiveFailures: 3, materialityUsd: 1_000_000, maxParallelReads: 3,
   execution: 'GENERIC' as const, reasoningClass: 'M2' as const,
   requireEvidence: { RECONCILIATION_APPROVAL: ['glBalance', 'difference', 'tieStatus', 'supportStatus', 'reviewStatus', 'sourceFreshness'] } };
 
@@ -133,44 +139,52 @@ export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
     maxSteps: 16, maxRuntimeMs: 120_000, maxScope: 'GROUP' },
   FINANCE_ANALYST: { ...base, id: 'FINANCE_ANALYST', label: 'Finance analyst',
     purpose: 'Analyse a financial question and prepare the deliverable it calls for, for a person to confirm.',
-    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_DELIVERABLE'],
+    autonomy: 2, domains: [...READS, 'build', 'action'], actionDomains: ['action', 'build'], serves: ['PREPARE_DELIVERABLE'],
     preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'SAVE_ANALYSIS', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'],
     completion: ['the deliverable is composed from governed objects', 'its validation is stated', 'nothing is generated or written until confirmed'],
     budget: budget({ maxIterations: 10, maxToolCalls: 24, maxElapsedMs: 180_000 }),
-    execution: 'BUILD_FINANCIAL_ARTIFACT', maxSteps: 20, maxRuntimeMs: 180_000, maxScope: 'GROUP' },
+    maxSteps: 20, maxRuntimeMs: 180_000, maxScope: 'GROUP' },
   CLOSE_PREPARER: { ...base, id: 'CLOSE_PREPARER', label: 'Close preparer',
     purpose: 'Work an entity through what its close still needs, within that entity only.',
-    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_WORKFLOW_ACTIONS'],
-    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ATTACH_SUPPORT'],
+    autonomy: 2, domains: [...READS, 'build', 'action'], actionDomains: ['action', 'build'], serves: ['PREPARE_WORKFLOW_ACTIONS'],
+    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ATTACH_SUPPORT', 'ASSIGN_REVIEWER'],
     completion: ['every outstanding item is identified', 'what a preparer must do is prepared for confirmation', 'nothing is written until confirmed'],
     budget: budget({ maxIterations: 12, maxToolCalls: 28, maxElapsedMs: 240_000 }),
     maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'ENTITY' },
   CONTROLLER_REVIEW: { ...base, id: 'CONTROLLER_REVIEW', label: 'Controller review preparation',
     purpose: 'Get a period ready for a controller to review: what is unresolved, what is material, and the drafts that would clear it.',
-    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_WORKFLOW_ACTIONS'], reasoningClass: 'M2',
-    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'RECONCILIATION_APPROVAL', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'],
+    autonomy: 2, domains: [...READS, 'build', 'action'], actionDomains: ['action', 'build'], serves: ['PREPARE_WORKFLOW_ACTIONS'], reasoningClass: 'M2',
+    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ASSIGN_REVIEWER', 'ATTACH_SUPPORT', 'RECONCILIATION_APPROVAL', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'],
     completion: ['the position is established', 'drafts are prepared for every item that needs one', 'a governed approval is routed, never taken'],
     budget: budget({ maxIterations: 14, maxToolCalls: 30, maxElapsedMs: 240_000 }),
-    execution: 'PREPARE_CONTROLLER_REVIEW', maxSteps: 30, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
+    maxSteps: 30, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
   AUDIT_SUPPORT: { ...base, id: 'AUDIT_SUPPORT', label: 'Audit support',
     purpose: 'Assemble the governed support an auditor asked for, with its population, its tie-out and its gaps stated.',
-    autonomy: 2, domains: [...READS, 'build', 'action'], serves: ['PREPARE_DELIVERABLE'],
+    autonomy: 2, domains: [...READS, 'build', 'action'], actionDomains: ['action', 'build'], serves: ['PREPARE_DELIVERABLE'],
     preparableActions: ['GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT', 'REFRESH_PBC_REQUEST'],
     completion: ['the population is resolved and pinned', 'the tie-out status is stated', 'gaps are disclosed rather than filled'],
     budget: budget({ maxIterations: 12, maxToolCalls: 26, maxElapsedMs: 240_000 }),
-    execution: 'PREPARE_AUDIT_SUPPORT', maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
+    maxSteps: 24, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
 };
 
 /**
- * A2 §6 — the legacy execution templates that survive, and the ONE reason each does. They are reachable only
- * because a profile names them; nothing reads the request text to choose one. `REVIEW_CLOSE` and
- * `INVESTIGATE_VENDOR` are NOT here: A1's smoke showed the generic loop does that work better, and no profile
- * names them any more.
+ * A3 §12 — THE EXECUTION TEMPLATES ARE RETIRED AS AN EXECUTION PATH. Every profile now runs `GENERIC`, so no
+ * classified objective is routed into a hand-built task graph: the generic loop carries the whole pipeline the
+ * three templates existed for — build → validate → prepare → stop for confirmation → execute through Action
+ * Governance → observe the governed result (proved end to end in a3.test.ts §12, on the close review package).
+ * A2 had already removed template SELECTION; what A3 removes is the template's authority over how a run runs.
+ *
+ * WHAT SURVIVES, AND THE ONE REASON IT DOES. `templateFor` still answers for these three goal types, and the only
+ * thing that can ask it is the deprecated no-model shim (`AgentRuntime.deterministicProfile`): the generic loop
+ * plans by THINKING, so with no reasoning model configured there is no generic planner at all and the template is
+ * the only plan available. That is the exact remaining capability gap — a deterministic generic planner — and it
+ * is the condition for deleting `templateFor`'s last three cases. Nothing a deployment with a model configured
+ * can reach passes through them.
  */
 export const LEGACY_TEMPLATES: Partial<Record<GoalType, string>> = {
-  PREPARE_CONTROLLER_REVIEW: 'The build → validate → propose → confirm → generate pipeline is not expressible in the planner contract yet (A3).',
-  PREPARE_AUDIT_SUPPORT: 'Same pipeline, over an audit population that must be pinned before it is packaged (A3).',
-  BUILD_FINANCIAL_ARTIFACT: 'Same pipeline; a named existing workbook is regenerated from its saved definition (A3).',
+  PREPARE_CONTROLLER_REVIEW: 'Reachable only by the deprecated no-model shim: with no reasoning model there is no generic planner.',
+  PREPARE_AUDIT_SUPPORT: 'Same, and it is the only way a no-model deployment can pin an audit population before packaging it.',
+  BUILD_FINANCIAL_ARTIFACT: 'Same; a named existing workbook is regenerated from its saved definition.',
 };
 
 /**
@@ -368,7 +382,14 @@ export interface UserSteeringEvent { id: string; runId: string; at: string; acto
 export interface AgentRunTrace {
   toolCalls: { taskId: string; tool: string; args: ToolArgs; status: string; latencyMs: number; objectId: string | null; error: string | null; traceId: string }[];
   modelCalls: { stage: string; route: string | null; model: string | null; status: string; latencyMs: number; inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; costUsd?: number; cls?: string; error?: string | null }[];
-  policyDecisions: { at: string; subject: string; decision: 'ALLOW' | 'DENY' | 'CHECKPOINT'; reason: string }[];
+  /**
+   * A3 §19 — A REFUSAL HAS A KIND, and conflating two of them made a clean run look like a breach. An argument
+   * the planner could not fill and a capability the actor may not use are both recorded here as DENY, and a
+   * telemetry counting the second by tool name reported four authorization violations on a run that had none
+   * (observed live). PERMISSION is the actor's authority; VALIDATION is the call's own arguments; POLICY is the
+   * profile or governance gate.
+   */
+  policyDecisions: { at: string; subject: string; decision: 'ALLOW' | 'DENY' | 'CHECKPOINT'; reason: string; kind?: 'PERMISSION' | 'VALIDATION' | 'POLICY' }[];
 }
 export interface AgentResult {
   headline: string;

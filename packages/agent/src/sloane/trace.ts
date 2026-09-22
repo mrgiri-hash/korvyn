@@ -30,6 +30,8 @@
  */
 import type { AgentRunBody } from './agent/model.js';
 import type { ModelCallRecord } from './agent/host.js';
+import { toolRegistry } from './tools.js';
+import { estimateCost } from './agent/investigate.js';
 
 export type TraceKind = 'AGENT_RUN' | 'CONVERSATION_TURN' | 'MODULE_ACTION';
 
@@ -116,6 +118,26 @@ export interface KorvynTrace {
   approvals: { id: string; type: string; status: string; blocking: boolean; title: string; createdAt: string; resolvedAt: string | null; resolution: string | null; resolvedBy: string | null; proposalIds: string[] }[];
   /** instructions a person gave mid-run, and what each one changed (§14) */
   interventions: { at: string; by: string; text: string; kind: string; effect: string }[];
+  /**
+   * A3 §11 — EVERY PROPOSED ACTION, end to end: what was proposed, on what factual basis, under what
+   * classification, authorized how, decided by whom, and what actually happened when it executed. This is the
+   * chain an auditor walks — OBJECTIVE → PLAN → PROPOSAL → BASIS → AUTHORIZATION → CLASSIFICATION → APPROVAL →
+   * EXECUTION → RESULT — and it holds no model reasoning, only what Korvyn decided and recorded.
+   */
+  proposals: {
+    id: string; type: string; title: string;
+    /** ActionGovernance's own class — READ_ONLY / CONFIRM_REQUIRED / GOVERNED_ACTION, never the model's word for it */
+    riskClass: string;
+    status: string; validationStatus: string;
+    target: string | null; targetType: string | null;
+    /** the governed objects and facts the proposal rests on */
+    basis: { objectIds: string[]; populationIds: string[]; factIds: string[] };
+    errors: string[]; warnings: string[];
+    /** the step that prepared it, and the checkpoint a person decided it at */
+    preparedByStep: string | null; checkpointId: string | null; decision: string | null; decidedBy: string | null; decidedAt: string | null;
+    /** what the Action Service did — null while nothing has been executed */
+    execution: { status: string; message: string; auditId: string | null } | null;
+  }[];
   references: TraceReferences;
   usage: TraceUsage;
   /** the completion criteria the runtime checked before it would say COMPLETED (§12) */
@@ -130,7 +152,45 @@ export interface KorvynTrace {
    ================================================================================================ */
 const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))];
 
-export function agentTrace(run: AgentRunBody, policy: { profile: string; autonomy: number } | null, writeActionsEnabled: boolean): KorvynTrace {
+/**
+ * A3 §11 — the proposal chain, assembled from the run's own record and the live proposals. `lookup` is the Action
+ * Engine's reader; a host that cannot supply one still gets every field the RUN knows (what was prepared, at which
+ * step, decided how) and `execution: null` rather than an invented result.
+ */
+function proposalChain(run: AgentRunBody, lookup?: (id: string) => ProposalView | null): KorvynTrace['proposals'] {
+  const stepOf = new Map<string, string>();
+  for (const t of run.graph.tasks) for (const p of t.proposalIds) stepOf.set(p, t.taskId);
+  const cpOf = new Map<string, { id: string; decision: string | null; by: string | null; at: string | null }>();
+  for (const c of run.checkpoints) for (const p of c.proposalIds) cpOf.set(p, { id: c.id, decision: c.resolution, by: c.resolvedBy, at: c.resolvedAt });
+  const resultOf = new Map<string, { status: string; message: string }>();
+  for (const o of run.observations) for (const a of o.actionResults) resultOf.set(a.proposalId, { status: a.status, message: a.message });
+  const ids = uniq([...run.graph.tasks.flatMap((t) => t.proposalIds), ...run.checkpoints.flatMap((c) => c.proposalIds), ...run.observations.flatMap((o) => o.proposalIds)]);
+  return ids.map((id) => {
+    const p = lookup?.(id) ?? null;
+    const cp = cpOf.get(id) ?? null;
+    const r = resultOf.get(id) ?? null;
+    return {
+      id, type: p?.type ?? 'UNKNOWN', title: p?.title ?? id,
+      riskClass: p?.riskLevel ?? 'UNKNOWN',
+      status: p?.status ?? (r?.status ?? 'UNKNOWN'), validationStatus: p?.validationStatus ?? 'UNKNOWN',
+      target: p?.targetObjectId ?? null, targetType: p?.targetObjectType ?? null,
+      basis: { objectIds: p?.sourceFinancialObjectIds ?? [], populationIds: p?.sourcePopulationIds ?? [], factIds: uniq(run.observations.filter((o) => o.proposalIds.includes(id)).flatMap((o) => o.factIds ?? [])) },
+      errors: p?.validation?.errors ?? [], warnings: p?.validation?.warnings ?? [],
+      preparedByStep: stepOf.get(id) ?? null,
+      checkpointId: cp?.id ?? null, decision: cp?.decision ?? null, decidedBy: cp?.by ?? null, decidedAt: cp?.at ?? null,
+      execution: r ? { status: r.status, message: r.message, auditId: p?.auditId ?? null } : null,
+    };
+  });
+}
+/** the subset of an ActionProposal the trace reads; the engine's own type satisfies it structurally */
+export interface ProposalView {
+  type: string; title: string; riskLevel: string; status: string; validationStatus: string;
+  targetObjectId: string | null; targetObjectType: string | null;
+  sourceFinancialObjectIds: string[]; sourcePopulationIds: string[];
+  validation: { errors: string[]; warnings: string[] }; auditId: string | null;
+}
+
+export function agentTrace(run: AgentRunBody, policy: { profile: string; autonomy: number } | null, writeActionsEnabled: boolean, lookup?: (id: string) => ProposalView | null): KorvynTrace {
   const inv = run.investigation;
   /* an open investigation's THINK steps are model calls too; the run's own trace already holds them, and the
      investigation's usage is what the budget was enforced against */
@@ -170,6 +230,7 @@ export function agentTrace(run: AgentRunBody, policy: { profile: string; autonom
     transitions: run.events,
     approvals: run.checkpoints.map((c) => ({ id: c.id, type: c.type, status: c.status, blocking: c.blocking, title: c.title, createdAt: c.createdAt, resolvedAt: c.resolvedAt, resolution: c.resolution, resolvedBy: c.resolvedBy, proposalIds: c.proposalIds })),
     interventions: run.interventions.map((i) => ({ at: i.at, by: i.by, text: i.text, kind: i.kind, effect: i.effect })),
+    proposals: proposalChain(run, lookup),
     references: {
       objectIds: uniq(run.observations.flatMap((o) => o.objectIds)),
       /* every run's observations carry them; an investigation's compact observations hold them per fact as well */
@@ -231,6 +292,8 @@ export function conversationTrace(t: import('./v2/model.js').V2Trace, actor: { i
     transitions: [{ at, type: 'TURN', label: `${t.path}${t.strategy ? ` · ${t.strategy}` : ''}` }],
     approvals: [],
     interventions: [],
+    /* a conversational turn prepares proposals on its own endpoint, never inside the turn */
+    proposals: [],
     references: {
       objectIds: Object.values(t.activeStateRefs).filter((v): v is string => !!v),
       factIds: [], evidenceIds: [], populationIds: [], artifactIds: [], proposalIds: [],
@@ -279,6 +342,8 @@ export interface AgentTelemetry {
   failedToolCalls: number;
   /** capabilities the actor was NOT permitted to use, refused at the gate — a violation would be a non-zero execution */
   authorizationDenials: number;
+  /** §19: a call the planner got wrong — a missing argument, an invented dimension. Not a permission event. */
+  validationRefusals: number;
   authorizationViolations: number;
   factsDiscovered: number;
   findings: number;
@@ -297,6 +362,83 @@ export interface AgentTelemetry {
   /** §10/§16: statements the grounding check rejected because no observation carried the figure */
   ungroundedRejected: number;
   budgetLimitsReached: string[];
+  /** A3 §19: investigation vs preparation vs approval vs synthesis, measured separately */
+  economy: RunEconomy;
+}
+
+/**
+ * A3 §19 — WHERE A RUN'S TIME AND MONEY ACTUALLY WENT, by PHASE rather than by call.
+ *
+ * "The agent run cost $0.14" is not a number anyone can act on. The four phases are separable work with separate
+ * economics: reading to establish a position, preparing what would change it, waiting for a person, and writing
+ * the result. A2 measured the waterfall in milliseconds per STAGE; this attributes the model calls and the
+ * governed tool calls too, so a profile whose preparation costs more than its investigation is visible.
+ *
+ * ATTRIBUTION IS BY WHAT THE STEP DID, NOT BY WHEN IT RAN. A THINK that chose a preparation is preparation
+ * reasoning even though it is the same kind of call as the one before it, so a step is attributed by the RISK of
+ * the capabilities it reached for — which the step record already carries. A tool call is attributed by the type
+ * of the task that made it.
+ */
+export interface PhaseEconomy { modelCalls: number; modelMs: number; toolCalls: number; toolMs: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number }
+export interface RunEconomy {
+  /** classification and planning: deciding what kind of run this is */
+  planning: PhaseEconomy;
+  /** reading: establishing the position, before anything is proposed */
+  investigation: PhaseEconomy;
+  /** preparing: drafts, artifacts and proposals — nothing written */
+  preparation: PhaseEconomy;
+  /** writing the result: synthesis, narration, verification */
+  synthesis: PhaseEconomy;
+  /**
+   * waiting for a person, and what it cost to pick the run back up. `waitMs` is wall time the run was stopped,
+   * which is not spend — it is stated beside the spend because a run that looks slow is usually a run that was
+   * waiting, and confusing the two is how a checkpoint gets removed to make a number look better.
+   */
+  approval: { checkpoints: number; decided: number; waitMs: number; resumedSteps: number; resumedCostUsd: number };
+}
+
+const PREP_TASK = new Set(['BUILD_ARTIFACT', 'PREPARE_ACTION', 'EXECUTE_ACTION']);
+const SYNTH_TASK = new Set(['VERIFY', 'SUMMARIZE']);
+const zero = (): PhaseEconomy => ({ modelCalls: 0, modelMs: 0, toolCalls: 0, toolMs: 0, inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0 });
+
+export function runEconomy(run: AgentRunBody): RunEconomy {
+  const e: RunEconomy = {
+    planning: zero(), investigation: zero(), preparation: zero(), synthesis: zero(),
+    approval: { checkpoints: 0, decided: 0, waitMs: run.waterfall.waitMs, resumedSteps: 0, resumedCostUsd: 0 },
+  };
+  /* the REASONING: each THINK is attributed by what it chose to do */
+  const S = run.investigation;
+  const firstPrep = S ? S.steps.findIndex((x) => x.calls.some((c) => toolRegistry.get(c.tool)?.risk === 'PROPOSE')) : -1;
+  for (const st of S?.steps ?? []) {
+    const prep = st.calls.some((c) => toolRegistry.get(c.tool)?.risk === 'PROPOSE');
+    const b = prep ? e.preparation : e.investigation;
+    b.modelCalls += 1; b.modelMs += st.latencyMs; b.inputTokens += st.inputTokens; b.outputTokens += st.outputTokens;
+    b.estimatedCostUsd += estimateCost(st.model, { inputTokens: st.inputTokens, outputTokens: st.outputTokens, cacheReadTokens: st.cacheReadTokens });
+  }
+  /* classification, planning, synthesis and narration are recorded by stage on the model call itself */
+  for (const c of run.trace.modelCalls) {
+    const st = (c.stage ?? '').toLowerCase();
+    const b = /synth|narrat|verif|summar/.test(st) ? e.synthesis : /classif|plan|objective/.test(st) ? e.planning : null;
+    if (!b) continue;
+    b.modelCalls += 1; b.modelMs += c.latencyMs; b.inputTokens += c.inputTokens; b.outputTokens += c.outputTokens;
+    b.estimatedCostUsd += c.costUsd ?? 0;
+  }
+  /* the GOVERNED CALLS: attributed by the type of the task that made them */
+  const typeOf = new Map(run.graph.tasks.map((t) => [t.taskId, t.type as string]));
+  for (const t of run.trace.toolCalls) {
+    const ty = typeOf.get(t.taskId) ?? '';
+    const b = PREP_TASK.has(ty) ? e.preparation : SYNTH_TASK.has(ty) ? e.synthesis : e.investigation;
+    b.toolCalls += 1; b.toolMs += t.latencyMs;
+  }
+  /* what stopping for a person cost: the checkpoints, and the reasoning that ran after the first one was opened */
+  e.approval.checkpoints = run.checkpoints.length;
+  e.approval.decided = run.checkpoints.filter((c) => c.status !== 'OPEN').length;
+  if (run.checkpoints.length && S) {
+    const after = firstPrep >= 0 ? S.steps.slice(firstPrep + 1) : [];
+    e.approval.resumedSteps = after.length;
+    e.approval.resumedCostUsd = after.reduce((n, st) => n + estimateCost(st.model, { inputTokens: st.inputTokens, outputTokens: st.outputTokens, cacheReadTokens: st.cacheReadTokens }), 0);
+  }
+  return e;
 }
 
 export function agentTelemetry(run: AgentRunBody): AgentTelemetry {
@@ -322,9 +464,16 @@ export function agentTelemetry(run: AgentRunBody): AgentTelemetry {
     emptyToolCalls: tools.filter((t) => t.status === 'COMPLETED' && !t.objectId).length,
     refusedToolCalls: tools.filter((t) => t.status === 'REFUSED').length,
     failedToolCalls: tools.filter((t) => t.status === 'FAILED').length,
-    authorizationDenials: denials.length,
-    /* a violation is a call that ran WITHOUT an allow — structurally impossible today, and measured so it stays so */
-    authorizationViolations: tools.filter((t) => t.status === 'COMPLETED' && denials.some((d) => d.subject === t.tool)).length,
+    /**
+     * A3 §19 — A REFUSAL IS COUNTED AS WHAT IT WAS. Every refusal was reported here as an authorization denial,
+     * so a live run whose planner asked for a missing argument and an invented dimension read as four denials and
+     * four VIOLATIONS on a run with none (observed). The violation count is the one number here that must always
+     * be zero, and a count that cries wolf on an ordinary run is one nobody reads.
+     */
+    authorizationDenials: denials.filter((d) => d.kind === 'PERMISSION').length,
+    validationRefusals: denials.filter((d) => d.kind !== 'PERMISSION').length,
+    /* a call that RAN despite the actor being refused that capability — structurally impossible, measured so it stays so */
+    authorizationViolations: tools.filter((t) => t.status === 'COMPLETED' && denials.some((d) => d.kind === 'PERMISSION' && d.subject === t.tool)).length,
     factsDiscovered: uniq([...run.observations.flatMap((o) => o.factIds ?? []), ...(inv?.observations ?? []).flatMap((o) => o.facts.map((f) => f.id))]).length,
     findings: run.result?.findings.length ?? 0,
     objectsRead: uniq(run.observations.flatMap((o) => o.objectIds)).length,
@@ -342,5 +491,7 @@ export function agentTelemetry(run: AgentRunBody): AgentTelemetry {
     estimatedCostUsd: run.trace.modelCalls.reduce((n, c) => n + (c.costUsd ?? 0), 0),
     ungroundedRejected: inv?.synthesis?.rejected.length ?? 0,
     budgetLimitsReached: run.warnings.filter((w) => /budget|limit/i.test(w)),
+    /* A3 §19 */
+    economy: runEconomy(run),
   };
 }
