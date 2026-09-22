@@ -376,6 +376,32 @@ export const drillActions = (def: ResponseDefinition, reg: FactRegistry): string
  * §18 — A SENTENCE HOLDING A REFERENCE KORVYN CANNOT RESOLVE IS WITHHELD, and now at the SENTENCE, not the
  * paragraph. With the answer as prose one dangling reference would otherwise take the whole reply with it.
  */
+/**
+ * C1.2 §4/§6 — THE ANSWER AS THE MODEL WROTE IT, references and all.
+ *
+ * Exactly the parts `renderResponse` publishes, in the same order, with `{{FACT:id}}` left alone. This is what
+ * the transcript hands back on the next turn: a reformat can then carry a governed figure across by CITING it,
+ * which is the only way a figure survives reformatting without being retyped.
+ *
+ * It mirrors the renderer deliberately rather than sharing a traversal with it — the renderer withholds, drops
+ * and rewrites, and none of that belongs in a record of what was said.
+ */
+export function sourceText(def: ResponseDefinition): string {
+  const out: string[] = [];
+  const add = (a: Assertion | null) => { if (a?.text.trim()) out.push(a.text.trim()); };
+  add(def.headline);
+  add(def.summary);
+  if (def.presentation.kind === 'NONE') def.keyDrivers.forEach(add);
+  else {
+    if (def.presentation.lead) out.push(def.presentation.lead.trim());
+    def.presentation.rows.forEach(add);
+  }
+  def.interpretation.forEach(add);
+  def.exceptions.forEach(add);
+  def.unresolved.forEach(add);
+  return out.join('\n\n');
+}
+
 export function renderResponse(def: ResponseDefinition, reg: FactRegistry): RenderedResponse {
   const parts: RenderedResponse['parts'] = [];
   const unresolved: string[] = [];
@@ -520,6 +546,32 @@ export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): R
   const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const out: Assertion[] = [];
   for (const p of paras) {
+    /**
+     * C1.2 §15 — A BLOCK THAT HAS LINES KEEPS THEM.
+     *
+     * Sentence splitting rejoins with a space, so a bulleted answer arrived as one long run-on: the structure
+     * the person had explicitly asked for was removed between the model writing it and the browser drawing it.
+     * A paragraph carrying its own line breaks is one unit and is not re-flowed.
+     *
+     * The withholding rule (§39) still applies, at LINE granularity rather than sentence granularity — a
+     * bullet with an invented figure is dropped and the rest of the list stands. Same guarantee, measured on
+     * the unit the text is actually written in.
+     */
+    if (p.includes('\n')) {
+      const kept = p.split('\n').filter((ln) => {
+        const bad = invented(ln);
+        if (!bad.length) return true;
+        bad.forEach((b) => { if (!withheldFigures.includes(b)) withheldFigures.push(b); });
+        violations.push(`figure with no governed reference withheld: ${bad.join(', ')}`);
+        return false;
+      }).join('\n').trim();
+      if (!kept) continue;
+      const a = assertion('FACT', kept, reg);
+      const demote = opt.hasGovernedRead && CAUSAL.test(withoutRefs(kept)) && !supportedCausal(a, reg);
+      if (demote) violations.push(`causal claim without support demoted to inference: "${kept.slice(0, 60)}"`);
+      out.push(demote ? { ...a, type: 'INFERENCE' as const } : a);
+      continue;
+    }
     const sentences = p.split(/(?<=[.!?])\s+/).filter((x) => x.trim() && !(() => {
       const bad = invented(x);
       if (!bad.length) return false;

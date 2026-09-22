@@ -40,6 +40,19 @@ export interface V2Turn {
   at: string;
   userMessage: string;
   assistantMessage: string;
+  /**
+   * C1.2 §4/§6 — THE SAME ANSWER WITH ITS FACT REFERENCES STILL IN IT.
+   *
+   * `assistantMessage` is the RESOLVED text: the governed values substituted, which is what a person read and
+   * what History restores. Handing that back to the model on the next turn is what made a reformat ungrounded
+   * by construction — the references were gone, so the only way to restate a figure was to retype it, and a
+   * retyped figure is a contract miss however right it is.
+   *
+   * This is the same sentence with `{{FACT:id}}` still in place. The registry outlives the turn, so a reference
+   * written three turns ago still resolves, and "put that in bullets" can move a governed figure into a bullet
+   * without anyone re-reading the ledger. Absent on a turn that predates C1.2, and on one with no references.
+   */
+  assistantSource?: string;
   /** §31: the structured answer, for restoring the thread. Absent on a turn that predates C1. */
   render?: TurnRender | null;
   /** which of the three paths answered it — for the trace and for A/B measurement */

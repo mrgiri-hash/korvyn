@@ -12352,6 +12352,106 @@ subject and the period were right, and the composer reads poorly over an EMPTY b
 pre-existing weakness in `composeDirect`'s BREAKDOWN shape, exposed because this book has no region
 dimension for capex.
 
+## 2026-09-22 — SLOANE C1.2: prior-response transforms, and the shape of an answer
+
+Owner's brief, after C1.1. Conversation quality only: no new finance capability, no second routing
+architecture, no Agentic AI. The live failure it opens with — a correct close answer, a correct
+elaboration, and then *"Sloane could not put an answer together for that"* in reply to "show me in bullet
+points with action items" — is fixed, and the cause was three separate defects in a row.
+
+### §1/§2 — THE PRIOR ANSWER WAS NOT IN THE MODEL'S HANDS IN A FORM IT COULD CITE
+
+`assistantMessage` is the RESOLVED answer a person read: `{{FACT:…}}` substituted, digits in the text. Handed
+that back, a model reorganising it can only retype the figures, which §6 forbids — so a reformat either
+re-read the ledger or typed numbers with nothing behind them. `V2Turn.assistantSource` is the same answer
+with its references still in it (`sourceText(def)`, stored only when it differs, so nothing is kept twice),
+and `transcriptMessages` hands the model that form while History keeps the resolved one.
+
+**Measured on the §18 conversation: `f_WYnvOO_OcgFQ` — the 57% readiness — is cited in turn 1 and reused
+verbatim in turns 3 and 4, both of which call no tool at all.** That is §6 and §17 in one line: the figure
+travels as the same governed reference across a reformat, so it cannot be re-rounded, re-signed or renamed.
+
+### THE ROOT CAUSE OF THE REPORTED FAILURE, ESTABLISHED BY INSTRUMENTATION
+
+The model emitted `show { kind:'table', of:'V2-FO-1', lead:'June close blockers with owners and action
+items' }` with **empty prose** — it had decided the table was the answer. In the `show` branch `prose` was
+empty, `composeDirect` returned null (no composer shape fits a close-readiness object), `fromProse('')`
+produced zero parts, and control fell to the `!answer` backstop — which **discarded the validated governed
+table** and reported failure over a result that was sitting right there. Three fixes, each at the point the
+information is lost:
+
+- **The table is decided BEFORE the sentence**, because whether one exists changes what the sentence has to do.
+- **The model's own `lead` is a sentence.** It is the model's words about this turn, so using it invents nothing.
+- **A turn holding a governed presentation publishes it**, with the object's own name over it, rather than
+  reporting that nothing could be answered.
+
+### §15 — AND THEN THE ANSWER STILL DID NOT REACH THE SCREEN. TWO MORE DEFECTS, ONE ON EACH SIDE.
+
+- **`fromProse` splits paragraphs into sentences and rejoins with a space**, so a written list arrived as one
+  run-on. A block that HAS lines keeps them and is one assertion, with withholding at LINE granularity — one
+  bullet carrying an invented figure is dropped and the rest of the list stands.
+- **The channel was decided by whether a governed read ran THIS turn.** A transform reads nothing, so a
+  headline, a list and an action section went down the `reply` channel, which the browser escaped and
+  `pre-wrap`ped — raw `**` and `- ` on screen — and a turn with narrative but no objects fell past the
+  browser's `r.objects.length` gate into the dead-end card. **What decides is whether the answer HAS shape**:
+  more than one assertion, a block with lines in it, or a presentation beside it. A greeting is one part on
+  one line and is still a reply.
+- **`s2MD()`** renders bold, bullets, nested bullets, numbered steps and paragraphs, escape-first so only tags
+  it writes can appear — and `.s2-conv` uses it too, so **one written answer has one renderer whichever
+  channel it arrives on**. `pre-wrap` is retired there; `s2MD` makes the paragraphs.
+- `o` and `pv` went with the gate: both have been dead since V3 stopped taking the heading from the first
+  object, and only a comment still names `o.title`.
+
+### §3 — NO PHRASE ROUTES, AND THE GUARANTEE IS ABOUT THE CODE
+
+The prompt names "put that in bullets" and "rewrite it for the CFO" deliberately — it is the model's reading
+material and those examples teach it the CATEGORY. What must not exist is a branch that reads the words and
+decides for it. A test strips the comments from eight v2 source files and asserts that not one format word
+survives into anything executable.
+
+### §20 — PER-TURN MEASUREMENT (live, claude-sonnet-5, the §18 five-turn conversation)
+
+| turn | route | model calls | finance tools |
+|---|---|---|---|
+| what is the close status? | analytical | 2 | 1 |
+| can you elaborate | analytical | 2 | 2 |
+| **show me in bullet points with action items** | **conversation** | **1** | **0** |
+| **make that shorter for the CFO** | **conversation** | **1** | **0** |
+| now only show the unassigned blockers | analytical | 2 | 1 (§13: it filtered by retrieving) |
+
+§19's OPEX/SG&A conversation is the same shape: one governed read, then three transform turns at **1 call /
+0 tools**. That is §20's target exactly.
+
+### §7 — TWO KINDS OF ACTION ITEM
+
+The prompt separates a FACTUAL WORKFLOW ACTION (Korvyn's record says a person must do it) from a RECOMMENDED
+NEXT STEP (the model's synthesis), and says which is which. *"Assign owners to the 9 unassigned blockers"* is
+the first; a named person with a deadline Korvyn does not hold is never written as the second.
+
+### Verified
+
+**297/297** Sloane tests (8 new in `v2p3b.test.ts`, which pins the mechanism and not one phrase) · dry run
+pass · core 78/78 + boundary · **4/4 repo gates**, baselines unchanged · typecheck clean · control characters
+unchanged from HEAD (11 in `index.html`, all pre-existing) · console clean.
+
+**Browser, on `sloane-serve-v2`:** the §18 chain end to end — 4 exchanges, 3 `<ul class="s2-md">`, 17 `<li>`,
+4 `<strong>`, **0 raw `**`, 0 raw `- `, 0 `{{FACT:` on screen, 0 dead-end cards, 0 console errors** · full
+screen and collapse keep the same exchanges and the same rendering · a casual turn still reads as
+conversation · History lists conversations.
+
+**§11's other transform types, live:** turn that into a table · give me the top 3 · a one-line answer ·
+explain it like I'm new to this — all answered from the conversation.
+
+### Open, and worth an owner's call
+
+- **§12 is met functionally and does re-read.** A table transform calls one tool, because V3's own invariant
+  is that a TABLE names an object read THIS turn — weakening it would reintroduce exactly the coupling V3
+  removed. The figures are still governed and the table is real; it simply is not the no-re-query path §12
+  describes. The alternative is for the model to reach for a LIST, which carries its own rows.
+- **A session id shorter than 8 characters is silently replaced with a fresh UUID** (`SID` in
+  `orchestrator.ts`). Not a product defect, and it cost a round of testing: a harness using a short id gets a
+  new conversation every turn and Sloane correctly reports that it has no prior answer.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,

@@ -45,7 +45,7 @@ import {
 } from './conversation.js';
 import { type V2ToolOutcome, isControlTool, observationText, runTool, toolDefinitions } from './tools.js';
 import { FactRegistry, type FinancialFact, bareFigures, renderFacts, withoutRefs } from './facts.js';
-import { type RespondInput, type ResponseDefinition, buildResponse, drillOffers, fromProse, renderResponse, withList } from './respond.js';
+import { type RespondInput, type ResponseDefinition, buildResponse, drillOffers, fromProse, renderResponse, sourceText, withList } from './respond.js';
 import {
   type Offer, type ResponseStrategy, composeDirect, directEligible, drillCall, offerTaken,
 } from './strategy.js';
@@ -252,7 +252,11 @@ export class SloaneV2 {
         ...(per.comparisonPeriod !== null ? { comparisonPeriod: per.comparisonPeriod } : {}),
       },
     };
-    saveConversation({ ...appendTurn(next, { userMessage: request, assistantMessage: answer, path, refs }), facts: facts.snapshot() }, actor);
+    /* C1.2 §4 — the record keeps BOTH: the resolved answer a person read, and the same answer with its fact
+       references still in it, which is what the next turn hands the model so a reformat can cite rather
+       than retype. Omitted when they are identical, so nothing is stored twice. */
+    const src = def ? sourceText(def) : '';
+    saveConversation({ ...appendTurn(next, { userMessage: request, assistantMessage: answer, path, refs, ...(src && src !== answer ? { assistantSource: src } : {}) }), facts: facts.snapshot() }, actor);
     const rendered = def ? renderResponse(def, facts) : null;
     /**
      * §14 — THE MESSAGE AND THE PRESENTATION ARE TWO THINGS, AND A ROW BELONGS TO EXACTLY ONE OF THEM.
@@ -584,32 +588,52 @@ export class SloaneV2 {
           const rows = (Array.isArray(raw.rows) ? raw.rows.map(String) : String(raw.rows ?? '').split('|')).map((r) => r.trim()).filter(Boolean);
           let prose = res.value.text.trim();
           const wantsTable = String(raw.kind ?? (ctl.name === 'show_list' ? 'list' : '')).toLowerCase().startsWith('tab');
+          const lead = (raw.lead ?? '').trim();
+          /**
+           * C1.2 — THE TABLE IS DECIDED BEFORE THE SENTENCE, because whether one exists changes what the
+           * sentence has to do. It used to be settled after `answer` had already been written, which is how a
+           * validated governed table could sit beside an empty answer and be thrown away with it.
+           */
+          if (wantsTable) {
+            const wanted = String(raw.of ?? '').trim();
+            const obj = objects.find((o) => o.id === wanted) ?? (objects.length === 1 ? objects[0] : undefined);
+            if (obj && obj.table && obj.table.rows.length) {
+              presentation = { kind: 'TABLE', objectId: obj.id, title: obj.title, ...(lead ? { lead } : {}) };
+            } else {
+              diag(`a table was asked for and ${wanted ? `object ${wanted} was not read this turn` : 'no single governed result was available'}`);
+            }
+          }
           /**
            * §6 — A TURN ALWAYS SAYS SOMETHING. A model that has decided the table IS the answer emits `show`
            * and no text at all, and the person then gets a table under a blank reply (observed live). The
-           * presentation is SUPPORTING by contract, so Korvyn writes the supported sentence from the governed
-           * result — the same composer, and the same rule as everywhere else: it composes only when the model
-           * left nothing publishable.
+           * presentation is SUPPORTING by contract, so the turn still needs a sentence.
+           *
+           * C1.2 — AND THE MODEL'S OWN LEAD IS ONE. This is the root cause of the reported failure: asked to
+           * put a close summary in bullets with action items, the model called `show` with kind=table and the
+           * lead "June close blockers with owners and action items" and NO prose, having decided the table
+           * answered it. The composer below could not write a sentence for a close-readiness object, so the
+           * turn ended with no answer, the validated table was discarded with it, and the person was told
+           * Sloane could not put an answer together — over a governed result that was sitting right there.
+           *
+           * The lead is the model's own words about this turn, so using it invents nothing. Only after that
+           * does Korvyn compose from the governed result, and only after that does it name the object.
            */
+          let leadUsed = false;
+          if (!prose && lead) { prose = lead; leadUsed = true; }
           if (!prose) {
             const o = outcomes.filter((x) => x.status === 'COMPLETED' && x.object && x.facts.length).at(-1);
             const built = o ? composeDirect(o.object!, o.facts, { actor, subject: o.ctx.subject, dimension: o.ctx.dimension, measure: o.ctx.measure, note: fresh(o.ctx.note ?? o.observation.note), nextActions: [] }) : null;
             if (built) { prose = renderResponse(built.def, facts).text; diag('the model showed without saying anything; Korvyn composed the sentence'); }
           }
+          if (!prose && presentation?.kind === 'TABLE' && presentation.title) {
+            prose = `Here is ${presentation.title}.`;
+            diag('the model showed without saying anything and nothing could be composed; Korvyn named the result');
+          }
           response = rows.length
-            ? withList(fromProse(prose, facts, opt), raw.lead ?? null, rows, facts)
+            ? withList(fromProse(prose, facts, opt), leadUsed ? null : lead || null, rows, facts)
             : fromProse(prose, facts, opt);
           rendered = renderResponse(response, facts);
           answer = rendered.text;
-          if (wantsTable) {
-            const wanted = String(raw.of ?? '').trim();
-            const obj = objects.find((o) => o.id === wanted) ?? (objects.length === 1 ? objects[0] : undefined);
-            if (obj && obj.table && obj.table.rows.length) {
-              presentation = { kind: 'TABLE', objectId: obj.id, title: obj.title, ...(raw.lead ? { lead: raw.lead.trim() } : {}) };
-            } else {
-              diag(`a table was asked for and ${wanted ? `object ${wanted} was not read this turn` : 'no single governed result was available'}`);
-            }
-          }
           /* a LIST is NOT set here: its rows carry fact references, and only `publish` returns them resolved */
         } else if (ctl.name === 'respond') {
           /* RETIRED, and still answered: a stale session or an older prompt may emit one. It builds exactly as
@@ -790,9 +814,27 @@ export class SloaneV2 {
         trace.directShape = built0.shape;
         return this.finishDirect({ body, actor, request, trace, notes, note, diag, diagnostics, facts, objects, outcomes, def: built0.def, path: 'analytical', done, onDelta: undefined, t0 });
       }
+      /**
+       * C1.2 — AND A GOVERNED PRESENTATION IS ALSO SOMETHING. A validated table was being discarded here
+       * along with the empty sentence, so a turn holding a governed result the person had explicitly asked
+       * to see reported that Sloane could not answer. The table goes out, with the object's own name over it.
+       */
+      if (presentation) {
+        const said = presentation.kind === 'TABLE' && presentation.title ? `Here is ${presentation.title}.` : '';
+        diag('the model returned nothing; the presentation it asked for is the answer');
+        body = appendTurn(body, { userMessage: request, assistantMessage: said, path: 'conversation', refs });
+        saveConversation(body, actor);
+        return done('ANSWER', 'conversation', {
+          notes, objects, presentation,
+          narrative: said ? [{ text: said, objectIds: objects.map((o) => o.id) }] : [],
+        });
+      }
       const failed = trace.calls.at(-1);
       if (failed?.error) { diag(failed.error); note('Sloane could not finish that one — try asking again.'); }
-      else note('Sloane could not put an answer together for that — try asking it another way.');
+      /* §14 — and where there is genuinely nothing to say, say what is missing rather than naming the machine.
+         An ordinary reformat should never reach this line; if one does, the honest thing is to ask for the
+         one piece that was not there. */
+      else note('Sloane does not have enough here to answer that — say a little more about what you need.');
       body = appendTurn(body, { userMessage: request, assistantMessage: '', path: 'conversation', refs });
       saveConversation(body, actor);
       return done(objects.length ? 'ANSWER' : 'UNAVAILABLE', 'conversation', { notes, objects, narrative: [] });
@@ -893,7 +935,22 @@ export class SloaneV2 {
     /* a TABLE the model asked for wins; otherwise the resolved rows ARE the list */
     if (!presentation && published.rows.length) presentation = { kind: 'LIST', rows: published.rows };
 
-    return done('ANSWER', path, objects.length
+    /**
+     * C1.2 §15 — A REPLY IS ONE FLOWING PARAGRAPH; AN ANSWER WITH SHAPE IS NARRATIVE.
+     *
+     * The channel was decided by whether a governed read ran THIS turn, and that is the wrong question. A
+     * request to reorganise what was just said reads nothing — the material is already in the transcript —
+     * and still produces a headline, a list and an action section. Sent down the `reply` channel that arrives
+     * as one pre-wrapped string, so the shape the model wrote reaches the screen as its own markup, and a
+     * turn holding a governed presentation reported that it could not answer at all.
+     *
+     * What decides is whether the answer HAS shape: more than one assertion, a block with lines in it, or a
+     * presentation beside it. A greeting or a one-sentence definition is one part on one line and is still a
+     * reply, which is what keeps casual conversation reading as conversation.
+     */
+    const shaped = narrative.length > 1 || narrative.some((n) => n.text.includes('\n')) || !!presentation;
+
+    return done('ANSWER', path, objects.length || shaped
       ? { notes, diagnostics, presentation, objects, narrative, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) }
       : { notes, diagnostics, presentation, objects: [], narrative: [], reply: answer, ...(rendered?.nextActions.length ? { suggestions: rendered.nextActions } : {}) });
   }

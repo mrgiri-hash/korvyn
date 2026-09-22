@@ -2385,7 +2385,9 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .s3-rd .ok{color:var(--pos)}
 .slx-draft{margin:0;padding:var(--s-3);border-radius:var(--radius-xs);background:var(--n-50);font-size:var(--fs-table);line-height:var(--lh-relaxed);color:var(--ink)}
 /* Phase 7 — the agent run card: concise progress, checkpoints a person decides, the verified result (2026-09-18) */
-.s2-conv{font-size:var(--fs-ui);line-height:var(--lh-relaxed);color:var(--ink);white-space:pre-wrap;max-width:76ch}
+/* C1.2 §15 — `pre-wrap` is retired here: `s2MD` makes the paragraphs and the lists, so a reply renders its own
+   markup exactly as a narrative answer does. One written answer, one renderer, whichever channel it arrives on. */
+.s2-conv{font-size:var(--fs-ui);line-height:var(--lh-relaxed);color:var(--ink);max-width:76ch}
 .p8d-f{margin:var(--s-2) 0 0;padding-left:var(--s-4)}.p8d-f li{margin:var(--s-1) 0}.p8d-f .k,.p8d-u .k{display:block;font-size:var(--fs-label);color:var(--hint);text-transform:uppercase;letter-spacing:var(--tracking-label)}.p8d-u{margin-top:var(--s-2);color:var(--muted)}
 .p7-run{display:grid;gap:var(--s-3)}
 .p7-st{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-2);font-size:var(--fs-label);color:var(--muted);letter-spacing:var(--tracking-label);text-transform:uppercase}
@@ -2462,7 +2464,17 @@ body:not(.copilot-collapsed) .ribsl svg{color:var(--chrome-text-strong)}
 .si-xlg tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
 .si-xlg tr.tot td{border-top:1px solid var(--line2);font-weight:var(--fw-medium)}
 .s2-nar{border-left:2px solid var(--ai);padding:var(--s-1) 0 var(--s-1) var(--s-3);margin-bottom:var(--s-3);max-width:76ch}
+/* C1.2 §15 — A LIST THE PERSON ASKED FOR IS DRAWN, NOT SPELT. Bold and bullets are the two shapes an
+   analytical answer genuinely wants, so they render; the markers never reach the screen as characters.
+   Scoped to the answer body, so nothing else in the app inherits a list treatment. */
+.s2-md{margin:var(--s-1) 0;padding-left:var(--s-4)}
+.s2-md li{margin:0 0 var(--s-1);padding-left:var(--s-1);line-height:var(--lh)}
+.s2-md li:last-child{margin-bottom:0}
+.s2-md .s2-md{margin:var(--s-1) 0 0}
+.s2-s strong,.s2-row strong,.s2-md strong{font-weight:var(--fw-medium);color:var(--ink-strong)}
 .s2-s{margin:0 0 var(--s-1);font-size:var(--fs-table);color:var(--ink);line-height:var(--lh)}
+.s2-p{margin:0 0 var(--s-1)}
+.s2-s>.s2-p:last-child,.s2-s>.s2-md:last-child{margin-bottom:0}
 .s2-note{margin:var(--s-1) 0 0;font-size:var(--fs-label);color:var(--hint)}
 /* PHASE 2 (§24) — a governed answer arrives in SECTIONS, and each carries a quiet tracked label.
    It is the design system's own --fs-label treatment: a size, a tracking and a colour, never a weight. */
@@ -81962,6 +81974,39 @@ function s2PresHTML(r, notes){
   return ''; }
 function s2FollowHTML(sugg){ if(!sugg||!sugg.length) return '';
   return '<div class="s3-btns">'+sugg.map(x=>'<button class="slx-btn" data-q="'+glEsc(x)+'" onclick="slSubmit(this.getAttribute(\'data-q\'),{follow:true})">'+glEsc(x)+'</button>').join('')+'</div>'; }
+/* C1.2 §15 — THE ANSWER'S OWN SHAPE, DRAWN.
+   Asked to put something in bullets, the model writes bullets; before this the browser escaped the text and
+   drew it verbatim, so the person got `- **Largest issue:** …` with the markers still in it — the structure
+   they asked for arriving as punctuation. Two shapes render and nothing else: emphasis, and a list.
+
+   ESCAPE FIRST, THEN MARK UP. `glEsc` runs on the raw text and every pattern below is matched against the
+   ESCAPED string, so no model output can introduce an element — the only tags in the result are the ones
+   this function writes. Anything unrecognised stays as the text it was. */
+function s2MD(t){
+  var esc=glEsc(String(t==null?'':t));
+  var em=function(x){ return x.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>'); };
+  var lines=esc.split('\n'), out='', list=null, items=[], sub=[];
+  var flushSub=function(){ if(!sub.length) return ''; var s='<ul class="s2-md">'+sub.map(function(i){return '<li>'+em(i)+'</li>';}).join('')+'</ul>'; sub=[]; return s; };
+  var flush=function(){
+    if(!items.length){ list=null; return; }
+    var tail=flushSub();
+    if(tail) items[items.length-1]+=tail;
+    out+='<'+list+' class="s2-md">'+items.map(function(i){return '<li>'+i+'</li>';}).join('')+'</'+list+'>';
+    items=[]; list=null; };
+  lines.forEach(function(ln){
+    var nested=/^(?:\s{2,}|\t)[-*•]\s+/.test(ln);
+    var m=/^\s*[-*•]\s+(.*)$/.exec(ln), n=/^\s*\d{1,2}[.)]\s+(.*)$/.exec(ln);
+    if(nested&&items.length){ sub.push(m[1]); return; }
+    if(m||n){
+      var want=m?'ul':'ol', body=(m?m[1]:n[1]);
+      if(list&&list!==want) flush();
+      if(!list) list=want;
+      var tail=flushSub(); if(tail&&items.length) items[items.length-1]+=tail;
+      items.push(em(body)); return; }
+    flush();
+    if(ln.trim()) out+='<p class="s2-p">'+em(ln)+'</p>'; });
+  flush();
+  return out||em(esc); }
 function s2NarrHTML(g, note){ if(!g.accepted.length&&!note) return '';
   /* PHASE 3 §4/§14 — the server sends the ANSWER, and no headings: `label` is retired and is always empty, so
      nothing is drawn above the text. What a part may still carry is `row` — a line of the optional supporting
@@ -81971,10 +82016,10 @@ function s2NarrHTML(g, note){ if(!g.accepted.length&&!note) return '';
   g.accepted.forEach(function(s){
     var attrs=' data-objects="'+glEsc(s.objectIds.join(' '))+'" data-facts="'+glEsc(s.factKeys.join(' '))+'"'
       +(s.assertion?' data-assertion="'+glEsc(s.assertion)+'"':'');
-    if(s.row){ if(!open){ h+='<div class="s2-rows">'; open=true; } h+='<p class="s2-row"'+attrs+'>'+glEsc(s.text)+'</p>'; return; }
+    if(s.row){ if(!open){ h+='<div class="s2-rows">'; open=true; } h+='<p class="s2-row"'+attrs+'>'+s2MD(s.text)+'</p>'; return; }
     if(open){ h+='</div>'; open=false; }
     if(s.label) h+='<div class="s2-lab">'+glEsc(s.label)+'</div>';
-    h+='<p class="s2-s"'+attrs+'>'+glEsc(s.text)+'</p>'; });
+    h+='<div class="s2-s"'+attrs+'>'+s2MD(s.text)+'</div>'; });
   if(open) h+='</div>';
   return h+(note?'<p class="s2-note">'+glEsc(note)+'</p>':'')+'</div>'; }
 /* PHASE C1 §8 — THE ACTIVITY STATE BELONGS WHERE THE ANSWER WILL BE.
@@ -82425,7 +82470,7 @@ function s2ServerRender0(raw, r){
   if((r.diagnostics||[]).length&&typeof console!=='undefined') console.debug('[sloane:diagnostics]',r.diagnostics);
   if(r.state==='CANCELLED') return {handled:true};
   /* a conversational answer needed no governed tool: it is a reply, not a financial object */
-  if(r.reply) return {state:SF_STATE.ANSWER, kind:'conv', inherit:!!SL_INV, html:SL_BYLINE+'<div class="s2-conv">'+glEsc(r.reply)+'</div>'};
+  if(r.reply) return {state:SF_STATE.ANSWER, kind:'conv', inherit:!!SL_INV, html:SL_BYLINE+'<div class="s2-conv">'+s2MD(r.reply)+'</div>'};
   /* the server says what kind of turn this was: a change to the view or a drill continues the investigation */
   const inh=r.route==='FOLLOW_UP'||r.kind==='MODIFY'||r.kind==='DRILL'||(r.kind==='ARTIFACT'&&r.route==='DELIVERABLE'&&!!SL_INV);
   const sugg=(r.suggestions||[]).slice(0,3);
@@ -82444,9 +82489,13 @@ function s2ServerRender0(raw, r){
   /* Phase 8B: a canvas IS the answer — a refinement continues the investigation it refines */
   const cvo=(r.objects||[]).find(x=>x.type==='DynamicFinancialCanvas'&&x.canvas);
   if(cvo){ const d=cvo.canvas; return {state:r.state==='ANSWER'?SF_STATE.ANSWER:SF_STATE.UNAVAILABLE, kind:'canvas', inherit:!!(d.intent&&d.intent.refinement), title:r.title||d.title, html:c8CanvasHTML(d, 'all', notes)}; }
-  if(r.state==='ANSWER'&&(r.objects||[]).length){ const o=r.objects[0];
+  /* C1.2 §15 — AN ANSWER IS AN ANSWER WHETHER OR NOT A GOVERNED READ RAN THIS TURN. This was gated on
+     `r.objects.length`, so a turn that reorganised what was already said — which reads nothing, because the
+     material is in the transcript — carried a written answer past this branch and into the dead-end card
+     below. `o` and `pv` went with it: both have been dead since V3 stopped taking the heading from the first
+     object, and only the comment further down still names `o.title`. */
+  if(r.state==='ANSWER'&&((r.objects||[]).length||(r.narrative||[]).length)){
     const nar=s2NarrHTML({accepted:(r.narrative||[]).map(n=>({text:n.text, objectIds:n.objectIds||[], factKeys:[], label:n.label||'', assertion:n.assertion||'', row:!!n.row}))}, notes.join(' '))+pend;
-    const pv=o.provenance||{};
     const acts=(r.objects||[]).filter(x=>x.action).map(x=>x.action);
     /* Phase 7: a goal became a governed run — the run card IS the answer */
     const agr=(r.objects||[]).find(x=>x.type==='AgentRun'&&x.agentRun);

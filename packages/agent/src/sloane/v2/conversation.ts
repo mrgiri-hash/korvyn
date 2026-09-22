@@ -92,7 +92,10 @@ export function transcriptMessages(body: ConversationBody): { role: 'user' | 'as
   }
   for (const t of body.turns.slice(-V2_LIMITS.verbatimTurns)) {
     out.push({ role: 'user', content: t.userMessage });
-    out.push({ role: 'assistant', content: t.assistantMessage || '(no reply recorded)' });
+    /* C1.2 §4 — the model gets the answer with its `{{FACT:id}}` references intact where they were kept, so a
+       request to reorganise what was just said can move a governed figure without re-reading the ledger. The
+       person's copy (`assistantMessage`) is the resolved one and is what History restores. */
+    out.push({ role: 'assistant', content: t.assistantSource || t.assistantMessage || '(no reply recorded)' });
   }
   const last = out.at(-1);
   if (last) last.cache = true;
