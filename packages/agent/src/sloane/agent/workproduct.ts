@@ -79,7 +79,7 @@ export interface AgentWorkproduct {
   traceRef: string;
   profile: string;
   /** what the run was judged against, by reference — the profile's own declarations */
-  evaluationRefs: { required: string[]; prohibited: string[] } | null;
+  evaluationRefs: { required: { id: string; label: string; dimension: string; severity: string }[]; prohibited: { id: string; label: string; dimension: string; severity: string }[] } | null;
   createdAt: string;
   /** the conversation it was produced in, when there was one. The two objects stay separate. */
   conversationId: string | null;

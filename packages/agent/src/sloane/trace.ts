@@ -42,6 +42,13 @@ export interface TraceAuthorization {
   subject: string;
   decision: 'ALLOW' | 'DENY' | 'CHECKPOINT';
   reason: string;
+  /**
+   * A3 §19 / A5 §18 — WHAT KIND OF REFUSAL THIS WAS. The runtime has recorded it since A3 and the envelope did
+   * not declare it, so a reader could not tell "the actor may not" from "the call was wrong" without parsing the
+   * reason — which is how a clean run once reported four authorization violations. PERMISSION is the actor's
+   * authority, VALIDATION is the call's own arguments, POLICY is the profile or governance gate.
+   */
+  kind?: 'PERMISSION' | 'VALIDATION' | 'POLICY';
 }
 
 /** one governed capability invocation */
@@ -144,6 +151,37 @@ export interface KorvynTrace {
   verification: { at: string; passed: boolean; checks: { check: string; ok: boolean; detail: string }[] } | null;
   /** WHY the run stopped — always recorded, for every terminal state */
   stopReason: string | null;
+  /**
+   * A5 §18 — THE FINDINGS THEMSELVES, not a count of them.
+   *
+   * The envelope carried `findings: 3` and the statements lived on the run's private result, so anything wanting
+   * to ask "did this run find the reconciliation break, and what does that claim rest on?" had to reach past the
+   * trace into the runtime. That is the thing the envelope exists to stop. Each finding travels with the KIND of
+   * statement it is, how well it is supported, and the governed handles behind it — which is exactly what a
+   * reader, an auditor and an evaluation each need, and none of it is model reasoning.
+   */
+  findings: {
+    statement: string;
+    /** OBSERVED_FACT | EVIDENCE | INFERENCE | DRAFT_EXPLANATION | UNRESOLVED_QUESTION */
+    kind: string;
+    /** SUPPORTED | PARTIALLY_SUPPORTED | UNRESOLVED | CONFLICTING | NOT_AVAILABLE */
+    support: string;
+    severity: string | null;
+    amountUsd: number | null;
+    /** the canonical FinancialFact ids the statement rests on */
+    factIds: string[];
+    objectIds: string[];
+  }[];
+  /** statements the grounding check WITHHELD because no observation carried the figure — a quality signal, kept */
+  withheldFindings: { statement: string; reason: string }[];
+  /** what the run could not establish, stated rather than inferred */
+  unresolved: string[];
+  /** A5 §11: where the run's time and money went, by phase */
+  economy: RunEconomy;
+  /** A4 §5: which surface started this, and on what governed object */
+  origin: { kind: string; module: string | null; action: string | null; object: string | null } | null;
+  /** A4 §15: the workproduct this run produced, once it has one */
+  workproductId: string | null;
   result: { headline: string; findings: number; narrative: string[] } | null;
 }
 
@@ -243,6 +281,21 @@ export function agentTrace(run: AgentRunBody, policy: { profile: string; autonom
     usage,
     verification: run.verification,
     stopReason: run.completionReason ?? inv?.stopReason ?? null,
+    /**
+     * A5 §18 — projected from what the run established, with the governed handles resolved HERE so a consumer
+     * never has to walk the observation graph itself. A finding's `observationRefs` are the run's own internal
+     * step handles; what travels is the FinancialFact ids those observations carried.
+     */
+    findings: (run.result?.investigation?.findings ?? []).map((f) => {
+      const sev = run.result?.findings.find((x) => x.text === f.statement) ?? null;
+      const factIds = uniq((f.observationRefs ?? []).flatMap((ref) => (inv?.observations ?? []).find((o) => o.ref === ref)?.facts.map((x) => x.id) ?? []));
+      return { statement: f.statement, kind: f.kind, support: f.support, severity: sev?.severity ?? null, amountUsd: sev?.amountUsd ?? null, factIds, objectIds: f.objectIds ?? [] };
+    }),
+    withheldFindings: (inv?.synthesis?.rejected ?? []).map((r) => ({ statement: r.statement, reason: r.why })),
+    unresolved: run.result?.investigation?.unresolved ?? [],
+    economy: runEconomy(run),
+    origin: run.origin ? { kind: run.origin, module: run.launchedFrom?.module ?? null, action: run.launchedFrom?.action ?? null, object: run.launchedFrom?.object ?? null } : null,
+    workproductId: run.result ? `WP-${run.runId.replace(/^RUN-/, '')}` : null,
     result: run.result ? { headline: run.result.headline, findings: run.result.findings.length, narrative: run.result.narrative } : null,
   };
 }
@@ -302,6 +355,11 @@ export function conversationTrace(t: import('./v2/model.js').V2Trace, actor: { i
       steps: t.tools.length, modelCalls: t.modelCalls, toolCalls: t.toolCalls, inputTokens: t.inputTokens, outputTokens: t.outputTokens,
       cacheReadTokens: t.cacheReadTokens, estimatedCostUsd: 0, latencyMs: t.latencyMs,
     },
+    /* a conversational turn establishes no agent findings; saying so is the honest projection, not an omission */
+    findings: [], withheldFindings: [], unresolved: [],
+    economy: { planning: zero(), investigation: zero(), preparation: zero(), synthesis: zero(), approval: { checkpoints: 0, decided: 0, waitMs: 0, resumedSteps: 0, resumedCostUsd: 0 } },
+    origin: { kind: 'CONVERSATION', module: null, action: null, object: null },
+    workproductId: null,
     verification: null,
     stopReason: t.responseType ?? null,
     result: null,

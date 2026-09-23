@@ -762,7 +762,19 @@ export class AgentRuntime {
     const texts: string[] = [];
     if (recs) { const ts = col(recs, 'Tie status'); const nc = recs.table.rows.filter((r) => r.cells[ts] === 'SOURCE_NOT_CONNECTED'); if (nc.length) texts.push(`${nc.length} bank reconciliation${nc.length > 1 ? 's' : ''} (${nc.map((r) => r.label.replace(/^Operating cash — /, '')).join(', ')}) cannot be proved: the bank statement source is not connected`); }
     if (bl) for (const r of bl.table.rows.filter((x) => x.cells[1] === 'SOURCE_UNAVAILABLE')) texts.push(`${r.label}`);
-    const inScope = this.o.gl.entities().filter((e) => run.goal.scope === 'GROUP' || e.id === run.goal.scope);
+    /**
+     * A5 §9 — SOURCE HEALTH IS SCOPED TO WHAT THE ACTOR MAY SEE, not to what the goal asked for.
+     *
+     * This filtered on the GOAL's scope, so an entity accountant whose objective said "across the group" was told
+     * "NetSuite (MER-UK) is stale" — the existence of another entity and which ERP serves it, volunteered to
+     * someone with no access to either. Found by the A5 harness on its first run, and it is the same leak class
+     * 8D fixed in `continuousCloseSignals`: a disclosure about SOURCES is still a disclosure about the entities
+     * those sources serve. The actor's own visibility is the ceiling; the goal's scope narrows within it.
+     */
+    const vis = visibleOf(this.actorOf(run));
+    const inScope = this.o.gl.entities()
+      .filter((e) => vis === 'ALL' || vis.has(e.id))
+      .filter((e) => run.goal.scope === 'GROUP' || e.id === run.goal.scope);
     for (const [k, h] of Object.entries(SOURCE_HEALTH)) {
       const st = run.options.unavailableSources?.includes(k) ? 'UNAVAILABLE' : h.status;
       const es = inScope.filter((e) => e.connector === k);
