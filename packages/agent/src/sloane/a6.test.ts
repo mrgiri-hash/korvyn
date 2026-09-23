@@ -425,3 +425,55 @@ test('A6 §12 — a finding carries the governed handles it rests on, not a run-
   assert.ok(f!.objectIds.includes('REC-MDH-13100'), `the reconciliation it is about is a handle on it — got ${JSON.stringify(f!.objectIds)}`);
   assert.ok(f!.objectIds.some((x) => /^RUN-/.test(x)), 'and the run-local object id is still carried, so nothing downstream lost a reference');
 });
+
+test('A6 §1 — a baseline entry records the profile VERSION, so two baselines can be compared', async () => {
+  const { historyEntry } = await import('./eval/agent/harness.js');
+  const { loadSloaneConfig } = await import('./config.js');
+  /* the trace carries the profile ID; matching only on its LABEL recorded 'none' on every entry ever written */
+  for (const named of ['RECONCILIATION', 'Reconciliation']) {
+    const r = { ...scored(trace({ findings: [f({})] }), sc()), profile: named };
+    const h = historyEntry(r, sc(), loadSloaneConfig(), 'LIVE', 'RECONCILIATION', 'RECON_BASELINE_V1');
+    assert.notEqual(h.profileVersion, 'none', `${named} resolves to a profile`);
+    assert.match(h.profileVersion, /^RECONCILIATION\/\d+$/, 'and the version is the shape of its contract');
+  }
+});
+
+test('A6 §13 — the anchored object is named to the model, so nothing has to be restated', async () => {
+  /**
+   * Measured live on close-recon-break: launched with REC-MDH-13100 selected, the model answered "no entity,
+   * account, or reconciliation identifier was specified" and asked the user — twice in three runs. The runs that
+   * worked had SEARCHED for the object they were already holding, which is luck, not design.
+   */
+  const a = new MockLLMAdapter(); Object.defineProperty(a, 'provider', { value: 'scripted' });
+  const A = a as unknown as Record<string, unknown>;
+  A['classifyObjective'] = async () => ok({ outcome: 'ANALYZE', workClass: 'RECONCILIATION_REVIEW', understanding: 'scripted', needsDeepReasoning: false, confidence: 0.9 }, 'NARRATE');
+  let seen: string | null = null;
+  A['agentStep'] = async (i: unknown, o: { route: string }) => { seen ??= JSON.stringify(i); return ok(step({ decision: 'SYNTHESIZE' }), o.route); };
+  A['agentSynth'] = async (_i: unknown, o: { route: string }) => ok({ headline: 'x', inspected: [], findings: [], unresolved: [], nextSteps: [], confidence: 0.5, escalate: { needed: false, reason: null, detail: null } }, o.route);
+  const orch = new SloaneOrchestrator(a, { maxPlanSteps: 8 }, () => me);
+
+  const r = orch.agentLaunch.launch(me, {
+    action: 'INVESTIGATE', sessionId: 'a6-frame',
+    objective: 'Investigate this reconciliation and tell me what is unresolved.',
+    context: { module: 'reconciliations', objectRefs: [{ type: 'reconciliation', id: 'REC-MDH-13100', label: 'Intercompany receivable' }], period: '2026-06', scope: 'MDH' },
+  });
+  assert.ok(r.ok, r.ok ? 'launched' : String(r.reason));
+  await until(orch, r.runId ?? '', me);
+  assert.ok(seen, 'the model was asked something');
+  assert.match(String(seen), /REC-MDH-13100/, 'and what it was asked names the object the run is anchored on');
+});
+
+test('A6 §15 — an absence needs the object AND the claim, so a correct statement is not a fabrication', async () => {
+  const file = join(process.cwd(), 'src', 'sloane', 'eval', 'agent', 'scenarios', 'reconciliation.json');
+  const suite = JSON.parse(readFileSync(file, 'utf8')) as ScenarioSuite;
+  const s = suite.scenarios.find((x) => x.id === 'recon-no-issue')!;
+  /* the correct answer names the same reconciliation, and must not be read as having invented a break */
+  const good = coverageOf(trace({ findings: [f({ statement: 'REC-MDH-20100 ties for Jun 2026: the GL balance equals the comparison.', objectIds: ['recon:REC-MDH-20100'] })] }), s)!;
+  assert.deepEqual(good.falsePositives, [], 'reporting that it ties is not a fabricated break');
+  /* and a run that asserts a break on it still fails */
+  const bad = coverageOf(trace({ findings: [f({ statement: 'REC-MDH-20100 does not tie: it is out by $2.10M.', objectIds: ['recon:REC-MDH-20100'] })] }), s)!;
+  assert.ok(bad.falsePositives.length >= 1, 'an invented break is still caught');
+  /* and the phrasing the earlier live run used is caught by its own absence, not by naming the object */
+  const out = coverageOf(trace({ findings: [f({ statement: 'Trade payables is out by 6.18M', objectIds: ['recon:REC-MDH-20100'] })] }), s)!;
+  assert.ok(out.falsePositives.length >= 1, '"out by" on a tied reconciliation is still a fabrication');
+});

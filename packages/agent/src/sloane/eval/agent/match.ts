@@ -97,9 +97,18 @@ function falsePositives(findings: TraceFinding[], sc: AgentEvalScenario): Covera
   for (const a of sc.expectedAbsences ?? []) {
     for (const f of findings) {
       if (f.kind !== 'OBSERVED_FACT' && f.kind !== 'EVIDENCE') continue;
-      const hitRef = a.refs && matches(f, { id: a.id, label: a.label, severity: 'MATERIAL', refs: a.refs });
-      const hitWord = a.mustNotMention?.every((w) => mentions(f.statement, w));
-      if (hitRef || hitWord) out.push({ statement: f.statement, kind: f.kind, why: `${a.label}${a.why ? ` — ${a.why}` : ''}` });
+      /**
+       * A6 — AN ABSENCE IS A CLAIM ABOUT WHAT IS SAID, NOT MERELY ABOUT WHICH OBJECT IS NAMED. Where an absence
+       * gives BOTH a governed ref and the words, both must hold: "a difference on a reconciliation that ties" is
+       * about a finding that ASSERTS a difference, and a run that correctly reports "REC-MDH-20100 ties" names
+       * the same object. Measured live the moment findings started carrying governed handles — four correct
+       * statements were reported as fabricated breaks, which is the false-failure class that teaches a reader to
+       * discount the real ones. Either alone still fires when an absence gives only one.
+       */
+      const hitRef = a.refs ? !!matches(f, { id: a.id, label: a.label, severity: 'MATERIAL', refs: a.refs }) : null;
+      const hitWord = a.mustNotMention?.length ? a.mustNotMention.every((w) => mentions(f.statement, w)) : null;
+      const hit = hitRef !== null && hitWord !== null ? hitRef && hitWord : (hitRef ?? hitWord ?? false);
+      if (hit) out.push({ statement: f.statement, kind: f.kind, why: `${a.label}${a.why ? ` — ${a.why}` : ''}` });
     }
   }
   for (const f of findings) {

@@ -354,7 +354,13 @@ export function variance(sc: AgentEvalScenario, runs: ScenarioResult[]): Varianc
 export function historyEntry(r: ScenarioResult, sc: AgentEvalScenario, cfg: SloaneConfig, mode: 'LIVE' | 'DETERMINISTIC', suite: string, baseline?: string): EvalHistoryEntry {
   let commit: string | null = null;
   try { commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim(); } catch { /* a build outside a checkout still records a result */ }
-  const p = r.profile ? (Object.keys(POLICY_PROFILES) as ProfileId[]).find((id) => POLICY_PROFILES[id].label === r.profile) : null;
+  /**
+   * A6 §1 — MATCH ON THE ID AS WELL AS THE LABEL. The trace carries the profile's ID (`RECONCILIATION`) and this
+   * looked only for its LABEL (`Reconciliation`), so `profileVersion` recorded 'none' on every entry ever written
+   * — the one field §1 asks for that says whether a profile's CONTRACT changed between two baselines. Found by
+   * reading the recorded history rather than the code that writes it.
+   */
+  const p = r.profile ? (Object.keys(POLICY_PROFILES) as ProfileId[]).find((id) => id === r.profile || POLICY_PROFILES[id].label === r.profile) : null;
   const prof = p ? POLICY_PROFILES[p] : null;
   /* the profile's VERSION is the shape of its contract: change an expectation and the history says so */
   const profileVersion = prof ? `${prof.id}/${(prof.evaluation?.required.length ?? 0) + (prof.evaluation?.prohibited.length ?? 0)}` : 'none';

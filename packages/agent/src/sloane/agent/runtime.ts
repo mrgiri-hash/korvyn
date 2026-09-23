@@ -1575,7 +1575,17 @@ export class AgentRuntime {
     return {
       objective: g.objective, period: g.period, comparisonPeriod: g.comparisonPeriod ?? (i > 0 ? periods[i - 1]! : null), governedPeriods: periods, workingPeriod: this.o.data.workingPeriod(),
       scope: g.scope === 'GROUP' ? 'Corporate Consolidated (GROUP)' : `${this.o.data.scope(g.scope)?.name ?? g.scope} (${g.scope})`,
-      subject: { account: g.subject.account, project: g.subject.project ? `${g.subject.project}${lab('project') ? ` — ${lab('project')}` : ''}` : null, vendor: g.subject.vendor, entity: g.subject.entity, threshold: g.threshold ? `$${g.threshold}M` : null },
+      /**
+       * A6 §13 — THE ANCHOR HAS TO REACH THE MODEL, not just the profile. This listed five fields and a
+       * reconciliation was not among them, so a run launched from the Reconciliations page with REC-MDH-13100
+       * selected told the model nothing about it: measured live, the model answered "no entity, account, or
+       * reconciliation identifier was specified" and asked the user — on a run that was anchored the whole time.
+       * The runs that passed did so by SEARCHING for the object they had been handed, which is luck, not design.
+       * Every other governed ref the goal carries is named here now, with its label, so an anchor of a type
+       * added later is carried without this line changing again.
+       */
+      subject: { account: g.subject.account, project: g.subject.project ? `${g.subject.project}${lab('project') ? ` — ${lab('project')}` : ''}` : null, vendor: g.subject.vendor, entity: g.subject.entity, threshold: g.threshold ? `$${g.threshold}M` : null,
+        ...Object.fromEntries(refsOf(g).filter((r) => !['account', 'project', 'vendor', 'entity'].includes(r.type)).map((r) => [r.type, r.label ? `${r.id} — ${r.label}` : r.id])) },
       constraints: { exclude: g.constraints.exclude, focusFirst: g.constraints.focusFirst, instructions: g.userInstructions.slice(-6) },
       activeAnalysis: g.activeAnalysis ?? null, actorRole: actor.role,
     };
