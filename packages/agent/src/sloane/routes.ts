@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { ObjectRef } from './agent/model.js';
+import type { LaunchAction } from './agent/launch.js';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { loadSloaneConfig } from './config.js';
@@ -30,6 +32,7 @@ import { HTTP_OF, WorkApi, type ApiResult, type Outcome } from './workapi.js';
  *   GET  /api/sloane/health · POST /api/sloane/turn · POST /api/sloane/action · GET /api/sloane/trace/:id (loopback)
  *   GET  /api/sloane/investigations[/:id] · POST /api/sloane/investigations/:id/resume · GET /api/sloane/session/:id/activity
  *   Phase 7 agent runs: GET|POST /api/sloane/agent/runs · GET /api/sloane/agent/runs/:id (?trace=1 loopback)
+ *   A4 product launch: POST /api/sloane/agent/launch · GET /api/sloane/agent/runs/:id/workproduct
  *   POST …/:id/intervene {text} · …/:id/pause · …/:id/resume · …/:id/cancel · …/:id/checkpoints/:cpId {decision}
  *
  *   ONE-BOOK DOMAIN ACTIONS (no generic CRUD):
@@ -329,14 +332,46 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
   }
   /* Phase 7: governed agent runs. The run advances in the background; the browser polls the run, never holds a request open
      for it. Only the actor who started a run may read, interrupt, decide or cancel it. */
-  if (r === 'agent/runs' || r.startsWith('agent/runs/')) {
-    const A = orchestrator.agents, parts = r.split('/').slice(2);
+  /**
+   * A4 §17 — `agent/launch` is the PRODUCT ACTION path, and it is its own name for a reason: a surface offering
+   * "Investigate" is not creating a run resource, it is asking Korvyn to act on the object in front of someone.
+   * It is served here beside the run routes because it starts the same run and must not become a second path.
+   */
+  if (r === 'agent/runs' || r.startsWith('agent/runs/') || r === 'agent/launch') {
+    const A = orchestrator.agents, parts = r === 'agent/launch' ? ['launch'] : r.split('/').slice(2);
     if (req.method === 'GET' && !parts.length) { send(res, 200, { outcome: 'SUCCESS', runs: A.list(actor) }); return; }
     /**
      * A2 §15 — the NON-CONVERSATIONAL entry point. Same runtime, same profile selection, same authorization, same
      * budget, same trace; what differs is only that no conversation is involved. A module action, a scheduler or a
      * workflow step posts here. The actor is the authenticated session's, never the body's.
      */
+    /**
+     * A4 §5/§17 — THE PRODUCT ACTION ENTRY POINT. A module posts the action, the governed objects the person had
+     * in front of them and the finance context those sit in; the launch contract sanitizes it (§6) and starts the
+     * SAME run every other entry point starts. The actor is the session's. A module cannot name a model.
+     */
+    if (req.method === 'POST' && parts[0] === 'launch') {
+      const body = await readJson(req) ?? {};
+      const ctx = (body['context'] ?? {}) as Record<string, unknown>;
+      const out = orchestrator.agentLaunch.launch(actor, {
+        action: String(body['action'] ?? 'INVESTIGATE') as LaunchAction,
+        ...(typeof body['objective'] === 'string' ? { objective: body['objective'].slice(0, 400) } : {}),
+        context: {
+          module: String(ctx['module'] ?? 'unknown'),
+          objectRefs: Array.isArray(ctx['objectRefs']) ? ctx['objectRefs'] as ObjectRef[] : [],
+          period: (ctx['period'] ?? null) as string | null, scope: (ctx['scope'] ?? null) as string | null,
+          periodRange: (ctx['periodRange'] ?? null) as { start: string; end: string } | null,
+          book: (ctx['book'] ?? null) as string | null, basis: (ctx['basis'] ?? null) as string | null, lens: (ctx['lens'] ?? null) as string | null,
+        },
+        ...(typeof body['sessionId'] === 'string' && ownsSession(res, actor, body['sessionId']) ? { sessionId: body['sessionId'] } : {}),
+        ...(typeof body['profile'] === 'string' ? { profile: body['profile'] as never } : {}),
+        ...(typeof body['externalRef'] === 'string' ? { externalRef: body['externalRef'].slice(0, 120) } : {}),
+      });
+      if (!out.ok) { refuse(res, 'VALIDATION_ERROR', out.reason ?? 'rejected'); return; }
+      await orchestrator.agentService.wait(out.runId!, typeof body['waitMs'] === 'number' ? Math.min(20000, body['waitMs'] as number) : 0);
+      send(res, 200, { outcome: 'SUCCESS', runId: out.runId, objective: out.objective, carried: out.carried, run: orchestrator.agentService.get(out.runId!, actor) });
+      return;
+    }
     if (req.method === 'POST' && parts[0] === 'start') {
       const body = await readJson(req);
       const objective = typeof body?.['objective'] === 'string' ? body['objective'] : '';
@@ -349,6 +384,9 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
         ...(typeof body?.['profile'] === 'string' ? { profile: body['profile'] as never } : {}),
         ...(typeof body?.['outcome'] === 'string' ? { outcome: body['outcome'] as never } : {}),
         ...(refs?.length ? { refs } : {}),
+        /* A4 §7: a caller that names the conversation this belongs to has the run reference it — the two stay
+           separate objects, and without this the run generated a session of its own and the link was lost */
+        ...(typeof body?.['sessionId'] === 'string' && ownsSession(res, actor, body['sessionId']) ? { sessionId: body['sessionId'] } : {}),
         ...(typeof body?.['externalRef'] === 'string' ? { externalRef: body['externalRef'].slice(0, 120) } : {}),
       });
       if (!out.ok) { refuse(res, 'VALIDATION_ERROR', out.reason); return; }
@@ -385,6 +423,8 @@ async function route(req: IncomingMessage, res: ServerResponse, url: string): Pr
      * conversational endpoint is deliberately untouched.
      */
     if (req.method === 'GET' && verb === 'trace') { const t = A.traceOf(id!, actor); if (t) send(res, 200, { outcome: 'SUCCESS', trace: t }); else refuse(res, 'NOT_FOUND', 'No such run'); return; }
+    /** A4 §15 — what this run concluded, as a governed object other surfaces can reference */
+    if (req.method === 'GET' && verb === 'workproduct') { const w = A.workproduct(id!, actor); if (w) send(res, 200, { outcome: 'SUCCESS', workproduct: w }); else refuse(res, 'NOT_FOUND', 'This run has not produced a workproduct.'); return; }
     /** A1 §22 — the machine-readable evaluation record for this run */
     if (req.method === 'GET' && verb === 'telemetry') { const t = A.telemetry(id!, actor); if (t) send(res, 200, { outcome: 'SUCCESS', telemetry: t }); else refuse(res, 'NOT_FOUND', 'No such run'); return; }
     if (req.method === 'POST') {

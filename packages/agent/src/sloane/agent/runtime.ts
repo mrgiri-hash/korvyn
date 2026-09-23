@@ -21,6 +21,7 @@ import { SOURCE_HEALTH } from '../governed.js';
 import { parseMoney } from '../conversation.js';
 import { ActionGovernanceEngine } from '../actions.js';
 import { mkTask, templateFor, typeOfTool } from './graphs.js';
+import { workproductOf, type AgentWorkproduct } from './workproduct.js';
 import { type GoalDeps, detectGoalType, hasSubject, parseGoal, retitle } from './goals.js';
 import { type Ambiguity, applyCandidate, resolveTerms } from './ambiguity.js';
 import { type SteeringIntent, classifySteering } from './steering.js';
@@ -92,7 +93,29 @@ export interface RunView {
   progress: AgentRunBody['progress']; checkpoints: (Omit<AgentCheckpoint, 'proposalIds'> & { proposals: { id: string; title: string; target: string | null; status: string; riskLevel: string }[] })[];
   result: AgentRunBody['result']; verification: AgentRunBody['verification']; completionReason: string | null; interventions: AgentIntervention[];
   startedAt: string; updatedAt: string; completedAt: string | null; sessionId: string; investigationId: string;
+  /** A4 §9: one line a person reads, derived from real run state */
+  phase?: string;
+  /** A4 §5/§12: where the run came from, and the governed context a surface handed over */
+  origin?: string; launchedFrom?: AgentRunBody['launchedFrom'];
+  /** A4 §15: the workproduct this run produced, once it has one */
+  workproductId?: string | null;
+  /** A4 §8: what the product may offer right now */
+  canPause?: boolean; canCancel?: boolean;
 }
+
+/**
+ * A4 §9 — the product's words for a capability family. A PHRASE BOOK, not a router: nothing reads these to
+ * decide anything, they are only how a domain is said to a person. A family with no entry is described generically
+ * rather than guessed at.
+ */
+const READING: Record<string, string> = {
+  close: 'Reviewing close status', recon: 'Inspecting reconciliations', flux: 'Reviewing unexplained flux',
+  financials: 'Reading the financial statements', tb: 'Reading the trial balance', ledger: 'Reading the governed ledger',
+  analysis: 'Analysing the movement', evidence: 'Checking supporting evidence', trace: 'Tracing figures to source',
+  audit: 'Reviewing audit requests', reporting: 'Reviewing reporting packages', semantic: 'Resolving what this refers to',
+  find: 'Finding the governed objects',
+};
+const PREPARING: Record<string, string> = { action: 'drafts for your review', build: 'a workbook' };
 
 /** the one test for “the actor may not”, as against “the call was wrong” — named once so the two cannot drift */
 const PERMISSION_DENIAL = /lacks|may not view|not authorized|permission|outside your|out of scope/i;
@@ -143,7 +166,7 @@ export class AgentRuntime {
    * `goalType` survives as an explicit caller override — a deprecated compatibility shim for the three legacy
    * action-preparation templates and for tests. Nothing reads the request text to set it.
    */
-  start(actor: Actor, text: string, opt: { goalType?: GoalType; profile?: ProfileId; outcome?: OutcomeClass; refs?: ObjectRef[]; options?: AgentRunOptions; sessionId?: string; goal?: AgentGoal } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
+  start(actor: Actor, text: string, opt: { goalType?: GoalType; profile?: ProfileId; outcome?: OutcomeClass; refs?: ObjectRef[]; options?: AgentRunOptions; sessionId?: string; goal?: AgentGoal; origin?: string; launchedFrom?: AgentRunBody['launchedFrom'] } = {}): { ok: true; run: AgentRunBody } | { ok: false; reason: string } {
     const deps = this.deps(actor);
     /* a forced legacy type keeps its own parse; everything else is an INVESTIGATE goal until the classifier speaks */
     const goal = opt.goal ?? parseGoal(text, deps, opt.goalType ?? 'INVESTIGATE');
@@ -176,6 +199,8 @@ export class AgentRuntime {
       startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' || goal.type === 'INVESTIGATE' ? 'MODEL' : 'TEMPLATE',
       ...(goal.type === 'INVESTIGATE' ? { investigation: newInvestigation() } : {}),
       actionPlanId: `APLAN-${runId}-1`, governedPlanId: `GPLAN-${runId}-1`, planSeq: 1, dataVersion: this.o.gl.dataVersion(), options, progress: [],
+      /* A4 §5/§12: where this run came from — a conversation, a module and its object, or a service */
+      origin: (opt.origin as AgentRunBody['origin']) ?? (opt.sessionId ? 'CONVERSATION' : 'API'), launchedFrom: opt.launchedFrom ?? null,
     };
     this.objects.set(runId, new Map());
     /* A2 §3: with no model, classification is synchronous and happens HERE — before a clarification can be raised */
@@ -211,7 +236,7 @@ export class AgentRuntime {
        * run's, and skipping that left a caller-declared profile with the deployment's default loop budget rather
        * than its own (observed — a READ_ONLY run held to 20 tool calls instead of its 14).
        */
-      const cd = profileForOutcome(g.outcome ?? 'ANALYZE', actor, g.policyProfile);
+      const cd = profileForOutcome(g.outcome ?? 'ANALYZE', actor, g.policyProfile, g.workClass ?? null);
       this.applyProfile(run, cd.profile);
       this.policy(run, `profile:${cd.profile}`, cd.capped ? 'CHECKPOINT' : 'ALLOW', g.outcomeSource === 'caller' ? `The caller declared the outcome class. ${cd.reason}`
         : g.outcomeSource === 'deterministic' ? 'Classified without a model; the profile was chosen at start.' : `Deprecated compatibility shim: goal type ${g.type} was forced by the caller.`);
@@ -223,8 +248,9 @@ export class AgentRuntime {
     run.waterfall.classifyMs += Date.now() - t0;
     if (c.call) this.model(run, { ...c.call, cls: 'M1' });
     /* a caller that ASKED for a profile is honoured only as far as the actor's authority allows (§7) */
-    const d = profileForOutcome(c.outcome, actor, run.goal.requestedProfile);
+    const d = profileForOutcome(c.outcome, actor, run.goal.requestedProfile, c.workClass ?? null);
     g.outcome = c.outcome; g.outcomeSource = c.source === 'model' ? 'model' : 'deterministic';
+    if (c.workClass) g.workClass = c.workClass;
     this.applyProfile(run, d.profile, c.needsDeepReasoning);
     const p = POLICY_PROFILES[d.profile];
     if (p.execution !== 'GENERIC') g.type = p.execution;
@@ -237,6 +263,17 @@ export class AgentRuntime {
   private applyProfile(run: AgentRunBody, id: ProfileId, deep = false) {
     const p = POLICY_PROFILES[id];
     run.goal.policyProfile = id;
+    /**
+     * A4 §4 — WHETHER A RUN MAY PREPARE IS THE PROFILE'S ANSWER, NOT THE CALL SITE'S. `noActions` is a USER
+     * constraint ("don't create comments yet") and the runtime treats it as one everywhere — but the conversational
+     * entry point set it TRUE unconditionally, so every run Sloane started could only ever read. A close objective
+     * reaching the Close profile still prepared nothing, and the reason was a default written three layers away
+     * from the authority that should decide it (observed: the profile was right and the run did half the work).
+     *
+     * It is derived here from the profile Korvyn chose, and a person's own instruction still wins: `userSet` is
+     * marked by the goal parser and by steering, and is never overwritten.
+     */
+    if (!run.goal.constraints.userSetNoActions) run.goal.constraints.noActions = p.autonomy < 2;
     run.budget = runBudget(p);
     run.limits = { maxSteps: p.maxSteps, maxRetries: p.maxRetries, maxRuntimeMs: p.maxRuntimeMs };
     if (run.investigation) {
@@ -1577,7 +1614,16 @@ export class AgentRuntime {
     const stepRec = { iteration: iter, cls, model: r.call?.model ?? null, decision: v.decision as string, calls: [] as { tool: string; args: Record<string, string>; purpose: string }[], capabilitiesShown: caps.length, contextChars: chars, confidence: v.confidence, escalated, latencyMs: r.call?.latencyMs ?? 0, inputTokens: r.call?.inputTokens ?? 0, outputTokens: r.call?.outputTokens ?? 0, cacheReadTokens: r.call?.cacheReadTokens ?? 0 };
     S.steps.push(stepRec);
     this.event(run, 'THINK', `Step ${iter} (${cls}${r.call?.model ? ` · ${r.call.model}` : ''}): ${v.decision}${v.calls.length ? ` — ${v.calls.map((c) => c.tool).join(', ')}` : ''}`);
-    if (iter === 1 && v.understanding) this.line(run, v.understanding.replace(/\.$/, ''), 'done', 'understanding');
+    /**
+     * A4 §8/§9 — THE MODEL'S OWN WORDS ABOUT THE TASK ARE NOT A PROGRESS LINE. 8D put the first step's
+     * `understanding` straight into the progress a person reads, and under A4's product framing that is model
+     * reasoning shown verbatim: on screen it read "The user wants the Electrical CIP (account 15000)
+     * reconciliation status for Jun 2026 established: what's unresolved, its materiality, ownership, and
+     * supporting evidence" — accurate, and a paragraph of the model talking about the request rather than a line
+     * saying what Korvyn is doing. It stays on the run's own record (the trace, the event log and the result's
+     * understanding) where an auditor can read it; the progress projection is phases, not reasoning.
+     */
+    if (iter === 1 && v.understanding) this.event(run, 'UNDERSTANDING', v.understanding.replace(/\.$/, ''));
 
     if (v.decision === 'ASK_USER' && v.question && v.options.length >= 2 && !run.checkpoints.some((c) => c.field === 'direction')) {
       const candidates = v.options.slice(0, 4).map((o, k) => ({ id: `dir${k + 1}`, label: o, detail: '' }));
@@ -1784,6 +1830,56 @@ export class AgentRuntime {
   }
   private notify(runId: string) { const r = this.cache.get(runId); if (r && ['RUNNING', 'PLANNING', 'READY'].includes(r.runStatus) && this.running.has(runId)) return; (this.waiters.get(runId) ?? []).splice(0).forEach((f) => f()); }
 
+  /**
+   * A4 §9 — WHAT THE RUN IS DOING, IN ONE LINE A PERSON READS. The runtime's own progress is a step log; the
+   * product needs a phase. This is DERIVED from real state — the run's status, the task type that is running and
+   * the capability family it is reading — so it cannot describe work that is not happening. There is no timer,
+   * no script and no fabricated sequence: a run that stalls on one family keeps saying that family's phase,
+   * which is the truth and is what a person needs to see.
+   *
+   * It exposes no model reasoning, no tool id, no plan and no enum.
+   */
+  phaseOf(run: AgentRunBody): string {
+    if (run.runStatus === 'WAITING_FOR_CONFIRMATION') return 'Waiting for your confirmation';
+    if (run.runStatus === 'WAITING_FOR_GOVERNED_APPROVAL') return 'Waiting for an approver';
+    if (run.runStatus === 'WAITING_FOR_USER') return 'Waiting for your answer';
+    if (run.runStatus === 'PAUSED') return 'Paused';
+    if (TERMINAL.includes(run.runStatus)) return run.runStatus === 'COMPLETED' ? 'Completed' : run.runStatus === 'CANCELLED' ? 'Cancelled' : run.runStatus === 'FAILED' ? 'Stopped' : 'Stopped for review';
+    if (run.runStatus === 'CREATED' || run.runStatus === 'PLANNING') return 'Working out what this needs';
+    const live = run.graph.tasks.filter((t) => t.status === 'RUNNING' && !t.invalidatedBy);
+    const t = live[live.length - 1] ?? [...run.graph.tasks].reverse().find((x) => x.status === 'COMPLETED' && x.tool && !x.invalidatedBy);
+    if (!t) return 'Working';
+    if (t.type === 'VERIFY' || t.type === 'SUMMARIZE') return 'Putting the findings together';
+    if (t.type === 'REQUEST_CONFIRMATION') return 'Waiting for your confirmation';
+    if (t.check === 'THINK') return 'Deciding what to look at next';
+    if (t.type === 'BUILD_ARTIFACT') return 'Building the workbook';
+    if (t.type === 'PREPARE_ACTION') return `Preparing ${PREPARING[t.tool ? toolRegistry.get(t.tool)?.domain ?? '' : ''] ?? 'work for your review'}`;
+    const d = t.tool ? toolRegistry.get(t.tool)?.domain ?? '' : '';
+    return READING[d] ?? 'Reading governed records';
+  }
+
+  /** §15: project the finished run into a workproduct and store it in the one saved-object store */
+  private writeWorkproduct(run: AgentRunBody) {
+    if (!run.result) return;
+    const wp = workproductOf(run);
+    if (!wp) return;
+    const prof = POLICY_PROFILES[run.goal.policyProfile];
+    wp.evaluationRefs = prof.evaluation ?? null;
+    try {
+      WORK.repos.saved.create('WORKPRODUCT', { name: wp.title, definition: wp as unknown as Record<string, unknown>, sharedWith: [], createdVia: 'Sloane', executionId: run.runId }, this.actorOf(run).id,
+        { id: wp.id, period: run.goal.period, investigationId: run.investigationId });
+    } catch { /* a run that concluded is not undone by bookkeeping */ }
+  }
+
+  /** §15: the workproduct of a run, read from the store, or projected if this run predates one */
+  workproduct(runId: string, actor: Actor): AgentWorkproduct | null {
+    const run = this.body(runId, actor);
+    if (!run) return null;
+    const rec = WORK.repos.saved.get('WORKPRODUCT', `WP-${runId.replace(/^RUN-/, '')}`);
+    if (rec) return rec.definition as unknown as AgentWorkproduct;
+    return workproductOf(run);
+  }
+
   view(run: AgentRunBody): RunView {
     const props = this.o.actions.ofSession(run.sessionId);
     const prof = POLICY_PROFILES[run.goal.policyProfile];
@@ -1794,6 +1890,10 @@ export class AgentRuntime {
       checkpoints: run.checkpoints.map(({ proposalIds, ...c }) => ({ ...c, proposals: proposalIds.map((id) => props.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p).map((p) => ({ id: p.id, title: p.title, target: p.targetLabel, status: p.status, riskLevel: p.riskLevel })) })),
       result: run.result, verification: run.verification, completionReason: run.completionReason, interventions: run.interventions,
       startedAt: run.startedAt, updatedAt: run.updatedAt, completedAt: run.completedAt, sessionId: run.sessionId, investigationId: run.investigationId,
+      /* A4 §8/§9: the compact product representation — one phase, where it came from, and the workproduct if there is one */
+      phase: this.phaseOf(run), origin: run.origin ?? 'API', launchedFrom: run.launchedFrom ?? null,
+      workproductId: run.result ? `WP-${run.runId.replace(/^RUN-/, '')}` : null,
+      canPause: ['RUNNING', 'PLANNING', 'READY'].includes(run.runStatus), canCancel: !TERMINAL.includes(run.runStatus),
     };
   }
 
@@ -1821,6 +1921,13 @@ export class AgentRuntime {
     this.status(run, s);
     run.completionReason = reason; run.completedAt = now();
     this.save(run);
+    /**
+     * A4 §15 — THE CONCLUSION BECOMES AN OBJECT. A result that lives only inside its run can only be read by
+     * opening the run; a workproduct is the same conclusion as a governed record Sloane, Close, Reporting, Audit
+     * and an export can each reference. It is PROJECTED from the run and composes nothing, so writing it can
+     * never introduce a figure the run did not establish — and a failure to write it never fails the run.
+     */
+    this.writeWorkproduct(run);
     const actor = this.actorOf(run);
     WORK.repos.investigations.event(run.investigationId, { type: 'AGENT_RUN', label: `Agent run ${s.toLowerCase()}: ${run.goal.title}`, ref: run.runId, traceId: run.runId }, actor.id);
     if (s === 'COMPLETED' || s === 'FAILED' || s === 'BLOCKED') this.audit(run, actor, `AGENT_RUN_${s}`, null, { reason, verification: run.verification?.passed ?? null });

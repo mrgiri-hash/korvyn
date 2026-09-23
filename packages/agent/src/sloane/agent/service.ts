@@ -38,6 +38,14 @@ export interface StartRequest {
   refs?: ObjectRef[];
   /** an idempotency-ish handle for a scheduler that may fire twice; a run already started under it is returned */
   externalRef?: string;
+  /** A4 §7: the conversation this run belongs to, when one does. The two stay separate durable objects. */
+  sessionId?: string;
+  /**
+   * A4 §5/§12 — WHERE THE RUN CAME FROM, as governed facts. It is recorded on the run and reaches the trace, so
+   * an auditor reading a run can see which surface and which object started it. It carries no UI state: the
+   * launch contract (`agent/launch.ts`) is what decides that, and it decides it before this is built.
+   */
+  launchedFrom?: { module: string; action: string; object: string | null; period: string | null; scope: string | null; lens: string | null; basis: string | null };
 }
 export type StartResult = { ok: true; runId: string; run: RunView } | { ok: false; reason: string };
 
@@ -61,10 +69,16 @@ export class AgentService {
       ...(req.profile ? { profile: req.profile } : {}),
       ...(req.outcome ? { outcome: req.outcome } : {}),
       ...(req.refs?.length ? { refs: req.refs.slice(0, 20) } : {}),
+      ...(req.sessionId ? { sessionId: req.sessionId } : {}),
+      ...(req.launchedFrom ? { launchedFrom: req.launchedFrom } : {}),
+      origin: req.origin,
     });
     if (!out.ok) return out;
     /* the origin is recorded on the run's own event log, so a trace says where the work came from */
-    this.runtime.note(out.run.runId, 'ORIGIN', `Started by ${req.origin}${req.externalRef ? ` (ref ${req.externalRef})` : ''}`);
+    const from = req.launchedFrom;
+    this.runtime.note(out.run.runId, 'ORIGIN', from
+      ? `Started by ${req.origin} from ${from.module}${from.object ? ` on ${from.object}` : ''}${from.period ? ` · ${from.period}` : ''} (${from.action})`
+      : `Started by ${req.origin}${req.externalRef ? ` (ref ${req.externalRef})` : ''}`);
     if (req.externalRef) this.byRef.set(`${actor.id}|${req.externalRef}`, out.run.runId);
     return { ok: true, runId: out.run.runId, run: this.runtime.view(out.run) };
   }

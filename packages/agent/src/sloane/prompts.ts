@@ -66,6 +66,9 @@ An objective that asks to investigate AND then write something up for a person t
 
 When the objective could be read either way, choose the SMALLER one — ANALYZE over either preparation class, and PREPARE_DELIVERABLE over PREPARE_WORKFLOW_ACTIONS. Reading and reporting more than someone wanted costs them a little time; preparing work nobody asked for costs them a review they then have to undo.
 
+WORK CLASS
+- Which kind of financial work the objective is, from the list you are given, or null when none of them fits. It describes the SUBJECT of the work, not how much of it there is: an objective about where a period's close stands is close readiness whether it asks you to look or to prepare. Korvyn uses it to choose which configured agent serves the objective; it does not decide what you may do.
+
 UNDERSTANDING
 - One sentence, in your own words, of what the person is asking for. It is recorded for the audit trail and shown to nobody as an answer.
 

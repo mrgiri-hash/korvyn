@@ -52,6 +52,8 @@ import { financialGraph } from './semantic/graph.js';
 import { workbookObject } from './actiontools.js';
 import { isAgenticObjective } from './agent/objective.js';
 import { AgentService } from './agent/service.js';
+import { AgentLaunch } from './agent/launch.js';
+import { noActionsAsked } from './agent/goals.js';
 import { AgentRuntime } from './agent/runtime.js';
 import { ENTITY_WORDS, PROJECT_ALIAS, type ConvDeps, type ConvState, type FastPath, type TurnKind, afterAnswer, beginTurn, capabilityFallback, capabilityGap, contextView, conv, conversationalShortcut, initialConv, interp, investigationTitle, onNewObject, resolveConversational } from './conversation.js';
 import type { Conversation } from './schema.js';
@@ -945,6 +947,8 @@ export class SloaneOrchestrator {
     /* Phase 7: the agent runtime — every step it takes comes back through agentValidate / agentExecute / decide */
     this.agents = new AgentRuntime(this);
     this.agentService = new AgentService(this.agents);
+    /* A4 §17: the one entry point every product surface uses — it wraps the service, it is not a second path */
+    this.agentLaunch = new AgentLaunch(this.agentService);
     /* V2 §2: the new conversational core, BESIDE this one. It is constructed either way and only reached when the
        flag is on and the turn is one it should take; v1 below is untouched and stays the default. */
     this.v2 = new SloaneV2({ adapter: this.adapter, data: this.data, gl: this.gl, controls: this.controls, semantic: this.semantic, artifacts: this.artifacts, ...(this.artifacts.pbc ? { pbc: this.artifacts.pbc } : {}) });
@@ -960,6 +964,7 @@ export class SloaneOrchestrator {
   readonly agents: AgentRuntime;
   /** A2 §15: the non-conversational entry point — a module, scheduler or workflow starts a run through this */
   readonly agentService: AgentService;
+  readonly agentLaunch: AgentLaunch;
 
   /** The user's decision on a proposal or plan. The browser collects it; everything else happens here. */
   decide(input: DecideInput, actor?: Actor): DecideResult {
@@ -2046,7 +2051,15 @@ export class SloaneOrchestrator {
       table: { columns: [], rows: [] }, facts: [], provenance: { source: 'Korvyn agent runtime — every step a governed tool, every write confirmed by you', snapshotId: runId, journalLines: null, fxRateSetId: null, eliminations: null, declaredInputs: [] },
       population: null, refs: { runId }, focus: null, unavailable: null, governed: true, agentRun: v };
     const q = v.checkpoints.find((c) => c.type === 'CLARIFICATION' && c.status === 'OPEN');
-    const narrative = q ? [q.reason ?? q.title] : v.result ? [v.result.headline] : [];
+    /**
+     * A4 §4/§8 — THE CONVERSATION IS TOLD SOMETHING, EVEN WHILE THE RUN IS STILL GOING. A run that has neither
+     * finished nor asked anything had no narrative at all, so a person who asked for a close review got a card
+     * with a status on it and not one word (observed live). The acknowledgement is deliberately thin — what was
+     * started, under which configured agent, and that it carries on without them — because the RESULT is what
+     * they are waiting for and a running commentary would compete with it.
+     */
+    const started = `Started a governed ${v.profile.toLowerCase()} run. It carries on without you — the findings come back here.`;
+    const narrative = q ? [q.reason ?? q.title] : v.result ? [v.result.headline] : [started];
     return { object, narrative, notes, title: v.title, shortcut };
   }
   /**
@@ -2067,7 +2080,17 @@ export class SloaneOrchestrator {
       scope: (val['entity'] as string | undefined) ?? c.scope.value,
       subject: { vendor: (val['vendor'] as string | undefined) ?? null, project: (val['project'] as string | undefined) ?? null, entity: (val['entity'] as string | undefined) ?? null, account: (val['account'] as string | undefined) ?? null, pbcRequestId: null, reconciliationId: null, artifactId: null },
       labels: { ...(r?.labels ?? {}) } as Record<string, string>, successCriteria: ['answer the objective from governed observations', 'separate fact, evidence, inference and open questions'],
-      constraints: { noComments: true, exclude: [], focusFirst: [], noActions: true, approveReady: false, noPackage: true }, requestedOutputs: ['findings'], userInstructions: [],
+      /**
+       * A4 §4 — THE OBJECTIVE DECIDES WHAT THE RUN MAY DO, NOT THIS CALL SITE. Before A4 this fixed
+       * `policyProfile: 'INVESTIGATION'` and `noActions: true`, so the only agent run a conversation could ever
+       * start was read-only: an objective asking for close work reached the right profile through classification
+       * and then prepared nothing, because a default written here outranked the authority Korvyn had chosen.
+       *
+       * The seed below is what an unclassified goal starts as; `classify()` replaces the profile from the
+       * classified outcome and work class, and `applyProfile` derives `noActions` from the profile it chose.
+       * A person's own instruction still wins, which is what `userSetNoActions` is for.
+       */
+      constraints: { noComments: false, exclude: [], focusFirst: [], noActions: true, approveReady: false, noPackage: true, ...noActionsAsked(request) }, requestedOutputs: ['findings'], userInstructions: [],
       policyProfile: 'INVESTIGATION', riskTolerance: 'READ_ONLY', threshold: null, outputFormat: 'xlsx', pending: [], resolved: [], notices: [], periodText: null,
       comparisonPeriod: c.comparisonPeriod.value ?? null,
       activeAnalysis: a ? { name: a.name, type: a.analysisType, statement: a.statement, periods: a.periods, rows: a.rows.map((x) => x.dimension), columns: a.columns.map((x) => x.dimension), measures: a.measures, filters: a.filters.map((f) => `${f.dimension} ${f.op === 'IN' ? 'in' : 'not in'} ${f.values.join(', ')}`), sorts: a.sorts, selectedRow: c.analysis!.referents.activeRowId } : null,

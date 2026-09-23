@@ -88,17 +88,23 @@ export const CONVERSATION_SCHEMA = obj({
  * actor's authority. The model is never told which profiles exist and can never name one.
  */
 export const OUTCOME_CLASSES = ['ANALYZE', 'PREPARE_DELIVERABLE', 'PREPARE_WORKFLOW_ACTIONS'] as const;
-export interface ObjectiveClass { outcome: (typeof OUTCOME_CLASSES)[number]; understanding: string; needsDeepReasoning: boolean; confidence: number }
+export interface ObjectiveClass { outcome: (typeof OUTCOME_CLASSES)[number]; understanding: string; needsDeepReasoning: boolean; confidence: number; workClass?: string | null }
 export const OBJECTIVE_SCHEMA = obj({
   outcome: strEnum(OUTCOME_CLASSES),
+  /**
+   * A4 §2 — WHAT KIND OF WORK THIS IS, in the vocabulary the planner already uses. Korvyn reads it to pick the
+   * profile that serves it; it is a proposal, never a routing decision, and null is an ordinary answer.
+   */
+  workClass: nullable(strEnum(GOAL_CLASSES)),
   understanding: { type: 'string' },
   needsDeepReasoning: { type: 'boolean' },
   confidence: { type: 'number' },
 });
 export function validateObjective(v: Json): Result<ObjectiveClass> {
   const c = new V();
-  if (!c.keys(v, 'objective', ['outcome', 'understanding', 'needsDeepReasoning', 'confidence'])) return { ok: false, errors: c.errors };
+  if (!c.keys(v, 'objective', ['outcome', 'workClass', 'understanding', 'needsDeepReasoning', 'confidence'])) return { ok: false, errors: c.errors };
   c.enm(v['outcome'], 'outcome', OUTCOME_CLASSES);
+  if (v['workClass'] !== null && v['workClass'] !== undefined) c.enm(v['workClass'], 'workClass', GOAL_CLASSES);
   c.str(v['understanding'], 'understanding', false, 400);
   if (typeof v['needsDeepReasoning'] !== 'boolean') c.errors.push('needsDeepReasoning: expected boolean');
   if (typeof v['confidence'] !== 'number' || v['confidence'] < 0 || v['confidence'] > 1) c.errors.push('confidence: expected 0..1');

@@ -41,7 +41,7 @@ export const AUTONOMY = {
 } as const;
 export type AutonomyLevel = 0 | 1 | 2 | 3 | 4;
 
-export type ProfileId = 'READ_ONLY' | 'FINANCE_ANALYST' | 'CLOSE_PREPARER' | 'CONTROLLER_REVIEW' | 'AUDIT_SUPPORT' | 'INVESTIGATION';
+export type ProfileId = 'READ_ONLY' | 'FINANCE_ANALYST' | 'CLOSE_PREPARER' | 'CONTROLLER_REVIEW' | 'AUDIT_SUPPORT' | 'INVESTIGATION' | 'CLOSE';
 
 /**
  * A2 §3/§5 — WHAT KIND OF WORK AN OBJECTIVE ASKS FOR. This is the ONLY axis on which Korvyn specialises a run, and
@@ -101,6 +101,26 @@ export interface AgentPolicyProfile {
   execution: 'GENERIC' | GoalType;
   /** the outcome classes this profile may serve; Korvyn maps a classified objective onto the first that fits */
   serves: OutcomeClass[];
+  /**
+   * A4 §2 — THE KINDS OF WORK THIS PROFILE IS THE RIGHT ONE FOR, in the goal-class vocabulary the planner already
+   * uses (`GOAL_CLASSES`). It is a DECLARATION, never a router: the model states the class it read in the
+   * objective, Korvyn looks for a profile that serves both that class and the classified outcome, and the actor's
+   * authority still caps the answer. A profile that declares none is selected by outcome alone, exactly as before.
+   */
+  servesClasses?: string[];
+  /**
+   * A4 §2 — THE GOVERNED POLICIES THIS PROFILE'S WORK IS JUDGED AGAINST, BY REFERENCE. A profile never carries a
+   * threshold of its own: `FLUX_MATERIALITY` and `TIE_TOLERANCE_USD` are the enterprise's, owned by the services
+   * that apply them, and naming them here is how a run says which policy it was working to without copying a
+   * number that would then be free to drift.
+   */
+  policyRefs?: string[];
+  /**
+   * A4 §14 — WHAT A GOOD RUN OF THIS PROFILE LOOKS LIKE, machine-readable. Not an evaluation product: these are
+   * the expectations an evaluation would score, declared beside the profile they belong to so the two cannot
+   * drift. `required` is what the run must satisfy; `prohibited` is what it must never do.
+   */
+  evaluation?: { required: string[]; prohibited: string[] };
   maxSteps: number; maxRuntimeMs: number; maxRetries: number; maxConsecutiveFailures: number;
   /** 'GROUP' may run across the enterprise; 'ENTITY' only inside the actor's own entity scope */
   maxScope: 'GROUP' | 'ENTITY';
@@ -158,6 +178,57 @@ export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
     completion: ['the position is established', 'drafts are prepared for every item that needs one', 'a governed approval is routed, never taken'],
     budget: budget({ maxIterations: 14, maxToolCalls: 30, maxElapsedMs: 240_000 }),
     maxSteps: 30, maxRuntimeMs: 240_000, maxScope: 'GROUP' },
+  /**
+   * A4 §2 — THE FIRST PRODUCTION PROFILE. Everything below is CONFIGURATION: there is no Close workflow, no fixed
+   * sequence of calls, no Close calculation and no branch anywhere in the runtime that reads `id === 'CLOSE'`.
+   * What makes it a Close agent is what it may read, what it may prepare, what "done" means for it and what it is
+   * judged against — and the generic planner decides, per objective, which of those capabilities it actually needs.
+   *
+   * IT READS WIDER THAN IT ACTS. A close review reaches across close, reconciliations, flux, financial analysis,
+   * evidence, ownership and trace, and prepares only in the two families a close actually writes in. That
+   * separation is A3 §13's `actionDomains`, and it is the whole of the difference between reviewing a close and
+   * being able to change one.
+   */
+  CLOSE: { ...base, id: 'CLOSE', label: 'Close',
+    purpose: 'Carry a period’s close through to a controller: what is unresolved, what of it is material, who holds it, what the evidence says, and the drafts that would clear it.',
+    autonomy: 2, domains: [...READS, 'semantic', 'build', 'action'], actionDomains: ['action', 'build'],
+    serves: ['ANALYZE', 'PREPARE_WORKFLOW_ACTIONS'], servesClasses: ['CLOSE_READINESS', 'REVIEW_PREPARATION', 'FLUX_REVIEW', 'RECONCILIATION_REVIEW', 'EVIDENCE_REVIEW'],
+    reasoningClass: 'M2', maxParallelReads: 4,
+    preparableActions: ['ADD_FLUX_COMMENT', 'ADD_RECON_COMMENT', 'CREATE_ISSUE', 'ATTACH_SUPPORT', 'ASSIGN_REVIEWER', 'GENERATE_EXCEL_ARTIFACT', 'SAVE_EXCEL_ARTIFACT'],
+    completion: [
+      'the close position is established from governed reads, not assumed',
+      'what is unresolved is stated with the amount at stake and who holds it',
+      'a material item with no owner is reported as having none, never given one',
+      'anything prepared waits for a person, and a governed approval is routed rather than taken',
+    ],
+    policyRefs: ['FLUX_MATERIALITY', 'TIE_TOLERANCE_USD', 'APPROVAL_THRESHOLD_USD'],
+    evaluation: {
+      required: [
+        'material blockers identified',
+        'reconciliations not tied covered',
+        'unexplained flux covered',
+        'owner and status read from the record',
+        'every stated figure carries a FinancialFact',
+        'a stop reason is stated',
+        'tool economy within budget',
+      ],
+      prohibited: [
+        'a figure no observation carried',
+        'an invented owner or deadline',
+        'data outside the actor’s authorization',
+        'a consequential action executed without confirmation',
+      ],
+    },
+    /**
+     * A4 §21 — THE BUDGET IS PART OF THE CONFIGURATION, AND THE FIRST LIVE RUN PROVED IT. Close work reaches
+     * across close, reconciliations, flux and evidence, and one THINK spends one model call: the first live
+     * acceptance run raised its tool and iteration ceilings but inherited the deployment's default of 12 MODEL
+     * calls, so it read nine times and was stopped one call short of saying what it had found (observed —
+     * BLOCKED, 84 facts gathered, 0 findings written). A ceiling that stops a run before it can conclude is
+     * worse than a lower one that lets it: the work is paid for and thrown away.
+     */
+    budget: budget({ maxIterations: 16, maxModelCalls: 22, maxToolCalls: 36, maxElapsedMs: 300_000 }),
+    maxSteps: 30, maxRuntimeMs: 300_000, maxScope: 'GROUP' },
   AUDIT_SUPPORT: { ...base, id: 'AUDIT_SUPPORT', label: 'Audit support',
     purpose: 'Assemble the governed support an auditor asked for, with its population, its tie-out and its gaps stated.',
     autonomy: 2, domains: [...READS, 'build', 'action'], actionDomains: ['action', 'build'], serves: ['PREPARE_DELIVERABLE'],
@@ -256,6 +327,8 @@ export interface AgentGoal {
   /** A2 §3 — the classified outcome this run's profile was chosen to serve, and how it was classified */
   outcome?: OutcomeClass;
   outcomeSource?: 'model' | 'deterministic' | 'caller';
+  /** A4 §2: the kind of financial work the objective was read as — what selected the profile, recorded for the trace */
+  workClass?: string | null;
   /** A2 §5: a profile the CALLER asked for. Honoured only as far as the actor's own authority allows. */
   requestedProfile?: ProfileId;
   /** display names for resolved values ("South Valley (SV-PH2)" for SV-PH2) */
@@ -263,7 +336,9 @@ export interface AgentGoal {
   successCriteria: string[];
   /** approveReady: the user asked for reconciliations that are ready to be approved — Korvyn PREPARES the governed
    *  approval after an evidence check and routes it to a different approver; it never approves */
-  constraints: { noComments: boolean; exclude: string[]; focusFirst: string[]; noActions: boolean; approveReady: boolean; noPackage: boolean };
+  constraints: { noComments: boolean; exclude: string[]; focusFirst: string[]; noActions: boolean; approveReady: boolean; noPackage: boolean;
+    /** A4 §4: the PERSON asked for no actions, so the profile may not relax it. Absent means Korvyn's own default. */
+    userSetNoActions?: boolean };
   requestedOutputs: string[];
   userInstructions: string[];
   policyProfile: ProfileId;
@@ -456,6 +531,14 @@ export interface AgentRunBody {
   investigation?: import('./investigate.js').InvestigationState;
   /** the user-facing progress lines, in order — what the browser shows; never task ids or JSON */
   progress: { at: string; line: string; state: 'done' | 'active' | 'waiting' | 'blocked' | 'skipped' }[];
+  /**
+   * A4 §5/§12 — WHERE THE RUN CAME FROM. `origin` is the kind of entry point; `launchedFrom` is the governed
+   * context a product surface handed over, and is null for a run nobody launched from one. Both are recorded, not
+   * derived, so a trace can say which surface and which object started a run rather than inferring it from the
+   * objective's wording. Optional so a run persisted before A4 still loads.
+   */
+  origin?: 'CONVERSATION' | 'MODULE' | 'SCHEDULE' | 'WORKFLOW' | 'API';
+  launchedFrom?: { module: string; action: string; object: string | null; period: string | null; scope: string | null; lens: string | null; basis: string | null } | null;
 }
 export interface AgentRunOptions {
   /** ms between steps — lets a person interrupt a run mid-flight; default 0 */

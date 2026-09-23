@@ -19,6 +19,16 @@ const GOAL_VERB = /\b(review|prepare|investigate|assemble|get\b.*\bready|work th
 const PERIOD_WORD = /\b(quarter|month|year|q[1-4]|ytd|january|february|march|april|may|june|july|august|september|october|november|december)\b/;
 
 /** @param subject whether the words name (or ambiguously name) a vendor, project or entity */
+/**
+ * A4 §4 — THE PERSON ASKING FOR NOTHING TO BE PREPARED, as against Korvyn's own default. `noActions` is
+ * otherwise DERIVED from the profile Korvyn chose, so this is the one thing that must outrank it: a profile that
+ * may prepare must never relax an instruction a person gave. It reads the same shape `noComments` beside it does,
+ * and it is not a router — nothing downstream branches on which words matched.
+ */
+export function noActionsAsked(text: string): { noActions: true; userSetNoActions: true } | Record<string, never> {
+  return /\b(don'?t|do not|no|without)\b[^.]{0,40}\b(prepar|draft|comment|creat|writ|chang)/i.test(text) ? { noActions: true, userSetNoActions: true } : {};
+}
+
 export function detectGoalType(text: string, subject = false): GoalType | null {
   const t = text.toLowerCase().trim();
   if (t.length < 8 || /\?\s*$/.test(t) && !/^(can|could|would|will) you\b/.test(t)) return null;
@@ -72,7 +82,7 @@ export function parseGoal(text: string, d: GoalDeps, forced?: GoalType, res?: Re
     type, objective: text.trim().slice(0, 500), title: '', period, periodRange, scope: v.entity ?? 'GROUP',
     subject: { vendor: v.vendor ?? null, project: v.project ?? null, entity: v.entity ?? null, account: v.account ?? (/\b(intercompany|ic) receivable/.test(t) ? '13000' : null), pbcRequestId: v.pbcRequestId ?? null, reconciliationId: /\bintercompany\b.*\brec/.test(t) ? 'REC-MDH-13100' : null, artifactId: v.artifactId ?? null },
     labels: { ...r.labels },
-    successCriteria: [], constraints: { noComments: /\b(don'?t|do not|no)\b.*\bcomments?\b/.test(t), exclude: [], focusFirst: [], noActions: type === 'REVIEW_CLOSE' || type === 'INVESTIGATE_VENDOR', approveReady: approve && type === 'PREPARE_CONTROLLER_REVIEW', noPackage: false },
+    successCriteria: [], constraints: { noComments: /\b(don'?t|do not|no)\b.*\bcomments?\b/.test(t), exclude: [], focusFirst: [], noActions: type === 'REVIEW_CLOSE' || type === 'INVESTIGATE_VENDOR', approveReady: approve && type === 'PREPARE_CONTROLLER_REVIEW', noPackage: false, ...noActionsAsked(t) },
     requestedOutputs: [], userInstructions: [], policyProfile: profile, riskTolerance: POLICY_PROFILES[profile].autonomy >= 2 ? 'PREPARE' : 'READ_ONLY',
     threshold: null, outputFormat: /\bcsv\b/.test(t) ? 'csv' : 'xlsx', pending, resolved: [], notices: r.notices.slice(), periodText: v.periodLabel ?? null,
   };

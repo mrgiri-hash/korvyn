@@ -187,7 +187,9 @@ export class ReviewerAssignmentRepository {
 
 /** analyses, report definitions, Excel artifact definitions, support package drafts, governed-workflow requests */
 export class SavedObjectRepository {
-  static readonly KINDS = { ANALYSIS: ['SAVED_ANALYSIS', 'ANALYSIS'], REPORT: ['SAVED_REPORT', 'REPORT'], EXCEL: ['EXCEL_ARTIFACT_DEFINITION', 'ARTIFACT'], PACKAGE: ['SUPPORT_PACKAGE_DRAFT', 'PACKAGE'], INVESTIGATION_SHARE: ['SHARED_INVESTIGATION', 'INVESTIGATION'], APPROVAL_REQUEST: ['GOVERNED_REQUEST', 'REQUEST'] } as const;
+  static readonly KINDS = { ANALYSIS: ['SAVED_ANALYSIS', 'ANALYSIS'], REPORT: ['SAVED_REPORT', 'REPORT'], EXCEL: ['EXCEL_ARTIFACT_DEFINITION', 'ARTIFACT'], PACKAGE: ['SUPPORT_PACKAGE_DRAFT', 'PACKAGE'], INVESTIGATION_SHARE: ['SHARED_INVESTIGATION', 'INVESTIGATION'], APPROVAL_REQUEST: ['GOVERNED_REQUEST', 'REQUEST'],
+    /** A4 §15: what an agent run concluded, as a governed object of its own. Generic — `type` says what kind. */
+    WORKPRODUCT: ['AGENT_WORKPRODUCT', 'WP'] } as const;
   constructor(private readonly s: RecordStore) {}
   create(k: keyof typeof SavedObjectRepository.KINDS, body: SavedBody, by: string, meta: Meta & { id?: string } = {}) { const [kind, prefix] = SavedObjectRepository.KINDS[k]; return this.s.insert<SavedBody>(kind, body, by, { prefix, status: k === 'REPORT' ? String(body.definition['status'] ?? 'DRAFT') : 'ACTIVE', ...meta }); }
   list(k: keyof typeof SavedObjectRepository.KINDS) { return this.s.list<SavedBody>(SavedObjectRepository.KINDS[k][0]); }

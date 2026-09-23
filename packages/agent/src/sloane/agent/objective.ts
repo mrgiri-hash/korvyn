@@ -77,6 +77,8 @@ export interface ObjectiveClassification {
   outcome: OutcomeClass;
   /** the model's own words for what it read the objective as — recorded, never used to choose authority */
   understanding: string;
+  /** A4 §2: the kind of financial work the model read this objective as, or null. A proposal, not a route. */
+  workClass?: string | null;
   /** does this objective warrant DEEP reasoning from the first step? Korvyn still owns the ceiling. */
   needsDeepReasoning: boolean;
   confidence: number;
@@ -123,13 +125,33 @@ export async function classifyObjective(host: AgentHost, text: string, signal?: 
     const r = await host.classifyObjective(text, signal);
     if (!r.out || r.out.status !== 'ok') return { ...fallback('deterministic'), call: r.call };
     const v = r.out.value;
-    return { outcome: v.outcome, understanding: v.understanding, needsDeepReasoning: v.needsDeepReasoning, confidence: v.confidence, source: 'model', call: r.call };
+    return { outcome: v.outcome, understanding: v.understanding, needsDeepReasoning: v.needsDeepReasoning, confidence: v.confidence, workClass: v.workClass ?? null, source: 'model', call: r.call };
   } catch { return fallback('deterministic'); }
 }
 
 /* ================================================================================================
    KORVYN MAPS OUTCOME → PROFILE, AND THE ACTOR'S AUTHORITY CAPS IT
    ================================================================================================ */
+/**
+ * A4 §2 — WHICH CONFIGURED AGENT SERVES THIS OBJECTIVE. Two declarations decide it, both on the profile: the
+ * outcome classes it `serves` and the kinds of work it `servesClasses`. A profile that declares the class the
+ * model read AND the outcome it classified is the better fit than the outcome's default, so a close objective
+ * reaches the Close profile without one line anywhere reading the words "close".
+ *
+ * THE MODEL PROPOSES THE CLASS; KORVYN CHOOSES THE PROFILE; THE ACTOR'S AUTHORITY CAPS IT. A class nothing
+ * declares, or none at all, falls back to the outcome's own default — which is exactly the pre-A4 behaviour, so
+ * a deployment whose model never states one is unaffected.
+ */
+function profileFor(outcome: OutcomeClass, workClass?: string | null): ProfileId {
+  if (workClass) {
+    const fits = (Object.keys(POLICY_PROFILES) as ProfileId[])
+      .filter((id) => POLICY_PROFILES[id].servesClasses?.includes(workClass) && POLICY_PROFILES[id].serves.includes(outcome))
+      .sort((a, b) => (POLICY_PROFILES[a].servesClasses!.length - POLICY_PROFILES[b].servesClasses!.length) || a.localeCompare(b));
+    if (fits[0]) return fits[0];
+  }
+  return PROFILE_FOR_OUTCOME[outcome];
+}
+
 /** the capability an actor must hold for a profile to be allowed to PREPARE anything at all */
 const PREPARE_CAPABILITY: Capability = 'FLUX_COMMENT';
 export interface ProfileDecision { profile: ProfileId; outcome: OutcomeClass; capped: boolean; reason: string }
@@ -140,8 +162,8 @@ export interface ProfileDecision { profile: ProfileId; outcome: OutcomeClass; ca
  *   2. an actor who cannot prepare anything is CAPPED to a read-only profile, whatever the objective asked for,
  *      and the run states that it was capped rather than silently doing less than was asked.
  */
-export function profileForOutcome(outcome: OutcomeClass, actor: Actor, requested?: ProfileId): ProfileDecision {
-  const wanted = requested && POLICY_PROFILES[requested] ? requested : PROFILE_FOR_OUTCOME[outcome];
+export function profileForOutcome(outcome: OutcomeClass, actor: Actor, requested?: ProfileId, workClass?: string | null): ProfileDecision {
+  const wanted = requested && POLICY_PROFILES[requested] ? requested : profileFor(outcome, workClass);
   const p = POLICY_PROFILES[wanted];
   if (p.autonomy >= 2 && !actor.permissions.includes(PREPARE_CAPABILITY))
     return { profile: 'INVESTIGATION', outcome, capped: true, reason: `${actor.role} may not prepare work in Korvyn, so this runs read-only: it will state what it found and what would need preparing.` };

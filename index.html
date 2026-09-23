@@ -3723,6 +3723,8 @@ button.tbx-s:hover b{color:var(--accent-ink)}
 .rcx-eq .op{flex:none;width:12px;font-family:var(--num);color:var(--muted);text-align:center}
 .rcx-rf.rcx-eq.tb .l,.rcx-rf.rcx-eq.tb .v{font-weight:var(--fw-medium)}
 .rcx-xlbtn{flex:none}
+/* A4 §8: where a run was started from — context, not a control */
+.p7-from{font-size:var(--fs-label);color:var(--hint);margin:0 0 var(--s-2)}
 .rcx-eq .rcx-lk2{font-family:var(--sans)}
 .rcx-rf-h{font-size:var(--fs-label);font-weight:var(--fw-label);
   letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted);
@@ -78837,7 +78839,55 @@ function slAskSelection(){
     acts:['Explain selection','Find anomalies','Suggest dimensions']};
   SL_INV=null; SL_CUR=null; SL_Q=''; SL_HISTV=false; cpOpen();
 }
-function slInvestigateRecon(){ slSubmit('Why is this off?'); }
+/* ================================================================================================
+   A4 §5/§12/§17 — THE MODULE ACTION ENTRY POINT.
+
+   A surface hands Korvyn the GOVERNED OBJECT a person is looking at and an action verb, and the
+   agent runtime does the rest. Nothing about the page travels: no selection text, no filters, no
+   scroll state, no UI internals — just governed references and the finance context they sit in
+   (§6). The server's launch contract sanitizes whatever arrives before the runtime sees it, so
+   this cannot become the wholesale page-state injection it replaced.
+
+   THE PERSON DOES NOT RESTATE WHAT IS ON THEIR SCREEN. The reconciliation's id, its name and the
+   period come from the record the panel is already rendering, so "Investigate" is the whole of
+   what they do.
+
+   On a static page there is no server to launch against, so the same button asks Sloane the
+   question it always did. The governed run is the product path; the conversational one is the
+   fallback, and neither is a second architecture.
+   ================================================================================================ */
+async function a4Launch(action, ctx, opts){
+  if(typeof kbFetch!=='function'||!document.querySelector('meta[name="korvyn-sloane-api"]')) return null;
+  try{
+    const r = await kbFetch('/api/sloane/agent/launch', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({ action: action, context: ctx, waitMs: 1200 }, opts||{})) });
+    const j = await r.json();
+    return (j && j.outcome==='SUCCESS') ? j : null;
+  }catch(e){ return null; }
+}
+/* the run a module started opens where Sloane's runs live, so there is one place a run is watched */
+function a4Show(j){
+  if(!j||!j.run) return false;
+  if(typeof slAnswer==='function'&&typeof p7RunHTML==='function'){
+    slAnswer(j.objective||j.run.title, p7RunHTML(j.run), {kind:'agent'});
+    if(typeof slOpen==='function') slOpen();
+    return true;
+  }
+  return false;
+}
+async function slInvestigateRecon(){
+  const def = (typeof rcDef==='function' && rcSel) ? rcDef(rcSel) : null;
+  const ctx = {
+    module:'reconciliations',
+    objectRefs: def ? [{ type:'reconciliation', id:def.reconciliationDefinitionId, label:def.name }] : [],
+    period: (typeof viewPeriod==='function') ? viewPeriod() : null,
+    scope: def && def.entity ? def.entity : null,
+    lens: (typeof rcLens==='function') ? rcLens() : null,
+  };
+  const j = ctx.objectRefs.length ? await a4Launch('INVESTIGATE', ctx) : null;
+  if(a4Show(j)) return;
+  slSubmit('Why is this off?');
+}
 function slSelRows(){ return SL_FOCUS&&SL_FOCUS.kind==='sel'?SL_FOCUS.rows:[]; }
 const slSelFor=()=>'Account Activity · '+slN(slSelRows().length)+' selected · '+perLabel(SL_FOCUS.p);
 function slSelExplain(){
@@ -82409,7 +82459,10 @@ const P7_ACTIVE=['CREATED','PLANNING','READY','RUNNING'];
 function p7RunHTML(v){ P7.runs[v.runId]=v;
   const g={done:'✓',active:'•',waiting:'…',blocked:'✗',skipped:'–'};
   let h='<div class="p7-run" data-p7="'+glEsc(v.runId)+'">';
-  h+='<div class="p7-st"><span>'+glEsc(P7_ST[v.status]||v.status)+'</span><span>'+glEsc(v.profile)+' · '+glEsc(v.period)+'</span></div>';
+  /* A4 §9 — the PHASE leads: one line, derived from real run state, in a person's words. The status
+     word and the profile follow it as context. No step ids, no tool names, no model reasoning. */
+  h+='<div class="p7-st"><span>'+glEsc(v.phase||P7_ST[v.status]||v.status)+'</span><span>'+glEsc(v.profile)+' · '+glEsc(v.period)+'</span></div>';
+  if(v.launchedFrom&&v.launchedFrom.module) h+='<div class="p7-from">Started from '+glEsc(v.launchedFrom.module)+(v.launchedFrom.object?' · '+glEsc(v.launchedFrom.object.split(':').pop()):'')+'</div>';
   if((v.progress||[]).length) h+='<ul class="p7-prog">'+v.progress.map(p=>'<li class="'+glEsc(p.state)+'"><span class="g">'+(g[p.state]||'•')+'</span><span>'+glEsc(p.line)+'</span></li>').join('')+'</ul>';
   (v.checkpoints||[]).filter(c=>c.status==='OPEN'&&c.blocking).forEach(c=>{
     h+='<div class="p7-cp'+(c.type==='GOVERNED_APPROVAL'?' gov':'')+(c.type==='CLARIFICATION'?' clar':'')+'"><div class="s3-t">'+glEsc(c.title)+'</div><div class="s3-msg">'+glEsc(c.type==='CLARIFICATION'?c.detail:c.detail.split('. ').slice(0,c.type==='GOVERNED_APPROVAL'?3:1).join('. ').replace(/\.?$/,'.'))+'</div>'
