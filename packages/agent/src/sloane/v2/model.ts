@@ -209,6 +209,13 @@ export interface V2Trace {
   responseType: string | null;
   /** §20 — causal claims demoted to inference, and any assertion withheld */
   responseViolations: string[];
+  /**
+   * A7 §17 — WHAT HAPPENED TO THE GOVERNED STATUS CLAIMS THIS ANSWER MADE. Visible to the trace and the
+   * eval harness; never to a person, who is told only that a statement was withheld and why in plain words.
+   * Counted apart because the three failures mean different things: a claim about the wrong OBJECT is the A6
+   * defect, a wrong VALUE is a contradiction of the record, and unsupported is Korvyn having no record at all.
+   */
+  claims: { proposed: number; verified: number; withheld: number; objectMismatch: number; valueMismatch: number; unsupported: number; suppressedEntities: string[] };
   notes: string[];
   /** §11 — Korvyn's findings about its own work. Telemetry and the dev trace only; never rendered. */
   diagnostics: string[];

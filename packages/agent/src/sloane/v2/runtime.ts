@@ -177,6 +177,17 @@ export class SloaneV2 {
     /* APPENDED, not assigned: the §16 escape is recorded by the caller BEFORE it hands the turn here, and
        overwriting it would lose the one finding that says why Korvyn had to compose the answer itself. */
     a.trace.responseViolations = [...a.trace.responseViolations, ...a.def.violations];
+    /* A7 §17 — counted where the definition is published, so every path that publishes one is measured */
+    const cf = a.def.claimFailures;
+    a.trace.claims = {
+      proposed: a.def.claimsVerified.length + cf.length,
+      verified: a.def.claimsVerified.length,
+      withheld: a.def.withheldClaims.length,
+      objectMismatch: cf.filter((f) => f.reason === 'OBJECT_MISMATCH').length,
+      valueMismatch: cf.filter((f) => f.reason === 'VALUE_MISMATCH').length,
+      unsupported: cf.filter((f) => f.reason === 'UNSUPPORTED').length,
+      suppressedEntities: a.def.suppressedEntities,
+    };
     if (rendered.unresolved.length) a.diag(`unresolved fact references: ${rendered.unresolved.join(', ')}`);
 
     /* §13/§14 — the answer exists NOW, so a caller watching for text gets it now. Nothing was streamed while the
@@ -289,6 +300,34 @@ export class SloaneV2 {
     };
   }
 
+  /**
+   * A7 §4/§6/§14 — WHAT A SENTENCE IS ALLOWED TO SAY ABOUT A GOVERNED OBJECT, and who is reading it.
+   *
+   * The claims are the CONVERSATION's, not this turn's: "and is its support complete?" two turns after the
+   * status was read is a question about a governed object Korvyn still holds the position of, and re-reading it
+   * to answer would be the cost §23 asks to avoid. The focus is the object the conversation is on, which is
+   * what settles a sentence that says "it" rather than naming anything.
+   *
+   * `disclose` is the DISCLOSURE POLICY, supplied here because this is the layer that knows the actor.
+   * `respond.ts` never learns what an entity is or who may see one — it applies a policy it was handed.
+   */
+  private claimOptions(actor: Actor, facts: FactRegistry) {
+    const held = facts.heldClaims();
+    /**
+     * THE FOCUS IS THE MOST RECENTLY READ OBJECT, which is what "it" means in a conversation. Resolving it
+     * matters most when a sentence names nothing and several objects are in play: without a focus the verifier
+     * would accept a status that matches ANY of them, which is the A6 defect wearing a pronoun. With one, a
+     * claim that belongs to a different object is a mismatch and the sentence goes.
+     */
+    const focus = held.at(-1)?.object ?? null;
+    const vis = visibleOf(actor);
+    return {
+      claims: held,
+      focus,
+      disclose: (text: string) => this.deps.controls.derivedDisclosure(text, vis),
+    };
+  }
+
   async turn(input: V2TurnInput): Promise<V2TurnOut> {
     const t0 = now();
     const { actor, sessionId } = input;
@@ -301,6 +340,7 @@ export class SloaneV2 {
       workload: workload(), inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
       calls: [], tools: [], activeStateRefs: {}, ungroundedFigures: [],
       factsProduced: 0, factRefs: 0, unresolvedRefs: [], responseType: null, responseViolations: [], notes: [], diagnostics: [],
+      claims: { proposed: 0, verified: 0, withheld: 0, objectMismatch: 0, valueMismatch: 0, unsupported: 0, suppressedEntities: [] },
     };
     const notes: string[] = [];
     /**
@@ -574,6 +614,7 @@ export class SloaneV2 {
         const opt = {
           hasGovernedRead: outcomes.some((o) => o.status === 'COMPLETED' && o.facts.length > 0),
           objectIds: objects.map((o) => o.id),
+          ...this.claimOptions(actor, facts),
         };
         if (ctl.name === 'show' || ctl.name === 'show_list') {
           /**
@@ -883,6 +924,7 @@ export class SloaneV2 {
       response = fromProse(answer, facts, {
         hasGovernedRead: outcomes.some((o) => o.status === 'COMPLETED' && o.facts.length > 0),
         objectIds: objects.map((o) => o.id),
+        ...this.claimOptions(actor, facts),
       });
       rendered = renderResponse(response, facts);
 

@@ -28,6 +28,7 @@ import {
 import { type PlanContext, composedByName, composedCoverage, composedFor, planContext } from './compose.js';
 import { type ConversationReferent, inheritReferent } from './referent.js';
 import { type FactContext, type FactRegistry, type FinancialFact, factsFrom } from './facts.js';
+import { claimsFrom } from './claims.js';
 import { SHOW_TOOL } from './respond.js';
 
 /* ================================================================================================
@@ -287,6 +288,13 @@ const EXPLANATORY_TOOL_IDS = new Set(V2_DIRECT_TOOL_IDS);
 function register(o: V2ToolOutcome, f?: { registry: FactRegistry; ctx: FactContext }): V2ToolOutcome {
   if (!f || !o.object || (o.ran && EXPLANATORY_TOOL_IDS.has(o.ran))) return o;
   const made = f.registry.add(factsFrom(o.object, f.ctx));
+  /**
+   * A7 §7 — A GOVERNED STATUS IS PROMOTED WHERE A GOVERNED FIGURE IS, from the same read, at the same moment.
+   * Structured propagation rather than reading it back out of prose: the read already returned `tieStatus`,
+   * `reviewStatus` and the reconciliation they belong to, and carrying those forward is all that is needed for
+   * a later sentence about them to be checkable.
+   */
+  f.registry.addClaims(claimsFrom(o.object));
   /* the observation's facts are the object's own, in order, so the id lands on the right one */
   const byKey = new Map(made.map((x, i) => [o.object!.facts[i]?.key ?? x.label, x.factId]));
   for (const of of o.observation.facts) { const id = byKey.get(of.key); if (id) of.id = id; }

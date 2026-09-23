@@ -20,6 +20,7 @@
  * The LLM reasons and composes; Korvyn owns facts, calculations, permissions, populations, evidence, workflow and state.
  */
 import { toolRegistry, type Actor, type FinancialObject, type SloaneTool } from '../tools.js';
+import type { GovernedClaim } from '../v2/claims.js';
 import { periodLabel } from '../financials.js';
 import { FLUX_MATERIALITY, TIE_TOLERANCE_USD } from '../controls.js';
 
@@ -358,6 +359,13 @@ export interface InvestigationState {
   invalidStreak: number; rejectStreak: number;
   stopReason: string | null;
   synthesis: Synthesis | null;
+  /**
+   * A7 §6 — THE GOVERNED STATUSES THIS INVESTIGATION HAS READ. The agent path gets the same protection the
+   * conversational one does and from the same verifier: a finding asserting that a reconciliation ties is
+   * checked against the record that says whether it does. Accumulated as observations arrive, because that is
+   * when the governed read happened and when its object identity is still attached.
+   */
+  claims: GovernedClaim[];
   startedAt: number;
 }
 export interface Synthesis {
@@ -391,7 +399,7 @@ export function findingsOf(S: InvestigationState | null | undefined) {
   return (S?.synthesis?.findings ?? []).map((f) => ({ statement: f.statement, kind: f.kind as string, support: f.support as string, observationRefs: f.observationRefs, objectIds: [...new Set(f.observationRefs.flatMap(handles))] }));
 }
 export function newInvestigation(): InvestigationState {
-  return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, described: [], startedAt: Date.now() };
+  return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, claims: [], described: [], startedAt: Date.now() };
 }
 export interface FinancialFrame { objective: string; period: string; comparisonPeriod: string | null; governedPeriods: string[]; workingPeriod: string; scope: string; subject: Record<string, string | null>; constraints: { exclude: string[]; focusFirst: string[]; instructions: string[] }; activeAnalysis: unknown | null; actorRole: string }
 const FULL_KEEP = 4;

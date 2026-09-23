@@ -15,6 +15,7 @@ import type { AgentHost } from './host.js';
 import { type Actor, type FinancialObject, WRITE_ACTIONS_ENABLED, toolRegistry, visibleOf } from '../tools.js';
 import { type AgentTelemetry, type KorvynTrace, agentTelemetry, agentTrace } from '../trace.js';
 import { factsFrom } from '../v2/facts.js';
+import { claimsFrom, failureNote, verifySentence } from '../v2/claims.js';
 import { WORK } from '../store.js';
 import { periodLabel } from '../financials.js';
 import { SOURCE_HEALTH } from '../governed.js';
@@ -1723,6 +1724,8 @@ export class AgentRuntime {
     /* A1 §10: promote this object's facts through the CONVERSATION'S OWN registry, so the observation carries
        canonical FinancialFact ids. The promotion is deterministic over the object's identity, so a figure an agent
        cites and the same figure a conversation cites resolve to one fact. */
+    /* A7 §6/§7 — the governed statuses this read returned, kept for the synthesis to be checked against */
+    if (t.status === 'COMPLETED' && o) for (const c of claimsFrom(o)) if (!S.claims.some((x) => x.claimId === c.claimId)) S.claims.push(c);
     const obs: CompactObservation = t.status === 'COMPLETED' && o ? compact(step, t.tool!, t.request ?? t.title, o, null, false, factsFrom(o, FACT_CTX).map((f) => f.factId))
       : compact(step, t.tool!, t.request ?? t.title, null, t.error ?? 'did not complete', t.failureMode === 'PERMISSION' || t.failureMode === 'POLICY');
     S.observations.push(obs);
@@ -1773,7 +1776,31 @@ export class AgentRuntime {
       /* the model flags a material judgment or conflicting evidence: one deeper pass, if the budget allows */
       if (cls !== 'M3' && v.escalate.needed && v.escalate.reason && ['MATERIAL_JUDGMENT', 'CONFLICTING_EVIDENCE'].includes(v.escalate.reason) && S.usage.modelCalls < S.budget.maxModelCalls && escalate(S, v.escalate.reason, v.escalate.detail ?? 'synthesis')) return attempt();
       const rejected: { statement: string; why: string }[] = [];
-      const findings = v.findings.filter((f) => { const u = ungrounded(f.statement, allowed); if (u.length) { rejected.push({ statement: f.statement, why: `figure${u.length > 1 ? 's' : ''} ${u.join(', ')} not in any observation` }); return false; } return true; });
+      /**
+       * A7 §6/§12/§21 — A FINDING MAY CITE ANY OBJECT AND MUST NOT MIX TWO IN ONE SENTENCE.
+       *
+       * The same verifier the conversational path uses, over the statuses this investigation actually read. A
+       * run legitimately looks at several reconciliations; what it may not do is say one of them ties because
+       * another does. A figure and a status are rejected the same way and land in the same `rejected` list, so
+       * a reader of the trace sees one account of what the run was not allowed to say.
+       */
+      const anchor = refsOf(run.goal).find((r) => S.claims.some((c) => c.object.id === r.id));
+      const focus = anchor ? S.claims.find((c) => c.object.id === anchor.id)!.object : null;
+      const findings = v.findings.filter((f) => {
+        const u = ungrounded(f.statement, allowed);
+        if (u.length) { rejected.push({ statement: f.statement, why: `figure${u.length > 1 ? 's' : ''} ${u.join(', ')} not in any observation` }); return false; }
+        if (f.kind !== 'OBSERVED_FACT' && f.kind !== 'EVIDENCE') return true;
+        const vc = verifySentence(f.statement, S.claims, focus);
+        const certain = vc.failures.filter((x) => x.reason === 'OBJECT_MISMATCH' || x.reason === 'VALUE_MISMATCH' || x.reason === 'STALE_VERSION');
+        if (!certain.length) return true;
+        rejected.push({ statement: f.statement, why: failureNote(certain) });
+        return false;
+      }).map((f) => {
+        /* §14/§22 — an identity the reader may not see is not amplified into synthesised prose */
+        const d = this.o.controls.derivedDisclosure(f.statement, visibleOf(this.actorOf(run)));
+        if (d.suppressed.length) run.warnings.push(`Out-of-scope counterparty identities were withheld from the summary (${d.suppressed.length}).`);
+        return d.text === f.statement ? f : { ...f, statement: d.text };
+      });
       const hu = ungrounded(v.headline, allowed);
       const headline = hu.length ? (findings[0]?.statement ?? `Sloane inspected ${S.observations.filter((o) => o.status === 'OK').length} governed results.`) : v.headline;
       if (hu.length) rejected.push({ statement: v.headline, why: `headline figure${hu.length > 1 ? 's' : ''} ${hu.join(', ')} not in any observation` });

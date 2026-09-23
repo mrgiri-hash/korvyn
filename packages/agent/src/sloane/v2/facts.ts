@@ -24,6 +24,7 @@
 import { createHash } from 'node:crypto';
 import type { EliminationTreatment } from '../financials.js';
 import type { FinancialObject } from '../tools.js';
+import type { GovernedClaim } from './claims.js';
 
 /* ================================================================================================
    §3 — THE FACT KINDS
@@ -445,9 +446,33 @@ export class FactRegistry {
 
   get size(): number { return this.map.size; }
 
+  /**
+   * A7 §2/§3 — GOVERNED CLAIMS LIVE HERE TOO, not in a registry of their own.
+   *
+   * A status is promoted from the same governed read a figure is and is verified against the same conversation.
+   * A second store would need its own eviction, its own snapshot and its own restore, and the two would be one
+   * refactor away from disagreeing about what this conversation has seen.
+   *
+   * A claim is keyed by (type, object, period), so a later read of the SAME status on the same object in the
+   * same period REPLACES it — which is §15: what a conversation holds is the current governed position, and a
+   * value read before a reopen must never still be citable as the position now.
+   */
+  private readonly claims = new Map<string, GovernedClaim>();
+
+  addClaims(cs: readonly GovernedClaim[]): GovernedClaim[] {
+    for (const c of cs) this.claims.set(`${c.claimType}:${c.object.id}:${c.period}`, c);
+    return [...cs];
+  }
+  /** every claim this conversation has been given, newest value per (type, object, period) */
+  heldClaims(): GovernedClaim[] { return [...this.claims.values()]; }
+  claimsForObject(objectId: string): GovernedClaim[] { return this.heldClaims().filter((c) => c.object.id === objectId); }
+  get claimCount(): number { return this.claims.size; }
+
   /** serialised for the durable conversation record; the registry is state, not a store of governed truth */
   snapshot(): FinancialFact[] { return [...this.map.values()]; }
   restore(facts: FinancialFact[]): void { for (const f of facts) { this.map.set(f.factId, f); this.touched.set(f.factId, ++this.seq); } }
+  snapshotClaims(): GovernedClaim[] { return this.heldClaims(); }
+  restoreClaims(cs: readonly GovernedClaim[]): void { this.addClaims(cs); }
 
   private evict(): void {
     if (this.map.size <= FACT_LIMIT) return;

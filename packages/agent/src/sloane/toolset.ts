@@ -1172,7 +1172,7 @@ export const ACCOUNT_ALIAS: Record<string, string> = { cip: 'construction in pro
 export function findObjects(env: Pick<ToolEnv, 'gl' | 'controls' | 'visible' | 'actor'>, text: string, limit = 12) {
   const t = text.toLowerCase().trim(), words = t.split(/\s+/).filter((w) => w.length >= 3);
   const can = (p: string) => env.actor.permissions.includes(p as never);
-  const cands: { kind: string; ref: string; name: string }[] = [];
+  const cands: { kind: string; ref: string; name: string; entity?: string }[] = [];
   const vis = (e: string) => env.visible === 'ALL' || env.visible.has(e);
   if (can('GL_VIEW') || can('FINANCIALS_VIEW')) env.gl.accounts().forEach((x) => cands.push({ kind: x.parent ? 'account' : 'statementLine', ref: `account:${x.code}`, name: `${x.code} ${x.name}` }));
   if (can('GL_VIEW')) {
@@ -1181,7 +1181,7 @@ export function findObjects(env: Pick<ToolEnv, 'gl' | 'controls' | 'visible' | '
     const je = t.match(/je-\d{6}(#\d+)?/i); if (je) env.gl.lines.filter((l) => vis(l.entity) && (je[1] ? l.key.toLowerCase() === je[0] : l.journalId.toLowerCase() === je[0])).slice(0, 1).forEach((l) => cands.push({ kind: je[1] ? 'transaction' : 'journal', ref: je[1] ? `txn:${l.key}` : `journal:${l.journalId}`, name: je[1] ? l.key : `${l.journalId} ${l.description}` }));
   }
   env.gl.entities().filter((e) => vis(e.id)).forEach((e) => cands.push({ kind: 'entity', ref: `entity:${e.id}`, name: `${e.name} (${e.id})` }));
-  if (can('RECON_VIEW')) env.controls.allRecDefs().filter((d) => vis(d.entity)).forEach((d) => cands.push({ kind: 'reconciliation', ref: `recon:${d.id}`, name: `${d.name} (${d.id})` }));
+  if (can('RECON_VIEW')) env.controls.allRecDefs().filter((d) => vis(d.entity)).forEach((d) => cands.push({ kind: 'reconciliation', ref: `recon:${d.id}`, name: `${d.name} (${d.id})`, entity: d.entity }));
   if (can('REPORT_VIEW')) savedReports().forEach((r) => cands.push({ kind: 'savedReport', ref: `savedReport:${r.id}`, name: r.name }));
   if (can('REPORT_VIEW')) { env.controls.reports().forEach((r) => cands.push({ kind: 'report', ref: `report:${r.id}`, name: r.name })); env.controls.packages().forEach((p) => cands.push({ kind: 'reportingPackage', ref: `package:${p.id}`, name: p.name })); }
   if (can('CLOSE_VIEW')) env.controls.closeTasks(env.gl.periods().at(-1)!, env.visible).forEach((c) => cands.push({ kind: 'closeTask', ref: `task:${c.id}`, name: `${c.name} · ${c.entity}` }));
@@ -1191,7 +1191,30 @@ export function findObjects(env: Pick<ToolEnv, 'gl' | 'controls' | 'visible' | '
   /* a word scores once: literally, or through its alias. A reconciliation NAMED in full outranks every partial hit, so
      "Mechanical CIP reconciliation" is never crowded out by the CIP account group's own reconciliations. */
   const named = (c: { kind: string; name: string }) => c.kind === 'reconciliation' && /reconcil|\brecs?\b/.test(t) && t.includes(c.name.replace(/ \([^)]*\)$/, '').toLowerCase());
-  const score = (c: { kind: string; name: string; ref: string }) => { const nm = c.name.toLowerCase(); if (nm === t || c.ref.toLowerCase().endsWith(`:${t}`)) return 100; if (named(c)) return 90; if (nm.includes(expanded) || expanded.includes(nm)) return 60; return words.reduce((s, w) => s + (nm.includes(w) ? 10 : ALIAS[w] && nm.includes(ALIAS[w]) ? (/^\d{2}000 /.test(nm) ? 40 : 10) : 0), 0); };
+  /**
+   * A7 — THE ENTITY THE REQUEST NAMED DECIDES BETWEEN TWO OBJECTS OF THE SAME NAME.
+   *
+   * "the MDH intercompany receivable reconciliation" was answered about the GROUP-level "Intercompany
+   * Receivable", whose whole short name is a substring of the request and so collected the full-name bonus,
+   * while the MDH one — named in full in the request, entity and all — scored a third of it. Every status in
+   * that answer was then correct about an object the person had not asked about, which no amount of claim
+   * verification can catch: the read was self-consistent.
+   *
+   * The qualifier is GOVERNED DATA, not a phrase: an entity id or name, matched as a whole word against the
+   * entities this actor can see. A candidate that carries an entity and contradicts the one named cannot take
+   * the full-name bonus; one that matches it is preferred. A request naming no entity is unaffected.
+   */
+  const word = (hay: string, needle: string) => new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`, 'i').test(hay);
+  const namedEntity = env.gl.entities().filter((e) => vis(e.id)).find((e) => word(t, e.id.toLowerCase()) || word(t, e.name.toLowerCase()))?.id ?? null;
+  const entityFits = (c: { entity?: string }) => !namedEntity || !c.entity || c.entity === namedEntity;
+  const score = (c: { kind: string; name: string; ref: string; entity?: string }) => {
+    const nm = c.name.toLowerCase();
+    if (nm === t || c.ref.toLowerCase().endsWith(`:${t}`)) return 100;
+    if (named(c) && entityFits(c)) return 90;
+    const bonus = namedEntity && c.entity === namedEntity ? 40 : 0;
+    if (nm.includes(expanded) || expanded.includes(nm)) return 60 + bonus;
+    return bonus + words.reduce((s, w) => s + (nm.includes(w) ? 10 : ALIAS[w] && nm.includes(ALIAS[w]) ? (/^\d{2}000 /.test(nm) ? 40 : 10) : 0), 0);
+  };
   return cands.map((c) => ({ ...c, s: score(c) })).filter((c) => c.s > 0).sort((x, y) => y.s - x.s).slice(0, limit);
 }
 
@@ -1454,7 +1477,12 @@ registerTools([...FINANCIALS, ...COMPARISON, ...TB, ...LEDGER, ...ANALYSIS, ...F
  *
  * A status Korvyn has no phrase for falls back to its own words, never to the constant.
  */
-const STATUS_WORDS: Record<string, string> = {
+/**
+ * A7 §2/§7 — EXPORTED, because the claim layer must speak the SAME vocabulary a reader sees. A governed status
+ * becomes words in exactly one place; a second table of phrases for verifying those words would drift from it,
+ * and a verifier checking against the wrong words is worse than no verifier.
+ */
+export const STATUS_WORDS: Record<string, string> = {
   TIED: 'ties', NOT_TIED: 'does not tie', PARTIALLY_TIES: 'partly ties', NOT_TESTED: 'not tested',
   SOURCE_NOT_CONNECTED: 'source not connected',
   NOT_STARTED: 'not started', IN_PROGRESS: 'in progress', AWAITING_APPROVAL: 'awaiting approval',

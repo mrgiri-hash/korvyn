@@ -335,6 +335,9 @@ export function composeDirect(o: FinancialObject, facts: FinancialFact[], ctx: D
       factRefs: [...new Set(all.flatMap((a) => a.factRefs))],
       evidenceRefs: [],
       withheldFigures: [],
+      /* A7 — a COMPOSED answer is built from the governed claims themselves, so it asserts nothing it was not
+         given; the fields are present and empty rather than absent, so every reader of a definition is uniform */
+      claimsVerified: [], claimFailures: [], withheldClaims: [], suppressedEntities: [],
       violations: [],
     };
   };

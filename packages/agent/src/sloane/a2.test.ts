@@ -227,7 +227,7 @@ test('§2 — a conversational turn projects into the SAME envelope as an agent 
     calls: [{ stage: 'reason', model: 'claude-sonnet-5', status: 'ok', latencyMs: 2600, inputTokens: 3100, outputTokens: 210, cacheReadTokens: 17000, stopReason: 'tool_use', error: null }],
     tools: [{ tool: 'getFinancialStatementLine', status: 'COMPLETED', latencyMs: 12, error: null }, { tool: 'postJournalEntry', status: 'REFUSED', latencyMs: 0, error: 'governed action' }],
     activeStateRefs: { analysisId: 'AN-1', agentRunId: null }, ungroundedFigures: [], factsProduced: 6, factRefs: 4, unresolvedRefs: [],
-    responseType: 'DIRECT', responseViolations: [], notes: [], diagnostics: [],
+    responseType: 'DIRECT', responseViolations: [], notes: [], diagnostics: [], claims: { proposed: 0, verified: 0, withheld: 0, objectMismatch: 0, valueMismatch: 0, unsupported: 0, suppressedEntities: [] },
   };
   const C = conversationTrace(v2, { id: me.id, role: me.role, scope: me.scopeIds }, false);
 

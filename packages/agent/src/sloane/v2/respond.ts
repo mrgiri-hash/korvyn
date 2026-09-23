@@ -24,6 +24,7 @@
  * behind it is still demoted to inference rather than published as fact.
  */
 import { type Drill, type FactRegistry, type FinancialFact, bareFigures, isAuthoritative, populationMismatch, renderFacts, withoutRefs } from './facts.js';
+import { type ClaimFailure, type ClaimObject, type GovernedClaim, failureNote, verifySentence } from './claims.js';
 import { type Offer, offersFor } from './strategy.js';
 
 /* ================================================================================================
@@ -113,6 +114,17 @@ export interface ResponseDefinition {
    * they can no longer see was removed from an answer about their money.
    */
   withheldFigures: string[];
+  /**
+   * A7 §17 — the governed status claims this answer made, and what happened to them. `claimsVerified` is
+   * what the answer is entitled to say; `claimFailures` is why a sentence went. Telemetry, for the trace and
+   * the eval harness — `withheldClaims` is the one line a PERSON is told, because a sentence about the state
+   * of their controls was removed.
+   */
+  claimsVerified: GovernedClaim[];
+  claimFailures: ClaimFailure[];
+  withheldClaims: string[];
+  /** A7 §14 — governed entities whose identity was suppressed from synthesised prose */
+  suppressedEntities: string[];
   /** Korvyn's own findings about the response, for the trace — never shown to the person */
   violations: string[];
 }
@@ -209,6 +221,14 @@ export interface BuildOptions {
   /** governed reads actually ran this turn; without one, no company-specific figure may be presented (§16) */
   hasGovernedRead: boolean;
   objectIds: string[];
+  /**
+   * A7 §4/§8 — the governed statuses this conversation holds, and the object in focus. A sentence making a
+   * material status claim is checked against these; a sentence making none is untouched, which is most of them.
+   */
+  claims?: readonly GovernedClaim[];
+  focus?: ClaimObject | null;
+  /** A7 §14 — the disclosure policy for SYNTHESISED text, supplied by the caller that knows the actor */
+  disclose?: (text: string) => { text: string; suppressed: string[] };
 }
 
 /**
@@ -218,6 +238,62 @@ export interface BuildOptions {
  * to cite — so the check is not "did it write a suspicious number", it is "did it cite anything Korvyn produced".
  * An assertion carrying an authoritative figure with no governed read behind it does not get published.
  */
+/* ================================================================================================
+   A7 §4/§8/§12 — GOVERNED CLAIM VALIDATION, THE ONE PLACE BOTH PATHS USE
+   ================================================================================================ */
+
+/**
+ * WHAT WITHHOLDS AND WHAT IS ONLY RECORDED, and the line is drawn where certainty is.
+ *
+ *   OBJECT_MISMATCH  Korvyn holds this status for a DIFFERENT object. The A6 defect exactly, and a certain
+ *                    error: a sentence about REC-MDH-13100 supported by REC-MGP-REIT-13100's tie status is
+ *                    false however true that tie status is. The sentence goes.
+ *   VALUE_MISMATCH   Korvyn holds this status for THIS object and it says something else. Also certain. It goes.
+ *   UNSUPPORTED      Korvyn holds no governed status of that kind at all, so it cannot say the sentence is
+ *                    wrong — only that it cannot vouch for it. Recorded, never withheld. Withholding here would
+ *                    delete correct answers about every control this layer has no structured mapping for yet,
+ *                    which is the false-failure trade A5 and A6 both paid for and neither wants again.
+ */
+function claimCheck(text: string, opt: BuildOptions): { ok: boolean; verified: GovernedClaim[]; failures: ClaimFailure[] } {
+  const held = opt.claims ?? [];
+  if (!held.length) return { ok: true, verified: [], failures: [] };
+  const v = verifySentence(text, held, opt.focus ?? null);
+  const certain = v.failures.filter((f) => f.reason === 'OBJECT_MISMATCH' || f.reason === 'VALUE_MISMATCH' || f.reason === 'STALE_VERSION');
+  return { ok: !certain.length, verified: v.verified, failures: v.failures };
+}
+
+/**
+ * A7 §14 — THE DISCLOSURE POLICY, APPLIED TO SYNTHESISED PROSE.
+ *
+ * Applied LAST, over the assertions that survived verification, because it is about what Korvyn writes rather
+ * than about what is true. The policy itself lives in the governed layer and knows about entities and
+ * visibility; this function knows only that some text came back rewritten and that the reader must be told an
+ * identity was withheld rather than left to think nothing was there.
+ */
+function applyDisclosure(def: ResponseDefinition, opt: BuildOptions): ResponseDefinition {
+  if (!opt.disclose) return def;
+  const suppressed: string[] = [];
+  const rewrite = (a: Assertion | null): Assertion | null => {
+    if (!a) return a;
+    const r = opt.disclose!(a.text);
+    for (const e of r.suppressed) if (!suppressed.includes(e)) suppressed.push(e);
+    return r.text === a.text ? a : { ...a, text: r.text };
+  };
+  const list = (xs: Assertion[]) => xs.map((a) => rewrite(a)!).filter(Boolean);
+  const out: ResponseDefinition = {
+    ...def,
+    headline: rewrite(def.headline), summary: rewrite(def.summary),
+    keyDrivers: list(def.keyDrivers), interpretation: list(def.interpretation),
+    exceptions: list(def.exceptions), unresolved: list(def.unresolved),
+    suppressedEntities: suppressed,
+  };
+  out.presentation = out.keyDrivers.length
+    ? { kind: 'COMPACT_LIST', lead: def.presentation.lead, rows: out.keyDrivers }
+    : def.presentation.kind === 'COMPACT_LIST' ? { kind: 'NONE', lead: null, rows: [] } : def.presentation;
+  if (suppressed.length) out.violations = [...def.violations, `derived disclosure suppressed ${suppressed.length} out-of-scope entity identit${suppressed.length > 1 ? 'ies' : 'y'}`];
+  return out;
+}
+
 export function buildResponse(input: RespondInput, reg: FactRegistry, opt: BuildOptions): ResponseDefinition {
   const violations: string[] = [];
   const rt = (String(input.responseType ?? 'DIRECT').toUpperCase() as ResponseType);
@@ -271,6 +347,24 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
       `These figures do not come from the same population — they differ on ${said} — so the difference between them is not a movement. Read them separately.`, reg));
   }
 
+  /**
+   * A7 §4/§6 — THE SAME CLAIM CHECK, ON THE OTHER BUILDER. `composeDirect` and a stored Phase 2 answer both
+   * arrive here rather than through `fromProse`, and a governed status is no less material for having been
+   * composed by Korvyn than for having been written by the model. A composed answer will normally pass by
+   * construction — it is built FROM the claims — which is exactly why running it costs nothing and proves it.
+   */
+  const claimsVerified: GovernedClaim[] = [];
+  const claimFailures: ClaimFailure[] = [];
+  const withheldClaims: string[] = [];
+  for (const a of all) {
+    const c = claimCheck(a.text, opt);
+    claimsVerified.push(...c.verified); claimFailures.push(...c.failures);
+    if (c.ok) continue;
+    const note = failureNote(c.failures);
+    if (!withheldClaims.includes(note)) withheldClaims.push(note);
+    violations.push(`status claim unverified: ${c.failures.map((f) => f.reason).join(', ')}`);
+  }
+
   /* a reference the registry cannot resolve is a defect, and the sentence holding it is withheld */
   for (const id of factRefs) if (!reg.get(id)) violations.push(`unknown fact reference ${id}`);
 
@@ -290,7 +384,7 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
     }
   }
 
-  return {
+  return applyDisclosure({
     responseType, headline, summary, keyDrivers, interpretation, exceptions, unresolved,
     presentation: keyDrivers.length
       ? { kind: 'COMPACT_LIST', lead: input.lead?.trim() || null, rows: keyDrivers }
@@ -300,8 +394,10 @@ export function buildResponse(input: RespondInput, reg: FactRegistry, opt: Build
     factRefs,
     evidenceRefs: [...new Set(factRefs.flatMap((id) => reg.get(id)?.trace.evidenceIds ?? []))],
     withheldFigures: [],
+    claimsVerified, claimFailures, withheldClaims,
+    suppressedEntities: [],
     violations,
-  };
+  }, opt);
 }
 
 /* ================================================================================================
@@ -527,6 +623,9 @@ export function internalVocabulary(text: string): string[] {
 export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): ResponseDefinition {
   const violations: string[] = [];
   const withheldFigures: string[] = [];
+  const claimsVerified: GovernedClaim[] = [];
+  const claimFailures: ClaimFailure[] = [];
+  const withheldClaims: string[] = [];
   /**
    * §39 — AN INVENTED FIGURE NEVER REACHES THE PERSON, AND THAT DID NOT CHANGE WITH THE CHANNEL.
    *
@@ -560,9 +659,18 @@ export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): R
     if (p.includes('\n')) {
       const kept = p.split('\n').filter((ln) => {
         const bad = invented(ln);
-        if (!bad.length) return true;
-        bad.forEach((b) => { if (!withheldFigures.includes(b)) withheldFigures.push(b); });
-        violations.push(`figure with no governed reference withheld: ${bad.join(', ')}`);
+        if (bad.length) {
+          bad.forEach((b) => { if (!withheldFigures.includes(b)) withheldFigures.push(b); });
+          violations.push(`figure with no governed reference withheld: ${bad.join(', ')}`);
+          return false;
+        }
+        /* A7 — a row asserting a governed status is checked exactly as a sentence is */
+        const c = claimCheck(ln, opt);
+        claimsVerified.push(...c.verified); claimFailures.push(...c.failures);
+        if (c.ok) return true;
+        const note = failureNote(c.failures);
+        if (!withheldClaims.includes(note)) withheldClaims.push(note);
+        violations.push(`status claim withheld: ${c.failures.map((f) => f.reason).join(', ')}`);
         return false;
       }).join('\n').trim();
       if (!kept) continue;
@@ -574,9 +682,23 @@ export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): R
     }
     const sentences = p.split(/(?<=[.!?])\s+/).filter((x) => x.trim() && !(() => {
       const bad = invented(x);
-      if (!bad.length) return false;
-      bad.forEach((b) => { if (!withheldFigures.includes(b)) withheldFigures.push(b); });
-      violations.push(`figure with no governed reference withheld: ${bad.join(', ')}`);
+      if (bad.length) {
+        bad.forEach((b) => { if (!withheldFigures.includes(b)) withheldFigures.push(b); });
+        violations.push(`figure with no governed reference withheld: ${bad.join(', ')}`);
+        return true;
+      }
+      /**
+       * A7 §4/§12 — THE SENTENCE IS THE UNIT, because a sentence is what asserts that its claims belong
+       * together. "It ties, support is complete, and the reviewer returned it" is three claims about one object,
+       * and partial support does not make it true — A6's defect was exactly a sentence whose three claims were
+       * individually real and collectively about nothing.
+       */
+      const c = claimCheck(x, opt);
+      claimsVerified.push(...c.verified); claimFailures.push(...c.failures);
+      if (c.ok) return false;
+      const note = failureNote(c.failures);
+      if (!withheldClaims.includes(note)) withheldClaims.push(note);
+      violations.push(`status claim withheld: ${c.failures.map((f) => f.reason).join(', ')}`);
       return true;
     })());
     if (!sentences.length) continue;
@@ -623,7 +745,7 @@ export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): R
       `These figures do not come from the same population — they differ on ${said} — so the difference between them is not a movement. Read them separately.`, reg));
   }
   const head = out[0] ?? null;
-  return {
+  return applyDisclosure({
     responseType: 'DIRECT',
     headline: head,
     summary: null,
@@ -637,8 +759,10 @@ export function fromProse(text: string, reg: FactRegistry, opt: BuildOptions): R
     factRefs,
     evidenceRefs: [...new Set(factRefs.flatMap((id) => reg.get(id)?.trace.evidenceIds ?? []))],
     withheldFigures,
+    claimsVerified, claimFailures, withheldClaims,
+    suppressedEntities: [],
     violations,
-  };
+  }, opt);
 }
 
 /**

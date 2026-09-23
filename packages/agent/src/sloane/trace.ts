@@ -174,6 +174,13 @@ export interface KorvynTrace {
   }[];
   /** statements the grounding check WITHHELD because no observation carried the figure — a quality signal, kept */
   withheldFindings: { statement: string; reason: string }[];
+  /**
+   * A7 §18 — THE GOVERNED STATUSES THE RUN READ, so a material control assertion can be reconstructed:
+   * question → object → governed record → claim → validation → response. This is EVIDENCE for a claim, not
+   * reasoning about one: every row is a value a governed service returned, bound to the object it belongs to.
+   * What was rejected is already in `withheldFindings`, with the reason, so the two read together.
+   */
+  claims: { claimType: string; objectType: string; objectId: string; value: string; display: string; period: string; scope: string; version: string | null; provenance: string }[];
   /** what the run could not establish, stated rather than inferred */
   unresolved: string[];
   /** A5 §11: where the run's time and money went, by phase */
@@ -297,6 +304,7 @@ export function agentTrace(run: AgentRunBody, policy: { profile: string; autonom
       return { statement: f.statement, kind: f.kind, support: f.support, severity: sev?.severity ?? null, amountUsd: sev?.amountUsd ?? null, factIds, objectIds: f.objectIds ?? [] };
     }),
     withheldFindings: (inv?.synthesis?.rejected ?? []).map((r) => ({ statement: r.statement, reason: r.why })),
+    claims: (inv?.claims ?? []).map((c) => ({ claimType: c.claimType, objectType: c.object.type, objectId: c.object.id, value: c.value, display: c.display, period: c.period, scope: c.scope, version: c.version, provenance: c.provenance })),
     unresolved: run.result?.investigation?.unresolved ?? run.investigation?.synthesis?.unresolved ?? [],
     economy: runEconomy(run),
     origin: run.origin ? { kind: run.origin, module: run.launchedFrom?.module ?? null, action: run.launchedFrom?.action ?? null, object: run.launchedFrom?.object ?? null } : null,
@@ -362,6 +370,9 @@ export function conversationTrace(t: import('./v2/model.js').V2Trace, actor: { i
     },
     /* a conversational turn establishes no agent findings; saying so is the honest projection, not an omission */
     findings: [], withheldFindings: [], unresolved: [],
+    /* A7 — the conversational turn carries its claims on its own V2Trace; the envelope states none rather than
+       half of them, which is the same discipline this projection already applies to findings */
+    claims: [],
     economy: { planning: zero(), investigation: zero(), preparation: zero(), synthesis: zero(), approval: { checkpoints: 0, decided: 0, waitMs: 0, resumedSteps: 0, resumedCostUsd: 0 } },
     origin: { kind: 'CONVERSATION', module: null, action: null, object: null },
     workproductId: null,

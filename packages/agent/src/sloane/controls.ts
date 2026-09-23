@@ -46,6 +46,8 @@ export type ReconBalance = {
 
 type Vis = Set<string> | 'ALL';
 const inVis = (v: Vis, e: string) => v === 'ALL' || v.has(e);
+/** a governed name is matched literally, whatever punctuation it carries */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const TIE_TOLERANCE_USD = 1_000;
 /** the flux materiality policy: |change| of at least absUsd, or at least minUsd and pct of the prior balance */
 export const FLUX_MATERIALITY = { absUsd: 1_000_000, minUsd: 250_000, pct: 0.1 } as const;
@@ -173,6 +175,37 @@ export class ControlService {
     };
   }
   reconciliations(period: string, vis: Vis) { return this.recDefs().filter((d) => inVis(vis, d.entity)).map((d) => this.redact(this.reconcile(d, period), vis)); }
+
+  /**
+   * A7 §14 — SOURCE VISIBILITY DOES NOT AUTOMATICALLY GRANT DERIVED DISCLOSURE RIGHTS.
+   *
+   * This settles the conflict A6 measured and would not resolve alone. An MDH accountant may read their own
+   * reconciliation's comment thread, and that thread says "Due-from MER-DE does not agree to the counterparty".
+   * Reading it in context, attributed to its author, on the record it belongs to, is one thing. Korvyn
+   * SYNTHESISING it into new prose is another: a summary travels, loses its context and its authorship, and
+   * amplifies an identity the reader has no access to. The same policy that collapses per-counterparty items
+   * into "differences with N counterparties outside your access" (IC_AGGREGATE_DISCLOSURE) applies to generated
+   * text, which is what "even indirectly through summaries" means.
+   *
+   * THE SOURCE IS NOT CHANGED. `reconcile()` still returns the comment exactly as written and the workspace
+   * still shows it. What is suppressed is the REPEAT of a protected identity in text Korvyn wrote itself.
+   */
+  derivedDisclosure(text: string, vis: Vis): { text: string; suppressed: string[] } {
+    if (vis === 'ALL' || !text) return { text, suppressed: [] };
+    const suppressed: string[] = [];
+    let out = text;
+    for (const e of this.gl.entities()) {
+      if (inVis(vis, e.id)) continue;
+      for (const token of [e.id, e.name]) {
+        if (!token || token.length < 3) continue;
+        const re = new RegExp(`(^|[^A-Za-z0-9-])${escapeRe(token)}(?![A-Za-z0-9-])`, 'gi');
+        if (!re.test(out)) continue;
+        if (!suppressed.includes(e.id)) suppressed.push(e.id);
+        out = out.replace(re, '$1a counterparty outside your access');
+      }
+    }
+    return { text: out, suppressed };
+  }
   /**
    * 8D — WHAT A READER MAY SEE OF A RECONCILIATION. An intercompany reconciliation compares this entity's receivable with
    * each COUNTERPARTY's payable, so a per-counterparty item carries figures read from books the reader may not see. Policy

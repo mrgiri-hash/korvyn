@@ -29,6 +29,7 @@ import { FinancialDataService, periodLabel } from './financials.js';
 import { DIMENSION_KEYS, GovernedLedger } from './governed.js';
 import { type Interpretation, validateInterpretation } from './schema.js';
 import { type Actor, type Domain, type FinancialObject, type SloaneTool, type ToolArgs, type ToolEnv, authorize, serverActor, toolRegistry, visibleOf, WRITE_ACTIONS_ENABLED } from './tools.js';
+import { claimsFrom, failureNote, verifySentence } from './v2/claims.js';
 import { ACCOUNT_ALIAS, findObjects } from './toolset.js';
 import './actiontools.js';
 import { ActionEngine, type ActionProposal, type DecideInput, type DecideResult } from './actions.js';
@@ -672,20 +673,45 @@ export const PBC_ROUTED = PBC_TOOL_IDS;
    GROUNDING — a number in the narrative must be a fact's display value
    ================================================================================================ */
 const numTokens = (s: string) => (s.match(/\(?[$£€]?\d[\d,]*(?:\.\d+)?[MKB%]?\)?/g) ?? []).map((t) => t.replace(/[(),$£€]/g, ''));
-export function ground(sentences: { text: string; objectIds: string[]; factKeys: string[] }[], objects: FinancialObject[]) {
+/**
+ * A7 §1/§6 — AND A GOVERNED STATUS IS CHECKED HERE TOO, because this is the function the A6 defect walked
+ * through. The v1 conversational path is the one that answered "ties out, support complete, returned by the
+ * reviewer" about a reconciliation that does none of the first two: every number in that sentence was fine
+ * because there were none, and nothing looked at the words that mattered.
+ *
+ * The SAME verifier the v2 path and the agent runtime use, over claims promoted from the same objects this
+ * function is already given. No second implementation of one rule, and no extra model call: the statuses were
+ * in the tool results all along.
+ */
+export function ground(
+  sentences: { text: string; objectIds: string[]; factKeys: string[] }[],
+  objects: FinancialObject[],
+  disclose?: (text: string) => { text: string; suppressed: string[] },
+) {
   const allowed = new Set(objects.flatMap((o) => o.facts.flatMap((f) => numTokens(f.display))));
   /* identifiers (journal, account, project codes) are names, not figures */
   const idTokens = new Set(objects.flatMap((o) => [o.title, ...o.facts.map((f) => f.label), ...o.table.rows.map((r) => r.label)]).flatMap(numTokens));
   const accepted: typeof sentences = [];
   const rejected: { text: string; why: string }[] = [];
   const seen = new Set<string>();
+  /* A7 — the governed statuses these same objects returned, bound to the objects they belong to */
+  const claims = objects.flatMap((o) => claimsFrom(o));
+  const focus = claims.at(-1)?.object ?? null;
+  const suppressed: string[] = [];
   for (const s of sentences) {
     const bad = numTokens(s.text.replace(/\b(?:JE|REC|FLUX|RPT|PBC|POP|AUD|INV|PO|CTR|APR|WP|MEMO)-[A-Z0-9#-]+/gi, '').replace(/\b20\d\d(-\d\d)?\b/g, '')).filter((t) => !allowed.has(t) && !idTokens.has(t));
     if (bad.length) { rejected.push({ text: s.text, why: `ungrounded number ${bad.join(', ')}` }); continue; }
+    if (claims.length) {
+      const certain = verifySentence(s.text, claims, focus).failures.filter((f) => f.reason === 'OBJECT_MISMATCH' || f.reason === 'VALUE_MISMATCH' || f.reason === 'STALE_VERSION');
+      if (certain.length) { rejected.push({ text: s.text, why: failureNote(certain) }); continue; }
+    }
     if (seen.has(s.text)) continue;
-    seen.add(s.text); accepted.push(s);
+    /* §14 — an identity the reader may not see is not amplified into generated prose */
+    const d = disclose ? disclose(s.text) : { text: s.text, suppressed: [] as string[] };
+    for (const e of d.suppressed) if (!suppressed.includes(e)) suppressed.push(e);
+    seen.add(s.text); accepted.push(d.text === s.text ? s : { ...s, text: d.text });
   }
-  return { accepted, rejected };
+  return { accepted, rejected, suppressed };
 }
 function deterministicNarrative(objects: FinancialObject[]) {
   const out: { text: string; objectIds: string[]; factKeys: string[] }[] = [];
@@ -714,10 +740,29 @@ function deterministicNarrative(objects: FinancialObject[]) {
    DETERMINISTIC INTERPRETER — used when the adapter declines, fails or is unsure
    ================================================================================================ */
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-export function deterministicInterpret(text: string, data: FinancialDataService, ctx: SessionContext, recs: { id: string; name: string }[] = []): Interpretation {
+export function deterministicInterpret(text: string, data: FinancialDataService, ctx: SessionContext, recs: { id: string; name: string; entity?: string }[] = []): Interpretation {
   const t = text.toLowerCase();
-  /* a request that names a reconciliation (either catalog) is about THAT reconciliation, not the account its name contains */
-  const recHit = /reconcil|\brecs?\b/.test(t) ? recs.filter((r) => t.includes(r.name.toLowerCase())).sort((a, b) => b.name.length - a.name.length)[0] ?? null : null;
+  /**
+   * A request that names a reconciliation (either catalog) is about THAT reconciliation, not the account its
+   * name contains.
+   *
+   * A7 — AND THE ENTITY IT NAMES DECIDES BETWEEN TWO OF THE SAME NAME. "the MDH intercompany receivable
+   * reconciliation" contains the whole of the GROUP-level "Intercompany Receivable" and none of "Intercompany
+   * receivable — MDH vs foreign OpCos", so full-name matching chose the group one and answered correctly about
+   * an object nobody had asked about. A governed name commonly carries its entity as a suffix, so where the
+   * request names the entity SEPARATELY the match is against the name's core. With no entity named, nothing
+   * changes: the full-name rule stands exactly as it was.
+   */
+  const wordIn = (hay: string, needle: string) => new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`, 'i').test(hay);
+  const entities = [...new Set(recs.map((r) => r.entity).filter((e): e is string => !!e && e !== 'GROUP'))];
+  const namedEntity = entities.find((e) => wordIn(t, e.toLowerCase())) ?? null;
+  const pool = namedEntity ? recs.filter((r) => r.entity === namedEntity) : recs;
+  const core = (n: string) => n.split(/\s+[\u2014\u2013-]\s+/)[0]!.trim().toLowerCase();
+  const byLength = (a: { name: string }, b: { name: string }) => b.name.length - a.name.length;
+  const recHit = /reconcil|\brecs?\b/.test(t)
+    ? pool.filter((r) => t.includes(r.name.toLowerCase())).sort(byLength)[0]
+      ?? (namedEntity ? pool.filter((r) => core(r.name).length > 3 && t.includes(core(r.name))).sort(byLength)[0] ?? null : null)
+    : null;
   /* "show me the comments" reads comments; "add a comment" proposes one */
   const reads = /^\s*(show|list|view|read|display|what|which|who|get)\b/.test(t) && !/\b(add|attach|create|assign|post|write)\b/.test(t);
   const type = /income statement|p\s?&\s?l|profit and loss|p and l|statement of operations/.test(t) ? 'INCOME_STATEMENT'
@@ -1250,7 +1295,7 @@ export class SloaneOrchestrator {
           fast = cr.fast; I = fast.interpretation; tr.interpretationSource = 'conversation'; tr.route = 'FOLLOW_UP'; tr.shortcut = `conversation: ${fast.reason}`;
           status(fast.steps[0]!.purpose);
         } else if (deliverable) {
-          I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name })));
+          I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name, entity: d.entity })));
           tr.interpretationSource = 'deterministic'; tr.route = 'DELIVERABLE'; tr.shortcut = `deliverable: ${deliverable.map((x) => x.tool).join(', ')}`;
           status(deliverable[0]!.purpose);
         } else {
@@ -1334,7 +1379,7 @@ export class SloaneOrchestrator {
               I = out.value; tr.interpretationSource = 'reasoning';
               this.interpCache.set(ckey, JSON.parse(JSON.stringify(out.value))); if (this.interpCache.size > 300) this.interpCache.delete(this.interpCache.keys().next().value!);
             } else {
-              I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))); tr.interpretationSource = 'deterministic';
+              I = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name, entity: d.entity }))); tr.interpretationSource = 'deterministic';
               const why = out.status === 'ok' ? `low confidence (${out.value.confidence})` : out.status === 'declined' ? 'the reasoning service declined' : `the reasoning service failed: ${out.code}`;
               tr.fallbacks.push(`interpretation: deterministic — ${why}`);
               if (out.status === 'error') note('Sloane’s reasoning service was unavailable, so this request was interpreted by Korvyn’s deterministic engine.');
@@ -1342,7 +1387,7 @@ export class SloaneOrchestrator {
           }
           if (tr.interpretationSource === 'reasoning') {
             /* the engine overrules the model when the request names a reconciliation in full: it is about THAT one */
-            const named = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name }))).requestedObject.id;
+            const named = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name, entity: d.entity }))).requestedObject.id;
             if (named?.startsWith('recon:') && I.requestedObject.id !== named && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION') { I = { ...I, requestedObject: { ...I.requestedObject, type: 'RECONCILIATION', id: named } }; tr.fallbacks.push(`interpretation: named reconciliation ${named} overrides the model's object`); }
           }
           tr.route = 'FAST';
@@ -1578,7 +1623,8 @@ export class SloaneOrchestrator {
           if (cancelled()) return cancel();
           this.recordCall(tr, 'narrate', out); spend(out.status === 'ok' ? out.usage : null);
           if (out.status === 'ok') {
-            const g = ground(out.value.sentences, objects);
+            /* A7 §14 — the disclosure policy for synthesised prose, for this reader */
+            const g = ground(out.value.sentences, objects, (t) => this.controls.derivedDisclosure(t, visibleOf(actor)));
             tr.narrative.rejected = g.rejected;
             if (g.accepted.length) {
               narrative = g.accepted; tr.narrative.source = 'reasoning';

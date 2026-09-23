@@ -226,7 +226,7 @@ const trace = (over: Partial<KorvynTrace> = {}): KorvynTrace => ({
   proposals: [], references: { objectIds: [], factIds: [], evidenceIds: [], populationIds: [], artifactIds: [], proposalIds: [] },
   usage: { steps: 4, modelCalls: 6, toolCalls: 8, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, estimatedCostUsd: 0.1, latencyMs: 1000 },
   verification: { at: 'x', passed: true, checks: [] }, stopReason: null,
-  findings: [], withheldFindings: [], unresolved: [],
+  findings: [], withheldFindings: [], claims: [], unresolved: [],
   economy: { planning: { ...zeroPhase }, investigation: { ...zeroPhase }, preparation: { ...zeroPhase }, synthesis: { ...zeroPhase }, approval: { checkpoints: 0, decided: 0, waitMs: 0, resumedSteps: 0, resumedCostUsd: 0 } },
   origin: null, workproductId: null, result: { headline: 'h', findings: 0, narrative: [] }, ...over,
 });
