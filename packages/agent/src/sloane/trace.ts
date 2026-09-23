@@ -31,7 +31,7 @@
 import type { AgentRunBody } from './agent/model.js';
 import type { ModelCallRecord } from './agent/host.js';
 import { toolRegistry } from './tools.js';
-import { estimateCost } from './agent/investigate.js';
+import { estimateCost, findingsOf } from './agent/investigate.js';
 
 export type TraceKind = 'AGENT_RUN' | 'CONVERSATION_TURN' | 'MODULE_ACTION';
 
@@ -286,13 +286,18 @@ export function agentTrace(run: AgentRunBody, policy: { profile: string; autonom
      * never has to walk the observation graph itself. A finding's `observationRefs` are the run's own internal
      * step handles; what travels is the FinancialFact ids those observations carried.
      */
-    findings: (run.result?.investigation?.findings ?? []).map((f) => {
+    /**
+     * A6 — AND A RUN WAITING FOR A PERSON HAS ALREADY FOUND WHAT IT FOUND. `run.result` is materialised at
+     * SUMMARIZE, so reading it alone reported NOTHING for every prepare-first run — which is by design the
+     * exact case where a person is about to decide. Measured live: 8 findings in the synthesis, 0 in the trace.
+     */
+    findings: (run.result?.investigation?.findings ?? findingsOf(run.investigation)).map((f) => {
       const sev = run.result?.findings.find((x) => x.text === f.statement) ?? null;
       const factIds = uniq((f.observationRefs ?? []).flatMap((ref) => (inv?.observations ?? []).find((o) => o.ref === ref)?.facts.map((x) => x.id) ?? []));
       return { statement: f.statement, kind: f.kind, support: f.support, severity: sev?.severity ?? null, amountUsd: sev?.amountUsd ?? null, factIds, objectIds: f.objectIds ?? [] };
     }),
     withheldFindings: (inv?.synthesis?.rejected ?? []).map((r) => ({ statement: r.statement, reason: r.why })),
-    unresolved: run.result?.investigation?.unresolved ?? [],
+    unresolved: run.result?.investigation?.unresolved ?? run.investigation?.synthesis?.unresolved ?? [],
     economy: runEconomy(run),
     origin: run.origin ? { kind: run.origin, module: run.launchedFrom?.module ?? null, action: run.launchedFrom?.action ?? null, object: run.launchedFrom?.object ?? null } : null,
     workproductId: run.result ? `WP-${run.runId.replace(/^RUN-/, '')}` : null,
@@ -460,9 +465,20 @@ const SYNTH_TASK = new Set(['VERIFY', 'SUMMARIZE']);
 const zero = (): PhaseEconomy => ({ modelCalls: 0, modelMs: 0, toolCalls: 0, toolMs: 0, inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0 });
 
 export function runEconomy(run: AgentRunBody): RunEconomy {
+  /**
+   * A RUN PERSISTED BEFORE A FIELD EXISTED IS STILL A RUN, AND MUST STILL READ. `waterfall` arrived in A2 and
+   * this projection in A5, so every run recorded before them carries neither — and a projection that throws on
+   * one missing field makes the whole history unreadable, which is the opposite of what a durable trace is for.
+   * An absent measurement reads as nothing measured, never as a crash and never as a fabricated figure.
+   */
+  const waitMs = run.waterfall?.waitMs ?? 0;
+  const modelCalls = run.trace?.modelCalls ?? [];
+  const toolCalls = run.trace?.toolCalls ?? [];
+  const tasks = run.graph?.tasks ?? [];
+  const checkpoints = run.checkpoints ?? [];
   const e: RunEconomy = {
     planning: zero(), investigation: zero(), preparation: zero(), synthesis: zero(),
-    approval: { checkpoints: 0, decided: 0, waitMs: run.waterfall.waitMs, resumedSteps: 0, resumedCostUsd: 0 },
+    approval: { checkpoints: 0, decided: 0, waitMs, resumedSteps: 0, resumedCostUsd: 0 },
   };
   /* the REASONING: each THINK is attributed by what it chose to do */
   const S = run.investigation;
@@ -474,7 +490,7 @@ export function runEconomy(run: AgentRunBody): RunEconomy {
     b.estimatedCostUsd += estimateCost(st.model, { inputTokens: st.inputTokens, outputTokens: st.outputTokens, cacheReadTokens: st.cacheReadTokens });
   }
   /* classification, planning, synthesis and narration are recorded by stage on the model call itself */
-  for (const c of run.trace.modelCalls) {
+  for (const c of modelCalls) {
     const st = (c.stage ?? '').toLowerCase();
     const b = /synth|narrat|verif|summar/.test(st) ? e.synthesis : /classif|plan|objective/.test(st) ? e.planning : null;
     if (!b) continue;
@@ -482,16 +498,16 @@ export function runEconomy(run: AgentRunBody): RunEconomy {
     b.estimatedCostUsd += c.costUsd ?? 0;
   }
   /* the GOVERNED CALLS: attributed by the type of the task that made them */
-  const typeOf = new Map(run.graph.tasks.map((t) => [t.taskId, t.type as string]));
-  for (const t of run.trace.toolCalls) {
+  const typeOf = new Map(tasks.map((t) => [t.taskId, t.type as string]));
+  for (const t of toolCalls) {
     const ty = typeOf.get(t.taskId) ?? '';
     const b = PREP_TASK.has(ty) ? e.preparation : SYNTH_TASK.has(ty) ? e.synthesis : e.investigation;
     b.toolCalls += 1; b.toolMs += t.latencyMs;
   }
   /* what stopping for a person cost: the checkpoints, and the reasoning that ran after the first one was opened */
-  e.approval.checkpoints = run.checkpoints.length;
-  e.approval.decided = run.checkpoints.filter((c) => c.status !== 'OPEN').length;
-  if (run.checkpoints.length && S) {
+  e.approval.checkpoints = checkpoints.length;
+  e.approval.decided = checkpoints.filter((c) => c.status !== 'OPEN').length;
+  if (checkpoints.length && S) {
     const after = firstPrep >= 0 ? S.steps.slice(firstPrep + 1) : [];
     e.approval.resumedSteps = after.length;
     e.approval.resumedCostUsd = after.reduce((n, st) => n + estimateCost(st.model, { inputTokens: st.inputTokens, outputTokens: st.outputTokens, cacheReadTokens: st.cacheReadTokens }), 0);

@@ -25,11 +25,11 @@ import { workproductOf, type AgentWorkproduct } from './workproduct.js';
 import { type GoalDeps, detectGoalType, hasSubject, parseGoal, retitle } from './goals.js';
 import { type Ambiguity, applyCandidate, resolveTerms } from './ambiguity.js';
 import { type SteeringIntent, classifySteering } from './steering.js';
-import { AGENT_DOMAINS, CLASS_ROUTE, type AgentBudget, type AgentUsage, type CompactObservation, type FinancialFrame, type InvestigationState, allowedNumbers, budgetExhausted, compact, contextFor, defaultBudget, escalate, newInvestigation, progressLine, referentsOf, relax, relevant, synthesisContext, ungrounded } from './investigate.js';
+import { AGENT_DOMAINS, CLASS_ROUTE, type AgentBudget, type AgentUsage, type CompactObservation, type FinancialFrame, type InvestigationState, allowedNumbers, budgetExhausted, compact, contextFor, defaultBudget, escalate, findingsOf, newInvestigation, progressLine, referentsOf, relax, relevant, synthesisContext, ungrounded } from './investigate.js';
 import {
   type AgentCheckpoint, type AgentFinding, type AgentGoal, type AgentIntervention, type AgentObservation, type AgentRunBody, type AgentRunOptions,
   type AgentRunStatus, type AgentTask, type GoalType, type ObjectRef, type OutcomeClass, type ProfileId, type RunContext, type SteeringType, type UserSteeringEvent,
-  POLICY_PROFILES, PROFILE_FOR, TERMINAL, WAITING, refsOf,
+  POLICY_PROFILES, PROFILE_FOR, TERMINAL, WAITING, anchorWorkClass, refsOf,
 } from './model.js';
 import { classifyObjective, profileForOutcome } from './objective.js';
 
@@ -61,6 +61,22 @@ function runBudget(profile: { maxSteps: number; maxRuntimeMs: number; budget?: P
 }
 /** A2 §14: a profile's INNER loop budget — the deployment's defaults with the profile's overrides on top */
 export const profileBudget = (p: { budget?: Partial<AgentBudget> }): AgentBudget => ({ ...defaultBudget(), ...(p.budget ?? {}) });
+
+/**
+ * A3 §4 / A6 — CAPABILITY → ACTION TYPE, exported so it can be checked rather than trusted. Every value here and
+ * every `preparableActions` entry must be a type `ACTION_POLICY` classifies; a test asserts both, which is the
+ * analogue of A5's "every check a profile names exists" and is what the `ADD_RECON_COMMENT` split would have
+ * cost nothing to catch.
+ */
+export const PROPOSE_ACTION_TYPE: Record<string, string> = {
+  proposeFluxComment: 'ADD_FLUX_COMMENT', proposeFluxCommentUpdate: 'UPDATE_FLUX_COMMENT',
+  proposeReconciliationComment: 'ADD_RECONCILIATION_COMMENT', proposeReconciliationCommentUpdate: 'UPDATE_RECONCILIATION_COMMENT',
+  proposeIssue: 'CREATE_ISSUE', proposeSupportAttachment: 'ATTACH_SUPPORT', proposeReviewerAssignment: 'ASSIGN_REVIEWER',
+  proposeSupportPackage: 'CREATE_SUPPORT_PACKAGE', proposeSaveInvestigation: 'CREATE_SHARED_INVESTIGATION',
+  proposeGenerateExcelArtifact: 'GENERATE_EXCEL_ARTIFACT', proposeSaveExcelArtifact: 'SAVE_EXCEL_ARTIFACT',
+  proposeArchiveExcelArtifact: 'ARCHIVE_EXCEL_ARTIFACT', proposeRefreshExcelArtifact: 'REFRESH_EXCEL_ARTIFACT',
+  proposeRefreshPBCRequest: 'REFRESH_PBC_REQUEST', proposeSaveAnalysis: 'SAVE_ANALYSIS', proposeSaveReport: 'SAVE_REPORT_DEFINITION',
+};
 /** the run's usage in the shape `budgetExhausted` reads — one budget engine, two callers (the run and its investigation) */
 /**
  * A1 §10 — the book and lens a run's facts are promoted under. This server presents one governed book; when a run
@@ -248,9 +264,11 @@ export class AgentRuntime {
     run.waterfall.classifyMs += Date.now() - t0;
     if (c.call) this.model(run, { ...c.call, cls: 'M1' });
     /* a caller that ASKED for a profile is honoured only as far as the actor's authority allows (§7) */
-    const d = profileForOutcome(c.outcome, actor, run.goal.requestedProfile, c.workClass ?? null);
+    /* A6 §13 — the model read the words; where its class selects no profile, the GOVERNED ANCHOR is tried next */
+    const anchor = anchorWorkClass(g);
+    const d = profileForOutcome(c.outcome, actor, run.goal.requestedProfile, c.workClass ?? null, anchor);
     g.outcome = c.outcome; g.outcomeSource = c.source === 'model' ? 'model' : 'deterministic';
-    if (c.workClass) g.workClass = c.workClass;
+    if (c.workClass ?? anchor) g.workClass = c.workClass ?? anchor;
     this.applyProfile(run, d.profile, c.needsDeepReasoning);
     const p = POLICY_PROFILES[d.profile];
     if (p.execution !== 'GENERIC') g.type = p.execution;
@@ -393,18 +411,16 @@ export class AgentRuntime {
      * no profile, and is refused: unknown fails CLOSED, exactly as ActionGovernance does with an unknown type.
      * A capability added without an entry here is therefore unreachable rather than ungoverned — which is the
      * right way round, and is how `proposeReviewerAssignment` was silently unusable until A3.
+     *
+     * A6 — AND THE NAME HERE MUST BE THE ACTION REGISTRY'S NAME, not a second vocabulary for the same act. The
+     * first live RECONCILIATION suite found `proposeReconciliationComment` mapped to `ADD_RECON_COMMENT` while
+     * `ACTION_POLICY` — and therefore the proposal the tool actually creates — says `ADD_RECONCILIATION_COMMENT`.
+     * Five profiles carried the wrong name too, so the gate matched itself and let the action through while the
+     * executed proposal carried a type no profile declared. A gate comparing against a name nothing else uses is
+     * not a gate. Its own pair, `proposeReconciliationCommentUpdate`, was right all along, which is the tell.
      */
-    const m: Record<string, string> = {
-      proposeFluxComment: 'ADD_FLUX_COMMENT', proposeFluxCommentUpdate: 'UPDATE_FLUX_COMMENT',
-      proposeReconciliationComment: 'ADD_RECON_COMMENT', proposeReconciliationCommentUpdate: 'UPDATE_RECONCILIATION_COMMENT',
-      proposeIssue: 'CREATE_ISSUE', proposeSupportAttachment: 'ATTACH_SUPPORT', proposeReviewerAssignment: 'ASSIGN_REVIEWER',
-      proposeSupportPackage: 'CREATE_SUPPORT_PACKAGE', proposeSaveInvestigation: 'CREATE_SHARED_INVESTIGATION',
-      proposeGenerateExcelArtifact: 'GENERATE_EXCEL_ARTIFACT', proposeSaveExcelArtifact: 'SAVE_EXCEL_ARTIFACT',
-      proposeArchiveExcelArtifact: 'ARCHIVE_EXCEL_ARTIFACT', proposeRefreshExcelArtifact: 'REFRESH_EXCEL_ARTIFACT',
-      proposeRefreshPBCRequest: 'REFRESH_PBC_REQUEST', proposeSaveAnalysis: 'SAVE_ANALYSIS', proposeSaveReport: 'SAVE_REPORT_DEFINITION',
-    };
     if (t.tool === 'prepareGovernedAction') return t.args['actionType'] ?? 'GOVERNED';
-    return t.tool && t.tool.startsWith('propose') ? m[t.tool] ?? t.tool : null;
+    return t.tool && t.tool.startsWith('propose') ? PROPOSE_ACTION_TYPE[t.tool] ?? t.tool : null;
   }
 
   /* ================================================================================================
@@ -1767,10 +1783,10 @@ export class AgentRuntime {
   }
   private investigationResult(run: AgentRunBody): NonNullable<AgentRunBody['result']>['investigation'] {
     const S = run.investigation!, syn = S.synthesis;
-    const objOf = (ref: string) => S.observations.find((o) => o.ref === ref)?.objectId ?? null;
+    /* A6 — ONE projection of what the run established, read by the result here and by the trace (`findingsOf`) */
     return {
       understanding: S.understanding, goalClass: S.goalClass, inspected: syn?.inspected ?? [],
-      findings: (syn?.findings ?? []).map((f) => ({ statement: f.statement, kind: f.kind, support: f.support, observationRefs: f.observationRefs, objectIds: f.observationRefs.map(objOf).filter((x): x is string => !!x) })),
+      findings: findingsOf(S),
       unresolved: syn?.unresolved ?? S.openQuestions, nextSteps: syn?.nextSteps ?? [], confidence: syn?.confidence ?? null,
       populations: [...new Set(S.observations.map((o) => o.population?.populationId).filter((x): x is string => !!x))],
       objects: S.observations.filter((o) => o.status === 'OK').map((o) => ({ ref: o.ref, objectId: o.objectId, title: o.title })),

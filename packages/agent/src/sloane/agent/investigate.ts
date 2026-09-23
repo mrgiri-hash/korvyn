@@ -367,6 +367,29 @@ export interface Synthesis {
   rejected: { statement: string; why: string }[];
   cls: CapabilityClass; model: string | null;
 }
+/**
+ * A6 — THE FINDINGS A RUN HAS ESTABLISHED, WITH THEIR GOVERNED HANDLES, projected from the investigation itself
+ * rather than from the finished result. Two things were wrong before this existed, and they were the same thing:
+ *
+ *   A RUN WAITING FOR A PERSON HAS ALREADY FOUND WHAT IT FOUND. `run.result` is materialised at SUMMARIZE, so a
+ *   run stopped at a confirmation checkpoint — which is every prepare-first run, by design — projected NO findings
+ *   at all. Measured live: a RECONCILIATION run held 8 findings in its synthesis and its trace reported zero, so
+ *   the reviewer being asked to confirm an action saw prepared work with no analysis behind it, and the harness
+ *   scored it as having established nothing.
+ *
+ *   A HANDLE MUST NAME SOMETHING GOVERNED. `objectId` is `RUN-…-x21-1`: unique to one run and resolvable to
+ *   nothing. The observation already carries the refs the read returned — reconciliation, account, entity,
+ *   population — filtered to identities, never a status.
+ *
+ * The runtime's own result and the trace both read THIS, so the two can no longer say different things.
+ */
+export function findingsOf(S: InvestigationState | null | undefined) {
+  const handles = (ref: string): string[] => {
+    const o = S?.observations.find((x) => x.ref === ref);
+    return o ? [o.objectId, ...Object.values(o.refs ?? {})].filter((x): x is string => !!x) : [];
+  };
+  return (S?.synthesis?.findings ?? []).map((f) => ({ statement: f.statement, kind: f.kind as string, support: f.support as string, observationRefs: f.observationRefs, objectIds: [...new Set(f.observationRefs.flatMap(handles))] }));
+}
 export function newInvestigation(): InvestigationState {
   return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, described: [], startedAt: Date.now() };
 }

@@ -142,8 +142,18 @@ export async function classifyObjective(host: AgentHost, text: string, signal?: 
  * declares, or none at all, falls back to the outcome's own default — which is exactly the pre-A4 behaviour, so
  * a deployment whose model never states one is unaffected.
  */
-function profileFor(outcome: OutcomeClass, workClass?: string | null): ProfileId {
-  if (workClass) {
+/**
+ * A6 §13 — CLASSES ARE TRIED IN ORDER, AND THE FIRST ONE THAT SELECTS ANYTHING WINS. The model's own reading
+ * comes first because it read the words. What made a second candidate necessary is that a class NOTHING declares
+ * selects nothing at all and falls through to the outcome's default — so "Investigate this variance." from the
+ * Reconciliations page was read as a variance explanation, which no profile serves, and the run got the generic
+ * investigation profile while anchored on a reconciliation the whole time (measured live, twice: filling only a
+ * NULL class was not enough). The governed anchor is that second candidate, and it is consulted ONLY when the
+ * model's own answer picked nothing — never over it.
+ */
+function profileFor(outcome: OutcomeClass, ...classes: (string | null | undefined)[]): ProfileId {
+  for (const workClass of classes) {
+    if (!workClass) continue;
     const fits = (Object.keys(POLICY_PROFILES) as ProfileId[])
       .filter((id) => POLICY_PROFILES[id].servesClasses?.includes(workClass) && POLICY_PROFILES[id].serves.includes(outcome))
       .sort((a, b) => (POLICY_PROFILES[a].servesClasses!.length - POLICY_PROFILES[b].servesClasses!.length) || a.localeCompare(b));
@@ -162,8 +172,8 @@ export interface ProfileDecision { profile: ProfileId; outcome: OutcomeClass; ca
  *   2. an actor who cannot prepare anything is CAPPED to a read-only profile, whatever the objective asked for,
  *      and the run states that it was capped rather than silently doing less than was asked.
  */
-export function profileForOutcome(outcome: OutcomeClass, actor: Actor, requested?: ProfileId, workClass?: string | null): ProfileDecision {
-  const wanted = requested && POLICY_PROFILES[requested] ? requested : profileFor(outcome, workClass);
+export function profileForOutcome(outcome: OutcomeClass, actor: Actor, requested?: ProfileId, workClass?: string | null, anchorClass?: string | null): ProfileDecision {
+  const wanted = requested && POLICY_PROFILES[requested] ? requested : profileFor(outcome, workClass, anchorClass);
   const p = POLICY_PROFILES[wanted];
   if (p.autonomy >= 2 && !actor.permissions.includes(PREPARE_CAPABILITY))
     return { profile: 'INVESTIGATION', outcome, capped: true, reason: `${actor.role} may not prepare work in Korvyn, so this runs read-only: it will state what it found and what would need preparing.` };

@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSloaneConfig } from '../../config.js';
 import { MockLLMAdapter } from '../../adapter.js';
-import { AgentEvalHarness, historyEntry, type RoutingOverride } from './harness.js';
+import { AgentEvalHarness, historyEntry, variance, type RoutingOverride } from './harness.js';
 import type { AgentEvalScenario, EvalHistoryEntry, ScenarioResult, ScenarioSuite } from './model.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +31,8 @@ const repeat = Math.max(1, Number(arg('repeat') ?? 1));
 const only = arg('scenario')?.split(',');
 const wantProfile = arg('profile');
 const estimateOnly = flag('estimate');
+/* A6 §2 — label this set of live results as a named reference point */
+const baseline = arg('baseline');
 
 /* ---- the suites ------------------------------------------------------------------------------- */
 const dir = join(here, 'scenarios');
@@ -78,6 +80,7 @@ console.log(`${live ? 'LIVE' : 'DETERMINISTIC'} · ${selected.length} scenario(s
 /* ---- run --------------------------------------------------------------------------------------- */
 const money = (n: number) => `$${n.toFixed(4)}`;
 const results: { sc: AgentEvalScenario; suite: ScenarioSuite; runs: ScenarioResult[] }[] = [];
+const variances: ReturnType<typeof variance>[] = [];
 for (const { suite, sc } of selected) {
   const runs: ScenarioResult[] = [];
   for (let k = 0; k < repeat; k++) runs.push(await harness.run(sc));
@@ -97,11 +100,18 @@ for (const { suite, sc } of selected) {
     for (const s of r.softFailures) console.log(`      soft  ${s}`);
     for (const nn of r.notes) console.log(`      note  ${nn}`);
   }
-  if (repeat > 1) {
-    const passed = runs.filter((r) => r.verdict === 'PASS').length;
-    const known = sc.expectedFindings ?? [];
-    console.log(`      ×${repeat}  passed ${passed}/${repeat}` +
-      known.map((e) => ` · ${e.id} found ${runs.filter((r) => r.coverage?.found.some((f) => f.id === e.id)).length}/${repeat}`).join(''));
+  if (repeat > 1 && runs.some((r) => r.verdict !== 'SKIPPED')) {
+    const v = variance(sc, runs);
+    console.log(`      ×${v.runs}  passed ${v.passed}/${v.runs}` +
+      v.findingConsistency.map((f) => ` · ${f.id} ${f.foundIn}/${f.of}`).join('') +
+      ` · ${Math.round(v.latencyMs.min / 1000)}–${Math.round(v.latencyMs.max / 1000)}s` +
+      ` · $${v.costUsd.min.toFixed(3)}–$${v.costUsd.max.toFixed(3)}` +
+      ` · ${v.modelCalls.min}–${v.modelCalls.max}m ${v.toolCalls.min}–${v.toolCalls.max}t` +
+      (v.falsePositives.total ? ` · ${v.falsePositives.total} false positive(s)` : ''));
+    /* §3 — a hard failure is never a rate: every one, in the run it happened in */
+    for (const h of v.hardFailures) console.log(`      ×${repeat} HARD (run ${h.run})  ${h.failure}`);
+    for (const m of v.missFrequency.filter((x) => x.missedIn)) console.log(`      ×${repeat} MISSED (${m.missedIn}/${m.of})  ${m.label} [${m.severity}]`);
+    variances.push(v);
   }
 }
 
@@ -118,11 +128,20 @@ const all = results.flatMap((r) => r.runs);
 const passed = all.filter((r) => r.verdict === 'PASS').length;
 const cost = all.reduce((n, r) => n + r.economics.estimatedCostUsd, 0);
 const skipped = all.filter((r) => r.verdict === 'SKIPPED').length;
-console.log(`${passed}/${all.length - skipped} passed${skipped ? ` · ${skipped} skipped (need a model — run with --live)` : ''} · ${money(cost)}${live ? '' : ' (deterministic — no provider call)'}`);
+console.log(`${passed}/${all.length - skipped} passed${skipped ? ` · ${skipped} skipped (need a model — run with --live)` : ''} · ${money(cost)}${live ? '' : ' (deterministic — no provider call)'}${baseline ? ` · labelled ${baseline}` : ''}`);
+if (variances.length) {
+  console.log('\nvariance across repeats');
+  console.table(variances.map((v) => ({ scenario: v.scenarioId, runs: v.runs, passed: v.passed,
+    'found': v.findingConsistency.map((f) => `${f.id} ${f.foundIn}/${f.of}`).join(', ') || '-',
+    'hard failures': v.hardFailures.length, 'false pos': v.falsePositives.total,
+    'latency s': `${Math.round(v.latencyMs.min / 1000)}/${Math.round(v.latencyMs.median / 1000)}/${Math.round(v.latencyMs.max / 1000)}`,
+    'cost $': `${v.costUsd.min.toFixed(3)}/${v.costUsd.median.toFixed(3)}/${v.costUsd.max.toFixed(3)}`,
+    'model': `${v.modelCalls.min}/${v.modelCalls.max}`, 'tools': `${v.toolCalls.min}/${v.toolCalls.max}` })));
+}
 
 /* ---- §14 the regression record, appended ------------------------------------------------------- */
 if (!flag('no-history') && live) {
-  for (const { sc, suite, runs } of results) for (const r of runs) history.push(historyEntry(r, sc, harness.cfg, 'LIVE', suite.suite));
+  for (const { sc, suite, runs } of results) for (const r of runs) { if (r.verdict === 'SKIPPED') continue; history.push(historyEntry(r, sc, harness.cfg, 'LIVE', suite.suite, baseline)); }
   mkdirSync(dirname(histFile), { recursive: true });
   writeFileSync(histFile, JSON.stringify(history, null, 1));
   console.log(`appended ${all.length} result(s) to ${histFile.split('src')[1]}`);

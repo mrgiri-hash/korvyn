@@ -205,6 +205,13 @@ export interface EvalHistoryEntry {
   /** which build */
   commit: string | null;
   mode: 'LIVE' | 'DETERMINISTIC';
+  /**
+   * A6 §2 — THE NAME OF A REFERENCE POINT. Every live result is kept (§14 forbids overwriting), so a label is
+   * how a set of them becomes a BASELINE a later run can be compared against rather than one more row. It is
+   * carried on the entry, not stored separately: a baseline that lived in its own file could disagree with the
+   * results it claims to summarise.
+   */
+  baseline?: string;
   /** the outcome */
   verdict: string;
   hardFailures: string[];

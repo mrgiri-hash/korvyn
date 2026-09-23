@@ -194,6 +194,27 @@ test('§6 — a statement the runtime had to withhold is reported', () => {
   assert.equal(r.verdict, 'FAIL');
 });
 
+test('§6 — an ORGANISATION is not an invented owner — the first live baseline proved this', () => {
+  /* "Meridian Property" is the shape of a person's name and is a governed entity; accusing a run of inventing it
+     is a false failure, and a false failure teaches a reader to discount the real ones */
+  const r = score({ scenario: scenario(), trace: trace({ findings: [finding({ statement: '4 blockers sit with Meridian Property Co' })] }),
+    workproduct: wp(), hiddenEntities: [], knownPeople: ['Mitra Giri'], knownOrgs: ['Meridian Property Co', 'MER-UK'] });
+  assert.ok(!failed(r, 'close.fabricated'), 'an entity name is not a person');
+});
+
+test('§6 — a PERIOD is not an invented owner either — the same baseline proved that too', () => {
+  /* "For Jun 2026 there are 10 material flux items…" opens with two capitalised words; a month is the book's
+     own word for a period, so the pattern was reading a date as a person */
+  for (const statement of ['For Jun 2026 there are 10 material flux items', 'The Jun 2026 close has 15 blockers']) {
+    const r = score({ scenario: scenario(), trace: trace({ findings: [finding({ statement })] }),
+      workproduct: wp(), hiddenEntities: [], knownPeople: ['Mitra Giri'], knownOrgs: [] });
+    assert.ok(!failed(r, 'close.fabricated'), `a month is not a person: "${statement}"`);
+  }
+  /* and the check still catches what it exists to catch */
+  const bad = run(trace({ findings: [finding({ statement: 'Jun items are held by Alex Fairfax' })] }), scenario());
+  assert.ok(failed(bad, 'close.fabricated'), 'a real invented name still fails beside a month');
+});
+
 test('§6 — a person the record does not name is an invented owner', () => {
   const bad = run(trace({ findings: [finding({ statement: 'The reconciliation is held by Alex Fairfax' })] }), scenario());
   assert.ok(failed(bad, 'close.fabricated'), 'a name outside the roster fails');

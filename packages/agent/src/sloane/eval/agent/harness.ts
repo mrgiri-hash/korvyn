@@ -95,7 +95,9 @@ function expectations(sc: AgentEvalScenario, profileId: string | null) {
   return [...fromProfile, ...fromScenario];
 }
 
-export interface ScoreInput { scenario: AgentEvalScenario; trace: KorvynTrace | null; workproduct: AgentWorkproduct | null; hiddenEntities: { id: string; name: string }[]; knownPeople: string[]; notes?: string[]; mode?: 'LIVE' | 'DETERMINISTIC' }
+export interface ScoreInput { scenario: AgentEvalScenario; trace: KorvynTrace | null; workproduct: AgentWorkproduct | null; hiddenEntities: { id: string; name: string }[]; knownPeople: string[];
+  /** the governed names of ORGANISATIONS, so a person-shaped check does not accuse a run of inventing an entity */
+  knownOrgs?: string[]; notes?: string[]; mode?: 'LIVE' | 'DETERMINISTIC' }
 
 /** Score a finished run. Pure: the same trace always scores the same way, so a result can be recomputed later. */
 export function score(i: ScoreInput): ScenarioResult {
@@ -142,7 +144,7 @@ export function score(i: ScoreInput): ScenarioResult {
 
   const input = (args: Record<string, string | number | boolean>): CheckInput => ({
     trace, workproduct: i.workproduct, scenario: sc, coverage: base.coverage, hiddenEntities: i.hiddenEntities,
-    args: { knownPeople: i.knownPeople.join('|'), ...args },
+    args: { knownPeople: i.knownPeople.join('|'), knownOrgs: (i.knownOrgs ?? []).join('|'), ...args },
   });
 
   /**
@@ -216,6 +218,11 @@ export class AgentEvalHarness {
     return [...out];
   }
 
+  /** the governed names of every entity — read from the ledger, so it cannot go stale the way a list would */
+  private orgs(): string[] {
+    return this.orch.gl.entities().flatMap((e) => [e.name, e.id]);
+  }
+
   async run(sc: AgentEvalScenario): Promise<ScenarioResult> {
     /* skipped before anything is spent, not after */
     if (sc.requiresModel && this.o.mode === 'DETERMINISTIC') return score({ scenario: sc, trace: null, workproduct: null, hiddenEntities: [], knownPeople: [], mode: 'DETERMINISTIC' });
@@ -247,7 +254,7 @@ export class AgentEvalHarness {
 
     const trace = runId ? this.orch.agentService.trace(runId, actor) : null;
     const workproduct = runId ? this.orch.agents.workproduct(runId, actor) : null;
-    return score({ scenario: sc, trace, workproduct, hiddenEntities: this.hidden(actor), knownPeople: this.people(), notes, mode: this.o.mode });
+    return score({ scenario: sc, trace, workproduct, hiddenEntities: this.hidden(actor), knownPeople: this.people(), knownOrgs: this.orgs(), notes, mode: this.o.mode });
   }
 
   /** let the run reach a resting state, answering a clarification and taking the scenario's approval path */
@@ -295,10 +302,56 @@ export class AgentEvalHarness {
   }
 }
 
+/**
+ * A6 §3 — VARIANCE ACROSS REPEATS, AND WHAT IT MAY NOT HIDE.
+ *
+ * A frontier model is nondeterministic, so a scenario run three times is three samples of one behaviour, and the
+ * honest report is a distribution. But a distribution is also how a serious failure disappears: "passed 2 of 3"
+ * reads as mostly fine, and if the one failure was an unapproved write it is not mostly fine at all.
+ *
+ * So HARD failures are listed individually, every run that produced one, and they are never expressed as a rate.
+ * A rate is for the things that genuinely vary — which finding a run happened to reach, what it cost, how long
+ * it took. Whether it wrote something nobody approved does not vary; it either happened or it did not.
+ */
+export interface VarianceReport {
+  scenarioId: string;
+  runs: number;
+  passed: number;
+  findingConsistency: { id: string; label: string; severity: string; foundIn: number; of: number }[];
+  missFrequency: { id: string; label: string; severity: string; missedIn: number; of: number }[];
+  falsePositives: { total: number; perRun: number };
+  /** §3 — every hard failure, every run it happened in. Never a rate. */
+  hardFailures: { run: number; failure: string }[];
+  latencyMs: { min: number; median: number; max: number };
+  costUsd: { min: number; median: number; max: number };
+  modelCalls: { min: number; median: number; max: number };
+  toolCalls: { min: number; median: number; max: number };
+}
+
+const spread = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return { min: s[0] ?? 0, median: s[Math.floor(s.length / 2)] ?? 0, max: s[s.length - 1] ?? 0 };
+};
+
+export function variance(sc: AgentEvalScenario, runs: ScenarioResult[]): VarianceReport {
+  const known = sc.expectedFindings ?? [];
+  return {
+    scenarioId: sc.id, runs: runs.length, passed: runs.filter((r) => r.verdict === 'PASS').length,
+    findingConsistency: known.map((e) => ({ id: e.id, label: e.label, severity: e.severity, foundIn: runs.filter((r) => r.coverage?.found.some((f) => f.id === e.id)).length, of: runs.length })),
+    missFrequency: known.map((e) => ({ id: e.id, label: e.label, severity: e.severity, missedIn: runs.filter((r) => r.coverage?.missed.some((m) => m.id === e.id)).length, of: runs.length })),
+    falsePositives: { total: runs.reduce((n, r) => n + (r.coverage?.falsePositives.length ?? 0), 0), perRun: runs.length ? runs.reduce((n, r) => n + (r.coverage?.falsePositives.length ?? 0), 0) / runs.length : 0 },
+    hardFailures: runs.flatMap((r, k) => r.hardFailures.map((f) => ({ run: k + 1, failure: f }))),
+    latencyMs: spread(runs.map((r) => r.economics.latencyMs)),
+    costUsd: spread(runs.map((r) => r.economics.estimatedCostUsd)),
+    modelCalls: spread(runs.map((r) => r.economics.modelCalls)),
+    toolCalls: spread(runs.map((r) => r.economics.toolCalls)),
+  };
+}
+
 /* ================================================================================================
    §14 — THE REGRESSION RECORD
    ================================================================================================ */
-export function historyEntry(r: ScenarioResult, sc: AgentEvalScenario, cfg: SloaneConfig, mode: 'LIVE' | 'DETERMINISTIC', suite: string): EvalHistoryEntry {
+export function historyEntry(r: ScenarioResult, sc: AgentEvalScenario, cfg: SloaneConfig, mode: 'LIVE' | 'DETERMINISTIC', suite: string, baseline?: string): EvalHistoryEntry {
   let commit: string | null = null;
   try { commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim(); } catch { /* a build outside a checkout still records a result */ }
   const p = r.profile ? (Object.keys(POLICY_PROFILES) as ProfileId[]).find((id) => POLICY_PROFILES[id].label === r.profile) : null;
@@ -309,6 +362,7 @@ export function historyEntry(r: ScenarioResult, sc: AgentEvalScenario, cfg: Sloa
     at: new Date().toISOString(), suite, scenarioId: sc.id, scenarioVersion: sc.version, dataset: sc.dataset,
     profile: r.profile, profileVersion,
     provider: cfg.provider, defaultModel: cfg.defaultModel, advancedModel: cfg.advancedModel, commit, mode,
+    ...(baseline ? { baseline } : {}),
     verdict: r.verdict, hardFailures: r.hardFailures, missed: (r.coverage?.missed ?? []).map((m) => m.id),
     falsePositives: r.coverage?.falsePositives.length ?? 0, economics: r.economics,
   };
