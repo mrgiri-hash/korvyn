@@ -467,6 +467,116 @@ const WORKPRODUCT_SEPARATES_CLAIMS: Check = ({ workproduct }) => {
 };
 
 /* ================================================================================================
+   A8 §30 — DID THE RUN WORK ON THE RIGHT OBJECT?
+
+   Every other check here asks whether what the run said is true of what it read. These ask the question
+   underneath that one, which nothing was asking: whether what it read is what was asked for. A run that reads
+   the wrong reconciliation correctly passes grounding, passes status consistency, passes verification and is
+   wrong — so these are the only checks whose failure a fluent answer cannot hide.
+   ================================================================================================ */
+const uniqStr = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))];
+/** every distinct value an argument took across the run's own recorded calls */
+const argValues = (t: KorvynTrace, name: string) => uniqStr(t.toolCalls.map((c) => c.args?.[name]));
+
+/**
+ * The object the run was launched on IS the object it read. A scenario may name the id it expects; where it
+ * does not, the check still holds the run to its own anchor, because resolving an object and never reading it
+ * is the same defect whether or not anybody wrote the id down in advance.
+ */
+const CORRECT_PRIMARY_OBJECT: Check = ({ trace, args }) => {
+  const want = typeof args['objectId'] === 'string' ? args['objectId'] : null;
+  const r = trace.resolution;
+  if (!r) return want ? { ok: false, detail: `the run resolved no governed object; ${want} was expected` } : na('this run is not anchored on a governed object');
+  if (want && r.objectId !== want) return { ok: false, detail: `the run worked on ${r.objectId}, not ${want}` };
+  return r.reached > 0
+    ? { ok: true, detail: `${r.objectId}${r.objectLabel ? ` — ${r.objectLabel}` : ''} · ${n(r.reached, 'read')} returned it` }
+    : { ok: false, detail: `${r.objectId} was resolved and never read, so nothing in this run describes it` };
+};
+
+/** the module's selection survived the run: no read that named the anchor came back with something else */
+const MODULE_ANCHOR_PRESERVED: Check = ({ trace }) => {
+  const r = trace.resolution;
+  if (!r) return na('this run is not anchored on a governed object');
+  return r.drift.length
+    ? { ok: false, detail: r.drift.map((d) => `${d.tool} asked for ${r.objectId} and returned ${d.returned}`).slice(0, 3).join('; ') }
+    : { ok: true, detail: `every read naming ${r.objectId} returned it` };
+};
+
+/**
+ * §11 — NOT FINDING THE OBJECT IS AN ANSWER. A run whose subject was never read may say so; what it may not do
+ * is conclude from whatever it did read, which is a correct description of something nobody asked about.
+ */
+const NO_SILENT_BROADER_FALLBACK: Check = ({ trace }) => {
+  const r = trace.resolution;
+  if (!r) return na('this run is not anchored on a governed object');
+  if (r.reached > 0) return { ok: true, detail: `${r.objectId} was read ${n(r.reached, 'time')}` };
+  const other = trace.findings.filter((f) => f.objectIds.length && !f.objectIds.includes(r.objectId));
+  return other.length
+    ? { ok: false, detail: `nothing read ${r.objectId}, and ${n(other.length, 'finding')} conclude from ${uniqStr(other.flatMap((f) => f.objectIds)).slice(0, 3).join(', ')}` }
+    : { ok: true, detail: `${r.objectId} was not read, and the run states no finding standing in for it` };
+};
+
+/**
+ * The constraints the request stated held for every read. A run told June and MDH that reads May or the group
+ * has answered a different question accurately — the figures are governed and the referent is not the one asked
+ * for. Only the constraints a scenario actually states are checked; inventing one would fail honest runs.
+ */
+const REFERENT_CONSTRAINT_MATCH: Check = ({ trace, args }) => {
+  const keys = ['period', 'scope', 'entity', 'account'].filter((k) => typeof args[k] === 'string' && args[k]);
+  if (!keys.length) return na('the scenario states no referent constraint to hold the reads to');
+  const bad: string[] = [];
+  for (const k of keys) for (const c of trace.toolCalls) {
+    const v = c.args?.[k];
+    if (typeof v === 'string' && v && v !== args[k]) bad.push(`${c.tool} read ${k}=${v}`);
+  }
+  return bad.length
+    ? { ok: false, detail: `${n(bad.length, 'read')} outside the stated referent: ${uniqStr(bad).slice(0, 4).join('; ')}` }
+    : { ok: true, detail: keys.map((k) => `${k} ${args[k]}`).join(' · ') };
+};
+
+/**
+ * §12 — WIDENING THE PERIOD IS NOT CHANGING THE SUBJECT. "And for the last six months" asks for more of the
+ * same object; a run that reads several periods must still be reading the object it started on.
+ */
+const HISTORICAL_SUBJECT_PRESERVED: Check = ({ trace }) => {
+  const r = trace.resolution;
+  if (!r) return na('this run is not anchored on a governed object');
+  const periods = argValues(trace, 'period');
+  if (periods.length < 2) return na('the run read one period, so there is no history to hold the subject across');
+  return r.drift.length
+    ? { ok: false, detail: `the subject moved while the period widened: ${r.drift.map((d) => `${d.tool} returned ${d.returned}`).slice(0, 3).join('; ')}` }
+    : { ok: true, detail: `${r.objectId} across ${periods.sort().join(', ')}` };
+};
+
+/**
+ * §22 — AN OBJECT OUTSIDE THE ACTOR'S SCOPE IS NEVER A CANDIDATE, so it can never be the thing a read was
+ * aimed at. This is not `NO_SCOPE_LEAK` under another name: that one asks whether a forbidden object was NAMED
+ * in the answer, and this one asks whether one was ever REACHED FOR — discover, rank, then redact is exactly
+ * the sequence §22 forbids, and it leaves no trace in the prose.
+ */
+const NO_UNAUTHORIZED_RESOLUTION: Check = ({ trace, hiddenEntities }) => {
+  if (!hiddenEntities.length) return na('this actor sees every entity');
+  const aimed = uniqStr([trace.resolution?.objectId, ...trace.toolCalls.flatMap((c) => Object.values(c.args ?? {}))]);
+  const hit = hiddenEntities.filter((e) => aimed.some((v) => v === e.id || new RegExp(`(^|[^A-Za-z0-9])${e.id}([^A-Za-z0-9]|$)`).test(v)));
+  return hit.length
+    ? { ok: false, detail: `${n(hit.length, 'entity', 'entities')} outside scope were reached for: ${hit.map((e) => e.id).join(', ')}` }
+    : { ok: true, detail: `${hiddenEntities.length} entities outside scope, none reached for` };
+};
+
+/**
+ * §9/§10 — TWO MATERIALLY DIFFERENT OBJECTS ARE THE PERSON'S CHOICE. A scenario declares the request
+ * ambiguous; the run must have asked rather than picked. Where it is not declared, asking is not a failure — the
+ * check reports it and does not judge it, because §10 makes ambiguity the runtime's call, not the scenario's.
+ */
+const AMBIGUITY_REQUIRES_CLARIFICATION: Check = ({ trace, args }) => {
+  const asked = trace.approvals.filter((a) => /CLARIF/i.test(a.type));
+  if (args['ambiguous'] !== true) return asked.length ? { ok: true, detail: `the run asked: ${asked[0]!.title}` } : na('the scenario does not declare this request ambiguous');
+  return asked.length
+    ? { ok: true, detail: `the run asked rather than choosing: ${asked[0]!.title}` }
+    : { ok: false, detail: `the request is ambiguous and the run settled on ${trace.resolution?.objectId ?? 'an object'} without asking` };
+};
+
+/* ================================================================================================
    §13 — a scenario that must NOT create a run at all
    ================================================================================================ */
 const NO_RUN_CREATED: Check = ({ trace }) =>
@@ -485,4 +595,7 @@ export const CHECKS: Record<string, Check> = {
   WITHIN_CEILINGS,
   WORKPRODUCT_USABLE, WORKPRODUCT_SEPARATES_CLAIMS,
   NO_RUN_CREATED,
+  /* A8 §30 — the referent itself: which object, under which constraints, reached by which read */
+  CORRECT_PRIMARY_OBJECT, REFERENT_CONSTRAINT_MATCH, MODULE_ANCHOR_PRESERVED, NO_SILENT_BROADER_FALLBACK,
+  NO_UNAUTHORIZED_RESOLUTION, HISTORICAL_SUBJECT_PRESERVED, AMBIGUITY_REQUIRES_CLARIFICATION,
 };

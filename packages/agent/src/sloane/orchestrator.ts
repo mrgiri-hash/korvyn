@@ -30,6 +30,8 @@ import { DIMENSION_KEYS, GovernedLedger } from './governed.js';
 import { type Interpretation, validateInterpretation } from './schema.js';
 import { type Actor, type Domain, type FinancialObject, type SloaneTool, type ToolArgs, type ToolEnv, authorize, serverActor, toolRegistry, visibleOf, WRITE_ACTIONS_ENABLED } from './tools.js';
 import { claimsFrom, failureNote, verifySentence } from './v2/claims.js';
+import { type ResolvedReferent, clarificationFor, inheritObject, notFoundNote, resolveReferent, verifyReturned } from './v2/resolve.js';
+import type { ObjectRef } from './agent/model.js';
 import { ACCOUNT_ALIAS, findObjects } from './toolset.js';
 import './actiontools.js';
 import { ActionEngine, type ActionProposal, type DecideInput, type DecideResult } from './actions.js';
@@ -798,6 +800,8 @@ export interface SloaneExecutionTrace {
   contextBefore: unknown; candidatesSupplied: number; governedPeriods: string[];
   interpretation: Interpretation | null; interpretationSource: 'reasoning' | 'deterministic' | 'clarification' | 'conversation' | null;
   resolution: Resolved | null;
+  /** A8 §16 — how the governed OBJECT was chosen: candidates, constraints, rejections, basis, verification */
+  referentResolution: import('./v2/resolve.js').ResolutionTelemetry | null;
   classification: string | null;
   clarification: (ClarDecision & { asked: string | null; options: string[] }) | null;
   toolsExposed: { domains: string[]; tools: string[] };
@@ -834,7 +838,13 @@ export interface TurnHooks { emit?: (e: TurnEvent) => void; signal?: AbortSignal
 const STRUCTURAL = new Set(['ExcelWorkbookPreview', 'PBCRequest', 'PBCSupportGaps', 'AgentRun']);
 export interface TurnInput { sessionId?: unknown; request?: unknown; clarification?: unknown; /** the page the browser has open — display context only, never a financial fact */ view?: unknown;
   /** Phase 8C: what the person pointed at — canonical ids only (a canvas row ref, a grid row or cell id), never a label */
-  focus?: unknown }
+  focus?: unknown;
+  /**
+   * A8 §5 — THE MODULE'S OWN SELECTION: the governed object the surface has open when the question is asked.
+   * It is a canonical id from the page, never a label and never a financial fact, and it is what makes "why is
+   * this off?" answerable at all — a request that names nothing is about the thing on screen.
+   */
+  anchor?: unknown }
 /** 8C.2: the active workspace a response leaves on screen, when the route did not state it */
 function workspaceOf(objects: FinancialObject[]): TurnResponse['workspace'] {
   const a = objects.find((o) => o.type === 'FinancialAnalysis'), c = objects.find((o) => o.type === 'DynamicFinancialCanvas'), o = objects.find((x) => !x.action && x.status !== 'UNAVAILABLE');
@@ -849,6 +859,15 @@ const focusOf = (f: unknown): TurnFocus | null => {
   for (const k of ['ref', 'rowId', 'cellId', 'analysisId'] as const) if (typeof o[k] === 'string' && (o[k] as string).length <= 600) out[k] = o[k] as string;
   if (typeof o['command'] === 'string' && (UI_COMMANDS as readonly string[]).includes(o['command'])) out.command = o['command'] as UiCommand;
   return Object.keys(out).length ? out : null;
+};
+/** A8 §5: a module anchor off the wire — canonical ids, a short label for the wording, nothing else */
+const anchorOf = (a: unknown): ObjectRef | null => {
+  if (!a || typeof a !== 'object') return null;
+  const o = a as Record<string, unknown>;
+  const id = typeof o['id'] === 'string' ? o['id'].slice(0, 120) : '';
+  const type = typeof o['type'] === 'string' ? o['type'].slice(0, 40) : '';
+  if (!id || !type) return null;
+  return { type, id, ...(typeof o['label'] === 'string' ? { label: o['label'].slice(0, 160) } : {}) };
 };
 /**
  * §7 — THE PRESENTATION DECISION, MADE ONCE AND CARRIED EXPLICITLY.
@@ -925,6 +944,10 @@ interface Session {
   /** the turn still running (a newer one supersedes it) and the context it started from */
   inflight: { ac: AbortController; ctxBefore: SessionContext } | null;
   titled: boolean;
+  /** A8 §5: the module's selection, as last stated by the surface — it persists until the surface changes it */
+  anchor?: ObjectRef | null;
+  /** A8 §6/§12: the governed object this conversation is on, so a request naming nothing stays with it */
+  object?: ObjectRef | null;
   /** 8C.2: the ops of the clarification option just chosen, applied as-is by the next analysis turn */
   resumeOps?: AnalysisOp[] | null;
   /** Phase 7: the agent run the last answer was about — a short instruction ("Only South Valley.") steers it */
@@ -1099,13 +1122,19 @@ export class SloaneOrchestrator {
     const inflight = { ac, ctxBefore: JSON.parse(JSON.stringify(session.ctx)) as SessionContext };
     session.inflight = inflight;
     const cancelled = () => ac.signal.aborted;
+    /**
+     * A8 §5 — THE SURFACE STATES ITS SELECTION; KORVYN NEVER GUESSES IT. An anchor that arrives is taken as
+     * canonical ids only, and an explicit null CLEARS it: closing a reconciliation is the surface saying the
+     * conversation is no longer about it, and an anchor nothing can retract would outlive its own screen.
+     */
+    if ('anchor' in input) session.anchor = anchorOf(input.anchor);
     const request = typeof input.request === 'string' ? input.request.trim().slice(0, LIMITS.maxRequestChars) : '';
     const tr: SloaneExecutionTrace = {
       traceId: `STR-${randomUUID().slice(0, 8)}`, sessionId, startedAt: new Date(t0).toISOString(), endedAt: null, latencyMs: null,
       actor: { id: actor.id, role: actor.role, scope: actor.scopeIds }, writeActionsEnabled: WRITE_ACTIONS_ENABLED,
       engine: { provider: this.adapter.provider, model: this.adapter.model, defaultModel: this.adapter.models?.default ?? null, advancedModel: this.adapter.models?.advanced ?? null }, request, resumedFromTrace: null,
       calls: [], contextBefore: this.context.forModel(session.ctx), candidatesSupplied: 0, governedPeriods: this.data.governedPeriods(),
-      interpretation: null, interpretationSource: null, resolution: null, classification: null, clarification: null,
+      interpretation: null, interpretationSource: null, resolution: null, referentResolution: null, classification: null, clarification: null,
       toolsExposed: { domains: [], tools: [] }, plan: { source: null, proposed: [], validation: null }, toolsExecuted: [], objects: [],
       narrative: { source: null, accepted: 0, rejected: [] }, contextAfter: null, tokens: { input: 0, output: 0, cacheRead: 0 },
       limitsReached: [], fallbacks: [], warnings: [], state: null, errors: [], proposals: [],
@@ -1119,6 +1148,8 @@ export class SloaneOrchestrator {
     /* §13/§29: real, plan-driven status — what Korvyn is doing now, never a canned spinner line */
     const status = (text: string) => { if (tr.timings.firstStatusMs === null) tr.timings.firstStatusMs = Date.now() - t0; hooks.emit?.({ type: 'status', text }); };
     let suggestions: string[] = [];
+    /* A8 §8 — the governed object this turn resolved, kept so what comes BACK can be checked against it */
+    let referent: ResolvedReferent | null = null;
     let kind: TurnKind | null = null;
 
     const finish = (state: TurnState, extra: Partial<TurnResponse> = {}): TurnResponse => {
@@ -1385,10 +1416,99 @@ export class SloaneOrchestrator {
               if (out.status === 'error') note('Sloane’s reasoning service was unavailable, so this request was interpreted by Korvyn’s deterministic engine.');
             }
           }
-          if (tr.interpretationSource === 'reasoning') {
-            /* the engine overrules the model when the request names a reconciliation in full: it is about THAT one */
-            const named = deterministicInterpret(request, this.data, session.ctx, this.controls.allRecDefs().map((d) => ({ id: d.id, name: d.name, entity: d.entity }))).requestedObject.id;
-            if (named?.startsWith('recon:') && I.requestedObject.id !== named && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION') { I = { ...I, requestedObject: { ...I.requestedObject, type: 'RECONCILIATION', id: named } }; tr.fallbacks.push(`interpretation: named reconciliation ${named} overrides the model's object`); }
+          /**
+           * A8 §2 — THE MODEL SAYS WHAT KIND OF THING THE REQUEST IS ABOUT; KORVYN DECIDES WHICH ONE.
+           *
+           * "Which one?" is only a question for an object that HAS rivals. A statement, a trial balance, the
+           * ledger and the close are settled by period and scope — there is one income statement for June at
+           * a scope, and nothing to choose between. Running identity resolution over them found "income" in
+           * an account's name and turned "review that income statement and tell me what needs attention" into
+           * a question about which account was meant: a clarification-heavy experience §10 rules out, produced
+           * by a layer reaching past what it is for. A null type is a generic follow-up — the case the module
+           * anchor exists for — so it stays in.
+           */
+          const RESOLVED_KINDS = new Set(['RECONCILIATION', 'ACCOUNT', 'ACCOUNT_GROUP', 'JOURNAL', 'FLUX', 'REPORT', 'AUDIT_POPULATION', 'EVIDENCE', 'INVOICE', 'SUPPORT_PACKAGE', 'EXCEL_ARTIFACT']);
+          const aboutAnObject = I.requestedObject.type === null || RESOLVED_KINDS.has(I.requestedObject.type);
+          /**
+           * WHAT KORVYN MAY DO WITH THE RESULT DEPENDS ON WHO READ THE REQUEST, and the difference is not a
+           * hedge — it is two different jobs.
+           *
+           * Over the REASONING ENGINE's reading, resolution CHECKS an object the model chose: it may replace
+           * it, and it may stop and ask. That is the A7 defect this phase exists to close.
+           *
+           * Over KORVYN'S OWN deterministic reading — which is what an elliptical follow-up falls back to,
+           * since "why is this off?" carries almost nothing to be confident about — resolution only FILLS A
+           * GAP the interpreter could not fill: the object on screen, or the one the conversation is already
+           * about. It never overrides a subject that reading did choose, and it never asks. Letting it do
+           * more was tried and reverted the same day: that interpreter already resolves its object
+           * entity-aware (A7), and resolving on top of it broke the SEMANTIC routing — "which reconciliation
+           * supports this balance?" stopped reaching the tool that answers it, because the subject had been
+           * rewritten before the planner saw the question.
+           */
+          const modelRead = tr.interpretationSource === 'reasoning';
+          if (aboutAnObject) {
+            /**
+             * A8 §3/§4 — KORVYN DECIDES WHICH GOVERNED OBJECT, AND A HARD CONSTRAINT FILTERS RATHER THAN SCORES.
+             *
+             * The model proposes an object from a candidate list; the list is ordered by label overlap, and the
+             * shortest title that fits wins ties. That is how "the MDH intercompany receivable reconciliation"
+             * came to be answered with the GROUP-level "Intercompany Receivable" — whose whole name is inside
+             * the request, while the MDH one's is not. The answer was then perfectly grounded and about the
+             * wrong object, which is the class this phase closes.
+             *
+             * A governed attribute the person NAMED is not a tie-breaker. A candidate carrying that attribute
+             * and disagreeing is a different object and is removed before anything is ranked.
+             */
+            const rr = this.resolveObject(request, session, I);
+            tr.referentResolution = rr.telemetry;
+            /* §5/§6: what the surface has open, or what the conversation is on — a subject Korvyn supplies rather than checks */
+            const carried = rr.resolutionBasis === 'MODULE_ANCHOR' || rr.resolutionBasis === 'CONVERSATION_REFERENT';
+            const mayOverride = modelRead || (carried && !I.requestedObject.id);
+            if (mayOverride && rr.objectRef && rr.resolutionBasis !== 'NONE' && I.intent !== 'ACT' && I.intent !== 'BUILD' && I.intent !== 'CORRECTION') {
+              const named = `${rr.objectRef.type === 'reconciliation' ? 'recon' : rr.objectRef.type}:${rr.objectRef.id}`;
+              if (I.requestedObject.id !== named) {
+                I = { ...I, requestedObject: { ...I.requestedObject, type: rr.objectRef.type === 'reconciliation' ? 'RECONCILIATION' : I.requestedObject.type, id: named } };
+                tr.fallbacks.push(`resolution: ${named} (${rr.resolutionBasis}) overrides the model's object`);
+              }
+            }
+            referent = rr;
+            /**
+             * A8 §6 — THE CONVERSATION'S OBJECT IS WHAT THIS TURN RESOLVED, and it is only replaced when the
+             * turn actually settled on something. A turn that resolved nothing leaves it standing: that is the
+             * whole point of a referent, and clearing it on every unnamed follow-up would be the same as never
+             * having one.
+             */
+            if (rr.objectRef) session.object = rr.objectRef;
+
+            /**
+             * A8 §9/§10 — TWO MATERIALLY DIFFERENT OBJECTS ARE THE PERSON'S CHOICE, NOT A TIE-BREAK.
+             *
+             * "Show me the cash reconciliation" over six authorized cash reconciliations has no right answer,
+             * and recency or alphabetical order producing a confident one is the same failure as reading the
+             * wrong object — it just looks decisive. Asked ONLY when the constraints the person stated leave
+             * more than one standing (§10), so a request that names its entity never reaches this.
+             */
+            const q = modelRead ? clarificationFor(rr) : null;
+            if (q && I.intent !== 'ACT' && I.intent !== 'BUILD') {
+              const opts = rr.ambiguous.slice(0, 4).map((a) => ({ id: a.ref, label: a.label }));
+              session.pending = { id: `CLR-${randomUUID().slice(0, 8)}`, request, interpretation: interp(), field: 'object', options: opts, loops: 0, traceId: tr.traceId,
+                requests: Object.fromEntries(rr.ambiguous.slice(0, 4).map((a) => [a.ref, `${request} (${a.label})`])) };
+              tr.route = 'FOLLOW_UP'; tr.shortcut = 'resolution: ambiguous governed object'; kind = 'CLARIFICATION';
+              return finish('CLARIFICATION_REQUIRED', { clarification: { pendingId: session.pending.id, field: 'object', question: q, options: opts } });
+            }
+
+            /**
+             * §11 — NO SILENT FALLBACK TO A BROADER OBJECT. Asked for an MDH prepaid reconciliation that does
+             * not exist, answering the group prepaid one is a correct description of something nobody asked
+             * for. The broader object is OFFERED and never substituted.
+             */
+            const nf = modelRead ? notFoundNote(rr) : null;
+            if (nf && I.intent !== 'ACT' && I.intent !== 'BUILD') {
+              tr.route = 'FOLLOW_UP'; tr.shortcut = 'resolution: no governed object satisfies the request'; kind = 'ANSWER';
+              note(nf);
+              if (rr.broaderAlternative) suggestions = [`Show me ${rr.broaderAlternative.label}`];
+              return finish('UNAVAILABLE');
+            }
           }
           tr.route = 'FAST';
         }
@@ -1581,6 +1701,30 @@ export class SloaneOrchestrator {
       }
       tr.timings.toolsMs = Date.now() - tx;
       tr.objects = objects.map((o) => ({ id: o.id, type: o.type, title: o.title, status: o.status, facts: o.facts.length }));
+      /**
+       * A8 §8 — DID THE READ COME BACK WITH THE OBJECT THAT WAS ASKED FOR?
+       *
+       * Resolution can be wrong; what must not happen is that being wrong goes unnoticed. Where the turn
+       * resolved a governed object, at least one returned record has to BE it. A run may legitimately read
+       * related objects — a counterparty, a prior period, the account beneath it (§20) — so the test is not
+       * "every object matches", it is "the subject was reached". If it was not, the answer would describe
+       * something else entirely, which is the A7 defect with every downstream control still reporting success.
+       */
+      if (referent?.objectRef) {
+        const want = referent.objectRef;
+        const checks = objects.map((o) => verifyReturned(referent!, { refs: o.refs ?? {}, period: o.periodLabel, scope: o.scope?.name ?? null, type: o.type }));
+        const reached = objects.some((o, i) => !checks[i]!.unverifiable && checks[i]!.ok && Object.values(o.refs ?? {}).includes(want.id));
+        const anyIdentity = checks.some((c) => !c.unverifiable);
+        if (anyIdentity && !reached) {
+          const got = objects.flatMap((o) => Object.entries(o.refs ?? {}).filter(([k]) => /Id$/.test(k)).map(([, v]) => v)).slice(0, 3);
+          tr.referentResolution = { ...(tr.referentResolution ?? referent.telemetry), verified: false, verificationFailures: [`resolved ${want.id}; the reads returned ${got.join(', ') || 'no matching identity'}`] };
+          tr.fallbacks.push(`referent verification failed: resolved ${want.id}, reads returned ${got.join(', ') || 'nothing matching'}`);
+          note(`Korvyn could not read ${want.label ?? want.id} for this request, so this answer does not describe it.`);
+          suggestions = [`Show me ${want.label ?? want.id}`];
+          return finish('UNAVAILABLE');
+        }
+        if (tr.referentResolution) tr.referentResolution = { ...tr.referentResolution, verified: anyIdentity ? true : null };
+      }
       /* §31: a partial failure answers with what did run and says which part did not */
       const failed = tr.toolsExecuted.filter((x) => x.status === 'FAILED' || x.status === 'SKIPPED');
       if (failed.length && objects.length) note(`Part of this answer could not be produced (${failed.map((x) => x.tool).join(', ')}); the rest is governed and shown.`);
@@ -2048,6 +2192,31 @@ export class SloaneOrchestrator {
     const R = this.context.resolve(I, s.ctx, goalText);
     return { steps: deterministicPlan(goalText, I, R, s.ctx, this.gl), source: 'deterministic', calls };
   }
+  /**
+   * A8 §2 — WHICH GOVERNED OBJECT THIS REQUEST IS ABOUT, as one result with its basis and its telemetry.
+   *
+   * The candidates are the ones `findObjects` already produced, which are permission- and visibility-filtered
+   * (§22: an object the actor may not see is never a candidate, so there is nothing to discover and redact).
+   * What this adds is the DECISION: hard constraints filter, soft signals order, an anchor outranks a search,
+   * and two materially different survivors are the person's choice rather than a tie-break.
+   */
+  resolveObject(request: string, session: { ctx: SessionContext; anchor?: ObjectRef | null; object?: ObjectRef | null }, _I?: Interpretation): ResolvedReferent {
+    const actor = this.actorOf();
+    const env = { gl: this.gl, controls: this.controls, visible: visibleOf(actor), actor };
+    const defs = new Map(this.controls.allRecDefs().map((d) => [d.id, d]));
+    const candidates = findObjects(env, request, 14).map((h) => ({
+      ref: h.ref, kind: h.kind, name: h.name, s: h.s,
+      ...(defs.get(h.ref.replace(/^recon:/, ''))?.entity ? { entity: defs.get(h.ref.replace(/^recon:/, ''))!.entity } : {}),
+    }));
+    const r = resolveReferent({
+      request, candidates,
+      catalogues: { entities: this.gl.entities().map((e) => ({ id: e.id, name: e.name })), objectIds: [...defs.keys()], periods: this.data.governedPeriods() },
+      ...(session.anchor ? { anchor: session.anchor } : {}),
+      context: { period: session.ctx.period.value, scope: session.ctx.scope.value },
+    });
+    return inheritObject(r, session.object ?? null);
+  }
+
   /** a grounded summary of a run's milestone objects: the model writes sentences, grounding rejects any figure it did not receive */
   async agentNarrate(request: string, objects: FinancialObject[], signal?: AbortSignal): Promise<{ sentences: string[]; source: 'reasoning' | 'deterministic'; rejected: number; call: ReturnType<SloaneOrchestrator['callRecord']> | null }> {
     const det = deterministicNarrative(objects).map((n) => n.text);
@@ -2228,6 +2397,13 @@ export class SloaneOrchestrator {
     const c = session.ctx, i = this.convInfo(session, actor, view);
     return {
       page: view ? `${view} (reported by the browser)` : null,
+      /**
+       * A8 §5 — THE OBJECT THE SURFACE HAS OPEN. Without it "why is this off?" reads as a question about
+       * nothing, and the front door answers it conversationally — measured live, with a reconciliation on
+       * screen the whole time. The model is told WHAT is open so it knows the request is governed; Korvyn
+       * still decides which object the reads are aimed at.
+       */
+      openObject: session.anchor ? `${session.anchor.label ?? session.anchor.id} (${session.anchor.type} ${session.anchor.id}, open on screen)` : null,
       period: periodLabel(c.period.value), scope: this.data.scope(c.scope.value)?.name ?? c.scope.value, focus: c.focus.value?.name ?? null,
       investigation: i.investigation, activeRun: i.run,
       lastAnswer: session.lastObjects.slice(0, 3).map((o) => ({ title: o.title, figures: o.facts.slice(0, 8).map((f) => `${f.label}: ${f.display}`) })),

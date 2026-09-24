@@ -21,6 +21,7 @@
  */
 import { toolRegistry, type Actor, type FinancialObject, type SloaneTool } from '../tools.js';
 import type { GovernedClaim } from '../v2/claims.js';
+import type { ObjectRef } from './model.js';
 import { periodLabel } from '../financials.js';
 import { FLUX_MATERIALITY, TIE_TOLERANCE_USD } from '../controls.js';
 
@@ -366,6 +367,15 @@ export interface InvestigationState {
    * when the governed read happened and when its object identity is still attached.
    */
   claims: GovernedClaim[];
+  /**
+   * A8 §7/§19 — THE INVESTIGATION ANCHOR: the governed object this run was launched on, how many reads have
+   * actually REACHED it, and every read that named it and came back with something else. An open loop chooses
+   * its own next call, so the subject is the one thing nothing else was holding — and a run that never reads
+   * the object it is about can still produce a fluent, fully grounded answer about a different one.
+   */
+  anchor: ObjectRef | null;
+  anchorReached: number;
+  anchorDrift: { step: number; tool: string; returned: string }[];
   startedAt: number;
 }
 export interface Synthesis {
@@ -398,8 +408,8 @@ export function findingsOf(S: InvestigationState | null | undefined) {
   };
   return (S?.synthesis?.findings ?? []).map((f) => ({ statement: f.statement, kind: f.kind as string, support: f.support as string, observationRefs: f.observationRefs, objectIds: [...new Set(f.observationRefs.flatMap(handles))] }));
 }
-export function newInvestigation(): InvestigationState {
-  return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, claims: [], described: [], startedAt: Date.now() };
+export function newInvestigation(anchor: ObjectRef | null = null): InvestigationState {
+  return { goalClass: null, understanding: null, budget: defaultBudget(), usage: emptyUsage(), notes: [], openQuestions: [], observations: [], rejected: [], requested: [], steps: [], escalations: [], nextClass: 'M2', invalidStreak: 0, rejectStreak: 0, stopReason: null, synthesis: null, claims: [], anchor, anchorReached: 0, anchorDrift: [], described: [], startedAt: Date.now() };
 }
 export interface FinancialFrame { objective: string; period: string; comparisonPeriod: string | null; governedPeriods: string[]; workingPeriod: string; scope: string; subject: Record<string, string | null>; constraints: { exclude: string[]; focusFirst: string[]; instructions: string[] }; activeAnalysis: unknown | null; actorRole: string }
 const FULL_KEEP = 4;

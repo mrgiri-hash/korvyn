@@ -40,7 +40,7 @@ function trace(over: Partial<KorvynTrace> = {}): KorvynTrace {
     usage: { steps: 6, modelCalls: 9, toolCalls: 12, inputTokens: 40000, outputTokens: 9000, cacheReadTokens: 30000, estimatedCostUsd: 0.28, latencyMs: 110_000 },
     verification: { at: 'x', passed: true, checks: [{ check: 'c', ok: true, detail: 'd' }] },
     stopReason: null,
-    findings: [], withheldFindings: [], claims: [], unresolved: [],
+    findings: [], withheldFindings: [], resolution: null, claims: [], unresolved: [],
     economy: { planning: { ...zeroPhase }, investigation: { ...zeroPhase }, preparation: { ...zeroPhase }, synthesis: { ...zeroPhase }, approval: { checkpoints: 0, decided: 0, waitMs: 0, resumedSteps: 0, resumedCostUsd: 0 } },
     origin: { kind: 'CONVERSATION', module: null, action: null, object: null },
     workproductId: 'WP-1',

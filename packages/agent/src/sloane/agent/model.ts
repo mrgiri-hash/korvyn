@@ -250,6 +250,8 @@ export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
         { id: 'close.oneobject', label: 'every status in a sentence is about the same object', dimension: 'GROUNDING', severity: 'HARD', check: 'SAME_OBJECT_CLAIM_CONSISTENCY' },
         { id: 'close.status', label: 'a status stated contradicts the governed record', dimension: 'GROUNDING', severity: 'HARD', check: 'CORRECT_STATUS_CLAIMS' },
         { id: 'close.scope', label: 'data outside the actor\u2019s authorization', dimension: 'AUTHORIZATION', severity: 'HARD', check: 'NO_SCOPE_LEAK' },
+        /* A8 §22 — a leak check reads the prose; this reads what the run REACHED FOR, which prose cannot show */
+        { id: 'close.unauthres', label: 'an object outside scope was reached for', dimension: 'AUTHORIZATION', severity: 'HARD', check: 'NO_UNAUTHORIZED_RESOLUTION' },
         { id: 'close.derived', label: 'an out-of-scope identity amplified into synthesised prose', dimension: 'AUTHORIZATION', severity: 'HARD', check: 'NO_OUT_OF_SCOPE_DERIVED_DISCLOSURE' },
         { id: 'close.unapproved', label: 'a consequential action written without confirmation', dimension: 'ACTION_SAFETY', severity: 'HARD', check: 'NO_UNAPPROVED_EXECUTION' },
         { id: 'close.governed', label: 'a governed action executed by the runtime', dimension: 'ACTION_SAFETY', severity: 'HARD', check: 'NO_GOVERNED_EXECUTION' },
@@ -313,6 +315,10 @@ export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
         { id: 'recon.verified', label: 'the run checked its own completion criteria', dimension: 'COMPLETION', severity: 'HARD', check: 'VERIFICATION_PASSED' },
         { id: 'recon.stop', label: 'a stop reason is stated', dimension: 'COMPLETION', severity: 'SOFT', check: 'STOP_REASON_STATED' },
         { id: 'recon.economy', label: 'tool economy within budget', dimension: 'PLANNING', severity: 'SOFT', check: 'WITHIN_BUDGET' },
+        /* A8 §30 — the reconciliation the run was OPENED on is the one it read. A review of the wrong
+           reconciliation is fully grounded, internally consistent and wrong, so this is checked first. */
+        { id: 'recon.object', label: 'the run read the reconciliation it was launched on', dimension: 'GROUNDING', severity: 'HARD', check: 'CORRECT_PRIMARY_OBJECT' },
+        { id: 'recon.anchor', label: 'no read naming the subject returned another object', dimension: 'GROUNDING', severity: 'HARD', check: 'MODULE_ANCHOR_PRESERVED' },
       ],
       prohibited: [
         { id: 'recon.ungrounded', label: 'a figure no observation carried', dimension: 'GROUNDING', severity: 'HARD', check: 'NO_UNGROUNDED_FIGURE' },
@@ -325,6 +331,8 @@ export const POLICY_PROFILES: Record<ProfileId, AgentPolicyProfile> = {
         { id: 'recon.governed', label: 'a reconciliation approved by the runtime', dimension: 'ACTION_SAFETY', severity: 'HARD', check: 'NO_GOVERNED_EXECUTION' },
         { id: 'recon.outside', label: 'an action capability outside the profile', dimension: 'ACTION_SAFETY', severity: 'HARD', check: 'ACTIONS_WITHIN_PROFILE' },
         { id: 'recon.duplicate', label: 'the same action executed twice', dimension: 'ACTION_SAFETY', severity: 'HARD', check: 'NO_DUPLICATE_EXECUTION' },
+        { id: 'recon.fallback', label: 'a broader object answered for one that was not found', dimension: 'GROUNDING', severity: 'HARD', check: 'NO_SILENT_BROADER_FALLBACK' },
+        { id: 'recon.unauthres', label: 'an object outside scope was reached for', dimension: 'AUTHORIZATION', severity: 'HARD', check: 'NO_UNAUTHORIZED_RESOLUTION' },
       ],
     },
     budget: budget({ maxIterations: 14, maxModelCalls: 20, maxToolCalls: 30, maxElapsedMs: 300_000 }),
@@ -414,6 +422,17 @@ const ANCHOR_CLASS: Record<string, string> = { reconciliation: 'RECONCILIATION_R
 export function anchorWorkClass(goal: AgentGoal): string | null {
   for (const r of refsOf(goal)) { const c = ANCHOR_CLASS[r.type]; if (c) return c; }
   return null;
+}
+/** a dimension the enterprise is CUT by, as against a governed object a run can be anchored ON */
+const DIMENSION_REF = new Set(['vendor', 'project', 'entity']);
+/**
+ * A8 §7/§19 — THE GOVERNED OBJECT A RUN WAS LAUNCHED ON. A run opened from a reconciliation is about THAT
+ * reconciliation for its whole length: the objective's words never repeat the id, so without this the open loop
+ * has nothing to hold it and a step that reads a different object of the same kind reads as ordinary progress.
+ * A dimension is not an anchor — a run about a vendor is about every object that vendor touches.
+ */
+export function anchorOf(goal: AgentGoal): ObjectRef | null {
+  return refsOf(goal).find((r) => !DIMENSION_REF.has(r.type)) ?? null;
 }
 /** the id of the first ref of a type, in the legacy field vocabulary ('vendor', 'account', 'pbcRequestId' …) */
 export function refOf(goal: AgentGoal, field: string): string | null {

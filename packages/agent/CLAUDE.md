@@ -213,6 +213,16 @@ draw twice or reach the screen as `{{FACT:…}}`. `statusWords()` keeps a raw en
 Verified by an eight-turn browser acceptance run and three screenshots, not by tests alone. Full record in the
 root CLAUDE.md, *SLOANE RUNTIME V3*.
 
+**A8 (2026-09-24):** governed object resolution + referent verification. `src/sloane/v2/resolve.ts` — hard constraints
+FILTER (an entity, an id, a period, a book, a basis, a lens, and the object KIND the request names) and soft signals only
+ORDER what survives; a module anchor (`session.anchor`, stated by the surface) and the conversation's own object
+(`session.object`) hold unless the request names another object with HIGH confidence; two materially different candidates
+ask rather than pick, and a request that names NOTHING stays in context; nothing found is said, never answered with the
+broader object. Post-retrieval verification: a turn that resolved an object must have READ it, on the conversational path
+and, via the investigation anchor, on the agent path. `KorvynTrace.resolution` and
+`SloaneExecutionTrace.referentResolution`; seven eval checks in `eval/agent/checks.ts`. `a8.test.ts`;
+`npm run sloane:a8-live` (spends credits). Full record in the root CLAUDE.md, *A8*.
+
 **Phase 3D (2026-09-17):** one book — Flux comments (keyed by FS lines), reconciliation workflow, close task status and saved
 reports are read and written by the workspace and Sloane through the same store (`book.ts`, seeded from `browser-book.json` by
 `tools/extract-browser-book.mjs`). Session hardening: HttpOnly SameSite cookie, per-session CSRF token (`X-Korvyn-CSRF`), Origin check,

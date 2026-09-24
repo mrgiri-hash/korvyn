@@ -181,6 +181,19 @@ export interface KorvynTrace {
    * What was rejected is already in `withheldFindings`, with the reason, so the two read together.
    */
   claims: { claimType: string; objectType: string; objectId: string; value: string; display: string; period: string; scope: string; version: string | null; provenance: string }[];
+  /**
+   * A8 §17 — HOW THE SUBJECT WAS DECIDED, and whether the reads came back with it. Every other block here
+   * describes what was done to an object; this one is the only evidence for WHICH object, which is the step a
+   * grounded but wrong answer passes cleanly through. Null where the surface resolved nothing: a run about a
+   * period or a dimension is not anchored on an object, and saying so is not the same as saying it drifted.
+   */
+  resolution: {
+    objectId: string; objectLabel: string | null; objectType: string;
+    /** reads that returned the object the run is about */
+    reached: number;
+    /** reads that ASKED for it and returned something else — the wrong-object defect, caught rather than assumed */
+    drift: { step: number; tool: string; returned: string }[];
+  } | null;
   /** what the run could not establish, stated rather than inferred */
   unresolved: string[];
   /** A5 §11: where the run's time and money went, by phase */
@@ -304,6 +317,9 @@ export function agentTrace(run: AgentRunBody, policy: { profile: string; autonom
       return { statement: f.statement, kind: f.kind, support: f.support, severity: sev?.severity ?? null, amountUsd: sev?.amountUsd ?? null, factIds, objectIds: f.objectIds ?? [] };
     }),
     withheldFindings: (inv?.synthesis?.rejected ?? []).map((r) => ({ statement: r.statement, reason: r.why })),
+    resolution: inv?.anchor
+      ? { objectId: inv.anchor.id, objectLabel: inv.anchor.label ?? null, objectType: inv.anchor.type, reached: inv.anchorReached ?? 0, drift: inv.anchorDrift ?? [] }
+      : null,
     claims: (inv?.claims ?? []).map((c) => ({ claimType: c.claimType, objectType: c.object.type, objectId: c.object.id, value: c.value, display: c.display, period: c.period, scope: c.scope, version: c.version, provenance: c.provenance })),
     unresolved: run.result?.investigation?.unresolved ?? run.investigation?.synthesis?.unresolved ?? [],
     economy: runEconomy(run),
@@ -370,6 +386,9 @@ export function conversationTrace(t: import('./v2/model.js').V2Trace, actor: { i
     },
     /* a conversational turn establishes no agent findings; saying so is the honest projection, not an omission */
     findings: [], withheldFindings: [], unresolved: [],
+    /* A8 §17 — a turn's referent resolution rides on its own execution trace, where the whole telemetry is
+       (candidates, rejections with reasons, ambiguity, verification). Half of it here would be worse than none. */
+    resolution: null,
     /* A7 — the conversational turn carries its claims on its own V2Trace; the envelope states none rather than
        half of them, which is the same discipline this projection already applies to findings */
     claims: [],

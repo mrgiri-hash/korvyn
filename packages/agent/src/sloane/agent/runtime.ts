@@ -30,7 +30,7 @@ import { AGENT_DOMAINS, CLASS_ROUTE, type AgentBudget, type AgentUsage, type Com
 import {
   type AgentCheckpoint, type AgentFinding, type AgentGoal, type AgentIntervention, type AgentObservation, type AgentRunBody, type AgentRunOptions,
   type AgentRunStatus, type AgentTask, type GoalType, type ObjectRef, type OutcomeClass, type ProfileId, type RunContext, type SteeringType, type UserSteeringEvent,
-  POLICY_PROFILES, PROFILE_FOR, TERMINAL, WAITING, anchorWorkClass, refsOf,
+  POLICY_PROFILES, PROFILE_FOR, TERMINAL, WAITING, anchorOf, anchorWorkClass, refsOf,
 } from './model.js';
 import { classifyObjective, profileForOutcome } from './objective.js';
 
@@ -214,7 +214,7 @@ export class AgentRuntime {
       usage: { steps: 0, activeMs: 0, consecutiveFailures: 0, modelCalls: 0, inputTokens: 0, outputTokens: 0, toolCalls: 0, cacheReadTokens: 0, estimatedCostUsd: 0 }, trace: { toolCalls: [], modelCalls: [], policyDecisions: [] },
       verification: null, result: null, resultObjectIds: [], artifactIds: [], warnings: [], errors: [], completionReason: null,
       startedAt: t, updatedAt: t, completedAt: null, planner: goal.type === 'GENERIC' || goal.type === 'INVESTIGATE' ? 'MODEL' : 'TEMPLATE',
-      ...(goal.type === 'INVESTIGATE' ? { investigation: newInvestigation() } : {}),
+      ...(goal.type === 'INVESTIGATE' ? { investigation: newInvestigation(anchorOf(goal)) } : {}),
       actionPlanId: `APLAN-${runId}-1`, governedPlanId: `GPLAN-${runId}-1`, planSeq: 1, dataVersion: this.o.gl.dataVersion(), options, progress: [],
       /* A4 §5/§12: where this run came from — a conversation, a module and its object, or a service */
       origin: (opt.origin as AgentRunBody['origin']) ?? (opt.sessionId ? 'CONVERSATION' : 'API'), launchedFrom: opt.launchedFrom ?? null,
@@ -881,6 +881,19 @@ export class AgentRuntime {
     const govExec = props.filter((p) => p.riskLevel === 'GOVERNED_ACTION' && p.status === 'COMPLETED');
     add('No governed action executed', !govExec.length, govExec.length ? `${govExec.length} governed action(s) executed` : 'governed actions were prepared at most');
     if (run.goal.constraints.noActions || POLICY_PROFILES[run.goal.policyProfile].autonomy < 2) add('Read-only goal wrote nothing', !props.length, props.length ? `${props.length} proposals were created` : 'no proposal created');
+    /**
+     * A8 §19 — THE RUN STAYED ON ITS SUBJECT. A run launched on a governed object must have READ that object
+     * before it concludes about it, and no read that named it may have come back with a different one. Both
+     * failures produce the same thing without this: a confident, fully grounded answer about the wrong object.
+     */
+    const S0 = run.investigation;
+    if (S0?.anchor) {
+      const a = S0.anchor, name = a.label ? `${a.id} — ${a.label}` : a.id;
+      add('The run read the object it was launched on', S0.anchorReached > 0,
+        S0.anchorReached > 0 ? `${S0.anchorReached} read(s) returned ${name}` : `no read returned ${name}, so nothing here describes it`);
+      add('No read returned a different object', !S0.anchorDrift.length,
+        S0.anchorDrift.length ? S0.anchorDrift.map((d) => `${d.tool} asked for ${a.id} and returned ${d.returned}`).join('; ') : `every read naming ${a.id} returned it`);
+    }
     const dv = this.o.gl.dataVersion();
     add('Governed data stable during the run', true, dv === run.dataVersion ? `data version ${dv}` : `the governed data changed during the run (${run.dataVersion} → ${dv}); figures read after the change reflect it`);
     switch (run.goal.type) {
@@ -1729,6 +1742,24 @@ export class AgentRuntime {
     const obs: CompactObservation = t.status === 'COMPLETED' && o ? compact(step, t.tool!, t.request ?? t.title, o, null, false, factsFrom(o, FACT_CTX).map((f) => f.factId))
       : compact(step, t.tool!, t.request ?? t.title, null, t.error ?? 'did not complete', t.failureMode === 'PERMISSION' || t.failureMode === 'POLICY');
     S.observations.push(obs);
+    /**
+     * A8 §8/§19 — DID THIS READ REACH THE OBJECT THE RUN IS ABOUT?
+     *
+     * The open loop picks its own arguments, so the anchor is the one thing nothing else holds. Two questions,
+     * and they are different: has ANY read reached it (a run that never read its own subject cannot conclude
+     * about it, checked at VERIFY), and did a read that NAMED it come back with something else (that is the
+     * wrong-object defect, and the model is told so in its next step rather than building on it).
+     */
+    if (S.anchor && t.status === 'COMPLETED' && o) {
+      const ids = [o.id, ...Object.values(o.refs ?? {})].filter((x): x is string => typeof x === 'string');
+      const named = Object.values(t.args ?? {}).includes(S.anchor.id);
+      if (ids.includes(S.anchor.id)) S.anchorReached += 1;
+      else if (named) {
+        const returned = ids.slice(0, 3).join(', ') || 'no matching identity';
+        S.anchorDrift.push({ step, tool: t.tool!, returned });
+        obs.note = `${obs.note ? `${obs.note} ` : ''}This read asked for ${S.anchor.label ?? S.anchor.id} and returned ${returned}; it does not describe ${S.anchor.id}.`;
+      }
+    }
     S.usage.toolCalls += 1; S.usage.observationChars += obs.chars;
     if (obs.status === 'REFUSED' || obs.status === 'FAILED') S.rejected.push({ iteration: S.usage.iterations, tool: t.tool!, why: obs.note ?? 'failed' });
   }

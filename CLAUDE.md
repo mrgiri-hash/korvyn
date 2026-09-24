@@ -12452,6 +12452,156 @@ explain it like I'm new to this — all answered from the conversation.
   `orchestrator.ts`). Not a product defect, and it cost a round of testing: a harness using a short id gets a
   new conversation every turn and Sloane correctly reports that it has no prior answer.
 
+## 2026-09-24 — A8: GOVERNED OBJECT RESOLUTION + REFERENT VERIFICATION
+
+Owner's brief. A7 made a status as material as a figure and checked every claim against the governed record.
+It left one class open, and it is the one a fluent answer hides best: **Korvyn can read the WRONG governed
+object, describe that object correctly, and produce a fully grounded, internally consistent, wrong answer.**
+Every downstream control — grounding, claim verification, VERIFY — reports success, because each is asking
+whether what was said is true of what was read. Nothing was asking whether what was read is what was asked for.
+
+```
+USER REFERENT → RESOLVED GOVERNED OBJECTREF → TOOL EXECUTION → RETURNED OBJECT IDENTITY
+              → REFERENT VERIFICATION → CLAIM / FIGURE GROUNDING → RESPONSE
+```
+
+`packages/agent/src/sloane/v2/resolve.ts` is the whole contract, and it computes rather than stores: candidates
+in, a `ResolvedReferent` out, with its telemetry. No new store, no second search, no phrase list.
+
+### HARD CONSTRAINTS FILTER; SOFT SIGNALS ONLY ORDER WHAT SURVIVES
+
+This is the A7 defect's root cause, and it was a ranking design, not a bug. "The MDH intercompany receivable
+reconciliation" came back as the GROUP-level *Intercompany Receivable* because the shortest title that fits wins
+ties — and the group object's whole name is inside the request while the MDH one's is not. **A governed
+attribute the person NAMED is not a tie-breaker.** `contradicts()` removes a candidate carrying that attribute
+and disagreeing, with its reason on the telemetry, before anything is ranked: `entity MGP-REIT ≠ MDH`.
+
+**AN ENTITY IS HALF AN IDENTITY.** Filtering on the entity alone was the first cut and it kept every MER-SG
+object — cash, CIP, accruals — then answered confidently with one of them. Where the entity is named and
+nothing of that entity answers to the name, the result is NOT_FOUND (§11), never the nearest thing wearing the
+right entity, and the broader object is OFFERED rather than substituted.
+
+**THE KIND OF OBJECT IS A GOVERNED CONSTRAINT, AND ITS VOCABULARY IS THE KIND'S OWN NAME.** "Show me the cash
+reconciliation" says the subject is a reconciliation, so the statement line that also carries the word is not an
+alternative to it. Derived from the kinds the search itself declares (`statementLine` → "statement line",
+"line"), so a kind added later brings its word with it and no synonym table has to be kept in step.
+
+### A CHOICE IS ONLY A CHOICE WHEN THE PERSON NAMED SOMETHING SEVERAL OBJECTS ANSWER TO
+
+"Show me the cash reconciliation" over four authorized operating-cash reconciliations has no right answer, and
+recency or alphabetical order producing a confident one is the same failure as reading the wrong object — it
+just looks decisive. **"Show me the history" is not the same situation**: it names no governed object at all,
+and the candidates a keyword search returns for it share nothing but an incidental token. Asking there would
+make A8 the clarification-heavy experience §10 rules out and would break §12's stay-in-context default.
+
+Measured: both requests returned six to fourteen candidates ALL SCORING 10, so no score threshold could
+separate them. What separates them is whether a word of the request is carried by the candidate's own NAME.
+Rivals are drawn from those; everything else is noise a search returns for any sentence.
+
+### THE ANCHOR, THE CONVERSATION'S OBJECT, AND WHAT DISPLACES THEM
+
+`session.anchor` is the module's own selection, stated by the surface on the turn (canonical ids only, never a
+label as identity, and an explicit null CLEARS it — closing a reconciliation is the surface saying so).
+`session.object` is what the last turn resolved. Both were in `resolveObject`'s signature and **neither had a
+writer**: §5 and §6 were implemented in the resolver, unit-tested, and unreachable from a real conversation.
+
+The anchor holds unless the search resolves to a DIFFERENT object with HIGH confidence by name or by id.
+Matching the anchor's label against the request was the first cut and could not tell "why is this off?" from
+"show me the Mechanical CIP reconciliation".
+
+**AND THE MODEL HAS TO BE TOLD WHAT IS OPEN.** Measured live: with a reconciliation on screen the whole time,
+"Why is this off?" was read as UNCLEAR, answered conversationally, and never reached resolution at all. The
+conversational context now names the open object — the model learns the request is governed; Korvyn still
+decides which object the reads are aimed at. After: `MODULE_ANCHOR`, `getReconciliation(REC-MDH-13100)`,
+verified.
+
+### WHAT KORVYN MAY DO WITH THE RESULT DEPENDS ON WHO READ THE REQUEST
+
+Two different jobs, and conflating them cost a round in each direction:
+
+- Over the **reasoning engine's** reading, resolution CHECKS an object the model chose: it may replace it, and
+  it may stop and ask.
+- Over **Korvyn's own deterministic** reading — what an elliptical follow-up falls back to, since "why is this
+  off?" carries almost nothing to be confident about — it only FILLS A GAP: the object on screen, or the one
+  the conversation is already about. It never overrides a subject that reading did choose, and it never asks.
+
+Letting it do more was tried and reverted the same day: that interpreter already resolves its object
+entity-aware (A7), and resolving on top of it broke the SEMANTIC routing — "which reconciliation supports this
+balance?" stopped reaching the tool that answers it, because the subject had been rewritten before the planner
+saw the question. Two resolvers over one interpretation is one too many.
+
+**AND THE LAYER MUST NOT REACH PAST WHAT IT IS FOR.** "Which one?" is only a question for an object that HAS
+rivals. A statement, a trial balance, the ledger and the close are settled by period and scope. Running
+identity resolution over them found "income" in an account's name and turned *"review that income statement and
+tell me everything that needs attention"* into a question about which account was meant — caught by the dry
+run, which had passed for eight commits. The model says what KIND of thing the request is about; Korvyn decides
+WHICH ONE.
+
+### POST-RETRIEVAL VERIFICATION — THE CONTROL THIS PHASE IS FOR
+
+Resolution can be wrong; what must not happen is that being wrong goes unnoticed. Where a turn resolved a
+governed object, at least one returned record has to BE it. A run may legitimately read related objects — a
+counterparty, a prior period, the account beneath it — so the test is not "every object matches", it is "the
+subject was reached". If it was not, the answer is withheld and says so rather than describing something else.
+
+**ON THE AGENT PATH THE ANCHOR IS THE ONE THING NOTHING ELSE HOLDS** (§7/§19). An open loop picks its own
+arguments and the objective's words never repeat the id. `InvestigationState` carries the anchor, how many
+reads REACHED it, and every read that NAMED it and came back with something else — which the model is told in
+its next step rather than building on. VERIFY adds two checks: the run read the object it was launched on, and
+no read returned a different one. A dimension is not an anchor: a run about a vendor is about every object that
+vendor touches.
+
+### §17 / §30 — THE TRACE AND THE EVALUATION
+
+`KorvynTrace.resolution` carries the object, its label, how many reads reached it and every drift. Every other
+block in the envelope describes what was done to an object; this is the only evidence for WHICH object.
+`SloaneExecutionTrace.referentResolution` carries the whole conversational telemetry — candidates considered,
+each rejection with its reason, the ambiguity, the verification.
+
+Seven eval checks, all deterministic, all reading the trace: `CORRECT_PRIMARY_OBJECT` ·
+`REFERENT_CONSTRAINT_MATCH` · `MODULE_ANCHOR_PRESERVED` · `NO_SILENT_BROADER_FALLBACK` ·
+`NO_UNAUTHORIZED_RESOLUTION` · `HISTORICAL_SUBJECT_PRESERVED` · `AMBIGUITY_REQUIRES_CLARIFICATION`. The
+RECONCILIATION profile now checks the first two as HARD, because a review of the wrong reconciliation is fully
+grounded, internally consistent and wrong.
+
+**`NO_UNAUTHORIZED_RESOLUTION` IS NOT `NO_SCOPE_LEAK` UNDER ANOTHER NAME.** That one asks whether a forbidden
+object was NAMED in the answer; this asks whether one was ever REACHED FOR. Discover, rank, then redact is
+exactly the sequence §22 forbids, and it leaves no trace in the prose.
+
+### Verified
+
+`npm run sloane:test` **438/438** (17 new in `a8.test.ts`, the §23 matrix) · `sloane:dryrun` 35/35 ·
+`packages/core` 78/78 + boundary · **4/4 repo gates**, baselines unchanged · typecheck clean · no control
+characters in any changed file.
+
+**LIVE (`npm run sloane:a8-live`, claude-sonnet-5 / claude-opus-5), all four acceptances:**
+
+| § | request | basis | result |
+|---|---|---|---|
+| 24 | *What is the status of the MDH intercompany receivable reconciliation?* | EXPLICIT_NAME | `REC-MDH-13100`, verified; the REIT object rejected as `entity MGP-REIT ≠ MDH`, three statement lines rejected as the wrong kind |
+| 25 | *Show me the cash reconciliation.* | AMBIGUOUS | asked, with four governed labels as options and no object chosen |
+| 26 | *Why is this off?* then *Show me the support.* | MODULE_ANCHOR ×2 | both turns read `REC-MDH-13100`, verified; the anchored object survived a generic follow-up |
+| 27 | *… reconciliation.* then *And for the last three months?* | EXPLICIT_NAME → CONVERSATION_REFERENT | the subject held; the period limitation is stated rather than the subject changing |
+
+### Traps
+
+- **A SESSION ID SHORTER THAN 8 CHARACTERS IS SILENTLY REPLACED WITH A FRESH UUID.** Already recorded from
+  C1.2, and it cost a live round again: `a8-27` gave every turn its own conversation, so §27 read as a broken
+  referent when the referent had never been asked.
+- **A resolution layer will happily resolve things that are not objects.** The guard is the interpretation's own
+  object-kind vocabulary, not a list of words.
+- **Two resolvers over one interpretation is one too many** — see the deterministic path above.
+- A splice script still has to be written with the Write tool; a heredoc ate a `\u2019` escape and an anchor
+  that was visibly present matched zero times.
+
+### Not done, deliberately
+
+No new AgentProfile, no multi-agent orchestration, no Sloane UX redesign, and the Accounting Intelligence
+Foundation is not started. The browser does not yet SEND an anchor: the field, the route, the session and the
+resolution are all wired and tested, and the surface that would state its selection is the next increment.
+`AMBIGUITY_REQUIRES_CLARIFICATION` and `HISTORICAL_SUBJECT_PRESERVED` are registered and no scenario declares
+them yet.
+
 ## Toolchain
 
 **Node is installed but not on `PATH`** — it lives at `C:\Users\mitragiri\tools\node22\` (v22.23.1,
